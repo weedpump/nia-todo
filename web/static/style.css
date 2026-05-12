@@ -402,9 +402,12 @@ body {
 @media (max-width: 768px) {
   .modal {
     position: fixed;
-    inset: 0;
-    width: auto;
-    height: auto;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    width: 100dvw;
+    height: 100vh;
+    height: 100dvh;
   }
 
   .modal.active {
@@ -417,13 +420,13 @@ body {
   .modal-overlay { display: none; }
 
   .modal-content {
-    position: relative;
-    inset: auto;
-    flex: 1;
-    max-width: none;
-    max-height: none;
+    position: absolute;
+    top: 0;
+    left: 0;
     width: 100%;
     height: 100%;
+    max-width: none;
+    max-height: none;
     border-radius: 0;
     border: none;
     padding: 0;
@@ -460,7 +463,10 @@ body {
   }
 }
 
-.modal-content h3 { margin-bottom: 20px; font-size: 18px; }
+/* Desktop only: h3 margin and modal centering */
+@media (min-width: 769px) {
+  .modal-content h3 { margin-bottom: 20px; font-size: 18px; }
+}
 
 .form-group { margin-bottom: 16px; }
 .form-group label {
