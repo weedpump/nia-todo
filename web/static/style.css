@@ -107,22 +107,30 @@ body {
   min-width: 0;
 }
 
-.nav-delete {
+.btn-danger { background: rgba(239,68,68,0.15); color: var(--danger); }
+.btn-danger:hover { background: rgba(239,68,68,0.25); }
+
+.nav-item-with-action .nav-edit {
   background: none;
   border: none;
   color: var(--text-muted);
-  font-size: 18px;
-  font-weight: 300;
   cursor: pointer;
-  padding: 4px 8px;
+  padding: 6px;
   border-radius: var(--radius);
   opacity: 0;
   transition: opacity 0.15s;
-  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.nav-item-with-action:hover .nav-delete { opacity: 1; }
-.nav-delete:hover { color: var(--danger); background: rgba(239, 68, 68, 0.1); }
+.nav-item-with-action:hover .nav-edit { opacity: 1; }
+.nav-edit:hover { color: var(--accent); background: var(--bg-hover); }
+
+/* Mobile: always show edit button */
+@media (max-width: 768px) {
+  .nav-item-with-action .nav-edit { opacity: 1; }
+}
 
 .project-dot {
   width: 8px;

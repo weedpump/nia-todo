@@ -100,7 +100,9 @@ function renderProjects() {
         ${escapeHtml(p.name)}
         <span class="badge">${countByProject(p.id)}</span>
       </button>
-      ${p.id > 4 ? `<button class="nav-delete" onclick="deleteProject(${p.id}, '${escapeHtml(p.name)}')" title="Löschen">×</button>` : ''}
+      <button class="nav-edit" onclick="event.stopPropagation(); editProject(${p.id})" title="Bearbeiten">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      </button>
     </div>
   `).join('');
 }
@@ -113,7 +115,9 @@ function renderLabels() {
         <span class="project-dot" style="background:${l.color}"></span>
         ${escapeHtml(l.name)}
       </button>
-      <button class="nav-delete" onclick="deleteLabel(${l.id}, '${escapeHtml(l.name)}')" title="Löschen">×</button>
+      <button class="nav-edit" onclick="event.stopPropagation(); editLabel(${l.id})" title="Bearbeiten">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      </button>
     </div>
   `).join('');
 }
@@ -331,33 +335,91 @@ async function deleteLabel(id, name) {
 }
 
 function showProjectModal() {
+  document.getElementById('project-form')?.reset();
+  document.getElementById('project-id').value = '';
+  document.getElementById('project-modal-title').textContent = 'Neues Projekt';
+  document.getElementById('project-name').value = '';
+  document.getElementById('project-color').value = '#6366f1';
+  document.getElementById('project-delete-btn').style.display = 'none';
+  document.getElementById('project-modal').classList.add('active');
+}
+
+function editProject(id) {
+  const p = projects.find(x => x.id === id);
+  if (!p) return;
+  document.getElementById('project-id').value = p.id;
+  document.getElementById('project-modal-title').textContent = 'Projekt bearbeiten';
+  document.getElementById('project-name').value = p.name;
+  document.getElementById('project-color').value = p.color;
+  document.getElementById('project-delete-btn').style.display = id > 4 ? 'inline-flex' : 'none';
   document.getElementById('project-modal').classList.add('active');
 }
 
 async function saveProject(e) {
   e.preventDefault();
-  await post('/api/projects', {
+  const id = document.getElementById('project-id').value;
+  const body = {
     name: document.getElementById('project-name').value,
     color: document.getElementById('project-color').value
-  });
+  };
+  if (id) {
+    await patch(`/api/projects/${id}`, body);
+  } else {
+    await post('/api/projects', body);
+  }
   closeModal('project-modal');
-  document.getElementById('project-name').value = '';
   await loadAll();
 }
 
+function deleteProjectFromModal() {
+  const id = document.getElementById('project-id').value;
+  const name = document.getElementById('project-name').value;
+  if (id) deleteProject(parseInt(id), name);
+  closeModal('project-modal');
+}
+
 function showLabelModal() {
+  document.getElementById('label-form')?.reset();
+  document.getElementById('label-id').value = '';
+  document.getElementById('label-modal-title').textContent = 'Neues Label';
+  document.getElementById('label-name').value = '';
+  document.getElementById('label-color').value = '#8b5cf6';
+  document.getElementById('label-delete-btn').style.display = 'none';
+  document.getElementById('label-modal').classList.add('active');
+}
+
+function editLabel(id) {
+  const l = labels.find(x => x.id === id);
+  if (!l) return;
+  document.getElementById('label-id').value = l.id;
+  document.getElementById('label-modal-title').textContent = 'Label bearbeiten';
+  document.getElementById('label-name').value = l.name;
+  document.getElementById('label-color').value = l.color;
+  document.getElementById('label-delete-btn').style.display = 'inline-flex';
   document.getElementById('label-modal').classList.add('active');
 }
 
 async function saveLabel(e) {
   e.preventDefault();
-  await post('/api/labels', {
+  const id = document.getElementById('label-id').value;
+  const body = {
     name: document.getElementById('label-name').value,
     color: document.getElementById('label-color').value
-  });
+  };
+  if (id) {
+    await patch(`/api/labels/${id}`, body);
+  } else {
+    await post('/api/labels', body);
+  }
   closeModal('label-modal');
-  document.getElementById('label-name').value = '';
   await loadAll();
+}
+
+function deleteLabelFromModal() {
+  const id = document.getElementById('label-id').value;
+  const name = document.getElementById('label-name').value;
+  if (id) deleteLabel(parseInt(id), name);
+  closeModal('label-modal');
 }
 
 function closeModal(id) {

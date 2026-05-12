@@ -38,9 +38,18 @@ class ProjectCreate(BaseModel):
     color: str = "#6366f1"
     sort_order: int = 0
 
+class ProjectUpdate(BaseModel):
+    name: Optional[str] = None
+    color: Optional[str] = None
+    sort_order: Optional[int] = None
+
 class LabelCreate(BaseModel):
     name: str
     color: str = "#8b5cf6"
+
+class LabelUpdate(BaseModel):
+    name: Optional[str] = None
+    color: Optional[str] = None
 
 # ─── Helper ────────────────────────────────────────────────────────────────────
 
@@ -185,6 +194,25 @@ def create_project(data: ProjectCreate):
         row = db.execute("SELECT * FROM projects WHERE id = ?", (c.lastrowid,)).fetchone()
         return dict(row)
 
+@app.patch("/api/projects/{project_id}")
+def update_project(project_id: int, data: ProjectUpdate):
+    with get_db() as db:
+        existing = db.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
+        if not existing:
+            raise HTTPException(404, "Project not found")
+        updates = {}
+        for f in ["name","color","sort_order"]:
+            v = getattr(data, f)
+            if v is not None:
+                updates[f] = v
+        if updates:
+            updates['updated_at'] = now_iso()
+            set_clause = ", ".join(f"{k}=:{k}" for k in updates)
+            db.execute(f"UPDATE projects SET {set_clause} WHERE id = :id", {**updates, "id": project_id})
+            db.commit()
+        row = db.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
+        return dict(row)
+
 @app.delete("/api/projects/{project_id}")
 def delete_project(project_id: int):
     with get_db() as db:
@@ -206,6 +234,24 @@ def create_label(data: LabelCreate):
         c = db.execute("INSERT INTO labels (name, color) VALUES (?,?)", (data.name, data.color))
         db.commit()
         row = db.execute("SELECT * FROM labels WHERE id = ?", (c.lastrowid,)).fetchone()
+        return dict(row)
+
+@app.patch("/api/labels/{label_id}")
+def update_label(label_id: int, data: LabelUpdate):
+    with get_db() as db:
+        existing = db.execute("SELECT * FROM labels WHERE id = ?", (label_id,)).fetchone()
+        if not existing:
+            raise HTTPException(404, "Label not found")
+        updates = {}
+        for f in ["name","color"]:
+            v = getattr(data, f)
+            if v is not None:
+                updates[f] = v
+        if updates:
+            set_clause = ", ".join(f"{k}=:{k}" for k in updates)
+            db.execute(f"UPDATE labels SET {set_clause} WHERE id = :id", {**updates, "id": label_id})
+            db.commit()
+        row = db.execute("SELECT * FROM labels WHERE id = ?", (label_id,)).fetchone()
         return dict(row)
 
 @app.delete("/api/labels/{label_id}")
