@@ -337,6 +337,7 @@ async function deleteLabel(id, name) {
 }
 
 function showProjectModal() {
+  closeSidebar();
   document.getElementById('project-form')?.reset();
   document.getElementById('project-id').value = '';
   document.getElementById('project-modal-title').textContent = 'Neues Projekt';
@@ -347,6 +348,7 @@ function showProjectModal() {
 }
 
 function editProject(id) {
+  closeSidebar();
   const p = projects.find(x => x.id === id);
   if (!p) return;
   document.getElementById('project-id').value = p.id;
@@ -383,6 +385,7 @@ function deleteProjectFromModal() {
 }
 
 function showLabelModal() {
+  closeSidebar();
   document.getElementById('label-form')?.reset();
   document.getElementById('label-id').value = '';
   document.getElementById('label-modal-title').textContent = 'Neues Label';
@@ -393,6 +396,7 @@ function showLabelModal() {
 }
 
 function editLabel(id) {
+  closeSidebar();
   const l = labels.find(x => x.id === id);
   if (!l) return;
   document.getElementById('label-id').value = l.id;
