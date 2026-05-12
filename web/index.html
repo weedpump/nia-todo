@@ -8,8 +8,11 @@
 </head>
 <body>
   <div id="app">
+    <!-- Mobile sidebar overlay -->
+    <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
+
     <!-- Sidebar -->
-    <aside class="sidebar">
+    <aside class="sidebar" id="sidebar">
       <div class="logo">
         <span class="logo-icon">✨</span>
         <span class="logo-text">nia-todo</span>
@@ -56,6 +59,7 @@
     <main class="main">
       <!-- Top bar -->
       <div class="topbar">
+        <button class="hamburger" onclick="toggleSidebar()">☰</button>
         <div class="search-box">
           <input type="text" id="search-input" placeholder="🔍 Todo suchen..." oninput="renderTodos()">
         </div>

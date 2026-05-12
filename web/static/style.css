@@ -410,8 +410,95 @@ body {
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
 
-/* Responsive */
+/* Mobile / Responsive */
 @media (max-width: 768px) {
-  .sidebar { width: 200px; }
-  .stats-bar { overflow-x: auto; }
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 280px;
+    height: 100vh;
+    z-index: 200;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    box-shadow: none;
+  }
+  .sidebar.open {
+    transform: translateX(0);
+    box-shadow: 4px 0 24px rgba(0,0,0,0.5);
+  }
+  .sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 199;
+  }
+  .sidebar-overlay.active { display: block; }
+
+  .topbar {
+    padding: 12px 16px;
+    gap: 10px;
+  }
+  .topbar-actions .btn { padding: 8px 12px; font-size: 13px; }
+
+  .stats-bar {
+    padding: 10px 16px;
+    gap: 8px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .stat-card { padding: 6px 10px; font-size: 12px; white-space: nowrap; }
+
+  .todo-list { padding: 12px 16px; }
+
+  .todo-item {
+    padding: 14px;
+    gap: 14px;
+  }
+  .todo-check {
+    width: 24px;
+    height: 24px;
+    margin-top: 1px;
+  }
+  .todo-title {
+    font-size: 15px;
+    line-height: 1.4;
+    word-break: normal;
+    overflow-wrap: break-word;
+    hyphens: auto;
+  }
+  .todo-meta {
+    font-size: 12px;
+    gap: 6px;
+  }
+
+  .modal-content {
+    margin: 16px;
+    max-height: calc(100vh - 32px);
+    width: auto;
+  }
+  .form-row { grid-template-columns: 1fr; }
+}
+
+/* Hamburger */
+.hamburger {
+  display: none;
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  font-size: 22px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: var(--radius);
+}
+.hamburger:hover { background: var(--bg-hover); }
+
+@media (max-width: 768px) {
+  .hamburger { display: block; }
+}
+
+/* Safe area for mobile browsers */
+.todo-list {
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
 }

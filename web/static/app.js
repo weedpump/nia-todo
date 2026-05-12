@@ -7,6 +7,19 @@ let labels = [];
 let currentFilter = 'all';
 let currentProjectId = null;
 
+// ─── Sidebar ─────────────────────────────────────────────────────────────────
+function toggleSidebar() {
+  const sb = document.getElementById('sidebar');
+  const ov = document.getElementById('sidebar-overlay');
+  sb.classList.toggle('open');
+  ov.classList.toggle('active');
+}
+
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebar-overlay').classList.remove('active');
+}
+
 // ─── Init ─────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   loadAll();
@@ -198,6 +211,7 @@ function setFilter(filter) {
   currentFilter = filter;
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   event.target.closest('.nav-btn')?.classList.add('active');
+  closeSidebar();
   loadAll();
 }
 
