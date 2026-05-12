@@ -83,6 +83,7 @@
     <div class="modal-overlay" onclick="closeModal('todo-modal')"></div>
     <div class="modal-content">
       <h3 id="todo-modal-title">Neues Todo</h3>
+      <button class="modal-close-x" onclick="closeModal('todo-modal')">✕</button>
       <form id="todo-form" onsubmit="saveTodo(event)">
         <input type="hidden" id="todo-id">
         <div class="form-group">
@@ -143,6 +144,7 @@
     <div class="modal-overlay" onclick="closeModal('project-modal')"></div>
     <div class="modal-content">
       <h3 id="project-modal-title">Neues Projekt</h3>
+      <button class="modal-close-x" onclick="closeModal('project-modal')">✕</button>
       <form id="project-form" onsubmit="saveProject(event)">
         <input type="hidden" id="project-id">
         <div class="form-group">
@@ -167,6 +169,7 @@
     <div class="modal-overlay" onclick="closeModal('label-modal')"></div>
     <div class="modal-content">
       <h3 id="label-modal-title">Neues Label</h3>
+      <button class="modal-close-x" onclick="closeModal('label-modal')">✕</button>
       <form id="label-form" onsubmit="saveLabel(event)">
         <input type="hidden" id="label-id">
         <input type="hidden" id="label-id">
