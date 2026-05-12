@@ -400,12 +400,14 @@ body {
 
 /* Mobile fullscreen modals */
 @media (max-width: 768px) {
-  .modal.active {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    justify-content: flex-start;
+  .modal {
+    width: 100vw;
+    width: 100dvw;
+    height: 100vh;
+    height: 100dvh;
   }
+
+  .modal.active { display: flex; flex-direction: column; }
 
   .modal-overlay { display: none; }
 
