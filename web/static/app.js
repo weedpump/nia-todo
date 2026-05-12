@@ -94,21 +94,27 @@ async function loadLabels() {
 function renderProjects() {
   const el = document.getElementById('project-list');
   el.innerHTML = projects.map(p => `
-    <button class="nav-btn ${currentFilter === String(p.id) ? 'active' : ''}" onclick="setFilter('${p.id}')">
-      <span class="project-dot" style="background:${p.color}"></span>
-      ${escapeHtml(p.name)}
-      <span class="badge">${countByProject(p.id)}</span>
-    </button>
+    <div class="nav-item-with-action">
+      <button class="nav-btn ${currentFilter === String(p.id) ? 'active' : ''}" onclick="setFilter('${p.id}')">
+        <span class="project-dot" style="background:${p.color}"></span>
+        ${escapeHtml(p.name)}
+        <span class="badge">${countByProject(p.id)}</span>
+      </button>
+      ${p.id > 4 ? `<button class="nav-delete" onclick="deleteProject(${p.id}, '${escapeHtml(p.name)}')" title="Löschen">×</button>` : ''}
+    </div>
   `).join('');
 }
 
 function renderLabels() {
   const el = document.getElementById('label-list');
   el.innerHTML = labels.map(l => `
-    <button class="nav-btn" onclick="setLabelFilter(${l.id})">
-      <span class="project-dot" style="background:${l.color}"></span>
-      ${escapeHtml(l.name)}
-    </button>
+    <div class="nav-item-with-action">
+      <button class="nav-btn" onclick="setLabelFilter(${l.id})">
+        <span class="project-dot" style="background:${l.color}"></span>
+        ${escapeHtml(l.name)}
+      </button>
+      <button class="nav-delete" onclick="deleteLabel(${l.id}, '${escapeHtml(l.name)}')" title="Löschen">×</button>
+    </div>
   `).join('');
 }
 
@@ -308,6 +314,19 @@ async function saveTodo(e) {
 async function deleteTodo(id) {
   if (!confirm('Wirklich löschen?')) return;
   await del(`/api/todos/${id}`);
+  await loadAll();
+}
+
+async function deleteProject(id, name) {
+  if (!confirm(`Projekt "${name}" wirklich löschen? Todos werden ins Inbox verschoben.`)) return;
+  await del(`/api/projects/${id}`);
+  if (currentFilter === String(id)) currentFilter = 'all';
+  await loadAll();
+}
+
+async function deleteLabel(id, name) {
+  if (!confirm(`Label "${name}" wirklich löschen?`)) return;
+  await del(`/api/labels/${id}`);
   await loadAll();
 }
 

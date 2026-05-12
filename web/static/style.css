@@ -95,6 +95,35 @@ body {
 .nav-btn.add-btn { color: var(--text-muted); font-size: 13px; }
 .nav-btn.add-btn:hover { color: var(--accent); }
 
+.nav-item-with-action {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  position: relative;
+}
+
+.nav-item-with-action .nav-btn {
+  flex: 1;
+  min-width: 0;
+}
+
+.nav-delete {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 18px;
+  font-weight: 300;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: var(--radius);
+  opacity: 0;
+  transition: opacity 0.15s;
+  line-height: 1;
+}
+
+.nav-item-with-action:hover .nav-delete { opacity: 1; }
+.nav-delete:hover { color: var(--danger); background: rgba(239, 68, 68, 0.1); }
+
 .project-dot {
   width: 8px;
   height: 8px;
