@@ -84,6 +84,7 @@
     <div class="modal-content">
       <h3 id="todo-modal-title">Neues Todo</h3>
       <button class="modal-close-x" onclick="closeModal('todo-modal')">✕</button>
+      <div class="modal-body">
       <form id="todo-form" onsubmit="saveTodo(event)">
         <input type="hidden" id="todo-id">
         <div class="form-group">
@@ -131,11 +132,12 @@
           <label>Labels</label>
           <div id="todo-labels" class="label-picker"></div>
         </div>
-        <div class="modal-actions">
-          <button type="button" class="btn btn-secondary" onclick="closeModal('todo-modal')">Abbrechen</button>
-          <button type="submit" class="btn btn-primary">Speichern</button>
-        </div>
       </form>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('todo-modal')">Abbrechen</button>
+        <button type="submit" form="todo-form" class="btn btn-primary">Speichern</button>
+      </div>
     </div>
   </div>
 
@@ -145,6 +147,7 @@
     <div class="modal-content">
       <h3 id="project-modal-title">Neues Projekt</h3>
       <button class="modal-close-x" onclick="closeModal('project-modal')">✕</button>
+      <div class="modal-body">
       <form id="project-form" onsubmit="saveProject(event)">
         <input type="hidden" id="project-id">
         <div class="form-group">
@@ -155,12 +158,13 @@
           <label>Farbe</label>
           <input type="color" id="project-color" value="#6366f1">
         </div>
-        <div class="modal-actions">
-          <button type="button" class="btn btn-danger" id="project-delete-btn" onclick="deleteProjectFromModal()" style="margin-right:auto;display:none;">🗑️ Löschen</button>
-          <button type="button" class="btn btn-secondary" onclick="closeModal('project-modal')">Abbrechen</button>
-          <button type="submit" class="btn btn-primary">Speichern</button>
-        </div>
       </form>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-danger" id="project-delete-btn" onclick="deleteProjectFromModal()" style="margin-right:auto;display:none;">🗑️ Löschen</button>
+        <button type="button" class="btn btn-secondary" onclick="closeModal('project-modal')">Abbrechen</button>
+        <button type="submit" form="project-form" class="btn btn-primary">Speichern</button>
+      </div>
     </div>
   </div>
 
@@ -170,8 +174,8 @@
     <div class="modal-content">
       <h3 id="label-modal-title">Neues Label</h3>
       <button class="modal-close-x" onclick="closeModal('label-modal')">✕</button>
+      <div class="modal-body">
       <form id="label-form" onsubmit="saveLabel(event)">
-        <input type="hidden" id="label-id">
         <input type="hidden" id="label-id">
         <div class="form-group">
           <label>Name</label>
@@ -181,12 +185,13 @@
           <label>Farbe</label>
           <input type="color" id="label-color" value="#8b5cf6">
         </div>
-        <div class="modal-actions">
-          <button type="button" class="btn btn-danger" id="label-delete-btn" onclick="deleteLabelFromModal()" style="margin-right:auto;display:none;">🗑️ Löschen</button>
-          <button type="button" class="btn btn-secondary" onclick="closeModal('label-modal')">Abbrechen</button>
-          <button type="submit" class="btn btn-primary">Speichern</button>
-        </div>
       </form>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-danger" id="label-delete-btn" onclick="deleteLabelFromModal()" style="margin-right:auto;display:none;">🗑️ Löschen</button>
+        <button type="button" class="btn btn-secondary" onclick="closeModal('label-modal')">Abbrechen</button>
+        <button type="submit" form="label-form" class="btn btn-primary">Speichern</button>
+      </div>
     </div>
   </div>
 
