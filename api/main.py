@@ -215,7 +215,11 @@ def update_project(project_id: int, data: ProjectUpdate):
 
 @app.delete("/api/projects/{project_id}")
 def delete_project(project_id: int):
+    if project_id == 1:
+        raise HTTPException(400, "Inbox cannot be deleted")
     with get_db() as db:
+        # Move todos to inbox before deleting
+        db.execute("UPDATE todos SET project_id = 1 WHERE project_id = ?", (project_id,))
         db.execute("DELETE FROM projects WHERE id = ?", (project_id,))
         db.commit()
         return {"deleted": project_id}

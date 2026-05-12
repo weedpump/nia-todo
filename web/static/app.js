@@ -322,7 +322,9 @@ async function deleteTodo(id) {
 }
 
 async function deleteProject(id, name) {
-  if (!confirm(`Projekt "${name}" wirklich löschen? Todos werden ins Inbox verschoben.`)) return;
+  const inbox = projects.find(p => p.id === 1);
+  const inboxName = inbox ? inbox.name : 'Inbox';
+  if (!confirm(`Projekt "${name}" löschen?\n\nAlle Todos werden in "${inboxName}" verschoben.`)) return;
   await del(`/api/projects/${id}`);
   if (currentFilter === String(id)) currentFilter = 'all';
   await loadAll();
@@ -351,7 +353,8 @@ function editProject(id) {
   document.getElementById('project-modal-title').textContent = 'Projekt bearbeiten';
   document.getElementById('project-name').value = p.name;
   document.getElementById('project-color').value = p.color;
-  document.getElementById('project-delete-btn').style.display = id > 4 ? 'inline-flex' : 'none';
+  // Inbox (id=1) cannot be deleted
+  document.getElementById('project-delete-btn').style.display = id === 1 ? 'none' : 'inline-flex';
   document.getElementById('project-modal').classList.add('active');
 }
 
@@ -374,7 +377,8 @@ async function saveProject(e) {
 function deleteProjectFromModal() {
   const id = document.getElementById('project-id').value;
   const name = document.getElementById('project-name').value;
-  if (id) deleteProject(parseInt(id), name);
+  if (!id || parseInt(id) === 1) return;
+  deleteProject(parseInt(id), name);
   closeModal('project-modal');
 }
 
