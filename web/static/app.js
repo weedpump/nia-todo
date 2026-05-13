@@ -229,9 +229,11 @@ function renderSectionHeader(section) {
     return `
       <div class="section-header" draggable="false" data-section-id="${section.id}">
         <span class="section-name">${escapeHtml(section.name)}</span>
-        <button class="section-edit" onclick="editSectionInline(this.parentElement.querySelector('.section-name'), ${section.id})" title="Bearbeiten">✏️</button>
+        <div class="section-actions">
+          <button class="section-edit" onclick="editSectionInline(this.closest('.section-header').querySelector('.section-name'), ${section.id})" title="Bearbeiten">✏️</button>
+          <button class="section-delete" onclick="deleteSection(${section.id})" title="Löschen">🗑️</button>
+        </div>
         <span class="section-count">${todos.filter(t => t.section_id === section.id).length}</span>
-        <button class="section-delete" onclick="deleteSection(${section.id})" title="Löschen">🗑️</button>
         <form class="inline-edit-form" style="display:none;" onsubmit="saveSectionInline(event, ${section.id}, this)">
           <input type="text" value="${escapeHtml(section.name)}" required>
           <button type="submit">✓</button>
@@ -354,22 +356,27 @@ async function createSectionInline(e, form) {
 function editSectionInline(span, sectionId) {
   const header = span.closest('.section-header');
   span.style.display = 'none';
-  const editBtn = header.querySelector('.section-edit');
-  if (editBtn) editBtn.style.display = 'none';
-  header.querySelector('.section-count').style.display = 'none';
-  header.querySelector('.section-delete').style.display = 'none';
-  header.querySelector('.inline-edit-form').style.display = 'flex';
-  header.querySelector('.inline-edit-form input').focus();
+  const actions = header.querySelector('.section-actions');
+  if (actions) actions.style.display = 'none';
+  const count = header.querySelector('.section-count');
+  if (count) count.style.display = 'none';
+  const form = header.querySelector('.inline-edit-form');
+  if (form) {
+    form.style.display = 'flex';
+    form.querySelector('input').focus();
+  }
 }
 
 function cancelEditSection(btn) {
   const header = btn.closest('.section-header');
-  header.querySelector('.section-name').style.display = '';
-  const editBtn = header.querySelector('.section-edit');
-  if (editBtn) editBtn.style.display = '';
-  header.querySelector('.section-count').style.display = '';
-  header.querySelector('.section-delete').style.display = '';
-  header.querySelector('.inline-edit-form').style.display = 'none';
+  const name = header.querySelector('.section-name');
+  if (name) name.style.display = '';
+  const actions = header.querySelector('.section-actions');
+  if (actions) actions.style.display = '';
+  const count = header.querySelector('.section-count');
+  if (count) count.style.display = '';
+  const form = header.querySelector('.inline-edit-form');
+  if (form) form.style.display = 'none';
 }
 
 async function saveSectionInline(e, sectionId, form) {

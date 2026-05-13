@@ -662,7 +662,18 @@ body {
   text-align: center;
 }
 
-.section-header .section-edit {
+.section-header .section-actions {
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.section-header:hover .section-actions {
+  opacity: 1;
+}
+
+.section-header .section-actions button {
   background: none;
   border: none;
   color: var(--text-muted);
@@ -670,36 +681,14 @@ body {
   font-size: 14px;
   padding: 2px 6px;
   border-radius: 4px;
-  opacity: 0;
-  transition: opacity 0.15s;
 }
 
-.section-header:hover .section-edit {
-  opacity: 1;
-}
-
-.section-header .section-edit:hover {
+.section-header .section-actions .section-edit:hover {
   background: rgba(59,130,246,0.15);
   color: var(--accent);
 }
 
-.section-header .section-delete {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  font-size: 14px;
-  padding: 2px 6px;
-  border-radius: 4px;
-  opacity: 0;
-  transition: opacity 0.15s;
-}
-
-.section-header:hover .section-delete {
-  opacity: 1;
-}
-
-.section-header .section-delete:hover {
+.section-header .section-actions .section-delete:hover {
   background: rgba(239,68,68,0.15);
   color: var(--danger);
 }
@@ -807,9 +796,9 @@ body {
   transform: scale(0.98);
 }
 
-/* Mobile: always show section delete and todo actions */
+/* Mobile: always show section actions and todo actions */
 @media (max-width: 768px) {
-  .section-header .section-delete {
+  .section-header .section-actions {
     opacity: 1;
   }
   .todo-actions {
