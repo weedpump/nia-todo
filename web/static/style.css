@@ -595,9 +595,9 @@ body {
   }
 
   .modal-content {
-    margin: 16px;
-    max-height: calc(100vh - 32px);
-    width: auto;
+    margin: 0;
+    max-height: 100vh;
+    width: 100%;
   }
   .form-row { grid-template-columns: 1fr; gap: 0; }
 }
