@@ -20,11 +20,39 @@ CREATE TABLE IF NOT EXISTS projects (
     updated_at TEXT DEFAULT (datetime('now'))
 );
 
+-- Todos
+CREATE TABLE IF NOT EXISTS todos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    description TEXT DEFAULT '',
+    priority INTEGER DEFAULT 3,
+    status TEXT DEFAULT 'pending',
+    due_date TEXT,
+    completed_at TEXT,
+    project_id INTEGER,
+    section_id INTEGER,
+    sort_order REAL DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL,
+    FOREIGN KEY (section_id) REFERENCES sections(id) ON DELETE SET NULL
+);
+
+-- Sections
+CREATE TABLE IF NOT EXISTS sections (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    sort_order INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+);
+
 -- Reminders
 CREATE TABLE IF NOT EXISTS reminders (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     todo_id INTEGER NOT NULL,
-    remind_at TEXT NOT NULL, -- ISO 8601
+    remind_at TEXT NOT NULL,
     sent_at TEXT,
     created_at TEXT DEFAULT (datetime('now')),
     FOREIGN KEY (todo_id) REFERENCES todos(id) ON DELETE CASCADE
@@ -34,6 +62,8 @@ CREATE TABLE IF NOT EXISTS reminders (
 CREATE INDEX IF NOT EXISTS idx_todos_status ON todos(status);
 CREATE INDEX IF NOT EXISTS idx_todos_due ON todos(due_date);
 CREATE INDEX IF NOT EXISTS idx_todos_project ON todos(project_id);
+CREATE INDEX IF NOT EXISTS idx_todos_section ON todos(section_id);
+CREATE INDEX IF NOT EXISTS idx_sections_project ON sections(project_id);
 CREATE INDEX IF NOT EXISTS idx_reminders_at ON reminders(remind_at);
 
 -- Default projects

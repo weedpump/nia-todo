@@ -19,6 +19,7 @@ class TodoCreate(BaseModel):
     description: str = ""
     priority: int = Field(default=3, ge=1, le=4)
     project_id: Optional[int] = None
+    section_id: Optional[int] = None
     due_date: Optional[str] = None
     remind_at: Optional[str] = None
 
@@ -27,6 +28,7 @@ class TodoUpdate(BaseModel):
     description: Optional[str] = None
     priority: Optional[int] = None
     project_id: Optional[int] = None
+    section_id: Optional[int] = None
     due_date: Optional[str] = None
     status: Optional[str] = None
     remind_at: Optional[str] = None
@@ -41,11 +43,23 @@ class ProjectUpdate(BaseModel):
     color: Optional[str] = None
     sort_order: Optional[int] = None
 
+class SectionCreate(BaseModel):
+    name: str
+    sort_order: int = 0
+
+class SectionUpdate(BaseModel):
+    name: Optional[str] = None
+    sort_order: Optional[int] = None
+
 # ─── Helper ────────────────────────────────────────────────────────────────────
 
 def fetch_todo(db, todo_id: int) -> Optional[dict]:
     row = db.execute(
-        "SELECT t.*, p.name as project_name FROM todos t LEFT JOIN projects p ON t.project_id = p.id WHERE t.id = ?",
+        """SELECT t.*, p.name as project_name, s.name as section_name
+           FROM todos t
+           LEFT JOIN projects p ON t.project_id = p.id
+           LEFT JOIN sections s ON t.section_id = s.id
+           WHERE t.id = ?""",
         (todo_id,)
     ).fetchone()
     if not row:
@@ -68,20 +82,24 @@ def on_startup():
 # ─── Todos ────────────────────────────────────────────────────────────────────
 
 @app.get("/api/todos")
-def list_todos(status: Optional[str] = None, project_id: Optional[int] = None):
+def list_todos(status: Optional[str] = None, project_id: Optional[int] = None, section_id: Optional[int] = None):
     with get_db() as db:
         sql = """
-            SELECT t.*, p.name as project_name FROM todos t
+            SELECT t.*, p.name as project_name, s.name as section_name FROM todos t
             LEFT JOIN projects p ON t.project_id = p.id
+            LEFT JOIN sections s ON t.section_id = s.id
             WHERE t.status != 'archived'
         """
         params = []
         if status:
             sql += " AND t.status = ?"
             params.append(status)
-        if project_id:
+        if project_id is not None:
             sql += " AND t.project_id = ?"
             params.append(project_id)
+        if section_id is not None:
+            sql += " AND t.section_id = ?"
+            params.append(section_id)
         sql += " ORDER BY CASE t.status WHEN 'pending' THEN 0 WHEN 'in_progress' THEN 1 WHEN 'done' THEN 2 ELSE 3 END, t.priority, t.due_date IS NULL, t.due_date"
         rows = db.execute(sql, params).fetchall()
         result = []
@@ -96,8 +114,8 @@ def list_todos(status: Optional[str] = None, project_id: Optional[int] = None):
 def create_todo(data: TodoCreate):
     with get_db() as db:
         c = db.execute(
-            "INSERT INTO todos (title, description, priority, project_id, due_date, updated_at) VALUES (?,?,?,?,?,?)",
-            (data.title, data.description, data.priority, data.project_id, data.due_date, now_iso())
+            "INSERT INTO todos (title, description, priority, project_id, section_id, due_date, updated_at) VALUES (?,?,?,?,?,?,?)",
+            (data.title, data.description, data.priority, data.project_id, data.section_id, data.due_date, now_iso())
         )
         todo_id = c.lastrowid
         if data.remind_at:
@@ -120,10 +138,10 @@ def update_todo(todo_id: int, data: TodoUpdate):
         if not existing:
             raise HTTPException(404, "Todo not found")
         updates = {}
-        for f in ["title","description","priority","project_id","due_date","status"]:
-            v = getattr(data, f)
-            if v is not None:
-                updates[f] = v
+        dumped = data.model_dump(exclude_unset=True)
+        for f in ["title","description","priority","project_id","section_id","due_date","status"]:
+            if f in dumped:
+                updates[f] = dumped[f]
         if updates:
             updates['updated_at'] = now_iso()
             if data.status == 'done' and existing['status'] != 'done':
@@ -189,11 +207,69 @@ def delete_project(project_id: int):
     if project_id == 1:
         raise HTTPException(400, "Inbox cannot be deleted")
     with get_db() as db:
-        # Move todos to inbox before deleting
-        db.execute("UPDATE todos SET project_id = 1 WHERE project_id = ?", (project_id,))
+        # Move todos to inbox before deleting project
+        db.execute("UPDATE todos SET project_id = 1, section_id = NULL WHERE project_id = ?", (project_id,))
+        # Also delete associated sections
+        db.execute("DELETE FROM sections WHERE project_id = ?", (project_id,))
         db.execute("DELETE FROM projects WHERE id = ?", (project_id,))
         db.commit()
         return {"deleted": project_id}
+
+# ─── Sections ───────────────────────────────────────────────────────────────
+
+@app.get("/api/projects/{project_id}/sections")
+def list_sections(project_id: int):
+    with get_db() as db:
+        rows = db.execute(
+            "SELECT * FROM sections WHERE project_id = ? ORDER BY sort_order, id",
+            (project_id,)
+        ).fetchall()
+        return {"sections": [dict(r) for r in rows]}
+
+@app.post("/api/projects/{project_id}/sections")
+def create_section(project_id: int, data: SectionCreate):
+    with get_db() as db:
+        # Verify project exists
+        proj = db.execute("SELECT id FROM projects WHERE id = ?", (project_id,)).fetchone()
+        if not proj:
+            raise HTTPException(404, "Project not found")
+        c = db.execute(
+            "INSERT INTO sections (project_id, name, sort_order, created_at) VALUES (?,?,?,?)",
+            (project_id, data.name, data.sort_order, now_iso())
+        )
+        db.commit()
+        row = db.execute("SELECT * FROM sections WHERE id = ?", (c.lastrowid,)).fetchone()
+        return dict(row)
+
+@app.patch("/api/sections/{section_id}")
+def update_section(section_id: int, data: SectionUpdate):
+    with get_db() as db:
+        existing = db.execute("SELECT * FROM sections WHERE id = ?", (section_id,)).fetchone()
+        if not existing:
+            raise HTTPException(404, "Section not found")
+        updates = {}
+        for f in ["name", "sort_order"]:
+            v = getattr(data, f)
+            if v is not None:
+                updates[f] = v
+        if updates:
+            set_clause = ", ".join(f"{k}=:{k}" for k in updates)
+            db.execute(f"UPDATE sections SET {set_clause} WHERE id = :id", {**updates, "id": section_id})
+            db.commit()
+        row = db.execute("SELECT * FROM sections WHERE id = ?", (section_id,)).fetchone()
+        return dict(row)
+
+@app.delete("/api/sections/{section_id}")
+def delete_section(section_id: int):
+    with get_db() as db:
+        existing = db.execute("SELECT * FROM sections WHERE id = ?", (section_id,)).fetchone()
+        if not existing:
+            raise HTTPException(404, "Section not found")
+        # Move todos to unsorted (section_id = NULL)
+        db.execute("UPDATE todos SET section_id = NULL WHERE section_id = ?", (section_id,))
+        db.execute("DELETE FROM sections WHERE id = ?", (section_id,))
+        db.commit()
+        return {"deleted": section_id}
 
 # ─── Reminders ───────────────────────────────────────────────────────────────
 

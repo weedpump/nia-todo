@@ -3,8 +3,11 @@ const API = '';
 
 let todos = [];
 let projects = [];
+let sections = [];
 let currentFilter = 'all';
 let currentProjectId = null;
+let dragSrcTodoId = null;
+let dragOverSectionId = null;
 
 // ─── Sidebar ─────────────────────────────────────────────────────────────────
 function toggleSidebar() {
@@ -25,7 +28,9 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function loadAll() {
-  await Promise.all([loadProjects(), loadTodos()]);
+  await loadProjects();
+  await loadTodos();
+  await loadSectionsForCurrentProject();
   renderProjects();
   renderStats();
   renderTodos();
@@ -81,6 +86,18 @@ async function loadProjects() {
   projects = data.projects || [];
 }
 
+async function loadSectionsForCurrentProject() {
+  sections = [];
+  if (currentProjectId) {
+    try {
+      const data = await get(`/api/projects/${currentProjectId}/sections`);
+      sections = data.sections || [];
+    } catch (e) {
+      console.error('Failed to load sections', e);
+    }
+  }
+}
+
 // ─── Render ──────────────────────────────────────────────────────────────────
 
 function renderProjects() {
@@ -132,6 +149,54 @@ function renderTodos() {
     );
   }
 
+  // When a project is selected, group by section
+  if (currentProjectId) {
+    let html = '';
+
+    // Sections with todos
+    for (const section of sections) {
+      const sectionTodos = filtered.filter(t => t.section_id === section.id);
+      if (!sectionTodos.length) continue;
+      html += renderSectionHeader(section);
+      html += `<div class="section-todos" data-section-id="${section.id}" ondragover="onDragOver(event)" ondrop="onDropOnSection(event, ${section.id})">`;
+      html += sectionTodos.map(t => renderTodoItem(t)).join('');
+      html += `</div>`;
+    }
+
+    // Unsorted section
+    const unsorted = filtered.filter(t => !t.section_id);
+    if (unsorted.length || sections.length) {
+      html += renderSectionHeader(null);
+      html += `<div class="section-todos" data-section-id="null" ondragover="onDragOver(event)" ondrop="onDropOnSection(event, null)">`;
+      html += unsorted.map(t => renderTodoItem(t)).join('');
+      html += `</div>`;
+    }
+
+    // Add section button
+    html += `<div class="add-section-row">
+      <button class="btn btn-add-section" onclick="showAddSectionInline(this)">
+        <span>➕</span> Section
+      </button>
+      <form class="inline-section-form" style="display:none;" onsubmit="createSectionInline(event, this)">
+        <input type="text" placeholder="Section-Name..." required>
+        <button type="submit">✓</button>
+        <button type="button" onclick="cancelAddSection(this)">✕</button>
+      </form>
+    </div>`;
+
+    if (!filtered.length && !sections.length) {
+      html = `<div class="empty-state">
+        <div class="emoji">🎉</div>
+        <h3>Alles erledigt!</h3>
+        <p>Keine Todos in dieser Ansicht.</p>
+      </div>`;
+    }
+
+    el.innerHTML = html;
+    return;
+  }
+
+  // Default grouping by status
   const groups = {
     pending: '⏳ Offen',
     in_progress: '🔥 In Arbeit',
@@ -159,6 +224,31 @@ function renderTodos() {
   el.innerHTML = html;
 }
 
+function renderSectionHeader(section) {
+  if (section) {
+    return `
+      <div class="section-header" draggable="false" data-section-id="${section.id}">
+        <span class="section-name" ondblclick="editSectionInline(this, ${section.id})">${escapeHtml(section.name)}</span>
+        <span class="section-count">${todos.filter(t => t.section_id === section.id).length}</span>
+        <button class="section-delete" onclick="deleteSection(${section.id})" title="Löschen">🗑️</button>
+        <form class="inline-edit-form" style="display:none;" onsubmit="saveSectionInline(event, ${section.id}, this)">
+          <input type="text" value="${escapeHtml(section.name)}" required>
+          <button type="submit">✓</button>
+          <button type="button" onclick="cancelEditSection(this)">✕</button>
+        </form>
+      </div>
+    `;
+  } else {
+    const unsortedCount = todos.filter(t => !t.section_id && t.project_id === currentProjectId).length;
+    return `
+      <div class="section-header section-unsorted" data-section-id="null">
+        <span class="section-name">📁 Unsortiert</span>
+        <span class="section-count">${unsortedCount}</span>
+      </div>
+    `;
+  }
+}
+
 function renderTodoItem(t) {
   const isOverdue = t.due_date && t.status !== 'done' && new Date(t.due_date) < new Date();
   const dueStr = t.due_date ? formatDate(t.due_date) : '';
@@ -166,14 +256,14 @@ function renderTodoItem(t) {
   const project = projects.find(p => p.id === t.project_id);
 
   return `
-    <div class="todo-item ${t.status === 'done' ? 'done' : ''}" data-id="${t.id}">
+    <div class="todo-item ${t.status === 'done' ? 'done' : ''}" data-id="${t.id}" draggable="true" ondragstart="onDragStart(event, ${t.id})" ondragend="onDragEnd(event)">
       <div class="todo-check" onclick="toggleTodo(${t.id})">
         ${t.status === 'done' ? '✓' : ''}
       </div>
       <div class="todo-body">
         <div class="todo-title">${escapeHtml(t.title)}</div>
         <div class="todo-meta">
-          ${t.project_id && project ? `<span style="color:${project.color}">● ${escapeHtml(project.name)}</span>` : ''}
+          ${t.project_id && project && !currentProjectId ? `<span style="color:${project.color}">● ${escapeHtml(project.name)}</span>` : ''}
           <span class="todo-prio">${prioEmoji}</span>
           ${dueStr ? `<span class="todo-due ${isOverdue ? 'overdue' : ''}">📅 ${dueStr}${isOverdue ? ' (überfällig)' : ''}</span>` : ''}
         </div>
@@ -187,10 +277,126 @@ function renderTodoItem(t) {
   `;
 }
 
+// ─── Drag & Drop ─────────────────────────────────────────────────────────────
+
+function onDragStart(e, todoId) {
+  dragSrcTodoId = todoId;
+  e.dataTransfer.setData('text/plain', String(todoId));
+  e.dataTransfer.effectAllowed = 'move';
+  document.querySelectorAll('.todo-item').forEach(el => {
+    if (el.dataset.id !== String(todoId)) {
+      el.style.opacity = '0.5';
+    }
+  });
+}
+
+function onDragEnd(e) {
+  dragSrcTodoId = null;
+  document.querySelectorAll('.todo-item').forEach(el => el.style.opacity = '');
+  document.querySelectorAll('.section-header').forEach(el => el.classList.remove('drag-over'));
+  document.querySelectorAll('.section-todos').forEach(el => el.classList.remove('drag-over'));
+}
+
+function onDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+}
+
+async function onDropOnSection(e, sectionId) {
+  e.preventDefault();
+  if (!dragSrcTodoId) return;
+
+  const todoId = dragSrcTodoId;
+  const todo = todos.find(t => t.id === todoId);
+  if (!todo) return;
+
+  // Update the todo's section
+  try {
+    await patch(`/api/todos/${todoId}`, { section_id: sectionId });
+    await loadAll();
+  } catch (err) {
+    console.error('Failed to move todo to section', err);
+    alert('Fehler beim Verschieben: ' + err.message);
+  }
+}
+
+// ─── Section Inline Actions ──────────────────────────────────────────────────
+
+function showAddSectionInline(btn) {
+  const row = btn.closest('.add-section-row');
+  btn.style.display = 'none';
+  row.querySelector('.inline-section-form').style.display = 'flex';
+  row.querySelector('input').focus();
+}
+
+function cancelAddSection(btn) {
+  const row = btn.closest('.add-section-row');
+  row.querySelector('.btn-add-section').style.display = 'inline-flex';
+  row.querySelector('.inline-section-form').style.display = 'none';
+  row.querySelector('input').value = '';
+}
+
+async function createSectionInline(e, form) {
+  e.preventDefault();
+  const name = form.querySelector('input').value.trim();
+  if (!name || !currentProjectId) return;
+
+  try {
+    await post(`/api/projects/${currentProjectId}/sections`, { name, sort_order: sections.length });
+    await loadAll();
+  } catch (err) {
+    console.error('Failed to create section', err);
+    alert('Fehler beim Erstellen: ' + err.message);
+  }
+}
+
+function editSectionInline(span, sectionId) {
+  const header = span.closest('.section-header');
+  span.style.display = 'none';
+  header.querySelector('.section-count').style.display = 'none';
+  header.querySelector('.section-delete').style.display = 'none';
+  header.querySelector('.inline-edit-form').style.display = 'flex';
+  header.querySelector('.inline-edit-form input').focus();
+}
+
+function cancelEditSection(btn) {
+  const header = btn.closest('.section-header');
+  header.querySelector('.section-name').style.display = '';
+  header.querySelector('.section-count').style.display = '';
+  header.querySelector('.section-delete').style.display = '';
+  header.querySelector('.inline-edit-form').style.display = 'none';
+}
+
+async function saveSectionInline(e, sectionId, form) {
+  e.preventDefault();
+  const name = form.querySelector('input').value.trim();
+  if (!name) return;
+
+  try {
+    await patch(`/api/sections/${sectionId}`, { name });
+    await loadAll();
+  } catch (err) {
+    console.error('Failed to update section', err);
+    alert('Fehler beim Speichern: ' + err.message);
+  }
+}
+
+async function deleteSection(sectionId) {
+  if (!confirm('Section löschen? Todos werden zu "Unsortiert" verschoben.')) return;
+  try {
+    await del(`/api/sections/${sectionId}`);
+    await loadAll();
+  } catch (err) {
+    console.error('Failed to delete section', err);
+    alert('Fehler beim Löschen: ' + err.message);
+  }
+}
+
 // ─── Actions ─────────────────────────────────────────────────────────────────
 
 function setFilter(filter) {
   currentFilter = filter;
+  currentProjectId = (!['all','pending','in_progress','done'].includes(filter)) ? parseInt(filter) : null;
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   event.target.closest('.nav-btn')?.classList.add('active');
   closeSidebar();
@@ -218,6 +424,9 @@ function showTodoModal(todo = null) {
     `<option value="${p.id}" style="color:${p.color}">${escapeHtml(p.name)}</option>`
   ).join('');
 
+  // Render section dropdown
+  renderSectionDropdown(todo ? todo.project_id : null, todo ? todo.section_id : null);
+
   if (todo) {
     document.getElementById('todo-id').value = todo.id;
     document.getElementById('todo-title').value = todo.title;
@@ -231,6 +440,41 @@ function showTodoModal(todo = null) {
   }
 
   document.getElementById('todo-modal').classList.add('active');
+}
+
+function renderSectionDropdown(projectId, selectedSectionId) {
+  const sectionSelect = document.getElementById('todo-section');
+  sectionSelect.innerHTML = '<option value="">Keine Section (Unsortiert)</option>';
+
+  if (!projectId) {
+    sectionSelect.disabled = true;
+    return;
+  }
+
+  const projectSections = sections.filter(s => s.project_id === projectId);
+  if (!projectSections.length) {
+    // Try to fetch sections for this project
+    get(`/api/projects/${projectId}/sections`).then(data => {
+      const secs = data.sections || [];
+      sectionSelect.innerHTML = '<option value="">Keine Section (Unsortiert)</option>' +
+        secs.map(s => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
+      if (selectedSectionId) sectionSelect.value = selectedSectionId;
+    }).catch(() => {
+      sectionSelect.disabled = true;
+    });
+    return;
+  }
+
+  sectionSelect.innerHTML = '<option value="">Keine Section (Unsortiert)</option>' +
+    projectSections.map(s => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
+  sectionSelect.disabled = false;
+  if (selectedSectionId) sectionSelect.value = selectedSectionId;
+}
+
+// Listen for project change in modal
+function onProjectChange() {
+  const projectId = parseInt(document.getElementById('todo-project').value);
+  renderSectionDropdown(projectId, null);
 }
 
 function editTodo(id) {
@@ -251,6 +495,13 @@ async function saveTodo(e) {
     due_date: document.getElementById('todo-due').value ? new Date(document.getElementById('todo-due').value).toISOString() : null,
     remind_at: document.getElementById('todo-remind').value ? new Date(document.getElementById('todo-remind').value).toISOString() : null
   };
+
+  const sectionVal = document.getElementById('todo-section').value;
+  if (sectionVal !== '') {
+    body.section_id = parseInt(sectionVal);
+  } else {
+    body.section_id = null;
+  }
 
   if (id) {
     await patch(`/api/todos/${id}`, body);
@@ -273,7 +524,10 @@ async function deleteProject(id, name) {
   const inboxName = inbox ? inbox.name : 'Inbox';
   if (!confirm(`Projekt "${name}" löschen?\n\nAlle Todos werden in "${inboxName}" verschoben.`)) return;
   await del(`/api/projects/${id}`);
-  if (currentFilter === String(id)) currentFilter = 'all';
+  if (currentFilter === String(id)) {
+    currentFilter = 'all';
+    currentProjectId = null;
+  }
   await loadAll();
 }
 

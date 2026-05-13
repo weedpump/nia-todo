@@ -623,3 +623,178 @@ body {
 .todo-list {
   padding-bottom: max(16px, env(safe-area-inset-bottom));
 }
+
+/* ─── Section Styles ───────────────────────────────────────────────────────── */
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  margin: 8px 0 4px 0;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: default;
+  user-select: none;
+}
+
+.section-header.drag-over {
+  border-color: var(--accent);
+  background: var(--bg-hover);
+}
+
+.section-header .section-name {
+  flex: 1;
+  min-width: 0;
+}
+
+.section-header .section-count {
+  background: var(--bg-primary);
+  color: var(--text-muted);
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  min-width: 20px;
+  text-align: center;
+}
+
+.section-header .section-delete {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.section-header:hover .section-delete {
+  opacity: 1;
+}
+
+.section-header .section-delete:hover {
+  background: rgba(239,68,68,0.15);
+  color: var(--danger);
+}
+
+.section-unsorted {
+  background: var(--bg-secondary);
+  border-style: dashed;
+}
+
+.section-unsorted .section-name {
+  color: var(--text-muted);
+}
+
+.section-todos {
+  min-height: 8px;
+  padding: 2px 0;
+  border-radius: var(--radius);
+  transition: background 0.15s;
+}
+
+.section-todos.drag-over {
+  background: rgba(99,102,241,0.08);
+  outline: 2px dashed var(--accent);
+  outline-offset: 2px;
+}
+
+.add-section-row {
+  margin: 12px 0 4px 0;
+  padding: 0 14px;
+}
+
+.btn-add-section {
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 13px;
+  padding: 6px 12px;
+  border: 1px dashed var(--border);
+}
+
+.btn-add-section:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.inline-section-form,
+.inline-edit-form {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+}
+
+.inline-section-form input,
+.inline-edit-form input {
+  flex: 1;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 13px;
+  outline: none;
+}
+
+.inline-section-form input:focus,
+.inline-edit-form input:focus {
+  border-color: var(--accent);
+}
+
+.inline-section-form button,
+.inline-edit-form button {
+  background: var(--bg-hover);
+  border: none;
+  color: var(--text-primary);
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: var(--radius);
+  font-size: 14px;
+}
+
+.inline-section-form button[type="submit"],
+.inline-edit-form button[type="submit"] {
+  background: var(--accent);
+  color: white;
+}
+
+.inline-section-form button:hover,
+.inline-edit-form button:hover {
+  opacity: 0.9;
+}
+
+/* ─── Drag & Drop Styles ────────────────────────────────────────────────────── */
+
+.todo-item[draggable="true"] {
+  cursor: grab;
+}
+
+.todo-item[draggable="true"]:active {
+  cursor: grabbing;
+}
+
+.todo-item.dragging {
+  opacity: 0.6;
+  border: 2px dashed var(--accent);
+  transform: scale(0.98);
+}
+
+/* Mobile: always show section delete and todo actions */
+@media (max-width: 768px) {
+  .section-header .section-delete {
+    opacity: 1;
+  }
+  .todo-actions {
+    opacity: 1;
+  }
+  .section-count {
+    display: inline-block;
+  }
+}

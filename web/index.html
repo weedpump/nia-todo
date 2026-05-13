@@ -109,16 +109,24 @@
         <div class="form-row">
           <div class="form-group">
             <label>Projekt</label>
-            <select id="todo-project"></select>
+            <select id="todo-project" onchange="onProjectChange()"></select>
           </div>
+          <div class="form-group">
+            <label>Section</label>
+            <select id="todo-section" disabled>
+              <option value="">Keine Section (Unsortiert)</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
           <div class="form-group">
             <label>Deadline</label>
             <input type="datetime-local" id="todo-due">
           </div>
-        </div>
-        <div class="form-group">
-          <label>Erinnerung</label>
-          <input type="datetime-local" id="todo-remind">
+          <div class="form-group">
+            <label>Erinnerung</label>
+            <input type="datetime-local" id="todo-remind">
+          </div>
         </div>
       </form>
       </div>
