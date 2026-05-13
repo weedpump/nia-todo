@@ -662,18 +662,7 @@ body {
   text-align: center;
 }
 
-.section-header .section-actions {
-  display: flex;
-  gap: 2px;
-  opacity: 0;
-  transition: opacity 0.15s;
-}
-
-.section-header:hover .section-actions {
-  opacity: 1;
-}
-
-.section-header .section-actions button {
+.section-header .section-delete {
   background: none;
   border: none;
   color: var(--text-muted);
@@ -683,12 +672,7 @@ body {
   border-radius: 4px;
 }
 
-.section-header .section-actions .section-edit:hover {
-  background: rgba(59,130,246,0.15);
-  color: var(--accent);
-}
-
-.section-header .section-actions .section-delete:hover {
+.section-header .section-delete:hover {
   background: rgba(239,68,68,0.15);
   color: var(--danger);
 }
@@ -796,11 +780,8 @@ body {
   transform: scale(0.98);
 }
 
-/* Mobile: always show section actions and todo actions */
+/* Mobile: always show todo actions */
 @media (max-width: 768px) {
-  .section-header .section-actions {
-    opacity: 1;
-  }
   .todo-actions {
     opacity: 1;
   }

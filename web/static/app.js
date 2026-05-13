@@ -228,12 +228,9 @@ function renderSectionHeader(section) {
   if (section) {
     return `
       <div class="section-header" draggable="false" data-section-id="${section.id}">
-        <span class="section-name">${escapeHtml(section.name)}</span>
-        <div class="section-actions">
-          <button class="section-edit" onclick="editSectionInline(this.closest('.section-header').querySelector('.section-name'), ${section.id})" title="Bearbeiten">✏️</button>
-          <button class="section-delete" onclick="deleteSection(${section.id})" title="Löschen">🗑️</button>
-        </div>
+        <span class="section-name" onclick="editSectionInline(this, ${section.id})">${escapeHtml(section.name)}</span>
         <span class="section-count">${todos.filter(t => t.section_id === section.id).length}</span>
+        <button class="section-delete" onclick="deleteSection(${section.id})" title="Löschen">🗑️</button>
         <form class="inline-edit-form" style="display:none;" onsubmit="saveSectionInline(event, ${section.id}, this)">
           <input type="text" value="${escapeHtml(section.name)}" required>
           <button type="submit">✓</button>
@@ -259,8 +256,8 @@ function renderTodoItem(t) {
   const project = projects.find(p => p.id === t.project_id);
 
   return `
-    <div class="todo-item ${t.status === 'done' ? 'done' : ''}" data-id="${t.id}" draggable="true" ondragstart="onDragStart(event, ${t.id})" ondragend="onDragEnd(event)">
-      <div class="todo-check" onclick="toggleTodo(${t.id})">
+    <div class="todo-item ${t.status === 'done' ? 'done' : ''}" data-id="${t.id}" draggable="true" ondragstart="onDragStart(event, ${t.id})" ondragend="onDragEnd(event)" onclick="editTodo(${t.id})">
+      <div class="todo-check" onclick="event.stopPropagation(); toggleTodo(${t.id})">
         ${t.status === 'done' ? '✓' : ''}
       </div>
       <div class="todo-body">
@@ -272,8 +269,7 @@ function renderTodoItem(t) {
         </div>
         ${t.description ? `<div style="margin-top:4px;font-size:13px;color:var(--text-muted)">${escapeHtml(t.description)}</div>` : ''}
       </div>
-      <div class="todo-actions">
-        <button onclick="editTodo(${t.id})" title="Bearbeiten">✏️</button>
+      <div class="todo-actions" onclick="event.stopPropagation()">
         <button onclick="deleteTodo(${t.id})" title="Löschen">🗑️</button>
       </div>
     </div>
