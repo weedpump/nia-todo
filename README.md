@@ -14,7 +14,7 @@ Selfhosted Todo-System — ersetzt Todoist. SQLite + FastAPI + schicke Web-UI + 
 ## Quick Start
 
 ```bash
-cd ~/workspace/nia-todo
+cd ~/projects/nia-todo
 ./start.sh
 ```
 

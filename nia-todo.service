@@ -4,7 +4,7 @@ After=network.target
 
 [Service]
 Type=simple
-WorkingDirectory=~/workspace/nia-todo/api
+WorkingDirectory=~/projects/nia-todo/api
 ExecStart=/usr/bin/python3 -m uvicorn main:app --host 0.0.0.0 --port 8753
 Restart=always
 RestartSec=5
