@@ -20,7 +20,6 @@ class TodoCreate(BaseModel):
     priority: int = Field(default=3, ge=1, le=4)
     project_id: Optional[int] = None
     due_date: Optional[str] = None
-    label_ids: List[int] = []
     remind_at: Optional[str] = None
 
 class TodoUpdate(BaseModel):
@@ -30,7 +29,6 @@ class TodoUpdate(BaseModel):
     project_id: Optional[int] = None
     due_date: Optional[str] = None
     status: Optional[str] = None
-    label_ids: Optional[List[int]] = None
     remind_at: Optional[str] = None
 
 class ProjectCreate(BaseModel):
@@ -43,14 +41,6 @@ class ProjectUpdate(BaseModel):
     color: Optional[str] = None
     sort_order: Optional[int] = None
 
-class LabelCreate(BaseModel):
-    name: str
-    color: str = "#8b5cf6"
-
-class LabelUpdate(BaseModel):
-    name: Optional[str] = None
-    color: Optional[str] = None
-
 # ─── Helper ────────────────────────────────────────────────────────────────────
 
 def fetch_todo(db, todo_id: int) -> Optional[dict]:
@@ -61,12 +51,6 @@ def fetch_todo(db, todo_id: int) -> Optional[dict]:
     if not row:
         return None
     d = row_to_dict(row)
-    # labels
-    label_rows = db.execute(
-        "SELECT l.id, l.name, l.color FROM labels l JOIN todo_labels tl ON l.id = tl.label_id WHERE tl.todo_id = ?",
-        (todo_id,)
-    ).fetchall()
-    d['labels'] = [dict(r) for r in label_rows]
     # reminders
     rem_rows = db.execute(
         "SELECT id, remind_at, sent_at FROM reminders WHERE todo_id = ? ORDER BY remind_at",
@@ -84,7 +68,7 @@ def on_startup():
 # ─── Todos ────────────────────────────────────────────────────────────────────
 
 @app.get("/api/todos")
-def list_todos(status: Optional[str] = None, project_id: Optional[int] = None, label_id: Optional[int] = None):
+def list_todos(status: Optional[str] = None, project_id: Optional[int] = None):
     with get_db() as db:
         sql = """
             SELECT t.*, p.name as project_name FROM todos t
@@ -98,20 +82,13 @@ def list_todos(status: Optional[str] = None, project_id: Optional[int] = None, l
         if project_id:
             sql += " AND t.project_id = ?"
             params.append(project_id)
-        if label_id:
-            sql += " AND t.id IN (SELECT todo_id FROM todo_labels WHERE label_id = ?)"
-            params.append(label_id)
         sql += " ORDER BY CASE t.status WHEN 'pending' THEN 0 WHEN 'in_progress' THEN 1 WHEN 'done' THEN 2 ELSE 3 END, t.priority, t.due_date IS NULL, t.due_date"
         rows = db.execute(sql, params).fetchall()
         result = []
         for r in rows:
             d = row_to_dict(r)
             tid = d['id']
-            label_rows = db.execute(
-                "SELECT l.id, l.name, l.color FROM labels l JOIN todo_labels tl ON l.id = tl.label_id WHERE tl.todo_id = ?",
-                (tid,)
-            ).fetchall()
-            d['labels'] = [dict(x) for x in label_rows]
+            d['labels'] = []
             result.append(d)
         return {"todos": result}
 
@@ -123,8 +100,6 @@ def create_todo(data: TodoCreate):
             (data.title, data.description, data.priority, data.project_id, data.due_date, now_iso())
         )
         todo_id = c.lastrowid
-        for lid in data.label_ids:
-            db.execute("INSERT INTO todo_labels (todo_id, label_id) VALUES (?,?)", (todo_id, lid))
         if data.remind_at:
             db.execute("INSERT INTO reminders (todo_id, remind_at) VALUES (?,?)", (todo_id, data.remind_at))
         db.commit()
@@ -157,10 +132,6 @@ def update_todo(todo_id: int, data: TodoUpdate):
                 updates['completed_at'] = None
             set_clause = ", ".join(f"{k}=:{k}" for k in updates)
             db.execute(f"UPDATE todos SET {set_clause} WHERE id = :id", {**updates, "id": todo_id})
-        if data.label_ids is not None:
-            db.execute("DELETE FROM todo_labels WHERE todo_id = ?", (todo_id,))
-            for lid in data.label_ids:
-                db.execute("INSERT INTO todo_labels (todo_id, label_id) VALUES (?,?)", (todo_id, lid))
         if data.remind_at is not None:
             db.execute("DELETE FROM reminders WHERE todo_id = ?", (todo_id,))
             if data.remind_at:
@@ -223,47 +194,6 @@ def delete_project(project_id: int):
         db.execute("DELETE FROM projects WHERE id = ?", (project_id,))
         db.commit()
         return {"deleted": project_id}
-
-# ─── Labels ──────────────────────────────────────────────────────────────────
-
-@app.get("/api/labels")
-def list_labels():
-    with get_db() as db:
-        rows = db.execute("SELECT * FROM labels ORDER BY name").fetchall()
-        return {"labels": [dict(r) for r in rows]}
-
-@app.post("/api/labels")
-def create_label(data: LabelCreate):
-    with get_db() as db:
-        c = db.execute("INSERT INTO labels (name, color) VALUES (?,?)", (data.name, data.color))
-        db.commit()
-        row = db.execute("SELECT * FROM labels WHERE id = ?", (c.lastrowid,)).fetchone()
-        return dict(row)
-
-@app.patch("/api/labels/{label_id}")
-def update_label(label_id: int, data: LabelUpdate):
-    with get_db() as db:
-        existing = db.execute("SELECT * FROM labels WHERE id = ?", (label_id,)).fetchone()
-        if not existing:
-            raise HTTPException(404, "Label not found")
-        updates = {}
-        for f in ["name","color"]:
-            v = getattr(data, f)
-            if v is not None:
-                updates[f] = v
-        if updates:
-            set_clause = ", ".join(f"{k}=:{k}" for k in updates)
-            db.execute(f"UPDATE labels SET {set_clause} WHERE id = :id", {**updates, "id": label_id})
-            db.commit()
-        row = db.execute("SELECT * FROM labels WHERE id = ?", (label_id,)).fetchone()
-        return dict(row)
-
-@app.delete("/api/labels/{label_id}")
-def delete_label(label_id: int):
-    with get_db() as db:
-        db.execute("DELETE FROM labels WHERE id = ?", (label_id,))
-        db.commit()
-        return {"deleted": label_id}
 
 # ─── Reminders ───────────────────────────────────────────────────────────────
 

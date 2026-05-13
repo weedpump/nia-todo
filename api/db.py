@@ -20,38 +20,6 @@ CREATE TABLE IF NOT EXISTS projects (
     updated_at TEXT DEFAULT (datetime('now'))
 );
 
--- Labels
-CREATE TABLE IF NOT EXISTS labels (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL UNIQUE,
-    color TEXT DEFAULT '#8b5cf6',
-    created_at TEXT DEFAULT (datetime('now'))
-);
-
--- Todos
-CREATE TABLE IF NOT EXISTS todos (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    title TEXT NOT NULL,
-    description TEXT DEFAULT '',
-    priority INTEGER DEFAULT 3, -- 1=🔴 highest, 2=🟡 high, 3=🟢 medium, 4=⚪ low
-    status TEXT DEFAULT 'pending', -- pending, in_progress, done, archived
-    due_date TEXT, -- ISO 8601
-    completed_at TEXT,
-    project_id INTEGER,
-    created_at TEXT DEFAULT (datetime('now')),
-    updated_at TEXT DEFAULT (datetime('now')),
-    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL
-);
-
--- Todo-Labels n:m
-CREATE TABLE IF NOT EXISTS todo_labels (
-    todo_id INTEGER NOT NULL,
-    label_id INTEGER NOT NULL,
-    PRIMARY KEY (todo_id, label_id),
-    FOREIGN KEY (todo_id) REFERENCES todos(id) ON DELETE CASCADE,
-    FOREIGN KEY (label_id) REFERENCES labels(id) ON DELETE CASCADE
-);
-
 -- Reminders
 CREATE TABLE IF NOT EXISTS reminders (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -98,7 +66,7 @@ def row_to_dict(row):
     if row is None:
         return None
     d = dict(row)
-    for k in ['labels', 'reminders']:
+    for k in ['reminders']:
         if k not in d:
             d[k] = []
     return d

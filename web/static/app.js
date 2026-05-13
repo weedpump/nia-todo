@@ -3,7 +3,6 @@ const API = '';
 
 let todos = [];
 let projects = [];
-let labels = [];
 let currentFilter = 'all';
 let currentProjectId = null;
 
@@ -26,9 +25,8 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function loadAll() {
-  await Promise.all([loadProjects(), loadLabels(), loadTodos()]);
+  await Promise.all([loadProjects(), loadTodos()]);
   renderProjects();
-  renderLabels();
   renderStats();
   renderTodos();
 }
@@ -70,7 +68,6 @@ async function del(path) {
 async function loadTodos() {
   const params = new URLSearchParams();
   if (currentFilter !== 'all' && !['pending','in_progress','done'].includes(currentFilter)) {
-    // it's a project id
     params.set('project_id', currentFilter);
   } else if (['pending','in_progress','done'].includes(currentFilter)) {
     params.set('status', currentFilter);
@@ -82,11 +79,6 @@ async function loadTodos() {
 async function loadProjects() {
   const data = await get('/api/projects');
   projects = data.projects || [];
-}
-
-async function loadLabels() {
-  const data = await get('/api/labels');
-  labels = data.labels || [];
 }
 
 // ─── Render ──────────────────────────────────────────────────────────────────
@@ -101,21 +93,6 @@ function renderProjects() {
         <span class="badge">${countByProject(p.id)}</span>
       </button>
       <button class="nav-edit" onclick="event.stopPropagation(); editProject(${p.id})" title="Bearbeiten">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-      </button>
-    </div>
-  `).join('');
-}
-
-function renderLabels() {
-  const el = document.getElementById('label-list');
-  el.innerHTML = labels.map(l => `
-    <div class="nav-item-with-action">
-      <button class="nav-btn" onclick="setLabelFilter(${l.id})">
-        <span class="project-dot" style="background:${l.color}"></span>
-        ${escapeHtml(l.name)}
-      </button>
-      <button class="nav-edit" onclick="event.stopPropagation(); editLabel(${l.id})" title="Bearbeiten">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
       </button>
     </div>
@@ -155,7 +132,6 @@ function renderTodos() {
     );
   }
 
-  // Group by status
   const groups = {
     pending: '⏳ Offen',
     in_progress: '🔥 In Arbeit',
@@ -188,9 +164,6 @@ function renderTodoItem(t) {
   const dueStr = t.due_date ? formatDate(t.due_date) : '';
   const prioEmoji = {1: '🔴', 2: '🟡', 3: '🟢', 4: '⚪'}[t.priority] || '⚪';
   const project = projects.find(p => p.id === t.project_id);
-  const labelTags = (t.labels || []).map(l =>
-    `<span class="todo-label-tag" style="background:${l.color}33;color:${l.color}">${escapeHtml(l.name)}</span>`
-  ).join('');
 
   return `
     <div class="todo-item ${t.status === 'done' ? 'done' : ''}" data-id="${t.id}">
@@ -203,7 +176,6 @@ function renderTodoItem(t) {
           ${t.project_id && project ? `<span style="color:${project.color}">● ${escapeHtml(project.name)}</span>` : ''}
           <span class="todo-prio">${prioEmoji}</span>
           ${dueStr ? `<span class="todo-due ${isOverdue ? 'overdue' : ''}">📅 ${dueStr}${isOverdue ? ' (überfällig)' : ''}</span>` : ''}
-          ${labelTags}
         </div>
         ${t.description ? `<div style="margin-top:4px;font-size:13px;color:var(--text-muted)">${escapeHtml(t.description)}</div>` : ''}
       </div>
@@ -225,10 +197,6 @@ function setFilter(filter) {
   loadAll();
 }
 
-function setLabelFilter(labelId) {
-  // TODO: implement label filtering in backend
-}
-
 function countByProject(pid) {
   return todos.filter(t => t.project_id === pid && t.status !== 'done').length;
 }
@@ -245,20 +213,10 @@ function showTodoModal(todo = null) {
   document.getElementById('todo-id').value = '';
   document.getElementById('todo-modal-title').textContent = todo ? 'Todo bearbeiten' : 'Neues Todo';
 
-  // Populate project dropdown
   const projSelect = document.getElementById('todo-project');
   projSelect.innerHTML = projects.map(p =>
     `<option value="${p.id}" style="color:${p.color}">${escapeHtml(p.name)}</option>`
   ).join('');
-
-  // Populate label picker
-  const labelEl = document.getElementById('todo-labels');
-  labelEl.innerHTML = labels.map(l => `
-    <span class="label-chip" data-id="${l.id}" style="background:${l.color}33;color:${l.color};border-color:${l.color}"
-      onclick="toggleLabelChip(this)">
-      ${escapeHtml(l.name)}
-    </span>
-  `).join('');
 
   if (todo) {
     document.getElementById('todo-id').value = todo.id;
@@ -270,17 +228,9 @@ function showTodoModal(todo = null) {
     document.getElementById('todo-due').value = todo.due_date ? todo.due_date.slice(0, 16) : '';
     const rem = (todo.reminders || [])[0];
     document.getElementById('todo-remind').value = rem ? rem.remind_at.slice(0, 16) : '';
-    (todo.labels || []).forEach(l => {
-      const chip = labelEl.querySelector(`[data-id="${l.id}"]`);
-      if (chip) chip.classList.add('selected');
-    });
   }
 
   document.getElementById('todo-modal').classList.add('active');
-}
-
-function toggleLabelChip(el) {
-  el.classList.toggle('selected');
 }
 
 function editTodo(id) {
@@ -291,8 +241,6 @@ function editTodo(id) {
 async function saveTodo(e) {
   e.preventDefault();
   const id = document.getElementById('todo-id').value;
-  const labelChips = document.querySelectorAll('#todo-labels .label-chip.selected');
-  const labelIds = Array.from(labelChips).map(el => parseInt(el.dataset.id));
 
   const body = {
     title: document.getElementById('todo-title').value,
@@ -301,8 +249,7 @@ async function saveTodo(e) {
     status: document.getElementById('todo-status').value,
     project_id: document.getElementById('todo-project').value ? parseInt(document.getElementById('todo-project').value) : null,
     due_date: document.getElementById('todo-due').value ? new Date(document.getElementById('todo-due').value).toISOString() : null,
-    remind_at: document.getElementById('todo-remind').value ? new Date(document.getElementById('todo-remind').value).toISOString() : null,
-    label_ids: labelIds
+    remind_at: document.getElementById('todo-remind').value ? new Date(document.getElementById('todo-remind').value).toISOString() : null
   };
 
   if (id) {
@@ -330,12 +277,6 @@ async function deleteProject(id, name) {
   await loadAll();
 }
 
-async function deleteLabel(id, name) {
-  if (!confirm(`Label "${name}" wirklich löschen?`)) return;
-  await del(`/api/labels/${id}`);
-  await loadAll();
-}
-
 function showProjectModal() {
   closeSidebar();
   document.getElementById('project-form')?.reset();
@@ -355,7 +296,6 @@ function editProject(id) {
   document.getElementById('project-modal-title').textContent = 'Projekt bearbeiten';
   document.getElementById('project-name').value = p.name;
   document.getElementById('project-color').value = p.color;
-  // Inbox (id=1) cannot be deleted
   document.getElementById('project-delete-btn').style.display = id === 1 ? 'none' : 'inline-flex';
   document.getElementById('project-modal').classList.add('active');
 }
@@ -382,52 +322,6 @@ function deleteProjectFromModal() {
   if (!id || parseInt(id) === 1) return;
   deleteProject(parseInt(id), name);
   closeModal('project-modal');
-}
-
-function showLabelModal() {
-  closeSidebar();
-  document.getElementById('label-form')?.reset();
-  document.getElementById('label-id').value = '';
-  document.getElementById('label-modal-title').textContent = 'Neues Label';
-  document.getElementById('label-name').value = '';
-  document.getElementById('label-color').value = '#8b5cf6';
-  document.getElementById('label-delete-btn').style.display = 'none';
-  document.getElementById('label-modal').classList.add('active');
-}
-
-function editLabel(id) {
-  closeSidebar();
-  const l = labels.find(x => x.id === id);
-  if (!l) return;
-  document.getElementById('label-id').value = l.id;
-  document.getElementById('label-modal-title').textContent = 'Label bearbeiten';
-  document.getElementById('label-name').value = l.name;
-  document.getElementById('label-color').value = l.color;
-  document.getElementById('label-delete-btn').style.display = 'inline-flex';
-  document.getElementById('label-modal').classList.add('active');
-}
-
-async function saveLabel(e) {
-  e.preventDefault();
-  const id = document.getElementById('label-id').value;
-  const body = {
-    name: document.getElementById('label-name').value,
-    color: document.getElementById('label-color').value
-  };
-  if (id) {
-    await patch(`/api/labels/${id}`, body);
-  } else {
-    await post('/api/labels', body);
-  }
-  closeModal('label-modal');
-  await loadAll();
-}
-
-function deleteLabelFromModal() {
-  const id = document.getElementById('label-id').value;
-  const name = document.getElementById('label-name').value;
-  if (id) deleteLabel(parseInt(id), name);
-  closeModal('label-modal');
 }
 
 function closeModal(id) {

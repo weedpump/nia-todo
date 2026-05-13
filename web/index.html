@@ -45,14 +45,6 @@
           <span>➕</span> Projekt hinzufügen
         </button>
       </nav>
-
-      <nav class="nav-section">
-        <div class="nav-title">Labels</div>
-        <div id="label-list"></div>
-        <button class="nav-btn add-btn" onclick="showLabelModal()">
-          <span>🏷️</span> Label erstellen
-        </button>
-      </nav>
     </aside>
 
     <!-- Main -->
@@ -128,10 +120,6 @@
           <label>Erinnerung</label>
           <input type="datetime-local" id="todo-remind">
         </div>
-        <div class="form-group">
-          <label>Labels</label>
-          <div id="todo-labels" class="label-picker"></div>
-        </div>
       </form>
       </div>
       <div class="modal-actions">
@@ -164,33 +152,6 @@
         <button type="button" class="btn btn-danger" id="project-delete-btn" onclick="deleteProjectFromModal()" style="margin-right:auto;display:none;">🗑️ Löschen</button>
         <button type="button" class="btn btn-secondary" onclick="closeModal('project-modal')">Abbrechen</button>
         <button type="submit" form="project-form" class="btn btn-primary">Speichern</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Label Modal -->
-  <div class="modal" id="label-modal">
-    <div class="modal-overlay" onclick="closeModal('label-modal')"></div>
-    <div class="modal-content">
-      <h3 id="label-modal-title">Neues Label</h3>
-      <button class="modal-close-x" onclick="closeModal('label-modal')">✕</button>
-      <div class="modal-body">
-      <form id="label-form" onsubmit="saveLabel(event)">
-        <input type="hidden" id="label-id">
-        <div class="form-group">
-          <label>Name</label>
-          <input type="text" id="label-name" required>
-        </div>
-        <div class="form-group">
-          <label>Farbe</label>
-          <input type="color" id="label-color" value="#8b5cf6">
-        </div>
-      </form>
-      </div>
-      <div class="modal-actions">
-        <button type="button" class="btn btn-danger" id="label-delete-btn" onclick="deleteLabelFromModal()" style="margin-right:auto;display:none;">🗑️ Löschen</button>
-        <button type="button" class="btn btn-secondary" onclick="closeModal('label-modal')">Abbrechen</button>
-        <button type="submit" form="label-form" class="btn btn-primary">Speichern</button>
       </div>
     </div>
   </div>
