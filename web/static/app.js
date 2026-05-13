@@ -228,7 +228,8 @@ function renderSectionHeader(section) {
   if (section) {
     return `
       <div class="section-header" draggable="false" data-section-id="${section.id}">
-        <span class="section-name" ondblclick="editSectionInline(this, ${section.id})">${escapeHtml(section.name)}</span>
+        <span class="section-name">${escapeHtml(section.name)}</span>
+        <button class="section-edit" onclick="editSectionInline(this.parentElement.querySelector('.section-name'), ${section.id})" title="Bearbeiten">✏️</button>
         <span class="section-count">${todos.filter(t => t.section_id === section.id).length}</span>
         <button class="section-delete" onclick="deleteSection(${section.id})" title="Löschen">🗑️</button>
         <form class="inline-edit-form" style="display:none;" onsubmit="saveSectionInline(event, ${section.id}, this)">
@@ -353,6 +354,8 @@ async function createSectionInline(e, form) {
 function editSectionInline(span, sectionId) {
   const header = span.closest('.section-header');
   span.style.display = 'none';
+  const editBtn = header.querySelector('.section-edit');
+  if (editBtn) editBtn.style.display = 'none';
   header.querySelector('.section-count').style.display = 'none';
   header.querySelector('.section-delete').style.display = 'none';
   header.querySelector('.inline-edit-form').style.display = 'flex';
@@ -362,6 +365,8 @@ function editSectionInline(span, sectionId) {
 function cancelEditSection(btn) {
   const header = btn.closest('.section-header');
   header.querySelector('.section-name').style.display = '';
+  const editBtn = header.querySelector('.section-edit');
+  if (editBtn) editBtn.style.display = '';
   header.querySelector('.section-count').style.display = '';
   header.querySelector('.section-delete').style.display = '';
   header.querySelector('.inline-edit-form').style.display = 'none';

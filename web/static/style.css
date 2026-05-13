@@ -662,6 +662,27 @@ body {
   text-align: center;
 }
 
+.section-header .section-edit {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.section-header:hover .section-edit {
+  opacity: 1;
+}
+
+.section-header .section-edit:hover {
+  background: rgba(59,130,246,0.15);
+  color: var(--accent);
+}
+
 .section-header .section-delete {
   background: none;
   border: none;
