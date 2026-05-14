@@ -117,19 +117,19 @@ body {
   cursor: pointer;
   padding: 6px;
   border-radius: var(--radius);
-  opacity: 0;
-  transition: opacity 0.15s;
+  opacity: 0.6;
+  transition: opacity 0.15s, background 0.15s;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .nav-item-with-action:hover .nav-edit { opacity: 1; }
-.nav-edit:hover { color: var(--accent); background: var(--bg-hover); }
+.nav-edit:hover { opacity: 1; color: var(--accent); background: var(--bg-hover); }
 
 /* Mobile: always show edit button */
 @media (max-width: 768px) {
-  .nav-item-with-action .nav-edit { opacity: 1; }
+  .nav-item-with-action .nav-edit { opacity: 0.6; }
 }
 
 .project-dot {
@@ -342,8 +342,19 @@ body {
   transition: all 0.15s;
 }
 
-.btn-primary { background: var(--accent); color: white; }
-.btn-primary:hover { background: var(--accent-hover); }
+.btn-primary { 
+  background: var(--accent); 
+  color: white; 
+}
+.btn-primary:hover { 
+  background: var(--accent-hover); 
+}
+
+/* Plus icon in primary button */
+.btn-primary span:first-child {
+  font-size: 16px;
+  line-height: 1;
+}
 
 .btn-secondary { background: var(--bg-tertiary); color: var(--text-primary); }
 .btn-secondary:hover { background: var(--bg-hover); }
@@ -820,10 +831,15 @@ input[type="color"]::-moz-color-swatch {
 /* Online Status Indicator */
 #online-status {
   font-size: 12px;
-  padding: 4px 8px;
+  padding: 4px 10px;
   border-radius: 12px;
   margin-right: 8px;
   font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  min-height: 24px;
 }
 .status-online {
   background: rgba(34, 197, 94, 0.2);
