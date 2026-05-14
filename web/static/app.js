@@ -737,6 +737,9 @@ function renderTodos() {
       html += `</div>`;
     }
 
+    // ➕ Neue Section Button
+    html += `<div class="add-section-row"><button class="btn-add-section" onclick="showAddSectionForm()">➕ Neue Section</button></div>`;
+
     if (!filtered.length && !sections.length) {
       html = `<div class="empty-state">
         <div class="emoji">🎉</div>
@@ -780,8 +783,9 @@ function renderSectionHeader(section) {
   if (section) {
     return `
       <div class="section-header" data-section-id="${section.id}">
-        <span class="section-name">${escapeHtml(section.name)}</span>
+        <span class="section-name" onclick="editSectionInline(${section.id})">${escapeHtml(section.name)}</span>
         <span class="section-count">${todos.filter(t => t.section_id === section.id).length}</span>
+        <button class="section-delete" onclick="deleteSection(${section.id})" title="Löschen">✕</button>
       </div>
     `;
   } else {
@@ -1124,6 +1128,101 @@ function formatDate(isoString) {
   } else {
     return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' }) + ' ' +
            date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+  }
+}
+
+// ─── Section CRUD ────────────────────────────────────────────────────────────
+
+function showAddSectionForm() {
+  const el = document.querySelector('.add-section-row');
+  if (!el) return;
+  el.innerHTML = `
+    <div class="inline-section-form">
+      <input type="text" id="new-section-name" placeholder="Section-Name" autocomplete="off">
+      <button onclick="saveNewSection()" title="Speichern">✓</button>
+      <button onclick="renderTodos()" title="Abbrechen">✕</button>
+    </div>
+  `;
+  document.getElementById('new-section-name')?.focus();
+}
+
+async function saveNewSection() {
+  const name = document.getElementById('new-section-name')?.value?.trim();
+  if (!name || !currentProjectId) return;
+
+  const sectionData = { name, project_id: currentProjectId, sort_order: sections.length };
+
+  if (isOnlineForSync()) {
+    try {
+      const res = await post(`/api/projects/${currentProjectId}/sections`, sectionData);
+      await dbPut('sections', res);
+      sections.push(res);
+      renderTodos();
+      loadSectionsForCurrentProject();
+    } catch (err) {
+      console.error('Create section failed', err);
+      alert('Fehler beim Erstellen der Section');
+    }
+  } else {
+    alert('Offline - Section kann nicht erstellt werden');
+  }
+}
+
+function editSectionInline(id) {
+  const section = sections.find(s => s.id === id);
+  if (!section) return;
+
+  const header = document.querySelector(`.section-header[data-section-id="${id}"]`);
+  if (!header) return;
+
+  header.innerHTML = `
+    <div class="inline-edit-form" style="flex:1;gap:6px;">
+      <input type="text" id="edit-section-name-${id}" value="${escapeHtml(section.name)}" autocomplete="off" style="flex:1;">
+      <button onclick="saveSectionEdit(${id})" title="Speichern">✓</button>
+      <button onclick="renderTodos()" title="Abbrechen">✕</button>
+    </div>
+  `;
+  document.getElementById(`edit-section-name-${id}`)?.focus();
+}
+
+async function saveSectionEdit(id) {
+  const name = document.getElementById(`edit-section-name-${id}`)?.value?.trim();
+  if (!name) return;
+
+  if (isOnlineForSync()) {
+    try {
+      await patch(`/api/sections/${id}`, { name });
+      await refreshFromServer();
+    } catch (err) {
+      console.error('Update section failed', err);
+      alert('Fehler beim Speichern');
+    }
+  } else {
+    alert('Offline - Section kann nicht bearbeitet werden');
+  }
+}
+
+async function deleteSection(id) {
+  if (!confirm('Section wirklich löschen? Todos werden zu "Unsortiert" verschoben.')) return;
+
+  if (isOnlineForSync()) {
+    try {
+      await del(`/api/sections/${id}`);
+      // Move todos to unsorted
+      const todosToUpdate = todos.filter(t => t.section_id === id);
+      for (const t of todosToUpdate) {
+        t.section_id = null;
+        if (isOnlineForSync()) {
+          await patch(`/api/todos/${t.id}`, { section_id: null });
+        }
+      }
+      await refreshFromServer();
+    } catch (err) {
+      console.error('Delete section failed', err);
+      alert('Fehler beim Löschen');
+    }
+  } else {
+    alert('Offline - Section kann nicht gelöscht werden');
   }
 }
 
