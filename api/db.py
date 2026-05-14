@@ -7,6 +7,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from contextlib import contextmanager
 
+<<<<<<< HEAD
+=======
+import os
+
+>>>>>>> origin/develop
 DB_NAME = os.getenv('NIA_TODO_DB', 'nia-todo.db')
 DB_PATH = Path(__file__).parent / "data" / DB_NAME
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)

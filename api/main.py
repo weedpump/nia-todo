@@ -10,6 +10,10 @@ import json
 import asyncio
 
 from db import init_db, get_db, row_to_dict, now_iso
+from migrate import run_migrations
+
+# Migrationen beim Import ausführen (vor App-Start)
+run_migrations()
 
 app = FastAPI(title="nia-todo", version="0.2.1")
 

@@ -2,31 +2,55 @@
 
 Selfhosted Todo-System — ersetzt Todoist. SQLite + FastAPI + schicke Web-UI + Offline-PWA + Telegram-Erinnerungen.
 
+## 🌍 Instanzen
+
+| Instanz | URL | Branch | Zweck |
+|---------|-----|--------|-------|
+| **Live** | `http://todo-dev.kneidl-home.de:8753` | `main` | Produktion — stabile Releases |
+| **Dev** | `http://todo-dev.kneidl-home.de:8754` | `develop` | Tests — neue Features vor Release |
+
+## Workflow
+
+1. **Entwicklung** → Arbeite auf `develop` Branch in `~/projects/nia-todo-dev`
+2. **Testen** → Öffne Dev-Instanz auf Port 8754, installiere als separate PWA
+3. **Release** → Merge `develop` → `main`, dann Live-Instanz updaten
+4. **Live-Update** → `cd ~/projects/nia-todo && git pull origin main && systemctl restart nia-todo`
+
+⚠️ **Dev-Anpassungen** (Port, DB-Name, PWA-Name) werden per `setup-dev.sh` lokal gemacht und sind **NICHT** im Git. So kann `develop` → `main` gemergt werden ohne Probleme.
+
 ## Features
 
 - 📝 Todos mit Titel, Beschreibung, Priorität, Deadline
 - 📁 Projekte/Kategorien (Inbox, Privat, Arbeit, Einkauf, ...)
 - 🔲 Sections innerhalb von Projekten
 - ⏰ Erinnerungen mit Telegram-Benachrichtigung
-- 🌐 Schicke Web-UI unter `http://todo-dev.kneidl-home.de:8753`
 - 📱 **PWA — Offline-First!** Installierbar auf Android, funktioniert offline
 - 🗄️ SQLite-Datenbank (lokal, kein Cloud-Quatsch)
 - 🤖 Sprachintegration via Nia (Telegram)
 
-## Quick Start
+## Quick Start (Live)
 
 ```bash
 cd ~/projects/nia-todo
-./start.sh
+systemctl restart nia-todo
 ```
 
 Dann im Browser öffnen: `http://todo-dev.kneidl-home.de:8753`
+
+## Quick Start (Dev)
+
+```bash
+cd ~/projects/nia-todo-dev
+systemctl restart nia-todo-dev
+```
+
+Dann im Browser öffnen: `http://todo-dev.kneidl-home.de:8754`
 
 ## PWA — Offline-First
 
 nia-todo ist eine Progressive Web App (PWA) die auch offline funktioniert:
 
-1. **Im Browser öffnen** → `http://todo-dev.kneidl-home.de:8753`
+1. **Im Browser öffnen** → `http://todo-dev.kneidl-home.de:8753` (Live) oder `http://todo-dev.kneidl-home.de:8754` (Dev)
 2. **Menü (⋮)** → "Zum Startbildschirm hinzufügen"
 3. **App installiert!** 📱
 
