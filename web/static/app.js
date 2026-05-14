@@ -20,7 +20,7 @@ let appInitialized = false;
 let syncInProgress = false;
 let swRegistration = null;
 let updateAvailable = false;
-const APP_VERSION = 'v0.2.1';
+const APP_VERSION = 'v0.2.2';
 
 // ─── WebSocket ───────────────────────────────────────────────────────────────
 let ws = null;
@@ -155,15 +155,16 @@ function updateConnectionStatus() {
   const indicator = document.getElementById('online-status');
   if (!indicator) return;
 
-  const labels = {
-    connected: '🟢 Online',
-    connecting: '🟡 Verbinde...',
-    reconnecting: '🟠 Wiederverbindung...',
-    disconnected: '🔴 Offline'
-  };
-
-  indicator.textContent = labels[wsState] || '🔴 Offline';
-  indicator.className = wsState === 'connected' ? 'status-online' : 'status-offline';
+  // Nur connected/disconnected anzeigen — keine Zwischenzustände (flackern!)
+  if (wsState === 'connected') {
+    indicator.textContent = '🟢 Online';
+    indicator.className = 'status-online';
+    indicator.style.display = 'inline-flex';
+  } else {
+    // Alles andere = Offline (disconnected, connecting, reconnecting)
+    indicator.textContent = '🔴 Offline';
+    indicator.className = 'status-offline';
+  }
 }
 
 async function handleWsMessage(msg) {
