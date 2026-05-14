@@ -14,6 +14,9 @@ let db = null;
 let dbReady = null;
 let appInitialized = false;
 let syncInProgress = false;
+let swRegistration = null;
+let updateAvailable = false;
+const APP_VERSION = '1.0.0';
 
 // ─── IndexedDB ───────────────────────────────────────────────────────────────
 
@@ -274,10 +277,86 @@ function closeSidebar() {
   document.getElementById('sidebar-overlay').classList.remove('active');
 }
 
+// ─── Update-Checker ───────────────────────────────────────────────────────────
+
+async function initServiceWorker() {
+  if (!('serviceWorker' in navigator)) return;
+  
+  try {
+    const reg = await navigator.serviceWorker.register('/sw.js');
+    swRegistration = reg;
+    console.log('SW registered:', reg.scope);
+    
+    // Prüfe auf Updates beim Start
+    checkForUpdate(reg);
+    
+    // Prüfe alle 30 Min auf Updates
+    setInterval(() => checkForUpdate(reg), 30 * 60 * 1000);
+    
+    // Wenn ein neuer SW wartet (updatefound event)
+    reg.addEventListener('updatefound', () => {
+      const newWorker = reg.installing;
+      console.log('SW: New version found, waiting for install...');
+      
+      newWorker.addEventListener('statechange', () => {
+        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+          // Neue Version ist bereit!
+          console.log('SW: New version ready for update');
+          updateAvailable = true;
+          showUpdateButton();
+        }
+      });
+    });
+    
+    // controllerchange = neuer SW hat übernommen
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      console.log('SW: New controller active, reloading...');
+      window.location.reload();
+    });
+    
+  } catch (err) {
+    console.error('SW registration failed:', err);
+  }
+}
+
+async function checkForUpdate(reg) {
+  try {
+    await reg.update();
+    console.log('SW: Update check done');
+  } catch (err) {
+    console.error('SW: Update check failed', err);
+  }
+}
+
+function showUpdateButton() {
+  const el = document.getElementById('update-btn');
+  if (el) {
+    el.style.display = 'flex';
+    console.log('Update button shown');
+  }
+}
+
+async function triggerUpdate() {
+  console.log('Triggering app update...');
+  
+  // 1. IndexedDB sichern (optional - wir behalten Daten ja)
+  
+  // 2. Service Worker zum Aktivieren zwingen
+  if (swRegistration && swRegistration.waiting) {
+    swRegistration.waiting.postMessage({ action: 'skipWaiting' });
+  }
+  
+  // 3. Cache leeren und Seite neu laden
+  // Der controllerchange Event macht das Reload
+}
+
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('App starting...');
+  
+  // Service Worker registrieren (mit Update-Check)
+  await initServiceWorker();
   
   try {
     await openDB();
@@ -301,8 +380,21 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   
   updateOnlineStatus();
+  
+  // Version in Sidebar anzeigen
+  renderVersionInfo();
+  
   console.log('App initialized');
 });
+
+function renderVersionInfo() {
+  const el = document.getElementById('version-info');
+  if (el) {
+    el.innerHTML = `
+      <span class="version-text">${APP_VERSION}</span>
+    `;
+  }
+}
 
 async function loadFromLocalDB() {
   todos = await dbGetAll('todos');

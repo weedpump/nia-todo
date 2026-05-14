@@ -1,6 +1,7 @@
-// nia-todo Service Worker - Bulletproof Offline-First
-const CACHE_NAME = 'nia-todo-v3';
-const API_CACHE = 'nia-todo-api-v3';
+// nia-todo Service Worker - Bulletproof Offline-First + Update-System
+const SW_VERSION = 'v4';
+const CACHE_NAME = 'nia-todo-' + SW_VERSION;
+const API_CACHE = 'nia-todo-api-' + SW_VERSION;
 
 // ALLE Assets die wir brauchen
 const PRECACHE_ASSETS = [
@@ -43,7 +44,7 @@ p { color:#94a3b8; margin:0 0 20px 0; }
 
 // ─── Install ─────────────────────────────────────────────────────────────────
 self.addEventListener('install', (event) => {
-  console.log('SW: Installing...');
+  console.log('SW: Installing version', SW_VERSION);
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
@@ -51,27 +52,38 @@ self.addEventListener('install', (event) => {
         return cache.addAll(PRECACHE_ASSETS);
       })
       .then(() => {
-        console.log('SW: Pre-cache complete');
-        return self.skipWaiting();
+        console.log('SW: Pre-cache complete for', SW_VERSION);
+        // NICHT skipWaiting - warten auf Nutzer-Approval
+        // self.skipWaiting();
       })
       .catch((err) => {
         console.error('SW: Pre-cache failed:', err);
-        return self.skipWaiting();
       })
   );
 });
 
 // ─── Activate ────────────────────────────────────────────────────────────────
 self.addEventListener('activate', (event) => {
-  console.log('SW: Activating...');
+  console.log('SW: Activating version', SW_VERSION);
   event.waitUntil(
     caches.keys().then((names) => {
       return Promise.all(
         names.filter((n) => n !== CACHE_NAME && n !== API_CACHE)
-            .map((n) => caches.delete(n))
+            .map((n) => {
+              console.log('SW: Deleting old cache:', n);
+              return caches.delete(n);
+            })
       );
     }).then(() => self.clients.claim())
   );
+});
+
+// ─── Message Event (für skipWaiting vom Client) ───────────────────────────────
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.action === 'skipWaiting') {
+    console.log('SW: skipWaiting received, activating new version');
+    self.skipWaiting();
+  }
 });
 
 // ─── Fetch ───────────────────────────────────────────────────────────────────

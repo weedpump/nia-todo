@@ -49,6 +49,16 @@
           <span>➕</span> Projekt hinzufügen
         </button>
       </nav>
+
+      <!-- Version & Update -->
+      <div class="version-bar" id="version-bar">
+        <div class="version-info" id="version-info">
+          <span class="version-text">...</span>
+        </div>
+        <button class="update-btn" id="update-btn" onclick="triggerUpdate()" style="display:none;">
+          <span>🔄</span> Update verfügbar
+        </button>
+      </div>
     </aside>
 
     <!-- Main -->
@@ -169,13 +179,6 @@
     </div>
   </div>
 
-  <script>
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js')
-        .then(reg => console.log('SW registered:', reg.scope))
-        .catch(err => console.error('SW registration failed:', err));
-    }
-  </script>
   <script src="/static/app.js"></script>
 </body>
 </html>
