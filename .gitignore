@@ -5,8 +5,11 @@ __pycache__/
 *.pyd
 .Python
 
-# Database backups
+# Database (NEVER commit SQLite DBs)
+*.db
+api/data/*.db
 api/data/*.db.backup*
+api/data/*.db.bak
 api/data/*.db.bak
 
 # Environment
@@ -25,11 +28,6 @@ venv/
 # OS
 .DS_Store
 Thumbs.db
+
+# Dev-only files
 setup-dev.sh
-.gitignore
-*.db
-api/data/*.db
-*.db
-api/data/*.db
-api/data/*.backup*
-api/data/*.bak

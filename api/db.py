@@ -1,12 +1,11 @@
 """nia-todo: Selfhosted Todo-System mit SQLite + FastAPI + Web-UI"""
 
+import os
 import sqlite3
 import json
 from datetime import datetime, timezone
 from pathlib import Path
 from contextlib import contextmanager
-
-import os
 
 DB_NAME = os.getenv('NIA_TODO_DB', 'nia-todo.db')
 DB_PATH = Path(__file__).parent / "data" / DB_NAME
