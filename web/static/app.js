@@ -1307,7 +1307,27 @@ async function handleSectionDrop(e) {
   header.classList.remove('drag-over');
 
   const targetSectionId = header.dataset.sectionId;
-  if (!dragSrcSectionId || targetSectionId === 'null' || dragSrcSectionId === parseInt(targetSectionId)) return;
+
+  // ── Handle TODO drop on section header ──
+  if (dragSrcTodoId) {
+    const todo = todos.find(t => t.id === dragSrcTodoId);
+    if (!todo) return;
+    const newSectionId = targetSectionId === 'null' ? null : parseInt(targetSectionId);
+    if (todo.section_id === newSectionId) return;
+    todo.section_id = newSectionId;
+    renderTodos();
+    if (isOnlineForSync()) {
+      try {
+        await patch(`/api/todos/${todo.id}`, { section_id: newSectionId });
+      } catch (err) {
+        console.error('Move todo failed', err);
+      }
+    }
+    return;
+  }
+
+  // ── Handle SECTION reorder ──
+  if (targetSectionId === 'null' || !dragSrcSectionId || dragSrcSectionId === parseInt(targetSectionId)) return;
 
   const srcIdx = sections.findIndex(s => s.id === dragSrcSectionId);
   const targetIdx = sections.findIndex(s => s.id === parseInt(targetSectionId));
