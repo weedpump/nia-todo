@@ -16,7 +16,7 @@ let appInitialized = false;
 let syncInProgress = false;
 let swRegistration = null;
 let updateAvailable = false;
-const APP_VERSION = 'v0.1.1';
+const APP_VERSION = 'v0.1.2';
 
 // ─── IndexedDB ───────────────────────────────────────────────────────────────
 
@@ -287,19 +287,26 @@ async function initServiceWorker() {
     swRegistration = reg;
     console.log('SW registered:', reg.scope);
     
+    // WICHTIG: Prüfe beim Start ob bereits ein Update wartet!
+    if (reg.waiting) {
+      console.log('SW: Update waiting from previous session');
+      updateAvailable = true;
+      showUpdateButton();
+    }
+    
     // Prüfe auf Updates beim Start
     checkForUpdate(reg);
     
     // Prüfe alle 30 Min auf Updates
     setInterval(() => checkForUpdate(reg), 30 * 60 * 1000);
     
-    // Wenn ein neuer SW wartet (updatefound event)
+    // Wenn ein neuer SW installiert wird
     reg.addEventListener('updatefound', () => {
       const newWorker = reg.installing;
-      console.log('SW: New version found, waiting for install...');
+      console.log('SW: New version found, installing...');
       
       newWorker.addEventListener('statechange', () => {
-        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+        if (newWorker.state === 'installed') {
           // Neue Version ist bereit!
           console.log('SW: New version ready for update');
           updateAvailable = true;
