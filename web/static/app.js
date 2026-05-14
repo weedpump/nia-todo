@@ -487,8 +487,9 @@ window.addEventListener('online', async () => {
   if (wsState === 'disconnected') {
     connectWebSocket();
   }
+  // Nur sync (Queue verarbeiten), KEIN refreshFromServer
+  // refreshFromServer würde Server-Daten holen und potenziell überschreiben
   await syncWithServer();
-  await refreshFromServer();
 });
 
 window.addEventListener('offline', () => {
@@ -929,16 +930,12 @@ async function toggleTodo(id) {
   renderStats();
   renderTodos();
 
-  // Server sync
+  // Immer in Queue (offline-first)
+  await addToSyncQueue('UPDATE_TODO', { id, changes: { status: newStatus } });
+
+  // Sofort syncen wenn online
   if (isOnlineForSync()) {
-    try {
-      await patch(`/api/todos/${id}`, { status: newStatus });
-    } catch (err) {
-      console.error('Sync failed', err);
-      await addToSyncQueue('UPDATE_TODO', { id, changes: { status: newStatus } });
-    }
-  } else {
-    await addToSyncQueue('UPDATE_TODO', { id, changes: { status: newStatus } });
+    await syncWithServer();
   }
 }
 
@@ -1045,15 +1042,10 @@ async function saveTodo(event) {
       await dbPut('todos', updated);
       todos = todos.map(t => t.id === parseInt(id) ? updated : t);
 
+      // Immer Queue (offline-first)
+      await addToSyncQueue('UPDATE_TODO', { id: parseInt(id), changes: todoData });
       if (isOnlineForSync()) {
-        try {
-          await patch(`/api/todos/${id}`, todoData);
-        } catch (err) {
-          console.error('Server sync failed', err);
-          await addToSyncQueue('UPDATE_TODO', { id: parseInt(id), changes: todoData });
-        }
-      } else {
-        await addToSyncQueue('UPDATE_TODO', { id: parseInt(id), changes: todoData });
+        await syncWithServer();
       }
     }
   } else {
@@ -1070,19 +1062,10 @@ async function saveTodo(event) {
     await dbPut('todos', newTodo);
     todos.push(newTodo);
 
+    // Immer Queue (offline-first)
+    await addToSyncQueue('CREATE_TODO', { ...todoData, _tempId: tempId });
     if (isOnlineForSync()) {
-      try {
-        const serverTodo = await post('/api/todos', todoData);
-        await deleteFromDB('todos', tempId);
-        serverTodo.id = serverTodo.id;
-        await dbPut('todos', serverTodo);
-        todos = todos.map(t => t.id === tempId ? serverTodo : t);
-      } catch (err) {
-        console.error('Server sync failed', err);
-        await addToSyncQueue('CREATE_TODO', { ...todoData, _tempId: tempId });
-      }
-    } else {
-      await addToSyncQueue('CREATE_TODO', { ...todoData, _tempId: tempId });
+      await syncWithServer();
     }
   }
 
