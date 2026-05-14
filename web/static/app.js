@@ -21,7 +21,7 @@ let appInitialized = false;
 let syncInProgress = false;
 let swRegistration = null;
 let updateAvailable = false;
-const APP_VERSION = 'v0.2.9';
+const APP_VERSION = 'v0.2.10';
 
 // ─── WebSocket ───────────────────────────────────────────────────────────────
 let ws = null;
@@ -56,13 +56,22 @@ function connectWebSocket() {
   try {
     ws = new WebSocket(WS_URL);
 
-    ws.onopen = () => {
+    ws.onopen = async () => {
       console.log('[WS] ✅ Connected');
       wsState = 'connected';
       reconnectAttempts = 0;
       updateConnectionStatus();
-      // Request full sync on connect
+
+      // ERST: Lokale Änderungen pushen (wenn Queue vorhanden)
+      try {
+        await syncWithServer();
+      } catch (e) {
+        console.error('Pre-sync failed', e);
+      }
+
+      // DANN: Full sync vom Server holen
       wsSend({ type: 'sync_request' });
+
       // Start ping interval
       startPingInterval();
     };
