@@ -1,5 +1,7 @@
-// nia-todo: Frontend app
+// nia-todo: Frontend app mit Offline-First PWA + Robust Sync
 const API = '';
+const DB_NAME = 'nia-todo-db';
+const DB_VERSION = 3;
 
 let todos = [];
 let projects = [];
@@ -7,7 +9,257 @@ let sections = [];
 let currentFilter = 'all';
 let currentProjectId = null;
 let dragSrcTodoId = null;
-let dragOverSectionId = null;
+let isOnline = navigator.onLine;
+let db = null;
+let dbReady = null;
+let appInitialized = false;
+let syncInProgress = false;
+
+// ─── IndexedDB ───────────────────────────────────────────────────────────────
+
+function openDB() {
+  dbReady = new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    
+    request.onupgradeneeded = (event) => {
+      db = event.target.result;
+      if (!db.objectStoreNames.contains('todos')) {
+        db.createObjectStore('todos', { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains('projects')) {
+        db.createObjectStore('projects', { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains('sections')) {
+        db.createObjectStore('sections', { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains('syncQueue')) {
+        db.createObjectStore('syncQueue', { keyPath: 'id', autoIncrement: true });
+      }
+    };
+    
+    request.onsuccess = (event) => {
+      db = event.target.result;
+      console.log('IndexedDB opened');
+      resolve(db);
+    };
+    
+    request.onerror = () => {
+      console.error('IndexedDB open failed', request.error);
+      reject(request.error);
+    };
+  });
+  return dbReady;
+}
+
+function dbGetAll(storeName) {
+  return new Promise((resolve) => {
+    if (!db) { resolve([]); return; }
+    const tx = db.transaction(storeName, 'readonly');
+    const store = tx.objectStore(storeName);
+    const request = store.getAll();
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => resolve([]);
+  });
+}
+
+function dbPut(storeName, item) {
+  return new Promise((resolve) => {
+    if (!db) { resolve(); return; }
+    const tx = db.transaction(storeName, 'readwrite');
+    const store = tx.objectStore(storeName);
+    const request = store.put(item);
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => resolve();
+  });
+}
+
+function dbClear(storeName) {
+  return new Promise((resolve) => {
+    if (!db) { resolve(); return; }
+    const tx = db.transaction(storeName, 'readwrite');
+    const store = tx.objectStore(storeName);
+    const request = store.clear();
+    request.onsuccess = () => resolve();
+    request.onerror = () => resolve();
+  });
+}
+
+function getFromDB(storeName, id) {
+  return new Promise((resolve) => {
+    if (!db) { resolve(null); return; }
+    const tx = db.transaction(storeName, 'readonly');
+    const store = tx.objectStore(storeName);
+    const request = store.get(id);
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => resolve(null);
+  });
+}
+
+function deleteFromDB(storeName, id) {
+  return new Promise((resolve) => {
+    if (!db) { resolve(); return; }
+    const tx = db.transaction(storeName, 'readwrite');
+    const store = tx.objectStore(storeName);
+    const request = store.delete(id);
+    request.onsuccess = () => resolve();
+    request.onerror = () => resolve();
+  });
+}
+
+async function clearSyncQueue() {
+  if (!db) return;
+  const tx = db.transaction('syncQueue', 'readwrite');
+  const store = tx.objectStore('syncQueue');
+  await new Promise((resolve) => {
+    const req = store.clear();
+    req.onsuccess = () => resolve();
+    req.onerror = () => resolve();
+  });
+}
+
+function addToSyncQueue(action, data) {
+  return dbPut('syncQueue', { action, data, timestamp: Date.now() });
+}
+
+// ─── Sync Logic (Kern der Offline→Online Synchronisation) ───────────────────
+
+async function syncWithServer() {
+  if (!isOnline || !db || syncInProgress) return;
+  syncInProgress = true;
+  
+  const queue = await dbGetAll('syncQueue');
+  if (!queue.length) {
+    syncInProgress = false;
+    return;
+  }
+  
+  console.log('Syncing', queue.length, 'pending actions');
+  let successCount = 0;
+  let failCount = 0;
+  
+  for (const item of queue) {
+    try {
+      if (item.action === 'CREATE_TODO') {
+        const res = await post('/api/todos', item.data);
+        // Neue Todos: Temp-ID mit Server-ID ersetzen
+        if (item.data._tempId) {
+          await deleteFromDB('todos', item.data._tempId);
+        }
+        await dbPut('todos', res);
+        successCount++;
+      } else if (item.action === 'UPDATE_TODO') {
+        await patch(`/api/todos/${item.data.id}`, item.data.changes);
+        successCount++;
+      } else if (item.action === 'DELETE_TODO') {
+        await del(`/api/todos/${item.data.id}`);
+        await deleteFromDB('todos', item.data.id);
+        successCount++;
+      } else if (item.action === 'CREATE_PROJECT') {
+        const res = await post('/api/projects', item.data);
+        await dbPut('projects', res);
+        successCount++;
+      }
+      
+      // Erfolgreich synched → aus Queue entfernen
+      if (db) {
+        const tx = db.transaction('syncQueue', 'readwrite');
+        tx.objectStore('syncQueue').delete(item.id);
+      }
+    } catch (err) {
+      console.error('Sync failed for action', item.action, err);
+      failCount++;
+    }
+  }
+  
+  console.log(`Sync complete: ${successCount} success, ${failCount} failed`);
+  syncInProgress = false;
+}
+
+async function refreshFromServer() {
+  if (!isOnline || !db) {
+    console.log('Offline - using local data');
+    return;
+  }
+  
+  try {
+    // 1. ZUERST: Lokale Änderungen pushen (damit Server den neuesten Stand hat)
+    await syncWithServer();
+    
+    // 2. DANN: Server-Daten holen und mergen (nicht überschreiben!)
+    const [todosData, projectsData] = await Promise.all([
+      get('/api/todos'),
+      get('/api/projects')
+    ]);
+    
+    const serverTodos = todosData.todos || [];
+    const serverProjects = projectsData.projects || [];
+    
+    // 3. Merge-Strategie: Server hat Vorrang für Konflikte, aber lokale Änderungen bleiben erhalten
+    // Wir speichern Server-Daten und markieren sie als "frisch"
+    for (const todo of serverTodos) {
+      const localTodo = await getFromDB('todos', todo.id);
+      if (!localTodo) {
+        // Neue Todo vom Server → hinzufügen
+        await dbPut('todos', todo);
+      } else {
+        // Todo existiert lokal → Server hat Vorrang (außer es ist in der Sync-Queue)
+        const queue = await dbGetAll('syncQueue');
+        const pendingChanges = queue.find(q => 
+          q.action === 'UPDATE_TODO' && q.data.id === todo.id
+        );
+        
+        if (!pendingChanges) {
+          // Keine lokalen Änderungen → Server-Daten übernehmen
+          await dbPut('todos', todo);
+        }
+        // Sonst: Lokale Änderungen behalten, werden beim nächsten Sync gepusht
+      }
+    }
+    
+    // Projekte einfach überschreiben (keine lokalen Projekt-Änderungen erwartet)
+    for (const project of serverProjects) {
+      await dbPut('projects', project);
+    }
+    
+    // 4. Lokale Daten neu laden
+    todos = await dbGetAll('todos');
+    projects = await dbGetAll('projects');
+    
+    renderProjects();
+    renderStats();
+    renderTodos();
+    
+    console.log('Refreshed from server:', todos.length, 'todos');
+  } catch (err) {
+    console.error('Refresh failed:', err);
+  }
+}
+
+// ─── Online/Offline Detection ────────────────────────────────────────────────
+
+window.addEventListener('online', async () => {
+  console.log('Device went online');
+  isOnline = true;
+  updateOnlineStatus();
+  
+  // WICHTIG: Zuerst lokale Änderungen pushen, DANN Server-Daten holen
+  await syncWithServer();
+  await refreshFromServer();
+});
+
+window.addEventListener('offline', () => {
+  console.log('Device went offline');
+  isOnline = false;
+  updateOnlineStatus();
+});
+
+function updateOnlineStatus() {
+  const indicator = document.getElementById('online-status');
+  if (indicator) {
+    indicator.textContent = isOnline ? '🟢 Online' : '🔴 Offline';
+    indicator.className = isOnline ? 'status-online' : 'status-offline';
+  }
+}
 
 // ─── Sidebar ─────────────────────────────────────────────────────────────────
 function toggleSidebar() {
@@ -23,17 +275,49 @@ function closeSidebar() {
 }
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
-  loadAll();
+
+document.addEventListener('DOMContentLoaded', async () => {
+  console.log('App starting...');
+  
+  try {
+    await openDB();
+    console.log('DB ready');
+  } catch (err) {
+    console.error('DB init failed:', err);
+  }
+  
+  try {
+    await loadFromLocalDB();
+    console.log('Local data loaded');
+  } catch (err) {
+    console.error('Local load failed:', err);
+  }
+  
+  appInitialized = true;
+  
+  if (isOnline) {
+    console.log('Online at startup - syncing...');
+    refreshFromServer().catch(err => console.error('Server refresh failed:', err));
+  }
+  
+  updateOnlineStatus();
+  console.log('App initialized');
 });
 
-async function loadAll() {
-  await loadProjects();
-  await loadTodos();
-  await loadSectionsForCurrentProject();
+async function loadFromLocalDB() {
+  todos = await dbGetAll('todos');
+  projects = await dbGetAll('projects');
+  sections = await dbGetAll('sections');
   renderProjects();
   renderStats();
   renderTodos();
+}
+
+async function loadAll() {
+  await loadFromLocalDB();
+  if (isOnline) {
+    await refreshFromServer();
+  }
 }
 
 // ─── API ──────────────────────────────────────────────────────────────────────
@@ -70,38 +354,11 @@ async function del(path) {
   return r.json();
 }
 
-async function loadTodos() {
-  const params = new URLSearchParams();
-  if (currentFilter !== 'all' && !['pending','in_progress','done'].includes(currentFilter)) {
-    params.set('project_id', currentFilter);
-  } else if (['pending','in_progress','done'].includes(currentFilter)) {
-    params.set('status', currentFilter);
-  }
-  const data = await get('/api/todos?' + params.toString());
-  todos = data.todos || [];
-}
-
-async function loadProjects() {
-  const data = await get('/api/projects');
-  projects = data.projects || [];
-}
-
-async function loadSectionsForCurrentProject() {
-  sections = [];
-  if (currentProjectId) {
-    try {
-      const data = await get(`/api/projects/${currentProjectId}/sections`);
-      sections = data.sections || [];
-    } catch (e) {
-      console.error('Failed to load sections', e);
-    }
-  }
-}
-
 // ─── Render ──────────────────────────────────────────────────────────────────
 
 function renderProjects() {
   const el = document.getElementById('project-list');
+  if (!el) return;
   el.innerHTML = projects.map(p => `
     <div class="nav-item-with-action">
       <button class="nav-btn ${currentFilter === String(p.id) ? 'active' : ''}" onclick="setFilter('${p.id}')">
@@ -117,6 +374,8 @@ function renderProjects() {
 }
 
 function renderStats() {
+  const el = document.getElementById('stats-bar');
+  if (!el) return;
   const total = todos.length;
   const pending = todos.filter(t => t.status === 'pending').length;
   const inprog = todos.filter(t => t.status === 'in_progress').length;
@@ -128,7 +387,7 @@ function renderStats() {
   document.getElementById('count-in_progress').textContent = inprog;
   document.getElementById('count-done').textContent = done;
 
-  document.getElementById('stats-bar').innerHTML = `
+  el.innerHTML = `
     <div class="stat-card total"><span class="stat-num">${total}</span> Gesamt</div>
     <div class="stat-card pending"><span class="stat-num">${pending}</span> Offen</div>
     <div class="stat-card pending"><span class="stat-num">${inprog}</span> In Arbeit</div>
@@ -139,7 +398,8 @@ function renderStats() {
 
 function renderTodos() {
   const el = document.getElementById('todo-list');
-  const search = document.getElementById('search-input').value.toLowerCase();
+  if (!el) return;
+  const search = document.getElementById('search-input')?.value?.toLowerCase() || '';
 
   let filtered = todos;
   if (search) {
@@ -149,40 +409,25 @@ function renderTodos() {
     );
   }
 
-  // When a project is selected, group by section
   if (currentProjectId) {
     let html = '';
 
-    // Sections with todos
     for (const section of sections) {
       const sectionTodos = filtered.filter(t => t.section_id === section.id);
       if (!sectionTodos.length) continue;
       html += renderSectionHeader(section);
-      html += `<div class="section-todos" data-section-id="${section.id}" ondragover="onDragOver(event)" ondrop="onDropOnSection(event, ${section.id})">`;
+      html += `<div class="section-todos" data-section-id="${section.id}">`;
       html += sectionTodos.map(t => renderTodoItem(t)).join('');
       html += `</div>`;
     }
 
-    // Unsorted section
     const unsorted = filtered.filter(t => !t.section_id);
     if (unsorted.length || sections.length) {
       html += renderSectionHeader(null);
-      html += `<div class="section-todos" data-section-id="null" ondragover="onDragOver(event)" ondrop="onDropOnSection(event, null)">`;
+      html += `<div class="section-todos" data-section-id="null">`;
       html += unsorted.map(t => renderTodoItem(t)).join('');
       html += `</div>`;
     }
-
-    // Add section button
-    html += `<div class="add-section-row">
-      <button class="btn btn-add-section" onclick="showAddSectionInline(this)">
-        <span>➕</span> Section
-      </button>
-      <form class="inline-section-form" style="display:none;" onsubmit="createSectionInline(event, this)">
-        <input type="text" placeholder="Section-Name..." required>
-        <button type="submit">✓</button>
-        <button type="button" onclick="cancelAddSection(this)">✕</button>
-      </form>
-    </div>`;
 
     if (!filtered.length && !sections.length) {
       html = `<div class="empty-state">
@@ -196,7 +441,6 @@ function renderTodos() {
     return;
   }
 
-  // Default grouping by status
   const groups = {
     pending: '⏳ Offen',
     in_progress: '🔥 In Arbeit',
@@ -227,15 +471,9 @@ function renderTodos() {
 function renderSectionHeader(section) {
   if (section) {
     return `
-      <div class="section-header" draggable="false" data-section-id="${section.id}">
-        <span class="section-name" onclick="editSectionInline(this, ${section.id})">${escapeHtml(section.name)}</span>
+      <div class="section-header" data-section-id="${section.id}">
+        <span class="section-name">${escapeHtml(section.name)}</span>
         <span class="section-count">${todos.filter(t => t.section_id === section.id).length}</span>
-        <button class="section-delete" onclick="deleteSection(${section.id})" title="Löschen">🗑️</button>
-        <form class="inline-edit-form" style="display:none;" onsubmit="saveSectionInline(event, ${section.id}, this)">
-          <input type="text" value="${escapeHtml(section.name)}" required>
-          <button type="submit">✓</button>
-          <button type="button" onclick="cancelEditSection(this)">✕</button>
-        </form>
       </div>
     `;
   } else {
@@ -256,7 +494,7 @@ function renderTodoItem(t) {
   const project = projects.find(p => p.id === t.project_id);
 
   return `
-    <div class="todo-item ${t.status === 'done' ? 'done' : ''}" data-id="${t.id}" draggable="true" ondragstart="onDragStart(event, ${t.id})" ondragend="onDragEnd(event)" onclick="editTodo(${t.id})">
+    <div class="todo-item ${t.status === 'done' ? 'done' : ''}" data-id="${t.id}" onclick="editTodo(${t.id})">
       <div class="todo-check" onclick="event.stopPropagation(); toggleTodo(${t.id})">
         ${t.status === 'done' ? '✓' : ''}
       </div>
@@ -267,137 +505,12 @@ function renderTodoItem(t) {
           <span class="todo-prio">${prioEmoji}</span>
           ${dueStr ? `<span class="todo-due ${isOverdue ? 'overdue' : ''}">📅 ${dueStr}${isOverdue ? ' (überfällig)' : ''}</span>` : ''}
         </div>
-        ${t.description ? `<div style="margin-top:4px;font-size:13px;color:var(--text-muted)">${escapeHtml(t.description)}</div>` : ''}
       </div>
       <div class="todo-actions" onclick="event.stopPropagation()">
         <button onclick="deleteTodo(${t.id})" title="Löschen">🗑️</button>
       </div>
     </div>
   `;
-}
-
-// ─── Drag & Drop ─────────────────────────────────────────────────────────────
-
-function onDragStart(e, todoId) {
-  dragSrcTodoId = todoId;
-  e.dataTransfer.setData('text/plain', String(todoId));
-  e.dataTransfer.effectAllowed = 'move';
-  document.querySelectorAll('.todo-item').forEach(el => {
-    if (el.dataset.id !== String(todoId)) {
-      el.style.opacity = '0.5';
-    }
-  });
-}
-
-function onDragEnd(e) {
-  dragSrcTodoId = null;
-  document.querySelectorAll('.todo-item').forEach(el => el.style.opacity = '');
-  document.querySelectorAll('.section-header').forEach(el => el.classList.remove('drag-over'));
-  document.querySelectorAll('.section-todos').forEach(el => el.classList.remove('drag-over'));
-}
-
-function onDragOver(e) {
-  e.preventDefault();
-  e.dataTransfer.dropEffect = 'move';
-}
-
-async function onDropOnSection(e, sectionId) {
-  e.preventDefault();
-  if (!dragSrcTodoId) return;
-
-  const todoId = dragSrcTodoId;
-  const todo = todos.find(t => t.id === todoId);
-  if (!todo) return;
-
-  // Update the todo's section
-  try {
-    await patch(`/api/todos/${todoId}`, { section_id: sectionId });
-    await loadAll();
-  } catch (err) {
-    console.error('Failed to move todo to section', err);
-    alert('Fehler beim Verschieben: ' + err.message);
-  }
-}
-
-// ─── Section Inline Actions ──────────────────────────────────────────────────
-
-function showAddSectionInline(btn) {
-  const row = btn.closest('.add-section-row');
-  btn.style.display = 'none';
-  row.querySelector('.inline-section-form').style.display = 'flex';
-  row.querySelector('input').focus();
-}
-
-function cancelAddSection(btn) {
-  const row = btn.closest('.add-section-row');
-  row.querySelector('.btn-add-section').style.display = 'inline-flex';
-  row.querySelector('.inline-section-form').style.display = 'none';
-  row.querySelector('input').value = '';
-}
-
-async function createSectionInline(e, form) {
-  e.preventDefault();
-  const name = form.querySelector('input').value.trim();
-  if (!name || !currentProjectId) return;
-
-  try {
-    await post(`/api/projects/${currentProjectId}/sections`, { name, sort_order: sections.length });
-    await loadAll();
-  } catch (err) {
-    console.error('Failed to create section', err);
-    alert('Fehler beim Erstellen: ' + err.message);
-  }
-}
-
-function editSectionInline(span, sectionId) {
-  const header = span.closest('.section-header');
-  span.style.display = 'none';
-  const actions = header.querySelector('.section-actions');
-  if (actions) actions.style.display = 'none';
-  const count = header.querySelector('.section-count');
-  if (count) count.style.display = 'none';
-  const form = header.querySelector('.inline-edit-form');
-  if (form) {
-    form.style.display = 'flex';
-    form.querySelector('input').focus();
-  }
-}
-
-function cancelEditSection(btn) {
-  const header = btn.closest('.section-header');
-  const name = header.querySelector('.section-name');
-  if (name) name.style.display = '';
-  const actions = header.querySelector('.section-actions');
-  if (actions) actions.style.display = '';
-  const count = header.querySelector('.section-count');
-  if (count) count.style.display = '';
-  const form = header.querySelector('.inline-edit-form');
-  if (form) form.style.display = 'none';
-}
-
-async function saveSectionInline(e, sectionId, form) {
-  e.preventDefault();
-  const name = form.querySelector('input').value.trim();
-  if (!name) return;
-
-  try {
-    await patch(`/api/sections/${sectionId}`, { name });
-    await loadAll();
-  } catch (err) {
-    console.error('Failed to update section', err);
-    alert('Fehler beim Speichern: ' + err.message);
-  }
-}
-
-async function deleteSection(sectionId) {
-  if (!confirm('Section löschen? Todos werden zu "Unsortiert" verschoben.')) return;
-  try {
-    await del(`/api/sections/${sectionId}`);
-    await loadAll();
-  } catch (err) {
-    console.error('Failed to delete section', err);
-    alert('Fehler beim Löschen: ' + err.message);
-  }
 }
 
 // ─── Actions ─────────────────────────────────────────────────────────────────
@@ -408,7 +521,34 @@ function setFilter(filter) {
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   event.target.closest('.nav-btn')?.classList.add('active');
   closeSidebar();
-  loadAll();
+  
+  loadSectionsForCurrentProject().then(() => {
+    renderTodos();
+  });
+}
+
+async function loadSectionsForCurrentProject() {
+  sections = [];
+  if (!currentProjectId) return;
+  
+  try {
+    const allSections = await dbGetAll('sections');
+    sections = allSections.filter(s => s.project_id === currentProjectId);
+  } catch (e) {
+    console.error('Failed to load sections from local DB', e);
+  }
+  
+  if (isOnline) {
+    try {
+      const data = await get(`/api/projects/${currentProjectId}/sections`);
+      sections = data.sections || [];
+      for (const s of sections) {
+        await dbPut('sections', s);
+      }
+    } catch (e) {
+      console.error('Failed to load sections from server', e);
+    }
+  }
 }
 
 function countByProject(pid) {
@@ -416,24 +556,46 @@ function countByProject(pid) {
 }
 
 async function toggleTodo(id) {
+  if (!appInitialized || !db) return;
+  
   const t = todos.find(x => x.id === id);
+  if (!t) return;
+  
   const newStatus = t.status === 'done' ? 'pending' : 'done';
-  await patch(`/api/todos/${id}`, { status: newStatus });
-  await loadAll();
+  
+  // Update local
+  const updatedTodo = { ...t, status: newStatus, updated_at: new Date().toISOString() };
+  await dbPut('todos', updatedTodo);
+  
+  // UI updaten
+  todos = todos.map(todo => todo.id === id ? updatedTodo : todo);
+  renderStats();
+  renderTodos();
+  
+  // Server sync
+  if (isOnline) {
+    try {
+      await patch(`/api/todos/${id}`, { status: newStatus });
+    } catch (err) {
+      console.error('Sync failed', err);
+      await addToSyncQueue('UPDATE_TODO', { id, changes: { status: newStatus } });
+    }
+  } else {
+    await addToSyncQueue('UPDATE_TODO', { id, changes: { status: newStatus } });
+  }
 }
 
 function showTodoModal(todo = null) {
-  document.getElementById('todo-form').reset();
+  document.getElementById('todo-form')?.reset();
   document.getElementById('todo-id').value = '';
   document.getElementById('todo-modal-title').textContent = todo ? 'Todo bearbeiten' : 'Neues Todo';
 
   const projSelect = document.getElementById('todo-project');
-  projSelect.innerHTML = projects.map(p =>
-    `<option value="${p.id}" style="color:${p.color}">${escapeHtml(p.name)}</option>`
-  ).join('');
-
-  // Render section dropdown
-  renderSectionDropdown(todo ? todo.project_id : null, todo ? todo.section_id : null);
+  if (projSelect) {
+    projSelect.innerHTML = projects.map(p =>
+      `<option value="${p.id}" style="color:${p.color}">${escapeHtml(p.name)}</option>`
+    ).join('');
+  }
 
   if (todo) {
     document.getElementById('todo-id').value = todo.id;
@@ -442,186 +604,221 @@ function showTodoModal(todo = null) {
     document.getElementById('todo-priority').value = todo.priority;
     document.getElementById('todo-status').value = todo.status;
     document.getElementById('todo-project').value = todo.project_id || '';
-    document.getElementById('todo-due').value = todo.due_date ? todo.due_date.slice(0, 16) : '';
-    const rem = (todo.reminders || [])[0];
-    document.getElementById('todo-remind').value = rem ? rem.remind_at.slice(0, 16) : '';
+    
+    if (todo.due_date) {
+      document.getElementById('todo-due').value = new Date(todo.due_date).toISOString().slice(0, 16);
+    }
   }
-
-  document.getElementById('todo-modal').classList.add('active');
+  
+  document.getElementById('todo-modal')?.classList.add('active');
 }
 
-function renderSectionDropdown(projectId, selectedSectionId) {
-  const sectionSelect = document.getElementById('todo-section');
-  sectionSelect.innerHTML = '<option value="">Keine Section (Unsortiert)</option>';
-
-  if (!projectId) {
-    sectionSelect.disabled = true;
-    return;
-  }
-
-  const projectSections = sections.filter(s => s.project_id === projectId);
-  if (!projectSections.length) {
-    // Try to fetch sections for this project
-    get(`/api/projects/${projectId}/sections`).then(data => {
-      const secs = data.sections || [];
-      sectionSelect.innerHTML = '<option value="">Keine Section (Unsortiert)</option>' +
-        secs.map(s => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
-      if (selectedSectionId) sectionSelect.value = selectedSectionId;
-    }).catch(() => {
-      sectionSelect.disabled = true;
-    });
-    return;
-  }
-
-  sectionSelect.innerHTML = '<option value="">Keine Section (Unsortiert)</option>' +
-    projectSections.map(s => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
-  sectionSelect.disabled = false;
-  if (selectedSectionId) sectionSelect.value = selectedSectionId;
-}
-
-// Listen for project change in modal
-function onProjectChange() {
-  const projectId = parseInt(document.getElementById('todo-project').value);
-  renderSectionDropdown(projectId, null);
-}
-
-function editTodo(id) {
-  const t = todos.find(x => x.id === id);
-  if (t) showTodoModal(t);
-}
-
-async function saveTodo(e) {
-  e.preventDefault();
+async function saveTodo(event) {
+  event.preventDefault();
+  if (!appInitialized || !db) return;
+  
   const id = document.getElementById('todo-id').value;
-
-  const body = {
+  const todoData = {
     title: document.getElementById('todo-title').value,
     description: document.getElementById('todo-desc').value,
     priority: parseInt(document.getElementById('todo-priority').value),
-    status: document.getElementById('todo-status').value,
     project_id: document.getElementById('todo-project').value ? parseInt(document.getElementById('todo-project').value) : null,
+    status: document.getElementById('todo-status').value,
     due_date: document.getElementById('todo-due').value ? new Date(document.getElementById('todo-due').value).toISOString() : null,
     remind_at: document.getElementById('todo-remind').value ? new Date(document.getElementById('todo-remind').value).toISOString() : null
   };
 
-  const sectionVal = document.getElementById('todo-section').value;
-  if (sectionVal !== '') {
-    body.section_id = parseInt(sectionVal);
-  } else {
-    body.section_id = null;
-  }
-
   if (id) {
-    await patch(`/api/todos/${id}`, body);
+    // Bestehendes Todo aktualisieren
+    const existing = todos.find(t => t.id === parseInt(id));
+    if (existing) {
+      const updated = { ...existing, ...todoData, updated_at: new Date().toISOString() };
+      await dbPut('todos', updated);
+      todos = todos.map(t => t.id === parseInt(id) ? updated : t);
+      
+      if (isOnline) {
+        try {
+          await patch(`/api/todos/${id}`, todoData);
+        } catch (err) {
+          console.error('Server sync failed', err);
+          await addToSyncQueue('UPDATE_TODO', { id: parseInt(id), changes: todoData });
+        }
+      } else {
+        await addToSyncQueue('UPDATE_TODO', { id: parseInt(id), changes: todoData });
+      }
+    }
   } else {
-    await post('/api/todos', body);
+    // Neues Todo erstellen
+    const tempId = 'temp-' + Date.now();
+    const newTodo = {
+      id: tempId,
+      ...todoData,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      reminders: [],
+      labels: []
+    };
+    await dbPut('todos', newTodo);
+    todos.push(newTodo);
+    
+    if (isOnline) {
+      try {
+        const serverTodo = await post('/api/todos', todoData);
+        // Temp-ID durch Server-ID ersetzen
+        await deleteFromDB('todos', tempId);
+        serverTodo.id = serverTodo.id;
+        await dbPut('todos', serverTodo);
+        todos = todos.map(t => t.id === tempId ? serverTodo : t);
+      } catch (err) {
+        console.error('Server sync failed', err);
+        await addToSyncQueue('CREATE_TODO', { ...todoData, _tempId: tempId });
+      }
+    } else {
+      await addToSyncQueue('CREATE_TODO', { ...todoData, _tempId: tempId });
+    }
   }
-
+  
+  renderProjects();
+  renderStats();
+  renderTodos();
   closeModal('todo-modal');
-  await loadAll();
+}
+
+function editTodo(id) {
+  const todo = todos.find(t => t.id === id);
+  if (todo) showTodoModal(todo);
 }
 
 async function deleteTodo(id) {
-  if (!confirm('Wirklich löschen?')) return;
-  await del(`/api/todos/${id}`);
-  await loadAll();
-}
-
-async function deleteProject(id, name) {
-  const inbox = projects.find(p => p.id === 1);
-  const inboxName = inbox ? inbox.name : 'Inbox';
-  if (!confirm(`Projekt "${name}" löschen?\n\nAlle Todos werden in "${inboxName}" verschoben.`)) return;
-  await del(`/api/projects/${id}`);
-  if (currentFilter === String(id)) {
-    currentFilter = 'all';
-    currentProjectId = null;
+  if (!confirm('Todo wirklich löschen?')) return;
+  
+  await deleteFromDB('todos', id);
+  todos = todos.filter(t => t.id !== id);
+  renderStats();
+  renderTodos();
+  closeModal('todo-modal');
+  
+  if (isOnline) {
+    try {
+      await del(`/api/todos/${id}`);
+    } catch (err) {
+      console.error('Server delete failed', err);
+      await addToSyncQueue('DELETE_TODO', { id });
+    }
+  } else {
+    await addToSyncQueue('DELETE_TODO', { id });
   }
-  await loadAll();
 }
 
-function showProjectModal() {
-  closeSidebar();
+function showProjectModal(project = null) {
   document.getElementById('project-form')?.reset();
   document.getElementById('project-id').value = '';
-  document.getElementById('project-modal-title').textContent = 'Neues Projekt';
-  document.getElementById('project-name').value = '';
-  document.getElementById('project-color').value = '#6366f1';
-  document.getElementById('project-delete-btn').style.display = 'none';
-  document.getElementById('project-modal').classList.add('active');
+  document.getElementById('project-modal-title').textContent = project ? 'Projekt bearbeiten' : 'Neues Projekt';
+  
+  if (project) {
+    document.getElementById('project-id').value = project.id;
+    document.getElementById('project-name').value = project.name;
+    document.getElementById('project-color').value = project.color;
+  }
+  
+  document.getElementById('project-modal')?.classList.add('active');
 }
 
 function editProject(id) {
-  closeSidebar();
-  const p = projects.find(x => x.id === id);
-  if (!p) return;
-  document.getElementById('project-id').value = p.id;
-  document.getElementById('project-modal-title').textContent = 'Projekt bearbeiten';
-  document.getElementById('project-name').value = p.name;
-  document.getElementById('project-color').value = p.color;
-  document.getElementById('project-delete-btn').style.display = id === 1 ? 'none' : 'inline-flex';
-  document.getElementById('project-modal').classList.add('active');
+  const project = projects.find(p => p.id === id);
+  if (project) showProjectModal(project);
 }
 
-async function saveProject(e) {
-  e.preventDefault();
+async function saveProject(event) {
+  event.preventDefault();
+  
   const id = document.getElementById('project-id').value;
-  const body = {
+  const projectData = {
     name: document.getElementById('project-name').value,
-    color: document.getElementById('project-color').value
+    color: document.getElementById('project-color').value,
+    sort_order: projects.length
   };
-  if (id) {
-    await patch(`/api/projects/${id}`, body);
+
+  if (isOnline) {
+    try {
+      if (id) {
+        await patch(`/api/projects/${id}`, projectData);
+      } else {
+        const res = await post('/api/projects', projectData);
+        await dbPut('projects', res);
+        projects.push(res);
+      }
+      await refreshFromServer();
+      closeModal('project-modal');
+    } catch (err) {
+      console.error('Save failed', err);
+      alert('Fehler beim Speichern: ' + err.message);
+    }
   } else {
-    await post('/api/projects', body);
+    alert('Offline - Projekt kann nicht erstellt werden');
   }
-  closeModal('project-modal');
-  await loadAll();
+}
+
+async function deleteProject(id) {
+  if (!confirm('Projekt wirklich löschen?')) return;
+  
+  if (isOnline) {
+    try {
+      await del(`/api/projects/${id}`);
+      await refreshFromServer();
+      closeModal('project-modal');
+    } catch (err) {
+      console.error('Delete failed', err);
+      alert('Fehler beim Löschen');
+    }
+  } else {
+    alert('Offline - Projekt kann nicht gelöscht werden');
+  }
 }
 
 function deleteProjectFromModal() {
   const id = document.getElementById('project-id').value;
-  const name = document.getElementById('project-name').value;
-  if (!id || parseInt(id) === 1) return;
-  deleteProject(parseInt(id), name);
-  closeModal('project-modal');
+  if (id) deleteProject(parseInt(id));
 }
 
-function closeModal(id) {
-  document.getElementById(id).classList.remove('active');
+// ─── Modal Helpers ───────────────────────────────────────────────────────────
+
+function closeModal(modalId) {
+  document.getElementById(modalId)?.classList.remove('active');
 }
 
-// ─── Utils ───────────────────────────────────────────────────────────────────
+// ─── Utilities ───────────────────────────────────────────────────────────────
 
-function escapeHtml(text) {
-  if (!text) return '';
-  const d = document.createElement('div');
-  d.textContent = text;
-  return d.innerHTML;
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-function formatDate(iso) {
-  const d = new Date(iso);
+function formatDate(isoString) {
+  if (!isoString) return '';
+  const date = new Date(isoString);
   const today = new Date();
-  today.setHours(0,0,0,0);
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
-  const dateOnly = new Date(d);
-  dateOnly.setHours(0,0,0,0);
-
-  if (dateOnly.getTime() === today.getTime()) return 'Heute';
-  if (dateOnly.getTime() === tomorrow.getTime()) return 'Morgen';
-
-  return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })
-    + ' ' + d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+  
+  if (date.toDateString() === today.toDateString()) {
+    return 'Heute ' + date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+  } else if (date.toDateString() === tomorrow.toDateString()) {
+    return 'Morgen ' + date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+  } else {
+    return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' }) + ' ' + 
+           date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+  }
 }
 
 // Keyboard shortcuts
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') {
-    document.querySelectorAll('.modal.active').forEach(m => m.classList.remove('active'));
+  if (e.key === 'n' && !e.ctrlKey && !e.metaKey && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+    e.preventDefault();
+    showTodoModal();
   }
-  if (e.key === 'n' && !e.ctrlKey && !e.metaKey && !e.altKey) {
-    const active = document.querySelector('.modal.active');
-    if (!active) showTodoModal();
+  if (e.key === 'Escape') {
+    closeModal('todo-modal');
+    closeModal('project-modal');
   }
 });

@@ -32,10 +32,13 @@ CREATE TABLE IF NOT EXISTS todos (
     project_id INTEGER,
     section_id INTEGER,
     sort_order REAL DEFAULT 0,
+    recurring_rule TEXT,  -- JSON: {"interval": "daily|weekly|monthly|yearly", "every": 1, "weekday": 1-7, "day_of_month": 1-31}
+    parent_id INTEGER,    -- ID des ursprünglichen recurring Todos
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now')),
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL,
-    FOREIGN KEY (section_id) REFERENCES sections(id) ON DELETE SET NULL
+    FOREIGN KEY (section_id) REFERENCES sections(id) ON DELETE SET NULL,
+    FOREIGN KEY (parent_id) REFERENCES todos(id) ON DELETE SET NULL
 );
 
 -- Sections

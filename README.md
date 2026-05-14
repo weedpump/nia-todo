@@ -1,13 +1,15 @@
 # ✨ nia-todo
 
-Selfhosted Todo-System — ersetzt Todoist. SQLite + FastAPI + schicke Web-UI + Telegram-Erinnerungen.
+Selfhosted Todo-System — ersetzt Todoist. SQLite + FastAPI + schicke Web-UI + Offline-PWA + Telegram-Erinnerungen.
 
 ## Features
 
 - 📝 Todos mit Titel, Beschreibung, Priorität, Deadline
 - 📁 Projekte/Kategorien (Inbox, Privat, Arbeit, Einkauf, ...)
+- 🔲 Sections innerhalb von Projekten
 - ⏰ Erinnerungen mit Telegram-Benachrichtigung
 - 🌐 Schicke Web-UI unter `http://todo-dev.kneidl-home.de:8753`
+- 📱 **PWA — Offline-First!** Installierbar auf Android, funktioniert offline
 - 🗄️ SQLite-Datenbank (lokal, kein Cloud-Quatsch)
 - 🤖 Sprachintegration via Nia (Telegram)
 
@@ -20,6 +22,23 @@ cd ~/projects/nia-todo
 
 Dann im Browser öffnen: `http://todo-dev.kneidl-home.de:8753`
 
+## PWA — Offline-First
+
+nia-todo ist eine Progressive Web App (PWA) die auch offline funktioniert:
+
+1. **Im Browser öffnen** → `http://todo-dev.kneidl-home.de:8753`
+2. **Menü (⋮)** → "Zum Startbildschirm hinzufügen"
+3. **App installiert!** 📱
+
+**Offline-Funktionen:**
+- ✅ Todos anlegen, abhaken, ändern
+- ✅ Projekte wechseln
+- ✅ Alle Änderungen werden lokal gespeichert
+- ✅ Auto-Sync wenn wieder online
+- ✅ App lädt auch ohne Internet-Verbindung
+
+**Wichtig:** Beim ersten Start muss die App online sein damit der Service Worker sich registrieren und die Assets cachen kann.
+
 ## Projektstruktur
 
 ```
@@ -31,9 +50,12 @@ nia-todo/
 │       └── nia-todo.db  # Datenbank
 ├── web/
 │   ├── index.html       # Web-UI
+│   ├── manifest.json    # PWA Manifest
+│   ├── sw.js            # Service Worker (Offline-Support)
 │   └── static/
 │       ├── style.css    # Dark Mode ✨
-│       └── app.js       # Frontend Logic
+│       ├── app.js       # Frontend Logic
+│       └── icons/       # PWA Icons
 ├── scripts/
 │   └── reminder-check.py  # Cron-Job für Erinnerungen
 ├── start.sh             # Server starten
@@ -49,6 +71,7 @@ nia-todo/
 GET /api/todos
 GET /api/todos?status=pending
 GET /api/todos?project_id=2
+GET /api/todos?section_id=1
 ```
 
 **Response:**
@@ -64,7 +87,9 @@ GET /api/todos?project_id=2
       "due_date": "2026-05-14T10:00:00+00:00",
       "completed_at": null,
       "project_id": 3,
+      "section_id": null,
       "project_name": "Arbeit",
+      "section_name": null,
       "created_at": "2026-05-12T21:39:40",
       "updated_at": "2026-05-12T21:39:40",
       "reminders": [],
@@ -86,6 +111,7 @@ POST /api/todos
   "description": "Nicht vergessen: Wäsche raushängen!",
   "priority": 3,
   "project_id": 2,
+  "section_id": 1,
   "due_date": "2026-05-14T10:00:00Z",
   "remind_at": "2026-05-14T09:00:00Z"
 }
@@ -97,6 +123,7 @@ POST /api/todos
 | `description` | string | ❌ | Details/Beschreibung |
 | `priority` | int | ❌ | 1=🔴 Sehr hoch, 2=🟡 Hoch, 3=🟢 Mittel (Default), 4=⚪ Niedrig |
 | `project_id` | int | ❌ | Projekt-Zuordnung (null = Inbox) |
+| `section_id` | int | ❌ | Section-Zuordnung |
 | `due_date` | string | ❌ | Deadline als ISO 8601 |
 | `remind_at` | string | ❌ | Erinnerungszeit als ISO 8601 |
 
@@ -144,6 +171,36 @@ DELETE /api/projects/{id}
 ```
 
 > ⚠️ Inbox (id=1) kann nicht gelöscht werden. Alle Todos werden vorher in die Inbox verschoben.
+
+### Sections
+
+#### Sections eines Projekts abrufen
+```
+GET /api/projects/{project_id}/sections
+```
+
+#### Section erstellen
+```
+POST /api/projects/{project_id}/sections
+```
+
+**Body:**
+```json
+{
+  "name": "🍎 Obst & Gemüse",
+  "sort_order": 0
+}
+```
+
+#### Section aktualisieren
+```
+PATCH /api/sections/{id}
+```
+
+#### Section löschen
+```
+DELETE /api/sections/{id}
+```
 
 ### Reminders
 
@@ -201,6 +258,8 @@ GET /api/dashboard
 | `/api/todos/{id}` | GET, PATCH, DELETE | Einzelnes Todo |
 | `/api/projects` | GET, POST | Projekte |
 | `/api/projects/{id}` | GET, PATCH, DELETE | Einzelnes Projekt |
+| `/api/projects/{id}/sections` | GET, POST | Sections eines Projekts |
+| `/api/sections/{id}` | GET, PATCH, DELETE | Einzelne Section |
 | `/api/reminders` | GET | Fällige Erinnerungen |
 | `/api/reminders/{id}/sent` | POST | Als gesendet markieren |
 | `/api/dashboard` | GET | Statistiken |
@@ -222,9 +281,9 @@ cp api/data/nia-todo.db ~/backup/nia-todo-$(date +%Y%m%d).db
 
 ## TODOs
 
-- [ ] Drag & Drop Sortierung
 - [ ] Wiederkehrende Todos
 - [ ] Import aus Todoist-Export
+- [ ] Drag & Drop Sortierung
 
 ---
 

@@ -816,3 +816,20 @@ input[type="color"]::-moz-color-swatch {
     display: inline-block;
   }
 }
+
+/* Online Status Indicator */
+#online-status {
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 12px;
+  margin-right: 8px;
+  font-weight: 600;
+}
+.status-online {
+  background: rgba(34, 197, 94, 0.2);
+  color: #22c55e;
+}
+.status-offline {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}

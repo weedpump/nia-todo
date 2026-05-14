@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>nia-todo</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#6366f1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
@@ -56,6 +60,7 @@
           <input type="text" id="search-input" placeholder="🔍 Todo suchen..." oninput="renderTodos()">
         </div>
         <div class="topbar-actions">
+          <span id="online-status" class="status-online">🟢 Online</span>
           <button class="btn btn-primary" onclick="showTodoModal()">
             <span>➕</span> Neues Todo
           </button>
@@ -164,6 +169,13 @@
     </div>
   </div>
 
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js')
+        .then(reg => console.log('SW registered:', reg.scope))
+        .catch(err => console.error('SW registration failed:', err));
+    }
+  </script>
   <script src="/static/app.js"></script>
 </body>
 </html>

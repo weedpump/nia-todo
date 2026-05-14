@@ -328,6 +328,18 @@ if WEB_DIR.exists():
     def index():
         return FileResponse(str(WEB_DIR / "index.html"))
 
+    @app.get("/sw.js")
+    @app.head("/sw.js")
+    def sw_js():
+        return FileResponse(str(WEB_DIR / "sw.js"))
+
+    @app.get("/favicon.ico")
+    @app.head("/favicon.ico")
+    def favicon():
+        if (WEB_DIR / "favicon.ico").exists():
+            return FileResponse(str(WEB_DIR / "favicon.ico"))
+        return FileResponse(str(WEB_DIR / "static" / "icons" / "icon-192.png"))
+
     @app.get("/{path:path}")
     def spa(path: str):
         f = WEB_DIR / path
