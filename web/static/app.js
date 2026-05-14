@@ -1,5 +1,10 @@
-// nia-todo: Frontend app mit Offline-First PWA + Robust Sync
+// nia-todo: Frontend app mit Offline-First PWA + WebSocket Echtzeit-Sync
 const API = '';
+const WS_URL = (() => {
+  const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${proto}//${window.location.host}/ws`;
+})();
+
 const DB_NAME = 'nia-todo-db';
 const DB_VERSION = 3;
 
@@ -9,21 +14,250 @@ let sections = [];
 let currentFilter = 'all';
 let currentProjectId = null;
 let dragSrcTodoId = null;
-let isOnline = navigator.onLine;
 let db = null;
 let dbReady = null;
 let appInitialized = false;
 let syncInProgress = false;
 let swRegistration = null;
 let updateAvailable = false;
-const APP_VERSION = 'v0.1.4';
+const APP_VERSION = 'v0.2.1';
+
+// ─── WebSocket ───────────────────────────────────────────────────────────────
+let ws = null;
+let wsState = 'disconnected'; // connected, connecting, reconnecting, disconnected
+let reconnectAttempts = 0;
+const MAX_RECONNECT_ATTEMPTS = 10;
+const BASE_RECONNECT_DELAY = 1000;
+let pingInterval = null;
+let reconnectTimer = null;
+let wsIntentionalClose = false;
+
+function getReconnectDelay() {
+  const delay = Math.min(BASE_RECONNECT_DELAY * Math.pow(2, reconnectAttempts), 30000);
+  const jitter = Math.random() * 1000;
+  return delay + jitter;
+}
+
+function connectWebSocket() {
+  if (ws && (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN)) {
+    console.log('[WS] Already connecting or open');
+    return;
+  }
+  if (wsIntentionalClose) {
+    console.log('[WS] Intentionally closed, skipping reconnect');
+    return;
+  }
+
+  wsState = reconnectAttempts > 0 ? 'reconnecting' : 'connecting';
+  updateConnectionStatus();
+  console.log('[WS] Connecting to ' + WS_URL + ' (attempt ' + (reconnectAttempts + 1) + ')');
+
+  try {
+    ws = new WebSocket(WS_URL);
+
+    ws.onopen = () => {
+      console.log('[WS] ✅ Connected');
+      wsState = 'connected';
+      reconnectAttempts = 0;
+      updateConnectionStatus();
+      // Request full sync on connect
+      wsSend({ type: 'sync_request' });
+      // Start ping interval
+      startPingInterval();
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+        handleWsMessage(msg);
+      } catch (e) {
+        console.error('WS: parse error', e);
+      }
+    };
+
+    ws.onclose = (event) => {
+      console.log('[WS] ❌ Closed (code=' + event.code + ', reason=' + (event.reason || 'none') + ')');
+      stopPingInterval();
+      ws = null;
+      if (!wsIntentionalClose) {
+        wsState = 'disconnected';
+        updateConnectionStatus();
+        scheduleReconnect();
+      }
+    };
+
+    ws.onerror = (err) => {
+      console.error('[WS] 💥 Error:', err);
+      wsState = 'disconnected';
+      updateConnectionStatus();
+    };
+  } catch (e) {
+    console.error('[WS] Failed to create WebSocket:', e);
+    wsState = 'disconnected';
+    updateConnectionStatus();
+    scheduleReconnect();
+  }
+}
+
+function wsSend(data) {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify(data));
+  }
+}
+
+function startPingInterval() {
+  stopPingInterval();
+  pingInterval = setInterval(() => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      wsSend({ type: 'ping' });
+    }
+  }, 30000);
+}
+
+function stopPingInterval() {
+  if (pingInterval) {
+    clearInterval(pingInterval);
+    pingInterval = null;
+  }
+}
+
+function scheduleReconnect() {
+  if (reconnectTimer) return;
+  if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+    console.warn('WS: max reconnect attempts reached');
+    return;
+  }
+  const delay = getReconnectDelay();
+  reconnectAttempts++;
+  console.log(`WS: reconnecting in ${Math.round(delay)}ms (attempt ${reconnectAttempts})`);
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = null;
+    connectWebSocket();
+  }, delay);
+}
+
+function disconnectWebSocket() {
+  wsIntentionalClose = true;
+  stopPingInterval();
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+  }
+  if (ws) {
+    ws.close();
+    ws = null;
+  }
+  wsState = 'disconnected';
+  updateConnectionStatus();
+}
+
+function updateConnectionStatus() {
+  const indicator = document.getElementById('online-status');
+  if (!indicator) return;
+
+  const labels = {
+    connected: '🟢 Online',
+    connecting: '🟡 Verbinde...',
+    reconnecting: '🟠 Wiederverbindung...',
+    disconnected: '🔴 Offline'
+  };
+
+  indicator.textContent = labels[wsState] || '🔴 Offline';
+  indicator.className = wsState === 'connected' ? 'status-online' : 'status-offline';
+}
+
+async function handleWsMessage(msg) {
+  switch (msg.type) {
+    case 'pong':
+      // keepalive response — nothing to do
+      break;
+    case 'sync_response':
+      // Full data sync from server
+      if (msg.todos) {
+        for (const todo of msg.todos) {
+          await dbPut('todos', todo);
+        }
+        todos = msg.todos;
+      }
+      if (msg.projects) {
+        for (const project of msg.projects) {
+          await dbPut('projects', project);
+        }
+        projects = msg.projects;
+      }
+      renderProjects();
+      renderStats();
+      renderTodos();
+      break;
+    case 'todo_create':
+      if (msg.payload) {
+        await dbPut('todos', msg.payload);
+        // Add if not already present
+        const existing = todos.find(t => t.id === msg.payload.id);
+        if (!existing) {
+          todos.push(msg.payload);
+        } else {
+          todos = todos.map(t => t.id === msg.payload.id ? msg.payload : t);
+        }
+        renderProjects();
+        renderStats();
+        renderTodos();
+      }
+      break;
+    case 'todo_update':
+      if (msg.payload) {
+        await dbPut('todos', msg.payload);
+        todos = todos.map(t => t.id === msg.payload.id ? msg.payload : t);
+        renderProjects();
+        renderStats();
+        renderTodos();
+      }
+      break;
+    case 'todo_delete':
+      if (msg.payload?.id) {
+        await deleteFromDB('todos', msg.payload.id);
+        todos = todos.filter(t => t.id !== msg.payload.id);
+        renderProjects();
+        renderStats();
+        renderTodos();
+      }
+      break;
+    case 'project_create':
+      if (msg.payload) {
+        await dbPut('projects', msg.payload);
+        const existing = projects.find(p => p.id === msg.payload.id);
+        if (!existing) projects.push(msg.payload);
+        else projects = projects.map(p => p.id === msg.payload.id ? msg.payload : p);
+        renderProjects();
+      }
+      break;
+    case 'project_update':
+      if (msg.payload) {
+        await dbPut('projects', msg.payload);
+        projects = projects.map(p => p.id === msg.payload.id ? msg.payload : p);
+        renderProjects();
+      }
+      break;
+    case 'project_delete':
+      if (msg.payload?.id) {
+        await deleteFromDB('projects', msg.payload.id);
+        projects = projects.filter(p => p.id !== msg.payload.id);
+        renderProjects();
+        renderStats();
+        renderTodos();
+      }
+      break;
+    default:
+      console.log('WS: unknown message type', msg.type);
+  }
+}
 
 // ─── IndexedDB ───────────────────────────────────────────────────────────────
 
 function openDB() {
   dbReady = new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
-    
+
     request.onupgradeneeded = (event) => {
       db = event.target.result;
       if (!db.objectStoreNames.contains('todos')) {
@@ -39,13 +273,13 @@ function openDB() {
         db.createObjectStore('syncQueue', { keyPath: 'id', autoIncrement: true });
       }
     };
-    
+
     request.onsuccess = (event) => {
       db = event.target.result;
       console.log('IndexedDB opened');
       resolve(db);
     };
-    
+
     request.onerror = () => {
       console.error('IndexedDB open failed', request.error);
       reject(request.error);
@@ -126,25 +360,29 @@ function addToSyncQueue(action, data) {
 
 // ─── Sync Logic (Kern der Offline→Online Synchronisation) ───────────────────
 
+function isOnlineForSync() {
+  // Use WebSocket state as primary online indicator; fallback to navigator.onLine
+  return wsState === 'connected' || (typeof navigator !== 'undefined' && navigator.onLine);
+}
+
 async function syncWithServer() {
-  if (!isOnline || !db || syncInProgress) return;
+  if (!isOnlineForSync() || !db || syncInProgress) return;
   syncInProgress = true;
-  
+
   const queue = await dbGetAll('syncQueue');
   if (!queue.length) {
     syncInProgress = false;
     return;
   }
-  
+
   console.log('Syncing', queue.length, 'pending actions');
   let successCount = 0;
   let failCount = 0;
-  
+
   for (const item of queue) {
     try {
       if (item.action === 'CREATE_TODO') {
         const res = await post('/api/todos', item.data);
-        // Neue Todos: Temp-ID mit Server-ID ersetzen
         if (item.data._tempId) {
           await deleteFromDB('todos', item.data._tempId);
         }
@@ -162,7 +400,7 @@ async function syncWithServer() {
         await dbPut('projects', res);
         successCount++;
       }
-      
+
       // Erfolgreich synched → aus Queue entfernen
       if (db) {
         const tx = db.transaction('syncQueue', 'readwrite');
@@ -173,96 +411,80 @@ async function syncWithServer() {
       failCount++;
     }
   }
-  
+
   console.log(`Sync complete: ${successCount} success, ${failCount} failed`);
   syncInProgress = false;
 }
 
 async function refreshFromServer() {
-  if (!isOnline || !db) {
+  if (!isOnlineForSync() || !db) {
     console.log('Offline - using local data');
     return;
   }
-  
+
   try {
     // 1. ZUERST: Lokale Änderungen pushen (damit Server den neuesten Stand hat)
     await syncWithServer();
-    
+
     // 2. DANN: Server-Daten holen und mergen (nicht überschreiben!)
     const [todosData, projectsData] = await Promise.all([
       get('/api/todos'),
       get('/api/projects')
     ]);
-    
+
     const serverTodos = todosData.todos || [];
     const serverProjects = projectsData.projects || [];
-    
+
     // 3. Merge-Strategie: Server hat Vorrang für Konflikte, aber lokale Änderungen bleiben erhalten
-    // Wir speichern Server-Daten und markieren sie als "frisch"
     for (const todo of serverTodos) {
       const localTodo = await getFromDB('todos', todo.id);
       if (!localTodo) {
-        // Neue Todo vom Server → hinzufügen
         await dbPut('todos', todo);
       } else {
-        // Todo existiert lokal → Server hat Vorrang (außer es ist in der Sync-Queue)
         const queue = await dbGetAll('syncQueue');
-        const pendingChanges = queue.find(q => 
+        const pendingChanges = queue.find(q =>
           q.action === 'UPDATE_TODO' && q.data.id === todo.id
         );
-        
         if (!pendingChanges) {
-          // Keine lokalen Änderungen → Server-Daten übernehmen
           await dbPut('todos', todo);
         }
-        // Sonst: Lokale Änderungen behalten, werden beim nächsten Sync gepusht
       }
     }
-    
-    // Projekte einfach überschreiben (keine lokalen Projekt-Änderungen erwartet)
+
     for (const project of serverProjects) {
       await dbPut('projects', project);
     }
-    
+
     // 4. Lokale Daten neu laden
     todos = await dbGetAll('todos');
     projects = await dbGetAll('projects');
-    
+
     renderProjects();
     renderStats();
     renderTodos();
-    
+
     console.log('Refreshed from server:', todos.length, 'todos');
   } catch (err) {
     console.error('Refresh failed:', err);
   }
 }
 
-// ─── Online/Offline Detection ────────────────────────────────────────────────
+// ─── Online/Offline Detection (WebSocket-basiert) ────────────────────────────
 
+// Use WebSocket connection state instead of browser navigator.onLine
+// The old online/offline listeners are kept as fallback only
 window.addEventListener('online', async () => {
-  console.log('Device went online');
-  isOnline = true;
-  updateOnlineStatus();
-  
-  // WICHTIG: Zuerst lokale Änderungen pushen, DANN Server-Daten holen
+  console.log('Browser reports online');
+  if (wsState === 'disconnected') {
+    connectWebSocket();
+  }
   await syncWithServer();
   await refreshFromServer();
 });
 
 window.addEventListener('offline', () => {
-  console.log('Device went offline');
-  isOnline = false;
-  updateOnlineStatus();
+  console.log('Browser reports offline');
 });
-
-function updateOnlineStatus() {
-  const indicator = document.getElementById('online-status');
-  if (indicator) {
-    indicator.textContent = isOnline ? '🟢 Online' : '🔴 Offline';
-    indicator.className = isOnline ? 'status-online' : 'status-offline';
-  }
-}
 
 // ─── Sidebar ─────────────────────────────────────────────────────────────────
 function toggleSidebar() {
@@ -281,46 +503,39 @@ function closeSidebar() {
 
 async function initServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
-  
+
   try {
     const reg = await navigator.serviceWorker.register('/sw.js');
     swRegistration = reg;
     console.log('SW registered:', reg.scope);
-    
-    // WICHTIG: Prüfe beim Start ob bereits ein Update wartet!
+
     if (reg.waiting) {
       console.log('SW: Update waiting from previous session');
       updateAvailable = true;
       showUpdateButton();
     }
-    
-    // Prüfe auf Updates beim Start
+
     checkForUpdate(reg);
-    
-    // Prüfe alle 30 Min auf Updates
     setInterval(() => checkForUpdate(reg), 30 * 60 * 1000);
-    
-    // Wenn ein neuer SW installiert wird
+
     reg.addEventListener('updatefound', () => {
       const newWorker = reg.installing;
       console.log('SW: New version found, installing...');
-      
+
       newWorker.addEventListener('statechange', () => {
         if (newWorker.state === 'installed') {
-          // Neue Version ist bereit!
           console.log('SW: New version ready for update');
           updateAvailable = true;
           showUpdateButton();
         }
       });
     });
-    
-    // controllerchange = neuer SW hat übernommen
+
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       console.log('SW: New controller active, reloading...');
       window.location.reload();
     });
-    
+
   } catch (err) {
     console.error('SW registration failed:', err);
   }
@@ -345,52 +560,45 @@ function showUpdateButton() {
 
 async function triggerUpdate() {
   console.log('Triggering app update...');
-  
-  // 1. IndexedDB sichern (optional - wir behalten Daten ja)
-  
-  // 2. Service Worker zum Aktivieren zwingen
   if (swRegistration && swRegistration.waiting) {
     swRegistration.waiting.postMessage({ action: 'skipWaiting' });
   }
-  
-  // 3. Cache leeren und Seite neu laden
-  // Der controllerchange Event macht das Reload
 }
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('App starting...');
-  
-  // Service Worker registrieren (mit Update-Check)
+
   await initServiceWorker();
-  
+
   try {
     await openDB();
     console.log('DB ready');
   } catch (err) {
     console.error('DB init failed:', err);
   }
-  
+
   try {
     await loadFromLocalDB();
     console.log('Local data loaded');
   } catch (err) {
     console.error('Local load failed:', err);
   }
-  
+
   appInitialized = true;
-  
-  if (isOnline) {
+
+  // Start WebSocket connection
+  connectWebSocket();
+
+  if (isOnlineForSync()) {
     console.log('Online at startup - syncing...');
     refreshFromServer().catch(err => console.error('Server refresh failed:', err));
   }
-  
-  updateOnlineStatus();
-  
-  // Version in Sidebar anzeigen
+
+  updateConnectionStatus();
   renderVersionInfo();
-  
+
   console.log('App initialized');
 });
 
@@ -414,7 +622,7 @@ async function loadFromLocalDB() {
 
 async function loadAll() {
   await loadFromLocalDB();
-  if (isOnline) {
+  if (isOnlineForSync()) {
     await refreshFromServer();
   }
 }
@@ -620,7 +828,7 @@ function setFilter(filter) {
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   event.target.closest('.nav-btn')?.classList.add('active');
   closeSidebar();
-  
+
   loadSectionsForCurrentProject().then(() => {
     renderTodos();
   });
@@ -629,15 +837,15 @@ function setFilter(filter) {
 async function loadSectionsForCurrentProject() {
   sections = [];
   if (!currentProjectId) return;
-  
+
   try {
     const allSections = await dbGetAll('sections');
     sections = allSections.filter(s => s.project_id === currentProjectId);
   } catch (e) {
     console.error('Failed to load sections from local DB', e);
   }
-  
-  if (isOnline) {
+
+  if (isOnlineForSync()) {
     try {
       const data = await get(`/api/projects/${currentProjectId}/sections`);
       sections = data.sections || [];
@@ -656,23 +864,23 @@ function countByProject(pid) {
 
 async function toggleTodo(id) {
   if (!appInitialized || !db) return;
-  
+
   const t = todos.find(x => x.id === id);
   if (!t) return;
-  
+
   const newStatus = t.status === 'done' ? 'pending' : 'done';
-  
+
   // Update local
   const updatedTodo = { ...t, status: newStatus, updated_at: new Date().toISOString() };
   await dbPut('todos', updatedTodo);
-  
+
   // UI updaten
   todos = todos.map(todo => todo.id === id ? updatedTodo : todo);
   renderStats();
   renderTodos();
-  
+
   // Server sync
-  if (isOnline) {
+  if (isOnlineForSync()) {
     try {
       await patch(`/api/todos/${id}`, { status: newStatus });
     } catch (err) {
@@ -703,19 +911,19 @@ function showTodoModal(todo = null) {
     document.getElementById('todo-priority').value = todo.priority;
     document.getElementById('todo-status').value = todo.status;
     document.getElementById('todo-project').value = todo.project_id || '';
-    
+
     if (todo.due_date) {
       document.getElementById('todo-due').value = new Date(todo.due_date).toISOString().slice(0, 16);
     }
   }
-  
+
   document.getElementById('todo-modal')?.classList.add('active');
 }
 
 async function saveTodo(event) {
   event.preventDefault();
   if (!appInitialized || !db) return;
-  
+
   const id = document.getElementById('todo-id').value;
   const todoData = {
     title: document.getElementById('todo-title').value,
@@ -734,8 +942,8 @@ async function saveTodo(event) {
       const updated = { ...existing, ...todoData, updated_at: new Date().toISOString() };
       await dbPut('todos', updated);
       todos = todos.map(t => t.id === parseInt(id) ? updated : t);
-      
-      if (isOnline) {
+
+      if (isOnlineForSync()) {
         try {
           await patch(`/api/todos/${id}`, todoData);
         } catch (err) {
@@ -759,11 +967,10 @@ async function saveTodo(event) {
     };
     await dbPut('todos', newTodo);
     todos.push(newTodo);
-    
-    if (isOnline) {
+
+    if (isOnlineForSync()) {
       try {
         const serverTodo = await post('/api/todos', todoData);
-        // Temp-ID durch Server-ID ersetzen
         await deleteFromDB('todos', tempId);
         serverTodo.id = serverTodo.id;
         await dbPut('todos', serverTodo);
@@ -776,7 +983,7 @@ async function saveTodo(event) {
       await addToSyncQueue('CREATE_TODO', { ...todoData, _tempId: tempId });
     }
   }
-  
+
   renderProjects();
   renderStats();
   renderTodos();
@@ -790,14 +997,14 @@ function editTodo(id) {
 
 async function deleteTodo(id) {
   if (!confirm('Todo wirklich löschen?')) return;
-  
+
   await deleteFromDB('todos', id);
   todos = todos.filter(t => t.id !== id);
   renderStats();
   renderTodos();
   closeModal('todo-modal');
-  
-  if (isOnline) {
+
+  if (isOnlineForSync()) {
     try {
       await del(`/api/todos/${id}`);
     } catch (err) {
@@ -813,13 +1020,13 @@ function showProjectModal(project = null) {
   document.getElementById('project-form')?.reset();
   document.getElementById('project-id').value = '';
   document.getElementById('project-modal-title').textContent = project ? 'Projekt bearbeiten' : 'Neues Projekt';
-  
+
   if (project) {
     document.getElementById('project-id').value = project.id;
     document.getElementById('project-name').value = project.name;
     document.getElementById('project-color').value = project.color;
   }
-  
+
   document.getElementById('project-modal')?.classList.add('active');
 }
 
@@ -830,7 +1037,7 @@ function editProject(id) {
 
 async function saveProject(event) {
   event.preventDefault();
-  
+
   const id = document.getElementById('project-id').value;
   const projectData = {
     name: document.getElementById('project-name').value,
@@ -838,7 +1045,7 @@ async function saveProject(event) {
     sort_order: projects.length
   };
 
-  if (isOnline) {
+  if (isOnlineForSync()) {
     try {
       if (id) {
         await patch(`/api/projects/${id}`, projectData);
@@ -860,8 +1067,8 @@ async function saveProject(event) {
 
 async function deleteProject(id) {
   if (!confirm('Projekt wirklich löschen?')) return;
-  
-  if (isOnline) {
+
+  if (isOnlineForSync()) {
     try {
       await del(`/api/projects/${id}`);
       await refreshFromServer();
@@ -899,13 +1106,13 @@ function formatDate(isoString) {
   const today = new Date();
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
-  
+
   if (date.toDateString() === today.toDateString()) {
     return 'Heute ' + date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
   } else if (date.toDateString() === tomorrow.toDateString()) {
     return 'Morgen ' + date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
   } else {
-    return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' }) + ' ' + 
+    return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' }) + ' ' +
            date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
   }
 }
