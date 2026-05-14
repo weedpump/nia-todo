@@ -4,19 +4,46 @@ Selfhosted Todo-System — ersetzt Todoist. SQLite + FastAPI + schicke Web-UI + 
 
 ## 🌍 Instanzen
 
-| Instanz | URL | Branch | Zweck |
-|---------|-----|--------|-------|
-| **Live** | `http://todo-dev.kneidl-home.de:8753` | `main` | Produktion — stabile Releases |
-| **Dev** | `http://todo-dev.kneidl-home.de:8754` | `develop` | Tests — neue Features vor Release |
+| Instanz | URL | Zweck |
+|---------|-----|-------|
+| **Live** | `http://todo-dev.kneidl-home.de:8753` | Produktion — stabile Releases |
+| **Dev** | `http://todo-dev.kneidl-home.de:8754` | Tests — neue Features vor Release |
+
+## Branches
+
+| Branch | Zweck |
+|--------|-------|
+| `main` | Stabile Version — wird getaggt |
+| `develop` | Aktive Entwicklung |
 
 ## Workflow
 
 1. **Entwicklung** → Arbeite auf `develop` Branch in `~/projects/nia-todo-dev`
 2. **Testen** → Öffne Dev-Instanz auf Port 8754, installiere als separate PWA
-3. **Release** → Merge `develop` → `main`, dann Live-Instanz updaten
-4. **Live-Update** → `cd ~/projects/nia-todo && git pull origin main && systemctl restart nia-todo`
+3. **Release** → `./release.sh VERSION` (z.B. `./release.sh 0.2.11`)
 
-⚠️ **Dev-Anpassungen** (Port, DB-Name, PWA-Name) werden per `setup-dev.sh` lokal gemacht und sind **NICHT** im Git. So kann `develop` → `main` gemergt werden ohne Probleme.
+### Release-Prozess
+
+```bash
+cd ~/projects/nia-todo-dev
+./release.sh 0.2.11
+```
+
+Was `release.sh` macht:
+1. `develop` → `main` mergen
+2. Tag `vX.Y.Z` erstellen und pushen
+3. Live-Instanz auf **Tag** auschecken (nicht `main`!)
+4. Live-Service neu starten
+5. Zurück auf `develop`
+
+Die Live-Instanz läuft immer auf einem **Tag**, nie direkt auf `main`. So kann bei Problemen einfach auf einen alten Tag zurückgesprungen werden.
+
+### Dev-Anpassungen
+
+Die Dev-Instanz (Port 8754) wird automatisch bei Start angepasst:
+- `setup-dev.sh` wird von `systemd` vor dem Server-Start ausgeführt
+- Setzt PWA-Name auf "nia-todo", IndexedDB-Name auf `nia-todo-db`
+- Ist idempotent (mehrfach ausführbar)
 
 ## Features
 
@@ -68,23 +95,38 @@ nia-todo ist eine Progressive Web App (PWA) die auch offline funktioniert:
 ```
 nia-todo/
 ├── api/
-│   ├── main.py          # FastAPI REST-API
-│   ├── db.py            # SQLite Schema & Helpers
+│   ├── main.py              # FastAPI REST-API
+│   ├── db.py                # SQLite Schema & Helpers
+│   ├── migrate.py           # Auto-Migrationen bei Start
+│   ├── migrations/          # SQL-Migrationsdateien
 │   └── data/
-│       └── nia-todo.db  # Datenbank
+│       └── nia-todo.db      # Datenbank (NICHT im Git!)
 ├── web/
-│   ├── index.html       # Web-UI
-│   ├── manifest.json    # PWA Manifest
-│   ├── sw.js            # Service Worker (Offline-Support)
+│   ├── index.html           # Web-UI
+│   ├── manifest.json        # PWA Manifest
+│   ├── sw.js                # Service Worker
 │   └── static/
-│       ├── style.css    # Dark Mode ✨
-│       ├── app.js       # Frontend Logic
-│       └── icons/       # PWA Icons
-├── scripts/
-│   └── reminder-check.py  # Cron-Job für Erinnerungen
-├── start.sh             # Server starten
+│       ├── style.css        # Dark Mode ✨
+│       ├── app.js           # Frontend Logic
+│       └── icons/           # PWA Icons
+├── systemd/
+│   ├── nia-todo.service     # Live systemd Service
+│   └── nia-todo-dev.service # Dev systemd Service
+├── release.sh               # Release-Automatisierung
+├── setup-dev.sh             # Dev-Instanz Branding
+├── start.sh                 # Server starten
 └── README.md
 ```
+
+## DB Migrationen
+
+Schema-Änderungen laufen **automatisch** beim Server-Start:
+
+1. Migrations-Dateien in `api/migrations/` ablegen (z.B. `002_add_labels.sql`)
+2. Server starten → `migrate.py` prüft und führt neue Migrationen aus
+3. `schema_version` Tabelle trackt bereits ausgeführte Migrationen
+
+**Wichtig:** `.db` Dateien sind in `.gitignore` und gehören **niemals** ins Git.
 
 ## API Dokumentation
 
