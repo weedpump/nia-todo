@@ -16,7 +16,7 @@ let appInitialized = false;
 let syncInProgress = false;
 let swRegistration = null;
 let updateAvailable = false;
-const APP_VERSION = '1.0.0';
+const APP_VERSION = 'v0.1.0';
 
 // ─── IndexedDB ───────────────────────────────────────────────────────────────
 
