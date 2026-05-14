@@ -30,4 +30,3 @@ venv/
 Thumbs.db
 
 # Dev-only files
-setup-dev.sh
