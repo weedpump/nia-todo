@@ -21,7 +21,7 @@ let appInitialized = false;
 let syncInProgress = false;
 let swRegistration = null;
 let updateAvailable = false;
-const APP_VERSION = 'v0.2.8';
+const APP_VERSION = 'v0.2.9';
 
 // ─── WebSocket ───────────────────────────────────────────────────────────────
 let ws = null;
@@ -174,12 +174,21 @@ async function handleWsMessage(msg) {
       // keepalive response — nothing to do
       break;
     case 'sync_response':
-      // Full data sync from server
+      // Full data sync from server — nur wenn Server neuer
       if (msg.todos) {
         for (const todo of msg.todos) {
-          await dbPut('todos', todo);
+          const local = await getFromDB('todos', todo.id);
+          if (!local) {
+            await dbPut('todos', todo);
+          } else {
+            const localTime = new Date(local.updated_at || 0).getTime();
+            const serverTime = new Date(todo.updated_at || 0).getTime();
+            if (serverTime >= localTime) {
+              await dbPut('todos', todo);
+            }
+          }
         }
-        todos = msg.todos;
+        todos = await dbGetAll('todos');
       }
       if (msg.projects) {
         for (const project of msg.projects) {
@@ -193,8 +202,13 @@ async function handleWsMessage(msg) {
       break;
     case 'todo_create':
       if (msg.payload) {
+        const local = await getFromDB('todos', msg.payload.id);
+        if (local) {
+          const localTime = new Date(local.updated_at || 0).getTime();
+          const serverTime = new Date(msg.payload.updated_at || 0).getTime();
+          if (serverTime < localTime) break;
+        }
         await dbPut('todos', msg.payload);
-        // Add if not already present
         const existing = todos.find(t => t.id === msg.payload.id);
         if (!existing) {
           todos.push(msg.payload);
@@ -208,6 +222,15 @@ async function handleWsMessage(msg) {
       break;
     case 'todo_update':
       if (msg.payload) {
+        const local = await getFromDB('todos', msg.payload.id);
+        if (local) {
+          const localTime = new Date(local.updated_at || 0).getTime();
+          const serverTime = new Date(msg.payload.updated_at || 0).getTime();
+          if (serverTime < localTime) {
+            // Lokale Version ist neuer → nicht überschreiben
+            break;
+          }
+        }
         await dbPut('todos', msg.payload);
         todos = todos.map(t => t.id === msg.payload.id ? msg.payload : t);
         renderProjects();
