@@ -357,7 +357,7 @@ async function clearSyncQueue() {
 }
 
 function addToSyncQueue(action, data) {
-  return dbPut('syncQueue', { action, data, timestamp: Date.now() });
+  return dbPut('syncQueue', { action, data, timestamp: Date.now(), localUpdatedAt: new Date().toISOString() });
 }
 
 // ─── Sync Logic (Kern der Offline→Online Synchronisation) ───────────────────
@@ -392,6 +392,12 @@ async function syncWithServer() {
         successCount++;
       } else if (item.action === 'UPDATE_TODO') {
         await patch(`/api/todos/${item.data.id}`, item.data.changes);
+        // Lokale DB mit neuem updated_at aktualisieren
+        const localTodo = await getFromDB('todos', item.data.id);
+        if (localTodo) {
+          const updated = { ...localTodo, ...item.data.changes, updated_at: new Date().toISOString() };
+          await dbPut('todos', updated);
+        }
         successCount++;
       } else if (item.action === 'DELETE_TODO') {
         await del(`/api/todos/${item.data.id}`);
@@ -425,10 +431,7 @@ async function refreshFromServer() {
   }
 
   try {
-    // 1. ZUERST: Lokale Änderungen pushen (damit Server den neuesten Stand hat)
-    await syncWithServer();
-
-    // 2. DANN: Server-Daten holen und mergen (nicht überschreiben!)
+    // 1. Server-Daten holen
     const [todosData, projectsData] = await Promise.all([
       get('/api/todos'),
       get('/api/projects')
@@ -437,7 +440,7 @@ async function refreshFromServer() {
     const serverTodos = todosData.todos || [];
     const serverProjects = projectsData.projects || [];
 
-    // 3. Merge-Strategie: Server hat Vorrang für Konflikte, aber lokale Änderungen bleiben erhalten
+    // 2. Merge-Strategie: updated_at Vergleich, Server gewinnt nur wenn neuer
     for (const todo of serverTodos) {
       const localTodo = await getFromDB('todos', todo.id);
       if (!localTodo) {
@@ -448,7 +451,11 @@ async function refreshFromServer() {
           q.action === 'UPDATE_TODO' && q.data.id === todo.id
         );
         if (!pendingChanges) {
-          await dbPut('todos', todo);
+          const localTime = new Date(localTodo.updated_at || 0).getTime();
+          const serverTime = new Date(todo.updated_at || 0).getTime();
+          if (serverTime >= localTime) {
+            await dbPut('todos', todo);
+          }
         }
       }
     }
