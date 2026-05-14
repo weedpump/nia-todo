@@ -722,6 +722,8 @@ function renderTodos() {
   }
 
   if (currentProjectId) {
+    const validSectionIds = new Set(sections.map(s => s.id));
+
     let html = '';
 
     for (const section of sections) {
@@ -732,7 +734,8 @@ function renderTodos() {
       html += `</div>`;
     }
 
-    const unsorted = filtered.filter(t => !t.section_id);
+    // Verwaiste Todos (gelöschte Section) → Unsortiert
+    const unsorted = filtered.filter(t => !t.section_id || !validSectionIds.has(t.section_id));
     if (unsorted.length || sections.length) {
       html += renderSectionHeader(null);
       html += `<div class="section-todos" data-section-id="null" ondragover="handleTodoDragOver(event)" ondrop="handleTodoDrop(event)">`;
@@ -923,8 +926,7 @@ function showTodoModal(todo = null) {
     document.getElementById('todo-priority').value = todo.priority;
     document.getElementById('todo-status').value = todo.status;
     document.getElementById('todo-project').value = todo.project_id || '';
-    onProjectChange(); // ← Sections für das Projekt laden
-    document.getElementById('todo-section').value = todo.section_id || '';
+    await onProjectChange(todo.section_id); // ← Sections laden UND Section vorauswählen
 
     if (todo.due_date) {
       document.getElementById('todo-due').value = new Date(todo.due_date).toISOString().slice(0, 16);
@@ -936,7 +938,7 @@ function showTodoModal(todo = null) {
   document.getElementById('todo-modal')?.classList.add('active');
 }
 
-async function onProjectChange() {
+async function onProjectChange(selectedSectionId = null) {
   const projectId = document.getElementById('todo-project').value;
   const sectionSelect = document.getElementById('todo-section');
   if (!sectionSelect) return;
@@ -963,6 +965,10 @@ async function onProjectChange() {
       sectionSelect.appendChild(opt);
     }
     sectionSelect.disabled = false;
+
+    if (selectedSectionId !== null) {
+      sectionSelect.value = selectedSectionId;
+    }
   } catch (e) {
     console.error('Failed to load sections for project', e);
   }
@@ -1254,6 +1260,7 @@ async function deleteSection(id) {
     try {
       await del(`/api/sections/${id}`);
       sections = sections.filter(s => s.id !== id);
+      await deleteFromDB('sections', id); // ← Auch aus IndexedDB entfernen
       for (const t of todos) {
         if (t.section_id === id) t.section_id = null;
       }
