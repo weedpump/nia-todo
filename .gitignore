@@ -25,3 +25,5 @@ venv/
 # OS
 .DS_Store
 Thumbs.db
+setup-dev.sh
+.gitignore
