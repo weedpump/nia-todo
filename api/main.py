@@ -11,7 +11,7 @@ import asyncio
 
 from db import init_db, get_db, row_to_dict, now_iso
 
-app = FastAPI(title="nia-todo-dev", version="0.2.1")
+app = FastAPI(title="nia-todo", version="0.2.1")
 
 # ─── WebSocket Connection Manager ──────────────────────────────────────────────
 
