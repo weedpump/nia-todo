@@ -711,6 +711,9 @@ function renderTodos() {
   const search = document.getElementById('search-input')?.value?.toLowerCase() || '';
 
   let filtered = todos;
+  if (currentProjectId) {
+    filtered = filtered.filter(t => t.project_id === currentProjectId);
+  }
   if (search) {
     filtered = filtered.filter(t =>
       (t.title || '').toLowerCase().includes(search) ||
@@ -920,6 +923,8 @@ function showTodoModal(todo = null) {
     document.getElementById('todo-priority').value = todo.priority;
     document.getElementById('todo-status').value = todo.status;
     document.getElementById('todo-project').value = todo.project_id || '';
+    onProjectChange(); // ← Sections für das Projekt laden
+    document.getElementById('todo-section').value = todo.section_id || '';
 
     if (todo.due_date) {
       document.getElementById('todo-due').value = new Date(todo.due_date).toISOString().slice(0, 16);
@@ -929,6 +934,38 @@ function showTodoModal(todo = null) {
   document.getElementById('todo-delete-btn').style.display = todo ? '' : 'none';
 
   document.getElementById('todo-modal')?.classList.add('active');
+}
+
+async function onProjectChange() {
+  const projectId = document.getElementById('todo-project').value;
+  const sectionSelect = document.getElementById('todo-section');
+  if (!sectionSelect) return;
+
+  sectionSelect.innerHTML = '<option value="">Keine Section (Unsortiert)</option>';
+  sectionSelect.disabled = true;
+
+  if (!projectId) return;
+
+  try {
+    let projectSections;
+    if (db) {
+      const allSections = await dbGetAll('sections');
+      projectSections = allSections.filter(s => s.project_id === parseInt(projectId));
+    } else {
+      const data = await get(`/api/projects/${projectId}/sections`);
+      projectSections = data.sections || [];
+    }
+
+    for (const s of projectSections) {
+      const opt = document.createElement('option');
+      opt.value = s.id;
+      opt.textContent = s.name;
+      sectionSelect.appendChild(opt);
+    }
+    sectionSelect.disabled = false;
+  } catch (e) {
+    console.error('Failed to load sections for project', e);
+  }
 }
 
 async function saveTodo(event) {
@@ -941,6 +978,7 @@ async function saveTodo(event) {
     description: document.getElementById('todo-desc').value,
     priority: parseInt(document.getElementById('todo-priority').value),
     project_id: document.getElementById('todo-project').value ? parseInt(document.getElementById('todo-project').value) : null,
+    section_id: document.getElementById('todo-section').value ? parseInt(document.getElementById('todo-section').value) : null,
     status: document.getElementById('todo-status').value,
     due_date: document.getElementById('todo-due').value ? new Date(document.getElementById('todo-due').value).toISOString() : null,
     remind_at: document.getElementById('todo-remind').value ? new Date(document.getElementById('todo-remind').value).toISOString() : null
