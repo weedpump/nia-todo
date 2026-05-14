@@ -14,6 +14,7 @@ let sections = [];
 let currentFilter = 'all';
 let currentProjectId = null;
 let dragSrcTodoId = null;
+let dragSrcSectionId = null;
 let db = null;
 let dbReady = null;
 let appInitialized = false;
@@ -723,7 +724,7 @@ function renderTodos() {
     for (const section of sections) {
       const sectionTodos = filtered.filter(t => t.section_id === section.id);
       html += renderSectionHeader(section);
-      html += `<div class="section-todos" data-section-id="${section.id}">`;
+      html += `<div class="section-todos" data-section-id="${section.id}" ondragover="handleTodoDragOver(event)" ondrop="handleTodoDrop(event)">`;
       html += sectionTodos.map(t => renderTodoItem(t)).join('');
       html += `</div>`;
     }
@@ -731,7 +732,7 @@ function renderTodos() {
     const unsorted = filtered.filter(t => !t.section_id);
     if (unsorted.length || sections.length) {
       html += renderSectionHeader(null);
-      html += `<div class="section-todos" data-section-id="null">`;
+      html += `<div class="section-todos" data-section-id="null" ondragover="handleTodoDragOver(event)" ondrop="handleTodoDrop(event)">`;
       html += unsorted.map(t => renderTodoItem(t)).join('');
       html += `</div>`;
     }
@@ -781,16 +782,19 @@ function renderTodos() {
 function renderSectionHeader(section) {
   if (section) {
     return `
-      <div class="section-header" data-section-id="${section.id}">
+      <div class="section-header" data-section-id="${section.id}" draggable="true"
+        ondragstart="handleSectionDragStart(event)" ondragend="handleSectionDragEnd(event)"
+        ondragover="handleSectionDragOver(event)" ondrop="handleSectionDrop(event)">
         <span class="section-name" onclick="editSectionInline(${section.id})">${escapeHtml(section.name)}</span>
         <span class="section-count">${todos.filter(t => t.section_id === section.id).length}</span>
-        <button class="section-delete" onclick="deleteSection(${section.id})" title="Löschen">✕</button>
+        <button class="section-delete" onclick="event.stopPropagation(); deleteSection(${section.id})" title="Löschen">✕</button>
       </div>
     `;
   } else {
     const unsortedCount = todos.filter(t => !t.section_id && t.project_id === currentProjectId).length;
     return `
-      <div class="section-header section-unsorted" data-section-id="null">
+      <div class="section-header section-unsorted" data-section-id="null"
+        ondragover="handleSectionDragOver(event)" ondrop="handleSectionDrop(event)">
         <span class="section-name">📁 Unsortiert</span>
         <span class="section-count">${unsortedCount}</span>
       </div>
@@ -805,7 +809,8 @@ function renderTodoItem(t) {
   const project = projects.find(p => p.id === t.project_id);
 
   return `
-    <div class="todo-item ${t.status === 'done' ? 'done' : ''}" data-id="${t.id}" onclick="editTodo(${t.id})">
+    <div class="todo-item ${t.status === 'done' ? 'done' : ''}" data-id="${t.id}" draggable="true" onclick="editTodo(${t.id})"
+      ondragstart="handleTodoDragStart(event)" ondragend="handleTodoDragEnd(event)">
       <div class="todo-check" onclick="event.stopPropagation(); toggleTodo(${t.id})">
         ${t.status === 'done' ? '✓' : ''}
       </div>
@@ -1222,6 +1227,108 @@ async function deleteSection(id) {
   } else {
     alert('Offline - Section kann nicht gelöscht werden');
   }
+}
+
+// ─── Drag & Drop ─────────────────────────────────────────────────────────────
+
+function handleTodoDragStart(e) {
+  dragSrcTodoId = parseInt(e.target.dataset.id);
+  e.target.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', 'todo:' + dragSrcTodoId);
+}
+
+function handleTodoDragEnd(e) {
+  e.target.classList.remove('dragging');
+  document.querySelectorAll('.section-todos.drag-over, .section-header.drag-over').forEach(el => {
+    el.classList.remove('drag-over');
+  });
+  dragSrcTodoId = null;
+}
+
+function handleTodoDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  const container = e.target.closest('.section-todos');
+  if (container) container.classList.add('drag-over');
+}
+
+async function handleTodoDrop(e) {
+  e.preventDefault();
+  const container = e.target.closest('.section-todos');
+  if (!container) return;
+  container.classList.remove('drag-over');
+
+  const targetSectionId = container.dataset.sectionId;
+  if (!dragSrcTodoId) return;
+
+  const todo = todos.find(t => t.id === dragSrcTodoId);
+  if (!todo) return;
+
+  const newSectionId = targetSectionId === 'null' ? null : parseInt(targetSectionId);
+  if (todo.section_id === newSectionId) return;
+
+  todo.section_id = newSectionId;
+  renderTodos();
+
+  if (isOnlineForSync()) {
+    try {
+      await patch(`/api/todos/${todo.id}`, { section_id: newSectionId });
+    } catch (err) {
+      console.error('Move todo failed', err);
+    }
+  }
+}
+
+function handleSectionDragStart(e) {
+  dragSrcSectionId = parseInt(e.target.dataset.sectionId);
+  e.target.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', 'section:' + dragSrcSectionId);
+}
+
+function handleSectionDragEnd(e) {
+  e.target.classList.remove('dragging');
+  document.querySelectorAll('.section-header.drag-over').forEach(el => el.classList.remove('drag-over'));
+  dragSrcSectionId = null;
+}
+
+function handleSectionDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  const header = e.target.closest('.section-header');
+  if (header) header.classList.add('drag-over');
+}
+
+async function handleSectionDrop(e) {
+  e.preventDefault();
+  const header = e.target.closest('.section-header');
+  if (!header) return;
+  header.classList.remove('drag-over');
+
+  const targetSectionId = header.dataset.sectionId;
+  if (!dragSrcSectionId || targetSectionId === 'null' || dragSrcSectionId === parseInt(targetSectionId)) return;
+
+  const srcIdx = sections.findIndex(s => s.id === dragSrcSectionId);
+  const targetIdx = sections.findIndex(s => s.id === parseInt(targetSectionId));
+  if (srcIdx === -1 || targetIdx === -1) return;
+
+  const [moved] = sections.splice(srcIdx, 1);
+  sections.splice(targetIdx, 0, moved);
+
+  // Update sort_order
+  for (let i = 0; i < sections.length; i++) {
+    sections[i].sort_order = i;
+    if (isOnlineForSync()) {
+      try {
+        await patch(`/api/sections/${sections[i].id}`, { sort_order: i });
+      } catch (err) {
+        console.error('Sort section failed', err);
+      }
+    }
+  }
+
+  renderTodos();
 }
 
 // Keyboard shortcuts
