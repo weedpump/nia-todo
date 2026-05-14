@@ -907,7 +907,7 @@ async function toggleTodo(id) {
   }
 }
 
-function showTodoModal(todo = null) {
+async function showTodoModal(todo = null) {
   document.getElementById('todo-form')?.reset();
   document.getElementById('todo-id').value = '';
   document.getElementById('todo-modal-title').textContent = todo ? 'Todo bearbeiten' : 'Neues Todo';
