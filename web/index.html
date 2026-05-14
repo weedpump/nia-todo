@@ -6,7 +6,7 @@
 <title>nia-todo</title>
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0f172a">
-<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <link rel="stylesheet" href="/static/style.css">
 </head>
@@ -146,6 +146,7 @@
       </form>
       </div>
       <div class="modal-actions">
+        <button type="button" class="btn btn-danger" id="todo-delete-btn" onclick="deleteTodoFromModal()" style="margin-right:auto;display:none;">🗑️ Löschen</button>
         <button type="button" class="btn btn-secondary" onclick="closeModal('todo-modal')">Abbrechen</button>
         <button type="submit" form="todo-form" class="btn btn-primary">Speichern</button>
       </div>

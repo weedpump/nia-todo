@@ -231,6 +231,7 @@ body {
   border-radius: var(--radius);
   margin-bottom: 8px;
   transition: all 0.15s;
+  cursor: pointer;
 }
 
 .todo-item:hover {
@@ -298,13 +299,9 @@ body {
 .todo-due.overdue { color: var(--danger); font-weight: 600; }
 
 .todo-actions {
-  display: flex;
+  display: none;
   gap: 6px;
-  opacity: 0;
-  transition: opacity 0.15s;
 }
-
-.todo-item:hover .todo-actions { opacity: 1; }
 
 .todo-actions button {
   background: none;

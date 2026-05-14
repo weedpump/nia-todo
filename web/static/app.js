@@ -996,6 +996,11 @@ function editTodo(id) {
   if (todo) showTodoModal(todo);
 }
 
+function deleteTodoFromModal() {
+  const id = document.getElementById('todo-id').value;
+  if (id) deleteTodo(parseInt(id));
+}
+
 async function deleteTodo(id) {
   if (!confirm('Todo wirklich löschen?')) return;
 
@@ -1027,6 +1032,8 @@ function showProjectModal(project = null) {
     document.getElementById('project-name').value = project.name;
     document.getElementById('project-color').value = project.color;
   }
+
+  document.getElementById('project-delete-btn').style.display = project ? '' : 'none';
 
   document.getElementById('project-modal')?.classList.add('active');
 }
