@@ -29,3 +29,7 @@ setup-dev.sh
 .gitignore
 *.db
 api/data/*.db
+*.db
+api/data/*.db
+api/data/*.backup*
+api/data/*.bak
