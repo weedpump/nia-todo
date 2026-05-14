@@ -722,7 +722,6 @@ function renderTodos() {
 
     for (const section of sections) {
       const sectionTodos = filtered.filter(t => t.section_id === section.id);
-      if (!sectionTodos.length) continue;
       html += renderSectionHeader(section);
       html += `<div class="section-todos" data-section-id="${section.id}">`;
       html += sectionTodos.map(t => renderTodoItem(t)).join('');
@@ -1158,7 +1157,6 @@ async function saveNewSection() {
       await dbPut('sections', res);
       sections.push(res);
       renderTodos();
-      loadSectionsForCurrentProject();
     } catch (err) {
       console.error('Create section failed', err);
       alert('Fehler beim Erstellen der Section');
@@ -1192,7 +1190,9 @@ async function saveSectionEdit(id) {
   if (isOnlineForSync()) {
     try {
       await patch(`/api/sections/${id}`, { name });
-      await refreshFromServer();
+      const section = sections.find(s => s.id === id);
+      if (section) section.name = name;
+      renderTodos();
     } catch (err) {
       console.error('Update section failed', err);
       alert('Fehler beim Speichern');
