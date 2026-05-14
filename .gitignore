@@ -27,3 +27,5 @@ venv/
 Thumbs.db
 setup-dev.sh
 .gitignore
+*.db
+api/data/*.db
