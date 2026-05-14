@@ -1094,15 +1094,10 @@ async function deleteTodo(id) {
   renderTodos();
   closeModal('todo-modal');
 
+  // Immer Queue (offline-first)
+  await addToSyncQueue('DELETE_TODO', { id });
   if (isOnlineForSync()) {
-    try {
-      await del(`/api/todos/${id}`);
-    } catch (err) {
-      console.error('Server delete failed', err);
-      await addToSyncQueue('DELETE_TODO', { id });
-    }
-  } else {
-    await addToSyncQueue('DELETE_TODO', { id });
+    await syncWithServer();
   }
 }
 
@@ -1137,41 +1132,52 @@ async function saveProject(event) {
     sort_order: projects.length
   };
 
-  if (isOnlineForSync()) {
-    try {
-      if (id) {
-        await patch(`/api/projects/${id}`, projectData);
-      } else {
-        const res = await post('/api/projects', projectData);
-        await dbPut('projects', res);
-        projects.push(res);
-      }
-      await refreshFromServer();
+  if (id) {
+    // Update
+    const existing = projects.find(p => p.id === parseInt(id));
+    if (existing) {
+      const updated = { ...existing, ...projectData, updated_at: new Date().toISOString() };
+      await dbPut('projects', updated);
+      projects = projects.map(p => p.id === parseInt(id) ? updated : p);
+      await addToSyncQueue('UPDATE_PROJECT', { id: parseInt(id), changes: projectData });
+      if (isOnlineForSync()) await syncWithServer();
       closeModal('project-modal');
-    } catch (err) {
-      console.error('Save failed', err);
-      alert('Fehler beim Speichern: ' + err.message);
+      renderProjects();
     }
   } else {
-    alert('Offline - Projekt kann nicht erstellt werden');
+    // Create
+    const tempId = 'temp-project-' + Date.now();
+    const newProject = { id: tempId, ...projectData, created_at: new Date().toISOString() };
+    await dbPut('projects', newProject);
+    projects.push(newProject);
+    await addToSyncQueue('CREATE_PROJECT', { ...projectData, _tempId: tempId });
+    if (isOnlineForSync()) await syncWithServer();
+    closeModal('project-modal');
+    renderProjects();
   }
 }
 
 async function deleteProject(id) {
   if (!confirm('Projekt wirklich löschen?')) return;
 
-  if (isOnlineForSync()) {
-    try {
-      await del(`/api/projects/${id}`);
-      await refreshFromServer();
-      closeModal('project-modal');
-    } catch (err) {
-      console.error('Delete failed', err);
-      alert('Fehler beim Löschen');
+  await deleteFromDB('projects', id);
+  projects = projects.filter(p => p.id !== id);
+  renderProjects();
+  renderStats();
+  closeModal('project-modal');
+
+  // Verschiebe Todos zu Default-Projekt
+  for (const t of todos) {
+    if (t.project_id === id) {
+      t.project_id = 1;
+      t.section_id = null;
+      await dbPut('todos', t);
+      await addToSyncQueue('UPDATE_TODO', { id: t.id, changes: { project_id: 1, section_id: null } });
     }
-  } else {
-    alert('Offline - Projekt kann nicht gelöscht werden');
   }
+
+  await addToSyncQueue('DELETE_PROJECT', { id });
+  if (isOnlineForSync()) await syncWithServer();
 }
 
 function deleteProjectFromModal() {
