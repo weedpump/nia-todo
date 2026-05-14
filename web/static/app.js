@@ -1137,7 +1137,8 @@ function showAddSectionForm() {
   if (!el) return;
   el.innerHTML = `
     <div class="inline-section-form">
-      <input type="text" id="new-section-name" placeholder="Section-Name" autocomplete="off">
+      <input type="text" id="new-section-name" placeholder="Section-Name" autocomplete="off"
+        onkeydown="if(event.key==='Enter')saveNewSection();if(event.key==='Escape')renderTodos();">
       <button onclick="saveNewSection()" title="Speichern">✓</button>
       <button onclick="renderTodos()" title="Abbrechen">✕</button>
     </div>
@@ -1175,7 +1176,8 @@ function editSectionInline(id) {
 
   header.innerHTML = `
     <div class="inline-edit-form" style="flex:1;gap:6px;">
-      <input type="text" id="edit-section-name-${id}" value="${escapeHtml(section.name)}" autocomplete="off" style="flex:1;">
+      <input type="text" id="edit-section-name-${id}" value="${escapeHtml(section.name)}" autocomplete="off" style="flex:1;"
+        onkeydown="if(event.key==='Enter')saveSectionEdit(${id});if(event.key==='Escape')renderTodos();">
       <button onclick="saveSectionEdit(${id})" title="Speichern">✓</button>
       <button onclick="renderTodos()" title="Abbrechen">✕</button>
     </div>
@@ -1208,15 +1210,11 @@ async function deleteSection(id) {
   if (isOnlineForSync()) {
     try {
       await del(`/api/sections/${id}`);
-      // Move todos to unsorted
-      const todosToUpdate = todos.filter(t => t.section_id === id);
-      for (const t of todosToUpdate) {
-        t.section_id = null;
-        if (isOnlineForSync()) {
-          await patch(`/api/todos/${t.id}`, { section_id: null });
-        }
+      sections = sections.filter(s => s.id !== id);
+      for (const t of todos) {
+        if (t.section_id === id) t.section_id = null;
       }
-      await refreshFromServer();
+      renderTodos();
     } catch (err) {
       console.error('Delete section failed', err);
       alert('Fehler beim Löschen');
