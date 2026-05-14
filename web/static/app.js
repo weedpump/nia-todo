@@ -918,6 +918,8 @@ function showTodoModal(todo = null) {
     }
   }
 
+  document.getElementById('todo-delete-btn').style.display = todo ? '' : 'none';
+
   document.getElementById('todo-modal')?.classList.add('active');
 }
 
