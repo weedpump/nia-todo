@@ -722,9 +722,14 @@ function renderTodos() {
   }
 
   if (currentProjectId) {
+    let html = '';
+
     const validSectionIds = new Set(sections.map(s => s.id));
 
-    let html = '';
+    // Status-Filter für Projekt-Ansicht anwenden (außer "Alle")
+    if (currentFilter !== 'all' && ['pending','in_progress','done'].includes(currentFilter)) {
+      filtered = filtered.filter(t => t.status === currentFilter);
+    }
 
     for (const section of sections) {
       const sectionTodos = filtered.filter(t => t.section_id === section.id);
@@ -764,8 +769,15 @@ function renderTodos() {
     done: '✅ Erledigt'
   };
 
+  // Auf aktuellen Status-Filter begrenzen (außer "Alle")
+  if (currentFilter !== 'all' && groups[currentFilter]) {
+    filtered = filtered.filter(t => t.status === currentFilter);
+  }
+
   let html = '';
   for (const [status, title] of Object.entries(groups)) {
+    // Nur passende Status-Gruppen anzeigen
+    if (currentFilter !== 'all' && currentFilter !== status) continue;
     const items = filtered.filter(t => t.status === status);
     if (!items.length) continue;
     html += `<div class="todo-group">
