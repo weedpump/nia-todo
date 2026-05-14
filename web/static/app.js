@@ -21,7 +21,7 @@ let appInitialized = false;
 let syncInProgress = false;
 let swRegistration = null;
 let updateAvailable = false;
-const APP_VERSION = 'v0.2.7';
+const APP_VERSION = 'v0.2.8';
 
 // ─── WebSocket ───────────────────────────────────────────────────────────────
 let ws = null;
@@ -527,6 +527,14 @@ async function initServiceWorker() {
 
     checkForUpdate(reg);
     setInterval(() => checkForUpdate(reg), 30 * 60 * 1000);
+
+    // Sofort checken wenn PWA wieder in Vordergrund kommt
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && swRegistration) {
+        console.log('SW: Visibility changed → checking for update');
+        checkForUpdate(swRegistration);
+      }
+    });
 
     reg.addEventListener('updatefound', () => {
       const newWorker = reg.installing;
