@@ -853,23 +853,39 @@ async function loadSectionsForCurrentProject() {
   sections = [];
   if (!currentProjectId) return;
 
+  if (isOnlineForSync()) {
+    try {
+      const data = await get(`/api/projects/${currentProjectId}/sections`);
+      const serverSections = data.sections || [];
+
+      // Server-Sections in DB speichern
+      for (const s of serverSections) {
+        await dbPut('sections', s);
+      }
+
+      // Cleanup: gelöschte Sections aus DB entfernen
+      const serverIds = new Set(serverSections.map(s => s.id));
+      const allLocal = await dbGetAll('sections');
+      const localProjectSections = allLocal.filter(s => s.project_id === currentProjectId);
+      for (const local of localProjectSections) {
+        if (!serverIds.has(local.id)) {
+          await deleteFromDB('sections', local.id);
+        }
+      }
+
+      sections = serverSections;
+      return;
+    } catch (e) {
+      console.error('Failed to load sections from server', e);
+    }
+  }
+
+  // Fallback: aus lokaler DB laden
   try {
     const allSections = await dbGetAll('sections');
     sections = allSections.filter(s => s.project_id === currentProjectId);
   } catch (e) {
     console.error('Failed to load sections from local DB', e);
-  }
-
-  if (isOnlineForSync()) {
-    try {
-      const data = await get(`/api/projects/${currentProjectId}/sections`);
-      sections = data.sections || [];
-      for (const s of sections) {
-        await dbPut('sections', s);
-      }
-    } catch (e) {
-      console.error('Failed to load sections from server', e);
-    }
   }
 }
 
@@ -950,12 +966,24 @@ async function onProjectChange(selectedSectionId = null) {
 
   try {
     let projectSections;
-    if (db) {
-      const allSections = await dbGetAll('sections');
-      projectSections = allSections.filter(s => s.project_id === parseInt(projectId));
-    } else {
+    if (isOnlineForSync()) {
       const data = await get(`/api/projects/${projectId}/sections`);
       projectSections = data.sections || [];
+      // Cleanup DB: gelöschte Sections entfernen
+      const serverIds = new Set(projectSections.map(s => s.id));
+      const allLocal = await dbGetAll('sections');
+      const localProjectSections = allLocal.filter(s => s.project_id === parseInt(projectId));
+      for (const local of localProjectSections) {
+        if (!serverIds.has(local.id)) {
+          await deleteFromDB('sections', local.id);
+        }
+      }
+      for (const s of projectSections) {
+        await dbPut('sections', s);
+      }
+    } else {
+      const allSections = await dbGetAll('sections');
+      projectSections = allSections.filter(s => s.project_id === parseInt(projectId));
     }
 
     for (const s of projectSections) {
