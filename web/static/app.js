@@ -863,7 +863,7 @@ function renderTodos() {
     html += `<div class="add-section-row"><button class="btn-add-section" onclick="showAddSectionForm()">➕ Neue Section</button></div>`;
 
     if (!filtered.length && !sections.length) {
-      html = `<div class="empty-state">
+      html += `<div class="empty-state">
         <div class="emoji">🎉</div>
         <h3>Alles erledigt!</h3>
         <p>Keine Todos in dieser Ansicht.</p>
