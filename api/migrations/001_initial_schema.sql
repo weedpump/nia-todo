@@ -1,18 +1,15 @@
--- Migration 001: Initial schema for nia-todo
+-- Migration 001: Initial schema for nia-todo (WITHOUT parent_id)
 -- Created: 2026-05-15
--- Purpose: Create all base tables with subproject support
+-- Purpose: Create all base tables - parent_id added in migration 002
 
 -- Projects/Kategorien
 CREATE TABLE IF NOT EXISTS projects (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
+    name TEXT NOT NULL UNIQUE,
     color TEXT DEFAULT '#6366f1',
     sort_order INTEGER DEFAULT 0,
-    parent_id INTEGER DEFAULT NULL,
     created_at TEXT DEFAULT (datetime('now')),
-    updated_at TEXT DEFAULT (datetime('now')),
-    FOREIGN KEY (parent_id) REFERENCES projects(id) ON DELETE CASCADE,
-    UNIQUE(name, parent_id)
+    updated_at TEXT DEFAULT (datetime('now'))
 );
 
 -- Todos
@@ -63,7 +60,6 @@ CREATE INDEX IF NOT EXISTS idx_todos_project ON todos(project_id);
 CREATE INDEX IF NOT EXISTS idx_todos_section ON todos(section_id);
 CREATE INDEX IF NOT EXISTS idx_sections_project ON sections(project_id);
 CREATE INDEX IF NOT EXISTS idx_reminders_at ON reminders(remind_at);
-CREATE INDEX IF NOT EXISTS idx_projects_parent ON projects(parent_id);
 
 -- Default projects
 INSERT OR IGNORE INTO projects (id, name, color, sort_order) VALUES (1, 'Inbox', '#64748b', 0);
