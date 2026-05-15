@@ -1220,16 +1220,14 @@ function showProjectModal(project = null, parentId = null) {
   document.getElementById('project-id').value = '';
   document.getElementById('project-modal-title').textContent = project ? 'Projekt bearbeiten' : (parentId ? 'Neues Subproject' : 'Neues Projekt');
 
-  // Populate parent dropdown - render in tree order (same as sidebar)
+  // Populate parent dropdown - EXACT same tree logic as renderProjects()
   const parentSelect = document.getElementById('project-parent-id');
   if (parentSelect) {
     parentSelect.innerHTML = '<option value="">-- Kein Eltern-Projekt --</option>';
     
-    // Build tree structure - sort by id first to ensure parents are processed before children
-    const sortedProjects = [...projects].sort((a, b) => a.id - b.id);
-    
+    // Build tree structure (identical to renderProjects)
     const projectMap = new Map();
-    sortedProjects.forEach(p => projectMap.set(p.id, { ...p, children: [] }));
+    projects.forEach(p => projectMap.set(p.id, { ...p, children: [] }));
     
     const rootProjects = [];
     projectMap.forEach(p => {
@@ -1245,21 +1243,21 @@ function showProjectModal(project = null, parentId = null) {
     
     rootProjects.sort((a, b) => a.sort_order - b.sort_order);
     
-    // Recursive function to add options in tree order
-    function addProjectOptions(proj, depth = 0) {
-      // Skip current project (can't be own parent)
-      if (project && proj.id === project.id) return;
+    // Recursive function - identical to renderProjectTree but adds options
+    function addProjectOptions(projectNode, depth = 0) {
+      // Skip current project being edited (can't be own parent)
+      if (project && projectNode.id === project.id) return;
       
       const indent = '  '.repeat(depth) + (depth > 0 ? '└─ ' : '');
       const option = document.createElement('option');
-      option.value = proj.id;
-      option.textContent = indent + proj.name;
+      option.value = projectNode.id;
+      option.textContent = indent + projectNode.name;
       parentSelect.appendChild(option);
       
-      // Add children recursively
-      if (proj.children && proj.children.length > 0) {
-        proj.children.sort((a, b) => a.sort_order - b.sort_order);
-        proj.children.forEach(child => addProjectOptions(child, depth + 1));
+      // Process children in same order as renderProjects
+      if (projectNode.children && projectNode.children.length > 0) {
+        projectNode.children.sort((a, b) => a.sort_order - b.sort_order);
+        projectNode.children.forEach(child => addProjectOptions(child, depth + 1));
       }
     }
     
