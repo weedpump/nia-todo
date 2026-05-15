@@ -1,8 +1,9 @@
 """nia-todo: FastAPI backend"""
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Header, Depends
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Header, Depends, Request, status
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from starlette.responses import Response
 from pydantic import BaseModel, Field
 from typing import Optional, List
 from pathlib import Path
@@ -17,11 +18,41 @@ import bcrypt
 import jwt as pyjwt
 from db import init_db, get_db, row_to_dict, now_iso
 from migrate import run_migrations
+from rate_limit import rate_limiter, require_login_rate_limit, require_api_rate_limit, get_client_ip, get_client_ip_ws
 
 # Migrationen beim Import ausführen (vor App-Start)
 run_migrations()
 
 app = FastAPI(title="nia-todo", version="0.4.0")
+
+# ─── Rate Limiting Middleware ───────────────────────────────────────────────────
+
+from starlette.middleware.base import BaseHTTPMiddleware
+
+class RateLimitMiddleware(BaseHTTPMiddleware):
+    """Apply API rate limiting to all requests except login/setup/WS endpoints."""
+    async def dispatch(self, request: Request, call_next):
+        # Skip rate limiting for non-API routes and login/setup endpoints
+        path = request.url.path
+        skip_paths = {
+            "/api/login", "/api/admin/login",
+            "/api/setup/admin", "/api/setup/first-user", "/api/setup/status",
+            "/ws", "/", "/setup", "/admin", "/sw.js", "/favicon.ico"
+        }
+        if path in skip_paths or path.startswith("/static/") or not path.startswith("/api/"):
+            return await call_next(request)
+        # Check general API rate limit
+        ip = get_client_ip(request)
+        allowed, retry_after = rate_limiter.check_api(ip)
+        if not allowed:
+            return Response(
+                content='{"detail":"Zu viele Anfragen. Bitte langsamer machen."}',
+                status_code=429,
+                headers={"Retry-After": str(retry_after), "Content-Type": "application/json"}
+            )
+        return await call_next(request)
+
+app.add_middleware(RateLimitMiddleware)
 
 # ─── Auth / Session Helpers ───────────────────────────────────────────────────
 
@@ -318,17 +349,22 @@ manager = ConnectionManager()
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    await manager.connect(websocket)
-    ws_user_id = None
-    
-    # Check token from query params
-    token = websocket.query_params.get('token')
-    if token:
-        user_id = get_current_user(token)
-        if user_id:
-            ws_user_id = user_id
-    
+    ip = get_client_ip_ws(websocket)
+    if not rate_limiter.check_ws(ip):
+        await websocket.close(code=1008, reason="Too many connections")
+        return
+    rate_limiter.ws_connect(ip)
     try:
+        await manager.connect(websocket)
+        ws_user_id = None
+
+        # Check token from query params
+        token = websocket.query_params.get('token')
+        if token:
+            user_id = get_current_user(token)
+            if user_id:
+                ws_user_id = user_id
+
         while True:
             data = await websocket.receive_json()
             msg_type = data.get("type", "")
@@ -370,13 +406,11 @@ async def websocket_endpoint(websocket: WebSocket):
                     }, websocket)
     except WebSocketDisconnect:
         manager.disconnect(websocket)
+        rate_limiter.ws_disconnect(ip)
     except Exception as e:
         print(f"[WS] Error: {e}")
         manager.disconnect(websocket)
-
-    except Exception as e:
-        print(f"[WS] Error: {e}")
-        manager.disconnect(websocket)
+        rate_limiter.ws_disconnect(ip)
 
 async def broadcast_change(event_type: str, payload: dict, user_id: int):
     """Broadcast change only to the user who owns the data."""
@@ -391,11 +425,13 @@ def on_startup():
 # ─── Auth Endpoints (JWT) ─────────────────────────────────────────────────────
 
 @app.post("/api/login")
-def login(data: LoginRequest):
+def login(data: LoginRequest, request: Request, _: None = Depends(require_login_rate_limit)):
+    ip = get_client_ip(request)
     with get_db() as db:
         user = verify_user_credentials(db, data.username, data.password)
         if not user:
             raise HTTPException(401, "Invalid credentials")
+        rate_limiter.record_successful_login(ip)
         # Generate JWT with versioned secrets
         token = create_jwt_token(user, db)
         return {
@@ -503,7 +539,7 @@ def setup_status():
         }
 
 @app.post("/api/setup/admin")
-def setup_admin(data: AdminSetupRequest):
+def setup_admin(data: AdminSetupRequest, request: Request, _: None = Depends(require_login_rate_limit)):
     # Validate admin password
     error = validate_admin_password(data.admin_password)
     if error:
@@ -530,7 +566,7 @@ def setup_admin(data: AdminSetupRequest):
         return {"message": "Admin password set"}
 
 @app.post("/api/setup/first-user")
-def setup_first_user(data: FirstUserRequest):
+def setup_first_user(data: FirstUserRequest, request: Request, _: None = Depends(require_login_rate_limit)):
     # Validate user password (min 8 chars)
     error = validate_password(data.password)
     if error:
@@ -624,8 +660,9 @@ def require_admin(authorization: Optional[str] = Header(None)):
     return True
 
 @app.post("/api/admin/login")
-def admin_login(data: AdminLoginRequest):
+def admin_login(data: AdminLoginRequest, request: Request, _: None = Depends(require_login_rate_limit)):
     """Admin login with password, returns JWT token."""
+    ip = get_client_ip(request)
     with get_db() as db:
         config = db.execute("SELECT admin_token_hash, setup_complete FROM admin_config WHERE id = 1").fetchone()
         if not config:
@@ -639,6 +676,7 @@ def admin_login(data: AdminLoginRequest):
             raise HTTPException(401, "Falsches Admin-Passwort")
         
         token = create_admin_jwt_token(db)
+        rate_limiter.record_successful_login(ip)
         return {
             "access_token": token,
             "token_type": "bearer",
