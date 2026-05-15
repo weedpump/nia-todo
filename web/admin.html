@@ -92,7 +92,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); }
           <th>ID</th>
           <th>Benutzername</th>
           <th>Anzeigename</th>
-          <th>Rolle</th>
+          <th>Status</th>
           <th>Erstellt</th>
           <th>Aktionen</th>
         </tr>
@@ -238,7 +238,7 @@ function renderUsers(users) {
       <td>${u.id}</td>
       <td>${u.username}</td>
       <td>${u.display_name || '-'}</td>
-      <td><span class="badge ${u.is_admin ? 'badge-admin' : 'badge-user'}">${u.is_admin ? 'Admin' : 'User'}</span></td>
+      <td><span class="badge ${u.is_admin ? 'badge-admin' : 'badge-user'}">${u.is_admin ? 'Erster Benutzer' : 'Benutzer'}</span></td>
       <td>${new Date(u.created_at).toLocaleDateString('de-DE')}</td>
       <td>${u.is_admin ? '-' : `<button class="btn btn-danger" onclick="deleteUser(${u.id}, '${u.username}')">Löschen</button>`}</td>
     </tr>
