@@ -1,6 +1,7 @@
 /* nia-todo: Modern, clean, compact */
 
 :root {
+  /* ─── Dark Theme (default) ─── */
   --bg-primary: #0f0f23;
   --bg-secondary: #1a1a2e;
   --bg-tertiary: #242442;
@@ -16,6 +17,23 @@
   --border: #334155;
   --radius: 8px;
   --shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+[data-theme="light"] {
+  --bg-primary: #f8fafc;
+  --bg-secondary: #f1f5f9;
+  --bg-tertiary: #e2e8f0;
+  --bg-hover: #cbd5e1;
+  --text-primary: #1e293b;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  --accent: #4f46e5;
+  --accent-hover: #4338ca;
+  --success: #16a34a;
+  --warning: #d97706;
+  --danger: #dc2626;
+  --border: #cbd5e1;
+  --shadow: 0 4px 12px rgba(0,0,0,0.08);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -890,6 +908,60 @@ input[type="color"]::-moz-color-swatch {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+/* ─── Theme Toggle ─────────────────────────────────────────────────────────── */
+
+.theme-toggle-bar {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.theme-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.theme-options {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+}
+
+.theme-option {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: var(--radius);
+  transition: all 0.15s;
+  line-height: 1;
+}
+
+.theme-option:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.theme-option.active {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+@media (max-width: 768px) {
+  .theme-toggle-bar {
+    padding: 8px 12px;
+  }
 }
 
 .version-info {

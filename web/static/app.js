@@ -23,6 +23,53 @@ let swRegistration = null;
 let updateAvailable = false;
 const APP_VERSION = 'v0.3.3-dev';
 
+// ─── Theme System ───────────────────────────────────────────────────────────
+
+function initTheme() {
+  const stored = localStorage.getItem('theme');
+  if (stored && stored !== 'system') {
+    applyTheme(stored);
+  } else {
+    applyTheme('system');
+  }
+}
+
+function setTheme(mode) {
+  if (mode === 'system') {
+    localStorage.removeItem('theme');
+    applyTheme('system');
+  } else {
+    localStorage.setItem('theme', mode);
+    applyTheme(mode);
+  }
+}
+
+function applyTheme(mode) {
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const isDark = mode === 'dark' || (mode === 'system' && prefersDark);
+  
+  document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+  
+  // Update theme-color meta for mobile browsers
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) {
+    meta.setAttribute('content', isDark ? '#0f172a' : '#f8fafc');
+  }
+  
+  // Update active button state
+  document.querySelectorAll('.theme-option').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.theme === mode);
+  });
+}
+
+// Listen to system theme changes
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+  const stored = localStorage.getItem('theme');
+  if (!stored || stored === 'system') {
+    applyTheme('system');
+  }
+});
+
 // ─── WebSocket ───────────────────────────────────────────────────────────────
 let ws = null;
 let wsState = 'disconnected'; // connected, connecting, reconnecting, disconnected
@@ -669,6 +716,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   updateConnectionStatus();
   renderVersionInfo();
+
+  initTheme();
 
   console.log('App initialized');
 });
