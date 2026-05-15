@@ -1220,15 +1220,22 @@ function showProjectModal(project = null, parentId = null) {
   document.getElementById('project-id').value = '';
   document.getElementById('project-modal-title').textContent = project ? 'Projekt bearbeiten' : (parentId ? 'Neues Subproject' : 'Neues Projekt');
 
-  // Populate parent dropdown - EXACT same tree logic as renderProjects()
   const parentSelect = document.getElementById('project-parent-id');
   if (parentSelect) {
     parentSelect.innerHTML = '<option value="">-- Kein Eltern-Projekt --</option>';
     
-    // Build tree structure (identical to renderProjects)
+    // Step 1: Create ALL nodes first (without children arrays)
     const projectMap = new Map();
-    projects.forEach(p => projectMap.set(p.id, { ...p, children: [] }));
+    projects.forEach(p => {
+      projectMap.set(p.id, { id: p.id, name: p.name, parent_id: p.parent_id, sort_order: p.sort_order, color: p.color });
+    });
     
+    // Step 2: Add children arrays to all nodes
+    projectMap.forEach(p => {
+      p.children = [];
+    });
+    
+    // Step 3: NOW assign children to parents (all parents exist now!)
     const rootProjects = [];
     projectMap.forEach(p => {
       if (p.parent_id === null || p.parent_id === undefined) {
@@ -1243,7 +1250,7 @@ function showProjectModal(project = null, parentId = null) {
     
     rootProjects.sort((a, b) => a.sort_order - b.sort_order);
     
-    // Recursive function - identical to renderProjectTree but adds options
+    // Recursive function
     function addProjectOptions(projectNode, depth = 0) {
       // Skip current project being edited (can't be own parent)
       if (project && projectNode.id === project.id) return;
@@ -1254,7 +1261,6 @@ function showProjectModal(project = null, parentId = null) {
       option.textContent = indent + projectNode.name;
       parentSelect.appendChild(option);
       
-      // Process children in same order as renderProjects
       if (projectNode.children && projectNode.children.length > 0) {
         projectNode.children.sort((a, b) => a.sort_order - b.sort_order);
         projectNode.children.forEach(child => addProjectOptions(child, depth + 1));
@@ -1274,7 +1280,6 @@ function showProjectModal(project = null, parentId = null) {
   }
 
   document.getElementById('project-delete-btn').style.display = project ? '' : 'none';
-
   document.getElementById('project-modal')?.classList.add('active');
 }
 
