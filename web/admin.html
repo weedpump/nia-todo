@@ -45,7 +45,6 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); }
     <h1>🔧 nia-todo Admin</h1>
     <div class="admin-nav">
       <a href="/">← Zurück zur App</a>
-      <button class="btn btn-danger" onclick="adminLogout()">Abmelden</button>
       <div class="admin-theme-toggle">
         <button onclick="setTheme('light')" title="Hell">☀️</button>
         <button onclick="setTheme('dark')" title="Dunkel">🌙</button>
@@ -64,6 +63,12 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); }
   </div>
 
   <div id="admin-content" style="display:none;">
+
+  <!-- Admin Toolbar -->
+  <div class="admin-card" style="padding: 12px 20px; display: flex; justify-content: space-between; align-items: center;">
+    <span style="font-size: 14px; color: var(--text-secondary);">🔐 Eingeloggt als Admin</span>
+    <button class="btn btn-danger" onclick="adminLogout()">Abmelden</button>
+  </div>
 
   <!-- Create User -->
   <div class="admin-card" id="create-user-card">
