@@ -211,18 +211,21 @@ async function handleWsMessage(msg) {
       break;
     case 'todo_create':
       if (msg.payload) {
-        const local = await getFromDB('todos', msg.payload.id);
-        if (local) {
-          const localTime = new Date(local.updated_at || 0).getTime();
-          const serverTime = new Date(msg.payload.updated_at || 0).getTime();
-          if (serverTime < localTime) break;
-        }
         await dbPut('todos', msg.payload);
-        const existing = todos.find(t => t.id === msg.payload.id);
-        if (!existing) {
+        // Check if we have a temp todo in queue for this server response
+        const queue = await dbGetAll('syncQueue');
+        const pendingCreate = queue.find(q =>
+          q.action === 'CREATE_TODO' && q.data._tempId
+        );
+        if (pendingCreate) {
+          // Replace temp todo with real server version
+          await deleteFromDB('todos', pendingCreate.data._tempId);
+          todos = todos.filter(t => t.id !== pendingCreate.data._tempId);
           todos.push(msg.payload);
         } else {
-          todos = todos.map(t => t.id === msg.payload.id ? msg.payload : t);
+          // Broadcast from another client → add to list
+          const existing = todos.find(t => t.id === msg.payload.id);
+          if (!existing) todos.push(msg.payload);
         }
         renderProjects();
         renderStats();
