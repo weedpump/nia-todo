@@ -281,6 +281,13 @@ async function loadUsers() {
   }
 }
 
+function escapeHtml(str) {
+  if (!str) return '';
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
 function renderUsers(users) {
   const tbody = document.getElementById('user-list');
   if (!users || users.length === 0) {
@@ -290,12 +297,12 @@ function renderUsers(users) {
   tbody.innerHTML = users.map(u => `
     <tr>
       <td>${u.id}</td>
-      <td>${u.username}</td>
-      <td>${u.display_name || '-'}</td>
+      <td>${escapeHtml(u.username)}</td>
+      <td>${escapeHtml(u.display_name) || '-'}</td>
       <td><span class="badge ${u.is_admin ? 'badge-admin' : 'badge-user'}">${u.is_admin ? 'Erster Benutzer' : 'Benutzer'}</span></td>
       <td>${new Date(u.created_at).toLocaleDateString('de-DE')}</td>
-      <td><button class="btn btn-primary" style="font-size:12px; padding:4px 10px;" onclick="openResetPwModal(${u.id}, '${u.username}')">Zurücksetzen</button></td>
-      <td>${u.is_admin ? '-' : `<button class="btn btn-danger" onclick="deleteUser(${u.id}, '${u.username}')">Löschen</button>`}</td>
+      <td><button class="btn btn-primary" style="font-size:12px; padding:4px 10px;" onclick="openResetPwModal(${u.id}, '${escapeHtml(u.username)}')">Zurücksetzen</button></td>
+      <td>${u.is_admin ? '-' : `<button class="btn btn-danger" onclick="deleteUser(${u.id}, '${escapeHtml(u.username)}')">Löschen</button>`}</td>
     </tr>
   `).join('');
 }

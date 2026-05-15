@@ -1241,7 +1241,12 @@ if WEB_DIR.exists():
 
     @app.get("/{path:path}")
     def spa(path: str):
-        f = WEB_DIR / path
+        f = (WEB_DIR / path).resolve()
+        # Prevent path traversal: resolved path must be within WEB_DIR
+        try:
+            f.relative_to(WEB_DIR.resolve())
+        except ValueError:
+            return FileResponse(str(WEB_DIR / "index.html"))
         if f.exists() and f.is_file():
             return FileResponse(str(f))
         return FileResponse(str(WEB_DIR / "index.html"))
