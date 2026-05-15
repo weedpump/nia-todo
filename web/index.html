@@ -11,6 +11,29 @@
 <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
+  <!-- Login Overlay -->
+  <div id="login-overlay" class="login-overlay">
+    <div class="login-box">
+      <div class="login-brand">
+        <span class="login-logo">✨</span>
+        <div class="login-title">nia-todo</div>
+        <div class="login-subtitle">Dein persönliches Todo-System</div>
+      </div>
+      <form id="login-form" onsubmit="handleLogin(event)">
+        <div class="login-field">
+          <label for="login-username">Benutzername</label>
+          <input type="text" id="login-username" required placeholder="tobi oder moni" autocomplete="username">
+        </div>
+        <div class="login-field">
+          <label for="login-password">Passwort</label>
+          <input type="password" id="login-password" required placeholder="Passwort eingeben" autocomplete="current-password">
+        </div>
+        <div id="login-error" class="login-error"></div>
+        <button type="submit" class="login-btn">Anmelden</button>
+      </form>
+    </div>
+  </div>
+
   <div id="app">
     <!-- Mobile sidebar overlay -->
     <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
@@ -49,6 +72,17 @@
           <span>➕</span> Projekt hinzufügen
         </button>
       </nav>
+
+      <!-- User Info & Logout -->
+      <div class="user-bar" id="user-bar">
+        <div class="user-info" id="user-info">
+          <span class="user-icon">👤</span>
+          <span class="user-name" id="user-name">–</span>
+        </div>
+        <button class="logout-btn" onclick="logout()" title="Abmelden">
+          <span>🚪</span> Abmelden
+        </button>
+      </div>
 
       <!-- Theme Toggle -->
       <div class="theme-toggle-bar" id="theme-toggle-bar">

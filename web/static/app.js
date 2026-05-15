@@ -23,6 +23,98 @@ let swRegistration = null;
 let updateAvailable = false;
 const APP_VERSION = 'v0.3.4-dev';
 
+// ─── Auth / User ────────────────────────────────────────────────────────────
+
+let currentUser = null;  // { id, username, display_name, token }
+
+function getAuthToken() {
+  return currentUser ? currentUser.token : localStorage.getItem('auth_token');
+}
+
+function getAuthHeaders() {
+  const token = getAuthToken();
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) headers['X-Auth-Token'] = token;
+  return headers;
+}
+
+async function login(username, password) {
+  const r = await fetch(API + '/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password })
+  });
+  if (!r.ok) {
+    const data = await r.json().catch(() => ({}));
+    throw new Error(data.detail || 'Login fehlgeschlagen');
+  }
+  const data = await r.json();
+  currentUser = data.user;
+  currentUser.token = data.token;
+  localStorage.setItem('auth_token', data.token);
+  return data;
+}
+
+async function checkAuth() {
+  const token = getAuthToken();
+  if (!token) return false;
+  try {
+    const r = await fetch(API + '/auth/me', {
+      headers: { 'X-Auth-Token': token }
+    });
+    if (!r.ok) {
+      localStorage.removeItem('auth_token');
+      currentUser = null;
+      return false;
+    }
+    const user = await r.json();
+    currentUser = user;
+    currentUser.token = token;
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+function logout() {
+  currentUser = null;
+  localStorage.removeItem('auth_token');
+  location.reload();
+}
+
+function showLoginOverlay() {
+  document.getElementById('login-overlay').classList.remove('hidden');
+}
+
+function hideLoginOverlay() {
+  document.getElementById('login-overlay').classList.add('hidden');
+}
+
+async function handleLogin(e) {
+  e.preventDefault();
+  const username = document.getElementById('login-username').value.trim();
+  const password = document.getElementById('login-password').value;
+  const errorEl = document.getElementById('login-error');
+  errorEl.textContent = '';
+
+  try {
+    await login(username, password);
+    hideLoginOverlay();
+    renderUserInfo();
+    // Reload data for this user
+    await refreshFromServer();
+  } catch (err) {
+    errorEl.textContent = err.message || 'Login fehlgeschlagen';
+  }
+}
+
+function renderUserInfo() {
+  const nameEl = document.getElementById('user-name');
+  if (nameEl && currentUser) {
+    nameEl.textContent = currentUser.display_name || currentUser.username;
+  }
+}
+
 // ─── Theme System ───────────────────────────────────────────────────────────
 
 function initTheme() {
@@ -101,7 +193,9 @@ function connectWebSocket() {
   console.log('[WS] Connecting to ' + WS_URL + ' (attempt ' + (reconnectAttempts + 1) + ')');
 
   try {
-    ws = new WebSocket(WS_URL);
+    const token = getAuthToken();
+    const wsUrl = token ? WS_URL + '?token=' + encodeURIComponent(token) : WS_URL;
+    ws = new WebSocket(wsUrl);
 
     ws.onopen = async () => {
       console.log('[WS] ✅ Connected');
@@ -688,6 +782,18 @@ async function triggerUpdate() {
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('App starting...');
 
+  // Auth check first
+  const authed = await checkAuth();
+  if (authed) {
+    hideLoginOverlay();
+    renderUserInfo();
+    await initApp();
+  } else {
+    showLoginOverlay();
+  }
+});
+
+async function initApp() {
   await initServiceWorker();
 
   try {
@@ -720,7 +826,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   initTheme();
 
   console.log('App initialized');
-});
+}
 
 function renderVersionInfo() {
   const el = document.getElementById('version-info');
@@ -750,7 +856,9 @@ async function loadAll() {
 // ─── API ──────────────────────────────────────────────────────────────────────
 
 async function get(path) {
-  const r = await fetch(API + path);
+  const r = await fetch(API + path, {
+    headers: getAuthHeaders()
+  });
   if (!r.ok) throw new Error(r.status + ' ' + r.statusText);
   return r.json();
 }
@@ -758,7 +866,7 @@ async function get(path) {
 async function post(path, body) {
   const r = await fetch(API + path, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getAuthHeaders(),
     body: JSON.stringify(body)
   });
   if (!r.ok) throw new Error(r.status + ' ' + r.statusText);
@@ -768,7 +876,7 @@ async function post(path, body) {
 async function patch(path, body) {
   const r = await fetch(API + path, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getAuthHeaders(),
     body: JSON.stringify(body)
   });
   if (!r.ok) throw new Error(r.status + ' ' + r.statusText);
@@ -776,7 +884,10 @@ async function patch(path, body) {
 }
 
 async function del(path) {
-  const r = await fetch(API + path, { method: 'DELETE' });
+  const r = await fetch(API + path, {
+    method: 'DELETE',
+    headers: getAuthHeaders()
+  });
   if (!r.ok) throw new Error(r.status + ' ' + r.statusText);
   return r.json();
 }

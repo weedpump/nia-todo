@@ -7,6 +7,7 @@ Beim Server-Start wird automatisch geprüft welche fehlen und ausgeführt.
 import os
 import sqlite3
 import re
+import bcrypt
 from pathlib import Path
 from db import DB_PATH, get_db
 
@@ -49,6 +50,17 @@ def init_migrations_table(conn):
     """)
     conn.commit()
 
+def hash_passwords_in_sql(sql):
+    """Ersetzt Passwort-Platzhalter in Migration 003 durch bcrypt-Hashes."""
+    if 'PLACEHOLDER_TOBI' in sql:
+        pw_tobi = os.getenv('NIA_TODO_PASSWORD_TOBI', '0HN2QIlB8ZHq')
+        pw_moni = os.getenv('NIA_TODO_PASSWORD_MONI', 'Sfg3Tvw6uP0Q')
+        hash_tobi = bcrypt.hashpw(pw_tobi.encode(), bcrypt.gensalt()).decode()
+        hash_moni = bcrypt.hashpw(pw_moni.encode(), bcrypt.gensalt()).decode()
+        sql = sql.replace('PLACEHOLDER_TOBI', hash_tobi)
+        sql = sql.replace('PLACEHOLDER_MONI', hash_moni)
+    return sql
+
 def run_migrations():
     """Führt alle ausstehenden Migrationen aus."""
     conn = sqlite3.connect(str(DB_PATH))
@@ -68,6 +80,10 @@ def run_migrations():
         if version > current_version:
             print(f"[MIGRATION] Applying {filepath.name} (version {version})...")
             sql = filepath.read_text()
+            
+            # Special handling: hash passwords for migration 003
+            sql = hash_passwords_in_sql(sql)
+            
             try:
                 conn.executescript(sql)
                 set_db_version(conn, version)

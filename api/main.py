@@ -1,6 +1,6 @@
 """nia-todo: FastAPI backend"""
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Header, Depends
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
@@ -8,76 +8,43 @@ from typing import Optional, List
 from pathlib import Path
 import json
 import asyncio
+import secrets
 
+import bcrypt
 from db import init_db, get_db, row_to_dict, now_iso
 from migrate import run_migrations
 
 # Migrationen beim Import ausführen (vor App-Start)
 run_migrations()
 
-app = FastAPI(title="nia-todo", version="0.2.1")
+app = FastAPI(title="nia-todo", version="0.4.0")
 
-# ─── WebSocket Connection Manager ──────────────────────────────────────────────
+# ─── Auth / Session Helpers ───────────────────────────────────────────────────
 
-class ConnectionManager:
-    def __init__(self):
-        self.active_connections: list[WebSocket] = []
+# In-memory session store: token -> user_id
+sessions = {}
 
-    async def connect(self, websocket: WebSocket):
-        await websocket.accept()
-        self.active_connections.append(websocket)
-        print(f"[WS] Client connected. Total: {len(self.active_connections)}")
+def create_session(user_id: int) -> str:
+    token = secrets.token_urlsafe(32)
+    sessions[token] = user_id
+    return token
 
-    def disconnect(self, websocket: WebSocket):
-        if websocket in self.active_connections:
-            self.active_connections.remove(websocket)
-            print(f"[WS] Client disconnected. Total: {len(self.active_connections)}")
+def get_current_user(token: Optional[str] = None) -> Optional[int]:
+    if not token:
+        return None
+    return sessions.get(token)
 
-    async def send_personal_message(self, message: dict, websocket: WebSocket):
-        try:
-            await websocket.send_json(message)
-        except Exception:
-            pass
-
-    async def broadcast(self, message: dict):
-        disconnected = []
-        for connection in self.active_connections:
-            try:
-                await connection.send_json(message)
-            except Exception:
-                disconnected.append(connection)
-        for conn in disconnected:
-            if conn in self.active_connections:
-                self.active_connections.remove(conn)
-
-manager = ConnectionManager()
-
-# ─── Pydantic models ───────────────────────────────────────────────────────────
-
-class TodoCreate(BaseModel):
-    title: str
-    description: str = ""
-    priority: int = Field(default=3, ge=1, le=4)
-    project_id: Optional[int] = None
-    section_id: Optional[int] = None
-    due_date: Optional[str] = None
-    remind_at: Optional[str] = None
-
-class TodoUpdate(BaseModel):
-    title: Optional[str] = None
-    description: Optional[str] = None
-    priority: Optional[int] = None
-    project_id: Optional[int] = None
-    section_id: Optional[int] = None
-    due_date: Optional[str] = None
-    status: Optional[str] = None
-    remind_at: Optional[str] = None
-
-class ProjectCreate(BaseModel):
-    name: str
-    color: str = "#6366f1"
-    sort_order: int = 0
-    parent_id: Optional[int] = None
+def verify_user_credentials(db, username: str, password: str) -> Optional[dict]:
+    row = db.execute(
+        "SELECT id, username, display_name, password_hash FROM users WHERE username = ?",
+        (username,)
+    ).fetchone()
+    if not row:
+        return None
+    stored_hash = row['password_hash']
+    if bcrypt.checkpw(password.encode(), stored_hash.encode()):
+        return dict(row)
+    return None
 
 class ProjectUpdate(BaseModel):
     name: Optional[str] = None
@@ -92,6 +59,15 @@ class SectionCreate(BaseModel):
 class SectionUpdate(BaseModel):
     name: Optional[str] = None
     sort_order: Optional[int] = None
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+class UserResponse(BaseModel):
+    id: int
+    username: str
+    display_name: str
 
 # ─── Helper ────────────────────────────────────────────────────────────────────
 
@@ -161,6 +137,44 @@ async def broadcast_change(event_type: str, payload: dict):
 @app.on_event("startup")
 def on_startup():
     init_db()
+
+# ─── Auth Endpoints ───────────────────────────────────────────────────────────
+
+@app.post("/api/login")
+def login(data: LoginRequest):
+    with get_db() as db:
+        user = verify_user_credentials(db, data.username, data.password)
+        if not user:
+            raise HTTPException(401, "Invalid credentials")
+        token = create_session(user['id'])
+        return {
+            "token": token,
+            "user": {
+                "id": user['id'],
+                "username": user['username'],
+                "display_name": user['display_name']
+            }
+        }
+
+@app.post("/api/logout")
+def logout(x_session_token: Optional[str] = Header(None)):
+    if x_session_token and x_session_token in sessions:
+        del sessions[x_session_token]
+    return {"logged_out": True}
+
+@app.get("/api/me")
+def me(x_session_token: Optional[str] = Header(None)):
+    user_id = get_current_user(x_session_token)
+    if not user_id:
+        raise HTTPException(401, "Not authenticated")
+    with get_db() as db:
+        user = db.execute(
+            "SELECT id, username, display_name FROM users WHERE id = ?",
+            (user_id,)
+        ).fetchone()
+        if not user:
+            raise HTTPException(404, "User not found")
+        return dict(user)
 
 # ─── Todos ────────────────────────────────────────────────────────────────────
 
