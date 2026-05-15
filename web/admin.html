@@ -278,8 +278,10 @@ async function deleteUser(userId, username) {
   }
 }
 
-// Load on page load
-loadUsers();
+// Load on page load - only if we have a token (will be handled by doAdminLogin if not)
+if (adminToken) {
+  loadUsers();
+}
 </script>
 </body>
 </html>
