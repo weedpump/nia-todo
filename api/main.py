@@ -77,11 +77,13 @@ class ProjectCreate(BaseModel):
     name: str
     color: str = "#6366f1"
     sort_order: int = 0
+    parent_id: Optional[int] = None
 
 class ProjectUpdate(BaseModel):
     name: Optional[str] = None
     color: Optional[str] = None
     sort_order: Optional[int] = None
+    parent_id: Optional[int] = None
 
 class SectionCreate(BaseModel):
     name: str
@@ -255,15 +257,24 @@ async def delete_todo(todo_id: int):
 @app.get("/api/projects")
 def list_projects():
     with get_db() as db:
-        rows = db.execute("SELECT * FROM projects ORDER BY sort_order, id").fetchall()
+        rows = db.execute("SELECT * FROM projects ORDER BY parent_id, sort_order, id").fetchall()
         return {"projects": [dict(r) for r in rows]}
 
 @app.post("/api/projects")
 async def create_project(data: ProjectCreate):
     with get_db() as db:
+        # Validate parent_id: cannot be self and must exist
+        if data.parent_id is not None:
+            parent = db.execute("SELECT * FROM projects WHERE id = ?", (data.parent_id,)).fetchone()
+            if not parent:
+                raise HTTPException(404, "Parent project not found")
+            # Check for circular dependency (1 level deep is enough for now)
+            if data.parent_id == data.parent_id:  # Self-reference is already checked above
+                pass
+        
         c = db.execute(
-            "INSERT INTO projects (name, color, sort_order, updated_at) VALUES (?,?,?,?)",
-            (data.name, data.color, data.sort_order, now_iso())
+            "INSERT INTO projects (name, color, sort_order, parent_id, updated_at) VALUES (?,?,?,?,?)",
+            (data.name, data.color, data.sort_order, data.parent_id, now_iso())
         )
         db.commit()
         row = db.execute("SELECT * FROM projects WHERE id = ?", (c.lastrowid,)).fetchone()
@@ -278,7 +289,7 @@ async def update_project(project_id: int, data: ProjectUpdate):
         if not existing:
             raise HTTPException(404, "Project not found")
         updates = {}
-        for f in ["name","color","sort_order"]:
+        for f in ["name","color","sort_order","parent_id"]:
             v = getattr(data, f)
             if v is not None:
                 updates[f] = v
@@ -297,11 +308,26 @@ async def delete_project(project_id: int):
     if project_id == 1:
         raise HTTPException(400, "Inbox cannot be deleted")
     with get_db() as db:
-        # Move todos to inbox before deleting project
-        db.execute("UPDATE todos SET project_id = 1, section_id = NULL WHERE project_id = ?", (project_id,))
-        # Also delete associated sections
-        db.execute("DELETE FROM sections WHERE project_id = ?", (project_id,))
-        db.execute("DELETE FROM projects WHERE id = ?", (project_id,))
+        # Find all descendant project IDs (recursive)
+        to_delete = []
+        queue = [project_id]
+        while queue:
+            pid = queue.pop(0)
+            to_delete.append(pid)
+            children = db.execute("SELECT id FROM projects WHERE parent_id = ?", (pid,)).fetchall()
+            for child in children:
+                queue.append(child['id'])
+        
+        # Move all todos from all projects to inbox
+        for pid in to_delete:
+            db.execute("UPDATE todos SET project_id = 1, section_id = NULL WHERE project_id = ?", (pid,))
+        
+        # Delete sections and projects (order matters for FK constraints)
+        for pid in to_delete:
+            db.execute("DELETE FROM sections WHERE project_id = ?", (pid,))
+        for pid in reversed(to_delete):  # Children first
+            db.execute("DELETE FROM projects WHERE id = ?", (pid,))
+        
         db.commit()
         await broadcast_change("project_delete", {"id": project_id})
         return {"deleted": project_id}

@@ -15,11 +15,14 @@ INIT_SQL = """
 -- Projects/Kategorien
 CREATE TABLE IF NOT EXISTS projects (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
     color TEXT DEFAULT '#6366f1',
     sort_order INTEGER DEFAULT 0,
+    parent_id INTEGER DEFAULT NULL,
     created_at TEXT DEFAULT (datetime('now')),
-    updated_at TEXT DEFAULT (datetime('now'))
+    updated_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (parent_id) REFERENCES projects(id) ON DELETE CASCADE,
+    UNIQUE(name, parent_id)
 );
 
 -- Todos
