@@ -208,7 +208,15 @@ function openSettingsModal() {
   document.getElementById('settings-confirm-password').value = '';
   document.getElementById('settings-pw-error').textContent = '';
   document.getElementById('settings-pw-success').textContent = '';
+  // Reset API key UI
+  const createdEl = document.getElementById('api-key-created');
+  const valueEl = document.getElementById('api-key-value');
+  const errorEl = document.getElementById('api-key-error');
+  if (createdEl) createdEl.style.display = 'none';
+  if (valueEl) valueEl.textContent = '';
+  if (errorEl) errorEl.textContent = '';
   document.getElementById('settings-modal')?.classList.add('active');
+  loadApiKeys();
 }
 
 async function changeUserPassword() {
@@ -243,6 +251,124 @@ async function changeUserPassword() {
   } catch(e) {
     document.getElementById('settings-pw-error').textContent = e.message;
   }
+}
+
+// ─── API Keys ────────────────────────────────────────────────────────────────
+
+async function loadApiKeys() {
+  const listEl = document.getElementById('api-keys-list');
+  const errorEl = document.getElementById('api-key-error');
+  if (!listEl) return;
+  try {
+    const r = await fetch(API + '/api/me/api-keys', { headers: getAuthHeaders() });
+    if (!r.ok) {
+      const data = await r.json().catch(() => ({}));
+      throw new Error(data.detail || 'Fehler');
+    }
+    const data = await r.json();
+    renderApiKeys(data.api_keys || []);
+  } catch (e) {
+    console.error('API keys load failed:', e);
+    if (errorEl) errorEl.textContent = e.message;
+  }
+}
+
+function renderApiKeys(keys) {
+  const listEl = document.getElementById('api-keys-list');
+  if (!listEl) return;
+  if (!keys.length) {
+    listEl.innerHTML = '<p style="font-size:13px; color:var(--text-muted);">Keine API-Keys vorhanden.</p>';
+    return;
+  }
+  const html = keys.map(k => {
+    const revoked = k.revoked_at ? '<span style="color:var(--danger); font-size:11px;">(🚫 widerrufen)</span>' : '';
+    const lastUsed = k.last_used_at ? `<span style="color:var(--text-muted); font-size:11px;">Letzter Zugriff: ${new Date(k.last_used_at).toLocaleString('de-DE')}</span>` : '<span style="color:var(--text-muted); font-size:11px;">Noch nicht verwendet</span>';
+    return `
+      <div style="background:var(--bg-tertiary); padding:10px 12px; border-radius:var(--radius); margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+        <div style="min-width:0;">
+          <div style="font-size:13px; font-weight:500; margin-bottom:2px;">${escapeHtml(k.name)} ${revoked}</div>
+          <div style="font-size:12px; color:var(--text-muted); font-family:monospace;">${k.key_prefix}****</div>
+          <div style="margin-top:4px;">${lastUsed}</div>
+        </div>
+        ${!k.revoked_at ? `<button class="btn btn-danger" style="font-size:12px; padding:4px 8px; flex-shrink:0; margin-left:8px;" onclick="revokeApiKey(${k.id})" title="Widerrufen">🗑️</button>` : ''}
+      </div>
+    `;
+  }).join('');
+  listEl.innerHTML = html;
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+async function createApiKey() {
+  const name = prompt('Name für den API-Key (optional):');
+  if (name === null) return;
+  const errorEl = document.getElementById('api-key-error');
+  const createdEl = document.getElementById('api-key-created');
+  const valueEl = document.getElementById('api-key-value');
+  if (errorEl) errorEl.textContent = '';
+  try {
+    const r = await fetch(API + '/api/me/api-keys', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ name: name || undefined })
+    });
+    if (!r.ok) {
+      const data = await r.json().catch(() => ({}));
+      throw new Error(data.detail || 'Fehler');
+    }
+    const data = await r.json();
+    // Show the key once
+    if (valueEl) valueEl.textContent = data.key;
+    if (createdEl) createdEl.style.display = 'block';
+    // Refresh list
+    await loadApiKeys();
+  } catch (e) {
+    console.error('API key creation failed:', e);
+    if (errorEl) errorEl.textContent = e.message;
+  }
+}
+
+async function revokeApiKey(keyId) {
+  if (!confirm('API-Key wirklich widerrufen?')) return;
+  const errorEl = document.getElementById('api-key-error');
+  if (errorEl) errorEl.textContent = '';
+  try {
+    const r = await fetch(API + '/api/me/api-keys/' + keyId, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+    if (!r.ok) {
+      const data = await r.json().catch(() => ({}));
+      throw new Error(data.detail || 'Fehler');
+    }
+    await loadApiKeys();
+  } catch (e) {
+    console.error('API key revoke failed:', e);
+    if (errorEl) errorEl.textContent = e.message;
+  }
+}
+
+function copyApiKey() {
+  const valueEl = document.getElementById('api-key-value');
+  if (!valueEl || !valueEl.textContent) return;
+  navigator.clipboard.writeText(valueEl.textContent).then(() => {
+    alert('API-Key kopiert!');
+  }).catch(err => {
+    console.error('Copy failed:', err);
+    // Fallback
+    const range = document.createRange();
+    range.selectNode(valueEl);
+    window.getSelection().removeAllRanges();
+    window.getSelection().addRange(range);
+    document.execCommand('copy');
+    window.getSelection().removeAllRanges();
+    alert('API-Key kopiert!');
+  });
 }
 
 // ─── Theme System ───────────────────────────────────────────────────────────
