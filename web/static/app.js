@@ -1302,8 +1302,9 @@ function showProjectModal(project = null, parentId = null) {
     function addProjectOptions(projectNode, depth = 0) {
       // Skip current project being edited (can't be own parent)
       if (project && projectNode.id === project.id) return;
+      // Skip Inbox (cannot be parent of subprojects)
+      if (projectNode.id === 1) return;
       
-      // FIX: \u00A0 = Non-Breaking Space, wird in <option> nicht kollabiert
       const indent = '\u00A0'.repeat(depth * 2) + (depth > 0 ? '└─ ' : '');
       const option = document.createElement('option');
       option.value = projectNode.id;
@@ -1328,7 +1329,7 @@ function showProjectModal(project = null, parentId = null) {
     if (parentSelect) parentSelect.value = project.parent_id || '';
   }
 
-  document.getElementById('project-delete-btn').style.display = project ? '' : 'none';
+  document.getElementById('project-delete-btn').style.display = (project && project.id !== 1) ? '' : 'none';
   document.getElementById('project-modal')?.classList.add('active');
 }
 
