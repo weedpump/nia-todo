@@ -1064,9 +1064,42 @@ async function showTodoModal(todo = null) {
 
   const projSelect = document.getElementById('todo-project');
   if (projSelect) {
-    projSelect.innerHTML = projects.map(p =>
-      `<option value="${p.id}" style="color:${p.color}">${escapeHtml(p.name)}</option>`
-    ).join('');
+    // Build tree structure for dropdown (same as project modal)
+    projSelect.innerHTML = '';
+    
+    const projectMap = new Map();
+    projects.forEach(p => projectMap.set(p.id, { ...p, children: [] }));
+    
+    const rootProjects = [];
+    projectMap.forEach(p => {
+      if (p.parent_id === null || p.parent_id === undefined) {
+        rootProjects.push(p);
+      } else {
+        const parent = projectMap.get(p.parent_id);
+        if (parent) {
+          parent.children.push(p);
+        }
+      }
+    });
+    
+    rootProjects.sort((a, b) => a.sort_order - b.sort_order);
+    
+    // Recursive function to add options with indentation
+    function addProjectOptions(projectNode, depth = 0) {
+      const indent = '\u00A0'.repeat(depth * 2) + (depth > 0 ? '└─ ' : '');
+      const opt = document.createElement('option');
+      opt.value = projectNode.id;
+      opt.style.color = projectNode.color;
+      opt.textContent = indent + projectNode.name;
+      projSelect.appendChild(opt);
+      
+      if (projectNode.children && projectNode.children.length > 0) {
+        projectNode.children.sort((a, b) => a.sort_order - b.sort_order);
+        projectNode.children.forEach(child => addProjectOptions(child, depth + 1));
+      }
+    }
+    
+    rootProjects.forEach(p => addProjectOptions(p));
   }
 
   if (todo) {
