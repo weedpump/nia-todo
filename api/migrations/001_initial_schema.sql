@@ -1,17 +1,7 @@
-"""nia-todo: Selfhosted Todo-System mit SQLite + FastAPI + Web-UI"""
+-- Migration 001: Initial schema for nia-todo
+-- Created: 2026-05-15
+-- Purpose: Create all base tables with subproject support
 
-import os
-import sqlite3
-import json
-from datetime import datetime, timezone
-from pathlib import Path
-from contextlib import contextmanager
-
-DB_NAME = os.getenv('NIA_TODO_DB', 'nia-todo.db')
-DB_PATH = Path(__file__).parent / "data" / DB_NAME
-DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-
-INIT_SQL = """
 -- Projects/Kategorien
 CREATE TABLE IF NOT EXISTS projects (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -80,35 +70,3 @@ INSERT OR IGNORE INTO projects (id, name, color, sort_order) VALUES (1, 'Inbox',
 INSERT OR IGNORE INTO projects (id, name, color, sort_order) VALUES (2, 'Privat', '#10b981', 1);
 INSERT OR IGNORE INTO projects (id, name, color, sort_order) VALUES (3, 'Arbeit', '#3b82f6', 2);
 INSERT OR IGNORE INTO projects (id, name, color, sort_order) VALUES (4, 'Einkauf', '#f59e0b', 3);
-"""
-
-@contextmanager
-def get_db():
-    conn = sqlite3.connect(str(DB_PATH), detect_types=sqlite3.PARSE_DECLTYPES)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
-    try:
-        yield conn
-        conn.commit()
-    except Exception:
-        conn.rollback()
-        raise
-    finally:
-        conn.close()
-
-def init_db():
-    with get_db() as conn:
-        conn.executescript(INIT_SQL)
-        conn.commit()
-
-def row_to_dict(row):
-    if row is None:
-        return None
-    d = dict(row)
-    for k in ['reminders']:
-        if k not in d:
-            d[k] = []
-    return d
-
-def now_iso():
-    return datetime.now(timezone.utc).isoformat()
