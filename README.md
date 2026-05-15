@@ -53,6 +53,10 @@ Die Dev-Instanz (Port 8754) wird automatisch bei Start angepasst:
 - ⏰ Erinnerungen mit Telegram-Benachrichtigung
 - 📱 **PWA — Offline-First!** Installierbar auf Android, funktioniert offline
 - 🗄️ SQLite-Datenbank (lokal, kein Cloud-Quatsch)
+- 👥 **Multi-User**: Mehrere Benutzer mit eigenen Daten
+- 🔐 **JWT Auth**: Bearer Token, sichere Passwörter
+- 🔧 **Admin-Panel**: Benutzer verwalten, Passwörter zurücksetzen
+- 🎨 **Theme-Toggle**: Light / Dark / System
 - 🤖 Sprachintegration via Nia (Telegram)
 
 ## Quick Start (Live)
@@ -90,6 +94,42 @@ nia-todo ist eine Progressive Web App (PWA) die auch offline funktioniert:
 
 **Wichtig:** Beim ersten Start muss die App online sein damit der Service Worker sich registrieren und die Assets cachen kann.
 
+## Erstinstallation / Setup
+
+Bei **erster Installation** wird automatisch `/setup` geöffnet:
+
+1. **Admin-Passwort festlegen** (mindestens 12 Zeichen, Groß-/Kleinbuchstabe, Ziffer, Sonderzeichen)
+2. **Ersten Benutzer erstellen** (erhält alle bestehenden Daten, falls Migration)
+3. **Mit dem neuen Benutzer anmelden**
+
+> Hinweis: `/setup` ist nur verfügbar wenn noch kein Admin-Passwort gesetzt wurde.
+
+## Admin-Panel
+
+Das Admin-Panel unter `/admin` erfordert das Admin-Passwort:
+
+- **Benutzer erstellen**: Username, Anzeigename, Passwort (mindestens 8 Zeichen)
+- **Benutzer löschen**: Alle Daten des Benutzers werden gelöscht
+- **Passwörter zurücksetzen**: Admin kann Benutzer-Passwörter ändern
+- **Eigenes Admin-Passwort ändern**: Mindestens 12 Zeichen
+
+## Passwort-Management
+
+### Als Benutzer
+- **Einstellungen** (⚙️ oben rechts) → "Passwort ändern"
+- Nach Änderung: Automatischer Logout (alle Sessions werden invalidiert)
+
+### Als Admin
+- **Admin-Panel** → "Eigenes Admin-Passwort ändern"
+- **Admin-Panel** → "Passwort zurücksetzen" bei jedem Benutzer
+
+### Notfall (Console)
+Falls Admin-Passwort vergessen:
+```bash
+cd ~/projects/nia-todo/api
+python3 change_admin_password.py
+```
+
 ## Projektstruktur
 
 ```
@@ -98,11 +138,14 @@ nia-todo/
 │   ├── main.py              # FastAPI REST-API
 │   ├── db.py                # SQLite Schema & Helpers
 │   ├── migrate.py           # Auto-Migrationen bei Start
+│   ├── change_admin_password.py  # Notfall-Admin-Reset
 │   ├── migrations/          # SQL-Migrationsdateien
 │   └── data/
 │       └── nia-todo.db      # Datenbank (NICHT im Git!)
 ├── web/
 │   ├── index.html           # Web-UI
+│   ├── admin.html           # Admin-Panel
+│   ├── setup.html           # Erstinstallation
 │   ├── manifest.json        # PWA Manifest
 │   ├── sw.js                # Service Worker
 │   └── static/
@@ -316,10 +359,107 @@ GET /api/dashboard
 }
 ```
 
+### Authentifizierung
+
+> ⚠️ Alle API-Endpunkte (außer `/api/login` und `/api/setup/**`) erfordern einen Bearer Token im Header.
+
+#### Anmelden
+```
+POST /api/login
+```
+
+**Body:**
+```json
+{
+  "username": "tobi",
+  "password": "meinPasswort123!"
+}
+```
+
+**Response:**
+```json
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6...",
+  "token_type": "bearer",
+  "user": {
+    "id": 1,
+    "username": "tobi",
+    "display_name": "Tobi",
+    "is_admin": true
+  }
+}
+```
+
+#### Abmelden
+```
+POST /api/logout
+```
+Invalidiert alle Sessions des Benutzers (erhöht `token_version`).
+
+#### Aktueller Benutzer
+```
+GET /api/me
+```
+Gibt den aktuell eingeloggten Benutzer zurück.
+
+### Passwort-Management
+
+#### Eigenes Passwort ändern (als Benutzer)
+```
+POST /api/me/change-password
+```
+
+**Body:**
+```json
+{
+  "old_password": "alt123!",
+  "new_password": "neu123!"
+}
+```
+
+#### Admin-Passwort ändern
+```
+POST /api/admin/change-password
+```
+
+**Header:** `X-Admin-Token: adminpasswort`
+
+**Body:**
+```json
+{
+  "old_password": "alt123!",
+  "new_password": "neu123!"
+}
+```
+
+#### Benutzer-Passwort zurücksetzen (als Admin)
+```
+POST /api/admin/users/{user_id}/change-password
+```
+
+**Header:** `X-Admin-Token: adminpasswort`
+
+**Body:**
+```json
+{
+  "new_password": "neu123!"
+}
+```
+
 ## API Endpoints (Kurzübersicht)
 
 | Endpoint | Method | Beschreibung |
 |----------|--------|--------------|
+| `/api/login` | POST | Anmelden |
+| `/api/logout` | POST | Abmelden |
+| `/api/me` | GET | Aktueller Benutzer |
+| `/api/me/change-password` | POST | Eigenes Passwort ändern |
+| `/api/setup/admin` | POST | Admin-Passwort setzen (Setup) |
+| `/api/setup/first-user` | POST | Ersten Benutzer erstellen (Setup) |
+| `/api/admin/users` | GET, POST | Benutzer auflisten / erstellen |
+| `/api/admin/users/{id}` | DELETE | Benutzer löschen |
+| `/api/admin/users/{id}/change-password` | POST | Benutzer-Passwort zurücksetzen |
+| `/api/admin/change-password` | POST | Admin-Passwort ändern |
 | `/api/todos` | GET, POST | Liste / Erstellen |
 | `/api/todos/{id}` | GET, PATCH, DELETE | Einzelnes Todo |
 | `/api/projects` | GET, POST | Projekte |

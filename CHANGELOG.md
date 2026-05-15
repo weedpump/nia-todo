@@ -7,6 +7,38 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-05-16
+
+### Added
+- **Multi-User Support**: Mehrere Benutzer mit eigenen Daten
+- **JWT Authentication**: Bearer Token mit 7-Tage-Laufzeit, `token_version` für sofortiges Invalidieren aller Sessions
+- **Admin Setup** (`/setup`): Admin-Passwort setzen + ersten Benutzer erstellen
+- **Admin Panel** (`/admin`): Benutzer anlegen, löschen, Passwörter zurücksetzen
+- **Passwort-Management**:
+  - Benutzer kann eigenes Passwort ändern (Einstellungen-Modal)
+  - Admin kann eigenes Passwort ändern
+  - Admin kann Benutzer-Passwörter zurücksetzen
+  - Console-Notfall-Reset: `api/change_admin_password.py`
+- **Passwort-Stärke-Validierung**: Admin 12+ Zeichen, Benutzer 8+ Zeichen (Groß-/Kleinbuchstabe, Ziffer, Sonderzeichen)
+- **Theme Toggle**: Light/Dark/System mit localStorage-Persistenz
+- **Daten-Isolation**: Benutzer sehen nur ihre eigenen Projekte, Todos und Sections
+- **IndexedDB-Cache-Sicherheit**: Automatisches Löschen bei Logout/User-Wechsel
+- **Migrationssystem erweitert**: 003_add_user_support.sql + 004_add_jwt_support.sql
+
+### Changed
+- Sidebar zeigt immer vollständigen Projektbaum (keine Toggle-Buttons mehr)
+- Admin-Panel mit eigener Login-Seite statt Browser-Prompt
+- Inbox (id=1) geschützt: Kein Löschen, kein Parent-Dropdown, nicht als Parent auswählbar
+
+### Fixed
+- Projekt-Löschen wurde nicht synchronisiert (DELETE_PROJECT Handler fehlte)
+- Doppelte Projekte/Todos nach Erstellen (temp-ID Cleanup)
+- WebSocket-Broadcasts wurden an alle Benutzer gesendet (jetzt user-spezifisch)
+- IndexedDB-Cache leckte zwischen Benutzern
+- Dropdown-Einrückung für Sub-Subprojects (Non-Breaking Spaces)
+- Section-Button wird jetzt **immer** angezeigt (auch in leeren Projekten)
+- Enter-Taste-Unterstützung in Setup, Admin-Login und User-Erstellung
+
 ## [0.3.3] - 2026-05-15
 
 ### Added
