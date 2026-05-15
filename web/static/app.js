@@ -1225,9 +1225,11 @@ function showProjectModal(project = null, parentId = null) {
   if (parentSelect) {
     parentSelect.innerHTML = '<option value="">-- Kein Eltern-Projekt --</option>';
     
-    // Build tree structure (same logic as renderProjects)
+    // Build tree structure - sort by id first to ensure parents are processed before children
+    const sortedProjects = [...projects].sort((a, b) => a.id - b.id);
+    
     const projectMap = new Map();
-    projects.forEach(p => projectMap.set(p.id, { ...p, children: [] }));
+    sortedProjects.forEach(p => projectMap.set(p.id, { ...p, children: [] }));
     
     const rootProjects = [];
     projectMap.forEach(p => {
@@ -1254,7 +1256,7 @@ function showProjectModal(project = null, parentId = null) {
       option.textContent = indent + proj.name;
       parentSelect.appendChild(option);
       
-      // Add children
+      // Add children recursively
       if (proj.children && proj.children.length > 0) {
         proj.children.sort((a, b) => a.sort_order - b.sort_order);
         proj.children.forEach(child => addProjectOptions(child, depth + 1));
