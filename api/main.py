@@ -451,6 +451,9 @@ class ChangeAdminPasswordRequest(BaseModel):
 class ResetUserPasswordRequest(BaseModel):
     new_password: str
 
+class AdminLoginRequest(BaseModel):
+    password: str
+
 @app.get("/api/setup/status")
 def setup_status():
     with get_db() as db:
@@ -527,21 +530,92 @@ def setup_first_user(data: FirstUserRequest):
             }
         }
 
-# ─── Admin Endpoints (require admin token via X-Admin-Token header) ───────────
+# ─── Admin Endpoints (require admin JWT via Authorization: Bearer header) ─────
 
-def verify_admin_token(x_admin_token: Optional[str] = Header(None)) -> bool:
-    if not x_admin_token:
-        return False
+def get_admin_jwt_secret() -> str:
+    """Get or create JWT secret for admin tokens (shared with user JWTs)."""
     with get_db() as db:
-        config = db.execute("SELECT admin_token_hash FROM admin_config WHERE id = 1").fetchone()
-        if not config or not config['admin_token_hash']:
-            return False
-        return bcrypt.checkpw(x_admin_token.encode(), config['admin_token_hash'].encode())
+        return get_jwt_secret(db)
 
-def require_admin(x_admin_token: Optional[str] = Header(None)):
-    if not verify_admin_token(x_admin_token):
-        raise HTTPException(403, "Invalid admin token")
+def create_admin_jwt_token(db) -> str:
+    """Create a JWT token for admin with admin_token_version."""
+    secret = get_jwt_secret(db)
+    now = int(time.time())
+    config = db.execute("SELECT admin_token_version FROM admin_config WHERE id = 1").fetchone()
+    admin_version = config["admin_token_version"] if config else 1
+    payload = {
+        "sub": "admin",
+        "role": "admin",
+        "admin_version": admin_version,
+        "iat": now,
+        "exp": now + (JWT_EXPIRY_DAYS * 86400)
+    }
+    return pyjwt.encode(payload, secret, algorithm=JWT_ALGORITHM)
+
+def verify_admin_token(authorization: Optional[str] = Header(None)) -> bool:
+    """Verify admin JWT token and check admin_token_version."""
+    if not authorization or not authorization.startswith("Bearer "):
+        return False
+    token = authorization[7:]
+    try:
+        secret = get_admin_jwt_secret()
+        payload = pyjwt.decode(token, secret, algorithms=[JWT_ALGORITHM])
+        if payload.get("role") != "admin":
+            return False
+        if payload.get("sub") != "admin":
+            return False
+        
+        # Check admin_token_version
+        with get_db() as db:
+            config = db.execute("SELECT admin_token_version FROM admin_config WHERE id = 1").fetchone()
+            if not config:
+                return False
+            if payload.get("admin_version") != config["admin_token_version"]:
+                return False
+        return True
+    except pyjwt.ExpiredSignatureError:
+        return False
+    except pyjwt.InvalidTokenError:
+        return False
+    except Exception:
+        return False
+
+def require_admin(authorization: Optional[str] = Header(None)):
+    if not verify_admin_token(authorization):
+        raise HTTPException(status_code=403, detail="Admin-Authentifizierung erforderlich")
     return True
+
+@app.post("/api/admin/login")
+def admin_login(data: AdminLoginRequest):
+    """Admin login with password, returns JWT token."""
+    with get_db() as db:
+        config = db.execute("SELECT admin_token_hash, setup_complete FROM admin_config WHERE id = 1").fetchone()
+        if not config:
+            raise HTTPException(400, "Setup erforderlich")
+        if not config["admin_token_hash"]:
+            raise HTTPException(400, "Setup erforderlich")
+        if not config["setup_complete"]:
+            raise HTTPException(400, "Setup erforderlich")
+        
+        if not bcrypt.checkpw(data.password.encode(), config["admin_token_hash"].encode()):
+            raise HTTPException(401, "Falsches Admin-Passwort")
+        
+        token = create_admin_jwt_token(db)
+        return {
+            "access_token": token,
+            "token_type": "bearer",
+            "admin": True
+        }
+
+@app.post("/api/admin/logout")
+def admin_logout(authorization: Optional[str] = Header(None), _: bool = Depends(require_admin)):
+    """Admin logout: invalidate all admin JWTs by incrementing admin_token_version."""
+    with get_db() as db:
+        db.execute(
+            "UPDATE admin_config SET admin_token_version = admin_token_version + 1 WHERE id = 1"
+        )
+        db.commit()
+    return {"message": "Admin abgemeldet. Alle Admin-Sessions ungültig."}
 
 @app.post("/api/admin/users")
 def create_user(data: CreateUserRequest, _: bool = Depends(require_admin)):
@@ -580,7 +654,7 @@ def list_users(_: bool = Depends(require_admin)):
         return {"users": [dict(r) for r in rows]}
 
 @app.delete("/api/admin/users/{user_id}")
-def delete_user(user_id: int, x_admin_token: Optional[str] = Header(None), _: bool = Depends(require_admin)):
+def delete_user(user_id: int, _: bool = Depends(require_admin)):
     with get_db() as db:
         # Prevent deleting yourself - need to check who the admin is
         # For simplicity, prevent deleting user id 1 (first admin)
@@ -651,7 +725,7 @@ def change_admin_password(data: ChangeAdminPasswordRequest, _: bool = Depends(re
         new_hash = bcrypt.hashpw(data.new_password.encode(), bcrypt.gensalt()).decode()
 
         db.execute(
-            "UPDATE admin_config SET admin_token_hash = ? WHERE id = 1",
+            "UPDATE admin_config SET admin_token_hash = ?, admin_token_version = admin_token_version + 1 WHERE id = 1",
             (new_hash,)
         )
         db.commit()
@@ -684,22 +758,6 @@ def admin_change_user_password(user_id: int, data: ResetUserPasswordRequest, _: 
         db.commit()
 
     return {"message": "Passwort geändert. Der Benutzer muss sich erneut anmelden."}
-
-# ─── Modified Auth ───────────────────────────────────────────────────────────
-
-@app.get("/api/me")
-def me(x_session_token: Optional[str] = Header(None)):
-    user_id = get_current_user(x_session_token)
-    if not user_id:
-        raise HTTPException(401, "Not authenticated")
-    with get_db() as db:
-        user = db.execute(
-            "SELECT id, username, display_name, is_admin FROM users WHERE id = ?",
-            (user_id,)
-        ).fetchone()
-        if not user:
-            raise HTTPException(404, "User not found")
-        return dict(user)
 
 # ─── Todos ────────────────────────────────────────────────────────────────────
 
