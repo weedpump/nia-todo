@@ -144,8 +144,8 @@ async function setAdminPassword() {
   const pw = document.getElementById('admin-password').value;
   const confirm = document.getElementById('admin-password-confirm').value;
   
-  if (!pw || pw.length < 6) {
-    showError(1, 'Passwort muss mindestens 6 Zeichen haben');
+  if (!pw || pw.length < 12) {
+    showError(1, 'Passwort muss mindestens 12 Zeichen haben');
     return;
   }
   if (pw !== confirm) {
