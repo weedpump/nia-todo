@@ -23,18 +23,27 @@ let swRegistration = null;
 let updateAvailable = false;
 const APP_VERSION = 'v0.3.4-dev';
 
-// ─── Auth / User ────────────────────────────────────────────────────────────
+// ─── Auth / User (JWT) ───────────────────────────────────────────────────────
 
 let currentUser = null;  // { id, username, display_name, token }
 
 function getAuthToken() {
-  return currentUser ? currentUser.token : localStorage.getItem('auth_token');
+  // Prefer JWT, fallback to legacy session token
+  return localStorage.getItem('jwt_token') || localStorage.getItem('auth_token');
 }
 
 function getAuthHeaders() {
   const token = getAuthToken();
   const headers = { 'Content-Type': 'application/json' };
-  if (token) headers['X-Session-Token'] = token;
+  if (token) {
+    // New JWT tokens contain a dot (JWT signature separator)
+    if (token.includes('.')) {
+      headers['Authorization'] = 'Bearer ' + token;
+    } else {
+      // Legacy session token
+      headers['X-Session-Token'] = token;
+    }
+  }
   return headers;
 }
 
@@ -50,8 +59,8 @@ async function login(username, password) {
   }
   const data = await r.json();
   currentUser = data.user;
-  currentUser.token = data.token;
-  localStorage.setItem('auth_token', data.token);
+  currentUser.token = data.access_token;
+  localStorage.setItem('jwt_token', data.access_token);
   return data;
 }
 
@@ -60,9 +69,10 @@ async function checkAuth() {
   if (!token) return false;
   try {
     const r = await fetch(API + '/api/me', {
-      headers: { 'X-Session-Token': token }
+      headers: getAuthHeaders()
     });
     if (!r.ok) {
+      localStorage.removeItem('jwt_token');
       localStorage.removeItem('auth_token');
       currentUser = null;
       return false;
@@ -76,8 +86,20 @@ async function checkAuth() {
   }
 }
 
-function logout() {
+async function logout() {
+  try {
+    const token = getAuthToken();
+    if (token) {
+      await fetch(API + '/api/logout', {
+        method: 'POST',
+        headers: getAuthHeaders()
+      });
+    }
+  } catch (e) {
+    // Ignore errors
+  }
   currentUser = null;
+  localStorage.removeItem('jwt_token');
   localStorage.removeItem('auth_token');
   location.reload();
 }

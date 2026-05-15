@@ -9,8 +9,11 @@ from pathlib import Path
 import json
 import asyncio
 import secrets
+import time
+import sqlite3
 
 import bcrypt
+import jwt as pyjwt
 from db import init_db, get_db, row_to_dict, now_iso
 from migrate import run_migrations
 
@@ -21,54 +24,99 @@ app = FastAPI(title="nia-todo", version="0.4.0")
 
 # ─── Auth / Session Helpers ───────────────────────────────────────────────────
 
-# In-memory session store: token -> user_id
+# In-memory session store: token -> user_id (legacy fallback)
 sessions = {}
 
-class ConnectionManager:
-    def __init__(self):
-        self.active_connections: list[WebSocket] = []
+# ─── JWT Configuration ──────────────────────────────────────────────────────────
 
-    async def connect(self, websocket: WebSocket):
-        await websocket.accept()
-        self.active_connections.append(websocket)
-        print(f"[WS] Client connected. Total: {len(self.active_connections)}")
+JWT_ALGORITHM = "HS256"
+JWT_EXPIRY_DAYS = 7
 
-    def disconnect(self, websocket: WebSocket):
-        if websocket in self.active_connections:
-            self.active_connections.remove(websocket)
-            print(f"[WS] Client disconnected. Total: {len(self.active_connections)}")
+def get_jwt_secret(db) -> str:
+    """Get or create JWT secret from admin_config."""
+    try:
+        row = db.execute("SELECT jwt_secret FROM admin_config WHERE id = 1").fetchone()
+        if row and row['jwt_secret']:
+            return row['jwt_secret']
+    except sqlite3.OperationalError:
+        # Column doesn't exist yet, add it
+        db.execute("ALTER TABLE admin_config ADD COLUMN jwt_secret TEXT")
+        db.commit()
+    # Generate new secret
+    secret = secrets.token_urlsafe(32)
+    db.execute(
+        """INSERT INTO admin_config (id, jwt_secret, created_at)
+           VALUES (1, ?, datetime('now'))
+           ON CONFLICT(id) DO UPDATE SET jwt_secret = excluded.jwt_secret""",
+        (secret,)
+    )
+    db.commit()
+    return secret
 
-    async def send_personal_message(self, message: dict, websocket: WebSocket):
-        try:
-            await websocket.send_json(message)
-        except Exception:
-            pass
+def create_jwt_token(user: dict, db) -> str:
+    """Create a JWT token with user info and token_version."""
+    secret = get_jwt_secret(db)
+    now = int(time.time())
+    payload = {
+        "user_id": user['id'],
+        "username": user['username'],
+        "token_version": user.get('token_version', 1),
+        "is_admin": bool(user.get('is_admin', False)),
+        "iat": now,
+        "exp": now + (JWT_EXPIRY_DAYS * 86400)
+    }
+    return pyjwt.encode(payload, secret, algorithm=JWT_ALGORITHM)
 
-    async def broadcast(self, message: dict):
-        disconnected = []
-        for connection in self.active_connections:
-            try:
-                await connection.send_json(message)
-            except Exception:
-                disconnected.append(connection)
-        for conn in disconnected:
-            if conn in self.active_connections:
-                self.active_connections.remove(conn)
-
-manager = ConnectionManager()
-
-def create_session(user_id: int) -> str:
-    token = secrets.token_urlsafe(32)
-    sessions[token] = user_id
-    return token
-
-def get_current_user(token: Optional[str] = None) -> Optional[int]:
+def decode_jwt_token(token: str, db) -> Optional[dict]:
+    """Decode and validate a JWT token."""
     if not token:
         return None
-    return sessions.get(token)
+    try:
+        secret = get_jwt_secret(db)
+        payload = pyjwt.decode(token, secret, algorithms=[JWT_ALGORITHM])
+        
+        # Verify token_version matches DB
+        user_id = payload.get('user_id')
+        db_version = db.execute(
+            "SELECT token_version FROM users WHERE id = ?",
+            (user_id,)
+        ).fetchone()
+        
+        if not db_version:
+            return None
+        if db_version['token_version'] != payload.get('token_version'):
+            return None  # Token revoked
+            
+        return payload
+    except pyjwt.ExpiredSignatureError:
+        return None
+    except pyjwt.InvalidTokenError:
+        return None
 
-def require_auth(x_session_token: Optional[str] = Header(None)) -> int:
-    user_id = get_current_user(x_session_token)
+def get_current_user(token: Optional[str] = None) -> Optional[int]:
+    """Extract user_id from JWT token (legacy session fallback supported)."""
+    if not token:
+        return None
+    # Legacy session fallback
+    legacy_user = sessions.get(token)
+    if legacy_user:
+        return legacy_user
+    # JWT
+    with get_db() as db:
+        payload = decode_jwt_token(token, db)
+        if payload:
+            return payload.get('user_id')
+    return None
+
+def require_auth(authorization: Optional[str] = Header(None), x_session_token: Optional[str] = Header(None)) -> int:
+    """Dependency: validate JWT from Authorization header or X-Session-Token."""
+    token = None
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization[7:]
+    elif x_session_token:
+        token = x_session_token
+    
+    user_id = get_current_user(token)
     if not user_id:
         raise HTTPException(401, "Not authenticated")
     return user_id
@@ -155,6 +203,32 @@ def fetch_todo(db, todo_id: int) -> Optional[dict]:
     d['reminders'] = [dict(r) for r in rem_rows]
     return d
 
+# ─── WebSocket ConnectionManager ─────────────────────────────────────────────────
+
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        if websocket in self.active_connections:
+            self.active_connections.remove(websocket)
+
+    async def send_personal_message(self, message: dict, websocket: WebSocket):
+        await websocket.send_json(message)
+
+    async def broadcast(self, message: dict):
+        for connection in self.active_connections[:]:  # copy to allow removal
+            try:
+                await connection.send_json(message)
+            except:
+                pass
+
+manager = ConnectionManager()
+
 # ─── WebSocket Endpoint ────────────────────────────────────────────────────────
 
 @app.websocket("/ws")
@@ -227,7 +301,7 @@ async def broadcast_change(event_type: str, payload: dict):
 def on_startup():
     init_db()
 
-# ─── Auth Endpoints ───────────────────────────────────────────────────────────
+# ─── Auth Endpoints (JWT) ─────────────────────────────────────────────────────
 
 @app.post("/api/login")
 def login(data: LoginRequest):
@@ -235,30 +309,63 @@ def login(data: LoginRequest):
         user = verify_user_credentials(db, data.username, data.password)
         if not user:
             raise HTTPException(401, "Invalid credentials")
-        token = create_session(user['id'])
+        # Generate JWT with versioned secrets
+        token = create_jwt_token(user, db)
         return {
-            "token": token,
+            "access_token": token,
+            "token_type": "bearer",
             "user": {
                 "id": user['id'],
                 "username": user['username'],
-                "display_name": user['display_name']
+                "display_name": user['display_name'],
+                "is_admin": bool(user.get('is_admin', False))
             }
         }
 
 @app.post("/api/logout")
-def logout(x_session_token: Optional[str] = Header(None)):
-    if x_session_token and x_session_token in sessions:
-        del sessions[x_session_token]
+def logout(authorization: Optional[str] = Header(None), x_session_token: Optional[str] = Header(None)):
+    """Logout: invalidate all tokens by incrementing token_version."""
+    token = None
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization[7:]
+    elif x_session_token:
+        token = x_session_token
+    
+    with get_db() as db:
+        payload = decode_jwt_token(token, db)
+        if payload:
+            user_id = payload.get('user_id')
+            db.execute(
+                "UPDATE users SET token_version = token_version + 1 WHERE id = ?",
+                (user_id,)
+            )
+            db.commit()
+        # Also remove legacy session
+        if x_session_token and x_session_token in sessions:
+            del sessions[x_session_token]
+    
     return {"logged_out": True}
 
 @app.get("/api/me")
-def me(x_session_token: Optional[str] = Header(None)):
-    user_id = get_current_user(x_session_token)
-    if not user_id:
-        raise HTTPException(401, "Not authenticated")
+def me(authorization: Optional[str] = Header(None), x_session_token: Optional[str] = Header(None)):
+    token = None
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization[7:]
+    elif x_session_token:
+        token = x_session_token
+    
     with get_db() as db:
+        payload = decode_jwt_token(token, db)
+        if not payload:
+            # Legacy fallback
+            user_id = sessions.get(token) if token else None
+            if not user_id:
+                raise HTTPException(401, "Not authenticated")
+        else:
+            user_id = payload.get('user_id')
+        
         user = db.execute(
-            "SELECT id, username, display_name FROM users WHERE id = ?",
+            "SELECT id, username, display_name, is_admin FROM users WHERE id = ?",
             (user_id,)
         ).fetchone()
         if not user:

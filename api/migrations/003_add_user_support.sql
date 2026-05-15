@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS users (
     display_name TEXT,
     password_hash TEXT,
     is_admin INTEGER DEFAULT 0,
+    token_version INTEGER DEFAULT 1,
     created_at TEXT DEFAULT (datetime('now'))
 );
 
