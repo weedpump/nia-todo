@@ -74,9 +74,9 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); }
   <div class="admin-card" id="admin-password-card">
     <h2>🔐 Eigenes Admin-Passwort ändern</h2>
     <div class="form-row">
-      <input type="password" id="admin-old-password" placeholder="Aktuelles Admin-Passwort" autocomplete="off">
-      <input type="password" id="admin-new-password" placeholder="Neues Admin-Passwort (12+ Zeichen)" autocomplete="new-password">
-      <input type="password" id="admin-confirm-password" placeholder="Neues Passwort bestätigen" autocomplete="new-password">
+      <input type="password" id="admin-old-password" placeholder="Aktuelles Admin-Passwort" autocomplete="off" onkeydown="if(event.key==='Enter') document.getElementById('admin-new-password').focus()">
+      <input type="password" id="admin-new-password" placeholder="Neues Admin-Passwort (12+ Zeichen)" autocomplete="new-password" onkeydown="if(event.key==='Enter') document.getElementById('admin-confirm-password').focus()">
+      <input type="password" id="admin-confirm-password" placeholder="Neues Passwort bestätigen" autocomplete="new-password" onkeydown="if(event.key==='Enter') changeAdminPassword()">
       <button class="btn btn-primary" onclick="changeAdminPassword()">Admin-Passwort ändern</button>
     </div>
     <div style="font-size: 12px; color: var(--text-muted); margin-top: 8px;">
@@ -131,7 +131,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); }
   <div style="background:var(--bg-secondary); border:1px solid var(--border); border-radius:12px; padding:24px; max-width:400px; width:90%;">
     <h3 id="reset-pw-title">Passwort zurücksetzen</h3>
     <div style="margin:12px 0;">
-      <input type="password" id="reset-pw-input" placeholder="Neues Passwort (8+ Zeichen)" autocomplete="new-password" style="width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:var(--radius); background:var(--bg-primary); color:var(--text-primary); font-size:14px;">
+      <input type="password" id="reset-pw-input" placeholder="Neues Passwort (8+ Zeichen)" autocomplete="new-password" style="width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:var(--radius); background:var(--bg-primary); color:var(--text-primary); font-size:14px;" onkeydown="if(event.key==='Enter') confirmResetPassword()">
     </div>
     <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">
       Mindestens 8 Zeichen, 1 Großbuchstabe, 1 Kleinbuchstabe, 1 Ziffer, 1 Sonderzeichen
