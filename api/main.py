@@ -265,6 +265,169 @@ def me(x_session_token: Optional[str] = Header(None)):
             raise HTTPException(404, "User not found")
         return dict(user)
 
+# ─── Admin / Setup Endpoints (NO auth required for setup) ─────────────────────
+
+class SetupStatusResponse(BaseModel):
+    setup_complete: bool
+    has_users: bool
+
+class AdminSetupRequest(BaseModel):
+    admin_password: str
+
+class FirstUserRequest(BaseModel):
+    username: str
+    password: str
+    display_name: str
+
+class CreateUserRequest(BaseModel):
+    username: str
+    password: str
+    display_name: str
+
+@app.get("/api/setup/status")
+def setup_status():
+    with get_db() as db:
+        config = db.execute("SELECT setup_complete FROM admin_config WHERE id = 1").fetchone()
+        user_count = db.execute("SELECT COUNT(*) as c FROM users").fetchone()['c']
+        return {
+            "setup_complete": bool(config['setup_complete']) if config else False,
+            "has_users": user_count > 0
+        }
+
+@app.post("/api/setup/admin")
+def setup_admin(data: AdminSetupRequest):
+    with get_db() as db:
+        # Check if already set up
+        config = db.execute("SELECT setup_complete FROM admin_config WHERE id = 1").fetchone()
+        if config and config['setup_complete']:
+            raise HTTPException(400, "Setup already complete")
+        
+        # Hash admin password
+        admin_hash = bcrypt.hashpw(data.admin_password.encode(), bcrypt.gensalt()).decode()
+        
+        # Insert or update admin config
+        db.execute(
+            """INSERT INTO admin_config (id, setup_complete, admin_token_hash, created_at)
+               VALUES (1, 0, ?, datetime('now'))
+               ON CONFLICT(id) DO UPDATE SET
+               admin_token_hash = excluded.admin_token_hash""",
+            (admin_hash,)
+        )
+        db.commit()
+        return {"message": "Admin password set"}
+
+@app.post("/api/setup/first-user")
+def setup_first_user(data: FirstUserRequest):
+    with get_db() as db:
+        # Check if users exist
+        user_count = db.execute("SELECT COUNT(*) as c FROM users").fetchone()['c']
+        if user_count > 0:
+            raise HTTPException(400, "Users already exist. Use /api/admin/users")
+        
+        # Create first user as admin
+        password_hash = bcrypt.hashpw(data.password.encode(), bcrypt.gensalt()).decode()
+        c = db.execute(
+            "INSERT INTO users (username, display_name, password_hash, is_admin) VALUES (?, ?, ?, 1)",
+            (data.username, data.display_name, password_hash)
+        )
+        user_id = c.lastrowid
+        
+        # Assign all unassigned data to this user
+        db.execute("UPDATE projects SET user_id = ? WHERE user_id IS NULL", (user_id,))
+        db.execute("UPDATE todos SET user_id = ? WHERE user_id IS NULL", (user_id,))
+        db.execute("UPDATE sections SET user_id = ? WHERE user_id IS NULL", (user_id,))
+        
+        # Mark setup as complete
+        db.execute("UPDATE admin_config SET setup_complete = 1 WHERE id = 1")
+        db.commit()
+        
+        return {
+            "message": "First user created",
+            "user": {
+                "id": user_id,
+                "username": data.username,
+                "display_name": data.display_name
+            }
+        }
+
+# ─── Admin Endpoints (require admin token via X-Admin-Token header) ───────────
+
+def verify_admin_token(x_admin_token: Optional[str] = Header(None)) -> bool:
+    if not x_admin_token:
+        return False
+    with get_db() as db:
+        config = db.execute("SELECT admin_token_hash FROM admin_config WHERE id = 1").fetchone()
+        if not config or not config['admin_token_hash']:
+            return False
+        return bcrypt.checkpw(x_admin_token.encode(), config['admin_token_hash'].encode())
+
+def require_admin(x_admin_token: Optional[str] = Header(None)):
+    if not verify_admin_token(x_admin_token):
+        raise HTTPException(403, "Invalid admin token")
+    return True
+
+@app.post("/api/admin/users")
+def create_user(data: CreateUserRequest, _: bool = Depends(require_admin)):
+    with get_db() as db:
+        # Check if username exists
+        existing = db.execute("SELECT id FROM users WHERE username = ?", (data.username,)).fetchone()
+        if existing:
+            raise HTTPException(409, "Username already exists")
+        
+        password_hash = bcrypt.hashpw(data.password.encode(), bcrypt.gensalt()).decode()
+        c = db.execute(
+            "INSERT INTO users (username, display_name, password_hash, is_admin) VALUES (?, ?, ?, 0)",
+            (data.username, data.display_name, password_hash)
+        )
+        user_id = c.lastrowid
+        db.commit()
+        
+        return {
+            "id": user_id,
+            "username": data.username,
+            "display_name": data.display_name,
+            "created_at": now_iso()
+        }
+
+@app.get("/api/admin/users")
+def list_users(_: bool = Depends(require_admin)):
+    with get_db() as db:
+        rows = db.execute(
+            "SELECT id, username, display_name, is_admin, created_at FROM users ORDER BY id"
+        ).fetchall()
+        return {"users": [dict(r) for r in rows]}
+
+@app.delete("/api/admin/users/{user_id}")
+def delete_user(user_id: int, x_admin_token: Optional[str] = Header(None), _: bool = Depends(require_admin)):
+    with get_db() as db:
+        # Prevent deleting yourself - need to check who the admin is
+        # For simplicity, prevent deleting user id 1 (first admin)
+        user = db.execute("SELECT is_admin FROM users WHERE id = ?", (user_id,)).fetchone()
+        if not user:
+            raise HTTPException(404, "User not found")
+        if user['is_admin']:
+            raise HTTPException(400, "Cannot delete admin user")
+        
+        db.execute("DELETE FROM users WHERE id = ?", (user_id,))
+        db.commit()
+        return {"deleted": user_id}
+
+# ─── Modified Auth ───────────────────────────────────────────────────────────
+
+@app.get("/api/me")
+def me(x_session_token: Optional[str] = Header(None)):
+    user_id = get_current_user(x_session_token)
+    if not user_id:
+        raise HTTPException(401, "Not authenticated")
+    with get_db() as db:
+        user = db.execute(
+            "SELECT id, username, display_name, is_admin FROM users WHERE id = ?",
+            (user_id,)
+        ).fetchone()
+        if not user:
+            raise HTTPException(404, "User not found")
+        return dict(user)
+
 # ─── Todos ────────────────────────────────────────────────────────────────────
 
 @app.get("/api/todos")
@@ -591,6 +754,14 @@ if WEB_DIR.exists():
     @app.get("/")
     def index():
         return FileResponse(str(WEB_DIR / "index.html"))
+
+    @app.get("/setup")
+    def setup_page():
+        return FileResponse(str(WEB_DIR / "setup.html"))
+
+    @app.get("/admin")
+    def admin_page():
+        return FileResponse(str(WEB_DIR / "admin.html"))
 
     @app.get("/sw.js")
     @app.head("/sw.js")

@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>nia-todo Setup</title>
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--bg-primary); }
+.setup-container { width: 100%; max-width: 440px; padding: 20px; }
+.setup-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 16px; padding: 40px 32px; box-shadow: var(--shadow); }
+.setup-header { text-align: center; margin-bottom: 32px; }
+.setup-logo { font-size: 48px; margin-bottom: 12px; }
+.setup-title { font-size: 24px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
+.setup-subtitle { font-size: 14px; color: var(--text-muted); }
+.setup-step { display: none; }
+.setup-step.active { display: block; }
+.setup-step h2 { font-size: 18px; margin-bottom: 8px; color: var(--text-primary); }
+.setup-step p { font-size: 13px; color: var(--text-secondary); margin-bottom: 20px; }
+.setup-field { margin-bottom: 16px; }
+.setup-field label { display: block; font-size: 13px; font-weight: 500; color: var(--text-secondary); margin-bottom: 6px; }
+.setup-field input { width: 100%; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-primary); color: var(--text-primary); font-size: 15px; outline: none; box-sizing: border-box; }
+.setup-field input:focus { border-color: var(--accent); }
+.setup-btn { width: 100%; padding: 14px; border: none; border-radius: var(--radius); background: var(--accent); color: white; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 8px; }
+.setup-btn:hover { background: var(--accent-hover); }
+.setup-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.setup-error { color: var(--danger); font-size: 13px; margin-top: 8px; text-align: center; min-height: 20px; }
+.setup-success { color: var(--success); font-size: 13px; margin-top: 8px; text-align: center; }
+.step-indicator { display: flex; justify-content: center; gap: 8px; margin-bottom: 24px; }
+.step-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--border); transition: background 0.3s; }
+.step-dot.active { background: var(--accent); }
+.setup-theme-toggle { display: flex; justify-content: center; gap: 8px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
+.setup-theme-toggle button { width: 36px; height: 36px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-primary); cursor: pointer; font-size: 16px; }
+.setup-theme-toggle button:hover { background: var(--bg-secondary); }
+</style>
+</head>
+<body>
+<div class="setup-container">
+  <div class="setup-card">
+    <div class="setup-header">
+      <div class="setup-logo">✨</div>
+      <div class="setup-title">nia-todo</div>
+      <div class="setup-subtitle">Erstinstallation</div>
+    </div>
+
+    <div class="step-indicator">
+      <div class="step-dot active" id="dot-1"></div>
+      <div class="step-dot" id="dot-2"></div>
+    </div>
+
+    <!-- Step 1: Admin Password -->
+    <div class="setup-step active" id="step-1">
+      <h2>🔐 Admin-Passwort festlegen</h2>
+      <p>Dieses Passwort wird für die Verwaltung von Benutzern benötigt.</p>
+      <div class="setup-field">
+        <label>Admin-Passwort</label>
+        <input type="password" id="admin-password" placeholder="Sicheres Passwort eingeben" autocomplete="new-password">
+      </div>
+      <div class="setup-field">
+        <label>Passwort bestätigen</label>
+        <input type="password" id="admin-password-confirm" placeholder="Passwort wiederholen">
+      </div>
+      <button class="setup-btn" onclick="setAdminPassword()">Weiter →</button>
+      <div class="setup-error" id="error-1"></div>
+    </div>
+
+    <!-- Step 2: First User -->
+    <div class="setup-step" id="step-2">
+      <h2>👤 Ersten Benutzer erstellen</h2>
+      <p>Dieser Benutzer erhält alle bestehenden Daten und ist automatisch Admin.</p>
+      <div class="setup-field">
+        <label>Benutzername</label>
+        <input type="text" id="first-username" placeholder="z.B. max" autocomplete="username">
+      </div>
+      <div class="setup-field">
+        <label>Anzeigename</label>
+        <input type="text" id="first-display-name" placeholder="Max Mustermann">
+      </div>
+      <div class="setup-field">
+        <label>Passwort</label>
+        <input type="password" id="first-password" placeholder="Passwort" autocomplete="new-password">
+      </div>
+      <button class="setup-btn" onclick="createFirstUser()">Installation abschließen</button>
+      <div class="setup-error" id="error-2"></div>
+    </div>
+
+    <!-- Success -->
+    <div class="setup-step" id="step-success">
+      <div style="text-align: center; padding: 20px 0;">
+        <div style="font-size: 48px; margin-bottom: 16px;">🎉</div>
+        <h2 style="margin-bottom: 8px;">Fertig!</h2>
+        <p>Dein nia-todo ist eingerichtet. Du wirst gleich weitergeleitet...</p>
+      </div>
+    </div>
+
+    <div class="setup-theme-toggle">
+      <button onclick="setTheme('light')" title="Hell">☀️</button>
+      <button onclick="setTheme('dark')" title="Dunkel">🌙</button>
+      <button onclick="setTheme('system')" title="System">💻</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = '';
+
+function setTheme(mode) {
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const isDark = mode === 'dark' || (mode === 'system' && prefersDark);
+  document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+  localStorage.setItem('theme', mode);
+}
+
+// Init theme
+const stored = localStorage.getItem('theme');
+if (stored && stored !== 'system') setTheme(stored);
+else setTheme('system');
+
+// Check setup status on load
+async function checkSetup() {
+  try {
+    const r = await fetch(API + '/api/setup/status');
+    const data = await r.json();
+    if (data.setup_complete) {
+      window.location.href = '/';
+    }
+  } catch(e) {
+    console.error('Setup check failed:', e);
+  }
+}
+checkSetup();
+
+function showStep(step) {
+  document.querySelectorAll('.setup-step').forEach(s => s.classList.remove('active'));
+  document.getElementById('step-' + step).classList.add('active');
+  document.querySelectorAll('.step-dot').forEach((d, i) => d.classList.toggle('active', i + 1 === step));
+}
+
+function showError(step, msg) {
+  document.getElementById('error-' + step).textContent = msg;
+}
+
+async function setAdminPassword() {
+  const pw = document.getElementById('admin-password').value;
+  const confirm = document.getElementById('admin-password-confirm').value;
+  
+  if (!pw || pw.length < 6) {
+    showError(1, 'Passwort muss mindestens 6 Zeichen haben');
+    return;
+  }
+  if (pw !== confirm) {
+    showError(1, 'Passwörter stimmen nicht überein');
+    return;
+  }
+  
+  try {
+    const r = await fetch(API + '/api/setup/admin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ admin_password: pw })
+    });
+    if (!r.ok) {
+      const data = await r.json();
+      showError(1, data.detail || 'Fehler');
+      return;
+    }
+    showError(1, '');
+    showStep(2);
+  } catch(e) {
+    showError(1, 'Netzwerkfehler');
+  }
+}
+
+async function createFirstUser() {
+  const username = document.getElementById('first-username').value.trim();
+  const displayName = document.getElementById('first-display-name').value.trim();
+  const password = document.getElementById('first-password').value;
+  
+  if (!username || !password) {
+    showError(2, 'Benutzername und Passwort sind erforderlich');
+    return;
+  }
+  
+  try {
+    const r = await fetch(API + '/api/setup/first-user', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: username,
+        display_name: displayName || username,
+        password: password
+      })
+    });
+    if (!r.ok) {
+      const data = await r.json();
+      showError(2, data.detail || 'Fehler');
+      return;
+    }
+    showError(2, '');
+    showStep('success');
+    setTimeout(() => window.location.href = '/', 2000);
+  } catch(e) {
+    showError(2, 'Netzwerkfehler');
+  }
+}
+</script>
+</body>
+</html>

@@ -789,7 +789,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Initialize theme BEFORE auth check so login overlay has correct theme
   initTheme();
 
-  // Auth check first
+  // Check setup status first
+  try {
+    const setupRes = await fetch(API + '/api/setup/status');
+    const setupData = await setupRes.json();
+    if (!setupData.setup_complete) {
+      window.location.href = '/setup';
+      return;
+    }
+  } catch (e) {
+    console.log('Setup check failed, continuing');
+  }
+
+  // Auth check
   const authed = await checkAuth();
   if (authed) {
     hideLoginOverlay();

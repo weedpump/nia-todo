@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>nia-todo Admin</title>
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body { margin: 0; min-height: 100vh; background: var(--bg-primary); }
+.admin-container { max-width: 800px; margin: 0 auto; padding: 40px 20px; }
+.admin-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; }
+.admin-header h1 { font-size: 24px; margin: 0; color: var(--text-primary); }
+.admin-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 24px; }
+.admin-card h2 { font-size: 16px; margin: 0 0 16px 0; color: var(--text-primary); }
+.user-table { width: 100%; border-collapse: collapse; }
+.user-table th { text-align: left; padding: 12px; font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--border); }
+.user-table td { padding: 12px; font-size: 14px; color: var(--text-primary); border-bottom: 1px solid var(--border); }
+.user-table tr:last-child td { border-bottom: none; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; }
+.badge-admin { background: var(--accent); color: white; }
+.badge-user { background: var(--bg-tertiary); color: var(--text-secondary); }
+.btn { padding: 8px 16px; border: none; border-radius: var(--radius); font-size: 13px; cursor: pointer; font-weight: 500; }
+.btn-danger { background: var(--danger); color: white; }
+.btn-danger:hover { opacity: 0.9; }
+.btn-primary { background: var(--accent); color: white; }
+.btn-primary:hover { background: var(--accent-hover); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.form-row { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+.form-row input { flex: 1; min-width: 150px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-primary); color: var(--text-primary); font-size: 14px; }
+.form-row input:focus { outline: none; border-color: var(--accent); }
+.admin-error { color: var(--danger); font-size: 13px; margin-top: 8px; }
+.admin-success { color: var(--success); font-size: 13px; margin-top: 8px; }
+.admin-nav { display: flex; gap: 12px; align-items: center; }
+.admin-nav a { color: var(--accent); text-decoration: none; font-size: 14px; }
+.admin-nav a:hover { text-decoration: underline; }
+.empty-state { text-align: center; padding: 40px; color: var(--text-muted); }
+.admin-theme-toggle { display: flex; gap: 6px; }
+.admin-theme-toggle button { width: 32px; height: 32px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-primary); cursor: pointer; font-size: 14px; }
+.admin-theme-toggle button:hover { background: var(--bg-secondary); }
+</style>
+</head>
+<body>
+<div class="admin-container">
+  <div class="admin-header">
+    <h1>🔧 nia-todo Admin</h1>
+    <div class="admin-nav">
+      <a href="/">← Zurück zur App</a>
+      <div class="admin-theme-toggle">
+        <button onclick="setTheme('light')" title="Hell">☀️</button>
+        <button onclick="setTheme('dark')" title="Dunkel">🌙</button>
+        <button onclick="setTheme('system')" title="System">💻</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Create User -->
+  <div class="admin-card" id="create-user-card">
+    <h2>➕ Neuen Benutzer erstellen</h2>
+    <div class="form-row">
+      <input type="text" id="new-username" placeholder="Benutzername" autocomplete="off">
+      <input type="text" id="new-display-name" placeholder="Anzeigename">
+      <input type="password" id="new-password" placeholder="Passwort" autocomplete="new-password">
+      <button class="btn btn-primary" onclick="createUser()">Erstellen</button>
+    </div>
+    <div class="admin-error" id="create-error"></div>
+    <div class="admin-success" id="create-success"></div>
+  </div>
+
+  <!-- User List -->
+  <div class="admin-card">
+    <h2>👥 Benutzer</h2>
+    <table class="user-table" id="user-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Benutzername</th>
+          <th>Anzeigename</th>
+          <th>Rolle</th>
+          <th>Erstellt</th>
+          <th>Aktionen</th>
+        </tr>
+      </thead>
+      <tbody id="user-list">
+        <tr><td colspan="6" class="empty-state">Lade...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const API = '';
+let adminToken = null;
+
+function setTheme(mode) {
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const isDark = mode === 'dark' || (mode === 'system' && prefersDark);
+  document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+  localStorage.setItem('theme', mode);
+}
+
+// Init theme
+const stored = localStorage.getItem('theme');
+if (stored && stored !== 'system') setTheme(stored);
+else setTheme('system');
+
+// Admin token from URL hash or prompt
+function getAdminToken() {
+  const hash = window.location.hash.slice(1);
+  if (hash) {
+    localStorage.setItem('admin_token', hash);
+    history.replaceState(null, '', window.location.pathname);
+    return hash;
+  }
+  return localStorage.getItem('admin_token');
+}
+
+adminToken = getAdminToken();
+if (!adminToken) {
+  const token = prompt('Admin-Passwort eingeben:');
+  if (token) {
+    localStorage.setItem('admin_token', token);
+    adminToken = token;
+  } else {
+    window.location.href = '/';
+  }
+}
+
+async function apiGet(path) {
+  const r = await fetch(API + path, {
+    headers: { 'X-Admin-Token': adminToken }
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+async function apiPost(path, body) {
+  const r = await fetch(API + path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Admin-Token': adminToken },
+    body: JSON.stringify(body)
+  });
+  if (!r.ok) {
+    const data = await r.json().catch(() => ({}));
+    throw new Error(data.detail || 'Fehler');
+  }
+  return r.json();
+}
+
+async function apiDelete(path) {
+  const r = await fetch(API + path, {
+    method: 'DELETE',
+    headers: { 'X-Admin-Token': adminToken }
+  });
+  if (!r.ok) {
+    const data = await r.json().catch(() => ({}));
+    throw new Error(data.detail || 'Fehler');
+  }
+  return r.json();
+}
+
+async function loadUsers() {
+  try {
+    const data = await apiGet('/api/admin/users');
+    renderUsers(data.users);
+  } catch(e) {
+    document.getElementById('user-list').innerHTML = 
+      `<tr><td colspan="6" class="empty-state">Fehler: ${e.message}</td></tr>`;
+    if (e.message.includes('403')) {
+      localStorage.removeItem('admin_token');
+      setTimeout(() => location.reload(), 2000);
+    }
+  }
+}
+
+function renderUsers(users) {
+  const tbody = document.getElementById('user-list');
+  if (!users || users.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" class="empty-state">Keine Benutzer</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = users.map(u => `
+    <tr>
+      <td>${u.id}</td>
+      <td>${u.username}</td>
+      <td>${u.display_name || '-'}</td>
+      <td><span class="badge ${u.is_admin ? 'badge-admin' : 'badge-user'}">${u.is_admin ? 'Admin' : 'User'}</span></td>
+      <td>${new Date(u.created_at).toLocaleDateString('de-DE')}</td>
+      <td>${u.is_admin ? '-' : `<button class="btn btn-danger" onclick="deleteUser(${u.id}, '${u.username}')">Löschen</button>`}</td>
+    </tr>
+  `).join('');
+}
+
+async function createUser() {
+  const username = document.getElementById('new-username').value.trim();
+  const displayName = document.getElementById('new-display-name').value.trim();
+  const password = document.getElementById('new-password').value;
+  
+  document.getElementById('create-error').textContent = '';
+  document.getElementById('create-success').textContent = '';
+  
+  if (!username || !password) {
+    document.getElementById('create-error').textContent = 'Benutzername und Passwort sind erforderlich';
+    return;
+  }
+  
+  try {
+    await apiPost('/api/admin/users', {
+      username: username,
+      display_name: displayName || username,
+      password: password
+    });
+    document.getElementById('create-success').textContent = `Benutzer '${username}' erstellt!`;
+    document.getElementById('new-username').value = '';
+    document.getElementById('new-display-name').value = '';
+    document.getElementById('new-password').value = '';
+    await loadUsers();
+  } catch(e) {
+    document.getElementById('create-error').textContent = e.message;
+  }
+}
+
+async function deleteUser(userId, username) {
+  if (!confirm(`Benutzer '${username}' wirklich löschen?`)) return;
+  try {
+    await apiDelete(`/api/admin/users/${userId}`);
+    await loadUsers();
+  } catch(e) {
+    alert('Fehler: ' + e.message);
+  }
+}
+
+// Load on page load
+loadUsers();
+</script>
+</body>
+</html>
