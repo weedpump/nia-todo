@@ -34,12 +34,12 @@ function getAuthToken() {
 function getAuthHeaders() {
   const token = getAuthToken();
   const headers = { 'Content-Type': 'application/json' };
-  if (token) headers['X-Auth-Token'] = token;
+  if (token) headers['X-Session-Token'] = token;
   return headers;
 }
 
 async function login(username, password) {
-  const r = await fetch(API + '/auth/login', {
+  const r = await fetch(API + '/api/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username, password })
@@ -59,8 +59,8 @@ async function checkAuth() {
   const token = getAuthToken();
   if (!token) return false;
   try {
-    const r = await fetch(API + '/auth/me', {
-      headers: { 'X-Auth-Token': token }
+    const r = await fetch(API + '/api/me', {
+      headers: { 'X-Session-Token': token }
     });
     if (!r.ok) {
       localStorage.removeItem('auth_token');

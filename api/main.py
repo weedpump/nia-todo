@@ -34,6 +34,12 @@ def get_current_user(token: Optional[str] = None) -> Optional[int]:
         return None
     return sessions.get(token)
 
+def require_auth(x_session_token: Optional[str] = Header(None)) -> int:
+    user_id = get_current_user(x_session_token)
+    if not user_id:
+        raise HTTPException(401, "Not authenticated")
+    return user_id
+
 def verify_user_credentials(db, username: str, password: str) -> Optional[dict]:
     row = db.execute(
         "SELECT id, username, display_name, password_hash FROM users WHERE username = ?",
@@ -69,6 +75,31 @@ class UserResponse(BaseModel):
     username: str
     display_name: str
 
+class TodoCreate(BaseModel):
+    title: str
+    description: str = ""
+    priority: int = Field(default=3, ge=1, le=4)
+    project_id: Optional[int] = None
+    section_id: Optional[int] = None
+    due_date: Optional[str] = None
+    remind_at: Optional[str] = None
+
+class TodoUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    priority: Optional[int] = None
+    status: Optional[str] = None
+    project_id: Optional[int] = None
+    section_id: Optional[int] = None
+    due_date: Optional[str] = None
+    remind_at: Optional[str] = None
+
+class ProjectCreate(BaseModel):
+    name: str
+    color: str = "#6366f1"
+    sort_order: int = 0
+    parent_id: Optional[int] = None
+
 # ─── Helper ────────────────────────────────────────────────────────────────────
 
 def fetch_todo(db, todo_id: int) -> Optional[dict]:
@@ -96,28 +127,49 @@ def fetch_todo(db, todo_id: int) -> Optional[dict]:
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
+    ws_user_id = None
+    
+    # Check token from query params
+    token = websocket.query_params.get('token')
+    if token:
+        user_id = get_current_user(token)
+        if user_id:
+            ws_user_id = user_id
+    
     try:
         while True:
             data = await websocket.receive_json()
             msg_type = data.get("type", "")
-            if msg_type == "ping":
+            
+            if msg_type == "auth":
+                token = data.get("token")
+                user_id = get_current_user(token)
+                if user_id:
+                    ws_user_id = user_id
+                    await manager.send_personal_message({"type": "auth_ok", "user_id": user_id}, websocket)
+                else:
+                    await manager.send_personal_message({"type": "auth_fail"}, websocket)
+            elif msg_type == "ping":
                 await manager.send_personal_message({"type": "pong", "ts": now_iso()}, websocket)
             elif msg_type == "sync_request":
-                # Client requested full sync -> send all todos + projects
+                if not ws_user_id:
+                    await manager.send_personal_message({"type": "error", "message": "Not authenticated"}, websocket)
+                    continue
+                # Client requested full sync -> send user's todos + projects
                 with get_db() as db:
                     todos_rows = db.execute("""
                         SELECT t.*, p.name as project_name, s.name as section_name FROM todos t
                         LEFT JOIN projects p ON t.project_id = p.id
                         LEFT JOIN sections s ON t.section_id = s.id
-                        WHERE t.status != 'archived'
+                        WHERE t.user_id = ? AND t.status != 'archived'
                         ORDER BY CASE t.status WHEN 'pending' THEN 0 WHEN 'in_progress' THEN 1 WHEN 'done' THEN 2 ELSE 3 END, t.priority, t.due_date IS NULL, t.due_date
-                    """).fetchall()
+                    """, (ws_user_id,)).fetchall()
                     todos_out = []
                     for r in todos_rows:
                         d = row_to_dict(r)
                         d['labels'] = []
                         todos_out.append(d)
-                    projects_rows = db.execute("SELECT * FROM projects ORDER BY sort_order, id").fetchall()
+                    projects_rows = db.execute("SELECT * FROM projects WHERE user_id = ? ORDER BY sort_order, id", (ws_user_id,)).fetchall()
                     await manager.send_personal_message({
                         "type": "sync_response",
                         "todos": todos_out,
@@ -125,6 +177,10 @@ async def websocket_endpoint(websocket: WebSocket):
                     }, websocket)
     except WebSocketDisconnect:
         manager.disconnect(websocket)
+    except Exception as e:
+        print(f"[WS] Error: {e}")
+        manager.disconnect(websocket)
+
     except Exception as e:
         print(f"[WS] Error: {e}")
         manager.disconnect(websocket)
@@ -179,15 +235,15 @@ def me(x_session_token: Optional[str] = Header(None)):
 # ─── Todos ────────────────────────────────────────────────────────────────────
 
 @app.get("/api/todos")
-def list_todos(status: Optional[str] = None, project_id: Optional[int] = None, section_id: Optional[int] = None):
+def list_todos(status: Optional[str] = None, project_id: Optional[int] = None, section_id: Optional[int] = None, user_id: int = Depends(require_auth)):
     with get_db() as db:
         sql = """
             SELECT t.*, p.name as project_name, s.name as section_name FROM todos t
             LEFT JOIN projects p ON t.project_id = p.id
             LEFT JOIN sections s ON t.section_id = s.id
-            WHERE t.status != 'archived'
+            WHERE t.user_id = ? AND t.status != 'archived'
         """
-        params = []
+        params = [user_id]
         if status:
             sql += " AND t.status = ?"
             params.append(status)
@@ -208,34 +264,38 @@ def list_todos(status: Optional[str] = None, project_id: Optional[int] = None, s
         return {"todos": result}
 
 @app.post("/api/todos")
-async def create_todo(data: TodoCreate):
+async def create_todo(data: TodoCreate, user_id: int = Depends(require_auth)):
     with get_db() as db:
         c = db.execute(
-            "INSERT INTO todos (title, description, priority, project_id, section_id, due_date, updated_at) VALUES (?,?,?,?,?,?,?)",
-            (data.title, data.description, data.priority, data.project_id, data.section_id, data.due_date, now_iso())
+            "INSERT INTO todos (title, description, priority, project_id, section_id, due_date, updated_at, user_id) VALUES (?,?,?,?,?,?,?,?)",
+            (data.title, data.description, data.priority, data.project_id, data.section_id, data.due_date, now_iso(), user_id)
         )
         todo_id = c.lastrowid
         if data.remind_at:
-            db.execute("INSERT INTO reminders (todo_id, remind_at) VALUES (?,?)", (todo_id, data.remind_at))
+            db.execute("INSERT INTO reminders (todo_id, remind_at, user_id) VALUES (?,?,?)", (todo_id, data.remind_at, user_id))
         db.commit()
         todo = fetch_todo(db, todo_id)
         await broadcast_change("todo_create", todo)
         return todo
 
 @app.get("/api/todos/{todo_id}")
-def get_todo(todo_id: int):
+def get_todo(todo_id: int, user_id: int = Depends(require_auth)):
     with get_db() as db:
         d = fetch_todo(db, todo_id)
         if not d:
             raise HTTPException(404, "Todo not found")
+        if d.get('user_id') != user_id:
+            raise HTTPException(403, "Not authorized")
         return d
 
 @app.patch("/api/todos/{todo_id}")
-async def update_todo(todo_id: int, data: TodoUpdate):
+async def update_todo(todo_id: int, data: TodoUpdate, user_id: int = Depends(require_auth)):
     with get_db() as db:
         existing = fetch_todo(db, todo_id)
         if not existing:
             raise HTTPException(404, "Todo not found")
+        if existing.get('user_id') != user_id:
+            raise HTTPException(403, "Not authorized")
         updates = {}
         dumped = data.model_dump(exclude_unset=True)
         for f in ["title","description","priority","project_id","section_id","due_date","status"]:
@@ -252,15 +312,20 @@ async def update_todo(todo_id: int, data: TodoUpdate):
         if data.remind_at is not None:
             db.execute("DELETE FROM reminders WHERE todo_id = ?", (todo_id,))
             if data.remind_at:
-                db.execute("INSERT INTO reminders (todo_id, remind_at) VALUES (?,?)", (todo_id, data.remind_at))
+                db.execute("INSERT INTO reminders (todo_id, remind_at, user_id) VALUES (?,?,?)", (todo_id, data.remind_at, user_id))
         db.commit()
         todo = fetch_todo(db, todo_id)
         await broadcast_change("todo_update", todo)
         return todo
 
 @app.delete("/api/todos/{todo_id}")
-async def delete_todo(todo_id: int):
+async def delete_todo(todo_id: int, user_id: int = Depends(require_auth)):
     with get_db() as db:
+        existing = fetch_todo(db, todo_id)
+        if not existing:
+            raise HTTPException(404, "Todo not found")
+        if existing.get('user_id') != user_id:
+            raise HTTPException(403, "Not authorized")
         db.execute("DELETE FROM todos WHERE id = ?", (todo_id,))
         db.commit()
         await broadcast_change("todo_delete", {"id": todo_id})
@@ -269,26 +334,23 @@ async def delete_todo(todo_id: int):
 # ─── Projects ────────────────────────────────────────────────────────────────
 
 @app.get("/api/projects")
-def list_projects():
+def list_projects(user_id: int = Depends(require_auth)):
     with get_db() as db:
-        rows = db.execute("SELECT * FROM projects ORDER BY parent_id, sort_order, id").fetchall()
+        rows = db.execute("SELECT * FROM projects WHERE user_id = ? ORDER BY parent_id, sort_order, id", (user_id,)).fetchall()
         return {"projects": [dict(r) for r in rows]}
 
 @app.post("/api/projects")
-async def create_project(data: ProjectCreate):
+async def create_project(data: ProjectCreate, user_id: int = Depends(require_auth)):
     with get_db() as db:
-        # Validate parent_id: cannot be self and must exist
+        # Validate parent_id: cannot be self and must exist and belong to user
         if data.parent_id is not None:
-            parent = db.execute("SELECT * FROM projects WHERE id = ?", (data.parent_id,)).fetchone()
+            parent = db.execute("SELECT * FROM projects WHERE id = ? AND user_id = ?", (data.parent_id, user_id)).fetchone()
             if not parent:
                 raise HTTPException(404, "Parent project not found")
-            # Check for circular dependency (1 level deep is enough for now)
-            if data.parent_id == data.parent_id:  # Self-reference is already checked above
-                pass
         
         c = db.execute(
-            "INSERT INTO projects (name, color, sort_order, parent_id, updated_at) VALUES (?,?,?,?,?)",
-            (data.name, data.color, data.sort_order, data.parent_id, now_iso())
+            "INSERT INTO projects (name, color, sort_order, parent_id, updated_at, user_id) VALUES (?,?,?,?,?,?)",
+            (data.name, data.color, data.sort_order, data.parent_id, now_iso(), user_id)
         )
         db.commit()
         row = db.execute("SELECT * FROM projects WHERE id = ?", (c.lastrowid,)).fetchone()
@@ -297,9 +359,9 @@ async def create_project(data: ProjectCreate):
         return proj
 
 @app.patch("/api/projects/{project_id}")
-async def update_project(project_id: int, data: ProjectUpdate):
+async def update_project(project_id: int, data: ProjectUpdate, user_id: int = Depends(require_auth)):
     with get_db() as db:
-        existing = db.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
+        existing = db.execute("SELECT * FROM projects WHERE id = ? AND user_id = ?", (project_id, user_id)).fetchone()
         if not existing:
             raise HTTPException(404, "Project not found")
         
@@ -310,7 +372,7 @@ async def update_project(project_id: int, data: ProjectUpdate):
             # Check if target parent is a descendant of this project (would create cycle)
             current_check = data.parent_id
             while current_check is not None:
-                ancestor = db.execute("SELECT parent_id FROM projects WHERE id = ?", (current_check,)).fetchone()
+                ancestor = db.execute("SELECT parent_id FROM projects WHERE id = ? AND user_id = ?", (current_check, user_id)).fetchone()
                 if ancestor and ancestor['parent_id'] == project_id:
                     raise HTTPException(400, "Circular dependency: target parent is a descendant of this project")
                 current_check = ancestor['parent_id'] if ancestor else None
@@ -331,23 +393,27 @@ async def update_project(project_id: int, data: ProjectUpdate):
         return proj
 
 @app.delete("/api/projects/{project_id}")
-async def delete_project(project_id: int):
+async def delete_project(project_id: int, user_id: int = Depends(require_auth)):
     if project_id == 1:
         raise HTTPException(400, "Inbox cannot be deleted")
     with get_db() as db:
+        # Check ownership
+        proj = db.execute("SELECT * FROM projects WHERE id = ? AND user_id = ?", (project_id, user_id)).fetchone()
+        if not proj:
+            raise HTTPException(404, "Project not found")
         # Find all descendant project IDs (recursive)
         to_delete = []
         queue = [project_id]
         while queue:
             pid = queue.pop(0)
             to_delete.append(pid)
-            children = db.execute("SELECT id FROM projects WHERE parent_id = ?", (pid,)).fetchall()
+            children = db.execute("SELECT id FROM projects WHERE parent_id = ? AND user_id = ?", (pid, user_id)).fetchall()
             for child in children:
                 queue.append(child['id'])
         
         # Move all todos from all projects to inbox
         for pid in to_delete:
-            db.execute("UPDATE todos SET project_id = 1, section_id = NULL WHERE project_id = ?", (pid,))
+            db.execute("UPDATE todos SET project_id = 1, section_id = NULL WHERE project_id = ? AND user_id = ?", (pid, user_id))
         
         # Delete sections and projects (order matters for FK constraints)
         for pid in to_delete:
@@ -362,8 +428,12 @@ async def delete_project(project_id: int):
 # ─── Sections ───────────────────────────────────────────────────────────────
 
 @app.get("/api/projects/{project_id}/sections")
-def list_sections(project_id: int):
+def list_sections(project_id: int, user_id: int = Depends(require_auth)):
     with get_db() as db:
+        # Check ownership
+        proj = db.execute("SELECT * FROM projects WHERE id = ? AND user_id = ?", (project_id, user_id)).fetchone()
+        if not proj:
+            raise HTTPException(404, "Project not found")
         rows = db.execute(
             "SELECT * FROM sections WHERE project_id = ? ORDER BY sort_order, id",
             (project_id,)
@@ -371,24 +441,28 @@ def list_sections(project_id: int):
         return {"sections": [dict(r) for r in rows]}
 
 @app.post("/api/projects/{project_id}/sections")
-def create_section(project_id: int, data: SectionCreate):
+def create_section(project_id: int, data: SectionCreate, user_id: int = Depends(require_auth)):
     with get_db() as db:
-        # Verify project exists
-        proj = db.execute("SELECT id FROM projects WHERE id = ?", (project_id,)).fetchone()
+        # Verify project exists and belongs to user
+        proj = db.execute("SELECT id FROM projects WHERE id = ? AND user_id = ?", (project_id, user_id)).fetchone()
         if not proj:
             raise HTTPException(404, "Project not found")
         c = db.execute(
-            "INSERT INTO sections (project_id, name, sort_order, created_at) VALUES (?,?,?,?)",
-            (project_id, data.name, data.sort_order, now_iso())
+            "INSERT INTO sections (project_id, name, sort_order, created_at, user_id) VALUES (?,?,?,?,?)",
+            (project_id, data.name, data.sort_order, now_iso(), user_id)
         )
         db.commit()
         row = db.execute("SELECT * FROM sections WHERE id = ?", (c.lastrowid,)).fetchone()
         return dict(row)
 
 @app.patch("/api/sections/{section_id}")
-def update_section(section_id: int, data: SectionUpdate):
+def update_section(section_id: int, data: SectionUpdate, user_id: int = Depends(require_auth)):
     with get_db() as db:
-        existing = db.execute("SELECT * FROM sections WHERE id = ?", (section_id,)).fetchone()
+        existing = db.execute("""
+            SELECT s.* FROM sections s
+            JOIN projects p ON s.project_id = p.id
+            WHERE s.id = ? AND p.user_id = ?
+        """, (section_id, user_id)).fetchone()
         if not existing:
             raise HTTPException(404, "Section not found")
         updates = {}
@@ -404,13 +478,17 @@ def update_section(section_id: int, data: SectionUpdate):
         return dict(row)
 
 @app.delete("/api/sections/{section_id}")
-def delete_section(section_id: int):
+def delete_section(section_id: int, user_id: int = Depends(require_auth)):
     with get_db() as db:
-        existing = db.execute("SELECT * FROM sections WHERE id = ?", (section_id,)).fetchone()
+        existing = db.execute("""
+            SELECT s.* FROM sections s
+            JOIN projects p ON s.project_id = p.id
+            WHERE s.id = ? AND p.user_id = ?
+        """, (section_id, user_id)).fetchone()
         if not existing:
             raise HTTPException(404, "Section not found")
         # Move todos to unsorted (section_id = NULL)
-        db.execute("UPDATE todos SET section_id = NULL WHERE section_id = ?", (section_id,))
+        db.execute("UPDATE todos SET section_id = NULL WHERE section_id = ? AND user_id = ?", (section_id, user_id))
         db.execute("DELETE FROM sections WHERE id = ?", (section_id,))
         db.commit()
         return {"deleted": section_id}
@@ -418,22 +496,31 @@ def delete_section(section_id: int):
 # ─── Reminders ───────────────────────────────────────────────────────────────
 
 @app.get("/api/reminders")
-def list_reminders(due_only: bool = False):
+def list_reminders(due_only: bool = False, user_id: int = Depends(require_auth)):
     with get_db() as db:
         sql = """
             SELECT r.*, t.title, t.status FROM reminders r
             JOIN todos t ON r.todo_id = t.id
-            WHERE t.status IN ('pending','in_progress')
+            WHERE t.user_id = ? AND t.status IN ('pending','in_progress')
         """
+        params = [user_id]
         if due_only:
             sql += " AND r.remind_at <= datetime('now') AND r.sent_at IS NULL"
         sql += " ORDER BY r.remind_at"
-        rows = db.execute(sql).fetchall()
+        rows = db.execute(sql, params).fetchall()
         return {"reminders": [dict(r) for r in rows]}
 
 @app.post("/api/reminders/{reminder_id}/sent")
-def mark_reminder_sent(reminder_id: int):
+def mark_reminder_sent(reminder_id: int, user_id: int = Depends(require_auth)):
     with get_db() as db:
+        # Verify reminder belongs to user's todo
+        reminder = db.execute("""
+            SELECT r.* FROM reminders r
+            JOIN todos t ON r.todo_id = t.id
+            WHERE r.id = ? AND t.user_id = ?
+        """, (reminder_id, user_id)).fetchone()
+        if not reminder:
+            raise HTTPException(404, "Reminder not found")
         db.execute("UPDATE reminders SET sent_at = ? WHERE id = ?", (now_iso(), reminder_id))
         db.commit()
         return {"sent": reminder_id}
@@ -441,17 +528,17 @@ def mark_reminder_sent(reminder_id: int):
 # ─── Dashboard / Stats ───────────────────────────────────────────────────────
 
 @app.get("/api/dashboard")
-def dashboard():
+def dashboard(user_id: int = Depends(require_auth)):
     with get_db() as db:
-        total = db.execute("SELECT COUNT(*) FROM todos WHERE status != 'archived'").fetchone()[0]
-        pending = db.execute("SELECT COUNT(*) FROM todos WHERE status = 'pending'").fetchone()[0]
-        inprog = db.execute("SELECT COUNT(*) FROM todos WHERE status = 'in_progress'").fetchone()[0]
-        done = db.execute("SELECT COUNT(*) FROM todos WHERE status = 'done'").fetchone()[0]
+        total = db.execute("SELECT COUNT(*) FROM todos WHERE user_id = ? AND status != 'archived'", (user_id,)).fetchone()[0]
+        pending = db.execute("SELECT COUNT(*) FROM todos WHERE user_id = ? AND status = 'pending'", (user_id,)).fetchone()[0]
+        inprog = db.execute("SELECT COUNT(*) FROM todos WHERE user_id = ? AND status = 'in_progress'", (user_id,)).fetchone()[0]
+        done = db.execute("SELECT COUNT(*) FROM todos WHERE user_id = ? AND status = 'done'", (user_id,)).fetchone()[0]
         overdue = db.execute(
-            "SELECT COUNT(*) FROM todos WHERE status IN ('pending','in_progress') AND due_date < date('now')"
+            "SELECT COUNT(*) FROM todos WHERE user_id = ? AND status IN ('pending','in_progress') AND due_date < date('now')", (user_id,)
         ).fetchone()[0]
         due_today = db.execute(
-            "SELECT COUNT(*) FROM todos WHERE status IN ('pending','in_progress') AND date(due_date) = date('now')"
+            "SELECT COUNT(*) FROM todos WHERE user_id = ? AND status IN ('pending','in_progress') AND date(due_date) = date('now')", (user_id,)
         ).fetchone()[0]
         return {
             "total": total,
