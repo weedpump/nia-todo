@@ -793,15 +793,6 @@ function renderProjects() {
 // Track expanded state for project tree
 let expandedProjects = new Set();
 
-function toggleProjectExpand(projectId) {
-  if (expandedProjects.has(projectId)) {
-    expandedProjects.delete(projectId);
-  } else {
-    expandedProjects.add(projectId);
-  }
-  renderProjects();
-}
-
 function renderStats() {
   const el = document.getElementById('stats-bar');
   if (!el) return;
