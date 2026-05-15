@@ -1240,11 +1240,8 @@ async function saveTodo(event) {
     await addToSyncQueue('CREATE_TODO', { ...todoData, _tempId: tempId });
     if (isOnlineForSync()) {
       await syncWithServer();
-      // Re-render after sync to show real todo (not temp)
-      renderProjects();
-      renderStats();
-      renderTodos();
     }
+    // No re-render needed - todo_create handler will update UI
   }
 
   // Only render here for updates (create already rendered above)
