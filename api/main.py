@@ -288,6 +288,19 @@ async def update_project(project_id: int, data: ProjectUpdate):
         existing = db.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
         if not existing:
             raise HTTPException(404, "Project not found")
+        
+        # Validate parent_id update: prevent circular dependencies
+        if data.parent_id is not None:
+            if data.parent_id == project_id:
+                raise HTTPException(400, "Project cannot be its own parent")
+            # Check if target parent is a descendant of this project (would create cycle)
+            current_check = data.parent_id
+            while current_check is not None:
+                ancestor = db.execute("SELECT parent_id FROM projects WHERE id = ?", (current_check,)).fetchone()
+                if ancestor and ancestor['parent_id'] == project_id:
+                    raise HTTPException(400, "Circular dependency: target parent is a descendant of this project")
+                current_check = ancestor['parent_id'] if ancestor else None
+        
         updates = {}
         for f in ["name","color","sort_order","parent_id"]:
             v = getattr(data, f)
