@@ -207,25 +207,50 @@ def fetch_todo(db, todo_id: int) -> Optional[dict]:
 
 class ConnectionManager:
     def __init__(self):
-        self.active_connections = []
+        # user_id -> list of websockets
+        self.connections: dict[int, list[WebSocket]] = {}
+        # websocket -> user_id mapping
+        self.ws_users: dict[WebSocket, int] = {}
 
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
-        self.active_connections.append(websocket)
+        # Don't add to connections yet - wait for auth
 
     def disconnect(self, websocket: WebSocket):
-        if websocket in self.active_connections:
-            self.active_connections.remove(websocket)
+        user_id = self.ws_users.pop(websocket, None)
+        if user_id and user_id in self.connections:
+            if websocket in self.connections[user_id]:
+                self.connections[user_id].remove(websocket)
+            if not self.connections[user_id]:
+                del self.connections[user_id]
+
+    def register_auth(self, websocket: WebSocket, user_id: int):
+        self.ws_users[websocket] = user_id
+        if user_id not in self.connections:
+            self.connections[user_id] = []
+        self.connections[user_id].append(websocket)
 
     async def send_personal_message(self, message: dict, websocket: WebSocket):
         await websocket.send_json(message)
 
-    async def broadcast(self, message: dict):
-        for connection in self.active_connections[:]:  # copy to allow removal
+    async def broadcast_to_user(self, user_id: int, message: dict):
+        """Send message only to connections of a specific user."""
+        if user_id not in self.connections:
+            return
+        for connection in self.connections[user_id][:]:  # copy to allow removal
             try:
                 await connection.send_json(message)
             except:
                 pass
+
+    async def broadcast(self, message: dict):
+        """Broadcast to all authenticated connections (legacy)."""
+        for user_id, connections in list(self.connections.items()):
+            for connection in connections[:]:
+                try:
+                    await connection.send_json(message)
+                except:
+                    pass
 
 manager = ConnectionManager()
 
@@ -253,6 +278,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 user_id = get_current_user(token)
                 if user_id:
                     ws_user_id = user_id
+                    manager.register_auth(websocket, user_id)  # Register for user-specific broadcasts
                     await manager.send_personal_message({"type": "auth_ok", "user_id": user_id}, websocket)
                 else:
                     await manager.send_personal_message({"type": "auth_fail"}, websocket)
@@ -292,8 +318,9 @@ async def websocket_endpoint(websocket: WebSocket):
         print(f"[WS] Error: {e}")
         manager.disconnect(websocket)
 
-async def broadcast_change(event_type: str, payload: dict):
-    await manager.broadcast({"type": event_type, "payload": payload})
+async def broadcast_change(event_type: str, payload: dict, user_id: int):
+    """Broadcast change only to the user who owns the data."""
+    await manager.broadcast_to_user(user_id, {"type": event_type, "payload": payload})
 
 # ─── Init DB on startup ─────────────────────────────────────────────────────
 
@@ -578,7 +605,7 @@ async def create_todo(data: TodoCreate, user_id: int = Depends(require_auth)):
             db.execute("INSERT INTO reminders (todo_id, remind_at, user_id) VALUES (?,?,?)", (todo_id, data.remind_at, user_id))
         db.commit()
         todo = fetch_todo(db, todo_id)
-        await broadcast_change("todo_create", todo)
+        await broadcast_change("todo_create", todo, user_id)
         return todo
 
 @app.get("/api/todos/{todo_id}")
@@ -618,7 +645,7 @@ async def update_todo(todo_id: int, data: TodoUpdate, user_id: int = Depends(req
                 db.execute("INSERT INTO reminders (todo_id, remind_at, user_id) VALUES (?,?,?)", (todo_id, data.remind_at, user_id))
         db.commit()
         todo = fetch_todo(db, todo_id)
-        await broadcast_change("todo_update", todo)
+        await broadcast_change("todo_update", todo, user_id)
         return todo
 
 @app.delete("/api/todos/{todo_id}")
@@ -631,7 +658,7 @@ async def delete_todo(todo_id: int, user_id: int = Depends(require_auth)):
             raise HTTPException(403, "Not authorized")
         db.execute("DELETE FROM todos WHERE id = ?", (todo_id,))
         db.commit()
-        await broadcast_change("todo_delete", {"id": todo_id})
+        await broadcast_change("todo_delete", {"id": todo_id}, user_id)
         return {"deleted": todo_id}
 
 # ─── Projects ────────────────────────────────────────────────────────────────
@@ -658,7 +685,7 @@ async def create_project(data: ProjectCreate, user_id: int = Depends(require_aut
         db.commit()
         row = db.execute("SELECT * FROM projects WHERE id = ?", (c.lastrowid,)).fetchone()
         proj = dict(row)
-        await broadcast_change("project_create", proj)
+        await broadcast_change("project_create", proj, user_id)
         return proj
 
 @app.patch("/api/projects/{project_id}")
@@ -692,7 +719,7 @@ async def update_project(project_id: int, data: ProjectUpdate, user_id: int = De
             db.commit()
         row = db.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
         proj = dict(row)
-        await broadcast_change("project_update", proj)
+        await broadcast_change("project_update", proj, user_id)
         return proj
 
 @app.delete("/api/projects/{project_id}")
@@ -725,7 +752,7 @@ async def delete_project(project_id: int, user_id: int = Depends(require_auth)):
             db.execute("DELETE FROM projects WHERE id = ?", (pid,))
         
         db.commit()
-        await broadcast_change("project_delete", {"id": project_id})
+        await broadcast_change("project_delete", {"id": project_id}, user_id)
         return {"deleted": project_id}
 
 # ─── Sections ───────────────────────────────────────────────────────────────

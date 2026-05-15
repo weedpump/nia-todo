@@ -7,9 +7,11 @@ Beim Server-Start wird automatisch geprüft welche fehlen und ausgeführt.
 import os
 import sqlite3
 import re
-import bcrypt
 from pathlib import Path
-from db import DB_PATH, get_db
+
+# DB-Pfad: Env-Variable oder Default
+DB_NAME = os.getenv('NIA_TODO_DB', 'nia-todo.db')
+DB_PATH = Path(__file__).parent / "data" / DB_NAME
 
 MIGRATIONS_DIR = Path(__file__).parent / "migrations"
 
@@ -24,7 +26,10 @@ def get_db_version(conn):
 
 def set_db_version(conn, version):
     """Setzt Schema-Version in der DB."""
-    conn.execute("INSERT OR REPLACE INTO schema_version (version, applied_at) VALUES (?, datetime('now'))", (version,))
+    # SQLite kann nicht OR REPLACE mit PRIMARY KEY ohne ID
+    # Lösche alte Versionen und füge neue ein
+    conn.execute("DELETE FROM schema_version")
+    conn.execute("INSERT INTO schema_version (version, applied_at) VALUES (?, datetime('now'))", (version,))
     conn.commit()
 
 def get_migration_files():
@@ -50,17 +55,6 @@ def init_migrations_table(conn):
     """)
     conn.commit()
 
-def hash_passwords_in_sql(sql):
-    """Ersetzt Passwort-Platzhalter in Migration 003 durch bcrypt-Hashes."""
-    if 'PLACEHOLDER_TOBI' in sql:
-        pw_tobi = os.getenv('NIA_TODO_PASSWORD_TOBI', '0HN2QIlB8ZHq')
-        pw_moni = os.getenv('NIA_TODO_PASSWORD_MONI', 'Sfg3Tvw6uP0Q')
-        hash_tobi = bcrypt.hashpw(pw_tobi.encode(), bcrypt.gensalt()).decode()
-        hash_moni = bcrypt.hashpw(pw_moni.encode(), bcrypt.gensalt()).decode()
-        sql = sql.replace('PLACEHOLDER_TOBI', hash_tobi)
-        sql = sql.replace('PLACEHOLDER_MONI', hash_moni)
-    return sql
-
 def run_migrations():
     """Führt alle ausstehenden Migrationen aus."""
     conn = sqlite3.connect(str(DB_PATH))
@@ -81,14 +75,21 @@ def run_migrations():
             print(f"[MIGRATION] Applying {filepath.name} (version {version})...")
             sql = filepath.read_text()
             
-            # Special handling: hash passwords for migration 003
-            sql = hash_passwords_in_sql(sql)
-            
             try:
                 conn.executescript(sql)
                 set_db_version(conn, version)
                 applied += 1
                 print(f"[MIGRATION] ✅ {filepath.name} applied successfully")
+            except sqlite3.OperationalError as e:
+                error_msg = str(e).lower()
+                if "duplicate column" in error_msg or "already exists" in error_msg:
+                    print(f"[MIGRATION] ⚠️ {filepath.name} - parts already applied, marking as done")
+                    set_db_version(conn, version)
+                    applied += 1
+                else:
+                    print(f"[MIGRATION] ❌ Failed: {e}")
+                    conn.close()
+                    raise
             except sqlite3.Error as e:
                 print(f"[MIGRATION] ❌ Failed: {e}")
                 conn.close()
