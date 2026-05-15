@@ -45,6 +45,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); }
     <h1>🔧 nia-todo Admin</h1>
     <div class="admin-nav">
       <a href="/">← Zurück zur App</a>
+      <button class="btn btn-danger" onclick="adminLogout()">Abmelden</button>
       <div class="admin-theme-toggle">
         <button onclick="setTheme('light')" title="Hell">☀️</button>
         <button onclick="setTheme('dark')" title="Dunkel">🌙</button>
@@ -276,6 +277,14 @@ async function deleteUser(userId, username) {
   } catch(e) {
     alert('Fehler: ' + e.message);
   }
+}
+
+function adminLogout() {
+  localStorage.removeItem('admin_token');
+  adminToken = null;
+  document.getElementById('admin-content').style.display = 'none';
+  document.getElementById('admin-login-card').style.display = 'block';
+  document.getElementById('admin-login-password').value = '';
 }
 
 // Load on page load - only if we have a token (will be handled by doAdminLogin if not)
