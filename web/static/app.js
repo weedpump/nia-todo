@@ -1220,21 +1220,49 @@ function showProjectModal(project = null, parentId = null) {
   document.getElementById('project-id').value = '';
   document.getElementById('project-modal-title').textContent = project ? 'Projekt bearbeiten' : (parentId ? 'Neues Subproject' : 'Neues Projekt');
 
-  // Populate parent dropdown - ALL projects can be parents (not just root)
+  // Populate parent dropdown - render in tree order (same as sidebar)
   const parentSelect = document.getElementById('project-parent-id');
   if (parentSelect) {
     parentSelect.innerHTML = '<option value="">-- Kein Eltern-Projekt --</option>';
-    projects.forEach(p => {
-      // Exclude current project (can't be own parent) and its descendants
-      if (project && p.id === project.id) return;
-      
-      const option = document.createElement('option');
-      option.value = p.id;
-      // Show tree indentation in dropdown
-      const indent = p.parent_id ? '  └─ ' : '';
-      option.textContent = indent + p.name;
-      parentSelect.appendChild(option);
+    
+    // Build tree structure (same logic as renderProjects)
+    const projectMap = new Map();
+    projects.forEach(p => projectMap.set(p.id, { ...p, children: [] }));
+    
+    const rootProjects = [];
+    projectMap.forEach(p => {
+      if (p.parent_id === null || p.parent_id === undefined) {
+        rootProjects.push(p);
+      } else {
+        const parent = projectMap.get(p.parent_id);
+        if (parent) {
+          parent.children.push(p);
+        }
+      }
     });
+    
+    rootProjects.sort((a, b) => a.sort_order - b.sort_order);
+    
+    // Recursive function to add options in tree order
+    function addProjectOptions(proj, depth = 0) {
+      // Skip current project (can't be own parent)
+      if (project && proj.id === project.id) return;
+      
+      const indent = '  '.repeat(depth) + (depth > 0 ? '└─ ' : '');
+      const option = document.createElement('option');
+      option.value = proj.id;
+      option.textContent = indent + proj.name;
+      parentSelect.appendChild(option);
+      
+      // Add children
+      if (proj.children && proj.children.length > 0) {
+        proj.children.sort((a, b) => a.sort_order - b.sort_order);
+        proj.children.forEach(child => addProjectOptions(child, depth + 1));
+      }
+    }
+    
+    rootProjects.forEach(p => addProjectOptions(p));
+    
     parentSelect.value = parentId || (project ? project.parent_id : '') || '';
   }
 
