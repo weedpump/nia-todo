@@ -422,10 +422,13 @@ async function syncWithServer() {
     try {
       if (item.action === 'CREATE_TODO') {
         const res = await post('/api/todos', item.data);
+        // Remove temp entry from local DB and todos array
         if (item.data._tempId) {
           await deleteFromDB('todos', item.data._tempId);
+          todos = todos.filter(t => t.id !== item.data._tempId);
         }
         await dbPut('todos', res);
+        todos.push(res);
         successCount++;
       } else if (item.action === 'UPDATE_TODO') {
         await patch(`/api/todos/${item.data.id}`, item.data.changes);
