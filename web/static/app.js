@@ -439,6 +439,10 @@ async function syncWithServer() {
         const res = await post('/api/projects', item.data);
         await dbPut('projects', res);
         successCount++;
+      } else if (item.action === 'DELETE_PROJECT') {
+        await del(`/api/projects/${item.data.id}`);
+        await deleteFromDB('projects', item.data.id);
+        successCount++;
       }
 
       // Erfolgreich synched → aus Queue entfernen
