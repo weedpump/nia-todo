@@ -7,6 +7,15 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-05-15
+
+### Added
+- CHANGELOG.md mit vollständiger Versionshistorie
+
+### Fixed
+- Section-Button wird jetzt **immer** angezeigt (auch in leeren Projekten)
+- Empty-State überschreibt nicht mehr den "Neue Section"-Button
+
 ## [0.3.1] - 2026-05-15
 
 ### Added
