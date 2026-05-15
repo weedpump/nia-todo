@@ -761,18 +761,11 @@ function renderProjects() {
   function renderProjectTree(project, depth = 0) {
     const indent = depth * 16;
     const hasChildren = project.children && project.children.length > 0;
-    const isExpanded = expandedProjects.has(project.id);
     
     let html = '';
     html += `<div class="project-tree-item" style="padding-left: ${indent}px">`;
     html += `<div class="nav-item-with-action">`;
     html += `<button class="nav-btn ${currentFilter === String(project.id) ? 'active' : ''}" onclick="setFilter('${project.id}')">`;
-    if (hasChildren) {
-      const arrow = isExpanded ? '▼' : '▶';
-      html += `<span class="project-toggle" onclick="event.stopPropagation(); toggleProjectExpand(${project.id})">${arrow}</span>`;
-    } else {
-      html += `<span class="project-toggle-spacer"></span>`;
-    }
     html += `<span class="project-dot" style="background:${project.color}"></span>`;
     html += `${escapeHtml(project.name)}`;
     html += `<span class="badge">${countByProject(project.id, true)}</span>`;
@@ -783,8 +776,8 @@ function renderProjects() {
     html += `</div>`;
     html += `</div>`;
     
-    // Render children if expanded
-    if (hasChildren && isExpanded) {
+    // Render children always (no toggle needed)
+    if (hasChildren) {
       project.children.sort((a, b) => a.sort_order - b.sort_order);
       project.children.forEach(child => {
         html += renderProjectTree(child, depth + 1);
