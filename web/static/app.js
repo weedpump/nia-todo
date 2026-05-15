@@ -260,8 +260,13 @@ async function handleWsMessage(msg) {
       if (msg.payload) {
         await dbPut('projects', msg.payload);
         const existing = projects.find(p => p.id === msg.payload.id);
-        if (!existing) projects.push(msg.payload);
-        else projects = projects.map(p => p.id === msg.payload.id ? msg.payload : p);
+        if (existing) {
+          // Server response for our create → replace temp entry
+          projects = projects.map(p => p.id === msg.payload.id ? msg.payload : p);
+        } else {
+          // Broadcast from another client → add to list
+          projects.push(msg.payload);
+        }
         renderProjects();
       }
       break;
@@ -437,7 +442,13 @@ async function syncWithServer() {
         successCount++;
       } else if (item.action === 'CREATE_PROJECT') {
         const res = await post('/api/projects', item.data);
+        // Remove temp entry from local DB and projects array
+        if (item.data._tempId) {
+          await deleteFromDB('projects', item.data._tempId);
+          projects = projects.filter(p => p.id !== item.data._tempId);
+        }
         await dbPut('projects', res);
+        projects.push(res);
         successCount++;
       } else if (item.action === 'DELETE_PROJECT') {
         await del(`/api/projects/${item.data.id}`);
