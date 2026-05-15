@@ -1227,17 +1227,30 @@ async function saveTodo(event) {
     await dbPut('todos', newTodo);
     todos.push(newTodo);
 
-    // Immer Queue (offline-first)
+    // Render immediately for instant feedback (user sees temp todo)
+    renderProjects();
+    renderStats();
+    renderTodos();
+    closeModal('todo-modal');
+
+    // Sync in background - will replace temp with real todo
     await addToSyncQueue('CREATE_TODO', { ...todoData, _tempId: tempId });
     if (isOnlineForSync()) {
       await syncWithServer();
+      // Re-render after sync to show real todo (not temp)
+      renderProjects();
+      renderStats();
+      renderTodos();
     }
   }
 
-  renderProjects();
-  renderStats();
-  renderTodos();
-  closeModal('todo-modal');
+  // Only render here for updates (create already rendered above)
+  if (id) {
+    renderProjects();
+    renderStats();
+    renderTodos();
+    closeModal('todo-modal');
+  }
 }
 
 function editTodo(id) {
