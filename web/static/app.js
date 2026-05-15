@@ -21,7 +21,7 @@ let appInitialized = false;
 let syncInProgress = false;
 let swRegistration = null;
 let updateAvailable = false;
-const APP_VERSION = 'v0.3.3';
+const APP_VERSION = 'v0.3.4-dev';
 
 // ─── Theme System ───────────────────────────────────────────────────────────
 
