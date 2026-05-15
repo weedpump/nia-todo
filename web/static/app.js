@@ -759,7 +759,6 @@ function renderProjects() {
     html += `<button class="nav-edit" onclick="event.stopPropagation(); editProject(${project.id})" title="Bearbeiten">`;
     html += `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
     html += `</button>`;
-    html += `<button class="nav-add-sub" onclick="event.stopPropagation(); showSubProjectModal(${project.id})" title="Subproject">➕</button>`;
     html += `</div>`;
     html += `</div>`;
     
@@ -1221,14 +1220,19 @@ function showProjectModal(project = null, parentId = null) {
   document.getElementById('project-id').value = '';
   document.getElementById('project-modal-title').textContent = project ? 'Projekt bearbeiten' : (parentId ? 'Neues Subproject' : 'Neues Projekt');
 
-  // Populate parent dropdown
+  // Populate parent dropdown - ALL projects can be parents (not just root)
   const parentSelect = document.getElementById('project-parent-id');
   if (parentSelect) {
     parentSelect.innerHTML = '<option value="">-- Kein Eltern-Projekt --</option>';
-    projects.filter(p => !p.parent_id || p.id === (project ? project.id : null)).forEach(p => {
+    projects.forEach(p => {
+      // Exclude current project (can't be own parent) and its descendants
+      if (project && p.id === project.id) return;
+      
       const option = document.createElement('option');
       option.value = p.id;
-      option.textContent = p.name;
+      // Show tree indentation in dropdown
+      const indent = p.parent_id ? '  └─ ' : '';
+      option.textContent = indent + p.name;
       parentSelect.appendChild(option);
     });
     parentSelect.value = parentId || (project ? project.parent_id : '') || '';
@@ -1244,10 +1248,6 @@ function showProjectModal(project = null, parentId = null) {
   document.getElementById('project-delete-btn').style.display = project ? '' : 'none';
 
   document.getElementById('project-modal')?.classList.add('active');
-}
-
-function showSubProjectModal(parentId) {
-  showProjectModal(null, parentId);
 }
 
 function editProject(id) {
