@@ -1322,6 +1322,12 @@ function showProjectModal(project = null, parentId = null) {
     parentSelect.value = parentId || (project ? project.parent_id : '') || '';
   }
 
+  // Hide parent dropdown for Inbox (cannot be moved under another project)
+  const parentFormGroup = document.getElementById('project-parent-id')?.closest('.form-group');
+  if (parentFormGroup) {
+    parentFormGroup.style.display = (project && project.id === 1) ? 'none' : '';
+  }
+
   if (project) {
     document.getElementById('project-id').value = project.id;
     document.getElementById('project-name').value = project.name;
