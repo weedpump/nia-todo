@@ -2,17 +2,19 @@
 -- Created: 2026-05-15
 -- Purpose: Add users table and user_id to all data tables
 
--- Users table
+-- Users table with password_hash for direct migration
 CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT NOT NULL UNIQUE,
     display_name TEXT,
+    password_hash TEXT,
     created_at TEXT DEFAULT (datetime('now'))
 );
 
--- Insert default users (passwords are handled separately via API tokens)
-INSERT OR IGNORE INTO users (id, username, display_name) VALUES (1, 'tobi', 'Tobi');
-INSERT OR IGNORE INTO users (id, username, display_name) VALUES (2, 'moni', 'Moni');
+-- Insert default users with bcrypt hashes
+INSERT OR IGNORE INTO users (id, username, display_name, password_hash) VALUES
+    (1, 'tobi', 'Tobi', '$2b$12$uFGHi3YnR3TAvladonI6Y.raWhMMWs40KACQk3X21Tq.bvydEu36u'),
+    (2, 'moni', 'Moni', '$2b$12$JIiqN3OlMIvfxU987F3/7ONVb246V5q41SnvI0BTAcFU6dQrnreXK');
 
 -- Add user_id to existing tables
 ALTER TABLE projects ADD COLUMN user_id INTEGER DEFAULT 1;
