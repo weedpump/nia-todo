@@ -53,6 +53,17 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); }
     </div>
   </div>
 
+  <div class="admin-card" id="admin-login-card">
+    <h2>🔐 Admin-Anmeldung</h2>
+    <div class="form-row">
+      <input type="password" id="admin-login-password" placeholder="Admin-Passwort eingeben" autocomplete="off" onkeydown="if(event.key==='Enter') doAdminLogin()">
+      <button class="btn btn-primary" onclick="doAdminLogin()">Anmelden</button>
+    </div>
+    <div class="admin-error" id="admin-login-error"></div>
+  </div>
+
+  <div id="admin-content" style="display:none;">
+
   <!-- Create User -->
   <div class="admin-card" id="create-user-card">
     <h2>➕ Neuen Benutzer erstellen</h2>
@@ -85,6 +96,8 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); }
       </tbody>
     </table>
   </div>
+
+  </div>
 </div>
 
 <script>
@@ -115,14 +128,20 @@ function getAdminToken() {
 }
 
 adminToken = getAdminToken();
-if (!adminToken) {
-  const token = prompt('Admin-Passwort eingeben:');
-  if (token) {
-    localStorage.setItem('admin_token', token);
-    adminToken = token;
-  } else {
-    window.location.href = '/';
-  }
+
+if (adminToken) {
+  // Try to use stored token, if invalid show login
+  apiGet('/api/admin/users').then(data => {
+    document.getElementById('admin-login-card').style.display = 'none';
+    document.getElementById('admin-content').style.display = 'block';
+    renderUsers(data.users);
+  }).catch(() => {
+    localStorage.removeItem('admin_token');
+    adminToken = null;
+    document.getElementById('admin-login-card').style.display = 'block';
+  });
+} else {
+  document.getElementById('admin-login-card').style.display = 'block';
 }
 
 async function apiGet(path) {
@@ -156,6 +175,36 @@ async function apiDelete(path) {
     throw new Error(data.detail || 'Fehler');
   }
   return r.json();
+}
+
+async function doAdminLogin() {
+  const password = document.getElementById('admin-login-password').value;
+  document.getElementById('admin-login-error').textContent = '';
+  
+  if (!password) {
+    document.getElementById('admin-login-error').textContent = 'Bitte Admin-Passwort eingeben';
+    return;
+  }
+  
+  // Try the password as admin token
+  adminToken = password;
+  localStorage.setItem('admin_token', password);
+  
+  try {
+    const data = await apiGet('/api/admin/users');
+    // Success - show admin content
+    document.getElementById('admin-login-card').style.display = 'none';
+    document.getElementById('admin-content').style.display = 'block';
+    renderUsers(data.users);
+  } catch(e) {
+    if (e.message.includes('403')) {
+      document.getElementById('admin-login-error').textContent = 'Falsches Admin-Passwort';
+      adminToken = null;
+      localStorage.removeItem('admin_token');
+    } else {
+      document.getElementById('admin-login-error').textContent = 'Fehler: ' + e.message;
+    }
+  }
 }
 
 async function loadUsers() {

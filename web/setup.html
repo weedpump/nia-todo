@@ -51,7 +51,7 @@ body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify
     <!-- Step 1: Admin Password -->
     <div class="setup-step active" id="step-1">
       <h2>🔐 Admin-Passwort festlegen</h2>
-      <p>Dieses Passwort wird für die Verwaltung von Benutzern benötigt.</p>
+      <p>Dieses Passwort wird für die Verwaltung von Benutzern benötigt.<br><strong>Anforderungen:</strong> Mindestens 12 Zeichen, 1 Groß- und 1 Kleinbuchstabe, 1 Ziffer, 1 Sonderzeichen.</p>
       <div class="setup-field">
         <label>Admin-Passwort</label>
         <input type="password" id="admin-password" placeholder="Sicheres Passwort eingeben" autocomplete="new-password" onkeydown="if(event.key==='Enter') setAdminPassword()">
@@ -67,7 +67,7 @@ body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify
     <!-- Step 2: First User -->
     <div class="setup-step" id="step-2">
       <h2>👤 Ersten Benutzer erstellen</h2>
-      <p>Dieser Benutzer erhält alle bestehenden Daten und ist automatisch Admin.</p>
+      <p>Dieser Benutzer erhält alle bestehenden Daten und ist automatisch Admin.<br><strong>Passwort-Anforderungen:</strong> Mindestens 8 Zeichen, 1 Groß- und 1 Kleinbuchstabe, 1 Ziffer, 1 Sonderzeichen.</p>
       <div class="setup-field">
         <label>Benutzername</label>
         <input type="text" id="first-username" placeholder="z.B. max" autocomplete="username" onkeydown="if(event.key==='Enter') document.getElementById('first-display-name').focus()">

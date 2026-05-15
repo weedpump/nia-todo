@@ -27,6 +27,28 @@ app = FastAPI(title="nia-todo", version="0.4.0")
 # In-memory session store: token -> user_id (legacy fallback)
 sessions = {}
 
+# ─── Password Validation ──────────────────────────────────────────────────────
+
+import re
+
+def validate_password(password: str, min_length: int = 8) -> str:
+    """Validates password meets security requirements. Returns error message or empty string if valid."""
+    if len(password) < min_length:
+        return f"Passwort muss mindestens {min_length} Zeichen lang sein"
+    if not re.search(r'[A-Z]', password):
+        return "Passwort muss mindestens einen Großbuchstaben enthalten"
+    if not re.search(r'[a-z]', password):
+        return "Passwort muss mindestens einen Kleinbuchstaben enthalten"
+    if not re.search(r'\d', password):
+        return "Passwort muss mindestens eine Ziffer enthalten"
+    if not re.search(r'[!@#$%^&*()_+\-=\[\]{};\':"\\|,.<>\/?]', password):
+        return "Passwort muss mindestens ein Sonderzeichen enthalten"
+    return ""
+
+def validate_admin_password(password: str) -> str:
+    """Admin passwords require at least 12 characters."""
+    return validate_password(password, min_length=12)
+
 # ─── JWT Configuration ──────────────────────────────────────────────────────────
 
 JWT_ALGORITHM = "HS256"
@@ -430,6 +452,11 @@ def setup_status():
 
 @app.post("/api/setup/admin")
 def setup_admin(data: AdminSetupRequest):
+    # Validate admin password
+    error = validate_admin_password(data.admin_password)
+    if error:
+        raise HTTPException(400, error)
+    
     with get_db() as db:
         # Check if already set up
         config = db.execute("SELECT setup_complete FROM admin_config WHERE id = 1").fetchone()
@@ -452,6 +479,11 @@ def setup_admin(data: AdminSetupRequest):
 
 @app.post("/api/setup/first-user")
 def setup_first_user(data: FirstUserRequest):
+    # Validate user password (min 8 chars)
+    error = validate_password(data.password)
+    if error:
+        raise HTTPException(400, error)
+    
     with get_db() as db:
         # Check if users exist
         user_count = db.execute("SELECT COUNT(*) as c FROM users").fetchone()['c']
@@ -502,6 +534,11 @@ def require_admin(x_admin_token: Optional[str] = Header(None)):
 
 @app.post("/api/admin/users")
 def create_user(data: CreateUserRequest, _: bool = Depends(require_admin)):
+    # Validate user password (min 8 chars)
+    error = validate_password(data.password)
+    if error:
+        raise HTTPException(400, error)
+    
     with get_db() as db:
         # Check if username exists
         existing = db.execute("SELECT id FROM users WHERE username = ?", (data.username,)).fetchone()
