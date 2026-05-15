@@ -9,6 +9,7 @@ from pathlib import Path
 import json
 import asyncio
 import secrets
+import string
 import time
 import sqlite3
 
@@ -116,7 +117,7 @@ def decode_jwt_token(token: str, db) -> Optional[dict]:
         return None
 
 def get_current_user(token: Optional[str] = None) -> Optional[int]:
-    """Extract user_id from JWT token (legacy session fallback supported)."""
+    """Extract user_id from JWT token, API key, or legacy session fallback."""
     if not token:
         return None
     # Legacy session fallback
@@ -128,10 +129,26 @@ def get_current_user(token: Optional[str] = None) -> Optional[int]:
         payload = decode_jwt_token(token, db)
         if payload:
             return payload.get('user_id')
+        # API key
+        if token.startswith("nt_"):
+            prefix = token[3:11]  # "nt_" + 8 chars prefix
+            cur = db.execute(
+                "SELECT id, key_hash, user_id FROM api_keys WHERE key_prefix = ? AND revoked_at IS NULL",
+                (prefix,)
+            ).fetchall()
+            for row in cur:
+                if bcrypt.checkpw(token.encode(), row['key_hash'].encode()):
+                    # Update last_used_at
+                    db.execute(
+                        "UPDATE api_keys SET last_used_at = datetime('now') WHERE id = ?",
+                        (row['id'],)
+                    )
+                    db.commit()
+                    return row['user_id']
     return None
 
 def require_auth(authorization: Optional[str] = Header(None), x_session_token: Optional[str] = Header(None)) -> int:
-    """Dependency: validate JWT from Authorization header or X-Session-Token."""
+    """Dependency: validate JWT or API key from Authorization header, or legacy X-Session-Token."""
     token = None
     if authorization and authorization.startswith("Bearer "):
         token = authorization[7:]
@@ -154,6 +171,27 @@ def verify_user_credentials(db, username: str, password: str) -> Optional[dict]:
     if bcrypt.checkpw(password.encode(), stored_hash.encode()):
         return dict(row)
     return None
+
+# ─── API Key Helpers ──────────────────────────────────────────────────────────
+
+API_KEY_ALPHABET = string.ascii_letters + string.digits
+API_KEY_LENGTH = 32  # after "nt_" prefix
+
+def generate_api_key() -> str:
+    """Generate a random API key: nt_ + 32 alphanumeric chars."""
+    random_part = ''.join(secrets.choice(API_KEY_ALPHABET) for _ in range(API_KEY_LENGTH))
+    return f"nt_{random_part}"
+
+def hash_api_key(key: str) -> str:
+    """Hash an API key with bcrypt."""
+    return bcrypt.hashpw(key.encode(), bcrypt.gensalt()).decode()
+
+def get_api_key_prefix(key: str) -> str:
+    """Get the 8-char prefix after 'nt_' for quick lookup."""
+    return key[3:11]  # e.g. "a3f9x2k8" from "nt_a3f9x2k8m..."
+
+class CreateApiKeyRequest(BaseModel):
+    name: Optional[str] = "API Key"
 
 class ProjectUpdate(BaseModel):
     name: Optional[str] = None
@@ -758,6 +796,63 @@ def admin_change_user_password(user_id: int, data: ResetUserPasswordRequest, _: 
         db.commit()
 
     return {"message": "Passwort geändert. Der Benutzer muss sich erneut anmelden."}
+
+# ─── API Key Endpoints ──────────────────────────────────────────────────────────
+
+@app.get("/api/me/api-keys")
+def list_api_keys(user_id: int = Depends(require_auth)):
+    """List user's API keys (metadata only, no full keys)."""
+    with get_db() as db:
+        rows = db.execute("""
+            SELECT id, name, key_prefix, created_at, last_used_at, revoked_at
+            FROM api_keys
+            WHERE user_id = ?
+            ORDER BY created_at DESC
+        """, (user_id,)).fetchall()
+        return {"api_keys": [dict(r) for r in rows]}
+
+@app.post("/api/me/api-keys")
+def create_api_key(data: CreateApiKeyRequest, user_id: int = Depends(require_auth)):
+    """Create a new API key. Full key is returned ONLY ONCE."""
+    with get_db() as db:
+        # Generate key
+        full_key = generate_api_key()
+        key_hash = hash_api_key(full_key)
+        key_prefix = get_api_key_prefix(full_key)
+        name = data.name or "API Key"
+
+        c = db.execute(
+            """INSERT INTO api_keys (user_id, name, key_hash, key_prefix, created_at)
+               VALUES (?, ?, ?, ?, datetime('now'))""",
+            (user_id, name, key_hash, key_prefix)
+        )
+        db.commit()
+
+        return {
+            "id": c.lastrowid,
+            "name": name,
+            "prefix": f"nt_{key_prefix}",
+            "key": full_key,  # ONLY shown once
+            "created_at": now_iso()
+        }
+
+@app.delete("/api/me/api-keys/{key_id}")
+def revoke_api_key(key_id: int, user_id: int = Depends(require_auth)):
+    """Revoke (soft-delete) an API key by setting revoked_at."""
+    with get_db() as db:
+        key = db.execute(
+            "SELECT id FROM api_keys WHERE id = ? AND user_id = ?",
+            (key_id, user_id)
+        ).fetchone()
+        if not key:
+            raise HTTPException(404, "API key not found")
+
+        db.execute(
+            "UPDATE api_keys SET revoked_at = datetime('now') WHERE id = ?",
+            (key_id,)
+        )
+        db.commit()
+        return {"revoked": key_id}
 
 # ─── Todos ────────────────────────────────────────────────────────────────────
 

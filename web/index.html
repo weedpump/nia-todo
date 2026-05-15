@@ -240,6 +240,18 @@
         </div>
         <div id="settings-pw-error" style="color:var(--danger); font-size:13px; margin-top:8px;"></div>
         <div id="settings-pw-success" style="color:var(--success); font-size:13px; margin-top:8px;"></div>
+        <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">
+        <h4 style="margin:0 0 12px 0; font-size:14px;">🔑 API-Keys</h4>
+        <div id="api-keys-list" style="margin-bottom:12px;">
+          <!-- API keys loaded dynamically -->
+        </div>
+        <button class="btn btn-primary" onclick="createApiKey()" style="margin-bottom:8px;">Neuen API-Key erstellen</button>
+        <div id="api-key-created" style="display:none; background:var(--bg-tertiary); padding:12px; border-radius:var(--radius); margin-top:8px;">
+          <p style="color:var(--warning); font-size:13px; margin:0 0 8px 0;">⚠️ Kopiere den Key jetzt — er wird nicht mehr angezeigt!</p>
+          <code id="api-key-value" style="display:block; background:var(--bg-primary); padding:8px; border-radius:var(--radius); font-family:monospace; word-break:break-all; font-size:13px; margin-bottom:8px;"></code>
+          <button class="btn btn-secondary" onclick="copyApiKey()" style="font-size:13px;">📋 Kopieren</button>
+        </div>
+        <div id="api-key-error" style="color:var(--danger); font-size:13px; margin-top:8px;"></div>
       </div>
       <div class="modal-actions">
         <button type="button" class="btn btn-secondary" onclick="closeModal('settings-modal')">Schließen</button>
