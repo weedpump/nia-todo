@@ -1255,7 +1255,8 @@ function showProjectModal(project = null, parentId = null) {
       // Skip current project being edited (can't be own parent)
       if (project && projectNode.id === project.id) return;
       
-      const indent = '  '.repeat(depth) + (depth > 0 ? '└─ ' : '');
+      // FIX: \u00A0 = Non-Breaking Space, wird in <option> nicht kollabiert
+      const indent = '\u00A0'.repeat(depth * 2) + (depth > 0 ? '└─ ' : '');
       const option = document.createElement('option');
       option.value = projectNode.id;
       option.textContent = indent + projectNode.name;
