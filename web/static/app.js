@@ -101,6 +101,10 @@ async function handleLogin(e) {
     await login(username, password);
     hideLoginOverlay();
     renderUserInfo();
+    // Initialize app if not already done
+    if (!appInitialized) {
+      await initApp();
+    }
     // Reload data for this user
     await refreshFromServer();
   } catch (err) {
