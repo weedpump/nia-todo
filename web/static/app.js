@@ -716,18 +716,77 @@ async function del(path) {
 function renderProjects() {
   const el = document.getElementById('project-list');
   if (!el) return;
-  el.innerHTML = projects.map(p => `
-    <div class="nav-item-with-action">
-      <button class="nav-btn ${currentFilter === String(p.id) ? 'active' : ''}" onclick="setFilter('${p.id}')">
-        <span class="project-dot" style="background:${p.color}"></span>
-        ${escapeHtml(p.name)}
-        <span class="badge">${countByProject(p.id)}</span>
-      </button>
-      <button class="nav-edit" onclick="event.stopPropagation(); editProject(${p.id})" title="Bearbeiten">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-      </button>
-    </div>
-  `).join('');
+  
+  // Build tree structure
+  const projectMap = new Map();
+  projects.forEach(p => projectMap.set(p.id, { ...p, children: [] }));
+  
+  const rootProjects = [];
+  projectMap.forEach(p => {
+    if (p.parent_id === null || p.parent_id === undefined) {
+      rootProjects.push(p);
+    } else {
+      const parent = projectMap.get(p.parent_id);
+      if (parent) {
+        parent.children.push(p);
+      }
+    }
+  });
+  
+  // Sort roots by sort_order
+  rootProjects.sort((a, b) => a.sort_order - b.sort_order);
+  
+  // Recursive render function
+  function renderProjectTree(project, depth = 0) {
+    const indent = depth * 16;
+    const hasChildren = project.children && project.children.length > 0;
+    const isExpanded = expandedProjects.has(project.id);
+    
+    let html = '';
+    html += `<div class="project-tree-item" style="padding-left: ${indent}px">`;
+    html += `<div class="nav-item-with-action">`;
+    html += `<button class="nav-btn ${currentFilter === String(project.id) ? 'active' : ''}" onclick="setFilter('${project.id}')">`;
+    if (hasChildren) {
+      const arrow = isExpanded ? '▼' : '▶';
+      html += `<span class="project-toggle" onclick="event.stopPropagation(); toggleProjectExpand(${project.id})">${arrow}</span>`;
+    } else {
+      html += `<span class="project-toggle-spacer"></span>`;
+    }
+    html += `<span class="project-dot" style="background:${project.color}"></span>`;
+    html += `${escapeHtml(project.name)}`;
+    html += `<span class="badge">${countByProject(project.id, true)}</span>`;
+    html += `</button>`;
+    html += `<button class="nav-edit" onclick="event.stopPropagation(); editProject(${project.id})" title="Bearbeiten">`;
+    html += `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
+    html += `</button>`;
+    html += `<button class="nav-add-sub" onclick="event.stopPropagation(); showSubProjectModal(${project.id})" title="Subproject">➕</button>`;
+    html += `</div>`;
+    html += `</div>`;
+    
+    // Render children if expanded
+    if (hasChildren && isExpanded) {
+      project.children.sort((a, b) => a.sort_order - b.sort_order);
+      project.children.forEach(child => {
+        html += renderProjectTree(child, depth + 1);
+      });
+    }
+    
+    return html;
+  }
+  
+  el.innerHTML = rootProjects.map(p => renderProjectTree(p)).join('');
+}
+
+// Track expanded state for project tree
+let expandedProjects = new Set();
+
+function toggleProjectExpand(projectId) {
+  if (expandedProjects.has(projectId)) {
+    expandedProjects.delete(projectId);
+  } else {
+    expandedProjects.add(projectId);
+  }
+  renderProjects();
 }
 
 function renderStats() {
@@ -949,8 +1008,24 @@ async function loadSectionsForCurrentProject() {
   }
 }
 
-function countByProject(pid) {
-  return todos.filter(t => t.project_id === pid && t.status !== 'done').length;
+function countByProject(pid, includeSubprojects = false) {
+  if (!includeSubprojects) {
+    return todos.filter(t => t.project_id === pid && t.status !== 'done').length;
+  }
+  
+  // Recursively count todos in subprojects
+  const projectIds = new Set([pid]);
+  function collectChildren(parentId) {
+    projects.forEach(p => {
+      if (p.parent_id === parentId) {
+        projectIds.add(p.id);
+        collectChildren(p.id);
+      }
+    });
+  }
+  collectChildren(pid);
+  
+  return todos.filter(t => projectIds.has(t.project_id) && t.status !== 'done').length;
 }
 
 async function toggleTodo(id) {
@@ -1141,20 +1216,38 @@ async function deleteTodo(id) {
   }
 }
 
-function showProjectModal(project = null) {
+function showProjectModal(project = null, parentId = null) {
   document.getElementById('project-form')?.reset();
   document.getElementById('project-id').value = '';
-  document.getElementById('project-modal-title').textContent = project ? 'Projekt bearbeiten' : 'Neues Projekt';
+  document.getElementById('project-modal-title').textContent = project ? 'Projekt bearbeiten' : (parentId ? 'Neues Subproject' : 'Neues Projekt');
+
+  // Populate parent dropdown
+  const parentSelect = document.getElementById('project-parent-id');
+  if (parentSelect) {
+    parentSelect.innerHTML = '<option value="">-- Kein Eltern-Projekt --</option>';
+    projects.filter(p => !p.parent_id || p.id === (project ? project.id : null)).forEach(p => {
+      const option = document.createElement('option');
+      option.value = p.id;
+      option.textContent = p.name;
+      parentSelect.appendChild(option);
+    });
+    parentSelect.value = parentId || (project ? project.parent_id : '') || '';
+  }
 
   if (project) {
     document.getElementById('project-id').value = project.id;
     document.getElementById('project-name').value = project.name;
     document.getElementById('project-color').value = project.color;
+    if (parentSelect) parentSelect.value = project.parent_id || '';
   }
 
   document.getElementById('project-delete-btn').style.display = project ? '' : 'none';
 
   document.getElementById('project-modal')?.classList.add('active');
+}
+
+function showSubProjectModal(parentId) {
+  showProjectModal(null, parentId);
 }
 
 function editProject(id) {
@@ -1166,10 +1259,12 @@ async function saveProject(event) {
   event.preventDefault();
 
   const id = document.getElementById('project-id').value;
+  const parentIdVal = document.getElementById('project-parent-id')?.value;
   const projectData = {
     name: document.getElementById('project-name').value,
     color: document.getElementById('project-color').value,
-    sort_order: projects.length
+    sort_order: projects.length,
+    parent_id: parentIdVal ? parseInt(parentIdVal) : null
   };
 
   if (id) {

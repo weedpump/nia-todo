@@ -139,6 +139,54 @@ body {
   flex-shrink: 0;
 }
 
+/* Project Tree */
+.project-tree-item {
+  width: 100%;
+}
+
+.project-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-right: 4px;
+  font-size: 10px;
+  color: var(--text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.project-toggle:hover {
+  color: var(--text-primary);
+}
+
+.project-toggle-spacer {
+  display: inline-block;
+  width: 16px;
+  margin-right: 4px;
+  flex-shrink: 0;
+}
+
+.nav-add-sub {
+  opacity: 0;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  font-size: 12px;
+  transition: opacity 0.2s;
+}
+
+.nav-item-with-action:hover .nav-add-sub {
+  opacity: 1;
+}
+
+.nav-add-sub:hover {
+  color: var(--accent);
+}
+
 /* Main */
 .main {
   flex: 1;
