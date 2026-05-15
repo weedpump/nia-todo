@@ -1,8 +1,10 @@
 -- Migration 003: Add user support
 -- Created: 2026-05-15
 -- Purpose: Add users table and user_id to all data tables
+-- NOTE: Default users must be created manually after deployment.
+--       See api/setup_users.py or run: python3 api/setup_users.py
 
--- Users table with password_hash for direct migration
+-- Users table
 CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT NOT NULL UNIQUE,
@@ -11,21 +13,12 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TEXT DEFAULT (datetime('now'))
 );
 
--- Insert default users with bcrypt hashes
-INSERT OR IGNORE INTO users (id, username, display_name, password_hash) VALUES
-    (1, 'tobi', 'Tobi', '$2b$12$uFGHi3YnR3TAvladonI6Y.raWhMMWs40KACQk3X21Tq.bvydEu36u'),
-    (2, 'moni', 'Moni', '$2b$12$JIiqN3OlMIvfxU987F3/7ONVb246V5q41SnvI0BTAcFU6dQrnreXK');
-
--- Add user_id to existing tables
+-- Add user_id to existing tables (defaults to 1 for first user)
 ALTER TABLE projects ADD COLUMN user_id INTEGER DEFAULT 1;
 ALTER TABLE todos ADD COLUMN user_id INTEGER DEFAULT 1;
 ALTER TABLE sections ADD COLUMN user_id INTEGER DEFAULT 1;
 
--- Add foreign key constraints (SQLite doesn't enforce FK by default, but for documentation)
--- Note: SQLite only supports FK constraints defined at table creation time
--- We'll enforce these at the application level.
-
--- Update existing data to belong to user 1 (tobi)
+-- Update existing data to belong to user 1 (first user to be created)
 UPDATE projects SET user_id = 1;
 UPDATE todos SET user_id = 1;
 UPDATE sections SET user_id = 1;
