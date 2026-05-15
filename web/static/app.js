@@ -21,7 +21,7 @@ let appInitialized = false;
 let syncInProgress = false;
 let swRegistration = null;
 let updateAvailable = false;
-const APP_VERSION = 'v0.3.0-dev';
+const APP_VERSION = 'v0.3.1-dev';
 
 // ─── WebSocket ───────────────────────────────────────────────────────────────
 let ws = null;
