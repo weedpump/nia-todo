@@ -61,6 +61,16 @@ async function login(username, password) {
   currentUser = data.user;
   currentUser.token = data.access_token;
   localStorage.setItem('jwt_token', data.access_token);
+  
+  // Check if user changed - if so, clear cache
+  const lastUserId = localStorage.getItem('last_user_id');
+  const newUserId = String(data.user.id);
+  if (lastUserId && lastUserId !== newUserId) {
+    console.log('User changed from', lastUserId, 'to', newUserId, '- clearing cache');
+    await clearIndexedDB();
+  }
+  localStorage.setItem('last_user_id', newUserId);
+  
   return data;
 }
 
@@ -80,6 +90,19 @@ async function checkAuth() {
     const user = await r.json();
     currentUser = user;
     currentUser.token = token;
+    
+    // Check if user changed - if so, clear cache and reload
+    const lastUserId = localStorage.getItem('last_user_id');
+    const newUserId = String(user.id);
+    if (lastUserId && lastUserId !== newUserId) {
+      console.log('User changed from', lastUserId, 'to', newUserId, '- clearing cache');
+      await clearIndexedDB();
+      localStorage.setItem('last_user_id', newUserId);
+      location.reload();
+      return false;
+    }
+    localStorage.setItem('last_user_id', newUserId);
+    
     return true;
   } catch (e) {
     return false;
@@ -101,7 +124,30 @@ async function logout() {
   currentUser = null;
   localStorage.removeItem('jwt_token');
   localStorage.removeItem('auth_token');
+  localStorage.removeItem('last_user_id');
+  
+  // Clear IndexedDB cache to prevent data leaking between users
+  await clearIndexedDB();
+  
   location.reload();
+}
+
+async function clearIndexedDB() {
+  return new Promise((resolve) => {
+    if (!db) {
+      // Try to delete by name anyway
+      const deleteRequest = indexedDB.deleteDatabase(DB_NAME);
+      deleteRequest.onsuccess = () => { console.log('IndexedDB deleted'); resolve(); };
+      deleteRequest.onerror = () => { console.log('IndexedDB delete error'); resolve(); };
+      deleteRequest.onblocked = () => { console.log('IndexedDB delete blocked'); resolve(); };
+      return;
+    }
+    db.close();
+    const deleteRequest = indexedDB.deleteDatabase(DB_NAME);
+    deleteRequest.onsuccess = () => { console.log('IndexedDB deleted'); resolve(); };
+    deleteRequest.onerror = () => { console.log('IndexedDB delete error'); resolve(); };
+    deleteRequest.onblocked = () => { console.log('IndexedDB delete blocked'); resolve(); };
+  });
 }
 
 function showLoginOverlay() {
