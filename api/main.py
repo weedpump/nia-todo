@@ -145,7 +145,7 @@ def require_auth(authorization: Optional[str] = Header(None), x_session_token: O
 
 def verify_user_credentials(db, username: str, password: str) -> Optional[dict]:
     row = db.execute(
-        "SELECT id, username, display_name, password_hash FROM users WHERE username = ?",
+        "SELECT id, username, display_name, password_hash, is_admin, token_version FROM users WHERE username = ?",
         (username,)
     ).fetchone()
     if not row:
@@ -440,6 +440,17 @@ class CreateUserRequest(BaseModel):
     password: str
     display_name: str
 
+class ChangePasswordRequest(BaseModel):
+    old_password: str
+    new_password: str
+
+class ChangeAdminPasswordRequest(BaseModel):
+    old_password: str
+    new_password: str
+
+class ResetUserPasswordRequest(BaseModel):
+    new_password: str
+
 @app.get("/api/setup/status")
 def setup_status():
     with get_db() as db:
@@ -578,10 +589,101 @@ def delete_user(user_id: int, x_admin_token: Optional[str] = Header(None), _: bo
             raise HTTPException(404, "User not found")
         if user['is_admin']:
             raise HTTPException(400, "Cannot delete admin user")
-        
+
         db.execute("DELETE FROM users WHERE id = ?", (user_id,))
         db.commit()
         return {"deleted": user_id}
+
+# ─── Password Change Endpoints ────────────────────────────────────────────────
+
+@app.post("/api/me/change-password")
+def change_own_password(data: ChangePasswordRequest, user_id: int = Depends(require_auth)):
+    """User changes their own password. Invalidates all existing JWTs."""
+    # Validate new password strength
+    error = validate_password(data.new_password)
+    if error:
+        raise HTTPException(400, error)
+
+    with get_db() as db:
+        # Get user's current password hash
+        row = db.execute(
+            "SELECT password_hash FROM users WHERE id = ?",
+            (user_id,)
+        ).fetchone()
+        if not row:
+            raise HTTPException(404, "User not found")
+
+        # Verify old password
+        if not bcrypt.checkpw(data.old_password.encode(), row['password_hash'].encode()):
+            raise HTTPException(401, "Altes Passwort ist falsch")
+
+        # Hash new password
+        new_hash = bcrypt.hashpw(data.new_password.encode(), bcrypt.gensalt()).decode()
+
+        # Update password and increment token_version (invalidates all JWTs)
+        db.execute(
+            "UPDATE users SET password_hash = ?, token_version = token_version + 1 WHERE id = ?",
+            (new_hash, user_id)
+        )
+        db.commit()
+
+    return {"message": "Passwort geändert. Bitte melde dich erneut an."}
+
+@app.post("/api/admin/change-password")
+def change_admin_password(data: ChangeAdminPasswordRequest, _: bool = Depends(require_admin)):
+    """Admin changes the admin password (admin_config.admin_token_hash)."""
+    # Validate new password strength
+    error = validate_admin_password(data.new_password)
+    if error:
+        raise HTTPException(400, error)
+
+    with get_db() as db:
+        # Get current admin hash
+        config = db.execute("SELECT admin_token_hash FROM admin_config WHERE id = 1").fetchone()
+        if not config or not config['admin_token_hash']:
+            raise HTTPException(500, "Admin-Konfiguration nicht gefunden")
+
+        # Verify old password
+        if not bcrypt.checkpw(data.old_password.encode(), config['admin_token_hash'].encode()):
+            raise HTTPException(401, "Altes Admin-Passwort ist falsch")
+
+        # Hash new admin password
+        new_hash = bcrypt.hashpw(data.new_password.encode(), bcrypt.gensalt()).decode()
+
+        db.execute(
+            "UPDATE admin_config SET admin_token_hash = ? WHERE id = 1",
+            (new_hash,)
+        )
+        db.commit()
+
+    return {"message": "Admin-Passwort geändert. Bitte melde dich erneut an."}
+
+@app.post("/api/admin/users/{user_id}/change-password")
+def admin_change_user_password(user_id: int, data: ResetUserPasswordRequest, _: bool = Depends(require_admin)):
+    """Admin changes any user's password. Invalidates that user's sessions."""
+    # Validate new password strength
+    error = validate_password(data.new_password)
+    if error:
+        raise HTTPException(400, error)
+
+    with get_db() as db:
+        # Check user exists
+        user = db.execute(
+            "SELECT id FROM users WHERE id = ?",
+            (user_id,)
+        ).fetchone()
+        if not user:
+            raise HTTPException(404, "User not found")
+
+        # Hash new password and increment token_version
+        new_hash = bcrypt.hashpw(data.new_password.encode(), bcrypt.gensalt()).decode()
+        db.execute(
+            "UPDATE users SET password_hash = ?, token_version = token_version + 1 WHERE id = ?",
+            (new_hash, user_id)
+        )
+        db.commit()
+
+    return {"message": "Passwort geändert. Der Benutzer muss sich erneut anmelden."}
 
 # ─── Modified Auth ───────────────────────────────────────────────────────────
 
