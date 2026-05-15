@@ -1010,6 +1010,39 @@ input[type="color"]::-moz-color-swatch {
   transform: translateY(0);
 }
 
+.login-theme-toggle {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.login-theme-toggle .theme-option {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-primary);
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+}
+
+.login-theme-toggle .theme-option:hover {
+  background: var(--bg-secondary);
+}
+
+.login-theme-toggle .theme-option.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  transform: scale(1.05);
+}
+
 /* ─── User Bar in Sidebar ──────────────────────────────────────────────────── */
 
 .user-bar {

@@ -786,6 +786,9 @@ async function triggerUpdate() {
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('App starting...');
 
+  // Initialize theme BEFORE auth check so login overlay has correct theme
+  initTheme();
+
   // Auth check first
   const authed = await checkAuth();
   if (authed) {
