@@ -156,31 +156,33 @@ function setTheme(mode) {
 }
 
 // Init theme
-const stored = localStorage.getItem('theme');
-if (stored && stored !== 'system') setTheme(stored);
+const storedTheme = localStorage.getItem('theme');
+if (storedTheme && storedTheme !== 'system') setTheme(storedTheme);
 else setTheme('system');
 
-// Admin token from URL hash or prompt
-function getAdminToken() {
-  const hash = window.location.hash.slice(1);
-  if (hash) {
-    localStorage.setItem('admin_token', hash);
-    history.replaceState(null, '', window.location.pathname);
-    return hash;
+// Migrate old token storage: clear old plaintext admin_token
+function migrateOldAdminToken() {
+  const oldToken = localStorage.getItem('admin_token');
+  if (oldToken) {
+    localStorage.removeItem('admin_token');
   }
-  return localStorage.getItem('admin_token');
+}
+migrateOldAdminToken();
+
+function getAdminToken() {
+  return localStorage.getItem('admin_jwt_token');
 }
 
 adminToken = getAdminToken();
 
 if (adminToken) {
-  // Try to use stored token, if invalid show login
+  // Try to use stored JWT, if invalid show login
   apiGet('/api/admin/users').then(data => {
     document.getElementById('admin-login-card').style.display = 'none';
     document.getElementById('admin-content').style.display = 'block';
     renderUsers(data.users);
   }).catch(() => {
-    localStorage.removeItem('admin_token');
+    localStorage.removeItem('admin_jwt_token');
     adminToken = null;
     document.getElementById('admin-login-card').style.display = 'block';
   });
@@ -188,9 +190,17 @@ if (adminToken) {
   document.getElementById('admin-login-card').style.display = 'block';
 }
 
+function getAuthHeaders() {
+  const headers = {};
+  if (adminToken) {
+    headers['Authorization'] = 'Bearer ' + adminToken;
+  }
+  return headers;
+}
+
 async function apiGet(path) {
   const r = await fetch(API + path, {
-    headers: { 'X-Admin-Token': adminToken }
+    headers: getAuthHeaders()
   });
   if (!r.ok) throw new Error(await r.text());
   return r.json();
@@ -199,7 +209,7 @@ async function apiGet(path) {
 async function apiPost(path, body) {
   const r = await fetch(API + path, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Admin-Token': adminToken },
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify(body)
   });
   if (!r.ok) {
@@ -212,7 +222,7 @@ async function apiPost(path, body) {
 async function apiDelete(path) {
   const r = await fetch(API + path, {
     method: 'DELETE',
-    headers: { 'X-Admin-Token': adminToken }
+    headers: getAuthHeaders()
   });
   if (!r.ok) {
     const data = await r.json().catch(() => ({}));
@@ -230,24 +240,30 @@ async function doAdminLogin() {
     return;
   }
 
-  // Try the password as admin token
-  adminToken = password;
-  localStorage.setItem('admin_token', password);
-
   try {
-    const data = await apiGet('/api/admin/users');
-    // Success - show admin content
+    const r = await fetch(API + '/api/admin/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password })
+    });
+    const data = await r.json();
+    if (!r.ok) {
+      if (r.status === 401) {
+        document.getElementById('admin-login-error').textContent = 'Falsches Admin-Passwort';
+      } else {
+        document.getElementById('admin-login-error').textContent = data.detail || 'Fehler beim Anmelden';
+      }
+      return;
+    }
+
+    adminToken = data.access_token;
+    localStorage.setItem('admin_jwt_token', data.access_token);
     document.getElementById('admin-login-card').style.display = 'none';
     document.getElementById('admin-content').style.display = 'block';
-    renderUsers(data.users);
+    const usersData = await apiGet('/api/admin/users');
+    renderUsers(usersData.users);
   } catch(e) {
-    if (e.message.includes('403')) {
-      document.getElementById('admin-login-error').textContent = 'Falsches Admin-Passwort';
-      adminToken = null;
-      localStorage.removeItem('admin_token');
-    } else {
-      document.getElementById('admin-login-error').textContent = 'Fehler: ' + e.message;
-    }
+    document.getElementById('admin-login-error').textContent = 'Fehler: ' + e.message;
   }
 }
 
@@ -259,7 +275,7 @@ async function loadUsers() {
     document.getElementById('user-list').innerHTML =
       `<tr><td colspan="7" class="empty-state">Fehler: ${e.message}</td></tr>`;
     if (e.message.includes('403')) {
-      localStorage.removeItem('admin_token');
+      localStorage.removeItem('admin_jwt_token');
       setTimeout(() => location.reload(), 2000);
     }
   }
@@ -390,8 +406,17 @@ async function confirmResetPassword() {
   }
 }
 
-function adminLogout() {
-  localStorage.removeItem('admin_token');
+async function adminLogout() {
+  try {
+    // Call backend logout to invalidate all admin JWTs
+    await fetch(API + '/api/admin/logout', {
+      method: 'POST',
+      headers: getAuthHeaders()
+    });
+  } catch(e) {
+    // Ignore errors on logout
+  }
+  localStorage.removeItem('admin_jwt_token');
   adminToken = null;
   document.getElementById('admin-content').style.display = 'none';
   document.getElementById('admin-login-card').style.display = 'block';

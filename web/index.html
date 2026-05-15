@@ -78,13 +78,14 @@
         </button>
       </nav>
 
-      <!-- User Info & Settings & Logout -->
+      <!-- User Info & Settings & Logout & Admin -->
       <div class="user-bar" id="user-bar">
         <div class="user-info" id="user-info" onclick="openSettingsModal()" style="cursor:pointer;" title="Einstellungen öffnen">
           <span class="user-icon">👤</span>
           <span class="user-name" id="user-name">–</span>
           <span style="font-size:11px; opacity:0.6; margin-left:4px;">⚙️</span>
         </div>
+        <a href="/admin" id="admin-link" style="display:none; font-size:13px; color:var(--accent); text-decoration:none; padding:6px 8px; border-radius:var(--radius);" title="Admin-Panel">🔧 Admin</a>
         <button class="logout-btn" onclick="logout()" title="Abmelden">
           <span>🚪</span> Abmelden
         </button>
