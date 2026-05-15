@@ -7,6 +7,13 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-05-15
+
+### Added
+- **Theme-Support**: Light/Dark/System-Theme mit Toggle in Sidebar
+- Theme-Einstellung wird in localStorage gespeichert
+- Theme reagiert live auf System-Theme-Änderungen ("System"-Modus)
+
 ## [0.3.2] - 2026-05-15
 
 ### Added
