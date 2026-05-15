@@ -54,11 +54,11 @@ body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify
       <p>Dieses Passwort wird für die Verwaltung von Benutzern benötigt.</p>
       <div class="setup-field">
         <label>Admin-Passwort</label>
-        <input type="password" id="admin-password" placeholder="Sicheres Passwort eingeben" autocomplete="new-password">
+        <input type="password" id="admin-password" placeholder="Sicheres Passwort eingeben" autocomplete="new-password" onkeydown="if(event.key==='Enter') setAdminPassword()">
       </div>
       <div class="setup-field">
         <label>Passwort bestätigen</label>
-        <input type="password" id="admin-password-confirm" placeholder="Passwort wiederholen">
+        <input type="password" id="admin-password-confirm" placeholder="Passwort wiederholen" onkeydown="if(event.key==='Enter') setAdminPassword()">
       </div>
       <button class="setup-btn" onclick="setAdminPassword()">Weiter →</button>
       <div class="setup-error" id="error-1"></div>
@@ -70,15 +70,15 @@ body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify
       <p>Dieser Benutzer erhält alle bestehenden Daten und ist automatisch Admin.</p>
       <div class="setup-field">
         <label>Benutzername</label>
-        <input type="text" id="first-username" placeholder="z.B. max" autocomplete="username">
+        <input type="text" id="first-username" placeholder="z.B. max" autocomplete="username" onkeydown="if(event.key==='Enter') document.getElementById('first-display-name').focus()">
       </div>
       <div class="setup-field">
         <label>Anzeigename</label>
-        <input type="text" id="first-display-name" placeholder="Max Mustermann">
+        <input type="text" id="first-display-name" placeholder="Max Mustermann" onkeydown="if(event.key==='Enter') document.getElementById('first-password').focus()">
       </div>
       <div class="setup-field">
         <label>Passwort</label>
-        <input type="password" id="first-password" placeholder="Passwort" autocomplete="new-password">
+        <input type="password" id="first-password" placeholder="Passwort" autocomplete="new-password" onkeydown="if(event.key==='Enter') createFirstUser()">
       </div>
       <button class="setup-btn" onclick="createFirstUser()">Installation abschließen</button>
       <div class="setup-error" id="error-2"></div>
