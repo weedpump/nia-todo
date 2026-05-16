@@ -2697,7 +2697,7 @@ async function enablePushNotifications() {
     updatePushStatus('granted');
   } catch (e) {
     console.error('[Push] Enable failed:', e);
-    updatePushStatus('default', e.message || 'Fehler beim Aktivieren');
+    updatePushStatus('default', String(e.message || e) || 'Fehler beim Aktivieren');
   }
 }
 
@@ -2718,7 +2718,7 @@ async function disablePushNotifications() {
     updatePushStatus('default');
   } catch (e) {
     console.error('[Push] Disable failed:', e);
-    updatePushStatus('default', e.message || 'Fehler beim Deaktivieren');
+    updatePushStatus('default', String(e.message || e) || 'Fehler beim Deaktivieren');
   }
 }
 
@@ -2727,15 +2727,16 @@ async function sendTestPush() {
     const r = await fetch(API + '/api/push/test', {
       method: 'POST',
       headers: getAuthHeaders(),
+      body: JSON.stringify({ title: 'Test 🔔', body: 'Push Notifications funktionieren!' }),
       credentials: 'include'
     });
     if (!r.ok) {
       const data = await r.json().catch(() => ({}));
-      throw new Error(data.detail || 'Fehler');
+      throw new Error(data.detail || JSON.stringify(data) || 'Fehler');
     }
     updatePushStatus('granted', 'Test-Benachrichtigung gesendet!');
   } catch (e) {
-    updatePushStatus('granted', e.message || 'Fehler beim Senden');
+    updatePushStatus('granted', String(e.message || e) || 'Fehler beim Senden');
   }
 }
 
