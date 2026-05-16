@@ -892,18 +892,33 @@ async function syncWithServer() {
         todos.push(res);
         successCount++;
       } else if (item.action === 'UPDATE_TODO') {
-        await patch(`/api/todos/${item.data.id}`, item.data.changes);
-        // Lokale DB mit neuem updated_at aktualisieren
-        const localTodo = await getFromDB('todos', item.data.id);
-        if (localTodo) {
-          const updated = { ...localTodo, ...item.data.changes, updated_at: new Date().toISOString() };
-          await dbPut('todos', updated);
+        try {
+          await patch(`/api/todos/${item.data.id}`, item.data.changes);
+          const localTodo = await getFromDB('todos', item.data.id);
+          if (localTodo) {
+            const updated = { ...localTodo, ...item.data.changes, updated_at: new Date().toISOString() };
+            await dbPut('todos', updated);
+          }
+          successCount++;
+        } catch (err) {
+          if (err.message && err.message.includes('404')) {
+            console.warn('Todo', item.data.id, 'not found on server, skipping');
+          } else {
+            throw err;
+          }
         }
-        successCount++;
       } else if (item.action === 'DELETE_TODO') {
-        await del(`/api/todos/${item.data.id}`);
-        await deleteFromDB('todos', item.data.id);
-        successCount++;
+        try {
+          await del(`/api/todos/${item.data.id}`);
+          await deleteFromDB('todos', item.data.id);
+          successCount++;
+        } catch (err) {
+          if (err.message && err.message.includes('404')) {
+            console.warn('Todo', item.data.id, 'already deleted, skipping');
+          } else {
+            throw err;
+          }
+        }
       } else if (item.action === 'CREATE_PROJECT') {
         const res = await post('/api/projects', item.data);
         // Remove temp entry from local DB and projects array
@@ -915,9 +930,17 @@ async function syncWithServer() {
         projects.push(res);
         successCount++;
       } else if (item.action === 'DELETE_PROJECT') {
-        await del(`/api/projects/${item.data.id}`);
-        await deleteFromDB('projects', item.data.id);
-        successCount++;
+        try {
+          await del(`/api/projects/${item.data.id}`);
+          await deleteFromDB('projects', item.data.id);
+          successCount++;
+        } catch (err) {
+          if (err.message && err.message.includes('404')) {
+            console.warn('Project', item.data.id, 'already deleted, skipping');
+          } else {
+            throw err;
+          }
+        }
       }
 
       // Erfolgreich synched → aus Queue entfernen
