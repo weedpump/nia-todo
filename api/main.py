@@ -173,7 +173,9 @@ class CSRFProtectionMiddleware(BaseHTTPMiddleware):
 
         # Skip API key auth (stateless)
         auth = request.headers.get("Authorization", "")
-        if auth.startswith("Bearer "):
+        if auth.startswith("ApiKey "):
+            return await call_next(request)
+        elif auth.startswith("Bearer "):
             token = auth[7:]
             if token.startswith("nt_"):
                 return await call_next(request)
