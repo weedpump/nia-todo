@@ -2358,7 +2358,12 @@ async function clearDoneInProject() {
   if (!confirm(`${doneCount} erledigte Todo(s) in "${project.name}" löschen?`)) return;
 
   try {
-    const r = await post(`/api/projects/${currentProjectId}/clear-done`, {});
+    const r = await fetch(API + `/api/projects/${currentProjectId}/clear-done`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({}),
+      credentials: 'include'
+    });
     if (r.ok) {
       const result = await r.json();
       // Remove done todos from local array
@@ -2367,7 +2372,9 @@ async function clearDoneInProject() {
       renderTodos();
       showToast(`${result.deleted_count} erledigte Todo(s) gelöscht`);
     } else {
-      showToast('Fehler beim Löschen');
+      const err = await r.json().catch(() => ({}));
+      console.error('Clear done failed:', r.status, err);
+      showToast('Fehler beim Löschen: ' + (err.detail || r.status));
     }
   } catch (err) {
     console.error('Clear done error:', err);
