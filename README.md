@@ -55,8 +55,11 @@ Die Dev-Instanz (Port 8754) wird automatisch bei Start angepasst:
 - 🗄️ SQLite-Datenbank (lokal, kein Cloud-Quatsch)
 - 👥 **Multi-User**: Mehrere Benutzer mit eigenen Daten
 - 🔐 **JWT Auth**: Bearer Token, sichere Passwörter
-- 🔑 **API-Keys**: Benutzer können in den Einstellungen API-Keys generieren (für externe API-Zugriffe)
+- 🔑 **API-Keys**: Benutzer können in den Einstellungen API-Keys generieren
+- 🛡️ **CSRF-Protection**: Double-Submit Cookie Pattern für sichere API-Zugriffe
 - 🛡️ **Rate-Limiting**: Bruteforce-Schutz für Login und API
+- 🛡️ **Security Headers**: CSP, HSTS, X-Frame-Options, X-Content-Type-Options
+- 🛡️ **Audit-Log**: Sicherheitsrelevante Events werden protokolliert
 - 🔧 **Admin-Panel**: Benutzer verwalten, Passwörter zurücksetzen
 - 🎨 **Theme-Toggle**: Light / Dark / System
 - 🤖 Sprachintegration via Nia (Telegram)

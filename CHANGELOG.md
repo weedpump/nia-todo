@@ -11,7 +11,7 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 
 ### Added
 - **Multi-User Support**: Mehrere Benutzer mit eigenen Daten
-- **JWT Authentication**: Bearer Token mit 7-Tage-Laufzeit, `token_version` für sofortiges Invalidieren aller Sessions
+- **JWT Authentication**: Bearer Token mit 1-Tag-Laufzeit, `token_version` für sofortiges Invalidieren aller Sessions
 - **Admin Setup** (`/setup`): Admin-Passwort setzen + ersten Benutzer erstellen
 - **Admin Panel** (`/admin`): Benutzer anlegen, löschen, Passwörter zurücksetzen
 - **Passwort-Management**:
@@ -24,23 +24,30 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 - **Daten-Isolation**: Benutzer sehen nur ihre eigenen Projekte, Todos und Sections
 - **IndexedDB-Cache-Sicherheit**: Automatisches Löschen bei Logout/User-Wechsel
 - **Migrationssystem erweitert**: 003_add_user_support.sql + 004_add_jwt_support.sql
+- **API-Key-Authentifizierung**: Benutzer können in den Einstellungen API-Keys generieren
+- **Rate-Limiting / Bruteforce-Schutz**: Login (5 Versuche / 15 Min), API (100 Requests / Min), WebSocket (max 10 pro IP)
+- **CORS**: Erlaubte Origins `todo.kneidl-home.de` & `todo-dev.kneidl-home.de`
+- **CSRF-Protection**: Double-Submit Cookie Pattern für alle state-changing Endpoints
+- **Security Headers**: CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, HSTS
+- **Audit-Log**: Sicherheitsrelevante Events werden protokolliert
+- **Input-Sanitization**: HTML-Tags werden entfernt, Null-Bytes gestrippt
+- **Input-Validierung**: Username (3-32 Zeichen, alphanumeric), Passwort-Länge, Text-Längenlimits
 
 ### Changed
 - Sidebar zeigt immer vollständigen Projektbaum (keine Toggle-Buttons mehr)
 - Admin-Panel mit eigener Login-Seite statt Browser-Prompt
 - Inbox (id=1) geschützt: Kein Löschen, kein Parent-Dropdown, nicht als Parent auswählbar
+- WebSocket Auth: Token wird als Message statt Query-Parameter gesendet
+- JWT-Ablaufzeit: 7 Tage → 1 Tag
+- OpenAPI docs deaktiviert in Produktion
 
-### Fixed
-- Projekt-Löschen wurde nicht synchronisiert (DELETE_PROJECT Handler fehlte)
-- Doppelte Projekte/Todos nach Erstellen (temp-ID Cleanup)
-- WebSocket-Broadcasts wurden an alle Benutzer gesendet (jetzt user-spezifisch)
-- IndexedDB-Cache leckte zwischen Benutzern
-- Dropdown-Einrückung für Sub-Subprojects (Non-Breaking Spaces)
-- Section-Button wird jetzt **immer** angezeigt (auch in leeren Projekten)
-- Enter-Taste-Unterstützung in Setup, Admin-Login und User-Erstellung
-- **API-Key-Authentifizierung**: Benutzer können in den Einstellungen API-Keys generieren (für externe API-Zugriffe)
-- **Rate-Limiting / Bruteforce-Schutz**: Login (5 Versuche / 15 Min), API (100 Requests / Min), WebSocket (max 10 pro IP)
-- **CORS**: Erlaubte Origins `todo.kneidl-home.de` & `todo-dev.kneidl-home.de`
+### Security
+- **SQL Injection** in `update_todo` und `update_project` behoben (Column-Whitelist)
+- **XSS** in Frontend und Admin-Panel behoben (`escapeHtml`, `escapeHtmlAttr`)
+- **Path Traversal** in SPA-Route behoben (`PurePath.name`)
+- **User-Löschung** löscht jetzt alle Benutzerdaten (Cascade)
+- **Setup-Admin** kann nicht mehrfach ausgeführt werden
+- **X-Forwarded-For** wird nur von internen Proxies vertraut
 
 ## [0.3.3] - 2026-05-15
 
