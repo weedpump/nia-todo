@@ -7,6 +7,15 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 
 ## [Unreleased]
 
+## [0.4.5] - 2026-05-16
+
+### Fixed
+- **CSRF-Cookie-Support**: `credentials: 'include'` zu allen `fetch()`-Aufrufen hinzugefügt
+  - Alle schreibenden Operationen (PATCH, POST, DELETE) funktionieren jetzt korrekt
+  - Projekt-Umbenennungen, Farbänderungen, Todo-Updates etc. werden jetzt zum Server synchronisiert
+  - Login/Logout/API-Keys ebenfalls gefixt
+- **Migration 008**: `updated_at` Spalte zu `sections` hinzugefügt (für Offline-Sync)
+
 ## [0.4.4] - 2026-05-16
 
 ### Added
