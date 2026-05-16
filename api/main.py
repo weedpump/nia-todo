@@ -281,8 +281,8 @@ class SectionUpdate(BaseModel):
     sort_order: Optional[int] = None
 
 class LoginRequest(BaseModel):
-    username: str
-    password: str
+    username: str = Field(..., min_length=3, max_length=32, pattern=r'^[a-zA-Z0-9_\-]+$')
+    password: str = Field(..., min_length=1)
 
 class UserResponse(BaseModel):
     id: int
