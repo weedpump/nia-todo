@@ -881,18 +881,26 @@ input[type="color"]::-moz-color-swatch {
 /* Online Status Indicator */
 #online-status {
   display: none;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+  border-radius: 12px;
   margin-right: 8px;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
 }
 .status-online {
   display: none !important;
-  background: transparent;
 }
 .status-offline {
-  display: inline-block !important;
+  display: inline-flex !important;
+  background: rgba(239, 68, 68, 0.2);
+}
+.status-offline::after {
+  content: '';
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
   background: #ef4444;
   box-shadow: 0 0 6px rgba(239, 68, 68, 0.5);
 }
