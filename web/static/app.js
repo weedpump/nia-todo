@@ -1935,12 +1935,14 @@ async function showTodoModal(todo = null) {
     await onProjectChange(todo.section_id); // ← Sections laden UND Section vorauswählen
 
     if (todo.due_date) {
-      document.getElementById('todo-due').value = new Date(todo.due_date).toISOString().slice(0, 16);
+      const d = new Date(todo.due_date);
+      document.getElementById('todo-due').value = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
     }
     // Handle both old format (remind_at string) and server format (reminders array)
     const reminderDate = todo.remind_at || (todo.reminders && todo.reminders[0] && todo.reminders[0].remind_at);
     if (reminderDate) {
-      document.getElementById('todo-remind').value = new Date(reminderDate).toISOString().slice(0, 16);
+      const d = new Date(reminderDate);
+      document.getElementById('todo-remind').value = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
     }
   }
 

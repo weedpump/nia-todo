@@ -648,6 +648,12 @@ async def websocket_endpoint(websocket: WebSocket):
                     todos_out = []
                     for r in todos_rows:
                         d = row_to_dict(r)
+                        # Add reminders
+                        rem_rows = db.execute(
+                            "SELECT id, remind_at, sent_at FROM reminders WHERE todo_id = ? ORDER BY remind_at",
+                            (d['id'],)
+                        ).fetchall()
+                        d['reminders'] = [dict(r) for r in rem_rows]
                         d['labels'] = []
                         todos_out.append(d)
                     projects_rows = db.execute("SELECT * FROM projects WHERE user_id = ? ORDER BY sort_order, id", (ws_user_id,)).fetchall()
@@ -761,7 +767,7 @@ async def check_and_send_reminders():
                 SELECT r.id, r.todo_id, r.remind_at, t.user_id, t.title, t.status
                 FROM reminders r
                 JOIN todos t ON r.todo_id = t.id
-                WHERE r.remind_at <= datetime('now')
+                WHERE datetime(r.remind_at) <= datetime('now')
                   AND r.sent_at IS NULL
                   AND t.status IN ('pending', 'in_progress')
                 ORDER BY r.remind_at
