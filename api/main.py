@@ -635,10 +635,12 @@ async def websocket_endpoint(websocket: WebSocket):
                         d['labels'] = []
                         todos_out.append(d)
                     projects_rows = db.execute("SELECT * FROM projects WHERE user_id = ? ORDER BY sort_order, id", (ws_user_id,)).fetchall()
+                    sections_rows = db.execute("SELECT * FROM sections WHERE user_id = ?", (ws_user_id,)).fetchall()
                     await manager.send_personal_message({
                         "type": "sync_response",
                         "todos": todos_out,
-                        "projects": [dict(r) for r in projects_rows]
+                        "projects": [dict(r) for r in projects_rows],
+                        "sections": [dict(r) for r in sections_rows]
                     }, websocket)
     except WebSocketDisconnect:
         manager.disconnect(websocket)
@@ -1361,6 +1363,20 @@ async def delete_project(project_id: int, user_id: int = Depends(require_auth)):
 
 # ─── Sections ───────────────────────────────────────────────────────────────
 
+@app.get("/api/sections")
+def list_all_sections(user_id: int = Depends(require_auth)):
+    with get_db() as db:
+        rows = db.execute(
+            """
+            SELECT s.* FROM sections s
+            JOIN projects p ON s.project_id = p.id
+            WHERE p.user_id = ?
+            ORDER BY s.sort_order, s.id
+            """,
+            (user_id,)
+        ).fetchall()
+        return {"sections": [dict(r) for r in rows]}
+
 @app.get("/api/projects/{project_id}/sections")
 def list_sections(project_id: int, user_id: int = Depends(require_auth)):
     with get_db() as db:
@@ -1383,8 +1399,8 @@ def create_section(project_id: int, data: SectionCreate, user_id: int = Depends(
         if not proj:
             raise HTTPException(404, "Project not found")
         c = db.execute(
-            "INSERT INTO sections (project_id, name, sort_order, created_at, user_id) VALUES (?,?,?,?,?)",
-            (project_id, data.name, data.sort_order, now_iso(), user_id)
+            "INSERT INTO sections (project_id, name, sort_order, created_at, updated_at, user_id) VALUES (?,?,?,?,?,?)",
+            (project_id, data.name, data.sort_order, now_iso(), now_iso(), user_id)
         )
         db.commit()
         row = db.execute("SELECT * FROM sections WHERE id = ?", (c.lastrowid,)).fetchone()
@@ -1408,6 +1424,7 @@ def update_section(section_id: int, data: SectionUpdate, user_id: int = Depends(
             if v is not None:
                 updates[f] = v
         if updates:
+            updates['updated_at'] = now_iso()
             set_clause = ", ".join(f"{k}=:{k}" for k in updates)
             db.execute(f"UPDATE sections SET {set_clause} WHERE id = :id", {**updates, "id": section_id})
             db.commit()
