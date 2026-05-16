@@ -1382,9 +1382,11 @@ input[type="color"]::-moz-color-swatch {
 @media (max-width: 768px) {
   .toast-container {
     bottom: calc(16px + env(safe-area-inset-bottom));
-    left: 16px;
-    right: 16px;
-    transform: none;
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    width: auto;
+    max-width: calc(100% - 32px);
     font-size: 13px;
     padding: 10px 16px;
   }
