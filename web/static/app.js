@@ -32,6 +32,10 @@ function getAuthToken() {
   return localStorage.getItem('jwt_token') || localStorage.getItem('auth_token');
 }
 
+function getCsrfToken() {
+  return localStorage.getItem('csrf_token');
+}
+
 function getAuthHeaders() {
   const token = getAuthToken();
   const headers = { 'Content-Type': 'application/json' };
@@ -43,6 +47,11 @@ function getAuthHeaders() {
       // Legacy session token
       headers['X-Session-Token'] = token;
     }
+  }
+  // Add CSRF token for state-changing requests
+  const csrf = getCsrfToken();
+  if (csrf) {
+    headers['X-CSRF-Token'] = csrf;
   }
   return headers;
 }
@@ -61,6 +70,10 @@ async function login(username, password) {
   currentUser = data.user;
   currentUser.token = data.access_token;
   localStorage.setItem('jwt_token', data.access_token);
+  // Store CSRF token for Double-Submit Cookie pattern
+  if (data.csrf_token) {
+    localStorage.setItem('csrf_token', data.csrf_token);
+  }
   
   // Check if user changed - if so, clear cache
   const lastUserId = localStorage.getItem('last_user_id');
@@ -131,6 +144,7 @@ async function logout() {
   localStorage.removeItem('jwt_token');
   localStorage.removeItem('auth_token');
   localStorage.removeItem('last_user_id');
+  localStorage.removeItem('csrf_token');
   
   // Clear IndexedDB cache to prevent data leaking between users
   await clearIndexedDB();
@@ -496,7 +510,7 @@ function connectWebSocket() {
 
   try {
     const token = getAuthToken();
-    const wsUrl = token ? WS_URL + '?token=' + encodeURIComponent(token) : WS_URL;
+    const wsUrl = WS_URL;
     ws = new WebSocket(wsUrl);
 
     ws.onopen = async () => {
@@ -504,6 +518,12 @@ function connectWebSocket() {
       wsState = 'connected';
       reconnectAttempts = 0;
       updateConnectionStatus();
+
+      // Send auth token as first message
+      const token = getAuthToken();
+      if (token) {
+        wsSend({ type: 'auth', token: token });
+      }
 
       // ERST: Lokale Änderungen pushen (wenn Queue vorhanden)
       try {
@@ -1148,9 +1168,7 @@ async function initApp() {
 function renderVersionInfo() {
   const el = document.getElementById('version-info');
   if (el) {
-    el.innerHTML = `
-      <span class="version-text">${APP_VERSION}</span>
-    `;
+    el.textContent = APP_VERSION;
   }
 }
 
@@ -1284,13 +1302,24 @@ function renderStats() {
   document.getElementById('count-in_progress').textContent = inprog;
   document.getElementById('count-done').textContent = done;
 
-  el.innerHTML = `
-    <div class="stat-card total"><span class="stat-num">${total}</span> Gesamt</div>
-    <div class="stat-card pending"><span class="stat-num">${pending}</span> Offen</div>
-    <div class="stat-card pending"><span class="stat-num">${inprog}</span> In Arbeit</div>
-    <div class="stat-card due"><span class="stat-num">${overdue}</span> Überfällig</div>
-    <div class="stat-card done"><span class="stat-num">${done}</span> Erledigt</div>
-  `;
+  el.innerHTML = '';
+  const stats = [
+    { cls: 'total', num: total, label: 'Gesamt' },
+    { cls: 'pending', num: pending, label: 'Offen' },
+    { cls: 'pending', num: inprog, label: 'In Arbeit' },
+    { cls: 'due', num: overdue, label: 'Überfällig' },
+    { cls: 'done', num: done, label: 'Erledigt' }
+  ];
+  stats.forEach(s => {
+    const div = document.createElement('div');
+    div.className = 'stat-card ' + s.cls;
+    const span = document.createElement('span');
+    span.className = 'stat-num';
+    span.textContent = s.num;
+    div.appendChild(span);
+    div.appendChild(document.createTextNode(' ' + s.label));
+    el.appendChild(div);
+  });
 }
 
 function renderTodos() {
