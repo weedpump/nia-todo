@@ -384,6 +384,15 @@ body {
   color: var(--text-muted);
 }
 
+.todo-desc-preview {
+  font-style: italic;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 200px;
+}
+
 .todo-title {
   font-size: 14px;
   font-weight: 500;
