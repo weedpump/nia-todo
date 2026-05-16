@@ -7,16 +7,7 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 
 ## [Unreleased]
 
-## [0.4.8] - 2026-05-16
-
 ### Added
-- **Push Notifications**: Vollständige PWA-Benachrichtigungen für Todo-Erinnerungen
-  - VAPID-basierte Web Push Notifications
-  - Settings-UI mit Server-Status-Check (zeigt "inaktiv" wenn Subscription tot)
-  - "Erledigt"-Action aus Notification markiert Todo direkt (App bleibt im Hintergrund)
-  - Background Task prüft alle **30 Sekunden** auf fällige Reminders
-  - Automatische Bereinigung: 14-tägiger Cleanup entfernt tote Subscriptions
-  - Server-Status Endpoint: `GET /api/push/status`
 - **Erledigte löschen**: Inline-Button neben "Neue Section" löscht alle done Todos im Projekt
   - Inklusive Subprojekten
   - Bestätigungsdialog mit Anzahl
@@ -27,6 +18,18 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 - **Beschreibung**: Wird jetzt in Todo-Liste angezeigt (dritte Zeile, max. 12 Wörter)
 - **Markdown Support**: Beschreibungen unterstützen **fett**, *kursiv*, `code`, - Listen, [Links](url)
 - **Live Markdown Preview**: Echtzeit-Vorschau im Todo-Bearbeitungs-Modal
+
+## [0.4.8] - 2026-05-16
+
+### Added
+- **Push Notifications**: Vollständige PWA-Benachrichtigungen für Todo-Erinnerungen
+  - VAPID-basierte Web Push Notifications
+  - Settings-UI mit Server-Status-Check (zeigt "inaktiv" wenn Subscription tot)
+  - "Erledigt"-Action aus Notification markiert Todo direkt (App bleibt im Hintergrund)
+  - Background Task prüft alle **30 Sekunden** auf fällige Reminders
+  - Automatische Bereinigung: 14-tägiger Cleanup entfernt tote Subscriptions
+  - Server-Status Endpoint: `GET /api/push/status`
+- **UX-Verbesserung**: Neues Todo hat aktuelles Projekt vorausgewählt (oder Inbox)
 
 ### Fixed
 - **Reminder löschen**: Erinnerung kann jetzt entfernt werden (Feld leer → löscht Reminder)
