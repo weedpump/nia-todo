@@ -2993,6 +2993,7 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'n' && !e.ctrlKey && !e.metaKey && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
     e.preventDefault();
     showTodoModal();
+    setTimeout(() => document.getElementById('todo-title')?.focus(), 50);
   }
   if (e.key === 'Escape') {
     closeModal('todo-modal');
