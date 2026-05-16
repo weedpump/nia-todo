@@ -806,7 +806,7 @@ async def check_and_send_reminders():
         print(f"[PUSH] Reminder check error: {e}")
 
 async def reminder_background_task():
-    """Run reminder check every 60 seconds."""
+    """Run reminder check every 30 seconds."""
     print("[PUSH] Background reminder task started")
     while True:
         try:
@@ -815,7 +815,7 @@ async def reminder_background_task():
             print("[PUSH] Reminder check done")
         except Exception as e:
             print(f"[PUSH] Background task error: {e}")
-        await asyncio.sleep(60)
+        await asyncio.sleep(30)
 
 # ─── Init DB on startup ─────────────────────────────────────────────────────
 
