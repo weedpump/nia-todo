@@ -1430,12 +1430,62 @@ function renderTodos() {
   for (const [status, title] of Object.entries(groups)) {
     // Nur passende Status-Gruppen anzeigen
     if (currentFilter !== 'all' && currentFilter !== status) continue;
-    const items = filtered.filter(t => t.status === status);
-    if (!items.length) continue;
+    const statusItems = filtered.filter(t => t.status === status);
+    if (!statusItems.length) continue;
+
     html += `<div class="todo-group">
-      <div class="todo-group-title">${title} (${items.length})</div>
-      ${items.map(t => renderTodoItem(t)).join('')}
-    </div>`;
+      <div class="todo-group-title">${title} (${statusItems.length})</div>`;
+
+    // Nach Projekt gruppieren
+    const byProject = new Map();
+    for (const t of statusItems) {
+      const pid = t.project_id || 0;
+      if (!byProject.has(pid)) byProject.set(pid, []);
+      byProject.get(pid).push(t);
+    }
+
+    // Projekte in definierter Reihenfolge (Inbox zuerst, dann alphabetisch)
+    const projectOrder = Array.from(byProject.keys()).sort((a, b) => {
+      if (a === 1) return -1;
+      if (b === 1) return 1;
+      const pa = projects.find(p => p.id === a);
+      const pb = projects.find(p => p.id === b);
+      const na = pa ? pa.name.toLowerCase() : '';
+      const nb = pb ? pb.name.toLowerCase() : '';
+      return na.localeCompare(nb);
+    });
+
+    for (const pid of projectOrder) {
+      const items = byProject.get(pid);
+      const project = projects.find(p => p.id === pid);
+      if (project) {
+        const color = project.color || '#6366f1';
+        html += `<div class="project-group">
+          <div class="project-group-header">
+            <span class="project-dot" style="background:${color}"></span>
+            <span class="project-group-name">${escapeHtml(project.name)}</span>
+            <span class="project-group-count">${items.length}</span>
+          </div>
+          <div class="project-group-todos">
+            ${items.map(t => renderTodoItem(t)).join('')}
+          </div>
+        </div>`;
+      } else {
+        // Kein Projekt zugewiesen
+        html += `<div class="project-group">
+          <div class="project-group-header">
+            <span class="project-dot" style="background:var(--text-muted)"></span>
+            <span class="project-group-name">Unsortiert</span>
+            <span class="project-group-count">${items.length}</span>
+          </div>
+          <div class="project-group-todos">
+            ${items.map(t => renderTodoItem(t)).join('')}
+          </div>
+        </div>`;
+      }
+    }
+
+    html += `</div>`;
   }
 
   if (!filtered.length) {
