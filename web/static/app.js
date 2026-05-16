@@ -23,6 +23,8 @@ let swRegistration = null;
 let updateAvailable = false;
 let hideDone = localStorage.getItem('nia-hide-done') === 'true';
 let sortMode = localStorage.getItem('nia-sort') || 'order';
+let undoAction = null;
+let undoTimer = null;
 const APP_VERSION = 'v0.4.0-dev';
 
 // ─── Auth / User (JWT) ───────────────────────────────────────────────────────
@@ -1644,6 +1646,13 @@ async function toggleTodo(id) {
   renderStats();
   renderTodos();
 
+  // Toast mit Undo
+  if (newStatus === 'done') {
+    showToast('Todo erledigt', { type: 'status', id });
+  } else if (t.status === 'done' && newStatus === 'pending') {
+    showToast('Todo wiedereröffnet', { type: 'status', id });
+  }
+
   // Immer in Queue (offline-first)
   await addToSyncQueue('UPDATE_TODO', { id, changes: { status: newStatus } });
 
@@ -1845,11 +1854,16 @@ function deleteTodoFromModal() {
 async function deleteTodo(id) {
   if (!confirm('Todo wirklich löschen?')) return;
 
+  const todo = todos.find(t => t.id === id);
+  if (!todo) return;
+
   await deleteFromDB('todos', id);
   todos = todos.filter(t => t.id !== id);
   renderStats();
   renderTodos();
   closeModal('todo-modal');
+
+  showToast('Todo gelöscht', { type: 'delete', id, data: { ...todo } });
 
   // Immer Queue (offline-first)
   await addToSyncQueue('DELETE_TODO', { id });
@@ -2311,6 +2325,48 @@ function sortTodoList(list) {
   }
   // Default: Reihenfolge (sort_order)
   return [...list].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+}
+
+function showToast(message, action) {
+  const container = document.getElementById('toast-container');
+  const msgEl = document.getElementById('toast-message');
+  if (!container || !msgEl) return;
+  msgEl.textContent = message;
+  undoAction = action;
+  container.style.display = 'flex';
+  if (undoTimer) clearTimeout(undoTimer);
+  undoTimer = setTimeout(hideToast, 5000);
+}
+
+function hideToast() {
+  const container = document.getElementById('toast-container');
+  if (container) container.style.display = 'none';
+  undoAction = null;
+  if (undoTimer) { clearTimeout(undoTimer); undoTimer = null; }
+}
+
+function undoLastAction() {
+  if (!undoAction) return;
+  if (undoAction.type === 'status') {
+    toggleTodo(undoAction.id);
+  } else if (undoAction.type === 'delete') {
+    restoreTodo(undoAction.id, undoAction.data);
+  }
+  hideToast();
+}
+
+// ─── Deleted Todo Restore ──────────────────────────────────────────────────
+
+async function restoreTodo(id, data) {
+  if (!db) return;
+  await dbPut('todos', data);
+  todos.push(data);
+  renderStats();
+  renderTodos();
+  if (isOnlineForSync()) {
+    await addToSyncQueue('UPDATE_TODO', { id, changes: data });
+    await syncWithServer();
+  }
 }
 
 function cycleTheme() {
