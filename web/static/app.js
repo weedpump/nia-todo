@@ -25,7 +25,7 @@ let hideDone = localStorage.getItem('nia-hide-done') === 'true';
 let sortMode = localStorage.getItem('nia-sort') || 'order';
 let undoAction = null;
 let undoTimer = null;
-const APP_VERSION = 'v0.4.0-dev';
+const APP_VERSION = 'v0.4.1';
 
 // ─── Auth / User (JWT) ───────────────────────────────────────────────────────
 
