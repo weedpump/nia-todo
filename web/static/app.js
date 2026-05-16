@@ -1506,7 +1506,6 @@ function renderSectionHeader(section) {
       <div class="section-header" data-section-id="${section.id}" draggable="true"
         ondragstart="handleSectionDragStart(event)" ondragend="handleSectionDragEnd(event)"
         ondragover="handleSectionDragOver(event)" ondrop="handleSectionDrop(event)">
-        <span class="section-icon">📂</span>
         <span class="section-name" onclick="editSectionInline(${section.id})">${escapeHtml(section.name)}</span>
         <span class="section-count">${count}</span>
         <button class="section-delete" onclick="event.stopPropagation(); deleteSection(${section.id})" title="Löschen">✕</button>
@@ -1517,7 +1516,6 @@ function renderSectionHeader(section) {
     return `
       <div class="section-header section-unsorted" data-section-id="null"
         ondragover="handleSectionDragOver(event)" ondrop="handleSectionDrop(event)">
-        <span class="section-icon">📁</span>
         <span class="section-name">Unsortiert</span>
         <span class="section-count">${unsortedCount}</span>
       </div>
