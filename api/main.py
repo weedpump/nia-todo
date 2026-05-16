@@ -24,7 +24,7 @@ from rate_limit import rate_limiter, require_login_rate_limit, require_api_rate_
 # Migrationen beim Import ausführen (vor App-Start)
 run_migrations()
 
-app = FastAPI(title="nia-todo", version="0.4.0")
+app = FastAPI(title="nia-todo", version="0.4.0", docs_url=None, redoc_url=None, openapi_url=None)
 
 # ─── CORS ─────────────────────────────────────────────────────────────────────
 
@@ -112,7 +112,7 @@ def validate_admin_password(password: str) -> str:
 # ─── JWT Configuration ──────────────────────────────────────────────────────────
 
 JWT_ALGORITHM = "HS256"
-JWT_EXPIRY_DAYS = 7
+JWT_EXPIRY_DAYS = 1
 
 def get_jwt_secret(db) -> str:
     """Get or create JWT secret from admin_config."""
@@ -230,6 +230,20 @@ def verify_user_credentials(db, username: str, password: str) -> Optional[dict]:
     if bcrypt.checkpw(password.encode(), stored_hash.encode()):
         return dict(row)
     return None
+
+# ─── Audit Log Helper ────────────────────────────────────────────────────────
+
+def log_audit(db, event_type: str, user_id: int = None, ip_address: str = None, details: str = None):
+    """Log security-relevant events to audit_log table."""
+    try:
+        db.execute(
+            """INSERT INTO audit_log (event_type, user_id, ip_address, details, created_at)
+               VALUES (?, ?, ?, ?, datetime('now'))""",
+            (event_type, user_id, ip_address, details)
+        )
+        db.commit()
+    except Exception:
+        pass  # Don't fail the request if audit logging fails
 
 # ─── API Key Helpers ──────────────────────────────────────────────────────────
 
@@ -458,8 +472,10 @@ def login(data: LoginRequest, request: Request, _: None = Depends(require_login_
     with get_db() as db:
         user = verify_user_credentials(db, data.username, data.password)
         if not user:
+            log_audit(db, "login_failed", ip_address=ip, details=f"username={data.username}")
             raise HTTPException(401, "Invalid credentials")
         rate_limiter.record_successful_login(ip)
+        log_audit(db, "login_success", user_id=user['id'], ip_address=ip)
         # Generate JWT with versioned secrets
         token = create_jwt_token(user, db)
         return {
@@ -474,7 +490,7 @@ def login(data: LoginRequest, request: Request, _: None = Depends(require_login_
         }
 
 @app.post("/api/logout")
-def logout(authorization: Optional[str] = Header(None), x_session_token: Optional[str] = Header(None)):
+def logout(authorization: Optional[str] = Header(None), x_session_token: Optional[str] = Header(None), request: Request = None):
     """Logout: invalidate all tokens by incrementing token_version."""
     token = None
     if authorization and authorization.startswith("Bearer "):
@@ -491,6 +507,8 @@ def logout(authorization: Optional[str] = Header(None), x_session_token: Optiona
                 (user_id,)
             )
             db.commit()
+            ip = get_client_ip(request) if request else None
+            log_audit(db, "logout", user_id=user_id, ip_address=ip)
         # Also remove legacy session
         if x_session_token and x_session_token in sessions:
             del sessions[x_session_token]
@@ -743,7 +761,7 @@ def create_user(data: CreateUserRequest, _: bool = Depends(require_admin)):
         )
         user_id = c.lastrowid
         db.commit()
-        
+        log_audit(db, "user_created", user_id=user_id, details=f"username={data.username}")
         return {
             "id": user_id,
             "username": data.username,
