@@ -3,6 +3,7 @@
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Header, Depends, Request, status
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import Response
 from pydantic import BaseModel, Field
 from typing import Optional, List
@@ -24,6 +25,19 @@ from rate_limit import rate_limiter, require_login_rate_limit, require_api_rate_
 run_migrations()
 
 app = FastAPI(title="nia-todo", version="0.4.0")
+
+# ─── CORS ─────────────────────────────────────────────────────────────────────
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://todo.kneidl-home.de",
+        "https://todo-dev.kneidl-home.de",
+    ],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allow_headers=["*"],
+)
 
 # ─── Rate Limiting Middleware ───────────────────────────────────────────────────
 

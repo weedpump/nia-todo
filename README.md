@@ -55,6 +55,8 @@ Die Dev-Instanz (Port 8754) wird automatisch bei Start angepasst:
 - 🗄️ SQLite-Datenbank (lokal, kein Cloud-Quatsch)
 - 👥 **Multi-User**: Mehrere Benutzer mit eigenen Daten
 - 🔐 **JWT Auth**: Bearer Token, sichere Passwörter
+- 🔑 **API-Keys**: Benutzer können in den Einstellungen API-Keys generieren (für externe API-Zugriffe)
+- 🛡️ **Rate-Limiting**: Bruteforce-Schutz für Login und API
 - 🔧 **Admin-Panel**: Benutzer verwalten, Passwörter zurücksetzen
 - 🎨 **Theme-Toggle**: Light / Dark / System
 - 🤖 Sprachintegration via Nia (Telegram)
@@ -437,6 +439,76 @@ POST /api/admin/change-password
 POST /api/admin/users/{user_id}/change-password
 ```
 
+---
+
+### API-Keys
+
+> API-Keys sind für **externe Anwendungen** gedacht (z.B. Nia-Integration). Sie erlauben Zugriff auf alle API-Endpunkte des zugehörigen Benutzers.
+
+#### API-Keys auflisten
+```
+GET /api/me/api-keys
+```
+
+**Response:**
+```json
+{
+  "api_keys": [
+    {
+      "id": 1,
+      "name": "Nia-Integration",
+      "key_prefix": "nt_e3b",
+      "created_at": "2026-05-16T11:30:00",
+      "last_used_at": "2026-05-16T12:00:00",
+      "revoked_at": null
+    }
+  ]
+}
+```
+
+#### API-Key erstellen
+```
+POST /api/me/api-keys
+```
+
+**Body:**
+```json
+{
+  "name": "Nia-Integration"
+}
+```
+
+**Response:**
+```json
+{
+  "api_key": "nt_e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "message": "Speichere diesen Key sofort — er wird nie wieder angezeigt!"
+}
+```
+
+> ⚠️ Der vollständige Key wird **nur einmal** beim Erstellen zurückgegeben. Danach sieht man nur den `key_prefix`.
+
+#### API-Key widerrufen
+```
+DELETE /api/me/api-keys/{key_id}
+```
+
+#### Authentifizierung mit API-Key
+```
+Authorization: ApiKey nt_e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+```
+
+Oder als Header:
+```
+X-API-Key: nt_e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+```
+
+**Hinweise:**
+- API-Keys sind an den **erstellenden Benutzer** gebunden
+- Widerrufene Keys werden sofort ungültig
+- Jeder Key-Usage wird in `last_used_at` geloggt
+- Admin-Endpoints (`/api/admin/**`) sind mit API-Keys **nicht** erreichbar
+
 **Header:** `X-Admin-Token: adminpasswort`
 
 **Body:**
@@ -460,6 +532,9 @@ POST /api/admin/users/{user_id}/change-password
 | `/api/admin/users/{id}` | DELETE | Benutzer löschen |
 | `/api/admin/users/{id}/change-password` | POST | Benutzer-Passwort zurücksetzen |
 | `/api/admin/change-password` | POST | Admin-Passwort ändern |
+| `/api/me/api-keys` | GET | API-Keys auflisten |
+| `/api/me/api-keys` | POST | API-Key erstellen |
+| `/api/me/api-keys/{id}` | DELETE | API-Key widerrufen |
 | `/api/todos` | GET, POST | Liste / Erstellen |
 | `/api/todos/{id}` | GET, PATCH, DELETE | Einzelnes Todo |
 | `/api/projects` | GET, POST | Projekte |

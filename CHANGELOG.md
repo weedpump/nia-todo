@@ -38,6 +38,9 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 - Dropdown-Einrückung für Sub-Subprojects (Non-Breaking Spaces)
 - Section-Button wird jetzt **immer** angezeigt (auch in leeren Projekten)
 - Enter-Taste-Unterstützung in Setup, Admin-Login und User-Erstellung
+- **API-Key-Authentifizierung**: Benutzer können in den Einstellungen API-Keys generieren (für externe API-Zugriffe)
+- **Rate-Limiting / Bruteforce-Schutz**: Login (5 Versuche / 15 Min), API (100 Requests / Min), WebSocket (max 10 pro IP)
+- **CORS**: Erlaubte Origins `todo.kneidl-home.de` & `todo-dev.kneidl-home.de`
 
 ## [0.3.3] - 2026-05-15
 
