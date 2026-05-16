@@ -211,7 +211,7 @@ body {
 }
 .search-box input:focus { border-color: var(--accent); }
 
-.topbar-actions { display: flex; gap: 8px; }
+.topbar-actions { display: flex; align-items: center; gap: 8px; }
 
 /* Stats */
 .stats-bar {
@@ -895,6 +895,8 @@ input[type="color"]::-moz-color-swatch {
 .status-offline {
   display: inline-flex !important;
   background: rgba(239, 68, 68, 0.2);
+  align-items: center;
+  justify-content: center;
 }
 .status-offline::after {
   content: '';
