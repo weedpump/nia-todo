@@ -670,9 +670,33 @@ async function handleWsMessage(msg) {
       }
       if (msg.projects) {
         for (const project of msg.projects) {
-          await dbPut('projects', project);
+          const local = await getFromDB('projects', project.id);
+          if (!local) {
+            await dbPut('projects', project);
+          } else {
+            const localTime = new Date(local.updated_at || 0).getTime();
+            const serverTime = new Date(project.updated_at || 0).getTime();
+            if (serverTime >= localTime) {
+              await dbPut('projects', project);
+            }
+          }
         }
-        projects = msg.projects;
+        projects = await dbGetAll('projects');
+      }
+      if (msg.sections) {
+        for (const section of msg.sections) {
+          const local = await getFromDB('sections', section.id);
+          if (!local) {
+            await dbPut('sections', section);
+          } else {
+            const localTime = new Date(local.updated_at || 0).getTime();
+            const serverTime = new Date(section.updated_at || 0).getTime();
+            if (serverTime >= localTime) {
+              await dbPut('sections', section);
+            }
+          }
+        }
+        sections = await dbGetAll('sections');
       }
       renderProjects();
       renderStats();
@@ -952,6 +976,43 @@ async function syncWithServer() {
             throw err;
           }
         }
+      } else if (item.action === 'CREATE_SECTION') {
+        const res = await post(`/api/projects/${item.data.project_id}/sections`, item.data);
+        if (item.data._tempId) {
+          await deleteFromDB('sections', item.data._tempId);
+          sections = sections.filter(s => s.id !== item.data._tempId);
+        }
+        await dbPut('sections', res);
+        sections.push(res);
+        successCount++;
+      } else if (item.action === 'UPDATE_SECTION') {
+        try {
+          await patch(`/api/sections/${item.data.id}`, item.data.changes);
+          const localSection = await getFromDB('sections', item.data.id);
+          if (localSection) {
+            const updated = { ...localSection, ...item.data.changes, updated_at: new Date().toISOString() };
+            await dbPut('sections', updated);
+          }
+          successCount++;
+        } catch (err) {
+          if (err.message && err.message.includes('404')) {
+            console.warn('Section', item.data.id, 'not found on server, skipping');
+          } else {
+            throw err;
+          }
+        }
+      } else if (item.action === 'DELETE_SECTION') {
+        try {
+          await del(`/api/sections/${item.data.id}`);
+          await deleteFromDB('sections', item.data.id);
+          successCount++;
+        } catch (err) {
+          if (err.message && err.message.includes('404')) {
+            console.warn('Section', item.data.id, 'already deleted, skipping');
+          } else {
+            throw err;
+          }
+        }
       }
 
       // Erfolgreich synched → aus Queue entfernen
@@ -977,13 +1038,15 @@ async function refreshFromServer() {
 
   try {
     // 1. Server-Daten holen
-    const [todosData, projectsData] = await Promise.all([
+    const [todosData, projectsData, sectionsData] = await Promise.all([
       get('/api/todos'),
-      get('/api/projects')
+      get('/api/projects'),
+      get('/api/sections')
     ]);
 
     const serverTodos = todosData.todos || [];
     const serverProjects = projectsData.projects || [];
+    const serverSections = sectionsData.sections || [];
 
     // 2. Merge-Strategie: updated_at Vergleich, Server gewinnt nur wenn neuer
     for (const todo of serverTodos) {
@@ -1025,15 +1088,36 @@ async function refreshFromServer() {
       }
     }
 
-    // 4. Lokale Daten neu laden
+    // 4. Sections mergen
+    for (const section of serverSections) {
+      const localSection = await getFromDB('sections', section.id);
+      if (!localSection) {
+        await dbPut('sections', section);
+      } else {
+        const queue = await dbGetAll('syncQueue');
+        const pendingChanges = queue.find(q =>
+          q.action === 'UPDATE_SECTION' && q.data.id === section.id
+        );
+        if (!pendingChanges) {
+          const localTime = new Date(localSection.updated_at || 0).getTime();
+          const serverTime = new Date(section.updated_at || 0).getTime();
+          if (serverTime >= localTime) {
+            await dbPut('sections', section);
+          }
+        }
+      }
+    }
+
+    // 5. Lokale Daten neu laden
     todos = await dbGetAll('todos');
     projects = await dbGetAll('projects');
+    sections = await dbGetAll('sections');
 
     renderProjects();
     renderStats();
     renderTodos();
 
-    console.log('Refreshed from server:', todos.length, 'todos');
+    console.log('Refreshed from server:', todos.length, 'todos', projects.length, 'projects', sections.length, 'sections');
   } catch (err) {
     console.error('Refresh failed:', err);
   }
@@ -2096,20 +2180,28 @@ async function saveNewSection() {
   const name = document.getElementById('new-section-name')?.value?.trim();
   if (!name || !currentProjectId) return;
 
-  const sectionData = { name, project_id: currentProjectId, sort_order: sections.length };
+  const now = new Date().toISOString();
+  const tempId = 'temp-section-' + Date.now();
+  const sectionData = {
+    id: tempId,
+    name,
+    project_id: currentProjectId,
+    sort_order: sections.length,
+    created_at: now,
+    updated_at: now
+  };
 
+  // Lokale DB sofort updaten
+  await dbPut('sections', sectionData);
+  sections.push(sectionData);
+  renderTodos();
+
+  // In Sync-Queue
+  await addToSyncQueue('CREATE_SECTION', { ...sectionData, _tempId: tempId });
+
+  // Sofort syncen wenn online
   if (isOnlineForSync()) {
-    try {
-      const res = await post(`/api/projects/${currentProjectId}/sections`, sectionData);
-      await dbPut('sections', res);
-      sections.push(res);
-      renderTodos();
-    } catch (err) {
-      console.error('Create section failed', err);
-      alert('Fehler beim Erstellen der Section');
-    }
-  } else {
-    alert('Offline - Section kann nicht erstellt werden');
+    await syncWithServer();
   }
 }
 
@@ -2135,39 +2227,45 @@ async function saveSectionEdit(id) {
   const name = document.getElementById(`edit-section-name-${id}`)?.value?.trim();
   if (!name) return;
 
+  const section = sections.find(s => s.id === id);
+  if (!section) return;
+
+  const now = new Date().toISOString();
+  const updated = { ...section, name, updated_at: now };
+  await dbPut('sections', updated);
+  sections = sections.map(s => s.id === id ? updated : s);
+  renderTodos();
+
+  await addToSyncQueue('UPDATE_SECTION', { id, changes: { name } });
+
   if (isOnlineForSync()) {
-    try {
-      await patch(`/api/sections/${id}`, { name });
-      const section = sections.find(s => s.id === id);
-      if (section) section.name = name;
-      renderTodos();
-    } catch (err) {
-      console.error('Update section failed', err);
-      alert('Fehler beim Speichern');
-    }
-  } else {
-    alert('Offline - Section kann nicht bearbeitet werden');
+    await syncWithServer();
   }
 }
 
 async function deleteSection(id) {
   if (!confirm('Section wirklich löschen? Todos werden zu "Unsortiert" verschoben.')) return;
 
-  if (isOnlineForSync()) {
-    try {
-      await del(`/api/sections/${id}`);
-      sections = sections.filter(s => s.id !== id);
-      await deleteFromDB('sections', id); // ← Auch aus IndexedDB entfernen
-      for (const t of todos) {
-        if (t.section_id === id) t.section_id = null;
-      }
-      renderTodos();
-    } catch (err) {
-      console.error('Delete section failed', err);
-      alert('Fehler beim Löschen');
+  const section = sections.find(s => s.id === id);
+  if (!section) return;
+
+  // Sofort lokal löschen + Todos auf Unsortiert
+  sections = sections.filter(s => s.id !== id);
+  await deleteFromDB('sections', id);
+  for (const t of todos) {
+    if (t.section_id === id) {
+      t.section_id = null;
+      t.updated_at = new Date().toISOString();
+      await dbPut('todos', t);
     }
-  } else {
-    alert('Offline - Section kann nicht gelöscht werden');
+  }
+  renderTodos();
+
+  // Sync-Queue
+  await addToSyncQueue('DELETE_SECTION', { id });
+
+  if (isOnlineForSync()) {
+    await syncWithServer();
   }
 }
 
