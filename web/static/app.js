@@ -1646,7 +1646,10 @@ function renderTodos() {
     }
 
     // ➕ Neue Section Button
-    html += `<div class="add-section-row"><button class="btn-add-section" onclick="showAddSectionForm()">➕ Neue Section</button></div>`;
+    html += `<div class="add-section-row">
+      <button class="btn-add-section" onclick="showAddSectionForm()">➕ Neue Section</button>
+      <button class="btn-add-section" onclick="clearDoneInProject()">🗑️ Erledigte löschen</button>
+    </div>`;
 
     if (!filtered.length && !sections.length) {
       html += `<div class="empty-state">
@@ -2235,7 +2238,6 @@ function showProjectModal(project = null, parentId = null) {
   }
 
   document.getElementById('project-delete-btn').style.display = (project && project.id !== 1) ? '' : 'none';
-  document.getElementById('project-clear-done-btn').style.display = project ? '' : 'none';
   document.getElementById('project-modal')?.classList.add('active');
 }
 
@@ -2330,6 +2332,37 @@ async function clearDoneFromModal() {
       const result = await r.json();
       // Remove done todos from local array
       todos = todos.filter(t => !(t.project_id === projectId && t.status === 'done'));
+      renderStats();
+      renderTodos();
+      showToast(`${result.deleted_count} erledigte Todo(s) gelöscht`);
+    } else {
+      showToast('Fehler beim Löschen');
+    }
+  } catch (err) {
+    console.error('Clear done error:', err);
+    showToast('Fehler beim Löschen');
+  }
+}
+
+async function clearDoneInProject() {
+  if (!currentProjectId) return;
+  const project = projects.find(p => p.id === currentProjectId);
+  if (!project) return;
+
+  const doneCount = todos.filter(t => t.project_id === currentProjectId && t.status === 'done').length;
+  if (doneCount === 0) {
+    showToast('Keine erledigten Todos in diesem Projekt');
+    return;
+  }
+
+  if (!confirm(`${doneCount} erledigte Todo(s) in "${project.name}" löschen?`)) return;
+
+  try {
+    const r = await post(`/api/projects/${currentProjectId}/clear-done`, {});
+    if (r.ok) {
+      const result = await r.json();
+      // Remove done todos from local array
+      todos = todos.filter(t => !(t.project_id === currentProjectId && t.status === 'done'));
       renderStats();
       renderTodos();
       showToast(`${result.deleted_count} erledigte Todo(s) gelöscht`);
