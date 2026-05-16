@@ -784,11 +784,6 @@ input[type="color"]::-moz-color-swatch {
   color: var(--accent);
 }
 
-.section-header .section-icon {
-  font-size: 12px;
-  flex-shrink: 0;
-}
-
 .section-header .section-name {
   flex: 1;
   min-width: 0;
