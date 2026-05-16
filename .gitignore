@@ -30,3 +30,4 @@ venv/
 Thumbs.db
 
 # Dev-only files
+api/data/vapid_keys.json
