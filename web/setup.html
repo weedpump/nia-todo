@@ -10,7 +10,14 @@ body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify
 .setup-container { width: 100%; max-width: 440px; padding: 20px; }
 .setup-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 16px; padding: 40px 32px; box-shadow: var(--shadow); }
 .setup-header { text-align: center; margin-bottom: 32px; }
-.setup-logo { font-size: 48px; margin-bottom: 12px; }
+.setup-logo { 
+  font-size: 48px; 
+  margin: 0 auto 12px auto;
+  display: block;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+}
 .setup-title { font-size: 24px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
 .setup-subtitle { font-size: 14px; color: var(--text-muted); }
 .setup-step { display: none; }
@@ -38,7 +45,7 @@ body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify
 <div class="setup-container">
   <div class="setup-card">
     <div class="setup-header">
-      <img src="/static/icons/icon-192.png" class="setup-logo" alt="nia-todo" width="64" height="64" style="border-radius:50%;">
+      <img src="/static/icons/icon-192.png" class="setup-logo" alt="nia-todo">
       <div class="setup-title">nia-todo</div>
       <div class="setup-subtitle">Erstinstallation</div>
     </div>
