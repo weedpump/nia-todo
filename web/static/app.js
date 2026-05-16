@@ -2642,15 +2642,28 @@ async function updatePushSettingsUI() {
     return;
   }
   const perm = Notification.permission;
-  updatePushStatus(perm);
-  if (perm === 'granted') {
-    try {
-      const reg = await navigator.serviceWorker.ready;
-      const sub = await reg.pushManager.getSubscription();
-      pushSubscription = sub || null;
-    } catch (e) {
-      console.error('[Push] Error checking subscription:', e);
+  
+  // Check if there's an active Push subscription
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    pushSubscription = sub || null;
+    
+    if (perm === 'granted' && sub) {
+      // Active subscription → show as enabled
+      updatePushStatus('granted');
+    } else if (perm === 'granted' && !sub) {
+      // Permission granted but no active subscription → show as disabled
+      // (user unsubscribed or never subscribed)
+      updatePushStatus('default', 'Berechtigung vorhanden, aber keine aktive Subscription. Klicke "Aktivieren".');
+    } else if (perm === 'denied') {
+      updatePushStatus('denied', 'In den Browser-Einstellungen für diese Seite änderbar.');
+    } else {
+      updatePushStatus('default');
     }
+  } catch (e) {
+    console.error('[Push] Error checking subscription:', e);
+    updatePushStatus('unknown', 'Fehler beim Prüfen des Push-Status');
   }
 }
 
@@ -2706,19 +2719,28 @@ async function disablePushNotifications() {
     const reg = await navigator.serviceWorker.ready;
     const sub = await reg.pushManager.getSubscription();
     if (sub) {
-      await fetch(API + '/api/push/unsubscribe', {
+      // Unsubscribe from backend first
+      const r = await fetch(API + '/api/push/unsubscribe', {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify({ endpoint: sub.endpoint, keys: {} }),
         credentials: 'include'
       });
-      await sub.unsubscribe();
+      if (!r.ok) {
+        const data = await r.json().catch(() => ({}));
+        throw new Error(data.detail || 'Backend konnte Subscription nicht löschen');
+      }
+      // Then unsubscribe from browser
+      const unsubResult = await sub.unsubscribe();
+      if (!unsubResult) {
+        throw new Error('Browser-Subscription konnte nicht gelöscht werden');
+      }
     }
     pushSubscription = null;
-    updatePushStatus('default');
+    updatePushStatus('default', 'Push-Benachrichtigungen deaktiviert.');
   } catch (e) {
     console.error('[Push] Disable failed:', e);
-    updatePushStatus('default', String(e.message || e) || 'Fehler beim Deaktivieren');
+    updatePushStatus('granted', String(e.message || e) || 'Fehler beim Deaktivieren');
   }
 }
 
