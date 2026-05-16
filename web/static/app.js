@@ -2284,9 +2284,9 @@ function updateSortButton() {
   const btn = document.getElementById('sort-toggle-btn');
   if (!btn) return;
   const config = {
-    order: { icon: '📋', title: 'Sortierung: Reihenfolge' },
-    priority: { icon: '🔢', title: 'Sortierung: Priorität (hoch→niedrig)' },
-    alpha: { icon: '🔤', title: 'Sortierung: Alphabetisch (A→Z)' }
+    order: { icon: '⇅', title: 'Sortierung: Reihenfolge' },
+    priority: { icon: 'P1', title: 'Sortierung: Priorität (hoch→niedrig)' },
+    alpha: { icon: 'AZ', title: 'Sortierung: Alphabetisch (A→Z)' }
   };
   const c = config[sortMode] || config.order;
   btn.textContent = c.icon;
