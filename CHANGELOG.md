@@ -7,6 +7,8 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 
 ## [Unreleased]
 
+## [0.4.7] - 2026-05-16
+
 ### Added
 - **Push Notifications**: PWA-Benachrichtigungen für Todo-Erinnerungen
   - VAPID-basierte Web Push Notifications
@@ -15,6 +17,13 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
   - Multi-Device: alle verbundenen Geräte des Users bekommen Benachrichtigungen
   - Asyncio Background Task prüft alle 60 Sekunden auf fällige Reminders
   - Automatische Bereinigung ungültiger/expirter Subscriptions
+
+### Fixed
+- **Sync-Duplikate**: Race-Condition bei gleichzeitigem Broadcast + Sync behoben
+  - Todos, Sections und Projects werden nicht mehr doppelt angezeigt
+  - Temp-Einträge werden korrekt durch Server-Einträge ersetzt
+- **Reminder-Zeitzone**: Erinnerungs-Zeit wird jetzt in lokaler Zeit angezeigt (nicht UTC)
+- **Undo-Toast**: Toast-Notification ist jetzt mittig zentriert auf Mobile
 
 ### Removed
 - Telegram-Reminder-Benachrichtigungen (ersetzt durch Push Notifications)
