@@ -676,31 +676,40 @@ VAPID_KEYS_PATH = Path(__file__).parent / "data" / "vapid_keys.json"
 VAPID_CLAIMS = {"sub": "mailto:nia-todo@kneidl-home.de"}
 
 def get_vapid_keys() -> tuple[str, str]:
-    """Load or generate VAPID key pair (private_pem, public_b64url)."""
+    """Load or generate VAPID key pair (private_b64url, public_b64url).
+    
+    Returns raw base64url-encoded EC P-256 keys (32-byte private scalar,
+    65-byte uncompressed public point). This is the format pywebpush expects.
+    """
     if VAPID_KEYS_PATH.exists():
         try:
             data = json.loads(VAPID_KEYS_PATH.read_text())
-            return data["private_pem"], data["public_b64url"]
+            priv = data.get("private_b64url") or data.get("private_pem")
+            pub = data.get("public_b64url")
+            if priv and pub:
+                # Validate by loading
+                Vapid.from_string(private_key=priv)
+                return priv, pub
         except Exception:
-            pass
+            pass  # Regenerate on any error
     # Generate new keys
     v = Vapid()
     v.generate_keys()
-    priv_pem = v.private_key.private_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PrivateFormat.PKCS8,
-        encryption_algorithm=serialization.NoEncryption()
-    ).decode()
+    # Raw 32-byte private scalar
+    priv_raw = v.private_key.private_numbers().private_value.to_bytes(32, "big")
+    priv_b64url = base64.urlsafe_b64encode(priv_raw).decode().rstrip("=")
+    # Raw 65-byte uncompressed public point
     pub_raw = v.public_key.public_bytes(
         encoding=serialization.Encoding.X962,
         format=serialization.PublicFormat.UncompressedPoint
     )
     pub_b64url = base64.urlsafe_b64encode(pub_raw).decode().rstrip("=")
     VAPID_KEYS_PATH.parent.mkdir(parents=True, exist_ok=True)
-    VAPID_KEYS_PATH.write_text(json.dumps({"private_pem": priv_pem, "public_b64url": pub_b64url}))
-    return priv_pem, pub_b64url
+    VAPID_KEYS_PATH.write_text(json.dumps({"private_b64url": priv_b64url, "public_b64url": pub_b64url}))
+    return priv_b64url, pub_b64url
 
 def get_vapid_private_key() -> str:
+    """Return VAPID private key in base64url format for pywebpush."""
     return get_vapid_keys()[0]
 
 def get_vapid_public_key() -> str:
