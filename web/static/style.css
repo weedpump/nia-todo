@@ -381,6 +381,35 @@ body {
   transition: all 0.15s;
 }
 
+.toggle-done-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+.toggle-done-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.toggle-done-btn.active {
+  background: var(--success);
+  color: white;
+  border-color: var(--success);
+}
+.toggle-done-btn.active:hover {
+  background: var(--success);
+  color: white;
+}
+
 .btn-primary { 
   background: rgba(99, 102, 241, 0.25); 
   color: #818cf8; 
