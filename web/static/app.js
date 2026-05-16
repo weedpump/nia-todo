@@ -277,31 +277,77 @@ function renderApiKeys(keys) {
   const listEl = document.getElementById('api-keys-list');
   if (!listEl) return;
   if (!keys.length) {
-    listEl.innerHTML = '<p style="font-size:13px; color:var(--text-muted);">Keine API-Keys vorhanden.</p>';
+    listEl.textContent = '';
+    const p = document.createElement('p');
+    p.style.cssText = 'font-size:13px; color:var(--text-muted);';
+    p.textContent = 'Keine API-Keys vorhanden.';
+    listEl.appendChild(p);
     return;
   }
-  const html = keys.map(k => {
-    const revoked = k.revoked_at ? '<span style="color:var(--danger); font-size:11px;">(🚫 widerrufen)</span>' : '';
-    const lastUsed = k.last_used_at ? `<span style="color:var(--text-muted); font-size:11px;">Letzter Zugriff: ${new Date(k.last_used_at).toLocaleString('de-DE')}</span>` : '<span style="color:var(--text-muted); font-size:11px;">Noch nicht verwendet</span>';
-    return `
-      <div style="background:var(--bg-tertiary); padding:10px 12px; border-radius:var(--radius); margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
-        <div style="min-width:0;">
-          <div style="font-size:13px; font-weight:500; margin-bottom:2px;">${escapeHtml(k.name)} ${revoked}</div>
-          <div style="font-size:12px; color:var(--text-muted); font-family:monospace;">${k.key_prefix}****</div>
-          <div style="margin-top:4px;">${lastUsed}</div>
-        </div>
-        ${!k.revoked_at ? `<button class="btn btn-danger" style="font-size:12px; padding:4px 8px; flex-shrink:0; margin-left:8px;" onclick="revokeApiKey(${k.id})" title="Widerrufen">🗑️</button>` : ''}
-      </div>
-    `;
-  }).join('');
-  listEl.innerHTML = html;
+  listEl.textContent = '';
+  keys.forEach(k => {
+    const revoked = k.revoked_at;
+    const container = document.createElement('div');
+    container.style.cssText = 'background:var(--bg-tertiary); padding:10px 12px; border-radius:var(--radius); margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;';
+
+    const left = document.createElement('div');
+    left.style.minWidth = '0';
+
+    const nameRow = document.createElement('div');
+    nameRow.style.cssText = 'font-size:13px; font-weight:500; margin-bottom:2px;';
+    nameRow.textContent = k.name;
+    if (revoked) {
+      const span = document.createElement('span');
+      span.style.cssText = 'color:var(--danger); font-size:11px; margin-left:4px;';
+      span.textContent = '(🚫 widerrufen)';
+      nameRow.appendChild(span);
+    }
+
+    const keyRow = document.createElement('div');
+    keyRow.style.cssText = 'font-size:12px; color:var(--text-muted); font-family:monospace;';
+    keyRow.textContent = k.key_prefix + '****';
+
+    const usedRow = document.createElement('div');
+    usedRow.style.cssText = 'margin-top:4px; font-size:11px; color:var(--text-muted);';
+    usedRow.textContent = k.last_used_at
+      ? 'Letzter Zugriff: ' + new Date(k.last_used_at).toLocaleString('de-DE')
+      : 'Noch nicht verwendet';
+
+    left.appendChild(nameRow);
+    left.appendChild(keyRow);
+    left.appendChild(usedRow);
+
+    container.appendChild(left);
+
+    if (!revoked) {
+      const btn = document.createElement('button');
+      btn.className = 'btn btn-danger';
+      btn.style.cssText = 'font-size:12px; padding:4px 8px; flex-shrink:0; margin-left:8px;';
+      btn.title = 'Widerrufen';
+      btn.textContent = '🗑️';
+      btn.onclick = () => revokeApiKey(k.id);
+      container.appendChild(btn);
+    }
+
+    listEl.appendChild(container);
+  });
 }
 
 function escapeHtml(str) {
-  if (!str) return '';
+  if (str == null) return '';
   const div = document.createElement('div');
-  div.textContent = str;
+  div.textContent = String(str);
   return div.innerHTML;
+}
+
+function escapeHtmlAttr(str) {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }
 
 async function createApiKey() {
@@ -1197,7 +1243,7 @@ function renderProjects() {
     html += `<div class="project-tree-item" style="padding-left: ${indent}px">`;
     html += `<div class="nav-item-with-action">`;
     html += `<button class="nav-btn ${currentFilter === String(project.id) ? 'active' : ''}" onclick="setFilter('${project.id}')">`;
-    html += `<span class="project-dot" style="background:${project.color}"></span>`;
+    html += `<span class="project-dot" style="background:${escapeHtmlAttr(project.color)}"></span>`;
     html += `${escapeHtml(project.name)}`;
     html += `<span class="badge">${countByProject(project.id, true)}</span>`;
     html += `</button>`;
