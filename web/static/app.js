@@ -2060,7 +2060,24 @@ async function showTodoModal(todo = null) {
 
   document.getElementById('todo-delete-btn').style.display = todo ? '' : 'none';
 
+  // Setup live markdown preview for description
+  setupDescPreview();
+
   document.getElementById('todo-modal')?.classList.add('active');
+}
+
+function setupDescPreview() {
+  const textarea = document.getElementById('todo-desc');
+  const preview = document.getElementById('todo-desc-preview');
+  if (!textarea || !preview) return;
+  
+  // Initial render
+  preview.innerHTML = renderMarkdown(textarea.value);
+  
+  // Update on input
+  textarea.addEventListener('input', () => {
+    preview.innerHTML = renderMarkdown(textarea.value);
+  });
 }
 
 async function onProjectChange(selectedSectionId = null) {
