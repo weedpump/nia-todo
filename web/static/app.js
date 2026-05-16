@@ -1280,8 +1280,8 @@ function renderProjects() {
     }
   });
   
-  // Sort roots by sort_order
-  rootProjects.sort((a, b) => a.sort_order - b.sort_order);
+  // Sort roots alphabetically
+  rootProjects.sort((a, b) => a.name.localeCompare(b.name));
   
   // Recursive render function
   function renderProjectTree(project, depth = 0) {
@@ -1302,9 +1302,9 @@ function renderProjects() {
     html += `</div>`;
     html += `</div>`;
     
-    // Render children always (no toggle needed)
+    // Render children alphabetically
     if (hasChildren) {
-      project.children.sort((a, b) => a.sort_order - b.sort_order);
+      project.children.sort((a, b) => a.name.localeCompare(b.name));
       project.children.forEach(child => {
         html += renderProjectTree(child, depth + 1);
       });
@@ -1687,7 +1687,7 @@ async function showTodoModal(todo = null) {
       }
     });
     
-    rootProjects.sort((a, b) => a.sort_order - b.sort_order);
+    rootProjects.sort((a, b) => a.name.localeCompare(b.name));
     
     // Recursive function to add options with indentation
     function addProjectOptions(projectNode, depth = 0) {
@@ -1699,7 +1699,7 @@ async function showTodoModal(todo = null) {
       projSelect.appendChild(opt);
       
       if (projectNode.children && projectNode.children.length > 0) {
-        projectNode.children.sort((a, b) => a.sort_order - b.sort_order);
+        projectNode.children.sort((a, b) => a.name.localeCompare(b.name));
         projectNode.children.forEach(child => addProjectOptions(child, depth + 1));
       }
     }
@@ -1905,7 +1905,7 @@ function showProjectModal(project = null, parentId = null) {
       }
     });
     
-    rootProjects.sort((a, b) => a.sort_order - b.sort_order);
+    rootProjects.sort((a, b) => a.name.localeCompare(b.name));
     
     // Recursive function
     function addProjectOptions(projectNode, depth = 0) {
@@ -1921,7 +1921,7 @@ function showProjectModal(project = null, parentId = null) {
       parentSelect.appendChild(option);
       
       if (projectNode.children && projectNode.children.length > 0) {
-        projectNode.children.sort((a, b) => a.sort_order - b.sort_order);
+        projectNode.children.sort((a, b) => a.name.localeCompare(b.name));
         projectNode.children.forEach(child => addProjectOptions(child, depth + 1));
       }
     }

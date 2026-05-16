@@ -7,6 +7,24 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-05-16
+
+### Added
+- **3-State Checkbox**: Klick auf Checkbox toggled Offen → In Arbeit → Erledigt → Offen
+- **Undo Toast**: "Rückgängig"-Button erscheint nach Erledigen/Löschen eines Todos (5s Timeout)
+- **Sort-Toggle**: Sortierung in Topbar wechselt zwischen Reihenfolge / Priorität / Alphabetisch
+- **Hide-Done Toggle**: Erledigte Todos app-wide ausblenden (localStorage)
+- **Offline-Indikator**: Nur sichtbar bei Offline — dezenter roter Punkt, kein Text
+
+### Changed
+- **Theme Toggle**: Sidebar hat jetzt einen einzelnen Button statt drei (durchschaltet Light/Dark/System)
+- **Kompakte Todos**: Prio-Emoji vor dem Titel, kein Projekt-Name mehr, eine Zeile pro Todo
+- **Globale Ansichten**: Todos in All/Offen/In Arbeit/Erledigt jetzt nach Projekt gruppiert
+- **Sections**: Minimaler Stil ohne Hintergrund/Border, kein Folder-Icon
+- **Logout-Button**: Jetzt als Icon neben dem Settings-Icon in der Sidebar
+- **Topbar**: Neue Toggle-Buttons (40×40) für bessere Ergonomie
+- **"In Arbeit" über "Offen"**: Reihenfolge in globalen Ansichten geändert
+
 ## [0.4.0] - 2026-05-16
 
 ### Added
