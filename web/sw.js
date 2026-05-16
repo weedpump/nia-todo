@@ -135,14 +135,14 @@ self.addEventListener('notificationclick', (event) => {
     // Open app
     event.waitUntil(clients.openWindow(url));
   } else if (action === 'done' && todoId) {
-    // Mark todo as done via API, then open app
+    // Mark todo as done via API, stay in background (don't open app)
     event.waitUntil(
       fetch('/api/todos/' + todoId, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'done' }),
         credentials: 'include'
-      }).catch(() => {}).then(() => clients.openWindow('/'))
+      }).catch(err => console.error('SW: Failed to mark todo done', err))
     );
   } else {
     event.waitUntil(clients.openWindow(url));
