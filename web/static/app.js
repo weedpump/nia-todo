@@ -1052,7 +1052,9 @@ async function syncWithServer() {
           projects = projects.filter(p => p.id !== item.data._tempId);
         }
         await dbPut('projects', res);
-        projects.push(res);
+        // Only add if not already in array (avoids race with broadcast)
+        const alreadyInArray = projects.find(p => p.id === res.id);
+        if (!alreadyInArray) projects.push(res);
         successCount++;
       } else if (item.action === 'DELETE_PROJECT') {
         try {
@@ -1089,7 +1091,9 @@ async function syncWithServer() {
           sections = sections.filter(s => s.id !== item.data._tempId);
         }
         await dbPut('sections', res);
-        sections.push(res);
+        // Only add if not already in array (avoids race with broadcast)
+        const alreadyInArray = sections.find(s => s.id === res.id);
+        if (!alreadyInArray) sections.push(res);
         successCount++;
       } else if (item.action === 'UPDATE_SECTION') {
         try {
