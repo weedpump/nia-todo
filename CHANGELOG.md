@@ -7,6 +7,11 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 
 ## [Unreleased]
 
+## [0.4.3] - 2026-05-16
+
+### Changed
+- **Projekte alphabetisch sortiert**: Inbox (ID=1) immer zuerst, dann Custom-Projekte A→Z
+
 ## [0.4.2] - 2026-05-16
 
 ### Changed

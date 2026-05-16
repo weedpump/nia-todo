@@ -1005,8 +1005,24 @@ async function refreshFromServer() {
       }
     }
 
+    // 3. Projekte mergen: Server gewinnt nur wenn neuer ODER keine pending changes
     for (const project of serverProjects) {
-      await dbPut('projects', project);
+      const localProject = await getFromDB('projects', project.id);
+      if (!localProject) {
+        await dbPut('projects', project);
+      } else {
+        const queue = await dbGetAll('syncQueue');
+        const pendingChanges = queue.find(q =>
+          q.action === 'UPDATE_PROJECT' && q.data.id === project.id
+        );
+        if (!pendingChanges) {
+          const localTime = new Date(localProject.updated_at || 0).getTime();
+          const serverTime = new Date(project.updated_at || 0).getTime();
+          if (serverTime >= localTime) {
+            await dbPut('projects', project);
+          }
+        }
+      }
     }
 
     // 4. Lokale Daten neu laden
