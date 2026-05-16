@@ -1464,3 +1464,54 @@ input[type="color"]::-moz-color-swatch {
     flex-shrink: 0;
   }
 }
+
+/* ─── Live Markdown Preview in Todo Modal ─────────────────────────────────── */
+
+.desc-live-preview {
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius);
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text-primary);
+  min-height: 20px;
+}
+
+.desc-live-preview:empty {
+  display: none;
+}
+
+.desc-live-preview ul {
+  margin: 4px 0;
+  padding-left: 20px;
+}
+
+.desc-live-preview li {
+  margin: 2px 0;
+}
+
+.desc-live-preview code {
+  background: var(--bg-secondary);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 12px;
+  font-family: monospace;
+}
+
+.desc-live-preview a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.desc-live-preview a:hover {
+  text-decoration: underline;
+}
+
+.desc-live-preview strong {
+  font-weight: 600;
+}
+
+.desc-live-preview em {
+  font-style: italic;
+}
