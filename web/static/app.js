@@ -21,7 +21,7 @@ let appInitialized = false;
 let syncInProgress = false;
 let swRegistration = null;
 let updateAvailable = false;
-const APP_VERSION = 'v0.4.0';
+const APP_VERSION = 'v0.4.1-dev';
 
 // ─── Auth / User (JWT) ───────────────────────────────────────────────────────
 
