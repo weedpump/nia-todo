@@ -21,6 +21,7 @@ let appInitialized = false;
 let syncInProgress = false;
 let swRegistration = null;
 let updateAvailable = false;
+let hideDone = localStorage.getItem('nia-hide-done') === 'true';
 const APP_VERSION = 'v0.4.0-dev';
 
 // ─── Auth / User (JWT) ───────────────────────────────────────────────────────
@@ -1175,6 +1176,7 @@ async function initApp() {
 
   updateConnectionStatus();
   renderVersionInfo();
+  updateToggleDoneButton();
 
   initTheme();
 
@@ -1363,6 +1365,10 @@ function renderTodos() {
     if (currentFilter !== 'all' && ['pending','in_progress','done'].includes(currentFilter)) {
       filtered = filtered.filter(t => t.status === currentFilter);
     }
+    // Erledigte ausblenden wenn Toggle aktiv (außer explizit "Erledigt"-Filter)
+    if (hideDone && currentFilter !== 'done') {
+      filtered = filtered.filter(t => t.status !== 'done');
+    }
 
     for (const section of sections) {
       const sectionTodos = filtered.filter(t => t.section_id === section.id);
@@ -1405,6 +1411,10 @@ function renderTodos() {
   // Auf aktuellen Status-Filter begrenzen (außer "Alle")
   if (currentFilter !== 'all' && groups[currentFilter]) {
     filtered = filtered.filter(t => t.status === currentFilter);
+  }
+  // Erledigte ausblenden wenn Toggle aktiv (außer explizit "Erledigt"-Filter)
+  if (hideDone && currentFilter !== 'done') {
+    filtered = filtered.filter(t => t.status !== 'done');
   }
 
   let html = '';
@@ -2176,6 +2186,27 @@ async function handleSectionDrop(e) {
   }
 
   renderTodos();
+}
+
+function toggleHideDone() {
+  hideDone = !hideDone;
+  localStorage.setItem('nia-hide-done', hideDone ? 'true' : 'false');
+  updateToggleDoneButton();
+  renderTodos();
+}
+
+function updateToggleDoneButton() {
+  const btn = document.getElementById('toggle-done-btn');
+  if (!btn) return;
+  if (hideDone) {
+    btn.classList.remove('active');
+    btn.textContent = '🚫';
+    btn.title = 'Erledigte anzeigen';
+  } else {
+    btn.classList.add('active');
+    btn.textContent = '✅';
+    btn.title = 'Erledigte ausblenden';
+  }
 }
 
 // Keyboard shortcuts
