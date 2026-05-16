@@ -46,7 +46,7 @@ body {
   overflow: hidden;
 }
 
-#app { display: flex; height: 100vh; }
+#app { display: flex; height: 100dvh; }
 
 /* Sidebar */
 .sidebar {
@@ -801,6 +801,12 @@ input[type="color"]::-moz-color-swatch {
   padding-bottom: max(16px, env(safe-area-inset-bottom));
 }
 
+@media (max-width: 768px) {
+  .todo-list {
+    padding-bottom: max(80px, env(safe-area-inset-bottom));
+  }
+}
+
 /* ─── Section Styles ───────────────────────────────────────────────────────── */
 
 .section-header {
@@ -1312,7 +1318,7 @@ input[type="color"]::-moz-color-swatch {
 
 .toast-container {
   position: fixed;
-  bottom: 24px;
+  bottom: calc(24px + env(safe-area-inset-bottom));
   left: 50%;
   transform: translateX(-50%);
   z-index: 2000;
@@ -1367,7 +1373,7 @@ input[type="color"]::-moz-color-swatch {
 
 @media (max-width: 768px) {
   .toast-container {
-    bottom: 16px;
+    bottom: calc(16px + env(safe-area-inset-bottom));
     left: 16px;
     right: 16px;
     transform: none;
