@@ -64,7 +64,8 @@ async function login(username, password) {
   const r = await fetch(API + '/api/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password })
+    body: JSON.stringify({ username, password }),
+    credentials: 'include'
   });
   if (!r.ok) {
     const data = await r.json().catch(() => ({}));
@@ -96,7 +97,8 @@ async function checkAuth() {
   if (!token) return false;
   try {
     const r = await fetch(API + '/api/me', {
-      headers: getAuthHeaders()
+      headers: getAuthHeaders(),
+      credentials: 'include'
     });
     if (!r.ok) {
       localStorage.removeItem('jwt_token');
@@ -132,7 +134,8 @@ async function logout() {
     if (token) {
       await fetch(API + '/api/logout', {
         method: 'POST',
-        headers: getAuthHeaders()
+        headers: getAuthHeaders(),
+        credentials: 'include'
       });
     }
   } catch (e) {
@@ -248,7 +251,8 @@ async function changeUserPassword() {
     const r = await fetch(API + '/api/me/change-password', {
       method: 'POST',
       headers: getAuthHeaders(),
-      body: JSON.stringify({ old_password: oldPw, new_password: newPw })
+      body: JSON.stringify({ old_password: oldPw, new_password: newPw }),
+      credentials: 'include'
     });
     if (!r.ok) {
       const data = await r.json().catch(() => ({}));
@@ -268,7 +272,7 @@ async function loadApiKeys() {
   const errorEl = document.getElementById('api-key-error');
   if (!listEl) return;
   try {
-    const r = await fetch(API + '/api/me/api-keys', { headers: getAuthHeaders() });
+    const r = await fetch(API + '/api/me/api-keys', { headers: getAuthHeaders(), credentials: 'include' });
     if (!r.ok) {
       const data = await r.json().catch(() => ({}));
       throw new Error(data.detail || 'Fehler');
@@ -369,7 +373,8 @@ async function createApiKey() {
     const r = await fetch(API + '/api/me/api-keys', {
       method: 'POST',
       headers: getAuthHeaders(),
-      body: JSON.stringify({ name: name || undefined })
+      body: JSON.stringify({ name: name || undefined }),
+      credentials: 'include'
     });
     if (!r.ok) {
       const data = await r.json().catch(() => ({}));
@@ -394,7 +399,8 @@ async function revokeApiKey(keyId) {
   try {
     const r = await fetch(API + '/api/me/api-keys/' + keyId, {
       method: 'DELETE',
-      headers: getAuthHeaders()
+      headers: getAuthHeaders(),
+      credentials: 'include'
     });
     if (!r.ok) {
       const data = await r.json().catch(() => ({}));
@@ -1362,7 +1368,8 @@ async function loadAll() {
 
 async function get(path) {
   const r = await fetch(API + path, {
-    headers: getAuthHeaders()
+    headers: getAuthHeaders(),
+    credentials: 'include'
   });
   if (!r.ok) throw new Error(r.status + ' ' + r.statusText);
   return r.json();
@@ -1372,7 +1379,8 @@ async function post(path, body) {
   const r = await fetch(API + path, {
     method: 'POST',
     headers: getAuthHeaders(),
-    body: JSON.stringify(body)
+    body: JSON.stringify(body),
+    credentials: 'include'
   });
   if (!r.ok) throw new Error(r.status + ' ' + r.statusText);
   return r.json();
@@ -1382,7 +1390,8 @@ async function patch(path, body) {
   const r = await fetch(API + path, {
     method: 'PATCH',
     headers: getAuthHeaders(),
-    body: JSON.stringify(body)
+    body: JSON.stringify(body),
+    credentials: 'include'
   });
   if (!r.ok) throw new Error(r.status + ' ' + r.statusText);
   return r.json();
@@ -1391,7 +1400,8 @@ async function patch(path, body) {
 async function del(path) {
   const r = await fetch(API + path, {
     method: 'DELETE',
-    headers: getAuthHeaders()
+    headers: getAuthHeaders(),
+    credentials: 'include'
   });
   if (!r.ok) throw new Error(r.status + ' ' + r.statusText);
   return r.json();
