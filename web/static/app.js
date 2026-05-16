@@ -811,6 +811,50 @@ async function handleWsMessage(msg) {
         renderTodos();
       }
       break;
+    case 'section_create':
+      if (msg.payload) {
+        await dbPut('sections', msg.payload);
+        const existing = sections.find(s => s.id === msg.payload.id);
+        if (!existing) {
+          sections.push(msg.payload);
+        } else {
+          sections = sections.map(s => s.id === msg.payload.id ? msg.payload : s);
+        }
+        renderTodos();
+      }
+      break;
+    case 'section_update':
+      if (msg.payload) {
+        const local = await getFromDB('sections', msg.payload.id);
+        if (local) {
+          const localTime = new Date(local.updated_at || 0).getTime();
+          const serverTime = new Date(msg.payload.updated_at || 0).getTime();
+          if (serverTime >= localTime) {
+            await dbPut('sections', msg.payload);
+            sections = sections.map(s => s.id === msg.payload.id ? msg.payload : s);
+            renderTodos();
+          }
+        } else {
+          await dbPut('sections', msg.payload);
+          sections = sections.map(s => s.id === msg.payload.id ? msg.payload : s);
+          renderTodos();
+        }
+      }
+      break;
+    case 'section_delete':
+      if (msg.payload?.id) {
+        await deleteFromDB('sections', msg.payload.id);
+        sections = sections.filter(s => s.id !== msg.payload.id);
+        // Move todos in this section to unsorted
+        for (const todo of todos) {
+          if (todo.section_id === msg.payload.id) {
+            todo.section_id = null;
+            await dbPut('todos', todo);
+          }
+        }
+        renderTodos();
+      }
+      break;
     default:
       console.log('WS: unknown message type', msg.type);
   }

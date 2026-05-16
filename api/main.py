@@ -1391,7 +1391,7 @@ def list_sections(project_id: int, user_id: int = Depends(require_auth)):
         return {"sections": [dict(r) for r in rows]}
 
 @app.post("/api/projects/{project_id}/sections")
-def create_section(project_id: int, data: SectionCreate, user_id: int = Depends(require_auth)):
+async def create_section(project_id: int, data: SectionCreate, user_id: int = Depends(require_auth)):
     data.name = sanitize_text(data.name)
     with get_db() as db:
         # Verify project exists and belongs to user
@@ -1404,10 +1404,12 @@ def create_section(project_id: int, data: SectionCreate, user_id: int = Depends(
         )
         db.commit()
         row = db.execute("SELECT * FROM sections WHERE id = ?", (c.lastrowid,)).fetchone()
-        return dict(row)
+        section = dict(row)
+        await broadcast_change("section_create", section, user_id)
+        return section
 
 @app.patch("/api/sections/{section_id}")
-def update_section(section_id: int, data: SectionUpdate, user_id: int = Depends(require_auth)):
+async def update_section(section_id: int, data: SectionUpdate, user_id: int = Depends(require_auth)):
     if data.name is not None:
         data.name = sanitize_text(data.name)
     with get_db() as db:
@@ -1429,10 +1431,12 @@ def update_section(section_id: int, data: SectionUpdate, user_id: int = Depends(
             db.execute(f"UPDATE sections SET {set_clause} WHERE id = :id", {**updates, "id": section_id})
             db.commit()
         row = db.execute("SELECT * FROM sections WHERE id = ?", (section_id,)).fetchone()
-        return dict(row)
+        section = dict(row)
+        await broadcast_change("section_update", section, user_id)
+        return section
 
 @app.delete("/api/sections/{section_id}")
-def delete_section(section_id: int, user_id: int = Depends(require_auth)):
+async def delete_section(section_id: int, user_id: int = Depends(require_auth)):
     with get_db() as db:
         existing = db.execute("""
             SELECT s.* FROM sections s
@@ -1445,6 +1449,7 @@ def delete_section(section_id: int, user_id: int = Depends(require_auth)):
         db.execute("UPDATE todos SET section_id = NULL WHERE section_id = ? AND user_id = ?", (section_id, user_id))
         db.execute("DELETE FROM sections WHERE id = ?", (section_id,))
         db.commit()
+        await broadcast_change("section_delete", {"id": section_id}, user_id)
         return {"deleted": section_id}
 
 # ─── Reminders ───────────────────────────────────────────────────────────────
