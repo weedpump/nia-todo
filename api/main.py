@@ -749,7 +749,7 @@ async def check_and_send_reminders():
     try:
         with get_db() as db:
             rows = db.execute("""
-                SELECT r.id, r.todo_id, r.remind_at, r.user_id, t.title, t.status
+                SELECT r.id, r.todo_id, r.remind_at, t.user_id, t.title, t.status
                 FROM reminders r
                 JOIN todos t ON r.todo_id = t.id
                 WHERE r.remind_at <= datetime('now')
