@@ -822,8 +822,12 @@ async def reminder_background_task():
 @app.on_event("startup")
 async def on_startup():
     init_db()
-    # Start background reminder loop
-    asyncio.create_task(reminder_background_task())
+    # Start background reminder loop after a short delay to ensure event loop is running
+    async def delayed_start():
+        await asyncio.sleep(2)
+        print("[PUSH] Starting background reminder task...")
+        asyncio.create_task(reminder_background_task())
+    asyncio.create_task(delayed_start())
 
 # ─── Auth Endpoints (JWT) ─────────────────────────────────────────────────────
 
