@@ -730,13 +730,22 @@ async function handleWsMessage(msg) {
     case 'todo_create':
       if (msg.payload) {
         await dbPut('todos', msg.payload);
-        const existing = todos.find(t => t.id === msg.payload.id);
-        if (existing) {
-          // Replace existing todo with server version (avoids duplicates)
-          todos = todos.map(t => t.id === msg.payload.id ? msg.payload : t);
+        // Check if we have a temp todo in queue for this server response
+        const queue = await dbGetAll('syncQueue');
+        const pendingCreate = queue.find(q =>
+          q.action === 'CREATE_TODO' && q.data._tempId
+        );
+        if (pendingCreate) {
+          // Replace temp todo with real server version
+          await deleteFromDB('todos', pendingCreate.data._tempId);
+          todos = todos.filter(t => t.id !== pendingCreate.data._tempId);
+          // Only add if not already present (avoids race with syncWithServer)
+          const alreadyAdded = todos.find(t => t.id === msg.payload.id);
+          if (!alreadyAdded) todos.push(msg.payload);
         } else {
-          // New todo from another client → add to list
-          todos.push(msg.payload);
+          // Broadcast from another client → add to list
+          const existing = todos.find(t => t.id === msg.payload.id);
+          if (!existing) todos.push(msg.payload);
         }
         renderProjects();
         renderStats();
@@ -1003,14 +1012,9 @@ async function syncWithServer() {
           todos = todos.filter(t => t.id !== item.data._tempId);
         }
         await dbPut('todos', res);
-        // Check if broadcast already added this todo
-        const alreadyExists = todos.find(t => t.id === res.id);
-        if (!alreadyExists) {
-          todos.push(res);
-        } else {
-          // Replace with server response to ensure consistency
-          todos = todos.map(t => t.id === res.id ? res : t);
-        }
+        // Only add if not already in array (avoids race with broadcast)
+        const alreadyInArray = todos.find(t => t.id === res.id);
+        if (!alreadyInArray) todos.push(res);
         successCount++;
       } else if (item.action === 'UPDATE_TODO') {
         try {
@@ -1932,6 +1936,9 @@ async function showTodoModal(todo = null) {
 
     if (todo.due_date) {
       document.getElementById('todo-due').value = new Date(todo.due_date).toISOString().slice(0, 16);
+    }
+    if (todo.remind_at) {
+      document.getElementById('todo-remind').value = new Date(todo.remind_at).toISOString().slice(0, 16);
     }
   }
 
