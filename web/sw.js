@@ -105,7 +105,7 @@ self.addEventListener('push', (event) => {
     self.registration.showNotification(title, {
       body: body,
       icon: '/static/icons/icon-192.png',
-      badge: '/static/icons/icon-192.png',
+      badge: '/static/icons/icon-badge.png',
       tag: tag,
       data: { url: url, todoId: todoId },
       actions: [
