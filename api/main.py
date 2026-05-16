@@ -384,6 +384,8 @@ def require_auth(authorization: Optional[str] = Header(None), x_session_token: O
     token = None
     if authorization and authorization.startswith("Bearer "):
         token = authorization[7:]
+    elif authorization and authorization.startswith("ApiKey "):
+        token = authorization[7:]
     elif x_session_token:
         token = x_session_token
     
