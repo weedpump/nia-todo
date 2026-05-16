@@ -95,6 +95,11 @@ self.addEventListener('push', (event) => {
     data = { title: '⏰ Erinnerung', body: 'Neue Benachrichtigung', tag: 'default' };
   }
 
+  // Ignore silent health check pushes from server
+  if (data._silent || data._health_check) {
+    return;
+  }
+
   const title = data.title || 'nia-todo';
   const body = data.body || '';
   const tag = data.tag || ('push-' + Date.now());

@@ -817,6 +817,54 @@ async def reminder_background_task():
             print(f"[PUSH] Background task error: {e}")
         await asyncio.sleep(30)
 
+async def subscription_cleanup_task():
+    """Clean up expired push subscriptions every 14 days."""
+    while True:
+        await asyncio.sleep(14 * 24 * 60 * 60)  # 14 days
+        try:
+            print("[PUSH] Running subscription cleanup...")
+            await cleanup_subscriptions()
+        except Exception as e:
+            print(f"[PUSH] Subscription cleanup error: {e}")
+
+async def cleanup_subscriptions():
+    """Send silent push to all subscriptions and remove dead ones."""
+    priv_key = get_vapid_private_key()
+    # Silent health check payload - Service Worker will ignore this
+    payload = json.dumps({"_health_check": True, "_silent": True})
+
+    with get_db() as db:
+        subs = db.execute(
+            "SELECT id, user_id, endpoint, p256dh, auth FROM push_subscriptions"
+        ).fetchall()
+
+    removed = 0
+    total = len(subs)
+    for sub in subs:
+        subscription_info = {
+            "endpoint": sub["endpoint"],
+            "keys": {"p256dh": sub["p256dh"], "auth": sub["auth"]}
+        }
+        try:
+            webpush(
+                subscription_info=subscription_info,
+                data=payload,
+                vapid_private_key=priv_key,
+                vapid_claims=VAPID_CLAIMS,
+                ttl=60,  # Short TTL for health check
+            )
+        except WebPushException as e:
+            if e.response and e.response.status_code in (404, 410):
+                try:
+                    with get_db() as db:
+                        db.execute("DELETE FROM push_subscriptions WHERE id = ?", (sub["id"],))
+                        db.commit()
+                        removed += 1
+                except Exception:
+                    pass
+    
+    print(f"[PUSH] Cleanup complete: {removed}/{total} dead subscriptions removed")
+
 # ─── Init DB on startup ─────────────────────────────────────────────────────
 
 @app.on_event("startup")
@@ -827,6 +875,8 @@ async def on_startup():
         await asyncio.sleep(2)
         print("[PUSH] Starting background reminder task...")
         asyncio.create_task(reminder_background_task())
+        # Start subscription cleanup task (runs every 14 days)
+        asyncio.create_task(subscription_cleanup_task())
     asyncio.create_task(delayed_start())
 
 # ─── Auth Endpoints (JWT) ─────────────────────────────────────────────────────
