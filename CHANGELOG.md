@@ -7,6 +7,22 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 
 ## [Unreleased]
 
+## [0.4.4] - 2026-05-16
+
+### Added
+- **Sections Offline-First**: CREATE/UPDATE/DELETE Sections funktioniert jetzt offline mit Sync-Queue
+  - `updated_at` Spalte zu `sections` hinzugefügt
+  - Merge-Logik für Sections bei Server-Refresh (wie Todos/Projekte)
+  - Sync-Queue Handler: `CREATE_SECTION`, `UPDATE_SECTION`, `DELETE_SECTION`
+
+### Fixed
+- **Project-Sync**: Offline umbenannte Projekte werden nicht mehr vom Server überschrieben
+  - `updated_at` Vergleich + pending-changes-Check für Projekte in `refreshFromServer()`
+- **Mobile Scroll**: Letztes Todo wird nicht mehr abgeschnitten in der PWA
+  - `100dvh` statt `100vh` für korrekte Viewport-Höhe
+  - `padding-bottom` für Mobile Safe Areas
+  - Toast-Position berücksichtigt jetzt `safe-area-inset-bottom`
+
 ## [0.4.3] - 2026-05-16
 
 ### Changed
