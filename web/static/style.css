@@ -407,6 +407,26 @@ body {
   transition: all 0.15s;
 }
 
+.sort-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+.sort-toggle-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
 .toggle-done-btn {
   display: inline-flex;
   align-items: center;

@@ -22,6 +22,7 @@ let syncInProgress = false;
 let swRegistration = null;
 let updateAvailable = false;
 let hideDone = localStorage.getItem('nia-hide-done') === 'true';
+let sortMode = localStorage.getItem('nia-sort') || 'order';
 const APP_VERSION = 'v0.4.0-dev';
 
 // ─── Auth / User (JWT) ───────────────────────────────────────────────────────
@@ -1186,6 +1187,7 @@ async function initApp() {
   updateConnectionStatus();
   renderVersionInfo();
   updateToggleDoneButton();
+  updateSortButton();
 
   initTheme();
 
@@ -1364,6 +1366,8 @@ function renderTodos() {
       (t.description || '').toLowerCase().includes(search)
     );
   }
+  // Apply sort
+  filtered = sortTodoList(filtered);
 
   if (currentProjectId) {
     let html = '';
@@ -2265,6 +2269,47 @@ function updateToggleDoneButton() {
     btn.textContent = '✅';
     btn.title = 'Erledigte ausblenden';
   }
+}
+
+function cycleSort() {
+  const modes = ['order', 'priority', 'alpha'];
+  const idx = modes.indexOf(sortMode);
+  sortMode = modes[(idx + 1) % modes.length];
+  localStorage.setItem('nia-sort', sortMode);
+  updateSortButton();
+  renderTodos();
+}
+
+function updateSortButton() {
+  const btn = document.getElementById('sort-toggle-btn');
+  if (!btn) return;
+  const config = {
+    order: { icon: '📋', title: 'Sortierung: Reihenfolge' },
+    priority: { icon: '🔢', title: 'Sortierung: Priorität (hoch→niedrig)' },
+    alpha: { icon: '🔤', title: 'Sortierung: Alphabetisch (A→Z)' }
+  };
+  const c = config[sortMode] || config.order;
+  btn.textContent = c.icon;
+  btn.title = c.title;
+}
+
+function sortTodoList(list) {
+  if (sortMode === 'priority') {
+    const prioOrder = { 1: 0, 2: 1, 3: 2, 4: 3 };
+    return [...list].sort((a, b) => {
+      const pa = prioOrder[a.priority] ?? 4;
+      const pb = prioOrder[b.priority] ?? 4;
+      if (pa !== pb) return pa - pb;
+      return (a.sort_order ?? 0) - (b.sort_order ?? 0);
+    });
+  }
+  if (sortMode === 'alpha') {
+    return [...list].sort((a, b) =>
+      (a.title || '').toLowerCase().localeCompare((b.title || '').toLowerCase())
+    );
+  }
+  // Default: Reihenfolge (sort_order)
+  return [...list].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
 }
 
 function cycleTheme() {
