@@ -25,6 +25,7 @@ let hideDone = localStorage.getItem('nia-hide-done') === 'true';
 let sortMode = localStorage.getItem('nia-sort') || 'order';
 let undoAction = null;
 let undoTimer = null;
+let pendingUndoBatch = null; // For batch operations like clear-done
 const APP_VERSION = 'v0.4.9-dev';
 
 // ─── Auth / User (JWT) ───────────────────────────────────────────────────────
@@ -2349,13 +2350,13 @@ async function clearDoneInProject() {
   const project = projects.find(p => p.id === currentProjectId);
   if (!project) return;
 
-  const doneCount = todos.filter(t => t.project_id === currentProjectId && t.status === 'done').length;
-  if (doneCount === 0) {
+  const doneTodos = todos.filter(t => t.project_id === currentProjectId && t.status === 'done');
+  if (doneTodos.length === 0) {
     showToast('Keine erledigten Todos in diesem Projekt');
     return;
   }
 
-  if (!confirm(`${doneCount} erledigte Todo(s) in "${project.name}" löschen?`)) return;
+  if (!confirm(`${doneTodos.length} erledigte Todo(s) in "${project.name}" löschen?`)) return;
 
   try {
     const r = await fetch(API + `/api/projects/${currentProjectId}/clear-done`, {
@@ -2366,11 +2367,14 @@ async function clearDoneInProject() {
     });
     if (r.ok) {
       const result = await r.json();
+      // Store batch data for undo before removing from array
+      const deletedData = doneTodos.map(t => ({ ...t }));
       // Remove done todos from local array
       todos = todos.filter(t => !(t.project_id === currentProjectId && t.status === 'done'));
       renderStats();
       renderTodos();
-      showToast(`${result.deleted_count} erledigte Todo(s) gelöscht`);
+      // Show toast with batch undo
+      showBatchToast(`${result.deleted_count} erledigte Todo(s) gelöscht`, { todos: deletedData, projectId: currentProjectId });
     } else {
       const err = await r.json().catch(() => ({}));
       console.error('Clear done failed:', r.status, err);
@@ -2716,6 +2720,21 @@ function showToast(message, action) {
   undoTimer = setTimeout(hideToast, 5000);
 }
 
+function showBatchToast(message, batchData) {
+  const container = document.getElementById('toast-container');
+  const msgEl = document.getElementById('toast-message');
+  if (!container || !msgEl) return;
+  msgEl.textContent = message;
+  pendingUndoBatch = batchData;
+  undoAction = { type: 'batch_delete' };
+  container.style.display = 'flex';
+  if (undoTimer) clearTimeout(undoTimer);
+  undoTimer = setTimeout(() => {
+    pendingUndoBatch = null;
+    hideToast();
+  }, 5000);
+}
+
 function hideToast() {
   const container = document.getElementById('toast-container');
   if (container) container.style.display = 'none';
@@ -2729,11 +2748,36 @@ function undoLastAction() {
     toggleTodo(undoAction.id);
   } else if (undoAction.type === 'delete') {
     restoreTodo(undoAction.id, undoAction.data);
+  } else if (undoAction.type === 'batch_delete' && pendingUndoBatch) {
+    restoreBatchTodos();
   }
   hideToast();
 }
 
 // ─── Deleted Todo Restore ──────────────────────────────────────────────────
+
+async function restoreBatchTodos() {
+  if (!pendingUndoBatch || !db) return;
+  const { todos: deletedTodos } = pendingUndoBatch;
+  for (const todoData of deletedTodos) {
+    await dbPut('todos', todoData);
+    const existing = todos.find(t => t.id === todoData.id);
+    if (!existing) {
+      todos.push(todoData);
+    } else {
+      todos = todos.map(t => t.id === todoData.id ? todoData : t);
+    }
+  }
+  renderStats();
+  renderTodos();
+  pendingUndoBatch = null;
+  if (isOnlineForSync()) {
+    for (const todoData of deletedTodos) {
+      await addToSyncQueue('UPDATE_TODO', { id: todoData.id, changes: { status: todoData.status } });
+    }
+    await syncWithServer();
+  }
+}
 
 async function restoreTodo(id, data) {
   if (!db) return;
