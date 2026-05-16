@@ -782,6 +782,14 @@ async function handleWsMessage(msg) {
     case 'project_create':
       if (msg.payload) {
         await dbPut('projects', msg.payload);
+        // Remove temp project with same name to avoid duplicates
+        const tempProject = projects.find(p =>
+          p.name === msg.payload.name &&
+          String(p.id).startsWith('temp-')
+        );
+        if (tempProject) {
+          projects = projects.filter(p => p.id !== tempProject.id);
+        }
         const existing = projects.find(p => p.id === msg.payload.id);
         if (existing) {
           // Server response for our create → replace temp entry
@@ -829,6 +837,15 @@ async function handleWsMessage(msg) {
     case 'section_create':
       if (msg.payload) {
         await dbPut('sections', msg.payload);
+        // Remove temp section with same name+project to avoid duplicates
+        const tempSection = sections.find(s =>
+          s.name === msg.payload.name &&
+          s.project_id === msg.payload.project_id &&
+          String(s.id).startsWith('temp-')
+        );
+        if (tempSection) {
+          sections = sections.filter(s => s.id !== tempSection.id);
+        }
         const existing = sections.find(s => s.id === msg.payload.id);
         if (!existing) {
           sections.push(msg.payload);
