@@ -665,10 +665,16 @@ async function handleWsMessage(msg) {
           if (!local) {
             await dbPut('todos', todo);
           } else {
-            const localTime = new Date(local.updated_at || 0).getTime();
-            const serverTime = new Date(todo.updated_at || 0).getTime();
-            if (serverTime >= localTime) {
-              await dbPut('todos', todo);
+            const queue = await dbGetAll('syncQueue');
+            const pendingChanges = queue.find(q =>
+              q.action === 'UPDATE_TODO' && q.data.id === todo.id
+            );
+            if (!pendingChanges) {
+              const localTime = new Date(local.updated_at || 0).getTime();
+              const serverTime = new Date(todo.updated_at || 0).getTime();
+              if (serverTime >= localTime) {
+                await dbPut('todos', todo);
+              }
             }
           }
         }
@@ -782,6 +788,8 @@ async function handleWsMessage(msg) {
           projects.push(msg.payload);
         }
         renderProjects();
+        renderStats();
+        renderTodos();
       }
       break;
     case 'project_update':
@@ -794,11 +802,15 @@ async function handleWsMessage(msg) {
             await dbPut('projects', msg.payload);
             projects = projects.map(p => p.id === msg.payload.id ? msg.payload : p);
             renderProjects();
+            renderStats();
+            renderTodos();
           }
         } else {
           await dbPut('projects', msg.payload);
           projects = projects.map(p => p.id === msg.payload.id ? msg.payload : p);
           renderProjects();
+          renderStats();
+          renderTodos();
         }
       }
       break;
