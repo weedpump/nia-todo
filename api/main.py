@@ -1716,6 +1716,20 @@ def push_unsubscribe(data: PushSubscription, user_id: int = Depends(require_auth
         db.commit()
     return {"unsubscribed": True}
 
+@app.get("/api/push/status")
+def push_status(user_id: int = Depends(require_auth)):
+    """Get push notification status for the current user."""
+    with get_db() as db:
+        count = db.execute(
+            "SELECT COUNT(*) FROM push_subscriptions WHERE user_id = ?",
+            (user_id,)
+        ).fetchone()[0]
+    return {
+        "public_key": get_vapid_public_key(),
+        "has_subscriptions": count > 0,
+        "subscription_count": count
+    }
+
 @app.post("/api/push/test")
 async def push_test(data: PushTestRequest, user_id: int = Depends(require_auth)):
     """Send a test push notification to all subscriptions of the current user."""
