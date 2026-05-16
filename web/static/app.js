@@ -1326,6 +1326,14 @@ async function initServiceWorker() {
       window.location.reload();
     });
 
+    // Listen for messages from Service Worker (e.g., mark todo done from notification)
+    navigator.serviceWorker.addEventListener('message', (event) => {
+      console.log('SW message received:', event.data);
+      if (event.data.type === 'MARK_TODO_DONE' && event.data.todoId) {
+        markTodoDone(event.data.todoId);
+      }
+    });
+
   } catch (err) {
     console.error('SW registration failed:', err);
   }
@@ -1861,6 +1869,33 @@ function countByProject(pid, includeSubprojects = false) {
   collectChildren(pid);
   
   return todos.filter(t => projectIds.has(t.project_id) && t.status !== 'done').length;
+}
+
+async function markTodoDone(id) {
+  if (!appInitialized || !db) return;
+
+  const t = todos.find(x => x.id === id);
+  if (!t || t.status === 'done') return;
+
+  // Update local
+  const updatedTodo = { ...t, status: 'done', updated_at: new Date().toISOString() };
+  await dbPut('todos', updatedTodo);
+
+  // UI updaten
+  todos = todos.map(todo => todo.id === id ? updatedTodo : todo);
+  renderStats();
+  renderTodos();
+
+  // Toast mit Undo
+  showToast('Todo erledigt', { type: 'status', id });
+
+  // Immer in Queue (offline-first)
+  await addToSyncQueue('UPDATE_TODO', { id, changes: { status: 'done' } });
+
+  // Sofort syncen wenn online
+  if (isOnlineForSync()) {
+    await syncWithServer();
+  }
 }
 
 async function toggleTodo(id) {
