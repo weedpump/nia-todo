@@ -83,6 +83,52 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(SecurityHeadersMiddleware)
 
+# ─── CSRF Protection ──────────────────────────────────────────────────────────
+
+CSRF_COOKIE_NAME = "csrf_token"
+
+def generate_csrf_token() -> str:
+    """Generate a secure random CSRF token."""
+    return secrets.token_urlsafe(32)
+
+def set_csrf_cookie(response: Response, token: str) -> None:
+    """Set the CSRF token as a SameSite=Lax HttpOnly cookie."""
+    response.set_cookie(
+        CSRF_COOKIE_NAME,
+        token,
+        httponly=True,
+        samesite="lax",
+        max_age=86400 * 7,  # 7 Tage
+        path="/",
+    )
+
+def get_csrf_cookie(request: Request) -> Optional[str]:
+    """Read the CSRF token from the request cookie."""
+    return request.cookies.get(CSRF_COOKIE_NAME)
+
+def require_csrf(
+    request: Request,
+    x_csrf_token: Optional[str] = Header(None, alias="X-CSRF-Token"),
+    authorization: Optional[str] = Header(None),
+) -> None:
+    """
+    Dependency: Validate CSRF token for state-changing requests.
+    
+    Skipped for:
+    - API key authentication (Authorization: ApiKey ...)
+    - Login/setup endpoints (handled by not including this dependency)
+    """
+    # API-Key Auth: stateless, kein CSRF nötig
+    if authorization and authorization.startswith("ApiKey "):
+        return
+    
+    # Double-Submit Cookie Pattern: Cookie + Header müssen matchen
+    cookie_token = get_csrf_cookie(request)
+    if not cookie_token or not x_csrf_token:
+        raise HTTPException(403, "CSRF token missing")
+    if not secrets.compare_digest(cookie_token, x_csrf_token):
+        raise HTTPException(403, "CSRF token mismatch")
+
 # ─── Auth / Session Helpers ───────────────────────────────────────────────────
 
 # In-memory session store: token -> user_id (legacy fallback)

@@ -8,8 +8,9 @@
 
 ## 🔴 CRITICAL
 
-### C-1: SQL Injection in `update_todo` (Stored / Union-based)
+### C-1: SQL Injection in `update_todo` (Stored / Union-based) — ✅ FIXED
 
+- **STATUS:** ✅ FIXED in commit `0a719d7`
 - **SEVERITY:** Critical
 - **FILE:** `api/main.py` (~line 1010-1040)
 - **ISSUE:** The `update_todo` endpoint builds a dynamic SQL `UPDATE` using an f-string:
@@ -17,38 +18,43 @@
   set_clause = ", ".join(f"{k}=:{k}" for k in updates)
   db.execute(f"UPDATE todos SET {set_clause} WHERE id = :id", {**updates, "id": todo_id})
   ```
-  The keys in `updates` come directly from the client (`data.model_dump(exclude_unset=True)`) without key validation. While values are parameterized, the **column names are interpolated** into the query string.
-- **IMPACT:** An attacker who controls the JSON keys of a PATCH request (e.g. by sending a crafted request outside the normal UI) can inject arbitrary SQL into the `SET` clause, potentially reading other users' data, modifying rows without authorization, or altering the database schema.
-- **FIX:** Whitelist allowed update fields explicitly before building the SQL. Do not use f-strings for column names.
+  The keys in `updates` come directly from the client (`data.model_dump(exclude_unset=True)`) without key validation.
+- **FIX:** Column whitelist added:
   ```python
-  ALLOWED_TODO_FIELDS = {"title", "description", "priority", "project_id", "section_id", "due_date", "status"}
-  updates = {k: v for k, v in dumped.items() if k in ALLOWED_TODO_FIELDS}
+  allowed_cols = {"title","description","priority","project_id","section_id","due_date","status","completed_at","updated_at"}
+  safe_updates = {k:v for k,v in updates.items() if k in allowed_cols}
   ```
 
-### C-2: SQL Injection in `update_project` (Stored / Union-based)
+### C-2: SQL Injection in `update_project` (Stored / Union-based) — ✅ FIXED
 
+- **STATUS:** ✅ FIXED in commit `0a719d7`
 - **SEVERITY:** Critical
 - **FILE:** `api/main.py` (~line 1090-1120)
-- **ISSUE:** Same pattern as C-1. Dynamic `SET` clause built via f-string with keys from client input:
+- **ISSUE:** Same pattern as C-1. Dynamic `SET` clause built via f-string with keys from client input.
+- **FIX:** Column whitelist added:
   ```python
-  set_clause = ", ".join(f"{k}=:{k}" for k in updates)
-  db.execute(f"UPDATE projects SET {set_clause} WHERE id = :id", {**updates, "id": project_id})
+  allowed_cols = {"name", "color", "sort_order", "parent_id", "updated_at"}
+  safe_updates = {k: v for k, v in updates.items() if k in allowed_cols}
   ```
-- **IMPACT:** Arbitrary SQL execution via crafted PATCH body keys. Can exfiltrate user data, bypass ownership checks, or delete data.
-- **FIX:** Same fix as C-1 — whitelist keys before interpolation.
 
-### C-3: XSS (Stored + Reflected) in `admin.html` via `renderUsers()`
+### C-3: XSS (Stored + Reflected) in `admin.html` via `renderUsers()` — ✅ FIXED
 
+- **STATUS:** ✅ FIXED in commit `0a719d7`
 - **SEVERITY:** Critical
 - **FILE:** `web/admin.html` (~line 260-290 in `<script>`)
-- **ISSUE:** The `renderUsers()` function embeds user-controlled `username` into an HTML `onclick` attribute **without escaping for attribute context**:
+- **ISSUE:** `escapeHtml()` only escapes `& < > "` but not single quotes (`'`), which are used as attribute delimiters in `onclick="deleteUser(${u.id}, '${escapeHtml(u.username)}')"`.
+- **FIX:** Added `escapeHtmlAttr()` helper that escapes single quotes to `&#39;`:
   ```javascript
-  onclick="openResetPwModal(${u.id}, '${escapeHtml(u.username)}')"
-  onclick="deleteUser(${u.id}, '${escapeHtml(u.username)}')"
+  function escapeHtmlAttr(str) {
+    if (str == null) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
   ```
-  `escapeHtml()` only escapes `& < > "` but does **not** escape single quotes (`'`), which are used as attribute delimiters here. A user with a name like `O'Brien` breaks the HTML, and a name like `');alert('xss` executes arbitrary JavaScript.
-- **IMPACT:** An admin viewing the user list executes attacker-controlled JavaScript. Since admin panel manages all users, this is a full account takeover vector for the admin.
-- **FIX:** Use `escapeHtmlAttr()` (which escapes single quotes to `&#39;`) for all values placed inside HTML attributes, or avoid inline event handlers entirely and use `addEventListener`.
 
 ---
 
