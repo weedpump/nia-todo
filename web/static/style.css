@@ -771,21 +771,22 @@ input[type="color"]::-moz-color-swatch {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 14px;
-  margin: 8px 0 4px 0;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  padding: 6px 0;
+  margin: 6px 0 2px 0;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--text-secondary);
   cursor: default;
   user-select: none;
 }
 
 .section-header.drag-over {
-  border-color: var(--accent);
-  background: var(--bg-hover);
+  color: var(--accent);
+}
+
+.section-header .section-icon {
+  font-size: 12px;
+  flex-shrink: 0;
 }
 
 .section-header .section-name {
@@ -794,9 +795,9 @@ input[type="color"]::-moz-color-swatch {
 }
 
 .section-header .section-count {
-  background: var(--bg-primary);
-  color: var(--text-muted);
   font-size: 11px;
+  color: var(--text-muted);
+  background: var(--bg-tertiary);
   padding: 2px 8px;
   border-radius: 10px;
   min-width: 20px;
@@ -808,9 +809,15 @@ input[type="color"]::-moz-color-swatch {
   border: none;
   color: var(--text-muted);
   cursor: pointer;
-  font-size: 14px;
+  font-size: 12px;
   padding: 2px 6px;
   border-radius: 4px;
+  opacity: 0.5;
+  transition: opacity 0.15s;
+}
+
+.section-header:hover .section-delete {
+  opacity: 1;
 }
 
 .section-header .section-delete:hover {
@@ -819,8 +826,7 @@ input[type="color"]::-moz-color-swatch {
 }
 
 .section-unsorted {
-  background: var(--bg-secondary);
-  border-style: dashed;
+  color: var(--text-muted);
 }
 
 .section-unsorted .section-name {
@@ -829,7 +835,7 @@ input[type="color"]::-moz-color-swatch {
 
 .section-todos {
   min-height: 8px;
-  padding: 2px 0;
+  padding: 2px 0 2px 16px;
   border-radius: var(--radius);
   transition: background 0.15s;
 }
@@ -841,8 +847,8 @@ input[type="color"]::-moz-color-swatch {
 }
 
 .add-section-row {
-  margin: 12px 0 4px 0;
-  padding: 0 14px;
+  margin: 12px 0 4px 16px;
+  padding: 0;
 }
 
 .btn-add-section {
