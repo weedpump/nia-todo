@@ -7,6 +7,11 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-05-16
+
+### Changed
+- **Projekte alphabetisch sortiert**: Sidebar-Baum, Todo-Modal Dropdown und Projekt-Modal Dropdown sortieren jetzt nach Projektname (A→Z)
+
 ## [0.4.1] - 2026-05-16
 
 ### Added
