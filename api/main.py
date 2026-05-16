@@ -1581,6 +1581,47 @@ async def delete_project(project_id: int, user_id: int = Depends(require_auth)):
         await broadcast_change("project_delete", {"id": project_id}, user_id)
         return {"deleted": project_id}
 
+@app.post("/api/projects/{project_id}/clear-done")
+async def clear_done_todos(project_id: int, user_id: int = Depends(require_auth)):
+    """Delete all done todos in a project (including subprojects)."""
+    with get_db() as db:
+        # Check ownership
+        proj = db.execute("SELECT * FROM projects WHERE id = ? AND user_id = ?", (project_id, user_id)).fetchone()
+        if not proj:
+            raise HTTPException(404, "Project not found")
+        
+        # Find all project IDs including descendants
+        project_ids = [project_id]
+        queue = [project_id]
+        while queue:
+            pid = queue.pop(0)
+            children = db.execute("SELECT id FROM projects WHERE parent_id = ? AND user_id = ?", (pid, user_id)).fetchall()
+            for child in children:
+                project_ids.append(child['id'])
+                queue.append(child['id'])
+        
+        # Find all done todo IDs
+        placeholders = ','.join('?' for _ in project_ids)
+        rows = db.execute(
+            f"SELECT id FROM todos WHERE project_id IN ({placeholders}) AND status = 'done' AND user_id = ?",
+            (*project_ids, user_id)
+        ).fetchall()
+        
+        deleted_ids = [r['id'] for r in rows]
+        
+        # Delete them
+        if deleted_ids:
+            del_placeholders = ','.join('?' for _ in deleted_ids)
+            db.execute(f"DELETE FROM reminders WHERE todo_id IN ({del_placeholders})", deleted_ids)
+            db.execute(f"DELETE FROM todos WHERE id IN ({del_placeholders})", deleted_ids)
+            db.commit()
+            
+            # Broadcast each deletion
+            for tid in deleted_ids:
+                await broadcast_change("todo_delete", {"id": tid}, user_id)
+        
+        return {"deleted_count": len(deleted_ids), "deleted_ids": deleted_ids}
+
 # ─── Sections ───────────────────────────────────────────────────────────────
 
 @app.get("/api/sections")
