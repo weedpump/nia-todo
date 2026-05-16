@@ -68,6 +68,20 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(RateLimitMiddleware)
 
+# ─── Security Headers Middleware ─────────────────────────────────────────────
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Add security headers to all responses."""
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' wss:;"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        return response
+
+app.add_middleware(SecurityHeadersMiddleware)
+
 # ─── Auth / Session Helpers ───────────────────────────────────────────────────
 
 # In-memory session store: token -> user_id (legacy fallback)
@@ -561,9 +575,11 @@ def setup_admin(data: AdminSetupRequest, request: Request, _: None = Depends(req
     
     with get_db() as db:
         # Check if already set up
-        config = db.execute("SELECT setup_complete FROM admin_config WHERE id = 1").fetchone()
+        config = db.execute("SELECT setup_complete, admin_token_hash FROM admin_config WHERE id = 1").fetchone()
         if config and config['setup_complete']:
             raise HTTPException(400, "Setup already complete")
+        if config and config['admin_token_hash']:
+            raise HTTPException(400, "Admin password already set")
         
         # Hash admin password
         admin_hash = bcrypt.hashpw(data.admin_password.encode(), bcrypt.gensalt()).decode()
@@ -754,6 +770,11 @@ def delete_user(user_id: int, _: bool = Depends(require_admin)):
         if user['is_admin']:
             raise HTTPException(400, "Cannot delete admin user")
 
+        db.execute("DELETE FROM api_keys WHERE user_id = ?", (user_id,))
+        db.execute("DELETE FROM reminders WHERE todo_id IN (SELECT id FROM todos WHERE user_id = ?)", (user_id,))
+        db.execute("DELETE FROM sections WHERE user_id = ?", (user_id,))
+        db.execute("DELETE FROM todos WHERE user_id = ?", (user_id,))
+        db.execute("DELETE FROM projects WHERE user_id = ? AND id != 1", (user_id,))
         db.execute("DELETE FROM users WHERE id = ?", (user_id,))
         db.commit()
         return {"deleted": user_id}
