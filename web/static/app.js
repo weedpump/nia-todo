@@ -104,12 +104,6 @@ async function checkAuth() {
     currentUser = user;
     currentUser.token = token;
     
-    // Show admin link if user is admin
-    const adminLink = document.getElementById('admin-link');
-    if (adminLink) {
-      adminLink.style.display = currentUser.is_admin ? '' : 'none';
-    }
-    
     // Check if user changed - if so, clear cache and reload
     const lastUserId = localStorage.getItem('last_user_id');
     const newUserId = String(user.id);
@@ -209,11 +203,7 @@ function renderUserInfo() {
   if (settingsNameEl && currentUser) {
     settingsNameEl.textContent = currentUser.display_name || currentUser.username;
   }
-  // Show admin link if user is admin
-  const adminLink = document.getElementById('admin-link');
-  if (adminLink && currentUser) {
-    adminLink.style.display = currentUser.is_admin ? '' : 'none';
-  }
+  // Admin link removed - accessible only via direct URL
 }
 
 function openSettingsModal() {
