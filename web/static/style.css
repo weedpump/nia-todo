@@ -1049,7 +1049,9 @@ input[type="color"]::-moz-color-swatch {
   padding: 12px 16px;
   border-top: 1px solid var(--border);
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
   gap: 8px;
 }
 
