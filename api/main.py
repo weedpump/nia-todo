@@ -721,8 +721,8 @@ def get_vapid_private_key() -> str:
 def get_vapid_public_key() -> str:
     return get_vapid_keys()[1]
 
-async def send_push_notification(user_id: int, title: str, body: str, tag: str, url: str = "/", todo_id: int = None):
-    """Send push notification to all subscriptions of a user."""
+async def send_push_notification(user_id: int, title: str, body: str, tag: str, url: str = "/", todo_id: int = None) -> bool:
+    """Send push notification to all subscriptions of a user. Returns True if at least one was sent."""
     priv_key = get_vapid_private_key()
     payload = json.dumps({"title": title, "body": body, "tag": tag, "url": url, "todoId": todo_id})
 
@@ -732,6 +732,11 @@ async def send_push_notification(user_id: int, title: str, body: str, tag: str, 
             (user_id,)
         ).fetchall()
 
+    if not subs:
+        print(f"[PUSH] No subscriptions for user {user_id}")
+        return False
+
+    success = False
     for sub in subs:
         subscription_info = {
             "endpoint": sub["endpoint"],
@@ -745,6 +750,7 @@ async def send_push_notification(user_id: int, title: str, body: str, tag: str, 
                 vapid_claims=VAPID_CLAIMS,
                 ttl=3600,
             )
+            success = True
         except WebPushException as e:
             # Remove expired/invalid subscriptions
             if e.response and e.response.status_code in (404, 410):
@@ -752,12 +758,15 @@ async def send_push_notification(user_id: int, title: str, body: str, tag: str, 
                     with get_db() as db:
                         db.execute("DELETE FROM push_subscriptions WHERE id = ?", (sub["id"],))
                         db.commit()
+                        print(f"[PUSH] Removed expired subscription {sub['id']}")
                 except Exception:
                     pass
             else:
                 print(f"[PUSH] Failed for user {user_id}: {e}")
         except Exception as e:
             print(f"[PUSH] Error for user {user_id}: {e}")
+    
+    return success
 
 async def check_and_send_reminders():
     """Background task: check for due reminders and send push notifications."""
@@ -774,7 +783,7 @@ async def check_and_send_reminders():
             """).fetchall()
 
         for row in rows:
-            await send_push_notification(
+            success = await send_push_notification(
                 user_id=row["user_id"],
                 title="⏰ Erinnerung",
                 body=row["title"],
@@ -782,16 +791,17 @@ async def check_and_send_reminders():
                 url="/",
                 todo_id=row["todo_id"]
             )
-            # Mark as sent
-            try:
-                with get_db() as db:
-                    db.execute(
-                        "UPDATE reminders SET sent_at = datetime('now') WHERE id = ?",
-                        (row["id"],)
-                    )
-                    db.commit()
-            except Exception as e:
-                print(f"[PUSH] Failed to mark reminder {row['id']} as sent: {e}")
+            if success:
+                # Only mark as sent if push was delivered
+                try:
+                    with get_db() as db:
+                        db.execute(
+                            "UPDATE reminders SET sent_at = datetime('now') WHERE id = ?",
+                            (row["id"],)
+                        )
+                        db.commit()
+                except Exception as e:
+                    print(f"[PUSH] Failed to mark reminder {row['id']} as sent: {e}")
     except Exception as e:
         print(f"[PUSH] Reminder check error: {e}")
 
