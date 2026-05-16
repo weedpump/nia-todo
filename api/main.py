@@ -82,6 +82,45 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(SecurityHeadersMiddleware)
 
+# ─── Local Only Middleware ────────────────────────────────────────────────────
+
+class LocalOnlyMiddleware(BaseHTTPMiddleware):
+    """Block external access to admin/setup endpoints. Allows local and trusted proxy IPs."""
+    LOCAL_ONLY_PATHS = {
+        "/admin",
+        "/setup",
+        "/api/setup/admin",
+        "/api/setup/first-user",
+        "/api/setup/status",
+        "/api/admin/users",
+        "/api/admin/users/",
+        "/api/admin/change-password",
+    }
+
+    async def dispatch(self, request: Request, call_next):
+        path = request.url.path
+
+        if not any(path.startswith(p) for p in self.LOCAL_ONLY_PATHS):
+            return await call_next(request)
+
+        client_ip = get_client_ip(request)
+        allowed_prefixes = (
+            "127.", "::1", "10.", "192.168.", "172.16.", "172.17.", "172.18.", "172.19.",
+            "172.20.", "172.21.", "172.22.", "172.23.", "172.24.", "172.25.",
+            "172.26.", "172.27.", "172.28.", "172.29.", "172.30.", "172.31.",
+        )
+
+        if any(client_ip.startswith(p) for p in allowed_prefixes):
+            return await call_next(request)
+
+        return Response(
+            content='{"detail":"Forbidden: Admin and setup endpoints are only accessible from local network"}',
+            status_code=403,
+            headers={"Content-Type": "application/json"},
+        )
+
+app.add_middleware(LocalOnlyMiddleware)
+
 # ─── Auth / Session Helpers ───────────────────────────────────────────────────
 
 # In-memory session store: token -> user_id (legacy fallback)
