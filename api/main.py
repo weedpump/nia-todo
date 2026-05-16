@@ -1408,7 +1408,8 @@ async def update_todo(todo_id: int, data: TodoUpdate, user_id: int = Depends(req
             safe_updates = {k:v for k,v in updates.items() if k in allowed_cols}
             set_clause = ", ".join(f"{k}=:{k}" for k in safe_updates)
             db.execute(f"UPDATE todos SET {set_clause} WHERE id = :id", {**safe_updates, "id": todo_id})
-        if data.remind_at is not None:
+        # Handle remind_at separately: if explicitly sent (even as null/empty), update reminders
+        if 'remind_at' in dumped:
             db.execute("DELETE FROM reminders WHERE todo_id = ?", (todo_id,))
             if data.remind_at:
                 db.execute("INSERT INTO reminders (todo_id, remind_at, user_id) VALUES (?,?,?)", (todo_id, data.remind_at, user_id))
