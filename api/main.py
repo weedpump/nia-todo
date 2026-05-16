@@ -36,7 +36,7 @@ app.add_middleware(
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allow_headers=["*"],
+    allow_headers=["Authorization", "Content-Type", "X-Session-Token", "X-Admin-Token", "X-Requested-With"],
 )
 
 # ─── Rate Limiting Middleware ───────────────────────────────────────────────────
@@ -78,6 +78,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
         return response
 
 app.add_middleware(SecurityHeadersMiddleware)
@@ -406,11 +407,35 @@ async def websocket_endpoint(websocket: WebSocket):
             user_id = get_current_user(token)
             if user_id:
                 ws_user_id = user_id
+                manager.register_auth(websocket, user_id)
+
+        # If not authenticated via query params, require auth message within 5 seconds
+        if not ws_user_id:
+            try:
+                data = await asyncio.wait_for(websocket.receive_json(), timeout=5.0)
+            except asyncio.TimeoutError:
+                await websocket.close(code=1008)
+                return
+
+            msg_type = data.get("type", "")
+            if msg_type == "auth":
+                token = data.get("token")
+                user_id = get_current_user(token)
+                if user_id:
+                    ws_user_id = user_id
+                    manager.register_auth(websocket, user_id)
+                    await manager.send_personal_message({"type": "auth_ok", "user_id": user_id}, websocket)
+                else:
+                    await websocket.close(code=1008)
+                    return
+            else:
+                await websocket.close(code=1008)
+                return
 
         while True:
             data = await websocket.receive_json()
             msg_type = data.get("type", "")
-            
+
             if msg_type == "auth":
                 token = data.get("token")
                 user_id = get_current_user(token)
