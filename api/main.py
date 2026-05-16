@@ -81,7 +81,64 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
         return response
 
+class CSRFProtectionMiddleware(BaseHTTPMiddleware):
+    """Validate CSRF token for all state-changing requests (POST/PUT/PATCH/DELETE).
+
+    Skipped for:
+    - Login/setup endpoints (these SET the CSRF token)
+    - API key authentication (stateless)
+    - Non-API routes (static files, pages, WS)
+    """
+    SKIP_PATHS = {
+        "/api/login", "/api/admin/login",
+        "/api/setup/admin", "/api/setup/first-user", "/api/setup/status",
+    }
+
+    async def dispatch(self, request: Request, call_next):
+        method = request.method.upper()
+        path = request.url.path
+
+        # Only validate state-changing methods
+        if method not in ("POST", "PUT", "PATCH", "DELETE"):
+            return await call_next(request)
+
+        # Skip non-API routes
+        if not path.startswith("/api/"):
+            return await call_next(request)
+
+        # Skip login/setup endpoints
+        if path in self.SKIP_PATHS:
+            return await call_next(request)
+
+        # Skip API key auth (stateless)
+        auth = request.headers.get("Authorization", "")
+        if auth.startswith("Bearer "):
+            token = auth[7:]
+            if token.startswith("nt_"):
+                return await call_next(request)
+
+        # Double-Submit Cookie Pattern
+        cookie_token = request.cookies.get(CSRF_COOKIE_NAME)
+        header_token = request.headers.get("X-CSRF-Token")
+
+        if not cookie_token or not header_token:
+            return Response(
+                content='{"detail":"CSRF token missing"}',
+                status_code=403,
+                headers={"Content-Type": "application/json"}
+            )
+
+        if not secrets.compare_digest(cookie_token, header_token):
+            return Response(
+                content='{"detail":"CSRF token mismatch"}',
+                status_code=403,
+                headers={"Content-Type": "application/json"}
+            )
+
+        return await call_next(request)
+
 app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(CSRFProtectionMiddleware)
 
 # ─── CSRF Protection ──────────────────────────────────────────────────────────
 
@@ -137,6 +194,14 @@ sessions = {}
 # ─── Password Validation ──────────────────────────────────────────────────────
 
 import re
+
+def sanitize_text(text: str) -> str:
+    """Strip HTML tags, remove null bytes, and trim whitespace from text input."""
+    if text is None:
+        return None
+    text = str(text).strip().replace('\x00', '')
+    text = re.sub(r'<[^>]+>', '', text)
+    return text
 
 def validate_password(password: str, min_length: int = 8) -> str:
     """Validates password meets security requirements. Returns error message or empty string if valid."""
@@ -447,36 +512,29 @@ async def websocket_endpoint(websocket: WebSocket):
         await manager.connect(websocket)
         ws_user_id = None
 
-        # Check token from query params
-        token = websocket.query_params.get('token')
-        if token:
+        # Token kommt nur noch über auth Message, nicht mehr via query params
+        ws_user_id = None
+
+        try:
+            data = await asyncio.wait_for(websocket.receive_json(), timeout=5.0)
+        except asyncio.TimeoutError:
+            await websocket.close(code=1008)
+            return
+
+        msg_type = data.get("type", "")
+        if msg_type == "auth":
+            token = data.get("token")
             user_id = get_current_user(token)
             if user_id:
                 ws_user_id = user_id
                 manager.register_auth(websocket, user_id)
-
-        # If not authenticated via query params, require auth message within 5 seconds
-        if not ws_user_id:
-            try:
-                data = await asyncio.wait_for(websocket.receive_json(), timeout=5.0)
-            except asyncio.TimeoutError:
-                await websocket.close(code=1008)
-                return
-
-            msg_type = data.get("type", "")
-            if msg_type == "auth":
-                token = data.get("token")
-                user_id = get_current_user(token)
-                if user_id:
-                    ws_user_id = user_id
-                    manager.register_auth(websocket, user_id)
-                    await manager.send_personal_message({"type": "auth_ok", "user_id": user_id}, websocket)
-                else:
-                    await websocket.close(code=1008)
-                    return
+                await manager.send_personal_message({"type": "auth_ok", "user_id": user_id}, websocket)
             else:
                 await websocket.close(code=1008)
                 return
+        else:
+            await websocket.close(code=1008)
+            return
 
         while True:
             data = await websocket.receive_json()
@@ -538,7 +596,7 @@ def on_startup():
 # ─── Auth Endpoints (JWT) ─────────────────────────────────────────────────────
 
 @app.post("/api/login")
-def login(data: LoginRequest, request: Request, _: None = Depends(require_login_rate_limit)):
+def login(data: LoginRequest, request: Request, response: Response, _: None = Depends(require_login_rate_limit)):
     ip = get_client_ip(request)
     with get_db() as db:
         user = verify_user_credentials(db, data.username, data.password)
@@ -549,6 +607,9 @@ def login(data: LoginRequest, request: Request, _: None = Depends(require_login_
         log_audit(db, "login_success", user_id=user['id'], ip_address=ip)
         # Generate JWT with versioned secrets
         token = create_jwt_token(user, db)
+        # Generate and set CSRF token (Double-Submit Cookie)
+        csrf_token = generate_csrf_token()
+        set_csrf_cookie(response, csrf_token)
         return {
             "access_token": token,
             "token_type": "bearer",
@@ -557,7 +618,8 @@ def login(data: LoginRequest, request: Request, _: None = Depends(require_login_
                 "username": user['username'],
                 "display_name": user['display_name'],
                 "is_admin": bool(user.get('is_admin', False))
-            }
+            },
+            "csrf_token": csrf_token
         }
 
 @app.post("/api/logout")
@@ -686,6 +748,8 @@ def setup_admin(data: AdminSetupRequest, request: Request, _: None = Depends(req
 
 @app.post("/api/setup/first-user")
 def setup_first_user(data: FirstUserRequest, request: Request, _: None = Depends(require_login_rate_limit)):
+    data.username = sanitize_text(data.username)
+    data.display_name = sanitize_text(data.display_name)
     # Validate user password (min 8 chars)
     error = validate_password(data.password)
     if error:
@@ -779,7 +843,7 @@ def require_admin(authorization: Optional[str] = Header(None)):
     return True
 
 @app.post("/api/admin/login")
-def admin_login(data: AdminLoginRequest, request: Request, _: None = Depends(require_login_rate_limit)):
+def admin_login(data: AdminLoginRequest, request: Request, response: Response, _: None = Depends(require_login_rate_limit)):
     """Admin login with password, returns JWT token."""
     ip = get_client_ip(request)
     with get_db() as db:
@@ -795,11 +859,15 @@ def admin_login(data: AdminLoginRequest, request: Request, _: None = Depends(req
             raise HTTPException(401, "Falsches Admin-Passwort")
         
         token = create_admin_jwt_token(db)
+        # Generate and set CSRF token (Double-Submit Cookie)
+        csrf_token = generate_csrf_token()
+        set_csrf_cookie(response, csrf_token)
         rate_limiter.record_successful_login(ip)
         return {
             "access_token": token,
             "token_type": "bearer",
-            "admin": True
+            "admin": True,
+            "csrf_token": csrf_token
         }
 
 @app.post("/api/admin/logout")
@@ -814,6 +882,8 @@ def admin_logout(authorization: Optional[str] = Header(None), _: bool = Depends(
 
 @app.post("/api/admin/users")
 def create_user(data: CreateUserRequest, _: bool = Depends(require_admin)):
+    data.username = sanitize_text(data.username)
+    data.display_name = sanitize_text(data.display_name)
     # Validate user password (min 8 chars)
     error = validate_password(data.password)
     if error:
@@ -976,12 +1046,12 @@ def list_api_keys(user_id: int = Depends(require_auth)):
 @app.post("/api/me/api-keys")
 def create_api_key(data: CreateApiKeyRequest, user_id: int = Depends(require_auth)):
     """Create a new API key. Full key is returned ONLY ONCE."""
+    name = sanitize_text(data.name) or "API Key"
     with get_db() as db:
         # Generate key
         full_key = generate_api_key()
         key_hash = hash_api_key(full_key)
         key_prefix = get_api_key_prefix(full_key)
-        name = data.name or "API Key"
 
         c = db.execute(
             """INSERT INTO api_keys (user_id, name, key_hash, key_prefix, created_at)
@@ -1049,6 +1119,8 @@ def list_todos(status: Optional[str] = None, project_id: Optional[int] = None, s
 
 @app.post("/api/todos")
 async def create_todo(data: TodoCreate, user_id: int = Depends(require_auth)):
+    data.title = sanitize_text(data.title)
+    data.description = sanitize_text(data.description)
     with get_db() as db:
         c = db.execute(
             "INSERT INTO todos (title, description, priority, project_id, section_id, due_date, updated_at, user_id) VALUES (?,?,?,?,?,?,?,?)",
@@ -1074,6 +1146,10 @@ def get_todo(todo_id: int, user_id: int = Depends(require_auth)):
 
 @app.patch("/api/todos/{todo_id}")
 async def update_todo(todo_id: int, data: TodoUpdate, user_id: int = Depends(require_auth)):
+    if data.title is not None:
+        data.title = sanitize_text(data.title)
+    if data.description is not None:
+        data.description = sanitize_text(data.description)
     with get_db() as db:
         existing = fetch_todo(db, todo_id)
         if not existing:
@@ -1128,6 +1204,7 @@ def list_projects(user_id: int = Depends(require_auth)):
 
 @app.post("/api/projects")
 async def create_project(data: ProjectCreate, user_id: int = Depends(require_auth)):
+    data.name = sanitize_text(data.name)
     with get_db() as db:
         # Validate parent_id: cannot be self and must exist and belong to user
         if data.parent_id is not None:
@@ -1147,6 +1224,8 @@ async def create_project(data: ProjectCreate, user_id: int = Depends(require_aut
 
 @app.patch("/api/projects/{project_id}")
 async def update_project(project_id: int, data: ProjectUpdate, user_id: int = Depends(require_auth)):
+    if data.name is not None:
+        data.name = sanitize_text(data.name)
     with get_db() as db:
         existing = db.execute("SELECT * FROM projects WHERE id = ? AND user_id = ?", (project_id, user_id)).fetchone()
         if not existing:
@@ -1232,6 +1311,7 @@ def list_sections(project_id: int, user_id: int = Depends(require_auth)):
 
 @app.post("/api/projects/{project_id}/sections")
 def create_section(project_id: int, data: SectionCreate, user_id: int = Depends(require_auth)):
+    data.name = sanitize_text(data.name)
     with get_db() as db:
         # Verify project exists and belongs to user
         proj = db.execute("SELECT id FROM projects WHERE id = ? AND user_id = ?", (project_id, user_id)).fetchone()
@@ -1247,6 +1327,8 @@ def create_section(project_id: int, data: SectionCreate, user_id: int = Depends(
 
 @app.patch("/api/sections/{section_id}")
 def update_section(section_id: int, data: SectionUpdate, user_id: int = Depends(require_auth)):
+    if data.name is not None:
+        data.name = sanitize_text(data.name)
     with get_db() as db:
         existing = db.execute("""
             SELECT s.* FROM sections s
@@ -1371,8 +1453,12 @@ if WEB_DIR.exists():
 
     @app.get("/{path:path}")
     def spa(path: str):
-        f = (WEB_DIR / path).resolve()
-        # Prevent path traversal: resolved path must be within WEB_DIR
+        # Only allow filenames (no subdirectories) to prevent path traversal
+        from pathlib import PurePath
+        filename = PurePath(path).name
+        if not filename:
+            return FileResponse(str(WEB_DIR / "index.html"))
+        f = (WEB_DIR / filename).resolve()
         try:
             f.relative_to(WEB_DIR.resolve())
         except ValueError:

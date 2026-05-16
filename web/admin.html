@@ -195,6 +195,11 @@ function getAuthHeaders() {
   if (adminToken) {
     headers['Authorization'] = 'Bearer ' + adminToken;
   }
+  // Add CSRF token for state-changing requests
+  const csrf = localStorage.getItem('csrf_token');
+  if (csrf) {
+    headers['X-CSRF-Token'] = csrf;
+  }
   return headers;
 }
 
@@ -258,6 +263,11 @@ async function doAdminLogin() {
 
     adminToken = data.access_token;
     localStorage.setItem('admin_jwt_token', data.access_token);
+    // Store CSRF token from cookie (Double-Submit Cookie pattern)
+    // The server sets it as a cookie; we also get it in the response body
+    if (data.csrf_token) {
+      localStorage.setItem('csrf_token', data.csrf_token);
+    }
     document.getElementById('admin-login-card').style.display = 'none';
     document.getElementById('admin-content').style.display = 'block';
     const usersData = await apiGet('/api/admin/users');
@@ -434,6 +444,7 @@ async function adminLogout() {
     // Ignore errors on logout
   }
   localStorage.removeItem('admin_jwt_token');
+  localStorage.removeItem('csrf_token');
   adminToken = null;
   document.getElementById('admin-content').style.display = 'none';
   document.getElementById('admin-login-card').style.display = 'block';
