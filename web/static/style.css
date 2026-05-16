@@ -263,6 +263,39 @@ body {
   padding: 4px 0;
 }
 
+/* Project groups within global views */
+.project-group {
+  margin-bottom: 12px;
+}
+.project-group-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+.project-group-header .project-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.project-group-name {
+  flex: 1;
+}
+.project-group-count {
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--bg-tertiary);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+.project-group-todos {
+  padding-left: 16px;
+}
+
 .todo-item {
   display: flex;
   align-items: center;
