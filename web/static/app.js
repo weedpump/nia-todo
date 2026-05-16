@@ -2630,7 +2630,7 @@ function updatePushStatus(status, errorText) {
   };
   statusEl.textContent = 'Status: ' + (texts[status] || status);
 
-  if (enableBtn)   enableBtn.style.display   = (status === 'default' || status === 'denied') ? 'inline-block' : 'none';
+  if (enableBtn)   enableBtn.style.display   = (status === 'default') ? 'inline-block' : 'none';
   if (disableBtn)  disableBtn.style.display  = (status === 'granted') ? 'inline-block' : 'none';
   if (testBtn)     testBtn.style.display     = (status === 'granted') ? 'inline-block' : 'none';
   if (errorEl)     errorEl.textContent = errorText || '';
@@ -2740,7 +2740,7 @@ async function disablePushNotifications() {
     updatePushStatus('default', 'Push-Benachrichtigungen deaktiviert.');
   } catch (e) {
     console.error('[Push] Disable failed:', e);
-    updatePushStatus('granted', String(e.message || e) || 'Fehler beim Deaktivieren');
+    updatePushStatus('default', 'Fehler beim Deaktivieren: ' + String(e.message || e));
   }
 }
 
