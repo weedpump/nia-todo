@@ -1,5 +1,5 @@
 // nia-todo Service Worker - Bulletproof Offline-First + Update-System
-const SW_VERSION = 'v0.4.6';
+const SW_VERSION = 'v0.4.7-dev';
 const CACHE_NAME = 'nia-todo-' + SW_VERSION;
 const API_CACHE = 'nia-todo-api-' + SW_VERSION;
 
