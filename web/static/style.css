@@ -418,7 +418,9 @@ body {
   background: var(--bg-tertiary);
   color: var(--text-secondary);
   cursor: pointer;
-  font-size: 16px;
+  font-family: ui-monospace, 'Cascadia Mono', 'SF Mono', monospace;
+  font-size: 13px;
+  font-weight: 600;
   transition: all 0.2s;
   flex-shrink: 0;
 }
