@@ -228,6 +228,7 @@ function openSettingsModal() {
   if (errorEl) errorEl.textContent = '';
   document.getElementById('settings-modal')?.classList.add('active');
   loadApiKeys();
+  updatePushSettingsUI();
 }
 
 async function changeUserPassword() {
@@ -2606,6 +2607,156 @@ function cycleTheme() {
   const idx = cycle.indexOf(current);
   const next = cycle[(idx + 1) % cycle.length];
   setTheme(next);
+}
+
+// ─── Push Notifications ────────────────────────────────────────────────────
+
+let pushSubscription = null;
+
+function updatePushStatus(status, errorText) {
+  const statusEl = document.getElementById('push-status');
+  const enableBtn = document.getElementById('push-enable-btn');
+  const disableBtn = document.getElementById('push-disable-btn');
+  const testBtn = document.getElementById('push-test-btn');
+  const errorEl = document.getElementById('push-error');
+  if (!statusEl) return;
+
+  const texts = {
+    granted:   '✅ Erlaubt — du bekommst Benachrichtigungen',
+    denied:    '❌ Blockiert — in den Browser-Einstellungen änderbar',
+    default:   '⏳ Nicht gefragt',
+    unknown:   '❓ Service Worker nicht verfügbar',
+    unsupported: '❌ Nicht unterstützt (kein HTTPS?)',
+  };
+  statusEl.textContent = 'Status: ' + (texts[status] || status);
+
+  if (enableBtn)   enableBtn.style.display   = (status === 'default' || status === 'denied') ? 'inline-block' : 'none';
+  if (disableBtn)  disableBtn.style.display  = (status === 'granted') ? 'inline-block' : 'none';
+  if (testBtn)     testBtn.style.display     = (status === 'granted') ? 'inline-block' : 'none';
+  if (errorEl)     errorEl.textContent = errorText || '';
+}
+
+async function updatePushSettingsUI() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    updatePushStatus('unsupported');
+    return;
+  }
+  const perm = Notification.permission;
+  updatePushStatus(perm);
+  if (perm === 'granted') {
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      pushSubscription = sub || null;
+    } catch (e) {
+      console.error('[Push] Error checking subscription:', e);
+    }
+  }
+}
+
+async function enablePushNotifications() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    updatePushStatus('unsupported', 'Push-Benachrichtigungen werden in diesem Browser nicht unterstützt.');
+    return;
+  }
+  try {
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') {
+      updatePushStatus(perm, 'Berechtigung nicht erteilt.');
+      return;
+    }
+
+    // Get VAPID public key from backend
+    const keyRes = await fetch(API + '/api/push/vapid-public-key', { headers: getAuthHeaders(), credentials: 'include' });
+    if (!keyRes.ok) throw new Error('VAPID public key konnte nicht geladen werden');
+    const keyData = await keyRes.json();
+    const vapidPublicKey = keyData.public_key;
+
+    // Subscribe via PushManager
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
+    });
+    pushSubscription = sub;
+
+    // Send subscription to backend
+    const r = await fetch(API + '/api/push/subscribe', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({
+        endpoint: sub.endpoint,
+        keys: { p256dh: arrayBufferToBase64(sub.getKey('p256dh')), auth: arrayBufferToBase64(sub.getKey('auth')) }
+      }),
+      credentials: 'include'
+    });
+    if (!r.ok) {
+      const data = await r.json().catch(() => ({}));
+      throw new Error(data.detail || 'Fehler beim Speichern der Subscription');
+    }
+    updatePushStatus('granted');
+  } catch (e) {
+    console.error('[Push] Enable failed:', e);
+    updatePushStatus('default', e.message || 'Fehler beim Aktivieren');
+  }
+}
+
+async function disablePushNotifications() {
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    if (sub) {
+      await fetch(API + '/api/push/unsubscribe', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ endpoint: sub.endpoint, keys: {} }),
+        credentials: 'include'
+      });
+      await sub.unsubscribe();
+    }
+    pushSubscription = null;
+    updatePushStatus('default');
+  } catch (e) {
+    console.error('[Push] Disable failed:', e);
+    updatePushStatus('default', e.message || 'Fehler beim Deaktivieren');
+  }
+}
+
+async function sendTestPush() {
+  try {
+    const r = await fetch(API + '/api/push/test', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      credentials: 'include'
+    });
+    if (!r.ok) {
+      const data = await r.json().catch(() => ({}));
+      throw new Error(data.detail || 'Fehler');
+    }
+    updatePushStatus('granted', 'Test-Benachrichtigung gesendet!');
+  } catch (e) {
+    updatePushStatus('granted', e.message || 'Fehler beim Senden');
+  }
+}
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+  const rawData = atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
+function arrayBufferToBase64(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
 }
 
 // Keyboard shortcuts

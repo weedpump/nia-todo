@@ -7,6 +7,19 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 
 ## [Unreleased]
 
+### Added
+- **Push Notifications**: PWA-Benachrichtigungen für Todo-Erinnerungen
+  - VAPID-basierte Web Push Notifications
+  - Settings-UI für Aktivieren/Deaktivieren
+  - "Erledigt"-Action direkt aus der Notification
+  - Multi-Device: alle verbundenen Geräte des Users bekommen Benachrichtigungen
+  - Asyncio Background Task prüft alle 60 Sekunden auf fällige Reminders
+  - Automatische Bereinigung ungültiger/expirter Subscriptions
+
+### Removed
+- Telegram-Reminder-Benachrichtigungen (ersetzt durch Push Notifications)
+- `scripts/check-reminders.py` entfernt
+
 ## [0.4.6] - 2026-05-16
 
 ### Fixed
