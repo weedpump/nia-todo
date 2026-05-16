@@ -674,10 +674,16 @@ async function handleWsMessage(msg) {
           if (!local) {
             await dbPut('projects', project);
           } else {
-            const localTime = new Date(local.updated_at || 0).getTime();
-            const serverTime = new Date(project.updated_at || 0).getTime();
-            if (serverTime >= localTime) {
-              await dbPut('projects', project);
+            const queue = await dbGetAll('syncQueue');
+            const pendingChanges = queue.find(q =>
+              q.action === 'UPDATE_PROJECT' && q.data.id === project.id
+            );
+            if (!pendingChanges) {
+              const localTime = new Date(local.updated_at || 0).getTime();
+              const serverTime = new Date(project.updated_at || 0).getTime();
+              if (serverTime >= localTime) {
+                await dbPut('projects', project);
+              }
             }
           }
         }
@@ -689,10 +695,16 @@ async function handleWsMessage(msg) {
           if (!local) {
             await dbPut('sections', section);
           } else {
-            const localTime = new Date(local.updated_at || 0).getTime();
-            const serverTime = new Date(section.updated_at || 0).getTime();
-            if (serverTime >= localTime) {
-              await dbPut('sections', section);
+            const queue = await dbGetAll('syncQueue');
+            const pendingChanges = queue.find(q =>
+              q.action === 'UPDATE_SECTION' && q.data.id === section.id
+            );
+            if (!pendingChanges) {
+              const localTime = new Date(local.updated_at || 0).getTime();
+              const serverTime = new Date(section.updated_at || 0).getTime();
+              if (serverTime >= localTime) {
+                await dbPut('sections', section);
+              }
             }
           }
         }
@@ -768,9 +780,20 @@ async function handleWsMessage(msg) {
       break;
     case 'project_update':
       if (msg.payload) {
-        await dbPut('projects', msg.payload);
-        projects = projects.map(p => p.id === msg.payload.id ? msg.payload : p);
-        renderProjects();
+        const local = await getFromDB('projects', msg.payload.id);
+        if (local) {
+          const localTime = new Date(local.updated_at || 0).getTime();
+          const serverTime = new Date(msg.payload.updated_at || 0).getTime();
+          if (serverTime >= localTime) {
+            await dbPut('projects', msg.payload);
+            projects = projects.map(p => p.id === msg.payload.id ? msg.payload : p);
+            renderProjects();
+          }
+        } else {
+          await dbPut('projects', msg.payload);
+          projects = projects.map(p => p.id === msg.payload.id ? msg.payload : p);
+          renderProjects();
+        }
       }
       break;
     case 'project_delete':
@@ -972,6 +995,22 @@ async function syncWithServer() {
         } catch (err) {
           if (err.message && err.message.includes('404')) {
             console.warn('Project', item.data.id, 'already deleted, skipping');
+          } else {
+            throw err;
+          }
+        }
+      } else if (item.action === 'UPDATE_PROJECT') {
+        try {
+          await patch(`/api/projects/${item.data.id}`, item.data.changes);
+          const localProject = await getFromDB('projects', item.data.id);
+          if (localProject) {
+            const updated = { ...localProject, ...item.data.changes, updated_at: new Date().toISOString() };
+            await dbPut('projects', updated);
+          }
+          successCount++;
+        } catch (err) {
+          if (err.message && err.message.includes('404')) {
+            console.warn('Project', item.data.id, 'not found on server, skipping');
           } else {
             throw err;
           }
