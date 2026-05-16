@@ -283,6 +283,13 @@
     </div>
   </div>
 
+  <!-- Undo Toast -->
+  <div class="toast-container" id="toast-container" style="display:none;">
+    <span id="toast-message"></span>
+    <button class="toast-undo" id="toast-undo" onclick="undoLastAction()">Rückgängig</button>
+    <button class="toast-close" onclick="hideToast()">✕</button>
+  </div>
+
   <script src="/static/app.js"></script>
 </body>
 </html>
