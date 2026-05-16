@@ -459,6 +459,15 @@ function applyTheme(mode) {
   document.querySelectorAll('.theme-option').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.theme === mode);
   });
+
+  // Update single toggle button icon + title
+  const toggleBtn = document.getElementById('theme-toggle-btn');
+  if (toggleBtn) {
+    const icons = { light: '☀️', dark: '🌙', system: '💻' };
+    const titles = { light: 'Hell', dark: 'Dunkel', system: 'System' };
+    toggleBtn.textContent = icons[mode] || icons.system;
+    toggleBtn.title = `Theme: ${titles[mode] || titles.system} (klicken zum Wechseln)`;
+  }
 }
 
 // Listen to system theme changes
@@ -2207,6 +2216,14 @@ function updateToggleDoneButton() {
     btn.textContent = '✅';
     btn.title = 'Erledigte ausblenden';
   }
+}
+
+function cycleTheme() {
+  const cycle = ['light', 'dark', 'system'];
+  const current = localStorage.getItem('theme') || 'system';
+  const idx = cycle.indexOf(current);
+  const next = cycle[(idx + 1) % cycle.length];
+  setTheme(next);
 }
 
 // Keyboard shortcuts
