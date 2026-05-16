@@ -393,6 +393,42 @@ body {
   max-width: 200px;
 }
 
+.todo-desc-preview ul {
+  margin: 0;
+  padding-left: 16px;
+  list-style: disc;
+}
+
+.todo-desc-preview li {
+  margin: 2px 0;
+}
+
+.todo-desc-preview code {
+  background: var(--bg-tertiary);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-family: monospace;
+}
+
+.todo-desc-preview a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.todo-desc-preview a:hover {
+  text-decoration: underline;
+}
+
+.todo-desc-preview strong {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.todo-desc-preview em {
+  font-style: italic;
+}
+
 .todo-title {
   font-size: 14px;
   font-weight: 500;
