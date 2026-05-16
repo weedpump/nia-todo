@@ -2682,11 +2682,27 @@ async function updatePushSettingsUI() {
     pushSubscription = sub || null;
     
     if (perm === 'granted' && sub) {
-      // Active subscription → show as enabled
+      // Browser says active, but also check server status
+      try {
+        const r = await fetch(API + '/api/push/status', {
+          headers: getAuthHeaders(),
+          credentials: 'include'
+        });
+        if (r.ok) {
+          const serverStatus = await r.json();
+          if (!serverStatus.has_subscriptions) {
+            // Server has no subscriptions → show as inactive
+            updatePushStatus('default', 'Berechtigung vorhanden, aber Server kennt keine aktive Subscription. Klicke "Aktivieren".');
+            return;
+          }
+        }
+      } catch (e) {
+        console.error('[Push] Server status check failed:', e);
+      }
+      // Active subscription confirmed by server
       updatePushStatus('granted');
     } else if (perm === 'granted' && !sub) {
       // Permission granted but no active subscription → show as disabled
-      // (user unsubscribed or never subscribed)
       updatePushStatus('default', 'Berechtigung vorhanden, aber keine aktive Subscription. Klicke "Aktivieren".');
     } else if (perm === 'denied') {
       updatePushStatus('denied', 'In den Browser-Einstellungen für diese Seite änderbar.');
