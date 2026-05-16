@@ -379,7 +379,9 @@ body {
 }
 
 .todo-meta {
-  display: none;
+  display: inline;
+  font-size: 12px;
+  color: var(--text-muted);
 }
 
 .todo-due { color: var(--warning); }
