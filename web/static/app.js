@@ -26,7 +26,7 @@ let sortMode = localStorage.getItem('nia-sort') || 'order';
 let undoAction = null;
 let undoTimer = null;
 let pendingUndoBatch = null; // For batch operations like clear-done
-const APP_VERSION = 'v0.4.9';
+const APP_VERSION = 'v0.4.10-dev';
 
 // ─── Auth / User (JWT) ───────────────────────────────────────────────────────
 
