@@ -40,6 +40,8 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 - WebSocket Auth: Token wird als Message statt Query-Parameter gesendet
 - JWT-Ablaufzeit: 7 Tage → 1 Tag
 - OpenAPI docs deaktiviert in Produktion
+- **UI**: Admin-Link aus Sidebar entfernt (nur direkte URL /admin)
+- **UI**: Abmelden-Button als Icon neben Einstellungen, kompaktere User-Bar
 
 ### Security
 - **SQL Injection** in `update_todo` und `update_project` behoben (Column-Whitelist)
