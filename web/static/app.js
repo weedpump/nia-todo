@@ -1280,8 +1280,12 @@ function renderProjects() {
     }
   });
   
-  // Sort roots alphabetically
-  rootProjects.sort((a, b) => a.name.localeCompare(b.name));
+  // Sort roots: Inbox first, then alphabetisch
+  rootProjects.sort((a, b) => {
+    if (a.id === 1) return -1;
+    if (b.id === 1) return 1;
+    return a.name.localeCompare(b.name);
+  });
   
   // Recursive render function
   function renderProjectTree(project, depth = 0) {
@@ -1687,7 +1691,11 @@ async function showTodoModal(todo = null) {
       }
     });
     
-    rootProjects.sort((a, b) => a.name.localeCompare(b.name));
+    rootProjects.sort((a, b) => {
+      if (a.id === 1) return -1;
+      if (b.id === 1) return 1;
+      return a.name.localeCompare(b.name);
+    });
     
     // Recursive function to add options with indentation
     function addProjectOptions(projectNode, depth = 0) {
@@ -1905,7 +1913,11 @@ function showProjectModal(project = null, parentId = null) {
       }
     });
     
-    rootProjects.sort((a, b) => a.name.localeCompare(b.name));
+    rootProjects.sort((a, b) => {
+      if (a.id === 1) return -1;
+      if (b.id === 1) return 1;
+      return a.name.localeCompare(b.name);
+    });
     
     // Recursive function
     function addProjectOptions(projectNode, depth = 0) {
