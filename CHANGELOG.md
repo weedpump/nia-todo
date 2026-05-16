@@ -20,37 +20,24 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 - **Erledigte löschen**: Inline-Button neben "Neue Section" löscht alle done Todos im Projekt
   - Inklusive Subprojekten
   - Bestätigungsdialog mit Anzahl
-- **UX-Verbesserung**: Neues Todo hat aktuelles Projekt vorausgewählt (oder Inbox)
+  - **Batch-Undo**: Rückgängig-Machen stellt alle gelöschten Todos wieder her
+- **Projekt merken**: Letztes ausgewähltes Projekt/Filter wird nach Reload wiederhergestellt
+- **Shortcut 'n'**: Öffnet Todo-Modal und fokussiert direkt das Titel-Feld
+- **Deadline & Überfälligkeit**: Zeigt wieder in Todo-Liste an (zweite Zeile)
+- **Beschreibung**: Wird jetzt in Todo-Liste angezeigt (dritte Zeile, max. 12 Wörter)
+- **Markdown Support**: Beschreibungen unterstützen **fett**, *kursiv*, `code`, - Listen, [Links](url)
+- **Live Markdown Preview**: Echtzeit-Vorschau im Todo-Bearbeitungs-Modal
 
 ### Fixed
 - **Reminder löschen**: Erinnerung kann jetzt entfernt werden (Feld leer → löscht Reminder)
-- **Sync-Duplikate**: Race-Condition für Sections und Projects behoben
+- **Sync-Duplikate**: Race-Condition für Todos, Sections und Projects behoben
 - **Async Startup**: Background-Loop startet jetzt zuverlässig (vorher sync def mit asyncio.create_task)
 - **Service Worker**: Ignoriert silent Health-Check Pushes (keine leeren Notifications)
+- **Undo-Toast**: Toast-Notification ist jetzt mittig zentriert auf Mobile
 
 ### Removed
 - Telegram-Reminder-Skripte (ersetzt durch Push Notifications)
 - SECURITY_AUDIT Dateien (interne Debug-Dateien)
-
-### Added
-- **Push Notifications**: PWA-Benachrichtigungen für Todo-Erinnerungen
-  - VAPID-basierte Web Push Notifications
-  - Settings-UI für Aktivieren/Deaktivieren
-  - "Erledigt"-Action direkt aus der Notification
-  - Multi-Device: alle verbundenen Geräte des Users bekommen Benachrichtigungen
-  - Asyncio Background Task prüft alle 60 Sekunden auf fällige Reminders
-  - Automatische Bereinigung ungültiger/expirter Subscriptions
-
-### Fixed
-- **Sync-Duplikate**: Race-Condition bei gleichzeitigem Broadcast + Sync behoben
-  - Todos, Sections und Projects werden nicht mehr doppelt angezeigt
-  - Temp-Einträge werden korrekt durch Server-Einträge ersetzt
-- **Reminder-Zeitzone**: Erinnerungs-Zeit wird jetzt in lokaler Zeit angezeigt (nicht UTC)
-- **Undo-Toast**: Toast-Notification ist jetzt mittig zentriert auf Mobile
-
-### Removed
-- Telegram-Reminder-Benachrichtigungen (ersetzt durch Push Notifications)
-- `scripts/check-reminders.py` entfernt
 
 ## [0.4.6] - 2026-05-16
 
