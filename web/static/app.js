@@ -1937,8 +1937,10 @@ async function showTodoModal(todo = null) {
     if (todo.due_date) {
       document.getElementById('todo-due').value = new Date(todo.due_date).toISOString().slice(0, 16);
     }
-    if (todo.remind_at) {
-      document.getElementById('todo-remind').value = new Date(todo.remind_at).toISOString().slice(0, 16);
+    // Handle both old format (remind_at string) and server format (reminders array)
+    const reminderDate = todo.remind_at || (todo.reminders && todo.reminders[0] && todo.reminders[0].remind_at);
+    if (reminderDate) {
+      document.getElementById('todo-remind').value = new Date(reminderDate).toISOString().slice(0, 16);
     }
   }
 
