@@ -1533,10 +1533,10 @@ function renderTodoItem(t) {
   const prioEmoji = {1: '🔴', 2: '🟡', 3: '🟢', 4: '⚪'}[t.priority] || '⚪';
 
   return `
-    <div class="todo-item ${t.status === 'done' ? 'done' : ''}" data-id="${t.id}" draggable="true" onclick="editTodo(${t.id})"
+    <div class="todo-item ${t.status === 'done' ? 'done' : t.status === 'in_progress' ? 'in-progress' : ''}" data-id="${t.id}" draggable="true" onclick="editTodo(${t.id})"
       ondragstart="handleTodoDragStart(event)" ondragend="handleTodoDragEnd(event)">
       <div class="todo-check" onclick="event.stopPropagation(); toggleTodo(${t.id})">
-        ${t.status === 'done' ? '✓' : ''}
+        ${t.status === 'done' ? '✓' : t.status === 'in_progress' ? '●' : ''}
       </div>
       <div class="todo-body">
         <span class="todo-prio" title="Priorität">${prioEmoji}</span>
@@ -1632,7 +1632,8 @@ async function toggleTodo(id) {
   const t = todos.find(x => x.id === id);
   if (!t) return;
 
-  const newStatus = t.status === 'done' ? 'pending' : 'done';
+  const cycle = { pending: 'in_progress', in_progress: 'done', done: 'pending' };
+  const newStatus = cycle[t.status] || 'pending';
 
   // Update local
   const updatedTodo = { ...t, status: newStatus, updated_at: new Date().toISOString() };

@@ -332,9 +332,23 @@ body {
 }
 
 .todo-check:hover { border-color: var(--accent); }
+
 .todo-item.done .todo-check {
   background: var(--success);
   border-color: var(--success);
+}
+
+.todo-item.in-progress .todo-check {
+  border-color: var(--warning);
+  color: var(--warning);
+}
+
+.todo-item.in-progress {
+  border-left: 3px solid var(--warning);
+}
+
+.todo-item.in-progress .todo-title {
+  font-weight: 600;
 }
 
 .todo-body {
