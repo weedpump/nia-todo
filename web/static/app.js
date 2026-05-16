@@ -2235,6 +2235,7 @@ function showProjectModal(project = null, parentId = null) {
   }
 
   document.getElementById('project-delete-btn').style.display = (project && project.id !== 1) ? '' : 'none';
+  document.getElementById('project-clear-done-btn').style.display = project ? '' : 'none';
   document.getElementById('project-modal')?.classList.add('active');
 }
 
@@ -2306,6 +2307,39 @@ async function deleteProject(id) {
 function deleteProjectFromModal() {
   const id = document.getElementById('project-id').value;
   if (id) deleteProject(parseInt(id));
+}
+
+async function clearDoneFromModal() {
+  const id = document.getElementById('project-id').value;
+  if (!id) return;
+  const projectId = parseInt(id);
+  const project = projects.find(p => p.id === projectId);
+  if (!project) return;
+
+  const doneCount = todos.filter(t => t.project_id === projectId && t.status === 'done').length;
+  if (doneCount === 0) {
+    showToast('Keine erledigten Todos in diesem Projekt');
+    return;
+  }
+
+  if (!confirm(`${doneCount} erledigte Todo(s) in "${project.name}" löschen?`)) return;
+
+  try {
+    const r = await post(`/api/projects/${projectId}/clear-done`, {});
+    if (r.ok) {
+      const result = await r.json();
+      // Remove done todos from local array
+      todos = todos.filter(t => !(t.project_id === projectId && t.status === 'done'));
+      renderStats();
+      renderTodos();
+      showToast(`${result.deleted_count} erledigte Todo(s) gelöscht`);
+    } else {
+      showToast('Fehler beim Löschen');
+    }
+  } catch (err) {
+    console.error('Clear done error:', err);
+    showToast('Fehler beim Löschen');
+  }
 }
 
 // ─── Modal Helpers ───────────────────────────────────────────────────────────
