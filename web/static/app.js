@@ -730,20 +730,13 @@ async function handleWsMessage(msg) {
     case 'todo_create':
       if (msg.payload) {
         await dbPut('todos', msg.payload);
-        // Check if we have a temp todo in queue for this server response
-        const queue = await dbGetAll('syncQueue');
-        const pendingCreate = queue.find(q =>
-          q.action === 'CREATE_TODO' && q.data._tempId
-        );
-        if (pendingCreate) {
-          // Replace temp todo with real server version
-          await deleteFromDB('todos', pendingCreate.data._tempId);
-          todos = todos.filter(t => t.id !== pendingCreate.data._tempId && t.id !== msg.payload.id);
-          todos.push(msg.payload);
+        const existing = todos.find(t => t.id === msg.payload.id);
+        if (existing) {
+          // Replace existing todo with server version (avoids duplicates)
+          todos = todos.map(t => t.id === msg.payload.id ? msg.payload : t);
         } else {
-          // Broadcast from another client → add to list
-          const existing = todos.find(t => t.id === msg.payload.id);
-          if (!existing) todos.push(msg.payload);
+          // New todo from another client → add to list
+          todos.push(msg.payload);
         }
         renderProjects();
         renderStats();
@@ -1010,7 +1003,14 @@ async function syncWithServer() {
           todos = todos.filter(t => t.id !== item.data._tempId);
         }
         await dbPut('todos', res);
-        todos.push(res);
+        // Check if broadcast already added this todo
+        const alreadyExists = todos.find(t => t.id === res.id);
+        if (!alreadyExists) {
+          todos.push(res);
+        } else {
+          // Replace with server response to ensure consistency
+          todos = todos.map(t => t.id === res.id ? res : t);
+        }
         successCount++;
       } else if (item.action === 'UPDATE_TODO') {
         try {
