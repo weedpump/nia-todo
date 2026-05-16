@@ -21,6 +21,67 @@ from db import init_db, get_db, row_to_dict, now_iso
 from migrate import run_migrations
 from rate_limit import rate_limiter, require_login_rate_limit, require_api_rate_limit, get_client_ip, get_client_ip_ws
 
+# ─── CSRF Protection ──────────────────────────────────────────────────────────
+
+def generate_csrf_token() -> str:
+    """Generate a random CSRF token."""
+    return secrets.token_urlsafe(32)
+
+def set_csrf_cookie(response: Response, token: str):
+    """Set CSRF token in a secure cookie."""
+    response.set_cookie(
+        key="csrf_token",
+        value=token,
+        httponly=False,  # Must be readable by JS for double-submit
+        secure=True,     # Only over HTTPS
+        samesite="lax",  # CSRF protection
+        max_age=86400,   # 24 hours
+    )
+
+def get_csrf_from_cookie(request: Request) -> Optional[str]:
+    return request.cookies.get("csrf_token")
+
+def require_csrf(request: Request):
+    """Dependency: validate CSRF token for state-changing requests.
+    
+    Exempt: API-Key auth, login/setup endpoints, GET requests.
+    """
+    method = request.method
+    path = request.url.path
+    
+    # Skip for safe methods
+    if method in ("GET", "HEAD", "OPTIONS"):
+        return
+    
+    # Skip login/setup endpoints
+    exempt_paths = {
+        "/api/login", "/api/admin/login",
+        "/api/setup/admin", "/api/setup/first-user", "/api/setup/status",
+    }
+    if path in exempt_paths:
+        return
+    
+    # Skip if using API-Key auth
+    auth = request.headers.get("Authorization", "")
+    if auth.startswith("ApiKey "):
+        return
+    
+    # Validate CSRF double-submit
+    cookie_token = get_csrf_from_cookie(request)
+    header_token = request.headers.get("X-CSRF-Token")
+    
+    if not cookie_token or not header_token:
+        raise HTTPException(
+            status_code=403,
+            detail="CSRF token missing. Please include X-CSRF-Token header."
+        )
+    
+    if not secrets.compare_digest(cookie_token, header_token):
+        raise HTTPException(
+            status_code=403,
+            detail="CSRF token mismatch."
+        )
+
 # Migrationen beim Import ausführen (vor App-Start)
 run_migrations()
 
