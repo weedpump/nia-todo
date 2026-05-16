@@ -1020,8 +1020,11 @@ async def update_todo(todo_id: int, data: TodoUpdate, user_id: int = Depends(req
                 updates['completed_at'] = now_iso()
             elif data.status != 'done' and existing['status'] == 'done':
                 updates['completed_at'] = None
-            set_clause = ", ".join(f"{k}=:{k}" for k in updates)
-            db.execute(f"UPDATE todos SET {set_clause} WHERE id = :id", {**updates, "id": todo_id})
+            # Whitelist allowed columns to prevent SQL injection
+            allowed_cols = {"title","description","priority","project_id","section_id","due_date","status","completed_at","updated_at"}
+            safe_updates = {k:v for k,v in updates.items() if k in allowed_cols}
+            set_clause = ", ".join(f"{k}=:{k}" for k in safe_updates)
+            db.execute(f"UPDATE todos SET {set_clause} WHERE id = :id", {**safe_updates, "id": todo_id})
         if data.remind_at is not None:
             db.execute("DELETE FROM reminders WHERE todo_id = ?", (todo_id,))
             if data.remind_at:
@@ -1097,8 +1100,11 @@ async def update_project(project_id: int, data: ProjectUpdate, user_id: int = De
                 updates[f] = v
         if updates:
             updates['updated_at'] = now_iso()
-            set_clause = ", ".join(f"{k}=:{k}" for k in updates)
-            db.execute(f"UPDATE projects SET {set_clause} WHERE id = :id", {**updates, "id": project_id})
+            # Whitelist allowed columns to prevent SQL injection
+            allowed_cols = {"name", "color", "sort_order", "parent_id", "updated_at"}
+            safe_updates = {k: v for k, v in updates.items() if k in allowed_cols}
+            set_clause = ", ".join(f"{k}=:{k}" for k in safe_updates)
+            db.execute(f"UPDATE projects SET {set_clause} WHERE id = :id", {**safe_updates, "id": project_id})
             db.commit()
         row = db.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
         proj = dict(row)
