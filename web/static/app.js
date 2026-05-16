@@ -1641,6 +1641,14 @@ async function toggleTodo(id) {
 
   // UI updaten
   todos = todos.map(todo => todo.id === id ? updatedTodo : todo);
+
+  // Wenn gefilterte Ansicht → auf "Alle" umschalten damit das Todo sichtbar bleibt
+  if (currentFilter !== 'all') {
+    currentFilter = 'all';
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.querySelector('[data-filter="all"]')?.classList.add('active');
+  }
+
   renderStats();
   renderTodos();
 
