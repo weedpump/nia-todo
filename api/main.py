@@ -14,9 +14,17 @@ import secrets
 import string
 import time
 import sqlite3
+import base64
+from datetime import datetime, timezone, timedelta
 
 import bcrypt
 import jwt as pyjwt
+
+# ─── Web Push (VAPID) ───────────────────────────────────────────────────────
+from py_vapid import Vapid
+from pywebpush import webpush, WebPushException
+from cryptography.hazmat.primitives import serialization
+
 from db import init_db, get_db, row_to_dict, now_iso
 from migrate import run_migrations
 from rate_limit import rate_limiter, require_login_rate_limit, require_api_rate_limit, get_client_ip, get_client_ip_ws
@@ -491,6 +499,14 @@ class ProjectCreate(BaseModel):
     sort_order: int = 0
     parent_id: Optional[int] = None
 
+class PushSubscription(BaseModel):
+    endpoint: str
+    keys: dict  # { p256dh: str, auth: str }
+
+class PushTestRequest(BaseModel):
+    title: str = "🔔 Test-Benachrichtigung"
+    body: str = "Push Notifications sind aktiviert! ✅"
+
 # ─── Helper ────────────────────────────────────────────────────────────────────
 
 def fetch_todo(db, todo_id: int) -> Optional[dict]:
@@ -654,11 +670,132 @@ async def broadcast_change(event_type: str, payload: dict, user_id: int):
     """Broadcast change only to the user who owns the data."""
     await manager.broadcast_to_user(user_id, {"type": event_type, "payload": payload})
 
+# ─── VAPID / Push Notification Helpers ───────────────────────────────────────
+
+VAPID_KEYS_PATH = Path(__file__).parent / "data" / "vapid_keys.json"
+VAPID_CLAIMS = {"sub": "mailto:nia-todo@kneidl-home.de"}
+
+def get_vapid_keys() -> tuple[str, str]:
+    """Load or generate VAPID key pair (private_pem, public_b64url)."""
+    if VAPID_KEYS_PATH.exists():
+        try:
+            data = json.loads(VAPID_KEYS_PATH.read_text())
+            return data["private_pem"], data["public_b64url"]
+        except Exception:
+            pass
+    # Generate new keys
+    v = Vapid()
+    v.generate_keys()
+    priv_pem = v.private_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption()
+    ).decode()
+    pub_raw = v.public_key.public_bytes(
+        encoding=serialization.Encoding.X962,
+        format=serialization.PublicFormat.UncompressedPoint
+    )
+    pub_b64url = base64.urlsafe_b64encode(pub_raw).decode().rstrip("=")
+    VAPID_KEYS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    VAPID_KEYS_PATH.write_text(json.dumps({"private_pem": priv_pem, "public_b64url": pub_b64url}))
+    return priv_pem, pub_b64url
+
+def get_vapid_private_key() -> str:
+    return get_vapid_keys()[0]
+
+def get_vapid_public_key() -> str:
+    return get_vapid_keys()[1]
+
+async def send_push_notification(user_id: int, title: str, body: str, tag: str, url: str = "/", todo_id: int = None):
+    """Send push notification to all subscriptions of a user."""
+    priv_key = get_vapid_private_key()
+    payload = json.dumps({"title": title, "body": body, "tag": tag, "url": url, "todoId": todo_id})
+
+    with get_db() as db:
+        subs = db.execute(
+            "SELECT id, endpoint, p256dh, auth FROM push_subscriptions WHERE user_id = ?",
+            (user_id,)
+        ).fetchall()
+
+    for sub in subs:
+        subscription_info = {
+            "endpoint": sub["endpoint"],
+            "keys": {"p256dh": sub["p256dh"], "auth": sub["auth"]}
+        }
+        try:
+            webpush(
+                subscription_info=subscription_info,
+                data=payload,
+                vapid_private_key=priv_key,
+                vapid_claims=VAPID_CLAIMS,
+                ttl=3600,
+            )
+        except WebPushException as e:
+            # Remove expired/invalid subscriptions
+            if e.response and e.response.status_code in (404, 410):
+                try:
+                    with get_db() as db:
+                        db.execute("DELETE FROM push_subscriptions WHERE id = ?", (sub["id"],))
+                        db.commit()
+                except Exception:
+                    pass
+            else:
+                print(f"[PUSH] Failed for user {user_id}: {e}")
+        except Exception as e:
+            print(f"[PUSH] Error for user {user_id}: {e}")
+
+async def check_and_send_reminders():
+    """Background task: check for due reminders and send push notifications."""
+    try:
+        with get_db() as db:
+            rows = db.execute("""
+                SELECT r.id, r.todo_id, r.remind_at, r.user_id, t.title, t.status
+                FROM reminders r
+                JOIN todos t ON r.todo_id = t.id
+                WHERE r.remind_at <= datetime('now')
+                  AND r.sent_at IS NULL
+                  AND t.status IN ('pending', 'in_progress')
+                ORDER BY r.remind_at
+            """).fetchall()
+
+        for row in rows:
+            await send_push_notification(
+                user_id=row["user_id"],
+                title="⏰ Erinnerung",
+                body=row["title"],
+                tag=f"reminder-{row['todo_id']}",
+                url="/",
+                todo_id=row["todo_id"]
+            )
+            # Mark as sent
+            try:
+                with get_db() as db:
+                    db.execute(
+                        "UPDATE reminders SET sent_at = datetime('now') WHERE id = ?",
+                        (row["id"],)
+                    )
+                    db.commit()
+            except Exception as e:
+                print(f"[PUSH] Failed to mark reminder {row['id']} as sent: {e}")
+    except Exception as e:
+        print(f"[PUSH] Reminder check error: {e}")
+
+async def reminder_background_task():
+    """Run reminder check every 60 seconds."""
+    while True:
+        await asyncio.sleep(60)
+        try:
+            await check_and_send_reminders()
+        except Exception as e:
+            print(f"[PUSH] Background task error: {e}")
+
 # ─── Init DB on startup ─────────────────────────────────────────────────────
 
 @app.on_event("startup")
 def on_startup():
     init_db()
+    # Start background reminder loop
+    asyncio.create_task(reminder_background_task())
 
 # ─── Auth Endpoints (JWT) ─────────────────────────────────────────────────────
 
@@ -1507,6 +1644,56 @@ def dashboard(user_id: int = Depends(require_auth)):
             "overdue": overdue,
             "due_today": due_today
         }
+
+# ─── Push Notification Endpoints ─────────────────────────────────────────────
+
+@app.get("/api/push/vapid-public-key")
+def get_vapid_public_key_endpoint():
+    """Return the VAPID public key for the frontend to subscribe."""
+    return {"public_key": get_vapid_public_key()}
+
+@app.post("/api/push/subscribe")
+def push_subscribe(data: PushSubscription, user_id: int = Depends(require_auth)):
+    """Save a push subscription for the current user."""
+    p256dh = data.keys.get("p256dh")
+    auth = data.keys.get("auth")
+    if not p256dh or not auth:
+        raise HTTPException(400, "Missing p256dh or auth key")
+    with get_db() as db:
+        db.execute(
+            """INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth)
+               VALUES (?, ?, ?, ?)
+               ON CONFLICT(user_id, endpoint) DO UPDATE SET
+               p256dh = excluded.p256dh,
+               auth = excluded.auth,
+               created_at = datetime('now')""",
+            (user_id, data.endpoint, p256dh, auth)
+        )
+        db.commit()
+    return {"subscribed": True}
+
+@app.post("/api/push/unsubscribe")
+def push_unsubscribe(data: PushSubscription, user_id: int = Depends(require_auth)):
+    """Remove a push subscription for the current user."""
+    with get_db() as db:
+        db.execute(
+            "DELETE FROM push_subscriptions WHERE user_id = ? AND endpoint = ?",
+            (user_id, data.endpoint)
+        )
+        db.commit()
+    return {"unsubscribed": True}
+
+@app.post("/api/push/test")
+async def push_test(data: PushTestRequest, user_id: int = Depends(require_auth)):
+    """Send a test push notification to all subscriptions of the current user."""
+    await send_push_notification(
+        user_id=user_id,
+        title=data.title,
+        body=data.body,
+        tag="test",
+        url="/"
+    )
+    return {"sent": True}
 
 # ─── Static frontend ──────────────────────────────────────────────────────────
 

@@ -1,4 +1,4 @@
-// nia-todo Service Worker - Bulletproof Offline-First + Update-System
+// nia-todo Service Worker - Bulletproof Offline-First + Update-System + Push Notifications
 const SW_VERSION = 'v0.4.7-dev';
 const CACHE_NAME = 'nia-todo-' + SW_VERSION;
 const API_CACHE = 'nia-todo-api-' + SW_VERSION;
@@ -84,6 +84,70 @@ self.addEventListener('message', (event) => {
     console.log('SW: skipWaiting received, activating new version');
     self.skipWaiting();
   }
+});
+
+// ─── Push Event ──────────────────────────────────────────────────────────────
+self.addEventListener('push', (event) => {
+  let data = {};
+  try {
+    data = event.data.json();
+  } catch (e) {
+    data = { title: '⏰ Erinnerung', body: 'Neue Benachrichtigung', tag: 'default' };
+  }
+
+  const title = data.title || 'nia-todo';
+  const body = data.body || '';
+  const tag = data.tag || ('push-' + Date.now());
+  const url = data.url || '/';
+  const todoId = data.todoId;
+
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body: body,
+      icon: '/static/icons/icon-192.png',
+      badge: '/static/icons/icon-192.png',
+      tag: tag,
+      data: { url: url, todoId: todoId },
+      actions: [
+        { action: 'open', title: 'Öffnen' },
+        { action: 'done', title: '✅ Erledigt' }
+      ],
+      requireInteraction: false,
+    })
+  );
+});
+
+// ─── Notification Click ──────────────────────────────────────────────────────
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+
+  const action = event.action;
+  const data = event.notification.data || {};
+  const todoId = data.todoId;
+  const url = data.url || '/';
+
+  if (action === 'open' || !action) {
+    // Open app
+    event.waitUntil(clients.openWindow(url));
+  } else if (action === 'done' && todoId) {
+    // Mark todo as done via API, then open app
+    event.waitUntil(
+      fetch('/api/todos/' + todoId, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'done' }),
+        credentials: 'include'
+      }).catch(() => {}).then(() => clients.openWindow('/'))
+    );
+  } else {
+    event.waitUntil(clients.openWindow(url));
+  }
+});
+
+// ─── Notification Close (optional cleanup) ───────────────────────────────────
+self.addEventListener('notificationclose', (event) => {
+  // Nothing special needed, but good to log for debugging
+  console.log('SW: Notification closed', event.notification.tag);
 });
 
 // ─── Fetch ───────────────────────────────────────────────────────────────────
