@@ -7,6 +7,17 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 
 ## [Unreleased]
 
+## [0.4.6] - 2026-05-16
+
+### Fixed
+- **Section-Broadcasts**: WebSocket-Broadcasts für Section-CRUD hinzugefügt
+  - `section_create`, `section_update`, `section_delete` werden jetzt in Echtzeit an andere Geräte gesendet
+  - Sections umbenennen/erstellen erscheint sofort auf allen verbundenen Geräten
+- **Sync-Consistency**: `sync_response` merged Todos jetzt nur, wenn keine lokalen pending Updates existieren
+  - Bisher konnte Server-Stand lokale Todo-Updates überschreiben (wie bei Projekten/Sections schon korrekt)
+- **Project WS Handler**: `renderStats()` und `renderTodos()` werden bei `project_create`/`project_update` aufgerufen
+  - Todo-Ansicht zeigt sofort aktualisierte Projekt-Namen/Farben ohne View-Wechsel
+
 ## [0.4.5] - 2026-05-16
 
 ### Fixed
