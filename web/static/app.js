@@ -632,6 +632,11 @@ function updateConnectionStatus() {
 
 async function handleWsMessage(msg) {
   switch (msg.type) {
+    case 'auth_ok':
+      break;
+    case 'auth_fail':
+      console.warn('[WS] Auth failed');
+      break;
     case 'pong':
       // keepalive response — nothing to do
       break;
