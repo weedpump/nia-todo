@@ -68,7 +68,12 @@ body {
   font-weight: 700;
 }
 
-.logo-icon { font-size: 24px; }
+.logo-icon { 
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: inline-block;
+}
 
 .nav-section { margin-bottom: 20px; }
 
@@ -1041,7 +1046,10 @@ input[type="color"]::-moz-color-swatch {
   font-size: 48px;
   line-height: 1;
   display: block;
-  margin-bottom: 12px;
+  margin: 0 auto 12px auto;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
 }
 
 .login-title {
