@@ -59,6 +59,7 @@ CREATE TABLE IF NOT EXISTS reminders (
     todo_id INTEGER NOT NULL,
     remind_at TEXT NOT NULL,
     sent_at TEXT,
+    user_id INTEGER,
     created_at TEXT DEFAULT (datetime('now')),
     FOREIGN KEY (todo_id) REFERENCES todos(id) ON DELETE CASCADE
 );
