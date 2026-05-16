@@ -1412,6 +1412,15 @@ async function initApp() {
     console.error('Local load failed:', err);
   }
 
+  // Restore last filter from localStorage AFTER data is loaded
+  const savedFilter = localStorage.getItem('nia-last-filter');
+  if (savedFilter) {
+    currentFilter = savedFilter;
+    if (!['all','pending','in_progress','done'].includes(savedFilter)) {
+      currentProjectId = parseInt(savedFilter);
+    }
+  }
+
   appInitialized = true;
 
   // Start WebSocket connection
@@ -1806,6 +1815,10 @@ function renderTodoItem(t) {
 function setFilter(filter) {
   currentFilter = filter;
   currentProjectId = (!['all','pending','in_progress','done'].includes(filter)) ? parseInt(filter) : null;
+  
+  // Save to localStorage for persistence
+  localStorage.setItem('nia-last-filter', filter);
+  
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   event.target.closest('.nav-btn')?.classList.add('active');
   closeSidebar();
