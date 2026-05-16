@@ -135,14 +135,24 @@ self.addEventListener('notificationclick', (event) => {
     // Open app
     event.waitUntil(clients.openWindow(url));
   } else if (action === 'done' && todoId) {
-    // Mark todo as done via API, stay in background (don't open app)
+    // Focus existing app window or open it, then post message to mark todo done
     event.waitUntil(
-      fetch('/api/todos/' + todoId, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'done' }),
-        credentials: 'include'
-      }).catch(err => console.error('SW: Failed to mark todo done', err))
+      clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
+        if (windowClients.length > 0) {
+          // Focus existing window and send message
+          const client = windowClients[0];
+          client.focus();
+          client.postMessage({ type: 'MARK_TODO_DONE', todoId: todoId });
+        } else {
+          // Open new window
+          clients.openWindow('/').then(client => {
+            // Wait a bit for app to init, then send message
+            setTimeout(() => {
+              client.postMessage({ type: 'MARK_TODO_DONE', todoId: todoId });
+            }, 2000);
+          });
+        }
+      })
     );
   } else {
     event.waitUntil(clients.openWindow(url));
