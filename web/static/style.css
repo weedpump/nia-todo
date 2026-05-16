@@ -265,13 +265,13 @@ body {
 
 .todo-item {
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 12px 14px;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   transition: all 0.15s;
   cursor: pointer;
 }
@@ -284,16 +284,17 @@ body {
 .todo-item.done { opacity: 0.5; }
 
 .todo-check {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   border: 2px solid var(--border);
-  border-radius: 6px;
+  border-radius: 5px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  margin-top: 2px;
+  font-size: 11px;
+  color: var(--success);
   transition: all 0.15s;
 }
 
@@ -303,38 +304,30 @@ body {
   border-color: var(--success);
 }
 
-.todo-body { flex: 1; min-width: 0; }
+.todo-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 
 .todo-title {
   font-size: 14px;
   font-weight: 500;
-  margin-bottom: 2px;
   word-break: break-word;
+  line-height: 1.3;
 }
 
 .todo-item.done .todo-title { text-decoration: line-through; }
 
-.todo-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.todo-meta span { display: inline-flex; align-items: center; gap: 4px; }
-
-.todo-label-tag {
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 500;
-}
-
 .todo-prio {
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.todo-meta {
+  display: none;
 }
 
 .todo-due { color: var(--warning); }
@@ -692,24 +685,21 @@ input[type="color"]::-moz-color-swatch {
   .todo-list { padding: 12px 16px; }
 
   .todo-item {
-    padding: 14px;
-    gap: 14px;
+    padding: 8px 12px;
+    gap: 10px;
   }
   .todo-check {
-    width: 24px;
-    height: 24px;
-    margin-top: 1px;
+    width: 18px;
+    height: 18px;
+    font-size: 11px;
   }
   .todo-title {
-    font-size: 15px;
-    line-height: 1.4;
-    word-break: normal;
-    overflow-wrap: break-word;
-    hyphens: auto;
+    font-size: 14px;
+    line-height: 1.3;
+    word-break: break-word;
   }
   .todo-meta {
-    font-size: 12px;
-    gap: 6px;
+    display: none;
   }
 
   .modal-content {

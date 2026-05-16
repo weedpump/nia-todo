@@ -1476,7 +1476,6 @@ function renderTodoItem(t) {
   const isOverdue = t.due_date && t.status !== 'done' && new Date(t.due_date) < new Date();
   const dueStr = t.due_date ? formatDate(t.due_date) : '';
   const prioEmoji = {1: '🔴', 2: '🟡', 3: '🟢', 4: '⚪'}[t.priority] || '⚪';
-  const project = projects.find(p => p.id === t.project_id);
 
   return `
     <div class="todo-item ${t.status === 'done' ? 'done' : ''}" data-id="${t.id}" draggable="true" onclick="editTodo(${t.id})"
@@ -1485,12 +1484,11 @@ function renderTodoItem(t) {
         ${t.status === 'done' ? '✓' : ''}
       </div>
       <div class="todo-body">
-        <div class="todo-title">${escapeHtml(t.title)}</div>
-        <div class="todo-meta">
-          ${t.project_id && project && !currentProjectId ? `<span style="color:${project.color}">● ${escapeHtml(project.name)}</span>` : ''}
-          <span class="todo-prio">${prioEmoji}</span>
+        <span class="todo-prio" title="Priorität">${prioEmoji}</span>
+        <span class="todo-title">${escapeHtml(t.title)}</span>
+        <span class="todo-meta">
           ${dueStr ? `<span class="todo-due ${isOverdue ? 'overdue' : ''}">📅 ${dueStr}${isOverdue ? ' (überfällig)' : ''}</span>` : ''}
-        </div>
+        </span>
       </div>
       <div class="todo-actions" onclick="event.stopPropagation()">
         <button onclick="deleteTodo(${t.id})" title="Löschen">🗑️</button>
