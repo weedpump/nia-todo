@@ -738,7 +738,7 @@ async function handleWsMessage(msg) {
         if (pendingCreate) {
           // Replace temp todo with real server version
           await deleteFromDB('todos', pendingCreate.data._tempId);
-          todos = todos.filter(t => t.id !== pendingCreate.data._tempId);
+          todos = todos.filter(t => t.id !== pendingCreate.data._tempId && t.id !== msg.payload.id);
           todos.push(msg.payload);
         } else {
           // Broadcast from another client → add to list
