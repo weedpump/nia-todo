@@ -1,0 +1,158 @@
+"""nia-todo: Todo endpoints"""
+
+from typing import Optional
+from fastapi import APIRouter, HTTPException, Depends
+from pydantic import BaseModel, Field
+
+from db import get_db, row_to_dict, now_iso
+from routers.auth import require_auth
+from services.websocket import broadcast_change
+from services.utils import sanitize_text
+
+router = APIRouter(prefix="/api/todos")
+
+
+# ─── Pydantic Models ─────────────────────────────────────────────────────────
+
+class TodoCreate(BaseModel):
+    title: str
+    description: str = ""
+    priority: int = Field(default=3, ge=1, le=4)
+    project_id: Optional[int] = None
+    section_id: Optional[int] = None
+    due_date: Optional[str] = None
+    remind_at: Optional[str] = None
+
+class TodoUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    priority: Optional[int] = None
+    status: Optional[str] = None
+    project_id: Optional[int] = None
+    section_id: Optional[int] = None
+    due_date: Optional[str] = None
+    remind_at: Optional[str] = None
+
+
+# ─── Helpers ───────────────────────────────────────────────────────────────────
+
+def fetch_todo(db, todo_id: int) -> Optional[dict]:
+    row = db.execute(
+        """SELECT t.*, p.name as project_name, s.name as section_name
+           FROM todos t
+           LEFT JOIN projects p ON t.project_id = p.id
+           LEFT JOIN sections s ON t.section_id = s.id
+           WHERE t.id = ?""",
+        (todo_id,)
+    ).fetchone()
+    if not row:
+        return None
+    d = row_to_dict(row)
+    rem_rows = db.execute(
+        "SELECT id, remind_at, sent_at FROM reminders WHERE todo_id = ? ORDER BY remind_at",
+        (todo_id,)
+    ).fetchall()
+    d['reminders'] = [dict(r) for r in rem_rows]
+    return d
+
+
+# ─── Endpoints ─────────────────────────────────────────────────────────────────
+
+@router.get("")
+def list_todos(status: Optional[str] = None, project_id: Optional[int] = None, section_id: Optional[int] = None, user_id: int = Depends(require_auth)):
+    with get_db() as db:
+        sql = """
+            SELECT t.*, p.name as project_name, s.name as section_name FROM todos t
+            LEFT JOIN projects p ON t.project_id = p.id
+            LEFT JOIN sections s ON t.section_id = s.id
+            WHERE t.user_id = ? AND t.status != 'archived'
+        """
+        params = [user_id]
+        if status:
+            sql += " AND t.status = ?"
+            params.append(status)
+        if project_id is not None:
+            sql += " AND t.project_id = ?"
+            params.append(project_id)
+        if section_id is not None:
+            sql += " AND t.section_id = ?"
+            params.append(section_id)
+        sql += " ORDER BY CASE t.status WHEN 'pending' THEN 0 WHEN 'in_progress' THEN 1 WHEN 'done' THEN 2 ELSE 3 END, t.priority, t.due_date IS NULL, t.due_date"
+        rows = db.execute(sql, params).fetchall()
+        return {"todos": [row_to_dict(r) for r in rows]}
+
+@router.post("")
+async def create_todo(data: TodoCreate, user_id: int = Depends(require_auth)):
+    data.title = sanitize_text(data.title)
+    data.description = sanitize_text(data.description)
+    with get_db() as db:
+        c = db.execute(
+            "INSERT INTO todos (title, description, priority, project_id, section_id, due_date, updated_at, user_id) VALUES (?,?,?,?,?,?,?,?)",
+            (data.title, data.description, data.priority, data.project_id, data.section_id, data.due_date, now_iso(), user_id)
+        )
+        todo_id = c.lastrowid
+        if data.remind_at:
+            db.execute("INSERT INTO reminders (todo_id, remind_at, user_id) VALUES (?,?,?)", (todo_id, data.remind_at, user_id))
+        db.commit()
+        todo = fetch_todo(db, todo_id)
+        await broadcast_change("todo_create", todo, user_id)
+        return todo
+
+@router.get("/{todo_id}")
+def get_todo(todo_id: int, user_id: int = Depends(require_auth)):
+    with get_db() as db:
+        d = fetch_todo(db, todo_id)
+        if not d:
+            raise HTTPException(404, "Todo not found")
+        if d.get('user_id') != user_id:
+            raise HTTPException(403, "Not authorized")
+        return d
+
+@router.patch("/{todo_id}")
+async def update_todo(todo_id: int, data: TodoUpdate, user_id: int = Depends(require_auth)):
+    if data.title is not None:
+        data.title = sanitize_text(data.title)
+    if data.description is not None:
+        data.description = sanitize_text(data.description)
+    with get_db() as db:
+        existing = fetch_todo(db, todo_id)
+        if not existing:
+            raise HTTPException(404, "Todo not found")
+        if existing.get('user_id') != user_id:
+            raise HTTPException(403, "Not authorized")
+        updates = {}
+        dumped = data.model_dump(exclude_unset=True)
+        for f in ["title","description","priority","project_id","section_id","due_date","status"]:
+            if f in dumped:
+                updates[f] = dumped[f]
+        if updates:
+            updates['updated_at'] = now_iso()
+            if data.status == 'done' and existing['status'] != 'done':
+                updates['completed_at'] = now_iso()
+            elif data.status != 'done' and existing['status'] == 'done':
+                updates['completed_at'] = None
+            allowed_cols = {"title","description","priority","project_id","section_id","due_date","status","completed_at","updated_at"}
+            safe_updates = {k:v for k,v in updates.items() if k in allowed_cols}
+            set_clause = ", ".join(f"{k}=:{k}" for k in safe_updates)
+            db.execute(f"UPDATE todos SET {set_clause} WHERE id = :id", {**safe_updates, "id": todo_id})
+        if 'remind_at' in dumped:
+            db.execute("DELETE FROM reminders WHERE todo_id = ?", (todo_id,))
+            if data.remind_at:
+                db.execute("INSERT INTO reminders (todo_id, remind_at, user_id) VALUES (?,?,?)", (todo_id, data.remind_at, user_id))
+        db.commit()
+        todo = fetch_todo(db, todo_id)
+        await broadcast_change("todo_update", todo, user_id)
+        return todo
+
+@router.delete("/{todo_id}")
+async def delete_todo(todo_id: int, user_id: int = Depends(require_auth)):
+    with get_db() as db:
+        existing = fetch_todo(db, todo_id)
+        if not existing:
+            raise HTTPException(404, "Todo not found")
+        if existing.get('user_id') != user_id:
+            raise HTTPException(403, "Not authorized")
+        db.execute("DELETE FROM todos WHERE id = ?", (todo_id,))
+        db.commit()
+        await broadcast_change("todo_delete", {"id": todo_id}, user_id)
+        return {"deleted": todo_id}
