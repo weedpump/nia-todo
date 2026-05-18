@@ -2167,7 +2167,7 @@ async function saveTodo(event) {
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       reminders: [],
-      labels: []
+
     };
     await dbPut('todos', newTodo);
     todos.push(newTodo);
