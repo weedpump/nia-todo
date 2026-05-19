@@ -1,5 +1,6 @@
 // nia-todo: Frontend app mit Offline-First PWA + WebSocket Echtzeit-Sync
 import { authApi, projectsApi, pushApi, sectionsApi, todosApi } from './api/index.js';
+import * as indexedDb from './storage/indexed-db.js';
 const API = '';
 const WS_URL = (() => {
   const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -132,21 +133,8 @@ async function logout() {
 }
 
 async function clearIndexedDB() {
-  return new Promise((resolve) => {
-    if (!db) {
-      // Try to delete by name anyway
-      const deleteRequest = indexedDB.deleteDatabase(DB_NAME);
-      deleteRequest.onsuccess = () => { console.log('IndexedDB deleted'); resolve(); };
-      deleteRequest.onerror = () => { console.log('IndexedDB delete error'); resolve(); };
-      deleteRequest.onblocked = () => { console.log('IndexedDB delete blocked'); resolve(); };
-      return;
-    }
-    db.close();
-    const deleteRequest = indexedDB.deleteDatabase(DB_NAME);
-    deleteRequest.onsuccess = () => { console.log('IndexedDB deleted'); resolve(); };
-    deleteRequest.onerror = () => { console.log('IndexedDB delete error'); resolve(); };
-    deleteRequest.onblocked = () => { console.log('IndexedDB delete blocked'); resolve(); };
-  });
+  await indexedDb.closeAndDeleteDatabase();
+  db = null;
 }
 
 function showLoginOverlay() {
@@ -844,104 +832,33 @@ async function handleWsMessage(msg) {
 
 // ─── IndexedDB ───────────────────────────────────────────────────────────────
 
-function openDB() {
-  dbReady = new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
-
-    request.onupgradeneeded = (event) => {
-      db = event.target.result;
-      if (!db.objectStoreNames.contains('todos')) {
-        db.createObjectStore('todos', { keyPath: 'id' });
-      }
-      if (!db.objectStoreNames.contains('projects')) {
-        db.createObjectStore('projects', { keyPath: 'id' });
-      }
-      if (!db.objectStoreNames.contains('sections')) {
-        db.createObjectStore('sections', { keyPath: 'id' });
-      }
-      if (!db.objectStoreNames.contains('syncQueue')) {
-        db.createObjectStore('syncQueue', { keyPath: 'id', autoIncrement: true });
-      }
-    };
-
-    request.onsuccess = (event) => {
-      db = event.target.result;
-      console.log('IndexedDB opened');
-      resolve(db);
-    };
-
-    request.onerror = () => {
-      console.error('IndexedDB open failed', request.error);
-      reject(request.error);
-    };
-  });
-  return dbReady;
+async function openDB() {
+  db = await indexedDb.openDatabase();
+  return db;
 }
 
 function dbGetAll(storeName) {
-  return new Promise((resolve) => {
-    if (!db) { resolve([]); return; }
-    const tx = db.transaction(storeName, 'readonly');
-    const store = tx.objectStore(storeName);
-    const request = store.getAll();
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => resolve([]);
-  });
+  return indexedDb.getAll(storeName);
 }
 
 function dbPut(storeName, item) {
-  return new Promise((resolve) => {
-    if (!db) { resolve(); return; }
-    const tx = db.transaction(storeName, 'readwrite');
-    const store = tx.objectStore(storeName);
-    const request = store.put(item);
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => resolve();
-  });
+  return indexedDb.put(storeName, item);
 }
 
 function dbClear(storeName) {
-  return new Promise((resolve) => {
-    if (!db) { resolve(); return; }
-    const tx = db.transaction(storeName, 'readwrite');
-    const store = tx.objectStore(storeName);
-    const request = store.clear();
-    request.onsuccess = () => resolve();
-    request.onerror = () => resolve();
-  });
+  return indexedDb.clear(storeName);
 }
 
 function getFromDB(storeName, id) {
-  return new Promise((resolve) => {
-    if (!db) { resolve(null); return; }
-    const tx = db.transaction(storeName, 'readonly');
-    const store = tx.objectStore(storeName);
-    const request = store.get(id);
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => resolve(null);
-  });
+  return indexedDb.get(storeName, id);
 }
 
 function deleteFromDB(storeName, id) {
-  return new Promise((resolve) => {
-    if (!db) { resolve(); return; }
-    const tx = db.transaction(storeName, 'readwrite');
-    const store = tx.objectStore(storeName);
-    const request = store.delete(id);
-    request.onsuccess = () => resolve();
-    request.onerror = () => resolve();
-  });
+  return indexedDb.remove(storeName, id);
 }
 
 async function clearSyncQueue() {
-  if (!db) return;
-  const tx = db.transaction('syncQueue', 'readwrite');
-  const store = tx.objectStore('syncQueue');
-  await new Promise((resolve) => {
-    const req = store.clear();
-    req.onsuccess = () => resolve();
-    req.onerror = () => resolve();
-  });
+  await dbClear('syncQueue');
 }
 
 function addToSyncQueue(action, data) {
@@ -1093,10 +1010,7 @@ async function syncWithServer() {
       }
 
       // Erfolgreich synched → aus Queue entfernen
-      if (db) {
-        const tx = db.transaction('syncQueue', 'readwrite');
-        tx.objectStore('syncQueue').delete(item.id);
-      }
+      await deleteFromDB('syncQueue', item.id);
     } catch (err) {
       console.error('Sync failed for action', item.action, err);
       failCount++;
