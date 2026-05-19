@@ -2,6 +2,7 @@
 import { APP_VERSION, WS_URL } from './core/config.js';
 import { escapeHtml, escapeHtmlAttr, formatDate, jsArg, renderMarkdown, truncateWords } from './core/utils.js';
 import { authApi, projectsApi, pushApi, sectionsApi, todosApi } from './api/index.js';
+import { createAuthSessionFeature } from './features/auth-session.js';
 import * as indexedDb from './storage/indexed-db.js';
 import * as syncQueue from './sync/queue.js';
 import { createApiKeysFeature } from './features/api-keys.js';
@@ -116,141 +117,31 @@ const userSettingsFeature = createUserSettingsFeature({
   updatePushSettingsUI: () => updatePushSettingsUI(),
   logout: () => logout(),
 });
+const authSessionFeature = createAuthSessionFeature({
+  authApi,
+  getAppInitialized: () => appInitialized,
+  setCurrentUser: (next) => { currentUser = next; },
+  clearCache: () => clearIndexedDB(),
+  initApp: () => initApp(),
+  refreshFromServer: () => refreshFromServer(),
+  renderUserInfo: () => renderUserInfo(),
+});
 const serviceWorkerUpdates = createServiceWorkerUpdatesFeature({ onMarkTodoDone: markTodoDone });
-
-function getAuthToken() {
-  // Prefer JWT, fallback to legacy session token
-  return localStorage.getItem('jwt_token') || localStorage.getItem('auth_token');
-}
-
-function getCsrfToken() {
-  return localStorage.getItem('csrf_token');
-}
-
-function getAuthHeaders() {
-  const token = getAuthToken();
-  const headers = { 'Content-Type': 'application/json' };
-  if (token) {
-    // New JWT tokens contain a dot (JWT signature separator)
-    if (token.includes('.')) {
-      headers['Authorization'] = 'Bearer ' + token;
-    } else {
-      // Legacy session token
-      headers['X-Session-Token'] = token;
-    }
-  }
-  // Add CSRF token for state-changing requests
-  const csrf = getCsrfToken();
-  if (csrf) {
-    headers['X-CSRF-Token'] = csrf;
-  }
-  return headers;
-}
-
-async function login(username, password) {
-  const data = await authApi.login(username, password);
-  currentUser = data.user;
-  currentUser.token = data.access_token;
-  localStorage.setItem('jwt_token', data.access_token);
-  // Store CSRF token for Double-Submit Cookie pattern
-  if (data.csrf_token) {
-    localStorage.setItem('csrf_token', data.csrf_token);
-  }
-  
-  // Check if user changed - if so, clear cache
-  const lastUserId = localStorage.getItem('last_user_id');
-  const newUserId = String(data.user.id);
-  if (lastUserId && lastUserId !== newUserId) {
-    console.log('User changed from', lastUserId, 'to', newUserId, '- clearing cache');
-    await clearIndexedDB();
-  }
-  localStorage.setItem('last_user_id', newUserId);
-  
-  return data;
-}
-
-async function checkAuth() {
-  const token = getAuthToken();
-  if (!token) return false;
-  try {
-    const user = await authApi.me();
-    currentUser = user;
-    currentUser.token = token;
-    
-    // Check if user changed - if so, clear cache and reload
-    const lastUserId = localStorage.getItem('last_user_id');
-    const newUserId = String(user.id);
-    if (lastUserId && lastUserId !== newUserId) {
-      console.log('User changed from', lastUserId, 'to', newUserId, '- clearing cache');
-      await clearIndexedDB();
-      localStorage.setItem('last_user_id', newUserId);
-      location.reload();
-      return false;
-    }
-    localStorage.setItem('last_user_id', newUserId);
-    
-    return true;
-  } catch (e) {
-    return false;
-  }
-}
-
-async function logout() {
-  try {
-    const token = getAuthToken();
-    if (token) {
-      await authApi.logout();
-    }
-  } catch (e) {
-    // Ignore errors
-  }
-  currentUser = null;
-  localStorage.removeItem('jwt_token');
-  localStorage.removeItem('auth_token');
-  localStorage.removeItem('last_user_id');
-  localStorage.removeItem('csrf_token');
-  
-  // Clear IndexedDB cache to prevent data leaking between users
-  await clearIndexedDB();
-  
-  location.reload();
-}
 
 async function clearIndexedDB() {
   await indexedDb.closeAndDeleteDatabase();
   db = null;
 }
 
-function showLoginOverlay() {
-  document.getElementById('login-overlay').classList.remove('hidden');
-}
-
-function hideLoginOverlay() {
-  document.getElementById('login-overlay').classList.add('hidden');
-}
-
-async function handleLogin(e) {
-  e.preventDefault();
-  const username = document.getElementById('login-username').value.trim();
-  const password = document.getElementById('login-password').value;
-  const errorEl = document.getElementById('login-error');
-  errorEl.textContent = '';
-
-  try {
-    await login(username, password);
-    hideLoginOverlay();
-    renderUserInfo();
-    // Initialize app if not already done
-    if (!appInitialized) {
-      await initApp();
-    }
-    // Reload data for this user
-    await refreshFromServer();
-  } catch (err) {
-    errorEl.textContent = err.message || 'Login fehlgeschlagen';
-  }
-}
-
+const getAuthToken = authSessionFeature.getAuthToken;
+const getCsrfToken = authSessionFeature.getCsrfToken;
+const getAuthHeaders = authSessionFeature.getAuthHeaders;
+const login = authSessionFeature.login;
+const checkAuth = authSessionFeature.checkAuth;
+const logout = authSessionFeature.logout;
+const showLoginOverlay = authSessionFeature.showLoginOverlay;
+const hideLoginOverlay = authSessionFeature.hideLoginOverlay;
+const handleLogin = authSessionFeature.handleLogin;
 const renderUserInfo = userSettingsFeature.renderUserInfo;
 const openSettingsModal = userSettingsFeature.openSettingsModal;
 const changeUserPassword = userSettingsFeature.changeUserPassword;
