@@ -21,13 +21,16 @@ import { createToastUndoFeature } from './features/toast-undo.js';
 import { createDragDropFeature } from './features/drag-drop.js';
 import { createAppRenderingFeature } from './features/app-rendering.js';
 import { createNavigationFeature } from './features/navigation.js';
+import { createSectionActionsFeature } from './features/section-actions.js';
+import { createUiShell } from './features/ui-shell.js';
+import { createAppLifecycle } from './features/app-lifecycle.js';
+import { exposeLegacyGlobals } from './features/legacy-globals.js';
 let todos = [];
 let projects = [];
 let sections = [];
 let currentFilter = 'all';
 let currentProjectId = null;
 let db = null;
-let dbReady = null;
 let appInitialized = false;
 let syncInProgress = false;
 let hideDone = localStorage.getItem('nia-hide-done') === 'true';
@@ -100,9 +103,9 @@ const todosFeature = createTodosFeature({
   renderProjects: () => renderProjects(),
   renderStats: () => renderStats(),
   renderTodos: () => renderTodos(),
-  closeModal,
+  closeModal: (...args) => closeModal(...args),
   showToast: (...args) => showToast(...args),
-  setupDescPreview,
+  setupDescPreview: (...args) => setupDescPreview(...args),
   renderMarkdown,
   loadSectionsForCurrentProject: (selectedSectionId) => loadSectionsForCurrentProject(selectedSectionId),
 });
@@ -119,7 +122,7 @@ const projectsFeature = createProjectsFeature({
   renderProjects: () => renderProjects(),
   renderStats: () => renderStats(),
   renderTodos: () => renderTodos(),
-  closeModal,
+  closeModal: (...args) => closeModal(...args),
   showToast: (...args) => showToast(...args),
   showBatchToast: (...args) => showBatchToast(...args),
   projectsApi,
@@ -221,129 +224,26 @@ async function refreshFromServer() {
   syncInProgress = syncInProgressRef.value;
 }
 
-window.addEventListener('online', async () => {
-  console.log('Browser reports online');
-  if (wsClient.getWsState() === 'disconnected') connectWebSocket();
-  await syncWithServer();
+const sectionActions = createSectionActionsFeature({
+  getTodos: () => todos,
+  setTodos: (next) => { todos = next; },
+  getSections: () => sections,
+  setSections: (next) => { sections = next; },
+  getCurrentProjectId: () => currentProjectId,
+  dbPut,
+  deleteFromDB,
+  addToSyncQueue,
+  isOnlineForSync,
+  syncWithServer,
+  renderTodos: () => renderTodos(),
+  sectionsFeature,
 });
-
-window.addEventListener('offline', () => {
-  console.log('Browser reports offline');
-});
-
-function toggleSidebar() {
-  document.getElementById('sidebar')?.classList.toggle('open');
-  document.getElementById('sidebar-overlay')?.classList.toggle('active');
-}
-
-function closeSidebar() {
-  document.getElementById('sidebar')?.classList.remove('open');
-  document.getElementById('sidebar-overlay')?.classList.remove('active');
-}
-
-function closeModal(modalId) {
-  document.getElementById(modalId)?.classList.remove('active');
-}
-
-function setupDescPreview() {
-  const textarea = document.getElementById('todo-desc');
-  const preview = document.getElementById('todo-desc-preview');
-  if (!textarea || !preview) return;
-  preview.innerHTML = renderMarkdown(textarea.value);
-  textarea.oninput = () => { preview.innerHTML = renderMarkdown(textarea.value); };
-}
-
-async function loadFromLocalDB() {
-  todos = await dbGetAll('todos');
-  projects = await dbGetAll('projects');
-  sections = await dbGetAll('sections');
-  renderProjects();
-  renderStats();
-  renderTodos();
-}
-
-async function loadAll() {
-  await loadFromLocalDB();
-  if (isOnlineForSync()) await refreshFromServer();
-}
-
-// ─── Init ─────────────────────────────────────────────────────────────────────
-
-document.addEventListener('DOMContentLoaded', async () => {
-  console.log('App starting...');
-
-  // Initialize theme BEFORE auth check so login overlay has correct theme
-  initTheme();
-
-  // Check setup status first
-  try {
-    const setupData = await authApi.setupStatus();
-    if (!setupData.setup_complete) {
-      window.location.href = '/setup';
-      return;
-    }
-  } catch (e) {
-    console.log('Setup check failed, continuing');
-  }
-
-  // Auth check
-  const authed = await checkAuth();
-  if (authed) {
-    hideLoginOverlay();
-    renderUserInfo();
-    await initApp();
-  } else {
-    showLoginOverlay();
-  }
-});
-
-async function initApp() {
-  await initServiceWorker();
-
-  try {
-    await openDB();
-    console.log('DB ready');
-  } catch (err) {
-    console.error('DB init failed:', err);
-  }
-
-  try {
-    await loadFromLocalDB();
-    console.log('Local data loaded');
-  } catch (err) {
-    console.error('Local load failed:', err);
-  }
-
-  // Restore last filter from localStorage AFTER data is loaded
-  const savedFilter = localStorage.getItem('nia-last-filter');
-  if (savedFilter) {
-    currentFilter = savedFilter;
-    if (!['all','pending','in_progress','done'].includes(savedFilter)) {
-      currentProjectId = parseInt(savedFilter);
-    }
-  }
-
-  appInitialized = true;
-
-  // Start WebSocket connection
-  connectWebSocket();
-
-  if (isOnlineForSync()) {
-    console.log('Online at startup - syncing...');
-    refreshFromServer().catch(err => console.error('Server refresh failed:', err));
-  }
-
-  updateConnectionStatus();
-  renderVersionInfo();
-  updateToggleDoneButton();
-  updateSortButton();
-
-  initTheme();
-
-  console.log('App initialized');
-}
-
-const renderSectionHeader = sectionsFeature.renderSectionHeader;
+const renderSectionHeader = sectionActions.renderSectionHeader;
+const showAddSectionForm = sectionActions.showAddSectionForm;
+const editSectionInline = sectionActions.editSectionInline;
+const saveNewSection = sectionActions.saveNewSection;
+const saveSectionEdit = sectionActions.saveSectionEdit;
+const deleteSection = sectionActions.deleteSection;
 const appRendering = createAppRenderingFeature({
   appVersion: APP_VERSION,
   escapeHtml,
@@ -376,74 +276,11 @@ const navigationFeature = createNavigationFeature({
   dbGetAll,
   dbPut,
   deleteFromDB,
-  closeSidebar,
+  closeSidebar: () => closeSidebar(),
   renderTodos: () => renderTodos(),
 });
 const setFilter = navigationFeature.setFilter;
 const loadSectionsForCurrentProject = navigationFeature.loadSectionsForCurrentProject;
-
-const showAddSectionForm = sectionsFeature.showAddSectionForm;
-const editSectionInline = sectionsFeature.editSectionInline;
-
-async function saveNewSection() {
-  const name = document.getElementById('new-section-name')?.value?.trim();
-  if (!name || !currentProjectId) return;
-
-  const now = new Date().toISOString();
-  const tempId = 'temp-section-' + Date.now();
-  const sectionData = {
-    id: tempId,
-    name,
-    project_id: currentProjectId,
-    sort_order: sections.length,
-    created_at: now,
-    updated_at: now,
-  };
-
-  await dbPut('sections', sectionData);
-  sections = [...sections, sectionData];
-  renderTodos();
-
-  await addToSyncQueue('CREATE_SECTION', { ...sectionData, _tempId: tempId });
-  if (isOnlineForSync()) await syncWithServer();
-}
-
-async function saveSectionEdit(id) {
-  const name = document.getElementById(`edit-section-name-${id}`)?.value?.trim();
-  if (!name) return;
-
-  const section = sections.find(s => s.id === id);
-  if (!section) return;
-
-  const updated = { ...section, name, updated_at: new Date().toISOString() };
-  await dbPut('sections', updated);
-  sections = sections.map(s => s.id === id ? updated : s);
-  renderTodos();
-
-  await addToSyncQueue('UPDATE_SECTION', { id, changes: { name } });
-  if (isOnlineForSync()) await syncWithServer();
-}
-
-async function deleteSection(id) {
-  if (!confirm('Section wirklich löschen? Todos werden zu "Unsortiert" verschoben.')) return;
-
-  const section = sections.find(s => s.id === id);
-  if (!section) return;
-
-  sections = sections.filter(s => s.id !== id);
-  await deleteFromDB('sections', id);
-  for (const todo of todos) {
-    if (todo.section_id === id) {
-      todo.section_id = null;
-      todo.updated_at = new Date().toISOString();
-      await dbPut('todos', todo);
-    }
-  }
-  renderTodos();
-
-  await addToSyncQueue('DELETE_SECTION', { id });
-  if (isOnlineForSync()) await syncWithServer();
-}
 
 const showProjectModal = projectsFeature.showProjectModal;
 const editProject = projectsFeature.editProject;
@@ -461,6 +298,17 @@ const saveTodo = todosFeature.saveTodo;
 const editTodo = todosFeature.editTodo;
 const deleteTodoFromModal = todosFeature.deleteTodoFromModal;
 const deleteTodo = todosFeature.deleteTodo;
+
+const uiShell = createUiShell({
+  renderMarkdown,
+  showTodoModal: () => showTodoModal(),
+});
+const toggleSidebar = uiShell.toggleSidebar;
+const closeSidebar = uiShell.closeSidebar;
+const closeModal = uiShell.closeModal;
+const setupDescPreview = uiShell.setupDescPreview;
+uiShell.bindKeyboardShortcuts();
+
 // ─── Drag & Drop ─────────────────────────────────────────────────────────────
 
 const dragDropFeature = createDragDropFeature({
@@ -509,127 +357,60 @@ const enablePushNotifications = pushFeature.enablePushNotifications;
 const disablePushNotifications = pushFeature.disablePushNotifications;
 const sendTestPush = pushFeature.sendTestPush;
 
-// Keyboard shortcuts
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'n' && !e.ctrlKey && !e.metaKey && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
-    e.preventDefault();
-    showTodoModal();
-    setTimeout(() => document.getElementById('todo-title')?.focus(), 50);
-  }
-  if (e.key === 'Escape') {
-    closeModal('todo-modal');
-    closeModal('project-modal');
-  }
-});
-
-// Expose legacy inline handlers for module-loaded frontend.
-Object.assign(window, {
-  getAuthToken,
-  getCsrfToken,
-  getAuthHeaders,
-  login,
-  checkAuth,
-  logout,
-  clearIndexedDB,
-  showLoginOverlay,
-  hideLoginOverlay,
-  handleLogin,
-  renderUserInfo,
-  openSettingsModal,
-  changeUserPassword,
-  loadApiKeys,
-  renderApiKeys,
-  escapeHtml,
-  escapeHtmlAttr,
-  jsArg,
-  createApiKey,
-  revokeApiKey,
-  copyApiKey,
+const appLifecycle = createAppLifecycle({
+  authApi,
   initTheme,
-  setTheme,
-  applyTheme,
-  getReconnectDelay,
-  connectWebSocket,
-  wsSend,
-  startPingInterval,
-  stopPingInterval,
-  scheduleReconnect,
-  disconnectWebSocket,
-  updateConnectionStatus,
-  handleWsMessage,
+  checkAuth: () => checkAuth(),
+  hideLoginOverlay,
+  showLoginOverlay,
+  renderUserInfo,
+  initServiceWorker,
   openDB,
   dbGetAll,
-  dbPut,
-  dbClear,
-  getFromDB,
-  deleteFromDB,
-  clearSyncQueue,
-  addToSyncQueue,
+  setTodos: (next) => { todos = next; },
+  setProjects: (next) => { projects = next; },
+  setSections: (next) => { sections = next; },
+  setCurrentFilter: (next) => { currentFilter = next; },
+  setCurrentProjectId: (next) => { currentProjectId = next; },
+  setAppInitialized: (next) => { appInitialized = next; },
+  connectWebSocket,
+  getWsState: () => wsClient.getWsState(),
   isOnlineForSync,
   syncWithServer,
   refreshFromServer,
-  toggleSidebar,
-  closeSidebar,
-  initServiceWorker,
-  triggerUpdate,
-  initApp,
+  updateConnectionStatus,
   renderVersionInfo,
-  loadFromLocalDB,
-  loadAll,
   renderProjects,
   renderStats,
   renderTodos,
-  renderSectionHeader,
-  renderTodoItem,
-  setFilter,
-  loadSectionsForCurrentProject,
-  countByProject,
-  markTodoDone,
-  toggleTodo,
-  showTodoModal,
-  setupDescPreview,
-  onProjectChange,
-  saveTodo,
-  editTodo,
-  deleteTodoFromModal,
-  deleteTodo,
-  showProjectModal,
-  editProject,
-  saveProject,
-  deleteProject,
-  deleteProjectFromModal,
-  clearDoneFromModal,
-  clearDoneInProject,
-  closeModal,
-  formatDate,
-  showAddSectionForm,
-  saveNewSection,
-  editSectionInline,
-  saveSectionEdit,
-  deleteSection,
-  handleTodoDragStart,
-  handleTodoDragEnd,
-  handleTodoDragOver,
-  handleTodoDrop,
-  handleSectionDragStart,
-  handleSectionDragEnd,
-  handleSectionDragOver,
-  handleSectionDrop,
-  toggleHideDone,
   updateToggleDoneButton,
-  cycleSort,
   updateSortButton,
-  sortTodoList,
-  showToast,
-  showBatchToast,
-  hideToast,
-  undoLastAction,
-  restoreBatchTodos,
-  restoreTodo,
-  cycleTheme,
-  updatePushStatus,
-  updatePushSettingsUI,
-  enablePushNotifications,
-  disablePushNotifications,
-  sendTestPush,
+});
+const initApp = appLifecycle.initApp;
+const loadFromLocalDB = appLifecycle.loadFromLocalDB;
+const loadAll = appLifecycle.loadAll;
+appLifecycle.bindNetworkEvents();
+appLifecycle.bindDomReady();
+
+// Expose legacy inline handlers for module-loaded frontend.
+exposeLegacyGlobals({
+  auth: { getAuthToken, getCsrfToken, getAuthHeaders, login, checkAuth, logout, clearIndexedDB, showLoginOverlay, hideLoginOverlay, handleLogin },
+  apiKeys: { loadApiKeys, renderApiKeys, createApiKey, revokeApiKey, copyApiKey },
+  utils: { escapeHtml, escapeHtmlAttr, jsArg, formatDate, renderTodoItem },
+  theme: { initTheme, setTheme, applyTheme, cycleTheme },
+  websocket: { getReconnectDelay, connectWebSocket, wsSend, startPingInterval, stopPingInterval, scheduleReconnect, disconnectWebSocket, updateConnectionStatus, handleWsMessage },
+  storage: { openDB, dbGetAll, dbPut, dbClear, getFromDB, deleteFromDB, clearSyncQueue, addToSyncQueue },
+  sync: { isOnlineForSync, syncWithServer, refreshFromServer },
+  ui: { toggleSidebar, closeSidebar, closeModal, setupDescPreview },
+  lifecycle: { initServiceWorker, triggerUpdate, initApp, loadFromLocalDB, loadAll },
+  rendering: { renderVersionInfo, renderProjects, renderStats, renderTodos, renderSectionHeader, countByProject },
+  navigation: { setFilter, loadSectionsForCurrentProject },
+  todos: { markTodoDone, toggleTodo, showTodoModal, onProjectChange, saveTodo, editTodo, deleteTodoFromModal, deleteTodo },
+  projects: { showProjectModal, editProject, saveProject, deleteProject, deleteProjectFromModal, clearDoneFromModal, clearDoneInProject },
+  sections: { showAddSectionForm, saveNewSection, editSectionInline, saveSectionEdit, deleteSection },
+  dragDrop: { handleTodoDragStart, handleTodoDragEnd, handleTodoDragOver, handleTodoDrop, handleSectionDragStart, handleSectionDragEnd, handleSectionDragOver, handleSectionDrop },
+  viewPreferences: { toggleHideDone, updateToggleDoneButton, cycleSort, updateSortButton, sortTodoList },
+  toastUndo: { showToast, showBatchToast, hideToast, undoLastAction, restoreBatchTodos, restoreTodo },
+  push: { updatePushStatus, updatePushSettingsUI, enablePushNotifications, disablePushNotifications, sendTestPush },
+  userSettings: { renderUserInfo, openSettingsModal, changeUserPassword },
 });
