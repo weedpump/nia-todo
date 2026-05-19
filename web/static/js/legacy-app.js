@@ -13,6 +13,7 @@ import { applyTheme, bindSystemThemeListener, cycleTheme, initTheme, setTheme } 
 import { createUserSettingsFeature } from './features/user-settings.js';
 import { createProjectsFeature } from './features/projects.js';
 import { createTodosFeature } from './features/todos.js';
+import { createSyncFeature } from './features/sync.js';
 import { renderTodoItem } from './features/todo-rendering.js';
 import { createViewPreferencesFeature } from './features/view-preferences.js';
 let todos = [];
@@ -49,6 +50,23 @@ const sectionsFeature = createSectionsFeature({
   getCurrentProjectId: () => currentProjectId,
   getSections: () => sections,
   renderTodos: () => renderTodos(),
+});
+const syncInProgressRef = { value: syncInProgress };
+const syncFeature = createSyncFeature({
+  getDb: () => db,
+  dbGetAll,
+  dbPut,
+  getFromDB,
+  deleteFromDB,
+  getTodos: () => todos,
+  setTodos: (next) => { todos = next; },
+  getProjects: () => projects,
+  setProjects: (next) => { projects = next; },
+  getSections: () => sections,
+  setSections: (next) => { sections = next; },
+  todosApi,
+  projectsApi,
+  sectionsApi,
 });
 const todosFeature = createTodosFeature({
   getTodos: () => todos,
@@ -680,287 +698,20 @@ function addToSyncQueue(action, data) {
 // ─── Sync Logic (Kern der Offline→Online Synchronisation) ───────────────────
 
 function isOnlineForSync() {
-  // Use WebSocket state as primary online indicator; fallback to navigator.onLine
-  return wsState === 'connected' || (typeof navigator !== 'undefined' && navigator.onLine);
+  return syncFeature.isOnlineForSync(wsState);
 }
 
 async function syncWithServer() {
-  if (!isOnlineForSync() || !db || syncInProgress) return;
-  syncInProgress = true;
-
-  const queue = await dbGetAll('syncQueue');
-  if (!queue.length) {
-    syncInProgress = false;
-    return;
-  }
-
-  console.log('Syncing', queue.length, 'pending actions');
-  let successCount = 0;
-  let failCount = 0;
-
-  for (const item of queue) {
-    try {
-      if (item.action === 'CREATE_TODO') {
-        const res = await todosApi.create(item.data);
-        // Remove temp entry from local DB and todos array
-        if (item.data._tempId) {
-          await deleteFromDB('todos', item.data._tempId);
-          todos = todos.filter(t => t.id !== item.data._tempId);
-        }
-        await dbPut('todos', res);
-        // Only add if not already in array (avoids race with broadcast)
-        const alreadyInArray = todos.find(t => t.id === res.id);
-        if (!alreadyInArray) todos.push(res);
-        successCount++;
-      } else if (item.action === 'UPDATE_TODO') {
-        try {
-          await todosApi.update(item.data.id, item.data.changes);
-          const localTodo = await getFromDB('todos', item.data.id);
-          if (localTodo) {
-            const updated = { ...localTodo, ...item.data.changes, updated_at: new Date().toISOString() };
-            await dbPut('todos', updated);
-          }
-          successCount++;
-        } catch (err) {
-          if (err.message && err.message.includes('404')) {
-            console.warn('Todo', item.data.id, 'not found on server, skipping');
-          } else {
-            throw err;
-          }
-        }
-      } else if (item.action === 'DELETE_TODO') {
-        try {
-          await todosApi.delete(item.data.id);
-          await deleteFromDB('todos', item.data.id);
-          successCount++;
-        } catch (err) {
-          if (err.message && err.message.includes('404')) {
-            console.warn('Todo', item.data.id, 'already deleted, skipping');
-          } else {
-            throw err;
-          }
-        }
-      } else if (item.action === 'CREATE_PROJECT') {
-        const res = await projectsApi.create(item.data);
-        // Remove temp entry from local DB and projects array
-        if (item.data._tempId) {
-          await deleteFromDB('projects', item.data._tempId);
-          projects = projects.filter(p => p.id !== item.data._tempId);
-        }
-        await dbPut('projects', res);
-        // Only add if not already in array (avoids race with broadcast)
-        const alreadyInArray = projects.find(p => p.id === res.id);
-        if (!alreadyInArray) projects.push(res);
-        successCount++;
-      } else if (item.action === 'DELETE_PROJECT') {
-        try {
-          await projectsApi.delete(item.data.id);
-          await deleteFromDB('projects', item.data.id);
-          successCount++;
-        } catch (err) {
-          if (err.message && err.message.includes('404')) {
-            console.warn('Project', item.data.id, 'already deleted, skipping');
-          } else {
-            throw err;
-          }
-        }
-      } else if (item.action === 'UPDATE_PROJECT') {
-        try {
-          await projectsApi.update(item.data.id, item.data.changes);
-          const localProject = await getFromDB('projects', item.data.id);
-          if (localProject) {
-            const updated = { ...localProject, ...item.data.changes, updated_at: new Date().toISOString() };
-            await dbPut('projects', updated);
-          }
-          successCount++;
-        } catch (err) {
-          if (err.message && err.message.includes('404')) {
-            console.warn('Project', item.data.id, 'not found on server, skipping');
-          } else {
-            throw err;
-          }
-        }
-      } else if (item.action === 'CREATE_SECTION') {
-        const res = await sectionsApi.create(item.data.project_id, item.data);
-        if (item.data._tempId) {
-          await deleteFromDB('sections', item.data._tempId);
-          sections = sections.filter(s => s.id !== item.data._tempId);
-        }
-        await dbPut('sections', res);
-        // Only add if not already in array (avoids race with broadcast)
-        const alreadyInArray = sections.find(s => s.id === res.id);
-        if (!alreadyInArray) sections.push(res);
-        successCount++;
-      } else if (item.action === 'UPDATE_SECTION') {
-        try {
-          await sectionsApi.update(item.data.id, item.data.changes);
-          const localSection = await getFromDB('sections', item.data.id);
-          if (localSection) {
-            const updated = { ...localSection, ...item.data.changes, updated_at: new Date().toISOString() };
-            await dbPut('sections', updated);
-          }
-          successCount++;
-        } catch (err) {
-          if (err.message && err.message.includes('404')) {
-            console.warn('Section', item.data.id, 'not found on server, skipping');
-          } else {
-            throw err;
-          }
-        }
-      } else if (item.action === 'DELETE_SECTION') {
-        try {
-          await sectionsApi.delete(item.data.id);
-          await deleteFromDB('sections', item.data.id);
-          successCount++;
-        } catch (err) {
-          if (err.message && err.message.includes('404')) {
-            console.warn('Section', item.data.id, 'already deleted, skipping');
-          } else {
-            throw err;
-          }
-        }
-      }
-
-      // Erfolgreich synched → aus Queue entfernen
-      await deleteFromDB('syncQueue', item.id);
-    } catch (err) {
-      console.error('Sync failed for action', item.action, err);
-      failCount++;
-    }
-  }
-
-  console.log(`Sync complete: ${successCount} success, ${failCount} failed`);
-  syncInProgress = false;
+  syncInProgressRef.value = syncInProgress;
+  await syncFeature.syncWithServer({ wsState, syncInProgressRef });
+  syncInProgress = syncInProgressRef.value;
 }
 
 async function refreshFromServer() {
-  if (!isOnlineForSync() || !db) {
-    console.log('Offline - using local data');
-    return;
-  }
-
-  try {
-    // 1. Server-Daten holen
-    const [todosData, projectsData, sectionsData] = await Promise.all([
-      todosApi.list(),
-      projectsApi.list(),
-      sectionsApi.listAll()
-    ]);
-
-    const serverTodos = todosData.todos || [];
-    const serverProjects = projectsData.projects || [];
-    const serverSections = sectionsData.sections || [];
-
-    // 2. Merge-Strategie: updated_at Vergleich, Server gewinnt nur wenn neuer
-    for (const todo of serverTodos) {
-      const localTodo = await getFromDB('todos', todo.id);
-      if (!localTodo) {
-        await dbPut('todos', todo);
-      } else {
-        const queue = await dbGetAll('syncQueue');
-        const pendingChanges = queue.find(q =>
-          q.action === 'UPDATE_TODO' && q.data.id === todo.id
-        );
-        if (!pendingChanges) {
-          const localTime = new Date(localTodo.updated_at || 0).getTime();
-          const serverTime = new Date(todo.updated_at || 0).getTime();
-          if (serverTime >= localTime) {
-            await dbPut('todos', todo);
-          }
-        }
-      }
-    }
-
-    // 3. Projekte mergen: Server gewinnt nur wenn neuer ODER keine pending changes
-    for (const project of serverProjects) {
-      const localProject = await getFromDB('projects', project.id);
-      if (!localProject) {
-        await dbPut('projects', project);
-      } else {
-        const queue = await dbGetAll('syncQueue');
-        const pendingChanges = queue.find(q =>
-          q.action === 'UPDATE_PROJECT' && q.data.id === project.id
-        );
-        if (!pendingChanges) {
-          const localTime = new Date(localProject.updated_at || 0).getTime();
-          const serverTime = new Date(project.updated_at || 0).getTime();
-          if (serverTime >= localTime) {
-            await dbPut('projects', project);
-          }
-        }
-      }
-    }
-
-    // 4. Sections mergen
-    for (const section of serverSections) {
-      const localSection = await getFromDB('sections', section.id);
-      if (!localSection) {
-        await dbPut('sections', section);
-      } else {
-        const queue = await dbGetAll('syncQueue');
-        const pendingChanges = queue.find(q =>
-          q.action === 'UPDATE_SECTION' && q.data.id === section.id
-        );
-        if (!pendingChanges) {
-          const localTime = new Date(localSection.updated_at || 0).getTime();
-          const serverTime = new Date(section.updated_at || 0).getTime();
-          if (serverTime >= localTime) {
-            await dbPut('sections', section);
-          }
-        }
-      }
-    }
-
-    // 5. Lokale Daten neu laden
-    todos = await dbGetAll('todos');
-    projects = await dbGetAll('projects');
-    sections = await dbGetAll('sections');
-
-    renderProjects();
-    renderStats();
-    renderTodos();
-
-    console.log('Refreshed from server:', todos.length, 'todos', projects.length, 'projects', sections.length, 'sections');
-  } catch (err) {
-    console.error('Refresh failed:', err);
-  }
+  syncInProgressRef.value = syncInProgress;
+  await syncFeature.refreshFromServer({ wsState, syncInProgressRef });
+  syncInProgress = syncInProgressRef.value;
 }
-
-// ─── Online/Offline Detection (WebSocket-basiert) ────────────────────────────
-
-// Use WebSocket connection state instead of browser navigator.onLine
-// The old online/offline listeners are kept as fallback only
-window.addEventListener('online', async () => {
-  console.log('Browser reports online');
-  if (wsState === 'disconnected') {
-    connectWebSocket();
-  }
-  // Nur sync (Queue verarbeiten), KEIN refreshFromServer
-  // refreshFromServer würde Server-Daten holen und potenziell überschreiben
-  await syncWithServer();
-});
-
-window.addEventListener('offline', () => {
-  console.log('Browser reports offline');
-});
-
-// ─── Sidebar ─────────────────────────────────────────────────────────────────
-function toggleSidebar() {
-  const sb = document.getElementById('sidebar');
-  const ov = document.getElementById('sidebar-overlay');
-  sb.classList.toggle('open');
-  ov.classList.toggle('active');
-}
-
-function closeSidebar() {
-  document.getElementById('sidebar').classList.remove('open');
-  document.getElementById('sidebar-overlay').classList.remove('active');
-}
-
-// ─── Update-Checker ───────────────────────────────────────────────────────────
-
-const initServiceWorker = serviceWorkerUpdates.initServiceWorker;
-const triggerUpdate = serviceWorkerUpdates.triggerUpdate;
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
