@@ -436,7 +436,7 @@ class TestSuite:
     def test_section_create(self):
         proj_id = self.created_ids["project"][-1] if self.created_ids["project"] else 1
         
-        status, data = curl("POST", f"/api/projects/{proj_id}/sections", {
+        status, data = curl("POST", f"/api/sections/by-project/{proj_id}", {
             "name": "Test Section",
             "sort_order": 0
         }, token=self.user_token, csrf=self.user_csrf, cookie_jar="/tmp/nia_user_cookies.txt")
