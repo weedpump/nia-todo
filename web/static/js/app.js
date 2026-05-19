@@ -17,6 +17,7 @@ import { createSyncFeature } from './features/sync.js';
 import { renderTodoItem } from './features/todo-rendering.js';
 import { createViewPreferencesFeature } from './features/view-preferences.js';
 import { createWebSocketClient } from './features/websocket-client.js';
+import { createToastUndoFeature } from './features/toast-undo.js';
 let todos = [];
 let projects = [];
 let sections = [];
@@ -30,9 +31,6 @@ let appInitialized = false;
 let syncInProgress = false;
 let hideDone = localStorage.getItem('nia-hide-done') === 'true';
 let sortMode = localStorage.getItem('nia-sort') || 'order';
-let undoAction = null;
-let undoTimer = null;
-let pendingUndoBatch = null; // For batch operations like clear-done
 
 // ─── Auth / User (JWT) ───────────────────────────────────────────────────────
 
@@ -774,87 +772,24 @@ const updateToggleDoneButton = viewPreferences.updateToggleDoneButton;
 const cycleSort = viewPreferences.cycleSort;
 const updateSortButton = viewPreferences.updateSortButton;
 const sortTodoList = viewPreferences.sortTodoList;
-function showToast(message, action) {
-  const container = document.getElementById('toast-container');
-  const msgEl = document.getElementById('toast-message');
-  if (!container || !msgEl) return;
-  msgEl.textContent = message;
-  undoAction = action;
-  container.style.display = 'flex';
-  if (undoTimer) clearTimeout(undoTimer);
-  undoTimer = setTimeout(hideToast, 5000);
-}
-
-function showBatchToast(message, batchData) {
-  const container = document.getElementById('toast-container');
-  const msgEl = document.getElementById('toast-message');
-  if (!container || !msgEl) return;
-  msgEl.textContent = message;
-  pendingUndoBatch = batchData;
-  undoAction = { type: 'batch_delete' };
-  container.style.display = 'flex';
-  if (undoTimer) clearTimeout(undoTimer);
-  undoTimer = setTimeout(() => {
-    pendingUndoBatch = null;
-    hideToast();
-  }, 5000);
-}
-
-function hideToast() {
-  const container = document.getElementById('toast-container');
-  if (container) container.style.display = 'none';
-  undoAction = null;
-  if (undoTimer) { clearTimeout(undoTimer); undoTimer = null; }
-}
-
-function undoLastAction() {
-  if (!undoAction) return;
-  if (undoAction.type === 'status') {
-    toggleTodo(undoAction.id);
-  } else if (undoAction.type === 'delete') {
-    restoreTodo(undoAction.id, undoAction.data);
-  } else if (undoAction.type === 'batch_delete' && pendingUndoBatch) {
-    restoreBatchTodos();
-  }
-  hideToast();
-}
-
-// ─── Deleted Todo Restore ──────────────────────────────────────────────────
-
-async function restoreBatchTodos() {
-  if (!pendingUndoBatch || !db) return;
-  const { todos: deletedTodos } = pendingUndoBatch;
-  for (const todoData of deletedTodos) {
-    await dbPut('todos', todoData);
-    const existing = todos.find(t => t.id === todoData.id);
-    if (!existing) {
-      todos.push(todoData);
-    } else {
-      todos = todos.map(t => t.id === todoData.id ? todoData : t);
-    }
-  }
-  renderStats();
-  renderTodos();
-  pendingUndoBatch = null;
-  if (isOnlineForSync()) {
-    for (const todoData of deletedTodos) {
-      await addToSyncQueue('UPDATE_TODO', { id: todoData.id, changes: { status: todoData.status } });
-    }
-    await syncWithServer();
-  }
-}
-
-async function restoreTodo(id, data) {
-  if (!db) return;
-  await dbPut('todos', data);
-  todos.push(data);
-  renderStats();
-  renderTodos();
-  if (isOnlineForSync()) {
-    await addToSyncQueue('UPDATE_TODO', { id, changes: data });
-    await syncWithServer();
-  }
-}
+const toastUndoFeature = createToastUndoFeature({
+  getDb: () => db,
+  getTodos: () => todos,
+  setTodos: (next) => { todos = next; },
+  dbPut,
+  addToSyncQueue,
+  isOnlineForSync,
+  syncWithServer,
+  renderStats: () => renderStats(),
+  renderTodos: () => renderTodos(),
+  toggleTodo: (id) => toggleTodo(id),
+});
+const showToast = toastUndoFeature.showToast;
+const showBatchToast = toastUndoFeature.showBatchToast;
+const hideToast = toastUndoFeature.hideToast;
+const undoLastAction = toastUndoFeature.undoLastAction;
+const restoreBatchTodos = toastUndoFeature.restoreBatchTodos;
+const restoreTodo = toastUndoFeature.restoreTodo;
 
 // ─── Push Notifications ────────────────────────────────────────────────────
 

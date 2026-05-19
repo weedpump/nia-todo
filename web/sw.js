@@ -34,6 +34,7 @@ const PRECACHE_ASSETS = [
   '/static/js/features/todos.js',
   '/static/js/features/sync.js',
   '/static/js/features/todo-rendering.js',
+  '/static/js/features/toast-undo.js',
   '/static/js/features/view-preferences.js',
   '/static/js/features/websocket-client.js',
   '/static/js/features/service-worker-updates.js',
