@@ -5,6 +5,7 @@ import { authApi, projectsApi, pushApi, sectionsApi, todosApi } from './api/inde
 import * as indexedDb from './storage/indexed-db.js';
 import * as syncQueue from './sync/queue.js';
 import { createApiKeysFeature } from './features/api-keys.js';
+import { updateConnectionStatus as renderConnectionStatus } from './features/connection-status.js';
 import { createPushNotificationsFeature } from './features/push-notifications.js';
 import { createSectionsFeature } from './features/sections.js';
 import { createServiceWorkerUpdatesFeature } from './features/service-worker-updates.js';
@@ -353,19 +354,8 @@ function disconnectWebSocket() {
 }
 
 function updateConnectionStatus() {
-  const indicator = document.getElementById('online-status');
-  if (!indicator) return;
-
-  if (wsState === 'connected') {
-    indicator.style.display = 'none';
-    indicator.className = 'status-online';
-  } else {
-    indicator.style.display = 'inline-block';
-    indicator.className = 'status-offline';
-    indicator.textContent = '';
-  }
+  renderConnectionStatus(wsState);
 }
-
 async function handleWsMessage(msg) {
   switch (msg.type) {
     case 'auth_ok':
