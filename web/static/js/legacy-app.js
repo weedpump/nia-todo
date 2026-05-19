@@ -3,8 +3,7 @@ import { APP_VERSION, WS_URL } from './core/config.js';
 import { escapeHtml, escapeHtmlAttr, formatDate, jsArg, renderMarkdown, truncateWords } from './core/utils.js';
 import { authApi, projectsApi, pushApi, sectionsApi, todosApi } from './api/index.js';
 import { createAuthSessionFeature } from './features/auth-session.js';
-import * as indexedDb from './storage/indexed-db.js';
-import * as syncQueue from './sync/queue.js';
+import { createAppStorage } from './storage/app-storage.js';
 import { createApiKeysFeature } from './features/api-keys.js';
 import { updateConnectionStatus as renderConnectionStatus } from './features/connection-status.js';
 import { createPushNotificationsFeature } from './features/push-notifications.js';
@@ -52,6 +51,16 @@ const sectionsFeature = createSectionsFeature({
   getSections: () => sections,
   renderTodos: () => renderTodos(),
 });
+const appStorage = createAppStorage({ setDb: (next) => { db = next; } });
+const openDB = appStorage.openDB;
+const clearIndexedDB = appStorage.clearIndexedDB;
+const dbGetAll = appStorage.dbGetAll;
+const dbPut = appStorage.dbPut;
+const dbClear = appStorage.dbClear;
+const getFromDB = appStorage.getFromDB;
+const deleteFromDB = appStorage.deleteFromDB;
+const clearSyncQueue = appStorage.clearSyncQueue;
+const addToSyncQueue = appStorage.addToSyncQueue;
 const syncInProgressRef = { value: syncInProgress };
 const syncFeature = createSyncFeature({
   getDb: () => db,
@@ -127,11 +136,6 @@ const authSessionFeature = createAuthSessionFeature({
   renderUserInfo: () => renderUserInfo(),
 });
 const serviceWorkerUpdates = createServiceWorkerUpdatesFeature({ onMarkTodoDone: markTodoDone });
-
-async function clearIndexedDB() {
-  await indexedDb.closeAndDeleteDatabase();
-  db = null;
-}
 
 const getAuthToken = authSessionFeature.getAuthToken;
 const getCsrfToken = authSessionFeature.getCsrfToken;
@@ -552,39 +556,6 @@ async function handleWsMessage(msg) {
 }
 
 // ─── IndexedDB ───────────────────────────────────────────────────────────────
-
-async function openDB() {
-  db = await indexedDb.openDatabase();
-  return db;
-}
-
-function dbGetAll(storeName) {
-  return indexedDb.getAll(storeName);
-}
-
-function dbPut(storeName, item) {
-  return indexedDb.put(storeName, item);
-}
-
-function dbClear(storeName) {
-  return indexedDb.clear(storeName);
-}
-
-function getFromDB(storeName, id) {
-  return indexedDb.get(storeName, id);
-}
-
-function deleteFromDB(storeName, id) {
-  return indexedDb.remove(storeName, id);
-}
-
-async function clearSyncQueue() {
-  await syncQueue.clearQueue();
-}
-
-function addToSyncQueue(action, data) {
-  return syncQueue.enqueue(action, data);
-}
 
 // ─── Sync Logic (Kern der Offline→Online Synchronisation) ───────────────────
 
