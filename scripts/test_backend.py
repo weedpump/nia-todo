@@ -6,9 +6,9 @@ Tests ALL API endpoints with automatic DB backup/restore.
 Ablauf:
 1. Bestehende DB sichern (umbenennen)
 2. Dev-Dienst neustarten (leere DB)
-3. Setup mit Admin + Test-User durchfuehren
-4. Alle Tests ausfuehren
-5. Urspruengliche DB wiederherstellen
+3. Setup mit Admin + Test-User durchführen
+4. Alle Tests ausführen
+5. Ursprüngliche DB wiederherstellen
 6. Dienst neustarten
 """
 
@@ -66,9 +66,9 @@ def db_backup():
         if DB_BACKUP.exists():
             DB_BACKUP.unlink()
         shutil.move(str(DB_PATH), str(DB_BACKUP))
-        print(f"  BACKUP DB gesichert: {DB_BACKUP}")
+        print(f"  💾 DB gesichert: {DB_BACKUP}")
     else:
-        print("  INFO  Keine bestehende DB zum Sichern")
+        print("  ℹ️  Keine bestehende DB zum Sichern")
 
 def db_restore():
     """Restore original database from backup."""
@@ -77,9 +77,9 @@ def db_restore():
         DB_PATH.unlink()
     if DB_BACKUP.exists():
         shutil.move(str(DB_BACKUP), str(DB_PATH))
-        print(f"  RESTORE DB wiederhergestellt: {DB_PATH}")
+        print(f"  🔄 DB wiederhergestellt: {DB_PATH}")
     else:
-        print("  WARN  Kein Backup zum Wiederherstellen")
+        print("  ⚠️  Kein Backup zum Wiederherstellen")
     service_start()
     service_wait()
 
@@ -87,7 +87,7 @@ def db_reset():
     """Remove any existing DB for fresh start."""
     if DB_PATH.exists():
         DB_PATH.unlink()
-        print("  REMOVE  Alte DB entfernt")
+        print("  🗑️  Alte DB entfernt")
 
 # --- HTTP Helper --------------------------------------------------------------
 
@@ -129,14 +129,14 @@ def ok(status: int, expected: int = 200) -> bool:
 
 def perform_setup() -> bool:
     """Perform initial setup: admin + first user."""
-    print("\nSETUP Setup durchfuehren...")
+    print("\n🔧 Setup durchführen...")
     
     # Admin setzen
     status, data = curl("POST", "/api/setup/admin", {"admin_password": ADMIN_PASSWORD})
     if status != 200:
-        print(f"  FAIL Admin-Setup fehlgeschlagen: {status}")
+        print(f"  ❌ Admin-Setup fehlgeschlagen: {status}")
         return False
-    print(f"  OK Admin-Setup: {status}")
+    print(f"  ✅ Admin-Setup: {status}")
     
     # First User erstellen
     status, data = curl("POST", "/api/setup/first-user", {
@@ -145,9 +145,9 @@ def perform_setup() -> bool:
         "display_name": "Test User"
     })
     if status != 200:
-        print(f"  FAIL User-Setup fehlgeschlagen: {status}")
+        print(f"  ❌ User-Setup fehlgeschlagen: {status}")
         return False
-    print(f"  OK User-Setup: {status}")
+    print(f"  ✅ User-Setup: {status}")
     
     return True
 
@@ -249,7 +249,7 @@ class TestSuite:
     
     def test_admin_logout(self):
         # Admin-Logout braucht: Cookie (CSRF) + Authorization Header (Token)
-        # Token und CSRF muessen explizit im Header mitgeschickt werden
+        # Token und CSRF müssen explizit im Header mitgeschickt werden
         status, _ = curl("POST", "/api/admin/logout", token=self.admin_token, csrf=self.admin_csrf, cookie_jar="/tmp/nia_admin_cookies.txt")
         return self.record("admin_logout", status)
     
@@ -669,13 +669,13 @@ def print_results(results: dict):
         total += 1
         
         if status == -1:
-            print(f"  SKIP  {name}: SKIPPED")
+            print(f"  ⏭️  {name}: SKIPPED")
             skipped += 1
         elif passed_flag:
-            print(f"  OK {name}: {status}")
+            print(f"  ✅ {name}: {status}")
             passed += 1
         else:
-            print(f"  FAIL {name}: {status} (expected {expected})")
+            print(f"  ❌ {name}: {status} (expected {expected})")
             failed += 1
     
     print("\n" + "=" * 70)
@@ -688,7 +688,7 @@ def print_results(results: dict):
 
 def main():
     print("=" * 70)
-    print("TEST nia-todo Backend Test Suite (develop)")
+    print("🧪 nia-todo Backend Test Suite (develop)")
     print("=" * 70)
     print(f"Service: {SERVICE}")
     print(f"URL: {URL}")
@@ -700,19 +700,19 @@ def main():
     
     try:
         # Step 1: Backup existing DB
-        print("\nSTEP1 Schritt 1/6: Bestehende DB sichern...")
+        print("\n📦 Schritt 1/6: Bestehende DB sichern...")
         db_backup()
         
         # Step 2: Restart service (fresh DB)
-        print("\nRESTORE Schritt 2/6: Service neustarten (leere DB)...")
+        print("\n🔄 Schritt 2/6: Service neustarten (leere DB)...")
         service_restart()
         if not service_wait():
-            print("FAIL Service startet nicht!")
+            print("❌ Service startet nicht!")
             return 1
-        print("OK Service laeuft")
+        print("✅ Service läuft")
         
         # Step 3: Run tests (includes setup tests!)
-        print("\nRUN Schritt 3/6: Tests ausfuehren (inkl. Setup)...")
+        print("\n🏃 Schritt 3/6: Tests ausführen (inkl. Setup)...")
         suite = TestSuite()
         results = suite.run_all()
         
@@ -724,27 +724,27 @@ def main():
         output_file = BASE / "test-results.json"
         with open(output_file, "w") as f:
             json.dump(results, f, indent=2)
-        print(f"\nFILE Ergebnisse: {output_file}")
+        print(f"\n📄 Ergebnisse: {output_file}")
         
     finally:
         # Step 4+5: Restore DB and restart
-        print("\nRESTORE Schritt 4/6: Urspruengliche DB wiederherstellen...")
+        print("\n🔄 Schritt 4/6: Ursprüngliche DB wiederherstellen...")
         db_restore()
         
-        print("\nRESTORE Schritt 5/6: Service neustarten...")
+        print("\n🔄 Schritt 5/6: Service neustarten...")
         service_restart()
         if not service_wait():
-            print("WARN  Service startet moeglicherweise nicht korrekt!")
+            print("⚠️  Service startet möglicherweise nicht korrekt!")
         else:
-            print("OK Service laeuft wieder normal")
+            print("✅ Service läuft wieder normal")
     
     # Final summary
     print("\n" + "=" * 70)
     if all_passed:
-        print("SUCCESS ALLE TESTS BESTANDEN!")
+        print("🎉 ALLE TESTS BESTANDEN!")
         return 0
     else:
-        print("WARN  EINIGE TESTS FEHLGESCHLAGEN")
+        print("⚠️  EINIGE TESTS FEHLGESCHLAGEN")
         return 1
 
 if __name__ == "__main__":
