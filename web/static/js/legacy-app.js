@@ -9,6 +9,7 @@ import { createPushNotificationsFeature } from './features/push-notifications.js
 import { createSectionsFeature } from './features/sections.js';
 import { createServiceWorkerUpdatesFeature } from './features/service-worker-updates.js';
 import { applyTheme, bindSystemThemeListener, cycleTheme, initTheme, setTheme } from './features/theme.js';
+import { createUserSettingsFeature } from './features/user-settings.js';
 import { renderTodoItem } from './features/todo-rendering.js';
 import { createViewPreferencesFeature } from './features/view-preferences.js';
 let todos = [];
@@ -45,6 +46,14 @@ const sectionsFeature = createSectionsFeature({
   getCurrentProjectId: () => currentProjectId,
   getSections: () => sections,
   renderTodos: () => renderTodos(),
+});
+const userSettingsFeature = createUserSettingsFeature({
+  authApi,
+  getCurrentUser: () => currentUser,
+  resetApiKeyUi: () => resetApiKeyUi(),
+  loadApiKeys: () => loadApiKeys(),
+  updatePushSettingsUI: () => updatePushSettingsUI(),
+  logout: () => logout(),
 });
 const serviceWorkerUpdates = createServiceWorkerUpdatesFeature({ onMarkTodoDone: markTodoDone });
 
@@ -181,57 +190,9 @@ async function handleLogin(e) {
   }
 }
 
-function renderUserInfo() {
-  const nameEl = document.getElementById('user-name');
-  const settingsNameEl = document.getElementById('settings-user-name');
-  if (nameEl && currentUser) {
-    nameEl.textContent = currentUser.display_name || currentUser.username;
-  }
-  if (settingsNameEl && currentUser) {
-    settingsNameEl.textContent = currentUser.display_name || currentUser.username;
-  }
-  // Admin link removed - accessible only via direct URL
-}
-
-function openSettingsModal() {
-  document.getElementById('settings-old-password').value = '';
-  document.getElementById('settings-new-password').value = '';
-  document.getElementById('settings-confirm-password').value = '';
-  document.getElementById('settings-pw-error').textContent = '';
-  document.getElementById('settings-pw-success').textContent = '';
-  // Reset API key UI
-  resetApiKeyUi();
-  document.getElementById('settings-modal')?.classList.add('active');
-  loadApiKeys();
-  updatePushSettingsUI();
-}
-
-async function changeUserPassword() {
-  const oldPw = document.getElementById('settings-old-password').value;
-  const newPw = document.getElementById('settings-new-password').value;
-  const confirmPw = document.getElementById('settings-confirm-password').value;
-
-  document.getElementById('settings-pw-error').textContent = '';
-  document.getElementById('settings-pw-success').textContent = '';
-
-  if (!oldPw || !newPw || !confirmPw) {
-    document.getElementById('settings-pw-error').textContent = 'Alle Felder sind erforderlich';
-    return;
-  }
-  if (newPw !== confirmPw) {
-    document.getElementById('settings-pw-error').textContent = 'Passwörter stimmen nicht überein';
-    return;
-  }
-
-  try {
-    await authApi.changePassword(oldPw, newPw);
-    document.getElementById('settings-pw-success').textContent = 'Passwort geändert! Du wirst abgemeldet...';
-    setTimeout(() => logout(), 1500);
-  } catch(e) {
-    document.getElementById('settings-pw-error').textContent = e.message;
-  }
-}
-
+const renderUserInfo = userSettingsFeature.renderUserInfo;
+const openSettingsModal = userSettingsFeature.openSettingsModal;
+const changeUserPassword = userSettingsFeature.changeUserPassword;
 // ─── API Keys ────────────────────────────────────────────────────────────────
 
 const resetApiKeyUi = apiKeysFeature.resetApiKeyUi;
