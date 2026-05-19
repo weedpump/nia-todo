@@ -34,3 +34,23 @@ export function formatDate(isoString) {
   if (isTomorrow) return `Morgen ${time}`;
   return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + time;
 }
+
+
+export function truncateWords(str, maxWords) {
+  const words = str.trim().split(/\s+/);
+  if (words.length <= maxWords) return str;
+  return words.slice(0, maxWords).join(' ') + '...';
+}
+
+export function renderMarkdown(text) {
+  if (!text) return '';
+  let html = escapeHtml(text);
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+  html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+  html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+  html = html.replace(/^- (.+)$/gm, '• $1');
+  html = html.replace(/
+/g, '<br>');
+  return html;
+}
