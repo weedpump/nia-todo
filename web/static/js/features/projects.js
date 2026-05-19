@@ -1,6 +1,7 @@
 export function createProjectsFeature({
   getProjects,
   getTodos,
+  getCurrentProjectId,
   setProjects,
   dbPut,
   addToSyncQueue,
@@ -160,8 +161,23 @@ export function createProjectsFeature({
   }
 
   async function clearDoneInProject() {
-    const currentProjectId = null; // kept for compatibility in legacy caller path
+    const currentProjectId = getCurrentProjectId();
     if (!currentProjectId) return;
+    const project = getProjects().find(p => p.id === currentProjectId);
+    if (!project) return;
+    const doneTodos = getTodos().filter(t => t.project_id === currentProjectId && t.status === 'done');
+    if (doneTodos.length === 0) return showToast('Keine erledigten Todos in diesem Projekt');
+    if (!confirm(`${doneTodos.length} erledigte Todo(s) in "${project.name}" löschen?`)) return;
+    showBatchToast(`${doneTodos.length} erledigte Todo(s) gelöscht`, { todos: doneTodos });
+    try {
+      const r = await projectsApi.clearDone(currentProjectId);
+      if (!r.ok) showToast('Fehler beim Löschen');
+      renderStats();
+      renderTodos();
+    } catch (err) {
+      console.error('Clear done error:', err);
+      showToast('Fehler beim Löschen');
+    }
   }
 
   return { showProjectModal, editProject, saveProject, deleteProject, deleteProjectFromModal, clearDoneFromModal, clearDoneInProject };

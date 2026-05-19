@@ -18,13 +18,14 @@ import { renderTodoItem } from './features/todo-rendering.js';
 import { createViewPreferencesFeature } from './features/view-preferences.js';
 import { createWebSocketClient } from './features/websocket-client.js';
 import { createToastUndoFeature } from './features/toast-undo.js';
+import { createDragDropFeature } from './features/drag-drop.js';
+import { createAppRenderingFeature } from './features/app-rendering.js';
+import { createNavigationFeature } from './features/navigation.js';
 let todos = [];
 let projects = [];
 let sections = [];
 let currentFilter = 'all';
 let currentProjectId = null;
-let dragSrcTodoId = null;
-let dragSrcSectionId = null;
 let db = null;
 let dbReady = null;
 let appInitialized = false;
@@ -44,6 +45,11 @@ const viewPreferences = createViewPreferencesFeature({
   setSortMode: (value) => { sortMode = value; },
   renderTodos: () => renderTodos(),
 });
+const toggleHideDone = viewPreferences.toggleHideDone;
+const updateToggleDoneButton = viewPreferences.updateToggleDoneButton;
+const cycleSort = viewPreferences.cycleSort;
+const updateSortButton = viewPreferences.updateSortButton;
+const sortTodoList = viewPreferences.sortTodoList;
 const sectionsFeature = createSectionsFeature({
   getTodos: () => todos,
   getCurrentProjectId: () => currentProjectId,
@@ -95,7 +101,7 @@ const todosFeature = createTodosFeature({
   renderStats: () => renderStats(),
   renderTodos: () => renderTodos(),
   closeModal,
-  showToast,
+  showToast: (...args) => showToast(...args),
   setupDescPreview,
   renderMarkdown,
   loadSectionsForCurrentProject: (selectedSectionId) => loadSectionsForCurrentProject(selectedSectionId),
@@ -103,6 +109,7 @@ const todosFeature = createTodosFeature({
 const projectsFeature = createProjectsFeature({
   getProjects: () => projects,
   getTodos: () => todos,
+  getCurrentProjectId: () => currentProjectId,
   setProjects: (next) => { projects = next; },
   dbPut,
   addToSyncQueue,
@@ -113,8 +120,8 @@ const projectsFeature = createProjectsFeature({
   renderStats: () => renderStats(),
   renderTodos: () => renderTodos(),
   closeModal,
-  showToast,
-  showBatchToast,
+  showToast: (...args) => showToast(...args),
+  showBatchToast: (...args) => showBatchToast(...args),
   projectsApi,
 });
 const userSettingsFeature = createUserSettingsFeature({
@@ -134,7 +141,9 @@ const authSessionFeature = createAuthSessionFeature({
   refreshFromServer: () => refreshFromServer(),
   renderUserInfo: () => renderUserInfo(),
 });
-const serviceWorkerUpdates = createServiceWorkerUpdatesFeature({ onMarkTodoDone: markTodoDone });
+const serviceWorkerUpdates = createServiceWorkerUpdatesFeature({ onMarkTodoDone: (id) => markTodoDone(id) });
+const initServiceWorker = serviceWorkerUpdates.initServiceWorker;
+const triggerUpdate = serviceWorkerUpdates.triggerUpdate;
 
 const getAuthToken = authSessionFeature.getAuthToken;
 const getCsrfToken = authSessionFeature.getCsrfToken;
@@ -157,7 +166,11 @@ const createApiKey = apiKeysFeature.createApiKey;
 const revokeApiKey = apiKeysFeature.revokeApiKey;
 const copyApiKey = apiKeysFeature.copyApiKey;
 
-// ─── Theme System ─────────────────// ─── WebSocket ───────────────────────────────────────────────────────────────
+// ─── Theme System ───────────────────────────────────────────────────────────
+
+bindSystemThemeListener();
+
+// ─── WebSocket ───────────────────────────────────────────────────────────────
 const wsClient = createWebSocketClient({
   wsUrl: WS_URL,
   getAuthToken: () => getAuthToken(),
@@ -187,10 +200,6 @@ const disconnectWebSocket = wsClient.disconnectWebSocket;
 const updateConnectionStatus = wsClient.updateConnectionStatus;
 const handleWsMessage = wsClient.handleWsMessage;
 
-efault:
-      console.log('WS: unknown message type', msg.type);
-  }
-}
 
 // ─── IndexedDB ───────────────────────────────────────────────────────────────
 
@@ -210,6 +219,52 @@ async function refreshFromServer() {
   syncInProgressRef.value = syncInProgress;
   await syncFeature.refreshFromServer({ wsState: wsClient.getWsState(), syncInProgressRef });
   syncInProgress = syncInProgressRef.value;
+}
+
+window.addEventListener('online', async () => {
+  console.log('Browser reports online');
+  if (wsClient.getWsState() === 'disconnected') connectWebSocket();
+  await syncWithServer();
+});
+
+window.addEventListener('offline', () => {
+  console.log('Browser reports offline');
+});
+
+function toggleSidebar() {
+  document.getElementById('sidebar')?.classList.toggle('open');
+  document.getElementById('sidebar-overlay')?.classList.toggle('active');
+}
+
+function closeSidebar() {
+  document.getElementById('sidebar')?.classList.remove('open');
+  document.getElementById('sidebar-overlay')?.classList.remove('active');
+}
+
+function closeModal(modalId) {
+  document.getElementById(modalId)?.classList.remove('active');
+}
+
+function setupDescPreview() {
+  const textarea = document.getElementById('todo-desc');
+  const preview = document.getElementById('todo-desc-preview');
+  if (!textarea || !preview) return;
+  preview.innerHTML = renderMarkdown(textarea.value);
+  textarea.oninput = () => { preview.innerHTML = renderMarkdown(textarea.value); };
+}
+
+async function loadFromLocalDB() {
+  todos = await dbGetAll('todos');
+  projects = await dbGetAll('projects');
+  sections = await dbGetAll('sections');
+  renderProjects();
+  renderStats();
+  renderTodos();
+}
+
+async function loadAll() {
+  await loadFromLocalDB();
+  if (isOnlineForSync()) await refreshFromServer();
 }
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
@@ -288,490 +343,145 @@ async function initApp() {
   console.log('App initialized');
 }
 
-function renderVersionInfo() {
-  const el = document.getElementById('version-info');
-  if (el) {
-    el.textContent = APP_VERSION;
-  }
-}
-
-async function loadFromLocalDB() {
-  todos = await dbGetAll('todos');
-  projects = await dbGetAll('projects');
-  sections = await dbGetAll('sections');
-  renderProjects();
-  renderStats();
-  renderTodos();
-}
-
-async function loadAll() {
-  await loadFromLocalDB();
-  if (isOnlineForSync()) {
-    await refreshFromServer();
-  }
-}
-
-// ─── Render ──────────────────────────────────────────────────────────────────
-
-function renderProjects() {
-  const el = document.getElementById('project-list');
-  if (!el) return;
-  
-  // Build tree structure
-  const projectMap = new Map();
-  projects.forEach(p => projectMap.set(p.id, { ...p, children: [] }));
-  
-  const rootProjects = [];
-  projectMap.forEach(p => {
-    if (p.parent_id === null || p.parent_id === undefined) {
-      rootProjects.push(p);
-    } else {
-      const parent = projectMap.get(p.parent_id);
-      if (parent) {
-        parent.children.push(p);
-      }
-    }
-  });
-  
-  // Sort roots: Inbox first, then alphabetisch
-  rootProjects.sort((a, b) => {
-    if (a.id === 1) return -1;
-    if (b.id === 1) return 1;
-    return a.name.localeCompare(b.name);
-  });
-  
-  // Recursive render function
-  function renderProjectTree(project, depth = 0) {
-    const indent = depth * 16;
-    const hasChildren = project.children && project.children.length > 0;
-    
-    let html = '';
-    html += `<div class="project-tree-item" style="padding-left: ${indent}px">`;
-    html += `<div class="nav-item-with-action">`;
-    html += `<button class="nav-btn ${currentFilter === String(project.id) ? 'active' : ''}" onclick="setFilter('${project.id}')">`;
-    html += `<span class="project-dot" style="background:${escapeHtmlAttr(project.color)}"></span>`;
-    html += `${escapeHtml(project.name)}`;
-    html += `<span class="badge">${countByProject(project.id, true)}</span>`;
-    html += `</button>`;
-    html += `<button class="nav-edit" onclick="event.stopPropagation(); editProject(${project.id})" title="Bearbeiten">`;
-    html += `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
-    html += `</button>`;
-    html += `</div>`;
-    html += `</div>`;
-    
-    // Render children alphabetically
-    if (hasChildren) {
-      project.children.sort((a, b) => a.name.localeCompare(b.name));
-      project.children.forEach(child => {
-        html += renderProjectTree(child, depth + 1);
-      });
-    }
-    
-    return html;
-  }
-  
-  el.innerHTML = rootProjects.map(p => renderProjectTree(p)).join('');
-}
-
-// Track expanded state for project tree
-let expandedProjects = new Set();
-
-function renderStats() {
-  const el = document.getElementById('stats-bar');
-  if (!el) return;
-  const total = todos.length;
-  const pending = todos.filter(t => t.status === 'pending').length;
-  const inprog = todos.filter(t => t.status === 'in_progress').length;
-  const done = todos.filter(t => t.status === 'done').length;
-  const overdue = todos.filter(t => t.status !== 'done' && t.due_date && new Date(t.due_date) < new Date()).length;
-
-  document.getElementById('count-all').textContent = total;
-  document.getElementById('count-pending').textContent = pending;
-  document.getElementById('count-in_progress').textContent = inprog;
-  document.getElementById('count-done').textContent = done;
-
-  el.innerHTML = '';
-  const stats = [
-    { cls: 'total', num: total, label: 'Gesamt' },
-    { cls: 'pending', num: pending, label: 'Offen' },
-    { cls: 'pending', num: inprog, label: 'In Arbeit' },
-    { cls: 'due', num: overdue, label: 'Überfällig' },
-    { cls: 'done', num: done, label: 'Erledigt' }
-  ];
-  stats.forEach(s => {
-    const div = document.createElement('div');
-    div.className = 'stat-card ' + s.cls;
-    const span = document.createElement('span');
-    span.className = 'stat-num';
-    span.textContent = s.num;
-    div.appendChild(span);
-    div.appendChild(document.createTextNode(' ' + s.label));
-    el.appendChild(div);
-  });
-}
-
-function renderTodos() {
-  const el = document.getElementById('todo-list');
-  if (!el) return;
-  const search = document.getElementById('search-input')?.value?.toLowerCase() || '';
-
-  let filtered = todos;
-  if (currentProjectId) {
-    filtered = filtered.filter(t => t.project_id === currentProjectId);
-  }
-  if (search) {
-    filtered = filtered.filter(t =>
-      (t.title || '').toLowerCase().includes(search) ||
-      (t.description || '').toLowerCase().includes(search)
-    );
-  }
-  // Apply sort
-  filtered = sortTodoList(filtered);
-
-  if (currentProjectId) {
-    let html = '';
-
-    const validSectionIds = new Set(sections.map(s => s.id));
-
-    // Status-Filter für Projekt-Ansicht anwenden (außer "Alle")
-    if (currentFilter !== 'all' && ['pending','in_progress','done'].includes(currentFilter)) {
-      filtered = filtered.filter(t => t.status === currentFilter);
-    }
-    // Erledigte ausblenden wenn Toggle aktiv (außer explizit "Erledigt"-Filter)
-    if (hideDone && currentFilter !== 'done') {
-      filtered = filtered.filter(t => t.status !== 'done');
-    }
-
-    for (const section of sections) {
-      const sectionTodos = filtered.filter(t => t.section_id === section.id);
-      html += renderSectionHeader(section);
-      html += `<div class="section-todos" data-section-id="${escapeHtmlAttr(section.id)}" ondragover="handleTodoDragOver(event)" ondrop="handleTodoDrop(event)">`;
-      html += sectionTodos.map(t => renderTodoItem(t)).join('');
-      html += `</div>`;
-    }
-
-    // Verwaiste Todos (gelöschte Section) → Unsortiert
-    const unsorted = filtered.filter(t => !t.section_id || !validSectionIds.has(t.section_id));
-    if (unsorted.length || sections.length) {
-      html += renderSectionHeader(null);
-      html += `<div class="section-todos" data-section-id="null" ondragover="handleTodoDragOver(event)" ondrop="handleTodoDrop(event)">`;
-      html += unsorted.map(t => renderTodoItem(t)).join('');
-      html += `</div>`;
-    }
-
-    // ➕ Neue Section Button
-    html += `<div class="add-section-row">
-      <button class="btn-add-section" onclick="showAddSectionForm()">➕ Neue Section</button>
-      <button class="btn-add-section" onclick="clearDoneInProject()">🗑️ Erledigte löschen</button>
-    </div>`;
-
-    if (!filtered.length && !sections.length) {
-      html += `<div class="empty-state">
-        <div class="emoji">🎉</div>
-        <h3>Alles erledigt!</h3>
-        <p>Keine Todos in dieser Ansicht.</p>
-      </div>`;
-    }
-
-    el.innerHTML = html;
-    return;
-  }
-
-  const groups = {
-    in_progress: '🔥 In Arbeit',
-    pending: '⏳ Offen',
-    done: '✅ Erledigt'
-  };
-
-  // Auf aktuellen Status-Filter begrenzen (außer "Alle")
-  if (currentFilter !== 'all' && groups[currentFilter]) {
-    filtered = filtered.filter(t => t.status === currentFilter);
-  }
-  // Erledigte ausblenden wenn Toggle aktiv (außer explizit "Erledigt"-Filter)
-  if (hideDone && currentFilter !== 'done') {
-    filtered = filtered.filter(t => t.status !== 'done');
-  }
-
-  let html = '';
-  for (const [status, title] of Object.entries(groups)) {
-    // Nur passende Status-Gruppen anzeigen
-    if (currentFilter !== 'all' && currentFilter !== status) continue;
-    const statusItems = filtered.filter(t => t.status === status);
-    if (!statusItems.length) continue;
-
-    html += `<div class="todo-group">
-      <div class="todo-group-title">${title} (${statusItems.length})</div>`;
-
-    // Nach Projekt gruppieren
-    const byProject = new Map();
-    for (const t of statusItems) {
-      const pid = t.project_id || 0;
-      if (!byProject.has(pid)) byProject.set(pid, []);
-      byProject.get(pid).push(t);
-    }
-
-    // Projekte in definierter Reihenfolge (Inbox zuerst, dann alphabetisch)
-    const projectOrder = Array.from(byProject.keys()).sort((a, b) => {
-      if (a === 1) return -1;
-      if (b === 1) return 1;
-      const pa = projects.find(p => p.id === a);
-      const pb = projects.find(p => p.id === b);
-      const na = pa ? pa.name.toLowerCase() : '';
-      const nb = pb ? pb.name.toLowerCase() : '';
-      return na.localeCompare(nb);
-    });
-
-    for (const pid of projectOrder) {
-      const items = byProject.get(pid);
-      const project = projects.find(p => p.id === pid);
-      if (project) {
-        const color = project.color || '#6366f1';
-        html += `<div class="project-group">
-          <div class="project-group-header">
-            <span class="project-dot" style="background:${color}"></span>
-            <span class="project-group-name">${escapeHtml(project.name)}</span>
-            <span class="project-group-count">${items.length}</span>
-          </div>
-          <div class="project-group-todos">
-            ${items.map(t => renderTodoItem(t)).join('')}
-          </div>
-        </div>`;
-      } else {
-        // Kein Projekt zugewiesen
-        html += `<div class="project-group">
-          <div class="project-group-header">
-            <span class="project-dot" style="background:var(--text-muted)"></span>
-            <span class="project-group-name">Unsortiert</span>
-            <span class="project-group-count">${items.length}</span>
-          </div>
-          <div class="project-group-todos">
-            ${items.map(t => renderTodoItem(t)).join('')}
-          </div>
-        </div>`;
-      }
-    }
-
-    html += `</div>`;
-  }
-
-  if (!filtered.length) {
-    html = `<div class="empty-state">
-      <div class="emoji">🎉</div>
-      <h3>Alles erledigt!</h3>
-      <p>Keine Todos in dieser Ansicht.</p>
-    </div>`;
-  }
-
-  el.innerHTML = html;
-}
-
 const renderSectionHeader = sectionsFeature.renderSectionHeader;
+const appRendering = createAppRenderingFeature({
+  appVersion: APP_VERSION,
+  escapeHtml,
+  escapeHtmlAttr,
+  getTodos: () => todos,
+  getProjects: () => projects,
+  getSections: () => sections,
+  getCurrentFilter: () => currentFilter,
+  getCurrentProjectId: () => currentProjectId,
+  getHideDone: () => hideDone,
+  sortTodoList,
+  renderTodoItem,
+  renderSectionHeader,
+});
+const renderVersionInfo = appRendering.renderVersionInfo;
+const renderProjects = appRendering.renderProjects;
+const renderStats = appRendering.renderStats;
+const renderTodos = appRendering.renderTodos;
+const countByProject = appRendering.countByProject;
+
 // ─── Actions ─────────────────────────────────────────────────────────────────
 
-function setFilter(filter) {
-  currentFilter = filter;
-  currentProjectId = (!['all','pending','in_progress','done'].includes(filter)) ? parseInt(filter) : null;
-  
-  // Save to localStorage for persistence
-  localStorage.setItem('nia-last-filter', filter);
-  
-  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-  event.target.closest('.nav-btn')?.classList.add('active');
-  closeSidebar();
+const navigationFeature = createNavigationFeature({
+  sectionsApi,
+  getCurrentProjectId: () => currentProjectId,
+  setCurrentProjectId: (next) => { currentProjectId = next; },
+  setCurrentFilter: (next) => { currentFilter = next; },
+  setSections: (next) => { sections = next; },
+  isOnlineForSync,
+  dbGetAll,
+  dbPut,
+  deleteFromDB,
+  closeSidebar,
+  renderTodos: () => renderTodos(),
+});
+const setFilter = navigationFeature.setFilter;
+const loadSectionsForCurrentProject = navigationFeature.loadSectionsForCurrentProject;
 
-  loadSectionsForCurrentProject().then(() => {
-    renderTodos();
-  });
+const showAddSectionForm = sectionsFeature.showAddSectionForm;
+const editSectionInline = sectionsFeature.editSectionInline;
+
+async function saveNewSection() {
+  const name = document.getElementById('new-section-name')?.value?.trim();
+  if (!name || !currentProjectId) return;
+
+  const now = new Date().toISOString();
+  const tempId = 'temp-section-' + Date.now();
+  const sectionData = {
+    id: tempId,
+    name,
+    project_id: currentProjectId,
+    sort_order: sections.length,
+    created_at: now,
+    updated_at: now,
+  };
+
+  await dbPut('sections', sectionData);
+  sections = [...sections, sectionData];
+  renderTodos();
+
+  await addToSyncQueue('CREATE_SECTION', { ...sectionData, _tempId: tempId });
+  if (isOnlineForSync()) await syncWithServer();
 }
 
-async function loadSectionsForCurrentProject() {
-  sections = [];
-  if (!currentProjectId) return;
+async function saveSectionEdit(id) {
+  const name = document.getElementById(`edit-section-name-${id}`)?.value?.trim();
+  if (!name) return;
 
-  if (isOnlineForSync()) {
-    try {
-      const data = await sectionsApi.listByProject(currentProjectId);
-      const serverSections = data.sections || [];
+  const section = sections.find(s => s.id === id);
+  if (!section) return;
 
-      // Server-Sections in DB speichern
-      for (const s of serverSections) {
-        await dbPut('sections', s);
-      }
+  const updated = { ...section, name, updated_at: new Date().toISOString() };
+  await dbPut('sections', updated);
+  sections = sections.map(s => s.id === id ? updated : s);
+  renderTodos();
 
-      // Cleanup: gelöschte Sections aus DB entfernen
-      const serverIds = new Set(serverSections.map(s => s.id));
-      const allLocal = await dbGetAll('sections');
-      const localProjectSections = allLocal.filter(s => s.project_id === currentProjectId);
-      for (const local of localProjectSections) {
-        if (!serverIds.has(local.id)) {
-          await deleteFromDB('sections', local.id);
-        }
-      }
+  await addToSyncQueue('UPDATE_SECTION', { id, changes: { name } });
+  if (isOnlineForSync()) await syncWithServer();
+}
 
-      sections = serverSections;
-      return;
-    } catch (e) {
-      console.error('Failed to load sections from server', e);
+async function deleteSection(id) {
+  if (!confirm('Section wirklich löschen? Todos werden zu "Unsortiert" verschoben.')) return;
+
+  const section = sections.find(s => s.id === id);
+  if (!section) return;
+
+  sections = sections.filter(s => s.id !== id);
+  await deleteFromDB('sections', id);
+  for (const todo of todos) {
+    if (todo.section_id === id) {
+      todo.section_id = null;
+      todo.updated_at = new Date().toISOString();
+      await dbPut('todos', todo);
     }
   }
+  renderTodos();
 
-  // Fallback: aus lokaler DB laden
-  try {
-    const allSections = await dbGetAll('sections');
-    sections = allSections.filter(s => s.project_id === currentProjectId);
-  } catch (e) {
-    console.error('Failed to load sections from local DB', e);
-  }
+  await addToSyncQueue('DELETE_SECTION', { id });
+  if (isOnlineForSync()) await syncWithServer();
 }
 
-function countByProject(pid, includeSubprojects = false) {
-  if (!includeSubprojects) {
-    return todos.filter(t => t.project_id === pid && t.status !== 'done').length;
-  }
-  
-  // Recursively count todos in subprojects
-  const projectIds = new Set([pid]);
-  function collectChildren(parentId) {
-    projects.forEach(p => {
-      if (p.parent_id === parentId) {
-        projectIds.add(p.id);
-        collectChildren(p.id);
-      }
-    });
-  }
-  collectChildren(pid);
-  
-  return todos.filter(t => projectIds.has(t.project_id) && t.status !== 'done').length;
-}
+const showProjectModal = projectsFeature.showProjectModal;
+const editProject = projectsFeature.editProject;
+const saveProject = projectsFeature.saveProject;
+const deleteProject = projectsFeature.deleteProject;
+const deleteProjectFromModal = projectsFeature.deleteProjectFromModal;
+const clearDoneFromModal = projectsFeature.clearDoneFromModal;
+const clearDoneInProject = projectsFeature.clearDoneInProject;
 
 const markTodoDone = todosFeature.markTodoDone;
+const toggleTodo = todosFeature.toggleTodo;
+const showTodoModal = todosFeature.showTodoModal;
+const onProjectChange = todosFeature.onProjectChange;
+const saveTodo = todosFeature.saveTodo;
+const editTodo = todosFeature.editTodo;
+const deleteTodoFromModal = todosFeature.deleteTodoFromModal;
+const deleteTodo = todosFeature.deleteTodo;
 // ─── Drag & Drop ─────────────────────────────────────────────────────────────
 
-function handleTodoDragStart(e) {
-  dragSrcTodoId = parseInt(e.target.dataset.id);
-  e.target.classList.add('dragging');
-  e.dataTransfer.effectAllowed = 'move';
-  e.dataTransfer.setData('text/plain', 'todo:' + dragSrcTodoId);
-}
+const dragDropFeature = createDragDropFeature({
+  getTodos: () => todos,
+  setTodos: (next) => { todos = next; },
+  getSections: () => sections,
+  setSections: (next) => { sections = next; },
+  isOnlineForSync,
+  todosApi,
+  sectionsApi,
+  renderTodos: () => renderTodos(),
+});
+const handleTodoDragStart = dragDropFeature.handleTodoDragStart;
+const handleTodoDragEnd = dragDropFeature.handleTodoDragEnd;
+const handleTodoDragOver = dragDropFeature.handleTodoDragOver;
+const handleTodoDrop = dragDropFeature.handleTodoDrop;
+const handleSectionDragStart = dragDropFeature.handleSectionDragStart;
+const handleSectionDragEnd = dragDropFeature.handleSectionDragEnd;
+const handleSectionDragOver = dragDropFeature.handleSectionDragOver;
+const handleSectionDrop = dragDropFeature.handleSectionDrop;
 
-function handleTodoDragEnd(e) {
-  e.target.classList.remove('dragging');
-  document.querySelectorAll('.section-todos.drag-over, .section-header.drag-over').forEach(el => {
-    el.classList.remove('drag-over');
-  });
-  dragSrcTodoId = null;
-}
-
-function handleTodoDragOver(e) {
-  e.preventDefault();
-  e.dataTransfer.dropEffect = 'move';
-  const container = e.target.closest('.section-todos');
-  if (container) container.classList.add('drag-over');
-}
-
-async function handleTodoDrop(e) {
-  e.preventDefault();
-  const container = e.target.closest('.section-todos');
-  if (!container) return;
-  container.classList.remove('drag-over');
-
-  const targetSectionId = container.dataset.sectionId;
-  if (!dragSrcTodoId) return;
-
-  const todo = todos.find(t => t.id === dragSrcTodoId);
-  if (!todo) return;
-
-  const newSectionId = targetSectionId === 'null' ? null : parseInt(targetSectionId);
-  if (todo.section_id === newSectionId) return;
-
-  todo.section_id = newSectionId;
-  renderTodos();
-
-  if (isOnlineForSync()) {
-    try {
-      await todosApi.update(todo.id, { section_id: newSectionId });
-    } catch (err) {
-      console.error('Move todo failed', err);
-    }
-  }
-}
-
-function handleSectionDragStart(e) {
-  dragSrcSectionId = parseInt(e.target.dataset.sectionId);
-  e.target.classList.add('dragging');
-  e.dataTransfer.effectAllowed = 'move';
-  e.dataTransfer.setData('text/plain', 'section:' + dragSrcSectionId);
-}
-
-function handleSectionDragEnd(e) {
-  e.target.classList.remove('dragging');
-  document.querySelectorAll('.section-header.drag-over').forEach(el => el.classList.remove('drag-over'));
-  dragSrcSectionId = null;
-}
-
-function handleSectionDragOver(e) {
-  e.preventDefault();
-  e.dataTransfer.dropEffect = 'move';
-  const header = e.target.closest('.section-header');
-  if (header) header.classList.add('drag-over');
-}
-
-async function handleSectionDrop(e) {
-  e.preventDefault();
-  const header = e.target.closest('.section-header');
-  if (!header) return;
-  header.classList.remove('drag-over');
-
-  const targetSectionId = header.dataset.sectionId;
-
-  // ── Handle TODO drop on section header ──
-  if (dragSrcTodoId) {
-    const todo = todos.find(t => t.id === dragSrcTodoId);
-    if (!todo) return;
-    const newSectionId = targetSectionId === 'null' ? null : parseInt(targetSectionId);
-    if (todo.section_id === newSectionId) return;
-    todo.section_id = newSectionId;
-    renderTodos();
-    if (isOnlineForSync()) {
-      try {
-        await todosApi.update(todo.id, { section_id: newSectionId });
-      } catch (err) {
-        console.error('Move todo failed', err);
-      }
-    }
-    return;
-  }
-
-  // ── Handle SECTION reorder ──
-  if (targetSectionId === 'null' || !dragSrcSectionId || dragSrcSectionId === parseInt(targetSectionId)) return;
-
-  const srcIdx = sections.findIndex(s => s.id === dragSrcSectionId);
-  const targetIdx = sections.findIndex(s => s.id === parseInt(targetSectionId));
-  if (srcIdx === -1 || targetIdx === -1) return;
-
-  const [moved] = sections.splice(srcIdx, 1);
-  sections.splice(targetIdx, 0, moved);
-
-  // Update sort_order
-  for (let i = 0; i < sections.length; i++) {
-    sections[i].sort_order = i;
-    if (isOnlineForSync()) {
-      try {
-        await sectionsApi.update(sections[i].id, { sort_order: i });
-      } catch (err) {
-        console.error('Sort section failed', err);
-      }
-    }
-  }
-
-  renderTodos();
-}
-
-const toggleHideDone = viewPreferences.toggleHideDone;
-const updateToggleDoneButton = viewPreferences.updateToggleDoneButton;
-const cycleSort = viewPreferences.cycleSort;
-const updateSortButton = viewPreferences.updateSortButton;
-const sortTodoList = viewPreferences.sortTodoList;
 const toastUndoFeature = createToastUndoFeature({
   getDb: () => db,
   getTodos: () => todos,
