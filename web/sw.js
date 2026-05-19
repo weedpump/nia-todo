@@ -28,6 +28,7 @@ const PRECACHE_ASSETS = [
   '/static/js/features/push-notifications.js',
   '/static/js/features/theme.js',
   '/static/js/features/user-settings.js',
+  '/static/js/features/projects.js',
   '/static/js/features/todo-rendering.js',
   '/static/js/features/view-preferences.js',
   '/static/js/features/service-worker-updates.js',
