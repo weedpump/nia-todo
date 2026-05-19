@@ -1,6 +1,6 @@
 // nia-todo: Frontend app mit Offline-First PWA + WebSocket Echtzeit-Sync
 import { APP_VERSION, WS_URL } from './core/config.js';
-import { escapeHtml, escapeHtmlAttr, formatDate, jsArg } from './core/utils.js';
+import { escapeHtml, escapeHtmlAttr, formatDate, jsArg, renderMarkdown, truncateWords } from './core/utils.js';
 import { authApi, projectsApi, pushApi, sectionsApi, todosApi } from './api/index.js';
 import * as indexedDb from './storage/indexed-db.js';
 import * as syncQueue from './sync/queue.js';
@@ -1527,32 +1527,6 @@ function renderSectionHeader(section) {
   }
 }
 
-function truncateWords(str, maxWords) {
-  const words = str.trim().split(/\s+/);
-  if (words.length <= maxWords) return str;
-  return words.slice(0, maxWords).join(' ') + '...';
-}
-
-function renderMarkdown(text) {
-  if (!text) return '';
-  let html = escapeHtml(text);
-  // Bold
-  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-  // Italic
-  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
-  // Code inline
-  html = html.replace(/`(.+?)`/g, '<code>$1</code>');
-  // Links
-  html = html.replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
-  // Bullet lists: - item or * item at line start
-  html = html.replace(/^[-\*] (.+)$/gm, '<li>$1</li>');
-  // Wrap consecutive <li> in <ul>
-  html = html.replace(/(<li>.+<\/li>\n?)+/g, '<ul>$&</ul>');
-  // Line breaks
-  html = html.replace(/\n/g, '<br>');
-  return html;
-}
-
 function renderTodoItem(t) {
   const isOverdue = t.due_date && t.status !== 'done' && new Date(t.due_date) < new Date();
   const dueStr = t.due_date ? formatDate(t.due_date) : '';
@@ -2640,8 +2614,6 @@ Object.assign(window, {
   renderStats,
   renderTodos,
   renderSectionHeader,
-  truncateWords,
-  renderMarkdown,
   renderTodoItem,
   setFilter,
   loadSectionsForCurrentProject,
