@@ -3,6 +3,7 @@ import { APP_VERSION, WS_URL } from './core/config.js';
 import { authApi, projectsApi, pushApi, sectionsApi, todosApi } from './api/index.js';
 import * as indexedDb from './storage/indexed-db.js';
 import * as syncQueue from './sync/queue.js';
+import { createPushNotificationsFeature } from './features/push-notifications.js';
 let todos = [];
 let projects = [];
 let sections = [];
@@ -25,6 +26,7 @@ let pendingUndoBatch = null; // For batch operations like clear-done
 // ─── Auth / User (JWT) ───────────────────────────────────────────────────────
 
 let currentUser = null;  // { id, username, display_name, token }
+const pushFeature = createPushNotificationsFeature({ pushApi });
 
 function getAuthToken() {
   // Prefer JWT, fallback to legacy session token
@@ -2664,157 +2666,11 @@ function cycleTheme() {
 
 // ─── Push Notifications ────────────────────────────────────────────────────
 
-let pushSubscription = null;
-
-function updatePushStatus(status, errorText) {
-  const statusEl = document.getElementById('push-status');
-  const enableBtn = document.getElementById('push-enable-btn');
-  const disableBtn = document.getElementById('push-disable-btn');
-  const testBtn = document.getElementById('push-test-btn');
-  const errorEl = document.getElementById('push-error');
-  if (!statusEl) return;
-
-  const texts = {
-    granted:   '✅ Erlaubt — du bekommst Benachrichtigungen',
-    denied:    '❌ Blockiert — in den Browser-Einstellungen änderbar',
-    default:   '⏳ Nicht gefragt',
-    unknown:   '❓ Service Worker nicht verfügbar',
-    unsupported: '❌ Nicht unterstützt (kein HTTPS?)',
-  };
-  statusEl.textContent = 'Status: ' + (texts[status] || status);
-
-  if (enableBtn)   enableBtn.style.display   = (status === 'default') ? 'inline-block' : 'none';
-  if (disableBtn)  disableBtn.style.display  = (status === 'granted') ? 'inline-block' : 'none';
-  if (testBtn)     testBtn.style.display     = (status === 'granted') ? 'inline-block' : 'none';
-  if (errorEl)     errorEl.textContent = errorText || '';
-}
-
-async function updatePushSettingsUI() {
-  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-    updatePushStatus('unsupported');
-    return;
-  }
-  const perm = Notification.permission;
-  
-  // Check if there's an active Push subscription
-  try {
-    const reg = await navigator.serviceWorker.ready;
-    const sub = await reg.pushManager.getSubscription();
-    pushSubscription = sub || null;
-    
-    if (perm === 'granted' && sub) {
-      // Browser says active, but also check server status
-      try {
-        const serverStatus = await pushApi.status();
-        if (!serverStatus.has_subscriptions) {
-          // Server has no subscriptions → show as inactive
-          updatePushStatus('default', 'Berechtigung vorhanden, aber Server kennt keine aktive Subscription. Klicke "Aktivieren".');
-          return;
-        }
-      } catch (e) {
-        console.error('[Push] Server status check failed:', e);
-      }
-      // Active subscription confirmed by server
-      updatePushStatus('granted');
-    } else if (perm === 'granted' && !sub) {
-      // Permission granted but no active subscription → show as disabled
-      updatePushStatus('default', 'Berechtigung vorhanden, aber keine aktive Subscription. Klicke "Aktivieren".');
-    } else if (perm === 'denied') {
-      updatePushStatus('denied', 'In den Browser-Einstellungen für diese Seite änderbar.');
-    } else {
-      updatePushStatus('default');
-    }
-  } catch (e) {
-    console.error('[Push] Error checking subscription:', e);
-    updatePushStatus('unknown', 'Fehler beim Prüfen des Push-Status');
-  }
-}
-
-async function enablePushNotifications() {
-  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-    updatePushStatus('unsupported', 'Push-Benachrichtigungen werden in diesem Browser nicht unterstützt.');
-    return;
-  }
-  try {
-    const perm = await Notification.requestPermission();
-    if (perm !== 'granted') {
-      updatePushStatus(perm, 'Berechtigung nicht erteilt.');
-      return;
-    }
-
-    // Get VAPID public key from backend
-    const keyData = await pushApi.vapidPublicKey();
-    const vapidPublicKey = keyData.public_key;
-
-    // Subscribe via PushManager
-    const reg = await navigator.serviceWorker.ready;
-    const sub = await reg.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
-    });
-    pushSubscription = sub;
-
-    // Send subscription to backend
-    await pushApi.subscribe({
-      endpoint: sub.endpoint,
-      keys: { p256dh: arrayBufferToBase64(sub.getKey('p256dh')), auth: arrayBufferToBase64(sub.getKey('auth')) }
-    });
-    updatePushStatus('granted');
-  } catch (e) {
-    console.error('[Push] Enable failed:', e);
-    updatePushStatus('default', String(e.message || e) || 'Fehler beim Aktivieren');
-  }
-}
-
-async function disablePushNotifications() {
-  try {
-    const reg = await navigator.serviceWorker.ready;
-    const sub = await reg.pushManager.getSubscription();
-    if (sub) {
-      // Unsubscribe from backend first
-      await pushApi.unsubscribe({ endpoint: sub.endpoint, keys: {} });
-      // Then unsubscribe from browser
-      const unsubResult = await sub.unsubscribe();
-      if (!unsubResult) {
-        throw new Error('Browser-Subscription konnte nicht gelöscht werden');
-      }
-    }
-    pushSubscription = null;
-    updatePushStatus('default', 'Push-Benachrichtigungen deaktiviert.');
-  } catch (e) {
-    console.error('[Push] Disable failed:', e);
-    updatePushStatus('default', 'Fehler beim Deaktivieren: ' + String(e.message || e));
-  }
-}
-
-async function sendTestPush() {
-  try {
-    await pushApi.test({ title: 'Test 🔔', body: 'Push Notifications funktionieren!' });
-    updatePushStatus('granted', 'Test-Benachrichtigung gesendet!');
-  } catch (e) {
-    updatePushStatus('granted', String(e.message || e) || 'Fehler beim Senden');
-  }
-}
-
-function urlBase64ToUint8Array(base64String) {
-  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
-  const rawData = atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-  for (let i = 0; i < rawData.length; ++i) {
-    outputArray[i] = rawData.charCodeAt(i);
-  }
-  return outputArray;
-}
-
-function arrayBufferToBase64(buffer) {
-  const bytes = new Uint8Array(buffer);
-  let binary = '';
-  for (let i = 0; i < bytes.byteLength; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary);
-}
+const updatePushStatus = pushFeature.updatePushStatus;
+const updatePushSettingsUI = pushFeature.updatePushSettingsUI;
+const enablePushNotifications = pushFeature.enablePushNotifications;
+const disablePushNotifications = pushFeature.disablePushNotifications;
+const sendTestPush = pushFeature.sendTestPush;
 
 // Keyboard shortcuts
 document.addEventListener('keydown', (e) => {
@@ -2943,6 +2799,4 @@ Object.assign(window, {
   enablePushNotifications,
   disablePushNotifications,
   sendTestPush,
-  urlBase64ToUint8Array,
-  arrayBufferToBase64,
 });
