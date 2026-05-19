@@ -1,6 +1,7 @@
 // nia-todo: Frontend app mit Offline-First PWA + WebSocket Echtzeit-Sync
 import { authApi, projectsApi, pushApi, sectionsApi, todosApi } from './api/index.js';
 import * as indexedDb from './storage/indexed-db.js';
+import * as syncQueue from './sync/queue.js';
 const API = '';
 const WS_URL = (() => {
   const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -858,11 +859,11 @@ function deleteFromDB(storeName, id) {
 }
 
 async function clearSyncQueue() {
-  await dbClear('syncQueue');
+  await syncQueue.clearQueue();
 }
 
 function addToSyncQueue(action, data) {
-  return dbPut('syncQueue', { action, data, timestamp: Date.now(), localUpdatedAt: new Date().toISOString() });
+  return syncQueue.enqueue(action, data);
 }
 
 // ─── Sync Logic (Kern der Offline→Online Synchronisation) ───────────────────
