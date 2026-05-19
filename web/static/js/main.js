@@ -1,1 +1,1 @@
-import './legacy-app.js';
+import './app.js';

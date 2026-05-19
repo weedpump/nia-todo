@@ -10,7 +10,7 @@ const PRECACHE_ASSETS = [
   '/manifest.json',
   '/static/style.css',
   '/static/js/main.js',
-  '/static/js/legacy-app.js',
+  '/static/js/app.js',
   '/static/js/api/http.js',
   '/static/js/api/sections.js',
   '/static/js/api/auth.js',
