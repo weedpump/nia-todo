@@ -1,4 +1,5 @@
 // nia-todo: Frontend app mit Offline-First PWA + WebSocket Echtzeit-Sync
+import { sectionsApi } from './api/sections.js';
 const API = '';
 const WS_URL = (() => {
   const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -362,6 +363,10 @@ function escapeHtmlAttr(str) {
     .replace(/'/g, '&#39;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
+}
+
+function jsArg(value) {
+  return JSON.stringify(value);
 }
 
 async function createApiKey() {
@@ -1103,7 +1108,7 @@ async function syncWithServer() {
           }
         }
       } else if (item.action === 'CREATE_SECTION') {
-        const res = await post(`/api/projects/${item.data.project_id}/sections`, item.data);
+        const res = await sectionsApi.create(item.data.project_id, item.data);
         if (item.data._tempId) {
           await deleteFromDB('sections', item.data._tempId);
           sections = sections.filter(s => s.id !== item.data._tempId);
@@ -1115,7 +1120,7 @@ async function syncWithServer() {
         successCount++;
       } else if (item.action === 'UPDATE_SECTION') {
         try {
-          await patch(`/api/sections/${item.data.id}`, item.data.changes);
+          await sectionsApi.update(item.data.id, item.data.changes);
           const localSection = await getFromDB('sections', item.data.id);
           if (localSection) {
             const updated = { ...localSection, ...item.data.changes, updated_at: new Date().toISOString() };
@@ -1131,7 +1136,7 @@ async function syncWithServer() {
         }
       } else if (item.action === 'DELETE_SECTION') {
         try {
-          await del(`/api/sections/${item.data.id}`);
+          await sectionsApi.delete(item.data.id);
           await deleteFromDB('sections', item.data.id);
           successCount++;
         } catch (err) {
@@ -1169,7 +1174,7 @@ async function refreshFromServer() {
     const [todosData, projectsData, sectionsData] = await Promise.all([
       get('/api/todos'),
       get('/api/projects'),
-      get('/api/sections')
+      sectionsApi.listAll()
     ]);
 
     const serverTodos = todosData.todos || [];
@@ -1641,7 +1646,7 @@ function renderTodos() {
     for (const section of sections) {
       const sectionTodos = filtered.filter(t => t.section_id === section.id);
       html += renderSectionHeader(section);
-      html += `<div class="section-todos" data-section-id="${section.id}" ondragover="handleTodoDragOver(event)" ondrop="handleTodoDrop(event)">`;
+      html += `<div class="section-todos" data-section-id="${escapeHtmlAttr(section.id)}" ondragover="handleTodoDragOver(event)" ondrop="handleTodoDrop(event)">`;
       html += sectionTodos.map(t => renderTodoItem(t)).join('');
       html += `</div>`;
     }
@@ -1765,12 +1770,12 @@ function renderSectionHeader(section) {
   if (section) {
     const count = todos.filter(t => t.section_id === section.id && t.project_id === currentProjectId).length;
     return `
-      <div class="section-header" data-section-id="${section.id}" draggable="true"
+      <div class="section-header" data-section-id="${escapeHtmlAttr(section.id)}" draggable="true"
         ondragstart="handleSectionDragStart(event)" ondragend="handleSectionDragEnd(event)"
         ondragover="handleSectionDragOver(event)" ondrop="handleSectionDrop(event)">
-        <span class="section-name" onclick="editSectionInline(${section.id})">${escapeHtml(section.name)}</span>
+        <span class="section-name" onclick="editSectionInline(${jsArg(section.id)})">${escapeHtml(section.name)}</span>
         <span class="section-count">${count}</span>
-        <button class="section-delete" onclick="event.stopPropagation(); deleteSection(${section.id})" title="Löschen">✕</button>
+        <button class="section-delete" onclick="event.stopPropagation(); deleteSection(${jsArg(section.id)})" title="Löschen">✕</button>
       </div>
     `;
   } else {
@@ -1868,7 +1873,7 @@ async function loadSectionsForCurrentProject() {
 
   if (isOnlineForSync()) {
     try {
-      const data = await get(`/api/projects/${currentProjectId}/sections`);
+      const data = await sectionsApi.listByProject(currentProjectId);
       const serverSections = data.sections || [];
 
       // Server-Sections in DB speichern
@@ -2093,7 +2098,7 @@ async function onProjectChange(selectedSectionId = null) {
   try {
     let projectSections;
     if (isOnlineForSync()) {
-      const data = await get(`/api/projects/${projectId}/sections`);
+      const data = await sectionsApi.listByProject(projectId);
       projectSections = data.sections || [];
       // Cleanup DB: gelöschte Sections entfernen
       const serverIds = new Set(projectSections.map(s => s.id));
@@ -2701,7 +2706,7 @@ async function handleSectionDrop(e) {
     sections[i].sort_order = i;
     if (isOnlineForSync()) {
       try {
-        await patch(`/api/sections/${sections[i].id}`, { sort_order: i });
+        await sectionsApi.update(sections[i].id, { sort_order: i });
       } catch (err) {
         console.error('Sort section failed', err);
       }
@@ -3063,4 +3068,126 @@ document.addEventListener('keydown', (e) => {
     closeModal('todo-modal');
     closeModal('project-modal');
   }
+});
+
+// Expose legacy inline handlers for module-loaded frontend.
+Object.assign(window, {
+  getAuthToken,
+  getCsrfToken,
+  getAuthHeaders,
+  login,
+  checkAuth,
+  logout,
+  clearIndexedDB,
+  showLoginOverlay,
+  hideLoginOverlay,
+  handleLogin,
+  renderUserInfo,
+  openSettingsModal,
+  changeUserPassword,
+  loadApiKeys,
+  renderApiKeys,
+  escapeHtml,
+  escapeHtmlAttr,
+  jsArg,
+  createApiKey,
+  revokeApiKey,
+  copyApiKey,
+  initTheme,
+  setTheme,
+  applyTheme,
+  getReconnectDelay,
+  connectWebSocket,
+  wsSend,
+  startPingInterval,
+  stopPingInterval,
+  scheduleReconnect,
+  disconnectWebSocket,
+  updateConnectionStatus,
+  handleWsMessage,
+  openDB,
+  dbGetAll,
+  dbPut,
+  dbClear,
+  getFromDB,
+  deleteFromDB,
+  clearSyncQueue,
+  addToSyncQueue,
+  isOnlineForSync,
+  syncWithServer,
+  refreshFromServer,
+  toggleSidebar,
+  closeSidebar,
+  initServiceWorker,
+  checkForUpdate,
+  showUpdateButton,
+  triggerUpdate,
+  initApp,
+  renderVersionInfo,
+  loadFromLocalDB,
+  loadAll,
+  get,
+  post,
+  patch,
+  del,
+  renderProjects,
+  renderStats,
+  renderTodos,
+  renderSectionHeader,
+  truncateWords,
+  renderMarkdown,
+  renderTodoItem,
+  setFilter,
+  loadSectionsForCurrentProject,
+  countByProject,
+  markTodoDone,
+  toggleTodo,
+  showTodoModal,
+  setupDescPreview,
+  onProjectChange,
+  saveTodo,
+  editTodo,
+  deleteTodoFromModal,
+  deleteTodo,
+  showProjectModal,
+  editProject,
+  saveProject,
+  deleteProject,
+  deleteProjectFromModal,
+  clearDoneFromModal,
+  clearDoneInProject,
+  closeModal,
+  formatDate,
+  showAddSectionForm,
+  saveNewSection,
+  editSectionInline,
+  saveSectionEdit,
+  deleteSection,
+  handleTodoDragStart,
+  handleTodoDragEnd,
+  handleTodoDragOver,
+  handleTodoDrop,
+  handleSectionDragStart,
+  handleSectionDragEnd,
+  handleSectionDragOver,
+  handleSectionDrop,
+  toggleHideDone,
+  updateToggleDoneButton,
+  cycleSort,
+  updateSortButton,
+  sortTodoList,
+  showToast,
+  showBatchToast,
+  hideToast,
+  undoLastAction,
+  restoreBatchTodos,
+  restoreTodo,
+  cycleTheme,
+  updatePushStatus,
+  updatePushSettingsUI,
+  enablePushNotifications,
+  disablePushNotifications,
+  sendTestPush,
+  urlBase64ToUint8Array,
+  arrayBufferToBase64,
 });

@@ -9,7 +9,11 @@ const PRECACHE_ASSETS = [
   '/index.html',
   '/manifest.json',
   '/static/style.css',
-  '/static/app.js',
+  '/static/js/main.js',
+  '/static/js/legacy-app.js',
+  '/static/js/api/http.js',
+  '/static/js/api/sections.js',
+  '/static/js/core/config.js',
   '/static/icons/icon-192.png',
   '/static/icons/icon-512.png',
   '/favicon.ico'

@@ -452,7 +452,7 @@ class TestSuite:
     
     def test_section_list_by_project(self):
         proj_id = self.created_ids["project"][-1] if self.created_ids["project"] else 1
-        status, _ = curl("GET", f"/api/projects/{proj_id}/sections", token=self.user_token, cookie_jar="/tmp/nia_user_cookies.txt")
+        status, _ = curl("GET", f"/api/sections/by-project/{proj_id}", token=self.user_token, cookie_jar="/tmp/nia_user_cookies.txt")
         return self.record("section_list_by_project", status)
     
     def test_section_patch(self):
