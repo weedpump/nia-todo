@@ -5,6 +5,7 @@ import { authApi, projectsApi, pushApi, sectionsApi, todosApi } from './api/inde
 import * as indexedDb from './storage/indexed-db.js';
 import * as syncQueue from './sync/queue.js';
 import { createPushNotificationsFeature } from './features/push-notifications.js';
+import { createServiceWorkerUpdatesFeature } from './features/service-worker-updates.js';
 import { applyTheme, bindSystemThemeListener, cycleTheme, initTheme, setTheme } from './features/theme.js';
 let todos = [];
 let projects = [];
@@ -17,8 +18,6 @@ let db = null;
 let dbReady = null;
 let appInitialized = false;
 let syncInProgress = false;
-let swRegistration = null;
-let updateAvailable = false;
 let hideDone = localStorage.getItem('nia-hide-done') === 'true';
 let sortMode = localStorage.getItem('nia-sort') || 'order';
 let undoAction = null;
@@ -29,6 +28,7 @@ let pendingUndoBatch = null; // For batch operations like clear-done
 
 let currentUser = null;  // { id, username, display_name, token }
 const pushFeature = createPushNotificationsFeature({ pushApi });
+const serviceWorkerUpdates = createServiceWorkerUpdatesFeature({ onMarkTodoDone: markTodoDone });
 
 function getAuthToken() {
   // Prefer JWT, fallback to legacy session token
@@ -1070,85 +1070,8 @@ function closeSidebar() {
 
 // ─── Update-Checker ───────────────────────────────────────────────────────────
 
-async function initServiceWorker() {
-  if (!('serviceWorker' in navigator)) return;
-
-  try {
-    const reg = await navigator.serviceWorker.register('/sw.js');
-    swRegistration = reg;
-    console.log('SW registered:', reg.scope);
-
-    if (reg.waiting) {
-      console.log('SW: Update waiting from previous session');
-      updateAvailable = true;
-      showUpdateButton();
-    }
-
-    checkForUpdate(reg);
-    setInterval(() => checkForUpdate(reg), 30 * 60 * 1000);
-
-    // Sofort checken wenn PWA wieder in Vordergrund kommt
-    document.addEventListener('visibilitychange', () => {
-      if (!document.hidden && swRegistration) {
-        console.log('SW: Visibility changed → checking for update');
-        checkForUpdate(swRegistration);
-      }
-    });
-
-    reg.addEventListener('updatefound', () => {
-      const newWorker = reg.installing;
-      console.log('SW: New version found, installing...');
-
-      newWorker.addEventListener('statechange', () => {
-        if (newWorker.state === 'installed') {
-          console.log('SW: New version ready for update');
-          updateAvailable = true;
-          showUpdateButton();
-        }
-      });
-    });
-
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-      console.log('SW: New controller active, reloading...');
-      window.location.reload();
-    });
-
-    // Listen for messages from Service Worker (e.g., mark todo done from notification)
-    navigator.serviceWorker.addEventListener('message', (event) => {
-      console.log('SW message received:', event.data);
-      if (event.data.type === 'MARK_TODO_DONE' && event.data.todoId) {
-        markTodoDone(event.data.todoId);
-      }
-    });
-
-  } catch (err) {
-    console.error('SW registration failed:', err);
-  }
-}
-
-async function checkForUpdate(reg) {
-  try {
-    await reg.update();
-    console.log('SW: Update check done');
-  } catch (err) {
-    console.error('SW: Update check failed', err);
-  }
-}
-
-function showUpdateButton() {
-  const el = document.getElementById('update-btn');
-  if (el) {
-    el.style.display = 'flex';
-    console.log('Update button shown');
-  }
-}
-
-async function triggerUpdate() {
-  console.log('Triggering app update...');
-  if (swRegistration && swRegistration.waiting) {
-    swRegistration.waiting.postMessage({ action: 'skipWaiting' });
-  }
-}
+const initServiceWorker = serviceWorkerUpdates.initServiceWorker;
+const triggerUpdate = serviceWorkerUpdates.triggerUpdate;
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 

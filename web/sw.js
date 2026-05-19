@@ -23,6 +23,7 @@ const PRECACHE_ASSETS = [
   '/static/js/sync/queue.js',
   '/static/js/features/push-notifications.js',
   '/static/js/features/theme.js',
+  '/static/js/features/service-worker-updates.js',
   '/static/icons/icon-192.png',
   '/static/icons/icon-512.png',
   '/favicon.ico'
