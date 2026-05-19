@@ -10,6 +10,7 @@ import { createSectionsFeature } from './features/sections.js';
 import { createServiceWorkerUpdatesFeature } from './features/service-worker-updates.js';
 import { applyTheme, bindSystemThemeListener, cycleTheme, initTheme, setTheme } from './features/theme.js';
 import { renderTodoItem } from './features/todo-rendering.js';
+import { createViewPreferencesFeature } from './features/view-preferences.js';
 let todos = [];
 let projects = [];
 let sections = [];
@@ -32,6 +33,13 @@ let pendingUndoBatch = null; // For batch operations like clear-done
 let currentUser = null;  // { id, username, display_name, token }
 const apiKeysFeature = createApiKeysFeature({ authApi });
 const pushFeature = createPushNotificationsFeature({ pushApi });
+const viewPreferences = createViewPreferencesFeature({
+  getHideDone: () => hideDone,
+  setHideDone: (value) => { hideDone = value; },
+  getSortMode: () => sortMode,
+  setSortMode: (value) => { sortMode = value; },
+  renderTodos: () => renderTodos(),
+});
 const sectionsFeature = createSectionsFeature({
   getTodos: () => todos,
   getCurrentProjectId: () => currentProjectId,
@@ -2114,68 +2122,11 @@ async function handleSectionDrop(e) {
   renderTodos();
 }
 
-function toggleHideDone() {
-  hideDone = !hideDone;
-  localStorage.setItem('nia-hide-done', hideDone ? 'true' : 'false');
-  updateToggleDoneButton();
-  renderTodos();
-}
-
-function updateToggleDoneButton() {
-  const btn = document.getElementById('toggle-done-btn');
-  if (!btn) return;
-  if (hideDone) {
-    btn.classList.remove('active');
-    btn.textContent = '🚫';
-    btn.title = 'Erledigte anzeigen';
-  } else {
-    btn.classList.add('active');
-    btn.textContent = '✅';
-    btn.title = 'Erledigte ausblenden';
-  }
-}
-
-function cycleSort() {
-  const modes = ['order', 'priority', 'alpha'];
-  const idx = modes.indexOf(sortMode);
-  sortMode = modes[(idx + 1) % modes.length];
-  localStorage.setItem('nia-sort', sortMode);
-  updateSortButton();
-  renderTodos();
-}
-
-function updateSortButton() {
-  const btn = document.getElementById('sort-toggle-btn');
-  if (!btn) return;
-  const config = {
-    order: { icon: '⇅', title: 'Sortierung: Reihenfolge' },
-    priority: { icon: 'P1', title: 'Sortierung: Priorität (hoch→niedrig)' },
-    alpha: { icon: 'AZ', title: 'Sortierung: Alphabetisch (A→Z)' }
-  };
-  const c = config[sortMode] || config.order;
-  btn.textContent = c.icon;
-  btn.title = c.title;
-}
-
-function sortTodoList(list) {
-  if (sortMode === 'priority') {
-    const prioOrder = { 1: 0, 2: 1, 3: 2, 4: 3 };
-    return [...list].sort((a, b) => {
-      const pa = prioOrder[a.priority] ?? 4;
-      const pb = prioOrder[b.priority] ?? 4;
-      if (pa !== pb) return pa - pb;
-      return (a.sort_order ?? 0) - (b.sort_order ?? 0);
-    });
-  }
-  if (sortMode === 'alpha') {
-    return [...list].sort((a, b) =>
-      (a.title || '').toLowerCase().localeCompare((b.title || '').toLowerCase())
-    );
-  }
-  // Default: Reihenfolge (sort_order)
-  return [...list].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
-}
-
+const toggleHideDone = viewPreferences.toggleHideDone;
+const updateToggleDoneButton = viewPreferences.updateToggleDoneButton;
+const cycleSort = viewPreferences.cycleSort;
+const updateSortButton = viewPreferences.updateSortButton;
+const sortTodoList = viewPreferences.sortTodoList;
 function showToast(message, action) {
   const container = document.getElementById('toast-container');
   const msgEl = document.getElementById('toast-message');

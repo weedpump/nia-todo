@@ -25,6 +25,7 @@ const PRECACHE_ASSETS = [
   '/static/js/features/push-notifications.js',
   '/static/js/features/theme.js',
   '/static/js/features/todo-rendering.js',
+  '/static/js/features/view-preferences.js',
   '/static/js/features/service-worker-updates.js',
   '/static/js/features/sections.js',
   '/static/icons/icon-192.png',
