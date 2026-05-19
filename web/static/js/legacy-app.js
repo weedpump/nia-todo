@@ -1,5 +1,6 @@
 // nia-todo: Frontend app mit Offline-First PWA + WebSocket Echtzeit-Sync
 import { APP_VERSION, WS_URL } from './core/config.js';
+import { escapeHtml, escapeHtmlAttr, formatDate, jsArg } from './core/utils.js';
 import { authApi, projectsApi, pushApi, sectionsApi, todosApi } from './api/index.js';
 import * as indexedDb from './storage/indexed-db.js';
 import * as syncQueue from './sync/queue.js';
@@ -291,27 +292,6 @@ function renderApiKeys(keys) {
 
     listEl.appendChild(container);
   });
-}
-
-function escapeHtml(str) {
-  if (str == null) return '';
-  const div = document.createElement('div');
-  div.textContent = String(str);
-  return div.innerHTML;
-}
-
-function escapeHtmlAttr(str) {
-  if (str == null) return '';
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-}
-
-function jsArg(value) {
-  return JSON.stringify(value);
 }
 
 async function createApiKey() {
@@ -2205,32 +2185,6 @@ async function clearDoneInProject() {
 function closeModal(modalId) {
   document.getElementById(modalId)?.classList.remove('active');
 }
-
-// ─── Utilities ───────────────────────────────────────────────────────────────
-
-function escapeHtml(str) {
-  if (!str) return '';
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-
-function formatDate(isoString) {
-  if (!isoString) return '';
-  const date = new Date(isoString);
-  const today = new Date();
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-
-  if (date.toDateString() === today.toDateString()) {
-    return 'Heute ' + date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-  } else if (date.toDateString() === tomorrow.toDateString()) {
-    return 'Morgen ' + date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-  } else {
-    return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' }) + ' ' +
-           date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-  }
-}
-
-// ─── Section CRUD ────────────────────────────────────────────────────────────
 
 function showAddSectionForm() {
   const el = document.querySelector('.add-section-row');
