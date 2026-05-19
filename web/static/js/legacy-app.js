@@ -4,6 +4,7 @@ import { authApi, projectsApi, pushApi, sectionsApi, todosApi } from './api/inde
 import * as indexedDb from './storage/indexed-db.js';
 import * as syncQueue from './sync/queue.js';
 import { createPushNotificationsFeature } from './features/push-notifications.js';
+import { applyTheme, bindSystemThemeListener, cycleTheme, initTheme, setTheme } from './features/theme.js';
 let todos = [];
 let projects = [];
 let sections = [];
@@ -366,59 +367,7 @@ function copyApiKey() {
 
 // ─── Theme System ───────────────────────────────────────────────────────────
 
-function initTheme() {
-  const stored = localStorage.getItem('theme');
-  if (stored && stored !== 'system') {
-    applyTheme(stored);
-  } else {
-    applyTheme('system');
-  }
-}
-
-function setTheme(mode) {
-  if (mode === 'system') {
-    localStorage.removeItem('theme');
-    applyTheme('system');
-  } else {
-    localStorage.setItem('theme', mode);
-    applyTheme(mode);
-  }
-}
-
-function applyTheme(mode) {
-  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  const isDark = mode === 'dark' || (mode === 'system' && prefersDark);
-  
-  document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
-  
-  // Update theme-color meta for mobile browsers
-  const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) {
-    meta.setAttribute('content', isDark ? '#0f172a' : '#f8fafc');
-  }
-  
-  // Update active button state
-  document.querySelectorAll('.theme-option').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.theme === mode);
-  });
-
-  // Update single toggle button icon + title
-  const toggleBtn = document.getElementById('theme-toggle-btn');
-  if (toggleBtn) {
-    const icons = { light: '☀️', dark: '🌙', system: '💻' };
-    const titles = { light: 'Hell', dark: 'Dunkel', system: 'System' };
-    toggleBtn.textContent = icons[mode] || icons.system;
-    toggleBtn.title = `Theme: ${titles[mode] || titles.system} (klicken zum Wechseln)`;
-  }
-}
-
-// Listen to system theme changes
-window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-  const stored = localStorage.getItem('theme');
-  if (!stored || stored === 'system') {
-    applyTheme('system');
-  }
-});
+bindSystemThemeListener();
 
 // ─── WebSocket ───────────────────────────────────────────────────────────────
 let ws = null;
@@ -2654,14 +2603,6 @@ async function restoreTodo(id, data) {
     await addToSyncQueue('UPDATE_TODO', { id, changes: data });
     await syncWithServer();
   }
-}
-
-function cycleTheme() {
-  const cycle = ['light', 'dark', 'system'];
-  const current = localStorage.getItem('theme') || 'system';
-  const idx = cycle.indexOf(current);
-  const next = cycle[(idx + 1) % cycle.length];
-  setTheme(next);
 }
 
 // ─── Push Notifications ────────────────────────────────────────────────────
