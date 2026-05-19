@@ -6,6 +6,7 @@ import * as indexedDb from './storage/indexed-db.js';
 import * as syncQueue from './sync/queue.js';
 import { createApiKeysFeature } from './features/api-keys.js';
 import { createPushNotificationsFeature } from './features/push-notifications.js';
+import { createSectionsFeature } from './features/sections.js';
 import { createServiceWorkerUpdatesFeature } from './features/service-worker-updates.js';
 import { applyTheme, bindSystemThemeListener, cycleTheme, initTheme, setTheme } from './features/theme.js';
 let todos = [];
@@ -30,6 +31,12 @@ let pendingUndoBatch = null; // For batch operations like clear-done
 let currentUser = null;  // { id, username, display_name, token }
 const apiKeysFeature = createApiKeysFeature({ authApi });
 const pushFeature = createPushNotificationsFeature({ pushApi });
+const sectionsFeature = createSectionsFeature({
+  getTodos: () => todos,
+  getCurrentProjectId: () => currentProjectId,
+  getSections: () => sections,
+  renderTodos: () => renderTodos(),
+});
 const serviceWorkerUpdates = createServiceWorkerUpdatesFeature({ onMarkTodoDone: markTodoDone });
 
 function getAuthToken() {
@@ -1306,30 +1313,7 @@ function renderTodos() {
   el.innerHTML = html;
 }
 
-function renderSectionHeader(section) {
-  if (section) {
-    const count = todos.filter(t => t.section_id === section.id && t.project_id === currentProjectId).length;
-    return `
-      <div class="section-header" data-section-id="${escapeHtmlAttr(section.id)}" draggable="true"
-        ondragstart="handleSectionDragStart(event)" ondragend="handleSectionDragEnd(event)"
-        ondragover="handleSectionDragOver(event)" ondrop="handleSectionDrop(event)">
-        <span class="section-name" onclick="editSectionInline(${jsArg(section.id)})">${escapeHtml(section.name)}</span>
-        <span class="section-count">${count}</span>
-        <button class="section-delete" onclick="event.stopPropagation(); deleteSection(${jsArg(section.id)})" title="Löschen">✕</button>
-      </div>
-    `;
-  } else {
-    const unsortedCount = todos.filter(t => !t.section_id && t.project_id === currentProjectId).length;
-    return `
-      <div class="section-header section-unsorted" data-section-id="null"
-        ondragover="handleSectionDragOver(event)" ondrop="handleSectionDrop(event)">
-        <span class="section-name">Unsortiert</span>
-        <span class="section-count">${unsortedCount}</span>
-      </div>
-    `;
-  }
-}
-
+const renderSectionHeader = sectionsFeature.renderSectionHeader;
 function renderTodoItem(t) {
   const isOverdue = t.due_date && t.status !== 'done' && new Date(t.due_date) < new Date();
   const dueStr = t.due_date ? formatDate(t.due_date) : '';
@@ -1963,20 +1947,7 @@ function closeModal(modalId) {
   document.getElementById(modalId)?.classList.remove('active');
 }
 
-function showAddSectionForm() {
-  const el = document.querySelector('.add-section-row');
-  if (!el) return;
-  el.innerHTML = `
-    <div class="inline-section-form">
-      <input type="text" id="new-section-name" placeholder="Section-Name" autocomplete="off"
-        onkeydown="if(event.key==='Enter')saveNewSection();if(event.key==='Escape')renderTodos();">
-      <button onclick="saveNewSection()" title="Speichern">✓</button>
-      <button onclick="renderTodos()" title="Abbrechen">✕</button>
-    </div>
-  `;
-  document.getElementById('new-section-name')?.focus();
-}
-
+const showAddSectionForm = sectionsFeature.showAddSectionForm;
 async function saveNewSection() {
   const name = document.getElementById('new-section-name')?.value?.trim();
   if (!name || !currentProjectId) return;
@@ -2006,24 +1977,7 @@ async function saveNewSection() {
   }
 }
 
-function editSectionInline(id) {
-  const section = sections.find(s => s.id === id);
-  if (!section) return;
-
-  const header = document.querySelector(`.section-header[data-section-id="${id}"]`);
-  if (!header) return;
-
-  header.innerHTML = `
-    <div class="inline-edit-form" style="flex:1;gap:6px;">
-      <input type="text" id="edit-section-name-${id}" value="${escapeHtml(section.name)}" autocomplete="off" style="flex:1;"
-        onkeydown="if(event.key==='Enter')saveSectionEdit(${id});if(event.key==='Escape')renderTodos();">
-      <button onclick="saveSectionEdit(${id})" title="Speichern">✓</button>
-      <button onclick="renderTodos()" title="Abbrechen">✕</button>
-    </div>
-  `;
-  document.getElementById(`edit-section-name-${id}`)?.focus();
-}
-
+const editSectionInline = sectionsFeature.editSectionInline;
 async function saveSectionEdit(id) {
   const name = document.getElementById(`edit-section-name-${id}`)?.value?.trim();
   if (!name) return;
