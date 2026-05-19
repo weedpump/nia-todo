@@ -1,5 +1,5 @@
 // nia-todo: Frontend app mit Offline-First PWA + WebSocket Echtzeit-Sync
-import { sectionsApi } from './api/sections.js';
+import { authApi, projectsApi, pushApi, sectionsApi, todosApi } from './api/index.js';
 const API = '';
 const WS_URL = (() => {
   const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -63,17 +63,7 @@ function getAuthHeaders() {
 }
 
 async function login(username, password) {
-  const r = await fetch(API + '/api/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password }),
-    credentials: 'include'
-  });
-  if (!r.ok) {
-    const data = await r.json().catch(() => ({}));
-    throw new Error(data.detail || 'Login fehlgeschlagen');
-  }
-  const data = await r.json();
+  const data = await authApi.login(username, password);
   currentUser = data.user;
   currentUser.token = data.access_token;
   localStorage.setItem('jwt_token', data.access_token);
@@ -98,17 +88,7 @@ async function checkAuth() {
   const token = getAuthToken();
   if (!token) return false;
   try {
-    const r = await fetch(API + '/api/me', {
-      headers: getAuthHeaders(),
-      credentials: 'include'
-    });
-    if (!r.ok) {
-      localStorage.removeItem('jwt_token');
-      localStorage.removeItem('auth_token');
-      currentUser = null;
-      return false;
-    }
-    const user = await r.json();
+    const user = await authApi.me();
     currentUser = user;
     currentUser.token = token;
     
@@ -134,11 +114,7 @@ async function logout() {
   try {
     const token = getAuthToken();
     if (token) {
-      await fetch(API + '/api/logout', {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        credentials: 'include'
-      });
+      await authApi.logout();
     }
   } catch (e) {
     // Ignore errors
@@ -251,16 +227,7 @@ async function changeUserPassword() {
   }
 
   try {
-    const r = await fetch(API + '/api/me/change-password', {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify({ old_password: oldPw, new_password: newPw }),
-      credentials: 'include'
-    });
-    if (!r.ok) {
-      const data = await r.json().catch(() => ({}));
-      throw new Error(data.detail || 'Fehler');
-    }
+    await authApi.changePassword(oldPw, newPw);
     document.getElementById('settings-pw-success').textContent = 'Passwort geändert! Du wirst abgemeldet...';
     setTimeout(() => logout(), 1500);
   } catch(e) {
@@ -275,12 +242,7 @@ async function loadApiKeys() {
   const errorEl = document.getElementById('api-key-error');
   if (!listEl) return;
   try {
-    const r = await fetch(API + '/api/me/api-keys', { headers: getAuthHeaders(), credentials: 'include' });
-    if (!r.ok) {
-      const data = await r.json().catch(() => ({}));
-      throw new Error(data.detail || 'Fehler');
-    }
-    const data = await r.json();
+    const data = await authApi.listApiKeys();
     renderApiKeys(data.api_keys || []);
   } catch (e) {
     console.error('API keys load failed:', e);
@@ -377,17 +339,7 @@ async function createApiKey() {
   const valueEl = document.getElementById('api-key-value');
   if (errorEl) errorEl.textContent = '';
   try {
-    const r = await fetch(API + '/api/me/api-keys', {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify({ name: name || undefined }),
-      credentials: 'include'
-    });
-    if (!r.ok) {
-      const data = await r.json().catch(() => ({}));
-      throw new Error(data.detail || 'Fehler');
-    }
-    const data = await r.json();
+    const data = await authApi.createApiKey(name || undefined);
     // Show the key once
     if (valueEl) valueEl.textContent = data.key;
     if (createdEl) createdEl.style.display = 'block';
@@ -404,15 +356,7 @@ async function revokeApiKey(keyId) {
   const errorEl = document.getElementById('api-key-error');
   if (errorEl) errorEl.textContent = '';
   try {
-    const r = await fetch(API + '/api/me/api-keys/' + keyId, {
-      method: 'DELETE',
-      headers: getAuthHeaders(),
-      credentials: 'include'
-    });
-    if (!r.ok) {
-      const data = await r.json().catch(() => ({}));
-      throw new Error(data.detail || 'Fehler');
-    }
+    await authApi.revokeApiKey(keyId);
     await loadApiKeys();
   } catch (e) {
     console.error('API key revoke failed:', e);
@@ -1028,7 +972,7 @@ async function syncWithServer() {
   for (const item of queue) {
     try {
       if (item.action === 'CREATE_TODO') {
-        const res = await post('/api/todos', item.data);
+        const res = await todosApi.create(item.data);
         // Remove temp entry from local DB and todos array
         if (item.data._tempId) {
           await deleteFromDB('todos', item.data._tempId);
@@ -1041,7 +985,7 @@ async function syncWithServer() {
         successCount++;
       } else if (item.action === 'UPDATE_TODO') {
         try {
-          await patch(`/api/todos/${item.data.id}`, item.data.changes);
+          await todosApi.update(item.data.id, item.data.changes);
           const localTodo = await getFromDB('todos', item.data.id);
           if (localTodo) {
             const updated = { ...localTodo, ...item.data.changes, updated_at: new Date().toISOString() };
@@ -1057,7 +1001,7 @@ async function syncWithServer() {
         }
       } else if (item.action === 'DELETE_TODO') {
         try {
-          await del(`/api/todos/${item.data.id}`);
+          await todosApi.delete(item.data.id);
           await deleteFromDB('todos', item.data.id);
           successCount++;
         } catch (err) {
@@ -1068,7 +1012,7 @@ async function syncWithServer() {
           }
         }
       } else if (item.action === 'CREATE_PROJECT') {
-        const res = await post('/api/projects', item.data);
+        const res = await projectsApi.create(item.data);
         // Remove temp entry from local DB and projects array
         if (item.data._tempId) {
           await deleteFromDB('projects', item.data._tempId);
@@ -1081,7 +1025,7 @@ async function syncWithServer() {
         successCount++;
       } else if (item.action === 'DELETE_PROJECT') {
         try {
-          await del(`/api/projects/${item.data.id}`);
+          await projectsApi.delete(item.data.id);
           await deleteFromDB('projects', item.data.id);
           successCount++;
         } catch (err) {
@@ -1093,7 +1037,7 @@ async function syncWithServer() {
         }
       } else if (item.action === 'UPDATE_PROJECT') {
         try {
-          await patch(`/api/projects/${item.data.id}`, item.data.changes);
+          await projectsApi.update(item.data.id, item.data.changes);
           const localProject = await getFromDB('projects', item.data.id);
           if (localProject) {
             const updated = { ...localProject, ...item.data.changes, updated_at: new Date().toISOString() };
@@ -1172,8 +1116,8 @@ async function refreshFromServer() {
   try {
     // 1. Server-Daten holen
     const [todosData, projectsData, sectionsData] = await Promise.all([
-      get('/api/todos'),
-      get('/api/projects'),
+      todosApi.list(),
+      projectsApi.list(),
       sectionsApi.listAll()
     ]);
 
@@ -1379,8 +1323,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Check setup status first
   try {
-    const setupRes = await fetch(API + '/api/setup/status');
-    const setupData = await setupRes.json();
+    const setupData = await authApi.setupStatus();
     if (!setupData.setup_complete) {
       window.location.href = '/setup';
       return;
@@ -1471,46 +1414,7 @@ async function loadAll() {
 
 // ─── API ──────────────────────────────────────────────────────────────────────
 
-async function get(path) {
-  const r = await fetch(API + path, {
-    headers: getAuthHeaders(),
-    credentials: 'include'
-  });
-  if (!r.ok) throw new Error(r.status + ' ' + r.statusText);
-  return r.json();
-}
-
-async function post(path, body) {
-  const r = await fetch(API + path, {
-    method: 'POST',
-    headers: getAuthHeaders(),
-    body: JSON.stringify(body),
-    credentials: 'include'
-  });
-  if (!r.ok) throw new Error(r.status + ' ' + r.statusText);
-  return r.json();
-}
-
-async function patch(path, body) {
-  const r = await fetch(API + path, {
-    method: 'PATCH',
-    headers: getAuthHeaders(),
-    body: JSON.stringify(body),
-    credentials: 'include'
-  });
-  if (!r.ok) throw new Error(r.status + ' ' + r.statusText);
-  return r.json();
-}
-
-async function del(path) {
-  const r = await fetch(API + path, {
-    method: 'DELETE',
-    headers: getAuthHeaders(),
-    credentials: 'include'
-  });
-  if (!r.ok) throw new Error(r.status + ' ' + r.statusText);
-  return r.json();
-}
+// HTTP calls live in web/static/js/api/*.js
 
 // ─── Render ──────────────────────────────────────────────────────────────────
 
@@ -2397,7 +2301,7 @@ async function clearDoneFromModal() {
   if (!confirm(`${doneCount} erledigte Todo(s) in "${project.name}" löschen?`)) return;
 
   try {
-    const r = await post(`/api/projects/${projectId}/clear-done`, {});
+    const r = await projectsApi.clearDone(projectId);
     if (r.ok) {
       const result = await r.json();
       // Remove done todos from local array
@@ -2428,14 +2332,7 @@ async function clearDoneInProject() {
   if (!confirm(`${doneTodos.length} erledigte Todo(s) in "${project.name}" löschen?`)) return;
 
   try {
-    const r = await fetch(API + `/api/projects/${currentProjectId}/clear-done`, {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify({}),
-      credentials: 'include'
-    });
-    if (r.ok) {
-      const result = await r.json();
+    const result = await projectsApi.clearDone(currentProjectId);
       // Store batch data for undo before removing from array
       const deletedData = doneTodos.map(t => ({ ...t }));
       // Remove done todos from local array
@@ -2444,11 +2341,6 @@ async function clearDoneInProject() {
       renderTodos();
       // Show toast with batch undo
       showBatchToast(`${result.deleted_count} erledigte Todo(s) gelöscht`, { todos: deletedData, projectId: currentProjectId });
-    } else {
-      const err = await r.json().catch(() => ({}));
-      console.error('Clear done failed:', r.status, err);
-      showToast('Fehler beim Löschen: ' + (err.detail || r.status));
-    }
   } catch (err) {
     console.error('Clear done error:', err);
     showToast('Fehler beim Löschen');
@@ -2638,7 +2530,7 @@ async function handleTodoDrop(e) {
 
   if (isOnlineForSync()) {
     try {
-      await patch(`/api/todos/${todo.id}`, { section_id: newSectionId });
+      await todosApi.update(todo.id, { section_id: newSectionId });
     } catch (err) {
       console.error('Move todo failed', err);
     }
@@ -2683,7 +2575,7 @@ async function handleSectionDrop(e) {
     renderTodos();
     if (isOnlineForSync()) {
       try {
-        await patch(`/api/todos/${todo.id}`, { section_id: newSectionId });
+        await todosApi.update(todo.id, { section_id: newSectionId });
       } catch (err) {
         console.error('Move todo failed', err);
       }
@@ -2911,17 +2803,11 @@ async function updatePushSettingsUI() {
     if (perm === 'granted' && sub) {
       // Browser says active, but also check server status
       try {
-        const r = await fetch(API + '/api/push/status', {
-          headers: getAuthHeaders(),
-          credentials: 'include'
-        });
-        if (r.ok) {
-          const serverStatus = await r.json();
-          if (!serverStatus.has_subscriptions) {
-            // Server has no subscriptions → show as inactive
-            updatePushStatus('default', 'Berechtigung vorhanden, aber Server kennt keine aktive Subscription. Klicke "Aktivieren".');
-            return;
-          }
+        const serverStatus = await pushApi.status();
+        if (!serverStatus.has_subscriptions) {
+          // Server has no subscriptions → show as inactive
+          updatePushStatus('default', 'Berechtigung vorhanden, aber Server kennt keine aktive Subscription. Klicke "Aktivieren".');
+          return;
         }
       } catch (e) {
         console.error('[Push] Server status check failed:', e);
@@ -2955,9 +2841,7 @@ async function enablePushNotifications() {
     }
 
     // Get VAPID public key from backend
-    const keyRes = await fetch(API + '/api/push/vapid-public-key', { headers: getAuthHeaders(), credentials: 'include' });
-    if (!keyRes.ok) throw new Error('VAPID public key konnte nicht geladen werden');
-    const keyData = await keyRes.json();
+    const keyData = await pushApi.vapidPublicKey();
     const vapidPublicKey = keyData.public_key;
 
     // Subscribe via PushManager
@@ -2969,19 +2853,10 @@ async function enablePushNotifications() {
     pushSubscription = sub;
 
     // Send subscription to backend
-    const r = await fetch(API + '/api/push/subscribe', {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify({
-        endpoint: sub.endpoint,
-        keys: { p256dh: arrayBufferToBase64(sub.getKey('p256dh')), auth: arrayBufferToBase64(sub.getKey('auth')) }
-      }),
-      credentials: 'include'
+    await pushApi.subscribe({
+      endpoint: sub.endpoint,
+      keys: { p256dh: arrayBufferToBase64(sub.getKey('p256dh')), auth: arrayBufferToBase64(sub.getKey('auth')) }
     });
-    if (!r.ok) {
-      const data = await r.json().catch(() => ({}));
-      throw new Error(data.detail || 'Fehler beim Speichern der Subscription');
-    }
     updatePushStatus('granted');
   } catch (e) {
     console.error('[Push] Enable failed:', e);
@@ -2995,16 +2870,7 @@ async function disablePushNotifications() {
     const sub = await reg.pushManager.getSubscription();
     if (sub) {
       // Unsubscribe from backend first
-      const r = await fetch(API + '/api/push/unsubscribe', {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({ endpoint: sub.endpoint, keys: {} }),
-        credentials: 'include'
-      });
-      if (!r.ok) {
-        const data = await r.json().catch(() => ({}));
-        throw new Error(data.detail || 'Backend konnte Subscription nicht löschen');
-      }
+      await pushApi.unsubscribe({ endpoint: sub.endpoint, keys: {} });
       // Then unsubscribe from browser
       const unsubResult = await sub.unsubscribe();
       if (!unsubResult) {
@@ -3021,16 +2887,7 @@ async function disablePushNotifications() {
 
 async function sendTestPush() {
   try {
-    const r = await fetch(API + '/api/push/test', {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify({ title: 'Test 🔔', body: 'Push Notifications funktionieren!' }),
-      credentials: 'include'
-    });
-    if (!r.ok) {
-      const data = await r.json().catch(() => ({}));
-      throw new Error(data.detail || JSON.stringify(data) || 'Fehler');
-    }
+    await pushApi.test({ title: 'Test 🔔', body: 'Push Notifications funktionieren!' });
     updatePushStatus('granted', 'Test-Benachrichtigung gesendet!');
   } catch (e) {
     updatePushStatus('granted', String(e.message || e) || 'Fehler beim Senden');
@@ -3126,10 +2983,6 @@ Object.assign(window, {
   renderVersionInfo,
   loadFromLocalDB,
   loadAll,
-  get,
-  post,
-  patch,
-  del,
   renderProjects,
   renderStats,
   renderTodos,
