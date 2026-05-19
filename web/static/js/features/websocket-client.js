@@ -47,8 +47,6 @@ function connectWebSocket() {
   console.log('[WS] Connecting to ' + wsUrl + ' (attempt ' + (reconnectAttempts + 1) + ')');
 
   try {
-    const token = getAuthToken();
-    const wsUrl = wsUrl;
     ws = new WebSocket(wsUrl);
 
     ws.onopen = async () => {

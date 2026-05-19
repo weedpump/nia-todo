@@ -1,0 +1,11 @@
+{
+  "name": "nia-todo",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:frontend": "node scripts/test_frontend.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.60.0"
+  }
+}
