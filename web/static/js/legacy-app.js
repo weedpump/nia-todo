@@ -1,16 +1,8 @@
 // nia-todo: Frontend app mit Offline-First PWA + WebSocket Echtzeit-Sync
+import { APP_VERSION, WS_URL } from './core/config.js';
 import { authApi, projectsApi, pushApi, sectionsApi, todosApi } from './api/index.js';
 import * as indexedDb from './storage/indexed-db.js';
 import * as syncQueue from './sync/queue.js';
-const API = '';
-const WS_URL = (() => {
-  const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  return `${proto}//${window.location.host}/ws`;
-})();
-
-const DB_NAME = 'nia-todo-db';
-const DB_VERSION = 3;
-
 let todos = [];
 let projects = [];
 let sections = [];
@@ -29,7 +21,6 @@ let sortMode = localStorage.getItem('nia-sort') || 'order';
 let undoAction = null;
 let undoTimer = null;
 let pendingUndoBatch = null; // For batch operations like clear-done
-const APP_VERSION = 'v0.4.11-dev';
 
 // ─── Auth / User (JWT) ───────────────────────────────────────────────────────
 
@@ -1326,10 +1317,6 @@ async function loadAll() {
     await refreshFromServer();
   }
 }
-
-// ─── API ──────────────────────────────────────────────────────────────────────
-
-// HTTP calls live in web/static/js/api/*.js
 
 // ─── Render ──────────────────────────────────────────────────────────────────
 
