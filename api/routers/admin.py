@@ -58,6 +58,8 @@ def admin_login(data: AdminLoginRequest, request: Request, response: Response, _
         token = create_admin_jwt_token(db)
         csrf_token = generate_csrf_token()
         set_csrf_cookie(response, csrf_token)
+        from rate_limit import rate_limiter
+        rate_limiter.record_successful_login(ip)
         return {"access_token": token, "token_type": "bearer", "admin": True, "csrf_token": csrf_token}
 
 @router.post("/logout")

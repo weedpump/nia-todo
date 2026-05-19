@@ -56,6 +56,8 @@ def login(data: LoginRequest, request: Request, response: Response, _: None = De
         csrf_token = generate_csrf_token()
         set_csrf_cookie(response, csrf_token)
         log_audit(db, "login_success", user_id=user['id'], ip_address=ip)
+        from rate_limit import rate_limiter
+        rate_limiter.record_successful_login(ip)
         return {
             "access_token": token,
             "token_type": "bearer",
