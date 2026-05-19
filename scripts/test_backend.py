@@ -19,7 +19,7 @@ import shutil
 from pathlib import Path
 from typing import Optional, Tuple, Any
 
-# ─── Configuration ────────────────────────────────────────────────────────────
+# --- Configuration ------------------------------------------------------------
 
 BASE = Path("~/projects/nia-todo-dev")
 DB_PATH = BASE / "api" / "data" / "nia-todo-dev.db"
@@ -32,7 +32,7 @@ ADMIN_PASSWORD = "TestAdmin123!"
 USER_PASSWORD = "TestPass123!"
 NEW_PASSWORD = "NewPass123!"
 
-# ─── Service Management ───────────────────────────────────────────────────────
+# --- Service Management -------------------------------------------------------
 
 def service_stop():
     """Stop the dev service."""
@@ -58,7 +58,7 @@ def service_wait(timeout: int = 10) -> bool:
         time.sleep(0.1)
     return False
 
-# ─── Database Backup/Restore ──────────────────────────────────────────────────
+# --- Database Backup/Restore --------------------------------------------------
 
 def db_backup():
     """Backup existing database by renaming it."""
@@ -89,7 +89,7 @@ def db_reset():
         DB_PATH.unlink()
         print("  🗑️  Alte DB entfernt")
 
-# ─── HTTP Helper ──────────────────────────────────────────────────────────────
+# --- HTTP Helper --------------------------------------------------------------
 
 def curl(
     method: str,
@@ -125,7 +125,7 @@ def curl(
 def ok(status: int, expected: int = 200) -> bool:
     return status == expected
 
-# ─── Setup Helpers ────────────────────────────────────────────────────────────
+# --- Setup Helpers ------------------------------------------------------------
 
 def perform_setup() -> bool:
     """Perform initial setup: admin + first user."""
@@ -151,7 +151,7 @@ def perform_setup() -> bool:
     
     return True
 
-# ─── Test Suite ───────────────────────────────────────────────────────────────
+# --- Test Suite ---------------------------------------------------------------
 
 class TestSuite:
     def __init__(self):
@@ -175,7 +175,7 @@ class TestSuite:
         self.results[name] = {"status": status, "passed": passed, "expected": expected}
         return passed
     
-    # ─── Setup ────────────────────────────────────────────────────────────────
+    # --- Setup ----------------------------------------------------------------
     
     def test_setup_status(self):
         status, _ = curl("GET", "/api/setup/status")
@@ -193,7 +193,7 @@ class TestSuite:
         })
         return self.record("setup_first_user", status)
     
-    # ─── User Auth ────────────────────────────────────────────────────────────
+    # --- User Auth ------------------------------------------------------------
     
     def test_login(self):
         status, data = curl("POST", "/api/login", {
@@ -233,7 +233,7 @@ class TestSuite:
         
         return self.record("change_password", status)
     
-    # ─── Admin Auth ───────────────────────────────────────────────────────────
+    # --- Admin Auth -----------------------------------------------------------
     
     def test_admin_login(self):
         status, data = curl("POST", "/api/admin/login", {"password": ADMIN_PASSWORD}, cookie_jar="/tmp/nia_admin_cookies.txt")
@@ -269,7 +269,7 @@ class TestSuite:
         
         return self.record("admin_change_password", status)
     
-    # ─── Admin User Management ────────────────────────────────────────────────
+    # --- Admin User Management ------------------------------------------------
     
     def test_admin_list_users(self):
         status, _ = curl("GET", "/api/admin/users", token=self.admin_token, cookie_jar="/tmp/nia_admin_cookies.txt")
@@ -308,7 +308,7 @@ class TestSuite:
         status, _ = curl("DELETE", f"/api/admin/users/{user_id}", token=self.admin_token, csrf=self.admin_csrf, cookie_jar="/tmp/nia_admin_cookies.txt")
         return self.record("admin_delete_user", status)
     
-    # ─── API Keys ─────────────────────────────────────────────────────────────
+    # --- API Keys -------------------------------------------------------------
     
     def test_apikey_create(self):
         status, data = curl("POST", "/api/me/api-keys", {"name": "Test Key"}, token=self.user_token, csrf=self.user_csrf, cookie_jar="/tmp/nia_user_cookies.txt")
@@ -331,7 +331,7 @@ class TestSuite:
         status, _ = curl("DELETE", f"/api/me/api-keys/{key_id}", token=self.user_token, csrf=self.user_csrf, cookie_jar="/tmp/nia_user_cookies.txt")
         return self.record("apikey_delete", status)
     
-    # ─── Todos ────────────────────────────────────────────────────────────────
+    # --- Todos ----------------------------------------------------------------
     
     def test_todo_create(self):
         status, data = curl("POST", "/api/todos", {
@@ -382,7 +382,7 @@ class TestSuite:
         status, _ = curl("DELETE", f"/api/todos/{todo_id}", token=self.user_token, csrf=self.user_csrf, cookie_jar="/tmp/nia_user_cookies.txt")
         return self.record("todo_delete", status)
     
-    # ─── Projects ─────────────────────────────────────────────────────────────
+    # --- Projects -------------------------------------------------------------
     
     def test_project_create(self):
         status, data = curl("POST", "/api/projects", {
@@ -431,7 +431,7 @@ class TestSuite:
         status, _ = curl("DELETE", f"/api/projects/{proj_id}", token=self.user_token, csrf=self.user_csrf, cookie_jar="/tmp/nia_user_cookies.txt")
         return self.record("project_delete", status)
     
-    # ─── Sections ─────────────────────────────────────────────────────────────
+    # --- Sections -------------------------------------------------------------
     
     def test_section_create(self):
         proj_id = self.created_ids["project"][-1] if self.created_ids["project"] else 1
@@ -477,7 +477,7 @@ class TestSuite:
         status, _ = curl("DELETE", f"/api/sections/{sec_id}", token=self.user_token, csrf=self.user_csrf, cookie_jar="/tmp/nia_user_cookies.txt")
         return self.record("section_delete", status)
     
-    # ─── Reminders ────────────────────────────────────────────────────────────
+    # --- Reminders ------------------------------------------------------------
     
     def test_reminder_list(self):
         status, _ = curl("GET", "/api/reminders", token=self.user_token, cookie_jar="/tmp/nia_user_cookies.txt")
@@ -509,13 +509,13 @@ class TestSuite:
         self.results["reminder_mark_sent"] = {"status": -1, "passed": True, "expected": "skipped"}
         return True
     
-    # ─── Dashboard ────────────────────────────────────────────────────────────
+    # --- Dashboard ------------------------------------------------------------
     
     def test_dashboard(self):
         status, _ = curl("GET", "/api/dashboard", token=self.user_token, cookie_jar="/tmp/nia_user_cookies.txt")
         return self.record("dashboard", status)
     
-    # ─── Push Notifications ───────────────────────────────────────────────────
+    # --- Push Notifications ---------------------------------------------------
     
     def test_push_vapid_key(self):
         status, _ = curl("GET", "/api/push/vapid-public-key", token=self.user_token, cookie_jar="/tmp/nia_user_cookies.txt")
@@ -567,7 +567,7 @@ class TestSuite:
         
         return self.record("push_test", status)
     
-    # ─── Run All Tests ────────────────────────────────────────────────────────
+    # --- Run All Tests --------------------------------------------------------
     
     def run_all(self):
         """Execute all tests in logical order."""
@@ -647,7 +647,7 @@ class TestSuite:
         
         return self.results
 
-# ─── Output ───────────────────────────────────────────────────────────────────
+# --- Output -------------------------------------------------------------------
 
 def print_results(results: dict):
     """Print test results summary."""
@@ -684,7 +684,7 @@ def print_results(results: dict):
     
     return failed == 0
 
-# ─── Main ─────────────────────────────────────────────────────────────────────
+# --- Main ---------------------------------------------------------------------
 
 def main():
     print("=" * 70)
