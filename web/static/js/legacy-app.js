@@ -4,6 +4,7 @@ import { escapeHtml, escapeHtmlAttr, formatDate, jsArg, renderMarkdown, truncate
 import { authApi, projectsApi, pushApi, sectionsApi, todosApi } from './api/index.js';
 import * as indexedDb from './storage/indexed-db.js';
 import * as syncQueue from './sync/queue.js';
+import { createApiKeysFeature } from './features/api-keys.js';
 import { createPushNotificationsFeature } from './features/push-notifications.js';
 import { createServiceWorkerUpdatesFeature } from './features/service-worker-updates.js';
 import { applyTheme, bindSystemThemeListener, cycleTheme, initTheme, setTheme } from './features/theme.js';
@@ -27,6 +28,7 @@ let pendingUndoBatch = null; // For batch operations like clear-done
 // ─── Auth / User (JWT) ───────────────────────────────────────────────────────
 
 let currentUser = null;  // { id, username, display_name, token }
+const apiKeysFeature = createApiKeysFeature({ authApi });
 const pushFeature = createPushNotificationsFeature({ pushApi });
 const serviceWorkerUpdates = createServiceWorkerUpdatesFeature({ onMarkTodoDone: markTodoDone });
 
@@ -182,12 +184,7 @@ function openSettingsModal() {
   document.getElementById('settings-pw-error').textContent = '';
   document.getElementById('settings-pw-success').textContent = '';
   // Reset API key UI
-  const createdEl = document.getElementById('api-key-created');
-  const valueEl = document.getElementById('api-key-value');
-  const errorEl = document.getElementById('api-key-error');
-  if (createdEl) createdEl.style.display = 'none';
-  if (valueEl) valueEl.textContent = '';
-  if (errorEl) errorEl.textContent = '';
+  resetApiKeyUi();
   document.getElementById('settings-modal')?.classList.add('active');
   loadApiKeys();
   updatePushSettingsUI();
@@ -221,129 +218,12 @@ async function changeUserPassword() {
 
 // ─── API Keys ────────────────────────────────────────────────────────────────
 
-async function loadApiKeys() {
-  const listEl = document.getElementById('api-keys-list');
-  const errorEl = document.getElementById('api-key-error');
-  if (!listEl) return;
-  try {
-    const data = await authApi.listApiKeys();
-    renderApiKeys(data.api_keys || []);
-  } catch (e) {
-    console.error('API keys load failed:', e);
-    if (errorEl) errorEl.textContent = e.message;
-  }
-}
-
-function renderApiKeys(keys) {
-  const listEl = document.getElementById('api-keys-list');
-  if (!listEl) return;
-  if (!keys.length) {
-    listEl.textContent = '';
-    const p = document.createElement('p');
-    p.style.cssText = 'font-size:13px; color:var(--text-muted);';
-    p.textContent = 'Keine API-Keys vorhanden.';
-    listEl.appendChild(p);
-    return;
-  }
-  listEl.textContent = '';
-  keys.forEach(k => {
-    const revoked = k.revoked_at;
-    const container = document.createElement('div');
-    container.style.cssText = 'background:var(--bg-tertiary); padding:10px 12px; border-radius:var(--radius); margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;';
-
-    const left = document.createElement('div');
-    left.style.minWidth = '0';
-
-    const nameRow = document.createElement('div');
-    nameRow.style.cssText = 'font-size:13px; font-weight:500; margin-bottom:2px;';
-    nameRow.textContent = k.name;
-    if (revoked) {
-      const span = document.createElement('span');
-      span.style.cssText = 'color:var(--danger); font-size:11px; margin-left:4px;';
-      span.textContent = '(🚫 widerrufen)';
-      nameRow.appendChild(span);
-    }
-
-    const keyRow = document.createElement('div');
-    keyRow.style.cssText = 'font-size:12px; color:var(--text-muted); font-family:monospace;';
-    keyRow.textContent = k.key_prefix + '****';
-
-    const usedRow = document.createElement('div');
-    usedRow.style.cssText = 'margin-top:4px; font-size:11px; color:var(--text-muted);';
-    usedRow.textContent = k.last_used_at
-      ? 'Letzter Zugriff: ' + new Date(k.last_used_at).toLocaleString('de-DE')
-      : 'Noch nicht verwendet';
-
-    left.appendChild(nameRow);
-    left.appendChild(keyRow);
-    left.appendChild(usedRow);
-
-    container.appendChild(left);
-
-    if (!revoked) {
-      const btn = document.createElement('button');
-      btn.className = 'btn btn-danger';
-      btn.style.cssText = 'font-size:12px; padding:4px 8px; flex-shrink:0; margin-left:8px;';
-      btn.title = 'Widerrufen';
-      btn.textContent = '🗑️';
-      btn.onclick = () => revokeApiKey(k.id);
-      container.appendChild(btn);
-    }
-
-    listEl.appendChild(container);
-  });
-}
-
-async function createApiKey() {
-  const name = prompt('Name für den API-Key (optional):');
-  if (name === null) return;
-  const errorEl = document.getElementById('api-key-error');
-  const createdEl = document.getElementById('api-key-created');
-  const valueEl = document.getElementById('api-key-value');
-  if (errorEl) errorEl.textContent = '';
-  try {
-    const data = await authApi.createApiKey(name || undefined);
-    // Show the key once
-    if (valueEl) valueEl.textContent = data.key;
-    if (createdEl) createdEl.style.display = 'block';
-    // Refresh list
-    await loadApiKeys();
-  } catch (e) {
-    console.error('API key creation failed:', e);
-    if (errorEl) errorEl.textContent = e.message;
-  }
-}
-
-async function revokeApiKey(keyId) {
-  if (!confirm('API-Key wirklich widerrufen?')) return;
-  const errorEl = document.getElementById('api-key-error');
-  if (errorEl) errorEl.textContent = '';
-  try {
-    await authApi.revokeApiKey(keyId);
-    await loadApiKeys();
-  } catch (e) {
-    console.error('API key revoke failed:', e);
-    if (errorEl) errorEl.textContent = e.message;
-  }
-}
-
-function copyApiKey() {
-  const valueEl = document.getElementById('api-key-value');
-  if (!valueEl || !valueEl.textContent) return;
-  navigator.clipboard.writeText(valueEl.textContent).then(() => {
-    alert('API-Key kopiert!');
-  }).catch(err => {
-    console.error('Copy failed:', err);
-    // Fallback
-    const range = document.createRange();
-    range.selectNode(valueEl);
-    window.getSelection().removeAllRanges();
-    window.getSelection().addRange(range);
-    document.execCommand('copy');
-    window.getSelection().removeAllRanges();
-    alert('API-Key kopiert!');
-  });
-}
+const resetApiKeyUi = apiKeysFeature.resetApiKeyUi;
+const loadApiKeys = apiKeysFeature.loadApiKeys;
+const renderApiKeys = apiKeysFeature.renderApiKeys;
+const createApiKey = apiKeysFeature.createApiKey;
+const revokeApiKey = apiKeysFeature.revokeApiKey;
+const copyApiKey = apiKeysFeature.copyApiKey;
 
 // ─── Theme System ───────────────────────────────────────────────────────────
 
@@ -2526,8 +2406,6 @@ Object.assign(window, {
   toggleSidebar,
   closeSidebar,
   initServiceWorker,
-  checkForUpdate,
-  showUpdateButton,
   triggerUpdate,
   initApp,
   renderVersionInfo,
