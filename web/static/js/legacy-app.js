@@ -11,6 +11,7 @@ import { createSectionsFeature } from './features/sections.js';
 import { createServiceWorkerUpdatesFeature } from './features/service-worker-updates.js';
 import { applyTheme, bindSystemThemeListener, cycleTheme, initTheme, setTheme } from './features/theme.js';
 import { createUserSettingsFeature } from './features/user-settings.js';
+import { createProjectsFeature } from './features/projects.js';
 import { renderTodoItem } from './features/todo-rendering.js';
 import { createViewPreferencesFeature } from './features/view-preferences.js';
 let todos = [];
@@ -47,6 +48,23 @@ const sectionsFeature = createSectionsFeature({
   getCurrentProjectId: () => currentProjectId,
   getSections: () => sections,
   renderTodos: () => renderTodos(),
+});
+const projectsFeature = createProjectsFeature({
+  getProjects: () => projects,
+  getTodos: () => todos,
+  setProjects: (next) => { projects = next; },
+  dbPut,
+  addToSyncQueue,
+  deleteFromDB,
+  isOnlineForSync,
+  syncWithServer,
+  renderProjects: () => renderProjects(),
+  renderStats: () => renderStats(),
+  renderTodos: () => renderTodos(),
+  closeModal,
+  showToast,
+  showBatchToast,
+  projectsApi,
 });
 const userSettingsFeature = createUserSettingsFeature({
   authApi,
@@ -1656,301 +1674,13 @@ async function deleteTodo(id) {
   }
 }
 
-function showProjectModal(project = null, parentId = null) {
-  document.getElementById('project-form')?.reset();
-  document.getElementById('project-id').value = '';
-  document.getElementById('project-modal-title').textContent = project ? 'Projekt bearbeiten' : (parentId ? 'Neues Subproject' : 'Neues Projekt');
-
-  const parentSelect = document.getElementById('project-parent-id');
-  if (parentSelect) {
-    parentSelect.innerHTML = '<option value="">-- Kein Eltern-Projekt --</option>';
-    
-    // Step 1: Create ALL nodes first (without children arrays)
-    const projectMap = new Map();
-    projects.forEach(p => {
-      projectMap.set(p.id, { id: p.id, name: p.name, parent_id: p.parent_id, sort_order: p.sort_order, color: p.color });
-    });
-    
-    // Step 2: Add children arrays to all nodes
-    projectMap.forEach(p => {
-      p.children = [];
-    });
-    
-    // Step 3: NOW assign children to parents (all parents exist now!)
-    const rootProjects = [];
-    projectMap.forEach(p => {
-      if (p.parent_id === null || p.parent_id === undefined) {
-        rootProjects.push(p);
-      } else {
-        const parent = projectMap.get(p.parent_id);
-        if (parent) {
-          parent.children.push(p);
-        }
-      }
-    });
-    
-    rootProjects.sort((a, b) => {
-      if (a.id === 1) return -1;
-      if (b.id === 1) return 1;
-      return a.name.localeCompare(b.name);
-    });
-    
-    // Recursive function
-    function addProjectOptions(projectNode, depth = 0) {
-      // Skip current project being edited (can't be own parent)
-      if (project && projectNode.id === project.id) return;
-      // Skip Inbox (cannot be parent of subprojects)
-      if (projectNode.id === 1) return;
-      
-      const indent = '\u00A0'.repeat(depth * 2) + (depth > 0 ? '└─ ' : '');
-      const option = document.createElement('option');
-      option.value = projectNode.id;
-      option.textContent = indent + projectNode.name;
-      parentSelect.appendChild(option);
-      
-      if (projectNode.children && projectNode.children.length > 0) {
-        projectNode.children.sort((a, b) => a.name.localeCompare(b.name));
-        projectNode.children.forEach(child => addProjectOptions(child, depth + 1));
-      }
-    }
-    
-    rootProjects.forEach(p => addProjectOptions(p));
-    
-    parentSelect.value = parentId || (project ? project.parent_id : '') || '';
-  }
-
-  // Hide parent dropdown for Inbox (cannot be moved under another project)
-  const parentFormGroup = document.getElementById('project-parent-id')?.closest('.form-group');
-  if (parentFormGroup) {
-    parentFormGroup.style.display = (project && project.id === 1) ? 'none' : '';
-  }
-
-  if (project) {
-    document.getElementById('project-id').value = project.id;
-    document.getElementById('project-name').value = project.name;
-    document.getElementById('project-color').value = project.color;
-    if (parentSelect) parentSelect.value = project.parent_id || '';
-  }
-
-  document.getElementById('project-delete-btn').style.display = (project && project.id !== 1) ? '' : 'none';
-  document.getElementById('project-modal')?.classList.add('active');
-}
-
-function editProject(id) {
-  const project = projects.find(p => p.id === id);
-  if (project) showProjectModal(project);
-}
-
-async function saveProject(event) {
-  event.preventDefault();
-
-  const id = document.getElementById('project-id').value;
-  const parentIdVal = document.getElementById('project-parent-id')?.value;
-  const projectData = {
-    name: document.getElementById('project-name').value,
-    color: document.getElementById('project-color').value,
-    sort_order: projects.length,
-    parent_id: parentIdVal ? parseInt(parentIdVal) : null
-  };
-
-  if (id) {
-    // Update
-    const existing = projects.find(p => p.id === parseInt(id));
-    if (existing) {
-      const updated = { ...existing, ...projectData, updated_at: new Date().toISOString() };
-      await dbPut('projects', updated);
-      projects = projects.map(p => p.id === parseInt(id) ? updated : p);
-      await addToSyncQueue('UPDATE_PROJECT', { id: parseInt(id), changes: projectData });
-      if (isOnlineForSync()) await syncWithServer();
-      closeModal('project-modal');
-      renderProjects();
-    }
-  } else {
-    // Create
-    const tempId = 'temp-project-' + Date.now();
-    const newProject = { id: tempId, ...projectData, created_at: new Date().toISOString() };
-    await dbPut('projects', newProject);
-    projects.push(newProject);
-    await addToSyncQueue('CREATE_PROJECT', { ...projectData, _tempId: tempId });
-    if (isOnlineForSync()) await syncWithServer();
-    closeModal('project-modal');
-    renderProjects();
-  }
-}
-
-async function deleteProject(id) {
-  if (!confirm('Projekt wirklich löschen?')) return;
-
-  await deleteFromDB('projects', id);
-  projects = projects.filter(p => p.id !== id);
-  renderProjects();
-  renderStats();
-  closeModal('project-modal');
-
-  // Verschiebe Todos zu Default-Projekt
-  for (const t of todos) {
-    if (t.project_id === id) {
-      t.project_id = 1;
-      t.section_id = null;
-      await dbPut('todos', t);
-      await addToSyncQueue('UPDATE_TODO', { id: t.id, changes: { project_id: 1, section_id: null } });
-    }
-  }
-
-  await addToSyncQueue('DELETE_PROJECT', { id });
-  if (isOnlineForSync()) await syncWithServer();
-}
-
-function deleteProjectFromModal() {
-  const id = document.getElementById('project-id').value;
-  if (id) deleteProject(parseInt(id));
-}
-
-async function clearDoneFromModal() {
-  const id = document.getElementById('project-id').value;
-  if (!id) return;
-  const projectId = parseInt(id);
-  const project = projects.find(p => p.id === projectId);
-  if (!project) return;
-
-  const doneCount = todos.filter(t => t.project_id === projectId && t.status === 'done').length;
-  if (doneCount === 0) {
-    showToast('Keine erledigten Todos in diesem Projekt');
-    return;
-  }
-
-  if (!confirm(`${doneCount} erledigte Todo(s) in "${project.name}" löschen?`)) return;
-
-  try {
-    const r = await projectsApi.clearDone(projectId);
-    if (r.ok) {
-      const result = await r.json();
-      // Remove done todos from local array
-      todos = todos.filter(t => !(t.project_id === projectId && t.status === 'done'));
-      renderStats();
-      renderTodos();
-      showToast(`${result.deleted_count} erledigte Todo(s) gelöscht`);
-    } else {
-      showToast('Fehler beim Löschen');
-    }
-  } catch (err) {
-    console.error('Clear done error:', err);
-    showToast('Fehler beim Löschen');
-  }
-}
-
-async function clearDoneInProject() {
-  if (!currentProjectId) return;
-  const project = projects.find(p => p.id === currentProjectId);
-  if (!project) return;
-
-  const doneTodos = todos.filter(t => t.project_id === currentProjectId && t.status === 'done');
-  if (doneTodos.length === 0) {
-    showToast('Keine erledigten Todos in diesem Projekt');
-    return;
-  }
-
-  if (!confirm(`${doneTodos.length} erledigte Todo(s) in "${project.name}" löschen?`)) return;
-
-  try {
-    const result = await projectsApi.clearDone(currentProjectId);
-      // Store batch data for undo before removing from array
-      const deletedData = doneTodos.map(t => ({ ...t }));
-      // Remove done todos from local array
-      todos = todos.filter(t => !(t.project_id === currentProjectId && t.status === 'done'));
-      renderStats();
-      renderTodos();
-      // Show toast with batch undo
-      showBatchToast(`${result.deleted_count} erledigte Todo(s) gelöscht`, { todos: deletedData, projectId: currentProjectId });
-  } catch (err) {
-    console.error('Clear done error:', err);
-    showToast('Fehler beim Löschen');
-  }
-}
-
-// ─── Modal Helpers ───────────────────────────────────────────────────────────
-
-function closeModal(modalId) {
-  document.getElementById(modalId)?.classList.remove('active');
-}
-
-const showAddSectionForm = sectionsFeature.showAddSectionForm;
-async function saveNewSection() {
-  const name = document.getElementById('new-section-name')?.value?.trim();
-  if (!name || !currentProjectId) return;
-
-  const now = new Date().toISOString();
-  const tempId = 'temp-section-' + Date.now();
-  const sectionData = {
-    id: tempId,
-    name,
-    project_id: currentProjectId,
-    sort_order: sections.length,
-    created_at: now,
-    updated_at: now
-  };
-
-  // Lokale DB sofort updaten
-  await dbPut('sections', sectionData);
-  sections.push(sectionData);
-  renderTodos();
-
-  // In Sync-Queue
-  await addToSyncQueue('CREATE_SECTION', { ...sectionData, _tempId: tempId });
-
-  // Sofort syncen wenn online
-  if (isOnlineForSync()) {
-    await syncWithServer();
-  }
-}
-
-const editSectionInline = sectionsFeature.editSectionInline;
-async function saveSectionEdit(id) {
-  const name = document.getElementById(`edit-section-name-${id}`)?.value?.trim();
-  if (!name) return;
-
-  const section = sections.find(s => s.id === id);
-  if (!section) return;
-
-  const now = new Date().toISOString();
-  const updated = { ...section, name, updated_at: now };
-  await dbPut('sections', updated);
-  sections = sections.map(s => s.id === id ? updated : s);
-  renderTodos();
-
-  await addToSyncQueue('UPDATE_SECTION', { id, changes: { name } });
-
-  if (isOnlineForSync()) {
-    await syncWithServer();
-  }
-}
-
-async function deleteSection(id) {
-  if (!confirm('Section wirklich löschen? Todos werden zu "Unsortiert" verschoben.')) return;
-
-  const section = sections.find(s => s.id === id);
-  if (!section) return;
-
-  // Sofort lokal löschen + Todos auf Unsortiert
-  sections = sections.filter(s => s.id !== id);
-  await deleteFromDB('sections', id);
-  for (const t of todos) {
-    if (t.section_id === id) {
-      t.section_id = null;
-      t.updated_at = new Date().toISOString();
-      await dbPut('todos', t);
-    }
-  }
-  renderTodos();
-
-  // Sync-Queue
-  await addToSyncQueue('DELETE_SECTION', { id });
-
-  if (isOnlineForSync()) {
-    await syncWithServer();
-  }
-}
-
+const showProjectModal = projectsFeature.showProjectModal;
+const editProject = projectsFeature.editProject;
+const saveProject = projectsFeature.saveProject;
+const deleteProject = projectsFeature.deleteProject;
+const deleteProjectFromModal = projectsFeature.deleteProjectFromModal;
+const clearDoneFromModal = projectsFeature.clearDoneFromModal;
+const clearDoneInProject = projectsFeature.clearDoneInProject;
 // ─── Drag & Drop ─────────────────────────────────────────────────────────────
 
 function handleTodoDragStart(e) {
