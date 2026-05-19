@@ -12,7 +12,10 @@ export function getAuthHeaders() {
   const token = getAuthToken();
   const csrf = getCsrfToken();
   const headers = { 'Content-Type': 'application/json' };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
+  if (token) {
+    if (token.includes('.')) headers['Authorization'] = `Bearer ${token}`;
+    else headers['X-Session-Token'] = token;
+  }
   if (csrf) headers['X-CSRF-Token'] = csrf;
   return headers;
 }
