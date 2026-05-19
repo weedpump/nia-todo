@@ -50,7 +50,6 @@ export function renderMarkdown(text) {
   html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
   html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
   html = html.replace(/^- (.+)$/gm, '• $1');
-  html = html.replace(/
-/g, '<br>');
+  html = html.replace(/\n/g, '<br>');
   return html;
 }
