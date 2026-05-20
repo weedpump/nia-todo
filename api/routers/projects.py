@@ -87,7 +87,8 @@ async def update_project(project_id: int, data: ProjectUpdate, user_id: int = De
             raise HTTPException(404, "Project not found")
         if not can_edit_project(db, project_id, user_id):
             raise HTTPException(403, "Only the owner can edit this project")
-        if data.parent_id is not None:
+        fields_set = getattr(data, "model_fields_set", getattr(data, "__fields_set__", set()))
+        if "parent_id" in fields_set and data.parent_id is not None:
             if data.parent_id == project_id:
                 raise HTTPException(400, "Project cannot be its own parent")
             current_check = data.parent_id
@@ -98,9 +99,8 @@ async def update_project(project_id: int, data: ProjectUpdate, user_id: int = De
                 current_check = ancestor['parent_id'] if ancestor else None
         updates = {}
         for f in ["name", "color", "sort_order", "parent_id"]:
-            v = getattr(data, f)
-            if v is not None:
-                updates[f] = v
+            if f in fields_set:
+                updates[f] = getattr(data, f)
         if updates:
             updates['updated_at'] = now_iso()
             allowed_cols = {"name", "color", "sort_order", "parent_id", "updated_at"}

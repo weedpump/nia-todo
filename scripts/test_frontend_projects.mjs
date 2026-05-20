@@ -36,6 +36,29 @@ async function run() {
       return names.some(name => name.includes('Project Child'));
     }, { timeout: 10000 });
 
+    await page.locator('.project-tree-item').filter({ hasText: 'Project Child' }).first().locator('.nav-edit').click();
+    await visible('#project-modal');
+    await page.selectOption('#project-parent-id', '');
+    await page.click('button[form="project-form"]');
+    await page.locator('#project-modal').waitFor({ state: 'hidden', timeout: 5000 });
+    await page.waitForFunction(async () => {
+      const jwt = localStorage.getItem('jwt_token');
+      const data = await fetch('/api/projects', { headers: { 'Authorization': `Bearer ${jwt}` }, credentials: 'include' }).then(r => r.json());
+      return data.projects.some(project => project.name === 'Project Child' && project.parent_id === null);
+    }, null, { timeout: 10000 });
+
+    await page.locator('.project-tree-item').filter({ hasText: 'Project Child' }).first().locator('.nav-edit').click();
+    await visible('#project-modal');
+    await page.selectOption('#project-parent-id', { label: 'Project Parent Renamed' });
+    await page.click('button[form="project-form"]');
+    await page.locator('#project-modal').waitFor({ state: 'hidden', timeout: 5000 });
+    await page.waitForFunction(async () => {
+      const jwt = localStorage.getItem('jwt_token');
+      const data = await fetch('/api/projects', { headers: { 'Authorization': `Bearer ${jwt}` }, credentials: 'include' }).then(r => r.json());
+      const parent = data.projects.find(project => project.name === 'Project Parent Renamed');
+      return data.projects.some(project => project.name === 'Project Child' && project.parent_id === parent?.id);
+    }, null, { timeout: 10000 });
+
     await page.evaluate(() => {
       const projects = Array.from(document.querySelectorAll('.project-tree-item .nav-btn'));
       const childBtn = projects.find(el => el.textContent?.includes('Project Child'));
