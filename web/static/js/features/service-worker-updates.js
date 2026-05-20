@@ -1,59 +1,69 @@
 export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
   let swRegistration = null;
   let updateAvailable = false;
+  let allowReloadOnControllerChange = false;
 
   async function initServiceWorker() {
     if (!('serviceWorker' in navigator)) return;
 
-    try {
-      const reg = await navigator.serviceWorker.register('/sw.js');
-      swRegistration = reg;
-      console.log('SW registered:', reg.scope);
+    console.log('SW: registration scheduled');
+    setTimeout(async () => {
+      const startedAt = performance.now();
+      try {
+        console.log('SW: registering...');
+        const reg = await navigator.serviceWorker.register('/sw.js');
+        swRegistration = reg;
+        console.log('SW registered:', reg.scope, Math.round(performance.now() - startedAt) + 'ms');
 
-      if (reg.waiting) {
-        console.log('SW: Update waiting from previous session');
-        updateAvailable = true;
-        showUpdateButton();
-      }
-
-      checkForUpdate(reg);
-      setInterval(() => checkForUpdate(reg), 30 * 60 * 1000);
-
-      document.addEventListener('visibilitychange', () => {
-        if (!document.hidden && swRegistration) {
-          console.log('SW: Visibility changed → checking for update');
-          checkForUpdate(swRegistration);
+        if (reg.waiting) {
+          console.log('SW: Update waiting from previous session');
+          updateAvailable = true;
+          showUpdateButton();
         }
-      });
 
-      reg.addEventListener('updatefound', () => {
-        const newWorker = reg.installing;
-        console.log('SW: New version found, installing...');
-        if (!newWorker) return;
+        checkForUpdate(reg);
+        setInterval(() => checkForUpdate(reg), 30 * 60 * 1000);
 
-        newWorker.addEventListener('statechange', () => {
-          if (newWorker.state === 'installed') {
-            console.log('SW: New version ready for update');
-            updateAvailable = true;
-            showUpdateButton();
+        document.addEventListener('visibilitychange', () => {
+          if (!document.hidden && swRegistration) {
+            console.log('SW: Visibility changed → checking for update');
+            checkForUpdate(swRegistration);
           }
         });
-      });
 
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
-        console.log('SW: New controller active, reloading...');
-        window.location.reload();
-      });
+        reg.addEventListener('updatefound', () => {
+          const newWorker = reg.installing;
+          console.log('SW: New version found, installing...');
+          if (!newWorker) return;
 
-      navigator.serviceWorker.addEventListener('message', (event) => {
-        console.log('SW message received:', event.data);
-        if (event.data.type === 'MARK_TODO_DONE' && event.data.todoId) {
-          onMarkTodoDone(event.data.todoId);
-        }
-      });
-    } catch (err) {
-      console.error('SW registration failed:', err);
-    }
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed') {
+              console.log('SW: New version ready for update');
+              updateAvailable = true;
+              showUpdateButton();
+            }
+          });
+        });
+
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          if (!allowReloadOnControllerChange) {
+            console.log('SW: controller changed on first registration — no reload');
+            return;
+          }
+          console.log('SW: New controller active after explicit update, reloading...');
+          window.location.reload();
+        });
+
+        navigator.serviceWorker.addEventListener('message', (event) => {
+          console.log('SW message received:', event.data);
+          if (event.data.type === 'MARK_TODO_DONE' && event.data.todoId) {
+            onMarkTodoDone(event.data.todoId);
+          }
+        });
+      } catch (err) {
+        console.error('SW registration failed:', err);
+      }
+    }, 5000);
   }
 
   async function checkForUpdate(reg) {
@@ -76,6 +86,7 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
   async function triggerUpdate() {
     console.log('Triggering app update...');
     if (swRegistration && swRegistration.waiting) {
+      allowReloadOnControllerChange = true;
       swRegistration.waiting.postMessage({ action: 'skipWaiting' });
     }
   }

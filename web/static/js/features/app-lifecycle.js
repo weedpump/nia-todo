@@ -97,39 +97,47 @@ export function createAppLifecycle({
 
   function bindDomReady() {
     document.addEventListener('DOMContentLoaded', () => {
-      console.log('App starting...');
+      console.log('[boot] app starting', Math.round(performance.now()) + 'ms');
       initTheme();
       showLoginOverlay();
 
       Promise.resolve().then(async () => {
         try {
+          const t0 = performance.now();
+          console.log('[boot] setup check start', Math.round(t0 - window.__niaBootT0) + 'ms');
           const setupData = await Promise.race([
             authApi.setupStatus(),
             new Promise((_, reject) => setTimeout(() => reject(new Error('setup timeout')), 4000)),
           ]);
+          console.log('[boot] setup check done', Math.round(performance.now() - window.__niaBootT0) + 'ms');
           if (!setupData.setup_complete) {
             window.location.href = '/setup';
             return;
           }
         } catch (e) {
-          console.log('Setup check failed or timed out, continuing');
+          console.log('[boot] setup check failed or timed out', Math.round(performance.now() - window.__niaBootT0) + 'ms');
         }
 
         let authed = false;
         try {
+          console.log('[boot] auth check start', Math.round(performance.now() - window.__niaBootT0) + 'ms');
           authed = await Promise.race([
             checkAuth(),
             new Promise(resolve => setTimeout(() => resolve(false), 4000)),
           ]);
+          console.log('[boot] auth check done', Math.round(performance.now() - window.__niaBootT0) + 'ms', 'authed=', authed);
         } catch (e) {
-          console.log('Auth check failed or timed out');
+          console.log('[boot] auth check failed or timed out', Math.round(performance.now() - window.__niaBootT0) + 'ms');
         }
 
         if (authed) {
+          console.log('[boot] init authenticated app', Math.round(performance.now() - window.__niaBootT0) + 'ms');
           hideLoginOverlay();
           renderUserInfo();
           await initApp();
+          console.log('[boot] init authenticated app done', Math.round(performance.now() - window.__niaBootT0) + 'ms');
         } else {
+          console.log('[boot] stay on login overlay', Math.round(performance.now() - window.__niaBootT0) + 'ms');
           showLoginOverlay();
         }
       });
