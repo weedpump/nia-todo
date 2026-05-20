@@ -864,6 +864,16 @@ body {
 .form-group select:focus,
 .form-group textarea:focus { border-color: var(--accent); }
 
+.settings-email-cell { font-size: 14px; color: var(--text-secondary); padding: 8px 0; }
+.settings-email-display { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; }
+.settings-email-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.settings-email-missing { color: var(--text-muted); }
+.settings-email-edit { display: grid; grid-template-columns: minmax(0, 1fr) 28px 28px; align-items: center; gap: 4px; width: 100%; max-width: 100%; }
+.settings-email-edit input { min-width: 0; width: 100%; padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-primary); color: var(--text-primary); font-size: 13px; }
+.settings-email-action { background: transparent; color: var(--text-secondary); border: none; border-radius: var(--radius); padding: 4px; width: 28px; height: 28px; line-height: 1; cursor: pointer; }
+.settings-email-action:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+
+
 .form-group input:disabled,
 .form-group select:disabled,
 .form-group textarea:disabled,
