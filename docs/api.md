@@ -24,6 +24,7 @@
     "id": 1,
     "username": "tobi",
     "display_name": "Tobi",
+    "email": "tobi@example.com",
     "is_admin": true
   }
 }
@@ -46,8 +47,27 @@
   "id": 1,
   "username": "tobi",
   "display_name": "Tobi",
+  "email": "tobi@example.com",
   "is_admin": true
 }
+```
+
+### Eigene E-Mail ändern
+`PATCH /api/me/email`
+
+**Body**
+```json
+{ "email": "tobi@example.com" }
+```
+
+**Validierung**
+- Pflichtfeld
+- Muss eine gültige E-Mail-Adresse sein
+- Muss eindeutig sein
+
+**Response**
+```json
+{ "email": "tobi@example.com" }
 ```
 
 ### Eigenes Passwort ändern
@@ -85,6 +105,7 @@
 ```json
 {
   "username": "tobi",
+  "email": "tobi@example.com",
   "password": "***",
   "display_name": "Tobi"
 }
@@ -120,6 +141,7 @@
       "id": 1,
       "username": "tobi",
       "display_name": "Tobi",
+      "email": "tobi@example.com",
       "is_admin": true
     }
   ]
@@ -134,13 +156,43 @@
 {
   "username": "neu",
   "display_name": "Neuer User",
-  "password": "***"
+  "email": "neu@example.com"
 }
 ```
 
+Der Admin setzt kein Passwort mehr direkt. Beim Anlegen wird ein einmaliger Passwort-Setup-Link erzeugt.
+
+**Validierung**
+- `email` ist Pflicht
+- Muss eine gültige E-Mail-Adresse sein
+- Muss eindeutig sein
+
 **Response**
 ```json
-{ "ok": true }
+{
+  "id": 2,
+  "username": "neu",
+  "display_name": "Neuer User",
+  "email": "neu@example.com",
+  "created_at": "2026-05-20T21:30:00Z",
+  "password_setup_url": "https://example.local/set-password?token=...",
+  "password_setup_expires_hours": 24
+}
+```
+
+### Benutzer aktualisieren
+`PATCH /api/admin/users/{id}`
+
+**Body**
+```json
+{ "email": "neu@example.com" }
+```
+
+Optional kann `display_name` mitgegeben werden.
+
+**Response**
+```json
+{ "id": 2, "email": "neu@example.com", "display_name": null }
 ```
 
 ### Benutzer löschen
@@ -151,18 +203,44 @@
 { "deleted": true }
 ```
 
-### Benutzer-Passwort zurücksetzen
+### Passwort-Setup-/Reset-Link erzeugen
 `POST /api/admin/users/{id}/change-password`
+
+> Kompatibilitäts-Endpunkt: Admins setzen Passwörter nicht mehr direkt. Der Endpoint erzeugt einen einmaligen Link.
+
+**Response**
+```json
+{
+  "password_setup_url": "https://example.local/set-password?token=...",
+  "password_setup_expires_hours": 24
+}
+```
+
+### Passwort-Link erzeugen
+`POST /api/admin/users/{id}/password-link`
+
+**Response**
+```json
+{
+  "password_setup_url": "https://example.local/set-password?token=...",
+  "password_setup_expires_hours": 24
+}
+```
+
+### Passwort per Link setzen
+`POST /api/password-setup/complete`
 
 **Body**
 ```json
-{ "new_password": "***" }
+{ "token": "...", "password": "NeuesPasswort123!" }
 ```
 
 **Response**
 ```json
-{ "ok": true }
+{ "message": "Passwort gesetzt" }
 ```
+
+Links sind 24 Stunden gültig und nur einmal verwendbar.
 
 ### Admin-Passwort ändern
 `POST /api/admin/change-password`
