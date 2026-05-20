@@ -17,6 +17,11 @@ async function run() {
     await page.click('text=Anmelden');
     await page.locator('#admin-content').waitFor({ state: 'visible', timeout: 10000 });
 
+    await page.locator('#user-list').getByRole('button', { name: '✏️' }).first().click();
+    await page.locator('#user-list input[type="email"]').first().waitFor({ state: 'visible', timeout: 5000 });
+    await page.locator('#user-list').getByRole('button', { name: '✕' }).first().click();
+    await page.locator('#user-list input[type="email"]').waitFor({ state: 'detached', timeout: 5000 });
+
     await page.fill('#new-username', 'admincreated');
     await page.fill('#new-display-name', 'Admin Created');
     await page.fill('#new-email', 'admincreated@example.invalid');

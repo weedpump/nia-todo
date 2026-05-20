@@ -12,9 +12,15 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); }
 .admin-header h1 { font-size: 24px; margin: 0; color: var(--text-primary); }
 .admin-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 24px; }
 .admin-card h2 { font-size: 16px; margin: 0 0 16px 0; color: var(--text-primary); }
-.user-table { width: 100%; border-collapse: collapse; }
+.user-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 .user-table th { text-align: left; padding: 12px; font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--border); }
-.user-table td { padding: 12px; font-size: 14px; color: var(--text-primary); border-bottom: 1px solid var(--border); }
+.user-table td { padding: 12px; font-size: 14px; color: var(--text-primary); border-bottom: 1px solid var(--border); vertical-align: middle; overflow: hidden; text-overflow: ellipsis; }
+.user-table th:nth-child(1), .user-table td:nth-child(1) { width: 36px; }
+.user-table th:nth-child(2), .user-table td:nth-child(2) { width: 110px; }
+.user-table th:nth-child(3), .user-table td:nth-child(3) { width: 120px; }
+.user-table th:nth-child(5), .user-table td:nth-child(5) { width: 88px; }
+.user-table th:nth-child(6), .user-table td:nth-child(6) { width: 92px; }
+.user-table th:nth-child(7), .user-table td:nth-child(7) { width: 70px; }
 .user-table tr:last-child td { border-bottom: none; }
 .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; }
 .badge-admin { background: var(--accent); color: white; }
@@ -34,10 +40,12 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); }
 .admin-success { color: var(--success); font-size: 13px; margin-top: 8px; }
 .setup-link-box { margin-top: 12px; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-primary); display: none; gap: 8px; align-items: center; }
 .setup-link-box input { flex: 1; min-width: 0; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-secondary); color: var(--text-primary); font-size: 13px; }
-.email-display { display: inline-flex; align-items: center; gap: 6px; }
+.email-display { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; }
+.email-display span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .email-missing { color: var(--text-muted); }
-.email-edit { display: inline-flex; align-items: center; gap: 6px; }
-.email-edit input { min-width: 210px; padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-primary); color: var(--text-primary); font-size: 13px; }
+.email-edit { display: grid; grid-template-columns: minmax(0, 1fr) 28px 28px; align-items: center; gap: 4px; width: 100%; max-width: 100%; }
+.email-edit input { min-width: 0; width: 100%; padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-primary); color: var(--text-primary); font-size: 13px; }
+.email-edit .btn-ghost { padding: 4px; width: 28px; height: 28px; line-height: 1; }
 .admin-nav { display: flex; gap: 12px; align-items: center; }
 .admin-nav a { color: var(--accent); text-decoration: none; font-size: 14px; }
 .admin-nav a:hover { text-decoration: underline; }
@@ -316,10 +324,14 @@ function escapeHtmlAttr(str) {
 }
 
 function renderUserEmailCell(user) {
-  const email = user.email ? escapeHtml(user.email) : '<span class="email-missing">-</span>';
-  return `<span class="email-display" id="email-display-${user.id}">
+  return renderUserEmailDisplay(user.id, user.email || '');
+}
+
+function renderUserEmailDisplay(userId, emailValue) {
+  const email = emailValue ? escapeHtml(emailValue) : '<span class="email-missing">-</span>';
+  return `<span class="email-display" id="email-display-${userId}">
     <span>${email}</span>
-    <button class="btn btn-ghost" title="E-Mail bearbeiten" onclick="editUserEmail(${user.id}, '${escapeHtmlAttr(user.email || '')}')">✏️</button>
+    <button class="btn btn-ghost" title="E-Mail bearbeiten" onclick="editUserEmail(${userId}, '${escapeHtmlAttr(emailValue || '')}')">✏️</button>
   </span>`;
 }
 
@@ -378,10 +390,17 @@ function editUserEmail(userId, currentEmail) {
   const container = document.getElementById(`email-display-${userId}`);
   if (!container) return;
   container.outerHTML = `<span class="email-edit" id="email-edit-${userId}">
-    <input id="email-input-${userId}" type="email" value="${escapeHtmlAttr(currentEmail || '')}" placeholder="E-Mail setzen" onkeydown="if(event.key==='Enter') saveUserEmail(${userId})">
+    <input id="email-input-${userId}" type="email" value="${escapeHtmlAttr(currentEmail || '')}" placeholder="E-Mail setzen" onkeydown="if(event.key==='Enter') saveUserEmail(${userId}); if(event.key==='Escape') cancelUserEmailEdit(${userId}, '${escapeHtmlAttr(currentEmail || '')}')">
     <button class="btn btn-ghost" title="Speichern" onclick="saveUserEmail(${userId})">✅</button>
+    <button class="btn btn-ghost" title="Abbrechen" onclick="cancelUserEmailEdit(${userId}, '${escapeHtmlAttr(currentEmail || '')}')">✕</button>
   </span>`;
   document.getElementById(`email-input-${userId}`)?.focus();
+}
+
+function cancelUserEmailEdit(userId, currentEmail) {
+  const container = document.getElementById(`email-edit-${userId}`);
+  if (!container) return;
+  container.outerHTML = renderUserEmailDisplay(userId, currentEmail || '');
 }
 
 async function saveUserEmail(userId) {
