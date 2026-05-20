@@ -27,21 +27,40 @@ async function run() {
     await page.evaluate(async () => {
       const jwt = localStorage.getItem('jwt_token');
       const csrf = localStorage.getItem('csrf_token');
+      const authHeaders = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${jwt}`,
+        'X-CSRF-Token': csrf,
+      };
       const projects = await fetch('/api/projects', {
         headers: { 'Authorization': `Bearer ${jwt}` },
         credentials: 'include'
       }).then(r => r.json());
       const projectB = projects.projects.find(p => p.name === 'Frontend Project B');
-      await fetch(`/api/sections/by-project/${projectB.id}`, {
+      const sectionB = await fetch(`/api/sections/by-project/${projectB.id}`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${jwt}`,
-          'X-CSRF-Token': csrf
-        },
+        headers: authHeaders,
         body: JSON.stringify({ name: 'Project B Only Section', sort_order: 0 }),
         credentials: 'include'
+      }).then(r => r.json());
+      const createdTodo = await fetch('/api/todos', {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify({
+          title: 'Cross Project Section Todo',
+          description: '',
+          priority: 3,
+          status: 'pending',
+          project_id: projectB.id,
+          section_id: sectionB.id,
+        }),
+        credentials: 'include'
+      }).then(async r => {
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(`Create cross-project todo failed: ${r.status} ${JSON.stringify(data)}`);
+        return data;
       });
+      window.__crossProjectTodoId = createdTodo.id;
     });
 
     await page.reload({ waitUntil: 'domcontentloaded' });
@@ -51,6 +70,38 @@ async function run() {
     await page.getByText('Section B', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
     const foreignSectionVisibleAfterReload = await page.getByText('Project B Only Section', { exact: true }).isVisible().catch(() => false);
     if (foreignSectionVisibleAfterReload) throw new Error('Reloaded project view must not show sections from other projects');
+
+    await page.evaluate(async () => {
+      await window.refreshFromServer?.();
+    });
+    await page.locator('.nav-btn[data-filter="all"]').click();
+    const crossProjectTodoId = await page.evaluate(async () => {
+      const jwt = localStorage.getItem('jwt_token');
+      const data = await fetch('/api/todos', { headers: { 'Authorization': `Bearer ${jwt}` }, credentials: 'include' }).then(r => r.json());
+      const todo = data.todos.find(t => t.title === 'Cross Project Section Todo');
+      if (!todo) throw new Error('Cross-project section todo was not created');
+      return todo.id;
+    });
+    await page.evaluate(id => window.editTodo(id), crossProjectTodoId);
+    await visible('#todo-modal');
+    await page.waitForFunction(() => {
+      const project = document.getElementById('todo-project')?.selectedOptions?.[0]?.textContent || '';
+      const section = document.getElementById('todo-section');
+      const sectionText = section?.selectedOptions?.[0]?.textContent || '';
+      return project.includes('Frontend Project B')
+        && !section?.disabled
+        && sectionText.includes('Project B Only Section');
+    }, { timeout: 10000 });
+    await page.fill('#todo-desc', 'Section bleibt beim Speichern erhalten');
+    await page.click('button[form="todo-form"]');
+    await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });
+    await page.waitForFunction(async () => {
+      const jwt = localStorage.getItem('jwt_token');
+      const data = await fetch('/api/todos', { headers: { 'Authorization': `Bearer ${jwt}` }, credentials: 'include' }).then(r => r.json());
+      const todo = data.todos.find(t => t.title === 'Cross Project Section Todo');
+      return todo?.section_name === 'Project B Only Section';
+    }, null, { timeout: 10000 });
+    await clickProjectNav('Frontend Project A');
 
     await openTodoModal();
     await page.fill('#todo-title', 'Section Todo');

@@ -110,7 +110,6 @@ const todosFeature = createTodosFeature({
   showToast: (...args) => showToast(...args),
   setupDescPreview: (...args) => setupDescPreview(...args),
   renderMarkdown,
-  loadSectionsForCurrentProject: (selectedSectionId) => loadSectionsForCurrentProject(selectedSectionId),
 });
 const sharingFeature = createProjectSharingFeature({
   getProjects: () => projects,
