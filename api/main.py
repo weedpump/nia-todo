@@ -33,7 +33,7 @@ app.add_middleware(RateLimitMiddleware)
 
 # ─── Router ──────────────────────────────────────────────────────────────────
 
-from routers import auth, todos, projects, sections, reminders, dashboard, push, admin, me, setup
+from routers import auth, todos, projects, sections, reminders, dashboard, push, admin, me, setup, sharing
 
 app.include_router(auth.router)
 app.include_router(todos.router)
@@ -45,6 +45,7 @@ app.include_router(push.router)
 app.include_router(admin.router)
 app.include_router(setup.router)
 app.include_router(me.router)
+app.include_router(sharing.router)
 
 # ─── WebSocket ───────────────────────────────────────────────────────────────
 

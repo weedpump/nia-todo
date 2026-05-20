@@ -1,0 +1,408 @@
+"""nia-todo: Project sharing endpoints"""
+
+from typing import Optional
+from fastapi import APIRouter, HTTPException, Depends
+from pydantic import BaseModel, Field
+
+from db import get_db, now_iso
+from routers.auth import require_auth
+from services.websocket import broadcast_change
+
+router = APIRouter(prefix="/api/projects")
+
+# ─── Pydantic Models ─────────────────────────────────────────────────────────
+
+class ShareProjectRequest(BaseModel):
+    username: str = Field(..., min_length=3, max_length=32, pattern=r'^[a-zA-Z0-9_\-]+$')
+
+class AcceptInviteRequest(BaseModel):
+    accept: bool  # True = annehmen, False = ablehnen
+
+class MemberColorOverride(BaseModel):
+    color: str = Field(..., pattern=r'^#[0-9a-fA-F]{6}$')
+
+
+class RestoreMemberRequest(BaseModel):
+    status: str = Field(default="accepted", pattern=r'^(accepted|pending)$')
+
+
+# ─── Helpers ───────────────────────────────────────────────────────────────────
+
+def get_user_by_username(db, username: str) -> Optional[dict]:
+    row = db.execute(
+        "SELECT id, username, display_name FROM users WHERE username = ?",
+        (username,)
+    ).fetchone()
+    return dict(row) if row else None
+
+def get_project_with_owner(db, project_id: int) -> Optional[dict]:
+    row = db.execute(
+        """SELECT p.*, u.username as owner_username, u.display_name as owner_display_name
+           FROM projects p
+           JOIN users u ON p.user_id = u.id
+           WHERE p.id = ?""",
+        (project_id,)
+    ).fetchone()
+    return dict(row) if row else None
+
+def get_project_member(db, project_id: int, user_id: int) -> Optional[dict]:
+    row = db.execute(
+        """SELECT pm.*, u.username, u.display_name
+           FROM project_members pm
+           JOIN users u ON pm.user_id = u.id
+           WHERE pm.project_id = ? AND pm.user_id = ?""",
+        (project_id, user_id)
+    ).fetchone()
+    return dict(row) if row else None
+
+def get_member_by_id(db, member_id: int) -> Optional[dict]:
+    row = db.execute(
+        """SELECT pm.*, u.username, u.display_name, p.user_id as owner_id
+           FROM project_members pm
+           JOIN users u ON pm.user_id = u.id
+           JOIN projects p ON p.id = pm.project_id
+           WHERE pm.id = ?""",
+        (member_id,)
+    ).fetchone()
+    return dict(row) if row else None
+
+def get_project_members(db, project_id: int, include_inactive=False) -> list:
+    """Get all members for a project."""
+    if include_inactive:
+        rows = db.execute(
+            """SELECT pm.*, u.username, u.display_name
+               FROM project_members pm
+               JOIN users u ON pm.user_id = u.id
+               WHERE pm.project_id = ?
+               ORDER BY pm.created_at""",
+            (project_id,)
+        ).fetchall()
+    else:
+        rows = db.execute(
+            """SELECT pm.*, u.username, u.display_name
+               FROM project_members pm
+               JOIN users u ON pm.user_id = u.id
+               WHERE pm.project_id = ? AND pm.status IN ('pending', 'accepted')
+               ORDER BY pm.created_at""",
+            (project_id,)
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+def get_shared_projects_for_user(db, user_id: int) -> list:
+    """Get all projects shared with a user (as member, not owner)."""
+    rows = db.execute(
+        """SELECT p.*, pm.status as member_status, pm.user_color as member_color,
+                  pm.id as member_id, u.username as owner_username
+           FROM project_members pm
+           JOIN projects p ON pm.project_id = p.id
+           JOIN users u ON p.user_id = u.id
+           WHERE pm.user_id = ? AND pm.status = 'accepted'""",
+        (user_id,)
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+def get_pending_invites_for_user(db, user_id: int) -> list:
+    """Get all pending invites for a user."""
+    rows = db.execute(
+        """SELECT pm.*, p.name as project_name, p.color as project_color,
+                  u.username as invited_by_username, u.display_name as invited_by_display_name
+           FROM project_members pm
+           JOIN projects p ON pm.project_id = p.id
+           JOIN users u ON pm.invited_by = u.id
+           WHERE pm.user_id = ? AND pm.status = 'pending'""",
+        (user_id,)
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
+# ─── Endpoints ─────────────────────────────────────────────────────────────────
+
+@router.get("/shared")
+def list_shared_projects(user_id: int = Depends(require_auth)):
+    """List all projects shared with the current user."""
+    with get_db() as db:
+        projects = get_shared_projects_for_user(db, user_id)
+        return {"projects": projects}
+
+
+@router.get("/invites")
+def list_pending_invites(user_id: int = Depends(require_auth)):
+    """List all pending project invites for the current user."""
+    with get_db() as db:
+        invites = get_pending_invites_for_user(db, user_id)
+        return {"invites": invites}
+
+
+@router.post("/{project_id}/share")
+async def share_project(project_id: int, data: ShareProjectRequest, user_id: int = Depends(require_auth)):
+    """Share a project with another user. Owner only."""
+    with get_db() as db:
+        # Check project exists and user is owner
+        project = get_project_with_owner(db, project_id)
+        if not project:
+            raise HTTPException(404, "Project not found")
+        if project['user_id'] != user_id:
+            raise HTTPException(403, "Only the project owner can share this project")
+
+        # Cannot share with self
+        if data.username == project['owner_username']:
+            raise HTTPException(400, "Cannot share a project with yourself")
+
+        # Find target user
+        target = get_user_by_username(db, data.username)
+        if not target:
+            raise HTTPException(404, f"User '{data.username}' not found")
+
+        # Check if already shared
+        existing = db.execute(
+            "SELECT id, status FROM project_members WHERE project_id = ? AND user_id = ?",
+            (project_id, target['id'])
+        ).fetchone()
+        if existing and existing['status'] in ('pending', 'accepted'):
+            raise HTTPException(400, f"User '{data.username}' already has access or a pending invite")
+
+        # Create invitation
+        c = db.execute(
+            """INSERT INTO project_members (project_id, user_id, invited_by, status, created_at, updated_at)
+               VALUES (?, ?, ?, 'pending', datetime('now'), datetime('now'))
+               ON CONFLICT(project_id, user_id) DO UPDATE SET
+               status = 'pending', invited_by = excluded.invited_by, updated_at = datetime('now')""",
+            (project_id, target['id'], user_id)
+        )
+        db.commit()
+
+        member = get_project_member(db, project_id, target['id'])
+        await broadcast_change("member_invited", {"project_id": project_id, "member": member}, target['id'], project_id)
+        return {"member": member}
+
+
+@router.post("/{project_id}/members/{member_user_id}/restore")
+async def restore_member(project_id: int, member_user_id: int, data: RestoreMemberRequest, user_id: int = Depends(require_auth)):
+    """Restore a removed/left member. Owner restores removals; a member can undo their own leave."""
+    with get_db() as db:
+        project = get_project_with_owner(db, project_id)
+        if not project:
+            raise HTTPException(404, "Project not found")
+
+        member = db.execute(
+            "SELECT * FROM project_members WHERE project_id = ? AND user_id = ?",
+            (project_id, member_user_id)
+        ).fetchone()
+        if not member:
+            raise HTTPException(404, "Member not found")
+
+        is_owner = project['user_id'] == user_id
+        is_self = member_user_id == user_id
+        if not is_owner and not is_self:
+            raise HTTPException(403, "Only the owner or the member can restore this membership")
+        if is_self and member['status'] != 'left':
+            raise HTTPException(403, "Members can only undo their own leave action")
+        if is_owner and member['status'] not in ('removed', 'left', 'declined'):
+            raise HTTPException(400, "Member cannot be restored from current status")
+
+        db.execute(
+            "UPDATE project_members SET status = ?, updated_at = datetime('now') WHERE id = ?",
+            (data.status, member['id'])
+        )
+        db.commit()
+
+        restored = get_project_member(db, project_id, member_user_id)
+        await broadcast_change("member_restored", {"project_id": project_id, "member": restored}, project['user_id'], project_id)
+        if member_user_id != project['user_id']:
+            await broadcast_change("member_restored", {"project_id": project_id, "member": restored}, member_user_id, project_id)
+        return {"member": restored}
+
+
+@router.post("/{project_id}/invites/{invite_id}")
+async def respond_to_invite(project_id: int, invite_id: int, data: AcceptInviteRequest, user_id: int = Depends(require_auth)):
+    """Accept or decline a project invitation."""
+    with get_db() as db:
+        # Get the invite
+        invite = db.execute(
+            """SELECT pm.*, p.user_id as owner_id
+               FROM project_members pm
+               JOIN projects p ON pm.project_id = p.id
+               WHERE pm.id = ? AND pm.user_id = ? AND pm.project_id = ?""",
+            (invite_id, user_id, project_id)
+        ).fetchone()
+        if not invite:
+            raise HTTPException(404, "Invite not found")
+        if invite['status'] != 'pending':
+            raise HTTPException(400, "Invite is not pending")
+
+        new_status = 'accepted' if data.accept else 'declined'
+        db.execute(
+            "UPDATE project_members SET status = ?, updated_at = datetime('now') WHERE id = ?",
+            (new_status, invite_id)
+        )
+        db.commit()
+
+        # Notify both users
+        if data.accept:
+            await broadcast_change("member_accepted", {"id": invite_id, "project_id": project_id}, user_id)
+            await broadcast_change("member_accepted", {"id": invite_id, "project_id": project_id}, invite['owner_id'])
+        else:
+            await broadcast_change("member_declined", {"id": invite_id, "project_id": project_id}, invite['owner_id'])
+
+        return {"id": invite_id, "status": new_status, "project_id": project_id}
+
+
+@router.delete("/{project_id}/members/{member_user_id}")
+async def remove_member(project_id: int, member_user_id: int, user_id: int = Depends(require_auth)):
+    """Remove a member from a project. Owner can remove anyone; members can remove themselves."""
+    with get_db() as db:
+        project = get_project_with_owner(db, project_id)
+        if not project:
+            raise HTTPException(404, "Project not found")
+
+        # Owner can remove anyone, member can only remove self
+        is_owner = project['user_id'] == user_id
+        is_self = member_user_id == user_id
+        if not is_owner and not is_self:
+            raise HTTPException(403, "Only the owner can remove members")
+
+        member = db.execute(
+            "SELECT * FROM project_members WHERE project_id = ? AND user_id = ?",
+            (project_id, member_user_id)
+        ).fetchone()
+        if not member:
+            raise HTTPException(404, "Member not found")
+        if member['status'] not in ('pending', 'accepted'):
+            raise HTTPException(400, "Member is not active")
+
+        # Mark as removed instead of deleting for undo support
+        db.execute(
+            "UPDATE project_members SET status = 'removed', updated_at = datetime('now') WHERE id = ?",
+            (member['id'],)
+        )
+        db.commit()
+
+        await broadcast_change("member_removed", {
+            "id": member['id'],
+            "project_id": project_id,
+            "user_id": member_user_id,
+            "member": dict(member)
+        }, user_id, project_id)
+
+        # Also notify the removed user
+        if member_user_id != user_id:
+            await broadcast_change("member_removed", {
+                "id": member['id'],
+                "project_id": project_id,
+                "user_id": member_user_id
+            }, member_user_id, project_id)
+
+        return {"removed": member['id'], "project_id": project_id}
+
+
+@router.post("/{project_id}/leave")
+async def leave_project(project_id: int, user_id: int = Depends(require_auth)):
+    """Leave a shared project (member-only)."""
+    with get_db() as db:
+        project = get_project_with_owner(db, project_id)
+        if not project:
+            raise HTTPException(404, "Project not found")
+        if project['user_id'] == user_id:
+            raise HTTPException(400, "Owner cannot leave their own project. Delete it instead.")
+
+        member = db.execute(
+            "SELECT * FROM project_members WHERE project_id = ? AND user_id = ?",
+            (project_id, user_id)
+        ).fetchone()
+        if not member or member['status'] != 'accepted':
+            raise HTTPException(400, "You are not a member of this project")
+
+        # Mark as left instead of deleting for undo support
+        db.execute(
+            "UPDATE project_members SET status = 'left', updated_at = datetime('now') WHERE id = ?",
+            (member['id'],)
+        )
+        db.commit()
+
+        # Notify owner
+        await broadcast_change("member_left", {
+            "id": member['id'],
+            "project_id": project_id,
+            "user_id": user_id,
+            "member": dict(member)
+        }, project['user_id'], project_id)
+
+        return {"left": member['id'], "project_id": project_id}
+
+
+@router.post("/{project_id}/leave/undo")
+async def undo_leave_project(project_id: int, user_id: int = Depends(require_auth)):
+    """Undo leaving a shared project for the current user."""
+    with get_db() as db:
+        project = get_project_with_owner(db, project_id)
+        if not project:
+            raise HTTPException(404, "Project not found")
+        if project['user_id'] == user_id:
+            raise HTTPException(400, "Owner cannot leave their own project")
+
+        member = db.execute(
+            "SELECT * FROM project_members WHERE project_id = ? AND user_id = ?",
+            (project_id, user_id)
+        ).fetchone()
+        if not member or member['status'] != 'left':
+            raise HTTPException(400, "No leave action to undo")
+
+        db.execute(
+            "UPDATE project_members SET status = 'accepted', updated_at = datetime('now') WHERE id = ?",
+            (member['id'],)
+        )
+        db.commit()
+
+        restored = get_project_member(db, project_id, user_id)
+        await broadcast_change("member_restored", {"project_id": project_id, "member": restored}, project['user_id'], project_id)
+        await broadcast_change("member_restored", {"project_id": project_id, "member": restored}, user_id, project_id)
+        return {"member": restored}
+
+
+@router.get("/{project_id}/members")
+def list_project_members(project_id: int, user_id: int = Depends(require_auth)):
+    """List all members of a project (owner and members)."""
+    with get_db() as db:
+        project = get_project_with_owner(db, project_id)
+        if not project:
+            raise HTTPException(404, "Project not found")
+
+        # Check access: owner or member
+        is_owner = project['user_id'] == user_id
+        is_member = db.execute(
+            "SELECT 1 FROM project_members WHERE project_id = ? AND user_id = ? AND status = 'accepted'",
+            (project_id, user_id)
+        ).fetchone() is not None
+
+        if not is_owner and not is_member:
+            raise HTTPException(403, "Not authorized to view members")
+
+        members = get_project_members(db, project_id, include_inactive=True)
+        return {"members": members}
+
+
+@router.patch("/{project_id}/members/{member_user_id}/color")
+async def update_member_color(project_id: int, member_user_id: int, data: MemberColorOverride, user_id: int = Depends(require_auth)):
+    """Update a member's color override (owner only)."""
+    with get_db() as db:
+        project = get_project_with_owner(db, project_id)
+        if not project:
+            raise HTTPException(404, "Project not found")
+        if project['user_id'] != user_id:
+            raise HTTPException(403, "Only the owner can change member colors")
+
+        db.execute(
+            """UPDATE project_members
+               SET user_color = ?, updated_at = datetime('now')
+               WHERE project_id = ? AND user_id = ?""",
+            (data.color, project_id, member_user_id)
+        )
+        db.commit()
+
+        await broadcast_change("member_color_changed", {
+            "project_id": project_id,
+            "user_id": member_user_id,
+            "color": data.color
+        }, user_id, project_id)
+
+        return {"project_id": project_id, "user_id": member_user_id, "color": data.color}

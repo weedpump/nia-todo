@@ -87,6 +87,10 @@ body {
   padding-left: 8px;
 }
 
+.nav-title.shared-title {
+  margin-top: 16px;
+}
+
 .nav-btn {
   display: flex;
   align-items: center;
@@ -184,6 +188,156 @@ body {
 
 .nav-add-sub:hover {
   color: var(--accent);
+}
+
+/* Invites */
+.invite-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-bottom: 6px;
+  padding: 7px 8px;
+  border-radius: var(--radius);
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.invite-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.invite-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.invite-action {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.invite-accept {
+  color: var(--success);
+  border-color: rgba(34,197,94,0.35);
+}
+
+.invite-accept:hover {
+  background: rgba(34,197,94,0.14);
+  color: var(--success);
+}
+
+.invite-decline {
+  color: var(--danger);
+  border-color: rgba(239,68,68,0.35);
+}
+
+.invite-decline:hover {
+  background: rgba(239,68,68,0.14);
+  color: var(--danger);
+}
+
+.form-error {
+  min-height: 18px;
+  margin-top: 6px;
+  color: var(--danger);
+  font-size: 13px;
+}
+
+.form-error.compact {
+  min-height: 0;
+  margin-top: 4px;
+  font-size: 12px;
+}
+
+.project-owner-info {
+  align-items: baseline;
+  gap: 8px;
+  margin: -2px 0 14px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.project-owner-label {
+  color: var(--text-muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.project-owner-name {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.sharing-member-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 4px 0;
+  margin-bottom: 4px;
+}
+
+.sharing-member-main {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  min-width: 0;
+  font-size: 13px;
+}
+
+.sharing-member-name {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.sharing-display {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.sharing-pending {
+  color: var(--warning);
+  font-size: 11px;
+  margin-left: 4px;
+}
+
+.sharing-remove {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.sharing-remove:hover {
+  background: rgba(239,68,68,0.10);
+  color: var(--danger);
 }
 
 /* Main */
@@ -710,6 +864,21 @@ body {
 .form-group select:focus,
 .form-group textarea:focus { border-color: var(--accent); }
 
+.form-group input:disabled,
+.form-group select:disabled,
+.form-group textarea:disabled,
+input[type="color"]:disabled {
+  opacity: 0.58;
+  cursor: not-allowed;
+  color: var(--text-muted);
+  background: rgba(100,116,139,0.08);
+  border-color: rgba(100,116,139,0.35);
+}
+
+.readonly-project .form-group label {
+  color: var(--text-muted);
+}
+
 /* Color picker styling */
 input[type="color"] {
   -webkit-appearance: none;
@@ -1093,6 +1262,7 @@ input[type="color"]::-moz-color-swatch {
 
 /* ─── Login Overlay ────────────────────────────────────────────────────────── */
 
+.boot-overlay,
 .login-overlay {
   position: fixed;
   inset: 0;
@@ -1104,10 +1274,74 @@ input[type="color"]::-moz-color-swatch {
   transition: opacity 0.3s, visibility 0.3s;
 }
 
+.boot-overlay {
+  z-index: 1100;
+}
+
+.boot-overlay.hidden,
 .login-overlay.hidden {
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
+}
+
+.boot-card {
+  width: 100%;
+  max-width: 320px;
+  padding: 36px 28px;
+  text-align: center;
+  color: var(--text-primary);
+}
+
+.boot-logo {
+  display: block;
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 16px;
+  border-radius: 50%;
+  box-shadow: var(--shadow);
+}
+
+.boot-title {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.boot-subtitle {
+  color: var(--text-muted);
+  font-size: 14px;
+  margin-bottom: 22px;
+}
+
+.boot-spinner {
+  width: 28px;
+  height: 28px;
+  margin: 0 auto;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: boot-spin 0.8s linear infinite;
+}
+
+.boot-retry {
+  margin-top: 4px;
+  padding: 10px 16px;
+  border: none;
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.boot-retry:hover {
+  background: var(--accent-hover);
+}
+
+@keyframes boot-spin {
+  to { transform: rotate(360deg); }
 }
 
 .login-box {

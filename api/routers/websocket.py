@@ -5,6 +5,7 @@ from fastapi import WebSocket
 
 from db import get_db, row_to_dict, now_iso
 from services.auth import get_current_user
+from services.sharing import get_project_ids_for_user
 from services.websocket import manager
 from rate_limit import rate_limiter, get_client_ip_ws
 
@@ -60,28 +61,62 @@ async def websocket_endpoint(websocket: WebSocket):
                     await manager.send_personal_message({"type": "error", "message": "Not authenticated"}, websocket)
                     continue
                 with get_db() as db:
-                    todos_rows = db.execute("""
+                    project_ids = get_project_ids_for_user(db, ws_user_id)
+                    params = []
+                    todos_sql = """
                         SELECT t.*, p.name as project_name, s.name as section_name FROM todos t
                         LEFT JOIN projects p ON t.project_id = p.id
                         LEFT JOIN sections s ON t.section_id = s.id
-                        WHERE t.user_id = ? AND t.status != 'archived'
-                        ORDER BY CASE t.status WHEN 'pending' THEN 0 WHEN 'in_progress' THEN 1 WHEN 'done' THEN 2 ELSE 3 END, t.priority, t.due_date IS NULL, t.due_date
-                    """, (ws_user_id,)).fetchall()
+                        WHERE t.status != 'archived'
+                    """
+                    if project_ids:
+                        placeholders = ','.join('?' for _ in project_ids)
+                        todos_sql += f" AND (t.user_id = ? OR t.project_id IN ({placeholders}))"
+                        params.extend([ws_user_id, *project_ids])
+                    else:
+                        todos_sql += " AND t.user_id = ?"
+                        params.append(ws_user_id)
+                    todos_sql += " ORDER BY CASE t.status WHEN 'pending' THEN 0 WHEN 'in_progress' THEN 1 WHEN 'done' THEN 2 ELSE 3 END, t.priority, t.due_date IS NULL, t.due_date"
+                    todos_rows = db.execute(todos_sql, params).fetchall()
+
                     todos_out = []
                     for r in todos_rows:
                         d = row_to_dict(r)
                         rem_rows = db.execute(
-                            "SELECT id, remind_at, sent_at FROM reminders WHERE todo_id = ? ORDER BY remind_at",
-                            (d['id'],)
+                            """SELECT id, remind_at, sent_at FROM reminders
+                               WHERE todo_id = ? AND (user_id = ? OR user_id IS NULL)
+                               ORDER BY remind_at""",
+                            (d['id'], ws_user_id)
                         ).fetchall()
                         d['reminders'] = [dict(r) for r in rem_rows]
                         todos_out.append(d)
-                    projects_rows = db.execute("SELECT * FROM projects WHERE user_id = ? ORDER BY sort_order, id", (ws_user_id,)).fetchall()
-                    sections_rows = db.execute("SELECT * FROM sections WHERE user_id = ?", (ws_user_id,)).fetchall()
+
+                    own_projects = db.execute(
+                        "SELECT *, 0 as is_shared, 1 as is_owner FROM projects WHERE user_id = ? ORDER BY COALESCE(is_inbox, 0) DESC, parent_id, sort_order, id",
+                        (ws_user_id,)
+                    ).fetchall()
+                    shared_projects = db.execute(
+                        """SELECT p.*, 1 as is_shared, 0 as is_owner, pm.id as member_id, pm.status as member_status,
+                                  u.username as owner_username, u.display_name as owner_display_name
+                           FROM projects p
+                           JOIN project_members pm ON pm.project_id = p.id
+                           JOIN users u ON u.id = p.user_id
+                           WHERE pm.user_id = ? AND pm.status = 'accepted'
+                           ORDER BY p.name""",
+                        (ws_user_id,)
+                    ).fetchall()
+                    sections_rows = db.execute(
+                        """SELECT s.* FROM sections s
+                           JOIN projects p ON s.project_id = p.id
+                           LEFT JOIN project_members pm ON pm.project_id = p.id AND pm.user_id = ? AND pm.status = 'accepted'
+                           WHERE p.user_id = ? OR pm.user_id IS NOT NULL
+                           ORDER BY s.sort_order, s.id""",
+                        (ws_user_id, ws_user_id)
+                    ).fetchall()
                     await manager.send_personal_message({
                         "type": "sync_response",
                         "todos": todos_out,
-                        "projects": [dict(r) for r in projects_rows],
+                        "projects": [dict(r) for r in own_projects] + [dict(r) for r in shared_projects],
                         "sections": [dict(r) for r in sections_rows]
                     }, websocket)
     except Exception:

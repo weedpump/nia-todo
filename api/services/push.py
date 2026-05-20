@@ -94,11 +94,12 @@ async def check_and_send_reminders():
     try:
         with get_db() as db:
             rows = db.execute("""
-                SELECT r.id, r.todo_id, r.remind_at, t.user_id, t.title, t.status
+                SELECT r.id, r.todo_id, r.remind_at, COALESCE(r.user_id, t.user_id) AS user_id, t.title, t.status
                 FROM reminders r
                 JOIN todos t ON r.todo_id = t.id
                 WHERE datetime(r.remind_at) <= datetime('now')
                   AND r.sent_at IS NULL
+                  AND COALESCE(r.user_id, t.user_id) IS NOT NULL
                   AND t.status IN ('pending', 'in_progress')
                 ORDER BY r.remind_at
             """).fetchall()
