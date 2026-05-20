@@ -144,7 +144,7 @@ export function createAppRenderingFeature({
     const el = document.getElementById('todo-list');
     if (!el) return;
     const projects = getProjects();
-    const sections = getSections();
+    const allSections = getSections();
     const currentFilter = getCurrentFilter();
     const currentProjectId = getCurrentProjectId();
     const hideDone = getHideDone();
@@ -162,6 +162,7 @@ export function createAppRenderingFeature({
 
     if (currentProjectId) {
       let html = '';
+      const sections = allSections.filter(s => Number(s.project_id) === Number(currentProjectId));
       const validSectionIds = new Set(sections.map(s => s.id));
 
       if (currentFilter !== 'all' && ['pending','in_progress','done'].includes(currentFilter)) {

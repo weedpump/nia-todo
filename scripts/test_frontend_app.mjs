@@ -24,6 +24,34 @@ async function run() {
     await createSection('Section A');
     await createSection('Section B');
 
+    await page.evaluate(async () => {
+      const jwt = localStorage.getItem('jwt_token');
+      const csrf = localStorage.getItem('csrf_token');
+      const projects = await fetch('/api/projects', {
+        headers: { 'Authorization': `Bearer ${jwt}` },
+        credentials: 'include'
+      }).then(r => r.json());
+      const projectB = projects.projects.find(p => p.name === 'Frontend Project B');
+      await fetch(`/api/sections/by-project/${projectB.id}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${jwt}`,
+          'X-CSRF-Token': csrf
+        },
+        body: JSON.stringify({ name: 'Project B Only Section', sort_order: 0 }),
+        credentials: 'include'
+      });
+    });
+
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.locator('#login-overlay').waitFor({ state: 'hidden', timeout: 10000 });
+    await page.locator('.nav-btn.active').filter({ hasText: 'Frontend Project A' }).waitFor({ state: 'visible', timeout: 10000 });
+    await page.getByText('Section A', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
+    await page.getByText('Section B', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
+    const foreignSectionVisibleAfterReload = await page.getByText('Project B Only Section', { exact: true }).isVisible().catch(() => false);
+    if (foreignSectionVisibleAfterReload) throw new Error('Reloaded project view must not show sections from other projects');
+
     await openTodoModal();
     await page.fill('#todo-title', 'Section Todo');
     await page.selectOption('#todo-project', { label: 'Frontend Project A' });
