@@ -79,7 +79,7 @@ export function createAppRenderingFeature({
       html += `${escapeHtml(project.name)}`;
       html += `<span class="badge">${countByProject(project.id, true)}</span>`;
       html += `</button>`;
-      html += `<button class="nav-edit" onclick="event.stopPropagation(); editProject(${project.id})" title="Bearbeiten">`;
+      html += `<button class="nav-edit" onclick="event.stopPropagation(); editProject(${escapeHtmlAttr(JSON.stringify(project.id))})" title="Bearbeiten">`;
       html += `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
       html += `</button>`;
       html += `</div>`;
@@ -282,17 +282,18 @@ export function createAppRenderingFeature({
     if (!section || !el) return;
     if (!invites || !invites.length) {
       section.style.display = 'none';
+      el.innerHTML = '';
       return;
     }
     section.style.display = '';
     let html = '';
     for (const invite of invites) {
       html += `
-        <div class="nav-btn" style="margin-bottom:4px;">
-          <span>📩 ${escapeHtml(invite.project_name)}</span>
-          <div style="display:flex;gap:4px;margin-top:4px;">
-            <button class="btn btn-primary btn-sm" onclick="acceptInvite(${invite.project_id}, ${invite.id})">Annehmen</button>
-            <button class="btn btn-sm" onclick="declineInvite(${invite.project_id}, ${invite.id})" style="background:var(--bg-secondary);color:var(--text-secondary);">Ablehnen</button>
+        <div class="invite-item" data-invite-id="${escapeHtmlAttr(invite.id)}">
+          <span class="invite-title">📩 ${escapeHtml(invite.project_name)}</span>
+          <div class="invite-actions">
+            <button class="invite-action invite-accept" onclick="acceptInvite(${invite.project_id}, ${invite.id})" title="Annehmen" aria-label="Einladung annehmen">✓</button>
+            <button class="invite-action invite-decline" onclick="declineInvite(${invite.project_id}, ${invite.id})" title="Ablehnen" aria-label="Einladung ablehnen">✕</button>
           </div>
         </div>
       `;
