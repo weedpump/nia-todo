@@ -89,6 +89,20 @@ def create_user(data: CreateUserRequest, _: bool = Depends(require_admin)):
             (data.username, data.display_name, password_hash)
         )
         user_id = c.lastrowid
+
+        # Create default projects for the new user
+        default_projects = [
+            ('Inbox', '#64748b', 0),
+            ('Privat', '#10b981', 1),
+            ('Arbeit', '#3b82f6', 2),
+            ('Einkauf', '#f59e0b', 3),
+        ]
+        for name, color, sort_order in default_projects:
+            db.execute(
+                "INSERT INTO projects (name, color, sort_order, user_id, updated_at) VALUES (?, ?, ?, ?, datetime('now'))",
+                (name, color, sort_order, user_id)
+            )
+
         db.commit()
         log_audit(db, "user_created", user_id=user_id, details=f"username={data.username}")
         return {"id": user_id, "username": data.username, "display_name": data.display_name, "created_at": now_iso()}
