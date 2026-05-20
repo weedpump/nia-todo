@@ -48,20 +48,6 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 - **Auth**: Login-Flow stabilisiert gegen Timeouts bei Setup-/Auth-Checks
 - **Settings-Test**: Push-Buttons robust gegen `display:none` im Test-Context
 
-## [0.4.10] - 2026-05-19
-
-### Added
-- **Shared Projects**: Projekt-Level-Sharing zwischen Benutzern
-  - Einladungen mit Preview-Zugriff
-  - Annehmen/Ablehnen von Einladungen
-  - Entfernen von Mitgliedern
-  - Echtzeit-Sync über WebSocket
-  - `is_inbox`-Flag für Multi-User-Inbox-Support
-
-### Fixed
-- **Rate Limiting**: Login-Rate-Limit wird nach erfolgreicher Authentifizierung zurückgesetzt
-- **JWT**: `import time` für JWT-Creation korrigiert
-
 ## [0.4.9] - 2026-05-17
 
 ### Added
