@@ -1320,6 +1320,22 @@ input[type="color"]::-moz-color-swatch {
   animation: boot-spin 0.8s linear infinite;
 }
 
+.boot-retry {
+  margin-top: 4px;
+  padding: 10px 16px;
+  border: none;
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.boot-retry:hover {
+  background: var(--accent-hover);
+}
+
 @keyframes boot-spin {
   to { transform: rotate(360deg); }
 }

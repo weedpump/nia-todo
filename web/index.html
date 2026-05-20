@@ -27,8 +27,9 @@
     <div class="boot-card">
       <img src="/static/icons/icon-192.png" class="boot-logo" alt="nia-todo">
       <div class="boot-title">nia-todo wird geladen</div>
-      <div class="boot-subtitle">App startet…</div>
-      <div class="boot-spinner" aria-hidden="true"></div>
+      <div class="boot-subtitle" id="boot-subtitle">App startet…</div>
+      <div class="boot-spinner" id="boot-spinner" aria-hidden="true"></div>
+      <button type="button" class="boot-retry" id="boot-retry" style="display:none;" onclick="location.reload()">Neu laden</button>
     </div>
   </div>
 
