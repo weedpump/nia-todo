@@ -207,22 +207,21 @@ npm run test:backend
 npm run test:frontend
 ```
 
-### Was der Frontend-Smoke-Test abdeckt
+### Was die Frontend-Tests abdecken
 
-- Login + App-Start
-- Projekt anlegen
-- **Sections anlegen, umbenennen, löschen**
-- Todo mit Section-Zuordnung
-- Projektwechsel im Todo-Modal inkl. **Section-Reload pro Projekt**
-- Search
-- Status-Toggle
-- Delete + Undo
-- Smoke gegen echten **headless Chromium**
+- **Smoke:** Login + App-Start, Projekt anlegen, Search, Delete + Undo
+- **App:** Sections anlegen/umbenennen/löschen, Todo mit Section-Zuordnung, Projektwechsel im Todo-Modal, Status-/Kernflows
+- **Setup:** First-Run- / Setup-Flow
+- **Admin:** Admin-Login, User-Verwaltung, Admin-Passwort-Flow
+- **Settings:** Einstellungen öffnen, User-Info, Passwort ändern mit anschließendem Logout
+- **Projects:** Projekt anlegen, Subprojekt anlegen, Projekt bearbeiten, Projekt löschen mit Todo-Fallback
+- **Drag & Drop:** Todo zwischen Sections verschieben, nach Unsortiert verschieben, Section-Reorder-Basis
+- Alle Frontend-Tests laufen gegen echtes **headless Chromium**
 
 ### Test-Ergebnisse
 
 - Backend schreibt JSON nach `test-results.json`
-- Frontend schreibt einen Screenshot nach `/tmp/nia-todo-frontend-smoke.png`
+- Frontend-Fehler schlagen direkt über Exit-Code/Console-Checks fehl
 
 ## API Dokumentation
 
