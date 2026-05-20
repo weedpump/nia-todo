@@ -9,6 +9,7 @@ from fastapi import Request, Header, HTTPException
 from rate_limit import rate_limiter, get_client_ip
 
 CSRF_COOKIE_NAME = "csrf_token"
+CSRF_COOKIE_MAX_AGE_SECONDS = 86400 * 30
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -101,7 +102,7 @@ def set_csrf_cookie(response: Response, token: str) -> None:
         token,
         httponly=True,
         samesite="lax",
-        max_age=86400 * 7,
+        max_age=CSRF_COOKIE_MAX_AGE_SECONDS,
         path="/",
     )
 

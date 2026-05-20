@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from db import get_db, now_iso
 from services.auth import (
     create_jwt_token, decode_jwt_token, get_current_user,
-    verify_user_credentials, sessions
+    should_refresh_user_jwt, verify_user_credentials, sessions
 )
 from middleware.security import generate_csrf_token, set_csrf_cookie
 from rate_limit import require_login_rate_limit, get_client_ip
@@ -93,7 +93,7 @@ def logout(authorization: Optional[str] = Header(None), x_session_token: Optiona
     return {"logged_out": True}
 
 @router.get("/me")
-def me(authorization: Optional[str] = Header(None), x_session_token: Optional[str] = Header(None)):
+def me(response: Response, authorization: Optional[str] = Header(None), x_session_token: Optional[str] = Header(None)):
     token = None
     if authorization and authorization.startswith("Bearer "):
         token = authorization[7:]
@@ -110,12 +110,27 @@ def me(authorization: Optional[str] = Header(None), x_session_token: Optional[st
             user_id = payload.get('user_id')
         
         user = db.execute(
-            "SELECT id, username, display_name, is_admin FROM users WHERE id = ?",
+            "SELECT id, username, display_name, is_admin, token_version FROM users WHERE id = ?",
             (user_id,)
         ).fetchone()
         if not user:
             raise HTTPException(404, "User not found")
-        return dict(user)
+
+        result = {
+            "id": user['id'],
+            "username": user['username'],
+            "display_name": user['display_name'],
+            "is_admin": bool(user['is_admin']),
+        }
+
+        if payload and should_refresh_user_jwt(payload):
+            csrf_token = generate_csrf_token()
+            set_csrf_cookie(response, csrf_token)
+            result["access_token"] = create_jwt_token(dict(user), db)
+            result["token_type"] = "bearer"
+            result["csrf_token"] = csrf_token
+
+        return result
 
 
 # ─── API Key Endpoints ────────────────────────────────────────────────────────
