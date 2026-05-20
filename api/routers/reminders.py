@@ -14,9 +14,10 @@ def list_reminders(due_only: bool = False, user_id: int = Depends(require_auth))
         sql = """
             SELECT r.*, t.title, t.status FROM reminders r
             JOIN todos t ON r.todo_id = t.id
-            WHERE t.user_id = ? AND t.status IN ('pending','in_progress')
+            WHERE (r.user_id = ? OR (r.user_id IS NULL AND t.user_id = ?))
+              AND t.status IN ('pending','in_progress')
         """
-        params = [user_id]
+        params = [user_id, user_id]
         if due_only:
             sql += " AND r.remind_at <= datetime('now') AND r.sent_at IS NULL"
         sql += " ORDER BY r.remind_at"
@@ -29,8 +30,8 @@ def mark_reminder_sent(reminder_id: int, user_id: int = Depends(require_auth)):
         reminder = db.execute("""
             SELECT r.* FROM reminders r
             JOIN todos t ON r.todo_id = t.id
-            WHERE r.id = ? AND t.user_id = ?
-        """, (reminder_id, user_id)).fetchone()
+            WHERE r.id = ? AND (r.user_id = ? OR (r.user_id IS NULL AND t.user_id = ?))
+        """, (reminder_id, user_id, user_id)).fetchone()
         if not reminder:
             raise HTTPException(404, "Reminder not found")
         db.execute("UPDATE reminders SET sent_at = ? WHERE id = ?", (now_iso(), reminder_id))

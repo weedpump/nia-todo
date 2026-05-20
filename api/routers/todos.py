@@ -37,7 +37,7 @@ class TodoUpdate(BaseModel):
 
 # ─── Helpers ───────────────────────────────────────────────────────────────────
 
-def fetch_todo(db, todo_id: int) -> Optional[dict]:
+def fetch_todo(db, todo_id: int, reminder_user_id: Optional[int] = None) -> Optional[dict]:
     row = db.execute(
         """SELECT t.*, p.name as project_name, s.name as section_name
            FROM todos t
@@ -49,10 +49,18 @@ def fetch_todo(db, todo_id: int) -> Optional[dict]:
     if not row:
         return None
     d = row_to_dict(row)
-    rem_rows = db.execute(
-        "SELECT id, remind_at, sent_at FROM reminders WHERE todo_id = ? ORDER BY remind_at",
-        (todo_id,)
-    ).fetchall()
+    if reminder_user_id is None:
+        rem_rows = db.execute(
+            "SELECT id, remind_at, sent_at FROM reminders WHERE todo_id = ? ORDER BY remind_at",
+            (todo_id,)
+        ).fetchall()
+    else:
+        rem_rows = db.execute(
+            """SELECT id, remind_at, sent_at FROM reminders
+               WHERE todo_id = ? AND (user_id = ? OR user_id IS NULL)
+               ORDER BY remind_at""",
+            (todo_id, reminder_user_id)
+        ).fetchall()
     d['reminders'] = [dict(r) for r in rem_rows]
     return d
 
@@ -82,6 +90,17 @@ def _validate_todo_target(db, project_id: Optional[int], section_id: Optional[in
 @router.get("")
 def list_todos(status: Optional[str] = None, project_id: Optional[int] = None, section_id: Optional[int] = None, user_id: int = Depends(require_auth)):
     with get_db() as db:
+        if project_id is not None and not can_access_project(db, project_id, user_id):
+            raise HTTPException(404, "Project not found")
+        if section_id is not None:
+            section = db.execute("SELECT project_id FROM sections WHERE id = ?", (section_id,)).fetchone()
+            if not section:
+                raise HTTPException(404, "Section not found")
+            if project_id is not None and section['project_id'] != project_id:
+                raise HTTPException(400, "Section does not belong to the selected project")
+            if not can_access_project(db, section['project_id'], user_id):
+                raise HTTPException(404, "Section not found")
+
         project_ids = get_project_ids_for_user(db, user_id)
         params: list = []
         sql = """
@@ -124,14 +143,14 @@ async def create_todo(data: TodoCreate, user_id: int = Depends(require_auth)):
         if data.remind_at:
             db.execute("INSERT INTO reminders (todo_id, remind_at, user_id) VALUES (?,?,?)", (todo_id, data.remind_at, user_id))
         db.commit()
-        todo = fetch_todo(db, todo_id)
+        todo = fetch_todo(db, todo_id, user_id)
         await broadcast_change("todo_create", todo, user_id, data.project_id)
         return todo
 
 @router.get("/{todo_id}")
 def get_todo(todo_id: int, user_id: int = Depends(require_auth)):
     with get_db() as db:
-        d = fetch_todo(db, todo_id)
+        d = fetch_todo(db, todo_id, user_id)
         if not d:
             raise HTTPException(404, "Todo not found")
         if not _todo_project_access(db, d, user_id):
@@ -145,7 +164,7 @@ async def update_todo(todo_id: int, data: TodoUpdate, user_id: int = Depends(req
     if data.description is not None:
         data.description = sanitize_text(data.description)
     with get_db() as db:
-        existing = fetch_todo(db, todo_id)
+        existing = fetch_todo(db, todo_id, user_id)
         if not existing:
             raise HTTPException(404, "Todo not found")
         if not _todo_project_access(db, existing, user_id):
@@ -170,18 +189,24 @@ async def update_todo(todo_id: int, data: TodoUpdate, user_id: int = Depends(req
             set_clause = ", ".join(f"{k}=:{k}" for k in safe_updates)
             db.execute(f"UPDATE todos SET {set_clause} WHERE id = :id", {**safe_updates, "id": todo_id})
         if 'remind_at' in dumped:
-            db.execute("DELETE FROM reminders WHERE todo_id = ?", (todo_id,))
+            if existing.get('user_id') == user_id:
+                db.execute(
+                    "DELETE FROM reminders WHERE todo_id = ? AND (user_id = ? OR user_id IS NULL)",
+                    (todo_id, user_id)
+                )
+            else:
+                db.execute("DELETE FROM reminders WHERE todo_id = ? AND user_id = ?", (todo_id, user_id))
             if data.remind_at:
                 db.execute("INSERT INTO reminders (todo_id, remind_at, user_id) VALUES (?,?,?)", (todo_id, data.remind_at, user_id))
         db.commit()
-        todo = fetch_todo(db, todo_id)
+        todo = fetch_todo(db, todo_id, user_id)
         await broadcast_change("todo_update", todo, user_id, todo.get('project_id'))
         return todo
 
 @router.delete("/{todo_id}")
 async def delete_todo(todo_id: int, user_id: int = Depends(require_auth)):
     with get_db() as db:
-        existing = fetch_todo(db, todo_id)
+        existing = fetch_todo(db, todo_id, user_id)
         if not existing:
             raise HTTPException(404, "Todo not found")
         if not _todo_project_access(db, existing, user_id):

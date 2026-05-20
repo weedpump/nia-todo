@@ -70,10 +70,6 @@ class CSRFProtectionMiddleware(BaseHTTPMiddleware):
         auth = request.headers.get("Authorization", "")
         if auth.startswith("ApiKey "):
             return await call_next(request)
-        if auth.startswith("Bearer "):
-            token = auth[7:]
-            if token.startswith("nt_"):
-                return await call_next(request)
 
         cookie_token = request.cookies.get(CSRF_COOKIE_NAME)
         header_token = request.headers.get("X-CSRF-Token")

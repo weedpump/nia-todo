@@ -1,7 +1,6 @@
 // nia-todo Service Worker - Bulletproof Offline-First + Update-System + Push Notifications
 const SW_VERSION = 'v0.4.12-dev';
 const CACHE_NAME = 'nia-todo-' + SW_VERSION;
-const API_CACHE = 'nia-todo-api-' + SW_VERSION;
 
 // ALLE Assets die wir brauchen
 const PRECACHE_ASSETS = [
@@ -104,7 +103,7 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((names) => {
       return Promise.all(
-        names.filter((n) => n !== CACHE_NAME && n !== API_CACHE)
+        names.filter((n) => n !== CACHE_NAME)
             .map((n) => {
               console.log('SW: Deleting old cache:', n);
               return caches.delete(n);
@@ -119,6 +118,13 @@ self.addEventListener('message', (event) => {
   if (event.data && event.data.action === 'skipWaiting') {
     console.log('SW: skipWaiting received, activating new version');
     self.skipWaiting();
+  }
+  if (event.data && event.data.action === 'clearAuthCaches') {
+    event.waitUntil(
+      caches.keys().then((names) => Promise.all(
+        names.filter((n) => n.startsWith('nia-todo-api-')).map((n) => caches.delete(n))
+      ))
+    );
   }
 });
 
@@ -207,17 +213,10 @@ self.addEventListener('fetch', (event) => {
   
   if (event.request.method !== 'GET') return;
   
-  // API Requests
+  // API requests are auth-bound and must never be cached in the service worker.
+  // Offline data lives in the per-user IndexedDB cache, which is cleared on user switch/logout.
   if (url.pathname.startsWith('/api/')) {
-    event.respondWith(
-      fetch(event.request)
-        .then((response) => {
-          const clone = response.clone();
-          caches.open(API_CACHE).then((cache) => cache.put(event.request, clone));
-          return response;
-        })
-        .catch(() => caches.match(event.request))
-    );
+    event.respondWith(fetch(event.request));
     return;
   }
   

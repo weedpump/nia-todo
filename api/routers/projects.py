@@ -27,6 +27,14 @@ class ProjectUpdate(BaseModel):
     parent_id: Optional[int] = None
 
 
+def get_user_inbox_project_id(db, owner_user_id: int) -> Optional[int]:
+    row = db.execute(
+        "SELECT id FROM projects WHERE user_id = ? AND name = 'Inbox' ORDER BY sort_order, id LIMIT 1",
+        (owner_user_id,)
+    ).fetchone()
+    return row['id'] if row else None
+
+
 @router.get("")
 def list_projects(user_id: int = Depends(require_auth)):
     with get_db() as db:
@@ -123,7 +131,13 @@ async def delete_project(project_id: int, user_id: int = Depends(require_auth)):
             for child in children:
                 queue.append(child['id'])
         for pid in to_delete:
-            db.execute("UPDATE todos SET project_id = 1, section_id = NULL WHERE project_id = ?", (pid,))
+            todo_rows = db.execute("SELECT id, user_id FROM todos WHERE project_id = ?", (pid,)).fetchall()
+            for todo in todo_rows:
+                inbox_id = get_user_inbox_project_id(db, todo['user_id']) if todo['user_id'] is not None else None
+                db.execute(
+                    "UPDATE todos SET project_id = ?, section_id = NULL WHERE id = ?",
+                    (inbox_id, todo['id'])
+                )
         for pid in to_delete:
             db.execute("DELETE FROM sections WHERE project_id = ?", (pid,))
         for pid in reversed(to_delete):
