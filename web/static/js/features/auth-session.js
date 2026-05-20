@@ -10,6 +10,7 @@ export function createAuthSessionFeature({
   renderUserInfo,
 }) {
   let loginInProgress = false;
+  let loginFormBound = false;
 
   async function clearBrowserAuthCaches() {
     if ('serviceWorker' in navigator && typeof navigator.serviceWorker.getRegistrations === 'function') {
@@ -106,13 +107,13 @@ export function createAuthSessionFeature({
   }
 
   async function handleLogin(e) {
-    e.preventDefault();
+    e?.preventDefault?.();
     if (loginInProgress) return;
     loginInProgress = true;
     const username = document.getElementById('login-username').value.trim();
     const password = document.getElementById('login-password').value;
     const errorEl = document.getElementById('login-error');
-    const submitBtn = e.submitter || document.querySelector('button.login-btn');
+    const submitBtn = e?.submitter || document.querySelector('button.login-btn');
     errorEl.textContent = '';
     if (submitBtn) submitBtn.disabled = true;
 
@@ -132,6 +133,20 @@ export function createAuthSessionFeature({
     }
   }
 
+  function bindLoginForm() {
+    if (loginFormBound) return;
+    const form = document.getElementById('login-form');
+    if (!form) return;
+    loginFormBound = true;
+    form.addEventListener('submit', handleLogin);
+    window.__niaLoginReady = true;
+
+    if (window.__niaPendingLoginSubmit) {
+      window.__niaPendingLoginSubmit = false;
+      requestAnimationFrame(() => form.requestSubmit());
+    }
+  }
+
   return {
     getAuthToken,
     getCsrfToken,
@@ -142,5 +157,6 @@ export function createAuthSessionFeature({
     showLoginOverlay,
     hideLoginOverlay,
     handleLogin,
+    bindLoginForm,
   };
 }

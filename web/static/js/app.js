@@ -170,6 +170,7 @@ const logout = authSessionFeature.logout;
 const showLoginOverlay = authSessionFeature.showLoginOverlay;
 const hideLoginOverlay = authSessionFeature.hideLoginOverlay;
 const handleLogin = authSessionFeature.handleLogin;
+const bindLoginForm = authSessionFeature.bindLoginForm;
 const renderUserInfo = userSettingsFeature.renderUserInfo;
 const openSettingsModal = userSettingsFeature.openSettingsModal;
 const changeUserPassword = userSettingsFeature.changeUserPassword;
@@ -431,7 +432,7 @@ export function startAppModule() {
 
   // Expose legacy inline handlers for module-loaded frontend.
   exposeLegacyGlobals({
-  auth: { getAuthToken, getCsrfToken, getAuthHeaders, login, checkAuth, logout, clearIndexedDB, showLoginOverlay, hideLoginOverlay, handleLogin },
+  auth: { getAuthToken, getCsrfToken, getAuthHeaders, login, checkAuth, logout, clearIndexedDB, showLoginOverlay, hideLoginOverlay, handleLogin, bindLoginForm },
   apiKeys: { loadApiKeys, renderApiKeys, createApiKey, revokeApiKey, copyApiKey },
   utils: { escapeHtml, escapeHtmlAttr, jsArg, formatDate, renderTodoItem },
   theme: { initTheme, setTheme, applyTheme, cycleTheme },
@@ -453,4 +454,6 @@ export function startAppModule() {
     push: { updatePushStatus, updatePushSettingsUI, enablePushNotifications, disablePushNotifications, sendTestPush },
     userSettings: { renderUserInfo, openSettingsModal, changeUserPassword },
   });
+
+  bindLoginForm();
 }
