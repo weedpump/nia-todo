@@ -362,6 +362,7 @@ async function handleWsMessage(msg) {
     case 'member_declined':
     case 'member_removed':
     case 'member_left':
+    case 'member_color_changed':
       // refresh from server on sharing events
       await syncWithServer();
       break;

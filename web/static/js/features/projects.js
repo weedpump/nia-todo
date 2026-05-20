@@ -22,8 +22,7 @@ export function createProjectsFeature({
     if (!project) return false;
     if (project.is_owner === true || project.is_owner === 1 || project.is_owner === '1') return true;
     const user = getCurrentUser?.();
-    if (user && project.user_id === user.id) return true;
-    return false;
+    return !!(user && project.user_id === user.id);
   }
 
   function showProjectModal(project = null, parentId = null) {
