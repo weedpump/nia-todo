@@ -5,7 +5,7 @@ Alle wichtigen Änderungen an diesem Projekt werden in dieser Datei dokumentiert
 Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
-## [0.5.0] - 2026-05-20
+## [1.0.0] - 2026-05-20
 
 ### Added
 - **Projekt-Sharing**: Projekte können mit anderen Benutzern geteilt werden
