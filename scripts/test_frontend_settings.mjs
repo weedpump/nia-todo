@@ -48,6 +48,14 @@ async function run() {
     await page.click('button[title="Einstellungen"]');
     await visible('#settings-modal');
     await page.locator('#settings-user-name').waitFor({ state: 'visible' });
+    await page.fill('#settings-email', 'frontenduser-updated@example.invalid');
+    await page.getByRole('button', { name: 'Speichern' }).click();
+    await page.getByText('E-Mail gespeichert').waitFor({ state: 'visible', timeout: 10000 });
+    await page.waitForFunction(async () => {
+      const jwt = localStorage.getItem('jwt_token');
+      const data = await fetch('/api/me', { headers: { 'Authorization': `Bearer ${jwt}` }, credentials: 'include' }).then(r => r.json());
+      return data.email === 'frontenduser-updated@example.invalid';
+    }, null, { timeout: 10000 });
 
     await page.evaluate(() => {
       window.updatePushStatus('granted');

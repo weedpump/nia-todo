@@ -6,7 +6,7 @@ import bcrypt
 
 from db import get_db
 from routers.auth import require_auth
-from services.utils import validate_password
+from services.utils import sanitize_text, validate_password
 
 router = APIRouter(prefix="/api/me")
 
@@ -14,6 +14,26 @@ router = APIRouter(prefix="/api/me")
 class ChangePasswordRequest(BaseModel):
     old_password: str
     new_password: str
+
+class UpdateEmailRequest(BaseModel):
+    email: str
+
+
+@router.patch("/email")
+def update_own_email(data: UpdateEmailRequest, user_id: int = Depends(require_auth)):
+    email = sanitize_text(data.email)
+    if not email:
+        raise HTTPException(400, "Email is required")
+    with get_db() as db:
+        user = db.execute("SELECT id FROM users WHERE id = ?", (user_id,)).fetchone()
+        if not user:
+            raise HTTPException(404, "User not found")
+        existing = db.execute("SELECT id FROM users WHERE email = ? AND id != ?", (email, user_id)).fetchone()
+        if existing:
+            raise HTTPException(409, "Email already exists")
+        db.execute("UPDATE users SET email = ? WHERE id = ?", (email, user_id))
+        db.commit()
+    return {"email": email}
 
 
 @router.post("/change-password")

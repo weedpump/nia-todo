@@ -14,7 +14,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); }
 .admin-card h2 { font-size: 16px; margin: 0 0 16px 0; color: var(--text-primary); }
 .user-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 .user-table th { text-align: left; padding: 12px; font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--border); }
-.user-table td { padding: 12px; font-size: 14px; color: var(--text-primary); border-bottom: 1px solid var(--border); vertical-align: middle; overflow: hidden; text-overflow: ellipsis; }
+.user-table td { padding: 12px; font-size: 14px; color: var(--text-primary); border-bottom: 1px solid var(--border); vertical-align: middle; }
 .user-table th:nth-child(1), .user-table td:nth-child(1) { width: 36px; }
 .user-table th:nth-child(2), .user-table td:nth-child(2) { width: 110px; }
 .user-table th:nth-child(3), .user-table td:nth-child(3) { width: 120px; }
@@ -42,6 +42,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); }
 .setup-link-box input { flex: 1; min-width: 0; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-secondary); color: var(--text-primary); font-size: 13px; }
 .email-display { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; }
 .email-display span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.user-table th:nth-child(4), .user-table td:nth-child(4) { overflow: hidden; }
 .email-missing { color: var(--text-muted); }
 .email-edit { display: grid; grid-template-columns: minmax(0, 1fr) 28px 28px; align-items: center; gap: 4px; width: 100%; max-width: 100%; }
 .email-edit input { min-width: 0; width: 100%; padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-primary); color: var(--text-primary); font-size: 13px; }
