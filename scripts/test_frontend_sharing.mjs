@@ -81,12 +81,22 @@ async function run() {
           'Authorization': `Bearer ${jwt}`,
           'X-CSRF-Token': csrf
         },
-        body: JSON.stringify({ username: 'moni', display_name: 'Moni', password: 'MoniPass123!' }),
+        body: JSON.stringify({ username: 'moni', display_name: 'Moni', email: 'moni@example.invalid' }),
         credentials: 'include'
       });
       return await r.json();
     }, { jwt: adminLogin.access_token, csrf: adminLogin.csrf_token });
     if (!createdUser.id) throw new Error('Failed to create invite target user: ' + JSON.stringify(createdUser));
+    await page.evaluate(async ({ setupUrl }) => {
+      const token = new URL(setupUrl).searchParams.get('token');
+      const r = await fetch('/api/password-setup/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, password: 'MoniPass123!' }),
+        credentials: 'include'
+      });
+      if (!r.ok) throw new Error('Failed to set invite target password: ' + JSON.stringify(await r.json().catch(() => ({}))));
+    }, { setupUrl: createdUser.password_setup_url });
     await page.evaluate(async () => {
       const r = await fetch('/api/login', {
         method: 'POST',
