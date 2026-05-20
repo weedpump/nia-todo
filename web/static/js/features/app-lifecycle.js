@@ -96,28 +96,43 @@ export function createAppLifecycle({
   }
 
   function bindDomReady() {
-    document.addEventListener('DOMContentLoaded', async () => {
+    document.addEventListener('DOMContentLoaded', () => {
       console.log('App starting...');
       initTheme();
+      showLoginOverlay();
 
-      try {
-        const setupData = await authApi.setupStatus();
-        if (!setupData.setup_complete) {
-          window.location.href = '/setup';
-          return;
+      Promise.resolve().then(async () => {
+        try {
+          const setupData = await Promise.race([
+            authApi.setupStatus(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('setup timeout')), 4000)),
+          ]);
+          if (!setupData.setup_complete) {
+            window.location.href = '/setup';
+            return;
+          }
+        } catch (e) {
+          console.log('Setup check failed or timed out, continuing');
         }
-      } catch (e) {
-        console.log('Setup check failed, continuing');
-      }
 
-      const authed = await checkAuth();
-      if (authed) {
-        hideLoginOverlay();
-        renderUserInfo();
-        await initApp();
-      } else {
-        showLoginOverlay();
-      }
+        let authed = false;
+        try {
+          authed = await Promise.race([
+            checkAuth(),
+            new Promise(resolve => setTimeout(() => resolve(false), 4000)),
+          ]);
+        } catch (e) {
+          console.log('Auth check failed or timed out');
+        }
+
+        if (authed) {
+          hideLoginOverlay();
+          renderUserInfo();
+          await initApp();
+        } else {
+          showLoginOverlay();
+        }
+      });
     });
   }
 
