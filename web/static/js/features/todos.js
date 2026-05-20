@@ -21,6 +21,77 @@ export function createTodosFeature({
   renderMarkdown,
   loadSectionsForCurrentProject,
 }) {
+  function clearDateTimeErrors() {
+    for (const id of ['todo-due', 'todo-remind']) {
+      const input = document.getElementById(id);
+      const error = document.getElementById(`${id}-error`);
+      if (input) input.setCustomValidity('');
+      if (error) error.textContent = '';
+    }
+  }
+
+  function validateDateTimeInput(id, label) {
+    const input = document.getElementById(id);
+    const error = document.getElementById(`${id}-error`);
+    if (!input) return true;
+    if (error) error.textContent = '';
+    if (!input.value && !input.validity.badInput && !input.validity.customError) {
+      input.setCustomValidity('');
+      return true;
+    }
+
+    let message = '';
+    if (input.validity.badInput || input.validity.typeMismatch || !input.validity.valid) {
+      message = `${label} ist ungültig`;
+    } else {
+      const date = new Date(input.value);
+      const year = Number(input.value.slice(0, 4));
+      if (!Number.isFinite(date.getTime()) || year < 1900 || year > 9999) {
+        message = `${label} ist ungültig`;
+      }
+    }
+
+    if (message) {
+      input.setCustomValidity(message);
+      if (error) error.textContent = message;
+      return false;
+    }
+    input.setCustomValidity('');
+    return true;
+  }
+
+  function bindDateTimeValidation() {
+    for (const id of ['todo-due', 'todo-remind']) {
+      const input = document.getElementById(id);
+      if (!input || input.dataset.validationBound === '1') continue;
+      input.dataset.validationBound = '1';
+      input.addEventListener('input', () => {
+        input.setCustomValidity('');
+        const error = document.getElementById(`${id}-error`);
+        if (error) error.textContent = '';
+      });
+      input.addEventListener('invalid', (event) => {
+        event.preventDefault();
+        validateDateTimeInput(id, id === 'todo-due' ? 'Deadline' : 'Erinnerung');
+      });
+    }
+  }
+
+  function validateTodoDateTimes() {
+    const dueOk = validateDateTimeInput('todo-due', 'Deadline');
+    const remindOk = validateDateTimeInput('todo-remind', 'Erinnerung');
+    if (!dueOk) document.getElementById('todo-due')?.focus();
+    else if (!remindOk) document.getElementById('todo-remind')?.focus();
+    return dueOk && remindOk;
+  }
+
+  function toIsoOrNull(id) {
+    const value = document.getElementById(id)?.value;
+    if (!value) return null;
+    const date = new Date(value);
+    return Number.isFinite(date.getTime()) ? date.toISOString() : null;
+  }
+
   async function markTodoDone(id) {
     if (!getAppInitialized() || !getDb()) return;
     const t = getTodos().find(x => x.id === id);
@@ -53,7 +124,9 @@ export function createTodosFeature({
   }
 
   async function showTodoModal(todo = null) {
+    bindDateTimeValidation();
     document.getElementById('todo-form')?.reset();
+    clearDateTimeErrors();
     document.getElementById('todo-id').value = '';
     document.getElementById('todo-modal-title').textContent = todo ? 'Todo bearbeiten' : 'Neues Todo';
     const projSelect = document.getElementById('todo-project');
@@ -152,6 +225,7 @@ export function createTodosFeature({
   async function saveTodo(event) {
     event.preventDefault();
     if (!getAppInitialized() || !getDb()) return;
+    if (!validateTodoDateTimes()) return;
     const id = document.getElementById('todo-id').value;
     const todoData = {
       title: document.getElementById('todo-title').value,
@@ -160,8 +234,8 @@ export function createTodosFeature({
       project_id: document.getElementById('todo-project').value ? parseInt(document.getElementById('todo-project').value) : null,
       section_id: document.getElementById('todo-section').value ? parseInt(document.getElementById('todo-section').value) : null,
       status: document.getElementById('todo-status').value,
-      due_date: document.getElementById('todo-due').value ? new Date(document.getElementById('todo-due').value).toISOString() : null,
-      remind_at: document.getElementById('todo-remind').value ? new Date(document.getElementById('todo-remind').value).toISOString() : null,
+      due_date: toIsoOrNull('todo-due'),
+      remind_at: toIsoOrNull('todo-remind'),
     };
     if (id) {
       const existing = getTodos().find(t => t.id === parseInt(id));

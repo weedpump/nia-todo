@@ -437,6 +437,26 @@ class TestSuite:
         status, _ = curl("GET", f"/api/todos/{todo_id}", token=self.user_token, cookie_jar="/tmp/nia_user_cookies.txt")
         return self.record("todo_get_one", status)
     
+    def test_todo_invalid_dates_rejected(self):
+        status, _ = curl("POST", "/api/todos", {
+            "title": "Invalid reminder",
+            "due_date": "202666-05-20T19:30:00.000Z",
+            "remind_at": "2026-05-20T19:99:00.000Z"
+        }, token=self.user_token, csrf=self.user_csrf, cookie_jar="/tmp/nia_user_cookies.txt")
+        first_ok = status == 422
+
+        todo_id = self.created_ids["todo"][-1] if self.created_ids["todo"] else None
+        if not todo_id:
+            self.results["todo_invalid_dates_rejected"] = {"status": status, "passed": first_ok, "expected": 422}
+            return first_ok
+
+        patch_status, _ = curl("PATCH", f"/api/todos/{todo_id}", {
+            "due_date": "2026-13-20T19:30:00.000Z"
+        }, token=self.user_token, csrf=self.user_csrf, cookie_jar="/tmp/nia_user_cookies.txt")
+        passed = first_ok and patch_status == 422
+        self.results["todo_invalid_dates_rejected"] = {"status": patch_status, "passed": passed, "expected": 422}
+        return passed
+
     def test_todo_patch(self):
         todo_id = self.created_ids["todo"][-1] if self.created_ids["todo"] else None
         if not todo_id:
@@ -843,6 +863,7 @@ class TestSuite:
             self.test_todo_create,
             self.test_todo_list,
             self.test_todo_get_one,
+            self.test_todo_invalid_dates_rejected,
             self.test_todo_patch,
             
             # Reminders (BEFORE password change!)

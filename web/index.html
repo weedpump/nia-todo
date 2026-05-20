@@ -213,11 +213,13 @@
         <div class="form-row">
           <div class="form-group">
             <label>Deadline</label>
-            <input type="datetime-local" id="todo-due">
+            <input type="datetime-local" id="todo-due" min="1900-01-01T00:00" max="9999-12-31T23:59" step="60">
+            <div id="todo-due-error" class="form-error compact"></div>
           </div>
           <div class="form-group">
             <label>Erinnerung</label>
-            <input type="datetime-local" id="todo-remind">
+            <input type="datetime-local" id="todo-remind" min="1900-01-01T00:00" max="9999-12-31T23:59" step="60">
+            <div id="todo-remind-error" class="form-error compact"></div>
           </div>
         </div>
       </form>
