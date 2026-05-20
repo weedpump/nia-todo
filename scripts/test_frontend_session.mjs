@@ -52,7 +52,7 @@ async function run() {
 
     await page.locator('#boot-overlay.hidden').waitFor({ state: 'attached', timeout: 10000 });
     await page.locator('#login-overlay').waitFor({ state: 'hidden', timeout: 10000 });
-    await page.waitForFunction(() => document.getElementById('user-name')?.textContent?.trim().length > 0, null, { timeout: 10000 });
+    await page.locator('#user-menu-button').waitFor({ state: 'visible', timeout: 10000 });
 
     const result = await page.evaluate((oldToken) => {
       const parseJwt = (jwt) => JSON.parse(atob(jwt.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));

@@ -28,10 +28,8 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
 
   function renderUserInfo() {
     const currentUser = getCurrentUser();
-    const nameEl = document.getElementById('user-name');
     const settingsNameEl = document.getElementById('settings-user-name');
     const settingsEmailCell = document.getElementById('settings-email-cell');
-    if (nameEl && currentUser) nameEl.textContent = currentUser.display_name || currentUser.username;
     if (settingsNameEl && currentUser) settingsNameEl.textContent = currentUser.display_name || currentUser.username;
     if (settingsEmailCell && currentUser) settingsEmailCell.innerHTML = renderSettingsEmailDisplay(currentUser.email || '');
   }
