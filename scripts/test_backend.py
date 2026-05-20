@@ -36,15 +36,15 @@ NEW_PASSWORD = "NewPass123!"
 
 def service_stop():
     """Stop the dev service."""
-    subprocess.run(f"systemctl stop {SERVICE}", shell=True, capture_output=True)
+    subprocess.run(f"systemctl stop {SERVICE}", shell=True, capture_output=True, check=True)
 
 def service_start():
     """Start the dev service."""
-    subprocess.run(f"systemctl start {SERVICE}", shell=True, capture_output=True)
+    subprocess.run(f"systemctl start {SERVICE}", shell=True, capture_output=True, check=True)
 
 def service_restart():
     """Restart the dev service."""
-    subprocess.run(f"systemctl restart {SERVICE}", shell=True, capture_output=True)
+    subprocess.run(f"systemctl restart {SERVICE}", shell=True, capture_output=True, check=True)
 
 def service_wait(timeout: int = 10) -> bool:
     """Wait for service to be ready. Returns True if successful."""
@@ -113,6 +113,8 @@ def curl(
     cmd += [f"{URL}{endpoint}"]
     
     r = subprocess.run(cmd, capture_output=True, text=True)
+    if r.returncode != 0:
+        raise RuntimeError(f"curl failed with exit code {r.returncode}: {r.stderr.strip()}")
     out = r.stdout.strip().split("\n")
     status = int(out[-1]) if out[-1].isdigit() else 500
     body = "\n".join(out[:-1])
@@ -729,14 +731,23 @@ def main():
     finally:
         # Step 4+5: Restore DB and restart
         print("\n🔄 Schritt 4/6: Ursprüngliche DB wiederherstellen...")
-        db_restore()
+        try:
+            db_restore()
+        except Exception as e:
+            all_passed = False
+            print(f"❌ DB-Wiederherstellung fehlgeschlagen: {e}")
         
         print("\n🔄 Schritt 5/6: Service neustarten...")
-        service_restart()
-        if not service_wait():
-            print("⚠️  Service startet möglicherweise nicht korrekt!")
-        else:
-            print("✅ Service läuft wieder normal")
+        try:
+            service_restart()
+            if not service_wait():
+                all_passed = False
+                print("❌ Service startet nach Restore nicht korrekt!")
+            else:
+                print("✅ Service läuft wieder normal")
+        except Exception as e:
+            all_passed = False
+            print(f"❌ Service-Neustart nach Restore fehlgeschlagen: {e}")
     
     # Final summary
     print("\n" + "=" * 70)

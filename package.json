@@ -3,6 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "test": "./scripts/test_all.sh",
+    "test:backend": "python3 scripts/test_backend.py",
     "test:frontend": "node scripts/test_frontend.mjs"
   },
   "devDependencies": {
