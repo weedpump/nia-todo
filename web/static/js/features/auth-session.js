@@ -9,6 +9,18 @@ export function createAuthSessionFeature({
   refreshFromServer,
   renderUserInfo,
 }) {
+
+  async function clearBrowserAuthCaches() {
+    if ('serviceWorker' in navigator && typeof navigator.serviceWorker.getRegistrations === 'function') {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      registrations.forEach(reg => reg.active?.postMessage({ action: 'clearAuthCaches' }));
+    }
+    if ('caches' in window) {
+      const names = await caches.keys();
+      await Promise.all(names.filter(name => name.startsWith('nia-todo-api-')).map(name => caches.delete(name)));
+    }
+  }
+
   function storeUserSession(data) {
     const user = { ...data.user, token: data.access_token };
     setCurrentUser(user);
@@ -21,6 +33,7 @@ export function createAuthSessionFeature({
     const lastUserId = localStorage.getItem('last_user_id');
     if (lastUserId && lastUserId !== newUserId) {
       console.log('User changed from', lastUserId, 'to', newUserId, '- clearing cache');
+      await clearBrowserAuthCaches();
       await clearCache();
       return true;
     }
@@ -74,6 +87,7 @@ export function createAuthSessionFeature({
     localStorage.removeItem('last_user_id');
     localStorage.removeItem('csrf_token');
 
+    await clearBrowserAuthCaches();
     await clearCache();
     location.reload();
   }

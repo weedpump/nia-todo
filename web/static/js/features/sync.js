@@ -18,6 +18,47 @@ export function createSyncFeature({
     return wsState === 'connected' || (typeof navigator !== 'undefined' && navigator.onLine);
   }
 
+  function pickAllowed(source, allowedFields) {
+    const out = {};
+    if (!source || typeof source !== 'object') return out;
+    for (const field of allowedFields) {
+      if (Object.prototype.hasOwnProperty.call(source, field)) out[field] = source[field];
+    }
+    return out;
+  }
+
+  function sanitizeQueueItem(item) {
+    if (!item || typeof item !== 'object' || typeof item.action !== 'string') return null;
+    const data = item.data && typeof item.data === 'object' ? item.data : {};
+    const changes = data.changes && typeof data.changes === 'object' ? data.changes : {};
+    const todoFields = ['title', 'description', 'priority', 'status', 'project_id', 'section_id', 'due_date', 'remind_at', '_tempId'];
+    const projectFields = ['name', 'color', 'sort_order', 'parent_id', '_tempId'];
+    const sectionFields = ['name', 'sort_order', 'project_id', '_tempId'];
+
+    switch (item.action) {
+      case 'CREATE_TODO':
+        return { ...item, data: pickAllowed(data, todoFields) };
+      case 'UPDATE_TODO':
+        return { ...item, data: { id: data.id, changes: pickAllowed(changes, todoFields.filter(f => f !== '_tempId')) } };
+      case 'DELETE_TODO':
+        return { ...item, data: { id: data.id } };
+      case 'CREATE_PROJECT':
+        return { ...item, data: pickAllowed(data, projectFields) };
+      case 'UPDATE_PROJECT':
+        return { ...item, data: { id: data.id, changes: pickAllowed(changes, projectFields.filter(f => f !== '_tempId')) } };
+      case 'DELETE_PROJECT':
+        return { ...item, data: { id: data.id } };
+      case 'CREATE_SECTION':
+        return { ...item, data: pickAllowed(data, sectionFields) };
+      case 'UPDATE_SECTION':
+        return { ...item, data: { id: data.id, changes: pickAllowed(changes, sectionFields.filter(f => !['_tempId', 'project_id'].includes(f))) } };
+      case 'DELETE_SECTION':
+        return { ...item, data: { id: data.id } };
+      default:
+        return null;
+    }
+  }
+
   async function syncWithServer({ wsState, syncInProgressRef }) {
     if (!isOnlineForSync(wsState) || !getDb() || syncInProgressRef.value) return;
     syncInProgressRef.value = true;
@@ -26,7 +67,12 @@ export function createSyncFeature({
 
     let successCount = 0;
     let failCount = 0;
-    for (const item of queue) {
+    for (const queuedItem of queue) {
+      const item = sanitizeQueueItem(queuedItem);
+      if (!item) {
+        await deleteFromDB('syncQueue', queuedItem.id);
+        continue;
+      }
       try {
         if (item.action === 'CREATE_TODO') {
           const res = await todosApi.create(item.data);

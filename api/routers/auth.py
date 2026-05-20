@@ -30,7 +30,9 @@ class CreateApiKeyRequest(BaseModel):
 def require_auth(authorization: Optional[str] = Header(None), x_session_token: Optional[str] = Header(None)) -> int:
     token = None
     if authorization and authorization.startswith("Bearer "):
-        token = authorization[7:]
+        bearer = authorization[7:]
+        if not bearer.startswith("nt_"):
+            token = bearer
     elif authorization and authorization.startswith("ApiKey "):
         token = authorization[7:]
     elif x_session_token:
