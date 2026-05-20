@@ -101,7 +101,7 @@ export function createTodosFeature({
     setTodos(getTodos().map(todo => todo.id === id ? updatedTodo : todo));
     renderStats();
     renderTodos();
-    showToast('Todo erledigt', { type: 'status', id });
+    showToast('Todo erledigt', { type: 'status', id, previousStatus: t.status });
     await addToSyncQueue('UPDATE_TODO', { id, changes: { status: 'done' } });
     if (isOnlineForSync()) await syncWithServer();
   }
@@ -117,8 +117,8 @@ export function createTodosFeature({
     setTodos(getTodos().map(todo => todo.id === id ? updatedTodo : todo));
     renderStats();
     renderTodos();
-    if (newStatus === 'done') showToast('Todo erledigt', { type: 'status', id });
-    else if (t.status === 'done' && newStatus === 'pending') showToast('Todo wiedereröffnet', { type: 'status', id });
+    if (newStatus === 'done') showToast('Todo erledigt', { type: 'status', id, previousStatus: t.status });
+    else if (t.status === 'done' && newStatus === 'pending') showToast('Todo wiedereröffnet', { type: 'status', id, previousStatus: t.status });
     await addToSyncQueue('UPDATE_TODO', { id, changes: { status: newStatus } });
     if (isOnlineForSync()) await syncWithServer();
   }
