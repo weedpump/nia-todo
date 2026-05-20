@@ -945,7 +945,13 @@ body {
 .form-group select:focus,
 .form-group textarea:focus { border-color: var(--accent); }
 
-.settings-profile-card { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 16px; }
+.settings-profile-card {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  gap: 18px;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
 .settings-avatar-button {
   width: 72px;
   height: 72px;
@@ -964,16 +970,72 @@ body {
 }
 .settings-avatar-button:hover { border-color: var(--accent-hover); }
 .settings-avatar-button img { width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
-.settings-profile-fields { flex: 1; min-width: 0; }
-.settings-readonly-value { font-size:14px; color:var(--text-secondary); padding:8px 0; }
-.settings-email-cell { font-size: 14px; color: var(--text-secondary); padding: 8px 0; }
-.settings-email-display { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; }
-.settings-email-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.settings-profile-fields { display: grid; gap: 14px; min-width: 0; }
+.settings-field-row { min-width: 0; }
+.settings-field-label {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+.settings-readonly-value,
+.settings-inline-cell { font-size: 14px; color: var(--text-secondary); min-height: 30px; display: flex; align-items: center; }
+.settings-email-display,
+.settings-display-name-display { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; min-width: 0; }
+.settings-email-value,
+.settings-display-name-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .settings-email-missing { color: var(--text-muted); }
-.settings-email-edit { display: grid; grid-template-columns: minmax(0, 1fr) 28px 28px; align-items: center; gap: 4px; width: 100%; max-width: 100%; }
-.settings-email-edit input { min-width: 0; width: 100%; padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-primary); color: var(--text-primary); font-size: 13px; }
-.settings-email-action { background: transparent; color: var(--text-secondary); border: none; border-radius: var(--radius); padding: 4px; width: 28px; height: 28px; line-height: 1; cursor: pointer; }
-.settings-email-action:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+.settings-email-edit,
+.settings-display-name-edit { display: grid; grid-template-columns: minmax(0, 1fr) 28px 28px; align-items: center; gap: 4px; width: 100%; max-width: 100%; }
+.settings-email-edit input,
+.settings-display-name-edit input { min-width: 0; width: 100%; padding: 7px 9px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-primary); color: var(--text-primary); font-size: 13px; }
+.settings-email-action,
+.settings-inline-action { background: transparent; color: var(--text-secondary); border: none; border-radius: var(--radius); padding: 4px; width: 28px; height: 28px; line-height: 1; cursor: pointer; }
+.settings-email-action:hover,
+.settings-inline-action:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+.settings-field-error { color: var(--danger); font-size: 13px; margin-top: 8px; }
+.settings-field-success { color: var(--success); font-size: 13px; margin-top: 8px; }
+
+#avatar-crop-modal { z-index: 420; }
+.avatar-crop-modal-content { max-width: 420px; }
+.avatar-crop-body { display: grid; gap: 14px; }
+.avatar-crop-stage {
+  position: relative;
+  width: min(320px, 78vw);
+  height: min(320px, 78vw);
+  margin: 0 auto;
+  overflow: hidden;
+  border-radius: 14px;
+  background: var(--bg-primary);
+  touch-action: none;
+  cursor: grab;
+}
+.avatar-crop-stage:active { cursor: grabbing; }
+.avatar-crop-stage img {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  max-width: none;
+  user-select: none;
+  pointer-events: none;
+  transform-origin: center center;
+}
+.avatar-crop-mask {
+  position: absolute;
+  inset: 0;
+  box-shadow: 0 0 0 999px rgba(0,0,0,0.46);
+  border: 2px solid rgba(255,255,255,0.8);
+  border-radius: 999px;
+  pointer-events: none;
+}
+.avatar-zoom-label { color: var(--text-muted); font-size: 12px; font-weight: 700; }
+#avatar-zoom-range { width: 100%; accent-color: var(--accent); }
+.avatar-crop-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+@media (max-width: 520px) {
+  .settings-profile-card { grid-template-columns: 1fr; }
+  .settings-avatar-button { margin: 0 auto; }
+}
 
 
 .form-group input:disabled,

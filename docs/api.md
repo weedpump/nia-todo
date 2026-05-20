@@ -81,7 +81,7 @@
 
 **Request**
 - Body: rohe Bilddaten
-- `Content-Type`: `image/jpeg`, `image/png`, `image/webp` oder `image/gif`
+- `Content-Type`: `image/jpeg`, `image/png`, `image/webp`, `image/gif`, `image/heic` oder `image/heif`
 - Maximalgröße: 5 MiB
 
 **Speicherung**

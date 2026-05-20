@@ -45,3 +45,5 @@
 - Passwort-Setup-/Reset-Links sind 24 Stunden gültig und werden gehashed gespeichert
 - Benutzer können ihre eigene E-Mail und ihren Anzeigenamen im Settings-Modal ändern; der Username bleibt unveränderlich
 - Avatar-Bilder liegen als WebP-Dateien unter `api/data/avatars/`, die Datenbank speichert nur URL und Änderungszeitpunkt
+- Avatar-Uploads akzeptieren JPEG/PNG/WebP/GIF sowie HEIC/HEIF; HEIC wird serverseitig über `pillow-heif` oder `heif-convert` verarbeitet, wenn der Browser keine Vorschau/Crop unterstützt
+- Live-Backups sichern neben der SQLite-DB auch `api/data/avatars/` als rotierendes `nia-todo-live-avatars-slot-XX.tar.gz`

@@ -50,8 +50,9 @@ async function run() {
     await visible('#settings-modal');
     await page.locator('#settings-username').waitFor({ state: 'visible' });
     await page.locator('#settings-username').getByText('frontenduser').waitFor({ state: 'visible', timeout: 10000 });
-    await page.fill('#settings-display-name', 'Frontend Avatar User');
-    await page.getByRole('button', { name: 'Speichern' }).first().click();
+    await page.locator('#settings-display-name-cell').getByRole('button', { name: '✏️' }).click();
+    await page.fill('#settings-display-name-input', 'Frontend Avatar User');
+    await page.locator('#settings-display-name-cell').getByRole('button', { name: '✅' }).click();
     await page.getByText('Profil gespeichert').waitFor({ state: 'visible', timeout: 10000 });
     await page.waitForFunction(async () => {
       const jwt = localStorage.getItem('jwt_token');
@@ -63,6 +64,8 @@ async function run() {
       mimeType: 'image/png',
       buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNMTvvIwMDAxMDAwMDAAAAUVAG+nM0ffgAAAABJRU5ErkJggg==', 'base64')
     });
+    await visible('#avatar-crop-modal');
+    await page.click('#avatar-crop-modal .btn-primary');
     await page.getByText('Avatar gespeichert').waitFor({ state: 'visible', timeout: 10000 });
     await page.locator('#settings-avatar-preview').waitFor({ state: 'visible', timeout: 10000 });
     await page.waitForFunction(async () => {

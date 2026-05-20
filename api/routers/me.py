@@ -6,6 +6,19 @@ from pydantic import BaseModel
 from PIL import Image, UnidentifiedImageError
 import bcrypt
 import io
+import shutil
+import subprocess
+import tempfile
+
+try:
+    from pillow_heif import register_heif_opener
+    register_heif_opener()
+    PILLOW_HEIC_SUPPORTED = True
+except ImportError:
+    PILLOW_HEIC_SUPPORTED = False
+
+HEIF_CONVERT_BIN = shutil.which("heif-convert")
+HEIC_SUPPORTED = PILLOW_HEIC_SUPPORTED or bool(HEIF_CONVERT_BIN)
 
 from db import DB_PATH, get_db, now_iso
 from routers.auth import require_auth
@@ -16,7 +29,7 @@ router = APIRouter(prefix="/api/me")
 AVATAR_DIR = DB_PATH.parent / "avatars"
 AVATAR_SIZE = 256
 MAX_AVATAR_BYTES = 5 * 1024 * 1024
-ALLOWED_AVATAR_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+ALLOWED_AVATAR_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif", "image/heic", "image/heif"}
 
 
 class ChangePasswordRequest(BaseModel):
@@ -32,6 +45,31 @@ class UpdateProfileRequest(BaseModel):
 
 def _avatar_url(user_id: int) -> str:
     return f"/api/avatars/user-{user_id}.webp"
+
+
+def _load_avatar_image(body: bytes, content_type: str) -> Image.Image:
+    try:
+        image = Image.open(io.BytesIO(body))
+        image.verify()
+        return Image.open(io.BytesIO(body)).convert("RGB")
+    except (UnidentifiedImageError, OSError, SyntaxError):
+        if content_type not in {"image/heic", "image/heif"} or not HEIF_CONVERT_BIN:
+            raise
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        input_path = Path(tmpdir) / "avatar.heic"
+        output_path = Path(tmpdir) / "avatar.png"
+        input_path.write_bytes(body)
+        result = subprocess.run(
+            [HEIF_CONVERT_BIN, str(input_path), str(output_path)],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=10,
+            check=False,
+        )
+        if result.returncode != 0 or not output_path.exists():
+            raise UnidentifiedImageError("HEIC conversion failed")
+        return Image.open(output_path).convert("RGB")
 
 
 @router.patch("/profile")
@@ -61,6 +99,8 @@ def update_own_profile(data: UpdateProfileRequest, user_id: int = Depends(requir
 @router.put("/avatar")
 async def upload_own_avatar(request: Request, user_id: int = Depends(require_auth)):
     content_type = (request.headers.get("content-type") or "").split(";", 1)[0].lower()
+    if content_type in {"image/heic", "image/heif"} and not HEIC_SUPPORTED:
+        raise HTTPException(400, "HEIC wird auf diesem Server noch nicht unterstützt")
     if content_type not in ALLOWED_AVATAR_CONTENT_TYPES:
         raise HTTPException(400, "Bitte ein gültiges Bild hochladen")
 
@@ -71,10 +111,8 @@ async def upload_own_avatar(request: Request, user_id: int = Depends(require_aut
         raise HTTPException(400, "Bild ist zu groß")
 
     try:
-        image = Image.open(io.BytesIO(body))
-        image.verify()
-        image = Image.open(io.BytesIO(body)).convert("RGB")
-    except (UnidentifiedImageError, OSError, SyntaxError):
+        image = _load_avatar_image(body, content_type)
+    except (UnidentifiedImageError, OSError, SyntaxError, subprocess.SubprocessError):
         raise HTTPException(400, "Bitte ein gültiges Bild hochladen")
 
     width, height = image.size
