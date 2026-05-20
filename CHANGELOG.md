@@ -47,6 +47,7 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 - **Service Worker**: Kein automatischer Reload-Loop beim ersten `controllerchange`
 - **Auth**: Login-Flow stabilisiert gegen Timeouts bei Setup-/Auth-Checks
 - **Settings-Test**: Push-Buttons robust gegen `display:none` im Test-Context
+- **Section-DnD-UX**: Trennlinien nur noch beim Verschieben von Sections, Todo-Zonen nur beim Verschieben von Todos
 
 ## [0.4.10] - 2026-05-18
 
