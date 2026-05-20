@@ -87,6 +87,10 @@ body {
   padding-left: 8px;
 }
 
+.nav-title.shared-title {
+  margin-top: 16px;
+}
+
 .nav-btn {
   display: flex;
   align-items: center;
@@ -255,6 +259,61 @@ body {
   margin-top: 6px;
   color: var(--danger);
   font-size: 13px;
+}
+
+.project-owner-info {
+  margin-bottom: 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.sharing-member-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 0;
+}
+
+.sharing-member-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.sharing-display {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.sharing-pending {
+  color: var(--warning);
+  font-size: 12px;
+  margin-left: 4px;
+}
+
+.sharing-remove {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(239,68,68,0.35);
+  border-radius: var(--radius);
+  background: rgba(239,68,68,0.08);
+  color: var(--danger);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.sharing-remove:hover {
+  background: rgba(239,68,68,0.16);
 }
 
 /* Main */

@@ -37,6 +37,14 @@ class TodoUpdate(BaseModel):
 
 # ─── Helpers ───────────────────────────────────────────────────────────────────
 
+
+def get_user_inbox_project_id(db, user_id: int) -> Optional[int]:
+    row = db.execute(
+        "SELECT id FROM projects WHERE user_id = ? AND COALESCE(is_inbox, 0) = 1 ORDER BY id LIMIT 1",
+        (user_id,)
+    ).fetchone()
+    return row['id'] if row else None
+
 def fetch_todo(db, todo_id: int, reminder_user_id: Optional[int] = None) -> Optional[dict]:
     row = db.execute(
         """SELECT t.*, p.name as project_name, s.name as section_name
@@ -134,6 +142,8 @@ async def create_todo(data: TodoCreate, user_id: int = Depends(require_auth)):
     data.title = sanitize_text(data.title)
     data.description = sanitize_text(data.description)
     with get_db() as db:
+        if data.project_id is None and data.section_id is None:
+            data.project_id = get_user_inbox_project_id(db, user_id)
         _validate_todo_target(db, data.project_id, data.section_id, user_id)
         c = db.execute(
             "INSERT INTO todos (title, description, priority, project_id, section_id, due_date, updated_at, user_id) VALUES (?,?,?,?,?,?,?,?)",

@@ -70,7 +70,7 @@ export function createTodosFeature({
           if (parent) parent.children.push(p);
         }
       });
-      rootProjects.sort((a, b) => (a.id === 1 ? -1 : b.id === 1 ? 1 : a.name.localeCompare(b.name)));
+      rootProjects.sort((a, b) => (!!a.is_inbox !== !!b.is_inbox ? (a.is_inbox ? -1 : 1) : a.name.localeCompare(b.name)));
       function addProjectOptions(projectNode, depth = 0) {
         const indent = '\u00A0'.repeat(depth * 2) + (depth > 0 ? '└─ ' : '');
         const opt = document.createElement('option');

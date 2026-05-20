@@ -79,20 +79,18 @@ export function createProjectSharingFeature({
     for (const member of currentMembers) {
       if (!member || member.user_id == null) continue;
       if (member.status !== 'accepted' && member.status !== 'pending') continue;
-      const actions = [];
-      if (isOwner(currentProject) && member.user_id !== currentProject.user_id) {
-        actions.push(`<button class="btn btn-danger btn-sm" data-remove-member="${member.user_id}">Entfernen</button>`);
-      }
-      if (member.status === 'pending') {
-        actions.push(`<span class="sharing-pending">ausstehend</span>`);
-      }
+      const displayName = member.display_name || member.username;
+      const usernamePart = member.display_name && member.display_name !== member.username ? ` <span class="sharing-display">(${escapeHtml(member.username)})</span>` : '';
+      const status = member.status === 'pending' ? '<span class="sharing-pending">ausstehend</span>' : '';
+      const remove = isOwner(currentProject) && member.user_id !== currentProject.user_id
+        ? `<button class="sharing-remove" data-remove-member="${member.user_id}" title="Entfernen" aria-label="Mitglied entfernen">✕</button>`
+        : '';
       rows.push(`
         <div class="sharing-member-row">
-          <div>
-            <strong>${escapeHtml(member.username)}</strong>
-            ${member.display_name ? `<span class="sharing-display">(${escapeHtml(member.display_name)})</span>` : ''}
+          <div class="sharing-member-name">
+            <strong>${escapeHtml(displayName)}</strong>${usernamePart}${status}
           </div>
-          <div class="sharing-actions">${actions.join(' ')}</div>
+          <div class="sharing-actions">${remove}</div>
         </div>
       `);
     }
@@ -261,11 +259,23 @@ export function createProjectSharingFeature({
     const sharingContent = document.getElementById('project-sharing-content');
     const shareStartRow = document.getElementById('project-share-start-row');
     const leaveBtn = document.getElementById('project-leave-btn');
+    const ownerInfo = document.getElementById('project-owner-info');
     const inviteRow = document.getElementById('project-share-row');
     const fields = ['project-name', 'project-color', 'project-parent-id'];
 
     if (sharingSection) sharingSection.style.display = project ? '' : 'none';
     if (leaveBtn) leaveBtn.style.display = shared && !isOwn ? '' : 'none';
+    if (ownerInfo) {
+      if (project && shared && !isOwn) {
+        const ownerName = project.owner_display_name || project.owner_username || 'Unbekannt';
+        const ownerUser = project.owner_username && project.owner_username !== ownerName ? ` (${project.owner_username})` : '';
+        ownerInfo.textContent = `Geteilt von: ${ownerName}${ownerUser}`;
+        ownerInfo.style.display = '';
+      } else {
+        ownerInfo.textContent = '';
+        ownerInfo.style.display = 'none';
+      }
+    }
     setShareError('');
 
     if (!project) {

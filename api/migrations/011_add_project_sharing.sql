@@ -36,11 +36,13 @@ CREATE TABLE IF NOT EXISTS projects_new (
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now')),
     parent_id INTEGER,
-    user_id INTEGER
+    user_id INTEGER,
+    is_inbox INTEGER DEFAULT 0
 );
 
-INSERT INTO projects_new (id, name, color, sort_order, created_at, updated_at, parent_id, user_id)
-SELECT id, name, color, sort_order, created_at, updated_at, parent_id, user_id
+INSERT INTO projects_new (id, name, color, sort_order, created_at, updated_at, parent_id, user_id, is_inbox)
+SELECT id, name, color, sort_order, created_at, updated_at, parent_id, user_id,
+       CASE WHEN id = 1 OR lower(name) = 'inbox' THEN 1 ELSE 0 END
 FROM projects;
 
 DROP TABLE projects;
@@ -49,5 +51,6 @@ ALTER TABLE projects_new RENAME TO projects;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_projects_user_name_unique ON projects(user_id, name);
 CREATE INDEX IF NOT EXISTS idx_projects_user ON projects(user_id);
 CREATE INDEX IF NOT EXISTS idx_projects_parent ON projects(parent_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_projects_user_inbox_unique ON projects(user_id) WHERE is_inbox = 1;
 
 PRAGMA foreign_keys = ON;

@@ -73,7 +73,7 @@ def setup_first_user(data: FirstUserRequest, request: Request, _: None = Depends
             (data.username, data.display_name, password_hash)
         )
         user_id = c.lastrowid
-        db.execute("UPDATE projects SET user_id = ? WHERE user_id IS NULL", (user_id,))
+        db.execute("UPDATE projects SET user_id = ?, is_inbox = CASE WHEN id = 1 THEN 1 ELSE COALESCE(is_inbox, 0) END WHERE user_id IS NULL", (user_id,))
         db.execute("UPDATE todos SET user_id = ? WHERE user_id IS NULL", (user_id,))
         db.execute("UPDATE sections SET user_id = ? WHERE user_id IS NULL", (user_id,))
         db.execute("UPDATE admin_config SET setup_complete = 1 WHERE id = 1")

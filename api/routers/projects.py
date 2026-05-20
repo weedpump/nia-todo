@@ -29,7 +29,7 @@ class ProjectUpdate(BaseModel):
 
 def get_user_inbox_project_id(db, owner_user_id: int) -> Optional[int]:
     row = db.execute(
-        "SELECT id FROM projects WHERE user_id = ? AND name = 'Inbox' ORDER BY sort_order, id LIMIT 1",
+        "SELECT id FROM projects WHERE user_id = ? AND COALESCE(is_inbox, 0) = 1 ORDER BY id LIMIT 1",
         (owner_user_id,)
     ).fetchone()
     return row['id'] if row else None
@@ -39,14 +39,16 @@ def get_user_inbox_project_id(db, owner_user_id: int) -> Optional[int]:
 def list_projects(user_id: int = Depends(require_auth)):
     with get_db() as db:
         own_rows = db.execute(
-            "SELECT *, 0 as is_shared, 1 as is_owner FROM projects WHERE user_id = ? ORDER BY parent_id, sort_order, id",
+            "SELECT *, 0 as is_shared, 1 as is_owner FROM projects WHERE user_id = ? ORDER BY COALESCE(is_inbox, 0) DESC, parent_id, sort_order, id",
             (user_id,),
         ).fetchall()
         shared_rows = db.execute(
             """
-            SELECT p.*, 1 as is_shared, 0 as is_owner, pm.id as member_id, pm.status as member_status
+            SELECT p.*, 1 as is_shared, 0 as is_owner, pm.id as member_id, pm.status as member_status,
+                   u.username as owner_username, u.display_name as owner_display_name
             FROM projects p
             JOIN project_members pm ON pm.project_id = p.id
+            JOIN users u ON u.id = p.user_id
             WHERE pm.user_id = ? AND pm.status = 'accepted'
             ORDER BY p.name
             """,
@@ -114,12 +116,12 @@ async def update_project(project_id: int, data: ProjectUpdate, user_id: int = De
 
 @router.delete("/{project_id}")
 async def delete_project(project_id: int, user_id: int = Depends(require_auth)):
-    if project_id == 1:
-        raise HTTPException(400, "Inbox cannot be deleted")
     with get_db() as db:
         proj = db.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
         if not proj:
             raise HTTPException(404, "Project not found")
+        if proj['is_inbox']:
+            raise HTTPException(400, "Inbox cannot be deleted")
         if not can_edit_project(db, project_id, user_id):
             raise HTTPException(403, "Only the owner can delete this project")
         to_delete = []
