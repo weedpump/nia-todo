@@ -24,6 +24,8 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); }
 .btn-danger:hover { opacity: 0.9; }
 .btn-primary { background: var(--accent); color: white; }
 .btn-primary:hover { background: var(--accent-hover); }
+.btn-ghost { background: transparent; color: var(--text-secondary); padding: 4px 6px; }
+.btn-ghost:hover { background: var(--bg-tertiary); color: var(--text-primary); }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .form-row { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
 .form-row input { flex: 1; min-width: 150px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-primary); color: var(--text-primary); font-size: 14px; }
@@ -32,6 +34,10 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); }
 .admin-success { color: var(--success); font-size: 13px; margin-top: 8px; }
 .setup-link-box { margin-top: 12px; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-primary); display: none; gap: 8px; align-items: center; }
 .setup-link-box input { flex: 1; min-width: 0; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-secondary); color: var(--text-primary); font-size: 13px; }
+.email-display { display: inline-flex; align-items: center; gap: 6px; }
+.email-missing { color: var(--text-muted); }
+.email-edit { display: inline-flex; align-items: center; gap: 6px; }
+.email-edit input { min-width: 210px; padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-primary); color: var(--text-primary); font-size: 13px; }
 .admin-nav { display: flex; gap: 12px; align-items: center; }
 .admin-nav a { color: var(--accent); text-decoration: none; font-size: 14px; }
 .admin-nav a:hover { text-decoration: underline; }
@@ -118,14 +124,13 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); }
           <th>Benutzername</th>
           <th>Anzeigename</th>
           <th>E-Mail</th>
-          <th>Status</th>
           <th>Erstellt</th>
           <th>Passwort</th>
           <th>Aktionen</th>
         </tr>
       </thead>
       <tbody id="user-list">
-        <tr><td colspan="8" class="empty-state">Lade...</td></tr>
+        <tr><td colspan="7" class="empty-state">Lade...</td></tr>
       </tbody>
     </table>
   </div>
@@ -285,7 +290,7 @@ async function loadUsers() {
     renderUsers(data.users);
   } catch(e) {
     document.getElementById('user-list').innerHTML =
-      `<tr><td colspan="8" class="empty-state">Fehler: ${e.message}</td></tr>`;
+      `<tr><td colspan="7" class="empty-state">Fehler: ${e.message}</td></tr>`;
     if (e.message.includes('403')) {
       localStorage.removeItem('admin_jwt_token');
       setTimeout(() => location.reload(), 2000);
@@ -310,10 +315,18 @@ function escapeHtmlAttr(str) {
     .replace(/>/g, '&gt;');
 }
 
+function renderUserEmailCell(user) {
+  const email = user.email ? escapeHtml(user.email) : '<span class="email-missing">-</span>';
+  return `<span class="email-display" id="email-display-${user.id}">
+    <span>${email}</span>
+    <button class="btn btn-ghost" title="E-Mail bearbeiten" onclick="editUserEmail(${user.id}, '${escapeHtmlAttr(user.email || '')}')">✏️</button>
+  </span>`;
+}
+
 function renderUsers(users) {
   const tbody = document.getElementById('user-list');
   if (!users || users.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8" class="empty-state">Keine Benutzer</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="empty-state">Keine Benutzer</td></tr>`;
     return;
   }
   tbody.innerHTML = users.map(u => `
@@ -321,11 +334,7 @@ function renderUsers(users) {
       <td>${u.id}</td>
       <td>${escapeHtml(u.username)}</td>
       <td>${escapeHtml(u.display_name) || '-'}</td>
-      <td>
-        <input id="email-${u.id}" type="email" value="${escapeHtmlAttr(u.email) || ''}" placeholder="E-Mail setzen" style="min-width:180px; padding:6px 8px; border:1px solid var(--border); border-radius:var(--radius); background:var(--bg-primary); color:var(--text-primary);">
-        <button class="btn btn-primary" style="font-size:12px; padding:4px 8px; margin-left:4px;" onclick="saveUserEmail(${u.id})">Speichern</button>
-      </td>
-      <td><span class="badge ${u.is_admin ? 'badge-admin' : 'badge-user'}">${u.is_admin ? 'Erster Benutzer' : 'Benutzer'}</span></td>
+      <td>${renderUserEmailCell(u)}</td>
       <td>${new Date(u.created_at).toLocaleDateString('de-DE')}</td>
       <td><button class="btn btn-primary" style="font-size:12px; padding:4px 10px;" onclick="generatePasswordLink(${u.id}, '${escapeHtmlAttr(u.username)}')">Link erzeugen</button></td>
       <td>${u.is_admin ? '-' : `<button class="btn btn-danger" onclick="deleteUser(${u.id}, '${escapeHtmlAttr(u.username)}')">Löschen</button>`}</td>
@@ -365,8 +374,18 @@ async function createUser() {
   }
 }
 
+function editUserEmail(userId, currentEmail) {
+  const container = document.getElementById(`email-display-${userId}`);
+  if (!container) return;
+  container.outerHTML = `<span class="email-edit" id="email-edit-${userId}">
+    <input id="email-input-${userId}" type="email" value="${escapeHtmlAttr(currentEmail || '')}" placeholder="E-Mail setzen" onkeydown="if(event.key==='Enter') saveUserEmail(${userId})">
+    <button class="btn btn-ghost" title="Speichern" onclick="saveUserEmail(${userId})">✅</button>
+  </span>`;
+  document.getElementById(`email-input-${userId}`)?.focus();
+}
+
 async function saveUserEmail(userId) {
-  const input = document.getElementById(`email-${userId}`);
+  const input = document.getElementById(`email-input-${userId}`);
   const email = input?.value?.trim() || '';
   if (!email) {
     alert('E-Mail ist erforderlich');

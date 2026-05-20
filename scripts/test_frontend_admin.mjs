@@ -26,6 +26,11 @@ async function run() {
     const setupUrl = await page.locator('#create-link-input').inputValue();
     if (!setupUrl.includes('/set-password?token=')) throw new Error('Create user did not generate a password setup link');
     await page.locator('#user-list').getByRole('cell', { name: 'admincreated', exact: true }).waitFor({ state: 'visible', timeout: 10000 });
+    await page.locator('#user-list').getByText('admincreated@example.invalid').waitFor({ state: 'visible', timeout: 10000 });
+    await page.locator('#user-list').getByRole('button', { name: '✏️' }).last().click();
+    await page.locator('#user-list input[type="email"]').last().fill('admincreated-updated@example.invalid');
+    await page.locator('#user-list').getByRole('button', { name: '✅' }).last().click();
+    await page.locator('#user-list').getByText('admincreated-updated@example.invalid').waitFor({ state: 'visible', timeout: 10000 });
 
     await page.goto(setupUrl, { waitUntil: 'networkidle' });
     await page.getByRole('heading', { name: /Passwort setzen/ }).waitFor({ state: 'visible', timeout: 10000 });
