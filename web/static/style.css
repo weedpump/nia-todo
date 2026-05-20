@@ -261,6 +261,12 @@ body {
   font-size: 13px;
 }
 
+.form-error.compact {
+  min-height: 0;
+  margin-top: 4px;
+  font-size: 12px;
+}
+
 .project-owner-info {
   align-items: baseline;
   gap: 8px;

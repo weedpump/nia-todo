@@ -100,6 +100,16 @@ async function run() {
 
     await page.locator('.todo-item .todo-title').filter({ hasText: 'Section Todo Edited' }).first().click();
     await visible('#todo-modal');
+    await page.evaluate(() => {
+      const remind = document.getElementById('todo-remind');
+      remind.setCustomValidity('Ungültige Test-Erinnerung');
+    });
+    await page.click('button[form="todo-form"]');
+    await page.getByText('Erinnerung ist ungültig').waitFor({ state: 'visible', timeout: 5000 });
+    await page.evaluate(() => {
+      const remind = document.getElementById('todo-remind');
+      remind.setCustomValidity('');
+    });
     await page.waitForFunction(() => {
       const title = document.getElementById('todo-title')?.value;
       const desc = document.getElementById('todo-desc')?.value;

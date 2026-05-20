@@ -1,5 +1,6 @@
 """nia-todo: Todo endpoints"""
 
+from datetime import datetime
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field
@@ -93,6 +94,22 @@ def _validate_todo_target(db, project_id: Optional[int], section_id: Optional[in
             raise HTTPException(403, "Not authorized")
 
 
+def _validate_datetime(value: Optional[str], field_name: str):
+    if value in (None, ""):
+        return
+    try:
+        parsed = datetime.fromisoformat(str(value).replace('Z', '+00:00'))
+    except ValueError:
+        raise HTTPException(422, f"Invalid {field_name}")
+    if parsed.year < 1900 or parsed.year > 9999:
+        raise HTTPException(422, f"Invalid {field_name}")
+
+
+def _validate_todo_dates(data):
+    _validate_datetime(getattr(data, 'due_date', None), 'due_date')
+    _validate_datetime(getattr(data, 'remind_at', None), 'remind_at')
+
+
 # ─── Endpoints ─────────────────────────────────────────────────────────────────
 
 @router.get("")
@@ -141,6 +158,7 @@ def list_todos(status: Optional[str] = None, project_id: Optional[int] = None, s
 async def create_todo(data: TodoCreate, user_id: int = Depends(require_auth)):
     data.title = sanitize_text(data.title)
     data.description = sanitize_text(data.description)
+    _validate_todo_dates(data)
     with get_db() as db:
         if data.project_id is None and data.section_id is None:
             data.project_id = get_user_inbox_project_id(db, user_id)
@@ -173,6 +191,7 @@ async def update_todo(todo_id: int, data: TodoUpdate, user_id: int = Depends(req
         data.title = sanitize_text(data.title)
     if data.description is not None:
         data.description = sanitize_text(data.description)
+    _validate_todo_dates(data)
     with get_db() as db:
         existing = fetch_todo(db, todo_id, user_id)
         if not existing:
