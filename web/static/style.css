@@ -446,7 +446,7 @@ body {
   transition: background 0.15s, color 0.15s;
 }
 .user-menu-item:hover { background: var(--bg-hover); color: var(--text-primary); }
-.user-menu-item.active { color: var(--success); }
+.user-menu-item.active { color: var(--text-secondary); }
 .user-menu-item.danger:hover { color: var(--danger); background: rgba(239,68,68,0.12); }
 .user-menu-item .menu-item-icon { width: 24px; text-align: center; font-weight: 700; }
 .user-menu-separator { height: 1px; background: var(--border); margin: 6px 4px; }
