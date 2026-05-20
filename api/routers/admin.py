@@ -4,10 +4,12 @@ from typing import Optional
 from fastapi import APIRouter, Request, Response, HTTPException, Depends
 from pydantic import BaseModel
 import bcrypt
+import hashlib
+import secrets
 
 from db import get_db, now_iso
 from services.auth import create_admin_jwt_token, verify_admin_token
-from services.utils import sanitize_text, validate_password, validate_admin_password
+from services.utils import sanitize_text, validate_email, validate_password, validate_admin_password
 from services.audit import log_audit
 from rate_limit import require_login_rate_limit, get_client_ip
 from middleware.security import generate_csrf_token, set_csrf_cookie
@@ -19,15 +21,21 @@ router = APIRouter(prefix="/api/admin")
 
 class CreateUserRequest(BaseModel):
     username: str
-    password: str
     display_name: str
+    email: str
+
+class UpdateUserRequest(BaseModel):
+    email: str
+    display_name: Optional[str] = None
 
 class ChangeAdminPasswordRequest(BaseModel):
     old_password: str
     new_password: str
 
 class ResetUserPasswordRequest(BaseModel):
-    new_password: str
+    # Kept for backward-compatible request parsing, but admins no longer set
+    # user passwords directly. The endpoint now returns a one-time setup link.
+    new_password: Optional[str] = None
 
 class AdminLoginRequest(BaseModel):
     password: str
@@ -42,6 +50,29 @@ def require_admin(authorization: Optional[str] = Header(None)):
     if not verify_admin_token(authorization):
         raise HTTPException(status_code=403, detail="Admin-Authentifizierung erforderlich")
     return True
+
+
+PASSWORD_LINK_TTL_HOURS = 24
+
+
+def _hash_setup_token(token: str) -> str:
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+def _make_password_setup_link(request: Request, token: str) -> str:
+    base_url = str(request.base_url).rstrip('/')
+    return f"{base_url}/set-password?token={token}"
+
+
+def create_password_setup_token(db, user_id: int, purpose: str = "reset") -> str:
+    token = secrets.token_urlsafe(32)
+    db.execute(
+        """INSERT INTO password_setup_tokens
+           (user_id, token_hash, token_prefix, purpose, expires_at, created_by_admin)
+           VALUES (?, ?, ?, ?, datetime('now', ?), 1)""",
+        (user_id, _hash_setup_token(token), token[:12], purpose, f"+{PASSWORD_LINK_TTL_HOURS} hours")
+    )
+    return token
 
 
 # ─── Admin Auth ──────────────────────────────────────────────────────────────
@@ -73,20 +104,25 @@ def admin_logout(authorization: Optional[str] = Header(None), _: bool = Depends(
 # ─── User Management ─────────────────────────────────────────────────────────
 
 @router.post("/users")
-def create_user(data: CreateUserRequest, _: bool = Depends(require_admin)):
+def create_user(data: CreateUserRequest, request: Request, _: bool = Depends(require_admin)):
     data.username = sanitize_text(data.username)
     data.display_name = sanitize_text(data.display_name)
-    error = validate_password(data.password)
-    if error:
-        raise HTTPException(400, error)
+    data.email = sanitize_text(data.email)
+    email_error = validate_email(data.email)
+    if email_error:
+        raise HTTPException(400, email_error)
     with get_db() as db:
         existing = db.execute("SELECT id FROM users WHERE username = ?", (data.username,)).fetchone()
         if existing:
             raise HTTPException(409, "Username already exists")
-        password_hash = bcrypt.hashpw(data.password.encode(), bcrypt.gensalt()).decode()
+        if data.email:
+            existing_email = db.execute("SELECT id FROM users WHERE email = ?", (data.email,)).fetchone()
+            if existing_email:
+                raise HTTPException(409, "Email already exists")
+        unusable_password_hash = bcrypt.hashpw(secrets.token_urlsafe(32).encode(), bcrypt.gensalt()).decode()
         c = db.execute(
-            "INSERT INTO users (username, display_name, password_hash, is_admin) VALUES (?, ?, ?, 0)",
-            (data.username, data.display_name, password_hash)
+            "INSERT INTO users (username, display_name, email, password_hash, is_admin) VALUES (?, ?, ?, ?, 0)",
+            (data.username, data.display_name, data.email, unusable_password_hash)
         )
         user_id = c.lastrowid
 
@@ -103,15 +139,45 @@ def create_user(data: CreateUserRequest, _: bool = Depends(require_admin)):
                 (name, color, sort_order, user_id, is_inbox)
             )
 
+        token = create_password_setup_token(db, user_id, "invite")
         db.commit()
         log_audit(db, "user_created", user_id=user_id, details=f"username={data.username}")
-        return {"id": user_id, "username": data.username, "display_name": data.display_name, "created_at": now_iso()}
+        return {
+            "id": user_id,
+            "username": data.username,
+            "display_name": data.display_name,
+            "email": data.email,
+            "created_at": now_iso(),
+            "password_setup_url": _make_password_setup_link(request, token),
+            "password_setup_expires_hours": PASSWORD_LINK_TTL_HOURS,
+        }
 
 @router.get("/users")
 def list_users(_: bool = Depends(require_admin)):
     with get_db() as db:
-        rows = db.execute("SELECT id, username, display_name, is_admin, created_at FROM users ORDER BY id").fetchall()
+        rows = db.execute("SELECT id, username, display_name, email, is_admin, created_at FROM users ORDER BY id").fetchall()
         return {"users": [dict(r) for r in rows]}
+
+@router.patch("/users/{user_id}")
+def update_user(user_id: int, data: UpdateUserRequest, _: bool = Depends(require_admin)):
+    email = sanitize_text(data.email)
+    display_name = sanitize_text(data.display_name) if data.display_name is not None else None
+    email_error = validate_email(email)
+    if email_error:
+        raise HTTPException(400, email_error)
+    with get_db() as db:
+        user = db.execute("SELECT id FROM users WHERE id = ?", (user_id,)).fetchone()
+        if not user:
+            raise HTTPException(404, "User not found")
+        existing_email = db.execute("SELECT id FROM users WHERE email = ? AND id != ?", (email, user_id)).fetchone()
+        if existing_email:
+            raise HTTPException(409, "Email already exists")
+        if display_name is None:
+            db.execute("UPDATE users SET email = ? WHERE id = ?", (email, user_id))
+        else:
+            db.execute("UPDATE users SET email = ?, display_name = ? WHERE id = ?", (email, display_name, user_id))
+        db.commit()
+        return {"id": user_id, "email": email, "display_name": display_name}
 
 @router.delete("/users/{user_id}")
 def delete_user(user_id: int, _: bool = Depends(require_admin)):
@@ -153,18 +219,21 @@ def change_admin_password(data: ChangeAdminPasswordRequest, _: bool = Depends(re
     return {"message": "Admin-Passwort geändert. Bitte melde dich erneut an."}
 
 @router.post("/users/{user_id}/change-password")
-def admin_change_user_password(user_id: int, data: ResetUserPasswordRequest, _: bool = Depends(require_admin)):
-    error = validate_password(data.new_password)
-    if error:
-        raise HTTPException(400, error)
+def admin_change_user_password(user_id: int, data: ResetUserPasswordRequest, request: Request, _: bool = Depends(require_admin)):
+    return admin_create_user_password_link(user_id, request)
+
+
+@router.post("/users/{user_id}/password-link")
+def admin_create_user_password_link(user_id: int, request: Request, _: bool = Depends(require_admin)):
     with get_db() as db:
-        user = db.execute("SELECT id FROM users WHERE id = ?", (user_id,)).fetchone()
+        user = db.execute("SELECT id, username FROM users WHERE id = ?", (user_id,)).fetchone()
         if not user:
             raise HTTPException(404, "User not found")
-        new_hash = bcrypt.hashpw(data.new_password.encode(), bcrypt.gensalt()).decode()
-        db.execute(
-            "UPDATE users SET password_hash = ?, token_version = token_version + 1 WHERE id = ?",
-            (new_hash, user_id)
-        )
+        token = create_password_setup_token(db, user_id, "reset")
         db.commit()
-    return {"message": "Passwort geändert. Der Benutzer muss sich erneut anmelden."}
+        log_audit(db, "password_setup_link_created", user_id=user_id, details=f"username={user['username']}")
+    return {
+        "message": "Passwort-Link erstellt.",
+        "password_setup_url": _make_password_setup_link(request, token),
+        "password_setup_expires_hours": PASSWORD_LINK_TTL_HOURS,
+    }

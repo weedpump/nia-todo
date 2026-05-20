@@ -12,6 +12,17 @@ def sanitize_text(text: str) -> str:
     return text
 
 
+def validate_email(email: str) -> str:
+    """Validate email address shape. Returns error or empty string."""
+    if not email:
+        return "E-Mail ist erforderlich"
+    if len(email) > 254:
+        return "E-Mail ist zu lang"
+    if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]{2,}", email):
+        return "Bitte eine gültige E-Mail-Adresse eingeben"
+    return ""
+
+
 def validate_password(password: str, min_length: int = 8) -> str:
     """Validate password meets security requirements. Returns error or empty string."""
     if len(password) < min_length:

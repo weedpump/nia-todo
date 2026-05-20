@@ -143,6 +143,7 @@ const projectsFeature = createProjectsFeature({
 const userSettingsFeature = createUserSettingsFeature({
   authApi,
   getCurrentUser: () => currentUser,
+  setCurrentUser: (next) => { currentUser = next; },
   resetApiKeyUi: () => resetApiKeyUi(),
   loadApiKeys: () => loadApiKeys(),
   updatePushSettingsUI: () => updatePushSettingsUI(),
@@ -173,6 +174,9 @@ const handleLogin = authSessionFeature.handleLogin;
 const bindLoginForm = authSessionFeature.bindLoginForm;
 const renderUserInfo = userSettingsFeature.renderUserInfo;
 const openSettingsModal = userSettingsFeature.openSettingsModal;
+const editUserEmail = userSettingsFeature.editUserEmail;
+const cancelUserEmailEdit = userSettingsFeature.cancelUserEmailEdit;
+const saveUserEmail = userSettingsFeature.saveUserEmail;
 const changeUserPassword = userSettingsFeature.changeUserPassword;
 // ─── API Keys ────────────────────────────────────────────────────────────────
 
@@ -452,7 +456,7 @@ export function startAppModule() {
   viewPreferences: { toggleHideDone, updateToggleDoneButton, cycleSort, updateSortButton, sortTodoList },
   toastUndo: { showToast, showBatchToast, hideToast, undoLastAction, restoreBatchTodos, restoreTodo },
     push: { updatePushStatus, updatePushSettingsUI, enablePushNotifications, disablePushNotifications, sendTestPush },
-    userSettings: { renderUserInfo, openSettingsModal, changeUserPassword },
+    userSettings: { renderUserInfo, openSettingsModal, editUserEmail, cancelUserEmailEdit, saveUserEmail, changeUserPassword },
   });
 
   bindLoginForm();

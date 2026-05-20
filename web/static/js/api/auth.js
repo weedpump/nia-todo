@@ -45,6 +45,16 @@ export const authApi = {
     return parseOrThrow(response, 'Passwortänderung fehlgeschlagen');
   },
 
+  async updateEmail(email) {
+    const response = await fetch(API + '/api/me/email', {
+      method: 'PATCH',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ email }),
+      credentials: 'include',
+    });
+    return parseOrThrow(response, 'E-Mail konnte nicht geändert werden');
+  },
+
   async listApiKeys() {
     const response = await fetch(API + '/api/me/api-keys', {
       headers: getAuthHeaders(),

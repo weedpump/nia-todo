@@ -55,6 +55,7 @@ class CSRFProtectionMiddleware(BaseHTTPMiddleware):
     SKIP_PATHS = {
         "/api/login", "/api/admin/login",
         "/api/setup/admin", "/api/setup/first-user", "/api/setup/status",
+        "/api/password-setup/complete",
     }
 
     async def dispatch(self, request: Request, call_next):

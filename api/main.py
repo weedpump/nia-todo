@@ -33,7 +33,7 @@ app.add_middleware(RateLimitMiddleware)
 
 # ─── Router ──────────────────────────────────────────────────────────────────
 
-from routers import auth, todos, projects, sections, reminders, dashboard, push, admin, me, setup, sharing
+from routers import auth, todos, projects, sections, reminders, dashboard, push, admin, me, setup, sharing, password_setup
 
 app.include_router(auth.router)
 app.include_router(todos.router)
@@ -46,6 +46,7 @@ app.include_router(admin.router)
 app.include_router(setup.router)
 app.include_router(me.router)
 app.include_router(sharing.router)
+app.include_router(password_setup.router)
 
 # ─── WebSocket ───────────────────────────────────────────────────────────────
 
@@ -96,6 +97,10 @@ if WEB_DIR.exists():
     @app.get("/admin")
     def admin_page():
         return FileResponse(str(WEB_DIR / "admin.html"))
+
+    @app.get("/set-password")
+    def set_password_page():
+        return FileResponse(str(WEB_DIR / "set-password.html"))
 
     @app.get("/sw.js")
     @app.head("/sw.js")

@@ -12,9 +12,15 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); }
 .admin-header h1 { font-size: 24px; margin: 0; color: var(--text-primary); }
 .admin-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 24px; }
 .admin-card h2 { font-size: 16px; margin: 0 0 16px 0; color: var(--text-primary); }
-.user-table { width: 100%; border-collapse: collapse; }
+.user-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 .user-table th { text-align: left; padding: 12px; font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--border); }
-.user-table td { padding: 12px; font-size: 14px; color: var(--text-primary); border-bottom: 1px solid var(--border); }
+.user-table td { padding: 12px; font-size: 14px; color: var(--text-primary); border-bottom: 1px solid var(--border); vertical-align: middle; }
+.user-table th:nth-child(1), .user-table td:nth-child(1) { width: 36px; }
+.user-table th:nth-child(2), .user-table td:nth-child(2) { width: 110px; }
+.user-table th:nth-child(3), .user-table td:nth-child(3) { width: 120px; }
+.user-table th:nth-child(5), .user-table td:nth-child(5) { width: 88px; }
+.user-table th:nth-child(6), .user-table td:nth-child(6) { width: 92px; }
+.user-table th:nth-child(7), .user-table td:nth-child(7) { width: 70px; }
 .user-table tr:last-child td { border-bottom: none; }
 .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; }
 .badge-admin { background: var(--accent); color: white; }
@@ -24,12 +30,23 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); }
 .btn-danger:hover { opacity: 0.9; }
 .btn-primary { background: var(--accent); color: white; }
 .btn-primary:hover { background: var(--accent-hover); }
+.btn-ghost { background: transparent; color: var(--text-secondary); padding: 4px 6px; }
+.btn-ghost:hover { background: var(--bg-tertiary); color: var(--text-primary); }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .form-row { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
 .form-row input { flex: 1; min-width: 150px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-primary); color: var(--text-primary); font-size: 14px; }
 .form-row input:focus { outline: none; border-color: var(--accent); }
 .admin-error { color: var(--danger); font-size: 13px; margin-top: 8px; }
 .admin-success { color: var(--success); font-size: 13px; margin-top: 8px; }
+.setup-link-box { margin-top: 12px; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-primary); display: none; gap: 8px; align-items: center; }
+.setup-link-box input { flex: 1; min-width: 0; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-secondary); color: var(--text-primary); font-size: 13px; }
+.email-display { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; }
+.email-display span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.user-table th:nth-child(4), .user-table td:nth-child(4) { overflow: hidden; }
+.email-missing { color: var(--text-muted); }
+.email-edit { display: grid; grid-template-columns: minmax(0, 1fr) 28px 28px; align-items: center; gap: 4px; width: 100%; max-width: 100%; }
+.email-edit input { min-width: 0; width: 100%; padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-primary); color: var(--text-primary); font-size: 13px; }
+.email-edit .btn-ghost { padding: 4px; width: 28px; height: 28px; line-height: 1; }
 .admin-nav { display: flex; gap: 12px; align-items: center; }
 .admin-nav a { color: var(--accent); text-decoration: none; font-size: 14px; }
 .admin-nav a:hover { text-decoration: underline; }
@@ -91,15 +108,19 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); }
     <h2>➕ Neuen Benutzer erstellen</h2>
     <div class="form-row">
       <input type="text" id="new-username" placeholder="Benutzername" autocomplete="off" onkeydown="if(event.key==='Enter') document.getElementById('new-display-name').focus()">
-      <input type="text" id="new-display-name" placeholder="Anzeigename" onkeydown="if(event.key==='Enter') document.getElementById('new-password').focus()">
-      <input type="password" id="new-password" placeholder="Passwort (8+ Zeichen)" autocomplete="new-password" onkeydown="if(event.key==='Enter') createUser()">
-      <button class="btn btn-primary" onclick="createUser()">Erstellen</button>
+      <input type="text" id="new-display-name" placeholder="Anzeigename" onkeydown="if(event.key==='Enter') document.getElementById('new-email').focus()">
+      <input type="email" id="new-email" placeholder="E-Mail" autocomplete="off" onkeydown="if(event.key==='Enter') createUser()">
+      <button class="btn btn-primary" onclick="createUser()">Erstellen & Link erzeugen</button>
     </div>
     <div style="font-size: 12px; color: var(--text-muted); margin-top: 8px;">
-      Mindestens 8 Zeichen, 1 Großbuchstabe, 1 Kleinbuchstabe, 1 Ziffer, 1 Sonderzeichen
+      Der Benutzer setzt sein Passwort selbst über einen einmaligen Link. Der Link ist 24 Stunden gültig.
     </div>
     <div class="admin-error" id="create-error"></div>
     <div class="admin-success" id="create-success"></div>
+    <div class="setup-link-box" id="create-link-box">
+      <input type="text" id="create-link-input" readonly>
+      <button class="btn btn-primary" onclick="copySetupLink('create-link-input')">Kopieren</button>
+    </div>
   </div>
 
   <!-- User List -->
@@ -111,7 +132,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); }
           <th>ID</th>
           <th>Benutzername</th>
           <th>Anzeigename</th>
-          <th>Status</th>
+          <th>E-Mail</th>
           <th>Erstellt</th>
           <th>Passwort</th>
           <th>Aktionen</th>
@@ -123,24 +144,6 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); }
     </table>
   </div>
 
-  </div>
-</div>
-
-<!-- Reset User Password Modal -->
-<div id="reset-pw-modal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; z-index:1000; align-items:center; justify-content:center; background:rgba(0,0,0,0.5);">
-  <div style="background:var(--bg-secondary); border:1px solid var(--border); border-radius:12px; padding:24px; max-width:400px; width:90%;">
-    <h3 id="reset-pw-title">Passwort zurücksetzen</h3>
-    <div style="margin:12px 0;">
-      <input type="password" id="reset-pw-input" placeholder="Neues Passwort (8+ Zeichen)" autocomplete="new-password" style="width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:var(--radius); background:var(--bg-primary); color:var(--text-primary); font-size:14px;" onkeydown="if(event.key==='Enter') confirmResetPassword()">
-    </div>
-    <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">
-      Mindestens 8 Zeichen, 1 Großbuchstabe, 1 Kleinbuchstabe, 1 Ziffer, 1 Sonderzeichen
-    </div>
-    <div class="admin-error" id="reset-pw-error"></div>
-    <div style="display:flex; gap:8px; justify-content:flex-end;">
-      <button class="btn btn-secondary" onclick="closeResetPwModal()" style="background:var(--bg-tertiary); color:var(--text-secondary);">Abbrechen</button>
-      <button class="btn btn-primary" onclick="confirmResetPassword()">Zurücksetzen</button>
-    </div>
   </div>
 </div>
 
@@ -214,6 +217,19 @@ async function apiGet(path) {
 async function apiPost(path, body) {
   const r = await fetch(API + path, {
     method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    body: JSON.stringify(body)
+  });
+  if (!r.ok) {
+    const data = await r.json().catch(() => ({}));
+    throw new Error(data.detail || 'Fehler');
+  }
+  return r.json();
+}
+
+async function apiPatch(path, body) {
+  const r = await fetch(API + path, {
+    method: 'PATCH',
     headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify(body)
   });
@@ -308,6 +324,22 @@ function escapeHtmlAttr(str) {
     .replace(/>/g, '&gt;');
 }
 
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
+}
+
+function renderUserEmailCell(user) {
+  return renderUserEmailDisplay(user.id, user.email || '');
+}
+
+function renderUserEmailDisplay(userId, emailValue) {
+  const email = emailValue ? escapeHtml(emailValue) : '<span class="email-missing">-</span>';
+  return `<span class="email-display" id="email-display-${userId}">
+    <span>${email}</span>
+    <button class="btn btn-ghost" title="E-Mail bearbeiten" onclick="editUserEmail(${userId}, '${escapeHtmlAttr(emailValue || '')}')">✏️</button>
+  </span>`;
+}
+
 function renderUsers(users) {
   const tbody = document.getElementById('user-list');
   if (!users || users.length === 0) {
@@ -319,9 +351,9 @@ function renderUsers(users) {
       <td>${u.id}</td>
       <td>${escapeHtml(u.username)}</td>
       <td>${escapeHtml(u.display_name) || '-'}</td>
-      <td><span class="badge ${u.is_admin ? 'badge-admin' : 'badge-user'}">${u.is_admin ? 'Erster Benutzer' : 'Benutzer'}</span></td>
+      <td>${renderUserEmailCell(u)}</td>
       <td>${new Date(u.created_at).toLocaleDateString('de-DE')}</td>
-      <td><button class="btn btn-primary" style="font-size:12px; padding:4px 10px;" onclick="openResetPwModal(${u.id}, '${escapeHtmlAttr(u.username)}')">Zurücksetzen</button></td>
+      <td><button class="btn btn-primary" style="font-size:12px; padding:4px 10px;" onclick="generatePasswordLink(${u.id}, '${escapeHtmlAttr(u.username)}')">Link erzeugen</button></td>
       <td>${u.is_admin ? '-' : `<button class="btn btn-danger" onclick="deleteUser(${u.id}, '${escapeHtmlAttr(u.username)}')">Löschen</button>`}</td>
     </tr>
   `).join('');
@@ -330,29 +362,72 @@ function renderUsers(users) {
 async function createUser() {
   const username = document.getElementById('new-username').value.trim();
   const displayName = document.getElementById('new-display-name').value.trim();
-  const password = document.getElementById('new-password').value;
+  const email = document.getElementById('new-email').value.trim();
 
   document.getElementById('create-error').textContent = '';
   document.getElementById('create-success').textContent = '';
+  document.getElementById('create-link-box').style.display = 'none';
 
-  if (!username || !password) {
-    document.getElementById('create-error').textContent = 'Benutzername und Passwort sind erforderlich';
+  if (!username || !email) {
+    document.getElementById('create-error').textContent = 'Benutzername und E-Mail sind erforderlich';
+    return;
+  }
+  if (!isValidEmail(email)) {
+    document.getElementById('create-error').textContent = 'Bitte eine gültige E-Mail-Adresse eingeben';
     return;
   }
 
   try {
-    await apiPost('/api/admin/users', {
+    const data = await apiPost('/api/admin/users', {
       username: username,
       display_name: displayName || username,
-      password: password
+      email: email
     });
-    document.getElementById('create-success').textContent = `Benutzer '${username}' erstellt!`;
+    document.getElementById('create-success').textContent = `Benutzer '${username}' erstellt. Link kopieren und senden:`;
+    document.getElementById('create-link-input').value = data.password_setup_url;
+    document.getElementById('create-link-box').style.display = 'flex';
     document.getElementById('new-username').value = '';
     document.getElementById('new-display-name').value = '';
-    document.getElementById('new-password').value = '';
+    document.getElementById('new-email').value = '';
     await loadUsers();
   } catch(e) {
     document.getElementById('create-error').textContent = e.message;
+  }
+}
+
+function editUserEmail(userId, currentEmail) {
+  const container = document.getElementById(`email-display-${userId}`);
+  if (!container) return;
+  container.outerHTML = `<span class="email-edit" id="email-edit-${userId}">
+    <input id="email-input-${userId}" type="email" value="${escapeHtmlAttr(currentEmail || '')}" placeholder="E-Mail setzen" onkeydown="if(event.key==='Enter') saveUserEmail(${userId}); if(event.key==='Escape') cancelUserEmailEdit(${userId}, '${escapeHtmlAttr(currentEmail || '')}')">
+    <button class="btn btn-ghost" title="Speichern" onclick="saveUserEmail(${userId})">✅</button>
+    <button class="btn btn-ghost" title="Abbrechen" onclick="cancelUserEmailEdit(${userId}, '${escapeHtmlAttr(currentEmail || '')}')">✕</button>
+  </span>`;
+  document.getElementById(`email-input-${userId}`)?.focus();
+}
+
+function cancelUserEmailEdit(userId, currentEmail) {
+  const container = document.getElementById(`email-edit-${userId}`);
+  if (!container) return;
+  container.outerHTML = renderUserEmailDisplay(userId, currentEmail || '');
+}
+
+async function saveUserEmail(userId) {
+  const input = document.getElementById(`email-input-${userId}`);
+  const email = input?.value?.trim() || '';
+  if (!email) {
+    alert('E-Mail ist erforderlich');
+    return;
+  }
+  if (!isValidEmail(email)) {
+    alert('Bitte eine gültige E-Mail-Adresse eingeben');
+    return;
+  }
+  try {
+    await apiPatch(`/api/admin/users/${userId}`, { email });
+    await loadUsers();
+  } catch(e) {
+    alert('Fehler: ' + e.message);
   }
 }
 
@@ -395,41 +470,21 @@ async function changeAdminPassword() {
   }
 }
 
-// --- Reset User Password ---
-let resetTargetUserId = null;
-let resetTargetUsername = '';
-
-function openResetPwModal(userId, username) {
-  resetTargetUserId = userId;
-  resetTargetUsername = username;
-  document.getElementById('reset-pw-title').textContent = `Passwort für ${username} zurücksetzen`;
-  document.getElementById('reset-pw-input').value = '';
-  document.getElementById('reset-pw-error').textContent = '';
-  document.getElementById('reset-pw-modal').style.display = 'flex';
+// --- User Password Links ---
+async function copySetupLink(inputId) {
+  const input = document.getElementById(inputId);
+  if (!input?.value) return;
+  await navigator.clipboard.writeText(input.value);
 }
 
-function closeResetPwModal() {
-  document.getElementById('reset-pw-modal').style.display = 'none';
-  resetTargetUserId = null;
-  resetTargetUsername = '';
-}
-
-async function confirmResetPassword() {
-  const newPw = document.getElementById('reset-pw-input').value;
-  document.getElementById('reset-pw-error').textContent = '';
-
-  if (!newPw) {
-    document.getElementById('reset-pw-error').textContent = 'Bitte ein neues Passwort eingeben';
-    return;
-  }
-
+async function generatePasswordLink(userId, username) {
   try {
-    await apiPost(`/api/admin/users/${resetTargetUserId}/change-password`, { new_password: newPw });
-    closeResetPwModal();
-    await loadUsers();
-    alert(`Passwort für ${resetTargetUsername} wurde zurückgesetzt. Der Benutzer muss sich erneut anmelden.`);
+    const data = await apiPost(`/api/admin/users/${userId}/password-link`, {});
+    const link = data.password_setup_url;
+    const copied = await navigator.clipboard.writeText(link).then(() => true).catch(() => false);
+    prompt(`Passwort-Link für ${username}${copied ? ' wurde kopiert' : ''}:`, link);
   } catch(e) {
-    document.getElementById('reset-pw-error').textContent = e.message;
+    alert('Fehler: ' + e.message);
   }
 }
 
