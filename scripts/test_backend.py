@@ -415,14 +415,16 @@ class TestSuite:
             "title": "Test Todo",
             "description": "Test description",
             "priority": 2,
+            "status": "in_progress",
             "project_id": None,
             "section_id": None
         }, token=self.user_token, csrf=self.user_csrf, cookie_jar="/tmp/nia_user_cookies.txt")
         
         if ok(status) and data:
             self.created_ids["todo"].append(data.get("id"))
-        
-        return self.record("todo_create", status)
+        passed = ok(status) and data and data.get("status") == "in_progress"
+        self.results["todo_create"] = {"status": status, "passed": passed, "expected": "200 + status=in_progress"}
+        return passed
     
     def test_todo_list(self):
         status, _ = curl("GET", "/api/todos", token=self.user_token, cookie_jar="/tmp/nia_user_cookies.txt")

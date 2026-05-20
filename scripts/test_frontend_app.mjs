@@ -54,11 +54,17 @@ async function run() {
 
     await openTodoModal();
     await page.fill('#todo-title', 'Section Todo');
+    await page.selectOption('#todo-status', 'in_progress');
     await page.selectOption('#todo-project', { label: 'Frontend Project A' });
     await ensureSectionOptions(['Section A', 'Section B']);
     await page.selectOption('#todo-section', { label: 'Section A' });
     await page.click('button[form="todo-form"]');
     await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });
+    await page.waitForFunction(async () => {
+      const jwt = localStorage.getItem('jwt_token');
+      const data = await fetch('/api/todos', { headers: { 'Authorization': `Bearer ${jwt}` }, credentials: 'include' }).then(r => r.json());
+      return data.todos.some(todo => todo.title === 'Section Todo' && todo.status === 'in_progress');
+    }, null, { timeout: 10000 });
 
     const sectionHeaderA = page.locator('.section-header').filter({ hasText: 'Section A' }).first();
     await sectionHeaderA.locator('.section-name').click();

@@ -20,6 +20,7 @@ class TodoCreate(BaseModel):
     title: str
     description: str = ""
     priority: int = Field(default=3, ge=1, le=4)
+    status: str = "pending"
     project_id: Optional[int] = None
     section_id: Optional[int] = None
     due_date: Optional[str] = None
@@ -37,6 +38,8 @@ class TodoUpdate(BaseModel):
 
 
 # ─── Helpers ───────────────────────────────────────────────────────────────────
+
+ALLOWED_TODO_STATUSES = {"pending", "in_progress", "done"}
 
 
 def get_user_inbox_project_id(db, user_id: int) -> Optional[int]:
@@ -110,6 +113,11 @@ def _validate_todo_dates(data):
     _validate_datetime(getattr(data, 'remind_at', None), 'remind_at')
 
 
+def _validate_todo_status(status: Optional[str]):
+    if status is not None and status not in ALLOWED_TODO_STATUSES:
+        raise HTTPException(422, "Invalid status")
+
+
 # ─── Endpoints ─────────────────────────────────────────────────────────────────
 
 @router.get("")
@@ -159,13 +167,18 @@ async def create_todo(data: TodoCreate, user_id: int = Depends(require_auth)):
     data.title = sanitize_text(data.title)
     data.description = sanitize_text(data.description)
     _validate_todo_dates(data)
+    _validate_todo_status(data.status)
     with get_db() as db:
         if data.project_id is None and data.section_id is None:
             data.project_id = get_user_inbox_project_id(db, user_id)
         _validate_todo_target(db, data.project_id, data.section_id, user_id)
+        now = now_iso()
+        completed_at = now if data.status == 'done' else None
         c = db.execute(
-            "INSERT INTO todos (title, description, priority, project_id, section_id, due_date, updated_at, user_id) VALUES (?,?,?,?,?,?,?,?)",
-            (data.title, data.description, data.priority, data.project_id, data.section_id, data.due_date, now_iso(), user_id)
+            """INSERT INTO todos
+               (title, description, priority, status, project_id, section_id, due_date, completed_at, updated_at, user_id)
+               VALUES (?,?,?,?,?,?,?,?,?,?)""",
+            (data.title, data.description, data.priority, data.status, data.project_id, data.section_id, data.due_date, completed_at, now, user_id)
         )
         todo_id = c.lastrowid
         if data.remind_at:
@@ -192,6 +205,7 @@ async def update_todo(todo_id: int, data: TodoUpdate, user_id: int = Depends(req
     if data.description is not None:
         data.description = sanitize_text(data.description)
     _validate_todo_dates(data)
+    _validate_todo_status(data.status)
     with get_db() as db:
         existing = fetch_todo(db, todo_id, user_id)
         if not existing:
