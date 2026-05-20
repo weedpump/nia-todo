@@ -11,7 +11,7 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 - Benutzerprofil im Settings-Modal: Username read-only, Anzeigename editierbar
 - Avatar-Upload über Settings mit rundem Cropper, Drag/Zoom und HEIC/HEIF-Unterstützung per Server-Fallback
 - Bilder werden als WebP-Dateien unter `api/data/avatars/` gespeichert und über `/api/avatars/*` ausgeliefert
-- Live-Backup sichert Avatar-Dateien parallel zur SQLite-DB als rotierende Tarballs
+- Live-Backup sichert SQLite-DB, Metadaten und Avatar-Dateien gemeinsam als rotierendes ZIP pro Slot
 
 ## [1.1.0] - 2026-05-20
 
