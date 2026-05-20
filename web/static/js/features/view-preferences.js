@@ -10,15 +10,19 @@ export function createViewPreferencesFeature({ getHideDone, setHideDone, getSort
   function updateToggleDoneButton() {
     const btn = document.getElementById('toggle-done-btn');
     if (!btn) return;
-    if (getHideDone()) {
-      btn.classList.remove('active');
-      btn.textContent = '🚫';
-      btn.title = 'Erledigte anzeigen';
+    const iconEl = btn.querySelector('.menu-item-icon');
+    const labelEl = btn.querySelector('.menu-item-label');
+    const hidden = getHideDone();
+    btn.classList.toggle('active', !hidden);
+    const icon = hidden ? '🚫' : '✅';
+    const title = hidden ? 'Erledigte anzeigen' : 'Erledigte ausblenden';
+    if (iconEl && labelEl) {
+      iconEl.textContent = icon;
+      labelEl.textContent = title;
     } else {
-      btn.classList.add('active');
-      btn.textContent = '✅';
-      btn.title = 'Erledigte ausblenden';
+      btn.textContent = icon;
     }
+    btn.title = title;
   }
 
   function cycleSort() {
@@ -40,7 +44,14 @@ export function createViewPreferencesFeature({ getHideDone, setHideDone, getSort
       alpha: { icon: 'AZ', title: 'Sortierung: Alphabetisch (A→Z)' },
     };
     const c = config[getSortMode()] || config.order;
-    btn.textContent = c.icon;
+    const iconEl = btn.querySelector('.menu-item-icon');
+    const labelEl = btn.querySelector('.menu-item-label');
+    if (iconEl && labelEl) {
+      iconEl.textContent = c.icon;
+      labelEl.textContent = c.title;
+    } else {
+      btn.textContent = c.icon;
+    }
     btn.title = c.title;
   }
 

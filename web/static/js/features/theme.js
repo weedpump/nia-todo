@@ -30,7 +30,14 @@ export function applyTheme(mode) {
   if (toggleBtn) {
     const icons = { light: '☀️', dark: '🌙', system: '💻' };
     const titles = { light: 'Hell', dark: 'Dunkel', system: 'System' };
-    toggleBtn.textContent = icons[mode] || icons.system;
+    const iconEl = toggleBtn.querySelector('.menu-item-icon');
+    const labelEl = toggleBtn.querySelector('.menu-item-label');
+    if (iconEl && labelEl) {
+      iconEl.textContent = icons[mode] || icons.system;
+      labelEl.textContent = `Theme: ${titles[mode] || titles.system}`;
+    } else {
+      toggleBtn.textContent = icons[mode] || icons.system;
+    }
     toggleBtn.title = `Theme: ${titles[mode] || titles.system} (klicken zum Wechseln)`;
   }
 }

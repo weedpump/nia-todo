@@ -32,8 +32,10 @@ async function run() {
     await visible('#sidebar');
     await waitForText('Inbox');
 
+    await page.click('#user-menu-button');
     await page.click('#theme-toggle-btn');
     await page.click('#theme-toggle-btn');
+    await page.keyboard.press('Escape');
     await page.locator('#update-btn').waitFor({ state: 'attached' });
 
     await page.click('button[onclick="showProjectModal()"]');
