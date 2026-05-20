@@ -29,7 +29,18 @@
 ## Auth
 
 - JWT / Session-Token
+- User-Sessions laufen 30 Tage und werden über `/api/me` gleitend verlängert, wenn sie bald ablaufen
+- Admin-Sessions sind kürzerlebig und separat versioniert
 - CSRF-Schutz für Browser-Sessions
 - API-Keys für externe Nutzung nur via `Authorization: ApiKey ...` oder `X-API-Key`
 - Benutzer sehen eigene Daten plus akzeptierte Shared-Projekte
 - Shared-Projektzugriff wird in Projekten, Todos, Sections, Reminders und WebSocket-Payloads geprüft
+
+## Benutzer-Onboarding
+
+- E-Mail-Adressen sind für neue Benutzer Pflicht, werden validiert und eindeutig gehalten
+- Bestehende Benutzer ohne E-Mail bleiben migrierbar; Admin oder Benutzer können die Adresse nachtragen
+- Admins setzen Benutzerpasswörter nicht direkt
+- Neue Benutzer erhalten einen einmaligen Passwort-Setup-Link (`password_setup_tokens`)
+- Passwort-Setup-/Reset-Links sind 24 Stunden gültig und werden gehashed gespeichert
+- Benutzer können ihre eigene E-Mail im Settings-Modal ändern

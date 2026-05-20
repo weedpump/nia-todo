@@ -74,14 +74,18 @@ body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify
     <!-- Step 2: First User -->
     <div class="setup-step" id="step-2">
       <h2>👤 Ersten Benutzer erstellen</h2>
-      <p>Dieser Benutzer erhält alle bestehenden Daten und ist der erste Benutzer.<br><strong>Passwort-Anforderungen:</strong> Mindestens 8 Zeichen, 1 Groß- und 1 Kleinbuchstabe, 1 Ziffer, 1 Sonderzeichen.</p>
+      <p>Dieser Benutzer erhält alle bestehenden Daten und ist der erste Benutzer. Die E-Mail ist Pflicht und wird später der Login-Name.<br><strong>Passwort-Anforderungen:</strong> Mindestens 8 Zeichen, 1 Groß- und 1 Kleinbuchstabe, 1 Ziffer, 1 Sonderzeichen.</p>
       <div class="setup-field">
         <label>Benutzername</label>
         <input type="text" id="first-username" placeholder="z.B. max" autocomplete="username" onkeydown="if(event.key==='Enter') document.getElementById('first-display-name').focus()">
       </div>
       <div class="setup-field">
         <label>Anzeigename</label>
-        <input type="text" id="first-display-name" placeholder="Max Mustermann" onkeydown="if(event.key==='Enter') document.getElementById('first-password').focus()">
+        <input type="text" id="first-display-name" placeholder="Max Mustermann" onkeydown="if(event.key==='Enter') document.getElementById('first-email').focus()">
+      </div>
+      <div class="setup-field">
+        <label>E-Mail</label>
+        <input type="email" id="first-email" placeholder="max@example.com" autocomplete="email" onkeydown="if(event.key==='Enter') document.getElementById('first-password').focus()">
       </div>
       <div class="setup-field">
         <label>Passwort</label>
@@ -178,13 +182,22 @@ async function setAdminPassword() {
   }
 }
 
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
+}
+
 async function createFirstUser() {
   const username = document.getElementById('first-username').value.trim();
   const displayName = document.getElementById('first-display-name').value.trim();
+  const email = document.getElementById('first-email').value.trim();
   const password = document.getElementById('first-password').value;
   
-  if (!username || !password) {
-    showError(2, 'Benutzername und Passwort sind erforderlich');
+  if (!username || !email || !password) {
+    showError(2, 'Benutzername, E-Mail und Passwort sind erforderlich');
+    return;
+  }
+  if (!isValidEmail(email)) {
+    showError(2, 'Bitte eine gültige E-Mail-Adresse eingeben');
     return;
   }
   
@@ -194,6 +207,7 @@ async function createFirstUser() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         username: username,
+        email: email,
         display_name: displayName || username,
         password: password
       })

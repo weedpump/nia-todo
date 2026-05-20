@@ -16,6 +16,7 @@ import subprocess
 import json
 import time
 import shutil
+from urllib.parse import urlparse, parse_qs
 from pathlib import Path
 from typing import Optional, Tuple, Any
 
@@ -144,6 +145,7 @@ def perform_setup() -> bool:
     # First User erstellen
     status, data = curl("POST", "/api/setup/first-user", {
         "username": "testuser",
+        "email": "testuser@example.invalid",
         "password": USER_PASSWORD,
         "display_name": "Test User"
     })
@@ -201,6 +203,7 @@ class TestSuite:
     def test_setup_first_user(self):
         status, data = curl("POST", "/api/setup/first-user", {
             "username": "testuser",
+            "email": "testuser@example.invalid",
             "password": USER_PASSWORD,
             "display_name": "Test User"
         })
@@ -227,6 +230,10 @@ class TestSuite:
     def test_me(self):
         status, data = curl("GET", "/api/me", token=self.user_token, cookie_jar="/tmp/nia_user_cookies.txt")
         return self.record("me", status)
+
+    def test_invalid_own_email_rejected(self):
+        status, _ = curl("PATCH", "/api/me/email", {"email": "broken-email"}, token=self.user_token, csrf=self.user_csrf, cookie_jar="/tmp/nia_user_cookies.txt")
+        return self.record("invalid_own_email_rejected", status, expected=400)
     
     def test_change_password(self):
         status, _ = curl("POST", "/api/me/change-password", {
@@ -288,26 +295,43 @@ class TestSuite:
         status, _ = curl("GET", "/api/admin/users", token=self.admin_token, cookie_jar="/tmp/nia_admin_cookies.txt")
         return self.record("admin_list_users", status)
     
+    def test_invalid_admin_email_rejected(self):
+        status, _ = curl("POST", "/api/admin/users", {
+            "username": "bademailuser",
+            "display_name": "Bad Email User",
+            "email": "broken-email"
+        }, token=self.admin_token, csrf=self.admin_csrf, cookie_jar="/tmp/nia_admin_cookies.txt")
+        return self.record("invalid_admin_email_rejected", status, expected=400)
+
     def test_admin_create_user(self):
         status, data = curl("POST", "/api/admin/users", {
             "username": "testuser2",
-            "password": "User2Pass123!",
-            "display_name": "Test User 2"
+            "display_name": "Test User 2",
+            "email": "testuser2@example.invalid"
         }, token=self.admin_token, csrf=self.admin_csrf, cookie_jar="/tmp/nia_admin_cookies.txt")
         
         if ok(status) and data:
             self.created_ids["user"].append(data.get("id"))
-        
-        return self.record("admin_create_user", status)
+        passed = ok(status) and data and data.get("password_setup_url") and data.get("password_setup_expires_hours") == 24
+        self.results["admin_create_user"] = {"status": status, "passed": passed, "expected": "200 + password_setup_url + 24h expiry"}
+        return passed
 
     def test_admin_create_shared_user(self):
         status, data = curl("POST", "/api/admin/users", {
             "username": "shareduser",
-            "password": "SharedPass123!",
-            "display_name": "Shared User"
+            "display_name": "Shared User",
+            "email": "shareduser@example.invalid"
         }, token=self.admin_token, csrf=self.admin_csrf, cookie_jar="/tmp/nia_admin_cookies.txt")
         if ok(status) and data:
             self.created_ids["user"].append(data.get("id"))
+            token = parse_qs(urlparse(data.get("password_setup_url", "")).query).get("token", [None])[0]
+            if token:
+                setup_status, _ = curl("POST", "/api/password-setup/complete", {
+                    "token": token,
+                    "password": "SharedPass123!"
+                }, cookie_jar="/tmp/nia_shared_setup_cookies.txt")
+                if not ok(setup_status):
+                    status = setup_status
         return self.record("admin_create_shared_user", status)
 
     def test_shared_user_login(self):
@@ -357,11 +381,10 @@ class TestSuite:
             self.results["admin_change_user_password"] = {"status": -1, "passed": True, "expected": "skipped"}
             return True
         
-        status, _ = curl("POST", f"/api/admin/users/{user_id}/change-password", {
-            "new_password": "NewUser2Pass123!"
-        }, token=self.admin_token, csrf=self.admin_csrf, cookie_jar="/tmp/nia_admin_cookies.txt")
-        
-        return self.record("admin_change_user_password", status)
+        status, data = curl("POST", f"/api/admin/users/{user_id}/password-link", {}, token=self.admin_token, csrf=self.admin_csrf, cookie_jar="/tmp/nia_admin_cookies.txt")
+        passed = ok(status) and data and data.get("password_setup_url") and data.get("password_setup_expires_hours") == 24
+        self.results["admin_change_user_password"] = {"status": status, "passed": passed, "expected": "200 + password_setup_url + 24h expiry"}
+        return passed
     
     def test_admin_delete_user(self):
         user_id = self.created_ids["user"][-1] if self.created_ids["user"] else None
@@ -824,6 +847,7 @@ class TestSuite:
             # User Auth
             self.test_login,
             self.test_me,
+            self.test_invalid_own_email_rejected,
 
             # Admin session needed to create sharing test user
             self.test_admin_login,
@@ -897,6 +921,7 @@ class TestSuite:
             
             # Admin (same session)
             self.test_admin_list_users,
+            self.test_invalid_admin_email_rejected,
             self.test_admin_create_user,
             self.test_admin_change_user_password,
             self.test_admin_delete_user,

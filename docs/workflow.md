@@ -28,3 +28,11 @@
 - sinnvolle Änderungen committen
 - nach größeren Arbeitsblöcken pushen
 - kleine Doku-Änderungen bündeln
+
+## Auth-/Admin-Änderungen
+
+- Passwort-/Onboarding-Änderungen auf Feature-Branches entwickeln
+- E-Mail-Adressen client- und serverseitig validieren
+- Admins erzeugen Passwort-Setup-/Reset-Links statt Passwörter direkt zu setzen
+- Passwort-Links sind einmalig und 24 Stunden gültig
+- Vor Merge/Release mindestens Backend-, Admin-, Setup- und Settings-Frontendtests ausführen

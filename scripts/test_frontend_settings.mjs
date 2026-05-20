@@ -48,6 +48,24 @@ async function run() {
     await page.click('button[title="Einstellungen"]');
     await visible('#settings-modal');
     await page.locator('#settings-user-name').waitFor({ state: 'visible' });
+    await page.locator('#settings-email-display').waitFor({ state: 'visible', timeout: 10000 });
+    await page.locator('#settings-email-cell').getByRole('button', { name: '✏️' }).click();
+    await page.locator('#settings-email-input').fill('broken-email');
+    await page.locator('#settings-email-cell').getByRole('button', { name: '✅' }).click();
+    await page.getByText('Bitte eine gültige E-Mail-Adresse eingeben').waitFor({ state: 'visible', timeout: 10000 });
+    await page.locator('#settings-email-input').fill('frontenduser-updated@example.invalid');
+    await page.locator('#settings-email-cell').getByRole('button', { name: '✅' }).click();
+    await page.getByText('E-Mail gespeichert').waitFor({ state: 'visible', timeout: 10000 });
+    await page.locator('#settings-email-cell').getByText('frontenduser-updated@example.invalid').waitFor({ state: 'visible', timeout: 10000 });
+    await page.locator('#settings-email-cell').getByRole('button', { name: '✏️' }).click();
+    await page.locator('#settings-email-input').fill('cancelled@example.invalid');
+    await page.locator('#settings-email-cell').getByRole('button', { name: '✕' }).click();
+    await page.locator('#settings-email-cell').getByText('frontenduser-updated@example.invalid').waitFor({ state: 'visible', timeout: 10000 });
+    await page.waitForFunction(async () => {
+      const jwt = localStorage.getItem('jwt_token');
+      const data = await fetch('/api/me', { headers: { 'Authorization': `Bearer ${jwt}` }, credentials: 'include' }).then(r => r.json());
+      return data.email === 'frontenduser-updated@example.invalid';
+    }, null, { timeout: 10000 });
 
     await page.evaluate(() => {
       window.updatePushStatus('granted');
