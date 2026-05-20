@@ -7,15 +7,26 @@
 
 ## Backend
 
-- `python3 scripts/test_backend.py`
-- prüft Auth, Admin, Projekte, Sections, Todos, Push, Setup
+`python3 scripts/test_backend.py`
+
+Deckt ab:
+- Setup
+- Auth
+- Admin
+- API-Keys
+- Projekte
+- Sections
+- Todos
+- Push
+- Reminders
 
 ## Frontend
 
 ### Smoke
 - Login
+- App-Start
 - Projekt anlegen
-- Suche
+- Search
 - Delete + Undo
 
 ### App
@@ -57,4 +68,4 @@
 ## Hinweise
 
 - Frontend-Tests laufen gegen headless Chromium
-- `web/manifest.json` wird nicht als normale Testdatei behandelt
+- `web/manifest.json` wird vom Dev-/Release-Flow gepflegt
