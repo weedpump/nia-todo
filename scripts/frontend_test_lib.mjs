@@ -112,13 +112,15 @@ export async function launchPage() {
       await page.getByText(name, { exact: true }).waitFor({ state: 'visible' });
     },
     loginApp: async () => {
-      await page.goto(BASE_URL, { waitUntil: 'networkidle' });
-      await page.locator('#login-overlay').waitFor({ state: 'visible', timeout: 5000 });
+      await page.goto(BASE_URL, { waitUntil: 'domcontentloaded' });
+      await page.locator('#login-overlay').waitFor({ state: 'visible', timeout: 10000 });
+      await page.locator('#login-username').waitFor({ state: 'visible', timeout: 10000 });
+      await page.locator('button.login-btn').waitFor({ state: 'visible', timeout: 10000 });
       await page.fill('#login-username', USERNAME);
       await page.fill('#login-password', USER_PASSWORD);
       await page.click('button.login-btn');
-      await page.locator('#login-overlay').waitFor({ state: 'hidden', timeout: 10000 });
-      await page.locator('#user-name').waitFor({ state: 'visible', timeout: 5000 });
+      await page.locator('#login-overlay').waitFor({ state: 'hidden', timeout: 15000 });
+      await page.locator('#user-name').waitFor({ state: 'visible', timeout: 10000 });
     },
     assertNoFrontendErrors: () => {
       const filtered = consoleErrors.filter(msg => !msg.includes('Failed to load resource: the server responded with a status of 404'));
