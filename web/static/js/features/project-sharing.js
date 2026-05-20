@@ -147,8 +147,10 @@ export function createProjectSharingFeature({
   function showShareInput() {
     const content = document.getElementById('project-sharing-content');
     const startRow = document.getElementById('project-share-start-row');
+    const inviteRow = document.getElementById('project-share-row');
     if (content) content.style.display = '';
     if (startRow) startRow.style.display = 'none';
+    if (inviteRow) inviteRow.style.display = '';
   }
 
   function applyProjectModalState(project, canEdit, shared) {
