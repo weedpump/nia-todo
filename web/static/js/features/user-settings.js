@@ -271,20 +271,22 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     cropErrorEl.textContent = '';
     img.onload = () => {
       cropState.image = img;
-      const stage = document.getElementById('avatar-crop-stage');
-      const stageSize = stage.clientWidth;
-      cropState.minScale = Math.max(stageSize / img.naturalWidth, stageSize / img.naturalHeight);
-      cropState.scale = cropState.minScale;
-      cropState.x = 0;
-      cropState.y = 0;
-      const zoom = document.getElementById('avatar-zoom-range');
-      zoom.min = String(cropState.minScale);
-      zoom.max = String(cropState.minScale * 4);
-      zoom.step = '0.01';
-      zoom.value = String(cropState.scale);
-      renderCropTransform();
-      bindCropStageOnce();
       document.getElementById('avatar-crop-modal')?.classList.add('active');
+      requestAnimationFrame(() => {
+        const stage = document.getElementById('avatar-crop-stage');
+        const stageSize = stage?.clientWidth || 320;
+        cropState.minScale = Math.max(stageSize / img.naturalWidth, stageSize / img.naturalHeight);
+        cropState.scale = cropState.minScale;
+        cropState.x = 0;
+        cropState.y = 0;
+        const zoom = document.getElementById('avatar-zoom-range');
+        zoom.min = String(cropState.minScale);
+        zoom.max = String(cropState.minScale * 4);
+        zoom.step = '0.01';
+        zoom.value = String(cropState.scale);
+        renderCropTransform();
+        bindCropStageOnce();
+      });
     };
     img.onerror = async () => {
       resetCropState();

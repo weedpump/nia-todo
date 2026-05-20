@@ -65,6 +65,11 @@ async function run() {
       buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNMTvvIwMDAxMDAwMDAAAAUVAG+nM0ffgAAAABJRU5ErkJggg==', 'base64')
     });
     await visible('#avatar-crop-modal');
+    await page.waitForFunction(() => {
+      const image = document.getElementById('avatar-crop-image');
+      const rect = image?.getBoundingClientRect();
+      return image?.naturalWidth > 0 && rect?.width > 0 && !image.style.transform.includes('scale(0)');
+    }, null, { timeout: 10000 });
     await page.click('#avatar-crop-modal .btn-primary');
     await page.getByText('Avatar gespeichert').waitFor({ state: 'visible', timeout: 10000 });
     await page.locator('#settings-avatar-preview').waitFor({ state: 'visible', timeout: 10000 });
