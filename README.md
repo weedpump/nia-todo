@@ -210,10 +210,10 @@ npm run test:frontend
 ### Was die Frontend-Tests abdecken
 
 - **Smoke:** Login + App-Start, Projekt anlegen, Search, Delete + Undo
-- **App:** Sections anlegen/umbenennen/löschen, Todo mit Section-Zuordnung, Projektwechsel im Todo-Modal, Status-/Kernflows
+- **App:** Sections anlegen/umbenennen/löschen, Todo mit Section-Zuordnung, Projektwechsel im Todo-Modal, vollständiger Todo-Edit-Flow (Titel, Beschreibung, Priorität, Status, Projekt, Due Date, Reminder), Status-/Kernflows inkl. Regression gegen den alten `temp is not defined`-Pfad
 - **Setup:** First-Run- / Setup-Flow
 - **Admin:** Admin-Login, User-Verwaltung, Admin-Passwort-Flow
-- **Settings:** Einstellungen öffnen, User-Info, Passwort ändern mit anschließendem Logout
+- **Settings:** Einstellungen öffnen, User-Info, API-Key erstellen/widerrufen, Push-Status/Test/Deaktivieren, Passwort ändern mit anschließendem Logout
 - **Projects:** Projekt anlegen, Subprojekt anlegen, Projekt bearbeiten, Projekt löschen mit Todo-Fallback
 - **Drag & Drop:** Todo zwischen Sections verschieben, nach Unsortiert verschieben, Section-Reorder-Basis
 - Alle Frontend-Tests laufen gegen echtes **headless Chromium**
