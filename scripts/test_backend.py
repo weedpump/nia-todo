@@ -162,7 +162,9 @@ class TestSuite:
         self.user_csrf = None
         self.admin_token = None
         self.admin_csrf = None
-        self.created_ids = {"todo": [], "project": [], "section": [], "apikey": [], "user": [], "reminder": [], "invite": []}
+        self.shared_token = None
+        self.shared_csrf = None
+        self.created_ids = {"todo": [], "project": [], "section": [], "apikey": [], "user": [], "reminder": [], "invite": [], "shared_section": [], "shared_todo": []}
     
     def cleanup(self):
         """Reset state between tests."""
@@ -170,7 +172,9 @@ class TestSuite:
         self.user_csrf = None
         self.admin_token = None
         self.admin_csrf = None
-        self.created_ids = {"todo": [], "project": [], "section": [], "apikey": [], "user": [], "reminder": [], "invite": []}
+        self.shared_token = None
+        self.shared_csrf = None
+        self.created_ids = {"todo": [], "project": [], "section": [], "apikey": [], "user": [], "reminder": [], "invite": [], "shared_section": [], "shared_todo": []}
     
     def record(self, name: str, status: int, expected: int = 200):
         passed = ok(status, expected)
@@ -288,6 +292,26 @@ class TestSuite:
             self.created_ids["user"].append(data.get("id"))
         
         return self.record("admin_create_user", status)
+
+    def test_admin_create_shared_user(self):
+        status, data = curl("POST", "/api/admin/users", {
+            "username": "shareduser",
+            "password": "SharedPass123!",
+            "display_name": "Shared User"
+        }, token=self.admin_token, csrf=self.admin_csrf, cookie_jar="/tmp/nia_admin_cookies.txt")
+        if ok(status) and data:
+            self.created_ids["user"].append(data.get("id"))
+        return self.record("admin_create_shared_user", status)
+
+    def test_shared_user_login(self):
+        status, data = curl("POST", "/api/login", {
+            "username": "shareduser",
+            "password": "SharedPass123!"
+        }, cookie_jar="/tmp/nia_shared_cookies.txt")
+        if ok(status):
+            self.shared_token = data.get("access_token")
+            self.shared_csrf = data.get("csrf_token")
+        return self.record("shared_user_login", status)
     
     def test_admin_change_user_password(self):
         user_id = self.created_ids["user"][-1] if self.created_ids["user"] else None
@@ -440,35 +464,104 @@ class TestSuite:
         if not proj_id:
             self.results["share_project"] = {"status": -1, "passed": True, "expected": "skipped"}
             return True
-        status, _ = curl("POST", f"/api/projects/{proj_id}/share", {"username": "shareduser"}, token=self.user_token, csrf=self.user_csrf, cookie_jar="/tmp/nia_user_cookies.txt")
+        status, data = curl("POST", f"/api/projects/{proj_id}/share", {"username": "shareduser"}, token=self.user_token, csrf=self.user_csrf, cookie_jar="/tmp/nia_user_cookies.txt")
+        if ok(status) and data and data.get("member"):
+            self.created_ids["invite"].append(data["member"].get("id"))
+            self.shared_user_id = data["member"].get("user_id")
         return self.record("share_project", status)
 
-    def test_list_invites(self):
-        status, _ = curl("GET", "/api/projects/invites", token=self.user_token, cookie_jar="/tmp/nia_user_cookies.txt")
-        return self.record("list_invites", status)
+    def test_shared_invite_list(self):
+        status, data = curl("GET", "/api/projects/invites", token=self.shared_token, cookie_jar="/tmp/nia_shared_cookies.txt")
+        passed = self.record("shared_invite_list", status)
+        if passed and not data.get("invites"):
+            self.results["shared_invite_list"] = {"status": status, "passed": False, "expected": "non_empty"}
+            return False
+        return passed
 
-    def test_shared_todo_access(self):
-        status, _ = curl("GET", "/api/todos", token=self.user_token, cookie_jar="/tmp/nia_user_cookies.txt")
-        return self.record("shared_todo_access", status)
+    def test_accept_invite(self):
+        proj_id = self.created_ids["project"][-1] if self.created_ids["project"] else None
+        invite_id = self.created_ids["invite"][-1] if self.created_ids["invite"] else None
+        if not proj_id or not invite_id:
+            self.results["accept_invite"] = {"status": -1, "passed": True, "expected": "skipped"}
+            return True
+        status, _ = curl("POST", f"/api/projects/{proj_id}/invites/{invite_id}", {"accept": True}, token=self.shared_token, csrf=self.shared_csrf, cookie_jar="/tmp/nia_shared_cookies.txt")
+        return self.record("accept_invite", status)
 
-    def test_shared_section_access(self):
-        status, _ = curl("GET", "/api/sections", token=self.user_token, cookie_jar="/tmp/nia_user_cookies.txt")
-        return self.record("shared_section_access", status)
+    def test_shared_project_visible(self):
+        status, data = curl("GET", "/api/projects", token=self.shared_token, cookie_jar="/tmp/nia_shared_cookies.txt")
+        passed = self.record("shared_project_visible", status)
+        proj_id = self.created_ids["project"][-1] if self.created_ids["project"] else None
+        if passed and not any(p.get("id") == proj_id and p.get("is_shared") for p in data.get("projects", [])):
+            self.results["shared_project_visible"] = {"status": status, "passed": False, "expected": "shared project in list"}
+            return False
+        return passed
 
-    def test_leave_project(self):
+    def test_shared_project_cannot_patch(self):
         proj_id = self.created_ids["project"][-1] if self.created_ids["project"] else None
         if not proj_id:
-            self.results["leave_project"] = {"status": -1, "passed": True, "expected": "skipped"}
+            self.results["shared_project_cannot_patch"] = {"status": -1, "passed": True, "expected": "skipped"}
             return True
-        status, _ = curl("POST", f"/api/projects/{proj_id}/leave", token=self.user_token, csrf=self.user_csrf, cookie_jar="/tmp/nia_user_cookies.txt")
-        return self.record("leave_project", status)
+        status, _ = curl("PATCH", f"/api/projects/{proj_id}", {"name": "Nope"}, token=self.shared_token, csrf=self.shared_csrf, cookie_jar="/tmp/nia_shared_cookies.txt")
+        return self.record("shared_project_cannot_patch", status, expected=403)
+
+    def test_shared_section_create_patch_delete(self):
+        proj_id = self.created_ids["project"][-1] if self.created_ids["project"] else None
+        if not proj_id:
+            self.results["shared_section_create_patch_delete"] = {"status": -1, "passed": True, "expected": "skipped"}
+            return True
+        status, data = curl("POST", f"/api/sections/by-project/{proj_id}", {"name": "Shared Section", "sort_order": 0}, token=self.shared_token, csrf=self.shared_csrf, cookie_jar="/tmp/nia_shared_cookies.txt")
+        if not ok(status) or not data:
+            return self.record("shared_section_create_patch_delete", status)
+        section_id = data.get("id")
+        self.created_ids["shared_section"].append(section_id)
+        status, _ = curl("PATCH", f"/api/sections/{section_id}", {"name": "Shared Section Updated"}, token=self.shared_token, csrf=self.shared_csrf, cookie_jar="/tmp/nia_shared_cookies.txt")
+        if not ok(status):
+            return self.record("shared_section_create_patch_delete", status)
+        return self.record("shared_section_create_patch_delete", status)
+
+    def test_shared_todo_create_patch_delete(self):
+        proj_id = self.created_ids["project"][-1] if self.created_ids["project"] else None
+        section_id = self.created_ids["shared_section"][-1] if self.created_ids["shared_section"] else None
+        if not proj_id:
+            self.results["shared_todo_create_patch_delete"] = {"status": -1, "passed": True, "expected": "skipped"}
+            return True
+        status, data = curl("POST", "/api/todos", {"title": "Shared Todo", "project_id": proj_id, "section_id": section_id}, token=self.shared_token, csrf=self.shared_csrf, cookie_jar="/tmp/nia_shared_cookies.txt")
+        if not ok(status) or not data:
+            return self.record("shared_todo_create_patch_delete", status)
+        todo_id = data.get("id")
+        self.created_ids["shared_todo"].append(todo_id)
+        status, _ = curl("PATCH", f"/api/todos/{todo_id}", {"status": "done"}, token=self.shared_token, csrf=self.shared_csrf, cookie_jar="/tmp/nia_shared_cookies.txt")
+        return self.record("shared_todo_create_patch_delete", status)
+
+    def test_owner_remove_member_and_undo(self):
+        proj_id = self.created_ids["project"][-1] if self.created_ids["project"] else None
+        user_id = getattr(self, "shared_user_id", None)
+        if not proj_id or not user_id:
+            self.results["owner_remove_member_and_undo"] = {"status": -1, "passed": True, "expected": "skipped"}
+            return True
+        status, _ = curl("DELETE", f"/api/projects/{proj_id}/members/{user_id}", token=self.user_token, csrf=self.user_csrf, cookie_jar="/tmp/nia_user_cookies.txt")
+        if not ok(status):
+            return self.record("owner_remove_member_and_undo", status)
+        status, _ = curl("POST", f"/api/projects/{proj_id}/members/{user_id}/restore", {"status": "accepted"}, token=self.user_token, csrf=self.user_csrf, cookie_jar="/tmp/nia_user_cookies.txt")
+        return self.record("owner_remove_member_and_undo", status)
+
+    def test_leave_project_and_undo(self):
+        proj_id = self.created_ids["project"][-1] if self.created_ids["project"] else None
+        if not proj_id:
+            self.results["leave_project_and_undo"] = {"status": -1, "passed": True, "expected": "skipped"}
+            return True
+        status, _ = curl("POST", f"/api/projects/{proj_id}/leave", token=self.shared_token, csrf=self.shared_csrf, cookie_jar="/tmp/nia_shared_cookies.txt")
+        if not ok(status):
+            return self.record("leave_project_and_undo", status)
+        status, _ = curl("POST", f"/api/projects/{proj_id}/leave/undo", token=self.shared_token, csrf=self.shared_csrf, cookie_jar="/tmp/nia_shared_cookies.txt")
+        return self.record("leave_project_and_undo", status)
 
     def test_owner_cannot_leave(self):
         proj_id = self.created_ids["project"][-1] if self.created_ids["project"] else None
         if not proj_id:
             self.results["owner_cannot_leave"] = {"status": -1, "passed": True, "expected": "skipped"}
             return True
-        status, _ = curl("POST", f"/api/projects/{proj_id}/leave", token=self.admin_token, csrf=self.admin_csrf, cookie_jar="/tmp/nia_admin_cookies.txt")
+        status, _ = curl("POST", f"/api/projects/{proj_id}/leave", token=self.user_token, csrf=self.user_csrf, cookie_jar="/tmp/nia_user_cookies.txt")
         return self.record("owner_cannot_leave", status, expected=400)
 
     # --- Sections -------------------------------------------------------------
@@ -611,16 +704,6 @@ class TestSuite:
     
     def run_all(self):
         """Execute all tests in logical order."""
-        # Create second user for sharing scenarios
-        try:
-            curl("POST", "/api/admin/users", {
-                "username": "shareduser",
-                "password": "SharedPass123!",
-                "display_name": "Shared User"
-            }, token=self.admin_token, csrf=self.admin_csrf, cookie_jar="/tmp/nia_admin_cookies.txt")
-        except Exception:
-            pass
-
         tests = [
             # Setup
             self.test_setup_status,
@@ -630,6 +713,11 @@ class TestSuite:
             # User Auth
             self.test_login,
             self.test_me,
+
+            # Admin session needed to create sharing test user
+            self.test_admin_login,
+            self.test_admin_create_shared_user,
+            self.test_shared_user_login,
             
             # API Keys
             self.test_apikey_create,
@@ -639,6 +727,18 @@ class TestSuite:
             self.test_project_create,
             self.test_project_list,
             self.test_project_patch,
+
+            # Sharing
+            self.test_share_project,
+            self.test_shared_invite_list,
+            self.test_accept_invite,
+            self.test_shared_project_visible,
+            self.test_shared_project_cannot_patch,
+            self.test_shared_section_create_patch_delete,
+            self.test_shared_todo_create_patch_delete,
+            self.test_owner_remove_member_and_undo,
+            self.test_leave_project_and_undo,
+            self.test_owner_cannot_leave,
             
             # Sections
             self.test_section_create,
@@ -679,8 +779,7 @@ class TestSuite:
             self.test_change_password,
             self.test_logout,
             
-            # Admin (separate session)
-            self.test_admin_login,
+            # Admin (same session)
             self.test_admin_list_users,
             self.test_admin_create_user,
             self.test_admin_change_user_password,

@@ -149,10 +149,11 @@ export function createProjectSharingFeature({
   }
 
   async function undoLeaveProject(data) {
-    if (!data?.projectId || !data.project) return;
-    const exists = getProjects().some(p => p.id === data.project.id);
-    if (!exists) {
-      setProjects([...getProjects(), data.project]);
+    if (!data?.projectId) return;
+    await projectsApi.undoLeaveProject(data.projectId);
+    const res = await projectsApi.list();
+    if (res?.projects) {
+      setProjects(res.projects);
       renderProjects();
       renderStats();
       renderTodos();
@@ -160,8 +161,8 @@ export function createProjectSharingFeature({
   }
 
   async function undoRemoveMember(data) {
-    if (!data?.projectId || !data?.username) return;
-    await projectsApi.shareProject(data.projectId, data.username);
+    if (!data?.projectId || !data?.userId) return;
+    await projectsApi.restoreMember(data.projectId, data.userId, 'accepted');
     await loadMembers(data.projectId);
   }
 

@@ -64,6 +64,19 @@ def _todo_project_access(db, todo: dict, user_id: int) -> bool:
     return can_access_project(db, project_id, user_id) or todo.get('user_id') == user_id
 
 
+def _validate_todo_target(db, project_id: Optional[int], section_id: Optional[int], user_id: int):
+    if project_id is not None and not can_manage_todos(db, project_id, user_id):
+        raise HTTPException(403, "Not authorized")
+    if section_id is not None:
+        row = db.execute("SELECT project_id FROM sections WHERE id = ?", (section_id,)).fetchone()
+        if not row:
+            raise HTTPException(404, "Section not found")
+        if project_id is None or row['project_id'] != project_id:
+            raise HTTPException(400, "Section does not belong to the selected project")
+        if not can_manage_todos(db, row['project_id'], user_id):
+            raise HTTPException(403, "Not authorized")
+
+
 # ─── Endpoints ─────────────────────────────────────────────────────────────────
 
 @router.get("")
@@ -102,8 +115,7 @@ async def create_todo(data: TodoCreate, user_id: int = Depends(require_auth)):
     data.title = sanitize_text(data.title)
     data.description = sanitize_text(data.description)
     with get_db() as db:
-        if data.project_id is not None and not can_manage_todos(db, data.project_id, user_id):
-            raise HTTPException(403, "Not authorized")
+        _validate_todo_target(db, data.project_id, data.section_id, user_id)
         c = db.execute(
             "INSERT INTO todos (title, description, priority, project_id, section_id, due_date, updated_at, user_id) VALUES (?,?,?,?,?,?,?,?)",
             (data.title, data.description, data.priority, data.project_id, data.section_id, data.due_date, now_iso(), user_id)
@@ -138,8 +150,12 @@ async def update_todo(todo_id: int, data: TodoUpdate, user_id: int = Depends(req
             raise HTTPException(404, "Todo not found")
         if not _todo_project_access(db, existing, user_id):
             raise HTTPException(403, "Not authorized")
-        updates = {}
         dumped = data.model_dump(exclude_unset=True)
+        target_project_id = dumped.get('project_id', existing.get('project_id'))
+        target_section_id = dumped.get('section_id', existing.get('section_id'))
+        _validate_todo_target(db, target_project_id, target_section_id, user_id)
+
+        updates = {}
         for f in ["title", "description", "priority", "project_id", "section_id", "due_date", "status"]:
             if f in dumped:
                 updates[f] = dumped[f]
