@@ -284,6 +284,16 @@
           </select>
         </div>
       </form>
+
+      <div id="project-sharing-section" style="display:none; margin-top:16px; padding-top:16px; border-top:1px solid var(--border);">
+        <h4 style="margin:0 0 10px 0;">Geteilt mit</h4>
+        <div id="project-members-list"></div>
+        <div id="project-share-row" style="display:flex; gap:8px; margin-top:10px;">
+          <input id="project-share-username" type="text" placeholder="Benutzername">
+          <button type="button" class="btn btn-primary" onclick="inviteUserToProject()">Einladen</button>
+        </div>
+        <button type="button" class="btn btn-secondary" id="project-leave-btn" onclick="leaveProjectFromModal()" style="display:none; margin-top:10px;">Projekt verlassen</button>
+      </div>
       </div>
       <div class="modal-actions">
         <button type="button" class="btn btn-danger" id="project-delete-btn" onclick="deleteProjectFromModal()" style="margin-right:auto;display:none;">🗑️ Löschen</button>

@@ -162,7 +162,7 @@ class TestSuite:
         self.user_csrf = None
         self.admin_token = None
         self.admin_csrf = None
-        self.created_ids = {"todo": [], "project": [], "section": [], "apikey": [], "user": [], "reminder": []}
+        self.created_ids = {"todo": [], "project": [], "section": [], "apikey": [], "user": [], "reminder": [], "invite": []}
     
     def cleanup(self):
         """Reset state between tests."""
@@ -170,7 +170,7 @@ class TestSuite:
         self.user_csrf = None
         self.admin_token = None
         self.admin_csrf = None
-        self.created_ids = {"todo": [], "project": [], "section": [], "apikey": [], "user": [], "reminder": []}
+        self.created_ids = {"todo": [], "project": [], "section": [], "apikey": [], "user": [], "reminder": [], "invite": []}
     
     def record(self, name: str, status: int, expected: int = 200):
         passed = ok(status, expected)
@@ -433,6 +433,44 @@ class TestSuite:
         status, _ = curl("DELETE", f"/api/projects/{proj_id}", token=self.user_token, csrf=self.user_csrf, cookie_jar="/tmp/nia_user_cookies.txt")
         return self.record("project_delete", status)
     
+    # --- Sharing --------------------------------------------------------------
+
+    def test_share_project(self):
+        proj_id = self.created_ids["project"][-1] if self.created_ids["project"] else None
+        if not proj_id:
+            self.results["share_project"] = {"status": -1, "passed": True, "expected": "skipped"}
+            return True
+        status, _ = curl("POST", f"/api/projects/{proj_id}/share", {"username": "shareduser"}, token=self.user_token, csrf=self.user_csrf, cookie_jar="/tmp/nia_user_cookies.txt")
+        return self.record("share_project", status)
+
+    def test_list_invites(self):
+        status, _ = curl("GET", "/api/projects/invites", token=self.user_token, cookie_jar="/tmp/nia_user_cookies.txt")
+        return self.record("list_invites", status)
+
+    def test_shared_todo_access(self):
+        status, _ = curl("GET", "/api/todos", token=self.user_token, cookie_jar="/tmp/nia_user_cookies.txt")
+        return self.record("shared_todo_access", status)
+
+    def test_shared_section_access(self):
+        status, _ = curl("GET", "/api/sections", token=self.user_token, cookie_jar="/tmp/nia_user_cookies.txt")
+        return self.record("shared_section_access", status)
+
+    def test_leave_project(self):
+        proj_id = self.created_ids["project"][-1] if self.created_ids["project"] else None
+        if not proj_id:
+            self.results["leave_project"] = {"status": -1, "passed": True, "expected": "skipped"}
+            return True
+        status, _ = curl("POST", f"/api/projects/{proj_id}/leave", token=self.user_token, csrf=self.user_csrf, cookie_jar="/tmp/nia_user_cookies.txt")
+        return self.record("leave_project", status)
+
+    def test_owner_cannot_leave(self):
+        proj_id = self.created_ids["project"][-1] if self.created_ids["project"] else None
+        if not proj_id:
+            self.results["owner_cannot_leave"] = {"status": -1, "passed": True, "expected": "skipped"}
+            return True
+        status, _ = curl("POST", f"/api/projects/{proj_id}/leave", token=self.admin_token, csrf=self.admin_csrf, cookie_jar="/tmp/nia_admin_cookies.txt")
+        return self.record("owner_cannot_leave", status, expected=400)
+
     # --- Sections -------------------------------------------------------------
     
     def test_section_create(self):
@@ -573,6 +611,16 @@ class TestSuite:
     
     def run_all(self):
         """Execute all tests in logical order."""
+        # Create second user for sharing scenarios
+        try:
+            curl("POST", "/api/admin/users", {
+                "username": "shareduser",
+                "password": "SharedPass123!",
+                "display_name": "Shared User"
+            }, token=self.admin_token, csrf=self.admin_csrf, cookie_jar="/tmp/nia_admin_cookies.txt")
+        except Exception:
+            pass
+
         tests = [
             # Setup
             self.test_setup_status,

@@ -9,6 +9,8 @@ export function createToastUndoFeature({
   renderStats,
   renderTodos,
   toggleTodo,
+  onUndoLeaveProject,
+  onUndoRemoveMember,
 }) {
   let undoAction = null;
   let undoTimer = null;
@@ -55,6 +57,10 @@ export function createToastUndoFeature({
       restoreTodo(undoAction.id, undoAction.data);
     } else if (undoAction.type === 'batch_delete' && pendingUndoBatch) {
       restoreBatchTodos();
+    } else if (undoAction.type === 'project_leave' && onUndoLeaveProject) {
+      onUndoLeaveProject(undoAction.data);
+    } else if (undoAction.type === 'member_remove' && onUndoRemoveMember) {
+      onUndoRemoveMember(undoAction.data);
     }
     hideToast();
   }
