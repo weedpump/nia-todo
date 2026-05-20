@@ -19,7 +19,6 @@ export function createTodosFeature({
   showToast,
   setupDescPreview,
   renderMarkdown,
-  loadSectionsForCurrentProject,
 }) {
   function clearDateTimeErrors() {
     for (const id of ['todo-due', 'todo-remind']) {
@@ -166,7 +165,7 @@ export function createTodosFeature({
       document.getElementById('todo-priority').value = todo.priority;
       document.getElementById('todo-status').value = todo.status;
       document.getElementById('todo-project').value = todo.project_id || '';
-      await loadSectionsForCurrentProject(todo.section_id);
+      await onProjectChange(todo.section_id);
       if (todo.due_date) {
         const d = new Date(todo.due_date);
         document.getElementById('todo-due').value = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
