@@ -525,6 +525,11 @@ X-API-Key: nt_...
 { "name": "Hobby Neu" }
 ```
 
+`parent_id` kann auf eine Projekt-ID gesetzt oder mit `null` wieder entfernt werden:
+```json
+{ "parent_id": null }
+```
+
 **Response**
 ```json
 { "id": 7, "name": "Hobby Neu" }
