@@ -452,5 +452,3 @@ export function startAppModule() {
     userSettings: { renderUserInfo, openSettingsModal, changeUserPassword },
   });
 }
-
-startAppModule();
