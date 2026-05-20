@@ -5,13 +5,32 @@ Alle wichtigen Änderungen an diesem Projekt werden in dieser Datei dokumentiert
 Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.2.0] - 2026-05-21
 
 ### Added
-- Benutzerprofil im Settings-Modal: Username read-only, Anzeigename editierbar
-- Avatar-Upload über Settings mit rundem Cropper, Drag/Zoom und HEIC/HEIF-Unterstützung per Server-Fallback
-- Bilder werden als WebP-Dateien unter `api/data/avatars/` gespeichert und über `/api/avatars/*` ausgeliefert
-- Live-Backup sichert SQLite-DB, Metadaten und Avatar-Dateien gemeinsam als rotierendes ZIP pro Slot
+- **Avatar-/User-Menü oben rechts** als neuer Ort für globale Aktionen
+  - Einstellungen, Theme, Sortierung, erledigte Todos ausblenden und Logout im kompakten Menü
+  - Alter Sidebar-User-Footer wurde entfernt
+- **Benutzerprofil im Settings-Modal**
+  - Username wird read-only angezeigt
+  - Anzeigename ist inline wie die E-Mail bearbeitbar
+  - E-Mail und Profil laden beim Öffnen frische `/api/me` Daten
+- **Avatar-Upload über Settings**
+  - Runder Cropper mit Drag, Pinch-to-Zoom auf Mobile und Mausrad-/Trackpad-Zoom auf Desktop
+  - JPEG/PNG/WebP/GIF sowie HEIC/HEIF als Upload-Formate
+  - HEIC/HEIF wird serverseitig verarbeitet, wenn der Browser keine Vorschau unterstützt
+  - Gespeichert wird immer WebP unter `api/data/avatars/`; die DB speichert nur URL und Änderungszeitpunkt
+- **Avatar-Backups**
+  - Live-Backup sichert SQLite-DB, Metadaten und Avatar-Dateien gemeinsam als rotierendes ZIP pro Slot
+
+### Changed
+- User-Menü-Textfarben normalisiert, damit aktive Toggle-Einträge optisch ruhig bleiben
+- Settings-Profilbereich kompakter und sauberer angeordnet
+
+### Fixed
+- Undo für erneut geöffnete Todos stellt den vorherigen Status korrekt wieder her
+- Avatar-Cropper zeigt Bilder auf Mobile korrekt an, statt wegen unsichtbarer Modal-Größe mit `scale(0)` zu starten
+- Projekt-Modal kann ein Subprojekt wieder zurück auf „kein Eltern-Projekt“ setzen (`parent_id: null` wird jetzt übernommen)
 
 ## [1.1.0] - 2026-05-20
 
