@@ -92,13 +92,15 @@ async def websocket_endpoint(websocket: WebSocket):
                         todos_out.append(d)
 
                     own_projects = db.execute(
-                        "SELECT *, 0 as is_shared, 1 as is_owner FROM projects WHERE user_id = ? ORDER BY parent_id, sort_order, id",
+                        "SELECT *, 0 as is_shared, 1 as is_owner FROM projects WHERE user_id = ? ORDER BY COALESCE(is_inbox, 0) DESC, parent_id, sort_order, id",
                         (ws_user_id,)
                     ).fetchall()
                     shared_projects = db.execute(
-                        """SELECT p.*, 1 as is_shared, 0 as is_owner, pm.id as member_id, pm.status as member_status
+                        """SELECT p.*, 1 as is_shared, 0 as is_owner, pm.id as member_id, pm.status as member_status,
+                                  u.username as owner_username, u.display_name as owner_display_name
                            FROM projects p
                            JOIN project_members pm ON pm.project_id = p.id
+                           JOIN users u ON u.id = p.user_id
                            WHERE pm.user_id = ? AND pm.status = 'accepted'
                            ORDER BY p.name""",
                         (ws_user_id,)

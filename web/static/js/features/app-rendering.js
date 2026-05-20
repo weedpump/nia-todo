@@ -62,8 +62,7 @@ export function createAppRenderingFeature({
     });
 
     rootProjects.sort((a, b) => {
-      if (a.id === 1) return -1;
-      if (b.id === 1) return 1;
+      if (!!a.is_inbox !== !!b.is_inbox) return a.is_inbox ? -1 : 1;
       return a.name.localeCompare(b.name);
     });
 
@@ -228,10 +227,9 @@ export function createAppRenderingFeature({
       }
 
       const projectOrder = Array.from(byProject.keys()).sort((a, b) => {
-        if (a === 1) return -1;
-        if (b === 1) return 1;
         const pa = projects.find(p => p.id === a);
         const pb = projects.find(p => p.id === b);
+        if (!!pa?.is_inbox !== !!pb?.is_inbox) return pa?.is_inbox ? -1 : 1;
         const na = pa ? pa.name.toLowerCase() : '';
         const nb = pb ? pb.name.toLowerCase() : '';
         return na.localeCompare(nb);

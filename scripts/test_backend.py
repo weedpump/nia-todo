@@ -167,8 +167,7 @@ class TestSuite:
         self.shared_csrf = None
         self.created_api_key = None
         self.shared_own_project_id = None
-        self.created_api_key = None
-        self.shared_own_project_id = None
+        self.shared_inbox_project_id = None
         self.created_ids = {"todo": [], "project": [], "section": [], "apikey": [], "user": [], "reminder": [], "invite": [], "shared_section": [], "shared_todo": []}
     
     def cleanup(self):
@@ -179,6 +178,9 @@ class TestSuite:
         self.admin_csrf = None
         self.shared_token = None
         self.shared_csrf = None
+        self.created_api_key = None
+        self.shared_own_project_id = None
+        self.shared_inbox_project_id = None
         self.created_ids = {"todo": [], "project": [], "section": [], "apikey": [], "user": [], "reminder": [], "invite": [], "shared_section": [], "shared_todo": []}
     
     def record(self, name: str, status: int, expected: int = 200):
@@ -319,7 +321,35 @@ class TestSuite:
             p_status, p_data = curl("GET", "/api/projects", token=self.shared_token, cookie_jar="/tmp/nia_shared_cookies.txt")
             if ok(p_status) and p_data and p_data.get("projects"):
                 self.shared_own_project_id = p_data["projects"][0].get("id")
+                inbox = next((p for p in p_data["projects"] if p.get("is_inbox")), None)
+                self.shared_inbox_project_id = inbox.get("id") if inbox else None
         return self.record("shared_user_login", status)
+
+    def test_secondary_user_inbox_defaults(self):
+        if not self.shared_token or not self.shared_inbox_project_id:
+            self.results["secondary_user_inbox_defaults"] = {"status": -1, "passed": True, "expected": "skipped"}
+            return True
+        status, projects_data = curl("GET", "/api/projects", token=self.shared_token, cookie_jar="/tmp/nia_shared_cookies.txt")
+        if not ok(status):
+            return self.record("secondary_user_inbox_defaults", status)
+        projects = projects_data.get("projects", [])
+        if not projects or not projects[0].get("is_inbox"):
+            self.results["secondary_user_inbox_defaults"] = {"status": status, "passed": False, "expected": "inbox first"}
+            return False
+
+        status, todo = curl("POST", "/api/todos", {"title": "Secondary default inbox"}, token=self.shared_token, csrf=self.shared_csrf, cookie_jar="/tmp/nia_shared_cookies.txt")
+        if not ok(status) or not todo:
+            return self.record("secondary_user_inbox_defaults", status)
+        self.created_ids["shared_todo"].append(todo.get("id"))
+        if todo.get("project_id") != self.shared_inbox_project_id:
+            self.results["secondary_user_inbox_defaults"] = {"status": status, "passed": False, "expected": "todo assigned to secondary user's inbox"}
+            return False
+
+        status, _ = curl("PATCH", f"/api/projects/{self.shared_inbox_project_id}", {"name": "Monis Eingang"}, token=self.shared_token, csrf=self.shared_csrf, cookie_jar="/tmp/nia_shared_cookies.txt")
+        if not ok(status):
+            return self.record("secondary_user_inbox_defaults", status)
+        status, _ = curl("DELETE", f"/api/projects/{self.shared_inbox_project_id}", token=self.shared_token, csrf=self.shared_csrf, cookie_jar="/tmp/nia_shared_cookies.txt")
+        return self.record("secondary_user_inbox_cannot_delete", status, expected=400)
     
     def test_admin_change_user_password(self):
         user_id = self.created_ids["user"][-1] if self.created_ids["user"] else None
@@ -777,6 +807,7 @@ class TestSuite:
             self.test_admin_login,
             self.test_admin_create_shared_user,
             self.test_shared_user_login,
+            self.test_secondary_user_inbox_defaults,
             
             # API Keys
             self.test_apikey_create,
