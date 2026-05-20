@@ -22,8 +22,18 @@
 </script>
 </head>
 <body>
+  <!-- Cold-start loading overlay -->
+  <div id="boot-overlay" class="boot-overlay">
+    <div class="boot-card">
+      <img src="/static/icons/icon-192.png" class="boot-logo" alt="nia-todo">
+      <div class="boot-title">nia-todo wird geladen</div>
+      <div class="boot-subtitle">App startet…</div>
+      <div class="boot-spinner" aria-hidden="true"></div>
+    </div>
+  </div>
+
   <!-- Login Overlay -->
-  <div id="login-overlay" class="login-overlay">
+  <div id="login-overlay" class="login-overlay hidden">
     <div class="login-box">
       <div class="login-brand">
         <img src="/static/icons/icon-192.png" class="login-logo" alt="nia-todo">
