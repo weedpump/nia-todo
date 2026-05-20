@@ -286,14 +286,19 @@
       </form>
 
       <div id="project-sharing-section" style="display:none; margin-top:16px; padding-top:16px; border-top:1px solid var(--border);">
-        <h4 style="margin:0 0 10px 0;">Geteilt mit</h4>
-        <div id="project-members-list"></div>
-        <div id="project-share-row" class="form-group" style="margin-top:10px;">
-          <label>Benutzer einladen</label>
-          <div style="display:flex; gap:8px;">
-            <input id="project-share-username" type="text" class="form-control" placeholder="Benutzername" style="flex:1;">
-            <button type="button" class="btn btn-primary" onclick="inviteUserToProject()">Einladen</button>
+        <div id="project-sharing-content">
+          <h4 style="margin:0 0 10px 0;">Geteilt mit</h4>
+          <div id="project-members-list"></div>
+          <div id="project-share-row" class="form-group" style="margin-top:10px;">
+            <label>Benutzer einladen</label>
+            <div style="display:flex; gap:8px;">
+              <input id="project-share-username" type="text" class="form-control" placeholder="Benutzername" style="flex:1;">
+              <button type="button" class="btn btn-primary" onclick="inviteUserToProject()">Einladen</button>
+            </div>
           </div>
+        </div>
+        <div id="project-share-start-row" style="margin-top:10px;">
+          <button type="button" class="btn btn-secondary" onclick="showShareInput()">➕ Teilen</button>
         </div>
         <button type="button" class="btn btn-secondary" id="project-leave-btn" onclick="leaveProjectFromModal()" style="display:none; margin-top:10px;">Projekt verlassen</button>
       </div>
