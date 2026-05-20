@@ -1,7 +1,7 @@
 // nia-todo: Frontend app mit Offline-First PWA + WebSocket Echtzeit-Sync
 import { APP_VERSION, WS_URL } from './core/config.js';
 import { escapeHtml, escapeHtmlAttr, formatDate, jsArg, renderMarkdown, truncateWords } from './core/utils.js';
-import { authApi, projectsApi, pushApi, sectionsApi, todosApi } from './api/index.js';
+import { authApi, projectsApi, pushApi, sectionsApi, sharingApi, todosApi } from './api/index.js';
 import { createAuthSessionFeature } from './features/auth-session.js';
 import { createAppStorage } from './storage/app-storage.js';
 import { createApiKeysFeature } from './features/api-keys.js';
@@ -12,6 +12,7 @@ import { createServiceWorkerUpdatesFeature } from './features/service-worker-upd
 import { applyTheme, bindSystemThemeListener, cycleTheme, initTheme, setTheme } from './features/theme.js';
 import { createUserSettingsFeature } from './features/user-settings.js';
 import { createProjectsFeature } from './features/projects.js';
+import { createProjectSharingFeature } from './features/project-sharing.js';
 import { createTodosFeature } from './features/todos.js';
 import { createSyncFeature } from './features/sync.js';
 import { renderTodoItem } from './features/todo-rendering.js';
@@ -109,6 +110,15 @@ const todosFeature = createTodosFeature({
   renderMarkdown,
   loadSectionsForCurrentProject: (selectedSectionId) => loadSectionsForCurrentProject(selectedSectionId),
 });
+const sharingFeature = createProjectSharingFeature({
+  getProjects: () => projects,
+  setProjects: (next) => { projects = next; },
+  renderProjects: () => renderProjects(),
+  renderStats: () => renderStats(),
+  renderTodos: () => renderTodos(),
+  showToast: (...args) => showToast(...args),
+  projectsApi,
+});
 const projectsFeature = createProjectsFeature({
   getProjects: () => projects,
   getTodos: () => todos,
@@ -126,6 +136,7 @@ const projectsFeature = createProjectsFeature({
   showToast: (...args) => showToast(...args),
   showBatchToast: (...args) => showBatchToast(...args),
   projectsApi,
+  sharingFeature,
 });
 const userSettingsFeature = createUserSettingsFeature({
   authApi,
@@ -341,6 +352,20 @@ const toastUndoFeature = createToastUndoFeature({
   renderStats: () => renderStats(),
   renderTodos: () => renderTodos(),
   toggleTodo: (id) => toggleTodo(id),
+  onUndoLeaveProject: async (data) => {
+    if (!data?.project) return;
+    const exists = projects.find(p => p.id === data.project.id);
+    if (!exists) {
+      projects = [...projects, data.project];
+      renderProjects();
+      renderStats();
+      renderTodos();
+    }
+  },
+  onUndoRemoveMember: async (data) => {
+    if (!data?.projectId || !data?.username) return;
+    await projectsApi.shareProject(data.projectId, data.username);
+  },
 });
 const showToast = toastUndoFeature.showToast;
 const showBatchToast = toastUndoFeature.showBatchToast;
@@ -416,6 +441,8 @@ export function startAppModule() {
   navigation: { setFilter, loadSectionsForCurrentProject },
   todos: { markTodoDone, toggleTodo, showTodoModal, onProjectChange, saveTodo, editTodo, deleteTodoFromModal, deleteTodo },
   projects: { showProjectModal, editProject, saveProject, deleteProject, deleteProjectFromModal, clearDoneFromModal, clearDoneInProject },
+  sharing: { inviteUserToProject: () => sharingFeature.inviteByUsername(), leaveProjectFromModal: () => sharingFeature.leaveProject(), undoLeaveProject: (data) => sharingFeature.undoLeaveProject(data), undoRemoveMember: (data) => sharingFeature.undoRemoveMember(data) },
+  projectSharing: { setProject: (project) => sharingFeature.setProject(project), applyProjectModalState: (project, canEdit, shared) => sharingFeature.applyProjectModalState(project, canEdit, shared) },
   sections: { showAddSectionForm, saveNewSection, editSectionInline, saveSectionEdit, deleteSection },
   dragDrop: { handleTodoDragStart, handleTodoDragEnd, handleTodoDragOver, handleTodoDrop, handleSectionDragStart, handleSectionDragEnd, handleSectionDragOver, handleSectionDrop },
   viewPreferences: { toggleHideDone, updateToggleDoneButton, cycleSort, updateSortButton, sortTodoList },
