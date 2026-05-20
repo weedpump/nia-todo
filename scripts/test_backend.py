@@ -230,6 +230,10 @@ class TestSuite:
     def test_me(self):
         status, data = curl("GET", "/api/me", token=self.user_token, cookie_jar="/tmp/nia_user_cookies.txt")
         return self.record("me", status)
+
+    def test_invalid_own_email_rejected(self):
+        status, _ = curl("PATCH", "/api/me/email", {"email": "broken-email"}, token=self.user_token, csrf=self.user_csrf, cookie_jar="/tmp/nia_user_cookies.txt")
+        return self.record("invalid_own_email_rejected", status, expected=400)
     
     def test_change_password(self):
         status, _ = curl("POST", "/api/me/change-password", {
@@ -291,6 +295,14 @@ class TestSuite:
         status, _ = curl("GET", "/api/admin/users", token=self.admin_token, cookie_jar="/tmp/nia_admin_cookies.txt")
         return self.record("admin_list_users", status)
     
+    def test_invalid_admin_email_rejected(self):
+        status, _ = curl("POST", "/api/admin/users", {
+            "username": "bademailuser",
+            "display_name": "Bad Email User",
+            "email": "broken-email"
+        }, token=self.admin_token, csrf=self.admin_csrf, cookie_jar="/tmp/nia_admin_cookies.txt")
+        return self.record("invalid_admin_email_rejected", status, expected=400)
+
     def test_admin_create_user(self):
         status, data = curl("POST", "/api/admin/users", {
             "username": "testuser2",
@@ -835,6 +847,7 @@ class TestSuite:
             # User Auth
             self.test_login,
             self.test_me,
+            self.test_invalid_own_email_rejected,
 
             # Admin session needed to create sharing test user
             self.test_admin_login,
@@ -908,6 +921,7 @@ class TestSuite:
             
             # Admin (same session)
             self.test_admin_list_users,
+            self.test_invalid_admin_email_rejected,
             self.test_admin_create_user,
             self.test_admin_change_user_password,
             self.test_admin_delete_user,

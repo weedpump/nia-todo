@@ -1,3 +1,7 @@
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
+}
+
 function escapeHtml(value) {
   const div = document.createElement('div');
   div.textContent = String(value ?? '');
@@ -83,6 +87,10 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
 
     if (!email) {
       errorEl.textContent = 'E-Mail ist erforderlich';
+      return;
+    }
+    if (!isValidEmail(email)) {
+      errorEl.textContent = 'Bitte eine gültige E-Mail-Adresse eingeben';
       return;
     }
 

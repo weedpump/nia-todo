@@ -24,6 +24,9 @@ async function run() {
 
     await page.fill('#new-username', 'admincreated');
     await page.fill('#new-display-name', 'Admin Created');
+    await page.fill('#new-email', 'broken-email');
+    await page.getByRole('button', { name: 'Erstellen & Link erzeugen' }).click();
+    await page.getByText('Bitte eine gültige E-Mail-Adresse eingeben').waitFor({ state: 'visible', timeout: 10000 });
     await page.fill('#new-email', 'admincreated@example.invalid');
     await page.getByRole('button', { name: 'Erstellen & Link erzeugen' }).click();
     await page.getByText("Benutzer 'admincreated' erstellt. Link kopieren und senden:").waitFor({ state: 'visible', timeout: 10000 });
@@ -33,6 +36,13 @@ async function run() {
     await page.locator('#user-list').getByRole('cell', { name: 'admincreated', exact: true }).waitFor({ state: 'visible', timeout: 10000 });
     await page.locator('#user-list').getByText('admincreated@example.invalid').waitFor({ state: 'visible', timeout: 10000 });
     await page.locator('#user-list').getByRole('button', { name: '✏️' }).last().click();
+    await page.evaluate(() => {
+      window.__lastAlert = '';
+      window.alert = (message) => { window.__lastAlert = message; };
+    });
+    await page.locator('#user-list input[type="email"]').last().fill('broken-email');
+    await page.locator('#user-list').getByRole('button', { name: '✅' }).last().click();
+    await page.waitForFunction(() => window.__lastAlert?.includes('Bitte eine gültige E-Mail-Adresse eingeben'), { timeout: 10000 });
     await page.locator('#user-list input[type="email"]').last().fill('admincreated-updated@example.invalid');
     await page.locator('#user-list').getByRole('button', { name: '✅' }).last().click();
     await page.locator('#user-list').getByText('admincreated-updated@example.invalid').waitFor({ state: 'visible', timeout: 10000 });
