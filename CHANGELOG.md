@@ -48,6 +48,13 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 - **Auth**: Login-Flow stabilisiert gegen Timeouts bei Setup-/Auth-Checks
 - **Settings-Test**: Push-Buttons robust gegen `display:none` im Test-Context
 
+## [0.4.10] - 2026-05-18
+
+### Changed
+- **Release-/Versionsupdate** auf `v0.4.10`
+  - Versionstexte in UI, Frontend und Service Worker angehoben
+  - Keine fachlichen Änderungen gegenüber `v0.4.9`
+
 ## [0.4.9] - 2026-05-17
 
 ### Added
