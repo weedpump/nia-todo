@@ -9,6 +9,9 @@ export function createToastUndoFeature({
   renderStats,
   renderTodos,
   toggleTodo,
+  onUndoLeaveProject,
+  onUndoRemoveMember,
+  onUndoInvite,
 }) {
   let undoAction = null;
   let undoTimer = null;
@@ -17,9 +20,11 @@ export function createToastUndoFeature({
   function showToast(message, action) {
     const container = document.getElementById('toast-container');
     const msgEl = document.getElementById('toast-message');
+    const undoBtn = document.getElementById('toast-undo');
     if (!container || !msgEl) return;
     msgEl.textContent = message;
-    undoAction = action;
+    undoAction = action || null;
+    if (undoBtn) undoBtn.style.display = action ? '' : 'none';
     container.style.display = 'flex';
     if (undoTimer) clearTimeout(undoTimer);
     undoTimer = setTimeout(hideToast, 5000);
@@ -28,10 +33,12 @@ export function createToastUndoFeature({
   function showBatchToast(message, batchData) {
     const container = document.getElementById('toast-container');
     const msgEl = document.getElementById('toast-message');
+    const undoBtn = document.getElementById('toast-undo');
     if (!container || !msgEl) return;
     msgEl.textContent = message;
     pendingUndoBatch = batchData;
     undoAction = { type: 'batch_delete' };
+    if (undoBtn) undoBtn.style.display = '';
     container.style.display = 'flex';
     if (undoTimer) clearTimeout(undoTimer);
     undoTimer = setTimeout(() => {
@@ -55,6 +62,12 @@ export function createToastUndoFeature({
       restoreTodo(undoAction.id, undoAction.data);
     } else if (undoAction.type === 'batch_delete' && pendingUndoBatch) {
       restoreBatchTodos();
+    } else if (undoAction.type === 'member_invite' && onUndoInvite) {
+      onUndoInvite(undoAction.data);
+    } else if (undoAction.type === 'project_leave' && onUndoLeaveProject) {
+      onUndoLeaveProject(undoAction.data);
+    } else if (undoAction.type === 'member_remove' && onUndoRemoveMember) {
+      onUndoRemoveMember(undoAction.data);
     }
     hideToast();
   }

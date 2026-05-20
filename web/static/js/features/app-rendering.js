@@ -11,6 +11,7 @@ export function createAppRenderingFeature({
   sortTodoList,
   renderTodoItem,
   renderSectionHeader,
+  getInvites,
 }) {
   function renderVersionInfo() {
     const el = document.getElementById('version-info');
@@ -44,8 +45,11 @@ export function createAppRenderingFeature({
     const projects = getProjects();
     const currentFilter = getCurrentFilter();
 
+    const ownProjects = projects.filter(p => !p.is_shared);
+    const sharedProjects = projects.filter(p => p.is_shared);
+
     const projectMap = new Map();
-    projects.forEach(p => projectMap.set(p.id, { ...p, children: [] }));
+    ownProjects.forEach(p => projectMap.set(p.id, { ...p, children: [] }));
 
     const rootProjects = [];
     projectMap.forEach(p => {
@@ -58,8 +62,7 @@ export function createAppRenderingFeature({
     });
 
     rootProjects.sort((a, b) => {
-      if (a.id === 1) return -1;
-      if (b.id === 1) return 1;
+      if (!!a.is_inbox !== !!b.is_inbox) return a.is_inbox ? -1 : 1;
       return a.name.localeCompare(b.name);
     });
 
@@ -75,7 +78,7 @@ export function createAppRenderingFeature({
       html += `${escapeHtml(project.name)}`;
       html += `<span class="badge">${countByProject(project.id, true)}</span>`;
       html += `</button>`;
-      html += `<button class="nav-edit" onclick="event.stopPropagation(); editProject(${project.id})" title="Bearbeiten">`;
+      html += `<button class="nav-edit" onclick="event.stopPropagation(); editProject(${escapeHtmlAttr(JSON.stringify(project.id))})" title="Bearbeiten">`;
       html += `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
       html += `</button>`;
       html += `</div>`;
@@ -89,7 +92,17 @@ export function createAppRenderingFeature({
       return html;
     }
 
-    el.innerHTML = rootProjects.map(p => renderProjectTree(p)).join('');
+    let html = '';
+    if (rootProjects.length) {
+      html += rootProjects.map(p => renderProjectTree(p)).join('');
+    }
+    if (sharedProjects.length) {
+      html += `<div class="nav-title shared-title">Geteilte Projekte</div>`;
+      for (const project of sharedProjects) {
+        html += renderProjectTree({ ...project, children: [] });
+      }
+    }
+    el.innerHTML = html;
   }
 
   function renderStats() {
@@ -214,10 +227,9 @@ export function createAppRenderingFeature({
       }
 
       const projectOrder = Array.from(byProject.keys()).sort((a, b) => {
-        if (a === 1) return -1;
-        if (b === 1) return 1;
         const pa = projects.find(p => p.id === a);
         const pb = projects.find(p => p.id === b);
+        if (!!pa?.is_inbox !== !!pb?.is_inbox) return pa?.is_inbox ? -1 : 1;
         const na = pa ? pa.name.toLowerCase() : '';
         const nb = pb ? pb.name.toLowerCase() : '';
         return na.localeCompare(nb);
@@ -262,5 +274,30 @@ export function createAppRenderingFeature({
     el.innerHTML = html;
   }
 
-  return { renderVersionInfo, renderProjects, renderStats, renderTodos, countByProject };
+  function renderInvites(invites) {
+    const section = document.getElementById('invites-section');
+    const el = document.getElementById('invites-list');
+    if (!section || !el) return;
+    if (!invites || !invites.length) {
+      section.style.display = 'none';
+      el.innerHTML = '';
+      return;
+    }
+    section.style.display = '';
+    let html = '';
+    for (const invite of invites) {
+      html += `
+        <div class="invite-item" data-invite-id="${escapeHtmlAttr(invite.id)}">
+          <span class="invite-title">📩 ${escapeHtml(invite.project_name)}</span>
+          <div class="invite-actions">
+            <button class="invite-action invite-accept" onclick="acceptInvite(${invite.project_id}, ${invite.id})" title="Annehmen" aria-label="Einladung annehmen">✓</button>
+            <button class="invite-action invite-decline" onclick="declineInvite(${invite.project_id}, ${invite.id})" title="Ablehnen" aria-label="Einladung ablehnen">✕</button>
+          </div>
+        </div>
+      `;
+    }
+    el.innerHTML = html;
+  }
+
+  return { renderVersionInfo, renderProjects, renderStats, renderTodos, countByProject, renderInvites };
 }

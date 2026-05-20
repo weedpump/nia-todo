@@ -89,6 +89,20 @@ def create_user(data: CreateUserRequest, _: bool = Depends(require_admin)):
             (data.username, data.display_name, password_hash)
         )
         user_id = c.lastrowid
+
+        # Create default projects for the new user
+        default_projects = [
+            ('Inbox', '#64748b', 0, 1),
+            ('Privat', '#10b981', 1, 0),
+            ('Arbeit', '#3b82f6', 2, 0),
+            ('Einkauf', '#f59e0b', 3, 0),
+        ]
+        for name, color, sort_order, is_inbox in default_projects:
+            db.execute(
+                "INSERT INTO projects (name, color, sort_order, user_id, is_inbox, updated_at) VALUES (?, ?, ?, ?, ?, datetime('now'))",
+                (name, color, sort_order, user_id, is_inbox)
+            )
+
         db.commit()
         log_audit(db, "user_created", user_id=user_id, details=f"username={data.username}")
         return {"id": user_id, "username": data.username, "display_name": data.display_name, "created_at": now_iso()}
@@ -111,7 +125,7 @@ def delete_user(user_id: int, _: bool = Depends(require_admin)):
         db.execute("DELETE FROM reminders WHERE todo_id IN (SELECT id FROM todos WHERE user_id = ?)", (user_id,))
         db.execute("DELETE FROM sections WHERE user_id = ?", (user_id,))
         db.execute("DELETE FROM todos WHERE user_id = ?", (user_id,))
-        db.execute("DELETE FROM projects WHERE user_id = ? AND id != 1", (user_id,))
+        db.execute("DELETE FROM projects WHERE user_id = ? AND COALESCE(is_inbox, 0) = 0", (user_id,))
         db.execute("DELETE FROM users WHERE id = ?", (user_id,))
         db.commit()
         return {"deleted": user_id}

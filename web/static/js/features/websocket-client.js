@@ -357,6 +357,15 @@ async function handleWsMessage(msg) {
         renderTodos();
       }
       break;
+    case 'member_invited':
+    case 'member_accepted':
+    case 'member_declined':
+    case 'member_removed':
+    case 'member_left':
+    case 'member_color_changed':
+      // refresh from server on sharing events
+      await syncWithServer();
+      break;
     case 'section_create':
       if (msg.payload) {
         await dbPut('sections', msg.payload);

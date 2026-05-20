@@ -15,11 +15,12 @@ INIT_SQL = """
 -- Projects/Kategorien
 CREATE TABLE IF NOT EXISTS projects (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
     color TEXT DEFAULT '#6366f1',
     sort_order INTEGER DEFAULT 0,
     created_at TEXT DEFAULT (datetime('now')),
-    updated_at TEXT DEFAULT (datetime('now'))
+    updated_at TEXT DEFAULT (datetime('now')),
+    is_inbox INTEGER DEFAULT 0
 );
 
 -- Todos
@@ -73,10 +74,10 @@ CREATE INDEX IF NOT EXISTS idx_sections_project ON sections(project_id);
 CREATE INDEX IF NOT EXISTS idx_reminders_at ON reminders(remind_at);
 
 -- Default projects
-INSERT OR IGNORE INTO projects (id, name, color, sort_order) VALUES (1, 'Inbox', '#64748b', 0);
-INSERT OR IGNORE INTO projects (id, name, color, sort_order) VALUES (2, 'Privat', '#10b981', 1);
-INSERT OR IGNORE INTO projects (id, name, color, sort_order) VALUES (3, 'Arbeit', '#3b82f6', 2);
-INSERT OR IGNORE INTO projects (id, name, color, sort_order) VALUES (4, 'Einkauf', '#f59e0b', 3);
+INSERT OR IGNORE INTO projects (id, name, color, sort_order, is_inbox) VALUES (1, 'Inbox', '#64748b', 0, 1);
+INSERT OR IGNORE INTO projects (id, name, color, sort_order, is_inbox) VALUES (2, 'Privat', '#10b981', 1, 0);
+INSERT OR IGNORE INTO projects (id, name, color, sort_order, is_inbox) VALUES (3, 'Arbeit', '#3b82f6', 2, 0);
+INSERT OR IGNORE INTO projects (id, name, color, sort_order, is_inbox) VALUES (4, 'Einkauf', '#f59e0b', 3, 0);
 """
 
 @contextmanager

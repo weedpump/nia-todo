@@ -54,6 +54,23 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
-async def broadcast_change(event_type: str, payload: dict, user_id: int):
-    """Broadcast change only to the user who owns the data."""
-    await manager.broadcast_to_user(user_id, {"type": event_type, "payload": payload})
+async def broadcast_change(event_type: str, payload: dict, user_id: int, project_id: int | None = None):
+    """Broadcast change to the owning user and optional shared-project members."""
+    recipients = {user_id}
+
+    if project_id is not None:
+        try:
+            with get_db() as db:
+                project = db.execute("SELECT user_id FROM projects WHERE id = ?", (project_id,)).fetchone()
+                if project and project[0] is not None:
+                    recipients.add(project[0])
+                rows = db.execute(
+                    "SELECT user_id FROM project_members WHERE project_id = ? AND status = 'accepted'",
+                    (project_id,),
+                ).fetchall()
+                recipients.update(r[0] for r in rows)
+        except Exception:
+            pass
+
+    for uid in recipients:
+        await manager.broadcast_to_user(uid, {"type": event_type, "payload": payload})
