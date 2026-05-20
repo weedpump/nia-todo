@@ -22,7 +22,11 @@ router = APIRouter(prefix="/api/admin")
 class CreateUserRequest(BaseModel):
     username: str
     display_name: str
-    email: Optional[str] = None
+    email: str
+
+class UpdateUserRequest(BaseModel):
+    email: str
+    display_name: Optional[str] = None
 
 class ChangeAdminPasswordRequest(BaseModel):
     old_password: str
@@ -48,7 +52,7 @@ def require_admin(authorization: Optional[str] = Header(None)):
     return True
 
 
-PASSWORD_LINK_TTL_DAYS = 7
+PASSWORD_LINK_TTL_HOURS = 24
 
 
 def _hash_setup_token(token: str) -> str:
@@ -66,7 +70,7 @@ def create_password_setup_token(db, user_id: int, purpose: str = "reset") -> str
         """INSERT INTO password_setup_tokens
            (user_id, token_hash, token_prefix, purpose, expires_at, created_by_admin)
            VALUES (?, ?, ?, ?, datetime('now', ?), 1)""",
-        (user_id, _hash_setup_token(token), token[:12], purpose, f"+{PASSWORD_LINK_TTL_DAYS} days")
+        (user_id, _hash_setup_token(token), token[:12], purpose, f"+{PASSWORD_LINK_TTL_HOURS} hours")
     )
     return token
 
@@ -103,7 +107,9 @@ def admin_logout(authorization: Optional[str] = Header(None), _: bool = Depends(
 def create_user(data: CreateUserRequest, request: Request, _: bool = Depends(require_admin)):
     data.username = sanitize_text(data.username)
     data.display_name = sanitize_text(data.display_name)
-    data.email = sanitize_text(data.email) if data.email else None
+    data.email = sanitize_text(data.email)
+    if not data.email:
+        raise HTTPException(400, "Email is required")
     with get_db() as db:
         existing = db.execute("SELECT id FROM users WHERE username = ?", (data.username,)).fetchone()
         if existing:
@@ -142,7 +148,7 @@ def create_user(data: CreateUserRequest, request: Request, _: bool = Depends(req
             "email": data.email,
             "created_at": now_iso(),
             "password_setup_url": _make_password_setup_link(request, token),
-            "password_setup_expires_days": PASSWORD_LINK_TTL_DAYS,
+            "password_setup_expires_hours": PASSWORD_LINK_TTL_HOURS,
         }
 
 @router.get("/users")
@@ -150,6 +156,26 @@ def list_users(_: bool = Depends(require_admin)):
     with get_db() as db:
         rows = db.execute("SELECT id, username, display_name, email, is_admin, created_at FROM users ORDER BY id").fetchall()
         return {"users": [dict(r) for r in rows]}
+
+@router.patch("/users/{user_id}")
+def update_user(user_id: int, data: UpdateUserRequest, _: bool = Depends(require_admin)):
+    email = sanitize_text(data.email)
+    display_name = sanitize_text(data.display_name) if data.display_name is not None else None
+    if not email:
+        raise HTTPException(400, "Email is required")
+    with get_db() as db:
+        user = db.execute("SELECT id FROM users WHERE id = ?", (user_id,)).fetchone()
+        if not user:
+            raise HTTPException(404, "User not found")
+        existing_email = db.execute("SELECT id FROM users WHERE email = ? AND id != ?", (email, user_id)).fetchone()
+        if existing_email:
+            raise HTTPException(409, "Email already exists")
+        if display_name is None:
+            db.execute("UPDATE users SET email = ? WHERE id = ?", (email, user_id))
+        else:
+            db.execute("UPDATE users SET email = ?, display_name = ? WHERE id = ?", (email, display_name, user_id))
+        db.commit()
+        return {"id": user_id, "email": email, "display_name": display_name}
 
 @router.delete("/users/{user_id}")
 def delete_user(user_id: int, _: bool = Depends(require_admin)):
@@ -207,5 +233,5 @@ def admin_create_user_password_link(user_id: int, request: Request, _: bool = De
     return {
         "message": "Passwort-Link erstellt.",
         "password_setup_url": _make_password_setup_link(request, token),
-        "password_setup_expires_days": PASSWORD_LINK_TTL_DAYS,
+        "password_setup_expires_hours": PASSWORD_LINK_TTL_HOURS,
     }

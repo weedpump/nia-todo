@@ -94,11 +94,11 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); }
     <div class="form-row">
       <input type="text" id="new-username" placeholder="Benutzername" autocomplete="off" onkeydown="if(event.key==='Enter') document.getElementById('new-display-name').focus()">
       <input type="text" id="new-display-name" placeholder="Anzeigename" onkeydown="if(event.key==='Enter') document.getElementById('new-email').focus()">
-      <input type="email" id="new-email" placeholder="E-Mail (optional, später Login-Name)" autocomplete="off" onkeydown="if(event.key==='Enter') createUser()">
+      <input type="email" id="new-email" placeholder="E-Mail (Pflicht, später Login-Name)" autocomplete="off" onkeydown="if(event.key==='Enter') createUser()">
       <button class="btn btn-primary" onclick="createUser()">Erstellen & Link erzeugen</button>
     </div>
     <div style="font-size: 12px; color: var(--text-muted); margin-top: 8px;">
-      Der Benutzer setzt sein Passwort selbst über einen einmaligen Link. Der Link ist 7 Tage gültig.
+      Der Benutzer setzt sein Passwort selbst über einen einmaligen Link. Der Link ist 24 Stunden gültig.
     </div>
     <div class="admin-error" id="create-error"></div>
     <div class="admin-success" id="create-success"></div>
@@ -213,6 +213,19 @@ async function apiPost(path, body) {
   return r.json();
 }
 
+async function apiPatch(path, body) {
+  const r = await fetch(API + path, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    body: JSON.stringify(body)
+  });
+  if (!r.ok) {
+    const data = await r.json().catch(() => ({}));
+    throw new Error(data.detail || 'Fehler');
+  }
+  return r.json();
+}
+
 async function apiDelete(path) {
   const r = await fetch(API + path, {
     method: 'DELETE',
@@ -308,7 +321,10 @@ function renderUsers(users) {
       <td>${u.id}</td>
       <td>${escapeHtml(u.username)}</td>
       <td>${escapeHtml(u.display_name) || '-'}</td>
-      <td>${escapeHtml(u.email) || '-'}</td>
+      <td>
+        <input id="email-${u.id}" type="email" value="${escapeHtmlAttr(u.email) || ''}" placeholder="E-Mail setzen" style="min-width:180px; padding:6px 8px; border:1px solid var(--border); border-radius:var(--radius); background:var(--bg-primary); color:var(--text-primary);">
+        <button class="btn btn-primary" style="font-size:12px; padding:4px 8px; margin-left:4px;" onclick="saveUserEmail(${u.id})">Speichern</button>
+      </td>
       <td><span class="badge ${u.is_admin ? 'badge-admin' : 'badge-user'}">${u.is_admin ? 'Erster Benutzer' : 'Benutzer'}</span></td>
       <td>${new Date(u.created_at).toLocaleDateString('de-DE')}</td>
       <td><button class="btn btn-primary" style="font-size:12px; padding:4px 10px;" onclick="generatePasswordLink(${u.id}, '${escapeHtmlAttr(u.username)}')">Link erzeugen</button></td>
@@ -326,8 +342,8 @@ async function createUser() {
   document.getElementById('create-success').textContent = '';
   document.getElementById('create-link-box').style.display = 'none';
 
-  if (!username) {
-    document.getElementById('create-error').textContent = 'Benutzername ist erforderlich';
+  if (!username || !email) {
+    document.getElementById('create-error').textContent = 'Benutzername und E-Mail sind erforderlich';
     return;
   }
 
@@ -335,7 +351,7 @@ async function createUser() {
     const data = await apiPost('/api/admin/users', {
       username: username,
       display_name: displayName || username,
-      email: email || null
+      email: email
     });
     document.getElementById('create-success').textContent = `Benutzer '${username}' erstellt. Link kopieren und senden:`;
     document.getElementById('create-link-input').value = data.password_setup_url;
@@ -346,6 +362,21 @@ async function createUser() {
     await loadUsers();
   } catch(e) {
     document.getElementById('create-error').textContent = e.message;
+  }
+}
+
+async function saveUserEmail(userId) {
+  const input = document.getElementById(`email-${userId}`);
+  const email = input?.value?.trim() || '';
+  if (!email) {
+    alert('E-Mail ist erforderlich');
+    return;
+  }
+  try {
+    await apiPatch(`/api/admin/users/${userId}`, { email });
+    await loadUsers();
+  } catch(e) {
+    alert('Fehler: ' + e.message);
   }
 }
 

@@ -20,6 +20,7 @@ class AdminSetupRequest(BaseModel):
 
 class FirstUserRequest(BaseModel):
     username: str
+    email: str
     password: str
     display_name: str
 
@@ -59,7 +60,10 @@ def setup_admin(data: AdminSetupRequest, request: Request, _: None = Depends(req
 @router.post("/api/setup/first-user")
 def setup_first_user(data: FirstUserRequest, request: Request, _: None = Depends(require_login_rate_limit)):
     data.username = sanitize_text(data.username)
+    data.email = sanitize_text(data.email)
     data.display_name = sanitize_text(data.display_name)
+    if not data.email:
+        raise HTTPException(400, "Email is required")
     error = validate_password(data.password)
     if error:
         raise HTTPException(400, error)
@@ -69,8 +73,8 @@ def setup_first_user(data: FirstUserRequest, request: Request, _: None = Depends
             raise HTTPException(400, "Users already exist")
         password_hash = bcrypt.hashpw(data.password.encode(), bcrypt.gensalt()).decode()
         c = db.execute(
-            "INSERT INTO users (username, display_name, password_hash, is_admin) VALUES (?, ?, ?, 1)",
-            (data.username, data.display_name, password_hash)
+            "INSERT INTO users (username, display_name, email, password_hash, is_admin) VALUES (?, ?, ?, ?, 1)",
+            (data.username, data.display_name, data.email, password_hash)
         )
         user_id = c.lastrowid
         db.execute("UPDATE projects SET user_id = ?, is_inbox = CASE WHEN id = 1 THEN 1 ELSE COALESCE(is_inbox, 0) END WHERE user_id IS NULL", (user_id,))
@@ -80,5 +84,5 @@ def setup_first_user(data: FirstUserRequest, request: Request, _: None = Depends
         db.commit()
         return {
             "message": "First user created",
-            "user": {"id": user_id, "username": data.username, "display_name": data.display_name}
+            "user": {"id": user_id, "username": data.username, "email": data.email, "display_name": data.display_name}
         }
