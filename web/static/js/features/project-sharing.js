@@ -87,8 +87,8 @@ export function createProjectSharingFeature({
         : '';
       rows.push(`
         <div class="sharing-member-row">
-          <div class="sharing-member-name">
-            <strong>${escapeHtml(displayName)}</strong>${usernamePart}${status}
+          <div class="sharing-member-main">
+            <span class="sharing-member-name">${escapeHtml(displayName)}</span>${usernamePart}${status}
           </div>
           <div class="sharing-actions">${remove}</div>
         </div>
@@ -269,10 +269,13 @@ export function createProjectSharingFeature({
       if (project && shared && !isOwn) {
         const ownerName = project.owner_display_name || project.owner_username || 'Unbekannt';
         const ownerUser = project.owner_username && project.owner_username !== ownerName ? ` (${project.owner_username})` : '';
-        ownerInfo.textContent = `Geteilt von: ${ownerName}${ownerUser}`;
-        ownerInfo.style.display = '';
+        const nameEl = ownerInfo.querySelector('.project-owner-name');
+        if (nameEl) nameEl.textContent = `${ownerName}${ownerUser}`;
+        else ownerInfo.textContent = `Geteilt von ${ownerName}${ownerUser}`;
+        ownerInfo.style.display = 'flex';
       } else {
-        ownerInfo.textContent = '';
+        const nameEl = ownerInfo.querySelector('.project-owner-name');
+        if (nameEl) nameEl.textContent = '';
         ownerInfo.style.display = 'none';
       }
     }
@@ -298,9 +301,14 @@ export function createProjectSharingFeature({
       if (inviteRow) inviteRow.style.display = 'none';
     }
 
+    const projectForm = document.getElementById('project-form');
+    if (projectForm) projectForm.classList.toggle('readonly-project', !!project && !canEdit);
     for (const id of fields) {
       const el = document.getElementById(id);
-      if (el) el.disabled = !canEdit;
+      if (el) {
+        el.disabled = !canEdit;
+        el.setAttribute('aria-readonly', canEdit ? 'false' : 'true');
+      }
     }
     if (project?.id) loadMembers(project.id).catch(() => {});
   }
