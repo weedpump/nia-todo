@@ -91,7 +91,7 @@ export function createProjectsFeature({
   }
 
   function editProject(id) {
-    const project = getProjects().find(p => p.id === id);
+    const project = getProjects().find(p => String(p.id) === String(id));
     if (project) showProjectModal(project);
   }
 
@@ -107,13 +107,15 @@ export function createProjectsFeature({
     };
 
     if (id) {
-      const existing = getProjects().find(p => p.id === parseInt(id));
+      const existing = getProjects().find(p => String(p.id) === String(id));
       if (existing) {
         const updated = { ...existing, ...projectData, updated_at: new Date().toISOString() };
         await dbPut('projects', updated);
-        setProjects(getProjects().map(p => p.id === parseInt(id) ? updated : p));
-        await addToSyncQueue('UPDATE_PROJECT', { id: parseInt(id), changes: projectData });
-        if (isOnlineForSync()) await syncWithServer();
+        setProjects(getProjects().map(p => String(p.id) === String(id) ? updated : p));
+        if (!String(id).startsWith('temp-')) {
+          await addToSyncQueue('UPDATE_PROJECT', { id: parseInt(id), changes: projectData });
+          if (isOnlineForSync()) await syncWithServer();
+        }
         closeModal('project-modal');
         renderProjects();
       }

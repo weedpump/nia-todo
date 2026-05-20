@@ -20,9 +20,11 @@ export function createToastUndoFeature({
   function showToast(message, action) {
     const container = document.getElementById('toast-container');
     const msgEl = document.getElementById('toast-message');
+    const undoBtn = document.getElementById('toast-undo');
     if (!container || !msgEl) return;
     msgEl.textContent = message;
-    undoAction = action;
+    undoAction = action || null;
+    if (undoBtn) undoBtn.style.display = action ? '' : 'none';
     container.style.display = 'flex';
     if (undoTimer) clearTimeout(undoTimer);
     undoTimer = setTimeout(hideToast, 5000);
@@ -31,10 +33,12 @@ export function createToastUndoFeature({
   function showBatchToast(message, batchData) {
     const container = document.getElementById('toast-container');
     const msgEl = document.getElementById('toast-message');
+    const undoBtn = document.getElementById('toast-undo');
     if (!container || !msgEl) return;
     msgEl.textContent = message;
     pendingUndoBatch = batchData;
     undoAction = { type: 'batch_delete' };
+    if (undoBtn) undoBtn.style.display = '';
     container.style.display = 'flex';
     if (undoTimer) clearTimeout(undoTimer);
     undoTimer = setTimeout(() => {

@@ -186,6 +186,77 @@ body {
   color: var(--accent);
 }
 
+/* Invites */
+.invite-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-bottom: 6px;
+  padding: 7px 8px;
+  border-radius: var(--radius);
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.invite-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.invite-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.invite-action {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.invite-accept {
+  color: var(--success);
+  border-color: rgba(34,197,94,0.35);
+}
+
+.invite-accept:hover {
+  background: rgba(34,197,94,0.14);
+  color: var(--success);
+}
+
+.invite-decline {
+  color: var(--danger);
+  border-color: rgba(239,68,68,0.35);
+}
+
+.invite-decline:hover {
+  background: rgba(239,68,68,0.14);
+  color: var(--danger);
+}
+
+.form-error {
+  min-height: 18px;
+  margin-top: 6px;
+  color: var(--danger);
+  font-size: 13px;
+}
+
 /* Main */
 .main {
   flex: 1;

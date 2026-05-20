@@ -30,7 +30,39 @@ export function createProjectSharingFeature({
     const res = await projectsApi.listMembers(projectId);
     currentMembers = res?.members || [];
     renderMembers();
+    updateSharingVisibility();
     return currentMembers;
+  }
+
+  function setShareError(message) {
+    const errorEl = document.getElementById('project-share-error');
+    if (errorEl) errorEl.textContent = message || '';
+  }
+
+  function updateSharingVisibility() {
+    const sharingContent = document.getElementById('project-sharing-content');
+    const shareStartRow = document.getElementById('project-share-start-row');
+    const inviteRow = document.getElementById('project-share-row');
+    if (!currentProject) return;
+
+    const hasMembers = currentMembers.some(member => member?.status === 'accepted' || member?.status === 'pending');
+    const own = isOwner(currentProject);
+    const sharedProject = !!currentProject.is_shared && !own;
+
+    if (own) {
+      if (hasMembers) {
+        if (sharingContent) sharingContent.style.display = '';
+        if (shareStartRow) shareStartRow.style.display = 'none';
+        if (inviteRow) inviteRow.style.display = '';
+      }
+      return;
+    }
+
+    if (sharedProject) {
+      if (sharingContent) sharingContent.style.display = 'none';
+      if (shareStartRow) shareStartRow.style.display = 'none';
+      if (inviteRow) inviteRow.style.display = 'none';
+    }
   }
 
   function renderMembers() {
@@ -88,7 +120,12 @@ export function createProjectSharingFeature({
     const input = document.getElementById('project-share-username');
     if (!input) return;
     const username = input.value.trim();
-    if (!username) return showToast('Benutzername eingeben');
+    setShareError('');
+    if (!username) {
+      setShareError('Benutzername eingeben');
+      input.focus();
+      return;
+    }
     try {
       const result = await projectsApi.shareProject(currentProject.id, username);
       input.value = '';
@@ -105,13 +142,13 @@ export function createProjectSharingFeature({
     } catch (err) {
       const msg = (err?.message || '').toLowerCase();
       if (msg.includes('404') || msg.includes('not found')) {
-        showToast(`Benutzer "${username}" nicht gefunden`);
+        setShareError(`Benutzer "${username}" nicht gefunden`);
       } else if (msg.includes('403') || msg.includes('forbidden')) {
-        showToast('Keine Berechtigung — nur der Owner kann einladen');
+        setShareError('Keine Berechtigung — nur der Owner kann einladen');
       } else if (msg.includes('already')) {
-        showToast(`Benutzer "${username}" hat bereits Zugriff oder eine ausstehende Einladung`);
+        setShareError(`Benutzer "${username}" hat bereits Zugriff oder eine ausstehende Einladung`);
       } else {
-        showToast('Fehler beim Einladen: ' + (err?.message || 'Unbekannter Fehler'));
+        setShareError('Fehler beim Einladen: ' + (err?.message || 'Unbekannter Fehler'));
       }
     }
   }
@@ -187,6 +224,8 @@ export function createProjectSharingFeature({
   }
 
   async function declineInvite(projectId, inviteId) {
+    const row = document.querySelector(`[data-invite-id="${CSS.escape(String(inviteId))}"]`);
+    if (row) row.remove();
     await projectsApi.respondInvite(projectId, inviteId, false);
     showToast('Einladung abgelehnt');
     await loadInvites();
@@ -212,6 +251,7 @@ export function createProjectSharingFeature({
     if (content) content.style.display = '';
     if (startRow) startRow.style.display = 'none';
     if (inviteRow) inviteRow.style.display = '';
+    setShareError('');
   }
 
   function applyProjectModalState(project, canEdit, shared) {
@@ -226,6 +266,7 @@ export function createProjectSharingFeature({
 
     if (sharingSection) sharingSection.style.display = project ? '' : 'none';
     if (leaveBtn) leaveBtn.style.display = shared && !isOwn ? '' : 'none';
+    setShareError('');
 
     if (!project) {
       if (sharingContent) sharingContent.style.display = 'none';
@@ -251,7 +292,7 @@ export function createProjectSharingFeature({
       const el = document.getElementById(id);
       if (el) el.disabled = !canEdit;
     }
-    loadMembers(project?.id).catch(() => {});
+    if (project?.id) loadMembers(project.id).catch(() => {});
   }
 
   return {

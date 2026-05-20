@@ -52,4 +52,11 @@ const syncSource = readFileSync(new URL('../web/static/js/features/sync.js', imp
 assert(syncSource.includes('sanitizeQueueItem'), 'offline sync must sanitize queued actions');
 assert(syncSource.includes('pickAllowed'), 'offline sync must whitelist payload fields');
 
+const renderingSource = readFileSync(new URL('../web/static/js/features/app-rendering.js', import.meta.url), 'utf8');
+assert(renderingSource.includes('editProject(${escapeHtmlAttr(JSON.stringify(project.id))})'), 'project edit onclick must quote string/temp IDs safely');
+assert(renderingSource.includes('invite-action invite-accept') && renderingSource.includes('invite-action invite-decline'), 'invite actions should use compact dedicated buttons');
+
+const toastSource = readFileSync(new URL('../web/static/js/features/toast-undo.js', import.meta.url), 'utf8');
+assert(toastSource.includes("undoBtn.style.display = action ? '' : 'none'"), 'toast undo button must be hidden when there is no undo action');
+
 console.log('✅ Frontend-Security-Regressionen bestanden');
