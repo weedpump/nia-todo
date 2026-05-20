@@ -105,7 +105,7 @@ export function createTodosFeature({
       }
     } else {
       document.getElementById('todo-project').value = getCurrentProjectId() || 1;
-      await loadSectionsForCurrentProject(null);
+      await onProjectChange(null);
     }
 
     document.getElementById('todo-delete-btn').style.display = todo ? '' : 'none';
