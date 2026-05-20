@@ -23,9 +23,44 @@ export function createAuthSessionFeature({
     }
   }
 
+  function persistCachedUser(user) {
+    const { token, ...cacheableUser } = user || {};
+    localStorage.setItem('cached_user', JSON.stringify(cacheableUser));
+  }
+
+  function readCachedUser(token) {
+    const cached = localStorage.getItem('cached_user');
+    if (cached) {
+      try {
+        const user = JSON.parse(cached);
+        if (user?.id && user?.username) return { ...user, token };
+      } catch (e) {
+        localStorage.removeItem('cached_user');
+      }
+    }
+
+    if (token?.includes('.')) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+        if (payload.user_id && payload.username) {
+          return { id: payload.user_id, username: payload.username, display_name: payload.username, token };
+        }
+      } catch (e) {
+        // Invalid local JWT payload; server validation will decide when online.
+      }
+    }
+
+    return null;
+  }
+
+  function isTransientAuthCheckFailure(error) {
+    return !error?.status || error.name === 'TypeError';
+  }
+
   function storeUserSession(data) {
     const user = { ...data.user, token: data.access_token };
     setCurrentUser(user);
+    persistCachedUser(user);
     localStorage.setItem('jwt_token', data.access_token);
     if (data.csrf_token) localStorage.setItem('csrf_token', data.csrf_token);
     return user;
@@ -63,6 +98,7 @@ export function createAuthSessionFeature({
       if (user.access_token) localStorage.setItem('jwt_token', user.access_token);
       if (user.csrf_token) localStorage.setItem('csrf_token', user.csrf_token);
       setCurrentUser({ ...user, token: refreshedToken });
+      persistCachedUser({ ...user, token: refreshedToken });
 
       const newUserId = String(user.id);
       const userChanged = await clearCacheIfUserChanged(newUserId);
@@ -75,9 +111,19 @@ export function createAuthSessionFeature({
 
       return true;
     } catch (e) {
+      if (isTransientAuthCheckFailure(e)) {
+        const cachedUser = readCachedUser(token);
+        if (cachedUser) {
+          console.log('Auth check unavailable; keeping cached offline session');
+          setCurrentUser(cachedUser);
+          return true;
+        }
+      }
+
       localStorage.removeItem('jwt_token');
       localStorage.removeItem('auth_token');
       localStorage.removeItem('csrf_token');
+      localStorage.removeItem('cached_user');
       setCurrentUser(null);
       return false;
     }
@@ -95,6 +141,7 @@ export function createAuthSessionFeature({
     localStorage.removeItem('auth_token');
     localStorage.removeItem('last_user_id');
     localStorage.removeItem('csrf_token');
+    localStorage.removeItem('cached_user');
 
     await clearBrowserAuthCaches();
     await clearCache();
