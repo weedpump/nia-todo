@@ -89,10 +89,23 @@ export function createProjectSharingFeature({
     if (!input) return;
     const username = input.value.trim();
     if (!username) return showToast('Benutzername eingeben');
-    await projectsApi.shareProject(currentProject.id, username);
-    input.value = '';
-    showToast('Einladung gesendet');
-    await loadMembers(currentProject.id);
+    try {
+      await projectsApi.shareProject(currentProject.id, username);
+      input.value = '';
+      showToast('Einladung gesendet');
+      await loadMembers(currentProject.id);
+    } catch (err) {
+      const msg = (err?.message || '').toLowerCase();
+      if (msg.includes('404') || msg.includes('not found')) {
+        showToast(`Benutzer "${username}" nicht gefunden`);
+      } else if (msg.includes('403') || msg.includes('forbidden')) {
+        showToast('Keine Berechtigung — nur der Owner kann einladen');
+      } else if (msg.includes('already')) {
+        showToast(`Benutzer "${username}" hat bereits Zugriff oder eine ausstehende Einladung`);
+      } else {
+        showToast('Fehler beim Einladen: ' + (err?.message || 'Unbekannter Fehler'));
+      }
+    }
   }
 
   async function removeMember(member) {
