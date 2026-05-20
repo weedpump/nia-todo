@@ -5,6 +5,63 @@ Alle wichtigen Änderungen an diesem Projekt werden in dieser Datei dokumentiert
 Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [Unreleased] - Entwicklung auf `refactor/frontend-modular`
+
+### Architecture
+- **Backend modularisiert**: Monolithisches `main.py` aufgeteilt in Router + Services
+  - `api/routers/` — API-Endpunkte (auth, todos, projects, sections, push, admin, me, setup, dashboard, websocket, reminders)
+  - `api/services/` — Geschäftslogik (auth, push, audit, utils, websocket)
+  - `api/middleware/` — Security-Middleware (CSRF, Rate-Limiting)
+  - `api/migrations/` — Versionierte DB-Migrationen
+- **Frontend modularisiert**: Legacy-Inline-Skript ersetzt durch ES-Module-Architektur
+  - `web/static/js/features/` — Isolierte Feature-Module (auth, sync, todos, projects, sections, drag-drop, toast-undo, push, theme, websocket, view-preferences, service-worker-updates, app-lifecycle, ui-shell, navigation, section-actions, todo-rendering, app-rendering, api-keys, user-settings, connection-status, legacy-globals)
+  - `web/static/js/api/` — API-Clients (http, auth, todos, projects, sections, push)
+  - `web/static/js/core/` — Config + Utilities
+  - `web/static/js/storage/` — IndexedDB + App-Storage Wrapper
+
+### Added
+- **Test-Framework**: Frontend-Regressionstests mit Playwright (8 Module)
+  - `scripts/test_all.sh` — Gesamtsuite (Backend + 8 Frontend-Tests)
+  - `scripts/test_backend.py` — 40 API-Endpunkte mit automatischem DB-Backup/Restore
+  - `scripts/test_frontend_smoke.mjs` — Login, Project, Section, Todo, Theme, Search, Delete, Undo
+  - `scripts/test_frontend_app.mjs` — Todo-CRUD, Edit, Filter, Prio, Drag & Drop zwischen Sections
+  - `scripts/test_frontend_setup.mjs` — Setup-Flow, Admin-Erstellung, Erst-User
+  - `scripts/test_frontend_admin.mjs` — Admin-Login, User-Management, Passwort-Reset
+  - `scripts/test_frontend_settings.mjs` — API-Keys, Push-Settings, Passwort-Änderung
+  - `scripts/test_frontend_projects.mjs` — Project-CRUD, Subprojects, Farben
+  - `scripts/test_frontend_dragdrop.mjs` — Drag & Drop zwischen Sections und Projekten
+- **Doku**: Aufgeteilt in separate Dateien unter `docs/`
+  - `docs/api.md` — Vollständige API-Dokumentation (Request/Response/Body/Beispiele)
+  - `docs/testing.md` — Frontend- und Backend-Testanleitung
+  - `docs/workflow.md` — Git-Workflow, Branches, Release-Prozess
+  - `docs/architecture.md` — Frontend- und Backend-Architektur
+- **Release-Gate**: `./scripts/test_all.sh` muss vor Tag/Merge grün sein
+
+### Fixed
+- **Startup-Performance**: `app.js` wird jetzt dynamisch nach DOMContentLoaded importiert
+  - Reduziert blockierenden Initial-Load erheblich
+- **Reload bleibt eingeloggt**: `startAppModule()` wird bei jedem Import explizit aufgerufen
+  - Vorher: ESM-Cache verhinderte Neuausführung der Startup-Seiteneffekte
+- **Service Worker**: Kein falscher Update-Hinweis bei Erstinstallation
+  - Update-Button nur bei `controller` vor Registrierung + `waiting`-Worker
+- **Service Worker**: Kein automatischer Reload-Loop beim ersten `controllerchange`
+- **Auth**: Login-Flow stabilisiert gegen Timeouts bei Setup-/Auth-Checks
+- **Settings-Test**: Push-Buttons robust gegen `display:none` im Test-Context
+
+## [0.4.10] - 2026-05-19
+
+### Added
+- **Shared Projects**: Projekt-Level-Sharing zwischen Benutzern
+  - Einladungen mit Preview-Zugriff
+  - Annehmen/Ablehnen von Einladungen
+  - Entfernen von Mitgliedern
+  - Echtzeit-Sync über WebSocket
+  - `is_inbox`-Flag für Multi-User-Inbox-Support
+
+### Fixed
+- **Rate Limiting**: Login-Rate-Limit wird nach erfolgreicher Authentifizierung zurückgesetzt
+- **JWT**: `import time` für JWT-Creation korrigiert
+
 ## [0.4.9] - 2026-05-17
 
 ### Added
