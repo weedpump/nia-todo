@@ -66,8 +66,22 @@ async function runBrowserSmokeTest() {
   const pageErrors = [];
   page.on('console', message => { if (message.type() === 'error') consoleErrors.push(message.text()); });
   page.on('pageerror', error => pageErrors.push(error.message));
+  page.on('dialog', dialog => dialog.accept());
   const visible = (sel, timeout = 5000) => page.locator(sel).waitFor({ state: 'visible', timeout });
   const hidden = (sel, timeout = 5000) => page.locator(sel).waitFor({ state: 'hidden', timeout });
+  const waitForText = (text, timeout = 10000) => page.waitForFunction(
+    value => document.body.innerText.includes(value),
+    text,
+    { timeout },
+  );
+  const clickProjectNav = async (name) => {
+    await page.locator('.nav-btn').filter({ hasText: name }).first().click();
+    await page.locator('.add-section-row').waitFor({ state: 'visible' });
+  };
+  const openTodoModal = async () => {
+    await page.getByRole('button', { name: /Neues Todo/ }).click();
+    await visible('#todo-modal');
+  };
 
   try {
     await page.goto(BASE_URL, { waitUntil: 'networkidle' });
@@ -92,22 +106,113 @@ async function runBrowserSmokeTest() {
     await hidden('#project-modal');
     await visible('text=Frontend Smoke Project');
 
-    await page.getByRole('button', { name: /Neues Todo/ }).click();
+    await clickProjectNav('Frontend Smoke Project');
+
+    const createSection = async (name) => {
+      await page.evaluate((sectionName) => {
+        window.showAddSectionForm();
+      }, name);
+      const input = page.locator('#new-section-name');
+      await input.waitFor({ state: 'visible' });
+      await input.fill(name);
+      await page.evaluate(() => window.saveNewSection());
+      await page.getByText(name, { exact: true }).waitFor({ state: 'visible' });
+    };
+
+    await createSection('Frontend Section A');
+    await createSection('Frontend Section B');
+
+    await page.click('button[onclick="showProjectModal()"]');
+    await page.fill('#project-name', 'Frontend Smoke Project 2');
+    await page.fill('#project-color', '#00aa88');
+    await page.click('button[form="project-form"]');
+    await hidden('#project-modal');
+    await visible('text=Frontend Smoke Project 2');
+
+    const ensureSectionOptions = async (expectedLabels, { disabled = false } = {}) => {
+      await page.waitForFunction(({ labels, disabled }) => {
+        const sel = document.querySelector('#todo-section');
+        if (!sel) return false;
+        if (sel.disabled !== disabled) return false;
+        const optionTexts = Array.from(sel.options).map(o => o.textContent || '');
+        return labels.every(label => optionTexts.some(text => text.includes(label)));
+      }, { labels: expectedLabels, disabled }, { timeout: 10000 });
+    };
+
+    await openTodoModal();
+    await page.fill('#todo-title', 'Frontend Section Todo');
+    await page.selectOption('#todo-project', { label: 'Frontend Smoke Project' });
+    await ensureSectionOptions(['Keine Section', 'Frontend Section A', 'Frontend Section B']);
+    await page.selectOption('#todo-section', { label: 'Frontend Section A' });
+    await page.click('button[form="todo-form"]');
+    await hidden('#todo-modal');
+
+    await clickProjectNav('Frontend Smoke Project');
+    await page.waitForFunction(() => {
+      const headers = Array.from(document.querySelectorAll('.section-header .section-name'));
+      return headers.some(el => el.textContent?.includes('Frontend Section A'))
+        && document.body.innerText.includes('Frontend Section Todo');
+    }, { timeout: 10000 });
+
+    const sectionHeaderA = page.locator('.section-header').filter({ hasText: 'Frontend Section A' }).first();
+    await sectionHeaderA.waitFor({ state: 'visible' });
+    await page.locator('.section-todos[data-section-id]').filter({ has: page.getByText('Frontend Section Todo', { exact: true }) }).first().waitFor({ state: 'visible' });
+
+    await sectionHeaderA.locator('.section-name').click();
+    const renameInput = page.locator('input[id^="edit-section-name-"]');
+    await renameInput.first().waitFor({ state: 'visible' });
+    await renameInput.first().fill('Frontend Section A Renamed');
+    await renameInput.first().press('Enter');
+    await page.getByText('Frontend Section A Renamed', { exact: true }).waitFor({ state: 'visible' });
+
+    await openTodoModal();
+    await page.fill('#todo-title', 'Frontend Project Switch Todo');
+    await page.selectOption('#todo-project', { label: 'Frontend Smoke Project' });
+    await ensureSectionOptions(['Frontend Section A Renamed', 'Frontend Section B']);
+    await page.selectOption('#todo-project', { label: 'Frontend Smoke Project 2' });
+    await ensureSectionOptions(['Keine Section'], { disabled: false });
+    await page.waitForFunction(() => {
+      const sel = document.querySelector('#todo-section');
+      if (!sel) return false;
+      const optionTexts = Array.from(sel.options).map(o => o.textContent || '');
+      return !optionTexts.some(text => text.includes('Frontend Section A Renamed') || text.includes('Frontend Section B'));
+    }, { timeout: 10000 });
+    await page.selectOption('#todo-project', { label: 'Frontend Smoke Project' });
+    await ensureSectionOptions(['Frontend Section A Renamed', 'Frontend Section B']);
+    await page.selectOption('#todo-section', { label: 'Frontend Section B' });
+    await page.click('button[form="todo-form"]');
+    await hidden('#todo-modal');
+    await clickProjectNav('Frontend Smoke Project');
+    await waitForText('Frontend Project Switch Todo');
+
+    const deleteSectionButton = page.locator('.section-header').filter({ hasText: 'Frontend Section A Renamed' }).first().locator('.section-delete');
+    await deleteSectionButton.click();
+    await page.waitForFunction(() => {
+      const sectionNames = Array.from(document.querySelectorAll('.section-header .section-name')).map(el => el.textContent || '');
+      const unsortedBlocks = Array.from(document.querySelectorAll('.section-header')).filter(el => el.textContent?.includes('Unsortiert'));
+      return !sectionNames.some(name => name.includes('Frontend Section A Renamed'))
+        && unsortedBlocks.length > 0
+        && document.body.innerText.includes('Frontend Section Todo');
+    }, { timeout: 10000 });
+
+    await openTodoModal();
     await page.fill('#todo-title', 'Frontend Smoke Todo');
     await page.fill('#todo-desc', '**Smoke** test via Playwright');
     await page.selectOption('#todo-project', { label: 'Frontend Smoke Project' });
     await page.click('button[form="todo-form"]');
     await hidden('#todo-modal');
-    await page.getByText('Frontend Smoke Todo', { exact: true }).waitFor({ state: 'visible' });
+    await clickProjectNav('Frontend Smoke Project');
+    await waitForText('Frontend Smoke Todo');
 
     await page.click('button[onclick="showTodoModal()"]');
+    await visible('#todo-modal');
     await page.fill('#todo-title', 'Frontend Smoke Todo 2');
     await page.click('button[form="todo-form"]');
     await hidden('#todo-modal');
     await visible('text=Frontend Smoke Todo 2');
 
     await page.fill('#search-input', 'Smoke Todo');
-    await page.getByText('Frontend Smoke Todo', { exact: true }).waitFor({ state: 'visible' });
+    await waitForText('Frontend Smoke Todo');
     await page.fill('#search-input', '');
 
     const todoItem = page.locator('.todo-item').filter({ hasText: 'Frontend Smoke Todo' }).first();
@@ -124,7 +229,8 @@ async function runBrowserSmokeTest() {
     await page.click('button[onclick="deleteTodoFromModal()"]');
     await page.waitForTimeout(800);
     await page.click('#toast-undo');
-    await page.getByText('Frontend Smoke Todo', { exact: true }).waitFor({ state: 'visible' });
+    await clickProjectNav('Frontend Smoke Project');
+    await waitForText('Frontend Smoke Todo');
 
     if (pageErrors.length || consoleErrors.length) {
       throw new Error(`Frontend emitted errors:\npageErrors=${JSON.stringify(pageErrors)}\nconsoleErrors=${JSON.stringify(consoleErrors)}`);

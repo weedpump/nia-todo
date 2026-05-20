@@ -87,11 +87,13 @@ export function createToastUndoFeature({
   async function restoreTodo(id, data) {
     if (!getDb()) return;
     await dbPut('todos', data);
-    setTodos([...getTodos(), data]);
+    const todos = getTodos();
+    const existing = todos.find(t => t.id === data.id);
+    setTodos(existing ? todos.map(t => t.id === data.id ? data : t) : [...todos, data]);
     renderStats();
     renderTodos();
     if (isOnlineForSync()) {
-      await addToSyncQueue('UPDATE_TODO', { id, changes: data });
+      await addToSyncQueue('CREATE_TODO', { ...data, _tempId: data.id });
       await syncWithServer();
     }
   }
