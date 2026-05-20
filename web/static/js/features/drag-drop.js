@@ -10,6 +10,7 @@ export function createDragDropFeature({
 }) {
   let dragSrcTodoId = null;
   let dragSrcSectionId = null;
+  let currentSectionDropIndex = null;
 
   function handleTodoDragStart(e) {
     const rawId = e.target.dataset.id;
@@ -28,6 +29,7 @@ export function createDragDropFeature({
   }
 
   function handleTodoDragOver(e) {
+    if (!dragSrcTodoId) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
     const container = e.target.closest('.section-todos');
@@ -75,43 +77,33 @@ export function createDragDropFeature({
     e.dataTransfer.setData('text/plain', 'section:' + dragSrcSectionId);
   }
 
+  function clearSectionDropIndicators() {
+    document.querySelectorAll('.section-header.drag-over, .section-dropzone.drag-over').forEach(el => el.classList.remove('drag-over'));
+  }
+
   function handleSectionDragEnd(e) {
     e.target.classList.remove('dragging');
-    document.querySelectorAll('.section-header.drag-over').forEach(el => el.classList.remove('drag-over'));
+    clearSectionDropIndicators();
     dragSrcSectionId = null;
+    currentSectionDropIndex = null;
   }
 
   function handleSectionDragOver(e) {
+    if (!dragSrcSectionId) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
+    clearSectionDropIndicators();
+    const dropzone = e.target.closest('.section-dropzone');
+    if (dropzone) {
+      currentSectionDropIndex = parseInt(dropzone.dataset.dropIndex, 10);
+      dropzone.classList.add('drag-over');
+      return;
+    }
     const header = e.target.closest('.section-header');
     if (header) header.classList.add('drag-over');
   }
 
-  async function handleSectionDrop(e) {
-    e.preventDefault();
-    const header = e.target.closest('.section-header');
-    if (!header) return;
-    header.classList.remove('drag-over');
-
-    const targetSectionId = header.dataset.sectionId;
-
-    if (dragSrcTodoId) {
-      const newSectionId = targetSectionId === 'null' ? null : parseInt(targetSectionId);
-      await moveTodoToSection(dragSrcTodoId, newSectionId);
-      return;
-    }
-
-    if (targetSectionId === 'null' || !dragSrcSectionId || dragSrcSectionId === parseInt(targetSectionId)) return;
-
-    const sections = [...getSections()];
-    const srcIdx = sections.findIndex(s => s.id === dragSrcSectionId);
-    const targetIdx = sections.findIndex(s => s.id === parseInt(targetSectionId));
-    if (srcIdx === -1 || targetIdx === -1) return;
-
-    const [moved] = sections.splice(srcIdx, 1);
-    sections.splice(targetIdx, 0, moved);
-
+  async function persistSectionOrder(sections) {
     for (let i = 0; i < sections.length; i++) {
       sections[i] = { ...sections[i], sort_order: i };
       if (isOnlineForSync()) {
@@ -125,6 +117,48 @@ export function createDragDropFeature({
 
     setSections(sections);
     renderTodos();
+  }
+
+  async function handleSectionDrop(e) {
+    e.preventDefault();
+
+    const header = e.target.closest('.section-header');
+    const dropzone = e.target.closest('.section-dropzone');
+    if (header) header.classList.remove('drag-over');
+    if (dropzone) dropzone.classList.remove('drag-over');
+
+    const targetSectionId = header?.dataset.sectionId;
+
+    if (dragSrcTodoId && header) {
+      const newSectionId = targetSectionId === 'null' ? null : parseInt(targetSectionId);
+      await moveTodoToSection(dragSrcTodoId, newSectionId);
+      return;
+    }
+
+    if (!dragSrcSectionId) return;
+
+    const sections = [...getSections()];
+    const srcIdx = sections.findIndex(s => s.id === dragSrcSectionId);
+    if (srcIdx === -1) return;
+
+    if (dropzone) {
+      const rawIndex = parseInt(dropzone.dataset.dropIndex, 10);
+      if (Number.isNaN(rawIndex)) return;
+      const [moved] = sections.splice(srcIdx, 1);
+      const targetIdx = srcIdx < rawIndex ? rawIndex - 1 : rawIndex;
+      sections.splice(targetIdx, 0, moved);
+      await persistSectionOrder(sections);
+      return;
+    }
+
+    if (targetSectionId === 'null' || !header || dragSrcSectionId === parseInt(targetSectionId)) return;
+
+    const targetIdx = sections.findIndex(s => s.id === parseInt(targetSectionId));
+    if (targetIdx === -1) return;
+
+    const [moved] = sections.splice(srcIdx, 1);
+    sections.splice(targetIdx, 0, moved);
+    await persistSectionOrder(sections);
   }
 
   return {

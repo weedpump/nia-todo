@@ -72,15 +72,20 @@ async function run() {
     const movedToUnsorted = afterUnsortedMove.some(entry => entry.section.includes('Unsortiert') && entry.text.includes('Drag Todo'));
     if (!movedToUnsorted) throw new Error(`Drag Todo not moved to Unsortiert: ${JSON.stringify(afterUnsortedMove)}`);
 
-    await page.evaluate(async () => {
+    const sectionOrder = await page.evaluate(async () => {
       const headers = Array.from(document.querySelectorAll('.section-header'));
       const dragB = headers.find(el => el.textContent?.includes('Drag B'));
-      const dragA = headers.find(el => el.textContent?.includes('Drag A'));
-      if (!dragB || !dragA) throw new Error('Section headers for reorder not found');
+      const firstDropzone = document.querySelector('.section-dropzone[data-drop-index="0"]');
+      if (!dragB || !firstDropzone) throw new Error('Section drag/dropzone not found');
       window.handleSectionDragStart({ target: dragB, dataTransfer: { effectAllowed: '', setData() {}, dropEffect: '' } });
-      await window.handleSectionDrop({ preventDefault() {}, target: dragA.querySelector('.section-name') || dragA });
-      return await window.dbGetAll('sections');
+      window.handleSectionDragOver({ preventDefault() {}, target: firstDropzone, dataTransfer: { dropEffect: '' } });
+      await window.handleSectionDrop({ preventDefault() {}, target: firstDropzone });
+      return Array.from(document.querySelectorAll('.section-header .section-name')).map(el => el.textContent?.trim());
     });
+
+    if (sectionOrder[0] !== 'Drag B' || sectionOrder[1] !== 'Drag A') {
+      throw new Error(`Section order not updated via dropzone: ${JSON.stringify(sectionOrder)}`);
+    }
 
     await page.waitForTimeout(300);
 
