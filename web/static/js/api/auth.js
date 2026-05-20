@@ -58,9 +58,11 @@ export const authApi = {
   async uploadAvatar(file) {
     const headers = getAuthHeaders();
     delete headers['Content-Type'];
+    const name = file.name?.toLowerCase?.() || '';
+    const contentType = file.type || (name.endsWith('.heic') ? 'image/heic' : name.endsWith('.heif') ? 'image/heif' : 'application/octet-stream');
     const response = await fetch(API + '/api/me/avatar', {
       method: 'PUT',
-      headers: { ...headers, 'Content-Type': file.type || 'application/octet-stream' },
+      headers: { ...headers, 'Content-Type': contentType },
       body: file,
       credentials: 'include',
     });
