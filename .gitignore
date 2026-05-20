@@ -33,3 +33,5 @@ Thumbs.db
 # Dev-only files
 api/data/vapid_keys.json
 test-results.json
+
+api/data/daily-backups/
