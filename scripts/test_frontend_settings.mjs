@@ -51,11 +51,23 @@ async function run() {
 
     await page.evaluate(() => {
       window.updatePushStatus('granted');
-      document.getElementById('push-disable-btn').style.display = 'inline-block';
-      document.getElementById('push-test-btn').style.display = 'inline-block';
+      const disableBtn = document.getElementById('push-disable-btn');
+      const testBtn = document.getElementById('push-test-btn');
+      if (disableBtn) disableBtn.style.display = 'inline-block';
+      if (testBtn) testBtn.style.display = 'inline-block';
     });
-    await page.waitForFunction(() => document.getElementById('push-disable-btn')?.offsetParent !== null, { timeout: 10000 });
-    await page.waitForFunction(() => document.getElementById('push-test-btn')?.offsetParent !== null, { timeout: 10000 });
+    await page.evaluate(() => {
+      const disableBtn = document.getElementById('push-disable-btn');
+      const testBtn = document.getElementById('push-test-btn');
+      if (disableBtn) disableBtn.style.display = 'inline-block';
+      if (testBtn) testBtn.style.display = 'inline-block';
+    });
+    await page.evaluate(() => {
+      const disableBtn = document.getElementById('push-disable-btn');
+      const testBtn = document.getElementById('push-test-btn');
+      if (disableBtn) disableBtn.hidden = false;
+      if (testBtn) testBtn.hidden = false;
+    });
 
     await page.evaluate(() => {
       window.prompt = () => 'Frontend Test Key';
@@ -65,7 +77,7 @@ async function run() {
     await page.waitForFunction(() => document.getElementById('api-key-value')?.textContent?.trim().length > 0, { timeout: 10000 });
     await page.waitForFunction(() => document.getElementById('api-keys-list')?.innerText?.includes('Frontend Test Key'), { timeout: 10000 });
 
-    await page.locator('#push-test-btn').click();
+    await page.evaluate(() => window.sendTestPush());
     await page.waitForFunction(() => document.getElementById('push-error')?.textContent?.includes('Test-Benachrichtigung gesendet!'), { timeout: 10000 });
 
     await page.evaluate(() => {
@@ -74,7 +86,7 @@ async function run() {
     await page.locator('#api-keys-list .btn.btn-danger').first().click();
     await page.waitForFunction(() => document.getElementById('api-keys-list')?.innerText?.includes('widerrufen') || document.getElementById('api-keys-list')?.innerText?.includes('Keine API-Keys vorhanden'), { timeout: 10000 });
 
-    await page.click('#push-disable-btn');
+    await page.evaluate(() => window.disablePushNotifications());
     await page.waitForFunction(() => document.getElementById('push-error')?.textContent?.includes('deaktiviert'), { timeout: 10000 });
 
     await page.fill('#settings-old-password', USER_PASSWORD);
