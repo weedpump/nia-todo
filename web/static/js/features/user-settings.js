@@ -1,10 +1,12 @@
-export function createUserSettingsFeature({ authApi, getCurrentUser, resetApiKeyUi, loadApiKeys, updatePushSettingsUI, logout }) {
+export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentUser, resetApiKeyUi, loadApiKeys, updatePushSettingsUI, logout }) {
   function renderUserInfo() {
     const currentUser = getCurrentUser();
     const nameEl = document.getElementById('user-name');
     const settingsNameEl = document.getElementById('settings-user-name');
+    const settingsEmailEl = document.getElementById('settings-email');
     if (nameEl && currentUser) nameEl.textContent = currentUser.display_name || currentUser.username;
     if (settingsNameEl && currentUser) settingsNameEl.textContent = currentUser.display_name || currentUser.username;
+    if (settingsEmailEl && currentUser) settingsEmailEl.value = currentUser.email || '';
   }
 
   function openSettingsModal() {
@@ -13,10 +15,35 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, resetApiKey
     document.getElementById('settings-confirm-password').value = '';
     document.getElementById('settings-pw-error').textContent = '';
     document.getElementById('settings-pw-success').textContent = '';
+    document.getElementById('settings-email-error').textContent = '';
+    document.getElementById('settings-email-success').textContent = '';
+    renderUserInfo();
     resetApiKeyUi();
     document.getElementById('settings-modal')?.classList.add('active');
     loadApiKeys();
     updatePushSettingsUI();
+  }
+
+  async function changeUserEmail() {
+    const email = document.getElementById('settings-email').value.trim();
+    const errorEl = document.getElementById('settings-email-error');
+    const successEl = document.getElementById('settings-email-success');
+    errorEl.textContent = '';
+    successEl.textContent = '';
+
+    if (!email) {
+      errorEl.textContent = 'E-Mail ist erforderlich';
+      return;
+    }
+
+    try {
+      const data = await authApi.updateEmail(email);
+      const currentUser = getCurrentUser();
+      if (currentUser) setCurrentUser({ ...currentUser, email: data.email });
+      successEl.textContent = 'E-Mail gespeichert';
+    } catch (e) {
+      errorEl.textContent = e.message;
+    }
   }
 
   async function changeUserPassword() {
@@ -45,5 +72,5 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, resetApiKey
     }
   }
 
-  return { renderUserInfo, openSettingsModal, changeUserPassword };
+  return { renderUserInfo, openSettingsModal, changeUserEmail, changeUserPassword };
 }

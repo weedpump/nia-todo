@@ -243,6 +243,15 @@
           <label>Angemeldet als</label>
           <div id="settings-user-name" style="font-size:14px; color:var(--text-secondary); padding:8px 0;">–</div>
         </div>
+        <div class="form-group">
+          <label>E-Mail</label>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <input type="email" id="settings-email" placeholder="E-Mail-Adresse" autocomplete="email" style="flex:1;">
+            <button type="button" class="btn btn-secondary" onclick="changeUserEmail()">Speichern</button>
+          </div>
+          <div id="settings-email-error" style="color:var(--danger); font-size:13px; margin-top:8px;"></div>
+          <div id="settings-email-success" style="color:var(--success); font-size:13px; margin-top:8px;"></div>
+        </div>
         <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">
         <h4 style="margin:0 0 12px 0; font-size:14px;">🔐 Passwort ändern</h4>
         <div class="form-group">
