@@ -38,9 +38,8 @@ export function createProjectSharingFeature({
       return;
     }
 
-    const ownerLabel = currentProject.owner_username || 'Owner';
     const rows = [];
-    rows.push(`<div class="sharing-member-row"><div><strong>${escapeHtml(ownerLabel)}</strong> <span class="sharing-role">👑 Owner</span></div></div>`);
+    // owner wird nicht angezeigt, nur member
 
     for (const member of currentMembers) {
       if (!member || member.user_id == null) continue;
@@ -147,14 +146,20 @@ export function createProjectSharingFeature({
 
   function applyProjectModalState(project, canEdit, shared) {
     currentProject = project;
+    const isOwn = isOwner(currentProject);
     const sharingSection = document.getElementById('project-sharing-section');
+    const sharingContent = document.getElementById('project-sharing-content');
+    const shareStartRow = document.getElementById('project-share-start-row');
     const leaveBtn = document.getElementById('project-leave-btn');
     const inviteRow = document.getElementById('project-share-row');
     const fields = ['project-name', 'project-color', 'project-parent-id'];
 
     if (sharingSection) sharingSection.style.display = project ? '' : 'none';
-    if (leaveBtn) leaveBtn.style.display = shared ? '' : 'none';
-    if (inviteRow) inviteRow.style.display = canEdit ? '' : 'none';
+    if (leaveBtn) leaveBtn.style.display = shared && !isOwn ? '' : 'none';
+    if (inviteRow) inviteRow.style.display = isOwn ? '' : 'none';
+    if (sharingContent) sharingContent.style.display = isOwn ? '' : 'none';
+    if (shareStartRow) shareStartRow.style.display = isOwn && !shared ? '' : 'none';
+
     for (const id of fields) {
       const el = document.getElementById(id);
       if (el) el.disabled = !canEdit;
@@ -170,5 +175,12 @@ export function createProjectSharingFeature({
     undoRemoveMember,
     applyProjectModalState,
     loadMembers,
+    showShareInput,
   };
-}
+
+  function showShareInput() {
+    const content = document.getElementById('project-sharing-content');
+    const startRow = document.getElementById('project-share-start-row');
+    if (content) content.style.display = '';
+    if (startRow) startRow.style.display = 'none';
+  }
