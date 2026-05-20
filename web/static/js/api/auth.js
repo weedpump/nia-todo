@@ -3,7 +3,11 @@ import { getAuthHeaders } from './http.js';
 
 async function parseOrThrow(response, fallback = 'Request failed') {
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.detail || fallback);
+  if (!response.ok) {
+    const error = new Error(data.detail || fallback);
+    error.status = response.status;
+    throw error;
+  }
   return data;
 }
 
