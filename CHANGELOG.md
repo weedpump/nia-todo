@@ -5,7 +5,7 @@ Alle wichtigen Änderungen an diesem Projekt werden in dieser Datei dokumentiert
 Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
-## [Unreleased] - Entwicklung auf `refactor/frontend-modular`
+## [0.4.11] - 2026-05-20
 
 ### Architecture
 - **Backend modularisiert**: Monolithisches `main.py` aufgeteilt in Router + Services
