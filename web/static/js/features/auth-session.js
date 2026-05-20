@@ -59,7 +59,10 @@ export function createAuthSessionFeature({
 
     try {
       const user = await authApi.me();
-      setCurrentUser({ ...user, token });
+      const refreshedToken = user.access_token || token;
+      if (user.access_token) localStorage.setItem('jwt_token', user.access_token);
+      if (user.csrf_token) localStorage.setItem('csrf_token', user.csrf_token);
+      setCurrentUser({ ...user, token: refreshedToken });
 
       const newUserId = String(user.id);
       const userChanged = await clearCacheIfUserChanged(newUserId);

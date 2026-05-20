@@ -11,7 +11,9 @@ from datetime import datetime, timezone, timedelta
 from db import get_db
 
 JWT_ALGORITHM = "HS256"
-JWT_EXPIRY_DAYS = 1
+USER_JWT_EXPIRY_DAYS = 30
+USER_JWT_REFRESH_THRESHOLD_DAYS = 7
+ADMIN_JWT_EXPIRY_DAYS = 1
 sessions = {}  # Legacy in-memory session store
 
 
@@ -45,7 +47,7 @@ def create_jwt_token(user: dict, db) -> str:
         "token_version": user.get('token_version', 1),
         "is_admin": bool(user.get('is_admin', False)),
         "iat": now,
-        "exp": now + (JWT_EXPIRY_DAYS * 86400)
+        "exp": now + (USER_JWT_EXPIRY_DAYS * 86400)
     }
     return pyjwt.encode(payload, secret, algorithm=JWT_ALGORITHM)
 
@@ -69,6 +71,15 @@ def decode_jwt_token(token: str, db) -> Optional[dict]:
         return payload
     except (pyjwt.ExpiredSignatureError, pyjwt.InvalidTokenError):
         return None
+
+
+def should_refresh_user_jwt(payload: dict) -> bool:
+    """Return True when a valid user token is close enough to expiry to rotate."""
+    exp = payload.get('exp')
+    if not exp:
+        return False
+    remaining_seconds = int(exp) - int(time.time())
+    return remaining_seconds <= USER_JWT_REFRESH_THRESHOLD_DAYS * 86400
 
 
 def get_current_user(token: Optional[str] = None) -> Optional[int]:
@@ -125,7 +136,7 @@ def create_admin_jwt_token(db) -> str:
         "role": "admin",
         "admin_version": admin_version,
         "iat": now,
-        "exp": now + (JWT_EXPIRY_DAYS * 86400)
+        "exp": now + (ADMIN_JWT_EXPIRY_DAYS * 86400)
     }
     return pyjwt.encode(payload, secret, algorithm=JWT_ALGORITHM)
 

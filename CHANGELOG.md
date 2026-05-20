@@ -26,6 +26,7 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 - **Projekt-Namen nur pro Benutzer eindeutig** statt global eindeutig
 - **Todo-Default-Projekt**: Neue Todos ohne Projekt landen in der Inbox des aktuellen Benutzers
 - **Login/Reload-Stabilität**: Server-Refresh rendert sofort und persistiert Projekte/Todos/Sections direkt in IndexedDB
+- **PWA-Session**: User-Logins laufen 30 Tage und werden bei App-Öffnung automatisch verlängert, wenn sie bald ablaufen
 - **Service Worker**: `/api/*` wird nicht mehr gecached, um Auth-/User-Datenleaks zu vermeiden
 - **API-Key Auth**: CSRF-Bypass nur noch für `Authorization: ApiKey ...` oder `X-API-Key`; `Bearer nt_...` wird abgelehnt
 - **Reminder/Deadline Eingaben**: Frontend- und Backendvalidierung für ungültige Datum-/Zeitwerte (`1900..9999`, gültige Uhrzeit)
