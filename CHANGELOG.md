@@ -5,6 +5,15 @@ Alle wichtigen Änderungen an diesem Projekt werden in dieser Datei dokumentiert
 Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [1.2.1] - 2026-05-21
+
+### Fixed
+- **PWA-Offline-Cold-Start**: App bleibt nach komplettem Beenden und erneutem Öffnen ohne Netzwerk eingeloggt
+  - Temporäre Netzwerk-/Offline-Fehler bei `/api/me` löschen die lokale Session nicht mehr
+  - Gültige lokale Session wird aus gecachtem Benutzerprofil/JWT rekonstruiert
+  - Echte Auth-Fehler löschen die Session weiterhin korrekt
+- Regressionstest für Offline-Cold-Start ergänzt
+
 ## [1.2.0] - 2026-05-21
 
 ### Added
