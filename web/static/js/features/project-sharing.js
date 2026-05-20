@@ -90,9 +90,17 @@ export function createProjectSharingFeature({
     const username = input.value.trim();
     if (!username) return showToast('Benutzername eingeben');
     try {
-      await projectsApi.shareProject(currentProject.id, username);
+      const result = await projectsApi.shareProject(currentProject.id, username);
       input.value = '';
-      showToast('Einladung gesendet');
+      const member = result?.member;
+      showToast('Einladung gesendet', {
+        type: 'member_invite',
+        data: {
+          projectId: currentProject.id,
+          userId: member?.user_id,
+          username: username,
+        },
+      });
       await loadMembers(currentProject.id);
     } catch (err) {
       const msg = (err?.message || '').toLowerCase();
@@ -157,6 +165,45 @@ export function createProjectSharingFeature({
     await loadMembers(data.projectId);
   }
 
+  async function undoInvite(data) {
+    if (!data?.projectId || !data?.userId) return;
+    await projectsApi.removeMember(data.projectId, data.userId);
+    await loadMembers(data.projectId);
+  }
+
+  async function acceptInvite(projectId, inviteId) {
+    await projectsApi.respondInvite(projectId, inviteId, true);
+    showToast('Einladung angenommen');
+    // Reload projects from server
+    const res = await projectsApi.list();
+    if (res?.projects) {
+      setProjects(res.projects);
+      renderProjects();
+      renderStats();
+      renderTodos();
+    }
+    await loadInvites();
+  }
+
+  async function declineInvite(projectId, inviteId) {
+    await projectsApi.respondInvite(projectId, inviteId, false);
+    showToast('Einladung abgelehnt');
+    await loadInvites();
+  }
+
+  async function loadInvites() {
+    try {
+      const res = await projectsApi.listInvites();
+      const invites = res?.invites || [];
+      // Find renderInvites function - it might be in appRendering
+      if (typeof window.renderInvites === 'function') {
+        window.renderInvites(invites);
+      }
+    } catch (e) {
+      console.error('Failed to load invites:', e);
+    }
+  }
+
   function showShareInput() {
     const content = document.getElementById('project-sharing-content');
     const startRow = document.getElementById('project-share-start-row');
@@ -212,6 +259,10 @@ export function createProjectSharingFeature({
     leaveProject,
     undoLeaveProject,
     undoRemoveMember,
+    undoInvite,
+    acceptInvite,
+    declineInvite,
+    loadInvites,
     applyProjectModalState,
     loadMembers,
     showShareInput,

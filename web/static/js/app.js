@@ -275,6 +275,10 @@ const renderProjects = appRendering.renderProjects;
 const renderStats = appRendering.renderStats;
 const renderTodos = appRendering.renderTodos;
 const countByProject = appRendering.countByProject;
+const renderInvites = appRendering.renderInvites;
+
+// Make renderInvites globally available for project-sharing.js
+window.renderInvites = renderInvites;
 
 // ─── Actions ─────────────────────────────────────────────────────────────────
 
@@ -367,6 +371,11 @@ const toastUndoFeature = createToastUndoFeature({
     if (!data?.projectId || !data?.username) return;
     await projectsApi.shareProject(data.projectId, data.username);
   },
+  onUndoInvite: async (data) => {
+    if (!data?.projectId || !data?.userId) return;
+    await projectsApi.removeMember(data.projectId, data.userId);
+    await sharingFeature.loadMembers(data.projectId);
+  },
 });
 const showToast = toastUndoFeature.showToast;
 const showBatchToast = toastUndoFeature.showBatchToast;
@@ -412,7 +421,12 @@ const appLifecycle = createAppLifecycle({
   updateToggleDoneButton,
   updateSortButton,
 });
-const initApp = appLifecycle.initApp;
+const initApp = async function() {
+  await appLifecycle.initApp();
+  if (sharingFeature?.loadInvites) {
+    sharingFeature.loadInvites();
+  }
+};
 const loadFromLocalDB = appLifecycle.loadFromLocalDB;
 const loadAll = appLifecycle.loadAll;
 
@@ -442,8 +456,8 @@ export function startAppModule() {
   navigation: { setFilter, loadSectionsForCurrentProject },
   todos: { markTodoDone, toggleTodo, showTodoModal, onProjectChange, saveTodo, editTodo, deleteTodoFromModal, deleteTodo },
   projects: { showProjectModal, editProject, saveProject, deleteProject, deleteProjectFromModal, clearDoneFromModal, clearDoneInProject },
-  sharing: { inviteUserToProject: () => sharingFeature.inviteByUsername(), leaveProjectFromModal: () => sharingFeature.leaveProject(), undoLeaveProject: (data) => sharingFeature.undoLeaveProject(data), undoRemoveMember: (data) => sharingFeature.undoRemoveMember(data), showShareInput: () => sharingFeature.showShareInput() },
-  projectSharing: { setProject: (project) => sharingFeature.setProject(project), applyProjectModalState: (project, canEdit, shared) => sharingFeature.applyProjectModalState(project, canEdit, shared) },
+  sharing: { inviteUserToProject: () => sharingFeature.inviteByUsername(), leaveProjectFromModal: () => sharingFeature.leaveProject(), undoLeaveProject: (data) => sharingFeature.undoLeaveProject(data), undoRemoveMember: (data) => sharingFeature.undoRemoveMember(data), undoInvite: (data) => sharingFeature.undoInvite(data), acceptInvite: (pid, iid) => sharingFeature.acceptInvite(pid, iid), declineInvite: (pid, iid) => sharingFeature.declineInvite(pid, iid), showShareInput: () => sharingFeature.showShareInput() },
+  projectSharing: { setProject: (project) => sharingFeature.setProject(project), applyProjectModalState: (project, canEdit, shared) => sharingFeature.applyProjectModalState(project, canEdit, shared), loadInvites: () => sharingFeature.loadInvites() },
   sections: { showAddSectionForm, saveNewSection, editSectionInline, saveSectionEdit, deleteSection },
   dragDrop: { handleTodoDragStart, handleTodoDragEnd, handleTodoDragOver, handleTodoDrop, handleSectionDragStart, handleSectionDragEnd, handleSectionDragOver, handleSectionDrop },
   viewPreferences: { toggleHideDone, updateToggleDoneButton, cycleSort, updateSortButton, sortTodoList },

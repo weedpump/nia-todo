@@ -11,6 +11,7 @@ export function createAppRenderingFeature({
   sortTodoList,
   renderTodoItem,
   renderSectionHeader,
+  getInvites,
 }) {
   function renderVersionInfo() {
     const el = document.getElementById('version-info');
@@ -275,5 +276,29 @@ export function createAppRenderingFeature({
     el.innerHTML = html;
   }
 
-  return { renderVersionInfo, renderProjects, renderStats, renderTodos, countByProject };
+  function renderInvites(invites) {
+    const section = document.getElementById('invites-section');
+    const el = document.getElementById('invites-list');
+    if (!section || !el) return;
+    if (!invites || !invites.length) {
+      section.style.display = 'none';
+      return;
+    }
+    section.style.display = '';
+    let html = '';
+    for (const invite of invites) {
+      html += `
+        <div class="nav-btn" style="margin-bottom:4px;">
+          <span>📩 ${escapeHtml(invite.project_name)}</span>
+          <div style="display:flex;gap:4px;margin-top:4px;">
+            <button class="btn btn-primary btn-sm" onclick="acceptInvite(${invite.project_id}, ${invite.id})">Annehmen</button>
+            <button class="btn btn-sm" onclick="declineInvite(${invite.project_id}, ${invite.id})" style="background:var(--bg-secondary);color:var(--text-secondary);">Ablehnen</button>
+          </div>
+        </div>
+      `;
+    }
+    el.innerHTML = html;
+  }
+
+  return { renderVersionInfo, renderProjects, renderStats, renderTodos, countByProject, renderInvites };
 }

@@ -99,6 +99,7 @@ export function createAuthSessionFeature({
       renderUserInfo();
       if (!getAppInitialized()) await initApp();
       await refreshFromServer();
+      window.dispatchEvent(new CustomEvent('nia-logged-in'));
     } catch (err) {
       console.error('Login failed:', err);
       errorEl.textContent = err.message || 'Login fehlgeschlagen';
