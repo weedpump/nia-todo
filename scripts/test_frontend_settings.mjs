@@ -54,8 +54,8 @@ async function run() {
       document.getElementById('push-disable-btn').style.display = 'inline-block';
       document.getElementById('push-test-btn').style.display = 'inline-block';
     });
-    await page.locator('#push-disable-btn').waitFor({ state: 'visible', timeout: 10000 });
-    await page.locator('#push-test-btn').waitFor({ state: 'visible', timeout: 10000 });
+    await page.waitForFunction(() => document.getElementById('push-disable-btn')?.offsetParent !== null, { timeout: 10000 });
+    await page.waitForFunction(() => document.getElementById('push-test-btn')?.offsetParent !== null, { timeout: 10000 });
 
     await page.evaluate(() => {
       window.prompt = () => 'Frontend Test Key';
@@ -65,7 +65,7 @@ async function run() {
     await page.waitForFunction(() => document.getElementById('api-key-value')?.textContent?.trim().length > 0, { timeout: 10000 });
     await page.waitForFunction(() => document.getElementById('api-keys-list')?.innerText?.includes('Frontend Test Key'), { timeout: 10000 });
 
-    await page.click('#push-test-btn');
+    await page.locator('#push-test-btn').click();
     await page.waitForFunction(() => document.getElementById('push-error')?.textContent?.includes('Test-Benachrichtigung gesendet!'), { timeout: 10000 });
 
     await page.evaluate(() => {
