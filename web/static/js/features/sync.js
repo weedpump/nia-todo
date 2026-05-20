@@ -35,7 +35,9 @@ export function createSyncFeature({
             setTodos(getTodos().filter(t => t.id !== item.data._tempId));
           }
           await dbPut('todos', res);
-          if (!getTodos().find(t => t.id === res.id)) setTodos([...getTodos(), res]);
+          const withoutTemp = item.data._tempId ? getTodos().filter(t => t.id !== item.data._tempId) : getTodos();
+          if (!withoutTemp.find(t => t.id === res.id)) setTodos([...withoutTemp, res]);
+          else setTodos(withoutTemp.map(t => t.id === res.id ? res : t));
           successCount++;
         } else if (item.action === 'UPDATE_TODO') {
           await todosApi.update(item.data.id, item.data.changes);

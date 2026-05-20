@@ -12,7 +12,8 @@ export function createDragDropFeature({
   let dragSrcSectionId = null;
 
   function handleTodoDragStart(e) {
-    dragSrcTodoId = parseInt(e.target.dataset.id);
+    const rawId = e.target.dataset.id;
+    dragSrcTodoId = /^\d+$/.test(String(rawId)) ? parseInt(rawId) : rawId;
     e.target.classList.add('dragging');
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', 'todo:' + dragSrcTodoId);
@@ -35,14 +36,16 @@ export function createDragDropFeature({
 
   async function moveTodoToSection(todoId, sectionId) {
     const todos = getTodos();
-    const todo = todos.find(t => t.id === todoId);
+    const todo = todos.find(t => String(t.id) === String(todoId));
     if (!todo || todo.section_id === sectionId) return false;
 
-    const nextTodos = todos.map(t => t.id === todoId ? { ...t, section_id: sectionId } : t);
+    const updatedTodo = { ...todo, section_id: sectionId, updated_at: new Date().toISOString() };
+    const nextTodos = todos.map(t => String(t.id) === String(todoId) ? updatedTodo : t);
     setTodos(nextTodos);
     renderTodos();
 
-    if (isOnlineForSync()) {
+    const isTempTodo = String(todo.id).startsWith('temp-');
+    if (isOnlineForSync() && !isTempTodo) {
       try {
         await todosApi.update(todo.id, { section_id: sectionId });
       } catch (err) {

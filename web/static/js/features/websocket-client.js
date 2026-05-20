@@ -258,13 +258,17 @@ async function handleWsMessage(msg) {
           // Replace temp todo with real server version
           await deleteFromDB('todos', pendingCreate.data._tempId);
           todos = todos.filter(t => t.id !== pendingCreate.data._tempId);
-          // Only add if not already present (avoids race with syncWithServer)
-          const alreadyAdded = todos.find(t => t.id === msg.payload.id);
-          if (!alreadyAdded) todos.push(msg.payload);
+          const existingReal = todos.find(t => t.id === msg.payload.id);
+          if (existingReal) {
+            todos = todos.map(t => t.id === msg.payload.id ? msg.payload : t);
+          } else {
+            todos.push(msg.payload);
+          }
         } else {
           // Broadcast from another client → add to list
           const existing = todos.find(t => t.id === msg.payload.id);
           if (!existing) todos.push(msg.payload);
+          else todos = todos.map(t => t.id === msg.payload.id ? msg.payload : t);
         }
         renderProjects();
         renderStats();

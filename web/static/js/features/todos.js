@@ -182,7 +182,12 @@ export function createTodosFeature({
       renderTodos();
       closeModal('todo-modal');
       await addToSyncQueue('CREATE_TODO', { ...todoData, _tempId: tempId });
-      if (isOnlineForSync()) await syncWithServer();
+      if (isOnlineForSync()) {
+        await syncWithServer();
+        renderProjects();
+        renderStats();
+        renderTodos();
+      }
     }
     if (id) {
       renderProjects();
