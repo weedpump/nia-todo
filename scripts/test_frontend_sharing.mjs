@@ -32,7 +32,7 @@ async function run() {
 
     // Reload page so project appears
     await page.reload({ waitUntil: 'domcontentloaded' });
-    await page.locator('#user-name').waitFor({ state: 'visible', timeout: 10000 });
+    await page.locator('#user-menu-button').waitFor({ state: 'visible', timeout: 10000 });
 
     // ─── Test UI Flow ───
 
@@ -164,7 +164,7 @@ async function run() {
       csrf: await page.evaluate(() => localStorage.getItem('csrf_token')),
     });
     await page.reload({ waitUntil: 'domcontentloaded' });
-    await page.locator('#user-name').waitFor({ state: 'visible', timeout: 10000 });
+    await page.locator('#user-menu-button').waitFor({ state: 'visible', timeout: 10000 });
     await page.locator('.shared-title').waitFor({ state: 'visible', timeout: 10000 });
     await page.locator('.project-tree-item').filter({ hasText: 'Sharing Test Project' }).first().locator('.nav-edit').click();
     await page.locator('#project-owner-info').waitFor({ state: 'visible', timeout: 10000 });

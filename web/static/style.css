@@ -1560,64 +1560,10 @@ input[type="color"]::-moz-color-swatch {
   transform: scale(1.05);
 }
 
-/* ─── User Bar in Sidebar ──────────────────────────────────────────────────── */
-
-.user-bar {
-  padding: 12px 16px;
-  border-top: 1px solid var(--border);
-  display: flex;
-  flex-direction: row;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-}
-
-.user-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  color: var(--text-primary);
-  font-weight: 500;
-}
-
-.user-icon {
-  font-size: 16px;
-}
-
-.user-name {
-  flex: 1;
-}
-
-.logout-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  width: 100%;
-  padding: 8px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: transparent;
-  color: var(--text-muted);
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.logout-btn:hover {
-  background: var(--bg-hover);
-  color: var(--danger);
-  border-color: var(--danger);
-}
-
 @media (max-width: 768px) {
   .login-box {
     margin: 16px;
     padding: 32px 24px;
-  }
-  .user-bar {
-    padding: 8px 12px;
   }
 }
 .version-bar {

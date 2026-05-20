@@ -121,7 +121,7 @@ export async function launchPage() {
       await page.fill('#login-password', USER_PASSWORD);
       await page.click('button.login-btn');
       await page.locator('#login-overlay').waitFor({ state: 'hidden', timeout: 15000 });
-      await page.locator('#user-name').waitFor({ state: 'visible', timeout: 10000 });
+      await page.locator('#user-menu-button').waitFor({ state: 'visible', timeout: 10000 });
     },
     assertNoFrontendErrors: () => {
       const filtered = consoleErrors.filter(msg => !msg.includes('Failed to load resource: the server responded with a status of 404'));
