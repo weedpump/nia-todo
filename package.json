@@ -1,0 +1,13 @@
+{
+  "name": "nia-todo",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "./scripts/test_all.sh",
+    "test:backend": "python3 scripts/test_backend.py",
+    "test:frontend": "node scripts/test_frontend_smoke.mjs && node scripts/test_frontend_app.mjs && node scripts/test_frontend_setup.mjs && node scripts/test_frontend_admin.mjs && node scripts/test_frontend_settings.mjs && node scripts/test_frontend_projects.mjs && node scripts/test_frontend_dragdrop.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.60.0"
+  }
+}

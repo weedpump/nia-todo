@@ -1,0 +1,225 @@
+export function createTodosFeature({
+  getTodos,
+  setTodos,
+  getProjects,
+  getCurrentProjectId,
+  getAppInitialized,
+  getDb,
+  dbPut,
+  dbGetAll,
+  deleteFromDB,
+  addToSyncQueue,
+  isOnlineForSync,
+  syncWithServer,
+  sectionsApi,
+  renderProjects,
+  renderStats,
+  renderTodos,
+  closeModal,
+  showToast,
+  setupDescPreview,
+  renderMarkdown,
+  loadSectionsForCurrentProject,
+}) {
+  async function markTodoDone(id) {
+    if (!getAppInitialized() || !getDb()) return;
+    const t = getTodos().find(x => x.id === id);
+    if (!t || t.status === 'done') return;
+    const updatedTodo = { ...t, status: 'done', updated_at: new Date().toISOString() };
+    await dbPut('todos', updatedTodo);
+    setTodos(getTodos().map(todo => todo.id === id ? updatedTodo : todo));
+    renderStats();
+    renderTodos();
+    showToast('Todo erledigt', { type: 'status', id });
+    await addToSyncQueue('UPDATE_TODO', { id, changes: { status: 'done' } });
+    if (isOnlineForSync()) await syncWithServer();
+  }
+
+  async function toggleTodo(id) {
+    if (!getAppInitialized() || !getDb()) return;
+    const t = getTodos().find(x => x.id === id);
+    if (!t) return;
+    const cycle = { pending: 'in_progress', in_progress: 'done', done: 'pending' };
+    const newStatus = cycle[t.status] || 'pending';
+    const updatedTodo = { ...t, status: newStatus, updated_at: new Date().toISOString() };
+    await dbPut('todos', updatedTodo);
+    setTodos(getTodos().map(todo => todo.id === id ? updatedTodo : todo));
+    renderStats();
+    renderTodos();
+    if (newStatus === 'done') showToast('Todo erledigt', { type: 'status', id });
+    else if (t.status === 'done' && newStatus === 'pending') showToast('Todo wiedereröffnet', { type: 'status', id });
+    await addToSyncQueue('UPDATE_TODO', { id, changes: { status: newStatus } });
+    if (isOnlineForSync()) await syncWithServer();
+  }
+
+  async function showTodoModal(todo = null) {
+    document.getElementById('todo-form')?.reset();
+    document.getElementById('todo-id').value = '';
+    document.getElementById('todo-modal-title').textContent = todo ? 'Todo bearbeiten' : 'Neues Todo';
+    const projSelect = document.getElementById('todo-project');
+    if (projSelect) {
+      projSelect.innerHTML = '';
+      const projects = getProjects();
+      const projectMap = new Map();
+      projects.forEach(p => projectMap.set(p.id, { ...p, children: [] }));
+      const rootProjects = [];
+      projectMap.forEach(p => {
+        if (p.parent_id === null || p.parent_id === undefined) rootProjects.push(p);
+        else {
+          const parent = projectMap.get(p.parent_id);
+          if (parent) parent.children.push(p);
+        }
+      });
+      rootProjects.sort((a, b) => (a.id === 1 ? -1 : b.id === 1 ? 1 : a.name.localeCompare(b.name)));
+      function addProjectOptions(projectNode, depth = 0) {
+        const indent = '\u00A0'.repeat(depth * 2) + (depth > 0 ? '└─ ' : '');
+        const opt = document.createElement('option');
+        opt.value = projectNode.id;
+        opt.style.color = projectNode.color;
+        opt.textContent = indent + projectNode.name;
+        projSelect.appendChild(opt);
+        if (projectNode.children && projectNode.children.length > 0) {
+          projectNode.children.sort((a, b) => a.name.localeCompare(b.name));
+          projectNode.children.forEach(child => addProjectOptions(child, depth + 1));
+        }
+      }
+      rootProjects.forEach(p => addProjectOptions(p));
+    }
+
+    if (todo) {
+      document.getElementById('todo-id').value = todo.id;
+      document.getElementById('todo-title').value = todo.title;
+      document.getElementById('todo-desc').value = todo.description || '';
+      document.getElementById('todo-priority').value = todo.priority;
+      document.getElementById('todo-status').value = todo.status;
+      document.getElementById('todo-project').value = todo.project_id || '';
+      await loadSectionsForCurrentProject(todo.section_id);
+      if (todo.due_date) {
+        const d = new Date(todo.due_date);
+        document.getElementById('todo-due').value = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+      }
+      const reminderDate = todo.remind_at || (todo.reminders && todo.reminders[0] && todo.reminders[0].remind_at);
+      if (reminderDate) {
+        const d = new Date(reminderDate);
+        document.getElementById('todo-remind').value = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+      }
+    } else {
+      document.getElementById('todo-project').value = getCurrentProjectId() || 1;
+      await onProjectChange(null);
+    }
+
+    document.getElementById('todo-delete-btn').style.display = todo ? '' : 'none';
+    setupDescPreview();
+    document.getElementById('todo-modal')?.classList.add('active');
+  }
+
+  async function onProjectChange(selectedSectionId = null) {
+    const projectId = document.getElementById('todo-project').value;
+    const sectionSelect = document.getElementById('todo-section');
+    if (!sectionSelect) return;
+    sectionSelect.innerHTML = '<option value="">Keine Section (Unsortiert)</option>';
+    sectionSelect.disabled = true;
+    if (!projectId) return;
+    try {
+      let projectSections;
+      if (isOnlineForSync()) {
+        const data = await sectionsApi.listByProject(projectId);
+        projectSections = data.sections || [];
+        const serverIds = new Set(projectSections.map(s => s.id));
+        const allLocal = await dbGetAll('sections');
+        const localProjectSections = allLocal.filter(s => s.project_id === parseInt(projectId));
+        for (const local of localProjectSections) {
+          if (!serverIds.has(local.id)) await deleteFromDB('sections', local.id);
+        }
+        for (const s of projectSections) await dbPut('sections', s);
+      } else {
+        const allSections = await dbGetAll('sections');
+        projectSections = allSections.filter(s => s.project_id === parseInt(projectId));
+      }
+      for (const s of projectSections) {
+        const opt = document.createElement('option');
+        opt.value = s.id;
+        opt.textContent = s.name;
+        sectionSelect.appendChild(opt);
+      }
+      sectionSelect.disabled = false;
+      if (selectedSectionId !== null) sectionSelect.value = selectedSectionId;
+    } catch (e) {
+      console.error('Failed to load sections for project', e);
+    }
+  }
+
+  async function saveTodo(event) {
+    event.preventDefault();
+    if (!getAppInitialized() || !getDb()) return;
+    const id = document.getElementById('todo-id').value;
+    const todoData = {
+      title: document.getElementById('todo-title').value,
+      description: document.getElementById('todo-desc').value,
+      priority: parseInt(document.getElementById('todo-priority').value),
+      project_id: document.getElementById('todo-project').value ? parseInt(document.getElementById('todo-project').value) : null,
+      section_id: document.getElementById('todo-section').value ? parseInt(document.getElementById('todo-section').value) : null,
+      status: document.getElementById('todo-status').value,
+      due_date: document.getElementById('todo-due').value ? new Date(document.getElementById('todo-due').value).toISOString() : null,
+      remind_at: document.getElementById('todo-remind').value ? new Date(document.getElementById('todo-remind').value).toISOString() : null,
+    };
+    if (id) {
+      const existing = getTodos().find(t => t.id === parseInt(id));
+      if (existing) {
+        const updated = { ...existing, ...todoData, updated_at: new Date().toISOString() };
+        await dbPut('todos', updated);
+        setTodos(getTodos().map(t => t.id === parseInt(id) ? updated : t));
+        await addToSyncQueue('UPDATE_TODO', { id: parseInt(id), changes: todoData });
+        if (isOnlineForSync()) await syncWithServer();
+      }
+    } else {
+      const tempId = 'temp-' + Date.now();
+      const newTodo = { id: tempId, ...todoData, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), reminders: [] };
+      await dbPut('todos', newTodo);
+      setTodos([...getTodos(), newTodo]);
+      renderProjects();
+      renderStats();
+      renderTodos();
+      closeModal('todo-modal');
+      await addToSyncQueue('CREATE_TODO', { ...todoData, _tempId: tempId });
+      if (isOnlineForSync()) {
+        await syncWithServer();
+        renderProjects();
+        renderStats();
+        renderTodos();
+      }
+    }
+    if (id) {
+      renderProjects();
+      renderStats();
+      renderTodos();
+      closeModal('todo-modal');
+    }
+  }
+
+  function editTodo(id) {
+    const todo = getTodos().find(t => t.id === id);
+    if (todo) showTodoModal(todo);
+  }
+
+  function deleteTodoFromModal() {
+    const id = document.getElementById('todo-id').value;
+    if (id) deleteTodo(parseInt(id));
+  }
+
+  async function deleteTodo(id) {
+    if (!confirm('Todo wirklich löschen?')) return;
+    const todo = getTodos().find(t => t.id === id);
+    if (!todo) return;
+    await deleteFromDB('todos', id);
+    setTodos(getTodos().filter(t => t.id !== id));
+    renderStats();
+    renderTodos();
+    closeModal('todo-modal');
+    showToast('Todo gelöscht', { type: 'delete', id, data: { ...todo } });
+    await addToSyncQueue('DELETE_TODO', { id });
+    if (isOnlineForSync()) await syncWithServer();
+  }
+
+  return { markTodoDone, toggleTodo, showTodoModal, onProjectChange, saveTodo, editTodo, deleteTodoFromModal, deleteTodo };
+}
