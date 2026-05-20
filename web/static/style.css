@@ -1258,6 +1258,7 @@ input[type="color"]::-moz-color-swatch {
 
 /* ─── Login Overlay ────────────────────────────────────────────────────────── */
 
+.boot-overlay,
 .login-overlay {
   position: fixed;
   inset: 0;
@@ -1269,10 +1270,58 @@ input[type="color"]::-moz-color-swatch {
   transition: opacity 0.3s, visibility 0.3s;
 }
 
+.boot-overlay {
+  z-index: 1100;
+}
+
+.boot-overlay.hidden,
 .login-overlay.hidden {
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
+}
+
+.boot-card {
+  width: 100%;
+  max-width: 320px;
+  padding: 36px 28px;
+  text-align: center;
+  color: var(--text-primary);
+}
+
+.boot-logo {
+  display: block;
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 16px;
+  border-radius: 50%;
+  box-shadow: var(--shadow);
+}
+
+.boot-title {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.boot-subtitle {
+  color: var(--text-muted);
+  font-size: 14px;
+  margin-bottom: 22px;
+}
+
+.boot-spinner {
+  width: 28px;
+  height: 28px;
+  margin: 0 auto;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: boot-spin 0.8s linear infinite;
+}
+
+@keyframes boot-spin {
+  to { transform: rotate(360deg); }
 }
 
 .login-box {

@@ -27,6 +27,14 @@ export function createAppLifecycle({
   updateToggleDoneButton,
   updateSortButton,
 }) {
+  function hideBootOverlay() {
+    document.getElementById('boot-overlay')?.classList.add('hidden');
+  }
+
+  function showBootOverlay() {
+    document.getElementById('boot-overlay')?.classList.remove('hidden');
+  }
+
   async function loadFromLocalDB() {
     setTodos(await dbGetAll('todos'));
     setProjects(await dbGetAll('projects'));
@@ -98,7 +106,7 @@ export function createAppLifecycle({
   function bindDomReady() {
     const start = () => {
       initTheme();
-      showLoginOverlay();
+      showBootOverlay();
 
       Promise.resolve().then(async () => {
         try {
@@ -128,7 +136,9 @@ export function createAppLifecycle({
           hideLoginOverlay();
           renderUserInfo();
           await initApp();
+          hideBootOverlay();
         } else {
+          hideBootOverlay();
           showLoginOverlay();
         }
       });
