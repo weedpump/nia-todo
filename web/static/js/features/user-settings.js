@@ -34,6 +34,9 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     y: 0,
     dragging: false,
     pointerId: null,
+    pointers: new Map(),
+    pinchDistance: 0,
+    pinchStartScale: 1,
     dragStartX: 0,
     dragStartY: 0,
     startX: 0,
@@ -170,6 +173,9 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
       y: 0,
       dragging: false,
       pointerId: null,
+      pointers: new Map(),
+      pinchDistance: 0,
+      pinchStartScale: 1,
       dragStartX: 0,
       dragStartY: 0,
       startX: 0,
@@ -187,6 +193,21 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     cropState.y = Math.min(Math.max(cropState.y, -Math.max(0, (renderedHeight - stageSize) / 2)), Math.max(0, (renderedHeight - stageSize) / 2));
   }
 
+  function clampScale(value) {
+    return Math.min(Math.max(value, cropState.minScale), cropState.minScale * 4);
+  }
+
+  function distanceBetweenPointers() {
+    const points = Array.from(cropState.pointers.values());
+    if (points.length < 2) return 0;
+    return Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y);
+  }
+
+  function setCropScale(nextScale) {
+    cropState.scale = clampScale(nextScale);
+    renderCropTransform();
+  }
+
   function renderCropTransform() {
     const img = document.getElementById('avatar-crop-image');
     if (!img) return;
@@ -202,32 +223,70 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     stage.dataset.bound = 'true';
     stage.addEventListener('pointerdown', (event) => {
       if (!cropState.image) return;
-      cropState.dragging = true;
-      cropState.pointerId = event.pointerId;
-      cropState.dragStartX = event.clientX;
-      cropState.dragStartY = event.clientY;
-      cropState.startX = cropState.x;
-      cropState.startY = cropState.y;
+      event.preventDefault();
+      cropState.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
       stage.setPointerCapture(event.pointerId);
+
+      if (cropState.pointers.size === 1) {
+        cropState.dragging = true;
+        cropState.pointerId = event.pointerId;
+        cropState.dragStartX = event.clientX;
+        cropState.dragStartY = event.clientY;
+        cropState.startX = cropState.x;
+        cropState.startY = cropState.y;
+      } else if (cropState.pointers.size === 2) {
+        cropState.dragging = false;
+        cropState.pointerId = null;
+        cropState.pinchDistance = distanceBetweenPointers();
+        cropState.pinchStartScale = cropState.scale;
+      }
     });
     stage.addEventListener('pointermove', (event) => {
+      if (!cropState.image || !cropState.pointers.has(event.pointerId)) return;
+      event.preventDefault();
+      cropState.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+      if (cropState.pointers.size >= 2) {
+        const distance = distanceBetweenPointers();
+        if (cropState.pinchDistance > 0) {
+          setCropScale(cropState.pinchStartScale * (distance / cropState.pinchDistance));
+        }
+        return;
+      }
+
       if (!cropState.dragging || cropState.pointerId !== event.pointerId) return;
       cropState.x = cropState.startX + event.clientX - cropState.dragStartX;
       cropState.y = cropState.startY + event.clientY - cropState.dragStartY;
       renderCropTransform();
     });
-    const stopDragging = (event) => {
-      if (cropState.pointerId !== event.pointerId) return;
-      cropState.dragging = false;
-      cropState.pointerId = null;
+    const stopPointer = (event) => {
+      cropState.pointers.delete(event.pointerId);
+      if (cropState.pointerId === event.pointerId) {
+        cropState.dragging = false;
+        cropState.pointerId = null;
+      }
+      if (cropState.pointers.size === 1) {
+        const [nextPointerId, point] = cropState.pointers.entries().next().value;
+        cropState.dragging = true;
+        cropState.pointerId = nextPointerId;
+        cropState.dragStartX = point.x;
+        cropState.dragStartY = point.y;
+        cropState.startX = cropState.x;
+        cropState.startY = cropState.y;
+      }
+      if (cropState.pointers.size < 2) {
+        cropState.pinchDistance = 0;
+      }
     };
-    stage.addEventListener('pointerup', stopDragging);
-    stage.addEventListener('pointercancel', stopDragging);
-  }
-
-  function updateAvatarCropZoom(value) {
-    cropState.scale = Number(value) || cropState.minScale;
-    renderCropTransform();
+    stage.addEventListener('pointerup', stopPointer);
+    stage.addEventListener('pointercancel', stopPointer);
+    stage.addEventListener('lostpointercapture', stopPointer);
+    stage.addEventListener('wheel', (event) => {
+      if (!cropState.image) return;
+      event.preventDefault();
+      const factor = event.deltaY < 0 ? 1.08 : 0.92;
+      setCropScale(cropState.scale * factor);
+    }, { passive: false });
   }
 
   async function uploadOriginalAvatar(file, fallbackMessage = 'Avatar gespeichert') {
@@ -279,11 +338,6 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
         cropState.scale = cropState.minScale;
         cropState.x = 0;
         cropState.y = 0;
-        const zoom = document.getElementById('avatar-zoom-range');
-        zoom.min = String(cropState.minScale);
-        zoom.max = String(cropState.minScale * 4);
-        zoom.step = '0.01';
-        zoom.value = String(cropState.scale);
         renderCropTransform();
         bindCropStageOnce();
       });
@@ -429,7 +483,6 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     cancelUserDisplayNameEdit,
     saveUserProfile,
     startAvatarUpload,
-    updateAvatarCropZoom,
     cancelAvatarCrop,
     saveAvatarCrop,
     editUserEmail,

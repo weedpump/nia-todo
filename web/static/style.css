@@ -1028,8 +1028,7 @@ body {
   border-radius: 999px;
   pointer-events: none;
 }
-.avatar-zoom-label { color: var(--text-muted); font-size: 12px; font-weight: 700; }
-#avatar-zoom-range { width: 100%; accent-color: var(--accent); }
+.avatar-crop-hint { color: var(--text-muted); font-size: 12px; text-align: center; }
 .avatar-crop-actions { display: flex; justify-content: flex-end; gap: 8px; }
 
 @media (max-width: 520px) {

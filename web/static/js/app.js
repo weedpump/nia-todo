@@ -184,7 +184,6 @@ const editUserDisplayName = userSettingsFeature.editUserDisplayName;
 const cancelUserDisplayNameEdit = userSettingsFeature.cancelUserDisplayNameEdit;
 const saveUserProfile = userSettingsFeature.saveUserProfile;
 const startAvatarUpload = userSettingsFeature.startAvatarUpload;
-const updateAvatarCropZoom = userSettingsFeature.updateAvatarCropZoom;
 const cancelAvatarCrop = userSettingsFeature.cancelAvatarCrop;
 const saveAvatarCrop = userSettingsFeature.saveAvatarCrop;
 const toggleUserMenu = userMenuFeature.toggleUserMenu;
@@ -470,7 +469,7 @@ export function startAppModule() {
   viewPreferences: { toggleHideDone, updateToggleDoneButton, cycleSort, updateSortButton, sortTodoList },
   toastUndo: { showToast, showBatchToast, hideToast, undoLastAction, restoreBatchTodos, restoreTodo },
     push: { updatePushStatus, updatePushSettingsUI, enablePushNotifications, disablePushNotifications, sendTestPush },
-    userSettings: { renderUserInfo, openSettingsModal, editUserDisplayName, cancelUserDisplayNameEdit, saveUserProfile, startAvatarUpload, updateAvatarCropZoom, cancelAvatarCrop, saveAvatarCrop, editUserEmail, cancelUserEmailEdit, saveUserEmail, changeUserPassword },
+    userSettings: { renderUserInfo, openSettingsModal, editUserDisplayName, cancelUserDisplayNameEdit, saveUserProfile, startAvatarUpload, cancelAvatarCrop, saveAvatarCrop, editUserEmail, cancelUserEmailEdit, saveUserEmail, changeUserPassword },
     userMenu: { toggleUserMenu, closeUserMenu, updateUserMenu },
   });
 
