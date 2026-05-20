@@ -2,6 +2,7 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
   let swRegistration = null;
   let updateAvailable = false;
   let allowReloadOnControllerChange = false;
+  let hadControllerAtRegistration = false;
 
   async function initServiceWorker() {
     if (!('serviceWorker' in navigator)) return;
@@ -11,6 +12,7 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
       const startedAt = performance.now();
       try {
         console.log('SW: registering...');
+        hadControllerAtRegistration = Boolean(navigator.serviceWorker.controller);
         const reg = await navigator.serviceWorker.register('/sw.js');
         swRegistration = reg;
         console.log('SW registered:', reg.scope, Math.round(performance.now() - startedAt) + 'ms');
@@ -37,11 +39,18 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
           if (!newWorker) return;
 
           newWorker.addEventListener('statechange', () => {
-            if (newWorker.state === 'installed') {
-              console.log('SW: New version ready for update');
-              updateAvailable = true;
-              showUpdateButton();
+            if (newWorker.state !== 'installed') return;
+            if (!hadControllerAtRegistration) {
+              console.log('SW: First installation completed — no update prompt');
+              return;
             }
+            if (!reg.waiting) {
+              console.log('SW: Installed worker is not waiting — no update prompt');
+              return;
+            }
+            console.log('SW: New version ready for update');
+            updateAvailable = true;
+            showUpdateButton();
           });
         });
 
@@ -88,7 +97,9 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
     if (swRegistration && swRegistration.waiting) {
       allowReloadOnControllerChange = true;
       swRegistration.waiting.postMessage({ action: 'skipWaiting' });
+      return;
     }
+    console.log('SW: No waiting worker to activate');
   }
 
   return {

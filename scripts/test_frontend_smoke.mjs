@@ -9,6 +9,11 @@ async function run() {
     await loginApp();
 
     await visible('#sidebar');
+    await visible('#sidebar');
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.locator('#login-overlay').waitFor({ state: 'hidden', timeout: 10000 });
+    await visible('#sidebar');
+
     await page.click('#theme-toggle-btn');
     await page.click('#theme-toggle-btn');
     await page.locator('#update-btn').waitFor({ state: 'attached' });

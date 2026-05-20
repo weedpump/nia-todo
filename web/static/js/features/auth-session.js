@@ -75,7 +75,6 @@ export function createAuthSessionFeature({
     localStorage.removeItem('csrf_token');
 
     await clearCache();
-    console.log('Logout finished — reloading once');
     location.reload();
   }
 
@@ -95,18 +94,11 @@ export function createAuthSessionFeature({
     errorEl.textContent = '';
 
     try {
-      console.log('Login submit start');
       await login(username, password);
-      console.log('Login successful');
       hideLoginOverlay();
       renderUserInfo();
-      if (!getAppInitialized()) {
-        console.log('Login triggers initApp');
-        await initApp();
-      }
-      console.log('Login refreshFromServer start');
+      if (!getAppInitialized()) await initApp();
       await refreshFromServer();
-      console.log('Login refreshFromServer done');
     } catch (err) {
       console.error('Login failed:', err);
       errorEl.textContent = err.message || 'Login fehlgeschlagen';

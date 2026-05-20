@@ -389,11 +389,20 @@ const appLifecycle = createAppLifecycle({
 const initApp = appLifecycle.initApp;
 const loadFromLocalDB = appLifecycle.loadFromLocalDB;
 const loadAll = appLifecycle.loadAll;
-appLifecycle.bindNetworkEvents();
-appLifecycle.bindDomReady();
 
-// Expose legacy inline handlers for module-loaded frontend.
-exposeLegacyGlobals({
+let startupBound = false;
+
+export function startAppModule() {
+  if (startupBound) {
+    console.log('[boot] startAppModule: already bound');
+    return;
+  }
+  startupBound = true;
+  appLifecycle.bindNetworkEvents();
+  appLifecycle.bindDomReady();
+
+  // Expose legacy inline handlers for module-loaded frontend.
+  exposeLegacyGlobals({
   auth: { getAuthToken, getCsrfToken, getAuthHeaders, login, checkAuth, logout, clearIndexedDB, showLoginOverlay, hideLoginOverlay, handleLogin },
   apiKeys: { loadApiKeys, renderApiKeys, createApiKey, revokeApiKey, copyApiKey },
   utils: { escapeHtml, escapeHtmlAttr, jsArg, formatDate, renderTodoItem },
@@ -411,6 +420,9 @@ exposeLegacyGlobals({
   dragDrop: { handleTodoDragStart, handleTodoDragEnd, handleTodoDragOver, handleTodoDrop, handleSectionDragStart, handleSectionDragEnd, handleSectionDragOver, handleSectionDrop },
   viewPreferences: { toggleHideDone, updateToggleDoneButton, cycleSort, updateSortButton, sortTodoList },
   toastUndo: { showToast, showBatchToast, hideToast, undoLastAction, restoreBatchTodos, restoreTodo },
-  push: { updatePushStatus, updatePushSettingsUI, enablePushNotifications, disablePushNotifications, sendTestPush },
-  userSettings: { renderUserInfo, openSettingsModal, changeUserPassword },
-});
+    push: { updatePushStatus, updatePushSettingsUI, enablePushNotifications, disablePushNotifications, sendTestPush },
+    userSettings: { renderUserInfo, openSettingsModal, changeUserPassword },
+  });
+}
+
+startAppModule();
