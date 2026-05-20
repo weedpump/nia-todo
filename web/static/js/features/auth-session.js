@@ -50,6 +50,7 @@ export function createAuthSessionFeature({
       const userChanged = await clearCacheIfUserChanged(newUserId);
       localStorage.setItem('last_user_id', newUserId);
       if (userChanged) {
+        console.log('User changed, cache cleared — reloading once');
         location.reload();
         return false;
       }
@@ -74,6 +75,7 @@ export function createAuthSessionFeature({
     localStorage.removeItem('csrf_token');
 
     await clearCache();
+    console.log('Logout finished — reloading once');
     location.reload();
   }
 
@@ -93,12 +95,20 @@ export function createAuthSessionFeature({
     errorEl.textContent = '';
 
     try {
+      console.log('Login submit start');
       await login(username, password);
+      console.log('Login successful');
       hideLoginOverlay();
       renderUserInfo();
-      if (!getAppInitialized()) await initApp();
+      if (!getAppInitialized()) {
+        console.log('Login triggers initApp');
+        await initApp();
+      }
+      console.log('Login refreshFromServer start');
       await refreshFromServer();
+      console.log('Login refreshFromServer done');
     } catch (err) {
+      console.error('Login failed:', err);
       errorEl.textContent = err.message || 'Login fehlgeschlagen';
     }
   }
