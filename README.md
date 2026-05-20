@@ -20,7 +20,8 @@ Selfhosted Todo-System — ersetzt Todoist. SQLite + FastAPI + schicke Web-UI + 
 
 1. **Entwicklung** → Arbeite auf `develop` Branch in `~/projects/nia-todo-dev`
 2. **Testen** → Öffne Dev-Instanz auf Port 8754, installiere als separate PWA
-3. **Release** → `./release.sh VERSION` (z.B. `./release.sh 0.2.11`)
+3. **Tests** → `./scripts/test_all.sh` oder `npm test`
+4. **Release** → `./release.sh VERSION` (z.B. `./release.sh 0.2.11`)
 
 ### Release-Prozess
 
@@ -30,11 +31,15 @@ cd ~/projects/nia-todo-dev
 ```
 
 Was `release.sh` macht:
-1. `develop` → `main` mergen
-2. Tag `vX.Y.Z` erstellen und pushen
-3. Live-Instanz auf **Tag** auschecken (nicht `main`!)
-4. Live-Service neu starten
-5. Zurück auf `develop`
+1. `develop` aktualisieren
+2. **Backend- + Frontend-Tests ausführen** (`./scripts/test_all.sh`)
+3. `develop` → `main` mergen
+4. Tag `vX.Y.Z` erstellen und pushen
+5. Live-Instanz auf **Tag** auschecken (nicht `main`!)
+6. Live-Service neu starten
+7. Zurück auf `develop`
+
+Wenn ein Test fehlschlägt, bricht der Release **sofort** ab — kein Merge, kein Tag, kein Push.
 
 Die Live-Instanz läuft immer auf einem **Tag**, nie direkt auf `main`. So kann bei Problemen einfach auf einen alten Tag zurückgesprungen werden.
 
@@ -160,9 +165,13 @@ nia-todo/
 ├── systemd/
 │   ├── nia-todo.service     # Live systemd Service
 │   └── nia-todo-dev.service # Dev systemd Service
-├── release.sh               # Release-Automatisierung
+├── release.sh               # Release-Automatisierung (mit Test-Gate)
 ├── setup-dev.sh             # Dev-Instanz Branding
 ├── start.sh                 # Server starten
+├── scripts/
+│   ├── test_all.sh          # Backend + Frontend zusammen
+│   ├── test_backend.py      # API-Test-Suite
+│   └── test_frontend.mjs    # Playwright Frontend-Smoke-Test
 └── README.md
 ```
 
@@ -175,6 +184,43 @@ Schema-Änderungen laufen **automatisch** beim Server-Start:
 3. `schema_version` Tabelle trackt bereits ausgeführte Migrationen
 
 **Wichtig:** `.db` Dateien sind in `.gitignore` und gehören **niemals** ins Git.
+
+## Tests
+
+### Alle Tests
+
+```bash
+cd ~/projects/nia-todo-dev
+./scripts/test_all.sh
+```
+
+oder:
+
+```bash
+npm test
+```
+
+### Einzelne Tests
+
+```bash
+npm run test:backend
+npm run test:frontend
+```
+
+### Was der Frontend-Smoke-Test abdeckt
+
+- Login + App-Start
+- Projekt anlegen
+- Sections / Projektwechsel / UI-Smoke
+- Search
+- Status-Toggle
+- Delete + Undo
+- Smoke gegen echten **headless Chromium**
+
+### Test-Ergebnisse
+
+- Backend schreibt JSON nach `test-results.json`
+- Frontend schreibt einen Screenshot nach `/tmp/nia-todo-frontend-smoke.png`
 
 ## API Dokumentation
 
