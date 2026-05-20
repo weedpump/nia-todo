@@ -120,9 +120,11 @@ async function run() {
     await page.waitForFunction(() => document.body.innerText.includes('Section Todo Edited'), { timeout: 10000 });
     await page.locator('.nav-btn[data-filter="all"]').click();
 
+    await page.click('#user-menu-button');
     await page.click('#toggle-done-btn');
     await page.click('#sort-toggle-btn');
     await page.click('#sort-toggle-btn');
+    await page.keyboard.press('Escape');
 
     await page.locator('.todo-item .todo-title').filter({ hasText: 'Section Todo Edited' }).first().click();
     await visible('#todo-modal');

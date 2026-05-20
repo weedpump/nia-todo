@@ -45,7 +45,8 @@ async function run() {
       });
     });
 
-    await page.click('button[title="Einstellungen"]');
+    await page.click('#user-menu-button');
+    await page.click('#menu-settings-btn');
     await visible('#settings-modal');
     await page.locator('#settings-user-name').waitFor({ state: 'visible' });
     await page.locator('#settings-email-display').waitFor({ state: 'visible', timeout: 10000 });

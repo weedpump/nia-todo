@@ -11,6 +11,7 @@ import { createSectionsFeature } from './features/sections.js';
 import { createServiceWorkerUpdatesFeature } from './features/service-worker-updates.js';
 import { applyTheme, bindSystemThemeListener, cycleTheme, initTheme, setTheme } from './features/theme.js';
 import { createUserSettingsFeature } from './features/user-settings.js';
+import { createUserMenuFeature } from './features/user-menu.js';
 import { createProjectsFeature } from './features/projects.js';
 import { createProjectSharingFeature } from './features/project-sharing.js';
 import { createTodosFeature } from './features/todos.js';
@@ -140,10 +141,11 @@ const projectsFeature = createProjectsFeature({
   sharingFeature,
   getCurrentUser: () => currentUser,
 });
+const userMenuFeature = createUserMenuFeature({ getCurrentUser: () => currentUser });
 const userSettingsFeature = createUserSettingsFeature({
   authApi,
   getCurrentUser: () => currentUser,
-  setCurrentUser: (next) => { currentUser = next; },
+  setCurrentUser: (next) => { currentUser = next; userMenuFeature.updateUserMenu(); },
   resetApiKeyUi: () => resetApiKeyUi(),
   loadApiKeys: () => loadApiKeys(),
   updatePushSettingsUI: () => updatePushSettingsUI(),
@@ -152,7 +154,7 @@ const userSettingsFeature = createUserSettingsFeature({
 const authSessionFeature = createAuthSessionFeature({
   authApi,
   getAppInitialized: () => appInitialized,
-  setCurrentUser: (next) => { currentUser = next; },
+  setCurrentUser: (next) => { currentUser = next; userMenuFeature.updateUserMenu(); },
   clearCache: () => clearIndexedDB(),
   initApp: () => initApp(),
   refreshFromServer: () => refreshFromServer(),
@@ -178,6 +180,10 @@ const editUserEmail = userSettingsFeature.editUserEmail;
 const cancelUserEmailEdit = userSettingsFeature.cancelUserEmailEdit;
 const saveUserEmail = userSettingsFeature.saveUserEmail;
 const changeUserPassword = userSettingsFeature.changeUserPassword;
+const toggleUserMenu = userMenuFeature.toggleUserMenu;
+const closeUserMenu = userMenuFeature.closeUserMenu;
+const updateUserMenu = userMenuFeature.updateUserMenu;
+const bindUserMenu = userMenuFeature.bindUserMenu;
 // ─── API Keys ────────────────────────────────────────────────────────────────
 
 const resetApiKeyUi = apiKeysFeature.resetApiKeyUi;
@@ -433,6 +439,7 @@ export function startAppModule() {
   startupBound = true;
   appLifecycle.bindNetworkEvents();
   appLifecycle.bindDomReady();
+  bindUserMenu();
 
   // Expose legacy inline handlers for module-loaded frontend.
   exposeLegacyGlobals({
@@ -457,6 +464,7 @@ export function startAppModule() {
   toastUndo: { showToast, showBatchToast, hideToast, undoLastAction, restoreBatchTodos, restoreTodo },
     push: { updatePushStatus, updatePushSettingsUI, enablePushNotifications, disablePushNotifications, sendTestPush },
     userSettings: { renderUserInfo, openSettingsModal, editUserEmail, cancelUserEmailEdit, saveUserEmail, changeUserPassword },
+    userMenu: { toggleUserMenu, closeUserMenu, updateUserMenu },
   });
 
   bindLoginForm();
