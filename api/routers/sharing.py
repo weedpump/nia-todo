@@ -22,6 +22,10 @@ class MemberColorOverride(BaseModel):
     color: str = Field(..., pattern=r'^#[0-9a-fA-F]{6}$')
 
 
+class RestoreMemberRequest(BaseModel):
+    status: str = Field(default="accepted", pattern=r'^(accepted|pending)$')
+
+
 # ─── Helpers ───────────────────────────────────────────────────────────────────
 
 def get_user_by_username(db, username: str) -> Optional[dict]:
@@ -151,7 +155,7 @@ async def share_project(project_id: int, data: ShareProjectRequest, user_id: int
 
         # Check if already shared
         existing = db.execute(
-            "SELECT status FROM project_members WHERE project_id = ? AND user_id = ?",
+            "SELECT id, status FROM project_members WHERE project_id = ? AND user_id = ?",
             (project_id, target['id'])
         ).fetchone()
         if existing and existing['status'] in ('pending', 'accepted'):
@@ -170,6 +174,43 @@ async def share_project(project_id: int, data: ShareProjectRequest, user_id: int
         member = get_project_member(db, project_id, target['id'])
         await broadcast_change("member_invited", {"project_id": project_id, "member": member}, target['id'], project_id)
         return {"member": member}
+
+
+@router.post("/{project_id}/members/{member_user_id}/restore")
+async def restore_member(project_id: int, member_user_id: int, data: RestoreMemberRequest, user_id: int = Depends(require_auth)):
+    """Restore a removed/left member. Owner restores removals; a member can undo their own leave."""
+    with get_db() as db:
+        project = get_project_with_owner(db, project_id)
+        if not project:
+            raise HTTPException(404, "Project not found")
+
+        member = db.execute(
+            "SELECT * FROM project_members WHERE project_id = ? AND user_id = ?",
+            (project_id, member_user_id)
+        ).fetchone()
+        if not member:
+            raise HTTPException(404, "Member not found")
+
+        is_owner = project['user_id'] == user_id
+        is_self = member_user_id == user_id
+        if not is_owner and not is_self:
+            raise HTTPException(403, "Only the owner or the member can restore this membership")
+        if is_self and member['status'] != 'left':
+            raise HTTPException(403, "Members can only undo their own leave action")
+        if is_owner and member['status'] not in ('removed', 'left', 'declined'):
+            raise HTTPException(400, "Member cannot be restored from current status")
+
+        db.execute(
+            "UPDATE project_members SET status = ?, updated_at = datetime('now') WHERE id = ?",
+            (data.status, member['id'])
+        )
+        db.commit()
+
+        restored = get_project_member(db, project_id, member_user_id)
+        await broadcast_change("member_restored", {"project_id": project_id, "member": restored}, project['user_id'], project_id)
+        if member_user_id != project['user_id']:
+            await broadcast_change("member_restored", {"project_id": project_id, "member": restored}, member_user_id, project_id)
+        return {"member": restored}
 
 
 @router.post("/{project_id}/invites/{invite_id}")
@@ -287,6 +328,35 @@ async def leave_project(project_id: int, user_id: int = Depends(require_auth)):
         }, project['user_id'], project_id)
 
         return {"left": member['id'], "project_id": project_id}
+
+
+@router.post("/{project_id}/leave/undo")
+async def undo_leave_project(project_id: int, user_id: int = Depends(require_auth)):
+    """Undo leaving a shared project for the current user."""
+    with get_db() as db:
+        project = get_project_with_owner(db, project_id)
+        if not project:
+            raise HTTPException(404, "Project not found")
+        if project['user_id'] == user_id:
+            raise HTTPException(400, "Owner cannot leave their own project")
+
+        member = db.execute(
+            "SELECT * FROM project_members WHERE project_id = ? AND user_id = ?",
+            (project_id, user_id)
+        ).fetchone()
+        if not member or member['status'] != 'left':
+            raise HTTPException(400, "No leave action to undo")
+
+        db.execute(
+            "UPDATE project_members SET status = 'accepted', updated_at = datetime('now') WHERE id = ?",
+            (member['id'],)
+        )
+        db.commit()
+
+        restored = get_project_member(db, project_id, user_id)
+        await broadcast_change("member_restored", {"project_id": project_id, "member": restored}, project['user_id'], project_id)
+        await broadcast_change("member_restored", {"project_id": project_id, "member": restored}, user_id, project_id)
+        return {"member": restored}
 
 
 @router.get("/{project_id}/members")

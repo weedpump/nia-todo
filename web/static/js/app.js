@@ -357,25 +357,9 @@ const toastUndoFeature = createToastUndoFeature({
   renderStats: () => renderStats(),
   renderTodos: () => renderTodos(),
   toggleTodo: (id) => toggleTodo(id),
-  onUndoLeaveProject: async (data) => {
-    if (!data?.project) return;
-    const exists = projects.find(p => p.id === data.project.id);
-    if (!exists) {
-      projects = [...projects, data.project];
-      renderProjects();
-      renderStats();
-      renderTodos();
-    }
-  },
-  onUndoRemoveMember: async (data) => {
-    if (!data?.projectId || !data?.username) return;
-    await projectsApi.shareProject(data.projectId, data.username);
-  },
-  onUndoInvite: async (data) => {
-    if (!data?.projectId || !data?.userId) return;
-    await projectsApi.removeMember(data.projectId, data.userId);
-    await sharingFeature.loadMembers(data.projectId);
-  },
+  onUndoLeaveProject: (data) => sharingFeature.undoLeaveProject(data),
+  onUndoRemoveMember: (data) => sharingFeature.undoRemoveMember(data),
+  onUndoInvite: (data) => sharingFeature.undoInvite(data),
 });
 const showToast = toastUndoFeature.showToast;
 const showBatchToast = toastUndoFeature.showBatchToast;

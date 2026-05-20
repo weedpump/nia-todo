@@ -22,3 +22,32 @@ CREATE TABLE IF NOT EXISTS project_members (
 CREATE INDEX IF NOT EXISTS idx_project_members_project ON project_members(project_id);
 CREATE INDEX IF NOT EXISTS idx_project_members_user ON project_members(user_id);
 CREATE INDEX IF NOT EXISTS idx_project_members_status ON project_members(status);
+
+-- Scope project name uniqueness to each user.
+-- Migration 001 created projects.name as globally UNIQUE, which breaks multi-user
+-- default projects because every user needs their own Inbox/Privat/Arbeit/Einkauf.
+PRAGMA foreign_keys = OFF;
+
+CREATE TABLE IF NOT EXISTS projects_new (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    color TEXT DEFAULT '#6366f1',
+    sort_order INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now')),
+    parent_id INTEGER,
+    user_id INTEGER
+);
+
+INSERT INTO projects_new (id, name, color, sort_order, created_at, updated_at, parent_id, user_id)
+SELECT id, name, color, sort_order, created_at, updated_at, parent_id, user_id
+FROM projects;
+
+DROP TABLE projects;
+ALTER TABLE projects_new RENAME TO projects;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_projects_user_name_unique ON projects(user_id, name);
+CREATE INDEX IF NOT EXISTS idx_projects_user ON projects(user_id);
+CREATE INDEX IF NOT EXISTS idx_projects_parent ON projects(parent_id);
+
+PRAGMA foreign_keys = ON;
