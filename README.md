@@ -1,35 +1,70 @@
 # ✨ nia-todo
 
-Selfhosted Todo-System mit SQLite, FastAPI und Web-UI.
+Selfhosted Todo-System — SQLite + FastAPI + Web-UI + Offline-PWA + Telegram-Erinnerungen.
 
-## Schnellstart
+## 🌍 Instanzen
 
 - **Live:** `http://todo-dev.kneidl-home.de:8753`
 - **Dev:** `http://todo-dev.kneidl-home.de:8754`
 
-## Entwicklung
+## 🚀 Quick Start
+
+### Live
+```bash
+cd ~/projects/nia-todo
+systemctl restart nia-todo
+```
+
+### Dev
+```bash
+cd ~/projects/nia-todo-dev
+systemctl restart nia-todo-dev
+```
+
+## ✨ Features
+
+- 📝 Todos mit Beschreibung, Priorität, Deadline und Erinnerungen
+- 📁 Projekte/Kategorien
+- 🔲 Sections pro Projekt
+- 📱 Offline-PWA
+- 🔐 Auth, Admin-Panel, API-Keys
+- ⏰ Telegram-Erinnerungen
+- 🎨 Theme-Toggle
+- 🗄️ SQLite lokal
+
+## 🧱 Projektstruktur
+
+- `api/` — Backend, DB, Migrationen
+- `web/` — Web-UI, Service Worker, Manifest
+- `scripts/` — Test-Suiten und Hilfen
+- `docs/` — API-, Test- und Workflow-Doku
+- `systemd/` — Live-/Dev-Services
+
+## 🔧 Entwicklung
 
 - Dev-Branch: `develop`
 - Dev-Ordner: `~/projects/nia-todo-dev`
 - Release nur über `./release.sh VERSION`
 
-## Tests
+## 🧪 Tests
 
 - `npm test`
 - `./scripts/test_all.sh`
 
-## Wichtige Doku
+Details: [Test-Doku](docs/testing.md)
+
+## 📚 Doku
 
 - [API-Doku](docs/api.md)
 - [Test-Doku](docs/testing.md)
 - [Workflow-Doku](docs/workflow.md)
 - [Architektur](docs/architecture.md)
 
-## Setup / Betrieb
+## ⚙️ Setup / Betrieb
 
 - Erstinstallation: `/setup`
 - Admin-Panel: `/admin`
-- Dev-Branding läuft über `setup-dev.sh`
+- Dev-Branding: `setup-dev.sh`
 
 ## Hinweise
 
