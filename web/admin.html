@@ -324,6 +324,10 @@ function escapeHtmlAttr(str) {
     .replace(/>/g, '&gt;');
 }
 
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
+}
+
 function renderUserEmailCell(user) {
   return renderUserEmailDisplay(user.id, user.email || '');
 }
@@ -368,6 +372,10 @@ async function createUser() {
     document.getElementById('create-error').textContent = 'Benutzername und E-Mail sind erforderlich';
     return;
   }
+  if (!isValidEmail(email)) {
+    document.getElementById('create-error').textContent = 'Bitte eine gültige E-Mail-Adresse eingeben';
+    return;
+  }
 
   try {
     const data = await apiPost('/api/admin/users', {
@@ -409,6 +417,10 @@ async function saveUserEmail(userId) {
   const email = input?.value?.trim() || '';
   if (!email) {
     alert('E-Mail ist erforderlich');
+    return;
+  }
+  if (!isValidEmail(email)) {
+    alert('Bitte eine gültige E-Mail-Adresse eingeben');
     return;
   }
   try {

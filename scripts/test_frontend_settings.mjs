@@ -50,6 +50,9 @@ async function run() {
     await page.locator('#settings-user-name').waitFor({ state: 'visible' });
     await page.locator('#settings-email-display').waitFor({ state: 'visible', timeout: 10000 });
     await page.locator('#settings-email-cell').getByRole('button', { name: '✏️' }).click();
+    await page.locator('#settings-email-input').fill('broken-email');
+    await page.locator('#settings-email-cell').getByRole('button', { name: '✅' }).click();
+    await page.getByText('Bitte eine gültige E-Mail-Adresse eingeben').waitFor({ state: 'visible', timeout: 10000 });
     await page.locator('#settings-email-input').fill('frontenduser-updated@example.invalid');
     await page.locator('#settings-email-cell').getByRole('button', { name: '✅' }).click();
     await page.getByText('E-Mail gespeichert').waitFor({ state: 'visible', timeout: 10000 });

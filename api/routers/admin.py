@@ -9,7 +9,7 @@ import secrets
 
 from db import get_db, now_iso
 from services.auth import create_admin_jwt_token, verify_admin_token
-from services.utils import sanitize_text, validate_password, validate_admin_password
+from services.utils import sanitize_text, validate_email, validate_password, validate_admin_password
 from services.audit import log_audit
 from rate_limit import require_login_rate_limit, get_client_ip
 from middleware.security import generate_csrf_token, set_csrf_cookie
@@ -108,8 +108,9 @@ def create_user(data: CreateUserRequest, request: Request, _: bool = Depends(req
     data.username = sanitize_text(data.username)
     data.display_name = sanitize_text(data.display_name)
     data.email = sanitize_text(data.email)
-    if not data.email:
-        raise HTTPException(400, "Email is required")
+    email_error = validate_email(data.email)
+    if email_error:
+        raise HTTPException(400, email_error)
     with get_db() as db:
         existing = db.execute("SELECT id FROM users WHERE username = ?", (data.username,)).fetchone()
         if existing:
@@ -161,8 +162,9 @@ def list_users(_: bool = Depends(require_admin)):
 def update_user(user_id: int, data: UpdateUserRequest, _: bool = Depends(require_admin)):
     email = sanitize_text(data.email)
     display_name = sanitize_text(data.display_name) if data.display_name is not None else None
-    if not email:
-        raise HTTPException(400, "Email is required")
+    email_error = validate_email(email)
+    if email_error:
+        raise HTTPException(400, email_error)
     with get_db() as db:
         user = db.execute("SELECT id FROM users WHERE id = ?", (user_id,)).fetchone()
         if not user:

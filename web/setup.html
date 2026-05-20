@@ -182,6 +182,10 @@ async function setAdminPassword() {
   }
 }
 
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
+}
+
 async function createFirstUser() {
   const username = document.getElementById('first-username').value.trim();
   const displayName = document.getElementById('first-display-name').value.trim();
@@ -190,6 +194,10 @@ async function createFirstUser() {
   
   if (!username || !email || !password) {
     showError(2, 'Benutzername, E-Mail und Passwort sind erforderlich');
+    return;
+  }
+  if (!isValidEmail(email)) {
+    showError(2, 'Bitte eine gültige E-Mail-Adresse eingeben');
     return;
   }
   

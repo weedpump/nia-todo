@@ -7,7 +7,7 @@ import bcrypt
 
 from db import get_db, now_iso
 from services.auth import create_admin_jwt_token
-from services.utils import sanitize_text, validate_password, validate_admin_password
+from services.utils import sanitize_text, validate_email, validate_password, validate_admin_password
 from services.audit import log_audit
 from rate_limit import require_login_rate_limit, get_client_ip
 from middleware.security import generate_csrf_token, set_csrf_cookie
@@ -62,8 +62,9 @@ def setup_first_user(data: FirstUserRequest, request: Request, _: None = Depends
     data.username = sanitize_text(data.username)
     data.email = sanitize_text(data.email)
     data.display_name = sanitize_text(data.display_name)
-    if not data.email:
-        raise HTTPException(400, "Email is required")
+    email_error = validate_email(data.email)
+    if email_error:
+        raise HTTPException(400, email_error)
     error = validate_password(data.password)
     if error:
         raise HTTPException(400, error)

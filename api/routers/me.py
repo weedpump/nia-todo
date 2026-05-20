@@ -6,7 +6,7 @@ import bcrypt
 
 from db import get_db
 from routers.auth import require_auth
-from services.utils import sanitize_text, validate_password
+from services.utils import sanitize_text, validate_email, validate_password
 
 router = APIRouter(prefix="/api/me")
 
@@ -22,8 +22,9 @@ class UpdateEmailRequest(BaseModel):
 @router.patch("/email")
 def update_own_email(data: UpdateEmailRequest, user_id: int = Depends(require_auth)):
     email = sanitize_text(data.email)
-    if not email:
-        raise HTTPException(400, "Email is required")
+    email_error = validate_email(email)
+    if email_error:
+        raise HTTPException(400, email_error)
     with get_db() as db:
         user = db.execute("SELECT id FROM users WHERE id = ?", (user_id,)).fetchone()
         if not user:

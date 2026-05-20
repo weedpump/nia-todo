@@ -28,6 +28,11 @@ async function run() {
 
     await page.fill('#first-username', 'setupuser');
     await page.fill('#first-display-name', 'Setup User');
+    await page.fill('#first-email', 'broken-email');
+    await page.fill('#first-password', 'SetupUser123!');
+    await page.click('text=Installation abschließen');
+    await page.getByText('Bitte eine gültige E-Mail-Adresse eingeben').waitFor({ state: 'visible' });
+
     await page.fill('#first-email', 'setupuser@example.invalid');
     await page.fill('#first-password', 'SetupUser123!');
     await page.click('text=Installation abschließen');
