@@ -16,9 +16,14 @@ export function createProjectsFeature({
   showBatchToast,
   projectsApi,
   sharingFeature,
+  getCurrentUser,
 }) {
   function isOwner(project) {
-    return !!project && (project.is_owner === true || project.is_owner === 1 || project.is_owner === '1' || project.user_id === undefined);
+    if (!project) return false;
+    if (project.is_owner === true || project.is_owner === 1 || project.is_owner === '1') return true;
+    const user = getCurrentUser?.();
+    if (user && project.user_id === user.id) return true;
+    return false;
   }
 
   function showProjectModal(project = null, parentId = null) {

@@ -137,6 +137,7 @@ const projectsFeature = createProjectsFeature({
   showBatchToast: (...args) => showBatchToast(...args),
   projectsApi,
   sharingFeature,
+  getCurrentUser: () => currentUser,
 });
 const userSettingsFeature = createUserSettingsFeature({
   authApi,
