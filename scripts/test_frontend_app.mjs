@@ -180,6 +180,13 @@ async function run() {
     await page.locator('.todo-check').first().click();
     await page.waitForTimeout(300);
     await page.waitForFunction(() => !window.__tempPathPageError, { timeout: 1000 });
+    await page.getByText('Todo wiedereröffnet').waitFor({ state: 'visible', timeout: 5000 });
+    await page.click('#toast-undo');
+    await page.waitForFunction(async () => {
+      const jwt = localStorage.getItem('jwt_token');
+      const data = await fetch('/api/todos', { headers: { 'Authorization': `Bearer ${jwt}` }, credentials: 'include' }).then(r => r.json());
+      return data.todos.some(todo => todo.title === 'Section Todo Edited' && todo.status === 'done');
+    }, null, { timeout: 10000 });
 
     assertNoFrontendErrors();
     console.log('✅ Frontend app test passed');

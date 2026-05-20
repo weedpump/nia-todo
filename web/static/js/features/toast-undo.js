@@ -57,7 +57,8 @@ export function createToastUndoFeature({
   function undoLastAction() {
     if (!undoAction) return;
     if (undoAction.type === 'status') {
-      toggleTodo(undoAction.id);
+      if (undoAction.previousStatus) restoreTodoStatus(undoAction.id, undoAction.previousStatus);
+      else toggleTodo(undoAction.id);
     } else if (undoAction.type === 'delete') {
       restoreTodo(undoAction.id, undoAction.data);
     } else if (undoAction.type === 'batch_delete' && pendingUndoBatch) {
@@ -70,6 +71,19 @@ export function createToastUndoFeature({
       onUndoRemoveMember(undoAction.data);
     }
     hideToast();
+  }
+
+  async function restoreTodoStatus(id, status) {
+    if (!getDb()) return;
+    const t = getTodos().find(x => x.id === id);
+    if (!t) return;
+    const updatedTodo = { ...t, status, updated_at: new Date().toISOString() };
+    await dbPut('todos', updatedTodo);
+    setTodos(getTodos().map(todo => todo.id === id ? updatedTodo : todo));
+    renderStats();
+    renderTodos();
+    await addToSyncQueue('UPDATE_TODO', { id, changes: { status } });
+    if (isOnlineForSync()) await syncWithServer();
   }
 
   async function restoreBatchTodos() {
