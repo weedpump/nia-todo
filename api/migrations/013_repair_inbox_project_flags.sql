@@ -33,7 +33,7 @@ DROP TABLE projects;
 ALTER TABLE projects_new RENAME TO projects;
 
 -- Recreate project_members in the final sharing schema. Project sharing was not
--- released before 0.5.0; old pre-release table variants are discarded here to
+-- released before 1.0.0; old pre-release table variants are discarded here to
 -- guarantee the API has status/user_color/updated_at and correct constraints.
 DROP TABLE IF EXISTS project_members;
 
