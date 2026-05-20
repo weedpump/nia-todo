@@ -44,11 +44,8 @@ export function createAppRenderingFeature({
     const projects = getProjects();
     const currentFilter = getCurrentFilter();
 
-    const ownProjects = projects.filter(p => !p.is_shared);
-    const sharedProjects = projects.filter(p => p.is_shared);
-
     const projectMap = new Map();
-    ownProjects.forEach(p => projectMap.set(p.id, { ...p, children: [] }));
+    projects.forEach(p => projectMap.set(p.id, { ...p, children: [] }));
 
     const rootProjects = [];
     projectMap.forEach(p => {
@@ -57,6 +54,7 @@ export function createAppRenderingFeature({
       } else {
         const parent = projectMap.get(p.parent_id);
         if (parent) parent.children.push(p);
+        else rootProjects.push(p); // orphan → root
       }
     });
 
@@ -66,7 +64,7 @@ export function createAppRenderingFeature({
       return a.name.localeCompare(b.name);
     });
 
-    function renderProjectTree(project, depth = 0, canEdit = true) {
+    function renderProjectTree(project, depth = 0) {
       const indent = depth * 16;
       const hasChildren = project.children && project.children.length > 0;
       const sharedBadge = project.is_shared ? ' <span class="shared-badge">geteilt</span>' : '';
@@ -79,17 +77,15 @@ export function createAppRenderingFeature({
       html += `${escapeHtml(project.name)}${sharedBadge}`;
       html += `<span class="badge">${countByProject(project.id, true)}</span>`;
       html += `</button>`;
-      if (canEdit) {
-        html += `<button class="nav-edit" onclick="event.stopPropagation(); editProject(${project.id})" title="Bearbeiten">`;
-        html += `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
-        html += `</button>`;
-      }
+      html += `<button class="nav-edit" onclick="event.stopPropagation(); editProject(${project.id})" title="Bearbeiten">`;
+      html += `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
+      html += `</button>`;
       html += `</div>`;
       html += `</div>`;
 
       if (hasChildren) {
         project.children.sort((a, b) => a.name.localeCompare(b.name));
-        project.children.forEach(child => { html += renderProjectTree(child, depth + 1, canEdit); });
+        project.children.forEach(child => { html += renderProjectTree(child, depth + 1); });
       }
 
       return html;
@@ -98,12 +94,6 @@ export function createAppRenderingFeature({
     let html = '';
     if (rootProjects.length) {
       html += rootProjects.map(p => renderProjectTree(p)).join('');
-    }
-    if (sharedProjects.length) {
-      html += `<div class="nav-title shared-title">Geteilte Projekte</div>`;
-      for (const project of sharedProjects) {
-        html += renderProjectTree({ ...project, children: [] }, 0, false);
-      }
     }
     el.innerHTML = html;
   }

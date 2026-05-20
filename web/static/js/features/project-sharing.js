@@ -144,6 +144,13 @@ export function createProjectSharingFeature({
     await loadMembers(data.projectId);
   }
 
+  function showShareInput() {
+    const content = document.getElementById('project-sharing-content');
+    const startRow = document.getElementById('project-share-start-row');
+    if (content) content.style.display = '';
+    if (startRow) startRow.style.display = 'none';
+  }
+
   function applyProjectModalState(project, canEdit, shared) {
     currentProject = project;
     const isOwn = isOwner(currentProject);
@@ -177,10 +184,4 @@ export function createProjectSharingFeature({
     loadMembers,
     showShareInput,
   };
-
-  function showShareInput() {
-    const content = document.getElementById('project-sharing-content');
-    const startRow = document.getElementById('project-share-start-row');
-    if (content) content.style.display = '';
-    if (startRow) startRow.style.display = 'none';
-  }
+}
