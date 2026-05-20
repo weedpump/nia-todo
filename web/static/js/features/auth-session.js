@@ -9,6 +9,7 @@ export function createAuthSessionFeature({
   refreshFromServer,
   renderUserInfo,
 }) {
+  let loginInProgress = false;
 
   async function clearBrowserAuthCaches() {
     if ('serviceWorker' in navigator && typeof navigator.serviceWorker.getRegistrations === 'function') {
@@ -70,6 +71,10 @@ export function createAuthSessionFeature({
 
       return true;
     } catch (e) {
+      localStorage.removeItem('jwt_token');
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('csrf_token');
+      setCurrentUser(null);
       return false;
     }
   }
@@ -102,10 +107,14 @@ export function createAuthSessionFeature({
 
   async function handleLogin(e) {
     e.preventDefault();
+    if (loginInProgress) return;
+    loginInProgress = true;
     const username = document.getElementById('login-username').value.trim();
     const password = document.getElementById('login-password').value;
     const errorEl = document.getElementById('login-error');
+    const submitBtn = e.submitter || document.querySelector('button.login-btn');
     errorEl.textContent = '';
+    if (submitBtn) submitBtn.disabled = true;
 
     try {
       await login(username, password);
@@ -117,6 +126,9 @@ export function createAuthSessionFeature({
     } catch (err) {
       console.error('Login failed:', err);
       errorEl.textContent = err.message || 'Login fehlgeschlagen';
+    } finally {
+      loginInProgress = false;
+      if (submitBtn) submitBtn.disabled = false;
     }
   }
 
