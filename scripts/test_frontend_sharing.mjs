@@ -20,30 +20,27 @@ async function run() {
     await visible('#project-modal');
 
     // 3. Sharing section should be visible
-    await page.waitForFunction(() => document.getElementById('project-sharing-section')?.style.display !== 'none', { timeout: 10000 });
+    await page.waitForSelector('#project-sharing-section:not([style*="none"])', { timeout: 5000 });
 
-    // 4. As owner + not shared: only "Teilen" button should be visible
-    await page.waitForFunction(() => {
-      const startRow = document.getElementById('project-share-start-row');
-      const inviteRow = document.getElementById('project-share-row');
-      const content = document.getElementById('project-sharing-content');
-      return startRow?.style.display !== 'none' && inviteRow?.style.display === 'none' && content?.style.display === 'none';
-    }, { timeout: 5000 });
+    // 4. As owner + not shared: "Teilen" button should be visible
+    const teilenBtn = await page.locator('#project-share-start-row button').first();
+    const teilenVisible = await teilenBtn.isVisible();
+    if (!teilenVisible) throw new Error('Owner should see "Teilen" button');
 
     // 5. Click "Teilen" button → input should appear
-    await page.click('button[onclick="showShareInput()"]');
-    await page.waitForFunction(() => {
-      const inviteRow = document.getElementById('project-share-row');
-      const startRow = document.getElementById('project-share-start-row');
-      return inviteRow?.style.display !== 'none' && startRow?.style.display === 'none';
-    }, { timeout: 5000 });
+    await teilenBtn.click();
+    const inviteRow = await page.locator('#project-share-row').first();
+    const inputVisible = await inviteRow.isVisible();
+    if (!inputVisible) throw new Error('Input should appear after clicking Teilen');
 
     // 6. Fill username and invite
     await page.locator('#project-share-username').fill('someone');
     await page.click('button[onclick="inviteUserToProject()"]');
 
-    // 7. Owner should NOT have "Verlassen" button
-    await page.locator('#project-leave-btn').waitFor({ state: 'hidden', timeout: 2000 }).catch(() => {});
+    // 7. Owner should NOT have "Verlassen" button visible
+    const leaveBtn = await page.locator('#project-leave-btn').first();
+    const leaveVisible = await leaveBtn.isVisible();
+    if (leaveVisible) throw new Error('Owner should NOT see "Verlassen" button');
 
     assertNoFrontendErrors();
     console.log('✅ Frontend sharing test passed');

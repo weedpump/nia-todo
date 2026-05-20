@@ -38,7 +38,6 @@ export function exposeLegacyGlobals({
     ...projects,
     ...sharing,
     ...projectSharing,
-    showShareInput: projectSharing?.showShareInput,
     ...sections,
     ...dragDrop,
     ...viewPreferences,
