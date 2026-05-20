@@ -163,9 +163,25 @@ export function createProjectSharingFeature({
 
     if (sharingSection) sharingSection.style.display = project ? '' : 'none';
     if (leaveBtn) leaveBtn.style.display = shared && !isOwn ? '' : 'none';
-    if (inviteRow) inviteRow.style.display = isOwn ? '' : 'none';
-    if (sharingContent) sharingContent.style.display = isOwn ? '' : 'none';
-    if (shareStartRow) shareStartRow.style.display = isOwn && !shared ? '' : 'none';
+
+    if (isOwn) {
+      if (shared) {
+        // Owner + already shared: show everything
+        if (sharingContent) sharingContent.style.display = '';
+        if (shareStartRow) shareStartRow.style.display = 'none';
+        if (inviteRow) inviteRow.style.display = '';
+      } else {
+        // Owner + not shared: only show "Teilen" button
+        if (sharingContent) sharingContent.style.display = 'none';
+        if (shareStartRow) shareStartRow.style.display = '';
+        if (inviteRow) inviteRow.style.display = 'none';
+      }
+    } else {
+      // Member: no sharing UI at all
+      if (sharingContent) sharingContent.style.display = 'none';
+      if (shareStartRow) shareStartRow.style.display = 'none';
+      if (inviteRow) inviteRow.style.display = 'none';
+    }
 
     for (const id of fields) {
       const el = document.getElementById(id);

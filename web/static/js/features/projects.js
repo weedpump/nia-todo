@@ -78,15 +78,13 @@ export function createProjectsFeature({
       document.getElementById('project-color').value = project.color;
       if (parentSelect) parentSelect.value = project.parent_id || '';
       const owner = isOwner(project);
-      if (sharingSection) sharingSection.style.display = '';
-      if (shareRow) shareRow.style.display = owner ? '' : 'none';
-      if (leaveBtn) leaveBtn.style.display = owner ? 'none' : '';
+      const shared = !!project.is_shared;
       if (deleteBtn) deleteBtn.style.display = (owner && project.id !== 1) ? '' : 'none';
-      if (sharingFeature?.setProject) sharingFeature.setProject(project).catch(() => {});
+      if (sharingFeature?.applyProjectModalState) {
+        sharingFeature.applyProjectModalState(project, owner, shared);
+      }
     } else {
       if (sharingSection) sharingSection.style.display = 'none';
-      if (shareRow) shareRow.style.display = 'none';
-      if (leaveBtn) leaveBtn.style.display = 'none';
       if (deleteBtn) deleteBtn.style.display = 'none';
     }
 
