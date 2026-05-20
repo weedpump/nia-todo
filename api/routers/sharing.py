@@ -51,6 +51,17 @@ def get_project_member(db, project_id: int, user_id: int) -> Optional[dict]:
     ).fetchone()
     return dict(row) if row else None
 
+def get_member_by_id(db, member_id: int) -> Optional[dict]:
+    row = db.execute(
+        """SELECT pm.*, u.username, u.display_name, p.user_id as owner_id
+           FROM project_members pm
+           JOIN users u ON pm.user_id = u.id
+           JOIN projects p ON p.id = pm.project_id
+           WHERE pm.id = ?""",
+        (member_id,)
+    ).fetchone()
+    return dict(row) if row else None
+
 def get_project_members(db, project_id: int, include_inactive=False) -> list:
     """Get all members for a project."""
     if include_inactive:
@@ -143,9 +154,8 @@ async def share_project(project_id: int, data: ShareProjectRequest, user_id: int
             "SELECT status FROM project_members WHERE project_id = ? AND user_id = ?",
             (project_id, target['id'])
         ).fetchone()
-        if existing:
-            if existing['status'] in ('pending', 'accepted'):
-                raise HTTPException(400, f"User '{data.username}' already has access or a pending invite")
+        if existing and existing['status'] in ('pending', 'accepted'):
+            raise HTTPException(400, f"User '{data.username}' already has access or a pending invite")
 
         # Create invitation
         c = db.execute(
@@ -158,8 +168,8 @@ async def share_project(project_id: int, data: ShareProjectRequest, user_id: int
         db.commit()
 
         member = get_project_member(db, project_id, target['id'])
-        await broadcast_change("member_invited", member, target['id'])
-        return member
+        await broadcast_change("member_invited", {"project_id": project_id, "member": member}, target['id'], project_id)
+        return {"member": member}
 
 
 @router.post("/{project_id}/invites/{invite_id}")
@@ -216,6 +226,8 @@ async def remove_member(project_id: int, member_user_id: int, user_id: int = Dep
         ).fetchone()
         if not member:
             raise HTTPException(404, "Member not found")
+        if member['status'] not in ('pending', 'accepted'):
+            raise HTTPException(400, "Member is not active")
 
         # Mark as removed instead of deleting for undo support
         db.execute(
@@ -229,7 +241,7 @@ async def remove_member(project_id: int, member_user_id: int, user_id: int = Dep
             "project_id": project_id,
             "user_id": member_user_id,
             "member": dict(member)
-        }, user_id)
+        }, user_id, project_id)
 
         # Also notify the removed user
         if member_user_id != user_id:
@@ -237,7 +249,7 @@ async def remove_member(project_id: int, member_user_id: int, user_id: int = Dep
                 "id": member['id'],
                 "project_id": project_id,
                 "user_id": member_user_id
-            }, member_user_id)
+            }, member_user_id, project_id)
 
         return {"removed": member['id'], "project_id": project_id}
 
@@ -272,7 +284,7 @@ async def leave_project(project_id: int, user_id: int = Depends(require_auth)):
             "project_id": project_id,
             "user_id": user_id,
             "member": dict(member)
-        }, project['user_id'])
+        }, project['user_id'], project_id)
 
         return {"left": member['id'], "project_id": project_id}
 
@@ -321,6 +333,6 @@ async def update_member_color(project_id: int, member_user_id: int, data: Member
             "project_id": project_id,
             "user_id": member_user_id,
             "color": data.color
-        }, user_id)
+        }, user_id, project_id)
 
         return {"project_id": project_id, "user_id": member_user_id, "color": data.color}

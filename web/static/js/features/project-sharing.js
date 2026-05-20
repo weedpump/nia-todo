@@ -20,7 +20,10 @@ export function createProjectSharingFeature({
   }
 
   function isOwner(project) {
-    return !!project && (project.is_owner === true || project.is_owner === 1 || project.is_owner === '1');
+    if (!project) return false;
+    if (project.is_owner === true || project.is_owner === 1 || project.is_owner === '1') return true;
+    if (project.is_shared) return false;
+    return !!project.user_id;
   }
 
   async function loadMembers(projectId) {
@@ -125,10 +128,7 @@ export function createProjectSharingFeature({
   }
 
   async function undoLeaveProject(data) {
-    if (!data?.projectId) return;
-    await projectsApi.respondInvite(data.projectId, data.project?.member_id || data.memberId || data.projectId, true).catch(async () => {
-      // fallback: re-add local only if no invite exists
-    });
+    if (!data?.projectId || !data.project) return;
     const exists = getProjects().some(p => p.id === data.project.id);
     if (!exists) {
       setProjects([...getProjects(), data.project]);
@@ -153,7 +153,7 @@ export function createProjectSharingFeature({
 
   function applyProjectModalState(project, canEdit, shared) {
     currentProject = project;
-    const isOwn = isOwner(currentProject);
+    const isOwn = isOwner(project);
     const sharingSection = document.getElementById('project-sharing-section');
     const sharingContent = document.getElementById('project-sharing-content');
     const shareStartRow = document.getElementById('project-share-start-row');
@@ -164,20 +164,21 @@ export function createProjectSharingFeature({
     if (sharingSection) sharingSection.style.display = project ? '' : 'none';
     if (leaveBtn) leaveBtn.style.display = shared && !isOwn ? '' : 'none';
 
-    if (isOwn) {
+    if (!project) {
+      if (sharingContent) sharingContent.style.display = 'none';
+      if (shareStartRow) shareStartRow.style.display = 'none';
+      if (inviteRow) inviteRow.style.display = 'none';
+    } else if (isOwn) {
       if (shared) {
-        // Owner + already shared: show everything
         if (sharingContent) sharingContent.style.display = '';
         if (shareStartRow) shareStartRow.style.display = 'none';
         if (inviteRow) inviteRow.style.display = '';
       } else {
-        // Owner + not shared: only show "Teilen" button
         if (sharingContent) sharingContent.style.display = 'none';
         if (shareStartRow) shareStartRow.style.display = '';
         if (inviteRow) inviteRow.style.display = 'none';
       }
     } else {
-      // Member: no sharing UI at all
       if (sharingContent) sharingContent.style.display = 'none';
       if (shareStartRow) shareStartRow.style.display = 'none';
       if (inviteRow) inviteRow.style.display = 'none';
