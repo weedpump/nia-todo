@@ -9,6 +9,17 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <link rel="stylesheet" href="/static/style.css">
+<script>
+  // Prevent native form submit/reload if the user is faster than the JS module boot.
+  window.__niaLoginReady = false;
+  window.__niaPendingLoginSubmit = false;
+  document.addEventListener('submit', function(event) {
+    if (event.target && event.target.id === 'login-form' && !window.__niaLoginReady) {
+      event.preventDefault();
+      window.__niaPendingLoginSubmit = true;
+    }
+  }, true);
+</script>
 </head>
 <body>
   <!-- Login Overlay -->
@@ -19,7 +30,7 @@
         <div class="login-title">nia-todo</div>
         <div class="login-subtitle">Dein persönliches Todo-System</div>
       </div>
-      <form id="login-form" onsubmit="handleLogin(event)">
+      <form id="login-form">
         <div class="login-field">
           <label for="login-username">Benutzername</label>
           <input type="text" id="login-username" required placeholder="Benutzername" autocomplete="username">
