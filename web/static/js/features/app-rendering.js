@@ -44,8 +44,11 @@ export function createAppRenderingFeature({
     const projects = getProjects();
     const currentFilter = getCurrentFilter();
 
+    const ownProjects = projects.filter(p => !p.is_shared);
+    const sharedProjects = projects.filter(p => p.is_shared);
+
     const projectMap = new Map();
-    projects.forEach(p => projectMap.set(p.id, { ...p, children: [] }));
+    ownProjects.forEach(p => projectMap.set(p.id, { ...p, children: [] }));
 
     const rootProjects = [];
     projectMap.forEach(p => {
@@ -54,7 +57,6 @@ export function createAppRenderingFeature({
       } else {
         const parent = projectMap.get(p.parent_id);
         if (parent) parent.children.push(p);
-        else rootProjects.push(p); // orphan → root
       }
     });
 
@@ -67,14 +69,13 @@ export function createAppRenderingFeature({
     function renderProjectTree(project, depth = 0) {
       const indent = depth * 16;
       const hasChildren = project.children && project.children.length > 0;
-      const sharedBadge = project.is_shared ? ' <span class="shared-badge">geteilt</span>' : '';
 
       let html = '';
       html += `<div class="project-tree-item" style="padding-left: ${indent}px">`;
       html += `<div class="nav-item-with-action">`;
       html += `<button class="nav-btn ${currentFilter === String(project.id) ? 'active' : ''}" onclick="setFilter('${project.id}')">`;
       html += `<span class="project-dot" style="background:${escapeHtmlAttr(project.color)}"></span>`;
-      html += `${escapeHtml(project.name)}${sharedBadge}`;
+      html += `${escapeHtml(project.name)}`;
       html += `<span class="badge">${countByProject(project.id, true)}</span>`;
       html += `</button>`;
       html += `<button class="nav-edit" onclick="event.stopPropagation(); editProject(${project.id})" title="Bearbeiten">`;
@@ -94,6 +95,12 @@ export function createAppRenderingFeature({
     let html = '';
     if (rootProjects.length) {
       html += rootProjects.map(p => renderProjectTree(p)).join('');
+    }
+    if (sharedProjects.length) {
+      html += `<div class="nav-title shared-title">Geteilte Projekte</div>`;
+      for (const project of sharedProjects) {
+        html += renderProjectTree({ ...project, children: [] });
+      }
     }
     el.innerHTML = html;
   }
