@@ -145,6 +145,7 @@ def perform_setup() -> bool:
     # First User erstellen
     status, data = curl("POST", "/api/setup/first-user", {
         "username": "testuser",
+        "email": "testuser@example.invalid",
         "password": USER_PASSWORD,
         "display_name": "Test User"
     })
@@ -202,6 +203,7 @@ class TestSuite:
     def test_setup_first_user(self):
         status, data = curl("POST", "/api/setup/first-user", {
             "username": "testuser",
+            "email": "testuser@example.invalid",
             "password": USER_PASSWORD,
             "display_name": "Test User"
         })
@@ -298,8 +300,8 @@ class TestSuite:
         
         if ok(status) and data:
             self.created_ids["user"].append(data.get("id"))
-        passed = ok(status) and data and data.get("password_setup_url")
-        self.results["admin_create_user"] = {"status": status, "passed": passed, "expected": "200 + password_setup_url"}
+        passed = ok(status) and data and data.get("password_setup_url") and data.get("password_setup_expires_hours") == 24
+        self.results["admin_create_user"] = {"status": status, "passed": passed, "expected": "200 + password_setup_url + 24h expiry"}
         return passed
 
     def test_admin_create_shared_user(self):
@@ -368,8 +370,8 @@ class TestSuite:
             return True
         
         status, data = curl("POST", f"/api/admin/users/{user_id}/password-link", {}, token=self.admin_token, csrf=self.admin_csrf, cookie_jar="/tmp/nia_admin_cookies.txt")
-        passed = ok(status) and data and data.get("password_setup_url")
-        self.results["admin_change_user_password"] = {"status": status, "passed": passed, "expected": "200 + password_setup_url"}
+        passed = ok(status) and data and data.get("password_setup_url") and data.get("password_setup_expires_hours") == 24
+        self.results["admin_change_user_password"] = {"status": status, "passed": passed, "expected": "200 + password_setup_url + 24h expiry"}
         return passed
     
     def test_admin_delete_user(self):

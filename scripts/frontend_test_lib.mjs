@@ -68,6 +68,7 @@ export async function prepareFreshDb() {
   await api('POST', '/api/setup/admin', { admin_password: ADMIN_PASSWORD });
   await api('POST', '/api/setup/first-user', {
     username: USERNAME,
+    email: 'frontenduser@example.invalid',
     password: USER_PASSWORD,
     display_name: 'Frontend Test User',
   });
