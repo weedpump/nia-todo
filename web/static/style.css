@@ -292,11 +292,8 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 8px 10px;
-  margin-bottom: 6px;
-  border: 1px solid rgba(148,163,184,0.14);
-  border-radius: var(--radius);
-  background: rgba(148,163,184,0.04);
+  padding: 4px 0;
+  margin-bottom: 4px;
 }
 
 .sharing-member-main {
@@ -324,22 +321,23 @@ body {
 }
 
 .sharing-remove {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(239,68,68,0.35);
-  border-radius: var(--radius);
-  background: rgba(239,68,68,0.08);
-  color: var(--danger);
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
   cursor: pointer;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
 }
 
 .sharing-remove:hover {
-  background: rgba(239,68,68,0.16);
+  background: rgba(239,68,68,0.10);
+  color: var(--danger);
 }
 
 /* Main */
