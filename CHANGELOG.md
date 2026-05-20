@@ -5,6 +5,15 @@ Alle wichtigen Änderungen an diesem Projekt werden in dieser Datei dokumentiert
 Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [1.2.2] - 2026-05-21
+
+### Fixed
+- **Todo-Bearbeiten erhält Sections korrekt**
+  - Section-Auswahl im Edit-Modal wird jetzt anhand des Todo-Projekts geladen
+  - Bestehende `section_id` wird beim Öffnen korrekt vorausgewählt
+  - Speichern ohne Section-Änderung verschiebt Todos nicht mehr fälschlich nach „Unsortiert“
+- Regressionstest für Todo-Edit mit Section-Erhalt ergänzt
+
 ## [1.2.1] - 2026-05-21
 
 ### Fixed
