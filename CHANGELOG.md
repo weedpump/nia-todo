@@ -5,6 +5,37 @@ Alle wichtigen Änderungen an diesem Projekt werden in dieser Datei dokumentiert
 Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-05-20
+
+### Added
+- **Passwort-Setup-/Reset-Links** für Benutzer-Onboarding
+  - Admins erzeugen beim Benutzeranlegen automatisch einen einmaligen Setup-Link
+  - Admins können jederzeit einen neuen Passwort-Link für bestehende Benutzer erzeugen
+  - Öffentliche `/set-password` Seite zum Setzen des Passworts per Token
+  - Tokens werden gehashed gespeichert, sind einmalig und 24 Stunden gültig
+- **E-Mail-Adressen für Benutzer**
+  - E-Mail ist für neue Benutzer und den ersten Setup-Benutzer Pflicht
+  - Admin-UI zeigt E-Mail-Adressen in der Benutzerliste
+  - Admins können E-Mail-Adressen inline per Stift/Haken/X bearbeiten
+  - Benutzer können ihre eigene E-Mail im Einstellungsmodal inline bearbeiten
+- **E-Mail-Validierung** in Backend, Admin-UI, Setup-UI und User-Settings
+
+### Changed
+- Admins setzen Benutzerpasswörter nicht mehr direkt; stattdessen werden Passwort-Links erzeugt
+- User-Settings laden beim Öffnen frische `/api/me` Daten, damit Admin-Änderungen sofort sichtbar sind
+- Admin-Benutzerliste vereinfacht: Status-Spalte entfernt, kompaktere E-Mail-Bearbeitung
+- Settings-Modal aufgeräumt: Passwort-Button sitzt direkt in der Passwort-Section
+
+### Fixed
+- Todo-Erstellung übernimmt den gewählten Status korrekt und setzt `completed_at` bei direkt erledigten Todos
+- Admin-Tabellenlayout läuft beim Inline-Bearbeiten nicht mehr aus dem Container
+- Tabellen-Ellipsis erscheint nicht mehr fälschlich neben „Link erzeugen“
+
+### Security
+- Passwort-Setup-Token werden nur gehashed gespeichert und sind nach Nutzung ungültig
+- E-Mail-Adressen müssen eindeutig und formal gültig sein
+- `/api/password-setup/complete` ist explizit tokenbasiert öffentlich, bleibt aber CSRF-unabhängig begrenzt auf den einmaligen Token
+
 ## [1.0.0] - 2026-05-20
 
 ### Added
