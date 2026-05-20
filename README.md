@@ -24,11 +24,12 @@ systemctl restart nia-todo-dev
 ## ✨ Features
 
 - 📝 Todos mit Beschreibung, Priorität, Deadline und Erinnerungen
-- 📁 Projekte/Kategorien
+- 📁 Projekte/Kategorien inkl. Subprojekten und geschützter pro-User Inbox
+- 🤝 Projekt-Sharing zwischen Benutzern mit Einladungen und Undo
 - 🔲 Sections pro Projekt
 - 📱 Offline-PWA
-- 🔐 Auth, Admin-Panel, API-Keys
-- ⏰ Telegram-Erinnerungen
+- 🔐 Auth, Admin-Panel, API-Keys, CSRF-Schutz und User-Datenisolation
+- ⏰ Erinnerungen/Deadlines mit validierter Datum-/Zeit-Eingabe
 - 🎨 Theme-Toggle
 - 🗄️ SQLite lokal
 

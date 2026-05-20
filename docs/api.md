@@ -240,6 +240,7 @@ X-API-Key: nt_...
 - API-Keys sind an den Benutzer gebunden
 - widerrufene Keys sind sofort ungültig
 - `last_used_at` wird gepflegt
+- API-Keys umgehen CSRF nur mit `Authorization: ApiKey nt_...` oder `X-API-Key`; `Bearer nt_...` wird abgelehnt
 
 ## Todos
 
@@ -315,8 +316,8 @@ X-API-Key: nt_...
 - `priority` int, optional, `1..4`
 - `project_id` int, optional
 - `section_id` int, optional
-- `due_date` ISO-8601, optional
-- `remind_at` ISO-8601, optional
+- `due_date` ISO-8601, optional, gültiges Jahr `1900..9999`
+- `remind_at` ISO-8601, optional, gültiges Jahr `1900..9999`
 
 **Response**
 ```json
@@ -360,10 +361,26 @@ X-API-Key: nt_...
 ```json
 {
   "projects": [
-    { "id": 1, "name": "Inbox", "color": "#6366f1", "parent_id": null, "sort_order": 0 }
+    {
+      "id": 1,
+      "name": "Inbox",
+      "color": "#6366f1",
+      "parent_id": null,
+      "sort_order": 0,
+      "is_inbox": 1,
+      "is_owner": true,
+      "is_shared": false,
+      "owner_username": "tobi",
+      "owner_display_name": "Tobi"
+    }
   ]
 }
 ```
+
+**Hinweise**
+- Jeder Benutzer hat genau eine Inbox (`is_inbox=1`). Der Name darf geändert werden; `is_inbox` bleibt die stabile Identität.
+- Inbox-Projekte können nicht gelöscht werden.
+- Shared-Projekte erscheinen in der normalen Projektliste mit `is_shared=true` und Owner-Metadaten.
 
 ### Erstellen
 `POST /api/projects`
@@ -405,6 +422,124 @@ X-API-Key: nt_...
 **Response**
 ```json
 { "deleted_count": 3 }
+```
+
+## Projekt-Sharing
+
+### Ausstehende Einladungen
+`GET /api/projects/invites`
+
+**Response**
+```json
+{
+  "invites": [
+    {
+      "id": 12,
+      "project_id": 5,
+      "project_name": "Gemeinsam",
+      "project_color": "#6366f1",
+      "invited_by_username": "tobi",
+      "invited_by_display_name": "Tobi",
+      "status": "pending"
+    }
+  ]
+}
+```
+
+### Projekt teilen
+`POST /api/projects/{project_id}/share`
+
+Owner-only.
+
+**Body**
+```json
+{ "username": "moni" }
+```
+
+**Response**
+```json
+{
+  "member": {
+    "project_id": 5,
+    "user_id": 2,
+    "username": "moni",
+    "display_name": "Moni",
+    "status": "pending"
+  }
+}
+```
+
+### Einladung annehmen/ablehnen
+`POST /api/projects/{project_id}/invites/{invite_id}`
+
+**Body**
+```json
+{ "accept": true }
+```
+
+**Response**
+```json
+{ "id": 12, "status": "accepted", "project_id": 5 }
+```
+
+### Mitglieder auflisten
+`GET /api/projects/{project_id}/members`
+
+Owner und akzeptierte Mitglieder dürfen die Liste sehen.
+
+**Response**
+```json
+{
+  "members": [
+    {
+      "project_id": 5,
+      "user_id": 2,
+      "username": "moni",
+      "display_name": "Moni",
+      "status": "accepted"
+    }
+  ]
+}
+```
+
+### Mitglied entfernen
+`DELETE /api/projects/{project_id}/members/{member_user_id}`
+
+Owner kann Mitglieder entfernen; Mitglieder können sich selbst entfernen. Entfernen ist undo-fähig und setzt intern `status=removed`.
+
+**Response**
+```json
+{ "removed": 12, "project_id": 5 }
+```
+
+### Entferntes/ausgetretenes Mitglied wiederherstellen
+`POST /api/projects/{project_id}/members/{member_user_id}/restore`
+
+**Body**
+```json
+{ "status": "accepted" }
+```
+
+**Response**
+```json
+{ "member": { "project_id": 5, "user_id": 2, "status": "accepted" } }
+```
+
+### Shared-Projekt verlassen / Undo
+`POST /api/projects/{project_id}/leave`
+
+Owner können eigene Projekte nicht verlassen.
+
+**Response**
+```json
+{ "left": 12, "project_id": 5 }
+```
+
+`POST /api/projects/{project_id}/leave/undo`
+
+**Response**
+```json
+{ "member": { "project_id": 5, "user_id": 2, "status": "accepted" } }
 ```
 
 ## Sections

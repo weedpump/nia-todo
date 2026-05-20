@@ -5,6 +5,47 @@ Alle wichtigen Änderungen an diesem Projekt werden in dieser Datei dokumentiert
 Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-05-20
+
+### Added
+- **Projekt-Sharing**: Projekte können mit anderen Benutzern geteilt werden
+  - Einladungen per Benutzername
+  - Annahme/Ablehnung im UI
+  - Owner-/Member-Rollen mit klarer Readonly-Ansicht für geteilte Projekte
+  - Mitglieder entfernen, Projekt verlassen und Undo für beide Fälle
+  - Owner-Metadaten (`owner_username`, `owner_display_name`) für geteilte Projekte
+- **Stabile Inbox-Identität**: `projects.is_inbox` ersetzt harte Annahmen über Name oder ID
+  - Jeder Benutzer hat eine eigene Inbox
+  - Inbox darf umbenannt werden, bleibt aber geschützt
+  - Migration repariert fehlende/kaputte Inbox-Zuordnungen und projektlose Todos
+- **Frontend-Security-Test**: Neue Regressionstests für Markdown-XSS, Service-Worker API-Cache und Offline-Sync-Queue
+- **Sharing-Frontend-Test**: Playwright-Test für Einladen, Member-Liste, Readonly-UI und Owner-Sichtbarkeit
+- **Cold-Start Loading-Screen**: Zeigt beim App-Boot einen eigenen Ladezustand statt zu früher Loginmaske
+
+### Changed
+- **Projekt-Namen nur pro Benutzer eindeutig** statt global eindeutig
+- **Todo-Default-Projekt**: Neue Todos ohne Projekt landen in der Inbox des aktuellen Benutzers
+- **Login/Reload-Stabilität**: Server-Refresh rendert sofort und persistiert Projekte/Todos/Sections direkt in IndexedDB
+- **Service Worker**: `/api/*` wird nicht mehr gecached, um Auth-/User-Datenleaks zu vermeiden
+- **API-Key Auth**: CSRF-Bypass nur noch für `Authorization: ApiKey ...` oder `X-API-Key`; `Bearer nt_...` wird abgelehnt
+- **Reminder/Deadline Eingaben**: Frontend- und Backendvalidierung für ungültige Datum-/Zeitwerte (`1900..9999`, gültige Uhrzeit)
+
+### Fixed
+- **Multi-User-Isolation**: Projekt-/Section-/Todo-/Reminder-Filter validieren Zugriff vor Datenabfrage
+- **Shared Reminders**: Reminder sind benutzerspezifisch sichtbar und werden an den korrekten User dispatched
+- **Projekt löschen**: Todos werden in die Inbox des jeweiligen Users verschoben, nicht hart auf Projekt-ID 1
+- **Login Race**: Formular-Submit kann nicht mehr feuern, bevor die App-Module bereit sind
+- **App Import Failure**: Dynamische Importfehler zeigen jetzt einen Fehlerzustand mit „Neu laden“ statt Endlosspinner
+- **Markdown Rendering**: Token-Inhalte werden escaped, statt Regex-Reinjektion zu erlauben
+- **Offline Sync Queue**: Payloads werden whitelisted/sanitized
+- **Sharing UI Polish**: Inline-Invite-Fehler, dezente Member-Liste, kompakte Aktionsbuttons, sichtbare Owner-Info
+
+### Security
+- CSRF-Härtung für API-Key-Verwechslung (`Bearer nt_...`)
+- IDOR-Schutz für fremde Projekt-/Section-Filter
+- Kein authenticated API Response Caching im Service Worker
+- Striktere Shared-Data-Isolation über REST und WebSocket
+
 ## [0.4.11] - 2026-05-20
 
 ### Architecture
