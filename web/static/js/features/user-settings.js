@@ -18,6 +18,30 @@ function escapeHtmlAttr(value) {
 }
 
 export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentUser, resetApiKeyUi, loadApiKeys, updatePushSettingsUI, logout }) {
+  function avatarSrc(user) {
+    if (!user?.avatar_url) return '';
+    const version = user.avatar_updated_at ? encodeURIComponent(user.avatar_updated_at) : Date.now();
+    return `${user.avatar_url}?v=${version}`;
+  }
+
+  function renderSettingsAvatar(user) {
+    const initialEl = document.getElementById('settings-avatar-initial');
+    const imgEl = document.getElementById('settings-avatar-preview');
+    if (!initialEl || !imgEl) return;
+    const name = user?.display_name || user?.username || 'User';
+    const src = avatarSrc(user);
+    initialEl.textContent = (name.trim()[0] || 'U').toUpperCase();
+    if (src) {
+      imgEl.src = src;
+      imgEl.style.display = '';
+      initialEl.style.display = 'none';
+    } else {
+      imgEl.removeAttribute('src');
+      imgEl.style.display = 'none';
+      initialEl.style.display = '';
+    }
+  }
+
   function renderSettingsEmailDisplay(emailValue) {
     const email = emailValue ? escapeHtml(emailValue) : '<span class="settings-email-missing">-</span>';
     return `<span class="settings-email-display" id="settings-email-display">
@@ -28,10 +52,13 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
 
   function renderUserInfo() {
     const currentUser = getCurrentUser();
-    const settingsNameEl = document.getElementById('settings-user-name');
+    const settingsUsernameEl = document.getElementById('settings-username');
+    const settingsDisplayNameEl = document.getElementById('settings-display-name');
     const settingsEmailCell = document.getElementById('settings-email-cell');
-    if (settingsNameEl && currentUser) settingsNameEl.textContent = currentUser.display_name || currentUser.username;
+    if (settingsUsernameEl && currentUser) settingsUsernameEl.textContent = currentUser.username;
+    if (settingsDisplayNameEl && currentUser) settingsDisplayNameEl.value = currentUser.display_name || currentUser.username;
     if (settingsEmailCell && currentUser) settingsEmailCell.innerHTML = renderSettingsEmailDisplay(currentUser.email || '');
+    renderSettingsAvatar(currentUser);
   }
 
   async function refreshCurrentUser() {
@@ -51,12 +78,65 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     document.getElementById('settings-pw-success').textContent = '';
     document.getElementById('settings-email-error').textContent = '';
     document.getElementById('settings-email-success').textContent = '';
+    document.getElementById('settings-profile-error').textContent = '';
+    document.getElementById('settings-profile-success').textContent = '';
+    document.getElementById('settings-avatar-error').textContent = '';
+    document.getElementById('settings-avatar-success').textContent = '';
     renderUserInfo();
     document.getElementById('settings-modal')?.classList.add('active');
     await refreshCurrentUser().catch(() => {});
     resetApiKeyUi();
     loadApiKeys();
     updatePushSettingsUI();
+  }
+
+  async function saveUserProfile() {
+    const displayName = document.getElementById('settings-display-name')?.value?.trim() || '';
+    const errorEl = document.getElementById('settings-profile-error');
+    const successEl = document.getElementById('settings-profile-success');
+    errorEl.textContent = '';
+    successEl.textContent = '';
+    if (!displayName) {
+      errorEl.textContent = 'Anzeigename ist erforderlich';
+      return;
+    }
+    try {
+      const data = await authApi.updateProfile(displayName);
+      const currentUser = getCurrentUser();
+      if (currentUser) setCurrentUser({ ...currentUser, ...data });
+      renderUserInfo();
+      successEl.textContent = 'Profil gespeichert';
+    } catch (e) {
+      errorEl.textContent = e.message;
+    }
+  }
+
+  async function uploadUserAvatar(file) {
+    const input = document.getElementById('settings-avatar-input');
+    const errorEl = document.getElementById('settings-avatar-error');
+    const successEl = document.getElementById('settings-avatar-success');
+    errorEl.textContent = '';
+    successEl.textContent = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      errorEl.textContent = 'Bitte ein gültiges Bild hochladen';
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      errorEl.textContent = 'Bild ist zu groß';
+      return;
+    }
+    try {
+      const data = await authApi.uploadAvatar(file);
+      const currentUser = getCurrentUser();
+      if (currentUser) setCurrentUser({ ...currentUser, ...data });
+      renderUserInfo();
+      successEl.textContent = 'Avatar gespeichert';
+    } catch (e) {
+      errorEl.textContent = e.message;
+    } finally {
+      if (input) input.value = '';
+    }
   }
 
   function editUserEmail() {
@@ -129,5 +209,5 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     }
   }
 
-  return { renderUserInfo, openSettingsModal, editUserEmail, cancelUserEmailEdit, saveUserEmail, changeUserPassword };
+  return { renderUserInfo, openSettingsModal, saveUserProfile, uploadUserAvatar, editUserEmail, cancelUserEmailEdit, saveUserEmail, changeUserPassword };
 }

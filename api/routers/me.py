@@ -1,14 +1,22 @@
 """nia-todo: User self-service endpoints"""
 
-from fastapi import APIRouter, HTTPException, Depends
+from pathlib import Path
+from fastapi import APIRouter, HTTPException, Depends, Request
 from pydantic import BaseModel
+from PIL import Image, UnidentifiedImageError
 import bcrypt
+import io
 
-from db import get_db
+from db import DB_PATH, get_db, now_iso
 from routers.auth import require_auth
 from services.utils import sanitize_text, validate_email, validate_password
 
 router = APIRouter(prefix="/api/me")
+
+AVATAR_DIR = DB_PATH.parent / "avatars"
+AVATAR_SIZE = 256
+MAX_AVATAR_BYTES = 5 * 1024 * 1024
+ALLOWED_AVATAR_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 
 
 class ChangePasswordRequest(BaseModel):
@@ -17,6 +25,79 @@ class ChangePasswordRequest(BaseModel):
 
 class UpdateEmailRequest(BaseModel):
     email: str
+
+class UpdateProfileRequest(BaseModel):
+    display_name: str
+
+
+def _avatar_url(user_id: int) -> str:
+    return f"/api/avatars/user-{user_id}.webp"
+
+
+@router.patch("/profile")
+def update_own_profile(data: UpdateProfileRequest, user_id: int = Depends(require_auth)):
+    display_name = sanitize_text(data.display_name)
+    if not display_name:
+        raise HTTPException(400, "Anzeigename ist erforderlich")
+    if len(display_name) > 80:
+        raise HTTPException(400, "Anzeigename ist zu lang")
+    with get_db() as db:
+        user = db.execute("SELECT id, username, email, avatar_url, avatar_updated_at, is_admin FROM users WHERE id = ?", (user_id,)).fetchone()
+        if not user:
+            raise HTTPException(404, "User not found")
+        db.execute("UPDATE users SET display_name = ? WHERE id = ?", (display_name, user_id))
+        db.commit()
+    return {
+        "id": user_id,
+        "username": user["username"],
+        "display_name": display_name,
+        "email": user["email"],
+        "avatar_url": user["avatar_url"],
+        "avatar_updated_at": user["avatar_updated_at"],
+        "is_admin": bool(user["is_admin"]),
+    }
+
+
+@router.put("/avatar")
+async def upload_own_avatar(request: Request, user_id: int = Depends(require_auth)):
+    content_type = (request.headers.get("content-type") or "").split(";", 1)[0].lower()
+    if content_type not in ALLOWED_AVATAR_CONTENT_TYPES:
+        raise HTTPException(400, "Bitte ein gültiges Bild hochladen")
+
+    body = await request.body()
+    if not body:
+        raise HTTPException(400, "Bild ist erforderlich")
+    if len(body) > MAX_AVATAR_BYTES:
+        raise HTTPException(400, "Bild ist zu groß")
+
+    try:
+        image = Image.open(io.BytesIO(body))
+        image.verify()
+        image = Image.open(io.BytesIO(body)).convert("RGB")
+    except (UnidentifiedImageError, OSError, SyntaxError):
+        raise HTTPException(400, "Bitte ein gültiges Bild hochladen")
+
+    width, height = image.size
+    side = min(width, height)
+    left = (width - side) // 2
+    top = (height - side) // 2
+    image = image.crop((left, top, left + side, top + side)).resize((AVATAR_SIZE, AVATAR_SIZE), Image.LANCZOS)
+
+    AVATAR_DIR.mkdir(parents=True, exist_ok=True)
+    avatar_path = AVATAR_DIR / f"user-{user_id}.webp"
+    tmp_path = avatar_path.with_suffix(".webp.tmp")
+    image.save(tmp_path, "WEBP", quality=88, method=6)
+    tmp_path.replace(avatar_path)
+
+    avatar_url = _avatar_url(user_id)
+    updated_at = now_iso()
+    with get_db() as db:
+        user = db.execute("SELECT id FROM users WHERE id = ?", (user_id,)).fetchone()
+        if not user:
+            raise HTTPException(404, "User not found")
+        db.execute("UPDATE users SET avatar_url = ?, avatar_updated_at = ? WHERE id = ?", (avatar_url, updated_at, user_id))
+        db.commit()
+    return {"avatar_url": avatar_url, "avatar_updated_at": updated_at}
 
 
 @router.patch("/email")

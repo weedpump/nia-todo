@@ -115,7 +115,7 @@ def get_current_user(token: Optional[str] = None) -> Optional[int]:
 
 def verify_user_credentials(db, username: str, password: str) -> Optional[dict]:
     row = db.execute(
-        "SELECT id, username, display_name, password_hash, is_admin, token_version FROM users WHERE username = ?",
+        "SELECT id, username, display_name, email, avatar_url, password_hash, is_admin, token_version FROM users WHERE username = ?",
         (username,)
     ).fetchone()
     if not row:
