@@ -245,10 +245,7 @@
         </div>
         <div class="form-group">
           <label>E-Mail</label>
-          <div style="display:flex; gap:8px; align-items:center;">
-            <input type="email" id="settings-email" placeholder="E-Mail-Adresse" autocomplete="email" style="flex:1;">
-            <button type="button" class="btn btn-secondary" onclick="changeUserEmail()">Speichern</button>
-          </div>
+          <div id="settings-email-cell" class="settings-email-cell">–</div>
           <div id="settings-email-error" style="color:var(--danger); font-size:13px; margin-top:8px;"></div>
           <div id="settings-email-success" style="color:var(--success); font-size:13px; margin-top:8px;"></div>
         </div>
@@ -269,6 +266,7 @@
         <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
           Mindestens 8 Zeichen, 1 Großbuchstabe, 1 Kleinbuchstabe, 1 Ziffer, 1 Sonderzeichen
         </div>
+        <button type="button" class="btn btn-primary" onclick="changeUserPassword()" style="margin-top:12px;">Passwort ändern</button>
         <div id="settings-pw-error" style="color:var(--danger); font-size:13px; margin-top:8px;"></div>
         <div id="settings-pw-success" style="color:var(--success); font-size:13px; margin-top:8px;"></div>
         <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">
@@ -295,7 +293,6 @@
       </div>
       <div class="modal-actions">
         <button type="button" class="btn btn-secondary" onclick="closeModal('settings-modal')">Schließen</button>
-        <button type="button" class="btn btn-primary" onclick="changeUserPassword()">Passwort ändern</button>
       </div>
     </div>
   </div>
