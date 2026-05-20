@@ -25,6 +25,7 @@
     "username": "tobi",
     "display_name": "Tobi",
     "email": "tobi@example.com",
+    "avatar_url": "/api/avatars/user-1.webp",
     "is_admin": true
   }
 }
@@ -48,7 +49,50 @@
   "username": "tobi",
   "display_name": "Tobi",
   "email": "tobi@example.com",
+  "avatar_url": "/api/avatars/user-1.webp",
+  "avatar_updated_at": "2026-05-21T00:00:00+00:00",
   "is_admin": true
+}
+```
+
+### Eigenes Profil ändern
+`PATCH /api/me/profile`
+
+**Body**
+```json
+{ "display_name": "Tobi" }
+```
+
+**Response**
+```json
+{
+  "id": 1,
+  "username": "tobi",
+  "display_name": "Tobi",
+  "email": "tobi@example.com",
+  "avatar_url": "/api/avatars/user-1.webp",
+  "avatar_updated_at": "2026-05-21T00:00:00+00:00",
+  "is_admin": true
+}
+```
+
+### Eigenen Avatar hochladen
+`PUT /api/me/avatar`
+
+**Request**
+- Body: rohe Bilddaten
+- `Content-Type`: `image/jpeg`, `image/png`, `image/webp` oder `image/gif`
+- Maximalgröße: 5 MiB
+
+**Speicherung**
+- Datei: `api/data/avatars/user-{id}.webp`
+- DB: nur `avatar_url` und `avatar_updated_at`
+
+**Response**
+```json
+{
+  "avatar_url": "/api/avatars/user-1.webp",
+  "avatar_updated_at": "2026-05-21T00:00:00+00:00"
 }
 ```
 

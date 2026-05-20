@@ -45,6 +45,28 @@ export const authApi = {
     return parseOrThrow(response, 'Passwortänderung fehlgeschlagen');
   },
 
+  async updateProfile(displayName) {
+    const response = await fetch(API + '/api/me/profile', {
+      method: 'PATCH',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ display_name: displayName }),
+      credentials: 'include',
+    });
+    return parseOrThrow(response, 'Profil konnte nicht geändert werden');
+  },
+
+  async uploadAvatar(file) {
+    const headers = getAuthHeaders();
+    delete headers['Content-Type'];
+    const response = await fetch(API + '/api/me/avatar', {
+      method: 'PUT',
+      headers: { ...headers, 'Content-Type': file.type || 'application/octet-stream' },
+      body: file,
+      credentials: 'include',
+    });
+    return parseOrThrow(response, 'Avatar konnte nicht hochgeladen werden');
+  },
+
   async updateEmail(email) {
     const response = await fetch(API + '/api/me/email', {
       method: 'PATCH',

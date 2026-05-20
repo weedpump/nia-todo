@@ -5,6 +5,12 @@ Alle wichtigen Änderungen an diesem Projekt werden in dieser Datei dokumentiert
 Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Benutzerprofil im Settings-Modal: Username read-only, Anzeigename editierbar
+- Avatar-Upload über Settings; Bilder werden als WebP-Dateien unter `api/data/avatars/` gespeichert und über `/api/avatars/*` ausgeliefert
+
 ## [1.1.0] - 2026-05-20
 
 ### Added

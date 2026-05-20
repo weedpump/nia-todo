@@ -48,7 +48,28 @@ async function run() {
     await page.click('#user-menu-button');
     await page.click('#menu-settings-btn');
     await visible('#settings-modal');
-    await page.locator('#settings-user-name').waitFor({ state: 'visible' });
+    await page.locator('#settings-username').waitFor({ state: 'visible' });
+    await page.locator('#settings-username').getByText('frontenduser').waitFor({ state: 'visible', timeout: 10000 });
+    await page.fill('#settings-display-name', 'Frontend Avatar User');
+    await page.getByRole('button', { name: 'Speichern' }).first().click();
+    await page.getByText('Profil gespeichert').waitFor({ state: 'visible', timeout: 10000 });
+    await page.waitForFunction(async () => {
+      const jwt = localStorage.getItem('jwt_token');
+      const data = await fetch('/api/me', { headers: { 'Authorization': `Bearer ${jwt}` }, credentials: 'include' }).then(r => r.json());
+      return data.display_name === 'Frontend Avatar User';
+    }, null, { timeout: 10000 });
+    await page.setInputFiles('#settings-avatar-input', {
+      name: 'avatar.png',
+      mimeType: 'image/png',
+      buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNMTvvIwMDAxMDAwMDAAAAUVAG+nM0ffgAAAABJRU5ErkJggg==', 'base64')
+    });
+    await page.getByText('Avatar gespeichert').waitFor({ state: 'visible', timeout: 10000 });
+    await page.locator('#settings-avatar-preview').waitFor({ state: 'visible', timeout: 10000 });
+    await page.waitForFunction(async () => {
+      const jwt = localStorage.getItem('jwt_token');
+      const data = await fetch('/api/me', { headers: { 'Authorization': `Bearer ${jwt}` }, credentials: 'include' }).then(r => r.json());
+      return data.avatar_url && data.avatar_url.includes('/api/avatars/user-');
+    }, null, { timeout: 10000 });
     await page.locator('#settings-email-display').waitFor({ state: 'visible', timeout: 10000 });
     await page.locator('#settings-email-cell').getByRole('button', { name: '✏️' }).click();
     await page.locator('#settings-email-input').fill('broken-email');

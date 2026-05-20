@@ -16,18 +16,32 @@ export function createUserMenuFeature({ getCurrentUser }) {
     button.setAttribute('aria-expanded', nextOpen ? 'true' : 'false');
   }
 
+  function avatarSrc(user) {
+    if (!user?.avatar_url) return '';
+    const version = user.avatar_updated_at ? encodeURIComponent(user.avatar_updated_at) : Date.now();
+    return `${user.avatar_url}?v=${version}`;
+  }
+
+  function renderAvatar(target, initial, src) {
+    if (!target) return;
+    if (src) {
+      target.innerHTML = `<img src="${src}" alt="Avatar">`;
+    } else {
+      target.textContent = initial;
+    }
+  }
+
   function updateUserMenu() {
     const user = getCurrentUser();
     const name = user?.display_name || user?.username || 'User';
     const email = user?.email || user?.username || '';
     const initial = (name.trim()[0] || 'U').toUpperCase();
+    const src = avatarSrc(user);
 
-    const avatarInitial = document.getElementById('user-avatar-initial');
-    const menuAvatarInitial = document.getElementById('user-menu-avatar-initial');
+    renderAvatar(document.getElementById('user-menu-button'), initial, src);
+    renderAvatar(document.getElementById('user-menu-avatar'), initial, src);
     const menuName = document.getElementById('user-menu-name');
     const menuEmail = document.getElementById('user-menu-email');
-    if (avatarInitial) avatarInitial.textContent = initial;
-    if (menuAvatarInitial) menuAvatarInitial.textContent = initial;
     if (menuName) menuName.textContent = name;
     if (menuEmail) menuEmail.textContent = email;
   }

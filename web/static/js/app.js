@@ -180,6 +180,8 @@ const editUserEmail = userSettingsFeature.editUserEmail;
 const cancelUserEmailEdit = userSettingsFeature.cancelUserEmailEdit;
 const saveUserEmail = userSettingsFeature.saveUserEmail;
 const changeUserPassword = userSettingsFeature.changeUserPassword;
+const saveUserProfile = userSettingsFeature.saveUserProfile;
+const uploadUserAvatar = userSettingsFeature.uploadUserAvatar;
 const toggleUserMenu = userMenuFeature.toggleUserMenu;
 const closeUserMenu = userMenuFeature.closeUserMenu;
 const updateUserMenu = userMenuFeature.updateUserMenu;
@@ -463,7 +465,7 @@ export function startAppModule() {
   viewPreferences: { toggleHideDone, updateToggleDoneButton, cycleSort, updateSortButton, sortTodoList },
   toastUndo: { showToast, showBatchToast, hideToast, undoLastAction, restoreBatchTodos, restoreTodo },
     push: { updatePushStatus, updatePushSettingsUI, enablePushNotifications, disablePushNotifications, sendTestPush },
-    userSettings: { renderUserInfo, openSettingsModal, editUserEmail, cancelUserEmailEdit, saveUserEmail, changeUserPassword },
+    userSettings: { renderUserInfo, openSettingsModal, saveUserProfile, uploadUserAvatar, editUserEmail, cancelUserEmailEdit, saveUserEmail, changeUserPassword },
     userMenu: { toggleUserMenu, closeUserMenu, updateUserMenu },
   });
 

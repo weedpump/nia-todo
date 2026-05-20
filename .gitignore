@@ -11,6 +11,7 @@ api/data/*.db
 api/data/*.db.backup*
 api/data/*.db.bak
 api/data/*.db.bak
+api/data/avatars/
 
 # Environment
 .env

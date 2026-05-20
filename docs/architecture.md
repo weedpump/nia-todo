@@ -43,4 +43,5 @@
 - Admins setzen Benutzerpasswörter nicht direkt
 - Neue Benutzer erhalten einen einmaligen Passwort-Setup-Link (`password_setup_tokens`)
 - Passwort-Setup-/Reset-Links sind 24 Stunden gültig und werden gehashed gespeichert
-- Benutzer können ihre eigene E-Mail im Settings-Modal ändern
+- Benutzer können ihre eigene E-Mail und ihren Anzeigenamen im Settings-Modal ändern; der Username bleibt unveränderlich
+- Avatar-Bilder liegen als WebP-Dateien unter `api/data/avatars/`, die Datenbank speichert nur URL und Änderungszeitpunkt

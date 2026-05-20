@@ -130,12 +130,10 @@
             <span style="margin-right:4px">➕</span> Neues Todo
           </button>
           <div class="user-menu-wrap">
-            <button type="button" class="user-menu-button" id="user-menu-button" onclick="toggleUserMenu(event)" aria-haspopup="menu" aria-expanded="false" title="Benutzermenü">
-              <span id="user-avatar-initial">U</span>
-            </button>
+            <button type="button" class="user-menu-button" id="user-menu-button" onclick="toggleUserMenu(event)" aria-haspopup="menu" aria-expanded="false" title="Benutzermenü">U</button>
             <div class="user-menu" id="user-menu" role="menu">
               <div class="user-menu-header">
-                <div class="user-menu-avatar" id="user-menu-avatar"><span id="user-menu-avatar-initial">👤</span></div>
+                <div class="user-menu-avatar" id="user-menu-avatar">U</div>
                 <div class="user-menu-identity">
                   <div class="user-menu-name" id="user-menu-name">User</div>
                   <div class="user-menu-email" id="user-menu-email">–</div>
@@ -238,10 +236,30 @@
       <h3>⚙️ Einstellungen</h3>
       <button class="modal-close-x" onclick="closeModal('settings-modal')">✕</button>
       <div class="modal-body">
-        <div class="form-group">
-          <label>Angemeldet als</label>
-          <div id="settings-user-name" style="font-size:14px; color:var(--text-secondary); padding:8px 0;">–</div>
+        <div class="settings-profile-card">
+          <button type="button" class="settings-avatar-button" onclick="document.getElementById('settings-avatar-input').click()" title="Avatar ändern">
+            <span id="settings-avatar-initial">U</span>
+            <img id="settings-avatar-preview" alt="Avatar" style="display:none;">
+          </button>
+          <input type="file" id="settings-avatar-input" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none;" onchange="uploadUserAvatar(this.files?.[0])">
+          <div class="settings-profile-fields">
+            <div class="form-group">
+              <label>Username</label>
+              <div id="settings-username" class="settings-readonly-value">–</div>
+            </div>
+            <div class="form-group">
+              <label>Anzeigename</label>
+              <div style="display:flex; gap:8px; align-items:center;">
+                <input type="text" id="settings-display-name" maxlength="80" placeholder="Anzeigename" autocomplete="name" style="flex:1;">
+                <button type="button" class="btn btn-secondary" onclick="saveUserProfile()">Speichern</button>
+              </div>
+              <div id="settings-profile-error" style="color:var(--danger); font-size:13px; margin-top:8px;"></div>
+              <div id="settings-profile-success" style="color:var(--success); font-size:13px; margin-top:8px;"></div>
+            </div>
+          </div>
         </div>
+        <div id="settings-avatar-error" style="color:var(--danger); font-size:13px; margin-top:8px;"></div>
+        <div id="settings-avatar-success" style="color:var(--success); font-size:13px; margin-top:8px;"></div>
         <div class="form-group">
           <label>E-Mail</label>
           <div id="settings-email-cell" class="settings-email-cell">–</div>
