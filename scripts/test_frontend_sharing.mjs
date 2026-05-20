@@ -110,10 +110,59 @@ async function run() {
     const teilenVisibleAfterInvite = await page.locator('#project-share-start-row button').isVisible().catch(() => false);
     if (teilenVisibleAfterInvite) throw new Error('Already shared projects should show sharing content without clicking Teilen');
 
-    // 7. Owner should NOT have "Verlassen" button visible
+    // 7. Member row should be compact and not use the old large Entfernen button
+    await page.locator('.sharing-member-row').filter({ hasText: 'Moni' }).waitFor({ state: 'visible', timeout: 10000 });
+    const oldRemoveVisible = await page.getByText('Entfernen').isVisible().catch(() => false);
+    if (oldRemoveVisible) throw new Error('Member removal should be a compact x button, not a large Entfernen button');
+
+    // 8. Owner should NOT have "Verlassen" button visible
     const leaveBtn = await page.locator('#project-leave-btn').first();
     const leaveVisible = await leaveBtn.isVisible();
     if (leaveVisible) throw new Error('Owner should NOT see "Verlassen" button');
+
+    // 9. Accepted shared project should show owner info and muted readonly fields for the member
+    await page.evaluate(async () => {
+      const r = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: 'moni', password: 'MoniPass123!' }),
+        credentials: 'include'
+      });
+      const data = await r.json();
+      localStorage.setItem('jwt_token', data.access_token);
+      localStorage.setItem('csrf_token', data.csrf_token);
+    });
+    await page.evaluate(async ({ projectId, jwt, csrf }) => {
+      const invites = await fetch('/api/projects/invites', {
+        headers: { 'Authorization': `Bearer ${jwt}` },
+        credentials: 'include'
+      }).then(r => r.json());
+      const invite = invites.invites.find(i => i.project_id === projectId);
+      await fetch(`/api/projects/${projectId}/invites/${invite.id}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${jwt}`,
+          'X-CSRF-Token': csrf
+        },
+        body: JSON.stringify({ accept: true }),
+        credentials: 'include'
+      });
+    }, {
+      projectId: createResult.id,
+      jwt: await page.evaluate(() => localStorage.getItem('jwt_token')),
+      csrf: await page.evaluate(() => localStorage.getItem('csrf_token')),
+    });
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.locator('#user-name').waitFor({ state: 'visible', timeout: 10000 });
+    await page.locator('.shared-title').waitFor({ state: 'visible', timeout: 10000 });
+    await page.locator('.project-tree-item').filter({ hasText: 'Sharing Test Project' }).first().locator('.nav-edit').click();
+    await page.locator('#project-owner-info').waitFor({ state: 'visible', timeout: 10000 });
+    await page.getByText('Geteilt von').waitFor({ state: 'visible', timeout: 10000 });
+    const readonlyClass = await page.locator('#project-form').evaluate(el => el.classList.contains('readonly-project'));
+    if (!readonlyClass) throw new Error('Shared project form should have readonly-project styling');
+    const nameDisabled = await page.locator('#project-name').isDisabled();
+    if (!nameDisabled) throw new Error('Shared project name field should be disabled for non-owner');
 
     assertNoFrontendErrors();
     console.log('✅ Frontend sharing test passed');

@@ -85,6 +85,14 @@ export function createProjectsFeature({
     } else {
       if (sharingSection) sharingSection.style.display = 'none';
       if (deleteBtn) deleteBtn.style.display = 'none';
+      document.getElementById('project-form')?.classList.remove('readonly-project');
+      ['project-name', 'project-color', 'project-parent-id'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.disabled = false;
+          el.setAttribute('aria-readonly', 'false');
+        }
+      });
     }
 
     document.getElementById('project-modal')?.classList.add('active');
