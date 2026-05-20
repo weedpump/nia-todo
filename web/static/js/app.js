@@ -75,6 +75,7 @@ const syncFeature = createSyncFeature({
   getDb: () => db,
   dbGetAll,
   dbPut,
+  dbClear,
   getFromDB,
   deleteFromDB,
   getTodos: () => todos,
@@ -234,6 +235,9 @@ async function refreshFromServer() {
   syncInProgressRef.value = syncInProgress;
   await syncFeature.refreshFromServer({ wsState: wsClient.getWsState(), syncInProgressRef });
   syncInProgress = syncInProgressRef.value;
+  renderProjects();
+  renderStats();
+  renderTodos();
 }
 
 const sectionActions = createSectionActionsFeature({

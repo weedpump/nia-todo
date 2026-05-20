@@ -9,10 +9,28 @@ async function run() {
     await loginApp();
 
     await visible('#sidebar');
-    await visible('#sidebar');
+    await waitForText('Inbox');
+    await page.waitForFunction(async () => {
+      const db = await new Promise((resolve, reject) => {
+        const req = indexedDB.open('nia-todo-db', 3);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+      try {
+        return await new Promise(resolve => {
+          const tx = db.transaction('projects', 'readonly');
+          const countReq = tx.objectStore('projects').count();
+          countReq.onsuccess = () => resolve(countReq.result > 0);
+          countReq.onerror = () => resolve(false);
+        });
+      } finally {
+        db.close();
+      }
+    }, null, { timeout: 10000 });
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.locator('#login-overlay').waitFor({ state: 'hidden', timeout: 10000 });
     await visible('#sidebar');
+    await waitForText('Inbox');
 
     await page.click('#theme-toggle-btn');
     await page.click('#theme-toggle-btn');

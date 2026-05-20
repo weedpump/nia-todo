@@ -2,6 +2,7 @@ export function createSyncFeature({
   getDb,
   dbGetAll,
   dbPut,
+  dbClear,
   getFromDB,
   deleteFromDB,
   getTodos,
@@ -146,9 +147,24 @@ export function createSyncFeature({
     const [todosData, projectsData, sectionsData] = await Promise.all([
       todosApi.list(), projectsApi.list(), sectionsApi.listAll(),
     ]);
-    setTodos(todosData.todos || []);
-    setProjects(projectsData.projects || []);
-    setSections(sectionsData.sections || []);
+    const nextTodos = todosData.todos || [];
+    const nextProjects = projectsData.projects || [];
+    const nextSections = sectionsData.sections || [];
+
+    // Server refresh is authoritative for the current user. Persist it so a
+    // reload right after login does not fall back to an empty local cache.
+    if (dbClear) {
+      await Promise.all([dbClear('todos'), dbClear('projects'), dbClear('sections')]);
+    }
+    await Promise.all([
+      ...nextTodos.map(todo => dbPut('todos', todo)),
+      ...nextProjects.map(project => dbPut('projects', project)),
+      ...nextSections.map(section => dbPut('sections', section)),
+    ]);
+
+    setTodos(nextTodos);
+    setProjects(nextProjects);
+    setSections(nextSections);
     syncInProgressRef.value = false;
   }
 
