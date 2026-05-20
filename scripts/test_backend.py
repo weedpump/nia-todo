@@ -36,15 +36,15 @@ NEW_PASSWORD = "NewPass123!"
 
 def service_stop():
     """Stop the dev service."""
-    subprocess.run(f"systemctl stop {SERVICE}", shell=True, capture_output=True)
+    subprocess.run(f"systemctl stop {SERVICE}", shell=True, capture_output=True, check=True)
 
 def service_start():
     """Start the dev service."""
-    subprocess.run(f"systemctl start {SERVICE}", shell=True, capture_output=True)
+    subprocess.run(f"systemctl start {SERVICE}", shell=True, capture_output=True, check=True)
 
 def service_restart():
     """Restart the dev service."""
-    subprocess.run(f"systemctl restart {SERVICE}", shell=True, capture_output=True)
+    subprocess.run(f"systemctl restart {SERVICE}", shell=True, capture_output=True, check=True)
 
 def service_wait(timeout: int = 10) -> bool:
     """Wait for service to be ready. Returns True if successful."""
@@ -113,6 +113,8 @@ def curl(
     cmd += [f"{URL}{endpoint}"]
     
     r = subprocess.run(cmd, capture_output=True, text=True)
+    if r.returncode != 0:
+        raise RuntimeError(f"curl failed with exit code {r.returncode}: {r.stderr.strip()}")
     out = r.stdout.strip().split("\n")
     status = int(out[-1]) if out[-1].isdigit() else 500
     body = "\n".join(out[:-1])
@@ -436,7 +438,7 @@ class TestSuite:
     def test_section_create(self):
         proj_id = self.created_ids["project"][-1] if self.created_ids["project"] else 1
         
-        status, data = curl("POST", f"/api/projects/{proj_id}/sections", {
+        status, data = curl("POST", f"/api/sections/by-project/{proj_id}", {
             "name": "Test Section",
             "sort_order": 0
         }, token=self.user_token, csrf=self.user_csrf, cookie_jar="/tmp/nia_user_cookies.txt")
@@ -452,7 +454,7 @@ class TestSuite:
     
     def test_section_list_by_project(self):
         proj_id = self.created_ids["project"][-1] if self.created_ids["project"] else 1
-        status, _ = curl("GET", f"/api/projects/{proj_id}/sections", token=self.user_token, cookie_jar="/tmp/nia_user_cookies.txt")
+        status, _ = curl("GET", f"/api/sections/by-project/{proj_id}", token=self.user_token, cookie_jar="/tmp/nia_user_cookies.txt")
         return self.record("section_list_by_project", status)
     
     def test_section_patch(self):
@@ -729,14 +731,23 @@ def main():
     finally:
         # Step 4+5: Restore DB and restart
         print("\n🔄 Schritt 4/6: Ursprüngliche DB wiederherstellen...")
-        db_restore()
+        try:
+            db_restore()
+        except Exception as e:
+            all_passed = False
+            print(f"❌ DB-Wiederherstellung fehlgeschlagen: {e}")
         
         print("\n🔄 Schritt 5/6: Service neustarten...")
-        service_restart()
-        if not service_wait():
-            print("⚠️  Service startet möglicherweise nicht korrekt!")
-        else:
-            print("✅ Service läuft wieder normal")
+        try:
+            service_restart()
+            if not service_wait():
+                all_passed = False
+                print("❌ Service startet nach Restore nicht korrekt!")
+            else:
+                print("✅ Service läuft wieder normal")
+        except Exception as e:
+            all_passed = False
+            print(f"❌ Service-Neustart nach Restore fehlgeschlagen: {e}")
     
     # Final summary
     print("\n" + "=" * 70)
