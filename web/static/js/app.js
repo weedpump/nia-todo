@@ -345,6 +345,7 @@ const toggleSidebar = uiShell.toggleSidebar;
 const closeSidebar = uiShell.closeSidebar;
 const closeModal = uiShell.closeModal;
 const setupDescPreview = uiShell.setupDescPreview;
+uiShell.bindSidebarEdgeSwipe();
 uiShell.bindKeyboardShortcuts();
 
 // ─── Drag & Drop ─────────────────────────────────────────────────────────────
