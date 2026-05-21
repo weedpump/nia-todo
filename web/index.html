@@ -19,7 +19,10 @@
     if (android && (nativeLaunch || tauri)) {
       document.documentElement.classList.add('native-android');
     }
-    if (nativeLaunch && 'serviceWorker' in navigator && navigator.serviceWorker.getRegistrations) {
+    // Native shells rely on the service worker cache for offline cold starts.
+    // Never unregister it while offline, otherwise module loading can strand the
+    // boot overlay at "App startet…" before the lifecycle watchdog even runs.
+    if (nativeLaunch && navigator.onLine && 'serviceWorker' in navigator && navigator.serviceWorker.getRegistrations) {
       const resetKey = 'nia-native-sw-reset-v1';
       if (!sessionStorage.getItem(resetKey)) {
         sessionStorage.setItem(resetKey, '1');
