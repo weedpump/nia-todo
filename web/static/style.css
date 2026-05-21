@@ -384,12 +384,15 @@ body {
   height: 40px;
   flex: 0 0 auto;
 }
+.sidebar-footer {
+  margin-top: auto;
+  flex-shrink: 0;
+}
 .sidebar-user-menu-wrap {
   height: auto;
   width: 100%;
   gap: 10px;
   padding: 12px 10px;
-  margin-top: 10px;
   border: 1px solid var(--border);
   border-radius: 14px;
   background: color-mix(in srgb, var(--bg-tertiary) 58%, transparent);
@@ -1851,7 +1854,7 @@ input[type="color"]::-moz-color-swatch {
 }
 /* ─── Version Bar ──────────────────────────────────────────────────────────── */
 .version-bar {
-  margin-top: auto;
+  margin-top: 10px;
   padding: 12px 16px;
   border-top: 1px solid var(--border);
   display: flex;
@@ -1943,7 +1946,7 @@ input[type="color"]::-moz-color-swatch {
 @media (max-width: 768px) {
   .version-bar {
     padding: 8px 12px;
-    margin-top: auto;
+    margin-top: 10px;
     flex-shrink: 0;
   }
 }
