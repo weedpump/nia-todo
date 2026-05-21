@@ -27,6 +27,13 @@ function setChecked(id, value) {
   if (el) el.checked = Boolean(value);
 }
 
+function normalizeServerUrl(value) {
+  const raw = String(value || '').trim().replace(/\/+$/, '');
+  const url = new URL(raw);
+  if (!['http:', 'https:'].includes(url.protocol)) throw new Error('Bitte eine http(s)-URL eingeben.');
+  return url.origin + url.pathname.replace(/\/+$/, '');
+}
+
 function setDesktopStatus(text, danger = false) {
   const el = document.getElementById('desktop-settings-status');
   if (!el) return;
@@ -55,6 +62,8 @@ export function createDesktopIntegration({ wsSend, getWsState, showToast }) {
     setChecked('desktop-minimize-to-tray', settings.minimizeToTray);
     setChecked('desktop-autostart', settings.autostart);
     setChecked('desktop-notifications', settings.notifications);
+    const serverUrl = document.getElementById('desktop-server-url');
+    if (serverUrl) serverUrl.value = settings.serverUrl || location.origin;
   }
 
   async function init() {
@@ -101,6 +110,29 @@ export function createDesktopIntegration({ wsSend, getWsState, showToast }) {
     }
   }
 
+  async function updateServerUrl(value) {
+    if (!isDesktopApp()) return;
+    try {
+      const serverUrl = normalizeServerUrl(value);
+      settings = { ...DEFAULT_SETTINGS, ...(await invokeDesktop('desktop_set_server_url', { serverUrl })) };
+      setDesktopStatus('Server gespeichert. App lädt neu...');
+      setTimeout(() => location.replace(serverUrl), 250);
+    } catch (error) {
+      setDesktopStatus(error?.message || String(error), true);
+    }
+  }
+
+  async function resetServerUrl() {
+    if (!isDesktopApp()) return;
+    try {
+      await invokeDesktop('desktop_clear_server_url');
+      setDesktopStatus('Server zurückgesetzt. App lädt neu...');
+      setTimeout(() => location.replace('tauri://localhost/'), 250);
+    } catch (error) {
+      setDesktopStatus(error?.message || String(error), true);
+    }
+  }
+
   async function testNotification() {
     if (!isDesktopApp()) return;
     try {
@@ -122,6 +154,8 @@ export function createDesktopIntegration({ wsSend, getWsState, showToast }) {
     updateSetting,
     announceNotificationReadiness,
     notifyReminder,
+    updateServerUrl,
+    resetServerUrl,
     testNotification,
   };
 }

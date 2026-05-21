@@ -6,8 +6,8 @@
   "build": {
     "beforeDevCommand": "",
     "beforeBuildCommand": "",
-    "devUrl": "https://todo-dev.kneidl-home.de",
-    "frontendDist": "https://todo-dev.kneidl-home.de"
+    "devUrl": "http://localhost:8754",
+    "frontendDist": "./desktop-shell"
   },
   "app": {
     "windows": [
@@ -29,6 +29,8 @@
   },
   "bundle": {
     "active": true,
+    "publisher": "Tobias Kneidl",
+    "copyright": "Copyright © 2026 Tobias Kneidl",
     "targets": ["nsis", "msi"],
     "icon": [
       "../web/static/icons/icon-192.png",

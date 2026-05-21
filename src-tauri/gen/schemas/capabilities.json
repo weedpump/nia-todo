@@ -1,1 +1,1 @@
-{"default":{"identifier":"default","description":"Default desktop window capability for nia-todo.","remote":{"urls":["https://todo-dev.kneidl-home.de","https://todo.kneidl-home.de"]},"local":true,"windows":["main"],"permissions":["core:default","notification:default"]}}
+{"default":{"identifier":"default","description":"Default desktop window capability for nia-todo.","remote":{"urls":["https://*.kneidl-home.de","https://kneidl-home.de","http://localhost:*","http://127.0.0.1:*"]},"local":true,"windows":["main"],"permissions":["core:default","notification:default"]}}
