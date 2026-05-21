@@ -375,7 +375,39 @@ body {
 .search-box input:focus { border-color: var(--accent); }
 
 .topbar-actions { display: flex; align-items: center; gap: 8px; position: relative; }
-.topbar-actions > .btn { min-height: 40px; line-height: 1; }
+
+.fab-add-todo {
+  position: fixed;
+  right: calc(28px + env(safe-area-inset-right, 0px));
+  bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+  z-index: 180;
+  width: 62px;
+  height: 62px;
+  border: 1px solid rgba(129,140,248,0.55);
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(99,102,241,0.98), rgba(34,197,94,0.82));
+  color: white;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 18px 42px rgba(0,0,0,0.32), 0 0 0 7px rgba(99,102,241,0.12);
+  transition: transform 0.16s ease, box-shadow 0.16s ease, filter 0.16s ease;
+}
+.fab-add-todo span {
+  font-size: 42px;
+  line-height: 0.9;
+  font-weight: 800;
+  transform: translateY(-1px);
+}
+.fab-add-todo:hover {
+  transform: translateY(-2px) scale(1.03);
+  box-shadow: 0 22px 52px rgba(0,0,0,0.36), 0 0 0 9px rgba(99,102,241,0.16);
+  filter: brightness(1.06);
+}
+.fab-add-todo:active {
+  transform: translateY(0) scale(0.98);
+}
 
 .user-menu-wrap {
   position: relative;
@@ -1352,7 +1384,13 @@ input[type="color"]::-moz-color-swatch {
     padding: 12px 16px;
     gap: 10px;
   }
-  .topbar-actions .btn { padding: 8px 12px; font-size: 13px; }
+  .fab-add-todo {
+    right: calc(18px + env(safe-area-inset-right, 0px));
+    bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+    width: 56px;
+    height: 56px;
+  }
+  .fab-add-todo span { font-size: 38px; }
 
   .stats-bar {
     padding: 12px 16px 0;
@@ -1422,7 +1460,7 @@ input[type="color"]::-moz-color-swatch {
 
 @media (max-width: 768px) {
   .todo-list {
-    padding-bottom: max(80px, env(safe-area-inset-bottom));
+    padding-bottom: max(96px, env(safe-area-inset-bottom));
   }
 }
 
