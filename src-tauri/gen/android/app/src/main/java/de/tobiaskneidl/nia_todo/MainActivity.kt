@@ -31,8 +31,25 @@ class MainActivity : TauriActivity() {
     enableEdgeToEdge()
     applySystemBarsTheme(false)
     ReminderReceiver.createNotificationChannel(this)
+    persistDoneActionFromIntent(intent)
     super.onCreate(savedInstanceState)
     applySystemBarInsetsToContentRoot()
+  }
+
+  override fun onNewIntent(intent: Intent) {
+    super.onNewIntent(intent)
+    setIntent(intent)
+    persistDoneActionFromIntent(intent)
+  }
+
+  private fun persistDoneActionFromIntent(intent: Intent?) {
+    if (intent?.action != ReminderReceiver.ACTION_MARK_DONE) return
+    val id = intent.getStringExtra(ReminderReceiver.EXTRA_ID) ?: return
+    getSharedPreferences(ReminderReceiver.PREFS_NAME, MODE_PRIVATE)
+      .edit()
+      .putString(ReminderReceiver.PREFS_PENDING_DONE_ID, id)
+      .apply()
+    NotificationManagerCompat.from(this).cancel(id.hashCode().let { if (it == Int.MIN_VALUE) 0 else kotlin.math.abs(it) })
   }
 
   override fun onWebViewCreate(webView: WebView) {
