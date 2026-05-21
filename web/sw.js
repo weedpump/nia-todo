@@ -97,7 +97,8 @@ self.addEventListener('install', (event) => {
         // self.skipWaiting();
       })
       .catch((err) => {
-        console.error('SW: Pre-cache failed:', err);
+        console.error('SW: Pre-cache failed; keeping previous service worker active:', err);
+        throw err;
       })
   );
 });
