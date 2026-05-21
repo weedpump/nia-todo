@@ -118,11 +118,31 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// ─── Message Event (für skipWaiting vom Client) ───────────────────────────────
+async function refreshAppCache() {
+  const cache = await caches.open(CACHE_NAME);
+  await Promise.all(PRECACHE_ASSETS.map(async (asset) => {
+    const request = new Request(asset, { cache: 'reload' });
+    const response = await fetch(request);
+    if (!response.ok) throw new Error(`Failed to refresh ${asset}: ${response.status}`);
+    await cache.put(asset, response);
+  }));
+}
+
+// ─── Message Event (für skipWaiting/Cache-Refresh vom Client) ────────────────
 self.addEventListener('message', (event) => {
   if (event.data && event.data.action === 'skipWaiting') {
     console.log('SW: skipWaiting received, activating new version');
     self.skipWaiting();
+  }
+  if (event.data && event.data.action === 'refreshAppCache') {
+    event.waitUntil(
+      refreshAppCache()
+        .then(() => event.ports?.[0]?.postMessage({ ok: true }))
+        .catch((error) => {
+          console.error('SW: App cache refresh failed:', error);
+          event.ports?.[0]?.postMessage({ ok: false, error: error?.message || String(error) });
+        })
+    );
   }
   if (event.data && event.data.action === 'clearAuthCaches') {
     event.waitUntil(
