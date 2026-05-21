@@ -23,8 +23,6 @@ class MainActivity : TauriActivity() {
   private val lightSystemBarColor = Color.rgb(248, 250, 252)
   private val darkSystemBarColor = Color.rgb(15, 15, 35)
   private val notificationIds = AtomicInteger(1000)
-  private var appWebView: WebView? = null
-  private var pendingDoneTodoId: String? = null
 
   override fun onCreate(savedInstanceState: Bundle?) {
     // Android 15+ enforces edge-to-edge for targetSdk 35+.
@@ -33,58 +31,16 @@ class MainActivity : TauriActivity() {
     enableEdgeToEdge()
     applySystemBarsTheme(false)
     ReminderReceiver.createNotificationChannel(this)
-    handleIntent(intent)
     super.onCreate(savedInstanceState)
     applySystemBarInsetsToContentRoot()
   }
 
-  override fun onNewIntent(intent: Intent) {
-    super.onNewIntent(intent)
-    setIntent(intent)
-    handleIntent(intent)
-  }
-
   override fun onWebViewCreate(webView: WebView) {
     super.onWebViewCreate(webView)
-    appWebView = webView
     val nativeBridge = AndroidNativeBridge()
     webView.addJavascriptInterface(nativeBridge, "NiaAndroidNative")
     webView.addJavascriptInterface(nativeBridge, "NiaAndroidSystemBars")
-    webView.post {
-      applySystemBarInsetsToContentRoot()
-      flushPendingDoneAction()
-    }
-  }
-
-  private fun handleIntent(intent: Intent?) {
-    if (intent?.action != ReminderReceiver.ACTION_MARK_DONE) return
-    pendingDoneTodoId = intent.getStringExtra(ReminderReceiver.EXTRA_ID)
-    flushPendingDoneAction()
-  }
-
-  private fun flushPendingDoneAction(attempt: Int = 0) {
-    val todoId = pendingDoneTodoId ?: return
-    val webView = appWebView ?: return
-    val escapedId = org.json.JSONObject.quote(todoId)
-    val script = """
-      (function() {
-        const rawId = $escapedId;
-        const id = /^\\d+$/.test(rawId) ? Number(rawId) : rawId;
-        if (typeof window.markTodoDoneFromNative !== 'function') return false;
-        window.markTodoDoneFromNative(id);
-        return true;
-      })();
-    """.trimIndent()
-
-    webView.post {
-      webView.evaluateJavascript(script) { result ->
-        if (result == "true") {
-          pendingDoneTodoId = null
-        } else if (attempt < 30) {
-          webView.postDelayed({ flushPendingDoneAction(attempt + 1) }, 500)
-        }
-      }
-    }
+    webView.post { applySystemBarInsetsToContentRoot() }
   }
 
   private fun applySystemBarInsetsToContentRoot() {
@@ -183,6 +139,16 @@ class MainActivity : TauriActivity() {
     @JavascriptInterface
     fun scheduleReminders(schedulesJson: String): Int {
       return ReminderReceiver.scheduleReminders(this@MainActivity, schedulesJson)
+    }
+
+    @JavascriptInterface
+    fun consumePendingDoneTodoId(): String {
+      val prefs = getSharedPreferences(ReminderReceiver.PREFS_NAME, MODE_PRIVATE)
+      val id = prefs.getString(ReminderReceiver.PREFS_PENDING_DONE_ID, "") ?: ""
+      if (id.isNotBlank()) {
+        prefs.edit().remove(ReminderReceiver.PREFS_PENDING_DONE_ID).apply()
+      }
+      return id
     }
   }
 }

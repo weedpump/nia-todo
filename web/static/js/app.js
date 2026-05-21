@@ -355,13 +355,49 @@ const clearDoneInProject = projectsFeature.clearDoneInProject;
 
 const markTodoDone = todosFeature.markTodoDone;
 async function markTodoDoneFromNative(id) {
+  const rawId = String(id || '');
   const startedAt = Date.now();
   while ((!appInitialized || !db) && Date.now() - startedAt < 30000) {
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
-  if (!appInitialized || !db) return false;
-  await markTodoDone(id);
+  if (!appInitialized || !db) {
+    showToast?.('Notification-Aktion konnte nicht ausgeführt werden: App noch nicht bereit.');
+    return false;
+  }
+  const numericId = /^\d+$/.test(rawId) ? Number(rawId) : rawId;
+  const todo = todos.find((item) => item.id === numericId || String(item.id) === rawId);
+  if (!todo) {
+    console.warn('[NativeAction] Todo not found for notification action', { id: rawId, knownIds: todos.map((item) => item.id) });
+    showToast?.(`Notification-Aktion: Todo nicht gefunden (${rawId}).`);
+    return false;
+  }
+  await markTodoDone(todo.id);
+  showToast?.('Todo per Benachrichtigung erledigt.');
   return true;
+}
+
+let nativeDoneActionPollTimer = null;
+async function consumePendingNativeDoneAction() {
+  const consume = window.NiaAndroidNative?.consumePendingDoneTodoId;
+  if (typeof consume !== 'function') return;
+  let rawId = '';
+  try {
+    rawId = consume();
+  } catch (error) {
+    console.warn('[NativeAction] Failed to consume pending Android done action', error);
+    return;
+  }
+  if (!rawId) return;
+  await markTodoDoneFromNative(rawId);
+}
+
+function startNativeDoneActionPolling() {
+  if (nativeDoneActionPollTimer) return;
+  consumePendingNativeDoneAction();
+  nativeDoneActionPollTimer = setInterval(consumePendingNativeDoneAction, 1000);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) consumePendingNativeDoneAction();
+  });
 }
 const toggleTodo = todosFeature.toggleTodo;
 const showTodoModal = todosFeature.showTodoModal;
@@ -484,6 +520,7 @@ export function startAppModule() {
   bindUserMenu();
   appDownloadsFeature.initAppDownloads();
   desktopIntegration?.init();
+  startNativeDoneActionPolling();
   setInterval(() => renderStats(), 30 * 1000);
 
   // Expose legacy inline handlers for module-loaded frontend.
