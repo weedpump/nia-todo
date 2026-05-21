@@ -323,7 +323,17 @@ fn build_tray(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 pub fn run() {
   let builder = tauri::Builder::default().plugin(tauri_plugin_notification::init());
   #[cfg(desktop)]
-  let builder = builder.plugin(tauri_plugin_global_shortcut::Builder::new().build());
+  let builder = builder
+    .plugin(
+      tauri_plugin_window_state::Builder::new()
+        .with_state_flags(
+          tauri_plugin_window_state::StateFlags::SIZE
+            | tauri_plugin_window_state::StateFlags::POSITION
+            | tauri_plugin_window_state::StateFlags::MAXIMIZED,
+        )
+        .build(),
+    )
+    .plugin(tauri_plugin_global_shortcut::Builder::new().build());
 
   builder
     .invoke_handler(tauri::generate_handler![
