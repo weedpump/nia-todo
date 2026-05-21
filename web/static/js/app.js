@@ -240,6 +240,15 @@ desktopIntegration = createDesktopIntegration({
   wsSend: (data) => wsSend(data),
   getWsState: () => wsClient.getWsState(),
   showToast: (...args) => showToast(...args),
+  onHotkeyNewTodo: () => {
+    showTodoModal();
+    setTimeout(() => document.getElementById('todo-title')?.focus(), 80);
+  },
+  onHotkeySearch: () => {
+    const searchInput = document.getElementById('search-input');
+    searchInput?.focus();
+    searchInput?.select();
+  },
 });
 
 
@@ -488,6 +497,7 @@ export function startAppModule() {
       updateDesktopServerUrl: (value) => desktopIntegration?.updateServerUrl(value),
       resetDesktopServerUrl: () => desktopIntegration?.resetServerUrl(),
       testDesktopNotification: () => desktopIntegration?.testNotification(),
+      updateDesktopHotkey: (action, shortcut) => desktopIntegration?.updateHotkey(action, shortcut),
     },
     userSettings: { renderUserInfo, openSettingsModal, editUserDisplayName, cancelUserDisplayNameEdit, saveUserProfile, startAvatarUpload, cancelAvatarCrop, saveAvatarCrop, editUserEmail, cancelUserEmailEdit, saveUserEmail, changeUserPassword },
     userMenu: { toggleUserMenu, closeUserMenu, updateUserMenu },

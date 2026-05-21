@@ -6,6 +6,7 @@ fn main() {
         "desktop_set_setting",
         "desktop_set_server_url",
         "desktop_clear_server_url",
+        "desktop_set_hotkey",
         "desktop_notify",
       ]),
     ),
