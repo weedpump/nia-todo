@@ -520,7 +520,6 @@ export function startAppModule() {
   bindUserMenu();
   appDownloadsFeature.initAppDownloads();
   desktopIntegration?.init();
-  startNativeDoneActionPolling();
   setInterval(() => renderStats(), 30 * 1000);
 
   // Expose legacy inline handlers for module-loaded frontend.
