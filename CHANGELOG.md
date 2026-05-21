@@ -10,8 +10,8 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 ### Fixed
 - Offline→Online-Sync pusht lokale Änderungen vor autoritativem Server-Refresh, damit offline erledigte/bearbeitete Todos nicht wieder vom Serverstand überschrieben werden.
 - Offline-Status gewinnt jetzt über stale WebSocket-Status; die App versucht im echten Offline-Modus keine API-Syncs mehr.
-- Online-Event-Sync wartet kurz, damit Native/WebView nach Netzwechsel nicht vor DNS/fetch-Bereitschaft synchronisiert.
-- Regressionstest für offline erledigen → online synchronisieren → nach Reload erledigt bleiben ergänzt.
+- Online-Event-Sync nutzt mehrere Retry-Versuche plus App-Fokus/Periodik, damit Native/WebView nach Netzwechsel lokale Queue-Änderungen zuverlässig zum Server pusht.
+- Regressionstest für offline erledigen → online synchronisieren → Server sieht Änderung → nach Reload erledigt bleiben ergänzt.
 
 ## [1.6.3] - 2026-05-21
 

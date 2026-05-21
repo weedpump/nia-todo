@@ -126,19 +126,35 @@ export function createAppLifecycle({
   }
 
   function bindNetworkEvents() {
-    window.addEventListener('online', async () => {
-      console.log('Browser reports online');
+    const scheduleSyncAttempts = (reason) => {
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
       if (getWsState() === 'disconnected') connectWebSocket();
-      // Native/WebView can fire `online` before DNS/fetch is usable. Give the
-      // transport a short moment; WebSocket onopen will also trigger sync.
-      setTimeout(() => {
-        syncWithServer().catch(err => console.warn('Online sync retry failed:', err));
-      }, 1000);
+
+      // Native/WebView can fire `online` before DNS/fetch is usable. Try a
+      // short burst and also rely on WebSocket onopen/periodic retries.
+      for (const delay of [1000, 3000, 8000]) {
+        setTimeout(() => {
+          if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+          syncWithServer().catch(err => console.warn(`Sync attempt failed after ${reason}:`, err));
+        }, delay);
+      }
+    };
+
+    window.addEventListener('online', () => {
+      console.log('Browser reports online');
+      scheduleSyncAttempts('online');
     });
 
     window.addEventListener('offline', () => {
       console.log('Browser reports offline');
     });
+
+    window.addEventListener('pageshow', () => scheduleSyncAttempts('pageshow'));
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) scheduleSyncAttempts('visibilitychange');
+    });
+
+    setInterval(() => scheduleSyncAttempts('periodic'), 15000);
   }
 
   function bindDomReady() {

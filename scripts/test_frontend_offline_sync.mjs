@@ -51,6 +51,16 @@ async function run() {
       return queue.length === 0 && todo?.status === 'done';
     }, null, { timeout: 15000 });
 
+    await page.waitForFunction(async () => {
+      const token = localStorage.getItem('jwt_token') || localStorage.getItem('auth_token');
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const response = await fetch('/api/todos', { cache: 'no-store', headers });
+      const data = await response.json();
+      const todos = data.todos || [];
+      const todo = todos.find(item => item.title === 'Offline Sync Todo');
+      return response.ok && todo?.status === 'done';
+    }, null, { timeout: 15000 });
+
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.locator('#login-overlay').waitFor({ state: 'hidden', timeout: 10000 });
     await page.waitForFunction(async () => {
