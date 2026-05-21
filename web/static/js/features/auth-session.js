@@ -152,11 +152,23 @@ export function createAuthSessionFeature({
   }
 
   function showLoginOverlay() {
-    document.getElementById('login-overlay').classList.remove('hidden');
+    const overlay = document.getElementById('login-overlay');
+    if (!overlay) return;
+    overlay.classList.remove('hidden');
+    overlay.inert = false;
+    overlay.removeAttribute('aria-hidden');
+    overlay.style.display = '';
+    overlay.style.pointerEvents = '';
   }
 
   function hideLoginOverlay() {
-    document.getElementById('login-overlay').classList.add('hidden');
+    const overlay = document.getElementById('login-overlay');
+    if (!overlay) return;
+    overlay.classList.add('hidden');
+    overlay.inert = true;
+    overlay.setAttribute('aria-hidden', 'true');
+    overlay.style.display = 'none';
+    overlay.style.pointerEvents = 'none';
   }
 
   async function handleLogin(e) {
