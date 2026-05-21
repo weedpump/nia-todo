@@ -384,6 +384,32 @@ body {
   height: 40px;
   flex: 0 0 auto;
 }
+.sidebar-user-menu-wrap {
+  height: auto;
+  width: 100%;
+  gap: 10px;
+  padding: 12px 10px;
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--bg-tertiary) 58%, transparent);
+}
+.sidebar-user-meta { min-width: 0; flex: 1; }
+.sidebar-user-name {
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 750;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sidebar-user-email {
+  color: var(--text-muted);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .user-menu-button {
   width: 40px;
   height: 40px;
@@ -423,6 +449,13 @@ body {
   box-shadow: 0 18px 50px rgba(0,0,0,0.34);
   backdrop-filter: blur(14px);
   z-index: 250;
+}
+.sidebar-user-menu-wrap .user-menu {
+  top: auto;
+  right: auto;
+  bottom: calc(100% + 10px);
+  left: 0;
+  width: min(260px, calc(100vw - 32px));
 }
 .user-menu.active { display: block; }
 .user-menu-header {
@@ -492,10 +525,42 @@ body {
   align-items: flex-start;
   margin-bottom: 14px;
 }
+.overview-greeting {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.overview-avatar {
+  width: 52px;
+  height: 52px;
+  border: 1px solid rgba(99,102,241,0.45);
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(99,102,241,0.45), rgba(34,197,94,0.24));
+  color: var(--text-primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 52px;
+  overflow: hidden;
+  font-size: 18px;
+  font-weight: 850;
+  box-shadow: 0 10px 26px rgba(0,0,0,0.20);
+}
+.overview-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
 .overview-dashboard-header h2 {
   margin: 2px 0 0;
-  font-size: 18px;
-  line-height: 1.2;
+  font-size: 20px;
+  line-height: 1.15;
+}
+.overview-subtitle {
+  margin-top: 3px;
+  color: var(--text-muted);
+  font-size: 13px;
 }
 .overview-kicker {
   color: var(--accent-hover);
@@ -1784,15 +1849,6 @@ input[type="color"]::-moz-color-swatch {
     padding: 32px 24px;
   }
 }
-.version-bar {
-  margin-top: auto;
-  padding: 12px 16px;
-  border-top: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
 /* ─── Version Bar ──────────────────────────────────────────────────────────── */
 .version-bar {
   margin-top: auto;

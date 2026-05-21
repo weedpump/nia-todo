@@ -8,6 +8,7 @@ export function createAppRenderingFeature({
   getCurrentFilter,
   getCurrentProjectId,
   getHideDone,
+  getCurrentUser,
   sortTodoList,
   renderTodoItem,
   renderSectionHeader,
@@ -134,6 +135,19 @@ export function createAppRenderingFeature({
     document.getElementById('count-in_progress').textContent = inprog;
     document.getElementById('count-done').textContent = done;
 
+    const user = getCurrentUser?.();
+    const displayName = user?.display_name || user?.username || 'du';
+    const initial = (displayName.trim()[0] || 'U').toUpperCase();
+    const avatarVersion = user?.avatar_updated_at ? encodeURIComponent(user.avatar_updated_at) : '';
+    const avatarSrc = user?.avatar_url ? `${user.avatar_url}${avatarVersion ? `?v=${avatarVersion}` : ''}` : '';
+    const dateTime = new Intl.DateTimeFormat('de-DE', {
+      weekday: 'long',
+      day: '2-digit',
+      month: 'long',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(now);
+
     const showDashboard = currentFilter === 'all' && !currentProjectId;
     el.hidden = !showDashboard;
     if (!showDashboard) {
@@ -161,15 +175,21 @@ export function createAppRenderingFeature({
       { icon: '📅', label: 'Heute fällig', value: dueToday },
       { icon: '🗓️', label: 'Nächste 7 Tage', value: dueWeek },
       { icon: '✅', label: 'Erledigt', value: done },
-      { icon: '📈', label: 'Quote', value: `${completionRate}%` },
+      { icon: '📈', label: 'Erledigt-Quote', value: `${completionRate}%` },
     ];
 
     el.innerHTML = `
       <section class="overview-dashboard" aria-label="Todo-Dashboard">
         <div class="overview-dashboard-header">
-          <div>
-            <div class="overview-kicker">Übersicht</div>
-            <h2>Alle Todos auf einen Blick</h2>
+          <div class="overview-greeting">
+            <div class="overview-avatar" aria-hidden="true">
+              ${avatarSrc ? `<img src="${escapeHtmlAttr(avatarSrc)}" alt="">` : escapeHtml(initial)}
+            </div>
+            <div>
+              <div class="overview-kicker">${escapeHtml(dateTime)}</div>
+              <h2>Hallo, ${escapeHtml(displayName)}</h2>
+              <div class="overview-subtitle">Alle Todos auf einen Blick</div>
+            </div>
           </div>
           <div class="overview-pill">${activeTodos.length} aktiv</div>
         </div>
