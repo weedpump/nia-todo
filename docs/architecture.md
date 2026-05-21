@@ -26,6 +26,16 @@
 - WebSocket/Sync halten lokale Daten und Serverzustand zusammen
 - Server-Refresh schreibt den autoritativen Zustand direkt in IndexedDB, damit Reloads nach Login stabil bleiben
 
+## Native Apps
+
+- Windows und Android laufen als Tauri-Wrapper um die Web-App.
+- Browser/PWA-Push bleibt Browser/PWA-only.
+- Native Apps planen Todo-Erinnerungen lokal, weil die Reminder-Zeitpunkte bekannt sind.
+- Windows plant Reminder im laufenden Tauri-Prozess; Tray/Autostart halten den Prozess verfügbar.
+- Android plant Reminder über `AlarmManager`; geplante Reminder werden persistiert und nach Geräte-Neustart neu registriert.
+- Android „Erledigt“ aus der Benachrichtigung markiert das Todo offline lokal in IndexedDB und schreibt eine SyncQueue-Änderung für spätere Synchronisation.
+- Der Service Worker bleibt auch in nativen Wrappern aktiv, damit Offline-Cold-Starts funktionieren; native Wrapper aktivieren Updates automatisch.
+
 ## Auth
 
 - JWT / Session-Token

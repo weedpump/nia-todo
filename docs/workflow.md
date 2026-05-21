@@ -12,10 +12,11 @@
 
 ## Release
 
-1. Im Dev-Ordner bleiben: `~/projects/nia-todo-dev`
-2. Vorab bei Bedarf gezielt testen; `release.sh` führt die komplette Suite selbst aus
-3. `./release.sh VERSION` ausführen
-4. Das Script setzt Release-Versionen, baut Windows-Installer und Android-APK, merged `develop` nach `main`, erstellt Tag, aktualisiert Live und bumped `develop` auf die nächste `-dev` Version
+1. Feature-Branch erst nach Review nach `develop` mergen; `release.sh` releast ausschließlich `develop`
+2. Im Dev-Ordner bleiben: `~/projects/nia-todo-dev`
+3. Vorab bei Bedarf gezielt testen; `release.sh` führt die komplette Suite selbst aus
+4. `./release.sh VERSION` ausführen, z.B. `./release.sh 1.6.0`
+5. Das Script setzt Release-Versionen, baut Windows-Installer und Android-APK, merged `develop` nach `main`, erstellt Tag, aktualisiert Live und bumped `develop` auf die nächste `-dev` Version
 
 Release-Artefakte werden auf Live unter `/downloads/` veröffentlicht:
 
@@ -29,6 +30,13 @@ Android wird mit dem dauerhaften Release-Key signiert:
 - Alias: `nia-todo-android-release`
 
 Der Release-Key muss gesichert bleiben; ein Key-Wechsel bricht Android-Überinstallationen.
+
+Native Build-Hinweise ab `v1.6.0`:
+
+- Windows-Installer enthält den lokalen Reminder-Scheduler; Reminder funktionieren offline, solange App/Tray läuft.
+- Android-APK enthält den lokalen `AlarmManager`-Scheduler; Reminder funktionieren offline und werden nach Geräte-Neustart neu geplant.
+- Browser/PWA-Push bleibt Browser/PWA-only; native Apps sollen nicht vom Server-WebSocket für Reminder abhängig sein.
+- Service Worker bleibt auch in nativen Wrappern aktiv, damit Offline-Cold-Start funktioniert.
 
 ## Dev-Branding
 
