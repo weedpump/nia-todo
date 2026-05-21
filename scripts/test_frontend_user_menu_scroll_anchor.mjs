@@ -28,14 +28,18 @@ async function run() {
 
     const before = await page.evaluate(() => {
       const wrap = document.querySelector('.sidebar-user-menu-wrap').getBoundingClientRect();
-      const menu = document.getElementById('user-menu').getBoundingClientRect();
-      return { gap: Math.round(wrap.top - menu.bottom), wrapTop: Math.round(wrap.top), menuBottom: Math.round(menu.bottom) };
+      const menuEl = document.getElementById('user-menu');
+      const menu = menuEl.getBoundingClientRect();
+      const style = getComputedStyle(menuEl);
+      return { position: style.position, gap: Math.round(wrap.top - menu.bottom), wrapTop: Math.round(wrap.top), menuBottom: Math.round(menu.bottom) };
     });
+    if (before.position !== 'absolute') {
+      throw new Error(`Sidebar user menu must be anchored with CSS absolute positioning, got ${before.position}`);
+    }
 
     await page.evaluate(async () => {
       const sidebar = document.getElementById('sidebar');
       sidebar.scrollTop = Math.max(0, sidebar.scrollTop - 120);
-      sidebar.dispatchEvent(new Event('scroll', { bubbles: false }));
       await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     });
 

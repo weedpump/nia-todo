@@ -488,12 +488,12 @@ body {
   z-index: 250;
 }
 .sidebar-user-menu-wrap .user-menu {
-  position: fixed;
+  position: absolute;
   top: auto;
   right: auto;
-  bottom: auto;
-  left: 16px;
-  width: min(228px, calc(100vw - 32px));
+  bottom: calc(100% + 10px);
+  left: 0;
+  width: 100%;
   max-height: min(420px, calc(100dvh - 32px));
   overflow-y: auto;
 }
