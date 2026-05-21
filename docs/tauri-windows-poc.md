@@ -1,6 +1,6 @@
 # Tauri Windows PoC
 
-Status: erster Wrapper-Prototyp für `nia-todo`.
+Status: erster testbarer Windows-Wrapper für `nia-todo`.
 
 ## Ziel
 
@@ -17,37 +17,50 @@ Damit bleibt die API relativ zur geladenen Web-App nutzbar und Login/Session-Ver
 
 - `src-tauri/tauri.conf.json` — Tauri-Konfiguration
 - `src-tauri/Cargo.toml` — Rust/Tauri-App
+- `src-tauri/Cargo.lock` — reproduzierbarer Rust-Dependency-Lock
 - `src-tauri/src/lib.rs` / `main.rs` — minimale App-Hülle
 - `src-tauri/capabilities/default.json` — Default Capability
+- `src-tauri/icons/icon.ico` — Windows-App-Icon
 - npm Scripts:
   - `npm run tauri:info`
   - `npm run tauri:dev`
   - `npm run tauri:build`
 
-## Ergebnis auf dem OpenClaw-Host
+## Build auf dem OpenClaw-Host
 
-`npm run tauri:info` erkennt die Konfiguration, meldet aber fehlende native Toolchain/Dependencies:
+Windows-Cross-Build wurde auf Debian mit dem offiziellen Tauri-v2-Weg gebaut:
 
-- `rustc`: fehlt
-- `cargo`: fehlt
-- `webkit2gtk-4.1`: fehlt
-- `rsvg2`: fehlt
+```bash
+npm run tauri:build -- --runner cargo-xwin --target x86_64-pc-windows-msvc --bundles nsis
+```
 
-`npm run tauri:build` bricht deshalb erwartbar bei `cargo metadata` ab.
+Ergebnis:
 
-## Nächste Schritte für echten Windows-Test
+```text
+src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/nia-todo_1.3.2_x64-setup.exe
+```
 
-Auf Windows benötigt man:
+SHA256:
 
-1. Rust via rustup
-2. Microsoft C++ Build Tools
-3. WebView2 Runtime
-4. Node/npm
-5. Repo auschecken
-6. `npm install`
-7. `npm run tauri:dev` oder `npm run tauri:build`
+```text
+faf617c4484033ebc1f58d612d6796b8150bf3a09a081bb57a6ca35e46686afe
+```
 
-Danach können die nativen Features schrittweise ergänzt werden:
+Hinweis: Der Installer ist nicht signiert, weil Code-Signing auf diesem Host nicht eingerichtet ist. Windows SmartScreen kann deshalb warnen.
+
+## Host-Toolchain
+
+Installiert/benötigt für Cross-Build:
+
+- Rust stable via `rustup`
+- Target `x86_64-pc-windows-msvc`
+- `cargo-xwin`
+- `nsis`
+- `llvm` / `lld` / `clang`
+
+## Nächste Schritte
+
+Nach dem Funktionstest auf Windows können native Features schrittweise ergänzt werden:
 
 - Tray Icon
 - Close-to-tray
