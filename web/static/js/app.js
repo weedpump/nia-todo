@@ -286,6 +286,7 @@ const appRendering = createAppRenderingFeature({
   getCurrentFilter: () => currentFilter,
   getCurrentProjectId: () => currentProjectId,
   getHideDone: () => hideDone,
+  getCurrentUser: () => currentUser,
   sortTodoList,
   renderTodoItem,
   renderSectionHeader,
@@ -313,6 +314,7 @@ const navigationFeature = createNavigationFeature({
   dbPut,
   deleteFromDB,
   closeSidebar: () => closeSidebar(),
+  renderStats: () => renderStats(),
   renderTodos: () => renderTodos(),
 });
 const setFilter = navigationFeature.setFilter;
@@ -445,6 +447,7 @@ export function startAppModule() {
   appLifecycle.bindNetworkEvents();
   appLifecycle.bindDomReady();
   bindUserMenu();
+  setInterval(() => renderStats(), 30 * 1000);
 
   // Expose legacy inline handlers for module-loaded frontend.
   exposeLegacyGlobals({

@@ -75,7 +75,7 @@
       <nav class="nav-section">
         <div class="nav-title">Ansicht</div>
         <button class="nav-btn active" data-filter="all" onclick="setFilter('all')">
-          <span>📋</span> Alle
+          <span>📊</span> Dashboard
           <span class="badge" id="count-all">0</span>
         </button>
         <button class="nav-btn" data-filter="pending" onclick="setFilter('pending')">
@@ -105,14 +105,39 @@
         <div id="invites-list"></div>
       </nav>
 
-      <!-- Version & Update -->
-      <div class="version-bar" id="version-bar">
-        <div class="version-info" id="version-info">
-          <span class="version-text">v1.2.4-dev</span>
+      <div class="sidebar-footer">
+        <div class="user-menu-wrap sidebar-user-menu-wrap">
+          <button type="button" class="user-menu-button" id="user-menu-button" onclick="toggleUserMenu(event)" aria-haspopup="menu" aria-expanded="false" title="Benutzermenü">U</button>
+          <div class="sidebar-user-meta">
+            <div class="sidebar-user-name" id="sidebar-user-name">User</div>
+            <div class="sidebar-user-email" id="sidebar-user-email">–</div>
+          </div>
+          <div class="user-menu" id="user-menu" role="menu">
+            <div class="user-menu-header">
+              <div class="user-menu-avatar" id="user-menu-avatar">U</div>
+              <div class="user-menu-identity">
+                <div class="user-menu-name" id="user-menu-name">User</div>
+                <div class="user-menu-email" id="user-menu-email">–</div>
+              </div>
+            </div>
+            <button type="button" class="user-menu-item" id="menu-settings-btn" onclick="closeUserMenu(); openSettingsModal()" title="Einstellungen" role="menuitem"><span>⚙️</span><span>Einstellungen</span></button>
+            <button type="button" class="user-menu-item" id="theme-toggle-btn" onclick="cycleTheme()" role="menuitem"><span class="menu-item-icon">💻</span><span class="menu-item-label">Theme: System</span></button>
+            <button type="button" class="user-menu-item" id="sort-toggle-btn" onclick="cycleSort()" role="menuitem"><span class="menu-item-icon">⇅</span><span class="menu-item-label">Sortierung: Reihenfolge</span></button>
+            <button type="button" class="user-menu-item" id="toggle-done-btn" onclick="toggleHideDone()" role="menuitem"><span class="menu-item-icon">✅</span><span class="menu-item-label">Erledigte ausblenden</span></button>
+            <div class="user-menu-separator"></div>
+            <button type="button" class="user-menu-item danger" onclick="logout()" title="Abmelden" role="menuitem"><span>🚪</span><span>Abmelden</span></button>
+          </div>
         </div>
-        <button class="update-btn" id="update-btn" onclick="triggerUpdate()" style="display:none;">
-          <span>🔄</span> Update verfügbar
-        </button>
+
+        <!-- Version & Update -->
+        <div class="version-bar" id="version-bar">
+          <div class="version-info" id="version-info">
+            <span class="version-text">v1.2.4-dev</span>
+          </div>
+          <button class="update-btn" id="update-btn" onclick="triggerUpdate()" style="display:none;">
+            <span>🔄</span> Update verfügbar
+          </button>
+        </div>
       </div>
     </aside>
 
@@ -126,29 +151,12 @@
         </div>
         <div class="topbar-actions">
           <span id="online-status" class="status-online"></span>
-          <button class="btn btn-primary" onclick="showTodoModal()">
-            <span style="margin-right:4px">➕</span> Neues Todo
-          </button>
-          <div class="user-menu-wrap">
-            <button type="button" class="user-menu-button" id="user-menu-button" onclick="toggleUserMenu(event)" aria-haspopup="menu" aria-expanded="false" title="Benutzermenü">U</button>
-            <div class="user-menu" id="user-menu" role="menu">
-              <div class="user-menu-header">
-                <div class="user-menu-avatar" id="user-menu-avatar">U</div>
-                <div class="user-menu-identity">
-                  <div class="user-menu-name" id="user-menu-name">User</div>
-                  <div class="user-menu-email" id="user-menu-email">–</div>
-                </div>
-              </div>
-              <button type="button" class="user-menu-item" id="menu-settings-btn" onclick="closeUserMenu(); openSettingsModal()" title="Einstellungen" role="menuitem"><span>⚙️</span><span>Einstellungen</span></button>
-              <button type="button" class="user-menu-item" id="theme-toggle-btn" onclick="cycleTheme()" role="menuitem"><span class="menu-item-icon">💻</span><span class="menu-item-label">Theme: System</span></button>
-              <button type="button" class="user-menu-item" id="sort-toggle-btn" onclick="cycleSort()" role="menuitem"><span class="menu-item-icon">⇅</span><span class="menu-item-label">Sortierung: Reihenfolge</span></button>
-              <button type="button" class="user-menu-item" id="toggle-done-btn" onclick="toggleHideDone()" role="menuitem"><span class="menu-item-icon">✅</span><span class="menu-item-label">Erledigte ausblenden</span></button>
-              <div class="user-menu-separator"></div>
-              <button type="button" class="user-menu-item danger" onclick="logout()" title="Abmelden" role="menuitem"><span>🚪</span><span>Abmelden</span></button>
-            </div>
-          </div>
         </div>
       </div>
+
+      <button class="fab-add-todo" type="button" onclick="showTodoModal()" aria-label="Neues Todo erstellen" title="Neues Todo">
+        <span>+</span>
+      </button>
 
       <!-- Stats -->
       <div class="stats-bar" id="stats-bar"></div>
