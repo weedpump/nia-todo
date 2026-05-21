@@ -1877,6 +1877,8 @@ input[type="color"]::-moz-color-swatch {
 }
 
 .app-downloads {
+  display: flex;
+  gap: 8px;
   margin-top: 14px;
 }
 
@@ -1891,7 +1893,8 @@ input[type="color"]::-moz-color-swatch {
 
 .app-download-button {
   display: inline-flex;
-  width: 100%;
+  flex: 1 1 0;
+  min-width: 0;
   align-items: center;
   justify-content: center;
   gap: 8px;
