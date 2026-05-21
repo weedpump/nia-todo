@@ -338,6 +338,7 @@ const navigationFeature = createNavigationFeature({
   dbPut,
   deleteFromDB,
   closeSidebar: () => closeSidebar(),
+  renderProjects: () => renderProjects(),
   renderStats: () => renderStats(),
   renderTodos: () => renderTodos(),
 });
