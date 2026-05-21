@@ -22,6 +22,7 @@ import { createWebSocketClient } from './features/websocket-client.js';
 import { createToastUndoFeature } from './features/toast-undo.js';
 import { createDragDropFeature } from './features/drag-drop.js';
 import { createDesktopIntegration } from './features/desktop-integration.js';
+import { createAppDownloadsFeature } from './features/app-downloads.js';
 import { createAppRenderingFeature } from './features/app-rendering.js';
 import { createNavigationFeature } from './features/navigation.js';
 import { createSectionActionsFeature } from './features/section-actions.js';
@@ -45,6 +46,7 @@ let desktopIntegration = null;
 let currentUser = null;  // { id, username, display_name, token }
 const apiKeysFeature = createApiKeysFeature({ authApi });
 const pushFeature = createPushNotificationsFeature({ pushApi });
+const appDownloadsFeature = createAppDownloadsFeature();
 const viewPreferences = createViewPreferencesFeature({
   getHideDone: () => hideDone,
   setHideDone: (value) => { hideDone = value; },
@@ -467,6 +469,7 @@ export function startAppModule() {
   appLifecycle.bindNetworkEvents();
   appLifecycle.bindDomReady();
   bindUserMenu();
+  appDownloadsFeature.initAppDownloads();
   desktopIntegration?.init();
   setInterval(() => renderStats(), 30 * 1000);
 

@@ -89,7 +89,10 @@ app.mount("/api/avatars", StaticFiles(directory=str(AVATAR_DIR)), name="avatars"
 
 WEB_DIR = Path(__file__).parent / "../web"
 if WEB_DIR.exists():
+    DOWNLOADS_DIR = WEB_DIR / "downloads"
+    DOWNLOADS_DIR.mkdir(parents=True, exist_ok=True)
     app.mount("/static", StaticFiles(directory=str(WEB_DIR / "static")), name="static")
+    app.mount("/downloads", StaticFiles(directory=str(DOWNLOADS_DIR)), name="downloads")
 
     @app.get("/")
     def index():
