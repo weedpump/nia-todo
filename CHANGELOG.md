@@ -5,6 +5,35 @@ Alle wichtigen Änderungen an diesem Projekt werden in dieser Datei dokumentiert
 Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [1.5.1] - 2026-05-21
+
+### Changed
+- Android-APK wird jetzt mit dauerhaftem Release-Keystore signiert, damit zukünftige Android-Updates sauber überinstalliert werden können.
+- Download-Buttons nutzen feste Windows-/Android-SVG-Logos statt plattformabhängiger Emojis.
+
+### Fixed
+- Release-Script signiert Android-APKs zuverlässig mit `apksigner` und verifiziert die Signatur.
+
+## [1.5.0] - 2026-05-21
+
+### Added
+- **Android Tauri-App** als nativer Wrapper neben Windows
+  - Lokale Server-URL-Auswahl wie bei Windows, ohne fest eingebaute Standard-URL
+  - Android-native Benachrichtigungen über Tauri Notification Plugin inklusive Runtime-Permission
+  - Android-App-ID auf `de.tobiaskneidl.nia_todo` umgestellt
+- **Android-Download im Browser**
+  - Download-Manifest enthält Windows-Setup und Android-APK gleichwertig
+  - Login- und Settings-Downloadbereich zeigen beide Plattformen nebeneinander an
+
+### Changed
+- Native App-Einstellungen gelten für Windows und Android gemeinsam; Desktop-only Optionen wie Tray, Autostart und globale Hotkeys werden auf Android ausgeblendet.
+- Release-Automation baut und veröffentlicht neben dem Windows-Installer auch eine signierte Android-APK inklusive SHA256.
+
+### Fixed
+- Android Statusbar-/Edge-to-edge-Überlappung behoben, indem der native Edge-to-edge-Modus entfernt wurde.
+- Android Launcher-/Task-Switcher-Icon aus den App-Icons neu generiert.
+- Browser-Push-Einstellungen werden in nativen Apps ausgeblendet, weil native Notifications dort separat laufen.
+
 ## [1.4.0] - 2026-05-21
 
 ### Added

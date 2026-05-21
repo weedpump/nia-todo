@@ -1,96 +1,99 @@
-# Tauri Windows/Android PoC
+# Tauri Desktop/Android Wrapper
 
-Status: erster testbarer Windows- und Android-Wrapper für `nia-todo`.
+Status: produktiver Tauri-Wrapper für `nia-todo` ab `v1.5.1`.
 
 ## Ziel
 
-Die bestehende Web-App soll als native Windows-App testbar werden, zunächst ohne Umbau der eigentlichen UI.
+Die bestehende Web-App läuft zusätzlich als native Windows-App und Android-App. Beide Wrapper laden die gewählte Server-Web-App in der Tauri-WebView und behalten dadurch die servergetriebene Update-Logik der Web/PWA-App.
 
-Der PoC startet mit einem lokalen Server-Auswahlfenster.
+Wichtig:
 
-- Es gibt keine fest eingebaute Standard-URL.
-- Beim ersten Start muss eine Server-URL eingegeben werden, z.B. `https://todo-dev.kneidl-home.de` oder `https://todo.kneidl-home.de`.
-- Die URL wird lokal in der Tauri-App gespeichert und kann später in den Desktop-Einstellungen geändert oder zurückgesetzt werden.
+- Keine fest eingebaute Standard-URL.
+- Beim ersten Start wird lokal eine Server-URL eingegeben.
+- Die URL wird lokal in der App gespeichert.
+- In den App-Einstellungen kann die Server-URL geändert oder zurückgesetzt werden.
+- Web-App-Releases brauchen keinen neuen Tauri-Installer, solange keine nativen Features geändert werden.
 
-Damit bleibt die API relativ zur jeweils geladenen Web-App nutzbar und Login/Session-Verhalten entspricht dem gewählten Server.
+## Plattformen
 
-## Desktop-Features im PoC
+### Windows
 
-- Lokale Server-Auswahl vor dem Web-App-Login
+- Lokale Server-Auswahl vor dem Login
+- Native Windows-Benachrichtigungen über Tauri
 - Tray-Icon mit Öffnen/Beenden
-- Fenster schließen minimiert optional ins Tray statt die App zu beenden
-- Autostart kann per Windows-Registry `HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run` gesetzt werden
-- Native Windows-Benachrichtigungen laufen über Tauri statt Browser-Web-Push
-- Reminder werden per bestehender WebSocket-Verbindung als `reminder_due` an angemeldete Desktop-Clients verteilt
+- Optional Close-to-tray
+- Optional Autostart per Windows-Registry `HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run`
+- Globale Hotkeys für App anzeigen/verstecken, neues Todo und Suche
+- Fenstergröße, Position und maximierter Zustand werden lokal wiederhergestellt
 
-## Android-Features im PoC
+### Android
 
-- Android-App nutzt dieselbe lokale Server-Auswahl wie der Windows-Wrapper.
-- Es gibt keine fest eingebaute Standard-URL.
-- Desktop-spezifische Features wie Tray, Close-to-tray und Autostart werden auf Android nicht angezeigt.
-- Die App ist als `arm64`-APK gebaut und test-signiert.
-- Native Benachrichtigungen sind über das Tauri-Notification-Plugin vorbereitet; Android fragt dafür `POST_NOTIFICATIONS` an.
+- Lokale Server-Auswahl wie Windows
+- Keine Desktop-only Optionen wie Tray, Autostart oder globale Hotkeys
+- Native Benachrichtigungen über Tauri Notification Plugin
+- Runtime-Permission `POST_NOTIFICATIONS`
+- Android-App-ID: `de.tobiaskneidl.nia_todo`
+- Edge-to-edge deaktiviert, damit die App nicht unter die Statusbar rutscht
+- Launcher-/Task-Switcher-Icons werden aus den Web-App-Icons erzeugt
 
-## Struktur
+## Downloads
 
-- `src-tauri/tauri.conf.json` — Tauri-Konfiguration
-- `src-tauri/Cargo.toml` — Rust/Tauri-App
-- `src-tauri/Cargo.lock` — reproduzierbarer Rust-Dependency-Lock
-- `src-tauri/src/lib.rs` / `main.rs` — minimale App-Hülle
-- `src-tauri/capabilities/default.json` — Default Capability
-- `src-tauri/icons/icon.ico` — Windows-App-Icon
-- npm Scripts:
-  - `npm run tauri:info`
-  - `npm run tauri:dev`
-  - `npm run tauri:build`
+Der normale Browser zeigt Download-Buttons für Windows und Android nebeneinander. Tauri-App, PWA und Standalone-Modus blenden diese Downloads aus.
 
-## Build auf dem OpenClaw-Host
+Live-Dateien:
 
-Windows-Cross-Build wurde auf Debian mit dem offiziellen Tauri-v2-Weg gebaut:
+```text
+web/downloads/app-downloads.json
+web/downloads/nia-todo-vX.Y.Z-windows-x64-setup.exe
+web/downloads/nia-todo-vX.Y.Z-android-arm64.apk
+```
+
+Download-Buttons nutzen feste SVG-Logos:
+
+```text
+web/static/icons/platform/windows.svg
+web/static/icons/platform/android.svg
+```
+
+## Release-Build
+
+Der normale Release läuft über:
 
 ```bash
-npm run tauri:build -- --runner cargo-xwin --target x86_64-pc-windows-msvc --bundles nsis
+./release.sh VERSION
 ```
 
-Ergebnis:
+Das Script erledigt:
+
+1. Tests
+2. Release-Version in Web/Tauri setzen
+3. Windows-Installer bauen
+4. Android-APK bauen, zipalignen, signieren und verifizieren
+5. `develop` nach `main` mergen
+6. Tag erstellen
+7. Live auf Tag aktualisieren
+8. Downloads und Manifest veröffentlichen
+9. Live/Dev Services neu starten
+10. `develop` auf nächste `-dev` Version setzen
+
+## Android Signing
+
+Ab `v1.5.1` wird Android mit dauerhaftem Release-Key signiert.
 
 ```text
-src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/nia-todo_1.3.6_x64-setup.exe
+Keystore: $NIA_TODO_SECRETS_DIR/nia-todo-android-release.keystore
+Passfile: $NIA_TODO_SECRETS_DIR/nia-todo-android-release.pass
+Alias: nia-todo-android-release
+Certificate SHA-256: 900e26cd40b8bf42a65b98028aa5439f6a72741555fe26c485b834e3b197e058
 ```
 
-SHA256:
+Dieser Key ist Teil der Android-Update-Kette. Wenn er verloren geht oder gewechselt wird, können bestehende Installationen nicht per normalem Update überinstalliert werden.
 
-```text
-faf617c4484033ebc1f58d612d6796b8150bf3a09a081bb57a6ca35e46686afe
-```
+Die test-signierte `v1.5.0` APK sollte nicht als Basis genutzt werden; falls installiert, einmal deinstallieren und ab `v1.5.1` neu installieren.
 
-Hinweis: Der Installer ist nicht signiert, weil Code-Signing auf diesem Host nicht eingerichtet ist. Windows SmartScreen kann deshalb warnen.
+## Build-Toolchain
 
-Android-Build auf demselben Host:
-
-```bash
-export ANDROID_HOME=/opt/android-sdk
-export ANDROID_SDK_ROOT=/opt/android-sdk
-export NDK_HOME=/opt/android-sdk/ndk/27.0.12077973
-export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
-export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$HOME/.cargo/bin:$PATH"
-export CARGO_BUILD_JOBS=1
-export GRADLE_OPTS='-Xmx1536m -Dorg.gradle.workers.max=1 -Dkotlin.compiler.execution.strategy=in-process'
-export RUSTFLAGS='-C codegen-units=1'
-npx tauri android build --apk --target aarch64 --ci
-```
-
-Ergebnis:
-
-```text
-src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk
-```
-
-Für Tests wird das APK lokal mit dem Test-Key unter `$NIA_TODO_SECRETS_DIR/` signiert und als Artefakt abgelegt.
-
-## Host-Toolchain
-
-Installiert/benötigt für Cross-Build:
+Benötigt auf dem OpenClaw-Host:
 
 - Rust stable via `rustup`
 - Target `x86_64-pc-windows-msvc`
@@ -103,19 +106,13 @@ Installiert/benötigt für Cross-Build:
 - Android NDK `27.0.12077973`
 - Rust Android Targets: `aarch64-linux-android`, `armv7-linux-androideabi`, `i686-linux-android`, `x86_64-linux-android`
 
-## Nächste Schritte
+## Wichtige Dateien
 
-Nach dem Funktionstest auf Windows können native Features schrittweise ergänzt werden:
-
-- Tray Icon
-- Close-to-tray
-- globale Hotkeys
-- Autostart
-- Settings-Schalter nur im Tauri-Kontext
-
-## Offene Architekturfrage
-
-Aktuell lädt der Wrapper remote/LAN-URLs. Das ist für PoC gut, aber für eine richtige Desktop-App gibt es zwei Optionen:
-
-1. Remote/LAN-App laden — klein, immer aktuell, braucht Server erreichbar.
-2. Frontend lokal bundlen und API-Basis-URL konfigurieren — robuster unterwegs, braucht kleine API-Konfig im Frontend.
+- `src-tauri/tauri.conf.json` — Tauri-Konfiguration
+- `src-tauri/Cargo.toml` — Rust/Tauri-App
+- `src-tauri/src/lib.rs` — Native Commands, Tray, Hotkeys, Notifications
+- `src-tauri/capabilities/default.json` — Tauri Capability/ACL
+- `src-tauri/gen/android/app/build.gradle.kts` — Android Namespace/Application-ID
+- `src-tauri/gen/android/app/src/main/AndroidManifest.xml` — Android Permissions/Activity
+- `web/static/js/features/desktop-integration.js` — Native App Integration im Web-UI
+- `web/static/js/features/app-downloads.js` — Browser-only Download-Buttons

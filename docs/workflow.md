@@ -12,11 +12,23 @@
 
 ## Release
 
-1. `./scripts/test_all.sh`
-2. `./release.sh VERSION`
-3. `develop` -> `main`
-4. Tag erstellen
-5. Live auf Tag auschecken
+1. Im Dev-Ordner bleiben: `~/projects/nia-todo-dev`
+2. Vorab bei Bedarf gezielt testen; `release.sh` führt die komplette Suite selbst aus
+3. `./release.sh VERSION` ausführen
+4. Das Script setzt Release-Versionen, baut Windows-Installer und Android-APK, merged `develop` nach `main`, erstellt Tag, aktualisiert Live und bumped `develop` auf die nächste `-dev` Version
+
+Release-Artefakte werden auf Live unter `/downloads/` veröffentlicht:
+
+- Windows: `nia-todo-vX.Y.Z-windows-x64-setup.exe`
+- Android: `nia-todo-vX.Y.Z-android-arm64.apk`
+- Manifest: `web/downloads/app-downloads.json`
+
+Android wird mit dem dauerhaften Release-Key signiert:
+
+- Keystore: `$NIA_TODO_SECRETS_DIR/nia-todo-android-release.keystore`
+- Alias: `nia-todo-android-release`
+
+Der Release-Key muss gesichert bleiben; ein Key-Wechsel bricht Android-Überinstallationen.
 
 ## Dev-Branding
 
