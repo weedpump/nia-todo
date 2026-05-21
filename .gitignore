@@ -37,3 +37,8 @@ node_modules/
 src-tauri/target/
 
 api/data/daily-backups/
+
+# Generated release downloads (written by release.sh on live server)
+web/downloads/*
+!web/downloads/.gitkeep
+!web/downloads/app-downloads.json

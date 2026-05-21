@@ -1876,6 +1876,48 @@ input[type="color"]::-moz-color-swatch {
   transform: scale(1.05);
 }
 
+.app-downloads {
+  margin-top: 14px;
+}
+
+.login-downloads {
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.settings-downloads {
+  margin: 16px 0 0;
+}
+
+.app-download-button {
+  display: inline-flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  border-radius: var(--radius);
+  background: rgba(99, 102, 241, 0.18);
+  color: #a5b4fc;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.15s, transform 0.15s;
+}
+
+.app-download-button:hover {
+  background: rgba(99, 102, 241, 0.28);
+  transform: translateY(-1px);
+}
+
+.app-download-meta {
+  margin-top: 6px;
+  color: var(--text-muted);
+  font-size: 12px;
+  text-align: center;
+}
+
 @media (max-width: 768px) {
   .login-box {
     margin: 16px;

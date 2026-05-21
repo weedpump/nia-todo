@@ -5,6 +5,30 @@ Alle wichtigen Änderungen an diesem Projekt werden in dieser Datei dokumentiert
 Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-05-21
+
+### Added
+- **Windows Desktop-App auf Tauri-Basis**
+  - Server-URL wird lokal konfiguriert statt fest eingebaut
+  - Native Windows-Benachrichtigungen für Erinnerungen
+  - Globale Desktop-Hotkeys für App anzeigen/verstecken, neues Todo und Suche
+  - Hotkeys werden per Tastendruck erfasst und lokal gespeichert
+  - Fenstergröße, Position und maximierter Zustand werden über Neustarts hinweg wiederhergestellt
+- **Desktop-Download im Browser**
+  - Aktuelle Windows-Setup-Datei kann im normalen Browser unter Login und Einstellungen heruntergeladen werden
+  - Download wird in Desktop-App/PWA/Standalone-Modus ausgeblendet
+- **Release-Automation für Windows**
+  - `release.sh` setzt die Tauri-Version, baut das Windows-Setup und legt es versioniert unter `/downloads/` auf dem Live-Server ab
+  - Download-Manifest mit Version, Dateiname, Größe und SHA256 wird automatisch erzeugt
+
+### Changed
+- Service Worker precached neue Desktop-/Download-Module und nutzt stabile Avatar-URLs für besseren Offline-Cache
+
+### Fixed
+- Offline-Cold-Start bleibt mit gültiger lokaler Session eingeloggt und lädt IndexedDB-Daten statt Login zu erzwingen
+- Avatare bleiben nach vorherigem Online-Laden auch offline sichtbar
+- Hotkey-Capture speichert keine Modifier-only Events mehr (`Ctrl` allein) und ignoriert Key-Repeat beim Gedrückthalten
+
 ## [1.3.6] - 2026-05-21
 
 ### Fixed
