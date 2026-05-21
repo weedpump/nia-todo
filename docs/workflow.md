@@ -37,6 +37,7 @@ Native Build-Hinweise ab `v1.6.0`:
 - Android-APK enthält den lokalen `AlarmManager`-Scheduler; Reminder funktionieren offline und werden nach Geräte-Neustart neu geplant.
 - Browser/PWA-Push bleibt Browser/PWA-only; native Apps sollen nicht vom Server-WebSocket für Reminder abhängig sein.
 - Service Worker bleibt auch in nativen Wrappern aktiv, damit Offline-Cold-Start funktioniert.
+- Nach erfolgreichem Release räumt `release.sh` lokale Tauri-Build-Artefakte per `cargo clean --manifest-path src-tauri/Cargo.toml` auf. Bei Bedarf kann das mit `CLEAN_BUILD_ARTIFACTS_AFTER_RELEASE=0 ./release.sh VERSION` übersprungen werden.
 
 ## Dev-Branding
 
