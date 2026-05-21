@@ -5,6 +5,11 @@ Alle wichtigen Änderungen an diesem Projekt werden in dieser Datei dokumentiert
 Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [1.3.5] - 2026-05-21
+
+### Fixed
+- Sidebar-Benutzermenü wird in Desktop-PWA und Mobile nicht mehr vom Sidebar-Overflow abgeschnitten
+
 ## [1.3.4] - 2026-05-21
 
 ### Fixed
