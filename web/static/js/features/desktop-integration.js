@@ -47,6 +47,10 @@ function hasAndroidNativeNotifications() {
   return isAndroidApp() && Boolean(getAndroidNative()?.notify);
 }
 
+function hasAndroidNativeReminderScheduler() {
+  return isAndroidApp() && Boolean(getAndroidNative()?.scheduleReminders);
+}
+
 async function invokeDesktop(command, args = {}) {
   const invoke = getInvoke();
   if (!invoke) throw new Error('Tauri API not available');
@@ -280,6 +284,17 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
   }
 
   async function scheduleLocalRemindersNow() {
+    if (!isNativeApp()) return;
+    const reminders = settings.notifications ? buildReminderSchedules(latestTodos) : [];
+    if (hasAndroidNativeReminderScheduler()) {
+      try {
+        if (settings.notifications && !await ensureNativeNotificationPermission()) return;
+        getAndroidNative().scheduleReminders(JSON.stringify(reminders));
+      } catch (error) {
+        console.warn('[Android] Failed to schedule local reminders', error);
+      }
+      return;
+    }
     if (!isDesktopApp()) return;
     if (!settings.notifications) {
       try {
@@ -291,7 +306,6 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
     }
     try {
       if (!await ensureNativeNotificationPermission()) return;
-      const reminders = buildReminderSchedules(latestTodos);
       await invokeDesktop('desktop_schedule_reminders', { reminders });
     } catch (error) {
       console.warn('[Desktop] Failed to schedule local reminders', error);
@@ -300,7 +314,7 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
 
   function syncLocalReminders(todos = [], { immediate = false } = {}) {
     latestTodos = Array.isArray(todos) ? todos : [];
-    if (!isDesktopApp()) return;
+    if (!isDesktopApp() && !hasAndroidNativeReminderScheduler()) return;
     if (reminderScheduleTimer) {
       clearTimeout(reminderScheduleTimer);
       reminderScheduleTimer = null;
