@@ -33,5 +33,7 @@ Thumbs.db
 # Dev-only files
 api/data/vapid_keys.json
 test-results.json
+node_modules/
+src-tauri/target/
 
 api/data/daily-backups/

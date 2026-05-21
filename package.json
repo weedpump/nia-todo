@@ -5,9 +5,16 @@
   "scripts": {
     "test": "./scripts/test_all.sh",
     "test:backend": "python3 scripts/test_backend.py",
-    "test:frontend": "node scripts/test_frontend_smoke.mjs && node scripts/test_frontend_app.mjs && node scripts/test_frontend_setup.mjs && node scripts/test_frontend_admin.mjs && node scripts/test_frontend_settings.mjs && node scripts/test_frontend_projects.mjs && node scripts/test_frontend_dragdrop.mjs && node scripts/test_frontend_sharing.mjs"
+    "test:frontend": "node scripts/test_frontend_smoke.mjs && node scripts/test_frontend_app.mjs && node scripts/test_frontend_setup.mjs && node scripts/test_frontend_admin.mjs && node scripts/test_frontend_settings.mjs && node scripts/test_frontend_projects.mjs && node scripts/test_frontend_dragdrop.mjs && node scripts/test_frontend_sharing.mjs",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
+    "tauri:info": "tauri info"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2.11.2",
     "playwright": "^1.60.0"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.11.0"
   }
 }

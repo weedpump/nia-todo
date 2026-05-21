@@ -1,0 +1,46 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "nia-todo",
+  "version": "1.3.2",
+  "identifier": "ai.openclaw.nia-todo",
+  "build": {
+    "beforeDevCommand": "",
+    "beforeBuildCommand": "",
+    "devUrl": "http://localhost:8754",
+    "frontendDist": "http://todo-dev.kneidl-home.de:8753"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "nia-todo",
+        "width": 1180,
+        "height": 820,
+        "minWidth": 380,
+        "minHeight": 620,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis", "msi"],
+    "icon": [
+      "../web/static/icons/icon-192.png",
+      "../web/static/icons/icon-512.png"
+    ],
+    "windows": {
+      "wix": {
+        "language": "de-DE"
+      },
+      "nsis": {
+        "displayLanguageSelector": false,
+        "languages": ["German"]
+      }
+    }
+  }
+}
