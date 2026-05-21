@@ -5,6 +5,24 @@ Alle wichtigen Änderungen an diesem Projekt werden in dieser Datei dokumentiert
 Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-05-21
+
+### Added
+- **Dashboard-Ansicht** ersetzt „Alle“ als zentrale Übersicht
+  - Persönliche Begrüßung mit Anzeigename, Avatar, Datum und Uhrzeit
+  - KPI-Karten für Gesamt, Offen, In Arbeit und Überfällig
+  - Fokusbereich mit Heute fällig, nächste 7 Tage, Erledigt und Erledigt-Quote
+  - Aktive Projekte als klickbare Übersicht
+- **Floating Action Button** zum Erstellen neuer Todos
+  - Runder Plus-Button rechts unten statt „Neues Todo“ in der Topbar
+  - Mobile Safe-Area und extra Listenabstand berücksichtigt
+
+### Changed
+- Globale Statistikleiste wird nicht mehr in Projektansichten angezeigt
+- Dashboard scrollt gemeinsam mit der Todo-Liste; Topbar bleibt sticky
+- Benutzer-/Einstellungsmenü wurde aus der Topbar in den unteren Sidebar-Footer verschoben
+- Sidebar-Ansicht „Alle“ wurde zu „Dashboard“ umbenannt
+
 ## [1.2.3] - 2026-05-21
 
 ### Fixed
