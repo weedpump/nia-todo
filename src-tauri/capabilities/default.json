@@ -22,6 +22,7 @@
     "allow-desktop-clear-server-url",
     "allow-desktop-set-hotkey",
     "allow-desktop-request-notification-permission",
-    "allow-desktop-notify"
+    "allow-desktop-notify",
+    "allow-desktop-schedule-reminders"
   ]
 }

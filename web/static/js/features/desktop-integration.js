@@ -47,6 +47,10 @@ function hasAndroidNativeNotifications() {
   return isAndroidApp() && Boolean(getAndroidNative()?.notify);
 }
 
+function hasAndroidNativeReminderScheduler() {
+  return isAndroidApp() && Boolean(getAndroidNative()?.scheduleReminders);
+}
+
 async function invokeDesktop(command, args = {}) {
   const invoke = getInvoke();
   if (!invoke) throw new Error('Tauri API not available');
@@ -138,8 +142,10 @@ function setDesktopStatus(text, danger = false) {
   el.style.color = danger ? 'var(--danger)' : 'var(--text-muted)';
 }
 
-export function createDesktopIntegration({ wsSend, getWsState, showToast, onHotkeyNewTodo, onHotkeySearch }) {
+export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeySearch }) {
   let settings = { ...DEFAULT_SETTINGS };
+  let latestTodos = [];
+  let reminderScheduleTimer = null;
 
   async function loadSettings() {
     if (!isNativeApp()) return settings;
@@ -194,7 +200,7 @@ export function createDesktopIntegration({ wsSend, getWsState, showToast, onHotk
       settings = mergeSettings(await invokeDesktop('desktop_set_setting', { key, value: nextValue }));
       renderSettings();
       setDesktopStatus('Gespeichert.');
-      if (key === 'notifications') announceNotificationReadiness();
+      if (key === 'notifications') syncLocalReminders(latestTodos, { immediate: true });
     } catch (error) {
       setDesktopStatus(error?.message || String(error), true);
       await loadSettings();
@@ -224,11 +230,10 @@ export function createDesktopIntegration({ wsSend, getWsState, showToast, onHotk
   }
 
   async function announceNotificationReadiness() {
+    // Native apps schedule Todo reminders locally. Server push/WebSocket
+    // notification readiness is intentionally browser/PWA-only now.
     if (!isNativeApp() || !settings.notifications) return;
     await ensureNativeNotificationPermission();
-    if (getWsState() === 'connected') {
-      wsSend({ type: 'desktop_notify_ready', enabled: true });
-    }
   }
 
   async function notifyReminder(reminder) {
@@ -247,6 +252,81 @@ export function createDesktopIntegration({ wsSend, getWsState, showToast, onHotk
       console.warn('[Native] Notification failed', error);
       showToast?.('Native Benachrichtigung fehlgeschlagen');
     }
+  }
+
+  function reminderTime(todo) {
+    return todo?.remind_at || todo?.reminders?.[0]?.remind_at || null;
+  }
+
+  function reminderTitle(todo) {
+    return '⏰ Erinnerung';
+  }
+
+  function reminderBody(todo) {
+    return todo?.title || todo?.body || todo?.todo_title || 'Todo-Erinnerung';
+  }
+
+  function buildReminderSchedules(todos = []) {
+    const now = Date.now();
+    return todos
+      .filter((todo) => todo && todo.status !== 'done')
+      .map((todo) => {
+        const dueAt = Date.parse(reminderTime(todo));
+        if (!Number.isFinite(dueAt) || dueAt <= now) return null;
+        return {
+          id: String(todo.id),
+          title: reminderTitle(todo),
+          body: reminderBody(todo),
+          dueAtMs: dueAt,
+        };
+      })
+      .filter(Boolean);
+  }
+
+  async function scheduleLocalRemindersNow() {
+    if (!isNativeApp()) return;
+    const reminders = settings.notifications ? buildReminderSchedules(latestTodos) : [];
+    if (hasAndroidNativeReminderScheduler()) {
+      try {
+        if (settings.notifications && !await ensureNativeNotificationPermission()) return;
+        getAndroidNative().scheduleReminders(JSON.stringify(reminders));
+      } catch (error) {
+        console.warn('[Android] Failed to schedule local reminders', error);
+      }
+      return;
+    }
+    if (!isDesktopApp()) return;
+    if (!settings.notifications) {
+      try {
+        await invokeDesktop('desktop_schedule_reminders', { reminders: [] });
+      } catch (error) {
+        console.warn('[Desktop] Failed to clear local reminders', error);
+      }
+      return;
+    }
+    try {
+      if (!await ensureNativeNotificationPermission()) return;
+      await invokeDesktop('desktop_schedule_reminders', { reminders });
+    } catch (error) {
+      console.warn('[Desktop] Failed to schedule local reminders', error);
+    }
+  }
+
+  function syncLocalReminders(todos = [], { immediate = false } = {}) {
+    latestTodos = Array.isArray(todos) ? todos : [];
+    if (!isDesktopApp() && !hasAndroidNativeReminderScheduler()) return;
+    if (reminderScheduleTimer) {
+      clearTimeout(reminderScheduleTimer);
+      reminderScheduleTimer = null;
+    }
+    if (immediate) {
+      scheduleLocalRemindersNow();
+      return;
+    }
+    reminderScheduleTimer = setTimeout(() => {
+      reminderScheduleTimer = null;
+      scheduleLocalRemindersNow();
+    }, 250);
   }
 
   async function updateServerUrl(value) {
@@ -363,6 +443,7 @@ export function createDesktopIntegration({ wsSend, getWsState, showToast, onHotk
     updateSetting,
     announceNotificationReadiness,
     notifyReminder,
+    syncLocalReminders,
     updateServerUrl,
     resetServerUrl,
     testNotification,

@@ -1,5 +1,5 @@
 // nia-todo Service Worker - Bulletproof Offline-First + Update-System + Push Notifications
-const SW_VERSION = 'v1.5.3-dev';
+const SW_VERSION = 'v1.5.3-dev-native-actions-2';
 const CACHE_NAME = 'nia-todo-' + SW_VERSION;
 
 // ALLE Assets die wir brauchen
@@ -16,6 +16,7 @@ const PRECACHE_ASSETS = [
   '/static/js/api/index.js',
   '/static/js/api/projects.js',
   '/static/js/api/push.js',
+  '/static/js/api/sharing.js',
   '/static/js/api/todos.js',
   '/static/js/core/config.js',
   '/static/js/core/utils.js',
@@ -27,13 +28,16 @@ const PRECACHE_ASSETS = [
   '/static/js/features/app-downloads.js',
   '/static/js/features/app-rendering.js',
   '/static/js/features/app-lifecycle.js',
+  '/static/js/features/desktop-integration.js',
   '/static/js/features/auth-session.js',
   '/static/js/features/connection-status.js',
   '/static/js/features/drag-drop.js',
   '/static/js/features/legacy-globals.js',
   '/static/js/features/push-notifications.js',
+  '/static/js/features/project-sharing.js',
   '/static/js/features/theme.js',
   '/static/js/features/ui-shell.js',
+  '/static/js/features/user-menu.js',
   '/static/js/features/user-settings.js',
   '/static/js/features/projects.js',
   '/static/js/features/navigation.js',

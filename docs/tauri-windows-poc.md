@@ -1,10 +1,10 @@
 # Tauri Desktop/Android Wrapper
 
-Status: produktiver Tauri-Wrapper für `nia-todo` ab `v1.5.1`.
+Status: produktiver Tauri-Wrapper für `nia-todo` ab `v1.5.1`; native lokale Reminder ab `v1.6.0`.
 
 ## Ziel
 
-Die bestehende Web-App läuft zusätzlich als native Windows-App und Android-App. Beide Wrapper laden die gewählte Server-Web-App in der Tauri-WebView und behalten dadurch die servergetriebene Update-Logik der Web/PWA-App.
+Die bestehende Web-App läuft zusätzlich als native Windows-App und Android-App. Beide Wrapper laden die gewählte Server-Web-App in der Tauri-WebView. Native Features wie lokale Reminder, Tray/Hotkeys und Android-Systemintegration liegen im Tauri-/Android-Layer; Browser/PWA-Push bleibt Browser/PWA-only.
 
 Wichtig:
 
@@ -13,7 +13,9 @@ Wichtig:
 - Die URL wird lokal in der App gespeichert.
 - In den App-Einstellungen kann die Server-URL geändert oder zurückgesetzt werden.
 - Web-App-Releases brauchen keinen neuen Tauri-Installer, solange keine nativen Features geändert werden.
-- Native Wrapper hängen beim Start einen `nativeApp=tauri` Launch-Parameter an, damit alte Service-Worker-Navigation-Caches nicht den App-Start blockieren.
+- Native Wrapper hängen beim Start einen `nativeApp=tauri` Launch-Parameter an.
+- Der Service Worker bleibt auch in nativen Wrappern aktiv, damit Offline-Cold-Starts funktionieren; native Wrapper aktivieren wartende Service-Worker-Updates automatisch.
+- Native Apps verlassen sich für Todo-Erinnerungen nicht auf Server-/WebSocket-Push, sondern planen bekannte Reminder-Zeitpunkte lokal.
 
 ## Plattformen
 
@@ -21,6 +23,7 @@ Wichtig:
 
 - Lokale Server-Auswahl vor dem Login
 - Native Windows-Benachrichtigungen über Tauri
+- Lokaler Reminder-Scheduler im laufenden App-/Tray-Prozess
 - Tray-Icon mit Öffnen/Beenden
 - Optional Close-to-tray
 - Optional Autostart per Windows-Registry `HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run`
@@ -31,11 +34,15 @@ Wichtig:
 
 - Lokale Server-Auswahl wie Windows
 - Keine Desktop-only Optionen wie Tray, Autostart oder globale Hotkeys
-- Native Benachrichtigungen über Tauri Notification Plugin
+- Native Benachrichtigungen über AndroidX `NotificationCompat`
+- Lokaler Reminder-Scheduler über `AlarmManager`
+- Persistierte Reminder werden nach `BOOT_COMPLETED` neu geplant
 - Runtime-Permission `POST_NOTIFICATIONS`
 - Android-App-ID: `de.tobiaskneidl.nia_todo`
-- Edge-to-edge deaktiviert plus Web-CSS-Inset, damit die App nicht unter die Statusbar rutscht
+- Android-Notification-Aktion „Erledigt“ markiert Todos offline lokal per IndexedDB-Single-Shot und schreibt eine SyncQueue-Änderung; aktuell ohne Web-Undo-Toast
+- Native WindowInsets/Systembar-Behandlung, damit die App nicht unter die Statusbar rutscht
 - Launcher-/Task-Switcher-Icons werden aus den Web-App-Icons erzeugt
+- Eigenes monochromes Small-Notification-Icon
 
 ## Downloads
 
@@ -77,7 +84,14 @@ Das Script erledigt:
 9. Live/Dev Services neu starten
 10. `develop` auf nächste `-dev` Version setzen
 
-In nativen Tauri-Wrappern wird der PWA-Service-Worker deaktiviert/unregistriert. Das verhindert stale WebView-Caches und Android-Boot-Hänger; Offline-Daten bleiben über IndexedDB erhalten, sobald die Web-App geladen ist.
+In nativen Tauri-Wrappern bleibt der PWA-Service-Worker aktiv. Das ist für Offline-Cold-Start nötig, weil die WebView nach dem ersten Laden die App-Shell aus dem Cache starten kann. Wartende Service-Worker-Updates werden in nativen Wrappern automatisch aktiviert, damit APK-/Installer-Updates nicht dauerhaft altes Web-JS ausführen.
+
+Native Reminder-Architektur:
+
+- Browser/PWA: WebPush/Service-Worker-Push bleibt zuständig.
+- Windows/Tauri: Web-UI übergibt zukünftige Reminder an `desktop_schedule_reminders`; Rust plant sie lokal im laufenden Prozess.
+- Android/Tauri: Web-UI übergibt zukünftige Reminder über `NiaAndroidNative.scheduleReminders`; `ReminderReceiver` plant sie mit `AlarmManager` und stellt sie nach Geräte-Neustart wieder her.
+- Native Apps melden keine serverseitige WebSocket-Reminder-Bereitschaft mehr an.
 
 ## Android Signing
 

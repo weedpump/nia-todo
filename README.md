@@ -1,6 +1,6 @@
 # ✨ nia-todo
 
-Selfhosted Todo-System — SQLite + FastAPI + Web-UI + Offline-PWA + Telegram-Erinnerungen.
+Selfhosted Todo-System — SQLite + FastAPI + Web-UI + Offline-PWA + native Windows-/Android-Apps.
 
 ## 🌍 Instanzen
 
@@ -27,9 +27,10 @@ systemctl restart nia-todo-dev
 - 📁 Projekte/Kategorien inkl. Subprojekten und geschützter pro-User Inbox
 - 🤝 Projekt-Sharing zwischen Benutzern mit Einladungen und Undo
 - 🔲 Sections pro Projekt
-- 📱 Offline-PWA
+- 📱 Offline-PWA plus native Windows-/Android-Wrapper
 - 🔐 Auth, Admin-Panel, API-Keys, CSRF-Schutz und User-Datenisolation
 - ⏰ Erinnerungen/Deadlines mit validierter Datum-/Zeit-Eingabe
+- 🔔 Native lokale Reminder auf Windows und Android; Browser/PWA-Push bleibt Browser/PWA-only
 - 🎨 Theme-Toggle
 - 🗄️ SQLite lokal
 
@@ -60,6 +61,7 @@ Details: [Test-Doku](docs/testing.md)
 - [Test-Doku](docs/testing.md)
 - [Workflow-Doku](docs/workflow.md)
 - [Architektur](docs/architecture.md)
+- [Tauri Desktop/Android Wrapper](docs/tauri-windows-poc.md)
 
 ## ⚙️ Setup / Betrieb
 

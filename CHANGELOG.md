@@ -5,6 +5,32 @@ Alle wichtigen Änderungen an diesem Projekt werden in dieser Datei dokumentiert
 Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [1.6.0] - 2026-05-21
+
+### Added
+- Native lokale Erinnerungsplanung für Windows/Tauri und Android/Tauri.
+  - Windows plant Reminder im laufenden Tray-/App-Prozess lokal.
+  - Android plant Reminder über `AlarmManager`, persistiert geplante Reminder und stellt sie nach Geräte-Neustart wieder her.
+- Android-Benachrichtigungen haben eine native Aktion „Erledigt“, die das Todo offline lokal als erledigt markiert und über die Sync-Queue später synchronisiert.
+- Android-App funktioniert nach einmaligem Laden auch offline inklusive Cold-Start über den Service-Worker-Cache.
+- Android nutzt ein eigenes monochromes Small-Notification-Icon.
+
+### Changed
+- Native Apps verwenden bekannte Reminder-Zeitpunkte lokal; Browser/PWA-Push bleibt Browser/PWA-only.
+- Native Apps melden keine serverseitige WebSocket-Reminder-Bereitschaft mehr an.
+- Service Worker bleibt in nativen Wrappern aktiv, damit Offline-Cold-Start funktioniert; native Wrapper aktivieren Service-Worker-Updates automatisch.
+- Android nutzt native Systembar-/WindowInsets-Behandlung statt CSS-Hacks.
+
+### Fixed
+- Android-Server-URL-Setupscreen ist auf schmalen Displays korrekt zentriert und läuft nicht aus dem Viewport.
+- Android-Launcher-/Task-Icon und Notification-Icon sind konsistent mit der App.
+- Dashboard-Panels „Fokus“ und „Aktive Projekte“ sind optisch gleichmäßig ausgerichtet.
+- Klicks auf Projektlinks im Dashboard synchronisieren die aktive Sidebar-Auswahl.
+- Windows/Tauri startet offline nach App-Neustart wieder aus dem Cache statt beim leeren Startscreen hängen zu bleiben.
+
+### Known limitations
+- Android „Erledigt“ aus der nativen Benachrichtigung nutzt aktuell einen nativen IndexedDB-Single-Shot-Pfad. Das markiert zuverlässig offline erledigt, zeigt aber derzeit keinen Web-Undo-Toast.
+
 ## [1.5.2] - 2026-05-21
 
 ### Fixed

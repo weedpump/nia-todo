@@ -9,6 +9,7 @@ fn main() {
         "desktop_set_hotkey",
         "desktop_request_notification_permission",
         "desktop_notify",
+        "desktop_schedule_reminders",
       ]),
     ),
   )

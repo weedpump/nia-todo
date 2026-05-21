@@ -41,6 +41,11 @@ let hideDone = localStorage.getItem('nia-hide-done') === 'true';
 let sortMode = localStorage.getItem('nia-sort') || 'order';
 let desktopIntegration = null;
 
+function setTodosState(next) {
+  todos = next;
+  desktopIntegration?.syncLocalReminders(todos);
+}
+
 // ─── Auth / User (JWT) ───────────────────────────────────────────────────────
 
 let currentUser = null;  // { id, username, display_name, token }
@@ -84,7 +89,7 @@ const syncFeature = createSyncFeature({
   getFromDB,
   deleteFromDB,
   getTodos: () => todos,
-  setTodos: (next) => { todos = next; },
+  setTodos: setTodosState,
   getProjects: () => projects,
   setProjects: (next) => { projects = next; },
   getSections: () => sections,
@@ -95,7 +100,7 @@ const syncFeature = createSyncFeature({
 });
 const todosFeature = createTodosFeature({
   getTodos: () => todos,
-  setTodos: (next) => { todos = next; },
+  setTodos: setTodosState,
   getProjects: () => projects,
   getCurrentProjectId: () => currentProjectId,
   getAppInitialized: () => appInitialized,
@@ -217,7 +222,7 @@ const wsClient = createWebSocketClient({
   getFromDB,
   deleteFromDB,
   getTodos: () => todos,
-  setTodos: (next) => { todos = next; },
+  setTodos: setTodosState,
   getProjects: () => projects,
   setProjects: (next) => { projects = next; },
   getSections: () => sections,
@@ -226,7 +231,7 @@ const wsClient = createWebSocketClient({
   renderStats: () => renderStats(),
   renderTodos: () => renderTodos(),
   onAuthOk: () => desktopIntegration?.announceNotificationReadiness(),
-  onReminderDue: (payload) => desktopIntegration?.notifyReminder(payload),
+  onReminderDue: () => {},
 });
 const getReconnectDelay = wsClient.getReconnectDelay;
 const connectWebSocket = wsClient.connectWebSocket;
@@ -239,8 +244,6 @@ const updateConnectionStatus = wsClient.updateConnectionStatus;
 const handleWsMessage = wsClient.handleWsMessage;
 
 desktopIntegration = createDesktopIntegration({
-  wsSend: (data) => wsSend(data),
-  getWsState: () => wsClient.getWsState(),
   showToast: (...args) => showToast(...args),
   onHotkeyNewTodo: () => {
     showTodoModal();
@@ -279,7 +282,7 @@ async function refreshFromServer() {
 
 const sectionActions = createSectionActionsFeature({
   getTodos: () => todos,
-  setTodos: (next) => { todos = next; },
+  setTodos: setTodosState,
   getSections: () => sections,
   setSections: (next) => { sections = next; },
   getCurrentProjectId: () => currentProjectId,
@@ -335,6 +338,7 @@ const navigationFeature = createNavigationFeature({
   dbPut,
   deleteFromDB,
   closeSidebar: () => closeSidebar(),
+  renderProjects: () => renderProjects(),
   renderStats: () => renderStats(),
   renderTodos: () => renderTodos(),
 });
@@ -350,6 +354,51 @@ const clearDoneFromModal = projectsFeature.clearDoneFromModal;
 const clearDoneInProject = projectsFeature.clearDoneInProject;
 
 const markTodoDone = todosFeature.markTodoDone;
+async function markTodoDoneFromNative(id) {
+  const rawId = String(id || '');
+  const startedAt = Date.now();
+  while ((!appInitialized || !db) && Date.now() - startedAt < 30000) {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  if (!appInitialized || !db) {
+    showToast?.('Notification-Aktion konnte nicht ausgeführt werden: App noch nicht bereit.');
+    return false;
+  }
+  const numericId = /^\d+$/.test(rawId) ? Number(rawId) : rawId;
+  const todo = todos.find((item) => item.id === numericId || String(item.id) === rawId);
+  if (!todo) {
+    console.warn('[NativeAction] Todo not found for notification action', { id: rawId, knownIds: todos.map((item) => item.id) });
+    showToast?.(`Notification-Aktion: Todo nicht gefunden (${rawId}).`);
+    return false;
+  }
+  await markTodoDone(todo.id);
+  showToast?.('Todo per Benachrichtigung erledigt.');
+  return true;
+}
+
+let nativeDoneActionPollTimer = null;
+async function consumePendingNativeDoneAction() {
+  const consume = window.NiaAndroidNative?.consumePendingDoneTodoId;
+  if (typeof consume !== 'function') return;
+  let rawId = '';
+  try {
+    rawId = consume();
+  } catch (error) {
+    console.warn('[NativeAction] Failed to consume pending Android done action', error);
+    return;
+  }
+  if (!rawId) return;
+  await markTodoDoneFromNative(rawId);
+}
+
+function startNativeDoneActionPolling() {
+  if (nativeDoneActionPollTimer) return;
+  consumePendingNativeDoneAction();
+  nativeDoneActionPollTimer = setInterval(consumePendingNativeDoneAction, 1000);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) consumePendingNativeDoneAction();
+  });
+}
 const toggleTodo = todosFeature.toggleTodo;
 const showTodoModal = todosFeature.showTodoModal;
 const onProjectChange = todosFeature.onProjectChange;
@@ -373,7 +422,7 @@ uiShell.bindKeyboardShortcuts();
 
 const dragDropFeature = createDragDropFeature({
   getTodos: () => todos,
-  setTodos: (next) => { todos = next; },
+  setTodos: setTodosState,
   getSections: () => sections,
   setSections: (next) => { sections = next; },
   isOnlineForSync,
@@ -393,7 +442,7 @@ const handleSectionDrop = dragDropFeature.handleSectionDrop;
 const toastUndoFeature = createToastUndoFeature({
   getDb: () => db,
   getTodos: () => todos,
-  setTodos: (next) => { todos = next; },
+  setTodos: setTodosState,
   dbPut,
   addToSyncQueue,
   isOnlineForSync,
@@ -430,7 +479,7 @@ const appLifecycle = createAppLifecycle({
   initServiceWorker,
   openDB,
   dbGetAll,
-  setTodos: (next) => { todos = next; },
+  setTodos: setTodosState,
   setProjects: (next) => { projects = next; },
   setSections: (next) => { sections = next; },
   setCurrentFilter: (next) => { currentFilter = next; },
@@ -486,7 +535,7 @@ export function startAppModule() {
   lifecycle: { initServiceWorker, triggerUpdate, initApp, loadFromLocalDB, loadAll },
   rendering: { renderVersionInfo, renderProjects, renderStats, renderTodos, renderSectionHeader, countByProject },
   navigation: { setFilter, loadSectionsForCurrentProject },
-  todos: { markTodoDone, toggleTodo, showTodoModal, onProjectChange, saveTodo, editTodo, deleteTodoFromModal, deleteTodo },
+  todos: { markTodoDone, markTodoDoneFromNative, toggleTodo, showTodoModal, onProjectChange, saveTodo, editTodo, deleteTodoFromModal, deleteTodo },
   projects: { showProjectModal, editProject, saveProject, deleteProject, deleteProjectFromModal, clearDoneFromModal, clearDoneInProject },
   sharing: { inviteUserToProject: () => sharingFeature.inviteByUsername(), leaveProjectFromModal: () => sharingFeature.leaveProject(), undoLeaveProject: (data) => sharingFeature.undoLeaveProject(data), undoRemoveMember: (data) => sharingFeature.undoRemoveMember(data), undoInvite: (data) => sharingFeature.undoInvite(data), acceptInvite: (pid, iid) => sharingFeature.acceptInvite(pid, iid), declineInvite: (pid, iid) => sharingFeature.declineInvite(pid, iid), showShareInput: () => sharingFeature.showShareInput() },
   projectSharing: { setProject: (project) => sharingFeature.setProject(project), applyProjectModalState: (project, canEdit, shared) => sharingFeature.applyProjectModalState(project, canEdit, shared), loadInvites: () => sharingFeature.loadInvites() },
