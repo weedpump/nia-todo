@@ -5,6 +5,13 @@ Alle wichtigen Änderungen an diesem Projekt werden in dieser Datei dokumentiert
 Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [1.2.3] - 2026-05-21
+
+### Fixed
+- **Header-Avatar optisch ausgerichtet**
+  - Avatar-Button sitzt jetzt sauber auf derselben Höhe wie die Topbar-Aktionen
+  - `Neues Todo`-Button und Avatar-Control nutzen konsistente 40px-Höhe
+
 ## [1.2.2] - 2026-05-21
 
 ### Fixed
