@@ -18,6 +18,7 @@
     "allow-desktop-set-setting",
     "allow-desktop-set-server-url",
     "allow-desktop-clear-server-url",
+    "allow-desktop-set-hotkey",
     "allow-desktop-notify"
   ]
 }

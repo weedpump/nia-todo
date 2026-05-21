@@ -2,6 +2,11 @@ const DEFAULT_SETTINGS = {
   minimizeToTray: true,
   autostart: false,
   notifications: true,
+  hotkeys: {
+    toggleApp: '',
+    newTodo: '',
+    search: '',
+  },
 };
 
 function getTauri() {
@@ -22,9 +27,25 @@ async function invokeDesktop(command, args = {}) {
   return invoke(command, args);
 }
 
+function mergeSettings(raw = {}) {
+  return {
+    ...DEFAULT_SETTINGS,
+    ...raw,
+    hotkeys: {
+      ...DEFAULT_SETTINGS.hotkeys,
+      ...(raw.hotkeys || {}),
+    },
+  };
+}
+
 function setChecked(id, value) {
   const el = document.getElementById(id);
   if (el) el.checked = Boolean(value);
+}
+
+function setValue(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.value = value || '';
 }
 
 function normalizeServerUrl(value) {
@@ -41,13 +62,13 @@ function setDesktopStatus(text, danger = false) {
   el.style.color = danger ? 'var(--danger)' : 'var(--text-muted)';
 }
 
-export function createDesktopIntegration({ wsSend, getWsState, showToast }) {
+export function createDesktopIntegration({ wsSend, getWsState, showToast, onHotkeyNewTodo, onHotkeySearch }) {
   let settings = { ...DEFAULT_SETTINGS };
 
   async function loadSettings() {
     if (!isDesktopApp()) return settings;
     try {
-      settings = { ...DEFAULT_SETTINGS, ...(await invokeDesktop('desktop_get_settings')) };
+      settings = mergeSettings(await invokeDesktop('desktop_get_settings'));
     } catch (error) {
       console.warn('[Desktop] Failed to load settings', error);
     }
@@ -64,12 +85,16 @@ export function createDesktopIntegration({ wsSend, getWsState, showToast }) {
     setChecked('desktop-notifications', settings.notifications);
     const serverUrl = document.getElementById('desktop-server-url');
     if (serverUrl) serverUrl.value = settings.serverUrl || location.origin;
+    setValue('desktop-hotkey-toggle-app', settings.hotkeys?.toggleApp);
+    setValue('desktop-hotkey-new-todo', settings.hotkeys?.newTodo);
+    setValue('desktop-hotkey-search', settings.hotkeys?.search);
   }
 
   async function init() {
     if (!isDesktopApp()) return;
     await loadSettings();
     renderSettings();
+    bindHotkeyEvents();
     announceNotificationReadiness();
   }
 
@@ -80,7 +105,7 @@ export function createDesktopIntegration({ wsSend, getWsState, showToast }) {
     renderSettings();
     setDesktopStatus('Speichere...');
     try {
-      settings = { ...DEFAULT_SETTINGS, ...(await invokeDesktop('desktop_set_setting', { key, value: nextValue })) };
+      settings = mergeSettings(await invokeDesktop('desktop_set_setting', { key, value: nextValue }));
       renderSettings();
       setDesktopStatus('Gespeichert.');
       if (key === 'notifications') announceNotificationReadiness();
@@ -114,7 +139,7 @@ export function createDesktopIntegration({ wsSend, getWsState, showToast }) {
     if (!isDesktopApp()) return;
     try {
       const serverUrl = normalizeServerUrl(value);
-      settings = { ...DEFAULT_SETTINGS, ...(await invokeDesktop('desktop_set_server_url', { serverUrl })) };
+      settings = mergeSettings(await invokeDesktop('desktop_set_server_url', { serverUrl }));
       setDesktopStatus('Server gespeichert. App lädt neu...');
       setTimeout(() => location.replace(serverUrl), 250);
     } catch (error) {
@@ -146,6 +171,36 @@ export function createDesktopIntegration({ wsSend, getWsState, showToast }) {
     }
   }
 
+  async function updateHotkey(action, shortcut) {
+    if (!isDesktopApp()) return;
+    setDesktopStatus('Speichere Hotkey...');
+    try {
+      settings = mergeSettings(await invokeDesktop('desktop_set_hotkey', { action, shortcut: shortcut || '' }));
+      renderSettings();
+      setDesktopStatus('Hotkey gespeichert.');
+    } catch (error) {
+      setDesktopStatus(error?.message || String(error), true);
+      await loadSettings();
+      renderSettings();
+    }
+  }
+
+  let hotkeyEventsBound = false;
+  async function bindHotkeyEvents() {
+    if (hotkeyEventsBound) return;
+    const listen = getTauri()?.event?.listen;
+    if (!listen) return;
+    hotkeyEventsBound = true;
+    await listen('desktop-hotkey', (event) => {
+      const action = event?.payload?.action;
+      if (action === 'newTodo') {
+        onHotkeyNewTodo?.();
+      } else if (action === 'search') {
+        onHotkeySearch?.();
+      }
+    });
+  }
+
   return {
     isDesktopApp,
     init,
@@ -157,5 +212,6 @@ export function createDesktopIntegration({ wsSend, getWsState, showToast }) {
     updateServerUrl,
     resetServerUrl,
     testNotification,
+    updateHotkey,
   };
 }

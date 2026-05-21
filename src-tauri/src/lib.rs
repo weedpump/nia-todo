@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::{fs, path::PathBuf};
 use tauri::{AppHandle, Manager};
 #[cfg(desktop)]
-use tauri::WindowEvent;
+use tauri::{Emitter, WindowEvent};
 #[cfg(desktop)]
 use tauri::menu::{Menu, MenuItem};
 #[cfg(desktop)]
@@ -11,11 +11,30 @@ use tauri_plugin_notification::NotificationExt;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+struct DesktopHotkeys {
+  toggle_app: Option<String>,
+  new_todo: Option<String>,
+  search: Option<String>,
+}
+
+impl Default for DesktopHotkeys {
+  fn default() -> Self {
+    Self {
+      toggle_app: None,
+      new_todo: None,
+      search: None,
+    }
+  }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct DesktopSettings {
   minimize_to_tray: bool,
   autostart: bool,
   notifications: bool,
   server_url: Option<String>,
+  hotkeys: DesktopHotkeys,
 }
 
 impl Default for DesktopSettings {
@@ -25,8 +44,16 @@ impl Default for DesktopSettings {
       autostart: false,
       notifications: true,
       server_url: None,
+      hotkeys: DesktopHotkeys::default(),
     }
   }
+}
+
+#[cfg(desktop)]
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DesktopHotkeyEvent {
+  action: String,
 }
 
 fn settings_path(app: &AppHandle) -> Result<PathBuf, String> {
@@ -97,6 +124,96 @@ fn show_main_window(app: &AppHandle) {
   }
 }
 
+#[cfg(desktop)]
+fn toggle_main_window(app: &AppHandle) {
+  if let Some(window) = app.get_webview_window("main") {
+    let is_visible = window.is_visible().unwrap_or(false);
+    let is_focused = window.is_focused().unwrap_or(false);
+    if is_visible && is_focused {
+      let _ = window.hide();
+    } else {
+      let _ = window.show();
+      let _ = window.set_focus();
+    }
+  }
+}
+
+fn clean_hotkey(value: String) -> Option<String> {
+  let trimmed = value.trim();
+  if trimmed.is_empty() {
+    None
+  } else {
+    Some(trimmed.to_string())
+  }
+}
+
+fn ensure_unique_hotkeys(hotkeys: &DesktopHotkeys) -> Result<(), String> {
+  let entries = [
+    ("App anzeigen/verstecken", &hotkeys.toggle_app),
+    ("Neues Todo", &hotkeys.new_todo),
+    ("Suche", &hotkeys.search),
+  ];
+  let mut seen: Vec<(String, &str)> = Vec::new();
+  for (label, value) in entries {
+    let Some(shortcut) = value else { continue; };
+    let key = shortcut.to_lowercase().replace(' ', "");
+    if let Some((_, existing_label)) = seen.iter().find(|(existing, _)| existing == &key) {
+      return Err(format!("Hotkey doppelt vergeben: {label} und {existing_label}"));
+    }
+    seen.push((key, label));
+  }
+  Ok(())
+}
+
+#[cfg(desktop)]
+fn emit_desktop_hotkey(app: &AppHandle, action: &str) {
+  let _ = app.emit("desktop-hotkey", DesktopHotkeyEvent { action: action.to_string() });
+}
+
+#[cfg(desktop)]
+fn apply_global_hotkeys(app: &AppHandle) -> Result<(), String> {
+  use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
+
+  let settings = load_settings(app);
+  ensure_unique_hotkeys(&settings.hotkeys)?;
+  app.global_shortcut().unregister_all().map_err(|err| err.to_string())?;
+
+  let entries = [
+    ("toggleApp", settings.hotkeys.toggle_app),
+    ("newTodo", settings.hotkeys.new_todo),
+    ("search", settings.hotkeys.search),
+  ];
+
+  for (action, shortcut) in entries {
+    let Some(shortcut) = shortcut else { continue; };
+    let action = action.to_string();
+    let shortcut_for_error = shortcut.clone();
+    app
+      .global_shortcut()
+      .on_shortcut(shortcut.as_str(), move |app, _shortcut, event| {
+        if event.state != ShortcutState::Pressed {
+          return;
+        }
+        match action.as_str() {
+          "toggleApp" => toggle_main_window(app),
+          "newTodo" | "search" => {
+            show_main_window(app);
+            emit_desktop_hotkey(app, &action);
+          }
+          _ => {}
+        }
+      })
+      .map_err(|err| format!("Hotkey '{shortcut_for_error}' konnte nicht registriert werden: {err}"))?;
+  }
+
+  Ok(())
+}
+
+#[cfg(not(desktop))]
+fn apply_global_hotkeys(_app: &AppHandle) -> Result<(), String> {
+  Ok(())
+}
+
 #[tauri::command]
 fn desktop_get_settings(app: AppHandle) -> DesktopSettings {
   load_settings(&app)
@@ -131,6 +248,27 @@ fn desktop_clear_server_url(app: AppHandle) -> Result<DesktopSettings, String> {
   let mut settings = load_settings(&app);
   settings.server_url = None;
   save_settings(&app, &settings)?;
+  Ok(settings)
+}
+
+#[tauri::command]
+fn desktop_set_hotkey(app: AppHandle, action: String, shortcut: String) -> Result<DesktopSettings, String> {
+  let previous = load_settings(&app);
+  let mut settings = previous.clone();
+  let value = clean_hotkey(shortcut);
+  match action.as_str() {
+    "toggleApp" => settings.hotkeys.toggle_app = value,
+    "newTodo" => settings.hotkeys.new_todo = value,
+    "search" => settings.hotkeys.search = value,
+    _ => return Err(format!("Unknown desktop hotkey action: {action}")),
+  }
+  ensure_unique_hotkeys(&settings.hotkeys)?;
+  save_settings(&app, &settings)?;
+  if let Err(err) = apply_global_hotkeys(&app) {
+    let _ = save_settings(&app, &previous);
+    let _ = apply_global_hotkeys(&app);
+    return Err(err);
+  }
   Ok(settings)
 }
 
@@ -183,18 +321,23 @@ fn build_tray(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-  tauri::Builder::default()
-    .plugin(tauri_plugin_notification::init())
+  let builder = tauri::Builder::default().plugin(tauri_plugin_notification::init());
+  #[cfg(desktop)]
+  let builder = builder.plugin(tauri_plugin_global_shortcut::Builder::new().build());
+
+  builder
     .invoke_handler(tauri::generate_handler![
       desktop_get_settings,
       desktop_set_setting,
       desktop_set_server_url,
       desktop_clear_server_url,
+      desktop_set_hotkey,
       desktop_notify,
     ])
     .setup(|_app| {
       #[cfg(desktop)]
       {
+        apply_global_hotkeys(_app.handle())?;
         build_tray(_app)?;
         if let Some(window) = _app.get_webview_window("main") {
           let app_handle = _app.handle().clone();

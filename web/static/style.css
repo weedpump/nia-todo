@@ -2127,6 +2127,24 @@ input[type="color"]::-moz-color-swatch {
   flex: 1;
   min-width: 0;
 }
+.desktop-hotkeys-settings {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.desktop-hotkeys-settings h5 {
+  margin: 0 0 6px 0;
+  font-size: 14px;
+}
+.desktop-hotkeys-settings p {
+  margin: 0 0 12px 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+.desktop-hotkeys-settings code {
+  color: var(--text-secondary);
+}
 @media (max-width: 560px) {
   .settings-server-row { flex-direction: column; }
 }
