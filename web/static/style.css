@@ -604,17 +604,6 @@ body {
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
-.overview-pill {
-  padding: 6px 10px;
-  border: 1px solid rgba(99,102,241,0.35);
-  border-radius: 999px;
-  background: rgba(99,102,241,0.14);
-  color: var(--accent-hover);
-  font-size: 12px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
 .overview-stat-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
