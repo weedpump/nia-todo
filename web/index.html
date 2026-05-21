@@ -105,16 +105,6 @@
         <div id="invites-list"></div>
       </nav>
 
-      <!-- Version & Update -->
-      <div class="version-bar" id="version-bar">
-        <div class="version-info" id="version-info">
-          <span class="version-text">v1.2.4-dev</span>
-        </div>
-        <button class="update-btn" id="update-btn" onclick="triggerUpdate()" style="display:none;">
-          <span>🔄</span> Update verfügbar
-        </button>
-      </div>
-
       <div class="user-menu-wrap sidebar-user-menu-wrap">
         <button type="button" class="user-menu-button" id="user-menu-button" onclick="toggleUserMenu(event)" aria-haspopup="menu" aria-expanded="false" title="Benutzermenü">U</button>
         <div class="sidebar-user-meta">
@@ -136,6 +126,16 @@
           <div class="user-menu-separator"></div>
           <button type="button" class="user-menu-item danger" onclick="logout()" title="Abmelden" role="menuitem"><span>🚪</span><span>Abmelden</span></button>
         </div>
+      </div>
+
+      <!-- Version & Update -->
+      <div class="version-bar" id="version-bar">
+        <div class="version-info" id="version-info">
+          <span class="version-text">v1.2.4-dev</span>
+        </div>
+        <button class="update-btn" id="update-btn" onclick="triggerUpdate()" style="display:none;">
+          <span>🔄</span> Update verfügbar
+        </button>
       </div>
     </aside>
 
