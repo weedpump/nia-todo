@@ -43,6 +43,13 @@
       return url.origin + url.pathname.replace(/\/+$/, '');
     }
 
+    function nativeLaunchUrl(serverUrl) {
+      const url = new URL(serverUrl);
+      url.searchParams.set('nativeApp', 'tauri');
+      url.searchParams.set('nativeLaunch', String(Date.now()));
+      return url.toString();
+    }
+
     async function boot() {
       if (!invoke) {
         errorEl.textContent = 'Tauri API nicht verfügbar.';
@@ -50,7 +57,7 @@
       }
       const settings = await invoke('desktop_get_settings');
       if (settings?.serverUrl) {
-        location.replace(settings.serverUrl);
+        location.replace(nativeLaunchUrl(settings.serverUrl));
       }
     }
 
@@ -60,7 +67,7 @@
       try {
         const serverUrl = normalizeUrl(input.value);
         await invoke('desktop_set_server_url', { serverUrl });
-        location.replace(serverUrl);
+        location.replace(nativeLaunchUrl(serverUrl));
       } catch (error) {
         errorEl.textContent = error?.message || String(error);
       }

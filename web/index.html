@@ -10,6 +10,28 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <link rel="stylesheet" href="/static/style.css">
 <script>
+  (function() {
+    const params = new URLSearchParams(location.search);
+    const nativeLaunch = params.get('nativeApp') === 'tauri';
+    const android = /Android/i.test(navigator.userAgent || '');
+    const tauri = Boolean(window.__TAURI__?.core?.invoke);
+    if (android && (nativeLaunch || tauri)) {
+      document.documentElement.classList.add('native-android');
+    }
+    if (nativeLaunch && 'serviceWorker' in navigator && navigator.serviceWorker.getRegistrations) {
+      const resetKey = 'nia-native-sw-reset-v1';
+      if (!sessionStorage.getItem(resetKey)) {
+        sessionStorage.setItem(resetKey, '1');
+        navigator.serviceWorker.getRegistrations()
+          .then((registrations) => Promise.all(registrations.map((registration) => registration.unregister())))
+          .then(() => {
+            if (navigator.serviceWorker.controller) location.reload();
+          })
+          .catch((error) => console.warn('[Native] Service worker reset failed', error));
+      }
+    }
+  })();
+
   // Prevent native form submit/reload if the user is faster than the JS module boot.
   window.__niaLoginReady = false;
   window.__niaPendingLoginSubmit = false;

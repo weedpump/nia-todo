@@ -4,8 +4,22 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
   let allowReloadOnControllerChange = false;
   let hadControllerAtRegistration = false;
 
+  function isNativeApp() {
+    return Boolean(window.__TAURI__?.core?.invoke) || new URLSearchParams(location.search).get('nativeApp') === 'tauri';
+  }
+
   async function initServiceWorker() {
     if (!('serviceWorker' in navigator)) return;
+    if (isNativeApp()) {
+      console.log('SW: disabled in native wrapper');
+      try {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(registrations.map((registration) => registration.unregister()));
+      } catch (error) {
+        console.warn('SW: native unregister failed', error);
+      }
+      return;
+    }
 
     console.log('SW: registration scheduled');
     setTimeout(async () => {

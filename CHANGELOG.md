@@ -5,6 +5,14 @@ Alle wichtigen Änderungen an diesem Projekt werden in dieser Datei dokumentiert
 Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [1.5.2] - 2026-05-21
+
+### Fixed
+- Android/Tauri-Start lädt die Web-App mit Native-Launch-Parameter, um stale Service-Worker-Navigation-Caches zu umgehen.
+- Service Worker wird in nativen Tauri-Wrappern deaktiviert und vorhandene Registrierungen werden entfernt, damit Android nicht im Boot-Spinner hängen bleibt.
+- Android bekommt ein natives Statusbar-Inset, damit Topbar und Sidebar nicht unter der System-Statusleiste liegen.
+- Boot-Prozess zeigt bei hängender Initialisierung einen Reload-Fehler statt endlosem Spinner.
+
 ## [1.5.1] - 2026-05-21
 
 ### Changed

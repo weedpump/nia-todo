@@ -48,6 +48,27 @@ body {
 
 #app { display: flex; height: 100dvh; }
 
+
+html.native-android {
+  --native-android-top-inset: 28px;
+}
+
+html.native-android #app {
+  height: calc(100dvh - var(--native-android-top-inset));
+  padding-top: var(--native-android-top-inset);
+}
+
+html.native-android .sidebar {
+  top: var(--native-android-top-inset);
+  height: calc(100dvh - var(--native-android-top-inset));
+  min-height: calc(100dvh - var(--native-android-top-inset));
+}
+
+html.native-android .boot-overlay,
+html.native-android .login-overlay {
+  padding-top: var(--native-android-top-inset);
+}
+
 /* Sidebar */
 .sidebar {
   width: 260px;
