@@ -17,8 +17,18 @@ function getInvoke() {
   return getTauri()?.core?.invoke || null;
 }
 
+function hasNativeLaunchParam() {
+  return new URLSearchParams(location.search).get('nativeApp') === 'tauri';
+}
+
 function isNativeApp() {
-  return Boolean(getInvoke());
+  return Boolean(getInvoke()) || hasNativeLaunchParam();
+}
+
+function nativeLaunchUrl(serverUrl) {
+  const url = new URL(serverUrl);
+  url.searchParams.set('nativeApp', 'tauri');
+  return url.toString();
 }
 
 function isAndroidApp() {
@@ -222,7 +232,7 @@ export function createDesktopIntegration({ wsSend, getWsState, showToast, onHotk
       const serverUrl = normalizeServerUrl(value);
       settings = mergeSettings(await invokeDesktop('desktop_set_server_url', { serverUrl }));
       setDesktopStatus('Server gespeichert. App lädt neu...');
-      setTimeout(() => location.replace(serverUrl), 250);
+      setTimeout(() => location.replace(nativeLaunchUrl(serverUrl)), 250);
     } catch (error) {
       setDesktopStatus(error?.message || String(error), true);
     }

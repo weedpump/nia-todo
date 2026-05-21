@@ -50,12 +50,20 @@ body {
 
 
 html.native-android {
-  --native-android-top-inset: 28px;
+  --native-android-top-inset: max(28px, env(safe-area-inset-top, 0px));
+}
+
+html.native-android,
+html.native-android body {
+  height: 100dvh;
+  overflow: hidden;
+  background: #0f172a;
 }
 
 html.native-android #app {
   height: calc(100dvh - var(--native-android-top-inset));
   padding-top: var(--native-android-top-inset);
+  overflow: hidden;
 }
 
 html.native-android .sidebar {

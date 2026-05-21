@@ -1,6 +1,7 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
     <style name="Theme.nia_todo_desktop" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="android:windowBackground">#0f172a</item>
         <item name="android:statusBarColor">#0f172a</item>
         <item name="android:navigationBarColor">#0f172a</item>
         <item name="android:windowLightStatusBar">false</item>
