@@ -9,7 +9,8 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 
 ### Fixed
 - Settings-/User-Dropdown richtet alle Menü-Icons und Labels über eine feste Icon-Spalte konsistent aus.
-- Regressionstest für User-Menü-Alignment ergänzt.
+- Geöffnetes User-Dropdown bleibt beim Scrollen der Sidebar an der User-Kachel verankert.
+- Regressionstests für User-Menü-Alignment und Scroll-Verankerung ergänzt.
 
 ## [1.6.4] - 2026-05-22
 
