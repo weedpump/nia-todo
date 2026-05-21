@@ -354,6 +354,15 @@ const clearDoneFromModal = projectsFeature.clearDoneFromModal;
 const clearDoneInProject = projectsFeature.clearDoneInProject;
 
 const markTodoDone = todosFeature.markTodoDone;
+async function markTodoDoneFromNative(id) {
+  const startedAt = Date.now();
+  while ((!appInitialized || !db) && Date.now() - startedAt < 30000) {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  if (!appInitialized || !db) return false;
+  await markTodoDone(id);
+  return true;
+}
 const toggleTodo = todosFeature.toggleTodo;
 const showTodoModal = todosFeature.showTodoModal;
 const onProjectChange = todosFeature.onProjectChange;
@@ -490,7 +499,7 @@ export function startAppModule() {
   lifecycle: { initServiceWorker, triggerUpdate, initApp, loadFromLocalDB, loadAll },
   rendering: { renderVersionInfo, renderProjects, renderStats, renderTodos, renderSectionHeader, countByProject },
   navigation: { setFilter, loadSectionsForCurrentProject },
-  todos: { markTodoDone, toggleTodo, showTodoModal, onProjectChange, saveTodo, editTodo, deleteTodoFromModal, deleteTodo },
+  todos: { markTodoDone, markTodoDoneFromNative, toggleTodo, showTodoModal, onProjectChange, saveTodo, editTodo, deleteTodoFromModal, deleteTodo },
   projects: { showProjectModal, editProject, saveProject, deleteProject, deleteProjectFromModal, clearDoneFromModal, clearDoneInProject },
   sharing: { inviteUserToProject: () => sharingFeature.inviteByUsername(), leaveProjectFromModal: () => sharingFeature.leaveProject(), undoLeaveProject: (data) => sharingFeature.undoLeaveProject(data), undoRemoveMember: (data) => sharingFeature.undoRemoveMember(data), undoInvite: (data) => sharingFeature.undoInvite(data), acceptInvite: (pid, iid) => sharingFeature.acceptInvite(pid, iid), declineInvite: (pid, iid) => sharingFeature.declineInvite(pid, iid), showShareInput: () => sharingFeature.showShareInput() },
   projectSharing: { setProject: (project) => sharingFeature.setProject(project), applyProjectModalState: (project, canEdit, shared) => sharingFeature.applyProjectModalState(project, canEdit, shared), loadInvites: () => sharingFeature.loadInvites() },

@@ -70,8 +70,8 @@ class MainActivity : TauriActivity() {
       (function() {
         const rawId = $escapedId;
         const id = /^\\d+$/.test(rawId) ? Number(rawId) : rawId;
-        if (typeof window.markTodoDone !== 'function') return false;
-        window.markTodoDone(id);
+        if (typeof window.markTodoDoneFromNative !== 'function') return false;
+        window.markTodoDoneFromNative(id);
         return true;
       })();
     """.trimIndent()
