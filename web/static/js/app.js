@@ -9,7 +9,6 @@ import { updateConnectionStatus as renderConnectionStatus } from './features/con
 import { createPushNotificationsFeature } from './features/push-notifications.js';
 import { createSectionsFeature } from './features/sections.js';
 import { createServiceWorkerUpdatesFeature } from './features/service-worker-updates.js';
-import { initAndroidTouchDebug } from './features/android-touch-debug.js';
 import { applyTheme, bindSystemThemeListener, cycleTheme, initTheme, setTheme } from './features/theme.js';
 import { createUserSettingsFeature } from './features/user-settings.js';
 import { createUserMenuFeature } from './features/user-menu.js';
@@ -467,7 +466,6 @@ export function startAppModule() {
     return;
   }
   startupBound = true;
-  initAndroidTouchDebug();
   appLifecycle.bindNetworkEvents();
   appLifecycle.bindDomReady();
   bindUserMenu();

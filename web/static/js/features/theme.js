@@ -16,8 +16,12 @@ export function setTheme(mode) {
 export function applyTheme(mode) {
   const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
   const isDark = mode === 'dark' || (mode === 'system' && prefersDark);
+  const resolvedTheme = isDark ? 'dark' : 'light';
 
-  document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+  document.documentElement.setAttribute('data-theme', resolvedTheme);
+
+  window.NiaAndroidNative?.setTheme?.(resolvedTheme);
+  window.NiaAndroidSystemBars?.setTheme?.(resolvedTheme);
 
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute('content', isDark ? '#0f172a' : '#f8fafc');
