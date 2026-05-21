@@ -1,6 +1,6 @@
-# Tauri Windows PoC
+# Tauri Windows/Android PoC
 
-Status: erster testbarer Windows-Wrapper für `nia-todo`.
+Status: erster testbarer Windows- und Android-Wrapper für `nia-todo`.
 
 ## Ziel
 
@@ -22,6 +22,14 @@ Damit bleibt die API relativ zur jeweils geladenen Web-App nutzbar und Login/Ses
 - Autostart kann per Windows-Registry `HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run` gesetzt werden
 - Native Windows-Benachrichtigungen laufen über Tauri statt Browser-Web-Push
 - Reminder werden per bestehender WebSocket-Verbindung als `reminder_due` an angemeldete Desktop-Clients verteilt
+
+## Android-Features im PoC
+
+- Android-App nutzt dieselbe lokale Server-Auswahl wie der Windows-Wrapper.
+- Es gibt keine fest eingebaute Standard-URL.
+- Desktop-spezifische Features wie Tray, Close-to-tray und Autostart werden auf Android nicht angezeigt.
+- Die App ist als `arm64`-APK gebaut und test-signiert.
+- Native Benachrichtigungen sind über das Tauri-Notification-Plugin vorbereitet; Android fragt dafür `POST_NOTIFICATIONS` an.
 
 ## Struktur
 
@@ -58,6 +66,28 @@ faf617c4484033ebc1f58d612d6796b8150bf3a09a081bb57a6ca35e46686afe
 
 Hinweis: Der Installer ist nicht signiert, weil Code-Signing auf diesem Host nicht eingerichtet ist. Windows SmartScreen kann deshalb warnen.
 
+Android-Build auf demselben Host:
+
+```bash
+export ANDROID_HOME=/opt/android-sdk
+export ANDROID_SDK_ROOT=/opt/android-sdk
+export NDK_HOME=/opt/android-sdk/ndk/27.0.12077973
+export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$HOME/.cargo/bin:$PATH"
+export CARGO_BUILD_JOBS=1
+export GRADLE_OPTS='-Xmx1536m -Dorg.gradle.workers.max=1 -Dkotlin.compiler.execution.strategy=in-process'
+export RUSTFLAGS='-C codegen-units=1'
+npx tauri android build --apk --target aarch64 --ci
+```
+
+Ergebnis:
+
+```text
+src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk
+```
+
+Für Tests wird das APK lokal mit dem Test-Key unter `$NIA_TODO_SECRETS_DIR/` signiert und als Artefakt abgelegt.
+
 ## Host-Toolchain
 
 Installiert/benötigt für Cross-Build:
@@ -67,6 +97,11 @@ Installiert/benötigt für Cross-Build:
 - `cargo-xwin`
 - `nsis`
 - `llvm` / `lld` / `clang`
+- OpenJDK 21
+- Android SDK Command Line Tools
+- Android SDK Platform/Build Tools 35/36
+- Android NDK `27.0.12077973`
+- Rust Android Targets: `aarch64-linux-android`, `armv7-linux-androideabi`, `i686-linux-android`, `x86_64-linux-android`
 
 ## Nächste Schritte
 
