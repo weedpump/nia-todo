@@ -1,6 +1,7 @@
 """nia-todo: Push notification endpoints"""
 
 from typing import Optional
+from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 
@@ -74,7 +75,7 @@ async def push_test(data: PushTestRequest, user_id: int = Depends(require_auth))
         user_id=user_id,
         title=data.title,
         body=data.body,
-        tag="test",
+        tag=f"test-{int(datetime.now(timezone.utc).timestamp() * 1000)}",
         url="/"
     )
     return {"sent": sent}
