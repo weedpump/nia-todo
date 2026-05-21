@@ -34,10 +34,22 @@ class ReminderReceiver : BroadcastReceiver() {
     val openIntent = Intent(context, MainActivity::class.java).apply {
       flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
     }
+    val doneIntent = Intent(context, MainActivity::class.java).apply {
+      action = ACTION_MARK_DONE
+      flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+      putExtra(EXTRA_ID, id)
+    }
     val contentIntent = PendingIntent.getActivity(
       context,
       0,
       openIntent,
+      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+    )
+
+    val donePendingIntent = PendingIntent.getActivity(
+      context,
+      notificationId("done-$id"),
+      doneIntent,
       PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )
 
@@ -51,6 +63,7 @@ class ReminderReceiver : BroadcastReceiver() {
       .setPriority(NotificationCompat.PRIORITY_DEFAULT)
       .setAutoCancel(true)
       .setContentIntent(contentIntent)
+      .addAction(R.drawable.ic_stat_notification, "Erledigt", donePendingIntent)
       .build()
 
     NotificationManagerCompat.from(context).notify(notificationId(id), notification)
@@ -58,6 +71,7 @@ class ReminderReceiver : BroadcastReceiver() {
 
   companion object {
     const val ACTION_SHOW_REMINDER = "de.tobiaskneidl.nia_todo.SHOW_REMINDER"
+    const val ACTION_MARK_DONE = "de.tobiaskneidl.nia_todo.MARK_DONE"
     const val EXTRA_ID = "id"
     const val EXTRA_TITLE = "title"
     const val EXTRA_BODY = "body"
