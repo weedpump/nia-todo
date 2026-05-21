@@ -17,8 +17,16 @@ function getInvoke() {
   return getTauri()?.core?.invoke || null;
 }
 
+function isNativeApp() {
+  return Boolean(getInvoke());
+}
+
+function isAndroidApp() {
+  return isNativeApp() && /Android/i.test(navigator.userAgent || '');
+}
+
 function isDesktopApp() {
-  return Boolean(getInvoke()) && !/Android/i.test(navigator.userAgent || '');
+  return isNativeApp() && !isAndroidApp();
 }
 
 async function invokeDesktop(command, args = {}) {
@@ -116,7 +124,7 @@ export function createDesktopIntegration({ wsSend, getWsState, showToast, onHotk
   let settings = { ...DEFAULT_SETTINGS };
 
   async function loadSettings() {
-    if (!isDesktopApp()) return settings;
+    if (!isNativeApp()) return settings;
     try {
       settings = mergeSettings(await invokeDesktop('desktop_get_settings'));
     } catch (error) {
@@ -126,13 +134,16 @@ export function createDesktopIntegration({ wsSend, getWsState, showToast, onHotk
   }
 
   function renderSettings() {
+    const native = isNativeApp();
     const desktop = isDesktopApp();
     const section = document.getElementById('desktop-settings-section');
     const browserPushSection = document.getElementById('browser-push-settings-section');
-    if (browserPushSection) browserPushSection.style.display = desktop ? 'none' : '';
+    const desktopOnlySections = document.querySelectorAll('[data-desktop-only]');
+    if (browserPushSection) browserPushSection.style.display = native ? 'none' : '';
+    desktopOnlySections.forEach((el) => { el.style.display = desktop ? '' : 'none'; });
     if (!section) return;
-    section.style.display = desktop ? '' : 'none';
-    if (!desktop) return;
+    section.style.display = native ? '' : 'none';
+    if (!native) return;
     setChecked('desktop-minimize-to-tray', settings.minimizeToTray);
     setChecked('desktop-autostart', settings.autostart);
     setChecked('desktop-notifications', settings.notifications);
@@ -144,16 +155,19 @@ export function createDesktopIntegration({ wsSend, getWsState, showToast, onHotk
   }
 
   async function init() {
-    if (!isDesktopApp()) return;
-    bindHotkeyCaptureInputs();
+    if (!isNativeApp()) {
+      renderSettings();
+      return;
+    }
+    if (isDesktopApp()) bindHotkeyCaptureInputs();
     await loadSettings();
     renderSettings();
-    bindHotkeyEvents();
+    if (isDesktopApp()) bindHotkeyEvents();
     announceNotificationReadiness();
   }
 
   async function updateSetting(key, value) {
-    if (!isDesktopApp()) return;
+    if (!isNativeApp()) return;
     const nextValue = Boolean(value);
     settings[key] = nextValue;
     renderSettings();
@@ -170,15 +184,28 @@ export function createDesktopIntegration({ wsSend, getWsState, showToast, onHotk
     }
   }
 
-  function announceNotificationReadiness() {
-    if (!isDesktopApp() || !settings.notifications) return;
+  async function ensureNativeNotificationPermission() {
+    if (!isNativeApp()) return true;
+    try {
+      const state = await invokeDesktop('desktop_request_notification_permission');
+      return state === 'granted';
+    } catch (error) {
+      console.warn('[Native] Notification permission request failed', error);
+    }
+    return false;
+  }
+
+  async function announceNotificationReadiness() {
+    if (!isNativeApp() || !settings.notifications) return;
+    await ensureNativeNotificationPermission();
     if (getWsState() === 'connected') {
       wsSend({ type: 'desktop_notify_ready', enabled: true });
     }
   }
 
   async function notifyReminder(reminder) {
-    if (!isDesktopApp() || !settings.notifications) return;
+    if (!isNativeApp() || !settings.notifications) return;
+    if (!await ensureNativeNotificationPermission()) return;
     const title = reminder?.title || '⏰ Erinnerung';
     const body = reminder?.body || reminder?.todo_title || 'Todo-Erinnerung';
     try {
@@ -190,7 +217,7 @@ export function createDesktopIntegration({ wsSend, getWsState, showToast, onHotk
   }
 
   async function updateServerUrl(value) {
-    if (!isDesktopApp()) return;
+    if (!isNativeApp()) return;
     try {
       const serverUrl = normalizeServerUrl(value);
       settings = mergeSettings(await invokeDesktop('desktop_set_server_url', { serverUrl }));
@@ -202,7 +229,7 @@ export function createDesktopIntegration({ wsSend, getWsState, showToast, onHotk
   }
 
   async function resetServerUrl() {
-    if (!isDesktopApp()) return;
+    if (!isNativeApp()) return;
     try {
       await invokeDesktop('desktop_clear_server_url');
       setDesktopStatus('Server zurückgesetzt. App lädt neu...');
@@ -213,7 +240,11 @@ export function createDesktopIntegration({ wsSend, getWsState, showToast, onHotk
   }
 
   async function testNotification() {
-    if (!isDesktopApp()) return;
+    if (!isNativeApp()) return;
+    if (!await ensureNativeNotificationPermission()) {
+      setDesktopStatus('Benachrichtigungsberechtigung wurde nicht erteilt.', true);
+      return;
+    }
     try {
       await invokeDesktop('desktop_notify', {
         title: '🔔 nia-todo',
@@ -287,6 +318,8 @@ export function createDesktopIntegration({ wsSend, getWsState, showToast, onHotk
 
   return {
     isDesktopApp,
+    isNativeApp,
+    isAndroidApp,
     init,
     loadSettings,
     renderSettings,

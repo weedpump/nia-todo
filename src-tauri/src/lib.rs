@@ -273,6 +273,15 @@ fn desktop_set_hotkey(app: AppHandle, action: String, shortcut: String) -> Resul
 }
 
 #[tauri::command]
+fn desktop_request_notification_permission(app: AppHandle) -> Result<String, String> {
+  app
+    .notification()
+    .request_permission()
+    .map(|state| state.to_string())
+    .map_err(|err| err.to_string())
+}
+
+#[tauri::command]
 fn desktop_notify(app: AppHandle, title: String, body: String) -> Result<(), String> {
   let settings = load_settings(&app);
   if !settings.notifications {
@@ -342,6 +351,7 @@ pub fn run() {
       desktop_set_server_url,
       desktop_clear_server_url,
       desktop_set_hotkey,
+      desktop_request_notification_permission,
       desktop_notify,
     ])
     .setup(|_app| {

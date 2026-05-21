@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-desktop-request-notification-permission"
+description = "Enables the desktop_request_notification_permission command without any pre-configured scope."
+commands.allow = ["desktop_request_notification_permission"]
+
+[[permission]]
+identifier = "deny-desktop-request-notification-permission"
+description = "Denies the desktop_request_notification_permission command without any pre-configured scope."
+commands.deny = ["desktop_request_notification_permission"]

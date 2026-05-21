@@ -7,6 +7,7 @@ fn main() {
         "desktop_set_server_url",
         "desktop_clear_server_url",
         "desktop_set_hotkey",
+        "desktop_request_notification_permission",
         "desktop_notify",
       ]),
     ),

@@ -339,7 +339,7 @@
         <div class="app-downloads settings-downloads" data-app-downloads style="display:none;"></div>
         <div id="desktop-settings-section" style="display:none;">
           <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">
-          <h4 style="margin:0 0 12px 0; font-size:14px;">🖥️ Desktop-App</h4>
+          <h4 style="margin:0 0 12px 0; font-size:14px;">📱 App</h4>
           <div class="form-group">
             <label>Server-URL</label>
             <div class="settings-server-row">
@@ -348,20 +348,22 @@
             </div>
             <button class="btn btn-secondary" type="button" onclick="resetDesktopServerUrl()" style="margin-top:8px;">Server-Auswahl beim Start anzeigen</button>
           </div>
-          <label class="settings-toggle-row">
-            <span>Minimieren ins Tray statt beenden</span>
-            <input type="checkbox" id="desktop-minimize-to-tray" onchange="updateDesktopSetting('minimizeToTray', this.checked)">
-          </label>
-          <label class="settings-toggle-row">
-            <span>Autostart mit Windows</span>
-            <input type="checkbox" id="desktop-autostart" onchange="updateDesktopSetting('autostart', this.checked)">
-          </label>
+          <div data-desktop-only>
+            <label class="settings-toggle-row">
+              <span>Minimieren ins Tray statt beenden</span>
+              <input type="checkbox" id="desktop-minimize-to-tray" onchange="updateDesktopSetting('minimizeToTray', this.checked)">
+            </label>
+            <label class="settings-toggle-row">
+              <span>Autostart mit Windows</span>
+              <input type="checkbox" id="desktop-autostart" onchange="updateDesktopSetting('autostart', this.checked)">
+            </label>
+          </div>
           <label class="settings-toggle-row">
             <span>Native Benachrichtigungen</span>
             <input type="checkbox" id="desktop-notifications" onchange="updateDesktopSetting('notifications', this.checked)">
           </label>
           <button class="btn btn-secondary" type="button" onclick="testDesktopNotification()" style="margin-top:8px;">Test-Benachrichtigung</button>
-          <div class="desktop-hotkeys-settings">
+          <div class="desktop-hotkeys-settings" data-desktop-only>
             <h5>⌨️ Globale Hotkeys</h5>
             <p>Ins Feld klicken, Tastenkombination drücken, fertig. <code>Backspace</code>/<code>Entf</code> löscht den Hotkey.</p>
             <div class="form-group">
