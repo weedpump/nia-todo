@@ -6,6 +6,26 @@ export function createUserMenuFeature({ getCurrentUser }) {
     button?.setAttribute('aria-expanded', 'false');
   }
 
+  function positionUserMenu() {
+    const menu = document.getElementById('user-menu');
+    const wrap = document.querySelector('.sidebar-user-menu-wrap');
+    if (!menu || !wrap || !menu.classList.contains('active')) return;
+
+    const margin = 16;
+    const gap = 10;
+    const rect = wrap.getBoundingClientRect();
+    const menuRect = menu.getBoundingClientRect();
+    const maxLeft = window.innerWidth - menuRect.width - margin;
+    const centeredLeft = rect.left + (rect.width / 2) - (menuRect.width / 2);
+    const left = Math.max(margin, Math.min(centeredLeft, maxLeft));
+    const preferredTop = rect.top - menuRect.height - gap;
+    const maxTop = window.innerHeight - menuRect.height - margin;
+    const top = Math.max(margin, Math.min(preferredTop, maxTop));
+
+    menu.style.left = `${left}px`;
+    menu.style.top = `${top}px`;
+  }
+
   function toggleUserMenu(event) {
     event?.stopPropagation?.();
     const menu = document.getElementById('user-menu');
@@ -14,6 +34,7 @@ export function createUserMenuFeature({ getCurrentUser }) {
     const nextOpen = !menu.classList.contains('active');
     menu.classList.toggle('active', nextOpen);
     button.setAttribute('aria-expanded', nextOpen ? 'true' : 'false');
+    if (nextOpen) requestAnimationFrame(positionUserMenu);
   }
 
   function avatarSrc(user) {
@@ -58,6 +79,8 @@ export function createUserMenuFeature({ getCurrentUser }) {
     document.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') closeUserMenu();
     });
+    window.addEventListener('resize', positionUserMenu);
+    document.getElementById('sidebar')?.addEventListener('scroll', positionUserMenu, { passive: true });
   }
 
   return { toggleUserMenu, closeUserMenu, updateUserMenu, bindUserMenu };

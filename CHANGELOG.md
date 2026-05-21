@@ -5,6 +5,27 @@ Alle wichtigen Änderungen an diesem Projekt werden in dieser Datei dokumentiert
 Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [1.3.6] - 2026-05-21
+
+### Fixed
+- Sidebar-Benutzermenü ist auf Desktop und Mobile schmaler und mittig am Sidebar-User-Container ausgerichtet
+
+## [1.3.5] - 2026-05-21
+
+### Fixed
+- Sidebar-Benutzermenü wird in Desktop-PWA und Mobile nicht mehr vom Sidebar-Overflow abgeschnitten
+
+## [1.3.4] - 2026-05-21
+
+### Fixed
+- WebPush-VAPID-Claims werden pro Subscription isoliert, damit Android/FCM und Windows/WNS in einem gemeinsamen Versand nicht gegenseitig die Ziel-Audience überschreiben
+
+## [1.3.3] - 2026-05-21
+
+### Fixed
+- Push-Test meldet jetzt das echte WebPush-Sendeergebnis statt immer Erfolg anzuzeigen
+- Test-Benachrichtigungen nutzen eindeutige Tags, damit Windows/Edge sie nicht still ersetzt oder zusammenfasst
+
 ## [1.3.2] - 2026-05-21
 
 ### Added

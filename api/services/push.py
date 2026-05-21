@@ -74,7 +74,7 @@ async def send_push_notification(user_id: int, title: str, body: str, tag: str, 
                 subscription_info=subscription_info,
                 data=payload,
                 vapid_private_key=priv_key,
-                vapid_claims=VAPID_CLAIMS,
+                vapid_claims=dict(VAPID_CLAIMS),
                 ttl=3600,
             )
             success = True
@@ -146,7 +146,7 @@ async def cleanup_subscriptions():
                 subscription_info=subscription_info,
                 data=payload,
                 vapid_private_key=priv_key,
-                vapid_claims=VAPID_CLAIMS,
+                vapid_claims=dict(VAPID_CLAIMS),
                 ttl=60,
             )
         except WebPushException as e:

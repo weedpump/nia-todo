@@ -486,11 +486,14 @@ body {
   z-index: 250;
 }
 .sidebar-user-menu-wrap .user-menu {
+  position: fixed;
   top: auto;
   right: auto;
-  bottom: calc(100% + 10px);
-  left: 0;
-  width: min(260px, calc(100vw - 32px));
+  bottom: auto;
+  left: 16px;
+  width: min(228px, calc(100vw - 32px));
+  max-height: min(420px, calc(100dvh - 32px));
+  overflow-y: auto;
 }
 .user-menu.active { display: block; }
 .user-menu-header {
