@@ -5,6 +5,17 @@ Alle wichtigen Änderungen an diesem Projekt werden in dieser Datei dokumentiert
 Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [1.6.2] - 2026-05-21
+
+### Fixed
+- Native Android-App entfernt den Service Worker beim Start nicht mehr, damit wiederholte Offline-Cold-Starts nicht in `ERR_NAME_NOT_RESOLVED` landen.
+- Release-Script bricht künftig ab, wenn für die Zielversion kein `CHANGELOG.md`-Abschnitt existiert.
+
+## [1.6.1] - 2026-05-21
+
+### Fixed
+- Native Offline-Cold-Start in Windows-/Android-App lädt die App-Shell aus dem Service-Worker-Cache statt am Boot-Spinner hängen zu bleiben.
+
 ## [1.6.0] - 2026-05-21
 
 ### Added
