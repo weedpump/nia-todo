@@ -12,11 +12,13 @@ class ConnectionManager:
     def __init__(self):
         self.connections: dict[int, list[WebSocket]] = {}
         self.ws_users: dict[WebSocket, int] = {}
+        self.desktop_notify_connections: set[WebSocket] = set()
 
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
 
     def disconnect(self, websocket: WebSocket):
+        self.desktop_notify_connections.discard(websocket)
         user_id = self.ws_users.pop(websocket, None)
         if user_id and user_id in self.connections:
             if websocket in self.connections[user_id]:
@@ -33,14 +35,37 @@ class ConnectionManager:
     async def send_personal_message(self, message: dict, websocket: WebSocket):
         await websocket.send_json(message)
 
+    def register_desktop_notifications(self, websocket: WebSocket, enabled: bool):
+        if enabled:
+            self.desktop_notify_connections.add(websocket)
+        else:
+            self.desktop_notify_connections.discard(websocket)
+
     async def broadcast_to_user(self, user_id: int, message: dict):
         if user_id not in self.connections:
-            return
+            return False
+        sent = False
         for connection in self.connections[user_id][:]:
             try:
                 await connection.send_json(message)
+                sent = True
             except:
                 pass
+        return sent
+
+    async def broadcast_desktop_notification(self, user_id: int, message: dict):
+        if user_id not in self.connections:
+            return False
+        sent = False
+        for connection in self.connections[user_id][:]:
+            if connection not in self.desktop_notify_connections:
+                continue
+            try:
+                await connection.send_json(message)
+                sent = True
+            except:
+                pass
+        return sent
 
     async def broadcast(self, message: dict):
         for user_id, connections in list(self.connections.items()):

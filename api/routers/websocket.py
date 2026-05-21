@@ -56,6 +56,8 @@ async def websocket_endpoint(websocket: WebSocket):
                     await manager.send_personal_message({"type": "auth_fail"}, websocket)
             elif msg_type == "ping":
                 await manager.send_personal_message({"type": "pong", "ts": now_iso()}, websocket)
+            elif msg_type == "desktop_notify_ready":
+                manager.register_desktop_notifications(websocket, bool(data.get("enabled")))
             elif msg_type == "sync_request":
                 if not ws_user_id:
                     await manager.send_personal_message({"type": "error", "message": "Not authenticated"}, websocket)

@@ -21,6 +21,7 @@ import { createViewPreferencesFeature } from './features/view-preferences.js';
 import { createWebSocketClient } from './features/websocket-client.js';
 import { createToastUndoFeature } from './features/toast-undo.js';
 import { createDragDropFeature } from './features/drag-drop.js';
+import { createDesktopIntegration } from './features/desktop-integration.js';
 import { createAppRenderingFeature } from './features/app-rendering.js';
 import { createNavigationFeature } from './features/navigation.js';
 import { createSectionActionsFeature } from './features/section-actions.js';
@@ -37,6 +38,7 @@ let appInitialized = false;
 let syncInProgress = false;
 let hideDone = localStorage.getItem('nia-hide-done') === 'true';
 let sortMode = localStorage.getItem('nia-sort') || 'order';
+let desktopIntegration = null;
 
 // ─── Auth / User (JWT) ───────────────────────────────────────────────────────
 
@@ -221,6 +223,8 @@ const wsClient = createWebSocketClient({
   renderProjects: () => renderProjects(),
   renderStats: () => renderStats(),
   renderTodos: () => renderTodos(),
+  onAuthOk: () => desktopIntegration?.announceNotificationReadiness(),
+  onReminderDue: (payload) => desktopIntegration?.notifyReminder(payload),
 });
 const getReconnectDelay = wsClient.getReconnectDelay;
 const connectWebSocket = wsClient.connectWebSocket;
@@ -231,6 +235,12 @@ const scheduleReconnect = wsClient.scheduleReconnect;
 const disconnectWebSocket = wsClient.disconnectWebSocket;
 const updateConnectionStatus = wsClient.updateConnectionStatus;
 const handleWsMessage = wsClient.handleWsMessage;
+
+desktopIntegration = createDesktopIntegration({
+  wsSend: (data) => wsSend(data),
+  getWsState: () => wsClient.getWsState(),
+  showToast: (...args) => showToast(...args),
+});
 
 
 // ─── IndexedDB ───────────────────────────────────────────────────────────────
@@ -448,6 +458,7 @@ export function startAppModule() {
   appLifecycle.bindNetworkEvents();
   appLifecycle.bindDomReady();
   bindUserMenu();
+  desktopIntegration?.init();
   setInterval(() => renderStats(), 30 * 1000);
 
   // Expose legacy inline handlers for module-loaded frontend.
@@ -472,6 +483,10 @@ export function startAppModule() {
   viewPreferences: { toggleHideDone, updateToggleDoneButton, cycleSort, updateSortButton, sortTodoList },
   toastUndo: { showToast, showBatchToast, hideToast, undoLastAction, restoreBatchTodos, restoreTodo },
     push: { updatePushStatus, updatePushSettingsUI, enablePushNotifications, disablePushNotifications, sendTestPush },
+    desktopIntegration: {
+      updateDesktopSetting: (key, value) => desktopIntegration?.updateSetting(key, value),
+      testDesktopNotification: () => desktopIntegration?.testNotification(),
+    },
     userSettings: { renderUserInfo, openSettingsModal, editUserDisplayName, cancelUserDisplayNameEdit, saveUserProfile, startAvatarUpload, cancelAvatarCrop, saveAvatarCrop, editUserEmail, cancelUserEmailEdit, saveUserEmail, changeUserPassword },
     userMenu: { toggleUserMenu, closeUserMenu, updateUserMenu },
   });
