@@ -15,6 +15,7 @@
     const nativeLaunch = params.get('nativeApp') === 'tauri';
     const android = /Android/i.test(navigator.userAgent || '');
     const tauri = Boolean(window.__TAURI__?.core?.invoke);
+    if (nativeLaunch) document.documentElement.classList.add('native-app');
     if (android && (nativeLaunch || tauri)) {
       document.documentElement.classList.add('native-android');
     }
