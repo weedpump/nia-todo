@@ -13,7 +13,7 @@ function getInvoke() {
 }
 
 function isDesktopApp() {
-  return Boolean(getInvoke());
+  return Boolean(getInvoke()) && !/Android/i.test(navigator.userAgent || '');
 }
 
 async function invokeDesktop(command, args = {}) {

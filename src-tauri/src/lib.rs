@@ -1,7 +1,11 @@
 use serde::{Deserialize, Serialize};
 use std::{fs, path::PathBuf};
-use tauri::{AppHandle, Manager, WindowEvent};
+use tauri::{AppHandle, Manager};
+#[cfg(desktop)]
+use tauri::WindowEvent;
+#[cfg(desktop)]
 use tauri::menu::{Menu, MenuItem};
+#[cfg(desktop)]
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri_plugin_notification::NotificationExt;
 
@@ -85,6 +89,7 @@ fn normalize_server_url(server_url: &str) -> Result<String, String> {
   }
 }
 
+#[cfg(desktop)]
 fn show_main_window(app: &AppHandle) {
   if let Some(window) = app.get_webview_window("main") {
     let _ = window.show();
@@ -144,6 +149,7 @@ fn desktop_notify(app: AppHandle, title: String, body: String) -> Result<(), Str
     .map_err(|err| err.to_string())
 }
 
+#[cfg(desktop)]
 fn build_tray(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
   let show = MenuItem::with_id(app, "show", "Öffnen", true, None::<&str>)?;
   let quit = MenuItem::with_id(app, "quit", "Beenden", true, None::<&str>)?;
@@ -186,19 +192,22 @@ pub fn run() {
       desktop_clear_server_url,
       desktop_notify,
     ])
-    .setup(|app| {
-      build_tray(app)?;
-      if let Some(window) = app.get_webview_window("main") {
-        let app_handle = app.handle().clone();
-        let window_for_close = window.clone();
-        window.on_window_event(move |event| {
-          if let WindowEvent::CloseRequested { api, .. } = event {
-            if load_settings(&app_handle).minimize_to_tray {
-              api.prevent_close();
-              let _ = window_for_close.hide();
+    .setup(|_app| {
+      #[cfg(desktop)]
+      {
+        build_tray(_app)?;
+        if let Some(window) = _app.get_webview_window("main") {
+          let app_handle = _app.handle().clone();
+          let window_for_close = window.clone();
+          window.on_window_event(move |event| {
+            if let WindowEvent::CloseRequested { api, .. } = event {
+              if load_settings(&app_handle).minimize_to_tray {
+                api.prevent_close();
+                let _ = window_for_close.hide();
+              }
             }
-          }
-        });
+          });
+        }
       }
       Ok(())
     })
