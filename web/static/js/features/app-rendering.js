@@ -155,13 +155,41 @@ export function createAppRenderingFeature({
       return;
     }
 
-    const openByProject = projects
-      .map(project => ({
-        ...project,
-        openCount: activeTodos.filter(t => t.project_id === project.id).length,
-      }))
-      .filter(project => project.openCount > 0)
-      .sort((a, b) => b.openCount - a.openCount || a.name.localeCompare(b.name))
+    function parseTodoTimestamp(value) {
+      if (!value) return null;
+      const normalized = String(value).includes('T') ? String(value) : String(value).replace(' ', 'T');
+      const date = new Date(normalized);
+      return Number.isFinite(date.getTime()) ? date : null;
+    }
+
+    function formatRelativeTime(date) {
+      if (!date) return '–';
+      const diffMs = now.getTime() - date.getTime();
+      const diffMinutes = Math.max(0, Math.round(diffMs / 60000));
+      if (diffMinutes < 1) return 'gerade eben';
+      if (diffMinutes < 60) return `vor ${diffMinutes} Min.`;
+      const diffHours = Math.round(diffMinutes / 60);
+      if (diffHours < 24) return `vor ${diffHours} Std.`;
+      const diffDays = Math.round(diffHours / 24);
+      if (diffDays < 7) return `vor ${diffDays} Tg.`;
+      return new Intl.DateTimeFormat('de-DE', { day: '2-digit', month: '2-digit' }).format(date);
+    }
+
+    const projectsByRecentTodo = projects
+      .map(project => {
+        const projectTodos = todos.filter(t => t.project_id === project.id);
+        const latestDate = projectTodos
+          .map(t => parseTodoTimestamp(t.updated_at || t.created_at))
+          .filter(Boolean)
+          .sort((a, b) => b.getTime() - a.getTime())[0] || null;
+        return {
+          ...project,
+          latestTodoAt: latestDate,
+          latestTodoLabel: formatRelativeTime(latestDate),
+        };
+      })
+      .filter(project => project.latestTodoAt)
+      .sort((a, b) => b.latestTodoAt.getTime() - a.latestTodoAt.getTime() || a.name.localeCompare(b.name))
       .slice(0, 4);
 
     const cards = [
@@ -191,7 +219,6 @@ export function createAppRenderingFeature({
               <div class="overview-subtitle">Alle Todos auf einen Blick</div>
             </div>
           </div>
-          <div class="overview-pill">${activeTodos.length} aktiv</div>
         </div>
         <div class="overview-stat-grid">
           ${cards.map(card => `
@@ -220,13 +247,13 @@ export function createAppRenderingFeature({
           <div class="overview-panel">
             <div class="overview-panel-title">Aktive Projekte</div>
             <div class="overview-project-list">
-              ${openByProject.length ? openByProject.map(project => `
+              ${projectsByRecentTodo.length ? projectsByRecentTodo.map(project => `
                 <button type="button" class="overview-project-item" onclick="setFilter('${escapeHtmlAttr(project.id)}')">
                   <span class="project-dot" style="background:${escapeHtmlAttr(project.color || '#6366f1')}"></span>
                   <span>${escapeHtml(project.name)}</span>
-                  <strong>${project.openCount}</strong>
+                  <strong>${escapeHtml(project.latestTodoLabel)}</strong>
                 </button>
-              `).join('') : '<div class="overview-empty-mini">Keine offenen Projekt-Todos 🎉</div>'}
+              `).join('') : '<div class="overview-empty-mini">Noch keine Todo-Änderungen 🎉</div>'}
             </div>
           </div>
         </div>
