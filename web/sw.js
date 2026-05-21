@@ -27,6 +27,7 @@ const PRECACHE_ASSETS = [
   '/static/js/features/app-downloads.js',
   '/static/js/features/app-rendering.js',
   '/static/js/features/app-lifecycle.js',
+  '/static/js/features/android-touch-debug.js',
   '/static/js/features/auth-session.js',
   '/static/js/features/connection-status.js',
   '/static/js/features/drag-drop.js',
