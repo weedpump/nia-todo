@@ -4,7 +4,20 @@
   "description": "Default desktop window capability for nia-todo.",
   "windows": ["main"],
   "remote": {
-    "urls": ["https://*.kneidl-home.de", "https://kneidl-home.de", "http://localhost:*", "http://127.0.0.1:*"]
+    "urls": [
+      "https://todo.kneidl-home.de",
+      "https://todo-dev.kneidl-home.de",
+      "http://localhost:*",
+      "http://127.0.0.1:*"
+    ]
   },
-  "permissions": ["core:default", "notification:default"]
+  "permissions": [
+    "core:default",
+    "notification:default",
+    "allow-desktop-get-settings",
+    "allow-desktop-set-setting",
+    "allow-desktop-set-server-url",
+    "allow-desktop-clear-server-url",
+    "allow-desktop-notify"
+  ]
 }

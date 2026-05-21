@@ -177,6 +177,66 @@
       "description": "Permission identifier",
       "oneOf": [
         {
+          "description": "Enables the desktop_clear_server_url command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-desktop-clear-server-url",
+          "markdownDescription": "Enables the desktop_clear_server_url command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the desktop_get_settings command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-desktop-get-settings",
+          "markdownDescription": "Enables the desktop_get_settings command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the desktop_notify command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-desktop-notify",
+          "markdownDescription": "Enables the desktop_notify command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the desktop_set_server_url command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-desktop-set-server-url",
+          "markdownDescription": "Enables the desktop_set_server_url command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the desktop_set_setting command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-desktop-set-setting",
+          "markdownDescription": "Enables the desktop_set_setting command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the desktop_clear_server_url command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-desktop-clear-server-url",
+          "markdownDescription": "Denies the desktop_clear_server_url command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the desktop_get_settings command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-desktop-get-settings",
+          "markdownDescription": "Denies the desktop_get_settings command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the desktop_notify command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-desktop-notify",
+          "markdownDescription": "Denies the desktop_notify command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the desktop_set_server_url command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-desktop-set-server-url",
+          "markdownDescription": "Denies the desktop_set_server_url command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the desktop_set_setting command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-desktop-set-setting",
+          "markdownDescription": "Denies the desktop_set_setting command without any pre-configured scope."
+        },
+        {
           "description": "Default core plugins set.\n#### This default permission set includes:\n\n- `core:path:default`\n- `core:event:default`\n- `core:window:default`\n- `core:webview:default`\n- `core:app:default`\n- `core:image:default`\n- `core:resources:default`\n- `core:menu:default`\n- `core:tray:default`",
           "type": "string",
           "const": "core:default",
