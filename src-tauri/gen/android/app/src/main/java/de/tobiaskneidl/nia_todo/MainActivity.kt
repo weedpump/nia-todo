@@ -1,10 +1,7 @@
 package de.tobiaskneidl.nia_todo
 
 import android.Manifest
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.app.PendingIntent
-import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
@@ -25,7 +22,6 @@ import java.util.concurrent.atomic.AtomicInteger
 class MainActivity : TauriActivity() {
   private val lightSystemBarColor = Color.rgb(248, 250, 252)
   private val darkSystemBarColor = Color.rgb(15, 15, 35)
-  private val notificationChannelId = "nia_todo_reminders"
   private val notificationIds = AtomicInteger(1000)
 
   override fun onCreate(savedInstanceState: Bundle?) {
@@ -34,7 +30,7 @@ class MainActivity : TauriActivity() {
     // to the native content root that hosts the Tauri WebView.
     enableEdgeToEdge()
     applySystemBarsTheme(false)
-    createNotificationChannel()
+    ReminderReceiver.createNotificationChannel(this)
     super.onCreate(savedInstanceState)
     applySystemBarInsetsToContentRoot()
   }
@@ -72,18 +68,6 @@ class MainActivity : TauriActivity() {
     controller.isAppearanceLightNavigationBars = !isDark
   }
 
-  private fun createNotificationChannel() {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-    val channel = NotificationChannel(
-      notificationChannelId,
-      "nia-todo Erinnerungen",
-      NotificationManager.IMPORTANCE_DEFAULT,
-    ).apply {
-      description = "Native Benachrichtigungen für Todo-Erinnerungen"
-    }
-    getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
-  }
-
   private fun notificationPermissionState(): String {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return "granted"
     return if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
@@ -102,7 +86,7 @@ class MainActivity : TauriActivity() {
 
   private fun showNativeNotification(title: String, body: String): Boolean {
     if (notificationPermissionState() != "granted") return false
-    createNotificationChannel()
+    ReminderReceiver.createNotificationChannel(this)
 
     val intent = Intent(this, MainActivity::class.java).apply {
       flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -114,7 +98,7 @@ class MainActivity : TauriActivity() {
       PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )
     val largeIcon = BitmapFactory.decodeResource(resources, R.mipmap.ic_launcher)
-    val notification = NotificationCompat.Builder(this, notificationChannelId)
+    val notification = NotificationCompat.Builder(this, ReminderReceiver.CHANNEL_ID)
       .setSmallIcon(R.drawable.ic_stat_notification)
       .setLargeIcon(largeIcon)
       .setContentTitle(title)
@@ -150,6 +134,11 @@ class MainActivity : TauriActivity() {
     @JavascriptInterface
     fun notify(title: String, body: String): Boolean {
       return this@MainActivity.showNativeNotification(title, body)
+    }
+
+    @JavascriptInterface
+    fun scheduleReminders(schedulesJson: String): Int {
+      return ReminderReceiver.scheduleReminders(this@MainActivity, schedulesJson)
     }
   }
 }
