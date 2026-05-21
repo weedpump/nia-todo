@@ -5,6 +5,14 @@ Alle wichtigen Änderungen an diesem Projekt werden in dieser Datei dokumentiert
 Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [1.3.1] - 2026-05-21
+
+### Changed
+- Dashboard-Pill oben rechts entfernt, damit der Header ruhiger wirkt
+- **Aktive Projekte** sortiert jetzt nach der letzten Todo-Änderung pro Projekt statt nach offener Todo-Anzahl
+  - Nutzt `updated_at` mit Fallback auf `created_at`
+  - Zeigt relative Änderungszeit wie `vor 3 Min.` oder `vor 2 Std.`
+
 ## [1.3.0] - 2026-05-21
 
 ### Added
