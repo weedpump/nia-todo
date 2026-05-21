@@ -1881,8 +1881,7 @@ input[type="color"]::-moz-color-swatch {
 }
 
 .login-downloads {
-  padding-top: 14px;
-  border-top: 1px solid var(--border);
+  padding-top: 4px;
 }
 
 .settings-downloads {
@@ -1895,7 +1894,7 @@ input[type="color"]::-moz-color-swatch {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 10px 14px;
+  padding: 9px 12px;
   border: 1px solid rgba(99, 102, 241, 0.4);
   border-radius: var(--radius);
   background: rgba(99, 102, 241, 0.18);
@@ -1909,13 +1908,6 @@ input[type="color"]::-moz-color-swatch {
 .app-download-button:hover {
   background: rgba(99, 102, 241, 0.28);
   transform: translateY(-1px);
-}
-
-.app-download-meta {
-  margin-top: 6px;
-  color: var(--text-muted);
-  font-size: 12px;
-  text-align: center;
 }
 
 @media (max-width: 768px) {
