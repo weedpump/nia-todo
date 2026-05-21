@@ -93,7 +93,10 @@ export function createAuthSessionFeature({
     if (!token) return false;
 
     try {
-      const user = await authApi.me();
+      const user = await Promise.race([
+        authApi.me(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('auth check timeout')), 2500)),
+      ]);
       const refreshedToken = user.access_token || token;
       if (user.access_token) localStorage.setItem('jwt_token', user.access_token);
       if (user.csrf_token) localStorage.setItem('csrf_token', user.csrf_token);

@@ -124,12 +124,9 @@ export function createAppLifecycle({
 
         let authed = false;
         try {
-          authed = await Promise.race([
-            checkAuth(),
-            new Promise(resolve => setTimeout(() => resolve(false), 4000)),
-          ]);
+          authed = await checkAuth();
         } catch (e) {
-          // Keep login overlay on auth-check errors/timeouts.
+          // Keep login overlay on non-recoverable auth-check errors.
         }
 
         if (authed) {
