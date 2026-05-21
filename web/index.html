@@ -325,15 +325,17 @@
           <button class="btn btn-secondary" onclick="copyApiKey()" style="font-size:13px;">📋 Kopieren</button>
         </div>
         <div id="api-key-error" style="color:var(--danger); font-size:13px; margin-top:8px;"></div>
-        <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">
-        <h4 style="margin:0 0 12px 0; font-size:14px;">🔔 Push Benachrichtigungen</h4>
-        <div id="push-status" style="font-size:13px; color:var(--text-secondary); margin-bottom:12px;">Status: Wird geprüft...</div>
-        <div id="push-actions">
-          <button class="btn btn-primary" id="push-enable-btn" onclick="enablePushNotifications()" style="display:none;">Benachrichtigungen aktivieren</button>
-          <button class="btn btn-danger" id="push-disable-btn" onclick="disablePushNotifications()" style="display:none;">Deaktivieren</button>
-          <button class="btn btn-secondary" id="push-test-btn" onclick="sendTestPush()" style="display:none;">Test senden</button>
+        <div id="browser-push-settings-section">
+          <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">
+          <h4 style="margin:0 0 12px 0; font-size:14px;">🔔 Push Benachrichtigungen</h4>
+          <div id="push-status" style="font-size:13px; color:var(--text-secondary); margin-bottom:12px;">Status: Wird geprüft...</div>
+          <div id="push-actions">
+            <button class="btn btn-primary" id="push-enable-btn" onclick="enablePushNotifications()" style="display:none;">Benachrichtigungen aktivieren</button>
+            <button class="btn btn-danger" id="push-disable-btn" onclick="disablePushNotifications()" style="display:none;">Deaktivieren</button>
+            <button class="btn btn-secondary" id="push-test-btn" onclick="sendTestPush()" style="display:none;">Test senden</button>
+          </div>
+          <div id="push-error" style="color:var(--danger); font-size:13px; margin-top:8px;"></div>
         </div>
-        <div id="push-error" style="color:var(--danger); font-size:13px; margin-top:8px;"></div>
         <div class="app-downloads settings-downloads" data-app-downloads style="display:none;"></div>
         <div id="desktop-settings-section" style="display:none;">
           <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">

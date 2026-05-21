@@ -126,10 +126,13 @@ export function createDesktopIntegration({ wsSend, getWsState, showToast, onHotk
   }
 
   function renderSettings() {
+    const desktop = isDesktopApp();
     const section = document.getElementById('desktop-settings-section');
+    const browserPushSection = document.getElementById('browser-push-settings-section');
+    if (browserPushSection) browserPushSection.style.display = desktop ? 'none' : '';
     if (!section) return;
-    section.style.display = isDesktopApp() ? '' : 'none';
-    if (!isDesktopApp()) return;
+    section.style.display = desktop ? '' : 'none';
+    if (!desktop) return;
     setChecked('desktop-minimize-to-tray', settings.minimizeToTray);
     setChecked('desktop-autostart', settings.autostart);
     setChecked('desktop-notifications', settings.notifications);
