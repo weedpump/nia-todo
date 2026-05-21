@@ -12,6 +12,8 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 - Offline-Status gewinnt jetzt über stale WebSocket-Status; die App versucht im echten Offline-Modus keine API-Syncs mehr.
 - Online-Event-Sync nutzt mehrere Retry-Versuche plus App-Fokus/Periodik, damit Native/WebView nach Netzwechsel lokale Queue-Änderungen zuverlässig zum Server pusht.
 - Regressionstest für offline erledigen → online synchronisieren → Server sieht Änderung → nach Reload erledigt bleiben ergänzt.
+- WebSocket-Realtime-Updates rendern nach eingehenden Änderungen wieder mit aktualisiertem In-Memory-State; Änderungen anderer Clients sind ohne Reload sichtbar.
+- Regressionstest für zwei Clients ergänzt: Client A ändert ein Todo, Client B sieht die Änderung live per WebSocket.
 
 ## [1.6.3] - 2026-05-21
 

@@ -432,6 +432,19 @@ async function handleWsMessage(msg) {
   setTodos(todos);
   setProjects(projects);
   setSections(sections);
+
+  const dataEvents = new Set([
+    'sync_response',
+    'todo_create', 'todo_update', 'todo_delete',
+    'project_create', 'project_update', 'project_delete',
+    'section_create', 'section_update', 'section_delete',
+    'member_invited', 'member_accepted', 'member_declined', 'member_removed', 'member_left', 'member_color_changed',
+  ]);
+  if (dataEvents.has(msg.type)) {
+    renderProjects();
+    renderStats();
+    renderTodos();
+  }
 }
 
 
