@@ -6,15 +6,17 @@ Status: erster testbarer Windows-Wrapper für `nia-todo`.
 
 Die bestehende Web-App soll als native Windows-App testbar werden, zunächst ohne Umbau der eigentlichen UI.
 
-Der PoC lädt:
+Der PoC startet mit einem lokalen Server-Auswahlfenster.
 
-- im Dev-Modus: `https://todo-dev.kneidl-home.de`
-- im Build/Bundle-Modus: `https://todo-dev.kneidl-home.de` für den Feature-Branch-Test
+- Es gibt keine fest eingebaute Standard-URL.
+- Beim ersten Start muss eine Server-URL eingegeben werden, z.B. `https://todo-dev.kneidl-home.de` oder `https://todo.kneidl-home.de`.
+- Die URL wird lokal in der Tauri-App gespeichert und kann später in den Desktop-Einstellungen geändert oder zurückgesetzt werden.
 
-Damit bleibt die API relativ zur geladenen Web-App nutzbar und Login/Session-Verhalten entspricht der normalen App.
+Damit bleibt die API relativ zur jeweils geladenen Web-App nutzbar und Login/Session-Verhalten entspricht dem gewählten Server.
 
 ## Desktop-Features im PoC
 
+- Lokale Server-Auswahl vor dem Web-App-Login
 - Tray-Icon mit Öffnen/Beenden
 - Fenster schließen minimiert optional ins Tray statt die App zu beenden
 - Autostart kann per Windows-Registry `HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run` gesetzt werden

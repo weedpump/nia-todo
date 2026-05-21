@@ -485,6 +485,8 @@ export function startAppModule() {
     push: { updatePushStatus, updatePushSettingsUI, enablePushNotifications, disablePushNotifications, sendTestPush },
     desktopIntegration: {
       updateDesktopSetting: (key, value) => desktopIntegration?.updateSetting(key, value),
+      updateDesktopServerUrl: (value) => desktopIntegration?.updateServerUrl(value),
+      resetDesktopServerUrl: () => desktopIntegration?.resetServerUrl(),
       testDesktopNotification: () => desktopIntegration?.testNotification(),
     },
     userSettings: { renderUserInfo, openSettingsModal, editUserDisplayName, cancelUserDisplayNameEdit, saveUserProfile, startAvatarUpload, cancelAvatarCrop, saveAvatarCrop, editUserEmail, cancelUserEmailEdit, saveUserEmail, changeUserPassword },

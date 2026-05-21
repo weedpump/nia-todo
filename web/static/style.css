@@ -2119,3 +2119,14 @@ input[type="color"]::-moz-color-swatch {
   height: 18px;
   accent-color: var(--accent);
 }
+.settings-server-row {
+  display: flex;
+  gap: 8px;
+}
+.settings-server-row input {
+  flex: 1;
+  min-width: 0;
+}
+@media (max-width: 560px) {
+  .settings-server-row { flex-direction: column; }
+}

@@ -11,6 +11,7 @@ struct DesktopSettings {
   minimize_to_tray: bool,
   autostart: bool,
   notifications: bool,
+  server_url: Option<String>,
 }
 
 impl Default for DesktopSettings {
@@ -19,6 +20,7 @@ impl Default for DesktopSettings {
       minimize_to_tray: true,
       autostart: false,
       notifications: true,
+      server_url: None,
     }
   }
 }
@@ -71,6 +73,18 @@ fn set_autostart(_enabled: bool) -> Result<(), String> {
   Ok(())
 }
 
+fn normalize_server_url(server_url: &str) -> Result<String, String> {
+  let trimmed = server_url.trim().trim_end_matches('/');
+  if trimmed.is_empty() {
+    return Err("Server-URL darf nicht leer sein.".into());
+  }
+  let parsed = url::Url::parse(trimmed).map_err(|_| "Bitte eine gültige URL eingeben.".to_string())?;
+  match parsed.scheme() {
+    "http" | "https" => Ok(trimmed.to_string()),
+    _ => Err("Bitte eine http(s)-URL eingeben.".into()),
+  }
+}
+
 fn show_main_window(app: &AppHandle) {
   if let Some(window) = app.get_webview_window("main") {
     let _ = window.show();
@@ -95,6 +109,22 @@ fn desktop_set_setting(app: AppHandle, key: String, value: bool) -> Result<Deskt
     "notifications" => settings.notifications = value,
     _ => return Err(format!("Unknown desktop setting: {key}")),
   }
+  save_settings(&app, &settings)?;
+  Ok(settings)
+}
+
+#[tauri::command]
+fn desktop_set_server_url(app: AppHandle, server_url: String) -> Result<DesktopSettings, String> {
+  let mut settings = load_settings(&app);
+  settings.server_url = Some(normalize_server_url(&server_url)?);
+  save_settings(&app, &settings)?;
+  Ok(settings)
+}
+
+#[tauri::command]
+fn desktop_clear_server_url(app: AppHandle) -> Result<DesktopSettings, String> {
+  let mut settings = load_settings(&app);
+  settings.server_url = None;
   save_settings(&app, &settings)?;
   Ok(settings)
 }
@@ -152,6 +182,8 @@ pub fn run() {
     .invoke_handler(tauri::generate_handler![
       desktop_get_settings,
       desktop_set_setting,
+      desktop_set_server_url,
+      desktop_clear_server_url,
       desktop_notify,
     ])
     .setup(|app| {
