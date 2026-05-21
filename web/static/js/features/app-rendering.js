@@ -109,35 +109,108 @@ export function createAppRenderingFeature({
     const el = document.getElementById('stats-bar');
     if (!el) return;
     const todos = getTodos();
+    const projects = getProjects();
+    const currentFilter = getCurrentFilter();
+    const currentProjectId = getCurrentProjectId();
+    const now = new Date();
+    const todayEnd = new Date(now);
+    todayEnd.setHours(23, 59, 59, 999);
+    const weekEnd = new Date(now);
+    weekEnd.setDate(weekEnd.getDate() + 7);
+    weekEnd.setHours(23, 59, 59, 999);
+
+    const activeTodos = todos.filter(t => t.status !== 'done');
     const total = todos.length;
     const pending = todos.filter(t => t.status === 'pending').length;
     const inprog = todos.filter(t => t.status === 'in_progress').length;
     const done = todos.filter(t => t.status === 'done').length;
-    const overdue = todos.filter(t => t.status !== 'done' && t.due_date && new Date(t.due_date) < new Date()).length;
+    const overdue = activeTodos.filter(t => t.due_date && new Date(t.due_date) < now).length;
+    const dueToday = activeTodos.filter(t => t.due_date && new Date(t.due_date) >= now && new Date(t.due_date) <= todayEnd).length;
+    const dueWeek = activeTodos.filter(t => t.due_date && new Date(t.due_date) > todayEnd && new Date(t.due_date) <= weekEnd).length;
+    const completionRate = total ? Math.round((done / total) * 100) : 0;
 
     document.getElementById('count-all').textContent = total;
     document.getElementById('count-pending').textContent = pending;
     document.getElementById('count-in_progress').textContent = inprog;
     document.getElementById('count-done').textContent = done;
 
-    el.innerHTML = '';
-    const stats = [
-      { cls: 'total', num: total, label: 'Gesamt' },
-      { cls: 'pending', num: pending, label: 'Offen' },
-      { cls: 'pending', num: inprog, label: 'In Arbeit' },
-      { cls: 'due', num: overdue, label: 'Überfällig' },
-      { cls: 'done', num: done, label: 'Erledigt' }
+    const showDashboard = currentFilter === 'all' && !currentProjectId;
+    el.hidden = !showDashboard;
+    if (!showDashboard) {
+      el.innerHTML = '';
+      return;
+    }
+
+    const openByProject = projects
+      .map(project => ({
+        ...project,
+        openCount: activeTodos.filter(t => t.project_id === project.id).length,
+      }))
+      .filter(project => project.openCount > 0)
+      .sort((a, b) => b.openCount - a.openCount || a.name.localeCompare(b.name))
+      .slice(0, 4);
+
+    const cards = [
+      { cls: 'total', num: total, label: 'Gesamt', hint: 'Todos im System' },
+      { cls: 'pending', num: pending, label: 'Offen', hint: 'Warten auf Start' },
+      { cls: 'progress', num: inprog, label: 'In Arbeit', hint: 'Aktiv am Laufen' },
+      { cls: 'due', num: overdue, label: 'Überfällig', hint: overdue ? 'Braucht Liebe' : 'Alles entspannt' },
     ];
-    stats.forEach(s => {
-      const div = document.createElement('div');
-      div.className = 'stat-card ' + s.cls;
-      const span = document.createElement('span');
-      span.className = 'stat-num';
-      span.textContent = s.num;
-      div.appendChild(span);
-      div.appendChild(document.createTextNode(' ' + s.label));
-      el.appendChild(div);
-    });
+
+    const focusItems = [
+      { icon: '📅', label: 'Heute fällig', value: dueToday },
+      { icon: '🗓️', label: 'Nächste 7 Tage', value: dueWeek },
+      { icon: '✅', label: 'Erledigt', value: done },
+      { icon: '📈', label: 'Quote', value: `${completionRate}%` },
+    ];
+
+    el.innerHTML = `
+      <section class="overview-dashboard" aria-label="Todo-Dashboard">
+        <div class="overview-dashboard-header">
+          <div>
+            <div class="overview-kicker">Übersicht</div>
+            <h2>Alle Todos auf einen Blick</h2>
+          </div>
+          <div class="overview-pill">${activeTodos.length} aktiv</div>
+        </div>
+        <div class="overview-stat-grid">
+          ${cards.map(card => `
+            <div class="overview-stat-card ${card.cls}">
+              <div class="overview-stat-num">${card.num}</div>
+              <div>
+                <div class="overview-stat-label">${escapeHtml(card.label)}</div>
+                <div class="overview-stat-hint">${escapeHtml(card.hint)}</div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+        <div class="overview-detail-grid">
+          <div class="overview-panel">
+            <div class="overview-panel-title">Fokus</div>
+            <div class="overview-focus-list">
+              ${focusItems.map(item => `
+                <div class="overview-focus-item">
+                  <span>${item.icon}</span>
+                  <span>${escapeHtml(item.label)}</span>
+                  <strong>${item.value}</strong>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+          <div class="overview-panel">
+            <div class="overview-panel-title">Aktive Projekte</div>
+            <div class="overview-project-list">
+              ${openByProject.length ? openByProject.map(project => `
+                <button type="button" class="overview-project-item" onclick="setFilter('${escapeHtmlAttr(project.id)}')">
+                  <span class="project-dot" style="background:${escapeHtmlAttr(project.color || '#6366f1')}"></span>
+                  <span>${escapeHtml(project.name)}</span>
+                  <strong>${project.openCount}</strong>
+                </button>
+              `).join('') : '<div class="overview-empty-mini">Keine offenen Projekt-Todos 🎉</div>'}
+            </div>
+          </div>
+        </div>
+      </section>`;
   }
 
   function renderTodos() {
