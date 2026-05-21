@@ -522,9 +522,10 @@ body {
 .user-menu-email { font-size: 12px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .user-menu-item {
   width: 100%;
-  display: flex;
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
   align-items: center;
-  gap: 10px;
+  column-gap: 10px;
   padding: 10px 11px;
   border: none;
   border-radius: 10px;
@@ -538,7 +539,18 @@ body {
 .user-menu-item:hover { background: var(--bg-hover); color: var(--text-primary); }
 .user-menu-item.active { color: var(--text-secondary); }
 .user-menu-item.danger:hover { color: var(--danger); background: rgba(239,68,68,0.12); }
-.user-menu-item .menu-item-icon { width: 24px; text-align: center; font-weight: 700; }
+.user-menu-item > span:first-child,
+.user-menu-item .menu-item-icon {
+  width: 24px;
+  min-width: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-weight: 700;
+  line-height: 1;
+}
+.user-menu-item .menu-item-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .user-menu-separator { height: 1px; background: var(--border); margin: 6px 4px; }
 
 /* Overview dashboard */
