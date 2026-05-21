@@ -27,8 +27,10 @@ export function createUiShell({ renderMarkdown, showTodoModal }) {
   }
 
   function bindSidebarEdgeSwipe() {
-    const edgeWidth = 24;
-    const openDistance = 72;
+    // Android often reserves the very left edge for system/browser Back.
+    // Keep the app gesture slightly wider so users can start just inside that zone.
+    const edgeWidth = 78;
+    const openDistance = 64;
     const maxVerticalDrift = 55;
     let gesture = null;
 
@@ -62,7 +64,7 @@ export function createUiShell({ renderMarkdown, showTodoModal }) {
         return;
       }
 
-      if (dx > 28 && dx > Math.abs(dy) * 1.4) {
+      if (dx > 24 && dx > Math.abs(dy) * 1.35) {
         gesture.claimed = true;
         event.preventDefault();
       }
