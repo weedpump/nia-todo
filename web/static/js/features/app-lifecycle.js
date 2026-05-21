@@ -35,6 +35,25 @@ export function createAppLifecycle({
     document.getElementById('boot-overlay')?.classList.remove('hidden');
   }
 
+  function showBootError(error) {
+    const subtitle = document.getElementById('boot-subtitle');
+    const spinner = document.getElementById('boot-spinner');
+    const retry = document.getElementById('boot-retry');
+    if (subtitle) {
+      subtitle.textContent = 'App-Start hängt. Bitte neu laden.';
+      subtitle.title = error?.message || String(error || 'Boot timeout');
+    }
+    if (spinner) spinner.style.display = 'none';
+    if (retry) retry.style.display = '';
+  }
+
+  function withTimeout(promise, ms, label) {
+    return Promise.race([
+      promise,
+      new Promise((_, reject) => setTimeout(() => reject(new Error(`${label} timeout`)), ms)),
+    ]);
+  }
+
   async function loadFromLocalDB() {
     setTodos(await dbGetAll('todos'));
     setProjects(await dbGetAll('projects'));
@@ -53,14 +72,14 @@ export function createAppLifecycle({
     await initServiceWorker();
 
     try {
-      await openDB();
+      await withTimeout(openDB(), 5000, 'IndexedDB open');
       console.log('DB ready');
     } catch (err) {
       console.error('DB init failed:', err);
     }
 
     try {
-      await loadFromLocalDB();
+      await withTimeout(loadFromLocalDB(), 5000, 'Local DB load');
       console.log('Local data loaded');
     } catch (err) {
       console.error('Local load failed:', err);
@@ -108,6 +127,7 @@ export function createAppLifecycle({
       initTheme();
       showBootOverlay();
 
+      const bootWatchdog = setTimeout(() => showBootError(new Error('Boot watchdog timeout')), 18000);
       Promise.resolve().then(async () => {
         try {
           const setupData = await Promise.race([
@@ -132,12 +152,17 @@ export function createAppLifecycle({
         if (authed) {
           hideLoginOverlay();
           renderUserInfo();
-          await initApp();
+          await withTimeout(initApp(), 12000, 'App init');
           hideBootOverlay();
         } else {
           hideBootOverlay();
           showLoginOverlay();
         }
+        clearTimeout(bootWatchdog);
+      }).catch((error) => {
+        console.error('Boot failed:', error);
+        showBootError(error);
+        clearTimeout(bootWatchdog);
       });
     };
 

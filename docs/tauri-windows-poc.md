@@ -13,6 +13,7 @@ Wichtig:
 - Die URL wird lokal in der App gespeichert.
 - In den App-Einstellungen kann die Server-URL geändert oder zurückgesetzt werden.
 - Web-App-Releases brauchen keinen neuen Tauri-Installer, solange keine nativen Features geändert werden.
+- Native Wrapper hängen beim Start einen `nativeApp=tauri` Launch-Parameter an, damit alte Service-Worker-Navigation-Caches nicht den App-Start blockieren.
 
 ## Plattformen
 
@@ -33,7 +34,7 @@ Wichtig:
 - Native Benachrichtigungen über Tauri Notification Plugin
 - Runtime-Permission `POST_NOTIFICATIONS`
 - Android-App-ID: `de.tobiaskneidl.nia_todo`
-- Edge-to-edge deaktiviert, damit die App nicht unter die Statusbar rutscht
+- Edge-to-edge deaktiviert plus Web-CSS-Inset, damit die App nicht unter die Statusbar rutscht
 - Launcher-/Task-Switcher-Icons werden aus den Web-App-Icons erzeugt
 
 ## Downloads
@@ -75,6 +76,8 @@ Das Script erledigt:
 8. Downloads und Manifest veröffentlichen
 9. Live/Dev Services neu starten
 10. `develop` auf nächste `-dev` Version setzen
+
+In nativen Tauri-Wrappern wird der PWA-Service-Worker deaktiviert/unregistriert. Das verhindert stale WebView-Caches und Android-Boot-Hänger; Offline-Daten bleiben über IndexedDB erhalten, sobald die Web-App geladen ist.
 
 ## Android Signing
 
