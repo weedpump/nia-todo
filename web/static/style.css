@@ -1919,6 +1919,25 @@ input[type="color"]::-moz-color-swatch {
   line-height: 1;
 }
 
+.app-download-icon {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  background: currentColor;
+  mask: center / contain no-repeat;
+  -webkit-mask: center / contain no-repeat;
+}
+
+.app-download-icon-windows {
+  mask-image: url('/static/icons/platform/windows.svg');
+  -webkit-mask-image: url('/static/icons/platform/windows.svg');
+}
+
+.app-download-icon-android {
+  mask-image: url('/static/icons/platform/android.svg');
+  -webkit-mask-image: url('/static/icons/platform/android.svg');
+}
+
 @media (max-width: 768px) {
   .login-box {
     margin: 16px;
