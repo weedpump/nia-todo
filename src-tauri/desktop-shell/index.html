@@ -46,7 +46,6 @@
     function nativeLaunchUrl(serverUrl) {
       const url = new URL(serverUrl);
       url.searchParams.set('nativeApp', 'tauri');
-      url.searchParams.set('nativeLaunch', String(Date.now()));
       return url.toString();
     }
 

@@ -24,9 +24,6 @@
         sessionStorage.setItem(resetKey, '1');
         navigator.serviceWorker.getRegistrations()
           .then((registrations) => Promise.all(registrations.map((registration) => registration.unregister())))
-          .then(() => {
-            if (navigator.serviceWorker.controller) location.reload();
-          })
           .catch((error) => console.warn('[Native] Service worker reset failed', error));
       }
     }
