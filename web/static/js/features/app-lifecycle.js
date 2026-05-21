@@ -129,7 +129,11 @@ export function createAppLifecycle({
     window.addEventListener('online', async () => {
       console.log('Browser reports online');
       if (getWsState() === 'disconnected') connectWebSocket();
-      await syncWithServer();
+      // Native/WebView can fire `online` before DNS/fetch is usable. Give the
+      // transport a short moment; WebSocket onopen will also trigger sync.
+      setTimeout(() => {
+        syncWithServer().catch(err => console.warn('Online sync retry failed:', err));
+      }, 1000);
     });
 
     window.addEventListener('offline', () => {
