@@ -9,6 +9,7 @@ export function createNavigationFeature({
   dbPut,
   deleteFromDB,
   closeSidebar,
+  renderStats,
   renderTodos,
 }) {
   function setFilter(filter) {
@@ -22,7 +23,10 @@ export function createNavigationFeature({
     window.event?.target?.closest('.nav-btn')?.classList.add('active');
     closeSidebar();
 
-    loadSectionsForCurrentProject().then(() => renderTodos());
+    loadSectionsForCurrentProject().then(() => {
+      renderStats();
+      renderTodos();
+    });
   }
 
   async function loadSectionsForCurrentProject() {

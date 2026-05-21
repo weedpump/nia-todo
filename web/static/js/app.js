@@ -314,6 +314,7 @@ const navigationFeature = createNavigationFeature({
   dbPut,
   deleteFromDB,
   closeSidebar: () => closeSidebar(),
+  renderStats: () => renderStats(),
   renderTodos: () => renderTodos(),
 });
 const setFilter = navigationFeature.setFilter;
