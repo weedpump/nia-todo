@@ -9,6 +9,7 @@ export function createNavigationFeature({
   dbPut,
   deleteFromDB,
   closeSidebar,
+  renderProjects,
   renderStats,
   renderTodos,
 }) {
@@ -19,11 +20,13 @@ export function createNavigationFeature({
 
     localStorage.setItem('nia-last-filter', filter);
 
-    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-    window.event?.target?.closest('.nav-btn')?.classList.add('active');
+    document.querySelectorAll('.nav-btn').forEach((button) => {
+      button.classList.toggle('active', button.dataset.filter === String(filter));
+    });
     closeSidebar();
 
     loadSectionsForCurrentProject().then(() => {
+      renderProjects();
       renderStats();
       renderTodos();
     });

@@ -74,7 +74,7 @@ export function createAppRenderingFeature({
       let html = '';
       html += `<div class="project-tree-item" style="padding-left: ${indent}px">`;
       html += `<div class="nav-item-with-action">`;
-      html += `<button class="nav-btn ${currentFilter === String(project.id) ? 'active' : ''}" onclick="setFilter('${project.id}')">`;
+      html += `<button class="nav-btn ${currentFilter === String(project.id) ? 'active' : ''}" data-filter="${escapeHtmlAttr(project.id)}" onclick="setFilter('${project.id}')">`;
       html += `<span class="project-dot" style="background:${escapeHtmlAttr(project.color)}"></span>`;
       html += `${escapeHtml(project.name)}`;
       html += `<span class="badge">${countByProject(project.id, true)}</span>`;

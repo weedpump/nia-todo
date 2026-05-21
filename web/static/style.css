@@ -649,11 +649,15 @@ body {
 
 .overview-detail-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
   gap: 10px;
   margin-top: 10px;
 }
 .overview-panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
   padding: 12px;
   border: 1px solid rgba(148,163,184,0.12);
   border-radius: 14px;
@@ -670,20 +674,34 @@ body {
 .overview-focus-list,
 .overview-project-list {
   display: grid;
+  grid-template-rows: repeat(4, minmax(36px, 1fr));
+  flex: 1;
   gap: 6px;
 }
 .overview-focus-item,
-.overview-project-item {
+.overview-project-item,
+.overview-empty-mini {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: 22px minmax(0, 1fr) minmax(54px, auto);
   align-items: center;
   gap: 8px;
   min-width: 0;
+  min-height: 36px;
   padding: 8px 10px;
   border-radius: 10px;
   background: rgba(148,163,184,0.07);
   color: var(--text-secondary);
   font-size: 13px;
+}
+.overview-focus-item > span:first-child,
+.overview-project-item > span:first-child {
+  justify-self: center;
+}
+.overview-focus-item > span:nth-child(2),
+.overview-project-item > span:nth-child(2) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .overview-project-item {
   width: 100%;
@@ -700,9 +718,9 @@ body {
   color: var(--text-primary);
 }
 .overview-empty-mini {
-  padding: 8px 10px;
+  grid-column: 1 / -1;
+  grid-template-columns: 1fr;
   color: var(--text-muted);
-  font-size: 13px;
 }
 
 /* Todo list */
