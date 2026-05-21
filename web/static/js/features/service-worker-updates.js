@@ -8,22 +8,8 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
     return Boolean(window.__TAURI__?.core?.invoke) || new URLSearchParams(location.search).get('nativeApp') === 'tauri';
   }
 
-  function isAndroidNativeApp() {
-    return isNativeApp() && /Android/i.test(navigator.userAgent || '');
-  }
-
   async function initServiceWorker() {
     if (!('serviceWorker' in navigator)) return;
-    if (isAndroidNativeApp()) {
-      console.log('SW: disabled in Android native wrapper');
-      try {
-        const registrations = await navigator.serviceWorker.getRegistrations();
-        await Promise.all(registrations.map((registration) => registration.unregister()));
-      } catch (error) {
-        console.warn('SW: native unregister failed', error);
-      }
-      return;
-    }
 
     console.log('SW: registration scheduled');
     setTimeout(async () => {
