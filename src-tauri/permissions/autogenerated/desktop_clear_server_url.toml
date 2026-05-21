@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-desktop-clear-server-url"
+description = "Enables the desktop_clear_server_url command without any pre-configured scope."
+commands.allow = ["desktop_clear_server_url"]
+
+[[permission]]
+identifier = "deny-desktop-clear-server-url"
+description = "Denies the desktop_clear_server_url command without any pre-configured scope."
+commands.deny = ["desktop_clear_server_url"]
