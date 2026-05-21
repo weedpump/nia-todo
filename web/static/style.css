@@ -1881,7 +1881,8 @@ input[type="color"]::-moz-color-swatch {
 }
 
 .login-downloads {
-  padding-top: 4px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
 }
 
 .settings-downloads {
@@ -1908,6 +1909,11 @@ input[type="color"]::-moz-color-swatch {
 .app-download-button:hover {
   background: rgba(99, 102, 241, 0.28);
   transform: translateY(-1px);
+}
+
+.app-download-button span:first-child {
+  font-size: 18px;
+  line-height: 1;
 }
 
 @media (max-width: 768px) {
