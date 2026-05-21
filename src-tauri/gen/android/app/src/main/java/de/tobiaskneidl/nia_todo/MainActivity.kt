@@ -13,7 +13,6 @@ import android.os.Looper
 import android.view.ViewGroup
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
-import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -92,23 +91,12 @@ class MainActivity : TauriActivity() {
       return
     }
 
+    // Execute once per notification action. evaluateJavascript does not await async promises,
+    // so never retry based on its immediate return value.
+    clearPendingDoneTodoId(id)
     val script = buildCompleteTodoScript(id)
     webView.post {
-      webView.evaluateJavascript(script) { rawResult ->
-        val result = rawResult?.trim()?.trim('"') ?: ""
-        when {
-          result.startsWith("done:") -> {
-            clearPendingDoneTodoId(id)
-            Toast.makeText(this, "Todo per Benachrichtigung erledigt", Toast.LENGTH_SHORT).show()
-          }
-          attempt < 40 -> {
-            mainHandler.postDelayed({ tryCompleteTodoInWebView(id, attempt + 1) }, 750)
-          }
-          else -> {
-            Toast.makeText(this, "Notification-Aktion fehlgeschlagen: $result", Toast.LENGTH_LONG).show()
-          }
-        }
-      }
+      webView.evaluateJavascript(script, null)
     }
   }
 
@@ -118,15 +106,6 @@ class MainActivity : TauriActivity() {
       (async function() {
         const rawId = $quotedId;
         const numericId = /^\d+$/.test(rawId) ? Number(rawId) : rawId;
-
-        try {
-          if (typeof window.markTodoDoneFromNative === 'function') {
-            const ok = await window.markTodoDoneFromNative(rawId);
-            if (ok) return 'done:web';
-          }
-        } catch (error) {
-          console.warn('[NativeAction] Web handler failed, falling back to IndexedDB', error);
-        }
 
         const dbNames = ['nia-todo-db', 'nia-todo-db'];
         function openDb(name) {

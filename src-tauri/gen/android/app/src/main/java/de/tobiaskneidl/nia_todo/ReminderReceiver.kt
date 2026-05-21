@@ -78,7 +78,7 @@ class ReminderReceiver : BroadcastReceiver() {
     const val EXTRA_DUE_AT_MS = "dueAtMs"
     const val PREFS_NAME = "nia_todo_reminders"
     const val PREFS_SCHEDULES = "schedules"
-    const val PREFS_PENDING_DONE_ID = "pendingDoneId"
+    const val PREFS_PENDING_DONE_ID = "pendingDoneId_v2"
     const val CHANNEL_ID = "nia_todo_reminders"
 
     fun createNotificationChannel(context: Context) {
