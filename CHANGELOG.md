@@ -13,6 +13,8 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 ### Fixed
 - Service Worker aktiviert neue Versionen nicht mehr, wenn der Precache fehlschlägt; dadurch bleibt bei instabiler/offliner Verbindung der letzte vollständige App-Cache erhalten.
 - Inline-Boot-Watchdog zeigt bei fehlenden App-Modulen einen Fehler statt endlosem Spinner.
+- Service-Worker-Precache enthält kein nicht existentes `/favicon.ico` mehr.
+- Test-Suite validiert jetzt, dass der Service-Worker-Precache alle Frontend-JS-Module und App-Shell-Assets enthält und keine stale Assets referenziert.
 
 ## [1.6.2] - 2026-05-21
 

@@ -51,8 +51,7 @@ const PRECACHE_ASSETS = [
   '/static/js/features/section-actions.js',
   '/static/js/features/sections.js',
   '/static/icons/icon-192.png',
-  '/static/icons/icon-512.png',
-  '/favicon.ico'
+  '/static/icons/icon-512.png'
 ];
 
 // Inline Offline-Fallback
