@@ -27,6 +27,8 @@ export function createAppLifecycle({
   updateToggleDoneButton,
   updateSortButton,
 }) {
+  let lifecycleInitialized = false;
+
   function hideBootOverlay() {
     document.getElementById('boot-overlay')?.classList.add('hidden');
   }
@@ -94,6 +96,7 @@ export function createAppLifecycle({
     }
 
     setAppInitialized(true);
+    lifecycleInitialized = true;
     connectWebSocket();
 
     if (isOnlineForSync()) {
@@ -123,6 +126,14 @@ export function createAppLifecycle({
   }
 
   function bindDomReady() {
+    const hideStaleBootOverlay = () => {
+      if (lifecycleInitialized && document.visibilityState !== 'hidden') {
+        hideBootOverlay();
+      }
+    };
+    window.addEventListener('pageshow', hideStaleBootOverlay);
+    document.addEventListener('visibilitychange', hideStaleBootOverlay);
+
     const start = () => {
       initTheme();
       showBootOverlay();

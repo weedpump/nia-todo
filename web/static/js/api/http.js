@@ -21,15 +21,26 @@ export function getAuthHeaders() {
 }
 
 async function request(method, path, body) {
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timeout = controller ? setTimeout(() => controller.abort(), 8000) : null;
   const options = {
     method,
     headers: getAuthHeaders(),
     credentials: 'include',
   };
+  if (controller) options.signal = controller.signal;
   if (body !== undefined) options.body = JSON.stringify(body);
-  const r = await fetch(API + path, options);
-  if (!r.ok) throw new Error(r.status + ' ' + r.statusText);
-  return r.json();
+  try {
+    const r = await fetch(API + path, options);
+    if (!r.ok) {
+      const err = new Error(r.status + ' ' + r.statusText);
+      err.status = r.status;
+      throw err;
+    }
+    return r.json();
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
 }
 
 export const http = {
