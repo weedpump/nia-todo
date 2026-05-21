@@ -7,6 +7,9 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 
 ## [1.6.2] - 2026-05-21
 
+### Added
+- Sidebar-Footer hat neben der Versionsnummer einen manuellen Reload-Button, der Service-Worker-Update/Cache-Refresh erzwingt und die Web-App neu lädt.
+
 ### Fixed
 - Native Android-App entfernt den Service Worker beim Start nicht mehr, damit wiederholte Offline-Cold-Starts nicht in `ERR_NAME_NOT_RESOLVED` landen.
 - Release-Script bricht künftig ab, wenn für die Zielversion kein `CHANGELOG.md`-Abschnitt existiert.

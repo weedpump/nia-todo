@@ -2022,6 +2022,34 @@ input[type="color"]::-moz-color-swatch {
   opacity: 0.7;
 }
 
+.force-refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  transition: all 0.2s;
+}
+
+.force-refresh-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  transform: rotate(20deg);
+}
+
+.force-refresh-btn:disabled {
+  cursor: wait;
+  opacity: 0.6;
+  transform: none;
+}
+
 .update-btn {
   display: none;
   align-items: center;
