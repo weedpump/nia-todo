@@ -70,11 +70,11 @@ def push_status(user_id: int = Depends(require_auth)):
 
 @router.post("/test")
 async def push_test(data: PushTestRequest, user_id: int = Depends(require_auth)):
-    await send_push_notification(
+    sent = await send_push_notification(
         user_id=user_id,
         title=data.title,
         body=data.body,
         tag="test",
         url="/"
     )
-    return {"sent": True}
+    return {"sent": sent}
