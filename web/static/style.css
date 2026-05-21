@@ -1687,6 +1687,7 @@ input[type="color"]::-moz-color-swatch {
 
 .boot-overlay.hidden,
 .login-overlay.hidden {
+  display: none !important;
   opacity: 0;
   visibility: hidden;
   pointer-events: none;

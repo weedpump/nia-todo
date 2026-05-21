@@ -30,11 +30,23 @@ export function createAppLifecycle({
   let lifecycleInitialized = false;
 
   function hideBootOverlay() {
-    document.getElementById('boot-overlay')?.classList.add('hidden');
+    const overlay = document.getElementById('boot-overlay');
+    if (!overlay) return;
+    overlay.classList.add('hidden');
+    overlay.inert = true;
+    overlay.setAttribute('aria-hidden', 'true');
+    overlay.style.display = 'none';
+    overlay.style.pointerEvents = 'none';
   }
 
   function showBootOverlay() {
-    document.getElementById('boot-overlay')?.classList.remove('hidden');
+    const overlay = document.getElementById('boot-overlay');
+    if (!overlay) return;
+    overlay.classList.remove('hidden');
+    overlay.inert = false;
+    overlay.removeAttribute('aria-hidden');
+    overlay.style.display = '';
+    overlay.style.pointerEvents = '';
   }
 
   function showBootError(error) {
