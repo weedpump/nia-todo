@@ -9,7 +9,7 @@ Die bestehende Web-App soll als native Windows-App testbar werden, zunächst ohn
 Der PoC lädt:
 
 - im Dev-Modus: `http://localhost:8754`
-- im Build/Bundle-Modus: `http://todo-dev.kneidl-home.de:8753`
+- im Build/Bundle-Modus: `https://todo.kneidl-home.de`
 
 Damit bleibt die API relativ zur geladenen Web-App nutzbar und Login/Session-Verhalten entspricht der normalen App.
 
@@ -37,7 +37,7 @@ npm run tauri:build -- --runner cargo-xwin --target x86_64-pc-windows-msvc --bun
 Ergebnis:
 
 ```text
-src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/nia-todo_1.3.2_x64-setup.exe
+src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/nia-todo_1.3.6_x64-setup.exe
 ```
 
 SHA256:

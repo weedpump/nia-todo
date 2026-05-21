@@ -1,13 +1,13 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "nia-todo",
-  "version": "1.3.2",
+  "version": "1.3.6",
   "identifier": "ai.openclaw.nia-todo",
   "build": {
     "beforeDevCommand": "",
     "beforeBuildCommand": "",
     "devUrl": "http://localhost:8754",
-    "frontendDist": "http://todo-dev.kneidl-home.de:8753"
+    "frontendDist": "https://todo.kneidl-home.de"
   },
   "app": {
     "windows": [
