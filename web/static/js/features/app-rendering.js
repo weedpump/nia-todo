@@ -16,7 +16,26 @@ export function createAppRenderingFeature({
 }) {
   function renderVersionInfo() {
     const el = document.getElementById('version-info');
-    if (el) el.textContent = appVersion;
+    if (!el) return;
+
+    let versionText = el.querySelector('.version-text');
+    if (!versionText) {
+      versionText = document.createElement('span');
+      versionText.className = 'version-text';
+      el.prepend(versionText);
+    }
+    versionText.textContent = appVersion;
+
+    if (!el.querySelector('#force-refresh-btn')) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'force-refresh-btn';
+      button.id = 'force-refresh-btn';
+      button.title = 'Web-App neu herunterladen und Cache aktualisieren';
+      button.textContent = '↻ Neu laden';
+      button.addEventListener('click', () => window.forceReloadApp?.());
+      el.appendChild(button);
+    }
   }
 
   function countByProject(pid, includeSubprojects = false) {
