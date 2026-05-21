@@ -151,11 +151,12 @@
         </div>
         <div class="topbar-actions">
           <span id="online-status" class="status-online"></span>
-          <button class="btn btn-primary" onclick="showTodoModal()">
-            <span style="margin-right:4px">➕</span> Neues Todo
-          </button>
         </div>
       </div>
+
+      <button class="fab-add-todo" type="button" onclick="showTodoModal()" aria-label="Neues Todo erstellen" title="Neues Todo">
+        <span>+</span>
+      </button>
 
       <!-- Stats -->
       <div class="stats-bar" id="stats-bar"></div>
