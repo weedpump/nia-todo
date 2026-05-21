@@ -16,7 +16,8 @@ export function createUserMenuFeature({ getCurrentUser }) {
     const rect = wrap.getBoundingClientRect();
     const menuRect = menu.getBoundingClientRect();
     const maxLeft = window.innerWidth - menuRect.width - margin;
-    const left = Math.max(margin, Math.min(rect.left, maxLeft));
+    const centeredLeft = rect.left + (rect.width / 2) - (menuRect.width / 2);
+    const left = Math.max(margin, Math.min(centeredLeft, maxLeft));
     const preferredTop = rect.top - menuRect.height - gap;
     const maxTop = window.innerHeight - menuRect.height - margin;
     const top = Math.max(margin, Math.min(preferredTop, maxTop));
