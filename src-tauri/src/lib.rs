@@ -7,6 +7,7 @@ use tauri::{Emitter, WindowEvent};
 use tauri::menu::{Menu, MenuItem};
 #[cfg(desktop)]
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
+#[cfg(desktop)]
 use tauri_plugin_notification::NotificationExt;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -272,6 +273,7 @@ fn desktop_set_hotkey(app: AppHandle, action: String, shortcut: String) -> Resul
   Ok(settings)
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 fn desktop_request_notification_permission(app: AppHandle) -> Result<String, String> {
   app
@@ -281,6 +283,13 @@ fn desktop_request_notification_permission(app: AppHandle) -> Result<String, Str
     .map_err(|err| err.to_string())
 }
 
+#[cfg(not(desktop))]
+#[tauri::command]
+fn desktop_request_notification_permission(_app: AppHandle) -> Result<String, String> {
+  Ok("unsupported".into())
+}
+
+#[cfg(desktop)]
 #[tauri::command]
 fn desktop_notify(app: AppHandle, title: String, body: String) -> Result<(), String> {
   let settings = load_settings(&app);
@@ -294,6 +303,12 @@ fn desktop_notify(app: AppHandle, title: String, body: String) -> Result<(), Str
     .body(body)
     .show()
     .map_err(|err| err.to_string())
+}
+
+#[cfg(not(desktop))]
+#[tauri::command]
+fn desktop_notify(_app: AppHandle, _title: String, _body: String) -> Result<(), String> {
+  Ok(())
 }
 
 #[cfg(desktop)]
@@ -330,9 +345,10 @@ fn build_tray(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-  let builder = tauri::Builder::default().plugin(tauri_plugin_notification::init());
+  let builder = tauri::Builder::default();
   #[cfg(desktop)]
   let builder = builder
+    .plugin(tauri_plugin_notification::init())
     .plugin(
       tauri_plugin_window_state::Builder::new()
         .with_state_flags(

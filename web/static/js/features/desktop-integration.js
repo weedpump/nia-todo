@@ -39,6 +39,14 @@ function isDesktopApp() {
   return isNativeApp() && !isAndroidApp();
 }
 
+function getAndroidNative() {
+  return window.NiaAndroidNative || null;
+}
+
+function hasAndroidNativeNotifications() {
+  return isAndroidApp() && Boolean(getAndroidNative()?.notify);
+}
+
 async function invokeDesktop(command, args = {}) {
   const invoke = getInvoke();
   if (!invoke) throw new Error('Tauri API not available');
@@ -196,6 +204,16 @@ export function createDesktopIntegration({ wsSend, getWsState, showToast, onHotk
 
   async function ensureNativeNotificationPermission() {
     if (!isNativeApp()) return true;
+    const androidNative = getAndroidNative();
+    if (hasAndroidNativeNotifications()) {
+      try {
+        const state = androidNative.requestNotificationPermission?.() || androidNative.notificationPermissionState?.() || 'granted';
+        return state === 'granted' || state === 'prompt';
+      } catch (error) {
+        console.warn('[Android] Notification permission request failed', error);
+      }
+      return false;
+    }
     try {
       const state = await invokeDesktop('desktop_request_notification_permission');
       return state === 'granted';
@@ -219,10 +237,15 @@ export function createDesktopIntegration({ wsSend, getWsState, showToast, onHotk
     const title = reminder?.title || '⏰ Erinnerung';
     const body = reminder?.body || reminder?.todo_title || 'Todo-Erinnerung';
     try {
+      if (hasAndroidNativeNotifications()) {
+        const sent = getAndroidNative().notify(title, body);
+        if (!sent) showToast?.('Android-Benachrichtigung nicht gesendet: Berechtigung fehlt.');
+        return;
+      }
       await invokeDesktop('desktop_notify', { title, body });
     } catch (error) {
-      console.warn('[Desktop] Notification failed', error);
-      showToast?.('Desktop-Benachrichtigung fehlgeschlagen');
+      console.warn('[Native] Notification failed', error);
+      showToast?.('Native Benachrichtigung fehlgeschlagen');
     }
   }
 
@@ -256,10 +279,14 @@ export function createDesktopIntegration({ wsSend, getWsState, showToast, onHotk
       return;
     }
     try {
-      await invokeDesktop('desktop_notify', {
-        title: '🔔 nia-todo',
-        body: 'Desktop-Benachrichtigungen funktionieren.',
-      });
+      const title = '🔔 nia-todo';
+      const body = 'Native Benachrichtigungen funktionieren.';
+      if (hasAndroidNativeNotifications()) {
+        const sent = getAndroidNative().notify(title, body);
+        setDesktopStatus(sent ? 'Test-Benachrichtigung gesendet.' : 'Benachrichtigung nicht gesendet: Berechtigung fehlt.', !sent);
+        return;
+      }
+      await invokeDesktop('desktop_notify', { title, body });
       setDesktopStatus('Test-Benachrichtigung gesendet.');
     } catch (error) {
       setDesktopStatus(error?.message || String(error), true);
