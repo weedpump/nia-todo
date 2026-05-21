@@ -14,13 +14,6 @@ function isBrowserDownloadEligible() {
   return !isTauriApp() && !isStandaloneDisplayMode();
 }
 
-function formatBytes(bytes) {
-  const value = Number(bytes || 0);
-  if (!Number.isFinite(value) || value <= 0) return '';
-  if (value < 1024 * 1024) return `${Math.round(value / 1024)} KB`;
-  return `${(value / (1024 * 1024)).toFixed(1)} MB`;
-}
-
 function windowsDownloadFromManifest(manifest) {
   const windows = manifest?.latest?.windows || manifest?.apps?.find?.((app) => app.platform === 'windows');
   if (!windows?.url) return null;
@@ -32,15 +25,12 @@ function windowsDownloadFromManifest(manifest) {
 
 function renderDownload(target, download) {
   if (!target || !download) return;
-  const size = formatBytes(download.size_bytes);
-  const version = download.version ? ` ${download.version}` : '';
-  const meta = [version.trim(), size].filter(Boolean).join(' · ');
+  const version = download.version || '';
   target.innerHTML = `
-    <a class="app-download-button" href="${download.url}" download>
+    <a class="app-download-button" href="${download.url}" download title="Windows-App herunterladen">
       <span>🪟</span>
-      <span>Windows-App herunterladen${version}</span>
+      <span>${version}</span>
     </a>
-    ${meta ? `<div class="app-download-meta">${meta}</div>` : ''}
   `;
   target.style.display = '';
 }
