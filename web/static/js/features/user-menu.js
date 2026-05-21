@@ -39,8 +39,8 @@ export function createUserMenuFeature({ getCurrentUser }) {
 
   function avatarSrc(user) {
     if (!user?.avatar_url) return '';
-    const version = user.avatar_updated_at ? encodeURIComponent(user.avatar_updated_at) : Date.now();
-    return `${user.avatar_url}?v=${version}`;
+    const version = user.avatar_updated_at ? encodeURIComponent(user.avatar_updated_at) : '';
+    return version ? `${user.avatar_url}?v=${version}` : user.avatar_url;
   }
 
   function renderAvatar(target, initial, src) {

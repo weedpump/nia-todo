@@ -68,19 +68,25 @@ const KEY_ALIASES = {
   Meta: 'Super',
 };
 
-const MODIFIER_KEYS = new Set(['Control', 'Shift', 'Alt', 'Meta', 'OS']);
+const MODIFIER_KEYS = new Set(['Control', 'Shift', 'Alt', 'Meta', 'OS', 'Ctrl', 'Super']);
+
+function isModifierKey(event) {
+  return MODIFIER_KEYS.has(event.key) || MODIFIER_KEYS.has(KEY_ALIASES[event.key]);
+}
 
 function normalizeHotkeyKey(event) {
+  if (isModifierKey(event)) return '';
   if (event.code?.startsWith('Key') && event.code.length === 4) return event.code.slice(3).toUpperCase();
   if (event.code?.startsWith('Digit') && event.code.length === 6) return event.code.slice(5);
   const key = KEY_ALIASES[event.key] || event.key;
-  if (!key || MODIFIER_KEYS.has(key)) return '';
+  if (!key) return '';
   if (key.length === 1) return key.toUpperCase();
   return key;
 }
 
 function hotkeyFromKeyboardEvent(event) {
   if (event.key === 'Backspace' || event.key === 'Delete') return '';
+  if (event.repeat) return null;
   const key = normalizeHotkeyKey(event);
   if (!key) return null;
   const parts = [];

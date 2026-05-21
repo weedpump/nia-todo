@@ -46,7 +46,17 @@ assert(safeLink.includes('rel="noopener noreferrer"'), 'external links must incl
 
 const swSource = readFileSync(new URL('../web/sw.js', import.meta.url), 'utf8');
 assert(!swSource.includes("caches.open(API_CACHE)"), 'service worker must not cache authenticated API responses');
+assert(swSource.indexOf("url.pathname.startsWith('/api/avatars/')") < swSource.indexOf("url.pathname.startsWith('/api/')"), 'service worker must cache static avatars before the generic API network-only rule');
 assert(swSource.includes("url.pathname.startsWith('/api/')") && swSource.includes('event.respondWith(fetch(event.request))'), 'API fetches must be network-only');
+
+const userMenuSource = readFileSync(new URL('../web/static/js/features/user-menu.js', import.meta.url), 'utf8');
+const userSettingsSource = readFileSync(new URL('../web/static/js/features/user-settings.js', import.meta.url), 'utf8');
+assert(!userMenuSource.includes('Date.now()'), 'user menu avatar URLs must be stable so avatars can be cached offline');
+assert(!userSettingsSource.includes('Date.now()'), 'settings avatar URLs must be stable so avatars can be cached offline');
+
+const desktopSource = readFileSync(new URL('../web/static/js/features/desktop-integration.js', import.meta.url), 'utf8');
+assert(desktopSource.includes('if (event.repeat) return null'), 'hotkey capture must ignore repeated modifier keydown events');
+assert(desktopSource.includes('if (isModifierKey(event)) return'), 'hotkey capture must not save a bare modifier as the main key');
 
 const syncSource = readFileSync(new URL('../web/static/js/features/sync.js', import.meta.url), 'utf8');
 assert(syncSource.includes('sanitizeQueueItem'), 'offline sync must sanitize queued actions');
