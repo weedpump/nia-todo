@@ -23,8 +23,13 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
 
         if (reg.waiting) {
           console.log('SW: Update waiting from previous session');
-          updateAvailable = true;
-          showUpdateButton();
+          if (isNativeApp()) {
+            console.log('SW: Native app detected → activating waiting update automatically');
+            setTimeout(() => triggerUpdate(), 0);
+          } else {
+            updateAvailable = true;
+            showUpdateButton();
+          }
         }
 
         checkForUpdate(reg);
@@ -53,8 +58,13 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
               return;
             }
             console.log('SW: New version ready for update');
-            updateAvailable = true;
-            showUpdateButton();
+            if (isNativeApp()) {
+              console.log('SW: Native app detected → activating new update automatically');
+              triggerUpdate();
+            } else {
+              updateAvailable = true;
+              showUpdateButton();
+            }
           });
         });
 
