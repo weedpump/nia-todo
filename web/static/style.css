@@ -371,21 +371,32 @@ body {
 .search-box input:focus { border-color: var(--accent); }
 
 .topbar-actions { display: flex; align-items: center; gap: 8px; position: relative; }
+.topbar-actions > .btn { min-height: 40px; line-height: 1; }
 
-.user-menu-wrap { position: relative; }
+.user-menu-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  height: 40px;
+  flex: 0 0 auto;
+}
 .user-menu-button {
   width: 40px;
   height: 40px;
+  padding: 0;
   border: 1px solid rgba(99,102,241,0.45);
   border-radius: 999px;
   background: linear-gradient(135deg, rgba(99,102,241,0.35), rgba(34,197,94,0.18));
   color: var(--text-primary);
   font-weight: 800;
   font-size: 15px;
+  line-height: 1;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex: 0 0 40px;
+  overflow: hidden;
   box-shadow: 0 6px 18px rgba(0,0,0,0.16);
   transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
 }
