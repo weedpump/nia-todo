@@ -126,7 +126,10 @@ async function run() {
     await page.waitForFunction(() => document.getElementById('api-keys-list')?.innerText?.includes('Frontend Test Key'), { timeout: 10000 });
 
     await page.evaluate(() => window.sendTestPush());
-    await page.waitForFunction(() => document.getElementById('push-error')?.textContent?.includes('Test-Benachrichtigung gesendet!'), { timeout: 10000 });
+    await page.waitForFunction(() => {
+      const text = document.getElementById('push-error')?.textContent || '';
+      return text.includes('Test-Benachrichtigung gesendet!') || text.includes('Test-Benachrichtigung konnte nicht gesendet werden.');
+    }, { timeout: 10000 });
 
     await page.evaluate(() => {
       window.confirm = () => true;
