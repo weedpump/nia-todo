@@ -113,7 +113,11 @@ export function createPushNotificationsFeature({ pushApi }) {
 
   async function sendTestPush() {
     try {
-      await pushApi.test({ title: 'Test 🔔', body: 'Push Notifications funktionieren!' });
+      const result = await pushApi.test({ title: 'Test 🔔', body: 'Push Notifications funktionieren!' });
+      if (result?.sent === false) {
+        updatePushStatus('granted', 'Test-Benachrichtigung konnte nicht gesendet werden. Keine aktive Subscription oder Push-Dienst hat abgelehnt.');
+        return;
+      }
       updatePushStatus('granted', 'Test-Benachrichtigung gesendet!');
     } catch (e) {
       updatePushStatus('granted', String(e.message || e) || 'Fehler beim Senden');
