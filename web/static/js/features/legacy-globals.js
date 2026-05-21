@@ -21,6 +21,7 @@ export function exposeLegacyGlobals({
   viewPreferences,
   toastUndo,
   push,
+  desktopIntegration,
 }) {
   Object.assign(window, {
     ...auth,
@@ -45,5 +46,6 @@ export function exposeLegacyGlobals({
     ...viewPreferences,
     ...toastUndo,
     ...push,
+    ...desktopIntegration,
   });
 }

@@ -333,6 +333,24 @@
           <button class="btn btn-secondary" id="push-test-btn" onclick="sendTestPush()" style="display:none;">Test senden</button>
         </div>
         <div id="push-error" style="color:var(--danger); font-size:13px; margin-top:8px;"></div>
+        <div id="desktop-settings-section" style="display:none;">
+          <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">
+          <h4 style="margin:0 0 12px 0; font-size:14px;">🖥️ Desktop-App</h4>
+          <label class="settings-toggle-row">
+            <span>Minimieren ins Tray statt beenden</span>
+            <input type="checkbox" id="desktop-minimize-to-tray" onchange="updateDesktopSetting('minimizeToTray', this.checked)">
+          </label>
+          <label class="settings-toggle-row">
+            <span>Autostart mit Windows</span>
+            <input type="checkbox" id="desktop-autostart" onchange="updateDesktopSetting('autostart', this.checked)">
+          </label>
+          <label class="settings-toggle-row">
+            <span>Native Benachrichtigungen</span>
+            <input type="checkbox" id="desktop-notifications" onchange="updateDesktopSetting('notifications', this.checked)">
+          </label>
+          <button class="btn btn-secondary" type="button" onclick="testDesktopNotification()" style="margin-top:8px;">Test-Benachrichtigung</button>
+          <div id="desktop-settings-status" style="font-size:13px; color:var(--text-muted); margin-top:8px;"></div>
+        </div>
       </div>
       <div class="modal-actions">
         <button type="button" class="btn btn-secondary" onclick="closeModal('settings-modal')">Schließen</button>

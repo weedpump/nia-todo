@@ -2104,3 +2104,18 @@ input[type="color"]::-moz-color-swatch {
 .desc-live-preview em {
   font-style: italic;
 }
+
+.settings-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 10px 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+.settings-toggle-row input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}

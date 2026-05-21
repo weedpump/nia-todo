@@ -10,6 +10,7 @@ from pywebpush import webpush, WebPushException
 from cryptography.hazmat.primitives import serialization
 
 from db import get_db
+from services.websocket import manager
 
 VAPID_KEYS_PATH = Path(__file__).parent.parent / "data" / "vapid_keys.json"
 VAPID_CLAIMS = {"sub": "mailto:nia-todo@kneidl-home.de"}
@@ -105,15 +106,28 @@ async def check_and_send_reminders():
             """).fetchall()
 
         for row in rows:
-            success = await send_push_notification(
+            payload = {
+                "id": row["id"],
+                "todo_id": row["todo_id"],
+                "title": "⏰ Erinnerung",
+                "body": row["title"],
+                "tag": f"reminder-{row['todo_id']}",
+                "url": "/",
+                "remind_at": row["remind_at"],
+            }
+            desktop_success = await manager.broadcast_desktop_notification(
+                row["user_id"],
+                {"type": "reminder_due", "payload": payload},
+            )
+            push_success = await send_push_notification(
                 user_id=row["user_id"],
-                title="⏰ Erinnerung",
-                body=row["title"],
-                tag=f"reminder-{row['todo_id']}",
-                url="/",
+                title=payload["title"],
+                body=payload["body"],
+                tag=payload["tag"],
+                url=payload["url"],
                 todo_id=row["todo_id"]
             )
-            if success:
+            if desktop_success or push_success:
                 with get_db() as db:
                     db.execute(
                         "UPDATE reminders SET sent_at = datetime('now') WHERE id = ?",

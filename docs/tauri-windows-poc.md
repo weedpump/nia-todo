@@ -8,10 +8,18 @@ Die bestehende Web-App soll als native Windows-App testbar werden, zunächst ohn
 
 Der PoC lädt:
 
-- im Dev-Modus: `http://localhost:8754`
-- im Build/Bundle-Modus: `https://todo.kneidl-home.de`
+- im Dev-Modus: `https://todo-dev.kneidl-home.de`
+- im Build/Bundle-Modus: `https://todo-dev.kneidl-home.de` für den Feature-Branch-Test
 
 Damit bleibt die API relativ zur geladenen Web-App nutzbar und Login/Session-Verhalten entspricht der normalen App.
+
+## Desktop-Features im PoC
+
+- Tray-Icon mit Öffnen/Beenden
+- Fenster schließen minimiert optional ins Tray statt die App zu beenden
+- Autostart kann per Windows-Registry `HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run` gesetzt werden
+- Native Windows-Benachrichtigungen laufen über Tauri statt Browser-Web-Push
+- Reminder werden per bestehender WebSocket-Verbindung als `reminder_due` an angemeldete Desktop-Clients verteilt
 
 ## Struktur
 
