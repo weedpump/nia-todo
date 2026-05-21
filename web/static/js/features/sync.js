@@ -16,6 +16,8 @@ export function createSyncFeature({
   sectionsApi,
 }) {
   function isOnlineForSync(wsState) {
+    // Browser/native offline state must win over a stale WebSocket state.
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return false;
     return wsState === 'connected' || (typeof navigator !== 'undefined' && navigator.onLine);
   }
 
@@ -87,9 +89,13 @@ export function createSyncFeature({
           else setTodos(withoutTemp.map(t => t.id === res.id ? res : t));
           successCount++;
         } else if (item.action === 'UPDATE_TODO') {
-          await todosApi.update(item.data.id, item.data.changes);
+          const serverTodo = await todosApi.update(item.data.id, item.data.changes);
           const localTodo = await getFromDB('todos', item.data.id);
-          if (localTodo) await dbPut('todos', { ...localTodo, ...item.data.changes, updated_at: new Date().toISOString() });
+          const nextTodo = serverTodo || (localTodo ? { ...localTodo, ...item.data.changes, updated_at: new Date().toISOString() } : null);
+          if (nextTodo) {
+            await dbPut('todos', nextTodo);
+            setTodos(getTodos().map(todo => todo.id === item.data.id ? nextTodo : todo));
+          }
           successCount++;
         } else if (item.action === 'DELETE_TODO') {
           await todosApi.delete(item.data.id);
@@ -144,6 +150,20 @@ export function createSyncFeature({
 
   async function refreshFromServer({ wsState, syncInProgressRef }) {
     if (!isOnlineForSync(wsState) || !getDb()) return;
+
+    // Local offline edits must be pushed before any authoritative pull clears
+    // and rewrites the local cache. Otherwise server state can visually or
+    // persistently clobber queued local changes.
+    const pendingQueue = await dbGetAll('syncQueue');
+    if (pendingQueue.length && !syncInProgressRef.value) {
+      await syncWithServer({ wsState, syncInProgressRef });
+      const remainingQueue = await dbGetAll('syncQueue');
+      if (remainingQueue.length) {
+        console.warn('Skipping server refresh while local sync queue still has pending changes');
+        return;
+      }
+    }
+
     const [todosData, projectsData, sectionsData] = await Promise.all([
       todosApi.list(), projectsApi.list(), sectionsApi.listAll(),
     ]);

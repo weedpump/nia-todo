@@ -29,19 +29,20 @@ step "🧪 nia-todo Test Suite"
 echo "Repo: $(pwd)"
 echo "Zeit: $(date '+%Y-%m-%d %H:%M:%S %Z')"
 
-run_step "1/13 Backend-Tests" python3 scripts/test_backend.py
-run_step "2/13 Service-Worker-Precache-Test" node scripts/test_sw_precache.mjs
-run_step "3/13 Frontend-Smoke-Test" node scripts/test_frontend_smoke.mjs
-run_step "4/13 Frontend-App-Test" node scripts/test_frontend_app.mjs
-run_step "5/13 Frontend-Setup-Test" node scripts/test_frontend_setup.mjs
-run_step "6/13 Frontend-Admin-Test" node scripts/test_frontend_admin.mjs
-run_step "7/13 Frontend-Settings-Test" node scripts/test_frontend_settings.mjs
-run_step "8/13 Frontend-Projects-Test" node scripts/test_frontend_projects.mjs
-run_step "9/13 Frontend-DragDrop-Test" node scripts/test_frontend_dragdrop.mjs
-run_step "10/13 Frontend-Sharing-Test" node scripts/test_frontend_sharing.mjs
-run_step "11/13 Frontend-Security-Test" node scripts/test_frontend_security.mjs
-run_step "12/13 Frontend-Session-Test" node scripts/test_frontend_session.mjs
-run_step "13/13 Frontend-Native-Offline-Test" node scripts/test_frontend_native_offline.mjs
+run_step "1/14 Backend-Tests" python3 scripts/test_backend.py
+run_step "2/14 Service-Worker-Precache-Test" node scripts/test_sw_precache.mjs
+run_step "3/14 Frontend-Smoke-Test" node scripts/test_frontend_smoke.mjs
+run_step "4/14 Frontend-App-Test" node scripts/test_frontend_app.mjs
+run_step "5/14 Frontend-Setup-Test" node scripts/test_frontend_setup.mjs
+run_step "6/14 Frontend-Admin-Test" node scripts/test_frontend_admin.mjs
+run_step "7/14 Frontend-Settings-Test" node scripts/test_frontend_settings.mjs
+run_step "8/14 Frontend-Projects-Test" node scripts/test_frontend_projects.mjs
+run_step "9/14 Frontend-DragDrop-Test" node scripts/test_frontend_dragdrop.mjs
+run_step "10/14 Frontend-Sharing-Test" node scripts/test_frontend_sharing.mjs
+run_step "11/14 Frontend-Security-Test" node scripts/test_frontend_security.mjs
+run_step "12/14 Frontend-Session-Test" node scripts/test_frontend_session.mjs
+run_step "13/14 Frontend-Offline-Sync-Test" node scripts/test_frontend_offline_sync.mjs
+run_step "14/14 Frontend-Native-Offline-Test" node scripts/test_frontend_native_offline.mjs
 
 echo
 echo "🎉 Alles grün — alle Tests erfolgreich bestanden"
