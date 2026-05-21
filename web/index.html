@@ -20,17 +20,8 @@
       document.documentElement.classList.add('native-android');
     }
     // Native shells rely on the service worker cache for offline cold starts.
-    // Never unregister it while offline, otherwise module loading can strand the
-    // boot overlay at "App startet…" before the lifecycle watchdog even runs.
-    if (nativeLaunch && navigator.onLine && 'serviceWorker' in navigator && navigator.serviceWorker.getRegistrations) {
-      const resetKey = 'nia-native-sw-reset-v1';
-      if (!sessionStorage.getItem(resetKey)) {
-        sessionStorage.setItem(resetKey, '1');
-        navigator.serviceWorker.getRegistrations()
-          .then((registrations) => Promise.all(registrations.map((registration) => registration.unregister())))
-          .catch((error) => console.warn('[Native] Service worker reset failed', error));
-      }
-    }
+    // Do not unregister it here: Android WebView can report navigator.onLine=true
+    // while DNS is unavailable, which would break the next offline launch.
   })();
 
   // Prevent native form submit/reload if the user is faster than the JS module boot.
