@@ -41,6 +41,11 @@ let hideDone = localStorage.getItem('nia-hide-done') === 'true';
 let sortMode = localStorage.getItem('nia-sort') || 'order';
 let desktopIntegration = null;
 
+function setTodosState(next) {
+  todos = next;
+  desktopIntegration?.syncLocalReminders(todos);
+}
+
 // ─── Auth / User (JWT) ───────────────────────────────────────────────────────
 
 let currentUser = null;  // { id, username, display_name, token }
@@ -84,7 +89,7 @@ const syncFeature = createSyncFeature({
   getFromDB,
   deleteFromDB,
   getTodos: () => todos,
-  setTodos: (next) => { todos = next; },
+  setTodos: setTodosState,
   getProjects: () => projects,
   setProjects: (next) => { projects = next; },
   getSections: () => sections,
@@ -95,7 +100,7 @@ const syncFeature = createSyncFeature({
 });
 const todosFeature = createTodosFeature({
   getTodos: () => todos,
-  setTodos: (next) => { todos = next; },
+  setTodos: setTodosState,
   getProjects: () => projects,
   getCurrentProjectId: () => currentProjectId,
   getAppInitialized: () => appInitialized,
@@ -217,7 +222,7 @@ const wsClient = createWebSocketClient({
   getFromDB,
   deleteFromDB,
   getTodos: () => todos,
-  setTodos: (next) => { todos = next; },
+  setTodos: setTodosState,
   getProjects: () => projects,
   setProjects: (next) => { projects = next; },
   getSections: () => sections,
@@ -226,7 +231,7 @@ const wsClient = createWebSocketClient({
   renderStats: () => renderStats(),
   renderTodos: () => renderTodos(),
   onAuthOk: () => desktopIntegration?.announceNotificationReadiness(),
-  onReminderDue: (payload) => desktopIntegration?.notifyReminder(payload),
+  onReminderDue: () => {},
 });
 const getReconnectDelay = wsClient.getReconnectDelay;
 const connectWebSocket = wsClient.connectWebSocket;
@@ -239,8 +244,6 @@ const updateConnectionStatus = wsClient.updateConnectionStatus;
 const handleWsMessage = wsClient.handleWsMessage;
 
 desktopIntegration = createDesktopIntegration({
-  wsSend: (data) => wsSend(data),
-  getWsState: () => wsClient.getWsState(),
   showToast: (...args) => showToast(...args),
   onHotkeyNewTodo: () => {
     showTodoModal();
@@ -279,7 +282,7 @@ async function refreshFromServer() {
 
 const sectionActions = createSectionActionsFeature({
   getTodos: () => todos,
-  setTodos: (next) => { todos = next; },
+  setTodos: setTodosState,
   getSections: () => sections,
   setSections: (next) => { sections = next; },
   getCurrentProjectId: () => currentProjectId,
@@ -373,7 +376,7 @@ uiShell.bindKeyboardShortcuts();
 
 const dragDropFeature = createDragDropFeature({
   getTodos: () => todos,
-  setTodos: (next) => { todos = next; },
+  setTodos: setTodosState,
   getSections: () => sections,
   setSections: (next) => { sections = next; },
   isOnlineForSync,
@@ -393,7 +396,7 @@ const handleSectionDrop = dragDropFeature.handleSectionDrop;
 const toastUndoFeature = createToastUndoFeature({
   getDb: () => db,
   getTodos: () => todos,
-  setTodos: (next) => { todos = next; },
+  setTodos: setTodosState,
   dbPut,
   addToSyncQueue,
   isOnlineForSync,
@@ -430,7 +433,7 @@ const appLifecycle = createAppLifecycle({
   initServiceWorker,
   openDB,
   dbGetAll,
-  setTodos: (next) => { todos = next; },
+  setTodos: setTodosState,
   setProjects: (next) => { projects = next; },
   setSections: (next) => { sections = next; },
   setCurrentFilter: (next) => { currentFilter = next; },

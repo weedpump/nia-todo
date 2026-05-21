@@ -1,6 +1,15 @@
 use serde::{Deserialize, Serialize};
-use std::{fs, path::PathBuf};
-use tauri::{AppHandle, Manager};
+use std::{
+  fs,
+  path::PathBuf,
+  sync::{
+    atomic::{AtomicU64, Ordering},
+    Arc,
+  },
+  thread,
+  time::{Duration, SystemTime, UNIX_EPOCH},
+};
+use tauri::{AppHandle, Manager, State};
 #[cfg(desktop)]
 use tauri::{Emitter, WindowEvent};
 #[cfg(desktop)]
@@ -36,6 +45,20 @@ struct DesktopSettings {
   notifications: bool,
   server_url: Option<String>,
   hotkeys: DesktopHotkeys,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct DesktopReminderSchedule {
+  id: String,
+  title: String,
+  body: String,
+  due_at_ms: u64,
+}
+
+#[derive(Default)]
+struct DesktopReminderScheduler {
+  generation: Arc<AtomicU64>,
 }
 
 impl Default for DesktopSettings {
@@ -311,6 +334,66 @@ fn desktop_notify(_app: AppHandle, _title: String, _body: String) -> Result<(), 
   Ok(())
 }
 
+fn unix_now_ms() -> u64 {
+  SystemTime::now()
+    .duration_since(UNIX_EPOCH)
+    .unwrap_or_default()
+    .as_millis()
+    .try_into()
+    .unwrap_or(u64::MAX)
+}
+
+#[cfg(desktop)]
+fn show_scheduled_reminder(app: &AppHandle, title: String, body: String) {
+  if !load_settings(app).notifications {
+    return;
+  }
+  let _ = app
+    .notification()
+    .builder()
+    .title(title)
+    .body(body)
+    .show();
+}
+
+#[cfg(not(desktop))]
+fn show_scheduled_reminder(_app: &AppHandle, _title: String, _body: String) {}
+
+#[tauri::command]
+fn desktop_schedule_reminders(
+  app: AppHandle,
+  scheduler: State<'_, DesktopReminderScheduler>,
+  reminders: Vec<DesktopReminderSchedule>,
+) -> Result<usize, String> {
+  let generation = scheduler.generation.fetch_add(1, Ordering::SeqCst) + 1;
+  if !load_settings(&app).notifications {
+    return Ok(0);
+  }
+
+  let now = unix_now_ms();
+  let mut scheduled = 0usize;
+  for reminder in reminders.into_iter().filter(|reminder| reminder.due_at_ms > now) {
+    scheduled += 1;
+    let app = app.clone();
+    let _reminder_id = reminder.id;
+    let title = reminder.title;
+    let body = reminder.body;
+    let due_at_ms = reminder.due_at_ms;
+    let scheduler = scheduler.inner().generation.clone();
+
+    thread::spawn(move || {
+      let delay_ms = due_at_ms.saturating_sub(unix_now_ms());
+      thread::sleep(Duration::from_millis(delay_ms));
+      if scheduler.load(Ordering::SeqCst) != generation {
+        return;
+      }
+      show_scheduled_reminder(&app, title, body);
+    });
+  }
+
+  Ok(scheduled)
+}
+
 #[cfg(desktop)]
 fn build_tray(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
   let show = MenuItem::with_id(app, "show", "Öffnen", true, None::<&str>)?;
@@ -361,6 +444,7 @@ pub fn run() {
     .plugin(tauri_plugin_global_shortcut::Builder::new().build());
 
   builder
+    .manage(DesktopReminderScheduler::default())
     .invoke_handler(tauri::generate_handler![
       desktop_get_settings,
       desktop_set_setting,
@@ -369,6 +453,7 @@ pub fn run() {
       desktop_set_hotkey,
       desktop_request_notification_permission,
       desktop_notify,
+      desktop_schedule_reminders,
     ])
     .setup(|_app| {
       #[cfg(desktop)]
