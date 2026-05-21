@@ -19,7 +19,6 @@ class ReminderReceiver : BroadcastReceiver() {
   override fun onReceive(context: Context, intent: Intent) {
     when (intent.action) {
       ACTION_SHOW_REMINDER -> showReminder(context, intent)
-      ACTION_MARK_DONE -> markReminderDone(context, intent)
       Intent.ACTION_BOOT_COMPLETED -> rescheduleStoredReminders(context)
     }
   }
@@ -35,8 +34,9 @@ class ReminderReceiver : BroadcastReceiver() {
     val openIntent = Intent(context, MainActivity::class.java).apply {
       flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
     }
-    val doneIntent = Intent(context, ReminderReceiver::class.java).apply {
+    val doneIntent = Intent(context, MainActivity::class.java).apply {
       action = ACTION_MARK_DONE
+      flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
       putExtra(EXTRA_ID, id)
     }
     val contentIntent = PendingIntent.getActivity(
@@ -46,7 +46,7 @@ class ReminderReceiver : BroadcastReceiver() {
       PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )
 
-    val donePendingIntent = PendingIntent.getBroadcast(
+    val donePendingIntent = PendingIntent.getActivity(
       context,
       notificationId("done-$id"),
       doneIntent,
@@ -67,21 +67,6 @@ class ReminderReceiver : BroadcastReceiver() {
       .build()
 
     NotificationManagerCompat.from(context).notify(notificationId(id), notification)
-  }
-
-  private fun markReminderDone(context: Context, intent: Intent) {
-    val id = intent.getStringExtra(EXTRA_ID) ?: return
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-      .edit()
-      .putString(PREFS_PENDING_DONE_ID, id)
-      .apply()
-
-    NotificationManagerCompat.from(context).cancel(notificationId(id))
-
-    val openIntent = Intent(context, MainActivity::class.java).apply {
-      flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
-    }
-    context.startActivity(openIntent)
   }
 
   companion object {
