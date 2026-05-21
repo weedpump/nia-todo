@@ -2145,6 +2145,14 @@ input[type="color"]::-moz-color-swatch {
 .desktop-hotkeys-settings code {
   color: var(--text-secondary);
 }
+.hotkey-capture-input {
+  cursor: pointer;
+  user-select: none;
+}
+.hotkey-capture-input.recording-hotkey {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+}
 @media (max-width: 560px) {
   .settings-server-row { flex-direction: column; }
 }

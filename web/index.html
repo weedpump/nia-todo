@@ -359,27 +359,18 @@
           <button class="btn btn-secondary" type="button" onclick="testDesktopNotification()" style="margin-top:8px;">Test-Benachrichtigung</button>
           <div class="desktop-hotkeys-settings">
             <h5>⌨️ Globale Hotkeys</h5>
-            <p>Format z.B. <code>CommandOrControl+Shift+Space</code>, <code>Ctrl+Alt+N</code> oder leer zum Deaktivieren.</p>
+            <p>Ins Feld klicken, Tastenkombination drücken, fertig. <code>Backspace</code>/<code>Entf</code> löscht den Hotkey.</p>
             <div class="form-group">
               <label>App anzeigen/verstecken</label>
-              <div class="settings-server-row">
-                <input type="text" id="desktop-hotkey-toggle-app" placeholder="Ctrl+Alt+Space">
-                <button class="btn btn-secondary" type="button" onclick="updateDesktopHotkey('toggleApp', document.getElementById('desktop-hotkey-toggle-app').value)">Speichern</button>
-              </div>
+              <input class="hotkey-capture-input" type="text" id="desktop-hotkey-toggle-app" inputmode="none" autocomplete="off" aria-label="Hotkey für App anzeigen oder verstecken">
             </div>
             <div class="form-group">
               <label>Neues Todo direkt öffnen</label>
-              <div class="settings-server-row">
-                <input type="text" id="desktop-hotkey-new-todo" placeholder="Ctrl+Alt+N">
-                <button class="btn btn-secondary" type="button" onclick="updateDesktopHotkey('newTodo', document.getElementById('desktop-hotkey-new-todo').value)">Speichern</button>
-              </div>
+              <input class="hotkey-capture-input" type="text" id="desktop-hotkey-new-todo" inputmode="none" autocomplete="off" aria-label="Hotkey für neues Todo">
             </div>
             <div class="form-group">
               <label>Suche fokussieren</label>
-              <div class="settings-server-row">
-                <input type="text" id="desktop-hotkey-search" placeholder="Ctrl+Alt+F">
-                <button class="btn btn-secondary" type="button" onclick="updateDesktopHotkey('search', document.getElementById('desktop-hotkey-search').value)">Speichern</button>
-              </div>
+              <input class="hotkey-capture-input" type="text" id="desktop-hotkey-search" inputmode="none" autocomplete="off" aria-label="Hotkey für Suche">
             </div>
           </div>
           <div id="desktop-settings-status" style="font-size:13px; color:var(--text-muted); margin-top:8px;"></div>

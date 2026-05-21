@@ -48,6 +48,50 @@ function setValue(id, value) {
   if (el) el.value = value || '';
 }
 
+const HOTKEY_INPUTS = {
+  toggleApp: 'desktop-hotkey-toggle-app',
+  newTodo: 'desktop-hotkey-new-todo',
+  search: 'desktop-hotkey-search',
+};
+
+const KEY_ALIASES = {
+  ' ': 'Space',
+  Spacebar: 'Space',
+  Esc: 'Escape',
+  Del: 'Delete',
+  ArrowUp: 'Up',
+  ArrowDown: 'Down',
+  ArrowLeft: 'Left',
+  ArrowRight: 'Right',
+  Control: 'Ctrl',
+  OS: 'Super',
+  Meta: 'Super',
+};
+
+const MODIFIER_KEYS = new Set(['Control', 'Shift', 'Alt', 'Meta', 'OS']);
+
+function normalizeHotkeyKey(event) {
+  if (event.code?.startsWith('Key') && event.code.length === 4) return event.code.slice(3).toUpperCase();
+  if (event.code?.startsWith('Digit') && event.code.length === 6) return event.code.slice(5);
+  const key = KEY_ALIASES[event.key] || event.key;
+  if (!key || MODIFIER_KEYS.has(key)) return '';
+  if (key.length === 1) return key.toUpperCase();
+  return key;
+}
+
+function hotkeyFromKeyboardEvent(event) {
+  if (event.key === 'Backspace' || event.key === 'Delete') return '';
+  const key = normalizeHotkeyKey(event);
+  if (!key) return null;
+  const parts = [];
+  if (event.ctrlKey) parts.push('Ctrl');
+  if (event.altKey) parts.push('Alt');
+  if (event.shiftKey) parts.push('Shift');
+  if (event.metaKey) parts.push('Super');
+  parts.push(key);
+  return parts.join('+');
+}
+
 function normalizeServerUrl(value) {
   const raw = String(value || '').trim().replace(/\/+$/, '');
   const url = new URL(raw);
@@ -92,6 +136,7 @@ export function createDesktopIntegration({ wsSend, getWsState, showToast, onHotk
 
   async function init() {
     if (!isDesktopApp()) return;
+    bindHotkeyCaptureInputs();
     await loadSettings();
     renderSettings();
     bindHotkeyEvents();
@@ -182,6 +227,36 @@ export function createDesktopIntegration({ wsSend, getWsState, showToast, onHotk
       setDesktopStatus(error?.message || String(error), true);
       await loadSettings();
       renderSettings();
+    }
+  }
+
+  let hotkeyCaptureBound = false;
+  function bindHotkeyCaptureInputs() {
+    if (hotkeyCaptureBound) return;
+    hotkeyCaptureBound = true;
+    for (const [action, id] of Object.entries(HOTKEY_INPUTS)) {
+      const input = document.getElementById(id);
+      if (!input) continue;
+      input.readOnly = true;
+      input.addEventListener('focus', () => {
+        input.placeholder = 'Tastenkombination drücken…';
+        input.classList.add('recording-hotkey');
+        setDesktopStatus('Tastenkombination drücken. Backspace/Entf löscht den Hotkey.');
+      });
+      input.addEventListener('blur', () => {
+        input.placeholder = '';
+        input.classList.remove('recording-hotkey');
+      });
+      input.addEventListener('keydown', async (event) => {
+        if (event.key === 'Tab') return;
+        event.preventDefault();
+        event.stopPropagation();
+        const shortcut = hotkeyFromKeyboardEvent(event);
+        if (shortcut === null) return;
+        input.value = shortcut;
+        await updateHotkey(action, shortcut);
+        input.blur();
+      });
     }
   }
 
