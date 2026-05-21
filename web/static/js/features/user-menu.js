@@ -42,8 +42,12 @@ export function createUserMenuFeature({ getCurrentUser }) {
     renderAvatar(document.getElementById('user-menu-avatar'), initial, src);
     const menuName = document.getElementById('user-menu-name');
     const menuEmail = document.getElementById('user-menu-email');
+    const sidebarName = document.getElementById('sidebar-user-name');
+    const sidebarEmail = document.getElementById('sidebar-user-email');
     if (menuName) menuName.textContent = name;
     if (menuEmail) menuEmail.textContent = email;
+    if (sidebarName) sidebarName.textContent = name;
+    if (sidebarEmail) sidebarEmail.textContent = email || 'Account';
   }
 
   function bindUserMenu() {
