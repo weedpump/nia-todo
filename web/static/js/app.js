@@ -511,6 +511,7 @@ const loadAll = appLifecycle.loadAll;
 let startupBound = false;
 
 export function startAppModule() {
+  window.__niaAppModuleStarted = true;
   if (startupBound) {
     console.log('[boot] startAppModule: already bound');
     return;
