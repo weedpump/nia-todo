@@ -5,6 +5,14 @@ Alle wichtigen Änderungen an diesem Projekt werden in dieser Datei dokumentiert
 Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [1.3.2] - 2026-05-21
+
+### Added
+- Mobile Sidebar lässt sich per defensiver Edge-Swipe-Geste von links öffnen
+
+### Changed
+- Swipe-Startzone wurde für Android verbreitert, damit die Browser-/System-Zurück-Geste weniger stört
+
 ## [1.3.1] - 2026-05-21
 
 ### Changed
