@@ -29,10 +29,10 @@ function downloadsFromManifest(manifest) {
   return ['windows', 'android'].map((platform) => byPlatform.get(platform)).filter(Boolean);
 }
 
-function platformIcon(platform) {
-  if (platform === 'android') return '🤖';
-  if (platform === 'windows') return '🪟';
-  return '⬇️';
+function platformIconClass(platform) {
+  if (platform === 'android') return 'app-download-icon-android';
+  if (platform === 'windows') return 'app-download-icon-windows';
+  return '';
 }
 
 function platformTitle(download) {
@@ -45,7 +45,7 @@ function renderDownloads(target, downloads) {
   if (!target || !downloads?.length) return;
   target.innerHTML = downloads.map((download) => `
     <a class="app-download-button" href="${download.url}" download title="${platformTitle(download)}">
-      <span>${platformIcon(download.platform)}</span>
+      ${platformIconClass(download.platform) ? `<span class="app-download-icon ${platformIconClass(download.platform)}" aria-hidden="true"></span>` : '<span>⬇️</span>'}
       <span>${download.version || ''}</span>
     </a>
   `).join('');
