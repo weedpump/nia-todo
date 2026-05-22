@@ -1,5 +1,5 @@
 // nia-todo Service Worker - Bulletproof Offline-First + Update-System + Push Notifications
-const SW_VERSION = 'v1.7.3-dev';
+const SW_VERSION = 'v1.7.3';
 const CACHE_NAME = 'nia-todo-' + SW_VERSION;
 
 // ALLE Assets die wir brauchen
