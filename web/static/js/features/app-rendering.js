@@ -73,6 +73,7 @@ export function createAppRenderingFeature({
     if (!el) return;
     const projects = getProjects();
     const currentFilter = getCurrentFilter();
+    const currentProjectId = getCurrentProjectId();
 
     const ownProjects = projects.filter(p => !p.is_shared);
     const sharedProjects = projects.filter(p => p.is_shared);
@@ -102,7 +103,8 @@ export function createAppRenderingFeature({
       let html = '';
       html += `<div class="project-tree-item" style="padding-left: ${indent}px">`;
       html += `<div class="nav-item-with-action">`;
-      html += `<button class="nav-btn ${currentFilter === String(project.id) ? 'active' : ''}" data-filter="${escapeHtmlAttr(project.id)}" onclick="setFilter('${project.id}')">`;
+      const isActiveProject = Number(currentProjectId) === Number(project.id);
+      html += `<button class="nav-btn ${isActiveProject ? 'active' : ''}" data-filter="${escapeHtmlAttr(project.id)}" onclick="setFilter('${project.id}')">`;
       html += `<span class="project-dot" style="background:${escapeHtmlAttr(project.color)}"></span>`;
       html += `${escapeHtml(project.name)}`;
       html += `<span class="badge">${countByProject(project.id, true)}</span>`;
@@ -175,6 +177,10 @@ export function createAppRenderingFeature({
       hour: '2-digit',
       minute: '2-digit',
     }).format(now);
+
+    document.querySelectorAll('.nav-section:first-of-type .nav-btn').forEach((button) => {
+      button.classList.toggle('active', !currentProjectId && button.dataset.filter === String(currentFilter));
+    });
 
     const showDashboard = currentFilter === 'all' && !currentProjectId;
     el.hidden = !showDashboard;
