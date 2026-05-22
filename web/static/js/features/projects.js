@@ -23,6 +23,16 @@ export function createProjectsFeature({
   sharingFeature,
   getCurrentUser,
 }) {
+  let projectFormBound = false;
+
+  function bindProjectForm() {
+    if (projectFormBound) return;
+    const form = document.getElementById('project-form');
+    if (!form) return;
+    projectFormBound = true;
+    form.addEventListener('submit', saveProject);
+  }
+
   function isOwner(project) {
     if (!project) return false;
     if (project.is_owner === true || project.is_owner === 1 || project.is_owner === '1') return true;
@@ -31,6 +41,7 @@ export function createProjectsFeature({
   }
 
   function showProjectModal(project = null, parentId = null) {
+    bindProjectForm();
     document.getElementById('project-form')?.reset();
     document.getElementById('project-id').value = '';
     document.getElementById('project-modal-title').textContent = project ? 'Projekt bearbeiten' : (parentId ? 'Neues Subproject' : 'Neues Projekt');
