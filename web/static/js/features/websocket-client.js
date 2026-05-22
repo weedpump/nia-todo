@@ -253,6 +253,10 @@ async function handleWsMessage(msg) {
         sections = await dbGetAll('sections');
       }
       if (msg.workspaces) {
+        const serverWorkspaceIds = new Set(msg.workspaces.map(workspace => String(workspace.id)));
+        for (const localWorkspace of await dbGetAll('workspaces')) {
+          if (!serverWorkspaceIds.has(String(localWorkspace.id))) await deleteFromDB('workspaces', localWorkspace.id);
+        }
         for (const workspace of msg.workspaces) {
           await dbPut('workspaces', workspace);
         }
@@ -375,6 +379,27 @@ async function handleWsMessage(msg) {
         renderTodos();
       }
       break;
+    case 'workspace_create':
+    case 'workspace_update':
+      if (msg.payload) {
+        await dbPut('workspaces', msg.payload);
+        const existing = workspaces.find(w => String(w.id) === String(msg.payload.id));
+        workspaces = existing
+          ? workspaces.map(w => String(w.id) === String(msg.payload.id) ? msg.payload : w)
+          : [...workspaces, msg.payload];
+        setWorkspaces?.(workspaces);
+        renderWorkspaces?.();
+      }
+      break;
+    case 'workspace_delete':
+      if (msg.payload?.deleted) {
+        await deleteFromDB('workspaces', msg.payload.deleted);
+        workspaces = workspaces.filter(w => String(w.id) !== String(msg.payload.deleted));
+        setWorkspaces?.(workspaces);
+        renderWorkspaces?.();
+      }
+      await syncWithServer();
+      break;
     case 'member_invited':
     case 'member_accepted':
     case 'member_declined':
@@ -450,6 +475,7 @@ async function handleWsMessage(msg) {
     'todo_create', 'todo_update', 'todo_delete',
     'project_create', 'project_update', 'project_delete',
     'section_create', 'section_update', 'section_delete',
+    'workspace_create', 'workspace_update', 'workspace_delete',
     'member_invited', 'member_accepted', 'member_declined', 'member_removed', 'member_left', 'member_color_changed',
   ]);
   if (dataEvents.has(msg.type)) {

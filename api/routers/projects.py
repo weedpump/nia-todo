@@ -45,7 +45,16 @@ def get_user_default_workspace_id(db, user_id: int) -> Optional[int]:
     return c.lastrowid
 
 
-def get_user_inbox_project_id(db, owner_user_id: int) -> Optional[int]:
+def get_user_inbox_project_id(db, owner_user_id: int, workspace_id: Optional[int] = None) -> Optional[int]:
+    if workspace_id is not None:
+        row = db.execute(
+            """SELECT id FROM projects
+               WHERE user_id = ? AND workspace_id = ? AND COALESCE(is_inbox, 0) = 1
+               ORDER BY id LIMIT 1""",
+            (owner_user_id, workspace_id),
+        ).fetchone()
+        if row:
+            return row['id']
     row = db.execute(
         "SELECT id FROM projects WHERE user_id = ? AND COALESCE(is_inbox, 0) = 1 ORDER BY id LIMIT 1",
         (owner_user_id,)
@@ -97,7 +106,7 @@ async def create_project(data: ProjectCreate, user_id: int = Depends(require_aut
             )
             db.commit()
         except sqlite3.IntegrityError:
-            raise HTTPException(409, "Project already exists in this workspace")
+            raise HTTPException(409, "Project could not be saved")
         row = db.execute("SELECT *, 0 as is_shared, 1 as is_owner FROM projects WHERE id = ?", (c.lastrowid,)).fetchone()
         proj = dict(row)
         await broadcast_change("project_create", proj, user_id)
@@ -118,6 +127,11 @@ async def update_project(project_id: int, data: ProjectUpdate, user_id: int = De
         if "parent_id" in fields_set and data.parent_id is not None:
             if data.parent_id == project_id:
                 raise HTTPException(400, "Project cannot be its own parent")
+            parent = db.execute("SELECT id, parent_id, workspace_id FROM projects WHERE id = ? AND user_id = ?", (data.parent_id, user_id)).fetchone()
+            if not parent:
+                raise HTTPException(404, "Parent project not found")
+            if parent['workspace_id'] != existing['workspace_id']:
+                raise HTTPException(400, "Parent project belongs to another workspace")
             current_check = data.parent_id
             while current_check is not None:
                 ancestor = db.execute("SELECT parent_id FROM projects WHERE id = ? AND user_id = ?", (current_check, user_id)).fetchone()
@@ -125,10 +139,9 @@ async def update_project(project_id: int, data: ProjectUpdate, user_id: int = De
                     raise HTTPException(400, "Circular dependency")
                 current_check = ancestor['parent_id'] if ancestor else None
         updates = {}
-        if "workspace_id" in fields_set and data.workspace_id is not None:
-            workspace = db.execute("SELECT id FROM workspaces WHERE id = ? AND user_id = ?", (data.workspace_id, user_id)).fetchone()
-            if not workspace:
-                raise HTTPException(404, "Workspace not found")
+        if "workspace_id" in fields_set:
+            if data.workspace_id != existing['workspace_id']:
+                raise HTTPException(400, "Project workspace cannot be changed")
         for f in ["name", "color", "sort_order", "parent_id", "workspace_id"]:
             if f in fields_set:
                 updates[f] = getattr(data, f)
@@ -141,7 +154,7 @@ async def update_project(project_id: int, data: ProjectUpdate, user_id: int = De
                 db.execute(f"UPDATE projects SET {set_clause} WHERE id = :id", {**safe_updates, "id": project_id})
                 db.commit()
             except sqlite3.IntegrityError:
-                raise HTTPException(409, "Project already exists in this workspace")
+                raise HTTPException(409, "Project could not be saved")
         row = db.execute("SELECT *, CASE WHEN user_id = ? THEN 1 ELSE 0 END as is_owner, 0 as is_shared FROM projects WHERE id = ?", (user_id, project_id)).fetchone()
         proj = dict(row)
         await broadcast_change("project_update", proj, user_id, project_id)
@@ -169,7 +182,7 @@ async def delete_project(project_id: int, user_id: int = Depends(require_auth)):
         for pid in to_delete:
             todo_rows = db.execute("SELECT id, user_id FROM todos WHERE project_id = ?", (pid,)).fetchall()
             for todo in todo_rows:
-                inbox_id = get_user_inbox_project_id(db, todo['user_id']) if todo['user_id'] is not None else None
+                inbox_id = get_user_inbox_project_id(db, todo['user_id'], proj['workspace_id']) if todo['user_id'] is not None else None
                 db.execute(
                     "UPDATE todos SET project_id = ?, section_id = NULL WHERE id = ?",
                     (inbox_id, todo['id'])

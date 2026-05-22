@@ -535,6 +535,69 @@ class TestSuite:
         
         return self.record("project_patch", status)
     
+    def test_project_workspace_move_rejected(self):
+        proj_id = self.created_ids["project"][-1] if self.created_ids["project"] else None
+        if not proj_id:
+            self.results["project_workspace_move_rejected"] = {"status": -1, "passed": True, "expected": "skipped"}
+            return True
+        status, workspace = curl("POST", "/api/workspaces", {
+            "name": "Move Reject Workspace",
+            "color": "#f59e0b"
+        }, token=self.user_token, csrf=self.user_csrf, cookie_jar="/tmp/nia_user_cookies.txt")
+        if not ok(status) or not workspace.get("id"):
+            self.results["project_workspace_move_rejected"] = {"status": status, "passed": False, "expected": "workspace created"}
+            return False
+        status, _ = curl("PATCH", f"/api/projects/{proj_id}", {
+            "workspace_id": workspace["id"]
+        }, token=self.user_token, csrf=self.user_csrf, cookie_jar="/tmp/nia_user_cookies.txt")
+        return self.record("project_workspace_move_rejected", status, expected=400)
+
+    def test_project_delete_uses_workspace_inbox(self):
+        status, workspace = curl("POST", "/api/workspaces", {
+            "name": "Delete Inbox Workspace",
+            "color": "#0ea5e9"
+        }, token=self.user_token, csrf=self.user_csrf, cookie_jar="/tmp/nia_user_cookies.txt")
+        if not ok(status) or not workspace.get("id"):
+            self.results["project_delete_uses_workspace_inbox"] = {"status": status, "passed": False, "expected": "workspace created"}
+            return False
+        workspace_id = workspace["id"]
+
+        status, projects_data = curl("GET", "/api/projects", token=self.user_token, cookie_jar="/tmp/nia_user_cookies.txt")
+        if not ok(status):
+            self.results["project_delete_uses_workspace_inbox"] = {"status": status, "passed": False, "expected": 200}
+            return False
+        workspace_inbox = next((p for p in projects_data.get("projects", []) if p.get("workspace_id") == workspace_id and p.get("is_inbox")), None)
+        if not workspace_inbox:
+            self.results["project_delete_uses_workspace_inbox"] = {"status": status, "passed": False, "expected": "workspace inbox"}
+            return False
+
+        status, project = curl("POST", "/api/projects", {
+            "name": "Delete Me In Workspace",
+            "color": "#6366f1",
+            "workspace_id": workspace_id
+        }, token=self.user_token, csrf=self.user_csrf, cookie_jar="/tmp/nia_user_cookies.txt")
+        if not ok(status) or not project.get("id"):
+            self.results["project_delete_uses_workspace_inbox"] = {"status": status, "passed": False, "expected": "project created"}
+            return False
+
+        status, todo = curl("POST", "/api/todos", {
+            "title": "Todo moves to workspace inbox",
+            "project_id": project["id"]
+        }, token=self.user_token, csrf=self.user_csrf, cookie_jar="/tmp/nia_user_cookies.txt")
+        if not ok(status) or not todo.get("id"):
+            self.results["project_delete_uses_workspace_inbox"] = {"status": status, "passed": False, "expected": "todo created"}
+            return False
+
+        status, _ = curl("DELETE", f"/api/projects/{project['id']}", token=self.user_token, csrf=self.user_csrf, cookie_jar="/tmp/nia_user_cookies.txt")
+        if not ok(status):
+            self.results["project_delete_uses_workspace_inbox"] = {"status": status, "passed": False, "expected": 200}
+            return False
+
+        status, moved = curl("GET", f"/api/todos/{todo['id']}", token=self.user_token, cookie_jar="/tmp/nia_user_cookies.txt")
+        passed = ok(status) and moved.get("project_id") == workspace_inbox.get("id") and moved.get("section_id") is None
+        self.results["project_delete_uses_workspace_inbox"] = {"status": status, "passed": passed, "expected": "todo in same workspace inbox"}
+        return passed
+
     def test_project_clear_done(self):
         proj_id = self.created_ids["project"][-1] if self.created_ids["project"] else None
         if not proj_id:
@@ -864,6 +927,8 @@ class TestSuite:
             self.test_project_create,
             self.test_project_list,
             self.test_project_patch,
+            self.test_project_workspace_move_rejected,
+            self.test_project_delete_uses_workspace_inbox,
 
             # Sharing
             self.test_foreign_project_filter_rejected,

@@ -8,6 +8,7 @@ import sqlite3
 from db import get_db, now_iso
 from routers.auth import require_auth
 from services.utils import sanitize_text
+from services.websocket import broadcast_change
 
 router = APIRouter(prefix="/api/workspaces")
 
@@ -70,7 +71,7 @@ def list_workspaces(user_id: int = Depends(require_auth)):
 
 
 @router.post("")
-def create_workspace(data: WorkspaceCreate, user_id: int = Depends(require_auth)):
+async def create_workspace(data: WorkspaceCreate, user_id: int = Depends(require_auth)):
     data.name = sanitize_text(data.name)
     if not data.name:
         raise HTTPException(422, "Workspace name required")
@@ -87,11 +88,13 @@ def create_workspace(data: WorkspaceCreate, user_id: int = Depends(require_auth)
         except sqlite3.IntegrityError:
             raise HTTPException(409, "Workspace already exists")
         row = db.execute("SELECT * FROM workspaces WHERE id = ? AND user_id = ?", (workspace_id, user_id)).fetchone()
-        return dict(row)
+        workspace = dict(row)
+        await broadcast_change("workspace_create", workspace, user_id)
+        return workspace
 
 
 @router.patch("/{workspace_id}")
-def update_workspace(workspace_id: int, data: WorkspaceUpdate, user_id: int = Depends(require_auth)):
+async def update_workspace(workspace_id: int, data: WorkspaceUpdate, user_id: int = Depends(require_auth)):
     if data.name is not None:
         data.name = sanitize_text(data.name)
         if not data.name:
@@ -114,11 +117,13 @@ def update_workspace(workspace_id: int, data: WorkspaceUpdate, user_id: int = De
             except sqlite3.IntegrityError:
                 raise HTTPException(409, "Workspace already exists")
         row = db.execute("SELECT * FROM workspaces WHERE id = ? AND user_id = ?", (workspace_id, user_id)).fetchone()
-        return dict(row)
+        workspace = dict(row)
+        await broadcast_change("workspace_update", workspace, user_id)
+        return workspace
 
 
 @router.delete("/{workspace_id}")
-def delete_workspace(workspace_id: int, user_id: int = Depends(require_auth)):
+async def delete_workspace(workspace_id: int, user_id: int = Depends(require_auth)):
     with get_db() as db:
         existing = db.execute("SELECT * FROM workspaces WHERE id = ? AND user_id = ?", (workspace_id, user_id)).fetchone()
         if not existing:
@@ -151,4 +156,6 @@ def delete_workspace(workspace_id: int, user_id: int = Depends(require_auth)):
 
         db.execute("DELETE FROM workspaces WHERE id = ? AND user_id = ?", (workspace_id, user_id))
         db.commit()
-        return {"deleted": workspace_id, "moved_projects_to": default_id, "moved_projects": [dict(p) for p in projects]}
+        result = {"deleted": workspace_id, "moved_projects_to": default_id, "moved_projects": [dict(p) for p in projects]}
+        await broadcast_change("workspace_delete", result, user_id)
+        return result
