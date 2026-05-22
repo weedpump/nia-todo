@@ -7,4 +7,4 @@ export const WS_URL = (() => {
 
 export const DB_NAME = 'nia-todo-db';
 export const DB_VERSION = 3;
-export const APP_VERSION = 'v1.6.6-dev';
+export const APP_VERSION = 'v1.7.0';
