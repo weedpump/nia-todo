@@ -15,6 +15,8 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 - Lokales Lucide-SVG-Iconset als offline-/PWA-freundliche Icon-Basis ergänzt.
 - Optionale Icons für Projekte und Workspaces ergänzt; gesetzte Icons nutzen die jeweilige Projekt-/Workspace-Farbe.
 - Einklappbarer Icon-Picker mit Suche, Kategorien und allen lokal verfügbaren Lucide-Icons ergänzt.
+- Lokale Designfarben-Presets im User-Menü ergänzt: Standard plus sechs Akzentdesigns für Hell- und Dunkeltheme.
+- Lokaler Akzent-Intensitätsregler ergänzt, inklusive Option Akzentwirkung komplett auszuschalten.
 - Neues App-eigenes Danger-Confirm-Modal für Löschen von Todos, Projekten, Sections und Workspaces.
 - Frontend-/Backend-Regressionstests für Workspaces, Sharing, Workspace-Inboxes, Projektlöschung und Realtime-Sync ergänzt.
 
@@ -30,16 +32,19 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 - Migrationslauf für Workspaces ist gegen partiell angewendete Workspace-Schema-Zustände robuster.
 - Default-Workspace `Privat` erhält direkt das Home-Icon; Inbox-Projekte erhalten direkt das Inbox-Icon.
 - Admin-, Setup-, Login- und Passwort-Dialoge wurden visuell auf das neue Button-/Icon-System angeglichen.
+- Akzentfarben wirken nur in der Haupt-App; Setup-, Admin- und Passwortseiten bleiben beim neutralen Theme.
 
 ### Fixed
 - Projektanlage in Workspaces erzeugt keine 500er mehr bei Datenbankkonflikten oder Workspace-Zuordnung.
 - Reload in einer Projektansicht stellt Navigation und aktive Sidebar-Markierung zuverlässig wieder her.
+- Reload im Dashboard markiert den Dashboard-Eintrag in der Sidebar wieder zuverlässig als aktiv.
 - Projektlöschung über UI/Offline-Sync umgeht nicht mehr die Backend-Workspace-Inbox-Logik.
 - Realtime-Sync entfernt gelöschte Parent-/Child-Projekte und stale lokale Cache-Einträge korrekt.
 - Shared-Project-Änderungen inklusive wiederhergestellter Mitglieder aktualisieren andere Clients per WebSocket.
 - Confirm-Dialog-Buttons sind optisch sauber zentriert.
 - Theme-Buttons, Admin-Mobile-Layout und Passwort-Setup-Aktionen sind kontrastreicher und sauber ausgerichtet.
 - Icon-/Farbwerte für Projekte und Workspaces werden backendseitig validiert und frontendseitig sicher gerendert.
+- Akzentverläufe, Plus-Button und Dashboard-Avatar bleiben bei allen Presets und Intensitäten optisch konsistent.
 
 ## [1.7.3] - 2026-05-22
 
