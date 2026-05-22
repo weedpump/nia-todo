@@ -32,6 +32,70 @@ def set_db_version(conn, version):
     conn.execute("INSERT INTO schema_version (version, applied_at) VALUES (?, datetime('now'))", (version,))
     conn.commit()
 
+def column_exists(conn, table: str, column: str) -> bool:
+    return any(row[1] == column for row in conn.execute(f"PRAGMA table_info({table})").fetchall())
+
+
+def repair_workspace_migration(conn):
+    """Make migration 016 idempotent for DBs that already have workspace_id.
+
+    SQLite cannot reliably ADD COLUMN IF NOT EXISTS across all supported
+    versions. If a previous interrupted run added projects.workspace_id but did
+    not finish indexes/default workspaces/inboxes, complete the remaining
+    workspace schema here before marking migration 016 as applied.
+    """
+    conn.executescript("""
+    CREATE TABLE IF NOT EXISTS workspaces (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        color TEXT DEFAULT '#6366f1',
+        sort_order INTEGER DEFAULT 0,
+        user_id INTEGER NOT NULL,
+        is_default INTEGER DEFAULT 0,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_workspaces_user_name_unique ON workspaces(user_id, name);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_workspaces_user_default_unique ON workspaces(user_id) WHERE is_default = 1;
+    CREATE INDEX IF NOT EXISTS idx_workspaces_user ON workspaces(user_id);
+
+    INSERT OR IGNORE INTO workspaces (name, color, sort_order, user_id, is_default, updated_at)
+    SELECT 'Privat', '#10b981', 0, u.id, 1, datetime('now')
+    FROM users u
+    WHERE NOT EXISTS (SELECT 1 FROM workspaces w WHERE w.user_id = u.id);
+
+    UPDATE projects
+    SET workspace_id = (
+        SELECT w.id FROM workspaces w
+        WHERE w.user_id = projects.user_id AND w.is_default = 1
+        ORDER BY w.id LIMIT 1
+    )
+    WHERE workspace_id IS NULL AND user_id IS NOT NULL;
+
+    DROP INDEX IF EXISTS idx_projects_user_name_unique;
+    DROP INDEX IF EXISTS idx_projects_user_workspace_name_unique;
+    DROP INDEX IF EXISTS idx_projects_user_inbox_unique;
+
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_projects_user_workspace_inbox_unique
+    ON projects(user_id, workspace_id)
+    WHERE is_inbox = 1;
+
+    CREATE INDEX IF NOT EXISTS idx_projects_workspace ON projects(workspace_id);
+
+    INSERT INTO projects (name, color, sort_order, user_id, workspace_id, is_inbox, updated_at)
+    SELECT 'Inbox', '#64748b', 0, w.user_id, w.id, 1, datetime('now')
+    FROM workspaces w
+    WHERE NOT EXISTS (
+        SELECT 1 FROM projects p
+        WHERE p.user_id = w.user_id
+          AND p.workspace_id = w.id
+          AND COALESCE(p.is_inbox, 0) = 1
+    );
+    """)
+
+
 def get_migration_files():
     """Holt alle Migrations-Dateien sortiert nach Nummer."""
     if not MIGRATIONS_DIR.exists():
@@ -82,7 +146,12 @@ def run_migrations():
                 print(f"[MIGRATION] ✅ {filepath.name} applied successfully")
             except sqlite3.OperationalError as e:
                 error_msg = str(e).lower()
-                if "duplicate column" in error_msg or "already exists" in error_msg:
+                if version == 16 and "duplicate column" in error_msg and column_exists(conn, "projects", "workspace_id"):
+                    print(f"[MIGRATION] ⚠️ {filepath.name} - workspace_id exists, repairing remaining workspace schema")
+                    repair_workspace_migration(conn)
+                    set_db_version(conn, version)
+                    applied += 1
+                elif "duplicate column" in error_msg or "already exists" in error_msg:
                     print(f"[MIGRATION] ⚠️ {filepath.name} - parts already applied, marking as done")
                     set_db_version(conn, version)
                     applied += 1

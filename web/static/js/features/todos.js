@@ -3,6 +3,7 @@ export function createTodosFeature({
   setTodos,
   getProjects,
   getCurrentProjectId,
+  getCurrentWorkspaceId,
   getAppInitialized,
   getDb,
   dbPut,
@@ -16,6 +17,7 @@ export function createTodosFeature({
   renderStats,
   renderTodos,
   closeModal,
+  confirmDanger,
   showToast,
   setupDescPreview,
   renderMarkdown,
@@ -131,7 +133,8 @@ export function createTodosFeature({
     const projSelect = document.getElementById('todo-project');
     if (projSelect) {
       projSelect.innerHTML = '';
-      const projects = getProjects();
+      const currentWorkspaceId = getCurrentWorkspaceId?.();
+      const projects = getProjects().filter(p => p.is_shared || !currentWorkspaceId || String(p.workspace_id || '') === String(currentWorkspaceId));
       const projectMap = new Map();
       projects.forEach(p => projectMap.set(p.id, { ...p, children: [] }));
       const rootProjects = [];
@@ -176,7 +179,10 @@ export function createTodosFeature({
         document.getElementById('todo-remind').value = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
       }
     } else {
-      document.getElementById('todo-project').value = getCurrentProjectId() || 1;
+      const currentWorkspaceId = getCurrentWorkspaceId?.();
+      const workspaceProjects = getProjects().filter(p => !p.is_shared && (!currentWorkspaceId || String(p.workspace_id || '') === String(currentWorkspaceId)));
+      const inboxProject = workspaceProjects.find(p => p.is_inbox) || workspaceProjects[0];
+      document.getElementById('todo-project').value = getCurrentProjectId() || inboxProject?.id || '';
       await onProjectChange(null);
     }
 
@@ -281,7 +287,12 @@ export function createTodosFeature({
   }
 
   async function deleteTodo(id) {
-    if (!confirm('Todo wirklich löschen?')) return;
+    const confirmed = await confirmDanger({
+      title: 'Todo löschen?',
+      message: 'Dieses Todo wird dauerhaft gelöscht.',
+      confirmText: 'Todo löschen',
+    });
+    if (!confirmed) return;
     const todo = getTodos().find(t => t.id === id);
     if (!todo) return;
     await deleteFromDB('todos', id);

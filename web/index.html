@@ -102,6 +102,18 @@
         <span class="logo-text">nia-todo</span>
       </div>
 
+      <nav class="nav-section workspace-section">
+        <div class="nav-title">Workspace</div>
+        <div class="workspace-switcher" id="workspace-switcher">
+          <button type="button" class="workspace-current-btn" id="workspace-current-btn" onclick="toggleWorkspaceMenu(event)" aria-haspopup="menu" aria-expanded="false">
+            <span class="workspace-current-dot" id="workspace-current-dot"></span>
+            <span class="workspace-current-name" id="workspace-current-name">Workspace</span>
+            <svg class="workspace-current-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div class="workspace-menu" id="workspace-menu" role="menu"></div>
+        </div>
+      </nav>
+
       <nav class="nav-section">
         <div class="nav-title">Ansicht</div>
         <button class="nav-btn" data-filter="all" onclick="setFilter('all')">
@@ -303,6 +315,20 @@
     </div>
   </div>
 
+  <!-- Confirm Modal -->
+  <div class="modal confirm-modal" id="confirm-modal">
+    <div class="modal-overlay" id="confirm-modal-overlay"></div>
+    <div class="modal-content confirm-modal-content">
+      <div class="confirm-icon" aria-hidden="true">🗑️</div>
+      <h3 id="confirm-title">Wirklich löschen?</h3>
+      <p id="confirm-message" class="confirm-message">Diese Aktion kann nicht rückgängig gemacht werden.</p>
+      <div class="modal-actions confirm-actions">
+        <button type="button" class="btn btn-secondary" id="confirm-cancel-btn">Abbrechen</button>
+        <button type="button" class="btn btn-danger" id="confirm-confirm-btn">Löschen</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Settings Modal -->
   <div class="modal" id="settings-modal">
     <div class="modal-overlay" onclick="closeModal('settings-modal')"></div>
@@ -432,6 +458,35 @@
       </div>
     </div>
   </div>
+  <div class="modal" id="workspace-modal">
+    <div class="modal-overlay" onclick="closeWorkspaceModal()"></div>
+    <div class="modal-content small-modal">
+      <h3 id="workspace-modal-title">Neuer Workspace</h3>
+      <button class="modal-close-x" onclick="closeWorkspaceModal()">✕</button>
+      <div class="modal-body">
+        <form id="workspace-form" onsubmit="saveWorkspace(event)">
+          <input type="hidden" id="workspace-id">
+          <div class="form-group">
+            <label>Name</label>
+            <input type="text" id="workspace-name" required maxlength="80" placeholder="z.B. Privat, Beruflich">
+          </div>
+          <div class="form-group">
+            <label>Farbe</label>
+            <input type="color" id="workspace-color" value="#6366f1">
+          </div>
+          <div id="workspace-error" class="settings-field-error"></div>
+          <div class="modal-actions split-actions">
+            <button type="button" class="btn btn-danger" id="workspace-delete-btn" onclick="deleteWorkspaceFromModal()" style="display:none;">Löschen</button>
+            <div class="modal-actions-right">
+              <button type="button" class="btn btn-secondary" onclick="closeWorkspaceModal()">Abbrechen</button>
+              <button type="submit" class="btn btn-primary">Speichern</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <div class="modal" id="project-modal">
     <div class="modal-overlay" onclick="closeModal('project-modal')"></div>
     <div class="modal-content">

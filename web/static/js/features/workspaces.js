@@ -1,0 +1,247 @@
+export function createWorkspacesFeature({
+  workspacesApi,
+  getWorkspaces,
+  setWorkspaces,
+  getCurrentWorkspaceId,
+  setCurrentWorkspaceId,
+  dbPut,
+  dbClear,
+  isOnlineForSync,
+  refreshFromServer,
+  renderProjects,
+  renderStats,
+  renderTodos,
+  closeSidebar,
+  confirmDanger,
+  showToast,
+}) {
+  let editingWorkspaceId = null;
+
+  function normalizeWorkspaceId(id) {
+    if (id === null || id === undefined || id === '') return null;
+    const n = Number(id);
+    return Number.isFinite(n) ? n : id;
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function escapeAttr(value) {
+    return escapeHtml(value);
+  }
+
+  function getDefaultWorkspaceId() {
+    const workspaces = getWorkspaces();
+    const saved = normalizeWorkspaceId(localStorage.getItem('nia-current-workspace'));
+    if (saved && workspaces.some(w => String(w.id) === String(saved))) return saved;
+    const fallback = workspaces.find(w => w.is_default) || workspaces[0] || null;
+    return fallback ? fallback.id : null;
+  }
+
+  function ensureCurrentWorkspace() {
+    const current = getCurrentWorkspaceId();
+    const workspaces = getWorkspaces();
+    if (current && workspaces.some(w => String(w.id) === String(current))) return current;
+    const next = getDefaultWorkspaceId();
+    setCurrentWorkspaceId(next);
+    if (next) localStorage.setItem('nia-current-workspace', String(next));
+    return next;
+  }
+
+  function closeWorkspaceMenu() {
+    const menu = document.getElementById('workspace-menu');
+    const button = document.getElementById('workspace-current-btn');
+    menu?.classList.remove('open');
+    button?.setAttribute('aria-expanded', 'false');
+  }
+
+  function toggleWorkspaceMenu(event) {
+    event?.stopPropagation?.();
+    const menu = document.getElementById('workspace-menu');
+    const button = document.getElementById('workspace-current-btn');
+    if (!menu || !button) return;
+    const open = !menu.classList.contains('open');
+    menu.classList.toggle('open', open);
+    button.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+
+  function renderWorkspaces() {
+    const menu = document.getElementById('workspace-menu');
+    const nameEl = document.getElementById('workspace-current-name');
+    const dotEl = document.getElementById('workspace-current-dot');
+    if (!menu || !nameEl || !dotEl) return;
+
+    const workspaces = getWorkspaces();
+    const currentId = ensureCurrentWorkspace();
+    const current = workspaces.find(w => String(w.id) === String(currentId)) || workspaces[0] || null;
+    nameEl.textContent = current?.name || 'Workspace';
+    dotEl.style.background = current?.color || '#6366f1';
+
+    menu.innerHTML = `
+      <div class="workspace-menu-list">
+        ${workspaces.map(workspace => {
+          const active = String(workspace.id) === String(currentId);
+          return `<div class="workspace-menu-row ${active ? 'active' : ''}" role="menuitem">
+            <button type="button" class="workspace-menu-choice" onclick="switchWorkspace('${escapeAttr(workspace.id)}')">
+              <span class="workspace-menu-dot" style="background:${escapeAttr(workspace.color || '#6366f1')}"></span>
+              <span>${escapeHtml(workspace.name)}</span>
+              ${active ? '<span class="workspace-menu-check">✓</span>' : ''}
+            </button>
+            <button type="button" class="workspace-menu-edit" onclick="event.stopPropagation(); showWorkspaceModal('${escapeAttr(workspace.id)}')" title="Workspace umbenennen" aria-label="Workspace bearbeiten">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </button>
+          </div>`;
+        }).join('')}
+      </div>
+      <button type="button" class="workspace-menu-add" onclick="showWorkspaceModal()">＋ Workspace hinzufügen</button>
+    `;
+  }
+
+  async function switchWorkspace(workspaceId) {
+    const next = normalizeWorkspaceId(workspaceId);
+    setCurrentWorkspaceId(next);
+    if (next) localStorage.setItem('nia-current-workspace', String(next));
+    localStorage.setItem('nia-last-filter', 'all');
+    closeWorkspaceMenu();
+    window.setFilter?.('all');
+    renderWorkspaces();
+    renderProjects();
+    renderStats();
+    renderTodos();
+    closeSidebar?.();
+  }
+
+  function showWorkspaceModal(workspaceId = null) {
+    closeWorkspaceMenu();
+    editingWorkspaceId = workspaceId ? normalizeWorkspaceId(workspaceId) : null;
+    const workspace = editingWorkspaceId
+      ? getWorkspaces().find(w => String(w.id) === String(editingWorkspaceId))
+      : null;
+    document.getElementById('workspace-modal-title').textContent = workspace ? 'Workspace bearbeiten' : 'Neuer Workspace';
+    document.getElementById('workspace-id').value = workspace?.id || '';
+    document.getElementById('workspace-name').value = workspace?.name || '';
+    document.getElementById('workspace-color').value = workspace?.color || '#6366f1';
+    document.getElementById('workspace-error').textContent = '';
+    const deleteBtn = document.getElementById('workspace-delete-btn');
+    if (deleteBtn) deleteBtn.style.display = workspace && !workspace.is_default ? '' : 'none';
+    document.getElementById('workspace-modal')?.classList.add('active');
+    setTimeout(() => document.getElementById('workspace-name')?.focus(), 50);
+  }
+
+  function closeWorkspaceModal() {
+    document.getElementById('workspace-modal')?.classList.remove('active');
+    editingWorkspaceId = null;
+  }
+
+  async function saveWorkspace(event) {
+    event?.preventDefault?.();
+    const name = document.getElementById('workspace-name')?.value?.trim();
+    const color = document.getElementById('workspace-color')?.value || '#6366f1';
+    const error = document.getElementById('workspace-error');
+    if (error) error.textContent = '';
+    if (!name) {
+      if (error) error.textContent = 'Bitte einen Namen eingeben.';
+      return;
+    }
+    if (!isOnlineForSync()) {
+      if (error) error.textContent = 'Workspace ändern geht aktuell nur online.';
+      return;
+    }
+
+    try {
+      if (editingWorkspaceId) {
+        const updated = await workspacesApi.update(editingWorkspaceId, { name, color });
+        await dbPut('workspaces', updated);
+        setWorkspaces(getWorkspaces().map(w => String(w.id) === String(updated.id) ? updated : w));
+        showToast?.('Workspace umbenannt.');
+      } else {
+        const workspace = await workspacesApi.create({ name, color, sort_order: getWorkspaces().length });
+        await dbPut('workspaces', workspace);
+        setWorkspaces([...getWorkspaces(), workspace]);
+        await switchWorkspace(workspace.id);
+        showToast?.('Workspace angelegt.');
+      }
+      closeWorkspaceModal();
+      renderWorkspaces();
+      renderProjects();
+      renderStats();
+      renderTodos();
+      await refreshFromServer();
+    } catch (err) {
+      console.error('Workspace save failed', err);
+      if (error) error.textContent = 'Workspace konnte nicht gespeichert werden.';
+    }
+  }
+
+  async function deleteWorkspaceFromModal() {
+    if (!editingWorkspaceId) return;
+    const workspace = getWorkspaces().find(w => String(w.id) === String(editingWorkspaceId));
+    if (!workspace || workspace.is_default) return;
+    const confirmed = await confirmDanger({
+      title: 'Workspace löschen?',
+      message: `Workspace „${workspace.name}“ wird gelöscht. Projekte und Inbox-Todos werden in den Default-Workspace verschoben.`,
+      confirmText: 'Workspace löschen',
+    });
+    if (!confirmed) return;
+    if (!isOnlineForSync()) {
+      const error = document.getElementById('workspace-error');
+      if (error) error.textContent = 'Workspace löschen geht aktuell nur online.';
+      return;
+    }
+    try {
+      const result = await workspacesApi.delete(editingWorkspaceId);
+      setWorkspaces(getWorkspaces().filter(w => String(w.id) !== String(editingWorkspaceId)));
+      closeWorkspaceModal();
+      const next = result?.moved_projects_to || getDefaultWorkspaceId();
+      await switchWorkspace(next);
+      await refreshFromServer();
+      const moved = result?.moved_projects?.length || 0;
+      showToast?.(moved ? `Workspace gelöscht, ${moved} Projekte verschoben.` : 'Workspace gelöscht.');
+    } catch (err) {
+      console.error('Workspace delete failed', err);
+      const error = document.getElementById('workspace-error');
+      if (error) error.textContent = 'Workspace konnte nicht gelöscht werden.';
+    }
+  }
+
+  async function createWorkspace() {
+    showWorkspaceModal();
+  }
+
+  async function loadWorkspacesFromServer() {
+    if (!isOnlineForSync()) return;
+    const data = await workspacesApi.list();
+    const next = data.workspaces || [];
+    if (dbClear) await dbClear('workspaces');
+    await Promise.all(next.map(workspace => dbPut('workspaces', workspace)));
+    setWorkspaces(next);
+    ensureCurrentWorkspace();
+    renderWorkspaces();
+  }
+
+  if (typeof document !== 'undefined') {
+    document.addEventListener('click', (event) => {
+      if (!event.target.closest?.('#workspace-switcher')) closeWorkspaceMenu();
+    });
+  }
+
+  return {
+    renderWorkspaces,
+    switchWorkspace,
+    createWorkspace,
+    showWorkspaceModal,
+    closeWorkspaceModal,
+    saveWorkspace,
+    deleteWorkspaceFromModal,
+    toggleWorkspaceMenu,
+    closeWorkspaceMenu,
+    loadWorkspacesFromServer,
+    ensureCurrentWorkspace,
+  };
+}

@@ -13,6 +13,9 @@ export function createWebSocketClient({
   setProjects,
   getSections,
   setSections,
+  getWorkspaces,
+  setWorkspaces,
+  renderWorkspaces,
   renderProjects,
   renderStats,
   renderTodos,
@@ -169,6 +172,7 @@ async function handleWsMessage(msg) {
   let todos = getTodos();
   let projects = getProjects();
   let sections = getSections();
+  let workspaces = getWorkspaces?.() || [];
 
   switch (msg.type) {
     case 'auth_ok':
@@ -186,6 +190,15 @@ async function handleWsMessage(msg) {
     case 'sync_response':
       // Full data sync from server — nur wenn Server neuer
       if (msg.todos) {
+        const serverTodoIds = new Set(msg.todos.map(todo => String(todo.id)));
+        const queue = await dbGetAll('syncQueue');
+        for (const localTodo of await dbGetAll('todos')) {
+          const hasPendingChange = queue.some(q =>
+            (q.action === 'CREATE_TODO' && q.data?._tempId === localTodo.id) ||
+            (q.action === 'UPDATE_TODO' && q.data?.id === localTodo.id)
+          );
+          if (!serverTodoIds.has(String(localTodo.id)) && !hasPendingChange) await deleteFromDB('todos', localTodo.id);
+        }
         for (const todo of msg.todos) {
           const local = await getFromDB('todos', todo.id);
           if (!local) {
@@ -207,6 +220,15 @@ async function handleWsMessage(msg) {
         todos = await dbGetAll('todos');
       }
       if (msg.projects) {
+        const serverProjectIds = new Set(msg.projects.map(project => String(project.id)));
+        const queue = await dbGetAll('syncQueue');
+        for (const localProject of await dbGetAll('projects')) {
+          const hasPendingChange = queue.some(q =>
+            (q.action === 'CREATE_PROJECT' && q.data?._tempId === localProject.id) ||
+            (q.action === 'UPDATE_PROJECT' && q.data?.id === localProject.id)
+          );
+          if (!serverProjectIds.has(String(localProject.id)) && !hasPendingChange) await deleteFromDB('projects', localProject.id);
+        }
         for (const project of msg.projects) {
           const local = await getFromDB('projects', project.id);
           if (!local) {
@@ -228,6 +250,15 @@ async function handleWsMessage(msg) {
         projects = await dbGetAll('projects');
       }
       if (msg.sections) {
+        const serverSectionIds = new Set(msg.sections.map(section => String(section.id)));
+        const queue = await dbGetAll('syncQueue');
+        for (const localSection of await dbGetAll('sections')) {
+          const hasPendingChange = queue.some(q =>
+            (q.action === 'CREATE_SECTION' && q.data?._tempId === localSection.id) ||
+            (q.action === 'UPDATE_SECTION' && q.data?.id === localSection.id)
+          );
+          if (!serverSectionIds.has(String(localSection.id)) && !hasPendingChange) await deleteFromDB('sections', localSection.id);
+        }
         for (const section of msg.sections) {
           const local = await getFromDB('sections', section.id);
           if (!local) {
@@ -248,6 +279,21 @@ async function handleWsMessage(msg) {
         }
         sections = await dbGetAll('sections');
       }
+      if (msg.workspaces) {
+        const serverWorkspaceIds = new Set(msg.workspaces.map(workspace => String(workspace.id)));
+        for (const localWorkspace of await dbGetAll('workspaces')) {
+          if (!serverWorkspaceIds.has(String(localWorkspace.id))) await deleteFromDB('workspaces', localWorkspace.id);
+        }
+        for (const workspace of msg.workspaces) {
+          await dbPut('workspaces', workspace);
+        }
+        workspaces = await dbGetAll('workspaces');
+        setWorkspaces?.(workspaces);
+        renderWorkspaces?.();
+      }
+      setTodos(todos);
+      setProjects(projects);
+      setSections(sections);
       renderProjects();
       renderStats();
       renderTodos();
@@ -356,17 +402,46 @@ async function handleWsMessage(msg) {
       break;
     case 'project_delete':
       if (msg.payload?.id) {
-        await deleteFromDB('projects', msg.payload.id);
-        projects = projects.filter(p => p.id !== msg.payload.id);
+        const deletedIds = msg.payload.deleted_ids || [msg.payload.id];
+        await Promise.all(deletedIds.map(projectId => deleteFromDB('projects', projectId)));
+        projects = projects.filter(p => !deletedIds.includes(p.id));
+        setProjects(projects);
+        if (ws?.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'sync_request' }));
+        }
         renderProjects();
         renderStats();
         renderTodos();
+      }
+      break;
+    case 'workspace_create':
+    case 'workspace_update':
+      if (msg.payload) {
+        await dbPut('workspaces', msg.payload);
+        const existing = workspaces.find(w => String(w.id) === String(msg.payload.id));
+        workspaces = existing
+          ? workspaces.map(w => String(w.id) === String(msg.payload.id) ? msg.payload : w)
+          : [...workspaces, msg.payload];
+        setWorkspaces?.(workspaces);
+        renderWorkspaces?.();
+      }
+      break;
+    case 'workspace_delete':
+      if (msg.payload?.deleted) {
+        await deleteFromDB('workspaces', msg.payload.deleted);
+        workspaces = workspaces.filter(w => String(w.id) !== String(msg.payload.deleted));
+        setWorkspaces?.(workspaces);
+        renderWorkspaces?.();
+      }
+      if (ws?.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'sync_request' }));
       }
       break;
     case 'member_invited':
     case 'member_accepted':
     case 'member_declined':
     case 'member_removed':
+    case 'member_restored':
     case 'member_left':
     case 'member_color_changed':
       // refresh from server on sharing events
@@ -438,7 +513,8 @@ async function handleWsMessage(msg) {
     'todo_create', 'todo_update', 'todo_delete',
     'project_create', 'project_update', 'project_delete',
     'section_create', 'section_update', 'section_delete',
-    'member_invited', 'member_accepted', 'member_declined', 'member_removed', 'member_left', 'member_color_changed',
+    'workspace_create', 'workspace_update', 'workspace_delete',
+    'member_invited', 'member_accepted', 'member_declined', 'member_removed', 'member_restored', 'member_left', 'member_color_changed',
   ]);
   if (dataEvents.has(msg.type)) {
     renderProjects();

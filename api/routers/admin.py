@@ -126,7 +126,12 @@ def create_user(data: CreateUserRequest, request: Request, _: bool = Depends(req
         )
         user_id = c.lastrowid
 
-        # Create default projects for the new user
+        # Create default workspace and projects for the new user
+        workspace = db.execute(
+            "INSERT INTO workspaces (name, color, sort_order, user_id, is_default, updated_at) VALUES (?, ?, 0, ?, 1, datetime('now'))",
+            ('Privat', '#10b981', user_id)
+        )
+        workspace_id = workspace.lastrowid
         default_projects = [
             ('Inbox', '#64748b', 0, 1),
             ('Privat', '#10b981', 1, 0),
@@ -135,8 +140,8 @@ def create_user(data: CreateUserRequest, request: Request, _: bool = Depends(req
         ]
         for name, color, sort_order, is_inbox in default_projects:
             db.execute(
-                "INSERT INTO projects (name, color, sort_order, user_id, is_inbox, updated_at) VALUES (?, ?, ?, ?, ?, datetime('now'))",
-                (name, color, sort_order, user_id, is_inbox)
+                "INSERT INTO projects (name, color, sort_order, user_id, is_inbox, workspace_id, updated_at) VALUES (?, ?, ?, ?, ?, ?, datetime('now'))",
+                (name, color, sort_order, user_id, is_inbox, workspace_id)
             )
 
         token = create_password_setup_token(db, user_id, "invite")

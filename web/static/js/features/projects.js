@@ -1,7 +1,9 @@
 export function createProjectsFeature({
   getProjects,
   getTodos,
+  setTodos,
   getCurrentProjectId,
+  getCurrentWorkspaceId,
   setProjects,
   dbPut,
   addToSyncQueue,
@@ -12,6 +14,7 @@ export function createProjectsFeature({
   renderStats,
   renderTodos,
   closeModal,
+  confirmDanger,
   showToast,
   showBatchToast,
   projectsApi,
@@ -33,7 +36,8 @@ export function createProjectsFeature({
     const parentSelect = document.getElementById('project-parent-id');
     if (parentSelect) {
       parentSelect.innerHTML = '<option value="">-- Kein Eltern-Projekt --</option>';
-      const projects = getProjects().filter(p => !p.is_shared);
+      const currentWorkspaceId = getCurrentWorkspaceId?.();
+      const projects = getProjects().filter(p => !p.is_shared && (!currentWorkspaceId || String(p.workspace_id || '') === String(currentWorkspaceId)));
       const projectMap = new Map();
       projects.forEach(p => projectMap.set(p.id, { id: p.id, name: p.name, parent_id: p.parent_id, sort_order: p.sort_order, color: p.color, is_inbox: p.is_inbox }));
       projectMap.forEach(p => { p.children = []; });
@@ -112,6 +116,7 @@ export function createProjectsFeature({
       color: document.getElementById('project-color').value,
       sort_order: getProjects().length,
       parent_id: parentIdVal ? parseInt(parentIdVal) : null,
+      workspace_id: getCurrentWorkspaceId?.() || null,
     };
 
     if (id) {
@@ -140,22 +145,45 @@ export function createProjectsFeature({
   }
 
   async function deleteProject(id) {
-    if (!confirm('Projekt wirklich löschen?')) return;
-    await deleteFromDB('projects', id);
-    setProjects(getProjects().filter(p => p.id !== id));
+    const confirmed = await confirmDanger({
+      title: 'Projekt löschen?',
+      message: 'Das Projekt wird gelöscht. Enthaltene Todos werden in die Inbox verschoben.',
+      confirmText: 'Projekt löschen',
+    });
+    if (!confirmed) return;
+    function collectProjectTreeIds(rootId) {
+      const ids = new Set([rootId]);
+      let changed = true;
+      while (changed) {
+        changed = false;
+        getProjects().forEach(project => {
+          if (project.parent_id != null && ids.has(project.parent_id) && !ids.has(project.id)) {
+            ids.add(project.id);
+            changed = true;
+          }
+        });
+      }
+      return ids;
+    }
+
+    const rootProject = getProjects().find(project => project.id === id);
+    const deletedIds = collectProjectTreeIds(id);
+    const inboxProject = getProjects().find(project => project.is_inbox && String(project.workspace_id || '') === String(rootProject?.workspace_id || ''));
+    await Promise.all([...deletedIds].map(projectId => deleteFromDB('projects', projectId)));
+    if (inboxProject) {
+      const nextTodos = getTodos().map(todo => deletedIds.has(todo.project_id)
+        ? { ...todo, project_id: inboxProject.id, section_id: null, updated_at: new Date().toISOString() }
+        : todo);
+      await Promise.all(nextTodos
+        .filter((todo, index) => todo !== getTodos()[index])
+        .map(todo => dbPut('todos', todo)));
+      setTodos(nextTodos);
+    }
+    setProjects(getProjects().filter(p => !deletedIds.has(p.id)));
     renderProjects();
     renderStats();
+    renderTodos();
     closeModal('project-modal');
-
-    const todos = getTodos();
-    for (const t of todos) {
-      if (t.project_id === id) {
-        t.project_id = 1;
-        t.section_id = null;
-        await dbPut('todos', t);
-        await addToSyncQueue('UPDATE_TODO', { id: t.id, changes: { project_id: 1, section_id: null } });
-      }
-    }
 
     await addToSyncQueue('DELETE_PROJECT', { id });
     if (isOnlineForSync()) await syncWithServer();
@@ -174,7 +202,12 @@ export function createProjectsFeature({
     if (!project) return;
     const doneCount = getTodos().filter(t => t.project_id === projectId && t.status === 'done').length;
     if (doneCount === 0) return showToast('Keine erledigten Todos in diesem Projekt');
-    if (!confirm(`${doneCount} erledigte Todo(s) in "${project.name}" löschen?`)) return;
+    const confirmed = await confirmDanger({
+      title: 'Erledigte Todos löschen?',
+      message: `${doneCount} erledigte Todo(s) in "${project.name}" werden dauerhaft gelöscht.`,
+      confirmText: 'Todos löschen',
+    });
+    if (!confirmed) return;
     try {
       const r = await projectsApi.clearDone(projectId);
       if (r.ok) {
@@ -199,7 +232,12 @@ export function createProjectsFeature({
     if (!project) return;
     const doneTodos = getTodos().filter(t => t.project_id === currentProjectId && t.status === 'done');
     if (doneTodos.length === 0) return showToast('Keine erledigten Todos in diesem Projekt');
-    if (!confirm(`${doneTodos.length} erledigte Todo(s) in "${project.name}" löschen?`)) return;
+    const confirmed = await confirmDanger({
+      title: 'Erledigte Todos löschen?',
+      message: `${doneTodos.length} erledigte Todo(s) in "${project.name}" werden dauerhaft gelöscht.`,
+      confirmText: 'Todos löschen',
+    });
+    if (!confirmed) return;
     showBatchToast(`${doneTodos.length} erledigte Todo(s) gelöscht`, { todos: doneTodos });
     try {
       const r = await projectsApi.clearDone(currentProjectId);
