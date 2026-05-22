@@ -1,6 +1,7 @@
 export function createProjectsFeature({
   getProjects,
   getTodos,
+  setTodos,
   getCurrentProjectId,
   getCurrentWorkspaceId,
   setProjects,
@@ -150,21 +151,39 @@ export function createProjectsFeature({
       confirmText: 'Projekt löschen',
     });
     if (!confirmed) return;
-    await deleteFromDB('projects', id);
-    setProjects(getProjects().filter(p => p.id !== id));
+    function collectProjectTreeIds(rootId) {
+      const ids = new Set([rootId]);
+      let changed = true;
+      while (changed) {
+        changed = false;
+        getProjects().forEach(project => {
+          if (project.parent_id != null && ids.has(project.parent_id) && !ids.has(project.id)) {
+            ids.add(project.id);
+            changed = true;
+          }
+        });
+      }
+      return ids;
+    }
+
+    const rootProject = getProjects().find(project => project.id === id);
+    const deletedIds = collectProjectTreeIds(id);
+    const inboxProject = getProjects().find(project => project.is_inbox && String(project.workspace_id || '') === String(rootProject?.workspace_id || ''));
+    await Promise.all([...deletedIds].map(projectId => deleteFromDB('projects', projectId)));
+    if (inboxProject) {
+      const nextTodos = getTodos().map(todo => deletedIds.has(todo.project_id)
+        ? { ...todo, project_id: inboxProject.id, section_id: null, updated_at: new Date().toISOString() }
+        : todo);
+      await Promise.all(nextTodos
+        .filter((todo, index) => todo !== getTodos()[index])
+        .map(todo => dbPut('todos', todo)));
+      setTodos(nextTodos);
+    }
+    setProjects(getProjects().filter(p => !deletedIds.has(p.id)));
     renderProjects();
     renderStats();
+    renderTodos();
     closeModal('project-modal');
-
-    const todos = getTodos();
-    for (const t of todos) {
-      if (t.project_id === id) {
-        t.project_id = 1;
-        t.section_id = null;
-        await dbPut('todos', t);
-        await addToSyncQueue('UPDATE_TODO', { id: t.id, changes: { project_id: 1, section_id: null } });
-      }
-    }
 
     await addToSyncQueue('DELETE_PROJECT', { id });
     if (isOnlineForSync()) await syncWithServer();
