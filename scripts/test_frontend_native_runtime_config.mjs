@@ -3,16 +3,24 @@ import { withFreshDb, launchPage, BASE_URL, USERNAME, USER_PASSWORD } from './fr
 
 async function installTauriStub(page, settings) {
   await page.addInitScript((tauriSettings) => {
+    const storedSettings = { ...tauriSettings };
     window.__TAURI__ = {
       core: {
         invoke: async (command, args = {}) => {
           window.__nativeInvokeCalls = window.__nativeInvokeCalls || [];
           window.__nativeInvokeCalls.push({ command, args });
-          if (command === 'desktop_get_settings') return tauriSettings;
+          if (command === 'desktop_get_settings') return { ...storedSettings };
+          if (command === 'desktop_set_setting') {
+            storedSettings[args.key] = args.value;
+            window.__nativeSettings = { ...storedSettings };
+            localStorage.setItem('__nativeSettings', JSON.stringify(storedSettings));
+            return { ...storedSettings };
+          }
           if (command === 'desktop_set_server_url') {
+            storedSettings.serverUrl = args.serverUrl;
             window.__nativeSavedServerUrl = args.serverUrl;
             localStorage.setItem('__nativeSavedServerUrl', args.serverUrl);
-            return { ...tauriSettings, serverUrl: args.serverUrl };
+            return { ...storedSettings };
           }
           if (command === 'desktop_request_notification_permission') return 'granted';
           if (command === 'desktop_schedule_reminders') return 0;
@@ -38,6 +46,46 @@ async function testNativeSetupWithoutServerUrl() {
     await page.waitForFunction(() => localStorage.getItem('__nativeSavedServerUrl'), null, { timeout: 10_000 });
     const saved = await page.evaluate(() => localStorage.getItem('__nativeSavedServerUrl'));
     if (saved !== BASE_URL) throw new Error(`Expected saved server URL ${BASE_URL}, got ${saved}`);
+  } catch (error) {
+    console.log('DEBUG frontend errors:', JSON.stringify(dumpErrors()));
+    throw error;
+  } finally {
+    await browser.close();
+  }
+}
+
+async function testNativeDesktopSettingsPersistViaTauriCommand() {
+  const { browser, page, dumpErrors } = await launchPage();
+  try {
+    await installTauriStub(page, { serverUrl: BASE_URL, minimizeToTray: true, autostart: false, notifications: true });
+    await page.goto(BASE_URL, { waitUntil: 'domcontentloaded' });
+    await page.locator('#login-overlay').waitFor({ state: 'visible', timeout: 10_000 });
+
+    await page.fill('#login-username', USERNAME);
+    await page.fill('#login-password', USER_PASSWORD);
+    await page.click('button.login-btn');
+    await page.locator('#login-overlay').waitFor({ state: 'hidden', timeout: 15_000 });
+
+    await page.click('#user-menu-button');
+    await page.click('#menu-settings-btn');
+    await page.locator('#settings-modal.active').waitFor({ state: 'visible', timeout: 10_000 });
+
+    await page.locator('#desktop-minimize-to-tray').setChecked(false);
+    await page.waitForFunction(() => JSON.parse(localStorage.getItem('__nativeSettings') || '{}').minimizeToTray === false, null, { timeout: 10_000 });
+    await page.locator('#desktop-notifications').setChecked(false);
+    await page.waitForFunction(() => JSON.parse(localStorage.getItem('__nativeSettings') || '{}').notifications === false, null, { timeout: 10_000 });
+    await page.locator('#desktop-autostart').setChecked(true);
+    await page.waitForFunction(() => JSON.parse(localStorage.getItem('__nativeSettings') || '{}').autostart === true, null, { timeout: 10_000 });
+
+    const calls = await page.evaluate(() => window.__nativeInvokeCalls || []);
+    for (const expected of [
+      { key: 'minimizeToTray', value: false },
+      { key: 'notifications', value: false },
+      { key: 'autostart', value: true },
+    ]) {
+      const found = calls.some(call => call.command === 'desktop_set_setting' && call.args?.key === expected.key && call.args?.value === expected.value);
+      if (!found) throw new Error(`Missing desktop_set_setting call for ${expected.key}=${expected.value}`);
+    }
   } catch (error) {
     console.log('DEBUG frontend errors:', JSON.stringify(dumpErrors()));
     throw error;
@@ -74,6 +122,7 @@ async function run() {
   console.log('🧭 Running native runtime config regression test...');
   await testNativeSetupWithoutServerUrl();
   await testNativeRuntimeUsesConfiguredServerUrl();
+  await testNativeDesktopSettingsPersistViaTauriCommand();
   console.log('✅ Native runtime config regression test passed');
 }
 
