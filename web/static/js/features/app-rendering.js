@@ -294,6 +294,19 @@ export function createAppRenderingFeature({
       </section>`;
   }
 
+  function sortProjectSectionTodos(list) {
+    const statusOrder = { in_progress: 0, pending: 1, done: 2 };
+    return sortTodoList(list)
+      .map((todo, index) => ({ todo, index }))
+      .sort((a, b) => {
+        const sa = statusOrder[a.todo.status] ?? 3;
+        const sb = statusOrder[b.todo.status] ?? 3;
+        if (sa !== sb) return sa - sb;
+        return a.index - b.index;
+      })
+      .map(item => item.todo);
+  }
+
   function renderProjectDashboard(project, projectTodos) {
     if (!project || !getShowProjectWidget?.()) return '';
     const activeTodos = projectTodos.filter(t => t.status !== 'done');
@@ -365,7 +378,7 @@ export function createAppRenderingFeature({
       if (hideDone && currentFilter !== 'done') filtered = filtered.filter(t => t.status !== 'done');
 
       sections.forEach((section, index) => {
-        const sectionTodos = filtered.filter(t => t.section_id === section.id);
+        const sectionTodos = sortProjectSectionTodos(filtered.filter(t => t.section_id === section.id));
         html += `<div class="section-dropzone" data-drop-index="${index}" ondragover="handleSectionDragOver(event)" ondrop="handleSectionDrop(event)"></div>`;
         html += renderSectionHeader(section);
         html += `<div class="section-todos" data-section-id="${escapeHtmlAttr(section.id)}" ondragover="handleTodoDragOver(event)" ondrop="handleTodoDrop(event)">`;
@@ -376,7 +389,7 @@ export function createAppRenderingFeature({
         html += `<div class="section-dropzone" data-drop-index="${sections.length}" ondragover="handleSectionDragOver(event)" ondrop="handleSectionDrop(event)"></div>`;
       }
 
-      const unsorted = filtered.filter(t => !t.section_id || !validSectionIds.has(t.section_id));
+      const unsorted = sortProjectSectionTodos(filtered.filter(t => !t.section_id || !validSectionIds.has(t.section_id)));
       if (unsorted.length || sections.length) {
         html += renderSectionHeader(null);
         html += `<div class="section-todos" data-section-id="null" ondragover="handleTodoDragOver(event)" ondrop="handleTodoDrop(event)">`;
