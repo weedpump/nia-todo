@@ -3,9 +3,27 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
   let updateAvailable = false;
   let allowReloadOnControllerChange = false;
   let hadControllerAtRegistration = false;
+  let updateCheckInFlight = false;
+  let lastUpdateCheckAt = 0;
+  let waitingUpdateWorker = null;
+  let dismissedUpdateWorker = null;
+
+  const STARTUP_SW_DELAY_MS = 5000;
+  const UPDATE_CHECK_TIMEOUT_MS = 8000;
+  const BROWSER_UPDATE_INTERVAL_MS = 30 * 60 * 1000;
+  const NATIVE_UPDATE_INTERVAL_MS = 10 * 60 * 1000;
+  const FOREGROUND_MIN_CHECK_INTERVAL_MS = 2 * 60 * 1000;
+  const STARTUP_FOLLOW_UP_DELAYS_MS = [20 * 1000, 2 * 60 * 1000];
 
   function isNativeApp() {
     return Boolean(window.__TAURI__?.core?.invoke) || new URLSearchParams(location.search).get('nativeApp') === 'tauri';
+  }
+
+  function withTimeout(promise, timeoutMs, label) {
+    return Promise.race([
+      promise,
+      new Promise((_, reject) => setTimeout(() => reject(new Error(`${label} timeout`)), timeoutMs)),
+    ]);
   }
 
   async function initServiceWorker() {
@@ -23,24 +41,19 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
 
         if (reg.waiting) {
           console.log('SW: Update waiting from previous session');
-          if (isNativeApp()) {
-            console.log('SW: Native app detected → activating waiting update automatically');
-            setTimeout(() => triggerUpdate(), 0);
-          } else {
-            updateAvailable = true;
-            showUpdateButton();
-          }
+          markUpdateAvailable(reg.waiting);
         }
 
-        checkForUpdate(reg);
-        setInterval(() => checkForUpdate(reg), 30 * 60 * 1000);
+        scheduleUpdateCheck('startup', { immediate: true, minIntervalMs: 0 });
+        for (const delay of STARTUP_FOLLOW_UP_DELAYS_MS) {
+          setTimeout(() => scheduleUpdateCheck(`startup-follow-up-${delay}`, { minIntervalMs: 0 }), delay);
+        }
+        setInterval(
+          () => scheduleUpdateCheck('periodic', { minIntervalMs: isNativeApp() ? NATIVE_UPDATE_INTERVAL_MS : BROWSER_UPDATE_INTERVAL_MS }),
+          isNativeApp() ? NATIVE_UPDATE_INTERVAL_MS : BROWSER_UPDATE_INTERVAL_MS,
+        );
 
-        document.addEventListener('visibilitychange', () => {
-          if (!document.hidden && swRegistration) {
-            console.log('SW: Visibility changed → checking for update');
-            checkForUpdate(swRegistration);
-          }
-        });
+        bindUpdateCheckEvents();
 
         reg.addEventListener('updatefound', () => {
           const newWorker = reg.installing;
@@ -58,13 +71,7 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
               return;
             }
             console.log('SW: New version ready for update');
-            if (isNativeApp()) {
-              console.log('SW: Native app detected → activating new update automatically');
-              triggerUpdate();
-            } else {
-              updateAvailable = true;
-              showUpdateButton();
-            }
+            markUpdateAvailable(reg.waiting);
           });
         });
 
@@ -86,15 +93,46 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
       } catch (err) {
         console.error('SW registration failed:', err);
       }
-    }, 5000);
+    }, STARTUP_SW_DELAY_MS);
   }
 
-  async function checkForUpdate(reg) {
+  function bindUpdateCheckEvents() {
+    const foregroundCheck = (reason) => scheduleUpdateCheck(reason, { minIntervalMs: FOREGROUND_MIN_CHECK_INTERVAL_MS });
+
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) foregroundCheck('visibilitychange');
+    });
+    window.addEventListener('focus', () => foregroundCheck('focus'));
+    window.addEventListener('pageshow', () => foregroundCheck('pageshow'));
+    window.addEventListener('online', () => scheduleUpdateCheck('online', { minIntervalMs: 0 }));
+  }
+
+  function scheduleUpdateCheck(reason, { immediate = false, minIntervalMs = FOREGROUND_MIN_CHECK_INTERVAL_MS } = {}) {
+    if (!swRegistration) return;
+    const now = Date.now();
+    if (!immediate && now - lastUpdateCheckAt < minIntervalMs) return;
+    if (updateCheckInFlight) return;
+    updateCheckInFlight = true;
+    lastUpdateCheckAt = now;
+    setTimeout(() => {
+      checkForUpdate(swRegistration, reason).finally(() => {
+        updateCheckInFlight = false;
+      });
+    }, immediate ? 0 : 250);
+  }
+
+  async function checkForUpdate(reg, reason = 'manual') {
+    if (!reg) return;
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      console.log(`SW: Update check skipped (${reason}) — browser reports offline`);
+      return;
+    }
     try {
-      await reg.update();
-      console.log('SW: Update check done');
+      await withTimeout(reg.update(), UPDATE_CHECK_TIMEOUT_MS, 'SW update check');
+      console.log(`SW: Update check done (${reason})`);
+      if (reg.waiting) markUpdateAvailable(reg.waiting);
     } catch (err) {
-      console.error('SW: Update check failed', err);
+      console.warn(`SW: Update check failed (${reason})`, err);
     }
   }
 
@@ -136,22 +174,51 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
     });
   }
 
-  function showUpdateButton() {
-    const el = document.getElementById('update-btn');
-    if (el) {
-      el.style.display = 'flex';
-      console.log('Update button shown');
+  function updateVersionLabel() {
+    const current = document.querySelector('.version-text')?.textContent?.trim() || '';
+    const modalCurrent = document.getElementById('web-update-current-version');
+    if (modalCurrent) modalCurrent.textContent = current || 'aktuelle Version';
+  }
+
+  function markUpdateAvailable(worker) {
+    updateAvailable = true;
+    waitingUpdateWorker = worker || swRegistration?.waiting || null;
+    showUpdateModal(waitingUpdateWorker);
+  }
+
+  function showUpdateModal(worker = null) {
+    if (worker && dismissedUpdateWorker === worker) return;
+    updateVersionLabel();
+    const modal = document.getElementById('web-update-modal');
+    const primary = document.getElementById('web-update-apply-btn');
+    if (primary) primary.disabled = false;
+    if (modal) {
+      modal.classList.add('active');
+      modal.removeAttribute('aria-hidden');
+      console.log('SW: Update modal shown');
+    }
+  }
+
+  function dismissUpdateModal() {
+    dismissedUpdateWorker = waitingUpdateWorker || swRegistration?.waiting || null;
+    const modal = document.getElementById('web-update-modal');
+    if (modal) {
+      modal.classList.remove('active');
+      modal.setAttribute('aria-hidden', 'true');
     }
   }
 
   async function triggerUpdate() {
     console.log('Triggering app update...');
+    const primary = document.getElementById('web-update-apply-btn');
+    if (primary) primary.disabled = true;
     if (swRegistration && swRegistration.waiting) {
       allowReloadOnControllerChange = true;
       swRegistration.waiting.postMessage({ action: 'skipWaiting' });
       return true;
     }
     console.log('SW: No waiting worker to activate');
+    if (primary) primary.disabled = false;
     return false;
   }
 
@@ -173,7 +240,7 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
       swRegistration = reg;
 
       try {
-        await reg.update();
+        await withTimeout(reg.update(), UPDATE_CHECK_TIMEOUT_MS, 'SW forced update check');
       } catch (err) {
         console.warn('SW: Forced update check failed, refreshing current cache anyway', err);
       }
@@ -211,6 +278,7 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
   return {
     initServiceWorker,
     triggerUpdate,
+    dismissUpdateModal,
     forceReloadApp,
     isUpdateAvailable: () => updateAvailable,
   };

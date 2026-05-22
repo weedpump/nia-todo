@@ -171,6 +171,7 @@ const authSessionFeature = createAuthSessionFeature({
 const serviceWorkerUpdates = createServiceWorkerUpdatesFeature({ onMarkTodoDone: (id) => markTodoDone(id) });
 const initServiceWorker = serviceWorkerUpdates.initServiceWorker;
 const triggerUpdate = serviceWorkerUpdates.triggerUpdate;
+const dismissUpdateModal = serviceWorkerUpdates.dismissUpdateModal;
 const forceReloadApp = serviceWorkerUpdates.forceReloadApp;
 
 const getAuthToken = authSessionFeature.getAuthToken;
@@ -534,7 +535,7 @@ export function startAppModule() {
   storage: { openDB, dbGetAll, dbPut, dbClear, getFromDB, deleteFromDB, clearSyncQueue, addToSyncQueue },
   sync: { isOnlineForSync, syncWithServer, refreshFromServer },
   ui: { toggleSidebar, closeSidebar, closeModal, setupDescPreview },
-  lifecycle: { initServiceWorker, triggerUpdate, forceReloadApp, initApp, loadFromLocalDB, loadAll },
+  lifecycle: { initServiceWorker, triggerUpdate, dismissUpdateModal, forceReloadApp, initApp, loadFromLocalDB, loadAll },
   rendering: { renderVersionInfo, renderProjects, renderStats, renderTodos, renderSectionHeader, countByProject },
   navigation: { setFilter, loadSectionsForCurrentProject },
   todos: { markTodoDone, markTodoDoneFromNative, toggleTodo, showTodoModal, onProjectChange, saveTodo, editTodo, deleteTodoFromModal, deleteTodo },

@@ -165,13 +165,24 @@
             <span class="version-text">v1.6.6-dev</span>
             <button type="button" class="force-refresh-btn" id="force-refresh-btn" onclick="forceReloadApp()" title="Web-App neu herunterladen und Cache aktualisieren">↻ Neu laden</button>
           </div>
-          <button class="update-btn" id="update-btn" onclick="triggerUpdate()" style="display:none;">
-            <span>🔄</span> Update verfügbar
-          </button>
           <div class="native-update-notice sidebar-native-update" data-native-app-update style="display:none;"></div>
         </div>
       </div>
     </aside>
+
+    <div class="modal web-update-modal" id="web-update-modal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="web-update-title">
+      <div class="modal-overlay web-update-backdrop"></div>
+      <div class="modal-content web-update-content">
+        <div class="web-update-icon" aria-hidden="true">🔄</div>
+        <h3 id="web-update-title">Update verfügbar</h3>
+        <p>Eine neue Version der Web-App ist fertig installiert und kann jetzt aktiviert werden.</p>
+        <p class="web-update-meta">Aktuell geladen: <span id="web-update-current-version">–</span></p>
+        <div class="web-update-actions">
+          <button type="button" class="btn btn-secondary" onclick="dismissUpdateModal()">Später</button>
+          <button type="button" class="btn btn-primary" id="web-update-apply-btn" onclick="triggerUpdate()">Jetzt aktualisieren</button>
+        </div>
+      </div>
+    </div>
 
     <!-- Main -->
     <main class="main">
