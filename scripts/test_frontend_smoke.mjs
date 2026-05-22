@@ -36,7 +36,8 @@ async function run() {
     await page.click('#theme-toggle-btn');
     await page.click('#theme-toggle-btn');
     await page.keyboard.press('Escape');
-    await page.locator('#update-btn').waitFor({ state: 'attached' });
+    await page.locator('#web-update-modal').waitFor({ state: 'attached' });
+    await page.locator('#web-update-apply-btn').waitFor({ state: 'attached' });
 
     await page.click('button[onclick="showProjectModal()"]');
     await page.fill('#project-name', 'Frontend Smoke Project');
