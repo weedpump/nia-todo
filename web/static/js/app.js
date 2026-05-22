@@ -279,6 +279,7 @@ desktopIntegration = createDesktopIntegration({
     searchInput?.focus();
     searchInput?.select();
   },
+  getCurrentUser: () => currentUser,
 });
 
 
@@ -413,14 +414,21 @@ const clearDoneFromModal = projectsFeature.clearDoneFromModal;
 const clearDoneInProject = projectsFeature.clearDoneInProject;
 
 const markTodoDone = todosFeature.markTodoDone;
-async function markTodoDoneFromNative(id) {
-  const rawId = String(id || '');
+async function markTodoDoneFromNative(action) {
+  const rawAction = typeof action === 'object' && action ? action : { id: action };
+  const rawId = String(rawAction.id || '');
+  const actionUserId = rawAction.userId == null ? '' : String(rawAction.userId);
   const startedAt = Date.now();
   while ((!appInitialized || !db) && Date.now() - startedAt < 30000) {
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
   if (!appInitialized || !db) {
     showToast?.('Notification-Aktion konnte nicht ausgeführt werden: App noch nicht bereit.');
+    return false;
+  }
+  if (actionUserId && currentUser?.id != null && actionUserId !== String(currentUser.id)) {
+    console.warn('[NativeAction] Ignored notification action for another user', { actionUserId, currentUserId: currentUser.id });
+    showToast?.('Notification-Aktion gehört zu einem anderen Benutzer und wurde ignoriert.');
     return false;
   }
   const numericId = /^\d+$/.test(rawId) ? Number(rawId) : rawId;
@@ -437,17 +445,15 @@ async function markTodoDoneFromNative(id) {
 
 let nativeDoneActionPollTimer = null;
 async function consumePendingNativeDoneAction() {
-  const consume = window.NiaAndroidNative?.consumePendingDoneTodoId;
-  if (typeof consume !== 'function') return;
-  let rawId = '';
+  let action = null;
   try {
-    rawId = consume();
+    action = desktopIntegration?.consumePendingDoneAction?.();
   } catch (error) {
-    console.warn('[NativeAction] Failed to consume pending Android done action', error);
+    console.warn('[NativeAction] Failed to consume pending native done action', error);
     return;
   }
-  if (!rawId) return;
-  await markTodoDoneFromNative(rawId);
+  if (!action?.id) return;
+  await markTodoDoneFromNative(action);
 }
 
 function startNativeDoneActionPolling() {
@@ -587,6 +593,7 @@ export function startAppModule() {
   confirmDialogFeature.bindConfirmDialog();
   appDownloadsFeature.initAppDownloads();
   desktopIntegration?.init();
+  startNativeDoneActionPolling();
   setInterval(() => renderStats(), 30 * 1000);
 
   // Expose legacy inline handlers for module-loaded frontend.

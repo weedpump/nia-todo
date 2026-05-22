@@ -108,7 +108,7 @@ function setDesktopStatus(text, danger = false) {
   el.style.color = danger ? 'var(--danger)' : 'var(--text-muted)';
 }
 
-export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeySearch }) {
+export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeySearch, getCurrentUser }) {
   const nativeBridge = createNativeBridge();
   let settings = { ...DEFAULT_SETTINGS };
   let latestTodos = [];
@@ -221,6 +221,8 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
 
   function buildReminderSchedules(todos = []) {
     const now = Date.now();
+    const currentUser = getCurrentUser?.();
+    const userId = currentUser?.id == null ? '' : String(currentUser.id);
     return todos
       .filter((todo) => todo && todo.status !== 'done')
       .map((todo) => {
@@ -231,6 +233,7 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
           title: reminderTitle(todo),
           body: reminderBody(todo),
           dueAtMs: dueAt,
+          userId,
         };
       })
       .filter(Boolean);
@@ -312,6 +315,10 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
     }
   }
 
+  function consumePendingDoneAction() {
+    return nativeBridge.consumePendingDoneAction();
+  }
+
   async function updateHotkey(action, shortcut) {
     if (!isDesktopApp()) return;
     setDesktopStatus('Speichere Hotkey...');
@@ -381,6 +388,7 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
     announceNotificationReadiness,
     notifyReminder,
     syncLocalReminders,
+    consumePendingDoneAction,
     updateServerUrl,
     resetServerUrl,
     testNotification,

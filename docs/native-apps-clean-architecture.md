@@ -163,7 +163,8 @@ Rules:
 - New runtime checks should use `RUNTIME_CAPABILITIES` from `core/config.js`.
 - Avoid new scattered `window.__TAURI__`, `nativeApp=tauri`, user-agent or platform checks outside the runtime adapter/config layer.
 - Platform-specific native bridge calls must be isolated behind feature modules, not embedded in general Todo/UI logic.
-- Current adapter boundary: `web/static/js/features/native-bridge.js` wraps Tauri invoke, Android `JavascriptInterface`, native notifications/reminders, app version lookup and hotkey event listening.
+- Current adapter boundary: `web/static/js/features/native-bridge.js` wraps Tauri invoke, Android `JavascriptInterface`, native notifications/reminders, notification action handoff, app version lookup and hotkey event listening.
+- Native reminder action rule: platform code may persist/forward an action payload, but Todo state changes stay in the authenticated Web-App layer so current-user checks, offline queue semantics and API sync remain centralized.
 
 ## Proposed implementation phases
 
