@@ -1,3 +1,4 @@
+import { iconSvg } from '../icons/lucide-icons.js';
 function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
 }
@@ -71,7 +72,7 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     const name = displayNameValue ? escapeHtml(displayNameValue) : '<span class="settings-email-missing">-</span>';
     return `<span class="settings-display-name-display" id="settings-display-name-display">
       <span class="settings-display-name-value">${name}</span>
-      <button type="button" class="settings-inline-action" title="Anzeigename bearbeiten" onclick="editUserDisplayName()">✏️</button>
+      <button type="button" class="settings-inline-action" title="Anzeigename bearbeiten" onclick="editUserDisplayName()">${iconSvg('edit-3')}</button>
     </span>`;
   }
 
@@ -79,7 +80,7 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     const email = emailValue ? escapeHtml(emailValue) : '<span class="settings-email-missing">-</span>';
     return `<span class="settings-email-display" id="settings-email-display">
       <span class="settings-email-value">${email}</span>
-      <button type="button" class="settings-email-action" title="E-Mail bearbeiten" onclick="editUserEmail()">✏️</button>
+      <button type="button" class="settings-email-action" title="E-Mail bearbeiten" onclick="editUserEmail()">${iconSvg('edit-3')}</button>
     </span>`;
   }
 
@@ -129,7 +130,7 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     if (!cell) return;
     cell.innerHTML = `<span class="settings-display-name-edit" id="settings-display-name-edit">
       <input id="settings-display-name-input" type="text" maxlength="80" value="${escapeHtmlAttr(currentName)}" placeholder="Anzeigename" autocomplete="name" onkeydown="if(event.key==='Enter') saveUserProfile(); if(event.key==='Escape') cancelUserDisplayNameEdit()">
-      <button type="button" class="settings-inline-action" title="Speichern" onclick="saveUserProfile()">✅</button>
+      <button type="button" class="settings-inline-action" title="Speichern" onclick="saveUserProfile()">${iconSvg('check')}</button>
       <button type="button" class="settings-inline-action" title="Abbrechen" onclick="cancelUserDisplayNameEdit()">✕</button>
     </span>`;
     document.getElementById('settings-display-name-input')?.focus();
@@ -412,7 +413,7 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     if (!cell) return;
     cell.innerHTML = `<span class="settings-email-edit" id="settings-email-edit">
       <input id="settings-email-input" type="email" value="${escapeHtmlAttr(currentEmail)}" placeholder="E-Mail setzen" autocomplete="email" onkeydown="if(event.key==='Enter') saveUserEmail(); if(event.key==='Escape') cancelUserEmailEdit()">
-      <button type="button" class="settings-email-action" title="Speichern" onclick="saveUserEmail()">✅</button>
+      <button type="button" class="settings-email-action" title="Speichern" onclick="saveUserEmail()">${iconSvg('check')}</button>
       <button type="button" class="settings-email-action" title="Abbrechen" onclick="cancelUserEmailEdit()">✕</button>
     </span>`;
     document.getElementById('settings-email-input')?.focus();

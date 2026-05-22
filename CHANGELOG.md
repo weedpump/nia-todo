@@ -12,11 +12,14 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 - Jeder Nutzer erhält einen Default-Workspace `Privat`; bestehende Projekte werden dorthin migriert.
 - Jeder Workspace besitzt eine eigene Inbox; bestehende und neue Workspace-Daten bleiben damit sauber getrennt.
 - Workspace-Switcher mit Custom-Dropdown, Farbauswahl, Erstellen, Umbenennen und Löschen ergänzt.
+- Lokales Lucide-SVG-Iconset als offline-/PWA-freundliche Icon-Basis ergänzt.
+- Optionale Icons für Projekte und Workspaces ergänzt; gesetzte Icons nutzen die jeweilige Projekt-/Workspace-Farbe.
 - Neues App-eigenes Danger-Confirm-Modal für Löschen von Todos, Projekten, Sections und Workspaces.
 - Frontend-/Backend-Regressionstests für Workspaces, Sharing, Workspace-Inboxes, Projektlöschung und Realtime-Sync ergänzt.
 
 ### Changed
 - Projekt-, Todo-, Dashboard- und Section-Ansichten werden nach aktivem Workspace gefiltert; Benachrichtigungen, Reminder, Push und WebSocket-Sync bleiben global.
+- UI-Emojis wurden durch konsistente SVG-Icons bzw. neutrale Status-Texte ersetzt.
 - Neue Projekte werden im aktiven Workspace erstellt; Subprojekte müssen im selben Workspace wie ihr Parent bleiben.
 - Geteilte Projekte bleiben workspace-unabhängig sichtbar und sind im Todo-Modal auswählbar.
 - Projektlöschung verschiebt enthaltene Todos in die Inbox desselben Workspaces statt pauschal in eine globale Inbox.

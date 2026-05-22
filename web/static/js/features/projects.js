@@ -1,3 +1,5 @@
+import { renderIconPicker } from '../icons/lucide-icons.js';
+
 export function createProjectsFeature({
   getProjects,
   getTodos,
@@ -79,6 +81,13 @@ export function createProjectsFeature({
       document.getElementById('project-id').value = project.id;
       document.getElementById('project-name').value = project.name;
       document.getElementById('project-color').value = project.color;
+      document.getElementById('project-icon').value = project.icon || '';
+      renderIconPicker({
+        container: document.getElementById('project-icon-picker'),
+        input: document.getElementById('project-icon'),
+        selected: project.icon || '',
+        color: project.color || '#6366f1',
+      });
       if (parentSelect) parentSelect.value = project.parent_id || '';
       const owner = isOwner(project);
       const shared = !!project.is_shared;
@@ -90,12 +99,29 @@ export function createProjectsFeature({
       if (sharingSection) sharingSection.style.display = 'none';
       if (deleteBtn) deleteBtn.style.display = 'none';
       document.getElementById('project-form')?.classList.remove('readonly-project');
+      document.getElementById('project-icon').value = '';
+      renderIconPicker({
+        container: document.getElementById('project-icon-picker'),
+        input: document.getElementById('project-icon'),
+        selected: '',
+        color: document.getElementById('project-color')?.value || '#6366f1',
+      });
       ['project-name', 'project-color', 'project-parent-id'].forEach(id => {
         const el = document.getElementById(id);
         if (el) {
           el.disabled = false;
           el.setAttribute('aria-readonly', 'false');
         }
+      });
+    }
+
+    const colorInput = document.getElementById('project-color');
+    if (colorInput) {
+      colorInput.oninput = () => renderIconPicker({
+        container: document.getElementById('project-icon-picker'),
+        input: document.getElementById('project-icon'),
+        selected: document.getElementById('project-icon')?.value || '',
+        color: colorInput.value || '#6366f1',
       });
     }
 
@@ -114,6 +140,7 @@ export function createProjectsFeature({
     const projectData = {
       name: document.getElementById('project-name').value,
       color: document.getElementById('project-color').value,
+      icon: document.getElementById('project-icon')?.value || null,
       sort_order: getProjects().length,
       parent_id: parentIdVal ? parseInt(parentIdVal) : null,
       workspace_id: getCurrentWorkspaceId?.() || null,

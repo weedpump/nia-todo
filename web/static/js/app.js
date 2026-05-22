@@ -31,6 +31,7 @@ import { createSectionActionsFeature } from './features/section-actions.js';
 import { createUiShell } from './features/ui-shell.js';
 import { createAppLifecycle } from './features/app-lifecycle.js';
 import { exposeLegacyGlobals } from './features/legacy-globals.js';
+import { hydrateIcons } from './icons/lucide-icons.js';
 let todos = [];
 let projects = [];
 let sections = [];
@@ -582,6 +583,7 @@ export function startAppModule() {
   appLifecycle.bindNetworkEvents();
   appLifecycle.bindDomReady();
   bindUserMenu();
+  hydrateIcons(document);
   confirmDialogFeature.bindConfirmDialog();
   appDownloadsFeature.initAppDownloads();
   desktopIntegration?.init();

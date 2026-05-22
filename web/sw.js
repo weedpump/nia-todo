@@ -25,6 +25,7 @@ const PRECACHE_ASSETS = [
   '/static/js/storage/app-storage.js',
   '/static/js/storage/indexed-db.js',
   '/static/js/sync/queue.js',
+  '/static/js/icons/lucide-icons.js',
   '/static/js/features/api-keys.js',
   '/static/js/features/app-downloads.js',
   '/static/js/features/app-rendering.js',

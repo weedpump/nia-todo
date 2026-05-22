@@ -16,12 +16,14 @@ router = APIRouter(prefix="/api/workspaces")
 class WorkspaceCreate(BaseModel):
     name: str
     color: str = "#6366f1"
+    icon: Optional[str] = None
     sort_order: int = 0
 
 
 class WorkspaceUpdate(BaseModel):
     name: Optional[str] = None
     color: Optional[str] = None
+    icon: Optional[str] = None
     sort_order: Optional[int] = None
 
 
@@ -79,8 +81,8 @@ async def create_workspace(data: WorkspaceCreate, user_id: int = Depends(require
         ensure_default_workspace(db, user_id)
         try:
             c = db.execute(
-                "INSERT INTO workspaces (name, color, sort_order, user_id, is_default, updated_at) VALUES (?, ?, ?, ?, 0, ?)",
-                (data.name, data.color, data.sort_order, user_id, now_iso()),
+                "INSERT INTO workspaces (name, color, icon, sort_order, user_id, is_default, updated_at) VALUES (?, ?, ?, ?, ?, 0, ?)",
+                (data.name, data.color, data.icon, data.sort_order, user_id, now_iso()),
             )
             workspace_id = c.lastrowid
             ensure_workspace_inbox(db, user_id, workspace_id)
@@ -105,7 +107,7 @@ async def update_workspace(workspace_id: int, data: WorkspaceUpdate, user_id: in
             raise HTTPException(404, "Workspace not found")
         fields_set = getattr(data, "model_fields_set", getattr(data, "__fields_set__", set()))
         updates = {}
-        for field in ["name", "color", "sort_order"]:
+        for field in ["name", "color", "icon", "sort_order"]:
             if field in fields_set:
                 updates[field] = getattr(data, field)
         if updates:

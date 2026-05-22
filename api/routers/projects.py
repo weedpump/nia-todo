@@ -17,6 +17,7 @@ router = APIRouter(prefix="/api/projects")
 class ProjectCreate(BaseModel):
     name: str
     color: str = "#6366f1"
+    icon: Optional[str] = None
     sort_order: int = 0
     parent_id: Optional[int] = None
     workspace_id: Optional[int] = None
@@ -25,6 +26,7 @@ class ProjectCreate(BaseModel):
 class ProjectUpdate(BaseModel):
     name: Optional[str] = None
     color: Optional[str] = None
+    icon: Optional[str] = None
     sort_order: Optional[int] = None
     parent_id: Optional[int] = None
     workspace_id: Optional[int] = None
@@ -101,8 +103,8 @@ async def create_project(data: ProjectCreate, user_id: int = Depends(require_aut
                 raise HTTPException(400, "Parent project belongs to another workspace")
         try:
             c = db.execute(
-                "INSERT INTO projects (name, color, sort_order, parent_id, workspace_id, updated_at, user_id) VALUES (?,?,?,?,?,?,?)",
-                (data.name, data.color, data.sort_order, data.parent_id, workspace_id, now_iso(), user_id)
+                "INSERT INTO projects (name, color, icon, sort_order, parent_id, workspace_id, updated_at, user_id) VALUES (?,?,?,?,?,?,?,?)",
+                (data.name, data.color, data.icon, data.sort_order, data.parent_id, workspace_id, now_iso(), user_id)
             )
             db.commit()
         except sqlite3.IntegrityError:
@@ -142,12 +144,12 @@ async def update_project(project_id: int, data: ProjectUpdate, user_id: int = De
         if "workspace_id" in fields_set:
             if data.workspace_id != existing['workspace_id']:
                 raise HTTPException(400, "Project workspace cannot be changed")
-        for f in ["name", "color", "sort_order", "parent_id", "workspace_id"]:
+        for f in ["name", "color", "icon", "sort_order", "parent_id", "workspace_id"]:
             if f in fields_set:
                 updates[f] = getattr(data, f)
         if updates:
             updates['updated_at'] = now_iso()
-            allowed_cols = {"name", "color", "sort_order", "parent_id", "workspace_id", "updated_at"}
+            allowed_cols = {"name", "color", "icon", "sort_order", "parent_id", "workspace_id", "updated_at"}
             safe_updates = {k: v for k, v in updates.items() if k in allowed_cols}
             set_clause = ", ".join(f"{k}=:{k}" for k in safe_updates)
             try:

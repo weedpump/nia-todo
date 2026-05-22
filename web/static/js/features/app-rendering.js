@@ -1,3 +1,5 @@
+import { iconSvg, markerHtml } from '../icons/lucide-icons.js';
+
 export function createAppRenderingFeature({
   appVersion,
   escapeHtml,
@@ -119,7 +121,7 @@ export function createAppRenderingFeature({
       html += `<div class="nav-item-with-action">`;
       const isActiveProject = Number(currentProjectId) === Number(project.id);
       html += `<button class="nav-btn ${isActiveProject ? 'active' : ''}" data-filter="${escapeHtmlAttr(project.id)}" onclick="setFilter('${project.id}')">`;
-      html += `<span class="project-dot" style="background:${escapeHtmlAttr(project.color)}"></span>`;
+      html += markerHtml({ ...project, color: escapeHtmlAttr(project.color || '#6366f1'), icon: project.icon });
       html += `${escapeHtml(project.name)}`;
       html += `<span class="badge">${countByProject(project.id, true)}</span>`;
       html += `</button>`;
@@ -248,10 +250,10 @@ export function createAppRenderingFeature({
     ];
 
     const focusItems = [
-      { icon: '📅', label: 'Heute fällig', value: dueToday },
-      { icon: '🗓️', label: 'Nächste 7 Tage', value: dueWeek },
-      { icon: '✅', label: 'Erledigt', value: done },
-      { icon: '📈', label: 'Erledigt-Quote', value: `${completionRate}%` },
+      { icon: iconSvg('calendar'), label: 'Heute fällig', value: dueToday },
+      { icon: iconSvg('calendar-days'), label: 'Nächste 7 Tage', value: dueWeek },
+      { icon: iconSvg('check-circle'), label: 'Erledigt', value: done },
+      { icon: iconSvg('chart-line'), label: 'Erledigt-Quote', value: `${completionRate}%` },
     ];
 
     el.innerHTML = `
@@ -297,11 +299,11 @@ export function createAppRenderingFeature({
             <div class="overview-project-list">
               ${projectsByRecentTodo.length ? projectsByRecentTodo.map(project => `
                 <button type="button" class="overview-project-item" onclick="setFilter('${escapeHtmlAttr(project.id)}')">
-                  <span class="project-dot" style="background:${escapeHtmlAttr(project.color || '#6366f1')}"></span>
+                  ${markerHtml({ ...project, color: escapeHtmlAttr(project.color || '#6366f1'), icon: project.icon })}
                   <span>${escapeHtml(project.name)}</span>
                   <strong>${escapeHtml(project.latestTodoLabel)}</strong>
                 </button>
-              `).join('') : '<div class="overview-empty-mini">Noch keine Todo-Änderungen 🎉</div>'}
+              `).join('') : '<div class="overview-empty-mini">Noch keine Todo-Änderungen.</div>'}
             </div>
           </div>
         </div>
@@ -326,17 +328,17 @@ export function createAppRenderingFeature({
     const activeTodos = projectTodos.filter(t => t.status !== 'done');
     const overdue = activeTodos.filter(t => t.due_date && new Date(t.due_date) < new Date()).length;
     const stats = [
-      { cls: 'total', icon: '📋', num: projectTodos.length, label: 'Gesamt', hint: 'Todos im Projekt' },
-      { cls: 'pending', icon: '⏳', num: projectTodos.filter(t => t.status === 'pending').length, label: 'Offen', hint: 'Noch zu tun' },
-      { cls: 'progress', icon: '🔥', num: projectTodos.filter(t => t.status === 'in_progress').length, label: 'In Arbeit', hint: 'Aktiv bearbeitet' },
-      { cls: 'due', icon: '⚠️', num: overdue, label: 'Überfällig', hint: 'Brauchen Aufmerksamkeit' },
+      { cls: 'total', icon: iconSvg('layout-dashboard'), num: projectTodos.length, label: 'Gesamt', hint: 'Todos im Projekt' },
+      { cls: 'pending', icon: iconSvg('clock'), num: projectTodos.filter(t => t.status === 'pending').length, label: 'Offen', hint: 'Noch zu tun' },
+      { cls: 'progress', icon: iconSvg('flame'), num: projectTodos.filter(t => t.status === 'in_progress').length, label: 'In Arbeit', hint: 'Aktiv bearbeitet' },
+      { cls: 'due', icon: iconSvg('triangle-alert'), num: overdue, label: 'Überfällig', hint: 'Brauchen Aufmerksamkeit' },
     ];
     const color = project.color || '#6366f1';
     const subtitle = project.is_shared ? 'Geteiltes Projekt' : 'Projektübersicht';
     return `<section class="overview-dashboard project-dashboard" aria-label="Projekt-Dashboard">
       <div class="overview-dashboard-header project-dashboard-header">
         <div class="overview-greeting">
-          <span class="project-dashboard-avatar" style="--project-color:${escapeHtmlAttr(color)}">${project.is_inbox ? '📥' : '📁'}</span>
+          <span class="project-dashboard-avatar" style="--project-color:${escapeHtmlAttr(color)}">${project.icon ? iconSvg(project.icon) : '<span class="project-dashboard-dot"></span>'}</span>
           <div>
             <div class="overview-kicker">Projekt</div>
             <h2>${escapeHtml(project.name)}</h2>
@@ -412,13 +414,13 @@ export function createAppRenderingFeature({
       }
 
       html += `<div class="add-section-row">
-        <button class="btn-add-section" onclick="showAddSectionForm()">➕ Neue Section</button>
-        <button class="btn-add-section" onclick="clearDoneInProject()">🗑️ Erledigte löschen</button>
+        <button class="btn-add-section" onclick="showAddSectionForm()">${iconSvg('plus')} Neue Section</button>
+        <button class="btn-add-section" onclick="clearDoneInProject()">${iconSvg('trash-2')} Erledigte löschen</button>
       </div>`;
 
       if (!filtered.length && !sections.length) {
         html += `<div class="empty-state">
-          <div class="emoji">🎉</div>
+          <div class="emoji">${iconSvg('check-circle')}</div>
           <h3>Alles erledigt!</h3>
           <p>Keine Todos in dieser Ansicht.</p>
         </div>`;
@@ -428,7 +430,7 @@ export function createAppRenderingFeature({
       return;
     }
 
-    const groups = { in_progress: '🔥 In Arbeit', pending: '⏳ Offen', done: '✅ Erledigt' };
+    const groups = { in_progress: `${iconSvg('flame')} In Arbeit`, pending: `${iconSvg('clock')} Offen`, done: `${iconSvg('check-circle')} Erledigt` };
 
     if (currentFilter !== 'all' && groups[currentFilter]) filtered = filtered.filter(t => t.status === currentFilter);
     if (hideDone && currentFilter !== 'done') filtered = filtered.filter(t => t.status !== 'done');
@@ -487,7 +489,7 @@ export function createAppRenderingFeature({
 
     if (!filtered.length) {
       html = `<div class="empty-state">
-        <div class="emoji">🎉</div>
+        <div class="emoji">${iconSvg('check-circle')}</div>
         <h3>Alles erledigt!</h3>
         <p>Keine Todos in dieser Ansicht.</p>
       </div>`;

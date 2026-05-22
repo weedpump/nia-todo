@@ -38,7 +38,7 @@ export function createSyncFeature({
     const data = item.data && typeof item.data === 'object' ? item.data : {};
     const changes = data.changes && typeof data.changes === 'object' ? data.changes : {};
     const todoFields = ['title', 'description', 'priority', 'status', 'project_id', 'section_id', 'due_date', 'remind_at', '_tempId'];
-    const projectFields = ['name', 'color', 'sort_order', 'parent_id', 'workspace_id', '_tempId'];
+    const projectFields = ['name', 'color', 'icon', 'sort_order', 'parent_id', 'workspace_id', '_tempId'];
     const sectionFields = ['name', 'sort_order', 'project_id', '_tempId'];
 
     switch (item.action) {

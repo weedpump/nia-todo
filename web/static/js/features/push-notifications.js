@@ -10,11 +10,11 @@ export function createPushNotificationsFeature({ pushApi }) {
     if (!statusEl) return;
 
     const texts = {
-      granted: '✅ Erlaubt — du bekommst Benachrichtigungen',
-      denied: '❌ Blockiert — in den Browser-Einstellungen änderbar',
-      default: '⏳ Nicht gefragt',
-      unknown: '❓ Service Worker nicht verfügbar',
-      unsupported: '❌ Nicht unterstützt (kein HTTPS?)',
+      granted: 'Erlaubt — du bekommst Benachrichtigungen',
+      denied: 'Blockiert — in den Browser-Einstellungen änderbar',
+      default: 'Noch nicht gefragt',
+      unknown: 'Service Worker nicht verfügbar',
+      unsupported: 'Nicht unterstützt (kein HTTPS?)',
     };
     statusEl.textContent = 'Status: ' + (texts[status] || status);
 
@@ -113,7 +113,7 @@ export function createPushNotificationsFeature({ pushApi }) {
 
   async function sendTestPush() {
     try {
-      const result = await pushApi.test({ title: 'Test 🔔', body: 'Push Notifications funktionieren!' });
+      const result = await pushApi.test({ title: 'nia-todo Test', body: 'Push Notifications funktionieren!' });
       if (result?.sent === false) {
         updatePushStatus('granted', 'Test-Benachrichtigung konnte nicht gesendet werden. Keine aktive Subscription oder Push-Dienst hat abgelehnt.');
         return;
