@@ -121,8 +121,13 @@ function applyAccentPreset(resolvedTheme) {
   root.dataset.accentIntensity = String(intensity);
   root.style.setProperty('--accent-intensity', String(intensity / 100));
   root.style.setProperty('--accent-strength', strength);
-  root.style.setProperty('--accent', `color-mix(in srgb, ${palette.accent} ${strength}, var(--text-secondary))`);
-  root.style.setProperty('--accent-hover', `color-mix(in srgb, ${palette.hover} ${strength}, var(--text-primary))`);
+  if (intensity >= 100) {
+    root.style.setProperty('--accent', palette.accent);
+    root.style.setProperty('--accent-hover', palette.hover);
+  } else {
+    root.style.setProperty('--accent', `color-mix(in srgb, ${palette.accent} ${strength}, var(--text-secondary))`);
+    root.style.setProperty('--accent-hover', `color-mix(in srgb, ${palette.hover} ${strength}, var(--text-primary))`);
+  }
   root.style.setProperty('--accent-rgb', palette.rgb);
   root.style.setProperty('--accent-hover-rgb', palette.hoverRgb);
   updateAccentMenuUi();
