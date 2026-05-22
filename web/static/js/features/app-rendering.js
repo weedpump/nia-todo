@@ -512,10 +512,10 @@ export function createAppRenderingFeature({
     for (const invite of invites) {
       html += `
         <div class="invite-item" data-invite-id="${escapeHtmlAttr(invite.id)}">
-          <span class="invite-title">📩 ${escapeHtml(invite.project_name)}</span>
+          <span class="invite-title">${iconSvg('mail')} ${escapeHtml(invite.project_name)}</span>
           <div class="invite-actions">
-            <button class="invite-action invite-accept" onclick="acceptInvite(${invite.project_id}, ${invite.id})" title="Annehmen" aria-label="Einladung annehmen">✓</button>
-            <button class="invite-action invite-decline" onclick="declineInvite(${invite.project_id}, ${invite.id})" title="Ablehnen" aria-label="Einladung ablehnen">✕</button>
+            <button class="invite-action invite-accept" onclick="acceptInvite(${invite.project_id}, ${invite.id})" title="Annehmen" aria-label="Einladung annehmen">${iconSvg('check')}</button>
+            <button class="invite-action invite-decline" onclick="declineInvite(${invite.project_id}, ${invite.id})" title="Ablehnen" aria-label="Einladung ablehnen">${iconSvg('x')}</button>
           </div>
         </div>
       `;
