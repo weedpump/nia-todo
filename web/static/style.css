@@ -823,7 +823,7 @@ body {
   white-space: nowrap;
 }
 [data-theme="light"] .overview-stat-card {
-  border-color: #b8c0cf;
+  border-color: #8b95a7;
 }
 
 .overview-stat-card.total .overview-stat-num { color: var(--accent); }
