@@ -54,13 +54,21 @@ const userSettingsSource = readFileSync(new URL('../web/static/js/features/user-
 assert(!userMenuSource.includes('Date.now()'), 'user menu avatar URLs must be stable so avatars can be cached offline');
 assert(!userSettingsSource.includes('Date.now()'), 'settings avatar URLs must be stable so avatars can be cached offline');
 
+const nativeBridgeSource = readFileSync(new URL('../web/static/js/features/native-bridge.js', import.meta.url), 'utf8');
 const desktopSource = readFileSync(new URL('../web/static/js/features/desktop-integration.js', import.meta.url), 'utf8');
 assert(desktopSource.includes('if (event.repeat) return null'), 'hotkey capture must ignore repeated modifier keydown events');
 assert(desktopSource.includes('if (isModifierKey(event)) return'), 'hotkey capture must not save a bare modifier as the main key');
+assert(!desktopSource.includes('window.NiaAndroidNative'), 'desktop integration must use the native bridge adapter, not direct Android globals');
+assert(!desktopSource.includes('getTauriInvoke'), 'desktop integration must use the native bridge adapter, not direct Tauri invoke');
 
 const downloadsSource = readFileSync(new URL('../web/static/js/features/app-downloads.js', import.meta.url), 'utf8');
 assert(downloadsSource.includes('RUNTIME_CAPABILITIES.appDownloads && !isStandaloneDisplayMode()'), 'app downloads must only render when browser download capability is enabled, not native/PWA');
+assert(!downloadsSource.includes('window.NiaAndroidNative'), 'app downloads must use the native bridge adapter for native app version lookup');
+const themeSource = readFileSync(new URL('../web/static/js/features/theme.js', import.meta.url), 'utf8');
+assert(!themeSource.includes('window.NiaAndroidNative') && !themeSource.includes('window.NiaAndroidSystemBars'), 'theme must use the native bridge adapter for Android system bars');
+assert(nativeBridgeSource.includes('window.NiaAndroidNative'), 'native bridge is the only frontend feature module expected to access Android globals directly');
 assert(swSource.includes('/static/js/features/app-downloads.js'), 'service worker must precache the app downloads module');
+assert(swSource.includes('/static/js/features/native-bridge.js'), 'service worker must precache the native bridge module');
 
 const syncSource = readFileSync(new URL('../web/static/js/features/sync.js', import.meta.url), 'utf8');
 assert(syncSource.includes('sanitizeQueueItem'), 'offline sync must sanitize queued actions');
