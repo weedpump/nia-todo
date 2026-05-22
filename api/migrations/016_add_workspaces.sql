@@ -1,5 +1,6 @@
--- Migration 016: Add user workspaces as a display/organization layer
+-- Migration 016: Add user workspaces as a display/organization layer.
 -- Notifications, reminders and sync remain global; projects are assigned to workspaces.
+-- Each workspace owns its own Inbox project.
 
 CREATE TABLE IF NOT EXISTS workspaces (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -35,5 +36,23 @@ SET workspace_id = (
 WHERE workspace_id IS NULL AND user_id IS NOT NULL;
 
 DROP INDEX IF EXISTS idx_projects_user_name_unique;
-CREATE UNIQUE INDEX IF NOT EXISTS idx_projects_user_workspace_name_unique ON projects(user_id, workspace_id, name);
+DROP INDEX IF EXISTS idx_projects_user_inbox_unique;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_projects_user_workspace_name_unique
+ON projects(user_id, workspace_id, name);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_projects_user_workspace_inbox_unique
+ON projects(user_id, workspace_id)
+WHERE is_inbox = 1;
+
 CREATE INDEX IF NOT EXISTS idx_projects_workspace ON projects(workspace_id);
+
+INSERT INTO projects (name, color, sort_order, user_id, workspace_id, is_inbox, updated_at)
+SELECT 'Inbox', '#64748b', 0, w.user_id, w.id, 1, datetime('now')
+FROM workspaces w
+WHERE NOT EXISTS (
+    SELECT 1 FROM projects p
+    WHERE p.user_id = w.user_id
+      AND p.workspace_id = w.id
+      AND COALESCE(p.is_inbox, 0) = 1
+);
