@@ -134,49 +134,91 @@ export function markerHtml(item, dotClass = 'project-dot') {
   return `<span class="${dotClass}" style="background:${color}"></span>`;
 }
 
+function currentIconPreview(icon, color) {
+  if (icon) return `<span class="icon-picker-current-preview" style="color:${color}">${iconSvg(icon)}</span>`;
+  return `<span class="icon-picker-current-preview"><span class="icon-picker-dot" style="background:${color}"></span></span>`;
+}
+
+function currentIconLabel(icon) {
+  return icon || 'Kein Icon';
+}
+
 export function renderIconPicker({ container, input, selected = '', color = '#6366f1' }) {
   if (!container || !input) return;
   const safeSelected = safeIconName(selected);
   const safePickerColor = safeColor(color);
   input.value = safeSelected;
   container.innerHTML = `
-    <div class="icon-picker-toolbar">
-      <input class="icon-picker-search" type="search" placeholder="Icon suchen..." aria-label="Icon suchen">
-    </div>
-    <div class="icon-picker-sections">
-      <section class="icon-picker-section" data-category="none">
-        <div class="icon-picker-category-title">Ohne Icon</div>
-        <div class="icon-picker-grid">
-          <button type="button" class="icon-picker-option ${!safeSelected ? 'active' : ''}" data-value="" data-search="kein icon ohne dot farbe" title="Kein Icon">
-            <span class="icon-picker-dot" style="background:${safePickerColor}"></span>
-          </button>
-        </div>
-      </section>
-      ${ICON_PICKER_CATEGORIES.map(category => `
-        <section class="icon-picker-section" data-category="${category.label.toLowerCase()}">
-          <div class="icon-picker-category-title">${category.label}</div>
+    <button type="button" class="icon-picker-current" aria-expanded="false">
+      ${currentIconPreview(safeSelected, safePickerColor)}
+      <span class="icon-picker-current-text">
+        <span class="icon-picker-current-label">Gewähltes Icon</span>
+        <span class="icon-picker-current-name">${currentIconLabel(safeSelected)}</span>
+      </span>
+      <span class="icon-picker-current-chevron">▾</span>
+    </button>
+    <div class="icon-picker-panel" hidden>
+      <div class="icon-picker-toolbar">
+        <input class="icon-picker-search" type="search" placeholder="Icon suchen..." aria-label="Icon suchen">
+      </div>
+      <div class="icon-picker-sections">
+        <section class="icon-picker-section" data-category="none">
+          <div class="icon-picker-category-title">Ohne Icon</div>
           <div class="icon-picker-grid">
-            ${category.icons.map(name => `
-              <button type="button" class="icon-picker-option ${safeSelected === name ? 'active' : ''}" data-value="${name}" data-search="${name.replace(/-/g, ' ')} ${category.label.toLowerCase()}" title="${name}" style="color:${safePickerColor}">
-                ${iconSvg(name)}
-              </button>
-            `).join('')}
+            <button type="button" class="icon-picker-option ${!safeSelected ? 'active' : ''}" data-value="" data-search="kein icon ohne dot farbe" title="Kein Icon">
+              <span class="icon-picker-dot" style="background:${safePickerColor}"></span>
+            </button>
           </div>
         </section>
-      `).join('')}
+        ${ICON_PICKER_CATEGORIES.map(category => `
+          <section class="icon-picker-section" data-category="${category.label.toLowerCase()}">
+            <div class="icon-picker-category-title">${category.label}</div>
+            <div class="icon-picker-grid">
+              ${category.icons.map(name => `
+                <button type="button" class="icon-picker-option ${safeSelected === name ? 'active' : ''}" data-value="${name}" data-search="${name.replace(/-/g, ' ')} ${category.label.toLowerCase()}" title="${name}" style="color:${safePickerColor}">
+                  ${iconSvg(name)}
+                </button>
+              `).join('')}
+            </div>
+          </section>
+        `).join('')}
+      </div>
     </div>
   `;
 
+  const currentButton = container.querySelector('.icon-picker-current');
+  const currentName = container.querySelector('.icon-picker-current-name');
+  const panel = container.querySelector('.icon-picker-panel');
+  const search = container.querySelector('.icon-picker-search');
   const options = Array.from(container.querySelectorAll('.icon-picker-option'));
+
+  function setExpanded(expanded) {
+    panel.hidden = !expanded;
+    currentButton.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+  }
+
+  function updateCurrent(value) {
+    const icon = safeIconName(value);
+    input.value = icon;
+    const currentPreview = container.querySelector('.icon-picker-current-preview');
+    if (currentPreview) currentPreview.outerHTML = currentIconPreview(icon, safePickerColor);
+    if (currentName) currentName.textContent = currentIconLabel(icon);
+    options.forEach(btn => btn.classList.toggle('active', (btn.dataset.value || '') === icon));
+  }
+
+  currentButton?.addEventListener('click', () => {
+    const expanded = currentButton.getAttribute('aria-expanded') === 'true';
+    setExpanded(!expanded);
+    if (!expanded) search?.focus();
+  });
+
   options.forEach((button) => {
     button.addEventListener('click', () => {
-      input.value = button.dataset.value || '';
-      options.forEach(btn => btn.classList.remove('active'));
-      button.classList.add('active');
+      updateCurrent(button.dataset.value || '');
+      setExpanded(false);
     });
   });
 
-  const search = container.querySelector('.icon-picker-search');
   search?.addEventListener('input', () => {
     const query = search.value.trim().toLowerCase();
     container.querySelectorAll('.icon-picker-section').forEach((section) => {
