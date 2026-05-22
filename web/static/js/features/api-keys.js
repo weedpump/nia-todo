@@ -1,3 +1,5 @@
+import { iconSvg } from '../icons/lucide-icons.js';
+
 export function createApiKeysFeature({ authApi }) {
   function parseServerUtcTimestamp(value) {
     if (!value) return null;
@@ -62,7 +64,7 @@ export function createApiKeysFeature({ authApi }) {
       if (revoked) {
         const span = document.createElement('span');
         span.style.cssText = 'color:var(--danger); font-size:11px; margin-left:4px;';
-        span.textContent = '(🚫 widerrufen)';
+        span.innerHTML = `(${iconSvg('ban')} widerrufen)`;
         nameRow.appendChild(span);
       }
 
@@ -86,7 +88,7 @@ export function createApiKeysFeature({ authApi }) {
         btn.className = 'btn btn-danger';
         btn.style.cssText = 'font-size:12px; padding:4px 8px; flex-shrink:0; margin-left:8px;';
         btn.title = 'Widerrufen';
-        btn.textContent = '🗑️';
+        btn.innerHTML = iconSvg('trash-2');
         btn.onclick = () => revokeApiKey(k.id);
         container.appendChild(btn);
       }

@@ -1,3 +1,5 @@
+import { iconSvg } from '../icons/lucide-icons.js';
+
 function getTauri() {
   return window.__TAURI__ || null;
 }
@@ -151,7 +153,7 @@ function renderDownloads(target, downloads) {
   if (!target || !downloads?.length) return;
   target.innerHTML = downloads.map((download) => `
     <a class="app-download-button" href="${escapeHtml(download.url)}" download title="${escapeHtml(platformTitle(download))}">
-      ${platformIconClass(download.platform) ? `<span class="app-download-icon ${platformIconClass(download.platform)}" aria-hidden="true"></span>` : '<span>⬇️</span>'}
+      ${platformIconClass(download.platform) ? `<span class="app-download-icon ${platformIconClass(download.platform)}" aria-hidden="true"></span>` : `<span>${iconSvg('download')}</span>`}
       <span>${escapeHtml(download.version || '')}</span>
     </a>
   `).join('');
@@ -176,7 +178,7 @@ function renderNativeUpdate(target, download, currentVersion) {
         <span>Installiert: ${escapeHtml(currentVersion || 'unbekannt')} · Neu: ${escapeHtml(latestVersion)}</span>
       </div>
       <a class="app-download-button native-update-download" href="${escapeHtml(download.url)}" download title="${escapeHtml(platformTitle(download))}">
-        ${platformIconClass(download.platform) ? `<span class="app-download-icon ${platformIconClass(download.platform)}" aria-hidden="true"></span>` : '<span>⬇️</span>'}
+        ${platformIconClass(download.platform) ? `<span class="app-download-icon ${platformIconClass(download.platform)}" aria-hidden="true"></span>` : `<span>${iconSvg('download')}</span>`}
         <span>Download</span>
       </a>
     </div>

@@ -2675,3 +2675,118 @@ input[type="color"]::-moz-color-swatch {
   line-height: 1;
   text-align: center;
 }
+
+/* Icon system */
+.ui-icon {
+  width: 1em;
+  height: 1em;
+  display: inline-block;
+  vertical-align: -0.14em;
+  flex-shrink: 0;
+}
+
+.entity-icon {
+  width: 12px;
+  height: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.entity-icon .ui-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.nav-btn .entity-icon,
+.overview-project-item .entity-icon,
+.workspace-menu-choice .entity-icon {
+  margin-right: 0;
+}
+
+.workspace-current-dot.has-icon {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.workspace-current-dot.has-icon .entity-icon,
+.workspace-current-dot.has-icon .ui-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.icon-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(38px, 1fr));
+  gap: 8px;
+}
+
+.icon-picker-option {
+  min-height: 38px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-secondary);
+  color: currentColor;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: border-color .15s ease, background .15s ease, transform .15s ease;
+}
+
+.icon-picker-option:hover,
+.icon-picker-option.active {
+  border-color: currentColor;
+  background: var(--bg-tertiary);
+}
+
+.icon-picker-option.active {
+  box-shadow: 0 0 0 2px color-mix(in srgb, currentColor 22%, transparent);
+}
+
+.icon-picker-option .ui-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.icon-picker-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  display: inline-block;
+}
+
+.btn .ui-icon,
+.btn-add-section .ui-icon,
+.user-menu-item .ui-icon,
+.nav-btn .ui-icon,
+.overview-focus-item .ui-icon,
+.project-stat-icon .ui-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.project-dashboard-avatar .ui-icon {
+  width: 24px;
+  height: 24px;
+}
+
+.project-dashboard-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: var(--project-color);
+  display: inline-block;
+}
+
+.priority-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  display: inline-block;
+  flex-shrink: 0;
+}

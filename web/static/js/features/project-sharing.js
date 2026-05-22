@@ -261,7 +261,7 @@ export function createProjectSharingFeature({
     const leaveBtn = document.getElementById('project-leave-btn');
     const ownerInfo = document.getElementById('project-owner-info');
     const inviteRow = document.getElementById('project-share-row');
-    const fields = ['project-name', 'project-color', 'project-parent-id'];
+    const fields = ['project-name', 'project-color', 'project-parent-id', 'project-icon'];
 
     if (sharingSection) sharingSection.style.display = project ? '' : 'none';
     if (leaveBtn) leaveBtn.style.display = shared && !isOwn ? '' : 'none';

@@ -1,3 +1,5 @@
+import { iconSvg } from '../icons/lucide-icons.js';
+
 export function initTheme() {
   const stored = localStorage.getItem('theme');
   applyTheme(stored && stored !== 'system' ? stored : 'system');
@@ -32,12 +34,12 @@ export function applyTheme(mode) {
 
   const toggleBtn = document.getElementById('theme-toggle-btn');
   if (toggleBtn) {
-    const icons = { light: '☀️', dark: '🌙', system: '💻' };
+    const icons = { light: iconSvg('sun'), dark: iconSvg('moon'), system: iconSvg('monitor') };
     const titles = { light: 'Hell', dark: 'Dunkel', system: 'System' };
     const iconEl = toggleBtn.querySelector('.menu-item-icon');
     const labelEl = toggleBtn.querySelector('.menu-item-label');
     if (iconEl && labelEl) {
-      iconEl.textContent = icons[mode] || icons.system;
+      iconEl.innerHTML = icons[mode] || icons.system;
       labelEl.textContent = `Theme: ${titles[mode] || titles.system}`;
     } else {
       toggleBtn.textContent = icons[mode] || icons.system;
