@@ -78,7 +78,12 @@ def setup_first_user(data: FirstUserRequest, request: Request, _: None = Depends
             (data.username, data.display_name, data.email, password_hash)
         )
         user_id = c.lastrowid
-        db.execute("UPDATE projects SET user_id = ?, is_inbox = CASE WHEN id = 1 THEN 1 ELSE COALESCE(is_inbox, 0) END WHERE user_id IS NULL", (user_id,))
+        workspace = db.execute(
+            "INSERT INTO workspaces (name, color, sort_order, user_id, is_default, updated_at) VALUES (?, ?, 0, ?, 1, datetime('now'))",
+            ('Privat', '#10b981', user_id)
+        )
+        workspace_id = workspace.lastrowid
+        db.execute("UPDATE projects SET user_id = ?, workspace_id = ?, is_inbox = CASE WHEN id = 1 THEN 1 ELSE COALESCE(is_inbox, 0) END WHERE user_id IS NULL", (user_id, workspace_id))
         db.execute("UPDATE todos SET user_id = ? WHERE user_id IS NULL", (user_id,))
         db.execute("UPDATE sections SET user_id = ? WHERE user_id IS NULL", (user_id,))
         db.execute("UPDATE admin_config SET setup_complete = 1 WHERE id = 1")

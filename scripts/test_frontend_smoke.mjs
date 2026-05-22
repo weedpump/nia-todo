@@ -12,7 +12,7 @@ async function run() {
     await waitForText('Inbox');
     await page.waitForFunction(async () => {
       const db = await new Promise((resolve, reject) => {
-        const req = indexedDB.open('nia-todo-db', 3);
+        const req = indexedDB.open('nia-todo-db', 4);
         req.onsuccess = () => resolve(req.result);
         req.onerror = () => reject(req.error);
       });

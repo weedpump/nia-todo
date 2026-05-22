@@ -11,8 +11,11 @@ export function createAppLifecycle({
   setTodos,
   setProjects,
   setSections,
+  setWorkspaces,
   setCurrentFilter,
   setCurrentProjectId,
+  setCurrentWorkspaceId,
+  ensureCurrentWorkspace,
   setAppInitialized,
   connectWebSocket,
   getWsState,
@@ -24,6 +27,7 @@ export function createAppLifecycle({
   renderProjects,
   renderStats,
   renderTodos,
+  renderWorkspaces,
   updateToggleDoneButton,
   updateSortButton,
   updateProjectWidgetButton,
@@ -69,6 +73,11 @@ export function createAppLifecycle({
     ]);
   }
 
+  function restoreSavedWorkspace() {
+    const savedWorkspace = localStorage.getItem('nia-current-workspace');
+    if (savedWorkspace) setCurrentWorkspaceId(parseInt(savedWorkspace, 10));
+  }
+
   function restoreSavedNavigation() {
     const savedFilter = localStorage.getItem('nia-last-filter');
     if (!savedFilter) return;
@@ -81,10 +90,14 @@ export function createAppLifecycle({
   }
 
   async function loadFromLocalDB() {
+    restoreSavedWorkspace();
     restoreSavedNavigation();
     setTodos(await dbGetAll('todos'));
     setProjects(await dbGetAll('projects'));
     setSections(await dbGetAll('sections'));
+    setWorkspaces(await dbGetAll('workspaces'));
+    ensureCurrentWorkspace?.();
+    renderWorkspaces?.();
     renderProjects();
     renderStats();
     renderTodos();
@@ -112,7 +125,10 @@ export function createAppLifecycle({
       console.error('Local load failed:', err);
     }
 
+    restoreSavedWorkspace();
     restoreSavedNavigation();
+    ensureCurrentWorkspace?.();
+    renderWorkspaces?.();
 
     setAppInitialized(true);
     lifecycleInitialized = true;

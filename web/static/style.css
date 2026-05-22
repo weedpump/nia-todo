@@ -2437,3 +2437,40 @@ input[type="color"]::-moz-color-swatch {
     align-self: flex-start;
   }
 }
+
+/* Workspace switcher */
+.workspace-section {
+  padding-bottom: 0.35rem;
+}
+
+.workspace-switcher {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.workspace-switcher select {
+  min-width: 0;
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 0.65rem;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  padding: 0.5rem 0.6rem;
+  font: inherit;
+}
+
+.workspace-add-btn {
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid var(--border);
+  border-radius: 0.65rem;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-size: 1.1rem;
+  cursor: pointer;
+}
+
+.workspace-add-btn:hover {
+  background: var(--bg-hover);
+}

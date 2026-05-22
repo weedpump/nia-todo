@@ -31,6 +31,9 @@ export function openDatabase() {
       if (!db.objectStoreNames.contains('projects')) {
         db.createObjectStore('projects', { keyPath: 'id' });
       }
+      if (!db.objectStoreNames.contains('workspaces')) {
+        db.createObjectStore('workspaces', { keyPath: 'id' });
+      }
       if (!db.objectStoreNames.contains('sections')) {
         db.createObjectStore('sections', { keyPath: 'id' });
       }

@@ -2,6 +2,7 @@ export function createProjectsFeature({
   getProjects,
   getTodos,
   getCurrentProjectId,
+  getCurrentWorkspaceId,
   setProjects,
   dbPut,
   addToSyncQueue,
@@ -33,7 +34,8 @@ export function createProjectsFeature({
     const parentSelect = document.getElementById('project-parent-id');
     if (parentSelect) {
       parentSelect.innerHTML = '<option value="">-- Kein Eltern-Projekt --</option>';
-      const projects = getProjects().filter(p => !p.is_shared);
+      const currentWorkspaceId = getCurrentWorkspaceId?.();
+      const projects = getProjects().filter(p => !p.is_shared && (!currentWorkspaceId || String(p.workspace_id || '') === String(currentWorkspaceId)));
       const projectMap = new Map();
       projects.forEach(p => projectMap.set(p.id, { id: p.id, name: p.name, parent_id: p.parent_id, sort_order: p.sort_order, color: p.color, is_inbox: p.is_inbox }));
       projectMap.forEach(p => { p.children = []; });
@@ -112,6 +114,7 @@ export function createProjectsFeature({
       color: document.getElementById('project-color').value,
       sort_order: getProjects().length,
       parent_id: parentIdVal ? parseInt(parentIdVal) : null,
+      workspace_id: getCurrentWorkspaceId?.() || null,
     };
 
     if (id) {

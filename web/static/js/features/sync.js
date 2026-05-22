@@ -11,9 +11,12 @@ export function createSyncFeature({
   setProjects,
   getSections,
   setSections,
+  getWorkspaces,
+  setWorkspaces,
   todosApi,
   projectsApi,
   sectionsApi,
+  workspacesApi,
 }) {
   function isOnlineForSync(wsState) {
     // Browser/native offline state must win over a stale WebSocket state.
@@ -35,7 +38,7 @@ export function createSyncFeature({
     const data = item.data && typeof item.data === 'object' ? item.data : {};
     const changes = data.changes && typeof data.changes === 'object' ? data.changes : {};
     const todoFields = ['title', 'description', 'priority', 'status', 'project_id', 'section_id', 'due_date', 'remind_at', '_tempId'];
-    const projectFields = ['name', 'color', 'sort_order', 'parent_id', '_tempId'];
+    const projectFields = ['name', 'color', 'sort_order', 'parent_id', 'workspace_id', '_tempId'];
     const sectionFields = ['name', 'sort_order', 'project_id', '_tempId'];
 
     switch (item.action) {
@@ -164,27 +167,30 @@ export function createSyncFeature({
       }
     }
 
-    const [todosData, projectsData, sectionsData] = await Promise.all([
-      todosApi.list(), projectsApi.list(), sectionsApi.listAll(),
+    const [todosData, projectsData, sectionsData, workspacesData] = await Promise.all([
+      todosApi.list(), projectsApi.list(), sectionsApi.listAll(), workspacesApi.list(),
     ]);
     const nextTodos = todosData.todos || [];
     const nextProjects = projectsData.projects || [];
     const nextSections = sectionsData.sections || [];
+    const nextWorkspaces = workspacesData.workspaces || [];
 
     // Server refresh is authoritative for the current user. Persist it so a
     // reload right after login does not fall back to an empty local cache.
     if (dbClear) {
-      await Promise.all([dbClear('todos'), dbClear('projects'), dbClear('sections')]);
+      await Promise.all([dbClear('todos'), dbClear('projects'), dbClear('sections'), dbClear('workspaces')]);
     }
     await Promise.all([
       ...nextTodos.map(todo => dbPut('todos', todo)),
       ...nextProjects.map(project => dbPut('projects', project)),
       ...nextSections.map(section => dbPut('sections', section)),
+      ...nextWorkspaces.map(workspace => dbPut('workspaces', workspace)),
     ]);
 
     setTodos(nextTodos);
     setProjects(nextProjects);
     setSections(nextSections);
+    setWorkspaces(nextWorkspaces);
     syncInProgressRef.value = false;
   }
 

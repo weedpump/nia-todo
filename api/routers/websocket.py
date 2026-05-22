@@ -115,11 +115,16 @@ async def websocket_endpoint(websocket: WebSocket):
                            ORDER BY s.sort_order, s.id""",
                         (ws_user_id, ws_user_id)
                     ).fetchall()
+                    workspaces_rows = db.execute(
+                        "SELECT * FROM workspaces WHERE user_id = ? ORDER BY COALESCE(is_default, 0) DESC, sort_order, name, id",
+                        (ws_user_id,)
+                    ).fetchall()
                     await manager.send_personal_message({
                         "type": "sync_response",
                         "todos": todos_out,
                         "projects": [dict(r) for r in own_projects] + [dict(r) for r in shared_projects],
-                        "sections": [dict(r) for r in sections_rows]
+                        "sections": [dict(r) for r in sections_rows],
+                        "workspaces": [dict(r) for r in workspaces_rows]
                     }, websocket)
     except Exception:
         pass
