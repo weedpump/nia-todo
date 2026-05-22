@@ -1,4 +1,18 @@
 export function createApiKeysFeature({ authApi }) {
+  function parseServerUtcTimestamp(value) {
+    if (!value) return null;
+    const raw = String(value).trim();
+    const hasTimezone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(raw);
+    const normalized = raw.includes('T') ? raw : raw.replace(' ', 'T');
+    const date = new Date(hasTimezone ? normalized : `${normalized}Z`);
+    return Number.isFinite(date.getTime()) ? date : null;
+  }
+
+  function formatServerTimestamp(value) {
+    const date = parseServerUtcTimestamp(value);
+    return date ? date.toLocaleString('de-DE') : String(value || '');
+  }
+
   function resetApiKeyUi() {
     const createdEl = document.getElementById('api-key-created');
     const valueEl = document.getElementById('api-key-value');
@@ -59,7 +73,7 @@ export function createApiKeysFeature({ authApi }) {
       const usedRow = document.createElement('div');
       usedRow.style.cssText = 'margin-top:4px; font-size:11px; color:var(--text-muted);';
       usedRow.textContent = k.last_used_at
-        ? 'Letzter Zugriff: ' + new Date(k.last_used_at).toLocaleString('de-DE')
+        ? 'Letzter Zugriff: ' + formatServerTimestamp(k.last_used_at)
         : 'Noch nicht verwendet';
 
       left.appendChild(nameRow);
