@@ -604,6 +604,26 @@ body {
   height: 100%;
   object-fit: cover;
 }
+.project-dashboard {
+  margin-bottom: 16px;
+}
+.project-dashboard-header {
+  margin-bottom: 14px;
+}
+.project-dashboard-avatar {
+  width: 52px;
+  height: 52px;
+  border: 1px solid color-mix(in srgb, var(--project-color, var(--accent)) 62%, transparent);
+  border-radius: 999px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--project-color, var(--accent)) 48%, transparent), rgba(99,102,241,0.18));
+  color: var(--text-primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 52px;
+  font-size: 22px;
+  box-shadow: 0 10px 26px rgba(0,0,0,0.20);
+}
 .overview-dashboard-header h2 {
   margin: 2px 0 0;
   font-size: 20px;

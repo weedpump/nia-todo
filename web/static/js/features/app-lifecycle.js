@@ -26,6 +26,7 @@ export function createAppLifecycle({
   renderTodos,
   updateToggleDoneButton,
   updateSortButton,
+  updateProjectWidgetButton,
 }) {
   let lifecycleInitialized = false;
 
@@ -120,6 +121,7 @@ export function createAppLifecycle({
     renderVersionInfo();
     updateToggleDoneButton();
     updateSortButton();
+    updateProjectWidgetButton?.();
     initTheme();
 
     console.log('App initialized');

@@ -1,4 +1,4 @@
-export function createViewPreferencesFeature({ getHideDone, setHideDone, getSortMode, setSortMode, renderTodos }) {
+export function createViewPreferencesFeature({ getHideDone, setHideDone, getSortMode, setSortMode, getShowProjectWidget, setShowProjectWidget, renderTodos }) {
   function toggleHideDone() {
     const next = !getHideDone();
     setHideDone(next);
@@ -16,6 +16,32 @@ export function createViewPreferencesFeature({ getHideDone, setHideDone, getSort
     btn.classList.toggle('active', !hidden);
     const icon = hidden ? '🚫' : '✅';
     const title = hidden ? 'Erledigte anzeigen' : 'Erledigte ausblenden';
+    if (iconEl && labelEl) {
+      iconEl.textContent = icon;
+      labelEl.textContent = title;
+    } else {
+      btn.textContent = icon;
+    }
+    btn.title = title;
+  }
+
+  function toggleProjectWidget() {
+    if (!getShowProjectWidget || !setShowProjectWidget) return;
+    const next = !getShowProjectWidget();
+    setShowProjectWidget(next);
+    localStorage.setItem('nia-project-widget', next ? 'true' : 'false');
+    updateProjectWidgetButton();
+    renderTodos();
+  }
+
+  function updateProjectWidgetButton() {
+    const btn = document.getElementById('project-widget-toggle-btn');
+    if (!btn || !getShowProjectWidget) return;
+    const iconEl = btn.querySelector('.menu-item-icon');
+    const labelEl = btn.querySelector('.menu-item-label');
+    const visible = getShowProjectWidget();
+    const icon = visible ? '📊' : '▭';
+    const title = visible ? 'Projekt-Widget ausblenden' : 'Projekt-Widget anzeigen';
     if (iconEl && labelEl) {
       iconEl.textContent = icon;
       labelEl.textContent = title;
@@ -74,5 +100,5 @@ export function createViewPreferencesFeature({ getHideDone, setHideDone, getSort
     return [...list].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
   }
 
-  return { toggleHideDone, updateToggleDoneButton, cycleSort, updateSortButton, sortTodoList };
+  return { toggleHideDone, updateToggleDoneButton, toggleProjectWidget, updateProjectWidgetButton, cycleSort, updateSortButton, sortTodoList };
 }
