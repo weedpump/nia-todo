@@ -12,6 +12,7 @@ export function createWorkspacesFeature({
   renderStats,
   renderTodos,
   closeSidebar,
+  confirmDanger,
   showToast,
 }) {
   let editingWorkspaceId = null;
@@ -182,7 +183,12 @@ export function createWorkspacesFeature({
     if (!editingWorkspaceId) return;
     const workspace = getWorkspaces().find(w => String(w.id) === String(editingWorkspaceId));
     if (!workspace || workspace.is_default) return;
-    if (!confirm(`Workspace "${workspace.name}" löschen? Projekte werden in den Default-Workspace verschoben.`)) return;
+    const confirmed = await confirmDanger({
+      title: 'Workspace löschen?',
+      message: `Workspace „${workspace.name}“ wird gelöscht. Projekte und Inbox-Todos werden in den Default-Workspace verschoben.`,
+      confirmText: 'Workspace löschen',
+    });
+    if (!confirmed) return;
     if (!isOnlineForSync()) {
       const error = document.getElementById('workspace-error');
       if (error) error.textContent = 'Workspace löschen geht aktuell nur online.';

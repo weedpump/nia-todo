@@ -364,6 +364,7 @@ workspacesFeature = createWorkspacesFeature({
   renderStats: () => renderStats(),
   renderTodos: () => renderTodos(),
   closeSidebar: () => closeSidebar(),
+  confirmDanger,
   showToast: (...args) => showToast(...args),
 });
 const renderWorkspaces = workspacesFeature.renderWorkspaces;
