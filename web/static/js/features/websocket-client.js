@@ -55,7 +55,7 @@ function connectWebSocket() {
     ws = new WebSocket(wsUrl);
 
     ws.onopen = async () => {
-      console.log('[WS] ✅ Connected');
+      console.log('[WS] Connected');
       wsState = 'connected';
       reconnectAttempts = 0;
       updateConnectionStatus();
@@ -90,7 +90,7 @@ function connectWebSocket() {
     };
 
     ws.onclose = (event) => {
-      console.log('[WS] ❌ Closed (code=' + event.code + ', reason=' + (event.reason || 'none') + ')');
+      console.log('[WS] Closed (code=' + event.code + ', reason=' + (event.reason || 'none') + ')');
       stopPingInterval();
       ws = null;
       if (!wsIntentionalClose) {
@@ -101,7 +101,7 @@ function connectWebSocket() {
     };
 
     ws.onerror = (err) => {
-      console.error('[WS] 💥 Error:', err);
+      console.error('[WS] Error:', err);
       wsState = 'disconnected';
       updateConnectionStatus();
     };

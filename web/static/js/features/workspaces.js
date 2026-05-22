@@ -1,3 +1,5 @@
+import { iconSvg, markerHtml, renderIconPicker } from '../icons/lucide-icons.js';
+
 export function createWorkspacesFeature({
   workspacesApi,
   getWorkspaces,
@@ -81,7 +83,10 @@ export function createWorkspacesFeature({
     const currentId = ensureCurrentWorkspace();
     const current = workspaces.find(w => String(w.id) === String(currentId)) || workspaces[0] || null;
     nameEl.textContent = current?.name || 'Workspace';
-    dotEl.style.background = current?.color || '#6366f1';
+    dotEl.className = current?.icon ? 'workspace-current-dot has-icon' : 'workspace-current-dot';
+    dotEl.style.background = current?.icon ? 'transparent' : (current?.color || '#6366f1');
+    dotEl.style.color = current?.color || '#6366f1';
+    dotEl.innerHTML = current?.icon ? markerHtml(current, 'workspace-current-dot') : '';
 
     menu.innerHTML = `
       <div class="workspace-menu-list">
@@ -89,12 +94,12 @@ export function createWorkspacesFeature({
           const active = String(workspace.id) === String(currentId);
           return `<div class="workspace-menu-row ${active ? 'active' : ''}" role="menuitem">
             <button type="button" class="workspace-menu-choice" onclick="switchWorkspace('${escapeAttr(workspace.id)}')">
-              <span class="workspace-menu-dot" style="background:${escapeAttr(workspace.color || '#6366f1')}"></span>
+              ${markerHtml(workspace, 'workspace-menu-dot')}
               <span>${escapeHtml(workspace.name)}</span>
-              ${active ? '<span class="workspace-menu-check">✓</span>' : ''}
+              ${active ? `<span class="workspace-menu-check">${iconSvg('check')}</span>` : ''}
             </button>
             <button type="button" class="workspace-menu-edit" onclick="event.stopPropagation(); showWorkspaceModal('${escapeAttr(workspace.id)}')" title="Workspace umbenennen" aria-label="Workspace bearbeiten">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              ${iconSvg('edit-3')}
             </button>
           </div>`;
         }).join('')}
@@ -127,7 +132,23 @@ export function createWorkspacesFeature({
     document.getElementById('workspace-id').value = workspace?.id || '';
     document.getElementById('workspace-name').value = workspace?.name || '';
     document.getElementById('workspace-color').value = workspace?.color || '#6366f1';
+    document.getElementById('workspace-icon').value = workspace?.icon || '';
+    renderIconPicker({
+      container: document.getElementById('workspace-icon-picker'),
+      input: document.getElementById('workspace-icon'),
+      selected: workspace?.icon || '',
+      color: workspace?.color || '#6366f1',
+    });
     document.getElementById('workspace-error').textContent = '';
+    const colorInput = document.getElementById('workspace-color');
+    if (colorInput) {
+      colorInput.oninput = () => renderIconPicker({
+        container: document.getElementById('workspace-icon-picker'),
+        input: document.getElementById('workspace-icon'),
+        selected: document.getElementById('workspace-icon')?.value || '',
+        color: colorInput.value || '#6366f1',
+      });
+    }
     const deleteBtn = document.getElementById('workspace-delete-btn');
     if (deleteBtn) deleteBtn.style.display = workspace && !workspace.is_default ? '' : 'none';
     document.getElementById('workspace-modal')?.classList.add('active');
@@ -143,6 +164,7 @@ export function createWorkspacesFeature({
     event?.preventDefault?.();
     const name = document.getElementById('workspace-name')?.value?.trim();
     const color = document.getElementById('workspace-color')?.value || '#6366f1';
+    const icon = document.getElementById('workspace-icon')?.value || null;
     const error = document.getElementById('workspace-error');
     if (error) error.textContent = '';
     if (!name) {
@@ -156,12 +178,12 @@ export function createWorkspacesFeature({
 
     try {
       if (editingWorkspaceId) {
-        const updated = await workspacesApi.update(editingWorkspaceId, { name, color });
+        const updated = await workspacesApi.update(editingWorkspaceId, { name, color, icon });
         await dbPut('workspaces', updated);
         setWorkspaces(getWorkspaces().map(w => String(w.id) === String(updated.id) ? updated : w));
         showToast?.('Workspace umbenannt.');
       } else {
-        const workspace = await workspacesApi.create({ name, color, sort_order: getWorkspaces().length });
+        const workspace = await workspacesApi.create({ name, color, icon, sort_order: getWorkspaces().length });
         await dbPut('workspaces', workspace);
         setWorkspaces([...getWorkspaces(), workspace]);
         await switchWorkspace(workspace.id);

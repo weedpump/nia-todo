@@ -9,6 +9,7 @@ from db import get_db, now_iso
 from routers.auth import require_auth
 from services.websocket import broadcast_change
 from services.utils import sanitize_text
+from services.appearance import normalize_color, normalize_icon
 from services.sharing import can_access_project, can_edit_project, get_project_ids_for_user
 
 router = APIRouter(prefix="/api/projects")
@@ -17,6 +18,7 @@ router = APIRouter(prefix="/api/projects")
 class ProjectCreate(BaseModel):
     name: str
     color: str = "#6366f1"
+    icon: Optional[str] = None
     sort_order: int = 0
     parent_id: Optional[int] = None
     workspace_id: Optional[int] = None
@@ -25,6 +27,7 @@ class ProjectCreate(BaseModel):
 class ProjectUpdate(BaseModel):
     name: Optional[str] = None
     color: Optional[str] = None
+    icon: Optional[str] = None
     sort_order: Optional[int] = None
     parent_id: Optional[int] = None
     workspace_id: Optional[int] = None
@@ -38,8 +41,8 @@ def get_user_default_workspace_id(db, user_id: int) -> Optional[int]:
     if row:
         return row['id']
     c = db.execute(
-        "INSERT INTO workspaces (name, color, sort_order, user_id, is_default, updated_at) VALUES (?, ?, 0, ?, 1, ?)",
-        ("Privat", "#10b981", user_id, now_iso()),
+        "INSERT INTO workspaces (name, color, icon, sort_order, user_id, is_default, updated_at) VALUES (?, ?, ?, 0, ?, 1, ?)",
+        ("Privat", "#10b981", "home", user_id, now_iso()),
     )
     db.commit()
     return c.lastrowid
@@ -88,6 +91,8 @@ def list_projects(user_id: int = Depends(require_auth)):
 @router.post("")
 async def create_project(data: ProjectCreate, user_id: int = Depends(require_auth)):
     data.name = sanitize_text(data.name)
+    data.color = normalize_color(data.color)
+    data.icon = normalize_icon(data.icon)
     with get_db() as db:
         workspace_id = data.workspace_id or get_user_default_workspace_id(db, user_id)
         workspace = db.execute("SELECT id FROM workspaces WHERE id = ? AND user_id = ?", (workspace_id, user_id)).fetchone()
@@ -101,8 +106,8 @@ async def create_project(data: ProjectCreate, user_id: int = Depends(require_aut
                 raise HTTPException(400, "Parent project belongs to another workspace")
         try:
             c = db.execute(
-                "INSERT INTO projects (name, color, sort_order, parent_id, workspace_id, updated_at, user_id) VALUES (?,?,?,?,?,?,?)",
-                (data.name, data.color, data.sort_order, data.parent_id, workspace_id, now_iso(), user_id)
+                "INSERT INTO projects (name, color, icon, sort_order, parent_id, workspace_id, updated_at, user_id) VALUES (?,?,?,?,?,?,?,?)",
+                (data.name, data.color, data.icon, data.sort_order, data.parent_id, workspace_id, now_iso(), user_id)
             )
             db.commit()
         except sqlite3.IntegrityError:
@@ -115,15 +120,19 @@ async def create_project(data: ProjectCreate, user_id: int = Depends(require_aut
 
 @router.patch("/{project_id}")
 async def update_project(project_id: int, data: ProjectUpdate, user_id: int = Depends(require_auth)):
+    fields_set = getattr(data, "model_fields_set", getattr(data, "__fields_set__", set()))
     if data.name is not None:
         data.name = sanitize_text(data.name)
+    if "color" in fields_set:
+        data.color = normalize_color(data.color)
+    if "icon" in fields_set:
+        data.icon = normalize_icon(data.icon)
     with get_db() as db:
         existing = db.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
         if not existing:
             raise HTTPException(404, "Project not found")
         if not can_edit_project(db, project_id, user_id):
             raise HTTPException(403, "Only the owner can edit this project")
-        fields_set = getattr(data, "model_fields_set", getattr(data, "__fields_set__", set()))
         if "parent_id" in fields_set and data.parent_id is not None:
             if data.parent_id == project_id:
                 raise HTTPException(400, "Project cannot be its own parent")
@@ -142,12 +151,12 @@ async def update_project(project_id: int, data: ProjectUpdate, user_id: int = De
         if "workspace_id" in fields_set:
             if data.workspace_id != existing['workspace_id']:
                 raise HTTPException(400, "Project workspace cannot be changed")
-        for f in ["name", "color", "sort_order", "parent_id", "workspace_id"]:
+        for f in ["name", "color", "icon", "sort_order", "parent_id", "workspace_id"]:
             if f in fields_set:
                 updates[f] = getattr(data, f)
         if updates:
             updates['updated_at'] = now_iso()
-            allowed_cols = {"name", "color", "sort_order", "parent_id", "workspace_id", "updated_at"}
+            allowed_cols = {"name", "color", "icon", "sort_order", "parent_id", "workspace_id", "updated_at"}
             safe_updates = {k: v for k, v in updates.items() if k in allowed_cols}
             set_clause = ", ".join(f"{k}=:{k}" for k in safe_updates)
             try:

@@ -1,3 +1,5 @@
+import { iconSvg } from '../icons/lucide-icons.js';
+
 export function createViewPreferencesFeature({ getHideDone, setHideDone, getSortMode, setSortMode, getShowProjectWidget, setShowProjectWidget, renderTodos }) {
   function toggleHideDone() {
     const next = !getHideDone();
@@ -14,10 +16,10 @@ export function createViewPreferencesFeature({ getHideDone, setHideDone, getSort
     const labelEl = btn.querySelector('.menu-item-label');
     const hidden = getHideDone();
     btn.classList.toggle('active', !hidden);
-    const icon = hidden ? '🚫' : '✅';
+    const icon = hidden ? iconSvg('ban') : iconSvg('check-circle');
     const title = hidden ? 'Erledigte anzeigen' : 'Erledigte ausblenden';
     if (iconEl && labelEl) {
-      iconEl.textContent = icon;
+      iconEl.innerHTML = icon;
       labelEl.textContent = title;
     } else {
       btn.textContent = icon;
@@ -40,10 +42,10 @@ export function createViewPreferencesFeature({ getHideDone, setHideDone, getSort
     const iconEl = btn.querySelector('.menu-item-icon');
     const labelEl = btn.querySelector('.menu-item-label');
     const visible = getShowProjectWidget();
-    const icon = visible ? '📊' : '▭';
+    const icon = visible ? iconSvg('layout-dashboard') : iconSvg('circle');
     const title = 'Projekt Widget';
     if (iconEl && labelEl) {
-      iconEl.textContent = icon;
+      iconEl.innerHTML = icon;
       labelEl.textContent = title;
     } else {
       btn.textContent = icon;
