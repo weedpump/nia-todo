@@ -50,10 +50,15 @@ async function run() {
     await page.locator('#accent-preset-panel.active .accent-preset-option').first().waitFor({ state: 'visible', timeout: 10000 });
     await page.locator('#accent-preset-panel .accent-preset-option[data-accent="teal"]').click();
     await page.waitForFunction(() => {
-      const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
-      return localStorage.getItem('nia-accent-preset') === 'teal' && ['#14b8a6', '#0d9488'].includes(accent);
+      const accentRgb = getComputedStyle(document.documentElement).getPropertyValue('--accent-rgb').trim();
+      return localStorage.getItem('nia-accent-preset') === 'teal' && ['20, 184, 166', '13, 148, 136'].includes(accentRgb);
     }, null, { timeout: 10000 });
     await page.locator('#accent-preset-panel .accent-preset-option.active[data-accent="teal"]').waitFor({ state: 'visible', timeout: 10000 });
+    await page.locator('#accent-intensity-slider').fill('35');
+    await page.waitForFunction(() => {
+      const intensity = getComputedStyle(document.documentElement).getPropertyValue('--accent-intensity').trim();
+      return localStorage.getItem('nia-accent-intensity') === '35' && intensity === '0.35';
+    }, null, { timeout: 10000 });
     await page.click('#menu-settings-btn');
     await visible('#settings-modal');
     await page.locator('#settings-username').waitFor({ state: 'visible' });

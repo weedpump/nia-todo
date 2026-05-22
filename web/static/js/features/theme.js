@@ -1,6 +1,7 @@
 import { iconSvg } from '../icons/lucide-icons.js';
 
 const ACCENT_STORAGE_KEY = 'nia-accent-preset';
+const ACCENT_INTENSITY_STORAGE_KEY = 'nia-accent-intensity';
 
 export const ACCENT_PRESETS = [
   {
@@ -57,6 +58,16 @@ export function getAccentPreset() {
   return findAccentPreset(localStorage.getItem(ACCENT_STORAGE_KEY) || 'standard');
 }
 
+function clampAccentIntensity(value) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return 100;
+  return Math.min(100, Math.max(0, Math.round(parsed)));
+}
+
+export function getAccentIntensity() {
+  return clampAccentIntensity(localStorage.getItem(ACCENT_INTENSITY_STORAGE_KEY) ?? 100);
+}
+
 function accentSwatchStyle(preset) {
   return `--accent-swatch-dark:${preset.dark.accent}; --accent-swatch-light:${preset.light.accent};`;
 }
@@ -67,8 +78,15 @@ function renderAccentSwatch(preset) {
 
 function updateAccentMenuUi() {
   const preset = getAccentPreset();
+  const intensity = getAccentIntensity();
   const current = document.getElementById('accent-preset-current');
   if (current) current.innerHTML = renderAccentSwatch(preset);
+
+  const slider = document.getElementById('accent-intensity-slider');
+  if (slider) slider.value = String(intensity);
+
+  const value = document.getElementById('accent-intensity-value');
+  if (value) value.textContent = `${intensity}%`;
 
   document.querySelectorAll('.accent-preset-option').forEach(btn => {
     const isActive = btn.dataset.accent === preset.id;
@@ -79,11 +97,16 @@ function updateAccentMenuUi() {
 
 function applyAccentPreset(resolvedTheme) {
   const preset = getAccentPreset();
+  const intensity = getAccentIntensity();
   const palette = preset[resolvedTheme] || preset.dark;
+  const strength = `${intensity}%`;
   const root = document.documentElement;
   root.dataset.accent = preset.id;
-  root.style.setProperty('--accent', palette.accent);
-  root.style.setProperty('--accent-hover', palette.hover);
+  root.dataset.accentIntensity = String(intensity);
+  root.style.setProperty('--accent-intensity', String(intensity / 100));
+  root.style.setProperty('--accent-strength', strength);
+  root.style.setProperty('--accent', `color-mix(in srgb, ${palette.accent} ${strength}, var(--text-secondary))`);
+  root.style.setProperty('--accent-hover', `color-mix(in srgb, ${palette.hover} ${strength}, var(--text-primary))`);
   root.style.setProperty('--accent-rgb', palette.rgb);
   root.style.setProperty('--accent-hover-rgb', palette.hoverRgb);
   updateAccentMenuUi();
@@ -95,6 +118,17 @@ export function setAccentPreset(id) {
     localStorage.removeItem(ACCENT_STORAGE_KEY);
   } else {
     localStorage.setItem(ACCENT_STORAGE_KEY, preset.id);
+  }
+  const resolvedTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+  applyAccentPreset(resolvedTheme);
+}
+
+export function setAccentIntensity(value) {
+  const intensity = clampAccentIntensity(value);
+  if (intensity === 100) {
+    localStorage.removeItem(ACCENT_INTENSITY_STORAGE_KEY);
+  } else {
+    localStorage.setItem(ACCENT_INTENSITY_STORAGE_KEY, String(intensity));
   }
   const resolvedTheme = document.documentElement.getAttribute('data-theme') || 'dark';
   applyAccentPreset(resolvedTheme);
@@ -123,9 +157,15 @@ export function renderAccentPresetOptions() {
 
 export function renderAccentPresetMenu() {
   const preset = getAccentPreset();
+  const intensity = getAccentIntensity();
   const panel = document.getElementById('accent-preset-panel');
   const current = document.getElementById('accent-preset-current');
-  if (panel) panel.innerHTML = renderAccentPresetOptions();
+  if (panel) panel.innerHTML = `${renderAccentPresetOptions()}
+    <label class="accent-intensity-control" title="Akzent-Intensität">
+      <span class="accent-intensity-label">Intensität</span>
+      <input id="accent-intensity-slider" class="accent-intensity-slider" type="range" min="0" max="100" step="5" value="${intensity}" oninput="setAccentIntensity(this.value)">
+      <span class="accent-intensity-value" id="accent-intensity-value">${intensity}%</span>
+    </label>`;
   if (current) current.innerHTML = renderAccentSwatch(preset);
   const chevron = document.querySelector('#accent-preset-row .accent-preset-chevron');
   if (chevron) chevron.innerHTML = CHEVRON_DOWN;
