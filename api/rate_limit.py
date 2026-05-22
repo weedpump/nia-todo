@@ -4,6 +4,8 @@ from typing import Dict, Tuple
 import time
 from fastapi import Request, HTTPException, status, WebSocket
 
+from services.instance_config import forwarded_client_ip, get_forwarded_client_ip
+
 
 class RateLimiter:
     def __init__(self):
@@ -70,28 +72,20 @@ rate_limiter = RateLimiter()
 
 
 def get_client_ip(request: Request) -> str:
-    """Get real client IP, handling proxies safely.
-    
-    Only trusts X-Forwarded-For from known internal proxies (Traefik).
-    """
-    forwarded = request.headers.get("X-Forwarded-For")
+    """Get real client IP, trusting X-Forwarded-For only from configured proxies."""
+    forwarded = get_forwarded_client_ip(request)
     if forwarded:
-        # Trust X-Forwarded-From from internal proxy (Traefik on same host)
-        client_host = request.client.host if request.client else "unknown"
-        if client_host.startswith(("10.", "192.168.", "127.", "::1", "172.16.", "172.17.", "172.18.", "172.19.", "172.20.", "172.21.", "172.22.", "172.23.", "172.24.", "172.25.", "172.26.", "172.27.", "172.28.", "172.29.", "172.30.", "172.31.")):
-            # Proxy is internal, trust first X-Forwarded-For entry
-            return forwarded.split(",")[0].strip()
+        return forwarded
     return request.client.host if request.client else "unknown"
 
 
 def get_client_ip_ws(websocket: WebSocket) -> str:
-    """Get real client IP from WebSocket, handling proxies safely."""
-    forwarded = websocket.headers.get("X-Forwarded-For")
+    """Get real client IP from WebSocket, trusting X-Forwarded-For only from configured proxies."""
+    client_host = websocket.client.host if websocket.client else None
+    forwarded = forwarded_client_ip(client_host, websocket.headers.get("X-Forwarded-For"))
     if forwarded:
-        client_host = websocket.client.host if websocket.client else "unknown"
-        if client_host.startswith(("10.", "192.168.", "127.", "::1", "172.16.", "172.17.", "172.18.", "172.19.", "172.20.", "172.21.", "172.22.", "172.23.", "172.24.", "172.25.", "172.26.", "172.27.", "172.28.", "172.29.", "172.30.", "172.31.")):
-            return forwarded.split(",")[0].strip()
-    return websocket.client.host if websocket.client else "unknown"
+        return forwarded
+    return client_host or "unknown"
 
 
 def require_login_rate_limit(request: Request):
