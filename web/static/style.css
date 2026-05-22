@@ -688,9 +688,9 @@ body {
 .overview-avatar {
   width: 52px;
   height: 52px;
-  border: 1px solid rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.45));
+  border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--border));
   border-radius: 999px;
-  background: linear-gradient(135deg, rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.45)), rgba(var(--accent-hover-rgb), calc(var(--accent-intensity) * 0.24)));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 18%, var(--bg-tertiary)), color-mix(in srgb, var(--accent-hover) 10%, var(--bg-secondary)));
   color: var(--text-primary);
   display: inline-flex;
   align-items: center;
@@ -699,7 +699,7 @@ body {
   overflow: hidden;
   font-size: 18px;
   font-weight: 850;
-  box-shadow: 0 10px 26px rgba(0,0,0,0.20);
+  box-shadow: 0 10px 26px rgba(0,0,0,0.20), inset 0 1px 0 rgba(255,255,255,0.06);
 }
 .overview-avatar img {
   width: 100%;
