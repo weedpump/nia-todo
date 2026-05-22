@@ -14,6 +14,7 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 - Workspace-Switcher mit Custom-Dropdown, Farbauswahl, Erstellen, Umbenennen und Löschen ergänzt.
 - Lokales Lucide-SVG-Iconset als offline-/PWA-freundliche Icon-Basis ergänzt.
 - Optionale Icons für Projekte und Workspaces ergänzt; gesetzte Icons nutzen die jeweilige Projekt-/Workspace-Farbe.
+- Einklappbarer Icon-Picker mit Suche, Kategorien und allen lokal verfügbaren Lucide-Icons ergänzt.
 - Neues App-eigenes Danger-Confirm-Modal für Löschen von Todos, Projekten, Sections und Workspaces.
 - Frontend-/Backend-Regressionstests für Workspaces, Sharing, Workspace-Inboxes, Projektlöschung und Realtime-Sync ergänzt.
 
@@ -27,6 +28,8 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 - Gleiche Projektnamen sind erlaubt; Projekt-Identität basiert auf IDs statt Namen.
 - WebSocket-Sync aktualisiert Workspaces, Projektlöschungen, Child-Projekte und Sharing-Restore-Ereignisse robuster über mehrere Clients hinweg.
 - Migrationslauf für Workspaces ist gegen partiell angewendete Workspace-Schema-Zustände robuster.
+- Default-Workspace `Privat` erhält direkt das Home-Icon; Inbox-Projekte erhalten direkt das Inbox-Icon.
+- Admin-, Setup-, Login- und Passwort-Dialoge wurden visuell auf das neue Button-/Icon-System angeglichen.
 
 ### Fixed
 - Projektanlage in Workspaces erzeugt keine 500er mehr bei Datenbankkonflikten oder Workspace-Zuordnung.
@@ -35,6 +38,8 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 - Realtime-Sync entfernt gelöschte Parent-/Child-Projekte und stale lokale Cache-Einträge korrekt.
 - Shared-Project-Änderungen inklusive wiederhergestellter Mitglieder aktualisieren andere Clients per WebSocket.
 - Confirm-Dialog-Buttons sind optisch sauber zentriert.
+- Theme-Buttons, Admin-Mobile-Layout und Passwort-Setup-Aktionen sind kontrastreicher und sauber ausgerichtet.
+- Icon-/Farbwerte für Projekte und Workspaces werden backendseitig validiert und frontendseitig sicher gerendert.
 
 ## [1.7.3] - 2026-05-22
 
