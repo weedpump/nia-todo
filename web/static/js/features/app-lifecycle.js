@@ -69,7 +69,19 @@ export function createAppLifecycle({
     ]);
   }
 
+  function restoreSavedNavigation() {
+    const savedFilter = localStorage.getItem('nia-last-filter');
+    if (!savedFilter) return;
+    setCurrentFilter(savedFilter);
+    if (!['all','pending','in_progress','done'].includes(savedFilter)) {
+      setCurrentProjectId(parseInt(savedFilter, 10));
+    } else {
+      setCurrentProjectId(null);
+    }
+  }
+
   async function loadFromLocalDB() {
+    restoreSavedNavigation();
     setTodos(await dbGetAll('todos'));
     setProjects(await dbGetAll('projects'));
     setSections(await dbGetAll('sections'));
@@ -100,13 +112,7 @@ export function createAppLifecycle({
       console.error('Local load failed:', err);
     }
 
-    const savedFilter = localStorage.getItem('nia-last-filter');
-    if (savedFilter) {
-      setCurrentFilter(savedFilter);
-      if (!['all','pending','in_progress','done'].includes(savedFilter)) {
-        setCurrentProjectId(parseInt(savedFilter));
-      }
-    }
+    restoreSavedNavigation();
 
     setAppInitialized(true);
     lifecycleInitialized = true;

@@ -21,7 +21,11 @@ export function createNavigationFeature({
     localStorage.setItem('nia-last-filter', filter);
 
     document.querySelectorAll('.nav-btn').forEach((button) => {
-      button.classList.toggle('active', button.dataset.filter === String(filter));
+      const buttonFilter = String(button.dataset.filter || '');
+      const isActive = nextProjectId
+        ? buttonFilter === String(nextProjectId)
+        : buttonFilter === String(filter);
+      button.classList.toggle('active', isActive);
     });
     closeSidebar();
 
