@@ -19,8 +19,8 @@ function showNativeServerSetup(config) {
       <img src="/static/icons/icon-192.png" class="boot-logo" alt="nia-todo">
       <div class="boot-title">nia-todo verbinden</div>
       <div class="boot-subtitle">Server-URL eingeben, danach prüfe ich die Instanz.</div>
-      <label class="native-server-label" for="native-server-url">Server-URL</label>
-      <input class="native-server-input" id="native-server-url" type="url" autocomplete="url" required placeholder="https://todo.example.test">
+      <label class="native-server-label" for="native-server-url">Server</label>
+      <input class="native-server-input" id="native-server-url" type="text" inputmode="url" autocomplete="url" required placeholder="todo.example.test">
       <button class="native-server-button" type="submit">Server prüfen & speichern</button>
       <div class="native-server-error" id="native-server-error"></div>
       <div class="native-server-hint">Die App-Oberfläche ist lokal gebündelt. Der Server liefert nur API, Sync und Login.</div>
