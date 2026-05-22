@@ -21,6 +21,7 @@ class DynamicCORSMiddleware(BaseHTTPMiddleware):
     allow_methods = "GET, POST, PUT, DELETE, PATCH, OPTIONS"
     allow_headers = "Authorization, Content-Type, X-Session-Token, X-Admin-Token, X-Requested-With, X-CSRF-Token"
     allow_header_names = {item.strip().lower() for item in allow_headers.split(",")}
+    built_in_native_origins = {"http://tauri.localhost", "https://tauri.localhost"}
 
     async def dispatch(self, request, call_next):
         origin = request.headers.get("origin")
@@ -61,6 +62,8 @@ class DynamicCORSMiddleware(BaseHTTPMiddleware):
             normalized_origin = normalize_allowed_origins([origin])[0].lower()
         except Exception:
             return False
+        if normalized_origin in self.built_in_native_origins:
+            return True
         return normalized_origin in {item.lower() for item in get_allowed_origins()}
 
     def _same_host_behind_tls_proxy(self, request, origin: str) -> bool:

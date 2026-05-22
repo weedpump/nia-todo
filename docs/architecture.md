@@ -32,6 +32,13 @@ Die Native-Apps-Architektur wird nach Generic Server Config sauber neu geplant/u
 
 Aktueller Plan: [Native Apps Clean Architecture Plan](native-apps-clean-architecture.md)
 
+Aktueller 2.0-Branch-Stand:
+
+- Tauri bündelt die Web-App lokal aus `web/` statt nur eine Remote-Redirect-Shell auszuliefern.
+- Native Runtime liest die lokal gespeicherte Server-URL und nutzt sie als API-/WebSocket-Basis.
+- `/api/instance` verifiziert Server mit niedriginformativer öffentlicher Instanz-Metadaten-Antwort.
+- Native Erstkonfiguration läuft lokal, bevor Login/App-Sync startet.
+
 Bestands-/Legacy-Kontext:
 
 - Vorhandene Tauri-Dateien und die ältere Tauri-Doku dürfen nicht blind als Zielarchitektur gelten.

@@ -1,6 +1,6 @@
 # Native Apps: Clean Architecture Plan
 
-Status: planning baseline for the clean native-app rebuild after Generic Server Config.
+Status: implementation started for 2.0 native-app rebuild after Generic Server Config.
 Base: `develop@d4289b4`.
 
 Related: [Phase 0 Inventory](native-apps-phase0-inventory.md)
@@ -45,6 +45,14 @@ Recommended baseline:
 - Bundle `web/` assets into the native app package.
 - Build the frontend so API calls target a configured `apiBaseUrl`, not `location.origin`.
 - Keep Service Worker/PWA behavior for browser use, but native cold start must not depend on fetching the shell from the server.
+
+Current branch status:
+
+- Tauri `frontendDist` now points at bundled `../web` instead of the old `desktop-shell` remote redirect shell.
+- `web/static/js/core/config.js` initializes runtime mode before loading `app.js`.
+- Browser mode keeps same-origin API/WS behavior.
+- Native mode reads the locally stored Tauri server URL and derives remote API/WS URLs from it.
+- If no native server URL exists, the local bundled UI shows a server setup form without loading the remote app.
 
 Future option:
 
@@ -167,14 +175,17 @@ Exit criteria:
 
 ### Phase 2: `/api/instance`
 
-- Add DB-backed public instance id/display metadata if needed.
-- Add unauthenticated `GET /api/instance`.
-- Add tests for response shape and no sensitive leakage.
-- Use it in native setup verification.
+Implemented on this branch:
+
+- DB-backed public `instance_id` and display name defaults via migration 020.
+- Unauthenticated `GET /api/instance`.
+- Response intentionally excludes admin config, trusted proxies, allowed origins, secrets, DB paths and user data.
+- Native first-run server setup verifies the URL through `/api/instance` before saving it.
 
 Exit criteria:
 
-- Invalid URL, wrong app, incompatible version, offline server all show clear setup states.
+- Invalid URL, wrong app and unreachable server show clear setup states.
+- Compatibility/version gating exists at metadata level; strict blocking policy can be tightened later.
 
 ### Phase 3: Offline cold-start hardening
 
