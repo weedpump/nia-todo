@@ -148,6 +148,7 @@ const sharingFeature = createProjectSharingFeature({
 const projectsFeature = createProjectsFeature({
   getProjects: () => projects,
   getTodos: () => todos,
+  setTodos: setTodosState,
   getCurrentProjectId: () => currentProjectId,
   getCurrentWorkspaceId: () => currentWorkspaceId,
   setProjects: (next) => { projects = next; },

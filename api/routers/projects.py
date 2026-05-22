@@ -192,8 +192,8 @@ async def delete_project(project_id: int, user_id: int = Depends(require_auth)):
         for pid in reversed(to_delete):
             db.execute("DELETE FROM projects WHERE id = ?", (pid,))
         db.commit()
-        await broadcast_change("project_delete", {"id": project_id}, user_id, project_id)
-        return {"deleted": project_id}
+        await broadcast_change("project_delete", {"id": project_id, "deleted_ids": to_delete}, user_id, project_id)
+        return {"deleted": project_id, "deleted_ids": to_delete}
 
 
 @router.post("/{project_id}/clear-done")

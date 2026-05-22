@@ -372,8 +372,12 @@ async function handleWsMessage(msg) {
       break;
     case 'project_delete':
       if (msg.payload?.id) {
-        await deleteFromDB('projects', msg.payload.id);
-        projects = projects.filter(p => p.id !== msg.payload.id);
+        const deletedIds = msg.payload.deleted_ids || [msg.payload.id];
+        await Promise.all(deletedIds.map(projectId => deleteFromDB('projects', projectId)));
+        projects = projects.filter(p => !deletedIds.includes(p.id));
+        if (ws?.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'sync_request' }));
+        }
         renderProjects();
         renderStats();
         renderTodos();
@@ -398,7 +402,9 @@ async function handleWsMessage(msg) {
         setWorkspaces?.(workspaces);
         renderWorkspaces?.();
       }
-      await syncWithServer();
+      if (ws?.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'sync_request' }));
+      }
       break;
     case 'member_invited':
     case 'member_accepted':

@@ -51,6 +51,28 @@ async function run() {
     await page.locator('#workspace-modal').waitFor({ state: 'hidden', timeout: 10000 });
     await page.waitForFunction(() => document.querySelector('#workspace-current-name')?.textContent === 'Arbeit', null, { timeout: 10000 });
 
+    await page.getByRole('button', { name: /Projekt hinzufügen/ }).click();
+    await page.locator('#project-modal').waitFor({ state: 'visible', timeout: 5000 });
+    await page.fill('#project-name', 'Delete Workspace Project');
+    await page.click('button[form="project-form"]');
+    await page.locator('#project-modal').waitFor({ state: 'hidden', timeout: 10000 });
+    await waitForText('Delete Workspace Project');
+    await page.locator('.project-tree-item').filter({ hasText: 'Delete Workspace Project' }).locator('.nav-btn').click();
+    await page.getByRole('button', { name: /Neues Todo/ }).click();
+    await visible('#todo-modal');
+    await page.fill('#todo-title', 'Stays In Workspace Inbox');
+    await page.click('button[form="todo-form"]');
+    await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });
+    await waitForText('Stays In Workspace Inbox');
+    await page.locator('.project-tree-item').filter({ hasText: 'Delete Workspace Project' }).locator('.nav-edit').click();
+    await visible('#project-modal');
+    await page.click('#project-delete-btn');
+    await visible('#confirm-modal');
+    await page.click('#confirm-confirm-btn');
+    await page.waitForFunction(() => !document.body.innerText.includes('Delete Workspace Project'), null, { timeout: 10000 });
+    await page.locator('.nav-btn[data-filter="all"]').click();
+    await waitForText('Stays In Workspace Inbox');
+
     await page.locator('#workspace-current-btn').click();
     await page.locator('.workspace-menu-row').filter({ hasText: 'Arbeit' }).locator('.workspace-menu-edit').click();
     await page.locator('#workspace-modal').waitFor({ state: 'visible', timeout: 5000 });

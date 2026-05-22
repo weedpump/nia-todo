@@ -73,6 +73,7 @@ export function createSyncFeature({
 
     let successCount = 0;
     let failCount = 0;
+    let needsAuthoritativeRefresh = false;
     for (const queuedItem of queue) {
       const item = sanitizeQueueItem(queuedItem);
       if (!item) {
@@ -114,8 +115,10 @@ export function createSyncFeature({
           if (!getProjects().find(p => p.id === res.id)) setProjects([...getProjects(), res]);
           successCount++;
         } else if (item.action === 'DELETE_PROJECT') {
-          await projectsApi.delete(item.data.id);
-          await deleteFromDB('projects', item.data.id);
+          const res = await projectsApi.delete(item.data.id);
+          const deletedIds = res.deleted_ids || [item.data.id];
+          await Promise.all(deletedIds.map(projectId => deleteFromDB('projects', projectId)));
+          needsAuthoritativeRefresh = true;
           successCount++;
         } else if (item.action === 'UPDATE_PROJECT') {
           await projectsApi.update(item.data.id, item.data.changes);
@@ -153,6 +156,9 @@ export function createSyncFeature({
       }
     }
     syncInProgressRef.value = false;
+    if (needsAuthoritativeRefresh && !failCount) {
+      await refreshFromServer({ wsState, syncInProgressRef });
+    }
     console.log(`Sync complete: ${successCount} success, ${failCount} failed`);
   }
 
