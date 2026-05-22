@@ -239,6 +239,11 @@ fn apply_global_hotkeys(_app: &AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn desktop_get_app_version() -> String {
+  env!("CARGO_PKG_VERSION").to_string()
+}
+
+#[tauri::command]
 fn desktop_get_settings(app: AppHandle) -> DesktopSettings {
   load_settings(&app)
 }
@@ -446,6 +451,7 @@ pub fn run() {
   builder
     .manage(DesktopReminderScheduler::default())
     .invoke_handler(tauri::generate_handler![
+      desktop_get_app_version,
       desktop_get_settings,
       desktop_set_setting,
       desktop_set_server_url,
