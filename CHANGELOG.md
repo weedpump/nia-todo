@@ -5,6 +5,34 @@ Alle wichtigen Änderungen an diesem Projekt werden in dieser Datei dokumentiert
 Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [2.0.0] - Unreleased
+
+### Added
+- Workspaces als neue Anzeige-/Organisationsschicht für Projekte und Todos ergänzt.
+- Jeder Nutzer erhält einen Default-Workspace `Privat`; bestehende Projekte werden dorthin migriert.
+- Jeder Workspace besitzt eine eigene Inbox; bestehende und neue Workspace-Daten bleiben damit sauber getrennt.
+- Workspace-Switcher mit Custom-Dropdown, Farbauswahl, Erstellen, Umbenennen und Löschen ergänzt.
+- Neues App-eigenes Danger-Confirm-Modal für Löschen von Todos, Projekten, Sections und Workspaces.
+- Frontend-/Backend-Regressionstests für Workspaces, Sharing, Workspace-Inboxes, Projektlöschung und Realtime-Sync ergänzt.
+
+### Changed
+- Projekt-, Todo-, Dashboard- und Section-Ansichten werden nach aktivem Workspace gefiltert; Benachrichtigungen, Reminder, Push und WebSocket-Sync bleiben global.
+- Neue Projekte werden im aktiven Workspace erstellt; Subprojekte müssen im selben Workspace wie ihr Parent bleiben.
+- Geteilte Projekte bleiben workspace-unabhängig sichtbar und sind im Todo-Modal auswählbar.
+- Projektlöschung verschiebt enthaltene Todos in die Inbox desselben Workspaces statt pauschal in eine globale Inbox.
+- Workspace-Löschung verschiebt Projekte und Workspace-Inbox-Todos in den Default-Workspace.
+- Gleiche Projektnamen sind erlaubt; Projekt-Identität basiert auf IDs statt Namen.
+- WebSocket-Sync aktualisiert Workspaces, Projektlöschungen, Child-Projekte und Sharing-Restore-Ereignisse robuster über mehrere Clients hinweg.
+- Migrationslauf für Workspaces ist gegen partiell angewendete Workspace-Schema-Zustände robuster.
+
+### Fixed
+- Projektanlage in Workspaces erzeugt keine 500er mehr bei Datenbankkonflikten oder Workspace-Zuordnung.
+- Reload in einer Projektansicht stellt Navigation und aktive Sidebar-Markierung zuverlässig wieder her.
+- Projektlöschung über UI/Offline-Sync umgeht nicht mehr die Backend-Workspace-Inbox-Logik.
+- Realtime-Sync entfernt gelöschte Parent-/Child-Projekte und stale lokale Cache-Einträge korrekt.
+- Shared-Project-Änderungen inklusive wiederhergestellter Mitglieder aktualisieren andere Clients per WebSocket.
+- Confirm-Dialog-Buttons sind optisch sauber zentriert.
+
 ## [1.7.3] - 2026-05-22
 
 ### Added
