@@ -3,6 +3,8 @@
 Status: planning baseline for the clean native-app rebuild after Generic Server Config.
 Base: `develop@d4289b4`.
 
+Related: [Phase 0 Inventory](native-apps-phase0-inventory.md)
+
 ## Context
 
 The previous Tauri direction is treated as legacy implementation context only. This rebuild must not merge or copy Tauri changes from discarded branches. Any existing native files on `develop` must be re-evaluated against this plan before reuse.
