@@ -36,7 +36,7 @@ function showNativeServerSetup(config) {
       const serverUrl = config.normalizeServerUrl(input.value);
       const instance = await config.verifyInstance(serverUrl);
       if (instance?.app !== 'nia-todo') throw new Error('Das ist kein nia-todo Server.');
-      await window.__TAURI__.core.invoke('desktop_set_server_url', { serverUrl });
+      await config.getTauriInvoke()('desktop_set_server_url', { serverUrl });
       location.reload();
     } catch (error) {
       errorEl.textContent = error?.message || String(error);
@@ -50,7 +50,7 @@ const startImport = () => {
       const config = await import('./core/config.js');
       const runtime = await config.initRuntimeConfig();
       window.NIA_TODO_RUNTIME = runtime;
-      if (config.isNativeRuntime() && window.__TAURI__?.core?.invoke && !runtime.apiBaseUrl) {
+      if (config.isNativeRuntime() && config.getTauriInvoke() && !runtime.apiBaseUrl) {
         showNativeServerSetup(config);
         return;
       }

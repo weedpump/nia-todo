@@ -4,14 +4,51 @@ export const DB_NAME = 'nia-todo-db';
 export const DB_VERSION = 4;
 export const APP_VERSION = 'v1.7.4-dev';
 
+export function getTauri() {
+  return window.__TAURI__ || null;
+}
+
+export function getTauriInvoke() {
+  return getTauri()?.core?.invoke || null;
+}
+
+export function hasNativeLaunchParam() {
+  return new URLSearchParams(location.search).get('nativeApp') === 'tauri';
+}
+
+export function getNativePlatform() {
+  if (/Android/i.test(navigator.userAgent || '')) return 'android';
+  if (/Windows/i.test(navigator.userAgent || '')) return 'windows';
+  if (/Macintosh|Mac OS X/i.test(navigator.userAgent || '')) return 'macos';
+  if (/Linux/i.test(navigator.userAgent || '')) return 'linux';
+  return 'unknown';
+}
+
 export const RUNTIME_MODE = (() => {
-  const params = new URLSearchParams(location.search);
-  if (params.get('nativeApp') === 'tauri' || window.__TAURI__?.core?.invoke) return 'native';
+  if (hasNativeLaunchParam() || getTauriInvoke()) return 'native';
   return 'browser';
 })();
 
+export const RUNTIME_PLATFORM = RUNTIME_MODE === 'native' ? getNativePlatform() : 'browser';
+
+export const RUNTIME_CAPABILITIES = Object.freeze({
+  native: RUNTIME_MODE === 'native',
+  browser: RUNTIME_MODE === 'browser',
+  tauri: Boolean(getTauriInvoke()) || hasNativeLaunchParam(),
+  android: RUNTIME_MODE === 'native' && RUNTIME_PLATFORM === 'android',
+  desktop: RUNTIME_MODE === 'native' && RUNTIME_PLATFORM !== 'android',
+  browserPush: RUNTIME_MODE === 'browser',
+  nativeSettings: RUNTIME_MODE === 'native',
+  nativeNotifications: RUNTIME_MODE === 'native',
+  nativeHotkeys: RUNTIME_MODE === 'native' && RUNTIME_PLATFORM !== 'android',
+  nativeTray: RUNTIME_MODE === 'native' && RUNTIME_PLATFORM !== 'android',
+  appDownloads: RUNTIME_MODE === 'browser',
+  nativeAppVersion: RUNTIME_MODE === 'native',
+  nativeAppUpdates: RUNTIME_MODE === 'native',
+});
+
 export function isNativeRuntime() {
-  return RUNTIME_MODE === 'native';
+  return RUNTIME_CAPABILITIES.native;
 }
 
 export function normalizeServerUrl(value) {
@@ -47,14 +84,14 @@ export async function verifyInstance(serverUrl) {
 }
 
 export async function initRuntimeConfig() {
-  if (!isNativeRuntime()) return { mode: RUNTIME_MODE, apiBaseUrl: API, wsUrl: WS_URL, instance: null };
-  const invoke = window.__TAURI__?.core?.invoke;
-  if (!invoke) return { mode: RUNTIME_MODE, apiBaseUrl: API, wsUrl: WS_URL, instance: null };
+  if (!isNativeRuntime()) return { mode: RUNTIME_MODE, platform: RUNTIME_PLATFORM, capabilities: RUNTIME_CAPABILITIES, apiBaseUrl: API, wsUrl: WS_URL, instance: null };
+  const invoke = getTauriInvoke();
+  if (!invoke) return { mode: RUNTIME_MODE, platform: RUNTIME_PLATFORM, capabilities: RUNTIME_CAPABILITIES, apiBaseUrl: API, wsUrl: WS_URL, instance: null };
   const settings = await invoke('desktop_get_settings').catch(() => null);
   const serverUrl = settings?.serverUrl ? normalizeServerUrl(settings.serverUrl) : '';
-  if (!serverUrl) return { mode: RUNTIME_MODE, apiBaseUrl: API, wsUrl: WS_URL, instance: null };
+  if (!serverUrl) return { mode: RUNTIME_MODE, platform: RUNTIME_PLATFORM, capabilities: RUNTIME_CAPABILITIES, apiBaseUrl: API, wsUrl: WS_URL, instance: null };
   API = serverUrl;
   WS_URL = websocketUrlFromBase(serverUrl);
   const instance = await verifyInstance(serverUrl).catch((error) => ({ error: error?.message || String(error) }));
-  return { mode: RUNTIME_MODE, apiBaseUrl: API, wsUrl: WS_URL, instance };
+  return { mode: RUNTIME_MODE, platform: RUNTIME_PLATFORM, capabilities: RUNTIME_CAPABILITIES, apiBaseUrl: API, wsUrl: WS_URL, instance };
 }

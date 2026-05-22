@@ -59,7 +59,7 @@ assert(desktopSource.includes('if (event.repeat) return null'), 'hotkey capture 
 assert(desktopSource.includes('if (isModifierKey(event)) return'), 'hotkey capture must not save a bare modifier as the main key');
 
 const downloadsSource = readFileSync(new URL('../web/static/js/features/app-downloads.js', import.meta.url), 'utf8');
-assert(downloadsSource.includes('!isTauriApp() && !isStandaloneDisplayMode()'), 'app downloads must only render in the normal browser, not desktop/PWA');
+assert(downloadsSource.includes('RUNTIME_CAPABILITIES.appDownloads && !isStandaloneDisplayMode()'), 'app downloads must only render when browser download capability is enabled, not native/PWA');
 assert(swSource.includes('/static/js/features/app-downloads.js'), 'service worker must precache the app downloads module');
 
 const syncSource = readFileSync(new URL('../web/static/js/features/sync.js', import.meta.url), 'utf8');

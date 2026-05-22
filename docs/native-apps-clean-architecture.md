@@ -53,6 +53,8 @@ Current branch status:
 - Browser mode keeps same-origin API/WS behavior.
 - Native mode reads the locally stored Tauri server URL and derives remote API/WS URLs from it.
 - If no native server URL exists, the local bundled UI shows a server setup form without loading the remote app.
+- Runtime mode, platform and feature switches are centralized in `web/static/js/core/config.js` via `RUNTIME_CAPABILITIES`.
+- Native-only UI/features stay in the shared Web-App bundle, but are activated through capability checks instead of scattered Tauri/platform checks.
 
 Future option:
 
@@ -145,6 +147,22 @@ Browser/PWA remains first-class.
 - Native uses local UI + remote API.
 - Shared frontend modules must support both modes explicitly.
 - No native-only assumptions may break normal browser/PWA behavior.
+
+### 7. Shared Web-App capability model
+
+The native apps and browser/PWA intentionally use one Web-App codebase. The boundary is capability-based:
+
+- Shared by all runtimes: Todos, projects, login, offline sync, WebSocket sync, normal settings.
+- Browser/PWA only: Web Push settings and browser app download prompts.
+- Native only: server selection, local app version, native update prompt, native notifications/reminders.
+- Desktop native only: tray/autostart/global hotkeys.
+- Android native only: Android native notification/reminder bridge.
+
+Rules:
+
+- New runtime checks should use `RUNTIME_CAPABILITIES` from `core/config.js`.
+- Avoid new scattered `window.__TAURI__`, `nativeApp=tauri`, user-agent or platform checks outside the runtime adapter/config layer.
+- Platform-specific native bridge calls must be isolated behind feature modules, not embedded in general Todo/UI logic.
 
 ## Proposed implementation phases
 

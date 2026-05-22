@@ -1,20 +1,5 @@
+import { RUNTIME_CAPABILITIES, RUNTIME_PLATFORM, getTauri, getTauriInvoke } from '../core/config.js';
 import { iconSvg } from '../icons/lucide-icons.js';
-
-function getTauri() {
-  return window.__TAURI__ || null;
-}
-
-function getInvoke() {
-  return getTauri()?.core?.invoke || null;
-}
-
-function hasNativeLaunchParam() {
-  return new URLSearchParams(location.search).get('nativeApp') === 'tauri';
-}
-
-function isTauriApp() {
-  return Boolean(getInvoke()) || hasNativeLaunchParam();
-}
 
 function isStandaloneDisplayMode() {
   return Boolean(
@@ -25,13 +10,14 @@ function isStandaloneDisplayMode() {
 }
 
 function isBrowserDownloadEligible() {
-  return !isTauriApp() && !isStandaloneDisplayMode();
+  return RUNTIME_CAPABILITIES.appDownloads && !isStandaloneDisplayMode();
 }
 
 function platformFromNativeRuntime() {
-  if (!isTauriApp()) return '';
-  if (/Android/i.test(navigator.userAgent || '')) return 'android';
-  return 'windows';
+  if (!RUNTIME_CAPABILITIES.nativeAppVersion) return '';
+  if (RUNTIME_PLATFORM === 'android') return 'android';
+  if (RUNTIME_PLATFORM === 'windows') return 'windows';
+  return RUNTIME_PLATFORM || 'unknown';
 }
 
 async function getNativeAppVersion(platform) {
@@ -52,7 +38,7 @@ async function getNativeAppVersion(platform) {
     console.warn('[Downloads] Tauri app version unavailable', error);
   }
 
-  const invoke = getInvoke();
+  const invoke = getTauriInvoke();
   if (!invoke) return '';
   try {
     const version = await invoke('desktop_get_app_version');
