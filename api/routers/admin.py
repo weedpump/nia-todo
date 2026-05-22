@@ -11,6 +11,7 @@ from db import get_db, now_iso
 from services.auth import create_admin_jwt_token, verify_admin_token
 from services.utils import sanitize_text, validate_email, validate_password, validate_admin_password
 from services.audit import log_audit
+from services.instance_config import get_instance_config, get_public_base_url, update_instance_config
 from rate_limit import require_login_rate_limit, get_client_ip
 from middleware.security import generate_csrf_token, set_csrf_cookie
 
@@ -40,6 +41,11 @@ class ResetUserPasswordRequest(BaseModel):
 class AdminLoginRequest(BaseModel):
     password: str
 
+class InstanceConfigRequest(BaseModel):
+    public_base_url: str = ""
+    allowed_origins: list[str] = []
+    trusted_proxies: list[str] = []
+
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -60,7 +66,7 @@ def _hash_setup_token(token: str) -> str:
 
 
 def _make_password_setup_link(request: Request, token: str) -> str:
-    base_url = str(request.base_url).rstrip('/')
+    base_url = get_public_base_url(request)
     return f"{base_url}/set-password?token={token}"
 
 
@@ -99,6 +105,23 @@ def admin_logout(authorization: Optional[str] = Header(None), _: bool = Depends(
         db.execute("UPDATE admin_config SET admin_token_version = admin_token_version + 1 WHERE id = 1")
         db.commit()
     return {"message": "Admin abgemeldet. Alle Admin-Sessions ungültig."}
+
+
+# ─── Instance Configuration ─────────────────────────────────────────────────
+
+@router.get("/instance-config")
+def admin_get_instance_config(_: bool = Depends(require_admin)):
+    return get_instance_config()
+
+
+@router.patch("/instance-config")
+def admin_update_instance_config(data: InstanceConfigRequest, request: Request, _: bool = Depends(require_admin)):
+    return update_instance_config(
+        public_base_url=data.public_base_url,
+        allowed_origins=data.allowed_origins,
+        trusted_proxies=data.trusted_proxies,
+        client_ip=get_client_ip(request),
+    )
 
 
 # ─── User Management ─────────────────────────────────────────────────────────
