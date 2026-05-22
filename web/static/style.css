@@ -2667,3 +2667,11 @@ input[type="color"]::-moz-color-swatch {
 .confirm-modal {
   z-index: 420;
 }
+
+.confirm-actions .btn {
+  justify-content: center;
+  align-items: center;
+  min-height: 2.35rem;
+  line-height: 1;
+  text-align: center;
+}
