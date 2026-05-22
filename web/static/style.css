@@ -2615,3 +2615,14 @@ input[type="color"]::-moz-color-swatch {
 .small-modal {
   max-width: 420px;
 }
+
+.split-actions {
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-actions-right {
+  display: flex;
+  gap: 0.5rem;
+  margin-left: auto;
+}

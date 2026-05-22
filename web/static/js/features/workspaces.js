@@ -122,11 +122,13 @@ export function createWorkspacesFeature({
     const workspace = editingWorkspaceId
       ? getWorkspaces().find(w => String(w.id) === String(editingWorkspaceId))
       : null;
-    document.getElementById('workspace-modal-title').textContent = workspace ? 'Workspace umbenennen' : 'Neuer Workspace';
+    document.getElementById('workspace-modal-title').textContent = workspace ? 'Workspace bearbeiten' : 'Neuer Workspace';
     document.getElementById('workspace-id').value = workspace?.id || '';
     document.getElementById('workspace-name').value = workspace?.name || '';
     document.getElementById('workspace-color').value = workspace?.color || '#6366f1';
     document.getElementById('workspace-error').textContent = '';
+    const deleteBtn = document.getElementById('workspace-delete-btn');
+    if (deleteBtn) deleteBtn.style.display = workspace && !workspace.is_default ? '' : 'none';
     document.getElementById('workspace-modal')?.classList.add('active');
     setTimeout(() => document.getElementById('workspace-name')?.focus(), 50);
   }
@@ -176,6 +178,32 @@ export function createWorkspacesFeature({
     }
   }
 
+  async function deleteWorkspaceFromModal() {
+    if (!editingWorkspaceId) return;
+    const workspace = getWorkspaces().find(w => String(w.id) === String(editingWorkspaceId));
+    if (!workspace || workspace.is_default) return;
+    if (!confirm(`Workspace "${workspace.name}" löschen? Projekte werden in den Default-Workspace verschoben.`)) return;
+    if (!isOnlineForSync()) {
+      const error = document.getElementById('workspace-error');
+      if (error) error.textContent = 'Workspace löschen geht aktuell nur online.';
+      return;
+    }
+    try {
+      const result = await workspacesApi.delete(editingWorkspaceId);
+      setWorkspaces(getWorkspaces().filter(w => String(w.id) !== String(editingWorkspaceId)));
+      closeWorkspaceModal();
+      const next = result?.moved_projects_to || getDefaultWorkspaceId();
+      await switchWorkspace(next);
+      await refreshFromServer();
+      const moved = result?.moved_projects?.length || 0;
+      showToast?.(moved ? `Workspace gelöscht, ${moved} Projekte verschoben.` : 'Workspace gelöscht.');
+    } catch (err) {
+      console.error('Workspace delete failed', err);
+      const error = document.getElementById('workspace-error');
+      if (error) error.textContent = 'Workspace konnte nicht gelöscht werden.';
+    }
+  }
+
   async function createWorkspace() {
     showWorkspaceModal();
   }
@@ -204,6 +232,7 @@ export function createWorkspacesFeature({
     showWorkspaceModal,
     closeWorkspaceModal,
     saveWorkspace,
+    deleteWorkspaceFromModal,
     toggleWorkspaceMenu,
     closeWorkspaceMenu,
     loadWorkspacesFromServer,

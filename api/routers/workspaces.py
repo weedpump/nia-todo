@@ -3,6 +3,7 @@
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
+import sqlite3
 
 from db import get_db, now_iso
 from routers.auth import require_auth
@@ -39,10 +40,45 @@ def ensure_default_workspace(db, user_id: int) -> int:
     return c.lastrowid
 
 
+def ensure_workspace_inbox(db, user_id: int, workspace_id: int) -> int:
+    row = db.execute(
+        """SELECT id FROM projects
+           WHERE user_id = ? AND workspace_id = ? AND COALESCE(is_inbox, 0) = 1
+           ORDER BY id LIMIT 1""",
+        (user_id, workspace_id),
+    ).fetchone()
+    if row:
+        return row["id"]
+    c = db.execute(
+        """INSERT INTO projects (name, color, sort_order, user_id, workspace_id, is_inbox, updated_at)
+           VALUES ('Inbox', '#64748b', 0, ?, ?, 1, ?)""",
+        (user_id, workspace_id, now_iso()),
+    )
+    return c.lastrowid
+
+
+def unique_project_name(db, user_id: int, workspace_id: int, desired_name: str, exclude_project_id: Optional[int] = None) -> str:
+    base = desired_name.strip() or "Projekt"
+    candidate = base
+    suffix = 2
+    while True:
+        params = [user_id, workspace_id, candidate]
+        sql = "SELECT id FROM projects WHERE user_id = ? AND workspace_id = ? AND name = ?"
+        if exclude_project_id is not None:
+            sql += " AND id != ?"
+            params.append(exclude_project_id)
+        row = db.execute(sql, params).fetchone()
+        if not row:
+            return candidate
+        candidate = f"{base} ({suffix})"
+        suffix += 1
+
+
 @router.get("")
 def list_workspaces(user_id: int = Depends(require_auth)):
     with get_db() as db:
-        ensure_default_workspace(db, user_id)
+        default_id = ensure_default_workspace(db, user_id)
+        ensure_workspace_inbox(db, user_id, default_id)
         rows = db.execute(
             "SELECT * FROM workspaces WHERE user_id = ? ORDER BY COALESCE(is_default, 0) DESC, sort_order, name, id",
             (user_id,),
@@ -62,10 +98,12 @@ def create_workspace(data: WorkspaceCreate, user_id: int = Depends(require_auth)
                 "INSERT INTO workspaces (name, color, sort_order, user_id, is_default, updated_at) VALUES (?, ?, ?, ?, 0, ?)",
                 (data.name, data.color, data.sort_order, user_id, now_iso()),
             )
+            workspace_id = c.lastrowid
+            ensure_workspace_inbox(db, user_id, workspace_id)
             db.commit()
-        except Exception:
-            raise HTTPException(400, "Workspace already exists")
-        row = db.execute("SELECT * FROM workspaces WHERE id = ? AND user_id = ?", (c.lastrowid, user_id)).fetchone()
+        except sqlite3.IntegrityError:
+            raise HTTPException(409, "Workspace already exists")
+        row = db.execute("SELECT * FROM workspaces WHERE id = ? AND user_id = ?", (workspace_id, user_id)).fetchone()
         return dict(row)
 
 
@@ -90,8 +128,8 @@ def update_workspace(workspace_id: int, data: WorkspaceUpdate, user_id: int = De
             try:
                 db.execute(f"UPDATE workspaces SET {set_clause} WHERE id = :id", {**updates, "id": workspace_id})
                 db.commit()
-            except Exception:
-                raise HTTPException(400, "Workspace update failed")
+            except sqlite3.IntegrityError:
+                raise HTTPException(409, "Workspace already exists")
         row = db.execute("SELECT * FROM workspaces WHERE id = ? AND user_id = ?", (workspace_id, user_id)).fetchone()
         return dict(row)
 
@@ -104,8 +142,33 @@ def delete_workspace(workspace_id: int, user_id: int = Depends(require_auth)):
             raise HTTPException(404, "Workspace not found")
         if existing["is_default"]:
             raise HTTPException(400, "Default workspace cannot be deleted")
+
         default_id = ensure_default_workspace(db, user_id)
-        db.execute("UPDATE projects SET workspace_id = ? WHERE user_id = ? AND workspace_id = ?", (default_id, user_id, workspace_id))
+        default_inbox_id = ensure_workspace_inbox(db, user_id, default_id)
+        source_inbox_id = ensure_workspace_inbox(db, user_id, workspace_id)
+
+        db.execute(
+            "UPDATE todos SET project_id = ?, section_id = NULL WHERE user_id = ? AND project_id = ?",
+            (default_inbox_id, user_id, source_inbox_id),
+        )
+        db.execute("DELETE FROM sections WHERE project_id = ?", (source_inbox_id,))
+        db.execute("DELETE FROM projects WHERE id = ? AND user_id = ?", (source_inbox_id, user_id))
+
+        moved = []
+        projects = db.execute(
+            """SELECT * FROM projects
+               WHERE user_id = ? AND workspace_id = ?
+               ORDER BY CASE WHEN parent_id IS NULL THEN 0 ELSE 1 END, parent_id, sort_order, id""",
+            (user_id, workspace_id),
+        ).fetchall()
+        for project in projects:
+            new_name = unique_project_name(db, user_id, default_id, project["name"], project["id"])
+            db.execute(
+                "UPDATE projects SET workspace_id = ?, name = ?, updated_at = ? WHERE id = ? AND user_id = ?",
+                (default_id, new_name, now_iso(), project["id"], user_id),
+            )
+            moved.append({"id": project["id"], "old_name": project["name"], "new_name": new_name})
+
         db.execute("DELETE FROM workspaces WHERE id = ? AND user_id = ?", (workspace_id, user_id))
         db.commit()
-        return {"deleted": workspace_id, "moved_projects_to": default_id}
+        return {"deleted": workspace_id, "moved_projects_to": default_id, "moved_projects": moved}

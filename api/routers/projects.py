@@ -3,6 +3,7 @@
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
+import sqlite3
 
 from db import get_db, now_iso
 from routers.auth import require_auth
@@ -89,11 +90,14 @@ async def create_project(data: ProjectCreate, user_id: int = Depends(require_aut
                 raise HTTPException(404, "Parent project not found")
             if parent['workspace_id'] != workspace_id:
                 raise HTTPException(400, "Parent project belongs to another workspace")
-        c = db.execute(
-            "INSERT INTO projects (name, color, sort_order, parent_id, workspace_id, updated_at, user_id) VALUES (?,?,?,?,?,?,?)",
-            (data.name, data.color, data.sort_order, data.parent_id, workspace_id, now_iso(), user_id)
-        )
-        db.commit()
+        try:
+            c = db.execute(
+                "INSERT INTO projects (name, color, sort_order, parent_id, workspace_id, updated_at, user_id) VALUES (?,?,?,?,?,?,?)",
+                (data.name, data.color, data.sort_order, data.parent_id, workspace_id, now_iso(), user_id)
+            )
+            db.commit()
+        except sqlite3.IntegrityError:
+            raise HTTPException(409, "Project already exists in this workspace")
         row = db.execute("SELECT *, 0 as is_shared, 1 as is_owner FROM projects WHERE id = ?", (c.lastrowid,)).fetchone()
         proj = dict(row)
         await broadcast_change("project_create", proj, user_id)
@@ -133,8 +137,11 @@ async def update_project(project_id: int, data: ProjectUpdate, user_id: int = De
             allowed_cols = {"name", "color", "sort_order", "parent_id", "workspace_id", "updated_at"}
             safe_updates = {k: v for k, v in updates.items() if k in allowed_cols}
             set_clause = ", ".join(f"{k}=:{k}" for k in safe_updates)
-            db.execute(f"UPDATE projects SET {set_clause} WHERE id = :id", {**safe_updates, "id": project_id})
-            db.commit()
+            try:
+                db.execute(f"UPDATE projects SET {set_clause} WHERE id = :id", {**safe_updates, "id": project_id})
+                db.commit()
+            except sqlite3.IntegrityError:
+                raise HTTPException(409, "Project already exists in this workspace")
         row = db.execute("SELECT *, CASE WHEN user_id = ? THEN 1 ELSE 0 END as is_owner, 0 as is_shared FROM projects WHERE id = ?", (user_id, project_id)).fetchone()
         proj = dict(row)
         await broadcast_change("project_update", proj, user_id, project_id)
