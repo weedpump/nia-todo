@@ -466,7 +466,7 @@
       <h3 id="workspace-modal-title">Neuer Workspace</h3>
       <button class="modal-close-x" onclick="closeWorkspaceModal()"><span data-icon="x"></span></button>
       <div class="modal-body">
-        <form id="workspace-form" onsubmit="saveWorkspace(event)">
+        <form id="workspace-form">
           <input type="hidden" id="workspace-id">
           <div class="form-group">
             <label>Name</label>
@@ -500,7 +500,7 @@
       <h3 id="project-modal-title">Neues Projekt</h3>
       <button class="modal-close-x" onclick="closeModal('project-modal')"><span data-icon="x"></span></button>
       <div class="modal-body">
-      <form id="project-form" onsubmit="saveProject(event)">
+      <form id="project-form">
         <input type="hidden" id="project-id">
         <div class="form-group">
           <label>Name</label>

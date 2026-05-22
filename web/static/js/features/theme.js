@@ -78,6 +78,17 @@ function renderAccentSwatch(preset) {
   return `<span class="accent-preset-swatch" style="${accentSwatchStyle(preset)}"></span>`;
 }
 
+let accentIntensityBound = false;
+
+function bindAccentIntensitySlider() {
+  if (accentIntensityBound) return;
+  const slider = document.getElementById('accent-intensity-slider');
+  if (!slider) return;
+  accentIntensityBound = true;
+  slider.addEventListener('input', () => setAccentIntensity(slider.value));
+  slider.addEventListener('change', () => setAccentIntensity(slider.value));
+}
+
 function updateAccentMenuUi() {
   const preset = getAccentPreset();
   const intensity = getAccentIntensity();
@@ -85,7 +96,10 @@ function updateAccentMenuUi() {
   if (current) current.innerHTML = renderAccentSwatch(preset);
 
   const slider = document.getElementById('accent-intensity-slider');
-  if (slider) slider.value = String(intensity);
+  if (slider) {
+    slider.value = String(intensity);
+    bindAccentIntensitySlider();
+  }
 
   const value = document.getElementById('accent-intensity-value');
   if (value) value.textContent = `${intensity}%`;
@@ -165,10 +179,12 @@ export function renderAccentPresetMenu() {
   if (panel) panel.innerHTML = `${renderAccentPresetOptions()}
     <label class="accent-intensity-control" title="Akzent-Intensität">
       <span class="accent-intensity-label">Intensität</span>
-      <input id="accent-intensity-slider" class="accent-intensity-slider" type="range" min="0" max="100" step="5" value="${intensity}" oninput="setAccentIntensity(this.value)">
+      <input id="accent-intensity-slider" class="accent-intensity-slider" type="range" min="0" max="100" step="5" value="${intensity}">
       <span class="accent-intensity-value" id="accent-intensity-value">${intensity}%</span>
     </label>`;
   if (current) current.innerHTML = renderAccentSwatch(preset);
+  accentIntensityBound = false;
+  bindAccentIntensitySlider();
   const chevron = document.querySelector('#accent-preset-row .accent-preset-chevron');
   if (chevron) chevron.innerHTML = CHEVRON_DOWN;
 }

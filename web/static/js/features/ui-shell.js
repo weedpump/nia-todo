@@ -1,17 +1,31 @@
 export function createUiShell({ renderMarkdown, showTodoModal }) {
+  function closeFloatingMenus() {
+    const userMenu = document.getElementById('user-menu');
+    const userButton = document.getElementById('user-menu-button');
+    userMenu?.classList.remove('active');
+    userButton?.setAttribute('aria-expanded', 'false');
+    document.getElementById('accent-preset-panel')?.classList.remove('active');
+    document.getElementById('accent-preset-row')?.setAttribute('aria-expanded', 'false');
+  }
+
   function openSidebar() {
     document.getElementById('sidebar')?.classList.add('open');
     document.getElementById('sidebar-overlay')?.classList.add('active');
   }
 
   function toggleSidebar() {
-    document.getElementById('sidebar')?.classList.toggle('open');
-    document.getElementById('sidebar-overlay')?.classList.toggle('active');
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebar-overlay');
+    const nextOpen = !sidebar?.classList.contains('open');
+    sidebar?.classList.toggle('open', nextOpen);
+    overlay?.classList.toggle('active', nextOpen);
+    closeFloatingMenus();
   }
 
   function closeSidebar() {
     document.getElementById('sidebar')?.classList.remove('open');
     document.getElementById('sidebar-overlay')?.classList.remove('active');
+    closeFloatingMenus();
   }
 
   function closeModal(modalId) {
