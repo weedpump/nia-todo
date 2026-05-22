@@ -54,6 +54,25 @@ body {
 
 #app { display: flex; height: 100dvh; }
 
+.native-android,
+.native-android * {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.native-android button:focus,
+.native-android [role="button"]:focus,
+.native-android .nav-btn:focus,
+.native-android .workspace-current-btn:focus {
+  outline: none;
+}
+
+.native-android input:focus-visible,
+.native-android textarea:focus-visible,
+.native-android select:focus-visible {
+  outline: 2px solid rgba(var(--accent-rgb), 0.5);
+  outline-offset: 2px;
+}
+
 
 
 /* Sidebar */
@@ -1972,6 +1991,38 @@ input[type="color"]::-moz-color-swatch {
   color: var(--text-muted);
   font-size: 12px;
   line-height: 1.4;
+}
+
+.login-native-server-panel {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 10px;
+}
+
+.login-native-server-title {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.login-native-server-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.login-native-server-reset {
+  width: 100%;
+}
+
+.login-native-server-status {
+  font-size: 13px;
+  color: var(--text-muted);
+  min-height: 18px;
 }
 
 @keyframes boot-spin {

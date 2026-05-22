@@ -232,7 +232,7 @@
       <h3 id="todo-modal-title">Neues Todo</h3>
       <button class="modal-close-x" onclick="closeModal('todo-modal')"><span data-icon="x"></span></button>
       <div class="modal-body">
-      <form id="todo-form" onsubmit="saveTodo(event)">
+      <form id="todo-form">
         <input type="hidden" id="todo-id">
         <div class="form-group">
           <label>Titel</label>
@@ -452,7 +452,7 @@
               <input class="hotkey-capture-input" type="text" id="desktop-hotkey-search" inputmode="none" autocomplete="off" aria-label="Hotkey für Suche">
             </div>
           </div>
-          <div id="desktop-settings-status" style="font-size:13px; color:var(--text-muted); margin-top:8px;"></div>
+          <div id="desktop-settings-status" data-desktop-settings-status style="font-size:13px; color:var(--text-muted); margin-top:8px;"></div>
         </div>
       </div>
       <div class="modal-actions">
