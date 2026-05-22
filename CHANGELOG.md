@@ -19,6 +19,7 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 - Lokaler Akzent-Intensitätsregler ergänzt, inklusive Option Akzentwirkung komplett auszuschalten.
 - Neues App-eigenes Danger-Confirm-Modal für Löschen von Todos, Projekten, Sections und Workspaces.
 - Frontend-/Backend-Regressionstests für Workspaces, Sharing, Workspace-Inboxes, Projektlöschung und Realtime-Sync ergänzt.
+- Generische Instanz-Konfiguration für öffentliche Basis-URL, erlaubte Origins/CORS und Trusted Proxies ergänzt.
 
 ### Changed
 - Projekt-, Todo-, Dashboard- und Section-Ansichten werden nach aktivem Workspace gefiltert; Benachrichtigungen, Reminder, Push und WebSocket-Sync bleiben global.
@@ -33,6 +34,8 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 - Default-Workspace `Privat` erhält direkt das Home-Icon; Inbox-Projekte erhalten direkt das Inbox-Icon.
 - Admin-, Setup-, Login- und Passwort-Dialoge wurden visuell auf das neue Button-/Icon-System angeglichen.
 - Akzentfarben wirken nur in der Haupt-App; Setup-, Admin- und Passwortseiten bleiben beim neutralen Theme.
+- Passwort-Setup-Links verwenden künftig die konfigurierte öffentliche Basis-URL statt implizit die Request-URL.
+- CORS lehnt unbekannte Origins konsequent ab; Forwarded-Header werden nur von konfigurierten Trusted Proxies akzeptiert.
 
 ### Fixed
 - Projektanlage in Workspaces erzeugt keine 500er mehr bei Datenbankkonflikten oder Workspace-Zuordnung.

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { withFreshDb, launchPage, ADMIN_PASSWORD } from './frontend_test_lib.mjs';
+import { withFreshDb, launchPage, ADMIN_PASSWORD, BASE_URL } from './frontend_test_lib.mjs';
 
 async function run() {
   console.log('🌐 Running Playwright frontend admin test...');
@@ -17,6 +17,13 @@ async function run() {
     await page.click('text=Anmelden');
     await page.locator('#admin-content').waitFor({ state: 'visible', timeout: 10000 });
 
+    await page.locator('#instance-config-card').waitFor({ state: 'visible', timeout: 10000 });
+    await page.fill('#instance-public-url', BASE_URL);
+    await page.fill('#instance-allowed-origins', `${BASE_URL}\nhttps://example.invalid`);
+    await page.fill('#instance-trusted-proxies', '127.0.0.1\n10.0.10.0/24');
+    await page.getByRole('button', { name: 'Instanz-Konfiguration speichern' }).click();
+    await page.getByText('Instanz-Konfiguration gespeichert.').waitFor({ state: 'visible', timeout: 10000 });
+
     await page.locator('#user-list button[title="E-Mail bearbeiten"]').first().click();
     await page.locator('#user-list input[type="email"]').first().waitFor({ state: 'visible', timeout: 5000 });
     await page.locator('#user-list button[title="Abbrechen"]').first().click();
@@ -32,7 +39,7 @@ async function run() {
     await page.getByText("Benutzer 'admincreated' erstellt. Link kopieren und senden:").waitFor({ state: 'visible', timeout: 10000 });
     await page.locator('#create-link-input').waitFor({ state: 'visible', timeout: 10000 });
     const setupUrl = await page.locator('#create-link-input').inputValue();
-    if (!setupUrl.includes('/set-password?token=')) throw new Error('Create user did not generate a password setup link');
+    if (!setupUrl.startsWith(`${BASE_URL}/set-password?token=`)) throw new Error('Create user did not use configured public base URL');
     await page.locator('#user-list').getByRole('cell', { name: 'admincreated', exact: true }).waitFor({ state: 'visible', timeout: 10000 });
     await page.locator('#user-list').getByText('admincreated@example.invalid').waitFor({ state: 'visible', timeout: 10000 });
     await page.locator('#user-list button[title="E-Mail bearbeiten"]').last().click();

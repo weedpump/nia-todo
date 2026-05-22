@@ -3,13 +3,13 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
 import asyncio
 
 from db import init_db
 from migrate import run_migrations
 from middleware.security import SecurityHeadersMiddleware, RateLimitMiddleware, CSRFProtectionMiddleware
+from middleware.dynamic_cors import DynamicCORSMiddleware
 from services.push import check_and_send_reminders, cleanup_subscriptions
 from routers.websocket import websocket_endpoint
 
@@ -20,16 +20,10 @@ app = FastAPI(title="nia-todo", version="0.4.0", docs_url=None, redoc_url=None, 
 
 # ─── Middleware ──────────────────────────────────────────────────────────────
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["https://todo.kneidl-home.de", "https://todo-dev.kneidl-home.de"],
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "X-Session-Token", "X-Admin-Token", "X-Requested-With"],
-)
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(CSRFProtectionMiddleware)
 app.add_middleware(RateLimitMiddleware)
+app.add_middleware(DynamicCORSMiddleware)
 
 # ─── Router ──────────────────────────────────────────────────────────────────
 

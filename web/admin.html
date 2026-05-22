@@ -37,7 +37,14 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .form-row { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
 .form-row input { flex: 1; min-width: 150px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-primary); color: var(--text-primary); font-size: 14px; }
-.form-row input:focus { outline: none; border-color: var(--accent); }
+.form-row input:focus, .admin-config-textarea:focus { outline: none; border-color: var(--accent); }
+.admin-config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.admin-config-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.admin-config-field.full { grid-column: 1 / -1; }
+.admin-config-field label { font-size: 12px; font-weight: 650; color: var(--text-secondary); }
+.admin-config-field input, .admin-config-textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-primary); color: var(--text-primary); font-size: 14px; }
+.admin-config-textarea { min-height: 82px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.admin-help { font-size: 12px; color: var(--text-muted); margin-top: 8px; }
 .admin-error { color: var(--danger); font-size: 13px; margin-top: 8px; }
 .admin-success { color: var(--success); font-size: 13px; margin-top: 8px; }
 .setup-link-box { margin-top: 12px; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-primary); display: none; gap: 8px; align-items: center; }
@@ -68,6 +75,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
   .admin-nav { width: 100%; justify-content: space-between; }
   .admin-card { padding: 16px; border-radius: 14px; margin-bottom: 14px; }
   .form-row { flex-direction: column; gap: 10px; }
+  .admin-config-grid { grid-template-columns: 1fr; }
   .form-row input { width: 100%; }
   .form-row .btn { width: fit-content; max-width: 100%; min-height: 38px; }
   #admin-login-card .form-row .btn,
@@ -116,6 +124,31 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
   <div class="admin-card admin-status-card">
     <span class="admin-status-text"><span data-icon="lock-keyhole"></span> Eingeloggt als Admin</span>
     <button class="btn btn-danger" onclick="adminLogout()">Abmelden</button>
+  </div>
+
+  <!-- Instance Configuration -->
+  <div class="admin-card" id="instance-config-card">
+    <h2><span data-icon="settings"></span> Instanz-Konfiguration</h2>
+    <div class="admin-config-grid">
+      <div class="admin-config-field full">
+        <label for="instance-public-url">Öffentliche Basis-URL</label>
+        <input type="url" id="instance-public-url" placeholder="https://todo.example.org" autocomplete="off">
+      </div>
+      <div class="admin-config-field full">
+        <label for="instance-allowed-origins">Allowed Origins / CORS</label>
+        <textarea id="instance-allowed-origins" class="admin-config-textarea" placeholder="https://todo.example.org&#10;https://todo-dev.example.org"></textarea>
+      </div>
+      <div class="admin-config-field full">
+        <label for="instance-trusted-proxies">Trusted Proxies</label>
+        <textarea id="instance-trusted-proxies" class="admin-config-textarea" placeholder="10.0.10.14&#10;172.18.0.0/16"></textarea>
+      </div>
+    </div>
+    <div class="admin-help">Basis-URL wird für externe Links genutzt. Origins und Trusted Proxies sind zeilenweise. Forwarded-Header werden nur von Trusted Proxies akzeptiert.</div>
+    <div class="form-row" style="margin-top:12px;">
+      <button class="btn btn-primary" onclick="saveInstanceConfig()">Instanz-Konfiguration speichern</button>
+    </div>
+    <div class="admin-error" id="instance-config-error"></div>
+    <div class="admin-success" id="instance-config-success"></div>
   </div>
 
   <!-- Change Admin Password -->
@@ -197,6 +230,7 @@ const ICONS = {
   x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
   trash: '<path d="M3 6h18"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><path d="M19 6l-1 14c-.1 1-1 2-2 2H8c-1 0-1.9-1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/>',
   link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+  settings: '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.73l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
 };
 function iconSvg(name) {
   const paths = ICONS[name] || ICONS.shield;
@@ -240,10 +274,9 @@ adminToken = getAdminToken();
 
 if (adminToken) {
   // Try to use stored JWT, if invalid show login
-  apiGet('/api/admin/users').then(data => {
+  loadAdminData().then(() => {
     document.getElementById('admin-login-card').style.display = 'none';
     document.getElementById('admin-content').style.display = 'block';
-    renderUsers(data.users);
   }).catch(() => {
     localStorage.removeItem('admin_jwt_token');
     adminToken = null;
@@ -346,11 +379,19 @@ async function doAdminLogin() {
     }
     document.getElementById('admin-login-card').style.display = 'none';
     document.getElementById('admin-content').style.display = 'block';
-    const usersData = await apiGet('/api/admin/users');
-    renderUsers(usersData.users);
+    await loadAdminData();
   } catch(e) {
     document.getElementById('admin-login-error').textContent = 'Fehler: ' + e.message;
   }
+}
+
+async function loadAdminData() {
+  const [usersData, configData] = await Promise.all([
+    apiGet('/api/admin/users'),
+    apiGet('/api/admin/instance-config'),
+  ]);
+  renderUsers(usersData.users);
+  renderInstanceConfig(configData);
 }
 
 async function loadUsers() {
@@ -386,6 +427,32 @@ function escapeHtmlAttr(str) {
 
 function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
+}
+
+function renderInstanceConfig(config) {
+  document.getElementById('instance-public-url').value = config.public_base_url || '';
+  document.getElementById('instance-allowed-origins').value = (config.allowed_origins || []).join('\n');
+  document.getElementById('instance-trusted-proxies').value = (config.trusted_proxies || []).join('\n');
+}
+
+function parseOriginsInput(value) {
+  return value.split(/[\n,]/).map(item => item.trim()).filter(Boolean);
+}
+
+async function saveInstanceConfig() {
+  document.getElementById('instance-config-error').textContent = '';
+  document.getElementById('instance-config-success').textContent = '';
+  try {
+    const data = await apiPatch('/api/admin/instance-config', {
+      public_base_url: document.getElementById('instance-public-url').value.trim(),
+      allowed_origins: parseOriginsInput(document.getElementById('instance-allowed-origins').value),
+      trusted_proxies: parseOriginsInput(document.getElementById('instance-trusted-proxies').value),
+    });
+    renderInstanceConfig(data);
+    document.getElementById('instance-config-success').textContent = 'Instanz-Konfiguration gespeichert.';
+  } catch(e) {
+    document.getElementById('instance-config-error').textContent = e.message;
+  }
 }
 
 function renderUserEmailCell(user) {
@@ -566,10 +633,6 @@ async function adminLogout() {
   document.getElementById('admin-login-password').value = '';
 }
 
-// Load on page load - only if we have a token (will be handled by doAdminLogin if not)
-if (adminToken) {
-  loadUsers();
-}
 </script>
 </body>
 </html>

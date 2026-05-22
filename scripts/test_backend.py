@@ -16,6 +16,8 @@ import subprocess
 import json
 import time
 import shutil
+import os
+import sqlite3
 from urllib.parse import urlparse, parse_qs
 from pathlib import Path
 from typing import Optional, Tuple, Any
@@ -99,7 +101,8 @@ def curl(
     token: Optional[str] = None,
     csrf: Optional[str] = None,
     cookie_jar: Optional[str] = None,
-    auth_scheme: str = "Bearer"
+    auth_scheme: str = "Bearer",
+    headers: Optional[dict] = None,
 ) -> Tuple[int, Any]:
     """Execute HTTP request via curl, return (status_code, response_body)."""
     cmd = ["curl", "-s", "-o", "-", "-w", "\\n%{http_code}"]
@@ -109,6 +112,8 @@ def curl(
         cmd += ["-H", f"Authorization: {auth_scheme} {token}"]
     if csrf:
         cmd += ["-H", f"X-CSRF-Token: {csrf}"]
+    for key, value in (headers or {}).items():
+        cmd += ["-H", f"{key}: {value}"]
     cmd += ["-X", method]
     if data:
         cmd += ["-H", "Content-Type: application/json", "-d", json.dumps(data)]
@@ -128,6 +133,25 @@ def curl(
 
 def ok(status: int, expected: int = 200) -> bool:
     return status == expected
+
+
+def curl_headers(method: str, endpoint: str, headers: Optional[dict] = None) -> Tuple[int, dict]:
+    """Execute HTTP request via curl and return (status_code, response_headers)."""
+    cmd = ["curl", "-s", "-D", "-", "-o", "/dev/null", "-w", "\\n%{http_code}", "-X", method]
+    for key, value in (headers or {}).items():
+        cmd += ["-H", f"{key}: {value}"]
+    cmd += [f"{URL}{endpoint}"]
+    r = subprocess.run(cmd, capture_output=True, text=True)
+    if r.returncode != 0:
+        raise RuntimeError(f"curl failed with exit code {r.returncode}: {r.stderr.strip()}")
+    lines = r.stdout.strip().splitlines()
+    status = int(lines[-1]) if lines and lines[-1].isdigit() else 500
+    response_headers = {}
+    for line in lines[:-1]:
+        if ":" in line:
+            key, value = line.split(":", 1)
+            response_headers[key.strip().lower()] = value.strip()
+    return status, response_headers
 
 # --- Setup Helpers ------------------------------------------------------------
 
@@ -267,6 +291,139 @@ class TestSuite:
         
         return self.record("admin_login", status)
     
+    def test_instance_config_get(self):
+        status, data = curl("GET", "/api/admin/instance-config", token=self.admin_token, cookie_jar="/tmp/nia_admin_cookies.txt")
+        passed = ok(status) and data is not None and "public_base_url" in data and "allowed_origins" in data and "trusted_proxies" in data
+        self.results["instance_config_get"] = {"status": status, "passed": passed, "expected": "200 + config fields"}
+        return passed
+
+    def test_strict_cors_unknown_origin_rejected(self):
+        status, _ = curl_headers("GET", "/api/setup/status", {"Origin": "https://evil.example"})
+        return self.record("strict_cors_unknown_origin_rejected", status, expected=403)
+
+    def test_instance_config_update(self):
+        status, data = curl("PATCH", "/api/admin/instance-config", {
+            "public_base_url": "",
+            "allowed_origins": ["https://allowed.example"],
+            "trusted_proxies": ["127.0.0.1", "10.0.10.0/24"],
+        }, token=self.admin_token, csrf=self.admin_csrf, cookie_jar="/tmp/nia_admin_cookies.txt")
+        passed = ok(status) and data and data.get("allowed_origins") == ["https://allowed.example"] and data.get("trusted_proxies") == ["127.0.0.1/32", "10.0.10.0/24"]
+        self.results["instance_config_update"] = {"status": status, "passed": passed, "expected": "200 + normalized config"}
+        return passed
+
+    def test_instance_config_audit_written(self):
+        with sqlite3.connect(DB_PATH) as db:
+            row = db.execute("SELECT changed_keys FROM app_config_audit ORDER BY id DESC LIMIT 1").fetchone()
+        passed = bool(row and "allowed_origins" in row[0] and "trusted_proxies" in row[0])
+        self.results["instance_config_audit_written"] = {"status": 200 if passed else 500, "passed": passed, "expected": "audit row for config change"}
+        return passed
+
+    def test_strict_cors_allowed_origin_preflight(self):
+        status, headers = curl_headers("OPTIONS", "/api/admin/login", {
+            "Origin": "https://allowed.example",
+            "Access-Control-Request-Method": "POST",
+        })
+        passed = status == 204 and headers.get("access-control-allow-origin") == "https://allowed.example"
+        self.results["strict_cors_allowed_origin_preflight"] = {"status": status, "passed": passed, "expected": "204 + allow origin"}
+        return passed
+
+    def test_strict_cors_scheme_mismatch_rejected(self):
+        status, _ = curl_headers("GET", "/api/setup/status", {
+            "Origin": "http://proxy.example.invalid",
+            "X-Forwarded-Proto": "https",
+            "X-Forwarded-Host": "proxy.example.invalid",
+        })
+        return self.record("strict_cors_scheme_mismatch_rejected", status, expected=403)
+
+    def test_strict_cors_disallowed_request_header_rejected(self):
+        status, _ = curl_headers("OPTIONS", "/api/admin/login", {
+            "Origin": "https://allowed.example",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "X-Not-Allowed",
+        })
+        return self.record("strict_cors_disallowed_request_header_rejected", status, expected=403)
+
+    def test_strict_cors_default_port_normalized(self):
+        status, headers = curl_headers("OPTIONS", "/api/admin/login", {
+            "Origin": "https://allowed.example:443",
+            "Access-Control-Request-Method": "POST",
+        })
+        passed = status == 204 and headers.get("access-control-allow-origin") == "https://allowed.example:443"
+        self.results["strict_cors_default_port_normalized"] = {"status": status, "passed": passed, "expected": "204 + default-port origin allowed"}
+        return passed
+
+    def test_trusted_proxy_rejects_bad_forwarded_host(self):
+        status, data = curl("POST", "/api/admin/users", {
+            "username": "badforwardedhost",
+            "display_name": "Bad Forwarded Host",
+            "email": "badforwardedhost@example.invalid",
+        }, token=self.admin_token, csrf=self.admin_csrf, cookie_jar="/tmp/nia_admin_cookies.txt", headers={
+            "X-Forwarded-Proto": "https",
+            "X-Forwarded-Host": "evil.example/path",
+        })
+        if ok(status) and data:
+            self.created_ids["user"].append(data.get("id"))
+        passed = ok(status) and data and data.get("password_setup_url", "").startswith("https://localhost:8754/set-password?token=")
+        self.results["trusted_proxy_rejects_bad_forwarded_host"] = {"status": status, "passed": passed, "expected": "200 + fallback URL ignores bad forwarded host"}
+        return passed
+
+    def test_untrusted_proxy_ignores_forwarded_host(self):
+        status, data = curl("POST", "/api/admin/users", {
+            "username": "untrustedforwarded",
+            "display_name": "Untrusted Forwarded",
+            "email": "untrustedforwarded@example.invalid",
+        }, token=self.admin_token, csrf=self.admin_csrf, cookie_jar="/tmp/nia_admin_cookies.txt", headers={
+            "X-Forwarded-Proto": "https",
+            "X-Forwarded-Host": "untrusted.example.invalid",
+            "Host": "localhost:8754",
+        })
+        if ok(status) and data:
+            self.created_ids["user"].append(data.get("id"))
+        setup_url = data.get("password_setup_url", "") if data else ""
+        passed = ok(status) and data and "untrusted.example.invalid" not in setup_url and setup_url.startswith("http://localhost:8754/set-password?token=")
+        self.results["untrusted_proxy_ignores_forwarded_host"] = {"status": status, "passed": passed, "expected": "200 + forwarded host/proto ignored", "url": setup_url}
+        return passed
+
+    def test_strict_cors_missing_origin_allowed(self):
+        status, _ = curl("GET", "/api/setup/status")
+        return self.record("strict_cors_missing_origin_allowed", status)
+
+    def test_trusted_proxy_forwarded_link(self):
+        status, data = curl("POST", "/api/admin/users", {
+            "username": "proxyforwarded",
+            "display_name": "Proxy Forwarded",
+            "email": "proxyforwarded@example.invalid",
+        }, token=self.admin_token, csrf=self.admin_csrf, cookie_jar="/tmp/nia_admin_cookies.txt", headers={
+            "X-Forwarded-Proto": "https",
+            "X-Forwarded-Host": "proxy.example.invalid",
+        })
+        if ok(status) and data:
+            self.created_ids["user"].append(data.get("id"))
+        passed = ok(status) and data and data.get("password_setup_url", "").startswith("https://proxy.example.invalid/set-password?token=")
+        self.results["trusted_proxy_forwarded_link"] = {"status": status, "passed": passed, "expected": "200 + forwarded public URL"}
+        return passed
+
+    def test_trusted_proxy_wildcard_rejected(self):
+        status, data = curl("PATCH", "/api/admin/instance-config", {
+            "public_base_url": "",
+            "allowed_origins": ["https://allowed.example"],
+            "trusted_proxies": ["0.0.0.0/0"],
+        }, token=self.admin_token, csrf=self.admin_csrf, cookie_jar="/tmp/nia_admin_cookies.txt")
+        passed = status == 400 and data and "gesamte Internet" in data.get("detail", "")
+        self.results["trusted_proxy_wildcard_rejected"] = {"status": status, "passed": passed, "expected": "400 + wildcard proxy rejected"}
+        return passed
+
+    def test_set_trusted_proxies_script(self):
+        cmd = ["python3", str(BASE / "api" / "set_trusted_proxies.py"), "127.0.0.1", "10.0.10.0/24", "--json"]
+        r = subprocess.run(cmd, capture_output=True, text=True, cwd=str(BASE), env={**os.environ, "NIA_TODO_DB": "nia-todo-dev.db"})
+        if r.returncode != 0:
+            self.results["set_trusted_proxies_script"] = {"status": r.returncode, "passed": False, "expected": 0, "error": r.stderr.strip()}
+            return False
+        data = json.loads(r.stdout[r.stdout.find("{"):])
+        passed = data.get("trusted_proxies") == ["127.0.0.1/32", "10.0.10.0/24"]
+        self.results["set_trusted_proxies_script"] = {"status": r.returncode, "passed": passed, "expected": "normalized proxy list"}
+        return passed
+
     def test_admin_logout(self):
         # Admin-Logout braucht: Cookie (CSRF) + Authorization Header (Token)
         # Token und CSRF müssen explizit im Header mitgeschickt werden
@@ -914,6 +1071,20 @@ class TestSuite:
 
             # Admin session needed to create sharing test user
             self.test_admin_login,
+            self.test_instance_config_get,
+            self.test_strict_cors_unknown_origin_rejected,
+            self.test_untrusted_proxy_ignores_forwarded_host,
+            self.test_instance_config_update,
+            self.test_instance_config_audit_written,
+            self.test_strict_cors_allowed_origin_preflight,
+            self.test_strict_cors_scheme_mismatch_rejected,
+            self.test_strict_cors_disallowed_request_header_rejected,
+            self.test_strict_cors_default_port_normalized,
+            self.test_strict_cors_missing_origin_allowed,
+            self.test_trusted_proxy_forwarded_link,
+            self.test_trusted_proxy_rejects_bad_forwarded_host,
+            self.test_trusted_proxy_wildcard_rejected,
+            self.test_set_trusted_proxies_script,
             self.test_admin_create_shared_user,
             self.test_shared_user_login,
             self.test_secondary_user_inbox_defaults,
