@@ -13,7 +13,8 @@ async function run() {
     const initialName = await page.locator('#workspace-current-name').textContent();
     if (initialName !== 'Privat') throw new Error('Default workspace missing');
 
-    await page.locator('.workspace-add-btn').click();
+    await page.locator('#workspace-current-btn').click();
+    await page.locator('.workspace-menu-add').click();
     await page.locator('#workspace-modal').waitFor({ state: 'visible', timeout: 5000 });
     await page.fill('#workspace-name', 'Beruflich');
     await page.locator('#workspace-modal .btn-primary').click();
