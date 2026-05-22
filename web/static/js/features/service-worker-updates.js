@@ -180,19 +180,8 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
     if (modalCurrent) modalCurrent.textContent = current || 'aktuelle Version';
   }
 
-  function activateWaitingWorker(worker) {
-    if (!worker) return false;
-    allowReloadOnControllerChange = true;
-    worker.postMessage({ action: 'skipWaiting' });
-    return true;
-  }
-
-  function markUpdateAvailable(worker = swRegistration?.waiting) {
+  function markUpdateAvailable() {
     updateAvailable = true;
-    if (isNativeApp() && activateWaitingWorker(worker)) {
-      console.log('SW: Native app update activated automatically');
-      return;
-    }
     showUpdateModal();
   }
 
@@ -213,7 +202,9 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
     const primary = document.getElementById('web-update-apply-btn');
     if (primary) primary.disabled = true;
     if (swRegistration && swRegistration.waiting) {
-      return activateWaitingWorker(swRegistration.waiting);
+      allowReloadOnControllerChange = true;
+      swRegistration.waiting.postMessage({ action: 'skipWaiting' });
+      return true;
     }
     console.log('SW: No waiting worker to activate');
     if (primary) primary.disabled = false;
