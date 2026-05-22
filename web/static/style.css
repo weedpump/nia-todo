@@ -2485,11 +2485,11 @@ input[type="color"]::-moz-color-swatch {
 
 .workspace-current-dot,
 .workspace-menu-dot {
-  width: 0.7rem;
-  height: 0.7rem;
+  width: 0.9rem;
+  height: 0.9rem;
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--bg-secondary) 72%, white 16%);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 10%, transparent);
+  border: 0;
+  box-shadow: none;
   flex: 0 0 auto;
 }
 
@@ -2721,6 +2721,9 @@ input[type="color"]::-moz-color-swatch {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  border: 0;
+  box-shadow: none;
+  background: transparent;
 }
 
 .workspace-current-dot.has-icon .entity-icon,
