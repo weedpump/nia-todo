@@ -441,6 +441,7 @@ async function handleWsMessage(msg) {
     case 'member_accepted':
     case 'member_declined':
     case 'member_removed':
+    case 'member_restored':
     case 'member_left':
     case 'member_color_changed':
       // refresh from server on sharing events
@@ -513,7 +514,7 @@ async function handleWsMessage(msg) {
     'project_create', 'project_update', 'project_delete',
     'section_create', 'section_update', 'section_delete',
     'workspace_create', 'workspace_update', 'workspace_delete',
-    'member_invited', 'member_accepted', 'member_declined', 'member_removed', 'member_left', 'member_color_changed',
+    'member_invited', 'member_accepted', 'member_declined', 'member_removed', 'member_restored', 'member_left', 'member_color_changed',
   ]);
   if (dataEvents.has(msg.type)) {
     renderProjects();
