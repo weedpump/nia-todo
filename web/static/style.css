@@ -1953,7 +1953,8 @@ input[type="color"]::-moz-color-swatch {
 }
 
 .native-server-card {
-  max-width: 420px;
+  width: min(calc(100% - 48px), 380px);
+  max-width: 380px;
   padding: 32px;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
@@ -2027,12 +2028,9 @@ input[type="color"]::-moz-color-swatch {
   gap: 10px;
 }
 
-.login-native-server-panel.collapsed .login-native-server-fields {
-  display: none;
-}
-
 .login-native-server-toggle {
   width: 100%;
+  justify-content: center;
 }
 
 .login-native-server-title {
