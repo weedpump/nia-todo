@@ -8,6 +8,7 @@ import sqlite3
 from db import get_db, now_iso
 from routers.auth import require_auth
 from services.utils import sanitize_text
+from services.appearance import normalize_color, normalize_icon
 from services.websocket import broadcast_change
 
 router = APIRouter(prefix="/api/workspaces")
@@ -75,6 +76,8 @@ def list_workspaces(user_id: int = Depends(require_auth)):
 @router.post("")
 async def create_workspace(data: WorkspaceCreate, user_id: int = Depends(require_auth)):
     data.name = sanitize_text(data.name)
+    data.color = normalize_color(data.color)
+    data.icon = normalize_icon(data.icon)
     if not data.name:
         raise HTTPException(422, "Workspace name required")
     with get_db() as db:
@@ -97,15 +100,19 @@ async def create_workspace(data: WorkspaceCreate, user_id: int = Depends(require
 
 @router.patch("/{workspace_id}")
 async def update_workspace(workspace_id: int, data: WorkspaceUpdate, user_id: int = Depends(require_auth)):
+    fields_set = getattr(data, "model_fields_set", getattr(data, "__fields_set__", set()))
     if data.name is not None:
         data.name = sanitize_text(data.name)
         if not data.name:
             raise HTTPException(422, "Workspace name required")
+    if "color" in fields_set:
+        data.color = normalize_color(data.color)
+    if "icon" in fields_set:
+        data.icon = normalize_icon(data.icon)
     with get_db() as db:
         existing = db.execute("SELECT * FROM workspaces WHERE id = ? AND user_id = ?", (workspace_id, user_id)).fetchone()
         if not existing:
             raise HTTPException(404, "Workspace not found")
-        fields_set = getattr(data, "model_fields_set", getattr(data, "__fields_set__", set()))
         updates = {}
         for field in ["name", "color", "icon", "sort_order"]:
             if field in fields_set:

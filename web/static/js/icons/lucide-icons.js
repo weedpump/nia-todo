@@ -77,8 +77,21 @@ export const ICON_PICKER = [
   'tag', 'bookmark', 'flag', 'map-pin', 'layout-dashboard', 'check-circle', 'flame', 'clock'
 ];
 
+export function safeColor(value, fallback = '#6366f1') {
+  const color = String(value || '').trim();
+  if (!/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(color)) return fallback;
+  if (color.length === 4) {
+    return `#${color.slice(1).split('').map(ch => ch + ch).join('')}`.toLowerCase();
+  }
+  return color.toLowerCase();
+}
+
+export function safeIconName(name) {
+  return Object.prototype.hasOwnProperty.call(ICONS, name) ? name : '';
+}
+
 export function iconSvg(name, className = 'ui-icon', attrs = '') {
-  const paths = ICONS[name] || ICONS.circle;
+  const paths = ICONS[safeIconName(name)] || ICONS.circle;
   return `<svg class="${className}" ${attrs} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
 }
 
@@ -91,23 +104,26 @@ export function hydrateIcons(root = document) {
 }
 
 export function markerHtml(item, dotClass = 'project-dot') {
-  const color = item?.color || '#6366f1';
-  if (item?.icon) {
-    return `<span class="entity-icon" style="color:${color}">${iconSvg(item.icon)}</span>`;
+  const color = safeColor(item?.color);
+  const icon = safeIconName(item?.icon);
+  if (icon) {
+    return `<span class="entity-icon" style="color:${color}">${iconSvg(icon)}</span>`;
   }
   return `<span class="${dotClass}" style="background:${color}"></span>`;
 }
 
 export function renderIconPicker({ container, input, selected = '', color = '#6366f1' }) {
   if (!container || !input) return;
-  input.value = selected || '';
+  const safeSelected = safeIconName(selected);
+  const safePickerColor = safeColor(color);
+  input.value = safeSelected;
   container.innerHTML = `
     <div class="icon-picker-grid">
-      <button type="button" class="icon-picker-option ${!selected ? 'active' : ''}" data-value="" title="Kein Icon">
-        <span class="icon-picker-dot" style="background:${color}"></span>
+      <button type="button" class="icon-picker-option ${!safeSelected ? 'active' : ''}" data-value="" title="Kein Icon">
+        <span class="icon-picker-dot" style="background:${safePickerColor}"></span>
       </button>
       ${ICON_PICKER.map(name => `
-        <button type="button" class="icon-picker-option ${selected === name ? 'active' : ''}" data-value="${name}" title="${name}" style="color:${color}">
+        <button type="button" class="icon-picker-option ${safeSelected === name ? 'active' : ''}" data-value="${name}" title="${name}" style="color:${safePickerColor}">
           ${iconSvg(name)}
         </button>
       `).join('')}

@@ -36,6 +36,11 @@ def column_exists(conn, table: str, column: str) -> bool:
     return any(row[1] == column for row in conn.execute(f"PRAGMA table_info({table})").fetchall())
 
 
+def add_column_if_missing(conn, table: str, column: str, definition: str):
+    if not column_exists(conn, table, column):
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+
+
 def repair_workspace_migration(conn):
     """Make migration 016 idempotent for DBs that already have workspace_id.
 
@@ -96,6 +101,13 @@ def repair_workspace_migration(conn):
     """)
 
 
+def repair_icon_migration(conn):
+    """Make migration 017 idempotent if one icon column was already added."""
+    add_column_if_missing(conn, "projects", "icon", "TEXT")
+    add_column_if_missing(conn, "workspaces", "icon", "TEXT")
+    conn.commit()
+
+
 def get_migration_files():
     """Holt alle Migrations-Dateien sortiert nach Nummer."""
     if not MIGRATIONS_DIR.exists():
@@ -149,6 +161,11 @@ def run_migrations():
                 if version == 16 and "duplicate column" in error_msg and column_exists(conn, "projects", "workspace_id"):
                     print(f"[MIGRATION] ⚠️ {filepath.name} - workspace_id exists, repairing remaining workspace schema")
                     repair_workspace_migration(conn)
+                    set_db_version(conn, version)
+                    applied += 1
+                elif version == 17 and "duplicate column" in error_msg:
+                    print(f"[MIGRATION] ⚠️ {filepath.name} - icon column exists, repairing remaining icon schema")
+                    repair_icon_migration(conn)
                     set_db_version(conn, version)
                     applied += 1
                 elif "duplicate column" in error_msg or "already exists" in error_msg:

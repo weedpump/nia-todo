@@ -9,6 +9,7 @@ from db import get_db, now_iso
 from routers.auth import require_auth
 from services.websocket import broadcast_change
 from services.utils import sanitize_text
+from services.appearance import normalize_color, normalize_icon
 from services.sharing import can_access_project, can_edit_project, get_project_ids_for_user
 
 router = APIRouter(prefix="/api/projects")
@@ -90,6 +91,8 @@ def list_projects(user_id: int = Depends(require_auth)):
 @router.post("")
 async def create_project(data: ProjectCreate, user_id: int = Depends(require_auth)):
     data.name = sanitize_text(data.name)
+    data.color = normalize_color(data.color)
+    data.icon = normalize_icon(data.icon)
     with get_db() as db:
         workspace_id = data.workspace_id or get_user_default_workspace_id(db, user_id)
         workspace = db.execute("SELECT id FROM workspaces WHERE id = ? AND user_id = ?", (workspace_id, user_id)).fetchone()
@@ -117,15 +120,19 @@ async def create_project(data: ProjectCreate, user_id: int = Depends(require_aut
 
 @router.patch("/{project_id}")
 async def update_project(project_id: int, data: ProjectUpdate, user_id: int = Depends(require_auth)):
+    fields_set = getattr(data, "model_fields_set", getattr(data, "__fields_set__", set()))
     if data.name is not None:
         data.name = sanitize_text(data.name)
+    if "color" in fields_set:
+        data.color = normalize_color(data.color)
+    if "icon" in fields_set:
+        data.icon = normalize_icon(data.icon)
     with get_db() as db:
         existing = db.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
         if not existing:
             raise HTTPException(404, "Project not found")
         if not can_edit_project(db, project_id, user_id):
             raise HTTPException(403, "Only the owner can edit this project")
-        fields_set = getattr(data, "model_fields_set", getattr(data, "__fields_set__", set()))
         if "parent_id" in fields_set and data.parent_id is not None:
             if data.parent_id == project_id:
                 raise HTTPException(400, "Project cannot be its own parent")
