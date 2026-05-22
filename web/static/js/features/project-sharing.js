@@ -1,3 +1,5 @@
+import { iconSvg } from '../icons/lucide-icons.js';
+
 export function createProjectSharingFeature({
   getProjects,
   setProjects,
@@ -83,7 +85,7 @@ export function createProjectSharingFeature({
       const usernamePart = member.display_name && member.display_name !== member.username ? ` <span class="sharing-display">(${escapeHtml(member.username)})</span>` : '';
       const status = member.status === 'pending' ? '<span class="sharing-pending">ausstehend</span>' : '';
       const remove = isOwner(currentProject) && member.user_id !== currentProject.user_id
-        ? `<button class="sharing-remove" data-remove-member="${member.user_id}" title="Entfernen" aria-label="Mitglied entfernen">✕</button>`
+        ? `<button class="sharing-remove" data-remove-member="${member.user_id}" title="Entfernen" aria-label="Mitglied entfernen">${iconSvg('x')}</button>`
         : '';
       rows.push(`
         <div class="sharing-member-row">

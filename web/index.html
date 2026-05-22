@@ -202,9 +202,9 @@
     <main class="main">
       <!-- Top bar -->
       <div class="topbar">
-        <button class="hamburger" onclick="toggleSidebar()">☰</button>
+        <button class="hamburger" onclick="toggleSidebar()" aria-label="Menü öffnen"><span data-icon="menu"></span></button>
         <div class="search-box">
-          <input type="text" id="search-input" placeholder="🔍 Todo suchen..." oninput="renderTodos()">
+          <input type="text" id="search-input" placeholder="Todo suchen..." oninput="renderTodos()">
         </div>
         <div class="topbar-actions">
           <span id="online-status" class="status-online"></span>
@@ -228,7 +228,7 @@
     <div class="modal-overlay" onclick="closeModal('todo-modal')"></div>
     <div class="modal-content">
       <h3 id="todo-modal-title">Neues Todo</h3>
-      <button class="modal-close-x" onclick="closeModal('todo-modal')">✕</button>
+      <button class="modal-close-x" onclick="closeModal('todo-modal')"><span data-icon="x"></span></button>
       <div class="modal-body">
       <form id="todo-form" onsubmit="saveTodo(event)">
         <input type="hidden" id="todo-id">
@@ -299,7 +299,7 @@
     <div class="modal-overlay" onclick="cancelAvatarCrop()"></div>
     <div class="modal-content avatar-crop-modal-content">
       <h3><span data-icon="image"></span> Avatar zuschneiden</h3>
-      <button class="modal-close-x" onclick="cancelAvatarCrop()">✕</button>
+      <button class="modal-close-x" onclick="cancelAvatarCrop()"><span data-icon="x"></span></button>
       <div class="avatar-crop-body">
         <div class="avatar-crop-stage" id="avatar-crop-stage">
           <img id="avatar-crop-image" alt="Avatar-Vorschau" draggable="false">
@@ -334,7 +334,7 @@
     <div class="modal-overlay" onclick="closeModal('settings-modal')"></div>
     <div class="modal-content">
       <h3><span data-icon="settings"></span> Einstellungen</h3>
-      <button class="modal-close-x" onclick="closeModal('settings-modal')">✕</button>
+      <button class="modal-close-x" onclick="closeModal('settings-modal')"><span data-icon="x"></span></button>
       <div class="modal-body">
         <div class="settings-profile-card">
           <button type="button" class="settings-avatar-button" onclick="document.getElementById('settings-avatar-input').click()" title="Avatar ändern">
@@ -384,7 +384,7 @@
         <div id="settings-pw-error" style="color:var(--danger); font-size:13px; margin-top:8px;"></div>
         <div id="settings-pw-success" style="color:var(--success); font-size:13px; margin-top:8px;"></div>
         <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">
-        <h4 style="margin:0 0 12px 0; font-size:14px;">🔑 API-Keys</h4>
+        <h4 style="margin:0 0 12px 0; font-size:14px;"><span data-icon="key-round"></span> API-Keys</h4>
         <div id="api-keys-list" style="margin-bottom:12px;">
           <!-- API keys loaded dynamically -->
         </div>
@@ -462,7 +462,7 @@
     <div class="modal-overlay" onclick="closeWorkspaceModal()"></div>
     <div class="modal-content small-modal">
       <h3 id="workspace-modal-title">Neuer Workspace</h3>
-      <button class="modal-close-x" onclick="closeWorkspaceModal()">✕</button>
+      <button class="modal-close-x" onclick="closeWorkspaceModal()"><span data-icon="x"></span></button>
       <div class="modal-body">
         <form id="workspace-form" onsubmit="saveWorkspace(event)">
           <input type="hidden" id="workspace-id">
@@ -496,7 +496,7 @@
     <div class="modal-overlay" onclick="closeModal('project-modal')"></div>
     <div class="modal-content">
       <h3 id="project-modal-title">Neues Projekt</h3>
-      <button class="modal-close-x" onclick="closeModal('project-modal')">✕</button>
+      <button class="modal-close-x" onclick="closeModal('project-modal')"><span data-icon="x"></span></button>
       <div class="modal-body">
       <form id="project-form" onsubmit="saveProject(event)">
         <input type="hidden" id="project-id">
@@ -553,7 +553,7 @@
   <div class="toast-container" id="toast-container" style="display:none;">
     <span id="toast-message"></span>
     <button class="toast-undo" id="toast-undo" onclick="undoLastAction()">Rückgängig</button>
-    <button class="toast-close" onclick="hideToast()">✕</button>
+    <button class="toast-close" onclick="hideToast()"><span data-icon="x"></span></button>
   </div>
 
   <script type="module" src="/static/js/main.js"></script>

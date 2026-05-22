@@ -2452,10 +2452,10 @@ input[type="color"]::-moz-color-swatch {
 
 .workspace-current-btn,
 .workspace-add-btn {
-  border: 1px solid rgba(99, 102, 241, 0.35);
-  background: linear-gradient(135deg, rgba(99,102,241,0.22), rgba(36,36,66,0.92));
+  border: 1px solid color-mix(in srgb, var(--accent) 32%, var(--border));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 14%, var(--bg-secondary)), var(--bg-tertiary));
   color: var(--text-primary);
-  box-shadow: 0 8px 22px rgba(0,0,0,0.18);
+  box-shadow: var(--shadow);
   cursor: pointer;
   transition: border-color 0.15s ease, transform 0.15s ease, background 0.15s ease;
 }
@@ -2475,8 +2475,8 @@ input[type="color"]::-moz-color-swatch {
 
 .workspace-current-btn:hover,
 .workspace-add-btn:hover {
-  border-color: rgba(129, 140, 248, 0.75);
-  background: linear-gradient(135deg, rgba(99,102,241,0.32), rgba(45,45,82,0.98));
+  border-color: color-mix(in srgb, var(--accent-hover) 72%, var(--border));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 20%, var(--bg-secondary)), var(--bg-hover));
   transform: translateY(-1px);
 }
 
@@ -2485,7 +2485,7 @@ input[type="color"]::-moz-color-swatch {
   width: 0.7rem;
   height: 0.7rem;
   border-radius: 999px;
-  box-shadow: 0 0 0 3px rgba(255,255,255,0.08);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--bg-primary) 70%, transparent);
   flex: 0 0 auto;
 }
 
@@ -2523,10 +2523,10 @@ input[type="color"]::-moz-color-swatch {
   left: 0;
   right: 0;
   padding: 0.35rem;
-  border: 1px solid rgba(99, 102, 241, 0.32);
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
   border-radius: 0.9rem;
-  background: rgba(26, 26, 46, 0.98);
-  box-shadow: 0 18px 45px rgba(0,0,0,0.38);
+  background: color-mix(in srgb, var(--bg-secondary) 96%, transparent);
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.18);
   backdrop-filter: blur(12px);
 }
 
@@ -2547,7 +2547,7 @@ input[type="color"]::-moz-color-swatch {
 }
 
 .workspace-menu-row.active {
-  background: rgba(99, 102, 241, 0.18);
+  background: color-mix(in srgb, var(--accent) 13%, transparent);
 }
 
 .workspace-menu-choice,
@@ -2579,13 +2579,19 @@ input[type="color"]::-moz-color-swatch {
 .workspace-menu-choice:hover,
 .workspace-menu-edit:hover,
 .workspace-menu-add:hover {
-  background: rgba(255,255,255,0.07);
+  background: var(--bg-hover);
 }
 
 .workspace-menu-check {
   margin-left: auto;
-  color: var(--success);
-  font-weight: 800;
+  color: var(--accent-hover);
+  display: inline-flex;
+  align-items: center;
+}
+
+.workspace-menu-check .ui-icon {
+  width: 15px;
+  height: 15px;
 }
 
 .workspace-menu-edit {
@@ -2605,7 +2611,7 @@ input[type="color"]::-moz-color-swatch {
   width: 100%;
   margin-top: 0.35rem;
   padding: 0.6rem 0.65rem;
-  border-top: 1px solid rgba(255,255,255,0.08);
+  border-top: 1px solid var(--border);
   color: var(--accent-hover);
   text-align: left;
   border-radius: 0.65rem;
