@@ -2485,7 +2485,8 @@ input[type="color"]::-moz-color-swatch {
   width: 0.7rem;
   height: 0.7rem;
   border-radius: 999px;
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--bg-primary) 70%, transparent);
+  border: 1px solid color-mix(in srgb, var(--bg-secondary) 72%, white 16%);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 10%, transparent);
   flex: 0 0 auto;
 }
 
