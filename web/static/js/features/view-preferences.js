@@ -41,7 +41,7 @@ export function createViewPreferencesFeature({ getHideDone, setHideDone, getSort
     const labelEl = btn.querySelector('.menu-item-label');
     const visible = getShowProjectWidget();
     const icon = visible ? '📊' : '▭';
-    const title = visible ? 'Projekt-Widget ausblenden' : 'Projekt-Widget anzeigen';
+    const title = 'Projekt Widget';
     if (iconEl && labelEl) {
       iconEl.textContent = icon;
       labelEl.textContent = title;
@@ -66,8 +66,8 @@ export function createViewPreferencesFeature({ getHideDone, setHideDone, getSort
     if (!btn) return;
     const config = {
       order: { icon: '⇅', title: 'Sortierung: Reihenfolge' },
-      priority: { icon: 'P1', title: 'Sortierung: Priorität (hoch→niedrig)' },
-      alpha: { icon: 'AZ', title: 'Sortierung: Alphabetisch (A→Z)' },
+      priority: { icon: 'P1', title: 'Sortierung: Priorität' },
+      alpha: { icon: 'AZ', title: 'Sortierung: A-Z' },
     };
     const c = config[getSortMode()] || config.order;
     const iconEl = btn.querySelector('.menu-item-icon');
