@@ -31,6 +31,7 @@ async function run() {
     await page.locator('#login-overlay').waitFor({ state: 'hidden', timeout: 10000 });
     await visible('#sidebar');
     await waitForText('Inbox');
+    await page.locator('.nav-btn.active[data-filter="all"]').waitFor({ state: 'visible', timeout: 10000 });
 
     await page.click('#user-menu-button');
     await page.click('#theme-toggle-btn');
