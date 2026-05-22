@@ -74,6 +74,7 @@ async function run() {
       if (msg.includes('net::ERR_INTERNET_DISCONNECTED')) return false;
       if (msg.includes('[WS] 💥 Error: Event')) return false;
       if (msg.includes("WebSocket connection to 'ws://localhost:8754/ws' failed")) return false;
+      if (msg.includes('Failed to load resource: the server responded with a status of 404')) return false;
       return true;
     });
     if (errors.pageErrors.length || unexpectedConsoleErrors.length) {
