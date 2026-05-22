@@ -6,7 +6,7 @@ After=network.target
 Type=simple
 WorkingDirectory=~/projects/nia-todo/api
 Environment="NIA_TODO_DB=nia-todo.db"
-ExecStart=/usr/bin/python3 -m uvicorn main:app --host 0.0.0.0 --port 8753
+ExecStart=/usr/bin/python3 -m uvicorn main:app --host 0.0.0.0 --port 8753 --no-proxy-headers
 Restart=always
 RestartSec=5
 User=root
