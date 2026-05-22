@@ -5,6 +5,22 @@ Alle wichtigen Änderungen an diesem Projekt werden in dieser Datei dokumentiert
 Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [1.7.0] - 2026-05-22
+
+### Added
+- Native Windows-/Android-App-Versionen sind von der Web-App-Version entkoppelt.
+- Web-App zeigt verfügbare native App-Updates mit Downloadbutton an.
+- Installierte native App-Version wird im Sidebar-Footer angezeigt.
+- Separate Changelogs für Windows- und Android-App ergänzt.
+
+### Changed
+- Release-Script baut native Apps nur noch optional per `--build-windows` und `--build-android`.
+- Service-Worker-Update-Hinweis ist jetzt ein verpflichtendes Fullscreen-Modal statt Sidebar-Button.
+- Update-Checks laufen robuster bei App-Start, Fokus, Online-Event und periodisch, ohne Offline-Start zu blockieren.
+
+### Fixed
+- Release-Flow schützt Runtime-Download-Manifest und temporäre Tauri-Versionen besser vor kaputten Zwischenständen.
+
 ## [1.6.5] - 2026-05-22
 
 ### Fixed
