@@ -51,7 +51,8 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .email-edit input { min-width: 0; width: 100%; padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-primary); color: var(--text-primary); font-size: 13px; }
 .email-edit .btn-ghost { padding: 4px; width: 28px; height: 28px; line-height: 1; }
 .admin-nav { display: flex; gap: 12px; align-items: center; }
-.admin-nav .btn { height: 32px; min-height: 32px; padding: 0 12px; line-height: 1; text-decoration: none; box-sizing: border-box; }
+.admin-back-btn { height: 32px; min-height: 32px; padding: 0 12px; box-sizing: border-box; border-radius: var(--radius); background: var(--accent); color: white; text-decoration: none; font-size: 13px; font-weight: 600; line-height: 32px; display: inline-block; }
+.admin-back-btn:hover { background: var(--accent-hover); }
 .empty-state { text-align: center; padding: 40px; color: var(--text-muted); }
 .admin-theme-toggle { display: flex; gap: 6px; }
 .admin-theme-toggle button { width: 32px; height: 32px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-primary); color: var(--text-secondary); cursor: pointer; display:inline-flex; align-items:center; justify-content:center; transition: background .15s, border-color .15s, color .15s, transform .1s; }
@@ -91,7 +92,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
   <div class="admin-header">
     <h1><span data-icon="shield"></span> nia-todo Admin</h1>
     <div class="admin-nav">
-      <a class="btn btn-primary" href="/"><span data-icon="arrow-left"></span> Zurück zur App</a>
+      <a class="admin-back-btn" href="/">Zurück zur App</a>
       <div class="admin-theme-toggle">
         <button data-theme="light" onclick="setTheme('light')" title="Hell"><span data-icon="sun"></span></button>
         <button data-theme="dark" onclick="setTheme('dark')" title="Dunkel"><span data-icon="moon"></span></button>
