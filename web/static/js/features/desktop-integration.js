@@ -1,3 +1,5 @@
+import { RUNTIME_CAPABILITIES, getTauri, getTauriInvoke, normalizeServerUrl as normalizeRuntimeServerUrl } from '../core/config.js';
+
 const DEFAULT_SETTINGS = {
   minimizeToTray: true,
   autostart: false,
@@ -9,20 +11,8 @@ const DEFAULT_SETTINGS = {
   },
 };
 
-function getTauri() {
-  return window.__TAURI__ || null;
-}
-
-function getInvoke() {
-  return getTauri()?.core?.invoke || null;
-}
-
-function hasNativeLaunchParam() {
-  return new URLSearchParams(location.search).get('nativeApp') === 'tauri';
-}
-
 function isNativeApp() {
-  return Boolean(getInvoke()) || hasNativeLaunchParam();
+  return RUNTIME_CAPABILITIES.native;
 }
 
 function nativeLaunchUrl(serverUrl) {
@@ -32,11 +22,11 @@ function nativeLaunchUrl(serverUrl) {
 }
 
 function isAndroidApp() {
-  return isNativeApp() && /Android/i.test(navigator.userAgent || '');
+  return RUNTIME_CAPABILITIES.android;
 }
 
 function isDesktopApp() {
-  return isNativeApp() && !isAndroidApp();
+  return RUNTIME_CAPABILITIES.desktop;
 }
 
 function getAndroidNative() {
@@ -52,7 +42,7 @@ function hasAndroidNativeReminderScheduler() {
 }
 
 async function invokeDesktop(command, args = {}) {
-  const invoke = getInvoke();
+  const invoke = getTauriInvoke();
   if (!invoke) throw new Error('Tauri API not available');
   return invoke(command, args);
 }
@@ -128,13 +118,6 @@ function hotkeyFromKeyboardEvent(event) {
   return parts.join('+');
 }
 
-function normalizeServerUrl(value) {
-  const raw = String(value || '').trim().replace(/\/+$/, '');
-  const url = new URL(raw);
-  if (!['http:', 'https:'].includes(url.protocol)) throw new Error('Bitte eine http(s)-URL eingeben.');
-  return url.origin + url.pathname.replace(/\/+$/, '');
-}
-
 function setDesktopStatus(text, danger = false) {
   const el = document.getElementById('desktop-settings-status');
   if (!el) return;
@@ -158,8 +141,8 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
   }
 
   function renderSettings() {
-    const native = isNativeApp();
-    const desktop = isDesktopApp();
+    const native = RUNTIME_CAPABILITIES.nativeSettings;
+    const desktop = RUNTIME_CAPABILITIES.nativeHotkeys;
     const section = document.getElementById('desktop-settings-section');
     const browserPushSection = document.getElementById('browser-push-settings-section');
     const desktopOnlySections = document.querySelectorAll('[data-desktop-only]');
@@ -332,7 +315,7 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
   async function updateServerUrl(value) {
     if (!isNativeApp()) return;
     try {
-      const serverUrl = normalizeServerUrl(value);
+      const serverUrl = normalizeRuntimeServerUrl(value);
       settings = mergeSettings(await invokeDesktop('desktop_set_server_url', { serverUrl }));
       setDesktopStatus('Server gespeichert. App lädt neu...');
       setTimeout(() => location.replace(nativeLaunchUrl(serverUrl)), 250);
