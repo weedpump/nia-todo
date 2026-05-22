@@ -15,6 +15,7 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 - Lokales Lucide-SVG-Iconset als offline-/PWA-freundliche Icon-Basis ergänzt.
 - Optionale Icons für Projekte und Workspaces ergänzt; gesetzte Icons nutzen die jeweilige Projekt-/Workspace-Farbe.
 - Einklappbarer Icon-Picker mit Suche, Kategorien und allen lokal verfügbaren Lucide-Icons ergänzt.
+- Lokale Designfarben-Presets in den User-Einstellungen ergänzt: Standard plus sechs Akzentdesigns für Hell- und Dunkeltheme.
 - Neues App-eigenes Danger-Confirm-Modal für Löschen von Todos, Projekten, Sections und Workspaces.
 - Frontend-/Backend-Regressionstests für Workspaces, Sharing, Workspace-Inboxes, Projektlöschung und Realtime-Sync ergänzt.
 
