@@ -380,8 +380,8 @@ class TestSuite:
         if ok(status) and data:
             self.created_ids["user"].append(data.get("id"))
         setup_url = data.get("password_setup_url", "") if data else ""
-        passed = ok(status) and data and "untrusted.example.invalid" not in setup_url and setup_url.startswith("https://localhost:8754/set-password?token=")
-        self.results["untrusted_proxy_ignores_forwarded_host"] = {"status": status, "passed": passed, "expected": "200 + forwarded host ignored", "url": setup_url}
+        passed = ok(status) and data and "untrusted.example.invalid" not in setup_url and setup_url.startswith("http://localhost:8754/set-password?token=")
+        self.results["untrusted_proxy_ignores_forwarded_host"] = {"status": status, "passed": passed, "expected": "200 + forwarded host/proto ignored", "url": setup_url}
         return passed
 
     def test_strict_cors_missing_origin_allowed(self):
@@ -401,6 +401,16 @@ class TestSuite:
             self.created_ids["user"].append(data.get("id"))
         passed = ok(status) and data and data.get("password_setup_url", "").startswith("https://proxy.example.invalid/set-password?token=")
         self.results["trusted_proxy_forwarded_link"] = {"status": status, "passed": passed, "expected": "200 + forwarded public URL"}
+        return passed
+
+    def test_trusted_proxy_wildcard_rejected(self):
+        status, data = curl("PATCH", "/api/admin/instance-config", {
+            "public_base_url": "",
+            "allowed_origins": ["https://allowed.example"],
+            "trusted_proxies": ["0.0.0.0/0"],
+        }, token=self.admin_token, csrf=self.admin_csrf, cookie_jar="/tmp/nia_admin_cookies.txt")
+        passed = status == 400 and data and "gesamte Internet" in data.get("detail", "")
+        self.results["trusted_proxy_wildcard_rejected"] = {"status": status, "passed": passed, "expected": "400 + wildcard proxy rejected"}
         return passed
 
     def test_set_trusted_proxies_script(self):
@@ -1073,6 +1083,7 @@ class TestSuite:
             self.test_strict_cors_missing_origin_allowed,
             self.test_trusted_proxy_forwarded_link,
             self.test_trusted_proxy_rejects_bad_forwarded_host,
+            self.test_trusted_proxy_wildcard_rejected,
             self.test_set_trusted_proxies_script,
             self.test_admin_create_shared_user,
             self.test_shared_user_login,

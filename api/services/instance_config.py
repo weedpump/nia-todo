@@ -111,9 +111,12 @@ def normalize_trusted_proxies(value: Any) -> list[str]:
         if not entry:
             continue
         try:
-            item = str(ipaddress.ip_network(entry, strict=False))
+            network = ipaddress.ip_network(entry, strict=False)
         except ValueError:
             raise HTTPException(400, f"Ungültiger Trusted Proxy: {entry}")
+        if network.prefixlen == 0:
+            raise HTTPException(400, f"Trusted Proxy darf nicht das gesamte Internet umfassen: {entry}")
+        item = str(network)
         if item not in seen:
             normalized.append(item)
             seen.add(item)
