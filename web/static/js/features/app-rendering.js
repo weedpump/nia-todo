@@ -1,4 +1,4 @@
-import { iconSvg, markerHtml } from '../icons/lucide-icons.js';
+import { iconSvg, markerHtml, safeColor, safeIconName } from '../icons/lucide-icons.js';
 
 export function createAppRenderingFeature({
   appVersion,
@@ -333,12 +333,12 @@ export function createAppRenderingFeature({
       { cls: 'progress', icon: iconSvg('flame'), num: projectTodos.filter(t => t.status === 'in_progress').length, label: 'In Arbeit', hint: 'Aktiv bearbeitet' },
       { cls: 'due', icon: iconSvg('triangle-alert'), num: overdue, label: 'Überfällig', hint: 'Brauchen Aufmerksamkeit' },
     ];
-    const color = project.color || '#6366f1';
+    const color = safeColor(project.color);
     const subtitle = project.is_shared ? 'Geteiltes Projekt' : 'Projektübersicht';
     return `<section class="overview-dashboard project-dashboard" aria-label="Projekt-Dashboard">
       <div class="overview-dashboard-header project-dashboard-header">
         <div class="overview-greeting">
-          <span class="project-dashboard-avatar" style="--project-color:${escapeHtmlAttr(color)}">${project.icon ? iconSvg(project.icon) : '<span class="project-dashboard-dot"></span>'}</span>
+          <span class="project-dashboard-avatar" style="--project-color:${escapeHtmlAttr(color)}">${safeIconName(project.icon) ? iconSvg(project.icon) : '<span class="project-dashboard-dot"></span>'}</span>
           <div>
             <div class="overview-kicker">Projekt</div>
             <h2>${escapeHtml(project.name)}</h2>
@@ -463,10 +463,9 @@ export function createAppRenderingFeature({
         const items = byProject.get(pid);
         const project = projects.find(p => p.id === pid);
         if (project) {
-          const color = project.color || '#6366f1';
           html += `<div class="project-group">
             <div class="project-group-header">
-              <span class="project-dot" style="background:${color}"></span>
+              ${markerHtml(project)}
               <span class="project-group-name">${escapeHtml(project.name)}</span>
               <span class="project-group-count">${items.length}</span>
             </div>
