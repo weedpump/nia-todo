@@ -60,6 +60,7 @@ assert(desktopSource.includes('if (event.repeat) return null'), 'hotkey capture 
 assert(desktopSource.includes('if (isModifierKey(event)) return'), 'hotkey capture must not save a bare modifier as the main key');
 assert(!desktopSource.includes('window.NiaAndroidNative'), 'desktop integration must use the native bridge adapter, not direct Android globals');
 assert(!desktopSource.includes('getTauriInvoke'), 'desktop integration must use the native bridge adapter, not direct Tauri invoke');
+assert(desktopSource.includes('userId,'), 'native reminder schedules must carry the current user id for action isolation');
 
 const downloadsSource = readFileSync(new URL('../web/static/js/features/app-downloads.js', import.meta.url), 'utf8');
 assert(downloadsSource.includes('RUNTIME_CAPABILITIES.appDownloads && !isStandaloneDisplayMode()'), 'app downloads must only render when browser download capability is enabled, not native/PWA');
@@ -67,6 +68,14 @@ assert(!downloadsSource.includes('window.NiaAndroidNative'), 'app downloads must
 const themeSource = readFileSync(new URL('../web/static/js/features/theme.js', import.meta.url), 'utf8');
 assert(!themeSource.includes('window.NiaAndroidNative') && !themeSource.includes('window.NiaAndroidSystemBars'), 'theme must use the native bridge adapter for Android system bars');
 assert(nativeBridgeSource.includes('window.NiaAndroidNative'), 'native bridge is the only frontend feature module expected to access Android globals directly');
+const appSource = readFileSync(new URL('../web/static/js/app.js', import.meta.url), 'utf8');
+assert(!appSource.includes('window.NiaAndroidNative'), 'app core must consume notification actions through the native bridge, not Android globals');
+assert(appSource.includes('actionUserId') && appSource.includes('currentUser.id'), 'native notification done actions must be checked against the current user');
+const androidMainSource = readFileSync(new URL('../src-tauri/gen/android/app/src/main/java/de/tobiaskneidl/nia_todo/MainActivity.kt', import.meta.url), 'utf8');
+assert(!androidMainSource.includes('indexedDB.open'), 'Android notification actions must not inject direct IndexedDB writes');
+assert(androidMainSource.includes('consumePendingDoneAction'), 'Android notification actions must be handed to the web app through a pending action bridge');
+const androidReminderSource = readFileSync(new URL('../src-tauri/gen/android/app/src/main/java/de/tobiaskneidl/nia_todo/ReminderReceiver.kt', import.meta.url), 'utf8');
+assert(androidReminderSource.includes('EXTRA_USER_ID') && androidReminderSource.includes('schedule.optString("userId"'), 'Android reminder actions must preserve the scheduled user id');
 assert(swSource.includes('/static/js/features/app-downloads.js'), 'service worker must precache the app downloads module');
 assert(swSource.includes('/static/js/features/native-bridge.js'), 'service worker must precache the native bridge module');
 
