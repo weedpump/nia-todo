@@ -57,23 +57,6 @@ def ensure_workspace_inbox(db, user_id: int, workspace_id: int) -> int:
     return c.lastrowid
 
 
-def unique_project_name(db, user_id: int, workspace_id: int, desired_name: str, exclude_project_id: Optional[int] = None) -> str:
-    base = desired_name.strip() or "Projekt"
-    candidate = base
-    suffix = 2
-    while True:
-        params = [user_id, workspace_id, candidate]
-        sql = "SELECT id FROM projects WHERE user_id = ? AND workspace_id = ? AND name = ?"
-        if exclude_project_id is not None:
-            sql += " AND id != ?"
-            params.append(exclude_project_id)
-        row = db.execute(sql, params).fetchone()
-        if not row:
-            return candidate
-        candidate = f"{base} ({suffix})"
-        suffix += 1
-
-
 @router.get("")
 def list_workspaces(user_id: int = Depends(require_auth)):
     with get_db() as db:
@@ -154,21 +137,18 @@ def delete_workspace(workspace_id: int, user_id: int = Depends(require_auth)):
         db.execute("DELETE FROM sections WHERE project_id = ?", (source_inbox_id,))
         db.execute("DELETE FROM projects WHERE id = ? AND user_id = ?", (source_inbox_id, user_id))
 
-        moved = []
         projects = db.execute(
-            """SELECT * FROM projects
+            """SELECT id FROM projects
                WHERE user_id = ? AND workspace_id = ?
                ORDER BY CASE WHEN parent_id IS NULL THEN 0 ELSE 1 END, parent_id, sort_order, id""",
             (user_id, workspace_id),
         ).fetchall()
         for project in projects:
-            new_name = unique_project_name(db, user_id, default_id, project["name"], project["id"])
             db.execute(
-                "UPDATE projects SET workspace_id = ?, name = ?, updated_at = ? WHERE id = ? AND user_id = ?",
-                (default_id, new_name, now_iso(), project["id"], user_id),
+                "UPDATE projects SET workspace_id = ?, updated_at = ? WHERE id = ? AND user_id = ?",
+                (default_id, now_iso(), project["id"], user_id),
             )
-            moved.append({"id": project["id"], "old_name": project["name"], "new_name": new_name})
 
         db.execute("DELETE FROM workspaces WHERE id = ? AND user_id = ?", (workspace_id, user_id))
         db.commit()
-        return {"deleted": workspace_id, "moved_projects_to": default_id, "moved_projects": moved}
+        return {"deleted": workspace_id, "moved_projects_to": default_id, "moved_projects": [dict(p) for p in projects]}

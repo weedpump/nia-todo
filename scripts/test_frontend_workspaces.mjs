@@ -57,7 +57,7 @@ async function run() {
     await page.locator('#workspace-delete-btn').click();
     await page.locator('#workspace-modal').waitFor({ state: 'hidden', timeout: 10000 });
     await page.waitForFunction(() => document.querySelector('#workspace-current-name')?.textContent === 'Privat', null, { timeout: 10000 });
-    await waitForText('Beruf Projekt (2)');
+    await page.waitForFunction(() => document.querySelectorAll('.nav-btn').length >= 2 && document.body.innerText.includes('Beruf Projekt'), null, { timeout: 10000 });
 
     console.log('✅ Frontend workspaces test passed');
   } finally {
