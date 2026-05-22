@@ -26,6 +26,14 @@ export function createAppRenderingFeature({
     }
     versionText.textContent = appVersion;
 
+    if (!el.querySelector('.version-separator')) {
+      const separator = document.createElement('span');
+      separator.className = 'version-separator';
+      separator.setAttribute('aria-hidden', 'true');
+      separator.textContent = '|';
+      versionText.insertAdjacentElement('afterend', separator);
+    }
+
     if (!el.querySelector('#force-refresh-btn')) {
       const button = document.createElement('button');
       button.type = 'button';
