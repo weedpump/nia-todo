@@ -22,7 +22,7 @@ body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify
 .setup-subtitle { font-size: 14px; color: var(--text-muted); }
 .setup-step { display: none; }
 .setup-step.active { display: block; }
-.setup-step h2 { font-size: 18px; margin-bottom: 8px; color: var(--text-primary); }
+.setup-step h2 { font-size: 18px; margin-bottom: 8px; color: var(--text-primary); display:inline-flex; align-items:center; gap:8px; }
 .setup-step p { font-size: 13px; color: var(--text-secondary); margin-bottom: 20px; }
 .setup-field { margin-bottom: 16px; }
 .setup-field label { display: block; font-size: 13px; font-weight: 500; color: var(--text-secondary); margin-bottom: 6px; }
@@ -37,7 +37,10 @@ body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify
 .step-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--border); transition: background 0.3s; }
 .step-dot.active { background: var(--accent); }
 .setup-theme-toggle { display: flex; justify-content: center; gap: 8px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
-.setup-theme-toggle button { width: 36px; height: 36px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-primary); cursor: pointer; font-size: 16px; }
+.setup-theme-toggle button { width: 36px; height: 36px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-primary); color: var(--text-primary); cursor: pointer; display:inline-flex; align-items:center; justify-content:center; }
+.ui-icon { width: 1em; height: 1em; display:inline-block; vertical-align:-0.14em; }
+.success-icon { width:48px; height:48px; margin:0 auto 16px; color:var(--success); }
+.success-icon .ui-icon { width:48px; height:48px; }
 .setup-theme-toggle button:hover { background: var(--bg-secondary); }
 </style>
 </head>
@@ -57,7 +60,7 @@ body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify
 
     <!-- Step 1: Admin Password -->
     <div class="setup-step active" id="step-1">
-      <h2>🔐 Admin-Passwort festlegen</h2>
+      <h2><span data-icon="lock-keyhole"></span> Admin-Passwort festlegen</h2>
       <p>Dieses Passwort wird für die Verwaltung von Benutzern benötigt.<br><strong>Anforderungen:</strong> Mindestens 12 Zeichen, 1 Groß- und 1 Kleinbuchstabe, 1 Ziffer, 1 Sonderzeichen.</p>
       <div class="setup-field">
         <label>Admin-Passwort</label>
@@ -73,7 +76,7 @@ body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify
 
     <!-- Step 2: First User -->
     <div class="setup-step" id="step-2">
-      <h2>👤 Ersten Benutzer erstellen</h2>
+      <h2><span data-icon="user-plus"></span> Ersten Benutzer erstellen</h2>
       <p>Dieser Benutzer erhält alle bestehenden Daten und ist der erste Benutzer. Die E-Mail ist Pflicht und wird später der Login-Name.<br><strong>Passwort-Anforderungen:</strong> Mindestens 8 Zeichen, 1 Groß- und 1 Kleinbuchstabe, 1 Ziffer, 1 Sonderzeichen.</p>
       <div class="setup-field">
         <label>Benutzername</label>
@@ -98,20 +101,24 @@ body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify
     <!-- Success -->
     <div class="setup-step" id="step-success">
       <div style="text-align: center; padding: 20px 0;">
-        <div style="font-size: 48px; margin-bottom: 16px;">🎉</div>
+        <div class="success-icon" data-icon="check-circle"></div>
         <h2 style="margin-bottom: 8px;">Fertig!</h2>
         <p>Dein nia-todo ist eingerichtet. Du wirst gleich weitergeleitet...</p>
       </div>
     </div>
 
     <div class="setup-theme-toggle">
-      <button onclick="setTheme('light')" title="Hell">☀️</button>
-      <button onclick="setTheme('dark')" title="Dunkel">🌙</button>
-      <button onclick="setTheme('system')" title="System">💻</button>
+      <button onclick="setTheme('light')" title="Hell"><span data-icon="sun"></span></button>
+      <button onclick="setTheme('dark')" title="Dunkel"><span data-icon="moon"></span></button>
+      <button onclick="setTheme('system')" title="System"><span data-icon="monitor"></span></button>
     </div>
   </div>
 </div>
 
+<script type="module">
+import { hydrateIcons } from './static/js/icons/lucide-icons.js';
+hydrateIcons(document);
+</script>
 <script>
 const API = '';
 
