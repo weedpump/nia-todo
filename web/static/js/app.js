@@ -1,7 +1,7 @@
 // nia-todo: Frontend app mit Offline-First PWA + WebSocket Echtzeit-Sync
 import { APP_VERSION, WS_URL } from './core/config.js';
 import { escapeHtml, escapeHtmlAttr, formatDate, jsArg, renderMarkdown, truncateWords } from './core/utils.js';
-import { authApi, projectsApi, pushApi, sectionsApi, sharingApi, todosApi } from './api/index.js';
+import { authApi, projectsApi, pushApi, sectionsApi, sharingApi, todosApi, workspacesApi } from './api/index.js';
 import { createAuthSessionFeature } from './features/auth-session.js';
 import { createAppStorage } from './storage/app-storage.js';
 import { createApiKeysFeature } from './features/api-keys.js';
@@ -13,6 +13,7 @@ import { applyTheme, bindSystemThemeListener, cycleTheme, initTheme, setTheme } 
 import { createUserSettingsFeature } from './features/user-settings.js';
 import { createUserMenuFeature } from './features/user-menu.js';
 import { createProjectsFeature } from './features/projects.js';
+import { createWorkspacesFeature } from './features/workspaces.js';
 import { createProjectSharingFeature } from './features/project-sharing.js';
 import { createTodosFeature } from './features/todos.js';
 import { createSyncFeature } from './features/sync.js';
@@ -21,6 +22,7 @@ import { createViewPreferencesFeature } from './features/view-preferences.js';
 import { createWebSocketClient } from './features/websocket-client.js';
 import { createToastUndoFeature } from './features/toast-undo.js';
 import { createDragDropFeature } from './features/drag-drop.js';
+import { createConfirmDialogFeature } from './features/confirm-dialog.js';
 import { createDesktopIntegration } from './features/desktop-integration.js';
 import { createAppDownloadsFeature } from './features/app-downloads.js';
 import { createAppRenderingFeature } from './features/app-rendering.js';
@@ -32,8 +34,10 @@ import { exposeLegacyGlobals } from './features/legacy-globals.js';
 let todos = [];
 let projects = [];
 let sections = [];
+let workspaces = [];
 let currentFilter = 'all';
 let currentProjectId = null;
+let currentWorkspaceId = null;
 let db = null;
 let appInitialized = false;
 let syncInProgress = false;
@@ -52,6 +56,8 @@ function setTodosState(next) {
 let currentUser = null;  // { id, username, display_name, token }
 const apiKeysFeature = createApiKeysFeature({ authApi });
 const pushFeature = createPushNotificationsFeature({ pushApi });
+const confirmDialogFeature = createConfirmDialogFeature();
+const confirmDanger = confirmDialogFeature.confirmDanger;
 const appDownloadsFeature = createAppDownloadsFeature();
 const viewPreferences = createViewPreferencesFeature({
   getHideDone: () => hideDone,
@@ -99,15 +105,19 @@ const syncFeature = createSyncFeature({
   setProjects: (next) => { projects = next; },
   getSections: () => sections,
   setSections: (next) => { sections = next; },
+  getWorkspaces: () => workspaces,
+  setWorkspaces: (next) => { workspaces = next; },
   todosApi,
   projectsApi,
   sectionsApi,
+  workspacesApi,
 });
 const todosFeature = createTodosFeature({
   getTodos: () => todos,
   setTodos: setTodosState,
   getProjects: () => projects,
   getCurrentProjectId: () => currentProjectId,
+  getCurrentWorkspaceId: () => currentWorkspaceId,
   getAppInitialized: () => appInitialized,
   getDb: () => db,
   dbPut,
@@ -121,6 +131,7 @@ const todosFeature = createTodosFeature({
   renderStats: () => renderStats(),
   renderTodos: () => renderTodos(),
   closeModal: (...args) => closeModal(...args),
+  confirmDanger,
   showToast: (...args) => showToast(...args),
   setupDescPreview: (...args) => setupDescPreview(...args),
   renderMarkdown,
@@ -137,7 +148,9 @@ const sharingFeature = createProjectSharingFeature({
 const projectsFeature = createProjectsFeature({
   getProjects: () => projects,
   getTodos: () => todos,
+  setTodos: setTodosState,
   getCurrentProjectId: () => currentProjectId,
+  getCurrentWorkspaceId: () => currentWorkspaceId,
   setProjects: (next) => { projects = next; },
   dbPut,
   addToSyncQueue,
@@ -148,12 +161,14 @@ const projectsFeature = createProjectsFeature({
   renderStats: () => renderStats(),
   renderTodos: () => renderTodos(),
   closeModal: (...args) => closeModal(...args),
+  confirmDanger,
   showToast: (...args) => showToast(...args),
   showBatchToast: (...args) => showBatchToast(...args),
   projectsApi,
   sharingFeature,
   getCurrentUser: () => currentUser,
 });
+let workspacesFeature = null;
 const userMenuFeature = createUserMenuFeature({ getCurrentUser: () => currentUser });
 const userSettingsFeature = createUserSettingsFeature({
   authApi,
@@ -233,6 +248,9 @@ const wsClient = createWebSocketClient({
   setProjects: (next) => { projects = next; },
   getSections: () => sections,
   setSections: (next) => { sections = next; },
+  getWorkspaces: () => workspaces,
+  setWorkspaces: (next) => { workspaces = next; },
+  renderWorkspaces: () => renderWorkspaces(),
   renderProjects: () => renderProjects(),
   renderStats: () => renderStats(),
   renderTodos: () => renderTodos(),
@@ -281,6 +299,8 @@ async function refreshFromServer() {
   syncInProgressRef.value = syncInProgress;
   await syncFeature.refreshFromServer({ wsState: wsClient.getWsState(), syncInProgressRef });
   syncInProgress = syncInProgressRef.value;
+  ensureCurrentWorkspace();
+  renderWorkspaces();
   renderProjects();
   renderStats();
   renderTodos();
@@ -298,6 +318,7 @@ const sectionActions = createSectionActionsFeature({
   isOnlineForSync,
   syncWithServer,
   renderTodos: () => renderTodos(),
+  confirmDanger,
   sectionsFeature,
 });
 const renderSectionHeader = sectionActions.renderSectionHeader;
@@ -315,6 +336,7 @@ const appRendering = createAppRenderingFeature({
   getSections: () => sections,
   getCurrentFilter: () => currentFilter,
   getCurrentProjectId: () => currentProjectId,
+  getCurrentWorkspaceId: () => currentWorkspaceId,
   getHideDone: () => hideDone,
   getShowProjectWidget: () => showProjectWidget,
   getCurrentUser: () => currentUser,
@@ -328,6 +350,35 @@ const renderStats = appRendering.renderStats;
 const renderTodos = appRendering.renderTodos;
 const countByProject = appRendering.countByProject;
 const renderInvites = appRendering.renderInvites;
+
+workspacesFeature = createWorkspacesFeature({
+  workspacesApi,
+  getWorkspaces: () => workspaces,
+  setWorkspaces: (next) => { workspaces = next; },
+  getCurrentWorkspaceId: () => currentWorkspaceId,
+  setCurrentWorkspaceId: (next) => { currentWorkspaceId = next; },
+  dbPut,
+  dbClear,
+  isOnlineForSync,
+  refreshFromServer: () => refreshFromServer(),
+  renderProjects: () => renderProjects(),
+  renderStats: () => renderStats(),
+  renderTodos: () => renderTodos(),
+  closeSidebar: () => closeSidebar(),
+  confirmDanger,
+  showToast: (...args) => showToast(...args),
+});
+const renderWorkspaces = workspacesFeature.renderWorkspaces;
+const switchWorkspace = workspacesFeature.switchWorkspace;
+const createWorkspace = workspacesFeature.createWorkspace;
+const showWorkspaceModal = workspacesFeature.showWorkspaceModal;
+const closeWorkspaceModal = workspacesFeature.closeWorkspaceModal;
+const saveWorkspace = workspacesFeature.saveWorkspace;
+const deleteWorkspaceFromModal = workspacesFeature.deleteWorkspaceFromModal;
+const toggleWorkspaceMenu = workspacesFeature.toggleWorkspaceMenu;
+const closeWorkspaceMenu = workspacesFeature.closeWorkspaceMenu;
+const loadWorkspacesFromServer = workspacesFeature.loadWorkspacesFromServer;
+const ensureCurrentWorkspace = workspacesFeature.ensureCurrentWorkspace;
 
 // Make renderInvites globally available for project-sharing.js
 window.renderInvites = renderInvites;
@@ -489,8 +540,11 @@ const appLifecycle = createAppLifecycle({
   setTodos: setTodosState,
   setProjects: (next) => { projects = next; },
   setSections: (next) => { sections = next; },
+  setWorkspaces: (next) => { workspaces = next; },
   setCurrentFilter: (next) => { currentFilter = next; },
   setCurrentProjectId: (next) => { currentProjectId = next; },
+  setCurrentWorkspaceId: (next) => { currentWorkspaceId = next; },
+  ensureCurrentWorkspace: () => ensureCurrentWorkspace(),
   setAppInitialized: (next) => { appInitialized = next; },
   connectWebSocket,
   getWsState: () => wsClient.getWsState(),
@@ -505,6 +559,7 @@ const appLifecycle = createAppLifecycle({
   updateToggleDoneButton,
   updateSortButton,
   updateProjectWidgetButton,
+  renderWorkspaces,
 });
 const initApp = async function() {
   await appLifecycle.initApp();
@@ -527,6 +582,7 @@ export function startAppModule() {
   appLifecycle.bindNetworkEvents();
   appLifecycle.bindDomReady();
   bindUserMenu();
+  confirmDialogFeature.bindConfirmDialog();
   appDownloadsFeature.initAppDownloads();
   desktopIntegration?.init();
   setInterval(() => renderStats(), 30 * 1000);
@@ -544,6 +600,7 @@ export function startAppModule() {
   lifecycle: { initServiceWorker, triggerUpdate, forceReloadApp, initApp, loadFromLocalDB, loadAll },
   rendering: { renderVersionInfo, renderProjects, renderStats, renderTodos, renderSectionHeader, countByProject },
   navigation: { setFilter, loadSectionsForCurrentProject },
+  workspaces: { renderWorkspaces, switchWorkspace, createWorkspace, showWorkspaceModal, closeWorkspaceModal, saveWorkspace, deleteWorkspaceFromModal, toggleWorkspaceMenu, closeWorkspaceMenu, loadWorkspacesFromServer },
   todos: { markTodoDone, markTodoDoneFromNative, toggleTodo, showTodoModal, onProjectChange, saveTodo, editTodo, deleteTodoFromModal, deleteTodo },
   projects: { showProjectModal, editProject, saveProject, deleteProject, deleteProjectFromModal, clearDoneFromModal, clearDoneInProject },
   sharing: { inviteUserToProject: () => sharingFeature.inviteByUsername(), leaveProjectFromModal: () => sharingFeature.leaveProject(), undoLeaveProject: (data) => sharingFeature.undoLeaveProject(data), undoRemoveMember: (data) => sharingFeature.undoRemoveMember(data), undoInvite: (data) => sharingFeature.undoInvite(data), acceptInvite: (pid, iid) => sharingFeature.acceptInvite(pid, iid), declineInvite: (pid, iid) => sharingFeature.declineInvite(pid, iid), showShareInput: () => sharingFeature.showShareInput() },

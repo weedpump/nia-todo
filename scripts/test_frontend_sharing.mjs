@@ -173,6 +173,18 @@ async function run() {
     if (!readonlyClass) throw new Error('Shared project form should have readonly-project styling');
     const nameDisabled = await page.locator('#project-name').isDisabled();
     if (!nameDisabled) throw new Error('Shared project name field should be disabled for non-owner');
+    await page.evaluate(() => window.closeModal('project-modal'));
+
+    // 10. Shared projects must be selectable in the Todo modal even when they are outside the member's workspace.
+    await page.getByRole('button', { name: /Neues Todo/ }).click();
+    await visible('#todo-modal');
+    const sharedOptionCount = await page.locator('#todo-project option').filter({ hasText: 'Sharing Test Project' }).count();
+    if (sharedOptionCount !== 1) throw new Error('Shared project missing from Todo project select');
+    await page.selectOption('#todo-project', String(createResult.id));
+    await page.fill('#todo-title', 'Todo in Shared Project');
+    await page.click('button[form="todo-form"]');
+    await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });
+    await page.locator('.todo-item').filter({ hasText: 'Todo in Shared Project' }).waitFor({ state: 'visible', timeout: 10000 });
 
     assertNoFrontendErrors();
     console.log('✅ Frontend sharing test passed');

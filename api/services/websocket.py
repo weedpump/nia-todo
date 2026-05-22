@@ -79,9 +79,11 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
-async def broadcast_change(event_type: str, payload: dict, user_id: int, project_id: int | None = None):
+async def broadcast_change(event_type: str, payload: dict, user_id: int, project_id: int | None = None, recipient_ids: set[int] | None = None):
     """Broadcast change to the owning user and optional shared-project members."""
     recipients = {user_id}
+    if recipient_ids:
+        recipients.update(recipient_ids)
 
     if project_id is not None:
         try:
