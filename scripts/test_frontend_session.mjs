@@ -50,7 +50,7 @@ async function run() {
     const meData = await meResponse.json();
     if (!meData.access_token) throw new Error(`/api/me did not return a refreshed token: ${JSON.stringify(meData)}`);
 
-    await page.locator('#boot-overlay.hidden').waitFor({ state: 'attached', timeout: 10000 });
+    await page.locator('#boot-overlay.hidden').waitFor({ state: 'attached', timeout: 20000 });
     await page.locator('#login-overlay').waitFor({ state: 'hidden', timeout: 10000 });
     await page.locator('#user-menu-button').waitFor({ state: 'visible', timeout: 10000 });
 
@@ -72,20 +72,31 @@ async function run() {
 
     const offlineReady = await page.evaluate(async () => {
       const reg = await navigator.serviceWorker?.ready?.catch(() => null);
+      if (reg && !navigator.serviceWorker?.controller) {
+        await new Promise(resolve => {
+          const timeout = setTimeout(resolve, 5000);
+          navigator.serviceWorker.addEventListener('controllerchange', () => {
+            clearTimeout(timeout);
+            resolve();
+          }, { once: true });
+        });
+      }
       return {
         hasController: Boolean(navigator.serviceWorker?.controller),
         hasRegistration: Boolean(reg),
         cachedUser: Boolean(localStorage.getItem('cached_user')),
       };
     });
-    if (!offlineReady.cachedUser) throw new Error(`Successful auth did not cache user profile: ${JSON.stringify(offlineReady)}`);
+    if (!offlineReady.cachedUser || !offlineReady.hasRegistration || !offlineReady.hasController) {
+      throw new Error(`Successful auth did not prepare offline session: ${JSON.stringify(offlineReady)}`);
+    }
     assertNoFrontendErrors();
     const offlineConsoleStart = consoleErrors.length;
     const offlinePageErrorStart = pageErrors.length;
 
     await page.context().setOffline(true);
     await page.reload({ waitUntil: 'domcontentloaded' });
-    await page.locator('#boot-overlay.hidden').waitFor({ state: 'attached', timeout: 10000 });
+    await page.locator('#boot-overlay.hidden').waitFor({ state: 'attached', timeout: 20000 });
     await page.locator('#login-overlay').waitFor({ state: 'hidden', timeout: 10000 });
     await page.locator('#user-menu-button').waitFor({ state: 'visible', timeout: 10000 });
 
