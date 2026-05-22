@@ -105,6 +105,12 @@ def repair_icon_migration(conn):
     """Make migration 017 idempotent if one icon column was already added."""
     add_column_if_missing(conn, "projects", "icon", "TEXT")
     add_column_if_missing(conn, "workspaces", "icon", "TEXT")
+    conn.execute("""
+        UPDATE projects
+        SET icon = 'inbox'
+        WHERE COALESCE(is_inbox, 0) = 1
+          AND (icon IS NULL OR TRIM(icon) = '')
+    """)
     conn.commit()
 
 

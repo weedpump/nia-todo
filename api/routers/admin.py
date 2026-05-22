@@ -133,15 +133,15 @@ def create_user(data: CreateUserRequest, request: Request, _: bool = Depends(req
         )
         workspace_id = workspace.lastrowid
         default_projects = [
-            ('Inbox', '#64748b', 0, 1),
-            ('Privat', '#10b981', 1, 0),
-            ('Arbeit', '#3b82f6', 2, 0),
-            ('Einkauf', '#f59e0b', 3, 0),
+            ('Inbox', '#64748b', 'inbox', 0, 1),
+            ('Privat', '#10b981', None, 1, 0),
+            ('Arbeit', '#3b82f6', None, 2, 0),
+            ('Einkauf', '#f59e0b', None, 3, 0),
         ]
-        for name, color, sort_order, is_inbox in default_projects:
+        for name, color, icon, sort_order, is_inbox in default_projects:
             db.execute(
-                "INSERT INTO projects (name, color, sort_order, user_id, is_inbox, workspace_id, updated_at) VALUES (?, ?, ?, ?, ?, ?, datetime('now'))",
-                (name, color, sort_order, user_id, is_inbox, workspace_id)
+                "INSERT INTO projects (name, color, icon, sort_order, user_id, is_inbox, workspace_id, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))",
+                (name, color, icon, sort_order, user_id, is_inbox, workspace_id)
             )
 
         token = create_password_setup_token(db, user_id, "invite")
