@@ -22,6 +22,16 @@ export function createTodosFeature({
   setupDescPreview,
   renderMarkdown,
 }) {
+  let todoFormBound = false;
+
+  function bindTodoForm() {
+    if (todoFormBound) return;
+    const form = document.getElementById('todo-form');
+    if (!form) return;
+    todoFormBound = true;
+    form.addEventListener('submit', saveTodo);
+  }
+
   function clearDateTimeErrors() {
     for (const id of ['todo-due', 'todo-remind']) {
       const input = document.getElementById(id);
@@ -125,6 +135,7 @@ export function createTodosFeature({
   }
 
   async function showTodoModal(todo = null) {
+    bindTodoForm();
     bindDateTimeValidation();
     document.getElementById('todo-form')?.reset();
     clearDateTimeErrors();

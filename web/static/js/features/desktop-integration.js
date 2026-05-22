@@ -102,10 +102,10 @@ function hotkeyFromKeyboardEvent(event) {
 }
 
 function setDesktopStatus(text, danger = false) {
-  const el = document.getElementById('desktop-settings-status');
-  if (!el) return;
-  el.textContent = text || '';
-  el.style.color = danger ? 'var(--danger)' : 'var(--text-muted)';
+  document.querySelectorAll('[data-desktop-settings-status]').forEach((el) => {
+    el.textContent = text || '';
+    el.style.color = danger ? 'var(--danger)' : 'var(--text-muted)';
+  });
 }
 
 export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeySearch, getCurrentUser }) {
@@ -124,6 +124,26 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
     return settings;
   }
 
+  function ensureLoginServerControls() {
+    if (!RUNTIME_CAPABILITIES.nativeSettings || document.getElementById('login-native-server-url')) return;
+    const loginBox = document.querySelector('#login-overlay .login-box');
+    if (!loginBox) return;
+    const panel = document.createElement('div');
+    panel.className = 'login-native-server-panel';
+    panel.innerHTML = `
+      <div class="login-native-server-title">Server</div>
+      <div class="login-native-server-row">
+        <input type="url" id="login-native-server-url" class="native-server-input" autocomplete="url" placeholder="Server-URL">
+        <button type="button" class="btn btn-secondary" id="login-native-server-save">Speichern</button>
+      </div>
+      <button type="button" class="btn btn-secondary login-native-server-reset" id="login-native-server-reset">Server zurücksetzen</button>
+      <div class="desktop-settings-status login-native-server-status" data-desktop-settings-status></div>
+    `;
+    loginBox.appendChild(panel);
+    panel.querySelector('#login-native-server-save')?.addEventListener('click', () => updateServerUrl(document.getElementById('login-native-server-url')?.value));
+    panel.querySelector('#login-native-server-reset')?.addEventListener('click', () => resetServerUrl());
+  }
+
   function renderSettings() {
     const native = RUNTIME_CAPABILITIES.nativeSettings;
     const desktop = RUNTIME_CAPABILITIES.nativeHotkeys;
@@ -135,11 +155,15 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
     if (!section) return;
     section.style.display = native ? '' : 'none';
     if (!native) return;
+    ensureLoginServerControls();
     setChecked('desktop-minimize-to-tray', settings.minimizeToTray);
     setChecked('desktop-autostart', settings.autostart);
     setChecked('desktop-notifications', settings.notifications);
+    const configuredServerUrl = settings.serverUrl || location.origin;
     const serverUrl = document.getElementById('desktop-server-url');
-    if (serverUrl) serverUrl.value = settings.serverUrl || location.origin;
+    if (serverUrl) serverUrl.value = configuredServerUrl;
+    const loginServerUrl = document.getElementById('login-native-server-url');
+    if (loginServerUrl) loginServerUrl.value = configuredServerUrl;
     setValue('desktop-hotkey-toggle-app', settings.hotkeys?.toggleApp);
     setValue('desktop-hotkey-new-todo', settings.hotkeys?.newTodo);
     setValue('desktop-hotkey-search', settings.hotkeys?.search);
