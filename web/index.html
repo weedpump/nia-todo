@@ -102,6 +102,14 @@
         <span class="logo-text">nia-todo</span>
       </div>
 
+      <nav class="nav-section workspace-section">
+        <div class="nav-title">Workspace</div>
+        <div class="workspace-switcher">
+          <select id="workspace-select" onchange="switchWorkspace(this.value)" aria-label="Workspace wechseln"></select>
+          <button type="button" class="workspace-add-btn" onclick="createWorkspace()" title="Workspace hinzufügen">＋</button>
+        </div>
+      </nav>
+
       <nav class="nav-section">
         <div class="nav-title">Ansicht</div>
         <button class="nav-btn" data-filter="all" onclick="setFilter('all')">

@@ -33,10 +33,11 @@ app.add_middleware(RateLimitMiddleware)
 
 # ─── Router ──────────────────────────────────────────────────────────────────
 
-from routers import auth, todos, projects, sections, reminders, dashboard, push, admin, me, setup, sharing, password_setup
+from routers import auth, todos, projects, sections, reminders, dashboard, push, admin, me, setup, sharing, password_setup, workspaces
 
 app.include_router(auth.router)
 app.include_router(todos.router)
+app.include_router(workspaces.router)
 app.include_router(projects.router)
 app.include_router(sections.router)
 app.include_router(reminders.router)

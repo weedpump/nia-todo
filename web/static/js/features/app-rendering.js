@@ -7,6 +7,7 @@ export function createAppRenderingFeature({
   getSections,
   getCurrentFilter,
   getCurrentProjectId,
+  getCurrentWorkspaceId,
   getHideDone,
   getShowProjectWidget,
   getCurrentUser,
@@ -47,9 +48,22 @@ export function createAppRenderingFeature({
     }
   }
 
-  function countByProject(pid, includeSubprojects = false) {
-    const todos = getTodos();
+  function getWorkspaceProjects() {
+    const currentWorkspaceId = getCurrentWorkspaceId?.();
     const projects = getProjects();
+    if (!currentWorkspaceId) return projects;
+    return projects.filter(project => project.is_shared || String(project.workspace_id || '') === String(currentWorkspaceId));
+  }
+
+  function getWorkspaceTodos() {
+    const workspaceProjects = getWorkspaceProjects();
+    const projectIds = new Set(workspaceProjects.map(project => project.id));
+    return getTodos().filter(todo => projectIds.has(todo.project_id));
+  }
+
+  function countByProject(pid, includeSubprojects = false) {
+    const todos = getWorkspaceTodos();
+    const projects = getWorkspaceProjects();
     if (!includeSubprojects) {
       return todos.filter(t => t.project_id === pid && t.status !== 'done').length;
     }
@@ -71,7 +85,7 @@ export function createAppRenderingFeature({
   function renderProjects() {
     const el = document.getElementById('project-list');
     if (!el) return;
-    const projects = getProjects();
+    const projects = getWorkspaceProjects();
     const currentFilter = getCurrentFilter();
     const currentProjectId = getCurrentProjectId();
 
@@ -139,8 +153,8 @@ export function createAppRenderingFeature({
   function renderStats() {
     const el = document.getElementById('stats-bar');
     if (!el) return;
-    const todos = getTodos();
-    const projects = getProjects();
+    const todos = getWorkspaceTodos();
+    const projects = getWorkspaceProjects();
     const currentFilter = getCurrentFilter();
     const currentProjectId = getCurrentProjectId();
     const now = new Date();
@@ -347,14 +361,14 @@ export function createAppRenderingFeature({
   function renderTodos() {
     const el = document.getElementById('todo-list');
     if (!el) return;
-    const projects = getProjects();
+    const projects = getWorkspaceProjects();
     const allSections = getSections();
     const currentFilter = getCurrentFilter();
     const currentProjectId = getCurrentProjectId();
     const hideDone = getHideDone();
     const search = document.getElementById('search-input')?.value?.toLowerCase() || '';
 
-    let filtered = getTodos();
+    let filtered = getWorkspaceTodos();
     if (currentProjectId) filtered = filtered.filter(t => t.project_id === currentProjectId);
     if (search) {
       filtered = filtered.filter(t =>
@@ -367,7 +381,7 @@ export function createAppRenderingFeature({
     if (currentProjectId) {
       let html = '';
       const currentProject = projects.find(p => Number(p.id) === Number(currentProjectId));
-      const projectTodos = getTodos().filter(t => Number(t.project_id) === Number(currentProjectId));
+      const projectTodos = getWorkspaceTodos().filter(t => Number(t.project_id) === Number(currentProjectId));
       html += renderProjectDashboard(currentProject, projectTodos);
       const sections = allSections.filter(s => Number(s.project_id) === Number(currentProjectId));
       const validSectionIds = new Set(sections.map(s => s.id));

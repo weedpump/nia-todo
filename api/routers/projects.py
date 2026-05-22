@@ -18,6 +18,7 @@ class ProjectCreate(BaseModel):
     color: str = "#6366f1"
     sort_order: int = 0
     parent_id: Optional[int] = None
+    workspace_id: Optional[int] = None
 
 
 class ProjectUpdate(BaseModel):
@@ -25,6 +26,22 @@ class ProjectUpdate(BaseModel):
     color: Optional[str] = None
     sort_order: Optional[int] = None
     parent_id: Optional[int] = None
+    workspace_id: Optional[int] = None
+
+
+def get_user_default_workspace_id(db, user_id: int) -> Optional[int]:
+    row = db.execute(
+        "SELECT id FROM workspaces WHERE user_id = ? AND COALESCE(is_default, 0) = 1 ORDER BY id LIMIT 1",
+        (user_id,),
+    ).fetchone()
+    if row:
+        return row['id']
+    c = db.execute(
+        "INSERT INTO workspaces (name, color, sort_order, user_id, is_default, updated_at) VALUES (?, ?, 0, ?, 1, ?)",
+        ("Privat", "#10b981", user_id, now_iso()),
+    )
+    db.commit()
+    return c.lastrowid
 
 
 def get_user_inbox_project_id(db, owner_user_id: int) -> Optional[int]:
@@ -62,13 +79,19 @@ def list_projects(user_id: int = Depends(require_auth)):
 async def create_project(data: ProjectCreate, user_id: int = Depends(require_auth)):
     data.name = sanitize_text(data.name)
     with get_db() as db:
+        workspace_id = data.workspace_id or get_user_default_workspace_id(db, user_id)
+        workspace = db.execute("SELECT id FROM workspaces WHERE id = ? AND user_id = ?", (workspace_id, user_id)).fetchone()
+        if not workspace:
+            raise HTTPException(404, "Workspace not found")
         if data.parent_id is not None:
             parent = db.execute("SELECT * FROM projects WHERE id = ? AND user_id = ?", (data.parent_id, user_id)).fetchone()
             if not parent:
                 raise HTTPException(404, "Parent project not found")
+            if parent['workspace_id'] != workspace_id:
+                raise HTTPException(400, "Parent project belongs to another workspace")
         c = db.execute(
-            "INSERT INTO projects (name, color, sort_order, parent_id, updated_at, user_id) VALUES (?,?,?,?,?,?)",
-            (data.name, data.color, data.sort_order, data.parent_id, now_iso(), user_id)
+            "INSERT INTO projects (name, color, sort_order, parent_id, workspace_id, updated_at, user_id) VALUES (?,?,?,?,?,?,?)",
+            (data.name, data.color, data.sort_order, data.parent_id, workspace_id, now_iso(), user_id)
         )
         db.commit()
         row = db.execute("SELECT *, 0 as is_shared, 1 as is_owner FROM projects WHERE id = ?", (c.lastrowid,)).fetchone()
@@ -98,12 +121,16 @@ async def update_project(project_id: int, data: ProjectUpdate, user_id: int = De
                     raise HTTPException(400, "Circular dependency")
                 current_check = ancestor['parent_id'] if ancestor else None
         updates = {}
-        for f in ["name", "color", "sort_order", "parent_id"]:
+        if "workspace_id" in fields_set and data.workspace_id is not None:
+            workspace = db.execute("SELECT id FROM workspaces WHERE id = ? AND user_id = ?", (data.workspace_id, user_id)).fetchone()
+            if not workspace:
+                raise HTTPException(404, "Workspace not found")
+        for f in ["name", "color", "sort_order", "parent_id", "workspace_id"]:
             if f in fields_set:
                 updates[f] = getattr(data, f)
         if updates:
             updates['updated_at'] = now_iso()
-            allowed_cols = {"name", "color", "sort_order", "parent_id", "updated_at"}
+            allowed_cols = {"name", "color", "sort_order", "parent_id", "workspace_id", "updated_at"}
             safe_updates = {k: v for k, v in updates.items() if k in allowed_cols}
             set_clause = ", ".join(f"{k}=:{k}" for k in safe_updates)
             db.execute(f"UPDATE projects SET {set_clause} WHERE id = :id", {**safe_updates, "id": project_id})

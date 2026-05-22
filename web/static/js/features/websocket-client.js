@@ -13,6 +13,9 @@ export function createWebSocketClient({
   setProjects,
   getSections,
   setSections,
+  getWorkspaces,
+  setWorkspaces,
+  renderWorkspaces,
   renderProjects,
   renderStats,
   renderTodos,
@@ -169,6 +172,7 @@ async function handleWsMessage(msg) {
   let todos = getTodos();
   let projects = getProjects();
   let sections = getSections();
+  let workspaces = getWorkspaces?.() || [];
 
   switch (msg.type) {
     case 'auth_ok':
@@ -247,6 +251,14 @@ async function handleWsMessage(msg) {
           }
         }
         sections = await dbGetAll('sections');
+      }
+      if (msg.workspaces) {
+        for (const workspace of msg.workspaces) {
+          await dbPut('workspaces', workspace);
+        }
+        workspaces = await dbGetAll('workspaces');
+        setWorkspaces?.(workspaces);
+        renderWorkspaces?.();
       }
       renderProjects();
       renderStats();
