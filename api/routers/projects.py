@@ -41,8 +41,8 @@ def get_user_default_workspace_id(db, user_id: int) -> Optional[int]:
     if row:
         return row['id']
     c = db.execute(
-        "INSERT INTO workspaces (name, color, sort_order, user_id, is_default, updated_at) VALUES (?, ?, 0, ?, 1, ?)",
-        ("Privat", "#10b981", user_id, now_iso()),
+        "INSERT INTO workspaces (name, color, icon, sort_order, user_id, is_default, updated_at) VALUES (?, ?, ?, 0, ?, 1, ?)",
+        ("Privat", "#10b981", "home", user_id, now_iso()),
     )
     db.commit()
     return c.lastrowid

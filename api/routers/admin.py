@@ -128,8 +128,8 @@ def create_user(data: CreateUserRequest, request: Request, _: bool = Depends(req
 
         # Create default workspace and projects for the new user
         workspace = db.execute(
-            "INSERT INTO workspaces (name, color, sort_order, user_id, is_default, updated_at) VALUES (?, ?, 0, ?, 1, datetime('now'))",
-            ('Privat', '#10b981', user_id)
+            "INSERT INTO workspaces (name, color, icon, sort_order, user_id, is_default, updated_at) VALUES (?, ?, ?, 0, ?, 1, datetime('now'))",
+            ('Privat', '#10b981', 'home', user_id)
         )
         workspace_id = workspace.lastrowid
         default_projects = [

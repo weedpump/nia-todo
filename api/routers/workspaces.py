@@ -36,8 +36,8 @@ def ensure_default_workspace(db, user_id: int) -> int:
     if row:
         return row["id"]
     c = db.execute(
-        "INSERT INTO workspaces (name, color, sort_order, user_id, is_default, updated_at) VALUES (?, ?, 0, ?, 1, ?)",
-        ("Privat", "#10b981", user_id, now_iso()),
+        "INSERT INTO workspaces (name, color, icon, sort_order, user_id, is_default, updated_at) VALUES (?, ?, ?, 0, ?, 1, ?)",
+        ("Privat", "#10b981", "home", user_id, now_iso()),
     )
     db.execute("UPDATE projects SET workspace_id = ? WHERE user_id = ? AND workspace_id IS NULL", (c.lastrowid, user_id))
     db.commit()

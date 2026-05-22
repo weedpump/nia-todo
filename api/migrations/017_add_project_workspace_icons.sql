@@ -2,3 +2,9 @@
 
 ALTER TABLE projects ADD COLUMN icon TEXT;
 ALTER TABLE workspaces ADD COLUMN icon TEXT;
+
+UPDATE workspaces
+SET icon = 'home'
+WHERE COALESCE(is_default, 0) = 1
+  AND name = 'Privat'
+  AND (icon IS NULL OR TRIM(icon) = '');
