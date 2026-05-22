@@ -416,16 +416,16 @@
           <div data-desktop-only>
             <label class="settings-toggle-row">
               <span>Minimieren ins Tray statt beenden</span>
-              <input type="checkbox" id="desktop-minimize-to-tray" onchange="updateDesktopSetting('minimizeToTray', this.checked)">
+              <input type="checkbox" id="desktop-minimize-to-tray">
             </label>
             <label class="settings-toggle-row">
               <span>Autostart mit Windows</span>
-              <input type="checkbox" id="desktop-autostart" onchange="updateDesktopSetting('autostart', this.checked)">
+              <input type="checkbox" id="desktop-autostart">
             </label>
           </div>
           <label class="settings-toggle-row">
             <span>Native Benachrichtigungen</span>
-            <input type="checkbox" id="desktop-notifications" onchange="updateDesktopSetting('notifications', this.checked)">
+            <input type="checkbox" id="desktop-notifications">
           </label>
           <button class="btn btn-secondary" type="button" onclick="testDesktopNotification()" style="margin-top:8px;">Test-Benachrichtigung</button>
           <div class="desktop-hotkeys-settings" data-desktop-only>

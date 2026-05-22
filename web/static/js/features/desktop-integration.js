@@ -107,6 +107,7 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
   let settings = { ...DEFAULT_SETTINGS };
   let latestTodos = [];
   let reminderScheduleTimer = null;
+  let settingsControlsBound = false;
 
   async function loadSettings() {
     if (!isNativeApp()) return settings;
@@ -132,6 +133,23 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
     panel.querySelector('#login-native-server-switch')?.addEventListener('click', () => resetServerUrl());
   }
 
+  function bindSettingsControls() {
+    if (settingsControlsBound) return;
+    const bindings = [
+      ['desktop-minimize-to-tray', 'minimizeToTray'],
+      ['desktop-autostart', 'autostart'],
+      ['desktop-notifications', 'notifications'],
+    ];
+    let boundAny = false;
+    for (const [id, key] of bindings) {
+      const el = document.getElementById(id);
+      if (!el) continue;
+      boundAny = true;
+      el.addEventListener('change', () => updateSetting(key, el.checked));
+    }
+    if (boundAny) settingsControlsBound = true;
+  }
+
   function renderSettings() {
     const native = RUNTIME_CAPABILITIES.nativeSettings;
     const desktop = RUNTIME_CAPABILITIES.nativeHotkeys;
@@ -144,6 +162,7 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
     section.style.display = native ? '' : 'none';
     if (!native) return;
     ensureLoginServerControls();
+    bindSettingsControls();
     setChecked('desktop-minimize-to-tray', settings.minimizeToTray);
     setChecked('desktop-autostart', settings.autostart);
     setChecked('desktop-notifications', settings.notifications);
