@@ -2187,7 +2187,7 @@ input[type="color"]::-moz-color-swatch {
   }
 
   .web-update-actions {
-    flex-direction: column-reverse;
+    flex-direction: column;
   }
 }
 
