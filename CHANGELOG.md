@@ -5,6 +5,22 @@ Alle wichtigen Änderungen an diesem Projekt werden in dieser Datei dokumentiert
 Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [1.7.3] - 2026-05-22
+
+### Added
+- Projektansichten zeigen optional ein kompaktes projektbezogenes Dashboard-Widget.
+- User-Menü enthält einen gespeicherten Toggle für das Projekt-Widget.
+
+### Changed
+- Neue Standardansicht sortiert nach Priorität und blendet erledigte Todos aus, ohne bestehende Nutzerpräferenzen zu überschreiben.
+- Dashboard-Abstand und Projekt-Widget-Optik wurden optisch geglättet.
+- Toggle-Beschriftungen im User-Menü sind kürzer.
+- Projekt-Sections gruppieren Todos nach Status: In Arbeit, Offen, Erledigt.
+
+### Fixed
+- API-Key-Zeitstempel werden aus UTC korrekt in lokale Zeit umgerechnet.
+- Projekt-Reload stellt Navigation vor dem ersten Rendern wieder her und verhindert falsche aktive Sidebar-Markierung.
+
 ## [1.7.2] - 2026-05-22
 
 ### Changed
