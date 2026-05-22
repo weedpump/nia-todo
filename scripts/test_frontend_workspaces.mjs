@@ -55,6 +55,8 @@ async function run() {
     await page.locator('.workspace-menu-row').filter({ hasText: 'Arbeit' }).locator('.workspace-menu-edit').click();
     await page.locator('#workspace-modal').waitFor({ state: 'visible', timeout: 5000 });
     await page.locator('#workspace-delete-btn').click();
+    await visible('#confirm-modal');
+    await page.click('#confirm-confirm-btn');
     await page.locator('#workspace-modal').waitFor({ state: 'hidden', timeout: 10000 });
     await page.waitForFunction(() => document.querySelector('#workspace-current-name')?.textContent === 'Privat', null, { timeout: 10000 });
     await page.waitForFunction(() => document.querySelectorAll('.nav-btn').length >= 2 && document.body.innerText.includes('Beruf Projekt'), null, { timeout: 10000 });
