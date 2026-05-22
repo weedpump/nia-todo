@@ -48,6 +48,13 @@ async function run() {
     await page.click('#user-menu-button');
     await page.click('#menu-settings-btn');
     await visible('#settings-modal');
+    await page.locator('#settings-accent-options .accent-preset-option').first().waitFor({ state: 'visible', timeout: 10000 });
+    await page.locator('#settings-accent-options .accent-preset-option[data-accent="teal"]').click();
+    await page.waitForFunction(() => {
+      const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+      return localStorage.getItem('nia-accent-preset') === 'teal' && ['#14b8a6', '#0d9488'].includes(accent);
+    }, null, { timeout: 10000 });
+    await page.locator('#settings-accent-options .accent-preset-option.active[data-accent="teal"] .accent-preset-check').waitFor({ state: 'visible', timeout: 10000 });
     await page.locator('#settings-username').waitFor({ state: 'visible' });
     await page.locator('#settings-username').getByText('frontenduser').waitFor({ state: 'visible', timeout: 10000 });
     await page.locator('#settings-display-name-cell button[title="Anzeigename bearbeiten"]').click();

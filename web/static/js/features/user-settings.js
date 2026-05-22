@@ -1,4 +1,5 @@
 import { iconSvg } from '../icons/lucide-icons.js';
+import { renderAccentPresetOptions } from './theme.js';
 function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
 }
@@ -117,6 +118,8 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     document.getElementById('settings-avatar-error').textContent = '';
     document.getElementById('settings-avatar-success').textContent = '';
     renderUserInfo();
+    const accentOptionsEl = document.getElementById('settings-accent-options');
+    if (accentOptionsEl) accentOptionsEl.innerHTML = renderAccentPresetOptions();
     document.getElementById('settings-modal')?.classList.add('active');
     await refreshCurrentUser().catch(() => {});
     resetApiKeyUi();
