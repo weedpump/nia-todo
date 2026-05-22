@@ -5,8 +5,6 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
   let hadControllerAtRegistration = false;
   let updateCheckInFlight = false;
   let lastUpdateCheckAt = 0;
-  let waitingUpdateWorker = null;
-  let dismissedUpdateWorker = null;
 
   const STARTUP_SW_DELAY_MS = 5000;
   const UPDATE_CHECK_TIMEOUT_MS = 8000;
@@ -186,8 +184,7 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
     showUpdateModal(waitingUpdateWorker);
   }
 
-  function showUpdateModal(worker = null) {
-    if (worker && dismissedUpdateWorker === worker) return;
+  function showUpdateModal() {
     updateVersionLabel();
     const modal = document.getElementById('web-update-modal');
     const primary = document.getElementById('web-update-apply-btn');
@@ -196,15 +193,6 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
       modal.classList.add('active');
       modal.removeAttribute('aria-hidden');
       console.log('SW: Update modal shown');
-    }
-  }
-
-  function dismissUpdateModal() {
-    dismissedUpdateWorker = waitingUpdateWorker || swRegistration?.waiting || null;
-    const modal = document.getElementById('web-update-modal');
-    if (modal) {
-      modal.classList.remove('active');
-      modal.setAttribute('aria-hidden', 'true');
     }
   }
 
@@ -278,7 +266,6 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
   return {
     initServiceWorker,
     triggerUpdate,
-    dismissUpdateModal,
     forceReloadApp,
     isUpdateAvailable: () => updateAvailable,
   };
