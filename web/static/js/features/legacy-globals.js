@@ -75,8 +75,8 @@ function runLegacyInlineAction(source, event) {
 }
 
 let legacyClickBridgeBound = false;
-function bindAndroidLegacyClickBridge() {
-  if (legacyClickBridgeBound || !RUNTIME_CAPABILITIES.android) return;
+function bindNativeLegacyClickBridge() {
+  if (legacyClickBridgeBound || !RUNTIME_CAPABILITIES.native) return;
   legacyClickBridgeBound = true;
   document.addEventListener('click', (event) => {
     const target = event.target?.closest?.('[onclick]');
@@ -139,5 +139,5 @@ export function exposeLegacyGlobals({
     ...push,
     ...desktopIntegration,
   });
-  bindAndroidLegacyClickBridge();
+  bindNativeLegacyClickBridge();
 }
