@@ -3,6 +3,9 @@
 from starlette.datastructures import Headers
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
+from urllib.parse import urlparse
+
+from fastapi import HTTPException
 
 from services.instance_config import get_allowed_origins, is_same_request_origin, normalize_allowed_origins
 
@@ -52,11 +55,36 @@ class DynamicCORSMiddleware(BaseHTTPMiddleware):
     def _is_allowed_origin(self, request, origin: str) -> bool:
         if is_same_request_origin(request, origin):
             return True
+        if self._same_host_behind_tls_proxy(request, origin):
+            return True
         try:
             normalized_origin = normalize_allowed_origins([origin])[0].lower()
         except Exception:
             return False
         return normalized_origin in {item.lower() for item in get_allowed_origins()}
+
+    def _same_host_behind_tls_proxy(self, request, origin: str) -> bool:
+        """Allow browser same-host requests when TLS terminates before Uvicorn.
+
+        Uvicorn runs with --no-proxy-headers so app-level Trusted Proxy logic is
+        authoritative. Before Trusted Proxies are configured, same-origin browser
+        requests may arrive as Origin=https://host while the ASGI request scheme
+        is http. Treat this as same-origin only when the Origin host exactly
+        matches the HTTP Host header; never trust X-Forwarded-* here.
+        """
+        raw_host = request.headers.get("host") or ""
+        if not raw_host:
+            return False
+        try:
+            origin_url = urlparse(origin)
+            origin_norm = normalize_allowed_origins([origin])[0].lower()
+            http_host_origin = normalize_allowed_origins([f"http://{raw_host}"])[0].lower()
+            https_host_origin = normalize_allowed_origins([f"https://{raw_host}"])[0].lower()
+        except (HTTPException, ValueError):
+            return False
+        if origin_url.scheme not in {"http", "https"}:
+            return False
+        return origin_norm in {http_host_origin, https_host_origin}
 
     def _requested_headers_allowed(self, headers: Headers) -> bool:
         requested = headers.get("access-control-request-headers")
