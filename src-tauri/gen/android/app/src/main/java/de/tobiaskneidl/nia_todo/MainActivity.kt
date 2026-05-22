@@ -252,6 +252,11 @@ class MainActivity : TauriActivity() {
     }
 
     @JavascriptInterface
+    fun appVersion(): String {
+      return BuildConfig.VERSION_NAME
+    }
+
+    @JavascriptInterface
     fun requestNotificationPermission(): String {
       return this@MainActivity.requestNotificationPermission()
     }

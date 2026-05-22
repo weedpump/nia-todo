@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-desktop-get-app-version"
+description = "Enables the desktop_get_app_version command without any pre-configured scope."
+commands.allow = ["desktop_get_app_version"]
+
+[[permission]]
+identifier = "deny-desktop-get-app-version"
+description = "Denies the desktop_get_app_version command without any pre-configured scope."
+commands.deny = ["desktop_get_app_version"]
