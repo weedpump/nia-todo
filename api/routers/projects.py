@@ -171,12 +171,6 @@ async def delete_project(project_id: int, user_id: int = Depends(require_auth)):
             raise HTTPException(400, "Inbox cannot be deleted")
         if not can_edit_project(db, project_id, user_id):
             raise HTTPException(403, "Only the owner can delete this project")
-        recipient_rows = db.execute(
-            "SELECT user_id FROM project_members WHERE project_id = ? AND status = 'accepted'",
-            (project_id,),
-        ).fetchall()
-        recipient_ids = {row['user_id'] for row in recipient_rows}
-
         to_delete = []
         queue = [project_id]
         while queue:
@@ -185,6 +179,13 @@ async def delete_project(project_id: int, user_id: int = Depends(require_auth)):
             children = db.execute("SELECT id FROM projects WHERE parent_id = ? AND user_id = ?", (pid, user_id)).fetchall()
             for child in children:
                 queue.append(child['id'])
+        placeholders = ','.join('?' for _ in to_delete)
+        recipient_rows = db.execute(
+            f"SELECT DISTINCT user_id FROM project_members WHERE project_id IN ({placeholders}) AND status = 'accepted'",
+            tuple(to_delete),
+        ).fetchall()
+        recipient_ids = {row['user_id'] for row in recipient_rows}
+
         for pid in to_delete:
             todo_rows = db.execute("SELECT id, user_id FROM todos WHERE project_id = ?", (pid,)).fetchall()
             for todo in todo_rows:
