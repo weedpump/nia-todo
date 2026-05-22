@@ -299,11 +299,19 @@ function getAuthHeaders() {
   return headers;
 }
 
+async function getApiError(response) {
+  const fallback = `Fehler ${response.status}: ${response.statusText || 'Anfrage fehlgeschlagen'}`;
+  const data = await response.json().catch(() => null);
+  if (!data) return fallback;
+  if (typeof data.detail === 'string') return data.detail;
+  return fallback;
+}
+
 async function apiGet(path) {
   const r = await fetch(API + path, {
     headers: getAuthHeaders()
   });
-  if (!r.ok) throw new Error(await r.text());
+  if (!r.ok) throw new Error(await getApiError(r));
   return r.json();
 }
 
@@ -313,10 +321,7 @@ async function apiPost(path, body) {
     headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify(body)
   });
-  if (!r.ok) {
-    const data = await r.json().catch(() => ({}));
-    throw new Error(data.detail || 'Fehler');
-  }
+  if (!r.ok) throw new Error(await getApiError(r));
   return r.json();
 }
 
@@ -326,10 +331,7 @@ async function apiPatch(path, body) {
     headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify(body)
   });
-  if (!r.ok) {
-    const data = await r.json().catch(() => ({}));
-    throw new Error(data.detail || 'Fehler');
-  }
+  if (!r.ok) throw new Error(await getApiError(r));
   return r.json();
 }
 
@@ -338,10 +340,7 @@ async function apiDelete(path) {
     method: 'DELETE',
     headers: getAuthHeaders()
   });
-  if (!r.ok) {
-    const data = await r.json().catch(() => ({}));
-    throw new Error(data.detail || 'Fehler');
-  }
+  if (!r.ok) throw new Error(await getApiError(r));
   return r.json();
 }
 
