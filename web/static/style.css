@@ -403,9 +403,9 @@ body {
   z-index: 180;
   width: 62px;
   height: 62px;
-  border: 1px solid rgba(var(--accent-hover-rgb),0.55);
+  border: 1px solid rgba(var(--accent-hover-rgb),0.72);
   border-radius: 999px;
-  background: linear-gradient(135deg, rgba(var(--accent-rgb),0.98), rgba(34,197,94,0.82));
+  background: linear-gradient(135deg, var(--accent-hover), var(--accent));
   color: white;
   cursor: pointer;
   display: inline-flex;
