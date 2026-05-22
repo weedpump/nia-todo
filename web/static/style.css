@@ -80,10 +80,16 @@ body {
 .native-android .nav-btn:active,
 .native-android .workspace-current-btn:active,
 .native-android .user-menu-item:active,
-.native-android .todo-item:active {
+.native-android .todo-item:active,
+.native-android .touch-feedback {
   background-color: rgba(var(--accent-rgb), 0.14);
   box-shadow: inset 0 0 0 999px rgba(var(--accent-rgb), 0.04);
   transform: scale(0.985);
+}
+
+.native-android .btn-primary.touch-feedback,
+.native-android .btn-primary:active {
+  filter: brightness(1.08);
 }
 
 .native-android input:focus-visible,
@@ -1196,14 +1202,14 @@ body {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.42)), rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.24)));
-  color: color-mix(in srgb, var(--accent-hover) 82%, white);
-  border: 1px solid rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.58));
-  box-shadow: 0 8px 18px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.12));
+  background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent-hover) 78%, var(--accent)));
+  color: #fff;
+  border: 1px solid color-mix(in srgb, var(--accent-hover) 62%, var(--accent));
+  box-shadow: 0 8px 18px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.18));
 }
 .btn-primary:hover {
-  background: linear-gradient(135deg, rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.54)), rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.32)));
-  color: color-mix(in srgb, var(--accent-hover) 88%, white);
+  background: linear-gradient(135deg, var(--accent-hover), var(--accent));
+  color: #fff;
 }
 
 /* Plus icon in primary button */
@@ -2021,6 +2027,14 @@ input[type="color"]::-moz-color-swatch {
   gap: 10px;
 }
 
+.login-native-server-panel.collapsed .login-native-server-fields {
+  display: none;
+}
+
+.login-native-server-toggle {
+  width: 100%;
+}
+
 .login-native-server-title {
   font-size: 12px;
   color: var(--text-muted);
@@ -2333,6 +2347,10 @@ input[type="color"]::-moz-color-swatch {
   .theme-toggle-bar {
     padding: 8px 12px;
   }
+}
+
+.native-app .version-info {
+  display: none;
 }
 
 .version-info {

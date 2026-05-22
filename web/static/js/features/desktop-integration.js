@@ -16,12 +16,6 @@ function isNativeApp() {
   return RUNTIME_CAPABILITIES.native;
 }
 
-function nativeLaunchUrl(serverUrl) {
-  const url = new URL(serverUrl);
-  url.searchParams.set('nativeApp', 'tauri');
-  return url.toString();
-}
-
 function isAndroidApp() {
   return RUNTIME_CAPABILITIES.android;
 }
@@ -129,19 +123,24 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
     const loginBox = document.querySelector('#login-overlay .login-box');
     if (!loginBox) return;
     const panel = document.createElement('div');
-    panel.className = 'login-native-server-panel';
+    panel.className = 'login-native-server-panel collapsed';
     panel.innerHTML = `
-      <div class="login-native-server-title">Server</div>
-      <div class="login-native-server-row">
-        <input type="url" id="login-native-server-url" class="native-server-input" autocomplete="url" placeholder="Server-URL">
-        <button type="button" class="btn btn-secondary" id="login-native-server-save">Speichern</button>
+      <button type="button" class="btn btn-secondary login-native-server-toggle" id="login-native-server-toggle">Server wechseln</button>
+      <div class="login-native-server-fields" id="login-native-server-fields">
+        <div class="login-native-server-title">Server</div>
+        <div class="login-native-server-row">
+          <input type="url" id="login-native-server-url" class="native-server-input" autocomplete="url" placeholder="Server-URL">
+          <button type="button" class="btn btn-secondary" id="login-native-server-save">Speichern</button>
+        </div>
+        <div class="desktop-settings-status login-native-server-status" data-desktop-settings-status></div>
       </div>
-      <button type="button" class="btn btn-secondary login-native-server-reset" id="login-native-server-reset">Server zurücksetzen</button>
-      <div class="desktop-settings-status login-native-server-status" data-desktop-settings-status></div>
     `;
     loginBox.appendChild(panel);
+    panel.querySelector('#login-native-server-toggle')?.addEventListener('click', () => {
+      panel.classList.remove('collapsed');
+      document.getElementById('login-native-server-url')?.focus();
+    });
     panel.querySelector('#login-native-server-save')?.addEventListener('click', () => updateServerUrl(document.getElementById('login-native-server-url')?.value));
-    panel.querySelector('#login-native-server-reset')?.addEventListener('click', () => resetServerUrl());
   }
 
   function renderSettings() {
@@ -160,10 +159,10 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
     setChecked('desktop-autostart', settings.autostart);
     setChecked('desktop-notifications', settings.notifications);
     const configuredServerUrl = settings.serverUrl || location.origin;
-    const serverUrl = document.getElementById('desktop-server-url');
-    if (serverUrl) serverUrl.value = configuredServerUrl;
     const loginServerUrl = document.getElementById('login-native-server-url');
     if (loginServerUrl) loginServerUrl.value = configuredServerUrl;
+    const loginServerPanel = document.querySelector('.login-native-server-panel');
+    if (loginServerPanel && !settings.serverUrl) loginServerPanel.classList.remove('collapsed');
     setValue('desktop-hotkey-toggle-app', settings.hotkeys?.toggleApp);
     setValue('desktop-hotkey-new-todo', settings.hotkeys?.newTodo);
     setValue('desktop-hotkey-search', settings.hotkeys?.search);
@@ -306,7 +305,7 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
       const serverUrl = normalizeRuntimeServerUrl(value);
       settings = mergeSettings(await nativeBridge.setServerUrl(serverUrl));
       setDesktopStatus('Server gespeichert. App lädt neu...');
-      setTimeout(() => location.replace(nativeLaunchUrl(serverUrl)), 250);
+      setTimeout(() => location.reload(), 250);
     } catch (error) {
       setDesktopStatus(error?.message || String(error), true);
     }
