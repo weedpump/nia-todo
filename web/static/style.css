@@ -2732,6 +2732,42 @@ input[type="color"]::-moz-color-swatch {
   height: 16px;
 }
 
+.icon-picker-toolbar {
+  margin-bottom: 10px;
+}
+
+.icon-picker-search {
+  width: 100%;
+  padding: 9px 11px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.icon-picker-search:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.icon-picker-sections {
+  display: grid;
+  gap: 12px;
+  max-height: min(52vh, 430px);
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.icon-picker-category-title {
+  margin: 0 0 6px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
 .icon-picker-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(38px, 1fr));

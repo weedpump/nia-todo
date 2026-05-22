@@ -10,7 +10,7 @@ HEX_COLOR_RE = re.compile(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$")
 VALID_ICON_NAMES = {
     "layout-dashboard", "circle", "clock", "flame", "check", "check-circle", "plus", "trash-2",
     "calendar", "calendar-days", "chart-line", "triangle-alert", "settings", "monitor", "sun", "moon",
-    "refresh-cw", "x", "edit-3", "image", "key-round", "bell", "smartphone", "keyboard",
+    "refresh-cw", "x", "arrow-left", "edit-3", "image", "key-round", "bell", "smartphone", "keyboard",
     "share-2", "download", "clipboard", "ban", "folder", "briefcase", "home", "code", "server",
     "shopping-cart", "heart", "star", "users", "user-plus", "log-out", "menu", "search", "mail",
     "inbox", "lock-keyhole", "shield", "database", "cloud", "wifi", "wrench", "rocket", "car",

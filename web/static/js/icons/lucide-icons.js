@@ -70,13 +70,34 @@ export const ICONS = {
   'map-pin': '<path d="M20 10c0 4.99-5.54 10.19-7.4 11.78a1 1 0 0 1-1.2 0C9.54 20.19 4 14.99 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/>',
 };
 
-export const ICON_PICKER = [
-  'folder', 'briefcase', 'home', 'inbox', 'shopping-cart', 'calendar', 'book-open', 'file-text',
-  'code', 'terminal', 'server', 'database', 'cloud', 'wifi', 'laptop', 'cpu',
-  'wrench', 'hammer', 'bug', 'package', 'archive', 'rocket', 'car', 'plane',
-  'heart', 'star', 'users', 'mail', 'bell', 'lock-keyhole', 'shield', 'settings',
-  'tag', 'bookmark', 'flag', 'map-pin', 'layout-dashboard', 'check-circle', 'flame', 'clock'
+export const ICON_PICKER_CATEGORIES = [
+  {
+    label: 'Alltag',
+    icons: ['home', 'inbox', 'shopping-cart', 'calendar', 'calendar-days', 'clock', 'bell', 'heart', 'star', 'users', 'user-plus', 'mail'],
+  },
+  {
+    label: 'Arbeit & Technik',
+    icons: ['briefcase', 'folder', 'file-text', 'book-open', 'code', 'terminal', 'server', 'database', 'cloud', 'wifi', 'laptop', 'cpu', 'keyboard', 'smartphone'],
+  },
+  {
+    label: 'Organisation',
+    icons: ['layout-dashboard', 'chart-line', 'tag', 'bookmark', 'flag', 'map-pin', 'archive', 'package', 'clipboard', 'download', 'share-2', 'image'],
+  },
+  {
+    label: 'Status & Sicherheit',
+    icons: ['check-circle', 'check', 'flame', 'triangle-alert', 'shield', 'lock-keyhole', 'key-round', 'ban', 'circle'],
+  },
+  {
+    label: 'Tools & Bewegung',
+    icons: ['settings', 'wrench', 'hammer', 'bug', 'rocket', 'car', 'plane'],
+  },
+  {
+    label: 'System',
+    icons: ['sun', 'moon', 'monitor', 'search', 'menu', 'plus', 'edit-3', 'trash-2', 'refresh-cw', 'arrow-left', 'log-out', 'x'],
+  },
 ];
+
+export const ICON_PICKER = ICON_PICKER_CATEGORIES.flatMap(category => category.icons);
 
 export function safeColor(value, fallback = '#6366f1') {
   const color = String(value || '').trim();
@@ -119,22 +140,53 @@ export function renderIconPicker({ container, input, selected = '', color = '#63
   const safePickerColor = safeColor(color);
   input.value = safeSelected;
   container.innerHTML = `
-    <div class="icon-picker-grid">
-      <button type="button" class="icon-picker-option ${!safeSelected ? 'active' : ''}" data-value="" title="Kein Icon">
-        <span class="icon-picker-dot" style="background:${safePickerColor}"></span>
-      </button>
-      ${ICON_PICKER.map(name => `
-        <button type="button" class="icon-picker-option ${safeSelected === name ? 'active' : ''}" data-value="${name}" title="${name}" style="color:${safePickerColor}">
-          ${iconSvg(name)}
-        </button>
+    <div class="icon-picker-toolbar">
+      <input class="icon-picker-search" type="search" placeholder="Icon suchen..." aria-label="Icon suchen">
+    </div>
+    <div class="icon-picker-sections">
+      <section class="icon-picker-section" data-category="none">
+        <div class="icon-picker-category-title">Ohne Icon</div>
+        <div class="icon-picker-grid">
+          <button type="button" class="icon-picker-option ${!safeSelected ? 'active' : ''}" data-value="" data-search="kein icon ohne dot farbe" title="Kein Icon">
+            <span class="icon-picker-dot" style="background:${safePickerColor}"></span>
+          </button>
+        </div>
+      </section>
+      ${ICON_PICKER_CATEGORIES.map(category => `
+        <section class="icon-picker-section" data-category="${category.label.toLowerCase()}">
+          <div class="icon-picker-category-title">${category.label}</div>
+          <div class="icon-picker-grid">
+            ${category.icons.map(name => `
+              <button type="button" class="icon-picker-option ${safeSelected === name ? 'active' : ''}" data-value="${name}" data-search="${name.replace(/-/g, ' ')} ${category.label.toLowerCase()}" title="${name}" style="color:${safePickerColor}">
+                ${iconSvg(name)}
+              </button>
+            `).join('')}
+          </div>
+        </section>
       `).join('')}
     </div>
   `;
-  container.querySelectorAll('.icon-picker-option').forEach((button) => {
+
+  const options = Array.from(container.querySelectorAll('.icon-picker-option'));
+  options.forEach((button) => {
     button.addEventListener('click', () => {
       input.value = button.dataset.value || '';
-      container.querySelectorAll('.icon-picker-option').forEach(btn => btn.classList.remove('active'));
+      options.forEach(btn => btn.classList.remove('active'));
       button.classList.add('active');
+    });
+  });
+
+  const search = container.querySelector('.icon-picker-search');
+  search?.addEventListener('input', () => {
+    const query = search.value.trim().toLowerCase();
+    container.querySelectorAll('.icon-picker-section').forEach((section) => {
+      let visibleCount = 0;
+      section.querySelectorAll('.icon-picker-option').forEach((button) => {
+        const match = !query || (button.dataset.search || '').includes(query);
+        button.hidden = !match;
+        if (match) visibleCount += 1;
+      });
+      section.hidden = visibleCount === 0;
     });
   });
 }
