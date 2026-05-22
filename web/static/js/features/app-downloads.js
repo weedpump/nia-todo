@@ -161,8 +161,7 @@ function renderDownloads(target, downloads) {
 function renderNativeAppVersion(target, platform, currentVersion) {
   if (!target || !platform || !currentVersion) return;
   target.innerHTML = `
-    <span class="native-version-label">App-Version</span>
-    <span class="native-version-text">${escapeHtml(platformLabel(platform))} v${escapeHtml(normalizeVersion(currentVersion) || currentVersion)}</span>
+    <span class="native-version-text">App-Version: ${escapeHtml(platformLabel(platform))} v${escapeHtml(normalizeVersion(currentVersion) || currentVersion)}</span>
   `;
   target.style.display = '';
 }
