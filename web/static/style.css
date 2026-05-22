@@ -2499,6 +2499,13 @@ input[type="color"]::-moz-color-swatch {
 .workspace-current-chevron {
   margin-left: auto;
   color: var(--text-muted);
+  flex: 0 0 auto;
+  transition: transform 0.15s ease, color 0.15s ease;
+}
+
+.workspace-current-btn[aria-expanded="true"] .workspace-current-chevron {
+  transform: rotate(180deg);
+  color: var(--accent-hover);
 }
 
 .workspace-add-btn {
@@ -2584,8 +2591,14 @@ input[type="color"]::-moz-color-swatch {
 .workspace-menu-edit {
   width: 2rem;
   height: 2rem;
+  display: grid;
+  place-items: center;
   border-radius: 0.55rem;
   color: var(--text-muted);
+}
+
+.workspace-menu-edit svg {
+  display: block;
 }
 
 .workspace-menu-add {
