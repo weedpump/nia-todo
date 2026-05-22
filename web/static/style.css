@@ -114,10 +114,10 @@ body {
 
 .nav-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
 .nav-btn.active {
-  background: linear-gradient(90deg, rgba(var(--accent-rgb),0.34), rgba(var(--accent-rgb),0.14));
+  background: linear-gradient(90deg, rgba(var(--accent-rgb),0.22), rgba(var(--accent-rgb),0.09));
   color: var(--text-primary);
   font-weight: 700;
-  box-shadow: inset 4px 0 0 var(--accent), 0 8px 18px rgba(var(--accent-rgb),0.10);
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--accent) 78%, transparent);
 }
 .nav-btn .badge {
   margin-left: auto;
@@ -130,8 +130,8 @@ body {
   text-align: center;
 }
 .nav-btn.active .badge {
-  background: rgba(var(--accent-rgb),0.34);
-  color: color-mix(in srgb, var(--accent-hover) 82%, white);
+  background: rgba(var(--accent-rgb),0.22);
+  color: var(--accent-hover);
 }
 
 .nav-btn.add-btn { color: var(--text-muted); font-size: 13px; }
@@ -589,7 +589,7 @@ body {
   grid-template-columns: repeat(7, 24px);
   justify-content: space-between;
   gap: 4px;
-  padding: 4px 10px 10px;
+  padding: 9px 10px 12px;
 }
 .accent-preset-panel.active { display: grid; }
 .accent-preset-option {
