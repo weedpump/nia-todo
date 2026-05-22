@@ -1911,21 +1911,24 @@ input[type="color"]::-moz-color-swatch {
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--bg-primary);
+  color: var(--text-secondary);
   cursor: pointer;
   font-size: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.1s;
 }
 
 .login-theme-toggle .theme-option:hover {
   background: var(--bg-secondary);
+  color: var(--text-primary);
 }
 
 .login-theme-toggle .theme-option.active {
   background: var(--accent);
   border-color: var(--accent);
+  color: white;
   transform: scale(1.05);
 }
 

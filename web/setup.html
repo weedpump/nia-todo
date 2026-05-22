@@ -37,11 +37,12 @@ body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify
 .step-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--border); transition: background 0.3s; }
 .step-dot.active { background: var(--accent); }
 .setup-theme-toggle { display: flex; justify-content: center; gap: 8px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
-.setup-theme-toggle button { width: 36px; height: 36px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-primary); color: var(--text-primary); cursor: pointer; display:inline-flex; align-items:center; justify-content:center; }
+.setup-theme-toggle button { width: 36px; height: 36px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-primary); color: var(--text-secondary); cursor: pointer; display:inline-flex; align-items:center; justify-content:center; transition: background .15s, border-color .15s, color .15s, transform .1s; }
 .ui-icon { width: 1em; height: 1em; display:inline-block; vertical-align:-0.14em; }
 .success-icon { width:48px; height:48px; margin:0 auto 16px; color:var(--success); }
 .success-icon .ui-icon { width:48px; height:48px; }
-.setup-theme-toggle button:hover { background: var(--bg-secondary); }
+.setup-theme-toggle button:hover { background: var(--bg-secondary); color: var(--text-primary); }
+.setup-theme-toggle button.active { background: var(--accent); border-color: var(--accent); color: white; transform: scale(1.05); }
 </style>
 </head>
 <body>
@@ -108,9 +109,9 @@ body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify
     </div>
 
     <div class="setup-theme-toggle">
-      <button onclick="setTheme('light')" title="Hell"><span data-icon="sun"></span></button>
-      <button onclick="setTheme('dark')" title="Dunkel"><span data-icon="moon"></span></button>
-      <button onclick="setTheme('system')" title="System"><span data-icon="monitor"></span></button>
+      <button data-theme="light" onclick="setTheme('light')" title="Hell"><span data-icon="sun"></span></button>
+      <button data-theme="dark" onclick="setTheme('dark')" title="Dunkel"><span data-icon="moon"></span></button>
+      <button data-theme="system" onclick="setTheme('system')" title="System"><span data-icon="monitor"></span></button>
     </div>
   </div>
 </div>
@@ -127,6 +128,9 @@ function setTheme(mode) {
   const isDark = mode === 'dark' || (mode === 'system' && prefersDark);
   document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
   localStorage.setItem('theme', mode);
+  document.querySelectorAll('.setup-theme-toggle button').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.theme === mode);
+  });
 }
 
 // Init theme
