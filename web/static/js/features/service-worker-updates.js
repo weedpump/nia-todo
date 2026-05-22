@@ -84,7 +84,7 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
 
         navigator.serviceWorker.addEventListener('message', (event) => {
           console.log('SW message received:', event.data);
-          if (event.data.type === 'MARK_TODO_DONE' && event.data.todoId) {
+          if (event.data?.type === 'MARK_TODO_DONE' && event.data.todoId) {
             onMarkTodoDone(event.data.todoId);
           }
         });

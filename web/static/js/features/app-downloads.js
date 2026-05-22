@@ -104,19 +104,47 @@ function escapeHtml(value) {
 }
 
 function normalizeVersion(value) {
-  return String(value || '').trim().replace(/^v/i, '').split('-')[0];
+  return String(value || '').trim().replace(/^v/i, '');
+}
+
+function parseVersion(value) {
+  const [core = '', prerelease = ''] = normalizeVersion(value).split('-', 2);
+  return {
+    core: core.split('.').map((part) => Number.parseInt(part, 10)),
+    prerelease: prerelease ? prerelease.split('.') : [],
+  };
+}
+
+function comparePrerelease(leftParts, rightParts) {
+  if (!leftParts.length && !rightParts.length) return 0;
+  if (!leftParts.length) return 1;
+  if (!rightParts.length) return -1;
+  const length = Math.max(leftParts.length, rightParts.length);
+  for (let index = 0; index < length; index += 1) {
+    const left = leftParts[index];
+    const right = rightParts[index];
+    if (left === undefined) return -1;
+    if (right === undefined) return 1;
+    const leftNumber = /^\d+$/.test(left) ? Number.parseInt(left, 10) : null;
+    const rightNumber = /^\d+$/.test(right) ? Number.parseInt(right, 10) : null;
+    if (leftNumber !== null && rightNumber !== null && leftNumber !== rightNumber) return leftNumber > rightNumber ? 1 : -1;
+    if (leftNumber !== null && rightNumber === null) return -1;
+    if (leftNumber === null && rightNumber !== null) return 1;
+    if (left !== right) return left > right ? 1 : -1;
+  }
+  return 0;
 }
 
 function compareVersions(a, b) {
-  const left = normalizeVersion(a).split('.').map((part) => Number.parseInt(part, 10));
-  const right = normalizeVersion(b).split('.').map((part) => Number.parseInt(part, 10));
-  const length = Math.max(left.length, right.length);
+  const leftVersion = parseVersion(a);
+  const rightVersion = parseVersion(b);
+  const length = Math.max(leftVersion.core.length, rightVersion.core.length);
   for (let index = 0; index < length; index += 1) {
-    const l = Number.isFinite(left[index]) ? left[index] : 0;
-    const r = Number.isFinite(right[index]) ? right[index] : 0;
-    if (l !== r) return l > r ? 1 : -1;
+    const left = Number.isFinite(leftVersion.core[index]) ? leftVersion.core[index] : 0;
+    const right = Number.isFinite(rightVersion.core[index]) ? rightVersion.core[index] : 0;
+    if (left !== right) return left > right ? 1 : -1;
   }
-  return 0;
+  return comparePrerelease(leftVersion.prerelease, rightVersion.prerelease);
 }
 
 function renderDownloads(target, downloads) {
