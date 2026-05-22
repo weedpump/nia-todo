@@ -33,6 +33,12 @@ async function run() {
     await page.locator('.workspace-menu-choice').filter({ hasText: 'Privat' }).click();
     await page.waitForFunction(() => !document.body.innerText.includes('Beruf Projekt'), null, { timeout: 10000 });
 
+    await page.getByRole('button', { name: /Projekt hinzufügen/ }).click();
+    await page.locator('#project-modal').waitFor({ state: 'visible', timeout: 5000 });
+    await page.fill('#project-name', 'Beruf Projekt');
+    await page.click('button[form="project-form"]');
+    await page.locator('#project-modal').waitFor({ state: 'hidden', timeout: 10000 });
+
     await page.locator('#workspace-current-btn').click();
     await page.locator('.workspace-menu-choice').filter({ hasText: 'Beruflich' }).click();
     await waitForText('Beruf Projekt');
@@ -44,6 +50,14 @@ async function run() {
     await page.locator('#workspace-modal .btn-primary').click();
     await page.locator('#workspace-modal').waitFor({ state: 'hidden', timeout: 10000 });
     await page.waitForFunction(() => document.querySelector('#workspace-current-name')?.textContent === 'Arbeit', null, { timeout: 10000 });
+
+    await page.locator('#workspace-current-btn').click();
+    await page.locator('.workspace-menu-row').filter({ hasText: 'Arbeit' }).locator('.workspace-menu-edit').click();
+    await page.locator('#workspace-modal').waitFor({ state: 'visible', timeout: 5000 });
+    await page.locator('#workspace-delete-btn').click();
+    await page.locator('#workspace-modal').waitFor({ state: 'hidden', timeout: 10000 });
+    await page.waitForFunction(() => document.querySelector('#workspace-current-name')?.textContent === 'Privat', null, { timeout: 10000 });
+    await waitForText('Beruf Projekt (2)');
 
     console.log('✅ Frontend workspaces test passed');
   } finally {

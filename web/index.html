@@ -461,9 +461,12 @@
             <input type="color" id="workspace-color" value="#6366f1">
           </div>
           <div id="workspace-error" class="settings-field-error"></div>
-          <div class="modal-actions">
-            <button type="button" class="btn btn-secondary" onclick="closeWorkspaceModal()">Abbrechen</button>
-            <button type="submit" class="btn btn-primary">Speichern</button>
+          <div class="modal-actions split-actions">
+            <button type="button" class="btn btn-danger" id="workspace-delete-btn" onclick="deleteWorkspaceFromModal()" style="display:none;">Löschen</button>
+            <div class="modal-actions-right">
+              <button type="button" class="btn btn-secondary" onclick="closeWorkspaceModal()">Abbrechen</button>
+              <button type="submit" class="btn btn-primary">Speichern</button>
+            </div>
           </div>
         </form>
       </div>
