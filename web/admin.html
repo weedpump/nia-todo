@@ -13,15 +13,16 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .admin-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 16px; padding: 24px; margin-bottom: 24px; box-shadow: var(--shadow); }
 .admin-card h2 { font-size: 16px; margin: 0 0 16px 0; color: var(--text-primary); display: inline-flex; align-items: center; gap: 8px; }
 .user-table-wrap { width: 100%; overflow-x: auto; }
-.user-table { width: 100%; border-collapse: collapse; table-layout: fixed; min-width: 760px; }
+.user-table { width: 100%; border-collapse: collapse; table-layout: fixed; min-width: 860px; }
 .user-table th { text-align: left; padding: 12px; font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--border); }
 .user-table td { padding: 12px; font-size: 14px; color: var(--text-primary); border-bottom: 1px solid var(--border); vertical-align: middle; }
-.user-table th:nth-child(1), .user-table td:nth-child(1) { width: 36px; }
-.user-table th:nth-child(2), .user-table td:nth-child(2) { width: 110px; }
-.user-table th:nth-child(3), .user-table td:nth-child(3) { width: 120px; }
-.user-table th:nth-child(5), .user-table td:nth-child(5) { width: 88px; }
-.user-table th:nth-child(6), .user-table td:nth-child(6) { width: 92px; }
-.user-table th:nth-child(7), .user-table td:nth-child(7) { width: 70px; }
+.user-table th:nth-child(1), .user-table td:nth-child(1) { width: 44px; }
+.user-table th:nth-child(2), .user-table td:nth-child(2) { width: 125px; }
+.user-table th:nth-child(3), .user-table td:nth-child(3) { width: 140px; }
+.user-table th:nth-child(4), .user-table td:nth-child(4) { width: 235px; }
+.user-table th:nth-child(5), .user-table td:nth-child(5) { width: 100px; }
+.user-table th:nth-child(6), .user-table td:nth-child(6) { width: 130px; }
+.user-table th:nth-child(7), .user-table td:nth-child(7) { width: 100px; }
 .user-table tr:last-child td { border-bottom: none; }
 .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; }
 .badge-admin { background: var(--accent); color: white; }
@@ -41,9 +42,10 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .admin-success { color: var(--success); font-size: 13px; margin-top: 8px; }
 .setup-link-box { margin-top: 12px; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-primary); display: none; gap: 8px; align-items: center; }
 .setup-link-box input { flex: 1; min-width: 0; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-secondary); color: var(--text-primary); font-size: 13px; }
-.email-display { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; }
-.email-display span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.email-display { display: inline-flex; align-items: center; gap: 6px; width: 100%; max-width: 100%; }
+.email-display span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .user-table th:nth-child(4), .user-table td:nth-child(4) { overflow: hidden; }
+.admin-table-action { min-width: 0; width: 100%; padding: 6px 8px; white-space: nowrap; }
 .email-missing { color: var(--text-muted); }
 .email-edit { display: grid; grid-template-columns: minmax(0, 1fr) 28px 28px; align-items: center; gap: 4px; width: 100%; max-width: 100%; }
 .email-edit input { min-width: 0; width: 100%; padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-primary); color: var(--text-primary); font-size: 13px; }
@@ -406,8 +408,8 @@ function renderUsers(users) {
       <td><span class="admin-mobile-label">Anzeigename</span>${escapeHtml(u.display_name) || '-'}</td>
       <td><span class="admin-mobile-label">E-Mail</span>${renderUserEmailCell(u)}</td>
       <td><span class="admin-mobile-label">Erstellt</span>${new Date(u.created_at).toLocaleDateString('de-DE')}</td>
-      <td><span class="admin-mobile-label">Passwort</span><button class="btn btn-primary" style="font-size:12px; padding:4px 10px;" onclick="generatePasswordLink(${u.id}, '${escapeHtmlAttr(u.username)}')">${iconSvg('link')} Link erzeugen</button></td>
-      <td><span class="admin-mobile-label">Aktionen</span>${u.is_admin ? '-' : `<button class="btn btn-danger" onclick="deleteUser(${u.id}, '${escapeHtmlAttr(u.username)}')">${iconSvg('trash')} Löschen</button>`}</td>
+      <td><span class="admin-mobile-label">Passwort</span><button class="btn btn-primary admin-table-action" onclick="generatePasswordLink(${u.id}, '${escapeHtmlAttr(u.username)}')">${iconSvg('link')} Link erzeugen</button></td>
+      <td><span class="admin-mobile-label">Aktionen</span>${u.is_admin ? '-' : `<button class="btn btn-danger admin-table-action" onclick="deleteUser(${u.id}, '${escapeHtmlAttr(u.username)}')">${iconSvg('trash')} Löschen</button>`}</td>
     </tr>
   `).join('');
 }
