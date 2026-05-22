@@ -5,6 +5,8 @@ async function run() {
   console.log('📡 Running frontend realtime WebSocket sync test...');
   const clientA = await launchPage();
   const clientB = await launchPage();
+  await clientA.page.addInitScript(() => localStorage.setItem('nia-hide-done', 'false'));
+  await clientB.page.addInitScript(() => localStorage.setItem('nia-hide-done', 'false'));
   const { browser: browserA, page: pageA, loginApp: loginA, visible: visibleA, waitForText: waitForTextA, openTodoModal } = clientA;
   const { browser: browserB, page: pageB, loginApp: loginB, visible: visibleB, waitForText: waitForTextB, dumpErrors } = clientB;
 
