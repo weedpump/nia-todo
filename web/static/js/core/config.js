@@ -52,10 +52,19 @@ export function isNativeRuntime() {
 }
 
 export function normalizeServerUrl(value) {
-  const raw = String(value || '').trim().replace(/\/+$/, '');
-  const url = new URL(raw);
-  if (!['http:', 'https:'].includes(url.protocol)) throw new Error('Bitte eine http(s)-URL eingeben.');
+  let raw = String(value || '').trim().replace(/\/+$/, '');
+  if (!raw) throw new Error('Bitte Server-Hostname eingeben.');
+  if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(raw)) raw = `https://${raw}`;
+  let url;
+  try {
+    url = new URL(raw);
+  } catch (_error) {
+    throw new Error('Bitte einen gültigen Server-Hostnamen eingeben.');
+  }
+  const localHttp = url.protocol === 'http:' && /^(localhost|127\.0\.0\.1|\[::1\])$/i.test(url.hostname);
+  if (url.protocol !== 'https:' && !localHttp) throw new Error('Bitte eine HTTPS-Adresse verwenden.');
   if (url.username || url.password) throw new Error('Server-URL darf keine Zugangsdaten enthalten.');
+  if (!url.hostname || url.hostname.includes(' ')) throw new Error('Bitte einen gültigen Server-Hostnamen eingeben.');
   url.hash = '';
   url.search = '';
   return url.origin + url.pathname.replace(/\/+$/, '');
@@ -72,11 +81,16 @@ export function websocketUrlFromBase(baseUrl) {
 
 export async function verifyInstance(serverUrl) {
   const base = normalizeServerUrl(serverUrl);
-  const response = await fetch(`${base}/api/instance`, {
-    method: 'GET',
-    headers: { 'Accept': 'application/json' },
-    cache: 'no-store',
-  });
+  let response;
+  try {
+    response = await fetch(`${base}/api/instance`, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      cache: 'no-store',
+    });
+  } catch (_error) {
+    throw new Error('Server nicht erreichbar. Bitte Hostname, HTTPS und Netzwerk prüfen.');
+  }
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data.detail || `Server-Verifikation fehlgeschlagen (${response.status})`);
   if (data?.app !== 'nia-todo') throw new Error('Das ist kein kompatibler nia-todo Server.');

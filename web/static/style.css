@@ -871,6 +871,7 @@ body {
   background: linear-gradient(90deg, rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.08)), rgba(148,163,184,0.06));
   color: var(--text-secondary);
   font-size: 13px;
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--accent) 62%, var(--text-primary));
 }
 .overview-focus-item > span:first-child,
 .overview-project-item > span:first-child {
@@ -891,6 +892,7 @@ body {
 .overview-project-item:hover {
   background: linear-gradient(90deg, rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.18)), var(--bg-hover));
   color: var(--text-primary);
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--accent-hover) 58%, var(--text-primary));
 }
 .overview-focus-item strong,
 .overview-project-item strong {
@@ -972,7 +974,7 @@ body {
 .todo-item:hover {
   border-color: var(--accent);
   background: linear-gradient(90deg, rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.12)), var(--bg-tertiary));
-  box-shadow: inset 3px 0 0 rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.55));
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--accent) 62%, var(--text-primary));
 }
 
 .todo-item.done { opacity: 0.5; }
