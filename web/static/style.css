@@ -2207,6 +2207,15 @@ input[type="color"]::-moz-color-swatch {
 
   .web-update-actions {
     flex-direction: column;
+    align-items: center;
+  }
+
+  #web-update-apply-btn {
+    width: auto;
+    min-width: 0;
+    max-width: 220px;
+    justify-content: center;
+    align-self: center;
   }
 }
 
@@ -2391,5 +2400,20 @@ input[type="color"]::-moz-color-swatch {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
 }
 @media (max-width: 560px) {
-  .settings-server-row { flex-direction: column; }
+  .settings-server-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .settings-server-row input {
+    width: 100%;
+  }
+
+  .settings-server-row .btn {
+    width: auto;
+    min-width: 0;
+    max-width: 220px;
+    justify-content: center;
+    align-self: flex-start;
+  }
 }
