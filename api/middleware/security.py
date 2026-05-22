@@ -11,7 +11,7 @@ from rate_limit import rate_limiter, get_client_ip
 
 CSRF_COOKIE_NAME = "csrf_token"
 CSRF_COOKIE_MAX_AGE_SECONDS = 86400 * 30
-BUILT_IN_NATIVE_ORIGINS = {"http://tauri.localhost", "https://tauri.localhost"}
+BUILT_IN_NATIVE_HOSTS = {"tauri.localhost"}
 
 
 def is_built_in_native_origin(origin: Optional[str]) -> bool:
@@ -20,8 +20,7 @@ def is_built_in_native_origin(origin: Optional[str]) -> bool:
     parsed = urlparse(origin)
     if parsed.scheme not in {"http", "https"} or not parsed.hostname:
         return False
-    port = f":{parsed.port}" if parsed.port else ""
-    return f"{parsed.scheme}://{parsed.hostname.lower()}{port}" in BUILT_IN_NATIVE_ORIGINS
+    return parsed.hostname.lower() in BUILT_IN_NATIVE_HOSTS
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
