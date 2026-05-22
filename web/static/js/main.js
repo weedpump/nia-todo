@@ -50,6 +50,8 @@ const startImport = () => {
       const config = await import('./core/config.js');
       const runtime = await config.initRuntimeConfig();
       window.NIA_TODO_RUNTIME = runtime;
+      if (runtime?.capabilities?.native) document.documentElement.classList.add('native-app');
+      if (runtime?.capabilities?.android) document.documentElement.classList.add('native-android');
       if (config.isNativeRuntime() && config.getTauriInvoke() && !runtime.apiBaseUrl) {
         showNativeServerSetup(config);
         return;
