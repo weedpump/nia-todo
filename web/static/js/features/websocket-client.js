@@ -190,6 +190,15 @@ async function handleWsMessage(msg) {
     case 'sync_response':
       // Full data sync from server — nur wenn Server neuer
       if (msg.todos) {
+        const serverTodoIds = new Set(msg.todos.map(todo => String(todo.id)));
+        const queue = await dbGetAll('syncQueue');
+        for (const localTodo of await dbGetAll('todos')) {
+          const hasPendingChange = queue.some(q =>
+            (q.action === 'CREATE_TODO' && q.data?._tempId === localTodo.id) ||
+            (q.action === 'UPDATE_TODO' && q.data?.id === localTodo.id)
+          );
+          if (!serverTodoIds.has(String(localTodo.id)) && !hasPendingChange) await deleteFromDB('todos', localTodo.id);
+        }
         for (const todo of msg.todos) {
           const local = await getFromDB('todos', todo.id);
           if (!local) {
@@ -211,6 +220,15 @@ async function handleWsMessage(msg) {
         todos = await dbGetAll('todos');
       }
       if (msg.projects) {
+        const serverProjectIds = new Set(msg.projects.map(project => String(project.id)));
+        const queue = await dbGetAll('syncQueue');
+        for (const localProject of await dbGetAll('projects')) {
+          const hasPendingChange = queue.some(q =>
+            (q.action === 'CREATE_PROJECT' && q.data?._tempId === localProject.id) ||
+            (q.action === 'UPDATE_PROJECT' && q.data?.id === localProject.id)
+          );
+          if (!serverProjectIds.has(String(localProject.id)) && !hasPendingChange) await deleteFromDB('projects', localProject.id);
+        }
         for (const project of msg.projects) {
           const local = await getFromDB('projects', project.id);
           if (!local) {
@@ -232,6 +250,15 @@ async function handleWsMessage(msg) {
         projects = await dbGetAll('projects');
       }
       if (msg.sections) {
+        const serverSectionIds = new Set(msg.sections.map(section => String(section.id)));
+        const queue = await dbGetAll('syncQueue');
+        for (const localSection of await dbGetAll('sections')) {
+          const hasPendingChange = queue.some(q =>
+            (q.action === 'CREATE_SECTION' && q.data?._tempId === localSection.id) ||
+            (q.action === 'UPDATE_SECTION' && q.data?.id === localSection.id)
+          );
+          if (!serverSectionIds.has(String(localSection.id)) && !hasPendingChange) await deleteFromDB('sections', localSection.id);
+        }
         for (const section of msg.sections) {
           const local = await getFromDB('sections', section.id);
           if (!local) {
@@ -264,6 +291,9 @@ async function handleWsMessage(msg) {
         setWorkspaces?.(workspaces);
         renderWorkspaces?.();
       }
+      setTodos(todos);
+      setProjects(projects);
+      setSections(sections);
       renderProjects();
       renderStats();
       renderTodos();
@@ -375,6 +405,7 @@ async function handleWsMessage(msg) {
         const deletedIds = msg.payload.deleted_ids || [msg.payload.id];
         await Promise.all(deletedIds.map(projectId => deleteFromDB('projects', projectId)));
         projects = projects.filter(p => !deletedIds.includes(p.id));
+        setProjects(projects);
         if (ws?.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({ type: 'sync_request' }));
         }

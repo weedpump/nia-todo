@@ -171,6 +171,12 @@ async def delete_project(project_id: int, user_id: int = Depends(require_auth)):
             raise HTTPException(400, "Inbox cannot be deleted")
         if not can_edit_project(db, project_id, user_id):
             raise HTTPException(403, "Only the owner can delete this project")
+        recipient_rows = db.execute(
+            "SELECT user_id FROM project_members WHERE project_id = ? AND status = 'accepted'",
+            (project_id,),
+        ).fetchall()
+        recipient_ids = {row['user_id'] for row in recipient_rows}
+
         to_delete = []
         queue = [project_id]
         while queue:
@@ -192,7 +198,7 @@ async def delete_project(project_id: int, user_id: int = Depends(require_auth)):
         for pid in reversed(to_delete):
             db.execute("DELETE FROM projects WHERE id = ?", (pid,))
         db.commit()
-        await broadcast_change("project_delete", {"id": project_id, "deleted_ids": to_delete}, user_id, project_id)
+        await broadcast_change("project_delete", {"id": project_id, "deleted_ids": to_delete}, user_id, recipient_ids=recipient_ids)
         return {"deleted": project_id, "deleted_ids": to_delete}
 
 
