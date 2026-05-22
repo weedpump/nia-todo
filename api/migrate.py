@@ -111,6 +111,13 @@ def repair_icon_migration(conn):
         WHERE COALESCE(is_inbox, 0) = 1
           AND (icon IS NULL OR TRIM(icon) = '')
     """)
+    conn.execute("""
+        UPDATE workspaces
+        SET icon = 'home'
+        WHERE COALESCE(is_default, 0) = 1
+          AND name = 'Privat'
+          AND (icon IS NULL OR TRIM(icon) = '')
+    """)
     conn.commit()
 
 
