@@ -8,6 +8,7 @@ export function createAppRenderingFeature({
   getCurrentFilter,
   getCurrentProjectId,
   getHideDone,
+  getShowProjectWidget,
   getCurrentUser,
   sortTodoList,
   renderTodoItem,
@@ -287,6 +288,43 @@ export function createAppRenderingFeature({
       </section>`;
   }
 
+  function renderProjectDashboard(project, projectTodos) {
+    if (!project || !getShowProjectWidget?.()) return '';
+    const activeTodos = projectTodos.filter(t => t.status !== 'done');
+    const overdue = activeTodos.filter(t => t.due_date && new Date(t.due_date) < new Date()).length;
+    const stats = [
+      { cls: 'total', icon: '📋', num: projectTodos.length, label: 'Gesamt', hint: 'Todos im Projekt' },
+      { cls: 'pending', icon: '⏳', num: projectTodos.filter(t => t.status === 'pending').length, label: 'Offen', hint: 'Noch zu tun' },
+      { cls: 'progress', icon: '🔥', num: projectTodos.filter(t => t.status === 'in_progress').length, label: 'In Arbeit', hint: 'Aktiv bearbeitet' },
+      { cls: 'due', icon: '⚠️', num: overdue, label: 'Überfällig', hint: 'Brauchen Aufmerksamkeit' },
+    ];
+    const color = project.color || '#6366f1';
+    const subtitle = project.is_shared ? 'Geteiltes Projekt' : 'Projektübersicht';
+    return `<section class="overview-dashboard project-dashboard" aria-label="Projekt-Dashboard">
+      <div class="overview-dashboard-header project-dashboard-header">
+        <div class="overview-greeting">
+          <span class="project-dashboard-avatar" style="--project-color:${escapeHtmlAttr(color)}">${project.is_inbox ? '📥' : '📁'}</span>
+          <div>
+            <div class="overview-kicker">Projekt</div>
+            <h2>${escapeHtml(project.name)}</h2>
+            <div class="overview-subtitle">${subtitle}</div>
+          </div>
+        </div>
+      </div>
+      <div class="overview-stat-grid">
+        ${stats.map(stat => `
+          <div class="overview-stat-card ${stat.cls}">
+            <div class="overview-stat-num">${stat.num}</div>
+            <div>
+              <div class="overview-stat-label">${stat.label}</div>
+              <div class="overview-stat-hint">${stat.hint}</div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </section>`;
+  }
+
   function renderTodos() {
     const el = document.getElementById('todo-list');
     if (!el) return;
@@ -309,6 +347,9 @@ export function createAppRenderingFeature({
 
     if (currentProjectId) {
       let html = '';
+      const currentProject = projects.find(p => Number(p.id) === Number(currentProjectId));
+      const projectTodos = getTodos().filter(t => Number(t.project_id) === Number(currentProjectId));
+      html += renderProjectDashboard(currentProject, projectTodos);
       const sections = allSections.filter(s => Number(s.project_id) === Number(currentProjectId));
       const validSectionIds = new Set(sections.map(s => s.id));
 

@@ -39,6 +39,7 @@ let appInitialized = false;
 let syncInProgress = false;
 let hideDone = localStorage.getItem('nia-hide-done') !== 'false';
 let sortMode = localStorage.getItem('nia-sort') || 'priority';
+let showProjectWidget = localStorage.getItem('nia-project-widget') !== 'false';
 let desktopIntegration = null;
 
 function setTodosState(next) {
@@ -57,6 +58,8 @@ const viewPreferences = createViewPreferencesFeature({
   setHideDone: (value) => { hideDone = value; },
   getSortMode: () => sortMode,
   setSortMode: (value) => { sortMode = value; },
+  getShowProjectWidget: () => showProjectWidget,
+  setShowProjectWidget: (value) => { showProjectWidget = value; },
   renderTodos: () => renderTodos(),
 });
 const toggleHideDone = viewPreferences.toggleHideDone;
@@ -64,6 +67,8 @@ const updateToggleDoneButton = viewPreferences.updateToggleDoneButton;
 const cycleSort = viewPreferences.cycleSort;
 const updateSortButton = viewPreferences.updateSortButton;
 const sortTodoList = viewPreferences.sortTodoList;
+const toggleProjectWidget = viewPreferences.toggleProjectWidget;
+const updateProjectWidgetButton = viewPreferences.updateProjectWidgetButton;
 const sectionsFeature = createSectionsFeature({
   getTodos: () => todos,
   getCurrentProjectId: () => currentProjectId,
@@ -311,6 +316,7 @@ const appRendering = createAppRenderingFeature({
   getCurrentFilter: () => currentFilter,
   getCurrentProjectId: () => currentProjectId,
   getHideDone: () => hideDone,
+  getShowProjectWidget: () => showProjectWidget,
   getCurrentUser: () => currentUser,
   sortTodoList,
   renderTodoItem,
@@ -498,6 +504,7 @@ const appLifecycle = createAppLifecycle({
   renderTodos,
   updateToggleDoneButton,
   updateSortButton,
+  updateProjectWidgetButton,
 });
 const initApp = async function() {
   await appLifecycle.initApp();
@@ -543,7 +550,7 @@ export function startAppModule() {
   projectSharing: { setProject: (project) => sharingFeature.setProject(project), applyProjectModalState: (project, canEdit, shared) => sharingFeature.applyProjectModalState(project, canEdit, shared), loadInvites: () => sharingFeature.loadInvites() },
   sections: { showAddSectionForm, saveNewSection, editSectionInline, saveSectionEdit, deleteSection },
   dragDrop: { handleTodoDragStart, handleTodoDragEnd, handleTodoDragOver, handleTodoDrop, handleSectionDragStart, handleSectionDragEnd, handleSectionDragOver, handleSectionDrop },
-  viewPreferences: { toggleHideDone, updateToggleDoneButton, cycleSort, updateSortButton, sortTodoList },
+  viewPreferences: { toggleHideDone, updateToggleDoneButton, cycleSort, updateSortButton, sortTodoList, toggleProjectWidget, updateProjectWidgetButton },
   toastUndo: { showToast, showBatchToast, hideToast, undoLastAction, restoreBatchTodos, restoreTodo },
     push: { updatePushStatus, updatePushSettingsUI, enablePushNotifications, disablePushNotifications, sendTestPush },
     desktopIntegration: {
