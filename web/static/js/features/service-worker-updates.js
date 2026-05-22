@@ -178,10 +178,9 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
     if (modalCurrent) modalCurrent.textContent = current || 'aktuelle Version';
   }
 
-  function markUpdateAvailable(worker) {
+  function markUpdateAvailable() {
     updateAvailable = true;
-    waitingUpdateWorker = worker || swRegistration?.waiting || null;
-    showUpdateModal(waitingUpdateWorker);
+    showUpdateModal();
   }
 
   function showUpdateModal() {
