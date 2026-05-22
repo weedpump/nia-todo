@@ -69,6 +69,8 @@ async function run() {
     await todoItem.click();
     await visible('#todo-modal');
     await page.click('button[onclick="deleteTodoFromModal()"]');
+    await visible('#confirm-modal');
+    await page.click('#confirm-confirm-btn');
     await page.waitForTimeout(800);
     await page.click('#toast-undo');
     await clickProjectNav('Frontend Smoke Project');

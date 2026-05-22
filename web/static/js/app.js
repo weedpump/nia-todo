@@ -22,6 +22,7 @@ import { createViewPreferencesFeature } from './features/view-preferences.js';
 import { createWebSocketClient } from './features/websocket-client.js';
 import { createToastUndoFeature } from './features/toast-undo.js';
 import { createDragDropFeature } from './features/drag-drop.js';
+import { createConfirmDialogFeature } from './features/confirm-dialog.js';
 import { createDesktopIntegration } from './features/desktop-integration.js';
 import { createAppDownloadsFeature } from './features/app-downloads.js';
 import { createAppRenderingFeature } from './features/app-rendering.js';
@@ -55,6 +56,8 @@ function setTodosState(next) {
 let currentUser = null;  // { id, username, display_name, token }
 const apiKeysFeature = createApiKeysFeature({ authApi });
 const pushFeature = createPushNotificationsFeature({ pushApi });
+const confirmDialogFeature = createConfirmDialogFeature();
+const confirmDanger = confirmDialogFeature.confirmDanger;
 const appDownloadsFeature = createAppDownloadsFeature();
 const viewPreferences = createViewPreferencesFeature({
   getHideDone: () => hideDone,
@@ -128,6 +131,7 @@ const todosFeature = createTodosFeature({
   renderStats: () => renderStats(),
   renderTodos: () => renderTodos(),
   closeModal: (...args) => closeModal(...args),
+  confirmDanger,
   showToast: (...args) => showToast(...args),
   setupDescPreview: (...args) => setupDescPreview(...args),
   renderMarkdown,
@@ -156,6 +160,7 @@ const projectsFeature = createProjectsFeature({
   renderStats: () => renderStats(),
   renderTodos: () => renderTodos(),
   closeModal: (...args) => closeModal(...args),
+  confirmDanger,
   showToast: (...args) => showToast(...args),
   showBatchToast: (...args) => showBatchToast(...args),
   projectsApi,
@@ -312,6 +317,7 @@ const sectionActions = createSectionActionsFeature({
   isOnlineForSync,
   syncWithServer,
   renderTodos: () => renderTodos(),
+  confirmDanger,
   sectionsFeature,
 });
 const renderSectionHeader = sectionActions.renderSectionHeader;
@@ -574,6 +580,7 @@ export function startAppModule() {
   appLifecycle.bindNetworkEvents();
   appLifecycle.bindDomReady();
   bindUserMenu();
+  confirmDialogFeature.bindConfirmDialog();
   appDownloadsFeature.initAppDownloads();
   desktopIntegration?.init();
   setInterval(() => renderStats(), 30 * 1000);

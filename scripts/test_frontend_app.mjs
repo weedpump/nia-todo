@@ -138,6 +138,8 @@ async function run() {
 
     const deleteSectionButton = page.locator('.section-header').filter({ hasText: 'Section A Renamed' }).first().locator('.section-delete');
     await deleteSectionButton.click();
+    await visible('#confirm-modal');
+    await page.click('#confirm-confirm-btn');
     await page.waitForFunction(() => {
       const sectionNames = Array.from(document.querySelectorAll('.section-header .section-name')).map(el => el.textContent || '');
       return !sectionNames.some(name => name.includes('Section A Renamed')) && document.body.innerText.includes('Section Todo');

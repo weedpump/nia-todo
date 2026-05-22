@@ -78,6 +78,8 @@ async function run() {
     await childRow.locator('.nav-edit').click();
     await visible('#project-modal');
     await page.click('#project-delete-btn');
+    await visible('#confirm-modal');
+    await page.click('#confirm-confirm-btn');
     await page.waitForFunction(() => !document.body.innerText.includes('Project Child'), { timeout: 10000 });
 
     await page.locator('.nav-btn[data-filter="all"]').click();

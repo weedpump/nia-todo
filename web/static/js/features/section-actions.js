@@ -10,6 +10,7 @@ export function createSectionActionsFeature({
   isOnlineForSync,
   syncWithServer,
   renderTodos,
+  confirmDanger,
   sectionsFeature,
 }) {
   async function saveNewSection() {
@@ -55,7 +56,12 @@ export function createSectionActionsFeature({
   }
 
   async function deleteSection(id) {
-    if (!confirm('Section wirklich löschen? Todos werden zu "Unsortiert" verschoben.')) return;
+    const confirmed = await confirmDanger({
+      title: 'Section löschen?',
+      message: 'Die Section wird gelöscht. Enthaltene Todos werden zu „Unsortiert“ verschoben.',
+      confirmText: 'Section löschen',
+    });
+    if (!confirmed) return;
 
     const sections = getSections();
     const section = sections.find(s => s.id === id);
