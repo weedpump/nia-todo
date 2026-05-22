@@ -164,6 +164,8 @@
             </div>
             <button type="button" class="user-menu-item" id="menu-settings-btn" onclick="closeUserMenu(); openSettingsModal()" title="Einstellungen" role="menuitem"><span data-icon="settings"></span><span>Einstellungen</span></button>
             <button type="button" class="user-menu-item" id="theme-toggle-btn" onclick="cycleTheme()" role="menuitem"><span class="menu-item-icon" data-icon="monitor"></span><span class="menu-item-label">Theme: System</span></button>
+            <button type="button" class="user-menu-item accent-preset-row" id="accent-preset-row" onclick="toggleAccentPresetMenu(event)" title="Preset Farbe" aria-expanded="false" role="menuitem"><span class="menu-item-icon accent-preset-current" id="accent-preset-current"></span><span class="menu-item-label">Preset Farbe</span><span class="accent-preset-chevron"></span></button>
+            <div class="accent-preset-panel" id="accent-preset-panel" aria-label="Preset Farbe auswählen"></div>
             <button type="button" class="user-menu-item" id="sort-toggle-btn" onclick="cycleSort()" role="menuitem"><span class="menu-item-icon">P1</span><span class="menu-item-label">Sortierung: Priorität</span></button>
             <button type="button" class="user-menu-item" id="toggle-done-btn" onclick="toggleHideDone()" role="menuitem"><span class="menu-item-icon" data-icon="ban"></span><span class="menu-item-label">Erledigte anzeigen</span></button>
             <button type="button" class="user-menu-item" id="project-widget-toggle-btn" onclick="toggleProjectWidget()" role="menuitem"><span class="menu-item-icon" data-icon="layout-dashboard"></span><span class="menu-item-label">Projekt Widget</span></button>
@@ -363,10 +365,6 @@
         </div>
         <div id="settings-avatar-error" class="settings-field-error"></div>
         <div id="settings-avatar-success" class="settings-field-success"></div>
-        <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">
-        <h4 style="margin:0 0 12px 0; font-size:14px;"><span data-icon="star"></span> Designfarbe</h4>
-        <div class="settings-accent-grid" id="settings-accent-options" aria-label="Designfarbe auswählen"></div>
-        <div class="settings-accent-hint">Wird nur lokal auf diesem Gerät gespeichert.</div>
         <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">
         <h4 style="margin:0 0 12px 0; font-size:14px;"><span data-icon="key-round"></span> Passwort ändern</h4>
         <div class="form-group">

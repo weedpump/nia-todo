@@ -34,10 +34,10 @@ export const ACCENT_PRESETS = [
     light: { accent: '#e11d48', hover: '#be123c', rgb: '225, 29, 72', hoverRgb: '190, 18, 60' },
   },
   {
-    id: 'violet',
-    label: 'Violet',
-    dark: { accent: '#8b5cf6', hover: '#a78bfa', rgb: '139, 92, 246', hoverRgb: '167, 139, 250' },
-    light: { accent: '#7c3aed', hover: '#6d28d9', rgb: '124, 58, 237', hoverRgb: '109, 40, 217' },
+    id: 'magenta',
+    label: 'Magenta',
+    dark: { accent: '#d946ef', hover: '#f0abfc', rgb: '217, 70, 239', hoverRgb: '240, 171, 252' },
+    light: { accent: '#c026d3', hover: '#a21caf', rgb: '192, 38, 211', hoverRgb: '162, 28, 175' },
   },
   {
     id: 'teal',
@@ -47,12 +47,34 @@ export const ACCENT_PRESETS = [
   },
 ];
 
+const CHEVRON_DOWN = '<svg class="menu-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
+
 function findAccentPreset(id) {
   return ACCENT_PRESETS.find(preset => preset.id === id) || ACCENT_PRESETS[0];
 }
 
 export function getAccentPreset() {
   return findAccentPreset(localStorage.getItem(ACCENT_STORAGE_KEY) || 'standard');
+}
+
+function accentSwatchStyle(preset) {
+  return `--accent-swatch-dark:${preset.dark.accent}; --accent-swatch-light:${preset.light.accent};`;
+}
+
+function renderAccentSwatch(preset) {
+  return `<span class="accent-preset-swatch" style="${accentSwatchStyle(preset)}"></span>`;
+}
+
+function updateAccentMenuUi() {
+  const preset = getAccentPreset();
+  const current = document.getElementById('accent-preset-current');
+  if (current) current.innerHTML = renderAccentSwatch(preset);
+
+  document.querySelectorAll('.accent-preset-option').forEach(btn => {
+    const isActive = btn.dataset.accent === preset.id;
+    btn.classList.toggle('active', isActive);
+    btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+  });
 }
 
 function applyAccentPreset(resolvedTheme) {
@@ -64,10 +86,7 @@ function applyAccentPreset(resolvedTheme) {
   root.style.setProperty('--accent-hover', palette.hover);
   root.style.setProperty('--accent-rgb', palette.rgb);
   root.style.setProperty('--accent-hover-rgb', palette.hoverRgb);
-
-  document.querySelectorAll('.accent-preset-option').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.accent === preset.id);
-  });
+  updateAccentMenuUi();
 }
 
 export function setAccentPreset(id) {
@@ -79,28 +98,43 @@ export function setAccentPreset(id) {
   }
   const resolvedTheme = document.documentElement.getAttribute('data-theme') || 'dark';
   applyAccentPreset(resolvedTheme);
-  const accentOptionsEl = document.getElementById('settings-accent-options');
-  if (accentOptionsEl) accentOptionsEl.innerHTML = renderAccentPresetOptions();
+}
+
+export function toggleAccentPresetMenu(event) {
+  event?.stopPropagation?.();
+  const row = document.getElementById('accent-preset-row');
+  const panel = document.getElementById('accent-preset-panel');
+  if (!row || !panel) return;
+  const nextOpen = !panel.classList.contains('active');
+  panel.classList.toggle('active', nextOpen);
+  row.setAttribute('aria-expanded', nextOpen ? 'true' : 'false');
 }
 
 export function renderAccentPresetOptions() {
   const current = getAccentPreset().id;
   return ACCENT_PRESETS.map(preset => {
-    const darkAccent = preset.dark.accent;
-    const lightAccent = preset.light.accent;
     const active = preset.id === current ? ' active' : '';
-    const check = preset.id === current ? `<span class="accent-preset-check">${iconSvg('check')}</span>` : '';
-    return `<button type="button" class="accent-preset-option${active}" data-accent="${preset.id}" onclick="setAccentPreset('${preset.id}')" title="Designfarbe: ${preset.label}">
-      <span class="accent-preset-swatch" style="--accent-swatch-dark:${darkAccent}; --accent-swatch-light:${lightAccent};"></span>
-      <span class="accent-preset-name">${preset.label}</span>
-      ${check}
+    const pressed = preset.id === current ? 'true' : 'false';
+    return `<button type="button" class="accent-preset-option${active}" data-accent="${preset.id}" aria-pressed="${pressed}" onclick="setAccentPreset('${preset.id}')" title="${preset.label}">
+      ${renderAccentSwatch(preset)}
     </button>`;
   }).join('');
+}
+
+export function renderAccentPresetMenu() {
+  const preset = getAccentPreset();
+  const panel = document.getElementById('accent-preset-panel');
+  const current = document.getElementById('accent-preset-current');
+  if (panel) panel.innerHTML = renderAccentPresetOptions();
+  if (current) current.innerHTML = renderAccentSwatch(preset);
+  const chevron = document.querySelector('#accent-preset-row .accent-preset-chevron');
+  if (chevron) chevron.innerHTML = CHEVRON_DOWN;
 }
 
 export function initTheme() {
   const stored = localStorage.getItem('theme');
   applyTheme(stored && stored !== 'system' ? stored : 'system');
+  renderAccentPresetMenu();
 }
 
 export function setTheme(mode) {
