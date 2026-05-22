@@ -802,7 +802,7 @@ body {
   border: 1px solid rgba(226,232,240,0.22);
   border-radius: 14px;
   background: linear-gradient(135deg, rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.08)), color-mix(in srgb, var(--bg-primary) 62%, transparent));
-  box-shadow: inset 1px 0 0 rgba(255,255,255,0.22);
+  box-shadow: none;
 }
 .overview-stat-num {
   min-width: 44px;
@@ -824,7 +824,6 @@ body {
 }
 [data-theme="light"] .overview-stat-card {
   border-color: rgba(15,23,42,0.18);
-  box-shadow: inset 1px 0 0 rgba(15,23,42,0.16);
 }
 
 .overview-stat-card.total .overview-stat-num { color: var(--accent); }
