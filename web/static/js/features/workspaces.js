@@ -14,10 +14,25 @@ export function createWorkspacesFeature({
   closeSidebar,
   showToast,
 }) {
+  let editingWorkspaceId = null;
+
   function normalizeWorkspaceId(id) {
     if (id === null || id === undefined || id === '') return null;
     const n = Number(id);
     return Number.isFinite(n) ? n : id;
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function escapeAttr(value) {
+    return escapeHtml(value);
   }
 
   function getDefaultWorkspaceId() {
@@ -38,13 +53,51 @@ export function createWorkspacesFeature({
     return next;
   }
 
+  function closeWorkspaceMenu() {
+    const menu = document.getElementById('workspace-menu');
+    const button = document.getElementById('workspace-current-btn');
+    menu?.classList.remove('open');
+    button?.setAttribute('aria-expanded', 'false');
+  }
+
+  function toggleWorkspaceMenu(event) {
+    event?.stopPropagation?.();
+    const menu = document.getElementById('workspace-menu');
+    const button = document.getElementById('workspace-current-btn');
+    if (!menu || !button) return;
+    const open = !menu.classList.contains('open');
+    menu.classList.toggle('open', open);
+    button.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+
   function renderWorkspaces() {
-    const select = document.getElementById('workspace-select');
-    if (!select) return;
+    const menu = document.getElementById('workspace-menu');
+    const nameEl = document.getElementById('workspace-current-name');
+    const dotEl = document.getElementById('workspace-current-dot');
+    if (!menu || !nameEl || !dotEl) return;
+
     const workspaces = getWorkspaces();
-    const current = ensureCurrentWorkspace();
-    select.innerHTML = workspaces.map(w => `<option value="${String(w.id).replace(/"/g, '&quot;')}">${w.name}</option>`).join('');
-    if (current) select.value = String(current);
+    const currentId = ensureCurrentWorkspace();
+    const current = workspaces.find(w => String(w.id) === String(currentId)) || workspaces[0] || null;
+    nameEl.textContent = current?.name || 'Workspace';
+    dotEl.style.background = current?.color || '#6366f1';
+
+    menu.innerHTML = `
+      <div class="workspace-menu-list">
+        ${workspaces.map(workspace => {
+          const active = String(workspace.id) === String(currentId);
+          return `<div class="workspace-menu-row ${active ? 'active' : ''}" role="menuitem">
+            <button type="button" class="workspace-menu-choice" onclick="switchWorkspace('${escapeAttr(workspace.id)}')">
+              <span class="workspace-menu-dot" style="background:${escapeAttr(workspace.color || '#6366f1')}"></span>
+              <span>${escapeHtml(workspace.name)}</span>
+              ${active ? '<span class="workspace-menu-check">✓</span>' : ''}
+            </button>
+            <button type="button" class="workspace-menu-edit" onclick="event.stopPropagation(); showWorkspaceModal('${escapeAttr(workspace.id)}')" title="Workspace umbenennen">✎</button>
+          </div>`;
+        }).join('')}
+      </div>
+      <button type="button" class="workspace-menu-add" onclick="showWorkspaceModal()">＋ Workspace hinzufügen</button>
+    `;
   }
 
   async function switchWorkspace(workspaceId) {
@@ -52,6 +105,7 @@ export function createWorkspacesFeature({
     setCurrentWorkspaceId(next);
     if (next) localStorage.setItem('nia-current-workspace', String(next));
     localStorage.setItem('nia-last-filter', 'all');
+    closeWorkspaceMenu();
     window.setFilter?.('all');
     renderWorkspaces();
     renderProjects();
@@ -60,19 +114,68 @@ export function createWorkspacesFeature({
     closeSidebar?.();
   }
 
-  async function createWorkspace() {
-    const name = prompt('Name des neuen Workspaces?');
-    if (!name || !name.trim()) return;
-    const payload = { name: name.trim(), color: '#6366f1', sort_order: getWorkspaces().length };
-    if (!isOnlineForSync()) {
-      showToast?.('Workspace anlegen geht aktuell nur online.');
+  function showWorkspaceModal(workspaceId = null) {
+    closeWorkspaceMenu();
+    editingWorkspaceId = workspaceId ? normalizeWorkspaceId(workspaceId) : null;
+    const workspace = editingWorkspaceId
+      ? getWorkspaces().find(w => String(w.id) === String(editingWorkspaceId))
+      : null;
+    document.getElementById('workspace-modal-title').textContent = workspace ? 'Workspace umbenennen' : 'Neuer Workspace';
+    document.getElementById('workspace-id').value = workspace?.id || '';
+    document.getElementById('workspace-name').value = workspace?.name || '';
+    document.getElementById('workspace-color').value = workspace?.color || '#6366f1';
+    document.getElementById('workspace-error').textContent = '';
+    document.getElementById('workspace-modal')?.classList.add('active');
+    setTimeout(() => document.getElementById('workspace-name')?.focus(), 50);
+  }
+
+  function closeWorkspaceModal() {
+    document.getElementById('workspace-modal')?.classList.remove('active');
+    editingWorkspaceId = null;
+  }
+
+  async function saveWorkspace(event) {
+    event?.preventDefault?.();
+    const name = document.getElementById('workspace-name')?.value?.trim();
+    const color = document.getElementById('workspace-color')?.value || '#6366f1';
+    const error = document.getElementById('workspace-error');
+    if (error) error.textContent = '';
+    if (!name) {
+      if (error) error.textContent = 'Bitte einen Namen eingeben.';
       return;
     }
-    const workspace = await workspacesApi.create(payload);
-    await dbPut('workspaces', workspace);
-    setWorkspaces([...getWorkspaces(), workspace]);
-    await switchWorkspace(workspace.id);
-    await refreshFromServer();
+    if (!isOnlineForSync()) {
+      if (error) error.textContent = 'Workspace ändern geht aktuell nur online.';
+      return;
+    }
+
+    try {
+      if (editingWorkspaceId) {
+        const updated = await workspacesApi.update(editingWorkspaceId, { name, color });
+        await dbPut('workspaces', updated);
+        setWorkspaces(getWorkspaces().map(w => String(w.id) === String(updated.id) ? updated : w));
+        showToast?.('Workspace umbenannt.');
+      } else {
+        const workspace = await workspacesApi.create({ name, color, sort_order: getWorkspaces().length });
+        await dbPut('workspaces', workspace);
+        setWorkspaces([...getWorkspaces(), workspace]);
+        await switchWorkspace(workspace.id);
+        showToast?.('Workspace angelegt.');
+      }
+      closeWorkspaceModal();
+      renderWorkspaces();
+      renderProjects();
+      renderStats();
+      renderTodos();
+      await refreshFromServer();
+    } catch (err) {
+      console.error('Workspace save failed', err);
+      if (error) error.textContent = 'Workspace konnte nicht gespeichert werden.';
+    }
+  }
+
+  async function createWorkspace() {
+    showWorkspaceModal();
   }
 
   async function loadWorkspacesFromServer() {
@@ -86,5 +189,22 @@ export function createWorkspacesFeature({
     renderWorkspaces();
   }
 
-  return { renderWorkspaces, switchWorkspace, createWorkspace, loadWorkspacesFromServer, ensureCurrentWorkspace };
+  if (typeof document !== 'undefined') {
+    document.addEventListener('click', (event) => {
+      if (!event.target.closest?.('#workspace-switcher')) closeWorkspaceMenu();
+    });
+  }
+
+  return {
+    renderWorkspaces,
+    switchWorkspace,
+    createWorkspace,
+    showWorkspaceModal,
+    closeWorkspaceModal,
+    saveWorkspace,
+    toggleWorkspaceMenu,
+    closeWorkspaceMenu,
+    loadWorkspacesFromServer,
+    ensureCurrentWorkspace,
+  };
 }
