@@ -61,7 +61,8 @@ Details: [Test-Doku](docs/testing.md)
 - [Test-Doku](docs/testing.md)
 - [Workflow-Doku](docs/workflow.md)
 - [Architektur](docs/architecture.md)
-- [Tauri Desktop/Android Wrapper](docs/tauri-windows-poc.md)
+- [Native Apps Clean Architecture Plan](docs/native-apps-clean-architecture.md)
+- [Tauri Desktop/Android Wrapper](docs/tauri-windows-poc.md) — Legacy-/Bestandsdoku, vor Wiederverwendung neu bewerten
 - Changelogs: `CHANGELOG.md` Web-App, `CHANGELOG.windows.md` Windows-App, `CHANGELOG.android.md` Android-App
 
 ## ⚙️ Setup / Betrieb
