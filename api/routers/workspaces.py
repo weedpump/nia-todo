@@ -54,8 +54,8 @@ def ensure_workspace_inbox(db, user_id: int, workspace_id: int) -> int:
     if row:
         return row["id"]
     c = db.execute(
-        """INSERT INTO projects (name, color, sort_order, user_id, workspace_id, is_inbox, updated_at)
-           VALUES ('Inbox', '#64748b', 0, ?, ?, 1, ?)""",
+        """INSERT INTO projects (name, color, icon, sort_order, user_id, workspace_id, is_inbox, updated_at)
+           VALUES ('Inbox', '#64748b', 'inbox', 0, ?, ?, 1, ?)""",
         (user_id, workspace_id, now_iso()),
     )
     return c.lastrowid
