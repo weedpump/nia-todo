@@ -55,8 +55,9 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .admin-nav a:hover { text-decoration: underline; }
 .empty-state { text-align: center; padding: 40px; color: var(--text-muted); }
 .admin-theme-toggle { display: flex; gap: 6px; }
-.admin-theme-toggle button { width: 32px; height: 32px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-primary); color: var(--text-primary); cursor: pointer; display:inline-flex; align-items:center; justify-content:center; }
-.admin-theme-toggle button:hover { background: var(--bg-secondary); }
+.admin-theme-toggle button { width: 32px; height: 32px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-primary); color: var(--text-secondary); cursor: pointer; display:inline-flex; align-items:center; justify-content:center; transition: background .15s, border-color .15s, color .15s, transform .1s; }
+.admin-theme-toggle button:hover { background: var(--bg-secondary); color: var(--text-primary); }
+.admin-theme-toggle button.active { background: var(--accent); border-color: var(--accent); color: white; transform: scale(1.05); }
 .admin-status-card { padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .admin-status-text { font-size: 14px; color: var(--text-secondary); display:inline-flex; align-items:center; gap:8px; }
 .admin-mobile-label { display: none; color: var(--text-muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 2px; }
@@ -93,9 +94,9 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
     <div class="admin-nav">
       <a href="/">Zurück zur App</a>
       <div class="admin-theme-toggle">
-        <button onclick="setTheme('light')" title="Hell"><span data-icon="sun"></span></button>
-        <button onclick="setTheme('dark')" title="Dunkel"><span data-icon="moon"></span></button>
-        <button onclick="setTheme('system')" title="System"><span data-icon="monitor"></span></button>
+        <button data-theme="light" onclick="setTheme('light')" title="Hell"><span data-icon="sun"></span></button>
+        <button data-theme="dark" onclick="setTheme('dark')" title="Dunkel"><span data-icon="moon"></span></button>
+        <button data-theme="system" onclick="setTheme('system')" title="System"><span data-icon="monitor"></span></button>
       </div>
     </div>
   </div>
@@ -211,6 +212,9 @@ function setTheme(mode) {
   const isDark = mode === 'dark' || (mode === 'system' && prefersDark);
   document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
   localStorage.setItem('theme', mode);
+  document.querySelectorAll('.admin-theme-toggle button').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.theme === mode);
+  });
 }
 
 // Init theme
