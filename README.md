@@ -62,6 +62,7 @@ Details: [Test-Doku](docs/testing.md)
 - [Workflow-Doku](docs/workflow.md)
 - [Architektur](docs/architecture.md)
 - [Tauri Desktop/Android Wrapper](docs/tauri-windows-poc.md)
+- Changelogs: `CHANGELOG.md` Web-App, `CHANGELOG.windows.md` Windows-App, `CHANGELOG.android.md` Android-App
 
 ## ⚙️ Setup / Betrieb
 
