@@ -17,9 +17,9 @@ async function run() {
     await page.click('text=Anmelden');
     await page.locator('#admin-content').waitFor({ state: 'visible', timeout: 10000 });
 
-    await page.locator('#user-list').getByRole('button', { name: '✏️' }).first().click();
+    await page.locator('#user-list button[title="E-Mail bearbeiten"]').first().click();
     await page.locator('#user-list input[type="email"]').first().waitFor({ state: 'visible', timeout: 5000 });
-    await page.locator('#user-list').getByRole('button', { name: '✕' }).first().click();
+    await page.locator('#user-list button[title="Abbrechen"]').first().click();
     await page.locator('#user-list input[type="email"]').waitFor({ state: 'detached', timeout: 5000 });
 
     await page.fill('#new-username', 'admincreated');
@@ -35,16 +35,16 @@ async function run() {
     if (!setupUrl.includes('/set-password?token=')) throw new Error('Create user did not generate a password setup link');
     await page.locator('#user-list').getByRole('cell', { name: 'admincreated', exact: true }).waitFor({ state: 'visible', timeout: 10000 });
     await page.locator('#user-list').getByText('admincreated@example.invalid').waitFor({ state: 'visible', timeout: 10000 });
-    await page.locator('#user-list').getByRole('button', { name: '✏️' }).last().click();
+    await page.locator('#user-list button[title="E-Mail bearbeiten"]').last().click();
     await page.evaluate(() => {
       window.__lastAlert = '';
       window.alert = (message) => { window.__lastAlert = message; };
     });
     await page.locator('#user-list input[type="email"]').last().fill('broken-email');
-    await page.locator('#user-list').getByRole('button', { name: '✅' }).last().click();
+    await page.locator('#user-list button[title="Speichern"]').last().click();
     await page.waitForFunction(() => window.__lastAlert?.includes('Bitte eine gültige E-Mail-Adresse eingeben'), { timeout: 10000 });
     await page.locator('#user-list input[type="email"]').last().fill('admincreated-updated@example.invalid');
-    await page.locator('#user-list').getByRole('button', { name: '✅' }).last().click();
+    await page.locator('#user-list button[title="Speichern"]').last().click();
     await page.locator('#user-list').getByText('admincreated-updated@example.invalid').waitFor({ state: 'visible', timeout: 10000 });
 
     await page.goto(setupUrl, { waitUntil: 'networkidle' });
