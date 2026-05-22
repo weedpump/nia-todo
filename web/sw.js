@@ -1,5 +1,5 @@
 // nia-todo Service Worker - Bulletproof Offline-First + Update-System + Push Notifications
-const SW_VERSION = 'v1.7.4-dev-accent-presets-8';
+const SW_VERSION = 'v1.7.4-dev-native-bridge';
 const CACHE_NAME = 'nia-todo-' + SW_VERSION;
 
 // ALLE Assets die wir brauchen
@@ -31,6 +31,7 @@ const PRECACHE_ASSETS = [
   '/static/js/features/app-rendering.js',
   '/static/js/features/app-lifecycle.js',
   '/static/js/features/desktop-integration.js',
+  '/static/js/features/native-bridge.js',
   '/static/js/features/auth-session.js',
   '/static/js/features/connection-status.js',
   '/static/js/features/confirm-dialog.js',

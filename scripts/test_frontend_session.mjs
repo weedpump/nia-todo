@@ -70,23 +70,23 @@ async function run() {
     if (!result.csrfStored) throw new Error('Sliding refresh did not store a fresh CSRF token');
     if (result.lifetimeDays !== 30) throw new Error(`Refreshed JWT lifetime should be 30 days, got ${result.lifetimeDays}`);
 
-    const offlineReady = await page.evaluate(async () => {
+    let offlineReady = await page.evaluate(async () => {
       const reg = await navigator.serviceWorker?.ready?.catch(() => null);
-      if (reg && !navigator.serviceWorker?.controller) {
-        await new Promise(resolve => {
-          const timeout = setTimeout(resolve, 5000);
-          navigator.serviceWorker.addEventListener('controllerchange', () => {
-            clearTimeout(timeout);
-            resolve();
-          }, { once: true });
-        });
-      }
       return {
         hasController: Boolean(navigator.serviceWorker?.controller),
         hasRegistration: Boolean(reg),
         cachedUser: Boolean(localStorage.getItem('cached_user')),
       };
     });
+    if (offlineReady.hasRegistration && !offlineReady.hasController) {
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await page.locator('#boot-overlay.hidden').waitFor({ state: 'attached', timeout: 20000 });
+      offlineReady = await page.evaluate(() => ({
+        hasController: Boolean(navigator.serviceWorker?.controller),
+        hasRegistration: true,
+        cachedUser: Boolean(localStorage.getItem('cached_user')),
+      }));
+    }
     if (!offlineReady.cachedUser || !offlineReady.hasRegistration || !offlineReady.hasController) {
       throw new Error(`Successful auth did not prepare offline session: ${JSON.stringify(offlineReady)}`);
     }

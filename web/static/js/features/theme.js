@@ -1,7 +1,9 @@
 import { iconSvg } from '../icons/lucide-icons.js';
+import { createNativeBridge } from './native-bridge.js';
 
 const ACCENT_STORAGE_KEY = 'nia-accent-preset';
 const ACCENT_INTENSITY_STORAGE_KEY = 'nia-accent-intensity';
+const nativeBridge = createNativeBridge();
 
 export const ACCENT_PRESETS = [
   {
@@ -195,8 +197,7 @@ export function applyTheme(mode) {
   document.documentElement.setAttribute('data-theme', resolvedTheme);
   applyAccentPreset(resolvedTheme);
 
-  window.NiaAndroidNative?.setTheme?.(resolvedTheme);
-  window.NiaAndroidSystemBars?.setTheme?.(resolvedTheme);
+  nativeBridge.setSystemBarsTheme(resolvedTheme);
 
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute('content', isDark ? '#0f172a' : '#f8fafc');

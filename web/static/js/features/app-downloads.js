@@ -1,5 +1,6 @@
-import { RUNTIME_CAPABILITIES, RUNTIME_PLATFORM, getTauri, getTauriInvoke } from '../core/config.js';
+import { RUNTIME_CAPABILITIES, RUNTIME_PLATFORM } from '../core/config.js';
 import { iconSvg } from '../icons/lucide-icons.js';
+import { createNativeBridge } from './native-bridge.js';
 
 function isStandaloneDisplayMode() {
   return Boolean(
@@ -20,33 +21,8 @@ function platformFromNativeRuntime() {
   return RUNTIME_PLATFORM || 'unknown';
 }
 
-async function getNativeAppVersion(platform) {
-  if (platform === 'android') {
-    try {
-      const version = window.NiaAndroidNative?.appVersion?.();
-      return version ? String(version) : '';
-    } catch (error) {
-      console.warn('[Downloads] Android app version unavailable', error);
-      return '';
-    }
-  }
-
-  try {
-    const version = await getTauri()?.app?.getVersion?.();
-    if (version) return String(version);
-  } catch (error) {
-    console.warn('[Downloads] Tauri app version unavailable', error);
-  }
-
-  const invoke = getTauriInvoke();
-  if (!invoke) return '';
-  try {
-    const version = await invoke('desktop_get_app_version');
-    return version ? String(version) : '';
-  } catch (error) {
-    console.warn('[Downloads] Desktop app version unavailable', error);
-    return '';
-  }
+async function getNativeAppVersion(nativeBridge) {
+  return nativeBridge.getAppVersion();
 }
 
 function downloadsFromManifest(manifest) {
@@ -185,8 +161,9 @@ export function createAppDownloadsFeature() {
     const nativeUpdateTargets = Array.from(document.querySelectorAll('[data-native-app-update]'));
     if (!downloadTargets.length && !nativeVersionTargets.length && !nativeUpdateTargets.length) return;
 
+    const nativeBridge = createNativeBridge();
     const nativePlatform = platformFromNativeRuntime();
-    const currentVersion = await getNativeAppVersion(nativePlatform);
+    const currentVersion = await getNativeAppVersion(nativeBridge);
     const hasNativeVersion = Boolean(nativePlatform && currentVersion);
     if (hasNativeVersion) {
       nativeVersionTargets.forEach((target) => renderNativeAppVersion(target, nativePlatform, currentVersion));
