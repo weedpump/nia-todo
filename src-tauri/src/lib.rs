@@ -105,37 +105,20 @@ fn save_settings(app: &AppHandle, settings: &DesktopSettings) -> Result<(), Stri
 
 #[cfg(target_os = "windows")]
 fn set_autostart(enabled: bool) -> Result<(), String> {
-  use winreg::enums::{HKEY_CURRENT_USER, RegType};
-  use winreg::{RegKey, RegValue};
-
-  const VALUE_NAME: &str = "nia-todo";
-  const RUN_KEY: &str = "Software\\Microsoft\\Windows\\CurrentVersion\\Run";
-  const STARTUP_APPROVED_KEY: &str = "Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\StartupApproved\\Run";
-  // Windows stores StartupApproved values as REG_BINARY. 0x02 means enabled,
-  // followed by an 8-byte FILETIME timestamp. Zero timestamp is accepted and
-  // makes the entry show up as enabled in Task Manager's Startup Apps list.
-  const STARTUP_APPROVED_ENABLED: [u8; 12] = [2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+  use winreg::enums::HKEY_CURRENT_USER;
+  use winreg::RegKey;
 
   let hkcu = RegKey::predef(HKEY_CURRENT_USER);
-  let (run_key, _) = hkcu.create_subkey(RUN_KEY).map_err(|err| err.to_string())?;
-  let (approved_key, _) = hkcu.create_subkey(STARTUP_APPROVED_KEY).map_err(|err| err.to_string())?;
-
+  let (run_key, _) = hkcu
+    .create_subkey("Software\\Microsoft\\Windows\\CurrentVersion\\Run")
+    .map_err(|err| err.to_string())?;
+  let value_name = "nia-todo";
   if enabled {
     let exe = std::env::current_exe().map_err(|err| err.to_string())?;
     let command = format!("\"{}\"", exe.display());
-    run_key.set_value(VALUE_NAME, &command).map_err(|err| err.to_string())?;
-    approved_key
-      .set_raw_value(
-        VALUE_NAME,
-        &RegValue {
-          vtype: RegType::REG_BINARY,
-          bytes: STARTUP_APPROVED_ENABLED.to_vec(),
-        },
-      )
-      .map_err(|err| err.to_string())?;
+    run_key.set_value(value_name, &command).map_err(|err| err.to_string())?;
   } else {
-    let _ = run_key.delete_value(VALUE_NAME);
-    let _ = approved_key.delete_value(VALUE_NAME);
+    let _ = run_key.delete_value(value_name);
   }
   Ok(())
 }
