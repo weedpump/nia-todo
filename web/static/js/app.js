@@ -37,8 +37,8 @@ let currentProjectId = null;
 let db = null;
 let appInitialized = false;
 let syncInProgress = false;
-let hideDone = localStorage.getItem('nia-hide-done') === 'true';
-let sortMode = localStorage.getItem('nia-sort') || 'order';
+let hideDone = localStorage.getItem('nia-hide-done') !== 'false';
+let sortMode = localStorage.getItem('nia-sort') || 'priority';
 let desktopIntegration = null;
 
 function setTodosState(next) {
