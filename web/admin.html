@@ -26,7 +26,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; }
 .badge-admin { background: var(--accent); color: white; }
 .badge-user { background: var(--bg-tertiary); color: var(--text-secondary); }
-.btn { padding: 8px 16px; border: none; border-radius: var(--radius); font-size: 13px; cursor: pointer; font-weight: 500; }
+.btn { padding: 8px 16px; border: none; border-radius: var(--radius); font-size: 13px; cursor: pointer; font-weight: 500; display:inline-flex; align-items:center; justify-content:center; gap:6px; line-height:1.2; text-align:center; }
 .btn-danger { background: var(--danger); color: white; }
 .btn-danger:hover { opacity: 0.9; }
 .btn-primary { background: var(--accent); color: white; }
@@ -65,9 +65,14 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
   .admin-nav { width: 100%; justify-content: space-between; }
   .admin-card { padding: 16px; border-radius: 14px; margin-bottom: 14px; }
   .form-row { flex-direction: column; gap: 10px; }
-  .form-row input, .form-row .btn { width: 100%; }
+  .form-row input { width: 100%; }
+  .form-row .btn { width: fit-content; max-width: 100%; min-height: 38px; }
+  #admin-login-card .form-row .btn,
+  #admin-password-card .form-row .btn,
+  #create-user-card .form-row .btn { width: 100%; }
   .setup-link-box { flex-direction: column; align-items: stretch; }
-  .admin-status-card { align-items: stretch; flex-direction: column; }
+  .setup-link-box .btn { width: 100%; min-height: 38px; }
+  .admin-status-card { align-items: flex-start; flex-direction: column; }
   .user-table-wrap { overflow: visible; }
   .user-table, .user-table thead, .user-table tbody, .user-table tr, .user-table td { display: block; width: 100%; min-width: 0; }
   .user-table thead { display: none; }
