@@ -1,18 +1,9 @@
 {
   "$schema": "../gen/schemas/android-schema.json",
   "identifier": "android-minimal",
-  "description": "Minimal Android capability: app settings/server selection only.",
+  "description": "Minimal Android capability for nia-todo local bundled UI.",
   "platforms": ["android"],
   "windows": ["main"],
-  "remote": {
-    "urls": [
-      "https://todo.kneidl-home.de",
-      "https://todo-dev.kneidl-home.de",
-      "http://localhost:*",
-      "http://127.0.0.1:*",
-      "http://todo-dev.kneidl-home.de:*"
-    ]
-  },
   "permissions": [
     "core:default",
     "allow-desktop-get-settings",

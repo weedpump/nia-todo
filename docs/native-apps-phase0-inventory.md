@@ -1,6 +1,6 @@
 # Native Apps Phase 0 Inventory
 
-Status: working inventory for discussion.
+Status: inventory plus first implementation notes.
 Branch: `native-apps-clean-architecture`.
 Baseline parent: `develop@d4289b4`.
 
@@ -224,6 +224,20 @@ Inventory recommendation:
 - Android icon/assets/signing knowledge.
 - Reminder scheduling concepts.
 - Browser/PWA Service Worker behavior for browser mode.
+
+## First implementation changes on this branch
+
+Implemented after this inventory:
+
+- Added `GET /api/instance` with stable public instance id and low-information metadata.
+- Added migration 020 for public instance metadata defaults.
+- Added native built-in CORS allowance for Tauri local asset origin (`http://tauri.localhost` / `https://tauri.localhost`).
+- Allowed native Tauri-origin bearer requests to bypass cookie CSRF, because native uses Authorization headers rather than same-site browser cookies.
+- Added runtime config initialization before `app.js` import.
+- Switched Tauri build output from old remote `desktop-shell` redirect to bundled `../web` assets.
+- Added local native first-run server setup form in the bundled Web UI.
+- Removed Tobi-specific remote host allowlists from Tauri capabilities.
+- Replaced `csp: null` with an explicit Tauri CSP that permits configurable HTTP(S)/WS(S) API connections.
 
 ## Recommended next discussion decisions
 

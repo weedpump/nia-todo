@@ -10,14 +10,56 @@ function showBootError(error) {
   if (retry) retry.style.display = '';
 }
 
+function showNativeServerSetup(config) {
+  const overlay = document.getElementById('boot-overlay');
+  if (!overlay) return;
+  overlay.classList.add('native-server-setup');
+  overlay.innerHTML = `
+    <form class="boot-card native-server-card" id="native-server-form">
+      <img src="/static/icons/icon-192.png" class="boot-logo" alt="nia-todo">
+      <div class="boot-title">nia-todo verbinden</div>
+      <div class="boot-subtitle">Server-URL eingeben, danach prüfe ich die Instanz.</div>
+      <label class="native-server-label" for="native-server-url">Server-URL</label>
+      <input class="native-server-input" id="native-server-url" type="url" autocomplete="url" required placeholder="https://todo.example.test">
+      <button class="native-server-button" type="submit">Server prüfen & speichern</button>
+      <div class="native-server-error" id="native-server-error"></div>
+      <div class="native-server-hint">Die App-Oberfläche ist lokal gebündelt. Der Server liefert nur API, Sync und Login.</div>
+    </form>
+  `;
+  const form = document.getElementById('native-server-form');
+  const input = document.getElementById('native-server-url');
+  const errorEl = document.getElementById('native-server-error');
+  form?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    errorEl.textContent = '';
+    try {
+      const serverUrl = config.normalizeServerUrl(input.value);
+      const instance = await config.verifyInstance(serverUrl);
+      if (instance?.app !== 'nia-todo') throw new Error('Das ist kein nia-todo Server.');
+      await window.__TAURI__.core.invoke('desktop_set_server_url', { serverUrl });
+      location.reload();
+    } catch (error) {
+      errorEl.textContent = error?.message || String(error);
+    }
+  });
+}
+
 const startImport = () => {
-  setTimeout(() => {
-    import('./app.js').then((module) => {
+  setTimeout(async () => {
+    try {
+      const config = await import('./core/config.js');
+      const runtime = await config.initRuntimeConfig();
+      window.NIA_TODO_RUNTIME = runtime;
+      if (config.isNativeRuntime() && window.__TAURI__?.core?.invoke && !runtime.apiBaseUrl) {
+        showNativeServerSetup(config);
+        return;
+      }
+      const module = await import('./app.js');
       module.startAppModule?.();
-    }).catch((err) => {
+    } catch (err) {
       console.error('App import failed:', err);
       showBootError(err);
-    });
+    }
   }, 0);
 };
 

@@ -2,6 +2,9 @@
 
 import ipaddress
 import json
+import re
+import secrets
+from pathlib import Path
 from typing import Any, Optional
 from urllib.parse import urlparse, urlunparse
 
@@ -16,7 +19,16 @@ DEFAULT_INSTANCE_CONFIG = {
     "public_base_url": "",
     "allowed_origins": DEFAULT_ALLOWED_ORIGINS,
     "trusted_proxies": DEFAULT_TRUSTED_PROXIES,
+    "instance_id": "",
+    "instance_display_name": "nia-todo",
 }
+
+PUBLIC_INSTANCE_CAPABILITIES = [
+    "offline-sync",
+    "reminders",
+    "shared-projects",
+    "workspaces",
+]
 
 
 def _canonical_netloc(parsed) -> str:
@@ -143,11 +155,28 @@ def _parse_config_value(key: str, value: Optional[str]) -> Any:
         return normalize_trusted_proxies(parsed)
     if key == "public_base_url":
         return normalize_public_base_url(value)
+    if key in {"instance_id", "instance_display_name"}:
+        return str(value or DEFAULT_INSTANCE_CONFIG[key]).strip()
     return value
 
 
+def _read_config_keys(keys: tuple[str, ...]) -> dict[str, Any]:
+    values = {key: DEFAULT_INSTANCE_CONFIG[key] for key in keys}
+    try:
+        with get_db() as db:
+            placeholders = ",".join("?" for _ in keys)
+            rows = db.execute(f"SELECT key, value FROM app_config WHERE key IN ({placeholders})", keys).fetchall()
+    except Exception:
+        return values
+    for row in rows:
+        key = row["key"]
+        values[key] = _safe_parse_config_value(key, row["value"])
+    return values
+
+
 def get_instance_config() -> dict[str, Any]:
-    values = DEFAULT_INSTANCE_CONFIG.copy()
+    keys = ("public_base_url", "allowed_origins", "trusted_proxies")
+    values = {key: DEFAULT_INSTANCE_CONFIG[key] for key in keys}
     try:
         with get_db() as db:
             rows = db.execute(
@@ -160,6 +189,51 @@ def get_instance_config() -> dict[str, Any]:
         key = row["key"]
         values[key] = _safe_parse_config_value(key, row["value"])
     return values
+
+
+def _ensure_instance_id() -> str:
+    values = _read_config_keys(("instance_id",))
+    instance_id = str(values.get("instance_id") or "").strip()
+    if instance_id:
+        return instance_id
+    instance_id = f"nt_{secrets.token_urlsafe(24)}"
+    with get_db() as db:
+        db.execute(
+            """INSERT INTO app_config (key, value, updated_at)
+               VALUES ('instance_id', ?, datetime('now'))
+               ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')
+               WHERE app_config.value IS NULL OR TRIM(app_config.value) = ''""",
+            (instance_id,),
+        )
+        row = db.execute("SELECT value FROM app_config WHERE key = 'instance_id'").fetchone()
+        db.commit()
+    return str(row["value"] if row else instance_id).strip()
+
+
+def _read_web_app_version() -> str:
+    config_path = Path(__file__).resolve().parents[2] / "web" / "static" / "js" / "core" / "config.js"
+    try:
+        raw = config_path.read_text(encoding="utf-8")
+    except OSError:
+        return "unknown"
+    match = re.search(r"APP_VERSION\s*=\s*['\"]v?([^'\"]+)['\"]", raw)
+    return match.group(1) if match else "unknown"
+
+
+def get_public_instance_info(request: Request) -> dict[str, Any]:
+    values = _read_config_keys(("public_base_url", "instance_display_name"))
+    public_base_url = values.get("public_base_url") or get_public_base_url(request)
+    display_name = str(values.get("instance_display_name") or "nia-todo").strip() or "nia-todo"
+    return {
+        "app": "nia-todo",
+        "instance_id": _ensure_instance_id(),
+        "display_name": display_name,
+        "public_base_url": public_base_url,
+        "api_version": 1,
+        "server_version": _read_web_app_version(),
+        "min_native_client_version": "2.0.0",
+        "capabilities": PUBLIC_INSTANCE_CAPABILITIES,
+    }
 
 
 def update_instance_config(*, public_base_url: str, allowed_origins: Any, trusted_proxies: Any, client_ip: Optional[str] = None) -> dict[str, Any]:
