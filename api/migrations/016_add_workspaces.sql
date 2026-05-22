@@ -38,8 +38,7 @@ WHERE workspace_id IS NULL AND user_id IS NOT NULL;
 DROP INDEX IF EXISTS idx_projects_user_name_unique;
 DROP INDEX IF EXISTS idx_projects_user_inbox_unique;
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_projects_user_workspace_name_unique
-ON projects(user_id, workspace_id, name);
+DROP INDEX IF EXISTS idx_projects_user_workspace_name_unique;
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_projects_user_workspace_inbox_unique
 ON projects(user_id, workspace_id)

@@ -144,6 +144,11 @@ export function createSyncFeature({
         await deleteFromDB('syncQueue', item.id);
       } catch (err) {
         console.error('Sync failed for action', item.action, err);
+        if (item.action === 'CREATE_PROJECT' && item.data?._tempId && err?.status && err.status < 500) {
+          await deleteFromDB('projects', item.data._tempId);
+          setProjects(getProjects().filter(p => p.id !== item.data._tempId));
+          await deleteFromDB('syncQueue', item.id);
+        }
         failCount++;
       }
     }
