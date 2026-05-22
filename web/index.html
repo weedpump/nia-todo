@@ -83,9 +83,9 @@
         <button type="submit" class="login-btn">Anmelden</button>
       </form>
       <div class="login-theme-toggle">
-        <button class="theme-option" data-theme="light" onclick="setTheme('light')" title="Hell">☀️</button>
-        <button class="theme-option" data-theme="dark" onclick="setTheme('dark')" title="Dunkel">🌙</button>
-        <button class="theme-option" data-theme="system" onclick="setTheme('system')" title="System">💻</button>
+        <button class="theme-option" data-theme="light" onclick="setTheme('light')" title="Hell"><span data-icon="sun"></span></button>
+        <button class="theme-option" data-theme="dark" onclick="setTheme('dark')" title="Dunkel"><span data-icon="moon"></span></button>
+        <button class="theme-option" data-theme="system" onclick="setTheme('system')" title="System"><span data-icon="monitor"></span></button>
       </div>
       <div class="app-downloads login-downloads" data-app-downloads style="display:none;"></div>
     </div>
@@ -117,19 +117,19 @@
       <nav class="nav-section">
         <div class="nav-title">Ansicht</div>
         <button class="nav-btn" data-filter="all" onclick="setFilter('all')">
-          <span>📊</span> Dashboard
+          <span data-icon="layout-dashboard"></span> Dashboard
           <span class="badge" id="count-all">0</span>
         </button>
         <button class="nav-btn" data-filter="pending" onclick="setFilter('pending')">
-          <span>⏳</span> Offen
+          <span data-icon="clock"></span> Offen
           <span class="badge" id="count-pending">0</span>
         </button>
         <button class="nav-btn" data-filter="in_progress" onclick="setFilter('in_progress')">
-          <span>🔥</span> In Arbeit
+          <span data-icon="flame"></span> In Arbeit
           <span class="badge" id="count-in_progress">0</span>
         </button>
         <button class="nav-btn" data-filter="done" onclick="setFilter('done')">
-          <span>✅</span> Erledigt
+          <span data-icon="check-circle"></span> Erledigt
           <span class="badge" id="count-done">0</span>
         </button>
       </nav>
@@ -138,7 +138,7 @@
         <div class="nav-title">Projekte</div>
         <div id="project-list"></div>
         <button class="nav-btn add-btn" onclick="showProjectModal()">
-          <span>➕</span> Projekt hinzufügen
+          <span data-icon="plus"></span> Projekt hinzufügen
         </button>
       </nav>
 
@@ -162,13 +162,13 @@
                 <div class="user-menu-email" id="user-menu-email">–</div>
               </div>
             </div>
-            <button type="button" class="user-menu-item" id="menu-settings-btn" onclick="closeUserMenu(); openSettingsModal()" title="Einstellungen" role="menuitem"><span>⚙️</span><span>Einstellungen</span></button>
-            <button type="button" class="user-menu-item" id="theme-toggle-btn" onclick="cycleTheme()" role="menuitem"><span class="menu-item-icon">💻</span><span class="menu-item-label">Theme: System</span></button>
+            <button type="button" class="user-menu-item" id="menu-settings-btn" onclick="closeUserMenu(); openSettingsModal()" title="Einstellungen" role="menuitem"><span data-icon="settings"></span><span>Einstellungen</span></button>
+            <button type="button" class="user-menu-item" id="theme-toggle-btn" onclick="cycleTheme()" role="menuitem"><span class="menu-item-icon" data-icon="monitor"></span><span class="menu-item-label">Theme: System</span></button>
             <button type="button" class="user-menu-item" id="sort-toggle-btn" onclick="cycleSort()" role="menuitem"><span class="menu-item-icon">P1</span><span class="menu-item-label">Sortierung: Priorität</span></button>
-            <button type="button" class="user-menu-item" id="toggle-done-btn" onclick="toggleHideDone()" role="menuitem"><span class="menu-item-icon">🚫</span><span class="menu-item-label">Erledigte anzeigen</span></button>
-            <button type="button" class="user-menu-item" id="project-widget-toggle-btn" onclick="toggleProjectWidget()" role="menuitem"><span class="menu-item-icon">📊</span><span class="menu-item-label">Projekt Widget</span></button>
+            <button type="button" class="user-menu-item" id="toggle-done-btn" onclick="toggleHideDone()" role="menuitem"><span class="menu-item-icon" data-icon="ban"></span><span class="menu-item-label">Erledigte anzeigen</span></button>
+            <button type="button" class="user-menu-item" id="project-widget-toggle-btn" onclick="toggleProjectWidget()" role="menuitem"><span class="menu-item-icon" data-icon="layout-dashboard"></span><span class="menu-item-label">Projekt Widget</span></button>
             <div class="user-menu-separator"></div>
-            <button type="button" class="user-menu-item danger" onclick="logout()" title="Abmelden" role="menuitem"><span>🚪</span><span>Abmelden</span></button>
+            <button type="button" class="user-menu-item danger" onclick="logout()" title="Abmelden" role="menuitem"><span data-icon="log-out"></span><span>Abmelden</span></button>
           </div>
         </div>
 
@@ -188,7 +188,7 @@
     <div class="modal web-update-modal" id="web-update-modal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="web-update-title">
       <div class="modal-overlay web-update-backdrop"></div>
       <div class="modal-content web-update-content">
-        <div class="web-update-icon" aria-hidden="true">🔄</div>
+        <div class="web-update-icon" aria-hidden="true" data-icon="refresh-cw"></div>
         <h3 id="web-update-title">Update verfügbar</h3>
         <p>Eine neue Web App Version ist verfügbar.</p>
         <p class="web-update-meta">Aktuell geladen: <span id="web-update-current-version">–</span></p>
@@ -202,9 +202,9 @@
     <main class="main">
       <!-- Top bar -->
       <div class="topbar">
-        <button class="hamburger" onclick="toggleSidebar()">☰</button>
+        <button class="hamburger" onclick="toggleSidebar()" aria-label="Menü öffnen"><span data-icon="menu"></span></button>
         <div class="search-box">
-          <input type="text" id="search-input" placeholder="🔍 Todo suchen..." oninput="renderTodos()">
+          <input type="text" id="search-input" placeholder="Todo suchen..." oninput="renderTodos()">
         </div>
         <div class="topbar-actions">
           <span id="online-status" class="status-online"></span>
@@ -228,7 +228,7 @@
     <div class="modal-overlay" onclick="closeModal('todo-modal')"></div>
     <div class="modal-content">
       <h3 id="todo-modal-title">Neues Todo</h3>
-      <button class="modal-close-x" onclick="closeModal('todo-modal')">✕</button>
+      <button class="modal-close-x" onclick="closeModal('todo-modal')"><span data-icon="x"></span></button>
       <div class="modal-body">
       <form id="todo-form" onsubmit="saveTodo(event)">
         <input type="hidden" id="todo-id">
@@ -245,18 +245,18 @@
           <div class="form-group">
             <label>Priorität</label>
             <select id="todo-priority">
-              <option value="1">🔴 Sehr hoch</option>
-              <option value="2">🟡 Hoch</option>
-              <option value="3" selected>🟢 Mittel</option>
-              <option value="4">⚪ Niedrig</option>
+              <option value="1">Sehr hoch</option>
+              <option value="2">Hoch</option>
+              <option value="3" selected>Mittel</option>
+              <option value="4">Niedrig</option>
             </select>
           </div>
           <div class="form-group">
             <label>Status</label>
             <select id="todo-status">
-              <option value="pending">⏳ Offen</option>
-              <option value="in_progress">🔥 In Arbeit</option>
-              <option value="done">✅ Erledigt</option>
+              <option value="pending">Offen</option>
+              <option value="in_progress">In Arbeit</option>
+              <option value="done">Erledigt</option>
             </select>
           </div>
         </div>
@@ -287,7 +287,7 @@
       </form>
       </div>
       <div class="modal-actions">
-        <button type="button" class="btn btn-danger" id="todo-delete-btn" onclick="deleteTodoFromModal()" style="margin-right:auto;display:none;">🗑️ Löschen</button>
+        <button type="button" class="btn btn-danger" id="todo-delete-btn" onclick="deleteTodoFromModal()" style="margin-right:auto;display:none;"><span data-icon="trash-2"></span> Löschen</button>
         <button type="button" class="btn btn-secondary" onclick="closeModal('todo-modal')">Abbrechen</button>
         <button type="submit" form="todo-form" class="btn btn-primary">Speichern</button>
       </div>
@@ -298,8 +298,8 @@
   <div class="modal" id="avatar-crop-modal">
     <div class="modal-overlay" onclick="cancelAvatarCrop()"></div>
     <div class="modal-content avatar-crop-modal-content">
-      <h3>🖼️ Avatar zuschneiden</h3>
-      <button class="modal-close-x" onclick="cancelAvatarCrop()">✕</button>
+      <h3><span data-icon="image"></span> Avatar zuschneiden</h3>
+      <button class="modal-close-x" onclick="cancelAvatarCrop()"><span data-icon="x"></span></button>
       <div class="avatar-crop-body">
         <div class="avatar-crop-stage" id="avatar-crop-stage">
           <img id="avatar-crop-image" alt="Avatar-Vorschau" draggable="false">
@@ -319,7 +319,7 @@
   <div class="modal confirm-modal" id="confirm-modal">
     <div class="modal-overlay" id="confirm-modal-overlay"></div>
     <div class="modal-content confirm-modal-content">
-      <div class="confirm-icon" aria-hidden="true">🗑️</div>
+      <div class="confirm-icon" aria-hidden="true" data-icon="trash-2"></div>
       <h3 id="confirm-title">Wirklich löschen?</h3>
       <p id="confirm-message" class="confirm-message">Diese Aktion kann nicht rückgängig gemacht werden.</p>
       <div class="modal-actions confirm-actions">
@@ -333,8 +333,8 @@
   <div class="modal" id="settings-modal">
     <div class="modal-overlay" onclick="closeModal('settings-modal')"></div>
     <div class="modal-content">
-      <h3>⚙️ Einstellungen</h3>
-      <button class="modal-close-x" onclick="closeModal('settings-modal')">✕</button>
+      <h3><span data-icon="settings"></span> Einstellungen</h3>
+      <button class="modal-close-x" onclick="closeModal('settings-modal')"><span data-icon="x"></span></button>
       <div class="modal-body">
         <div class="settings-profile-card">
           <button type="button" class="settings-avatar-button" onclick="document.getElementById('settings-avatar-input').click()" title="Avatar ändern">
@@ -364,7 +364,7 @@
         <div id="settings-avatar-error" class="settings-field-error"></div>
         <div id="settings-avatar-success" class="settings-field-success"></div>
         <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">
-        <h4 style="margin:0 0 12px 0; font-size:14px;">🔐 Passwort ändern</h4>
+        <h4 style="margin:0 0 12px 0; font-size:14px;"><span data-icon="key-round"></span> Passwort ändern</h4>
         <div class="form-group">
           <label>Aktuelles Passwort</label>
           <input type="password" id="settings-old-password" placeholder="Aktuelles Passwort" autocomplete="current-password" onkeydown="if(event.key==='Enter') document.getElementById('settings-new-password').focus()">
@@ -384,20 +384,20 @@
         <div id="settings-pw-error" style="color:var(--danger); font-size:13px; margin-top:8px;"></div>
         <div id="settings-pw-success" style="color:var(--success); font-size:13px; margin-top:8px;"></div>
         <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">
-        <h4 style="margin:0 0 12px 0; font-size:14px;">🔑 API-Keys</h4>
+        <h4 style="margin:0 0 12px 0; font-size:14px;"><span data-icon="key-round"></span> API-Keys</h4>
         <div id="api-keys-list" style="margin-bottom:12px;">
           <!-- API keys loaded dynamically -->
         </div>
         <button class="btn btn-primary" onclick="createApiKey()" style="margin-bottom:8px;">Neuen API-Key erstellen</button>
         <div id="api-key-created" style="display:none; background:var(--bg-tertiary); padding:12px; border-radius:var(--radius); margin-top:8px;">
-          <p style="color:var(--warning); font-size:13px; margin:0 0 8px 0;">⚠️ Kopiere den Key jetzt — er wird nicht mehr angezeigt!</p>
+          <p style="color:var(--warning); font-size:13px; margin:0 0 8px 0;"><span data-icon="triangle-alert"></span> Kopiere den Key jetzt — er wird nicht mehr angezeigt!</p>
           <code id="api-key-value" style="display:block; background:var(--bg-primary); padding:8px; border-radius:var(--radius); font-family:monospace; word-break:break-all; font-size:13px; margin-bottom:8px;"></code>
-          <button class="btn btn-secondary" onclick="copyApiKey()" style="font-size:13px;">📋 Kopieren</button>
+          <button class="btn btn-secondary" onclick="copyApiKey()" style="font-size:13px;"><span data-icon="clipboard"></span> Kopieren</button>
         </div>
         <div id="api-key-error" style="color:var(--danger); font-size:13px; margin-top:8px;"></div>
         <div id="browser-push-settings-section">
           <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">
-          <h4 style="margin:0 0 12px 0; font-size:14px;">🔔 Push Benachrichtigungen</h4>
+          <h4 style="margin:0 0 12px 0; font-size:14px;"><span data-icon="bell"></span> Push Benachrichtigungen</h4>
           <div id="push-status" style="font-size:13px; color:var(--text-secondary); margin-bottom:12px;">Status: Wird geprüft...</div>
           <div id="push-actions">
             <button class="btn btn-primary" id="push-enable-btn" onclick="enablePushNotifications()" style="display:none;">Benachrichtigungen aktivieren</button>
@@ -409,7 +409,7 @@
         <div class="app-downloads settings-downloads" data-app-downloads style="display:none;"></div>
         <div id="desktop-settings-section" style="display:none;">
           <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">
-          <h4 style="margin:0 0 12px 0; font-size:14px;">📱 App</h4>
+          <h4 style="margin:0 0 12px 0; font-size:14px;"><span data-icon="smartphone"></span> App</h4>
           <div class="native-update-notice settings-native-update" data-native-app-update style="display:none;"></div>
           <div class="form-group">
             <label>Server-URL</label>
@@ -435,7 +435,7 @@
           </label>
           <button class="btn btn-secondary" type="button" onclick="testDesktopNotification()" style="margin-top:8px;">Test-Benachrichtigung</button>
           <div class="desktop-hotkeys-settings" data-desktop-only>
-            <h5>⌨️ Globale Hotkeys</h5>
+            <h5><span data-icon="keyboard"></span> Globale Hotkeys</h5>
             <p>Ins Feld klicken, Tastenkombination drücken, fertig. <code>Backspace</code>/<code>Entf</code> löscht den Hotkey.</p>
             <div class="form-group">
               <label>App anzeigen/verstecken</label>
@@ -462,7 +462,7 @@
     <div class="modal-overlay" onclick="closeWorkspaceModal()"></div>
     <div class="modal-content small-modal">
       <h3 id="workspace-modal-title">Neuer Workspace</h3>
-      <button class="modal-close-x" onclick="closeWorkspaceModal()">✕</button>
+      <button class="modal-close-x" onclick="closeWorkspaceModal()"><span data-icon="x"></span></button>
       <div class="modal-body">
         <form id="workspace-form" onsubmit="saveWorkspace(event)">
           <input type="hidden" id="workspace-id">
@@ -473,6 +473,11 @@
           <div class="form-group">
             <label>Farbe</label>
             <input type="color" id="workspace-color" value="#6366f1">
+          </div>
+          <div class="form-group">
+            <label>Icon (optional)</label>
+            <input type="hidden" id="workspace-icon">
+            <div id="workspace-icon-picker" class="icon-picker" aria-label="Workspace-Icon auswählen"></div>
           </div>
           <div id="workspace-error" class="settings-field-error"></div>
           <div class="modal-actions split-actions">
@@ -491,7 +496,7 @@
     <div class="modal-overlay" onclick="closeModal('project-modal')"></div>
     <div class="modal-content">
       <h3 id="project-modal-title">Neues Projekt</h3>
-      <button class="modal-close-x" onclick="closeModal('project-modal')">✕</button>
+      <button class="modal-close-x" onclick="closeModal('project-modal')"><span data-icon="x"></span></button>
       <div class="modal-body">
       <form id="project-form" onsubmit="saveProject(event)">
         <input type="hidden" id="project-id">
@@ -502,6 +507,11 @@
         <div class="form-group">
           <label>Farbe</label>
           <input type="color" id="project-color" value="#6366f1">
+        </div>
+        <div class="form-group">
+          <label>Icon (optional)</label>
+          <input type="hidden" id="project-icon">
+          <div id="project-icon-picker" class="icon-picker" aria-label="Projekt-Icon auswählen"></div>
         </div>
         <div class="form-group">
           <label>Eltern-Projekt (optional)</label>
@@ -526,13 +536,13 @@
           </div>
         </div>
         <div id="project-share-start-row" style="margin-top:10px;">
-          <button type="button" class="btn btn-secondary" onclick="showShareInput()">➕ Teilen</button>
+          <button type="button" class="btn btn-secondary" onclick="showShareInput()"><span data-icon="share-2"></span> Teilen</button>
         </div>
         <button type="button" class="btn btn-secondary" id="project-leave-btn" onclick="leaveProjectFromModal()" style="display:none; margin-top:10px;">Projekt verlassen</button>
       </div>
       </div>
       <div class="modal-actions">
-        <button type="button" class="btn btn-danger" id="project-delete-btn" onclick="deleteProjectFromModal()" style="margin-right:auto;display:none;">🗑️ Löschen</button>
+        <button type="button" class="btn btn-danger" id="project-delete-btn" onclick="deleteProjectFromModal()" style="margin-right:auto;display:none;"><span data-icon="trash-2"></span> Löschen</button>
         <button type="button" class="btn btn-secondary" onclick="closeModal('project-modal')">Abbrechen</button>
         <button type="submit" form="project-form" class="btn btn-primary">Speichern</button>
       </div>
@@ -543,7 +553,7 @@
   <div class="toast-container" id="toast-container" style="display:none;">
     <span id="toast-message"></span>
     <button class="toast-undo" id="toast-undo" onclick="undoLastAction()">Rückgängig</button>
-    <button class="toast-close" onclick="hideToast()">✕</button>
+    <button class="toast-close" onclick="hideToast()"><span data-icon="x"></span></button>
   </div>
 
   <script type="module" src="/static/js/main.js"></script>

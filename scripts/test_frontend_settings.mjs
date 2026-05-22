@@ -50,9 +50,9 @@ async function run() {
     await visible('#settings-modal');
     await page.locator('#settings-username').waitFor({ state: 'visible' });
     await page.locator('#settings-username').getByText('frontenduser').waitFor({ state: 'visible', timeout: 10000 });
-    await page.locator('#settings-display-name-cell').getByRole('button', { name: '✏️' }).click();
+    await page.locator('#settings-display-name-cell button[title="Anzeigename bearbeiten"]').click();
     await page.fill('#settings-display-name-input', 'Frontend Avatar User');
-    await page.locator('#settings-display-name-cell').getByRole('button', { name: '✅' }).click();
+    await page.locator('#settings-display-name-cell button[title="Speichern"]').click();
     await page.getByText('Profil gespeichert').waitFor({ state: 'visible', timeout: 10000 });
     await page.waitForFunction(async () => {
       const jwt = localStorage.getItem('jwt_token');
@@ -79,17 +79,17 @@ async function run() {
       return data.avatar_url && data.avatar_url.includes('/api/avatars/user-');
     }, null, { timeout: 10000 });
     await page.locator('#settings-email-display').waitFor({ state: 'visible', timeout: 10000 });
-    await page.locator('#settings-email-cell').getByRole('button', { name: '✏️' }).click();
+    await page.locator('#settings-email-cell button[title="E-Mail bearbeiten"]').click();
     await page.locator('#settings-email-input').fill('broken-email');
-    await page.locator('#settings-email-cell').getByRole('button', { name: '✅' }).click();
+    await page.locator('#settings-email-cell button[title="Speichern"]').click();
     await page.getByText('Bitte eine gültige E-Mail-Adresse eingeben').waitFor({ state: 'visible', timeout: 10000 });
     await page.locator('#settings-email-input').fill('frontenduser-updated@example.invalid');
-    await page.locator('#settings-email-cell').getByRole('button', { name: '✅' }).click();
+    await page.locator('#settings-email-cell button[title="Speichern"]').click();
     await page.getByText('E-Mail gespeichert').waitFor({ state: 'visible', timeout: 10000 });
     await page.locator('#settings-email-cell').getByText('frontenduser-updated@example.invalid').waitFor({ state: 'visible', timeout: 10000 });
-    await page.locator('#settings-email-cell').getByRole('button', { name: '✏️' }).click();
+    await page.locator('#settings-email-cell button[title="E-Mail bearbeiten"]').click();
     await page.locator('#settings-email-input').fill('cancelled@example.invalid');
-    await page.locator('#settings-email-cell').getByRole('button', { name: '✕' }).click();
+    await page.locator('#settings-email-cell button[title="Abbrechen"]').click();
     await page.locator('#settings-email-cell').getByText('frontenduser-updated@example.invalid').waitFor({ state: 'visible', timeout: 10000 });
     await page.waitForFunction(async () => {
       const jwt = localStorage.getItem('jwt_token');

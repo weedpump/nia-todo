@@ -1911,21 +1911,24 @@ input[type="color"]::-moz-color-swatch {
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--bg-primary);
+  color: var(--text-secondary);
   cursor: pointer;
   font-size: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.1s;
 }
 
 .login-theme-toggle .theme-option:hover {
   background: var(--bg-secondary);
+  color: var(--text-primary);
 }
 
 .login-theme-toggle .theme-option.active {
   background: var(--accent);
   border-color: var(--accent);
+  color: white;
   transform: scale(1.05);
 }
 
@@ -2452,10 +2455,10 @@ input[type="color"]::-moz-color-swatch {
 
 .workspace-current-btn,
 .workspace-add-btn {
-  border: 1px solid rgba(99, 102, 241, 0.35);
-  background: linear-gradient(135deg, rgba(99,102,241,0.22), rgba(36,36,66,0.92));
+  border: 1px solid color-mix(in srgb, var(--accent) 32%, var(--border));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 14%, var(--bg-secondary)), var(--bg-tertiary));
   color: var(--text-primary);
-  box-shadow: 0 8px 22px rgba(0,0,0,0.18);
+  box-shadow: var(--shadow);
   cursor: pointer;
   transition: border-color 0.15s ease, transform 0.15s ease, background 0.15s ease;
 }
@@ -2475,17 +2478,18 @@ input[type="color"]::-moz-color-swatch {
 
 .workspace-current-btn:hover,
 .workspace-add-btn:hover {
-  border-color: rgba(129, 140, 248, 0.75);
-  background: linear-gradient(135deg, rgba(99,102,241,0.32), rgba(45,45,82,0.98));
+  border-color: color-mix(in srgb, var(--accent-hover) 72%, var(--border));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 20%, var(--bg-secondary)), var(--bg-hover));
   transform: translateY(-1px);
 }
 
 .workspace-current-dot,
 .workspace-menu-dot {
-  width: 0.7rem;
-  height: 0.7rem;
+  width: 0.9rem;
+  height: 0.9rem;
   border-radius: 999px;
-  box-shadow: 0 0 0 3px rgba(255,255,255,0.08);
+  border: 0;
+  box-shadow: none;
   flex: 0 0 auto;
 }
 
@@ -2523,10 +2527,10 @@ input[type="color"]::-moz-color-swatch {
   left: 0;
   right: 0;
   padding: 0.35rem;
-  border: 1px solid rgba(99, 102, 241, 0.32);
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
   border-radius: 0.9rem;
-  background: rgba(26, 26, 46, 0.98);
-  box-shadow: 0 18px 45px rgba(0,0,0,0.38);
+  background: color-mix(in srgb, var(--bg-secondary) 96%, transparent);
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.18);
   backdrop-filter: blur(12px);
 }
 
@@ -2547,7 +2551,7 @@ input[type="color"]::-moz-color-swatch {
 }
 
 .workspace-menu-row.active {
-  background: rgba(99, 102, 241, 0.18);
+  background: color-mix(in srgb, var(--accent) 13%, transparent);
 }
 
 .workspace-menu-choice,
@@ -2579,13 +2583,19 @@ input[type="color"]::-moz-color-swatch {
 .workspace-menu-choice:hover,
 .workspace-menu-edit:hover,
 .workspace-menu-add:hover {
-  background: rgba(255,255,255,0.07);
+  background: var(--bg-hover);
 }
 
 .workspace-menu-check {
   margin-left: auto;
-  color: var(--success);
-  font-weight: 800;
+  color: var(--accent-hover);
+  display: inline-flex;
+  align-items: center;
+}
+
+.workspace-menu-check .ui-icon {
+  width: 15px;
+  height: 15px;
 }
 
 .workspace-menu-edit {
@@ -2605,7 +2615,7 @@ input[type="color"]::-moz-color-swatch {
   width: 100%;
   margin-top: 0.35rem;
   padding: 0.6rem 0.65rem;
-  border-top: 1px solid rgba(255,255,255,0.08);
+  border-top: 1px solid var(--border);
   color: var(--accent-hover);
   text-align: left;
   border-radius: 0.65rem;
@@ -2674,4 +2684,234 @@ input[type="color"]::-moz-color-swatch {
   min-height: 2.35rem;
   line-height: 1;
   text-align: center;
+}
+
+/* Icon system */
+.ui-icon {
+  width: 1em;
+  height: 1em;
+  display: inline-block;
+  vertical-align: -0.14em;
+  flex-shrink: 0;
+}
+
+.entity-icon {
+  width: 12px;
+  height: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.entity-icon .ui-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.nav-btn .entity-icon,
+.overview-project-item .entity-icon,
+.workspace-menu-choice .entity-icon {
+  margin-right: 0;
+}
+
+.workspace-current-dot.has-icon {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+.workspace-current-dot.has-icon .entity-icon,
+.workspace-current-dot.has-icon .ui-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.icon-picker-current {
+  width: 100%;
+  min-height: 46px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.icon-picker-current:hover,
+.icon-picker-current[aria-expanded="true"] {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  background: var(--bg-tertiary);
+}
+
+.icon-picker-current-preview {
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  background: var(--bg-primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-picker-current-preview .ui-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.icon-picker-current-text {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.icon-picker-current-label {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.icon-picker-current-name {
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.icon-picker-current-chevron {
+  margin-left: auto;
+  color: var(--text-muted);
+  flex: 0 0 auto;
+  transition: transform 0.15s ease, color 0.15s ease;
+}
+
+.icon-picker-current[aria-expanded="true"] .icon-picker-current-chevron {
+  transform: rotate(180deg);
+  color: var(--accent-hover);
+}
+
+.icon-picker-panel {
+  margin-top: 10px;
+}
+
+.icon-picker-toolbar {
+  margin-bottom: 10px;
+}
+
+.icon-picker-search {
+  width: 100%;
+  padding: 9px 11px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.icon-picker-search:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.icon-picker-sections {
+  display: grid;
+  gap: 12px;
+  max-height: min(52vh, 430px);
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.icon-picker-category-title {
+  margin: 0 0 6px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+.icon-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(38px, 1fr));
+  gap: 8px;
+}
+
+.icon-picker-option {
+  min-height: 38px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-secondary);
+  color: currentColor;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: border-color .15s ease, background .15s ease, transform .15s ease;
+}
+
+.icon-picker-option:hover,
+.icon-picker-option.active {
+  border-color: currentColor;
+  background: var(--bg-tertiary);
+}
+
+.icon-picker-option.active {
+  box-shadow: 0 0 0 2px color-mix(in srgb, currentColor 22%, transparent);
+}
+
+.icon-picker-option .ui-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.icon-picker-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  display: inline-block;
+}
+
+.btn .ui-icon,
+.btn-add-section .ui-icon,
+.user-menu-item .ui-icon,
+.nav-btn .ui-icon,
+.overview-focus-item .ui-icon,
+.project-stat-icon .ui-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.project-dashboard-avatar .ui-icon {
+  width: 24px;
+  height: 24px;
+}
+
+.project-dashboard-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: var(--project-color);
+  display: inline-block;
+}
+
+.priority-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  display: inline-block;
+  flex-shrink: 0;
 }

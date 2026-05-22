@@ -8,6 +8,7 @@ import sqlite3
 from db import get_db, now_iso
 from routers.auth import require_auth
 from services.utils import sanitize_text
+from services.appearance import normalize_color, normalize_icon
 from services.websocket import broadcast_change
 
 router = APIRouter(prefix="/api/workspaces")
@@ -16,12 +17,14 @@ router = APIRouter(prefix="/api/workspaces")
 class WorkspaceCreate(BaseModel):
     name: str
     color: str = "#6366f1"
+    icon: Optional[str] = None
     sort_order: int = 0
 
 
 class WorkspaceUpdate(BaseModel):
     name: Optional[str] = None
     color: Optional[str] = None
+    icon: Optional[str] = None
     sort_order: Optional[int] = None
 
 
@@ -33,8 +36,8 @@ def ensure_default_workspace(db, user_id: int) -> int:
     if row:
         return row["id"]
     c = db.execute(
-        "INSERT INTO workspaces (name, color, sort_order, user_id, is_default, updated_at) VALUES (?, ?, 0, ?, 1, ?)",
-        ("Privat", "#10b981", user_id, now_iso()),
+        "INSERT INTO workspaces (name, color, icon, sort_order, user_id, is_default, updated_at) VALUES (?, ?, ?, 0, ?, 1, ?)",
+        ("Privat", "#10b981", "home", user_id, now_iso()),
     )
     db.execute("UPDATE projects SET workspace_id = ? WHERE user_id = ? AND workspace_id IS NULL", (c.lastrowid, user_id))
     db.commit()
@@ -51,8 +54,8 @@ def ensure_workspace_inbox(db, user_id: int, workspace_id: int) -> int:
     if row:
         return row["id"]
     c = db.execute(
-        """INSERT INTO projects (name, color, sort_order, user_id, workspace_id, is_inbox, updated_at)
-           VALUES ('Inbox', '#64748b', 0, ?, ?, 1, ?)""",
+        """INSERT INTO projects (name, color, icon, sort_order, user_id, workspace_id, is_inbox, updated_at)
+           VALUES ('Inbox', '#64748b', 'inbox', 0, ?, ?, 1, ?)""",
         (user_id, workspace_id, now_iso()),
     )
     return c.lastrowid
@@ -73,14 +76,16 @@ def list_workspaces(user_id: int = Depends(require_auth)):
 @router.post("")
 async def create_workspace(data: WorkspaceCreate, user_id: int = Depends(require_auth)):
     data.name = sanitize_text(data.name)
+    data.color = normalize_color(data.color)
+    data.icon = normalize_icon(data.icon)
     if not data.name:
         raise HTTPException(422, "Workspace name required")
     with get_db() as db:
         ensure_default_workspace(db, user_id)
         try:
             c = db.execute(
-                "INSERT INTO workspaces (name, color, sort_order, user_id, is_default, updated_at) VALUES (?, ?, ?, ?, 0, ?)",
-                (data.name, data.color, data.sort_order, user_id, now_iso()),
+                "INSERT INTO workspaces (name, color, icon, sort_order, user_id, is_default, updated_at) VALUES (?, ?, ?, ?, ?, 0, ?)",
+                (data.name, data.color, data.icon, data.sort_order, user_id, now_iso()),
             )
             workspace_id = c.lastrowid
             ensure_workspace_inbox(db, user_id, workspace_id)
@@ -95,17 +100,21 @@ async def create_workspace(data: WorkspaceCreate, user_id: int = Depends(require
 
 @router.patch("/{workspace_id}")
 async def update_workspace(workspace_id: int, data: WorkspaceUpdate, user_id: int = Depends(require_auth)):
+    fields_set = getattr(data, "model_fields_set", getattr(data, "__fields_set__", set()))
     if data.name is not None:
         data.name = sanitize_text(data.name)
         if not data.name:
             raise HTTPException(422, "Workspace name required")
+    if "color" in fields_set:
+        data.color = normalize_color(data.color)
+    if "icon" in fields_set:
+        data.icon = normalize_icon(data.icon)
     with get_db() as db:
         existing = db.execute("SELECT * FROM workspaces WHERE id = ? AND user_id = ?", (workspace_id, user_id)).fetchone()
         if not existing:
             raise HTTPException(404, "Workspace not found")
-        fields_set = getattr(data, "model_fields_set", getattr(data, "__fields_set__", set()))
         updates = {}
-        for field in ["name", "color", "sort_order"]:
+        for field in ["name", "color", "icon", "sort_order"]:
             if field in fields_set:
                 updates[field] = getattr(data, field)
         if updates:

@@ -359,7 +359,7 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
       return;
     }
     try {
-      const title = '🔔 nia-todo';
+      const title = 'nia-todo';
       const body = 'Native Benachrichtigungen funktionieren.';
       if (hasAndroidNativeNotifications()) {
         const sent = getAndroidNative().notify(title, body);
