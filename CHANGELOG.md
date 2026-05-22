@@ -5,6 +5,14 @@ Alle wichtigen Änderungen an diesem Projekt werden in dieser Datei dokumentiert
 Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [1.7.2] - 2026-05-22
+
+### Changed
+- Web-Update-Modal nutzt kürzeren Text.
+- Native App-Version im Sidebar-Footer nutzt klarere Schreibweise ohne Bindestriche.
+- Mobile Update- und Verbinden-Buttons sind kompakter ausgerichtet.
+- Download-Manifest wird ohne doppelte App-Einträge normalisiert.
+
 ## [1.7.1] - 2026-05-22
 
 ### Changed

@@ -89,8 +89,8 @@ function platformTitle(download) {
 }
 
 function platformLabel(platform) {
-  if (platform === 'android') return 'Android-App';
-  if (platform === 'windows') return 'Windows-App';
+  if (platform === 'android') return 'Android';
+  if (platform === 'windows') return 'Windows';
   return 'App';
 }
 
@@ -161,7 +161,7 @@ function renderDownloads(target, downloads) {
 function renderNativeAppVersion(target, platform, currentVersion) {
   if (!target || !platform || !currentVersion) return;
   target.innerHTML = `
-    <span class="native-version-text">App-Version: ${escapeHtml(platformLabel(platform))} v${escapeHtml(normalizeVersion(currentVersion) || currentVersion)}</span>
+    <span class="native-version-text"><strong>App Version:</strong> ${escapeHtml(platformLabel(platform))} v${escapeHtml(normalizeVersion(currentVersion) || currentVersion)}</span>
   `;
   target.style.display = '';
 }
