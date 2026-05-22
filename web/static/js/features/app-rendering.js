@@ -194,7 +194,7 @@ export function createAppRenderingFeature({
       minute: '2-digit',
     }).format(now);
 
-    document.querySelectorAll('.nav-section:first-of-type .nav-btn').forEach((button) => {
+    document.querySelectorAll('.nav-btn[data-filter="all"], .nav-btn[data-filter="pending"], .nav-btn[data-filter="in_progress"], .nav-btn[data-filter="done"]').forEach((button) => {
       button.classList.toggle('active', !currentProjectId && button.dataset.filter === String(currentFilter));
     });
 

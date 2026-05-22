@@ -4,6 +4,8 @@ export function createUserMenuFeature({ getCurrentUser }) {
     const button = document.getElementById('user-menu-button');
     menu?.classList.remove('active');
     button?.setAttribute('aria-expanded', 'false');
+    document.getElementById('accent-preset-panel')?.classList.remove('active');
+    document.getElementById('accent-preset-row')?.setAttribute('aria-expanded', 'false');
   }
 
   function toggleUserMenu(event) {

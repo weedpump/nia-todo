@@ -9,7 +9,7 @@ import { updateConnectionStatus as renderConnectionStatus } from './features/con
 import { createPushNotificationsFeature } from './features/push-notifications.js';
 import { createSectionsFeature } from './features/sections.js';
 import { createServiceWorkerUpdatesFeature } from './features/service-worker-updates.js';
-import { applyTheme, bindSystemThemeListener, cycleTheme, initTheme, setTheme } from './features/theme.js';
+import { applyTheme, bindSystemThemeListener, cycleTheme, initTheme, setAccentIntensity, setAccentPreset, setTheme, toggleAccentPresetMenu } from './features/theme.js';
 import { createUserSettingsFeature } from './features/user-settings.js';
 import { createUserMenuFeature } from './features/user-menu.js';
 import { createProjectsFeature } from './features/projects.js';
@@ -594,7 +594,7 @@ export function startAppModule() {
   auth: { getAuthToken, getCsrfToken, getAuthHeaders, login, checkAuth, logout, clearIndexedDB, showLoginOverlay, hideLoginOverlay, handleLogin, bindLoginForm },
   apiKeys: { loadApiKeys, renderApiKeys, createApiKey, revokeApiKey, copyApiKey },
   utils: { escapeHtml, escapeHtmlAttr, jsArg, formatDate, renderTodoItem },
-  theme: { initTheme, setTheme, applyTheme, cycleTheme },
+  theme: { initTheme, setTheme, applyTheme, cycleTheme, setAccentPreset, setAccentIntensity, toggleAccentPresetMenu },
   websocket: { getReconnectDelay, connectWebSocket, wsSend, startPingInterval, stopPingInterval, scheduleReconnect, disconnectWebSocket, updateConnectionStatus, handleWsMessage },
   storage: { openDB, dbGetAll, dbPut, dbClear, getFromDB, deleteFromDB, clearSyncQueue, addToSyncQueue },
   sync: { isOnlineForSync, syncWithServer, refreshFromServer },
