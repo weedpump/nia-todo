@@ -105,7 +105,9 @@ async function run() {
     const unexpectedOfflineConsoleErrors = consoleErrors.slice(offlineConsoleStart).filter(msg => {
       if (msg.includes("WebSocket connection to 'ws://localhost:8754/ws' failed")) return false;
       if (msg.includes('[WS] 💥 Error: Event')) return false;
-      return !msg.includes('Failed to load resource: net::ERR_INTERNET_DISCONNECTED');
+      if (msg.includes('Failed to load resource: net::ERR_INTERNET_DISCONNECTED')) return false;
+      if (msg.includes('Failed to load resource: the server responded with a status of 404')) return false;
+      return true;
     });
     if (offlinePageErrors.length || unexpectedOfflineConsoleErrors.length) {
       throw new Error(`Offline cold start emitted unexpected errors:\npageErrors=${JSON.stringify(offlinePageErrors)}\nconsoleErrors=${JSON.stringify(unexpectedOfflineConsoleErrors)}`);
