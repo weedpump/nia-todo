@@ -155,7 +155,7 @@ export function renderIconPicker({ container, input, selected = '', color = '#63
         <span class="icon-picker-current-label">Gewähltes Icon</span>
         <span class="icon-picker-current-name">${currentIconLabel(safeSelected)}</span>
       </span>
-      <span class="icon-picker-current-chevron">▾</span>
+      <svg class="icon-picker-current-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
     </button>
     <div class="icon-picker-panel" hidden>
       <div class="icon-picker-toolbar">
