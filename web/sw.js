@@ -32,6 +32,7 @@ const PRECACHE_ASSETS = [
   '/static/js/features/desktop-integration.js',
   '/static/js/features/auth-session.js',
   '/static/js/features/connection-status.js',
+  '/static/js/features/confirm-dialog.js',
   '/static/js/features/drag-drop.js',
   '/static/js/features/legacy-globals.js',
   '/static/js/features/push-notifications.js',

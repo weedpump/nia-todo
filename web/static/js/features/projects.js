@@ -13,6 +13,7 @@ export function createProjectsFeature({
   renderStats,
   renderTodos,
   closeModal,
+  confirmDanger,
   showToast,
   showBatchToast,
   projectsApi,
@@ -143,7 +144,12 @@ export function createProjectsFeature({
   }
 
   async function deleteProject(id) {
-    if (!confirm('Projekt wirklich löschen?')) return;
+    const confirmed = await confirmDanger({
+      title: 'Projekt löschen?',
+      message: 'Das Projekt wird gelöscht. Enthaltene Todos werden in die Inbox verschoben.',
+      confirmText: 'Projekt löschen',
+    });
+    if (!confirmed) return;
     await deleteFromDB('projects', id);
     setProjects(getProjects().filter(p => p.id !== id));
     renderProjects();
@@ -177,7 +183,12 @@ export function createProjectsFeature({
     if (!project) return;
     const doneCount = getTodos().filter(t => t.project_id === projectId && t.status === 'done').length;
     if (doneCount === 0) return showToast('Keine erledigten Todos in diesem Projekt');
-    if (!confirm(`${doneCount} erledigte Todo(s) in "${project.name}" löschen?`)) return;
+    const confirmed = await confirmDanger({
+      title: 'Erledigte Todos löschen?',
+      message: `${doneCount} erledigte Todo(s) in "${project.name}" werden dauerhaft gelöscht.`,
+      confirmText: 'Todos löschen',
+    });
+    if (!confirmed) return;
     try {
       const r = await projectsApi.clearDone(projectId);
       if (r.ok) {
@@ -202,7 +213,12 @@ export function createProjectsFeature({
     if (!project) return;
     const doneTodos = getTodos().filter(t => t.project_id === currentProjectId && t.status === 'done');
     if (doneTodos.length === 0) return showToast('Keine erledigten Todos in diesem Projekt');
-    if (!confirm(`${doneTodos.length} erledigte Todo(s) in "${project.name}" löschen?`)) return;
+    const confirmed = await confirmDanger({
+      title: 'Erledigte Todos löschen?',
+      message: `${doneTodos.length} erledigte Todo(s) in "${project.name}" werden dauerhaft gelöscht.`,
+      confirmText: 'Todos löschen',
+    });
+    if (!confirmed) return;
     showBatchToast(`${doneTodos.length} erledigte Todo(s) gelöscht`, { todos: doneTodos });
     try {
       const r = await projectsApi.clearDone(currentProjectId);

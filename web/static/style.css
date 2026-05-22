@@ -2626,3 +2626,44 @@ input[type="color"]::-moz-color-swatch {
   gap: 0.5rem;
   margin-left: auto;
 }
+
+/* App confirm dialog */
+.confirm-modal-content {
+  max-width: 420px;
+  text-align: center;
+  border: 1px solid rgba(239, 68, 68, 0.28);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.48);
+}
+
+.confirm-icon {
+  width: 3.2rem;
+  height: 3.2rem;
+  display: grid;
+  place-items: center;
+  margin: 0 auto 0.85rem;
+  border-radius: 1rem;
+  background: rgba(239, 68, 68, 0.14);
+  color: var(--danger);
+  font-size: 1.45rem;
+  box-shadow: inset 0 0 0 1px rgba(239, 68, 68, 0.25);
+}
+
+.confirm-message {
+  margin: 0.45rem auto 1.25rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  max-width: 32rem;
+}
+
+.confirm-actions {
+  justify-content: center;
+  gap: 0.65rem;
+}
+
+.confirm-actions .btn {
+  min-width: 7.5rem;
+}
+
+.confirm-modal {
+  z-index: 420;
+}

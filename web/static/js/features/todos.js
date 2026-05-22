@@ -17,6 +17,7 @@ export function createTodosFeature({
   renderStats,
   renderTodos,
   closeModal,
+  confirmDanger,
   showToast,
   setupDescPreview,
   renderMarkdown,
@@ -286,7 +287,12 @@ export function createTodosFeature({
   }
 
   async function deleteTodo(id) {
-    if (!confirm('Todo wirklich löschen?')) return;
+    const confirmed = await confirmDanger({
+      title: 'Todo löschen?',
+      message: 'Dieses Todo wird dauerhaft gelöscht.',
+      confirmText: 'Todo löschen',
+    });
+    if (!confirmed) return;
     const todo = getTodos().find(t => t.id === id);
     if (!todo) return;
     await deleteFromDB('todos', id);
