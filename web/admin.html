@@ -51,7 +51,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .email-edit input { min-width: 0; width: 100%; padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-primary); color: var(--text-primary); font-size: 13px; }
 .email-edit .btn-ghost { padding: 4px; width: 28px; height: 28px; line-height: 1; }
 .admin-nav { display: flex; gap: 12px; align-items: center; }
-.admin-nav .btn { min-height: 32px; padding: 6px 12px; text-decoration: none; }
+.admin-nav .btn { height: 32px; min-height: 32px; padding: 0 12px; line-height: 1; text-decoration: none; box-sizing: border-box; }
 .empty-state { text-align: center; padding: 40px; color: var(--text-muted); }
 .admin-theme-toggle { display: flex; gap: 6px; }
 .admin-theme-toggle button { width: 32px; height: 32px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-primary); color: var(--text-secondary); cursor: pointer; display:inline-flex; align-items:center; justify-content:center; transition: background .15s, border-color .15s, color .15s, transform .1s; }
