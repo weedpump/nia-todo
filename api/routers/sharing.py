@@ -244,9 +244,10 @@ async def share_project(project_id: int, data: ShareProjectRequest, request: Req
             log_audit(db, "project_share_email_identifier_accepted", user_id=target['id'], details=f"project_id={project_id}; invited_by={user_id}")
             return _neutral_email_share_response()
         
-        # For username identifiers, return member details and broadcast normally to owner
+        # For username identifiers, return member details to owner (they initiated the invite)
+        # Broadcast only to invitee (no project_id = no owner/member auto-recipients) to avoid leaking pending invites
         member = get_project_member(db, project_id, target['id'])
-        await broadcast_change("member_invited", {"project_id": project_id, "member": member}, target['id'], project_id)
+        await broadcast_change("member_invited", {"member": None}, target['id'])
         return {"member": member, "notification_delivery": "email" if emailed else "in_app"}
 
 
