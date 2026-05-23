@@ -16,6 +16,7 @@ import db as db_module
 import migrate
 from fastapi import HTTPException
 
+import services.two_factor as two_factor_module
 from services.auth import create_jwt_token, get_current_user
 from services.webauthn import relying_party_for_request, verify_client_data
 from services.two_factor import (
@@ -109,6 +110,23 @@ def main():
         hashes = json.loads(conn.execute("SELECT two_factor_recovery_hashes FROM users WHERE id = ?", (user_id,)).fetchone()[0])
         assert len(hashes) == 9
         assert not verify_challenge_method(conn, row2, "recovery_code", recovery_codes[0])
+
+        # Verified e-mail + working SMTP is a valid e-mail-code factor, not an enrollment dead-end.
+        email_user_id = create_user(conn, username="emailmfa", email="emailmfa@example.invalid")
+        sent_messages = []
+        original_send_email = two_factor_module.send_email
+        original_can_send = two_factor_module.can_send_email_links
+        two_factor_module.can_send_email_links = lambda: True
+        two_factor_module.send_email = lambda **kwargs: sent_messages.append(kwargs)
+        try:
+            email_challenge = create_challenge(conn, email_user_id)
+        finally:
+            two_factor_module.send_email = original_send_email
+            two_factor_module.can_send_email_links = original_can_send
+        assert email_challenge["methods"] == ["email"]
+        assert sent_messages and "Authenticator oder Passkey" in sent_messages[0]["text"]
+        email_row = get_valid_challenge(conn, email_challenge["challenge_token"])
+        assert email_row is not None and email_row["email_code_hash"]
 
         # Five failed attempts lock a challenge until expiry.
         challenge3 = create_challenge(conn, user_id)

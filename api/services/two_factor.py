@@ -201,8 +201,16 @@ def create_challenge(db, user_id: int, ip_address: Optional[str] = None, user_ag
             send_email(
                 to=user["email"],
                 subject="Dein nia-todo 2FA-Code",
-                text=f"Dein Login-Code lautet: {email_code}\n\nDer Code ist 10 Minuten gültig.",
-                html=f"<p>Dein Login-Code lautet:</p><p><strong>{email_code}</strong></p><p>Der Code ist 10 Minuten gültig.</p>",
+                text=(
+                    f"Dein Login-Code lautet: {email_code}\n\n"
+                    "Der Code ist 10 Minuten gültig.\n\n"
+                    "Tipp: Du kannst in den Einstellungen zusätzlich einen Authenticator oder Passkey einrichten."
+                ),
+                html=(
+                    f"<p>Dein Login-Code lautet:</p><p><strong>{email_code}</strong></p>"
+                    "<p>Der Code ist 10 Minuten gültig.</p>"
+                    "<p style=\"color:#64748b; font-size:13px;\">Tipp: Du kannst in den Einstellungen zusätzlich einen Authenticator oder Passkey einrichten.</p>"
+                ),
             )
             log_audit(db, "two_factor_email_code_sent", user_id=user_id, ip_address=ip_address)
     db.execute(

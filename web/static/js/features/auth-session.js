@@ -86,7 +86,7 @@ export function createAuthSessionFeature({
     await clearCacheIfUserChanged(newUserId);
     localStorage.setItem('last_user_id', newUserId);
     if (data.mfa_enrollment_required) {
-      window.alert('2FA ist für diese Instanz erforderlich. Bitte richte jetzt einen Authenticator ein. Bis dahin ist der normale App-Zugriff gesperrt.');
+      window.alert('2FA ist für diese Instanz erforderlich. Es ist noch kein nutzbarer Faktor verfügbar. Bitte richte jetzt einen Authenticator oder Passkey ein. Bis dahin ist der normale App-Zugriff gesperrt.');
       setTimeout(() => window.openSettingsModal?.(), 100);
     }
     return data;

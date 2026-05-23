@@ -33,7 +33,7 @@
 
 ### Login mit 2FA-Challenge
 
-Wenn für den Benutzer 2FA aktiv oder global erzwungen ist, kann `POST /api/login` statt eines Tokens eine Challenge liefern:
+Wenn für den Benutzer 2FA aktiv oder global erzwungen ist, kann `POST /api/login` statt eines Tokens eine Challenge liefern. Eine verifizierte E-Mail mit funktionierendem SMTP zählt dabei als E-Mail-Code-Faktor:
 
 ```json
 {
@@ -216,7 +216,7 @@ Passkeys sind an die konfigurierte öffentliche Basis-URL (`public_base_url`) ge
 - `GET /api/admin/users` enthält zusätzlich 2FA-/Passkey-/Trusted-Device-/API-Key-Statusfelder.
 - `POST /api/admin/users/{user_id}/2fa/reset` — setzt Faktoren, Recovery Codes, Passkeys und Trusted Devices eines Benutzers zurück.
 
-Security-sensitive Account-Aktionen verlangen bei 2FA-pflichtigen Accounts ein JWT mit frischem `mfa_at`. API Keys (`ApiKey nt_...`) sind bewusst als Maschinen-Token von interaktiver MFA bei der Nutzung ausgenommen. Erzeugung und Widerruf eigener API Keys benötigen bei MFA-pflichtigen Accounts recent MFA; die Settings-UI stößt dafür bei Bedarf einen Reauth-Flow an. Bestehende API Keys werden beim Aktivieren von MFA nicht automatisch widerrufen; die Admin-UI zeigt aktive Keys als Warnhinweis.
+Security-sensitive Account-Aktionen verlangen bei 2FA-pflichtigen Accounts ein JWT mit frischem `mfa_at`. API Keys (`ApiKey nt_...`) sind bewusst als Maschinen-Token von interaktiver MFA bei der Nutzung ausgenommen. Erzeugung und Widerruf eigener API Keys benötigen bei MFA-pflichtigen Accounts recent MFA; die Settings-UI stößt dafür bei Bedarf einen Reauth-Flow an. Bestehende API Keys werden beim Aktivieren von MFA nicht automatisch widerrufen; die Admin-UI zeigt aktive Keys als Warnhinweis. Ein Enrollment-only Token wird nur ausgegeben, wenn globale 2FA erzwungen ist und gar kein nutzbarer Faktor verfügbar ist; E-Mail-Code-Fallback verhindert also keinen normalen Login nach erfolgreicher Challenge.
 
 ## E-Mail / SMTP
 
