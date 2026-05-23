@@ -106,9 +106,16 @@ export function createApiKeysFeature({ authApi }) {
       if (data.access_token) localStorage.setItem('jwt_token', data.access_token);
       return;
     }
-    const code = prompt('2FA-Code für diese API-Key-Aktion eingeben');
+    let method = 'totp';
+    if (state.has_email_fallback && !state.has_totp && !state.has_passkey) {
+      await authApi.startEmailReauth();
+      method = 'email';
+    }
+    const label = method === 'email' ? 'E-Mail-Code' : '2FA-Code';
+    const code = prompt(`${label} für diese API-Key-Aktion eingeben`);
     if (!code) throw new Error('2FA/Reauth abgebrochen');
-    const data = await authApi.reauth(code.includes('-') ? 'recovery_code' : 'totp', code.trim());
+    if (method !== 'email') method = code.includes('-') ? 'recovery_code' : 'totp';
+    const data = await authApi.reauth(method, code.trim());
     if (data.access_token) localStorage.setItem('jwt_token', data.access_token);
   }
 

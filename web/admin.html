@@ -681,6 +681,7 @@ function renderUserTwoFactorStatus(user) {
   if (user.has_totp) factors.push('TOTP');
   if (Number(user.passkey_count || 0) > 0) factors.push(`${user.passkey_count} Passkey`);
   if (user.has_recovery_codes) factors.push('Recovery');
+  if (user.has_email_fallback) factors.push('E-Mail-Code');
   if (Number(user.trusted_device_count || 0) > 0) factors.push(`${user.trusted_device_count} Gerät`);
   const badge = enabled
     ? `<span class="badge badge-success">Aktiv</span>`

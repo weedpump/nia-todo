@@ -26,8 +26,9 @@ from services.two_factor import (
     mark_challenge_consumed, mfa_required_for_user, provisioning_uri,
     revoke_trusted_devices, set_two_factor_required, trusted_device_valid,
     user_mfa_state, verify_challenge_method, verify_totp, REAUTH_MAX_AGE_SECONDS,
-    record_challenge_failure, sha256_hex,
+    EMAIL_CODE_TTL_SECONDS, record_challenge_failure, sha256_hex, bcrypt_hash,
 )
+from services.email import send_email
 
 router = APIRouter(prefix="/api")
 
@@ -111,12 +112,40 @@ def _reauth_bucket(db, user_id: int):
     methods = ["totp"] if state.get("has_totp") else []
     if state.get("has_recovery_codes"):
         methods.append("recovery_code")
+    if state.get("has_email_fallback") and not (state.get("has_totp") or state.get("has_passkey")):
+        methods.append("email")
     db.execute(
         """INSERT INTO two_factor_challenges (user_id, token_hash, methods, expires_at, created_at)
            VALUES (?, ?, ?, ?, datetime('now'))""",
         (user_id, token_hash, json.dumps(methods), expires_at),
     )
     return db.execute("SELECT * FROM two_factor_challenges WHERE token_hash = ?", (token_hash,)).fetchone()
+
+
+def _send_reauth_email_code(db, user_id: int, bucket_id: int, ip_address: Optional[str] = None):
+    user = db.execute("SELECT email, display_name, username FROM users WHERE id = ?", (user_id,)).fetchone()
+    if not user or not user["email"]:
+        raise HTTPException(400, "E-Mail-Reauth ist nicht verfügbar")
+    email_code = f"{secrets.randbelow(1_000_000):06d}"
+    send_email(
+        to=user["email"],
+        subject="Dein nia-todo Reauth-Code",
+        text=(
+            f"Dein Sicherheits-Code lautet: {email_code}\n\n"
+            "Der Code ist 10 Minuten gültig.\n\n"
+            "Tipp: Du kannst in den Einstellungen zusätzlich einen Authenticator oder Passkey einrichten."
+        ),
+        html=(
+            f"<p>Dein Sicherheits-Code lautet:</p><p><strong>{email_code}</strong></p>"
+            "<p>Der Code ist 10 Minuten gültig.</p>"
+            "<p style=\"color:#64748b; font-size:13px;\">Tipp: Du kannst in den Einstellungen zusätzlich einen Authenticator oder Passkey einrichten.</p>"
+        ),
+    )
+    db.execute(
+        "UPDATE two_factor_challenges SET email_code_hash = ?, email_code_expires_at = ? WHERE id = ?",
+        (bcrypt_hash(email_code), int(time.time()) + EMAIL_CODE_TTL_SECONDS, bucket_id),
+    )
+    log_audit(db, "two_factor_reauth_email_code_sent", user_id=user_id, ip_address=ip_address)
 
 
 def _get_valid_passkey_challenge(db, user_id: int, challenge: str, purpose: str):
@@ -251,6 +280,24 @@ def regenerate_recovery_codes(user_id: int = Depends(require_recent_mfa)):
         return {"recovery_codes": codes}
 
 
+@router.post("/me/2fa/reauth/email/start")
+def start_email_reauth(request: Request, authorization: Optional[str] = Header(None)):
+    with get_db() as db:
+        payload = _current_payload(authorization, db)
+        if not payload:
+            raise HTTPException(401, "Not authenticated")
+        user_id = payload["user_id"]
+        bucket = _reauth_bucket(db, user_id)
+        methods = json.loads(bucket["methods"] or "[]")
+        if "email" not in methods:
+            raise HTTPException(400, "E-Mail-Reauth ist nicht verfügbar")
+        if bucket["locked_until"] and int(bucket["locked_until"]) > int(time.time()):
+            raise HTTPException(429, "Zu viele Reauth-Versuche. Bitte später erneut versuchen.")
+        _send_reauth_email_code(db, user_id, bucket["id"], ip_address=get_client_ip(request))
+        db.commit()
+        return {"sent": True, "expires_in": EMAIL_CODE_TTL_SECONDS}
+
+
 @router.post("/me/2fa/reauth")
 def reauth(data: ReauthRequest, authorization: Optional[str] = Header(None)):
     with get_db() as db:
@@ -261,7 +308,7 @@ def reauth(data: ReauthRequest, authorization: Optional[str] = Header(None)):
         bucket = _reauth_bucket(db, user_id)
         if bucket["locked_until"] and int(bucket["locked_until"]) > int(time.time()):
             raise HTTPException(429, "Zu viele Reauth-Versuche. Bitte später erneut versuchen.")
-        if data.method not in {"totp", "recovery_code"} or not verify_challenge_method(db, bucket, data.method, data.code):
+        if data.method not in {"totp", "recovery_code", "email"} or not verify_challenge_method(db, bucket, data.method, data.code):
             record_challenge_failure(db, bucket["id"])
             log_audit(db, "two_factor_reauth_failed", user_id=user_id, details=f"method={data.method}")
             db.commit()

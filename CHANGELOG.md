@@ -37,7 +37,7 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 - **Zwei-Faktor-Authentifizierung (2FA)** mit TOTP/Authenticator-App, Passkeys/WebAuthn inkl. Passkey-Reauth, Recovery Codes, Login-Challenge-Flow mit Attempt-Lockout, optionalem „Gerät merken“ und E-Mail-Code als gültigem Faktor für Accounts ohne TOTP/Passkey ergänzt.
 - **Passkeys produktionsgehärtet**: WebAuthn ist an HTTPS-`public_base_url` gebunden (`http` nur lokal), prüft Origin/RP-ID, User Verification, `none`-Attestation, Signaturen und Sign-Counter; Native Apps zeigen Passkeys erst nach separater nativer Passkey-Bridge.
 - **2FA-Admin-Steuerung** ergänzt: globale 2FA-Pflicht, Benutzer-Status inkl. Faktoren/API-Key-Hinweis und Admin-Reset pro Benutzer.
-- **2FA-/Reauth-Schutz** für sicherheitskritische Account-Aktionen ergänzt, u.a. E-Mail ändern, Passwort ändern, 2FA deaktivieren, Recovery Codes regenerieren, API-Key-Management und Passkey-Verwaltung.
+- **2FA-/Reauth-Schutz** für sicherheitskritische Account-Aktionen ergänzt, u.a. E-Mail ändern, Passwort ändern, 2FA deaktivieren, Recovery Codes regenerieren, API-Key-Management und Passkey-Verwaltung; E-Mail-Code ist auch für Reauth nutzbar.
 - **Migrations 024–026** für 2FA-Status, Challenges, Attempt-Lockout, Trusted Devices, Passkeys und globale 2FA-Policy ergänzt.
 
 ### Changed

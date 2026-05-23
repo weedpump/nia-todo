@@ -22,6 +22,8 @@ from services.webauthn import relying_party_for_request, verify_client_data
 from services.two_factor import (
     create_challenge,
     create_recovery_codes,
+    EMAIL_CODE_TTL_SECONDS,
+    bcrypt_hash,
     generate_totp_secret,
     get_valid_challenge,
     record_challenge_failure,
@@ -127,6 +129,16 @@ def main():
         assert sent_messages and "Authenticator oder Passkey" in sent_messages[0]["text"]
         email_row = get_valid_challenge(conn, email_challenge["challenge_token"])
         assert email_row is not None and email_row["email_code_hash"]
+
+        # E-mail-only MFA also works for recent-MFA reauth buckets.
+        bucket_hash = two_factor_module.sha256_hex(f"reauth:{email_user_id}:{int(two_factor_module.utc_ts() // two_factor_module.REAUTH_MAX_AGE_SECONDS)}")
+        conn.execute(
+            """INSERT INTO two_factor_challenges (user_id, token_hash, methods, expires_at, email_code_hash, email_code_expires_at, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, datetime('now'))""",
+            (email_user_id, bucket_hash, json.dumps(["email"]), two_factor_module.utc_ts() + 600, bcrypt_hash("123456"), two_factor_module.utc_ts() + EMAIL_CODE_TTL_SECONDS),
+        )
+        reauth_bucket = conn.execute("SELECT * FROM two_factor_challenges WHERE token_hash = ?", (bucket_hash,)).fetchone()
+        assert verify_challenge_method(conn, reauth_bucket, "email", "123456")
 
         # Five failed attempts lock a challenge until expiry.
         challenge3 = create_challenge(conn, user_id)
