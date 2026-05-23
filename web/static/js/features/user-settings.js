@@ -486,7 +486,7 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     }
 
     try {
-      const data = await authApi.updateEmail(email);
+      const data = await withRecentMfaRetry(() => authApi.updateEmail(email));
       if (data.email_verification_delivery === 'unavailable') {
         await refreshCurrentUser().catch(() => renderUserInfo());
         errorEl.textContent = 'E-Mail schon vergeben';
@@ -564,6 +564,16 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     if (data.access_token) localStorage.setItem('jwt_token', data.access_token);
   }
 
+  async function withRecentMfaRetry(action) {
+    try {
+      return await action();
+    } catch (e) {
+      if (e.status !== 403) throw e;
+      await ensureRecentMfa();
+      return action();
+    }
+  }
+
   async function disableTwoFactor() {
     if (!confirm('2FA wirklich deaktivieren?')) return;
     const errorEl = document.getElementById('settings-2fa-error');
@@ -639,7 +649,7 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     }
 
     try {
-      await authApi.changePassword(oldPw, newPw);
+      await withRecentMfaRetry(() => authApi.changePassword(oldPw, newPw));
       document.getElementById('settings-pw-success').textContent = 'Passwort geändert! Du wirst abgemeldet...';
       setTimeout(() => logout(), 1500);
     } catch (e) {
