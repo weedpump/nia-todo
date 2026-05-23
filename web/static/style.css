@@ -3141,3 +3141,34 @@ input[type="color"]::-moz-color-swatch {
   display: inline-block;
   flex-shrink: 0;
 }
+
+/* Native pointer drag fallback */
+.native-app .todo-item,
+.native-app .section-header[draggable="true"] {
+  touch-action: none;
+}
+
+.native-app .section-dropzone {
+  min-height: 22px;
+  margin: 4px 0;
+}
+
+.native-app .section-dropzone.drag-over {
+  min-height: 34px;
+}
+
+.native-drag-ghost {
+  position: fixed;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0.86;
+  transform-origin: top left;
+  box-shadow: var(--shadow-lg);
+  border: 2px solid var(--accent);
+}
+
+.native-pointer-dragging,
+.native-pointer-dragging * {
+  cursor: grabbing !important;
+  user-select: none !important;
+}

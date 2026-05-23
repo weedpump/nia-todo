@@ -74,6 +74,41 @@ function runLegacyInlineAction(source, event) {
   }
 }
 
+let legacyInputBridgeBound = false;
+function bindNativeLegacyInputBridge() {
+  if (legacyInputBridgeBound || !RUNTIME_CAPABILITIES.native) return;
+  legacyInputBridgeBound = true;
+
+  document.addEventListener('input', (event) => {
+    if (event.target?.id === 'search-input') window.renderTodos?.();
+  }, true);
+
+  document.addEventListener('keydown', (event) => {
+    const target = event.target;
+    if (!target?.id) return;
+    if (target.id === 'new-section-name') {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        window.saveNewSection?.();
+      } else if (event.key === 'Escape') {
+        event.preventDefault();
+        window.renderTodos?.();
+      }
+      return;
+    }
+    const editMatch = target.id.match(/^edit-section-name-(.+)$/);
+    if (editMatch) {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        window.saveSectionEdit?.(editMatch[1]);
+      } else if (event.key === 'Escape') {
+        event.preventDefault();
+        window.renderTodos?.();
+      }
+    }
+  }, true);
+}
+
 let legacyClickBridgeBound = false;
 function bindNativeLegacyClickBridge() {
   if (legacyClickBridgeBound || !RUNTIME_CAPABILITIES.native) return;
@@ -140,4 +175,5 @@ export function exposeLegacyGlobals({
     ...desktopIntegration,
   });
   bindNativeLegacyClickBridge();
+  bindNativeLegacyInputBridge();
 }

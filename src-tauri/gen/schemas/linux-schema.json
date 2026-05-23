@@ -201,6 +201,12 @@
           "markdownDescription": "Enables the desktop_notify command without any pre-configured scope."
         },
         {
+          "description": "Enables the desktop_open_url command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-desktop-open-url",
+          "markdownDescription": "Enables the desktop_open_url command without any pre-configured scope."
+        },
+        {
           "description": "Enables the desktop_request_notification_permission command without any pre-configured scope.",
           "type": "string",
           "const": "allow-desktop-request-notification-permission",
@@ -253,6 +259,12 @@
           "type": "string",
           "const": "deny-desktop-notify",
           "markdownDescription": "Denies the desktop_notify command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the desktop_open_url command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-desktop-open-url",
+          "markdownDescription": "Denies the desktop_open_url command without any pre-configured scope."
         },
         {
           "description": "Denies the desktop_request_notification_permission command without any pre-configured scope.",

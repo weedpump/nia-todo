@@ -212,7 +212,7 @@ function renderNativeAppVersion(target, platform, currentVersion) {
   target.style.display = '';
 }
 
-function showNativeUpdateModal(download, currentVersion) {
+function showNativeUpdateModal(download, currentVersion, nativeBridge = null) {
   if (!download?.url) return;
   const modal = document.getElementById('native-app-update-modal');
   const current = document.getElementById('native-app-update-current-version');
@@ -224,6 +224,16 @@ function showNativeUpdateModal(download, currentVersion) {
     button.href = download.url;
     button.download = download.filename || '';
     button.title = platformTitle(download);
+    button.onclick = async (event) => {
+      if (!RUNTIME_CAPABILITIES.native || !nativeBridge?.openExternal) return;
+      event.preventDefault();
+      try {
+        await nativeBridge.openExternal(download.url);
+      } catch (error) {
+        console.warn('[Downloads] Native update download failed', error);
+        window.location.href = download.url;
+      }
+    };
   }
   if (modal) {
     modal.classList.add('active');
@@ -289,7 +299,7 @@ export function createAppDownloadsFeature() {
       const nativeDownload = downloads.find((download) => download.platform === nativePlatform);
       const updateAvailable = nativeDownload?.version && currentVersion && compareVersions(nativeDownload.version, currentVersion) > 0;
       if (updateAvailable) {
-        showNativeUpdateModal(nativeDownload, currentVersion);
+        showNativeUpdateModal(nativeDownload, currentVersion, nativeBridge);
       }
     } catch (error) {
       console.info('[Downloads] No app download available', error);
