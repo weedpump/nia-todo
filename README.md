@@ -30,6 +30,7 @@ systemctl restart nia-todo-dev
 - 🔲 Sections pro Projekt
 - 📱 Offline-PWA plus native Windows-/Android-Wrapper
 - 🔐 Auth, Admin-Panel, API-Keys, CSRF-Schutz und User-Datenisolation
+- 🛡️ 2FA/MFA mit Authenticator-App (TOTP), Passkeys/WebAuthn, E-Mail-Code-Fallback, Recovery Codes, Trusted Devices und Admin-Policy
 - ⏰ Erinnerungen/Deadlines mit validierter Datum-/Zeit-Eingabe
 - 🔔 Native lokale Reminder auf Windows und Android; Browser/PWA-Push bleibt Browser/PWA-only
 - 🎨 Theme-Toggle
@@ -53,6 +54,7 @@ systemctl restart nia-todo-dev
 
 - `npm test`
 - `./scripts/test_all.sh`
+- gezielte 2FA-Regressionen: `python3 scripts/test_two_factor_services.py`, `node scripts/test_frontend_mfa_login.mjs`, `node scripts/test_frontend_security.mjs`
 
 Details: [Test-Doku](docs/testing.md)
 
@@ -70,6 +72,7 @@ Details: [Test-Doku](docs/testing.md)
 
 - Erstinstallation: `/setup`
 - Admin-Panel: `/admin`
+- 2FA-Policy und Benutzer-Reset: `/admin` → Security/Benutzerliste
 - Dev-Branding: `setup-dev.sh`
 
 ## Hinweise

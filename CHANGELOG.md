@@ -38,7 +38,11 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 - **Passkeys produktionsgehärtet**: WebAuthn ist an HTTPS-`public_base_url` gebunden (`http` nur lokal), prüft Origin/RP-ID, User Verification, `none`-Attestation, Signaturen und Sign-Counter; Native Apps zeigen Passkeys erst nach separater nativer Passkey-Bridge.
 - **2FA-Admin-Steuerung** ergänzt: globale 2FA-Pflicht, Benutzer-Status inkl. Faktoren/API-Key-Hinweis und Admin-Reset pro Benutzer.
 - **2FA-/Reauth-Schutz** für sicherheitskritische Account-Aktionen ergänzt, u.a. E-Mail ändern, Passwort ändern, 2FA deaktivieren, Recovery Codes regenerieren, API-Key-Management und Passkey-Verwaltung; E-Mail-Code ist auch für Reauth nutzbar.
-- **Migrations 024–026** für 2FA-Status, Challenges, Attempt-Lockout, Trusted Devices, Passkeys und globale 2FA-Policy ergänzt.
+- **One-Time-MFA-Action-Grants** ergänzt: Login-MFA und Trusted Devices zählen nur für App-Zugriff, jede sensible Aktion benötigt eine frische, einmalig konsumierte MFA-Bestätigung.
+- **2FA-Settings-UX** überarbeitet: TOTP-Setup mit QR-Code, Passkey-/TOTP-Gerätelisten mit Widerruf, App-eigene Sicherheitsdialoge statt Browser-`alert`/`prompt`/`confirm`, dynamische Reauth-Beschriftungen und theme-kompatible Eingabefelder.
+- **2FA-Replay-/Race-Hardening** ergänzt: atomarer Challenge-Verbrauch, table-backed Recovery-Code-Verbrauch, single-use E-Mail-Reauth-Codes, TOTP-Reauth-Timestep-Schutz und atomare Passkey-Challenge-Verwendung.
+- **Recovery-Code-Semantik** geschärft: Recovery Codes sind Backup-Faktoren zu TOTP/Passkey, werden beim Entfernen des letzten primären Faktors automatisch widerrufen und können nur mit aktivem primären Faktor neu erzeugt werden.
+- **Migrations 024–028** für 2FA-Status, Challenges, Attempt-Lockout, Trusted Devices, Passkeys, One-Time-MFA-Grants, Recovery-Code-Zeilen und Replay-Schutz ergänzt.
 
 ### Changed
 - Projekt-, Todo-, Dashboard- und Section-Ansichten werden nach aktivem Workspace gefiltert; Benachrichtigungen, Reminder, Push und WebSocket-Sync bleiben global.
@@ -64,6 +68,7 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 - **Passwort-Reset und Einladungen** senden nur an verifizierte E-Mails; neutrale Responses verhindern Enumeration.
 - **SMTP-Secrets werden in API-Responses redacted** (`smtp_password_configured` statt Klartext).
 - Login-Antworten können jetzt eine 2FA-Challenge statt eines Access-Tokens liefern; Clients müssen dann `/api/2fa/challenge/verify` oder den Passkey-Verify-Flow abschließen. Global erzwungene 2FA ohne nutzbaren Faktor erzeugt nur einen Enrollment-Token; verifizierte E-Mail mit SMTP zählt als E-Mail-Code-Faktor.
+- Recovery Codes gelten nicht mehr als alleinstehender primärer Faktor: sobald TOTP und Passkeys entfernt sind, werden verbleibende Recovery Codes widerrufen und die user-seitige 2FA deaktiviert; globale 2FA-Policy kann danach weiterhin E-Mail-Code-MFA verlangen.
 
 ### Fixed
 - Projektanlage in Workspaces erzeugt keine 500er mehr bei Datenbankkonflikten oder Workspace-Zuordnung.
@@ -80,6 +85,8 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 - **Pending-Invite-Leaks über WebSocket behoben** (Broadcasts nur an Invitee, ohne `project_id`).
 - **E-Mail-Invite Lookup auf verifizierte E-Mails beschränkt** (kein Username-Matching bei E-Mail-Identifiern).
 - Sharing-UI hält lokal gestartete Username-Einladungen sichtbar, ohne privacy-safe Server-Member-Listen für Pending Invites wieder zu öffnen.
+- 2FA-Challenges, Reauth-Buckets, Recovery Codes und MFA-Action-Grants können nicht mehrfach für sicherheitskritische Aktionen wiederverwendet werden.
+- 2FA-/Security-Flows verwenden keine nativen Browser-Popups mehr; Bestätigungen, Passwortabfragen und Reauth laufen über App-Dialoge.
 
 ## [1.7.3] - 2026-05-22
 
