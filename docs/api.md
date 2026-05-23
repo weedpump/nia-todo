@@ -199,7 +199,7 @@ Aktiviert TOTP nach Passwortbestätigung und liefert einmalig neue Recovery Code
 - `POST /api/me/2fa/disable` — benötigt eine frische One-Time-MFA-Reauth, widerruft Trusted Devices und Passkeys.
 - `DELETE /api/me/2fa/totp` — widerruft den eingerichteten TOTP-Secret, benötigt eine frische One-Time-MFA-Reauth.
 - `POST /api/me/2fa/recovery-codes/regenerate` — benötigt eine frische One-Time-MFA-Reauth, liefert neue Codes einmalig zurück.
-- `POST /api/me/2fa/reauth` — prüft TOTP, Recovery-Code oder E-Mail-Code mit Attempt-Lockout und stellt ein JWT mit einem einmalig konsumierbaren MFA-Action-Grant aus. E-Mail-Reauth-Codes werden nach erfolgreicher Nutzung invalidiert.
+- `POST /api/me/2fa/reauth` — prüft TOTP, Recovery-Code oder E-Mail-Code mit Attempt-Lockout und stellt ein JWT mit einem einmalig konsumierbaren MFA-Action-Grant aus. Reauth-Buckets werden nach Erfolg konsumiert; E-Mail-Reauth-Codes werden invalidiert und TOTP-Reauth-Timesteps nur einmal akzeptiert.
 - `POST /api/me/2fa/reauth/email/start` — sendet einen E-Mail-Reauth-Code, wenn E-Mail-Code der verfügbare Faktor ist.
 - `POST /api/me/2fa/reauth/passkey/options` und `/api/me/2fa/reauth/passkey/verify` — Passkey-Reauth für Passkey-only Nutzer.
 

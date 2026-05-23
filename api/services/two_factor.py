@@ -71,15 +71,20 @@ def _totp(secret: str, counter: int) -> str:
     return str(code_int % (10 ** TOTP_DIGITS)).zfill(TOTP_DIGITS)
 
 
-def verify_totp(secret: str, code: str, now: Optional[int] = None) -> bool:
+def matching_totp_counter(secret: str, code: str, now: Optional[int] = None) -> Optional[int]:
     clean = "".join(ch for ch in (code or "") if ch.isdigit())
     if len(clean) != TOTP_DIGITS:
-        return False
+        return None
     current = int((now or utc_ts()) / TOTP_PERIOD)
     for drift in range(-TOTP_WINDOW, TOTP_WINDOW + 1):
-        if hmac.compare_digest(_totp(secret, current + drift), clean):
-            return True
-    return False
+        counter = current + drift
+        if hmac.compare_digest(_totp(secret, counter), clean):
+            return counter
+    return None
+
+
+def verify_totp(secret: str, code: str, now: Optional[int] = None) -> bool:
+    return matching_totp_counter(secret, code, now) is not None
 
 
 def provisioning_uri(secret: str, username: str) -> str:
@@ -156,6 +161,11 @@ def available_methods(db, user_id: int) -> list[str]:
 def create_recovery_codes(db, user_id: int) -> list[str]:
     codes = [f"{secrets.token_hex(4)}-{secrets.token_hex(4)}" for _ in range(RECOVERY_CODE_COUNT)]
     hashes = [bcrypt_hash(code) for code in codes]
+    db.execute("DELETE FROM two_factor_recovery_codes WHERE user_id = ?", (user_id,))
+    db.executemany(
+        "INSERT INTO two_factor_recovery_codes (user_id, code_hash, created_at) VALUES (?, ?, datetime('now'))",
+        [(user_id, hashed) for hashed in hashes],
+    )
     db.execute(
         "UPDATE users SET two_factor_recovery_hashes = ?, two_factor_recovery_generated_at = datetime('now'), two_factor_updated_at = datetime('now') WHERE id = ?",
         (json.dumps(hashes), user_id),
@@ -164,15 +174,50 @@ def create_recovery_codes(db, user_id: int) -> list[str]:
     return codes
 
 
-def consume_recovery_code(db, user_id: int, code: str) -> bool:
+def _ensure_recovery_code_rows(db, user_id: int) -> None:
+    existing = db.execute("SELECT 1 FROM two_factor_recovery_codes WHERE user_id = ? LIMIT 1", (user_id,)).fetchone()
+    if existing:
+        return
     row = db.execute("SELECT two_factor_recovery_hashes FROM users WHERE id = ?", (user_id,)).fetchone()
-    if not row:
-        return False
-    hashes = json.loads(row["two_factor_recovery_hashes"] or "[]")
-    for index, hashed in enumerate(hashes):
-        if bcrypt_check((code or "").strip(), hashed):
-            del hashes[index]
-            db.execute("UPDATE users SET two_factor_recovery_hashes = ?, two_factor_updated_at = datetime('now') WHERE id = ?", (json.dumps(hashes), user_id))
+    hashes = json.loads(row["two_factor_recovery_hashes"] or "[]") if row else []
+    if not hashes:
+        return
+    db.executemany(
+        "INSERT INTO two_factor_recovery_codes (user_id, code_hash, created_at) VALUES (?, ?, datetime('now'))",
+        [(user_id, hashed) for hashed in hashes],
+    )
+
+
+def _sync_legacy_recovery_hashes(db, user_id: int) -> None:
+    rows = db.execute(
+        "SELECT code_hash FROM two_factor_recovery_codes WHERE user_id = ? AND consumed_at IS NULL ORDER BY id",
+        (user_id,),
+    ).fetchall()
+    db.execute(
+        "UPDATE users SET two_factor_recovery_hashes = ?, two_factor_updated_at = datetime('now') WHERE id = ?",
+        (json.dumps([row["code_hash"] for row in rows]), user_id),
+    )
+
+
+def consume_recovery_code(db, user_id: int, code: str) -> bool:
+    # Acquire a SQLite write lock for this user's recovery-code state before
+    # reading active hashes, so parallel requests cannot both consume the same code.
+    db.execute("UPDATE users SET two_factor_updated_at = two_factor_updated_at WHERE id = ?", (user_id,))
+    _ensure_recovery_code_rows(db, user_id)
+    rows = db.execute(
+        "SELECT id, code_hash FROM two_factor_recovery_codes WHERE user_id = ? AND consumed_at IS NULL ORDER BY id",
+        (user_id,),
+    ).fetchall()
+    clean = (code or "").strip()
+    for row in rows:
+        if bcrypt_check(clean, row["code_hash"]):
+            cur = db.execute(
+                "UPDATE two_factor_recovery_codes SET consumed_at = datetime('now') WHERE id = ? AND consumed_at IS NULL",
+                (row["id"],),
+            )
+            if cur.rowcount != 1:
+                return False
+            _sync_legacy_recovery_hashes(db, user_id)
             log_audit(db, "two_factor_recovery_code_used", user_id=user_id)
             return True
     return False
@@ -244,6 +289,23 @@ def record_challenge_failure(db, challenge_id: int) -> None:
     db.execute("UPDATE two_factor_challenges SET attempts = ?, locked_until = ? WHERE id = ?", (attempts, locked_until, challenge_id))
 
 
+def consume_totp_reauth_code(db, user_id: int, code: str) -> bool:
+    row = db.execute("SELECT two_factor_totp_secret FROM users WHERE id = ?", (user_id,)).fetchone()
+    if not row or not row["two_factor_totp_secret"]:
+        return False
+    counter = matching_totp_counter(row["two_factor_totp_secret"], code)
+    if counter is None:
+        return False
+    try:
+        db.execute(
+            "INSERT INTO two_factor_totp_reauth_uses (user_id, timestep, created_at) VALUES (?, ?, datetime('now'))",
+            (user_id, counter),
+        )
+    except Exception:
+        return False
+    return True
+
+
 def verify_challenge_method(db, challenge, method: str, code: str) -> bool:
     user_id = challenge["user_id"]
     methods = json.loads(challenge["methods"] or "[]")
@@ -259,8 +321,12 @@ def verify_challenge_method(db, challenge, method: str, code: str) -> bool:
     return False
 
 
-def mark_challenge_consumed(db, challenge_id: int) -> None:
-    db.execute("UPDATE two_factor_challenges SET consumed_at = datetime('now') WHERE id = ?", (challenge_id,))
+def mark_challenge_consumed(db, challenge_id: int) -> bool:
+    cur = db.execute(
+        "UPDATE two_factor_challenges SET consumed_at = datetime('now') WHERE id = ? AND consumed_at IS NULL",
+        (challenge_id,),
+    )
+    return cur.rowcount == 1
 
 
 def create_trusted_device(db, user_id: int, user_agent: str = "") -> str:
