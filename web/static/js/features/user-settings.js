@@ -76,10 +76,18 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     </span>`;
   }
 
-  function renderSettingsEmailDisplay(emailValue) {
-    const email = emailValue ? escapeHtml(emailValue) : '<span class="settings-email-missing">-</span>';
+  function renderSettingsEmailDisplay(user) {
+    const email = user?.email ? escapeHtml(user.email) : '<span class="settings-email-missing">-</span>';
+    const verified = user?.email
+      ? (user?.email_verified_at
+        ? '<span class="settings-email-status settings-email-verified">bestätigt</span>'
+        : '<span class="settings-email-status settings-email-unverified">nicht bestätigt</span>')
+      : '';
+    const pending = user?.pending_email ? `<span class="settings-email-pending">Ausstehend: ${escapeHtml(user.pending_email)}</span>` : '';
     return `<span class="settings-email-display" id="settings-email-display">
       <span class="settings-email-value">${email}</span>
+      ${verified}
+      ${pending}
       <button type="button" class="settings-email-action" title="E-Mail bearbeiten" onclick="editUserEmail()">${iconSvg('edit-3')}</button>
     </span>`;
   }
@@ -91,7 +99,7 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     const settingsEmailCell = document.getElementById('settings-email-cell');
     if (settingsUsernameEl && currentUser) settingsUsernameEl.textContent = currentUser.username;
     if (settingsDisplayNameCell && currentUser) settingsDisplayNameCell.innerHTML = renderDisplayNameDisplay(currentUser.display_name || currentUser.username);
-    if (settingsEmailCell && currentUser) settingsEmailCell.innerHTML = renderSettingsEmailDisplay(currentUser.email || '');
+    if (settingsEmailCell && currentUser) settingsEmailCell.innerHTML = renderSettingsEmailDisplay(currentUser);
     renderSettingsAvatar(currentUser);
   }
 
@@ -442,10 +450,17 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
 
     try {
       const data = await authApi.updateEmail(email);
+      if (data.email_verification_delivery === 'unavailable') {
+        await refreshCurrentUser().catch(() => renderUserInfo());
+        errorEl.textContent = 'E-Mail schon vergeben';
+        return;
+      }
       const currentUser = getCurrentUser();
-      if (currentUser) setCurrentUser({ ...currentUser, email: data.email });
-      renderUserInfo();
-      successEl.textContent = 'E-Mail gespeichert';
+      if (currentUser) setCurrentUser({ ...currentUser, email: data.email || currentUser.email, pending_email: data.pending_email || null });
+      await refreshCurrentUser().catch(() => renderUserInfo());
+      successEl.textContent = data.email_verification_required
+        ? 'Bestätigungsmail gesendet'
+        : (data.email_verification_delivery === 'unverified_no_smtp' ? 'E-Mail gespeichert, aber ohne SMTP nicht per Mail bestätigt' : 'E-Mail gespeichert und bestätigt');
     } catch (e) {
       errorEl.textContent = e.message;
     }

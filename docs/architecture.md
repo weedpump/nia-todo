@@ -55,6 +55,9 @@ Bestands-/Legacy-Kontext:
 - API-Keys für externe Nutzung nur via `Authorization: ApiKey ...` oder `X-API-Key`
 - Benutzer sehen eigene Daten plus akzeptierte Shared-Projekte
 - Shared-Projektzugriff wird in Projekten, Todos, Sections, Reminders und WebSocket-Payloads geprüft
+- **E-Mail-Verifizierung**: Login, Passwort-Reset und Projekt-Sharing erfordern verifizierte E-Mails
+- **Neutrale API-Responses** bei E-Mail-basierten Aktionen verhindern User-Enumeration
+- **Pending Invites** sind aus Privacy-Gründen nur für den Invitee sichtbar (nicht für Owner/Members)
 
 ## Benutzer-Onboarding
 

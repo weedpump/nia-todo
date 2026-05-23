@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="referrer" content="no-referrer">
 <title>nia-todo</title>
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0f172a">
@@ -72,15 +73,21 @@
       </div>
       <form id="login-form">
         <div class="login-field">
-          <label for="login-username">Benutzername</label>
-          <input type="text" id="login-username" required placeholder="Benutzername" autocomplete="username">
+          <label for="login-username">Benutzername oder E-Mail</label>
+          <input type="text" id="login-username" required placeholder="Benutzername oder E-Mail" autocomplete="username">
         </div>
         <div class="login-field">
           <label for="login-password">Passwort</label>
           <input type="password" id="login-password" required placeholder="Passwort eingeben" autocomplete="current-password">
         </div>
         <div id="login-error" class="login-error"></div>
+        <div id="login-reset-panel" class="login-reset-panel hidden">
+          <input type="text" id="login-reset-identifier" placeholder="Benutzername oder E-Mail" autocomplete="username">
+          <button type="button" class="login-reset-submit" id="login-reset-submit">Reset-Link anfordern</button>
+          <div id="login-reset-message" class="login-reset-message"></div>
+        </div>
         <button type="submit" class="login-btn">Anmelden</button>
+        <button type="button" class="login-forgot-btn hidden" id="login-forgot-btn">Passwort vergessen?</button>
       </form>
       <div class="login-theme-toggle">
         <button class="theme-option" data-theme="light" onclick="setTheme('light')" title="Hell"><span data-icon="sun"></span></button>
@@ -534,7 +541,7 @@
           <div id="project-share-row" class="form-group" style="margin-top:10px;">
             <label>Benutzer einladen</label>
             <div style="display:flex; gap:8px;">
-              <input id="project-share-username" type="text" class="form-control" placeholder="Benutzername" style="flex:1;">
+              <input id="project-share-username" type="text" class="form-control" placeholder="Benutzername oder E-Mail" style="flex:1;">
               <button type="button" class="btn btn-primary" onclick="inviteUserToProject()">Einladen</button>
             </div>
             <div id="project-share-error" class="form-error"></div>

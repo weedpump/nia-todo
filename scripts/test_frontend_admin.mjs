@@ -42,6 +42,8 @@ async function run() {
     if (!setupUrl.startsWith(`${BASE_URL}/set-password?token=`)) throw new Error('Create user did not use configured public base URL');
     await page.locator('#user-list').getByRole('cell', { name: 'admincreated', exact: true }).waitFor({ state: 'visible', timeout: 10000 });
     await page.locator('#user-list').getByText('admincreated@example.invalid').waitFor({ state: 'visible', timeout: 10000 });
+    await page.locator('#user-list').getByText('Bestätigt').first().waitFor({ state: 'visible', timeout: 10000 });
+    await page.locator('#user-list').getByText('Aktiv').first().waitFor({ state: 'visible', timeout: 10000 });
     await page.locator('#user-list button[title="E-Mail bearbeiten"]').last().click();
     await page.evaluate(() => {
       window.__lastAlert = '';
@@ -80,6 +82,7 @@ async function run() {
     await page.fill('#admin-login-password', ADMIN_PASSWORD);
     await page.click('text=Anmelden');
     await page.locator('#admin-content').waitFor({ state: 'visible', timeout: 10000 });
+    await page.locator('#user-list').getByRole('row', { name: /admincreated/ }).getByText('Aktiv').waitFor({ state: 'visible', timeout: 10000 });
 
     await page.fill('#admin-old-password', ADMIN_PASSWORD);
     await page.fill('#admin-new-password', 'NewFrontendAdmin123!');
