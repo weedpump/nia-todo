@@ -57,7 +57,7 @@ async function run() {
     // 5. Invite errors should be inline, not undo-toasts
     await page.fill('#project-share-username', 'missinguser');
     await page.locator('#project-share-row button').click();
-    await page.getByText('Benutzer "missinguser" nicht gefunden').waitFor({ state: 'visible', timeout: 10000 });
+    await page.getByText('Benutzer oder E-Mail "missinguser" nicht gefunden').waitFor({ state: 'visible', timeout: 10000 });
     const undoVisibleAfterError = await page.locator('#toast-undo').isVisible().catch(() => false);
     if (undoVisibleAfterError) throw new Error('Invite validation errors must not show undo button');
 

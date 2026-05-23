@@ -30,6 +30,25 @@ def _layout(title: str, body_html: str) -> str:
     """.strip()
 
 
+def project_share_invite_email(*, display_name: str, username: str, project_name: str, inviter_name: str, link: str) -> tuple[str, str, str]:
+    safe_name = display_name or username
+    subject = f"Projektfreigabe: {project_name}"
+    text = (
+        f"Hallo {safe_name},\n\n"
+        f"{inviter_name} hat das Projekt \"{project_name}\" mit dir geteilt.\n\n"
+        f"Einladung ansehen:\n{link}\n\n"
+        "Du kannst die Einladung in nia-todo annehmen oder ablehnen."
+    )
+    body = (
+        f"<p>Hallo {escape(safe_name)},</p>"
+        f"<p>{escape(inviter_name)} hat das Projekt <strong>{escape(project_name)}</strong> mit dir geteilt.</p>"
+        f"{_button_html('Einladung ansehen', link)}"
+        f"<p style=\"font-size:13px;color:#475569;\">Falls der Button nicht funktioniert, kopiere diesen Link:<br>"
+        f"<a href=\"{escape(link, quote=True)}\" style=\"color:#6366f1;word-break:break-all;\">{escape(link)}</a></p>"
+    )
+    return subject, text, _layout("Projektfreigabe", body)
+
+
 def email_verification_email(*, display_name: str, username: str, link: str, expires_hours: int) -> tuple[str, str, str]:
     safe_name = display_name or username
     subject = "nia-todo E-Mail bestätigen"

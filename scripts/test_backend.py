@@ -876,11 +876,13 @@ class TestSuite:
         if not proj_id:
             self.results["share_project"] = {"status": -1, "passed": True, "expected": "skipped"}
             return True
-        status, data = curl("POST", f"/api/projects/{proj_id}/share", {"username": "shareduser"}, token=self.user_token, csrf=self.user_csrf, cookie_jar="/tmp/nia_user_cookies.txt")
+        status, data = curl("POST", f"/api/projects/{proj_id}/share", {"username": "shareduser@example.invalid"}, token=self.user_token, csrf=self.user_csrf, cookie_jar="/tmp/nia_user_cookies.txt")
         if ok(status) and data and data.get("member"):
             self.created_ids["invite"].append(data["member"].get("id"))
             self.shared_user_id = data["member"].get("user_id")
-        return self.record("share_project", status)
+        passed = ok(status) and data and data.get("member") and data.get("notification_delivery") == "in_app"
+        self.results["share_project"] = {"status": status, "passed": passed, "expected": "200 + share by verified email + in_app notification"}
+        return passed
 
     def test_shared_invite_list(self):
         status, data = curl("GET", "/api/projects/invites", token=self.shared_token, cookie_jar="/tmp/nia_shared_cookies.txt")
