@@ -262,9 +262,11 @@ fn apply_global_hotkeys(_app: &AppHandle) -> Result<(), String> {
 
 #[tauri::command]
 fn desktop_open_url(url: String) -> Result<(), String> {
-  let parsed = url::Url::parse(&url).map_err(|_| "Bitte eine gültige URL öffnen.".to_string())?;
-  if parsed.scheme() != "http" && parsed.scheme() != "https" {
-    return Err("Nur http(s)-URLs dürfen geöffnet werden.".into());
+  let lower = url.to_ascii_lowercase();
+  let is_http = lower.starts_with("http://") || lower.starts_with("https://");
+  let has_control_chars = url.chars().any(|ch| ch.is_control());
+  if !is_http || has_control_chars {
+    return Err("Nur gültige http(s)-URLs dürfen geöffnet werden.".into());
   }
 
   #[cfg(target_os = "windows")]
