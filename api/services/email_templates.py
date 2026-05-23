@@ -30,6 +30,28 @@ def _layout(title: str, body_html: str) -> str:
     """.strip()
 
 
+def email_verification_email(*, display_name: str, username: str, link: str, expires_hours: int) -> tuple[str, str, str]:
+    safe_name = display_name or username
+    subject = "nia-todo E-Mail bestätigen"
+    text = (
+        f"Hallo {safe_name},\n\n"
+        "bitte bestätige diese E-Mail-Adresse für deinen nia-todo Account.\n\n"
+        f"E-Mail bestätigen:\n{link}\n\n"
+        f"Der Link ist {expires_hours} Stunden gültig.\n"
+        "Wenn du diese Änderung nicht angefordert hast, ignoriere diese Mail."
+    )
+    body = (
+        f"<p>Hallo {escape(safe_name)},</p>"
+        "<p>Bitte bestätige diese E-Mail-Adresse für deinen nia-todo Account.</p>"
+        f"{_button_html('E-Mail bestätigen', link)}"
+        f"<p style=\"font-size:13px;color:#475569;\">Der Link ist {expires_hours} Stunden gültig.</p>"
+        f"<p style=\"font-size:13px;color:#475569;\">Falls der Button nicht funktioniert, kopiere diesen Link:<br>"
+        f"<a href=\"{escape(link, quote=True)}\" style=\"color:#6366f1;word-break:break-all;\">{escape(link)}</a></p>"
+        "<p style=\"font-size:13px;color:#475569;\">Wenn du diese Änderung nicht angefordert hast, ignoriere diese Mail.</p>"
+    )
+    return subject, text, _layout("E-Mail bestätigen", body)
+
+
 def password_setup_email(*, display_name: str, username: str, link: str, purpose: str, expires_hours: int) -> tuple[str, str, str]:
     """Return subject, text, html for invite/reset setup links."""
     safe_name = display_name or username

@@ -88,6 +88,16 @@ export const authApi = {
     return parseOrThrow(response, 'Avatar konnte nicht hochgeladen werden');
   },
 
+  async verifyEmail(token) {
+    const response = await fetch(API + '/api/me/email/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify({ token }),
+      credentials: 'include',
+    });
+    return parseOrThrow(response, 'E-Mail konnte nicht bestätigt werden');
+  },
+
   async updateEmail(email) {
     const response = await fetch(API + '/api/me/email', {
       method: 'PATCH',

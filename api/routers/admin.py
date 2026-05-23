@@ -15,6 +15,7 @@ from services.instance_config import get_instance_config, get_public_base_url, u
 from services.email_config import get_email_config, get_password_link_ttl_hours, is_email_configured, update_email_config
 from services.email import send_email, send_test_email
 from services.email_templates import password_setup_email
+from services.email_verification import set_email_or_pending
 from rate_limit import require_login_rate_limit, get_client_ip
 from middleware.security import generate_csrf_token, set_csrf_cookie
 
@@ -266,25 +267,26 @@ def list_users(_: bool = Depends(require_admin)):
         return {"users": [dict(r) for r in rows]}
 
 @router.patch("/users/{user_id}")
-def update_user(user_id: int, data: UpdateUserRequest, _: bool = Depends(require_admin)):
+def update_user(user_id: int, data: UpdateUserRequest, request: Request, _: bool = Depends(require_admin)):
     email = sanitize_text(data.email)
     display_name = sanitize_text(data.display_name) if data.display_name is not None else None
     email_error = validate_email(email)
     if email_error:
         raise HTTPException(400, email_error)
     with get_db() as db:
-        user = db.execute("SELECT id FROM users WHERE id = ?", (user_id,)).fetchone()
+        user = db.execute("SELECT id, email FROM users WHERE id = ?", (user_id,)).fetchone()
         if not user:
             raise HTTPException(404, "User not found")
-        existing_email = db.execute("SELECT id FROM users WHERE email = ? AND id != ?", (email, user_id)).fetchone()
+        existing_email = db.execute("SELECT id FROM users WHERE (email = ? OR pending_email = ?) AND id != ?", (email, email, user_id)).fetchone()
         if existing_email:
             raise HTTPException(409, "Email already exists")
-        if display_name is None:
-            db.execute("UPDATE users SET email = ? WHERE id = ?", (email, user_id))
-        else:
-            db.execute("UPDATE users SET email = ?, display_name = ? WHERE id = ?", (email, display_name, user_id))
+        if display_name is not None:
+            db.execute("UPDATE users SET display_name = ? WHERE id = ?", (display_name, user_id))
+        result = {"email": email, "pending_email": None, "email_verification_required": False}
+        if email != user['email']:
+            result = set_email_or_pending(db, user_id=user_id, email=email, request=request, requested_by="admin")
         db.commit()
-        return {"id": user_id, "email": email, "display_name": display_name}
+        return {"id": user_id, "display_name": display_name, **result}
 
 @router.delete("/users/{user_id}")
 def delete_user(user_id: int, _: bool = Depends(require_admin)):

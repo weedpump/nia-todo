@@ -113,7 +113,7 @@ def me(response: Response, authorization: Optional[str] = Header(None), x_sessio
             user_id = payload.get('user_id')
         
         user = db.execute(
-            "SELECT id, username, display_name, email, email_verified_at, avatar_url, avatar_updated_at, is_admin, token_version FROM users WHERE id = ?",
+            "SELECT id, username, display_name, email, email_verified_at, pending_email, avatar_url, avatar_updated_at, is_admin, token_version FROM users WHERE id = ?",
             (user_id,)
         ).fetchone()
         if not user:
@@ -125,6 +125,7 @@ def me(response: Response, authorization: Optional[str] = Header(None), x_sessio
             "display_name": user['display_name'],
             "email": user['email'],
             "email_verified_at": user['email_verified_at'],
+            "pending_email": user['pending_email'],
             "avatar_url": user['avatar_url'],
             "avatar_updated_at": user['avatar_updated_at'],
             "is_admin": bool(user['is_admin']),

@@ -22,6 +22,7 @@ HEIC_SUPPORTED = PILLOW_HEIC_SUPPORTED or bool(HEIF_CONVERT_BIN)
 
 from db import DB_PATH, get_db, now_iso
 from routers.auth import require_auth
+from services.email_verification import set_email_or_pending, verify_pending_email
 from services.utils import sanitize_text, validate_email, validate_password
 
 router = APIRouter(prefix="/api/me")
@@ -138,22 +139,34 @@ async def upload_own_avatar(request: Request, user_id: int = Depends(require_aut
     return {"avatar_url": avatar_url, "avatar_updated_at": updated_at}
 
 
+@router.post("/email/verify")
+def verify_own_pending_email(data: dict):
+    token = sanitize_text(data.get("token") if isinstance(data, dict) else "")
+    with get_db() as db:
+        if not verify_pending_email(db, token):
+            raise HTTPException(404, "Bestätigungslink ist ungültig oder abgelaufen")
+        db.commit()
+    return {"message": "E-Mail bestätigt."}
+
+
 @router.patch("/email")
-def update_own_email(data: UpdateEmailRequest, user_id: int = Depends(require_auth)):
+def update_own_email(data: UpdateEmailRequest, request: Request, user_id: int = Depends(require_auth)):
     email = sanitize_text(data.email)
     email_error = validate_email(email)
     if email_error:
         raise HTTPException(400, email_error)
     with get_db() as db:
-        user = db.execute("SELECT id FROM users WHERE id = ?", (user_id,)).fetchone()
+        user = db.execute("SELECT id, email FROM users WHERE id = ?", (user_id,)).fetchone()
         if not user:
             raise HTTPException(404, "User not found")
-        existing = db.execute("SELECT id FROM users WHERE email = ? AND id != ?", (email, user_id)).fetchone()
+        if email == user['email']:
+            return {"email": email, "pending_email": None, "email_verification_required": False}
+        existing = db.execute("SELECT id FROM users WHERE (email = ? OR pending_email = ?) AND id != ?", (email, email, user_id)).fetchone()
         if existing:
             raise HTTPException(409, "Email already exists")
-        db.execute("UPDATE users SET email = ? WHERE id = ?", (email, user_id))
+        result = set_email_or_pending(db, user_id=user_id, email=email, request=request, requested_by="user")
         db.commit()
-    return {"email": email}
+    return result
 
 
 @router.post("/change-password")
