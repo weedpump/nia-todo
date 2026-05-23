@@ -101,18 +101,34 @@
 
 **Body**
 ```json
-{ "email": "tobi@example.com" }
+{ "email": "neue@example.com" }
 ```
 
 **Validierung**
 - Pflichtfeld
 - Muss eine gültige E-Mail-Adresse sein
-- Muss eindeutig sein
+- Muss eindeutig sein (case-insensitive)
 
-**Response**
+**Response (mit SMTP konfiguriert)**
 ```json
-{ "email": "tobi@example.com" }
+{
+  "email": "alte@example.com",
+  "pending_email": "neue@example.com",
+  "email_verified_at": "2026-05-20T00:00:00+00:00",
+  "email_verification_sent": true
+}
 ```
+
+**Response (ohne SMTP)**
+```json
+{
+  "email": "neue@example.com",
+  "email_verified_at": null,
+  "email_trust_source": "unverified_no_smtp"
+}
+```
+
+**Hinweis:** Mit SMTP wird die neue E-Mail als `pending_email` gespeichert und eine Verifizierungs-Mail gesendet. Die alte E-Mail bleibt aktiv bis zur Verifizierung. Ohne SMTP ist die E-Mail sofort aktiv, aber nicht verifiziert (kann nicht für Login/Sharing verwendet werden).
 
 ### Eigenes Passwort ändern
 `POST /api/me/change-password`
@@ -127,7 +143,221 @@
 { "ok": true }
 ```
 
-## Setup
+## E-Mail / SMTP
+
+### Eigene E-Mail verifizieren
+`POST /api/me/email/verify`
+
+**Body**
+```json
+{ "token": "abc123..." }
+```
+
+**Response**
+```json
+{
+  "email": "neue@example.com",
+  "email_verified_at": "2026-05-23T00:00:00+00:00",
+  "ok": true
+}
+```
+
+**Hinweis:** Einmaliger Token aus der Verifizierungs-Mail. Nach erfolgreicher Verifizierung wird `pending_email` zu `email` und `email_verified_at` gesetzt.
+
+### Passwort-Reset anfordern (öffentlich)
+`POST /api/password-reset/request`
+
+**Body**
+```json
+{ "email": "user@example.com" }
+```
+
+**Response (immer neutral)**
+```json
+{
+  "ok": true,
+  "message": "Falls ein passender verifizierter Account existiert, wurde die E-Mail gesendet."
+}
+```
+
+**Hinweis:** Aus Sicherheitsgründen wird immer eine neutrale Response geliefert (keine Enumeration). Reset-Mails werden nur an verifizierte E-Mails gesendet.
+
+### Passwort-Setup-Link anfordern (Admin)
+`POST /api/admin/users/{user_id}/password-link`
+
+**Response (mit SMTP + verifizierter E-Mail)**
+```json
+{
+  "email_sent": true,
+  "message": "Passwort-Setup-Link wurde per E-Mail gesendet."
+}
+```
+
+**Response (ohne SMTP oder nicht verifizierte E-Mail)**
+```json
+{
+  "email_sent": false,
+  "password_setup_url": "http://todo-dev.kneidl-home.de:8753/set-password?token=..."
+}
+```
+
+**Hinweis:** Admins können Passwort-Setup-Links für Benutzer generieren. Bei SMTP + verifizierter E-Mail wird der Link per Mail gesendet, andernfalls als manueller Link zurückgegeben.
+
+## Admin: E-Mail-Konfiguration
+
+### SMTP-Konfiguration abrufen
+`GET /api/admin/email-config`
+
+**Response**
+```json
+{
+  "smtp_enabled": true,
+  "smtp_host": "smtp.example.com",
+  "smtp_port": 587,
+  "smtp_security": "starttls",
+  "smtp_auth_enabled": true,
+  "smtp_username": "nia@example.com",
+  "smtp_password_configured": true,
+  "mail_from_address": "nia@example.com",
+  "mail_from_name": "nia-todo",
+  "mail_reply_to": null
+}
+```
+
+**Hinweis:** `smtp_password_configured` ist ein Boolean-Feld; das tatsächliche Passwort wird nie zurückgegeben.
+
+### SMTP-Konfiguration aktualisieren
+`PATCH /api/admin/email-config`
+
+**Body**
+```json
+{
+  "smtp_enabled": true,
+  "smtp_host": "smtp.example.com",
+  "smtp_port": 587,
+  "smtp_security": "starttls",
+  "smtp_auth_enabled": true,
+  "smtp_username": "nia@example.com",
+  "smtp_password": "geheim123",
+  "mail_from_address": "nia@example.com",
+  "mail_from_name": "nia-todo"
+}
+```
+
+**Response**
+```json
+{ "ok": true }
+```
+
+### Test-Mail senden
+`POST /api/admin/email-config/test`
+
+**Body**
+```json
+{ "to": "tobi@example.com" }
+```
+
+**Response**
+```json
+{
+  "ok": true,
+  "message": "Test-Mail erfolgreich gesendet."
+}
+```
+
+**Fehler (SMTP nicht konfiguriert)**
+```json
+{
+  "ok": false,
+  "error": "SMTP ist nicht konfiguriert."
+}
+```
+
+## Projekt-Sharing
+
+### Projekt teilen
+`POST /api/projects/{project_id}/share`
+
+**Body**
+```json
+{ "username": "user@example.com" }
+```
+
+**Response (Username-Invite)**
+```json
+{
+  "member": {
+    "id": 42,
+    "user_id": 5,
+    "username": "moni",
+    "display_name": "Moni",
+    "status": "pending"
+  },
+  "notification_delivery": "in_app"
+}
+```
+
+**Response (E-Mail-Invite — neutral)**
+```json
+{
+  "notification_delivery": "email"
+}
+```
+
+**Hinweis:** Bei E-Mail-Identifiern (enthält `@`) wird aus Sicherheitsgründen keine Member-Info zurückgegeben (keine Enumeration). Der eingeladene User erhält eine E-Mail mit Link.
+
+### Mitglieder auflisten
+`GET /api/projects/{project_id}/members`
+
+**Response**
+```json
+{
+  "members": [
+    {
+      "id": 1,
+      "user_id": 1,
+      "username": "tobi",
+      "display_name": "Tobi",
+      "status": "accepted"
+    }
+  ]
+}
+```
+
+**Hinweis:** Zeigt nur `accepted` Mitglieder an. Pending Invites sind aus Privacy-Gründen nicht sichtbar (auch nicht für Owner).
+
+### Einladung annehmen/ablehnen
+`POST /api/projects/{project_id}/invites/{invite_id}`
+
+**Body**
+```json
+{ "accept": true }
+```
+
+**Response**
+```json
+{ "ok": true }
+```
+
+### Ausstehende Einladungen abrufen
+`GET /api/projects/invites`
+
+**Response**
+```json
+{
+  "invites": [
+    {
+      "id": 42,
+      "project_id": 5,
+      "project_name": "Einkaufsliste",
+      "invited_by_username": "tobi",
+      "status": "pending"
+    }
+  ]
+}
+```
+
+## Admin: Benutzer
 
 ### Admin-Passwort setzen
 `POST /api/setup/admin`

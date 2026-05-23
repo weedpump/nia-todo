@@ -21,6 +21,7 @@ Deckt ab:
 - Reminders
 - Projekt-Sharing und Multi-User-Isolation
 - Security-Regressionen für CSRF/API-Key, IDOR und Datum-/Zeitvalidierung
+- **E-Mail/SMTP-Integration (neutrale Responses, verifizierte E-Mail-Lookups)**
 
 ## Frontend
 
@@ -45,12 +46,14 @@ Deckt ab:
 ### Admin
 - Admin-Login
 - User-Verwaltung
+- **SMTP-Konfiguration + Test-Mail**
 
 ### Settings
 - Settings öffnen
 - API-Key erstellen/widerrufen
 - Push-Status/Test/Deaktivieren
 - Passwort ändern
+- **E-Mail-Verifizierung**
 
 ### Projects
 - Projekt anlegen
@@ -67,17 +70,43 @@ Deckt ab:
 - Member-Liste und Undo-Aktionen
 - Shared-Projekt-Readonly-UI
 - Owner-/Member-Sichtbarkeit
+- **E-Mail-Invite (neutrale Response, keine pending Members sichtbar)**
 
 ### Security
 - Markdown-XSS-Regression
 - Service-Worker cached keine `/api/*` Antworten
 - Offline-Sync-Queue lässt nur erlaubte Felder durch
+- **E-Mail-Enumeration-Schutz (neutrale Responses bei Passwort-Reset/Invite)**
 
 ## Release-Gate
 
 - `release.sh` ruft zuerst `./scripts/test_all.sh` auf
 - bei Fehler: sofort Abbruch
 - kein Merge, kein Tag, kein Push
+
+## E-Mail/SMTP-Tests
+
+### Service-Tests
+`python3 scripts/test_email_services.py`
+
+Testet:
+- SMTP-Konfiguration (get/patch)
+- E-Mail-Versand (send_email)
+- E-Mail-Vorlagen (templates)
+- Token-Hashing/Prefix-Lookup
+
+### Migrationstests
+`python3 scripts/test_migration_022_email_duplicates.py`
+
+Testet:
+- Case-insensitive E-Mail-Uniqueness
+- Duplikate werden bereinigt
+
+`python3 scripts/test_migration_email_partial_recovery.py`
+
+Testet:
+- Partielle Schema-Zustände werden repariert
+- Migration ist idempotent
 
 ## Hinweise
 
