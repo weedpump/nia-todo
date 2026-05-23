@@ -3,6 +3,7 @@ package de.tobiaskneidl.nia_todo
 import android.Manifest
 import android.app.PendingIntent
 import android.content.Intent
+import android.net.Uri
 import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
 import android.graphics.Color
@@ -165,6 +166,19 @@ class MainActivity : TauriActivity() {
     @JavascriptInterface
     fun appVersion(): String {
       return BuildConfig.VERSION_NAME
+    }
+
+    @JavascriptInterface
+    fun openExternal(url: String): Boolean {
+      return try {
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+          addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        startActivity(intent)
+        true
+      } catch (_: Exception) {
+        false
+      }
     }
 
     @JavascriptInterface

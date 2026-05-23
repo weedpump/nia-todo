@@ -504,6 +504,7 @@ const handleSectionDragStart = dragDropFeature.handleSectionDragStart;
 const handleSectionDragEnd = dragDropFeature.handleSectionDragEnd;
 const handleSectionDragOver = dragDropFeature.handleSectionDragOver;
 const handleSectionDrop = dragDropFeature.handleSectionDrop;
+const bindNativePointerDragDrop = dragDropFeature.bindNativePointerDragDrop;
 
 const toastUndoFeature = createToastUndoFeature({
   getDb: () => db,
@@ -593,6 +594,7 @@ export function startAppModule() {
   hydrateIcons(document);
   confirmDialogFeature.bindConfirmDialog();
   appDownloadsFeature.initAppDownloads();
+  bindNativePointerDragDrop();
   desktopIntegration?.init();
   startNativeDoneActionPolling();
   setInterval(() => renderStats(), 30 * 1000);

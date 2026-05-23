@@ -90,6 +90,16 @@ export function createNativeBridge() {
     return scheduleReminders([]);
   }
 
+  async function openExternal(url) {
+    if (!isNative() || !url) return false;
+    if (hasAndroidMethod('openExternal')) return Boolean(android().openExternal(String(url)));
+    if (isDesktop()) {
+      await invokeTauri('desktop_open_url', { url: String(url) });
+      return true;
+    }
+    return false;
+  }
+
   function consumePendingDoneAction() {
     if (!hasAndroidMethod('consumePendingDoneAction')) return null;
     const raw = android().consumePendingDoneAction();
@@ -156,6 +166,7 @@ export function createNativeBridge() {
     notify,
     scheduleReminders,
     clearReminders,
+    openExternal,
     consumePendingDoneAction,
     setSystemBarsTheme,
     getAppVersion,

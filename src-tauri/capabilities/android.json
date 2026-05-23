@@ -8,6 +8,7 @@
     "core:default",
     "allow-desktop-get-settings",
     "allow-desktop-set-server-url",
-    "allow-desktop-clear-server-url"
+    "allow-desktop-clear-server-url",
+    "allow-desktop-open-url"
   ]
 }

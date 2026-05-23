@@ -1,3 +1,5 @@
+import { RUNTIME_CAPABILITIES } from '../core/config.js';
+
 export function createDragDropFeature({
   getTodos,
   setTodos,
@@ -11,13 +13,20 @@ export function createDragDropFeature({
   let dragSrcTodoId = null;
   let dragSrcSectionId = null;
   let currentSectionDropIndex = null;
+  let pointerDrag = null;
+  let suppressNextNativeClick = false;
+
+  function eventDataTransfer(e) {
+    return e.dataTransfer || { setData() {}, effectAllowed: 'move', dropEffect: 'move' };
+  }
 
   function handleTodoDragStart(e) {
     const rawId = e.target.dataset.id;
     dragSrcTodoId = /^\d+$/.test(String(rawId)) ? parseInt(rawId) : rawId;
     e.target.classList.add('dragging');
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', 'todo:' + dragSrcTodoId);
+    const transfer = eventDataTransfer(e);
+    transfer.effectAllowed = 'move';
+    transfer.setData('text/plain', 'todo:' + dragSrcTodoId);
   }
 
   function handleTodoDragEnd(e) {
@@ -31,7 +40,7 @@ export function createDragDropFeature({
   function handleTodoDragOver(e) {
     if (!dragSrcTodoId) return;
     e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
+    eventDataTransfer(e).dropEffect = 'move';
     const container = e.target.closest('.section-todos');
     if (container) container.classList.add('drag-over');
   }
@@ -73,8 +82,9 @@ export function createDragDropFeature({
   function handleSectionDragStart(e) {
     dragSrcSectionId = parseInt(e.target.dataset.sectionId);
     e.target.classList.add('dragging');
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', 'section:' + dragSrcSectionId);
+    const transfer = eventDataTransfer(e);
+    transfer.effectAllowed = 'move';
+    transfer.setData('text/plain', 'section:' + dragSrcSectionId);
   }
 
   function clearSectionDropIndicators() {
@@ -91,7 +101,7 @@ export function createDragDropFeature({
   function handleSectionDragOver(e) {
     if (!dragSrcSectionId) return;
     e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
+    eventDataTransfer(e).dropEffect = 'move';
     clearSectionDropIndicators();
     const dropzone = e.target.closest('.section-dropzone');
     if (dropzone) {
@@ -119,6 +129,34 @@ export function createDragDropFeature({
     renderTodos();
   }
 
+  async function moveSectionToDropTarget(header, dropzone) {
+    if (!dragSrcSectionId) return false;
+    const sections = [...getSections()];
+    const srcIdx = sections.findIndex(s => s.id === dragSrcSectionId);
+    if (srcIdx === -1) return false;
+
+    if (dropzone) {
+      const rawIndex = parseInt(dropzone.dataset.dropIndex, 10);
+      if (Number.isNaN(rawIndex)) return false;
+      const [moved] = sections.splice(srcIdx, 1);
+      const targetIdx = srcIdx < rawIndex ? rawIndex - 1 : rawIndex;
+      sections.splice(Math.max(0, Math.min(targetIdx, sections.length)), 0, moved);
+      await persistSectionOrder(sections);
+      return true;
+    }
+
+    const targetSectionId = header?.dataset.sectionId;
+    if (targetSectionId === 'null' || !header || dragSrcSectionId === parseInt(targetSectionId)) return false;
+
+    const targetIdx = sections.findIndex(s => s.id === parseInt(targetSectionId));
+    if (targetIdx === -1) return false;
+
+    const [moved] = sections.splice(srcIdx, 1);
+    sections.splice(targetIdx, 0, moved);
+    await persistSectionOrder(sections);
+    return true;
+  }
+
   async function handleSectionDrop(e) {
     e.preventDefault();
 
@@ -135,30 +173,169 @@ export function createDragDropFeature({
       return;
     }
 
-    if (!dragSrcSectionId) return;
+    await moveSectionToDropTarget(header, dropzone);
+  }
 
-    const sections = [...getSections()];
-    const srcIdx = sections.findIndex(s => s.id === dragSrcSectionId);
-    if (srcIdx === -1) return;
+  function clearNativeDragIndicators() {
+    document.querySelectorAll('.section-todos.drag-over, .section-header.drag-over, .section-dropzone.drag-over').forEach(el => el.classList.remove('drag-over'));
+  }
 
+  function nativeDragElementFromPoint(x, y) {
+    const ghost = pointerDrag?.ghost;
+    if (ghost) ghost.style.display = 'none';
+    const element = document.elementFromPoint(x, y);
+    if (ghost) ghost.style.display = '';
+    return element;
+  }
+
+  function updateNativeDropTarget(x, y) {
+    clearNativeDragIndicators();
+    const element = nativeDragElementFromPoint(x, y);
+    if (!element) return null;
+    if (pointerDrag?.type === 'todo') {
+      const sectionTodos = element.closest('.section-todos');
+      const sectionHeader = element.closest('.section-header');
+      if (sectionTodos) {
+        sectionTodos.classList.add('drag-over');
+        return { sectionTodos };
+      }
+      if (sectionHeader) {
+        sectionHeader.classList.add('drag-over');
+        return { sectionHeader };
+      }
+      return null;
+    }
+    const dropzone = element.closest('.section-dropzone');
     if (dropzone) {
-      const rawIndex = parseInt(dropzone.dataset.dropIndex, 10);
-      if (Number.isNaN(rawIndex)) return;
-      const [moved] = sections.splice(srcIdx, 1);
-      const targetIdx = srcIdx < rawIndex ? rawIndex - 1 : rawIndex;
-      sections.splice(targetIdx, 0, moved);
-      await persistSectionOrder(sections);
+      dropzone.classList.add('drag-over');
+      return { dropzone };
+    }
+    const sectionHeader = element.closest('.section-header:not(.section-unsorted)');
+    if (sectionHeader) {
+      sectionHeader.classList.add('drag-over');
+      return { sectionHeader };
+    }
+    return null;
+  }
+
+  function createNativeGhost(source) {
+    const rect = source.getBoundingClientRect();
+    const ghost = source.cloneNode(true);
+    ghost.classList.add('native-drag-ghost');
+    ghost.style.width = `${rect.width}px`;
+    ghost.style.left = `${rect.left}px`;
+    ghost.style.top = `${rect.top}px`;
+    document.body.appendChild(ghost);
+    return ghost;
+  }
+
+  function moveNativeGhost(event) {
+    if (!pointerDrag?.ghost) return;
+    pointerDrag.ghost.style.transform = `translate3d(${event.clientX - pointerDrag.startX}px, ${event.clientY - pointerDrag.startY}px, 0)`;
+  }
+
+  function startNativePointerDrag(event, source, type, id) {
+    pointerDrag = {
+      pointerId: event.pointerId,
+      source,
+      type,
+      id,
+      startX: event.clientX,
+      startY: event.clientY,
+      active: false,
+      ghost: null,
+    };
+  }
+
+  function activateNativePointerDrag(event) {
+    if (!pointerDrag || pointerDrag.active) return;
+    pointerDrag.active = true;
+    suppressNextNativeClick = true;
+    document.body.classList.add('native-pointer-dragging');
+    pointerDrag.source.classList.add('dragging');
+    pointerDrag.ghost = createNativeGhost(pointerDrag.source);
+    if (pointerDrag.type === 'todo') dragSrcTodoId = pointerDrag.id;
+    if (pointerDrag.type === 'section') dragSrcSectionId = pointerDrag.id;
+    moveNativeGhost(event);
+    updateNativeDropTarget(event.clientX, event.clientY);
+  }
+
+  async function finishNativePointerDrag(event) {
+    if (!pointerDrag) return;
+    const drag = pointerDrag;
+    const wasActive = drag.active;
+    const target = wasActive ? updateNativeDropTarget(event.clientX, event.clientY) : null;
+    pointerDrag = null;
+    drag.ghost?.remove();
+    drag.source.classList.remove('dragging');
+    document.body.classList.remove('native-pointer-dragging');
+    clearNativeDragIndicators();
+
+    if (!wasActive || !target) {
+      dragSrcTodoId = null;
+      dragSrcSectionId = null;
       return;
     }
 
-    if (targetSectionId === 'null' || !header || dragSrcSectionId === parseInt(targetSectionId)) return;
+    if (drag.type === 'todo') {
+      const rawSectionId = target.sectionTodos?.dataset.sectionId || target.sectionHeader?.dataset.sectionId;
+      if (rawSectionId) await moveTodoToSection(drag.id, rawSectionId === 'null' ? null : parseInt(rawSectionId));
+      dragSrcTodoId = null;
+      return;
+    }
 
-    const targetIdx = sections.findIndex(s => s.id === parseInt(targetSectionId));
-    if (targetIdx === -1) return;
+    if (drag.type === 'section') {
+      await moveSectionToDropTarget(target.sectionHeader, target.dropzone);
+      dragSrcSectionId = null;
+    }
+  }
 
-    const [moved] = sections.splice(srcIdx, 1);
-    sections.splice(targetIdx, 0, moved);
-    await persistSectionOrder(sections);
+  function bindNativePointerDragDrop() {
+    if (!RUNTIME_CAPABILITIES.native || bindNativePointerDragDrop.bound) return;
+    bindNativePointerDragDrop.bound = true;
+
+    document.addEventListener('pointerdown', (event) => {
+      if (event.button !== undefined && event.button !== 0) return;
+      if (event.target.closest('button, input, textarea, select, a')) return;
+      const todo = event.target.closest('.todo-item[data-id]');
+      if (todo) {
+        startNativePointerDrag(event, todo, 'todo', /^\d+$/.test(String(todo.dataset.id)) ? parseInt(todo.dataset.id) : todo.dataset.id);
+        return;
+      }
+      const section = event.target.closest('.section-header[draggable="true"][data-section-id]');
+      if (section && section.dataset.sectionId !== 'null') {
+        startNativePointerDrag(event, section, 'section', parseInt(section.dataset.sectionId));
+      }
+    }, true);
+
+    document.addEventListener('pointermove', (event) => {
+      if (!pointerDrag || pointerDrag.pointerId !== event.pointerId) return;
+      const dx = event.clientX - pointerDrag.startX;
+      const dy = event.clientY - pointerDrag.startY;
+      if (!pointerDrag.active && Math.hypot(dx, dy) < 8) return;
+      event.preventDefault();
+      activateNativePointerDrag(event);
+      moveNativeGhost(event);
+      updateNativeDropTarget(event.clientX, event.clientY);
+    }, { capture: true, passive: false });
+
+    document.addEventListener('pointerup', (event) => {
+      if (!pointerDrag || pointerDrag.pointerId !== event.pointerId) return;
+      event.preventDefault();
+      finishNativePointerDrag(event);
+    }, true);
+
+    document.addEventListener('pointercancel', (event) => {
+      if (!pointerDrag || pointerDrag.pointerId !== event.pointerId) return;
+      finishNativePointerDrag(event);
+    }, true);
+
+    document.addEventListener('click', (event) => {
+      if (!suppressNextNativeClick) return;
+      suppressNextNativeClick = false;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }, true);
   }
 
   return {
@@ -170,5 +347,6 @@ export function createDragDropFeature({
     handleSectionDragEnd,
     handleSectionDragOver,
     handleSectionDrop,
+    bindNativePointerDragDrop,
   };
 }

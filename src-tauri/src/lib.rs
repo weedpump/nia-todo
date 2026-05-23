@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::{
   fs,
   path::PathBuf,
+  process::Command,
   sync::{
     atomic::{AtomicU64, Ordering},
     Arc,
@@ -257,6 +258,28 @@ fn apply_global_hotkeys(_app: &AppHandle) -> Result<(), String> {
   Ok(())
 }
 
+
+#[tauri::command]
+fn desktop_open_url(url: String) -> Result<(), String> {
+  let parsed = url::Url::parse(&url).map_err(|_| "Bitte eine gültige URL öffnen.".to_string())?;
+  if parsed.scheme() != "http" && parsed.scheme() != "https" {
+    return Err("Nur http(s)-URLs dürfen geöffnet werden.".into());
+  }
+
+  #[cfg(target_os = "windows")]
+  let status = Command::new("rundll32").args(["url.dll,FileProtocolHandler", url.as_str()]).status();
+  #[cfg(target_os = "macos")]
+  let status = Command::new("open").arg(url.as_str()).status();
+  #[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+  let status = Command::new("xdg-open").arg(url.as_str()).status();
+  #[cfg(target_os = "android")]
+  let status: Result<std::process::ExitStatus, std::io::Error> = Err(std::io::Error::new(std::io::ErrorKind::Unsupported, "Android opens URLs via native bridge"));
+
+  status
+    .map_err(|err| err.to_string())
+    .and_then(|status| if status.success() { Ok(()) } else { Err(format!("URL öffnen fehlgeschlagen: {status}")) })
+}
+
 #[tauri::command]
 fn desktop_get_app_version() -> String {
   env!("CARGO_PKG_VERSION").to_string()
@@ -475,6 +498,7 @@ pub fn run() {
       desktop_set_setting,
       desktop_set_server_url,
       desktop_clear_server_url,
+      desktop_open_url,
       desktop_set_hotkey,
       desktop_request_notification_permission,
       desktop_notify,
