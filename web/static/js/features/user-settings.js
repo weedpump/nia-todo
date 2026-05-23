@@ -509,7 +509,7 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     errorEl.textContent = '';
     successEl.textContent = '';
     try {
-      const data = await authApi.startTotp();
+      const data = await withRecentMfaRetry(() => authApi.startTotp());
       pendingTotpSecret = data.secret;
       document.getElementById('settings-2fa-secret').textContent = data.secret;
       document.getElementById('settings-2fa-setup').style.display = '';
