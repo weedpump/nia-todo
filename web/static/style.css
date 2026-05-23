@@ -2182,12 +2182,53 @@ input[type="color"]::-moz-color-swatch {
   color: var(--text-primary);
 }
 
-.login-reset-panel {
+.login-reset-panel,
+.login-mfa-panel {
   margin: 0 0 12px;
   padding: 12px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--bg-primary);
+}
+
+.login-mfa-hint {
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.4;
+  margin-bottom: 12px;
+}
+
+.login-remember-device {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  margin: -2px 0 10px;
+  cursor: pointer;
+}
+
+.login-remember-device input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+}
+
+.login-back-btn {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.login-back-btn:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
 }
 
 .login-reset-panel input {

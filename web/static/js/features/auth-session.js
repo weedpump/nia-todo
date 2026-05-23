@@ -13,6 +13,8 @@ export function createAuthSessionFeature({
   let loginInProgress = false;
   let loginFormBound = false;
   let passwordResetAvailable = false;
+  let pendingMfaChallenge = null;
+  let pendingMfaMethod = null;
 
   async function clearBrowserAuthCaches() {
     if ('serviceWorker' in navigator && typeof navigator.serviceWorker.getRegistrations === 'function') {
@@ -98,19 +100,75 @@ export function createAuthSessionFeature({
     return completeLogin(data);
   }
 
-  async function handleMfaChallenge(challengeData) {
+  function preferredMfaMethod(challengeData) {
     const methods = challengeData?.challenge?.methods || [];
     const canPasskey = methods.includes('passkey') && !RUNTIME_CAPABILITIES.native && window.PublicKeyCredential && navigator.credentials;
-    const preferred = canPasskey ? 'passkey' : methods.includes('totp') ? 'totp' : methods.includes('email') ? 'email' : methods[0];
-    const rememberDevice = window.confirm('Dieses Gerät für 30 Tage merken?');
-    if (preferred === 'passkey') {
-      const verified = await authApi.verifyPasskeyLogin(challengeData.challenge.challenge_token, rememberDevice);
+    return canPasskey ? 'passkey' : methods.includes('totp') ? 'totp' : methods.includes('email') ? 'email' : methods[0];
+  }
+
+  function resetLoginMfaPanel() {
+    pendingMfaChallenge = null;
+    pendingMfaMethod = null;
+    document.getElementById('login-mfa-panel')?.classList.add('hidden');
+    const codeInput = document.getElementById('login-mfa-code');
+    const rememberInput = document.getElementById('login-remember-device');
+    const submitBtn = document.querySelector('button.login-btn');
+    if (codeInput) codeInput.value = '';
+    if (rememberInput) rememberInput.checked = false;
+    if (submitBtn) submitBtn.textContent = 'Anmelden';
+    document.getElementById('login-username')?.removeAttribute('readonly');
+    document.getElementById('login-password')?.removeAttribute('readonly');
+    document.getElementById('login-forgot-btn')?.classList.toggle('hidden', !passwordResetAvailable);
+  }
+
+  function showLoginMfaPanel(challengeData) {
+    pendingMfaChallenge = challengeData;
+    pendingMfaMethod = preferredMfaMethod(challengeData);
+    const panel = document.getElementById('login-mfa-panel');
+    const hintEl = document.getElementById('login-mfa-hint');
+    const codeWrap = document.getElementById('login-mfa-code-wrap');
+    const codeInput = document.getElementById('login-mfa-code');
+    const codeLabel = document.getElementById('login-mfa-code-label');
+    const submitBtn = document.querySelector('button.login-btn');
+    const labels = {
+      email: 'E-Mail-Code',
+      recovery_code: 'Recovery Code',
+      passkey: 'Passkey',
+      totp: 'Authenticator-Code',
+    };
+    const label = labels[pendingMfaMethod] || '2FA-Code';
+    if (hintEl) hintEl.textContent = pendingMfaMethod === 'email'
+      ? 'Wir haben dir einen 2FA-Code per E-Mail geschickt.'
+      : pendingMfaMethod === 'passkey'
+        ? 'Bestätige die Anmeldung mit deinem Passkey.'
+        : 'Gib deinen 2FA-Code ein.';
+    if (codeLabel) codeLabel.textContent = label;
+    if (codeInput) {
+      codeInput.value = '';
+      codeInput.placeholder = `${label} eingeben`;
+      codeInput.required = pendingMfaMethod !== 'passkey';
+    }
+    if (codeWrap) codeWrap.style.display = pendingMfaMethod === 'passkey' ? 'none' : '';
+    if (submitBtn) submitBtn.textContent = pendingMfaMethod === 'passkey' ? 'Mit Passkey anmelden' : '2FA bestätigen';
+    document.getElementById('login-username')?.setAttribute('readonly', 'readonly');
+    document.getElementById('login-password')?.setAttribute('readonly', 'readonly');
+    document.getElementById('login-forgot-btn')?.classList.add('hidden');
+    panel?.classList.remove('hidden');
+    if (pendingMfaMethod === 'passkey') submitBtn?.focus();
+    else codeInput?.focus();
+  }
+
+  async function verifyPendingMfaChallenge() {
+    if (!pendingMfaChallenge) throw new Error('Keine aktive 2FA-Challenge');
+    const rememberDevice = !!document.getElementById('login-remember-device')?.checked;
+    if (pendingMfaMethod === 'passkey') {
+      const verified = await authApi.verifyPasskeyLogin(pendingMfaChallenge.challenge.challenge_token, rememberDevice);
       return completeLogin(verified);
     }
-    const label = preferred === 'email' ? 'E-Mail-Code' : preferred === 'recovery_code' ? 'Recovery Code' : 'Authenticator-Code';
-    const code = window.prompt(`${label} eingeben`);
-    if (!code) throw new Error('2FA abgebrochen');
-    const verified = await authApi.verify2fa(challengeData.challenge.challenge_token, preferred, code.trim(), rememberDevice);
+    const code = document.getElementById('login-mfa-code')?.value?.trim() || '';
+    if (!code) throw new Error('Bitte 2FA-Code eingeben');
+    const method = pendingMfaMethod === 'totp' && code.includes('-') ? 'recovery_code' : pendingMfaMethod;
+    const verified = await authApi.verify2fa(pendingMfaChallenge.challenge.challenge_token, method, code, rememberDevice);
     return completeLogin(verified);
   }
 
@@ -274,8 +332,16 @@ export function createAuthSessionFeature({
     if (submitBtn) submitBtn.disabled = true;
 
     try {
-      const data = await login(username, password);
-      if (data?.mfa_required) await handleMfaChallenge(data);
+      if (pendingMfaChallenge) {
+        await verifyPendingMfaChallenge();
+      } else {
+        const data = await login(username, password);
+        if (data?.mfa_required) {
+          showLoginMfaPanel(data);
+          return;
+        }
+      }
+      resetLoginMfaPanel();
       hideLoginOverlay();
       renderUserInfo();
       if (!getAppInitialized()) await initApp();
@@ -297,6 +363,11 @@ export function createAuthSessionFeature({
     loginFormBound = true;
     form.addEventListener('submit', handleLogin);
     document.getElementById('login-forgot-btn')?.addEventListener('click', toggleResetPanel);
+    document.getElementById('login-mfa-back-btn')?.addEventListener('click', () => {
+      resetLoginMfaPanel();
+      document.getElementById('login-error').textContent = '';
+      document.getElementById('login-password')?.focus();
+    });
     document.getElementById('login-reset-submit')?.addEventListener('click', requestPasswordReset);
     document.getElementById('login-reset-identifier')?.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') requestPasswordReset();
