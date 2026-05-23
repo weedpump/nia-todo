@@ -282,9 +282,16 @@ async def restore_member(project_id: int, member_user_id: int, data: RestoreMemb
         db.commit()
 
         restored = get_project_member(db, project_id, member_user_id)
-        await broadcast_change("member_restored", {"project_id": project_id, "member": restored}, project['user_id'], project_id)
-        if member_user_id != project['user_id']:
-            await broadcast_change("member_restored", {"project_id": project_id, "member": restored}, member_user_id, project_id)
+        
+        # Do NOT broadcast pending invites to owner/members (privacy: pending invites are internal)
+        if data.status == 'pending':
+            # Notify only the invitee (no project_id = no owner/member auto-recipients)
+            await broadcast_change("member_invited", {"member": None}, member_user_id)
+        else:
+            # For accepted/other status, notify owner and the restored member (no project_id to avoid leaking to other members)
+            await broadcast_change("member_restored", {"project_id": project_id, "member": restored}, project['user_id'])
+            if member_user_id != project['user_id']:
+                await broadcast_change("member_restored", {"project_id": project_id, "member": restored}, member_user_id)
         return {"member": restored}
 
 
@@ -352,20 +359,27 @@ async def remove_member(project_id: int, member_user_id: int, user_id: int = Dep
         )
         db.commit()
 
-        await broadcast_change("member_removed", {
-            "id": member['id'],
-            "project_id": project_id,
-            "user_id": member_user_id,
-            "member": dict(member)
-        }, user_id, project_id)
-
-        # Also notify the removed user
-        if member_user_id != user_id:
+        # Do NOT broadcast pending invites to owner/members (privacy: pending invites are internal)
+        # Only notify the affected user directly without project_id
+        if member['status'] == 'pending':
+            # Notify only the invitee (no project_id = no owner/member auto-recipients)
+            await broadcast_change("member_invited", {"member": None}, member_user_id)
+        else:
+            # For accepted members, notify owner and the removed member (no project_id to avoid leaking to other members)
             await broadcast_change("member_removed", {
                 "id": member['id'],
                 "project_id": project_id,
-                "user_id": member_user_id
-            }, member_user_id, project_id)
+                "user_id": member_user_id,
+                "member": dict(member)
+            }, user_id)
+
+            # Also notify the removed user
+            if member_user_id != user_id:
+                await broadcast_change("member_removed", {
+                    "id": member['id'],
+                    "project_id": project_id,
+                    "user_id": member_user_id
+                }, member_user_id)
 
         return {"removed": member['id'], "project_id": project_id}
 
