@@ -49,8 +49,12 @@ assert(!swSource.includes("caches.open(API_CACHE)"), 'service worker must not ca
 assert(swSource.indexOf("url.pathname.startsWith('/api/avatars/')") < swSource.indexOf("url.pathname.startsWith('/api/')"), 'service worker must cache static avatars before the generic API network-only rule');
 assert(swSource.includes("url.pathname.startsWith('/api/')") && swSource.includes('event.respondWith(fetch(event.request))'), 'API fetches must be network-only');
 
+const authSessionSource = readFileSync(new URL('../web/static/js/features/auth-session.js', import.meta.url), 'utf8');
 const userMenuSource = readFileSync(new URL('../web/static/js/features/user-menu.js', import.meta.url), 'utf8');
 const userSettingsSource = readFileSync(new URL('../web/static/js/features/user-settings.js', import.meta.url), 'utf8');
+assert(!authSessionSource.includes('window.prompt'), 'login MFA must use inline fields, not browser prompt dialogs');
+assert(!authSessionSource.includes('window.confirm'), 'login remember-device choice must use inline checkbox, not browser confirm dialog');
+assert(authSessionSource.includes('login-remember-device'), 'login MFA must expose the 30-day trusted-device checkbox inline');
 assert(!userMenuSource.includes('Date.now()'), 'user menu avatar URLs must be stable so avatars can be cached offline');
 assert(!userSettingsSource.includes('Date.now()'), 'settings avatar URLs must be stable so avatars can be cached offline');
 

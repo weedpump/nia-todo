@@ -80,6 +80,18 @@
           <label for="login-password">Passwort</label>
           <input type="password" id="login-password" required placeholder="Passwort eingeben" autocomplete="current-password">
         </div>
+        <div id="login-mfa-panel" class="login-mfa-panel hidden">
+          <div class="login-mfa-hint" id="login-mfa-hint">2FA-Code eingeben</div>
+          <div class="login-field" id="login-mfa-code-wrap">
+            <label for="login-mfa-code" id="login-mfa-code-label">2FA-Code</label>
+            <input type="text" id="login-mfa-code" placeholder="Code eingeben" autocomplete="one-time-code" inputmode="numeric">
+          </div>
+          <label class="login-remember-device">
+            <input type="checkbox" id="login-remember-device">
+            <span>Dieses Gerät 30 Tage merken</span>
+          </label>
+          <button type="button" class="login-back-btn" id="login-mfa-back-btn">Zurück</button>
+        </div>
         <div id="login-error" class="login-error"></div>
         <div id="login-reset-panel" class="login-reset-panel hidden">
           <input type="text" id="login-reset-identifier" placeholder="Benutzername oder E-Mail" autocomplete="username">
