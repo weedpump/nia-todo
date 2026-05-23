@@ -2,6 +2,7 @@
 
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends, Request
+from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 
 from db import get_db, now_iso
@@ -190,9 +191,12 @@ async def share_project(project_id: int, data: ShareProjectRequest, request: Req
                 inviter_name=project.get('owner_display_name') or project.get('owner_username'),
                 link=get_public_base_url(request, require_configured=True),
             )
-            send_email(to=target['email'], subject=subject, text=text, html=html)
-            emailed = True
-            log_audit(db, "project_share_email_sent", user_id=target['id'], details=f"project_id={project_id}; invited_by={user_id}")
+            try:
+                await run_in_threadpool(send_email, to=target['email'], subject=subject, text=text, html=html)
+                emailed = True
+                log_audit(db, "project_share_email_sent", user_id=target['id'], details=f"project_id={project_id}; invited_by={user_id}")
+            except Exception:
+                log_audit(db, "project_share_email_failed", user_id=target['id'], details=f"project_id={project_id}; invited_by={user_id}; fallback=in_app")
         db.commit()
 
         member = get_project_member(db, project_id, target['id'])

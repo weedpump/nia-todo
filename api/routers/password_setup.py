@@ -252,7 +252,8 @@ def complete_password_setup(data: CompletePasswordSetupRequest):
                 """UPDATE users
                    SET password_hash = ?,
                        token_version = token_version + 1,
-                       email_verified_at = COALESCE(email_verified_at, datetime('now'))
+                       email_verified_at = COALESCE(email_verified_at, datetime('now')),
+                       email_trust_source = COALESCE(email_trust_source, 'setup_link')
                    WHERE id = ?""",
                 (password_hash, row['user_id'])
             )

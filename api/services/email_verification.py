@@ -6,7 +6,6 @@ from typing import Optional
 
 from fastapi import Request
 
-from services.email import send_email
 from services.email_config import get_password_link_ttl_hours, is_email_configured
 from services.email_templates import email_verification_email
 from services.instance_config import get_public_base_url
@@ -26,10 +25,12 @@ def set_email_or_pending(db, *, user_id: int, email: str, request: Optional[Requ
     email = normalize_email(email)
     if not is_email_configured():
         verified_expr = "datetime('now')" if requested_by == "admin" else "NULL"
+        trust_source_expr = "'admin_asserted'" if requested_by == "admin" else "NULL"
         db.execute(
             f"""UPDATE users
                SET email = ?,
                    email_verified_at = {verified_expr},
+                   email_trust_source = {trust_source_expr},
                    pending_email = NULL,
                    pending_email_token_hash = NULL,
                    pending_email_token_prefix = NULL,
@@ -58,15 +59,31 @@ def set_email_or_pending(db, *, user_id: int, email: str, request: Optional[Requ
         (email, hash_email_token(token), token[:12], f"+{get_password_link_ttl_hours()} hours", user_id),
     )
     link = make_email_verify_link(request, token) if request else ""
-    db.commit()
     subject, text, html = email_verification_email(
         display_name=user['display_name'] if user else "",
         username=user['username'] if user else "",
         link=link,
         expires_hours=get_password_link_ttl_hours(),
     )
-    send_email(to=email, subject=subject, text=text, html=html)
-    return {"email": None, "pending_email": email, "email_verification_required": True, "email_verification_delivery": "email"}
+    return {
+        "email": None,
+        "pending_email": email,
+        "email_verification_required": True,
+        "email_verification_delivery": "email",
+        "_verification_email": {"to": email, "subject": subject, "text": text, "html": html},
+    }
+
+
+def clear_pending_email(db, *, user_id: int) -> None:
+    db.execute(
+        """UPDATE users
+           SET pending_email = NULL,
+               pending_email_token_hash = NULL,
+               pending_email_token_prefix = NULL,
+               pending_email_token_expires_at = NULL
+           WHERE id = ?""",
+        (user_id,),
+    )
 
 
 def verify_pending_email(db, token: str, *, user_id: int) -> bool:
@@ -89,6 +106,7 @@ def verify_pending_email(db, token: str, *, user_id: int) -> bool:
         """UPDATE users
            SET email = pending_email,
                email_verified_at = datetime('now'),
+               email_trust_source = 'smtp_link',
                pending_email = NULL,
                pending_email_token_hash = NULL,
                pending_email_token_prefix = NULL,
