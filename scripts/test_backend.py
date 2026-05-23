@@ -374,7 +374,6 @@ class TestSuite:
             "password_link_ttl_hours": 24,
         }, token=self.admin_token, csrf=self.admin_csrf, cookie_jar="/tmp/nia_admin_cookies.txt")
         feature_status, features = curl("GET", "/api/password-setup/features")
-        reset_status, reset_data = curl("POST", "/api/password-setup/request", {"identifier": "testuser"}, cookie_jar="/tmp/nia_reset_cookies.txt")
         passed = (
             ok(status)
             and data
@@ -383,11 +382,46 @@ class TestSuite:
             and features
             and features.get("email_configured") is False
             and features.get("password_reset_available") is False
-            and ok(reset_status)
-            and reset_data
-            and "Falls ein passendes Konto existiert" in reset_data.get("message", "")
         )
         self.results["email_links_disabled_without_public_base_url"] = {"status": status if not passed else 200, "passed": passed, "expected": "SMTP enabled without public_base_url does not enable link mail flows"}
+        return passed
+
+
+    def test_password_reset_requires_verified_email(self):
+        with sqlite3.connect(DB_PATH) as db:
+            for key, value in {
+                "public_base_url": "https://todo.example.invalid",
+                "smtp_enabled": "true",
+                "smtp_host": "127.0.0.1",
+                "smtp_port": "9",
+                "smtp_security": "none",
+                "smtp_auth_enabled": "false",
+                "smtp_username": "",
+                "smtp_password_secret": "",
+                "mail_from_address": "todo@example.invalid",
+                "mail_from_name": "nia-todo",
+                "mail_reply_to": "",
+                "password_link_ttl_hours": "24",
+            }.items():
+                db.execute(
+                    """INSERT INTO app_config (key, value, updated_at)
+                       VALUES (?, ?, datetime('now'))
+                       ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')""",
+                    (key, value),
+                )
+            db.commit()
+        status, data = curl("POST", "/api/password-setup/request", {"identifier": "testuser"}, cookie_jar="/tmp/nia_reset_verified_cookies.txt")
+        with sqlite3.connect(DB_PATH) as db:
+            row = db.execute(
+                """SELECT COUNT(*) FROM password_setup_tokens pst
+                   JOIN users u ON u.id = pst.user_id
+                   WHERE u.username = 'testuser' AND pst.purpose = 'reset'"""
+            ).fetchone()
+            for key in ("public_base_url", "smtp_enabled", "smtp_host", "smtp_port", "smtp_security", "smtp_auth_enabled", "smtp_username", "smtp_password_secret", "mail_from_address", "mail_from_name", "mail_reply_to", "password_link_ttl_hours"):
+                db.execute("DELETE FROM app_config WHERE key = ?", (key,))
+            db.commit()
+        passed = ok(status) and data and "Falls ein passendes Konto existiert" in data.get("message", "") and row and row[0] == 0
+        self.results["password_reset_requires_verified_email"] = {"status": status if not passed else 200, "passed": passed, "expected": "username reset does not create/send token for unverified email"}
         return passed
 
     def test_strict_cors_unknown_origin_rejected(self):
@@ -611,6 +645,13 @@ class TestSuite:
                 inbox = next((p for p in p_data["projects"] if p.get("is_inbox")), None)
                 self.shared_inbox_project_id = inbox.get("id") if inbox else None
         return self.record("shared_user_login", status)
+
+
+    def test_update_own_email_duplicate_is_neutralized(self):
+        status, data = curl("PATCH", "/api/me/email", {"email": "shareduser@example.invalid"}, token=self.user_token, csrf=self.user_csrf, cookie_jar="/tmp/nia_user_cookies.txt")
+        passed = ok(status) and data and data.get("email_verification_delivery") == "unavailable"
+        self.results["update_own_email_duplicate_is_neutralized"] = {"status": status, "passed": passed, "expected": "duplicate own email update does not return 409 enumeration signal"}
+        return passed
 
     def test_secondary_user_inbox_defaults(self):
         if not self.shared_token or not self.shared_inbox_project_id:
@@ -1232,6 +1273,7 @@ class TestSuite:
             self.test_instance_config_update,
             self.test_instance_config_audit_written,
             self.test_email_links_disabled_without_public_base_url,
+            self.test_password_reset_requires_verified_email,
             self.test_strict_cors_allowed_origin_preflight,
             self.test_strict_cors_scheme_mismatch_rejected,
             self.test_strict_cors_disallowed_request_header_rejected,
@@ -1243,6 +1285,7 @@ class TestSuite:
             self.test_set_trusted_proxies_script,
             self.test_admin_create_shared_user,
             self.test_shared_user_login,
+            self.test_update_own_email_duplicate_is_neutralized,
             self.test_secondary_user_inbox_defaults,
             
             # API Keys

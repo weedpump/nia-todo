@@ -167,7 +167,15 @@ def update_own_email(data: UpdateEmailRequest, request: Request, user_id: int = 
             return {"email": email, "pending_email": None, "email_verification_required": False}
         existing = db.execute("SELECT id FROM users WHERE (lower(email) = lower(?) OR lower(pending_email) = lower(?)) AND id != ?", (email, email, user_id)).fetchone()
         if existing:
-            raise HTTPException(409, "Email already exists")
+            log_audit(db, "email_change_rejected", user_id=user_id, details="reason=unavailable")
+            db.commit()
+            return {
+                "email": user['email'],
+                "pending_email": None,
+                "email_verification_required": False,
+                "email_verification_delivery": "unavailable",
+                "message": "E-Mail konnte nicht geändert werden.",
+            }
         result = set_email_or_pending(db, user_id=user_id, email=email, request=request, requested_by="user")
         verification_email = result.pop("_verification_email", None)
         if verification_email:
