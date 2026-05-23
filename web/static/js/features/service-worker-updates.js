@@ -182,6 +182,10 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
 
   function markUpdateAvailable() {
     updateAvailable = true;
+    if (isNativeApp()) {
+      console.log('SW: Web-app update prompt suppressed in native runtime');
+      return;
+    }
     showUpdateModal();
   }
 

@@ -1,8 +1,14 @@
 #!/usr/bin/env node
 import { withFreshDb, launchPage, BASE_URL, USERNAME, USER_PASSWORD } from './frontend_test_lib.mjs';
 
-async function installTauriStub(page, settings) {
-  await page.addInitScript((tauriSettings) => {
+async function installTauriStub(page, settings, options = {}) {
+  if (options.userAgent) {
+    await page.addInitScript((userAgent) => {
+      Object.defineProperty(navigator, 'userAgent', { get: () => userAgent });
+    }, options.userAgent);
+  }
+  await page.addInitScript((payload) => {
+    const { tauriSettings, appVersion } = payload;
     const storedSettings = { ...tauriSettings };
     window.__TAURI__ = {
       core: {
@@ -24,12 +30,12 @@ async function installTauriStub(page, settings) {
           }
           if (command === 'desktop_request_notification_permission') return 'granted';
           if (command === 'desktop_schedule_reminders') return 0;
-          if (command === 'desktop_get_app_version') return '2.0.0-test';
+          if (command === 'desktop_get_app_version') return appVersion || '2.0.0-test';
           return null;
         },
       },
     };
-  }, settings);
+  }, { tauriSettings: settings, appVersion: options.appVersion });
 }
 
 async function testNativeSetupWithoutServerUrl() {
@@ -94,6 +100,52 @@ async function testNativeDesktopSettingsPersistViaTauriCommand() {
   }
 }
 
+async function testNativeUpdateUsesModalWithDownloadButton() {
+  const { browser, page, dumpErrors } = await launchPage();
+  try {
+    await installTauriStub(page, { serverUrl: BASE_URL }, {
+      appVersion: '1.7.0',
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    });
+    await page.route(`${BASE_URL}/downloads/app-downloads.json`, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          version: 'v1.7.1',
+          latest: { version: 'v1.7.1' },
+          apps: [{
+            platform: 'windows',
+            arch: 'x64',
+            label: 'Windows Setup',
+            version: 'v1.7.1',
+            filename: 'nia-todo-v1.7.1-windows-x64-setup.exe',
+            url: '/downloads/nia-todo-v1.7.1-windows-x64-setup.exe',
+          }],
+        }),
+      });
+    });
+
+    await page.goto(BASE_URL, { waitUntil: 'domcontentloaded' });
+    await page.locator('#login-overlay').waitFor({ state: 'visible', timeout: 10_000 });
+    await page.fill('#login-username', USERNAME);
+    await page.fill('#login-password', USER_PASSWORD);
+    await page.click('button.login-btn');
+    await page.locator('#login-overlay').waitFor({ state: 'hidden', timeout: 15_000 });
+
+    await page.locator('#native-app-update-modal.active').waitFor({ state: 'visible', timeout: 10_000 });
+    const href = await page.locator('#native-app-update-download-btn').getAttribute('href');
+    if (href !== `${BASE_URL}/downloads/nia-todo-v1.7.1-windows-x64-setup.exe`) throw new Error(`Unexpected native update href: ${href}`);
+    const webUpdateVisible = await page.locator('#web-update-modal.active').count();
+    if (webUpdateVisible !== 0) throw new Error('Web app update modal must not be shown for native app updates');
+  } catch (error) {
+    console.log('DEBUG frontend errors:', JSON.stringify(dumpErrors()));
+    throw error;
+  } finally {
+    await browser.close();
+  }
+}
+
 async function testNativeRuntimeUsesConfiguredServerUrl() {
   const { browser, page, dumpErrors } = await launchPage();
   try {
@@ -123,6 +175,7 @@ async function run() {
   await testNativeSetupWithoutServerUrl();
   await testNativeRuntimeUsesConfiguredServerUrl();
   await testNativeDesktopSettingsPersistViaTauriCommand();
+  await testNativeUpdateUsesModalWithDownloadButton();
   console.log('✅ Native runtime config regression test passed');
 }
 

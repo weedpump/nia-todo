@@ -77,6 +77,9 @@ assert(androidMainSource.includes('consumePendingDoneAction'), 'Android notifica
 const androidReminderSource = readFileSync(new URL('../src-tauri/gen/android/app/src/main/java/de/tobiaskneidl/nia_todo/ReminderReceiver.kt', import.meta.url), 'utf8');
 assert(androidReminderSource.includes('EXTRA_USER_ID') && androidReminderSource.includes('schedule.optString("userId"'), 'Android reminder actions must preserve the scheduled user id');
 assert(swSource.includes('/static/js/features/app-downloads.js'), 'service worker must precache the app downloads module');
+const serviceWorkerUpdatesSource = readFileSync(new URL('../web/static/js/features/service-worker-updates.js', import.meta.url), 'utf8');
+assert(serviceWorkerUpdatesSource.includes('Web-app update prompt suppressed in native runtime'), 'native apps must not show the web app reload update modal');
+assert(downloadsSource.includes('showNativeUpdateModal'), 'native app updates must use the native update modal');
 assert(swSource.includes('/static/js/features/native-bridge.js'), 'service worker must precache the native bridge module');
 
 const syncSource = readFileSync(new URL('../web/static/js/features/sync.js', import.meta.url), 'utf8');
