@@ -78,9 +78,15 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
 
   function renderSettingsEmailDisplay(user) {
     const email = user?.email ? escapeHtml(user.email) : '<span class="settings-email-missing">-</span>';
+    const verified = user?.email
+      ? (user?.email_verified_at
+        ? '<span class="settings-email-status settings-email-verified">bestätigt</span>'
+        : '<span class="settings-email-status settings-email-unverified">nicht bestätigt</span>')
+      : '';
     const pending = user?.pending_email ? `<span class="settings-email-pending">Ausstehend: ${escapeHtml(user.pending_email)}</span>` : '';
     return `<span class="settings-email-display" id="settings-email-display">
       <span class="settings-email-value">${email}</span>
+      ${verified}
       ${pending}
       <button type="button" class="settings-email-action" title="E-Mail bearbeiten" onclick="editUserEmail()">${iconSvg('edit-3')}</button>
     </span>`;
@@ -444,6 +450,11 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
 
     try {
       const data = await authApi.updateEmail(email);
+      if (data.email_verification_delivery === 'unavailable') {
+        await refreshCurrentUser().catch(() => renderUserInfo());
+        errorEl.textContent = 'E-Mail schon vergeben';
+        return;
+      }
       const currentUser = getCurrentUser();
       if (currentUser) setCurrentUser({ ...currentUser, email: data.email || currentUser.email, pending_email: data.pending_email || null });
       await refreshCurrentUser().catch(() => renderUserInfo());

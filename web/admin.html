@@ -20,13 +20,17 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .user-table th:nth-child(2), .user-table td:nth-child(2) { width: 125px; }
 .user-table th:nth-child(3), .user-table td:nth-child(3) { width: 140px; }
 .user-table th:nth-child(4), .user-table td:nth-child(4) { width: 235px; }
-.user-table th:nth-child(5), .user-table td:nth-child(5) { width: 100px; }
-.user-table th:nth-child(6), .user-table td:nth-child(6) { width: 130px; }
-.user-table th:nth-child(7), .user-table td:nth-child(7) { width: 100px; }
+.user-table th:nth-child(5), .user-table td:nth-child(5) { width: 105px; }
+.user-table th:nth-child(6), .user-table td:nth-child(6) { width: 95px; }
+.user-table th:nth-child(7), .user-table td:nth-child(7) { width: 130px; }
+.user-table th:nth-child(8), .user-table td:nth-child(8) { width: 100px; }
 .user-table tr:last-child td { border-bottom: none; }
 .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; }
 .badge-admin { background: var(--accent); color: white; }
 .badge-user { background: var(--bg-tertiary); color: var(--text-secondary); }
+.badge-success { background: color-mix(in srgb, var(--success) 16%, transparent); color: var(--success); }
+.badge-warning { background: color-mix(in srgb, var(--warning) 16%, transparent); color: var(--warning); }
+.badge-muted { background: var(--bg-tertiary); color: var(--text-muted); }
 .btn { padding: 8px 16px; border: none; border-radius: var(--radius); font-size: 13px; cursor: pointer; font-weight: 500; display:inline-flex; align-items:center; justify-content:center; gap:6px; line-height:1.2; text-align:center; }
 .btn-danger { background: var(--danger); color: white; }
 .btn-danger:hover { opacity: 0.9; }
@@ -271,13 +275,14 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
           <th>Benutzername</th>
           <th>Anzeigename</th>
           <th>E-Mail</th>
-          <th>Erstellt</th>
+          <th>E-Mail Status</th>
+          <th>Login</th>
           <th>Passwort</th>
           <th>Aktionen</th>
         </tr>
       </thead>
       <tbody id="user-list">
-        <tr><td colspan="7" class="empty-state">Lade...</td></tr>
+        <tr><td colspan="8" class="empty-state">Lade...</td></tr>
       </tbody>
     </table>
     </div>
@@ -475,7 +480,7 @@ async function loadUsers() {
     renderUsers(data.users);
   } catch(e) {
     document.getElementById('user-list').innerHTML =
-      `<tr><td colspan="7" class="empty-state">Fehler: ${e.message}</td></tr>`;
+      `<tr><td colspan="8" class="empty-state">Fehler: ${e.message}</td></tr>`;
     if (e.message.includes('403')) {
       localStorage.removeItem('admin_jwt_token');
       setTimeout(() => location.reload(), 2000);
@@ -597,6 +602,19 @@ function renderUserEmailCell(user) {
   return renderUserEmailDisplay(user.id, user.email || '');
 }
 
+function renderUserEmailStatus(user) {
+  if (user.pending_email) return `<span class="badge badge-warning" title="Wartet auf Bestätigung">Ausstehend</span>`;
+  if (!user.email) return `<span class="badge badge-muted">Keine</span>`;
+  if (user.email_verified_at) return `<span class="badge badge-success" title="E-Mail ist bestätigt">Bestätigt</span>`;
+  return `<span class="badge badge-warning" title="E-Mail ist gespeichert, aber nicht bestätigt">Unbestätigt</span>`;
+}
+
+function renderUserLoginStatus(user) {
+  return user.password_configured
+    ? `<span class="badge badge-success" title="Passwort gesetzt / Einladung angenommen">Aktiv</span>`
+    : `<span class="badge badge-warning" title="Setup-Link wurde noch nicht eingelöst">Einladung offen</span>`;
+}
+
 function renderUserEmailDisplay(userId, emailValue) {
   const email = emailValue ? escapeHtml(emailValue) : '<span class="email-missing">-</span>';
   return `<span class="email-display" id="email-display-${userId}">
@@ -608,7 +626,7 @@ function renderUserEmailDisplay(userId, emailValue) {
 function renderUsers(users) {
   const tbody = document.getElementById('user-list');
   if (!users || users.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" class="empty-state">Keine Benutzer</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" class="empty-state">Keine Benutzer</td></tr>`;
     return;
   }
   tbody.innerHTML = users.map(u => `
@@ -617,7 +635,8 @@ function renderUsers(users) {
       <td><span class="admin-mobile-label">Benutzername</span>${escapeHtml(u.username)}</td>
       <td><span class="admin-mobile-label">Anzeigename</span>${escapeHtml(u.display_name) || '-'}</td>
       <td><span class="admin-mobile-label">E-Mail</span>${renderUserEmailCell(u)}</td>
-      <td><span class="admin-mobile-label">Erstellt</span>${new Date(u.created_at).toLocaleDateString('de-DE')}</td>
+      <td><span class="admin-mobile-label">E-Mail Status</span>${renderUserEmailStatus(u)}</td>
+      <td><span class="admin-mobile-label">Login</span>${renderUserLoginStatus(u)}</td>
       <td><span class="admin-mobile-label">Passwort</span><button class="btn btn-primary admin-table-action" onclick="generatePasswordLink(${u.id}, '${escapeHtmlAttr(u.username)}')">${iconSvg('link')} Link erzeugen</button></td>
       <td><span class="admin-mobile-label">Aktionen</span>${u.is_admin ? '-' : `<button class="btn btn-danger admin-table-action" onclick="deleteUser(${u.id}, '${escapeHtmlAttr(u.username)}')">${iconSvg('trash')} Löschen</button>`}</td>
     </tr>

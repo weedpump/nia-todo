@@ -130,11 +130,16 @@ export function createProjectSharingFeature({
       const result = await projectsApi.shareProject(currentProject.id, username);
       input.value = '';
       const member = result?.member;
+      if (!member) {
+        setShareError(result?.message || 'Keine passende verifizierte E-Mail gefunden. Es wurde keine ausstehende Einladung angelegt.');
+        await loadMembers(currentProject.id);
+        return;
+      }
       showToast('Einladung gesendet', {
         type: 'member_invite',
         data: {
           projectId: currentProject.id,
-          userId: member?.user_id,
+          userId: member.user_id,
           username: username,
         },
       });

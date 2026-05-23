@@ -1413,6 +1413,9 @@ body {
 .settings-display-name-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .settings-email-missing { color: var(--text-muted); }
 .settings-email-pending { color: var(--warning); font-size: 12px; }
+.settings-email-status { border-radius: 999px; font-size: 11px; font-weight: 650; padding: 2px 7px; }
+.settings-email-verified { background: color-mix(in srgb, var(--success) 16%, transparent); color: var(--success); }
+.settings-email-unverified { background: color-mix(in srgb, var(--warning) 16%, transparent); color: var(--warning); }
 .settings-email-edit,
 .settings-display-name-edit { display: grid; grid-template-columns: minmax(0, 1fr) 28px 28px; align-items: center; gap: 4px; width: 100%; max-width: 100%; }
 .settings-email-edit input,
