@@ -130,10 +130,10 @@ async function run() {
       if (testBtn) testBtn.hidden = false;
     });
 
-    await page.evaluate(() => {
-      window.prompt = () => 'Frontend Test Key';
-    });
     await page.click('text=Neuen API-Key erstellen');
+    await page.locator('#security-action-modal').waitFor({ state: 'visible', timeout: 10000 });
+    await page.fill('#security-action-body input[name="value"]', 'Frontend Test Key');
+    await page.click('#security-action-primary');
     await page.locator('#api-key-created').waitFor({ state: 'visible', timeout: 10000 });
     await page.waitForFunction(() => document.getElementById('api-key-value')?.textContent?.trim().length > 0, { timeout: 10000 });
     await page.waitForFunction(() => document.getElementById('api-keys-list')?.innerText?.includes('Frontend Test Key'), { timeout: 10000 });
@@ -144,10 +144,9 @@ async function run() {
       return text.includes('Test-Benachrichtigung gesendet!') || text.includes('Test-Benachrichtigung konnte nicht gesendet werden.');
     }, { timeout: 10000 });
 
-    await page.evaluate(() => {
-      window.confirm = () => true;
-    });
     await page.locator('#api-keys-list .btn.btn-danger').first().click();
+    await page.locator('#security-action-modal').waitFor({ state: 'visible', timeout: 10000 });
+    await page.click('#security-action-primary');
     await page.waitForFunction(() => document.getElementById('api-keys-list')?.innerText?.includes('widerrufen') || document.getElementById('api-keys-list')?.innerText?.includes('Keine API-Keys vorhanden'), { timeout: 10000 });
 
     await page.evaluate(() => window.disablePushNotifications());

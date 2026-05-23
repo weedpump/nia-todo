@@ -101,6 +101,21 @@ export const authApi = {
     return parseOrThrow(response, '2FA konnte nicht deaktiviert werden');
   },
 
+  async deleteTotp() {
+    const response = await fetch(API + '/api/me/2fa/totp', { method: 'DELETE', headers: getAuthHeaders(), credentials: 'include' });
+    return parseOrThrow(response, 'Authenticator konnte nicht entfernt werden');
+  },
+
+  async listPasskeys() {
+    const response = await fetch(API + '/api/me/passkeys', { headers: getAuthHeaders(), credentials: 'include' });
+    return parseOrThrow(response, 'Passkeys konnten nicht geladen werden');
+  },
+
+  async deletePasskey(id) {
+    const response = await fetch(API + `/api/me/passkeys/${encodeURIComponent(id)}`, { method: 'DELETE', headers: getAuthHeaders(), credentials: 'include' });
+    return parseOrThrow(response, 'Passkey konnte nicht widerrufen werden');
+  },
+
   async createPasskey(name = 'Passkey', password = '') {
     if (RUNTIME_CAPABILITIES.native) {
       throw new Error('Passkeys werden in den Native Apps erst mit der nativen Passkey-Bridge unterstützt. Bitte im Browser verwalten.');

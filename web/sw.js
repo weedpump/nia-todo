@@ -55,6 +55,8 @@ const PRECACHE_ASSETS = [
   '/static/js/features/service-worker-updates.js',
   '/static/js/features/section-actions.js',
   '/static/js/features/sections.js',
+  '/static/js/features/security-dialogs.js',
+  '/static/vendor/qrcode-generator.js',
   '/static/icons/icon-192.png',
   '/static/icons/icon-512.png'
 ];

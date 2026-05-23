@@ -195,8 +195,9 @@ Liefert aktivierte/verfügbare Faktoren, Recovery-Code-Anzahl, globale Pflicht u
 
 Aktiviert TOTP nach Passwortbestätigung und liefert einmalig neue Recovery Codes sowie ein frisches MFA-JWT zurück.
 
-### 2FA deaktivieren / Recovery Codes regenerieren
+### 2FA deaktivieren / Faktoren widerrufen / Recovery Codes regenerieren
 - `POST /api/me/2fa/disable` — benötigt eine frische One-Time-MFA-Reauth, widerruft Trusted Devices und Passkeys.
+- `DELETE /api/me/2fa/totp` — widerruft den eingerichteten TOTP-Secret, benötigt eine frische One-Time-MFA-Reauth.
 - `POST /api/me/2fa/recovery-codes/regenerate` — benötigt eine frische One-Time-MFA-Reauth, liefert neue Codes einmalig zurück.
 - `POST /api/me/2fa/reauth` — prüft TOTP, Recovery-Code oder E-Mail-Code mit Attempt-Lockout und stellt ein JWT mit einem einmalig konsumierbaren MFA-Action-Grant aus.
 - `POST /api/me/2fa/reauth/email/start` — sendet einen E-Mail-Reauth-Code, wenn E-Mail-Code der verfügbare Faktor ist.

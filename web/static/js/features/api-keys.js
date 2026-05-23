@@ -1,5 +1,5 @@
-import { RUNTIME_CAPABILITIES } from '../core/config.js';
 import { iconSvg } from '../icons/lucide-icons.js';
+import { confirmSecurityAction, performMfaReauth, promptSecurityText } from './security-dialogs.js';
 
 export function createApiKeysFeature({ authApi }) {
   function parseServerUtcTimestamp(value) {
@@ -99,24 +99,7 @@ export function createApiKeysFeature({ authApi }) {
   }
 
   async function ensureRecentMfaForApiKeyAction() {
-    const state = await authApi.twoFactorStatus().catch(() => ({}));
-    if (!state.enabled && !state.required) return;
-    if (state.has_passkey && !RUNTIME_CAPABILITIES.native && window.PublicKeyCredential && navigator.credentials && confirm('Für diese API-Key-Aktion ist frische 2FA nötig. Mit Passkey reauthentifizieren?')) {
-      const data = await authApi.reauthPasskey();
-      if (data.access_token) localStorage.setItem('jwt_token', data.access_token);
-      return;
-    }
-    let method = 'totp';
-    if (state.has_email_fallback && !state.has_totp && !state.has_passkey) {
-      await authApi.startEmailReauth();
-      method = 'email';
-    }
-    const label = method === 'email' ? 'E-Mail-Code' : '2FA-Code';
-    const code = prompt(`${label} für diese API-Key-Aktion eingeben`);
-    if (!code) throw new Error('2FA/Reauth abgebrochen');
-    if (method !== 'email') method = code.includes('-') ? 'recovery_code' : 'totp';
-    const data = await authApi.reauth(method, code.trim());
-    if (data.access_token) localStorage.setItem('jwt_token', data.access_token);
+    await performMfaReauth({ authApi, purpose: 'diese API-Key-Aktion' });
   }
 
   async function withMfaRetry(action) {
@@ -130,7 +113,7 @@ export function createApiKeysFeature({ authApi }) {
   }
 
   async function createApiKey() {
-    const name = prompt('Name für den API-Key (optional):');
+    const name = await promptSecurityText({ title: 'API-Key erstellen', message: 'Der API-Key wird nur einmal angezeigt.', label: 'Name (optional)', placeholder: 'z.B. Backup-Script', primaryText: 'API-Key erstellen' });
     if (name === null) return;
     const errorEl = document.getElementById('api-key-error');
     const createdEl = document.getElementById('api-key-created');
@@ -148,7 +131,8 @@ export function createApiKeysFeature({ authApi }) {
   }
 
   async function revokeApiKey(keyId) {
-    if (!confirm('API-Key wirklich widerrufen?')) return;
+    const confirmed = await confirmSecurityAction({ title: 'API-Key widerrufen?', message: 'Dieser Key kann danach nicht mehr für Automationen genutzt werden.', confirmText: 'API-Key widerrufen', danger: true });
+    if (!confirmed) return;
     const errorEl = document.getElementById('api-key-error');
     if (errorEl) errorEl.textContent = '';
     try {
