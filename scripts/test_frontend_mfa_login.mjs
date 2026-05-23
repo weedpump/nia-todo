@@ -61,11 +61,13 @@ async function run() {
       return !text.includes('2FA-Status fehlgeschlagen') && !text.includes('API-Key-Liste fehlgeschlagen');
     }, null, { timeout: 10000 });
 
-    await page.evaluate((reauthCode) => {
-      const answers = ['MFA Login Test Key', reauthCode];
-      window.prompt = () => answers.shift() || '';
-    }, totp(SECRET));
     await page.click('text=Neuen API-Key erstellen');
+    await visible('#security-action-modal', 10000);
+    await page.fill('#security-action-body input[name="value"]', 'MFA Login Test Key');
+    await page.click('#security-action-primary');
+    await visible('#security-action-modal', 10000);
+    await page.fill('#security-reauth-code', totp(SECRET));
+    await page.click('#security-action-primary');
     await page.locator('#api-key-created').waitFor({ state: 'visible', timeout: 10000 });
     await page.waitForFunction(() => document.getElementById('api-key-value')?.textContent?.trim().length > 0, null, { timeout: 10000 });
     await page.waitForFunction(() => document.getElementById('api-keys-list')?.innerText?.includes('MFA Login Test Key'), null, { timeout: 10000 });

@@ -362,6 +362,22 @@
     </div>
   </div>
 
+  <!-- Security Action Modal -->
+  <div class="modal security-action-modal" id="security-action-modal">
+    <div class="modal-overlay" id="security-action-overlay"></div>
+    <form class="modal-content security-action-content" id="security-action-form">
+      <div class="security-action-icon" aria-hidden="true" data-icon="shield-check"></div>
+      <h3 id="security-action-title">Sicherheitsbestätigung</h3>
+      <p id="security-action-message" class="security-action-message"></p>
+      <div id="security-action-body" class="security-action-body"></div>
+      <div id="security-action-error" class="settings-field-error"></div>
+      <div class="modal-actions security-action-actions">
+        <button type="button" class="btn btn-secondary" id="security-action-cancel">Abbrechen</button>
+        <button type="submit" class="btn btn-primary" id="security-action-primary">Bestätigen</button>
+      </div>
+    </form>
+  </div>
+
   <!-- Settings Modal -->
   <div class="modal" id="settings-modal">
     <div class="modal-overlay" onclick="closeModal('settings-modal')"></div>
@@ -425,12 +441,29 @@
           <button type="button" class="btn btn-secondary" onclick="regenerateRecoveryCodes()">Recovery Codes neu</button>
           <button type="button" class="btn btn-danger" onclick="disableTwoFactor()">2FA deaktivieren</button>
         </div>
-        <div id="settings-2fa-setup" style="display:none; background:var(--bg-tertiary); border-radius:var(--radius); padding:12px; margin:8px 0;">
-          <div style="font-size:13px; margin-bottom:8px;">Secret in der Authenticator-App eintragen:</div>
-          <code id="settings-2fa-secret" style="display:block; word-break:break-all; background:var(--bg-primary); padding:8px; border-radius:var(--radius);"></code>
-          <div style="font-size:12px; color:var(--text-muted); margin:8px 0;">Alternativ otpauth-URL kopieren, falls deine App das unterstützt.</div>
-          <input type="text" id="settings-2fa-code" inputmode="numeric" placeholder="6-stelliger Code" style="width:100%; margin-bottom:8px;">
+        <div id="settings-2fa-setup" class="settings-2fa-setup-card" style="display:none;">
+          <div class="settings-2fa-setup-header">
+            <div>
+              <strong>Authenticator-App einrichten</strong>
+              <p>QR-Code scannen, Code eingeben, dann mit Passwort bestätigen.</p>
+            </div>
+          </div>
+          <div class="settings-2fa-setup-grid">
+            <div id="settings-2fa-qr" class="settings-2fa-qr" aria-label="TOTP QR-Code"></div>
+            <div class="settings-2fa-manual">
+              <label>Secret-Key</label>
+              <code id="settings-2fa-secret"></code>
+              <label for="settings-2fa-otpauth">otpauth URL</label>
+              <input type="text" id="settings-2fa-otpauth" readonly>
+            </div>
+          </div>
+          <label class="settings-2fa-code-label" for="settings-2fa-code">6-stelliger Code aus der App</label>
+          <input type="text" id="settings-2fa-code" inputmode="numeric" autocomplete="one-time-code" placeholder="123456">
           <button type="button" class="btn btn-primary" onclick="confirmTwoFactorTotp()">2FA aktivieren</button>
+        </div>
+        <div class="settings-2fa-devices-wrap">
+          <div class="settings-2fa-subtitle">Eingerichtete Faktoren</div>
+          <div id="settings-2fa-devices" class="settings-2fa-devices"></div>
         </div>
         <div id="settings-2fa-recovery" style="display:none; background:var(--bg-tertiary); border-radius:var(--radius); padding:12px; margin:8px 0;"></div>
         <div id="settings-2fa-error" style="color:var(--danger); font-size:13px; margin-top:8px;"></div>

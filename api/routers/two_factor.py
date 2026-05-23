@@ -281,6 +281,27 @@ def confirm_totp(data: TotpConfirmRequest, user_id: int = Depends(require_enroll
         return {"enabled": True, "recovery_codes": codes, "access_token": access_token, "token_type": "bearer"}
 
 
+@router.delete("/me/2fa/totp")
+def delete_totp(user_id: int = Depends(require_recent_mfa)):
+    with get_db() as db:
+        row = db.execute("SELECT two_factor_totp_secret FROM users WHERE id = ?", (user_id,)).fetchone()
+        if not row or not row["two_factor_totp_secret"]:
+            raise HTTPException(404, "Authenticator nicht eingerichtet")
+        db.execute(
+            """UPDATE users
+               SET two_factor_totp_secret = NULL,
+                   two_factor_updated_at = datetime('now')
+               WHERE id = ?""",
+            (user_id,),
+        )
+        state = user_mfa_state(db, user_id)
+        if not (state.get("has_passkey") or state.get("has_email_fallback") or state.get("has_recovery_codes")):
+            db.execute("UPDATE users SET two_factor_enabled = 0 WHERE id = ?", (user_id,))
+        log_audit(db, "two_factor_totp_removed", user_id=user_id)
+        db.commit()
+        return {"removed": True}
+
+
 @router.post("/me/2fa/disable")
 def disable_2fa(_: CodeRequest, user_id: int = Depends(require_recent_mfa)):
     with get_db() as db:
