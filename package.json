@@ -5,11 +5,12 @@
   "scripts": {
     "test": "./scripts/test_all.sh",
     "test:backend": "python3 scripts/test_backend.py",
-    "test:frontend": "node scripts/test_sw_precache.mjs && node scripts/test_frontend_smoke.mjs && node scripts/test_frontend_app.mjs && node scripts/test_frontend_setup.mjs && node scripts/test_frontend_admin.mjs && node scripts/test_frontend_settings.mjs && node scripts/test_frontend_user_menu_alignment.mjs && node scripts/test_frontend_user_menu_scroll_anchor.mjs && node scripts/test_frontend_projects.mjs && node scripts/test_frontend_workspaces.mjs && node scripts/test_frontend_dragdrop.mjs && node scripts/test_frontend_sharing.mjs && node scripts/test_frontend_offline_sync.mjs && node scripts/test_frontend_realtime_sync.mjs && node scripts/test_frontend_native_runtime_config.mjs && node scripts/test_frontend_native_offline.mjs",
+    "test:frontend": "node scripts/test_sw_precache.mjs && node scripts/test_frontend_smoke.mjs && node scripts/test_frontend_app.mjs && node scripts/test_frontend_setup.mjs && node scripts/test_frontend_admin.mjs && node scripts/test_frontend_settings.mjs && node scripts/test_frontend_user_menu_alignment.mjs && node scripts/test_frontend_user_menu_scroll_anchor.mjs && node scripts/test_frontend_projects.mjs && node scripts/test_frontend_workspaces.mjs && node scripts/test_frontend_dragdrop.mjs && node scripts/test_frontend_sharing.mjs && node scripts/test_frontend_security.mjs && node scripts/test_frontend_session.mjs && node scripts/test_frontend_offline_sync.mjs && node scripts/test_frontend_realtime_sync.mjs && node scripts/test_frontend_native_runtime_config.mjs && node scripts/test_frontend_native_offline.mjs",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
-    "tauri:info": "tauri info"
+    "tauri:info": "tauri info",
+    "test:native": "node scripts/test_native_windows_installer_cache_hooks.mjs && node scripts/test_native_android_webview_cache_migration.mjs"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.11.2",

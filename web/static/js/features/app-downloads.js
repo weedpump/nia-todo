@@ -232,11 +232,32 @@ function showNativeUpdateModal(download, currentVersion) {
 }
 
 export function createAppDownloadsFeature() {
+  let listenersInstalled = false;
+  let refreshInterval = null;
+  let refreshInFlight = null;
+
   async function loadDownloadManifest() {
     const manifestUrl = RUNTIME_CAPABILITIES.native && API ? `${API}/downloads/app-downloads.json` : '/downloads/app-downloads.json';
     const response = await fetch(manifestUrl, { cache: 'no-store' });
     if (!response.ok) throw new Error(`download manifest unavailable: ${response.status}`);
     return response.json();
+  }
+
+  async function refreshAppDownloads() {
+    if (refreshInFlight) return refreshInFlight;
+    refreshInFlight = initAppDownloads().finally(() => { refreshInFlight = null; });
+    return refreshInFlight;
+  }
+
+  function installRefreshTriggers() {
+    if (listenersInstalled) return;
+    listenersInstalled = true;
+    window.addEventListener('online', () => { refreshAppDownloads(); });
+    window.addEventListener('focus', () => { refreshAppDownloads(); });
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') refreshAppDownloads();
+    });
+    refreshInterval = window.setInterval(() => { refreshAppDownloads(); }, 60 * 60 * 1000);
   }
 
   async function initAppDownloads() {
@@ -277,5 +298,15 @@ export function createAppDownloadsFeature() {
     }
   }
 
-  return { initAppDownloads };
+  async function startAppDownloads() {
+    installRefreshTriggers();
+    await refreshAppDownloads();
+  }
+
+  function stopAppDownloads() {
+    if (refreshInterval) window.clearInterval(refreshInterval);
+    refreshInterval = null;
+  }
+
+  return { initAppDownloads: startAppDownloads, refreshAppDownloads, stopAppDownloads };
 }

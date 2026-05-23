@@ -133,11 +133,30 @@ fn normalize_server_url(server_url: &str) -> Result<String, String> {
   if trimmed.is_empty() {
     return Err("Server-URL darf nicht leer sein.".into());
   }
-  let parsed = url::Url::parse(trimmed).map_err(|_| "Bitte eine gültige URL eingeben.".to_string())?;
-  match parsed.scheme() {
-    "http" | "https" => Ok(trimmed.to_string()),
-    _ => Err("Bitte eine http(s)-URL eingeben.".into()),
+
+  let raw = if trimmed.contains("://") {
+    trimmed.to_string()
+  } else {
+    format!("https://{trimmed}")
+  };
+  let mut parsed = url::Url::parse(&raw).map_err(|_| "Bitte eine gültige URL eingeben.".to_string())?;
+  let host = parsed.host_str().ok_or_else(|| "Bitte eine gültige Server-URL eingeben.".to_string())?;
+  let is_local_http = parsed.scheme() == "http" && matches!(host, "localhost" | "127.0.0.1" | "::1");
+  if parsed.scheme() != "https" && !is_local_http {
+    return Err("Bitte eine HTTPS-Adresse verwenden.".into());
   }
+  if !parsed.username().is_empty() || parsed.password().is_some() {
+    return Err("Server-URL darf keine Zugangsdaten enthalten.".into());
+  }
+  if host.contains(' ') {
+    return Err("Bitte eine gültige Server-URL eingeben.".into());
+  }
+
+  parsed.set_query(None);
+  parsed.set_fragment(None);
+  let origin = parsed.origin().ascii_serialization();
+  let path = parsed.path().trim_end_matches('/');
+  Ok(format!("{origin}{path}"))
 }
 
 #[cfg(desktop)]
