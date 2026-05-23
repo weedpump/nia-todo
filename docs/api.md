@@ -183,7 +183,7 @@ Response entspricht dem normalen Login (`access_token`, `csrf_token`, `user`). B
 ### 2FA-Status
 `GET /api/me/2fa`
 
-Liefert aktivierte/verfügbare Faktoren, Recovery-Code-Anzahl, globale Pflicht und Passkey-Anzahl.
+Liefert aktivierte/verfügbare Faktoren, Recovery-Code-Anzahl, globale Pflicht und Passkey-Anzahl. Der Status enthält keine Secrets und bleibt mit gültigem interaktivem JWT auch dann lesbar, wenn `mfa_at` stale ist, damit Clients den passenden Reauth-Flow starten können.
 
 ### TOTP starten/bestätigen
 `POST /api/me/2fa/totp/start` liefert Secret und `otpauth_url`.
