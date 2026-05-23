@@ -64,7 +64,7 @@ Abschluss:
 }
 ```
 
-Response entspricht dem normalen Login (`access_token`, `csrf_token`, `user`). Bei `remember_device=true` wird zusätzlich ein HttpOnly-Trusted-Device-Cookie gesetzt.
+Response entspricht dem normalen Login (`access_token`, `csrf_token`, `user`). Bei `remember_device=true` wird zusätzlich ein HttpOnly-Trusted-Device-Cookie gesetzt. Ein späterer Login über dieses Trusted Device ersetzt nur die Login-MFA; sensitive Aktionen wie Passwortänderung/API-Key-Verwaltung benötigen weiterhin eine frische MFA-Reauth.
 
 ### Logout
 `POST /api/logout`

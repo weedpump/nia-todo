@@ -103,7 +103,7 @@ def login(data: LoginRequest, request: Request, response: Response, _: None = De
                 },
                 "state": state,
             }
-        token = create_jwt_token(user, db, mfa_verified=mfa_required)
+        token = create_jwt_token(user, db, mfa_verified=bool(mfa_required and not remembered), mfa_login_verified=bool(mfa_required and remembered))
         csrf_token = generate_csrf_token()
         set_csrf_cookie(response, csrf_token)
         log_audit(db, "login_success", user_id=user['id'], ip_address=ip, details=f"mfa={'required' if mfa_required else 'not_required'}; remembered_device={remembered}")
@@ -172,7 +172,7 @@ def me(response: Response, authorization: Optional[str] = Header(None), x_sessio
 
         mfa_state = user_mfa_state(db, user_id)
         enroll_only = bool(payload and payload.get('mfa_enroll_only'))
-        if payload and mfa_required_for_user(db, user_id) and not enroll_only and not payload.get('mfa_at'):
+        if payload and mfa_required_for_user(db, user_id) and not enroll_only and not (payload.get('mfa_at') or payload.get('mfa_login_at')):
             raise HTTPException(401, "MFA verification required")
         result = {
             "id": user['id'],
@@ -195,6 +195,8 @@ def me(response: Response, authorization: Optional[str] = Header(None), x_sessio
             token_user = dict(user)
             if payload.get('mfa_at'):
                 token_user['mfa_at'] = payload.get('mfa_at')
+            if payload.get('mfa_login_at'):
+                token_user['mfa_login_at'] = payload.get('mfa_login_at')
             result["access_token"] = create_jwt_token(token_user, db, mfa_enroll_only=bool(payload.get('mfa_enroll_only')))
             result["token_type"] = "bearer"
             result["csrf_token"] = csrf_token

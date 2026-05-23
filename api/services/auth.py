@@ -37,8 +37,13 @@ def get_jwt_secret(db) -> str:
     return secret
 
 
-def create_jwt_token(user: dict, db, mfa_verified: bool = False, mfa_enroll_only: bool = False) -> str:
-    """Create a JWT token with user info, token_version and MFA assurance."""
+def create_jwt_token(user: dict, db, mfa_verified: bool = False, mfa_enroll_only: bool = False, mfa_login_verified: bool = False) -> str:
+    """Create a JWT token with user info, token_version and MFA assurance.
+
+    mfa_at means the user completed a fresh second-factor ceremony and may perform
+    recent-MFA-gated security actions. mfa_login_at only means a trusted-device
+    cookie satisfied MFA for app login; it must not satisfy recent-MFA checks.
+    """
     secret = get_jwt_secret(db)
     now = int(time.time())
     payload = {
@@ -47,6 +52,7 @@ def create_jwt_token(user: dict, db, mfa_verified: bool = False, mfa_enroll_only
         "token_version": user.get('token_version', 1),
         "is_admin": bool(user.get('is_admin', False)),
         "mfa_at": now if mfa_verified else user.get('mfa_at'),
+        "mfa_login_at": now if mfa_login_verified else user.get('mfa_login_at'),
         "mfa_enroll_only": bool(mfa_enroll_only),
         "iat": now,
         "exp": now + (USER_JWT_EXPIRY_DAYS * 86400)
@@ -100,7 +106,7 @@ def get_current_user(token: Optional[str] = None) -> Optional[int]:
                 return None
             user_id = payload.get('user_id')
             from services.two_factor import mfa_required_for_user
-            if mfa_required_for_user(db, user_id) and not payload.get('mfa_at'):
+            if mfa_required_for_user(db, user_id) and not (payload.get('mfa_at') or payload.get('mfa_login_at')):
                 return None
             return user_id
         # API key
