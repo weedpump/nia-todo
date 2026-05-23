@@ -130,19 +130,23 @@ export function createProjectSharingFeature({
       const result = await projectsApi.shareProject(currentProject.id, username);
       input.value = '';
       const member = result?.member;
-      if (!member) {
-        setShareError(result?.message || 'Keine passende verifizierte E-Mail gefunden. Es wurde keine ausstehende Einladung angelegt.');
-        await loadMembers(currentProject.id);
-        return;
+      const isEmailIdentifier = username.includes('@');
+      
+      // For email identifiers, don't reveal user details in UI to avoid enumeration hints
+      if (isEmailIdentifier) {
+        // Neutral response: no undo button to avoid revealing if user exists
+        showToast('Einladung verarbeitet');
+      } else if (member) {
+        // For username identifiers, show detailed success with undo
+        showToast('Einladung gesendet', {
+          type: 'member_invite',
+          data: {
+            projectId: currentProject.id,
+            userId: member.user_id,
+            username: username,
+          },
+        });
       }
-      showToast('Einladung gesendet', {
-        type: 'member_invite',
-        data: {
-          projectId: currentProject.id,
-          userId: member.user_id,
-          username: username,
-        },
-      });
       await loadMembers(currentProject.id);
     } catch (err) {
       const msg = (err?.message || '').toLowerCase();

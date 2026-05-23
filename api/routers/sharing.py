@@ -426,7 +426,8 @@ def list_project_members(project_id: int, user_id: int = Depends(require_auth)):
         if not is_owner and not is_member:
             raise HTTPException(403, "Not authorized to view members")
 
-        members = get_project_members(db, project_id, include_inactive=True)
+        # Only owner sees full history (pending/declined/left/removed); members see accepted only
+        members = get_project_members(db, project_id, include_inactive=is_owner)
         return {"members": members}
 
 
