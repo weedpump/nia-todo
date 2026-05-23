@@ -20,10 +20,14 @@ async function run() {
     await page.locator('#security-card').waitFor({ state: 'visible', timeout: 10000 });
     await page.getByText('Globale 2FA-Pflicht ist deaktiviert').waitFor({ state: 'visible', timeout: 10000 });
     await page.locator('#twofa-policy-toggle').click();
+    await page.locator('#admin-action-dialog').waitFor({ state: 'visible', timeout: 10000 });
+    await page.locator('#admin-dialog-confirm').click();
     await page.getByText('Globale 2FA-Pflicht aktiviert.').waitFor({ state: 'visible', timeout: 10000 });
     await page.getByText('Globale 2FA-Pflicht ist aktiv').waitFor({ state: 'visible', timeout: 10000 });
     await page.locator('#user-list').getByText('Pflicht').first().waitFor({ state: 'visible', timeout: 10000 });
     await page.locator('#twofa-policy-toggle').click();
+    await page.locator('#admin-action-dialog').waitFor({ state: 'visible', timeout: 10000 });
+    await page.locator('#admin-dialog-confirm').click();
     await page.getByText('Globale 2FA-Pflicht deaktiviert.').waitFor({ state: 'visible', timeout: 10000 });
 
     await page.locator('#instance-config-card').waitFor({ state: 'visible', timeout: 10000 });
@@ -54,13 +58,9 @@ async function run() {
     await page.locator('#user-list').getByText('Bestätigt').first().waitFor({ state: 'visible', timeout: 10000 });
     await page.locator('#user-list').getByText('Aktiv').first().waitFor({ state: 'visible', timeout: 10000 });
     await page.locator('#user-list button[title="E-Mail bearbeiten"]').last().click();
-    await page.evaluate(() => {
-      window.__lastAlert = '';
-      window.alert = (message) => { window.__lastAlert = message; };
-    });
     await page.locator('#user-list input[type="email"]').last().fill('broken-email');
     await page.locator('#user-list button[title="Speichern"]').last().click();
-    await page.waitForFunction(() => window.__lastAlert?.includes('Bitte eine gültige E-Mail-Adresse eingeben'), { timeout: 10000 });
+    await page.getByText('Bitte eine gültige E-Mail-Adresse eingeben').waitFor({ state: 'visible', timeout: 10000 });
     await page.locator('#user-list input[type="email"]').last().fill('admincreated-updated@example.invalid');
     await page.locator('#user-list button[title="Speichern"]').last().click();
     await page.locator('#user-list').getByText('admincreated-updated@example.invalid').waitFor({ state: 'visible', timeout: 10000 });
