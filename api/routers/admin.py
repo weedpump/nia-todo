@@ -14,7 +14,7 @@ from services.audit import log_audit
 from services.instance_config import get_instance_config, get_public_base_url, update_instance_config
 from services.email_config import can_send_email_links, get_email_config, get_password_link_ttl_hours, update_email_config
 from services.email import send_email, send_test_email
-from services.two_factor import get_two_factor_required, set_two_factor_required
+from services.two_factor import clear_recovery_codes, get_two_factor_required, set_two_factor_required
 from services.email_templates import password_setup_email
 from services.email_verification import clear_pending_email, set_email_or_pending
 from rate_limit import require_login_rate_limit, get_client_ip
@@ -230,6 +230,7 @@ def admin_reset_user_two_factor(user_id: int, request: Request, _: bool = Depend
                two_factor_remember_version = COALESCE(two_factor_remember_version, 1) + 1 WHERE id = ?""",
             (user_id,),
         )
+        clear_recovery_codes(db, user_id)
         db.execute("UPDATE passkeys SET revoked_at = datetime('now') WHERE user_id = ? AND revoked_at IS NULL", (user_id,))
         db.execute("UPDATE trusted_devices SET revoked_at = datetime('now') WHERE user_id = ? AND revoked_at IS NULL", (user_id,))
         log_audit(db, "two_factor_reset_by_admin", user_id=user_id, ip_address=get_client_ip(request), details=f"username={user['username']}")

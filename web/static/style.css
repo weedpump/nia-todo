@@ -3420,16 +3420,57 @@ input[type="color"]::-moz-color-swatch {
   gap: 12px;
 }
 
+.security-field {
+  display: block;
+}
+
 .security-field span {
   display: block;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--text-secondary);
-  margin-bottom: 5px;
+  margin-bottom: 7px;
 }
 
 .security-field input {
   width: 100%;
+  min-height: 42px;
+  border: 1px solid color-mix(in srgb, var(--border) 82%, var(--accent) 18%);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bg-primary) 92%, var(--bg-tertiary) 8%);
+  color: var(--text-primary);
+  padding: 10px 12px;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.35;
+  outline: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.security-field input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.72;
+}
+
+.security-field input:hover {
+  border-color: color-mix(in srgb, var(--border) 58%, var(--accent) 42%);
+  background: color-mix(in srgb, var(--bg-primary) 82%, var(--bg-tertiary) 18%);
+}
+
+.security-field input:focus {
+  border-color: var(--accent);
+  background: var(--bg-primary);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.security-field input:-webkit-autofill,
+.security-field input:-webkit-autofill:hover,
+.security-field input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--text-primary);
+  caret-color: var(--text-primary);
+  transition: background-color 9999s ease-in-out 0s;
+  box-shadow: 0 0 0 1000px var(--bg-primary) inset;
 }
 
 .security-passkey-btn {

@@ -22,6 +22,7 @@ from routers.auth import require_recent_mfa_for_account_security
 from routers.two_factor import ReauthRequest, reauth, require_2fa_status_auth
 from services.webauthn import relying_party_for_request, verify_client_data
 from services.two_factor import (
+    clear_recovery_codes_if_no_primary_factor,
     create_challenge,
     create_mfa_action_grant,
     create_recovery_codes,
@@ -118,6 +119,15 @@ def main():
         hashes = json.loads(conn.execute("SELECT two_factor_recovery_hashes FROM users WHERE id = ?", (user_id,)).fetchone()[0])
         assert len(hashes) == 9
         assert not verify_challenge_method(conn, row2, "recovery_code", recovery_codes[0])
+
+        # Recovery codes are backup factors only: if no TOTP/passkey remains, they are cleared and 2FA is disabled.
+        backup_only_user_id = create_user(conn, username="backup_only", email="backup-only@example.invalid")
+        conn.execute("UPDATE users SET two_factor_enabled = 1 WHERE id = ?", (backup_only_user_id,))
+        backup_codes = create_recovery_codes(conn, backup_only_user_id)
+        assert backup_codes and user_mfa_state(conn, backup_only_user_id)["has_recovery_codes"]
+        assert clear_recovery_codes_if_no_primary_factor(conn, backup_only_user_id)
+        backup_state = user_mfa_state(conn, backup_only_user_id)
+        assert not backup_state["enabled"] and not backup_state["has_recovery_codes"]
 
         # Verified e-mail + working SMTP is a valid e-mail-code factor, not an enrollment dead-end.
         email_user_id = create_user(conn, username="emailmfa", email="emailmfa@example.invalid")

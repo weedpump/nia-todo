@@ -21,6 +21,7 @@ from services.webauthn import (
     verify_client_data,
 )
 from services.two_factor import (
+    clear_recovery_codes, clear_recovery_codes_if_no_primary_factor,
     consume_mfa_action_grant, create_challenge, create_mfa_action_grant,
     create_recovery_codes, create_trusted_device, generate_totp_secret,
     get_two_factor_required, get_valid_challenge,
@@ -309,10 +310,8 @@ def delete_totp(user_id: int = Depends(require_recent_mfa)):
                WHERE id = ?""",
             (user_id,),
         )
-        state = user_mfa_state(db, user_id)
-        if not (state.get("has_passkey") or state.get("has_email_fallback") or state.get("has_recovery_codes")):
-            db.execute("UPDATE users SET two_factor_enabled = 0 WHERE id = ?", (user_id,))
-        log_audit(db, "two_factor_totp_removed", user_id=user_id)
+        recovery_cleared = clear_recovery_codes_if_no_primary_factor(db, user_id)
+        log_audit(db, "two_factor_totp_removed", user_id=user_id, details=f"recovery_cleared={recovery_cleared}")
         db.commit()
         return {"removed": True}
 
@@ -328,6 +327,7 @@ def disable_2fa(_: CodeRequest, user_id: int = Depends(require_recent_mfa)):
                WHERE id = ?""",
             (user_id,),
         )
+        clear_recovery_codes(db, user_id)
         db.execute("UPDATE passkeys SET revoked_at = datetime('now') WHERE user_id = ? AND revoked_at IS NULL", (user_id,))
         revoke_trusted_devices(db, user_id)
         log_audit(db, "two_factor_disabled", user_id=user_id)
@@ -488,7 +488,8 @@ def delete_passkey(passkey_id: int, user_id: int = Depends(require_recent_mfa)):
         if not row:
             raise HTTPException(404, "Passkey nicht gefunden")
         db.execute("UPDATE passkeys SET revoked_at = datetime('now') WHERE id = ?", (passkey_id,))
-        log_audit(db, "passkey_removed", user_id=user_id, details=f"passkey_id={passkey_id}")
+        recovery_cleared = clear_recovery_codes_if_no_primary_factor(db, user_id)
+        log_audit(db, "passkey_removed", user_id=user_id, details=f"passkey_id={passkey_id}; recovery_cleared={recovery_cleared}")
         db.commit()
         return {"removed": passkey_id}
 

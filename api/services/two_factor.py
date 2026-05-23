@@ -158,6 +158,32 @@ def available_methods(db, user_id: int) -> list[str]:
     return methods
 
 
+def clear_recovery_codes(db, user_id: int) -> None:
+    db.execute("DELETE FROM two_factor_recovery_codes WHERE user_id = ?", (user_id,))
+    db.execute(
+        """UPDATE users
+           SET two_factor_recovery_hashes = NULL,
+               two_factor_recovery_generated_at = NULL,
+               two_factor_updated_at = datetime('now')
+           WHERE id = ?""",
+        (user_id,),
+    )
+
+
+def clear_recovery_codes_if_no_primary_factor(db, user_id: int) -> bool:
+    row = db.execute("SELECT two_factor_totp_secret FROM users WHERE id = ?", (user_id,)).fetchone()
+    has_totp = bool(row and row["two_factor_totp_secret"])
+    passkey_count = db.execute(
+        "SELECT COUNT(*) AS c FROM passkeys WHERE user_id = ? AND revoked_at IS NULL",
+        (user_id,),
+    ).fetchone()["c"]
+    if has_totp or passkey_count > 0:
+        return False
+    clear_recovery_codes(db, user_id)
+    db.execute("UPDATE users SET two_factor_enabled = 0, two_factor_updated_at = datetime('now') WHERE id = ?", (user_id,))
+    return True
+
+
 def create_recovery_codes(db, user_id: int) -> list[str]:
     codes = [f"{secrets.token_hex(4)}-{secrets.token_hex(4)}" for _ in range(RECOVERY_CODE_COUNT)]
     hashes = [bcrypt_hash(code) for code in codes]

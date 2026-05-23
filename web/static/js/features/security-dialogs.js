@@ -152,6 +152,13 @@ export async function performMfaReauth({ authApi, purpose = 'diese Sicherheitsak
 
   const canPasskey = state.has_passkey && !RUNTIME_CAPABILITIES.native && window.PublicKeyCredential && navigator.credentials;
   const hasCode = state.has_totp || state.has_recovery_codes || state.has_email_fallback;
+  const codeLabel = state.has_totp && state.has_recovery_codes
+    ? 'Authenticator- oder Recovery-Code'
+    : state.has_totp
+      ? 'Authenticator-Code'
+      : state.has_recovery_codes
+        ? 'Recovery-Code'
+        : 'E-Mail-Code';
   let emailStarted = false;
   let codeMode = (state.has_totp || state.has_recovery_codes) ? 'totp' : (state.has_email_fallback ? 'email' : 'none');
 
@@ -176,7 +183,7 @@ export async function performMfaReauth({ authApi, purpose = 'diese Sicherheitsak
     primaryText: canPasskey && !hasCode ? 'Mit Passkey bestätigen' : 'Code bestätigen',
     bodyHtml: `
       ${canPasskey && hasCode ? '<button type="button" class="btn btn-secondary security-passkey-btn" id="security-reauth-passkey">Mit Passkey bestätigen</button>' : ''}
-      ${hasCode ? `<label class="security-field"><span id="security-reauth-code-label">${codeMode === 'email' ? 'E-Mail-Code' : 'Authenticator- oder Recovery-Code'}</span><input name="code" id="security-reauth-code" type="text" inputmode="numeric" autocomplete="one-time-code" placeholder="Code eingeben"></label>` : ''}
+      ${hasCode ? `<label class="security-field"><span id="security-reauth-code-label">${codeLabel}</span><input name="code" id="security-reauth-code" type="text" inputmode="numeric" autocomplete="one-time-code" placeholder="Code eingeben"></label>` : ''}
       <div class="security-dialog-hint" id="security-reauth-email-hint" style="display:none;">Ich habe dir einen E-Mail-Code geschickt.</div>
       <div class="security-dialog-hint">Jede sensible Aktion verbraucht genau eine 2FA-Bestätigung.</div>
     `,
