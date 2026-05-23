@@ -107,7 +107,7 @@ async function testNativeUpdateUsesModalWithDownloadButton() {
       appVersion: '1.7.0',
       userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
     });
-    await page.route(`${BASE_URL}/downloads/app-downloads.json`, async (route) => {
+    await page.route(new RegExp(`${BASE_URL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/downloads/app-downloads\\.json(?:\\?.*)?$`), async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -155,7 +155,7 @@ async function testNativeUpdateRejectsUnsafeManifestDownload() {
       appVersion: '1.7.0',
       userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
     });
-    await page.route(`${BASE_URL}/downloads/app-downloads.json`, async (route) => {
+    await page.route(new RegExp(`${BASE_URL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/downloads/app-downloads\\.json(?:\\?.*)?$`), async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
