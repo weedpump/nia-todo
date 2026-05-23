@@ -15,7 +15,7 @@ from services.instance_config import get_instance_config, get_public_base_url, u
 from services.email_config import get_email_config, get_password_link_ttl_hours, is_email_configured, update_email_config
 from services.email import send_email, send_test_email
 from services.email_templates import password_setup_email
-from services.email_verification import set_email_or_pending
+from services.email_verification import clear_pending_email, set_email_or_pending
 from rate_limit import require_login_rate_limit, get_client_ip
 from middleware.security import generate_csrf_token, set_csrf_cookie
 
@@ -255,10 +255,8 @@ def create_user(data: CreateUserRequest, request: Request, _: bool = Depends(req
                 )
                 emailed = True
             except Exception:
-                replace_active_password_setup_tokens(db, user_id, "invite")
-                log_audit(db, "password_setup_email_failed", user_id=user_id, details="purpose=invite")
+                log_audit(db, "password_setup_email_failed", user_id=user_id, details="purpose=invite; manual_link_returned=true")
                 db.commit()
-                raise
         log_audit(db, "user_created", user_id=user_id, details=f"username={data.username}")
         if emailed:
             log_audit(db, "password_setup_email_sent", user_id=user_id, details="purpose=invite")
@@ -280,7 +278,7 @@ def create_user(data: CreateUserRequest, request: Request, _: bool = Depends(req
 @router.get("/users")
 def list_users(_: bool = Depends(require_admin)):
     with get_db() as db:
-        rows = db.execute("SELECT id, username, display_name, email, email_verified_at, pending_email, is_admin, created_at FROM users ORDER BY id").fetchall()
+        rows = db.execute("SELECT id, username, display_name, email, email_verified_at, email_trust_source, pending_email, is_admin, created_at FROM users ORDER BY id").fetchall()
         return {"users": [dict(r) for r in rows]}
 
 @router.patch("/users/{user_id}")
@@ -302,6 +300,16 @@ def update_user(user_id: int, data: UpdateUserRequest, request: Request, _: bool
         result = {"email": email, "pending_email": None, "email_verification_required": False}
         if email != user['email']:
             result = set_email_or_pending(db, user_id=user_id, email=email, request=request, requested_by="admin")
+            verification_email = result.pop("_verification_email", None)
+            if verification_email:
+                db.commit()
+                try:
+                    send_email(**verification_email)
+                except Exception:
+                    clear_pending_email(db, user_id=user_id)
+                    log_audit(db, "email_verification_email_failed", user_id=user_id, details="requested_by=admin")
+                    db.commit()
+                    raise HTTPException(400, "Bestätigungsmail konnte nicht gesendet werden. E-Mail wurde nicht geändert.")
             log_audit(db, "email_verification_requested" if result.get("email_verification_required") else "email_changed_direct", user_id=user_id, details=f"requested_by=admin; delivery={result.get('email_verification_delivery')}")
         db.commit()
         return {"id": user_id, "display_name": display_name, **result}
@@ -371,10 +379,8 @@ def admin_create_user_password_link(user_id: int, request: Request, _: bool = De
                 )
                 emailed = True
             except Exception:
-                replace_active_password_setup_tokens(db, user_id, "reset")
-                log_audit(db, "password_setup_email_failed", user_id=user_id, details="purpose=reset")
+                log_audit(db, "password_setup_email_failed", user_id=user_id, details="purpose=reset; manual_link_returned=true")
                 db.commit()
-                raise
         log_audit(db, "password_setup_link_created", user_id=user_id, details=f"username={user['username']}")
         if emailed:
             log_audit(db, "password_setup_email_sent", user_id=user_id, details="purpose=reset")

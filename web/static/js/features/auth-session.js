@@ -221,14 +221,18 @@ export function createAuthSessionFeature({
 
   async function maybeVerifyEmailFromUrl() {
     const params = new URLSearchParams(location.search);
-    const token = params.get('verifyEmail');
-    if (!token) return;
-    params.delete('verifyEmail');
-    const next = `${location.pathname}${params.toString() ? `?${params}` : ''}${location.hash}`;
-    history.replaceState(null, '', next);
-    if (!getAuthToken()) return;
+    const urlToken = params.get('verifyEmail');
+    if (urlToken) {
+      sessionStorage.setItem('pending_email_verify_token', urlToken);
+      params.delete('verifyEmail');
+      const next = `${location.pathname}${params.toString() ? `?${params}` : ''}${location.hash}`;
+      history.replaceState(null, '', next);
+    }
+    const token = sessionStorage.getItem('pending_email_verify_token');
+    if (!token || !getAuthToken()) return;
     try {
       await authApi.verifyEmail(token);
+      sessionStorage.removeItem('pending_email_verify_token');
     } catch (e) {
       console.warn('Email verification failed:', e);
     }

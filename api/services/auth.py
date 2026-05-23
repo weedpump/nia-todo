@@ -116,7 +116,7 @@ def get_current_user(token: Optional[str] = None) -> Optional[int]:
 def verify_user_credentials(db, username: str, password: str) -> Optional[dict]:
     identifier = (username or "").strip()
     row = db.execute(
-        """SELECT id, username, display_name, email, email_verified_at, avatar_url, password_hash, is_admin, token_version
+        """SELECT id, username, display_name, email, email_verified_at, email_trust_source, avatar_url, password_hash, is_admin, token_version
            FROM users
            WHERE username = ?
               OR (lower(email) = lower(?) AND email_verified_at IS NOT NULL)

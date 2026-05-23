@@ -23,7 +23,8 @@ HEIC_SUPPORTED = PILLOW_HEIC_SUPPORTED or bool(HEIF_CONVERT_BIN)
 from db import DB_PATH, get_db, now_iso
 from routers.auth import require_auth
 from services.audit import log_audit
-from services.email_verification import set_email_or_pending, verify_pending_email
+from services.email import send_email
+from services.email_verification import clear_pending_email, set_email_or_pending, verify_pending_email
 from services.utils import normalize_email, sanitize_text, validate_email, validate_password
 
 router = APIRouter(prefix="/api/me")
@@ -82,7 +83,7 @@ def update_own_profile(data: UpdateProfileRequest, user_id: int = Depends(requir
     if len(display_name) > 80:
         raise HTTPException(400, "Anzeigename ist zu lang")
     with get_db() as db:
-        user = db.execute("SELECT id, username, email, avatar_url, avatar_updated_at, is_admin FROM users WHERE id = ?", (user_id,)).fetchone()
+        user = db.execute("SELECT id, username, email, email_trust_source, avatar_url, avatar_updated_at, is_admin FROM users WHERE id = ?", (user_id,)).fetchone()
         if not user:
             raise HTTPException(404, "User not found")
         db.execute("UPDATE users SET display_name = ? WHERE id = ?", (display_name, user_id))
@@ -92,6 +93,7 @@ def update_own_profile(data: UpdateProfileRequest, user_id: int = Depends(requir
         "username": user["username"],
         "display_name": display_name,
         "email": user["email"],
+        "email_trust_source": user["email_trust_source"],
         "avatar_url": user["avatar_url"],
         "avatar_updated_at": user["avatar_updated_at"],
         "is_admin": bool(user["is_admin"]),
@@ -167,6 +169,16 @@ def update_own_email(data: UpdateEmailRequest, request: Request, user_id: int = 
         if existing:
             raise HTTPException(409, "Email already exists")
         result = set_email_or_pending(db, user_id=user_id, email=email, request=request, requested_by="user")
+        verification_email = result.pop("_verification_email", None)
+        if verification_email:
+            db.commit()
+            try:
+                send_email(**verification_email)
+            except Exception:
+                clear_pending_email(db, user_id=user_id)
+                log_audit(db, "email_verification_email_failed", user_id=user_id, details="requested_by=user")
+                db.commit()
+                raise HTTPException(400, "Bestätigungsmail konnte nicht gesendet werden. E-Mail wurde nicht geändert.")
         log_audit(db, "email_verification_requested" if result.get("email_verification_required") else "email_changed_direct", user_id=user_id, details=f"delivery={result.get('email_verification_delivery')}")
         db.commit()
     return result
