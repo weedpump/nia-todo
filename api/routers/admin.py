@@ -102,8 +102,7 @@ def _send_password_setup_email(*, to: str, display_name: str, username: str, lin
     send_email(to=to, subject=subject, text=text, html=html)
 
 
-def create_password_setup_token(db, user_id: int, purpose: str = "reset", requested_by: str = "admin") -> str:
-    token = secrets.token_urlsafe(32)
+def replace_active_password_setup_tokens(db, user_id: int, purpose: str) -> None:
     db.execute(
         """UPDATE password_setup_tokens
            SET status = 'replaced', replaced_at = datetime('now')
@@ -113,6 +112,11 @@ def create_password_setup_token(db, user_id: int, purpose: str = "reset", reques
              AND used_at IS NULL""",
         (user_id, purpose),
     )
+
+
+def create_password_setup_token(db, user_id: int, purpose: str = "reset", requested_by: str = "admin") -> str:
+    token = secrets.token_urlsafe(32)
+    replace_active_password_setup_tokens(db, user_id, purpose)
     db.execute(
         """INSERT INTO password_setup_tokens
            (user_id, token_hash, token_prefix, purpose, expires_at, created_by_admin, status, requested_by)
@@ -241,14 +245,20 @@ def create_user(data: CreateUserRequest, request: Request, _: bool = Depends(req
         emailed = False
         db.commit()
         if is_email_configured():
-            _send_password_setup_email(
-                to=data.email,
-                display_name=data.display_name,
-                username=data.username,
-                link=link,
-                purpose="invite",
-            )
-            emailed = True
+            try:
+                _send_password_setup_email(
+                    to=data.email,
+                    display_name=data.display_name,
+                    username=data.username,
+                    link=link,
+                    purpose="invite",
+                )
+                emailed = True
+            except Exception:
+                replace_active_password_setup_tokens(db, user_id, "invite")
+                log_audit(db, "password_setup_email_failed", user_id=user_id, details="purpose=invite")
+                db.commit()
+                raise
         log_audit(db, "user_created", user_id=user_id, details=f"username={data.username}")
         if emailed:
             log_audit(db, "password_setup_email_sent", user_id=user_id, details="purpose=invite")
@@ -351,14 +361,20 @@ def admin_create_user_password_link(user_id: int, request: Request, _: bool = De
         emailed = False
         db.commit()
         if is_email_configured() and user['email']:
-            _send_password_setup_email(
-                to=user['email'],
-                display_name=user['display_name'],
-                username=user['username'],
-                link=link,
-                purpose="reset",
-            )
-            emailed = True
+            try:
+                _send_password_setup_email(
+                    to=user['email'],
+                    display_name=user['display_name'],
+                    username=user['username'],
+                    link=link,
+                    purpose="reset",
+                )
+                emailed = True
+            except Exception:
+                replace_active_password_setup_tokens(db, user_id, "reset")
+                log_audit(db, "password_setup_email_failed", user_id=user_id, details="purpose=reset")
+                db.commit()
+                raise
         log_audit(db, "password_setup_link_created", user_id=user_id, details=f"username={user['username']}")
         if emailed:
             log_audit(db, "password_setup_email_sent", user_id=user_id, details="purpose=reset")
