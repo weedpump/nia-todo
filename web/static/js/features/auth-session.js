@@ -81,6 +81,7 @@ export function createAuthSessionFeature({
   async function login(username, password) {
     const data = await authApi.login(username, password);
     storeUserSession(data);
+    await maybeVerifyEmailFromUrl();
 
     const newUserId = String(data.user.id);
     await clearCacheIfUserChanged(newUserId);
@@ -103,6 +104,7 @@ export function createAuthSessionFeature({
       if (user.csrf_token) localStorage.setItem('csrf_token', user.csrf_token);
       setCurrentUser({ ...user, token: refreshedToken });
       persistCachedUser({ ...user, token: refreshedToken });
+      await maybeVerifyEmailFromUrl();
 
       const newUserId = String(user.id);
       const userChanged = await clearCacheIfUserChanged(newUserId);
@@ -214,6 +216,20 @@ export function createAuthSessionFeature({
       messageEl.textContent = e.message || 'Reset konnte nicht angefordert werden.';
     } finally {
       if (button) button.disabled = false;
+    }
+  }
+
+  async function maybeVerifyEmailFromUrl() {
+    const params = new URLSearchParams(location.search);
+    const token = params.get('verifyEmail');
+    if (!token || !getAuthToken()) return;
+    try {
+      await authApi.verifyEmail(token);
+      params.delete('verifyEmail');
+      const next = `${location.pathname}${params.toString() ? `?${params}` : ''}${location.hash}`;
+      history.replaceState(null, '', next);
+    } catch (e) {
+      console.warn('Email verification failed:', e);
     }
   }
 

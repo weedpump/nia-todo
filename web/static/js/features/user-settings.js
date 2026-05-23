@@ -76,10 +76,12 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     </span>`;
   }
 
-  function renderSettingsEmailDisplay(emailValue) {
-    const email = emailValue ? escapeHtml(emailValue) : '<span class="settings-email-missing">-</span>';
+  function renderSettingsEmailDisplay(user) {
+    const email = user?.email ? escapeHtml(user.email) : '<span class="settings-email-missing">-</span>';
+    const pending = user?.pending_email ? `<span class="settings-email-pending">Ausstehend: ${escapeHtml(user.pending_email)}</span>` : '';
     return `<span class="settings-email-display" id="settings-email-display">
       <span class="settings-email-value">${email}</span>
+      ${pending}
       <button type="button" class="settings-email-action" title="E-Mail bearbeiten" onclick="editUserEmail()">${iconSvg('edit-3')}</button>
     </span>`;
   }
@@ -91,7 +93,7 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     const settingsEmailCell = document.getElementById('settings-email-cell');
     if (settingsUsernameEl && currentUser) settingsUsernameEl.textContent = currentUser.username;
     if (settingsDisplayNameCell && currentUser) settingsDisplayNameCell.innerHTML = renderDisplayNameDisplay(currentUser.display_name || currentUser.username);
-    if (settingsEmailCell && currentUser) settingsEmailCell.innerHTML = renderSettingsEmailDisplay(currentUser.email || '');
+    if (settingsEmailCell && currentUser) settingsEmailCell.innerHTML = renderSettingsEmailDisplay(currentUser);
     renderSettingsAvatar(currentUser);
   }
 
@@ -443,9 +445,9 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     try {
       const data = await authApi.updateEmail(email);
       const currentUser = getCurrentUser();
-      if (currentUser) setCurrentUser({ ...currentUser, email: data.email });
-      renderUserInfo();
-      successEl.textContent = 'E-Mail gespeichert';
+      if (currentUser) setCurrentUser({ ...currentUser, email: data.email || currentUser.email, pending_email: data.pending_email || null });
+      await refreshCurrentUser().catch(() => renderUserInfo());
+      successEl.textContent = data.email_verification_required ? 'Bestätigungsmail gesendet' : 'E-Mail gespeichert';
     } catch (e) {
       errorEl.textContent = e.message;
     }

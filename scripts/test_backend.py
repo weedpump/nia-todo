@@ -267,6 +267,23 @@ class TestSuite:
     def test_invalid_own_email_rejected(self):
         status, _ = curl("PATCH", "/api/me/email", {"email": "broken-email"}, token=self.user_token, csrf=self.user_csrf, cookie_jar="/tmp/nia_user_cookies.txt")
         return self.record("invalid_own_email_rejected", status, expected=400)
+
+    def test_update_own_email_without_smtp_verifies_directly(self):
+        status, data = curl("PATCH", "/api/me/email", {"email": "testuser-updated@example.invalid"}, token=self.user_token, csrf=self.user_csrf, cookie_jar="/tmp/nia_user_cookies.txt")
+        login_status, login_data = curl("POST", "/api/login", {
+            "username": "testuser-updated@example.invalid",
+            "password": USER_PASSWORD
+        }, cookie_jar="/tmp/nia_user_updated_email_cookies.txt")
+        passed = (
+            ok(status)
+            and data
+            and data.get("email") == "testuser-updated@example.invalid"
+            and data.get("email_verification_required") is False
+            and ok(login_status)
+            and login_data.get("user", {}).get("email_verified_at")
+        )
+        self.results["update_own_email_without_smtp_verifies_directly"] = {"status": status if not ok(login_status) else login_status, "passed": passed, "expected": "direct verified email update without SMTP"}
+        return passed
     
     def test_change_password(self):
         status, _ = curl("POST", "/api/me/change-password", {
@@ -1143,6 +1160,7 @@ class TestSuite:
             self.test_login_with_verified_email,
             self.test_me,
             self.test_invalid_own_email_rejected,
+            self.test_update_own_email_without_smtp_verifies_directly,
 
             # Admin session needed to create sharing test user
             self.test_admin_login,
