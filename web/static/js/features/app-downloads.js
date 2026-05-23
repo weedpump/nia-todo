@@ -1,4 +1,4 @@
-import { RUNTIME_CAPABILITIES, RUNTIME_PLATFORM } from '../core/config.js';
+import { API, RUNTIME_CAPABILITIES, RUNTIME_PLATFORM } from '../core/config.js';
 import { iconSvg } from '../icons/lucide-icons.js';
 import { createNativeBridge } from './native-bridge.js';
 
@@ -25,6 +25,13 @@ async function getNativeAppVersion(nativeBridge) {
   return nativeBridge.getAppVersion();
 }
 
+function absoluteDownloadUrl(url) {
+  if (!url) return '';
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(url)) return url;
+  const base = RUNTIME_CAPABILITIES.native && API ? API : location.origin;
+  return new URL(url, base).toString();
+}
+
 function downloadsFromManifest(manifest) {
   const version = manifest.version || manifest.latest?.version || '';
   const apps = [
@@ -35,7 +42,7 @@ function downloadsFromManifest(manifest) {
   const byPlatform = new Map();
   for (const app of apps) {
     if (!app?.platform || !app?.url || byPlatform.has(app.platform)) continue;
-    byPlatform.set(app.platform, { ...app, version: app.version || version });
+    byPlatform.set(app.platform, { ...app, url: absoluteDownloadUrl(app.url), version: app.version || version });
   }
   return ['windows', 'android'].map((platform) => byPlatform.get(platform)).filter(Boolean);
 }
@@ -130,6 +137,25 @@ function renderNativeAppVersion(target, platform, currentVersion) {
   target.style.display = '';
 }
 
+function showNativeUpdateModal(download, currentVersion) {
+  if (!download?.url) return;
+  const modal = document.getElementById('native-app-update-modal');
+  const current = document.getElementById('native-app-update-current-version');
+  const latest = document.getElementById('native-app-update-latest-version');
+  const button = document.getElementById('native-app-update-download-btn');
+  if (current) current.textContent = currentVersion || 'unbekannt';
+  if (latest) latest.textContent = download.version || 'unbekannt';
+  if (button) {
+    button.href = download.url;
+    button.download = download.filename || '';
+    button.title = platformTitle(download);
+  }
+  if (modal) {
+    modal.classList.add('active');
+    modal.removeAttribute('aria-hidden');
+  }
+}
+
 function renderNativeUpdate(target, download, currentVersion) {
   if (!target || !download) return;
   const latestVersion = download.version || '';
@@ -150,7 +176,8 @@ function renderNativeUpdate(target, download, currentVersion) {
 
 export function createAppDownloadsFeature() {
   async function loadDownloadManifest() {
-    const response = await fetch('/downloads/app-downloads.json', { cache: 'no-store' });
+    const manifestUrl = RUNTIME_CAPABILITIES.native && API ? `${API}/downloads/app-downloads.json` : '/downloads/app-downloads.json';
+    const response = await fetch(manifestUrl, { cache: 'no-store' });
     if (!response.ok) throw new Error(`download manifest unavailable: ${response.status}`);
     return response.json();
   }
@@ -186,6 +213,7 @@ export function createAppDownloadsFeature() {
       const updateAvailable = nativeDownload?.version && currentVersion && compareVersions(nativeDownload.version, currentVersion) > 0;
       if (updateAvailable) {
         nativeUpdateTargets.forEach((target) => renderNativeUpdate(target, nativeDownload, currentVersion));
+        showNativeUpdateModal(nativeDownload, currentVersion);
       } else {
         nativeUpdateTargets.forEach((target) => { target.style.display = 'none'; });
       }
