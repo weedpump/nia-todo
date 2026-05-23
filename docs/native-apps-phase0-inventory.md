@@ -15,8 +15,8 @@ Tracked native-related footprint:
 - `web/static/js/features/desktop-integration.js` contains Tauri/Android bridge integration.
 - `web/static/js/features/service-worker-updates.js` contains native-aware SW update behavior.
 - `scripts/test_frontend_native_offline.mjs` simulates Tauri-like launch via `?nativeApp=tauri` and server-hosted SW cache.
-- `release.sh` can optionally build Windows/Android artifacts via Tauri.
-- `CHANGELOG.windows.md`, `CHANGELOG.android.md`, `docs/tauri-windows-poc.md` exist as native app history/docs.
+- `release.sh` builds Windows/Android artifacts via Tauri as part of every shared release.
+- `docs/tauri-windows-poc.md` exists as native app history/docs; native changes now use the shared `CHANGELOG.md`.
 
 Generated/local build output also exists under `src-tauri/target/`, but this is not tracked.
 
@@ -134,14 +134,14 @@ Impact:
 
 Acceptable only if documented as v1 limitation, or replaced with proper OS scheduler/background strategy.
 
-### 8. Release script still assumes Tauri as native implementation
+### 8. Release script builds the native Tauri artifacts with each release
 
-`release.sh` contains optional Windows/Android Tauri build paths and app-download publishing.
+`release.sh` builds and publishes Web, Windows and Android together with one shared version.
 
 For now:
 
-- Web-only releases can continue.
-- Native release paths should be considered frozen/legacy until the new architecture is implemented and manually verified.
+- Web-only releases are intentionally disabled.
+- Native release paths must be tested/reviewed before merging this branch.
 
 ### 9. `/api/instance` does not exist yet
 
