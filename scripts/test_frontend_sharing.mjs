@@ -61,6 +61,12 @@ async function run() {
     const undoVisibleAfterError = await page.locator('#toast-undo').isVisible().catch(() => false);
     if (undoVisibleAfterError) throw new Error('Invite validation errors must not show undo button');
 
+    await page.fill('#project-share-username', 'missing@example.invalid');
+    await page.locator('#project-share-row button').click();
+    await page.getByText('Falls ein passender verifizierter Account existiert, wurde die Einladung verarbeitet.').waitFor({ state: 'visible', timeout: 10000 });
+    const falseInviteToastVisible = await page.getByText('Einladung gesendet').isVisible().catch(() => false);
+    if (falseInviteToastVisible) throw new Error('Unknown email share must not show invitation-sent toast');
+
     // 6. Create a target user, invite them, close/reopen modal: sharing section should be expanded automatically
     const adminLogin = await page.evaluate(async (password) => {
       const r = await fetch('/api/admin/login', {

@@ -278,7 +278,7 @@ def create_user(data: CreateUserRequest, request: Request, _: bool = Depends(req
 @router.get("/users")
 def list_users(_: bool = Depends(require_admin)):
     with get_db() as db:
-        rows = db.execute("SELECT id, username, display_name, email, email_verified_at, email_trust_source, pending_email, is_admin, created_at FROM users ORDER BY id").fetchall()
+        rows = db.execute("SELECT id, username, display_name, email, email_verified_at, email_trust_source, pending_email, password_hash IS NOT NULL AS password_configured, is_admin, created_at FROM users ORDER BY id").fetchall()
         return {"users": [dict(r) for r in rows]}
 
 @router.patch("/users/{user_id}")
