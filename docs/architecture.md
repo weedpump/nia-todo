@@ -28,13 +28,23 @@
 
 ## Native Apps
 
-- Windows und Android laufen als Tauri-Wrapper um die Web-App.
-- Browser/PWA-Push bleibt Browser/PWA-only.
-- Native Apps planen Todo-Erinnerungen lokal, weil die Reminder-Zeitpunkte bekannt sind.
-- Windows plant Reminder im laufenden Tauri-Prozess; Tray/Autostart halten den Prozess verfügbar.
-- Android plant Reminder über `AlarmManager`; geplante Reminder werden persistiert und nach Geräte-Neustart neu registriert.
-- Android „Erledigt“ aus der Benachrichtigung markiert das Todo offline lokal in IndexedDB und schreibt eine SyncQueue-Änderung für spätere Synchronisation.
-- Der Service Worker bleibt auch in nativen Wrappern aktiv, damit Offline-Cold-Starts funktionieren; native Wrapper aktivieren Updates automatisch.
+Die Native-Apps-Architektur wird nach Generic Server Config sauber neu geplant/umgebaut. Ziel ist keine reine Remote-WebView, sondern eine offline-robuste native App mit lokal verfügbarem UI-Shell, konfigurierbarer Remote-API und späterer Server-Verifikation über `/api/instance`.
+
+Aktueller Plan: [Native Apps Clean Architecture Plan](native-apps-clean-architecture.md)
+
+Aktueller 2.0-Branch-Stand:
+
+- Tauri bündelt die Web-App lokal aus `web/` statt nur eine Remote-Redirect-Shell auszuliefern.
+- Native Runtime liest die lokal gespeicherte Server-URL und nutzt sie als API-/WebSocket-Basis.
+- `/api/instance` verifiziert Server mit niedriginformativer öffentlicher Instanz-Metadaten-Antwort.
+- Native Erstkonfiguration läuft lokal, bevor Login/App-Sync startet.
+
+Bestands-/Legacy-Kontext:
+
+- Vorhandene Tauri-Dateien und die ältere Tauri-Doku dürfen nicht blind als Zielarchitektur gelten.
+- Tauri kann als Runtime erneut entschieden werden, aber Änderungen aus verworfenen Branches werden nicht übernommen.
+- Browser/PWA-Push bleibt Browser/PWA-only; native lokale Reminder werden separat geplant.
+- Offline-Cold-Start ist ein hartes Merge-Kriterium und muss auf Windows und Android manuell getestet werden.
 
 ## Auth
 

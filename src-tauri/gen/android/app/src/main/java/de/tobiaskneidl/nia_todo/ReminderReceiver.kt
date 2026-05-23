@@ -38,6 +38,7 @@ class ReminderReceiver : BroadcastReceiver() {
       action = ACTION_MARK_DONE
       flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
       putExtra(EXTRA_ID, id)
+      putExtra(EXTRA_USER_ID, intent.getStringExtra(EXTRA_USER_ID) ?: "")
     }
     val contentIntent = PendingIntent.getActivity(
       context,
@@ -76,9 +77,11 @@ class ReminderReceiver : BroadcastReceiver() {
     const val EXTRA_TITLE = "title"
     const val EXTRA_BODY = "body"
     const val EXTRA_DUE_AT_MS = "dueAtMs"
+    const val EXTRA_USER_ID = "userId"
     const val PREFS_NAME = "nia_todo_reminders"
     const val PREFS_SCHEDULES = "schedules"
     const val PREFS_PENDING_DONE_ID = "pendingDoneId_v2"
+    const val PREFS_PENDING_DONE_ACTION = "pendingDoneAction_v1"
     const val CHANNEL_ID = "nia_todo_reminders"
 
     fun createNotificationChannel(context: Context) {
@@ -129,6 +132,7 @@ class ReminderReceiver : BroadcastReceiver() {
           title = schedule.optString("title", "⏰ Erinnerung"),
           body = schedule.optString("body", "Todo-Erinnerung"),
           dueAtMs = dueAtMs,
+          userId = schedule.optString("userId", ""),
           flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         ) ?: continue
 
@@ -155,6 +159,7 @@ class ReminderReceiver : BroadcastReceiver() {
           title = "",
           body = "",
           dueAtMs = 0L,
+          userId = "",
           flags = PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE,
         ) ?: continue
         alarmManager.cancel(pendingIntent)
@@ -168,6 +173,7 @@ class ReminderReceiver : BroadcastReceiver() {
       title: String,
       body: String,
       dueAtMs: Long,
+      userId: String,
       flags: Int,
     ): PendingIntent? {
       val intent = Intent(context, ReminderReceiver::class.java).apply {
@@ -176,6 +182,7 @@ class ReminderReceiver : BroadcastReceiver() {
         putExtra(EXTRA_TITLE, title)
         putExtra(EXTRA_BODY, body)
         putExtra(EXTRA_DUE_AT_MS, dueAtMs)
+        putExtra(EXTRA_USER_ID, userId)
       }
       return PendingIntent.getBroadcast(context, notificationId(id), intent, flags)
     }

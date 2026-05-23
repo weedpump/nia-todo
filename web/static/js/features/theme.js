@@ -1,7 +1,9 @@
 import { iconSvg } from '../icons/lucide-icons.js';
+import { createNativeBridge } from './native-bridge.js';
 
 const ACCENT_STORAGE_KEY = 'nia-accent-preset';
 const ACCENT_INTENSITY_STORAGE_KEY = 'nia-accent-intensity';
+const nativeBridge = createNativeBridge();
 
 export const ACCENT_PRESETS = [
   {
@@ -76,6 +78,17 @@ function renderAccentSwatch(preset) {
   return `<span class="accent-preset-swatch" style="${accentSwatchStyle(preset)}"></span>`;
 }
 
+let accentIntensityBound = false;
+
+function bindAccentIntensitySlider() {
+  if (accentIntensityBound) return;
+  const slider = document.getElementById('accent-intensity-slider');
+  if (!slider) return;
+  accentIntensityBound = true;
+  slider.addEventListener('input', () => setAccentIntensity(slider.value));
+  slider.addEventListener('change', () => setAccentIntensity(slider.value));
+}
+
 function updateAccentMenuUi() {
   const preset = getAccentPreset();
   const intensity = getAccentIntensity();
@@ -83,7 +96,10 @@ function updateAccentMenuUi() {
   if (current) current.innerHTML = renderAccentSwatch(preset);
 
   const slider = document.getElementById('accent-intensity-slider');
-  if (slider) slider.value = String(intensity);
+  if (slider) {
+    slider.value = String(intensity);
+    bindAccentIntensitySlider();
+  }
 
   const value = document.getElementById('accent-intensity-value');
   if (value) value.textContent = `${intensity}%`;
@@ -105,8 +121,13 @@ function applyAccentPreset(resolvedTheme) {
   root.dataset.accentIntensity = String(intensity);
   root.style.setProperty('--accent-intensity', String(intensity / 100));
   root.style.setProperty('--accent-strength', strength);
-  root.style.setProperty('--accent', `color-mix(in srgb, ${palette.accent} ${strength}, var(--text-secondary))`);
-  root.style.setProperty('--accent-hover', `color-mix(in srgb, ${palette.hover} ${strength}, var(--text-primary))`);
+  if (intensity >= 100) {
+    root.style.setProperty('--accent', palette.accent);
+    root.style.setProperty('--accent-hover', palette.hover);
+  } else {
+    root.style.setProperty('--accent', `color-mix(in srgb, ${palette.accent} ${strength}, var(--text-secondary))`);
+    root.style.setProperty('--accent-hover', `color-mix(in srgb, ${palette.hover} ${strength}, var(--text-primary))`);
+  }
   root.style.setProperty('--accent-rgb', palette.rgb);
   root.style.setProperty('--accent-hover-rgb', palette.hoverRgb);
   updateAccentMenuUi();
@@ -163,10 +184,12 @@ export function renderAccentPresetMenu() {
   if (panel) panel.innerHTML = `${renderAccentPresetOptions()}
     <label class="accent-intensity-control" title="Akzent-Intensität">
       <span class="accent-intensity-label">Intensität</span>
-      <input id="accent-intensity-slider" class="accent-intensity-slider" type="range" min="0" max="100" step="5" value="${intensity}" oninput="setAccentIntensity(this.value)">
+      <input id="accent-intensity-slider" class="accent-intensity-slider" type="range" min="0" max="100" step="5" value="${intensity}">
       <span class="accent-intensity-value" id="accent-intensity-value">${intensity}%</span>
     </label>`;
   if (current) current.innerHTML = renderAccentSwatch(preset);
+  accentIntensityBound = false;
+  bindAccentIntensitySlider();
   const chevron = document.querySelector('#accent-preset-row .accent-preset-chevron');
   if (chevron) chevron.innerHTML = CHEVRON_DOWN;
 }
@@ -195,8 +218,7 @@ export function applyTheme(mode) {
   document.documentElement.setAttribute('data-theme', resolvedTheme);
   applyAccentPreset(resolvedTheme);
 
-  window.NiaAndroidNative?.setTheme?.(resolvedTheme);
-  window.NiaAndroidSystemBars?.setTheme?.(resolvedTheme);
+  nativeBridge.setSystemBarsTheme(resolvedTheme);
 
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute('content', isDark ? '#0f172a' : '#f8fafc');

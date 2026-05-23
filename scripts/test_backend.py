@@ -291,15 +291,53 @@ class TestSuite:
         
         return self.record("admin_login", status)
     
+    def test_instance_public_endpoint(self):
+        status, data = curl("GET", "/api/instance")
+        expected_keys = {"app", "instance_id", "display_name", "public_base_url", "api_version", "server_version", "min_native_client_version", "capabilities"}
+        forbidden_keys = {"allowed_origins", "trusted_proxies", "admin", "secret", "token", "database", "db_path"}
+        passed = (
+            ok(status)
+            and isinstance(data, dict)
+            and expected_keys.issubset(data.keys())
+            and data.get("app") == "nia-todo"
+            and isinstance(data.get("instance_id"), str)
+            and data.get("instance_id", "").startswith("nt_")
+            and data.get("api_version") == 1
+            and isinstance(data.get("capabilities"), list)
+            and not forbidden_keys.intersection(data.keys())
+        )
+        self.results["instance_public_endpoint"] = {"status": status, "passed": passed, "expected": "200 + safe public metadata"}
+        return passed
+
+    def test_instance_public_id_stable(self):
+        status_1, data_1 = curl("GET", "/api/instance")
+        status_2, data_2 = curl("GET", "/api/instance")
+        passed = ok(status_1) and ok(status_2) and data_1 and data_2 and data_1.get("instance_id") == data_2.get("instance_id")
+        self.results["instance_public_id_stable"] = {"status": status_2, "passed": passed, "expected": "same instance_id across calls"}
+        return passed
+
     def test_instance_config_get(self):
         status, data = curl("GET", "/api/admin/instance-config", token=self.admin_token, cookie_jar="/tmp/nia_admin_cookies.txt")
-        passed = ok(status) and data is not None and "public_base_url" in data and "allowed_origins" in data and "trusted_proxies" in data
-        self.results["instance_config_get"] = {"status": status, "passed": passed, "expected": "200 + config fields"}
+        passed = ok(status) and data is not None and "public_base_url" in data and "allowed_origins" in data and "trusted_proxies" in data and "instance_id" not in data
+        self.results["instance_config_get"] = {"status": status, "passed": passed, "expected": "200 + admin config fields without public identity"}
         return passed
 
     def test_strict_cors_unknown_origin_rejected(self):
         status, _ = curl_headers("GET", "/api/setup/status", {"Origin": "https://evil.example"})
         return self.record("strict_cors_unknown_origin_rejected", status, expected=403)
+
+    def test_native_tauri_origin_allowed(self):
+        status, headers = curl_headers("GET", "/api/instance", {"Origin": "http://tauri.localhost"})
+        passed = status == 200 and headers.get("access-control-allow-origin") == "http://tauri.localhost"
+        self.results["native_tauri_origin_allowed"] = {"status": status, "passed": passed, "expected": "200 + tauri origin allowed"}
+        return passed
+
+    def test_native_tauri_origin_with_port_allowed(self):
+        origin = "http://tauri.localhost:8765"
+        status, headers = curl_headers("GET", "/api/instance", {"Origin": origin})
+        passed = status == 200 and headers.get("access-control-allow-origin") == origin
+        self.results["native_tauri_origin_with_port_allowed"] = {"status": status, "passed": passed, "expected": "200 + tauri origin with port allowed"}
+        return passed
 
     def test_instance_config_update(self):
         status, data = curl("PATCH", "/api/admin/instance-config", {
@@ -574,6 +612,19 @@ class TestSuite:
         if ok(status) and data:
             self.created_ids["todo"].append(data.get("id"))
         return self.record("apikey_scheme_allows_without_csrf", status)
+
+    def test_native_bearer_allows_without_csrf_cookie(self):
+        status, data = curl(
+            "POST",
+            "/api/todos",
+            {"title": "Native bearer without CSRF cookie"},
+            token=self.user_token,
+            cookie_jar="/tmp/nia_native_cookies.txt",
+            headers={"Origin": "http://tauri.localhost"},
+        )
+        if ok(status) and data:
+            self.created_ids["todo"].append(data.get("id"))
+        return self.record("native_bearer_allows_without_csrf_cookie", status)
     
     def test_apikey_list(self):
         status, _ = curl("GET", "/api/me/api-keys", token=self.user_token, cookie_jar="/tmp/nia_user_cookies.txt")
@@ -1061,6 +1112,8 @@ class TestSuite:
         tests = [
             # Setup
             self.test_setup_status,
+            self.test_instance_public_endpoint,
+            self.test_instance_public_id_stable,
             self.test_setup_admin,
             self.test_setup_first_user,
             
@@ -1073,6 +1126,8 @@ class TestSuite:
             self.test_admin_login,
             self.test_instance_config_get,
             self.test_strict_cors_unknown_origin_rejected,
+            self.test_native_tauri_origin_allowed,
+            self.test_native_tauri_origin_with_port_allowed,
             self.test_untrusted_proxy_ignores_forwarded_host,
             self.test_instance_config_update,
             self.test_instance_config_audit_written,
@@ -1092,6 +1147,7 @@ class TestSuite:
             # API Keys
             self.test_apikey_create,
             self.test_apikey_auth_requires_apikey_scheme_for_csrf_bypass,
+            self.test_native_bearer_allows_without_csrf_cookie,
             self.test_apikey_list,
             
             # Projects (before todos for FK)

@@ -1,17 +1,31 @@
 export function createUiShell({ renderMarkdown, showTodoModal }) {
+  function closeFloatingMenus() {
+    const userMenu = document.getElementById('user-menu');
+    const userButton = document.getElementById('user-menu-button');
+    userMenu?.classList.remove('active');
+    userButton?.setAttribute('aria-expanded', 'false');
+    document.getElementById('accent-preset-panel')?.classList.remove('active');
+    document.getElementById('accent-preset-row')?.setAttribute('aria-expanded', 'false');
+  }
+
   function openSidebar() {
     document.getElementById('sidebar')?.classList.add('open');
     document.getElementById('sidebar-overlay')?.classList.add('active');
   }
 
   function toggleSidebar() {
-    document.getElementById('sidebar')?.classList.toggle('open');
-    document.getElementById('sidebar-overlay')?.classList.toggle('active');
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebar-overlay');
+    const nextOpen = !sidebar?.classList.contains('open');
+    sidebar?.classList.toggle('open', nextOpen);
+    overlay?.classList.toggle('active', nextOpen);
+    closeFloatingMenus();
   }
 
   function closeSidebar() {
     document.getElementById('sidebar')?.classList.remove('open');
     document.getElementById('sidebar-overlay')?.classList.remove('active');
+    closeFloatingMenus();
   }
 
   function closeModal(modalId) {
@@ -83,6 +97,30 @@ export function createUiShell({ renderMarkdown, showTodoModal }) {
     document.addEventListener('touchcancel', () => { gesture = null; }, { passive: true });
   }
 
+  let touchFeedbackBound = false;
+
+  function bindTouchFeedback() {
+    if (touchFeedbackBound || typeof document === 'undefined') return;
+    touchFeedbackBound = true;
+    const selector = 'button, [role="button"], .nav-btn, .workspace-current-btn, .user-menu-item, .todo-item';
+    const clear = (el) => {
+      if (!el) return;
+      window.clearTimeout(el.__niaTouchFeedbackTimer);
+      el.__niaTouchFeedbackTimer = window.setTimeout(() => el.classList.remove('touch-feedback'), 150);
+    };
+    document.addEventListener('pointerdown', (event) => {
+      if (!document.documentElement.classList.contains('native-android')) return;
+      if (event.pointerType && event.pointerType !== 'touch') return;
+      const target = event.target?.closest?.(selector);
+      if (!target || target.disabled) return;
+      target.classList.add('touch-feedback');
+      window.clearTimeout(target.__niaTouchFeedbackTimer);
+    }, { passive: true });
+    ['pointerup', 'pointercancel', 'pointerleave'].forEach((type) => {
+      document.addEventListener(type, (event) => clear(event.target?.closest?.(selector)), { passive: true });
+    });
+  }
+
   function bindKeyboardShortcuts() {
     document.addEventListener('keydown', (e) => {
       const activeTag = document.activeElement?.tagName;
@@ -98,5 +136,5 @@ export function createUiShell({ renderMarkdown, showTodoModal }) {
     });
   }
 
-  return { openSidebar, toggleSidebar, closeSidebar, closeModal, setupDescPreview, bindSidebarEdgeSwipe, bindKeyboardShortcuts };
+  return { openSidebar, toggleSidebar, closeSidebar, closeModal, setupDescPreview, bindSidebarEdgeSwipe, bindTouchFeedback, bindKeyboardShortcuts };
 }

@@ -1,20 +1,6 @@
+import { API, RUNTIME_CAPABILITIES, RUNTIME_PLATFORM } from '../core/config.js';
 import { iconSvg } from '../icons/lucide-icons.js';
-
-function getTauri() {
-  return window.__TAURI__ || null;
-}
-
-function getInvoke() {
-  return getTauri()?.core?.invoke || null;
-}
-
-function hasNativeLaunchParam() {
-  return new URLSearchParams(location.search).get('nativeApp') === 'tauri';
-}
-
-function isTauriApp() {
-  return Boolean(getInvoke()) || hasNativeLaunchParam();
-}
+import { createNativeBridge } from './native-bridge.js';
 
 function isStandaloneDisplayMode() {
   return Boolean(
@@ -25,46 +11,86 @@ function isStandaloneDisplayMode() {
 }
 
 function isBrowserDownloadEligible() {
-  return !isTauriApp() && !isStandaloneDisplayMode();
+  return RUNTIME_CAPABILITIES.appDownloads && !isStandaloneDisplayMode();
 }
 
 function platformFromNativeRuntime() {
-  if (!isTauriApp()) return '';
-  if (/Android/i.test(navigator.userAgent || '')) return 'android';
-  return 'windows';
+  if (!RUNTIME_CAPABILITIES.nativeAppVersion) return '';
+  if (RUNTIME_PLATFORM === 'android') return 'android';
+  if (RUNTIME_PLATFORM === 'windows') return 'windows';
+  return RUNTIME_PLATFORM || 'unknown';
 }
 
-async function getNativeAppVersion(platform) {
-  if (platform === 'android') {
-    try {
-      const version = window.NiaAndroidNative?.appVersion?.();
-      return version ? String(version) : '';
-    } catch (error) {
-      console.warn('[Downloads] Android app version unavailable', error);
-      return '';
-    }
-  }
+async function getNativeAppVersion(nativeBridge) {
+  return nativeBridge.getAppVersion();
+}
 
-  try {
-    const version = await getTauri()?.app?.getVersion?.();
-    if (version) return String(version);
-  } catch (error) {
-    console.warn('[Downloads] Tauri app version unavailable', error);
-  }
+const DOWNLOAD_SHA_RE = /^[a-f0-9]{64}$/;
+const DOWNLOAD_VERSION_RE = /^v?\d+\.\d+\.\d+(?:[-.][0-9A-Za-z.-]+)?$/;
+const DOWNLOADS_BY_PLATFORM = {
+  windows: {
+    arch: 'x64',
+    filenameSuffix: '-windows-x64-setup.exe',
+    filenameRe: /^nia-todo-v\d+\.\d+\.\d+(?:[-.][0-9A-Za-z.-]+)?-windows-x64-setup\.exe$/,
+  },
+  android: {
+    arch: 'arm64',
+    filenameSuffix: '-android-arm64.apk',
+    filenameRe: /^nia-todo-v\d+\.\d+\.\d+(?:[-.][0-9A-Za-z.-]+)?-android-arm64\.apk$/,
+  },
+};
 
-  const invoke = getInvoke();
-  if (!invoke) return '';
+function absoluteDownloadUrl(url) {
+  const base = RUNTIME_CAPABILITIES.native && API ? API : location.origin;
+  return new URL(url, base).toString();
+}
+
+function filenameFromDownloadPath(pathname) {
+  const match = String(pathname || '').match(/^\/downloads\/([^/?#]+)$/);
+  return match ? match[1] : '';
+}
+
+function validateDownloadEntry(app, fallbackVersion = '') {
+  if (!app || typeof app !== 'object') return null;
+  const platform = String(app.platform || '').toLowerCase();
+  const spec = DOWNLOADS_BY_PLATFORM[platform];
+  if (!spec) return null;
+
+  const rawUrl = String(app.url || '').trim();
+  if (!rawUrl.startsWith('/downloads/')) return null;
+  let parsed;
   try {
-    const version = await invoke('desktop_get_app_version');
-    return version ? String(version) : '';
-  } catch (error) {
-    console.warn('[Downloads] Desktop app version unavailable', error);
-    return '';
+    parsed = new URL(rawUrl, location.origin);
+  } catch {
+    return null;
   }
+  if (parsed.origin !== location.origin || parsed.search || parsed.hash) return null;
+
+  const filename = filenameFromDownloadPath(parsed.pathname);
+  if (!filename || filename.includes('/') || !spec.filenameRe.test(filename)) return null;
+  if (app.filename && String(app.filename) !== filename) return null;
+  if (app.arch && String(app.arch) !== spec.arch) return null;
+  if (!DOWNLOAD_SHA_RE.test(String(app.sha256 || ''))) return null;
+
+  const version = String(app.version || fallbackVersion || '').trim();
+  if (!DOWNLOAD_VERSION_RE.test(version)) return null;
+  const versionSlug = normalizeVersion(version);
+  if (filename !== `nia-todo-v${versionSlug}${spec.filenameSuffix}`) return null;
+
+  return {
+    platform,
+    arch: spec.arch,
+    label: app.label || (platform === 'windows' ? 'Windows Setup' : 'Android APK'),
+    version,
+    filename,
+    url: absoluteDownloadUrl(parsed.pathname),
+    sha256: app.sha256 || '',
+    sizeBytes: Number.isSafeInteger(app.size_bytes) && app.size_bytes > 0 ? app.size_bytes : null,
+  };
 }
 
 function downloadsFromManifest(manifest) {
-  const version = manifest.version || manifest.latest?.version || '';
+  const version = manifest?.version || manifest?.latest?.version || '';
   const apps = [
     manifest?.latest?.windows,
     manifest?.latest?.android,
@@ -72,8 +98,9 @@ function downloadsFromManifest(manifest) {
   ].filter(Boolean);
   const byPlatform = new Map();
   for (const app of apps) {
-    if (!app?.platform || !app?.url || byPlatform.has(app.platform)) continue;
-    byPlatform.set(app.platform, { ...app, version: app.version || version });
+    const download = validateDownloadEntry(app, version);
+    if (!download || byPlatform.has(download.platform)) continue;
+    byPlatform.set(download.platform, download);
   }
   return ['windows', 'android'].map((platform) => byPlatform.get(platform)).filter(Boolean);
 }
@@ -151,12 +178,29 @@ function compareVersions(a, b) {
 
 function renderDownloads(target, downloads) {
   if (!target || !downloads?.length) return;
-  target.innerHTML = downloads.map((download) => `
-    <a class="app-download-button" href="${escapeHtml(download.url)}" download title="${escapeHtml(platformTitle(download))}">
-      ${platformIconClass(download.platform) ? `<span class="app-download-icon ${platformIconClass(download.platform)}" aria-hidden="true"></span>` : `<span>${iconSvg('download')}</span>`}
-      <span>${escapeHtml(download.version || '')}</span>
-    </a>
-  `).join('');
+  target.replaceChildren();
+  for (const download of downloads) {
+    const link = document.createElement('a');
+    link.className = 'app-download-button';
+    link.href = download.url;
+    link.download = download.filename;
+    link.title = platformTitle(download);
+
+    const icon = document.createElement('span');
+    const iconClass = platformIconClass(download.platform);
+    if (iconClass) {
+      icon.className = `app-download-icon ${iconClass}`;
+      icon.setAttribute('aria-hidden', 'true');
+    } else {
+      icon.innerHTML = iconSvg('download');
+    }
+    link.appendChild(icon);
+
+    const version = document.createElement('span');
+    version.textContent = download.version || '';
+    link.appendChild(version);
+    target.appendChild(link);
+  }
   target.style.display = '';
 }
 
@@ -168,39 +212,75 @@ function renderNativeAppVersion(target, platform, currentVersion) {
   target.style.display = '';
 }
 
-function renderNativeUpdate(target, download, currentVersion) {
-  if (!target || !download) return;
-  const latestVersion = download.version || '';
-  target.innerHTML = `
-    <div class="native-update-card">
-      <div class="native-update-copy">
-        <strong>Update für ${escapeHtml(platformLabel(download.platform))} verfügbar</strong>
-        <span>Installiert: ${escapeHtml(currentVersion || 'unbekannt')} · Neu: ${escapeHtml(latestVersion)}</span>
-      </div>
-      <a class="app-download-button native-update-download" href="${escapeHtml(download.url)}" download title="${escapeHtml(platformTitle(download))}">
-        ${platformIconClass(download.platform) ? `<span class="app-download-icon ${platformIconClass(download.platform)}" aria-hidden="true"></span>` : `<span>${iconSvg('download')}</span>`}
-        <span>Download</span>
-      </a>
-    </div>
-  `;
-  target.style.display = '';
+function showNativeUpdateModal(download, currentVersion, nativeBridge = null) {
+  if (!download?.url) return;
+  const modal = document.getElementById('native-app-update-modal');
+  const current = document.getElementById('native-app-update-current-version');
+  const latest = document.getElementById('native-app-update-latest-version');
+  const button = document.getElementById('native-app-update-download-btn');
+  if (current) current.textContent = currentVersion || 'unbekannt';
+  if (latest) latest.textContent = download.version || 'unbekannt';
+  if (button) {
+    button.href = download.url;
+    button.download = download.filename || '';
+    button.title = platformTitle(download);
+    button.onclick = async (event) => {
+      if (!RUNTIME_CAPABILITIES.native || !nativeBridge?.openExternal) return;
+      event.preventDefault();
+      try {
+        await nativeBridge.openExternal(download.url);
+      } catch (error) {
+        console.warn('[Downloads] Native update download failed', error);
+        window.location.href = download.url;
+      }
+    };
+  }
+  if (modal) {
+    modal.classList.add('active');
+    modal.removeAttribute('aria-hidden');
+  }
 }
 
 export function createAppDownloadsFeature() {
+  let listenersInstalled = false;
+  let refreshInterval = null;
+  let refreshInFlight = null;
+
   async function loadDownloadManifest() {
-    const response = await fetch('/downloads/app-downloads.json', { cache: 'no-store' });
+    const baseUrl = RUNTIME_CAPABILITIES.native && API ? `${API}/downloads/app-downloads.json` : '/downloads/app-downloads.json';
+    const manifestUrl = new URL(baseUrl, window.location.href);
+    manifestUrl.searchParams.set('_', String(Date.now()));
+    manifestUrl.searchParams.set('current', normalizeVersion(await createNativeBridge().getAppVersion?.().catch?.(() => '') || 'web') || 'web');
+    const response = await fetch(manifestUrl.toString(), { cache: 'no-store' });
     if (!response.ok) throw new Error(`download manifest unavailable: ${response.status}`);
     return response.json();
+  }
+
+  async function refreshAppDownloads() {
+    if (refreshInFlight) return refreshInFlight;
+    refreshInFlight = initAppDownloads().finally(() => { refreshInFlight = null; });
+    return refreshInFlight;
+  }
+
+  function installRefreshTriggers() {
+    if (listenersInstalled) return;
+    listenersInstalled = true;
+    window.addEventListener('online', () => { refreshAppDownloads(); });
+    window.addEventListener('focus', () => { refreshAppDownloads(); });
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') refreshAppDownloads();
+    });
+    refreshInterval = window.setInterval(() => { refreshAppDownloads(); }, 60 * 60 * 1000);
   }
 
   async function initAppDownloads() {
     const downloadTargets = Array.from(document.querySelectorAll('[data-app-downloads]'));
     const nativeVersionTargets = Array.from(document.querySelectorAll('[data-native-app-version]'));
-    const nativeUpdateTargets = Array.from(document.querySelectorAll('[data-native-app-update]'));
-    if (!downloadTargets.length && !nativeVersionTargets.length && !nativeUpdateTargets.length) return;
+    if (!downloadTargets.length && !nativeVersionTargets.length && !document.getElementById('native-app-update-modal')) return;
 
+    const nativeBridge = createNativeBridge();
     const nativePlatform = platformFromNativeRuntime();
-    const currentVersion = await getNativeAppVersion(nativePlatform);
+    const currentVersion = await getNativeAppVersion(nativeBridge);
     const hasNativeVersion = Boolean(nativePlatform && currentVersion);
     if (hasNativeVersion) {
       nativeVersionTargets.forEach((target) => renderNativeAppVersion(target, nativePlatform, currentVersion));
@@ -222,17 +302,24 @@ export function createAppDownloadsFeature() {
       const nativeDownload = downloads.find((download) => download.platform === nativePlatform);
       const updateAvailable = nativeDownload?.version && currentVersion && compareVersions(nativeDownload.version, currentVersion) > 0;
       if (updateAvailable) {
-        nativeUpdateTargets.forEach((target) => renderNativeUpdate(target, nativeDownload, currentVersion));
-      } else {
-        nativeUpdateTargets.forEach((target) => { target.style.display = 'none'; });
+        showNativeUpdateModal(nativeDownload, currentVersion, nativeBridge);
       }
     } catch (error) {
       console.info('[Downloads] No app download available', error);
       downloadTargets.forEach((target) => { target.style.display = 'none'; });
       if (!hasNativeVersion) nativeVersionTargets.forEach((target) => { target.style.display = 'none'; });
-      nativeUpdateTargets.forEach((target) => { target.style.display = 'none'; });
     }
   }
 
-  return { initAppDownloads };
+  async function startAppDownloads() {
+    installRefreshTriggers();
+    await refreshAppDownloads();
+  }
+
+  function stopAppDownloads() {
+    if (refreshInterval) window.clearInterval(refreshInterval);
+    refreshInterval = null;
+  }
+
+  return { initAppDownloads: startAppDownloads, refreshAppDownloads, stopAppDownloads };
 }

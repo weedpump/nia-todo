@@ -1,13 +1,13 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "nia-todo",
-  "version": "1.6.6",
+  "version": "1.7.0",
   "identifier": "de.tobiaskneidl.nia-todo",
   "build": {
     "beforeDevCommand": "",
     "beforeBuildCommand": "",
     "devUrl": "http://localhost:8754",
-    "frontendDist": "./desktop-shell"
+    "frontendDist": "../web"
   },
   "app": {
     "windows": [
@@ -23,7 +23,7 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; img-src 'self' data: http: https:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self' http: https: ws: wss:"
     },
     "withGlobalTauri": true
   },
@@ -42,7 +42,8 @@
       },
       "nsis": {
         "displayLanguageSelector": false,
-        "languages": ["German"]
+        "languages": ["German"],
+        "installerHooks": "windows/nsis-hooks.nsh"
       }
     }
   }

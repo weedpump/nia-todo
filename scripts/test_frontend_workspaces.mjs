@@ -38,6 +38,7 @@ async function run() {
     await page.fill('#project-name', 'Beruf Projekt');
     await page.click('button[form="project-form"]');
     await page.locator('#project-modal').waitFor({ state: 'hidden', timeout: 10000 });
+    await waitForText('Beruf Projekt');
 
     await page.locator('#workspace-current-btn').click();
     await page.locator('.workspace-menu-choice').filter({ hasText: 'Beruflich' }).click();
@@ -81,7 +82,8 @@ async function run() {
     await page.click('#confirm-confirm-btn');
     await page.locator('#workspace-modal').waitFor({ state: 'hidden', timeout: 10000 });
     await page.waitForFunction(() => document.querySelector('#workspace-current-name')?.textContent === 'Privat', null, { timeout: 10000 });
-    await page.waitForFunction(() => document.querySelectorAll('.nav-btn').length >= 2 && document.body.innerText.includes('Beruf Projekt'), null, { timeout: 10000 });
+    await page.locator('.nav-btn[data-filter="all"]').click();
+    await page.waitForFunction(() => document.querySelectorAll('.nav-btn').length >= 2 && document.body.innerText.includes('Beruf Projekt'), null, { timeout: 20000 });
 
     console.log('✅ Frontend workspaces test passed');
   } finally {

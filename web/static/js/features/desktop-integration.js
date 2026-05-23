@@ -1,3 +1,6 @@
+import { RUNTIME_CAPABILITIES, normalizeServerUrl as normalizeRuntimeServerUrl } from '../core/config.js';
+import { createNativeBridge } from './native-bridge.js';
+
 const DEFAULT_SETTINGS = {
   minimizeToTray: true,
   autostart: false,
@@ -9,52 +12,16 @@ const DEFAULT_SETTINGS = {
   },
 };
 
-function getTauri() {
-  return window.__TAURI__ || null;
-}
-
-function getInvoke() {
-  return getTauri()?.core?.invoke || null;
-}
-
-function hasNativeLaunchParam() {
-  return new URLSearchParams(location.search).get('nativeApp') === 'tauri';
-}
-
 function isNativeApp() {
-  return Boolean(getInvoke()) || hasNativeLaunchParam();
-}
-
-function nativeLaunchUrl(serverUrl) {
-  const url = new URL(serverUrl);
-  url.searchParams.set('nativeApp', 'tauri');
-  return url.toString();
+  return RUNTIME_CAPABILITIES.native;
 }
 
 function isAndroidApp() {
-  return isNativeApp() && /Android/i.test(navigator.userAgent || '');
+  return RUNTIME_CAPABILITIES.android;
 }
 
 function isDesktopApp() {
-  return isNativeApp() && !isAndroidApp();
-}
-
-function getAndroidNative() {
-  return window.NiaAndroidNative || null;
-}
-
-function hasAndroidNativeNotifications() {
-  return isAndroidApp() && Boolean(getAndroidNative()?.notify);
-}
-
-function hasAndroidNativeReminderScheduler() {
-  return isAndroidApp() && Boolean(getAndroidNative()?.scheduleReminders);
-}
-
-async function invokeDesktop(command, args = {}) {
-  const invoke = getInvoke();
-  if (!invoke) throw new Error('Tauri API not available');
-  return invoke(command, args);
+  return RUNTIME_CAPABILITIES.desktop;
 }
 
 function mergeSettings(raw = {}) {
@@ -128,38 +95,64 @@ function hotkeyFromKeyboardEvent(event) {
   return parts.join('+');
 }
 
-function normalizeServerUrl(value) {
-  const raw = String(value || '').trim().replace(/\/+$/, '');
-  const url = new URL(raw);
-  if (!['http:', 'https:'].includes(url.protocol)) throw new Error('Bitte eine http(s)-URL eingeben.');
-  return url.origin + url.pathname.replace(/\/+$/, '');
-}
-
 function setDesktopStatus(text, danger = false) {
-  const el = document.getElementById('desktop-settings-status');
-  if (!el) return;
-  el.textContent = text || '';
-  el.style.color = danger ? 'var(--danger)' : 'var(--text-muted)';
+  document.querySelectorAll('[data-desktop-settings-status]').forEach((el) => {
+    el.textContent = text || '';
+    el.style.color = danger ? 'var(--danger)' : 'var(--text-muted)';
+  });
 }
 
-export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeySearch }) {
+export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeySearch, getCurrentUser }) {
+  const nativeBridge = createNativeBridge();
   let settings = { ...DEFAULT_SETTINGS };
   let latestTodos = [];
   let reminderScheduleTimer = null;
+  let settingsControlsBound = false;
 
   async function loadSettings() {
     if (!isNativeApp()) return settings;
     try {
-      settings = mergeSettings(await invokeDesktop('desktop_get_settings'));
+      settings = mergeSettings(await nativeBridge.getSettings());
     } catch (error) {
       console.warn('[Desktop] Failed to load settings', error);
     }
     return settings;
   }
 
+  function ensureLoginServerControls() {
+    if (!RUNTIME_CAPABILITIES.nativeSettings || document.getElementById('login-native-server-switch')) return;
+    const loginBox = document.querySelector('#login-overlay .login-box');
+    if (!loginBox) return;
+    const panel = document.createElement('div');
+    panel.className = 'login-native-server-panel';
+    panel.innerHTML = `
+      <button type="button" class="btn btn-secondary login-native-server-toggle" id="login-native-server-switch">Server wechseln</button>
+      <div class="desktop-settings-status login-native-server-status" data-desktop-settings-status></div>
+    `;
+    loginBox.appendChild(panel);
+    panel.querySelector('#login-native-server-switch')?.addEventListener('click', () => resetServerUrl());
+  }
+
+  function bindSettingsControls() {
+    if (settingsControlsBound) return;
+    const bindings = [
+      ['desktop-minimize-to-tray', 'minimizeToTray'],
+      ['desktop-autostart', 'autostart'],
+      ['desktop-notifications', 'notifications'],
+    ];
+    let boundAny = false;
+    for (const [id, key] of bindings) {
+      const el = document.getElementById(id);
+      if (!el) continue;
+      boundAny = true;
+      el.addEventListener('change', () => updateSetting(key, el.checked));
+    }
+    if (boundAny) settingsControlsBound = true;
+  }
+
   function renderSettings() {
-    const native = isNativeApp();
-    const desktop = isDesktopApp();
+    const native = RUNTIME_CAPABILITIES.nativeSettings;
+    const desktop = RUNTIME_CAPABILITIES.nativeHotkeys;
     const section = document.getElementById('desktop-settings-section');
     const browserPushSection = document.getElementById('browser-push-settings-section');
     const desktopOnlySections = document.querySelectorAll('[data-desktop-only]');
@@ -168,11 +161,11 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
     if (!section) return;
     section.style.display = native ? '' : 'none';
     if (!native) return;
+    ensureLoginServerControls();
+    bindSettingsControls();
     setChecked('desktop-minimize-to-tray', settings.minimizeToTray);
     setChecked('desktop-autostart', settings.autostart);
     setChecked('desktop-notifications', settings.notifications);
-    const serverUrl = document.getElementById('desktop-server-url');
-    if (serverUrl) serverUrl.value = settings.serverUrl || location.origin;
     setValue('desktop-hotkey-toggle-app', settings.hotkeys?.toggleApp);
     setValue('desktop-hotkey-new-todo', settings.hotkeys?.newTodo);
     setValue('desktop-hotkey-search', settings.hotkeys?.search);
@@ -197,7 +190,7 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
     renderSettings();
     setDesktopStatus('Speichere...');
     try {
-      settings = mergeSettings(await invokeDesktop('desktop_set_setting', { key, value: nextValue }));
+      settings = mergeSettings(await nativeBridge.setSetting(key, nextValue));
       renderSettings();
       setDesktopStatus('Gespeichert.');
       if (key === 'notifications') syncLocalReminders(latestTodos, { immediate: true });
@@ -210,19 +203,9 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
 
   async function ensureNativeNotificationPermission() {
     if (!isNativeApp()) return true;
-    const androidNative = getAndroidNative();
-    if (hasAndroidNativeNotifications()) {
-      try {
-        const state = androidNative.requestNotificationPermission?.() || androidNative.notificationPermissionState?.() || 'granted';
-        return state === 'granted' || state === 'prompt';
-      } catch (error) {
-        console.warn('[Android] Notification permission request failed', error);
-      }
-      return false;
-    }
     try {
-      const state = await invokeDesktop('desktop_request_notification_permission');
-      return state === 'granted';
+      const state = await nativeBridge.requestNotificationPermission();
+      return state === 'granted' || state === 'prompt';
     } catch (error) {
       console.warn('[Native] Notification permission request failed', error);
     }
@@ -242,12 +225,8 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
     const title = reminder?.title || '⏰ Erinnerung';
     const body = reminder?.body || reminder?.todo_title || 'Todo-Erinnerung';
     try {
-      if (hasAndroidNativeNotifications()) {
-        const sent = getAndroidNative().notify(title, body);
-        if (!sent) showToast?.('Android-Benachrichtigung nicht gesendet: Berechtigung fehlt.');
-        return;
-      }
-      await invokeDesktop('desktop_notify', { title, body });
+      const sent = await nativeBridge.notify(title, body);
+      if (!sent) showToast?.('Native Benachrichtigung nicht gesendet: Berechtigung fehlt.');
     } catch (error) {
       console.warn('[Native] Notification failed', error);
       showToast?.('Native Benachrichtigung fehlgeschlagen');
@@ -268,6 +247,8 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
 
   function buildReminderSchedules(todos = []) {
     const now = Date.now();
+    const currentUser = getCurrentUser?.();
+    const userId = currentUser?.id == null ? '' : String(currentUser.id);
     return todos
       .filter((todo) => todo && todo.status !== 'done')
       .map((todo) => {
@@ -278,6 +259,7 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
           title: reminderTitle(todo),
           body: reminderBody(todo),
           dueAtMs: dueAt,
+          userId,
         };
       })
       .filter(Boolean);
@@ -286,35 +268,26 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
   async function scheduleLocalRemindersNow() {
     if (!isNativeApp()) return;
     const reminders = settings.notifications ? buildReminderSchedules(latestTodos) : [];
-    if (hasAndroidNativeReminderScheduler()) {
-      try {
-        if (settings.notifications && !await ensureNativeNotificationPermission()) return;
-        getAndroidNative().scheduleReminders(JSON.stringify(reminders));
-      } catch (error) {
-        console.warn('[Android] Failed to schedule local reminders', error);
-      }
-      return;
-    }
-    if (!isDesktopApp()) return;
+    if (!RUNTIME_CAPABILITIES.nativeNotifications) return;
     if (!settings.notifications) {
       try {
-        await invokeDesktop('desktop_schedule_reminders', { reminders: [] });
+        await nativeBridge.clearReminders();
       } catch (error) {
-        console.warn('[Desktop] Failed to clear local reminders', error);
+        console.warn('[Native] Failed to clear local reminders', error);
       }
       return;
     }
     try {
       if (!await ensureNativeNotificationPermission()) return;
-      await invokeDesktop('desktop_schedule_reminders', { reminders });
+      await nativeBridge.scheduleReminders(reminders);
     } catch (error) {
-      console.warn('[Desktop] Failed to schedule local reminders', error);
+      console.warn('[Native] Failed to schedule local reminders', error);
     }
   }
 
   function syncLocalReminders(todos = [], { immediate = false } = {}) {
     latestTodos = Array.isArray(todos) ? todos : [];
-    if (!isDesktopApp() && !hasAndroidNativeReminderScheduler()) return;
+    if (!RUNTIME_CAPABILITIES.nativeNotifications) return;
     if (reminderScheduleTimer) {
       clearTimeout(reminderScheduleTimer);
       reminderScheduleTimer = null;
@@ -332,10 +305,10 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
   async function updateServerUrl(value) {
     if (!isNativeApp()) return;
     try {
-      const serverUrl = normalizeServerUrl(value);
-      settings = mergeSettings(await invokeDesktop('desktop_set_server_url', { serverUrl }));
+      const serverUrl = normalizeRuntimeServerUrl(value);
+      settings = mergeSettings(await nativeBridge.setServerUrl(serverUrl));
       setDesktopStatus('Server gespeichert. App lädt neu...');
-      setTimeout(() => location.replace(nativeLaunchUrl(serverUrl)), 250);
+      setTimeout(() => location.reload(), 250);
     } catch (error) {
       setDesktopStatus(error?.message || String(error), true);
     }
@@ -344,9 +317,9 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
   async function resetServerUrl() {
     if (!isNativeApp()) return;
     try {
-      await invokeDesktop('desktop_clear_server_url');
-      setDesktopStatus('Server zurückgesetzt. App lädt neu...');
-      setTimeout(() => location.replace('tauri://localhost/'), 250);
+      await nativeBridge.clearServerUrl();
+      setDesktopStatus('Server-Auswahl wird geöffnet...');
+      setTimeout(() => location.reload(), 250);
     } catch (error) {
       setDesktopStatus(error?.message || String(error), true);
     }
@@ -361,23 +334,22 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
     try {
       const title = 'nia-todo';
       const body = 'Native Benachrichtigungen funktionieren.';
-      if (hasAndroidNativeNotifications()) {
-        const sent = getAndroidNative().notify(title, body);
-        setDesktopStatus(sent ? 'Test-Benachrichtigung gesendet.' : 'Benachrichtigung nicht gesendet: Berechtigung fehlt.', !sent);
-        return;
-      }
-      await invokeDesktop('desktop_notify', { title, body });
-      setDesktopStatus('Test-Benachrichtigung gesendet.');
+      const sent = await nativeBridge.notify(title, body);
+      setDesktopStatus(sent ? 'Test-Benachrichtigung gesendet.' : 'Benachrichtigung nicht gesendet: Berechtigung fehlt.', !sent);
     } catch (error) {
       setDesktopStatus(error?.message || String(error), true);
     }
+  }
+
+  function consumePendingDoneAction() {
+    return nativeBridge.consumePendingDoneAction();
   }
 
   async function updateHotkey(action, shortcut) {
     if (!isDesktopApp()) return;
     setDesktopStatus('Speichere Hotkey...');
     try {
-      settings = mergeSettings(await invokeDesktop('desktop_set_hotkey', { action, shortcut: shortcut || '' }));
+      settings = mergeSettings(await nativeBridge.setHotkey(action, shortcut));
       renderSettings();
       setDesktopStatus('Hotkey gespeichert.');
     } catch (error) {
@@ -420,10 +392,8 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
   let hotkeyEventsBound = false;
   async function bindHotkeyEvents() {
     if (hotkeyEventsBound) return;
-    const listen = getTauri()?.event?.listen;
-    if (!listen) return;
     hotkeyEventsBound = true;
-    await listen('desktop-hotkey', (event) => {
+    await nativeBridge.listenHotkeys((event) => {
       const action = event?.payload?.action;
       if (action === 'newTodo') {
         onHotkeyNewTodo?.();
@@ -444,6 +414,7 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
     announceNotificationReadiness,
     notifyReminder,
     syncLocalReminders,
+    consumePendingDoneAction,
     updateServerUrl,
     resetServerUrl,
     testNotification,
