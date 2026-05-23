@@ -1,0 +1,144 @@
+#!/usr/bin/env python3
+"""Unit-style tests for SMTP/email services with fake SMTP transports."""
+
+import os
+import sys
+import uuid
+from pathlib import Path
+
+BASE = Path(__file__).resolve().parents[1]
+API_DIR = BASE / "api"
+TEST_DB_NAME = f"nia-todo-email-test-{uuid.uuid4().hex}.db"
+TEST_DB_PATH = API_DIR / "data" / TEST_DB_NAME
+
+os.environ["NIA_TODO_DB"] = TEST_DB_NAME
+sys.path.insert(0, str(API_DIR))
+
+from migrate import run_migrations  # noqa: E402
+from services.email_config import get_email_config, update_email_config  # noqa: E402
+from services.email import send_email  # noqa: E402
+import services.email as email_service  # noqa: E402
+
+
+class FakeSMTPBase:
+    instances = []
+
+    def __init__(self, host, port, timeout=None):
+        self.host = host
+        self.port = port
+        self.timeout = timeout
+        self.events = []
+        self.message = None
+        self.__class__.instances.append(self)
+
+    def __enter__(self):
+        self.events.append("enter")
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        self.events.append("exit")
+        return False
+
+    def ehlo(self):
+        self.events.append("ehlo")
+
+    def starttls(self):
+        self.events.append("starttls")
+
+    def login(self, username, password):
+        self.events.append(("login", username, password))
+
+    def send_message(self, message):
+        self.events.append("send_message")
+        self.message = message
+
+
+class FakeSMTP(FakeSMTPBase):
+    instances = []
+
+
+class FakeSMTPSSL(FakeSMTPBase):
+    instances = []
+
+
+def assert_true(condition, message):
+    if not condition:
+        raise AssertionError(message)
+
+
+def configure_email(*, security="starttls", auth=True):
+    update_email_config({
+        "smtp_enabled": True,
+        "smtp_host": "smtp.example.invalid",
+        "smtp_port": 465 if security == "tls" else 587,
+        "smtp_security": security,
+        "smtp_auth_enabled": auth,
+        "smtp_username": "nia@example.invalid" if auth else "",
+        "smtp_password_secret": "super-secret" if auth else "",
+        "mail_from_address": "todo@example.invalid",
+        "mail_from_name": "nia-todo Test",
+        "mail_reply_to": "reply@example.invalid",
+        "password_link_ttl_hours": 24,
+    })
+
+
+def reset_fakes():
+    FakeSMTP.instances.clear()
+    FakeSMTPSSL.instances.clear()
+    email_service.smtplib.SMTP = FakeSMTP
+    email_service.smtplib.SMTP_SSL = FakeSMTPSSL
+
+
+def test_secret_redaction():
+    configure_email(security="starttls", auth=True)
+    public_config = get_email_config()
+    secret_config = get_email_config(include_secret=True)
+    assert_true("smtp_password_secret" not in public_config, "public config leaked smtp_password_secret")
+    assert_true(public_config["smtp_password_configured"] is True, "public config did not expose configured flag")
+    assert_true(secret_config["smtp_password_secret"] == "super-secret", "secret config lost password")
+
+
+def test_starttls_auth_send():
+    reset_fakes()
+    configure_email(security="starttls", auth=True)
+    send_email(to="user@example.invalid", subject="Hello", text="Plain", html="<p>HTML</p>")
+    assert_true(len(FakeSMTP.instances) == 1, "STARTTLS should use SMTP")
+    smtp = FakeSMTP.instances[0]
+    assert_true(smtp.host == "smtp.example.invalid" and smtp.port == 587, "SMTP host/port mismatch")
+    assert_true("starttls" in smtp.events, "STARTTLS was not called")
+    assert_true(("login", "nia@example.invalid", "super-secret") in smtp.events, "SMTP auth was not called")
+    assert_true("send_message" in smtp.events, "message was not sent")
+    assert_true(smtp.message["From"] == "nia-todo Test <todo@example.invalid>", "From header mismatch")
+    assert_true(smtp.message["Reply-To"] == "reply@example.invalid", "Reply-To header mismatch")
+    assert_true(smtp.message["To"] == "user@example.invalid", "To header mismatch")
+
+
+def test_tls_ssl_send_without_starttls():
+    reset_fakes()
+    configure_email(security="tls", auth=False)
+    send_email(to="user@example.invalid", subject="TLS", text="TLS body")
+    assert_true(len(FakeSMTPSSL.instances) == 1, "TLS should use SMTP_SSL")
+    assert_true(len(FakeSMTP.instances) == 0, "TLS should not use plain SMTP")
+    smtp = FakeSMTPSSL.instances[0]
+    assert_true(smtp.port == 465, "SMTP_SSL port mismatch")
+    assert_true("starttls" not in smtp.events, "SMTP_SSL must not call STARTTLS")
+    assert_true(not any(isinstance(event, tuple) and event[0] == "login" for event in smtp.events), "Auth disabled but login called")
+    assert_true("send_message" in smtp.events, "TLS message was not sent")
+
+
+def main():
+    try:
+        run_migrations()
+        test_secret_redaction()
+        test_starttls_auth_send()
+        test_tls_ssl_send_without_starttls()
+        print("✅ Email service tests passed")
+    finally:
+        try:
+            TEST_DB_PATH.unlink()
+        except FileNotFoundError:
+            pass
+
+
+if __name__ == "__main__":
+    main()

@@ -10,6 +10,7 @@ from services.instance_config import forwarded_client_ip, get_forwarded_client_i
 class RateLimiter:
     def __init__(self):
         self.login_attempts: Dict[str, list] = {}  # ip -> [timestamps]
+        self.password_reset_attempts: Dict[str, list] = {}  # ip/identifier -> [timestamps]
         self.api_requests: Dict[str, list] = {}    # ip -> [timestamps]
         self.ws_connections: Dict[str, int] = {}   # ip -> count
 
@@ -28,6 +29,19 @@ class RateLimiter:
             return False
 
         self.login_attempts[ip].append(now)
+        return True
+
+    def check_password_reset(self, key: str) -> bool:
+        now = time.time()
+        window = 60 * 60  # 1 hour
+        max_attempts = 5
+
+        if key not in self.password_reset_attempts:
+            self.password_reset_attempts[key] = []
+        self.password_reset_attempts[key] = [t for t in self.password_reset_attempts[key] if now - t < window]
+        if len(self.password_reset_attempts[key]) >= max_attempts:
+            return False
+        self.password_reset_attempts[key].append(now)
         return True
 
     def check_api(self, ip: str) -> Tuple[bool, int]:
@@ -94,6 +108,15 @@ def require_login_rate_limit(request: Request):
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Zu viele Login-Versuche. Bitte in 15 Minuten erneut versuchen."
+        )
+
+
+def require_password_reset_rate_limit(request: Request):
+    ip = get_client_ip(request)
+    if not rate_limiter.check_password_reset(f"ip:{ip}"):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Zu viele Anfragen. Bitte später erneut versuchen."
         )
 
 

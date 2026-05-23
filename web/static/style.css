@@ -1408,10 +1408,14 @@ body {
 .settings-readonly-value,
 .settings-inline-cell { font-size: 14px; color: var(--text-secondary); min-height: 30px; display: flex; align-items: center; }
 .settings-email-display,
-.settings-display-name-display { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; min-width: 0; }
+.settings-display-name-display { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; min-width: 0; flex-wrap: wrap; }
 .settings-email-value,
 .settings-display-name-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .settings-email-missing { color: var(--text-muted); }
+.settings-email-pending { color: var(--warning); font-size: 12px; }
+.settings-email-status { border-radius: 999px; font-size: 11px; font-weight: 650; padding: 2px 7px; }
+.settings-email-verified { background: color-mix(in srgb, var(--success) 16%, transparent); color: var(--success); }
+.settings-email-unverified { background: color-mix(in srgb, var(--warning) 16%, transparent); color: var(--warning); }
 .settings-email-edit,
 .settings-display-name-edit { display: grid; grid-template-columns: minmax(0, 1fr) 28px 28px; align-items: center; gap: 4px; width: 100%; max-width: 100%; }
 .settings-email-edit input,
@@ -1876,6 +1880,8 @@ input[type="color"]::-moz-color-swatch {
 
 /* ─── Login Overlay ────────────────────────────────────────────────────────── */
 
+.hidden { display: none !important; }
+
 .boot-overlay,
 .login-overlay {
   position: fixed;
@@ -2156,6 +2162,49 @@ input[type="color"]::-moz-color-swatch {
 
 .login-btn:active {
   transform: translateY(0);
+}
+
+.login-forgot-btn, .login-reset-submit {
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.login-forgot-btn:hover, .login-reset-submit:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.login-reset-panel {
+  margin: 0 0 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-primary);
+}
+
+.login-reset-panel input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.login-reset-message {
+  min-height: 18px;
+  margin-top: 8px;
+  color: var(--success);
+  font-size: 12px;
 }
 
 .login-theme-toggle {

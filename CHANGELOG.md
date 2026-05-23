@@ -25,6 +25,15 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 - Native Drag & Drop nutzt einen Pointer-/Touch-Fallback statt Browser-HTML5-DnD und unterstützt Android-Scrollen ohne versehentliches Verschieben oder klebende Hover-Markierung.
 - Native WebViews unterstützen Suche, Section-Enter und globale Tastaturpfade konsistent.
 - Native Regressionstests für Runtime-Konfiguration, Offline-Start, Windows-Installer-Cache und Android-WebView-Cache ergänzt.
+- **E-Mail/SMTP-Integration** für Einladungen, Passwort-Reset und E-Mail-Verifizierung ergänzt.
+- **Admin-UI für SMTP-Konfiguration** mit Host, Port, Security (none/starttls/tls), Auth, Absender und Test-Mail-Funktion.
+- **E-Mail-Vorlagen** für Setup-Link, Passwort-Reset, E-Mail-Verifizierung und Projekt-Sharing-Einladung.
+- **Verifizierte E-Mail-Semantik**: Login, Passwort-Reset und Projekt-Sharing funktionieren nur mit verifizierten E-Mails.
+- **E-Mail-Verifizierungs-Flow** mit Token-Hashing, Prefix-Lookup, TTL und sicherem Fallback bei SMTP-Ausfall.
+- **Neutrale API-Responses** bei E-Mail-basierten Aktionen (Passwort-Reset, Einladung) zur Vermeidung von User-Enumeration.
+- **Privacy-safe Member-Listen**: Pending Invites sind nur für den Invitee sichtbar, nicht für Owner oder andere Mitglieder.
+- **WebSocket-Broadcasts** bei Einladungen nur an Invitee (ohne `project_id` im Payload), um Pending-Invite-Existenz nicht zu leaken.
+- **Migrations 021–023** für SMTP-Konfiguration, case-insensitive E-Mail-Uniqueness und E-Mail-Trust-Source.
 
 ### Changed
 - Projekt-, Todo-, Dashboard- und Section-Ansichten werden nach aktivem Workspace gefiltert; Benachrichtigungen, Reminder, Push und WebSocket-Sync bleiben global.
@@ -45,6 +54,10 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 - Native Update-Manifest und Download-Dateien werden vom App-Cache ausgenommen und serverseitig mit `no-store` ausgeliefert.
 - Native Windows- und Android-Downloads öffnen extern ohne CORS-Preflight-Falle; Android akzeptiert dabei nur sichere HTTP(S)-URLs ohne Control-Zeichen.
 - Windows-Upgrades räumen gezielt WebView-Cache-Verzeichnisse auf; Android migriert stale WebView-Cache-Zustände sauber.
+- **E-Mail-Sharing liefert neutrale Responses** (keine Member-Details) zur Vermeidung von E-Mail-Enumeration.
+- **Member-Listen zeigen nur `accepted` Mitglieder** — Pending Invites sind privat bis zur Annahme.
+- **Passwort-Reset und Einladungen** senden nur an verifizierte E-Mails; neutrale Responses verhindern Enumeration.
+- **SMTP-Secrets werden in API-Responses redacted** (`smtp_password_configured` statt Klartext).
 
 ### Fixed
 - Projektanlage in Workspaces erzeugt keine 500er mehr bei Datenbankkonflikten oder Workspace-Zuordnung.
@@ -57,6 +70,9 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 - Theme-Buttons, Admin-Mobile-Layout und Passwort-Setup-Aktionen sind kontrastreicher und sauber ausgerichtet.
 - Icon-/Farbwerte für Projekte und Workspaces werden backendseitig validiert und frontendseitig sicher gerendert.
 - Akzentverläufe, Plus-Button und Dashboard-Avatar bleiben bei allen Presets und Intensitäten optisch konsistent.
+- **E-Mail-Enumeration im Share-Flow geschlossen** (neutrale Responses, keine Member-Details bei E-Mail-Identifiern).
+- **Pending-Invite-Leaks über WebSocket behoben** (Broadcasts nur an Invitee, ohne `project_id`).
+- **E-Mail-Invite Lookup auf verifizierte E-Mails beschränkt** (kein Username-Matching bei E-Mail-Identifiern).
 
 ## [1.7.3] - 2026-05-22
 

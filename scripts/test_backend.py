@@ -247,6 +247,15 @@ class TestSuite:
         
         return self.record("login", status)
     
+    def test_login_with_verified_email(self):
+        status, data = curl("POST", "/api/login", {
+            "username": "testuser@example.invalid",
+            "password": USER_PASSWORD
+        }, cookie_jar="/tmp/nia_user_email_cookies.txt")
+        passed = ok(status) and data and data.get("user", {}).get("username") == "testuser" and data.get("user", {}).get("email_verified_at")
+        self.results["login_with_verified_email"] = {"status": status, "passed": passed, "expected": "200 + login by verified email"}
+        return passed
+
     def test_logout(self):
         status, _ = curl("POST", "/api/logout", token=self.user_token, csrf=self.user_csrf, cookie_jar="/tmp/nia_user_cookies.txt")
         return self.record("logout", status)
@@ -258,6 +267,23 @@ class TestSuite:
     def test_invalid_own_email_rejected(self):
         status, _ = curl("PATCH", "/api/me/email", {"email": "broken-email"}, token=self.user_token, csrf=self.user_csrf, cookie_jar="/tmp/nia_user_cookies.txt")
         return self.record("invalid_own_email_rejected", status, expected=400)
+
+    def test_update_own_email_without_smtp_stays_unverified(self):
+        status, data = curl("PATCH", "/api/me/email", {"email": "testuser-updated@example.invalid"}, token=self.user_token, csrf=self.user_csrf, cookie_jar="/tmp/nia_user_cookies.txt")
+        login_status, _ = curl("POST", "/api/login", {
+            "username": "testuser-updated@example.invalid",
+            "password": USER_PASSWORD
+        }, cookie_jar="/tmp/nia_user_updated_email_cookies.txt")
+        passed = (
+            ok(status)
+            and data
+            and data.get("email") == "testuser-updated@example.invalid"
+            and data.get("email_verification_required") is False
+            and data.get("email_verification_delivery") == "unverified_no_smtp"
+            and login_status == 401
+        )
+        self.results["update_own_email_without_smtp_stays_unverified"] = {"status": status, "passed": passed, "expected": "own email update without SMTP remains unverified and cannot login by email"}
+        return passed
     
     def test_change_password(self):
         status, _ = curl("POST", "/api/me/change-password", {
@@ -320,6 +346,82 @@ class TestSuite:
         status, data = curl("GET", "/api/admin/instance-config", token=self.admin_token, cookie_jar="/tmp/nia_admin_cookies.txt")
         passed = ok(status) and data is not None and "public_base_url" in data and "allowed_origins" in data and "trusted_proxies" in data and "instance_id" not in data
         self.results["instance_config_get"] = {"status": status, "passed": passed, "expected": "200 + admin config fields without public identity"}
+        return passed
+
+    def test_password_reset_features_disabled_without_email(self):
+        status, data = curl("GET", "/api/password-setup/features")
+        passed = ok(status) and data and data.get("email_configured") is False and data.get("password_reset_available") is False
+        self.results["password_reset_features_disabled_without_email"] = {"status": status, "passed": passed, "expected": "email reset disabled without SMTP"}
+        return passed
+
+    def test_password_reset_request_without_email_config_is_neutral(self):
+        status, data = curl("POST", "/api/password-setup/request", {"identifier": "testuser"}, cookie_jar="/tmp/nia_reset_cookies.txt")
+        passed = ok(status) and data and "Falls ein passendes Konto existiert" in data.get("message", "")
+        self.results["password_reset_request_without_email_config_is_neutral"] = {"status": status, "passed": passed, "expected": "200 neutral response without SMTP"}
+        return passed
+
+    def test_email_links_disabled_without_public_base_url(self):
+        status, data = curl("PATCH", "/api/admin/email-config", {
+            "smtp_enabled": True,
+            "smtp_host": "smtp.example.invalid",
+            "smtp_port": 587,
+            "smtp_security": "starttls",
+            "smtp_auth_enabled": False,
+            "smtp_username": "",
+            "mail_from_address": "todo@example.invalid",
+            "mail_from_name": "nia-todo",
+            "mail_reply_to": "",
+            "password_link_ttl_hours": 24,
+        }, token=self.admin_token, csrf=self.admin_csrf, cookie_jar="/tmp/nia_admin_cookies.txt")
+        feature_status, features = curl("GET", "/api/password-setup/features")
+        passed = (
+            ok(status)
+            and data
+            and data.get("smtp_enabled") is True
+            and ok(feature_status)
+            and features
+            and features.get("email_configured") is False
+            and features.get("password_reset_available") is False
+        )
+        self.results["email_links_disabled_without_public_base_url"] = {"status": status if not passed else 200, "passed": passed, "expected": "SMTP enabled without public_base_url does not enable link mail flows"}
+        return passed
+
+
+    def test_password_reset_requires_verified_email(self):
+        with sqlite3.connect(DB_PATH) as db:
+            for key, value in {
+                "public_base_url": "https://todo.example.invalid",
+                "smtp_enabled": "true",
+                "smtp_host": "127.0.0.1",
+                "smtp_port": "9",
+                "smtp_security": "none",
+                "smtp_auth_enabled": "false",
+                "smtp_username": "",
+                "smtp_password_secret": "",
+                "mail_from_address": "todo@example.invalid",
+                "mail_from_name": "nia-todo",
+                "mail_reply_to": "",
+                "password_link_ttl_hours": "24",
+            }.items():
+                db.execute(
+                    """INSERT INTO app_config (key, value, updated_at)
+                       VALUES (?, ?, datetime('now'))
+                       ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')""",
+                    (key, value),
+                )
+            db.commit()
+        status, data = curl("POST", "/api/password-setup/request", {"identifier": "testuser"}, cookie_jar="/tmp/nia_reset_verified_cookies.txt")
+        with sqlite3.connect(DB_PATH) as db:
+            row = db.execute(
+                """SELECT COUNT(*) FROM password_setup_tokens pst
+                   JOIN users u ON u.id = pst.user_id
+                   WHERE u.username = 'testuser' AND pst.purpose = 'reset'"""
+            ).fetchone()
+            for key in ("public_base_url", "smtp_enabled", "smtp_host", "smtp_port", "smtp_security", "smtp_auth_enabled", "smtp_username", "smtp_password_secret", "mail_from_address", "mail_from_name", "mail_reply_to", "password_link_ttl_hours"):
+                db.execute("DELETE FROM app_config WHERE key = ?", (key,))
+            db.commit()
+        passed = ok(status) and data and "Falls ein passendes Konto existiert" in data.get("message", "") and row and row[0] == 0
+        self.results["password_reset_requires_verified_email"] = {"status": status if not passed else 200, "passed": passed, "expected": "username reset does not create/send token for unverified email"}
         return passed
 
     def test_strict_cors_unknown_origin_rejected(self):
@@ -544,6 +646,13 @@ class TestSuite:
                 self.shared_inbox_project_id = inbox.get("id") if inbox else None
         return self.record("shared_user_login", status)
 
+
+    def test_update_own_email_duplicate_is_neutralized(self):
+        status, data = curl("PATCH", "/api/me/email", {"email": "shareduser@example.invalid"}, token=self.user_token, csrf=self.user_csrf, cookie_jar="/tmp/nia_user_cookies.txt")
+        passed = ok(status) and data and data.get("email_verification_delivery") == "unavailable"
+        self.results["update_own_email_duplicate_is_neutralized"] = {"status": status, "passed": passed, "expected": "duplicate own email update does not return 409 enumeration signal"}
+        return passed
+
     def test_secondary_user_inbox_defaults(self):
         if not self.shared_token or not self.shared_inbox_project_id:
             self.results["secondary_user_inbox_defaults"] = {"status": -1, "passed": True, "expected": "skipped"}
@@ -570,6 +679,68 @@ class TestSuite:
         status, _ = curl("DELETE", f"/api/projects/{self.shared_inbox_project_id}", token=self.shared_token, csrf=self.shared_csrf, cookie_jar="/tmp/nia_shared_cookies.txt")
         return self.record("secondary_user_inbox_cannot_delete", status, expected=400)
     
+    def test_expired_password_setup_public_resend_blocked_without_smtp(self):
+        status, data = curl("POST", "/api/admin/users", {
+            "username": "expiredlinkuser",
+            "display_name": "Expired Link User",
+            "email": "expiredlinkuser@example.invalid"
+        }, token=self.admin_token, csrf=self.admin_csrf, cookie_jar="/tmp/nia_admin_cookies.txt")
+        if not ok(status) or not data or not data.get("password_setup_url"):
+            self.results["expired_password_setup_public_resend_blocked_without_smtp"] = {"status": status, "passed": False, "expected": "created user with setup URL"}
+            return False
+        user_id = data.get("id")
+        self.created_ids["user"].append(user_id)
+        old_token = parse_qs(urlparse(data.get("password_setup_url", "")).query).get("token", [None])[0]
+        with sqlite3.connect(DB_PATH) as db:
+            db.execute("UPDATE password_setup_tokens SET expires_at = datetime('now', '-1 hour') WHERE user_id = ? AND purpose = 'invite'", (user_id,))
+            db.commit()
+        validate_status, validate_data = curl("GET", f"/api/password-setup/validate?token={old_token}")
+        resend_status, _ = curl("POST", "/api/password-setup/resend", {"token": old_token}, cookie_jar="/tmp/nia_resend_cookies.txt")
+        passed = (
+            ok(validate_status)
+            and validate_data.get("expired") is True
+            and validate_data.get("can_resend") is False
+            and resend_status == 400
+        )
+        self.results["expired_password_setup_public_resend_blocked_without_smtp"] = {"status": resend_status, "passed": passed, "expected": "public expired-token resend blocked without SMTP"}
+        return passed
+
+    def test_admin_password_link_unverified_email_uses_manual_delivery(self):
+        user_id = self.created_ids["user"][-1] if self.created_ids["user"] else None
+        if not user_id:
+            self.results["admin_password_link_unverified_email_uses_manual_delivery"] = {"status": -1, "passed": True, "expected": "skipped"}
+            return True
+        with sqlite3.connect(DB_PATH) as db:
+            for key, value in {
+                "public_base_url": "https://todo.example.invalid",
+                "smtp_enabled": "true",
+                "smtp_host": "127.0.0.1",
+                "smtp_port": "9",
+                "smtp_security": "none",
+                "smtp_auth_enabled": "false",
+                "smtp_username": "",
+                "smtp_password_secret": "",
+                "mail_from_address": "todo@example.invalid",
+                "mail_from_name": "nia-todo",
+                "mail_reply_to": "",
+                "password_link_ttl_hours": "24",
+            }.items():
+                db.execute(
+                    """INSERT INTO app_config (key, value, updated_at)
+                       VALUES (?, ?, datetime('now'))
+                       ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')""",
+                    (key, value),
+                )
+            db.commit()
+        link_status, link_data = curl("POST", f"/api/admin/users/{user_id}/password-link", {}, token=self.admin_token, csrf=self.admin_csrf, cookie_jar="/tmp/nia_admin_cookies.txt", headers={"X-Forwarded-For": "198.51.100.21"})
+        with sqlite3.connect(DB_PATH) as db:
+            for key in ("public_base_url", "smtp_enabled", "smtp_host", "smtp_port", "smtp_security", "smtp_auth_enabled", "smtp_username", "smtp_password_secret", "mail_from_address", "mail_from_name", "mail_reply_to", "password_link_ttl_hours"):
+                db.execute("DELETE FROM app_config WHERE key = ?", (key,))
+            db.commit()
+        passed = ok(link_status) and link_data and link_data.get("password_setup_delivery") == "manual" and bool(link_data.get("password_setup_url"))
+        self.results["admin_password_link_unverified_email_uses_manual_delivery"] = {"status": link_status, "passed": passed, "expected": "admin reset link for unverified email returns manual delivery even when SMTP is enabled"}
+        return passed
+
     def test_admin_change_user_password(self):
         user_id = self.created_ids["user"][-1] if self.created_ids["user"] else None
         if not user_id:
@@ -838,11 +1009,12 @@ class TestSuite:
         if not proj_id:
             self.results["share_project"] = {"status": -1, "passed": True, "expected": "skipped"}
             return True
-        status, data = curl("POST", f"/api/projects/{proj_id}/share", {"username": "shareduser"}, token=self.user_token, csrf=self.user_csrf, cookie_jar="/tmp/nia_user_cookies.txt")
-        if ok(status) and data and data.get("member"):
-            self.created_ids["invite"].append(data["member"].get("id"))
-            self.shared_user_id = data["member"].get("user_id")
-        return self.record("share_project", status)
+        # Share by email identifier -> neutral response (no member details to avoid enumeration)
+        status, data = curl("POST", f"/api/projects/{proj_id}/share", {"username": "shareduser@example.invalid"}, token=self.user_token, csrf=self.user_csrf, cookie_jar="/tmp/nia_user_cookies.txt")
+        # Neutral response for email: no member object, but status 200
+        passed = ok(status) and data and data.get("notification_delivery") in ("in_app", "email", "unknown") and not data.get("member")
+        self.results["share_project"] = {"status": status, "passed": passed, "expected": "200 + neutral email share response"}
+        return passed
 
     def test_shared_invite_list(self):
         status, data = curl("GET", "/api/projects/invites", token=self.shared_token, cookie_jar="/tmp/nia_shared_cookies.txt")
@@ -850,6 +1022,14 @@ class TestSuite:
         if passed and not data.get("invites"):
             self.results["shared_invite_list"] = {"status": status, "passed": False, "expected": "non_empty"}
             return False
+        # Store invite_id and shared_user_id for later tests
+        if data.get("invites"):
+            proj_id = self.created_ids["project"][-1] if self.created_ids["project"] else None
+            for invite in data["invites"]:
+                if invite.get("project_id") == proj_id:
+                    self.created_ids["invite"].append(invite["id"])
+                    self.shared_user_id = invite.get("user_id")
+                    break
         return passed
 
     def test_accept_invite(self):
@@ -1119,18 +1299,24 @@ class TestSuite:
             
             # User Auth
             self.test_login,
+            self.test_login_with_verified_email,
             self.test_me,
             self.test_invalid_own_email_rejected,
+            self.test_update_own_email_without_smtp_stays_unverified,
 
             # Admin session needed to create sharing test user
             self.test_admin_login,
             self.test_instance_config_get,
+            self.test_password_reset_features_disabled_without_email,
+            self.test_password_reset_request_without_email_config_is_neutral,
             self.test_strict_cors_unknown_origin_rejected,
             self.test_native_tauri_origin_allowed,
             self.test_native_tauri_origin_with_port_allowed,
             self.test_untrusted_proxy_ignores_forwarded_host,
             self.test_instance_config_update,
             self.test_instance_config_audit_written,
+            self.test_email_links_disabled_without_public_base_url,
+            self.test_password_reset_requires_verified_email,
             self.test_strict_cors_allowed_origin_preflight,
             self.test_strict_cors_scheme_mismatch_rejected,
             self.test_strict_cors_disallowed_request_header_rejected,
@@ -1142,6 +1328,7 @@ class TestSuite:
             self.test_set_trusted_proxies_script,
             self.test_admin_create_shared_user,
             self.test_shared_user_login,
+            self.test_update_own_email_duplicate_is_neutralized,
             self.test_secondary_user_inbox_defaults,
             
             # API Keys
@@ -1215,6 +1402,8 @@ class TestSuite:
             self.test_admin_list_users,
             self.test_invalid_admin_email_rejected,
             self.test_admin_create_user,
+            self.test_expired_password_setup_public_resend_blocked_without_smtp,
+            self.test_admin_password_link_unverified_email_uses_manual_delivery,
             self.test_admin_change_user_password,
             self.test_admin_delete_user,
             self.test_admin_logout,  # Logout VOR password change!

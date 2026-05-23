@@ -384,6 +384,7 @@ const ensureCurrentWorkspace = workspacesFeature.ensureCurrentWorkspace;
 
 // Make renderInvites globally available for project-sharing.js
 window.renderInvites = renderInvites;
+window.loadInvites = () => sharingFeature.loadInvites();
 
 // ─── Actions ─────────────────────────────────────────────────────────────────
 

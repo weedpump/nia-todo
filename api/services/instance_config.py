@@ -352,8 +352,10 @@ def is_same_request_origin(request: Request, origin: str) -> bool:
     return normalized_origin == request_origin
 
 
-def get_public_base_url(request: Request) -> str:
+def get_public_base_url(request: Request, *, require_configured: bool = False) -> str:
     configured = get_instance_config()["public_base_url"]
     if configured:
         return configured
+    if require_configured:
+        raise HTTPException(400, "Öffentliche Basis-URL muss konfiguriert sein, bevor E-Mail-Links versendet werden")
     return _request_origin(request)

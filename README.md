@@ -26,6 +26,7 @@ systemctl restart nia-todo-dev
 - 📝 Todos mit Beschreibung, Priorität, Deadline und Erinnerungen
 - 📁 Projekte/Kategorien inkl. Subprojekten und geschützter pro-User Inbox
 - 🤝 Projekt-Sharing zwischen Benutzern mit Einladungen und Undo
+- 📧 E-Mail/SMTP-Integration für Einladungen, Passwort-Reset und E-Mail-Verifizierung
 - 🔲 Sections pro Projekt
 - 📱 Offline-PWA plus native Windows-/Android-Wrapper
 - 🔐 Auth, Admin-Panel, API-Keys, CSRF-Schutz und User-Datenisolation
