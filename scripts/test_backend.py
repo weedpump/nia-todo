@@ -268,9 +268,9 @@ class TestSuite:
         status, _ = curl("PATCH", "/api/me/email", {"email": "broken-email"}, token=self.user_token, csrf=self.user_csrf, cookie_jar="/tmp/nia_user_cookies.txt")
         return self.record("invalid_own_email_rejected", status, expected=400)
 
-    def test_update_own_email_without_smtp_verifies_directly(self):
+    def test_update_own_email_without_smtp_stays_unverified(self):
         status, data = curl("PATCH", "/api/me/email", {"email": "testuser-updated@example.invalid"}, token=self.user_token, csrf=self.user_csrf, cookie_jar="/tmp/nia_user_cookies.txt")
-        login_status, login_data = curl("POST", "/api/login", {
+        login_status, _ = curl("POST", "/api/login", {
             "username": "testuser-updated@example.invalid",
             "password": USER_PASSWORD
         }, cookie_jar="/tmp/nia_user_updated_email_cookies.txt")
@@ -279,10 +279,10 @@ class TestSuite:
             and data
             and data.get("email") == "testuser-updated@example.invalid"
             and data.get("email_verification_required") is False
-            and ok(login_status)
-            and login_data.get("user", {}).get("email_verified_at")
+            and data.get("email_verification_delivery") == "unverified_no_smtp"
+            and login_status == 401
         )
-        self.results["update_own_email_without_smtp_verifies_directly"] = {"status": status if not ok(login_status) else login_status, "passed": passed, "expected": "direct verified email update without SMTP"}
+        self.results["update_own_email_without_smtp_stays_unverified"] = {"status": status, "passed": passed, "expected": "own email update without SMTP remains unverified and cannot login by email"}
         return passed
     
     def test_change_password(self):
@@ -608,14 +608,14 @@ class TestSuite:
         status, _ = curl("DELETE", f"/api/projects/{self.shared_inbox_project_id}", token=self.shared_token, csrf=self.shared_csrf, cookie_jar="/tmp/nia_shared_cookies.txt")
         return self.record("secondary_user_inbox_cannot_delete", status, expected=400)
     
-    def test_expired_password_setup_resend_manual_fallback(self):
+    def test_expired_password_setup_public_resend_blocked_without_smtp(self):
         status, data = curl("POST", "/api/admin/users", {
             "username": "expiredlinkuser",
             "display_name": "Expired Link User",
             "email": "expiredlinkuser@example.invalid"
         }, token=self.admin_token, csrf=self.admin_csrf, cookie_jar="/tmp/nia_admin_cookies.txt")
         if not ok(status) or not data or not data.get("password_setup_url"):
-            self.results["expired_password_setup_resend_manual_fallback"] = {"status": status, "passed": False, "expected": "created user with setup URL"}
+            self.results["expired_password_setup_public_resend_blocked_without_smtp"] = {"status": status, "passed": False, "expected": "created user with setup URL"}
             return False
         user_id = data.get("id")
         self.created_ids["user"].append(user_id)
@@ -624,19 +624,14 @@ class TestSuite:
             db.execute("UPDATE password_setup_tokens SET expires_at = datetime('now', '-1 hour') WHERE user_id = ? AND purpose = 'invite'", (user_id,))
             db.commit()
         validate_status, validate_data = curl("GET", f"/api/password-setup/validate?token={old_token}")
-        resend_status, resend_data = curl("POST", "/api/password-setup/resend", {"token": old_token}, cookie_jar="/tmp/nia_resend_cookies.txt")
-        new_token = parse_qs(urlparse(resend_data.get("password_setup_url", "")).query).get("token", [None])[0] if resend_data else None
-        new_validate_status, new_validate_data = curl("GET", f"/api/password-setup/validate?token={new_token}") if new_token else (-1, None)
+        resend_status, _ = curl("POST", "/api/password-setup/resend", {"token": old_token}, cookie_jar="/tmp/nia_resend_cookies.txt")
         passed = (
             ok(validate_status)
             and validate_data.get("expired") is True
-            and ok(resend_status)
-            and resend_data.get("password_setup_delivery") == "manual"
-            and new_token
-            and ok(new_validate_status)
-            and new_validate_data.get("valid") is True
+            and validate_data.get("can_resend") is False
+            and resend_status == 400
         )
-        self.results["expired_password_setup_resend_manual_fallback"] = {"status": resend_status, "passed": passed, "expected": "expired token can request replacement manual link without SMTP"}
+        self.results["expired_password_setup_public_resend_blocked_without_smtp"] = {"status": resend_status, "passed": passed, "expected": "public expired-token resend blocked without SMTP"}
         return passed
 
     def test_admin_change_user_password(self):
@@ -1193,7 +1188,7 @@ class TestSuite:
             self.test_login_with_verified_email,
             self.test_me,
             self.test_invalid_own_email_rejected,
-            self.test_update_own_email_without_smtp_verifies_directly,
+            self.test_update_own_email_without_smtp_stays_unverified,
 
             # Admin session needed to create sharing test user
             self.test_admin_login,
@@ -1290,7 +1285,7 @@ class TestSuite:
             self.test_admin_list_users,
             self.test_invalid_admin_email_rejected,
             self.test_admin_create_user,
-            self.test_expired_password_setup_resend_manual_fallback,
+            self.test_expired_password_setup_public_resend_blocked_without_smtp,
             self.test_admin_change_user_password,
             self.test_admin_delete_user,
             self.test_admin_logout,  # Logout VOR password change!

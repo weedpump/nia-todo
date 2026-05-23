@@ -57,14 +57,9 @@ async function run() {
     expireSetupTokenForUser('expiredfrontend');
     await page.goto(createdUser.password_setup_url, { waitUntil: 'domcontentloaded' });
     await page.getByText('dieser Link ist abgelaufen').waitFor({ state: 'visible', timeout: 10000 });
-    await page.getByRole('button', { name: 'Neuen Link anfordern' }).click();
-    await page.getByText('Neuer Link wurde erstellt.').waitFor({ state: 'visible', timeout: 10000 });
-    const replacementLink = await page.locator('#resend-link-input').inputValue();
-    if (!replacementLink.includes('/set-password?token=')) throw new Error('Replacement setup link missing');
-
-    await page.goto(replacementLink, { waitUntil: 'domcontentloaded' });
-    await page.getByText('bitte lege dein Passwort fest').waitFor({ state: 'visible', timeout: 10000 });
-    await page.locator('#password-form').waitFor({ state: 'visible', timeout: 10000 });
+    await page.getByText('Bitte kontaktiere einen Admin für einen neuen Link.').waitFor({ state: 'visible', timeout: 10000 });
+    const resendVisible = await page.locator('#resend-box').isVisible().catch(() => false);
+    if (resendVisible) throw new Error('Public expired-link resend must stay hidden without SMTP');
 
     assertNoFrontendErrors();
     console.log('✅ Password reset hidden without SMTP + expired setup resend UI passed');

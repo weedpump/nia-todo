@@ -222,12 +222,13 @@ export function createAuthSessionFeature({
   async function maybeVerifyEmailFromUrl() {
     const params = new URLSearchParams(location.search);
     const token = params.get('verifyEmail');
-    if (!token || !getAuthToken()) return;
+    if (!token) return;
+    params.delete('verifyEmail');
+    const next = `${location.pathname}${params.toString() ? `?${params}` : ''}${location.hash}`;
+    history.replaceState(null, '', next);
+    if (!getAuthToken()) return;
     try {
       await authApi.verifyEmail(token);
-      params.delete('verifyEmail');
-      const next = `${location.pathname}${params.toString() ? `?${params}` : ''}${location.hash}`;
-      history.replaceState(null, '', next);
     } catch (e) {
       console.warn('Email verification failed:', e);
     }

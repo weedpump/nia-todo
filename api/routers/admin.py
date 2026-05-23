@@ -9,7 +9,7 @@ import secrets
 
 from db import get_db, now_iso
 from services.auth import create_admin_jwt_token, verify_admin_token
-from services.utils import sanitize_text, validate_email, validate_password, validate_admin_password
+from services.utils import normalize_email, sanitize_text, validate_email, validate_password, validate_admin_password
 from services.audit import log_audit
 from services.instance_config import get_instance_config, get_public_base_url, update_instance_config
 from services.email_config import get_email_config, get_password_link_ttl_hours, is_email_configured, update_email_config
@@ -87,7 +87,7 @@ def _hash_setup_token(token: str) -> str:
 
 
 def _make_password_setup_link(request: Request, token: str) -> str:
-    base_url = get_public_base_url(request)
+    base_url = get_public_base_url(request, require_configured=is_email_configured())
     return f"{base_url}/set-password?token={token}"
 
 
@@ -199,7 +199,7 @@ def admin_send_test_email(data: TestEmailRequest, request: Request, _: bool = De
 def create_user(data: CreateUserRequest, request: Request, _: bool = Depends(require_admin)):
     data.username = sanitize_text(data.username)
     data.display_name = sanitize_text(data.display_name)
-    data.email = sanitize_text(data.email)
+    data.email = normalize_email(sanitize_text(data.email))
     email_error = validate_email(data.email)
     if email_error:
         raise HTTPException(400, email_error)
@@ -208,7 +208,7 @@ def create_user(data: CreateUserRequest, request: Request, _: bool = Depends(req
         if existing:
             raise HTTPException(409, "Username already exists")
         if data.email:
-            existing_email = db.execute("SELECT id FROM users WHERE email = ?", (data.email,)).fetchone()
+            existing_email = db.execute("SELECT id FROM users WHERE lower(email) = lower(?) OR lower(pending_email) = lower(?)", (data.email, data.email)).fetchone()
             if existing_email:
                 raise HTTPException(409, "Email already exists")
         unusable_password_hash = bcrypt.hashpw(secrets.token_urlsafe(32).encode(), bcrypt.gensalt()).decode()
@@ -239,6 +239,7 @@ def create_user(data: CreateUserRequest, request: Request, _: bool = Depends(req
         token = create_password_setup_token(db, user_id, "invite")
         link = _make_password_setup_link(request, token)
         emailed = False
+        db.commit()
         if is_email_configured():
             _send_password_setup_email(
                 to=data.email,
@@ -248,10 +249,10 @@ def create_user(data: CreateUserRequest, request: Request, _: bool = Depends(req
                 purpose="invite",
             )
             emailed = True
-        db.commit()
         log_audit(db, "user_created", user_id=user_id, details=f"username={data.username}")
         if emailed:
             log_audit(db, "password_setup_email_sent", user_id=user_id, details="purpose=invite")
+        db.commit()
         response = {
             "id": user_id,
             "username": data.username,
@@ -274,7 +275,7 @@ def list_users(_: bool = Depends(require_admin)):
 
 @router.patch("/users/{user_id}")
 def update_user(user_id: int, data: UpdateUserRequest, request: Request, _: bool = Depends(require_admin)):
-    email = sanitize_text(data.email)
+    email = normalize_email(sanitize_text(data.email))
     display_name = sanitize_text(data.display_name) if data.display_name is not None else None
     email_error = validate_email(email)
     if email_error:
@@ -283,7 +284,7 @@ def update_user(user_id: int, data: UpdateUserRequest, request: Request, _: bool
         user = db.execute("SELECT id, email FROM users WHERE id = ?", (user_id,)).fetchone()
         if not user:
             raise HTTPException(404, "User not found")
-        existing_email = db.execute("SELECT id FROM users WHERE (email = ? OR pending_email = ?) AND id != ?", (email, email, user_id)).fetchone()
+        existing_email = db.execute("SELECT id FROM users WHERE (lower(email) = lower(?) OR lower(pending_email) = lower(?)) AND id != ?", (email, email, user_id)).fetchone()
         if existing_email:
             raise HTTPException(409, "Email already exists")
         if display_name is not None:
@@ -348,6 +349,7 @@ def admin_create_user_password_link(user_id: int, request: Request, _: bool = De
         token = create_password_setup_token(db, user_id, "reset")
         link = _make_password_setup_link(request, token)
         emailed = False
+        db.commit()
         if is_email_configured() and user['email']:
             _send_password_setup_email(
                 to=user['email'],
@@ -357,10 +359,10 @@ def admin_create_user_password_link(user_id: int, request: Request, _: bool = De
                 purpose="reset",
             )
             emailed = True
-        db.commit()
         log_audit(db, "password_setup_link_created", user_id=user_id, details=f"username={user['username']}")
         if emailed:
             log_audit(db, "password_setup_email_sent", user_id=user_id, details="purpose=reset")
+        db.commit()
     response = {
         "message": "Passwort-Mail gesendet." if emailed else "Passwort-Link erstellt.",
         "password_setup_expires_hours": _password_link_ttl_hours(),
