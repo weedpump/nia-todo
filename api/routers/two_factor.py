@@ -211,7 +211,7 @@ def verify_login_challenge(data: VerifyChallengeRequest, request: Request, respo
             "SELECT id, username, display_name, email, email_verified_at, email_trust_source, avatar_url, is_admin, token_version FROM users WHERE id = ?",
             (challenge["user_id"],),
         ).fetchone()
-        token = create_jwt_token(dict(user), db, mfa_verified=True)
+        token = create_jwt_token(dict(user), db, mfa_login_verified=True)
         csrf_token = generate_csrf_token()
         set_csrf_cookie(response, csrf_token)
         trusted_device_token = None
@@ -484,7 +484,7 @@ def passkey_login_verify(data: PasskeyLoginVerifyRequest, request: Request, resp
         mark_challenge_consumed(db, challenge["id"])
         db.execute("UPDATE passkeys SET last_used_at = datetime('now'), sign_count = MAX(sign_count, ?) WHERE id = ?", (parsed["sign_count"], key["id"]))
         user = db.execute("SELECT id, username, display_name, email, email_verified_at, email_trust_source, avatar_url, is_admin, token_version FROM users WHERE id = ?", (challenge["user_id"],)).fetchone()
-        token = create_jwt_token(dict(user), db, mfa_verified=True)
+        token = create_jwt_token(dict(user), db, mfa_login_verified=True)
         csrf_token = generate_csrf_token()
         set_csrf_cookie(response, csrf_token)
         trusted_device_token = create_trusted_device(db, user["id"], request.headers.get("user-agent", "")) if data.remember_device else None

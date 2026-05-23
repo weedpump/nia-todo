@@ -30,7 +30,7 @@ function totp(secret) {
 
 async function run() {
   execFileSync('python3', ['-c', `import sqlite3\ndb=sqlite3.connect(${JSON.stringify(DB_PATH)})\ndb.execute("UPDATE users SET two_factor_enabled=1, two_factor_totp_secret=? WHERE username=?", (${JSON.stringify(SECRET)}, ${JSON.stringify(USERNAME)}))\ndb.commit()\ndb.close()`]);
-  const { browser, page, visible, assertNoFrontendErrors } = await launchPage();
+  const { browser, page, visible, dumpErrors } = await launchPage();
   let dialogs = 0;
   page.on('dialog', dialog => { dialogs += 1; dialog.dismiss().catch(() => {}); });
   try {
@@ -60,7 +60,21 @@ async function run() {
       const text = document.body.innerText;
       return !text.includes('2FA-Status fehlgeschlagen') && !text.includes('API-Key-Liste fehlgeschlagen');
     }, null, { timeout: 10000 });
-    assertNoFrontendErrors();
+
+    await page.evaluate((reauthCode) => {
+      const answers = ['MFA Login Test Key', reauthCode];
+      window.prompt = () => answers.shift() || '';
+    }, totp(SECRET));
+    await page.click('text=Neuen API-Key erstellen');
+    await page.locator('#api-key-created').waitFor({ state: 'visible', timeout: 10000 });
+    await page.waitForFunction(() => document.getElementById('api-key-value')?.textContent?.trim().length > 0, null, { timeout: 10000 });
+    await page.waitForFunction(() => document.getElementById('api-keys-list')?.innerText?.includes('MFA Login Test Key'), null, { timeout: 10000 });
+
+    const errors = dumpErrors();
+    const consoleErrors = errors.consoleErrors.filter(msg => !msg.includes('the server responded with a status of 403'));
+    if (errors.pageErrors.length || consoleErrors.length) {
+      throw new Error(`Frontend emitted errors: ${JSON.stringify({ pageErrors: errors.pageErrors, consoleErrors })}`);
+    }
     console.log('✅ MFA login/settings smoke passed');
   } finally {
     await browser.close();
