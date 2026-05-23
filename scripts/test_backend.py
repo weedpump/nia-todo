@@ -608,6 +608,37 @@ class TestSuite:
         status, _ = curl("DELETE", f"/api/projects/{self.shared_inbox_project_id}", token=self.shared_token, csrf=self.shared_csrf, cookie_jar="/tmp/nia_shared_cookies.txt")
         return self.record("secondary_user_inbox_cannot_delete", status, expected=400)
     
+    def test_expired_password_setup_resend_manual_fallback(self):
+        status, data = curl("POST", "/api/admin/users", {
+            "username": "expiredlinkuser",
+            "display_name": "Expired Link User",
+            "email": "expiredlinkuser@example.invalid"
+        }, token=self.admin_token, csrf=self.admin_csrf, cookie_jar="/tmp/nia_admin_cookies.txt")
+        if not ok(status) or not data or not data.get("password_setup_url"):
+            self.results["expired_password_setup_resend_manual_fallback"] = {"status": status, "passed": False, "expected": "created user with setup URL"}
+            return False
+        user_id = data.get("id")
+        self.created_ids["user"].append(user_id)
+        old_token = parse_qs(urlparse(data.get("password_setup_url", "")).query).get("token", [None])[0]
+        with sqlite3.connect(DB_PATH) as db:
+            db.execute("UPDATE password_setup_tokens SET expires_at = datetime('now', '-1 hour') WHERE user_id = ? AND purpose = 'invite'", (user_id,))
+            db.commit()
+        validate_status, validate_data = curl("GET", f"/api/password-setup/validate?token={old_token}")
+        resend_status, resend_data = curl("POST", "/api/password-setup/resend", {"token": old_token}, cookie_jar="/tmp/nia_resend_cookies.txt")
+        new_token = parse_qs(urlparse(resend_data.get("password_setup_url", "")).query).get("token", [None])[0] if resend_data else None
+        new_validate_status, new_validate_data = curl("GET", f"/api/password-setup/validate?token={new_token}") if new_token else (-1, None)
+        passed = (
+            ok(validate_status)
+            and validate_data.get("expired") is True
+            and ok(resend_status)
+            and resend_data.get("password_setup_delivery") == "manual"
+            and new_token
+            and ok(new_validate_status)
+            and new_validate_data.get("valid") is True
+        )
+        self.results["expired_password_setup_resend_manual_fallback"] = {"status": resend_status, "passed": passed, "expected": "expired token can request replacement manual link without SMTP"}
+        return passed
+
     def test_admin_change_user_password(self):
         user_id = self.created_ids["user"][-1] if self.created_ids["user"] else None
         if not user_id:
@@ -1259,6 +1290,7 @@ class TestSuite:
             self.test_admin_list_users,
             self.test_invalid_admin_email_rejected,
             self.test_admin_create_user,
+            self.test_expired_password_setup_resend_manual_fallback,
             self.test_admin_change_user_password,
             self.test_admin_delete_user,
             self.test_admin_logout,  # Logout VOR password change!

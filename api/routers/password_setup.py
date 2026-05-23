@@ -24,6 +24,9 @@ class CompletePasswordSetupRequest(BaseModel):
 class RequestPasswordResetRequest(BaseModel):
     identifier: str
 
+class ResendPasswordSetupRequest(BaseModel):
+    token: str
+
 
 def _hash_setup_token(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
@@ -57,7 +60,7 @@ def _get_valid_token(db, token: str):
     if not token or len(token) < 24:
         return None
     return db.execute(
-        """SELECT pst.*, u.username, u.display_name
+        """SELECT pst.*, u.username, u.display_name, u.email
            FROM password_setup_tokens pst
            JOIN users u ON u.id = pst.user_id
            WHERE pst.token_prefix = ?
@@ -65,6 +68,24 @@ def _get_valid_token(db, token: str):
              AND pst.used_at IS NULL
              AND pst.status = 'active'
              AND datetime(pst.expires_at) > datetime('now')
+           ORDER BY pst.id DESC
+           LIMIT 1""",
+        (token[:12], _hash_setup_token(token))
+    ).fetchone()
+
+
+def _get_expired_resend_context(db, token: str):
+    if not token or len(token) < 24:
+        return None
+    return db.execute(
+        """SELECT pst.*, u.username, u.display_name, u.email
+           FROM password_setup_tokens pst
+           JOIN users u ON u.id = pst.user_id
+           WHERE pst.token_prefix = ?
+             AND pst.token_hash = ?
+             AND pst.used_at IS NULL
+             AND pst.status = 'active'
+             AND datetime(pst.expires_at) <= datetime('now')
            ORDER BY pst.id DESC
            LIMIT 1""",
         (token[:12], _hash_setup_token(token))
@@ -121,15 +142,55 @@ def request_password_reset(data: RequestPasswordResetRequest, request: Request, 
 def validate_password_setup_token(token: str):
     with get_db() as db:
         row = _get_valid_token(db, token)
+        if row:
+            return {
+                "valid": True,
+                "username": row['username'],
+                "display_name": row['display_name'],
+                "purpose": row['purpose'],
+                "expires_at": row['expires_at'],
+            }
+        expired = _get_expired_resend_context(db, token)
+        if expired:
+            return {
+                "valid": False,
+                "expired": True,
+                "can_resend": True,
+                "username": expired['username'],
+                "display_name": expired['display_name'],
+                "purpose": expired['purpose'],
+            }
+        raise HTTPException(404, "Link ist ungültig oder abgelaufen")
+
+
+@router.post("/resend")
+def resend_password_setup_link(data: ResendPasswordSetupRequest, request: Request, _: None = Depends(require_password_reset_rate_limit)):
+    with get_db() as db:
+        row = _get_expired_resend_context(db, data.token)
         if not row:
             raise HTTPException(404, "Link ist ungültig oder abgelaufen")
-        return {
-            "valid": True,
-            "username": row['username'],
-            "display_name": row['display_name'],
-            "purpose": row['purpose'],
-            "expires_at": row['expires_at'],
-        }
+        new_token = _create_password_setup_token(db, row['user_id'], row['purpose'], "user")
+        link = _make_password_setup_link(request, new_token)
+        emailed = False
+        if is_email_configured() and row['email']:
+            subject, text, html = password_setup_email(
+                display_name=row['display_name'],
+                username=row['username'],
+                link=link,
+                purpose=row['purpose'],
+                expires_hours=get_password_link_ttl_hours(),
+            )
+            send_email(to=row['email'], subject=subject, text=text, html=html)
+            emailed = True
+        db.commit()
+    response = {
+        "message": "Neuer Link wurde per E-Mail gesendet." if emailed else "Neuer Link wurde erstellt.",
+        "password_setup_delivery": "email" if emailed else "manual",
+        "password_setup_expires_hours": get_password_link_ttl_hours(),
+    }
+    if not emailed:
+        response["password_setup_url"] = link
+    return response
 
 
 @router.post("/complete")
