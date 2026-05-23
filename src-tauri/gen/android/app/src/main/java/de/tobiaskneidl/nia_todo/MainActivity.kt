@@ -18,9 +18,12 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import org.json.JSONObject
+import java.io.File
 import java.util.concurrent.atomic.AtomicInteger
 
 class MainActivity : TauriActivity() {
+  private val nativePrefsName = "nia_todo_native"
+  private val lastWebViewCacheVersionKey = "last_webview_cache_version"
   private val lightSystemBarColor = Color.rgb(248, 250, 252)
   private val darkSystemBarColor = Color.rgb(15, 15, 35)
   private val notificationIds = AtomicInteger(1000)
@@ -32,6 +35,7 @@ class MainActivity : TauriActivity() {
     enableEdgeToEdge()
     applySystemBarsTheme(false)
     ReminderReceiver.createNotificationChannel(this)
+    clearStaleWebViewCachesOnVersionChange()
     persistDoneActionFromIntent(intent)
     super.onCreate(savedInstanceState)
     applySystemBarInsetsToContentRoot()
@@ -41,6 +45,19 @@ class MainActivity : TauriActivity() {
     super.onNewIntent(intent)
     setIntent(intent)
     persistDoneActionFromIntent(intent)
+  }
+
+  private fun clearStaleWebViewCachesOnVersionChange() {
+    val prefs = getSharedPreferences(nativePrefsName, MODE_PRIVATE)
+    val currentVersion = BuildConfig.VERSION_NAME
+    if (prefs.getString(lastWebViewCacheVersionKey, "") == currentVersion) return
+
+    val defaultProfile = File(dataDir, "app_webview/Default")
+    for (relativePath in listOf("Service Worker", "Cache", "Code Cache", "GPUCache")) {
+      File(defaultProfile, relativePath).deleteRecursively()
+    }
+
+    prefs.edit().putString(lastWebViewCacheVersionKey, currentVersion).apply()
   }
 
   private fun persistDoneActionFromIntent(intent: Intent?): String? {
