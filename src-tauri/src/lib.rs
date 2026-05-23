@@ -2,7 +2,6 @@ use serde::{Deserialize, Serialize};
 use std::{
   fs,
   path::PathBuf,
-  process::Command,
   sync::{
     atomic::{AtomicU64, Ordering},
     Arc,
@@ -19,6 +18,8 @@ use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 #[cfg(desktop)]
 use tauri_plugin_notification::NotificationExt;
+#[cfg(not(target_os = "android"))]
+use std::process::Command;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
