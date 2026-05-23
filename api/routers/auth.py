@@ -1,6 +1,7 @@
 """nia-todo: Auth endpoints (login, logout, me, API keys)"""
 
 from typing import Optional
+import time
 from fastapi import APIRouter, Request, Response, Header, HTTPException, Depends
 from pydantic import BaseModel, Field
 
@@ -12,6 +13,7 @@ from services.auth import (
 from middleware.security import generate_csrf_token, set_csrf_cookie
 from rate_limit import require_login_rate_limit, get_client_ip
 from services.audit import log_audit
+from services.two_factor import create_challenge, mfa_required_for_user, trusted_device_valid, user_mfa_state, REAUTH_MAX_AGE_SECONDS
 
 router = APIRouter(prefix="/api")
 
@@ -44,6 +46,22 @@ def require_auth(authorization: Optional[str] = Header(None), x_session_token: O
     return user_id
 
 
+def require_recent_mfa_for_account_security(authorization: Optional[str] = Header(None)) -> int:
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(401, "Interactive JWT required")
+    token = authorization[7:]
+    with get_db() as db:
+        payload = decode_jwt_token(token, db)
+        if not payload or payload.get('mfa_enroll_only'):
+            raise HTTPException(401, "Not authenticated")
+        user_id = payload.get('user_id')
+        if mfa_required_for_user(db, user_id):
+            mfa_at = int(payload.get('mfa_at') or 0)
+            if int(time.time()) - mfa_at > REAUTH_MAX_AGE_SECONDS:
+                raise HTTPException(403, "2FA/Reauth erforderlich")
+        return user_id
+
+
 # ─── Auth Endpoints ──────────────────────────────────────────────────────────
 
 @router.post("/login")
@@ -54,10 +72,41 @@ def login(data: LoginRequest, request: Request, response: Response, _: None = De
         if not user:
             log_audit(db, "login_failed", ip_address=ip, details=f"username={data.username}")
             raise HTTPException(401, "Invalid credentials")
-        token = create_jwt_token(user, db)
+        mfa_required = mfa_required_for_user(db, user['id'])
+        remembered = trusted_device_valid(db, user['id'], request.cookies.get('nia_2fa_device')) if mfa_required else False
+        if mfa_required and not remembered:
+            state = user_mfa_state(db, user['id'])
+            challenge = create_challenge(db, user['id'], ip_address=ip, user_agent=request.headers.get('user-agent', ''))
+            if challenge['methods']:
+                db.commit()
+                return {"mfa_required": True, "challenge": challenge, "state": state}
+            # Enforced MFA but no available second factor/email yet: issue an enrollment-only token.
+            token = create_jwt_token(user, db, mfa_enroll_only=True)
+            csrf_token = generate_csrf_token()
+            set_csrf_cookie(response, csrf_token)
+            log_audit(db, "login_mfa_enrollment_required", user_id=user['id'], ip_address=ip)
+            db.commit()
+            return {
+                "access_token": token,
+                "token_type": "bearer",
+                "csrf_token": csrf_token,
+                "mfa_enrollment_required": True,
+                "user": {
+                    "id": user['id'],
+                    "username": user['username'],
+                    "display_name": user['display_name'],
+                    "email": user.get('email'),
+                    "email_verified_at": user.get('email_verified_at'),
+                    "email_trust_source": user.get('email_trust_source'),
+                    "avatar_url": user.get('avatar_url'),
+                    "is_admin": bool(user.get('is_admin', False))
+                },
+                "state": state,
+            }
+        token = create_jwt_token(user, db, mfa_verified=mfa_required)
         csrf_token = generate_csrf_token()
         set_csrf_cookie(response, csrf_token)
-        log_audit(db, "login_success", user_id=user['id'], ip_address=ip)
+        log_audit(db, "login_success", user_id=user['id'], ip_address=ip, details=f"mfa={'required' if mfa_required else 'not_required'}; remembered_device={remembered}")
         from rate_limit import rate_limiter
         rate_limiter.record_successful_login(ip)
         return {
@@ -73,7 +122,8 @@ def login(data: LoginRequest, request: Request, response: Response, _: None = De
                 "avatar_url": user.get('avatar_url'),
                 "is_admin": bool(user.get('is_admin', False))
             },
-            "csrf_token": csrf_token
+            "csrf_token": csrf_token,
+            "mfa_enrollment_required": bool(mfa_required and not state.get('has_totp') and not state.get('has_passkey')) if mfa_required and not remembered else False
         }
 
 @router.post("/logout")
@@ -120,6 +170,10 @@ def me(response: Response, authorization: Optional[str] = Header(None), x_sessio
         if not user:
             raise HTTPException(404, "User not found")
 
+        mfa_state = user_mfa_state(db, user_id)
+        enroll_only = bool(payload and payload.get('mfa_enroll_only'))
+        if payload and mfa_required_for_user(db, user_id) and not enroll_only and not payload.get('mfa_at'):
+            raise HTTPException(401, "MFA verification required")
         result = {
             "id": user['id'],
             "username": user['username'],
@@ -131,12 +185,17 @@ def me(response: Response, authorization: Optional[str] = Header(None), x_sessio
             "avatar_url": user['avatar_url'],
             "avatar_updated_at": user['avatar_updated_at'],
             "is_admin": bool(user['is_admin']),
+            "two_factor": mfa_state,
+            "mfa_enrollment_required": enroll_only,
         }
 
         if payload and should_refresh_user_jwt(payload):
             csrf_token = generate_csrf_token()
             set_csrf_cookie(response, csrf_token)
-            result["access_token"] = create_jwt_token(dict(user), db)
+            token_user = dict(user)
+            if payload.get('mfa_at'):
+                token_user['mfa_at'] = payload.get('mfa_at')
+            result["access_token"] = create_jwt_token(token_user, db, mfa_enroll_only=bool(payload.get('mfa_enroll_only')))
             result["token_type"] = "bearer"
             result["csrf_token"] = csrf_token
 
@@ -174,7 +233,7 @@ def list_api_keys(user_id: int = Depends(require_auth)):
         return {"api_keys": [dict(r) for r in rows]}
 
 @router.post("/me/api-keys")
-def create_api_key(data: CreateApiKeyRequest, user_id: int = Depends(require_auth)):
+def create_api_key(data: CreateApiKeyRequest, user_id: int = Depends(require_recent_mfa_for_account_security)):
     from services.utils import sanitize_text
     name = sanitize_text(data.name) or "API Key"
     with get_db() as db:
@@ -196,7 +255,7 @@ def create_api_key(data: CreateApiKeyRequest, user_id: int = Depends(require_aut
         }
 
 @router.delete("/me/api-keys/{key_id}")
-def revoke_api_key(key_id: int, user_id: int = Depends(require_auth)):
+def revoke_api_key(key_id: int, user_id: int = Depends(require_recent_mfa_for_account_security)):
     with get_db() as db:
         key = db.execute(
             "SELECT id FROM api_keys WHERE id = ? AND user_id = ?",

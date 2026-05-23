@@ -210,6 +210,11 @@ const editUserEmail = userSettingsFeature.editUserEmail;
 const cancelUserEmailEdit = userSettingsFeature.cancelUserEmailEdit;
 const saveUserEmail = userSettingsFeature.saveUserEmail;
 const changeUserPassword = userSettingsFeature.changeUserPassword;
+const startTwoFactorTotp = userSettingsFeature.startTwoFactorTotp;
+const confirmTwoFactorTotp = userSettingsFeature.confirmTwoFactorTotp;
+const disableTwoFactor = userSettingsFeature.disableTwoFactor;
+const addPasskey = userSettingsFeature.addPasskey;
+const regenerateRecoveryCodes = userSettingsFeature.regenerateRecoveryCodes;
 const editUserDisplayName = userSettingsFeature.editUserDisplayName;
 const cancelUserDisplayNameEdit = userSettingsFeature.cancelUserDisplayNameEdit;
 const saveUserProfile = userSettingsFeature.saveUserProfile;
@@ -630,7 +635,7 @@ export function startAppModule() {
       testDesktopNotification: () => desktopIntegration?.testNotification(),
       updateDesktopHotkey: (action, shortcut) => desktopIntegration?.updateHotkey(action, shortcut),
     },
-    userSettings: { renderUserInfo, openSettingsModal, editUserDisplayName, cancelUserDisplayNameEdit, saveUserProfile, startAvatarUpload, cancelAvatarCrop, saveAvatarCrop, editUserEmail, cancelUserEmailEdit, saveUserEmail, changeUserPassword },
+    userSettings: { renderUserInfo, openSettingsModal, editUserDisplayName, cancelUserDisplayNameEdit, saveUserProfile, startAvatarUpload, cancelAvatarCrop, saveAvatarCrop, editUserEmail, cancelUserEmailEdit, saveUserEmail, changeUserPassword, startTwoFactorTotp, confirmTwoFactorTotp, disableTwoFactor, addPasskey, regenerateRecoveryCodes },
     userMenu: { toggleUserMenu, closeUserMenu, updateUserMenu },
   });
 

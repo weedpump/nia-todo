@@ -37,8 +37,8 @@ def get_jwt_secret(db) -> str:
     return secret
 
 
-def create_jwt_token(user: dict, db) -> str:
-    """Create a JWT token with user info and token_version."""
+def create_jwt_token(user: dict, db, mfa_verified: bool = False, mfa_enroll_only: bool = False) -> str:
+    """Create a JWT token with user info, token_version and MFA assurance."""
     secret = get_jwt_secret(db)
     now = int(time.time())
     payload = {
@@ -46,6 +46,8 @@ def create_jwt_token(user: dict, db) -> str:
         "username": user['username'],
         "token_version": user.get('token_version', 1),
         "is_admin": bool(user.get('is_admin', False)),
+        "mfa_at": now if mfa_verified else user.get('mfa_at'),
+        "mfa_enroll_only": bool(mfa_enroll_only),
         "iat": now,
         "exp": now + (USER_JWT_EXPIRY_DAYS * 86400)
     }
@@ -94,7 +96,13 @@ def get_current_user(token: Optional[str] = None) -> Optional[int]:
     with get_db() as db:
         payload = decode_jwt_token(token, db)
         if payload:
-            return payload.get('user_id')
+            if payload.get('mfa_enroll_only'):
+                return None
+            user_id = payload.get('user_id')
+            from services.two_factor import mfa_required_for_user
+            if mfa_required_for_user(db, user_id) and not payload.get('mfa_at'):
+                return None
+            return user_id
         # API key
         if token.startswith("nt_"):
             prefix = token[3:11]
@@ -110,6 +118,17 @@ def get_current_user(token: Optional[str] = None) -> Optional[int]:
                     )
                     db.commit()
                     return row['user_id']
+    return None
+
+
+def get_current_user_allow_mfa_enrollment(token: Optional[str] = None) -> Optional[int]:
+    """Extract user_id from a JWT, including MFA-enrollment-only tokens."""
+    if not token:
+        return None
+    with get_db() as db:
+        payload = decode_jwt_token(token, db)
+        if payload:
+            return payload.get('user_id')
     return None
 
 

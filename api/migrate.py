@@ -41,6 +41,90 @@ def add_column_if_missing(conn, table: str, column: str, definition: str):
         conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
 
 
+def repair_two_factor_migration(conn):
+    """Make migration 024 idempotent for partially-applied 2FA schema."""
+    conn.execute("INSERT OR IGNORE INTO app_config (key, value) VALUES ('two_factor_required', 'false')")
+    for column, definition in (
+        ("two_factor_enabled", "INTEGER NOT NULL DEFAULT 0"),
+        ("two_factor_totp_secret", "TEXT"),
+        ("two_factor_recovery_hashes", "TEXT"),
+        ("two_factor_recovery_generated_at", "TEXT"),
+        ("two_factor_remember_version", "INTEGER NOT NULL DEFAULT 1"),
+        ("two_factor_updated_at", "TEXT"),
+    ):
+        add_column_if_missing(conn, "users", column, definition)
+    conn.executescript('''
+    CREATE TABLE IF NOT EXISTS two_factor_challenges (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        token_hash TEXT NOT NULL UNIQUE,
+        methods TEXT NOT NULL,
+        expires_at INTEGER NOT NULL,
+        email_code_hash TEXT,
+        email_code_expires_at INTEGER,
+        ip_address TEXT,
+        user_agent TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        consumed_at TEXT,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_two_factor_challenges_token ON two_factor_challenges(token_hash);
+    CREATE INDEX IF NOT EXISTS idx_two_factor_challenges_user ON two_factor_challenges(user_id, consumed_at);
+    CREATE TABLE IF NOT EXISTS trusted_devices (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        token_hash TEXT NOT NULL,
+        token_prefix TEXT NOT NULL,
+        remember_version INTEGER NOT NULL DEFAULT 1,
+        user_agent TEXT,
+        expires_at INTEGER NOT NULL,
+        created_at TEXT DEFAULT (datetime('now')),
+        last_used_at TEXT,
+        revoked_at TEXT,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_trusted_devices_user_prefix ON trusted_devices(user_id, token_prefix);
+    CREATE TABLE IF NOT EXISTS passkeys (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        credential_id TEXT NOT NULL UNIQUE,
+        public_key TEXT NOT NULL,
+        sign_count INTEGER NOT NULL DEFAULT 0,
+        name TEXT NOT NULL DEFAULT 'Passkey',
+        transports TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        last_used_at TEXT,
+        revoked_at TEXT,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_passkeys_user ON passkeys(user_id, revoked_at);
+    CREATE TABLE IF NOT EXISTS passkey_challenges (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        challenge_hash TEXT NOT NULL UNIQUE,
+        purpose TEXT NOT NULL CHECK(purpose IN ('registration', 'authentication')),
+        expires_at INTEGER NOT NULL,
+        created_at TEXT DEFAULT (datetime('now')),
+        consumed_at TEXT,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_passkey_challenges_user ON passkey_challenges(user_id, purpose, consumed_at);
+    ''')
+    conn.commit()
+
+
+def repair_two_factor_hardening_migration(conn):
+    add_column_if_missing(conn, "two_factor_challenges", "attempts", "INTEGER NOT NULL DEFAULT 0")
+    add_column_if_missing(conn, "two_factor_challenges", "locked_until", "INTEGER")
+    conn.commit()
+
+
+def repair_passkey_challenge_hardening_migration(conn):
+    add_column_if_missing(conn, "passkey_challenges", "attempts", "INTEGER NOT NULL DEFAULT 0")
+    add_column_if_missing(conn, "passkey_challenges", "locked_until", "INTEGER")
+    conn.commit()
+
+
 def repair_workspace_migration(conn):
     """Make migration 016 idempotent for DBs that already have workspace_id.
 
@@ -258,6 +342,21 @@ def run_migrations():
                 elif version == 23 and ("duplicate column" in error_msg or "already exists" in error_msg):
                     print(f"[MIGRATION] ⚠️ {filepath.name} - email trust source partially exists, repairing remaining schema")
                     repair_email_trust_source_migration(conn)
+                    set_db_version(conn, version)
+                    applied += 1
+                elif version == 24 and ("duplicate column" in error_msg or "already exists" in error_msg):
+                    print(f"[MIGRATION] ⚠️ {filepath.name} - 2FA schema partially exists, repairing remaining schema")
+                    repair_two_factor_migration(conn)
+                    set_db_version(conn, version)
+                    applied += 1
+                elif version == 25 and ("duplicate column" in error_msg or "already exists" in error_msg):
+                    print(f"[MIGRATION] ⚠️ {filepath.name} - 2FA hardening partially exists, repairing remaining schema")
+                    repair_two_factor_hardening_migration(conn)
+                    set_db_version(conn, version)
+                    applied += 1
+                elif version == 26 and ("duplicate column" in error_msg or "already exists" in error_msg):
+                    print(f"[MIGRATION] ⚠️ {filepath.name} - passkey challenge hardening partially exists, repairing remaining schema")
+                    repair_passkey_challenge_hardening_migration(conn)
                     set_db_version(conn, version)
                     applied += 1
                 elif "duplicate column" in error_msg or "already exists" in error_msg:
