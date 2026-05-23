@@ -1009,12 +1009,11 @@ class TestSuite:
         if not proj_id:
             self.results["share_project"] = {"status": -1, "passed": True, "expected": "skipped"}
             return True
+        # Share by email identifier -> neutral response (no member details to avoid enumeration)
         status, data = curl("POST", f"/api/projects/{proj_id}/share", {"username": "shareduser@example.invalid"}, token=self.user_token, csrf=self.user_csrf, cookie_jar="/tmp/nia_user_cookies.txt")
-        if ok(status) and data and data.get("member"):
-            self.created_ids["invite"].append(data["member"].get("id"))
-            self.shared_user_id = data["member"].get("user_id")
-        passed = ok(status) and data and data.get("member") and data.get("notification_delivery") == "in_app"
-        self.results["share_project"] = {"status": status, "passed": passed, "expected": "200 + share by verified email + in_app notification"}
+        # Neutral response for email: no member object, but status 200
+        passed = ok(status) and data and data.get("notification_delivery") in ("in_app", "email", "unknown") and not data.get("member")
+        self.results["share_project"] = {"status": status, "passed": passed, "expected": "200 + neutral email share response"}
         return passed
 
     def test_shared_invite_list(self):
@@ -1023,6 +1022,14 @@ class TestSuite:
         if passed and not data.get("invites"):
             self.results["shared_invite_list"] = {"status": status, "passed": False, "expected": "non_empty"}
             return False
+        # Store invite_id and shared_user_id for later tests
+        if data.get("invites"):
+            proj_id = self.created_ids["project"][-1] if self.created_ids["project"] else None
+            for invite in data["invites"]:
+                if invite.get("project_id") == proj_id:
+                    self.created_ids["invite"].append(invite["id"])
+                    self.shared_user_id = invite.get("user_id")
+                    break
         return passed
 
     def test_accept_invite(self):
