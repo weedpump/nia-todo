@@ -3,6 +3,7 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from starlette.responses import Response
 from pathlib import Path
 import asyncio
 
@@ -88,6 +89,20 @@ if WEB_DIR.exists():
     DOWNLOADS_DIR = WEB_DIR / "downloads"
     DOWNLOADS_DIR.mkdir(parents=True, exist_ok=True)
     app.mount("/static", StaticFiles(directory=str(WEB_DIR / "static")), name="static")
+
+    @app.get("/downloads/app-downloads.json")
+    @app.head("/downloads/app-downloads.json")
+    def app_downloads_manifest():
+        return FileResponse(
+            str(DOWNLOADS_DIR / "app-downloads.json"),
+            media_type="application/json",
+            headers={
+                "Cache-Control": "no-store, no-cache, max-age=0, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0",
+            },
+        )
+
     app.mount("/downloads", StaticFiles(directory=str(DOWNLOADS_DIR)), name="downloads")
 
     @app.get("/")
@@ -109,7 +124,15 @@ if WEB_DIR.exists():
     @app.get("/sw.js")
     @app.head("/sw.js")
     def sw_js():
-        return FileResponse(str(WEB_DIR / "sw.js"))
+        return FileResponse(
+            str(WEB_DIR / "sw.js"),
+            media_type="application/javascript",
+            headers={
+                "Cache-Control": "no-store, no-cache, max-age=0, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0",
+            },
+        )
 
     @app.get("/favicon.ico")
     @app.head("/favicon.ico")

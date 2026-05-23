@@ -261,6 +261,12 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Downloads and their manifest must never be cached by the service worker.
+  if (url.pathname.startsWith('/downloads/')) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
   // API requests are auth-bound and must never be cached in the service worker.
   // Offline data lives in the per-user IndexedDB cache, which is cleared on user switch/logout.
   if (url.pathname.startsWith('/api/')) {

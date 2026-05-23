@@ -247,8 +247,17 @@ export function createAppDownloadsFeature() {
   let refreshInFlight = null;
 
   async function loadDownloadManifest() {
-    const manifestUrl = RUNTIME_CAPABILITIES.native && API ? `${API}/downloads/app-downloads.json` : '/downloads/app-downloads.json';
-    const response = await fetch(manifestUrl, { cache: 'no-store' });
+    const baseUrl = RUNTIME_CAPABILITIES.native && API ? `${API}/downloads/app-downloads.json` : '/downloads/app-downloads.json';
+    const manifestUrl = new URL(baseUrl, window.location.href);
+    manifestUrl.searchParams.set('_', String(Date.now()));
+    manifestUrl.searchParams.set('current', normalizeVersion(await createNativeBridge().getAppVersion?.().catch?.(() => '') || 'web') || 'web');
+    const response = await fetch(manifestUrl.toString(), {
+      cache: 'no-store',
+      headers: {
+        'Cache-Control': 'no-cache, no-store, max-age=0',
+        Pragma: 'no-cache',
+      },
+    });
     if (!response.ok) throw new Error(`download manifest unavailable: ${response.status}`);
     return response.json();
   }
