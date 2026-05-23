@@ -23,6 +23,7 @@ from routers.two_factor import require_2fa_status_auth
 from services.webauthn import relying_party_for_request, verify_client_data
 from services.two_factor import (
     create_challenge,
+    create_mfa_action_grant,
     create_recovery_codes,
     EMAIL_CODE_TTL_SECONDS,
     bcrypt_hash,
@@ -162,11 +163,18 @@ def main():
         assert get_current_user(trusted_login_token) == user_id
         try:
             require_recent_mfa_for_account_security(authorization=f"Bearer {trusted_login_token}")
-            raise AssertionError("trusted-device login must not count as recent MFA")
+            raise AssertionError("trusted-device login must not authorize sensitive actions")
         except HTTPException as exc:
             assert exc.status_code == 403
-        fresh_mfa_token = create_jwt_token(dict(user), conn, mfa_verified=True)
+        grant = create_mfa_action_grant(conn, user_id)
+        conn.commit()
+        fresh_mfa_token = create_jwt_token(dict(user), conn, mfa_grant=grant)
         assert require_recent_mfa_for_account_security(authorization=f"Bearer {fresh_mfa_token}") == user_id
+        try:
+            require_recent_mfa_for_account_security(authorization=f"Bearer {fresh_mfa_token}")
+            raise AssertionError("MFA action grant must be single-use")
+        except HTTPException as exc:
+            assert exc.status_code == 403
 
         # Passkeys use a pinned public_base_url RP/origin in production and do not silently bind to Host headers.
         conn.execute("INSERT OR REPLACE INTO app_config (key, value, updated_at) VALUES ('public_base_url', 'https://todo.example.invalid/app', datetime('now'))")

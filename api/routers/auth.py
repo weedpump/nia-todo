@@ -13,7 +13,7 @@ from services.auth import (
 from middleware.security import generate_csrf_token, set_csrf_cookie
 from rate_limit import require_login_rate_limit, get_client_ip
 from services.audit import log_audit
-from services.two_factor import create_challenge, mfa_required_for_user, trusted_device_valid, user_mfa_state, REAUTH_MAX_AGE_SECONDS
+from services.two_factor import consume_mfa_action_grant, create_challenge, mfa_required_for_user, trusted_device_valid, user_mfa_state
 
 router = APIRouter(prefix="/api")
 
@@ -56,9 +56,9 @@ def require_recent_mfa_for_account_security(authorization: Optional[str] = Heade
             raise HTTPException(401, "Not authenticated")
         user_id = payload.get('user_id')
         if mfa_required_for_user(db, user_id):
-            mfa_at = int(payload.get('mfa_at') or 0)
-            if int(time.time()) - mfa_at > REAUTH_MAX_AGE_SECONDS:
+            if not consume_mfa_action_grant(db, user_id, payload.get('mfa_grant')):
                 raise HTTPException(403, "2FA/Reauth erforderlich")
+            db.commit()
         return user_id
 
 
