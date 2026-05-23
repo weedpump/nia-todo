@@ -705,6 +705,42 @@ class TestSuite:
         self.results["expired_password_setup_public_resend_blocked_without_smtp"] = {"status": resend_status, "passed": passed, "expected": "public expired-token resend blocked without SMTP"}
         return passed
 
+    def test_admin_password_link_unverified_email_uses_manual_delivery(self):
+        user_id = self.created_ids["user"][-1] if self.created_ids["user"] else None
+        if not user_id:
+            self.results["admin_password_link_unverified_email_uses_manual_delivery"] = {"status": -1, "passed": True, "expected": "skipped"}
+            return True
+        with sqlite3.connect(DB_PATH) as db:
+            for key, value in {
+                "public_base_url": "https://todo.example.invalid",
+                "smtp_enabled": "true",
+                "smtp_host": "127.0.0.1",
+                "smtp_port": "9",
+                "smtp_security": "none",
+                "smtp_auth_enabled": "false",
+                "smtp_username": "",
+                "smtp_password_secret": "",
+                "mail_from_address": "todo@example.invalid",
+                "mail_from_name": "nia-todo",
+                "mail_reply_to": "",
+                "password_link_ttl_hours": "24",
+            }.items():
+                db.execute(
+                    """INSERT INTO app_config (key, value, updated_at)
+                       VALUES (?, ?, datetime('now'))
+                       ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')""",
+                    (key, value),
+                )
+            db.commit()
+        link_status, link_data = curl("POST", f"/api/admin/users/{user_id}/password-link", {}, token=self.admin_token, csrf=self.admin_csrf, cookie_jar="/tmp/nia_admin_cookies.txt", headers={"X-Forwarded-For": "198.51.100.21"})
+        with sqlite3.connect(DB_PATH) as db:
+            for key in ("public_base_url", "smtp_enabled", "smtp_host", "smtp_port", "smtp_security", "smtp_auth_enabled", "smtp_username", "smtp_password_secret", "mail_from_address", "mail_from_name", "mail_reply_to", "password_link_ttl_hours"):
+                db.execute("DELETE FROM app_config WHERE key = ?", (key,))
+            db.commit()
+        passed = ok(link_status) and link_data and link_data.get("password_setup_delivery") == "manual" and bool(link_data.get("password_setup_url"))
+        self.results["admin_password_link_unverified_email_uses_manual_delivery"] = {"status": link_status, "passed": passed, "expected": "admin reset link for unverified email returns manual delivery even when SMTP is enabled"}
+        return passed
+
     def test_admin_change_user_password(self):
         user_id = self.created_ids["user"][-1] if self.created_ids["user"] else None
         if not user_id:
@@ -1360,6 +1396,7 @@ class TestSuite:
             self.test_invalid_admin_email_rejected,
             self.test_admin_create_user,
             self.test_expired_password_setup_public_resend_blocked_without_smtp,
+            self.test_admin_password_link_unverified_email_uses_manual_delivery,
             self.test_admin_change_user_password,
             self.test_admin_delete_user,
             self.test_admin_logout,  # Logout VOR password change!
