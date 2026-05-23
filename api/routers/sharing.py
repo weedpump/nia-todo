@@ -236,14 +236,14 @@ async def share_project(project_id: int, data: ShareProjectRequest, request: Req
                 log_audit(db, "project_share_email_failed", user_id=target['id'], details=f"project_id={project_id}; invited_by={user_id}; fallback=in_app")
         db.commit()
 
-        # For email identifiers, do NOT return member details or broadcast to owner (avoid enumeration)
-        # Only broadcast to the invited user so they see the invite
+        # For email identifiers, do NOT broadcast to owner (avoids enumeration via WebSocket)
+        # Only notify the invited user directly without project_id (prevents owner/accepted member recipients)
         if email_identifier:
-            await broadcast_change("member_invited", {"project_id": project_id, "member": None}, target['id'], project_id)
+            # Do NOT broadcast to owner - invitee will see invite via /api/projects/invites on their next login
             log_audit(db, "project_share_email_identifier_accepted", user_id=target['id'], details=f"project_id={project_id}; invited_by={user_id}")
             return _neutral_email_share_response()
         
-        # For username identifiers, return member details and broadcast normally
+        # For username identifiers, return member details and broadcast normally to owner
         member = get_project_member(db, project_id, target['id'])
         await broadcast_change("member_invited", {"project_id": project_id, "member": member}, target['id'], project_id)
         return {"member": member, "notification_delivery": "email" if emailed else "in_app"}
@@ -450,8 +450,9 @@ def list_project_members(project_id: int, user_id: int = Depends(require_auth)):
         if not is_owner and not is_member:
             raise HTTPException(403, "Not authorized to view members")
 
-        # Non-owners see only accepted members; owners see pending+accepted (not declined/left/removed)
-        members = get_project_members(db, project_id, include_inactive=False, owner_only=not is_owner)
+        # All users (including owner) see only accepted members to avoid enumeration via pending invites
+        # Pending invites are internal state until accepted
+        members = get_project_members(db, project_id, include_inactive=False, owner_only=True)
         return {"members": members}
 
 
