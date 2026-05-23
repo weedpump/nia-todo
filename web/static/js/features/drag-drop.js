@@ -290,9 +290,43 @@ export function createDragDropFeature({
     }
   }
 
+  function disableNativeHtmlDragDrop(root = document) {
+    root.querySelectorAll?.('.todo-item[draggable], .section-header[draggable]').forEach((element) => {
+      element.setAttribute('data-native-pointer-dnd', 'true');
+      element.draggable = false;
+      element.removeAttribute('draggable');
+    });
+  }
+
   function bindNativePointerDragDrop() {
     if (!RUNTIME_CAPABILITIES.native || bindNativePointerDragDrop.bound) return;
     bindNativePointerDragDrop.bound = true;
+    disableNativeHtmlDragDrop();
+    new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        for (const node of mutation.addedNodes) {
+          if (node.nodeType === Node.ELEMENT_NODE) disableNativeHtmlDragDrop(node);
+        }
+      }
+    }).observe(document.body, { childList: true, subtree: true });
+
+    document.addEventListener('dragstart', (event) => {
+      if (!event.target.closest('.todo-item, .section-header')) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }, true);
+
+    document.addEventListener('dragover', (event) => {
+      if (!event.target.closest('.todo-item, .section-header, .section-todos, .section-dropzone')) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }, true);
+
+    document.addEventListener('drop', (event) => {
+      if (!event.target.closest('.todo-item, .section-header, .section-todos, .section-dropzone')) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }, true);
 
     document.addEventListener('pointerdown', (event) => {
       if (event.button !== undefined && event.button !== 0) return;
@@ -302,7 +336,7 @@ export function createDragDropFeature({
         startNativePointerDrag(event, todo, 'todo', /^\d+$/.test(String(todo.dataset.id)) ? parseInt(todo.dataset.id) : todo.dataset.id);
         return;
       }
-      const section = event.target.closest('.section-header[draggable="true"][data-section-id]');
+      const section = event.target.closest('.section-header[data-section-id]:not(.section-unsorted)');
       if (section && section.dataset.sectionId !== 'null') {
         startNativePointerDrag(event, section, 'section', parseInt(section.dataset.sectionId));
       }
