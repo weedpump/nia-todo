@@ -247,6 +247,15 @@ class TestSuite:
         
         return self.record("login", status)
     
+    def test_login_with_verified_email(self):
+        status, data = curl("POST", "/api/login", {
+            "username": "testuser@example.invalid",
+            "password": USER_PASSWORD
+        }, cookie_jar="/tmp/nia_user_email_cookies.txt")
+        passed = ok(status) and data and data.get("user", {}).get("username") == "testuser" and data.get("user", {}).get("email_verified_at")
+        self.results["login_with_verified_email"] = {"status": status, "passed": passed, "expected": "200 + login by verified email"}
+        return passed
+
     def test_logout(self):
         status, _ = curl("POST", "/api/logout", token=self.user_token, csrf=self.user_csrf, cookie_jar="/tmp/nia_user_cookies.txt")
         return self.record("logout", status)
@@ -1131,6 +1140,7 @@ class TestSuite:
             
             # User Auth
             self.test_login,
+            self.test_login_with_verified_email,
             self.test_me,
             self.test_invalid_own_email_rejected,
 
