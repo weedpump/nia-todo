@@ -39,6 +39,21 @@ export const authApi = {
     return parseOrThrow(response, 'Logout failed');
   },
 
+  async passwordSetupFeatures() {
+    const response = await fetch(API + '/api/password-setup/features');
+    return parseOrThrow(response, 'Passwort-Reset-Status fehlgeschlagen');
+  },
+
+  async requestPasswordReset(identifier) {
+    const response = await fetch(API + '/api/password-setup/request', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ identifier }),
+      credentials: 'include',
+    });
+    return parseOrThrow(response, 'Passwort-Reset konnte nicht angefordert werden');
+  },
+
   async changePassword(oldPassword, newPassword) {
     const response = await fetch(API + '/api/me/change-password', {
       method: 'POST',

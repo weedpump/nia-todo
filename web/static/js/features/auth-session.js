@@ -11,6 +11,7 @@ export function createAuthSessionFeature({
 }) {
   let loginInProgress = false;
   let loginFormBound = false;
+  let passwordResetAvailable = false;
 
   async function clearBrowserAuthCaches() {
     if ('serviceWorker' in navigator && typeof navigator.serviceWorker.getRegistrations === 'function') {
@@ -171,6 +172,51 @@ export function createAuthSessionFeature({
     overlay.style.pointerEvents = 'none';
   }
 
+  async function loadPasswordResetFeatures() {
+    try {
+      const features = await authApi.passwordSetupFeatures();
+      passwordResetAvailable = !!features.password_reset_available;
+      const forgotBtn = document.getElementById('login-forgot-btn');
+      if (forgotBtn) forgotBtn.classList.toggle('hidden', !passwordResetAvailable);
+    } catch (e) {
+      passwordResetAvailable = false;
+    }
+  }
+
+  function toggleResetPanel() {
+    if (!passwordResetAvailable) return;
+    const panel = document.getElementById('login-reset-panel');
+    if (!panel) return;
+    panel.classList.toggle('hidden');
+    document.getElementById('login-reset-message').textContent = '';
+    if (!panel.classList.contains('hidden')) {
+      const username = document.getElementById('login-username')?.value?.trim() || '';
+      const input = document.getElementById('login-reset-identifier');
+      if (input && !input.value) input.value = username;
+      input?.focus();
+    }
+  }
+
+  async function requestPasswordReset() {
+    const input = document.getElementById('login-reset-identifier');
+    const messageEl = document.getElementById('login-reset-message');
+    const button = document.getElementById('login-reset-submit');
+    const identifier = input?.value?.trim() || '';
+    if (!identifier) {
+      messageEl.textContent = 'Bitte Benutzername oder E-Mail eingeben.';
+      return;
+    }
+    if (button) button.disabled = true;
+    try {
+      const data = await authApi.requestPasswordReset(identifier);
+      messageEl.textContent = data.message || 'Falls ein passendes Konto existiert, wurde eine E-Mail gesendet.';
+    } catch (e) {
+      messageEl.textContent = e.message || 'Reset konnte nicht angefordert werden.';
+    } finally {
+      if (button) button.disabled = false;
+    }
+  }
+
   async function handleLogin(e) {
     e?.preventDefault?.();
     if (loginInProgress) return;
@@ -204,6 +250,13 @@ export function createAuthSessionFeature({
     if (!form) return;
     loginFormBound = true;
     form.addEventListener('submit', handleLogin);
+    document.getElementById('login-forgot-btn')?.addEventListener('click', toggleResetPanel);
+    document.getElementById('login-reset-submit')?.addEventListener('click', requestPasswordReset);
+    document.getElementById('login-reset-identifier')?.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') requestPasswordReset();
+      if (event.key === 'Escape') document.getElementById('login-reset-panel')?.classList.add('hidden');
+    });
+    loadPasswordResetFeatures();
     window.__niaLoginReady = true;
 
     if (window.__niaPendingLoginSubmit) {

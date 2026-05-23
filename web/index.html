@@ -80,7 +80,13 @@
           <input type="password" id="login-password" required placeholder="Passwort eingeben" autocomplete="current-password">
         </div>
         <div id="login-error" class="login-error"></div>
+        <div id="login-reset-panel" class="login-reset-panel hidden">
+          <input type="text" id="login-reset-identifier" placeholder="Benutzername oder E-Mail" autocomplete="username">
+          <button type="button" class="login-reset-submit" id="login-reset-submit">Reset-Link anfordern</button>
+          <div id="login-reset-message" class="login-reset-message"></div>
+        </div>
         <button type="submit" class="login-btn">Anmelden</button>
+        <button type="button" class="login-forgot-btn hidden" id="login-forgot-btn">Passwort vergessen?</button>
       </form>
       <div class="login-theme-toggle">
         <button class="theme-option" data-theme="light" onclick="setTheme('light')" title="Hell"><span data-icon="sun"></span></button>

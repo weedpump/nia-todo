@@ -322,6 +322,18 @@ class TestSuite:
         self.results["instance_config_get"] = {"status": status, "passed": passed, "expected": "200 + admin config fields without public identity"}
         return passed
 
+    def test_password_reset_features_disabled_without_email(self):
+        status, data = curl("GET", "/api/password-setup/features")
+        passed = ok(status) and data and data.get("email_configured") is False and data.get("password_reset_available") is False
+        self.results["password_reset_features_disabled_without_email"] = {"status": status, "passed": passed, "expected": "email reset disabled without SMTP"}
+        return passed
+
+    def test_password_reset_request_without_email_config_is_neutral(self):
+        status, data = curl("POST", "/api/password-setup/request", {"identifier": "testuser"}, cookie_jar="/tmp/nia_reset_cookies.txt")
+        passed = ok(status) and data and "Falls ein passendes Konto existiert" in data.get("message", "")
+        self.results["password_reset_request_without_email_config_is_neutral"] = {"status": status, "passed": passed, "expected": "200 neutral response without SMTP"}
+        return passed
+
     def test_strict_cors_unknown_origin_rejected(self):
         status, _ = curl_headers("GET", "/api/setup/status", {"Origin": "https://evil.example"})
         return self.record("strict_cors_unknown_origin_rejected", status, expected=403)
@@ -1125,6 +1137,8 @@ class TestSuite:
             # Admin session needed to create sharing test user
             self.test_admin_login,
             self.test_instance_config_get,
+            self.test_password_reset_features_disabled_without_email,
+            self.test_password_reset_request_without_email_config_is_neutral,
             self.test_strict_cors_unknown_origin_rejected,
             self.test_native_tauri_origin_allowed,
             self.test_native_tauri_origin_with_port_allowed,
