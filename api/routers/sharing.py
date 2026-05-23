@@ -44,7 +44,7 @@ def _neutral_email_share_response() -> dict:
 
 def get_user_by_identifier(db, identifier: str) -> Optional[dict]:
     row = db.execute(
-        """SELECT id, username, display_name, email
+        """SELECT id, username, display_name, email, email_verified_at
            FROM users
            WHERE username = ?
               OR (lower(email) = lower(?) AND email_verified_at IS NOT NULL)
@@ -204,7 +204,7 @@ async def share_project(project_id: int, data: ShareProjectRequest, request: Req
         )
         emailed = False
         db.commit()
-        if can_send_email_links() and target.get('email'):
+        if can_send_email_links() and target.get('email') and target.get('email_verified_at'):
             subject, text, html = project_share_invite_email(
                 display_name=target.get('display_name') or target.get('username'),
                 username=target.get('username'),
