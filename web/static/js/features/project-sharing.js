@@ -134,8 +134,9 @@ export function createProjectSharingFeature({
       
       // For email identifiers, don't reveal user details in UI to avoid enumeration hints
       if (isEmailIdentifier) {
-        // Neutral response: no undo button, no immediate member list reload (avoids enumeration via UI)
-        // Member list will be updated via WebSocket event when the invitee accepts
+        // Neutral response: no undo button, no member details shown
+        // Reload members is safe now (only accepted members visible, no pending invites)
+        await loadMembers(currentProject.id);
         showToast('Einladung verarbeitet');
       } else if (member) {
         // For username identifiers, show detailed success with undo

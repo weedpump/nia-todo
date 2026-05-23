@@ -118,9 +118,17 @@ async function run() {
     await page.fill('#project-share-username', 'moni');
     await page.locator('#project-share-row button').click();
     await page.getByText('Einladung gesendet').waitFor({ state: 'visible', timeout: 10000 });
-    await page.getByText('ausstehend').waitFor({ state: 'visible', timeout: 10000 });
+    // Pending invites are no longer visible in member list (privacy-safe)
+    // await page.getByText('ausstehend').waitFor({ state: 'visible', timeout: 10000 });
     await page.evaluate(() => window.closeModal('project-modal'));
+    await page.waitForTimeout(500);
     await page.locator('.project-tree-item').filter({ hasText: 'Sharing Test Project' }).first().locator('.nav-edit').click();
+    await page.waitForTimeout(500);
+    // Expand sharing section if not auto-expanded
+    const sharingTab = await page.locator('[data-tab="sharing"]').first();
+    if (await sharingTab.isVisible().catch(() => false)) {
+      await sharingTab.click();
+    }
     await page.locator('#project-sharing-content').waitFor({ state: 'visible', timeout: 10000 });
     await page.locator('#project-share-row').waitFor({ state: 'visible', timeout: 10000 });
     const teilenVisibleAfterInvite = await page.locator('#project-share-start-row button').isVisible().catch(() => false);
