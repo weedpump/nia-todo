@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 
 from db import get_db, now_iso
 from routers.auth import require_auth
+from services.audit import log_audit
 from services.email import send_email
 from services.email_config import is_email_configured
 from services.email_templates import project_share_invite_email
@@ -190,6 +191,7 @@ async def share_project(project_id: int, data: ShareProjectRequest, request: Req
             )
             send_email(to=target['email'], subject=subject, text=text, html=html)
             emailed = True
+            log_audit(db, "project_share_email_sent", user_id=target['id'], details=f"project_id={project_id}; invited_by={user_id}")
         db.commit()
 
         member = get_project_member(db, project_id, target['id'])

@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 from db import get_db
 from rate_limit import rate_limiter, get_client_ip, require_password_reset_rate_limit
+from services.audit import log_audit
 from services.email import send_email
 from services.email_config import get_password_link_ttl_hours, is_email_configured
 from services.email_templates import password_setup_email
@@ -134,6 +135,8 @@ def request_password_reset(data: RequestPasswordResetRequest, request: Request, 
             expires_hours=get_password_link_ttl_hours(),
         )
         send_email(to=user['email'], subject=subject, text=text, html=html)
+        log_audit(db, "password_reset_requested", user_id=user['id'], ip_address=get_client_ip(request), details="delivery=email")
+        log_audit(db, "password_setup_email_sent", user_id=user['id'], details="purpose=reset")
         db.commit()
     return neutral
 
@@ -181,7 +184,9 @@ def resend_password_setup_link(data: ResendPasswordSetupRequest, request: Reques
                 expires_hours=get_password_link_ttl_hours(),
             )
             send_email(to=row['email'], subject=subject, text=text, html=html)
+            log_audit(db, "password_setup_email_sent", user_id=row['user_id'], details=f"purpose={row['purpose']}; resend=true")
             emailed = True
+        log_audit(db, "password_setup_link_replaced", user_id=row['user_id'], ip_address=get_client_ip(request), details=f"purpose={row['purpose']}; delivery={'email' if emailed else 'manual'}")
         db.commit()
     response = {
         "message": "Neuer Link wurde per E-Mail gesendet." if emailed else "Neuer Link wurde erstellt.",
@@ -221,5 +226,6 @@ def complete_password_setup(data: CompletePasswordSetupRequest):
             "UPDATE password_setup_tokens SET used_at = datetime('now'), status = 'used' WHERE id = ?",
             (row['id'],)
         )
+        log_audit(db, "password_setup_link_used", user_id=row['user_id'], details=f"purpose={row['purpose']}")
         db.commit()
         return {"message": "Passwort gesetzt. Du kannst dich jetzt anmelden."}

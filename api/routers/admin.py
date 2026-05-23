@@ -178,12 +178,18 @@ def admin_update_email_config(data: EmailConfigRequest, request: Request, _: boo
 
 
 @router.post("/email-config/test")
-def admin_send_test_email(data: TestEmailRequest, _: bool = Depends(require_admin)):
+def admin_send_test_email(data: TestEmailRequest, request: Request, _: bool = Depends(require_admin)):
     email = sanitize_text(data.to)
     email_error = validate_email(email)
     if email_error:
         raise HTTPException(400, email_error)
-    send_test_email(email)
+    with get_db() as db:
+        try:
+            send_test_email(email)
+            log_audit(db, "email_test_sent", ip_address=get_client_ip(request), details=f"to={email}")
+        except Exception as exc:
+            log_audit(db, "email_test_failed", ip_address=get_client_ip(request), details=f"to={email}; error={type(exc).__name__}")
+            raise
     return {"message": "Test-Mail gesendet."}
 
 
@@ -285,6 +291,7 @@ def update_user(user_id: int, data: UpdateUserRequest, request: Request, _: bool
         result = {"email": email, "pending_email": None, "email_verification_required": False}
         if email != user['email']:
             result = set_email_or_pending(db, user_id=user_id, email=email, request=request, requested_by="admin")
+            log_audit(db, "email_verification_requested" if result.get("email_verification_required") else "email_changed_direct", user_id=user_id, details=f"requested_by=admin; delivery={result.get('email_verification_delivery')}")
         db.commit()
         return {"id": user_id, "display_name": display_name, **result}
 
