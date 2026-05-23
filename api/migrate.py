@@ -120,6 +120,75 @@ def repair_icon_migration(conn):
     """)
     conn.commit()
 
+def repair_email_smtp_migration(conn):
+    """Complete migration 021 after a partial/interrupted email schema run."""
+    conn.executescript("""
+    INSERT OR IGNORE INTO app_config (key, value) VALUES
+        ('smtp_enabled', 'false'),
+        ('smtp_host', ''),
+        ('smtp_port', '587'),
+        ('smtp_security', 'starttls'),
+        ('smtp_auth_enabled', 'false'),
+        ('smtp_username', ''),
+        ('smtp_password_secret', ''),
+        ('mail_from_address', ''),
+        ('mail_from_name', 'nia-todo'),
+        ('mail_reply_to', ''),
+        ('password_link_ttl_hours', '24');
+    """)
+    add_column_if_missing(conn, "users", "email_verified_at", "TEXT")
+    add_column_if_missing(conn, "users", "pending_email", "TEXT")
+    add_column_if_missing(conn, "users", "pending_email_token_hash", "TEXT")
+    add_column_if_missing(conn, "users", "pending_email_token_prefix", "TEXT")
+    add_column_if_missing(conn, "users", "pending_email_token_expires_at", "TEXT")
+    add_column_if_missing(conn, "users", "email_changed_at", "TEXT")
+    conn.executescript("""
+    UPDATE users
+    SET email_verified_at = COALESCE(email_verified_at, datetime('now'))
+    WHERE email IS NOT NULL
+      AND TRIM(email) != ''
+      AND password_hash IS NOT NULL
+      AND TRIM(password_hash) != '';
+
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_users_pending_email_unique
+    ON users(pending_email)
+    WHERE pending_email IS NOT NULL AND pending_email != '';
+
+    CREATE INDEX IF NOT EXISTS idx_users_pending_email_token_prefix
+    ON users(pending_email_token_prefix)
+    WHERE pending_email_token_prefix IS NOT NULL AND pending_email_token_prefix != '';
+    """)
+    add_column_if_missing(conn, "password_setup_tokens", "status", "TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'used', 'replaced'))")
+    add_column_if_missing(conn, "password_setup_tokens", "replaced_at", "TEXT")
+    add_column_if_missing(conn, "password_setup_tokens", "requested_by", "TEXT NOT NULL DEFAULT 'admin' CHECK(requested_by IN ('admin', 'user', 'system'))")
+    conn.executescript("""
+    UPDATE password_setup_tokens
+    SET status = 'used'
+    WHERE used_at IS NOT NULL;
+
+    CREATE INDEX IF NOT EXISTS idx_password_setup_tokens_user_purpose_status
+    ON password_setup_tokens(user_id, purpose, status);
+    """)
+    conn.commit()
+
+
+def repair_email_trust_source_migration(conn):
+    """Complete migration 023 after email_trust_source was partly added."""
+    add_column_if_missing(conn, "users", "email_trust_source", "TEXT")
+    conn.executescript("""
+    UPDATE users
+    SET email_trust_source = 'legacy_verified'
+    WHERE email_verified_at IS NOT NULL
+      AND email IS NOT NULL
+      AND trim(email) != ''
+      AND email_trust_source IS NULL;
+
+    CREATE INDEX IF NOT EXISTS idx_users_email_trust_source
+    ON users(email_trust_source)
+    WHERE email_trust_source IS NOT NULL AND email_trust_source != '';
+    """)
+    conn.commit()
+
 
 def get_migration_files():
     """Holt alle Migrations-Dateien sortiert nach Nummer."""
@@ -179,6 +248,16 @@ def run_migrations():
                 elif version == 17 and "duplicate column" in error_msg:
                     print(f"[MIGRATION] ⚠️ {filepath.name} - icon column exists, repairing remaining icon schema")
                     repair_icon_migration(conn)
+                    set_db_version(conn, version)
+                    applied += 1
+                elif version == 21 and ("duplicate column" in error_msg or "already exists" in error_msg):
+                    print(f"[MIGRATION] ⚠️ {filepath.name} - email schema partially exists, repairing remaining email schema")
+                    repair_email_smtp_migration(conn)
+                    set_db_version(conn, version)
+                    applied += 1
+                elif version == 23 and ("duplicate column" in error_msg or "already exists" in error_msg):
+                    print(f"[MIGRATION] ⚠️ {filepath.name} - email trust source partially exists, repairing remaining schema")
+                    repair_email_trust_source_migration(conn)
                     set_db_version(conn, version)
                     applied += 1
                 elif "duplicate column" in error_msg or "already exists" in error_msg:
