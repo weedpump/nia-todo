@@ -52,12 +52,17 @@ Bestands-/Legacy-Kontext:
 - User-Sessions laufen 30 Tage und werden über `/api/me` gleitend verlängert, wenn sie bald ablaufen
 - Admin-Sessions sind kürzerlebig und separat versioniert
 - CSRF-Schutz für Browser-Sessions
-- API-Keys für externe Nutzung nur via `Authorization: ApiKey ...` oder `X-API-Key`
+- API-Keys für externe Nutzung nur via `Authorization: ApiKey ...`
 - Benutzer sehen eigene Daten plus akzeptierte Shared-Projekte
 - Shared-Projektzugriff wird in Projekten, Todos, Sections, Reminders und WebSocket-Payloads geprüft
 - **E-Mail-Verifizierung**: Login, Passwort-Reset und Projekt-Sharing erfordern verifizierte E-Mails
 - **Neutrale API-Responses** bei E-Mail-basierten Aktionen verhindern User-Enumeration
 - **Pending Invites** sind aus Privacy-Gründen nur für den Invitee sichtbar (nicht für Owner/Members)
+- **2FA/MFA** ist in den normalen Passwort-Login eingebunden: Wenn ein Account 2FA benötigt und kein gültiges Trusted-Device-Cookie existiert, liefert `/api/login` eine Challenge statt eines Access-Tokens. Nach erfolgreicher Login-Challenge wird ein JWT mit `mfa_login_at` ausgestellt; sensitive Aktionen nutzen separate One-Time-MFA-Action-Grants.
+- **2FA-Methoden**: TOTP und Passkeys sind primäre selbstverwaltete Faktoren. Recovery Codes sind gehashed/table-backed gespeichert, einmalig nutzbar und nur Backup-Faktoren zu TOTP/Passkey; beim Entfernen des letzten primären Faktors werden sie automatisch widerrufen und können ohne aktiven primären Faktor nicht neu erzeugt werden. E-Mail-Code ist ein gültiger Fallback-Faktor, wenn kein stärkerer Faktor vorhanden ist, eine verifizierte E-Mail existiert und der Versand erfolgreich war. Passkeys nutzen WebAuthn-Challenge/Verify-Endpunkte mit ES256/P-256-Assertions, User-Verification-Pflicht, expliziter HTTPS-`public_base_url`-RP/Origin-Bindung (`http` nur lokal), `none`-Attestation-Parsing, Signaturprüfung und Sign-Counter-Rollback-Prüfung; Credentials liegen widerrufbar in `passkeys`/`passkey_challenges`.
+- **Trusted Devices** werden als HttpOnly-Cookie plus gehashter Server-Token gespeichert, laufen nach 30 Tagen ab und werden über `two_factor_remember_version` bei Reset/Disable invalidiert. Trusted Devices erlauben App-Login ohne erneute MFA, zählen aber nicht für sensitive Aktionen: Passwortänderung oder API-Key-Verwaltung müssen weiterhin eine echte One-Time-MFA-Reauth auslösen.
+- **Security-sensitive Aktionen** nutzen One-Time-MFA-Action-Grants; bei 2FA-pflichtigen Accounts muss jede sensible Aktion genau einen frischen Grant konsumieren. Alte JWTs ohne Login-MFA-Assurance werden nach 2FA-Aktivierung/Policy für normale API-Auth abgelehnt. Reauth ist replay-gehärtet: Action-Grants werden atomar konsumiert, Reauth-Buckets nach Erfolg geschlossen, E-Mail-Codes gelöscht und TOTP-Reauth-Timesteps nur einmal akzeptiert. Der nicht-sensitive 2FA-Status bleibt für gültige interaktive JWTs lesbar, damit Clients den richtigen Reauth-Faktor wählen können.
+- **Audit-Events** dokumentieren 2FA-Policy-Änderungen, Enrollment, Recovery-Code-Erzeugung/-Nutzung, Challenge-Erfolg/-Fehler, E-Mail-Code-Versand für Login/Reauth, Passkey-Änderungen, Trusted-Device-Erzeugung/-Widerruf und Admin-Reset. Challenge- und Reauth-Verifikation sind per Attempt-Counter begrenzt, inklusive E-Mail-/Passkey-Reauth-Challenges; Challenge-Verbrauch erfolgt über `consumed_at IS NULL`-Updates gegen Replay/Races. API Keys sind bewusst als Maschinen-Token von interaktiver MFA ausgenommen und bleiben widerrufbar; Settings-UI reauthentifiziert API-Key-Management bei Bedarf, Admin-UI zeigt aktive API-Key-Anzahl als Hinweis, widerruft bestehende Keys aber nicht automatisch.
 
 ## Benutzer-Onboarding
 

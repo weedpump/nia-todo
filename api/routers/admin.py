@@ -14,6 +14,7 @@ from services.audit import log_audit
 from services.instance_config import get_instance_config, get_public_base_url, update_instance_config
 from services.email_config import can_send_email_links, get_email_config, get_password_link_ttl_hours, update_email_config
 from services.email import send_email, send_test_email
+from services.two_factor import clear_recovery_codes, get_two_factor_required, set_two_factor_required
 from services.email_templates import password_setup_email
 from services.email_verification import clear_pending_email, set_email_or_pending
 from rate_limit import require_login_rate_limit, get_client_ip
@@ -65,6 +66,9 @@ class EmailConfigRequest(BaseModel):
 
 class TestEmailRequest(BaseModel):
     to: str
+
+class TwoFactorPolicyRequest(BaseModel):
+    required: bool
 
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -197,6 +201,43 @@ def admin_send_test_email(data: TestEmailRequest, request: Request, _: bool = De
     return {"message": "Test-Mail gesendet."}
 
 
+# ─── Two-Factor Policy ───────────────────────────────────────────────────────
+
+@router.get("/2fa-policy")
+def admin_get_two_factor_policy(_: bool = Depends(require_admin)):
+    with get_db() as db:
+        return {"required": get_two_factor_required(db)}
+
+
+@router.patch("/2fa-policy")
+def admin_set_two_factor_policy(data: TwoFactorPolicyRequest, request: Request, _: bool = Depends(require_admin)):
+    with get_db() as db:
+        set_two_factor_required(db, data.required, actor="admin-ui")
+        log_audit(db, "two_factor_policy_changed", ip_address=get_client_ip(request), details=f"required={data.required}; actor=admin-ui")
+        db.commit()
+        return {"required": data.required}
+
+
+@router.post("/users/{user_id}/2fa/reset")
+def admin_reset_user_two_factor(user_id: int, request: Request, _: bool = Depends(require_admin)):
+    with get_db() as db:
+        user = db.execute("SELECT id, username FROM users WHERE id = ?", (user_id,)).fetchone()
+        if not user:
+            raise HTTPException(404, "User not found")
+        db.execute(
+            """UPDATE users SET two_factor_enabled = 0, two_factor_totp_secret = NULL, two_factor_recovery_hashes = NULL,
+               two_factor_recovery_generated_at = NULL, two_factor_updated_at = datetime('now'),
+               two_factor_remember_version = COALESCE(two_factor_remember_version, 1) + 1 WHERE id = ?""",
+            (user_id,),
+        )
+        clear_recovery_codes(db, user_id)
+        db.execute("UPDATE passkeys SET revoked_at = datetime('now') WHERE user_id = ? AND revoked_at IS NULL", (user_id,))
+        db.execute("UPDATE trusted_devices SET revoked_at = datetime('now') WHERE user_id = ? AND revoked_at IS NULL", (user_id,))
+        log_audit(db, "two_factor_reset_by_admin", user_id=user_id, ip_address=get_client_ip(request), details=f"username={user['username']}")
+        db.commit()
+        return {"reset": user_id}
+
+
 # ─── User Management ─────────────────────────────────────────────────────────
 
 @router.post("/users")
@@ -278,8 +319,25 @@ def create_user(data: CreateUserRequest, request: Request, _: bool = Depends(req
 @router.get("/users")
 def list_users(_: bool = Depends(require_admin)):
     with get_db() as db:
-        rows = db.execute("SELECT id, username, display_name, email, email_verified_at, email_trust_source, pending_email, password_hash IS NOT NULL AS password_configured, is_admin, created_at FROM users ORDER BY id").fetchall()
-        return {"users": [dict(r) for r in rows]}
+        rows = db.execute("""
+            SELECT u.id, u.username, u.display_name, u.email, u.email_verified_at, u.email_trust_source,
+                   u.pending_email, u.password_hash IS NOT NULL AS password_configured, u.is_admin, u.created_at,
+                   COALESCE(u.two_factor_enabled, 0) AS two_factor_enabled,
+                   CASE WHEN u.two_factor_totp_secret IS NOT NULL AND u.two_factor_totp_secret != '' THEN 1 ELSE 0 END AS has_totp,
+                   CASE WHEN u.two_factor_recovery_hashes IS NOT NULL AND u.two_factor_recovery_hashes != '[]' THEN 1 ELSE 0 END AS has_recovery_codes,
+                   (SELECT COUNT(*) FROM passkeys p WHERE p.user_id = u.id AND p.revoked_at IS NULL) AS passkey_count,
+                   (SELECT COUNT(*) FROM trusted_devices td WHERE td.user_id = u.id AND td.revoked_at IS NULL AND td.expires_at >= strftime('%s','now')) AS trusted_device_count,
+                   (SELECT COUNT(*) FROM api_keys ak WHERE ak.user_id = u.id AND ak.revoked_at IS NULL) AS api_key_count
+            FROM users u
+            ORDER BY u.id
+        """).fetchall()
+        email_mfa_available = can_send_email_links()
+        users = []
+        for row in rows:
+            item = dict(row)
+            item["has_email_fallback"] = bool(email_mfa_available and item.get("email") and item.get("email_verified_at"))
+            users.append(item)
+        return {"users": users, "two_factor_required": get_two_factor_required(db)}
 
 @router.patch("/users/{user_id}")
 def update_user(user_id: int, data: UpdateUserRequest, request: Request, _: bool = Depends(require_admin)):

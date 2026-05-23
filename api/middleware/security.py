@@ -67,6 +67,7 @@ class CSRFProtectionMiddleware(BaseHTTPMiddleware):
         "/api/login", "/api/admin/login",
         "/api/setup/admin", "/api/setup/first-user", "/api/setup/status",
         "/api/password-setup/complete", "/api/password-setup/request", "/api/password-setup/resend",
+        "/api/2fa/challenge/verify", "/api/2fa/passkey/options", "/api/2fa/passkey/verify",
     }
 
     async def dispatch(self, request: Request, call_next):
