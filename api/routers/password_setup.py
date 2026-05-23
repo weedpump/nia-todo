@@ -63,10 +63,20 @@ def complete_password_setup(data: CompletePasswordSetupRequest):
         if not row:
             raise HTTPException(404, "Link ist ungültig oder abgelaufen")
         password_hash = bcrypt.hashpw(data.password.encode(), bcrypt.gensalt()).decode()
-        db.execute(
-            "UPDATE users SET password_hash = ?, token_version = token_version + 1 WHERE id = ?",
-            (password_hash, row['user_id'])
-        )
+        if row['purpose'] == 'invite':
+            db.execute(
+                """UPDATE users
+                   SET password_hash = ?,
+                       token_version = token_version + 1,
+                       email_verified_at = COALESCE(email_verified_at, datetime('now'))
+                   WHERE id = ?""",
+                (password_hash, row['user_id'])
+            )
+        else:
+            db.execute(
+                "UPDATE users SET password_hash = ?, token_version = token_version + 1 WHERE id = ?",
+                (password_hash, row['user_id'])
+            )
         db.execute(
             "UPDATE password_setup_tokens SET used_at = datetime('now'), status = 'used' WHERE id = ?",
             (row['id'],)

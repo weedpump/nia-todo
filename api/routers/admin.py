@@ -12,8 +12,9 @@ from services.auth import create_admin_jwt_token, verify_admin_token
 from services.utils import sanitize_text, validate_email, validate_password, validate_admin_password
 from services.audit import log_audit
 from services.instance_config import get_instance_config, get_public_base_url, update_instance_config
-from services.email_config import get_email_config, get_password_link_ttl_hours, update_email_config
-from services.email import send_test_email
+from services.email_config import get_email_config, get_password_link_ttl_hours, is_email_configured, update_email_config
+from services.email import send_email, send_test_email
+from services.email_templates import password_setup_email
 from rate_limit import require_login_rate_limit, get_client_ip
 from middleware.security import generate_csrf_token, set_csrf_cookie
 
@@ -87,6 +88,17 @@ def _hash_setup_token(token: str) -> str:
 def _make_password_setup_link(request: Request, token: str) -> str:
     base_url = get_public_base_url(request)
     return f"{base_url}/set-password?token={token}"
+
+
+def _send_password_setup_email(*, to: str, display_name: str, username: str, link: str, purpose: str) -> None:
+    subject, text, html = password_setup_email(
+        display_name=display_name,
+        username=username,
+        link=link,
+        purpose=purpose,
+        expires_hours=_password_link_ttl_hours(),
+    )
+    send_email(to=to, subject=subject, text=text, html=html)
 
 
 def create_password_setup_token(db, user_id: int, purpose: str = "reset", requested_by: str = "admin") -> str:
@@ -218,17 +230,34 @@ def create_user(data: CreateUserRequest, request: Request, _: bool = Depends(req
             )
 
         token = create_password_setup_token(db, user_id, "invite")
+        link = _make_password_setup_link(request, token)
+        emailed = False
+        if is_email_configured():
+            _send_password_setup_email(
+                to=data.email,
+                display_name=data.display_name,
+                username=data.username,
+                link=link,
+                purpose="invite",
+            )
+            emailed = True
         db.commit()
         log_audit(db, "user_created", user_id=user_id, details=f"username={data.username}")
-        return {
+        if emailed:
+            log_audit(db, "password_setup_email_sent", user_id=user_id, details="purpose=invite")
+        response = {
             "id": user_id,
             "username": data.username,
             "display_name": data.display_name,
             "email": data.email,
             "created_at": now_iso(),
-            "password_setup_url": _make_password_setup_link(request, token),
             "password_setup_expires_hours": _password_link_ttl_hours(),
+            "password_setup_delivery": "email" if emailed else "manual",
+            "message": "Einladungs-Mail gesendet." if emailed else "Passwort-Link erstellt.",
         }
+        if not emailed:
+            response["password_setup_url"] = link
+        return response
 
 @router.get("/users")
 def list_users(_: bool = Depends(require_admin)):
@@ -304,14 +333,30 @@ def admin_change_user_password(user_id: int, data: ResetUserPasswordRequest, req
 @router.post("/users/{user_id}/password-link")
 def admin_create_user_password_link(user_id: int, request: Request, _: bool = Depends(require_admin)):
     with get_db() as db:
-        user = db.execute("SELECT id, username FROM users WHERE id = ?", (user_id,)).fetchone()
+        user = db.execute("SELECT id, username, display_name, email FROM users WHERE id = ?", (user_id,)).fetchone()
         if not user:
             raise HTTPException(404, "User not found")
         token = create_password_setup_token(db, user_id, "reset")
+        link = _make_password_setup_link(request, token)
+        emailed = False
+        if is_email_configured() and user['email']:
+            _send_password_setup_email(
+                to=user['email'],
+                display_name=user['display_name'],
+                username=user['username'],
+                link=link,
+                purpose="reset",
+            )
+            emailed = True
         db.commit()
         log_audit(db, "password_setup_link_created", user_id=user_id, details=f"username={user['username']}")
-    return {
-        "message": "Passwort-Link erstellt.",
-        "password_setup_url": _make_password_setup_link(request, token),
+        if emailed:
+            log_audit(db, "password_setup_email_sent", user_id=user_id, details="purpose=reset")
+    response = {
+        "message": "Passwort-Mail gesendet." if emailed else "Passwort-Link erstellt.",
         "password_setup_expires_hours": _password_link_ttl_hours(),
+        "password_setup_delivery": "email" if emailed else "manual",
     }
+    if not emailed:
+        response["password_setup_url"] = link
+    return response
