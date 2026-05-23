@@ -1876,6 +1876,8 @@ input[type="color"]::-moz-color-swatch {
 
 /* ─── Login Overlay ────────────────────────────────────────────────────────── */
 
+.hidden { display: none !important; }
+
 .boot-overlay,
 .login-overlay {
   position: fixed;
@@ -2156,6 +2158,49 @@ input[type="color"]::-moz-color-swatch {
 
 .login-btn:active {
   transform: translateY(0);
+}
+
+.login-forgot-btn, .login-reset-submit {
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.login-forgot-btn:hover, .login-reset-submit:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.login-reset-panel {
+  margin: 0 0 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-primary);
+}
+
+.login-reset-panel input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.login-reset-message {
+  min-height: 18px;
+  margin-top: 8px;
+  color: var(--success);
+  font-size: 12px;
 }
 
 .login-theme-toggle {
