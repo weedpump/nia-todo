@@ -156,24 +156,6 @@ function showNativeUpdateModal(download, currentVersion) {
   }
 }
 
-function renderNativeUpdate(target, download, currentVersion) {
-  if (!target || !download) return;
-  const latestVersion = download.version || '';
-  target.innerHTML = `
-    <div class="native-update-card">
-      <div class="native-update-copy">
-        <strong>Update für ${escapeHtml(platformLabel(download.platform))} verfügbar</strong>
-        <span>Installiert: ${escapeHtml(currentVersion || 'unbekannt')} · Neu: ${escapeHtml(latestVersion)}</span>
-      </div>
-      <a class="app-download-button native-update-download" href="${escapeHtml(download.url)}" download title="${escapeHtml(platformTitle(download))}">
-        ${platformIconClass(download.platform) ? `<span class="app-download-icon ${platformIconClass(download.platform)}" aria-hidden="true"></span>` : `<span>${iconSvg('download')}</span>`}
-        <span>Download</span>
-      </a>
-    </div>
-  `;
-  target.style.display = '';
-}
-
 export function createAppDownloadsFeature() {
   async function loadDownloadManifest() {
     const manifestUrl = RUNTIME_CAPABILITIES.native && API ? `${API}/downloads/app-downloads.json` : '/downloads/app-downloads.json';
@@ -185,8 +167,7 @@ export function createAppDownloadsFeature() {
   async function initAppDownloads() {
     const downloadTargets = Array.from(document.querySelectorAll('[data-app-downloads]'));
     const nativeVersionTargets = Array.from(document.querySelectorAll('[data-native-app-version]'));
-    const nativeUpdateTargets = Array.from(document.querySelectorAll('[data-native-app-update]'));
-    if (!downloadTargets.length && !nativeVersionTargets.length && !nativeUpdateTargets.length) return;
+    if (!downloadTargets.length && !nativeVersionTargets.length && !document.getElementById('native-app-update-modal')) return;
 
     const nativeBridge = createNativeBridge();
     const nativePlatform = platformFromNativeRuntime();
@@ -212,16 +193,12 @@ export function createAppDownloadsFeature() {
       const nativeDownload = downloads.find((download) => download.platform === nativePlatform);
       const updateAvailable = nativeDownload?.version && currentVersion && compareVersions(nativeDownload.version, currentVersion) > 0;
       if (updateAvailable) {
-        nativeUpdateTargets.forEach((target) => renderNativeUpdate(target, nativeDownload, currentVersion));
         showNativeUpdateModal(nativeDownload, currentVersion);
-      } else {
-        nativeUpdateTargets.forEach((target) => { target.style.display = 'none'; });
       }
     } catch (error) {
       console.info('[Downloads] No app download available', error);
       downloadTargets.forEach((target) => { target.style.display = 'none'; });
       if (!hasNativeVersion) nativeVersionTargets.forEach((target) => { target.style.display = 'none'; });
-      nativeUpdateTargets.forEach((target) => { target.style.display = 'none'; });
     }
   }
 
