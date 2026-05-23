@@ -22,6 +22,7 @@ HEIC_SUPPORTED = PILLOW_HEIC_SUPPORTED or bool(HEIF_CONVERT_BIN)
 
 from db import DB_PATH, get_db, now_iso
 from routers.auth import require_auth
+from services.audit import log_audit
 from services.email_verification import set_email_or_pending, verify_pending_email
 from services.utils import sanitize_text, validate_email, validate_password
 
@@ -145,6 +146,7 @@ def verify_own_pending_email(data: dict):
     with get_db() as db:
         if not verify_pending_email(db, token):
             raise HTTPException(404, "Bestätigungslink ist ungültig oder abgelaufen")
+        log_audit(db, "email_verification_completed")
         db.commit()
     return {"message": "E-Mail bestätigt."}
 
@@ -165,6 +167,7 @@ def update_own_email(data: UpdateEmailRequest, request: Request, user_id: int = 
         if existing:
             raise HTTPException(409, "Email already exists")
         result = set_email_or_pending(db, user_id=user_id, email=email, request=request, requested_by="user")
+        log_audit(db, "email_verification_requested" if result.get("email_verification_required") else "email_changed_direct", user_id=user_id, details=f"delivery={result.get('email_verification_delivery')}")
         db.commit()
     return result
 

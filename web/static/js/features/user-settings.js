@@ -447,7 +447,7 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
       const currentUser = getCurrentUser();
       if (currentUser) setCurrentUser({ ...currentUser, email: data.email || currentUser.email, pending_email: data.pending_email || null });
       await refreshCurrentUser().catch(() => renderUserInfo());
-      successEl.textContent = data.email_verification_required ? 'Bestätigungsmail gesendet' : 'E-Mail gespeichert';
+      successEl.textContent = data.email_verification_required ? 'Bestätigungsmail gesendet' : 'E-Mail gespeichert und bestätigt';
     } catch (e) {
       errorEl.textContent = e.message;
     }
