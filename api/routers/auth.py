@@ -123,7 +123,7 @@ def login(data: LoginRequest, request: Request, response: Response, _: None = De
                 "is_admin": bool(user.get('is_admin', False))
             },
             "csrf_token": csrf_token,
-            "mfa_enrollment_required": bool(mfa_required and not state.get('has_totp') and not state.get('has_passkey')) if mfa_required and not remembered else False
+            "mfa_enrollment_required": bool(mfa_required and not (state.get('has_totp') or state.get('has_passkey') or state.get('has_recovery_codes') or state.get('has_email_fallback'))) if mfa_required and not remembered else False
         }
 
 @router.post("/logout")

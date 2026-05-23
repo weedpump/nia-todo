@@ -129,10 +129,11 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     try {
       const state = await authApi.twoFactorStatus();
       const parts = [];
-      parts.push(state.enabled ? 'aktiv' : (state.required ? 'erforderlich, noch nicht vollständig eingerichtet' : 'nicht aktiv'));
+      const hasAnyFactor = state.has_totp || state.has_passkey || state.has_recovery_codes || state.has_email_fallback;
+      parts.push(state.enabled ? 'aktiv' : (state.required ? (hasAnyFactor ? 'erforderlich, nutzbarer Faktor verfügbar' : 'erforderlich, kein Faktor verfügbar') : 'nicht aktiv'));
       if (state.has_totp) parts.push('TOTP eingerichtet');
       if (state.has_passkey) parts.push(`${state.passkey_count} Passkey(s)`);
-      if (state.has_email_fallback) parts.push('E-Mail-Fallback verfügbar');
+      if (state.has_email_fallback) parts.push('E-Mail-Code verfügbar');
       if (state.has_recovery_codes) parts.push(`${state.recovery_codes_remaining} Recovery Codes`);
       statusEl.textContent = `Status: ${parts.join(' · ')}`;
       document.getElementById('settings-2fa-actions')?.querySelectorAll('button').forEach((btn) => {

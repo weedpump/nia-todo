@@ -34,7 +34,7 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 - **Privacy-safe Member-Listen**: Pending Invites sind nur für den Invitee sichtbar, nicht für Owner oder andere Mitglieder.
 - **WebSocket-Broadcasts** bei Einladungen nur an Invitee (ohne `project_id` im Payload), um Pending-Invite-Existenz nicht zu leaken.
 - **Migrations 021–023** für SMTP-Konfiguration, case-insensitive E-Mail-Uniqueness und E-Mail-Trust-Source.
-- **Zwei-Faktor-Authentifizierung (2FA)** mit TOTP/Authenticator-App, Passkeys/WebAuthn inkl. Passkey-Reauth, Recovery Codes, Login-Challenge-Flow mit Attempt-Lockout, optionalem „Gerät merken“ und E-Mail-Code-Fallback für Accounts ohne TOTP/Passkey ergänzt.
+- **Zwei-Faktor-Authentifizierung (2FA)** mit TOTP/Authenticator-App, Passkeys/WebAuthn inkl. Passkey-Reauth, Recovery Codes, Login-Challenge-Flow mit Attempt-Lockout, optionalem „Gerät merken“ und E-Mail-Code als gültigem Faktor für Accounts ohne TOTP/Passkey ergänzt.
 - **Passkeys produktionsgehärtet**: WebAuthn ist an HTTPS-`public_base_url` gebunden (`http` nur lokal), prüft Origin/RP-ID, User Verification, `none`-Attestation, Signaturen und Sign-Counter; Native Apps zeigen Passkeys erst nach separater nativer Passkey-Bridge.
 - **2FA-Admin-Steuerung** ergänzt: globale 2FA-Pflicht, Benutzer-Status inkl. Faktoren/API-Key-Hinweis und Admin-Reset pro Benutzer.
 - **2FA-/Reauth-Schutz** für sicherheitskritische Account-Aktionen ergänzt, u.a. E-Mail ändern, Passwort ändern, 2FA deaktivieren, Recovery Codes regenerieren, API-Key-Management und Passkey-Verwaltung.
@@ -63,7 +63,7 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 - **Member-Listen zeigen nur `accepted` Mitglieder** — Pending Invites sind privat bis zur Annahme.
 - **Passwort-Reset und Einladungen** senden nur an verifizierte E-Mails; neutrale Responses verhindern Enumeration.
 - **SMTP-Secrets werden in API-Responses redacted** (`smtp_password_configured` statt Klartext).
-- Login-Antworten können jetzt eine 2FA-Challenge statt eines Access-Tokens liefern; Clients müssen dann `/api/2fa/challenge/verify` oder den Passkey-Verify-Flow abschließen. Global erzwungene 2FA ohne eingerichteten Faktor erzeugt nur einen Enrollment-Token, keinen normalen App-Zugriff.
+- Login-Antworten können jetzt eine 2FA-Challenge statt eines Access-Tokens liefern; Clients müssen dann `/api/2fa/challenge/verify` oder den Passkey-Verify-Flow abschließen. Global erzwungene 2FA ohne nutzbaren Faktor erzeugt nur einen Enrollment-Token; verifizierte E-Mail mit SMTP zählt als E-Mail-Code-Faktor.
 
 ### Fixed
 - Projektanlage in Workspaces erzeugt keine 500er mehr bei Datenbankkonflikten oder Workspace-Zuordnung.
