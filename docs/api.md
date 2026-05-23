@@ -197,7 +197,7 @@ Aktiviert TOTP nach Passwortbestätigung und liefert einmalig neue Recovery Code
 
 ### 2FA deaktivieren / Faktoren widerrufen / Recovery Codes regenerieren
 - `POST /api/me/2fa/disable` — benötigt eine frische One-Time-MFA-Reauth, widerruft Trusted Devices und Passkeys.
-- `DELETE /api/me/2fa/totp` — widerruft den eingerichteten TOTP-Secret, benötigt eine frische One-Time-MFA-Reauth.
+- `DELETE /api/me/2fa/totp` — widerruft den eingerichteten TOTP-Secret, benötigt eine frische One-Time-MFA-Reauth. Wenn danach kein primärer Faktor (TOTP/Passkey) mehr übrig ist, werden Recovery Codes automatisch widerrufen und user-seitige 2FA deaktiviert; bei globaler Policy kann E-Mail-Code-MFA weiter als Fallback greifen.
 - `POST /api/me/2fa/recovery-codes/regenerate` — benötigt eine frische One-Time-MFA-Reauth, liefert neue Codes einmalig zurück.
 - `POST /api/me/2fa/reauth` — prüft TOTP, Recovery-Code oder E-Mail-Code mit Attempt-Lockout und stellt ein JWT mit einem einmalig konsumierbaren MFA-Action-Grant aus. Reauth-Buckets werden nach Erfolg konsumiert; E-Mail-Reauth-Codes werden invalidiert und TOTP-Reauth-Timesteps nur einmal akzeptiert.
 - `POST /api/me/2fa/reauth/email/start` — sendet einen E-Mail-Reauth-Code, wenn E-Mail-Code der verfügbare Faktor ist.
@@ -208,7 +208,7 @@ Aktiviert TOTP nach Passwortbestätigung und liefert einmalig neue Recovery Code
 - `POST /api/me/passkeys/options` — Registrierungsoptionen/Challenge vorbereiten.
 - `POST /api/me/passkeys/verify` — WebAuthn-Registrierung mit Passwortbestätigung abschließen.
 - `POST /api/2fa/passkey/options` und `/api/2fa/passkey/verify` — Login-Challenge per Passkey abschließen.
-- `DELETE /api/me/passkeys/{id}` — Passkey widerrufen, benötigt eine frische One-Time-MFA-Reauth.
+- `DELETE /api/me/passkeys/{id}` — Passkey widerrufen, benötigt eine frische One-Time-MFA-Reauth. Wenn danach kein primärer Faktor (TOTP/Passkey) mehr übrig ist, werden Recovery Codes automatisch widerrufen und user-seitige 2FA deaktiviert; bei globaler Policy kann E-Mail-Code-MFA weiter als Fallback greifen.
 
 Passkeys sind an die konfigurierte öffentliche Basis-URL (`public_base_url`) gebunden. Für Nicht-Localhost-Hosts ist HTTPS Pflicht; ohne `public_base_url` sind produktive Passkey-Flows für Nicht-Localhost-Hosts fail-closed. Native Apps bekommen bis zur nativen Passkey-Bridge keinen WebView-Passkey-Sonderpfad.
 
