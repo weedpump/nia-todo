@@ -22,7 +22,7 @@ Deckt ab:
 - Projekt-Sharing und Multi-User-Isolation
 - Security-Regressionen für CSRF/API-Key, IDOR und Datum-/Zeitvalidierung
 - **E-Mail/SMTP-Integration (neutrale Responses, verifizierte E-Mail-Lookups)**
-- **2FA-Service-/Security-Regressionen für TOTP, Recovery-Code-Verbrauch, Challenge-Lockout, alte JWTs nach Policy-Aktivierung und WebAuthn-RP/Origin/HTTPS-Bindung**
+- **2FA-Service-/Security-Regressionen für TOTP, Recovery-Code-Verbrauch, Challenge-Lockout, alte JWTs nach Policy-Aktivierung, WebAuthn-RP/Origin/HTTPS-Bindung, One-Time-MFA-Grants, Reauth-Replay-Schutz und Recovery-Code-Cleanup nach Entfernen des letzten primären Faktors**
 
 ## Frontend
 
@@ -56,7 +56,7 @@ Deckt ab:
 - Push-Status/Test/Deaktivieren
 - Passwort ändern
 - **E-Mail-Verifizierung**
-- **2FA-Settings-UI: Status, TOTP-Setup, Recovery-Code-Anzeige, Deaktivieren/Regenerieren**
+- **2FA-Settings-UI: Status, TOTP-Setup mit QR-Code, Recovery-Code-Anzeige, Passkey-/TOTP-Gerätelisten, Deaktivieren/Widerrufen/Regenerieren und Security-Dialoge ohne Browser-Popups**
 
 ### Projects
 - Projekt anlegen
@@ -80,12 +80,28 @@ Deckt ab:
 - Service-Worker cached keine `/api/*` Antworten
 - Offline-Sync-Queue lässt nur erlaubte Felder durch
 - **E-Mail-Enumeration-Schutz (neutrale Responses bei Passwort-Reset/Invite)**
+- **2FA-/MFA-Regressionen: Native-Passkey-Deferral, Recovery-Code-Fallback-Labels, Security-Dialoge statt `alert/prompt/confirm`, One-Time-Grant-Verbrauch und sensible Aktionen mit frischer Reauth**
 
 ## Release-Gate
 
 - `release.sh` ruft zuerst `./scripts/test_all.sh` auf
 - bei Fehler: sofort Abbruch
 - kein Merge, kein Tag, kein Push
+
+Für 2FA-Änderungen zusätzlich sinnvoll vor Release/Review:
+- `python3 scripts/test_two_factor_services.py`
+- `node scripts/test_frontend_mfa_login.mjs`
+- `node scripts/test_frontend_settings.mjs`
+- `node scripts/test_frontend_admin.mjs`
+- `node scripts/test_frontend_security.mjs`
+
+Manuelle 2FA-Smoke-Pfade:
+- TOTP einrichten, QR-Code scannen, Login mit TOTP abschließen.
+- Passkey hinzufügen, Login/Reauth per Passkey abschließen.
+- TOTP/Passkey widerrufen; beim letzten primären Faktor müssen Recovery Codes verschwinden und user-seitige 2FA deaktiviert werden.
+- Sensitive Aktionen nacheinander ausführen; jede Aktion muss eine frische MFA-Reauth verlangen.
+- Trusted Device muss Login-MFA überspringen können, aber keine sensitive Aktion autorisieren.
+- Recovery Code und E-Mail-Code dürfen nach erfolgreicher Nutzung nicht erneut funktionieren.
 
 ## E-Mail/SMTP-Tests
 

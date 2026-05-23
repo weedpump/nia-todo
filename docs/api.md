@@ -64,7 +64,9 @@ Abschluss:
 }
 ```
 
-Response entspricht dem normalen Login (`access_token`, `csrf_token`, `user`). Die Login-Challenge erzeugt nur Login-MFA-Assurance; sensitive Aktionen wie Passwortänderung/API-Key-Verwaltung benötigen weiterhin eine frische One-Time-MFA-Reauth. Bei `remember_device=true` wird zusätzlich ein HttpOnly-Trusted-Device-Cookie gesetzt, das spätere Login-MFA ersetzt, aber ebenfalls nicht für sensitive Aktionen zählt.
+Response entspricht dem normalen Login (`access_token`, `csrf_token`, `user`). Die Login-Challenge wird atomar verbraucht und erzeugt nur Login-MFA-Assurance; sensitive Aktionen wie Passwortänderung/API-Key-Verwaltung benötigen weiterhin eine frische One-Time-MFA-Reauth. Bei `remember_device=true` wird zusätzlich ein HttpOnly-Trusted-Device-Cookie gesetzt, das spätere Login-MFA ersetzt, aber ebenfalls nicht für sensitive Aktionen zählt.
+
+`POST /api/2fa/passkey/options` und `/api/2fa/passkey/verify` schließen dieselbe Login-Challenge per Passkey ab. Passkey-Login benötigt User Verification und verbraucht die Challenge ebenfalls einmalig.
 
 ### Logout
 `POST /api/logout`
@@ -193,10 +195,10 @@ Liefert aktivierte/verfügbare Faktoren, Recovery-Code-Anzahl, globale Pflicht u
 { "secret": "BASE32...", "code": "123456", "password": "..." }
 ```
 
-Aktiviert TOTP nach Passwortbestätigung und liefert einmalig neue Recovery Codes sowie ein frisches MFA-JWT zurück.
+Aktiviert TOTP nach Passwortbestätigung und liefert einmalig neue Recovery Codes sowie ein frisches MFA-JWT zurück. Recovery Codes sind Backup-Faktoren zu TOTP/Passkey, nicht der primäre 2FA-Zustand.
 
 ### 2FA deaktivieren / Faktoren widerrufen / Recovery Codes regenerieren
-- `POST /api/me/2fa/disable` — benötigt eine frische One-Time-MFA-Reauth, widerruft Trusted Devices und Passkeys.
+- `POST /api/me/2fa/disable` — benötigt eine frische One-Time-MFA-Reauth, widerruft Trusted Devices, Passkeys und Recovery Codes.
 - `DELETE /api/me/2fa/totp` — widerruft den eingerichteten TOTP-Secret, benötigt eine frische One-Time-MFA-Reauth. Wenn danach kein primärer Faktor (TOTP/Passkey) mehr übrig ist, werden Recovery Codes automatisch widerrufen und user-seitige 2FA deaktiviert; bei globaler Policy kann E-Mail-Code-MFA weiter als Fallback greifen.
 - `POST /api/me/2fa/recovery-codes/regenerate` — benötigt eine frische One-Time-MFA-Reauth und mindestens einen primären Faktor (TOTP oder Passkey), liefert neue Codes einmalig zurück.
 - `POST /api/me/2fa/reauth` — prüft TOTP, Recovery-Code oder E-Mail-Code mit Attempt-Lockout und stellt ein JWT mit einem einmalig konsumierbaren MFA-Action-Grant aus. Reauth-Buckets werden nach Erfolg konsumiert; E-Mail-Reauth-Codes werden invalidiert und TOTP-Reauth-Timesteps nur einmal akzeptiert.
@@ -218,7 +220,7 @@ Passkeys sind an die konfigurierte öffentliche Basis-URL (`public_base_url`) ge
 - `GET /api/admin/users` enthält zusätzlich 2FA-/Passkey-/Trusted-Device-/API-Key-Statusfelder.
 - `POST /api/admin/users/{user_id}/2fa/reset` — setzt Faktoren, Recovery Codes, Passkeys und Trusted Devices eines Benutzers zurück.
 
-Security-sensitive Account-Aktionen verlangen bei 2FA-pflichtigen Accounts einen frischen, einmalig konsumierbaren MFA-Action-Grant. Login-MFA und Trusted Devices zählen nur für App-Zugriff, nicht für sensitive Aktionen. API Keys (`ApiKey nt_...`) sind bewusst als Maschinen-Token von interaktiver MFA bei der Nutzung ausgenommen. Erzeugung und Widerruf eigener API Keys benötigen bei MFA-pflichtigen Accounts immer eine neue Reauth; die Settings-UI stößt dafür bei Bedarf einen Reauth-Flow an. Bestehende API Keys werden beim Aktivieren von MFA nicht automatisch widerrufen; die Admin-UI zeigt aktive Keys als Warnhinweis. Ein Enrollment-only Token wird nur ausgegeben, wenn globale 2FA erzwungen ist und gar kein nutzbarer Faktor verfügbar ist; E-Mail-Code-Fallback verhindert also keinen normalen Login nach erfolgreicher Challenge.
+Security-sensitive Account-Aktionen verlangen bei 2FA-pflichtigen Accounts einen frischen, einmalig konsumierbaren MFA-Action-Grant. Login-MFA und Trusted Devices zählen nur für App-Zugriff, nicht für sensitive Aktionen. Reauth-Codes sind ebenfalls replay-gehärtet: E-Mail-Reauth-Codes werden nach Erfolg gelöscht, TOTP-Reauth kann pro Timestep nur einmal einen Grant ausstellen, Recovery Codes werden table-backed und single-use verbraucht. API Keys (`ApiKey nt_...`) sind bewusst als Maschinen-Token von interaktiver MFA bei der Nutzung ausgenommen. Erzeugung und Widerruf eigener API Keys benötigen bei MFA-pflichtigen Accounts immer eine neue Reauth; die Settings-UI stößt dafür bei Bedarf einen Reauth-Flow an. Bestehende API Keys werden beim Aktivieren von MFA nicht automatisch widerrufen; die Admin-UI zeigt aktive Keys als Warnhinweis. Ein Enrollment-only Token wird nur ausgegeben, wenn globale 2FA erzwungen ist und gar kein nutzbarer Faktor verfügbar ist; E-Mail-Code-Fallback verhindert also keinen normalen Login nach erfolgreicher Challenge.
 
 ## E-Mail / SMTP
 

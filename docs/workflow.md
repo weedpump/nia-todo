@@ -58,10 +58,12 @@ Native Build-Hinweise ab `v1.6.0`:
 - nach größeren Arbeitsblöcken pushen
 - kleine Doku-Änderungen bündeln
 
-## Auth-/Admin-Änderungen
+## Auth-/Admin-/2FA-Änderungen
 
-- Passwort-/Onboarding-Änderungen auf Feature-Branches entwickeln
+- Passwort-/Onboarding-/2FA-Änderungen auf Feature-Branches entwickeln
 - E-Mail-Adressen client- und serverseitig validieren
 - Admins erzeugen Passwort-Setup-/Reset-Links statt Passwörter direkt zu setzen
 - Passwort-Links sind einmalig und 24 Stunden gültig
-- Vor Merge/Release mindestens Backend-, Admin-, Setup- und Settings-Frontendtests ausführen
+- 2FA-Änderungen müssen Login-MFA, Reauth-MFA und sensitive Aktionen getrennt betrachten: Trusted Devices/Login-MFA dürfen keine Account-Security-Aktion autorisieren
+- Recovery Codes sind nur Backup-Faktoren zu TOTP/Passkey; Änderungen daran brauchen mindestens `scripts/test_two_factor_services.py` und einen fokussierten Security-Review
+- Vor Merge/Release mindestens Backend-, Admin-, Setup-, Settings-, MFA-Login- und Security-Frontendtests ausführen
