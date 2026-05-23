@@ -250,7 +250,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
       <button class="btn btn-primary" onclick="createUser()">Erstellen & Link erzeugen</button>
     </div>
     <div style="font-size: 12px; color: var(--text-muted); margin-top: 8px;">
-      Der Benutzer setzt sein Passwort selbst über einen einmaligen Link. Der Link ist 24 Stunden gültig.
+      Der Benutzer setzt sein Passwort selbst über einen einmaligen Link. Wenn E-Mail konfiguriert ist, wird der Link automatisch verschickt.
     </div>
     <div class="admin-error" id="create-error"></div>
     <div class="admin-success" id="create-success"></div>
@@ -648,9 +648,13 @@ async function createUser() {
       display_name: displayName || username,
       email: email
     });
-    document.getElementById('create-success').textContent = `Benutzer '${username}' erstellt. Link kopieren und senden:`;
-    document.getElementById('create-link-input').value = data.password_setup_url;
-    document.getElementById('create-link-box').style.display = 'flex';
+    if (data.password_setup_delivery === 'email') {
+      document.getElementById('create-success').textContent = `Benutzer '${username}' erstellt. Einladungs-Mail wurde gesendet.`;
+    } else {
+      document.getElementById('create-success').textContent = `Benutzer '${username}' erstellt. Link kopieren und senden:`;
+      document.getElementById('create-link-input').value = data.password_setup_url || '';
+      document.getElementById('create-link-box').style.display = 'flex';
+    }
     document.getElementById('new-username').value = '';
     document.getElementById('new-display-name').value = '';
     document.getElementById('new-email').value = '';
@@ -745,6 +749,10 @@ async function copySetupLink(inputId) {
 async function generatePasswordLink(userId, username) {
   try {
     const data = await apiPost(`/api/admin/users/${userId}/password-link`, {});
+    if (data.password_setup_delivery === 'email') {
+      alert(`Passwort-Mail für ${username} wurde gesendet.`);
+      return;
+    }
     const link = data.password_setup_url;
     const copied = await navigator.clipboard.writeText(link).then(() => true).catch(() => false);
     prompt(`Passwort-Link für ${username}${copied ? ' wurde kopiert' : ''}:`, link);
