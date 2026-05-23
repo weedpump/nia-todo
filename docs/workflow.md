@@ -13,14 +13,15 @@
 ## Release
 
 1. Feature-Branch erst nach Review nach `develop` mergen; `release.sh` releast ausschließlich `develop`
-2. Im Dev-Ordner bleiben: `~/projects/nia-todo-dev`
-3. Vorab bei Bedarf gezielt testen; `release.sh` führt die komplette Suite selbst aus
-4. `./release.sh VERSION` ausführen, z.B. `./release.sh 1.7.0`
-5. Native Apps nur bei Bedarf mitbauen:
+2. Release-Script auf `develop` mit sauberem Working Tree starten; Feature-Branches werden bewusst abgelehnt
+3. Im Dev-Ordner bleiben: `~/projects/nia-todo-dev`
+4. Vorab bei Bedarf gezielt testen; `release.sh` führt die komplette Suite selbst aus
+5. `./release.sh VERSION` ausführen, z.B. `./release.sh 1.7.0`
+6. Native Apps nur bei Bedarf mitbauen:
    - Windows: `./release.sh 1.7.0 --build-windows --windows-version 1.6.7`
    - Android: `./release.sh 1.7.0 --build-android --android-version 1.6.7`
    - beide: `./release.sh 1.7.0 --build-windows --windows-version 1.6.7 --build-android --android-version 1.6.7`
-6. Das Script setzt Release-Versionen, baut optional Windows-Installer/Android-APK, merged `develop` nach `main`, erstellt Tag, aktualisiert Live und bumped `develop` auf die nächste `-dev` Version
+7. Das Script setzt Release-Versionen, baut optional Windows-Installer/Android-APK, merged `develop` nach `main`, erstellt Tag, aktualisiert Live und bumped `develop` auf die nächste `-dev` Version
 
 Changelog-Pflicht:
 
