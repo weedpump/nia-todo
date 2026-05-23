@@ -20,9 +20,11 @@ export function createApiKeysFeature({ authApi }) {
     const createdEl = document.getElementById('api-key-created');
     const valueEl = document.getElementById('api-key-value');
     const errorEl = document.getElementById('api-key-error');
+    const copyStatusEl = document.getElementById('api-key-copy-status');
     if (createdEl) createdEl.style.display = 'none';
     if (valueEl) valueEl.textContent = '';
     if (errorEl) errorEl.textContent = '';
+    if (copyStatusEl) copyStatusEl.textContent = '';
   }
 
   async function loadApiKeys() {
@@ -144,20 +146,32 @@ export function createApiKeysFeature({ authApi }) {
     }
   }
 
+  function showCopyStatus(message, isError = false) {
+    const statusEl = document.getElementById('api-key-copy-status');
+    if (!statusEl) return;
+    statusEl.style.color = isError ? 'var(--danger)' : 'var(--success)';
+    statusEl.textContent = message;
+  }
+
   function copyApiKey() {
     const valueEl = document.getElementById('api-key-value');
     if (!valueEl || !valueEl.textContent) return;
     navigator.clipboard.writeText(valueEl.textContent).then(() => {
-      alert('API-Key kopiert!');
+      showCopyStatus('API-Key kopiert.');
     }).catch(err => {
       console.error('Copy failed:', err);
-      const range = document.createRange();
-      range.selectNode(valueEl);
-      window.getSelection().removeAllRanges();
-      window.getSelection().addRange(range);
-      document.execCommand('copy');
-      window.getSelection().removeAllRanges();
-      alert('API-Key kopiert!');
+      try {
+        const range = document.createRange();
+        range.selectNode(valueEl);
+        window.getSelection().removeAllRanges();
+        window.getSelection().addRange(range);
+        document.execCommand('copy');
+        window.getSelection().removeAllRanges();
+        showCopyStatus('API-Key kopiert.');
+      } catch (fallbackErr) {
+        console.error('Fallback copy failed:', fallbackErr);
+        showCopyStatus('Kopieren fehlgeschlagen — bitte manuell markieren.', true);
+      }
     });
   }
 

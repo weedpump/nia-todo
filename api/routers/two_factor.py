@@ -361,7 +361,15 @@ def reauth(data: ReauthRequest, authorization: Optional[str] = Header(None)):
             log_audit(db, "two_factor_reauth_failed", user_id=user_id, details=f"method={data.method}")
             db.commit()
             raise HTTPException(401, "2FA-Code ungültig")
-        db.execute("UPDATE two_factor_challenges SET attempts = 0, locked_until = NULL WHERE id = ?", (bucket["id"],))
+        if data.method == "email":
+            db.execute(
+                """UPDATE two_factor_challenges
+                   SET attempts = 0, locked_until = NULL, email_code_hash = NULL, email_code_expires_at = NULL
+                   WHERE id = ?""",
+                (bucket["id"],),
+            )
+        else:
+            db.execute("UPDATE two_factor_challenges SET attempts = 0, locked_until = NULL WHERE id = ?", (bucket["id"],))
         user = db.execute("SELECT id, username, is_admin, token_version FROM users WHERE id = ?", (user_id,)).fetchone()
         token_user = dict(user)
         token_user["mfa_login_at"] = payload.get("mfa_login_at") or payload.get("mfa_at")

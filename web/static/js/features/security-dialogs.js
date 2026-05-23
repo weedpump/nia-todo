@@ -164,14 +164,20 @@ export async function performMfaReauth({ authApi, purpose = 'diese Sicherheitsak
   };
 
   let passkeyCompleted = false;
+  const runPasskeyReauth = async () => {
+    const data = await authApi.reauthPasskey();
+    if (data.access_token) localStorage.setItem('jwt_token', data.access_token);
+    passkeyCompleted = true;
+    return true;
+  };
   const result = await openSecurityDialog({
     title: '2FA-Bestätigung erforderlich',
     message: `Für ${purpose} ist eine frische 2FA-Bestätigung nötig.`,
-    primaryText: canPasskey ? 'Code bestätigen' : '2FA bestätigen',
+    primaryText: canPasskey && !hasCode ? 'Mit Passkey bestätigen' : 'Code bestätigen',
     bodyHtml: `
-      ${canPasskey ? '<button type="button" class="btn btn-secondary security-passkey-btn" id="security-reauth-passkey">Mit Passkey bestätigen</button>' : ''}
+      ${canPasskey && hasCode ? '<button type="button" class="btn btn-secondary security-passkey-btn" id="security-reauth-passkey">Mit Passkey bestätigen</button>' : ''}
       ${hasCode ? `<label class="security-field"><span id="security-reauth-code-label">${codeMode === 'email' ? 'E-Mail-Code' : 'Authenticator- oder Recovery-Code'}</span><input name="code" id="security-reauth-code" type="text" inputmode="numeric" autocomplete="one-time-code" placeholder="Code eingeben"></label>` : ''}
-      <div class="security-dialog-hint" id="security-reauth-email-hint" style="display:${codeMode === 'email' ? 'none' : 'none'};">Ich habe dir einen E-Mail-Code geschickt.</div>
+      <div class="security-dialog-hint" id="security-reauth-email-hint" style="display:none;">Ich habe dir einen E-Mail-Code geschickt.</div>
       <div class="security-dialog-hint">Jede sensible Aktion verbraucht genau eine 2FA-Bestätigung.</div>
     `,
     onOpen: async (form) => {
@@ -180,9 +186,7 @@ export async function performMfaReauth({ authApi, purpose = 'diese Sicherheitsak
         setText('security-action-error', '');
         passkeyBtn.disabled = true;
         try {
-          const data = await authApi.reauthPasskey();
-          if (data.access_token) localStorage.setItem('jwt_token', data.access_token);
-          passkeyCompleted = true;
+          await runPasskeyReauth();
           form.requestSubmit();
         } catch (err) {
           setText('security-action-error', err?.message || String(err));
@@ -195,6 +199,7 @@ export async function performMfaReauth({ authApi, purpose = 'diese Sicherheitsak
     },
     onSubmit: async (formData) => {
       if (passkeyCompleted) return true;
+      if (canPasskey && !hasCode) return runPasskeyReauth();
       await startEmailIfNeeded();
       const code = formData.get('code')?.toString().trim() || '';
       if (!code) throw new Error('2FA-Code erforderlich');
