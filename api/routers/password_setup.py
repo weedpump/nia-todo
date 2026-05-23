@@ -10,9 +10,9 @@ from db import get_db
 from rate_limit import rate_limiter, get_client_ip, require_password_reset_rate_limit
 from services.audit import log_audit
 from services.email import send_email
-from services.email_config import get_password_link_ttl_hours, is_email_configured
+from services.email_config import can_send_email_links, get_password_link_ttl_hours
 from services.email_templates import password_setup_email
-from services.instance_config import get_instance_config, get_public_base_url
+from services.instance_config import get_public_base_url
 from services.utils import validate_password
 
 router = APIRouter(prefix="/api/password-setup")
@@ -95,7 +95,7 @@ def _get_expired_resend_context(db, token: str):
 
 @router.get("/features")
 def password_setup_features():
-    email_configured = is_email_configured() and bool(get_instance_config().get("public_base_url"))
+    email_configured = can_send_email_links()
     return {
         "email_configured": email_configured,
         "password_reset_available": email_configured,
@@ -106,7 +106,7 @@ def password_setup_features():
 def request_password_reset(data: RequestPasswordResetRequest, request: Request, _: None = Depends(require_password_reset_rate_limit)):
     identifier = (data.identifier or "").strip()
     neutral = {"message": "Falls ein passendes Konto existiert, wurde eine E-Mail gesendet."}
-    if not identifier or not is_email_configured() or not get_instance_config().get("public_base_url"):
+    if not identifier or not can_send_email_links():
         return neutral
 
     identifier_key = hashlib.sha256(identifier.lower().encode()).hexdigest()
@@ -167,7 +167,7 @@ def validate_password_setup_token(token: str):
             }
         expired = _get_expired_resend_context(db, token)
         if expired:
-            can_resend = is_email_configured() and bool(get_instance_config().get("public_base_url")) and bool(expired['email'])
+            can_resend = can_send_email_links() and bool(expired['email'])
             return {
                 "valid": False,
                 "expired": True,
@@ -186,7 +186,7 @@ def resend_password_setup_link(data: ResendPasswordSetupRequest, request: Reques
         if not row:
             raise HTTPException(404, "Link ist ungültig oder abgelaufen")
         new_token = _create_password_setup_token(db, row['user_id'], row['purpose'], "user")
-        can_email = is_email_configured() and bool(get_instance_config().get("public_base_url")) and bool(row['email'])
+        can_email = can_send_email_links() and bool(row['email'])
         if not can_email:
             raise HTTPException(400, "Ein neuer Link kann nur per E-Mail angefordert werden. Bitte Admin kontaktieren.")
         link = _make_password_setup_link(request, new_token, require_configured=True)

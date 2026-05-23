@@ -6,7 +6,7 @@ from typing import Optional
 
 from fastapi import Request
 
-from services.email_config import get_password_link_ttl_hours, is_email_configured
+from services.email_config import can_send_email_links, get_password_link_ttl_hours
 from services.email_templates import email_verification_email
 from services.instance_config import get_public_base_url
 from services.utils import normalize_email
@@ -23,7 +23,7 @@ def make_email_verify_link(request: Request, token: str) -> str:
 def set_email_or_pending(db, *, user_id: int, email: str, request: Optional[Request], requested_by: str = "user") -> dict:
     """Set email directly without SMTP, otherwise create pending verification and send mail."""
     email = normalize_email(email)
-    if not is_email_configured():
+    if not can_send_email_links():
         verified_expr = "datetime('now')" if requested_by == "admin" else "NULL"
         trust_source_expr = "'admin_asserted'" if requested_by == "admin" else "NULL"
         db.execute(
