@@ -108,7 +108,11 @@ export function createAuthSessionFeature({
   function preferredMfaMethod(challengeData) {
     const methods = challengeData?.challenge?.methods || [];
     const canPasskey = methods.includes('passkey') && !RUNTIME_CAPABILITIES.native && window.PublicKeyCredential && navigator.credentials;
-    return canPasskey ? 'passkey' : methods.includes('totp') ? 'totp' : methods.includes('email') ? 'email' : methods[0];
+    return canPasskey ? 'passkey'
+      : methods.includes('totp') ? 'totp'
+      : methods.includes('recovery_code') ? 'recovery_code'
+      : methods.includes('email') ? 'email'
+      : methods[0];
   }
 
   function resetLoginMfaPanel() {

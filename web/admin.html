@@ -83,6 +83,13 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .twofa-stack { display: flex; flex-wrap: wrap; gap: 4px; }
 .admin-status-text { font-size: 14px; color: var(--text-secondary); display:inline-flex; align-items:center; gap:8px; }
 .admin-mobile-label { display: none; color: var(--text-muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 2px; }
+.admin-dialog { display: none; position: fixed; inset: 0; z-index: 500; align-items: center; justify-content: center; padding: 16px; }
+.admin-dialog.active { display: flex; }
+.admin-dialog-overlay { position: absolute; inset: 0; background: rgba(0,0,0,.62); backdrop-filter: blur(4px); }
+.admin-dialog-content { position: relative; z-index: 1; width: min(100%, 430px); background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow-lg); padding: 22px; }
+.admin-dialog-content h3 { margin: 0 0 8px 0; font-size: 18px; color: var(--text-primary); }
+.admin-dialog-content p { margin: 0; color: var(--text-muted); font-size: 14px; line-height: 1.45; }
+.admin-dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
 .ui-icon { width: 1em; height: 1em; display: inline-block; vertical-align: -0.14em; }
 @media (max-width: 720px) {
   .admin-container { padding: 18px 12px 32px; }
@@ -122,6 +129,18 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
         <button data-theme="system" onclick="setTheme('system')" title="System"><span data-icon="monitor"></span></button>
       </div>
     </div>
+  </div>
+
+  <div class="admin-dialog" id="admin-action-dialog" role="dialog" aria-modal="true" aria-labelledby="admin-dialog-title">
+    <div class="admin-dialog-overlay" id="admin-dialog-overlay"></div>
+    <form class="admin-dialog-content" id="admin-dialog-form">
+      <h3 id="admin-dialog-title">Aktion bestätigen</h3>
+      <p id="admin-dialog-message"></p>
+      <div class="admin-dialog-actions">
+        <button type="button" class="btn" id="admin-dialog-cancel">Abbrechen</button>
+        <button type="submit" class="btn btn-primary" id="admin-dialog-confirm">Bestätigen</button>
+      </div>
+    </form>
   </div>
 
   <div class="admin-card" id="admin-login-card">
@@ -543,6 +562,54 @@ function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
 }
 
+function adminDialog({ title, message, confirmText = 'Bestätigen', danger = false, hideCancel = false }) {
+  const modal = document.getElementById('admin-action-dialog');
+  const form = document.getElementById('admin-dialog-form');
+  const cancel = document.getElementById('admin-dialog-cancel');
+  const confirmBtn = document.getElementById('admin-dialog-confirm');
+  const overlay = document.getElementById('admin-dialog-overlay');
+  document.getElementById('admin-dialog-title').textContent = title;
+  document.getElementById('admin-dialog-message').textContent = message;
+  confirmBtn.textContent = confirmText;
+  confirmBtn.classList.toggle('btn-danger', danger);
+  confirmBtn.classList.toggle('btn-primary', !danger);
+  cancel.style.display = hideCancel ? 'none' : '';
+  modal.classList.add('active');
+  return new Promise((resolve) => {
+    let settled = false;
+    const cleanup = () => {
+      form.removeEventListener('submit', onSubmit);
+      cancel.removeEventListener('click', onCancel);
+      overlay.removeEventListener('click', onCancel);
+      document.removeEventListener('keydown', onKey);
+      modal.classList.remove('active');
+      cancel.style.display = '';
+    };
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve(value);
+    };
+    const onSubmit = (event) => { event.preventDefault(); finish(true); };
+    const onCancel = () => finish(false);
+    const onKey = (event) => { if (event.key === 'Escape') finish(false); };
+    form.addEventListener('submit', onSubmit);
+    cancel.addEventListener('click', onCancel);
+    overlay.addEventListener('click', onCancel);
+    document.addEventListener('keydown', onKey);
+    confirmBtn.focus();
+  });
+}
+
+function adminConfirm(options) {
+  return adminDialog(options);
+}
+
+function adminNotice(title, message) {
+  return adminDialog({ title, message, confirmText: 'OK', hideCancel: true });
+}
+
 function renderInstanceConfig(config) {
   document.getElementById('instance-public-url').value = config.public_base_url || '';
   document.getElementById('instance-allowed-origins').value = (config.allowed_origins || []).join('\n');
@@ -567,8 +634,15 @@ async function toggleTwoFactorPolicy() {
   const successEl = document.getElementById('security-success');
   errorEl.textContent = '';
   successEl.textContent = '';
-  if (next && !confirm('Globale 2FA-Pflicht für alle Benutzer aktivieren? Nutzer ohne nutzbaren Faktor können danach nur noch 2FA einrichten; verifizierte E-Mail mit SMTP zählt als E-Mail-Code-Faktor.')) return;
-  if (!next && !confirm('Globale 2FA-Pflicht deaktivieren? Benutzer mit eigener 2FA bleiben weiterhin geschützt.')) return;
+  const confirmed = await adminConfirm({
+    title: next ? 'Globale 2FA-Pflicht aktivieren?' : 'Globale 2FA-Pflicht deaktivieren?',
+    message: next
+      ? 'Nutzer ohne nutzbaren Faktor können danach nur noch 2FA einrichten; verifizierte E-Mail mit SMTP zählt als E-Mail-Code-Faktor.'
+      : 'Benutzer mit eigener 2FA bleiben weiterhin geschützt.',
+    confirmText: next ? '2FA-Pflicht aktivieren' : '2FA-Pflicht deaktivieren',
+    danger: !next,
+  });
+  if (!confirmed) return;
   try {
     const data = await apiPatch('/api/admin/2fa-policy', { required: next });
     renderTwoFactorPolicy(data);
@@ -789,40 +863,54 @@ function cancelUserEmailEdit(userId, currentEmail) {
 async function saveUserEmail(userId) {
   const input = document.getElementById(`email-input-${userId}`);
   const email = input?.value?.trim() || '';
+  const errorEl = document.getElementById('security-error');
+  if (errorEl) errorEl.textContent = '';
   if (!email) {
-    alert('E-Mail ist erforderlich');
+    if (errorEl) errorEl.textContent = 'E-Mail ist erforderlich';
     return;
   }
   if (!isValidEmail(email)) {
-    alert('Bitte eine gültige E-Mail-Adresse eingeben');
+    if (errorEl) errorEl.textContent = 'Bitte eine gültige E-Mail-Adresse eingeben';
     return;
   }
   try {
     await apiPatch(`/api/admin/users/${userId}`, { email });
     await loadUsers();
   } catch(e) {
-    alert('Fehler: ' + e.message);
+    if (errorEl) errorEl.textContent = 'Fehler: ' + e.message;
   }
 }
 
 async function resetUserTwoFactor(userId, username) {
-  if (!confirm(`2FA für '${username}' wirklich zurücksetzen? TOTP, Passkeys und gemerkte Geräte werden widerrufen.`)) return;
+  const confirmed = await adminConfirm({
+    title: '2FA zurücksetzen?',
+    message: `2FA für '${username}' wirklich zurücksetzen? TOTP, Passkeys und gemerkte Geräte werden widerrufen.`,
+    confirmText: '2FA zurücksetzen',
+    danger: true,
+  });
+  if (!confirmed) return;
   try {
     await apiPost(`/api/admin/users/${userId}/2fa/reset`, {});
     document.getElementById('security-success').textContent = `2FA für ${username} zurückgesetzt.`;
     await loadUsers();
   } catch(e) {
-    alert('Fehler: ' + e.message);
+    document.getElementById('security-error').textContent = 'Fehler: ' + e.message;
   }
 }
 
 async function deleteUser(userId, username) {
-  if (!confirm(`Benutzer '${username}' wirklich löschen?`)) return;
+  const confirmed = await adminConfirm({
+    title: 'Benutzer löschen?',
+    message: `Benutzer '${username}' wirklich löschen?`,
+    confirmText: 'Benutzer löschen',
+    danger: true,
+  });
+  if (!confirmed) return;
   try {
     await apiDelete(`/api/admin/users/${userId}`);
     await loadUsers();
   } catch(e) {
-    alert('Fehler: ' + e.message);
+    await adminNotice('Fehler', 'Fehler: ' + e.message);
   }
 }
 
@@ -866,14 +954,17 @@ async function generatePasswordLink(userId, username) {
   try {
     const data = await apiPost(`/api/admin/users/${userId}/password-link`, {});
     if (data.password_setup_delivery === 'email') {
-      alert(`Passwort-Mail für ${username} wurde gesendet.`);
+      await adminNotice('Passwort-Mail gesendet', `Passwort-Mail für ${username} wurde gesendet.`);
       return;
     }
     const link = data.password_setup_url;
     const copied = await navigator.clipboard.writeText(link).then(() => true).catch(() => false);
-    prompt(`Passwort-Link für ${username}${copied ? ' wurde kopiert' : ''}:`, link);
+    await adminNotice(
+      copied ? 'Passwort-Link kopiert' : 'Passwort-Link erstellt',
+      `Passwort-Link für ${username}${copied ? ' wurde kopiert' : ''}: ${link}`,
+    );
   } catch(e) {
-    alert('Fehler: ' + e.message);
+    await adminNotice('Fehler', 'Fehler: ' + e.message);
   }
 }
 

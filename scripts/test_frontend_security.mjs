@@ -58,6 +58,7 @@ assert(!authSessionSource.includes('window.confirm'), 'login remember-device cho
 assert(!userSettingsSource.includes('window.prompt') && !userSettingsSource.includes('window.confirm') && !userSettingsSource.includes('window.alert'), 'settings MFA/password confirmations must use in-app modal dialogs');
 assert(!apiKeysSource.includes('prompt(') && !apiKeysSource.includes('confirm(') && !apiKeysSource.includes('alert('), 'API-key management must use in-app modal/status UI');
 assert(authSessionSource.includes('login-remember-device'), 'login MFA must expose the 30-day trusted-device checkbox inline');
+assert(authSessionSource.includes("methods.includes('recovery_code') ? 'recovery_code'"), 'native/passkey-unavailable login MFA must prefer recovery_code before unusable passkey fallback');
 assert(!userMenuSource.includes('Date.now()'), 'user menu avatar URLs must be stable so avatars can be cached offline');
 assert(!userSettingsSource.includes('Date.now()'), 'settings avatar URLs must be stable so avatars can be cached offline');
 
