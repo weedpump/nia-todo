@@ -134,7 +134,8 @@ export function createProjectSharingFeature({
       
       // For email identifiers, don't reveal user details in UI to avoid enumeration hints
       if (isEmailIdentifier) {
-        // Neutral response: no undo button to avoid revealing if user exists
+        // Neutral response: no undo button, no immediate member list reload (avoids enumeration via UI)
+        // Member list will be updated via WebSocket event when the invitee accepts
         showToast('Einladung verarbeitet');
       } else if (member) {
         // For username identifiers, show detailed success with undo
@@ -146,8 +147,8 @@ export function createProjectSharingFeature({
             username: username,
           },
         });
+        await loadMembers(currentProject.id);
       }
-      await loadMembers(currentProject.id);
     } catch (err) {
       const msg = (err?.message || '').toLowerCase();
       if (msg.includes('404') || msg.includes('not found')) {
