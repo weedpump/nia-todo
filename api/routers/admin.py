@@ -330,7 +330,13 @@ def list_users(_: bool = Depends(require_admin)):
             FROM users u
             ORDER BY u.id
         """).fetchall()
-        return {"users": [dict(r) for r in rows], "two_factor_required": get_two_factor_required(db)}
+        email_mfa_available = can_send_email_links()
+        users = []
+        for row in rows:
+            item = dict(row)
+            item["has_email_fallback"] = bool(email_mfa_available and item.get("email") and item.get("email_verified_at"))
+            users.append(item)
+        return {"users": users, "two_factor_required": get_two_factor_required(db)}
 
 @router.patch("/users/{user_id}")
 def update_user(user_id: int, data: UpdateUserRequest, request: Request, _: bool = Depends(require_admin)):

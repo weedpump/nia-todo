@@ -127,6 +127,13 @@ export const authApi = {
     return parseOrThrow(response, 'Reauth fehlgeschlagen');
   },
 
+  async startEmailReauth() {
+    const response = await fetch(API + '/api/me/2fa/reauth/email/start', {
+      method: 'POST', headers: getAuthHeaders(), credentials: 'include', body: JSON.stringify({}),
+    });
+    return parseOrThrow(response, 'E-Mail-Reauth konnte nicht gestartet werden');
+  },
+
   async reauthPasskey() {
     if (RUNTIME_CAPABILITIES.native) {
       throw new Error('Passkey-Reauth wird in den Native Apps erst mit der nativen Passkey-Bridge unterstützt.');

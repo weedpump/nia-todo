@@ -198,7 +198,8 @@ Aktiviert TOTP nach Passwortbestätigung und liefert einmalig neue Recovery Code
 ### 2FA deaktivieren / Recovery Codes regenerieren
 - `POST /api/me/2fa/disable` — benötigt recent MFA, widerruft Trusted Devices und Passkeys.
 - `POST /api/me/2fa/recovery-codes/regenerate` — benötigt recent MFA, liefert neue Codes einmalig zurück.
-- `POST /api/me/2fa/reauth` — prüft TOTP/Recovery-Code mit Attempt-Lockout und stellt ein frisches JWT mit `mfa_at` aus.
+- `POST /api/me/2fa/reauth` — prüft TOTP, Recovery-Code oder E-Mail-Code mit Attempt-Lockout und stellt ein frisches JWT mit `mfa_at` aus.
+- `POST /api/me/2fa/reauth/email/start` — sendet einen E-Mail-Reauth-Code, wenn E-Mail-Code der verfügbare Faktor ist.
 - `POST /api/me/2fa/reauth/passkey/options` und `/api/me/2fa/reauth/passkey/verify` — Passkey-Reauth für Passkey-only Nutzer.
 
 ### Passkeys
