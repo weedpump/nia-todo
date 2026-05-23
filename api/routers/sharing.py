@@ -42,6 +42,17 @@ def is_email_identifier(identifier: str) -> bool:
 def _neutral_email_share_response() -> dict:
     return {"member": None, "notification_delivery": "unknown", "message": "Falls ein passender verifizierter Account existiert, wurde die Einladung verarbeitet."}
 
+def get_user_by_verified_email(db, email: str) -> Optional[dict]:
+    """Find user by verified email only. Does not match usernames."""
+    row = db.execute(
+        """SELECT id, username, display_name, email, email_verified_at
+           FROM users
+           WHERE lower(email) = lower(?) AND email_verified_at IS NOT NULL
+           LIMIT 1""",
+        (email,)
+    ).fetchone()
+    return dict(row) if row else None
+
 def get_user_by_identifier(db, identifier: str) -> Optional[dict]:
     row = db.execute(
         """SELECT id, username, display_name, email, email_verified_at
@@ -181,8 +192,11 @@ async def share_project(project_id: int, data: ShareProjectRequest, request: Req
 
         identifier = data.username.strip()
         email_identifier = is_email_identifier(identifier)
-        # Find target user by username or verified email
-        target = get_user_by_identifier(db, identifier)
+        # Find target user: for email identifiers, only match verified emails (not usernames)
+        if email_identifier:
+            target = get_user_by_verified_email(db, identifier)
+        else:
+            target = get_user_by_identifier(db, identifier)
         if not target:
             if email_identifier:
                 log_audit(db, "project_share_email_identifier_no_match", user_id=user_id, details=f"project_id={project_id}")
@@ -286,7 +300,7 @@ async def restore_member(project_id: int, member_user_id: int, data: RestoreMemb
         # Do NOT broadcast pending invites to owner/members (privacy: pending invites are internal)
         if data.status == 'pending':
             # Notify only the invitee (no project_id = no owner/member auto-recipients)
-            await broadcast_change("member_invited", {"member": None}, member_user_id)
+            await broadcast_change("member_restored", {"member": None}, member_user_id)
         else:
             # For accepted/other status, notify owner and the restored member (no project_id to avoid leaking to other members)
             await broadcast_change("member_restored", {"project_id": project_id, "member": restored}, project['user_id'])
@@ -363,7 +377,7 @@ async def remove_member(project_id: int, member_user_id: int, user_id: int = Dep
         # Only notify the affected user directly without project_id
         if member['status'] == 'pending':
             # Notify only the invitee (no project_id = no owner/member auto-recipients)
-            await broadcast_change("member_invited", {"member": None}, member_user_id)
+            await broadcast_change("member_removed", {"member": None}, member_user_id)
         else:
             # For accepted members, notify owner and the removed member (no project_id to avoid leaking to other members)
             await broadcast_change("member_removed", {
