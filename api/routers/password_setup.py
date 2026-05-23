@@ -30,6 +30,7 @@ def _get_valid_token(db, token: str):
            WHERE pst.token_prefix = ?
              AND pst.token_hash = ?
              AND pst.used_at IS NULL
+             AND pst.status = 'active'
              AND datetime(pst.expires_at) > datetime('now')
            ORDER BY pst.id DESC
            LIMIT 1""",
@@ -67,7 +68,7 @@ def complete_password_setup(data: CompletePasswordSetupRequest):
             (password_hash, row['user_id'])
         )
         db.execute(
-            "UPDATE password_setup_tokens SET used_at = datetime('now') WHERE id = ?",
+            "UPDATE password_setup_tokens SET used_at = datetime('now'), status = 'used' WHERE id = ?",
             (row['id'],)
         )
         db.commit()

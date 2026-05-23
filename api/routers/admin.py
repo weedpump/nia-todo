@@ -12,6 +12,8 @@ from services.auth import create_admin_jwt_token, verify_admin_token
 from services.utils import sanitize_text, validate_email, validate_password, validate_admin_password
 from services.audit import log_audit
 from services.instance_config import get_instance_config, get_public_base_url, update_instance_config
+from services.email_config import get_email_config, get_password_link_ttl_hours, update_email_config
+from services.email import send_test_email
 from rate_limit import require_login_rate_limit, get_client_ip
 from middleware.security import generate_csrf_token, set_csrf_cookie
 
@@ -46,6 +48,22 @@ class InstanceConfigRequest(BaseModel):
     allowed_origins: list[str] = []
     trusted_proxies: list[str] = []
 
+class EmailConfigRequest(BaseModel):
+    smtp_enabled: bool = False
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_security: str = "starttls"
+    smtp_auth_enabled: bool = False
+    smtp_username: str = ""
+    smtp_password_secret: Optional[str] = None
+    mail_from_address: str = ""
+    mail_from_name: str = "nia-todo"
+    mail_reply_to: str = ""
+    password_link_ttl_hours: int = 24
+
+class TestEmailRequest(BaseModel):
+    to: str
+
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -58,7 +76,8 @@ def require_admin(authorization: Optional[str] = Header(None)):
     return True
 
 
-PASSWORD_LINK_TTL_HOURS = 24
+def _password_link_ttl_hours() -> int:
+    return get_password_link_ttl_hours()
 
 
 def _hash_setup_token(token: str) -> str:
@@ -70,13 +89,22 @@ def _make_password_setup_link(request: Request, token: str) -> str:
     return f"{base_url}/set-password?token={token}"
 
 
-def create_password_setup_token(db, user_id: int, purpose: str = "reset") -> str:
+def create_password_setup_token(db, user_id: int, purpose: str = "reset", requested_by: str = "admin") -> str:
     token = secrets.token_urlsafe(32)
     db.execute(
+        """UPDATE password_setup_tokens
+           SET status = 'replaced', replaced_at = datetime('now')
+           WHERE user_id = ?
+             AND purpose = ?
+             AND status = 'active'
+             AND used_at IS NULL""",
+        (user_id, purpose),
+    )
+    db.execute(
         """INSERT INTO password_setup_tokens
-           (user_id, token_hash, token_prefix, purpose, expires_at, created_by_admin)
-           VALUES (?, ?, ?, ?, datetime('now', ?), 1)""",
-        (user_id, _hash_setup_token(token), token[:12], purpose, f"+{PASSWORD_LINK_TTL_HOURS} hours")
+           (user_id, token_hash, token_prefix, purpose, expires_at, created_by_admin, status, requested_by)
+           VALUES (?, ?, ?, ?, datetime('now', ?), 1, 'active', ?)""",
+        (user_id, _hash_setup_token(token), token[:12], purpose, f"+{_password_link_ttl_hours()} hours", requested_by)
     )
     return token
 
@@ -122,6 +150,28 @@ def admin_update_instance_config(data: InstanceConfigRequest, request: Request, 
         trusted_proxies=data.trusted_proxies,
         client_ip=get_client_ip(request),
     )
+
+
+# ─── Email Configuration ────────────────────────────────────────────────────
+
+@router.get("/email-config")
+def admin_get_email_config(_: bool = Depends(require_admin)):
+    return get_email_config()
+
+
+@router.patch("/email-config")
+def admin_update_email_config(data: EmailConfigRequest, request: Request, _: bool = Depends(require_admin)):
+    return update_email_config(data.model_dump(), client_ip=get_client_ip(request))
+
+
+@router.post("/email-config/test")
+def admin_send_test_email(data: TestEmailRequest, _: bool = Depends(require_admin)):
+    email = sanitize_text(data.to)
+    email_error = validate_email(email)
+    if email_error:
+        raise HTTPException(400, email_error)
+    send_test_email(email)
+    return {"message": "Test-Mail gesendet."}
 
 
 # ─── User Management ─────────────────────────────────────────────────────────
@@ -177,7 +227,7 @@ def create_user(data: CreateUserRequest, request: Request, _: bool = Depends(req
             "email": data.email,
             "created_at": now_iso(),
             "password_setup_url": _make_password_setup_link(request, token),
-            "password_setup_expires_hours": PASSWORD_LINK_TTL_HOURS,
+            "password_setup_expires_hours": _password_link_ttl_hours(),
         }
 
 @router.get("/users")
@@ -263,5 +313,5 @@ def admin_create_user_password_link(user_id: int, request: Request, _: bool = De
     return {
         "message": "Passwort-Link erstellt.",
         "password_setup_url": _make_password_setup_link(request, token),
-        "password_setup_expires_hours": PASSWORD_LINK_TTL_HOURS,
+        "password_setup_expires_hours": _password_link_ttl_hours(),
     }
