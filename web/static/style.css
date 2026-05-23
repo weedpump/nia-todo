@@ -799,9 +799,9 @@ body {
   gap: 12px;
   min-width: 0;
   padding: 14px;
-  border: 1px solid #475569;
+  border: none;
   border-radius: 14px;
-  background: linear-gradient(135deg, rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.08)), color-mix(in srgb, var(--bg-primary) 62%, transparent));
+  background: var(--bg-secondary);
   box-shadow: none;
 }
 .overview-stat-num {
@@ -822,10 +822,6 @@ body {
   margin-top: 2px;
   white-space: nowrap;
 }
-[data-theme="light"] .overview-stat-card {
-  border-color: #8b95a7;
-}
-
 .overview-stat-card.total .overview-stat-num { color: var(--accent); }
 .overview-stat-card.pending .overview-stat-num { color: var(--warning); }
 .overview-stat-card.progress .overview-stat-num { color: #fb923c; }
