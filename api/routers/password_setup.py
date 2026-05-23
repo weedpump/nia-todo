@@ -135,7 +135,18 @@ def request_password_reset(data: RequestPasswordResetRequest, request: Request, 
             expires_hours=get_password_link_ttl_hours(),
         )
         db.commit()
-        send_email(to=user['email'], subject=subject, text=text, html=html)
+        try:
+            send_email(to=user['email'], subject=subject, text=text, html=html)
+        except Exception:
+            db.execute(
+                """UPDATE password_setup_tokens
+                   SET status = 'replaced', replaced_at = datetime('now')
+                   WHERE user_id = ? AND purpose = 'reset' AND status = 'active' AND used_at IS NULL""",
+                (user['id'],)
+            )
+            log_audit(db, "password_reset_email_failed", user_id=user['id'], ip_address=get_client_ip(request), details="neutral_response=true")
+            db.commit()
+            return neutral
         log_audit(db, "password_reset_requested", user_id=user['id'], ip_address=get_client_ip(request), details="delivery=email")
         log_audit(db, "password_setup_email_sent", user_id=user['id'], details="purpose=reset")
         db.commit()
