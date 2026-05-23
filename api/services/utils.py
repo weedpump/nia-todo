@@ -12,6 +12,11 @@ def sanitize_text(text: str) -> str:
     return text
 
 
+def normalize_email(email: str) -> str:
+    """Normalize email for storage and case-insensitive lookups."""
+    return str(email or "").strip().lower()
+
+
 def validate_email(email: str) -> str:
     """Validate email address shape. Returns error or empty string."""
     if not email:

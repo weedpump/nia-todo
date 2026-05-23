@@ -1,8 +1,5 @@
 """nia-todo: Audit log helper"""
 
-from db import get_db
-
-
 def log_audit(db, event_type: str, user_id: int = None, ip_address: str = None, details: str = None):
     """Log security-relevant events to audit_log table."""
     try:
@@ -11,6 +8,5 @@ def log_audit(db, event_type: str, user_id: int = None, ip_address: str = None, 
                VALUES (?, ?, ?, ?, datetime('now'))""",
             (event_type, user_id, ip_address, details)
         )
-        db.commit()
     except Exception:
         pass

@@ -447,7 +447,9 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
       const currentUser = getCurrentUser();
       if (currentUser) setCurrentUser({ ...currentUser, email: data.email || currentUser.email, pending_email: data.pending_email || null });
       await refreshCurrentUser().catch(() => renderUserInfo());
-      successEl.textContent = data.email_verification_required ? 'Bestätigungsmail gesendet' : 'E-Mail gespeichert und bestätigt';
+      successEl.textContent = data.email_verification_required
+        ? 'Bestätigungsmail gesendet'
+        : (data.email_verification_delivery === 'unverified_no_smtp' ? 'E-Mail gespeichert, aber ohne SMTP nicht per Mail bestätigt' : 'E-Mail gespeichert und bestätigt');
     } catch (e) {
       errorEl.textContent = e.message;
     }

@@ -181,13 +181,14 @@ async def share_project(project_id: int, data: ShareProjectRequest, request: Req
             (project_id, target['id'], user_id)
         )
         emailed = False
+        db.commit()
         if is_email_configured() and target.get('email'):
             subject, text, html = project_share_invite_email(
                 display_name=target.get('display_name') or target.get('username'),
                 username=target.get('username'),
                 project_name=project.get('name'),
                 inviter_name=project.get('owner_display_name') or project.get('owner_username'),
-                link=get_public_base_url(request),
+                link=get_public_base_url(request, require_configured=True),
             )
             send_email(to=target['email'], subject=subject, text=text, html=html)
             emailed = True
