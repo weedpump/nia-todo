@@ -338,6 +338,9 @@ def disable_2fa(_: CodeRequest, user_id: int = Depends(require_recent_mfa)):
 @router.post("/me/2fa/recovery-codes/regenerate")
 def regenerate_recovery_codes(user_id: int = Depends(require_recent_mfa)):
     with get_db() as db:
+        state = user_mfa_state(db, user_id)
+        if not (state.get("has_totp") or state.get("has_passkey")):
+            raise HTTPException(400, "Recovery Codes können nur mit aktivem Authenticator oder Passkey erzeugt werden")
         codes = create_recovery_codes(db, user_id)
         db.commit()
         return {"recovery_codes": codes}

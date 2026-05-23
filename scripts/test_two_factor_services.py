@@ -19,7 +19,7 @@ from fastapi import HTTPException
 import services.two_factor as two_factor_module
 from services.auth import create_jwt_token, get_current_user
 from routers.auth import require_recent_mfa_for_account_security
-from routers.two_factor import ReauthRequest, reauth, require_2fa_status_auth
+from routers.two_factor import ReauthRequest, reauth, regenerate_recovery_codes, require_2fa_status_auth
 from services.webauthn import relying_party_for_request, verify_client_data
 from services.two_factor import (
     clear_recovery_codes_if_no_primary_factor,
@@ -128,6 +128,11 @@ def main():
         assert clear_recovery_codes_if_no_primary_factor(conn, backup_only_user_id)
         backup_state = user_mfa_state(conn, backup_only_user_id)
         assert not backup_state["enabled"] and not backup_state["has_recovery_codes"]
+        try:
+            regenerate_recovery_codes(user_id=backup_only_user_id)
+            raise AssertionError("Recovery Codes must require a primary TOTP/passkey factor")
+        except HTTPException as exc:
+            assert exc.status_code == 400
 
         # Verified e-mail + working SMTP is a valid e-mail-code factor, not an enrollment dead-end.
         email_user_id = create_user(conn, username="emailmfa", email="emailmfa@example.invalid")
