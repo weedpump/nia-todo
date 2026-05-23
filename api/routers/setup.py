@@ -74,7 +74,8 @@ def setup_first_user(data: FirstUserRequest, request: Request, _: None = Depends
             raise HTTPException(400, "Users already exist")
         password_hash = bcrypt.hashpw(data.password.encode(), bcrypt.gensalt()).decode()
         c = db.execute(
-            "INSERT INTO users (username, display_name, email, password_hash, is_admin) VALUES (?, ?, ?, ?, 1)",
+            """INSERT INTO users (username, display_name, email, password_hash, is_admin, email_verified_at)
+               VALUES (?, ?, ?, ?, 1, datetime('now'))""",
             (data.username, data.display_name, data.email, password_hash)
         )
         user_id = c.lastrowid
