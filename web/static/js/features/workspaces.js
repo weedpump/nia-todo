@@ -18,6 +18,15 @@ export function createWorkspacesFeature({
   showToast,
 }) {
   let editingWorkspaceId = null;
+  let workspaceFormBound = false;
+
+  function bindWorkspaceForm() {
+    if (workspaceFormBound) return;
+    const form = document.getElementById('workspace-form');
+    if (!form) return;
+    workspaceFormBound = true;
+    form.addEventListener('submit', saveWorkspace);
+  }
 
   function normalizeWorkspaceId(id) {
     if (id === null || id === undefined || id === '') return null;
@@ -123,6 +132,7 @@ export function createWorkspacesFeature({
   }
 
   function showWorkspaceModal(workspaceId = null) {
+    bindWorkspaceForm();
     closeWorkspaceMenu();
     editingWorkspaceId = workspaceId ? normalizeWorkspaceId(workspaceId) : null;
     const workspace = editingWorkspaceId

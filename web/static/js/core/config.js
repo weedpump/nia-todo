@@ -1,10 +1,111 @@
-export const API = '';
-
-export const WS_URL = (() => {
-  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  return `${proto}//${location.host}/ws`;
-})();
-
+export let API = '';
+export let WS_URL = websocketUrlFromBase(location.origin);
 export const DB_NAME = 'nia-todo-db';
 export const DB_VERSION = 4;
 export const APP_VERSION = 'v1.7.4-dev';
+
+export function getTauri() {
+  return window.__TAURI__ || null;
+}
+
+export function getTauriInvoke() {
+  return getTauri()?.core?.invoke || null;
+}
+
+export function hasNativeLaunchParam() {
+  return new URLSearchParams(location.search).get('nativeApp') === 'tauri';
+}
+
+export function getNativePlatform() {
+  if (/Android/i.test(navigator.userAgent || '')) return 'android';
+  if (/Windows/i.test(navigator.userAgent || '')) return 'windows';
+  if (/Macintosh|Mac OS X/i.test(navigator.userAgent || '')) return 'macos';
+  if (/Linux/i.test(navigator.userAgent || '')) return 'linux';
+  return 'unknown';
+}
+
+export const RUNTIME_MODE = (() => {
+  if (hasNativeLaunchParam() || getTauriInvoke()) return 'native';
+  return 'browser';
+})();
+
+export const RUNTIME_PLATFORM = RUNTIME_MODE === 'native' ? getNativePlatform() : 'browser';
+
+export const RUNTIME_CAPABILITIES = Object.freeze({
+  native: RUNTIME_MODE === 'native',
+  browser: RUNTIME_MODE === 'browser',
+  tauri: Boolean(getTauriInvoke()) || hasNativeLaunchParam(),
+  android: RUNTIME_MODE === 'native' && RUNTIME_PLATFORM === 'android',
+  desktop: RUNTIME_MODE === 'native' && RUNTIME_PLATFORM !== 'android',
+  browserPush: RUNTIME_MODE === 'browser',
+  nativeSettings: RUNTIME_MODE === 'native',
+  nativeNotifications: RUNTIME_MODE === 'native',
+  nativeHotkeys: RUNTIME_MODE === 'native' && RUNTIME_PLATFORM !== 'android',
+  nativeTray: RUNTIME_MODE === 'native' && RUNTIME_PLATFORM !== 'android',
+  appDownloads: RUNTIME_MODE === 'browser',
+  nativeAppVersion: RUNTIME_MODE === 'native',
+  nativeAppUpdates: RUNTIME_MODE === 'native',
+});
+
+export function isNativeRuntime() {
+  return RUNTIME_CAPABILITIES.native;
+}
+
+export function normalizeServerUrl(value) {
+  let raw = String(value || '').trim().replace(/\/+$/, '');
+  if (!raw) throw new Error('Bitte Server-Hostname eingeben.');
+  if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(raw)) raw = `https://${raw}`;
+  let url;
+  try {
+    url = new URL(raw);
+  } catch (_error) {
+    throw new Error('Bitte einen gültigen Server-Hostnamen eingeben.');
+  }
+  const localHttp = url.protocol === 'http:' && /^(localhost|127\.0\.0\.1|\[::1\])$/i.test(url.hostname);
+  if (url.protocol !== 'https:' && !localHttp) throw new Error('Bitte eine HTTPS-Adresse verwenden.');
+  if (url.username || url.password) throw new Error('Server-URL darf keine Zugangsdaten enthalten.');
+  if (!url.hostname || url.hostname.includes(' ')) throw new Error('Bitte einen gültigen Server-Hostnamen eingeben.');
+  url.hash = '';
+  url.search = '';
+  return url.origin + url.pathname.replace(/\/+$/, '');
+}
+
+export function websocketUrlFromBase(baseUrl) {
+  const url = new URL(baseUrl || location.origin);
+  url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+  url.pathname = '/ws';
+  url.search = '';
+  url.hash = '';
+  return url.toString();
+}
+
+export async function verifyInstance(serverUrl) {
+  const base = normalizeServerUrl(serverUrl);
+  let response;
+  try {
+    response = await fetch(`${base}/api/instance`, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      cache: 'no-store',
+    });
+  } catch (_error) {
+    throw new Error('Server nicht erreichbar. Bitte Hostname, HTTPS und Netzwerk prüfen.');
+  }
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.detail || `Server-Verifikation fehlgeschlagen (${response.status})`);
+  if (data?.app !== 'nia-todo') throw new Error('Das ist kein kompatibler nia-todo Server.');
+  return data;
+}
+
+export async function initRuntimeConfig() {
+  if (!isNativeRuntime()) return { mode: RUNTIME_MODE, platform: RUNTIME_PLATFORM, capabilities: RUNTIME_CAPABILITIES, apiBaseUrl: API, wsUrl: WS_URL, instance: null };
+  const invoke = getTauriInvoke();
+  if (!invoke) return { mode: RUNTIME_MODE, platform: RUNTIME_PLATFORM, capabilities: RUNTIME_CAPABILITIES, apiBaseUrl: API, wsUrl: WS_URL, instance: null };
+  const settings = await invoke('desktop_get_settings').catch(() => null);
+  const serverUrl = settings?.serverUrl ? normalizeServerUrl(settings.serverUrl) : '';
+  if (!serverUrl) return { mode: RUNTIME_MODE, platform: RUNTIME_PLATFORM, capabilities: RUNTIME_CAPABILITIES, apiBaseUrl: API, wsUrl: WS_URL, instance: null };
+  API = serverUrl;
+  WS_URL = websocketUrlFromBase(serverUrl);
+  const instance = await verifyInstance(serverUrl).catch((error) => ({ error: error?.message || String(error) }));
+  return { mode: RUNTIME_MODE, platform: RUNTIME_PLATFORM, capabilities: RUNTIME_CAPABILITIES, apiBaseUrl: API, wsUrl: WS_URL, instance };
+}

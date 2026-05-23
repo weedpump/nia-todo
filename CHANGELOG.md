@@ -82,18 +82,17 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 ## [1.7.0] - 2026-05-22
 
 ### Added
-- Native Windows-/Android-App-Versionen sind von der Web-App-Version entkoppelt.
+- Native Windows-/Android-Apps werden mit derselben Version wie die Web-App gebaut.
 - Web-App zeigt verfügbare native App-Updates mit Downloadbutton an.
 - Installierte native App-Version wird im Sidebar-Footer angezeigt.
-- Separate Changelogs für Windows- und Android-App ergänzt.
 
 ### Changed
-- Release-Script baut native Apps nur noch optional per `--build-windows` und `--build-android`.
+- Release-Script baut Web-App, Windows-Installer und Android-APK immer gemeinsam mit einer Version.
 - Service-Worker-Update-Hinweis ist jetzt ein verpflichtendes Fullscreen-Modal statt Sidebar-Button.
 - Update-Checks laufen robuster bei App-Start, Fokus, Online-Event und periodisch, ohne Offline-Start zu blockieren.
 
 ### Fixed
-- Release-Flow schützt Runtime-Download-Manifest und temporäre Tauri-Versionen besser vor kaputten Zwischenständen.
+- Release-Flow setzt Web-, Tauri-/Cargo- und Download-Versionen konsistent und schützt vor kaputten Zwischenständen.
 
 ## [1.6.5] - 2026-05-22
 

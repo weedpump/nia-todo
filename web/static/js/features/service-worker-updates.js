@@ -1,3 +1,5 @@
+import { RUNTIME_CAPABILITIES } from '../core/config.js';
+
 export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
   let swRegistration = null;
   let updateAvailable = false;
@@ -14,7 +16,7 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
   const STARTUP_FOLLOW_UP_DELAYS_MS = [20 * 1000, 2 * 60 * 1000];
 
   function isNativeApp() {
-    return Boolean(window.__TAURI__?.core?.invoke) || new URLSearchParams(location.search).get('nativeApp') === 'tauri';
+    return RUNTIME_CAPABILITIES.native;
   }
 
   function withTimeout(promise, timeoutMs, label) {
@@ -180,6 +182,10 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
 
   function markUpdateAvailable() {
     updateAvailable = true;
+    if (isNativeApp()) {
+      console.log('SW: Web-app update prompt suppressed in native runtime');
+      return;
+    }
     showUpdateModal();
   }
 

@@ -2,6 +2,7 @@
 
 import secrets
 from typing import Optional
+from urllib.parse import urlparse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 from fastapi import Request, Header, HTTPException
@@ -10,6 +11,16 @@ from rate_limit import rate_limiter, get_client_ip
 
 CSRF_COOKIE_NAME = "csrf_token"
 CSRF_COOKIE_MAX_AGE_SECONDS = 86400 * 30
+BUILT_IN_NATIVE_HOSTS = {"tauri.localhost"}
+
+
+def is_built_in_native_origin(origin: Optional[str]) -> bool:
+    if not origin:
+        return False
+    parsed = urlparse(origin)
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+        return False
+    return parsed.hostname.lower() in BUILT_IN_NATIVE_HOSTS
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -71,6 +82,8 @@ class CSRFProtectionMiddleware(BaseHTTPMiddleware):
 
         auth = request.headers.get("Authorization", "")
         if auth.startswith("ApiKey "):
+            return await call_next(request)
+        if is_built_in_native_origin(request.headers.get("Origin")) and (auth.startswith("Bearer ") or request.headers.get("X-Session-Token")):
             return await call_next(request)
 
         cookie_token = request.cookies.get(CSRF_COOKIE_NAME)

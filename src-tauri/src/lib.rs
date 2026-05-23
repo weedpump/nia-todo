@@ -18,6 +18,8 @@ use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 #[cfg(desktop)]
 use tauri_plugin_notification::NotificationExt;
+#[cfg(not(target_os = "android"))]
+use std::process::Command;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -133,11 +135,30 @@ fn normalize_server_url(server_url: &str) -> Result<String, String> {
   if trimmed.is_empty() {
     return Err("Server-URL darf nicht leer sein.".into());
   }
-  let parsed = url::Url::parse(trimmed).map_err(|_| "Bitte eine gültige URL eingeben.".to_string())?;
-  match parsed.scheme() {
-    "http" | "https" => Ok(trimmed.to_string()),
-    _ => Err("Bitte eine http(s)-URL eingeben.".into()),
+
+  let raw = if trimmed.contains("://") {
+    trimmed.to_string()
+  } else {
+    format!("https://{trimmed}")
+  };
+  let mut parsed = url::Url::parse(&raw).map_err(|_| "Bitte eine gültige URL eingeben.".to_string())?;
+  let host = parsed.host_str().ok_or_else(|| "Bitte eine gültige Server-URL eingeben.".to_string())?;
+  let is_local_http = parsed.scheme() == "http" && matches!(host, "localhost" | "127.0.0.1" | "::1");
+  if parsed.scheme() != "https" && !is_local_http {
+    return Err("Bitte eine HTTPS-Adresse verwenden.".into());
   }
+  if !parsed.username().is_empty() || parsed.password().is_some() {
+    return Err("Server-URL darf keine Zugangsdaten enthalten.".into());
+  }
+  if host.contains(' ') {
+    return Err("Bitte eine gültige Server-URL eingeben.".into());
+  }
+
+  parsed.set_query(None);
+  parsed.set_fragment(None);
+  let origin = parsed.origin().ascii_serialization();
+  let path = parsed.path().trim_end_matches('/');
+  Ok(format!("{origin}{path}"))
 }
 
 #[cfg(desktop)]
@@ -236,6 +257,30 @@ fn apply_global_hotkeys(app: &AppHandle) -> Result<(), String> {
 #[cfg(not(desktop))]
 fn apply_global_hotkeys(_app: &AppHandle) -> Result<(), String> {
   Ok(())
+}
+
+
+#[tauri::command]
+fn desktop_open_url(url: String) -> Result<(), String> {
+  let lower = url.to_ascii_lowercase();
+  let is_http = lower.starts_with("http://") || lower.starts_with("https://");
+  let has_control_chars = url.chars().any(|ch| ch.is_control());
+  if !is_http || has_control_chars {
+    return Err("Nur gültige http(s)-URLs dürfen geöffnet werden.".into());
+  }
+
+  #[cfg(target_os = "windows")]
+  let status = Command::new("rundll32").args(["url.dll,FileProtocolHandler", url.as_str()]).status();
+  #[cfg(target_os = "macos")]
+  let status = Command::new("open").arg(url.as_str()).status();
+  #[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+  let status = Command::new("xdg-open").arg(url.as_str()).status();
+  #[cfg(target_os = "android")]
+  let status: Result<std::process::ExitStatus, std::io::Error> = Err(std::io::Error::new(std::io::ErrorKind::Unsupported, "Android opens URLs via native bridge"));
+
+  status
+    .map_err(|err| err.to_string())
+    .and_then(|status| if status.success() { Ok(()) } else { Err(format!("URL öffnen fehlgeschlagen: {status}")) })
 }
 
 #[tauri::command]
@@ -456,6 +501,7 @@ pub fn run() {
       desktop_set_setting,
       desktop_set_server_url,
       desktop_clear_server_url,
+      desktop_open_url,
       desktop_set_hotkey,
       desktop_request_notification_permission,
       desktop_notify,

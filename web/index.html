@@ -182,7 +182,6 @@
             <button type="button" class="force-refresh-btn" id="force-refresh-btn" onclick="forceReloadApp()" title="Web-App neu herunterladen und Cache aktualisieren">↻ Neu laden</button>
           </div>
           <div class="native-version-info" data-native-app-version style="display:none;"></div>
-          <div class="native-update-notice sidebar-native-update" data-native-app-update style="display:none;"></div>
         </div>
       </div>
     </aside>
@@ -196,6 +195,19 @@
         <p class="web-update-meta">Aktuell geladen: <span id="web-update-current-version">–</span></p>
         <div class="web-update-actions">
           <button type="button" class="btn btn-primary" id="web-update-apply-btn" onclick="triggerUpdate()">Jetzt aktualisieren</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal web-update-modal" id="native-app-update-modal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="native-app-update-title">
+      <div class="modal-overlay web-update-backdrop"></div>
+      <div class="modal-content web-update-content">
+        <div class="web-update-icon" aria-hidden="true" data-icon="download"></div>
+        <h3 id="native-app-update-title">App Update verfügbar</h3>
+        <p>Eine neue App Version ist verfügbar.</p>
+        <p class="web-update-meta">Installiert: <span id="native-app-update-current-version">–</span> · Neu: <span id="native-app-update-latest-version">–</span></p>
+        <div class="web-update-actions">
+          <a class="btn btn-primary" id="native-app-update-download-btn" href="#" download>Update herunterladen</a>
         </div>
       </div>
     </div>
@@ -232,7 +244,7 @@
       <h3 id="todo-modal-title">Neues Todo</h3>
       <button class="modal-close-x" onclick="closeModal('todo-modal')"><span data-icon="x"></span></button>
       <div class="modal-body">
-      <form id="todo-form" onsubmit="saveTodo(event)">
+      <form id="todo-form">
         <input type="hidden" id="todo-id">
         <div class="form-group">
           <label>Titel</label>
@@ -412,28 +424,19 @@
         <div id="desktop-settings-section" style="display:none;">
           <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">
           <h4 style="margin:0 0 12px 0; font-size:14px;"><span data-icon="smartphone"></span> App</h4>
-          <div class="native-update-notice settings-native-update" data-native-app-update style="display:none;"></div>
-          <div class="form-group">
-            <label>Server-URL</label>
-            <div class="settings-server-row">
-              <input type="url" id="desktop-server-url">
-              <button class="btn btn-primary" type="button" onclick="updateDesktopServerUrl(document.getElementById('desktop-server-url').value)">Verbinden</button>
-            </div>
-            <button class="btn btn-secondary" type="button" onclick="resetDesktopServerUrl()" style="margin-top:8px;">Server-Auswahl beim Start anzeigen</button>
-          </div>
           <div data-desktop-only>
             <label class="settings-toggle-row">
               <span>Minimieren ins Tray statt beenden</span>
-              <input type="checkbox" id="desktop-minimize-to-tray" onchange="updateDesktopSetting('minimizeToTray', this.checked)">
+              <input type="checkbox" id="desktop-minimize-to-tray">
             </label>
             <label class="settings-toggle-row">
               <span>Autostart mit Windows</span>
-              <input type="checkbox" id="desktop-autostart" onchange="updateDesktopSetting('autostart', this.checked)">
+              <input type="checkbox" id="desktop-autostart">
             </label>
           </div>
           <label class="settings-toggle-row">
             <span>Native Benachrichtigungen</span>
-            <input type="checkbox" id="desktop-notifications" onchange="updateDesktopSetting('notifications', this.checked)">
+            <input type="checkbox" id="desktop-notifications">
           </label>
           <button class="btn btn-secondary" type="button" onclick="testDesktopNotification()" style="margin-top:8px;">Test-Benachrichtigung</button>
           <div class="desktop-hotkeys-settings" data-desktop-only>
@@ -452,7 +455,7 @@
               <input class="hotkey-capture-input" type="text" id="desktop-hotkey-search" inputmode="none" autocomplete="off" aria-label="Hotkey für Suche">
             </div>
           </div>
-          <div id="desktop-settings-status" style="font-size:13px; color:var(--text-muted); margin-top:8px;"></div>
+          <div id="desktop-settings-status" data-desktop-settings-status style="font-size:13px; color:var(--text-muted); margin-top:8px;"></div>
         </div>
       </div>
       <div class="modal-actions">
@@ -466,7 +469,7 @@
       <h3 id="workspace-modal-title">Neuer Workspace</h3>
       <button class="modal-close-x" onclick="closeWorkspaceModal()"><span data-icon="x"></span></button>
       <div class="modal-body">
-        <form id="workspace-form" onsubmit="saveWorkspace(event)">
+        <form id="workspace-form">
           <input type="hidden" id="workspace-id">
           <div class="form-group">
             <label>Name</label>
@@ -500,7 +503,7 @@
       <h3 id="project-modal-title">Neues Projekt</h3>
       <button class="modal-close-x" onclick="closeModal('project-modal')"><span data-icon="x"></span></button>
       <div class="modal-body">
-      <form id="project-form" onsubmit="saveProject(event)">
+      <form id="project-form">
         <input type="hidden" id="project-id">
         <div class="form-group">
           <label>Name</label>

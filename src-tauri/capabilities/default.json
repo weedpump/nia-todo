@@ -1,18 +1,9 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Default desktop window capability for nia-todo.",
+  "description": "Default desktop window capability for nia-todo local bundled UI.",
   "platforms": ["windows", "macOS", "linux"],
   "windows": ["main"],
-  "remote": {
-    "urls": [
-      "https://todo.kneidl-home.de",
-      "https://todo-dev.kneidl-home.de",
-      "http://localhost:*",
-      "http://127.0.0.1:*",
-      "http://todo-dev.kneidl-home.de:*"
-    ]
-  },
   "permissions": [
     "core:default",
     "notification:default",
@@ -20,6 +11,7 @@
     "allow-desktop-set-setting",
     "allow-desktop-set-server-url",
     "allow-desktop-clear-server-url",
+    "allow-desktop-open-url",
     "allow-desktop-set-hotkey",
     "allow-desktop-request-notification-permission",
     "allow-desktop-notify",

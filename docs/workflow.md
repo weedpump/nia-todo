@@ -13,21 +13,18 @@
 ## Release
 
 1. Feature-Branch erst nach Review nach `develop` mergen; `release.sh` releast ausschließlich `develop`
-2. Im Dev-Ordner bleiben: `~/projects/nia-todo-dev`
-3. Vorab bei Bedarf gezielt testen; `release.sh` führt die komplette Suite selbst aus
-4. `./release.sh VERSION` ausführen, z.B. `./release.sh 1.7.0`
-5. Native Apps nur bei Bedarf mitbauen:
-   - Windows: `./release.sh 1.7.0 --build-windows --windows-version 1.6.7`
-   - Android: `./release.sh 1.7.0 --build-android --android-version 1.6.7`
-   - beide: `./release.sh 1.7.0 --build-windows --windows-version 1.6.7 --build-android --android-version 1.6.7`
-6. Das Script setzt Release-Versionen, baut optional Windows-Installer/Android-APK, merged `develop` nach `main`, erstellt Tag, aktualisiert Live und bumped `develop` auf die nächste `-dev` Version
+2. Release-Script auf `develop` mit sauberem Working Tree starten; Feature-Branches werden bewusst abgelehnt
+3. Im Dev-Ordner bleiben: `~/projects/nia-todo-dev`
+4. Vorab bei Bedarf gezielt testen; `release.sh` führt die komplette Suite selbst aus
+5. `./release.sh VERSION` ausführen, z.B. `./release.sh 1.7.0`
+6. Das Script setzt dieselbe Version für Web-App, Tauri/Cargo, Windows-Installer, Android-APK und Download-Manifest
+7. Das Script baut Windows und Android immer mit; getrennte App-Versionen oder optionale Native-Builds gibt es nicht mehr
+8. Das Script merged `develop` nach `main`, erstellt Tag, aktualisiert Live und bumped `develop` auf die nächste gemeinsame `-dev` Version
 
 Changelog-Pflicht:
 
-- Web-App-Release: `CHANGELOG.md` braucht einen Abschnitt `## [VERSION]`.
-- Windows-Build: `CHANGELOG.windows.md` braucht einen Abschnitt `## [WINDOWS_VERSION]`.
-- Android-Build: `CHANGELOG.android.md` braucht einen Abschnitt `## [ANDROID_VERSION]`.
-- Native Changelogs werden getrennt geführt, weil Windows-/Android-Versionen vom Web-Release-Takt entkoppelt sind.
+- `CHANGELOG.md` braucht einen Abschnitt `## [VERSION]` für die gemeinsame Web-/Windows-/Android-Version.
+- Separate Windows-/Android-Changelogs werden nicht mehr geführt.
 
 Release-Artefakte werden auf Live unter `/downloads/` veröffentlicht:
 
