@@ -361,14 +361,14 @@ def admin_change_user_password(user_id: int, data: ResetUserPasswordRequest, req
 @router.post("/users/{user_id}/password-link")
 def admin_create_user_password_link(user_id: int, request: Request, _: bool = Depends(require_admin)):
     with get_db() as db:
-        user = db.execute("SELECT id, username, display_name, email FROM users WHERE id = ?", (user_id,)).fetchone()
+        user = db.execute("SELECT id, username, display_name, email, email_verified_at FROM users WHERE id = ?", (user_id,)).fetchone()
         if not user:
             raise HTTPException(404, "User not found")
         token = create_password_setup_token(db, user_id, "reset")
         link = _make_password_setup_link(request, token)
         emailed = False
         db.commit()
-        if can_send_email_links() and user['email']:
+        if can_send_email_links() and user['email'] and user['email_verified_at']:
             try:
                 _send_password_setup_email(
                     to=user['email'],
