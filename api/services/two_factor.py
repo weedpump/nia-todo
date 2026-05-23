@@ -297,3 +297,44 @@ def revoke_trusted_devices(db, user_id: int) -> None:
     db.execute("UPDATE trusted_devices SET revoked_at = datetime('now') WHERE user_id = ? AND revoked_at IS NULL", (user_id,))
     db.execute("UPDATE users SET two_factor_remember_version = COALESCE(two_factor_remember_version, 1) + 1 WHERE id = ?", (user_id,))
     log_audit(db, "two_factor_trusted_devices_revoked", user_id=user_id)
+
+
+def create_mfa_action_grant(db, user_id: int, ttl_seconds: int = 300) -> str:
+    """Create a one-time grant for exactly one sensitive action after reauth."""
+    grant = secrets.token_urlsafe(32)
+    db.execute(
+        """INSERT INTO two_factor_action_grants (user_id, grant_hash, expires_at, created_at)
+           VALUES (?, ?, ?, datetime('now'))""",
+        (user_id, sha256_hex(grant), utc_ts() + ttl_seconds),
+    )
+    return grant
+
+
+def validate_mfa_action_grant(db, user_id: int, grant: Optional[str]) -> bool:
+    """Return whether a fresh MFA action grant exists without consuming it."""
+    if not grant:
+        return False
+    row = db.execute(
+        """SELECT id FROM two_factor_action_grants
+           WHERE user_id = ? AND grant_hash = ? AND consumed_at IS NULL AND expires_at >= ?
+           LIMIT 1""",
+        (user_id, sha256_hex(grant), utc_ts()),
+    ).fetchone()
+    return bool(row)
+
+
+def consume_mfa_action_grant(db, user_id: int, grant: Optional[str]) -> bool:
+    """Atomically consume a fresh MFA action grant."""
+    if not grant:
+        return False
+    cur = db.execute(
+        """UPDATE two_factor_action_grants
+           SET consumed_at = datetime('now')
+           WHERE id = (
+             SELECT id FROM two_factor_action_grants
+             WHERE user_id = ? AND grant_hash = ? AND consumed_at IS NULL AND expires_at >= ?
+             LIMIT 1
+           )""",
+        (user_id, sha256_hex(grant), utc_ts()),
+    )
+    return cur.rowcount == 1

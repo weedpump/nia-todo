@@ -21,11 +21,12 @@ from services.webauthn import (
     verify_client_data,
 )
 from services.two_factor import (
-    create_challenge, create_recovery_codes, create_trusted_device,
-    generate_totp_secret, get_two_factor_required, get_valid_challenge,
+    consume_mfa_action_grant, create_challenge, create_mfa_action_grant,
+    create_recovery_codes, create_trusted_device, generate_totp_secret,
+    get_two_factor_required, get_valid_challenge,
     mark_challenge_consumed, mfa_required_for_user, provisioning_uri,
     revoke_trusted_devices, set_two_factor_required, trusted_device_valid,
-    user_mfa_state, verify_challenge_method, verify_totp, REAUTH_MAX_AGE_SECONDS,
+    user_mfa_state, validate_mfa_action_grant, verify_challenge_method, verify_totp, REAUTH_MAX_AGE_SECONDS,
     EMAIL_CODE_TTL_SECONDS, record_challenge_failure, sha256_hex, bcrypt_hash,
 )
 from services.email import send_email
@@ -95,18 +96,31 @@ def require_enrollment_or_recent_mfa(authorization: Optional[str] = Header(None)
         user_id = payload.get("user_id")
         if payload.get("mfa_enroll_only"):
             return user_id
+        if mfa_required_for_user(db, user_id) and not validate_mfa_action_grant(db, user_id, payload.get("mfa_grant")):
+            raise HTTPException(403, "2FA/Reauth erforderlich")
+        return user_id
+
+
+def require_enrollment_or_mfa_action(authorization: Optional[str] = Header(None)) -> int:
+    with get_db() as db:
+        payload = _current_payload(authorization, db)
+        if not payload:
+            raise HTTPException(401, "Not authenticated")
+        user_id = payload.get("user_id")
+        if payload.get("mfa_enroll_only"):
+            return user_id
         if mfa_required_for_user(db, user_id):
-            mfa_at = int(payload.get("mfa_at") or 0)
-            if int(time.time()) - mfa_at > REAUTH_MAX_AGE_SECONDS:
+            if not consume_mfa_action_grant(db, user_id, payload.get("mfa_grant")):
                 raise HTTPException(403, "2FA/Reauth erforderlich")
+            db.commit()
         return user_id
 
 
 def require_2fa_status_auth(authorization: Optional[str] = Header(None)) -> int:
     """Allow reading non-sensitive 2FA factor metadata with a valid interactive JWT.
 
-    This endpoint intentionally does not require recent MFA: the frontend needs it
-    to decide which reauth ceremony to start after mfa_at has gone stale.
+    This endpoint intentionally does not require an MFA action grant: the frontend
+    needs it to decide which reauth ceremony to start for sensitive actions.
     """
     with get_db() as db:
         payload = _current_payload(authorization, db)
@@ -188,9 +202,9 @@ def require_recent_mfa(authorization: Optional[str] = Header(None)) -> int:
         user_id = payload.get("user_id")
         if not mfa_required_for_user(db, user_id):
             return user_id
-        mfa_at = payload.get("mfa_at") or 0
-        if int(time.time()) - int(mfa_at) > REAUTH_MAX_AGE_SECONDS:
+        if not consume_mfa_action_grant(db, user_id, payload.get("mfa_grant")):
             raise HTTPException(403, "2FA/Reauth erforderlich")
+        db.commit()
         return user_id
 
 
@@ -248,7 +262,7 @@ def start_totp(user_id: int = Depends(require_enrollment_or_recent_mfa)):
 
 
 @router.post("/me/2fa/totp/confirm")
-def confirm_totp(data: TotpConfirmRequest, user_id: int = Depends(require_enrollment_or_recent_mfa)):
+def confirm_totp(data: TotpConfirmRequest, user_id: int = Depends(require_enrollment_or_mfa_action)):
     if not verify_totp(data.secret, data.code):
         raise HTTPException(400, "TOTP-Code ungültig")
     with get_db() as db:
@@ -262,7 +276,7 @@ def confirm_totp(data: TotpConfirmRequest, user_id: int = Depends(require_enroll
         codes = create_recovery_codes(db, user_id)
         log_audit(db, "two_factor_totp_enabled", user_id=user_id)
         token_user = db.execute("SELECT id, username, is_admin, token_version FROM users WHERE id = ?", (user_id,)).fetchone()
-        access_token = create_jwt_token(dict(token_user), db, mfa_verified=True)
+        access_token = create_jwt_token(dict(token_user), db, mfa_login_verified=True)
         db.commit()
         return {"enabled": True, "recovery_codes": codes, "access_token": access_token, "token_type": "bearer"}
 
@@ -328,7 +342,9 @@ def reauth(data: ReauthRequest, authorization: Optional[str] = Header(None)):
             raise HTTPException(401, "2FA-Code ungültig")
         db.execute("UPDATE two_factor_challenges SET attempts = 0, locked_until = NULL WHERE id = ?", (bucket["id"],))
         user = db.execute("SELECT id, username, is_admin, token_version FROM users WHERE id = ?", (user_id,)).fetchone()
-        token = create_jwt_token(dict(user), db, mfa_verified=True)
+        token_user = dict(user)
+        token_user["mfa_login_at"] = payload.get("mfa_login_at") or payload.get("mfa_at")
+        token = create_jwt_token(token_user, db, mfa_grant=create_mfa_action_grant(db, user_id))
         log_audit(db, "two_factor_reauth_success", user_id=user_id)
         db.commit()
         return {"access_token": token, "token_type": "bearer"}
@@ -363,7 +379,7 @@ def passkey_registration_options(data: PasskeyNameRequest, request: Request, use
 
 
 @router.post("/me/passkeys/verify")
-def passkey_registration_verify(data: PasskeyRegistrationVerifyRequest, request: Request, user_id: int = Depends(require_enrollment_or_recent_mfa)):
+def passkey_registration_verify(data: PasskeyRegistrationVerifyRequest, request: Request, user_id: int = Depends(require_enrollment_or_mfa_action)):
     credential = data.credential or {}
     response = credential.get("response") or {}
     client_data_json = b64url_decode(response.get("clientDataJSON", ""))
@@ -402,7 +418,7 @@ def passkey_registration_verify(data: PasskeyRegistrationVerifyRequest, request:
         db.execute("UPDATE passkey_challenges SET consumed_at = datetime('now') WHERE id = ?", (row["id"],))
         log_audit(db, "passkey_added", user_id=user_id, details=f"credential_id={credential_id[:12]}")
         token_user = db.execute("SELECT id, username, is_admin, token_version FROM users WHERE id = ?", (user_id,)).fetchone()
-        access_token = create_jwt_token(dict(token_user), db, mfa_verified=True)
+        access_token = create_jwt_token(dict(token_user), db, mfa_login_verified=True)
         db.commit()
         return {"registered": True, "recovery_codes": recovery_codes, "access_token": access_token, "token_type": "bearer"}
 
@@ -556,7 +572,9 @@ def passkey_reauth_verify(data: PasskeyReauthVerifyRequest, request: Request, au
         db.execute("UPDATE passkey_challenges SET consumed_at = datetime('now') WHERE id = ?", (challenge["id"],))
         db.execute("UPDATE passkeys SET last_used_at = datetime('now'), sign_count = MAX(sign_count, ?) WHERE id = ?", (parsed["sign_count"], key["id"]))
         user = db.execute("SELECT id, username, is_admin, token_version FROM users WHERE id = ?", (user_id,)).fetchone()
-        token = create_jwt_token(dict(user), db, mfa_verified=True)
+        token_user = dict(user)
+        token_user["mfa_login_at"] = payload.get("mfa_login_at") or payload.get("mfa_at")
+        token = create_jwt_token(token_user, db, mfa_grant=create_mfa_action_grant(db, user_id))
         log_audit(db, "two_factor_reauth_success", user_id=user_id, details="method=passkey")
         db.commit()
         return {"access_token": token, "token_type": "bearer"}
