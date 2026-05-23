@@ -26,7 +26,7 @@ from services.two_factor import (
     get_two_factor_required, get_valid_challenge,
     mark_challenge_consumed, mfa_required_for_user, provisioning_uri,
     revoke_trusted_devices, set_two_factor_required, trusted_device_valid,
-    user_mfa_state, validate_mfa_action_grant, verify_challenge_method, verify_totp, REAUTH_MAX_AGE_SECONDS,
+    user_mfa_state, validate_mfa_action_grant, verify_challenge_method, verify_totp, consume_totp_reauth_code, REAUTH_MAX_AGE_SECONDS,
     EMAIL_CODE_TTL_SECONDS, record_challenge_failure, sha256_hex, bcrypt_hash,
 )
 from services.email import send_email
@@ -130,11 +130,24 @@ def require_2fa_status_auth(authorization: Optional[str] = Header(None)) -> int:
 
 
 def _reauth_bucket(db, user_id: int):
-    token_hash = sha256_hex(f"reauth:{user_id}:{int(time.time() // REAUTH_MAX_AGE_SECONDS)}")
-    expires_at = int(time.time()) + REAUTH_MAX_AGE_SECONDS
-    row = db.execute("SELECT * FROM two_factor_challenges WHERE token_hash = ? AND consumed_at IS NULL", (token_hash,)).fetchone()
+    # Include a per-user counter so a successful TOTP/e-mail/recovery reauth can
+    # consume the current bucket and prevent one ceremony from minting multiple grants.
+    now = int(time.time())
+    row = db.execute(
+        """SELECT * FROM two_factor_challenges
+           WHERE user_id = ? AND reauth_counter IS NOT NULL AND consumed_at IS NULL AND expires_at >= ?
+           ORDER BY reauth_counter DESC LIMIT 1""",
+        (user_id, now),
+    ).fetchone()
     if row:
         return row
+    counter_row = db.execute(
+        "SELECT COALESCE(MAX(reauth_counter), -1) + 1 AS counter FROM two_factor_challenges WHERE user_id = ? AND reauth_counter IS NOT NULL",
+        (user_id,),
+    ).fetchone()
+    counter = int(counter_row["counter"] or 0) if counter_row else 0
+    token_hash = sha256_hex(f"reauth:{user_id}:{int(now // REAUTH_MAX_AGE_SECONDS)}:{counter}")
+    expires_at = now + REAUTH_MAX_AGE_SECONDS
     state = user_mfa_state(db, user_id)
     methods = ["totp"] if state.get("has_totp") else []
     if state.get("has_recovery_codes"):
@@ -142,9 +155,9 @@ def _reauth_bucket(db, user_id: int):
     if state.get("has_email_fallback") and not (state.get("has_totp") or state.get("has_passkey")):
         methods.append("email")
     db.execute(
-        """INSERT INTO two_factor_challenges (user_id, token_hash, methods, expires_at, created_at)
-           VALUES (?, ?, ?, ?, datetime('now'))""",
-        (user_id, token_hash, json.dumps(methods), expires_at),
+        """INSERT INTO two_factor_challenges (user_id, token_hash, methods, expires_at, reauth_counter, created_at)
+           VALUES (?, ?, ?, ?, ?, datetime('now'))""",
+        (user_id, token_hash, json.dumps(methods), expires_at, counter),
     )
     return db.execute("SELECT * FROM two_factor_challenges WHERE token_hash = ?", (token_hash,)).fetchone()
 
@@ -220,7 +233,9 @@ def verify_login_challenge(data: VerifyChallengeRequest, request: Request, respo
             log_audit(db, "two_factor_challenge_failed", user_id=challenge["user_id"], ip_address=ip, details=f"method={data.method}")
             db.commit()
             raise HTTPException(401, "2FA-Code ungültig")
-        mark_challenge_consumed(db, challenge["id"])
+        if not mark_challenge_consumed(db, challenge["id"]):
+            db.commit()
+            raise HTTPException(401, "2FA-Challenge bereits verwendet")
         user = db.execute(
             "SELECT id, username, display_name, email, email_verified_at, email_trust_source, avatar_url, is_admin, token_version FROM users WHERE id = ?",
             (challenge["user_id"],),
@@ -356,20 +371,27 @@ def reauth(data: ReauthRequest, authorization: Optional[str] = Header(None)):
         bucket = _reauth_bucket(db, user_id)
         if bucket["locked_until"] and int(bucket["locked_until"]) > int(time.time()):
             raise HTTPException(429, "Zu viele Reauth-Versuche. Bitte später erneut versuchen.")
-        if data.method not in {"totp", "recovery_code", "email"} or not verify_challenge_method(db, bucket, data.method, data.code):
+        if data.method not in {"totp", "recovery_code", "email"}:
+            valid = False
+        elif data.method == "totp":
+            valid = consume_totp_reauth_code(db, user_id, data.code)
+        else:
+            valid = verify_challenge_method(db, bucket, data.method, data.code)
+        if not valid:
             record_challenge_failure(db, bucket["id"])
             log_audit(db, "two_factor_reauth_failed", user_id=user_id, details=f"method={data.method}")
             db.commit()
             raise HTTPException(401, "2FA-Code ungültig")
-        if data.method == "email":
-            db.execute(
-                """UPDATE two_factor_challenges
-                   SET attempts = 0, locked_until = NULL, email_code_hash = NULL, email_code_expires_at = NULL
-                   WHERE id = ?""",
-                (bucket["id"],),
-            )
-        else:
-            db.execute("UPDATE two_factor_challenges SET attempts = 0, locked_until = NULL WHERE id = ?", (bucket["id"],))
+        cur = db.execute(
+            """UPDATE two_factor_challenges
+               SET attempts = 0, locked_until = NULL, email_code_hash = NULL, email_code_expires_at = NULL,
+                   consumed_at = datetime('now')
+               WHERE id = ? AND consumed_at IS NULL""",
+            (bucket["id"],),
+        )
+        if cur.rowcount != 1:
+            db.commit()
+            raise HTTPException(401, "2FA/Reauth bereits verwendet")
         user = db.execute("SELECT id, username, is_admin, token_version FROM users WHERE id = ?", (user_id,)).fetchone()
         token_user = dict(user)
         token_user["mfa_login_at"] = payload.get("mfa_login_at") or payload.get("mfa_at")
@@ -526,7 +548,9 @@ def passkey_login_verify(data: PasskeyLoginVerifyRequest, request: Request, resp
             log_audit(db, "two_factor_challenge_failed", user_id=challenge["user_id"], ip_address=ip, details="method=passkey")
             db.commit()
             raise HTTPException(401, "Passkey-Prüfung fehlgeschlagen")
-        mark_challenge_consumed(db, challenge["id"])
+        if not mark_challenge_consumed(db, challenge["id"]):
+            db.commit()
+            raise HTTPException(401, "2FA-Challenge bereits verwendet")
         db.execute("UPDATE passkeys SET last_used_at = datetime('now'), sign_count = MAX(sign_count, ?) WHERE id = ?", (parsed["sign_count"], key["id"]))
         user = db.execute("SELECT id, username, display_name, email, email_verified_at, email_trust_source, avatar_url, is_admin, token_version FROM users WHERE id = ?", (challenge["user_id"],)).fetchone()
         token = create_jwt_token(dict(user), db, mfa_login_verified=True)
@@ -598,7 +622,13 @@ def passkey_reauth_verify(data: PasskeyReauthVerifyRequest, request: Request, au
             log_audit(db, "two_factor_reauth_failed", user_id=user_id, details="method=passkey")
             db.commit()
             raise HTTPException(401, "Passkey-Reauth fehlgeschlagen")
-        db.execute("UPDATE passkey_challenges SET consumed_at = datetime('now') WHERE id = ?", (challenge["id"],))
+        cur = db.execute(
+            "UPDATE passkey_challenges SET consumed_at = datetime('now') WHERE id = ? AND consumed_at IS NULL",
+            (challenge["id"],),
+        )
+        if cur.rowcount != 1:
+            db.commit()
+            raise HTTPException(401, "Passkey-Challenge bereits verwendet")
         db.execute("UPDATE passkeys SET last_used_at = datetime('now'), sign_count = MAX(sign_count, ?) WHERE id = ?", (parsed["sign_count"], key["id"]))
         user = db.execute("SELECT id, username, is_admin, token_version FROM users WHERE id = ?", (user_id,)).fetchone()
         token_user = dict(user)

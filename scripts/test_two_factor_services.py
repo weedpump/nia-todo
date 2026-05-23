@@ -29,6 +29,7 @@ from services.two_factor import (
     bcrypt_hash,
     generate_totp_secret,
     get_valid_challenge,
+    mark_challenge_consumed,
     record_challenge_failure,
     set_two_factor_required,
     user_mfa_state,
@@ -107,6 +108,8 @@ def main():
         row = get_valid_challenge(conn, challenge["challenge_token"])
         assert row is not None
         assert verify_challenge_method(conn, row, "totp", code)
+        assert mark_challenge_consumed(conn, row["id"])
+        assert not mark_challenge_consumed(conn, row["id"])
 
         # A recovery code is one-time-use and is removed after successful verification.
         challenge2 = create_challenge(conn, user_id)
@@ -134,10 +137,10 @@ def main():
         assert email_row is not None and email_row["email_code_hash"]
 
         # E-mail-only MFA also works for recent-MFA reauth buckets.
-        bucket_hash = two_factor_module.sha256_hex(f"reauth:{email_user_id}:{int(two_factor_module.utc_ts() // two_factor_module.REAUTH_MAX_AGE_SECONDS)}")
+        bucket_hash = two_factor_module.sha256_hex(f"reauth:{email_user_id}:{int(two_factor_module.utc_ts() // two_factor_module.REAUTH_MAX_AGE_SECONDS)}:0")
         conn.execute(
-            """INSERT INTO two_factor_challenges (user_id, token_hash, methods, expires_at, email_code_hash, email_code_expires_at, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, datetime('now'))""",
+            """INSERT INTO two_factor_challenges (user_id, token_hash, methods, expires_at, email_code_hash, email_code_expires_at, reauth_counter, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, 0, datetime('now'))""",
             (email_user_id, bucket_hash, json.dumps(["email"]), two_factor_module.utc_ts() + 600, bcrypt_hash("123456"), two_factor_module.utc_ts() + EMAIL_CODE_TTL_SECONDS),
         )
         reauth_bucket = conn.execute("SELECT * FROM two_factor_challenges WHERE token_hash = ?", (bucket_hash,)).fetchone()
@@ -146,8 +149,13 @@ def main():
         email_token = create_jwt_token(dict(email_user), conn, mfa_login_verified=True)
         reauth_response = reauth(ReauthRequest(method="email", code="123456"), authorization=f"Bearer {email_token}")
         assert reauth_response["access_token"]
-        used_reauth_bucket = conn.execute("SELECT email_code_hash, email_code_expires_at FROM two_factor_challenges WHERE token_hash = ?", (bucket_hash,)).fetchone()
-        assert used_reauth_bucket["email_code_hash"] is None and used_reauth_bucket["email_code_expires_at"] is None
+        used_reauth_bucket = conn.execute("SELECT email_code_hash, email_code_expires_at, consumed_at FROM two_factor_challenges WHERE token_hash = ?", (bucket_hash,)).fetchone()
+        assert used_reauth_bucket["email_code_hash"] is None and used_reauth_bucket["email_code_expires_at"] is None and used_reauth_bucket["consumed_at"]
+        try:
+            reauth(ReauthRequest(method="email", code="123456"), authorization=f"Bearer {email_token}")
+            raise AssertionError("email reauth code must not mint multiple grants after success")
+        except HTTPException as exc:
+            assert exc.status_code == 401
 
         # Five failed attempts lock a challenge until expiry.
         challenge3 = create_challenge(conn, user_id)
@@ -167,6 +175,13 @@ def main():
         # Trusted-device login is sufficient for normal app access, but must not satisfy recent-MFA gates.
         trusted_login_token = create_jwt_token(dict(user), conn, mfa_login_verified=True)
         assert get_current_user(trusted_login_token) == user_id
+        totp_reauth = reauth(ReauthRequest(method="totp", code=code), authorization=f"Bearer {trusted_login_token}")
+        assert totp_reauth["access_token"]
+        try:
+            reauth(ReauthRequest(method="totp", code=code), authorization=f"Bearer {trusted_login_token}")
+            raise AssertionError("same TOTP timestep must not mint multiple reauth grants")
+        except HTTPException as exc:
+            assert exc.status_code == 401
         try:
             require_recent_mfa_for_account_security(authorization=f"Bearer {trusted_login_token}")
             raise AssertionError("trusted-device login must not authorize sensitive actions")
