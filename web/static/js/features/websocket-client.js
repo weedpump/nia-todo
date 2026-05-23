@@ -446,6 +446,10 @@ async function handleWsMessage(msg) {
     case 'member_color_changed':
       // refresh from server on sharing events
       await syncWithServer();
+      // reload invites list when membership changes
+      if (typeof window.loadInvites === 'function') {
+        window.loadInvites();
+      }
       break;
     case 'section_create':
       if (msg.payload) {
