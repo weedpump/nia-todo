@@ -231,7 +231,7 @@ def get_public_instance_info(request: Request) -> dict[str, Any]:
         "public_base_url": public_base_url,
         "api_version": 1,
         "server_version": _read_web_app_version(),
-        "min_native_client_version": "2.0.0",
+        "min_native_client_version": "1.7.0",
         "capabilities": PUBLIC_INSTANCE_CAPABILITIES,
     }
 

@@ -25,15 +25,72 @@ async function getNativeAppVersion(nativeBridge) {
   return nativeBridge.getAppVersion();
 }
 
+const DOWNLOAD_SHA_RE = /^[a-f0-9]{64}$/;
+const DOWNLOAD_VERSION_RE = /^v?\d+\.\d+\.\d+(?:[-.][0-9A-Za-z.-]+)?$/;
+const DOWNLOADS_BY_PLATFORM = {
+  windows: {
+    arch: 'x64',
+    filenameSuffix: '-windows-x64-setup.exe',
+    filenameRe: /^nia-todo-v\d+\.\d+\.\d+(?:[-.][0-9A-Za-z.-]+)?-windows-x64-setup\.exe$/,
+  },
+  android: {
+    arch: 'arm64',
+    filenameSuffix: '-android-arm64.apk',
+    filenameRe: /^nia-todo-v\d+\.\d+\.\d+(?:[-.][0-9A-Za-z.-]+)?-android-arm64\.apk$/,
+  },
+};
+
 function absoluteDownloadUrl(url) {
-  if (!url) return '';
-  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(url)) return url;
   const base = RUNTIME_CAPABILITIES.native && API ? API : location.origin;
   return new URL(url, base).toString();
 }
 
+function filenameFromDownloadPath(pathname) {
+  const match = String(pathname || '').match(/^\/downloads\/([^/?#]+)$/);
+  return match ? match[1] : '';
+}
+
+function validateDownloadEntry(app, fallbackVersion = '') {
+  if (!app || typeof app !== 'object') return null;
+  const platform = String(app.platform || '').toLowerCase();
+  const spec = DOWNLOADS_BY_PLATFORM[platform];
+  if (!spec) return null;
+
+  const rawUrl = String(app.url || '').trim();
+  if (!rawUrl.startsWith('/downloads/')) return null;
+  let parsed;
+  try {
+    parsed = new URL(rawUrl, location.origin);
+  } catch {
+    return null;
+  }
+  if (parsed.origin !== location.origin || parsed.search || parsed.hash) return null;
+
+  const filename = filenameFromDownloadPath(parsed.pathname);
+  if (!filename || filename.includes('/') || !spec.filenameRe.test(filename)) return null;
+  if (app.filename && String(app.filename) !== filename) return null;
+  if (app.arch && String(app.arch) !== spec.arch) return null;
+  if (!DOWNLOAD_SHA_RE.test(String(app.sha256 || ''))) return null;
+
+  const version = String(app.version || fallbackVersion || '').trim();
+  if (!DOWNLOAD_VERSION_RE.test(version)) return null;
+  const versionSlug = normalizeVersion(version);
+  if (filename !== `nia-todo-v${versionSlug}${spec.filenameSuffix}`) return null;
+
+  return {
+    platform,
+    arch: spec.arch,
+    label: app.label || (platform === 'windows' ? 'Windows Setup' : 'Android APK'),
+    version,
+    filename,
+    url: absoluteDownloadUrl(parsed.pathname),
+    sha256: app.sha256 || '',
+    sizeBytes: Number.isSafeInteger(app.size_bytes) && app.size_bytes > 0 ? app.size_bytes : null,
+  };
+}
+
 function downloadsFromManifest(manifest) {
-  const version = manifest.version || manifest.latest?.version || '';
+  const version = manifest?.version || manifest?.latest?.version || '';
   const apps = [
     manifest?.latest?.windows,
     manifest?.latest?.android,
@@ -41,8 +98,9 @@ function downloadsFromManifest(manifest) {
   ].filter(Boolean);
   const byPlatform = new Map();
   for (const app of apps) {
-    if (!app?.platform || !app?.url || byPlatform.has(app.platform)) continue;
-    byPlatform.set(app.platform, { ...app, url: absoluteDownloadUrl(app.url), version: app.version || version });
+    const download = validateDownloadEntry(app, version);
+    if (!download || byPlatform.has(download.platform)) continue;
+    byPlatform.set(download.platform, download);
   }
   return ['windows', 'android'].map((platform) => byPlatform.get(platform)).filter(Boolean);
 }
@@ -120,12 +178,29 @@ function compareVersions(a, b) {
 
 function renderDownloads(target, downloads) {
   if (!target || !downloads?.length) return;
-  target.innerHTML = downloads.map((download) => `
-    <a class="app-download-button" href="${escapeHtml(download.url)}" download title="${escapeHtml(platformTitle(download))}">
-      ${platformIconClass(download.platform) ? `<span class="app-download-icon ${platformIconClass(download.platform)}" aria-hidden="true"></span>` : `<span>${iconSvg('download')}</span>`}
-      <span>${escapeHtml(download.version || '')}</span>
-    </a>
-  `).join('');
+  target.replaceChildren();
+  for (const download of downloads) {
+    const link = document.createElement('a');
+    link.className = 'app-download-button';
+    link.href = download.url;
+    link.download = download.filename;
+    link.title = platformTitle(download);
+
+    const icon = document.createElement('span');
+    const iconClass = platformIconClass(download.platform);
+    if (iconClass) {
+      icon.className = `app-download-icon ${iconClass}`;
+      icon.setAttribute('aria-hidden', 'true');
+    } else {
+      icon.innerHTML = iconSvg('download');
+    }
+    link.appendChild(icon);
+
+    const version = document.createElement('span');
+    version.textContent = download.version || '';
+    link.appendChild(version);
+    target.appendChild(link);
+  }
   target.style.display = '';
 }
 

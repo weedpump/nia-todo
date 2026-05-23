@@ -80,6 +80,10 @@ assert(swSource.includes('/static/js/features/app-downloads.js'), 'service worke
 const serviceWorkerUpdatesSource = readFileSync(new URL('../web/static/js/features/service-worker-updates.js', import.meta.url), 'utf8');
 assert(serviceWorkerUpdatesSource.includes('Web-app update prompt suppressed in native runtime'), 'native apps must not show the web app reload update modal');
 assert(downloadsSource.includes('showNativeUpdateModal'), 'native app updates must use the native update modal');
+assert(downloadsSource.includes('validateDownloadEntry'), 'app download manifests must be validated before rendering');
+assert(downloadsSource.includes("rawUrl.startsWith('/downloads/')"), 'app download URLs must be constrained to same-origin /downloads paths');
+assert(downloadsSource.includes('DOWNLOAD_SHA_RE'), 'app download manifests must validate sha256 values');
+assert(!downloadsSource.includes('target.innerHTML = downloads.map'), 'download buttons must not be rendered from manifest data via innerHTML');
 assert(swSource.includes('/static/js/features/native-bridge.js'), 'service worker must precache the native bridge module');
 
 const syncSource = readFileSync(new URL('../web/static/js/features/sync.js', import.meta.url), 'utf8');

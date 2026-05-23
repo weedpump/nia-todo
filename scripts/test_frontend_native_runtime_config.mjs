@@ -121,6 +121,7 @@ async function testNativeUpdateUsesModalWithDownloadButton() {
             version: 'v1.7.1',
             filename: 'nia-todo-v1.7.1-windows-x64-setup.exe',
             url: '/downloads/nia-todo-v1.7.1-windows-x64-setup.exe',
+            sha256: 'a'.repeat(64),
           }],
         }),
       });
@@ -138,6 +139,69 @@ async function testNativeUpdateUsesModalWithDownloadButton() {
     if (href !== `${BASE_URL}/downloads/nia-todo-v1.7.1-windows-x64-setup.exe`) throw new Error(`Unexpected native update href: ${href}`);
     const webUpdateVisible = await page.locator('#web-update-modal.active').count();
     if (webUpdateVisible !== 0) throw new Error('Web app update modal must not be shown for native app updates');
+  } catch (error) {
+    console.log('DEBUG frontend errors:', JSON.stringify(dumpErrors()));
+    throw error;
+  } finally {
+    await browser.close();
+  }
+}
+
+
+async function testNativeUpdateRejectsUnsafeManifestDownload() {
+  const { browser, page, dumpErrors } = await launchPage();
+  try {
+    await installTauriStub(page, { serverUrl: BASE_URL }, {
+      appVersion: '1.7.0',
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    });
+    await page.route(`${BASE_URL}/downloads/app-downloads.json`, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          version: 'v9.9.9',
+          apps: [{
+            platform: 'windows',
+            arch: 'x64',
+            label: 'Windows Setup',
+            version: 'v9.9.9',
+            filename: 'evil.exe',
+            url: 'javascript:alert(1)',
+            sha256: 'a'.repeat(64),
+          }, {
+            platform: 'windows',
+            arch: 'x64',
+            label: 'Windows Setup',
+            version: 'v9.9.9',
+            filename: 'nia-todo-v9.9.8-windows-x64-setup.exe',
+            url: '/downloads/nia-todo-v9.9.8-windows-x64-setup.exe',
+            sha256: 'c'.repeat(64),
+          }, {
+            platform: 'android',
+            arch: 'arm64',
+            label: 'Android APK',
+            version: 'v9.9.9',
+            filename: 'nia-todo-v9.9.9-android-arm64.apk',
+            url: 'https://evil.example/nia-todo-v9.9.9-android-arm64.apk',
+            sha256: 'b'.repeat(64),
+          }],
+        }),
+      });
+    });
+
+    await page.goto(BASE_URL, { waitUntil: 'domcontentloaded' });
+    await page.locator('#login-overlay').waitFor({ state: 'visible', timeout: 10_000 });
+    await page.fill('#login-username', USERNAME);
+    await page.fill('#login-password', USER_PASSWORD);
+    await page.click('button.login-btn');
+    await page.locator('#login-overlay').waitFor({ state: 'hidden', timeout: 15_000 });
+    await page.waitForTimeout(500);
+
+    const modalVisible = await page.locator('#native-app-update-modal.active').count();
+    if (modalVisible !== 0) throw new Error('Unsafe native update manifest must not show update modal');
+    const href = await page.locator('#native-app-update-download-btn').getAttribute('href');
+    if (href && href !== '#') throw new Error(`Unsafe native update href must not be applied, got ${href}`);
   } catch (error) {
     console.log('DEBUG frontend errors:', JSON.stringify(dumpErrors()));
     throw error;
@@ -176,6 +240,7 @@ async function run() {
   await testNativeRuntimeUsesConfiguredServerUrl();
   await testNativeDesktopSettingsPersistViaTauriCommand();
   await testNativeUpdateUsesModalWithDownloadButton();
+  await testNativeUpdateRejectsUnsafeManifestDownload();
   console.log('✅ Native runtime config regression test passed');
 }
 
