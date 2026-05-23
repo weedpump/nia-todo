@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.PendingIntent
 import android.content.Intent
 import android.net.Uri
+import java.util.Locale
 import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
 import android.graphics.Color
@@ -171,7 +172,13 @@ class MainActivity : TauriActivity() {
     @JavascriptInterface
     fun openExternal(url: String): Boolean {
       return try {
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+        if (url.any { it.isISOControl() }) return false
+        val uri = Uri.parse(url)
+        val scheme = uri.scheme?.lowercase(Locale.ROOT) ?: return false
+        if (scheme != "http" && scheme != "https") return false
+        if (uri.host.isNullOrBlank()) return false
+
+        val intent = Intent(Intent.ACTION_VIEW, uri).apply {
           addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         startActivity(intent)
