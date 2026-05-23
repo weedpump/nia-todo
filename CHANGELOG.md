@@ -20,6 +20,8 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 - Neues App-eigenes Danger-Confirm-Modal für Löschen von Todos, Projekten, Sections und Workspaces.
 - Frontend-/Backend-Regressionstests für Workspaces, Sharing, Workspace-Inboxes, Projektlöschung und Realtime-Sync ergänzt.
 - Generische Instanz-Konfiguration für öffentliche Basis-URL, erlaubte Origins/CORS und Trusted Proxies ergänzt.
+- Native Windows-/Android-Apps erhalten einen eigenen App-Update-Dialog mit externem Download-Button statt Web-App-Reload-Hinweis.
+- Native Regressionstests für Runtime-Konfiguration, Offline-Start, Windows-Installer-Cache und Android-WebView-Cache ergänzt.
 
 ### Changed
 - Projekt-, Todo-, Dashboard- und Section-Ansichten werden nach aktivem Workspace gefiltert; Benachrichtigungen, Reminder, Push und WebSocket-Sync bleiben global.
@@ -36,6 +38,8 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 - Akzentfarben wirken nur in der Haupt-App; Setup-, Admin- und Passwortseiten bleiben beim neutralen Theme.
 - Passwort-Setup-Links verwenden künftig die konfigurierte öffentliche Basis-URL statt implizit die Request-URL.
 - CORS lehnt unbekannte Origins konsequent ab; Forwarded-Header werden nur von konfigurierten Trusted Proxies akzeptiert.
+- Native App-Downloads werden über ein einheitliches Manifest mit strenger Plattform-/Architektur-/Version-/SHA256-Validierung ausgeliefert.
+- Release-Workflow versioniert Web, Windows und Android gemeinsam, baut die nativen Artefakte immer mit und regeneriert das Download-Manifest aus den aktuellen Build-Artefakten.
 
 ### Fixed
 - Projektanlage in Workspaces erzeugt keine 500er mehr bei Datenbankkonflikten oder Workspace-Zuordnung.
@@ -48,6 +52,11 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 - Theme-Buttons, Admin-Mobile-Layout und Passwort-Setup-Aktionen sind kontrastreicher und sauber ausgerichtet.
 - Icon-/Farbwerte für Projekte und Workspaces werden backendseitig validiert und frontendseitig sicher gerendert.
 - Akzentverläufe, Plus-Button und Dashboard-Avatar bleiben bei allen Presets und Intensitäten optisch konsistent.
+- Native Update-Manifest wird nicht mehr stale aus Cache oder Service Worker gelesen; `/downloads/*` wird vom App-Cache ausgenommen und serverseitig mit `no-store` ausgeliefert.
+- Native Windows- und Android-Downloads öffnen zuverlässig extern, ohne CORS-Preflight-Falle; Android akzeptiert dabei nur sichere HTTP(S)-URLs ohne Control-Zeichen.
+- Suche, Section-Enter und globale Tastaturpfade funktionieren wieder in nativen WebViews.
+- Drag & Drop in nativen Apps nutzt einen Pointer-/Touch-Fallback statt HTML5-DnD; Android scrollt wieder ohne versehentliches Verschieben oder klebende Hover-Markierung.
+- Windows-Upgrades räumen nur gezielte WebView-Cache-Verzeichnisse auf, statt Nutzerdaten breiter anzufassen; Android migriert stale WebView-Cache-Zustände sauber.
 
 ## [1.7.3] - 2026-05-22
 
