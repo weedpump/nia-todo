@@ -15,6 +15,9 @@ export function createDragDropFeature({
   let currentSectionDropIndex = null;
   let pointerDrag = null;
   let suppressNextNativeClick = false;
+  const TOUCH_LONG_PRESS_MS = 320;
+  const TOUCH_SCROLL_CANCEL_PX = 10;
+  const MOUSE_DRAG_THRESHOLD_PX = 8;
 
   function eventDataTransfer(e) {
     return e.dataTransfer || { setData() {}, effectAllowed: 'move', dropEffect: 'move' };
@@ -235,6 +238,7 @@ export function createDragDropFeature({
   }
 
   function startNativePointerDrag(event, source, type, id) {
+    const isTouch = event.pointerType === 'touch' || event.pointerType === 'pen';
     pointerDrag = {
       pointerId: event.pointerId,
       source,
@@ -242,13 +246,37 @@ export function createDragDropFeature({
       id,
       startX: event.clientX,
       startY: event.clientY,
+      lastX: event.clientX,
+      lastY: event.clientY,
+      isTouch,
+      longPressReady: !isTouch,
       active: false,
       ghost: null,
+      longPressTimer: null,
     };
+    if (isTouch) {
+      pointerDrag.longPressTimer = window.setTimeout(() => {
+        if (!pointerDrag || pointerDrag.pointerId !== event.pointerId || pointerDrag.active) return;
+        pointerDrag.longPressReady = true;
+        activateNativePointerDrag({ ...event, clientX: pointerDrag.lastX, clientY: pointerDrag.lastY });
+      }, TOUCH_LONG_PRESS_MS);
+    }
+  }
+
+  function cancelNativePointerDrag() {
+    if (!pointerDrag) return;
+    if (pointerDrag.longPressTimer) window.clearTimeout(pointerDrag.longPressTimer);
+    pointerDrag = null;
+    dragSrcTodoId = null;
+    dragSrcSectionId = null;
   }
 
   function activateNativePointerDrag(event) {
-    if (!pointerDrag || pointerDrag.active) return;
+    if (!pointerDrag || pointerDrag.active || !pointerDrag.longPressReady) return;
+    if (pointerDrag.longPressTimer) {
+      window.clearTimeout(pointerDrag.longPressTimer);
+      pointerDrag.longPressTimer = null;
+    }
     pointerDrag.active = true;
     suppressNextNativeClick = true;
     document.body.classList.add('native-pointer-dragging');
@@ -265,6 +293,7 @@ export function createDragDropFeature({
     const drag = pointerDrag;
     const wasActive = drag.active;
     const target = wasActive ? updateNativeDropTarget(event.clientX, event.clientY) : null;
+    if (drag.longPressTimer) window.clearTimeout(drag.longPressTimer);
     pointerDrag = null;
     drag.ghost?.remove();
     drag.source.classList.remove('dragging');
@@ -344,9 +373,20 @@ export function createDragDropFeature({
 
     document.addEventListener('pointermove', (event) => {
       if (!pointerDrag || pointerDrag.pointerId !== event.pointerId) return;
+      pointerDrag.lastX = event.clientX;
+      pointerDrag.lastY = event.clientY;
       const dx = event.clientX - pointerDrag.startX;
       const dy = event.clientY - pointerDrag.startY;
-      if (!pointerDrag.active && Math.hypot(dx, dy) < 8) return;
+      const distance = Math.hypot(dx, dy);
+      if (!pointerDrag.active) {
+        if (pointerDrag.isTouch && !pointerDrag.longPressReady) {
+          if (Math.abs(dy) > TOUCH_SCROLL_CANCEL_PX || distance > TOUCH_SCROLL_CANCEL_PX * 1.5) {
+            cancelNativePointerDrag();
+          }
+          return;
+        }
+        if (!pointerDrag.isTouch && distance < MOUSE_DRAG_THRESHOLD_PX) return;
+      }
       event.preventDefault();
       activateNativePointerDrag(event);
       moveNativeGhost(event);
@@ -361,7 +401,8 @@ export function createDragDropFeature({
 
     document.addEventListener('pointercancel', (event) => {
       if (!pointerDrag || pointerDrag.pointerId !== event.pointerId) return;
-      finishNativePointerDrag(event);
+      if (pointerDrag.active) finishNativePointerDrag(event);
+      else cancelNativePointerDrag();
     }, true);
 
     document.addEventListener('click', (event) => {
