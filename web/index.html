@@ -405,6 +405,25 @@
         <div id="settings-pw-error" style="color:var(--danger); font-size:13px; margin-top:8px;"></div>
         <div id="settings-pw-success" style="color:var(--success); font-size:13px; margin-top:8px;"></div>
         <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">
+        <h4 style="margin:0 0 12px 0; font-size:14px;"><span data-icon="shield"></span> Zwei-Faktor-Authentifizierung</h4>
+        <div id="settings-2fa-status" style="font-size:13px; color:var(--text-secondary); margin-bottom:10px;">Status: Wird geprüft...</div>
+        <div id="settings-2fa-actions" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px;">
+          <button type="button" class="btn btn-primary" onclick="startTwoFactorTotp()">Authenticator-App einrichten</button>
+          <button type="button" class="btn btn-secondary" onclick="addPasskey()">Passkey hinzufügen</button>
+          <button type="button" class="btn btn-secondary" onclick="regenerateRecoveryCodes()">Recovery Codes neu</button>
+          <button type="button" class="btn btn-danger" onclick="disableTwoFactor()">2FA deaktivieren</button>
+        </div>
+        <div id="settings-2fa-setup" style="display:none; background:var(--bg-tertiary); border-radius:var(--radius); padding:12px; margin:8px 0;">
+          <div style="font-size:13px; margin-bottom:8px;">Secret in der Authenticator-App eintragen:</div>
+          <code id="settings-2fa-secret" style="display:block; word-break:break-all; background:var(--bg-primary); padding:8px; border-radius:var(--radius);"></code>
+          <div style="font-size:12px; color:var(--text-muted); margin:8px 0;">Alternativ otpauth-URL kopieren, falls deine App das unterstützt.</div>
+          <input type="text" id="settings-2fa-code" inputmode="numeric" placeholder="6-stelliger Code" style="width:100%; margin-bottom:8px;">
+          <button type="button" class="btn btn-primary" onclick="confirmTwoFactorTotp()">2FA aktivieren</button>
+        </div>
+        <div id="settings-2fa-recovery" style="display:none; background:var(--bg-tertiary); border-radius:var(--radius); padding:12px; margin:8px 0;"></div>
+        <div id="settings-2fa-error" style="color:var(--danger); font-size:13px; margin-top:8px;"></div>
+        <div id="settings-2fa-success" style="color:var(--success); font-size:13px; margin-top:8px;"></div>
+        <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">
         <h4 style="margin:0 0 12px 0; font-size:14px;"><span data-icon="key-round"></span> API-Keys</h4>
         <div id="api-keys-list" style="margin-bottom:12px;">
           <!-- API keys loaded dynamically -->

@@ -17,6 +17,15 @@ async function run() {
     await page.click('text=Anmelden');
     await page.locator('#admin-content').waitFor({ state: 'visible', timeout: 10000 });
 
+    await page.locator('#security-card').waitFor({ state: 'visible', timeout: 10000 });
+    await page.getByText('Globale 2FA-Pflicht ist deaktiviert').waitFor({ state: 'visible', timeout: 10000 });
+    await page.locator('#twofa-policy-toggle').click();
+    await page.getByText('Globale 2FA-Pflicht aktiviert.').waitFor({ state: 'visible', timeout: 10000 });
+    await page.getByText('Globale 2FA-Pflicht ist aktiv').waitFor({ state: 'visible', timeout: 10000 });
+    await page.locator('#user-list').getByText('Pflicht').first().waitFor({ state: 'visible', timeout: 10000 });
+    await page.locator('#twofa-policy-toggle').click();
+    await page.getByText('Globale 2FA-Pflicht deaktiviert.').waitFor({ state: 'visible', timeout: 10000 });
+
     await page.locator('#instance-config-card').waitFor({ state: 'visible', timeout: 10000 });
     await page.fill('#instance-public-url', BASE_URL);
     await page.fill('#instance-allowed-origins', `${BASE_URL}\nhttps://example.invalid`);

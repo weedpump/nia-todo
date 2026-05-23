@@ -28,7 +28,7 @@ app.add_middleware(DynamicCORSMiddleware)
 
 # ─── Router ──────────────────────────────────────────────────────────────────
 
-from routers import auth, todos, projects, sections, reminders, dashboard, push, admin, me, setup, sharing, password_setup, workspaces, instance
+from routers import auth, todos, projects, sections, reminders, dashboard, push, admin, me, setup, sharing, password_setup, workspaces, instance, two_factor
 
 app.include_router(auth.router)
 app.include_router(instance.router)
@@ -44,6 +44,7 @@ app.include_router(setup.router)
 app.include_router(me.router)
 app.include_router(sharing.router)
 app.include_router(password_setup.router)
+app.include_router(two_factor.router)
 
 # ─── WebSocket ───────────────────────────────────────────────────────────────
 

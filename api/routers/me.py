@@ -22,6 +22,7 @@ HEIC_SUPPORTED = PILLOW_HEIC_SUPPORTED or bool(HEIF_CONVERT_BIN)
 
 from db import DB_PATH, get_db, now_iso
 from routers.auth import require_auth
+from routers.two_factor import require_recent_mfa
 from services.audit import log_audit
 from services.email import send_email
 from services.email_verification import clear_pending_email, set_email_or_pending, verify_pending_email
@@ -154,7 +155,7 @@ def verify_own_pending_email(data: dict, user_id: int = Depends(require_auth)):
 
 
 @router.patch("/email")
-def update_own_email(data: UpdateEmailRequest, request: Request, user_id: int = Depends(require_auth)):
+def update_own_email(data: UpdateEmailRequest, request: Request, user_id: int = Depends(require_recent_mfa)):
     email = normalize_email(sanitize_text(data.email))
     email_error = validate_email(email)
     if email_error:
@@ -193,7 +194,7 @@ def update_own_email(data: UpdateEmailRequest, request: Request, user_id: int = 
 
 
 @router.post("/change-password")
-def change_own_password(data: ChangePasswordRequest, user_id: int = Depends(require_auth)):
+def change_own_password(data: ChangePasswordRequest, user_id: int = Depends(require_recent_mfa)):
     error = validate_password(data.new_password)
     if error:
         raise HTTPException(400, error)

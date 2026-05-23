@@ -22,6 +22,7 @@ Deckt ab:
 - Projekt-Sharing und Multi-User-Isolation
 - Security-Regressionen für CSRF/API-Key, IDOR und Datum-/Zeitvalidierung
 - **E-Mail/SMTP-Integration (neutrale Responses, verifizierte E-Mail-Lookups)**
+- **2FA-Service-/Security-Regressionen für TOTP, Recovery-Code-Verbrauch, Challenge-Lockout, alte JWTs nach Policy-Aktivierung und WebAuthn-RP/Origin/HTTPS-Bindung**
 
 ## Frontend
 
@@ -46,6 +47,7 @@ Deckt ab:
 ### Admin
 - Admin-Login
 - User-Verwaltung
+- **Globale 2FA-Pflicht aktivieren/deaktivieren + Statusanzeige in der Benutzerliste**
 - **SMTP-Konfiguration + Test-Mail**
 
 ### Settings
@@ -54,6 +56,7 @@ Deckt ab:
 - Push-Status/Test/Deaktivieren
 - Passwort ändern
 - **E-Mail-Verifizierung**
+- **2FA-Settings-UI: Status, TOTP-Setup, Recovery-Code-Anzeige, Deaktivieren/Regenerieren**
 
 ### Projects
 - Projekt anlegen
@@ -111,5 +114,5 @@ Testet:
 ## Hinweise
 
 - Frontend-Tests laufen gegen headless Chromium
-- Tests sichern/restoren die Dev-DB; nicht parallel zu manuellen DB-Migrationstests laufen lassen
+- Tests sichern/restoren die Dev-DB; DB-mutierende Tests immer seriell laufen lassen, nicht parallel
 - `web/manifest.json` wird vom Dev-/Release-Flow gepflegt

@@ -1,4 +1,5 @@
 import { getAuthToken, getCsrfToken, getAuthHeaders } from '../api/http.js';
+import { RUNTIME_CAPABILITIES } from '../core/config.js';
 
 export function createAuthSessionFeature({
   authApi,
@@ -78,16 +79,39 @@ export function createAuthSessionFeature({
     return false;
   }
 
-  async function login(username, password) {
-    const data = await authApi.login(username, password);
+  async function completeLogin(data) {
     storeUserSession(data);
     await maybeVerifyEmailFromUrl();
-
     const newUserId = String(data.user.id);
     await clearCacheIfUserChanged(newUserId);
     localStorage.setItem('last_user_id', newUserId);
-
+    if (data.mfa_enrollment_required) {
+      window.alert('2FA ist für diese Instanz erforderlich. Bitte richte jetzt einen Authenticator ein. Bis dahin ist der normale App-Zugriff gesperrt.');
+      setTimeout(() => window.openSettingsModal?.(), 100);
+    }
     return data;
+  }
+
+  async function login(username, password) {
+    const data = await authApi.login(username, password);
+    if (data.mfa_required) return data;
+    return completeLogin(data);
+  }
+
+  async function handleMfaChallenge(challengeData) {
+    const methods = challengeData?.challenge?.methods || [];
+    const canPasskey = methods.includes('passkey') && !RUNTIME_CAPABILITIES.native && window.PublicKeyCredential && navigator.credentials;
+    const preferred = canPasskey ? 'passkey' : methods.includes('totp') ? 'totp' : methods.includes('email') ? 'email' : methods[0];
+    const rememberDevice = window.confirm('Dieses Gerät für 30 Tage merken?');
+    if (preferred === 'passkey') {
+      const verified = await authApi.verifyPasskeyLogin(challengeData.challenge.challenge_token, rememberDevice);
+      return completeLogin(verified);
+    }
+    const label = preferred === 'email' ? 'E-Mail-Code' : preferred === 'recovery_code' ? 'Recovery Code' : 'Authenticator-Code';
+    const code = window.prompt(`${label} eingeben`);
+    if (!code) throw new Error('2FA abgebrochen');
+    const verified = await authApi.verify2fa(challengeData.challenge.challenge_token, preferred, code.trim(), rememberDevice);
+    return completeLogin(verified);
   }
 
   async function checkAuth() {
@@ -250,7 +274,8 @@ export function createAuthSessionFeature({
     if (submitBtn) submitBtn.disabled = true;
 
     try {
-      await login(username, password);
+      const data = await login(username, password);
+      if (data?.mfa_required) await handleMfaChallenge(data);
       hideLoginOverlay();
       renderUserInfo();
       if (!getAppInitialized()) await initApp();

@@ -1,0 +1,504 @@
+"""nia-todo: Two-factor authentication endpoints."""
+
+from typing import Optional
+import base64
+import json
+import secrets
+import time
+
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
+from pydantic import BaseModel
+
+from db import get_db
+from middleware.security import generate_csrf_token, set_csrf_cookie
+from rate_limit import get_client_ip
+from routers.auth import require_auth
+from services.auth import create_jwt_token, decode_jwt_token, verify_user_credentials
+from services.audit import log_audit
+from services.webauthn import (
+    b64url_decode, b64url_encode, cose_to_json, parse_auth_data,
+    parse_none_attestation, relying_party_for_request, verify_assertion_signature,
+    verify_client_data,
+)
+from services.two_factor import (
+    create_challenge, create_recovery_codes, create_trusted_device,
+    generate_totp_secret, get_two_factor_required, get_valid_challenge,
+    mark_challenge_consumed, mfa_required_for_user, provisioning_uri,
+    revoke_trusted_devices, set_two_factor_required, trusted_device_valid,
+    user_mfa_state, verify_challenge_method, verify_totp, REAUTH_MAX_AGE_SECONDS,
+    record_challenge_failure, sha256_hex,
+)
+
+router = APIRouter(prefix="/api")
+
+
+class VerifyChallengeRequest(BaseModel):
+    challenge_token: str
+    method: str
+    code: str = ""
+    remember_device: bool = False
+
+
+class TotpConfirmRequest(BaseModel):
+    secret: str
+    code: str
+    password: str = ""
+
+
+class CodeRequest(BaseModel):
+    code: str = ""
+
+
+class ReauthRequest(BaseModel):
+    code: str
+    method: str = "totp"
+
+
+class PasskeyNameRequest(BaseModel):
+    name: str = "Passkey"
+
+
+class PasskeyRegistrationVerifyRequest(BaseModel):
+    name: str = "Passkey"
+    challenge: str
+    credential: dict
+    password: str = ""
+
+
+class PasskeyLoginOptionsRequest(BaseModel):
+    challenge_token: str
+
+
+class PasskeyLoginVerifyRequest(BaseModel):
+    challenge_token: str
+    credential: dict
+    remember_device: bool = False
+
+
+class PasskeyReauthVerifyRequest(BaseModel):
+    challenge: str
+    credential: dict
+
+
+def _current_payload(authorization: Optional[str], db) -> Optional[dict]:
+    if not authorization or not authorization.startswith("Bearer "):
+        return None
+    return decode_jwt_token(authorization[7:], db)
+
+
+def require_enrollment_or_recent_mfa(authorization: Optional[str] = Header(None)) -> int:
+    with get_db() as db:
+        payload = _current_payload(authorization, db)
+        if not payload:
+            raise HTTPException(401, "Not authenticated")
+        user_id = payload.get("user_id")
+        if payload.get("mfa_enroll_only"):
+            return user_id
+        if mfa_required_for_user(db, user_id):
+            mfa_at = int(payload.get("mfa_at") or 0)
+            if int(time.time()) - mfa_at > REAUTH_MAX_AGE_SECONDS:
+                raise HTTPException(403, "2FA/Reauth erforderlich")
+        return user_id
+
+
+def _reauth_bucket(db, user_id: int):
+    token_hash = sha256_hex(f"reauth:{user_id}:{int(time.time() // REAUTH_MAX_AGE_SECONDS)}")
+    expires_at = int(time.time()) + REAUTH_MAX_AGE_SECONDS
+    row = db.execute("SELECT * FROM two_factor_challenges WHERE token_hash = ? AND consumed_at IS NULL", (token_hash,)).fetchone()
+    if row:
+        return row
+    state = user_mfa_state(db, user_id)
+    methods = ["totp"] if state.get("has_totp") else []
+    if state.get("has_recovery_codes"):
+        methods.append("recovery_code")
+    db.execute(
+        """INSERT INTO two_factor_challenges (user_id, token_hash, methods, expires_at, created_at)
+           VALUES (?, ?, ?, ?, datetime('now'))""",
+        (user_id, token_hash, json.dumps(methods), expires_at),
+    )
+    return db.execute("SELECT * FROM two_factor_challenges WHERE token_hash = ?", (token_hash,)).fetchone()
+
+
+def _get_valid_passkey_challenge(db, user_id: int, challenge: str, purpose: str):
+    row = db.execute(
+        "SELECT * FROM passkey_challenges WHERE user_id = ? AND challenge_hash = ? AND purpose = ? AND consumed_at IS NULL AND expires_at >= ?",
+        (user_id, sha256_hex(challenge), purpose, int(time.time())),
+    ).fetchone()
+    if not row:
+        return None
+    if row["locked_until"] and int(row["locked_until"]) > int(time.time()):
+        return None
+    return row
+
+
+def _record_passkey_challenge_failure(db, challenge_id: int) -> None:
+    row = db.execute("SELECT attempts FROM passkey_challenges WHERE id = ?", (challenge_id,)).fetchone()
+    attempts = int(row["attempts"] or 0) + 1 if row else 1
+    locked_until = int(time.time()) + 300 if attempts >= 5 else None
+    db.execute("UPDATE passkey_challenges SET attempts = ?, locked_until = ? WHERE id = ?", (attempts, locked_until, challenge_id))
+
+
+def require_recent_mfa(authorization: Optional[str] = Header(None)) -> int:
+    with get_db() as db:
+        payload = _current_payload(authorization, db)
+        if not payload:
+            raise HTTPException(401, "Not authenticated")
+        user_id = payload.get("user_id")
+        if not mfa_required_for_user(db, user_id):
+            return user_id
+        mfa_at = payload.get("mfa_at") or 0
+        if int(time.time()) - int(mfa_at) > REAUTH_MAX_AGE_SECONDS:
+            raise HTTPException(403, "2FA/Reauth erforderlich")
+        return user_id
+
+
+@router.post("/2fa/challenge/verify")
+def verify_login_challenge(data: VerifyChallengeRequest, request: Request, response: Response):
+    ip = get_client_ip(request)
+    with get_db() as db:
+        challenge = get_valid_challenge(db, data.challenge_token)
+        if not challenge:
+            raise HTTPException(401, "2FA-Challenge ungültig oder abgelaufen")
+        if not verify_challenge_method(db, challenge, data.method, data.code):
+            record_challenge_failure(db, challenge["id"])
+            log_audit(db, "two_factor_challenge_failed", user_id=challenge["user_id"], ip_address=ip, details=f"method={data.method}")
+            db.commit()
+            raise HTTPException(401, "2FA-Code ungültig")
+        mark_challenge_consumed(db, challenge["id"])
+        user = db.execute(
+            "SELECT id, username, display_name, email, email_verified_at, email_trust_source, avatar_url, is_admin, token_version FROM users WHERE id = ?",
+            (challenge["user_id"],),
+        ).fetchone()
+        token = create_jwt_token(dict(user), db, mfa_verified=True)
+        csrf_token = generate_csrf_token()
+        set_csrf_cookie(response, csrf_token)
+        trusted_device_token = None
+        if data.remember_device:
+            trusted_device_token = create_trusted_device(db, user["id"], request.headers.get("user-agent", ""))
+            response.set_cookie("nia_2fa_device", trusted_device_token, max_age=30 * 86400, httponly=True, secure=request.url.scheme == "https", samesite="lax")
+        log_audit(db, "two_factor_challenge_passed", user_id=user["id"], ip_address=ip, details=f"method={data.method}; remember_device={bool(trusted_device_token)}")
+        db.commit()
+        return {
+            "access_token": token,
+            "token_type": "bearer",
+            "csrf_token": csrf_token,
+            "user": {
+                "id": user["id"], "username": user["username"], "display_name": user["display_name"],
+                "email": user["email"], "email_verified_at": user["email_verified_at"],
+                "email_trust_source": user["email_trust_source"], "avatar_url": user["avatar_url"],
+                "is_admin": bool(user["is_admin"]),
+            },
+        }
+
+
+@router.get("/me/2fa")
+def get_own_2fa(user_id: int = Depends(require_enrollment_or_recent_mfa)):
+    with get_db() as db:
+        return user_mfa_state(db, user_id)
+
+
+@router.post("/me/2fa/totp/start")
+def start_totp(user_id: int = Depends(require_enrollment_or_recent_mfa)):
+    with get_db() as db:
+        user = db.execute("SELECT username FROM users WHERE id = ?", (user_id,)).fetchone()
+        secret = generate_totp_secret()
+        return {"secret": secret, "otpauth_url": provisioning_uri(secret, user["username"])}
+
+
+@router.post("/me/2fa/totp/confirm")
+def confirm_totp(data: TotpConfirmRequest, user_id: int = Depends(require_enrollment_or_recent_mfa)):
+    if not verify_totp(data.secret, data.code):
+        raise HTTPException(400, "TOTP-Code ungültig")
+    with get_db() as db:
+        user = db.execute("SELECT username, email, password_hash FROM users WHERE id = ?", (user_id,)).fetchone()
+        if not user or not data.password or not verify_user_credentials(db, user["username"], data.password):
+            raise HTTPException(401, "Passwortbestätigung erforderlich")
+        db.execute(
+            "UPDATE users SET two_factor_enabled = 1, two_factor_totp_secret = ?, two_factor_updated_at = datetime('now') WHERE id = ?",
+            (data.secret, user_id),
+        )
+        codes = create_recovery_codes(db, user_id)
+        log_audit(db, "two_factor_totp_enabled", user_id=user_id)
+        token_user = db.execute("SELECT id, username, is_admin, token_version FROM users WHERE id = ?", (user_id,)).fetchone()
+        access_token = create_jwt_token(dict(token_user), db, mfa_verified=True)
+        db.commit()
+        return {"enabled": True, "recovery_codes": codes, "access_token": access_token, "token_type": "bearer"}
+
+
+@router.post("/me/2fa/disable")
+def disable_2fa(_: CodeRequest, user_id: int = Depends(require_recent_mfa)):
+    with get_db() as db:
+        db.execute(
+            """UPDATE users
+               SET two_factor_enabled = 0, two_factor_totp_secret = NULL, two_factor_recovery_hashes = NULL,
+                   two_factor_recovery_generated_at = NULL, two_factor_updated_at = datetime('now'),
+                   two_factor_remember_version = COALESCE(two_factor_remember_version, 1) + 1
+               WHERE id = ?""",
+            (user_id,),
+        )
+        db.execute("UPDATE passkeys SET revoked_at = datetime('now') WHERE user_id = ? AND revoked_at IS NULL", (user_id,))
+        revoke_trusted_devices(db, user_id)
+        log_audit(db, "two_factor_disabled", user_id=user_id)
+        db.commit()
+    return {"disabled": True}
+
+
+@router.post("/me/2fa/recovery-codes/regenerate")
+def regenerate_recovery_codes(user_id: int = Depends(require_recent_mfa)):
+    with get_db() as db:
+        codes = create_recovery_codes(db, user_id)
+        db.commit()
+        return {"recovery_codes": codes}
+
+
+@router.post("/me/2fa/reauth")
+def reauth(data: ReauthRequest, authorization: Optional[str] = Header(None)):
+    with get_db() as db:
+        payload = _current_payload(authorization, db)
+        if not payload:
+            raise HTTPException(401, "Not authenticated")
+        user_id = payload["user_id"]
+        bucket = _reauth_bucket(db, user_id)
+        if bucket["locked_until"] and int(bucket["locked_until"]) > int(time.time()):
+            raise HTTPException(429, "Zu viele Reauth-Versuche. Bitte später erneut versuchen.")
+        if data.method not in {"totp", "recovery_code"} or not verify_challenge_method(db, bucket, data.method, data.code):
+            record_challenge_failure(db, bucket["id"])
+            log_audit(db, "two_factor_reauth_failed", user_id=user_id, details=f"method={data.method}")
+            db.commit()
+            raise HTTPException(401, "2FA-Code ungültig")
+        db.execute("UPDATE two_factor_challenges SET attempts = 0, locked_until = NULL WHERE id = ?", (bucket["id"],))
+        user = db.execute("SELECT id, username, is_admin, token_version FROM users WHERE id = ?", (user_id,)).fetchone()
+        token = create_jwt_token(dict(user), db, mfa_verified=True)
+        log_audit(db, "two_factor_reauth_success", user_id=user_id)
+        db.commit()
+        return {"access_token": token, "token_type": "bearer"}
+
+
+@router.post("/me/passkeys/options")
+def passkey_registration_options(data: PasskeyNameRequest, request: Request, user_id: int = Depends(require_enrollment_or_recent_mfa)):
+    challenge = secrets.token_urlsafe(32)
+    rp = relying_party_for_request(request)
+    with get_db() as db:
+        db.execute(
+            "INSERT INTO passkey_challenges (user_id, challenge_hash, purpose, expires_at) VALUES (?, ?, 'registration', ?)",
+            (user_id, sha256_hex(challenge), int(time.time()) + 600),
+        )
+        user = db.execute("SELECT username, display_name FROM users WHERE id = ?", (user_id,)).fetchone()
+        existing = db.execute("SELECT credential_id FROM passkeys WHERE user_id = ? AND revoked_at IS NULL", (user_id,)).fetchall()
+        db.commit()
+    return {
+        "publicKey": {
+            "challenge": b64url_encode(challenge.encode()),
+            "rp": {"name": "nia-todo", "id": rp.rp_id},
+            "user": {"id": b64url_encode(str(user_id).encode()), "name": user["username"], "displayName": user["display_name"] or user["username"]},
+            "pubKeyCredParams": [{"type": "public-key", "alg": -7}],
+            "authenticatorSelection": {"userVerification": "required", "residentKey": "preferred"},
+            "timeout": 60000,
+            "attestation": "none",
+            "excludeCredentials": [{"type": "public-key", "id": r["credential_id"]} for r in existing],
+        },
+        "challenge": challenge,
+        "name": data.name,
+    }
+
+
+@router.post("/me/passkeys/verify")
+def passkey_registration_verify(data: PasskeyRegistrationVerifyRequest, request: Request, user_id: int = Depends(require_enrollment_or_recent_mfa)):
+    credential = data.credential or {}
+    response = credential.get("response") or {}
+    client_data_json = b64url_decode(response.get("clientDataJSON", ""))
+    attestation_object = b64url_decode(response.get("attestationObject", ""))
+    rp = relying_party_for_request(request)
+    with get_db() as db:
+        row = db.execute(
+            "SELECT id FROM passkey_challenges WHERE user_id = ? AND challenge_hash = ? AND purpose = 'registration' AND consumed_at IS NULL AND expires_at >= ?",
+            (user_id, sha256_hex(data.challenge), int(time.time())),
+        ).fetchone()
+        if not row:
+            raise HTTPException(401, "Passkey-Challenge ungültig oder abgelaufen")
+        user = db.execute("SELECT username FROM users WHERE id = ?", (user_id,)).fetchone()
+        if not user or not data.password or not verify_user_credentials(db, user["username"], data.password):
+            raise HTTPException(401, "Passwortbestätigung erforderlich")
+        try:
+            verify_client_data(client_data_json, "webauthn.create", b64url_encode(data.challenge.encode()), rp.origin)
+            attested = parse_none_attestation(attestation_object, rp.rp_id)
+        except Exception:
+            raise HTTPException(400, "Passkey-Registrierung ungültig")
+        credential_id = b64url_encode(attested.credential_id)
+        db.execute(
+            """INSERT INTO passkeys (user_id, credential_id, public_key, sign_count, name, transports, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, datetime('now'))""",
+            (user_id, credential_id, cose_to_json(attested.cose_key), attested.sign_count, (data.name or "Passkey")[:80], json.dumps(credential.get("transports") or [])),
+        )
+        recovery_codes = []
+        existing_recovery = db.execute("SELECT two_factor_recovery_hashes FROM users WHERE id = ?", (user_id,)).fetchone()
+        try:
+            existing_codes = json.loads(existing_recovery["two_factor_recovery_hashes"] or "[]") if existing_recovery else []
+        except Exception:
+            existing_codes = []
+        if not existing_codes:
+            recovery_codes = create_recovery_codes(db, user_id)
+        db.execute("UPDATE users SET two_factor_enabled = 1, two_factor_updated_at = datetime('now') WHERE id = ?", (user_id,))
+        db.execute("UPDATE passkey_challenges SET consumed_at = datetime('now') WHERE id = ?", (row["id"],))
+        log_audit(db, "passkey_added", user_id=user_id, details=f"credential_id={credential_id[:12]}")
+        token_user = db.execute("SELECT id, username, is_admin, token_version FROM users WHERE id = ?", (user_id,)).fetchone()
+        access_token = create_jwt_token(dict(token_user), db, mfa_verified=True)
+        db.commit()
+        return {"registered": True, "recovery_codes": recovery_codes, "access_token": access_token, "token_type": "bearer"}
+
+
+@router.get("/me/passkeys")
+def list_passkeys(user_id: int = Depends(require_auth)):
+    with get_db() as db:
+        rows = db.execute("SELECT id, name, created_at, last_used_at FROM passkeys WHERE user_id = ? AND revoked_at IS NULL ORDER BY created_at DESC", (user_id,)).fetchall()
+        return {"passkeys": [dict(r) for r in rows]}
+
+
+@router.delete("/me/passkeys/{passkey_id}")
+def delete_passkey(passkey_id: int, user_id: int = Depends(require_recent_mfa)):
+    with get_db() as db:
+        row = db.execute("SELECT id FROM passkeys WHERE id = ? AND user_id = ? AND revoked_at IS NULL", (passkey_id, user_id)).fetchone()
+        if not row:
+            raise HTTPException(404, "Passkey nicht gefunden")
+        db.execute("UPDATE passkeys SET revoked_at = datetime('now') WHERE id = ?", (passkey_id,))
+        log_audit(db, "passkey_removed", user_id=user_id, details=f"passkey_id={passkey_id}")
+        db.commit()
+        return {"removed": passkey_id}
+
+
+@router.post("/2fa/passkey/options")
+def passkey_login_options(data: PasskeyLoginOptionsRequest, request: Request):
+    rp = relying_party_for_request(request)
+    with get_db() as db:
+        challenge = get_valid_challenge(db, data.challenge_token)
+        if not challenge:
+            raise HTTPException(401, "2FA-Challenge ungültig oder abgelaufen")
+        methods = json.loads(challenge["methods"] or "[]")
+        if "passkey" not in methods:
+            raise HTTPException(400, "Passkey für diese Challenge nicht verfügbar")
+        rows = db.execute("SELECT credential_id FROM passkeys WHERE user_id = ? AND revoked_at IS NULL", (challenge["user_id"],)).fetchall()
+        return {
+            "publicKey": {
+                "challenge": b64url_encode(data.challenge_token.encode()),
+                "timeout": 60000,
+                "userVerification": "required",
+                "rpId": rp.rp_id,
+                "allowCredentials": [{"type": "public-key", "id": row["credential_id"]} for row in rows],
+            }
+        }
+
+
+@router.post("/2fa/passkey/verify")
+def passkey_login_verify(data: PasskeyLoginVerifyRequest, request: Request, response: Response):
+    ip = get_client_ip(request)
+    credential = data.credential or {}
+    cred_id = credential.get("id") or credential.get("rawId")
+    cred_response = credential.get("response") or {}
+    client_data_json = b64url_decode(cred_response.get("clientDataJSON", ""))
+    auth_data = b64url_decode(cred_response.get("authenticatorData", ""))
+    signature = b64url_decode(cred_response.get("signature", ""))
+    with get_db() as db:
+        challenge = get_valid_challenge(db, data.challenge_token)
+        if not challenge:
+            raise HTTPException(401, "2FA-Challenge ungültig oder abgelaufen")
+        methods = json.loads(challenge["methods"] or "[]")
+        if "passkey" not in methods:
+            raise HTTPException(400, "Passkey für diese Challenge nicht verfügbar")
+        key = db.execute("SELECT * FROM passkeys WHERE user_id = ? AND credential_id = ? AND revoked_at IS NULL", (challenge["user_id"], cred_id)).fetchone()
+        if not key:
+            record_challenge_failure(db, challenge["id"])
+            db.commit()
+            raise HTTPException(401, "Passkey unbekannt")
+        try:
+            rp = relying_party_for_request(request)
+            verify_client_data(client_data_json, "webauthn.get", b64url_encode(data.challenge_token.encode()), rp.origin)
+            parsed = parse_auth_data(auth_data, rp.rp_id, require_attested=False, require_user_verified=True)
+            if int(key["sign_count"] or 0) > 0 and parsed["sign_count"] > 0 and parsed["sign_count"] <= int(key["sign_count"]):
+                raise ValueError("Sign counter rollback")
+            verify_assertion_signature(key["public_key"], auth_data, client_data_json, signature)
+        except Exception:
+            record_challenge_failure(db, challenge["id"])
+            log_audit(db, "two_factor_challenge_failed", user_id=challenge["user_id"], ip_address=ip, details="method=passkey")
+            db.commit()
+            raise HTTPException(401, "Passkey-Prüfung fehlgeschlagen")
+        mark_challenge_consumed(db, challenge["id"])
+        db.execute("UPDATE passkeys SET last_used_at = datetime('now'), sign_count = MAX(sign_count, ?) WHERE id = ?", (parsed["sign_count"], key["id"]))
+        user = db.execute("SELECT id, username, display_name, email, email_verified_at, email_trust_source, avatar_url, is_admin, token_version FROM users WHERE id = ?", (challenge["user_id"],)).fetchone()
+        token = create_jwt_token(dict(user), db, mfa_verified=True)
+        csrf_token = generate_csrf_token()
+        set_csrf_cookie(response, csrf_token)
+        trusted_device_token = create_trusted_device(db, user["id"], request.headers.get("user-agent", "")) if data.remember_device else None
+        if trusted_device_token:
+            response.set_cookie("nia_2fa_device", trusted_device_token, max_age=30 * 86400, httponly=True, secure=request.url.scheme == "https", samesite="lax")
+        log_audit(db, "two_factor_challenge_passed", user_id=user["id"], ip_address=ip, details=f"method=passkey; remember_device={bool(trusted_device_token)}")
+        db.commit()
+        return {"access_token": token, "token_type": "bearer", "csrf_token": csrf_token, "user": {"id": user["id"], "username": user["username"], "display_name": user["display_name"], "email": user["email"], "email_verified_at": user["email_verified_at"], "email_trust_source": user["email_trust_source"], "avatar_url": user["avatar_url"], "is_admin": bool(user["is_admin"])}}
+
+
+@router.post("/me/2fa/reauth/passkey/options")
+def passkey_reauth_options(request: Request, user_id: int = Depends(require_auth)):
+    challenge = secrets.token_urlsafe(32)
+    rp = relying_party_for_request(request)
+    with get_db() as db:
+        rows = db.execute("SELECT credential_id FROM passkeys WHERE user_id = ? AND revoked_at IS NULL", (user_id,)).fetchall()
+        if not rows:
+            raise HTTPException(400, "Kein Passkey verfügbar")
+        db.execute(
+            "INSERT INTO passkey_challenges (user_id, challenge_hash, purpose, expires_at) VALUES (?, ?, 'authentication', ?)",
+            (user_id, sha256_hex(challenge), int(time.time()) + 300),
+        )
+        db.commit()
+    return {
+        "challenge": challenge,
+        "publicKey": {
+            "challenge": b64url_encode(challenge.encode()),
+            "timeout": 60000,
+            "userVerification": "required",
+            "rpId": rp.rp_id,
+            "allowCredentials": [{"type": "public-key", "id": row["credential_id"]} for row in rows],
+        },
+    }
+
+
+@router.post("/me/2fa/reauth/passkey/verify")
+def passkey_reauth_verify(data: PasskeyReauthVerifyRequest, request: Request, authorization: Optional[str] = Header(None)):
+    with get_db() as db:
+        payload = _current_payload(authorization, db)
+        if not payload:
+            raise HTTPException(401, "Not authenticated")
+        user_id = payload["user_id"]
+        challenge = _get_valid_passkey_challenge(db, user_id, data.challenge, "authentication")
+        if not challenge:
+            raise HTTPException(401, "Passkey-Challenge ungültig oder abgelaufen")
+        credential = data.credential or {}
+        cred_id = credential.get("id") or credential.get("rawId")
+        key = db.execute("SELECT * FROM passkeys WHERE user_id = ? AND credential_id = ? AND revoked_at IS NULL", (user_id, cred_id)).fetchone()
+        if not key:
+            _record_passkey_challenge_failure(db, challenge["id"])
+            db.commit()
+            raise HTTPException(401, "Passkey unbekannt")
+        cred_response = credential.get("response") or {}
+        client_data_json = b64url_decode(cred_response.get("clientDataJSON", ""))
+        auth_data = b64url_decode(cred_response.get("authenticatorData", ""))
+        signature = b64url_decode(cred_response.get("signature", ""))
+        try:
+            rp = relying_party_for_request(request)
+            verify_client_data(client_data_json, "webauthn.get", b64url_encode(data.challenge.encode()), rp.origin)
+            parsed = parse_auth_data(auth_data, rp.rp_id, require_attested=False, require_user_verified=True)
+            if int(key["sign_count"] or 0) > 0 and parsed["sign_count"] > 0 and parsed["sign_count"] <= int(key["sign_count"]):
+                raise ValueError("Sign counter rollback")
+            verify_assertion_signature(key["public_key"], auth_data, client_data_json, signature)
+        except Exception:
+            _record_passkey_challenge_failure(db, challenge["id"])
+            log_audit(db, "two_factor_reauth_failed", user_id=user_id, details="method=passkey")
+            db.commit()
+            raise HTTPException(401, "Passkey-Reauth fehlgeschlagen")
+        db.execute("UPDATE passkey_challenges SET consumed_at = datetime('now') WHERE id = ?", (challenge["id"],))
+        db.execute("UPDATE passkeys SET last_used_at = datetime('now'), sign_count = MAX(sign_count, ?) WHERE id = ?", (parsed["sign_count"], key["id"]))
+        user = db.execute("SELECT id, username, is_admin, token_version FROM users WHERE id = ?", (user_id,)).fetchone()
+        token = create_jwt_token(dict(user), db, mfa_verified=True)
+        log_audit(db, "two_factor_reauth_success", user_id=user_id, details="method=passkey")
+        db.commit()
+        return {"access_token": token, "token_type": "bearer"}
+
+
