@@ -61,7 +61,7 @@ def _get_valid_token(db, token: str):
     if not token or len(token) < 24:
         return None
     return db.execute(
-        """SELECT pst.*, u.username, u.display_name, u.email
+        """SELECT pst.*, u.username, u.display_name, u.email, u.email_verified_at
            FROM password_setup_tokens pst
            JOIN users u ON u.id = pst.user_id
            WHERE pst.token_prefix = ?
@@ -79,7 +79,7 @@ def _get_expired_resend_context(db, token: str):
     if not token or len(token) < 24:
         return None
     return db.execute(
-        """SELECT pst.*, u.username, u.display_name, u.email
+        """SELECT pst.*, u.username, u.display_name, u.email, u.email_verified_at
            FROM password_setup_tokens pst
            JOIN users u ON u.id = pst.user_id
            WHERE pst.token_prefix = ?
@@ -115,15 +115,15 @@ def request_password_reset(data: RequestPasswordResetRequest, request: Request, 
 
     with get_db() as db:
         user = db.execute(
-            """SELECT id, username, display_name, email
+            """SELECT id, username, display_name, email, email_verified_at
                FROM users
-               WHERE username = ?
-                  OR (lower(email) = lower(?) AND email_verified_at IS NOT NULL)
+               WHERE (username = ? OR lower(email) = lower(?))
+                 AND email_verified_at IS NOT NULL
                ORDER BY CASE WHEN username = ? THEN 0 ELSE 1 END
                LIMIT 1""",
             (identifier, identifier, identifier),
         ).fetchone()
-        if not user or not user['email']:
+        if not user or not user['email'] or not user['email_verified_at']:
             return neutral
         token = _create_password_setup_token(db, user['id'], "reset", "user")
         link = _make_password_setup_link(request, token, require_configured=True)
@@ -167,7 +167,7 @@ def validate_password_setup_token(token: str):
             }
         expired = _get_expired_resend_context(db, token)
         if expired:
-            can_resend = can_send_email_links() and bool(expired['email'])
+            can_resend = can_send_email_links() and bool(expired['email']) and (expired['purpose'] == 'invite' or bool(expired['email_verified_at']))
             return {
                 "valid": False,
                 "expired": True,
@@ -186,7 +186,7 @@ def resend_password_setup_link(data: ResendPasswordSetupRequest, request: Reques
         if not row:
             raise HTTPException(404, "Link ist ungültig oder abgelaufen")
         new_token = _create_password_setup_token(db, row['user_id'], row['purpose'], "user")
-        can_email = can_send_email_links() and bool(row['email'])
+        can_email = can_send_email_links() and bool(row['email']) and (row['purpose'] == 'invite' or bool(row['email_verified_at']))
         if not can_email:
             raise HTTPException(400, "Ein neuer Link kann nur per E-Mail angefordert werden. Bitte Admin kontaktieren.")
         link = _make_password_setup_link(request, new_token, require_configured=True)

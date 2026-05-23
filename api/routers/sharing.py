@@ -34,6 +34,14 @@ class RestoreMemberRequest(BaseModel):
 
 # ─── Helpers ───────────────────────────────────────────────────────────────────
 
+
+def is_email_identifier(identifier: str) -> bool:
+    return "@" in (identifier or "")
+
+
+def _neutral_email_share_response() -> dict:
+    return {"member": None, "notification_delivery": "unknown", "message": "Falls ein passender verifizierter Account existiert, wurde die Einladung verarbeitet."}
+
 def get_user_by_identifier(db, identifier: str) -> Optional[dict]:
     row = db.execute(
         """SELECT id, username, display_name, email
@@ -156,13 +164,22 @@ async def share_project(project_id: int, data: ShareProjectRequest, request: Req
             raise HTTPException(403, "Only the project owner can share this project")
 
         identifier = data.username.strip()
+        email_identifier = is_email_identifier(identifier)
         # Find target user by username or verified email
         target = get_user_by_identifier(db, identifier)
         if not target:
-            raise HTTPException(404, f"User '{identifier}' not found")
+            if email_identifier:
+                log_audit(db, "project_share_email_identifier_no_match", user_id=user_id, details=f"project_id={project_id}")
+                db.commit()
+                return _neutral_email_share_response()
+            raise HTTPException(404, "User not found")
 
         # Cannot share with self
         if target['id'] == project['user_id']:
+            if email_identifier:
+                log_audit(db, "project_share_email_identifier_self", user_id=user_id, details=f"project_id={project_id}")
+                db.commit()
+                return _neutral_email_share_response()
             raise HTTPException(400, "Cannot share a project with yourself")
 
         # Check if already shared
@@ -171,7 +188,11 @@ async def share_project(project_id: int, data: ShareProjectRequest, request: Req
             (project_id, target['id'])
         ).fetchone()
         if existing and existing['status'] in ('pending', 'accepted'):
-            raise HTTPException(400, f"User '{identifier}' already has access or a pending invite")
+            if email_identifier:
+                log_audit(db, "project_share_email_identifier_existing", user_id=target['id'], details=f"project_id={project_id}; invited_by={user_id}")
+                db.commit()
+                return _neutral_email_share_response()
+            raise HTTPException(400, "User already has access or a pending invite")
 
         # Create invitation
         c = db.execute(
