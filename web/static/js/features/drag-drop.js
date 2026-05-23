@@ -237,6 +237,16 @@ export function createDragDropFeature({
     pointerDrag.ghost.style.transform = `translate3d(${event.clientX - pointerDrag.startX}px, ${event.clientY - pointerDrag.startY}px, 0)`;
   }
 
+  function touchPointForDrag(event) {
+    if (!pointerDrag?.isTouch) return null;
+    const touches = [...(event.touches || []), ...(event.changedTouches || [])];
+    return touches.find((touch) => touch.identifier === pointerDrag.pointerId) || touches[0] || null;
+  }
+
+  function dragEventFromTouch(touch) {
+    return { clientX: touch.clientX, clientY: touch.clientY };
+  }
+
   function startNativePointerDrag(event, source, type, id) {
     const isTouch = event.pointerType === 'touch' || event.pointerType === 'pen';
     pointerDrag = {
@@ -253,6 +263,7 @@ export function createDragDropFeature({
       active: false,
       ghost: null,
       longPressTimer: null,
+      ignoreCancelUntilMs: 0,
     };
     if (isTouch) {
       pointerDrag.longPressTimer = window.setTimeout(() => {
@@ -278,6 +289,8 @@ export function createDragDropFeature({
       pointerDrag.longPressTimer = null;
     }
     pointerDrag.active = true;
+    pointerDrag.ignoreCancelUntilMs = Date.now() + 900;
+    try { pointerDrag.source.setPointerCapture?.(pointerDrag.pointerId); } catch (_error) {}
     suppressNextNativeClick = true;
     document.body.classList.add('native-pointer-dragging');
     pointerDrag.source.classList.add('dragging');
@@ -295,6 +308,7 @@ export function createDragDropFeature({
     const target = wasActive ? updateNativeDropTarget(event.clientX, event.clientY) : null;
     if (drag.longPressTimer) window.clearTimeout(drag.longPressTimer);
     pointerDrag = null;
+    try { drag.source.releasePointerCapture?.(drag.pointerId); } catch (_error) {}
     drag.ghost?.remove();
     drag.source.classList.remove('dragging');
     document.body.classList.remove('native-pointer-dragging');
@@ -401,7 +415,36 @@ export function createDragDropFeature({
 
     document.addEventListener('pointercancel', (event) => {
       if (!pointerDrag || pointerDrag.pointerId !== event.pointerId) return;
+      if (pointerDrag.active && pointerDrag.isTouch) return;
       if (pointerDrag.active) finishNativePointerDrag(event);
+      else cancelNativePointerDrag();
+    }, true);
+
+    document.addEventListener('touchmove', (event) => {
+      if (!pointerDrag?.active || !pointerDrag.isTouch) return;
+      const touch = touchPointForDrag(event);
+      if (!touch) return;
+      event.preventDefault();
+      const dragEvent = dragEventFromTouch(touch);
+      pointerDrag.lastX = dragEvent.clientX;
+      pointerDrag.lastY = dragEvent.clientY;
+      moveNativeGhost(dragEvent);
+      updateNativeDropTarget(dragEvent.clientX, dragEvent.clientY);
+    }, { capture: true, passive: false });
+
+    document.addEventListener('touchend', (event) => {
+      if (!pointerDrag?.active || !pointerDrag.isTouch) return;
+      const touch = touchPointForDrag(event);
+      if (!touch) return;
+      event.preventDefault();
+      finishNativePointerDrag(dragEventFromTouch(touch));
+    }, { capture: true, passive: false });
+
+    document.addEventListener('touchcancel', (event) => {
+      if (!pointerDrag?.isTouch) return;
+      const touch = touchPointForDrag(event);
+      if (!touch) return;
+      if (pointerDrag.active) finishNativePointerDrag(dragEventFromTouch(touch));
       else cancelNativePointerDrag();
     }, true);
 

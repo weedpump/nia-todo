@@ -3177,3 +3177,14 @@ input[type="color"]::-moz-color-swatch {
   cursor: grabbing !important;
   user-select: none !important;
 }
+
+/* Android WebView can leave :hover visually stuck while finger-scrolling. */
+.native-android .todo-item:hover {
+  border-color: var(--border);
+  background: var(--bg-secondary);
+  box-shadow: none;
+}
+
+.native-android .todo-check:hover {
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--border));
+}
