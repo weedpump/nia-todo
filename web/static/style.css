@@ -801,7 +801,7 @@ body {
   padding: 14px;
   border: none;
   border-radius: 14px;
-  background: var(--bg-secondary);
+  background: color-mix(in srgb, var(--bg-primary) 48%, transparent);
   box-shadow: none;
 }
 .overview-stat-num {
