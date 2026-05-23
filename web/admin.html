@@ -37,12 +37,16 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .form-row { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
 .form-row input { flex: 1; min-width: 150px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-primary); color: var(--text-primary); font-size: 14px; }
-.form-row input:focus, .admin-config-textarea:focus { outline: none; border-color: var(--accent); }
+.form-row input:focus, .admin-config-textarea:focus, .admin-config-field select:focus { outline: none; border-color: var(--accent); }
 .admin-config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .admin-config-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .admin-config-field.full { grid-column: 1 / -1; }
 .admin-config-field label { font-size: 12px; font-weight: 650; color: var(--text-secondary); }
-.admin-config-field input, .admin-config-textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-primary); color: var(--text-primary); font-size: 14px; }
+.admin-config-field input, .admin-config-field select, .admin-config-textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-primary); color: var(--text-primary); font-size: 14px; }
+.admin-config-field input[type="checkbox"] { width: auto; }
+.admin-config-checkbox { flex-direction: row; align-items: center; gap: 10px; padding: 9px 0; }
+.admin-config-checkbox label { margin: 0; }
+.admin-secret-note { font-size: 12px; color: var(--text-muted); }
 .admin-config-textarea { min-height: 82px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .admin-help { font-size: 12px; color: var(--text-muted); margin-top: 8px; }
 .admin-error { color: var(--danger); font-size: 13px; margin-top: 8px; }
@@ -151,6 +155,75 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
     <div class="admin-success" id="instance-config-success"></div>
   </div>
 
+  <!-- Email Configuration -->
+  <div class="admin-card" id="email-config-card">
+    <h2><span data-icon="mail"></span> E-Mail / SMTP</h2>
+    <div class="admin-config-grid">
+      <div class="admin-config-field admin-config-checkbox full">
+        <input type="checkbox" id="email-smtp-enabled">
+        <label for="email-smtp-enabled">E-Mail-Versand aktivieren</label>
+      </div>
+      <div class="admin-config-field">
+        <label for="email-smtp-host">SMTP Host</label>
+        <input type="text" id="email-smtp-host" placeholder="smtp.example.org" autocomplete="off">
+      </div>
+      <div class="admin-config-field">
+        <label for="email-smtp-port">SMTP Port</label>
+        <input type="number" id="email-smtp-port" min="1" max="65535" value="587">
+      </div>
+      <div class="admin-config-field">
+        <label for="email-smtp-security">Transport-Sicherheit</label>
+        <select id="email-smtp-security">
+          <option value="starttls">STARTTLS</option>
+          <option value="tls">TLS/SSL</option>
+          <option value="none">Keine</option>
+        </select>
+      </div>
+      <div class="admin-config-field admin-config-checkbox">
+        <input type="checkbox" id="email-smtp-auth-enabled">
+        <label for="email-smtp-auth-enabled">SMTP Auth verwenden</label>
+      </div>
+      <div class="admin-config-field">
+        <label for="email-smtp-username">SMTP Username</label>
+        <input type="text" id="email-smtp-username" autocomplete="off">
+      </div>
+      <div class="admin-config-field">
+        <label for="email-smtp-password">SMTP Passwort / Secret</label>
+        <input type="password" id="email-smtp-password" placeholder="Leer lassen = unverändert" autocomplete="new-password">
+        <div class="admin-secret-note" id="email-smtp-password-note"></div>
+      </div>
+      <div class="admin-config-field">
+        <label for="email-from-address">From-Adresse</label>
+        <input type="email" id="email-from-address" placeholder="todo@example.org" autocomplete="off">
+      </div>
+      <div class="admin-config-field">
+        <label for="email-from-name">From-Name</label>
+        <input type="text" id="email-from-name" placeholder="nia-todo" autocomplete="off">
+      </div>
+      <div class="admin-config-field">
+        <label for="email-reply-to">Reply-To optional</label>
+        <input type="email" id="email-reply-to" placeholder="support@example.org" autocomplete="off">
+      </div>
+      <div class="admin-config-field">
+        <label for="email-link-ttl">Link-Gültigkeit in Stunden</label>
+        <input type="number" id="email-link-ttl" min="1" max="168" value="24">
+      </div>
+      <div class="admin-config-field full">
+        <label for="email-test-to">Test-Mail an</label>
+        <div class="form-row" style="margin-bottom:0;">
+          <input type="email" id="email-test-to" placeholder="name@example.org" autocomplete="off">
+          <button class="btn btn-primary" onclick="sendTestEmail()">Test-Mail senden</button>
+        </div>
+      </div>
+    </div>
+    <div class="admin-help">Passwort-/Setup-Links nutzen die öffentliche Basis-URL aus der Instanz-Konfiguration. SMTP-Passwörter werden nie wieder angezeigt.</div>
+    <div class="form-row" style="margin-top:12px;">
+      <button class="btn btn-primary" onclick="saveEmailConfig()">E-Mail-Konfiguration speichern</button>
+    </div>
+    <div class="admin-error" id="email-config-error"></div>
+    <div class="admin-success" id="email-config-success"></div>
+  </div>
+
   <!-- Change Admin Password -->
   <div class="admin-card" id="admin-password-card">
     <h2><span data-icon="key-round"></span> Eigenes Admin-Passwort ändern</h2>
@@ -231,6 +304,7 @@ const ICONS = {
   trash: '<path d="M3 6h18"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><path d="M19 6l-1 14c-.1 1-1 2-2 2H8c-1 0-1.9-1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/>',
   link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
   settings: '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.73l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
+  mail: '<path d="m22 7-8.991 5.727a2 2 0 0 1-2.009 0L2 7"/><rect x="2" y="4" width="20" height="16" rx="2"/>',
 };
 function iconSvg(name) {
   const paths = ICONS[name] || ICONS.shield;
@@ -385,12 +459,14 @@ async function doAdminLogin() {
 }
 
 async function loadAdminData() {
-  const [usersData, configData] = await Promise.all([
+  const [usersData, configData, emailConfigData] = await Promise.all([
     apiGet('/api/admin/users'),
     apiGet('/api/admin/instance-config'),
+    apiGet('/api/admin/email-config'),
   ]);
   renderUsers(usersData.users);
   renderInstanceConfig(configData);
+  renderEmailConfig(emailConfigData);
 }
 
 async function loadUsers() {
@@ -436,6 +512,69 @@ function renderInstanceConfig(config) {
 
 function parseOriginsInput(value) {
   return value.split(/[\n,]/).map(item => item.trim()).filter(Boolean);
+}
+
+function renderEmailConfig(config) {
+  document.getElementById('email-smtp-enabled').checked = !!config.smtp_enabled;
+  document.getElementById('email-smtp-host').value = config.smtp_host || '';
+  document.getElementById('email-smtp-port').value = config.smtp_port || 587;
+  document.getElementById('email-smtp-security').value = config.smtp_security || 'starttls';
+  document.getElementById('email-smtp-auth-enabled').checked = !!config.smtp_auth_enabled;
+  document.getElementById('email-smtp-username').value = config.smtp_username || '';
+  document.getElementById('email-smtp-password').value = '';
+  document.getElementById('email-from-address').value = config.mail_from_address || '';
+  document.getElementById('email-from-name').value = config.mail_from_name || 'nia-todo';
+  document.getElementById('email-reply-to').value = config.mail_reply_to || '';
+  document.getElementById('email-link-ttl').value = config.password_link_ttl_hours || 24;
+  document.getElementById('email-smtp-password-note').textContent = config.smtp_password_configured
+    ? 'Passwort ist gespeichert. Leer lassen, um es unverändert zu behalten.'
+    : 'Noch kein SMTP-Passwort gespeichert.';
+}
+
+function readEmailConfigForm() {
+  const secret = document.getElementById('email-smtp-password').value;
+  const data = {
+    smtp_enabled: document.getElementById('email-smtp-enabled').checked,
+    smtp_host: document.getElementById('email-smtp-host').value.trim(),
+    smtp_port: Number(document.getElementById('email-smtp-port').value || 587),
+    smtp_security: document.getElementById('email-smtp-security').value,
+    smtp_auth_enabled: document.getElementById('email-smtp-auth-enabled').checked,
+    smtp_username: document.getElementById('email-smtp-username').value.trim(),
+    mail_from_address: document.getElementById('email-from-address').value.trim(),
+    mail_from_name: document.getElementById('email-from-name').value.trim() || 'nia-todo',
+    mail_reply_to: document.getElementById('email-reply-to').value.trim(),
+    password_link_ttl_hours: Number(document.getElementById('email-link-ttl').value || 24),
+  };
+  if (secret) data.smtp_password_secret = secret;
+  return data;
+}
+
+async function saveEmailConfig() {
+  document.getElementById('email-config-error').textContent = '';
+  document.getElementById('email-config-success').textContent = '';
+  try {
+    const data = await apiPatch('/api/admin/email-config', readEmailConfigForm());
+    renderEmailConfig(data);
+    document.getElementById('email-config-success').textContent = 'E-Mail-Konfiguration gespeichert.';
+  } catch(e) {
+    document.getElementById('email-config-error').textContent = e.message;
+  }
+}
+
+async function sendTestEmail() {
+  document.getElementById('email-config-error').textContent = '';
+  document.getElementById('email-config-success').textContent = '';
+  const to = document.getElementById('email-test-to').value.trim();
+  if (!isValidEmail(to)) {
+    document.getElementById('email-config-error').textContent = 'Bitte eine gültige Test-E-Mail-Adresse eingeben';
+    return;
+  }
+  try {
+    await apiPost('/api/admin/email-config/test', { to });
+    document.getElementById('email-config-success').textContent = 'Test-Mail gesendet.';
+  } catch(e) {
+    document.getElementById('email-config-error').textContent = e.message;
+  }
 }
 
 async function saveInstanceConfig() {
