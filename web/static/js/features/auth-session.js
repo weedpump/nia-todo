@@ -88,8 +88,13 @@ export function createAuthSessionFeature({
     await clearCacheIfUserChanged(newUserId);
     localStorage.setItem('last_user_id', newUserId);
     if (data.mfa_enrollment_required) {
-      window.alert('2FA ist für diese Instanz erforderlich. Es ist noch kein nutzbarer Faktor verfügbar. Bitte richte jetzt einen Authenticator oder Passkey ein. Bis dahin ist der normale App-Zugriff gesperrt.');
-      setTimeout(() => window.openSettingsModal?.(), 100);
+      setTimeout(async () => {
+        await window.openSettingsModal?.();
+        const warningEl = document.getElementById('settings-2fa-error');
+        if (warningEl) {
+          warningEl.textContent = '2FA ist für diese Instanz erforderlich. Richte bitte einen Authenticator oder Passkey ein; bis dahin ist der normale App-Zugriff gesperrt.';
+        }
+      }, 100);
     }
     return data;
   }

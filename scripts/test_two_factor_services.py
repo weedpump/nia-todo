@@ -19,7 +19,7 @@ from fastapi import HTTPException
 import services.two_factor as two_factor_module
 from services.auth import create_jwt_token, get_current_user
 from routers.auth import require_recent_mfa_for_account_security
-from routers.two_factor import require_2fa_status_auth
+from routers.two_factor import ReauthRequest, reauth, require_2fa_status_auth
 from services.webauthn import relying_party_for_request, verify_client_data
 from services.two_factor import (
     create_challenge,
@@ -142,6 +142,12 @@ def main():
         )
         reauth_bucket = conn.execute("SELECT * FROM two_factor_challenges WHERE token_hash = ?", (bucket_hash,)).fetchone()
         assert verify_challenge_method(conn, reauth_bucket, "email", "123456")
+        email_user = conn.execute("SELECT id, username, is_admin, token_version FROM users WHERE id = ?", (email_user_id,)).fetchone()
+        email_token = create_jwt_token(dict(email_user), conn, mfa_login_verified=True)
+        reauth_response = reauth(ReauthRequest(method="email", code="123456"), authorization=f"Bearer {email_token}")
+        assert reauth_response["access_token"]
+        used_reauth_bucket = conn.execute("SELECT email_code_hash, email_code_expires_at FROM two_factor_challenges WHERE token_hash = ?", (bucket_hash,)).fetchone()
+        assert used_reauth_bucket["email_code_hash"] is None and used_reauth_bucket["email_code_expires_at"] is None
 
         # Five failed attempts lock a challenge until expiry.
         challenge3 = create_challenge(conn, user_id)
