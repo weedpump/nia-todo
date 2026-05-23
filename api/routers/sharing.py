@@ -85,8 +85,13 @@ def get_member_by_id(db, member_id: int) -> Optional[dict]:
     ).fetchone()
     return dict(row) if row else None
 
-def get_project_members(db, project_id: int, include_inactive=False) -> list:
-    """Get all members for a project."""
+def get_project_members(db, project_id: int, include_inactive=False, owner_only=False) -> list:
+    """Get all members for a project.
+    
+    Args:
+        include_inactive: If True, include declined/left/removed members
+        owner_only: If True, only return accepted members (for non-owner view)
+    """
     if include_inactive:
         rows = db.execute(
             """SELECT pm.*, u.username, u.display_name
@@ -96,7 +101,18 @@ def get_project_members(db, project_id: int, include_inactive=False) -> list:
                ORDER BY pm.created_at""",
             (project_id,)
         ).fetchall()
+    elif owner_only:
+        # Non-owners only see accepted members (no pending invites visible)
+        rows = db.execute(
+            """SELECT pm.*, u.username, u.display_name
+               FROM project_members pm
+               JOIN users u ON pm.user_id = u.id
+               WHERE pm.project_id = ? AND pm.status = 'accepted'
+               ORDER BY pm.created_at""",
+            (project_id,)
+        ).fetchall()
     else:
+        # Owner view without inactive: see pending + accepted
         rows = db.execute(
             """SELECT pm.*, u.username, u.display_name
                FROM project_members pm
@@ -220,6 +236,14 @@ async def share_project(project_id: int, data: ShareProjectRequest, request: Req
                 log_audit(db, "project_share_email_failed", user_id=target['id'], details=f"project_id={project_id}; invited_by={user_id}; fallback=in_app")
         db.commit()
 
+        # For email identifiers, do NOT return member details or broadcast to owner (avoid enumeration)
+        # Only broadcast to the invited user so they see the invite
+        if email_identifier:
+            await broadcast_change("member_invited", {"project_id": project_id, "member": None}, target['id'], project_id)
+            log_audit(db, "project_share_email_identifier_accepted", user_id=target['id'], details=f"project_id={project_id}; invited_by={user_id}")
+            return _neutral_email_share_response()
+        
+        # For username identifiers, return member details and broadcast normally
         member = get_project_member(db, project_id, target['id'])
         await broadcast_change("member_invited", {"project_id": project_id, "member": member}, target['id'], project_id)
         return {"member": member, "notification_delivery": "email" if emailed else "in_app"}
@@ -426,8 +450,8 @@ def list_project_members(project_id: int, user_id: int = Depends(require_auth)):
         if not is_owner and not is_member:
             raise HTTPException(403, "Not authorized to view members")
 
-        # Only owner sees full history (pending/declined/left/removed); members see accepted only
-        members = get_project_members(db, project_id, include_inactive=is_owner)
+        # Non-owners see only accepted members; owners see pending+accepted (not declined/left/removed)
+        members = get_project_members(db, project_id, include_inactive=False, owner_only=not is_owner)
         return {"members": members}
 
 
