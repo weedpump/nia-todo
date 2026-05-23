@@ -1,4 +1,5 @@
 import { iconSvg } from '../icons/lucide-icons.js';
+import { confirmSecurityAction, performMfaReauth, promptSecurityText } from './security-dialogs.js';
 
 export function createApiKeysFeature({ authApi }) {
   function parseServerUtcTimestamp(value) {
@@ -19,9 +20,11 @@ export function createApiKeysFeature({ authApi }) {
     const createdEl = document.getElementById('api-key-created');
     const valueEl = document.getElementById('api-key-value');
     const errorEl = document.getElementById('api-key-error');
+    const copyStatusEl = document.getElementById('api-key-copy-status');
     if (createdEl) createdEl.style.display = 'none';
     if (valueEl) valueEl.textContent = '';
     if (errorEl) errorEl.textContent = '';
+    if (copyStatusEl) copyStatusEl.textContent = '';
   }
 
   async function loadApiKeys() {
@@ -97,15 +100,29 @@ export function createApiKeysFeature({ authApi }) {
     });
   }
 
+  async function ensureRecentMfaForApiKeyAction() {
+    await performMfaReauth({ authApi, purpose: 'diese API-Key-Aktion' });
+  }
+
+  async function withMfaRetry(action) {
+    try {
+      return await action();
+    } catch (e) {
+      if (![401, 403].includes(e.status)) throw e;
+      await ensureRecentMfaForApiKeyAction();
+      return action();
+    }
+  }
+
   async function createApiKey() {
-    const name = prompt('Name für den API-Key (optional):');
+    const name = await promptSecurityText({ title: 'API-Key erstellen', message: 'Der API-Key wird nur einmal angezeigt.', label: 'Name (optional)', placeholder: 'z.B. Backup-Script', primaryText: 'API-Key erstellen' });
     if (name === null) return;
     const errorEl = document.getElementById('api-key-error');
     const createdEl = document.getElementById('api-key-created');
     const valueEl = document.getElementById('api-key-value');
     if (errorEl) errorEl.textContent = '';
     try {
-      const data = await authApi.createApiKey(name || undefined);
+      const data = await withMfaRetry(() => authApi.createApiKey(name || undefined));
       if (valueEl) valueEl.textContent = data.key;
       if (createdEl) createdEl.style.display = 'block';
       await loadApiKeys();
@@ -116,11 +133,12 @@ export function createApiKeysFeature({ authApi }) {
   }
 
   async function revokeApiKey(keyId) {
-    if (!confirm('API-Key wirklich widerrufen?')) return;
+    const confirmed = await confirmSecurityAction({ title: 'API-Key widerrufen?', message: 'Dieser Key kann danach nicht mehr für Automationen genutzt werden.', confirmText: 'API-Key widerrufen', danger: true });
+    if (!confirmed) return;
     const errorEl = document.getElementById('api-key-error');
     if (errorEl) errorEl.textContent = '';
     try {
-      await authApi.revokeApiKey(keyId);
+      await withMfaRetry(() => authApi.revokeApiKey(keyId));
       await loadApiKeys();
     } catch (e) {
       console.error('API key revoke failed:', e);
@@ -128,20 +146,32 @@ export function createApiKeysFeature({ authApi }) {
     }
   }
 
+  function showCopyStatus(message, isError = false) {
+    const statusEl = document.getElementById('api-key-copy-status');
+    if (!statusEl) return;
+    statusEl.style.color = isError ? 'var(--danger)' : 'var(--success)';
+    statusEl.textContent = message;
+  }
+
   function copyApiKey() {
     const valueEl = document.getElementById('api-key-value');
     if (!valueEl || !valueEl.textContent) return;
     navigator.clipboard.writeText(valueEl.textContent).then(() => {
-      alert('API-Key kopiert!');
+      showCopyStatus('API-Key kopiert.');
     }).catch(err => {
       console.error('Copy failed:', err);
-      const range = document.createRange();
-      range.selectNode(valueEl);
-      window.getSelection().removeAllRanges();
-      window.getSelection().addRange(range);
-      document.execCommand('copy');
-      window.getSelection().removeAllRanges();
-      alert('API-Key kopiert!');
+      try {
+        const range = document.createRange();
+        range.selectNode(valueEl);
+        window.getSelection().removeAllRanges();
+        window.getSelection().addRange(range);
+        document.execCommand('copy');
+        window.getSelection().removeAllRanges();
+        showCopyStatus('API-Key kopiert.');
+      } catch (fallbackErr) {
+        console.error('Fallback copy failed:', fallbackErr);
+        showCopyStatus('Kopieren fehlgeschlagen — bitte manuell markieren.', true);
+      }
     });
   }
 

@@ -31,6 +31,43 @@
 }
 ```
 
+### Login mit 2FA-Challenge
+
+Wenn für den Benutzer 2FA aktiv oder global erzwungen ist, kann `POST /api/login` statt eines Tokens eine Challenge liefern. Eine verifizierte E-Mail mit funktionierendem SMTP zählt dabei als E-Mail-Code-Faktor:
+
+```json
+{
+  "mfa_required": true,
+  "challenge": {
+    "challenge_token": "...",
+    "methods": ["totp", "recovery_code"]
+  },
+  "state": {
+    "enabled": true,
+    "has_totp": true,
+    "has_passkey": false,
+    "recovery_codes_remaining": 8
+  }
+}
+```
+
+Abschluss:
+
+`POST /api/2fa/challenge/verify`
+
+```json
+{
+  "challenge_token": "...",
+  "method": "totp",
+  "code": "123456",
+  "remember_device": true
+}
+```
+
+Response entspricht dem normalen Login (`access_token`, `csrf_token`, `user`). Die Login-Challenge wird atomar verbraucht und erzeugt nur Login-MFA-Assurance; sensitive Aktionen wie Passwortänderung/API-Key-Verwaltung benötigen weiterhin eine frische One-Time-MFA-Reauth. Bei `remember_device=true` wird zusätzlich ein HttpOnly-Trusted-Device-Cookie gesetzt, das spätere Login-MFA ersetzt, aber ebenfalls nicht für sensitive Aktionen zählt.
+
+`POST /api/2fa/passkey/options` und `/api/2fa/passkey/verify` schließen dieselbe Login-Challenge per Passkey ab. Passkey-Login benötigt User Verification und verbraucht die Challenge ebenfalls einmalig.
+
 ### Logout
 `POST /api/logout`
 
@@ -142,6 +179,48 @@
 ```json
 { "ok": true }
 ```
+
+## Zwei-Faktor-Authentifizierung
+
+### 2FA-Status
+`GET /api/me/2fa`
+
+Liefert aktivierte/verfügbare Faktoren, Recovery-Code-Anzahl, globale Pflicht und Passkey-Anzahl. Der Status enthält keine Secrets und bleibt mit gültigem interaktivem JWT auch dann lesbar, wenn keine frische Action-Reauth vorliegt, damit Clients den passenden Reauth-Flow starten können.
+
+### TOTP starten/bestätigen
+`POST /api/me/2fa/totp/start` liefert Secret und `otpauth_url`.
+
+`POST /api/me/2fa/totp/confirm`
+```json
+{ "secret": "BASE32...", "code": "123456", "password": "..." }
+```
+
+Aktiviert TOTP nach Passwortbestätigung und liefert einmalig neue Recovery Codes sowie ein frisches MFA-JWT zurück. Recovery Codes sind Backup-Faktoren zu TOTP/Passkey, nicht der primäre 2FA-Zustand.
+
+### 2FA deaktivieren / Faktoren widerrufen / Recovery Codes regenerieren
+- `POST /api/me/2fa/disable` — benötigt eine frische One-Time-MFA-Reauth, widerruft Trusted Devices, Passkeys und Recovery Codes.
+- `DELETE /api/me/2fa/totp` — widerruft den eingerichteten TOTP-Secret, benötigt eine frische One-Time-MFA-Reauth. Wenn danach kein primärer Faktor (TOTP/Passkey) mehr übrig ist, werden Recovery Codes automatisch widerrufen und user-seitige 2FA deaktiviert; bei globaler Policy kann E-Mail-Code-MFA weiter als Fallback greifen.
+- `POST /api/me/2fa/recovery-codes/regenerate` — benötigt eine frische One-Time-MFA-Reauth und mindestens einen primären Faktor (TOTP oder Passkey), liefert neue Codes einmalig zurück.
+- `POST /api/me/2fa/reauth` — prüft TOTP, Recovery-Code oder E-Mail-Code mit Attempt-Lockout und stellt ein JWT mit einem einmalig konsumierbaren MFA-Action-Grant aus. Reauth-Buckets werden nach Erfolg konsumiert; E-Mail-Reauth-Codes werden invalidiert und TOTP-Reauth-Timesteps nur einmal akzeptiert.
+- `POST /api/me/2fa/reauth/email/start` — sendet einen E-Mail-Reauth-Code, wenn E-Mail-Code der verfügbare Faktor ist.
+- `POST /api/me/2fa/reauth/passkey/options` und `/api/me/2fa/reauth/passkey/verify` — Passkey-Reauth für Passkey-only Nutzer.
+
+### Passkeys
+- `GET /api/me/passkeys` — eigene Passkeys auflisten.
+- `POST /api/me/passkeys/options` — Registrierungsoptionen/Challenge vorbereiten.
+- `POST /api/me/passkeys/verify` — WebAuthn-Registrierung mit Passwortbestätigung abschließen.
+- `POST /api/2fa/passkey/options` und `/api/2fa/passkey/verify` — Login-Challenge per Passkey abschließen.
+- `DELETE /api/me/passkeys/{id}` — Passkey widerrufen, benötigt eine frische One-Time-MFA-Reauth. Wenn danach kein primärer Faktor (TOTP/Passkey) mehr übrig ist, werden Recovery Codes automatisch widerrufen und user-seitige 2FA deaktiviert; bei globaler Policy kann E-Mail-Code-MFA weiter als Fallback greifen.
+
+Passkeys sind an die konfigurierte öffentliche Basis-URL (`public_base_url`) gebunden. Für Nicht-Localhost-Hosts ist HTTPS Pflicht; ohne `public_base_url` sind produktive Passkey-Flows für Nicht-Localhost-Hosts fail-closed. Native Apps bekommen bis zur nativen Passkey-Bridge keinen WebView-Passkey-Sonderpfad.
+
+### Admin-Policy
+- `GET /api/admin/2fa-policy`
+- `PATCH /api/admin/2fa-policy` mit `{ "required": true }`
+- `GET /api/admin/users` enthält zusätzlich 2FA-/Passkey-/Trusted-Device-/API-Key-Statusfelder.
+- `POST /api/admin/users/{user_id}/2fa/reset` — setzt Faktoren, Recovery Codes, Passkeys und Trusted Devices eines Benutzers zurück.
+
+Security-sensitive Account-Aktionen verlangen bei 2FA-pflichtigen Accounts einen frischen, einmalig konsumierbaren MFA-Action-Grant. Login-MFA und Trusted Devices zählen nur für App-Zugriff, nicht für sensitive Aktionen. Reauth-Codes sind ebenfalls replay-gehärtet: E-Mail-Reauth-Codes werden nach Erfolg gelöscht, TOTP-Reauth kann pro Timestep nur einmal einen Grant ausstellen, Recovery Codes werden table-backed und single-use verbraucht. API Keys (`ApiKey nt_...`) sind bewusst als Maschinen-Token von interaktiver MFA bei der Nutzung ausgenommen. Erzeugung und Widerruf eigener API Keys benötigen bei MFA-pflichtigen Accounts immer eine neue Reauth; die Settings-UI stößt dafür bei Bedarf einen Reauth-Flow an. Bestehende API Keys werden beim Aktivieren von MFA nicht automatisch widerrufen; die Admin-UI zeigt aktive Keys als Warnhinweis. Ein Enrollment-only Token wird nur ausgegeben, wenn globale 2FA erzwungen ist und gar kein nutzbarer Faktor verfügbar ist; E-Mail-Code-Fallback verhindert also keinen normalen Login nach erfolgreicher Challenge.
 
 ## E-Mail / SMTP
 
@@ -564,17 +643,22 @@ Links sind 24 Stunden gültig und nur einmal verwendbar.
 **Response**
 ```json
 {
-  "api_key": "nt_...",
-  "message": "Speichere diesen Key sofort — er wird nie wieder angezeigt!"
+  "id": 12,
+  "name": "Nia-Integration",
+  "prefix": "nt_abcd1234",
+  "key": "nt_...",
+  "created_at": "2026-05-16T11:30:00+00:00"
 }
 ```
+
+Der vollständige `key` wird nur einmalig beim Erstellen angezeigt.
 
 ### Widerrufen
 `DELETE /api/me/api-keys/{id}`
 
 **Response**
 ```json
-{ "revoked": true }
+{ "revoked": 12 }
 ```
 
 ### Auth mit API-Key
@@ -582,17 +666,11 @@ Links sind 24 Stunden gültig und nur einmal verwendbar.
 Authorization: ApiKey nt_...
 ```
 
-oder
-
-```text
-X-API-Key: nt_...
-```
-
 **Hinweise**
 - API-Keys sind an den Benutzer gebunden
 - widerrufene Keys sind sofort ungültig
 - `last_used_at` wird gepflegt
-- API-Keys umgehen CSRF nur mit `Authorization: ApiKey nt_...` oder `X-API-Key`; `Bearer nt_...` wird abgelehnt
+- API-Keys umgehen CSRF nur mit `Authorization: ApiKey nt_...`; `Bearer nt_...` und `X-API-Key` werden nicht als API-Key-Auth unterstützt
 
 ## Todos
 

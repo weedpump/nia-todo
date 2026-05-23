@@ -11,6 +11,7 @@ export function createProjectSharingFeature({
 }) {
   let currentProject = null;
   let currentMembers = [];
+  const localPendingMembersByProject = new Map();
 
   function escapeHtml(value) {
     return String(value ?? '')
@@ -30,7 +31,10 @@ export function createProjectSharingFeature({
 
   async function loadMembers(projectId) {
     const res = await projectsApi.listMembers(projectId);
-    currentMembers = res?.members || [];
+    const serverMembers = res?.members || [];
+    const localPending = localPendingMembersByProject.get(Number(projectId)) || [];
+    const seen = new Set(serverMembers.map(member => Number(member.user_id)));
+    currentMembers = serverMembers.concat(localPending.filter(member => !seen.has(Number(member.user_id))));
     renderMembers();
     updateSharingVisibility();
     return currentMembers;
@@ -47,7 +51,7 @@ export function createProjectSharingFeature({
     const inviteRow = document.getElementById('project-share-row');
     if (!currentProject) return;
 
-    const hasMembers = currentMembers.some(member => member?.status === 'accepted' || member?.status === 'pending');
+    const hasMembers = currentMembers.some(member => member?.status === 'accepted' || member?.status === 'pending') || !!currentProject.has_sharing_activity;
     const own = isOwner(currentProject);
     const sharedProject = !!currentProject.is_shared && !own;
 
@@ -140,6 +144,13 @@ export function createProjectSharingFeature({
         showToast('Einladung verarbeitet');
       } else if (member) {
         // For username identifiers, show detailed success with undo
+        currentProject.has_sharing_activity = true;
+        const projectId = Number(currentProject.id);
+        const pending = localPendingMembersByProject.get(projectId) || [];
+        if (!pending.some(item => Number(item.user_id) === Number(member.user_id))) {
+          pending.push({ ...member, status: member.status || 'pending' });
+          localPendingMembersByProject.set(projectId, pending);
+        }
         showToast('Einladung gesendet', {
           type: 'member_invite',
           data: {
@@ -299,7 +310,7 @@ export function createProjectSharingFeature({
       if (shareStartRow) shareStartRow.style.display = 'none';
       if (inviteRow) inviteRow.style.display = 'none';
     } else if (isOwn) {
-      if (shared) {
+      if (shared || project.has_sharing_activity) {
         if (sharingContent) sharingContent.style.display = '';
         if (shareStartRow) shareStartRow.style.display = 'none';
         if (inviteRow) inviteRow.style.display = '';

@@ -13,17 +13,19 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .admin-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 16px; padding: 24px; margin-bottom: 24px; box-shadow: var(--shadow); }
 .admin-card h2 { font-size: 16px; margin: 0 0 16px 0; color: var(--text-primary); display: inline-flex; align-items: center; gap: 8px; }
 .user-table-wrap { width: 100%; overflow-x: auto; }
-.user-table { width: 100%; border-collapse: collapse; table-layout: fixed; min-width: 860px; }
+.user-table { width: 100%; border-collapse: collapse; table-layout: fixed; min-width: 1080px; }
 .user-table th { text-align: left; padding: 12px; font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--border); }
 .user-table td { padding: 12px; font-size: 14px; color: var(--text-primary); border-bottom: 1px solid var(--border); vertical-align: middle; }
 .user-table th:nth-child(1), .user-table td:nth-child(1) { width: 44px; }
 .user-table th:nth-child(2), .user-table td:nth-child(2) { width: 125px; }
 .user-table th:nth-child(3), .user-table td:nth-child(3) { width: 140px; }
-.user-table th:nth-child(4), .user-table td:nth-child(4) { width: 235px; }
-.user-table th:nth-child(5), .user-table td:nth-child(5) { width: 105px; }
-.user-table th:nth-child(6), .user-table td:nth-child(6) { width: 95px; }
-.user-table th:nth-child(7), .user-table td:nth-child(7) { width: 130px; }
-.user-table th:nth-child(8), .user-table td:nth-child(8) { width: 100px; }
+.user-table th:nth-child(4), .user-table td:nth-child(4) { width: 210px; }
+.user-table th:nth-child(5), .user-table td:nth-child(5) { width: 95px; }
+.user-table th:nth-child(6), .user-table td:nth-child(6) { width: 90px; }
+.user-table th:nth-child(7), .user-table td:nth-child(7) { width: 160px; }
+.user-table th:nth-child(8), .user-table td:nth-child(8) { width: 80px; }
+.user-table th:nth-child(9), .user-table td:nth-child(9) { width: 125px; }
+.user-table th:nth-child(10), .user-table td:nth-child(10) { width: 95px; }
 .user-table tr:last-child td { border-bottom: none; }
 .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; }
 .badge-admin { background: var(--accent); color: white; }
@@ -74,8 +76,20 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .admin-theme-toggle button:hover { background: var(--bg-secondary); color: var(--text-primary); }
 .admin-theme-toggle button.active { background: var(--accent); border-color: var(--accent); color: white; transform: scale(1.05); }
 .admin-status-card { padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.security-policy-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.security-policy-main { display: flex; flex-direction: column; gap: 4px; }
+.security-policy-title { font-weight: 650; color: var(--text-primary); }
+.security-policy-desc { font-size: 13px; color: var(--text-muted); }
+.twofa-stack { display: flex; flex-wrap: wrap; gap: 4px; }
 .admin-status-text { font-size: 14px; color: var(--text-secondary); display:inline-flex; align-items:center; gap:8px; }
 .admin-mobile-label { display: none; color: var(--text-muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 2px; }
+.admin-dialog { display: none; position: fixed; inset: 0; z-index: 500; align-items: center; justify-content: center; padding: 16px; }
+.admin-dialog.active { display: flex; }
+.admin-dialog-overlay { position: absolute; inset: 0; background: rgba(0,0,0,.62); backdrop-filter: blur(4px); }
+.admin-dialog-content { position: relative; z-index: 1; width: min(100%, 430px); background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow-lg); padding: 22px; }
+.admin-dialog-content h3 { margin: 0 0 8px 0; font-size: 18px; color: var(--text-primary); }
+.admin-dialog-content p { margin: 0; color: var(--text-muted); font-size: 14px; line-height: 1.45; }
+.admin-dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
 .ui-icon { width: 1em; height: 1em; display: inline-block; vertical-align: -0.14em; }
 @media (max-width: 720px) {
   .admin-container { padding: 18px 12px 32px; }
@@ -115,6 +129,18 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
         <button data-theme="system" onclick="setTheme('system')" title="System"><span data-icon="monitor"></span></button>
       </div>
     </div>
+  </div>
+
+  <div class="admin-dialog" id="admin-action-dialog" role="dialog" aria-modal="true" aria-labelledby="admin-dialog-title">
+    <div class="admin-dialog-overlay" id="admin-dialog-overlay"></div>
+    <form class="admin-dialog-content" id="admin-dialog-form">
+      <h3 id="admin-dialog-title">Aktion bestätigen</h3>
+      <p id="admin-dialog-message"></p>
+      <div class="admin-dialog-actions">
+        <button type="button" class="btn" id="admin-dialog-cancel">Abbrechen</button>
+        <button type="submit" class="btn btn-primary" id="admin-dialog-confirm">Bestätigen</button>
+      </div>
+    </form>
   </div>
 
   <div class="admin-card" id="admin-login-card">
@@ -228,6 +254,21 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
     <div class="admin-success" id="email-config-success"></div>
   </div>
 
+  <!-- Security / 2FA -->
+  <div class="admin-card" id="security-card">
+    <h2><span data-icon="shield-check"></span> Sicherheit / 2FA</h2>
+    <div class="security-policy-row">
+      <div class="security-policy-main">
+        <div class="security-policy-title" id="twofa-policy-title">2FA-Pflicht lädt…</div>
+        <div class="security-policy-desc">Erzwingt 2FA für alle Benutzer. TOTP, Passkey, Recovery Code oder verifizierte E-Mail mit SMTP zählen als Faktor; nur ohne nutzbaren Faktor gibt es vorerst nur Zugriff auf die 2FA-Einrichtung.</div>
+      </div>
+      <button class="btn btn-primary" id="twofa-policy-toggle" onclick="toggleTwoFactorPolicy()">Umschalten</button>
+    </div>
+    <div class="admin-help">API-Keys bleiben als Machine-Tokens nutzbar. Erstellung und Widerruf eigener API-Keys benötigen bei MFA-pflichtigen Accounts recent MFA.</div>
+    <div class="admin-error" id="security-error"></div>
+    <div class="admin-success" id="security-success"></div>
+  </div>
+
   <!-- Change Admin Password -->
   <div class="admin-card" id="admin-password-card">
     <h2><span data-icon="key-round"></span> Eigenes Admin-Passwort ändern</h2>
@@ -277,6 +318,8 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
           <th>E-Mail</th>
           <th>E-Mail Status</th>
           <th>Login</th>
+          <th>2FA</th>
+          <th>API Keys</th>
           <th>Passwort</th>
           <th>Aktionen</th>
         </tr>
@@ -308,6 +351,7 @@ const ICONS = {
   x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
   trash: '<path d="M3 6h18"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><path d="M19 6l-1 14c-.1 1-1 2-2 2H8c-1 0-1.9-1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/>',
   link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+  'shield-check': '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>',
   settings: '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.73l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
   mail: '<path d="m22 7-8.991 5.727a2 2 0 0 1-2.009 0L2 7"/><rect x="2" y="4" width="20" height="16" rx="2"/>',
 };
@@ -463,12 +507,17 @@ async function doAdminLogin() {
   }
 }
 
+let twoFactorPolicyRequired = false;
+
 async function loadAdminData() {
-  const [usersData, configData, emailConfigData] = await Promise.all([
+  const [usersData, configData, emailConfigData, twoFactorPolicy] = await Promise.all([
     apiGet('/api/admin/users'),
     apiGet('/api/admin/instance-config'),
     apiGet('/api/admin/email-config'),
+    apiGet('/api/admin/2fa-policy'),
   ]);
+  twoFactorPolicyRequired = !!twoFactorPolicy.required;
+  renderTwoFactorPolicy(twoFactorPolicy);
   renderUsers(usersData.users);
   renderInstanceConfig(configData);
   renderEmailConfig(emailConfigData);
@@ -477,6 +526,10 @@ async function loadAdminData() {
 async function loadUsers() {
   try {
     const data = await apiGet('/api/admin/users');
+    if (typeof data.two_factor_required === 'boolean') {
+      twoFactorPolicyRequired = data.two_factor_required;
+      renderTwoFactorPolicy({ required: twoFactorPolicyRequired });
+    }
     renderUsers(data.users);
   } catch(e) {
     document.getElementById('user-list').innerHTML =
@@ -509,6 +562,54 @@ function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
 }
 
+function adminDialog({ title, message, confirmText = 'Bestätigen', danger = false, hideCancel = false }) {
+  const modal = document.getElementById('admin-action-dialog');
+  const form = document.getElementById('admin-dialog-form');
+  const cancel = document.getElementById('admin-dialog-cancel');
+  const confirmBtn = document.getElementById('admin-dialog-confirm');
+  const overlay = document.getElementById('admin-dialog-overlay');
+  document.getElementById('admin-dialog-title').textContent = title;
+  document.getElementById('admin-dialog-message').textContent = message;
+  confirmBtn.textContent = confirmText;
+  confirmBtn.classList.toggle('btn-danger', danger);
+  confirmBtn.classList.toggle('btn-primary', !danger);
+  cancel.style.display = hideCancel ? 'none' : '';
+  modal.classList.add('active');
+  return new Promise((resolve) => {
+    let settled = false;
+    const cleanup = () => {
+      form.removeEventListener('submit', onSubmit);
+      cancel.removeEventListener('click', onCancel);
+      overlay.removeEventListener('click', onCancel);
+      document.removeEventListener('keydown', onKey);
+      modal.classList.remove('active');
+      cancel.style.display = '';
+    };
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve(value);
+    };
+    const onSubmit = (event) => { event.preventDefault(); finish(true); };
+    const onCancel = () => finish(false);
+    const onKey = (event) => { if (event.key === 'Escape') finish(false); };
+    form.addEventListener('submit', onSubmit);
+    cancel.addEventListener('click', onCancel);
+    overlay.addEventListener('click', onCancel);
+    document.addEventListener('keydown', onKey);
+    confirmBtn.focus();
+  });
+}
+
+function adminConfirm(options) {
+  return adminDialog(options);
+}
+
+function adminNotice(title, message) {
+  return adminDialog({ title, message, confirmText: 'OK', hideCancel: true });
+}
+
 function renderInstanceConfig(config) {
   document.getElementById('instance-public-url').value = config.public_base_url || '';
   document.getElementById('instance-allowed-origins').value = (config.allowed_origins || []).join('\n');
@@ -517,6 +618,39 @@ function renderInstanceConfig(config) {
 
 function parseOriginsInput(value) {
   return value.split(/[\n,]/).map(item => item.trim()).filter(Boolean);
+}
+
+function renderTwoFactorPolicy(policy) {
+  twoFactorPolicyRequired = !!policy.required;
+  const title = document.getElementById('twofa-policy-title');
+  const btn = document.getElementById('twofa-policy-toggle');
+  if (title) title.textContent = twoFactorPolicyRequired ? 'Globale 2FA-Pflicht ist aktiv' : 'Globale 2FA-Pflicht ist deaktiviert';
+  if (btn) btn.textContent = twoFactorPolicyRequired ? '2FA-Pflicht deaktivieren' : '2FA-Pflicht aktivieren';
+}
+
+async function toggleTwoFactorPolicy() {
+  const next = !twoFactorPolicyRequired;
+  const errorEl = document.getElementById('security-error');
+  const successEl = document.getElementById('security-success');
+  errorEl.textContent = '';
+  successEl.textContent = '';
+  const confirmed = await adminConfirm({
+    title: next ? 'Globale 2FA-Pflicht aktivieren?' : 'Globale 2FA-Pflicht deaktivieren?',
+    message: next
+      ? 'Nutzer ohne nutzbaren Faktor können danach nur noch 2FA einrichten; verifizierte E-Mail mit SMTP zählt als E-Mail-Code-Faktor.'
+      : 'Benutzer mit eigener 2FA bleiben weiterhin geschützt.',
+    confirmText: next ? '2FA-Pflicht aktivieren' : '2FA-Pflicht deaktivieren',
+    danger: !next,
+  });
+  if (!confirmed) return;
+  try {
+    const data = await apiPatch('/api/admin/2fa-policy', { required: next });
+    renderTwoFactorPolicy(data);
+    successEl.textContent = next ? 'Globale 2FA-Pflicht aktiviert.' : 'Globale 2FA-Pflicht deaktiviert.';
+    await loadUsers();
+  } catch (e) {
+    errorEl.textContent = e.message;
+  }
 }
 
 function renderEmailConfig(config) {
@@ -615,6 +749,30 @@ function renderUserLoginStatus(user) {
     : `<span class="badge badge-warning" title="Setup-Link wurde noch nicht eingelöst">Einladung offen</span>`;
 }
 
+function renderUserTwoFactorStatus(user) {
+  const enabled = !!user.two_factor_enabled;
+  const factors = [];
+  if (user.has_totp) factors.push('TOTP');
+  if (Number(user.passkey_count || 0) > 0) factors.push(`${user.passkey_count} Passkey`);
+  if (user.has_recovery_codes) factors.push('Recovery');
+  if (user.has_email_fallback) factors.push('E-Mail-Code');
+  if (Number(user.trusted_device_count || 0) > 0) factors.push(`${user.trusted_device_count} Gerät`);
+  const badge = enabled
+    ? `<span class="badge badge-success">Aktiv</span>`
+    : (twoFactorPolicyRequired ? `<span class="badge badge-warning">Pflicht</span>` : `<span class="badge badge-muted">Aus</span>`);
+  const detail = factors.length ? factors.map(escapeHtml).join(' · ') : (twoFactorPolicyRequired ? 'Kein Faktor verfügbar' : '-');
+  const reset = (enabled || Number(user.passkey_count || 0) > 0 || Number(user.trusted_device_count || 0) > 0)
+    ? `<button class="btn btn-danger admin-table-action" style="margin-top:6px;" onclick="resetUserTwoFactor(${user.id}, '${escapeHtmlAttr(user.username)}')">${iconSvg('shield-check')} Reset</button>`
+    : '';
+  return `<div class="twofa-stack">${badge}<span class="admin-help" style="margin:0;">${detail}</span></div>${reset}`;
+}
+
+function renderUserApiKeys(user) {
+  const count = Number(user.api_key_count || 0);
+  if (!count) return `<span class="badge badge-muted">0</span>`;
+  return `<span class="badge badge-warning" title="Bestehende API-Keys bleiben als Machine-Tokens ohne MFA nutzbar">${count} aktiv</span>`;
+}
+
 function renderUserEmailDisplay(userId, emailValue) {
   const email = emailValue ? escapeHtml(emailValue) : '<span class="email-missing">-</span>';
   return `<span class="email-display" id="email-display-${userId}">
@@ -626,7 +784,7 @@ function renderUserEmailDisplay(userId, emailValue) {
 function renderUsers(users) {
   const tbody = document.getElementById('user-list');
   if (!users || users.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8" class="empty-state">Keine Benutzer</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="10" class="empty-state">Keine Benutzer</td></tr>`;
     return;
   }
   tbody.innerHTML = users.map(u => `
@@ -637,7 +795,9 @@ function renderUsers(users) {
       <td><span class="admin-mobile-label">E-Mail</span>${renderUserEmailCell(u)}</td>
       <td><span class="admin-mobile-label">E-Mail Status</span>${renderUserEmailStatus(u)}</td>
       <td><span class="admin-mobile-label">Login</span>${renderUserLoginStatus(u)}</td>
-      <td><span class="admin-mobile-label">Passwort</span><button class="btn btn-primary admin-table-action" onclick="generatePasswordLink(${u.id}, '${escapeHtmlAttr(u.username)}')">${iconSvg('link')} Link erzeugen</button></td>
+      <td><span class="admin-mobile-label">2FA</span>${renderUserTwoFactorStatus(u)}</td>
+      <td><span class="admin-mobile-label">API Keys</span>${renderUserApiKeys(u)}</td>
+      <td><span class="admin-mobile-label">Passwort</span><button class="btn btn-primary admin-table-action" onclick="generatePasswordLink(${u.id}, '${escapeHtmlAttr(u.username)}')">${iconSvg('link')} Link</button></td>
       <td><span class="admin-mobile-label">Aktionen</span>${u.is_admin ? '-' : `<button class="btn btn-danger admin-table-action" onclick="deleteUser(${u.id}, '${escapeHtmlAttr(u.username)}')">${iconSvg('trash')} Löschen</button>`}</td>
     </tr>
   `).join('');
@@ -703,29 +863,54 @@ function cancelUserEmailEdit(userId, currentEmail) {
 async function saveUserEmail(userId) {
   const input = document.getElementById(`email-input-${userId}`);
   const email = input?.value?.trim() || '';
+  const errorEl = document.getElementById('security-error');
+  if (errorEl) errorEl.textContent = '';
   if (!email) {
-    alert('E-Mail ist erforderlich');
+    if (errorEl) errorEl.textContent = 'E-Mail ist erforderlich';
     return;
   }
   if (!isValidEmail(email)) {
-    alert('Bitte eine gültige E-Mail-Adresse eingeben');
+    if (errorEl) errorEl.textContent = 'Bitte eine gültige E-Mail-Adresse eingeben';
     return;
   }
   try {
     await apiPatch(`/api/admin/users/${userId}`, { email });
     await loadUsers();
   } catch(e) {
-    alert('Fehler: ' + e.message);
+    if (errorEl) errorEl.textContent = 'Fehler: ' + e.message;
+  }
+}
+
+async function resetUserTwoFactor(userId, username) {
+  const confirmed = await adminConfirm({
+    title: '2FA zurücksetzen?',
+    message: `2FA für '${username}' wirklich zurücksetzen? TOTP, Passkeys und gemerkte Geräte werden widerrufen.`,
+    confirmText: '2FA zurücksetzen',
+    danger: true,
+  });
+  if (!confirmed) return;
+  try {
+    await apiPost(`/api/admin/users/${userId}/2fa/reset`, {});
+    document.getElementById('security-success').textContent = `2FA für ${username} zurückgesetzt.`;
+    await loadUsers();
+  } catch(e) {
+    document.getElementById('security-error').textContent = 'Fehler: ' + e.message;
   }
 }
 
 async function deleteUser(userId, username) {
-  if (!confirm(`Benutzer '${username}' wirklich löschen?`)) return;
+  const confirmed = await adminConfirm({
+    title: 'Benutzer löschen?',
+    message: `Benutzer '${username}' wirklich löschen?`,
+    confirmText: 'Benutzer löschen',
+    danger: true,
+  });
+  if (!confirmed) return;
   try {
     await apiDelete(`/api/admin/users/${userId}`);
     await loadUsers();
   } catch(e) {
-    alert('Fehler: ' + e.message);
+    await adminNotice('Fehler', 'Fehler: ' + e.message);
   }
 }
 
@@ -769,14 +954,17 @@ async function generatePasswordLink(userId, username) {
   try {
     const data = await apiPost(`/api/admin/users/${userId}/password-link`, {});
     if (data.password_setup_delivery === 'email') {
-      alert(`Passwort-Mail für ${username} wurde gesendet.`);
+      await adminNotice('Passwort-Mail gesendet', `Passwort-Mail für ${username} wurde gesendet.`);
       return;
     }
     const link = data.password_setup_url;
     const copied = await navigator.clipboard.writeText(link).then(() => true).catch(() => false);
-    prompt(`Passwort-Link für ${username}${copied ? ' wurde kopiert' : ''}:`, link);
+    await adminNotice(
+      copied ? 'Passwort-Link kopiert' : 'Passwort-Link erstellt',
+      `Passwort-Link für ${username}${copied ? ' wurde kopiert' : ''}: ${link}`,
+    );
   } catch(e) {
-    alert('Fehler: ' + e.message);
+    await adminNotice('Fehler', 'Fehler: ' + e.message);
   }
 }
 

@@ -65,8 +65,9 @@ def main():
             migrate.DB_PATH = original_db_path
 
         conn = sqlite3.connect(db_path)
-        assert version == 23, version
-        assert conn.execute("SELECT version FROM schema_version").fetchone()[0] == 23
+        latest_version = max(v for v, _ in migrate.get_migration_files())
+        assert version == latest_version, version
+        assert conn.execute("SELECT version FROM schema_version").fetchone()[0] == latest_version
         user_cols = table_columns(conn, "users")
         for column in (
             "email_verified_at",
@@ -76,8 +77,17 @@ def main():
             "pending_email_token_expires_at",
             "email_changed_at",
             "email_trust_source",
+            "two_factor_enabled",
+            "two_factor_totp_secret",
+            "two_factor_recovery_hashes",
         ):
             assert column in user_cols, column
+        challenge_cols = table_columns(conn, "two_factor_challenges")
+        for column in ("attempts", "locked_until"):
+            assert column in challenge_cols, column
+        passkey_challenge_cols = table_columns(conn, "passkey_challenges")
+        for column in ("attempts", "locked_until"):
+            assert column in passkey_challenge_cols, column
         token_cols = table_columns(conn, "password_setup_tokens")
         for column in ("status", "replaced_at", "requested_by"):
             assert column in token_cols, column

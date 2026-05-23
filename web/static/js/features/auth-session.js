@@ -1,4 +1,5 @@
 import { getAuthToken, getCsrfToken, getAuthHeaders } from '../api/http.js';
+import { RUNTIME_CAPABILITIES } from '../core/config.js';
 
 export function createAuthSessionFeature({
   authApi,
@@ -12,6 +13,8 @@ export function createAuthSessionFeature({
   let loginInProgress = false;
   let loginFormBound = false;
   let passwordResetAvailable = false;
+  let pendingMfaChallenge = null;
+  let pendingMfaMethod = null;
 
   async function clearBrowserAuthCaches() {
     if ('serviceWorker' in navigator && typeof navigator.serviceWorker.getRegistrations === 'function') {
@@ -78,16 +81,104 @@ export function createAuthSessionFeature({
     return false;
   }
 
-  async function login(username, password) {
-    const data = await authApi.login(username, password);
+  async function completeLogin(data) {
     storeUserSession(data);
     await maybeVerifyEmailFromUrl();
-
     const newUserId = String(data.user.id);
     await clearCacheIfUserChanged(newUserId);
     localStorage.setItem('last_user_id', newUserId);
-
+    if (data.mfa_enrollment_required) {
+      setTimeout(async () => {
+        await window.openSettingsModal?.();
+        const warningEl = document.getElementById('settings-2fa-error');
+        if (warningEl) {
+          warningEl.textContent = '2FA ist für diese Instanz erforderlich. Richte bitte einen Authenticator oder Passkey ein; bis dahin ist der normale App-Zugriff gesperrt.';
+        }
+      }, 100);
+    }
     return data;
+  }
+
+  async function login(username, password) {
+    const data = await authApi.login(username, password);
+    if (data.mfa_required) return data;
+    return completeLogin(data);
+  }
+
+  function preferredMfaMethod(challengeData) {
+    const methods = challengeData?.challenge?.methods || [];
+    const canPasskey = methods.includes('passkey') && !RUNTIME_CAPABILITIES.native && window.PublicKeyCredential && navigator.credentials;
+    return canPasskey ? 'passkey'
+      : methods.includes('totp') ? 'totp'
+      : methods.includes('recovery_code') ? 'recovery_code'
+      : methods.includes('email') ? 'email'
+      : methods[0];
+  }
+
+  function resetLoginMfaPanel() {
+    pendingMfaChallenge = null;
+    pendingMfaMethod = null;
+    document.getElementById('login-mfa-panel')?.classList.add('hidden');
+    const codeInput = document.getElementById('login-mfa-code');
+    const rememberInput = document.getElementById('login-remember-device');
+    const submitBtn = document.querySelector('button.login-btn');
+    if (codeInput) codeInput.value = '';
+    if (rememberInput) rememberInput.checked = false;
+    if (submitBtn) submitBtn.textContent = 'Anmelden';
+    document.getElementById('login-username')?.removeAttribute('readonly');
+    document.getElementById('login-password')?.removeAttribute('readonly');
+    document.getElementById('login-forgot-btn')?.classList.toggle('hidden', !passwordResetAvailable);
+  }
+
+  function showLoginMfaPanel(challengeData) {
+    pendingMfaChallenge = challengeData;
+    pendingMfaMethod = preferredMfaMethod(challengeData);
+    const panel = document.getElementById('login-mfa-panel');
+    const hintEl = document.getElementById('login-mfa-hint');
+    const codeWrap = document.getElementById('login-mfa-code-wrap');
+    const codeInput = document.getElementById('login-mfa-code');
+    const codeLabel = document.getElementById('login-mfa-code-label');
+    const submitBtn = document.querySelector('button.login-btn');
+    const labels = {
+      email: 'E-Mail-Code',
+      recovery_code: 'Recovery Code',
+      passkey: 'Passkey',
+      totp: 'Authenticator-Code',
+    };
+    const label = labels[pendingMfaMethod] || '2FA-Code';
+    if (hintEl) hintEl.textContent = pendingMfaMethod === 'email'
+      ? 'Wir haben dir einen 2FA-Code per E-Mail geschickt.'
+      : pendingMfaMethod === 'passkey'
+        ? 'Bestätige die Anmeldung mit deinem Passkey.'
+        : 'Gib deinen 2FA-Code ein.';
+    if (codeLabel) codeLabel.textContent = label;
+    if (codeInput) {
+      codeInput.value = '';
+      codeInput.placeholder = `${label} eingeben`;
+      codeInput.required = pendingMfaMethod !== 'passkey';
+    }
+    if (codeWrap) codeWrap.style.display = pendingMfaMethod === 'passkey' ? 'none' : '';
+    if (submitBtn) submitBtn.textContent = pendingMfaMethod === 'passkey' ? 'Mit Passkey anmelden' : '2FA bestätigen';
+    document.getElementById('login-username')?.setAttribute('readonly', 'readonly');
+    document.getElementById('login-password')?.setAttribute('readonly', 'readonly');
+    document.getElementById('login-forgot-btn')?.classList.add('hidden');
+    panel?.classList.remove('hidden');
+    if (pendingMfaMethod === 'passkey') submitBtn?.focus();
+    else codeInput?.focus();
+  }
+
+  async function verifyPendingMfaChallenge() {
+    if (!pendingMfaChallenge) throw new Error('Keine aktive 2FA-Challenge');
+    const rememberDevice = !!document.getElementById('login-remember-device')?.checked;
+    if (pendingMfaMethod === 'passkey') {
+      const verified = await authApi.verifyPasskeyLogin(pendingMfaChallenge.challenge.challenge_token, rememberDevice);
+      return completeLogin(verified);
+    }
+    const code = document.getElementById('login-mfa-code')?.value?.trim() || '';
+    if (!code) throw new Error('Bitte 2FA-Code eingeben');
+    const method = pendingMfaMethod === 'totp' && code.includes('-') ? 'recovery_code' : pendingMfaMethod;
+    const verified = await authApi.verify2fa(pendingMfaChallenge.challenge.challenge_token, method, code, rememberDevice);
+    return completeLogin(verified);
   }
 
   async function checkAuth() {
@@ -250,7 +341,16 @@ export function createAuthSessionFeature({
     if (submitBtn) submitBtn.disabled = true;
 
     try {
-      await login(username, password);
+      if (pendingMfaChallenge) {
+        await verifyPendingMfaChallenge();
+      } else {
+        const data = await login(username, password);
+        if (data?.mfa_required) {
+          showLoginMfaPanel(data);
+          return;
+        }
+      }
+      resetLoginMfaPanel();
       hideLoginOverlay();
       renderUserInfo();
       if (!getAppInitialized()) await initApp();
@@ -272,6 +372,11 @@ export function createAuthSessionFeature({
     loginFormBound = true;
     form.addEventListener('submit', handleLogin);
     document.getElementById('login-forgot-btn')?.addEventListener('click', toggleResetPanel);
+    document.getElementById('login-mfa-back-btn')?.addEventListener('click', () => {
+      resetLoginMfaPanel();
+      document.getElementById('login-error').textContent = '';
+      document.getElementById('login-password')?.focus();
+    });
     document.getElementById('login-reset-submit')?.addEventListener('click', requestPasswordReset);
     document.getElementById('login-reset-identifier')?.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') requestPasswordReset();
