@@ -239,7 +239,8 @@ async def share_project(project_id: int, data: ShareProjectRequest, request: Req
         # For email identifiers, do NOT broadcast to owner (avoids enumeration via WebSocket)
         # Only notify the invited user directly without project_id (prevents owner/accepted member recipients)
         if email_identifier:
-            # Do NOT broadcast to owner - invitee will see invite via /api/projects/invites on their next login
+            # Direct broadcast to invitee only (no project_id = no owner/member auto-recipients)
+            await broadcast_change("member_invited", {"project_id": project_id, "member": None}, target['id'])
             log_audit(db, "project_share_email_identifier_accepted", user_id=target['id'], details=f"project_id={project_id}; invited_by={user_id}")
             return _neutral_email_share_response()
         
