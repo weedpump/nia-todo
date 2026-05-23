@@ -360,6 +360,36 @@ class TestSuite:
         self.results["password_reset_request_without_email_config_is_neutral"] = {"status": status, "passed": passed, "expected": "200 neutral response without SMTP"}
         return passed
 
+    def test_email_links_disabled_without_public_base_url(self):
+        status, data = curl("PATCH", "/api/admin/email-config", {
+            "smtp_enabled": True,
+            "smtp_host": "smtp.example.invalid",
+            "smtp_port": 587,
+            "smtp_security": "starttls",
+            "smtp_auth_enabled": False,
+            "smtp_username": "",
+            "mail_from_address": "todo@example.invalid",
+            "mail_from_name": "nia-todo",
+            "mail_reply_to": "",
+            "password_link_ttl_hours": 24,
+        }, token=self.admin_token, csrf=self.admin_csrf, cookie_jar="/tmp/nia_admin_cookies.txt")
+        feature_status, features = curl("GET", "/api/password-setup/features")
+        reset_status, reset_data = curl("POST", "/api/password-setup/request", {"identifier": "testuser"}, cookie_jar="/tmp/nia_reset_cookies.txt")
+        passed = (
+            ok(status)
+            and data
+            and data.get("smtp_enabled") is True
+            and ok(feature_status)
+            and features
+            and features.get("email_configured") is False
+            and features.get("password_reset_available") is False
+            and ok(reset_status)
+            and reset_data
+            and "Falls ein passendes Konto existiert" in reset_data.get("message", "")
+        )
+        self.results["email_links_disabled_without_public_base_url"] = {"status": status if not passed else 200, "passed": passed, "expected": "SMTP enabled without public_base_url does not enable link mail flows"}
+        return passed
+
     def test_strict_cors_unknown_origin_rejected(self):
         status, _ = curl_headers("GET", "/api/setup/status", {"Origin": "https://evil.example"})
         return self.record("strict_cors_unknown_origin_rejected", status, expected=403)
@@ -1201,6 +1231,7 @@ class TestSuite:
             self.test_untrusted_proxy_ignores_forwarded_host,
             self.test_instance_config_update,
             self.test_instance_config_audit_written,
+            self.test_email_links_disabled_without_public_base_url,
             self.test_strict_cors_allowed_origin_preflight,
             self.test_strict_cors_scheme_mismatch_rejected,
             self.test_strict_cors_disallowed_request_header_rejected,

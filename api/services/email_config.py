@@ -6,6 +6,7 @@ from typing import Any, Optional
 from fastapi import HTTPException
 
 from db import get_db
+from services.instance_config import get_instance_config
 from services.utils import validate_email
 
 SMTP_SECURITY_MODES = {"none", "starttls", "tls"}
@@ -186,6 +187,11 @@ def update_email_config(data: dict[str, Any], *, client_ip: Optional[str] = None
 def is_email_configured() -> bool:
     config = get_email_config(include_secret=True)
     return bool(config["smtp_enabled"] and config["smtp_host"] and config["mail_from_address"])
+
+
+def can_send_email_links() -> bool:
+    """Return true only when SMTP and a stable public URL are configured."""
+    return bool(is_email_configured() and get_instance_config().get("public_base_url"))
 
 
 def get_password_link_ttl_hours() -> int:

@@ -9,7 +9,7 @@ from db import get_db, now_iso
 from routers.auth import require_auth
 from services.audit import log_audit
 from services.email import send_email
-from services.email_config import is_email_configured
+from services.email_config import can_send_email_links
 from services.email_templates import project_share_invite_email
 from services.instance_config import get_public_base_url
 from services.websocket import broadcast_change
@@ -183,7 +183,7 @@ async def share_project(project_id: int, data: ShareProjectRequest, request: Req
         )
         emailed = False
         db.commit()
-        if is_email_configured() and target.get('email'):
+        if can_send_email_links() and target.get('email'):
             subject, text, html = project_share_invite_email(
                 display_name=target.get('display_name') or target.get('username'),
                 username=target.get('username'),
