@@ -251,13 +251,7 @@ export function createAppDownloadsFeature() {
     const manifestUrl = new URL(baseUrl, window.location.href);
     manifestUrl.searchParams.set('_', String(Date.now()));
     manifestUrl.searchParams.set('current', normalizeVersion(await createNativeBridge().getAppVersion?.().catch?.(() => '') || 'web') || 'web');
-    const response = await fetch(manifestUrl.toString(), {
-      cache: 'no-store',
-      headers: {
-        'Cache-Control': 'no-cache, no-store, max-age=0',
-        Pragma: 'no-cache',
-      },
-    });
+    const response = await fetch(manifestUrl.toString(), { cache: 'no-store' });
     if (!response.ok) throw new Error(`download manifest unavailable: ${response.status}`);
     return response.json();
   }
