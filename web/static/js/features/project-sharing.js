@@ -122,7 +122,7 @@ export function createProjectSharingFeature({
     const username = input.value.trim();
     setShareError('');
     if (!username) {
-      setShareError('Benutzername eingeben');
+      setShareError('Benutzername oder E-Mail eingeben');
       input.focus();
       return;
     }
@@ -142,11 +142,11 @@ export function createProjectSharingFeature({
     } catch (err) {
       const msg = (err?.message || '').toLowerCase();
       if (msg.includes('404') || msg.includes('not found')) {
-        setShareError(`Benutzer "${username}" nicht gefunden`);
+        setShareError(`Benutzer oder E-Mail "${username}" nicht gefunden`);
       } else if (msg.includes('403') || msg.includes('forbidden')) {
         setShareError('Keine Berechtigung — nur der Owner kann einladen');
       } else if (msg.includes('already')) {
-        setShareError(`Benutzer "${username}" hat bereits Zugriff oder eine ausstehende Einladung`);
+        setShareError(`Benutzer oder E-Mail "${username}" hat bereits Zugriff oder eine ausstehende Einladung`);
       } else {
         setShareError('Fehler beim Einladen: ' + (err?.message || 'Unbekannter Fehler'));
       }

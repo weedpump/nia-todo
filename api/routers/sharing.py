@@ -1,11 +1,15 @@
 """nia-todo: Project sharing endpoints"""
 
 from typing import Optional
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from pydantic import BaseModel, Field
 
 from db import get_db, now_iso
 from routers.auth import require_auth
+from services.email import send_email
+from services.email_config import is_email_configured
+from services.email_templates import project_share_invite_email
+from services.instance_config import get_public_base_url
 from services.websocket import broadcast_change
 
 router = APIRouter(prefix="/api/projects")
@@ -13,7 +17,7 @@ router = APIRouter(prefix="/api/projects")
 # ─── Pydantic Models ─────────────────────────────────────────────────────────
 
 class ShareProjectRequest(BaseModel):
-    username: str = Field(..., min_length=3, max_length=32, pattern=r'^[a-zA-Z0-9_\-]+$')
+    username: str = Field(..., min_length=3, max_length=254)
 
 class AcceptInviteRequest(BaseModel):
     accept: bool  # True = annehmen, False = ablehnen
@@ -28,10 +32,15 @@ class RestoreMemberRequest(BaseModel):
 
 # ─── Helpers ───────────────────────────────────────────────────────────────────
 
-def get_user_by_username(db, username: str) -> Optional[dict]:
+def get_user_by_identifier(db, identifier: str) -> Optional[dict]:
     row = db.execute(
-        "SELECT id, username, display_name FROM users WHERE username = ?",
-        (username,)
+        """SELECT id, username, display_name, email
+           FROM users
+           WHERE username = ?
+              OR (lower(email) = lower(?) AND email_verified_at IS NOT NULL)
+           ORDER BY CASE WHEN username = ? THEN 0 ELSE 1 END
+           LIMIT 1""",
+        (identifier, identifier, identifier)
     ).fetchone()
     return dict(row) if row else None
 
@@ -134,7 +143,7 @@ def list_pending_invites(user_id: int = Depends(require_auth)):
 
 
 @router.post("/{project_id}/share")
-async def share_project(project_id: int, data: ShareProjectRequest, user_id: int = Depends(require_auth)):
+async def share_project(project_id: int, data: ShareProjectRequest, request: Request, user_id: int = Depends(require_auth)):
     """Share a project with another user. Owner only."""
     with get_db() as db:
         # Check project exists and user is owner
@@ -144,14 +153,15 @@ async def share_project(project_id: int, data: ShareProjectRequest, user_id: int
         if project['user_id'] != user_id:
             raise HTTPException(403, "Only the project owner can share this project")
 
-        # Cannot share with self
-        if data.username == project['owner_username']:
-            raise HTTPException(400, "Cannot share a project with yourself")
-
-        # Find target user
-        target = get_user_by_username(db, data.username)
+        identifier = data.username.strip()
+        # Find target user by username or verified email
+        target = get_user_by_identifier(db, identifier)
         if not target:
-            raise HTTPException(404, f"User '{data.username}' not found")
+            raise HTTPException(404, f"User '{identifier}' not found")
+
+        # Cannot share with self
+        if target['id'] == project['user_id']:
+            raise HTTPException(400, "Cannot share a project with yourself")
 
         # Check if already shared
         existing = db.execute(
@@ -159,7 +169,7 @@ async def share_project(project_id: int, data: ShareProjectRequest, user_id: int
             (project_id, target['id'])
         ).fetchone()
         if existing and existing['status'] in ('pending', 'accepted'):
-            raise HTTPException(400, f"User '{data.username}' already has access or a pending invite")
+            raise HTTPException(400, f"User '{identifier}' already has access or a pending invite")
 
         # Create invitation
         c = db.execute(
@@ -169,11 +179,22 @@ async def share_project(project_id: int, data: ShareProjectRequest, user_id: int
                status = 'pending', invited_by = excluded.invited_by, updated_at = datetime('now')""",
             (project_id, target['id'], user_id)
         )
+        emailed = False
+        if is_email_configured() and target.get('email'):
+            subject, text, html = project_share_invite_email(
+                display_name=target.get('display_name') or target.get('username'),
+                username=target.get('username'),
+                project_name=project.get('name'),
+                inviter_name=project.get('owner_display_name') or project.get('owner_username'),
+                link=get_public_base_url(request),
+            )
+            send_email(to=target['email'], subject=subject, text=text, html=html)
+            emailed = True
         db.commit()
 
         member = get_project_member(db, project_id, target['id'])
         await broadcast_change("member_invited", {"project_id": project_id, "member": member}, target['id'], project_id)
-        return {"member": member}
+        return {"member": member, "notification_delivery": "email" if emailed else "in_app"}
 
 
 @router.post("/{project_id}/members/{member_user_id}/restore")
