@@ -200,9 +200,20 @@ def resend_password_setup_link(data: ResendPasswordSetupRequest, request: Reques
                 expires_hours=get_password_link_ttl_hours(),
             )
             db.commit()
-            send_email(to=row['email'], subject=subject, text=text, html=html)
-            log_audit(db, "password_setup_email_sent", user_id=row['user_id'], details=f"purpose={row['purpose']}; resend=true")
-            emailed = True
+            try:
+                send_email(to=row['email'], subject=subject, text=text, html=html)
+                log_audit(db, "password_setup_email_sent", user_id=row['user_id'], details=f"purpose={row['purpose']}; resend=true")
+                emailed = True
+            except Exception:
+                db.execute(
+                    """UPDATE password_setup_tokens
+                       SET status = 'replaced', replaced_at = datetime('now')
+                       WHERE user_id = ? AND purpose = ? AND status = 'active' AND used_at IS NULL""",
+                    (row['user_id'], row['purpose'])
+                )
+                log_audit(db, "password_setup_email_failed", user_id=row['user_id'], ip_address=get_client_ip(request), details=f"purpose={row['purpose']}; resend=true")
+                db.commit()
+                raise HTTPException(400, "Neuer Link konnte nicht per E-Mail gesendet werden. Bitte Admin kontaktieren.")
         log_audit(db, "password_setup_link_replaced", user_id=row['user_id'], ip_address=get_client_ip(request), details=f"purpose={row['purpose']}; delivery={'email' if emailed else 'manual'}")
         db.commit()
     response = {
