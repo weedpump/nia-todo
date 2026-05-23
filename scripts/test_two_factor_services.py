@@ -18,6 +18,7 @@ from fastapi import HTTPException
 
 import services.two_factor as two_factor_module
 from services.auth import create_jwt_token, get_current_user
+from routers.two_factor import require_2fa_status_auth
 from services.webauthn import relying_party_for_request, verify_client_data
 from services.two_factor import (
     create_challenge,
@@ -153,6 +154,7 @@ def main():
         set_two_factor_required(conn, True)
         conn.commit()
         assert get_current_user(old_token) is None
+        assert require_2fa_status_auth(authorization=f"Bearer {old_token}") == user_id
 
         # Passkeys use a pinned public_base_url RP/origin in production and do not silently bind to Host headers.
         conn.execute("INSERT OR REPLACE INTO app_config (key, value, updated_at) VALUES ('public_base_url', 'https://todo.example.invalid/app', datetime('now'))")

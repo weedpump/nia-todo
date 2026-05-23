@@ -102,6 +102,19 @@ def require_enrollment_or_recent_mfa(authorization: Optional[str] = Header(None)
         return user_id
 
 
+def require_2fa_status_auth(authorization: Optional[str] = Header(None)) -> int:
+    """Allow reading non-sensitive 2FA factor metadata with a valid interactive JWT.
+
+    This endpoint intentionally does not require recent MFA: the frontend needs it
+    to decide which reauth ceremony to start after mfa_at has gone stale.
+    """
+    with get_db() as db:
+        payload = _current_payload(authorization, db)
+        if not payload:
+            raise HTTPException(401, "Not authenticated")
+        return payload.get("user_id")
+
+
 def _reauth_bucket(db, user_id: int):
     token_hash = sha256_hex(f"reauth:{user_id}:{int(time.time() // REAUTH_MAX_AGE_SECONDS)}")
     expires_at = int(time.time()) + REAUTH_MAX_AGE_SECONDS
@@ -221,7 +234,7 @@ def verify_login_challenge(data: VerifyChallengeRequest, request: Request, respo
 
 
 @router.get("/me/2fa")
-def get_own_2fa(user_id: int = Depends(require_enrollment_or_recent_mfa)):
+def get_own_2fa(user_id: int = Depends(require_2fa_status_auth)):
     with get_db() as db:
         return user_mfa_state(db, user_id)
 
