@@ -10,7 +10,7 @@
 **Body**
 ```json
 {
-  "username": "tobi",
+  "username": "demo",
   "password": "***"
 }
 ```
@@ -22,9 +22,9 @@
   "token_type": "bearer",
   "user": {
     "id": 1,
-    "username": "tobi",
-    "display_name": "Tobi",
-    "email": "tobi@example.com",
+    "username": "demo",
+    "display_name": "Max Mustermann",
+    "email": "user@example.com",
     "avatar_url": "/api/avatars/user-1.webp",
     "is_admin": true
   }
@@ -83,9 +83,9 @@ Response entspricht dem normalen Login (`access_token`, `csrf_token`, `user`). D
 ```json
 {
   "id": 1,
-  "username": "tobi",
-  "display_name": "Tobi",
-  "email": "tobi@example.com",
+  "username": "demo",
+  "display_name": "Max Mustermann",
+  "email": "user@example.com",
   "avatar_url": "/api/avatars/user-1.webp",
   "avatar_updated_at": "2026-05-21T00:00:00+00:00",
   "is_admin": true
@@ -97,16 +97,16 @@ Response entspricht dem normalen Login (`access_token`, `csrf_token`, `user`). D
 
 **Body**
 ```json
-{ "display_name": "Tobi" }
+{ "display_name": "Max Mustermann" }
 ```
 
 **Response**
 ```json
 {
   "id": 1,
-  "username": "tobi",
-  "display_name": "Tobi",
-  "email": "tobi@example.com",
+  "username": "demo",
+  "display_name": "Max Mustermann",
+  "email": "user@example.com",
   "avatar_url": "/api/avatars/user-1.webp",
   "avatar_updated_at": "2026-05-21T00:00:00+00:00",
   "is_admin": true
@@ -216,7 +216,7 @@ Passkeys sind an die konfigurierte öffentliche Basis-URL (`public_base_url`) ge
 
 Android Native nutzt AndroidX Credential Manager. Jede selfhosted Serverinstanz liefert `/.well-known/assetlinks.json` für die offizielle Android-App aus:
 
-- Package: `de.tobiaskneidl.nia_todo`
+- Package: `de.useraskneidl.nia_todo`
 - Release-Zertifikat: `90:0E:26:CD:40:B8:BF:42:A6:5B:98:02:8A:A5:43:9F:6A:72:74:15:55:FE:26:C4:85:B8:34:E3:B1:97:E0:58`
 - Relation: `delegate_permission/common.get_login_creds`
 
@@ -286,8 +286,8 @@ Security-sensitive Account-Aktionen verlangen bei 2FA-pflichtigen Accounts einen
 ```json
 {
   "valid": true,
-  "username": "tobi",
-  "display_name": "Tobi",
+  "username": "demo",
+  "display_name": "Max Mustermann",
   "purpose": "reset",
   "expires_at": "2026-05-24 12:00:00"
 }
@@ -325,7 +325,7 @@ Security-sensitive Account-Aktionen verlangen bei 2FA-pflichtigen Accounts einen
 ```json
 {
   "email_sent": false,
-  "password_setup_url": "http://todo-dev.kneidl-home.de:8753/set-password?token=..."
+  "password_setup_url": "https://todo.example.com/set-password?token=..."
 }
 ```
 
@@ -393,7 +393,7 @@ Security-sensitive Account-Aktionen verlangen bei 2FA-pflichtigen Accounts einen
   "smtp_security": "starttls",
   "smtp_auth_enabled": true,
   "smtp_username": "nia@example.com",
-  "smtp_password": "geheim123",
+  "smtp_password": "***",
   "mail_from_address": "nia@example.com",
   "mail_from_name": "nia-todo"
 }
@@ -409,7 +409,7 @@ Security-sensitive Account-Aktionen verlangen bei 2FA-pflichtigen Accounts einen
 
 **Body**
 ```json
-{ "to": "tobi@example.com" }
+{ "to": "user@example.com" }
 ```
 
 **Response**
@@ -471,8 +471,8 @@ Security-sensitive Account-Aktionen verlangen bei 2FA-pflichtigen Accounts einen
     {
       "id": 1,
       "user_id": 1,
-      "username": "tobi",
-      "display_name": "Tobi",
+      "username": "demo",
+      "display_name": "Max Mustermann",
       "status": "accepted"
     }
   ]
@@ -505,7 +505,7 @@ Security-sensitive Account-Aktionen verlangen bei 2FA-pflichtigen Accounts einen
       "id": 42,
       "project_id": 5,
       "project_name": "Einkaufsliste",
-      "invited_by_username": "tobi",
+      "invited_by_username": "demo",
       "status": "pending"
     }
   ]
@@ -533,10 +533,10 @@ Security-sensitive Account-Aktionen verlangen bei 2FA-pflichtigen Accounts einen
 **Body**
 ```json
 {
-  "username": "tobi",
-  "email": "tobi@example.com",
+  "username": "demo",
+  "email": "user@example.com",
   "password": "***",
-  "display_name": "Tobi"
+  "display_name": "Max Mustermann"
 }
 ```
 
@@ -591,9 +591,9 @@ Invalidiert alle Admin-Sessions durch Erhöhung der Admin-Token-Version.
   "users": [
     {
       "id": 1,
-      "username": "tobi",
-      "display_name": "Tobi",
-      "email": "tobi@example.com",
+      "username": "demo",
+      "display_name": "Max Mustermann",
+      "email": "user@example.com",
       "is_admin": true
     }
   ]
@@ -627,7 +627,7 @@ Der Admin setzt kein Passwort mehr direkt. Beim Anlegen wird ein einmaliger Pass
   "display_name": "Neuer User",
   "email": "neu@example.com",
   "created_at": "2026-05-20T21:30:00Z",
-  "password_setup_url": "https://example.local/set-password?token=...",
+  "password_setup_url": "https://todo.example.com/set-password?token=...",
   "password_setup_expires_hours": 24
 }
 ```
@@ -663,7 +663,7 @@ Optional kann `display_name` mitgegeben werden.
 **Response**
 ```json
 {
-  "password_setup_url": "https://example.local/set-password?token=...",
+  "password_setup_url": "https://todo.example.com/set-password?token=...",
   "password_setup_expires_hours": 24
 }
 ```
@@ -674,7 +674,7 @@ Optional kann `display_name` mitgegeben werden.
 **Response**
 ```json
 {
-  "password_setup_url": "https://example.local/set-password?token=...",
+  "password_setup_url": "https://todo.example.com/set-password?token=...",
   "password_setup_expires_hours": 24
 }
 ```
@@ -964,8 +964,8 @@ Authorization: ApiKey nt_...
       "is_inbox": 1,
       "is_owner": true,
       "is_shared": false,
-      "owner_username": "tobi",
-      "owner_display_name": "Tobi"
+      "owner_username": "demo",
+      "owner_display_name": "Max Mustermann"
     }
   ]
 }
@@ -1038,7 +1038,7 @@ Authorization: ApiKey nt_...
       "name": "Gemeinsam",
       "member_status": "accepted",
       "member_color": "#f59e0b",
-      "owner_username": "tobi"
+      "owner_username": "demo"
     }
   ]
 }
@@ -1056,8 +1056,8 @@ Authorization: ApiKey nt_...
       "project_id": 5,
       "project_name": "Gemeinsam",
       "project_color": "#6366f1",
-      "invited_by_username": "tobi",
-      "invited_by_display_name": "Tobi",
+      "invited_by_username": "demo",
+      "invited_by_display_name": "Max Mustermann",
       "status": "pending"
     }
   ]
@@ -1315,7 +1315,7 @@ Liefert die verfügbaren Windows-/Android-Artefakte mit Version, Plattform, Arch
 ### Android Digital Asset Links
 `GET /.well-known/assetlinks.json`
 
-Liefert die gepinnte Beziehung zwischen Server und offizieller Android-App `de.tobiaskneidl.nia_todo` für native Passkeys.
+Liefert die gepinnte Beziehung zwischen Server und offizieller Android-App `de.useraskneidl.nia_todo` für native Passkeys.
 
 ## Hinweise
 
