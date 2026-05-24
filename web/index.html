@@ -520,40 +520,40 @@
         <div class="app-downloads settings-downloads" data-app-downloads style="display:none;"></div>
         <div id="desktop-settings-section" style="display:none;">
           <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">
-          <h4 style="margin:0 0 12px 0; font-size:14px;"><span data-icon="smartphone"></span> App</h4>
+          <h4 style="margin:0 0 12px 0; font-size:14px;"><span data-icon="smartphone"></span> <span data-i18n-key="settings.desktop.title">App</span></h4>
           <div data-desktop-only>
             <label class="settings-toggle-row">
-              <span>Minimieren ins Tray statt beenden</span>
+              <span data-i18n-key="settings.desktop.minimizeToTray">Minimieren ins Tray statt beenden</span>
               <input type="checkbox" id="desktop-minimize-to-tray">
             </label>
             <label class="settings-toggle-row">
-              <span>Autostart mit Windows</span>
+              <span data-i18n-key="settings.desktop.autostart">Autostart mit Windows</span>
               <input type="checkbox" id="desktop-autostart">
             </label>
             <label class="settings-toggle-row">
-              <span>Beim Autostart minimiert im Tray starten</span>
+              <span data-i18n-key="settings.desktop.startMinimizedToTray">Beim Autostart minimiert im Tray starten</span>
               <input type="checkbox" id="desktop-start-minimized-to-tray">
             </label>
           </div>
           <label class="settings-toggle-row">
-            <span>Native Benachrichtigungen</span>
+            <span data-i18n-key="settings.desktop.nativeNotifications">Native Benachrichtigungen</span>
             <input type="checkbox" id="desktop-notifications">
           </label>
-          <button class="btn btn-secondary" type="button" onclick="testDesktopNotification()" style="margin-top:8px;">Test-Benachrichtigung</button>
+          <button class="btn btn-secondary" type="button" onclick="testDesktopNotification()" style="margin-top:8px;" data-i18n-key="settings.desktop.testNotification">Test-Benachrichtigung</button>
           <div class="desktop-hotkeys-settings" data-desktop-only>
-            <h5><span data-icon="keyboard"></span> Globale Hotkeys</h5>
-            <p>Ins Feld klicken, Tastenkombination drücken, fertig. <code>Backspace</code>/<code>Entf</code> löscht den Hotkey.</p>
+            <h5><span data-icon="keyboard"></span> <span data-i18n-key="settings.desktop.hotkeys.title">Globale Hotkeys</span></h5>
+            <p><span data-i18n-key="settings.desktop.hotkeys.hint">Ins Feld klicken, Tastenkombination drücken, fertig.</span> <code>Backspace</code>/<code data-i18n-key="settings.desktop.hotkeys.deleteKey">Entf</code> <span data-i18n-key="settings.desktop.hotkeys.clearHint">löscht den Hotkey.</span></p>
             <div class="form-group">
-              <label>App anzeigen/verstecken</label>
-              <input class="hotkey-capture-input" type="text" id="desktop-hotkey-toggle-app" inputmode="none" autocomplete="off" aria-label="Hotkey für App anzeigen oder verstecken">
+              <label data-i18n-key="settings.desktop.hotkeys.toggleApp">App anzeigen/verstecken</label>
+              <input class="hotkey-capture-input" type="text" id="desktop-hotkey-toggle-app" inputmode="none" autocomplete="off" aria-label="Hotkey für App anzeigen oder verstecken" data-i18n-aria-label-key="settings.desktop.hotkeys.toggleAppAria">
             </div>
             <div class="form-group">
-              <label>Neues Todo direkt öffnen</label>
-              <input class="hotkey-capture-input" type="text" id="desktop-hotkey-new-todo" inputmode="none" autocomplete="off" aria-label="Hotkey für neues Todo">
+              <label data-i18n-key="settings.desktop.hotkeys.newTodo">Neues Todo direkt öffnen</label>
+              <input class="hotkey-capture-input" type="text" id="desktop-hotkey-new-todo" inputmode="none" autocomplete="off" aria-label="Hotkey für neues Todo" data-i18n-aria-label-key="settings.desktop.hotkeys.newTodoAria">
             </div>
             <div class="form-group">
-              <label>Suche fokussieren</label>
-              <input class="hotkey-capture-input" type="text" id="desktop-hotkey-search" inputmode="none" autocomplete="off" aria-label="Hotkey für Suche">
+              <label data-i18n-key="settings.desktop.hotkeys.search">Suche fokussieren</label>
+              <input class="hotkey-capture-input" type="text" id="desktop-hotkey-search" inputmode="none" autocomplete="off" aria-label="Hotkey für Suche" data-i18n-aria-label-key="settings.desktop.hotkeys.searchAria">
             </div>
           </div>
           <div id="desktop-settings-status" data-desktop-settings-status style="font-size:13px; color:var(--text-muted); margin-top:8px;"></div>
