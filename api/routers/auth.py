@@ -184,6 +184,7 @@ def me(response: Response, authorization: Optional[str] = Header(None), x_sessio
             "pending_email": user['pending_email'],
             "avatar_url": user['avatar_url'],
             "avatar_updated_at": user['avatar_updated_at'],
+            "language": user['language'] or 'auto',
             "is_admin": bool(user['is_admin']),
             "two_factor": mfa_state,
             "mfa_enrollment_required": enroll_only,
