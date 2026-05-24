@@ -1,3 +1,5 @@
+import { t, translatePage } from '../i18n/index.js';
+
 export function createTodosFeature({
   getTodos,
   setTodos,
@@ -53,12 +55,12 @@ export function createTodosFeature({
 
     let message = '';
     if (input.validity.badInput || input.validity.typeMismatch || !input.validity.valid) {
-      message = `${label} ist ungültig`;
+      message = t('todo.invalidDate', { field: label });
     } else {
       const date = new Date(input.value);
       const year = Number(input.value.slice(0, 4));
       if (!Number.isFinite(date.getTime()) || year < 1900 || year > 9999) {
-        message = `${label} ist ungültig`;
+        message = t('todo.invalidDate', { field: label });
       }
     }
 
@@ -83,14 +85,14 @@ export function createTodosFeature({
       });
       input.addEventListener('invalid', (event) => {
         event.preventDefault();
-        validateDateTimeInput(id, id === 'todo-due' ? 'Deadline' : 'Erinnerung');
+        validateDateTimeInput(id, id === 'todo-due' ? t('todo.deadline') : t('todo.reminder'));
       });
     }
   }
 
   function validateTodoDateTimes() {
-    const dueOk = validateDateTimeInput('todo-due', 'Deadline');
-    const remindOk = validateDateTimeInput('todo-remind', 'Erinnerung');
+    const dueOk = validateDateTimeInput('todo-due', t('todo.deadline'));
+    const remindOk = validateDateTimeInput('todo-remind', t('todo.reminder'));
     if (!dueOk) document.getElementById('todo-due')?.focus();
     else if (!remindOk) document.getElementById('todo-remind')?.focus();
     return dueOk && remindOk;
@@ -146,7 +148,11 @@ export function createTodosFeature({
     document.getElementById('todo-form')?.reset();
     clearDateTimeErrors();
     document.getElementById('todo-id').value = '';
-    document.getElementById('todo-modal-title').textContent = todo ? 'Todo bearbeiten' : 'Neues Todo';
+    const modalTitle = document.getElementById('todo-modal-title');
+    if (modalTitle) {
+      modalTitle.dataset.i18nKey = todo ? 'todo.edit' : 'todo.new';
+      modalTitle.textContent = t(modalTitle.dataset.i18nKey);
+    }
     const projSelect = document.getElementById('todo-project');
     if (projSelect) {
       projSelect.innerHTML = '';
@@ -213,7 +219,7 @@ export function createTodosFeature({
     const projectId = document.getElementById('todo-project').value;
     const sectionSelect = document.getElementById('todo-section');
     if (!sectionSelect) return;
-    sectionSelect.innerHTML = '<option value="">Keine Section (Unsortiert)</option>';
+    sectionSelect.innerHTML = `<option value="" data-i18n-key="todo.section.none">${t('todo.section.none')}</option>`;
     sectionSelect.disabled = true;
     if (!projectId) return;
     try {
@@ -232,6 +238,7 @@ export function createTodosFeature({
         const allSections = await dbGetAll('sections');
         projectSections = allSections.filter(s => s.project_id === parseInt(projectId));
       }
+      translatePage(sectionSelect);
       for (const s of projectSections) {
         const opt = document.createElement('option');
         opt.value = s.id;
