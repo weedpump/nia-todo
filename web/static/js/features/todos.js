@@ -107,31 +107,31 @@ export function createTodosFeature({
 
   async function markTodoDone(id) {
     if (!getAppInitialized() || !getDb()) return;
-    const t = getTodos().find(x => x.id === id);
-    if (!t || t.status === 'done') return;
-    const updatedTodo = { ...t, status: 'done', updated_at: new Date().toISOString() };
+    const todo = getTodos().find(x => x.id === id);
+    if (!todo || todo.status === 'done') return;
+    const updatedTodo = { ...todo, status: 'done', updated_at: new Date().toISOString() };
     await dbPut('todos', updatedTodo);
-    setTodos(getTodos().map(todo => todo.id === id ? updatedTodo : todo));
+    setTodos(getTodos().map(item => item.id === id ? updatedTodo : item));
     renderStats();
     renderTodos();
-    showToast('Todo erledigt', { type: 'status', id, previousStatus: t.status });
+    showToast(t('todo.toast.done'), { type: 'status', id, previousStatus: todo.status });
     await addToSyncQueue('UPDATE_TODO', { id, changes: { status: 'done' } });
     if (isOnlineForSync()) await syncWithServer();
   }
 
   async function toggleTodo(id) {
     if (!getAppInitialized() || !getDb()) return;
-    const t = getTodos().find(x => x.id === id);
-    if (!t) return;
+    const todo = getTodos().find(x => x.id === id);
+    if (!todo) return;
     const cycle = { pending: 'in_progress', in_progress: 'done', done: 'pending' };
-    const newStatus = cycle[t.status] || 'pending';
-    const updatedTodo = { ...t, status: newStatus, updated_at: new Date().toISOString() };
+    const newStatus = cycle[todo.status] || 'pending';
+    const updatedTodo = { ...todo, status: newStatus, updated_at: new Date().toISOString() };
     await dbPut('todos', updatedTodo);
-    setTodos(getTodos().map(todo => todo.id === id ? updatedTodo : todo));
+    setTodos(getTodos().map(item => item.id === id ? updatedTodo : item));
     renderStats();
     renderTodos();
-    if (newStatus === 'done') showToast('Todo erledigt', { type: 'status', id, previousStatus: t.status });
-    else if (t.status === 'done' && newStatus === 'pending') showToast('Todo wiedereröffnet', { type: 'status', id, previousStatus: t.status });
+    if (newStatus === 'done') showToast(t('todo.toast.done'), { type: 'status', id, previousStatus: todo.status });
+    else if (todo.status === 'done' && newStatus === 'pending') showToast(t('todo.toast.reopened'), { type: 'status', id, previousStatus: todo.status });
     await addToSyncQueue('UPDATE_TODO', { id, changes: { status: newStatus } });
     if (isOnlineForSync()) await syncWithServer();
   }
@@ -313,9 +313,9 @@ export function createTodosFeature({
 
   async function deleteTodo(id) {
     const confirmed = await confirmDanger({
-      title: 'Todo löschen?',
-      message: 'Dieses Todo wird dauerhaft gelöscht.',
-      confirmText: 'Todo löschen',
+      title: t('todo.deleteTitle'),
+      message: t('todo.deleteMessage'),
+      confirmText: t('todo.deleteConfirm'),
     });
     if (!confirmed) return;
     const todo = getTodos().find(t => t.id === id);
@@ -325,7 +325,7 @@ export function createTodosFeature({
     renderStats();
     renderTodos();
     closeModal('todo-modal');
-    showToast('Todo gelöscht', { type: 'delete', id, data: { ...todo } });
+    showToast(t('todo.toast.deleted'), { type: 'delete', id, data: { ...todo } });
     await addToSyncQueue('DELETE_TODO', { id });
     if (isOnlineForSync()) await syncWithServer();
   }
