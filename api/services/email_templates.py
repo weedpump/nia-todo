@@ -25,10 +25,10 @@ def _logo_src() -> str:
     return f"cid:{LOGO_CID}"
 
 
-def _text_email(*, greeting: str, paragraphs: list[str], action_label: str | None = None, action_url: str | None = None, details: list[str] | None = None, highlight_code: str | None = None) -> str:
+def _text_email(*, greeting: str, paragraphs: list[str], action_label: str | None = None, action_url: str | None = None, details: list[str] | None = None, inline_code: str | None = None) -> str:
     parts = [greeting, *paragraphs]
-    if highlight_code:
-        parts.append(str(highlight_code).strip())
+    if inline_code and len(parts) > 1:
+        parts[-1] = f"{parts[-1]} {inline_code}"
     if action_label and action_url:
         parts.append(f"{action_label}:\n{action_url}")
     if details:
@@ -85,23 +85,6 @@ def _outlook_fallback_link_html(link: str) -> str:
     )
 
 
-def _code_box(code: str, *, outlook: bool = False) -> str:
-    safe_code = escape(code)
-    if outlook:
-        return (
-            '<table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:24px 0 22px;border-collapse:collapse;">'
-            '<tr><td bgcolor="#f8fafc" style="background:#f8fafc;border:1px solid #e2e8f0;padding:14px 18px;">'
-            f'<div style="font-family:Consolas,\'Courier New\',monospace;font-size:26px;line-height:32px;font-weight:bold;letter-spacing:4px;color:#0f172a;mso-style-textfill-type:solid;mso-style-textfill-fill-color:#0f172a;mso-style-textfill-fill-alpha:100000;">{safe_code}</div>'
-            '</td></tr></table>'
-        )
-    return (
-        '<table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:24px 0 22px;">'
-        '<tr><td class="code-box" bgcolor="#f8fafc" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:16px;padding:14px 18px;">'
-        f'<div style="font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,\'Liberation Mono\',monospace;font-size:27px;line-height:32px;font-weight:900;letter-spacing:4px;color:#0f172a;">{safe_code}</div>'
-        '</td></tr></table>'
-    )
-
-
 def _detail_box(items: list[str]) -> str:
     if not items:
         return ""
@@ -124,12 +107,13 @@ def _detail_box(items: list[str]) -> str:
     )
 
 
-def _modern_body_html(*, safe_name: str, paragraphs: list[str], action_label: str | None, action_url: str | None, details: list[str], highlight_code: str | None = None) -> str:
+def _modern_body_html(*, safe_name: str, paragraphs: list[str], action_label: str | None, action_url: str | None, details: list[str], inline_code: str | None = None) -> str:
     body = [f'<p style="margin:0 0 16px;font-size:16px;line-height:1.7;color:#334155;">Hallo {escape(safe_name)},</p>']
-    for paragraph in paragraphs:
-        body.append(f'<p style="margin:0 0 16px;font-size:16px;line-height:1.7;color:#334155;">{escape(paragraph)}</p>')
-    if highlight_code:
-        body.append(_code_box(highlight_code))
+    for index, paragraph in enumerate(paragraphs):
+        suffix = ""
+        if inline_code and index == len(paragraphs) - 1:
+            suffix = f' <strong style="font-weight:900;color:#0f172a;">{escape(inline_code)}</strong>'
+        body.append(f'<p style="margin:0 0 16px;font-size:16px;line-height:1.7;color:#334155;">{escape(paragraph)}{suffix}</p>')
     if action_label and action_url:
         body.append(_modern_button_html(action_label, action_url))
         body.append(_modern_fallback_link_html(action_url))
@@ -137,12 +121,13 @@ def _modern_body_html(*, safe_name: str, paragraphs: list[str], action_label: st
     return "".join(body)
 
 
-def _outlook_body_html(*, safe_name: str, paragraphs: list[str], action_label: str | None, action_url: str | None, details: list[str], highlight_code: str | None = None) -> str:
+def _outlook_body_html(*, safe_name: str, paragraphs: list[str], action_label: str | None, action_url: str | None, details: list[str], inline_code: str | None = None) -> str:
     body = [f'<p style="margin:0 0 16px;font-family:Arial,sans-serif;font-size:16px;line-height:27px;color:#334155;">Hallo {escape(safe_name)},</p>']
-    for paragraph in paragraphs:
-        body.append(f'<p style="margin:0 0 16px;font-family:Arial,sans-serif;font-size:16px;line-height:27px;color:#334155;">{escape(paragraph)}</p>')
-    if highlight_code:
-        body.append(_code_box(highlight_code, outlook=True))
+    for index, paragraph in enumerate(paragraphs):
+        suffix = ""
+        if inline_code and index == len(paragraphs) - 1:
+            suffix = f' <strong style="font-weight:bold;color:#0f172a;mso-style-textfill-type:solid;mso-style-textfill-fill-color:#0f172a;mso-style-textfill-fill-alpha:100000;">{escape(inline_code)}</strong>'
+        body.append(f'<p style="margin:0 0 16px;font-family:Arial,sans-serif;font-size:16px;line-height:27px;color:#334155;">{escape(paragraph)}{suffix}</p>')
     if action_label and action_url:
         body.append(_outlook_action_link_html(action_label, action_url))
         body.append(_outlook_fallback_link_html(action_url))
@@ -176,7 +161,6 @@ def _layout(*, title: str, preheader: str, modern_body_html: str, outlook_body_h
       .modern-body, .modern-footer {{ background:#0b1020 !important; }}
       .modern-button {{ background:#1e293b !important; box-shadow:0 0 0 1px rgba(199,210,254,.22) !important; }}
       .modern-button a {{ background:#1e293b !important; color:#ffffff !important; }}
-      .code-box {{ background:#f8fafc !important; border-color:#cbd5e1 !important; }}
     }}
   </style>
   <!--[if mso]>
@@ -260,7 +244,7 @@ def render_system_email(
     action_url: str | None = None,
     details: list[str] | None = None,
     preheader: str | None = None,
-    highlight_code: str | None = None,
+    inline_code: str | None = None,
 ) -> tuple[str, str, str]:
     """Return subject, plain text and branded HTML for a nia-todo system email."""
     safe_name = greeting_name.strip() if greeting_name else "du"
@@ -268,10 +252,10 @@ def render_system_email(
     cleaned_subject = _clean_subject(subject)
     safe_paragraphs = [str(paragraph) for paragraph in paragraphs if str(paragraph).strip()]
     safe_details = [str(item) for item in (details or []) if str(item).strip()]
-    safe_highlight_code = str(highlight_code).strip() if highlight_code else None
-    text = _text_email(greeting=greeting, paragraphs=safe_paragraphs, action_label=action_label, action_url=action_url, details=safe_details, highlight_code=safe_highlight_code)
-    modern_body = _modern_body_html(safe_name=safe_name, paragraphs=safe_paragraphs, action_label=action_label, action_url=action_url, details=safe_details, highlight_code=safe_highlight_code)
-    outlook_body = _outlook_body_html(safe_name=safe_name, paragraphs=safe_paragraphs, action_label=action_label, action_url=action_url, details=safe_details, highlight_code=safe_highlight_code)
+    safe_inline_code = str(inline_code).strip() if inline_code else None
+    text = _text_email(greeting=greeting, paragraphs=safe_paragraphs, action_label=action_label, action_url=action_url, details=safe_details, inline_code=safe_inline_code)
+    modern_body = _modern_body_html(safe_name=safe_name, paragraphs=safe_paragraphs, action_label=action_label, action_url=action_url, details=safe_details, inline_code=safe_inline_code)
+    outlook_body = _outlook_body_html(safe_name=safe_name, paragraphs=safe_paragraphs, action_label=action_label, action_url=action_url, details=safe_details, inline_code=safe_inline_code)
     html = _layout(
         title=title,
         preheader=preheader or (safe_paragraphs[0] if safe_paragraphs else title),
@@ -336,7 +320,7 @@ def two_factor_code_email(*, display_name: str, username: str, code: str, purpos
         paragraphs=[f"Dein {label} lautet:"],
         details=[f"Der Code ist {expires_minutes} Minuten gültig.", "Tipp: Du kannst in den Einstellungen zusätzlich einen Authenticator oder Passkey einrichten."],
         preheader=f"Dein nia-todo {label}: {code}",
-        highlight_code=code,
+        inline_code=code,
     )
 
 
