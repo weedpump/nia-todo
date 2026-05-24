@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.js';
 import { iconSvg, markerHtml, renderIconPicker } from '../icons/lucide-icons.js';
 
 export function createWorkspacesFeature({
@@ -107,13 +108,13 @@ export function createWorkspacesFeature({
               <span>${escapeHtml(workspace.name)}</span>
               ${active ? `<span class="workspace-menu-check">${iconSvg('check')}</span>` : ''}
             </button>
-            <button type="button" class="workspace-menu-edit" onclick="event.stopPropagation(); showWorkspaceModal('${escapeAttr(workspace.id)}')" title="Workspace umbenennen" aria-label="Workspace bearbeiten">
+            <button type="button" class="workspace-menu-edit" onclick="event.stopPropagation(); showWorkspaceModal('${escapeAttr(workspace.id)}')" title="${escapeAttr(t('workspace.rename'))}" aria-label="${escapeAttr(t('workspace.editAria'))}">
               ${iconSvg('edit-3')}
             </button>
           </div>`;
         }).join('')}
       </div>
-      <button type="button" class="workspace-menu-add" onclick="showWorkspaceModal()">＋ Workspace hinzufügen</button>
+      <button type="button" class="workspace-menu-add" onclick="showWorkspaceModal()">${escapeHtml(t('workspace.add'))}</button>
     `;
   }
 
@@ -138,7 +139,11 @@ export function createWorkspacesFeature({
     const workspace = editingWorkspaceId
       ? getWorkspaces().find(w => String(w.id) === String(editingWorkspaceId))
       : null;
-    document.getElementById('workspace-modal-title').textContent = workspace ? 'Workspace bearbeiten' : 'Neuer Workspace';
+    const modalTitle = document.getElementById('workspace-modal-title');
+    if (modalTitle) {
+      modalTitle.dataset.i18nKey = workspace ? 'workspace.edit' : 'workspace.new';
+      modalTitle.textContent = t(modalTitle.dataset.i18nKey);
+    }
     document.getElementById('workspace-id').value = workspace?.id || '';
     document.getElementById('workspace-name').value = workspace?.name || '';
     document.getElementById('workspace-color').value = workspace?.color || '#6366f1';
@@ -178,11 +183,11 @@ export function createWorkspacesFeature({
     const error = document.getElementById('workspace-error');
     if (error) error.textContent = '';
     if (!name) {
-      if (error) error.textContent = 'Bitte einen Namen eingeben.';
+      if (error) error.textContent = t('workspace.nameRequired');
       return;
     }
     if (!isOnlineForSync()) {
-      if (error) error.textContent = 'Workspace ändern geht aktuell nur online.';
+      if (error) error.textContent = t('workspace.onlineOnlyUpdate');
       return;
     }
 
@@ -191,13 +196,13 @@ export function createWorkspacesFeature({
         const updated = await workspacesApi.update(editingWorkspaceId, { name, color, icon });
         await dbPut('workspaces', updated);
         setWorkspaces(getWorkspaces().map(w => String(w.id) === String(updated.id) ? updated : w));
-        showToast?.('Workspace umbenannt.');
+        showToast?.(t('workspace.saved')); 
       } else {
         const workspace = await workspacesApi.create({ name, color, icon, sort_order: getWorkspaces().length });
         await dbPut('workspaces', workspace);
         setWorkspaces([...getWorkspaces(), workspace]);
         await switchWorkspace(workspace.id);
-        showToast?.('Workspace angelegt.');
+        showToast?.(t('workspace.created')); 
       }
       closeWorkspaceModal();
       renderWorkspaces();
@@ -207,7 +212,7 @@ export function createWorkspacesFeature({
       await refreshFromServer();
     } catch (err) {
       console.error('Workspace save failed', err);
-      if (error) error.textContent = 'Workspace konnte nicht gespeichert werden.';
+      if (error) error.textContent = t('workspace.saveFailed');
     }
   }
 
@@ -216,14 +221,14 @@ export function createWorkspacesFeature({
     const workspace = getWorkspaces().find(w => String(w.id) === String(editingWorkspaceId));
     if (!workspace || workspace.is_default) return;
     const confirmed = await confirmDanger({
-      title: 'Workspace löschen?',
-      message: `Workspace „${workspace.name}“ wird gelöscht. Projekte und Inbox-Todos werden in den Default-Workspace verschoben.`,
-      confirmText: 'Workspace löschen',
+      title: t('workspace.deleteTitle'),
+      message: t('workspace.deleteMessage', { name: workspace.name }),
+      confirmText: t('workspace.deleteConfirm'),
     });
     if (!confirmed) return;
     if (!isOnlineForSync()) {
       const error = document.getElementById('workspace-error');
-      if (error) error.textContent = 'Workspace löschen geht aktuell nur online.';
+      if (error) error.textContent = t('workspace.onlineOnlyDelete');
       return;
     }
     try {
@@ -234,11 +239,11 @@ export function createWorkspacesFeature({
       await switchWorkspace(next);
       await refreshFromServer();
       const moved = result?.moved_projects?.length || 0;
-      showToast?.(moved ? `Workspace gelöscht, ${moved} Projekte verschoben.` : 'Workspace gelöscht.');
+      showToast?.(moved ? t('workspace.deletedMoved', { count: moved }) : t('workspace.deleted')); 
     } catch (err) {
       console.error('Workspace delete failed', err);
       const error = document.getElementById('workspace-error');
-      if (error) error.textContent = 'Workspace konnte nicht gelöscht werden.';
+      if (error) error.textContent = t('workspace.deleteFailed');
     }
   }
 

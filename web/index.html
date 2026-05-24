@@ -567,30 +567,30 @@
   <div class="modal" id="workspace-modal">
     <div class="modal-overlay" onclick="closeWorkspaceModal()"></div>
     <div class="modal-content small-modal">
-      <h3 id="workspace-modal-title">Neuer Workspace</h3>
+      <h3 id="workspace-modal-title" data-i18n-key="workspace.new">Neuer Workspace</h3>
       <button class="modal-close-x" onclick="closeWorkspaceModal()"><span data-icon="x"></span></button>
       <div class="modal-body">
         <form id="workspace-form">
           <input type="hidden" id="workspace-id">
           <div class="form-group">
-            <label>Name</label>
-            <input type="text" id="workspace-name" required maxlength="80" placeholder="z.B. Privat, Beruflich">
+            <label data-i18n-key="common.name">Name</label>
+            <input type="text" id="workspace-name" required maxlength="80" placeholder="z.B. Privat, Beruflich" data-i18n-placeholder-key="workspace.namePlaceholder">
           </div>
           <div class="form-group">
-            <label>Farbe</label>
+            <label data-i18n-key="common.color">Farbe</label>
             <input type="color" id="workspace-color" value="#6366f1">
           </div>
           <div class="form-group">
-            <label>Icon (optional)</label>
+            <label data-i18n-key="workspace.icon">Icon (optional)</label>
             <input type="hidden" id="workspace-icon">
-            <div id="workspace-icon-picker" class="icon-picker" aria-label="Workspace-Icon auswählen"></div>
+            <div id="workspace-icon-picker" class="icon-picker" aria-label="Workspace-Icon auswählen" data-i18n-aria-label-key="workspace.chooseIcon"></div>
           </div>
           <div id="workspace-error" class="settings-field-error"></div>
           <div class="modal-actions split-actions">
-            <button type="button" class="btn btn-danger" id="workspace-delete-btn" onclick="deleteWorkspaceFromModal()" style="display:none;">Löschen</button>
+            <button type="button" class="btn btn-danger" id="workspace-delete-btn" onclick="deleteWorkspaceFromModal()" style="display:none;" data-i18n-key="todo.delete">Löschen</button>
             <div class="modal-actions-right">
-              <button type="button" class="btn btn-secondary" onclick="closeWorkspaceModal()">Abbrechen</button>
-              <button type="submit" class="btn btn-primary">Speichern</button>
+              <button type="button" class="btn btn-secondary" onclick="closeWorkspaceModal()" data-i18n-key="common.cancel">Abbrechen</button>
+              <button type="submit" class="btn btn-primary" data-i18n-key="common.save">Speichern</button>
             </div>
           </div>
         </form>
@@ -601,60 +601,60 @@
   <div class="modal" id="project-modal">
     <div class="modal-overlay" onclick="closeModal('project-modal')"></div>
     <div class="modal-content">
-      <h3 id="project-modal-title">Neues Projekt</h3>
+      <h3 id="project-modal-title" data-i18n-key="project.new">Neues Projekt</h3>
       <button class="modal-close-x" onclick="closeModal('project-modal')"><span data-icon="x"></span></button>
       <div class="modal-body">
       <form id="project-form">
         <input type="hidden" id="project-id">
         <div class="form-group">
-          <label>Name</label>
+          <label data-i18n-key="common.name">Name</label>
           <input type="text" id="project-name" required>
         </div>
         <div class="form-group">
-          <label>Farbe</label>
+          <label data-i18n-key="common.color">Farbe</label>
           <input type="color" id="project-color" value="#6366f1">
         </div>
         <div class="form-group">
-          <label>Icon (optional)</label>
+          <label data-i18n-key="project.icon">Icon (optional)</label>
           <input type="hidden" id="project-icon">
-          <div id="project-icon-picker" class="icon-picker" aria-label="Projekt-Icon auswählen"></div>
+          <div id="project-icon-picker" class="icon-picker" aria-label="Projekt-Icon auswählen" data-i18n-aria-label-key="project.chooseIcon"></div>
         </div>
         <div class="form-group" id="project-display-workspace-group" style="display:none;">
-          <label>Anzeigen in Workspace</label>
+          <label data-i18n-key="project.displayWorkspace">Anzeigen in Workspace</label>
           <select id="project-display-workspace-id"></select>
         </div>
         <div class="form-group">
-          <label>Eltern-Projekt (optional)</label>
+          <label data-i18n-key="project.parent">Eltern-Projekt (optional)</label>
           <select id="project-parent-id">
-            <option value="">-- Kein Eltern-Projekt --</option>
+            <option value="" data-i18n-key="project.noParent">-- Kein Eltern-Projekt --</option>
           </select>
         </div>
       </form>
 
       <div id="project-sharing-section" style="display:none; margin-top:16px; padding-top:16px; border-top:1px solid var(--border);">
-        <div id="project-owner-info" class="project-owner-info" style="display:none;"><span class="project-owner-label">Geteilt von</span><span class="project-owner-name"></span></div>
+        <div id="project-owner-info" class="project-owner-info" style="display:none;"><span class="project-owner-label" data-i18n-key="project.share.ownerLabel">Geteilt von</span><span class="project-owner-name"></span></div>
         <div id="project-sharing-content">
-          <h4 style="margin:0 0 10px 0;">Geteilt mit</h4>
+          <h4 style="margin:0 0 10px 0;" data-i18n-key="project.share.sharedWith">Geteilt mit</h4>
           <div id="project-members-list"></div>
           <div id="project-share-row" class="form-group" style="margin-top:10px;">
-            <label>Benutzer einladen</label>
+            <label data-i18n-key="project.share.inviteUser">Benutzer einladen</label>
             <div style="display:flex; gap:8px;">
-              <input id="project-share-username" type="text" class="form-control" placeholder="Benutzername oder E-Mail" style="flex:1;">
-              <button type="button" class="btn btn-primary" onclick="inviteUserToProject()">Einladen</button>
+              <input id="project-share-username" type="text" class="form-control" placeholder="Benutzername oder E-Mail" data-i18n-placeholder-key="project.share.usernamePlaceholder" style="flex:1;">
+              <button type="button" class="btn btn-primary" onclick="inviteUserToProject()" data-i18n-key="project.share.invite">Einladen</button>
             </div>
             <div id="project-share-error" class="form-error"></div>
           </div>
         </div>
         <div id="project-share-start-row" style="margin-top:10px;">
-          <button type="button" class="btn btn-secondary" onclick="showShareInput()"><span data-icon="share-2"></span> Teilen</button>
+          <button type="button" class="btn btn-secondary" onclick="showShareInput()"><span data-icon="share-2"></span> <span data-i18n-key="project.share.start">Teilen</span></button>
         </div>
-        <button type="button" class="btn btn-secondary" id="project-leave-btn" onclick="leaveProjectFromModal()" style="display:none; margin-top:10px;">Projekt verlassen</button>
+        <button type="button" class="btn btn-secondary" id="project-leave-btn" onclick="leaveProjectFromModal()" style="display:none; margin-top:10px;" data-i18n-key="project.share.leave">Projekt verlassen</button>
       </div>
       </div>
       <div class="modal-actions">
-        <button type="button" class="btn btn-danger" id="project-delete-btn" onclick="deleteProjectFromModal()" style="margin-right:auto;display:none;"><span data-icon="trash-2"></span> Löschen</button>
-        <button type="button" class="btn btn-secondary" onclick="closeModal('project-modal')">Abbrechen</button>
-        <button type="submit" form="project-form" class="btn btn-primary" id="project-save-btn">Speichern</button>
+        <button type="button" class="btn btn-danger" id="project-delete-btn" onclick="deleteProjectFromModal()" style="margin-right:auto;display:none;"><span data-icon="trash-2"></span> <span data-i18n-key="project.delete">Projekt löschen</span></button>
+        <button type="button" class="btn btn-secondary" onclick="closeModal('project-modal')" data-i18n-key="common.cancel">Abbrechen</button>
+        <button type="submit" form="project-form" class="btn btn-primary" id="project-save-btn" data-i18n-key="common.save">Speichern</button>
       </div>
     </div>
   </div>
