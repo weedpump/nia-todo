@@ -361,5 +361,6 @@
   "time.justNow": "gerade eben",
   "time.minutesAgo": "vor {count} Min.",
   "time.hoursAgo": "vor {count} Std.",
-  "time.daysAgo": "vor {count} Tg."
+  "time.daysAgo": "vor {count} Tg.",
+  "todo.overdue": "überfällig"
 }

@@ -1,4 +1,5 @@
 import { escapeHtml, formatDate, renderMarkdown, truncateWords } from '../core/utils.js';
+import { t as i18nT } from '../i18n/index.js';
 import { iconSvg } from '../icons/lucide-icons.js';
 
 export function renderTodoItem(t) {
@@ -17,18 +18,18 @@ export function renderTodoItem(t) {
       </div>
       <div class="todo-body ${hasMeta || hasDesc ? 'has-meta' : ''}">
         <div class="todo-main">
-          <span class="todo-prio priority-dot" title="Priorität" style="background:${prioColor}"></span>
+          <span class="todo-prio priority-dot" title="${escapeHtml(i18nT('todo.priority'))}" style="background:${prioColor}"></span>
           <span class="todo-title">${escapeHtml(t.title)}</span>
         </div>
         ${hasMeta || hasDesc ? `
         <div class="todo-meta-row">
-          ${dueStr ? `<span class="todo-due ${isOverdue ? 'overdue' : ''}">${iconSvg('calendar')} ${dueStr}${isOverdue ? ' (überfällig)' : ''}</span>` : ''}
+          ${dueStr ? `<span class="todo-due ${isOverdue ? 'overdue' : ''}">${iconSvg('calendar')} ${dueStr}${isOverdue ? ` (${escapeHtml(i18nT('todo.overdue'))})` : ''}</span>` : ''}
           ${desc ? `<span class="todo-desc-preview">${renderMarkdown(desc)}</span>` : ''}
         </div>
         ` : ''}
       </div>
       <div class="todo-actions" onclick="event.stopPropagation()">
-        <button onclick="deleteTodo(${t.id})" title="Löschen">${iconSvg('trash-2')}</button>
+        <button onclick="deleteTodo(${t.id})" title="${escapeHtml(i18nT('common.delete'))}">${iconSvg('trash-2')}</button>
       </div>
     </div>
   `;
