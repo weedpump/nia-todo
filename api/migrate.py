@@ -32,6 +32,11 @@ def set_db_version(conn, version):
     conn.execute("INSERT INTO schema_version (version, applied_at) VALUES (?, datetime('now'))", (version,))
     conn.commit()
 
+def table_exists(conn, table: str) -> bool:
+    cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table,))
+    return cursor.fetchone() is not None
+
+
 def column_exists(conn, table: str, column: str) -> bool:
     return any(row[1] == column for row in conn.execute(f"PRAGMA table_info({table})").fetchall())
 
@@ -274,6 +279,32 @@ def repair_email_trust_source_migration(conn):
     conn.commit()
 
 
+def repair_shared_project_display_workspace_migration(conn):
+    """Complete migration 030 after partial schemas or already-added columns."""
+    if not table_exists(conn, "project_members"):
+        # Partial-recovery fixtures may start after the sharing migration without
+        # recreating sharing tables. Real migrated DBs keep project_members from
+        # migration 011, so there is nothing to alter in this synthetic state.
+        conn.commit()
+        return
+    add_column_if_missing(conn, "project_members", "workspace_id", "INTEGER")
+    conn.executescript("""
+    UPDATE project_members
+    SET workspace_id = (
+        SELECT w.id
+        FROM workspaces w
+        WHERE w.user_id = project_members.user_id
+          AND COALESCE(w.is_default, 0) = 1
+        ORDER BY w.id
+        LIMIT 1
+    )
+    WHERE workspace_id IS NULL;
+
+    CREATE INDEX IF NOT EXISTS idx_project_members_workspace ON project_members(workspace_id);
+    """)
+    conn.commit()
+
+
 def get_migration_files():
     """Holt alle Migrations-Dateien sortiert nach Nummer."""
     if not MIGRATIONS_DIR.exists():
@@ -357,6 +388,11 @@ def run_migrations():
                 elif version == 26 and ("duplicate column" in error_msg or "already exists" in error_msg):
                     print(f"[MIGRATION] ⚠️ {filepath.name} - passkey challenge hardening partially exists, repairing remaining schema")
                     repair_passkey_challenge_hardening_migration(conn)
+                    set_db_version(conn, version)
+                    applied += 1
+                elif version == 30 and ("duplicate column" in error_msg or "already exists" in error_msg or "no such table: project_members" in error_msg):
+                    print(f"[MIGRATION] ⚠️ {filepath.name} - shared project display workspace schema partially exists, repairing remaining schema")
+                    repair_shared_project_display_workspace_migration(conn)
                     set_db_version(conn, version)
                     applied += 1
                 elif "duplicate column" in error_msg or "already exists" in error_msg:

@@ -13,6 +13,7 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 - Geteilte Projekte können pro Mitglied einem eigenen Anzeige-Workspace zugeordnet werden; standardmäßig landen sie im Default-Workspace.
 
 ### Fixed
+- Migration für geteilte Projekt-Workspaces ist robuster bei partiell reparierten Legacy-Schemata.
 - API-Rate-Limit ist für die erweiterte App-/Admin-Nutzung weniger eng, sodass legitime kurze Aktionsfolgen und die Release-Test-Suite nicht unnötig in HTTP 429 laufen.
 - Die Suche in öffentlicher API-Doku und Changelog blendet bei Treffern die zugehörigen Überschriften mit ein, damit Versions- und Abschnittskontext sichtbar bleibt.
 - Geteilte Projekte erscheinen nicht mehr in jedem Workspace und Member können Projekt-Icons nicht mehr lokal scheinbar ändern.
