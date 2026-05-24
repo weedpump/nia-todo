@@ -2325,6 +2325,48 @@ input[type="color"]::-moz-color-swatch {
   transform: translateY(-1px);
 }
 
+.app-resource-links {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.login-resource-links {
+  padding-top: 8px;
+}
+
+.settings-resource-links {
+  margin-bottom: 4px;
+}
+
+.app-resource-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  padding: 8px 11px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: border-color 0.15s, color 0.15s, transform 0.15s;
+}
+
+.app-resource-link:hover {
+  border-color: rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.45));
+  color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.app-resource-link .ui-icon {
+  width: 16px;
+  height: 16px;
+}
+
 .app-download-button span:first-child {
   font-size: 18px;
   line-height: 1;
