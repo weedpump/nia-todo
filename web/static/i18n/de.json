@@ -429,5 +429,11 @@
   "project.done.deleteMessage": "{count} erledigte Todo(s) in „{project}“ werden dauerhaft gelöscht.",
   "project.done.deleteConfirm": "Todos löschen",
   "project.done.deleted": "{count} erledigte Todo(s) gelöscht",
-  "project.done.deleteFailed": "Fehler beim Löschen"
+  "project.done.deleteFailed": "Fehler beim Löschen",
+  "section.unsorted": "Unsortiert",
+  "section.delete": "Löschen",
+  "section.namePlaceholder": "Section-Name",
+  "section.deleteTitle": "Section löschen?",
+  "section.deleteMessage": "Die Section wird gelöscht. Enthaltene Todos werden zu „Unsortiert“ verschoben.",
+  "section.deleteConfirm": "Section löschen"
 }
