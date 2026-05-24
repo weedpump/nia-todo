@@ -7,6 +7,9 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 
 ## [2.1.0] - 2026-05-24
 
+### Added
+- Windows-App kann beim Autostart optional direkt minimiert im Tray starten, ohne das Hauptfenster zu öffnen.
+
 ### Fixed
 - Avatar kann in den Profileinstellungen wieder gelöscht werden; UI, API und gespeicherter User-State fallen danach sauber auf Initialen zurück.
 - Neuer-Todo-Dialog fokussiert beim Öffnen per `N`-Taste oder nativem Desktop-Hotkey direkt das Titelfeld.
