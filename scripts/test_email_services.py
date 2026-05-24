@@ -140,6 +140,10 @@ def test_branded_email_templates():
 
     _, code_text, code_html = two_factor_code_email(display_name="", username="tobi", code="123456", purpose="login")
     assert_true("123456" in code_text and "123456" in code_html, "2FA code missing from template")
+    assert_true("Dein Login-Code lautet:" in code_html, "2FA code intro missing")
+    assert_true("code-box" in code_html, "modern 2FA code box missing")
+    assert_true("mso-style-textfill-fill-color:#0f172a" in code_html, "Outlook 2FA solid textfill missing")
+    assert_true("Dein Login-Code lautet: 123456" not in code_html, "2FA code should not be inline paragraph text")
 
     _, _, test_html = test_email()
     assert_true("Diese Test-Mail wurde über die aktuell gespeicherte SMTP-Konfiguration versendet." in test_html, "test email detail missing")
