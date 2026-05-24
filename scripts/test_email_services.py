@@ -175,8 +175,13 @@ def test_send_test_email_uses_branded_template():
     smtp = FakeSMTP.instances[0]
     html_parts = [part.get_content() for part in smtp.message.walk() if part.get_content_type() == "text/html"]
     rendered = "\n".join(html_parts)
+    image_parts = [part for part in smtp.message.walk() if part.get_content_maintype() == "image"]
     assert_true("SMTP funktioniert" in rendered, "test email did not use branded template")
     assert_true("Deine Aufgaben. Klar sortiert." in rendered, "test email brand tagline missing")
+    assert_true('src="cid:nia-todo-logo"' in rendered, "test email logo does not use CID source")
+    assert_true(len(image_parts) == 1, "test email did not attach exactly one inline image")
+    assert_true(image_parts[0]["Content-ID"] == "<nia-todo-logo>", "inline logo Content-ID mismatch")
+    assert_true(image_parts[0].get_content_disposition() == "inline", "inline logo should not be a regular attachment")
 
 
 def test_tls_ssl_send_without_starttls():
