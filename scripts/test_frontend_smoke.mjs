@@ -52,6 +52,7 @@ async function run() {
     await createSection('Frontend Section B');
 
     await openTodoModal();
+    await page.waitForFunction(() => document.activeElement?.id === 'todo-title', null, { timeout: 5000 });
     await page.fill('#todo-title', 'Frontend Smoke Todo');
     await page.fill('#todo-desc', '**Smoke** test via Playwright');
     await page.selectOption('#todo-project', { label: 'Frontend Smoke Project' });
@@ -60,6 +61,14 @@ async function run() {
     await page.click('button[form="todo-form"]');
     await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });
     await waitForText('Frontend Smoke Todo');
+
+    await page.keyboard.press('n');
+    await visible('#todo-modal');
+    await page.waitForFunction(() => document.activeElement?.id === 'todo-title', null, { timeout: 5000 });
+    await page.keyboard.type('N Shortcut Focus Todo');
+    await page.click('button[form="todo-form"]');
+    await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });
+    await waitForText('N Shortcut Focus Todo');
 
     const todoItem = page.locator('.todo-item').filter({ hasText: 'Frontend Smoke Todo' }).first();
 

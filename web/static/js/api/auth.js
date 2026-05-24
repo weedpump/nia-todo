@@ -286,6 +286,15 @@ export const authApi = {
     return parseOrThrow(response, 'Avatar konnte nicht hochgeladen werden');
   },
 
+  async deleteAvatar() {
+    const response = await fetch(API + '/api/me/avatar', {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    });
+    return parseOrThrow(response, 'Avatar konnte nicht gelöscht werden');
+  },
+
   async verifyEmail(token) {
     const response = await fetch(API + '/api/me/email/verify', {
       method: 'POST',

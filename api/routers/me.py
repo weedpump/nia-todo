@@ -143,6 +143,22 @@ async def upload_own_avatar(request: Request, user_id: int = Depends(require_aut
     return {"avatar_url": avatar_url, "avatar_updated_at": updated_at}
 
 
+@router.delete("/avatar")
+def delete_own_avatar(user_id: int = Depends(require_auth)):
+    avatar_path = AVATAR_DIR / f"user-{user_id}.webp"
+    with get_db() as db:
+        user = db.execute("SELECT id FROM users WHERE id = ?", (user_id,)).fetchone()
+        if not user:
+            raise HTTPException(404, "User not found")
+        try:
+            avatar_path.unlink()
+        except FileNotFoundError:
+            pass
+        db.execute("UPDATE users SET avatar_url = NULL, avatar_updated_at = NULL WHERE id = ?", (user_id,))
+        db.commit()
+    return {"avatar_url": None, "avatar_updated_at": None}
+
+
 @router.post("/email/verify")
 def verify_own_pending_email(data: dict, user_id: int = Depends(require_auth)):
     token = sanitize_text(data.get("token") if isinstance(data, dict) else "")

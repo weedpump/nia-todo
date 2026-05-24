@@ -91,6 +91,17 @@ async function run() {
       const data = await fetch('/api/me', { headers: { 'Authorization': `Bearer ${jwt}` }, credentials: 'include' }).then(r => r.json());
       return data.avatar_url && data.avatar_url.includes('/api/avatars/user-');
     }, null, { timeout: 10000 });
+    await page.click('#settings-avatar-remove');
+    await page.locator('#security-action-modal').waitFor({ state: 'visible', timeout: 10000 });
+    await page.click('#security-action-primary');
+    await page.getByText('Avatar gelöscht').waitFor({ state: 'visible', timeout: 10000 });
+    await page.locator('#settings-avatar-preview').waitFor({ state: 'hidden', timeout: 10000 });
+    await page.locator('#settings-avatar-remove').waitFor({ state: 'hidden', timeout: 10000 });
+    await page.waitForFunction(async () => {
+      const jwt = localStorage.getItem('jwt_token');
+      const data = await fetch('/api/me', { headers: { 'Authorization': `Bearer ${jwt}` }, credentials: 'include' }).then(r => r.json());
+      return !data.avatar_url && !data.avatar_updated_at;
+    }, null, { timeout: 10000 });
     await page.locator('#settings-email-display').waitFor({ state: 'visible', timeout: 10000 });
     await page.locator('#settings-email-cell button[title="E-Mail bearbeiten"]').click();
     await page.locator('#settings-email-input').fill('broken-email');

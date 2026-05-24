@@ -223,6 +223,7 @@ const saveUserProfile = userSettingsFeature.saveUserProfile;
 const startAvatarUpload = userSettingsFeature.startAvatarUpload;
 const cancelAvatarCrop = userSettingsFeature.cancelAvatarCrop;
 const saveAvatarCrop = userSettingsFeature.saveAvatarCrop;
+const deleteUserAvatar = userSettingsFeature.deleteUserAvatar;
 const toggleUserMenu = userMenuFeature.toggleUserMenu;
 const closeUserMenu = userMenuFeature.closeUserMenu;
 const updateUserMenu = userMenuFeature.updateUserMenu;
@@ -281,9 +282,8 @@ const handleWsMessage = wsClient.handleWsMessage;
 
 desktopIntegration = createDesktopIntegration({
   showToast: (...args) => showToast(...args),
-  onHotkeyNewTodo: () => {
-    showTodoModal();
-    setTimeout(() => document.getElementById('todo-title')?.focus(), 80);
+  onHotkeyNewTodo: async () => {
+    await showTodoModal();
   },
   onHotkeySearch: () => {
     const searchInput = document.getElementById('search-input');
@@ -643,7 +643,7 @@ export function startAppModule() {
       testDesktopNotification: () => desktopIntegration?.testNotification(),
       updateDesktopHotkey: (action, shortcut) => desktopIntegration?.updateHotkey(action, shortcut),
     },
-    userSettings: { renderUserInfo, openSettingsModal, editUserDisplayName, cancelUserDisplayNameEdit, saveUserProfile, startAvatarUpload, cancelAvatarCrop, saveAvatarCrop, editUserEmail, cancelUserEmailEdit, saveUserEmail, changeUserPassword, startTwoFactorTotp, confirmTwoFactorTotp, disableTwoFactor, addPasskey, regenerateRecoveryCodes, removeTotpDevice, removePasskeyDevice },
+    userSettings: { renderUserInfo, openSettingsModal, editUserDisplayName, cancelUserDisplayNameEdit, saveUserProfile, startAvatarUpload, cancelAvatarCrop, saveAvatarCrop, deleteUserAvatar, editUserEmail, cancelUserEmailEdit, saveUserEmail, changeUserPassword, startTwoFactorTotp, confirmTwoFactorTotp, disableTwoFactor, addPasskey, regenerateRecoveryCodes, removeTotpDevice, removePasskeyDevice },
     userMenu: { toggleUserMenu, closeUserMenu, updateUserMenu },
   });
 

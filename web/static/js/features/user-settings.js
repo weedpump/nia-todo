@@ -58,6 +58,7 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
   function renderSettingsAvatar(user) {
     const initialEl = document.getElementById('settings-avatar-initial');
     const imgEl = document.getElementById('settings-avatar-preview');
+    const removeBtn = document.getElementById('settings-avatar-remove');
     if (!initialEl || !imgEl) return;
     const name = user?.display_name || user?.username || 'User';
     const src = avatarSrc(user);
@@ -66,10 +67,12 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
       imgEl.src = src;
       imgEl.style.display = '';
       initialEl.style.display = 'none';
+      if (removeBtn) removeBtn.style.display = '';
     } else {
       imgEl.removeAttribute('src');
       imgEl.style.display = 'none';
       initialEl.style.display = '';
+      if (removeBtn) removeBtn.style.display = 'none';
     }
   }
 
@@ -545,6 +548,29 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     }
   }
 
+  async function deleteUserAvatar() {
+    const confirmed = await confirmSecurityAction({
+      title: 'Avatar löschen?',
+      message: 'Dein Profilbild wird entfernt und durch deine Initiale ersetzt.',
+      confirmText: 'Avatar löschen',
+      danger: true,
+    });
+    if (!confirmed) return;
+    const errorEl = document.getElementById('settings-avatar-error');
+    const successEl = document.getElementById('settings-avatar-success');
+    errorEl.textContent = '';
+    successEl.textContent = '';
+    try {
+      const data = await authApi.deleteAvatar();
+      const currentUser = getCurrentUser();
+      if (currentUser) setCurrentUser({ ...currentUser, ...data });
+      renderUserInfo();
+      successEl.textContent = 'Avatar gelöscht';
+    } catch (e) {
+      errorEl.textContent = e.message;
+    }
+  }
+
   function editUserEmail() {
     const currentEmail = getCurrentUser()?.email || '';
     const cell = document.getElementById('settings-email-cell');
@@ -813,6 +839,7 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     startAvatarUpload,
     cancelAvatarCrop,
     saveAvatarCrop,
+    deleteUserAvatar,
     editUserEmail,
     cancelUserEmailEdit,
     saveUserEmail,

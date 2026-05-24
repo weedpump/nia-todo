@@ -123,13 +123,16 @@ export function createUiShell({ renderMarkdown, showTodoModal }) {
     });
   }
 
+  function isTypingTarget(element) {
+    const tag = element?.tagName;
+    return tag === 'INPUT' || tag === 'TEXTAREA' || element?.isContentEditable;
+  }
+
   function bindKeyboardShortcuts() {
-    document.addEventListener('keydown', (e) => {
-      const activeTag = document.activeElement?.tagName;
-      if (e.key === 'n' && !e.ctrlKey && !e.metaKey && activeTag !== 'INPUT' && activeTag !== 'TEXTAREA') {
+    document.addEventListener('keydown', async (e) => {
+      if (e.key.toLowerCase() === 'n' && !e.ctrlKey && !e.metaKey && !e.altKey && !isTypingTarget(document.activeElement)) {
         e.preventDefault();
-        showTodoModal();
-        setTimeout(() => document.getElementById('todo-title')?.focus(), 50);
+        await showTodoModal();
       }
       if (e.key === 'Escape') {
         closeModal('todo-modal');

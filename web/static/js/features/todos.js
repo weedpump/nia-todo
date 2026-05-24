@@ -134,6 +134,12 @@ export function createTodosFeature({
     if (isOnlineForSync()) await syncWithServer();
   }
 
+  function focusTodoTitle() {
+    const focus = () => document.getElementById('todo-title')?.focus();
+    window.requestAnimationFrame?.(focus);
+    window.setTimeout(focus, 80);
+  }
+
   async function showTodoModal(todo = null) {
     bindTodoForm();
     bindDateTimeValidation();
@@ -200,6 +206,7 @@ export function createTodosFeature({
     document.getElementById('todo-delete-btn').style.display = todo ? '' : 'none';
     setupDescPreview();
     document.getElementById('todo-modal')?.classList.add('active');
+    if (!todo) focusTodoTitle();
   }
 
   async function onProjectChange(selectedSectionId = null) {

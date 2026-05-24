@@ -5,6 +5,16 @@ Alle wichtigen Änderungen an diesem Projekt werden in dieser Datei dokumentiert
 Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [2.1.0] - 2026-05-24
+
+### Fixed
+- Avatar kann in den Profileinstellungen wieder gelöscht werden; UI, API und gespeicherter User-State fallen danach sauber auf Initialen zurück.
+- Neuer-Todo-Dialog fokussiert beim Öffnen per `N`-Taste oder nativem Desktop-Hotkey direkt das Titelfeld.
+- Native Apps aktualisieren die Instanz-Konfiguration vor der Update-Prüfung erneut, damit eine frisch erhöhte `min_native_client_version` nicht durch stale Boot-Daten als optionales Update behandelbar bleibt.
+
+### Changed
+- Öffentliche API-Dokumentation nutzt neutrale Demo-Beispieldaten statt nutzer- oder instanzspezifischer Namen, E-Mails, URLs und SMTP-Beispielwerte.
+
 ## [2.0.1] - 2026-05-24
 
 ### Fixed

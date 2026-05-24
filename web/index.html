@@ -188,7 +188,7 @@
         <!-- Version & Update -->
         <div class="version-bar" id="version-bar">
           <div class="version-info" id="version-info">
-            <span class="version-text">v2.0.2-dev</span>
+            <span class="version-text">v2.1.0-dev</span>
             <span class="version-separator" aria-hidden="true">|</span>
             <button type="button" class="force-refresh-btn" id="force-refresh-btn" onclick="forceReloadApp()" title="Web-App neu herunterladen und Cache aktualisieren">↻ Neu laden</button>
           </div>
@@ -389,10 +389,13 @@
       <button class="modal-close-x" onclick="closeModal('settings-modal')"><span data-icon="x"></span></button>
       <div class="modal-body">
         <div class="settings-profile-card">
-          <button type="button" class="settings-avatar-button" onclick="document.getElementById('settings-avatar-input').click()" title="Avatar ändern">
-            <span id="settings-avatar-initial">U</span>
-            <img id="settings-avatar-preview" alt="Avatar" style="display:none;">
-          </button>
+          <div class="settings-avatar-panel">
+            <button type="button" class="settings-avatar-button" onclick="document.getElementById('settings-avatar-input').click()" title="Avatar ändern">
+              <span id="settings-avatar-initial">U</span>
+              <img id="settings-avatar-preview" alt="Avatar" style="display:none;">
+            </button>
+            <button type="button" class="settings-avatar-remove" id="settings-avatar-remove" onclick="deleteUserAvatar()" style="display:none;">Avatar löschen</button>
+          </div>
           <input type="file" id="settings-avatar-input" accept="image/png,image/jpeg,image/webp,image/gif,image/heic,image/heif,.heic,.heif" style="display:none;" onchange="startAvatarUpload(this.files?.[0])">
           <div class="settings-profile-fields">
             <div class="settings-field-row">
