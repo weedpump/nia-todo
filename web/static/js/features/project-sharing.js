@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.js';
 import { iconSvg } from '../icons/lucide-icons.js';
 
 export function createProjectSharingFeature({
@@ -87,9 +88,9 @@ export function createProjectSharingFeature({
       if (member.status !== 'accepted' && member.status !== 'pending') continue;
       const displayName = member.display_name || member.username;
       const usernamePart = member.display_name && member.display_name !== member.username ? ` <span class="sharing-display">(${escapeHtml(member.username)})</span>` : '';
-      const status = member.status === 'pending' ? '<span class="sharing-pending">ausstehend</span>' : '';
+      const status = member.status === 'pending' ? `<span class="sharing-pending">${escapeHtml(t('project.share.pending'))}</span>` : '';
       const remove = isOwner(currentProject) && member.user_id !== currentProject.user_id
-        ? `<button class="sharing-remove" data-remove-member="${member.user_id}" title="Entfernen" aria-label="Mitglied entfernen">${iconSvg('x')}</button>`
+        ? `<button class="sharing-remove" data-remove-member="${member.user_id}" title="${escapeHtml(t('project.share.remove'))}" aria-label="${escapeHtml(t('project.share.removeMember'))}">${iconSvg('x')}</button>`
         : '';
       rows.push(`
         <div class="sharing-member-row">
@@ -107,7 +108,7 @@ export function createProjectSharingFeature({
         const memberId = Number(btn.getAttribute('data-remove-member'));
         const member = currentMembers.find(m => Number(m.user_id) === memberId);
         if (!member) return;
-        if (!confirm(`Mitglied ${member.username} entfernen?`)) return;
+        if (!confirm(t('project.share.removeMemberConfirm', { username: member.username }))) return;
         await removeMember(member);
       });
     });
@@ -126,7 +127,7 @@ export function createProjectSharingFeature({
     const username = input.value.trim();
     setShareError('');
     if (!username) {
-      setShareError('Benutzername oder E-Mail eingeben');
+      setShareError(t('project.share.identifierRequired'));
       input.focus();
       return;
     }
@@ -141,7 +142,7 @@ export function createProjectSharingFeature({
         // Neutral response: no undo button, no member details shown
         // Reload members is safe now (only accepted members visible, no pending invites)
         await loadMembers(currentProject.id);
-        showToast('Einladung verarbeitet');
+        showToast(t('project.share.inviteProcessed'));
       } else if (member) {
         // For username identifiers, show detailed success with undo
         currentProject.has_sharing_activity = true;
@@ -151,7 +152,7 @@ export function createProjectSharingFeature({
           pending.push({ ...member, status: member.status || 'pending' });
           localPendingMembersByProject.set(projectId, pending);
         }
-        showToast('Einladung gesendet', {
+        showToast(t('project.share.inviteSent'), {
           type: 'member_invite',
           data: {
             projectId: currentProject.id,
@@ -164,13 +165,13 @@ export function createProjectSharingFeature({
     } catch (err) {
       const msg = (err?.message || '').toLowerCase();
       if (msg.includes('404') || msg.includes('not found')) {
-        setShareError(`Benutzer oder E-Mail "${username}" nicht gefunden`);
+        setShareError(t('project.share.notFound', { identifier: username }));
       } else if (msg.includes('403') || msg.includes('forbidden')) {
-        setShareError('Keine Berechtigung — nur der Owner kann einladen');
+        setShareError(t('project.share.forbidden'));
       } else if (msg.includes('already')) {
-        setShareError(`Benutzer oder E-Mail "${username}" hat bereits Zugriff oder eine ausstehende Einladung`);
+        setShareError(t('project.share.alreadyHasAccess', { identifier: username }));
       } else {
-        setShareError('Fehler beim Einladen: ' + (err?.message || 'Unbekannter Fehler'));
+        setShareError(t('project.share.inviteFailed', { error: err?.message || t('project.share.unknownError') }));
       }
     }
   }
@@ -180,7 +181,7 @@ export function createProjectSharingFeature({
     await projectsApi.removeMember(currentProject.id, member.user_id);
     currentMembers = currentMembers.filter(m => Number(m.user_id) !== Number(member.user_id));
     renderMembers();
-    showToast('Benutzer entfernt', {
+    showToast(t('project.share.userRemoved'), {
       type: 'member_remove',
       data: {
         projectId: currentProject.id,
@@ -198,7 +199,7 @@ export function createProjectSharingFeature({
     renderProjects();
     renderStats();
     renderTodos();
-    showToast('Projekt verlassen', {
+    showToast(t('project.share.left'), {
       type: 'project_leave',
       data: {
         projectId: removedProject.id,
@@ -233,7 +234,7 @@ export function createProjectSharingFeature({
 
   async function acceptInvite(projectId, inviteId) {
     await projectsApi.respondInvite(projectId, inviteId, true);
-    showToast('Einladung angenommen');
+    showToast(t('project.share.accepted'));
     // Reload projects from server
     const res = await projectsApi.list();
     if (res?.projects) {
@@ -249,7 +250,7 @@ export function createProjectSharingFeature({
     const row = document.querySelector(`[data-invite-id="${CSS.escape(String(inviteId))}"]`);
     if (row) row.remove();
     await projectsApi.respondInvite(projectId, inviteId, false);
-    showToast('Einladung abgelehnt');
+    showToast(t('project.share.declined'));
     await loadInvites();
   }
 
