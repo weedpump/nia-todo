@@ -212,7 +212,15 @@ Aktiviert TOTP nach Passwortbestätigung und liefert einmalig neue Recovery Code
 - `POST /api/2fa/passkey/options` und `/api/2fa/passkey/verify` — Login-Challenge per Passkey abschließen.
 - `DELETE /api/me/passkeys/{id}` — Passkey widerrufen, benötigt eine frische One-Time-MFA-Reauth. Wenn danach kein primärer Faktor (TOTP/Passkey) mehr übrig ist, werden Recovery Codes automatisch widerrufen und user-seitige 2FA deaktiviert; bei globaler Policy kann E-Mail-Code-MFA weiter als Fallback greifen.
 
-Passkeys sind an die konfigurierte öffentliche Basis-URL (`public_base_url`) gebunden. Für Nicht-Localhost-Hosts ist HTTPS Pflicht; ohne `public_base_url` sind produktive Passkey-Flows für Nicht-Localhost-Hosts fail-closed. Native Apps bekommen bis zur nativen Passkey-Bridge keinen WebView-Passkey-Sonderpfad.
+Passkeys sind an die konfigurierte öffentliche Basis-URL (`public_base_url`) gebunden. Für Nicht-Localhost-Hosts ist HTTPS Pflicht; ohne `public_base_url` sind produktive Passkey-Flows für Nicht-Localhost-Hosts fail-closed. Windows Native nutzt eine native WebAuthn-Bridge mit serverseitig gelieferter Origin; dafür muss die in der App konfigurierte Server-URL zur `public_base_url`-Origin/RP-ID passen.
+
+Android Native nutzt AndroidX Credential Manager. Jede selfhosted Serverinstanz liefert `/.well-known/assetlinks.json` für die offizielle Android-App aus:
+
+- Package: `de.tobiaskneidl.nia_todo`
+- Release-Zertifikat: `90:0E:26:CD:40:B8:BF:42:A6:5B:98:02:8A:A5:43:9F:6A:72:74:15:55:FE:26:C4:85:B8:34:E3:B1:97:E0:58`
+- Relation: `delegate_permission/common.get_login_creds`
+
+Der Server akzeptiert zusätzlich zur HTTPS-Web-Origin den gepinnten Android-App-Origin `android:apk-key-hash:...`, während der RP-ID-Hash weiter gegen `public_base_url` geprüft wird. Das ist ein bewusstes Official-App-Vertrauensmodell: Selfhoster hosten ihren Server und verbinden die von uns ausgelieferte Android-App mit ihrer Server-URL. Custom Package Names, F-Droid-/Re-Sign-Builds und Signing-Key-Rotation sind nicht Teil des aktuellen 2.0-Modells und brauchen später eine explizite Config-/Migrationsstrategie.
 
 ### Admin-Policy
 - `GET /api/admin/2fa-policy`

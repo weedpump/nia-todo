@@ -104,7 +104,7 @@ Alias: nia-todo-android-release
 Certificate SHA-256: 900e26cd40b8bf42a65b98028aa5439f6a72741555fe26c485b834e3b197e058
 ```
 
-Dieser Key ist Teil der Android-Update-Kette. Wenn er verloren geht oder gewechselt wird, können bestehende Installationen nicht per normalem Update überinstalliert werden.
+Dieser Key ist Teil der Android-Update-Kette und der Android-Passkey-Vertrauensbindung via Digital Asset Links. Wenn er verloren geht oder gewechselt wird, können bestehende Installationen nicht per normalem Update überinstalliert werden; zusätzlich müssten Server-Doku/AssetLinks und erlaubte Android-App-Origins migriert werden.
 
 Die test-signierte `v1.5.0` APK sollte nicht als Basis genutzt werden; falls installiert, einmal deinstallieren und ab `v1.5.1` neu installieren.
 

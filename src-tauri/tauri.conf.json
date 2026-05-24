@@ -5,9 +5,9 @@
   "identifier": "de.tobiaskneidl.nia-todo",
   "build": {
     "beforeDevCommand": "",
-    "beforeBuildCommand": "",
+    "beforeBuildCommand": "python3 scripts/prepare_tauri_frontend_dist.py",
     "devUrl": "http://localhost:8754",
-    "frontendDist": "../web"
+    "frontendDist": "frontend-dist"
   },
   "app": {
     "windows": [

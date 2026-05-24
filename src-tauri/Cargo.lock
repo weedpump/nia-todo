@@ -2083,6 +2083,7 @@ checksum = "650eef8c711430f1a879fdd01d4745a7deea475becfb90269c06775983bbf086"
 name = "nia-todo-desktop"
 version = "1.7.0"
 dependencies = [
+ "base64 0.22.1",
  "serde",
  "serde_json",
  "tauri",
@@ -2091,6 +2092,7 @@ dependencies = [
  "tauri-plugin-notification",
  "tauri-plugin-window-state",
  "url",
+ "windows",
  "winreg",
 ]
 

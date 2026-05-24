@@ -36,6 +36,8 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 - **Migrations 021–023** für SMTP-Konfiguration, case-insensitive E-Mail-Uniqueness und E-Mail-Trust-Source.
 - **Zwei-Faktor-Authentifizierung (2FA)** mit TOTP/Authenticator-App, Passkeys/WebAuthn inkl. Passkey-Reauth, Recovery Codes, Login-Challenge-Flow mit Attempt-Lockout, optionalem „Gerät merken“ und E-Mail-Code als gültigem Faktor für Accounts ohne TOTP/Passkey ergänzt.
 - **Passkeys produktionsgehärtet**: WebAuthn ist an HTTPS-`public_base_url` gebunden (`http` nur lokal), prüft Origin/RP-ID, User Verification, `none`-Attestation, Signaturen und Sign-Counter; Native Apps zeigen Passkeys erst nach separater nativer Passkey-Bridge.
+- **Android Native Passkeys** ergänzt: die offizielle Android-App nutzt AndroidX Credential Manager über eine native Callback-Bridge, validiert konfigurierte Server-Origin/RP-ID vor der Credential-Ceremony und verwendet serverseitig ausgelieferte Digital Asset Links für die offizielle App-Signatur.
+- **Official-App-Vertrauensmodell für Android** dokumentiert: Selfhoster hosten ihren Server und verbinden die offizielle App; eigene Package Names, F-Droid-/Re-Sign-Builds und Signing-Key-Rotation benötigen später eine explizite Config-/Migrationsstrategie.
 - **2FA-Admin-Steuerung** ergänzt: globale 2FA-Pflicht, Benutzer-Status inkl. Faktoren/API-Key-Hinweis und Admin-Reset pro Benutzer.
 - **2FA-/Reauth-Schutz** für sicherheitskritische Account-Aktionen ergänzt, u.a. E-Mail ändern, Passwort ändern, 2FA deaktivieren, Recovery Codes regenerieren, API-Key-Management und Passkey-Verwaltung; E-Mail-Code ist auch für Reauth nutzbar.
 - **One-Time-MFA-Action-Grants** ergänzt: Login-MFA und Trusted Devices zählen nur für App-Zugriff, jede sensible Aktion benötigt eine frische, einmalig konsumierte MFA-Bestätigung.
@@ -62,6 +64,7 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 - Release-Workflow versioniert Web, Windows und Android gemeinsam, baut die nativen Artefakte immer mit und regeneriert das Download-Manifest aus den aktuellen Build-Artefakten.
 - Native Update-Manifest und Download-Dateien werden vom App-Cache ausgenommen und serverseitig mit `no-store` ausgeliefert.
 - Native Windows- und Android-Downloads öffnen extern ohne CORS-Preflight-Falle; Android akzeptiert dabei nur sichere HTTP(S)-URLs ohne Control-Zeichen.
+- Android-Passkeys verwenden die offizielle App-Identity (`de.tobiaskneidl.nia_todo` plus Release-Zertifikat) in `/.well-known/assetlinks.json`; diese Bindung ist bewusst nicht pro Selfhost-Instanz konfigurierbar.
 - Windows-Upgrades räumen gezielt WebView-Cache-Verzeichnisse auf; Android migriert stale WebView-Cache-Zustände sauber.
 - **E-Mail-Sharing liefert neutrale Responses** (keine Member-Details) zur Vermeidung von E-Mail-Enumeration.
 - **Member-Listen zeigen nur `accepted` Mitglieder** — Pending Invites sind privat bis zur Annahme.

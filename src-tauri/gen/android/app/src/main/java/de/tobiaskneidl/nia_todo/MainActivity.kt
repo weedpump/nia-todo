@@ -19,8 +19,17 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.credentials.CreatePublicKeyCredentialRequest
+import androidx.credentials.CreatePublicKeyCredentialResponse
+import androidx.credentials.CredentialManager
+import androidx.credentials.GetCredentialRequest
+import androidx.credentials.GetPublicKeyCredentialOption
+import androidx.credentials.PublicKeyCredential
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 import org.json.JSONObject
 import java.io.File
+import java.net.URI
 import java.util.concurrent.atomic.AtomicInteger
 
 class MainActivity : TauriActivity() {
@@ -29,6 +38,9 @@ class MainActivity : TauriActivity() {
   private val lightSystemBarColor = Color.rgb(248, 250, 252)
   private val darkSystemBarColor = Color.rgb(15, 15, 35)
   private val notificationIds = AtomicInteger(1000)
+  private var appWebView: WebView? = null
+  @Volatile private var configuredPasskeyOrigin: String? = null
+  private val credentialManager by lazy { CredentialManager.create(this) }
 
   override fun onCreate(savedInstanceState: Bundle?) {
     // Android 15+ enforces edge-to-edge for targetSdk 35+.
@@ -80,10 +92,77 @@ class MainActivity : TauriActivity() {
 
   override fun onWebViewCreate(webView: WebView) {
     super.onWebViewCreate(webView)
+    appWebView = webView
     val nativeBridge = AndroidNativeBridge()
     webView.addJavascriptInterface(nativeBridge, "NiaAndroidNative")
     webView.addJavascriptInterface(nativeBridge, "NiaAndroidSystemBars")
     webView.post { applySystemBarInsetsToContentRoot() }
+  }
+
+  private fun canonicalOrigin(origin: String): String {
+    val uri = URI(origin.trim().trimEnd('/'))
+    val scheme = (uri.scheme ?: throw IllegalArgumentException("Origin fehlt")).lowercase(Locale.ROOT)
+    if (scheme != "https" && scheme != "http") throw IllegalArgumentException("Passkey-Origin muss HTTP(S) sein")
+    val host = (uri.host ?: throw IllegalArgumentException("Origin-Host fehlt")).lowercase(Locale.ROOT)
+    val localHttp = scheme == "http" && (host == "localhost" || host == "127.0.0.1" || host == "::1")
+    if (scheme != "https" && !localHttp) throw IllegalArgumentException("Passkeys benötigen HTTPS")
+    if (!uri.rawUserInfo.isNullOrBlank()) throw IllegalArgumentException("Origin darf keine Zugangsdaten enthalten")
+    if (!uri.rawQuery.isNullOrBlank() || !uri.rawFragment.isNullOrBlank()) throw IllegalArgumentException("Origin darf keinen Query-String enthalten")
+    val defaultPort = (scheme == "https" && (uri.port == -1 || uri.port == 443)) || (scheme == "http" && (uri.port == -1 || uri.port == 80))
+    val hostPart = if (host.contains(":") && !host.startsWith("[")) "[$host]" else host
+    return if (defaultPort) "$scheme://$hostPart" else "$scheme://$hostPart:${uri.port}"
+  }
+
+  private fun originHost(origin: String): String {
+    return (URI(canonicalOrigin(origin)).host ?: "").lowercase(Locale.ROOT)
+  }
+
+  private fun validatePasskeyRequest(origin: String, optionsJson: String, register: Boolean): String {
+    if (!isTrustedPasskeyWebView()) {
+      throw IllegalStateException("Passkey-Bridge ist nur im lokalen App-Shell-Kontext verfügbar")
+    }
+    val canonical = canonicalOrigin(origin)
+    val configured = configuredPasskeyOrigin
+      ?: throw IllegalStateException("Server-Origin für Passkeys ist nicht konfiguriert")
+    if (canonical != configured) throw IllegalArgumentException("Passkey-Origin passt nicht zur konfigurierten Server-URL")
+    val host = originHost(canonical)
+    val options = JSONObject(optionsJson)
+    val rpId = if (register) {
+      options.optJSONObject("rp")?.optString("id", "") ?: ""
+    } else {
+      options.optString("rpId", "")
+    }.trim().lowercase(Locale.ROOT)
+    if (rpId.isBlank()) throw IllegalArgumentException("Passkey-RP-ID fehlt")
+    if (rpId != host) throw IllegalArgumentException("Passkey-RP-ID passt nicht zur Server-Origin")
+    return canonical
+  }
+
+  private fun isTrustedPasskeyWebView(): Boolean {
+    val url = appWebView?.url ?: return false
+    return try {
+      val uri = URI(url)
+      val scheme = (uri.scheme ?: "").lowercase(Locale.ROOT)
+      val host = (uri.host ?: "").lowercase(Locale.ROOT)
+      val localShellHost = host == "tauri.localhost" || host == "localhost" || host == "127.0.0.1" || host == "::1"
+      (scheme == "http" || scheme == "https") && localShellHost
+    } catch (_: Exception) {
+      false
+    }
+  }
+
+  private fun completePasskeyRequest(requestId: String, success: Boolean, payload: String) {
+    val webView = appWebView ?: return
+    val script = if (success) {
+      try {
+        JSONObject(payload)
+        "window.__niaAndroidPasskeyComplete && window.__niaAndroidPasskeyComplete(${JSONObject.quote(requestId)}, true, ${JSONObject.quote(payload)});"
+      } catch (error: Exception) {
+        "window.__niaAndroidPasskeyComplete && window.__niaAndroidPasskeyComplete(${JSONObject.quote(requestId)}, false, ${JSONObject.quote("Ungültige Passkey-Antwort")});"
+      }
+    } else {
+      "window.__niaAndroidPasskeyComplete && window.__niaAndroidPasskeyComplete(${JSONObject.quote(requestId)}, false, ${JSONObject.quote(payload)});"
+    }
+    runOnUiThread { webView.evaluateJavascript(script, null) }
   }
 
   private fun applySystemBarInsetsToContentRoot() {
@@ -206,6 +285,64 @@ class MainActivity : TauriActivity() {
     @JavascriptInterface
     fun scheduleReminders(schedulesJson: String): Int {
       return ReminderReceiver.scheduleReminders(this@MainActivity, schedulesJson)
+    }
+
+    @JavascriptInterface
+    fun setConfiguredServerUrl(serverUrl: String): Boolean {
+      return try {
+        val canonical = canonicalOrigin(serverUrl)
+        if (configuredPasskeyOrigin == null) configuredPasskeyOrigin = canonical
+        configuredPasskeyOrigin == canonical
+      } catch (_: Exception) {
+        false
+      }
+    }
+
+    @JavascriptInterface
+    fun supportsPasskeys(): Boolean {
+      return Build.VERSION.SDK_INT >= Build.VERSION_CODES.P
+    }
+
+    @JavascriptInterface
+    fun passkeyRegister(requestId: String, origin: String, optionsJson: String) {
+      lifecycleScope.launch {
+        try {
+          validatePasskeyRequest(origin, optionsJson, register = true)
+          val request = CreatePublicKeyCredentialRequest(
+            requestJson = optionsJson,
+            preferImmediatelyAvailableCredentials = false,
+          )
+          val response = credentialManager.createCredential(
+            context = this@MainActivity,
+            request = request,
+          ) as CreatePublicKeyCredentialResponse
+          completePasskeyRequest(requestId, true, response.registrationResponseJson)
+        } catch (error: Exception) {
+          completePasskeyRequest(requestId, false, error.message ?: error.javaClass.simpleName)
+        }
+      }
+    }
+
+    @JavascriptInterface
+    fun passkeyAuthenticate(requestId: String, origin: String, optionsJson: String) {
+      lifecycleScope.launch {
+        try {
+          validatePasskeyRequest(origin, optionsJson, register = false)
+          val option = GetPublicKeyCredentialOption(requestJson = optionsJson)
+          val request = GetCredentialRequest.Builder()
+            .addCredentialOption(option)
+            .build()
+          val response = credentialManager.getCredential(
+            context = this@MainActivity,
+            request = request,
+          )
+          val credential = response.credential as? PublicKeyCredential
+            ?: throw IllegalStateException("Keine Passkey-Antwort erhalten")
+          completePasskeyRequest(requestId, true, credential.authenticationResponseJson)
+        } catch (error: Exception) {
+          completePasskeyRequest(requestId, false, error.message ?: error.javaClass.simpleName)
+        }
+      }
     }
 
     @JavascriptInterface
