@@ -361,5 +361,6 @@
   "time.justNow": "just now",
   "time.minutesAgo": "{count} min. ago",
   "time.hoursAgo": "{count} hr. ago",
-  "time.daysAgo": "{count} d. ago"
+  "time.daysAgo": "{count} d. ago",
+  "todo.overdue": "overdue"
 }
