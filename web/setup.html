@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>nia-todo Setup</title>
+<title data-i18n-key="setup.pageTitle">nia-todo Setup</title>
 <link rel="stylesheet" href="/static/style.css">
 <style>
 body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--bg-primary); }
@@ -51,7 +51,7 @@ body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify
     <div class="setup-header">
       <img src="/static/icons/icon-192.png" class="setup-logo" alt="nia-todo">
       <div class="setup-title">nia-todo</div>
-      <div class="setup-subtitle">Erstinstallation</div>
+      <div class="setup-subtitle" data-i18n-key="setup.subtitle">Erstinstallation</div>
     </div>
 
     <div class="step-indicator">
@@ -61,41 +61,41 @@ body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify
 
     <!-- Step 1: Admin Password -->
     <div class="setup-step active" id="step-1">
-      <h2><span data-icon="lock-keyhole"></span> Admin-Passwort festlegen</h2>
-      <p>Dieses Passwort wird für die Verwaltung von Benutzern benötigt.<br><strong>Anforderungen:</strong> Mindestens 12 Zeichen, 1 Groß- und 1 Kleinbuchstabe, 1 Ziffer, 1 Sonderzeichen.</p>
+      <h2><span data-icon="lock-keyhole"></span> <span data-i18n-key="setup.adminPasswordTitle">Admin-Passwort festlegen</span></h2>
+      <p data-i18n-key="setup.adminPasswordHint">Dieses Passwort wird für die Verwaltung von Benutzern benötigt. Anforderungen: Mindestens 12 Zeichen, 1 Groß- und 1 Kleinbuchstabe, 1 Ziffer, 1 Sonderzeichen.</p>
       <div class="setup-field">
-        <label>Admin-Passwort</label>
-        <input type="password" id="admin-password" placeholder="Sicheres Passwort eingeben" autocomplete="new-password" onkeydown="if(event.key==='Enter') setAdminPassword()">
+        <label data-i18n-key="setup.adminPasswordLabel">Admin-Passwort</label>
+        <input type="password" id="admin-password" data-i18n-placeholder-key="setup.adminPasswordPlaceholder" placeholder="Sicheres Passwort eingeben" autocomplete="new-password" onkeydown="if(event.key==='Enter') setAdminPassword()">
       </div>
       <div class="setup-field">
-        <label>Passwort bestätigen</label>
-        <input type="password" id="admin-password-confirm" placeholder="Passwort wiederholen" onkeydown="if(event.key==='Enter') setAdminPassword()">
+        <label data-i18n-key="setup.confirmPasswordLabel">Passwort bestätigen</label>
+        <input type="password" id="admin-password-confirm" data-i18n-placeholder-key="setup.repeatPasswordPlaceholder" placeholder="Passwort wiederholen" onkeydown="if(event.key==='Enter') setAdminPassword()">
       </div>
-      <button class="setup-btn" onclick="setAdminPassword()">Weiter →</button>
+      <button class="setup-btn" onclick="setAdminPassword()" data-i18n-key="common.continue">Weiter</button>
       <div class="setup-error" id="error-1"></div>
     </div>
 
     <!-- Step 2: First User -->
     <div class="setup-step" id="step-2">
-      <h2><span data-icon="user-plus"></span> Ersten Benutzer erstellen</h2>
-      <p>Dieser Benutzer erhält alle bestehenden Daten und ist der erste Benutzer. Die E-Mail ist Pflicht und wird später der Login-Name.<br><strong>Passwort-Anforderungen:</strong> Mindestens 8 Zeichen, 1 Groß- und 1 Kleinbuchstabe, 1 Ziffer, 1 Sonderzeichen.</p>
+      <h2><span data-icon="user-plus"></span> <span data-i18n-key="setup.firstUserTitle">Ersten Benutzer erstellen</span></h2>
+      <p data-i18n-key="setup.firstUserHint">Dieser Benutzer erhält alle bestehenden Daten und ist der erste Benutzer. Die E-Mail ist Pflicht und wird später der Login-Name. Passwort-Anforderungen: Mindestens 8 Zeichen, 1 Groß- und 1 Kleinbuchstabe, 1 Ziffer, 1 Sonderzeichen.</p>
       <div class="setup-field">
-        <label>Benutzername</label>
-        <input type="text" id="first-username" placeholder="z.B. max" autocomplete="username" onkeydown="if(event.key==='Enter') document.getElementById('first-display-name').focus()">
+        <label data-i18n-key="setup.usernameLabel">Benutzername</label>
+        <input type="text" id="first-username" data-i18n-placeholder-key="setup.usernamePlaceholder" placeholder="z.B. max" autocomplete="username" onkeydown="if(event.key==='Enter') document.getElementById('first-display-name').focus()">
       </div>
       <div class="setup-field">
-        <label>Anzeigename</label>
+        <label data-i18n-key="setup.displayNameLabel">Anzeigename</label>
         <input type="text" id="first-display-name" placeholder="Max Mustermann" onkeydown="if(event.key==='Enter') document.getElementById('first-email').focus()">
       </div>
       <div class="setup-field">
-        <label>E-Mail</label>
+        <label data-i18n-key="settings.profile.email">E-Mail</label>
         <input type="email" id="first-email" placeholder="max@example.com" autocomplete="email" onkeydown="if(event.key==='Enter') document.getElementById('first-password').focus()">
       </div>
       <div class="setup-field">
-        <label>Passwort</label>
-        <input type="password" id="first-password" placeholder="Passwort" autocomplete="new-password" onkeydown="if(event.key==='Enter') createFirstUser()">
+        <label data-i18n-key="auth.password">Passwort</label>
+        <input type="password" id="first-password" data-i18n-placeholder-key="auth.passwordPlaceholder" placeholder="Passwort" autocomplete="new-password" onkeydown="if(event.key==='Enter') createFirstUser()">
       </div>
-      <button class="setup-btn" onclick="createFirstUser()">Installation abschließen</button>
+      <button class="setup-btn" onclick="createFirstUser()" data-i18n-key="setup.finishInstallation">Installation abschließen</button>
       <div class="setup-error" id="error-2"></div>
     </div>
 
@@ -103,15 +103,15 @@ body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify
     <div class="setup-step" id="step-success">
       <div style="text-align: center; padding: 20px 0;">
         <div class="success-icon" data-icon="check-circle"></div>
-        <h2 style="margin-bottom: 8px;">Fertig!</h2>
-        <p>Dein nia-todo ist eingerichtet. Du wirst gleich weitergeleitet...</p>
+        <h2 style="margin-bottom: 8px;" data-i18n-key="setup.doneTitle">Fertig!</h2>
+        <p data-i18n-key="setup.doneMessage">Dein nia-todo ist eingerichtet. Du wirst gleich weitergeleitet...</p>
       </div>
     </div>
 
     <div class="setup-theme-toggle">
-      <button data-theme="light" onclick="setTheme('light')" title="Hell"><span data-icon="sun"></span></button>
-      <button data-theme="dark" onclick="setTheme('dark')" title="Dunkel"><span data-icon="moon"></span></button>
-      <button data-theme="system" onclick="setTheme('system')" title="System"><span data-icon="monitor"></span></button>
+      <button data-theme="light" onclick="setTheme('light')" data-i18n-title-key="common.theme.light" title="Hell"><span data-icon="sun"></span></button>
+      <button data-theme="dark" onclick="setTheme('dark')" data-i18n-title-key="common.theme.dark" title="Dunkel"><span data-icon="moon"></span></button>
+      <button data-theme="system" onclick="setTheme('system')" data-i18n-title-key="common.theme.system" title="System"><span data-icon="monitor"></span></button>
     </div>
   </div>
 </div>
@@ -120,7 +120,10 @@ body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify
 import { hydrateIcons } from './static/js/icons/lucide-icons.js';
 hydrateIcons(document);
 </script>
-<script>
+<script type="module">
+import { initI18n, t } from './static/js/i18n/index.js';
+await initI18n();
+
 const API = '';
 
 
@@ -152,6 +155,9 @@ async function checkSetup() {
   }
 }
 checkSetup();
+window.setTheme = setTheme;
+window.setAdminPassword = setAdminPassword;
+window.createFirstUser = createFirstUser;
 
 function showStep(step) {
   document.querySelectorAll('.setup-step').forEach(s => s.classList.remove('active'));
@@ -168,11 +174,11 @@ async function setAdminPassword() {
   const confirm = document.getElementById('admin-password-confirm').value;
   
   if (!pw || pw.length < 12) {
-    showError(1, 'Passwort muss mindestens 12 Zeichen haben');
+    showError(1, t('setup.error.adminPasswordTooShort'));
     return;
   }
   if (pw !== confirm) {
-    showError(1, 'Passwörter stimmen nicht überein');
+    showError(1, t('settings.password.mismatch'));
     return;
   }
   
@@ -184,13 +190,13 @@ async function setAdminPassword() {
     });
     if (!r.ok) {
       const data = await r.json();
-      showError(1, data.detail || 'Fehler');
+      showError(1, data.detail || t('common.error'));
       return;
     }
     showError(1, '');
     showStep(2);
   } catch(e) {
-    showError(1, 'Netzwerkfehler');
+    showError(1, t('setup.error.network'));
   }
 }
 
@@ -205,11 +211,11 @@ async function createFirstUser() {
   const password = document.getElementById('first-password').value;
   
   if (!username || !email || !password) {
-    showError(2, 'Benutzername, E-Mail und Passwort sind erforderlich');
+    showError(2, t('setup.error.firstUserRequired'));
     return;
   }
   if (!isValidEmail(email)) {
-    showError(2, 'Bitte eine gültige E-Mail-Adresse eingeben');
+    showError(2, t('setup.error.invalidEmail'));
     return;
   }
   
@@ -226,14 +232,14 @@ async function createFirstUser() {
     });
     if (!r.ok) {
       const data = await r.json();
-      showError(2, data.detail || 'Fehler');
+      showError(2, data.detail || t('common.error'));
       return;
     }
     showError(2, '');
     showStep('success');
     setTimeout(() => window.location.href = '/', 2000);
   } catch(e) {
-    showError(2, 'Netzwerkfehler');
+    showError(2, t('setup.error.network'));
   }
 }
 </script>
