@@ -99,6 +99,7 @@ def main() -> int:
     sw_js = read("web/sw.js")
     index_html = read("web/index.html")
     instance_config = read("api/services/instance_config.py")
+    min_native_migration = read("api/migrations/029_add_min_native_client_version_config.sql")
     tauri_conf = json.loads(read("src-tauri/tauri.conf.json"))
     cargo_toml = read("src-tauri/Cargo.toml")
 
@@ -110,7 +111,16 @@ def main() -> int:
         "Cargo.toml app version": first(r'^version\s*=\s*"([^"]+)"', cargo_toml, "Cargo.toml package version"),
         "Cargo.lock app version": cargo_lock_app_version(),
     }
-    min_native_client_version = first(r'"min_native_client_version"\s*:\s*"([^"]+)"', instance_config, "min_native_client_version")
+    min_native_client_version = first(
+        r'min_native_client_version\s*=\s*str\(values\.get\("min_native_client_version"\)\s*or\s*"([^"]+)"\)\.strip\(\)\s*or\s*"[^"]+"',
+        instance_config,
+        "min_native_client_version",
+    )
+    min_native_migration_version = first(
+        r"\('min_native_client_version', '([^']+)'\)",
+        min_native_migration,
+        "min_native_client_version migration default",
+    )
 
     baseline = expected or versions["web APP_VERSION"]
     failures: list[str] = []
@@ -122,6 +132,11 @@ def main() -> int:
             failures.append(f"{label}: {value} != {baseline}")
         if not (is_valid_stable_version(value) or is_valid_dev_version(value)):
             failures.append(f"{label} is not valid stable/dev SemVer: {value}")
+    if min_native_migration_version != min_native_client_version:
+        failures.append(
+            "min_native_client_version migration default "
+            f"{min_native_migration_version} != source fallback {min_native_client_version}"
+        )
     if not is_valid_compat_version(min_native_client_version):
         failures.append(f"min_native_client_version is not valid stable/dev SemVer: {min_native_client_version}")
     else:

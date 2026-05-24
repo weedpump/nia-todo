@@ -44,6 +44,7 @@ def copy_release_inputs(tmp: Path) -> None:
         "src-tauri/Cargo.toml",
         "src-tauri/Cargo.lock",
         "api/services/instance_config.py",
+        "api/migrations/029_add_min_native_client_version_config.sql",
         "scripts/check_release_versions.py",
     ]:
         src = ROOT / rel
@@ -65,8 +66,22 @@ def run_checker(tmp: Path, version: str) -> subprocess.CompletedProcess[str]:
 def set_min_native(tmp: Path, version: str) -> None:
     path = tmp / "api/services/instance_config.py"
     text = path.read_text(encoding="utf-8")
-    text = __import__("re").sub(r'("min_native_client_version"\s*:\s*)"[^"]+"', rf'\1"{version}"', text, count=1)
+    text = __import__("re").sub(
+        r'(min_native_client_version\s*=\s*str\(values\.get\("min_native_client_version"\)\s*or\s*)"[^"]+"(\)\.strip\(\)\s*or\s*)"[^"]+"',
+        rf'\1"{version}"\2"{version}"',
+        text,
+        count=1,
+    )
     path.write_text(text, encoding="utf-8")
+    migration_path = tmp / "api/migrations/029_add_min_native_client_version_config.sql"
+    migration_text = migration_path.read_text(encoding="utf-8")
+    migration_text = __import__("re").sub(
+        r"\('min_native_client_version', '[^']+'\)",
+        f"('min_native_client_version', '{version}')",
+        migration_text,
+        count=1,
+    )
+    migration_path.write_text(migration_text, encoding="utf-8")
 
 
 def test_version_helpers() -> None:

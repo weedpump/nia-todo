@@ -17,10 +17,11 @@
 3. Im Dev-Ordner bleiben: `~/projects/nia-todo-dev`
 4. Vorab bei Bedarf gezielt testen; `release.sh` führt die komplette Suite selbst aus
 5. `./release.sh VERSION` ausführen, z.B. `./release.sh 2.0.0`; stabile Releases müssen `MAJOR.MINOR.PATCH` nutzen
-6. Das Script setzt dieselbe Version für Web-App, Service Worker, Tauri/Cargo, Windows-Installer, Android-APK und Download-Manifest
-7. `scripts/check_release_versions.py VERSION` bricht den Release ab, falls eine automatisch gesetzte Versionsquelle driftet; `min_native_client_version` wird nur validiert und muss bewusst gepflegt werden
-8. Das Script baut Windows und Android immer mit; getrennte App-Versionen oder optionale Native-Builds gibt es nicht mehr
-9. Das Script merged `develop` nach `main`, erstellt Tag, aktualisiert Live und bumped `develop` auf die nächste gemeinsame `-dev` Version
+6. Optional: `./release.sh VERSION --set-min-app-version` hebt die minimale native App-Version auf die Release-Version an; ohne Flag bleiben ältere native Apps kompatibel
+7. Das Script setzt dieselbe Version für Web-App, Service Worker, Tauri/Cargo, Windows-Installer, Android-APK und Download-Manifest
+8. `scripts/check_release_versions.py VERSION` bricht den Release ab, falls eine automatisch gesetzte Versionsquelle driftet; `min_native_client_version` wird validiert und nur mit explizitem Release-Flag angehoben
+9. Das Script baut Windows und Android immer mit; getrennte App-Versionen oder optionale Native-Builds gibt es nicht mehr
+10. Das Script merged `develop` nach `main`, erstellt Tag, aktualisiert Live und bumped `develop` auf die nächste gemeinsame `-dev` Version
 
 Changelog-Pflicht:
 
@@ -33,7 +34,7 @@ Release-Artefakte werden auf Live unter `/downloads/` veröffentlicht:
 - Android: `nia-todo-vX.Y.Z-android-arm64.apk`
 - Vor dem Android-Build schreibt `release.sh` generated `src-tauri/gen/android/app/tauri.properties` passend zur Release-Version und prüft sie vor/nach dem Build.
 - Manifest: `web/downloads/app-downloads.json` mit `version`, `web_version`, `latest.version` und je App-Artefakt-Version auf dem Release-Tag.
-- `min_native_client_version` in `api/services/instance_config.py` ist kein Release-Zähler. Nur anheben, wenn ältere native Apps wirklich inkompatibel oder unsicher sind; dann blockieren Windows/Android bis zum Update.
+- `min_native_client_version` ist kein Release-Zähler. Standard-Release lässt die Grenze unverändert; nur `--set-min-app-version` setzt sie in Source und Live-DB auf die neue Release-Version, wenn ältere native Apps wirklich inkompatibel oder unsicher sind.
 - Beim Veröffentlichen löscht `release.sh` zuerst alle alten Dateien in `/downloads/` außer `.gitkeep`; alte Installer/APKs dürfen danach auch per manueller URL nicht mehr abrufbar sein.
 - Native Builds verwenden ein frisch erzeugtes `src-tauri/frontend-dist` ohne `web/downloads/`; Größenlimits brechen den Release ab, falls Installer/APK unerwartet groß werden.
 
