@@ -139,6 +139,10 @@ def test_branded_email_templates():
     _, code_text, code_html = two_factor_code_email(display_name="", username="tobi", code="123456", purpose="login")
     assert_true("123456" in code_text and "123456" in code_html, "2FA code missing from template")
 
+    _, _, test_html = test_email()
+    assert_true("Diese Test-Mail wurde über die aktuell gespeicherte SMTP-Konfiguration versendet." in test_html, "test email detail missing")
+    assert_true("<ul" not in test_html and "<li" not in test_html, "single test email detail should not render as bullet list")
+
     malicious_project = "Bad\r\nBcc: attacker@example.invalid <script>alert(1)</script>"
     subject, _, html = project_share_invite_email(
         display_name='<img src=x onerror=alert(1)>',

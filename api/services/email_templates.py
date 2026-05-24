@@ -75,15 +75,19 @@ def _outlook_action_link_html(label: str, url: str) -> str:
 def _detail_box(items: list[str]) -> str:
     if not items:
         return ""
-    rows = "".join(
-        f'<li style="margin:7px 0;color:#475569;font-size:14px;line-height:1.5;">{escape(item)}</li>'
-        for item in items
-    )
+    if len(items) == 1:
+        content = f'<div style="margin:0;color:#475569;font-size:14px;line-height:1.5;">{escape(items[0])}</div>'
+    else:
+        rows = "".join(
+            f'<li style="margin:7px 0;color:#475569;font-size:14px;line-height:1.5;">{escape(item)}</li>'
+            for item in items
+        )
+        content = f'<ul style="margin:0;padding-left:19px;">{rows}</ul>'
     return (
         '<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin:24px 0 0;">'
         '<tr>'
         '<td style="padding:15px 17px;border:1px solid #e2e8f0;border-radius:16px;background:#f8fafc;">'
-        f'<ul style="margin:0;padding-left:19px;">{rows}</ul>'
+        f'{content}'
         '</td>'
         '</tr>'
         '</table>'
