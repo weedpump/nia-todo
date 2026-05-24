@@ -423,5 +423,11 @@
   "settings.avatar.deleteTitle": "Avatar löschen?",
   "settings.avatar.deleteMessage": "Dein Profilbild wird entfernt und durch deine Initiale ersetzt.",
   "settings.avatar.deleteConfirm": "Avatar löschen",
-  "settings.avatar.deleted": "Avatar gelöscht"
+  "settings.avatar.deleted": "Avatar gelöscht",
+  "project.done.empty": "Keine erledigten Todos in diesem Projekt",
+  "project.done.deleteTitle": "Erledigte Todos löschen?",
+  "project.done.deleteMessage": "{count} erledigte Todo(s) in „{project}“ werden dauerhaft gelöscht.",
+  "project.done.deleteConfirm": "Todos löschen",
+  "project.done.deleted": "{count} erledigte Todo(s) gelöscht",
+  "project.done.deleteFailed": "Fehler beim Löschen"
 }

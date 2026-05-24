@@ -423,5 +423,11 @@
   "settings.avatar.deleteTitle": "Delete avatar?",
   "settings.avatar.deleteMessage": "Your profile image will be removed and replaced by your initial.",
   "settings.avatar.deleteConfirm": "Delete avatar",
-  "settings.avatar.deleted": "Avatar deleted"
+  "settings.avatar.deleted": "Avatar deleted",
+  "project.done.empty": "No completed todos in this project",
+  "project.done.deleteTitle": "Delete completed todos?",
+  "project.done.deleteMessage": "{count} completed todo(s) in “{project}” will be permanently deleted.",
+  "project.done.deleteConfirm": "Delete todos",
+  "project.done.deleted": "{count} completed todo(s) deleted",
+  "project.done.deleteFailed": "Delete failed"
 }

@@ -281,11 +281,11 @@ export function createProjectsFeature({
     const project = getProjects().find(p => p.id === projectId);
     if (!project) return;
     const doneCount = getTodos().filter(t => t.project_id === projectId && t.status === 'done').length;
-    if (doneCount === 0) return showToast('Keine erledigten Todos in diesem Projekt');
+    if (doneCount === 0) return showToast(t('project.done.empty'));
     const confirmed = await confirmDanger({
-      title: 'Erledigte Todos löschen?',
-      message: `${doneCount} erledigte Todo(s) in "${project.name}" werden dauerhaft gelöscht.`,
-      confirmText: 'Todos löschen',
+      title: t('project.done.deleteTitle'),
+      message: t('project.done.deleteMessage', { count: doneCount, project: project.name }),
+      confirmText: t('project.done.deleteConfirm'),
     });
     if (!confirmed) return;
     try {
@@ -295,13 +295,13 @@ export function createProjectsFeature({
         setProjects(getProjects());
         renderStats();
         renderTodos();
-        showToast(`${result.deleted_count} erledigte Todo(s) gelöscht`);
+        showToast(t('project.done.deleted', { count: result.deleted_count }));
       } else {
-        showToast('Fehler beim Löschen');
+        showToast(t('project.done.deleteFailed'));
       }
     } catch (err) {
       console.error('Clear done error:', err);
-      showToast('Fehler beim Löschen');
+      showToast(t('project.done.deleteFailed'));
     }
   }
 
@@ -311,22 +311,22 @@ export function createProjectsFeature({
     const project = getProjects().find(p => p.id === currentProjectId);
     if (!project) return;
     const doneTodos = getTodos().filter(t => t.project_id === currentProjectId && t.status === 'done');
-    if (doneTodos.length === 0) return showToast('Keine erledigten Todos in diesem Projekt');
+    if (doneTodos.length === 0) return showToast(t('project.done.empty'));
     const confirmed = await confirmDanger({
-      title: 'Erledigte Todos löschen?',
-      message: `${doneTodos.length} erledigte Todo(s) in "${project.name}" werden dauerhaft gelöscht.`,
-      confirmText: 'Todos löschen',
+      title: t('project.done.deleteTitle'),
+      message: t('project.done.deleteMessage', { count: doneTodos.length, project: project.name }),
+      confirmText: t('project.done.deleteConfirm'),
     });
     if (!confirmed) return;
-    showBatchToast(`${doneTodos.length} erledigte Todo(s) gelöscht`, { todos: doneTodos });
+    showBatchToast(t('project.done.deleted', { count: doneTodos.length }), { todos: doneTodos });
     try {
       const r = await projectsApi.clearDone(currentProjectId);
-      if (!r.ok) showToast('Fehler beim Löschen');
+      if (!r.ok) showToast(t('project.done.deleteFailed'));
       renderStats();
       renderTodos();
     } catch (err) {
       console.error('Clear done error:', err);
-      showToast('Fehler beim Löschen');
+      showToast(t('project.done.deleteFailed'));
     }
   }
 
