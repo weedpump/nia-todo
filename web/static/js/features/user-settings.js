@@ -838,17 +838,17 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     document.getElementById('settings-pw-success').textContent = '';
 
     if (!oldPw || !newPw || !confirmPw) {
-      document.getElementById('settings-pw-error').textContent = 'Alle Felder sind erforderlich';
+      document.getElementById('settings-pw-error').textContent = t('settings.password.allRequired');
       return;
     }
     if (newPw !== confirmPw) {
-      document.getElementById('settings-pw-error').textContent = 'Passwörter stimmen nicht überein';
+      document.getElementById('settings-pw-error').textContent = t('settings.password.mismatch');
       return;
     }
 
     try {
-      await withRecentMfaRetry(() => authApi.changePassword(oldPw, newPw), 'das Ändern deines Passworts');
-      document.getElementById('settings-pw-success').textContent = 'Passwort geändert! Du wirst abgemeldet...';
+      await withRecentMfaRetry(() => authApi.changePassword(oldPw, newPw), t('settings.password.mfaPurpose'));
+      document.getElementById('settings-pw-success').textContent = t('settings.password.changed');
       setTimeout(() => logout(), 1500);
     } catch (e) {
       document.getElementById('settings-pw-error').textContent = e.message;

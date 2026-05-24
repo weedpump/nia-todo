@@ -201,5 +201,17 @@
   "project.share.userRemoved": "Benutzer entfernt",
   "project.share.left": "Projekt verlassen",
   "project.share.accepted": "Einladung angenommen",
-  "project.share.declined": "Einladung abgelehnt"
+  "project.share.declined": "Einladung abgelehnt",
+  "settings.close": "Schließen",
+  "settings.password.title": "Passwort ändern",
+  "settings.password.current": "Aktuelles Passwort",
+  "settings.password.new": "Neues Passwort",
+  "settings.password.confirm": "Passwort bestätigen",
+  "settings.password.newPlaceholder": "Neues Passwort (8+ Zeichen)",
+  "settings.password.repeatPlaceholder": "Neues Passwort wiederholen",
+  "settings.password.requirements": "Mindestens 8 Zeichen, 1 Großbuchstabe, 1 Kleinbuchstabe, 1 Ziffer, 1 Sonderzeichen",
+  "settings.password.allRequired": "Alle Felder sind erforderlich",
+  "settings.password.mismatch": "Passwörter stimmen nicht überein",
+  "settings.password.changed": "Passwort geändert! Du wirst abgemeldet...",
+  "settings.password.mfaPurpose": "das Ändern deines Passworts"
 }
