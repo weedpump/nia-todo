@@ -41,5 +41,11 @@
   "auth.signIn": "Anmelden",
   "auth.signOut": "Abmelden",
   "resource.apiDocs": "API-Doku",
-  "resource.changelog": "Changelog"
+  "resource.changelog": "Changelog",
+  "settings.title": "Einstellungen",
+  "settings.profile.username": "Username",
+  "settings.profile.displayName": "Anzeigename",
+  "settings.profile.email": "E-Mail",
+  "settings.language.saved": "Sprache gespeichert.",
+  "settings.language.saveFailed": "Sprache konnte nicht gespeichert werden."
 }

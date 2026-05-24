@@ -1,4 +1,5 @@
 import { RUNTIME_CAPABILITIES, apiResourceUrl } from '../core/config.js';
+import { getLanguagePreference, setLanguagePreference, adoptServerLanguagePreference, t, translatePage } from '../i18n/index.js';
 import { iconSvg } from '../icons/lucide-icons.js';
 import qrcode from '../../vendor/qrcode-generator.js';
 import { confirmSecurityAction, performMfaReauth, promptSecurityPassword, promptSecurityText } from './security-dialogs.js';
@@ -100,6 +101,11 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     </span>`;
   }
 
+  function renderLanguageSetting() {
+    const select = document.getElementById('settings-language');
+    if (select) select.value = getLanguagePreference();
+  }
+
   function renderUserInfo() {
     const currentUser = getCurrentUser();
     const settingsUsernameEl = document.getElementById('settings-username');
@@ -109,6 +115,7 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     if (settingsDisplayNameCell && currentUser) settingsDisplayNameCell.innerHTML = renderDisplayNameDisplay(currentUser.display_name || currentUser.username);
     if (settingsEmailCell && currentUser) settingsEmailCell.innerHTML = renderSettingsEmailDisplay(currentUser);
     renderSettingsAvatar(currentUser);
+    renderLanguageSetting();
   }
 
   async function refreshCurrentUser() {
@@ -119,7 +126,9 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     localStorage.setItem('nia-mfa-enrollment-required', mfaEnrollmentRequired ? '1' : '0');
     if (freshUser.access_token) localStorage.setItem('jwt_token', freshUser.access_token);
     if (freshUser.csrf_token) localStorage.setItem('csrf_token', freshUser.csrf_token);
+    if (freshUser.language) await adoptServerLanguagePreference(freshUser.language);
     renderUserInfo();
+    translatePage(document);
   }
 
   function isMfaEnrollmentLocked() {
@@ -248,6 +257,8 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     document.getElementById('settings-profile-success').textContent = '';
     document.getElementById('settings-avatar-error').textContent = '';
     document.getElementById('settings-avatar-success').textContent = '';
+    document.getElementById('settings-language-error').textContent = '';
+    document.getElementById('settings-language-success').textContent = '';
     document.getElementById('settings-2fa-error').textContent = '';
     document.getElementById('settings-2fa-success').textContent = '';
     document.getElementById('settings-2fa-setup').style.display = 'none';
@@ -262,6 +273,20 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
       resetApiKeyUi();
       loadApiKeys();
       updatePushSettingsUI();
+    }
+  }
+
+  async function changeLanguagePreference(mode) {
+    const errorEl = document.getElementById('settings-language-error');
+    const successEl = document.getElementById('settings-language-success');
+    if (errorEl) errorEl.textContent = '';
+    if (successEl) successEl.textContent = '';
+    try {
+      await setLanguagePreference(mode, { authApi, syncServer: true });
+      renderLanguageSetting();
+      if (successEl) successEl.textContent = t('settings.language.saved');
+    } catch (error) {
+      if (errorEl) errorEl.textContent = error?.message || t('settings.language.saveFailed');
     }
   }
 
@@ -833,6 +858,7 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
   return {
     renderUserInfo,
     openSettingsModal,
+    changeLanguagePreference,
     editUserDisplayName,
     cancelUserDisplayNameEdit,
     saveUserProfile,

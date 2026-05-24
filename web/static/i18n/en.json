@@ -41,5 +41,11 @@
   "auth.signIn": "Sign in",
   "auth.signOut": "Sign out",
   "resource.apiDocs": "API docs",
-  "resource.changelog": "Changelog"
+  "resource.changelog": "Changelog",
+  "settings.title": "Settings",
+  "settings.profile.username": "Username",
+  "settings.profile.displayName": "Display name",
+  "settings.profile.email": "Email",
+  "settings.language.saved": "Language saved.",
+  "settings.language.saveFailed": "Language could not be saved."
 }

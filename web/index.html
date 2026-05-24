@@ -389,7 +389,7 @@
   <div class="modal" id="settings-modal">
     <div class="modal-overlay" onclick="closeModal('settings-modal')"></div>
     <div class="modal-content">
-      <h3><span data-icon="settings"></span> Einstellungen</h3>
+      <h3><span data-icon="settings"></span> <span data-i18n-key="settings.title">Einstellungen</span></h3>
       <button class="modal-close-x" onclick="closeModal('settings-modal')"><span data-icon="x"></span></button>
       <div class="modal-body">
         <div class="settings-profile-card">
@@ -403,17 +403,17 @@
           <input type="file" id="settings-avatar-input" accept="image/png,image/jpeg,image/webp,image/gif,image/heic,image/heif,.heic,.heif" style="display:none;" onchange="startAvatarUpload(this.files?.[0])">
           <div class="settings-profile-fields">
             <div class="settings-field-row">
-              <div class="settings-field-label">Username</div>
+              <div class="settings-field-label" data-i18n-key="settings.profile.username">Username</div>
               <div id="settings-username" class="settings-readonly-value">–</div>
             </div>
             <div class="settings-field-row">
-              <div class="settings-field-label">Anzeigename</div>
+              <div class="settings-field-label" data-i18n-key="settings.profile.displayName">Anzeigename</div>
               <div id="settings-display-name-cell" class="settings-inline-cell">–</div>
               <div id="settings-profile-error" class="settings-field-error"></div>
               <div id="settings-profile-success" class="settings-field-success"></div>
             </div>
             <div class="settings-field-row">
-              <div class="settings-field-label">E-Mail</div>
+              <div class="settings-field-label" data-i18n-key="settings.profile.email">E-Mail</div>
               <div id="settings-email-cell" class="settings-inline-cell">–</div>
               <div id="settings-email-error" class="settings-field-error"></div>
               <div id="settings-email-success" class="settings-field-success"></div>
@@ -422,6 +422,18 @@
         </div>
         <div id="settings-avatar-error" class="settings-field-error"></div>
         <div id="settings-avatar-success" class="settings-field-success"></div>
+        <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">
+        <h4 style="margin:0 0 12px 0; font-size:14px;"><span data-icon="book-open"></span> <span data-i18n-key="settings.language.label">Sprache</span></h4>
+        <div class="form-group">
+          <label for="settings-language" data-i18n-key="settings.language.browser">Browsersprache verwenden</label>
+          <select id="settings-language" onchange="changeLanguagePreference(this.value)">
+            <option value="auto" data-i18n-key="settings.language.auto">Automatisch</option>
+            <option value="de" data-i18n-key="settings.language.de">Deutsch</option>
+            <option value="en" data-i18n-key="settings.language.en">Englisch</option>
+          </select>
+        </div>
+        <div id="settings-language-error" class="settings-field-error"></div>
+        <div id="settings-language-success" class="settings-field-success"></div>
         <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">
         <h4 style="margin:0 0 12px 0; font-size:14px;"><span data-icon="key-round"></span> Passwort ändern</h4>
         <div class="form-group">
