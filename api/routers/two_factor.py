@@ -31,6 +31,7 @@ from services.two_factor import (
     EMAIL_CODE_TTL_SECONDS, record_challenge_failure, sha256_hex, bcrypt_hash,
 )
 from services.email import send_email
+from services.email_templates import two_factor_code_email
 
 router = APIRouter(prefix="/api")
 
@@ -168,20 +169,14 @@ def _send_reauth_email_code(db, user_id: int, bucket_id: int, ip_address: Option
     if not user or not user["email"]:
         raise HTTPException(400, "E-Mail-Reauth ist nicht verfügbar")
     email_code = f"{secrets.randbelow(1_000_000):06d}"
-    send_email(
-        to=user["email"],
-        subject="Dein nia-todo Reauth-Code",
-        text=(
-            f"Dein Sicherheits-Code lautet: {email_code}\n\n"
-            "Der Code ist 10 Minuten gültig.\n\n"
-            "Tipp: Du kannst in den Einstellungen zusätzlich einen Authenticator oder Passkey einrichten."
-        ),
-        html=(
-            f"<p>Dein Sicherheits-Code lautet:</p><p><strong>{email_code}</strong></p>"
-            "<p>Der Code ist 10 Minuten gültig.</p>"
-            "<p style=\"color:#64748b; font-size:13px;\">Tipp: Du kannst in den Einstellungen zusätzlich einen Authenticator oder Passkey einrichten.</p>"
-        ),
+    subject, text, html = two_factor_code_email(
+        display_name=user["display_name"] or "",
+        username=user["username"] or "",
+        code=email_code,
+        purpose="reauth",
+        expires_minutes=10,
     )
+    send_email(to=user["email"], subject=subject, text=text, html=html)
     db.execute(
         "UPDATE two_factor_challenges SET email_code_hash = ?, email_code_expires_at = ? WHERE id = ?",
         (bcrypt_hash(email_code), int(time.time()) + EMAIL_CODE_TTL_SECONDS, bucket_id),

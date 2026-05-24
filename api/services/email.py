@@ -8,6 +8,7 @@ from typing import Optional
 from fastapi import HTTPException
 
 from services.email_config import get_email_config, is_email_configured
+from services.email_templates import test_email
 
 
 def _sender(config: dict) -> str:
@@ -56,11 +57,5 @@ def send_email(*, to: str, subject: str, text: str, html: Optional[str] = None) 
 
 
 def send_test_email(to: str) -> None:
-    text = "Dies ist eine Test-Mail von nia-todo. Wenn du sie siehst, funktioniert die SMTP-Konfiguration."
-    html = """
-    <div style="font-family: system-ui, -apple-system, Segoe UI, sans-serif; line-height: 1.5; color: #0f172a;">
-      <h1 style="font-size: 20px; margin: 0 0 12px;">nia-todo Test-Mail</h1>
-      <p>Wenn du diese Mail siehst, funktioniert die SMTP-Konfiguration.</p>
-    </div>
-    """.strip()
-    send_email(to=to, subject="nia-todo SMTP Test", text=text, html=html)
+    subject, text, html = test_email(to=to)
+    send_email(to=to, subject=subject, text=text, html=html)

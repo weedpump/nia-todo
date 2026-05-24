@@ -21,6 +21,7 @@ import bcrypt
 
 from services.audit import log_audit
 from services.email import send_email
+from services.email_templates import two_factor_code_email
 from services.email_config import can_send_email_links
 
 APP_NAME = "nia-todo"
@@ -269,20 +270,14 @@ def create_challenge(db, user_id: int, ip_address: Optional[str] = None, user_ag
             email_expires = None
         else:
             # Fail closed: do not create a challenge that advertises e-mail if delivery failed.
-            send_email(
-                to=user["email"],
-                subject="Dein nia-todo 2FA-Code",
-                text=(
-                    f"Dein Login-Code lautet: {email_code}\n\n"
-                    "Der Code ist 10 Minuten gültig.\n\n"
-                    "Tipp: Du kannst in den Einstellungen zusätzlich einen Authenticator oder Passkey einrichten."
-                ),
-                html=(
-                    f"<p>Dein Login-Code lautet:</p><p><strong>{email_code}</strong></p>"
-                    "<p>Der Code ist 10 Minuten gültig.</p>"
-                    "<p style=\"color:#64748b; font-size:13px;\">Tipp: Du kannst in den Einstellungen zusätzlich einen Authenticator oder Passkey einrichten.</p>"
-                ),
+            subject, text, html = two_factor_code_email(
+                display_name=user["display_name"] or "",
+                username=user["username"] or "",
+                code=email_code,
+                purpose="login",
+                expires_minutes=10,
             )
+            send_email(to=user["email"], subject=subject, text=text, html=html)
             log_audit(db, "two_factor_email_code_sent", user_id=user_id, ip_address=ip_address)
     db.execute(
         """INSERT INTO two_factor_challenges
