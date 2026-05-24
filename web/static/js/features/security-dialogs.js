@@ -150,7 +150,7 @@ export async function performMfaReauth({ authApi, purpose = 'diese Sicherheitsak
   const state = await authApi.twoFactorStatus().catch(() => ({}));
   if (!state.enabled && !state.required) return;
 
-  const canPasskey = state.has_passkey && !RUNTIME_CAPABILITIES.native && window.PublicKeyCredential && navigator.credentials;
+  const canPasskey = state.has_passkey && ((!RUNTIME_CAPABILITIES.native && window.PublicKeyCredential && navigator.credentials) || RUNTIME_CAPABILITIES.nativePasskeys);
   const hasCode = state.has_totp || state.has_recovery_codes || state.has_email_fallback;
   const codeLabel = state.has_totp && state.has_recovery_codes
     ? 'Authenticator- oder Recovery-Code'

@@ -94,6 +94,7 @@ Für 2FA-Änderungen zusätzlich sinnvoll vor Release/Review:
 - `node scripts/test_frontend_settings.mjs`
 - `node scripts/test_frontend_admin.mjs`
 - `node scripts/test_frontend_security.mjs`
+- `node scripts/test_frontend_native_passkeys.mjs` bei Native-Passkey-Änderungen
 
 Manuelle 2FA-Smoke-Pfade:
 - TOTP einrichten, QR-Code scannen, Login mit TOTP abschließen.

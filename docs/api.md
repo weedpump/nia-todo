@@ -212,7 +212,7 @@ Aktiviert TOTP nach Passwortbestätigung und liefert einmalig neue Recovery Code
 - `POST /api/2fa/passkey/options` und `/api/2fa/passkey/verify` — Login-Challenge per Passkey abschließen.
 - `DELETE /api/me/passkeys/{id}` — Passkey widerrufen, benötigt eine frische One-Time-MFA-Reauth. Wenn danach kein primärer Faktor (TOTP/Passkey) mehr übrig ist, werden Recovery Codes automatisch widerrufen und user-seitige 2FA deaktiviert; bei globaler Policy kann E-Mail-Code-MFA weiter als Fallback greifen.
 
-Passkeys sind an die konfigurierte öffentliche Basis-URL (`public_base_url`) gebunden. Für Nicht-Localhost-Hosts ist HTTPS Pflicht; ohne `public_base_url` sind produktive Passkey-Flows für Nicht-Localhost-Hosts fail-closed. Native Apps bekommen bis zur nativen Passkey-Bridge keinen WebView-Passkey-Sonderpfad.
+Passkeys sind an die konfigurierte öffentliche Basis-URL (`public_base_url`) gebunden. Für Nicht-Localhost-Hosts ist HTTPS Pflicht; ohne `public_base_url` sind produktive Passkey-Flows für Nicht-Localhost-Hosts fail-closed. Windows Native nutzt eine native WebAuthn-Bridge mit serverseitig gelieferter Origin; dafür muss die in der App konfigurierte Server-URL zur `public_base_url`-Origin/RP-ID passen. Android bleibt bis zu einer eigenen Plattform-Bridge ohne Passkey-Sonderpfad.
 
 ### Admin-Policy
 - `GET /api/admin/2fa-policy`

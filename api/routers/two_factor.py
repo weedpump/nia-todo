@@ -429,6 +429,7 @@ def passkey_registration_options(data: PasskeyNameRequest, request: Request, use
         },
         "challenge": challenge,
         "name": data.name,
+        "origin": rp.origin,
     }
 
 
@@ -515,7 +516,8 @@ def passkey_login_options(data: PasskeyLoginOptionsRequest, request: Request):
                 "userVerification": "required",
                 "rpId": rp.rp_id,
                 "allowCredentials": [{"type": "public-key", "id": row["credential_id"]} for row in rows],
-            }
+            },
+            "origin": rp.origin,
         }
 
 
@@ -590,6 +592,7 @@ def passkey_reauth_options(request: Request, user_id: int = Depends(require_auth
             "rpId": rp.rp_id,
             "allowCredentials": [{"type": "public-key", "id": row["credential_id"]} for row in rows],
         },
+        "origin": rp.origin,
     }
 
 

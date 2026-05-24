@@ -25,4 +25,6 @@ tauri-plugin-notification = "2"
 tauri-plugin-window-state = "2"
 
 [target.'cfg(windows)'.dependencies]
+base64 = "0.22"
+windows = { version = "0.61.3", features = ["Win32_Foundation", "Win32_Networking_WindowsWebServices"] }
 winreg = "0.55"

@@ -107,7 +107,7 @@ export function createAuthSessionFeature({
 
   function preferredMfaMethod(challengeData) {
     const methods = challengeData?.challenge?.methods || [];
-    const canPasskey = methods.includes('passkey') && !RUNTIME_CAPABILITIES.native && window.PublicKeyCredential && navigator.credentials;
+    const canPasskey = methods.includes('passkey') && ((!RUNTIME_CAPABILITIES.native && window.PublicKeyCredential && navigator.credentials) || RUNTIME_CAPABILITIES.nativePasskeys);
     return canPasskey ? 'passkey'
       : methods.includes('totp') ? 'totp'
       : methods.includes('recovery_code') ? 'recovery_code'
