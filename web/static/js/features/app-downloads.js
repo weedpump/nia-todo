@@ -231,7 +231,9 @@ function renderNativeAppVersion(target, platform, currentVersion) {
   const changelogUrl = RUNTIME_CAPABILITIES.native && API ? `${API.replace(/\/$/, '')}/changelog` : '/changelog';
   target.innerHTML = `
     <span class="native-version-text"><strong>App Version:</strong> ${escapeHtml(platformLabel(platform))} v${escapeHtml(normalizeVersion(currentVersion) || currentVersion)}</span>
-    <a class="changelog-link version-changelog-link" href="${escapeHtml(changelogUrl)}" target="_blank" rel="noopener noreferrer" title="Changelog öffnen">Changelog</a>
+    <div class="version-actions native-version-actions">
+      <a class="changelog-link version-action-btn" href="${escapeHtml(changelogUrl)}" target="_blank" rel="noopener noreferrer" title="Changelog öffnen">Changelog</a>
+    </div>
   `;
   target.style.display = '';
 }
