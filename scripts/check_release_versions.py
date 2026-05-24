@@ -5,9 +5,22 @@ from __future__ import annotations
 import json
 import re
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+STABLE_VERSION_RE = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
+DEV_VERSION_RE = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)-dev$")
+COMPAT_VERSION_RE = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-dev)?$")
+PRERELEASE_RANK = {"dev": -1}
+
+
+@dataclass(frozen=True)
+class ParsedVersion:
+    major: int
+    minor: int
+    patch: int
+    prerelease: str = ""
 
 
 def read(path: str) -> str:
@@ -25,46 +38,40 @@ def normalize_version(value: str) -> str:
     return str(value or "").strip().lstrip("vV")
 
 
-def parse_version(value: str) -> tuple[list[int], list[str]]:
-    core, _, prerelease = normalize_version(value).partition("-")
-    return [int(part) if part.isdigit() else 0 for part in core.split(".")], prerelease.split(".") if prerelease else []
+def parse_version(value: str) -> ParsedVersion:
+    normalized = normalize_version(value)
+    match = COMPAT_VERSION_RE.fullmatch(normalized)
+    if not match:
+        raise ValueError(f"invalid nia-todo version: {value}")
+    major, minor, patch = (int(match.group(index)) for index in (1, 2, 3))
+    prerelease = "dev" if normalized.endswith("-dev") else ""
+    return ParsedVersion(major, minor, patch, prerelease)
 
 
-def compare_prerelease(left: list[str], right: list[str]) -> int:
-    if not left and not right:
-        return 0
-    if not left:
-        return 1
-    if not right:
-        return -1
-    for idx in range(max(len(left), len(right))):
-        if idx >= len(left):
-            return -1
-        if idx >= len(right):
-            return 1
-        lval, rval = left[idx], right[idx]
-        lnum = int(lval) if lval.isdigit() else None
-        rnum = int(rval) if rval.isdigit() else None
-        if lnum is not None and rnum is not None and lnum != rnum:
-            return 1 if lnum > rnum else -1
-        if lnum is not None and rnum is None:
-            return -1
-        if lnum is None and rnum is not None:
-            return 1
-        if lval != rval:
-            return 1 if lval > rval else -1
-    return 0
+def is_valid_stable_version(value: str) -> bool:
+    return bool(STABLE_VERSION_RE.fullmatch(normalize_version(value)))
+
+
+def is_valid_dev_version(value: str) -> bool:
+    return bool(DEV_VERSION_RE.fullmatch(normalize_version(value)))
+
+
+def is_valid_compat_version(value: str) -> bool:
+    return bool(COMPAT_VERSION_RE.fullmatch(normalize_version(value)))
 
 
 def compare_versions(left: str, right: str) -> int:
-    left_core, left_pre = parse_version(left)
-    right_core, right_pre = parse_version(right)
-    for idx in range(max(len(left_core), len(right_core))):
-        lval = left_core[idx] if idx < len(left_core) else 0
-        rval = right_core[idx] if idx < len(right_core) else 0
-        if lval != rval:
-            return 1 if lval > rval else -1
-    return compare_prerelease(left_pre, right_pre)
+    left_version = parse_version(left)
+    right_version = parse_version(right)
+    left_core = (left_version.major, left_version.minor, left_version.patch)
+    right_core = (right_version.major, right_version.minor, right_version.patch)
+    if left_core != right_core:
+        return 1 if left_core > right_core else -1
+    left_rank = PRERELEASE_RANK.get(left_version.prerelease, 0)
+    right_rank = PRERELEASE_RANK.get(right_version.prerelease, 0)
+    if left_rank == right_rank:
+        return 0
+    return 1 if left_rank > right_rank else -1
 
 
 def cargo_lock_app_version() -> str:
@@ -75,8 +82,19 @@ def cargo_lock_app_version() -> str:
     raise SystemExit("missing Cargo.lock package nia-todo-desktop")
 
 
+def android_generated_warnings(expected_version: str) -> list[str]:
+    warnings: list[str] = []
+    props_path = ROOT / "src-tauri" / "gen" / "android" / "app" / "tauri.properties"
+    if props_path.exists():
+        raw = props_path.read_text(encoding="utf-8", errors="replace")
+        version_name = first(r"^tauri\.android\.versionName=(.+)$", raw, "tauri.android.versionName").strip()
+        if version_name != expected_version:
+            warnings.append(f"Android generated tauri.properties versionName is {version_name}, expected {expected_version}; release.sh rewrites it before Android build")
+    return warnings
+
+
 def main() -> int:
-    expected = sys.argv[1] if len(sys.argv) > 1 else None
+    expected = normalize_version(sys.argv[1]) if len(sys.argv) > 1 else None
     config_js = read("web/static/js/core/config.js")
     sw_js = read("web/sw.js")
     index_html = read("web/index.html")
@@ -95,14 +113,24 @@ def main() -> int:
     min_native_client_version = first(r'"min_native_client_version"\s*:\s*"([^"]+)"', instance_config, "min_native_client_version")
 
     baseline = expected or versions["web APP_VERSION"]
-    failures = []
+    failures: list[str] = []
+    warnings: list[str] = []
+    if not (is_valid_stable_version(baseline) or is_valid_dev_version(baseline)):
+        failures.append(f"baseline version is not valid stable/dev SemVer: {baseline}")
     for label, value in versions.items():
         if value != baseline:
             failures.append(f"{label}: {value} != {baseline}")
-    if not re.match(r"^\d+\.\d+\.\d+(?:[-.][0-9A-Za-z.-]+)?$", min_native_client_version):
-        failures.append(f"min_native_client_version is not valid SemVer: {min_native_client_version}")
-    elif compare_versions(min_native_client_version, baseline) > 0:
-        failures.append(f"min_native_client_version {min_native_client_version} must not exceed app version {baseline}")
+        if not (is_valid_stable_version(value) or is_valid_dev_version(value)):
+            failures.append(f"{label} is not valid stable/dev SemVer: {value}")
+    if not is_valid_compat_version(min_native_client_version):
+        failures.append(f"min_native_client_version is not valid stable/dev SemVer: {min_native_client_version}")
+    else:
+        try:
+            if compare_versions(min_native_client_version, baseline) > 0:
+                failures.append(f"min_native_client_version {min_native_client_version} must not exceed app version {baseline}")
+        except ValueError as error:
+            failures.append(str(error))
+    warnings.extend(android_generated_warnings(baseline))
 
     if failures:
         print("Version consistency check FAILED:", file=sys.stderr)
@@ -114,6 +142,8 @@ def main() -> int:
     for label in sorted(versions):
         print(f" - {label}: {versions[label]}")
     print(f" - min_native_client_version: {min_native_client_version} (manual compatibility floor)")
+    for warning in warnings:
+        print(f" ⚠️  {warning}")
     return 0
 
 

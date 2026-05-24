@@ -8,6 +8,8 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 ## [2.0.0] - Unreleased
 
 ### Fixed
+- Release-Version-Checker validiert SemVer strenger und deckt `min_native_client_version`-Grenzen per Regressionstest ab.
+- Android-Release setzt generated `tauri.properties` vor dem APK-Build deterministisch, damit alte generated Versionen keinen späten Build-Fail verursachen.
 - Native App-Update-Hinweise können bei optionalen Updates bis zum nächsten Appstart verschoben werden; nur eine erhöhte `min_native_client_version` erzwingt das Update.
 - Release-Versionierung gehärtet: Web-, Service-Worker-, Tauri- und Cargo-Versionen werden konsistent gesetzt; `min_native_client_version` bleibt eine bewusst gepflegte Kompatibilitätsgrenze.
 - Android-Release validiert jetzt neben `versionName` auch den erwarteten `versionCode`.
