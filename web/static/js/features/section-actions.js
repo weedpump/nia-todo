@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.js';
 export function createSectionActionsFeature({
   getTodos,
   setTodos,
@@ -57,9 +58,9 @@ export function createSectionActionsFeature({
 
   async function deleteSection(id) {
     const confirmed = await confirmDanger({
-      title: 'Section löschen?',
-      message: 'Die Section wird gelöscht. Enthaltene Todos werden zu „Unsortiert“ verschoben.',
-      confirmText: 'Section löschen',
+      title: t('section.deleteTitle'),
+      message: t('section.deleteMessage'),
+      confirmText: t('section.deleteConfirm'),
     });
     if (!confirmed) return;
 

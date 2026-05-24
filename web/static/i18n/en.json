@@ -429,5 +429,11 @@
   "project.done.deleteMessage": "{count} completed todo(s) in “{project}” will be permanently deleted.",
   "project.done.deleteConfirm": "Delete todos",
   "project.done.deleted": "{count} completed todo(s) deleted",
-  "project.done.deleteFailed": "Delete failed"
+  "project.done.deleteFailed": "Delete failed",
+  "section.unsorted": "Unsorted",
+  "section.delete": "Delete",
+  "section.namePlaceholder": "Section name",
+  "section.deleteTitle": "Delete section?",
+  "section.deleteMessage": "The section will be deleted. Contained todos will be moved to “Unsorted”.",
+  "section.deleteConfirm": "Delete section"
 }
