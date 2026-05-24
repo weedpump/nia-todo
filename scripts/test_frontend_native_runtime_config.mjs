@@ -32,6 +32,12 @@ async function installTauriStub(page, settings, options = {}) {
           if (command === 'desktop_request_notification_permission') return 'granted';
           if (command === 'desktop_schedule_reminders') return 0;
           if (command === 'desktop_get_app_version') return appVersion || '2.0.0-test';
+          if (command === 'desktop_open_url') {
+            window.__nativeOpenedUrls = window.__nativeOpenedUrls || [];
+            window.__nativeOpenedUrls.push(args.url);
+            localStorage.setItem('__nativeOpenedUrls', JSON.stringify(window.__nativeOpenedUrls));
+            return null;
+          }
           return null;
         },
       },
@@ -53,6 +59,40 @@ async function testNativeSetupWithoutServerUrl() {
     await page.waitForFunction(() => localStorage.getItem('__nativeSavedServerUrl'), null, { timeout: 10_000 });
     const saved = await page.evaluate(() => localStorage.getItem('__nativeSavedServerUrl'));
     if (saved !== BASE_URL) throw new Error(`Expected saved server URL ${BASE_URL}, got ${saved}`);
+  } catch (error) {
+    console.log('DEBUG frontend errors:', JSON.stringify(dumpErrors()));
+    throw error;
+  } finally {
+    await browser.close();
+  }
+}
+
+async function testNativeChangelogOpensExternally() {
+  const { browser, page, dumpErrors } = await launchPage();
+  try {
+    await installTauriStub(page, { serverUrl: BASE_URL }, {
+      appVersion: '2.1.1-dev',
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    });
+    await page.goto(BASE_URL, { waitUntil: 'domcontentloaded' });
+    await page.locator('#login-overlay').waitFor({ state: 'visible', timeout: 10_000 });
+
+    await page.fill('#login-username', USERNAME);
+    await page.fill('#login-password', USER_PASSWORD);
+    await page.click('button.login-btn');
+    await page.locator('#login-overlay').waitFor({ state: 'hidden', timeout: 15_000 });
+
+    await page.click('#user-menu-button');
+    await page.click('#menu-settings-btn');
+    await page.locator('#settings-modal.active').waitFor({ state: 'visible', timeout: 10_000 });
+    await page.locator('[data-native-app-version] a.changelog-link').waitFor({ state: 'visible', timeout: 10_000 });
+    await page.locator('[data-native-app-version] a.changelog-link').dispatchEvent('click');
+    await page.waitForFunction(() => {
+      const opened = JSON.parse(localStorage.getItem('__nativeOpenedUrls') || '[]');
+      return opened.includes(`${location.origin}/changelog`);
+    }, null, { timeout: 10_000 });
+    const path = await page.evaluate(() => location.pathname);
+    if (path !== '/') throw new Error(`Native changelog click must not navigate inside app, got ${path}`);
   } catch (error) {
     console.log('DEBUG frontend errors:', JSON.stringify(dumpErrors()));
     throw error;
@@ -401,6 +441,7 @@ async function run() {
   console.log('🧭 Running native runtime config regression test...');
   await testNativeSetupWithoutServerUrl();
   await testNativeRuntimeUsesConfiguredServerUrl();
+  await testNativeChangelogOpensExternally();
   await testNativeDesktopSettingsPersistViaTauriCommand();
   await testNativeUpdateUsesModalWithDownloadButton();
   await testNativeRequiredUpdateCannotBeDismissed();

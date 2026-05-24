@@ -5,6 +5,11 @@ Alle wichtigen Änderungen an diesem Projekt werden in dieser Datei dokumentiert
 Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- Changelog-Link in Native Apps öffnet den Changelog über den Systembrowser statt innerhalb der App bzw. ohne sichtbaren Effekt.
+
 ## [2.1.0] - 2026-05-24
 
 ### Added

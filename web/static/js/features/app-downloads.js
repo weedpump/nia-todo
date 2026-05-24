@@ -226,15 +226,28 @@ function renderDownloads(target, downloads) {
   target.style.display = '';
 }
 
-function renderNativeAppVersion(target, platform, currentVersion) {
+function changelogUrl() {
+  return RUNTIME_CAPABILITIES.native && API ? `${API.replace(/\/$/, '')}/changelog` : '/changelog';
+}
+
+function renderNativeAppVersion(target, platform, currentVersion, nativeBridge) {
   if (!target || !platform || !currentVersion) return;
-  const changelogUrl = RUNTIME_CAPABILITIES.native && API ? `${API.replace(/\/$/, '')}/changelog` : '/changelog';
   target.innerHTML = `
     <span class="native-version-text"><strong>App Version:</strong> ${escapeHtml(platformLabel(platform))} v${escapeHtml(normalizeVersion(currentVersion) || currentVersion)}</span>
     <div class="version-actions native-version-actions">
-      <a class="changelog-link version-action-btn" href="${escapeHtml(changelogUrl)}" target="_blank" rel="noopener noreferrer" title="Changelog öffnen">Changelog</a>
+      <a class="changelog-link version-action-btn" href="${escapeHtml(changelogUrl())}" target="_blank" rel="noopener noreferrer" title="Changelog öffnen">Changelog</a>
     </div>
   `;
+  const link = target.querySelector('a.changelog-link');
+  link?.addEventListener('click', async (event) => {
+    if (!RUNTIME_CAPABILITIES.native || !nativeBridge?.openExternal) return;
+    event.preventDefault();
+    try {
+      await nativeBridge.openExternal(link.href || changelogUrl());
+    } catch (error) {
+      console.warn('[Downloads] Native changelog open failed', error);
+    }
+  });
   target.style.display = '';
 }
 
@@ -288,8 +301,25 @@ function showNativeUpdateModal(download, currentVersion, nativeBridge = null, op
 
 export function createAppDownloadsFeature() {
   let listenersInstalled = false;
+  let nativeChangelogListenerInstalled = false;
   let refreshInterval = null;
   let refreshInFlight = null;
+
+  function installNativeChangelogLinks(nativeBridge) {
+    if (!RUNTIME_CAPABILITIES.native || nativeChangelogListenerInstalled) return;
+    nativeChangelogListenerInstalled = true;
+    document.addEventListener('click', async (event) => {
+      const link = event.target?.closest?.('a.changelog-link');
+      if (!link) return;
+      event.preventDefault();
+      const url = link.href || changelogUrl();
+      try {
+        await nativeBridge.openExternal(url);
+      } catch (error) {
+        console.warn('[Downloads] Native changelog open failed', error);
+      }
+    });
+  }
 
   async function loadDownloadManifest() {
     const baseUrl = RUNTIME_CAPABILITIES.native && API ? `${API}/downloads/app-downloads.json` : '/downloads/app-downloads.json';
@@ -324,11 +354,12 @@ export function createAppDownloadsFeature() {
     if (!downloadTargets.length && !nativeVersionTargets.length && !document.getElementById('native-app-update-modal')) return;
 
     const nativeBridge = createNativeBridge();
+    installNativeChangelogLinks(nativeBridge);
     const nativePlatform = platformFromNativeRuntime();
     const currentVersion = await getNativeAppVersion(nativeBridge);
     const hasNativeVersion = Boolean(nativePlatform && currentVersion);
     if (hasNativeVersion) {
-      nativeVersionTargets.forEach((target) => renderNativeAppVersion(target, nativePlatform, currentVersion));
+      nativeVersionTargets.forEach((target) => renderNativeAppVersion(target, nativePlatform, currentVersion, nativeBridge));
     } else {
       nativeVersionTargets.forEach((target) => { target.style.display = 'none'; });
     }
