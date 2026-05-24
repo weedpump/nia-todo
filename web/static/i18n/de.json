@@ -634,5 +634,7 @@
   "admin.user.passwordLinkCreatedTitle": "Passwort-Link erstellt",
   "admin.user.passwordLinkCopiedMessage": "Passwort-Link für {username} wurde kopiert: {link}",
   "admin.user.passwordLinkCreatedMessage": "Passwort-Link für {username}: {link}",
-  "admin.email.help": "Passwort-/Setup-Links nutzen die öffentliche Basis-URL aus der Instanz-Konfiguration. SMTP-Passwörter werden nie wieder angezeigt. Ohne aktivierten E-Mail-Versand gelten Adressen nach dem manuellen Setup-Link als bestätigt, werden aber nicht per Mailbox geprüft."
+  "admin.email.help": "Passwort-/Setup-Links nutzen die öffentliche Basis-URL aus der Instanz-Konfiguration. SMTP-Passwörter werden nie wieder angezeigt. Ohne aktivierten E-Mail-Versand gelten Adressen nach dem manuellen Setup-Link als bestätigt, werden aber nicht per Mailbox geprüft.",
+  "date.todayAt": "Heute {time}",
+  "date.tomorrowAt": "Morgen {time}"
 }
