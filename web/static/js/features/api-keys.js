@@ -1,7 +1,11 @@
+import { t, getActiveLanguage } from '../i18n/index.js';
 import { iconSvg } from '../icons/lucide-icons.js';
 import { confirmSecurityAction, performMfaReauth, promptSecurityText } from './security-dialogs.js';
 
 export function createApiKeysFeature({ authApi }) {
+  let lastApiKeys = [];
+  let hasLoadedApiKeys = false;
+
   function parseServerUtcTimestamp(value) {
     if (!value) return null;
     const raw = String(value).trim();
@@ -13,7 +17,8 @@ export function createApiKeysFeature({ authApi }) {
 
   function formatServerTimestamp(value) {
     const date = parseServerUtcTimestamp(value);
-    return date ? date.toLocaleString('de-DE') : String(value || '');
+    const locale = getActiveLanguage() === 'en' ? 'en-US' : 'de-DE';
+    return date ? date.toLocaleString(locale) : String(value || '');
   }
 
   function resetApiKeyUi() {
@@ -41,6 +46,8 @@ export function createApiKeysFeature({ authApi }) {
   }
 
   function renderApiKeys(keys) {
+    hasLoadedApiKeys = true;
+    lastApiKeys = Array.isArray(keys) ? keys : [];
     const listEl = document.getElementById('api-keys-list');
     if (!listEl) return;
     listEl.textContent = '';
@@ -48,7 +55,7 @@ export function createApiKeysFeature({ authApi }) {
     if (!keys.length) {
       const p = document.createElement('p');
       p.style.cssText = 'font-size:13px; color:var(--text-muted);';
-      p.textContent = 'Keine API-Keys vorhanden.';
+      p.textContent = t('settings.apiKeys.empty');
       listEl.appendChild(p);
       return;
     }
@@ -67,7 +74,9 @@ export function createApiKeysFeature({ authApi }) {
       if (revoked) {
         const span = document.createElement('span');
         span.style.cssText = 'color:var(--danger); font-size:11px; margin-left:4px;';
-        span.innerHTML = `(${iconSvg('ban')} widerrufen)`;
+        span.append('(');
+        span.insertAdjacentHTML('beforeend', iconSvg('ban'));
+        span.append(` ${t('settings.apiKeys.revoked')})`);
         nameRow.appendChild(span);
       }
 
@@ -78,8 +87,8 @@ export function createApiKeysFeature({ authApi }) {
       const usedRow = document.createElement('div');
       usedRow.style.cssText = 'margin-top:4px; font-size:11px; color:var(--text-muted);';
       usedRow.textContent = k.last_used_at
-        ? 'Letzter Zugriff: ' + formatServerTimestamp(k.last_used_at)
-        : 'Noch nicht verwendet';
+        ? t('settings.apiKeys.lastUsed', { timestamp: formatServerTimestamp(k.last_used_at) })
+        : t('settings.apiKeys.neverUsed');
 
       left.appendChild(nameRow);
       left.appendChild(keyRow);
@@ -90,7 +99,7 @@ export function createApiKeysFeature({ authApi }) {
         const btn = document.createElement('button');
         btn.className = 'btn btn-danger';
         btn.style.cssText = 'font-size:12px; padding:4px 8px; flex-shrink:0; margin-left:8px;';
-        btn.title = 'Widerrufen';
+        btn.title = t('settings.apiKeys.revoke');
         btn.innerHTML = iconSvg('trash-2');
         btn.onclick = () => revokeApiKey(k.id);
         container.appendChild(btn);
@@ -101,7 +110,7 @@ export function createApiKeysFeature({ authApi }) {
   }
 
   async function ensureRecentMfaForApiKeyAction() {
-    await performMfaReauth({ authApi, purpose: 'diese API-Key-Aktion' });
+    await performMfaReauth({ authApi, purpose: t('settings.apiKeys.mfaPurpose') });
   }
 
   async function withMfaRetry(action) {
@@ -115,7 +124,13 @@ export function createApiKeysFeature({ authApi }) {
   }
 
   async function createApiKey() {
-    const name = await promptSecurityText({ title: 'API-Key erstellen', message: 'Der API-Key wird nur einmal angezeigt.', label: 'Name (optional)', placeholder: 'z.B. Backup-Script', primaryText: 'API-Key erstellen' });
+    const name = await promptSecurityText({
+      title: t('settings.apiKeys.create'),
+      message: t('settings.apiKeys.createMessage'),
+      label: t('settings.apiKeys.nameOptional'),
+      placeholder: t('settings.apiKeys.namePlaceholder'),
+      primaryText: t('settings.apiKeys.create'),
+    });
     if (name === null) return;
     const errorEl = document.getElementById('api-key-error');
     const createdEl = document.getElementById('api-key-created');
@@ -133,7 +148,12 @@ export function createApiKeysFeature({ authApi }) {
   }
 
   async function revokeApiKey(keyId) {
-    const confirmed = await confirmSecurityAction({ title: 'API-Key widerrufen?', message: 'Dieser Key kann danach nicht mehr für Automationen genutzt werden.', confirmText: 'API-Key widerrufen', danger: true });
+    const confirmed = await confirmSecurityAction({
+      title: t('settings.apiKeys.revokeTitle'),
+      message: t('settings.apiKeys.revokeMessage'),
+      confirmText: t('settings.apiKeys.revokeConfirm'),
+      danger: true,
+    });
     if (!confirmed) return;
     const errorEl = document.getElementById('api-key-error');
     if (errorEl) errorEl.textContent = '';
@@ -157,7 +177,7 @@ export function createApiKeysFeature({ authApi }) {
     const valueEl = document.getElementById('api-key-value');
     if (!valueEl || !valueEl.textContent) return;
     navigator.clipboard.writeText(valueEl.textContent).then(() => {
-      showCopyStatus('API-Key kopiert.');
+      showCopyStatus(t('settings.apiKeys.copied'));
     }).catch(err => {
       console.error('Copy failed:', err);
       try {
@@ -167,13 +187,17 @@ export function createApiKeysFeature({ authApi }) {
         window.getSelection().addRange(range);
         document.execCommand('copy');
         window.getSelection().removeAllRanges();
-        showCopyStatus('API-Key kopiert.');
+        showCopyStatus(t('settings.apiKeys.copied'));
       } catch (fallbackErr) {
         console.error('Fallback copy failed:', fallbackErr);
-        showCopyStatus('Kopieren fehlgeschlagen — bitte manuell markieren.', true);
+        showCopyStatus(t('settings.apiKeys.copyFailed'), true);
       }
     });
   }
+
+  window.addEventListener('nia-language-change', () => {
+    if (hasLoadedApiKeys) renderApiKeys(lastApiKeys);
+  });
 
   return { resetApiKeyUi, loadApiKeys, renderApiKeys, createApiKey, revokeApiKey, copyApiKey };
 }

@@ -491,18 +491,18 @@
         <div id="settings-2fa-error" style="color:var(--danger); font-size:13px; margin-top:8px;"></div>
         <div id="settings-2fa-success" style="color:var(--success); font-size:13px; margin-top:8px;"></div>
         <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">
-        <h4 style="margin:0 0 12px 0; font-size:14px;"><span data-icon="key-round"></span> API-Keys</h4>
+        <h4 style="margin:0 0 12px 0; font-size:14px;"><span data-icon="key-round"></span> <span data-i18n-key="settings.apiKeys.title">API-Keys</span></h4>
         <div id="api-keys-list" style="margin-bottom:12px;">
           <!-- API keys loaded dynamically -->
         </div>
-        <button class="btn btn-primary" onclick="createApiKey()" style="margin-bottom:8px;">Neuen API-Key erstellen</button>
+        <button class="btn btn-primary" onclick="createApiKey()" style="margin-bottom:8px;" data-i18n-key="settings.apiKeys.create">Neuen API-Key erstellen</button>
         <div class="app-resource-links settings-resource-links api-settings-resource-links">
-          <a class="app-resource-link" href="/api" target="_blank" rel="noopener"><span data-icon="book-open"></span> API-Doku</a>
+          <a class="app-resource-link" href="/api" target="_blank" rel="noopener"><span data-icon="book-open"></span> <span data-i18n-key="resource.apiDocs">API-Doku</span></a>
         </div>
         <div id="api-key-created" style="display:none; background:var(--bg-tertiary); padding:12px; border-radius:var(--radius); margin-top:8px;">
-          <p style="color:var(--warning); font-size:13px; margin:0 0 8px 0;"><span data-icon="triangle-alert"></span> Kopiere den Key jetzt — er wird nicht mehr angezeigt!</p>
+          <p style="color:var(--warning); font-size:13px; margin:0 0 8px 0;"><span data-icon="triangle-alert"></span> <span data-i18n-key="settings.apiKeys.copyNowWarning">Kopiere den Key jetzt — er wird nicht mehr angezeigt!</span></p>
           <code id="api-key-value" style="display:block; background:var(--bg-primary); padding:8px; border-radius:var(--radius); font-family:monospace; word-break:break-all; font-size:13px; margin-bottom:8px;"></code>
-          <button class="btn btn-secondary" onclick="copyApiKey()" style="font-size:13px;"><span data-icon="clipboard"></span> Kopieren</button>
+          <button class="btn btn-secondary" onclick="copyApiKey()" style="font-size:13px;"><span data-icon="clipboard"></span> <span data-i18n-key="common.copy">Kopieren</span></button>
           <div id="api-key-copy-status" style="color:var(--success); font-size:12px; margin-top:8px;"></div>
         </div>
         <div id="api-key-error" style="color:var(--danger); font-size:13px; margin-top:8px;"></div>
