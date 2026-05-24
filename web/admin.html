@@ -335,8 +335,9 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 </div>
 
 <script type="module">
-import { initI18n } from './static/js/i18n/index.js';
+import { initI18n, t as i18nT } from './static/js/i18n/index.js';
 await initI18n();
+window.t = i18nT;
 </script>
 <script>
 const API = '';
@@ -741,16 +742,16 @@ function renderUserEmailCell(user) {
 }
 
 function renderUserEmailStatus(user) {
-  if (user.pending_email) return `<span class="badge badge-warning" title="Wartet auf Bestätigung">Ausstehend</span>`;
-  if (!user.email) return `<span class="badge badge-muted">Keine</span>`;
-  if (user.email_verified_at) return `<span class="badge badge-success" title="E-Mail ist bestätigt">Bestätigt</span>`;
-  return `<span class="badge badge-warning" title="E-Mail ist gespeichert, aber nicht bestätigt">Unbestätigt</span>`;
+  if (user.pending_email) return `<span class="badge badge-warning" title="${escapeHtmlAttr(t('admin.user.emailStatus.pendingTitle'))}">${escapeHtml(t('admin.user.emailStatus.pending'))}</span>`;
+  if (!user.email) return `<span class="badge badge-muted">${escapeHtml(t('admin.none'))}</span>`;
+  if (user.email_verified_at) return `<span class="badge badge-success" title="${escapeHtmlAttr(t('admin.user.emailStatus.verifiedTitle'))}">${escapeHtml(t('admin.user.emailStatus.verified'))}</span>`;
+  return `<span class="badge badge-warning" title="${escapeHtmlAttr(t('admin.user.emailStatus.unverifiedTitle'))}">${escapeHtml(t('admin.user.emailStatus.unverified'))}</span>`;
 }
 
 function renderUserLoginStatus(user) {
   return user.password_configured
-    ? `<span class="badge badge-success" title="Passwort gesetzt / Einladung angenommen">Aktiv</span>`
-    : `<span class="badge badge-warning" title="Setup-Link wurde noch nicht eingelöst">Einladung offen</span>`;
+    ? `<span class="badge badge-success" title="${escapeHtmlAttr(t('admin.user.login.activeTitle'))}">${escapeHtml(t('admin.user.login.active'))}</span>`
+    : `<span class="badge badge-warning" title="${escapeHtmlAttr(t('admin.user.login.inviteOpenTitle'))}">${escapeHtml(t('admin.user.login.inviteOpen'))}</span>`;
 }
 
 function renderUserTwoFactorStatus(user) {
@@ -759,14 +760,14 @@ function renderUserTwoFactorStatus(user) {
   if (user.has_totp) factors.push('TOTP');
   if (Number(user.passkey_count || 0) > 0) factors.push(`${user.passkey_count} Passkey`);
   if (user.has_recovery_codes) factors.push('Recovery');
-  if (user.has_email_fallback) factors.push('E-Mail-Code Übergang');
-  if (Number(user.trusted_device_count || 0) > 0) factors.push(`${user.trusted_device_count} Gerät`);
+  if (user.has_email_fallback) factors.push(t('admin.user.twofa.emailFallback'));
+  if (Number(user.trusted_device_count || 0) > 0) factors.push(t('admin.user.twofa.trustedDevices', { count: user.trusted_device_count }));
   const badge = enabled
-    ? `<span class="badge badge-success">Aktiv</span>`
-    : (twoFactorPolicyRequired ? `<span class="badge badge-warning">Pflicht</span>` : `<span class="badge badge-muted">Aus</span>`);
-  const detail = factors.length ? factors.map(escapeHtml).join(' · ') : (twoFactorPolicyRequired ? 'Nur 2FA-Einrichtung möglich' : '-');
+    ? `<span class="badge badge-success">${escapeHtml(t('admin.user.twofa.active'))}</span>`
+    : (twoFactorPolicyRequired ? `<span class="badge badge-warning">${escapeHtml(t('admin.user.twofa.required'))}</span>` : `<span class="badge badge-muted">${escapeHtml(t('admin.user.twofa.off'))}</span>`);
+  const detail = factors.length ? factors.map(escapeHtml).join(' · ') : (twoFactorPolicyRequired ? t('admin.user.twofa.setupOnly') : '-');
   const reset = (enabled || Number(user.passkey_count || 0) > 0 || Number(user.trusted_device_count || 0) > 0)
-    ? `<button class="btn btn-danger admin-table-action" style="margin-top:6px;" onclick="resetUserTwoFactor(${user.id}, '${escapeHtmlAttr(user.username)}')">${iconSvg('shield-check')} Reset</button>`
+    ? `<button class="btn btn-danger admin-table-action" style="margin-top:6px;" onclick="resetUserTwoFactor(${user.id}, '${escapeHtmlAttr(user.username)}')">${iconSvg('shield-check')} ${escapeHtml(t('admin.user.twofa.resetShort'))}</button>`
     : '';
   return `<div class="twofa-stack">${badge}<span class="admin-help" style="margin:0;">${detail}</span></div>${reset}`;
 }
@@ -774,35 +775,35 @@ function renderUserTwoFactorStatus(user) {
 function renderUserApiKeys(user) {
   const count = Number(user.api_key_count || 0);
   if (!count) return `<span class="badge badge-muted">0</span>`;
-  return `<span class="badge badge-warning" title="Bestehende API-Keys bleiben als Machine-Tokens ohne MFA nutzbar">${count} aktiv</span>`;
+  return `<span class="badge badge-warning" title="${escapeHtmlAttr(t('admin.user.apiKeysMachineTokenHint'))}">${count} ${escapeHtml(t('admin.user.active'))}</span>`;
 }
 
 function renderUserEmailDisplay(userId, emailValue) {
   const email = emailValue ? escapeHtml(emailValue) : '<span class="email-missing">-</span>';
   return `<span class="email-display" id="email-display-${userId}">
     <span>${email}</span>
-    <button class="btn btn-ghost" title="E-Mail bearbeiten" onclick="editUserEmail(${userId}, '${escapeHtmlAttr(emailValue || '')}')">${iconSvg('edit-3')}</button>
+    <button class="btn btn-ghost" title="${escapeHtmlAttr(t('admin.user.editEmail'))}" onclick="editUserEmail(${userId}, '${escapeHtmlAttr(emailValue || '')}')">${iconSvg('edit-3')}</button>
   </span>`;
 }
 
 function renderUsers(users) {
   const tbody = document.getElementById('user-list');
   if (!users || users.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="10" class="empty-state">Keine Benutzer</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="10" class="empty-state">${escapeHtml(t('admin.user.empty'))}</td></tr>`;
     return;
   }
   tbody.innerHTML = users.map(u => `
     <tr>
       <td><span class="admin-mobile-label">ID</span>${u.id}</td>
-      <td><span class="admin-mobile-label">Benutzername</span>${escapeHtml(u.username)}</td>
-      <td><span class="admin-mobile-label">Anzeigename</span>${escapeHtml(u.display_name) || '-'}</td>
-      <td><span class="admin-mobile-label">E-Mail</span>${renderUserEmailCell(u)}</td>
-      <td><span class="admin-mobile-label">E-Mail Status</span>${renderUserEmailStatus(u)}</td>
-      <td><span class="admin-mobile-label">Login</span>${renderUserLoginStatus(u)}</td>
+      <td><span class="admin-mobile-label">${escapeHtml(t('setup.usernameLabel'))}</span>${escapeHtml(u.username)}</td>
+      <td><span class="admin-mobile-label">${escapeHtml(t('setup.displayNameLabel'))}</span>${escapeHtml(u.display_name) || '-'}</td>
+      <td><span class="admin-mobile-label">${escapeHtml(t('settings.profile.email'))}</span>${renderUserEmailCell(u)}</td>
+      <td><span class="admin-mobile-label">${escapeHtml(t('admin.user.emailStatus'))}</span>${renderUserEmailStatus(u)}</td>
+      <td><span class="admin-mobile-label">${escapeHtml(t('admin.user.login'))}</span>${renderUserLoginStatus(u)}</td>
       <td><span class="admin-mobile-label">2FA</span>${renderUserTwoFactorStatus(u)}</td>
-      <td><span class="admin-mobile-label">API Keys</span>${renderUserApiKeys(u)}</td>
-      <td><span class="admin-mobile-label">Passwort</span><button class="btn btn-primary admin-table-action" onclick="generatePasswordLink(${u.id}, '${escapeHtmlAttr(u.username)}')">${iconSvg('link')} Link</button></td>
-      <td><span class="admin-mobile-label">Aktionen</span>${u.is_admin ? '-' : `<button class="btn btn-danger admin-table-action" onclick="deleteUser(${u.id}, '${escapeHtmlAttr(u.username)}')">${iconSvg('trash')} Löschen</button>`}</td>
+      <td><span class="admin-mobile-label">${escapeHtml(t('settings.apiKeys.title'))}</span>${renderUserApiKeys(u)}</td>
+      <td><span class="admin-mobile-label">${escapeHtml(t('auth.password'))}</span><button class="btn btn-primary admin-table-action" onclick="generatePasswordLink(${u.id}, '${escapeHtmlAttr(u.username)}')">${iconSvg('link')} ${escapeHtml(t('admin.user.passwordLink'))}</button></td>
+      <td><span class="admin-mobile-label">${escapeHtml(t('admin.user.actions'))}</span>${u.is_admin ? '-' : `<button class="btn btn-danger admin-table-action" onclick="deleteUser(${u.id}, '${escapeHtmlAttr(u.username)}')">${iconSvg('trash')} ${escapeHtml(t('common.delete'))}</button>`}</td>
     </tr>
   `).join('');
 }
@@ -817,11 +818,11 @@ async function createUser() {
   document.getElementById('create-link-box').style.display = 'none';
 
   if (!username || !email) {
-    document.getElementById('create-error').textContent = 'Benutzername und E-Mail sind erforderlich';
+    document.getElementById('create-error').textContent = t('admin.user.usernameEmailRequired');
     return;
   }
   if (!isValidEmail(email)) {
-    document.getElementById('create-error').textContent = 'Bitte eine gültige E-Mail-Adresse eingeben';
+    document.getElementById('create-error').textContent = t('setup.error.invalidEmail');
     return;
   }
 
@@ -832,9 +833,9 @@ async function createUser() {
       email: email
     });
     if (data.password_setup_delivery === 'email') {
-      document.getElementById('create-success').textContent = `Benutzer '${username}' erstellt. Einladungs-Mail wurde gesendet.`;
+      document.getElementById('create-success').textContent = t('admin.user.createdEmailSent', { username });
     } else {
-      document.getElementById('create-success').textContent = `Benutzer '${username}' erstellt. Link kopieren und senden:`;
+      document.getElementById('create-success').textContent = t('admin.user.createdCopyLink', { username });
       document.getElementById('create-link-input').value = data.password_setup_url || '';
       document.getElementById('create-link-box').style.display = 'flex';
     }
@@ -851,9 +852,9 @@ function editUserEmail(userId, currentEmail) {
   const container = document.getElementById(`email-display-${userId}`);
   if (!container) return;
   container.outerHTML = `<span class="email-edit" id="email-edit-${userId}">
-    <input id="email-input-${userId}" type="email" value="${escapeHtmlAttr(currentEmail || '')}" placeholder="E-Mail setzen" onkeydown="if(event.key==='Enter') saveUserEmail(${userId}); if(event.key==='Escape') cancelUserEmailEdit(${userId}, '${escapeHtmlAttr(currentEmail || '')}')">
-    <button class="btn btn-ghost" title="Speichern" onclick="saveUserEmail(${userId})">${iconSvg('check')}</button>
-    <button class="btn btn-ghost" title="Abbrechen" onclick="cancelUserEmailEdit(${userId}, '${escapeHtmlAttr(currentEmail || '')}')">${iconSvg('x')}</button>
+    <input id="email-input-${userId}" type="email" value="${escapeHtmlAttr(currentEmail || '')}" placeholder="${escapeHtmlAttr(t('admin.user.emailPlaceholder'))}" onkeydown="if(event.key==='Enter') saveUserEmail(${userId}); if(event.key==='Escape') cancelUserEmailEdit(${userId}, '${escapeHtmlAttr(currentEmail || '')}')">
+    <button class="btn btn-ghost" title="${escapeHtmlAttr(t('common.save'))}" onclick="saveUserEmail(${userId})">${iconSvg('check')}</button>
+    <button class="btn btn-ghost" title="${escapeHtmlAttr(t('common.cancel'))}" onclick="cancelUserEmailEdit(${userId}, '${escapeHtmlAttr(currentEmail || '')}')">${iconSvg('x')}</button>
   </span>`;
   document.getElementById(`email-input-${userId}`)?.focus();
 }
@@ -870,18 +871,18 @@ async function saveUserEmail(userId) {
   const errorEl = document.getElementById('security-error');
   if (errorEl) errorEl.textContent = '';
   if (!email) {
-    if (errorEl) errorEl.textContent = 'E-Mail ist erforderlich';
+    if (errorEl) errorEl.textContent = t('admin.user.emailRequired');
     return;
   }
   if (!isValidEmail(email)) {
-    if (errorEl) errorEl.textContent = 'Bitte eine gültige E-Mail-Adresse eingeben';
+    if (errorEl) errorEl.textContent = t('setup.error.invalidEmail');
     return;
   }
   try {
     await apiPatch(`/api/admin/users/${userId}`, { email });
     await loadUsers();
   } catch(e) {
-    if (errorEl) errorEl.textContent = 'Fehler: ' + e.message;
+    if (errorEl) errorEl.textContent = t('admin.errorWithMessage', { error: e.message });
   }
 }
 
