@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.js';
 import { iconSvg } from '../icons/lucide-icons.js';
 
 export function createViewPreferencesFeature({ getHideDone, setHideDone, getSortMode, setSortMode, getShowProjectWidget, setShowProjectWidget, renderTodos }) {
@@ -17,7 +18,7 @@ export function createViewPreferencesFeature({ getHideDone, setHideDone, getSort
     const hidden = getHideDone();
     btn.classList.toggle('active', !hidden);
     const icon = hidden ? iconSvg('ban') : iconSvg('check-circle');
-    const title = hidden ? 'Erledigte anzeigen' : 'Erledigte ausblenden';
+    const title = hidden ? t('menu.showDone') : t('menu.hideDone');
     if (iconEl && labelEl) {
       iconEl.innerHTML = icon;
       labelEl.textContent = title;
@@ -43,7 +44,7 @@ export function createViewPreferencesFeature({ getHideDone, setHideDone, getSort
     const labelEl = btn.querySelector('.menu-item-label');
     const visible = getShowProjectWidget();
     const icon = visible ? iconSvg('layout-dashboard') : iconSvg('circle');
-    const title = 'Projekt Widget';
+    const title = t('menu.projectWidget');
     if (iconEl && labelEl) {
       iconEl.innerHTML = icon;
       labelEl.textContent = title;
@@ -67,9 +68,9 @@ export function createViewPreferencesFeature({ getHideDone, setHideDone, getSort
     const btn = document.getElementById('sort-toggle-btn');
     if (!btn) return;
     const config = {
-      order: { icon: '⇅', title: 'Sortierung: Reihenfolge' },
-      priority: { icon: 'P1', title: 'Sortierung: Priorität' },
-      alpha: { icon: 'AZ', title: 'Sortierung: A-Z' },
+      order: { icon: '⇅', title: t('menu.sort.order') },
+      priority: { icon: 'P1', title: t('menu.sort.priority') },
+      alpha: { icon: 'AZ', title: t('menu.sort.alpha') },
     };
     const c = config[getSortMode()] || config.order;
     const iconEl = btn.querySelector('.menu-item-icon');

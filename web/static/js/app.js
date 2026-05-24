@@ -31,6 +31,7 @@ import { createSectionActionsFeature } from './features/section-actions.js';
 import { createUiShell } from './features/ui-shell.js';
 import { createAppLifecycle } from './features/app-lifecycle.js';
 import { exposeLegacyGlobals } from './features/legacy-globals.js';
+import { translatePage } from './i18n/index.js';
 import { hydrateIcons } from './icons/lucide-icons.js';
 let todos = [];
 let projects = [];
@@ -613,6 +614,14 @@ export function startAppModule() {
   bindNativePointerDragDrop();
   desktopIntegration?.init();
   startNativeDoneActionPolling();
+  window.addEventListener('nia-language-change', () => {
+    translatePage(document);
+    applyTheme(localStorage.getItem('theme') || 'system');
+    updateToggleDoneButton();
+    updateSortButton();
+    updateProjectWidgetButton();
+    hydrateIcons(document);
+  });
   setInterval(() => renderStats(), 30 * 1000);
 
   // Expose legacy inline handlers for module-loaded frontend.

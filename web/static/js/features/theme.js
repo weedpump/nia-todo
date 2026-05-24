@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.js';
 import { iconSvg } from '../icons/lucide-icons.js';
 import { createNativeBridge } from './native-bridge.js';
 
@@ -230,16 +231,16 @@ export function applyTheme(mode) {
   const toggleBtn = document.getElementById('theme-toggle-btn');
   if (toggleBtn) {
     const icons = { light: iconSvg('sun'), dark: iconSvg('moon'), system: iconSvg('monitor') };
-    const titles = { light: 'Hell', dark: 'Dunkel', system: 'System' };
+    const titles = { light: t('common.theme.light'), dark: t('common.theme.dark'), system: t('common.theme.system') };
     const iconEl = toggleBtn.querySelector('.menu-item-icon');
     const labelEl = toggleBtn.querySelector('.menu-item-label');
     if (iconEl && labelEl) {
       iconEl.innerHTML = icons[mode] || icons.system;
-      labelEl.textContent = `Theme: ${titles[mode] || titles.system}`;
+      labelEl.textContent = t('menu.theme', { theme: titles[mode] || titles.system });
     } else {
       toggleBtn.textContent = icons[mode] || icons.system;
     }
-    toggleBtn.title = `Theme: ${titles[mode] || titles.system} (klicken zum Wechseln)`;
+    toggleBtn.title = t('menu.themeTitle', { theme: titles[mode] || titles.system });
   }
 }
 
