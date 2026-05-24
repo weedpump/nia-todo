@@ -234,13 +234,45 @@ async function run() {
     if (!readonlyClass) throw new Error('Shared project form should have readonly-project styling');
     const nameDisabled = await page.locator('#project-name').isDisabled();
     if (!nameDisabled) throw new Error('Shared project name field should be disabled for non-owner');
+    const iconPickerDisabled = await page.locator('#project-icon-picker').getAttribute('aria-disabled');
+    if (iconPickerDisabled !== 'true') throw new Error('Shared project icon picker should be disabled for non-owner');
+    const workspaceSelectVisible = await page.locator('#project-display-workspace-group').isVisible();
+    if (!workspaceSelectVisible) throw new Error('Shared project should expose display workspace selection');
     await page.evaluate(() => window.closeModal('project-modal'));
 
-    // 10. Shared projects must be selectable in the Todo modal even when they are outside the member's workspace.
+    // 10. Shared projects are visible only in the chosen member workspace (default first, then movable).
+    const memberTokens = await page.evaluate(() => ({
+      jwt: localStorage.getItem('jwt_token'),
+      csrf: localStorage.getItem('csrf_token'),
+    }));
+    const teamWorkspace = await page.evaluate(async ({ jwt, csrf }) => {
+      const r = await fetch('/api/workspaces', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${jwt}`,
+          'X-CSRF-Token': csrf,
+        },
+        body: JSON.stringify({ name: 'Team', color: '#0ea5e9', icon: 'users' }),
+        credentials: 'include',
+      });
+      return await r.json();
+    }, memberTokens);
+    if (!teamWorkspace.id) throw new Error('Failed to create member workspace: ' + JSON.stringify(teamWorkspace));
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.locator('#user-menu-button').waitFor({ state: 'visible', timeout: 10000 });
+    await page.locator('.project-tree-item').filter({ hasText: 'Sharing Test Project' }).first().locator('.nav-edit').click();
+    await page.locator('#project-display-workspace-id').selectOption(String(teamWorkspace.id));
+    await page.click('#project-save-btn');
+    await page.locator('#project-modal').waitFor({ state: 'hidden', timeout: 10000 });
+    await page.waitForFunction(() => ![...document.querySelectorAll('.project-tree-item')].some(el => el.textContent.includes('Sharing Test Project')), null, { timeout: 10000 });
+    await page.evaluate((workspaceId) => window.switchWorkspace(String(workspaceId)), teamWorkspace.id);
+    await page.locator('.project-tree-item').filter({ hasText: 'Sharing Test Project' }).waitFor({ state: 'visible', timeout: 10000 });
+
     await page.getByRole('button', { name: /Neues Todo/ }).click();
     await visible('#todo-modal');
     const sharedOptionCount = await page.locator('#todo-project option').filter({ hasText: 'Sharing Test Project' }).count();
-    if (sharedOptionCount !== 1) throw new Error('Shared project missing from Todo project select');
+    if (sharedOptionCount !== 1) throw new Error('Shared project missing from Todo project select in its display workspace');
     await page.selectOption('#todo-project', String(createResult.id));
     await page.fill('#todo-title', 'Todo in Shared Project');
     await page.click('button[form="todo-form"]');

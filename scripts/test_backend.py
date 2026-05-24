@@ -1056,7 +1056,28 @@ class TestSuite:
             self.results["shared_project_cannot_patch"] = {"status": -1, "passed": True, "expected": "skipped"}
             return True
         status, _ = curl("PATCH", f"/api/projects/{proj_id}", {"name": "Nope"}, token=self.shared_token, csrf=self.shared_csrf, cookie_jar="/tmp/nia_shared_cookies.txt")
-        return self.record("shared_project_cannot_patch", status, expected=403)
+        if not self.record("shared_project_cannot_patch", status, expected=403):
+            return False
+        status, _ = curl("PATCH", f"/api/projects/{proj_id}", {"icon": "star"}, token=self.shared_token, csrf=self.shared_csrf, cookie_jar="/tmp/nia_shared_cookies.txt")
+        return self.record("shared_project_icon_cannot_patch", status, expected=403)
+
+    def test_shared_project_workspace_can_patch(self):
+        proj_id = self.created_ids["project"][-1] if self.created_ids["project"] else None
+        if not proj_id:
+            self.results["shared_project_workspace_can_patch"] = {"status": -1, "passed": True, "expected": "skipped"}
+            return True
+        status, workspace = curl("POST", "/api/workspaces", {
+            "name": "Shared Display Workspace",
+            "color": "#0ea5e9",
+            "icon": "users"
+        }, token=self.shared_token, csrf=self.shared_csrf, cookie_jar="/tmp/nia_shared_cookies.txt")
+        if not ok(status) or not workspace.get("id"):
+            self.results["shared_project_workspace_can_patch"] = {"status": status, "passed": False, "expected": "workspace created"}
+            return False
+        status, data = curl("PATCH", f"/api/projects/{proj_id}", {"workspace_id": workspace["id"]}, token=self.shared_token, csrf=self.shared_csrf, cookie_jar="/tmp/nia_shared_cookies.txt")
+        passed = ok(status) and data and data.get("workspace_id") == workspace["id"] and data.get("is_shared")
+        self.results["shared_project_workspace_can_patch"] = {"status": status, "passed": passed, "expected": "200 + shared project display workspace updated"}
+        return passed
 
     def test_shared_section_create_patch_delete(self):
         proj_id = self.created_ids["project"][-1] if self.created_ids["project"] else None
@@ -1351,6 +1372,7 @@ class TestSuite:
             self.test_accept_invite,
             self.test_shared_project_visible,
             self.test_shared_project_cannot_patch,
+            self.test_shared_project_workspace_can_patch,
             self.test_shared_section_create_patch_delete,
             self.test_shared_todo_create_patch_delete,
             self.test_shared_reminders_are_user_scoped,

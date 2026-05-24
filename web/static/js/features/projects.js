@@ -6,6 +6,7 @@ export function createProjectsFeature({
   setTodos,
   getCurrentProjectId,
   getCurrentWorkspaceId,
+  getWorkspaces,
   setProjects,
   dbPut,
   addToSyncQueue,
@@ -40,10 +41,38 @@ export function createProjectsFeature({
     return !!(user && project.user_id === user.id);
   }
 
+  function renderProjectWorkspaceSelect(project = null) {
+    const group = document.getElementById('project-display-workspace-group');
+    const select = document.getElementById('project-display-workspace-id');
+    if (!group || !select) return;
+    const sharedMemberProject = !!project?.is_shared && !isOwner(project);
+    group.style.display = sharedMemberProject ? '' : 'none';
+    select.disabled = !sharedMemberProject;
+    select.innerHTML = '';
+    const workspaces = getWorkspaces?.() || [];
+    for (const workspace of workspaces) {
+      const option = document.createElement('option');
+      option.value = workspace.id;
+      option.textContent = workspace.name || 'Workspace';
+      select.appendChild(option);
+    }
+    if (sharedMemberProject) {
+      select.value = String(project.workspace_id || getCurrentWorkspaceId?.() || workspaces[0]?.id || '');
+    }
+  }
+
   function showProjectModal(project = null, parentId = null) {
     bindProjectForm();
     document.getElementById('project-form')?.reset();
     document.getElementById('project-id').value = '';
+    const saveBtn = document.getElementById('project-save-btn');
+    if (saveBtn) saveBtn.style.display = '';
+    const iconPicker = document.getElementById('project-icon-picker');
+    if (iconPicker) {
+      iconPicker.style.pointerEvents = '';
+      iconPicker.style.opacity = '';
+      iconPicker.setAttribute('aria-disabled', 'false');
+    }
     document.getElementById('project-modal-title').textContent = project ? 'Projekt bearbeiten' : (parentId ? 'Neues Subproject' : 'Neues Projekt');
 
     const parentSelect = document.getElementById('project-parent-id');
@@ -82,6 +111,7 @@ export function createProjectsFeature({
 
     const parentFormGroup = document.getElementById('project-parent-id')?.closest('.form-group');
     if (parentFormGroup) parentFormGroup.style.display = (project && project.is_inbox) ? 'none' : '';
+    renderProjectWorkspaceSelect(project);
 
     const sharingSection = document.getElementById('project-sharing-section');
     const shareRow = document.getElementById('project-share-row');
@@ -117,7 +147,8 @@ export function createProjectsFeature({
         selected: '',
         color: document.getElementById('project-color')?.value || '#6366f1',
       });
-      ['project-name', 'project-color', 'project-parent-id'].forEach(id => {
+      renderProjectWorkspaceSelect(null);
+      ['project-name', 'project-color', 'project-parent-id', 'project-icon'].forEach(id => {
         const el = document.getElementById(id);
         if (el) {
           el.disabled = false;
@@ -148,7 +179,12 @@ export function createProjectsFeature({
     event.preventDefault();
     const id = document.getElementById('project-id').value;
     const parentIdVal = document.getElementById('project-parent-id')?.value;
-    const projectData = {
+    const existing = id ? getProjects().find(p => String(p.id) === String(id)) : null;
+    const sharedMemberProject = !!existing?.is_shared && !isOwner(existing);
+    const displayWorkspaceId = document.getElementById('project-display-workspace-id')?.value || getCurrentWorkspaceId?.() || null;
+    const projectData = sharedMemberProject ? {
+      workspace_id: displayWorkspaceId ? parseInt(displayWorkspaceId) : null,
+    } : {
       name: document.getElementById('project-name').value,
       color: document.getElementById('project-color').value,
       icon: document.getElementById('project-icon')?.value || null,
@@ -158,7 +194,6 @@ export function createProjectsFeature({
     };
 
     if (id) {
-      const existing = getProjects().find(p => String(p.id) === String(id));
       if (existing) {
         const updated = { ...existing, ...projectData, updated_at: new Date().toISOString() };
         await dbPut('projects', updated);
@@ -169,6 +204,8 @@ export function createProjectsFeature({
         }
         closeModal('project-modal');
         renderProjects();
+        renderStats?.();
+        renderTodos?.();
       }
     } else {
       const tempId = 'temp-project-' + Date.now();

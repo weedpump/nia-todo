@@ -72,9 +72,13 @@ def list_projects(user_id: int = Depends(require_auth)):
             "SELECT *, 0 as is_shared, 1 as is_owner FROM projects WHERE user_id = ? ORDER BY COALESCE(is_inbox, 0) DESC, parent_id, sort_order, id",
             (user_id,),
         ).fetchall()
+        default_workspace_id = get_user_default_workspace_id(db, user_id)
         shared_rows = db.execute(
             """
-            SELECT p.*, 1 as is_shared, 0 as is_owner, pm.id as member_id, pm.status as member_status,
+            SELECT p.id, p.name, p.color, p.sort_order, p.created_at, p.updated_at, p.parent_id,
+                   p.user_id, p.is_inbox, p.workspace_id as owner_workspace_id, p.icon,
+                   COALESCE(pm.workspace_id, ?) as workspace_id,
+                   1 as is_shared, 0 as is_owner, pm.id as member_id, pm.status as member_status,
                    u.username as owner_username, u.display_name as owner_display_name
             FROM projects p
             JOIN project_members pm ON pm.project_id = p.id
@@ -82,7 +86,7 @@ def list_projects(user_id: int = Depends(require_auth)):
             WHERE pm.user_id = ? AND pm.status = 'accepted'
             ORDER BY p.name
             """,
-            (user_id,),
+            (default_workspace_id, user_id),
         ).fetchall()
         projects = [dict(r) for r in own_rows] + [dict(r) for r in shared_rows]
         return {"projects": projects}
@@ -131,8 +135,42 @@ async def update_project(project_id: int, data: ProjectUpdate, user_id: int = De
         existing = db.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
         if not existing:
             raise HTTPException(404, "Project not found")
-        if not can_edit_project(db, project_id, user_id):
-            raise HTTPException(403, "Only the owner can edit this project")
+        is_owner = can_edit_project(db, project_id, user_id)
+        member = None
+        if not is_owner:
+            member = db.execute(
+                "SELECT * FROM project_members WHERE project_id = ? AND user_id = ? AND status = 'accepted'",
+                (project_id, user_id),
+            ).fetchone()
+            if not member:
+                raise HTTPException(403, "Only the owner can edit this project")
+            if fields_set != {"workspace_id"}:
+                raise HTTPException(403, "Shared project members can only change their display workspace")
+            workspace = db.execute("SELECT id FROM workspaces WHERE id = ? AND user_id = ?", (data.workspace_id, user_id)).fetchone()
+            if not workspace:
+                raise HTTPException(404, "Workspace not found")
+            db.execute(
+                "UPDATE project_members SET workspace_id = ?, updated_at = ? WHERE id = ?",
+                (data.workspace_id, now_iso(), member['id']),
+            )
+            db.commit()
+            row = db.execute(
+                """
+                SELECT p.id, p.name, p.color, p.sort_order, p.created_at, p.updated_at, p.parent_id,
+                   p.user_id, p.is_inbox, p.workspace_id as owner_workspace_id, p.icon,
+                   COALESCE(pm.workspace_id, ?) as workspace_id,
+                       1 as is_shared, 0 as is_owner, pm.id as member_id, pm.status as member_status,
+                       u.username as owner_username, u.display_name as owner_display_name
+                FROM projects p
+                JOIN project_members pm ON pm.project_id = p.id
+                JOIN users u ON u.id = p.user_id
+                WHERE p.id = ? AND pm.user_id = ? AND pm.status = 'accepted'
+                """,
+                (data.workspace_id, project_id, user_id),
+            ).fetchone()
+            proj = dict(row)
+            await broadcast_change("project_update", proj, user_id)
+            return proj
         if "parent_id" in fields_set and data.parent_id is not None:
             if data.parent_id == project_id:
                 raise HTTPException(400, "Project cannot be its own parent")

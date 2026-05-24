@@ -286,6 +286,9 @@ export function createProjectSharingFeature({
     const ownerInfo = document.getElementById('project-owner-info');
     const inviteRow = document.getElementById('project-share-row');
     const fields = ['project-name', 'project-color', 'project-parent-id', 'project-icon'];
+    const displayWorkspace = document.getElementById('project-display-workspace-id');
+    const iconPicker = document.getElementById('project-icon-picker');
+    const saveBtn = document.getElementById('project-save-btn');
 
     if (sharingSection) sharingSection.style.display = project ? '' : 'none';
     if (leaveBtn) leaveBtn.style.display = shared && !isOwn ? '' : 'none';
@@ -334,6 +337,14 @@ export function createProjectSharingFeature({
         el.setAttribute('aria-readonly', canEdit ? 'false' : 'true');
       }
     }
+    const canMoveSharedDisplay = !!project && shared && !isOwn;
+    if (displayWorkspace) displayWorkspace.disabled = !canMoveSharedDisplay;
+    if (iconPicker) {
+      iconPicker.style.pointerEvents = canEdit ? '' : 'none';
+      iconPicker.style.opacity = canEdit ? '' : '0.6';
+      iconPicker.setAttribute('aria-disabled', canEdit ? 'false' : 'true');
+    }
+    if (saveBtn) saveBtn.style.display = (canEdit || canMoveSharedDisplay) ? '' : 'none';
     if (project?.id) loadMembers(project.id).catch(() => {});
   }
 

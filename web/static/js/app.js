@@ -152,6 +152,7 @@ const projectsFeature = createProjectsFeature({
   setTodos: setTodosState,
   getCurrentProjectId: () => currentProjectId,
   getCurrentWorkspaceId: () => currentWorkspaceId,
+  getWorkspaces: () => workspaces,
   setProjects: (next) => { projects = next; },
   dbPut,
   addToSyncQueue,

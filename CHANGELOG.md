@@ -9,8 +9,10 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 
 ### Added
 - Windows-App kann beim Autostart optional direkt minimiert im Tray starten, ohne das Hauptfenster zu öffnen.
+- Geteilte Projekte können pro Mitglied einem eigenen Anzeige-Workspace zugeordnet werden; standardmäßig landen sie im Default-Workspace.
 
 ### Fixed
+- Geteilte Projekte erscheinen nicht mehr in jedem Workspace und Member können Projekt-Icons nicht mehr lokal scheinbar ändern.
 - Avatar kann in den Profileinstellungen wieder gelöscht werden; UI, API und gespeicherter User-State fallen danach sauber auf Initialen zurück.
 - Neuer-Todo-Dialog fokussiert beim Öffnen per `N`-Taste oder nativem Desktop-Hotkey direkt das Titelfeld.
 - Native Apps aktualisieren die Instanz-Konfiguration vor der Update-Prüfung erneut, damit eine frisch erhöhte `min_native_client_version` nicht durch stale Boot-Daten als optionales Update behandelbar bleibt.
