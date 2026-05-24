@@ -1,10 +1,57 @@
 #!/usr/bin/env node
 import { withFreshDb, launchPage } from './frontend_test_lib.mjs';
 
+async function installRealtimeProbe(page) {
+  await page.addInitScript(() => {
+    window.__niaRealtimeProbe = { authOk: 0, syncResponses: 0, dataMessages: [] };
+    const NativeWebSocket = window.WebSocket;
+    class TrackedWebSocket extends NativeWebSocket {
+      constructor(...args) {
+        super(...args);
+        this.addEventListener('message', event => {
+          try {
+            const msg = JSON.parse(event.data);
+            if (msg.type === 'auth_ok') window.__niaRealtimeProbe.authOk += 1;
+            if (msg.type === 'sync_response') window.__niaRealtimeProbe.syncResponses += 1;
+            if (msg.type && !['auth_ok', 'pong', 'sync_response'].includes(msg.type)) {
+              window.__niaRealtimeProbe.dataMessages.push(msg.type);
+            }
+          } catch {}
+        });
+      }
+    }
+    for (const key of ['CONNECTING', 'OPEN', 'CLOSING', 'CLOSED']) {
+      Object.defineProperty(TrackedWebSocket, key, { value: NativeWebSocket[key] });
+      Object.defineProperty(TrackedWebSocket.prototype, key, { value: NativeWebSocket[key] });
+    }
+    window.WebSocket = TrackedWebSocket;
+  });
+}
+
+async function waitForRealtimeReady(page, label) {
+  await page.waitForFunction(() => {
+    const probe = window.__niaRealtimeProbe;
+    return probe?.authOk >= 1 && probe?.syncResponses >= 1;
+  }, null, { timeout: 15000 }).catch(async error => {
+    const probe = await page.evaluate(() => window.__niaRealtimeProbe || null).catch(() => null);
+    throw new Error(`${label} WebSocket not ready after login: ${JSON.stringify(probe)} (${error.message})`);
+  });
+}
+
+async function waitForTodoInDb(page, title, timeout = 15000) {
+  await page.waitForFunction(async value => {
+    if (typeof window.dbGetAll !== 'function') return false;
+    const todos = await window.dbGetAll('todos');
+    return todos.some(todo => todo.title === value);
+  }, title, { timeout });
+}
+
 async function run() {
   console.log('📡 Running frontend realtime WebSocket sync test...');
   const clientA = await launchPage();
   const clientB = await launchPage();
+  await installRealtimeProbe(clientA.page);
+  await installRealtimeProbe(clientB.page);
   await clientA.page.addInitScript(() => localStorage.setItem('nia-hide-done', 'false'));
   await clientB.page.addInitScript(() => localStorage.setItem('nia-hide-done', 'false'));
   const { browser: browserA, page: pageA, loginApp: loginA, visible: visibleA, waitForText: waitForTextA, openTodoModal } = clientA;
@@ -14,10 +61,12 @@ async function run() {
     await loginA();
     await visibleA('#sidebar');
     await pageA.locator('#online-status').waitFor({ state: 'hidden', timeout: 10000 });
+    await waitForRealtimeReady(pageA, 'Client A');
 
     await loginB();
     await visibleB('#sidebar');
     await pageB.locator('#online-status').waitFor({ state: 'hidden', timeout: 10000 });
+    await waitForRealtimeReady(pageB, 'Client B');
 
     await openTodoModal();
     await pageA.fill('#todo-title', 'Realtime Sync Todo');
@@ -25,7 +74,8 @@ async function run() {
     await pageA.click('button[form="todo-form"]');
     await pageA.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });
     await waitForTextA('Realtime Sync Todo');
-    await waitForTextB('Realtime Sync Todo', 10000);
+    await waitForTodoInDb(pageB, 'Realtime Sync Todo');
+    await waitForTextB('Realtime Sync Todo', 15000);
 
     await pageA.locator('.todo-item').filter({ hasText: 'Realtime Sync Todo' }).first().click();
     await pageA.locator('#todo-modal').waitFor({ state: 'visible', timeout: 5000 });

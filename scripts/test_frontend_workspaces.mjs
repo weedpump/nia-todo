@@ -5,15 +5,32 @@ async function run() {
   console.log('🧭 Running frontend workspaces test...');
   const { browser, page, loginApp, visible, waitForText } = await launchPage();
 
+  async function openWorkspaceMenu() {
+    await page.locator('#workspace-current-btn').click();
+    await page.locator('#workspace-menu.open').waitFor({ state: 'visible', timeout: 5000 });
+  }
+
+  async function chooseWorkspace(name) {
+    await openWorkspaceMenu();
+    const row = page.locator('#workspace-menu .workspace-menu-row').filter({ hasText: name }).first();
+    await row.waitFor({ state: 'visible', timeout: 5000 });
+    await row.locator('.workspace-menu-choice').click();
+  }
+
+  async function editWorkspace(name) {
+    await openWorkspaceMenu();
+    const row = page.locator('#workspace-menu .workspace-menu-row').filter({ hasText: name }).first();
+    await row.waitFor({ state: 'visible', timeout: 5000 });
+    await row.locator('.workspace-menu-edit').click();
+  }
+
   try {
     await loginApp();
     await visible('#workspace-current-btn');
     await waitForText('Inbox');
+    await page.waitForFunction(() => document.querySelector('#workspace-current-name')?.textContent === 'Privat', null, { timeout: 10000 });
 
-    const initialName = await page.locator('#workspace-current-name').textContent();
-    if (initialName !== 'Privat') throw new Error('Default workspace missing');
-
-    await page.locator('#workspace-current-btn').click();
+    await openWorkspaceMenu();
     await page.locator('.workspace-menu-add').click();
     await page.locator('#workspace-modal').waitFor({ state: 'visible', timeout: 5000 });
     await page.fill('#workspace-name', 'Beruflich');
@@ -29,8 +46,7 @@ async function run() {
     await page.locator('#project-modal').waitFor({ state: 'hidden', timeout: 10000 });
     await waitForText('Beruf Projekt');
 
-    await page.locator('#workspace-current-btn').click();
-    await page.locator('.workspace-menu-choice').filter({ hasText: 'Privat' }).click();
+    await chooseWorkspace('Privat');
     await page.waitForFunction(() => !document.body.innerText.includes('Beruf Projekt'), null, { timeout: 10000 });
 
     await page.getByRole('button', { name: /Projekt hinzufügen/ }).click();
@@ -40,12 +56,10 @@ async function run() {
     await page.locator('#project-modal').waitFor({ state: 'hidden', timeout: 10000 });
     await waitForText('Beruf Projekt');
 
-    await page.locator('#workspace-current-btn').click();
-    await page.locator('.workspace-menu-choice').filter({ hasText: 'Beruflich' }).click();
+    await chooseWorkspace('Beruflich');
     await waitForText('Beruf Projekt');
 
-    await page.locator('#workspace-current-btn').click();
-    await page.locator('.workspace-menu-row').filter({ hasText: 'Beruflich' }).locator('.workspace-menu-edit').click();
+    await editWorkspace('Beruflich');
     await page.locator('#workspace-modal').waitFor({ state: 'visible', timeout: 5000 });
     await page.fill('#workspace-name', 'Arbeit');
     await page.locator('#workspace-modal .btn-primary').click();
@@ -74,8 +88,7 @@ async function run() {
     await page.locator('.nav-btn[data-filter="all"]').click();
     await waitForText('Stays In Workspace Inbox');
 
-    await page.locator('#workspace-current-btn').click();
-    await page.locator('.workspace-menu-row').filter({ hasText: 'Arbeit' }).locator('.workspace-menu-edit').click();
+    await editWorkspace('Arbeit');
     await page.locator('#workspace-modal').waitFor({ state: 'visible', timeout: 5000 });
     await page.locator('#workspace-delete-btn').click();
     await visible('#confirm-modal');
