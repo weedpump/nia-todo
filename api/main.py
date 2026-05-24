@@ -248,6 +248,33 @@ def _document_html(title: str, subtitle: str, markdown: str, search_placeholder:
       const blocks = Array.from(document.querySelectorAll('main > *')).map((el) => ({{ el, html: el.innerHTML, text: el.textContent || '' }}));
       const tocLinks = Array.from(document.querySelectorAll('nav a'));
       function escapeRegExp(value) {{ return value.replace(/[.*+?^${{}}()|[\]\\]/g, '\\$&'); }}
+      function highlightTextNodes(element, rawQuery) {{
+        const rx = new RegExp(escapeRegExp(rawQuery), 'gi');
+        const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, {{
+          acceptNode(node) {{
+            if (!node.nodeValue || !node.nodeValue.toLowerCase().includes(rawQuery.toLowerCase())) return NodeFilter.FILTER_REJECT;
+            if (node.parentElement?.closest('script, style, code, pre, mark')) return NodeFilter.FILTER_REJECT;
+            return NodeFilter.FILTER_ACCEPT;
+          }}
+        }});
+        const nodes = [];
+        while (walker.nextNode()) nodes.push(walker.currentNode);
+        nodes.forEach((node) => {{
+          const fragment = document.createDocumentFragment();
+          let lastIndex = 0;
+          const text = node.nodeValue;
+          text.replace(rx, (match, offset) => {{
+            if (offset > lastIndex) fragment.appendChild(document.createTextNode(text.slice(lastIndex, offset)));
+            const mark = document.createElement('mark');
+            mark.textContent = match;
+            fragment.appendChild(mark);
+            lastIndex = offset + match.length;
+            return match;
+          }});
+          if (lastIndex < text.length) fragment.appendChild(document.createTextNode(text.slice(lastIndex)));
+          node.parentNode?.replaceChild(fragment, node);
+        }});
+      }}
       function runSearch() {{
         const rawQuery = search.value.trim();
         const query = rawQuery.toLowerCase();
@@ -274,8 +301,7 @@ def _document_html(title: str, subtitle: str, markdown: str, search_placeholder:
           const show = !query || visible.has(index);
           block.el.classList.toggle('hidden-by-search', !show);
           if (show && query && block.text.toLowerCase().includes(query)) {{
-            const rx = new RegExp(`(${{escapeRegExp(rawQuery)}})`, 'gi');
-            if (!['PRE', 'CODE'].includes(block.el.tagName)) block.el.innerHTML = block.html.replace(rx, '<mark>$1</mark>');
+            highlightTextNodes(block.el, rawQuery);
           }}
         }});
         tocLinks.forEach((link) => {{

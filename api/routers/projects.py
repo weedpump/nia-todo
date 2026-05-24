@@ -75,7 +75,7 @@ def list_projects(user_id: int = Depends(require_auth)):
         default_workspace_id = get_user_default_workspace_id(db, user_id)
         shared_rows = db.execute(
             """
-            SELECT p.id, p.name, p.color, p.sort_order, p.created_at, p.updated_at, p.parent_id,
+            SELECT p.id, p.name, p.color, p.sort_order, p.created_at, max(p.updated_at, COALESCE(pm.updated_at, p.updated_at)) as updated_at, p.parent_id,
                    p.user_id, p.is_inbox, p.workspace_id as owner_workspace_id, p.icon,
                    COALESCE(pm.workspace_id, ?) as workspace_id,
                    1 as is_shared, 0 as is_owner, pm.id as member_id, pm.status as member_status,
@@ -156,7 +156,7 @@ async def update_project(project_id: int, data: ProjectUpdate, user_id: int = De
             db.commit()
             row = db.execute(
                 """
-                SELECT p.id, p.name, p.color, p.sort_order, p.created_at, p.updated_at, p.parent_id,
+                SELECT p.id, p.name, p.color, p.sort_order, p.created_at, max(p.updated_at, COALESCE(pm.updated_at, p.updated_at)) as updated_at, p.parent_id,
                    p.user_id, p.is_inbox, p.workspace_id as owner_workspace_id, p.icon,
                    COALESCE(pm.workspace_id, ?) as workspace_id,
                        1 as is_shared, 0 as is_owner, pm.id as member_id, pm.status as member_status,
