@@ -1,5 +1,5 @@
 import { RUNTIME_CAPABILITIES, apiResourceUrl } from '../core/config.js';
-import { getLanguagePreference, setLanguagePreference, adoptServerLanguagePreference, t, translatePage } from '../i18n/index.js';
+import { getLanguagePreference, setLanguagePreference, adoptServerLanguagePreference, getActiveLanguage, t, translatePage } from '../i18n/index.js';
 import { iconSvg } from '../icons/lucide-icons.js';
 import qrcode from '../../vendor/qrcode-generator.js';
 import { confirmSecurityAction, performMfaReauth, promptSecurityPassword, promptSecurityText } from './security-dialogs.js';
@@ -20,6 +20,14 @@ function escapeHtmlAttr(value) {
     .replace(/'/g, '&#39;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
+}
+
+function formatLocaleDateTime(value) {
+  if (!value) return '-';
+  const raw = String(value);
+  const normalized = raw.replace(' ', 'T') + (raw.includes('Z') ? '' : 'Z');
+  const language = getActiveLanguage() === 'de' ? 'de-DE' : 'en-US';
+  return new Date(normalized).toLocaleString(language);
 }
 
 function isHeicFile(file) {
@@ -170,7 +178,7 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
       const qr = qrcode(0, 'M');
       qr.addData(otpauthUrl);
       qr.make();
-      qrEl.innerHTML = qr.createSvgTag({ cellSize: 5, margin: 3, scalable: true, title: 'TOTP QR-Code', alt: 'QR-Code für Authenticator-App' });
+      qrEl.innerHTML = qr.createSvgTag({ cellSize: 5, margin: 3, scalable: true, title: t('settings.2fa.qrTitle'), alt: t('settings.2fa.qrAlt') });
     } catch (err) {
       qrEl.textContent = t('settings.2fa.qrFailed');
     }
@@ -187,11 +195,12 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     try {
       const data = enrollmentOnly ? { passkeys: [] } : await authApi.listPasskeys();
       (data.passkeys || []).forEach((pk) => {
-        const used = pk.last_used_at ? ` · zuletzt genutzt ${new Date(String(pk.last_used_at).replace(' ', 'T') + 'Z').toLocaleString('de-DE')}` : '';
-        items.push(`<div class="settings-device-row"><div><strong>${escapeHtml(pk.name || 'Passkey')}</strong><span>Passkey · erstellt ${escapeHtml(pk.created_at || '-')}${escapeHtml(used)}</span></div><button type="button" class="btn btn-danger" onclick="removePasskeyDevice(${Number(pk.id)})">Widerrufen</button></div>`);
+        const used = pk.last_used_at ? t('settings.2fa.device.lastUsed', { date: formatLocaleDateTime(pk.last_used_at) }) : '';
+        const details = t('settings.2fa.device.passkeyCreated', { created: pk.created_at || '-', used });
+        items.push(`<div class="settings-device-row"><div><strong>${escapeHtml(pk.name || t('settings.2fa.passkeyDefaultName'))}</strong><span>${escapeHtml(details)}</span></div><button type="button" class="btn btn-danger" onclick="removePasskeyDevice(${Number(pk.id)})">${escapeHtml(t('settings.2fa.revoke'))}</button></div>`);
       });
     } catch (err) {
-      items.push(`<div class="settings-device-note">Passkeys konnten nicht geladen werden: ${escapeHtml(err.message || err)}</div>`);
+      items.push(`<div class="settings-device-note">${escapeHtml(t('settings.2fa.device.passkeysLoadFailed', { error: err.message || err }))}</div>`);
     }
     if (!items.length) {
       listEl.innerHTML = `<div class="settings-device-note">${escapeHtml(t('settings.2fa.noDevices'))}</div>`;
@@ -654,7 +663,7 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     errorEl.textContent = '';
     successEl.textContent = '';
     try {
-      const data = await withRecentMfaRetry(() => authApi.startTotp(), 'das Einrichten von TOTP');
+      const data = await withRecentMfaRetry(() => authApi.startTotp(), t('settings.2fa.purpose.setupTotp'));
       pendingTotpSecret = data.secret;
       pendingTotpUrl = data.otpauth_url || '';
       document.getElementById('settings-2fa-secret').textContent = data.secret;
@@ -683,7 +692,7 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
         message: t('settings.2fa.enableMessage'),
         primaryText: t('settings.2fa.enable'),
       });
-      if (!password) throw new Error('Passwortbestätigung erforderlich');
+      if (!password) throw new Error(t('security.passwordRequired'));
       const data = await authApi.confirmTotp(pendingTotpSecret, code, password);
       const wasEnrollmentLocked = isMfaEnrollmentLocked();
       if (data.access_token) localStorage.setItem('jwt_token', data.access_token);
@@ -707,11 +716,11 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     }
   }
 
-  async function ensureRecentMfa(purpose = 'diese Sicherheitsaktion') {
+  async function ensureRecentMfa(purpose = t('security.mfa.purposeDefault')) {
     await performMfaReauth({ authApi, purpose });
   }
 
-  async function withRecentMfaRetry(action, purpose = 'diese Sicherheitsaktion') {
+  async function withRecentMfaRetry(action, purpose = t('security.mfa.purposeDefault')) {
     try {
       return await action();
     } catch (e) {
@@ -722,16 +731,16 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
   }
 
   async function disableTwoFactor() {
-    const confirmed = await confirmSecurityAction({ title: '2FA deaktivieren?', message: 'Alle zweiten Faktoren, Recovery Codes und vertrauenswürdigen Geräte werden widerrufen.', confirmText: '2FA deaktivieren', danger: true });
+    const confirmed = await confirmSecurityAction({ title: t('settings.2fa.disableTitle'), message: t('settings.2fa.disableMessage'), confirmText: t('settings.2fa.disable'), danger: true });
     if (!confirmed) return;
     const errorEl = document.getElementById('settings-2fa-error');
     const successEl = document.getElementById('settings-2fa-success');
     errorEl.textContent = '';
     successEl.textContent = '';
     try {
-      await ensureRecentMfa('das Deaktivieren von 2FA');
+      await ensureRecentMfa(t('settings.2fa.purpose.disable'));
       await authApi.disable2fa('');
-      successEl.textContent = '2FA deaktiviert';
+      successEl.textContent = t('settings.2fa.disabled');
       await refreshTwoFactorStatus();
     } catch (e) {
       errorEl.textContent = e.message;
@@ -744,26 +753,26 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     errorEl.textContent = '';
     successEl.textContent = '';
     if (!(RUNTIME_CAPABILITIES.nativePasskeys || (!RUNTIME_CAPABILITIES.native && window.PublicKeyCredential && navigator.credentials))) {
-      errorEl.textContent = 'Passkeys werden von dieser Umgebung nicht unterstützt';
+      errorEl.textContent = t('settings.2fa.passkeyUnsupported');
       return;
     }
     try {
       const state = await authApi.twoFactorStatus().catch(() => ({}));
       const wasEnrollmentLocked = Boolean(isMfaEnrollmentLocked() || shouldLockForTwoFactorState(state));
       const hasExistingSecondFactor = Boolean(state.has_totp || state.has_passkey || state.has_recovery_codes || state.has_email_fallback);
-      if ((state.enabled || state.required) && hasExistingSecondFactor && !wasEnrollmentLocked) await ensureRecentMfa('das Hinzufügen eines Passkeys');
-      const name = await promptSecurityText({ title: 'Passkey hinzufügen', message: 'Vergib einen Namen für diesen Passkey.', label: 'Name', value: 'Passkey', required: true, primaryText: 'Weiter' });
-      if (!name) throw new Error('Passkey-Setup abgebrochen');
-      const password = await promptSecurityPassword({ title: 'Passkey hinzufügen', message: 'Bitte bestätige mit deinem Passwort. Danach öffnet sich die Passkey-Registrierung.', primaryText: 'Passkey erstellen' });
-      if (!password) throw new Error('Passwortbestätigung erforderlich');
-      const data = await authApi.createPasskey(name.trim() || 'Passkey', password);
+      if ((state.enabled || state.required) && hasExistingSecondFactor && !wasEnrollmentLocked) await ensureRecentMfa(t('settings.2fa.purpose.addPasskey'));
+      const name = await promptSecurityText({ title: t('settings.2fa.addPasskey'), message: t('settings.2fa.passkeyAddMessage'), label: t('common.name'), value: t('settings.2fa.passkeyDefaultName'), required: true, primaryText: t('common.continue') });
+      if (!name) throw new Error(t('settings.2fa.passkeySetupCancelled'));
+      const password = await promptSecurityPassword({ title: t('settings.2fa.addPasskey'), message: t('settings.2fa.passkeyPasswordMessage'), primaryText: t('settings.2fa.passkeyCreate') });
+      if (!password) throw new Error(t('security.passwordRequired'));
+      const data = await authApi.createPasskey(name.trim() || t('settings.2fa.passkeyDefaultName'), password);
       if (data.access_token) localStorage.setItem('jwt_token', data.access_token);
       localStorage.setItem('nia-mfa-enrollment-required', '0');
       const currentUser = getCurrentUser();
       if (currentUser) setCurrentUser({ ...currentUser, token: data.access_token || currentUser.token, mfa_enrollment_required: false });
       updateSettingsEnrollmentLock();
       if (data.recovery_codes?.length) renderRecoveryCodes(data.recovery_codes);
-      successEl.textContent = 'Passkey gespeichert';
+      successEl.textContent = t('settings.2fa.passkeySaved');
       await refreshTwoFactorStatus();
       if (wasEnrollmentLocked) {
         document.getElementById('settings-modal')?.classList.remove('active');
@@ -776,16 +785,16 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
   }
 
   async function removeTotpDevice() {
-    const confirmed = await confirmSecurityAction({ title: 'Authenticator widerrufen?', message: 'Der TOTP-Secret wird entfernt. Stelle sicher, dass noch ein anderer Faktor verfügbar ist.', confirmText: 'Authenticator widerrufen', danger: true });
+    const confirmed = await confirmSecurityAction({ title: t('settings.2fa.revokeTotpTitle'), message: t('settings.2fa.revokeTotpMessage'), confirmText: t('settings.2fa.revokeTotpConfirm'), danger: true });
     if (!confirmed) return;
     const errorEl = document.getElementById('settings-2fa-error');
     const successEl = document.getElementById('settings-2fa-success');
     errorEl.textContent = '';
     successEl.textContent = '';
     try {
-      await ensureRecentMfa('das Widerrufen des Authenticators');
+      await ensureRecentMfa(t('settings.2fa.purpose.revokeTotp'));
       await authApi.deleteTotp();
-      successEl.textContent = 'Authenticator widerrufen';
+      successEl.textContent = t('settings.2fa.totpRevoked');
       await refreshTwoFactorStatus();
     } catch (e) {
       errorEl.textContent = e.message;
@@ -793,16 +802,16 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
   }
 
   async function removePasskeyDevice(passkeyId) {
-    const confirmed = await confirmSecurityAction({ title: 'Passkey widerrufen?', message: 'Dieser Passkey kann danach nicht mehr für Login oder 2FA verwendet werden.', confirmText: 'Passkey widerrufen', danger: true });
+    const confirmed = await confirmSecurityAction({ title: t('settings.2fa.revokePasskeyTitle'), message: t('settings.2fa.revokePasskeyMessage'), confirmText: t('settings.2fa.revokePasskeyConfirm'), danger: true });
     if (!confirmed) return;
     const errorEl = document.getElementById('settings-2fa-error');
     const successEl = document.getElementById('settings-2fa-success');
     errorEl.textContent = '';
     successEl.textContent = '';
     try {
-      await ensureRecentMfa('das Widerrufen eines Passkeys');
+      await ensureRecentMfa(t('settings.2fa.purpose.revokePasskey'));
       await authApi.deletePasskey(passkeyId);
-      successEl.textContent = 'Passkey widerrufen';
+      successEl.textContent = t('settings.2fa.passkeyRevoked');
       await refreshTwoFactorStatus();
     } catch (e) {
       errorEl.textContent = e.message;
@@ -815,15 +824,15 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     errorEl.textContent = '';
     successEl.textContent = '';
     if (!(lastTwoFactorState?.has_totp || lastTwoFactorState?.has_passkey)) {
-      errorEl.textContent = 'Recovery Codes können nur mit aktivem Authenticator oder Passkey erzeugt werden.';
+      errorEl.textContent = t('settings.2fa.recoveryNeedsPrimary');
       updateRecoveryCodesAction(lastTwoFactorState);
       return;
     }
     try {
-      await ensureRecentMfa('das Erzeugen neuer Recovery Codes');
+      await ensureRecentMfa(t('settings.2fa.purpose.regenerateRecovery'));
       const data = await authApi.regenerateRecoveryCodes();
       renderRecoveryCodes(data.recovery_codes);
-      successEl.textContent = 'Neue Recovery Codes erzeugt';
+      successEl.textContent = t('settings.2fa.recoveryRegenerated');
       await refreshTwoFactorStatus();
     } catch (e) {
       errorEl.textContent = e.message;
