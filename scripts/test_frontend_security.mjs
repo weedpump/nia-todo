@@ -97,6 +97,9 @@ assert(downloadsSource.includes("rawUrl.startsWith('/downloads/')"), 'app downlo
 assert(downloadsSource.includes('DOWNLOAD_SHA_RE'), 'app download manifests must validate sha256 values');
 assert(!downloadsSource.includes('target.innerHTML = downloads.map'), 'download buttons must not be rendered from manifest data via innerHTML');
 assert(swSource.includes('/static/js/features/native-bridge.js'), 'service worker must precache the native bridge module');
+assert(swSource.includes('isNeverCachePath') && swSource.includes("pathname.startsWith('/downloads/')"), 'service worker must classify downloads and their manifest as never-cache paths');
+assert(swSource.includes('purgeNeverCacheEntries'), 'service worker must purge stale download manifest/artifacts from caches on activate/refresh');
+assert(swSource.includes("cache: 'no-store'") && swSource.includes('isNeverCachePath(url.pathname)'), 'service worker must fetch downloads and app-downloads manifest with no-store');
 
 const syncSource = readFileSync(new URL('../web/static/js/features/sync.js', import.meta.url), 'utf8');
 assert(syncSource.includes('sanitizeQueueItem'), 'offline sync must sanitize queued actions');
