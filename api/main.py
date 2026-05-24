@@ -153,9 +153,11 @@ def _api_docs_html() -> str:
     header h1 {{ margin:0 0 8px; font-size:clamp(32px, 5vw, 54px); line-height:1.05; }}
     header p {{ margin:0; color:var(--muted); max-width:820px; }}
     .toolbar {{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }}
-    .theme-toggle {{ display:inline-flex; padding:4px; border:1px solid var(--border); border-radius:999px; background:var(--panel); }}
-    .theme-toggle button {{ border:0; border-radius:999px; padding:7px 10px; background:transparent; color:var(--muted); cursor:pointer; font-weight:700; }}
-    .theme-toggle button.active {{ background:rgba(139,92,246,.18); color:var(--accent); }}
+    .admin-theme-toggle {{ display:flex; gap:6px; }}
+    .admin-theme-toggle button {{ width:32px; height:32px; border:1px solid var(--border); border-radius:8px; background:var(--panel); color:var(--muted); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; transition:background .15s, border-color .15s, color .15s, transform .1s; }}
+    .admin-theme-toggle button:hover {{ background:var(--code); color:var(--text); }}
+    .admin-theme-toggle button.active {{ background:var(--accent); border-color:var(--accent); color:white; transform:scale(1.05); }}
+    .ui-icon {{ width:18px; height:18px; }}
     .search-row {{ max-width:1400px; margin:0 auto; padding:18px clamp(16px, 3vw, 40px) 0; }}
     .search-box {{ display:flex; gap:10px; align-items:center; padding:12px 14px; border:1px solid var(--border); border-radius:16px; background:var(--panel); }}
     .search-box input {{ width:100%; border:0; outline:0; background:transparent; color:var(--text); font:inherit; }}
@@ -190,10 +192,10 @@ def _api_docs_html() -> str:
         <p>Öffentliche API-Dokumentation dieser Instanz. Authentifizierung läuft über JWT oder API-Key, je nach Endpoint.</p>
       </div>
       <div class="toolbar" aria-label="Darstellung">
-        <div class="theme-toggle">
-          <button type="button" data-theme-choice="light">Hell</button>
-          <button type="button" data-theme-choice="dark">Dunkel</button>
-          <button type="button" data-theme-choice="system">System</button>
+        <div class="admin-theme-toggle">
+          <button type="button" data-theme="light" onclick="setTheme('light')" title="Hell"><span data-icon="sun"></span></button>
+          <button type="button" data-theme="dark" onclick="setTheme('dark')" title="Dunkel"><span data-icon="moon"></span></button>
+          <button type="button" data-theme="system" onclick="setTheme('system')" title="System"><span data-icon="monitor"></span></button>
         </div>
       </div>
     </div>
@@ -212,17 +214,31 @@ def _api_docs_html() -> str:
   </div>
   <script>
     (() => {{
-      const root = document.documentElement;
-      const buttons = Array.from(document.querySelectorAll('[data-theme-choice]'));
-      const storedTheme = localStorage.getItem('nia-api-doc-theme') || 'system';
-      function applyTheme(theme) {{
-        if (theme === 'system') root.removeAttribute('data-theme');
-        else root.setAttribute('data-theme', theme);
-        localStorage.setItem('nia-api-doc-theme', theme);
-        buttons.forEach((button) => button.classList.toggle('active', button.dataset.themeChoice === theme));
+      const ICONS = {{
+        sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>',
+        moon: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
+        monitor: '<rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/>',
+      }};
+      function iconSvg(name) {{
+        const paths = ICONS[name] || '';
+        return `<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${{paths}}</svg>`;
       }}
-      buttons.forEach((button) => button.addEventListener('click', () => applyTheme(button.dataset.themeChoice || 'system')));
-      applyTheme(storedTheme);
+      function hydrateIcons(root = document) {{
+        root.querySelectorAll('[data-icon]').forEach((el) => {{ el.innerHTML = iconSvg(el.getAttribute('data-icon')); }});
+      }}
+      window.setTheme = function setTheme(mode) {{
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const isDark = mode === 'dark' || (mode === 'system' && prefersDark);
+        document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+        if (mode === 'system') localStorage.removeItem('theme');
+        else localStorage.setItem('theme', mode);
+        document.querySelectorAll('.admin-theme-toggle button').forEach((button) => {{
+          button.classList.toggle('active', button.dataset.theme === mode);
+        }});
+      }};
+      hydrateIcons();
+      const storedTheme = localStorage.getItem('theme');
+      window.setTheme(storedTheme && storedTheme !== 'system' ? storedTheme : 'system');
 
       const search = document.getElementById('api-search');
       const clear = document.getElementById('api-search-clear');
