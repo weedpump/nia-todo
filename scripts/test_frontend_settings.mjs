@@ -141,7 +141,7 @@ async function run() {
       if (testBtn) testBtn.hidden = false;
     });
 
-    await page.click('text=Neuen API-Key erstellen');
+    await page.locator('button[onclick="createApiKey()"]').click();
     await page.locator('#security-action-modal').waitFor({ state: 'visible', timeout: 10000 });
     await page.fill('#security-action-body input[name="value"]', 'Frontend Test Key');
     await page.click('#security-action-primary');
@@ -158,7 +158,13 @@ async function run() {
     await page.locator('#api-keys-list .btn.btn-danger').first().click();
     await page.locator('#security-action-modal').waitFor({ state: 'visible', timeout: 10000 });
     await page.click('#security-action-primary');
-    await page.waitForFunction(() => document.getElementById('api-keys-list')?.innerText?.includes('widerrufen') || document.getElementById('api-keys-list')?.innerText?.includes('Keine API-Keys vorhanden'), { timeout: 10000 });
+    await page.waitForFunction(() => {
+      const text = document.getElementById('api-keys-list')?.innerText || '';
+      return text.includes('widerrufen')
+        || text.includes('revoked')
+        || text.includes('Keine API-Keys vorhanden')
+        || text.includes('No API keys yet');
+    }, { timeout: 10000 });
 
     await page.evaluate(() => window.disablePushNotifications());
     await page.waitForFunction(() => document.getElementById('push-error')?.textContent?.includes('deaktiviert'), { timeout: 10000 });
@@ -166,8 +172,8 @@ async function run() {
     await page.fill('#settings-old-password', USER_PASSWORD);
     await page.fill('#settings-new-password', 'FrontendChanged123!');
     await page.fill('#settings-confirm-password', 'FrontendChanged123!');
-    await page.locator('#settings-modal button.btn-primary').filter({ hasText: 'Passwort ändern' }).click();
-    await page.getByText('Passwort geändert! Du wirst abgemeldet...').waitFor({ state: 'visible', timeout: 10000 });
+    await page.locator('#settings-modal button[onclick="changeUserPassword()"]').click();
+    await page.getByText(/Passwort geändert|Password changed/).waitFor({ state: 'visible', timeout: 10000 });
     await page.locator('#login-overlay').waitFor({ state: 'visible', timeout: 10000 });
 
     assertNoFrontendErrors();
