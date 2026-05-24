@@ -205,11 +205,11 @@
       <div class="modal-overlay web-update-backdrop"></div>
       <div class="modal-content web-update-content">
         <div class="web-update-icon" aria-hidden="true" data-icon="refresh-cw"></div>
-        <h3 id="web-update-title">Update verfügbar</h3>
-        <p>Eine neue Web App Version ist verfügbar.</p>
-        <p class="web-update-meta">Aktuell geladen: <span id="web-update-current-version">–</span></p>
+        <h3 id="web-update-title" data-i18n-key="update.web.title">Update verfügbar</h3>
+        <p data-i18n-key="update.web.message">Eine neue Web App Version ist verfügbar.</p>
+        <p class="web-update-meta"><span data-i18n-key="update.web.current">Aktuell geladen:</span> <span id="web-update-current-version">–</span></p>
         <div class="web-update-actions">
-          <button type="button" class="btn btn-primary" id="web-update-apply-btn" onclick="triggerUpdate()">Jetzt aktualisieren</button>
+          <button type="button" class="btn btn-primary" id="web-update-apply-btn" onclick="triggerUpdate()" data-i18n-key="update.web.apply">Jetzt aktualisieren</button>
         </div>
       </div>
     </div>
@@ -218,12 +218,12 @@
       <div class="modal-overlay web-update-backdrop"></div>
       <div class="modal-content web-update-content">
         <div class="web-update-icon" aria-hidden="true" data-icon="download"></div>
-        <h3 id="native-app-update-title">App Update verfügbar</h3>
-        <p id="native-app-update-message">Eine neue App Version ist verfügbar.</p>
-        <p class="web-update-meta">Installiert: <span id="native-app-update-current-version">–</span> · Neu: <span id="native-app-update-latest-version">–</span></p>
+        <h3 id="native-app-update-title" data-i18n-key="update.native.title">App Update verfügbar</h3>
+        <p id="native-app-update-message" data-i18n-key="update.native.message">Eine neue App Version ist verfügbar.</p>
+        <p class="web-update-meta"><span data-i18n-key="update.native.installed">Installiert:</span> <span id="native-app-update-current-version">–</span> · <span data-i18n-key="update.native.new">Neu:</span> <span id="native-app-update-latest-version">–</span></p>
         <div class="web-update-actions">
-          <button type="button" class="btn btn-secondary" id="native-app-update-later-btn">Später</button>
-          <a class="btn btn-primary" id="native-app-update-download-btn" href="#" download>Update herunterladen</a>
+          <button type="button" class="btn btn-secondary" id="native-app-update-later-btn" data-i18n-key="update.native.later">Später</button>
+          <a class="btn btn-primary" id="native-app-update-download-btn" href="#" download data-i18n-key="update.native.download">Update herunterladen</a>
         </div>
       </div>
     </div>
