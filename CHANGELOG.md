@@ -90,6 +90,7 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 - Sharing-UI hält lokal gestartete Username-Einladungen sichtbar, ohne privacy-safe Server-Member-Listen für Pending Invites wieder zu öffnen.
 - 2FA-Challenges, Reauth-Buckets, Recovery Codes und MFA-Action-Grants können nicht mehrfach für sicherheitskritische Aktionen wiederverwendet werden.
 - 2FA-/Security-Flows verwenden keine nativen Browser-Popups mehr; Bestätigungen, Passwortabfragen und Reauth laufen über App-Dialoge.
+- Offline-Cold-Start mit gecachter Session loggt erwartbare Server-Refresh-Netzwerkfehler nicht mehr als Frontend-Error.
 
 ## [1.7.3] - 2026-05-22
 
