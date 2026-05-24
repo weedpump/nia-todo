@@ -1,4 +1,4 @@
-import { RUNTIME_CAPABILITIES } from '../core/config.js';
+import { RUNTIME_CAPABILITIES, apiResourceUrl } from '../core/config.js';
 import { iconSvg } from '../icons/lucide-icons.js';
 import qrcode from '../../vendor/qrcode-generator.js';
 import { confirmSecurityAction, performMfaReauth, promptSecurityPassword, promptSecurityText } from './security-dialogs.js';
@@ -51,7 +51,8 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
   function avatarSrc(user) {
     if (!user?.avatar_url) return '';
     const version = user.avatar_updated_at ? encodeURIComponent(user.avatar_updated_at) : '';
-    return version ? `${user.avatar_url}?v=${version}` : user.avatar_url;
+    const src = apiResourceUrl(user.avatar_url);
+    return version ? `${src}?v=${version}` : src;
   }
 
   function renderSettingsAvatar(user) {

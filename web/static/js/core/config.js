@@ -83,6 +83,21 @@ export function websocketUrlFromBase(baseUrl) {
   return url.toString();
 }
 
+export function apiResourceUrl(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  try {
+    const parsed = new URL(raw);
+    return parsed.toString();
+  } catch (_error) {
+    // Relative path.
+  }
+  if (RUNTIME_CAPABILITIES.native && API && raw.startsWith('/')) {
+    return new URL(raw, API).toString();
+  }
+  return raw;
+}
+
 export async function verifyInstance(serverUrl) {
   const base = normalizeServerUrl(serverUrl);
   let response;

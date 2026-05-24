@@ -1,3 +1,5 @@
+import { apiResourceUrl } from '../core/config.js';
+
 export function createUserMenuFeature({ getCurrentUser }) {
   function closeUserMenu() {
     const menu = document.getElementById('user-menu');
@@ -21,7 +23,8 @@ export function createUserMenuFeature({ getCurrentUser }) {
   function avatarSrc(user) {
     if (!user?.avatar_url) return '';
     const version = user.avatar_updated_at ? encodeURIComponent(user.avatar_updated_at) : '';
-    return version ? `${user.avatar_url}?v=${version}` : user.avatar_url;
+    const src = apiResourceUrl(user.avatar_url);
+    return version ? `${src}?v=${version}` : src;
   }
 
   function renderAvatar(target, initial, src) {

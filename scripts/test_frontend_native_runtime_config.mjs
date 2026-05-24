@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-import { withFreshDb, launchPage, BASE_URL, USERNAME, USER_PASSWORD } from './frontend_test_lib.mjs';
+import { execFileSync } from 'node:child_process';
+import { withFreshDb, launchPage, BASE_URL, USERNAME, USER_PASSWORD, DB_PATH } from './frontend_test_lib.mjs';
 
 async function installTauriStub(page, settings, options = {}) {
   if (options.userAgent) {
@@ -106,6 +107,22 @@ async function testNativeUpdateUsesModalWithDownloadButton() {
     await installTauriStub(page, { serverUrl: BASE_URL }, {
       appVersion: '1.7.0',
       userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    });
+    await page.route(new RegExp(`${BASE_URL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/api/instance$`), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          app: 'nia-todo',
+          instance_id: 'test',
+          display_name: 'nia-todo',
+          public_base_url: BASE_URL,
+          api_version: 1,
+          server_version: '1.7.1',
+          min_native_client_version: '1.7.0',
+          capabilities: [],
+        }),
+      });
     });
     await page.route(new RegExp(`${BASE_URL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/downloads/app-downloads\\.json(?:\\?.*)?$`), async (route) => {
       await route.fulfill({
@@ -287,6 +304,7 @@ async function testNativeUpdateRejectsUnsafeManifestDownload() {
 }
 
 async function testNativeRuntimeUsesConfiguredServerUrl() {
+  execFileSync('python3', ['-c', `import sqlite3\ndb=sqlite3.connect(${JSON.stringify(DB_PATH)})\ndb.execute("UPDATE users SET avatar_url='/api/avatars/user-1.webp', avatar_updated_at='2026-05-24 15:45:00' WHERE username=?", (${JSON.stringify(USERNAME)},))\ndb.commit()\ndb.close()`]);
   const { browser, page, dumpErrors } = await launchPage();
   try {
     await installTauriStub(page, { serverUrl: BASE_URL });
@@ -302,6 +320,8 @@ async function testNativeRuntimeUsesConfiguredServerUrl() {
     await page.click('button.login-btn');
     await page.locator('#login-overlay').waitFor({ state: 'hidden', timeout: 15_000 });
     await page.locator('#user-menu-button').waitFor({ state: 'visible', timeout: 10_000 });
+    const avatarSrc = await page.locator('#user-menu-button img').getAttribute('src');
+    if (!avatarSrc?.startsWith(`${BASE_URL}/api/avatars/user-1.webp`)) throw new Error(`Native avatar URL must use server base URL, got ${avatarSrc}`);
   } catch (error) {
     console.log('DEBUG frontend errors:', JSON.stringify(dumpErrors()));
     throw error;
