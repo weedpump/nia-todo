@@ -106,14 +106,28 @@ export function createAuthSessionFeature({
     return completeLogin(data);
   }
 
-  function preferredMfaMethod(challengeData) {
-    const methods = challengeData?.challenge?.methods || [];
-    const canPasskey = methods.includes('passkey') && ((!RUNTIME_CAPABILITIES.native && window.PublicKeyCredential && navigator.credentials) || RUNTIME_CAPABILITIES.nativePasskeys);
-    return canPasskey ? 'passkey'
-      : methods.includes('totp') ? 'totp'
+  function loginMfaMethods(challengeData = pendingMfaChallenge) {
+    return challengeData?.challenge?.methods || [];
+  }
+
+  function canUseLoginPasskey(challengeData = pendingMfaChallenge) {
+    const methods = loginMfaMethods(challengeData);
+    return methods.includes('passkey') && ((!RUNTIME_CAPABILITIES.native && window.PublicKeyCredential && navigator.credentials) || RUNTIME_CAPABILITIES.nativePasskeys);
+  }
+
+  function preferredCodeMfaMethod(challengeData = pendingMfaChallenge) {
+    const methods = loginMfaMethods(challengeData);
+    return methods.includes('totp') ? 'totp'
       : methods.includes('recovery_code') ? 'recovery_code'
       : methods.includes('email') ? 'email'
-      : methods[0];
+      : null;
+  }
+
+  function preferredMfaMethod(challengeData) {
+    const codeMethod = preferredCodeMfaMethod(challengeData);
+    if (RUNTIME_CAPABILITIES.native && codeMethod) return codeMethod;
+    if (canUseLoginPasskey(challengeData)) return 'passkey';
+    return codeMethod || loginMfaMethods(challengeData)[0];
   }
 
   function resetLoginMfaPanel() {
@@ -122,8 +136,10 @@ export function createAuthSessionFeature({
     document.getElementById('login-mfa-panel')?.classList.add('hidden');
     const codeInput = document.getElementById('login-mfa-code');
     const rememberInput = document.getElementById('login-remember-device');
+    const switchBtn = document.getElementById('login-mfa-switch-btn');
     const submitBtn = document.querySelector('button.login-btn');
     if (codeInput) codeInput.value = '';
+    if (switchBtn) switchBtn.classList.add('hidden');
     if (rememberInput) rememberInput.checked = false;
     if (submitBtn) submitBtn.textContent = 'Anmelden';
     document.getElementById('login-username')?.removeAttribute('readonly');
@@ -131,27 +147,32 @@ export function createAuthSessionFeature({
     document.getElementById('login-forgot-btn')?.classList.toggle('hidden', !passwordResetAvailable);
   }
 
-  function showLoginMfaPanel(challengeData) {
-    pendingMfaChallenge = challengeData;
-    pendingMfaMethod = preferredMfaMethod(challengeData);
+  function updateLoginMfaPanel() {
+    const methods = loginMfaMethods();
     const panel = document.getElementById('login-mfa-panel');
     const hintEl = document.getElementById('login-mfa-hint');
     const codeWrap = document.getElementById('login-mfa-code-wrap');
     const codeInput = document.getElementById('login-mfa-code');
     const codeLabel = document.getElementById('login-mfa-code-label');
+    const switchBtn = document.getElementById('login-mfa-switch-btn');
     const submitBtn = document.querySelector('button.login-btn');
+    const codeMethod = preferredCodeMfaMethod();
+    const hasCodeOption = Boolean(codeMethod);
+    const hasPasskeyOption = canUseLoginPasskey();
     const labels = {
       email: 'E-Mail-Code',
       recovery_code: 'Recovery Code',
       passkey: 'Passkey',
-      totp: 'Authenticator-Code',
+      totp: methods.includes('recovery_code') ? 'Authenticator- oder Recovery Code' : 'Authenticator-Code',
     };
     const label = labels[pendingMfaMethod] || '2FA-Code';
     if (hintEl) hintEl.textContent = pendingMfaMethod === 'email'
       ? 'Wir haben dir einen 2FA-Code per E-Mail geschickt.'
       : pendingMfaMethod === 'passkey'
-        ? 'Bestätige die Anmeldung mit deinem Passkey.'
-        : 'Gib deinen 2FA-Code ein.';
+        ? 'Bestätige die Anmeldung mit deinem Passkey — oder nutze alternativ deinen Authenticator-Code.'
+        : hasPasskeyOption
+          ? 'Gib deinen 2FA-Code ein — oder nutze alternativ deinen Passkey.'
+          : 'Gib deinen 2FA-Code ein.';
     if (codeLabel) codeLabel.textContent = label;
     if (codeInput) {
       codeInput.value = '';
@@ -159,13 +180,30 @@ export function createAuthSessionFeature({
       codeInput.required = pendingMfaMethod !== 'passkey';
     }
     if (codeWrap) codeWrap.style.display = pendingMfaMethod === 'passkey' ? 'none' : '';
+    if (switchBtn) {
+      const showSwitch = hasPasskeyOption && hasCodeOption;
+      switchBtn.classList.toggle('hidden', !showSwitch);
+      switchBtn.textContent = pendingMfaMethod === 'passkey' ? 'Mit Authenticator-Code anmelden' : 'Mit Passkey anmelden';
+    }
     if (submitBtn) submitBtn.textContent = pendingMfaMethod === 'passkey' ? 'Mit Passkey anmelden' : '2FA bestätigen';
-    document.getElementById('login-username')?.setAttribute('readonly', 'readonly');
-    document.getElementById('login-password')?.setAttribute('readonly', 'readonly');
-    document.getElementById('login-forgot-btn')?.classList.add('hidden');
     panel?.classList.remove('hidden');
     if (pendingMfaMethod === 'passkey') submitBtn?.focus();
     else codeInput?.focus();
+  }
+
+  function selectLoginMfaMethod(method) {
+    const codeMethod = preferredCodeMfaMethod();
+    pendingMfaMethod = method === 'passkey' && canUseLoginPasskey() ? 'passkey' : codeMethod || method;
+    updateLoginMfaPanel();
+  }
+
+  function showLoginMfaPanel(challengeData) {
+    pendingMfaChallenge = challengeData;
+    pendingMfaMethod = preferredMfaMethod(challengeData);
+    document.getElementById('login-username')?.setAttribute('readonly', 'readonly');
+    document.getElementById('login-password')?.setAttribute('readonly', 'readonly');
+    document.getElementById('login-forgot-btn')?.classList.add('hidden');
+    updateLoginMfaPanel();
   }
 
   async function verifyPendingMfaChallenge() {
@@ -377,6 +415,10 @@ export function createAuthSessionFeature({
     loginFormBound = true;
     form.addEventListener('submit', handleLogin);
     document.getElementById('login-forgot-btn')?.addEventListener('click', toggleResetPanel);
+    document.getElementById('login-mfa-switch-btn')?.addEventListener('click', () => {
+      selectLoginMfaMethod(pendingMfaMethod === 'passkey' ? preferredCodeMfaMethod() : 'passkey');
+      document.getElementById('login-error').textContent = '';
+    });
     document.getElementById('login-mfa-back-btn')?.addEventListener('click', () => {
       resetLoginMfaPanel();
       document.getElementById('login-error').textContent = '';
