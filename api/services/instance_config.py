@@ -21,6 +21,7 @@ DEFAULT_INSTANCE_CONFIG = {
     "trusted_proxies": DEFAULT_TRUSTED_PROXIES,
     "instance_id": "",
     "instance_display_name": "nia-todo",
+    "min_native_client_version": "1.7.0",
 }
 
 PUBLIC_INSTANCE_CAPABILITIES = [
@@ -221,9 +222,10 @@ def _read_web_app_version() -> str:
 
 
 def get_public_instance_info(request: Request) -> dict[str, Any]:
-    values = _read_config_keys(("public_base_url", "instance_display_name"))
+    values = _read_config_keys(("public_base_url", "instance_display_name", "min_native_client_version"))
     public_base_url = values.get("public_base_url") or get_public_base_url(request)
     display_name = str(values.get("instance_display_name") or "nia-todo").strip() or "nia-todo"
+    min_native_client_version = str(values.get("min_native_client_version") or "1.7.0").strip() or "1.7.0"
     return {
         "app": "nia-todo",
         "instance_id": _ensure_instance_id(),
@@ -231,7 +233,7 @@ def get_public_instance_info(request: Request) -> dict[str, Any]:
         "public_base_url": public_base_url,
         "api_version": 1,
         "server_version": _read_web_app_version(),
-        "min_native_client_version": "1.7.0",
+        "min_native_client_version": min_native_client_version,
         "capabilities": PUBLIC_INSTANCE_CAPABILITIES,
     }
 
