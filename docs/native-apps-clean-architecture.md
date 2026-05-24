@@ -148,7 +148,8 @@ Browser/PWA remains first-class.
 - Browser continues to use same-origin server-hosted UI and API.
 - Native uses local UI + remote API.
 - Android passkeys require Digital Asset Links at `/.well-known/assetlinks.json` for package `de.tobiaskneidl.nia_todo` and the release signing certificate. The backend accepts the HTTPS web origin and the pinned Android `android:apk-key-hash:...` origin while still validating the RP-ID hash against `public_base_url`.
-- The pinned package/signature is an explicit official-app trust model: self-hosted servers authorize the official nia-todo Android app. Custom package names, F-Droid/re-signed builds, and signing-key rotation are not supported without a server update or future config migration.
+- The pinned package/signature is an explicit official-app trust model: self-hosted servers authorize the official nia-todo Android app delivered by us and then connect it to their own server URL. Custom package names, F-Droid/re-signed builds, and signing-key rotation are deliberately out of scope for 2.0 and require a later server config/migration path.
+- `assetlinks.json` is part of the web bundle/server delivery model, not a per-instance admin setting. If an API-only server mode is ever introduced, this route must stay available outside any optional web-static block.
 - Shared frontend modules must support both modes explicitly.
 - No native-only assumptions may break normal browser/PWA behavior.
 

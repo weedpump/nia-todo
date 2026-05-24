@@ -95,10 +95,12 @@ Für 2FA-Änderungen zusätzlich sinnvoll vor Release/Review:
 - `node scripts/test_frontend_admin.mjs`
 - `node scripts/test_frontend_security.mjs`
 - `node scripts/test_frontend_native_passkeys.mjs` bei Native-Passkey-Änderungen; deckt Browser, Windows/Tauri invoke und Android `JavascriptInterface` Callback-Bridge ab.
+- Bei Android-Passkey-Änderungen zusätzlich prüfen, dass `/.well-known/assetlinks.json` weiterhin Package `de.tobiaskneidl.nia_todo`, den offiziellen Release-Fingerprint und `delegate_permission/common.get_login_creds` ausliefert.
 
 Manuelle 2FA-Smoke-Pfade:
 - TOTP einrichten, QR-Code scannen, Login mit TOTP abschließen.
 - Passkey hinzufügen, Login/Reauth per Passkey abschließen.
+- Android-App mit selfhosted Server-URL verbinden; Passkey-Flow muss mit der offiziellen App funktionieren, Custom/Re-Sign-Builds sind für 2.0 kein unterstützter Testpfad.
 - TOTP/Passkey widerrufen; beim letzten primären Faktor müssen Recovery Codes verschwinden und user-seitige 2FA deaktiviert werden.
 - Sensitive Aktionen nacheinander ausführen; jede Aktion muss eine frische MFA-Reauth verlangen.
 - Trusted Device muss Login-MFA überspringen können, aber keine sensitive Aktion autorisieren.
