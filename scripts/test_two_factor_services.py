@@ -20,7 +20,7 @@ import services.two_factor as two_factor_module
 from services.auth import create_jwt_token, get_current_user
 from routers.auth import require_recent_mfa_for_account_security
 from routers.two_factor import ReauthRequest, reauth, regenerate_recovery_codes, require_2fa_status_auth
-from services.webauthn import relying_party_for_request, verify_client_data
+from services.webauthn import ANDROID_PACKAGE_NAME, ANDROID_PASSKEY_ORIGINS, ANDROID_RELEASE_CERT_SHA256, relying_party_for_request, verify_client_data
 from services.two_factor import (
     clear_recovery_codes_if_no_primary_factor,
     create_challenge,
@@ -233,6 +233,15 @@ def main():
             "abc",
             "https://todo.example.invalid",
         )
+        android_origin = next(iter(ANDROID_PASSKEY_ORIGINS))
+        verify_client_data(
+            json.dumps({"type": "webauthn.get", "challenge": "abc", "origin": android_origin}).encode(),
+            "webauthn.get",
+            "abc",
+            "https://todo.example.invalid",
+        )
+        assert ANDROID_PACKAGE_NAME == "de.tobiaskneidl.nia_todo"
+        assert ANDROID_RELEASE_CERT_SHA256 == "90:0E:26:CD:40:B8:BF:42:A6:5B:98:02:8A:A5:43:9F:6A:72:74:15:55:FE:26:C4:85:B8:34:E3:B1:97:E0:58"
         try:
             verify_client_data(
                 json.dumps({"type": "webauthn.get", "challenge": "abc", "origin": "https://evil.example.invalid"}).encode(),
@@ -241,6 +250,16 @@ def main():
                 "https://todo.example.invalid",
             )
             raise AssertionError("wrong WebAuthn origin should fail")
+        except ValueError:
+            pass
+        try:
+            verify_client_data(
+                json.dumps({"type": "webauthn.get", "challenge": "abc", "origin": "android:apk-key-hash:evil"}).encode(),
+                "webauthn.get",
+                "abc",
+                "https://todo.example.invalid",
+            )
+            raise AssertionError("wrong Android WebAuthn origin should fail")
         except ValueError:
             pass
 

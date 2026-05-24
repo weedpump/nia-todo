@@ -109,24 +109,51 @@ runScenario('windows native passkeys use native bridge with server origin', Stri
   if (auth?.args?.options?.rpId !== 'todo.example.test') throw new Error('auth did not pass RP ID');
 `);
 
-runScenario('native android passkeys reject without browser fallback', String.raw`
-  let fetched = false;
-  installWindow({ core: { invoke: async () => { throw new Error('Tauri passkey invoke must not be used on Android'); } } });
+runScenario('android native passkeys use javascript interface callbacks', String.raw`
   installNavigator('Mozilla/5.0 (Linux; Android 14)', {
     create: async () => { throw new Error('browser create must not be used on native Android'); },
+    get: async () => { throw new Error('browser get must not be used on native Android'); },
   });
-  globalThis.fetch = async () => { fetched = true; return response(passkeyOptions); };
+  Object.defineProperty(globalThis, 'window', { value: {
+    __TAURI__: { core: { invoke: async () => { throw new Error('Tauri passkey invoke must not be used on Android'); } } },
+    NiaAndroidNative: {
+      setConfiguredServerUrl: (serverUrl) => {
+        calls.push({ method: 'setConfiguredServerUrl', serverUrl });
+        return serverUrl === 'https://todo.example.test';
+      },
+      supportsPasskeys: () => {
+        calls.push({ method: 'supportsPasskeys' });
+        return true;
+      },
+      passkeyRegister: (requestId, origin, optionsJson) => {
+        calls.push({ method: 'passkeyRegister', requestId, origin, options: JSON.parse(optionsJson) });
+        queueMicrotask(() => window.__niaAndroidPasskeyComplete(requestId, true, JSON.stringify({ id: 'android-register', rawId: 'abc', type: 'public-key', response: { clientDataJSON: 'cdj', attestationObject: 'att' } })));
+      },
+      passkeyAuthenticate: (requestId, origin, optionsJson) => {
+        calls.push({ method: 'passkeyAuthenticate', requestId, origin, options: JSON.parse(optionsJson) });
+        queueMicrotask(() => window.__niaAndroidPasskeyComplete(requestId, true, JSON.stringify({ id: 'android-auth', rawId: 'def', type: 'public-key', response: { clientDataJSON: 'cdj', authenticatorData: 'auth', signature: 'sig' } })));
+      },
+    },
+  }, configurable: true });
+  globalThis.fetch = async (url, options = {}) => {
+    if (String(url).endsWith('/api/me/passkeys/options')) return response(passkeyOptions);
+    if (String(url).endsWith('/api/me/passkeys/verify')) return response({ ok: true });
+    if (String(url).endsWith('/api/2fa/passkey/options')) return response(passkeyRequest);
+    if (String(url).endsWith('/api/2fa/passkey/verify')) return response({ ok: true });
+    throw new Error('unexpected fetch ' + url);
+  };
   const { RUNTIME_CAPABILITIES } = await import('./web/static/js/core/config.js');
-  if (RUNTIME_CAPABILITIES.nativePasskeys) throw new Error('Android must not advertise native passkeys');
+  if (!RUNTIME_CAPABILITIES.nativePasskeys) throw new Error('Android should advertise native passkeys when JS interface is present');
   const { authApi } = await import('./web/static/js/api/auth.js');
-  let rejected = false;
-  try {
-    await authApi.createPasskey('Android Key', 'pw');
-  } catch (error) {
-    rejected = /noch nicht unterstützt/.test(error.message);
-  }
-  if (!rejected) throw new Error('Android native passkey path did not reject cleanly');
-  if (fetched) throw new Error('Android path should reject before requesting passkey options');
+  await authApi.createPasskey('Android Key', 'pw');
+  await authApi.verifyPasskeyLogin('challenge-token', false);
+  const register = calls.find(call => call.method === 'passkeyRegister');
+  const auth = calls.find(call => call.method === 'passkeyAuthenticate');
+  if (!calls.some(call => call.method === 'supportsPasskeys')) throw new Error('Android passkey support probe was not used');
+  if (register?.origin !== 'https://todo.example.test') throw new Error('Android register did not use server origin');
+  if (register?.options?.rp?.id !== 'todo.example.test') throw new Error('Android register did not pass RP ID');
+  if (auth?.origin !== 'https://todo.example.test') throw new Error('Android auth did not use server origin');
+  if (auth?.options?.rpId !== 'todo.example.test') throw new Error('Android auth did not pass RP ID');
 `);
 
 console.log('✅ Native passkey frontend regression tests passed');

@@ -26,6 +26,15 @@ function bufferToB64url(buffer) {
 }
 
 function credentialToJson(credential) {
+  if (credential && typeof credential === 'object' && credential.response && !(credential.rawId instanceof ArrayBuffer)) {
+    return {
+      id: credential.id,
+      rawId: credential.rawId || credential.id,
+      type: credential.type || 'public-key',
+      response: credential.response,
+      transports: credential.response?.transports || credential.transports || [],
+    };
+  }
   const response = {};
   for (const key of ['clientDataJSON', 'attestationObject', 'authenticatorData', 'signature', 'userHandle']) {
     const value = credential.response?.[key];

@@ -22,6 +22,9 @@ from cryptography.hazmat.primitives import hashes
 from services.instance_config import get_instance_config
 
 LOCAL_RP_IDS = {"localhost", "127.0.0.1", "::1"}
+ANDROID_PACKAGE_NAME = "de.tobiaskneidl.nia_todo"
+ANDROID_RELEASE_CERT_SHA256 = "90:0E:26:CD:40:B8:BF:42:A6:5B:98:02:8A:A5:43:9F:6A:72:74:15:55:FE:26:C4:85:B8:34:E3:B1:97:E0:58"
+ANDROID_PASSKEY_ORIGINS = {"android:apk-key-hash:kA4mzUC4v0KmW5gCiqVDn2pydBVV_ibEhbg047GX4Fg"}
 
 
 def b64url_encode(data: bytes) -> str:
@@ -145,13 +148,19 @@ def relying_party_for_request(request) -> WebAuthnRelyingParty:
     return WebAuthnRelyingParty(rp_id=host, origin=f"{parsed_request.scheme}://{parsed_request.netloc}")
 
 
+def allowed_webauthn_origins(expected_origin: str) -> set[str]:
+    origins = {expected_origin}
+    origins.update(ANDROID_PASSKEY_ORIGINS)
+    return origins
+
+
 def verify_client_data(client_data_json: bytes, expected_type: str, expected_challenge: str, expected_origin: str) -> dict:
     data = json.loads(client_data_json.decode())
     if data.get("type") != expected_type:
         raise ValueError("Unexpected WebAuthn clientData type")
     if data.get("challenge") != expected_challenge:
         raise ValueError("WebAuthn challenge mismatch")
-    if data.get("origin") != expected_origin:
+    if data.get("origin") not in allowed_webauthn_origins(expected_origin):
         raise ValueError("WebAuthn origin mismatch")
     if data.get("crossOrigin") is True:
         raise ValueError("Cross-origin WebAuthn ceremony rejected")

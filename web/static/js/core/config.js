@@ -45,7 +45,10 @@ export const RUNTIME_CAPABILITIES = Object.freeze({
   appDownloads: RUNTIME_MODE === 'browser',
   nativeAppVersion: RUNTIME_MODE === 'native',
   nativeAppUpdates: RUNTIME_MODE === 'native',
-  nativePasskeys: RUNTIME_MODE === 'native' && RUNTIME_PLATFORM === 'windows' && Boolean(getTauriInvoke()),
+  nativePasskeys: RUNTIME_MODE === 'native' && (
+    (RUNTIME_PLATFORM === 'windows' && Boolean(getTauriInvoke())) ||
+    (RUNTIME_PLATFORM === 'android' && Boolean(window.NiaAndroidNative?.passkeyRegister))
+  ),
 });
 
 export function isNativeRuntime() {
@@ -105,6 +108,10 @@ export async function initRuntimeConfig() {
   const settings = await invoke('desktop_get_settings').catch(() => null);
   const serverUrl = settings?.serverUrl ? normalizeServerUrl(settings.serverUrl) : '';
   if (!serverUrl) return { mode: RUNTIME_MODE, platform: RUNTIME_PLATFORM, capabilities: RUNTIME_CAPABILITIES, apiBaseUrl: API, wsUrl: WS_URL, instance: null };
+  if (RUNTIME_PLATFORM === 'android' && window.NiaAndroidNative?.setConfiguredServerUrl) {
+    const configured = window.NiaAndroidNative.setConfiguredServerUrl(serverUrl);
+    if (!configured) throw new Error('Android Passkey-Bridge konnte die Server-URL nicht binden.');
+  }
   API = serverUrl;
   WS_URL = websocketUrlFromBase(serverUrl);
   const instance = await verifyInstance(serverUrl).catch((error) => ({ error: error?.message || String(error) }));
