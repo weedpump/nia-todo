@@ -84,6 +84,13 @@ def set_min_native(tmp: Path, version: str) -> None:
     migration_path.write_text(migration_text, encoding="utf-8")
 
 
+CURRENT_DEV_VERSION = check.first(
+    r"APP_VERSION\s*=\s*['\"]v?([^'\"]+)['\"]",
+    (ROOT / "web/static/js/core/config.js").read_text(encoding="utf-8"),
+    "current APP_VERSION",
+)
+
+
 def test_version_helpers() -> None:
     assert_true(check.is_valid_stable_version("2.0.0"), "stable version should be valid")
     assert_true(check.is_valid_dev_version("2.0.1-dev"), "dev version should be valid")
@@ -101,16 +108,16 @@ def test_checker_rejects_bad_min_native_versions() -> None:
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp = Path(tmpdir)
         copy_release_inputs(tmp)
-        ok = run_checker(tmp, "1.7.4-dev")
+        ok = run_checker(tmp, CURRENT_DEV_VERSION)
         assert_true(ok.returncode == 0, ok.stderr or ok.stdout)
 
         set_min_native(tmp, "9.9.9")
-        too_new = run_checker(tmp, "1.7.4-dev")
+        too_new = run_checker(tmp, CURRENT_DEV_VERSION)
         assert_true(too_new.returncode != 0, "min_native_client_version above app version must fail")
         assert_true("must not exceed" in too_new.stderr, too_new.stderr)
 
         set_min_native(tmp, "1.7.4.dev")
-        invalid = run_checker(tmp, "1.7.4-dev")
+        invalid = run_checker(tmp, CURRENT_DEV_VERSION)
         assert_true(invalid.returncode != 0, "invalid min_native_client_version must fail")
         assert_true("not valid" in invalid.stderr, invalid.stderr)
 
@@ -127,7 +134,7 @@ def test_android_generated_mismatch_is_warning_only() -> None:
             "tauri.android.versionCode=1007000\n",
             encoding="utf-8",
         )
-        result = run_checker(tmp, "1.7.4-dev")
+        result = run_checker(tmp, CURRENT_DEV_VERSION)
         assert_true(result.returncode == 0, result.stderr or result.stdout)
         assert_true("tauri.properties versionName is 1.7.0" in result.stdout, result.stdout)
 
