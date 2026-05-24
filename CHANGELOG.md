@@ -5,14 +5,16 @@ Alle wichtigen Änderungen an diesem Projekt werden in dieser Datei dokumentiert
 Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
-## [2.0.0] - Unreleased
+## [2.0.0] - 2026-05-24
 
 ### Fixed
 - Release-Version-Checker validiert SemVer strenger und deckt `min_native_client_version`-Grenzen per Regressionstest ab.
 - Android-Release setzt generated `tauri.properties` vor dem APK-Build deterministisch, damit alte generated Versionen keinen späten Build-Fail verursachen.
 - Native App-Update-Hinweise können bei optionalen Updates bis zum nächsten Appstart verschoben werden; nur eine erhöhte `min_native_client_version` erzwingt das Update.
 - Release-Versionierung gehärtet: Web-, Service-Worker-, Tauri- und Cargo-Versionen werden konsistent gesetzt; `min_native_client_version` bleibt eine bewusst gepflegte Kompatibilitätsgrenze.
+- Release-Script hebt `min_native_client_version` nur noch mit explizitem `--set-min-app-version` an; Standard-Releases bleiben damit native-app-kompatibel.
 - Android-Release validiert jetzt neben `versionName` auch den erwarteten `versionCode`.
+- Fehlendes Native-Download-Manifest erzeugt keinen 404-/Console-Noise mehr, sondern liefert ein leeres Manifest mit HTTP 200.
 
 ### Added
 - Workspaces als neue Anzeige-/Organisationsschicht für Projekte und Todos ergänzt.
@@ -29,6 +31,7 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 - Generische Instanz-Konfiguration für öffentliche Basis-URL, erlaubte Origins/CORS und Trusted Proxies ergänzt.
 - Native Windows- und Android-Apps ergänzt, inklusive eigenem App-Update-Dialog mit externem Download-Button.
 - Native App-Downloads werden über ein einheitliches Manifest mit Plattform-/Architektur-/Version-/SHA256-Validierung ausgeliefert.
+- Öffentliche API-Dokumentation unter `/api` ergänzt; sie rendert die vorhandene `docs/api.md` leichtgewichtig als themekompatible HTML-Seite mit Suche, ohne Swagger/OpenAPI-UI.
 - Native Drag & Drop nutzt einen Pointer-/Touch-Fallback statt Browser-HTML5-DnD und unterstützt Android-Scrollen ohne versehentliches Verschieben oder klebende Hover-Markierung.
 - Native WebViews unterstützen Suche, Section-Enter und globale Tastaturpfade konsistent.
 - Native Regressionstests für Runtime-Konfiguration, Offline-Start, Windows-Installer-Cache und Android-WebView-Cache ergänzt.
@@ -52,6 +55,7 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 - **2FA-Replay-/Race-Hardening** ergänzt: atomarer Challenge-Verbrauch, table-backed Recovery-Code-Verbrauch, single-use E-Mail-Reauth-Codes, TOTP-Reauth-Timestep-Schutz und atomare Passkey-Challenge-Verwendung.
 - **Recovery-Code-Semantik** geschärft: Recovery Codes sind Backup-Faktoren zu TOTP/Passkey, werden beim Entfernen des letzten primären Faktors automatisch widerrufen und können nur mit aktivem primären Faktor neu erzeugt werden.
 - **Migrations 024–028** für 2FA-Status, Challenges, Attempt-Lockout, Trusted Devices, Passkeys, One-Time-MFA-Grants, Recovery-Code-Zeilen und Replay-Schutz ergänzt.
+- Konfigurierbarer `min_native_client_version`-Eintrag in `app_config` ergänzt, damit die native Kompatibilitätsgrenze explizit und migrationsgestützt gepflegt werden kann.
 
 ### Changed
 - System-E-Mails nutzen ein gemeinsames, modernes HTML/Text-Template mit nia-todo Branding, Logo-Unterstützung und einheitlichen Aktionsbuttons.
@@ -80,7 +84,7 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 - **Member-Listen zeigen nur `accepted` Mitglieder** — Pending Invites sind privat bis zur Annahme.
 - **Passwort-Reset und Einladungen** senden nur an verifizierte E-Mails; neutrale Responses verhindern Enumeration.
 - **SMTP-Secrets werden in API-Responses redacted** (`smtp_password_configured` statt Klartext).
-- Login-Antworten können jetzt eine 2FA-Challenge statt eines Access-Tokens liefern; Clients müssen dann `/api/2fa/challenge/verify` oder den Passkey-Verify-Flow abschließen. Global erzwungene 2FA ohne nutzbaren Faktor erzeugt nur einen Enrollment-Token; verifizierte E-Mail mit SMTP zählt als E-Mail-Code-Faktor.
+- Login-Antworten können jetzt eine 2FA-Challenge statt eines Access-Tokens liefern; Clients müssen dann `/api/2fa/challenge/verify` oder den Passkey-Verify-Flow abschließen. Global erzwungene 2FA ohne nutzbaren Faktor erzeugt nur einen Enrollment-Token; E-Mail-Code bleibt dabei Fallback-/Übergangspfad und zählt nicht als eingerichteter primärer Faktor.
 - Recovery Codes gelten nicht mehr als alleinstehender primärer Faktor: sobald TOTP und Passkeys entfernt sind, werden verbleibende Recovery Codes widerrufen und die user-seitige 2FA deaktiviert; globale 2FA-Policy kann danach weiterhin E-Mail-Code-MFA verlangen.
 
 ### Fixed
@@ -101,6 +105,11 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 - 2FA-Challenges, Reauth-Buckets, Recovery Codes und MFA-Action-Grants können nicht mehrfach für sicherheitskritische Aktionen wiederverwendet werden.
 - 2FA-/Security-Flows verwenden keine nativen Browser-Popups mehr; Bestätigungen, Passwortabfragen und Reauth laufen über App-Dialoge.
 - Offline-Cold-Start mit gecachter Session loggt erwartbare Server-Refresh-Netzwerkfehler nicht mehr als Frontend-Error.
+- 2FA-Enrollment-only Tokens laden nach Login oder Reload keine normale App-Oberfläche und keine lokalen Todo-Daten hinter dem Setup-Modal.
+- TOTP- und Passkey-Ersteinrichtung schließen den Enrollment-Lock sauber ab, initialisieren die App ohne Reload und fragen nur das mögliche Passwort-Secret ab.
+- Recovery-Code-Regeneration ist in UI und API nur mit aktivem primärem Faktor (TOTP oder Passkey) möglich; E-Mail-Code-only reicht dafür nicht.
+- Admin-2FA-Reset invalidiert bestehende Sessions per `token_version`, informiert Clients per WebSocket und trennt aktive User-WebSockets serverseitig.
+- Mobile 2FA-/Security-Modals, Workspace-Switcher-Topbar und API-Docs-Theme verhalten sich layout- und theme-konsistent.
 
 ## [1.7.3] - 2026-05-22
 
