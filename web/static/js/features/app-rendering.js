@@ -39,18 +39,6 @@ export function createAppRenderingFeature({
       versionText.insertAdjacentElement('afterend', separator);
     }
 
-    if (!el.querySelector('#changelog-link')) {
-      const changelog = document.createElement('a');
-      changelog.className = 'changelog-link';
-      changelog.id = 'changelog-link';
-      changelog.href = '/changelog';
-      changelog.target = '_blank';
-      changelog.rel = 'noopener noreferrer';
-      changelog.title = 'Changelog öffnen';
-      changelog.textContent = 'Changelog';
-      el.appendChild(changelog);
-    }
-
     if (!el.querySelector('#force-refresh-btn')) {
       const button = document.createElement('button');
       button.type = 'button';
@@ -60,6 +48,19 @@ export function createAppRenderingFeature({
       button.textContent = '↻ Neu laden';
       button.addEventListener('click', () => window.forceReloadApp?.());
       el.appendChild(button);
+    }
+
+    const versionBar = document.getElementById('version-bar');
+    if (versionBar && !versionBar.querySelector('#changelog-link')) {
+      const changelog = document.createElement('a');
+      changelog.className = 'changelog-link version-changelog-link web-version-changelog-link';
+      changelog.id = 'changelog-link';
+      changelog.href = '/changelog';
+      changelog.target = '_blank';
+      changelog.rel = 'noopener noreferrer';
+      changelog.title = 'Changelog öffnen';
+      changelog.textContent = 'Changelog';
+      versionBar.insertBefore(changelog, versionBar.querySelector('[data-native-app-version]'));
     }
   }
 
