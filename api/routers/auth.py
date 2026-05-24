@@ -164,7 +164,7 @@ def me(response: Response, authorization: Optional[str] = Header(None), x_sessio
             user_id = payload.get('user_id')
         
         user = db.execute(
-            "SELECT id, username, display_name, email, email_verified_at, email_trust_source, pending_email, avatar_url, avatar_updated_at, is_admin, token_version FROM users WHERE id = ?",
+            "SELECT id, username, display_name, email, email_verified_at, email_trust_source, pending_email, avatar_url, avatar_updated_at, is_admin, token_version, language FROM users WHERE id = ?",
             (user_id,)
         ).fetchone()
         if not user:

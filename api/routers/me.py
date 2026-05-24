@@ -46,6 +46,9 @@ class UpdateEmailRequest(BaseModel):
 class UpdateProfileRequest(BaseModel):
     display_name: str
 
+class UpdateLanguageRequest(BaseModel):
+    language: str
+
 
 def _avatar_url(user_id: int) -> str:
     return f"/api/avatars/user-{user_id}.webp"
@@ -76,6 +79,20 @@ def _load_avatar_image(body: bytes, content_type: str) -> Image.Image:
         return Image.open(output_path).convert("RGB")
 
 
+
+@router.patch('/language')
+def update_own_language(data: UpdateLanguageRequest, user_id: int = Depends(require_auth)):
+    language = (data.language or 'auto').strip().lower()
+    if language not in {'auto', 'de', 'en'}:
+        raise HTTPException(400, 'Ungültige Sprache')
+    with get_db() as db:
+        user = db.execute("SELECT id FROM users WHERE id = ?", (user_id,)).fetchone()
+        if not user:
+            raise HTTPException(404, 'User not found')
+        db.execute("UPDATE users SET language = ? WHERE id = ?", (language, user_id))
+        db.commit()
+    return {'language': language}
+
 @router.patch("/profile")
 def update_own_profile(data: UpdateProfileRequest, user_id: int = Depends(require_auth)):
     display_name = sanitize_text(data.display_name)
@@ -84,7 +101,7 @@ def update_own_profile(data: UpdateProfileRequest, user_id: int = Depends(requir
     if len(display_name) > 80:
         raise HTTPException(400, "Anzeigename ist zu lang")
     with get_db() as db:
-        user = db.execute("SELECT id, username, email, email_trust_source, avatar_url, avatar_updated_at, is_admin FROM users WHERE id = ?", (user_id,)).fetchone()
+        user = db.execute("SELECT id, username, email, email_trust_source, avatar_url, avatar_updated_at, is_admin, language FROM users WHERE id = ?", (user_id,)).fetchone()
         if not user:
             raise HTTPException(404, "User not found")
         db.execute("UPDATE users SET display_name = ? WHERE id = ?", (display_name, user_id))
