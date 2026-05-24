@@ -2217,7 +2217,8 @@ input[type="color"]::-moz-color-swatch {
   accent-color: var(--accent);
 }
 
-.login-back-btn {
+.login-back-btn,
+.login-mfa-switch-btn {
   width: 100%;
   padding: 9px 12px;
   border: 1px solid var(--border);
@@ -2229,7 +2230,12 @@ input[type="color"]::-moz-color-swatch {
   cursor: pointer;
 }
 
-.login-back-btn:hover {
+.login-mfa-switch-btn {
+  margin: -2px 0 10px;
+}
+
+.login-back-btn:hover,
+.login-mfa-switch-btn:hover {
   background: var(--bg-tertiary);
   color: var(--text-primary);
 }
