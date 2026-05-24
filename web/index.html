@@ -358,11 +358,11 @@
     <div class="modal-overlay" id="confirm-modal-overlay"></div>
     <div class="modal-content confirm-modal-content">
       <div class="confirm-icon" aria-hidden="true" data-icon="trash-2"></div>
-      <h3 id="confirm-title">Wirklich löschen?</h3>
-      <p id="confirm-message" class="confirm-message">Diese Aktion kann nicht rückgängig gemacht werden.</p>
+      <h3 id="confirm-title" data-i18n-key="confirm.deleteTitle">Wirklich löschen?</h3>
+      <p id="confirm-message" class="confirm-message" data-i18n-key="confirm.irreversible">Diese Aktion kann nicht rückgängig gemacht werden.</p>
       <div class="modal-actions confirm-actions">
-        <button type="button" class="btn btn-secondary" id="confirm-cancel-btn">Abbrechen</button>
-        <button type="button" class="btn btn-danger" id="confirm-confirm-btn">Löschen</button>
+        <button type="button" class="btn btn-secondary" id="confirm-cancel-btn" data-i18n-key="common.cancel">Abbrechen</button>
+        <button type="button" class="btn btn-danger" id="confirm-confirm-btn" data-i18n-key="todo.delete">Löschen</button>
       </div>
     </div>
   </div>
@@ -372,15 +372,15 @@
     <div class="modal-overlay" id="security-action-overlay"></div>
     <form class="modal-content security-action-content" id="security-action-form">
       <div class="security-action-icon" aria-hidden="true" data-icon="shield-check"></div>
-      <h3 id="security-action-title">Sicherheitsbestätigung</h3>
+      <h3 id="security-action-title" data-i18n-key="security.title">Sicherheitsbestätigung</h3>
       <div class="modal-body security-action-main">
         <p id="security-action-message" class="security-action-message"></p>
         <div id="security-action-body" class="security-action-body"></div>
         <div id="security-action-error" class="settings-field-error"></div>
       </div>
       <div class="modal-actions security-action-actions">
-        <button type="button" class="btn btn-secondary" id="security-action-cancel">Abbrechen</button>
-        <button type="submit" class="btn btn-primary" id="security-action-primary">Bestätigen</button>
+        <button type="button" class="btn btn-secondary" id="security-action-cancel" data-i18n-key="common.cancel">Abbrechen</button>
+        <button type="submit" class="btn btn-primary" id="security-action-primary" data-i18n-key="common.confirm">Bestätigen</button>
       </div>
     </form>
   </div>
