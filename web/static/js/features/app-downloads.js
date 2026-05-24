@@ -1,4 +1,4 @@
-import { API, RUNTIME_CAPABILITIES, RUNTIME_PLATFORM } from '../core/config.js';
+import { API, RUNTIME_CAPABILITIES, RUNTIME_PLATFORM, verifyInstance } from '../core/config.js';
 import { iconSvg } from '../icons/lucide-icons.js';
 import { createNativeBridge } from './native-bridge.js';
 
@@ -182,8 +182,20 @@ function nativeUpdateKey(platform, currentVersion, targetVersion) {
   return `${platform || 'unknown'}:${normalizeVersion(currentVersion)}->${normalizeVersion(targetVersion)}`;
 }
 
-function getMinimumNativeClientVersion() {
-  return window.NIA_TODO_RUNTIME?.instance?.min_native_client_version || '';
+async function refreshRuntimeInstance() {
+  if (!RUNTIME_CAPABILITIES.native || !API) return window.NIA_TODO_RUNTIME?.instance || null;
+  try {
+    const instance = await verifyInstance(API);
+    window.NIA_TODO_RUNTIME = { ...(window.NIA_TODO_RUNTIME || {}), instance };
+    return instance;
+  } catch (error) {
+    console.warn('[Downloads] Native instance refresh failed, using boot-time instance', error);
+    return window.NIA_TODO_RUNTIME?.instance || null;
+  }
+}
+
+function getMinimumNativeClientVersion(instance = window.NIA_TODO_RUNTIME?.instance) {
+  return instance?.min_native_client_version || '';
 }
 
 function renderDownloads(target, downloads) {
@@ -329,7 +341,8 @@ export function createAppDownloadsFeature() {
       }
 
       const nativeDownload = downloads.find((download) => download.platform === nativePlatform);
-      const minNativeClientVersion = getMinimumNativeClientVersion();
+      const runtimeInstance = hasNativeVersion ? await refreshRuntimeInstance() : window.NIA_TODO_RUNTIME?.instance;
+      const minNativeClientVersion = getMinimumNativeClientVersion(runtimeInstance);
       const updateAvailable = nativeDownload?.version && currentVersion && compareVersions(nativeDownload.version, currentVersion) > 0;
       const updateRequired = nativeDownload?.version && currentVersion && minNativeClientVersion && compareVersions(minNativeClientVersion, currentVersion) > 0;
       const dismissedKey = nativeDownload ? nativeUpdateKey(nativeDownload.platform, currentVersion, nativeDownload.version) : '';
