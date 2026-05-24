@@ -265,59 +265,59 @@
   <div class="modal" id="todo-modal">
     <div class="modal-overlay" onclick="closeModal('todo-modal')"></div>
     <div class="modal-content">
-      <h3 id="todo-modal-title">Neues Todo</h3>
+      <h3 id="todo-modal-title" data-i18n-key="todo.new">Neues Todo</h3>
       <button class="modal-close-x" onclick="closeModal('todo-modal')"><span data-icon="x"></span></button>
       <div class="modal-body">
       <form id="todo-form">
         <input type="hidden" id="todo-id">
         <div class="form-group">
-          <label>Titel</label>
-          <input type="text" id="todo-title" required placeholder="Was ist zu tun?">
+          <label data-i18n-key="todo.title">Titel</label>
+          <input type="text" id="todo-title" required placeholder="Was ist zu tun?" data-i18n-placeholder-key="todo.titlePlaceholder">
         </div>
         <div class="form-group">
-          <label>Beschreibung</label>
-          <textarea id="todo-desc" rows="3" placeholder="Details... Markdown: **fett**, *kursiv*, `code`, - Liste, [Link](url)"></textarea>
+          <label data-i18n-key="todo.description">Beschreibung</label>
+          <textarea id="todo-desc" rows="3" placeholder="Details... Markdown: **fett**, *kursiv*, `code`, - Liste, [Link](url)" data-i18n-placeholder-key="todo.descriptionPlaceholder"></textarea>
           <div id="todo-desc-preview" class="desc-live-preview"></div>
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label>Priorität</label>
+            <label data-i18n-key="todo.priority">Priorität</label>
             <select id="todo-priority">
-              <option value="1">Sehr hoch</option>
-              <option value="2">Hoch</option>
-              <option value="3" selected>Mittel</option>
-              <option value="4">Niedrig</option>
+              <option value="1" data-i18n-key="todo.priority.veryHigh">Sehr hoch</option>
+              <option value="2" data-i18n-key="todo.priority.high">Hoch</option>
+              <option value="3" selected data-i18n-key="todo.priority.medium">Mittel</option>
+              <option value="4" data-i18n-key="todo.priority.low">Niedrig</option>
             </select>
           </div>
           <div class="form-group">
-            <label>Status</label>
+            <label data-i18n-key="todo.status">Status</label>
             <select id="todo-status">
-              <option value="pending">Offen</option>
-              <option value="in_progress">In Arbeit</option>
-              <option value="done">Erledigt</option>
+              <option value="pending" data-i18n-key="todo.status.pending">Offen</option>
+              <option value="in_progress" data-i18n-key="todo.status.inProgress">In Arbeit</option>
+              <option value="done" data-i18n-key="todo.status.done">Erledigt</option>
             </select>
           </div>
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label>Projekt</label>
+            <label data-i18n-key="todo.project">Projekt</label>
             <select id="todo-project" onchange="onProjectChange()"></select>
           </div>
           <div class="form-group">
-            <label>Section</label>
+            <label data-i18n-key="todo.section">Section</label>
             <select id="todo-section" disabled>
-              <option value="">Keine Section (Unsortiert)</option>
+              <option value="" data-i18n-key="todo.section.none">Keine Section (Unsortiert)</option>
             </select>
           </div>
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label>Deadline</label>
+            <label data-i18n-key="todo.deadline">Deadline</label>
             <input type="datetime-local" id="todo-due" min="1900-01-01T00:00" max="9999-12-31T23:59" step="60">
             <div id="todo-due-error" class="form-error compact"></div>
           </div>
           <div class="form-group">
-            <label>Erinnerung</label>
+            <label data-i18n-key="todo.reminder">Erinnerung</label>
             <input type="datetime-local" id="todo-remind" min="1900-01-01T00:00" max="9999-12-31T23:59" step="60">
             <div id="todo-remind-error" class="form-error compact"></div>
           </div>
@@ -325,9 +325,9 @@
       </form>
       </div>
       <div class="modal-actions">
-        <button type="button" class="btn btn-danger" id="todo-delete-btn" onclick="deleteTodoFromModal()" style="margin-right:auto;display:none;"><span data-icon="trash-2"></span> Löschen</button>
-        <button type="button" class="btn btn-secondary" onclick="closeModal('todo-modal')">Abbrechen</button>
-        <button type="submit" form="todo-form" class="btn btn-primary">Speichern</button>
+        <button type="button" class="btn btn-danger" id="todo-delete-btn" onclick="deleteTodoFromModal()" style="margin-right:auto;display:none;"><span data-icon="trash-2"></span> <span data-i18n-key="todo.delete">Löschen</span></button>
+        <button type="button" class="btn btn-secondary" onclick="closeModal('todo-modal')" data-i18n-key="common.cancel">Abbrechen</button>
+        <button type="submit" form="todo-form" class="btn btn-primary" data-i18n-key="common.save">Speichern</button>
       </div>
     </div>
   </div>
