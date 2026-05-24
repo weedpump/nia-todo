@@ -142,14 +142,26 @@ def _api_docs_html() -> str:
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>nia-todo API</title>
   <style>
-    :root {{ color-scheme: light dark; --bg:#0f172a; --panel:#111827; --text:#e5e7eb; --muted:#9ca3af; --border:#293245; --accent:#8b5cf6; --code:#020617; }}
-    @media (prefers-color-scheme: light) {{ :root {{ --bg:#f7f7fb; --panel:#ffffff; --text:#111827; --muted:#6b7280; --border:#e5e7eb; --accent:#7c3aed; --code:#f3f4f6; }} }}
+    :root {{ color-scheme: light dark; --bg:#0f172a; --panel:#111827; --text:#e5e7eb; --muted:#9ca3af; --border:#293245; --accent:#8b5cf6; --code:#020617; --input:#0b1220; --mark:#facc15; }}
+    @media (prefers-color-scheme: light) {{ :root:not([data-theme]) {{ --bg:#f7f7fb; --panel:#ffffff; --text:#111827; --muted:#6b7280; --border:#e5e7eb; --accent:#7c3aed; --code:#f3f4f6; --input:#ffffff; --mark:#fde68a; }} }}
+    :root[data-theme="light"] {{ color-scheme: light; --bg:#f7f7fb; --panel:#ffffff; --text:#111827; --muted:#6b7280; --border:#e5e7eb; --accent:#7c3aed; --code:#f3f4f6; --input:#ffffff; --mark:#fde68a; }}
+    :root[data-theme="dark"] {{ color-scheme: dark; --bg:#0f172a; --panel:#111827; --text:#e5e7eb; --muted:#9ca3af; --border:#293245; --accent:#8b5cf6; --code:#020617; --input:#0b1220; --mark:#facc15; }}
     * {{ box-sizing: border-box; }}
     body {{ margin:0; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background:var(--bg); color:var(--text); line-height:1.6; }}
     header {{ padding:32px clamp(20px, 4vw, 56px); border-bottom:1px solid var(--border); background:linear-gradient(135deg, rgba(139,92,246,.22), transparent 55%); }}
+    .hero {{ display:flex; align-items:flex-start; justify-content:space-between; gap:20px; }}
     header h1 {{ margin:0 0 8px; font-size:clamp(32px, 5vw, 54px); line-height:1.05; }}
     header p {{ margin:0; color:var(--muted); max-width:820px; }}
-    .layout {{ display:grid; grid-template-columns:280px minmax(0, 1fr); gap:28px; max-width:1400px; margin:0 auto; padding:28px clamp(16px, 3vw, 40px) 56px; }}
+    .toolbar {{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }}
+    .theme-toggle {{ display:inline-flex; padding:4px; border:1px solid var(--border); border-radius:999px; background:var(--panel); }}
+    .theme-toggle button {{ border:0; border-radius:999px; padding:7px 10px; background:transparent; color:var(--muted); cursor:pointer; font-weight:700; }}
+    .theme-toggle button.active {{ background:rgba(139,92,246,.18); color:var(--accent); }}
+    .search-row {{ max-width:1400px; margin:0 auto; padding:18px clamp(16px, 3vw, 40px) 0; }}
+    .search-box {{ display:flex; gap:10px; align-items:center; padding:12px 14px; border:1px solid var(--border); border-radius:16px; background:var(--panel); }}
+    .search-box input {{ width:100%; border:0; outline:0; background:transparent; color:var(--text); font:inherit; }}
+    .search-box button {{ border:0; background:transparent; color:var(--muted); cursor:pointer; font-size:18px; }}
+    #search-status {{ margin:8px 4px 0; color:var(--muted); font-size:13px; }}
+    .layout {{ display:grid; grid-template-columns:280px minmax(0, 1fr); gap:28px; max-width:1400px; margin:0 auto; padding:20px clamp(16px, 3vw, 40px) 56px; }}
     nav {{ position:sticky; top:20px; align-self:start; max-height:calc(100vh - 40px); overflow:auto; padding:16px; border:1px solid var(--border); border-radius:18px; background:color-mix(in srgb, var(--panel) 92%, transparent); }}
     nav strong {{ display:block; margin-bottom:10px; }}
     nav a {{ display:block; padding:6px 8px; color:var(--muted); text-decoration:none; border-radius:10px; font-size:14px; }}
@@ -165,18 +177,84 @@ def _api_docs_html() -> str:
     pre {{ overflow:auto; padding:16px; border-radius:16px; background:var(--code); border:1px solid var(--border); }}
     pre code {{ padding:0; background:transparent; }}
     li {{ margin:6px 0; }}
-    @media (max-width: 900px) {{ .layout {{ display:block; }} nav {{ position:static; max-height:none; margin-bottom:18px; }} main {{ padding:18px; }} }}
+    mark {{ background:var(--mark); color:#111827; border-radius:4px; padding:0 .12em; }}
+    .hidden-by-search {{ display:none !important; }}
+    @media (max-width: 900px) {{ .hero {{ display:block; }} .toolbar {{ margin-top:18px; }} .layout {{ display:block; }} nav {{ position:static; max-height:none; margin-bottom:18px; }} main {{ padding:18px; }} }}
   </style>
 </head>
 <body>
   <header>
-    <h1>nia-todo API</h1>
-    <p>Öffentliche API-Dokumentation dieser Instanz. Authentifizierung läuft über JWT oder API-Key, je nach Endpoint.</p>
+    <div class="hero">
+      <div>
+        <h1>nia-todo API</h1>
+        <p>Öffentliche API-Dokumentation dieser Instanz. Authentifizierung läuft über JWT oder API-Key, je nach Endpoint.</p>
+      </div>
+      <div class="toolbar" aria-label="Darstellung">
+        <div class="theme-toggle">
+          <button type="button" data-theme-choice="light">Hell</button>
+          <button type="button" data-theme-choice="dark">Dunkel</button>
+          <button type="button" data-theme-choice="system">System</button>
+        </div>
+      </div>
+    </div>
   </header>
+  <div class="search-row">
+    <label class="search-box">
+      <span aria-hidden="true">⌕</span>
+      <input id="api-search" type="search" placeholder="API-Doku durchsuchen… z.B. API-Key, Passkey, /api/me" autocomplete="off">
+      <button type="button" id="api-search-clear" title="Suche löschen" aria-label="Suche löschen">×</button>
+    </label>
+    <div id="search-status"></div>
+  </div>
   <div class="layout">
     <nav><strong>Inhalt</strong>{toc}</nav>
-    <main>{content}</main>
+    <main id="api-content">{content}</main>
   </div>
+  <script>
+    (() => {{
+      const root = document.documentElement;
+      const buttons = Array.from(document.querySelectorAll('[data-theme-choice]'));
+      const storedTheme = localStorage.getItem('nia-api-doc-theme') || 'system';
+      function applyTheme(theme) {{
+        if (theme === 'system') root.removeAttribute('data-theme');
+        else root.setAttribute('data-theme', theme);
+        localStorage.setItem('nia-api-doc-theme', theme);
+        buttons.forEach((button) => button.classList.toggle('active', button.dataset.themeChoice === theme));
+      }}
+      buttons.forEach((button) => button.addEventListener('click', () => applyTheme(button.dataset.themeChoice || 'system')));
+      applyTheme(storedTheme);
+
+      const search = document.getElementById('api-search');
+      const clear = document.getElementById('api-search-clear');
+      const status = document.getElementById('search-status');
+      const main = document.getElementById('api-content');
+      const blocks = Array.from(main.children).map((el) => ({{ el, html: el.innerHTML, text: el.textContent.toLowerCase() }}));
+      const tocLinks = Array.from(document.querySelectorAll('nav a'));
+      const escapeRegExp = (value) => Array.from(value).map((ch) => '^$*+?.()|{{}}[]\\\\'.includes(ch) ? '\\\\' + ch : ch).join('');
+      function runSearch() {{
+        const query = search.value.trim().toLowerCase();
+        let matches = 0;
+        blocks.forEach((block) => {{
+          block.el.innerHTML = block.html;
+          const hit = !query || block.text.includes(query);
+          block.el.classList.toggle('hidden-by-search', !hit);
+          if (hit && query) {{
+            matches += 1;
+            const rx = new RegExp(`(${{escapeRegExp(query)}})`, 'ig');
+            if (!['PRE', 'CODE'].includes(block.el.tagName)) block.el.innerHTML = block.html.replace(rx, '<mark>$1</mark>');
+          }}
+        }});
+        tocLinks.forEach((link) => {{
+          const href = link.getAttribute('href') || '';
+          const target = href.startsWith('#') ? document.getElementById(decodeURIComponent(href.slice(1))) : null;
+          link.classList.toggle('hidden-by-search', Boolean(query) && target?.classList.contains('hidden-by-search'));
+        }});
+        status.textContent = query ? `${{matches}} Treffer für „${{search.value.trim()}}“` : '';
+      }}
+      search.addEventListener('input', runSearch);
+      clear.addEventListener('click', () => {{ search.value = ''; search.focus(); runSearch(); }});
+    }})();
+  </script>
 </body>
 </html>"""
 
