@@ -1,8 +1,8 @@
-// nia-todo Service Worker - Bulletproof Offline-First + Update-System + Push Notifications
+// nia-todo Service Worker - robust offline-first, update system, and push notifications
 const SW_VERSION = 'v2.1.1-dev';
 const CACHE_NAME = 'nia-todo-' + SW_VERSION;
 
-// ALLE Assets die wir brauchen
+// Assets required for offline startup
 const PRECACHE_ASSETS = [
   '/',
   '/index.html',
@@ -188,7 +188,7 @@ self.addEventListener('push', (event) => {
   try {
     data = event.data.json();
   } catch (e) {
-    data = { title: '⏰ Erinnerung', body: 'Neue Benachrichtigung', tag: 'default' };
+    data = { title: 'nia-todo', body: 'New notification', tag: 'default' };
   }
 
   // Ignore silent health check pushes from server
@@ -201,6 +201,7 @@ self.addEventListener('push', (event) => {
   const tag = data.tag || ('push-' + Date.now());
   const url = data.url || '/';
   const todoId = data.todoId;
+  const actionLabels = data.actionLabels || {};
 
   event.waitUntil(
     self.registration.showNotification(title, {
@@ -210,8 +211,8 @@ self.addEventListener('push', (event) => {
       tag: tag,
       data: { url: url, todoId: todoId },
       actions: [
-        { action: 'open', title: 'Öffnen' },
-        { action: 'done', title: 'Erledigt' }
+        { action: 'open', title: actionLabels.open || 'Open' },
+        { action: 'done', title: actionLabels.done || 'Done' }
       ],
       requireInteraction: false,
     })

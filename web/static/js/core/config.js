@@ -1,3 +1,5 @@
+import { t } from '../i18n/index.js';
+
 export let API = '';
 export let WS_URL = websocketUrlFromBase(location.origin);
 export const DB_NAME = 'nia-todo-db';
@@ -57,18 +59,18 @@ export function isNativeRuntime() {
 
 export function normalizeServerUrl(value) {
   let raw = String(value || '').trim().replace(/\/+$/, '');
-  if (!raw) throw new Error('Bitte Server-Hostname eingeben.');
+  if (!raw) throw new Error(t('nativeSetup.error.serverRequired'));
   if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(raw)) raw = `https://${raw}`;
   let url;
   try {
     url = new URL(raw);
   } catch (_error) {
-    throw new Error('Bitte einen gültigen Server-Hostnamen eingeben.');
+    throw new Error(t('nativeSetup.error.invalidServerHostname'));
   }
   const localHttp = url.protocol === 'http:' && /^(localhost|127\.0\.0\.1|\[::1\])$/i.test(url.hostname);
-  if (url.protocol !== 'https:' && !localHttp) throw new Error('Bitte eine HTTPS-Adresse verwenden.');
-  if (url.username || url.password) throw new Error('Server-URL darf keine Zugangsdaten enthalten.');
-  if (!url.hostname || url.hostname.includes(' ')) throw new Error('Bitte einen gültigen Server-Hostnamen eingeben.');
+  if (url.protocol !== 'https:' && !localHttp) throw new Error(t('nativeSetup.error.httpsRequired'));
+  if (url.username || url.password) throw new Error(t('nativeSetup.error.noCredentials'));
+  if (!url.hostname || url.hostname.includes(' ')) throw new Error(t('nativeSetup.error.invalidServerHostname'));
   url.hash = '';
   url.search = '';
   return url.origin + url.pathname.replace(/\/+$/, '');
@@ -108,11 +110,11 @@ export async function verifyInstance(serverUrl) {
       cache: 'no-store',
     });
   } catch (_error) {
-    throw new Error('Server nicht erreichbar. Bitte Hostname, HTTPS und Netzwerk prüfen.');
+    throw new Error(t('nativeSetup.error.serverUnreachable'));
   }
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.detail || `Server-Verifikation fehlgeschlagen (${response.status})`);
-  if (data?.app !== 'nia-todo') throw new Error('Das ist kein kompatibler nia-todo Server.');
+  if (!response.ok) throw new Error(data.detail || t('nativeSetup.error.verificationFailed', { status: response.status }));
+  if (data?.app !== 'nia-todo') throw new Error(t('nativeSetup.notNiaTodoServer'));
   return data;
 }
 
@@ -125,7 +127,7 @@ export async function initRuntimeConfig() {
   if (!serverUrl) return { mode: RUNTIME_MODE, platform: RUNTIME_PLATFORM, capabilities: RUNTIME_CAPABILITIES, apiBaseUrl: API, wsUrl: WS_URL, instance: null };
   if (RUNTIME_PLATFORM === 'android' && window.NiaAndroidNative?.setConfiguredServerUrl) {
     const configured = window.NiaAndroidNative.setConfiguredServerUrl(serverUrl);
-    if (!configured) throw new Error('Android Passkey-Bridge konnte die Server-URL nicht binden.');
+    if (!configured) throw new Error(t('nativeSetup.error.androidPasskeyBridgeBindFailed'));
   }
   API = serverUrl;
   WS_URL = websocketUrlFromBase(serverUrl);
