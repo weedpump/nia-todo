@@ -1,3 +1,4 @@
+import { apiResourceUrl } from '../core/config.js';
 import { iconSvg, markerHtml, safeColor, safeIconName } from '../icons/lucide-icons.js';
 
 export function createAppRenderingFeature({
@@ -185,7 +186,8 @@ export function createAppRenderingFeature({
     const displayName = user?.display_name || user?.username || 'du';
     const initial = (displayName.trim()[0] || 'U').toUpperCase();
     const avatarVersion = user?.avatar_updated_at ? encodeURIComponent(user.avatar_updated_at) : '';
-    const avatarSrc = user?.avatar_url ? `${user.avatar_url}${avatarVersion ? `?v=${avatarVersion}` : ''}` : '';
+    const avatarBaseSrc = user?.avatar_url ? apiResourceUrl(user.avatar_url) : '';
+    const avatarSrc = avatarBaseSrc ? `${avatarBaseSrc}${avatarVersion ? `?v=${avatarVersion}` : ''}` : '';
     const dateTime = new Intl.DateTimeFormat('de-DE', {
       weekday: 'long',
       day: '2-digit',
