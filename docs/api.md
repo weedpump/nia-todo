@@ -66,7 +66,7 @@ Abschluss:
 
 Response entspricht dem normalen Login (`access_token`, `csrf_token`, `user`). Die Login-Challenge wird atomar verbraucht und erzeugt nur Login-MFA-Assurance; sensitive Aktionen wie Passwortänderung/API-Key-Verwaltung benötigen weiterhin eine frische One-Time-MFA-Reauth. Bei `remember_device=true` wird zusätzlich ein HttpOnly-Trusted-Device-Cookie gesetzt, das spätere Login-MFA ersetzt, aber ebenfalls nicht für sensitive Aktionen zählt.
 
-`POST /api/2fa/passkey/options` und `/api/2fa/passkey/verify` schließen dieselbe Login-Challenge per Passkey ab. Passkey-Login benötigt User Verification und verbraucht die Challenge ebenfalls einmalig.
+`POST /api/2fa/passkey/options` und `POST /api/2fa/passkey/verify` schließen dieselbe Login-Challenge per Passkey ab. Passkey-Login benötigt User Verification und verbraucht die Challenge ebenfalls einmalig.
 
 ### Logout
 `POST /api/logout`
@@ -203,13 +203,13 @@ Aktiviert TOTP nach Passwortbestätigung und liefert einmalig neue Recovery Code
 - `POST /api/me/2fa/recovery-codes/regenerate` — benötigt eine frische One-Time-MFA-Reauth und mindestens einen primären Faktor (TOTP oder Passkey), liefert neue Codes einmalig zurück.
 - `POST /api/me/2fa/reauth` — prüft TOTP, Recovery-Code oder E-Mail-Code mit Attempt-Lockout und stellt ein JWT mit einem einmalig konsumierbaren MFA-Action-Grant aus. Reauth-Buckets werden nach Erfolg konsumiert; E-Mail-Reauth-Codes werden invalidiert und TOTP-Reauth-Timesteps nur einmal akzeptiert.
 - `POST /api/me/2fa/reauth/email/start` — sendet einen E-Mail-Reauth-Code, wenn E-Mail-Code der verfügbare Faktor ist.
-- `POST /api/me/2fa/reauth/passkey/options` und `/api/me/2fa/reauth/passkey/verify` — Passkey-Reauth für Passkey-only Nutzer.
+- `POST /api/me/2fa/reauth/passkey/options` und `POST /api/me/2fa/reauth/passkey/verify` — Passkey-Reauth für Passkey-only Nutzer.
 
 ### Passkeys
 - `GET /api/me/passkeys` — eigene Passkeys auflisten.
 - `POST /api/me/passkeys/options` — Registrierungsoptionen/Challenge vorbereiten.
 - `POST /api/me/passkeys/verify` — WebAuthn-Registrierung mit Passwortbestätigung abschließen.
-- `POST /api/2fa/passkey/options` und `/api/2fa/passkey/verify` — Login-Challenge per Passkey abschließen.
+- `POST /api/2fa/passkey/options` und `POST /api/2fa/passkey/verify` — Login-Challenge per Passkey abschließen.
 - `DELETE /api/me/passkeys/{id}` — Passkey widerrufen, benötigt eine frische One-Time-MFA-Reauth. Wenn danach kein primärer Faktor (TOTP/Passkey) mehr übrig ist, werden Recovery Codes automatisch widerrufen und user-seitige 2FA deaktiviert; bei globaler Policy kann E-Mail-Code-MFA weiter als Fallback greifen.
 
 Passkeys sind an die konfigurierte öffentliche Basis-URL (`public_base_url`) gebunden. Für Nicht-Localhost-Hosts ist HTTPS Pflicht; ohne `public_base_url` sind produktive Passkey-Flows für Nicht-Localhost-Hosts fail-closed. Windows Native nutzt eine native WebAuthn-Bridge mit serverseitig gelieferter Origin; dafür muss die in der App konfigurierte Server-URL zur `public_base_url`-Origin/RP-ID passen.
@@ -252,22 +252,63 @@ Security-sensitive Account-Aktionen verlangen bei 2FA-pflichtigen Accounts einen
 **Hinweis:** Einmaliger Token aus der Verifizierungs-Mail. Nach erfolgreicher Verifizierung wird `pending_email` zu `email` und `email_verified_at` gesetzt.
 
 ### Passwort-Reset anfordern (öffentlich)
-`POST /api/password-reset/request`
+`POST /api/password-setup/request`
 
 **Body**
 ```json
-{ "email": "user@example.com" }
+{ "identifier": "user@example.com" }
 ```
 
 **Response (immer neutral)**
 ```json
 {
-  "ok": true,
-  "message": "Falls ein passender verifizierter Account existiert, wurde die E-Mail gesendet."
+  "message": "Falls ein passendes Konto existiert, wurde eine E-Mail gesendet."
 }
 ```
 
 **Hinweis:** Aus Sicherheitsgründen wird immer eine neutrale Response geliefert (keine Enumeration). Reset-Mails werden nur an verifizierte E-Mails gesendet.
+
+### Passwort-Setup-Features abrufen (öffentlich)
+`GET /api/password-setup/features`
+
+**Response**
+```json
+{
+  "email_configured": true,
+  "password_reset_available": true
+}
+```
+
+### Passwort-Setup-Link validieren (öffentlich)
+`GET /api/password-setup/validate?token=...`
+
+**Response (gültig)**
+```json
+{
+  "valid": true,
+  "username": "tobi",
+  "display_name": "Tobi",
+  "purpose": "reset",
+  "expires_at": "2026-05-24 12:00:00"
+}
+```
+
+### Abgelaufenen Passwort-Setup-Link neu senden (öffentlich)
+`POST /api/password-setup/resend`
+
+**Body**
+```json
+{ "token": "..." }
+```
+
+**Response**
+```json
+{
+  "message": "Neuer Link wurde per E-Mail gesendet.",
+  "password_setup_delivery": "email",
+  "password_setup_expires_hours": 24
+}
+```
 
 ### Passwort-Setup-Link anfordern (Admin)
 `POST /api/admin/users/{user_id}/password-link`
@@ -289,6 +330,33 @@ Security-sensitive Account-Aktionen verlangen bei 2FA-pflichtigen Accounts einen
 ```
 
 **Hinweis:** Admins können Passwort-Setup-Links für Benutzer generieren. Bei SMTP + verifizierter E-Mail wird der Link per Mail gesendet, andernfalls als manueller Link zurückgegeben.
+
+
+### Instanz-Konfiguration abrufen
+`GET /api/admin/instance-config`
+
+**Response**
+```json
+{
+  "public_base_url": "https://todo.example.com",
+  "allowed_origins": ["https://todo.example.com"],
+  "trusted_proxies": ["10.0.10.1"]
+}
+```
+
+### Instanz-Konfiguration aktualisieren
+`PATCH /api/admin/instance-config`
+
+**Body**
+```json
+{
+  "public_base_url": "https://todo.example.com",
+  "allowed_origins": ["https://todo.example.com"],
+  "trusted_proxies": ["10.0.10.1"]
+}
+```
+
+**Hinweis:** `public_base_url` wird u.a. für Passwort-/Einladungslinks und produktive Passkey-Origin/RP-ID-Prüfung verwendet. CORS akzeptiert nur konfigurierte Origins; Forwarded-Header werden nur von Trusted Proxies ausgewertet.
 
 ## Admin: E-Mail-Konfiguration
 
@@ -490,6 +558,29 @@ Security-sensitive Account-Aktionen verlangen bei 2FA-pflichtigen Accounts einen
 ```
 
 ## Admin
+
+### Admin-Login
+`POST /api/admin/login`
+
+**Body**
+```json
+{ "password": "***" }
+```
+
+**Response**
+```json
+{
+  "access_token": "eyJhbGciOi...",
+  "token_type": "bearer",
+  "admin": true,
+  "csrf_token": "..."
+}
+```
+
+### Admin-Logout
+`POST /api/admin/logout`
+
+Invalidiert alle Admin-Sessions durch Erhöhung der Admin-Token-Version.
 
 ### Benutzer auflisten
 `GET /api/admin/users`
@@ -790,6 +881,71 @@ Authorization: ApiKey nt_...
 { "deleted": true }
 ```
 
+## Workspaces
+
+### Liste
+`GET /api/workspaces`
+
+**Response**
+```json
+{
+  "workspaces": [
+    {
+      "id": 1,
+      "name": "Privat",
+      "color": "#10b981",
+      "icon": "home",
+      "sort_order": 0,
+      "is_default": 1
+    }
+  ]
+}
+```
+
+**Hinweise**
+- Jeder Benutzer hat einen Default-Workspace und pro Workspace eine Inbox.
+- Beim ersten Abruf werden fehlender Default-Workspace und fehlende Workspace-Inbox automatisch repariert/angelegt.
+
+### Erstellen
+`POST /api/workspaces`
+
+**Body**
+```json
+{ "name": "Arbeit", "color": "#6366f1", "icon": "briefcase", "sort_order": 10 }
+```
+
+**Response**
+```json
+{ "id": 2, "name": "Arbeit", "color": "#6366f1", "icon": "briefcase", "is_default": 0 }
+```
+
+### Aktualisieren
+`PATCH /api/workspaces/{id}`
+
+**Body**
+```json
+{ "name": "Arbeit Neu", "color": "#0ea5e9", "icon": "folder", "sort_order": 20 }
+```
+
+**Response**
+```json
+{ "id": 2, "name": "Arbeit Neu", "color": "#0ea5e9", "icon": "folder" }
+```
+
+### Löschen
+`DELETE /api/workspaces/{id}`
+
+**Response**
+```json
+{
+  "deleted": 2,
+  "moved_projects_to": 1,
+  "moved_projects": []
+}
+```
+
+**Hinweis:** Der Default-Workspace kann nicht gelöscht werden. Beim Löschen werden Projekte in den Default-Workspace verschoben; Todos aus der Workspace-Inbox landen in der Default-Inbox.
+
 ## Projekte
 
 ### Liste
@@ -825,7 +981,7 @@ Authorization: ApiKey nt_...
 
 **Body**
 ```json
-{ "name": "Hobby", "color": "#ec4899", "sort_order": 5 }
+{ "name": "Hobby", "color": "#ec4899", "icon": "folder", "workspace_id": 1, "sort_order": 5 }
 ```
 
 **Response**
@@ -838,7 +994,7 @@ Authorization: ApiKey nt_...
 
 **Body**
 ```json
-{ "name": "Hobby Neu" }
+{ "name": "Hobby Neu", "icon": "folder-open" }
 ```
 
 `parent_id` kann auf eine Projekt-ID gesetzt oder mit `null` wieder entfernt werden:
@@ -868,6 +1024,25 @@ Authorization: ApiKey nt_...
 ```
 
 ## Projekt-Sharing
+
+
+### Geteilte Projekte abrufen
+`GET /api/projects/shared`
+
+**Response**
+```json
+{
+  "projects": [
+    {
+      "id": 5,
+      "name": "Gemeinsam",
+      "member_status": "accepted",
+      "member_color": "#f59e0b",
+      "owner_username": "tobi"
+    }
+  ]
+}
+```
 
 ### Ausstehende Einladungen
 `GET /api/projects/invites`
@@ -966,6 +1141,22 @@ Owner kann Mitglieder entfernen; Mitglieder können sich selbst entfernen. Entfe
 **Response**
 ```json
 { "member": { "project_id": 5, "user_id": 2, "status": "accepted" } }
+```
+
+
+### Mitgliederfarbe überschreiben
+`PATCH /api/projects/{project_id}/members/{member_user_id}/color`
+
+Owner-only. Setzt eine projektbezogene Farbmarkierung für ein Mitglied.
+
+**Body**
+```json
+{ "color": "#f59e0b" }
+```
+
+**Response**
+```json
+{ "project_id": 5, "user_id": 2, "color": "#f59e0b" }
 ```
 
 ### Shared-Projekt verlassen / Undo
@@ -1103,6 +1294,23 @@ Owner können eigene Projekte nicht verlassen.
 
 ### Test
 `POST /api/push/test`
+
+## Öffentliche Runtime-/Native-Endpunkte
+
+### Instanzinfo
+`GET /api/instance`
+
+Liefert öffentliche Instanz-Metadaten für Web-/Native-Clients, u.a. konfigurierte öffentliche Basis-URL und Passkey/WebAuthn-relevante Origin-Informationen.
+
+### Native App-Download-Manifest
+`GET /downloads/app-downloads.json`
+
+Liefert die verfügbaren Windows-/Android-Artefakte mit Version, Plattform, Architektur, Dateiname, Größe und SHA256. Wird bewusst mit `no-store` ausgeliefert.
+
+### Android Digital Asset Links
+`GET /.well-known/assetlinks.json`
+
+Liefert die gepinnte Beziehung zwischen Server und offizieller Android-App `de.tobiaskneidl.nia_todo` für native Passkeys.
 
 ## Hinweise
 

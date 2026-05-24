@@ -136,7 +136,12 @@ export function createAppLifecycle({
 
     if (isOnlineForSync()) {
       console.log('Online at startup - syncing...');
-      refreshFromServer().catch(err => console.error('Server refresh failed:', err));
+      refreshFromServer().catch(err => {
+        // A cached/offline cold start can race with browser network state: the
+        // page may still report online while fetches already fail. Keep the
+        // cached session usable and avoid surfacing this as a frontend error.
+        console.warn('Server refresh failed:', err);
+      });
     }
 
     updateConnectionStatus();
