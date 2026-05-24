@@ -1,4 +1,5 @@
 import { API, RUNTIME_CAPABILITIES, RUNTIME_PLATFORM, verifyInstance } from '../core/config.js';
+import { t } from '../i18n/index.js';
 import { iconSvg } from '../icons/lucide-icons.js';
 import { createNativeBridge } from './native-bridge.js';
 
@@ -233,9 +234,9 @@ function changelogUrl() {
 function renderNativeAppVersion(target, platform, currentVersion, nativeBridge) {
   if (!target || !platform || !currentVersion) return;
   target.innerHTML = `
-    <span class="native-version-text"><strong>App Version:</strong> ${escapeHtml(platformLabel(platform))} v${escapeHtml(normalizeVersion(currentVersion) || currentVersion)}</span>
+    <span class="native-version-text"><strong>${escapeHtml(t('version.appVersion'))}</strong> ${escapeHtml(platformLabel(platform))} v${escapeHtml(normalizeVersion(currentVersion) || currentVersion)}</span>
     <div class="version-actions native-version-actions">
-      <a class="changelog-link version-action-btn" href="${escapeHtml(changelogUrl())}" target="_blank" rel="noopener noreferrer" title="Changelog öffnen">Changelog</a>
+      <a class="changelog-link version-action-btn" href="${escapeHtml(changelogUrl())}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(t('version.openChangelog'))}">${escapeHtml(t('resource.changelog'))}</a>
     </div>
   `;
   const link = target.querySelector('a.changelog-link');
@@ -261,14 +262,14 @@ function showNativeUpdateModal(download, currentVersion, nativeBridge = null, op
   const latest = document.getElementById('native-app-update-latest-version');
   const button = document.getElementById('native-app-update-download-btn');
   const laterButton = document.getElementById('native-app-update-later-btn');
-  if (title) title.textContent = forced ? 'App Update erforderlich' : 'App Update verfügbar';
+  if (title) title.textContent = forced ? t('update.native.requiredTitle') : t('update.native.title');
   if (message) {
     message.textContent = forced
-      ? `Diese Server-Version benötigt mindestens App Version ${normalizeVersion(minVersion) || minVersion}. Bitte aktualisieren, bevor du weiterarbeitest.`
-      : 'Eine neue App Version ist verfügbar. Du kannst jetzt aktualisieren oder bis zum nächsten Appstart warten.';
+      ? t('update.native.requiredMessage', { version: normalizeVersion(minVersion) || minVersion })
+      : t('update.native.optionalMessage');
   }
-  if (current) current.textContent = currentVersion || 'unbekannt';
-  if (latest) latest.textContent = download.version || 'unbekannt';
+  if (current) current.textContent = currentVersion || t('update.native.unknownVersion');
+  if (latest) latest.textContent = download.version || t('update.native.unknownVersion');
   if (laterButton) {
     laterButton.style.display = forced ? 'none' : '';
     laterButton.onclick = () => {

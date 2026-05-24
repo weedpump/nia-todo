@@ -74,5 +74,20 @@
   "topbar.openMenu": "Open menu",
   "topbar.searchTodo": "Search todo...",
   "todo.new": "New todo",
-  "todo.create": "Create new todo"
+  "todo.create": "Create new todo",
+  "update.web.title": "Update available",
+  "update.web.message": "A new web app version is available.",
+  "update.web.current": "Currently loaded:",
+  "update.web.apply": "Update now",
+  "update.native.title": "App update available",
+  "update.native.requiredTitle": "App update required",
+  "update.native.message": "A new app version is available.",
+  "update.native.optionalMessage": "A new app version is available. You can update now or wait until the next app start.",
+  "update.native.requiredMessage": "This server version requires at least app version {version}. Please update before continuing.",
+  "update.native.installed": "Installed:",
+  "update.native.new": "New:",
+  "update.native.later": "Later",
+  "update.native.download": "Download update",
+  "update.native.unknownVersion": "unknown",
+  "version.appVersion": "App version:"
 }
