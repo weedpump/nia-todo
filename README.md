@@ -64,8 +64,7 @@ Details: [Test-Doku](docs/testing.md)
 - [Test-Doku](docs/testing.md)
 - [Workflow-Doku](docs/workflow.md)
 - [Architektur](docs/architecture.md)
-- [Native Apps Clean Architecture Plan](docs/native-apps-clean-architecture.md) — inkl. Android-Passkey-Vertrauensmodell
-- [Tauri Desktop/Android Wrapper](docs/tauri-windows-poc.md) — Legacy-/Bestandsdoku, vor Wiederverwendung neu bewerten
+- [Native Apps Clean Architecture Plan](docs/native-apps-clean-architecture.md) — aktueller 2.0-Stand inkl. Android-Passkey-Vertrauensmodell
 - Changelog: `CHANGELOG.md` für Web-App, Windows-App und Android-App gemeinsam
 
 ## ⚙️ Setup / Betrieb
