@@ -22,7 +22,7 @@ use tauri_plugin_notification::NotificationExt;
 use std::process::Command;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(default, rename_all = "camelCase")]
 struct DesktopHotkeys {
   toggle_app: Option<String>,
   new_todo: Option<String>,
@@ -40,10 +40,11 @@ impl Default for DesktopHotkeys {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(default, rename_all = "camelCase")]
 struct DesktopSettings {
   minimize_to_tray: bool,
   autostart: bool,
+  start_minimized_to_tray: bool,
   notifications: bool,
   server_url: Option<String>,
   hotkeys: DesktopHotkeys,
@@ -68,6 +69,7 @@ impl Default for DesktopSettings {
     Self {
       minimize_to_tray: true,
       autostart: false,
+      start_minimized_to_tray: false,
       notifications: true,
       server_url: None,
       hotkeys: DesktopHotkeys::default(),
@@ -105,8 +107,10 @@ fn save_settings(app: &AppHandle, settings: &DesktopSettings) -> Result<(), Stri
   fs::write(path, raw).map_err(|err| err.to_string())
 }
 
+const START_MINIMIZED_ARG: &str = "--nia-start-minimized-to-tray";
+
 #[cfg(target_os = "windows")]
-fn set_autostart(enabled: bool) -> Result<(), String> {
+fn set_autostart(enabled: bool, start_minimized_to_tray: bool) -> Result<(), String> {
   use winreg::enums::HKEY_CURRENT_USER;
   use winreg::RegKey;
 
@@ -117,7 +121,11 @@ fn set_autostart(enabled: bool) -> Result<(), String> {
   let value_name = "nia-todo";
   if enabled {
     let exe = std::env::current_exe().map_err(|err| err.to_string())?;
-    let command = format!("\"{}\"", exe.display());
+    let mut command = format!("\"{}\"", exe.display());
+    if start_minimized_to_tray {
+      command.push(' ');
+      command.push_str(START_MINIMIZED_ARG);
+    }
     run_key.set_value(value_name, &command).map_err(|err| err.to_string())?;
   } else {
     let _ = run_key.delete_value(value_name);
@@ -126,7 +134,7 @@ fn set_autostart(enabled: bool) -> Result<(), String> {
 }
 
 #[cfg(not(target_os = "windows"))]
-fn set_autostart(_enabled: bool) -> Result<(), String> {
+fn set_autostart(_enabled: bool, _start_minimized_to_tray: bool) -> Result<(), String> {
   Ok(())
 }
 
@@ -299,8 +307,14 @@ fn desktop_set_setting(app: AppHandle, key: String, value: bool) -> Result<Deskt
   match key.as_str() {
     "minimizeToTray" => settings.minimize_to_tray = value,
     "autostart" => {
-      set_autostart(value)?;
+      set_autostart(value, settings.start_minimized_to_tray)?;
       settings.autostart = value;
+    }
+    "startMinimizedToTray" => {
+      settings.start_minimized_to_tray = value;
+      if settings.autostart {
+        set_autostart(true, value)?;
+      }
     }
     "notifications" => settings.notifications = value,
     _ => return Err(format!("Unknown desktop setting: {key}")),
@@ -932,6 +946,12 @@ pub fn run() {
         build_tray(_app)?;
         if let Some(window) = _app.get_webview_window("main") {
           let app_handle = _app.handle().clone();
+          let started_minimized = std::env::args().any(|arg| arg == START_MINIMIZED_ARG)
+            && load_settings(_app.handle()).start_minimized_to_tray;
+          if !started_minimized {
+            let _ = window.show();
+            let _ = window.set_focus();
+          }
           let window_for_close = window.clone();
           window.on_window_event(move |event| {
             if let WindowEvent::CloseRequested { api, .. } = event {

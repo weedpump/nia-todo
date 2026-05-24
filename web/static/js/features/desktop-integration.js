@@ -4,6 +4,7 @@ import { createNativeBridge } from './native-bridge.js';
 const DEFAULT_SETTINGS = {
   minimizeToTray: true,
   autostart: false,
+  startMinimizedToTray: false,
   notifications: true,
   hotkeys: {
     toggleApp: '',
@@ -138,6 +139,7 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
     const bindings = [
       ['desktop-minimize-to-tray', 'minimizeToTray'],
       ['desktop-autostart', 'autostart'],
+      ['desktop-start-minimized-to-tray', 'startMinimizedToTray'],
       ['desktop-notifications', 'notifications'],
     ];
     let boundAny = false;
@@ -165,6 +167,7 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
     bindSettingsControls();
     setChecked('desktop-minimize-to-tray', settings.minimizeToTray);
     setChecked('desktop-autostart', settings.autostart);
+    setChecked('desktop-start-minimized-to-tray', settings.startMinimizedToTray);
     setChecked('desktop-notifications', settings.notifications);
     setValue('desktop-hotkey-toggle-app', settings.hotkeys?.toggleApp);
     setValue('desktop-hotkey-new-todo', settings.hotkeys?.newTodo);

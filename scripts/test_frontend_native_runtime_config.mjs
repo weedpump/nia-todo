@@ -64,7 +64,7 @@ async function testNativeSetupWithoutServerUrl() {
 async function testNativeDesktopSettingsPersistViaTauriCommand() {
   const { browser, page, dumpErrors } = await launchPage();
   try {
-    await installTauriStub(page, { serverUrl: BASE_URL, minimizeToTray: true, autostart: false, notifications: true });
+    await installTauriStub(page, { serverUrl: BASE_URL, minimizeToTray: true, autostart: false, startMinimizedToTray: false, notifications: true });
     await page.goto(BASE_URL, { waitUntil: 'domcontentloaded' });
     await page.locator('#login-overlay').waitFor({ state: 'visible', timeout: 10_000 });
 
@@ -83,12 +83,15 @@ async function testNativeDesktopSettingsPersistViaTauriCommand() {
     await page.waitForFunction(() => JSON.parse(localStorage.getItem('__nativeSettings') || '{}').notifications === false, null, { timeout: 10_000 });
     await page.locator('#desktop-autostart').setChecked(true);
     await page.waitForFunction(() => JSON.parse(localStorage.getItem('__nativeSettings') || '{}').autostart === true, null, { timeout: 10_000 });
+    await page.locator('#desktop-start-minimized-to-tray').setChecked(true);
+    await page.waitForFunction(() => JSON.parse(localStorage.getItem('__nativeSettings') || '{}').startMinimizedToTray === true, null, { timeout: 10_000 });
 
     const calls = await page.evaluate(() => window.__nativeInvokeCalls || []);
     for (const expected of [
       { key: 'minimizeToTray', value: false },
       { key: 'notifications', value: false },
       { key: 'autostart', value: true },
+      { key: 'startMinimizedToTray', value: true },
     ]) {
       const found = calls.some(call => call.command === 'desktop_set_setting' && call.args?.key === expected.key && call.args?.value === expected.value);
       if (!found) throw new Error(`Missing desktop_set_setting call for ${expected.key}=${expected.value}`);
