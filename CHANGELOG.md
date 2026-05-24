@@ -63,6 +63,8 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 - CORS lehnt unbekannte Origins konsequent ab; Forwarded-Header werden nur von konfigurierten Trusted Proxies akzeptiert.
 - Release-Workflow versioniert Web, Windows und Android gemeinsam, baut die nativen Artefakte immer mit und regeneriert das Download-Manifest aus den aktuellen Build-Artefakten.
 - Native Update-Manifest und Download-Dateien werden vom App-Cache ausgenommen und serverseitig mit `no-store` ausgeliefert.
+- Release-Publishing bereinigt `/downloads/` vor dem Veröffentlichen neuer App-Artefakte, sodass alte Installer/APKs nicht mehr per direkter URL abrufbar bleiben.
+- Release-Builds prüfen ein downloadfreies Tauri-Frontend-Bundle und brechen bei unerwartet großen Windows-/Android-Artefakten ab.
 - Native Windows- und Android-Downloads öffnen extern ohne CORS-Preflight-Falle; Android akzeptiert dabei nur sichere HTTP(S)-URLs ohne Control-Zeichen.
 - Android-Passkeys verwenden die offizielle App-Identity (`de.tobiaskneidl.nia_todo` plus Release-Zertifikat) in `/.well-known/assetlinks.json`; diese Bindung ist bewusst nicht pro Selfhost-Instanz konfigurierbar.
 - Windows-Upgrades räumen gezielt WebView-Cache-Verzeichnisse auf; Android migriert stale WebView-Cache-Zustände sauber.

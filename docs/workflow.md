@@ -31,6 +31,8 @@ Release-Artefakte werden auf Live unter `/downloads/` veröffentlicht:
 - Windows: `nia-todo-vX.Y.Z-windows-x64-setup.exe`
 - Android: `nia-todo-vX.Y.Z-android-arm64.apk`
 - Manifest: `web/downloads/app-downloads.json`
+- Beim Veröffentlichen löscht `release.sh` zuerst alle alten Dateien in `/downloads/` außer `.gitkeep`; alte Installer/APKs dürfen danach auch per manueller URL nicht mehr abrufbar sein.
+- Native Builds verwenden ein frisch erzeugtes `src-tauri/frontend-dist` ohne `web/downloads/`; Größenlimits brechen den Release ab, falls Installer/APK unerwartet groß werden.
 
 Android wird mit dem dauerhaften Release-Key signiert:
 
