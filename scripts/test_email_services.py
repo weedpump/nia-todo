@@ -139,6 +139,34 @@ def test_branded_email_templates():
     _, code_text, code_html = two_factor_code_email(display_name="", username="tobi", code="123456", purpose="login")
     assert_true("123456" in code_text and "123456" in code_html, "2FA code missing from template")
 
+    malicious_project = "Bad\r\nBcc: attacker@example.invalid <script>alert(1)</script>"
+    subject, _, html = project_share_invite_email(
+        display_name='<img src=x onerror=alert(1)>',
+        username="user",
+        project_name=malicious_project,
+        inviter_name='<script>alert(2)</script>',
+        link='https://todo.example.invalid/?q=<script>alert(3)</script>',
+    )
+    assert_true("\r" not in subject and "\n" not in subject, "subject contains CRLF")
+    assert_true("Bcc:" in subject and len(subject) <= 140, "subject sanitizing/truncation missing")
+    assert_true("<script>" not in html and "&lt;script&gt;" in html, "HTML payload was not escaped")
+    assert_true("&lt;img src=x onerror=alert(1)&gt;" in html, "display name was not escaped")
+
+
+def test_render_system_email_handles_empty_paragraphs():
+    from services.email_templates import render_system_email
+
+    subject, text, html = render_system_email(
+        subject="Empty Body",
+        title="Fallback Title",
+        greeting_name="Tobi",
+        paragraphs=[],
+        preheader=None,
+    )
+    assert_true(subject == "Empty Body", "subject changed unexpectedly")
+    assert_true("Fallback Title" in html, "empty paragraph fallback title missing")
+    assert_true("Hallo Tobi" in text, "plain text greeting missing")
+
 
 def test_send_test_email_uses_branded_template():
     reset_fakes()
@@ -170,6 +198,7 @@ def main():
         test_secret_redaction()
         test_starttls_auth_send()
         test_branded_email_templates()
+        test_render_system_email_handles_empty_paragraphs()
         test_send_test_email_uses_branded_template()
         test_tls_ssl_send_without_starttls()
         print("✅ Email service tests passed")
