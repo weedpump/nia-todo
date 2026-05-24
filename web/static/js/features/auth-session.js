@@ -169,7 +169,7 @@ export function createAuthSessionFeature({
     if (hintEl) hintEl.textContent = pendingMfaMethod === 'email'
       ? 'Wir haben dir einen 2FA-Code per E-Mail geschickt.'
       : pendingMfaMethod === 'passkey'
-        ? 'Bestätige die Anmeldung mit deinem Passkey — oder nutze alternativ deinen Authenticator-Code.'
+        ? 'Bestätige die Anmeldung mit deinem Passkey — oder nutze alternativ deinen 2FA-Code.'
         : hasPasskeyOption
           ? 'Gib deinen 2FA-Code ein — oder nutze alternativ deinen Passkey.'
           : 'Gib deinen 2FA-Code ein.';
