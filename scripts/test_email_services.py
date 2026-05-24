@@ -16,7 +16,8 @@ sys.path.insert(0, str(API_DIR))
 
 from migrate import run_migrations  # noqa: E402
 from services.email_config import get_email_config, update_email_config  # noqa: E402
-from services.email import send_email  # noqa: E402
+from services.email import send_email, send_test_email  # noqa: E402
+from services.email_templates import password_setup_email, project_share_invite_email, two_factor_code_email  # noqa: E402
 import services.email as email_service  # noqa: E402
 
 
@@ -113,6 +114,43 @@ def test_starttls_auth_send():
     assert_true(smtp.message["To"] == "user@example.invalid", "To header mismatch")
 
 
+def test_branded_email_templates():
+    subject, text, html = password_setup_email(
+        display_name="Tobi",
+        username="tobi",
+        link="https://todo.example.invalid/set-password?token=abc",
+        purpose="reset",
+        expires_hours=24,
+    )
+    assert_true(subject == "nia-todo Passwort zurücksetzen", "password reset subject mismatch")
+    assert_true("Passwort zurücksetzen" in html and "nia-todo" in html, "branded password HTML missing content")
+    assert_true("https://todo.example.invalid/set-password?token=abc" in text, "plain text reset link missing")
+    assert_true("Deine Aufgaben. Klar sortiert." in html, "brand tagline missing")
+
+    _, _, invite_html = project_share_invite_email(
+        display_name="",
+        username="moni",
+        project_name="Urlaub",
+        inviter_name="Tobi",
+        link="https://todo.example.invalid/",
+    )
+    assert_true("Projektfreigabe erhalten" in invite_html and "Einladung ansehen" in invite_html, "invite template missing action")
+
+    _, code_text, code_html = two_factor_code_email(display_name="", username="tobi", code="123456", purpose="login")
+    assert_true("123456" in code_text and "123456" in code_html, "2FA code missing from template")
+
+
+def test_send_test_email_uses_branded_template():
+    reset_fakes()
+    configure_email(security="starttls", auth=True)
+    send_test_email("user@example.invalid")
+    smtp = FakeSMTP.instances[0]
+    html_parts = [part.get_content() for part in smtp.message.walk() if part.get_content_type() == "text/html"]
+    rendered = "\n".join(html_parts)
+    assert_true("SMTP funktioniert" in rendered, "test email did not use branded template")
+    assert_true("Deine Aufgaben. Klar sortiert." in rendered, "test email brand tagline missing")
+
+
 def test_tls_ssl_send_without_starttls():
     reset_fakes()
     configure_email(security="tls", auth=False)
@@ -131,6 +169,8 @@ def main():
         run_migrations()
         test_secret_redaction()
         test_starttls_auth_send()
+        test_branded_email_templates()
+        test_send_test_email_uses_branded_template()
         test_tls_ssl_send_without_starttls()
         print("✅ Email service tests passed")
     finally:
