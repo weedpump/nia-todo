@@ -485,5 +485,13 @@
   "api.auth.apiKeyListFailed": "API key list failed",
   "api.auth.apiKeyCreateFailed": "API key could not be created",
   "api.auth.apiKeyDeleteFailed": "API key could not be deleted",
-  "api.auth.setupStatusFailed": "Setup status failed"
+  "api.auth.setupStatusFailed": "Setup status failed",
+  "native.passkey.invalidAndroidJson": "Android passkey response was not valid JSON",
+  "native.passkey.androidCallFailed": "Android passkey call failed",
+  "native.passkey.androidBridgeUnavailable": "Android passkey bridge unavailable",
+  "native.passkey.androidCallTimedOut": "Android passkey call timed out",
+  "native.passkey.bridgeUnavailable": "Native passkey bridge unavailable",
+  "theme.accentIntensity": "Accent intensity",
+  "theme.intensity": "Intensity",
+  "boot.startTimeout": "App startup is stuck. Please reload."
 }
