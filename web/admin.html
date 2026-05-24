@@ -256,29 +256,29 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 
   <!-- Security / 2FA -->
   <div class="admin-card" id="security-card">
-    <h2><span data-icon="shield-check"></span> Sicherheit / 2FA</h2>
+    <h2><span data-icon="shield-check"></span> <span data-i18n-key="admin.security.title">Sicherheit / 2FA</span></h2>
     <div class="security-policy-row">
       <div class="security-policy-main">
-        <div class="security-policy-title" id="twofa-policy-title">2FA-Pflicht lädt…</div>
-        <div class="security-policy-desc">Erzwingt 2FA für alle Benutzer. Anmeldung ist mit Authenticator-App, Passkey oder vorhandenen Recovery Codes möglich. Wenn SMTP eingerichtet ist, können Benutzer ohne Authenticator/Passkey vorübergehend einen E-Mail-Code nutzen. Ohne verfügbare Methode erhalten sie nur Zugriff auf die 2FA-Einrichtung.</div>
+        <div class="security-policy-title" id="twofa-policy-title" data-i18n-key="admin.security.policyLoading">2FA-Pflicht lädt…</div>
+        <div class="security-policy-desc" data-i18n-key="admin.security.policyDesc">Erzwingt 2FA für alle Benutzer. Anmeldung ist mit Authenticator-App, Passkey oder vorhandenen Recovery Codes möglich. Wenn SMTP eingerichtet ist, können Benutzer ohne Authenticator/Passkey vorübergehend einen E-Mail-Code nutzen. Ohne verfügbare Methode erhalten sie nur Zugriff auf die 2FA-Einrichtung.</div>
       </div>
-      <button class="btn btn-primary" id="twofa-policy-toggle" onclick="toggleTwoFactorPolicy()">Umschalten</button>
+      <button class="btn btn-primary" id="twofa-policy-toggle" onclick="toggleTwoFactorPolicy()" data-i18n-key="admin.security.toggle">Umschalten</button>
     </div>
-    <div class="admin-help">API-Keys bleiben als Machine-Tokens nutzbar. Erstellung und Widerruf eigener API-Keys benötigen bei MFA-pflichtigen Accounts recent MFA.</div>
+    <div class="admin-help" data-i18n-key="admin.security.apiKeysHelp">API-Keys bleiben als Machine-Tokens nutzbar. Erstellung und Widerruf eigener API-Keys benötigen bei MFA-pflichtigen Accounts recent MFA.</div>
     <div class="admin-error" id="security-error"></div>
     <div class="admin-success" id="security-success"></div>
   </div>
 
   <!-- Change Admin Password -->
   <div class="admin-card" id="admin-password-card">
-    <h2><span data-icon="key-round"></span> Eigenes Admin-Passwort ändern</h2>
+    <h2><span data-icon="key-round"></span> <span data-i18n-key="admin.password.title">Eigenes Admin-Passwort ändern</span></h2>
     <div class="form-row">
-      <input type="password" id="admin-old-password" placeholder="Aktuelles Admin-Passwort" autocomplete="off" onkeydown="if(event.key==='Enter') document.getElementById('admin-new-password').focus()">
-      <input type="password" id="admin-new-password" placeholder="Neues Admin-Passwort (12+ Zeichen)" autocomplete="new-password" onkeydown="if(event.key==='Enter') document.getElementById('admin-confirm-password').focus()">
-      <input type="password" id="admin-confirm-password" placeholder="Neues Passwort bestätigen" autocomplete="new-password" onkeydown="if(event.key==='Enter') changeAdminPassword()">
-      <button class="btn btn-primary" onclick="changeAdminPassword()">Admin-Passwort ändern</button>
+      <input type="password" id="admin-old-password" data-i18n-placeholder-key="admin.password.currentPlaceholder" placeholder="Aktuelles Admin-Passwort" autocomplete="off" onkeydown="if(event.key==='Enter') document.getElementById('admin-new-password').focus()">
+      <input type="password" id="admin-new-password" data-i18n-placeholder-key="admin.password.newPlaceholder" placeholder="Neues Admin-Passwort (12+ Zeichen)" autocomplete="new-password" onkeydown="if(event.key==='Enter') document.getElementById('admin-confirm-password').focus()">
+      <input type="password" id="admin-confirm-password" data-i18n-placeholder-key="setup.confirmPasswordLabel" placeholder="Neues Passwort bestätigen" autocomplete="new-password" onkeydown="if(event.key==='Enter') changeAdminPassword()">
+      <button class="btn btn-primary" onclick="changeAdminPassword()" data-i18n-key="admin.password.change">Admin-Passwort ändern</button>
     </div>
-    <div style="font-size: 12px; color: var(--text-muted); margin-top: 8px;">
+    <div style="font-size: 12px; color: var(--text-muted); margin-top: 8px;" data-i18n-key="admin.password.requirements">
       Mindestens 12 Zeichen, 1 Großbuchstabe, 1 Kleinbuchstabe, 1 Ziffer, 1 Sonderzeichen
     </div>
     <div class="admin-error" id="admin-pw-error"></div>
@@ -287,27 +287,27 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 
   <!-- Create User -->
   <div class="admin-card" id="create-user-card">
-    <h2><span data-icon="user-plus"></span> Neuen Benutzer erstellen</h2>
+    <h2><span data-icon="user-plus"></span> <span data-i18n-key="admin.user.createTitle">Neuen Benutzer erstellen</span></h2>
     <div class="form-row">
-      <input type="text" id="new-username" placeholder="Benutzername" autocomplete="off" onkeydown="if(event.key==='Enter') document.getElementById('new-display-name').focus()">
-      <input type="text" id="new-display-name" placeholder="Anzeigename" onkeydown="if(event.key==='Enter') document.getElementById('new-email').focus()">
+      <input type="text" id="new-username" data-i18n-placeholder-key="setup.usernameLabel" placeholder="Benutzername" autocomplete="off" onkeydown="if(event.key==='Enter') document.getElementById('new-display-name').focus()">
+      <input type="text" id="new-display-name" data-i18n-placeholder-key="setup.displayNameLabel" placeholder="Anzeigename" onkeydown="if(event.key==='Enter') document.getElementById('new-email').focus()">
       <input type="email" id="new-email" placeholder="E-Mail" autocomplete="off" onkeydown="if(event.key==='Enter') createUser()">
-      <button class="btn btn-primary" onclick="createUser()">Erstellen & Link erzeugen</button>
+      <button class="btn btn-primary" onclick="createUser()" data-i18n-key="admin.user.createAndLink">Erstellen & Link erzeugen</button>
     </div>
-    <div style="font-size: 12px; color: var(--text-muted); margin-top: 8px;">
+    <div style="font-size: 12px; color: var(--text-muted); margin-top: 8px;" data-i18n-key="admin.user.createHelp">
       Der Benutzer setzt sein Passwort selbst über einen einmaligen Link. Wenn E-Mail konfiguriert ist, wird der Link automatisch verschickt. Ohne SMTP wird der Link manuell weitergegeben; die Adresse gilt danach als bestätigt, aber nicht mailbox-verifiziert.
     </div>
     <div class="admin-error" id="create-error"></div>
     <div class="admin-success" id="create-success"></div>
     <div class="setup-link-box" id="create-link-box">
       <input type="text" id="create-link-input" readonly>
-      <button class="btn btn-primary" onclick="copySetupLink('create-link-input')">Kopieren</button>
+      <button class="btn btn-primary" onclick="copySetupLink('create-link-input')" data-i18n-key="common.copy">Kopieren</button>
     </div>
   </div>
 
   <!-- User List -->
   <div class="admin-card">
-    <h2><span data-icon="users"></span> Benutzer</h2>
+    <h2><span data-icon="users"></span> <span data-i18n-key="admin.user.title">Benutzer</span></h2>
     <div class="user-table-wrap">
     <table class="user-table" id="user-table">
       <thead>
@@ -567,7 +567,7 @@ function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
 }
 
-function adminDialog({ title, message, confirmText = 'Bestätigen', danger = false, hideCancel = false }) {
+function adminDialog({ title, message, confirmText = t('common.confirm'), danger = false, hideCancel = false }) {
   const modal = document.getElementById('admin-action-dialog');
   const form = document.getElementById('admin-dialog-form');
   const cancel = document.getElementById('admin-dialog-cancel');
@@ -629,8 +629,8 @@ function renderTwoFactorPolicy(policy) {
   twoFactorPolicyRequired = !!policy.required;
   const title = document.getElementById('twofa-policy-title');
   const btn = document.getElementById('twofa-policy-toggle');
-  if (title) title.textContent = twoFactorPolicyRequired ? 'Globale 2FA-Pflicht ist aktiv' : 'Globale 2FA-Pflicht ist deaktiviert';
-  if (btn) btn.textContent = twoFactorPolicyRequired ? '2FA-Pflicht deaktivieren' : '2FA-Pflicht aktivieren';
+  if (title) title.textContent = twoFactorPolicyRequired ? t('admin.security.policyActive') : t('admin.security.policyInactive');
+  if (btn) btn.textContent = twoFactorPolicyRequired ? t('admin.security.disablePolicy') : t('admin.security.enablePolicy');
 }
 
 async function toggleTwoFactorPolicy() {
@@ -640,18 +640,18 @@ async function toggleTwoFactorPolicy() {
   errorEl.textContent = '';
   successEl.textContent = '';
   const confirmed = await adminConfirm({
-    title: next ? 'Globale 2FA-Pflicht aktivieren?' : 'Globale 2FA-Pflicht deaktivieren?',
+    title: next ? t('admin.security.enablePolicyTitle') : t('admin.security.disablePolicyTitle'),
     message: next
-      ? 'Benutzer brauchen danach Authenticator-App, Passkey oder vorhandene Recovery Codes. Wenn SMTP eingerichtet ist, können Benutzer ohne Authenticator/Passkey vorübergehend einen E-Mail-Code nutzen; sonst erhalten sie nur Zugriff auf die 2FA-Einrichtung.'
-      : 'Benutzer mit eigener 2FA bleiben weiterhin geschützt.',
-    confirmText: next ? '2FA-Pflicht aktivieren' : '2FA-Pflicht deaktivieren',
+      ? t('admin.security.enablePolicyMessage')
+      : t('admin.security.disablePolicyMessage'),
+    confirmText: next ? t('admin.security.enablePolicy') : t('admin.security.disablePolicy'),
     danger: !next,
   });
   if (!confirmed) return;
   try {
     const data = await apiPatch('/api/admin/2fa-policy', { required: next });
     renderTwoFactorPolicy(data);
-    successEl.textContent = next ? 'Globale 2FA-Pflicht aktiviert.' : 'Globale 2FA-Pflicht deaktiviert.';
+    successEl.textContent = next ? t('admin.security.policyEnabled') : t('admin.security.policyDisabled');
     await loadUsers();
   } catch (e) {
     errorEl.textContent = e.message;
@@ -671,8 +671,8 @@ function renderEmailConfig(config) {
   document.getElementById('email-reply-to').value = config.mail_reply_to || '';
   document.getElementById('email-link-ttl').value = config.password_link_ttl_hours || 24;
   document.getElementById('email-smtp-password-note').textContent = config.smtp_password_configured
-    ? 'Passwort ist gespeichert. Leer lassen, um es unverändert zu behalten.'
-    : 'Noch kein SMTP-Passwort gespeichert.';
+    ? t('admin.email.passwordStoredNote')
+    : t('admin.email.noPasswordStoredNote');
 }
 
 function readEmailConfigForm() {
@@ -699,7 +699,7 @@ async function saveEmailConfig() {
   try {
     const data = await apiPatch('/api/admin/email-config', readEmailConfigForm());
     renderEmailConfig(data);
-    document.getElementById('email-config-success').textContent = 'E-Mail-Konfiguration gespeichert.';
+    document.getElementById('email-config-success').textContent = t('admin.email.saved');
   } catch(e) {
     document.getElementById('email-config-error').textContent = e.message;
   }
@@ -710,12 +710,12 @@ async function sendTestEmail() {
   document.getElementById('email-config-success').textContent = '';
   const to = document.getElementById('email-test-to').value.trim();
   if (!isValidEmail(to)) {
-    document.getElementById('email-config-error').textContent = 'Bitte eine gültige Test-E-Mail-Adresse eingeben';
+    document.getElementById('email-config-error').textContent = t('admin.email.invalidTestAddress');
     return;
   }
   try {
     await apiPost('/api/admin/email-config/test', { to });
-    document.getElementById('email-config-success').textContent = 'Test-Mail gesendet.';
+    document.getElementById('email-config-success').textContent = t('admin.email.testSent');
   } catch(e) {
     document.getElementById('email-config-error').textContent = e.message;
   }
@@ -731,7 +731,7 @@ async function saveInstanceConfig() {
       trusted_proxies: parseOriginsInput(document.getElementById('instance-trusted-proxies').value),
     });
     renderInstanceConfig(data);
-    document.getElementById('instance-config-success').textContent = 'Instanz-Konfiguration gespeichert.';
+    document.getElementById('instance-config-success').textContent = t('admin.instance.saved');
   } catch(e) {
     document.getElementById('instance-config-error').textContent = e.message;
   }
