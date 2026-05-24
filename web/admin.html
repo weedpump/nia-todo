@@ -246,7 +246,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
         </div>
       </div>
     </div>
-    <div class="admin-help">Passwort-/Setup-Links nutzen die öffentliche Basis-URL aus der Instanz-Konfiguration. SMTP-Passwörter werden nie wieder angezeigt. Ohne aktivierten E-Mail-Versand gelten Adressen nach dem manuellen Setup-Link als bestätigt, werden aber nicht per Mailbox geprüft.</div>
+    <div class="admin-help" data-i18n-key="admin.email.help">Passwort-/Setup-Links nutzen die öffentliche Basis-URL aus der Instanz-Konfiguration. SMTP-Passwörter werden nie wieder angezeigt. Ohne aktivierten E-Mail-Versand gelten Adressen nach dem manuellen Setup-Link als bestätigt, werden aber nicht per Mailbox geprüft.</div>
     <div class="form-row" style="margin-top:12px;">
       <button class="btn btn-primary" onclick="saveEmailConfig()" data-i18n-key="admin.email.save">E-Mail-Konfiguration speichern</button>
     </div>
@@ -291,7 +291,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
     <div class="form-row">
       <input type="text" id="new-username" data-i18n-placeholder-key="setup.usernameLabel" placeholder="Benutzername" autocomplete="off" onkeydown="if(event.key==='Enter') document.getElementById('new-display-name').focus()">
       <input type="text" id="new-display-name" data-i18n-placeholder-key="setup.displayNameLabel" placeholder="Anzeigename" onkeydown="if(event.key==='Enter') document.getElementById('new-email').focus()">
-      <input type="email" id="new-email" placeholder="E-Mail" autocomplete="off" onkeydown="if(event.key==='Enter') createUser()">
+      <input type="email" id="new-email" data-i18n-placeholder-key="settings.profile.email" placeholder="E-Mail" autocomplete="off" onkeydown="if(event.key==='Enter') createUser()">
       <button class="btn btn-primary" onclick="createUser()" data-i18n-key="admin.user.createAndLink">Erstellen & Link erzeugen</button>
     </div>
     <div style="font-size: 12px; color: var(--text-muted); margin-top: 8px;" data-i18n-key="admin.user.createHelp">
@@ -888,26 +888,26 @@ async function saveUserEmail(userId) {
 
 async function resetUserTwoFactor(userId, username) {
   const confirmed = await adminConfirm({
-    title: '2FA zurücksetzen?',
-    message: `2FA für '${username}' wirklich zurücksetzen? TOTP, Passkeys und gemerkte Geräte werden widerrufen.`,
-    confirmText: '2FA zurücksetzen',
+    title: t('admin.user.reset2faTitle'),
+    message: t('admin.user.reset2faMessage', { username }),
+    confirmText: t('admin.user.reset2faConfirm'),
     danger: true,
   });
   if (!confirmed) return;
   try {
     await apiPost(`/api/admin/users/${userId}/2fa/reset`, {});
-    document.getElementById('security-success').textContent = `2FA für ${username} zurückgesetzt.`;
+    document.getElementById('security-success').textContent = t('admin.user.reset2faSuccess', { username });
     await loadUsers();
   } catch(e) {
-    document.getElementById('security-error').textContent = 'Fehler: ' + e.message;
+    document.getElementById('security-error').textContent = t('admin.errorWithMessage', { error: e.message });
   }
 }
 
 async function deleteUser(userId, username) {
   const confirmed = await adminConfirm({
-    title: 'Benutzer löschen?',
-    message: `Benutzer '${username}' wirklich löschen?`,
-    confirmText: 'Benutzer löschen',
+    title: t('admin.user.deleteTitle'),
+    message: t('admin.user.deleteMessage', { username }),
+    confirmText: t('admin.user.deleteConfirm'),
     danger: true,
   });
   if (!confirmed) return;
@@ -915,7 +915,7 @@ async function deleteUser(userId, username) {
     await apiDelete(`/api/admin/users/${userId}`);
     await loadUsers();
   } catch(e) {
-    await adminNotice('Fehler', 'Fehler: ' + e.message);
+    await adminNotice(t('common.error'), t('admin.errorWithMessage', { error: e.message }));
   }
 }
 
@@ -928,17 +928,17 @@ async function changeAdminPassword() {
   document.getElementById('admin-pw-success').textContent = '';
 
   if (!oldPw || !newPw || !confirmPw) {
-    document.getElementById('admin-pw-error').textContent = 'Alle Felder sind erforderlich';
+    document.getElementById('admin-pw-error').textContent = t('settings.password.allRequired');
     return;
   }
   if (newPw !== confirmPw) {
-    document.getElementById('admin-pw-error').textContent = 'Passwörter stimmen nicht überein';
+    document.getElementById('admin-pw-error').textContent = t('settings.password.mismatch');
     return;
   }
 
   try {
     await apiPost('/api/admin/change-password', { old_password: oldPw, new_password: newPw });
-    document.getElementById('admin-pw-success').textContent = 'Admin-Passwort geändert! Melde dich erneut an.';
+    document.getElementById('admin-pw-success').textContent = t('admin.password.changed');
     document.getElementById('admin-old-password').value = '';
     document.getElementById('admin-new-password').value = '';
     document.getElementById('admin-confirm-password').value = '';
@@ -959,17 +959,17 @@ async function generatePasswordLink(userId, username) {
   try {
     const data = await apiPost(`/api/admin/users/${userId}/password-link`, {});
     if (data.password_setup_delivery === 'email') {
-      await adminNotice('Passwort-Mail gesendet', `Passwort-Mail für ${username} wurde gesendet.`);
+      await adminNotice(t('admin.user.passwordMailSentTitle'), t('admin.user.passwordMailSentMessage', { username }));
       return;
     }
     const link = data.password_setup_url;
     const copied = await navigator.clipboard.writeText(link).then(() => true).catch(() => false);
     await adminNotice(
-      copied ? 'Passwort-Link kopiert' : 'Passwort-Link erstellt',
-      `Passwort-Link für ${username}${copied ? ' wurde kopiert' : ''}: ${link}`,
+      copied ? t('admin.user.passwordLinkCopiedTitle') : t('admin.user.passwordLinkCreatedTitle'),
+      t(copied ? 'admin.user.passwordLinkCopiedMessage' : 'admin.user.passwordLinkCreatedMessage', { username, link }),
     );
   } catch(e) {
-    await adminNotice('Fehler', 'Fehler: ' + e.message);
+    await adminNotice(t('common.error'), t('admin.errorWithMessage', { error: e.message }));
   }
 }
 

@@ -619,5 +619,20 @@
   "admin.email.saved": "E-Mail-Konfiguration gespeichert.",
   "admin.email.invalidTestAddress": "Bitte eine gültige Test-E-Mail-Adresse eingeben",
   "admin.email.testSent": "Test-Mail gesendet.",
-  "admin.instance.saved": "Instanz-Konfiguration gespeichert."
+  "admin.instance.saved": "Instanz-Konfiguration gespeichert.",
+  "admin.user.reset2faTitle": "2FA zurücksetzen?",
+  "admin.user.reset2faMessage": "2FA für {username} wirklich zurücksetzen? TOTP, Passkeys und gemerkte Geräte werden widerrufen.",
+  "admin.user.reset2faConfirm": "2FA zurücksetzen",
+  "admin.user.reset2faSuccess": "2FA für {username} zurückgesetzt.",
+  "admin.user.deleteTitle": "Benutzer löschen?",
+  "admin.user.deleteMessage": "Benutzer {username} wirklich löschen?",
+  "admin.user.deleteConfirm": "Benutzer löschen",
+  "admin.password.changed": "Admin-Passwort geändert! Melde dich erneut an.",
+  "admin.user.passwordMailSentTitle": "Passwort-Mail gesendet",
+  "admin.user.passwordMailSentMessage": "Passwort-Mail für {username} wurde gesendet.",
+  "admin.user.passwordLinkCopiedTitle": "Passwort-Link kopiert",
+  "admin.user.passwordLinkCreatedTitle": "Passwort-Link erstellt",
+  "admin.user.passwordLinkCopiedMessage": "Passwort-Link für {username} wurde kopiert: {link}",
+  "admin.user.passwordLinkCreatedMessage": "Passwort-Link für {username}: {link}",
+  "admin.email.help": "Passwort-/Setup-Links nutzen die öffentliche Basis-URL aus der Instanz-Konfiguration. SMTP-Passwörter werden nie wieder angezeigt. Ohne aktivierten E-Mail-Versand gelten Adressen nach dem manuellen Setup-Link als bestätigt, werden aber nicht per Mailbox geprüft."
 }
