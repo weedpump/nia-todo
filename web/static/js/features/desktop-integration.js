@@ -1,4 +1,5 @@
 import { RUNTIME_CAPABILITIES, normalizeServerUrl as normalizeRuntimeServerUrl } from '../core/config.js';
+import { t } from '../i18n/index.js';
 import { createNativeBridge } from './native-bridge.js';
 
 const DEFAULT_SETTINGS = {
@@ -127,7 +128,7 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
     const panel = document.createElement('div');
     panel.className = 'login-native-server-panel';
     panel.innerHTML = `
-      <button type="button" class="btn btn-secondary login-native-server-toggle" id="login-native-server-switch">Server wechseln</button>
+      <button type="button" class="btn btn-secondary login-native-server-toggle" id="login-native-server-switch" data-i18n-key="settings.desktop.server.change">${t('settings.desktop.server.change')}</button>
       <div class="desktop-settings-status login-native-server-status" data-desktop-settings-status></div>
     `;
     loginBox.appendChild(panel);
@@ -191,11 +192,11 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
     const nextValue = Boolean(value);
     settings[key] = nextValue;
     renderSettings();
-    setDesktopStatus('Speichere...');
+    setDesktopStatus(t('common.saving'));
     try {
       settings = mergeSettings(await nativeBridge.setSetting(key, nextValue));
       renderSettings();
-      setDesktopStatus('Gespeichert.');
+      setDesktopStatus(t('common.saved'));
       if (key === 'notifications') syncLocalReminders(latestTodos, { immediate: true });
     } catch (error) {
       setDesktopStatus(error?.message || String(error), true);
@@ -225,14 +226,14 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
   async function notifyReminder(reminder) {
     if (!isNativeApp() || !settings.notifications) return;
     if (!await ensureNativeNotificationPermission()) return;
-    const title = reminder?.title || '⏰ Erinnerung';
-    const body = reminder?.body || reminder?.todo_title || 'Todo-Erinnerung';
+    const title = reminder?.title || t('settings.desktop.reminder.title');
+    const body = reminder?.body || reminder?.todo_title || t('settings.desktop.reminder.body');
     try {
       const sent = await nativeBridge.notify(title, body);
-      if (!sent) showToast?.('Native Benachrichtigung nicht gesendet: Berechtigung fehlt.');
+      if (!sent) showToast?.(t('settings.desktop.notifications.permissionMissing'));
     } catch (error) {
       console.warn('[Native] Notification failed', error);
-      showToast?.('Native Benachrichtigung fehlgeschlagen');
+      showToast?.(t('settings.desktop.notifications.failed'));
     }
   }
 
@@ -241,11 +242,11 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
   }
 
   function reminderTitle(todo) {
-    return '⏰ Erinnerung';
+    return t('settings.desktop.reminder.title');
   }
 
   function reminderBody(todo) {
-    return todo?.title || todo?.body || todo?.todo_title || 'Todo-Erinnerung';
+    return todo?.title || todo?.body || todo?.todo_title || t('settings.desktop.reminder.body');
   }
 
   function buildReminderSchedules(todos = []) {
@@ -310,7 +311,7 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
     try {
       const serverUrl = normalizeRuntimeServerUrl(value);
       settings = mergeSettings(await nativeBridge.setServerUrl(serverUrl));
-      setDesktopStatus('Server gespeichert. App lädt neu...');
+      setDesktopStatus(t('settings.desktop.server.savedReloading'));
       setTimeout(() => location.reload(), 250);
     } catch (error) {
       setDesktopStatus(error?.message || String(error), true);
@@ -321,7 +322,7 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
     if (!isNativeApp()) return;
     try {
       await nativeBridge.clearServerUrl();
-      setDesktopStatus('Server-Auswahl wird geöffnet...');
+      setDesktopStatus(t('settings.desktop.server.selectionOpening'));
       setTimeout(() => location.reload(), 250);
     } catch (error) {
       setDesktopStatus(error?.message || String(error), true);
@@ -331,14 +332,14 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
   async function testNotification() {
     if (!isNativeApp()) return;
     if (!await ensureNativeNotificationPermission()) {
-      setDesktopStatus('Benachrichtigungsberechtigung wurde nicht erteilt.', true);
+      setDesktopStatus(t('settings.desktop.notifications.permissionNotGranted'), true);
       return;
     }
     try {
       const title = 'nia-todo';
-      const body = 'Native Benachrichtigungen funktionieren.';
+      const body = t('settings.desktop.notifications.testBody');
       const sent = await nativeBridge.notify(title, body);
-      setDesktopStatus(sent ? 'Test-Benachrichtigung gesendet.' : 'Benachrichtigung nicht gesendet: Berechtigung fehlt.', !sent);
+      setDesktopStatus(sent ? t('settings.desktop.notifications.testSent') : t('settings.desktop.notifications.permissionMissing'), !sent);
     } catch (error) {
       setDesktopStatus(error?.message || String(error), true);
     }
@@ -350,11 +351,11 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
 
   async function updateHotkey(action, shortcut) {
     if (!isDesktopApp()) return;
-    setDesktopStatus('Speichere Hotkey...');
+    setDesktopStatus(t('settings.desktop.hotkeys.saving'));
     try {
       settings = mergeSettings(await nativeBridge.setHotkey(action, shortcut));
       renderSettings();
-      setDesktopStatus('Hotkey gespeichert.');
+      setDesktopStatus(t('settings.desktop.hotkeys.saved'));
     } catch (error) {
       setDesktopStatus(error?.message || String(error), true);
       await loadSettings();
@@ -371,9 +372,9 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
       if (!input) continue;
       input.readOnly = true;
       input.addEventListener('focus', () => {
-        input.placeholder = 'Tastenkombination drücken…';
+        input.placeholder = t('settings.desktop.hotkeys.pressShortcut');
         input.classList.add('recording-hotkey');
-        setDesktopStatus('Tastenkombination drücken. Backspace/Entf löscht den Hotkey.');
+        setDesktopStatus(t('settings.desktop.hotkeys.recordingHint'));
       });
       input.addEventListener('blur', () => {
         input.placeholder = '';
