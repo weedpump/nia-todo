@@ -435,5 +435,17 @@
   "section.namePlaceholder": "Section name",
   "section.deleteTitle": "Delete section?",
   "section.deleteMessage": "The section will be deleted. Contained todos will be moved to “Unsorted”.",
-  "section.deleteConfirm": "Delete section"
+  "section.deleteConfirm": "Delete section",
+  "auth.mfa.enrollmentRequiredWarning": "2FA is required for this instance. Please set up an authenticator or passkey; regular app access is locked until then.",
+  "auth.mfa.emailSent": "We sent you a 2FA code by email.",
+  "auth.mfa.passkeyOrCodeHint": "Confirm sign-in with your passkey — or use your 2FA code instead.",
+  "auth.mfa.codeOrPasskeyHint": "Enter your 2FA code — or use your passkey instead.",
+  "auth.mfa.codeHint": "Enter your 2FA code.",
+  "auth.mfa.enterCodePlaceholder": "Enter {label}",
+  "auth.mfa.signInWithCode": "Sign in with authenticator code",
+  "auth.mfa.signInWithPasskey": "Sign in with passkey",
+  "auth.mfa.confirm": "Confirm 2FA",
+  "auth.mfa.noActiveChallenge": "No active 2FA challenge",
+  "auth.mfa.codeRequired": "Please enter a 2FA code",
+  "security.mfa.passkeyName": "Passkey"
 }
