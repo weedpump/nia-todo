@@ -7,6 +7,10 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 
 ## [2.0.0] - Unreleased
 
+### Fixed
+- Release-Versionierung gehärtet: Web-, Service-Worker-, Tauri-, Cargo- und `min_native_client_version` werden konsistent gesetzt und vor dem Release geprüft.
+- Android-Release validiert jetzt neben `versionName` auch den erwarteten `versionCode`.
+
 ### Added
 - Workspaces als neue Anzeige-/Organisationsschicht für Projekte und Todos ergänzt.
 - Jeder Nutzer erhält einen Default-Workspace `Privat`; bestehende Projekte werden dorthin migriert.

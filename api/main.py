@@ -1,6 +1,6 @@
 """nia-todo: FastAPI backend - slim entry point"""
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -95,8 +95,11 @@ if WEB_DIR.exists():
     @app.get("/downloads/app-downloads.json")
     @app.head("/downloads/app-downloads.json")
     def app_downloads_manifest():
+        manifest_path = DOWNLOADS_DIR / "app-downloads.json"
+        if not manifest_path.exists():
+            raise HTTPException(status_code=404, detail="App downloads manifest not found")
         return FileResponse(
-            str(DOWNLOADS_DIR / "app-downloads.json"),
+            str(manifest_path),
             media_type="application/json",
             headers={
                 "Cache-Control": "no-store, no-cache, max-age=0, must-revalidate",
