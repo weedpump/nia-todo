@@ -435,5 +435,17 @@
   "section.namePlaceholder": "Section-Name",
   "section.deleteTitle": "Section löschen?",
   "section.deleteMessage": "Die Section wird gelöscht. Enthaltene Todos werden zu „Unsortiert“ verschoben.",
-  "section.deleteConfirm": "Section löschen"
+  "section.deleteConfirm": "Section löschen",
+  "auth.mfa.enrollmentRequiredWarning": "2FA ist für diese Instanz erforderlich. Richte bitte einen Authenticator oder Passkey ein; bis dahin ist der normale App-Zugriff gesperrt.",
+  "auth.mfa.emailSent": "Wir haben dir einen 2FA-Code per E-Mail geschickt.",
+  "auth.mfa.passkeyOrCodeHint": "Bestätige die Anmeldung mit deinem Passkey — oder nutze alternativ deinen 2FA-Code.",
+  "auth.mfa.codeOrPasskeyHint": "Gib deinen 2FA-Code ein — oder nutze alternativ deinen Passkey.",
+  "auth.mfa.codeHint": "Gib deinen 2FA-Code ein.",
+  "auth.mfa.enterCodePlaceholder": "{label} eingeben",
+  "auth.mfa.signInWithCode": "Mit Authenticator-Code anmelden",
+  "auth.mfa.signInWithPasskey": "Mit Passkey anmelden",
+  "auth.mfa.confirm": "2FA bestätigen",
+  "auth.mfa.noActiveChallenge": "Keine aktive 2FA-Challenge",
+  "auth.mfa.codeRequired": "Bitte 2FA-Code eingeben",
+  "security.mfa.passkeyName": "Passkey"
 }
