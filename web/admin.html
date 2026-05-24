@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>nia-todo Admin</title>
+<title data-i18n-key="admin.pageTitle">nia-todo Admin</title>
 <link rel="stylesheet" href="/static/style.css">
 <style>
 body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: auto; }
@@ -120,13 +120,13 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 <body>
 <div class="admin-container">
   <div class="admin-header">
-    <h1><span data-icon="shield"></span> nia-todo Admin</h1>
+    <h1><span data-icon="shield"></span> <span data-i18n-key="admin.title">nia-todo Admin</span></h1>
     <div class="admin-nav">
-      <a class="admin-back-btn" href="/">Zurück zur App</a>
+      <a class="admin-back-btn" href="/" data-i18n-key="admin.backToApp">Zurück zur App</a>
       <div class="admin-theme-toggle">
-        <button data-theme="light" onclick="setTheme('light')" title="Hell"><span data-icon="sun"></span></button>
-        <button data-theme="dark" onclick="setTheme('dark')" title="Dunkel"><span data-icon="moon"></span></button>
-        <button data-theme="system" onclick="setTheme('system')" title="System"><span data-icon="monitor"></span></button>
+        <button data-theme="light" onclick="setTheme('light')" data-i18n-title-key="common.theme.light" title="Hell"><span data-icon="sun"></span></button>
+        <button data-theme="dark" onclick="setTheme('dark')" data-i18n-title-key="common.theme.dark" title="Dunkel"><span data-icon="moon"></span></button>
+        <button data-theme="system" onclick="setTheme('system')" data-i18n-title-key="common.theme.system" title="System"><span data-icon="monitor"></span></button>
       </div>
     </div>
   </div>
@@ -134,20 +134,20 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
   <div class="admin-dialog" id="admin-action-dialog" role="dialog" aria-modal="true" aria-labelledby="admin-dialog-title">
     <div class="admin-dialog-overlay" id="admin-dialog-overlay"></div>
     <form class="admin-dialog-content" id="admin-dialog-form">
-      <h3 id="admin-dialog-title">Aktion bestätigen</h3>
+      <h3 id="admin-dialog-title" data-i18n-key="admin.dialog.confirmTitle">Aktion bestätigen</h3>
       <p id="admin-dialog-message"></p>
       <div class="admin-dialog-actions">
-        <button type="button" class="btn" id="admin-dialog-cancel">Abbrechen</button>
-        <button type="submit" class="btn btn-primary" id="admin-dialog-confirm">Bestätigen</button>
+        <button type="button" class="btn" id="admin-dialog-cancel" data-i18n-key="common.cancel">Abbrechen</button>
+        <button type="submit" class="btn btn-primary" id="admin-dialog-confirm" data-i18n-key="common.confirm">Bestätigen</button>
       </div>
     </form>
   </div>
 
   <div class="admin-card" id="admin-login-card">
-    <h2><span data-icon="lock-keyhole"></span> Admin-Anmeldung</h2>
+    <h2><span data-icon="lock-keyhole"></span> <span data-i18n-key="admin.login.title">Admin-Anmeldung</span></h2>
     <div class="form-row">
-      <input type="password" id="admin-login-password" placeholder="Admin-Passwort eingeben" autocomplete="off" onkeydown="if(event.key==='Enter') doAdminLogin()">
-      <button class="btn btn-primary" onclick="doAdminLogin()">Anmelden</button>
+      <input type="password" id="admin-login-password" data-i18n-placeholder-key="admin.login.passwordPlaceholder" placeholder="Admin-Passwort eingeben" autocomplete="off" onkeydown="if(event.key==='Enter') doAdminLogin()">
+      <button class="btn btn-primary" onclick="doAdminLogin()" data-i18n-key="auth.signIn">Anmelden</button>
     </div>
     <div class="admin-error" id="admin-login-error"></div>
   </div>
@@ -156,16 +156,16 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 
   <!-- Admin Toolbar -->
   <div class="admin-card admin-status-card">
-    <span class="admin-status-text"><span data-icon="lock-keyhole"></span> Eingeloggt als Admin</span>
-    <button class="btn btn-danger" onclick="adminLogout()">Abmelden</button>
+    <span class="admin-status-text"><span data-icon="lock-keyhole"></span> <span data-i18n-key="admin.status.loggedIn">Eingeloggt als Admin</span></span>
+    <button class="btn btn-danger" onclick="adminLogout()" data-i18n-key="auth.signOut">Abmelden</button>
   </div>
 
   <!-- Instance Configuration -->
   <div class="admin-card" id="instance-config-card">
-    <h2><span data-icon="settings"></span> Instanz-Konfiguration</h2>
+    <h2><span data-icon="settings"></span> <span data-i18n-key="admin.instance.title">Instanz-Konfiguration</span></h2>
     <div class="admin-config-grid">
       <div class="admin-config-field full">
-        <label for="instance-public-url">Öffentliche Basis-URL</label>
+        <label for="instance-public-url" data-i18n-key="admin.instance.publicUrl">Öffentliche Basis-URL</label>
         <input type="url" id="instance-public-url" placeholder="https://todo.example.org" autocomplete="off">
       </div>
       <div class="admin-config-field full">
@@ -177,9 +177,9 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
         <textarea id="instance-trusted-proxies" class="admin-config-textarea" placeholder="10.0.10.14&#10;172.18.0.0/16"></textarea>
       </div>
     </div>
-    <div class="admin-help">Basis-URL wird für externe Links genutzt. Origins und Trusted Proxies sind zeilenweise. Forwarded-Header werden nur von Trusted Proxies akzeptiert.</div>
+    <div class="admin-help" data-i18n-key="admin.instance.help">Basis-URL wird für externe Links genutzt. Origins und Trusted Proxies sind zeilenweise. Forwarded-Header werden nur von Trusted Proxies akzeptiert.</div>
     <div class="form-row" style="margin-top:12px;">
-      <button class="btn btn-primary" onclick="saveInstanceConfig()">Instanz-Konfiguration speichern</button>
+      <button class="btn btn-primary" onclick="saveInstanceConfig()" data-i18n-key="admin.instance.save">Instanz-Konfiguration speichern</button>
     </div>
     <div class="admin-error" id="instance-config-error"></div>
     <div class="admin-success" id="instance-config-success"></div>
@@ -187,11 +187,11 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 
   <!-- Email Configuration -->
   <div class="admin-card" id="email-config-card">
-    <h2><span data-icon="mail"></span> E-Mail / SMTP</h2>
+    <h2><span data-icon="mail"></span> <span data-i18n-key="admin.email.title">E-Mail / SMTP</span></h2>
     <div class="admin-config-grid">
       <div class="admin-config-field admin-config-checkbox full">
         <input type="checkbox" id="email-smtp-enabled">
-        <label for="email-smtp-enabled">E-Mail-Versand aktivieren</label>
+        <label for="email-smtp-enabled" data-i18n-key="admin.email.enableSending">E-Mail-Versand aktivieren</label>
       </div>
       <div class="admin-config-field">
         <label for="email-smtp-host">SMTP Host</label>
@@ -202,32 +202,32 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
         <input type="number" id="email-smtp-port" min="1" max="65535" value="587">
       </div>
       <div class="admin-config-field">
-        <label for="email-smtp-security">Transport-Sicherheit</label>
+        <label for="email-smtp-security" data-i18n-key="admin.email.transportSecurity">Transport-Sicherheit</label>
         <select id="email-smtp-security">
           <option value="starttls">STARTTLS</option>
           <option value="tls">TLS/SSL</option>
-          <option value="none">Keine</option>
+          <option value="none" data-i18n-key="admin.none">Keine</option>
         </select>
       </div>
       <div class="admin-config-field admin-config-checkbox">
         <input type="checkbox" id="email-smtp-auth-enabled">
-        <label for="email-smtp-auth-enabled">SMTP Auth verwenden</label>
+        <label for="email-smtp-auth-enabled" data-i18n-key="admin.email.useSmtpAuth">SMTP Auth verwenden</label>
       </div>
       <div class="admin-config-field">
         <label for="email-smtp-username">SMTP Username</label>
         <input type="text" id="email-smtp-username" autocomplete="off">
       </div>
       <div class="admin-config-field">
-        <label for="email-smtp-password">SMTP Passwort / Secret</label>
-        <input type="password" id="email-smtp-password" placeholder="Leer lassen = unverändert" autocomplete="new-password">
+        <label for="email-smtp-password" data-i18n-key="admin.email.smtpPassword">SMTP Passwort / Secret</label>
+        <input type="password" id="email-smtp-password" data-i18n-placeholder-key="admin.email.keepSecretPlaceholder" placeholder="Leer lassen = unverändert" autocomplete="new-password">
         <div class="admin-secret-note" id="email-smtp-password-note"></div>
       </div>
       <div class="admin-config-field">
-        <label for="email-from-address">From-Adresse</label>
+        <label for="email-from-address" data-i18n-key="admin.email.fromAddress">From-Adresse</label>
         <input type="email" id="email-from-address" placeholder="todo@example.org" autocomplete="off">
       </div>
       <div class="admin-config-field">
-        <label for="email-from-name">From-Name</label>
+        <label for="email-from-name" data-i18n-key="admin.email.fromName">From-Name</label>
         <input type="text" id="email-from-name" placeholder="nia-todo" autocomplete="off">
       </div>
       <div class="admin-config-field">
@@ -235,20 +235,20 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
         <input type="email" id="email-reply-to" placeholder="support@example.org" autocomplete="off">
       </div>
       <div class="admin-config-field">
-        <label for="email-link-ttl">Link-Gültigkeit in Stunden</label>
+        <label for="email-link-ttl" data-i18n-key="admin.email.linkTtl">Link-Gültigkeit in Stunden</label>
         <input type="number" id="email-link-ttl" min="1" max="168" value="24">
       </div>
       <div class="admin-config-field full">
-        <label for="email-test-to">Test-Mail an</label>
+        <label for="email-test-to" data-i18n-key="admin.email.testTo">Test-Mail an</label>
         <div class="form-row" style="margin-bottom:0;">
           <input type="email" id="email-test-to" placeholder="name@example.org" autocomplete="off">
-          <button class="btn btn-primary" onclick="sendTestEmail()">Test-Mail senden</button>
+          <button class="btn btn-primary" onclick="sendTestEmail()" data-i18n-key="admin.email.sendTest">Test-Mail senden</button>
         </div>
       </div>
     </div>
     <div class="admin-help">Passwort-/Setup-Links nutzen die öffentliche Basis-URL aus der Instanz-Konfiguration. SMTP-Passwörter werden nie wieder angezeigt. Ohne aktivierten E-Mail-Versand gelten Adressen nach dem manuellen Setup-Link als bestätigt, werden aber nicht per Mailbox geprüft.</div>
     <div class="form-row" style="margin-top:12px;">
-      <button class="btn btn-primary" onclick="saveEmailConfig()">E-Mail-Konfiguration speichern</button>
+      <button class="btn btn-primary" onclick="saveEmailConfig()" data-i18n-key="admin.email.save">E-Mail-Konfiguration speichern</button>
     </div>
     <div class="admin-error" id="email-config-error"></div>
     <div class="admin-success" id="email-config-success"></div>
@@ -334,6 +334,10 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
   </div>
 </div>
 
+<script type="module">
+import { initI18n } from './static/js/i18n/index.js';
+await initI18n();
+</script>
 <script>
 const API = '';
 
