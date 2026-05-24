@@ -485,5 +485,13 @@
   "api.auth.apiKeyListFailed": "API-Key-Liste fehlgeschlagen",
   "api.auth.apiKeyCreateFailed": "API-Key konnte nicht erstellt werden",
   "api.auth.apiKeyDeleteFailed": "API-Key konnte nicht gelöscht werden",
-  "api.auth.setupStatusFailed": "Setup-Status fehlgeschlagen"
+  "api.auth.setupStatusFailed": "Setup-Status fehlgeschlagen",
+  "native.passkey.invalidAndroidJson": "Android Passkey-Antwort war kein gültiges JSON",
+  "native.passkey.androidCallFailed": "Android Passkey-Aufruf fehlgeschlagen",
+  "native.passkey.androidBridgeUnavailable": "Android Passkey-Bridge nicht verfügbar",
+  "native.passkey.androidCallTimedOut": "Android Passkey-Aufruf abgelaufen",
+  "native.passkey.bridgeUnavailable": "Native Passkey-Bridge nicht verfügbar",
+  "theme.accentIntensity": "Akzent-Intensität",
+  "theme.intensity": "Intensität",
+  "boot.startTimeout": "App-Start hängt. Bitte neu laden."
 }

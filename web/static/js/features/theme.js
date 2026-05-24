@@ -183,8 +183,8 @@ export function renderAccentPresetMenu() {
   const panel = document.getElementById('accent-preset-panel');
   const current = document.getElementById('accent-preset-current');
   if (panel) panel.innerHTML = `${renderAccentPresetOptions()}
-    <label class="accent-intensity-control" title="Akzent-Intensität">
-      <span class="accent-intensity-label">Intensität</span>
+    <label class="accent-intensity-control" title="${t('theme.accentIntensity')}">
+      <span class="accent-intensity-label">${t('theme.intensity')}</span>
       <input id="accent-intensity-slider" class="accent-intensity-slider" type="range" min="0" max="100" step="5" value="${intensity}">
       <span class="accent-intensity-value" id="accent-intensity-value">${intensity}%</span>
     </label>`;
