@@ -68,6 +68,7 @@ def _render_inline_markdown(value: str) -> str:
     escaped = html.escape(value)
     escaped = re.sub(r"`([^`]+)`", r"<code>\1</code>", escaped)
     escaped = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", escaped)
+    escaped = re.sub(r"\[([^\]]+)\]\((https?://[^\s)]+)\)", r'<a href="\2" rel="noopener noreferrer">\1</a>', escaped)
     return escaped
 
 
@@ -78,6 +79,7 @@ def _markdown_to_html(markdown: str) -> tuple[str, str]:
     in_code = False
     in_list = False
     code_lines: list[str] = []
+    used_slugs: dict[str, int] = {}
 
     def close_list():
         nonlocal in_list
@@ -107,7 +109,10 @@ def _markdown_to_html(markdown: str) -> tuple[str, str]:
             close_list()
             level = len(heading.group(1))
             text = heading.group(2).strip()
-            slug = _slugify_heading(text)
+            base_slug = _slugify_heading(text)
+            count = used_slugs.get(base_slug, 0)
+            used_slugs[base_slug] = count + 1
+            slug = base_slug if count == 0 else f"{base_slug}-{count + 1}"
             toc.append((level, slug, text))
             body.append(f'<h{level} id="{slug}">{_render_inline_markdown(text)}</h{level}>')
             continue
@@ -131,16 +136,17 @@ def _markdown_to_html(markdown: str) -> tuple[str, str]:
     return "\n".join(body), toc_html
 
 
-def _api_docs_html() -> str:
-    docs_path = DOCS_DIR / "api.md"
-    markdown = docs_path.read_text(encoding="utf-8") if docs_path.exists() else "# API\n\nKeine API-Doku gefunden."
+def _document_html(title: str, subtitle: str, markdown: str, search_placeholder: str) -> str:
     content, toc = _markdown_to_html(markdown)
-    return f"""<!doctype html>
+    safe_title = html.escape(title)
+    safe_subtitle = html.escape(subtitle)
+    safe_placeholder = html.escape(search_placeholder)
+    return rf"""<!doctype html>
 <html lang="de">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>nia-todo API</title>
+  <title>{safe_title}</title>
   <style>
     :root {{ color-scheme: light dark; --bg:#0f172a; --panel:#111827; --text:#e5e7eb; --muted:#9ca3af; --border:#293245; --accent:#8b5cf6; --code:#020617; --input:#0b1220; --mark:#facc15; }}
     @media (prefers-color-scheme: light) {{ :root:not([data-theme]) {{ --bg:#f7f7fb; --panel:#ffffff; --text:#111827; --muted:#6b7280; --border:#e5e7eb; --accent:#7c3aed; --code:#f3f4f6; --input:#ffffff; --mark:#fde68a; }} }}
@@ -188,8 +194,8 @@ def _api_docs_html() -> str:
   <header>
     <div class="hero">
       <div>
-        <h1>nia-todo API</h1>
-        <p>Öffentliche API-Dokumentation dieser Instanz. Authentifizierung läuft über JWT oder API-Key, je nach Endpoint.</p>
+        <h1>{safe_title}</h1>
+        <p>{safe_subtitle}</p>
       </div>
       <div class="toolbar" aria-label="Darstellung">
         <div class="admin-theme-toggle">
@@ -203,7 +209,7 @@ def _api_docs_html() -> str:
   <div class="search-row">
     <label class="search-box">
       <span aria-hidden="true">⌕</span>
-      <input id="api-search" type="search" placeholder="API-Doku durchsuchen… z.B. API-Key, Passkey, /api/me" autocomplete="off">
+      <input id="api-search" type="search" placeholder="{safe_placeholder}" autocomplete="off">
       <button type="button" id="api-search-clear" title="Suche löschen" aria-label="Suche löschen">×</button>
     </label>
     <div id="search-status"></div>
@@ -219,44 +225,41 @@ def _api_docs_html() -> str:
         moon: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
         monitor: '<rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/>',
       }};
-      function iconSvg(name) {{
-        const paths = ICONS[name] || '';
-        return `<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${{paths}}</svg>`;
-      }}
-      function hydrateIcons(root = document) {{
-        root.querySelectorAll('[data-icon]').forEach((el) => {{ el.innerHTML = iconSvg(el.getAttribute('data-icon')); }});
-      }}
-      window.setTheme = function setTheme(mode) {{
-        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        const isDark = mode === 'dark' || (mode === 'system' && prefersDark);
-        document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
-        if (mode === 'system') localStorage.removeItem('theme');
-        else localStorage.setItem('theme', mode);
-        document.querySelectorAll('.admin-theme-toggle button').forEach((button) => {{
-          button.classList.toggle('active', button.dataset.theme === mode);
-        }});
+      document.querySelectorAll('[data-icon]').forEach((el) => {{
+        const name = el.getAttribute('data-icon');
+        if (!ICONS[name]) return;
+        el.innerHTML = `<svg class="ui-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${{ICONS[name]}}</svg>`;
+      }});
+      const root = document.documentElement;
+      const buttons = Array.from(document.querySelectorAll('[data-theme]'));
+      window.setTheme = (mode) => {{
+        try {{ localStorage.setItem('nia-docs-theme', mode); }} catch {{}}
+        root.removeAttribute('data-theme');
+        if (mode === 'light' || mode === 'dark') root.setAttribute('data-theme', mode);
+        buttons.forEach(btn => btn.classList.toggle('active', btn.dataset.theme === mode));
       }};
-      hydrateIcons();
-      const storedTheme = localStorage.getItem('theme');
-      window.setTheme(storedTheme && storedTheme !== 'system' ? storedTheme : 'system');
+      let saved = 'system';
+      try {{ saved = localStorage.getItem('nia-docs-theme') || 'system'; }} catch {{}}
+      window.setTheme(saved);
 
       const search = document.getElementById('api-search');
       const clear = document.getElementById('api-search-clear');
       const status = document.getElementById('search-status');
-      const main = document.getElementById('api-content');
-      const blocks = Array.from(main.children).map((el) => ({{ el, html: el.innerHTML, text: el.textContent.toLowerCase() }}));
+      const blocks = Array.from(document.querySelectorAll('main > *')).map((el) => ({{ el, html: el.innerHTML, text: el.textContent || '' }}));
       const tocLinks = Array.from(document.querySelectorAll('nav a'));
-      const escapeRegExp = (value) => Array.from(value).map((ch) => '^$*+?.()|{{}}[]\\\\'.includes(ch) ? '\\\\' + ch : ch).join('');
+      function escapeRegExp(value) {{ return value.replace(/[.*+?^${{}}()|[\]\\]/g, '\\$&'); }}
       function runSearch() {{
         const query = search.value.trim().toLowerCase();
         let matches = 0;
         blocks.forEach((block) => {{
+          block.el.classList.remove('hidden-by-search');
           block.el.innerHTML = block.html;
-          const hit = !query || block.text.includes(query);
+          if (!query) return;
+          const hit = block.text.toLowerCase().includes(query);
           block.el.classList.toggle('hidden-by-search', !hit);
-          if (hit && query) {{
-            matches += 1;
-            const rx = new RegExp(`(${{escapeRegExp(query)}})`, 'ig');
+          if (hit) {{
+            matches++;
+            const rx = new RegExp(`(${{escapeRegExp(search.value.trim())}})`, 'gi');
             if (!['PRE', 'CODE'].includes(block.el.tagName)) block.el.innerHTML = block.html.replace(rx, '<mark>$1</mark>');
           }}
         }});
@@ -275,17 +278,48 @@ def _api_docs_html() -> str:
 </html>"""
 
 
-@app.get("/api", response_class=HTMLResponse)
-@app.get("/api/", response_class=HTMLResponse)
-def public_api_docs():
+def _api_docs_html() -> str:
+    docs_path = DOCS_DIR / "api.md"
+    markdown = docs_path.read_text(encoding="utf-8") if docs_path.exists() else "# API\n\nKeine API-Doku gefunden."
+    return _document_html(
+        "nia-todo API",
+        "Öffentliche API-Dokumentation dieser Instanz. Authentifizierung läuft über JWT oder API-Key, je nach Endpoint.",
+        markdown,
+        "API-Doku durchsuchen… z.B. API-Key, Passkey, /api/me",
+    )
+
+
+def _changelog_html() -> str:
+    changelog_path = Path(__file__).parent.parent / "CHANGELOG.md"
+    markdown = changelog_path.read_text(encoding="utf-8") if changelog_path.exists() else "# Changelog\n\nKein Changelog gefunden."
+    return _document_html(
+        "nia-todo Changelog",
+        "Öffentliche Versionshistorie mit den wichtigsten Änderungen, Korrekturen und Sicherheitsverbesserungen.",
+        markdown,
+        "Changelog durchsuchen… z.B. Workspaces, Android, Sicherheit",
+    )
+
+def _no_store_html(content: str) -> HTMLResponse:
     return HTMLResponse(
-        _api_docs_html(),
+        content,
         headers={
             "Cache-Control": "no-store, no-cache, max-age=0, must-revalidate",
             "Pragma": "no-cache",
             "Expires": "0",
         },
     )
+
+
+@app.get("/api", response_class=HTMLResponse)
+@app.get("/api/", response_class=HTMLResponse)
+def public_api_docs():
+    return _no_store_html(_api_docs_html())
+
+
+@app.get("/changelog", response_class=HTMLResponse)
+@app.get("/changelog/", response_class=HTMLResponse)
+def public_changelog():
+    return _no_store_html(_changelog_html())
 
 # ─── Background Tasks ────────────────────────────────────────────────────────
 

@@ -39,6 +39,18 @@ export function createAppRenderingFeature({
       versionText.insertAdjacentElement('afterend', separator);
     }
 
+    if (!el.querySelector('#changelog-link')) {
+      const changelog = document.createElement('a');
+      changelog.className = 'changelog-link';
+      changelog.id = 'changelog-link';
+      changelog.href = '/changelog';
+      changelog.target = '_blank';
+      changelog.rel = 'noopener noreferrer';
+      changelog.title = 'Changelog öffnen';
+      changelog.textContent = 'Changelog';
+      el.appendChild(changelog);
+    }
+
     if (!el.querySelector('#force-refresh-btn')) {
       const button = document.createElement('button');
       button.type = 'button';

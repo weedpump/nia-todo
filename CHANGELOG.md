@@ -8,6 +8,7 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 ## [2.1.0] - 2026-05-24
 
 ### Added
+- Öffentlicher Changelog unter `/changelog` ergänzt; die App verlinkt ihn im Versionsbereich der Sidebar.
 - Windows-App kann beim Autostart optional direkt minimiert im Tray starten, ohne das Hauptfenster zu öffnen.
 - Geteilte Projekte können pro Mitglied einem eigenen Anzeige-Workspace zugeordnet werden; standardmäßig landen sie im Default-Workspace.
 
@@ -85,7 +86,7 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 - Projekt-, Todo-, Dashboard- und Section-Ansichten werden nach aktivem Workspace gefiltert; Benachrichtigungen, Reminder, Push und WebSocket-Sync bleiben global.
 - UI-Emojis wurden durch konsistente SVG-Icons bzw. neutrale Status-Texte ersetzt.
 - Neue Projekte werden im aktiven Workspace erstellt; Subprojekte müssen im selben Workspace wie ihr Parent bleiben.
-- Geteilte Projekte bleiben workspace-unabhängig sichtbar und sind im Todo-Modal auswählbar.
+- Geteilte Projekte werden im vom jeweiligen Mitglied gewählten Workspace angezeigt und sind dort im Todo-Modal auswählbar.
 - Projektlöschung verschiebt enthaltene Todos in die Inbox desselben Workspaces statt pauschal in eine globale Inbox.
 - Workspace-Löschung verschiebt Projekte und Workspace-Inbox-Todos in den Default-Workspace.
 - Gleiche Projektnamen sind erlaubt; Projekt-Identität basiert auf IDs statt Namen.
@@ -101,7 +102,7 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 - Release-Publishing bereinigt `/downloads/` vor dem Veröffentlichen neuer App-Artefakte, sodass alte Installer/APKs nicht mehr per direkter URL abrufbar bleiben.
 - Release-Builds prüfen ein downloadfreies Tauri-Frontend-Bundle und brechen bei unerwartet großen Windows-/Android-Artefakten ab.
 - Native Windows- und Android-Downloads öffnen extern ohne CORS-Preflight-Falle; Android akzeptiert dabei nur sichere HTTP(S)-URLs ohne Control-Zeichen.
-- Android-Passkeys verwenden die offizielle App-Identity (`de.tobiaskneidl.nia_todo` plus Release-Zertifikat) in `/.well-known/assetlinks.json`; diese Bindung ist bewusst nicht pro Selfhost-Instanz konfigurierbar.
+- Android-Passkeys verwenden die offizielle App-Identity plus Release-Zertifikat in `/.well-known/assetlinks.json`; diese Bindung ist bewusst nicht pro Selfhost-Instanz konfigurierbar.
 - Windows-Upgrades räumen gezielt WebView-Cache-Verzeichnisse auf; Android migriert stale WebView-Cache-Zustände sauber.
 - **E-Mail-Sharing liefert neutrale Responses** (keine Member-Details) zur Vermeidung von E-Mail-Enumeration.
 - **Member-Listen zeigen nur `accepted` Mitglieder** — Pending Invites sind privat bis zur Annahme.
@@ -271,7 +272,7 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 - **Android Tauri-App** als nativer Wrapper neben Windows
   - Lokale Server-URL-Auswahl wie bei Windows, ohne fest eingebaute Standard-URL
   - Android-native Benachrichtigungen über Tauri Notification Plugin inklusive Runtime-Permission
-  - Android-App-ID auf `de.tobiaskneidl.nia_todo` umgestellt
+  - Android-App-ID auf die offizielle Release-App-ID umgestellt
 - **Android-Download im Browser**
   - Download-Manifest enthält Windows-Setup und Android-APK gleichwertig
   - Login- und Settings-Downloadbereich zeigen beide Plattformen nebeneinander an
@@ -575,7 +576,7 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 
 ### Removed
 - Telegram-Reminder-Skripte (ersetzt durch Push Notifications)
-- SECURITY_AUDIT Dateien (interne Debug-Dateien)
+- Interne Audit-/Debug-Dateien aus dem Release-Paket entfernt
 
 ## [0.4.6] - 2026-05-16
 
@@ -660,7 +661,7 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 - **Migrationssystem erweitert**: 003_add_user_support.sql + 004_add_jwt_support.sql
 - **API-Key-Authentifizierung**: Benutzer können in den Einstellungen API-Keys generieren
 - **Rate-Limiting / Bruteforce-Schutz**: Login (5 Versuche / 15 Min), API (100 Requests / Min), WebSocket (max 10 pro IP)
-- **CORS**: Erlaubte Origins `todo.kneidl-home.de` & `todo-dev.kneidl-home.de`
+- **CORS**: Erlaubte Origins sind konfigurierbar und werden restriktiv geprüft
 - **CSRF-Protection**: Double-Submit Cookie Pattern für alle state-changing Endpoints
 - **Security Headers**: CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, HSTS
 - **Audit-Log**: Sicherheitsrelevante Events werden protokolliert

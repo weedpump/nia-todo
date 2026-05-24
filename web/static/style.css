@@ -2477,6 +2477,8 @@ input[type="color"]::-moz-color-swatch {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px;
   color: var(--text-muted);
   font-size: 11px;
   line-height: 1.25;
@@ -2487,6 +2489,7 @@ input[type="color"]::-moz-color-swatch {
   opacity: 0.82;
 }
 
+.changelog-link,
 .force-refresh-btn {
   display: inline-flex;
   align-items: center;
@@ -2506,6 +2509,11 @@ input[type="color"]::-moz-color-swatch {
   transition: all 0.2s;
 }
 
+.changelog-link {
+  text-decoration: none;
+}
+
+.changelog-link:hover,
 .force-refresh-btn:hover {
   background: var(--bg-hover);
   color: var(--text-primary);
