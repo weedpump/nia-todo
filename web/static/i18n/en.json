@@ -201,5 +201,17 @@
   "project.share.userRemoved": "User removed",
   "project.share.left": "Left project",
   "project.share.accepted": "Invitation accepted",
-  "project.share.declined": "Invitation declined"
+  "project.share.declined": "Invitation declined",
+  "settings.close": "Close",
+  "settings.password.title": "Change password",
+  "settings.password.current": "Current password",
+  "settings.password.new": "New password",
+  "settings.password.confirm": "Confirm password",
+  "settings.password.newPlaceholder": "New password (8+ characters)",
+  "settings.password.repeatPlaceholder": "Repeat new password",
+  "settings.password.requirements": "At least 8 characters, 1 uppercase letter, 1 lowercase letter, 1 digit, 1 special character",
+  "settings.password.allRequired": "All fields are required",
+  "settings.password.mismatch": "Passwords do not match",
+  "settings.password.changed": "Password changed! You will be signed out...",
+  "settings.password.mfaPurpose": "changing your password"
 }
