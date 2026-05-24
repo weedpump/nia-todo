@@ -160,7 +160,7 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     const box = document.getElementById('settings-2fa-recovery');
     if (!box || !codes?.length) return;
     box.style.display = '';
-    box.innerHTML = `<strong>Recovery Codes — jetzt speichern:</strong><br><code style="white-space:pre-wrap; display:block; margin-top:8px;">${codes.map(escapeHtml).join('\n')}</code>`;
+    box.innerHTML = `<strong>${escapeHtml(t('settings.2fa.recoverySaveNow'))}</strong><br><code style="white-space:pre-wrap; display:block; margin-top:8px;">${codes.map(escapeHtml).join('\n')}</code>`;
   }
 
   function renderTotpQr(otpauthUrl) {
@@ -172,7 +172,7 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
       qr.make();
       qrEl.innerHTML = qr.createSvgTag({ cellSize: 5, margin: 3, scalable: true, title: 'TOTP QR-Code', alt: 'QR-Code für Authenticator-App' });
     } catch (err) {
-      qrEl.textContent = 'QR-Code konnte nicht erzeugt werden. Nutze den Secret-Key unten.';
+      qrEl.textContent = t('settings.2fa.qrFailed');
     }
   }
 
@@ -182,7 +182,7 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     const items = [];
     const enrollmentOnly = Boolean(isMfaEnrollmentLocked() || (state?.required && !state?.enabled && !state?.has_totp && !state?.has_passkey && !state?.has_recovery_codes && !state?.has_email_fallback));
     if (state.has_totp) {
-      items.push(`<div class="settings-device-row"><div><strong>Authenticator-App</strong><span>TOTP-Code eingerichtet</span></div><button type="button" class="btn btn-danger" onclick="removeTotpDevice()">Widerrufen</button></div>`);
+      items.push(`<div class="settings-device-row"><div><strong>${escapeHtml(t('settings.2fa.device.authenticator'))}</strong><span>${escapeHtml(t('settings.2fa.device.totpReady'))}</span></div><button type="button" class="btn btn-danger" onclick="removeTotpDevice()">${escapeHtml(t('settings.2fa.revoke'))}</button></div>`);
     }
     try {
       const data = enrollmentOnly ? { passkeys: [] } : await authApi.listPasskeys();
@@ -194,7 +194,7 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
       items.push(`<div class="settings-device-note">Passkeys konnten nicht geladen werden: ${escapeHtml(err.message || err)}</div>`);
     }
     if (!items.length) {
-      listEl.innerHTML = '<div class="settings-device-note">Noch keine Authenticator- oder Passkey-Geräte eingerichtet.</div>';
+      listEl.innerHTML = `<div class="settings-device-note">${escapeHtml(t('settings.2fa.noDevices'))}</div>`;
       return;
     }
     listEl.innerHTML = items.join('');
@@ -206,7 +206,7 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     const hasPrimaryFactor = Boolean(state?.has_totp || state?.has_passkey);
     button.style.display = hasPrimaryFactor ? '' : 'none';
     button.disabled = !hasPrimaryFactor;
-    button.title = hasPrimaryFactor ? '' : 'Recovery Codes benötigen einen Authenticator oder Passkey.';
+    button.title = hasPrimaryFactor ? '' : t('settings.2fa.recoveryNeedsPrimary');
   }
 
   async function refreshTwoFactorStatus() {
@@ -220,19 +220,20 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
       const parts = [];
       const hasPrimaryFactor = Boolean(state.has_totp || state.has_passkey);
       if (state.enabled) {
-        parts.push('aktiv');
+        parts.push(t('settings.2fa.state.active'));
       } else if (state.required && hasPrimaryFactor) {
-        parts.push('Einrichtung begonnen');
+        parts.push(t('settings.2fa.state.started'));
       } else if (state.required) {
-        parts.push('2FA-Pflicht aktiv — noch kein Authenticator oder Passkey eingerichtet');
+        parts.push(t('settings.2fa.state.requiredMissing'));
       } else {
-        parts.push('nicht aktiv');
+        parts.push(t('settings.2fa.state.inactive'));
       }
-      if (state.has_totp) parts.push('Authenticator-App eingerichtet');
-      if (state.has_passkey) parts.push(`${state.passkey_count} Passkey(s) eingerichtet`);
-      if (state.has_recovery_codes) parts.push(`${state.recovery_codes_remaining} Recovery Codes`);
-      if (state.has_email_fallback && !hasPrimaryFactor) parts.push('E-Mail-Code als Übergang verfügbar');
-      statusEl.textContent = `Status: ${parts.join(' · ')}`;
+      if (state.has_totp) parts.push(t('settings.2fa.factor.authenticator'));
+      if (state.has_passkey) parts.push(t('settings.2fa.factor.passkeys', { count: state.passkey_count }));
+      if (state.has_recovery_codes) parts.push(t('settings.2fa.factor.recovery', { count: state.recovery_codes_remaining }));
+      if (state.has_email_fallback && !hasPrimaryFactor) parts.push(t('settings.2fa.factor.emailFallback'));
+      statusEl.removeAttribute('data-i18n-key');
+      statusEl.textContent = t('settings.2fa.status', { status: parts.join(' · ') });
       document.getElementById('settings-2fa-actions')?.querySelectorAll('button').forEach((btn) => {
         if (btn.textContent.includes('deaktivieren')) btn.style.display = state.enabled ? '' : 'none';
       });
@@ -241,7 +242,7 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     } catch (e) {
       lastTwoFactorState = null;
       updateRecoveryCodesAction(null);
-      if (errorEl) errorEl.textContent = e.message || '2FA-Status konnte nicht geladen werden';
+      if (errorEl) errorEl.textContent = e.message || t('settings.2fa.loadFailed');
     }
   }
 
@@ -673,14 +674,14 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     errorEl.textContent = '';
     successEl.textContent = '';
     if (!pendingTotpSecret || !code) {
-      errorEl.textContent = 'Secret und Code sind erforderlich';
+      errorEl.textContent = t('settings.2fa.secretAndCodeRequired');
       return;
     }
     try {
       const password = await promptSecurityPassword({
-        title: 'TOTP aktivieren',
-        message: 'Bitte bestätige mit deinem Passwort. Danach bekommst du Recovery Codes angezeigt.',
-        primaryText: '2FA aktivieren',
+        title: t('settings.2fa.enableTitle'),
+        message: t('settings.2fa.enableMessage'),
+        primaryText: t('settings.2fa.enable'),
       });
       if (!password) throw new Error('Passwortbestätigung erforderlich');
       const data = await authApi.confirmTotp(pendingTotpSecret, code, password);
@@ -694,7 +695,7 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
       pendingTotpUrl = '';
       document.getElementById('settings-2fa-setup').style.display = 'none';
       renderRecoveryCodes(data.recovery_codes);
-      successEl.textContent = '2FA aktiviert';
+      successEl.textContent = t('settings.2fa.enabled');
       await refreshTwoFactorStatus();
       if (wasEnrollmentLocked) {
         document.getElementById('settings-modal')?.classList.remove('active');
