@@ -636,5 +636,16 @@
   "admin.user.passwordLinkCreatedMessage": "Passwort-Link für {username}: {link}",
   "admin.email.help": "Passwort-/Setup-Links nutzen die öffentliche Basis-URL aus der Instanz-Konfiguration. SMTP-Passwörter werden nie wieder angezeigt. Ohne aktivierten E-Mail-Versand gelten Adressen nach dem manuellen Setup-Link als bestätigt, werden aber nicht per Mailbox geprüft.",
   "date.todayAt": "Heute {time}",
-  "date.tomorrowAt": "Morgen {time}"
+  "date.tomorrowAt": "Morgen {time}",
+  "nativeSetup.error.serverRequired": "Bitte Server-Hostname eingeben.",
+  "nativeSetup.error.invalidServerHostname": "Bitte einen gültigen Server-Hostnamen eingeben.",
+  "nativeSetup.error.httpsRequired": "Bitte eine HTTPS-Adresse verwenden.",
+  "nativeSetup.error.noCredentials": "Server-URL darf keine Zugangsdaten enthalten.",
+  "nativeSetup.error.serverUnreachable": "Server nicht erreichbar. Bitte Hostname, HTTPS und Netzwerk prüfen.",
+  "nativeSetup.error.verificationFailed": "Server-Verifikation fehlgeschlagen ({status})",
+  "nativeSetup.error.androidPasskeyBridgeBindFailed": "Android Passkey-Bridge konnte die Server-URL nicht binden.",
+  "notification.action.appNotReady": "Notification-Aktion konnte nicht ausgeführt werden: App noch nicht bereit.",
+  "notification.action.otherUserIgnored": "Notification-Aktion gehört zu einem anderen Benutzer und wurde ignoriert.",
+  "notification.action.todoNotFound": "Notification-Aktion: Todo nicht gefunden ({id}).",
+  "notification.action.todoCompleted": "Todo per Benachrichtigung erledigt."
 }

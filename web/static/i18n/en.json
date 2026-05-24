@@ -636,5 +636,16 @@
   "admin.user.passwordLinkCreatedMessage": "Password link for {username}: {link}",
   "admin.email.help": "Password/setup links use the public base URL from the instance configuration. SMTP passwords are never shown again. Without enabled email sending, addresses are considered confirmed after the manual setup link, but are not mailbox-verified.",
   "date.todayAt": "Today {time}",
-  "date.tomorrowAt": "Tomorrow {time}"
+  "date.tomorrowAt": "Tomorrow {time}",
+  "nativeSetup.error.serverRequired": "Enter a server hostname.",
+  "nativeSetup.error.invalidServerHostname": "Enter a valid server hostname.",
+  "nativeSetup.error.httpsRequired": "Use an HTTPS address.",
+  "nativeSetup.error.noCredentials": "Server URLs must not contain credentials.",
+  "nativeSetup.error.serverUnreachable": "Server unreachable. Check hostname, HTTPS, and network.",
+  "nativeSetup.error.verificationFailed": "Server verification failed ({status})",
+  "nativeSetup.error.androidPasskeyBridgeBindFailed": "Android passkey bridge could not bind the server URL.",
+  "notification.action.appNotReady": "Notification action could not run: app is not ready yet.",
+  "notification.action.otherUserIgnored": "Notification action belongs to another user and was ignored.",
+  "notification.action.todoNotFound": "Notification action: todo not found ({id}).",
+  "notification.action.todoCompleted": "Todo completed from notification."
 }
