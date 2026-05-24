@@ -121,18 +121,6 @@
         <span class="logo-text">nia-todo</span>
       </div>
 
-      <nav class="nav-section workspace-section">
-        <div class="nav-title">Workspace</div>
-        <div class="workspace-switcher" id="workspace-switcher">
-          <button type="button" class="workspace-current-btn" id="workspace-current-btn" onclick="toggleWorkspaceMenu(event)" aria-haspopup="menu" aria-expanded="false">
-            <span class="workspace-current-dot" id="workspace-current-dot"></span>
-            <span class="workspace-current-name" id="workspace-current-name">Workspace</span>
-            <svg class="workspace-current-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
-          </button>
-          <div class="workspace-menu" id="workspace-menu" role="menu"></div>
-        </div>
-      </nav>
-
       <nav class="nav-section">
         <div class="nav-title">Ansicht</div>
         <button class="nav-btn" data-filter="all" onclick="setFilter('all')">
@@ -241,6 +229,14 @@
           <input type="text" id="search-input" placeholder="Todo suchen..." oninput="renderTodos()">
         </div>
         <div class="topbar-actions">
+          <div class="workspace-switcher topbar-workspace-switcher" id="workspace-switcher">
+            <button type="button" class="workspace-current-btn" id="workspace-current-btn" onclick="toggleWorkspaceMenu(event)" aria-haspopup="menu" aria-expanded="false">
+              <span class="workspace-current-dot" id="workspace-current-dot"></span>
+              <span class="workspace-current-name" id="workspace-current-name">Workspace</span>
+              <svg class="workspace-current-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <div class="workspace-menu" id="workspace-menu" role="menu"></div>
+          </div>
           <span id="online-status" class="status-online"></span>
         </div>
       </div>
@@ -369,9 +365,11 @@
     <form class="modal-content security-action-content" id="security-action-form">
       <div class="security-action-icon" aria-hidden="true" data-icon="shield-check"></div>
       <h3 id="security-action-title">Sicherheitsbestätigung</h3>
-      <p id="security-action-message" class="security-action-message"></p>
-      <div id="security-action-body" class="security-action-body"></div>
-      <div id="security-action-error" class="settings-field-error"></div>
+      <div class="modal-body security-action-main">
+        <p id="security-action-message" class="security-action-message"></p>
+        <div id="security-action-body" class="security-action-body"></div>
+        <div id="security-action-error" class="settings-field-error"></div>
+      </div>
       <div class="modal-actions security-action-actions">
         <button type="button" class="btn btn-secondary" id="security-action-cancel">Abbrechen</button>
         <button type="submit" class="btn btn-primary" id="security-action-primary">Bestätigen</button>
@@ -439,7 +437,7 @@
         <div id="settings-2fa-actions" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px;">
           <button type="button" class="btn btn-primary" onclick="startTwoFactorTotp()">Authenticator-App einrichten</button>
           <button type="button" class="btn btn-secondary" onclick="addPasskey()">Passkey hinzufügen</button>
-          <button type="button" class="btn btn-secondary" onclick="regenerateRecoveryCodes()">Neue Recovery Codes erzeugen</button>
+          <button type="button" class="btn btn-secondary" id="settings-2fa-regenerate-recovery-btn" onclick="regenerateRecoveryCodes()">Neue Recovery Codes erzeugen</button>
           <button type="button" class="btn btn-danger" onclick="disableTwoFactor()">2FA deaktivieren</button>
         </div>
         <div id="settings-2fa-setup" class="settings-2fa-setup-card" style="display:none;">
@@ -532,7 +530,7 @@
         </div>
       </div>
       <div class="modal-actions">
-        <button type="button" class="btn btn-secondary" onclick="closeModal('settings-modal')">Schließen</button>
+        <button type="button" class="btn btn-secondary" id="settings-close-btn" onclick="closeModal('settings-modal')">Schließen</button>
       </div>
     </div>
   </div>

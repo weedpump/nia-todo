@@ -5,6 +5,8 @@ export function createAppLifecycle({
   hideLoginOverlay,
   showLoginOverlay,
   renderUserInfo,
+  openSettingsModal,
+  isMfaEnrollmentRequired = () => false,
   initServiceWorker,
   openDB,
   dbGetAll,
@@ -224,8 +226,13 @@ export function createAppLifecycle({
         if (authed) {
           hideLoginOverlay();
           renderUserInfo();
-          await withTimeout(initApp(), 12000, 'App init');
-          hideBootOverlay();
+          if (isMfaEnrollmentRequired()) {
+            hideBootOverlay();
+            await openSettingsModal?.();
+          } else {
+            await withTimeout(initApp(), 12000, 'App init');
+            hideBootOverlay();
+          }
         } else {
           hideBootOverlay();
           showLoginOverlay();

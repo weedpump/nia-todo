@@ -441,7 +441,7 @@ body {
   box-shadow: 0 0 0 3px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.22));
 }
 
-.topbar-actions { display: flex; align-items: center; gap: 8px; position: relative; }
+.topbar-actions { display: flex; align-items: center; gap: 8px; position: relative; flex: 0 0 auto; }
 
 .fab-add-todo {
   position: fixed;
@@ -1585,6 +1585,9 @@ input[type="color"]::-moz-color-swatch {
   .topbar {
     padding: 12px 16px;
     gap: 10px;
+  }
+  .topbar-workspace-switcher {
+    width: min(190px, 42vw);
   }
   .fab-add-todo {
     right: calc(18px + env(safe-area-inset-right, 0px));
@@ -2846,8 +2849,29 @@ input[type="color"]::-moz-color-swatch {
   backdrop-filter: blur(12px);
 }
 
+.topbar-workspace-switcher {
+  width: min(210px, 28vw);
+}
+
+.topbar-workspace-switcher .workspace-current-btn {
+  min-height: 2.35rem;
+  padding: 0.45rem 0.65rem;
+}
+
+.topbar-workspace-switcher .workspace-menu {
+  left: auto;
+  right: 0;
+  width: min(230px, calc(100vw - 2rem));
+}
+
 .workspace-menu.open {
   display: block;
+}
+
+@media (max-width: 768px) {
+  .topbar-workspace-switcher {
+    width: min(190px, 42vw);
+  }
 }
 
 .workspace-menu-list {
@@ -3392,6 +3416,11 @@ input[type="color"]::-moz-color-swatch {
   max-width: 430px;
 }
 
+.security-action-main {
+  padding: 0;
+  overflow: visible;
+}
+
 .security-action-icon {
   width: 42px;
   height: 42px;
@@ -3493,6 +3522,33 @@ input[type="color"]::-moz-color-swatch {
   .settings-device-row {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .security-action-content {
+    max-width: none;
+  }
+
+  .security-action-icon {
+    margin: 14px 16px 2px;
+    flex-shrink: 0;
+  }
+
+  .security-action-main {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 16px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .security-action-message {
+    margin-bottom: 14px;
+  }
+
+  .security-action-body,
+  .security-field,
+  .security-field input,
+  .security-passkey-btn {
+    max-width: 100%;
   }
 }
 

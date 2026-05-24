@@ -1,7 +1,7 @@
 import { RUNTIME_CAPABILITIES } from '../core/config.js';
 import { iconSvg } from '../icons/lucide-icons.js';
 import qrcode from '../../vendor/qrcode-generator.js';
-import { confirmSecurityAction, performMfaReauth, promptPasskeyDetails, promptSecurityPassword } from './security-dialogs.js';
+import { confirmSecurityAction, performMfaReauth, promptSecurityPassword, promptSecurityText } from './security-dialogs.js';
 function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
 }
@@ -28,6 +28,7 @@ function isHeicFile(file) {
 }
 
 export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentUser, resetApiKeyUi, loadApiKeys, updatePushSettingsUI, logout }) {
+  let lastTwoFactorState = null;
   const cropState = {
     file: null,
     image: null,
@@ -109,10 +110,34 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
   async function refreshCurrentUser() {
     const freshUser = await authApi.me();
     const token = freshUser.access_token || getCurrentUser()?.token;
-    setCurrentUser({ ...freshUser, token });
+    const mfaEnrollmentRequired = Boolean(freshUser.mfa_enrollment_required || getCurrentUser()?.mfa_enrollment_required);
+    setCurrentUser({ ...freshUser, token, mfa_enrollment_required: mfaEnrollmentRequired });
+    localStorage.setItem('nia-mfa-enrollment-required', mfaEnrollmentRequired ? '1' : '0');
     if (freshUser.access_token) localStorage.setItem('jwt_token', freshUser.access_token);
     if (freshUser.csrf_token) localStorage.setItem('csrf_token', freshUser.csrf_token);
     renderUserInfo();
+  }
+
+  function isMfaEnrollmentLocked() {
+    return Boolean(getCurrentUser()?.mfa_enrollment_required || localStorage.getItem('nia-mfa-enrollment-required') === '1');
+  }
+
+  function shouldLockForTwoFactorState(state) {
+    return Boolean(state?.required && !state?.enabled && !state?.has_totp && !state?.has_passkey && !state?.has_recovery_codes && !state?.has_email_fallback);
+  }
+
+  function updateSettingsEnrollmentLock(state = lastTwoFactorState) {
+    const locked = Boolean(isMfaEnrollmentLocked() || shouldLockForTwoFactorState(state));
+    const modal = document.getElementById('settings-modal');
+    modal?.classList.toggle('mfa-enrollment-locked', locked);
+    const overlay = modal?.querySelector('.modal-overlay');
+    if (overlay) {
+      if (locked) overlay.removeAttribute('onclick');
+      else overlay.setAttribute('onclick', "closeModal('settings-modal')");
+    }
+    modal?.querySelector('.modal-close-x')?.toggleAttribute('hidden', locked);
+    const closeBtn = document.getElementById('settings-close-btn');
+    if (closeBtn) closeBtn.style.display = locked ? 'none' : '';
   }
 
   let pendingTotpSecret = '';
@@ -142,11 +167,12 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     const listEl = document.getElementById('settings-2fa-devices');
     if (!listEl) return;
     const items = [];
+    const enrollmentOnly = Boolean(isMfaEnrollmentLocked() || (state?.required && !state?.enabled && !state?.has_totp && !state?.has_passkey && !state?.has_recovery_codes && !state?.has_email_fallback));
     if (state.has_totp) {
       items.push(`<div class="settings-device-row"><div><strong>Authenticator-App</strong><span>TOTP-Code eingerichtet</span></div><button type="button" class="btn btn-danger" onclick="removeTotpDevice()">Widerrufen</button></div>`);
     }
     try {
-      const data = await authApi.listPasskeys();
+      const data = enrollmentOnly ? { passkeys: [] } : await authApi.listPasskeys();
       (data.passkeys || []).forEach((pk) => {
         const used = pk.last_used_at ? ` · zuletzt genutzt ${new Date(String(pk.last_used_at).replace(' ', 'T') + 'Z').toLocaleString('de-DE')}` : '';
         items.push(`<div class="settings-device-row"><div><strong>${escapeHtml(pk.name || 'Passkey')}</strong><span>Passkey · erstellt ${escapeHtml(pk.created_at || '-')}${escapeHtml(used)}</span></div><button type="button" class="btn btn-danger" onclick="removePasskeyDevice(${Number(pk.id)})">Widerrufen</button></div>`);
@@ -161,25 +187,47 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     listEl.innerHTML = items.join('');
   }
 
+  function updateRecoveryCodesAction(state) {
+    const button = document.getElementById('settings-2fa-regenerate-recovery-btn');
+    if (!button) return;
+    const hasPrimaryFactor = Boolean(state?.has_totp || state?.has_passkey);
+    button.style.display = hasPrimaryFactor ? '' : 'none';
+    button.disabled = !hasPrimaryFactor;
+    button.title = hasPrimaryFactor ? '' : 'Recovery Codes benötigen einen Authenticator oder Passkey.';
+  }
+
   async function refreshTwoFactorStatus() {
     const statusEl = document.getElementById('settings-2fa-status');
     const errorEl = document.getElementById('settings-2fa-error');
     if (!statusEl) return;
     try {
       const state = await authApi.twoFactorStatus();
+      lastTwoFactorState = state;
+      updateRecoveryCodesAction(state);
       const parts = [];
-      const hasAnyFactor = state.has_totp || state.has_passkey || state.has_recovery_codes || state.has_email_fallback;
-      parts.push(state.enabled ? 'aktiv' : (state.required ? (hasAnyFactor ? 'erforderlich, nutzbarer Faktor verfügbar' : 'erforderlich, kein Faktor verfügbar') : 'nicht aktiv'));
-      if (state.has_totp) parts.push('TOTP eingerichtet');
-      if (state.has_passkey) parts.push(`${state.passkey_count} Passkey(s)`);
-      if (state.has_email_fallback) parts.push('E-Mail-Code verfügbar');
+      const hasPrimaryFactor = Boolean(state.has_totp || state.has_passkey);
+      if (state.enabled) {
+        parts.push('aktiv');
+      } else if (state.required && hasPrimaryFactor) {
+        parts.push('Einrichtung begonnen');
+      } else if (state.required) {
+        parts.push('2FA-Pflicht aktiv — noch kein Authenticator oder Passkey eingerichtet');
+      } else {
+        parts.push('nicht aktiv');
+      }
+      if (state.has_totp) parts.push('Authenticator-App eingerichtet');
+      if (state.has_passkey) parts.push(`${state.passkey_count} Passkey(s) eingerichtet`);
       if (state.has_recovery_codes) parts.push(`${state.recovery_codes_remaining} Recovery Codes`);
+      if (state.has_email_fallback && !hasPrimaryFactor) parts.push('E-Mail-Code als Übergang verfügbar');
       statusEl.textContent = `Status: ${parts.join(' · ')}`;
       document.getElementById('settings-2fa-actions')?.querySelectorAll('button').forEach((btn) => {
         if (btn.textContent.includes('deaktivieren')) btn.style.display = state.enabled ? '' : 'none';
       });
+      updateSettingsEnrollmentLock(state);
       await renderTwoFactorDevices(state);
     } catch (e) {
+      lastTwoFactorState = null;
+      updateRecoveryCodesAction(null);
       if (errorEl) errorEl.textContent = e.message || '2FA-Status konnte nicht geladen werden';
     }
   }
@@ -202,11 +250,15 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     document.getElementById('settings-2fa-recovery').style.display = 'none';
     renderUserInfo();
     document.getElementById('settings-modal')?.classList.add('active');
+    updateSettingsEnrollmentLock();
     await refreshCurrentUser().catch(() => {});
+    updateSettingsEnrollmentLock();
     await refreshTwoFactorStatus();
-    resetApiKeyUi();
-    loadApiKeys();
-    updatePushSettingsUI();
+    if (!isMfaEnrollmentLocked()) {
+      resetApiKeyUi();
+      loadApiKeys();
+      updatePushSettingsUI();
+    }
   }
 
   function editUserDisplayName() {
@@ -580,13 +632,23 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
       });
       if (!password) throw new Error('Passwortbestätigung erforderlich');
       const data = await authApi.confirmTotp(pendingTotpSecret, code, password);
+      const wasEnrollmentLocked = isMfaEnrollmentLocked();
       if (data.access_token) localStorage.setItem('jwt_token', data.access_token);
+      localStorage.setItem('nia-mfa-enrollment-required', '0');
+      const currentUser = getCurrentUser();
+      if (currentUser) setCurrentUser({ ...currentUser, token: data.access_token || currentUser.token, mfa_enrollment_required: false });
+      updateSettingsEnrollmentLock();
       pendingTotpSecret = '';
       pendingTotpUrl = '';
       document.getElementById('settings-2fa-setup').style.display = 'none';
       renderRecoveryCodes(data.recovery_codes);
       successEl.textContent = '2FA aktiviert';
       await refreshTwoFactorStatus();
+      if (wasEnrollmentLocked) {
+        document.getElementById('settings-modal')?.classList.remove('active');
+        if (typeof window.initApp === 'function') await window.initApp();
+        if (typeof window.refreshFromServer === 'function') await window.refreshFromServer();
+      }
     } catch (e) {
       errorEl.textContent = e.message;
     }
@@ -634,14 +696,27 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     }
     try {
       const state = await authApi.twoFactorStatus().catch(() => ({}));
-      if (state.enabled || state.required) await ensureRecentMfa('das Hinzufügen eines Passkeys');
-      const details = await promptPasskeyDetails();
-      if (!details) throw new Error('Passkey-Setup abgebrochen');
-      const data = await authApi.createPasskey(details.name, details.password);
+      const wasEnrollmentLocked = Boolean(isMfaEnrollmentLocked() || shouldLockForTwoFactorState(state));
+      const hasExistingSecondFactor = Boolean(state.has_totp || state.has_passkey || state.has_recovery_codes || state.has_email_fallback);
+      if ((state.enabled || state.required) && hasExistingSecondFactor && !wasEnrollmentLocked) await ensureRecentMfa('das Hinzufügen eines Passkeys');
+      const name = await promptSecurityText({ title: 'Passkey hinzufügen', message: 'Vergib einen Namen für diesen Passkey.', label: 'Name', value: 'Passkey', required: true, primaryText: 'Weiter' });
+      if (!name) throw new Error('Passkey-Setup abgebrochen');
+      const password = await promptSecurityPassword({ title: 'Passkey hinzufügen', message: 'Bitte bestätige mit deinem Passwort. Danach öffnet sich die Passkey-Registrierung.', primaryText: 'Passkey erstellen' });
+      if (!password) throw new Error('Passwortbestätigung erforderlich');
+      const data = await authApi.createPasskey(name.trim() || 'Passkey', password);
       if (data.access_token) localStorage.setItem('jwt_token', data.access_token);
+      localStorage.setItem('nia-mfa-enrollment-required', '0');
+      const currentUser = getCurrentUser();
+      if (currentUser) setCurrentUser({ ...currentUser, token: data.access_token || currentUser.token, mfa_enrollment_required: false });
+      updateSettingsEnrollmentLock();
       if (data.recovery_codes?.length) renderRecoveryCodes(data.recovery_codes);
       successEl.textContent = 'Passkey gespeichert';
       await refreshTwoFactorStatus();
+      if (wasEnrollmentLocked) {
+        document.getElementById('settings-modal')?.classList.remove('active');
+        if (typeof window.initApp === 'function') await window.initApp();
+        if (typeof window.refreshFromServer === 'function') await window.refreshFromServer();
+      }
     } catch (e) {
       errorEl.textContent = e.message;
     }
@@ -686,6 +761,11 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     const successEl = document.getElementById('settings-2fa-success');
     errorEl.textContent = '';
     successEl.textContent = '';
+    if (!(lastTwoFactorState?.has_totp || lastTwoFactorState?.has_passkey)) {
+      errorEl.textContent = 'Recovery Codes können nur mit aktivem Authenticator oder Passkey erzeugt werden.';
+      updateRecoveryCodesAction(lastTwoFactorState);
+      return;
+    }
     try {
       await ensureRecentMfa('das Erzeugen neuer Recovery Codes');
       const data = await authApi.regenerateRecoveryCodes();

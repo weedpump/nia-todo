@@ -29,7 +29,9 @@ export function createUiShell({ renderMarkdown, showTodoModal }) {
   }
 
   function closeModal(modalId) {
-    document.getElementById(modalId)?.classList.remove('active');
+    const modal = document.getElementById(modalId);
+    if (modalId === 'settings-modal' && modal?.classList.contains('mfa-enrollment-locked')) return;
+    modal?.classList.remove('active');
   }
 
   function setupDescPreview() {
