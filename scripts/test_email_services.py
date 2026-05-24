@@ -126,6 +126,8 @@ def test_branded_email_templates():
     assert_true("Passwort zurücksetzen" in html and "nia-todo" in html, "branded password HTML missing content")
     assert_true("https://todo.example.invalid/set-password?token=abc" in text, "plain text reset link missing")
     assert_true("Deine Aufgaben. Klar sortiert." in html, "brand tagline missing")
+    assert_true("Falls der Link nicht funktioniert" in html, "Outlook fallback link hint missing")
+    assert_true("Falls der Button nicht funktioniert" in html, "modern fallback link hint missing")
 
     _, _, invite_html = project_share_invite_email(
         display_name="",
