@@ -45,6 +45,7 @@ export const RUNTIME_CAPABILITIES = Object.freeze({
   appDownloads: RUNTIME_MODE === 'browser',
   nativeAppVersion: RUNTIME_MODE === 'native',
   nativeAppUpdates: RUNTIME_MODE === 'native',
+  nativePasskeys: RUNTIME_MODE === 'native' && RUNTIME_PLATFORM === 'windows' && Boolean(getTauriInvoke()),
 });
 
 export function isNativeRuntime() {

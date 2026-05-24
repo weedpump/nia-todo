@@ -129,6 +129,7 @@ Windows:
 
 - Local notifications.
 - Local reminder scheduling while app/background agent is available.
+- Native Passkey/WebAuthn bridge via Windows WebAuthn backend; the app passes the server-provided RP origin into the native authenticator instead of relying on WebView2 `navigator.credentials` under `tauri.localhost`. The Rust command validates that origin and RP-ID against the locally configured server URL before invoking Windows WebAuthn, so native passkeys require the app server URL to match the server's canonical `public_base_url` origin/RP host.
 - Optional tray/autostart/hotkeys only after core cold-start + sync architecture is stable.
 
 Android:
@@ -137,6 +138,7 @@ Android:
 - `AlarmManager`-based reminders.
 - Re-register reminders after reboot.
 - Runtime notification permission.
+- Native Passkey/WebAuthn support is intentionally deferred and must be implemented through an Android-specific bridge, not by enabling the Windows path.
 - Offline completion action only if it writes safely to local queue and cannot cross user/server context.
 
 ### 6. Web/PWA compatibility

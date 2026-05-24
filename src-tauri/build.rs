@@ -11,6 +11,8 @@ fn main() {
         "desktop_request_notification_permission",
         "desktop_notify",
         "desktop_schedule_reminders",
+        "desktop_passkey_register",
+        "desktop_passkey_authenticate",
       ]),
     ),
   )

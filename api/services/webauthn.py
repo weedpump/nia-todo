@@ -120,8 +120,9 @@ def relying_party_for_request(request) -> WebAuthnRelyingParty:
     """Return pinned WebAuthn RP settings.
 
     Production passkeys should be bound to the configured public_base_url. Local
-    development is allowed to fall back to localhost. Native/Tauri origins are
-    intentionally rejected until the native passkey bridge exists.
+    development is allowed to fall back to localhost. Browser/WebView origins
+    such as tauri.localhost are rejected; native apps must use the OS passkey
+    bridge with the server-provided RP origin.
     """
     config = get_instance_config()
     public_base_url = (config.get("public_base_url") or "").rstrip("/")

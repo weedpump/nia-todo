@@ -25,7 +25,12 @@ export function createNativeBridge() {
   async function invokeTauri(command, args = {}) {
     const fn = invoke();
     if (!fn) throw new Error('Tauri API not available');
-    return fn(command, args);
+    try {
+      return await fn(command, args);
+    } catch (error) {
+      if (error instanceof Error) throw error;
+      throw new Error(typeof error === 'string' ? error : JSON.stringify(error));
+    }
   }
 
   async function getSettings() {
@@ -88,6 +93,20 @@ export function createNativeBridge() {
 
   async function clearReminders() {
     return scheduleReminders([]);
+  }
+
+  function supportsNativePasskeys() {
+    return RUNTIME_CAPABILITIES.nativePasskeys && Boolean(invoke());
+  }
+
+  async function passkeyRegister(origin, publicKey) {
+    if (!supportsNativePasskeys()) throw new Error('Native Passkey-Bridge nicht verfügbar');
+    return invokeTauri('desktop_passkey_register', { origin, options: publicKey });
+  }
+
+  async function passkeyAuthenticate(origin, publicKey) {
+    if (!supportsNativePasskeys()) throw new Error('Native Passkey-Bridge nicht verfügbar');
+    return invokeTauri('desktop_passkey_authenticate', { origin, options: publicKey });
   }
 
   async function openExternal(url) {
@@ -166,6 +185,9 @@ export function createNativeBridge() {
     notify,
     scheduleReminders,
     clearReminders,
+    supportsNativePasskeys,
+    passkeyRegister,
+    passkeyAuthenticate,
     openExternal,
     consumePendingDoneAction,
     setSystemBarsTheme,
