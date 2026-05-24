@@ -8,7 +8,6 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 ## [2.0.0] - Unreleased
 
 ### Fixed
-- System-E-Mails nutzen ein gemeinsames, modernes HTML/Text-Template mit nia-todo Branding, Logo-Unterstützung und einheitlichen Aktionsbuttons.
 - Release-Version-Checker validiert SemVer strenger und deckt `min_native_client_version`-Grenzen per Regressionstest ab.
 - Android-Release setzt generated `tauri.properties` vor dem APK-Build deterministisch, damit alte generated Versionen keinen späten Build-Fail verursachen.
 - Native App-Update-Hinweise können bei optionalen Updates bis zum nächsten Appstart verschoben werden; nur eine erhöhte `min_native_client_version` erzwingt das Update.
@@ -55,6 +54,7 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 - **Migrations 024–028** für 2FA-Status, Challenges, Attempt-Lockout, Trusted Devices, Passkeys, One-Time-MFA-Grants, Recovery-Code-Zeilen und Replay-Schutz ergänzt.
 
 ### Changed
+- System-E-Mails nutzen ein gemeinsames, modernes HTML/Text-Template mit nia-todo Branding, Logo-Unterstützung und einheitlichen Aktionsbuttons.
 - Projekt-, Todo-, Dashboard- und Section-Ansichten werden nach aktivem Workspace gefiltert; Benachrichtigungen, Reminder, Push und WebSocket-Sync bleiben global.
 - UI-Emojis wurden durch konsistente SVG-Icons bzw. neutrale Status-Texte ersetzt.
 - Neue Projekte werden im aktiven Workspace erstellt; Subprojekte müssen im selben Workspace wie ihr Parent bleiben.

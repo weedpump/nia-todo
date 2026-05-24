@@ -17,6 +17,15 @@ TEXT_COLOR = "#0f172a"
 MUTED_COLOR = "#64748b"
 BORDER_COLOR = "#e2e8f0"
 BG_COLOR = "#f1f5f9"
+MAX_SUBJECT_LENGTH = 140
+
+
+def _clean_subject(value: str) -> str:
+    """Return a single-line, reasonably sized e-mail subject."""
+    cleaned = " ".join(str(value or "").split())
+    if len(cleaned) <= MAX_SUBJECT_LENGTH:
+        return cleaned
+    return cleaned[: MAX_SUBJECT_LENGTH - 1].rstrip() + "…"
 
 
 def _instance_base_url() -> str:
@@ -153,16 +162,18 @@ def render_system_email(
     """Return subject, plain text and branded HTML for a nia-todo system email."""
     safe_name = greeting_name.strip() if greeting_name else "du"
     greeting = f"Hallo {safe_name},"
-    text = _text_email(greeting=greeting, paragraphs=paragraphs, action_label=action_label, action_url=action_url, details=details)
+    cleaned_subject = _clean_subject(subject)
+    safe_paragraphs = [str(paragraph) for paragraph in paragraphs if str(paragraph).strip()]
+    text = _text_email(greeting=greeting, paragraphs=safe_paragraphs, action_label=action_label, action_url=action_url, details=details)
     body = [f'<p style="margin:0 0 16px;font-size:16px;color:{TEXT_COLOR};">Hallo {escape(safe_name)},</p>']
-    for paragraph in paragraphs:
+    for paragraph in safe_paragraphs:
         body.append(f'<p style="margin:0 0 16px;font-size:16px;color:{TEXT_COLOR};">{escape(paragraph)}</p>')
     if action_label and action_url:
         body.append(_button_html(action_label, action_url))
         body.append(_fallback_link_html(action_url))
     body.append(_detail_box(details or []))
-    html = _layout(title=title, preheader=preheader or paragraphs[0], body_html="".join(body))
-    return subject, text, html
+    html = _layout(title=title, preheader=preheader or (safe_paragraphs[0] if safe_paragraphs else title), body_html="".join(body))
+    return cleaned_subject, text, html
 
 
 def project_share_invite_email(*, display_name: str, username: str, project_name: str, inviter_name: str, link: str) -> tuple[str, str, str]:

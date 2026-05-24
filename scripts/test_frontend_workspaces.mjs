@@ -6,21 +6,29 @@ async function run() {
   const { browser, page, loginApp, visible, waitForText } = await launchPage();
 
   async function openWorkspaceMenu() {
+    await page.evaluate(() => window.renderWorkspaces?.());
     await page.locator('#workspace-current-btn').click();
     await page.locator('#workspace-menu.open').waitFor({ state: 'visible', timeout: 5000 });
   }
 
+  async function waitForWorkspaceMenuRow(name) {
+    await page.waitForFunction((workspaceName) => {
+      window.renderWorkspaces?.();
+      return [...document.querySelectorAll('#workspace-menu .workspace-menu-row')]
+        .some(row => row.textContent?.includes(workspaceName));
+    }, name, { timeout: 10000 });
+    return page.locator('#workspace-menu .workspace-menu-row').filter({ hasText: name }).first();
+  }
+
   async function chooseWorkspace(name) {
     await openWorkspaceMenu();
-    const row = page.locator('#workspace-menu .workspace-menu-row').filter({ hasText: name }).first();
-    await row.waitFor({ state: 'visible', timeout: 5000 });
+    const row = await waitForWorkspaceMenuRow(name);
     await row.locator('.workspace-menu-choice').click();
   }
 
   async function editWorkspace(name) {
     await openWorkspaceMenu();
-    const row = page.locator('#workspace-menu .workspace-menu-row').filter({ hasText: name }).first();
-    await row.waitFor({ state: 'visible', timeout: 5000 });
+    const row = await waitForWorkspaceMenuRow(name);
     await row.locator('.workspace-menu-edit').click();
   }
 
