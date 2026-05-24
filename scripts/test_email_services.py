@@ -17,7 +17,7 @@ sys.path.insert(0, str(API_DIR))
 from migrate import run_migrations  # noqa: E402
 from services.email_config import get_email_config, update_email_config  # noqa: E402
 from services.email import send_email, send_test_email  # noqa: E402
-from services.email_templates import password_setup_email, project_share_invite_email, two_factor_code_email  # noqa: E402
+from services.email_templates import email_verification_email, password_setup_email, project_share_invite_email, test_email, two_factor_code_email  # noqa: E402
 import services.email as email_service  # noqa: E402
 
 
@@ -153,6 +153,26 @@ def test_branded_email_templates():
     assert_true("&lt;img src=x onerror=alert(1)&gt;" in html, "display name was not escaped")
 
 
+def test_all_system_email_templates_use_split_layout():
+    templates = [
+        password_setup_email(display_name="Tobi", username="tobi", link="https://todo.example.invalid/set-password?token=abc", purpose="reset", expires_hours=24),
+        password_setup_email(display_name="Tobi", username="tobi", link="https://todo.example.invalid/set-password?token=abc", purpose="invite", expires_hours=24),
+        email_verification_email(display_name="Tobi", username="tobi", link="https://todo.example.invalid/verify?token=abc", expires_hours=24),
+        project_share_invite_email(display_name="", username="moni", project_name="Urlaub", inviter_name="Tobi", link="https://todo.example.invalid/project"),
+        two_factor_code_email(display_name="", username="tobi", code="123456", purpose="login"),
+        test_email(),
+    ]
+    for subject, text, html in templates:
+        assert_true(subject, "template subject missing")
+        assert_true(text, "plain text template missing")
+        assert_true('src="cid:nia-todo-logo"' in html, "template logo does not use CID")
+        assert_true("<!--[if mso]>" in html, "Outlook/MSO layout missing")
+        assert_true("<!--[if !mso]><!-->" in html, "modern layout missing")
+        assert_true("modern-hero" in html and "hero-shell" in html, "modern hero layout missing")
+        assert_true("v:roundrect" in html and "mso-style-textfill-fill-color:#ffffff" in html, "Outlook hero fallback missing")
+        assert_true("Deine Aufgaben. Klar sortiert." in html, "brand tagline missing")
+
+
 def test_render_system_email_handles_empty_paragraphs():
     from services.email_templates import render_system_email
 
@@ -203,6 +223,7 @@ def main():
         test_secret_redaction()
         test_starttls_auth_send()
         test_branded_email_templates()
+        test_all_system_email_templates_use_split_layout()
         test_render_system_email_handles_empty_paragraphs()
         test_send_test_email_uses_branded_template()
         test_tls_ssl_send_without_starttls()
