@@ -72,6 +72,17 @@ def _outlook_action_link_html(label: str, url: str) -> str:
     )
 
 
+def _outlook_fallback_link_html(link: str) -> str:
+    safe_link = escape(link)
+    safe_href = escape(link, quote=True)
+    return (
+        '<p style="margin:18px 0 0;font-family:Arial,sans-serif;font-size:13px;line-height:20px;color:#64748b;">'
+        'Falls der Link nicht funktioniert, kopiere diese Adresse:<br>'
+        f'<a href="{safe_href}" style="color:{LINK_COLOR};word-break:break-all;text-decoration:underline;">{safe_link}</a>'
+        '</p>'
+    )
+
+
 def _detail_box(items: list[str]) -> str:
     if not items:
         return ""
@@ -111,6 +122,7 @@ def _outlook_body_html(*, safe_name: str, paragraphs: list[str], action_label: s
         body.append(f'<p style="margin:0 0 16px;font-family:Arial,sans-serif;font-size:16px;line-height:27px;color:#334155;">{escape(paragraph)}</p>')
     if action_label and action_url:
         body.append(_outlook_action_link_html(action_label, action_url))
+        body.append(_outlook_fallback_link_html(action_url))
     body.append(_detail_box(details))
     return "".join(body)
 
