@@ -1,20 +1,40 @@
 """SMTP email delivery service."""
 
+import mimetypes
 import smtplib
 from email.message import EmailMessage
 from email.utils import formataddr
+from pathlib import Path
 from typing import Optional
 
 from fastapi import HTTPException
 
 from services.email_config import get_email_config, is_email_configured
-from services.email_templates import test_email
+from services.email_templates import LOGO_CID, test_email
+
+BASE_DIR = Path(__file__).resolve().parents[2]
+LOGO_PATH = BASE_DIR / "web" / "static" / "icons" / "icon-192.png"
 
 
 def _sender(config: dict) -> str:
     address = config.get("mail_from_address") or ""
     name = config.get("mail_from_name") or "nia-todo"
     return formataddr((name, address)) if name else address
+
+
+def _attach_inline_logo(message: EmailMessage, html_part: EmailMessage, html: str) -> None:
+    """Attach the app logo as CID image for broad mail-client compatibility."""
+    if f"cid:{LOGO_CID}" not in html or not LOGO_PATH.exists():
+        return
+
+    content_type, _ = mimetypes.guess_type(LOGO_PATH.name)
+    maintype, subtype = (content_type or "image/png").split("/", 1)
+    html_part.add_related(
+        LOGO_PATH.read_bytes(),
+        maintype=maintype,
+        subtype=subtype,
+        cid=f"<{LOGO_CID}>",
+    )
 
 
 def send_email(*, to: str, subject: str, text: str, html: Optional[str] = None) -> None:
@@ -32,6 +52,8 @@ def send_email(*, to: str, subject: str, text: str, html: Optional[str] = None) 
     message.set_content(text)
     if html:
         message.add_alternative(html, subtype="html")
+        html_part = message.get_payload()[-1]
+        _attach_inline_logo(message, html_part, html)
 
     host = config["smtp_host"]
     port = int(config["smtp_port"])
