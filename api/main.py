@@ -249,17 +249,32 @@ def _document_html(title: str, subtitle: str, markdown: str, search_placeholder:
       const tocLinks = Array.from(document.querySelectorAll('nav a'));
       function escapeRegExp(value) {{ return value.replace(/[.*+?^${{}}()|[\]\\]/g, '\\$&'); }}
       function runSearch() {{
-        const query = search.value.trim().toLowerCase();
+        const rawQuery = search.value.trim();
+        const query = rawQuery.toLowerCase();
+        const visible = new Set();
         let matches = 0;
-        blocks.forEach((block) => {{
+        blocks.forEach((block, index) => {{
           block.el.classList.remove('hidden-by-search');
           block.el.innerHTML = block.html;
-          if (!query) return;
+          if (!query) {{
+            visible.add(index);
+            return;
+          }}
           const hit = block.text.toLowerCase().includes(query);
-          block.el.classList.toggle('hidden-by-search', !hit);
-          if (hit) {{
-            matches++;
-            const rx = new RegExp(`(${{escapeRegExp(search.value.trim())}})`, 'gi');
+          if (!hit) return;
+          matches++;
+          visible.add(index);
+          for (let cursor = index - 1; cursor >= 0; cursor--) {{
+            const tag = blocks[cursor].el.tagName;
+            if (/^H[1-4]$/.test(tag)) visible.add(cursor);
+            if (tag === 'H2') break;
+          }}
+        }});
+        blocks.forEach((block, index) => {{
+          const show = !query || visible.has(index);
+          block.el.classList.toggle('hidden-by-search', !show);
+          if (show && query && block.text.toLowerCase().includes(query)) {{
+            const rx = new RegExp(`(${{escapeRegExp(rawQuery)}})`, 'gi');
             if (!['PRE', 'CODE'].includes(block.el.tagName)) block.el.innerHTML = block.html.replace(rx, '<mark>$1</mark>');
           }}
         }});
