@@ -151,7 +151,7 @@ export function createTodosFeature({
     if (projSelect) {
       projSelect.innerHTML = '';
       const currentWorkspaceId = getCurrentWorkspaceId?.();
-      const projects = getProjects().filter(p => p.is_shared || !currentWorkspaceId || String(p.workspace_id || '') === String(currentWorkspaceId));
+      const projects = getProjects().filter(p => !currentWorkspaceId || String(p.workspace_id || '') === String(currentWorkspaceId));
       const projectMap = new Map();
       projects.forEach(p => projectMap.set(p.id, { ...p, children: [] }));
       const rootProjects = [];

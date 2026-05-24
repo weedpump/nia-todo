@@ -97,15 +97,23 @@ async def websocket_endpoint(websocket: WebSocket):
                         "SELECT *, 0 as is_shared, 1 as is_owner FROM projects WHERE user_id = ? ORDER BY COALESCE(is_inbox, 0) DESC, parent_id, sort_order, id",
                         (ws_user_id,)
                     ).fetchall()
+                    default_workspace = db.execute(
+                        "SELECT id FROM workspaces WHERE user_id = ? AND COALESCE(is_default, 0) = 1 ORDER BY id LIMIT 1",
+                        (ws_user_id,),
+                    ).fetchone()
+                    default_workspace_id = default_workspace['id'] if default_workspace else None
                     shared_projects = db.execute(
-                        """SELECT p.*, 1 as is_shared, 0 as is_owner, pm.id as member_id, pm.status as member_status,
+                        """SELECT p.id, p.name, p.color, p.sort_order, p.created_at, p.updated_at, p.parent_id,
+                   p.user_id, p.is_inbox, p.workspace_id as owner_workspace_id, p.icon,
+                   COALESCE(pm.workspace_id, ?) as workspace_id,
+                                  1 as is_shared, 0 as is_owner, pm.id as member_id, pm.status as member_status,
                                   u.username as owner_username, u.display_name as owner_display_name
                            FROM projects p
                            JOIN project_members pm ON pm.project_id = p.id
                            JOIN users u ON u.id = p.user_id
                            WHERE pm.user_id = ? AND pm.status = 'accepted'
                            ORDER BY p.name""",
-                        (ws_user_id,)
+                        (default_workspace_id, ws_user_id)
                     ).fetchall()
                     sections_rows = db.execute(
                         """SELECT s.* FROM sections s

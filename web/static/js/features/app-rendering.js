@@ -55,7 +55,7 @@ export function createAppRenderingFeature({
     const currentWorkspaceId = getCurrentWorkspaceId?.();
     const projects = getProjects();
     if (!currentWorkspaceId) return projects;
-    return projects.filter(project => project.is_shared || String(project.workspace_id || '') === String(currentWorkspaceId));
+    return projects.filter(project => String(project.workspace_id || '') === String(currentWorkspaceId));
   }
 
   function getWorkspaceTodos() {

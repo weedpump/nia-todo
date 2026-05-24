@@ -136,14 +136,18 @@ def get_project_members(db, project_id: int, include_inactive=False, owner_only=
 
 def get_shared_projects_for_user(db, user_id: int) -> list:
     """Get all projects shared with a user (as member, not owner)."""
+    default_workspace_id = get_user_default_workspace_id(db, user_id)
     rows = db.execute(
-        """SELECT p.*, pm.status as member_status, pm.user_color as member_color,
+        """SELECT p.id, p.name, p.color, p.sort_order, p.created_at, p.updated_at, p.parent_id,
+                   p.user_id, p.is_inbox, p.workspace_id as owner_workspace_id, p.icon,
+                   COALESCE(pm.workspace_id, ?) as workspace_id,
+                  1 as is_shared, 0 as is_owner, pm.status as member_status, pm.user_color as member_color,
                   pm.id as member_id, u.username as owner_username
            FROM project_members pm
            JOIN projects p ON pm.project_id = p.id
            JOIN users u ON p.user_id = u.id
            WHERE pm.user_id = ? AND pm.status = 'accepted'""",
-        (user_id,)
+        (default_workspace_id, user_id)
     ).fetchall()
     return [dict(r) for r in rows]
 
@@ -159,6 +163,14 @@ def get_pending_invites_for_user(db, user_id: int) -> list:
         (user_id,)
     ).fetchall()
     return [dict(r) for r in rows]
+
+
+def get_user_default_workspace_id(db, user_id: int):
+    row = db.execute(
+        "SELECT id FROM workspaces WHERE user_id = ? AND COALESCE(is_default, 0) = 1 ORDER BY id LIMIT 1",
+        (user_id,),
+    ).fetchone()
+    return row['id'] if row else None
 
 
 # ─── Endpoints ─────────────────────────────────────────────────────────────────
@@ -289,9 +301,10 @@ async def restore_member(project_id: int, member_user_id: int, data: RestoreMemb
         if is_owner and member['status'] not in ('removed', 'left', 'declined'):
             raise HTTPException(400, "Member cannot be restored from current status")
 
+        workspace_id = get_user_default_workspace_id(db, member_user_id) if data.status == 'accepted' else member['workspace_id']
         db.execute(
-            "UPDATE project_members SET status = ?, updated_at = datetime('now') WHERE id = ?",
-            (data.status, member['id'])
+            "UPDATE project_members SET status = ?, workspace_id = COALESCE(?, workspace_id), updated_at = datetime('now') WHERE id = ?",
+            (data.status, workspace_id, member['id'])
         )
         db.commit()
 
@@ -327,9 +340,10 @@ async def respond_to_invite(project_id: int, invite_id: int, data: AcceptInviteR
             raise HTTPException(400, "Invite is not pending")
 
         new_status = 'accepted' if data.accept else 'declined'
+        workspace_id = get_user_default_workspace_id(db, user_id) if data.accept else invite['workspace_id']
         db.execute(
-            "UPDATE project_members SET status = ?, updated_at = datetime('now') WHERE id = ?",
-            (new_status, invite_id)
+            "UPDATE project_members SET status = ?, workspace_id = COALESCE(?, workspace_id), updated_at = datetime('now') WHERE id = ?",
+            (new_status, workspace_id, invite_id)
         )
         db.commit()
 
