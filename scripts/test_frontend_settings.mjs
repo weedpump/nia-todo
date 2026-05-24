@@ -152,7 +152,10 @@ async function run() {
     await page.evaluate(() => window.sendTestPush());
     await page.waitForFunction(() => {
       const text = document.getElementById('push-error')?.textContent || '';
-      return text.includes('Test-Benachrichtigung gesendet!') || text.includes('Test-Benachrichtigung konnte nicht gesendet werden.');
+      return text.includes('Test-Benachrichtigung gesendet!')
+        || text.includes('Test notification sent!')
+        || text.includes('Test-Benachrichtigung konnte nicht gesendet werden.')
+        || text.includes('Test notification could not be sent.');
     }, { timeout: 10000 });
 
     await page.locator('#api-keys-list .btn.btn-danger').first().click();
@@ -167,7 +170,10 @@ async function run() {
     }, { timeout: 10000 });
 
     await page.evaluate(() => window.disablePushNotifications());
-    await page.waitForFunction(() => document.getElementById('push-error')?.textContent?.includes('deaktiviert'), { timeout: 10000 });
+    await page.waitForFunction(() => {
+      const text = document.getElementById('push-error')?.textContent || '';
+      return text.includes('deaktiviert') || text.includes('disabled');
+    }, { timeout: 10000 });
 
     await page.fill('#settings-old-password', USER_PASSWORD);
     await page.fill('#settings-new-password', 'FrontendChanged123!');

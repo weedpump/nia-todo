@@ -508,12 +508,12 @@
         <div id="api-key-error" style="color:var(--danger); font-size:13px; margin-top:8px;"></div>
         <div id="browser-push-settings-section">
           <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">
-          <h4 style="margin:0 0 12px 0; font-size:14px;"><span data-icon="bell"></span> Push Benachrichtigungen</h4>
-          <div id="push-status" style="font-size:13px; color:var(--text-secondary); margin-bottom:12px;">Status: Wird geprüft...</div>
+          <h4 style="margin:0 0 12px 0; font-size:14px;"><span data-icon="bell"></span> <span data-i18n-key="settings.push.title">Push Benachrichtigungen</span></h4>
+          <div id="push-status" style="font-size:13px; color:var(--text-secondary); margin-bottom:12px;" data-i18n-key="settings.push.statusChecking">Status: Wird geprüft...</div>
           <div id="push-actions">
-            <button class="btn btn-primary" id="push-enable-btn" onclick="enablePushNotifications()" style="display:none;">Benachrichtigungen aktivieren</button>
-            <button class="btn btn-danger" id="push-disable-btn" onclick="disablePushNotifications()" style="display:none;">Deaktivieren</button>
-            <button class="btn btn-secondary" id="push-test-btn" onclick="sendTestPush()" style="display:none;">Test senden</button>
+            <button class="btn btn-primary" id="push-enable-btn" onclick="enablePushNotifications()" style="display:none;" data-i18n-key="settings.push.enable">Benachrichtigungen aktivieren</button>
+            <button class="btn btn-danger" id="push-disable-btn" onclick="disablePushNotifications()" style="display:none;" data-i18n-key="common.disable">Deaktivieren</button>
+            <button class="btn btn-secondary" id="push-test-btn" onclick="sendTestPush()" style="display:none;" data-i18n-key="settings.push.test">Test senden</button>
           </div>
           <div id="push-error" style="color:var(--danger); font-size:13px; margin-top:8px;"></div>
         </div>
