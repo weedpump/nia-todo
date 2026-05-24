@@ -99,6 +99,10 @@ export function translatePage(root = document) {
     const key = element.dataset.i18nAriaLabelKey;
     if (key) element.setAttribute('aria-label', t(key));
   });
+  scope.querySelectorAll('[data-i18n-alt-key]').forEach((element) => {
+    const key = element.dataset.i18nAltKey;
+    if (key) element.setAttribute('alt', t(key));
+  });
 }
 
 export { SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE, LANGUAGE_STORAGE_KEY };

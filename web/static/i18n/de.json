@@ -137,5 +137,11 @@
   "security.mfa.code.authOrRecovery": "Authenticator- oder Recovery-Code",
   "security.mfa.code.authenticator": "Authenticator-Code",
   "security.mfa.code.recovery": "Recovery-Code",
-  "security.mfa.code.email": "E-Mail-Code"
+  "security.mfa.code.email": "E-Mail-Code",
+  "avatar.change": "Avatar ändern",
+  "avatar.delete": "Avatar löschen",
+  "avatar.cropTitle": "Avatar zuschneiden",
+  "avatar.preview": "Avatar-Vorschau",
+  "avatar.cropHint": "Bild ziehen · Pinch oder Mausrad zum Zoomen",
+  "avatar.save": "Avatar speichern"
 }

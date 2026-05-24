@@ -336,17 +336,17 @@
   <div class="modal" id="avatar-crop-modal">
     <div class="modal-overlay" onclick="cancelAvatarCrop()"></div>
     <div class="modal-content avatar-crop-modal-content">
-      <h3><span data-icon="image"></span> Avatar zuschneiden</h3>
+      <h3><span data-icon="image"></span> <span data-i18n-key="avatar.cropTitle">Avatar zuschneiden</span></h3>
       <button class="modal-close-x" onclick="cancelAvatarCrop()"><span data-icon="x"></span></button>
       <div class="avatar-crop-body">
         <div class="avatar-crop-stage" id="avatar-crop-stage">
-          <img id="avatar-crop-image" alt="Avatar-Vorschau" draggable="false">
+          <img id="avatar-crop-image" alt="Avatar-Vorschau" data-i18n-alt-key="avatar.preview" draggable="false">
           <div class="avatar-crop-mask" aria-hidden="true"></div>
         </div>
-        <div class="avatar-crop-hint">Bild ziehen · Pinch oder Mausrad zum Zoomen</div>
+        <div class="avatar-crop-hint" data-i18n-key="avatar.cropHint">Bild ziehen · Pinch oder Mausrad zum Zoomen</div>
         <div class="avatar-crop-actions">
-          <button type="button" class="btn btn-secondary" onclick="cancelAvatarCrop()">Abbrechen</button>
-          <button type="button" class="btn btn-primary" onclick="saveAvatarCrop()">Avatar speichern</button>
+          <button type="button" class="btn btn-secondary" onclick="cancelAvatarCrop()" data-i18n-key="common.cancel">Abbrechen</button>
+          <button type="button" class="btn btn-primary" onclick="saveAvatarCrop()" data-i18n-key="avatar.save">Avatar speichern</button>
         </div>
         <div id="avatar-crop-error" class="settings-field-error"></div>
       </div>
@@ -394,11 +394,11 @@
       <div class="modal-body">
         <div class="settings-profile-card">
           <div class="settings-avatar-panel">
-            <button type="button" class="settings-avatar-button" onclick="document.getElementById('settings-avatar-input').click()" title="Avatar ändern">
+            <button type="button" class="settings-avatar-button" onclick="document.getElementById('settings-avatar-input').click()" title="Avatar ändern" data-i18n-title-key="avatar.change">
               <span id="settings-avatar-initial">U</span>
               <img id="settings-avatar-preview" alt="Avatar" style="display:none;">
             </button>
-            <button type="button" class="settings-avatar-remove" id="settings-avatar-remove" onclick="deleteUserAvatar()" style="display:none;">Avatar löschen</button>
+            <button type="button" class="settings-avatar-remove" id="settings-avatar-remove" onclick="deleteUserAvatar()" style="display:none;" data-i18n-key="avatar.delete">Avatar löschen</button>
           </div>
           <input type="file" id="settings-avatar-input" accept="image/png,image/jpeg,image/webp,image/gif,image/heic,image/heif,.heic,.heif" style="display:none;" onchange="startAvatarUpload(this.files?.[0])">
           <div class="settings-profile-fields">
