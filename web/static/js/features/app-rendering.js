@@ -31,36 +31,38 @@ export function createAppRenderingFeature({
     }
     versionText.textContent = appVersion;
 
-    if (!el.querySelector('.version-separator')) {
-      const separator = document.createElement('span');
-      separator.className = 'version-separator';
-      separator.setAttribute('aria-hidden', 'true');
-      separator.textContent = '|';
-      versionText.insertAdjacentElement('afterend', separator);
-    }
+    const actions = document.getElementById('version-actions');
+    if (!actions) return;
 
-    if (!el.querySelector('#force-refresh-btn')) {
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.className = 'force-refresh-btn';
-      button.id = 'force-refresh-btn';
-      button.title = 'Web-App neu herunterladen und Cache aktualisieren';
-      button.textContent = '↻ Neu laden';
-      button.addEventListener('click', () => window.forceReloadApp?.());
-      el.appendChild(button);
-    }
-
-    const versionBar = document.getElementById('version-bar');
-    if (versionBar && !versionBar.querySelector('#changelog-link')) {
+    if (!actions.querySelector('#changelog-link')) {
       const changelog = document.createElement('a');
-      changelog.className = 'changelog-link version-changelog-link web-version-changelog-link';
+      changelog.className = 'changelog-link version-action-btn';
       changelog.id = 'changelog-link';
       changelog.href = '/changelog';
       changelog.target = '_blank';
       changelog.rel = 'noopener noreferrer';
       changelog.title = 'Changelog öffnen';
       changelog.textContent = 'Changelog';
-      versionBar.insertBefore(changelog, versionBar.querySelector('[data-native-app-version]'));
+      actions.appendChild(changelog);
+    }
+
+    if (!actions.querySelector('.version-action-separator')) {
+      const separator = document.createElement('span');
+      separator.className = 'version-action-separator';
+      separator.setAttribute('aria-hidden', 'true');
+      separator.textContent = '|';
+      actions.appendChild(separator);
+    }
+
+    if (!actions.querySelector('#force-refresh-btn')) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'force-refresh-btn version-action-btn';
+      button.id = 'force-refresh-btn';
+      button.title = 'Web-App neu herunterladen und Cache aktualisieren';
+      button.textContent = '↻ Neu laden';
+      button.addEventListener('click', () => window.forceReloadApp?.());
+      actions.appendChild(button);
     }
   }
 
