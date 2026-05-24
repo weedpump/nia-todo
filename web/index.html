@@ -482,6 +482,9 @@
           <!-- API keys loaded dynamically -->
         </div>
         <button class="btn btn-primary" onclick="createApiKey()" style="margin-bottom:8px;">Neuen API-Key erstellen</button>
+        <div class="app-resource-links settings-resource-links api-settings-resource-links">
+          <a class="app-resource-link" href="/api" target="_blank" rel="noopener"><span data-icon="book-open"></span> API-Doku</a>
+        </div>
         <div id="api-key-created" style="display:none; background:var(--bg-tertiary); padding:12px; border-radius:var(--radius); margin-top:8px;">
           <p style="color:var(--warning); font-size:13px; margin:0 0 8px 0;"><span data-icon="triangle-alert"></span> Kopiere den Key jetzt — er wird nicht mehr angezeigt!</p>
           <code id="api-key-value" style="display:block; background:var(--bg-primary); padding:8px; border-radius:var(--radius); font-family:monospace; word-break:break-all; font-size:13px; margin-bottom:8px;"></code>
@@ -501,9 +504,6 @@
           <div id="push-error" style="color:var(--danger); font-size:13px; margin-top:8px;"></div>
         </div>
         <div class="app-downloads settings-downloads" data-app-downloads style="display:none;"></div>
-        <div class="app-resource-links settings-resource-links">
-          <a class="app-resource-link" href="/api" target="_blank" rel="noopener"><span data-icon="book-open"></span> API-Doku</a>
-        </div>
         <div id="desktop-settings-section" style="display:none;">
           <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">
           <h4 style="margin:0 0 12px 0; font-size:14px;"><span data-icon="smartphone"></span> App</h4>
