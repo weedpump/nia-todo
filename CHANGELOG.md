@@ -5,6 +5,14 @@ Alle wichtigen Änderungen an diesem Projekt werden in dieser Datei dokumentiert
 Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [2.0.1] - 2026-05-24
+
+### Fixed
+- MFA-Login bietet bei Accounts mit Passkey und Authenticator/Recovery-Code wieder beide Methoden an; Native Apps bevorzugen den Code-Flow, damit Desktop-/Android-Passkey-Einschränkungen keine Login-Sackgasse erzeugen.
+- App-Download-Manifest und Download-Artefakte werden im Service Worker aktiv als `never-cache` behandelt und aus alten Caches entfernt, damit veraltete APK-/Installer-Links nicht weiter angezeigt werden.
+- Avatar-URLs werden in Native Apps relativ zur konfigurierten Server-URL aufgelöst, sodass Profilbilder nicht gegen die lokale App-Shell-Origin geladen werden.
+- Release-Script wartet beim optionalen Setzen von `min_native_client_version` auf die live migrierte `app_config`-Tabelle.
+
 ## [2.0.0] - 2026-05-24
 
 ### Fixed
