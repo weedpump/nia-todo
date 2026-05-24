@@ -176,6 +176,16 @@ function compareVersions(a, b) {
   return comparePrerelease(leftVersion.prerelease, rightVersion.prerelease);
 }
 
+const dismissedNativeUpdateKeys = new Set();
+
+function nativeUpdateKey(platform, currentVersion, targetVersion) {
+  return `${platform || 'unknown'}:${normalizeVersion(currentVersion)}->${normalizeVersion(targetVersion)}`;
+}
+
+function getMinimumNativeClientVersion() {
+  return window.NIA_TODO_RUNTIME?.instance?.min_native_client_version || '';
+}
+
 function renderDownloads(target, downloads) {
   if (!target || !downloads?.length) return;
   target.replaceChildren();
@@ -212,14 +222,32 @@ function renderNativeAppVersion(target, platform, currentVersion) {
   target.style.display = '';
 }
 
-function showNativeUpdateModal(download, currentVersion, nativeBridge = null) {
+function showNativeUpdateModal(download, currentVersion, nativeBridge = null, options = {}) {
   if (!download?.url) return;
+  const { forced = false, minVersion = '' } = options;
   const modal = document.getElementById('native-app-update-modal');
+  const title = document.getElementById('native-app-update-title');
+  const message = document.getElementById('native-app-update-message');
   const current = document.getElementById('native-app-update-current-version');
   const latest = document.getElementById('native-app-update-latest-version');
   const button = document.getElementById('native-app-update-download-btn');
+  const laterButton = document.getElementById('native-app-update-later-btn');
+  if (title) title.textContent = forced ? 'App Update erforderlich' : 'App Update verfügbar';
+  if (message) {
+    message.textContent = forced
+      ? `Diese Server-Version benötigt mindestens App Version ${normalizeVersion(minVersion) || minVersion}. Bitte aktualisieren, bevor du weiterarbeitest.`
+      : 'Eine neue App Version ist verfügbar. Du kannst jetzt aktualisieren oder bis zum nächsten Appstart warten.';
+  }
   if (current) current.textContent = currentVersion || 'unbekannt';
   if (latest) latest.textContent = download.version || 'unbekannt';
+  if (laterButton) {
+    laterButton.style.display = forced ? 'none' : '';
+    laterButton.onclick = () => {
+      dismissedNativeUpdateKeys.add(nativeUpdateKey(download.platform, currentVersion, download.version));
+      modal?.classList.remove('active');
+      modal?.setAttribute('aria-hidden', 'true');
+    };
+  }
   if (button) {
     button.href = download.url;
     button.download = download.filename || '';
@@ -236,6 +264,7 @@ function showNativeUpdateModal(download, currentVersion, nativeBridge = null) {
     };
   }
   if (modal) {
+    modal.classList.toggle('native-update-required', Boolean(forced));
     modal.classList.add('active');
     modal.removeAttribute('aria-hidden');
   }
@@ -300,9 +329,14 @@ export function createAppDownloadsFeature() {
       }
 
       const nativeDownload = downloads.find((download) => download.platform === nativePlatform);
+      const minNativeClientVersion = getMinimumNativeClientVersion();
       const updateAvailable = nativeDownload?.version && currentVersion && compareVersions(nativeDownload.version, currentVersion) > 0;
-      if (updateAvailable) {
-        showNativeUpdateModal(nativeDownload, currentVersion, nativeBridge);
+      const updateRequired = nativeDownload?.version && currentVersion && minNativeClientVersion && compareVersions(minNativeClientVersion, currentVersion) > 0;
+      const dismissedKey = nativeDownload ? nativeUpdateKey(nativeDownload.platform, currentVersion, nativeDownload.version) : '';
+      if (updateRequired) {
+        showNativeUpdateModal(nativeDownload, currentVersion, nativeBridge, { forced: true, minVersion: minNativeClientVersion });
+      } else if (updateAvailable && !dismissedNativeUpdateKeys.has(dismissedKey)) {
+        showNativeUpdateModal(nativeDownload, currentVersion, nativeBridge, { forced: false, minVersion: minNativeClientVersion });
       }
     } catch (error) {
       console.info('[Downloads] No app download available', error);

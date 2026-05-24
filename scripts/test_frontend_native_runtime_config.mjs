@@ -137,8 +137,84 @@ async function testNativeUpdateUsesModalWithDownloadButton() {
     await page.locator('#native-app-update-modal.active').waitFor({ state: 'visible', timeout: 10_000 });
     const href = await page.locator('#native-app-update-download-btn').getAttribute('href');
     if (href !== `${BASE_URL}/downloads/nia-todo-v1.7.1-windows-x64-setup.exe`) throw new Error(`Unexpected native update href: ${href}`);
+    const laterVisible = await page.locator('#native-app-update-later-btn:visible').count();
+    if (laterVisible !== 1) throw new Error('Optional native update must offer a later button');
+    await page.locator('#native-app-update-later-btn').click();
+    await page.locator('#native-app-update-modal.active').waitFor({ state: 'hidden', timeout: 5_000 });
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    await page.waitForTimeout(500);
+    const reopened = await page.locator('#native-app-update-modal.active').count();
+    if (reopened !== 0) throw new Error('Dismissed optional native update must not reopen on focus in the same app run');
     const webUpdateVisible = await page.locator('#web-update-modal.active').count();
     if (webUpdateVisible !== 0) throw new Error('Web app update modal must not be shown for native app updates');
+  } catch (error) {
+    console.log('DEBUG frontend errors:', JSON.stringify(dumpErrors()));
+    throw error;
+  } finally {
+    await browser.close();
+  }
+}
+
+
+async function testNativeRequiredUpdateCannotBeDismissed() {
+  const { browser, page, dumpErrors } = await launchPage();
+  try {
+    await installTauriStub(page, { serverUrl: BASE_URL }, {
+      appVersion: '1.7.0',
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    });
+    await page.route(new RegExp(`${BASE_URL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/api/instance$`), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          app: 'nia-todo',
+          instance_id: 'test',
+          display_name: 'nia-todo',
+          public_base_url: BASE_URL,
+          api_version: 1,
+          server_version: '1.7.1',
+          min_native_client_version: '1.7.1',
+          capabilities: [],
+        }),
+      });
+    });
+    await page.route(new RegExp(`${BASE_URL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/downloads/app-downloads\\.json(?:\\?.*)?$`), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          version: 'v1.7.1',
+          latest: { version: 'v1.7.1' },
+          apps: [{
+            platform: 'windows',
+            arch: 'x64',
+            label: 'Windows Setup',
+            version: 'v1.7.1',
+            filename: 'nia-todo-v1.7.1-windows-x64-setup.exe',
+            url: '/downloads/nia-todo-v1.7.1-windows-x64-setup.exe',
+            sha256: 'a'.repeat(64),
+          }],
+        }),
+      });
+    });
+
+    await page.goto(BASE_URL, { waitUntil: 'domcontentloaded' });
+    await page.locator('#login-overlay').waitFor({ state: 'visible', timeout: 10_000 });
+    await page.fill('#login-username', USERNAME);
+    await page.fill('#login-password', USER_PASSWORD);
+    await page.click('button.login-btn');
+    await page.locator('#login-overlay').waitFor({ state: 'hidden', timeout: 15_000 });
+
+    await page.locator('#native-app-update-modal.active.native-update-required').waitFor({ state: 'visible', timeout: 10_000 });
+    const title = await page.locator('#native-app-update-title').textContent();
+    if (!title?.includes('erforderlich')) throw new Error(`Expected required update title, got ${title}`);
+    const laterVisible = await page.locator('#native-app-update-later-btn:visible').count();
+    if (laterVisible !== 0) throw new Error('Required native update must not offer a later button');
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(250);
+    const stillVisible = await page.locator('#native-app-update-modal.active').count();
+    if (stillVisible !== 1) throw new Error('Required native update modal must remain visible');
   } catch (error) {
     console.log('DEBUG frontend errors:', JSON.stringify(dumpErrors()));
     throw error;
@@ -240,6 +316,7 @@ async function run() {
   await testNativeRuntimeUsesConfiguredServerUrl();
   await testNativeDesktopSettingsPersistViaTauriCommand();
   await testNativeUpdateUsesModalWithDownloadButton();
+  await testNativeRequiredUpdateCannotBeDismissed();
   await testNativeUpdateRejectsUnsafeManifestDownload();
   console.log('✅ Native runtime config regression test passed');
 }

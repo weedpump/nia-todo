@@ -17,8 +17,8 @@
 3. Im Dev-Ordner bleiben: `~/projects/nia-todo-dev`
 4. Vorab bei Bedarf gezielt testen; `release.sh` führt die komplette Suite selbst aus
 5. `./release.sh VERSION` ausführen, z.B. `./release.sh 2.0.0`; stabile Releases müssen `MAJOR.MINOR.PATCH` nutzen
-6. Das Script setzt dieselbe Version für Web-App, Service Worker, Tauri/Cargo, Windows-Installer, Android-APK, Download-Manifest und `min_native_client_version`
-7. `scripts/check_release_versions.py VERSION` bricht den Release ab, falls eine Versionsquelle driftet
+6. Das Script setzt dieselbe Version für Web-App, Service Worker, Tauri/Cargo, Windows-Installer, Android-APK und Download-Manifest
+7. `scripts/check_release_versions.py VERSION` bricht den Release ab, falls eine automatisch gesetzte Versionsquelle driftet; `min_native_client_version` wird nur validiert und muss bewusst gepflegt werden
 8. Das Script baut Windows und Android immer mit; getrennte App-Versionen oder optionale Native-Builds gibt es nicht mehr
 9. Das Script merged `develop` nach `main`, erstellt Tag, aktualisiert Live und bumped `develop` auf die nächste gemeinsame `-dev` Version
 
@@ -32,6 +32,7 @@ Release-Artefakte werden auf Live unter `/downloads/` veröffentlicht:
 - Windows: `nia-todo-vX.Y.Z-windows-x64-setup.exe`
 - Android: `nia-todo-vX.Y.Z-android-arm64.apk`
 - Manifest: `web/downloads/app-downloads.json` mit `version`, `web_version`, `latest.version` und je App-Artefakt-Version auf dem Release-Tag.
+- `min_native_client_version` in `api/services/instance_config.py` ist kein Release-Zähler. Nur anheben, wenn ältere native Apps wirklich inkompatibel oder unsicher sind; dann blockieren Windows/Android bis zum Update.
 - Beim Veröffentlichen löscht `release.sh` zuerst alle alten Dateien in `/downloads/` außer `.gitkeep`; alte Installer/APKs dürfen danach auch per manueller URL nicht mehr abrufbar sein.
 - Native Builds verwenden ein frisch erzeugtes `src-tauri/frontend-dist` ohne `web/downloads/`; Größenlimits brechen den Release ab, falls Installer/APK unerwartet groß werden.
 
