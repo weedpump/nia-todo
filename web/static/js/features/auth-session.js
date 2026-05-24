@@ -62,10 +62,11 @@ export function createAuthSessionFeature({
   }
 
   function storeUserSession(data) {
-    const user = { ...data.user, token: data.access_token };
+    const user = { ...data.user, token: data.access_token, mfa_enrollment_required: Boolean(data.mfa_enrollment_required) };
     setCurrentUser(user);
     persistCachedUser(user);
     localStorage.setItem('jwt_token', data.access_token);
+    localStorage.setItem('nia-mfa-enrollment-required', data.mfa_enrollment_required ? '1' : '0');
     if (data.csrf_token) localStorage.setItem('csrf_token', data.csrf_token);
     return user;
   }
@@ -239,6 +240,7 @@ export function createAuthSessionFeature({
     localStorage.removeItem('last_user_id');
     localStorage.removeItem('csrf_token');
     localStorage.removeItem('cached_user');
+    localStorage.removeItem('nia-mfa-enrollment-required');
 
     await clearBrowserAuthCaches();
     await clearCache();
@@ -353,8 +355,11 @@ export function createAuthSessionFeature({
       resetLoginMfaPanel();
       hideLoginOverlay();
       renderUserInfo();
-      if (!getAppInitialized()) await initApp();
-      await refreshFromServer();
+      const enrollmentOnly = localStorage.getItem('nia-mfa-enrollment-required') === '1';
+      if (!enrollmentOnly) {
+        if (!getAppInitialized()) await initApp();
+        await refreshFromServer();
+      }
       window.dispatchEvent(new CustomEvent('nia-logged-in'));
     } catch (err) {
       console.error('Login failed:', err);

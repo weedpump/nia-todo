@@ -260,7 +260,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
     <div class="security-policy-row">
       <div class="security-policy-main">
         <div class="security-policy-title" id="twofa-policy-title">2FA-Pflicht lädt…</div>
-        <div class="security-policy-desc">Erzwingt 2FA für alle Benutzer. TOTP, Passkey, Recovery Code oder verifizierte E-Mail mit SMTP zählen als Faktor; nur ohne nutzbaren Faktor gibt es vorerst nur Zugriff auf die 2FA-Einrichtung.</div>
+        <div class="security-policy-desc">Erzwingt 2FA für alle Benutzer. Anmeldung ist mit Authenticator-App, Passkey oder vorhandenen Recovery Codes möglich. Wenn SMTP eingerichtet ist, können Benutzer ohne Authenticator/Passkey vorübergehend einen E-Mail-Code nutzen. Ohne verfügbare Methode erhalten sie nur Zugriff auf die 2FA-Einrichtung.</div>
       </div>
       <button class="btn btn-primary" id="twofa-policy-toggle" onclick="toggleTwoFactorPolicy()">Umschalten</button>
     </div>
@@ -637,7 +637,7 @@ async function toggleTwoFactorPolicy() {
   const confirmed = await adminConfirm({
     title: next ? 'Globale 2FA-Pflicht aktivieren?' : 'Globale 2FA-Pflicht deaktivieren?',
     message: next
-      ? 'Nutzer ohne nutzbaren Faktor können danach nur noch 2FA einrichten; verifizierte E-Mail mit SMTP zählt als E-Mail-Code-Faktor.'
+      ? 'Benutzer brauchen danach Authenticator-App, Passkey oder vorhandene Recovery Codes. Wenn SMTP eingerichtet ist, können Benutzer ohne Authenticator/Passkey vorübergehend einen E-Mail-Code nutzen; sonst erhalten sie nur Zugriff auf die 2FA-Einrichtung.'
       : 'Benutzer mit eigener 2FA bleiben weiterhin geschützt.',
     confirmText: next ? '2FA-Pflicht aktivieren' : '2FA-Pflicht deaktivieren',
     danger: !next,
@@ -755,12 +755,12 @@ function renderUserTwoFactorStatus(user) {
   if (user.has_totp) factors.push('TOTP');
   if (Number(user.passkey_count || 0) > 0) factors.push(`${user.passkey_count} Passkey`);
   if (user.has_recovery_codes) factors.push('Recovery');
-  if (user.has_email_fallback) factors.push('E-Mail-Code');
+  if (user.has_email_fallback) factors.push('E-Mail-Code Übergang');
   if (Number(user.trusted_device_count || 0) > 0) factors.push(`${user.trusted_device_count} Gerät`);
   const badge = enabled
     ? `<span class="badge badge-success">Aktiv</span>`
     : (twoFactorPolicyRequired ? `<span class="badge badge-warning">Pflicht</span>` : `<span class="badge badge-muted">Aus</span>`);
-  const detail = factors.length ? factors.map(escapeHtml).join(' · ') : (twoFactorPolicyRequired ? 'Kein Faktor verfügbar' : '-');
+  const detail = factors.length ? factors.map(escapeHtml).join(' · ') : (twoFactorPolicyRequired ? 'Nur 2FA-Einrichtung möglich' : '-');
   const reset = (enabled || Number(user.passkey_count || 0) > 0 || Number(user.trusted_device_count || 0) > 0)
     ? `<button class="btn btn-danger admin-table-action" style="margin-top:6px;" onclick="resetUserTwoFactor(${user.id}, '${escapeHtmlAttr(user.username)}')">${iconSvg('shield-check')} Reset</button>`
     : '';

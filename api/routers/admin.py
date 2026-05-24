@@ -16,6 +16,7 @@ from services.email_config import can_send_email_links, get_email_config, get_pa
 from services.email import send_email, send_test_email
 from services.two_factor import clear_recovery_codes, get_two_factor_required, set_two_factor_required
 from services.email_templates import password_setup_email
+from services.websocket import manager
 from services.email_verification import clear_pending_email, set_email_or_pending
 from rate_limit import require_login_rate_limit, get_client_ip
 from middleware.security import generate_csrf_token, set_csrf_cookie
@@ -219,7 +220,7 @@ def admin_set_two_factor_policy(data: TwoFactorPolicyRequest, request: Request, 
 
 
 @router.post("/users/{user_id}/2fa/reset")
-def admin_reset_user_two_factor(user_id: int, request: Request, _: bool = Depends(require_admin)):
+async def admin_reset_user_two_factor(user_id: int, request: Request, _: bool = Depends(require_admin)):
     with get_db() as db:
         user = db.execute("SELECT id, username FROM users WHERE id = ?", (user_id,)).fetchone()
         if not user:
@@ -227,7 +228,8 @@ def admin_reset_user_two_factor(user_id: int, request: Request, _: bool = Depend
         db.execute(
             """UPDATE users SET two_factor_enabled = 0, two_factor_totp_secret = NULL, two_factor_recovery_hashes = NULL,
                two_factor_recovery_generated_at = NULL, two_factor_updated_at = datetime('now'),
-               two_factor_remember_version = COALESCE(two_factor_remember_version, 1) + 1 WHERE id = ?""",
+               two_factor_remember_version = COALESCE(two_factor_remember_version, 1) + 1,
+               token_version = COALESCE(token_version, 1) + 1 WHERE id = ?""",
             (user_id,),
         )
         clear_recovery_codes(db, user_id)
@@ -235,7 +237,9 @@ def admin_reset_user_two_factor(user_id: int, request: Request, _: bool = Depend
         db.execute("UPDATE trusted_devices SET revoked_at = datetime('now') WHERE user_id = ? AND revoked_at IS NULL", (user_id,))
         log_audit(db, "two_factor_reset_by_admin", user_id=user_id, ip_address=get_client_ip(request), details=f"username={user['username']}")
         db.commit()
-        return {"reset": user_id}
+    await manager.broadcast_to_user(user_id, {"type": "session_invalidated", "reason": "two_factor_reset"})
+    await manager.disconnect_user(user_id, code=4001, reason="two_factor_reset")
+    return {"reset": user_id}
 
 
 # ─── User Management ─────────────────────────────────────────────────────────

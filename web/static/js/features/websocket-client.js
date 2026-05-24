@@ -21,6 +21,7 @@ export function createWebSocketClient({
   renderTodos,
   onAuthOk = () => {},
   onReminderDue = () => {},
+  onSessionInvalidated = () => {},
 }) {
 let ws = null;
 let wsState = 'disconnected'; // connected, connecting, reconnecting, disconnected
@@ -180,6 +181,9 @@ async function handleWsMessage(msg) {
       break;
     case 'auth_fail':
       console.warn('[WS] Auth failed');
+      break;
+    case 'session_invalidated':
+      onSessionInvalidated(msg);
       break;
     case 'pong':
       // keepalive response — nothing to do

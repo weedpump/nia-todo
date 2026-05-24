@@ -61,6 +61,8 @@ assert(authSessionSource.includes('login-remember-device'), 'login MFA must expo
 assert(authSessionSource.includes("methods.includes('recovery_code') ? 'recovery_code'"), 'native/passkey-unavailable login MFA must prefer recovery_code before unusable passkey fallback');
 assert(!userMenuSource.includes('Date.now()'), 'user menu avatar URLs must be stable so avatars can be cached offline');
 assert(!userSettingsSource.includes('Date.now()'), 'settings avatar URLs must be stable so avatars can be cached offline');
+assert(userSettingsSource.includes('hasExistingSecondFactor') && userSettingsSource.includes("&& hasExistingSecondFactor && !wasEnrollmentLocked) await ensureRecentMfa('das Hinzufügen eines Passkeys')"), 'passkey enrollment-only setup must not require an existing 2FA code');
+assert(userSettingsSource.includes("promptSecurityPassword({ title: 'Passkey hinzufügen'"), 'passkey setup must explicitly ask for the account password before WebAuthn registration');
 
 const nativeBridgeSource = readFileSync(new URL('../web/static/js/features/native-bridge.js', import.meta.url), 'utf8');
 const desktopSource = readFileSync(new URL('../web/static/js/features/desktop-integration.js', import.meta.url), 'utf8');

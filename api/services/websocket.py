@@ -50,8 +50,21 @@ class ConnectionManager:
                 await connection.send_json(message)
                 sent = True
             except:
-                pass
+                self.disconnect(connection)
         return sent
+
+    async def disconnect_user(self, user_id: int, code: int = 4001, reason: str = "Session invalidated"):
+        connections = list(self.connections.get(user_id, []))
+        closed = False
+        for connection in connections:
+            try:
+                await connection.close(code=code, reason=reason)
+                closed = True
+            except Exception:
+                pass
+            finally:
+                self.disconnect(connection)
+        return closed
 
     async def broadcast_desktop_notification(self, user_id: int, message: dict):
         if user_id not in self.connections:

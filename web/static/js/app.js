@@ -264,6 +264,10 @@ const wsClient = createWebSocketClient({
   renderTodos: () => renderTodos(),
   onAuthOk: () => desktopIntegration?.announceNotificationReadiness(),
   onReminderDue: () => {},
+  onSessionInvalidated: () => {
+    localStorage.removeItem('nia-mfa-enrollment-required');
+    location.reload();
+  },
 });
 const getReconnectDelay = wsClient.getReconnectDelay;
 const connectWebSocket = wsClient.connectWebSocket;
@@ -551,6 +555,8 @@ const appLifecycle = createAppLifecycle({
   hideLoginOverlay,
   showLoginOverlay,
   renderUserInfo,
+  openSettingsModal: () => openSettingsModal(),
+  isMfaEnrollmentRequired: () => Boolean(currentUser?.mfa_enrollment_required || localStorage.getItem('nia-mfa-enrollment-required') === '1'),
   initServiceWorker,
   openDB,
   dbGetAll,
