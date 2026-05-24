@@ -619,5 +619,20 @@
   "admin.email.saved": "Email configuration saved.",
   "admin.email.invalidTestAddress": "Please enter a valid test email address",
   "admin.email.testSent": "Test email sent.",
-  "admin.instance.saved": "Instance configuration saved."
+  "admin.instance.saved": "Instance configuration saved.",
+  "admin.user.reset2faTitle": "Reset 2FA?",
+  "admin.user.reset2faMessage": "Really reset 2FA for {username}? TOTP, passkeys, and remembered devices will be revoked.",
+  "admin.user.reset2faConfirm": "Reset 2FA",
+  "admin.user.reset2faSuccess": "2FA reset for {username}.",
+  "admin.user.deleteTitle": "Delete user?",
+  "admin.user.deleteMessage": "Really delete user {username}?",
+  "admin.user.deleteConfirm": "Delete user",
+  "admin.password.changed": "Admin password changed! Please sign in again.",
+  "admin.user.passwordMailSentTitle": "Password email sent",
+  "admin.user.passwordMailSentMessage": "Password email for {username} was sent.",
+  "admin.user.passwordLinkCopiedTitle": "Password link copied",
+  "admin.user.passwordLinkCreatedTitle": "Password link created",
+  "admin.user.passwordLinkCopiedMessage": "Password link for {username} was copied: {link}",
+  "admin.user.passwordLinkCreatedMessage": "Password link for {username}: {link}",
+  "admin.email.help": "Password/setup links use the public base URL from the instance configuration. SMTP passwords are never shown again. Without enabled email sending, addresses are considered confirmed after the manual setup link, but are not mailbox-verified."
 }
