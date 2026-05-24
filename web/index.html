@@ -56,10 +56,10 @@
   <div id="boot-overlay" class="boot-overlay">
     <div class="boot-card">
       <img src="/static/icons/icon-192.png" class="boot-logo" alt="nia-todo">
-      <div class="boot-title">nia-todo wird geladen</div>
-      <div class="boot-subtitle" id="boot-subtitle">App startet…</div>
+      <div class="boot-title" data-i18n-key="boot.title">nia-todo wird geladen</div>
+      <div class="boot-subtitle" id="boot-subtitle" data-i18n-key="boot.subtitle">App startet…</div>
       <div class="boot-spinner" id="boot-spinner" aria-hidden="true"></div>
-      <button type="button" class="boot-retry" id="boot-retry" style="display:none;" onclick="location.reload()">Neu laden</button>
+      <button type="button" class="boot-retry" id="boot-retry" style="display:none;" onclick="location.reload()" data-i18n-key="common.reload">Neu laden</button>
     </div>
   </div>
 
@@ -69,48 +69,48 @@
       <div class="login-brand">
         <img src="/static/icons/icon-192.png" class="login-logo" alt="nia-todo">
         <div class="login-title">nia-todo</div>
-        <div class="login-subtitle">Dein persönliches Todo-System</div>
+        <div class="login-subtitle" data-i18n-key="auth.subtitle">Dein persönliches Todo-System</div>
       </div>
       <form id="login-form">
         <div class="login-field">
-          <label for="login-username">Benutzername oder E-Mail</label>
-          <input type="text" id="login-username" required placeholder="Benutzername oder E-Mail" autocomplete="username">
+          <label for="login-username" data-i18n-key="auth.usernameOrEmail">Benutzername oder E-Mail</label>
+          <input type="text" id="login-username" required placeholder="Benutzername oder E-Mail" data-i18n-placeholder-key="auth.usernameOrEmail" autocomplete="username">
         </div>
         <div class="login-field">
-          <label for="login-password">Passwort</label>
-          <input type="password" id="login-password" required placeholder="Passwort eingeben" autocomplete="current-password">
+          <label for="login-password" data-i18n-key="auth.password">Passwort</label>
+          <input type="password" id="login-password" required placeholder="Passwort eingeben" data-i18n-placeholder-key="auth.passwordPlaceholder" autocomplete="current-password">
         </div>
         <div id="login-mfa-panel" class="login-mfa-panel hidden">
-          <div class="login-mfa-hint" id="login-mfa-hint">2FA-Code eingeben</div>
+          <div class="login-mfa-hint" id="login-mfa-hint" data-i18n-key="auth.mfa.codePrompt">2FA-Code eingeben</div>
           <div class="login-field" id="login-mfa-code-wrap">
-            <label for="login-mfa-code" id="login-mfa-code-label">2FA-Code</label>
-            <input type="text" id="login-mfa-code" placeholder="Code eingeben" autocomplete="one-time-code" inputmode="numeric">
+            <label for="login-mfa-code" id="login-mfa-code-label" data-i18n-key="auth.mfa.codeLabel">2FA-Code</label>
+            <input type="text" id="login-mfa-code" placeholder="Code eingeben" data-i18n-placeholder-key="auth.mfa.codePlaceholder" autocomplete="one-time-code" inputmode="numeric">
           </div>
           <button type="button" class="login-mfa-switch-btn hidden" id="login-mfa-switch-btn"></button>
           <label class="login-remember-device">
             <input type="checkbox" id="login-remember-device">
-            <span>Dieses Gerät 30 Tage merken</span>
+            <span data-i18n-key="auth.mfa.rememberDevice">Dieses Gerät 30 Tage merken</span>
           </label>
-          <button type="button" class="login-back-btn" id="login-mfa-back-btn">Zurück</button>
+          <button type="button" class="login-back-btn" id="login-mfa-back-btn" data-i18n-key="common.back">Zurück</button>
         </div>
         <div id="login-error" class="login-error"></div>
         <div id="login-reset-panel" class="login-reset-panel hidden">
-          <input type="text" id="login-reset-identifier" placeholder="Benutzername oder E-Mail" autocomplete="username">
-          <button type="button" class="login-reset-submit" id="login-reset-submit">Reset-Link anfordern</button>
+          <input type="text" id="login-reset-identifier" placeholder="Benutzername oder E-Mail" data-i18n-placeholder-key="auth.usernameOrEmail" autocomplete="username">
+          <button type="button" class="login-reset-submit" id="login-reset-submit" data-i18n-key="auth.reset.requestLink">Reset-Link anfordern</button>
           <div id="login-reset-message" class="login-reset-message"></div>
         </div>
-        <button type="submit" class="login-btn">Anmelden</button>
-        <button type="button" class="login-forgot-btn hidden" id="login-forgot-btn">Passwort vergessen?</button>
+        <button type="submit" class="login-btn" data-i18n-key="auth.signIn">Anmelden</button>
+        <button type="button" class="login-forgot-btn hidden" id="login-forgot-btn" data-i18n-key="auth.forgotPassword">Passwort vergessen?</button>
       </form>
       <div class="login-theme-toggle">
-        <button class="theme-option" data-theme="light" onclick="setTheme('light')" title="Hell"><span data-icon="sun"></span></button>
-        <button class="theme-option" data-theme="dark" onclick="setTheme('dark')" title="Dunkel"><span data-icon="moon"></span></button>
-        <button class="theme-option" data-theme="system" onclick="setTheme('system')" title="System"><span data-icon="monitor"></span></button>
+        <button class="theme-option" data-theme="light" onclick="setTheme('light')" title="Hell" data-i18n-title-key="common.theme.light"><span data-icon="sun"></span></button>
+        <button class="theme-option" data-theme="dark" onclick="setTheme('dark')" title="Dunkel" data-i18n-title-key="common.theme.dark"><span data-icon="moon"></span></button>
+        <button class="theme-option" data-theme="system" onclick="setTheme('system')" title="System" data-i18n-title-key="common.theme.system"><span data-icon="monitor"></span></button>
       </div>
       <div class="app-downloads login-downloads" data-app-downloads style="display:none;"></div>
       <div class="app-resource-links login-resource-links">
-        <a class="app-resource-link" href="/api" target="_blank" rel="noopener"><span data-icon="book-open"></span> API-Doku</a>
-        <a class="app-resource-link" href="/changelog" target="_blank" rel="noopener"><span data-icon="list"></span> Changelog</a>
+        <a class="app-resource-link" href="/api" target="_blank" rel="noopener"><span data-icon="book-open"></span> <span data-i18n-key="resource.apiDocs">API-Doku</span></a>
+        <a class="app-resource-link" href="/changelog" target="_blank" rel="noopener"><span data-icon="list"></span> <span data-i18n-key="resource.changelog">Changelog</span></a>
       </div>
     </div>
   </div>
