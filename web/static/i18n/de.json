@@ -184,5 +184,22 @@
   "project.share.usernamePlaceholder": "Benutzername oder E-Mail",
   "project.share.invite": "Einladen",
   "project.share.start": "Teilen",
-  "project.share.leave": "Projekt verlassen"
+  "project.share.leave": "Projekt verlassen",
+  "common.undo": "Rückgängig",
+  "project.share.pending": "ausstehend",
+  "project.share.remove": "Entfernen",
+  "project.share.removeMember": "Mitglied entfernen",
+  "project.share.removeMemberConfirm": "Mitglied {username} entfernen?",
+  "project.share.identifierRequired": "Benutzername oder E-Mail eingeben",
+  "project.share.inviteProcessed": "Einladung verarbeitet",
+  "project.share.inviteSent": "Einladung gesendet",
+  "project.share.notFound": "Benutzer oder E-Mail \"{identifier}\" nicht gefunden",
+  "project.share.forbidden": "Keine Berechtigung — nur der Owner kann einladen",
+  "project.share.alreadyHasAccess": "Benutzer oder E-Mail \"{identifier}\" hat bereits Zugriff oder eine ausstehende Einladung",
+  "project.share.inviteFailed": "Fehler beim Einladen: {error}",
+  "project.share.unknownError": "Unbekannter Fehler",
+  "project.share.userRemoved": "Benutzer entfernt",
+  "project.share.left": "Projekt verlassen",
+  "project.share.accepted": "Einladung angenommen",
+  "project.share.declined": "Einladung abgelehnt"
 }

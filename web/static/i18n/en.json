@@ -184,5 +184,22 @@
   "project.share.usernamePlaceholder": "Username or email",
   "project.share.invite": "Invite",
   "project.share.start": "Share",
-  "project.share.leave": "Leave project"
+  "project.share.leave": "Leave project",
+  "common.undo": "Undo",
+  "project.share.pending": "pending",
+  "project.share.remove": "Remove",
+  "project.share.removeMember": "Remove member",
+  "project.share.removeMemberConfirm": "Remove member {username}?",
+  "project.share.identifierRequired": "Enter username or email",
+  "project.share.inviteProcessed": "Invitation processed",
+  "project.share.inviteSent": "Invitation sent",
+  "project.share.notFound": "User or email \"{identifier}\" not found",
+  "project.share.forbidden": "No permission — only the owner can invite users",
+  "project.share.alreadyHasAccess": "User or email \"{identifier}\" already has access or a pending invitation",
+  "project.share.inviteFailed": "Invite failed: {error}",
+  "project.share.unknownError": "Unknown error",
+  "project.share.userRemoved": "User removed",
+  "project.share.left": "Left project",
+  "project.share.accepted": "Invitation accepted",
+  "project.share.declined": "Invitation declined"
 }
