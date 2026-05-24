@@ -81,7 +81,7 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     const name = displayNameValue ? escapeHtml(displayNameValue) : '<span class="settings-email-missing">-</span>';
     return `<span class="settings-display-name-display" id="settings-display-name-display">
       <span class="settings-display-name-value">${name}</span>
-      <button type="button" class="settings-inline-action" title="Anzeigename bearbeiten" onclick="editUserDisplayName()">${iconSvg('edit-3')}</button>
+      <button type="button" class="settings-inline-action" title="${escapeHtmlAttr(t('settings.profile.editDisplayName'))}" onclick="editUserDisplayName()">${iconSvg('edit-3')}</button>
     </span>`;
   }
 
@@ -89,15 +89,15 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     const email = user?.email ? escapeHtml(user.email) : '<span class="settings-email-missing">-</span>';
     const verified = user?.email
       ? (user?.email_verified_at
-        ? '<span class="settings-email-status settings-email-verified">bestätigt</span>'
-        : '<span class="settings-email-status settings-email-unverified">nicht bestätigt</span>')
+        ? `<span class="settings-email-status settings-email-verified">${escapeHtml(t('settings.email.verified'))}</span>`
+        : `<span class="settings-email-status settings-email-unverified">${escapeHtml(t('settings.email.unverified'))}</span>`)
       : '';
-    const pending = user?.pending_email ? `<span class="settings-email-pending">Ausstehend: ${escapeHtml(user.pending_email)}</span>` : '';
+    const pending = user?.pending_email ? `<span class="settings-email-pending">${escapeHtml(t('settings.email.pending', { email: user.pending_email }))}</span>` : '';
     return `<span class="settings-email-display" id="settings-email-display">
       <span class="settings-email-value">${email}</span>
       ${verified}
       ${pending}
-      <button type="button" class="settings-email-action" title="E-Mail bearbeiten" onclick="editUserEmail()">${iconSvg('edit-3')}</button>
+      <button type="button" class="settings-email-action" title="${escapeHtmlAttr(t('settings.email.edit'))}" onclick="editUserEmail()">${iconSvg('edit-3')}</button>
     </span>`;
   }
 
@@ -296,9 +296,9 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     const cell = document.getElementById('settings-display-name-cell');
     if (!cell) return;
     cell.innerHTML = `<span class="settings-display-name-edit" id="settings-display-name-edit">
-      <input id="settings-display-name-input" type="text" maxlength="80" value="${escapeHtmlAttr(currentName)}" placeholder="Anzeigename" autocomplete="name" onkeydown="if(event.key==='Enter') saveUserProfile(); if(event.key==='Escape') cancelUserDisplayNameEdit()">
-      <button type="button" class="settings-inline-action" title="Speichern" onclick="saveUserProfile()">${iconSvg('check')}</button>
-      <button type="button" class="settings-inline-action" title="Abbrechen" onclick="cancelUserDisplayNameEdit()">${iconSvg('x')}</button>
+      <input id="settings-display-name-input" type="text" maxlength="80" value="${escapeHtmlAttr(currentName)}" placeholder="${escapeHtmlAttr(t('settings.profile.displayName'))}" autocomplete="name" onkeydown="if(event.key==='Enter') saveUserProfile(); if(event.key==='Escape') cancelUserDisplayNameEdit()">
+      <button type="button" class="settings-inline-action" title="${escapeHtmlAttr(t('common.save'))}" onclick="saveUserProfile()">${iconSvg('check')}</button>
+      <button type="button" class="settings-inline-action" title="${escapeHtmlAttr(t('common.cancel'))}" onclick="cancelUserDisplayNameEdit()">${iconSvg('x')}</button>
     </span>`;
     document.getElementById('settings-display-name-input')?.focus();
   }
@@ -315,7 +315,7 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     errorEl.textContent = '';
     successEl.textContent = '';
     if (!displayName) {
-      errorEl.textContent = 'Anzeigename ist erforderlich';
+      errorEl.textContent = t('settings.profile.displayNameRequired');
       return;
     }
     try {
@@ -323,7 +323,7 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
       const currentUser = getCurrentUser();
       if (currentUser) setCurrentUser({ ...currentUser, ...data });
       renderUserInfo();
-      successEl.textContent = 'Profil gespeichert';
+      successEl.textContent = t('settings.profile.saved');
     } catch (e) {
       errorEl.textContent = e.message;
     }
@@ -457,7 +457,7 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     }, { passive: false });
   }
 
-  async function uploadOriginalAvatar(file, fallbackMessage = 'Avatar gespeichert') {
+  async function uploadOriginalAvatar(file, fallbackMessage = t('settings.avatar.saved')) {
     const input = document.getElementById('settings-avatar-input');
     const errorEl = document.getElementById('settings-avatar-error');
     const successEl = document.getElementById('settings-avatar-success');
@@ -482,11 +482,11 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     successEl.textContent = '';
     if (!file) return;
     if (!file.type.startsWith('image/') && !isHeicFile(file)) {
-      errorEl.textContent = 'Bitte ein gültiges Bild hochladen';
+      errorEl.textContent = t('settings.avatar.invalidImage');
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
-      errorEl.textContent = 'Bild ist zu groß';
+      errorEl.textContent = t('settings.avatar.tooLarge');
       return;
     }
 
@@ -513,10 +513,10 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     img.onerror = async () => {
       resetCropState();
       if (isHeicFile(file)) {
-        await uploadOriginalAvatar(file, 'Avatar gespeichert. HEIC wurde serverseitig zentriert zugeschnitten.');
+        await uploadOriginalAvatar(file, t('settings.avatar.savedHeicCentered'));
       } else {
         if (input) input.value = '';
-        errorEl.textContent = 'Bild konnte nicht geöffnet werden';
+        errorEl.textContent = t('settings.avatar.openFailed');
       }
     };
     img.src = cropState.objectUrl;
@@ -557,7 +557,7 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
 
     const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/webp', 0.9));
     if (!blob) {
-      errorEl.textContent = 'Avatar konnte nicht erzeugt werden';
+      errorEl.textContent = t('settings.avatar.generateFailed');
       return;
     }
 
@@ -568,7 +568,7 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
       if (currentUser) setCurrentUser({ ...currentUser, ...data });
       cancelAvatarCrop();
       renderUserInfo();
-      successEl.textContent = 'Avatar gespeichert';
+      successEl.textContent = t('settings.avatar.saved');
     } catch (e) {
       errorEl.textContent = e.message;
     }
@@ -576,9 +576,9 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
 
   async function deleteUserAvatar() {
     const confirmed = await confirmSecurityAction({
-      title: 'Avatar löschen?',
-      message: 'Dein Profilbild wird entfernt und durch deine Initiale ersetzt.',
-      confirmText: 'Avatar löschen',
+      title: t('settings.avatar.deleteTitle'),
+      message: t('settings.avatar.deleteMessage'),
+      confirmText: t('settings.avatar.deleteConfirm'),
       danger: true,
     });
     if (!confirmed) return;
@@ -591,7 +591,7 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
       const currentUser = getCurrentUser();
       if (currentUser) setCurrentUser({ ...currentUser, ...data });
       renderUserInfo();
-      successEl.textContent = 'Avatar gelöscht';
+      successEl.textContent = t('settings.avatar.deleted');
     } catch (e) {
       errorEl.textContent = e.message;
     }
@@ -602,9 +602,9 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     const cell = document.getElementById('settings-email-cell');
     if (!cell) return;
     cell.innerHTML = `<span class="settings-email-edit" id="settings-email-edit">
-      <input id="settings-email-input" type="email" value="${escapeHtmlAttr(currentEmail)}" placeholder="E-Mail setzen" autocomplete="email" onkeydown="if(event.key==='Enter') saveUserEmail(); if(event.key==='Escape') cancelUserEmailEdit()">
-      <button type="button" class="settings-email-action" title="Speichern" onclick="saveUserEmail()">${iconSvg('check')}</button>
-      <button type="button" class="settings-email-action" title="Abbrechen" onclick="cancelUserEmailEdit()">${iconSvg('x')}</button>
+      <input id="settings-email-input" type="email" value="${escapeHtmlAttr(currentEmail)}" placeholder="${escapeHtmlAttr(t('settings.email.placeholder'))}" autocomplete="email" onkeydown="if(event.key==='Enter') saveUserEmail(); if(event.key==='Escape') cancelUserEmailEdit()">
+      <button type="button" class="settings-email-action" title="${escapeHtmlAttr(t('common.save'))}" onclick="saveUserEmail()">${iconSvg('check')}</button>
+      <button type="button" class="settings-email-action" title="${escapeHtmlAttr(t('common.cancel'))}" onclick="cancelUserEmailEdit()">${iconSvg('x')}</button>
     </span>`;
     document.getElementById('settings-email-input')?.focus();
   }
@@ -622,27 +622,27 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     successEl.textContent = '';
 
     if (!email) {
-      errorEl.textContent = 'E-Mail ist erforderlich';
+      errorEl.textContent = t('settings.email.required');
       return;
     }
     if (!isValidEmail(email)) {
-      errorEl.textContent = 'Bitte eine gültige E-Mail-Adresse eingeben';
+      errorEl.textContent = t('settings.email.invalid');
       return;
     }
 
     try {
-      const data = await withRecentMfaRetry(() => authApi.updateEmail(email), 'das Ändern der E-Mail-Adresse');
+      const data = await withRecentMfaRetry(() => authApi.updateEmail(email), t('settings.email.mfaPurpose'));
       if (data.email_verification_delivery === 'unavailable') {
         await refreshCurrentUser().catch(() => renderUserInfo());
-        errorEl.textContent = 'E-Mail schon vergeben';
+        errorEl.textContent = t('settings.email.alreadyUsed');
         return;
       }
       const currentUser = getCurrentUser();
       if (currentUser) setCurrentUser({ ...currentUser, email: data.email || currentUser.email, pending_email: data.pending_email || null });
       await refreshCurrentUser().catch(() => renderUserInfo());
       successEl.textContent = data.email_verification_required
-        ? 'Bestätigungsmail gesendet'
-        : (data.email_verification_delivery === 'unverified_no_smtp' ? 'E-Mail gespeichert, aber ohne SMTP nicht per Mail bestätigt' : 'E-Mail gespeichert und bestätigt');
+        ? t('settings.email.verificationSent')
+        : (data.email_verification_delivery === 'unverified_no_smtp' ? t('settings.email.savedUnverifiedNoSmtp') : t('settings.email.savedVerified'));
     } catch (e) {
       errorEl.textContent = e.message;
     }
