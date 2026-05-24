@@ -228,9 +228,10 @@ function renderDownloads(target, downloads) {
 
 function renderNativeAppVersion(target, platform, currentVersion) {
   if (!target || !platform || !currentVersion) return;
+  const changelogUrl = RUNTIME_CAPABILITIES.native && API ? `${API.replace(/\/$/, '')}/changelog` : '/changelog';
   target.innerHTML = `
     <span class="native-version-text"><strong>App Version:</strong> ${escapeHtml(platformLabel(platform))} v${escapeHtml(normalizeVersion(currentVersion) || currentVersion)}</span>
-    <a class="changelog-link" href="/changelog" target="_blank" rel="noopener noreferrer" title="Changelog öffnen">Changelog</a>
+    <a class="changelog-link version-changelog-link" href="${escapeHtml(changelogUrl)}" target="_blank" rel="noopener noreferrer" title="Changelog öffnen">Changelog</a>
   `;
   target.style.display = '';
 }
