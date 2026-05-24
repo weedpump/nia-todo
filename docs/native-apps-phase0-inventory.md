@@ -16,7 +16,7 @@ Tracked native-related footprint:
 - `web/static/js/features/service-worker-updates.js` contains native-aware SW update behavior.
 - `scripts/test_frontend_native_offline.mjs` simulates Tauri-like launch via `?nativeApp=tauri` and server-hosted SW cache.
 - `release.sh` builds Windows/Android artifacts via Tauri as part of every shared release.
-- `docs/tauri-windows-poc.md` exists as native app history/docs; native changes now use the shared `CHANGELOG.md`.
+- `docs/archive/tauri-windows-poc.md` exists as native app history/docs; native changes now use the shared `CHANGELOG.md`.
 
 Generated/local build output also exists under `src-tauri/target/`, but this is not tracked.
 
@@ -205,7 +205,7 @@ Inventory recommendation:
 
 ### Freeze as legacy reference
 
-- `docs/tauri-windows-poc.md`
+- `docs/archive/tauri-windows-poc.md`
 - Existing Tauri/native changelogs.
 - Current `src-tauri` implementation details.
 

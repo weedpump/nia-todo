@@ -1,5 +1,7 @@
 # Tauri Desktop/Android Wrapper
 
+> **Archiv / Legacy-Hinweis:** Diese Datei beschreibt die ältere Tauri-Wrapper-/Remote-WebView-Phase vor dem 2.0-Native-Umbau. Sie ist nur noch historische Referenz und nicht die aktuelle Betriebs- oder Release-Doku. Aktuell sind `docs/architecture.md`, `docs/native-apps-clean-architecture.md`, `docs/workflow.md` und `docs/testing.md`.
+
 Status: produktiver Tauri-Wrapper für `nia-todo` ab `v1.5.1`; native lokale Reminder ab `v1.6.0`.
 
 ## Ziel
