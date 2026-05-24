@@ -47,7 +47,7 @@ class RateLimiter:
     def check_api(self, ip: str) -> Tuple[bool, int]:
         now = time.time()
         window = 60  # 1 minute
-        max_requests = 100
+        max_requests = 300
 
         if ip not in self.api_requests:
             self.api_requests[ip] = []
