@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.js';
 import { renderIconPicker } from '../icons/lucide-icons.js';
 
 export function createProjectsFeature({
@@ -73,11 +74,15 @@ export function createProjectsFeature({
       iconPicker.style.opacity = '';
       iconPicker.setAttribute('aria-disabled', 'false');
     }
-    document.getElementById('project-modal-title').textContent = project ? 'Projekt bearbeiten' : (parentId ? 'Neues Subproject' : 'Neues Projekt');
+    const modalTitle = document.getElementById('project-modal-title');
+    if (modalTitle) {
+      modalTitle.dataset.i18nKey = project ? 'project.edit' : (parentId ? 'project.newSubproject' : 'project.new');
+      modalTitle.textContent = t(modalTitle.dataset.i18nKey);
+    }
 
     const parentSelect = document.getElementById('project-parent-id');
     if (parentSelect) {
-      parentSelect.innerHTML = '<option value="">-- Kein Eltern-Projekt --</option>';
+      parentSelect.innerHTML = `<option value="" data-i18n-key="project.noParent">${t('project.noParent')}</option>`;
       const currentWorkspaceId = getCurrentWorkspaceId?.();
       const projects = getProjects().filter(p => !p.is_shared && (!currentWorkspaceId || String(p.workspace_id || '') === String(currentWorkspaceId)));
       const projectMap = new Map();
@@ -221,9 +226,9 @@ export function createProjectsFeature({
 
   async function deleteProject(id) {
     const confirmed = await confirmDanger({
-      title: 'Projekt löschen?',
-      message: 'Das Projekt wird gelöscht. Enthaltene Todos werden in die Inbox verschoben.',
-      confirmText: 'Projekt löschen',
+      title: t('project.deleteTitle'),
+      message: t('project.deleteMessage'),
+      confirmText: t('project.delete'),
     });
     if (!confirmed) return;
     function collectProjectTreeIds(rootId) {
