@@ -110,6 +110,22 @@ self.addEventListener('install', (event) => {
   );
 });
 
+function isNeverCachePath(pathname) {
+  return pathname.startsWith('/downloads/') || pathname === '/downloads/app-downloads.json';
+}
+
+async function purgeNeverCacheEntries() {
+  const names = await caches.keys();
+  await Promise.all(names.map(async (name) => {
+    const cache = await caches.open(name);
+    const requests = await cache.keys();
+    await Promise.all(requests.map(async (request) => {
+      const url = new URL(request.url);
+      if (isNeverCachePath(url.pathname)) await cache.delete(request);
+    }));
+  }));
+}
+
 // ─── Activate ────────────────────────────────────────────────────────────────
 self.addEventListener('activate', (event) => {
   console.log('SW: Activating version', SW_VERSION);
@@ -122,11 +138,13 @@ self.addEventListener('activate', (event) => {
               return caches.delete(n);
             })
       );
-    }).then(() => self.clients.claim())
+    }).then(() => purgeNeverCacheEntries())
+      .then(() => self.clients.claim())
   );
 });
 
 async function refreshAppCache() {
+  await purgeNeverCacheEntries();
   const cache = await caches.open(CACHE_NAME);
   await Promise.all(PRECACHE_ASSETS.map(async (asset) => {
     const request = new Request(asset, { cache: 'reload' });
@@ -264,8 +282,8 @@ self.addEventListener('fetch', (event) => {
   }
 
   // Downloads and their manifest must never be cached by the service worker.
-  if (url.pathname.startsWith('/downloads/')) {
-    event.respondWith(fetch(event.request));
+  if (isNeverCachePath(url.pathname)) {
+    event.respondWith(fetch(new Request(event.request, { cache: 'no-store' })));
     return;
   }
 
