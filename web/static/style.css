@@ -2348,6 +2348,10 @@ input[type="color"]::-moz-color-swatch {
   margin-bottom: 4px;
 }
 
+.api-settings-resource-links {
+  margin: 0 0 8px;
+}
+
 .app-resource-link {
   display: inline-flex;
   align-items: center;
