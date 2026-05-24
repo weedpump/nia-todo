@@ -31,6 +31,7 @@ Release-Artefakte werden auf Live unter `/downloads/` veröffentlicht:
 
 - Windows: `nia-todo-vX.Y.Z-windows-x64-setup.exe`
 - Android: `nia-todo-vX.Y.Z-android-arm64.apk`
+- Vor dem Android-Build schreibt `release.sh` generated `src-tauri/gen/android/app/tauri.properties` passend zur Release-Version und prüft sie vor/nach dem Build.
 - Manifest: `web/downloads/app-downloads.json` mit `version`, `web_version`, `latest.version` und je App-Artefakt-Version auf dem Release-Tag.
 - `min_native_client_version` in `api/services/instance_config.py` ist kein Release-Zähler. Nur anheben, wenn ältere native Apps wirklich inkompatibel oder unsicher sind; dann blockieren Windows/Android bis zum Update.
 - Beim Veröffentlichen löscht `release.sh` zuerst alle alten Dateien in `/downloads/` außer `.gitkeep`; alte Installer/APKs dürfen danach auch per manueller URL nicht mehr abrufbar sein.
