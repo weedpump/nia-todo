@@ -45,14 +45,27 @@ export function getActiveLanguage() {
   return activeLanguage;
 }
 
-export async function setLanguagePreference(mode) {
+export async function setLanguagePreference(mode, { authApi = null, syncServer = false } = {}) {
   const normalized = normalizeLanguage(mode);
   if (normalized === 'auto') localStorage.removeItem(LANGUAGE_STORAGE_KEY);
   else localStorage.setItem(LANGUAGE_STORAGE_KEY, normalized);
   await initI18n();
+  if (syncServer && authApi?.updateLanguage) await syncLanguagePreference(authApi);
   window.dispatchEvent(new CustomEvent('nia-language-change', {
     detail: { preference: getLanguagePreference(), language: getActiveLanguage() },
   }));
+}
+
+export async function syncLanguagePreference(authApi) {
+  if (!authApi?.updateLanguage) return null;
+  return authApi.updateLanguage(getLanguagePreference());
+}
+
+export async function adoptServerLanguagePreference(language) {
+  const normalized = normalizeLanguage(language);
+  if (normalized === 'auto') return initI18n();
+  if (getLanguagePreference() === 'auto') localStorage.setItem(LANGUAGE_STORAGE_KEY, normalized);
+  return initI18n();
 }
 
 export async function initI18n() {

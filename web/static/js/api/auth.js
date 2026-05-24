@@ -272,6 +272,16 @@ export const authApi = {
     return parseOrThrow(response, 'Profil konnte nicht geändert werden');
   },
 
+  async updateLanguage(language) {
+    const response = await fetch(API + '/api/me/language', {
+      method: 'PATCH',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ language }),
+      credentials: 'include',
+    });
+    return parseOrThrow(response, 'Sprache konnte nicht gespeichert werden');
+  },
+
   async uploadAvatar(file) {
     const headers = getAuthHeaders();
     delete headers['Content-Type'];
