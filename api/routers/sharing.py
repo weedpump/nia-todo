@@ -138,7 +138,7 @@ def get_shared_projects_for_user(db, user_id: int) -> list:
     """Get all projects shared with a user (as member, not owner)."""
     default_workspace_id = get_user_default_workspace_id(db, user_id)
     rows = db.execute(
-        """SELECT p.id, p.name, p.color, p.sort_order, p.created_at, p.updated_at, p.parent_id,
+        """SELECT p.id, p.name, p.color, p.sort_order, p.created_at, max(p.updated_at, COALESCE(pm.updated_at, p.updated_at)) as updated_at, p.parent_id,
                    p.user_id, p.is_inbox, p.workspace_id as owner_workspace_id, p.icon,
                    COALESCE(pm.workspace_id, ?) as workspace_id,
                   1 as is_shared, 0 as is_owner, pm.status as member_status, pm.user_color as member_color,

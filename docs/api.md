@@ -216,8 +216,8 @@ Passkeys sind an die konfigurierte öffentliche Basis-URL (`public_base_url`) ge
 
 Android Native nutzt AndroidX Credential Manager. Jede selfhosted Serverinstanz liefert `/.well-known/assetlinks.json` für die offizielle Android-App aus:
 
-- Package: `de.useraskneidl.nia_todo`
-- Release-Zertifikat: `90:0E:26:CD:40:B8:BF:42:A6:5B:98:02:8A:A5:43:9F:6A:72:74:15:55:FE:26:C4:85:B8:34:E3:B1:97:E0:58`
+- Package: offizielle Release-App-ID
+- Release-Zertifikat: offizieller Release-Zertifikat-Fingerprint
 - Relation: `delegate_permission/common.get_login_creds`
 
 Der Server akzeptiert zusätzlich zur HTTPS-Web-Origin den gepinnten Android-App-Origin `android:apk-key-hash:...`, während der RP-ID-Hash weiter gegen `public_base_url` geprüft wird. Das ist ein bewusstes Official-App-Vertrauensmodell: Selfhoster hosten ihren Server und verbinden die von uns ausgelieferte Android-App mit ihrer Server-URL. Custom Package Names, F-Droid-/Re-Sign-Builds und Signing-Key-Rotation sind nicht Teil des aktuellen 2.0-Modells und brauchen später eine explizite Config-/Migrationsstrategie.
@@ -340,7 +340,7 @@ Security-sensitive Account-Aktionen verlangen bei 2FA-pflichtigen Accounts einen
 {
   "public_base_url": "https://todo.example.com",
   "allowed_origins": ["https://todo.example.com"],
-  "trusted_proxies": ["10.0.10.1"]
+  "trusted_proxies": ["192.0.2.10"]
 }
 ```
 
@@ -352,7 +352,7 @@ Security-sensitive Account-Aktionen verlangen bei 2FA-pflichtigen Accounts einen
 {
   "public_base_url": "https://todo.example.com",
   "allowed_origins": ["https://todo.example.com"],
-  "trusted_proxies": ["10.0.10.1"]
+  "trusted_proxies": ["192.0.2.10"]
 }
 ```
 
@@ -444,8 +444,8 @@ Security-sensitive Account-Aktionen verlangen bei 2FA-pflichtigen Accounts einen
   "member": {
     "id": 42,
     "user_id": 5,
-    "username": "moni",
-    "display_name": "Moni",
+    "username": "alice",
+    "display_name": "Alice Example",
     "status": "pending"
   },
   "notification_delivery": "in_app"
@@ -1071,7 +1071,7 @@ Owner-only.
 
 **Body**
 ```json
-{ "username": "moni" }
+{ "username": "alice" }
 ```
 
 **Response**
@@ -1080,8 +1080,8 @@ Owner-only.
   "member": {
     "project_id": 5,
     "user_id": 2,
-    "username": "moni",
-    "display_name": "Moni",
+    "username": "alice",
+    "display_name": "Alice Example",
     "status": "pending"
   }
 }
@@ -1112,8 +1112,8 @@ Owner und akzeptierte Mitglieder dürfen die Liste sehen.
     {
       "project_id": 5,
       "user_id": 2,
-      "username": "moni",
-      "display_name": "Moni",
+      "username": "alice",
+      "display_name": "Alice Example",
       "status": "accepted"
     }
   ]
@@ -1315,7 +1315,7 @@ Liefert die verfügbaren Windows-/Android-Artefakte mit Version, Plattform, Arch
 ### Android Digital Asset Links
 `GET /.well-known/assetlinks.json`
 
-Liefert die gepinnte Beziehung zwischen Server und offizieller Android-App `de.useraskneidl.nia_todo` für native Passkeys.
+Liefert die gepinnte Beziehung zwischen Server und offizieller Android-App für native Passkeys.
 
 ## Hinweise
 
