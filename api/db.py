@@ -97,6 +97,10 @@ def get_db():
 def init_db():
     with get_db() as conn:
         conn.executescript(INIT_SQL)
+        try:
+            conn.execute("ALTER TABLE users ADD COLUMN language TEXT DEFAULT 'auto'")
+        except Exception:
+            pass
         conn.commit()
 
 def row_to_dict(row):
