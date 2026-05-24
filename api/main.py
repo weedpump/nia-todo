@@ -1,12 +1,14 @@
 """nia-todo: FastAPI backend - slim entry point"""
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from starlette.responses import Response
 from pathlib import Path
 import asyncio
+import html
+import re
 
 from db import init_db
 from migrate import run_migrations
@@ -50,6 +52,146 @@ app.include_router(two_factor.router)
 # ─── WebSocket ───────────────────────────────────────────────────────────────
 
 app.add_api_websocket_route("/ws", websocket_endpoint)
+
+# ─── Public API Documentation ────────────────────────────────────────────────
+
+DOCS_DIR = Path(__file__).parent.parent / "docs"
+
+
+def _slugify_heading(value: str) -> str:
+    slug = re.sub(r"[^a-zA-Z0-9äöüÄÖÜß -]", "", value).strip().lower()
+    slug = slug.replace("ä", "ae").replace("ö", "oe").replace("ü", "ue").replace("ß", "ss")
+    return re.sub(r"\s+", "-", slug) or "section"
+
+
+def _render_inline_markdown(value: str) -> str:
+    escaped = html.escape(value)
+    escaped = re.sub(r"`([^`]+)`", r"<code>\1</code>", escaped)
+    escaped = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", escaped)
+    return escaped
+
+
+def _markdown_to_html(markdown: str) -> tuple[str, str]:
+    lines = markdown.splitlines()
+    body: list[str] = []
+    toc: list[tuple[int, str, str]] = []
+    in_code = False
+    in_list = False
+    code_lines: list[str] = []
+
+    def close_list():
+        nonlocal in_list
+        if in_list:
+            body.append("</ul>")
+            in_list = False
+
+    for line in lines:
+        stripped = line.rstrip()
+        if stripped.startswith("```"):
+            if in_code:
+                body.append(f"<pre><code>{html.escape(chr(10).join(code_lines))}</code></pre>")
+                code_lines = []
+                in_code = False
+            else:
+                close_list()
+                in_code = True
+            continue
+        if in_code:
+            code_lines.append(stripped)
+            continue
+        if not stripped:
+            close_list()
+            continue
+        heading = re.match(r"^(#{1,4})\s+(.+)$", stripped)
+        if heading:
+            close_list()
+            level = len(heading.group(1))
+            text = heading.group(2).strip()
+            slug = _slugify_heading(text)
+            toc.append((level, slug, text))
+            body.append(f'<h{level} id="{slug}">{_render_inline_markdown(text)}</h{level}>')
+            continue
+        if stripped.startswith("- "):
+            if not in_list:
+                body.append("<ul>")
+                in_list = True
+            body.append(f"<li>{_render_inline_markdown(stripped[2:].strip())}</li>")
+            continue
+        close_list()
+        body.append(f"<p>{_render_inline_markdown(stripped)}</p>")
+
+    if in_code:
+        body.append(f"<pre><code>{html.escape(chr(10).join(code_lines))}</code></pre>")
+    close_list()
+    toc_html = "".join(
+        f'<a class="toc-level-{level}" href="#{slug}">{html.escape(text)}</a>'
+        for level, slug, text in toc
+        if level <= 3
+    )
+    return "\n".join(body), toc_html
+
+
+def _api_docs_html() -> str:
+    docs_path = DOCS_DIR / "api.md"
+    markdown = docs_path.read_text(encoding="utf-8") if docs_path.exists() else "# API\n\nKeine API-Doku gefunden."
+    content, toc = _markdown_to_html(markdown)
+    return f"""<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>nia-todo API</title>
+  <style>
+    :root {{ color-scheme: light dark; --bg:#0f172a; --panel:#111827; --text:#e5e7eb; --muted:#9ca3af; --border:#293245; --accent:#8b5cf6; --code:#020617; }}
+    @media (prefers-color-scheme: light) {{ :root {{ --bg:#f7f7fb; --panel:#ffffff; --text:#111827; --muted:#6b7280; --border:#e5e7eb; --accent:#7c3aed; --code:#f3f4f6; }} }}
+    * {{ box-sizing: border-box; }}
+    body {{ margin:0; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background:var(--bg); color:var(--text); line-height:1.6; }}
+    header {{ padding:32px clamp(20px, 4vw, 56px); border-bottom:1px solid var(--border); background:linear-gradient(135deg, rgba(139,92,246,.22), transparent 55%); }}
+    header h1 {{ margin:0 0 8px; font-size:clamp(32px, 5vw, 54px); line-height:1.05; }}
+    header p {{ margin:0; color:var(--muted); max-width:820px; }}
+    .layout {{ display:grid; grid-template-columns:280px minmax(0, 1fr); gap:28px; max-width:1400px; margin:0 auto; padding:28px clamp(16px, 3vw, 40px) 56px; }}
+    nav {{ position:sticky; top:20px; align-self:start; max-height:calc(100vh - 40px); overflow:auto; padding:16px; border:1px solid var(--border); border-radius:18px; background:color-mix(in srgb, var(--panel) 92%, transparent); }}
+    nav strong {{ display:block; margin-bottom:10px; }}
+    nav a {{ display:block; padding:6px 8px; color:var(--muted); text-decoration:none; border-radius:10px; font-size:14px; }}
+    nav a:hover {{ color:var(--text); background:rgba(139,92,246,.12); }}
+    nav .toc-level-1 {{ color:var(--text); font-weight:700; }}
+    nav .toc-level-3 {{ padding-left:22px; font-size:13px; }}
+    main {{ min-width:0; padding:26px; border:1px solid var(--border); border-radius:22px; background:var(--panel); box-shadow:0 20px 70px rgba(0,0,0,.18); }}
+    h1, h2, h3, h4 {{ line-height:1.25; scroll-margin-top:24px; }}
+    h1 {{ margin-top:0; }}
+    h2 {{ margin-top:44px; padding-top:24px; border-top:1px solid var(--border); }}
+    a {{ color:var(--accent); }}
+    code {{ padding:.12em .35em; border-radius:7px; background:var(--code); font-size:.92em; }}
+    pre {{ overflow:auto; padding:16px; border-radius:16px; background:var(--code); border:1px solid var(--border); }}
+    pre code {{ padding:0; background:transparent; }}
+    li {{ margin:6px 0; }}
+    @media (max-width: 900px) {{ .layout {{ display:block; }} nav {{ position:static; max-height:none; margin-bottom:18px; }} main {{ padding:18px; }} }}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>nia-todo API</h1>
+    <p>Öffentliche API-Dokumentation dieser Instanz. Authentifizierung läuft über JWT oder API-Key, je nach Endpoint.</p>
+  </header>
+  <div class="layout">
+    <nav><strong>Inhalt</strong>{toc}</nav>
+    <main>{content}</main>
+  </div>
+</body>
+</html>"""
+
+
+@app.get("/api", response_class=HTMLResponse)
+@app.get("/api/", response_class=HTMLResponse)
+def public_api_docs():
+    return HTMLResponse(
+        _api_docs_html(),
+        headers={
+            "Cache-Control": "no-store, no-cache, max-age=0, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        },
+    )
 
 # ─── Background Tasks ────────────────────────────────────────────────────────
 

@@ -1297,6 +1297,11 @@ Owner können eigene Projekte nicht verlassen.
 
 ## Öffentliche Runtime-/Native-Endpunkte
 
+### API-Dokumentation
+`GET /api`
+
+Liefert diese API-Dokumentation als öffentliche HTML-Seite für Benutzer und Integrationen. Die JSON-/App-API bleibt unter den spezifischen `/api/...` Endpoints erreichbar.
+
 ### Instanzinfo
 `GET /api/instance`
 
