@@ -97,7 +97,14 @@ if WEB_DIR.exists():
     def app_downloads_manifest():
         manifest_path = DOWNLOADS_DIR / "app-downloads.json"
         if not manifest_path.exists():
-            raise HTTPException(status_code=404, detail="App downloads manifest not found")
+            return JSONResponse(
+                {"version": "", "apps": []},
+                headers={
+                    "Cache-Control": "no-store, no-cache, max-age=0, must-revalidate",
+                    "Pragma": "no-cache",
+                    "Expires": "0",
+                },
+            )
         return FileResponse(
             str(manifest_path),
             media_type="application/json",

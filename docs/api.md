@@ -1305,7 +1305,7 @@ Liefert öffentliche Instanz-Metadaten für Web-/Native-Clients, u.a. konfigurie
 ### Native App-Download-Manifest
 `GET /downloads/app-downloads.json`
 
-Liefert die verfügbaren Windows-/Android-Artefakte mit Version, Plattform, Architektur, Dateiname, Größe und SHA256. Wird bewusst mit `no-store` ausgeliefert.
+Liefert die verfügbaren Windows-/Android-Artefakte mit Version, Plattform, Architektur, Dateiname, Größe und SHA256. Wird bewusst mit `no-store` ausgeliefert. Wenn keine Release-Artefakte veröffentlicht sind, antwortet der Endpoint mit `200` und leerer `apps`-Liste, damit Clients ohne 404-Console-Noise sauber ausblenden können.
 
 ### Android Digital Asset Links
 `GET /.well-known/assetlinks.json`
