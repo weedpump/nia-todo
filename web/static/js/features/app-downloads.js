@@ -230,6 +230,7 @@ function renderNativeAppVersion(target, platform, currentVersion) {
   if (!target || !platform || !currentVersion) return;
   target.innerHTML = `
     <span class="native-version-text"><strong>App Version:</strong> ${escapeHtml(platformLabel(platform))} v${escapeHtml(normalizeVersion(currentVersion) || currentVersion)}</span>
+    <a class="changelog-link" href="/changelog" target="_blank" rel="noopener noreferrer" title="Changelog öffnen">Changelog</a>
   `;
   target.style.display = '';
 }
