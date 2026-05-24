@@ -429,6 +429,7 @@ def passkey_registration_options(data: PasskeyNameRequest, request: Request, use
         },
         "challenge": challenge,
         "name": data.name,
+        "origin": rp.origin,
     }
 
 
@@ -436,8 +437,6 @@ def passkey_registration_options(data: PasskeyNameRequest, request: Request, use
 def passkey_registration_verify(data: PasskeyRegistrationVerifyRequest, request: Request, user_id: int = Depends(require_enrollment_or_mfa_action)):
     credential = data.credential or {}
     response = credential.get("response") or {}
-    client_data_json = b64url_decode(response.get("clientDataJSON", ""))
-    attestation_object = b64url_decode(response.get("attestationObject", ""))
     rp = relying_party_for_request(request)
     with get_db() as db:
         row = db.execute(
@@ -450,10 +449,19 @@ def passkey_registration_verify(data: PasskeyRegistrationVerifyRequest, request:
         if not user or not data.password or not verify_user_credentials(db, user["username"], data.password):
             raise HTTPException(401, "Passwortbestätigung erforderlich")
         try:
+            client_data_json = b64url_decode(response.get("clientDataJSON", ""))
+            attestation_object = b64url_decode(response.get("attestationObject", ""))
             verify_client_data(client_data_json, "webauthn.create", b64url_encode(data.challenge.encode()), rp.origin)
             attested = parse_none_attestation(attestation_object, rp.rp_id)
         except Exception:
             raise HTTPException(400, "Passkey-Registrierung ungültig")
+        cur = db.execute(
+            "UPDATE passkey_challenges SET consumed_at = datetime('now') WHERE id = ? AND consumed_at IS NULL",
+            (row["id"],),
+        )
+        if cur.rowcount != 1:
+            db.commit()
+            raise HTTPException(401, "Passkey-Challenge bereits verwendet")
         credential_id = b64url_encode(attested.credential_id)
         db.execute(
             """INSERT INTO passkeys (user_id, credential_id, public_key, sign_count, name, transports, created_at)
@@ -469,7 +477,6 @@ def passkey_registration_verify(data: PasskeyRegistrationVerifyRequest, request:
         if not existing_codes:
             recovery_codes = create_recovery_codes(db, user_id)
         db.execute("UPDATE users SET two_factor_enabled = 1, two_factor_updated_at = datetime('now') WHERE id = ?", (user_id,))
-        db.execute("UPDATE passkey_challenges SET consumed_at = datetime('now') WHERE id = ?", (row["id"],))
         log_audit(db, "passkey_added", user_id=user_id, details=f"credential_id={credential_id[:12]}")
         token_user = db.execute("SELECT id, username, is_admin, token_version FROM users WHERE id = ?", (user_id,)).fetchone()
         access_token = create_jwt_token(dict(token_user), db, mfa_login_verified=True)
@@ -515,7 +522,8 @@ def passkey_login_options(data: PasskeyLoginOptionsRequest, request: Request):
                 "userVerification": "required",
                 "rpId": rp.rp_id,
                 "allowCredentials": [{"type": "public-key", "id": row["credential_id"]} for row in rows],
-            }
+            },
+            "origin": rp.origin,
         }
 
 
@@ -525,9 +533,6 @@ def passkey_login_verify(data: PasskeyLoginVerifyRequest, request: Request, resp
     credential = data.credential or {}
     cred_id = credential.get("id") or credential.get("rawId")
     cred_response = credential.get("response") or {}
-    client_data_json = b64url_decode(cred_response.get("clientDataJSON", ""))
-    auth_data = b64url_decode(cred_response.get("authenticatorData", ""))
-    signature = b64url_decode(cred_response.get("signature", ""))
     with get_db() as db:
         challenge = get_valid_challenge(db, data.challenge_token)
         if not challenge:
@@ -541,6 +546,9 @@ def passkey_login_verify(data: PasskeyLoginVerifyRequest, request: Request, resp
             db.commit()
             raise HTTPException(401, "Passkey unbekannt")
         try:
+            client_data_json = b64url_decode(cred_response.get("clientDataJSON", ""))
+            auth_data = b64url_decode(cred_response.get("authenticatorData", ""))
+            signature = b64url_decode(cred_response.get("signature", ""))
             rp = relying_party_for_request(request)
             verify_client_data(client_data_json, "webauthn.get", b64url_encode(data.challenge_token.encode()), rp.origin)
             parsed = parse_auth_data(auth_data, rp.rp_id, require_attested=False, require_user_verified=True)
@@ -590,6 +598,7 @@ def passkey_reauth_options(request: Request, user_id: int = Depends(require_auth
             "rpId": rp.rp_id,
             "allowCredentials": [{"type": "public-key", "id": row["credential_id"]} for row in rows],
         },
+        "origin": rp.origin,
     }
 
 
@@ -611,10 +620,10 @@ def passkey_reauth_verify(data: PasskeyReauthVerifyRequest, request: Request, au
             db.commit()
             raise HTTPException(401, "Passkey unbekannt")
         cred_response = credential.get("response") or {}
-        client_data_json = b64url_decode(cred_response.get("clientDataJSON", ""))
-        auth_data = b64url_decode(cred_response.get("authenticatorData", ""))
-        signature = b64url_decode(cred_response.get("signature", ""))
         try:
+            client_data_json = b64url_decode(cred_response.get("clientDataJSON", ""))
+            auth_data = b64url_decode(cred_response.get("authenticatorData", ""))
+            signature = b64url_decode(cred_response.get("signature", ""))
             rp = relying_party_for_request(request)
             verify_client_data(client_data_json, "webauthn.get", b64url_encode(data.challenge.encode()), rp.origin)
             parsed = parse_auth_data(auth_data, rp.rp_id, require_attested=False, require_user_verified=True)

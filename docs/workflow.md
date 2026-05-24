@@ -37,12 +37,13 @@ Android wird mit dem dauerhaften Release-Key signiert:
 - Keystore: `$NIA_TODO_SECRETS_DIR/nia-todo-android-release.keystore`
 - Alias: `nia-todo-android-release`
 
-Der Release-Key muss gesichert bleiben; ein Key-Wechsel bricht Android-Überinstallationen.
+Der Release-Key muss gesichert bleiben; ein Key-Wechsel bricht Android-Überinstallationen und die Android-Passkey-Bindung über Digital Asset Links. Eine Signing-Key-Rotation braucht daher zusätzlich einen geplanten Server-/Doku-Migrationspfad für `/.well-known/assetlinks.json` und den erlaubten Android-App-Origin.
 
 Native Build-Hinweise ab `v1.6.0`:
 
 - Windows-Installer enthält den lokalen Reminder-Scheduler; Reminder funktionieren offline, solange App/Tray läuft.
 - Android-APK enthält den lokalen `AlarmManager`-Scheduler; Reminder funktionieren offline und werden nach Geräte-Neustart neu geplant.
+- Android-Passkeys setzen die offizielle App-ID `de.tobiaskneidl.nia_todo` und den Release-Key voraus; Selfhoster verbinden diese offizielle App nur mit ihrer Server-URL.
 - Browser/PWA-Push bleibt Browser/PWA-only; native Apps sollen nicht vom Server-WebSocket für Reminder abhängig sein.
 - Service Worker bleibt auch in nativen Wrappern aktiv, damit Offline-Cold-Start funktioniert.
 - Nach erfolgreichem Release räumt `release.sh` lokale Tauri-Build-Artefakte per `cargo clean --manifest-path src-tauri/Cargo.toml` auf. Bei Bedarf kann das mit `CLEAN_BUILD_ARTIFACTS_AFTER_RELEASE=0 ./release.sh VERSION` übersprungen werden.

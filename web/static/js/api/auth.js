@@ -1,4 +1,5 @@
 import { API, RUNTIME_CAPABILITIES } from '../core/config.js';
+import { createNativeBridge } from '../features/native-bridge.js';
 import { getAuthHeaders } from './http.js';
 
 async function parseOrThrow(response, fallback = 'Request failed') {
@@ -25,17 +26,50 @@ function bufferToB64url(buffer) {
 }
 
 function credentialToJson(credential) {
+  if (credential && typeof credential === 'object' && credential.response && !(credential.rawId instanceof ArrayBuffer)) {
+    return {
+      id: credential.id,
+      rawId: credential.rawId || credential.id,
+      type: credential.type || 'public-key',
+      response: credential.response,
+      transports: credential.response?.transports || credential.transports || [],
+    };
+  }
   const response = {};
   for (const key of ['clientDataJSON', 'attestationObject', 'authenticatorData', 'signature', 'userHandle']) {
-    if (credential.response?.[key] instanceof ArrayBuffer) response[key] = bufferToB64url(credential.response[key]);
+    const value = credential.response?.[key];
+    if (value instanceof ArrayBuffer) response[key] = bufferToB64url(value);
+    else if (typeof value === 'string') response[key] = value;
   }
   return {
     id: credential.id,
-    rawId: bufferToB64url(credential.rawId),
-    type: credential.type,
+    rawId: credential.rawId instanceof ArrayBuffer ? bufferToB64url(credential.rawId) : (credential.rawId || credential.id),
+    type: credential.type || 'public-key',
     response,
-    transports: typeof credential.response.getTransports === 'function' ? credential.response.getTransports() : [],
+    transports: typeof credential.response?.getTransports === 'function' ? credential.response.getTransports() : (credential.transports || []),
   };
+}
+
+const nativeBridge = createNativeBridge();
+
+function canUseNativePasskeyBridge() {
+  return nativeBridge.supportsNativePasskeys();
+}
+
+function browserPublicKeyFromJson(publicKey, mode) {
+  const next = structuredClone(publicKey);
+  next.challenge = b64urlToBuffer(next.challenge);
+  if (mode === 'create') {
+    next.user.id = b64urlToBuffer(next.user.id);
+    next.excludeCredentials = (next.excludeCredentials || []).map(item => ({ ...item, id: b64urlToBuffer(item.id) }));
+  } else {
+    next.allowCredentials = (next.allowCredentials || []).map(item => ({ ...item, id: b64urlToBuffer(item.id) }));
+  }
+  return next;
+}
+
+function passkeyOrigin(optionsData) {
+  return optionsData?.origin || (API ? new URL(API).origin : location.origin);
 }
 
 export const authApi = {
@@ -60,17 +94,22 @@ export const authApi = {
   },
 
   async verifyPasskeyLogin(challengeToken, rememberDevice = false) {
-    if (RUNTIME_CAPABILITIES.native) {
-      throw new Error('Passkeys werden in den Native Apps erst mit der nativen Passkey-Bridge unterstützt. Bitte im Browser anmelden oder TOTP/Recovery verwenden.');
+    if (RUNTIME_CAPABILITIES.native && !canUseNativePasskeyBridge()) {
+      throw new Error('Passkeys werden in dieser Native App noch nicht unterstützt. Bitte TOTP/Recovery verwenden.');
     }
     const optionsResponse = await fetch(API + '/api/2fa/passkey/options', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ challenge_token: challengeToken }),
     });
     const optionsData = await parseOrThrow(optionsResponse, 'Passkey-Challenge fehlgeschlagen');
     const publicKey = optionsData.publicKey;
-    publicKey.challenge = b64urlToBuffer(publicKey.challenge);
-    publicKey.allowCredentials = (publicKey.allowCredentials || []).map(item => ({ ...item, id: b64urlToBuffer(item.id) }));
-    const credential = await navigator.credentials.get({ publicKey });
+    let credential;
+    try {
+      credential = canUseNativePasskeyBridge()
+        ? await nativeBridge.passkeyAuthenticate(passkeyOrigin(optionsData), publicKey)
+        : await navigator.credentials.get({ publicKey: browserPublicKeyFromJson(publicKey, 'get') });
+    } catch (error) {
+      throw new Error(`Passkey-Anmeldung fehlgeschlagen: ${error?.message || error}`);
+    }
     const verifyResponse = await fetch(API + '/api/2fa/passkey/verify', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ challenge_token: challengeToken, credential: credentialToJson(credential), remember_device: rememberDevice }),
     });
@@ -117,18 +156,22 @@ export const authApi = {
   },
 
   async createPasskey(name = 'Passkey', password = '') {
-    if (RUNTIME_CAPABILITIES.native) {
-      throw new Error('Passkeys werden in den Native Apps erst mit der nativen Passkey-Bridge unterstützt. Bitte im Browser verwalten.');
+    if (RUNTIME_CAPABILITIES.native && !canUseNativePasskeyBridge()) {
+      throw new Error('Passkeys werden in dieser Native App noch nicht unterstützt. Bitte im Browser verwalten.');
     }
     const optionsResponse = await fetch(API + '/api/me/passkeys/options', {
       method: 'POST', headers: getAuthHeaders(), credentials: 'include', body: JSON.stringify({ name }),
     });
     const optionsData = await parseOrThrow(optionsResponse, 'Passkey-Setup fehlgeschlagen');
     const publicKey = optionsData.publicKey;
-    publicKey.challenge = b64urlToBuffer(publicKey.challenge);
-    publicKey.user.id = b64urlToBuffer(publicKey.user.id);
-    publicKey.excludeCredentials = (publicKey.excludeCredentials || []).map(item => ({ ...item, id: b64urlToBuffer(item.id) }));
-    const credential = await navigator.credentials.create({ publicKey });
+    let credential;
+    try {
+      credential = canUseNativePasskeyBridge()
+        ? await nativeBridge.passkeyRegister(passkeyOrigin(optionsData), publicKey)
+        : await navigator.credentials.create({ publicKey: browserPublicKeyFromJson(publicKey, 'create') });
+    } catch (error) {
+      throw new Error(`Passkey-Registrierung fehlgeschlagen: ${error?.message || error}`);
+    }
     const verifyResponse = await fetch(API + '/api/me/passkeys/verify', {
       method: 'POST', headers: getAuthHeaders(), credentials: 'include', body: JSON.stringify({ name, challenge: optionsData.challenge, credential: credentialToJson(credential), password }),
     });
@@ -150,17 +193,22 @@ export const authApi = {
   },
 
   async reauthPasskey() {
-    if (RUNTIME_CAPABILITIES.native) {
-      throw new Error('Passkey-Reauth wird in den Native Apps erst mit der nativen Passkey-Bridge unterstützt.');
+    if (RUNTIME_CAPABILITIES.native && !canUseNativePasskeyBridge()) {
+      throw new Error('Passkey-Reauth wird in dieser Native App noch nicht unterstützt.');
     }
     const optionsResponse = await fetch(API + '/api/me/2fa/reauth/passkey/options', {
       method: 'POST', headers: getAuthHeaders(), credentials: 'include', body: JSON.stringify({}),
     });
     const optionsData = await parseOrThrow(optionsResponse, 'Passkey-Reauth fehlgeschlagen');
     const publicKey = optionsData.publicKey;
-    publicKey.challenge = b64urlToBuffer(publicKey.challenge);
-    publicKey.allowCredentials = (publicKey.allowCredentials || []).map(item => ({ ...item, id: b64urlToBuffer(item.id) }));
-    const credential = await navigator.credentials.get({ publicKey });
+    let credential;
+    try {
+      credential = canUseNativePasskeyBridge()
+        ? await nativeBridge.passkeyAuthenticate(passkeyOrigin(optionsData), publicKey)
+        : await navigator.credentials.get({ publicKey: browserPublicKeyFromJson(publicKey, 'get') });
+    } catch (error) {
+      throw new Error(`Passkey-Bestätigung fehlgeschlagen: ${error?.message || error}`);
+    }
     const verifyResponse = await fetch(API + '/api/me/2fa/reauth/passkey/verify', {
       method: 'POST', headers: getAuthHeaders(), credentials: 'include', body: JSON.stringify({ challenge: optionsData.challenge, credential: credentialToJson(credential) }),
     });

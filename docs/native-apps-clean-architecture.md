@@ -129,6 +129,7 @@ Windows:
 
 - Local notifications.
 - Local reminder scheduling while app/background agent is available.
+- Native Passkey/WebAuthn bridge via Windows WebAuthn backend; the app passes the server-provided RP origin into the native authenticator instead of relying on WebView2 `navigator.credentials` under `tauri.localhost`. The Rust command validates that origin and RP-ID against the locally configured server URL before invoking Windows WebAuthn, so native passkeys require the app server URL to match the server's canonical `public_base_url` origin/RP host.
 - Optional tray/autostart/hotkeys only after core cold-start + sync architecture is stable.
 
 Android:
@@ -137,6 +138,7 @@ Android:
 - `AlarmManager`-based reminders.
 - Re-register reminders after reboot.
 - Runtime notification permission.
+- Native Passkey/WebAuthn bridge uses AndroidX Credential Manager through `NiaAndroidNative`; the JavaScript adapter uses request IDs and WebView callbacks because Credential Manager is asynchronous while `JavascriptInterface` calls are synchronous. The bridge validates the server-provided origin and RP-ID before starting the native ceremony.
 - Offline completion action only if it writes safely to local queue and cannot cross user/server context.
 
 ### 6. Web/PWA compatibility
@@ -145,6 +147,9 @@ Browser/PWA remains first-class.
 
 - Browser continues to use same-origin server-hosted UI and API.
 - Native uses local UI + remote API.
+- Android passkeys require Digital Asset Links at `/.well-known/assetlinks.json` for package `de.tobiaskneidl.nia_todo` and the release signing certificate. The backend accepts the HTTPS web origin and the pinned Android `android:apk-key-hash:...` origin while still validating the RP-ID hash against `public_base_url`.
+- The pinned package/signature is an explicit official-app trust model: self-hosted servers authorize the official nia-todo Android app delivered by us and then connect it to their own server URL. Custom package names, F-Droid/re-signed builds, and signing-key rotation are deliberately out of scope for 2.0 and require a later server config/migration path.
+- `assetlinks.json` is part of the web bundle/server delivery model, not a per-instance admin setting. If an API-only server mode is ever introduced, this route must stay available outside any optional web-static block.
 - Shared frontend modules must support both modes explicitly.
 - No native-only assumptions may break normal browser/PWA behavior.
 

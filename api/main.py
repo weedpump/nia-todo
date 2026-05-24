@@ -1,6 +1,7 @@
 """nia-todo: FastAPI backend - slim entry point"""
 
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from starlette.responses import Response
@@ -105,6 +106,28 @@ if WEB_DIR.exists():
         )
 
     app.mount("/downloads", StaticFiles(directory=str(DOWNLOADS_DIR)), name="downloads")
+
+    @app.get("/.well-known/assetlinks.json")
+    @app.head("/.well-known/assetlinks.json")
+    def android_asset_links():
+        from services.webauthn import ANDROID_PACKAGE_NAME, ANDROID_RELEASE_CERT_SHA256
+
+        return JSONResponse(
+            [
+                {
+                    "relation": [
+                        "delegate_permission/common.handle_all_urls",
+                        "delegate_permission/common.get_login_creds",
+                    ],
+                    "target": {
+                        "namespace": "android_app",
+                        "package_name": ANDROID_PACKAGE_NAME,
+                        "sha256_cert_fingerprints": [ANDROID_RELEASE_CERT_SHA256],
+                    },
+                }
+            ],
+            headers={"Cache-Control": "no-store, no-cache, max-age=0, must-revalidate"},
+        )
 
     @app.get("/")
     def index():

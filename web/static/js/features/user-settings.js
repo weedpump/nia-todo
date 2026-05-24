@@ -628,7 +628,7 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     const successEl = document.getElementById('settings-2fa-success');
     errorEl.textContent = '';
     successEl.textContent = '';
-    if (RUNTIME_CAPABILITIES.native || !window.PublicKeyCredential || !navigator.credentials) {
+    if (!(RUNTIME_CAPABILITIES.nativePasskeys || (!RUNTIME_CAPABILITIES.native && window.PublicKeyCredential && navigator.credentials))) {
       errorEl.textContent = 'Passkeys werden von dieser Umgebung nicht unterstützt';
       return;
     }

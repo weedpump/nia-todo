@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-desktop-passkey-authenticate"
+description = "Enables the desktop_passkey_authenticate command without any pre-configured scope."
+commands.allow = ["desktop_passkey_authenticate"]
+
+[[permission]]
+identifier = "deny-desktop-passkey-authenticate"
+description = "Denies the desktop_passkey_authenticate command without any pre-configured scope."
+commands.deny = ["desktop_passkey_authenticate"]

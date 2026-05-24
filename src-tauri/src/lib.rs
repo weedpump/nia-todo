@@ -476,6 +476,422 @@ fn build_tray(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
   Ok(())
 }
 
+#[cfg(windows)]
+fn passkey_allowed_origin(app: &AppHandle) -> Result<(url::Url, String), String> {
+  let server_url = load_settings(app)
+    .server_url
+    .ok_or_else(|| "Keine Server-URL für native Passkeys konfiguriert.".to_string())?;
+  let normalized = normalize_server_url(&server_url)?;
+  let parsed = url::Url::parse(&normalized).map_err(|err| format!("Ungültige konfigurierte Server-URL: {err}"))?;
+  let host = parsed
+    .host_str()
+    .ok_or_else(|| "Konfigurierte Server-URL hat keinen Host.".to_string())?
+    .trim_end_matches('.')
+    .to_lowercase();
+  Ok((parsed, host))
+}
+
+#[cfg_attr(not(windows), allow(dead_code))]
+fn validate_passkey_origin(origin: &str, allowed: &url::Url) -> Result<String, String> {
+  let parsed = url::Url::parse(origin).map_err(|err| format!("Ungültige Passkey-Origin: {err}"))?;
+  let host = parsed
+    .host_str()
+    .ok_or_else(|| "Passkey-Origin hat keinen Host.".to_string())?;
+  let is_local_http = parsed.scheme() == "http" && matches!(host, "localhost" | "127.0.0.1" | "::1");
+  if parsed.scheme() != "https" && !is_local_http {
+    return Err("Passkey-Origin muss HTTPS verwenden.".into());
+  }
+  if !parsed.username().is_empty() || parsed.password().is_some() || parsed.query().is_some() || parsed.fragment().is_some() {
+    return Err("Passkey-Origin darf keine Zugangsdaten, Query oder Fragment enthalten.".into());
+  }
+  let canonical_origin = parsed.origin().ascii_serialization();
+  if origin != canonical_origin {
+    return Err("Passkey-Origin muss exakt der kanonischen Origin entsprechen.".into());
+  }
+  if canonical_origin != allowed.origin().ascii_serialization() {
+    return Err("Passkey-Origin passt nicht zur konfigurierten Server-URL.".into());
+  }
+  Ok(canonical_origin)
+}
+
+#[cfg_attr(not(windows), allow(dead_code))]
+fn validate_passkey_rp_id(rp_id: Option<&str>, allowed_host: &str) -> Result<(), String> {
+  let rp_id = rp_id
+    .ok_or_else(|| "Passkey-Optionen enthalten keine RP-ID.".to_string())?
+    .trim()
+    .trim_end_matches('.')
+    .to_lowercase();
+  if rp_id != allowed_host {
+    return Err("Passkey-RP-ID passt nicht zur konfigurierten Server-URL.".into());
+  }
+  Ok(())
+}
+
+
+#[cfg(windows)]
+fn b64url_decode(value: &str) -> Result<Vec<u8>, String> {
+  use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
+  URL_SAFE_NO_PAD.decode(value).map_err(|err| format!("Ungültige Base64URL-Daten: {err}"))
+}
+
+#[cfg(windows)]
+fn b64url_encode(bytes: &[u8]) -> String {
+  use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
+  URL_SAFE_NO_PAD.encode(bytes)
+}
+
+#[cfg(windows)]
+unsafe fn copy_webauthn_buffer(ptr: *const u8, len: u32, label: &str) -> Result<Vec<u8>, String> {
+  if len == 0 {
+    return Ok(Vec::new());
+  }
+  if ptr.is_null() {
+    return Err(format!("Windows WebAuthn lieferte keinen {label}-Puffer."));
+  }
+  Ok(unsafe { std::slice::from_raw_parts(ptr, len as usize) }.to_vec())
+}
+
+#[cfg(windows)]
+fn json_string<'a>(value: &'a serde_json::Value, path: &str) -> Result<&'a str, String> {
+  value.pointer(path).and_then(|v| v.as_str()).ok_or_else(|| format!("Passkey-Option fehlt: {path}"))
+}
+
+#[cfg(windows)]
+fn json_bool(value: &serde_json::Value, path: &str) -> bool {
+  value.pointer(path).and_then(|v| v.as_bool()).unwrap_or(false)
+}
+
+#[cfg(windows)]
+fn client_data_json(kind: &str, origin: &str, challenge: &str) -> Result<String, String> {
+  serde_json::to_string(&serde_json::json!({
+    "type": kind,
+    "challenge": challenge,
+    "origin": origin,
+  })).map_err(|err| err.to_string())
+}
+
+#[cfg(windows)]
+fn transport_names(flags: u32) -> Vec<&'static str> {
+  use windows::Win32::Networking::WindowsWebServices::*;
+  let mut out = Vec::new();
+  if flags & WEBAUTHN_CTAP_TRANSPORT_USB != 0 { out.push("usb"); }
+  if flags & WEBAUTHN_CTAP_TRANSPORT_NFC != 0 { out.push("nfc"); }
+  if flags & WEBAUTHN_CTAP_TRANSPORT_BLE != 0 { out.push("ble"); }
+  if flags & WEBAUTHN_CTAP_TRANSPORT_INTERNAL != 0 { out.push("internal"); }
+  out
+}
+
+#[cfg(windows)]
+fn user_verification_requirement(value: Option<&str>) -> u32 {
+  use windows::Win32::Networking::WindowsWebServices::*;
+  match value {
+    Some("required") => WEBAUTHN_USER_VERIFICATION_REQUIREMENT_REQUIRED,
+    Some("preferred") => WEBAUTHN_USER_VERIFICATION_REQUIREMENT_PREFERRED,
+    Some("discouraged") => WEBAUTHN_USER_VERIFICATION_REQUIREMENT_DISCOURAGED,
+    _ => WEBAUTHN_USER_VERIFICATION_REQUIREMENT_ANY,
+  }
+}
+
+#[cfg(windows)]
+fn authenticator_attachment(value: Option<&str>) -> u32 {
+  use windows::Win32::Networking::WindowsWebServices::*;
+  match value {
+    Some("platform") => WEBAUTHN_AUTHENTICATOR_ATTACHMENT_PLATFORM,
+    Some("cross-platform") => WEBAUTHN_AUTHENTICATOR_ATTACHMENT_CROSS_PLATFORM,
+    _ => WEBAUTHN_AUTHENTICATOR_ATTACHMENT_ANY,
+  }
+}
+
+#[cfg(windows)]
+#[allow(dead_code)]
+struct WinCredentialList {
+  ids: Vec<Vec<u8>>,
+  types: Vec<windows::core::HSTRING>,
+  credentials: Vec<windows::Win32::Networking::WindowsWebServices::WEBAUTHN_CREDENTIAL_EX>,
+  ptrs: Vec<*mut windows::Win32::Networking::WindowsWebServices::WEBAUTHN_CREDENTIAL_EX>,
+  native: windows::Win32::Networking::WindowsWebServices::WEBAUTHN_CREDENTIAL_LIST,
+}
+
+#[cfg(windows)]
+impl WinCredentialList {
+  fn from_json(items: Option<&Vec<serde_json::Value>>) -> Result<Self, String> {
+    use windows::Win32::Networking::WindowsWebServices::*;
+    let mut ids = Vec::new();
+    let mut types = Vec::new();
+    for item in items.into_iter().flatten() {
+      ids.push(b64url_decode(json_string(item, "/id")?)?);
+      types.push(windows::core::HSTRING::from(item.get("type").and_then(|v| v.as_str()).unwrap_or("public-key")));
+    }
+    let mut credentials: Vec<WEBAUTHN_CREDENTIAL_EX> = ids.iter_mut().zip(types.iter()).map(|(id, type_)| WEBAUTHN_CREDENTIAL_EX {
+      dwVersion: WEBAUTHN_CREDENTIAL_EX_CURRENT_VERSION,
+      cbId: id.len() as u32,
+      pbId: id.as_mut_ptr(),
+      pwszCredentialType: windows::core::PCWSTR::from_raw(type_.as_ptr()),
+      dwTransports: 0,
+    }).collect();
+    let mut ptrs: Vec<*mut WEBAUTHN_CREDENTIAL_EX> = credentials.iter_mut().map(|credential| credential as *mut _).collect();
+    let native = WEBAUTHN_CREDENTIAL_LIST {
+      cCredentials: ptrs.len() as u32,
+      ppCredentials: if ptrs.is_empty() { std::ptr::null_mut() } else { ptrs.as_mut_ptr() },
+    };
+    Ok(Self { ids, types, credentials, ptrs, native })
+  }
+}
+
+#[cfg(windows)]
+fn windows_webauthn_register(hwnd: windows::Win32::Foundation::HWND, origin: &str, options: serde_json::Value) -> Result<serde_json::Value, String> {
+  use windows::{core::{HSTRING, PCWSTR}, Win32::Networking::WindowsWebServices::*};
+
+  let rp_id = json_string(&options, "/rp/id")?;
+  let rp_name = options.pointer("/rp/name").and_then(|v| v.as_str()).unwrap_or("nia-todo");
+  let user_id = b64url_decode(json_string(&options, "/user/id")?)?;
+  let user_name = json_string(&options, "/user/name")?;
+  let user_display_name = options.pointer("/user/displayName").and_then(|v| v.as_str()).unwrap_or(user_name);
+  let challenge = json_string(&options, "/challenge")?;
+  let client_data_json = client_data_json("webauthn.create", origin, challenge)?;
+
+  let rp_id_h = HSTRING::from(rp_id);
+  let rp_name_h = HSTRING::from(rp_name);
+  let user_name_h = HSTRING::from(user_name);
+  let user_display_h = HSTRING::from(user_display_name);
+  let public_key_h = HSTRING::from("public-key");
+  let sha256_h = HSTRING::from("SHA-256");
+
+  let rp = WEBAUTHN_RP_ENTITY_INFORMATION {
+    dwVersion: WEBAUTHN_RP_ENTITY_INFORMATION_CURRENT_VERSION,
+    pwszId: PCWSTR::from_raw(rp_id_h.as_ptr()),
+    pwszName: PCWSTR::from_raw(rp_name_h.as_ptr()),
+    pwszIcon: PCWSTR::null(),
+  };
+  let mut user_id = user_id;
+  let user = WEBAUTHN_USER_ENTITY_INFORMATION {
+    dwVersion: WEBAUTHN_USER_ENTITY_INFORMATION_CURRENT_VERSION,
+    cbId: user_id.len() as u32,
+    pbId: user_id.as_mut_ptr(),
+    pwszName: PCWSTR::from_raw(user_name_h.as_ptr()),
+    pwszIcon: PCWSTR::null(),
+    pwszDisplayName: PCWSTR::from_raw(user_display_h.as_ptr()),
+  };
+
+  let params_json = options.pointer("/pubKeyCredParams").and_then(|v| v.as_array()).ok_or_else(|| "Passkey-Option fehlt: /pubKeyCredParams".to_string())?;
+  let mut cose_params: Vec<WEBAUTHN_COSE_CREDENTIAL_PARAMETER> = params_json.iter().filter_map(|item| {
+    let alg = item.get("alg")?.as_i64()? as i32;
+    Some(WEBAUTHN_COSE_CREDENTIAL_PARAMETER {
+      dwVersion: WEBAUTHN_COSE_CREDENTIAL_PARAMETER_CURRENT_VERSION,
+      pwszCredentialType: PCWSTR::from_raw(public_key_h.as_ptr()),
+      lAlg: alg,
+    })
+  }).collect();
+  if cose_params.is_empty() {
+    cose_params.push(WEBAUTHN_COSE_CREDENTIAL_PARAMETER {
+      dwVersion: WEBAUTHN_COSE_CREDENTIAL_PARAMETER_CURRENT_VERSION,
+      pwszCredentialType: PCWSTR::from_raw(public_key_h.as_ptr()),
+      lAlg: WEBAUTHN_COSE_ALGORITHM_ECDSA_P256_WITH_SHA256,
+    });
+  }
+  let cose = WEBAUTHN_COSE_CREDENTIAL_PARAMETERS {
+    cCredentialParameters: cose_params.len() as u32,
+    pCredentialParameters: cose_params.as_mut_ptr(),
+  };
+
+  let mut client_data_bytes = client_data_json.as_bytes().to_vec();
+  let client_data = WEBAUTHN_CLIENT_DATA {
+    dwVersion: WEBAUTHN_CLIENT_DATA_CURRENT_VERSION,
+    cbClientDataJSON: client_data_bytes.len() as u32,
+    pbClientDataJSON: client_data_bytes.as_mut_ptr(),
+    pwszHashAlgId: PCWSTR::from_raw(sha256_h.as_ptr()),
+  };
+
+  let exclude_items = options.pointer("/excludeCredentials").and_then(|v| v.as_array());
+  let mut exclude = WinCredentialList::from_json(exclude_items)?;
+  let selection = options.pointer("/authenticatorSelection");
+  let require_resident = selection.map(|s| json_bool(s, "/requireResidentKey")).unwrap_or(false);
+  let prefer_resident = selection.and_then(|s| s.get("residentKey")).and_then(|v| v.as_str()).map(|v| v == "preferred" || v == "required").unwrap_or(false);
+  let uv = selection.and_then(|s| s.get("userVerification")).and_then(|v| v.as_str());
+  let attachment = selection.and_then(|s| s.get("authenticatorAttachment")).and_then(|v| v.as_str());
+
+  let make_options = WEBAUTHN_AUTHENTICATOR_MAKE_CREDENTIAL_OPTIONS {
+    dwVersion: WEBAUTHN_AUTHENTICATOR_MAKE_CREDENTIAL_OPTIONS_CURRENT_VERSION,
+    dwTimeoutMilliseconds: options.get("timeout").and_then(|v| v.as_u64()).unwrap_or(60_000) as u32,
+    CredentialList: WEBAUTHN_CREDENTIALS::default(),
+    Extensions: WEBAUTHN_EXTENSIONS::default(),
+    dwAuthenticatorAttachment: authenticator_attachment(attachment),
+    bRequireResidentKey: require_resident.into(),
+    dwUserVerificationRequirement: user_verification_requirement(uv),
+    dwAttestationConveyancePreference: WEBAUTHN_ATTESTATION_CONVEYANCE_PREFERENCE_NONE,
+    dwFlags: 0,
+    pCancellationId: std::ptr::null_mut(),
+    pExcludeCredentialList: &mut exclude.native,
+    dwEnterpriseAttestation: WEBAUTHN_ENTERPRISE_ATTESTATION_NONE,
+    dwLargeBlobSupport: 0,
+    bPreferResidentKey: prefer_resident.into(),
+    ..Default::default()
+  };
+
+  let attestation = unsafe {
+    WebAuthNAuthenticatorMakeCredential(hwnd, &rp, &user, &cose, &client_data, Some(&make_options))
+      .map_err(|err| format!("Windows WebAuthn Registrierung fehlgeschlagen: {err:?}"))?
+  };
+  let credential_id = unsafe { copy_webauthn_buffer((*attestation).pbCredentialId, (*attestation).cbCredentialId, "Credential-ID") };
+  let attestation_object = unsafe { copy_webauthn_buffer((*attestation).pbAttestationObject, (*attestation).cbAttestationObject, "Attestation-Object") };
+  let used_transport = unsafe { (*attestation).dwUsedTransport };
+  unsafe { WebAuthNFreeCredentialAttestation(Some(attestation)); }
+  let credential_id = credential_id?;
+  let attestation_object = attestation_object?;
+
+  Ok(serde_json::json!({
+    "id": b64url_encode(&credential_id),
+    "rawId": b64url_encode(&credential_id),
+    "type": "public-key",
+    "response": {
+      "clientDataJSON": b64url_encode(client_data_json.as_bytes()),
+      "attestationObject": b64url_encode(&attestation_object)
+    },
+    "transports": transport_names(used_transport)
+  }))
+}
+
+#[cfg(windows)]
+fn windows_webauthn_authenticate(hwnd: windows::Win32::Foundation::HWND, origin: &str, options: serde_json::Value) -> Result<serde_json::Value, String> {
+  use windows::{core::{BOOL, HSTRING, PCWSTR}, Win32::Networking::WindowsWebServices::*};
+
+  let rp_id = json_string(&options, "/rpId")?;
+  let challenge = json_string(&options, "/challenge")?;
+  let client_data_json = client_data_json("webauthn.get", origin, challenge)?;
+  let rp_id_h = HSTRING::from(rp_id);
+  let sha256_h = HSTRING::from("SHA-256");
+
+  let mut client_data_bytes = client_data_json.as_bytes().to_vec();
+  let client_data = WEBAUTHN_CLIENT_DATA {
+    dwVersion: WEBAUTHN_CLIENT_DATA_CURRENT_VERSION,
+    cbClientDataJSON: client_data_bytes.len() as u32,
+    pbClientDataJSON: client_data_bytes.as_mut_ptr(),
+    pwszHashAlgId: PCWSTR::from_raw(sha256_h.as_ptr()),
+  };
+
+  let allow_items = options.pointer("/allowCredentials").and_then(|v| v.as_array());
+  let mut allow = WinCredentialList::from_json(allow_items)?;
+  let mut app_id_used = BOOL(0);
+  let get_options = WEBAUTHN_AUTHENTICATOR_GET_ASSERTION_OPTIONS {
+    dwVersion: WEBAUTHN_AUTHENTICATOR_GET_ASSERTION_OPTIONS_CURRENT_VERSION,
+    dwTimeoutMilliseconds: options.get("timeout").and_then(|v| v.as_u64()).unwrap_or(60_000) as u32,
+    CredentialList: WEBAUTHN_CREDENTIALS::default(),
+    Extensions: WEBAUTHN_EXTENSIONS::default(),
+    dwAuthenticatorAttachment: WEBAUTHN_AUTHENTICATOR_ATTACHMENT_ANY,
+    dwUserVerificationRequirement: user_verification_requirement(options.get("userVerification").and_then(|v| v.as_str())),
+    dwFlags: 0,
+    pwszU2fAppId: PCWSTR::null(),
+    pbU2fAppId: &mut app_id_used,
+    pCancellationId: std::ptr::null_mut(),
+    pAllowCredentialList: &mut allow.native,
+    dwCredLargeBlobOperation: WEBAUTHN_CRED_LARGE_BLOB_OPERATION_NONE,
+    cbCredLargeBlob: 0,
+    pbCredLargeBlob: std::ptr::null_mut(),
+    ..Default::default()
+  };
+
+  let assertion = unsafe {
+    WebAuthNAuthenticatorGetAssertion(hwnd, PCWSTR::from_raw(rp_id_h.as_ptr()), &client_data, Some(&get_options))
+      .map_err(|err| format!("Windows WebAuthn Anmeldung fehlgeschlagen: {err:?}"))?
+  };
+  let credential_id = unsafe { copy_webauthn_buffer((*assertion).Credential.pbId, (*assertion).Credential.cbId, "Credential-ID") };
+  let authenticator_data = unsafe { copy_webauthn_buffer((*assertion).pbAuthenticatorData, (*assertion).cbAuthenticatorData, "Authenticator-Data") };
+  let signature = unsafe { copy_webauthn_buffer((*assertion).pbSignature, (*assertion).cbSignature, "Signatur") };
+  let user_handle = unsafe { copy_webauthn_buffer((*assertion).pbUserId, (*assertion).cbUserId, "User-Handle") };
+  unsafe { WebAuthNFreeAssertion(assertion); }
+  let credential_id = credential_id?;
+  let authenticator_data = authenticator_data?;
+  let signature = signature?;
+  let user_handle = match user_handle? {
+    bytes if bytes.is_empty() => None,
+    bytes => Some(b64url_encode(&bytes)),
+  };
+
+  let mut response = serde_json::json!({
+    "clientDataJSON": b64url_encode(client_data_json.as_bytes()),
+    "authenticatorData": b64url_encode(&authenticator_data),
+    "signature": b64url_encode(&signature)
+  });
+  if let Some(user_handle) = user_handle {
+    response["userHandle"] = serde_json::Value::String(user_handle);
+  }
+
+  Ok(serde_json::json!({
+    "id": b64url_encode(&credential_id),
+    "rawId": b64url_encode(&credential_id),
+    "type": "public-key",
+    "response": response
+  }))
+}
+
+#[cfg(windows)]
+#[tauri::command]
+fn desktop_passkey_register(app: AppHandle, window: tauri::WebviewWindow, origin: String, options: serde_json::Value) -> Result<serde_json::Value, String> {
+  let hwnd = window.hwnd().map_err(|err| format!("Windows-Fensterhandle konnte nicht gelesen werden: {err}"))?;
+  let (allowed_origin, allowed_host) = passkey_allowed_origin(&app)?;
+  let canonical_origin = validate_passkey_origin(&origin, &allowed_origin)?;
+  validate_passkey_rp_id(options.pointer("/rp/id").and_then(|value| value.as_str()), &allowed_host)?;
+  windows_webauthn_register(hwnd, &canonical_origin, options)
+}
+
+#[cfg(not(windows))]
+#[tauri::command]
+fn desktop_passkey_register(_app: AppHandle, _origin: String, _options: serde_json::Value) -> Result<serde_json::Value, String> {
+  Err("Windows Passkeys werden auf dieser Plattform nicht unterstützt.".into())
+}
+
+#[cfg(windows)]
+#[tauri::command]
+fn desktop_passkey_authenticate(app: AppHandle, window: tauri::WebviewWindow, origin: String, options: serde_json::Value) -> Result<serde_json::Value, String> {
+  let hwnd = window.hwnd().map_err(|err| format!("Windows-Fensterhandle konnte nicht gelesen werden: {err}"))?;
+  let (allowed_origin, allowed_host) = passkey_allowed_origin(&app)?;
+  let canonical_origin = validate_passkey_origin(&origin, &allowed_origin)?;
+  validate_passkey_rp_id(options.get("rpId").and_then(|value| value.as_str()), &allowed_host)?;
+  windows_webauthn_authenticate(hwnd, &canonical_origin, options)
+}
+
+#[cfg(not(windows))]
+#[tauri::command]
+fn desktop_passkey_authenticate(_app: AppHandle, _origin: String, _options: serde_json::Value) -> Result<serde_json::Value, String> {
+  Err("Windows Passkeys werden auf dieser Plattform nicht unterstützt.".into())
+}
+
+#[cfg(test)]
+mod passkey_validation_tests {
+  use super::{validate_passkey_origin, validate_passkey_rp_id};
+
+  #[test]
+  fn passkey_origin_must_match_allowed_origin_exactly() {
+    let allowed = url::Url::parse("https://todo.example.test/app").unwrap();
+    assert_eq!(
+      validate_passkey_origin("https://todo.example.test", &allowed).unwrap(),
+      "https://todo.example.test"
+    );
+    assert!(validate_passkey_origin("https://todo.example.test/path", &allowed).is_err());
+    assert!(validate_passkey_origin("https://evil.example.test", &allowed).is_err());
+  }
+
+  #[test]
+  fn passkey_origin_allows_only_https_or_local_http() {
+    let local = url::Url::parse("http://localhost:8753").unwrap();
+    assert_eq!(
+      validate_passkey_origin("http://localhost:8753", &local).unwrap(),
+      "http://localhost:8753"
+    );
+
+    let remote_http = url::Url::parse("http://todo.example.test").unwrap();
+    assert!(validate_passkey_origin("http://todo.example.test", &remote_http).is_err());
+  }
+
+  #[test]
+  fn passkey_rp_id_must_match_allowed_host_exactly() {
+    assert!(validate_passkey_rp_id(Some("todo.example.test"), "todo.example.test").is_ok());
+    assert!(validate_passkey_rp_id(Some("TODO.EXAMPLE.TEST."), "todo.example.test").is_ok());
+    assert!(validate_passkey_rp_id(Some("sub.todo.example.test"), "todo.example.test").is_err());
+    assert!(validate_passkey_rp_id(None, "todo.example.test").is_err());
+  }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   let builder = tauri::Builder::default();
@@ -506,6 +922,8 @@ pub fn run() {
       desktop_request_notification_permission,
       desktop_notify,
       desktop_schedule_reminders,
+      desktop_passkey_register,
+      desktop_passkey_authenticate,
     ])
     .setup(|_app| {
       #[cfg(desktop)]
