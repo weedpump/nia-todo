@@ -27,7 +27,7 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
   }
 
   async function initServiceWorker() {
-    if (!('serviceWorker' in navigator)) return;
+    if (!('serviceWorker' in navigator) || typeof navigator.serviceWorker?.register !== 'function') return;
 
     console.log('SW: registration scheduled');
     setTimeout(async () => {
