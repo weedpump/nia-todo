@@ -95,17 +95,72 @@ export function createNativeBridge() {
     return scheduleReminders([]);
   }
 
+  const androidPasskeyRequests = new Map();
+  const ANDROID_PASSKEY_TIMEOUT_MS = 90_000;
+
   function supportsNativePasskeys() {
-    return RUNTIME_CAPABILITIES.nativePasskeys && Boolean(invoke());
+    if (!RUNTIME_CAPABILITIES.nativePasskeys) return false;
+    if (isAndroid()) {
+      if (!hasAndroidMethod('passkeyRegister') || !hasAndroidMethod('passkeyAuthenticate')) return false;
+      if (hasAndroidMethod('supportsPasskeys')) return Boolean(android().supportsPasskeys());
+      return true;
+    }
+    return Boolean(invoke());
+  }
+
+  function ensureAndroidPasskeyCallback() {
+    if (typeof window.__niaAndroidPasskeyComplete === 'function') return;
+    Object.defineProperty(window, '__niaAndroidPasskeyComplete', {
+      configurable: false,
+      writable: false,
+      value: (requestId, success, payload) => {
+        const key = String(requestId);
+        const pending = androidPasskeyRequests.get(key);
+        if (!pending) return;
+        clearTimeout(pending.timeoutId);
+        androidPasskeyRequests.delete(key);
+        if (success) {
+          try {
+            pending.resolve(typeof payload === 'string' ? JSON.parse(payload) : payload);
+          } catch (_error) {
+            pending.reject(new Error('Android Passkey-Antwort war kein gültiges JSON'));
+          }
+        } else {
+          pending.reject(new Error(payload || 'Android Passkey-Aufruf fehlgeschlagen'));
+        }
+      },
+    });
+  }
+
+  function invokeAndroidPasskey(method, origin, publicKey) {
+    if (!hasAndroidMethod(method)) throw new Error('Android Passkey-Bridge nicht verfügbar');
+    ensureAndroidPasskeyCallback();
+    const requestId = globalThis.crypto?.randomUUID?.() || `passkey-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    return new Promise((resolve, reject) => {
+      const timeoutId = setTimeout(() => {
+        androidPasskeyRequests.delete(requestId);
+        reject(new Error('Android Passkey-Aufruf abgelaufen'));
+      }, ANDROID_PASSKEY_TIMEOUT_MS);
+      androidPasskeyRequests.set(requestId, { resolve, reject, timeoutId });
+      try {
+        android()[method](requestId, String(origin || ''), JSON.stringify(publicKey || {}));
+      } catch (error) {
+        clearTimeout(timeoutId);
+        androidPasskeyRequests.delete(requestId);
+        reject(error);
+      }
+    });
   }
 
   async function passkeyRegister(origin, publicKey) {
     if (!supportsNativePasskeys()) throw new Error('Native Passkey-Bridge nicht verfügbar');
+    if (isAndroid()) return invokeAndroidPasskey('passkeyRegister', origin, publicKey);
     return invokeTauri('desktop_passkey_register', { origin, options: publicKey });
   }
 
   async function passkeyAuthenticate(origin, publicKey) {
     if (!supportsNativePasskeys()) throw new Error('Native Passkey-Bridge nicht verfügbar');
+    if (isAndroid()) return invokeAndroidPasskey('passkeyAuthenticate', origin, publicKey);
     return invokeTauri('desktop_passkey_authenticate', { origin, options: publicKey });
   }
 
