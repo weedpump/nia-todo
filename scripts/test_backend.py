@@ -467,9 +467,15 @@ class TestSuite:
         status, headers = curl_headers("OPTIONS", "/api/admin/login", {
             "Origin": "https://allowed.example",
             "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "Content-Type, X-Nia-Client",
         })
-        passed = status == 204 and headers.get("access-control-allow-origin") == "https://allowed.example"
-        self.results["strict_cors_allowed_origin_preflight"] = {"status": status, "passed": passed, "expected": "204 + allow origin"}
+        allowed_headers = headers.get("access-control-allow-headers", "")
+        passed = (
+            status == 204
+            and headers.get("access-control-allow-origin") == "https://allowed.example"
+            and "X-Nia-Client" in allowed_headers
+        )
+        self.results["strict_cors_allowed_origin_preflight"] = {"status": status, "passed": passed, "expected": "204 + allow origin + X-Nia-Client"}
         return passed
 
     def test_strict_cors_scheme_mismatch_rejected(self):

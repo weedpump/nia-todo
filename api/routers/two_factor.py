@@ -16,6 +16,7 @@ from rate_limit import get_client_ip
 from routers.auth import require_auth
 from services.auth import create_jwt_token, decode_jwt_token, revoke_all_user_sessions, verify_user_credentials
 from services.audit import log_audit
+from services.client_info import session_user_agent
 from services.webauthn import (
     b64url_decode, b64url_encode, cose_to_json, parse_auth_data,
     parse_none_attestation, relying_party_for_request, verify_assertion_signature,
@@ -252,9 +253,9 @@ def verify_login_challenge(data: VerifyChallengeRequest, request: Request, respo
         trusted_device_token = None
         trusted_device_id = None
         if data.remember_device:
-            trusted_device_token, trusted_device_id = create_trusted_device(db, user["id"], request.headers.get("user-agent", ""), return_id=True)
+            trusted_device_token, trusted_device_id = create_trusted_device(db, user["id"], session_user_agent(request), return_id=True)
             response.set_cookie("nia_2fa_device", trusted_device_token, max_age=30 * 86400, httponly=True, secure=request.url.scheme == "https", samesite="lax")
-        token = create_jwt_token(dict(user), db, mfa_login_verified=True, create_session=True, trusted_device_id=trusted_device_id, user_agent=request.headers.get("user-agent", ""), ip_address=ip)
+        token = create_jwt_token(dict(user), db, mfa_login_verified=True, create_session=True, trusted_device_id=trusted_device_id, user_agent=session_user_agent(request), ip_address=ip)
         csrf_token = generate_csrf_token()
         set_csrf_cookie(response, csrf_token)
         log_audit(db, "two_factor_challenge_passed", user_id=user["id"], ip_address=ip, details=f"method={data.method}; remember_device={bool(trusted_device_token)}")
@@ -345,7 +346,7 @@ def confirm_totp(data: TotpConfirmRequest, request: Request, authorization: Opti
         payload = _current_payload(authorization, db) or {}
         if payload.get("sid"):
             token_user["session_id"] = payload.get("sid")
-        access_token = create_jwt_token(token_user, db, mfa_login_verified=True, create_session=not bool(payload.get("sid")), user_agent=request.headers.get("user-agent", ""), ip_address=get_client_ip(request))
+        access_token = create_jwt_token(token_user, db, mfa_login_verified=True, create_session=not bool(payload.get("sid")), user_agent=session_user_agent(request), ip_address=get_client_ip(request))
         db.commit()
         return {"enabled": True, "recovery_codes": codes, "access_token": access_token, "token_type": "bearer"}
 
@@ -536,7 +537,7 @@ def passkey_registration_verify(data: PasskeyRegistrationVerifyRequest, request:
         payload = _current_payload(authorization, db) or {}
         if payload.get("sid"):
             token_user["session_id"] = payload.get("sid")
-        access_token = create_jwt_token(token_user, db, mfa_login_verified=True, create_session=not bool(payload.get("sid")), user_agent=request.headers.get("user-agent", ""), ip_address=get_client_ip(request))
+        access_token = create_jwt_token(token_user, db, mfa_login_verified=True, create_session=not bool(payload.get("sid")), user_agent=session_user_agent(request), ip_address=get_client_ip(request))
         db.commit()
         return {"registered": True, "recovery_codes": recovery_codes, "access_token": access_token, "token_type": "bearer"}
 
@@ -625,9 +626,9 @@ def passkey_login_verify(data: PasskeyLoginVerifyRequest, request: Request, resp
         trusted_device_token = None
         trusted_device_id = None
         if data.remember_device:
-            trusted_device_token, trusted_device_id = create_trusted_device(db, user["id"], request.headers.get("user-agent", ""), return_id=True)
+            trusted_device_token, trusted_device_id = create_trusted_device(db, user["id"], session_user_agent(request), return_id=True)
             response.set_cookie("nia_2fa_device", trusted_device_token, max_age=30 * 86400, httponly=True, secure=request.url.scheme == "https", samesite="lax")
-        token = create_jwt_token(dict(user), db, mfa_login_verified=True, create_session=True, trusted_device_id=trusted_device_id, user_agent=request.headers.get("user-agent", ""), ip_address=ip)
+        token = create_jwt_token(dict(user), db, mfa_login_verified=True, create_session=True, trusted_device_id=trusted_device_id, user_agent=session_user_agent(request), ip_address=ip)
         csrf_token = generate_csrf_token()
         set_csrf_cookie(response, csrf_token)
         log_audit(db, "two_factor_challenge_passed", user_id=user["id"], ip_address=ip, details=f"method=passkey; remember_device={bool(trusted_device_token)}")

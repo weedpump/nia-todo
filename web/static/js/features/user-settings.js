@@ -1,5 +1,6 @@
 import { RUNTIME_CAPABILITIES, apiResourceUrl } from '../core/config.js';
 import { getLanguagePreference, setLanguagePreference, adoptServerLanguagePreference, getActiveLanguage, t, translatePage } from '../i18n/index.js';
+import { cleanSessionUserAgent, sessionDeviceName } from '../core/device-labels.js';
 import { iconSvg } from '../icons/lucide-icons.js';
 import qrcode from '../../vendor/qrcode-generator.js';
 import { confirmSecurityAction, performMfaReauth, promptSecurityPassword, promptSecurityText } from './security-dialogs.js';
@@ -186,21 +187,9 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
   }
 
   function trustedDeviceName(device) {
-    const ua = String(device?.user_agent || '').trim();
-    if (!ua) return t('settings.2fa.trustedDeviceUnknown');
-    const browser = ua.includes('Firefox/') ? 'Firefox'
-      : ua.includes('Edg/') ? 'Edge'
-        : ua.includes('Chrome/') ? 'Chrome'
-          : ua.includes('Safari/') ? 'Safari'
-            : t('settings.2fa.trustedDeviceBrowser');
-    const os = ua.includes('Android') ? 'Android'
-      : ua.includes('Windows') ? 'Windows'
-        : ua.includes('iPhone') || ua.includes('iPad') ? 'iOS/iPadOS'
-          : ua.includes('Mac OS X') ? 'macOS'
-            : ua.includes('Linux') ? 'Linux'
-              : t('settings.2fa.trustedDeviceDevice');
-    return `${browser} · ${os}`;
+    return sessionDeviceName(device, t);
   }
+
 
   async function renderTrustedDevices(enrollmentOnly = false) {
     const listEl = document.getElementById('settings-2fa-trusted-devices');
@@ -222,7 +211,7 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
         const lastUsed = device.last_used_at ? formatLocaleDateTime(device.last_used_at) : t('common.never');
         const expires = device.expires_at ? formatLocaleDateTime(device.expires_at) : '-';
         const details = t('settings.2fa.trustedDeviceDetails', { lastUsed, expires }) + trusted;
-        return `<div class="settings-device-row"><div><strong>${escapeHtml(trustedDeviceName(device))}${current}</strong><span>${escapeHtml(details)}</span><span title="${escapeHtmlAttr(device.user_agent || '')}">${escapeHtml((device.user_agent || '').slice(0, 120))}</span></div><button type="button" class="btn btn-danger" onclick="revokeTrustedDevice('${escapeHtmlAttr(device.id)}')">${escapeHtml(t('settings.2fa.revoke'))}</button></div>`;
+        return `<div class="settings-device-row"><div><strong>${escapeHtml(trustedDeviceName(device))}${current}</strong><span>${escapeHtml(details)}</span><span title="${escapeHtmlAttr(cleanSessionUserAgent(device.user_agent || ''))}">${escapeHtml(cleanSessionUserAgent(device.user_agent || '').slice(0, 120))}</span></div><button type="button" class="btn btn-danger" onclick="revokeTrustedDevice('${escapeHtmlAttr(device.id)}')">${escapeHtml(t('settings.2fa.revoke'))}</button></div>`;
       }).join('');
     } catch (err) {
       listEl.innerHTML = `<div class="settings-device-note">${escapeHtml(t('settings.2fa.trustedDevicesLoadFailed', { error: err.message || err }))}</div>`;

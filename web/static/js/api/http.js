@@ -1,4 +1,4 @@
-import { API } from '../core/config.js';
+import { API, APP_VERSION, RUNTIME_MODE, RUNTIME_PLATFORM } from '../core/config.js';
 import { apiErrorFromResponse } from './errors.js';
 
 export function getAuthToken() {
@@ -9,10 +9,20 @@ export function getCsrfToken() {
   return localStorage.getItem('csrf_token');
 }
 
+export function getClientHeaders() {
+  return {
+    'X-Nia-Client': `app=nia-todo;mode=${RUNTIME_MODE};platform=${RUNTIME_PLATFORM};version=${APP_VERSION}`,
+  };
+}
+
+export function getJsonHeaders() {
+  return { 'Content-Type': 'application/json', ...getClientHeaders() };
+}
+
 export function getAuthHeaders() {
   const token = getAuthToken();
   const csrf = getCsrfToken();
-  const headers = { 'Content-Type': 'application/json' };
+  const headers = getJsonHeaders();
   if (token) {
     if (token.includes('.')) headers['Authorization'] = `Bearer ${token}`;
     else headers['X-Session-Token'] = token;

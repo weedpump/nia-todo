@@ -13,6 +13,7 @@ from services.auth import (
 from middleware.security import generate_csrf_token, set_csrf_cookie
 from rate_limit import require_login_rate_limit, get_client_ip
 from services.audit import log_audit
+from services.client_info import session_user_agent
 from services.two_factor import consume_mfa_action_grant, create_challenge, get_valid_trusted_device_id, mfa_required_for_user, user_mfa_state
 from errors import api_error
 
@@ -78,12 +79,12 @@ def login(data: LoginRequest, request: Request, response: Response, _: None = De
         remembered = bool(valid_trusted_device)
         if mfa_required and not remembered:
             state = user_mfa_state(db, user['id'])
-            challenge = create_challenge(db, user['id'], ip_address=ip, user_agent=request.headers.get('user-agent', ''))
+            challenge = create_challenge(db, user['id'], ip_address=ip, user_agent=session_user_agent(request))
             if challenge['methods']:
                 db.commit()
                 return {"mfa_required": True, "challenge": challenge, "state": state}
             # Enforced MFA but no available second factor/email yet: issue an enrollment-only token.
-            token = create_jwt_token(user, db, mfa_enroll_only=True, create_session=True, user_agent=request.headers.get('user-agent', ''), ip_address=ip)
+            token = create_jwt_token(user, db, mfa_enroll_only=True, create_session=True, user_agent=session_user_agent(request), ip_address=ip)
             csrf_token = generate_csrf_token()
             set_csrf_cookie(response, csrf_token)
             log_audit(db, "login_mfa_enrollment_required", user_id=user['id'], ip_address=ip)
@@ -106,7 +107,7 @@ def login(data: LoginRequest, request: Request, response: Response, _: None = De
                 "state": state,
             }
         trusted_device_id = valid_trusted_device[0] if valid_trusted_device else None
-        token = create_jwt_token(user, db, mfa_verified=bool(mfa_required and not remembered), mfa_login_verified=bool(mfa_required and remembered), create_session=True, trusted_device_id=trusted_device_id, user_agent=request.headers.get('user-agent', ''), ip_address=ip)
+        token = create_jwt_token(user, db, mfa_verified=bool(mfa_required and not remembered), mfa_login_verified=bool(mfa_required and remembered), create_session=True, trusted_device_id=trusted_device_id, user_agent=session_user_agent(request), ip_address=ip)
         csrf_token = generate_csrf_token()
         set_csrf_cookie(response, csrf_token)
         log_audit(db, "login_success", user_id=user['id'], ip_address=ip, details=f"mfa={'required' if mfa_required else 'not_required'}; remembered_device={remembered}")
@@ -220,7 +221,7 @@ def me(request: Request, response: Response, authorization: Optional[str] = Head
                 mfa_enroll_only=bool(payload.get('mfa_enroll_only')),
                 create_session=needs_session_migration,
                 trusted_device_id=trusted_device_id,
-                user_agent=request.headers.get('user-agent', ''),
+                user_agent=session_user_agent(request),
                 ip_address=get_client_ip(request),
             )
             if payload.get("sid"):

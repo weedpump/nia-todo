@@ -20,6 +20,18 @@ globalThis.document = {
 
 const { renderMarkdown } = await import('../web/static/js/core/utils.js');
 
+const { sessionDeviceName, cleanSessionUserAgent } = await import('../web/static/js/core/device-labels.js');
+const labelT = (key) => ({
+  'settings.2fa.trustedDeviceUnknown': 'Unknown device',
+  'settings.2fa.trustedDeviceBrowser': 'Browser',
+  'settings.2fa.trustedDeviceDevice': 'Device',
+}[key] || key);
+assert.equal(sessionDeviceName({ user_agent: 'nia-todo-client(app=nia-todo;mode=native;platform=android;version=v2.3.2-dev) Mozilla/5.0 (Linux; Android 15) AppleWebKit/537.36 Chrome/125 Safari/537.36' }, labelT), 'Android App');
+assert.equal(sessionDeviceName({ user_agent: 'nia-todo-client(app=nia-todo;mode=native;platform=windows;version=v2.3.2-dev) Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/125 Safari/537.36' }, labelT), 'Windows App');
+assert.equal(sessionDeviceName({ user_agent: 'Mozilla/5.0 (Linux; Android 15) AppleWebKit/537.36 Chrome/125 Mobile Safari/537.36 EdgA/125.0.0.0' }, labelT), 'Edge · Android');
+assert.equal(sessionDeviceName({ user_agent: 'Mozilla/5.0 (Linux; Android 15) AppleWebKit/537.36 Chrome/125 Mobile Safari/537.36' }, labelT), 'Chrome · Android');
+assert.equal(cleanSessionUserAgent('nia-todo-client(app=nia-todo;mode=native;platform=android;version=v2.3.2-dev) Mozilla/5.0'), 'Mozilla/5.0');
+
 function assertNoExecutableHtml(name, html) {
   assert(!html.includes('<img'), `${name}: must not render img tags`);
   assert(!html.includes('<svg'), `${name}: must not render svg tags`);
