@@ -1,8 +1,8 @@
-# API-Doku
+# API Documentation
 
-## Authentifizierung
+## Authentication
 
-> Alle Endpunkte außer `/api/login` und `/api/setup/**` erfordern Auth.
+> All endpoints except `/api/login` and `/api/setup/**` require auth.
 
 ### Login
 `POST /api/login`
@@ -31,9 +31,9 @@
 }
 ```
 
-### Login mit 2FA-Challenge
+### Login with 2FA Challenge
 
-Wenn für den Benutzer 2FA aktiv oder global erzwungen ist, kann `POST /api/login` statt eines Tokens eine Challenge liefern. Eine verifizierte E-Mail mit funktionierendem SMTP zählt dabei als E-Mail-Code-Faktor:
+If 2FA is active for the user or globally enforced, `POST /api/login` can return a challenge instead of a token. A verified email with working SMTP counts as an email-code factor:
 
 ```json
 {
@@ -51,7 +51,7 @@ Wenn für den Benutzer 2FA aktiv oder global erzwungen ist, kann `POST /api/logi
 }
 ```
 
-Abschluss:
+Completion:
 
 `POST /api/2fa/challenge/verify`
 
@@ -64,9 +64,9 @@ Abschluss:
 }
 ```
 
-Response entspricht dem normalen Login (`access_token`, `csrf_token`, `user`). Die Login-Challenge wird atomar verbraucht und erzeugt nur Login-MFA-Assurance; sensitive Aktionen wie Passwortänderung/API-Key-Verwaltung benötigen weiterhin eine frische One-Time-MFA-Reauth. Bei `remember_device=true` wird zusätzlich ein HttpOnly-Trusted-Device-Cookie gesetzt, das spätere Login-MFA ersetzt, aber ebenfalls nicht für sensitive Aktionen zählt.
+The response matches the normal login (`access_token`, `csrf_token`, `user`). The login challenge is consumed atomically and only creates login MFA assurance; sensitive actions such as password changes/API key management still require a fresh one-time MFA reauth. With `remember_device=true`, an HttpOnly trusted-device cookie is also set; it replaces later login MFA, but likewise does not count for sensitive actions.
 
-`POST /api/2fa/passkey/options` und `POST /api/2fa/passkey/verify` schließen dieselbe Login-Challenge per Passkey ab. Passkey-Login benötigt User Verification und verbraucht die Challenge ebenfalls einmalig.
+`POST /api/2fa/passkey/options` and `POST /api/2fa/passkey/verify` complete the same login challenge via passkey. Passkey login requires user verification and also consumes the challenge exactly once.
 
 ### Logout
 `POST /api/logout`
@@ -76,7 +76,7 @@ Response entspricht dem normalen Login (`access_token`, `csrf_token`, `user`). D
 { "ok": true }
 ```
 
-### Aktueller Benutzer
+### Current User
 `GET /api/me`
 
 **Response**
@@ -92,7 +92,7 @@ Response entspricht dem normalen Login (`access_token`, `csrf_token`, `user`). D
 }
 ```
 
-### Eigenes Profil ändern
+### Change Own Profile
 `PATCH /api/me/profile`
 
 **Body**
@@ -113,17 +113,17 @@ Response entspricht dem normalen Login (`access_token`, `csrf_token`, `user`). D
 }
 ```
 
-### Eigenen Avatar hochladen
+### Upload Own Avatar
 `PUT /api/me/avatar`
 
 **Request**
-- Body: rohe Bilddaten
-- `Content-Type`: `image/jpeg`, `image/png`, `image/webp`, `image/gif`, `image/heic` oder `image/heif`
-- Maximalgröße: 5 MiB
+- Body: raw image data
+- `Content-Type`: `image/jpeg`, `image/png`, `image/webp`, `image/gif`, `image/heic` or `image/heif`
+- Maximum size: 5 MiB
 
-**Speicherung**
-- Datei: `api/data/avatars/user-{id}.webp`
-- DB: nur `avatar_url` und `avatar_updated_at`
+**Storage**
+- File: `api/data/avatars/user-{id}.webp`
+- DB: only `avatar_url` and `avatar_updated_at`
 
 **Response**
 ```json
@@ -133,7 +133,7 @@ Response entspricht dem normalen Login (`access_token`, `csrf_token`, `user`). D
 }
 ```
 
-### Eigene E-Mail ändern
+### Change Own Email
 `PATCH /api/me/email`
 
 **Body**
@@ -141,12 +141,12 @@ Response entspricht dem normalen Login (`access_token`, `csrf_token`, `user`). D
 { "email": "neue@example.com" }
 ```
 
-**Validierung**
-- Pflichtfeld
-- Muss eine gültige E-Mail-Adresse sein
-- Muss eindeutig sein (case-insensitive)
+**Validation**
+- Required field
+- Must be a valid email address
+- Must be unique (case-insensitive)
 
-**Response (mit SMTP konfiguriert)**
+**Response (with SMTP configured)**
 ```json
 {
   "email": "alte@example.com",
@@ -156,7 +156,7 @@ Response entspricht dem normalen Login (`access_token`, `csrf_token`, `user`). D
 }
 ```
 
-**Response (ohne SMTP)**
+**Response (without SMTP)**
 ```json
 {
   "email": "neue@example.com",
@@ -165,9 +165,9 @@ Response entspricht dem normalen Login (`access_token`, `csrf_token`, `user`). D
 }
 ```
 
-**Hinweis:** Mit SMTP wird die neue E-Mail als `pending_email` gespeichert und eine Verifizierungs-Mail gesendet. Die alte E-Mail bleibt aktiv bis zur Verifizierung. Ohne SMTP ist die E-Mail sofort aktiv, aber nicht verifiziert (kann nicht für Login/Sharing verwendet werden).
+**Note:** With SMTP, the new email is stored as `pending_email` and a verification email is sent. The old email remains active until verification. Without SMTP, the email is active immediately, but not verified (cannot be used for login/sharing).
 
-### Eigenes Passwort ändern
+### Change Own Password
 `POST /api/me/change-password`
 
 **Body**
@@ -180,59 +180,59 @@ Response entspricht dem normalen Login (`access_token`, `csrf_token`, `user`). D
 { "ok": true }
 ```
 
-## Zwei-Faktor-Authentifizierung
+## Two-Factor Authentication
 
-### 2FA-Status
+### 2FA Status
 `GET /api/me/2fa`
 
-Liefert aktivierte/verfügbare Faktoren, Recovery-Code-Anzahl, globale Pflicht und Passkey-Anzahl. Der Status enthält keine Secrets und bleibt mit gültigem interaktivem JWT auch dann lesbar, wenn keine frische Action-Reauth vorliegt, damit Clients den passenden Reauth-Flow starten können.
+Returns enabled/available factors, recovery-code count, global requirement, and passkey count. The status contains no secrets and remains readable with a valid interactive JWT even when no fresh action reauth is present, so clients can start the appropriate reauth flow.
 
-### TOTP starten/bestätigen
-`POST /api/me/2fa/totp/start` liefert Secret und `otpauth_url`.
+### Start/Confirm TOTP
+`POST /api/me/2fa/totp/start` returns secret and `otpauth_url`.
 
 `POST /api/me/2fa/totp/confirm`
 ```json
 { "secret": "BASE32...", "code": "123456", "password": "..." }
 ```
 
-Aktiviert TOTP nach Passwortbestätigung und liefert einmalig neue Recovery Codes sowie ein frisches MFA-JWT zurück. Der Endpoint darf auch mit einem Enrollment-only JWT genutzt werden; in diesem Zustand ist keine zusätzliche MFA-Reauth möglich oder erforderlich. Recovery Codes sind Backup-Faktoren zu TOTP/Passkey, nicht der primäre 2FA-Zustand.
+Activates TOTP after password confirmation and returns new recovery codes exactly once, plus a fresh MFA JWT. The endpoint may also be used with an enrollment-only JWT; in this state, no additional MFA reauth is possible or required. Recovery codes are backup factors for TOTP/passkey, not the primary 2FA state.
 
-### 2FA deaktivieren / Faktoren widerrufen / Recovery Codes regenerieren
-- `POST /api/me/2fa/disable` — benötigt eine frische One-Time-MFA-Reauth, widerruft Trusted Devices, Passkeys und Recovery Codes.
-- `DELETE /api/me/2fa/totp` — widerruft den eingerichteten TOTP-Secret, benötigt eine frische One-Time-MFA-Reauth. Wenn danach kein primärer Faktor (TOTP/Passkey) mehr übrig ist, werden Recovery Codes automatisch widerrufen und user-seitige 2FA deaktiviert; bei globaler Policy kann E-Mail-Code-MFA weiter als Fallback greifen.
-- `POST /api/me/2fa/recovery-codes/regenerate` — benötigt eine frische One-Time-MFA-Reauth und mindestens einen primären Faktor (TOTP oder Passkey), liefert neue Codes einmalig zurück.
-- `POST /api/me/2fa/reauth` — prüft TOTP, Recovery-Code oder E-Mail-Code mit Attempt-Lockout und stellt ein JWT mit einem einmalig konsumierbaren MFA-Action-Grant aus. Reauth-Buckets werden nach Erfolg konsumiert; E-Mail-Reauth-Codes werden invalidiert und TOTP-Reauth-Timesteps nur einmal akzeptiert.
-- `POST /api/me/2fa/reauth/email/start` — sendet einen E-Mail-Reauth-Code, wenn E-Mail-Code der verfügbare Faktor ist.
-- `POST /api/me/2fa/reauth/passkey/options` und `POST /api/me/2fa/reauth/passkey/verify` — Passkey-Reauth für Passkey-only Nutzer.
+### Disable 2FA / Revoke Factors / Regenerate Recovery Codes
+- `POST /api/me/2fa/disable` — requires a fresh one-time MFA reauth, revokes trusted devices, passkeys, and recovery codes.
+- `DELETE /api/me/2fa/totp` — revokes the configured TOTP secret, requires a fresh one-time MFA reauth. If no primary factor (TOTP/passkey) remains afterwards, recovery codes are automatically revoked and user-side 2FA is disabled; with a global policy, email-code MFA can still apply as a fallback.
+- `POST /api/me/2fa/recovery-codes/regenerate` — requires a fresh one-time MFA reauth and at least one primary factor (TOTP or passkey), returns new codes exactly once.
+- `POST /api/me/2fa/reauth` — verifies TOTP, recovery code, or email code with attempt lockout and issues a JWT with a single-use MFA action grant. Reauth buckets are consumed after success; email reauth codes are invalidated and TOTP reauth timesteps are accepted only once.
+- `POST /api/me/2fa/reauth/email/start` — sends an email reauth code if email code is the available factor.
+- `POST /api/me/2fa/reauth/passkey/options` and `POST /api/me/2fa/reauth/passkey/verify` — passkey reauth for passkey-only users.
 
 ### Passkeys
-- `GET /api/me/passkeys` — eigene Passkeys auflisten.
-- `POST /api/me/passkeys/options` — Registrierungsoptionen/Challenge vorbereiten; erlaubt mit Enrollment-only JWT oder frischer MFA-Reauth.
-- `POST /api/me/passkeys/verify` — WebAuthn-Registrierung mit Passwortbestätigung abschließen; erlaubt mit Enrollment-only JWT oder einmalig konsumierbarem MFA-Action-Grant und liefert ein frisches MFA-JWT zurück.
-- `POST /api/2fa/passkey/options` und `POST /api/2fa/passkey/verify` — Login-Challenge per Passkey abschließen.
-- `DELETE /api/me/passkeys/{id}` — Passkey widerrufen, benötigt eine frische One-Time-MFA-Reauth. Wenn danach kein primärer Faktor (TOTP/Passkey) mehr übrig ist, werden Recovery Codes automatisch widerrufen und user-seitige 2FA deaktiviert; bei globaler Policy kann E-Mail-Code-MFA weiter als Fallback greifen.
+- `GET /api/me/passkeys` — list own passkeys.
+- `POST /api/me/passkeys/options` — prepare registration options/challenge; allowed with enrollment-only JWT or fresh MFA reauth.
+- `POST /api/me/passkeys/verify` — complete WebAuthn registration with password confirmation; allowed with enrollment-only JWT or single-use MFA action grant and returns a fresh MFA JWT.
+- `POST /api/2fa/passkey/options` and `POST /api/2fa/passkey/verify` — complete login challenge via passkey.
+- `DELETE /api/me/passkeys/{id}` — revoke passkey, requires a fresh one-time MFA reauth. If no primary factor (TOTP/passkey) remains afterwards, recovery codes are automatically revoked and user-side 2FA is disabled; with a global policy, email-code MFA can still apply as a fallback.
 
-Passkeys sind an die konfigurierte öffentliche Basis-URL (`public_base_url`) gebunden. Für Nicht-Localhost-Hosts ist HTTPS Pflicht; ohne `public_base_url` sind produktive Passkey-Flows für Nicht-Localhost-Hosts fail-closed. Windows Native nutzt eine native WebAuthn-Bridge mit serverseitig gelieferter Origin; dafür muss die in der App konfigurierte Server-URL zur `public_base_url`-Origin/RP-ID passen.
+Passkeys are bound to the configured public base URL (`public_base_url`). HTTPS is mandatory for non-localhost hosts; without `public_base_url`, production passkey flows for non-localhost hosts fail closed. Windows Native uses a native WebAuthn bridge with server-provided origin; for this, the server URL configured in the app must match the `public_base_url` origin/RP ID.
 
-Android Native nutzt AndroidX Credential Manager. Jede selfhosted Serverinstanz liefert `/.well-known/assetlinks.json` für die offizielle Android-App aus:
+Android Native uses AndroidX Credential Manager. Each self-hosted server instance serves `/.well-known/assetlinks.json` for the official Android app:
 
-- Package: offizielle Release-App-ID
-- Release-Zertifikat: offizieller Release-Zertifikat-Fingerprint
+- Package: official release app ID
+- Release certificate: official release certificate fingerprint
 - Relation: `delegate_permission/common.get_login_creds`
 
-Der Server akzeptiert zusätzlich zur HTTPS-Web-Origin den gepinnten Android-App-Origin `android:apk-key-hash:...`, während der RP-ID-Hash weiter gegen `public_base_url` geprüft wird. Das ist ein bewusstes Official-App-Vertrauensmodell: Selfhoster hosten ihren Server und verbinden die von uns ausgelieferte Android-App mit ihrer Server-URL. Custom Package Names, F-Droid-/Re-Sign-Builds und Signing-Key-Rotation sind nicht Teil des aktuellen 2.0-Modells und brauchen später eine explizite Config-/Migrationsstrategie.
+In addition to the HTTPS web origin, the server accepts the pinned Android app origin `android:apk-key-hash:...`, while the RP ID hash continues to be checked against `public_base_url`. This is an intentional official-app trust model: self-hosters host their server and connect the Android app shipped by us to their server URL. Custom package names, F-Droid/re-sign builds, and signing-key rotation are not part of the current 2.0 model and will later need an explicit config/migration strategy.
 
-### Admin-Policy
+### Admin Policy
 - `GET /api/admin/2fa-policy`
-- `PATCH /api/admin/2fa-policy` mit `{ "required": true }`
-- `GET /api/admin/users` enthält zusätzlich 2FA-/Passkey-/Trusted-Device-/API-Key-Statusfelder.
-- `POST /api/admin/users/{user_id}/2fa/reset` — setzt Faktoren, Recovery Codes, Passkeys und Trusted Devices eines Benutzers zurück, erhöht `token_version` und invalidiert damit bestehende interaktive JWT-Sessions. Offene WebSocket-Verbindungen des Benutzers erhalten zusätzlich `{"type":"session_invalidated","reason":"two_factor_reset"}` und werden anschließend serverseitig geschlossen.
+- `PATCH /api/admin/2fa-policy` with `{ "required": true }`
+- `GET /api/admin/users` additionally includes 2FA/passkey/trusted-device/API-key status fields.
+- `POST /api/admin/users/{user_id}/2fa/reset` — resets a user's factors, recovery codes, passkeys, and trusted devices, increments `token_version`, and thereby invalidates existing interactive JWT sessions. Open WebSocket connections of the user additionally receive `{"type":"session_invalidated","reason":"two_factor_reset"}` and are then closed server-side.
 
-Security-sensitive Account-Aktionen verlangen bei 2FA-pflichtigen Accounts einen frischen, einmalig konsumierbaren MFA-Action-Grant. Login-MFA und Trusted Devices zählen nur für App-Zugriff, nicht für sensitive Aktionen. TOTP-/Passkey-Ersteinrichtung ist die Ausnahme: mit Enrollment-only JWT reicht die Passwortbestätigung, weil noch kein zweiter Faktor existiert. Reauth-Codes sind replay-gehärtet: E-Mail-Reauth-Codes werden nach Erfolg gelöscht, TOTP-Reauth kann pro Timestep nur einmal einen Grant ausstellen, Recovery Codes werden table-backed und single-use verbraucht. API Keys (`ApiKey nt_...`) sind bewusst als Maschinen-Token von interaktiver MFA bei der Nutzung ausgenommen. Erzeugung und Widerruf eigener API Keys benötigen bei MFA-pflichtigen Accounts immer eine neue Reauth; die Settings-UI stößt dafür bei Bedarf einen Reauth-Flow an. Bestehende API Keys werden beim Aktivieren von MFA nicht automatisch widerrufen; die Admin-UI zeigt aktive Keys als Warnhinweis. Ein Enrollment-only Token wird nur ausgegeben, wenn globale 2FA erzwungen ist und gar kein nutzbarer Faktor verfügbar ist. E-Mail-Code-Fallback ist dabei ein Übergangs-/Login-Fallback und kein vom Benutzer eingerichteter primärer Faktor.
+Security-sensitive account actions require a fresh, single-use MFA action grant for 2FA-required accounts. Login MFA and trusted devices count only for app access, not for sensitive actions. Initial TOTP/passkey setup is the exception: with an enrollment-only JWT, password confirmation is sufficient because no second factor exists yet. Reauth codes are hardened against replay: email reauth codes are deleted after success, TOTP reauth can issue only one grant per timestep, recovery codes are table-backed and consumed single-use. API keys (`ApiKey nt_...`) are intentionally exempt from interactive MFA during use as machine tokens. Creating and revoking own API keys always requires a new reauth for MFA-required accounts; the settings UI starts a reauth flow when needed. Existing API keys are not automatically revoked when MFA is enabled; the admin UI shows active keys as a warning. An enrollment-only token is issued only when global 2FA is enforced and no usable factor is available at all. Email-code fallback is a transitional/login fallback, not a user-configured primary factor.
 
-## E-Mail / SMTP
+## Email / SMTP
 
-### Eigene E-Mail verifizieren
+### Verify Own Email
 `POST /api/me/email/verify`
 
 **Body**
@@ -249,9 +249,9 @@ Security-sensitive Account-Aktionen verlangen bei 2FA-pflichtigen Accounts einen
 }
 ```
 
-**Hinweis:** Einmaliger Token aus der Verifizierungs-Mail. Nach erfolgreicher Verifizierung wird `pending_email` zu `email` und `email_verified_at` gesetzt.
+**Note:** One-time token from the verification email. After successful verification, `pending_email` becomes `email` and `email_verified_at` is set.
 
-### Passwort-Reset anfordern (öffentlich)
+### Request Password Reset (public)
 `POST /api/password-setup/request`
 
 **Body**
@@ -259,16 +259,16 @@ Security-sensitive Account-Aktionen verlangen bei 2FA-pflichtigen Accounts einen
 { "identifier": "user@example.com" }
 ```
 
-**Response (immer neutral)**
+**Response (always neutral)**
 ```json
 {
   "message": "Falls ein passendes Konto existiert, wurde eine E-Mail gesendet."
 }
 ```
 
-**Hinweis:** Aus Sicherheitsgründen wird immer eine neutrale Response geliefert (keine Enumeration). Reset-Mails werden nur an verifizierte E-Mails gesendet.
+**Note:** For security reasons, a neutral response is always returned (no enumeration). Reset emails are sent only to verified emails.
 
-### Passwort-Setup-Features abrufen (öffentlich)
+### Fetch Password Setup Features (public)
 `GET /api/password-setup/features`
 
 **Response**
@@ -279,10 +279,10 @@ Security-sensitive Account-Aktionen verlangen bei 2FA-pflichtigen Accounts einen
 }
 ```
 
-### Passwort-Setup-Link validieren (öffentlich)
+### Validate Password Setup Link (public)
 `GET /api/password-setup/validate?token=...`
 
-**Response (gültig)**
+**Response (valid)**
 ```json
 {
   "valid": true,
@@ -293,7 +293,7 @@ Security-sensitive Account-Aktionen verlangen bei 2FA-pflichtigen Accounts einen
 }
 ```
 
-### Abgelaufenen Passwort-Setup-Link neu senden (öffentlich)
+### Resend Expired Password Setup Link (public)
 `POST /api/password-setup/resend`
 
 **Body**
@@ -310,10 +310,10 @@ Security-sensitive Account-Aktionen verlangen bei 2FA-pflichtigen Accounts einen
 }
 ```
 
-### Passwort-Setup-Link anfordern (Admin)
+### Request Password Setup Link (Admin)
 `POST /api/admin/users/{user_id}/password-link`
 
-**Response (mit SMTP + verifizierter E-Mail)**
+**Response (with SMTP + verified email)**
 ```json
 {
   "email_sent": true,
@@ -321,7 +321,7 @@ Security-sensitive Account-Aktionen verlangen bei 2FA-pflichtigen Accounts einen
 }
 ```
 
-**Response (ohne SMTP oder nicht verifizierte E-Mail)**
+**Response (without SMTP or unverified email)**
 ```json
 {
   "email_sent": false,
@@ -329,10 +329,10 @@ Security-sensitive Account-Aktionen verlangen bei 2FA-pflichtigen Accounts einen
 }
 ```
 
-**Hinweis:** Admins können Passwort-Setup-Links für Benutzer generieren. Bei SMTP + verifizierter E-Mail wird der Link per Mail gesendet, andernfalls als manueller Link zurückgegeben.
+**Note:** Admins can generate password setup links for users. With SMTP + verified email, the link is sent by email; otherwise it is returned as a manual link.
 
 
-### Instanz-Konfiguration abrufen
+### Fetch Instance Configuration
 `GET /api/admin/instance-config`
 
 **Response**
@@ -344,7 +344,7 @@ Security-sensitive Account-Aktionen verlangen bei 2FA-pflichtigen Accounts einen
 }
 ```
 
-### Instanz-Konfiguration aktualisieren
+### Update Instance Configuration
 `PATCH /api/admin/instance-config`
 
 **Body**
@@ -356,11 +356,11 @@ Security-sensitive Account-Aktionen verlangen bei 2FA-pflichtigen Accounts einen
 }
 ```
 
-**Hinweis:** `public_base_url` wird u.a. für Passwort-/Einladungslinks und produktive Passkey-Origin/RP-ID-Prüfung verwendet. CORS akzeptiert nur konfigurierte Origins; Forwarded-Header werden nur von Trusted Proxies ausgewertet.
+**Note:** `public_base_url` is used among other things for password/invitation links and production passkey origin/RP ID validation. CORS accepts only configured origins; forwarded headers are evaluated only from trusted proxies.
 
-## Admin: E-Mail-Konfiguration
+## Admin: Email Configuration
 
-### SMTP-Konfiguration abrufen
+### Fetch SMTP Configuration
 `GET /api/admin/email-config`
 
 **Response**
@@ -379,9 +379,9 @@ Security-sensitive Account-Aktionen verlangen bei 2FA-pflichtigen Accounts einen
 }
 ```
 
-**Hinweis:** `smtp_password_configured` ist ein Boolean-Feld; das tatsächliche Passwort wird nie zurückgegeben.
+**Note:** `smtp_password_configured` is a boolean field; the actual password is never returned.
 
-### SMTP-Konfiguration aktualisieren
+### Update SMTP Configuration
 `PATCH /api/admin/email-config`
 
 **Body**
@@ -404,7 +404,7 @@ Security-sensitive Account-Aktionen verlangen bei 2FA-pflichtigen Accounts einen
 { "ok": true }
 ```
 
-### Test-Mail senden
+### Send Test Email
 `POST /api/admin/email-config/test`
 
 **Body**
@@ -420,7 +420,7 @@ Security-sensitive Account-Aktionen verlangen bei 2FA-pflichtigen Accounts einen
 }
 ```
 
-**Fehler (SMTP nicht konfiguriert)**
+**Error (SMTP not configured)**
 ```json
 {
   "ok": false,
@@ -428,9 +428,9 @@ Security-sensitive Account-Aktionen verlangen bei 2FA-pflichtigen Accounts einen
 }
 ```
 
-## Projekt-Sharing
+## Project Sharing
 
-### Projekt teilen
+### Share Project
 `POST /api/projects/{project_id}/share`
 
 **Body**
@@ -438,7 +438,7 @@ Security-sensitive Account-Aktionen verlangen bei 2FA-pflichtigen Accounts einen
 { "username": "user@example.com" }
 ```
 
-**Response (Username-Invite)**
+**Response (username invite)**
 ```json
 {
   "member": {
@@ -452,16 +452,16 @@ Security-sensitive Account-Aktionen verlangen bei 2FA-pflichtigen Accounts einen
 }
 ```
 
-**Response (E-Mail-Invite — neutral)**
+**Response (email invite — neutral)**
 ```json
 {
   "notification_delivery": "email"
 }
 ```
 
-**Hinweis:** Bei E-Mail-Identifiern (enthält `@`) wird aus Sicherheitsgründen keine Member-Info zurückgegeben (keine Enumeration). Der eingeladene User erhält eine E-Mail mit Link.
+**Note:** For email identifiers (contains `@`), no member info is returned for security reasons (no enumeration). The invited user receives an email with a link.
 
-### Mitglieder auflisten
+### List Members
 `GET /api/projects/{project_id}/members`
 
 **Response**
@@ -479,9 +479,9 @@ Security-sensitive Account-Aktionen verlangen bei 2FA-pflichtigen Accounts einen
 }
 ```
 
-**Hinweis:** Zeigt nur `accepted` Mitglieder an. Pending Invites sind aus Privacy-Gründen nicht sichtbar (auch nicht für Owner).
+**Note:** Shows only `accepted` members. Pending invites are not visible for privacy reasons (not even to owners).
 
-### Einladung annehmen/ablehnen
+### Accept/Decline Invitation
 `POST /api/projects/{project_id}/invites/{invite_id}`
 
 **Body**
@@ -494,7 +494,7 @@ Security-sensitive Account-Aktionen verlangen bei 2FA-pflichtigen Accounts einen
 { "ok": true }
 ```
 
-### Ausstehende Einladungen abrufen
+### Fetch Pending Invitations
 `GET /api/projects/invites`
 
 **Response**
@@ -512,9 +512,9 @@ Security-sensitive Account-Aktionen verlangen bei 2FA-pflichtigen Accounts einen
 }
 ```
 
-## Admin: Benutzer
+## Admin: Users
 
-### Admin-Passwort setzen
+### Set Admin Password
 `POST /api/setup/admin`
 
 **Body**
@@ -527,7 +527,7 @@ Security-sensitive Account-Aktionen verlangen bei 2FA-pflichtigen Accounts einen
 { "ok": true }
 ```
 
-### Ersten Benutzer erstellen
+### Create First User
 `POST /api/setup/first-user`
 
 **Body**
@@ -545,7 +545,7 @@ Security-sensitive Account-Aktionen verlangen bei 2FA-pflichtigen Accounts einen
 { "ok": true }
 ```
 
-### Setup-Status
+### Setup Status
 `GET /api/setup/status`
 
 **Response**
@@ -559,7 +559,7 @@ Security-sensitive Account-Aktionen verlangen bei 2FA-pflichtigen Accounts einen
 
 ## Admin
 
-### Admin-Login
+### Admin Login
 `POST /api/admin/login`
 
 **Body**
@@ -577,12 +577,12 @@ Security-sensitive Account-Aktionen verlangen bei 2FA-pflichtigen Accounts einen
 }
 ```
 
-### Admin-Logout
+### Admin Logout
 `POST /api/admin/logout`
 
-Invalidiert alle Admin-Sessions durch Erhöhung der Admin-Token-Version.
+Invalidates all admin sessions by increasing the admin token version.
 
-### Benutzer auflisten
+### List Users
 `GET /api/admin/users`
 
 **Response**
@@ -600,7 +600,7 @@ Invalidiert alle Admin-Sessions durch Erhöhung der Admin-Token-Version.
 }
 ```
 
-### Benutzer anlegen
+### Create User
 `POST /api/admin/users`
 
 **Body**
@@ -612,12 +612,12 @@ Invalidiert alle Admin-Sessions durch Erhöhung der Admin-Token-Version.
 }
 ```
 
-Der Admin setzt kein Passwort mehr direkt. Beim Anlegen wird ein einmaliger Passwort-Setup-Link erzeugt.
+The admin no longer sets a password directly. A one-time password setup link is generated during creation.
 
-**Validierung**
-- `email` ist Pflicht
-- Muss eine gültige E-Mail-Adresse sein
-- Muss eindeutig sein
+**Validation**
+- `email` is required
+- Must be a valid email address
+- Must be unique
 
 **Response**
 ```json
@@ -632,7 +632,7 @@ Der Admin setzt kein Passwort mehr direkt. Beim Anlegen wird ein einmaliger Pass
 }
 ```
 
-### Benutzer aktualisieren
+### Update User
 `PATCH /api/admin/users/{id}`
 
 **Body**
@@ -640,14 +640,14 @@ Der Admin setzt kein Passwort mehr direkt. Beim Anlegen wird ein einmaliger Pass
 { "email": "neu@example.com" }
 ```
 
-Optional kann `display_name` mitgegeben werden.
+Optionally, `display_name` can be provided as well.
 
 **Response**
 ```json
 { "id": 2, "email": "neu@example.com", "display_name": null }
 ```
 
-### Benutzer löschen
+### Delete User
 `DELETE /api/admin/users/{id}`
 
 **Response**
@@ -655,10 +655,10 @@ Optional kann `display_name` mitgegeben werden.
 { "deleted": true }
 ```
 
-### Passwort-Setup-/Reset-Link erzeugen
+### Generate Password Setup/Reset Link
 `POST /api/admin/users/{id}/change-password`
 
-> Kompatibilitäts-Endpunkt: Admins setzen Passwörter nicht mehr direkt. Der Endpoint erzeugt einen einmaligen Link.
+> Compatibility endpoint: admins no longer set passwords directly. The endpoint generates a one-time link.
 
 **Response**
 ```json
@@ -668,7 +668,7 @@ Optional kann `display_name` mitgegeben werden.
 }
 ```
 
-### Passwort-Link erzeugen
+### Generate Password Link
 `POST /api/admin/users/{id}/password-link`
 
 **Response**
@@ -679,7 +679,7 @@ Optional kann `display_name` mitgegeben werden.
 }
 ```
 
-### Passwort per Link setzen
+### Set Password via Link
 `POST /api/password-setup/complete`
 
 **Body**
@@ -692,9 +692,9 @@ Optional kann `display_name` mitgegeben werden.
 { "message": "Passwort gesetzt" }
 ```
 
-Links sind 24 Stunden gültig und nur einmal verwendbar.
+Links are valid for 24 hours and can be used only once.
 
-### Admin-Passwort ändern
+### Change Admin Password
 `POST /api/admin/change-password`
 
 **Body**
@@ -710,9 +710,9 @@ Links sind 24 Stunden gültig und nur einmal verwendbar.
 { "ok": true }
 ```
 
-## API-Keys
+## API Keys
 
-### Auflisten
+### List
 `GET /api/me/api-keys`
 
 **Response**
@@ -731,7 +731,7 @@ Links sind 24 Stunden gültig und nur einmal verwendbar.
 }
 ```
 
-### Erstellen
+### Create
 `POST /api/me/api-keys`
 
 **Body**
@@ -750,9 +750,9 @@ Links sind 24 Stunden gültig und nur einmal verwendbar.
 }
 ```
 
-Der vollständige `key` wird nur einmalig beim Erstellen angezeigt.
+The full `key` is shown only once during creation.
 
-### Widerrufen
+### Revoke
 `DELETE /api/me/api-keys/{id}`
 
 **Response**
@@ -760,20 +760,20 @@ Der vollständige `key` wird nur einmalig beim Erstellen angezeigt.
 { "revoked": 12 }
 ```
 
-### Auth mit API-Key
+### Auth with API Key
 ```text
 Authorization: ApiKey nt_...
 ```
 
-**Hinweise**
-- API-Keys sind an den Benutzer gebunden
-- widerrufene Keys sind sofort ungültig
-- `last_used_at` wird gepflegt
-- API-Keys umgehen CSRF nur mit `Authorization: ApiKey nt_...`; `Bearer nt_...` und `X-API-Key` werden nicht als API-Key-Auth unterstützt
+**Notes**
+- API keys are bound to the user
+- revoked keys are invalid immediately
+- `last_used_at` is maintained
+- API keys bypass CSRF only with `Authorization: ApiKey nt_...`; `Bearer nt_...` and `X-API-Key` are not supported as API key auth
 
 ## Todos
 
-### Liste
+### List
 `GET /api/todos`
 
 **Query**
@@ -806,7 +806,7 @@ Authorization: ApiKey nt_...
 }
 ```
 
-### Einzelnes Todo
+### Single Todo
 `GET /api/todos/{id}`
 
 **Response**
@@ -823,7 +823,7 @@ Authorization: ApiKey nt_...
 }
 ```
 
-### Erstellen
+### Create
 `POST /api/todos`
 
 **Body**
@@ -839,14 +839,14 @@ Authorization: ApiKey nt_...
 }
 ```
 
-**Felder**
-- `title` string, Pflicht
+**Fields**
+- `title` string, required
 - `description` string, optional
 - `priority` int, optional, `1..4`
 - `project_id` int, optional
 - `section_id` int, optional
-- `due_date` ISO-8601, optional, gültiges Jahr `1900..9999`
-- `remind_at` ISO-8601, optional, gültiges Jahr `1900..9999`
+- `due_date` ISO-8601, optional, valid year `1900..9999`
+- `remind_at` ISO-8601, optional, valid year `1900..9999`
 
 **Response**
 ```json
@@ -857,12 +857,12 @@ Authorization: ApiKey nt_...
 }
 ```
 
-### Aktualisieren
+### Update
 `PATCH /api/todos/{id}`
 
 **Body**
-- gleiche Felder wie POST, alle optional
-- `status=done` setzt `completed_at`
+- same fields as POST, all optional
+- `status=done` sets `completed_at`
 
 **Response**
 ```json
@@ -873,7 +873,7 @@ Authorization: ApiKey nt_...
 }
 ```
 
-### Löschen
+### Delete
 `DELETE /api/todos/{id}`
 
 **Response**
@@ -883,7 +883,7 @@ Authorization: ApiKey nt_...
 
 ## Workspaces
 
-### Liste
+### List
 `GET /api/workspaces`
 
 **Response**
@@ -902,11 +902,11 @@ Authorization: ApiKey nt_...
 }
 ```
 
-**Hinweise**
-- Jeder Benutzer hat einen Default-Workspace und pro Workspace eine Inbox.
-- Beim ersten Abruf werden fehlender Default-Workspace und fehlende Workspace-Inbox automatisch repariert/angelegt.
+**Notes**
+- Each user has a default workspace and one inbox per workspace.
+- On first fetch, a missing default workspace and missing workspace inbox are automatically repaired/created.
 
-### Erstellen
+### Create
 `POST /api/workspaces`
 
 **Body**
@@ -919,7 +919,7 @@ Authorization: ApiKey nt_...
 { "id": 2, "name": "Arbeit", "color": "#6366f1", "icon": "briefcase", "is_default": 0 }
 ```
 
-### Aktualisieren
+### Update
 `PATCH /api/workspaces/{id}`
 
 **Body**
@@ -932,7 +932,7 @@ Authorization: ApiKey nt_...
 { "id": 2, "name": "Arbeit Neu", "color": "#0ea5e9", "icon": "folder" }
 ```
 
-### Löschen
+### Delete
 `DELETE /api/workspaces/{id}`
 
 **Response**
@@ -944,11 +944,11 @@ Authorization: ApiKey nt_...
 }
 ```
 
-**Hinweis:** Der Default-Workspace kann nicht gelöscht werden. Beim Löschen werden Projekte in den Default-Workspace verschoben; Todos aus der Workspace-Inbox landen in der Default-Inbox.
+**Note:** The default workspace cannot be deleted. When deleting, projects are moved to the default workspace; todos from the workspace inbox end up in the default inbox.
 
-## Projekte
+## Projects
 
-### Liste
+### List
 `GET /api/projects`
 
 **Response**
@@ -971,12 +971,12 @@ Authorization: ApiKey nt_...
 }
 ```
 
-**Hinweise**
-- Jeder Benutzer hat genau eine Inbox (`is_inbox=1`). Der Name darf geändert werden; `is_inbox` bleibt die stabile Identität.
-- Inbox-Projekte können nicht gelöscht werden.
-- Shared-Projekte erscheinen in der normalen Projektliste mit `is_shared=true` und Owner-Metadaten.
+**Notes**
+- Each user has exactly one inbox (`is_inbox=1`). The name may be changed; `is_inbox` remains the stable identity.
+- Inbox projects cannot be deleted.
+- Shared projects appear in the normal project list with `is_shared=true` and owner metadata.
 
-### Erstellen
+### Create
 `POST /api/projects`
 
 **Body**
@@ -989,7 +989,7 @@ Authorization: ApiKey nt_...
 { "id": 7, "name": "Hobby" }
 ```
 
-### Aktualisieren
+### Update
 `PATCH /api/projects/{id}`
 
 **Body**
@@ -997,7 +997,7 @@ Authorization: ApiKey nt_...
 { "name": "Hobby Neu", "icon": "folder-open" }
 ```
 
-`parent_id` kann auf eine Projekt-ID gesetzt oder mit `null` wieder entfernt werden:
+`parent_id` can be set to a project ID or removed again with `null`:
 ```json
 { "parent_id": null }
 ```
@@ -1007,7 +1007,7 @@ Authorization: ApiKey nt_...
 { "id": 7, "name": "Hobby Neu" }
 ```
 
-### Löschen
+### Delete
 `DELETE /api/projects/{id}`
 
 **Response**
@@ -1015,7 +1015,7 @@ Authorization: ApiKey nt_...
 { "deleted": true }
 ```
 
-### Erledigte Todos im Projekt löschen
+### Delete Completed Todos in Project
 `POST /api/projects/{id}/clear-done`
 
 **Response**
@@ -1023,10 +1023,10 @@ Authorization: ApiKey nt_...
 { "deleted_count": 3 }
 ```
 
-## Projekt-Sharing
+## Project Sharing
 
 
-### Geteilte Projekte abrufen
+### Fetch Shared Projects
 `GET /api/projects/shared`
 
 **Response**
@@ -1044,7 +1044,7 @@ Authorization: ApiKey nt_...
 }
 ```
 
-### Ausstehende Einladungen
+### Pending Invitations
 `GET /api/projects/invites`
 
 **Response**
@@ -1064,7 +1064,7 @@ Authorization: ApiKey nt_...
 }
 ```
 
-### Projekt teilen
+### Share Project
 `POST /api/projects/{project_id}/share`
 
 Owner-only.
@@ -1087,7 +1087,7 @@ Owner-only.
 }
 ```
 
-### Einladung annehmen/ablehnen
+### Accept/Decline Invitation
 `POST /api/projects/{project_id}/invites/{invite_id}`
 
 **Body**
@@ -1100,10 +1100,10 @@ Owner-only.
 { "id": 12, "status": "accepted", "project_id": 5 }
 ```
 
-### Mitglieder auflisten
+### List Members
 `GET /api/projects/{project_id}/members`
 
-Owner und akzeptierte Mitglieder dürfen die Liste sehen.
+Owner and accepted members may see the list.
 
 **Response**
 ```json
@@ -1120,17 +1120,17 @@ Owner und akzeptierte Mitglieder dürfen die Liste sehen.
 }
 ```
 
-### Mitglied entfernen
+### Remove Member
 `DELETE /api/projects/{project_id}/members/{member_user_id}`
 
-Owner kann Mitglieder entfernen; Mitglieder können sich selbst entfernen. Entfernen ist undo-fähig und setzt intern `status=removed`.
+Owner can remove members; members can remove themselves. Removal is undo-capable and internally sets `status=removed`.
 
 **Response**
 ```json
 { "removed": 12, "project_id": 5 }
 ```
 
-### Entferntes/ausgetretenes Mitglied wiederherstellen
+### Restore Removed/Left Member
 `POST /api/projects/{project_id}/members/{member_user_id}/restore`
 
 **Body**
@@ -1144,10 +1144,10 @@ Owner kann Mitglieder entfernen; Mitglieder können sich selbst entfernen. Entfe
 ```
 
 
-### Mitgliederfarbe überschreiben
+### Override Member Color
 `PATCH /api/projects/{project_id}/members/{member_user_id}/color`
 
-Owner-only. Setzt eine projektbezogene Farbmarkierung für ein Mitglied.
+Owner-only. Sets a project-specific color marker for a member.
 
 **Body**
 ```json
@@ -1159,10 +1159,10 @@ Owner-only. Setzt eine projektbezogene Farbmarkierung für ein Mitglied.
 { "project_id": 5, "user_id": 2, "color": "#f59e0b" }
 ```
 
-### Shared-Projekt verlassen / Undo
+### Leave Shared Project / Undo
 `POST /api/projects/{project_id}/leave`
 
-Owner können eigene Projekte nicht verlassen.
+Owners cannot leave their own projects.
 
 **Response**
 ```json
@@ -1178,7 +1178,7 @@ Owner können eigene Projekte nicht verlassen.
 
 ## Sections
 
-### Alle Sections
+### All Sections
 `GET /api/sections`
 
 **Response**
@@ -1186,7 +1186,7 @@ Owner können eigene Projekte nicht verlassen.
 { "sections": [] }
 ```
 
-### Sections eines Projekts
+### Sections of a Project
 `GET /api/sections/by-project/{projectId}`
 
 **Response**
@@ -1198,7 +1198,7 @@ Owner können eigene Projekte nicht verlassen.
 }
 ```
 
-### Erstellen
+### Create
 `POST /api/sections/by-project/{projectId}`
 
 **Body**
@@ -1211,7 +1211,7 @@ Owner können eigene Projekte nicht verlassen.
 { "id": 9, "name": "Einkauf" }
 ```
 
-### Aktualisieren
+### Update
 `PATCH /api/sections/{id}`
 
 **Body**
@@ -1224,7 +1224,7 @@ Owner können eigene Projekte nicht verlassen.
 { "id": 9, "name": "Einkauf Neu" }
 ```
 
-### Löschen
+### Delete
 `DELETE /api/sections/{id}`
 
 **Response**
@@ -1234,7 +1234,7 @@ Owner können eigene Projekte nicht verlassen.
 
 ## Reminders
 
-### Liste
+### List
 `GET /api/reminders`
 
 **Response**
@@ -1253,7 +1253,7 @@ Owner können eigene Projekte nicht verlassen.
 }
 ```
 
-### Als gesendet markieren
+### Mark as Sent
 `POST /api/reminders/{id}/sent`
 
 **Response**
@@ -1263,7 +1263,7 @@ Owner können eigene Projekte nicht verlassen.
 
 ## Dashboard
 
-### Statistiken
+### Statistics
 `GET /api/dashboard`
 
 **Response**
@@ -1283,7 +1283,7 @@ Owner können eigene Projekte nicht verlassen.
 ### Status
 `GET /api/push/status`
 
-### VAPID-Key
+### VAPID Key
 `GET /api/push/vapid-public-key`
 
 ### Subscribe
@@ -1295,30 +1295,30 @@ Owner können eigene Projekte nicht verlassen.
 ### Test
 `POST /api/push/test`
 
-## Öffentliche Runtime-/Native-Endpunkte
+## Public Runtime/Native Endpoints
 
-### API-Dokumentation
+### API Documentation
 `GET /api`
 
-Liefert diese API-Dokumentation als öffentliche HTML-Seite für Benutzer und Integrationen. Die JSON-/App-API bleibt unter den spezifischen `/api/...` Endpoints erreichbar.
+Returns this API documentation as a public HTML page for users and integrations. The JSON/app API remains available under the specific `/api/...` endpoints.
 
-### Instanzinfo
+### Instance Info
 `GET /api/instance`
 
-Liefert öffentliche Instanz-Metadaten für Web-/Native-Clients, u.a. konfigurierte öffentliche Basis-URL und Passkey/WebAuthn-relevante Origin-Informationen.
+Returns public instance metadata for web/native clients, including configured public base URL and passkey/WebAuthn-relevant origin information.
 
-### Native App-Download-Manifest
+### Native App Download Manifest
 `GET /downloads/app-downloads.json`
 
-Liefert die verfügbaren Windows-/Android-Artefakte mit Version, Plattform, Architektur, Dateiname, Größe und SHA256. Wird bewusst mit `no-store` ausgeliefert. Wenn keine Release-Artefakte veröffentlicht sind, antwortet der Endpoint mit `200` und leerer `apps`-Liste, damit Clients ohne 404-Console-Noise sauber ausblenden können.
+Returns the available Windows/Android artifacts with version, platform, architecture, filename, size, and SHA256. Intentionally served with `no-store`. If no release artifacts are published, the endpoint responds with `200` and an empty `apps` list so clients can hide the section cleanly without 404 console noise.
 
 ### Android Digital Asset Links
 `GET /.well-known/assetlinks.json`
 
-Liefert die gepinnte Beziehung zwischen Server und offizieller Android-App für native Passkeys.
+Returns the pinned relationship between server and official Android app for native passkeys.
 
-## Hinweise
+## Notes
 
-- Inbox ist `project_id = 1`
-- API-Keys sind nur für Benutzer-Endpunkte sinnvoll
-- Setup-Endpoints nur für Erstinstallation
+- Inbox is `project_id = 1`
+- API keys are only useful for user endpoints
+- Setup endpoints only for initial installation
