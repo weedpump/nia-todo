@@ -222,21 +222,31 @@ export function createTodosFeature({
     sectionSelect.innerHTML = `<option value="" data-i18n-key="todo.section.none">${t('todo.section.none')}</option>`;
     sectionSelect.disabled = true;
     if (!projectId) return;
+
+    const loadLocalSections = async () => {
+      const allSections = await dbGetAll('sections');
+      return allSections.filter(s => String(s.project_id) === String(projectId));
+    };
+
     try {
       let projectSections;
       if (isOnlineForSync()) {
-        const data = await sectionsApi.listByProject(projectId);
-        projectSections = data.sections || [];
-        const serverIds = new Set(projectSections.map(s => s.id));
-        const allLocal = await dbGetAll('sections');
-        const localProjectSections = allLocal.filter(s => s.project_id === parseInt(projectId));
-        for (const local of localProjectSections) {
-          if (!serverIds.has(local.id)) await deleteFromDB('sections', local.id);
+        try {
+          const data = await sectionsApi.listByProject(projectId);
+          projectSections = data.sections || [];
+          const serverIds = new Set(projectSections.map(s => String(s.id)));
+          const allLocal = await dbGetAll('sections');
+          const localProjectSections = allLocal.filter(s => String(s.project_id) === String(projectId));
+          for (const local of localProjectSections) {
+            if (!serverIds.has(String(local.id))) await deleteFromDB('sections', local.id);
+          }
+          for (const s of projectSections) await dbPut('sections', s);
+        } catch (serverError) {
+          console.warn('Failed to load sections from server, using local cache', serverError);
+          projectSections = await loadLocalSections();
         }
-        for (const s of projectSections) await dbPut('sections', s);
       } else {
-        const allSections = await dbGetAll('sections');
-        projectSections = allSections.filter(s => s.project_id === parseInt(projectId));
+        projectSections = await loadLocalSections();
       }
       translatePage(sectionSelect);
       for (const s of projectSections) {
