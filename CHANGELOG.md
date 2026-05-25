@@ -5,6 +5,11 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [2.2.2] - 2026-05-25
+
+### Fixed
+- Automatic language fallback now defaults to English when the browser language is unsupported or a dictionary cannot be loaded.
+
 ## [2.2.1] - 2026-05-25
 
 ### Fixed
