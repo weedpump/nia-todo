@@ -88,12 +88,12 @@ body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify
         <input type="text" id="first-display-name" placeholder="Max Mustermann" onkeydown="if(event.key==='Enter') document.getElementById('first-email').focus()">
       </div>
       <div class="setup-field">
-        <label data-i18n-key="settings.profile.email">E-Mail</label>
+        <label data-i18n-key="settings.profile.email">Email</label>
         <input type="email" id="first-email" placeholder="max@example.com" autocomplete="email" onkeydown="if(event.key==='Enter') document.getElementById('first-password').focus()">
       </div>
       <div class="setup-field">
-        <label data-i18n-key="auth.password">Passwort</label>
-        <input type="password" id="first-password" data-i18n-placeholder-key="auth.passwordPlaceholder" placeholder="Passwort" autocomplete="new-password" onkeydown="if(event.key==='Enter') createFirstUser()">
+        <label data-i18n-key="auth.password">Password</label>
+        <input type="password" id="first-password" data-i18n-placeholder-key="auth.passwordPlaceholder" placeholder="Password" autocomplete="new-password" onkeydown="if(event.key==='Enter') createFirstUser()">
       </div>
       <button class="setup-btn" onclick="createFirstUser()" data-i18n-key="setup.finishInstallation">Finish installation</button>
       <div class="setup-error" id="error-2"></div>

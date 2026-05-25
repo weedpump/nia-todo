@@ -73,7 +73,7 @@ def send_email(*, to: str, subject: str, text: str, html: Optional[str] = None) 
                 smtp.login(config.get("smtp_username") or "", config.get("smtp_password_secret") or "")
             smtp.send_message(message)
     except smtplib.SMTPAuthenticationError:
-        raise HTTPException(400, "SMTP-Authentifizierung fehlgeschlagen")
+        raise HTTPException(400, "SMTP authentication failed")
     except (smtplib.SMTPException, OSError) as exc:
         raise HTTPException(400, f"Email could not be sent: {type(exc).__name__}")
 

@@ -402,7 +402,7 @@ export function createAuthSessionFeature({
       window.dispatchEvent(new CustomEvent('nia-logged-in'));
     } catch (err) {
       console.error('Login failed:', err);
-      errorEl.textContent = err.message || 'Login fehlgeschlagen';
+      errorEl.textContent = err.message || 'Login failed';
     } finally {
       loginInProgress = false;
       if (submitBtn) submitBtn.disabled = false;

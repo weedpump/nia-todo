@@ -20,32 +20,32 @@ DB_PATH = Path(__file__).parent / "data" / "nia-todo-dev.db"
 def validate_admin_password(password: str) -> str:
     """Admin passwords require at least 12 characters."""
     if len(password) < 12:
-        return "Passwort muss mindestens 12 Zeichen lang sein"
+        return "Password must be at least 12 characters long"
     if not re.search(r'[A-Z]', password):
-        return "Passwort muss mindestens einen Großbuchstaben enthalten"
+        return "Password must contain at least one uppercase letter"
     if not re.search(r'[a-z]', password):
-        return "Passwort muss mindestens einen Kleinbuchstaben enthalten"
+        return "Password must contain at least one lowercase letter"
     if not re.search(r'\d', password):
-        return "Passwort muss mindestens eine Ziffer enthalten"
+        return "Password must contain at least one digit"
     special_chars = r"!@#$%^&*()_+-=[]{};'\\|,.\/<>?"
     if not any(c in special_chars for c in password):
-        return "Passwort muss mindestens ein Sonderzeichen enthalten"
+        return "Password must contain at least one special character"
     return ""
 
 def change_admin_password():
     print("=" * 50)
-    print("  nia-todo: Admin-Passwort zurücksetzen")
+    print("  nia-todo: Reset admin password")
     print("=" * 50)
     print()
 
     if not DB_PATH.exists():
-        print(f"❌ Datenbank nicht gefunden: {DB_PATH}")
+        print(f"❌ Database not found: {DB_PATH}")
         sys.exit(1)
 
     # Prompt for new password (hidden input)
-    new_password = getpass.getpass("Neues Admin-Passwort eingeben: ")
+    new_password = getpass.getpass("Enter new admin password: ")
     if not new_password:
-        print("❌ Kein Passwort eingegeben. Abbruch.")
+        print("❌ No password entered. Aborting.")
         sys.exit(1)
 
     # Validate strength
@@ -55,9 +55,9 @@ def change_admin_password():
         sys.exit(1)
 
     # Confirm password
-    confirm_password = getpass.getpass("Neues Passwort bestätigen: ")
+    confirm_password = getpass.getpass("Confirm new password: ")
     if new_password != confirm_password:
-        print("❌ Passwörter stimmen nicht überein. Abbruch.")
+        print("❌ Passwords do not match. Aborting.")
         sys.exit(1)
 
     # Hash with bcrypt
@@ -76,19 +76,19 @@ def change_admin_password():
                 "UPDATE admin_config SET admin_token_hash = ? WHERE id = 1",
                 (password_hash,)
             )
-            print("✅ Admin-Passwort aktualisiert.")
+            print("✅ Admin password updated.")
         else:
             conn.execute(
                 "INSERT INTO admin_config (id, setup_complete, admin_token_hash, created_at) VALUES (?, 0, ?, datetime('now'))",
                 (1, password_hash)
             )
-            print("✅ Admin-Passwort gesetzt (Setup noch nicht abgeschlossen).")
+            print("✅ Admin password set (setup not completed yet).")
 
         conn.commit()
         print()
-        print("ℹ️  Hinweis: Alle bestehenden Admin-Sitzungen bleiben gültig,")
+        print("ℹ️  Note: All existing admin sessions remain valid,")
         print("   da Admin keine token_version verwendet.")
-        print("   Nutze das neue Passwort ab sofort für die Admin-Anmeldung.")
+        print("   use the new password for admin sign-in from now on.")
     except Exception as e:
         conn.rollback()
         print(f"❌ Fehler beim Schreiben in die Datenbank: {e}")

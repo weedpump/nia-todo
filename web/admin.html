@@ -432,16 +432,16 @@ async function getApiError(response) {
   const data = await response.json().catch(() => null);
   if (!data) return fallback;
   
-  // Handle nested format: {detail: {detail, code, params}}
+  // Handle flat format: {detail, code, params}
   let code = data.code;
   let detail = data.detail;
   let params = data.params || {};
   
-  // If detail is an object, unwrap it
+  // Handle nested format: {detail: {detail, code, params}}
   if (detail && typeof detail === 'object' && !Array.isArray(detail)) {
     code = detail.code || code;
-    detail = detail.detail || detail.message || fallback;
     params = detail.params || params;
+    detail = detail.detail || detail.message || fallback;
   }
   
   // Try i18n lookup

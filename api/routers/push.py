@@ -19,8 +19,8 @@ class PushSubscription(BaseModel):
     keys: dict
 
 class PushTestRequest(BaseModel):
-    title: str = "🔔 Test-Benachrichtigung"
-    body: str = "Push Notifications sind aktiviert! ✅"
+    title: str = "🔔 Test notification"
+    body: str = "Push notifications are enabled! ✅"
 
 
 @router.get("/vapid-public-key")

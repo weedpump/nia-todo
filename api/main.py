@@ -16,8 +16,9 @@ from middleware.security import SecurityHeadersMiddleware, RateLimitMiddleware, 
 from middleware.dynamic_cors import DynamicCORSMiddleware
 from services.push import check_and_send_reminders, cleanup_subscriptions
 from routers.websocket import websocket_endpoint
+from errors import APIError, api_error_handler
 
-# Migrationen beim Import ausführen
+# Run migrations on import
 run_migrations()
 
 app = FastAPI(title="nia-todo", version="0.4.0", docs_url=None, redoc_url=None, openapi_url=None)
@@ -48,6 +49,10 @@ app.include_router(me.router)
 app.include_router(sharing.router)
 app.include_router(password_setup.router)
 app.include_router(two_factor.router)
+
+# ─── Exception Handlers ──────────────────────────────────────────────────────
+
+app.add_exception_handler(APIError, api_error_handler)
 
 # ─── WebSocket ───────────────────────────────────────────────────────────────
 
