@@ -77,10 +77,17 @@ class FakeUrl:
         return self.value
 
 
+class FakeClient:
+    def __init__(self, host="127.0.0.1"):
+        self.host = host
+
+
 class FakeRequest:
-    def __init__(self, url):
+    def __init__(self, url, headers=None, cookies=None, client_host="127.0.0.1"):
         self.url = FakeUrl(url)
-        self.headers = {}
+        self.headers = headers or {}
+        self.cookies = cookies or {}
+        self.client = FakeClient(client_host)
 
 
 def create_user(conn, username="mfauser", password="Secret123!", email="mfa@example.invalid"):
@@ -235,10 +242,48 @@ def main():
         near_exp_payload["exp"] = old_exp
         near_exp_token = pyjwt.encode(near_exp_payload, secret_key, algorithm="HS256")
         conn.commit()
-        me_response = me(Response(), authorization=f"Bearer {near_exp_token}")
+        me_response = me(FakeRequest("https://todo.example.invalid", headers={"user-agent": "Refresh Browser"}), Response(), authorization=f"Bearer {near_exp_token}")
         assert me_response.get("access_token"), "near-expiry /api/me should refresh JWT"
         refreshed_session = conn.execute("SELECT expires_at, last_used_at FROM user_sessions WHERE id = ?", (refresh_session_id,)).fetchone()
         assert refreshed_session and int(refreshed_session["expires_at"]) >= int(time.time()) + (USER_JWT_EXPIRY_DAYS * 86400) - 5
+
+        # /api/me migrates valid pre-session JWTs into revokable user_sessions.
+        legacy_trusted_token, legacy_trusted_device_id = create_trusted_device(conn, user_id, "Legacy Browser", return_id=True)
+        legacy_token = create_jwt_token(dict(user), conn, mfa_login_verified=True)
+        conn.commit()
+        legacy_response = me(
+            FakeRequest(
+                "https://todo.example.invalid",
+                headers={"user-agent": "Legacy Browser"},
+                cookies={"nia_2fa_device": legacy_trusted_token},
+                client_host="127.0.0.5",
+            ),
+            Response(),
+            authorization=f"Bearer {legacy_token}",
+        )
+        assert legacy_response.get("access_token"), "legacy /api/me should return migrated JWT"
+        legacy_payload = decode_jwt_token(legacy_response["access_token"], conn)
+        assert legacy_payload and legacy_payload.get("sid"), "migrated JWT should contain sid"
+        migrated_session = conn.execute(
+            "SELECT user_id, trusted_device_id, user_agent, ip_address, revoked_at FROM user_sessions WHERE id = ?",
+            (legacy_payload["sid"],),
+        ).fetchone()
+        assert migrated_session and migrated_session["user_id"] == user_id
+        assert migrated_session["trusted_device_id"] == legacy_trusted_device_id
+        assert migrated_session["user_agent"] == "Legacy Browser"
+        assert migrated_session["ip_address"] == "127.0.0.5"
+        assert migrated_session["revoked_at"] is None
+
+        # MFA-required legacy JWTs without MFA assurance must not be migrated.
+        unmfa_session_count = conn.execute("SELECT COUNT(*) AS c FROM user_sessions WHERE user_id = ?", (user_id,)).fetchone()["c"]
+        legacy_unmfa_token = create_jwt_token(dict(user), conn)
+        conn.commit()
+        try:
+            me(FakeRequest("https://todo.example.invalid"), Response(), authorization=f"Bearer {legacy_unmfa_token}")
+            raise AssertionError("legacy JWT without MFA assurance must not migrate via /api/me")
+        except HTTPException as exc:
+            assert exc.status_code == 401
+        assert conn.execute("SELECT COUNT(*) AS c FROM user_sessions WHERE user_id = ?", (user_id,)).fetchone()["c"] == unmfa_session_count
 
         # Session last_used_at is updated with throttling when stale.
         stale_session_token = create_jwt_token(dict(user), conn, mfa_login_verified=True, create_session=True, user_agent="Stale Browser", ip_address="127.0.0.4")
