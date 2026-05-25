@@ -1,6 +1,24 @@
 #!/usr/bin/env node
 import { withFreshDb, launchPage } from './frontend_test_lib.mjs';
 
+
+async function testOfflineTodoSectionSelectionKeepsAvailable() {
+  const { browser, page, assertNoFrontendErrors, loginApp, openTodoModal, ensureSectionOptions } = await launchPage();
+  try {
+    await loginApp();
+    await page.evaluate(() => { window.dispatchEvent(new Event('offline')); });
+    await openTodoModal();
+    await page.fill('#todo-title', 'Offline section test');
+    await page.selectOption('#todo-project', { label: 'Frontend Project A' });
+    await ensureSectionOptions(['Section A', 'Section B']);
+    const disabled = await page.locator('#todo-section').isDisabled();
+    if (disabled) throw new Error('Section select must stay enabled while offline when local sections exist');
+  } finally {
+    assertNoFrontendErrors();
+    await browser.close();
+  }
+}
+
 async function run() {
   console.log('🌐 Running Playwright frontend app test...');
   const { browser, page, visible, clickProjectNav, openTodoModal, ensureSectionOptions, createSection, loginApp, assertNoFrontendErrors } = await launchPage();
