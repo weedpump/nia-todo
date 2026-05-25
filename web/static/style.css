@@ -1346,7 +1346,10 @@ body {
   .modal-content h3 { margin-bottom: 20px; font-size: 18px; }
 }
 
-.form-group { margin-bottom: 16px; }
+.form-group {
+  margin-bottom: 16px;
+  min-width: 0;
+}
 .form-group label {
   display: block;
   font-size: 13px;
@@ -1358,6 +1361,8 @@ body {
 .form-group input,
 .form-group select,
 .form-group textarea {
+  box-sizing: border-box;
+  min-width: 0;
   width: 100%;
   padding: 10px 12px;
   border: 1px solid var(--border);
@@ -1371,6 +1376,17 @@ body {
 .form-group input:focus,
 .form-group select:focus,
 .form-group textarea:focus { border-color: var(--accent); }
+
+/* iOS Safari gives native date/time controls a wide intrinsic min-size.
+   Keep deadline/reminder fields inside mobile todo modals instead of
+   letting them force horizontal scrolling. */
+.form-group input[type="date"],
+.form-group input[type="datetime-local"],
+.form-group input[type="time"] {
+  max-width: 100%;
+  -webkit-appearance: none;
+  appearance: none;
+}
 
 .settings-profile-card {
   display: grid;
@@ -1513,7 +1529,7 @@ input[type="color"]::-moz-color-swatch {
   border-radius: 4px;
 }
 
-.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.form-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
 
 .label-picker {
   display: flex;
