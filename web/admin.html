@@ -313,19 +313,19 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
       <thead>
         <tr>
           <th>ID</th>
-          <th>Benutzername</th>
-          <th>Anzeigename</th>
-          <th>E-Mail</th>
-          <th>E-Mail Status</th>
-          <th>Login</th>
-          <th>2FA</th>
-          <th>API Keys</th>
-          <th>Passwort</th>
-          <th>Aktionen</th>
+          <th data-i18n-key="admin.user.username">Benutzername</th>
+          <th data-i18n-key="admin.user.displayName">Anzeigename</th>
+          <th data-i18n-key="admin.user.email">E-Mail</th>
+          <th data-i18n-key="admin.user.emailStatus">E-Mail Status</th>
+          <th data-i18n-key="admin.user.login">Login</th>
+          <th data-i18n-key="admin.user.twofa">2FA</th>
+          <th data-i18n-key="admin.user.apiKeys">API Keys</th>
+          <th data-i18n-key="admin.user.password">Passwort</th>
+          <th data-i18n-key="admin.user.actions">Aktionen</th>
         </tr>
       </thead>
       <tbody id="user-list">
-        <tr><td colspan="8" class="empty-state">Lade...</td></tr>
+        <tr><td colspan="10" class="empty-state" data-i18n-key="common.loading">Lade...</td></tr>
       </tbody>
     </table>
     </div>
@@ -477,7 +477,7 @@ async function doAdminLogin() {
   document.getElementById('admin-login-error').textContent = '';
 
   if (!password) {
-    document.getElementById('admin-login-error').textContent = 'Bitte Admin-Passwort eingeben';
+    document.getElementById('admin-login-error').textContent = t('admin.login.passwordRequired');
     return;
   }
 
@@ -490,9 +490,9 @@ async function doAdminLogin() {
     const data = await r.json();
     if (!r.ok) {
       if (r.status === 401) {
-        document.getElementById('admin-login-error').textContent = 'Falsches Admin-Passwort';
+        document.getElementById('admin-login-error').textContent = t('admin.login.invalidPassword');
       } else {
-        document.getElementById('admin-login-error').textContent = data.detail || 'Fehler beim Anmelden';
+        document.getElementById('admin-login-error').textContent = data.detail || t('admin.login.failed');
       }
       return;
     }
