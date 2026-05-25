@@ -740,5 +740,13 @@
   "api.error.passwordSetup.passwordInvalid": "Passwort entspricht nicht den Anforderungen",
   "api.error.passwordSetup.tokenInvalid": "Ungültiger Token",
   "api.error.passwordSetup.tokenExpired": "Token ist abgelaufen",
-  "api.error.passwordSetup.passwordSet": "Passwort gesetzt. Du kannst dich jetzt anmelden."
+  "api.error.passwordSetup.passwordSet": "Passwort gesetzt. Du kannst dich jetzt anmelden.",
+  "api.error.workspace.nameRequired": "Workspace-Name ist erforderlich",
+  "api.error.workspace.alreadyExists": "Workspace existiert bereits",
+  "api.error.workspace.notFound": "Workspace nicht gefunden",
+  "api.error.workspace.defaultCannotBeDeleted": "Standard-Workspace kann nicht gelöscht werden",
+  "api.error.user.adminDeleteForbidden": "Admin-Benutzer kann nicht gelöscht werden",
+  "api.error.admin.configMissing": "Admin-Konfiguration nicht gefunden",
+  "api.error.auth.interactiveJwtRequired": "Interaktive JWT-Anmeldung erforderlich",
+  "api.error.auth.invalidCredentials": "Ungültige Anmeldeinformationen"
 }

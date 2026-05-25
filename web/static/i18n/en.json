@@ -740,5 +740,13 @@
   "api.error.passwordSetup.passwordInvalid": "Password does not meet the requirements",
   "api.error.passwordSetup.tokenInvalid": "Invalid token",
   "api.error.passwordSetup.tokenExpired": "Token has expired",
-  "api.error.passwordSetup.passwordSet": "Password set. You can now sign in."
+  "api.error.passwordSetup.passwordSet": "Password set. You can now sign in.",
+  "api.error.workspace.nameRequired": "Workspace name is required",
+  "api.error.workspace.alreadyExists": "Workspace already exists",
+  "api.error.workspace.notFound": "Workspace not found",
+  "api.error.workspace.defaultCannotBeDeleted": "Default workspace cannot be deleted",
+  "api.error.user.adminDeleteForbidden": "Cannot delete admin user",
+  "api.error.admin.configMissing": "Admin configuration not found",
+  "api.error.auth.interactiveJwtRequired": "Interactive JWT authentication required",
+  "api.error.auth.invalidCredentials": "Invalid credentials"
 }

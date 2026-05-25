@@ -25,11 +25,22 @@ function interpolate(text, params = {}) {
 
 async function loadDictionary(language) {
   if (dictionaries.has(language)) return dictionaries.get(language);
-  const response = await fetch(`/static/i18n/${language}.json`, { cache: 'no-cache' });
-  if (!response.ok) throw new Error(`Failed to load i18n dictionary: ${language}`);
-  const dictionary = await response.json();
-  dictionaries.set(language, dictionary);
-  return dictionary;
+  try {
+    const response = await fetch(`/static/i18n/${language}.json`, { cache: 'force-cache' });
+    if (!response.ok) throw new Error(`Failed to load i18n dictionary: ${language}`);
+    const dictionary = await response.json();
+    dictionaries.set(language, dictionary);
+    return dictionary;
+  } catch (err) {
+    console.warn(`i18n: Failed to load ${language}, falling back to ${DEFAULT_LANGUAGE}`, err);
+    if (language !== DEFAULT_LANGUAGE) {
+      return loadDictionary(DEFAULT_LANGUAGE);
+    }
+    // Last resort: return empty dictionary to avoid blocking the app
+    const empty = {};
+    dictionaries.set(DEFAULT_LANGUAGE, empty);
+    return empty;
+  }
 }
 
 export function getLanguagePreference() {
