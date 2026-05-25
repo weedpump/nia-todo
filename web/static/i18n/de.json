@@ -587,7 +587,6 @@
   "admin.user.login.inviteOpenTitle": "Setup-Link wurde noch nicht eingelöst",
   "admin.user.login.inviteOpen": "Einladung offen",
   "admin.user.twofa.emailFallback": "E-Mail-Code Übergang",
-  "admin.user.twofa.trustedDevices": "{count} Gerät",
   "admin.user.twofa.active": "Aktiv",
   "admin.user.twofa.required": "Pflicht",
   "admin.user.twofa.off": "Aus",

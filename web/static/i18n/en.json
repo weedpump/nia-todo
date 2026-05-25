@@ -587,7 +587,6 @@
   "admin.user.login.inviteOpenTitle": "Setup link has not been used yet",
   "admin.user.login.inviteOpen": "Invitation open",
   "admin.user.twofa.emailFallback": "Email code transition",
-  "admin.user.twofa.trustedDevices": "{count} device(s)",
   "admin.user.twofa.active": "Active",
   "admin.user.twofa.required": "Required",
   "admin.user.twofa.off": "Off",
