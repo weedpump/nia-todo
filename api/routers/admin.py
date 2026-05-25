@@ -96,13 +96,14 @@ def _make_password_setup_link(request: Request, token: str) -> str:
     return f"{base_url}/set-password?token={token}"
 
 
-def _send_password_setup_email(*, to: str, display_name: str, username: str, link: str, purpose: str) -> None:
+def _send_password_setup_email(*, to: str, display_name: str, username: str, link: str, purpose: str, language: str = 'de') -> None:
     subject, text, html = password_setup_email(
         display_name=display_name,
         username=username,
         link=link,
         purpose=purpose,
         expires_hours=_password_link_ttl_hours(),
+        language=language,
     )
     send_email(to=to, subject=subject, text=text, html=html)
 
@@ -297,6 +298,7 @@ def create_user(data: CreateUserRequest, request: Request, _: bool = Depends(req
                     username=data.username,
                     link=link,
                     purpose="invite",
+                    language='de',
                 )
                 emailed = True
             except Exception:
@@ -423,7 +425,7 @@ def admin_change_user_password(user_id: int, data: ResetUserPasswordRequest, req
 @router.post("/users/{user_id}/password-link")
 def admin_create_user_password_link(user_id: int, request: Request, _: bool = Depends(require_admin)):
     with get_db() as db:
-        user = db.execute("SELECT id, username, display_name, email, email_verified_at FROM users WHERE id = ?", (user_id,)).fetchone()
+        user = db.execute("SELECT id, username, display_name, email, email_verified_at, language FROM users WHERE id = ?", (user_id,)).fetchone()
         if not user:
             raise HTTPException(404, "User not found")
         token = create_password_setup_token(db, user_id, "reset")
@@ -438,6 +440,7 @@ def admin_create_user_password_link(user_id: int, request: Request, _: bool = De
                     username=user['username'],
                     link=link,
                     purpose="reset",
+                    language=user['language'] or 'de',
                 )
                 emailed = True
             except Exception:

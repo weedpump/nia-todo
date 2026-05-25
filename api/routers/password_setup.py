@@ -61,7 +61,7 @@ def _get_valid_token(db, token: str):
     if not token or len(token) < 24:
         return None
     return db.execute(
-        """SELECT pst.*, u.username, u.display_name, u.email, u.email_verified_at
+        """SELECT pst.*, u.username, u.display_name, u.email, u.email_verified_at, u.language
            FROM password_setup_tokens pst
            JOIN users u ON u.id = pst.user_id
            WHERE pst.token_prefix = ?
@@ -79,7 +79,7 @@ def _get_expired_resend_context(db, token: str):
     if not token or len(token) < 24:
         return None
     return db.execute(
-        """SELECT pst.*, u.username, u.display_name, u.email, u.email_verified_at
+        """SELECT pst.*, u.username, u.display_name, u.email, u.email_verified_at, u.language
            FROM password_setup_tokens pst
            JOIN users u ON u.id = pst.user_id
            WHERE pst.token_prefix = ?
@@ -115,7 +115,7 @@ def request_password_reset(data: RequestPasswordResetRequest, request: Request, 
 
     with get_db() as db:
         user = db.execute(
-            """SELECT id, username, display_name, email, email_verified_at
+            """SELECT id, username, display_name, email, email_verified_at, language
                FROM users
                WHERE (username = ? OR lower(email) = lower(?))
                  AND email_verified_at IS NOT NULL
@@ -133,6 +133,7 @@ def request_password_reset(data: RequestPasswordResetRequest, request: Request, 
             link=link,
             purpose="reset",
             expires_hours=get_password_link_ttl_hours(),
+            language=user['language'] or 'de',
         )
         db.commit()
         try:
@@ -198,6 +199,7 @@ def resend_password_setup_link(data: ResendPasswordSetupRequest, request: Reques
                 link=link,
                 purpose=row['purpose'],
                 expires_hours=get_password_link_ttl_hours(),
+                language=row['language'] or 'de',
             )
             db.commit()
             try:
