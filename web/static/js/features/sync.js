@@ -121,9 +121,24 @@ export function createSyncFeature({
           needsAuthoritativeRefresh = true;
           successCount++;
         } else if (item.action === 'UPDATE_PROJECT') {
-          await projectsApi.update(item.data.id, item.data.changes);
-          const localProject = await getFromDB('projects', item.data.id);
-          if (localProject) await dbPut('projects', { ...localProject, ...item.data.changes, updated_at: new Date().toISOString() });
+          const serverProject = await projectsApi.update(item.data.id, item.data.changes);
+          const updatedProjects = Array.isArray(serverProject?.updated_projects) ? serverProject.updated_projects : (serverProject ? [serverProject] : []);
+          if (updatedProjects.length) {
+            await Promise.all(updatedProjects.map(project => dbPut('projects', project)));
+            const byId = new Map(updatedProjects.map(project => [String(project.id), project]));
+            const existingIds = new Set(getProjects().map(project => String(project.id)));
+            const mergedProjects = getProjects().map(project => byId.get(String(project.id)) || project);
+            for (const project of updatedProjects) {
+              if (!existingIds.has(String(project.id))) mergedProjects.push(project);
+            }
+            setProjects(mergedProjects);
+          } else {
+            const localProject = await getFromDB('projects', item.data.id);
+            if (localProject) await dbPut('projects', { ...localProject, ...item.data.changes, updated_at: new Date().toISOString() });
+          }
+          if (item.data.changes && Object.prototype.hasOwnProperty.call(item.data.changes, 'workspace_id')) {
+            needsAuthoritativeRefresh = true;
+          }
           successCount++;
         } else if (item.action === 'CREATE_SECTION') {
           const res = await sectionsApi.create(item.data.project_id, item.data);

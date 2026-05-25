@@ -7,7 +7,7 @@ import sqlite3
 
 from db import get_db, now_iso
 from routers.auth import require_auth
-from services.websocket import broadcast_change
+from services.websocket import broadcast_change, broadcast_project_updates, get_project_view_for_user
 from services.utils import sanitize_text
 from services.appearance import normalize_color, normalize_icon
 from services.sharing import can_access_project, can_edit_project, get_project_ids_for_user
@@ -209,6 +209,7 @@ async def update_project(project_id: int, data: ProjectUpdate, user_id: int = De
             set_clause = ", ".join(f"{k}=:{k}" for k in safe_updates)
             try:
                 db.execute(f"UPDATE projects SET {set_clause} WHERE id = :id", {**safe_updates, "id": project_id})
+                changed_project_ids = [project_id]
                 if moving_workspace:
                     descendant_ids = []
                     queue = [project_id]
@@ -224,12 +225,19 @@ async def update_project(project_id: int, data: ProjectUpdate, user_id: int = De
                             f"UPDATE projects SET workspace_id = ?, updated_at = ? WHERE id IN ({placeholders})",
                             (target_workspace_id, updated_at, *descendant_ids),
                         )
+                        changed_project_ids.extend(descendant_ids)
                 db.commit()
             except sqlite3.IntegrityError:
                 raise HTTPException(409, "Project could not be saved")
-        row = db.execute("SELECT *, CASE WHEN user_id = ? THEN 1 ELSE 0 END as is_owner, 0 as is_shared FROM projects WHERE id = ?", (user_id, project_id)).fetchone()
-        proj = dict(row)
-        await broadcast_change("project_update", proj, user_id, project_id)
+        else:
+            changed_project_ids = [project_id]
+        with get_db() as view_db:
+            updated_projects = [get_project_view_for_user(view_db, pid, user_id) for pid in changed_project_ids]
+        updated_projects = [project for project in updated_projects if project is not None]
+        proj = dict(updated_projects[0]) if updated_projects else dict(existing)
+        if len(updated_projects) > 1:
+            proj["updated_projects"] = [dict(project) for project in updated_projects]
+        await broadcast_project_updates(changed_project_ids, user_id)
         return proj
 
 
