@@ -87,11 +87,11 @@ def change_admin_password():
         conn.commit()
         print()
         print("ℹ️  Note: All existing admin sessions remain valid,")
-        print("   da Admin keine token_version verwendet.")
+        print("   because admin does not use token_version.")
         print("   use the new password for admin sign-in from now on.")
     except Exception as e:
         conn.rollback()
-        print(f"❌ Fehler beim Schreiben in die Datenbank: {e}")
+        print(f"❌ Error writing to database: {e}")
         sys.exit(1)
     finally:
         conn.close()
