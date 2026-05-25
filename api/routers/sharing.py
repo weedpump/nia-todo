@@ -40,7 +40,7 @@ def is_email_identifier(identifier: str) -> bool:
 
 
 def _neutral_email_share_response() -> dict:
-    return {"member": None, "notification_delivery": "unknown", "message": "Falls ein passender verifizierter Account existiert, wurde die Einladung verarbeitet."}
+    return {"member": None, "notification_delivery": "unknown", "message": "If a matching verified account exists, the invitation has been processed."}
 
 def get_user_by_verified_email(db, email: str) -> Optional[dict]:
     """Find user by verified email only. Does not match usernames."""

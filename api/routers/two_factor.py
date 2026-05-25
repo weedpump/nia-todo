@@ -493,7 +493,7 @@ def delete_passkey(passkey_id: int, user_id: int = Depends(require_recent_mfa)):
     with get_db() as db:
         row = db.execute("SELECT id FROM passkeys WHERE id = ? AND user_id = ? AND revoked_at IS NULL", (passkey_id, user_id)).fetchone()
         if not row:
-            raise api_error(404, "passkey.notFound", "Passkey nicht gefunden")
+            raise api_error(404, "passkey.notFound", "Passkey not found")
         db.execute("UPDATE passkeys SET revoked_at = datetime('now') WHERE id = ?", (passkey_id,))
         recovery_cleared = clear_recovery_codes_if_no_primary_factor(db, user_id)
         log_audit(db, "passkey_removed", user_id=user_id, details=f"passkey_id={passkey_id}; recovery_cleared={recovery_cleared}")

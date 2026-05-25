@@ -431,16 +431,28 @@ async function getApiError(response) {
   const fallback = `Error ${response.status}: ${response.statusText || 'Request failed'}`;
   const data = await response.json().catch(() => null);
   if (!data) return fallback;
-  // Handle structured error format: {detail, code, params}
-  const code = data.code;
-  const params = data.params || {};
+  
+  // Handle nested format: {detail: {detail, code, params}}
+  let code = data.code;
+  let detail = data.detail;
+  let params = data.params || {};
+  
+  // If detail is an object, unwrap it
+  if (detail && typeof detail === 'object' && !Array.isArray(detail)) {
+    code = detail.code || code;
+    detail = detail.detail || detail.message || fallback;
+    params = detail.params || params;
+  }
+  
+  // Try i18n lookup
   if (code) {
     const key = `api.error.${code}`;
     const translated = t(key, params);
     if (translated !== key) return translated;
   }
+  
   // Fallback to detail string
-  if (typeof data.detail === 'string') return data.detail;
+  if (typeof detail === 'string') return detail;
   return fallback;
 }
 
