@@ -50,6 +50,39 @@ def main():
                 created_by_admin INTEGER DEFAULT 1
             );
 
+            CREATE TABLE workspaces (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                color TEXT DEFAULT '#6366f1',
+                sort_order INTEGER DEFAULT 0,
+                user_id INTEGER NOT NULL,
+                is_default INTEGER DEFAULT 0,
+                created_at TEXT DEFAULT (datetime('now')),
+                updated_at TEXT DEFAULT (datetime('now'))
+            );
+
+            CREATE TABLE projects (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                color TEXT DEFAULT '#6366f1',
+                sort_order INTEGER DEFAULT 0,
+                user_id INTEGER,
+                workspace_id INTEGER,
+                is_inbox INTEGER DEFAULT 0,
+                created_at TEXT DEFAULT (datetime('now')),
+                updated_at TEXT DEFAULT (datetime('now'))
+            );
+
+            CREATE TABLE project_members (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                project_id INTEGER NOT NULL,
+                user_id INTEGER NOT NULL,
+                role TEXT DEFAULT 'member',
+                status TEXT DEFAULT 'pending',
+                created_at TEXT DEFAULT (datetime('now')),
+                updated_at TEXT DEFAULT (datetime('now'))
+            );
+
             INSERT INTO users (username, email, password_hash, email_verified_at)
             VALUES ('legacy', 'Legacy@Example.Invalid', 'hash', NULL);
 

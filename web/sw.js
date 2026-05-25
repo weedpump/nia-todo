@@ -11,6 +11,7 @@ const PRECACHE_ASSETS = [
   '/static/js/main.js',
   '/static/js/app.js',
   '/static/js/api/http.js',
+  '/static/js/api/errors.js',
   '/static/js/api/sections.js',
   '/static/js/api/auth.js',
   '/static/js/api/index.js',

@@ -268,7 +268,7 @@ async function testNativeRequiredUpdateCannotBeDismissed() {
 
     await page.locator('#native-app-update-modal.active.native-update-required').waitFor({ state: 'visible', timeout: 10_000 });
     const title = await page.locator('#native-app-update-title').textContent();
-    if (!title?.includes('erforderlich')) throw new Error(`Expected required update title, got ${title}`);
+    if (!/erforderlich|required/i.test(title || '')) throw new Error(`Expected required update title, got ${title}`);
     const laterVisible = await page.locator('#native-app-update-later-btn:visible').count();
     if (laterVisible !== 0) throw new Error('Required native update must not offer a later button');
     await page.keyboard.press('Escape');
