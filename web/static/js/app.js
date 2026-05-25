@@ -306,13 +306,11 @@ function isOnlineForSync() {
 }
 
 async function syncWithServer() {
-  syncInProgressRef.value = syncInProgress;
   await syncFeature.syncWithServer({ wsState: wsClient.getWsState(), syncInProgressRef });
   syncInProgress = syncInProgressRef.value;
 }
 
 async function refreshFromServer() {
-  syncInProgressRef.value = syncInProgress;
   await syncFeature.refreshFromServer({ wsState: wsClient.getWsState(), syncInProgressRef });
   syncInProgress = syncInProgressRef.value;
   ensureCurrentWorkspace();

@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - Internationalization support added with English and German UI translations, language selection, persisted per-user language preference, localized error messages, and English-only public documentation.
 
 ### Fixed
+- Offline-created todos now sync exactly once after reconnect instead of being created twice when multiple online/WebSocket sync triggers race.
+- Section counters in project views now respect the active filters, search, and hidden completed todos instead of showing the total section size.
+- Delete confirmation dialogs and workspace create/edit dialogs use the same fullscreen mobile modal layout as the other app dialogs.
 - The changelog link in native apps opens the changelog through the system browser instead of inside the app or with no visible effect.
 
 ## [2.1.0] - 2026-05-24

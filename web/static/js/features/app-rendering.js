@@ -415,7 +415,7 @@ export function createAppRenderingFeature({
       sections.forEach((section, index) => {
         const sectionTodos = sortProjectSectionTodos(filtered.filter(t => t.section_id === section.id));
         html += `<div class="section-dropzone" data-drop-index="${index}" ondragover="handleSectionDragOver(event)" ondrop="handleSectionDrop(event)"></div>`;
-        html += renderSectionHeader(section);
+        html += renderSectionHeader(section, sectionTodos);
         html += `<div class="section-todos" data-section-id="${escapeHtmlAttr(section.id)}" ondragover="handleTodoDragOver(event)" ondrop="handleTodoDrop(event)">`;
         html += sectionTodos.map(t => renderTodoItem(t)).join('');
         html += `</div>`;
@@ -426,7 +426,7 @@ export function createAppRenderingFeature({
 
       const unsorted = sortProjectSectionTodos(filtered.filter(t => !t.section_id || !validSectionIds.has(t.section_id)));
       if (unsorted.length || sections.length) {
-        html += renderSectionHeader(null);
+        html += renderSectionHeader(null, unsorted);
         html += `<div class="section-todos" data-section-id="null" ondragover="handleTodoDragOver(event)" ondrop="handleTodoDrop(event)">`;
         html += unsorted.map(t => renderTodoItem(t)).join('');
         html += `</div>`;

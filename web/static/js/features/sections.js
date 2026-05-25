@@ -3,8 +3,8 @@ import { iconSvg } from '../icons/lucide-icons.js';
 import { t } from '../i18n/index.js';
 
 export function createSectionsFeature({ getTodos, getCurrentProjectId, getSections, renderTodos }) {
-  function renderSectionHeader(section) {
-    const todos = getTodos();
+  function renderSectionHeader(section, visibleTodos = null) {
+    const todos = visibleTodos || getTodos();
     const currentProjectId = getCurrentProjectId();
 
     if (section) {
