@@ -5,12 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.2.0] - 2026-05-25
 
 ### Added
 - Internationalization support added with English and German UI translations, language selection, persisted per-user language preference, localized error messages, and English-only public documentation.
 
 ### Fixed
+- Admin user 2FA summaries no longer show remembered/trusted login devices as configured 2FA devices; the admin users API no longer returns that misleading count.
 - Offline-created todos now sync exactly once after reconnect instead of being created twice when multiple online/WebSocket sync triggers race.
 - Section counters in project views now respect the active filters, search, and hidden completed todos instead of showing the total section size.
 - Delete confirmation dialogs and workspace create/edit dialogs use the same fullscreen mobile modal layout as the other app dialogs.
