@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [2.3.1] - 2026-05-26
+
+### Fixed
+- Todo dialogs no longer overflow horizontally on iOS Safari/Chrome when deadline or reminder date/time fields are visible.
+- Existing pre-2.3.0 browser sessions are now migrated into revokable device sessions on the next `/api/me` auth check, so users do not need to log out and back in before the current device appears in Active sessions/devices.
+
 ## [2.3.0] - 2026-05-25
 
 ### Added
