@@ -68,6 +68,8 @@ async function run() {
       return data.users.find((user) => user.username === 'admincreated')?.language;
     });
     if (createdLanguage !== 'en') throw new Error(`Expected created user language en, got ${createdLanguage}`);
+    const selectedLanguageAfterCreate = await page.locator('#new-language').inputValue();
+    if (selectedLanguageAfterCreate !== 'en') throw new Error(`Expected create-user language selection to remain en, got ${selectedLanguageAfterCreate}`);
     await page.locator('#user-list button[title="E-Mail bearbeiten"]').last().click();
     await page.locator('#user-list input[type="email"]').last().fill('broken-email');
     await page.locator('#user-list button[title="Speichern"]').last().click();
