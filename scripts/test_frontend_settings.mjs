@@ -185,6 +185,20 @@ async function run() {
     await page.click('#user-menu-button');
     await page.click('#menu-settings-btn');
     await visible('#settings-modal');
+    await page.waitForFunction(() => {
+      const rows = [...document.querySelectorAll('#settings-2fa-trusted-devices .settings-device-row')];
+      return rows.some((row) => row.innerText.includes('this device') || row.innerText.includes('dieses Gerät'));
+    }, null, { timeout: 10000 });
+    const currentSessionRevokeButton = page.locator('#settings-2fa-trusted-devices .settings-device-row', { hasText: /this device|dieses Gerät/ }).locator('button').first();
+    await currentSessionRevokeButton.click();
+    await page.locator('#security-action-modal').waitFor({ state: 'visible', timeout: 10000 });
+    await page.click('#security-action-primary');
+    await page.locator('#login-overlay').waitFor({ state: 'visible', timeout: 10000 });
+
+    await loginApp();
+    await page.click('#user-menu-button');
+    await page.click('#menu-settings-btn');
+    await visible('#settings-modal');
     await page.fill('#settings-old-password', USER_PASSWORD);
     await page.fill('#settings-new-password', 'FrontendChanged123!');
     await page.fill('#settings-confirm-password', 'FrontendChanged123!');

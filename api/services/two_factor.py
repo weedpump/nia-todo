@@ -365,9 +365,10 @@ def create_trusted_device(db, user_id: int, user_agent: str = "", return_id: boo
     return (token, cur.lastrowid) if return_id else token
 
 
-def trusted_device_valid(db, user_id: int, token: Optional[str]) -> bool:
+def get_valid_trusted_device_id(db, user_id: int, token: Optional[str]) -> Optional[tuple[int, str]]:
+    """Return the trusted-device id and token prefix when a remember cookie is valid."""
     if not token:
-        return False
+        return None
     prefix = token[:12]
     rows = db.execute(
         "SELECT id, token_hash, remember_version, expires_at FROM trusted_devices WHERE user_id = ? AND token_prefix = ? AND revoked_at IS NULL",
@@ -377,8 +378,12 @@ def trusted_device_valid(db, user_id: int, token: Optional[str]) -> bool:
     for row in rows:
         if int(row["expires_at"]) >= utc_ts() and row["remember_version"] == state.get("remember_version", 1) and bcrypt_check(token, row["token_hash"]):
             db.execute("UPDATE trusted_devices SET last_used_at = datetime('now') WHERE id = ?", (row["id"],))
-            return True
-    return False
+            return (row["id"], prefix)
+    return None
+
+
+def trusted_device_valid(db, user_id: int, token: Optional[str]) -> bool:
+    return get_valid_trusted_device_id(db, user_id, token) is not None
 
 
 def trusted_device_is_current(row, token: Optional[str]) -> bool:
@@ -428,12 +433,17 @@ def revoke_device_session(db, user_id: int, session_id: str) -> Optional[dict]:
         """SELECT s.id, s.trusted_device_id, td.token_hash, td.token_prefix
            FROM user_sessions s
            LEFT JOIN trusted_devices td ON td.id = s.trusted_device_id
-           WHERE s.id = ? AND s.user_id = ? AND s.revoked_at IS NULL""",
+           WHERE s.id = ? AND s.user_id = ?""",
         (session_id, user_id),
     ).fetchone()
     if not row:
         return None
-    db.execute("UPDATE user_sessions SET revoked_at = datetime('now') WHERE id = ? AND user_id = ?", (session_id, user_id))
+    cur = db.execute(
+        "UPDATE user_sessions SET revoked_at = datetime('now') WHERE id = ? AND user_id = ? AND revoked_at IS NULL",
+        (session_id, user_id),
+    )
+    if cur.rowcount != 1:
+        return None
     if row["trusted_device_id"]:
         db.execute("UPDATE trusted_devices SET revoked_at = datetime('now') WHERE id = ? AND user_id = ? AND revoked_at IS NULL", (row["trusted_device_id"], user_id))
     return dict(row)

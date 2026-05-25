@@ -127,12 +127,21 @@ def decode_jwt_token(token: str, db) -> Optional[dict]:
             return None
         session_id = payload.get('sid')
         if session_id:
+            now = int(time.time())
             session = db.execute(
-                "SELECT id FROM user_sessions WHERE id = ? AND user_id = ? AND revoked_at IS NULL AND expires_at >= ?",
-                (session_id, user_id, int(time.time())),
+                """SELECT id, last_used_at
+                   FROM user_sessions
+                   WHERE id = ? AND user_id = ? AND revoked_at IS NULL AND expires_at >= ?""",
+                (session_id, user_id, now),
             ).fetchone()
             if not session:
                 return None
+            last_used_ts = None
+            if session["last_used_at"]:
+                last_used_row = db.execute("SELECT strftime('%s', ?) AS ts", (session["last_used_at"],)).fetchone()
+                last_used_ts = int(last_used_row["ts"] or 0) if last_used_row else None
+            if not last_used_ts or last_used_ts <= now - 300:
+                db.execute("UPDATE user_sessions SET last_used_at = datetime('now') WHERE id = ? AND user_id = ?", (session_id, user_id))
         return payload
     except (pyjwt.ExpiredSignatureError, pyjwt.InvalidTokenError):
         return None

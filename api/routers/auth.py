@@ -7,13 +7,13 @@ from pydantic import BaseModel, Field
 
 from db import get_db, now_iso
 from services.auth import (
-    create_jwt_token, decode_jwt_token, get_current_user, revoke_user_session,
+    USER_JWT_EXPIRY_DAYS, create_jwt_token, decode_jwt_token, get_current_user, revoke_user_session,
     should_refresh_user_jwt, verify_user_credentials, sessions
 )
 from middleware.security import generate_csrf_token, set_csrf_cookie
 from rate_limit import require_login_rate_limit, get_client_ip
 from services.audit import log_audit
-from services.two_factor import consume_mfa_action_grant, create_challenge, mfa_required_for_user, trusted_device_valid, user_mfa_state
+from services.two_factor import consume_mfa_action_grant, create_challenge, get_valid_trusted_device_id, mfa_required_for_user, user_mfa_state
 from errors import api_error
 
 router = APIRouter(prefix="/api")
@@ -74,7 +74,8 @@ def login(data: LoginRequest, request: Request, response: Response, _: None = De
             log_audit(db, "login_failed", ip_address=ip, details=f"username={data.username}")
             raise api_error(401, "auth.invalidCredentials", "Invalid credentials")
         mfa_required = mfa_required_for_user(db, user['id'])
-        remembered = trusted_device_valid(db, user['id'], request.cookies.get('nia_2fa_device')) if mfa_required else False
+        valid_trusted_device = get_valid_trusted_device_id(db, user['id'], request.cookies.get('nia_2fa_device')) if mfa_required else None
+        remembered = bool(valid_trusted_device)
         if mfa_required and not remembered:
             state = user_mfa_state(db, user['id'])
             challenge = create_challenge(db, user['id'], ip_address=ip, user_agent=request.headers.get('user-agent', ''))
@@ -104,7 +105,8 @@ def login(data: LoginRequest, request: Request, response: Response, _: None = De
                 },
                 "state": state,
             }
-        token = create_jwt_token(user, db, mfa_verified=bool(mfa_required and not remembered), mfa_login_verified=bool(mfa_required and remembered), create_session=True, user_agent=request.headers.get('user-agent', ''), ip_address=ip)
+        trusted_device_id = valid_trusted_device[0] if valid_trusted_device else None
+        token = create_jwt_token(user, db, mfa_verified=bool(mfa_required and not remembered), mfa_login_verified=bool(mfa_required and remembered), create_session=True, trusted_device_id=trusted_device_id, user_agent=request.headers.get('user-agent', ''), ip_address=ip)
         csrf_token = generate_csrf_token()
         set_csrf_cookie(response, csrf_token)
         log_audit(db, "login_success", user_id=user['id'], ip_address=ip, details=f"mfa={'required' if mfa_required else 'not_required'}; remembered_device={remembered}")
@@ -204,7 +206,13 @@ def me(response: Response, authorization: Optional[str] = Header(None), x_sessio
             if payload.get('mfa_login_at'):
                 token_user['mfa_login_at'] = payload.get('mfa_login_at')
             token_user["session_id"] = payload.get("sid")
+            new_exp = int(time.time()) + USER_JWT_EXPIRY_DAYS * 86400
             result["access_token"] = create_jwt_token(token_user, db, mfa_enroll_only=bool(payload.get('mfa_enroll_only')), create_session=not bool(payload.get('sid')))
+            if payload.get("sid"):
+                db.execute(
+                    "UPDATE user_sessions SET expires_at = ?, last_used_at = datetime('now') WHERE id = ? AND user_id = ?",
+                    (new_exp, payload["sid"], user_id),
+                )
             result["token_type"] = "bearer"
             result["csrf_token"] = csrf_token
 
