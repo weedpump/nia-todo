@@ -1,6 +1,6 @@
 import { API, RUNTIME_CAPABILITIES } from '../core/config.js';
 import { createNativeBridge } from '../features/native-bridge.js';
-import { getAuthHeaders } from './http.js';
+import { getAuthHeaders, getJsonHeaders } from './http.js';
 import { apiErrorFromResponse } from './errors.js';
 import { t } from '../i18n/index.js';
 
@@ -73,7 +73,7 @@ export const authApi = {
   async login(username, password) {
     const response = await fetch(API + '/api/login', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getJsonHeaders(),
       body: JSON.stringify({ username, password }),
       credentials: 'include',
     });
@@ -83,7 +83,7 @@ export const authApi = {
   async verify2fa(challengeToken, method, code, rememberDevice = false) {
     const response = await fetch(API + '/api/2fa/challenge/verify', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getJsonHeaders(),
       body: JSON.stringify({ challenge_token: challengeToken, method, code, remember_device: rememberDevice }),
       credentials: 'include',
     });
@@ -95,7 +95,7 @@ export const authApi = {
       throw new Error(t('api.auth.nativePasskeysUnsupportedUseCode'));
     }
     const optionsResponse = await fetch(API + '/api/2fa/passkey/options', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ challenge_token: challengeToken }),
+      method: 'POST', headers: getJsonHeaders(), credentials: 'include', body: JSON.stringify({ challenge_token: challengeToken }),
     });
     const optionsData = await parseOrThrow(optionsResponse, t('api.auth.passkeyChallengeFailed'));
     const publicKey = optionsData.publicKey;
@@ -108,7 +108,7 @@ export const authApi = {
       throw new Error(t('api.auth.passkeyLoginFailed', { error: error?.message || error }));
     }
     const verifyResponse = await fetch(API + '/api/2fa/passkey/verify', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ challenge_token: challengeToken, credential: credentialToJson(credential), remember_device: rememberDevice }),
+      method: 'POST', headers: getJsonHeaders(), credentials: 'include', body: JSON.stringify({ challenge_token: challengeToken, credential: credentialToJson(credential), remember_device: rememberDevice }),
     });
     return parseOrThrow(verifyResponse, t('api.auth.passkeyVerifyFailed'));
   },
@@ -257,7 +257,7 @@ export const authApi = {
   async requestPasswordReset(identifier) {
     const response = await fetch(API + '/api/password-setup/request', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getJsonHeaders(),
       body: JSON.stringify({ identifier }),
       credentials: 'include',
     });
