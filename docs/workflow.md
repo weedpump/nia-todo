@@ -1,76 +1,76 @@
 # Workflow
 
-## Entwicklung
+## Development
 
-- im Dev-Ordner arbeiten: `~/projects/nia-todo-dev`
-- nicht im Live-Ordner entwickeln
+- work in the dev folder: `~/projects/nia-todo-dev`
+- do not develop in the live folder
 
 ## Branches
 
-- `develop` -> aktive Entwicklung
-- `main` -> stabile Versionen / Tags
+- `develop` -> active development
+- `main` -> stable versions / tags
 
 ## Release
 
-1. Feature-Branch erst nach Review nach `develop` mergen; `release.sh` releast ausschließlich `develop`
-2. Release-Script auf `develop` mit sauberem Working Tree starten; Feature-Branches werden bewusst abgelehnt
-3. Im Dev-Ordner bleiben: `~/projects/nia-todo-dev`
-4. Vorab bei Bedarf gezielt testen; `release.sh` führt die komplette Suite selbst aus
-5. `./release.sh VERSION` ausführen, z.B. `./release.sh 2.0.0`; stabile Releases müssen `MAJOR.MINOR.PATCH` nutzen
-6. Optional: `./release.sh VERSION --set-min-app-version` hebt die minimale native App-Version auf die Release-Version an; ohne Flag bleiben ältere native Apps kompatibel
-7. Das Script setzt dieselbe Version für Web-App, Service Worker, Tauri/Cargo, Windows-Installer, Android-APK und Download-Manifest
-8. `scripts/check_release_versions.py VERSION` bricht den Release ab, falls eine automatisch gesetzte Versionsquelle driftet; `min_native_client_version` wird validiert und nur mit explizitem Release-Flag angehoben
-9. Das Script baut Windows und Android immer mit; getrennte App-Versionen oder optionale Native-Builds gibt es nicht mehr
-10. Das Script merged `develop` nach `main`, erstellt Tag, aktualisiert Live und bumped `develop` auf die nächste gemeinsame `-dev` Version
+1. Merge feature branches into `develop` only after review; `release.sh` releases `develop` exclusively
+2. Start the release script on `develop` with a clean working tree; feature branches are deliberately rejected
+3. Stay in the dev folder: `~/projects/nia-todo-dev`
+4. Run targeted tests beforehand if needed; `release.sh` runs the complete suite itself
+5. Run `./release.sh VERSION`, e.g. `./release.sh 2.0.0`; stable releases must use `MAJOR.MINOR.PATCH`
+6. Optional: `./release.sh VERSION --set-min-app-version` raises the minimum native app version to the release version; without the flag, older native apps remain compatible
+7. The script sets the same version for the web app, service worker, Tauri/Cargo, Windows installer, Android APK, and download manifest
+8. `scripts/check_release_versions.py VERSION` aborts the release if an automatically set version source drifts; `min_native_client_version` is validated and only raised with the explicit release flag
+9. The script always builds Windows and Android as well; separate app versions or optional native builds no longer exist
+10. The script merges `develop` into `main`, creates the tag, updates live, and bumps `develop` to the next shared `-dev` version
 
-Changelog-Pflicht:
+Changelog requirement:
 
-- `CHANGELOG.md` braucht einen Abschnitt `## [VERSION]` für die gemeinsame Web-/Windows-/Android-Version.
-- Separate Windows-/Android-Changelogs werden nicht mehr geführt.
+- `CHANGELOG.md` needs a `## [VERSION]` section for the shared web/Windows/Android version.
+- Separate Windows/Android changelogs are no longer maintained.
 
-Release-Artefakte werden auf Live unter `/downloads/` veröffentlicht:
+Release artifacts are published on live under `/downloads/`:
 
 - Windows: `nia-todo-vX.Y.Z-windows-x64-setup.exe`
 - Android: `nia-todo-vX.Y.Z-android-arm64.apk`
-- Vor dem Android-Build schreibt `release.sh` generated `src-tauri/gen/android/app/tauri.properties` passend zur Release-Version und prüft sie vor/nach dem Build.
-- Manifest: `web/downloads/app-downloads.json` mit `version`, `web_version`, `latest.version` und je App-Artefakt-Version auf dem Release-Tag.
-- `min_native_client_version` ist kein Release-Zähler. Standard-Release lässt die Grenze unverändert; nur `--set-min-app-version` setzt sie in Source und Live-DB auf die neue Release-Version, wenn ältere native Apps wirklich inkompatibel oder unsicher sind.
-- Beim Veröffentlichen löscht `release.sh` zuerst alle alten Dateien in `/downloads/` außer `.gitkeep`; alte Installer/APKs dürfen danach auch per manueller URL nicht mehr abrufbar sein.
-- Native Builds verwenden ein frisch erzeugtes `src-tauri/frontend-dist` ohne `web/downloads/`; Größenlimits brechen den Release ab, falls Installer/APK unerwartet groß werden.
+- Before the Android build, `release.sh` writes generated `src-tauri/gen/android/app/tauri.properties` to match the release version and checks it before/after the build.
+- Manifest: `web/downloads/app-downloads.json` with `version`, `web_version`, `latest.version`, and each app artifact version on the release tag.
+- `min_native_client_version` is not a release counter. A standard release leaves the boundary unchanged; only `--set-min-app-version` sets it in source and live DB to the new release version when older native apps are truly incompatible or unsafe.
+- During publishing, `release.sh` first deletes all old files in `/downloads/` except `.gitkeep`; old installers/APKs must no longer remain reachable via manual URL afterward.
+- Native builds use a freshly created `src-tauri/frontend-dist` without `web/downloads/`; size limits abort the release if installer/APK unexpectedly become large.
 
-Android wird mit dem dauerhaften Release-Key signiert:
+Android is signed with the permanent release key:
 
 - Keystore: `$NIA_TODO_SECRETS_DIR/nia-todo-android-release.keystore`
 - Alias: `nia-todo-android-release`
 
-Der Release-Key muss gesichert bleiben; ein Key-Wechsel bricht Android-Überinstallationen und die Android-Passkey-Bindung über Digital Asset Links. Eine Signing-Key-Rotation braucht daher zusätzlich einen geplanten Server-/Doku-Migrationspfad für `/.well-known/assetlinks.json` und den erlaubten Android-App-Origin.
+The release key must stay backed up; changing the key breaks Android over-installs and the Android passkey binding through Digital Asset Links. A signing-key rotation therefore also needs a planned server/docs migration path for `/.well-known/assetlinks.json` and the allowed Android app origin.
 
-Native Build-Hinweise ab `v1.6.0`:
+Native build notes from `v1.6.0` onward:
 
-- Windows-Installer enthält den lokalen Reminder-Scheduler; Reminder funktionieren offline, solange App/Tray läuft.
-- Android-APK enthält den lokalen `AlarmManager`-Scheduler; Reminder funktionieren offline und werden nach Geräte-Neustart neu geplant.
-- Android-Passkeys setzen die offizielle App-ID `de.tobiaskneidl.nia_todo` und den Release-Key voraus; Selfhoster verbinden diese offizielle App nur mit ihrer Server-URL.
-- Browser/PWA-Push bleibt Browser/PWA-only; native Apps sollen nicht vom Server-WebSocket für Reminder abhängig sein.
-- Service Worker bleibt auch in nativen Wrappern aktiv, damit Offline-Cold-Start funktioniert.
-- Nach erfolgreichem Release räumt `release.sh` lokale Tauri-Build-Artefakte per `cargo clean --manifest-path src-tauri/Cargo.toml` auf. Bei Bedarf kann das mit `CLEAN_BUILD_ARTIFACTS_AFTER_RELEASE=0 ./release.sh VERSION` übersprungen werden.
+- Windows installer includes the local reminder scheduler; reminders work offline as long as app/tray is running.
+- Android APK includes the local `AlarmManager` scheduler; reminders work offline and are rescheduled after device reboot.
+- Android passkeys require the official app ID `de.tobiaskneidl.nia_todo` and the release key; selfhosters only connect this official app to their server URL.
+- Browser/PWA push remains browser/PWA-only; native apps should not depend on the server WebSocket for reminders.
+- Service worker remains active even in native wrappers so offline cold start works.
+- After a successful release, `release.sh` cleans local Tauri build artifacts via `cargo clean --manifest-path src-tauri/Cargo.toml`. If needed, this can be skipped with `CLEAN_BUILD_ARTIFACTS_AFTER_RELEASE=0 ./release.sh VERSION`.
 
-## Dev-Branding
+## Dev Branding
 
-- Dev-Branding wird über `setup-dev.sh` gepflegt
-- `web/manifest.json` nicht manuell im normalen Workflow anfassen
+- Dev branding is maintained through `setup-dev.sh`
+- Do not manually touch `web/manifest.json` in the normal workflow
 
-## Änderungen
+## Changes
 
-- sinnvolle Änderungen committen
-- nach größeren Arbeitsblöcken pushen
-- kleine Doku-Änderungen bündeln
+- commit meaningful changes
+- push after larger work blocks
+- bundle small docs changes
 
-## Auth-/Admin-/2FA-Änderungen
+## Auth/Admin/2FA Changes
 
-- Passwort-/Onboarding-/2FA-Änderungen auf Feature-Branches entwickeln
-- E-Mail-Adressen client- und serverseitig validieren
-- Admins erzeugen Passwort-Setup-/Reset-Links statt Passwörter direkt zu setzen
-- Passwort-Links sind einmalig und 24 Stunden gültig
-- 2FA-Änderungen müssen Login-MFA, Reauth-MFA und sensitive Aktionen getrennt betrachten: Trusted Devices/Login-MFA dürfen keine Account-Security-Aktion autorisieren
-- Recovery Codes sind nur Backup-Faktoren zu TOTP/Passkey; Änderungen daran brauchen mindestens `scripts/test_two_factor_services.py` und einen fokussierten Security-Review
-- Vor Merge/Release mindestens Backend-, Admin-, Setup-, Settings-, MFA-Login- und Security-Frontendtests ausführen
+- develop password/onboarding/2FA changes on feature branches
+- validate email addresses client-side and server-side
+- admins create password setup/reset links instead of setting passwords directly
+- password links are single-use and valid for 24 hours
+- 2FA changes must consider login MFA, reauth MFA, and sensitive actions separately: trusted devices/login MFA must not authorize any account security action
+- recovery codes are only backup factors for TOTP/passkey; changes to them need at least `scripts/test_two_factor_services.py` and a focused security review
+- before merge/release, run at least backend, admin, setup, settings, MFA login, and security frontend tests
