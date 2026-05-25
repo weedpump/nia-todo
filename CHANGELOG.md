@@ -5,6 +5,14 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [2.2.1] - 2026-05-25
+
+### Fixed
+- Native Windows app startup arguments no longer break non-desktop/native builds.
+- Language selection in Windows and Android native apps now persists and immediately applies instead of reverting to Automatic.
+- Changelog pill in the Windows native app opens exactly one external browser tab instead of two.
+- Todo creation falls back to locally cached project sections when the app still appears online but the sections request fails, so offline/stale-network creation keeps section selection available.
+
 ## [2.2.0] - 2026-05-25
 
 ### Added
