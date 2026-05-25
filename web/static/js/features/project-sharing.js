@@ -339,13 +339,14 @@ export function createProjectSharingFeature({
       }
     }
     const canMoveSharedDisplay = !!project && shared && !isOwn;
-    if (displayWorkspace) displayWorkspace.disabled = !canMoveSharedDisplay;
+    const canMoveOwnProject = !!project && isOwn && !project.is_inbox;
+    if (displayWorkspace) displayWorkspace.disabled = !(canMoveSharedDisplay || canMoveOwnProject);
     if (iconPicker) {
       iconPicker.style.pointerEvents = canEdit ? '' : 'none';
       iconPicker.style.opacity = canEdit ? '' : '0.6';
       iconPicker.setAttribute('aria-disabled', canEdit ? 'false' : 'true');
     }
-    if (saveBtn) saveBtn.style.display = (canEdit || canMoveSharedDisplay) ? '' : 'none';
+    if (saveBtn) saveBtn.style.display = (canEdit || canMoveSharedDisplay || canMoveOwnProject) ? '' : 'none';
     if (project?.id) loadMembers(project.id).catch(() => {});
   }
 

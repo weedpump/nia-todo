@@ -194,6 +194,7 @@ class TestSuite:
         self.created_api_key = None
         self.shared_own_project_id = None
         self.shared_inbox_project_id = None
+        self.shared_display_workspace_id = None
         self.created_ids = {"todo": [], "project": [], "section": [], "apikey": [], "user": [], "reminder": [], "invite": [], "shared_section": [], "shared_todo": []}
     
     def cleanup(self):
@@ -207,6 +208,7 @@ class TestSuite:
         self.created_api_key = None
         self.shared_own_project_id = None
         self.shared_inbox_project_id = None
+        self.shared_display_workspace_id = None
         self.created_ids = {"todo": [], "project": [], "section": [], "apikey": [], "user": [], "reminder": [], "invite": [], "shared_section": [], "shared_todo": []}
     
     def record(self, name: str, status: int, expected: int = 200):
@@ -918,22 +920,24 @@ class TestSuite:
         
         return self.record("project_patch", status)
     
-    def test_project_workspace_move_rejected(self):
+    def test_project_workspace_move_allowed_for_owner(self):
         proj_id = self.created_ids["project"][-1] if self.created_ids["project"] else None
         if not proj_id:
-            self.results["project_workspace_move_rejected"] = {"status": -1, "passed": True, "expected": "skipped"}
+            self.results["project_workspace_move_allowed_for_owner"] = {"status": -1, "passed": True, "expected": "skipped"}
             return True
         status, workspace = curl("POST", "/api/workspaces", {
-            "name": "Move Reject Workspace",
+            "name": "Move Owner Workspace",
             "color": "#f59e0b"
         }, token=self.user_token, csrf=self.user_csrf, cookie_jar="/tmp/nia_user_cookies.txt")
         if not ok(status) or not workspace.get("id"):
-            self.results["project_workspace_move_rejected"] = {"status": status, "passed": False, "expected": "workspace created"}
+            self.results["project_workspace_move_allowed_for_owner"] = {"status": status, "passed": False, "expected": "workspace created"}
             return False
-        status, _ = curl("PATCH", f"/api/projects/{proj_id}", {
+        status, data = curl("PATCH", f"/api/projects/{proj_id}", {
             "workspace_id": workspace["id"]
         }, token=self.user_token, csrf=self.user_csrf, cookie_jar="/tmp/nia_user_cookies.txt")
-        return self.record("project_workspace_move_rejected", status, expected=400)
+        passed = ok(status) and data and data.get("workspace_id") == workspace["id"] and data.get("is_owner")
+        self.results["project_workspace_move_allowed_for_owner"] = {"status": status, "passed": passed, "expected": "200 + owner project workspace updated"}
+        return passed
 
     def test_project_delete_uses_workspace_inbox(self):
         status, workspace = curl("POST", "/api/workspaces", {
@@ -1080,7 +1084,32 @@ class TestSuite:
             return False
         status, data = curl("PATCH", f"/api/projects/{proj_id}", {"workspace_id": workspace["id"]}, token=self.shared_token, csrf=self.shared_csrf, cookie_jar="/tmp/nia_shared_cookies.txt")
         passed = ok(status) and data and data.get("workspace_id") == workspace["id"] and data.get("is_shared")
+        if passed:
+            self.shared_display_workspace_id = workspace["id"]
         self.results["shared_project_workspace_can_patch"] = {"status": status, "passed": passed, "expected": "200 + shared project display workspace updated"}
+        return passed
+
+    def test_owner_project_workspace_move_does_not_move_member_display(self):
+        proj_id = self.created_ids["project"][-1] if self.created_ids["project"] else None
+        if not proj_id or not self.shared_display_workspace_id:
+            self.results["owner_project_workspace_move_does_not_move_member_display"] = {"status": -1, "passed": True, "expected": "skipped"}
+            return True
+        status, workspace = curl("POST", "/api/workspaces", {
+            "name": "Owner Shared Move Workspace",
+            "color": "#8b5cf6",
+            "icon": "folder"
+        }, token=self.user_token, csrf=self.user_csrf, cookie_jar="/tmp/nia_user_cookies.txt")
+        if not ok(status) or not workspace.get("id"):
+            self.results["owner_project_workspace_move_does_not_move_member_display"] = {"status": status, "passed": False, "expected": "owner workspace created"}
+            return False
+        status, owner_project = curl("PATCH", f"/api/projects/{proj_id}", {"workspace_id": workspace["id"]}, token=self.user_token, csrf=self.user_csrf, cookie_jar="/tmp/nia_user_cookies.txt")
+        if not ok(status) or owner_project.get("workspace_id") != workspace["id"]:
+            self.results["owner_project_workspace_move_does_not_move_member_display"] = {"status": status, "passed": False, "expected": "owner project moved"}
+            return False
+        status, data = curl("GET", "/api/projects", token=self.shared_token, cookie_jar="/tmp/nia_shared_cookies.txt")
+        member_project = next((p for p in data.get("projects", []) if p.get("id") == proj_id and p.get("is_shared")), None) if ok(status) else None
+        passed = bool(member_project) and member_project.get("workspace_id") == self.shared_display_workspace_id and member_project.get("owner_workspace_id") == workspace["id"]
+        self.results["owner_project_workspace_move_does_not_move_member_display"] = {"status": status, "passed": passed, "expected": "member display workspace unchanged, owner workspace updated"}
         return passed
 
     def test_shared_section_create_patch_delete(self):
@@ -1366,7 +1395,7 @@ class TestSuite:
             self.test_project_create,
             self.test_project_list,
             self.test_project_patch,
-            self.test_project_workspace_move_rejected,
+            self.test_project_workspace_move_allowed_for_owner,
             self.test_project_delete_uses_workspace_inbox,
 
             # Sharing
@@ -1377,6 +1406,7 @@ class TestSuite:
             self.test_shared_project_visible,
             self.test_shared_project_cannot_patch,
             self.test_shared_project_workspace_can_patch,
+            self.test_owner_project_workspace_move_does_not_move_member_display,
             self.test_shared_section_create_patch_delete,
             self.test_shared_todo_create_patch_delete,
             self.test_shared_reminders_are_user_scoped,
