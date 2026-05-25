@@ -92,6 +92,86 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
+def get_project_view_for_user(db, project_id: int, viewer_user_id: int) -> dict | None:
+    """Return the project row as the given viewer should see it.
+
+    Owners see projects.workspace_id. Shared members see their own
+    project_members.workspace_id as display workspace and the owner's real
+    workspace as owner_workspace_id.
+    """
+    own = db.execute(
+        "SELECT *, 0 as is_shared, 1 as is_owner FROM projects WHERE id = ? AND user_id = ?",
+        (project_id, viewer_user_id),
+    ).fetchone()
+    if own:
+        return dict(own)
+
+    default_workspace = db.execute(
+        "SELECT id FROM workspaces WHERE user_id = ? AND COALESCE(is_default, 0) = 1 ORDER BY id LIMIT 1",
+        (viewer_user_id,),
+    ).fetchone()
+    default_workspace_id = default_workspace['id'] if default_workspace else None
+    shared = db.execute(
+        """
+        SELECT p.id, p.name, p.color, p.sort_order, p.created_at,
+               max(p.updated_at, COALESCE(pm.updated_at, p.updated_at)) as updated_at,
+               p.parent_id, p.user_id, p.is_inbox, p.workspace_id as owner_workspace_id, p.icon,
+               COALESCE(pm.workspace_id, ?) as workspace_id,
+               1 as is_shared, 0 as is_owner, pm.id as member_id, pm.status as member_status,
+               u.username as owner_username, u.display_name as owner_display_name
+        FROM projects p
+        JOIN project_members pm ON pm.project_id = p.id
+        JOIN users u ON u.id = p.user_id
+        WHERE p.id = ? AND pm.user_id = ? AND pm.status = 'accepted'
+        """,
+        (default_workspace_id, project_id, viewer_user_id),
+    ).fetchone()
+    return dict(shared) if shared else None
+
+
+async def broadcast_project_updates(project_ids: list[int], actor_user_id: int):
+    """Broadcast recipient-specific project views for one or more changed projects."""
+    unique_project_ids = []
+    seen = set()
+    for project_id in project_ids:
+        if project_id not in seen:
+            unique_project_ids.append(project_id)
+            seen.add(project_id)
+    if not unique_project_ids:
+        return
+
+    try:
+        with get_db() as db:
+            placeholders = ','.join('?' for _ in unique_project_ids)
+            owner_rows = db.execute(
+                f"SELECT DISTINCT user_id FROM projects WHERE id IN ({placeholders}) AND user_id IS NOT NULL",
+                tuple(unique_project_ids),
+            ).fetchall()
+            member_rows = db.execute(
+                f"SELECT DISTINCT user_id FROM project_members WHERE project_id IN ({placeholders}) AND status = 'accepted'",
+                tuple(unique_project_ids),
+            ).fetchall()
+            recipients = {actor_user_id}
+            recipients.update(row['user_id'] for row in owner_rows)
+            recipients.update(row['user_id'] for row in member_rows)
+
+            messages = []
+            for uid in recipients:
+                views = [get_project_view_for_user(db, project_id, uid) for project_id in unique_project_ids]
+                views = [view for view in views if view is not None]
+                if not views:
+                    continue
+                messages.append((uid, views))
+    except Exception:
+        return
+
+    for uid, views in messages:
+        if len(views) == 1:
+            await manager.broadcast_to_user(uid, {"type": "project_update", "payload": views[0]})
+        else:
+            await manager.broadcast_to_user(uid, {"type": "project_update_many", "payload": {"projects": views}})
+
+
 async def broadcast_change(event_type: str, payload: dict, user_id: int, project_id: int | None = None, recipient_ids: set[int] | None = None):
     """Broadcast change to the owning user and optional shared-project members."""
     recipients = {user_id}

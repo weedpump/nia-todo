@@ -939,6 +939,57 @@ class TestSuite:
         self.results["project_workspace_move_allowed_for_owner"] = {"status": status, "passed": passed, "expected": "200 + owner project workspace updated"}
         return passed
 
+    def test_project_workspace_move_moves_children(self):
+        proj_id = self.created_ids["project"][-1] if self.created_ids["project"] else None
+        if not proj_id:
+            self.results["project_workspace_move_moves_children"] = {"status": -1, "passed": True, "expected": "skipped"}
+            return True
+        status, projects_data = curl("GET", "/api/projects", token=self.user_token, cookie_jar="/tmp/nia_user_cookies.txt")
+        root = next((p for p in projects_data.get("projects", []) if p.get("id") == proj_id), None) if ok(status) else None
+        if not root:
+            self.results["project_workspace_move_moves_children"] = {"status": status, "passed": False, "expected": "root project found"}
+            return False
+        status, child = curl("POST", "/api/projects", {
+            "name": "Workspace Move Child",
+            "color": "#06b6d4",
+            "parent_id": proj_id,
+            "workspace_id": root.get("workspace_id")
+        }, token=self.user_token, csrf=self.user_csrf, cookie_jar="/tmp/nia_user_cookies.txt")
+        if not ok(status) or not child.get("id"):
+            self.results["project_workspace_move_moves_children"] = {"status": status, "passed": False, "expected": "child project created"}
+            return False
+        status, workspace = curl("POST", "/api/workspaces", {
+            "name": "Move Tree Workspace",
+            "color": "#14b8a6"
+        }, token=self.user_token, csrf=self.user_csrf, cookie_jar="/tmp/nia_user_cookies.txt")
+        if not ok(status) or not workspace.get("id"):
+            self.results["project_workspace_move_moves_children"] = {"status": status, "passed": False, "expected": "target workspace created"}
+            return False
+        status, moved = curl("PATCH", f"/api/projects/{proj_id}", {"workspace_id": workspace["id"]}, token=self.user_token, csrf=self.user_csrf, cookie_jar="/tmp/nia_user_cookies.txt")
+        updated_projects = moved.get("updated_projects", []) if ok(status) and moved else []
+        child_from_response = next((p for p in updated_projects if p.get("id") == child["id"]), None)
+        status_list, after = curl("GET", "/api/projects", token=self.user_token, cookie_jar="/tmp/nia_user_cookies.txt")
+        child_after = next((p for p in after.get("projects", []) if p.get("id") == child["id"]), None) if ok(status_list) else None
+        passed = ok(status) and child_from_response and child_from_response.get("workspace_id") == workspace["id"] and child_after and child_after.get("workspace_id") == workspace["id"]
+        self.results["project_workspace_move_moves_children"] = {"status": status, "passed": passed, "expected": "child moved with root and returned in updated_projects"}
+        return passed
+
+    def test_inbox_workspace_move_rejected(self):
+        status, projects_data = curl("GET", "/api/projects", token=self.user_token, cookie_jar="/tmp/nia_user_cookies.txt")
+        inbox = next((p for p in projects_data.get("projects", []) if p.get("is_inbox")), None) if ok(status) else None
+        if not inbox:
+            self.results["inbox_workspace_move_rejected"] = {"status": status, "passed": False, "expected": "inbox found"}
+            return False
+        status, workspace = curl("POST", "/api/workspaces", {
+            "name": "Inbox Move Reject Workspace",
+            "color": "#ef4444"
+        }, token=self.user_token, csrf=self.user_csrf, cookie_jar="/tmp/nia_user_cookies.txt")
+        if not ok(status) or not workspace.get("id"):
+            self.results["inbox_workspace_move_rejected"] = {"status": status, "passed": False, "expected": "workspace created"}
+            return False
+        status, _ = curl("PATCH", f"/api/projects/{inbox['id']}", {"workspace_id": workspace["id"]}, token=self.user_token, csrf=self.user_csrf, cookie_jar="/tmp/nia_user_cookies.txt")
+        return self.record("inbox_workspace_move_rejected", status, expected=400)
+
     def test_project_delete_uses_workspace_inbox(self):
         status, workspace = curl("POST", "/api/workspaces", {
             "name": "Delete Inbox Workspace",
@@ -1110,6 +1161,73 @@ class TestSuite:
         member_project = next((p for p in data.get("projects", []) if p.get("id") == proj_id and p.get("is_shared")), None) if ok(status) else None
         passed = bool(member_project) and member_project.get("workspace_id") == self.shared_display_workspace_id and member_project.get("owner_workspace_id") == workspace["id"]
         self.results["owner_project_workspace_move_does_not_move_member_display"] = {"status": status, "passed": passed, "expected": "member display workspace unchanged, owner workspace updated"}
+        return passed
+
+    def test_subtree_move_updates_separately_shared_child_view(self):
+        root_id = self.created_ids["project"][-1] if self.created_ids["project"] else None
+        if not root_id:
+            self.results["subtree_move_updates_separately_shared_child_view"] = {"status": -1, "passed": True, "expected": "skipped"}
+            return True
+        status, projects_data = curl("GET", "/api/projects", token=self.user_token, cookie_jar="/tmp/nia_user_cookies.txt")
+        root = next((p for p in projects_data.get("projects", []) if p.get("id") == root_id), None) if ok(status) else None
+        if not root:
+            self.results["subtree_move_updates_separately_shared_child_view"] = {"status": status, "passed": False, "expected": "root project found"}
+            return False
+
+        status, child = curl("POST", "/api/projects", {
+            "name": "Separately Shared Child",
+            "color": "#22c55e",
+            "parent_id": root_id,
+            "workspace_id": root.get("workspace_id")
+        }, token=self.user_token, csrf=self.user_csrf, cookie_jar="/tmp/nia_user_cookies.txt")
+        if not ok(status) or not child.get("id"):
+            self.results["subtree_move_updates_separately_shared_child_view"] = {"status": status, "passed": False, "expected": "child project created"}
+            return False
+
+        status, _ = curl("POST", f"/api/projects/{child['id']}/share", {"username": "shareduser"}, token=self.user_token, csrf=self.user_csrf, cookie_jar="/tmp/nia_user_cookies.txt")
+        if not ok(status):
+            self.results["subtree_move_updates_separately_shared_child_view"] = {"status": status, "passed": False, "expected": "child shared"}
+            return False
+        status, invites = curl("GET", "/api/projects/invites", token=self.shared_token, cookie_jar="/tmp/nia_shared_cookies.txt")
+        invite = next((i for i in invites.get("invites", []) if i.get("project_id") == child["id"]), None) if ok(status) else None
+        if not invite:
+            self.results["subtree_move_updates_separately_shared_child_view"] = {"status": status, "passed": False, "expected": "child invite found"}
+            return False
+        status, _ = curl("POST", f"/api/projects/{child['id']}/invites/{invite['id']}", {"accept": True}, token=self.shared_token, csrf=self.shared_csrf, cookie_jar="/tmp/nia_shared_cookies.txt")
+        if not ok(status):
+            self.results["subtree_move_updates_separately_shared_child_view"] = {"status": status, "passed": False, "expected": "child invite accepted"}
+            return False
+
+        status, display_workspace = curl("POST", "/api/workspaces", {
+            "name": "Shared Child Display Workspace",
+            "color": "#0ea5e9",
+            "icon": "users"
+        }, token=self.shared_token, csrf=self.shared_csrf, cookie_jar="/tmp/nia_shared_cookies.txt")
+        if not ok(status) or not display_workspace.get("id"):
+            self.results["subtree_move_updates_separately_shared_child_view"] = {"status": status, "passed": False, "expected": "display workspace created"}
+            return False
+        status, _ = curl("PATCH", f"/api/projects/{child['id']}", {"workspace_id": display_workspace["id"]}, token=self.shared_token, csrf=self.shared_csrf, cookie_jar="/tmp/nia_shared_cookies.txt")
+        if not ok(status):
+            self.results["subtree_move_updates_separately_shared_child_view"] = {"status": status, "passed": False, "expected": "display workspace set"}
+            return False
+
+        status, owner_workspace = curl("POST", "/api/workspaces", {
+            "name": "Owner Subtree Target Workspace",
+            "color": "#a855f7",
+            "icon": "folder"
+        }, token=self.user_token, csrf=self.user_csrf, cookie_jar="/tmp/nia_user_cookies.txt")
+        if not ok(status) or not owner_workspace.get("id"):
+            self.results["subtree_move_updates_separately_shared_child_view"] = {"status": status, "passed": False, "expected": "owner target workspace created"}
+            return False
+        status, _ = curl("PATCH", f"/api/projects/{root_id}", {"workspace_id": owner_workspace["id"]}, token=self.user_token, csrf=self.user_csrf, cookie_jar="/tmp/nia_user_cookies.txt")
+        if not ok(status):
+            self.results["subtree_move_updates_separately_shared_child_view"] = {"status": status, "passed": False, "expected": "root moved"}
+            return False
+
+        status, shared_projects = curl("GET", "/api/projects", token=self.shared_token, cookie_jar="/tmp/nia_shared_cookies.txt")
+        child_view = next((p for p in shared_projects.get("projects", []) if p.get("id") == child["id"] and p.get("is_shared")), None) if ok(status) else None
+        passed = bool(child_view) and child_view.get("workspace_id") == display_workspace["id"] and child_view.get("owner_workspace_id") == owner_workspace["id"]
+        self.results["subtree_move_updates_separately_shared_child_view"] = {"status": status, "passed": passed, "expected": "separately shared child keeps member display workspace and updates owner workspace"}
         return passed
 
     def test_shared_section_create_patch_delete(self):
@@ -1396,6 +1514,8 @@ class TestSuite:
             self.test_project_list,
             self.test_project_patch,
             self.test_project_workspace_move_allowed_for_owner,
+            self.test_project_workspace_move_moves_children,
+            self.test_inbox_workspace_move_rejected,
             self.test_project_delete_uses_workspace_inbox,
 
             # Sharing
@@ -1407,6 +1527,7 @@ class TestSuite:
             self.test_shared_project_cannot_patch,
             self.test_shared_project_workspace_can_patch,
             self.test_owner_project_workspace_move_does_not_move_member_display,
+            self.test_subtree_move_updates_separately_shared_child_view,
             self.test_shared_section_create_patch_delete,
             self.test_shared_todo_create_patch_delete,
             self.test_shared_reminders_are_user_scoped,

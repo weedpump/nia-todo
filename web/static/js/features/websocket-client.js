@@ -175,6 +175,21 @@ async function handleWsMessage(msg) {
   let sections = getSections();
   let workspaces = getWorkspaces?.() || [];
 
+  async function applyProjectPayload(projectPayload) {
+    if (!projectPayload?.id) return;
+    const local = await getFromDB('projects', projectPayload.id);
+    if (local) {
+      const localTime = new Date(local.updated_at || 0).getTime();
+      const serverTime = new Date(projectPayload.updated_at || 0).getTime();
+      if (serverTime < localTime) return;
+    }
+    await dbPut('projects', projectPayload);
+    const existing = projects.find(p => String(p.id) === String(projectPayload.id));
+    projects = existing
+      ? projects.map(p => String(p.id) === String(projectPayload.id) ? projectPayload : p)
+      : [...projects, projectPayload];
+  }
+
   switch (msg.type) {
     case 'auth_ok':
       onAuthOk(msg);
@@ -384,27 +399,22 @@ async function handleWsMessage(msg) {
       break;
     case 'project_update':
       if (msg.payload) {
-        const local = await getFromDB('projects', msg.payload.id);
-        if (local) {
-          const localTime = new Date(local.updated_at || 0).getTime();
-          const serverTime = new Date(msg.payload.updated_at || 0).getTime();
-          if (serverTime >= localTime) {
-            const nextProject = local.is_shared && !msg.payload.is_shared
-              ? { ...msg.payload, workspace_id: local.workspace_id, owner_workspace_id: msg.payload.workspace_id, is_shared: local.is_shared, is_owner: local.is_owner, member_id: local.member_id, member_status: local.member_status, owner_username: local.owner_username || msg.payload.owner_username, owner_display_name: local.owner_display_name || msg.payload.owner_display_name }
-              : msg.payload;
-            await dbPut('projects', nextProject);
-            projects = projects.map(p => p.id === msg.payload.id ? nextProject : p);
-            renderProjects();
-            renderStats();
-            renderTodos();
-          }
-        } else {
-          await dbPut('projects', msg.payload);
-          projects = projects.map(p => p.id === msg.payload.id ? msg.payload : p);
-          renderProjects();
-          renderStats();
-          renderTodos();
+        await applyProjectPayload(msg.payload);
+        setProjects(projects);
+        renderProjects();
+        renderStats();
+        renderTodos();
+      }
+      break;
+    case 'project_update_many':
+      if (Array.isArray(msg.payload?.projects)) {
+        for (const projectPayload of msg.payload.projects) {
+          await applyProjectPayload(projectPayload);
         }
+        setProjects(projects);
+        renderProjects();
+        renderStats();
+        renderTodos();
       }
       break;
     case 'project_delete':

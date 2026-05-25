@@ -1012,11 +1012,26 @@ Project owners can move their own non-inbox projects to another of their workspa
 { "workspace_id": 2 }
 ```
 
+When an owner moves a project, descendant projects move with it. For subtree moves the response includes an `updated_projects` array with the caller-specific authoritative project views so offline clients can update all affected local rows.
+
 Shared-project members can also patch `workspace_id`, but only for their own display workspace. Owner moves do not change member display workspaces.
 
 **Response**
 ```json
 { "id": 7, "name": "Hobby Neu" }
+```
+
+Subtree workspace move response:
+```json
+{
+  "id": 7,
+  "name": "Hobby Neu",
+  "workspace_id": 2,
+  "updated_projects": [
+    { "id": 7, "name": "Hobby Neu", "workspace_id": 2 },
+    { "id": 8, "name": "Child project", "parent_id": 7, "workspace_id": 2 }
+  ]
+}
 ```
 
 ### Delete
