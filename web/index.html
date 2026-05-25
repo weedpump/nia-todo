@@ -487,6 +487,13 @@
           <div class="settings-2fa-subtitle" data-i18n-key="settings.2fa.configuredFactors">Eingerichtete Faktoren</div>
           <div id="settings-2fa-devices" class="settings-2fa-devices"></div>
         </div>
+        <div class="settings-2fa-devices-wrap">
+          <div class="settings-2fa-subtitle settings-2fa-trusted-header">
+            <span data-i18n-key="settings.2fa.trustedDevices">Vertrauenswürdige Geräte</span>
+            <button type="button" class="btn btn-danger btn-small" onclick="revokeAllTrustedDevices()" data-i18n-key="settings.2fa.revokeAllTrusted">Alle widerrufen</button>
+          </div>
+          <div id="settings-2fa-trusted-devices" class="settings-2fa-devices"></div>
+        </div>
         <div id="settings-2fa-recovery" style="display:none; background:var(--bg-tertiary); border-radius:var(--radius); padding:12px; margin:8px 0;"></div>
         <div id="settings-2fa-error" style="color:var(--danger); font-size:13px; margin-top:8px;"></div>
         <div id="settings-2fa-success" style="color:var(--success); font-size:13px; margin-top:8px;"></div>

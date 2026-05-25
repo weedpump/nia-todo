@@ -29,7 +29,7 @@ from services.two_factor import (
     mark_challenge_consumed, mfa_required_for_user, provisioning_uri,
     revoke_trusted_devices, set_two_factor_required, trusted_device_valid,
     user_mfa_state, validate_mfa_action_grant, verify_challenge_method, verify_totp, consume_totp_reauth_code, REAUTH_MAX_AGE_SECONDS,
-    EMAIL_CODE_TTL_SECONDS, record_challenge_failure, sha256_hex, bcrypt_hash,
+    EMAIL_CODE_TTL_SECONDS, record_challenge_failure, sha256_hex, bcrypt_hash, bcrypt_check, utc_ts,
 )
 from services.email import send_email
 from services.email_templates import two_factor_code_email
@@ -264,6 +264,67 @@ def verify_login_challenge(data: VerifyChallengeRequest, request: Request, respo
 def get_own_2fa(user_id: int = Depends(require_2fa_status_auth)):
     with get_db() as db:
         return user_mfa_state(db, user_id)
+
+
+def _trusted_device_is_current(row, token: Optional[str]) -> bool:
+    if not token or not row["token_prefix"] or token[:12] != row["token_prefix"]:
+        return False
+    return bcrypt_check(token, row["token_hash"])
+
+
+@router.get("/me/2fa/trusted-devices")
+def list_trusted_devices(request: Request, user_id: int = Depends(require_2fa_status_auth)):
+    with get_db() as db:
+        state = user_mfa_state(db, user_id)
+        rows = db.execute(
+            """SELECT id, token_hash, token_prefix, user_agent,
+                      created_at, last_used_at, datetime(expires_at, 'unixepoch') AS expires_at
+               FROM trusted_devices
+               WHERE user_id = ? AND revoked_at IS NULL AND expires_at >= ? AND remember_version = ?
+               ORDER BY COALESCE(last_used_at, created_at) DESC""",
+            (user_id, utc_ts(), state.get("remember_version", 1)),
+        ).fetchall()
+        current_token = request.cookies.get("nia_2fa_device")
+        return {
+            "trusted_devices": [
+                {
+                    "id": row["id"],
+                    "user_agent": row["user_agent"] or "",
+                    "created_at": row["created_at"],
+                    "last_used_at": row["last_used_at"],
+                    "expires_at": row["expires_at"],
+                    "current_device": _trusted_device_is_current(row, current_token),
+                }
+                for row in rows
+            ]
+        }
+
+
+@router.delete("/me/2fa/trusted-devices")
+def delete_all_trusted_devices(response: Response, user_id: int = Depends(require_recent_mfa)):
+    with get_db() as db:
+        revoke_trusted_devices(db, user_id)
+        db.commit()
+    response.delete_cookie("nia_2fa_device", httponly=True, samesite="lax")
+    return {"revoked": True}
+
+
+@router.delete("/me/2fa/trusted-devices/{device_id}")
+def delete_trusted_device(device_id: int, request: Request, response: Response, user_id: int = Depends(require_recent_mfa)):
+    with get_db() as db:
+        row = db.execute(
+            "SELECT id, token_hash, token_prefix FROM trusted_devices WHERE id = ? AND user_id = ? AND revoked_at IS NULL",
+            (device_id, user_id),
+        ).fetchone()
+        if not row:
+            raise api_error(404, "mfa.trustedDeviceNotFound", "Trusted device not found")
+        current_device = _trusted_device_is_current(row, request.cookies.get("nia_2fa_device"))
+        db.execute("UPDATE trusted_devices SET revoked_at = datetime('now') WHERE id = ? AND user_id = ?", (device_id, user_id))
+        log_audit(db, "two_factor_trusted_device_revoked", user_id=user_id, details=f"device_id={device_id}; current_device={current_device}")
+        db.commit()
+    if current_device:
+        response.delete_cookie("nia_2fa_device", httponly=True, samesite="lax")
+    return {"revoked": True, "current_device": current_device}
 
 
 @router.post("/me/2fa/totp/start")

@@ -3509,6 +3509,18 @@ input[type="color"]::-moz-color-swatch {
   margin: 12px 0 8px 0;
 }
 
+.settings-2fa-trusted-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.settings-2fa-trusted-header .btn {
+  font-size: 12px;
+  padding: 5px 9px;
+}
+
 .settings-2fa-devices {
   display: grid;
   gap: 8px;
