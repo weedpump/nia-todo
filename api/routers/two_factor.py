@@ -301,7 +301,7 @@ def list_trusted_devices(request: Request, user_id: int = Depends(require_2fa_st
 
 
 @router.delete("/me/2fa/trusted-devices")
-def delete_all_trusted_devices(response: Response, user_id: int = Depends(require_recent_mfa)):
+def delete_all_trusted_devices(response: Response, user_id: int = Depends(require_2fa_status_auth)):
     with get_db() as db:
         revoke_trusted_devices(db, user_id)
         db.commit()
@@ -310,7 +310,7 @@ def delete_all_trusted_devices(response: Response, user_id: int = Depends(requir
 
 
 @router.delete("/me/2fa/trusted-devices/{device_id}")
-def delete_trusted_device(device_id: int, request: Request, response: Response, user_id: int = Depends(require_recent_mfa)):
+def delete_trusted_device(device_id: int, request: Request, response: Response, user_id: int = Depends(require_2fa_status_auth)):
     with get_db() as db:
         row = db.execute(
             "SELECT id, token_hash, token_prefix FROM trusted_devices WHERE id = ? AND user_id = ? AND revoked_at IS NULL",

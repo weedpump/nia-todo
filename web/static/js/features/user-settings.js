@@ -853,7 +853,7 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     errorEl.textContent = '';
     successEl.textContent = '';
     try {
-      await withRecentMfaRetry(() => authApi.deleteTrustedDevice(deviceId), t('settings.2fa.purpose.revokeTrustedDevice'));
+      await authApi.deleteTrustedDevice(deviceId);
       successEl.textContent = t('settings.2fa.trustedDeviceRevoked');
       await renderTrustedDevices();
     } catch (e) {
@@ -869,7 +869,7 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     errorEl.textContent = '';
     successEl.textContent = '';
     try {
-      await withRecentMfaRetry(() => authApi.deleteAllTrustedDevices(), t('settings.2fa.purpose.revokeTrustedDevice'));
+      await authApi.deleteAllTrustedDevices();
       successEl.textContent = t('settings.2fa.trustedDevicesRevoked');
       await renderTrustedDevices();
     } catch (e) {
