@@ -1,16 +1,12 @@
 import { API, RUNTIME_CAPABILITIES } from '../core/config.js';
 import { createNativeBridge } from '../features/native-bridge.js';
 import { getAuthHeaders } from './http.js';
+import { apiErrorFromResponse } from './errors.js';
 import { t } from '../i18n/index.js';
 
 async function parseOrThrow(response, fallback = 'Request failed') {
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const error = new Error(data.detail || fallback);
-    error.status = response.status;
-    throw error;
-  }
-  return data;
+  if (!response.ok) await apiErrorFromResponse(response, fallback);
+  return response.json().catch(() => ({}));
 }
 
 function b64urlToBuffer(value) {
