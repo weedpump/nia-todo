@@ -69,7 +69,7 @@ async function run() {
       text: el.innerText,
       sectionId: el.dataset.sectionId,
     })));
-    const movedToUnsorted = afterUnsortedMove.some(entry => entry.section.includes('Unsortiert') && entry.text.includes('Drag Todo'));
+    const movedToUnsorted = afterUnsortedMove.some(entry => (entry.section.includes('Unsortiert') || entry.section.includes('Unsorted')) && entry.text.includes('Drag Todo'));
     if (!movedToUnsorted) throw new Error(`Drag Todo not moved to Unsortiert: ${JSON.stringify(afterUnsortedMove)}`);
 
     const sectionOrder = await page.evaluate(async () => {

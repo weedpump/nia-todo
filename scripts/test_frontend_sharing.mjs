@@ -117,7 +117,7 @@ async function run() {
 
     await page.fill('#project-share-username', 'moni');
     await page.locator('#project-share-row button').click();
-    await page.getByText('Einladung gesendet').waitFor({ state: 'visible', timeout: 10000 });
+    await page.getByText(/Einladung gesendet|Invitation sent/).waitFor({ state: 'visible', timeout: 10000 });
     // Pending invites are no longer visible in member list (privacy-safe)
     // await page.getByText('ausstehend').waitFor({ state: 'visible', timeout: 10000 });
     await page.evaluate(() => window.closeModal('project-modal'));
@@ -136,8 +136,8 @@ async function run() {
 
     // 7. Member row should be compact and not use the old large Entfernen button
     await page.locator('.sharing-member-row').filter({ hasText: 'Moni' }).waitFor({ state: 'visible', timeout: 10000 });
-    const oldRemoveVisible = await page.getByText('Entfernen').isVisible().catch(() => false);
-    if (oldRemoveVisible) throw new Error('Member removal should be a compact x button, not a large Entfernen button');
+    const oldRemoveVisible = await page.getByText(/Entfernen|Remove/).isVisible().catch(() => false);
+    if (oldRemoveVisible) throw new Error('Member removal should be a compact x button, not a large remove button');
 
     // 8. Owner should NOT have "Verlassen" button visible
     const leaveBtn = await page.locator('#project-leave-btn').first();
@@ -217,7 +217,7 @@ async function run() {
     
     // Accept via UI button
     await page.locator('.invite-action.invite-accept').first().click();
-    await page.getByText('Einladung angenommen').waitFor({ state: 'visible', timeout: 10000 });
+    await page.getByText(/Einladung angenommen|Invitation accepted/).waitFor({ state: 'visible', timeout: 10000 });
     
     // Invites section should disappear
     await page.locator('#invites-section').waitFor({ state: 'hidden', timeout: 10000 });
@@ -229,7 +229,7 @@ async function run() {
     // 9. Accepted shared project should show owner info and muted readonly fields for the member
     await page.locator('.project-tree-item').filter({ hasText: 'Sharing Test Project' }).first().locator('.nav-edit').click();
     await page.locator('#project-owner-info').waitFor({ state: 'visible', timeout: 10000 });
-    await page.getByText('Geteilt von').waitFor({ state: 'visible', timeout: 10000 });
+    await page.getByText(/Geteilt von|Shared by/).waitFor({ state: 'visible', timeout: 10000 });
     const readonlyClass = await page.locator('#project-form').evaluate(el => el.classList.contains('readonly-project'));
     if (!readonlyClass) throw new Error('Shared project form should have readonly-project styling');
     const nameDisabled = await page.locator('#project-name').isDisabled();
@@ -269,7 +269,7 @@ async function run() {
     await page.evaluate((workspaceId) => window.switchWorkspace(String(workspaceId)), teamWorkspace.id);
     await page.locator('.project-tree-item').filter({ hasText: 'Sharing Test Project' }).waitFor({ state: 'visible', timeout: 10000 });
 
-    await page.getByRole('button', { name: /Neues Todo/ }).click();
+    await page.getByRole('button', { name: /Neues Todo|New todo/i }).click();
     await visible('#todo-modal');
     const sharedOptionCount = await page.locator('#todo-project option').filter({ hasText: 'Sharing Test Project' }).count();
     if (sharedOptionCount !== 1) throw new Error('Shared project missing from Todo project select in its display workspace');

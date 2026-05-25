@@ -356,7 +356,8 @@ class TestSuite:
 
     def test_password_reset_request_without_email_config_is_neutral(self):
         status, data = curl("POST", "/api/password-setup/request", {"identifier": "testuser"}, cookie_jar="/tmp/nia_reset_cookies.txt")
-        passed = ok(status) and data and "Falls ein passendes Konto existiert" in data.get("message", "")
+        message = data.get("message", "") if data else ""
+        passed = ok(status) and bool(message) and any(fragment in message for fragment in ("If an account matches", "Falls ein passendes Konto existiert"))
         self.results["password_reset_request_without_email_config_is_neutral"] = {"status": status, "passed": passed, "expected": "200 neutral response without SMTP"}
         return passed
 
@@ -420,7 +421,9 @@ class TestSuite:
             for key in ("public_base_url", "smtp_enabled", "smtp_host", "smtp_port", "smtp_security", "smtp_auth_enabled", "smtp_username", "smtp_password_secret", "mail_from_address", "mail_from_name", "mail_reply_to", "password_link_ttl_hours"):
                 db.execute("DELETE FROM app_config WHERE key = ?", (key,))
             db.commit()
-        passed = ok(status) and data and "Falls ein passendes Konto existiert" in data.get("message", "") and row and row[0] == 0
+        message = data.get("message", "") if data else ""
+        neutral_message = any(fragment in message for fragment in ("If an account matches", "Falls ein passendes Konto existiert"))
+        passed = ok(status) and neutral_message and row and row[0] == 0
         self.results["password_reset_requires_verified_email"] = {"status": status if not passed else 200, "passed": passed, "expected": "username reset does not create/send token for unverified email"}
         return passed
 
@@ -549,7 +552,8 @@ class TestSuite:
             "allowed_origins": ["https://allowed.example"],
             "trusted_proxies": ["0.0.0.0/0"],
         }, token=self.admin_token, csrf=self.admin_csrf, cookie_jar="/tmp/nia_admin_cookies.txt")
-        passed = status == 400 and data and "gesamte Internet" in data.get("detail", "")
+        detail = data.get("detail", "") if data else ""
+        passed = status == 400 and any(fragment in detail for fragment in ("entire internet", "gesamte Internet"))
         self.results["trusted_proxy_wildcard_rejected"] = {"status": status, "passed": passed, "expected": "400 + wildcard proxy rejected"}
         return passed
 

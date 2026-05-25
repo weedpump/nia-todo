@@ -148,7 +148,7 @@ async function run() {
     const switchTodoTitle = page.locator('.todo-item .todo-title').filter({ hasText: 'Project Switch Todo' }).first();
     await switchTodoTitle.click();
     await visible('#todo-modal');
-    await page.selectOption('#todo-section', { label: 'Keine Section (Unsortiert)' });
+    await page.selectOption('#todo-section', { value: '' });
     await page.click('button[form="todo-form"]');
     await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });
 
@@ -194,7 +194,7 @@ async function run() {
       remind.setCustomValidity('Ungültige Test-Erinnerung');
     });
     await page.click('button[form="todo-form"]');
-    await page.getByText('Erinnerung ist ungültig').waitFor({ state: 'visible', timeout: 5000 });
+    await page.getByText(/Erinnerung ist ungültig|Reminder is invalid/).waitFor({ state: 'visible', timeout: 5000 });
     await page.evaluate(() => {
       const remind = document.getElementById('todo-remind');
       remind.setCustomValidity('');
@@ -235,7 +235,7 @@ async function run() {
     await page.locator('.todo-check').first().click();
     await page.waitForTimeout(300);
     await page.waitForFunction(() => !window.__tempPathPageError, { timeout: 1000 });
-    await page.getByText('Todo wiedereröffnet').waitFor({ state: 'visible', timeout: 5000 });
+    await page.getByText(/Todo wiedereröffnet|Todo reopened/).waitFor({ state: 'visible', timeout: 5000 });
     await page.click('#toast-undo');
     await page.waitForFunction(async () => {
       const jwt = localStorage.getItem('jwt_token');

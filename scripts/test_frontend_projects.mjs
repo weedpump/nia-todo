@@ -67,7 +67,7 @@ async function run() {
     });
     await page.waitForFunction(() => document.querySelector('.add-section-row') !== null, { timeout: 10000 });
 
-    await page.getByRole('button', { name: /Neues Todo/ }).click();
+    await page.getByRole('button', { name: /Neues Todo|New todo/i }).click();
     await visible('#todo-modal');
     await page.fill('#todo-title', 'Project Delete Todo');
     await page.click('button[form="todo-form"]');

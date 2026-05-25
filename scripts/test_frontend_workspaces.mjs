@@ -82,7 +82,7 @@ async function run() {
     await page.locator('#project-modal').waitFor({ state: 'hidden', timeout: 10000 });
     await waitForText('Delete Workspace Project');
     await page.locator('.project-tree-item').filter({ hasText: 'Delete Workspace Project' }).locator('.nav-btn').click();
-    await page.getByRole('button', { name: /Neues Todo/ }).click();
+    await page.getByRole('button', { name: /Neues Todo|New todo/i }).click();
     await visible('#todo-modal');
     await page.fill('#todo-title', 'Stays In Workspace Inbox');
     await page.click('button[form="todo-form"]');

@@ -147,7 +147,10 @@ def test_branded_email_templates():
     assert_true("mso-style-textfill-fill-color:#0f172a" in code_html, "Outlook 2FA solid textfill missing")
 
     _, _, test_html = test_email()
-    assert_true("Diese Test-Mail wurde über die aktuell gespeicherte SMTP-Konfiguration versendet." in test_html, "test email detail missing")
+    assert_true(any(fragment in test_html for fragment in (
+        "Diese Test-E-Mail wurde über die aktuell gespeicherte SMTP-Konfiguration versendet.",
+        "Diese Test-Mail wurde über die aktuell gespeicherte SMTP-Konfiguration versendet.",
+    )), "test email detail missing")
     assert_true("<ul" not in test_html and "<li" not in test_html, "single test email detail should not render as bullet list")
 
     malicious_project = "Bad\r\nBcc: attacker@example.invalid <script>alert(1)</script>"

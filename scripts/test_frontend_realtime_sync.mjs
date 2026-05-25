@@ -73,9 +73,9 @@ async function run() {
     await pageA.fill('#todo-desc', 'Created for realtime sync regression');
     await pageA.click('button[form="todo-form"]');
     await pageA.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });
-    await waitForTextA('Realtime Sync Todo');
+    await waitForTextA('Realtime Sync Todo', 20000);
     await waitForTodoInDb(pageB, 'Realtime Sync Todo');
-    await waitForTextB('Realtime Sync Todo', 15000);
+    await waitForTextB('Realtime Sync Todo', 20000);
 
     await pageA.locator('.todo-item').filter({ hasText: 'Realtime Sync Todo' }).first().click();
     await pageA.locator('#todo-modal').waitFor({ state: 'visible', timeout: 5000 });

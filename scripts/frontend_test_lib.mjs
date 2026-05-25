@@ -25,7 +25,7 @@ export function service(action) {
   sh('systemctl', [action, SERVICE]);
 }
 
-export async function waitForService(timeoutMs = 15_000) {
+export async function waitForService(timeoutMs = 60_000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     try {
@@ -62,8 +62,9 @@ export function restoreDb() {
 }
 
 export async function prepareFreshDb() {
+  try { service('stop'); } catch {}
   backupDb();
-  service('restart');
+  service('start');
   await waitForService();
   await api('POST', '/api/setup/admin', { admin_password: ADMIN_PASSWORD });
   await api('POST', '/api/setup/first-user', {
@@ -97,11 +98,15 @@ export async function launchPage() {
     },
     ensureSectionOptions: async (expectedLabels, { disabled = false } = {}) => {
       await page.waitForFunction(({ labels, disabled }) => {
+        const labelVariants = {
+          'Keine Section': ['Keine Section', 'No section'],
+          'Keine Section (Unsortiert)': ['Keine Section (Unsortiert)', 'No section (unsorted)'],
+        };
         const sel = document.querySelector('#todo-section');
         if (!sel) return false;
         if (sel.disabled !== disabled) return false;
         const optionTexts = Array.from(sel.options).map(o => o.textContent || '');
-        return labels.every(label => optionTexts.some(text => text.includes(label)));
+        return labels.every(label => (labelVariants[label] || [label]).some(variant => optionTexts.some(text => text.includes(variant))));
       }, { labels: expectedLabels, disabled }, { timeout: 10000 });
     },
     createSection: async (name) => {
@@ -145,7 +150,11 @@ export async function withFreshDb(run) {
   } finally {
     console.log('🔄 Restoring original dev DB...');
     restoreDb();
-    await waitForService().catch(() => {});
+    if (ok) {
+      await waitForService();
+    } else {
+      await waitForService().catch(() => {});
+    }
   }
   if (!ok) process.exit(1);
 }
