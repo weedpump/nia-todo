@@ -144,6 +144,45 @@ async function testNativeDesktopSettingsPersistViaTauriCommand() {
   }
 }
 
+
+async function testNativeLanguageSettingPersistsThroughInlineChangeBridge() {
+  const { browser, page, dumpErrors } = await launchPage();
+  try {
+    await installTauriStub(page, { serverUrl: BASE_URL }, {
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    });
+    await page.goto(BASE_URL, { waitUntil: 'domcontentloaded' });
+    await page.locator('#login-overlay').waitFor({ state: 'visible', timeout: 10_000 });
+
+    await page.fill('#login-username', USERNAME);
+    await page.fill('#login-password', USER_PASSWORD);
+    await page.click('button.login-btn');
+    await page.locator('#login-overlay').waitFor({ state: 'hidden', timeout: 15_000 });
+
+    await page.click('#user-menu-button');
+    await page.click('#menu-settings-btn');
+    await page.locator('#settings-modal.active').waitFor({ state: 'visible', timeout: 10_000 });
+
+    await page.locator('#settings-language').selectOption('en');
+    await page.getByText('Language saved.').waitFor({ state: 'visible', timeout: 10_000 });
+    const preference = await page.evaluate(() => localStorage.getItem('nia-todo-language'));
+    if (preference !== 'en') throw new Error(`Expected native language preference in localStorage to be en, got ${preference}`);
+
+    await page.evaluate(() => window.closeModal?.('settings-modal'));
+    await page.locator('#settings-modal').waitFor({ state: 'hidden', timeout: 10_000 });
+    await page.click('#user-menu-button');
+    await page.click('#menu-settings-btn');
+    await page.locator('#settings-modal.active').waitFor({ state: 'visible', timeout: 10_000 });
+    const selected = await page.locator('#settings-language').inputValue();
+    if (selected !== 'en') throw new Error(`Expected reopened native settings language to stay en, got ${selected}`);
+  } catch (error) {
+    console.log('DEBUG frontend errors:', JSON.stringify(dumpErrors()));
+    throw error;
+  } finally {
+    await browser.close();
+  }
+}
+
 async function testNativeUpdateUsesModalWithDownloadButton() {
   const { browser, page, dumpErrors } = await launchPage();
   try {
@@ -443,6 +482,7 @@ async function run() {
   await testNativeRuntimeUsesConfiguredServerUrl();
   await testNativeChangelogOpensExternally();
   await testNativeDesktopSettingsPersistViaTauriCommand();
+  await testNativeLanguageSettingPersistsThroughInlineChangeBridge();
   await testNativeUpdateUsesModalWithDownloadButton();
   await testNativeRequiredUpdateCannotBeDismissed();
   await testNativeRequiredUpdateRefreshesStaleBootInstance();
