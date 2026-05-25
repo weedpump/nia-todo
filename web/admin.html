@@ -291,7 +291,11 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
     <div class="form-row">
       <input type="text" id="new-username" data-i18n-placeholder-key="setup.usernameLabel" placeholder="Username" autocomplete="off" onkeydown="if(event.key==='Enter') document.getElementById('new-display-name').focus()">
       <input type="text" id="new-display-name" data-i18n-placeholder-key="setup.displayNameLabel" placeholder="Display name" onkeydown="if(event.key==='Enter') document.getElementById('new-email').focus()">
-      <input type="email" id="new-email" data-i18n-placeholder-key="settings.profile.email" placeholder="Email" autocomplete="off" onkeydown="if(event.key==='Enter') createUser()">
+      <input type="email" id="new-email" data-i18n-placeholder-key="settings.profile.email" placeholder="Email" autocomplete="off" onkeydown="if(event.key==='Enter') document.getElementById('new-language').focus()">
+      <select id="new-language" data-i18n-title-key="admin.user.language" title="Language" onkeydown="if(event.key==='Enter') createUser()">
+        <option value="de" data-i18n-key="settings.language.de">German</option>
+        <option value="en" data-i18n-key="settings.language.en">English</option>
+      </select>
       <button class="btn btn-primary" onclick="createUser()" data-i18n-key="admin.user.createAndLink">Create & generate link</button>
     </div>
     <div style="font-size: 12px; color: var(--text-muted); margin-top: 8px;" data-i18n-key="admin.user.createHelp">
@@ -833,6 +837,7 @@ async function createUser() {
   const username = document.getElementById('new-username').value.trim();
   const displayName = document.getElementById('new-display-name').value.trim();
   const email = document.getElementById('new-email').value.trim();
+  const language = document.getElementById('new-language').value;
 
   document.getElementById('create-error').textContent = '';
   document.getElementById('create-success').textContent = '';
@@ -851,7 +856,8 @@ async function createUser() {
     const data = await apiPost('/api/admin/users', {
       username: username,
       display_name: displayName || username,
-      email: email
+      email: email,
+      language: language
     });
     if (data.password_setup_delivery === 'email') {
       document.getElementById('create-success').textContent = t('admin.user.createdEmailSent', { username });
@@ -863,6 +869,7 @@ async function createUser() {
     document.getElementById('new-username').value = '';
     document.getElementById('new-display-name').value = '';
     document.getElementById('new-email').value = '';
+    document.getElementById('new-language').value = 'de';
     await loadUsers();
   } catch(e) {
     document.getElementById('create-error').textContent = e.message;

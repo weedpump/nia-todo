@@ -6,5 +6,5 @@ ALTER TABLE workspaces ADD COLUMN icon TEXT;
 UPDATE workspaces
 SET icon = 'home'
 WHERE COALESCE(is_default, 0) = 1
-  AND name = 'Privat'
+  AND name = 'Personal'
   AND (icon IS NULL OR TRIM(icon) = '');

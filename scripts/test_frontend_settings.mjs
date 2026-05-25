@@ -175,6 +175,16 @@ async function run() {
       return text.includes('deaktiviert') || text.includes('disabled');
     }, { timeout: 10000 });
 
+    await page.selectOption('#settings-language', 'en');
+    await page.getByText('Language saved.').waitFor({ state: 'visible', timeout: 10000 });
+    await page.evaluate(() => window.closeModal?.('settings-modal'));
+    await page.locator('#settings-modal').waitFor({ state: 'hidden', timeout: 10000 });
+    await page.getByText('All todos at a glance').waitFor({ state: 'visible', timeout: 10000 });
+    await page.getByText('Total').waitFor({ state: 'visible', timeout: 10000 });
+
+    await page.click('#user-menu-button');
+    await page.click('#menu-settings-btn');
+    await visible('#settings-modal');
     await page.fill('#settings-old-password', USER_PASSWORD);
     await page.fill('#settings-new-password', 'FrontendChanged123!');
     await page.fill('#settings-confirm-password', 'FrontendChanged123!');
