@@ -101,15 +101,15 @@ if __name__ == '__main__':
         sys.exit(1)
     
     if check_db():
-        print("✅ Migrationen bereits vorhanden")
+        print("✅ Migrations already present")
         sys.exit(0)
     
-    print("🚀 Starte Migrationen...")
+    print("🚀 Starting migrations...")
     run_migration_003()
     run_migration_004()
     
     if check_db():
         print("✅ All migrations completed successfully!")
     else:
-        print("❌ Migrationen unvollstaendig")
+        print("❌ Migrations incomplete")
         sys.exit(1)
