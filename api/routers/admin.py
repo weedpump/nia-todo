@@ -20,7 +20,7 @@ from services.websocket import manager
 from services.email_verification import clear_pending_email, set_email_or_pending
 from rate_limit import require_login_rate_limit, get_client_ip
 from middleware.security import generate_csrf_token, set_csrf_cookie
-from errors import api_error
+from errors import api_error, validation_api_error
 
 router = APIRouter(prefix="/api/admin")
 
@@ -193,7 +193,7 @@ def admin_send_test_email(data: TestEmailRequest, request: Request, _: bool = De
     email = sanitize_text(data.to)
     email_error = validate_email(email)
     if email_error:
-        raise HTTPException(400, email_error)
+        raise validation_api_error(email_error)
     with get_db() as db:
         try:
             send_test_email(email)
@@ -253,7 +253,7 @@ def create_user(data: CreateUserRequest, request: Request, _: bool = Depends(req
     data.email = normalize_email(sanitize_text(data.email))
     email_error = validate_email(data.email)
     if email_error:
-        raise HTTPException(400, email_error)
+        raise validation_api_error(email_error)
     with get_db() as db:
         existing = db.execute("SELECT id FROM users WHERE username = ?", (data.username,)).fetchone()
         if existing:
@@ -352,7 +352,7 @@ def update_user(user_id: int, data: UpdateUserRequest, request: Request, _: bool
     display_name = sanitize_text(data.display_name) if data.display_name is not None else None
     email_error = validate_email(email)
     if email_error:
-        raise HTTPException(400, email_error)
+        raise validation_api_error(email_error)
     with get_db() as db:
         user = db.execute("SELECT id, email FROM users WHERE id = ?", (user_id,)).fetchone()
         if not user:
@@ -403,7 +403,7 @@ def delete_user(user_id: int, _: bool = Depends(require_admin)):
 def change_admin_password(data: ChangeAdminPasswordRequest, _: bool = Depends(require_admin)):
     error = validate_admin_password(data.new_password)
     if error:
-        raise api_error(400, f"validation.{error}", error)
+        raise validation_api_error(error)
     with get_db() as db:
         config = db.execute("SELECT admin_token_hash FROM admin_config WHERE id = 1").fetchone()
         if not config or not config['admin_token_hash']:
