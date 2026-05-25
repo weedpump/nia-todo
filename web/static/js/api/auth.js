@@ -152,6 +152,21 @@ export const authApi = {
     return parseOrThrow(response, t('api.auth.passkeyRevokeFailed'));
   },
 
+  async listTrustedDevices() {
+    const response = await fetch(API + '/api/me/2fa/trusted-devices', { headers: getAuthHeaders(), credentials: 'include' });
+    return parseOrThrow(response, t('api.auth.trustedDevicesLoadFailed'));
+  },
+
+  async deleteTrustedDevice(id) {
+    const response = await fetch(API + `/api/me/2fa/trusted-devices/${encodeURIComponent(id)}`, { method: 'DELETE', headers: getAuthHeaders(), credentials: 'include' });
+    return parseOrThrow(response, t('api.auth.trustedDeviceRevokeFailed'));
+  },
+
+  async deleteAllTrustedDevices() {
+    const response = await fetch(API + '/api/me/2fa/trusted-devices', { method: 'DELETE', headers: getAuthHeaders(), credentials: 'include' });
+    return parseOrThrow(response, t('api.auth.trustedDevicesRevokeFailed'));
+  },
+
   async createPasskey(name = 'Passkey', password = '') {
     if (RUNTIME_CAPABILITIES.native && !canUseNativePasskeyBridge()) {
       throw new Error(t('api.auth.nativePasskeysUnsupportedManageBrowser'));
