@@ -351,18 +351,18 @@ def mark_challenge_consumed(db, challenge_id: int) -> bool:
     return cur.rowcount == 1
 
 
-def create_trusted_device(db, user_id: int, user_agent: str = "") -> str:
+def create_trusted_device(db, user_id: int, user_agent: str = "", return_id: bool = False):
     token = secrets.token_urlsafe(32)
     prefix = token[:12]
     expires = utc_ts() + REMEMBER_DEVICE_DAYS * 86400
     state = user_mfa_state(db, user_id)
-    db.execute(
+    cur = db.execute(
         """INSERT INTO trusted_devices (user_id, token_hash, token_prefix, remember_version, user_agent, expires_at, created_at, last_used_at)
            VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))""",
         (user_id, bcrypt_hash(token), prefix, state.get("remember_version", 1), (user_agent or "")[:255], expires),
     )
     log_audit(db, "two_factor_device_remembered", user_id=user_id)
-    return token
+    return (token, cur.lastrowid) if return_id else token
 
 
 def trusted_device_valid(db, user_id: int, token: Optional[str]) -> bool:
@@ -379,6 +379,64 @@ def trusted_device_valid(db, user_id: int, token: Optional[str]) -> bool:
             db.execute("UPDATE trusted_devices SET last_used_at = datetime('now') WHERE id = ?", (row["id"],))
             return True
     return False
+
+
+def trusted_device_is_current(row, token: Optional[str]) -> bool:
+    if not token or not row["token_prefix"] or token[:12] != row["token_prefix"]:
+        return False
+    return bcrypt_check(token, row["token_hash"])
+
+
+def list_user_device_sessions(db, user_id: int, *, current_session_id: Optional[str] = None, current_trusted_token: Optional[str] = None) -> list[dict]:
+    state = user_mfa_state(db, user_id)
+    rows = db.execute(
+        """SELECT s.id, s.trusted_device_id, s.user_agent, s.ip_address, s.created_at, s.last_used_at,
+                  datetime(s.expires_at, 'unixepoch') AS expires_at,
+                  td.token_hash, td.token_prefix, td.remember_version, td.revoked_at AS trusted_revoked_at, td.expires_at AS trusted_expires_at
+           FROM user_sessions s
+           LEFT JOIN trusted_devices td ON td.id = s.trusted_device_id
+           WHERE s.user_id = ? AND s.revoked_at IS NULL AND s.expires_at >= ?
+           ORDER BY COALESCE(s.last_used_at, s.created_at) DESC""",
+        (user_id, utc_ts()),
+    ).fetchall()
+    result = []
+    remember_version = state.get("remember_version", 1)
+    for row in rows:
+        trusted_active = bool(
+            row["trusted_device_id"]
+            and row["trusted_revoked_at"] is None
+            and int(row["trusted_expires_at"] or 0) >= utc_ts()
+            and row["remember_version"] == remember_version
+        )
+        result.append({
+            "id": row["id"],
+            "trusted_device_id": row["trusted_device_id"],
+            "trusted": trusted_active,
+            "user_agent": row["user_agent"] or "",
+            "ip_address": row["ip_address"] or "",
+            "created_at": row["created_at"],
+            "last_used_at": row["last_used_at"],
+            "expires_at": row["expires_at"],
+            "current_device": bool(current_session_id and row["id"] == current_session_id),
+            "current_trusted_device": trusted_active and trusted_device_is_current(row, current_trusted_token),
+        })
+    return result
+
+
+def revoke_device_session(db, user_id: int, session_id: str) -> Optional[dict]:
+    row = db.execute(
+        """SELECT s.id, s.trusted_device_id, td.token_hash, td.token_prefix
+           FROM user_sessions s
+           LEFT JOIN trusted_devices td ON td.id = s.trusted_device_id
+           WHERE s.id = ? AND s.user_id = ? AND s.revoked_at IS NULL""",
+        (session_id, user_id),
+    ).fetchone()
+    if not row:
+        return None
+    db.execute("UPDATE user_sessions SET revoked_at = datetime('now') WHERE id = ? AND user_id = ?", (session_id, user_id))
+    if row["trusted_device_id"]:
+        db.execute("UPDATE trusted_devices SET revoked_at = datetime('now') WHERE id = ? AND user_id = ? AND revoked_at IS NULL", (row["trusted_device_id"], user_id))
+    return dict(row)
 
 
 def revoke_trusted_devices(db, user_id: int) -> None:

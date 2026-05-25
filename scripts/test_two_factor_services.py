@@ -26,12 +26,15 @@ from services.two_factor import (
     create_challenge,
     create_mfa_action_grant,
     create_recovery_codes,
+    create_trusted_device,
     EMAIL_CODE_TTL_SECONDS,
     bcrypt_hash,
     generate_totp_secret,
     get_valid_challenge,
+    list_user_device_sessions,
     mark_challenge_consumed,
     record_challenge_failure,
+    revoke_device_session,
     set_two_factor_required,
     user_mfa_state,
     verify_challenge_method,
@@ -179,8 +182,22 @@ def main():
             record_challenge_failure(conn, row3["id"])
         assert get_valid_challenge(conn, challenge3["challenge_token"]) is None
 
-        # Enabling global MFA invalidates old non-MFA JWTs for normal API auth.
+        # Device sessions back JWTs so individual device revocation invalidates only that session.
         user = conn.execute("SELECT id, username, is_admin, token_version FROM users WHERE id = ?", (user_id,)).fetchone()
+        trusted_device_token, trusted_device_id = create_trusted_device(conn, user_id, "Test Browser", return_id=True)
+        session_token = create_jwt_token(dict(user), conn, mfa_login_verified=True, create_session=True, trusted_device_id=trusted_device_id, user_agent="Test Browser", ip_address="127.0.0.1")
+        session_payload = conn.execute("SELECT id FROM user_sessions WHERE user_id = ? AND trusted_device_id = ? AND revoked_at IS NULL", (user_id, trusted_device_id)).fetchone()
+        assert session_payload is not None
+        device_sessions = list_user_device_sessions(conn, user_id, current_session_id=session_payload["id"], current_trusted_token=trusted_device_token)
+        assert len(device_sessions) == 1 and device_sessions[0]["current_device"] and device_sessions[0]["trusted"]
+        conn.commit()
+        assert get_current_user(session_token) == user_id
+        revoked = revoke_device_session(conn, user_id, session_payload["id"])
+        conn.commit()
+        assert revoked and get_current_user(session_token) is None
+        assert conn.execute("SELECT revoked_at FROM trusted_devices WHERE id = ?", (trusted_device_id,)).fetchone()["revoked_at"]
+
+        # Enabling global MFA invalidates old non-MFA JWTs for normal API auth.
         old_token = create_jwt_token(dict(user), conn, mfa_verified=False)
         set_two_factor_required(conn, True)
         conn.commit()

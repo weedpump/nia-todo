@@ -38,6 +38,7 @@ function isHeicFile(file) {
 
 export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentUser, resetApiKeyUi, loadApiKeys, updatePushSettingsUI, logout }) {
   let lastTwoFactorState = null;
+  let trustedDeviceRevokeInFlight = false;
   const cropState = {
     file: null,
     image: null,
@@ -217,10 +218,11 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
       }
       listEl.innerHTML = devices.map((device) => {
         const current = device.current_device ? ` <strong style="display:inline; color:var(--accent);">${escapeHtml(t('settings.2fa.currentDevice'))}</strong>` : '';
+        const trusted = device.trusted ? ` · ${t('settings.2fa.trustedDeviceRemembered')}` : '';
         const lastUsed = device.last_used_at ? formatLocaleDateTime(device.last_used_at) : t('common.never');
         const expires = device.expires_at ? formatLocaleDateTime(device.expires_at) : '-';
-        const details = t('settings.2fa.trustedDeviceDetails', { lastUsed, expires });
-        return `<div class="settings-device-row"><div><strong>${escapeHtml(trustedDeviceName(device))}${current}</strong><span>${escapeHtml(details)}</span><span title="${escapeHtmlAttr(device.user_agent || '')}">${escapeHtml((device.user_agent || '').slice(0, 120))}</span></div><button type="button" class="btn btn-danger" onclick="revokeTrustedDevice(${Number(device.id)})">${escapeHtml(t('settings.2fa.revoke'))}</button></div>`;
+        const details = t('settings.2fa.trustedDeviceDetails', { lastUsed, expires }) + trusted;
+        return `<div class="settings-device-row"><div><strong>${escapeHtml(trustedDeviceName(device))}${current}</strong><span>${escapeHtml(details)}</span><span title="${escapeHtmlAttr(device.user_agent || '')}">${escapeHtml((device.user_agent || '').slice(0, 120))}</span></div><button type="button" class="btn btn-danger" onclick="revokeTrustedDevice('${escapeHtmlAttr(device.id)}')">${escapeHtml(t('settings.2fa.revoke'))}</button></div>`;
       }).join('');
     } catch (err) {
       listEl.innerHTML = `<div class="settings-device-note">${escapeHtml(t('settings.2fa.trustedDevicesLoadFailed', { error: err.message || err }))}</div>`;
@@ -845,35 +847,53 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     }
   }
 
+  function setTrustedDeviceRevokeLoading(loading) {
+    trustedDeviceRevokeInFlight = loading;
+    document.querySelectorAll('.settings-device-row button, #settings-2fa-revoke-all-trusted').forEach((button) => {
+      button.disabled = loading;
+    });
+  }
+
   async function revokeTrustedDevice(deviceId) {
+    if (trustedDeviceRevokeInFlight) return;
     const confirmed = await confirmSecurityAction({ title: t('settings.2fa.revokeTrustedTitle'), message: t('settings.2fa.revokeTrustedMessage'), confirmText: t('settings.2fa.revokeTrustedConfirm'), danger: true });
     if (!confirmed) return;
     const errorEl = document.getElementById('settings-2fa-error');
     const successEl = document.getElementById('settings-2fa-success');
     errorEl.textContent = '';
     successEl.textContent = '';
+    setTrustedDeviceRevokeLoading(true);
     try {
-      await authApi.deleteTrustedDevice(deviceId);
+      const data = await authApi.deleteTrustedDevice(deviceId);
       successEl.textContent = t('settings.2fa.trustedDeviceRevoked');
+      if (data.current_session) {
+        setTimeout(() => logout(), 600);
+        return;
+      }
       await renderTrustedDevices();
     } catch (e) {
       errorEl.textContent = e.message;
+    } finally {
+      setTrustedDeviceRevokeLoading(false);
     }
   }
 
   async function revokeAllTrustedDevices() {
+    if (trustedDeviceRevokeInFlight) return;
     const confirmed = await confirmSecurityAction({ title: t('settings.2fa.revokeAllTrustedTitle'), message: t('settings.2fa.revokeAllTrustedMessage'), confirmText: t('settings.2fa.revokeAllTrusted'), danger: true });
     if (!confirmed) return;
     const errorEl = document.getElementById('settings-2fa-error');
     const successEl = document.getElementById('settings-2fa-success');
     errorEl.textContent = '';
     successEl.textContent = '';
+    setTrustedDeviceRevokeLoading(true);
     try {
       await authApi.deleteAllTrustedDevices();
       successEl.textContent = t('settings.2fa.trustedDevicesRevoked');
-      await renderTrustedDevices();
+      setTimeout(() => logout(), 600);
     } catch (e) {
       errorEl.textContent = e.message;
+      setTrustedDeviceRevokeLoading(false);
     }
   }
 

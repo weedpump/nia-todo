@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 
 from db import get_db, now_iso
 from services.auth import (
-    create_jwt_token, decode_jwt_token, get_current_user,
+    create_jwt_token, decode_jwt_token, get_current_user, revoke_user_session,
     should_refresh_user_jwt, verify_user_credentials, sessions
 )
 from middleware.security import generate_csrf_token, set_csrf_cookie
@@ -82,7 +82,7 @@ def login(data: LoginRequest, request: Request, response: Response, _: None = De
                 db.commit()
                 return {"mfa_required": True, "challenge": challenge, "state": state}
             # Enforced MFA but no available second factor/email yet: issue an enrollment-only token.
-            token = create_jwt_token(user, db, mfa_enroll_only=True)
+            token = create_jwt_token(user, db, mfa_enroll_only=True, create_session=True, user_agent=request.headers.get('user-agent', ''), ip_address=ip)
             csrf_token = generate_csrf_token()
             set_csrf_cookie(response, csrf_token)
             log_audit(db, "login_mfa_enrollment_required", user_id=user['id'], ip_address=ip)
@@ -104,7 +104,7 @@ def login(data: LoginRequest, request: Request, response: Response, _: None = De
                 },
                 "state": state,
             }
-        token = create_jwt_token(user, db, mfa_verified=bool(mfa_required and not remembered), mfa_login_verified=bool(mfa_required and remembered))
+        token = create_jwt_token(user, db, mfa_verified=bool(mfa_required and not remembered), mfa_login_verified=bool(mfa_required and remembered), create_session=True, user_agent=request.headers.get('user-agent', ''), ip_address=ip)
         csrf_token = generate_csrf_token()
         set_csrf_cookie(response, csrf_token)
         log_audit(db, "login_success", user_id=user['id'], ip_address=ip, details=f"mfa={'required' if mfa_required else 'not_required'}; remembered_device={remembered}")
@@ -139,10 +139,14 @@ def logout(authorization: Optional[str] = Header(None), x_session_token: Optiona
         payload = decode_jwt_token(token, db)
         if payload:
             user_id = payload.get('user_id')
-            db.execute("UPDATE users SET token_version = token_version + 1 WHERE id = ?", (user_id,))
-            db.commit()
+            session_id = payload.get('sid')
+            if session_id:
+                revoke_user_session(db, user_id, session_id)
+            else:
+                db.execute("UPDATE users SET token_version = token_version + 1 WHERE id = ?", (user_id,))
             ip = get_client_ip(request) if request else None
-            log_audit(db, "logout", user_id=user_id, ip_address=ip)
+            log_audit(db, "logout", user_id=user_id, ip_address=ip, details=f"session_id={session_id or 'legacy_all'}")
+            db.commit()
         if x_session_token and x_session_token in sessions:
             del sessions[x_session_token]
     return {"logged_out": True}
@@ -199,6 +203,7 @@ def me(response: Response, authorization: Optional[str] = Header(None), x_sessio
                 token_user['mfa_at'] = payload.get('mfa_at')
             if payload.get('mfa_login_at'):
                 token_user['mfa_login_at'] = payload.get('mfa_login_at')
+            token_user["session_id"] = payload.get("sid")
             result["access_token"] = create_jwt_token(token_user, db, mfa_enroll_only=bool(payload.get('mfa_enroll_only')))
             result["token_type"] = "bearer"
             result["csrf_token"] = csrf_token

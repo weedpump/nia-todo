@@ -205,6 +205,11 @@ Activates TOTP after password confirmation and returns new recovery codes exactl
 - `POST /api/me/2fa/reauth/email/start` — sends an email reauth code if email code is the available factor.
 - `POST /api/me/2fa/reauth/passkey/options` and `POST /api/me/2fa/reauth/passkey/verify` — passkey reauth for passkey-only users.
 
+### Signed-in / Trusted Devices
+- `GET /api/me/2fa/trusted-devices` — lists active signed-in device sessions for the current user. Sessions can optionally be linked to a trusted 2FA-remember device and include metadata such as user agent, last use, expiry, and whether it is the current session.
+- `DELETE /api/me/2fa/trusted-devices/{id}` — revokes one device session using a normal interactive JWT plus CSRF protection; no fresh MFA action grant is required because this only reduces account access. If the session was linked to a trusted 2FA device, that trusted-device token is revoked too. Revoking the current session signs out the current browser/app.
+- `DELETE /api/me/2fa/trusted-devices` — revokes all active user sessions and all trusted 2FA devices for the current user, then signs out the current browser/app.
+
 ### Passkeys
 - `GET /api/me/passkeys` — list own passkeys.
 - `POST /api/me/passkeys/options` — prepare registration options/challenge; allowed with enrollment-only JWT or fresh MFA reauth.
