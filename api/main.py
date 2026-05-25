@@ -77,7 +77,7 @@ def _render_inline_markdown(value: str) -> str:
     return escaped
 
 
-def _markdown_to_html(markdown: str) -> tuple[str, str]:
+def _markdown_to_html(markdown: str, toc_filter=None) -> tuple[str, str]:
     lines = markdown.splitlines()
     body: list[str] = []
     toc: list[tuple[int, str, str]] = []
@@ -118,7 +118,8 @@ def _markdown_to_html(markdown: str) -> tuple[str, str]:
             count = used_slugs.get(base_slug, 0)
             used_slugs[base_slug] = count + 1
             slug = base_slug if count == 0 else f"{base_slug}-{count + 1}"
-            toc.append((level, slug, text))
+            if toc_filter is None or toc_filter(level, text):
+                toc.append((level, slug, text))
             body.append(f'<h{level} id="{slug}">{_render_inline_markdown(text)}</h{level}>')
             continue
         if stripped.startswith("- "):
@@ -141,8 +142,8 @@ def _markdown_to_html(markdown: str) -> tuple[str, str]:
     return "\n".join(body), toc_html
 
 
-def _document_html(title: str, subtitle: str, markdown: str, search_placeholder: str) -> str:
-    content, toc = _markdown_to_html(markdown)
+def _document_html(title: str, subtitle: str, markdown: str, search_placeholder: str, toc_filter=None) -> str:
+    content, toc = _markdown_to_html(markdown, toc_filter=toc_filter)
     safe_title = html.escape(title)
     safe_subtitle = html.escape(subtitle)
     safe_placeholder = html.escape(search_placeholder)
@@ -176,7 +177,10 @@ def _document_html(title: str, subtitle: str, markdown: str, search_placeholder:
     #search-status {{ margin:8px 4px 0; color:var(--muted); font-size:13px; }}
     .layout {{ display:grid; grid-template-columns:280px minmax(0, 1fr); gap:28px; max-width:1400px; margin:0 auto; padding:20px clamp(16px, 3vw, 40px) 56px; }}
     nav {{ position:sticky; top:20px; align-self:start; max-height:calc(100vh - 40px); overflow:auto; padding:16px; border:1px solid var(--border); border-radius:18px; background:color-mix(in srgb, var(--panel) 92%, transparent); }}
+    .toc-toggle {{ display:none; width:100%; border:0; background:transparent; color:var(--text); font:inherit; font-weight:700; padding:0; text-align:left; cursor:pointer; align-items:center; justify-content:space-between; gap:10px; }}
+    .toc-toggle .toc-chevron {{ color:var(--muted); transition:transform .15s ease; }}
     nav strong {{ display:block; margin-bottom:10px; }}
+    .toc-links {{ display:block; }}
     nav a {{ display:block; padding:6px 8px; color:var(--muted); text-decoration:none; border-radius:10px; font-size:14px; }}
     nav a:hover {{ color:var(--text); background:rgba(139,92,246,.12); }}
     nav .toc-level-1 {{ color:var(--text); font-weight:700; }}
@@ -192,7 +196,7 @@ def _document_html(title: str, subtitle: str, markdown: str, search_placeholder:
     li {{ margin:6px 0; }}
     mark {{ background:var(--mark); color:#111827; border-radius:4px; padding:0 .12em; }}
     .hidden-by-search {{ display:none !important; }}
-    @media (max-width: 900px) {{ .hero {{ display:block; }} .toolbar {{ margin-top:18px; }} .layout {{ display:block; }} nav {{ position:static; max-height:none; margin-bottom:18px; }} main {{ padding:18px; }} }}
+    @media (max-width: 900px) {{ .hero {{ display:block; }} .toolbar {{ margin-top:18px; }} .layout {{ display:block; }} nav {{ position:static; max-height:none; margin-bottom:18px; }} nav strong {{ display:none; }} .toc-toggle {{ display:flex; }} .toc-links {{ display:none; margin-top:10px; }} nav.toc-open .toc-links {{ display:block; }} nav.toc-open .toc-chevron {{ transform:rotate(180deg); }} main {{ padding:18px; }} }}
   </style>
 </head>
 <body>
@@ -220,7 +224,7 @@ def _document_html(title: str, subtitle: str, markdown: str, search_placeholder:
     <div id="search-status"></div>
   </div>
   <div class="layout">
-    <nav><strong>Contents</strong>{toc}</nav>
+    <nav class="toc-panel"><strong>Contents</strong><button type="button" class="toc-toggle" aria-expanded="false" aria-controls="toc-links"><span>Contents</span><span class="toc-chevron" aria-hidden="true">⌄</span></button><div class="toc-links" id="toc-links">{toc}</div></nav>
     <main id="api-content">{content}</main>
   </div>
   <script>
@@ -246,6 +250,14 @@ def _document_html(title: str, subtitle: str, markdown: str, search_placeholder:
       let saved = 'system';
       try {{ saved = localStorage.getItem('nia-docs-theme') || 'system'; }} catch {{}}
       window.setTheme(saved);
+
+      const tocPanel = document.querySelector('nav.toc-panel');
+      const tocToggle = document.querySelector('.toc-toggle');
+      tocToggle?.addEventListener('click', () => {{
+        const open = !tocPanel?.classList.contains('toc-open');
+        tocPanel?.classList.toggle('toc-open', open);
+        tocToggle.setAttribute('aria-expanded', String(open));
+      }});
 
       const search = document.getElementById('api-search');
       const clear = document.getElementById('api-search-clear');
@@ -343,6 +355,7 @@ def _changelog_html() -> str:
         "Public version history with the main changes, fixes, and security improvements.",
         markdown,
         "Search changelog… e.g. workspaces, Android, security",
+        toc_filter=lambda level, text: level == 2 and re.match(r"^\[?\d+\.\d+\.\d+\]?(?:\s|-|$)", text),
     )
 
 def _no_store_html(content: str) -> HTMLResponse:
