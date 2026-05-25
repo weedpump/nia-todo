@@ -67,6 +67,31 @@ async function testNativeSetupWithoutServerUrl() {
   }
 }
 
+async function testNativeChangelogPillOpensOnlyOnce() {
+  const { browser, page, dumpErrors } = await launchPage();
+  try {
+    await installTauriStub(page, { serverUrl: BASE_URL }, {
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    });
+    await page.goto(BASE_URL, { waitUntil: 'domcontentloaded' });
+    await page.locator('#login-overlay').waitFor({ state: 'visible', timeout: 10_000 });
+    await page.fill('#login-username', USERNAME);
+    await page.fill('#login-password', USER_PASSWORD);
+    await page.click('button.login-btn');
+    await page.locator('#login-overlay').waitFor({ state: 'hidden', timeout: 15_000 });
+
+    await page.locator('#changelog-link').evaluate((el) => { el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window })); });
+    await page.waitForFunction(() => (window.__nativeOpenedUrls || []).length === 1, null, { timeout: 10_000 });
+    const opened = await page.evaluate(() => window.__nativeOpenedUrls || []);
+    if (opened.length !== 1) throw new Error(`Expected exactly one native openExternal call, got ${opened.length}`);
+  } catch (error) {
+    console.log('DEBUG frontend errors:', JSON.stringify(dumpErrors()));
+    throw error;
+  } finally {
+    await browser.close();
+  }
+}
+
 async function testNativeChangelogOpensExternally() {
   const { browser, page, dumpErrors } = await launchPage();
   try {
@@ -480,6 +505,7 @@ async function run() {
   console.log('🧭 Running native runtime config regression test...');
   await testNativeSetupWithoutServerUrl();
   await testNativeRuntimeUsesConfiguredServerUrl();
+  await testNativeChangelogPillOpensOnlyOnce();
   await testNativeChangelogOpensExternally();
   await testNativeDesktopSettingsPersistViaTauriCommand();
   await testNativeLanguageSettingPersistsThroughInlineChangeBridge();
