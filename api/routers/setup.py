@@ -11,6 +11,7 @@ from services.utils import normalize_email, sanitize_text, validate_email, valid
 from services.audit import log_audit
 from rate_limit import require_login_rate_limit, get_client_ip
 from middleware.security import generate_csrf_token, set_csrf_cookie
+from errors import validation_api_error
 
 router = APIRouter()
 
@@ -39,7 +40,7 @@ def setup_status():
 def setup_admin(data: AdminSetupRequest, request: Request, _: None = Depends(require_login_rate_limit)):
     error = validate_admin_password(data.admin_password)
     if error:
-        raise HTTPException(400, error)
+        raise validation_api_error(error)
     with get_db() as db:
         config = db.execute("SELECT setup_complete, admin_token_hash FROM admin_config WHERE id = 1").fetchone()
         if config and config['setup_complete']:
@@ -64,10 +65,10 @@ def setup_first_user(data: FirstUserRequest, request: Request, _: None = Depends
     data.display_name = sanitize_text(data.display_name)
     email_error = validate_email(data.email)
     if email_error:
-        raise HTTPException(400, email_error)
+        raise validation_api_error(email_error)
     error = validate_password(data.password)
     if error:
-        raise HTTPException(400, error)
+        raise validation_api_error(error)
     with get_db() as db:
         user_count = db.execute("SELECT COUNT(*) as c FROM users").fetchone()['c']
         if user_count > 0:

@@ -31,6 +31,29 @@ def api_error(status_code: int, code: str, message: str, **params: Any) -> APIEr
     return APIError(status_code=status_code, code=code, message=message, **params)
 
 
+VALIDATION_ERROR_MESSAGES = {
+    "validation.email.required": ("validation.emailRequired", "Email is required"),
+    "validation.email.tooLong": ("validation.emailTooLong", "Email address is too long"),
+    "validation.email.invalid": ("validation.invalidEmail", "Please enter a valid email address"),
+    "validation.password.uppercase": ("validation.passwordUppercase", "Password must contain at least one uppercase letter"),
+    "validation.password.lowercase": ("validation.passwordLowercase", "Password must contain at least one lowercase letter"),
+    "validation.password.digit": ("validation.passwordDigit", "Password must contain at least one digit"),
+    "validation.password.special": ("validation.passwordSpecial", "Password must contain at least one special character"),
+}
+
+
+def validation_api_error(error: str, status_code: int = 400) -> APIError:
+    """Map internal validation keys to stable client-facing APIError codes."""
+    if error.startswith("validation.password.tooShort."):
+        min_length = error.rsplit(".", 1)[-1]
+        code = f"validation.passwordTooShort{min_length}"
+        message = f"Password must be at least {min_length} characters long"
+        return api_error(status_code, code, message, min=int(min_length))
+
+    code, message = VALIDATION_ERROR_MESSAGES.get(error, ("validation.invalid", "Validation failed"))
+    return api_error(status_code, code, message)
+
+
 async def api_error_handler(request: Request, exc: APIError) -> JSONResponse:
     """Custom handler that returns flat error structure."""
     content = {

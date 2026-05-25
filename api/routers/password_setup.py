@@ -8,7 +8,7 @@ from pydantic import BaseModel
 
 from db import get_db
 from rate_limit import rate_limiter, get_client_ip, require_password_reset_rate_limit
-from errors import api_error
+from errors import api_error, validation_api_error
 from services.audit import log_audit
 from services.email import send_email
 from services.email_config import can_send_email_links, get_password_link_ttl_hours
@@ -233,7 +233,7 @@ def resend_password_setup_link(data: ResendPasswordSetupRequest, request: Reques
 def complete_password_setup(data: CompletePasswordSetupRequest):
     error = validate_password(data.password)
     if error:
-        raise api_error(400, f"validation.{error}", error)
+        raise validation_api_error(error)
     with get_db() as db:
         row = _get_valid_token(db, data.token)
         if not row:
