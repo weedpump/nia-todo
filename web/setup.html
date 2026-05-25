@@ -122,6 +122,7 @@ hydrateIcons(document);
 </script>
 <script type="module">
 import { initI18n, t } from './static/js/i18n/index.js';
+import { apiErrorFromResponse } from './static/js/api/errors.js';
 await initI18n();
 
 const API = '';
@@ -169,6 +170,15 @@ function showError(step, msg) {
   document.getElementById('error-' + step).textContent = msg;
 }
 
+async function getApiErrorMessage(response) {
+  try {
+    await apiErrorFromResponse(response, t('common.error'));
+  } catch (error) {
+    return error?.message || t('common.error');
+  }
+  return t('common.error');
+}
+
 async function setAdminPassword() {
   const pw = document.getElementById('admin-password').value;
   const confirm = document.getElementById('admin-password-confirm').value;
@@ -189,8 +199,7 @@ async function setAdminPassword() {
       body: JSON.stringify({ admin_password: pw })
     });
     if (!r.ok) {
-      const data = await r.json();
-      showError(1, data.detail || t('common.error'));
+      showError(1, await getApiErrorMessage(r));
       return;
     }
     showError(1, '');
@@ -231,8 +240,7 @@ async function createFirstUser() {
       })
     });
     if (!r.ok) {
-      const data = await r.json();
-      showError(2, data.detail || t('common.error'));
+      showError(2, await getApiErrorMessage(r));
       return;
     }
     showError(2, '');
