@@ -5,47 +5,38 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import HTTPException
+from fastapi.responses import JSONResponse
+from fastapi.requests import Request
 
 
-def error_detail(code: str, message: str, **params: Any) -> dict[str, Any]:
-    """Return error detail compatible with legacy string format.
-    
-    For backward compatibility, the response includes:
-    - `detail`: plain string message (legacy clients)
-    - `code`: error code for i18n lookup (new clients)
-    - `message`: same as detail (explicit)
-    - `params`: optional interpolation parameters
-    
-    HTTP response shape:
-    {"detail": "message", "code": "...", "params": {...}}
-    """
-    result: dict[str, Any] = {"detail": message, "code": code}
-    if params:
-        result["params"] = params
-    return result
-
-
-class APIError(Exception):
-    """Custom exception for backward-compatible API errors.
+class APIError(HTTPException):
+    """Custom HTTPException with flat error structure for backward compatibility.
     
     Response shape: {"detail": str, "code": str, "params": dict}
+    This avoids FastAPI's default nesting of detail field.
     """
     def __init__(self, status_code: int, code: str, message: str, **params: Any):
-        self.status_code = status_code
-        self.code = code
-        self.message = message
-        self.params = params
-        super().__init__(message)
+        # Store flat structure in detail for custom handler
+        self.error_code = code
+        self.error_params = params
+        super().__init__(status_code=status_code, detail=message)
 
 
-def api_error(status_code: int, code: str, message: str, **params: Any) -> HTTPException:
-    """Create an HTTPException with backward-compatible error format.
+def api_error(status_code: int, code: str, message: str, **params: Any) -> APIError:
+    """Create an APIError with backward-compatible flat error format.
     
-    The detail field is a plain string for legacy clients.
-    Code and params are included at top level for i18n-aware clients.
+    Legacy clients read 'detail' string.
+    i18n-aware clients use 'code' + 'params' for localization.
     """
-    # Build response with flat structure
-    response = {"detail": message, "code": code}
-    if params:
-        response["params"] = params
-    return HTTPException(status_code=status_code, detail=response)
+    return APIError(status_code=status_code, code=code, message=message, **params)
+
+
+async def api_error_handler(request: Request, exc: APIError) -> JSONResponse:
+    """Custom handler that returns flat error structure."""
+    content = {
+        "detail": exc.detail,
+        "code": exc.error_code,
+    }
+    if exc.error_params:
+        content["params"] = exc.error_params
+    return JSONResponse(status_code=exc.status_code, content=content)

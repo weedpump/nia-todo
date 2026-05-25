@@ -67,7 +67,7 @@ function connectWebSocket() {
         wsSend({ type: 'auth', token: token });
       }
 
-      // ERST: Lokale Änderungen pushen (wenn Queue vorhanden)
+      // FIRST: Push local changes (if queue exists)
       try {
         await syncWithServer();
       } catch (e) {
@@ -338,7 +338,7 @@ async function handleWsMessage(msg) {
           const localTime = new Date(local.updated_at || 0).getTime();
           const serverTime = new Date(msg.payload.updated_at || 0).getTime();
           if (serverTime < localTime) {
-            // Lokale Version ist neuer → nicht überschreiben
+            // Local version is newer → do not overwrite
             break;
           }
         }

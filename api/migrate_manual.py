@@ -97,7 +97,7 @@ def check_db():
 
 if __name__ == '__main__':
     if not DB_PATH.exists():
-        print(f"❌ DB nicht gefunden: {DB_PATH}")
+        print(f"❌ DB not found: {DB_PATH}")
         sys.exit(1)
     
     if check_db():

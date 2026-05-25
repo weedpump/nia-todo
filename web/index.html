@@ -77,7 +77,7 @@
           <input type="text" id="login-username" required placeholder="Username or email" data-i18n-placeholder-key="auth.usernameOrEmail" autocomplete="username">
         </div>
         <div class="login-field">
-          <label for="login-password" data-i18n-key="auth.password">Passwort</label>
+          <label for="login-password" data-i18n-key="auth.password">Password</label>
           <input type="password" id="login-password" required placeholder="Enter password" data-i18n-placeholder-key="auth.passwordPlaceholder" autocomplete="current-password">
         </div>
         <div id="login-mfa-panel" class="login-mfa-panel hidden">
@@ -177,7 +177,7 @@
             <button type="button" class="user-menu-item" id="menu-settings-btn" onclick="closeUserMenu(); openSettingsModal()" title="Einstellungen" data-i18n-title-key="menu.settings" role="menuitem"><span data-icon="settings"></span><span data-i18n-key="menu.settings">Einstellungen</span></button>
             <button type="button" class="user-menu-item" id="theme-toggle-btn" onclick="cycleTheme()" role="menuitem"><span class="menu-item-icon" data-icon="monitor"></span><span class="menu-item-label">Theme: System</span></button>
             <button type="button" class="user-menu-item accent-preset-row" id="accent-preset-row" onclick="toggleAccentPresetMenu(event)" title="Preset Farbe" data-i18n-title-key="menu.presetColor" aria-expanded="false" role="menuitem"><span class="menu-item-icon accent-preset-current" id="accent-preset-current"></span><span class="menu-item-label" data-i18n-key="menu.presetColor">Preset Farbe</span><span class="accent-preset-chevron"></span></button>
-            <div class="accent-preset-panel" id="accent-preset-panel" aria-label="Preset Farbe auswählen" data-i18n-aria-label-key="menu.choosePresetColor"></div>
+            <div class="accent-preset-panel" id="accent-preset-panel" aria-label="Choose preset color" data-i18n-aria-label-key="menu.choosePresetColor"></div>
             <button type="button" class="user-menu-item" id="sort-toggle-btn" onclick="cycleSort()" role="menuitem"><span class="menu-item-icon">P1</span><span class="menu-item-label" data-i18n-key="menu.sort.priority">Sort: Priority</span></button>
             <button type="button" class="user-menu-item" id="toggle-done-btn" onclick="toggleHideDone()" role="menuitem"><span class="menu-item-icon" data-icon="ban"></span><span class="menu-item-label">Erledigte anzeigen</span></button>
             <button type="button" class="user-menu-item" id="project-widget-toggle-btn" onclick="toggleProjectWidget()" role="menuitem"><span class="menu-item-icon" data-icon="layout-dashboard"></span><span class="menu-item-label" data-i18n-key="menu.projectWidget">Projekt Widget</span></button>
@@ -441,11 +441,11 @@
           <input type="password" id="settings-old-password" placeholder="Current password" data-i18n-placeholder-key="settings.password.current" autocomplete="current-password" onkeydown="if(event.key==='Enter') document.getElementById('settings-new-password').focus()">
         </div>
         <div class="form-group">
-          <label data-i18n-key="settings.password.new">Neues Passwort</label>
+          <label data-i18n-key="settings.password.new">Neues Password</label>
           <input type="password" id="settings-new-password" placeholder="New password (8+ characters)" data-i18n-placeholder-key="settings.password.newPlaceholder" autocomplete="new-password" onkeydown="if(event.key==='Enter') document.getElementById('settings-confirm-password').focus()">
         </div>
         <div class="form-group">
-          <label data-i18n-key="settings.password.confirm">Passwort bestätigen</label>
+          <label data-i18n-key="settings.password.confirm">Confirm password</label>
           <input type="password" id="settings-confirm-password" placeholder="Repeat new password" data-i18n-placeholder-key="settings.password.repeatPlaceholder" autocomplete="new-password" onkeydown="if(event.key==='Enter') changeUserPassword()">
         </div>
         <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;" data-i18n-key="settings.password.requirements">
@@ -539,7 +539,7 @@
             <span data-i18n-key="settings.desktop.nativeNotifications">Native Benachrichtigungen</span>
             <input type="checkbox" id="desktop-notifications">
           </label>
-          <button class="btn btn-secondary" type="button" onclick="testDesktopNotification()" style="margin-top:8px;" data-i18n-key="settings.desktop.testNotification">Test-Benachrichtigung</button>
+          <button class="btn btn-secondary" type="button" onclick="testDesktopNotification()" style="margin-top:8px;" data-i18n-key="settings.desktop.testNotification">Test notification</button>
           <div class="desktop-hotkeys-settings" data-desktop-only>
             <h5><span data-icon="keyboard"></span> <span data-i18n-key="settings.desktop.hotkeys.title">Globale Hotkeys</span></h5>
             <p><span data-i18n-key="settings.desktop.hotkeys.hint">Click the field, press the shortcut, done.</span> <code>Backspace</code>/<code data-i18n-key="settings.desktop.hotkeys.deleteKey">Del</code> <span data-i18n-key="settings.desktop.hotkeys.clearHint">clears the hotkey.</span></p>
