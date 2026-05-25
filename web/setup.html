@@ -6,8 +6,8 @@
 <title data-i18n-key="setup.pageTitle">nia-todo Setup</title>
 <link rel="stylesheet" href="/static/style.css">
 <style>
-body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--bg-primary); }
-.setup-container { width: 100%; max-width: 440px; padding: 20px; }
+body { margin: 0; min-height: 100vh; min-height: 100dvh; display: flex; align-items: center; justify-content: center; background: var(--bg-primary); overflow-y: auto; }
+.setup-container { width: 100%; max-width: 440px; padding: max(20px, env(safe-area-inset-top)) 20px max(20px, env(safe-area-inset-bottom)); box-sizing: border-box; }
 .setup-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 16px; padding: 40px 32px; box-shadow: var(--shadow); }
 .setup-header { text-align: center; margin-bottom: 32px; }
 .setup-logo { 
@@ -43,6 +43,18 @@ body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify
 .success-icon .ui-icon { width:48px; height:48px; }
 .setup-theme-toggle button:hover { background: var(--bg-secondary); color: var(--text-primary); }
 .setup-theme-toggle button.active { background: var(--accent); border-color: var(--accent); color: white; transform: scale(1.05); }
+@media (max-width: 520px), (max-height: 760px) {
+  body { align-items: flex-start; }
+  .setup-container { max-width: none; padding-left: 12px; padding-right: 12px; }
+  .setup-card { padding: 28px 20px; }
+  .setup-header { margin-bottom: 24px; }
+}
+@media (max-height: 680px) {
+  .setup-card { padding-top: 20px; padding-bottom: 20px; }
+  .setup-header { margin-bottom: 18px; }
+  .setup-logo { width: 52px; height: 52px; font-size: 40px; }
+  .step-indicator { margin-bottom: 18px; }
+}
 </style>
 </head>
 <body>

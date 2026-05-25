@@ -14,6 +14,7 @@ async function run() {
     const { page, visible } = launched;
     await page.addInitScript(() => localStorage.setItem('nia-todo-language', 'de'));
 
+    await page.setViewportSize({ width: 390, height: 640 });
     await page.goto('http://localhost:8754/setup', { waitUntil: 'networkidle' });
     await visible('#step-1');
 
@@ -26,6 +27,10 @@ async function run() {
     await page.fill('#admin-password-confirm', ADMIN_PASSWORD);
     await page.click('button.setup-btn');
     await visible('#step-2');
+    const canScrollSetup = await page.evaluate(() => document.documentElement.scrollHeight > window.innerHeight);
+    if (!canScrollSetup) throw new Error('Mobile setup page should be scrollable when first-user form exceeds viewport');
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await page.locator('text=Installation abschließen').waitFor({ state: 'visible' });
 
     await page.fill('#first-username', 'setupuser');
     await page.fill('#first-display-name', 'Setup User');
