@@ -789,12 +789,11 @@ function renderUserTwoFactorStatus(user) {
   if (Number(user.passkey_count || 0) > 0) factors.push(`${user.passkey_count} Passkey`);
   if (user.has_recovery_codes) factors.push('Recovery');
   if (user.has_email_fallback) factors.push(t('admin.user.twofa.emailFallback'));
-  if (Number(user.trusted_device_count || 0) > 0) factors.push(t('admin.user.twofa.trustedDevices', { count: user.trusted_device_count }));
   const badge = enabled
     ? `<span class="badge badge-success">${escapeHtml(t('admin.user.twofa.active'))}</span>`
     : (twoFactorPolicyRequired ? `<span class="badge badge-warning">${escapeHtml(t('admin.user.twofa.required'))}</span>` : `<span class="badge badge-muted">${escapeHtml(t('admin.user.twofa.off'))}</span>`);
   const detail = factors.length ? factors.map(escapeHtml).join(' · ') : (twoFactorPolicyRequired ? t('admin.user.twofa.setupOnly') : '-');
-  const reset = (enabled || Number(user.passkey_count || 0) > 0 || Number(user.trusted_device_count || 0) > 0)
+  const reset = (enabled || Number(user.passkey_count || 0) > 0)
     ? `<button class="btn btn-danger admin-table-action" style="margin-top:6px;" onclick="resetUserTwoFactor(${user.id}, '${escapeHtmlAttr(user.username)}')">${iconSvg('shield-check')} ${escapeHtml(t('admin.user.twofa.resetShort'))}</button>`
     : '';
   return `<div class="twofa-stack">${badge}<span class="admin-help" style="margin:0;">${detail}</span></div>${reset}`;
