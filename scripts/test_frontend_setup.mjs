@@ -12,6 +12,7 @@ async function run() {
     const launched = await launchPage();
     browser = launched.browser;
     const { page, visible } = launched;
+    await page.addInitScript(() => localStorage.setItem('nia-todo-language', 'de'));
 
     await page.goto('http://localhost:8754/setup', { waitUntil: 'networkidle' });
     await visible('#step-1');

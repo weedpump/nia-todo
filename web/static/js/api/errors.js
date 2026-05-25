@@ -17,15 +17,25 @@ const LEGACY_DETAIL_KEYS = new Map(Object.entries({
   'You are not authenticated.': 'api.error.auth.notAuthenticated',
 }));
 
-function messageFromDetail(detail, fallback) {
+function normalizeApiErrorData(data, fallback) {
+  let code = data && typeof data === 'object' ? data.code : undefined;
+  let params = data && typeof data === 'object' ? (data.params || {}) : {};
+  let detail = data && typeof data === 'object' ? data.detail : undefined;
+
   if (detail && typeof detail === 'object' && !Array.isArray(detail)) {
-    const code = detail.code ? String(detail.code) : '';
-    if (code) {
-      const key = `api.error.${code}`;
-      const translated = t(key, detail.params || {});
-      if (translated !== key) return translated;
-    }
-    if (detail.message) return String(detail.message);
+    code = detail.code || code;
+    params = detail.params || params;
+    detail = detail.detail || detail.message || fallback;
+  }
+
+  return { code, params, detail };
+}
+
+function messageFromNormalizedError({ code, params, detail }, fallback) {
+  if (code) {
+    const key = `api.error.${code}`;
+    const translated = t(key, params || {});
+    if (translated !== key) return translated;
   }
 
   if (typeof detail === 'string' && detail) {
@@ -39,10 +49,12 @@ function messageFromDetail(detail, fallback) {
 
 export async function apiErrorFromResponse(response, fallback = 'Request failed') {
   const data = await response.json().catch(() => ({}));
-  const message = messageFromDetail(data.detail, fallback);
+  const normalized = normalizeApiErrorData(data, fallback);
+  const message = messageFromNormalizedError(normalized, fallback);
   const error = new Error(message);
   error.status = response.status;
-  error.code = data.detail && typeof data.detail === 'object' ? data.detail.code : undefined;
-  error.detail = data.detail;
+  error.code = normalized.code;
+  error.params = normalized.params;
+  error.detail = normalized.detail;
   throw error;
 }
