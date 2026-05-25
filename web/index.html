@@ -601,7 +601,7 @@
   <div class="modal" id="project-modal">
     <div class="modal-overlay" onclick="closeModal('project-modal')"></div>
     <div class="modal-content">
-      <h3 id="project-modal-title" data-i18n-key="project.new">Neues Project</h3>
+      <h3 id="project-modal-title" data-i18n-key="project.new">New project</h3>
       <button class="modal-close-x" onclick="closeModal('project-modal')"><span data-icon="x"></span></button>
       <div class="modal-body">
       <form id="project-form">
@@ -624,9 +624,9 @@
           <select id="project-display-workspace-id"></select>
         </div>
         <div class="form-group">
-          <label data-i18n-key="project.parent">Eltern-Project (optional)</label>
+          <label data-i18n-key="project.parent">Parent project (optional)</label>
           <select id="project-parent-id">
-            <option value="" data-i18n-key="project.noParent">-- Kein Eltern-Project --</option>
+            <option value="" data-i18n-key="project.noParent">-- No parent project --</option>
           </select>
         </div>
       </form>
@@ -648,7 +648,7 @@
         <div id="project-share-start-row" style="margin-top:10px;">
           <button type="button" class="btn btn-secondary" onclick="showShareInput()"><span data-icon="share-2"></span> <span data-i18n-key="project.share.start">Teilen</span></button>
         </div>
-        <button type="button" class="btn btn-secondary" id="project-leave-btn" onclick="leaveProjectFromModal()" style="display:none; margin-top:10px;" data-i18n-key="project.share.leave">Project verlassen</button>
+        <button type="button" class="btn btn-secondary" id="project-leave-btn" onclick="leaveProjectFromModal()" style="display:none; margin-top:10px;" data-i18n-key="project.share.leave">Leave project</button>
       </div>
       </div>
       <div class="modal-actions">
