@@ -122,7 +122,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
   <div class="admin-header">
     <h1><span data-icon="shield"></span> <span data-i18n-key="admin.title">nia-todo Admin</span></h1>
     <div class="admin-nav">
-      <a class="admin-back-btn" href="/" data-i18n-key="admin.backToApp">Zurück zur App</a>
+      <a class="admin-back-btn" href="/" data-i18n-key="admin.backToApp">Back to app</a>
       <div class="admin-theme-toggle">
         <button data-theme="light" onclick="setTheme('light')" data-i18n-title-key="common.theme.light" title="Hell"><span data-icon="sun"></span></button>
         <button data-theme="dark" onclick="setTheme('dark')" data-i18n-title-key="common.theme.dark" title="Dunkel"><span data-icon="moon"></span></button>
@@ -134,11 +134,11 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
   <div class="admin-dialog" id="admin-action-dialog" role="dialog" aria-modal="true" aria-labelledby="admin-dialog-title">
     <div class="admin-dialog-overlay" id="admin-dialog-overlay"></div>
     <form class="admin-dialog-content" id="admin-dialog-form">
-      <h3 id="admin-dialog-title" data-i18n-key="admin.dialog.confirmTitle">Aktion bestätigen</h3>
+      <h3 id="admin-dialog-title" data-i18n-key="admin.dialog.confirmTitle">Confirm action</h3>
       <p id="admin-dialog-message"></p>
       <div class="admin-dialog-actions">
         <button type="button" class="btn" id="admin-dialog-cancel" data-i18n-key="common.cancel">Abbrechen</button>
-        <button type="submit" class="btn btn-primary" id="admin-dialog-confirm" data-i18n-key="common.confirm">Bestätigen</button>
+        <button type="submit" class="btn btn-primary" id="admin-dialog-confirm" data-i18n-key="common.confirm">Confirm</button>
       </div>
     </form>
   </div>
@@ -146,7 +146,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
   <div class="admin-card" id="admin-login-card">
     <h2><span data-icon="lock-keyhole"></span> <span data-i18n-key="admin.login.title">Admin-Anmeldung</span></h2>
     <div class="form-row">
-      <input type="password" id="admin-login-password" data-i18n-placeholder-key="admin.login.passwordPlaceholder" placeholder="Admin-Passwort eingeben" autocomplete="off" onkeydown="if(event.key==='Enter') doAdminLogin()">
+      <input type="password" id="admin-login-password" data-i18n-placeholder-key="admin.login.passwordPlaceholder" placeholder="Admin-Password eingeben" autocomplete="off" onkeydown="if(event.key==='Enter') doAdminLogin()">
       <button class="btn btn-primary" onclick="doAdminLogin()" data-i18n-key="auth.signIn">Anmelden</button>
     </div>
     <div class="admin-error" id="admin-login-error"></div>
@@ -156,7 +156,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 
   <!-- Admin Toolbar -->
   <div class="admin-card admin-status-card">
-    <span class="admin-status-text"><span data-icon="lock-keyhole"></span> <span data-i18n-key="admin.status.loggedIn">Eingeloggt als Admin</span></span>
+    <span class="admin-status-text"><span data-icon="lock-keyhole"></span> <span data-i18n-key="admin.status.loggedIn">Logged in as admin</span></span>
     <button class="btn btn-danger" onclick="adminLogout()" data-i18n-key="auth.signOut">Abmelden</button>
   </div>
 
@@ -165,7 +165,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
     <h2><span data-icon="settings"></span> <span data-i18n-key="admin.instance.title">Instanz-Konfiguration</span></h2>
     <div class="admin-config-grid">
       <div class="admin-config-field full">
-        <label for="instance-public-url" data-i18n-key="admin.instance.publicUrl">Öffentliche Basis-URL</label>
+        <label for="instance-public-url" data-i18n-key="admin.instance.publicUrl">Public base URL</label>
         <input type="url" id="instance-public-url" placeholder="https://todo.example.org" autocomplete="off">
       </div>
       <div class="admin-config-field full">
@@ -177,7 +177,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
         <textarea id="instance-trusted-proxies" class="admin-config-textarea" placeholder="10.0.10.14&#10;172.18.0.0/16"></textarea>
       </div>
     </div>
-    <div class="admin-help" data-i18n-key="admin.instance.help">Basis-URL wird für externe Links genutzt. Origins und Trusted Proxies sind zeilenweise. Forwarded-Header werden nur von Trusted Proxies akzeptiert.</div>
+    <div class="admin-help" data-i18n-key="admin.instance.help">The base URL is used for external links. Origins and trusted proxies are line-based. Forwarded headers are only accepted from trusted proxies.</div>
     <div class="form-row" style="margin-top:12px;">
       <button class="btn btn-primary" onclick="saveInstanceConfig()" data-i18n-key="admin.instance.save">Instanz-Konfiguration speichern</button>
     </div>
@@ -187,11 +187,11 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 
   <!-- Email Configuration -->
   <div class="admin-card" id="email-config-card">
-    <h2><span data-icon="mail"></span> <span data-i18n-key="admin.email.title">E-Mail / SMTP</span></h2>
+    <h2><span data-icon="mail"></span> <span data-i18n-key="admin.email.title">Email / SMTP</span></h2>
     <div class="admin-config-grid">
       <div class="admin-config-field admin-config-checkbox full">
         <input type="checkbox" id="email-smtp-enabled">
-        <label for="email-smtp-enabled" data-i18n-key="admin.email.enableSending">E-Mail-Versand aktivieren</label>
+        <label for="email-smtp-enabled" data-i18n-key="admin.email.enableSending">Enable email sending</label>
       </div>
       <div class="admin-config-field">
         <label for="email-smtp-host">SMTP Host</label>
@@ -218,8 +218,8 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
         <input type="text" id="email-smtp-username" autocomplete="off">
       </div>
       <div class="admin-config-field">
-        <label for="email-smtp-password" data-i18n-key="admin.email.smtpPassword">SMTP Passwort / Secret</label>
-        <input type="password" id="email-smtp-password" data-i18n-placeholder-key="admin.email.keepSecretPlaceholder" placeholder="Leer lassen = unverändert" autocomplete="new-password">
+        <label for="email-smtp-password" data-i18n-key="admin.email.smtpPassword">SMTP password / secret</label>
+        <input type="password" id="email-smtp-password" data-i18n-placeholder-key="admin.email.keepSecretPlaceholder" placeholder="Leave blank = unchanged" autocomplete="new-password">
         <div class="admin-secret-note" id="email-smtp-password-note"></div>
       </div>
       <div class="admin-config-field">
@@ -235,7 +235,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
         <input type="email" id="email-reply-to" placeholder="support@example.org" autocomplete="off">
       </div>
       <div class="admin-config-field">
-        <label for="email-link-ttl" data-i18n-key="admin.email.linkTtl">Link-Gültigkeit in Stunden</label>
+        <label for="email-link-ttl" data-i18n-key="admin.email.linkTtl">Link validity in hours</label>
         <input type="number" id="email-link-ttl" min="1" max="168" value="24">
       </div>
       <div class="admin-config-field full">
@@ -246,9 +246,9 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
         </div>
       </div>
     </div>
-    <div class="admin-help" data-i18n-key="admin.email.help">Passwort-/Setup-Links nutzen die öffentliche Basis-URL aus der Instanz-Konfiguration. SMTP-Passwörter werden nie wieder angezeigt. Ohne aktivierten E-Mail-Versand gelten Adressen nach dem manuellen Setup-Link als bestätigt, werden aber nicht per Mailbox geprüft.</div>
+    <div class="admin-help" data-i18n-key="admin.email.help">Password/setup links use the public base URL from the instance configuration. SMTP passwords are never shown again. Without email sending enabled, addresses are considered confirmed after the manual setup link, but are not mailbox-verified.</div>
     <div class="form-row" style="margin-top:12px;">
-      <button class="btn btn-primary" onclick="saveEmailConfig()" data-i18n-key="admin.email.save">E-Mail-Konfiguration speichern</button>
+      <button class="btn btn-primary" onclick="saveEmailConfig()" data-i18n-key="admin.email.save">Email-Konfiguration speichern</button>
     </div>
     <div class="admin-error" id="email-config-error"></div>
     <div class="admin-success" id="email-config-success"></div>
@@ -259,27 +259,27 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
     <h2><span data-icon="shield-check"></span> <span data-i18n-key="admin.security.title">Sicherheit / 2FA</span></h2>
     <div class="security-policy-row">
       <div class="security-policy-main">
-        <div class="security-policy-title" id="twofa-policy-title" data-i18n-key="admin.security.policyLoading">2FA-Pflicht lädt…</div>
-        <div class="security-policy-desc" data-i18n-key="admin.security.policyDesc">Erzwingt 2FA für alle Benutzer. Anmeldung ist mit Authenticator-App, Passkey oder vorhandenen Recovery Codes möglich. Wenn SMTP eingerichtet ist, können Benutzer ohne Authenticator/Passkey vorübergehend einen E-Mail-Code nutzen. Ohne verfügbare Methode erhalten sie nur Zugriff auf die 2FA-Einrichtung.</div>
+        <div class="security-policy-title" id="twofa-policy-title" data-i18n-key="admin.security.policyLoading">2FA requirement loading…</div>
+        <div class="security-policy-desc" data-i18n-key="admin.security.policyDesc">Requires 2FA for all users. Sign-in is possible with an authenticator app, passkey, or existing recovery codes. If SMTP is configured, users without an authenticator/passkey can temporarily use an email code. Without any available method, they only get access to the 2FA setup.</div>
       </div>
       <button class="btn btn-primary" id="twofa-policy-toggle" onclick="toggleTwoFactorPolicy()" data-i18n-key="admin.security.toggle">Umschalten</button>
     </div>
-    <div class="admin-help" data-i18n-key="admin.security.apiKeysHelp">API-Keys bleiben als Machine-Tokens nutzbar. Erstellung und Widerruf eigener API-Keys benötigen bei MFA-pflichtigen Accounts recent MFA.</div>
+    <div class="admin-help" data-i18n-key="admin.security.apiKeysHelp">API keys remain usable as machine tokens. Creating and revoking your own API keys requires recent MFA on accounts with mandatory MFA.</div>
     <div class="admin-error" id="security-error"></div>
     <div class="admin-success" id="security-success"></div>
   </div>
 
   <!-- Change Admin Password -->
   <div class="admin-card" id="admin-password-card">
-    <h2><span data-icon="key-round"></span> <span data-i18n-key="admin.password.title">Eigenes Admin-Passwort ändern</span></h2>
+    <h2><span data-icon="key-round"></span> <span data-i18n-key="admin.password.title">Change own admin password</span></h2>
     <div class="form-row">
-      <input type="password" id="admin-old-password" data-i18n-placeholder-key="admin.password.currentPlaceholder" placeholder="Aktuelles Admin-Passwort" autocomplete="off" onkeydown="if(event.key==='Enter') document.getElementById('admin-new-password').focus()">
-      <input type="password" id="admin-new-password" data-i18n-placeholder-key="admin.password.newPlaceholder" placeholder="Neues Admin-Passwort (12+ Zeichen)" autocomplete="new-password" onkeydown="if(event.key==='Enter') document.getElementById('admin-confirm-password').focus()">
-      <input type="password" id="admin-confirm-password" data-i18n-placeholder-key="setup.confirmPasswordLabel" placeholder="Neues Passwort bestätigen" autocomplete="new-password" onkeydown="if(event.key==='Enter') changeAdminPassword()">
-      <button class="btn btn-primary" onclick="changeAdminPassword()" data-i18n-key="admin.password.change">Admin-Passwort ändern</button>
+      <input type="password" id="admin-old-password" data-i18n-placeholder-key="admin.password.currentPlaceholder" placeholder="Current admin password" autocomplete="off" onkeydown="if(event.key==='Enter') document.getElementById('admin-new-password').focus()">
+      <input type="password" id="admin-new-password" data-i18n-placeholder-key="admin.password.newPlaceholder" placeholder="New admin password (12+ characters)" autocomplete="new-password" onkeydown="if(event.key==='Enter') document.getElementById('admin-confirm-password').focus()">
+      <input type="password" id="admin-confirm-password" data-i18n-placeholder-key="setup.confirmPasswordLabel" placeholder="Confirm new password" autocomplete="new-password" onkeydown="if(event.key==='Enter') changeAdminPassword()">
+      <button class="btn btn-primary" onclick="changeAdminPassword()" data-i18n-key="admin.password.change">Change admin password</button>
     </div>
     <div style="font-size: 12px; color: var(--text-muted); margin-top: 8px;" data-i18n-key="admin.password.requirements">
-      Mindestens 12 Zeichen, 1 Großbuchstabe, 1 Kleinbuchstabe, 1 Ziffer, 1 Sonderzeichen
+      At least 12 characters, 1 uppercase, 1 lowercase, 1 digit, 1 special character
     </div>
     <div class="admin-error" id="admin-pw-error"></div>
     <div class="admin-success" id="admin-pw-success"></div>
@@ -291,11 +291,11 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
     <div class="form-row">
       <input type="text" id="new-username" data-i18n-placeholder-key="setup.usernameLabel" placeholder="Benutzername" autocomplete="off" onkeydown="if(event.key==='Enter') document.getElementById('new-display-name').focus()">
       <input type="text" id="new-display-name" data-i18n-placeholder-key="setup.displayNameLabel" placeholder="Anzeigename" onkeydown="if(event.key==='Enter') document.getElementById('new-email').focus()">
-      <input type="email" id="new-email" data-i18n-placeholder-key="settings.profile.email" placeholder="E-Mail" autocomplete="off" onkeydown="if(event.key==='Enter') createUser()">
+      <input type="email" id="new-email" data-i18n-placeholder-key="settings.profile.email" placeholder="Email" autocomplete="off" onkeydown="if(event.key==='Enter') createUser()">
       <button class="btn btn-primary" onclick="createUser()" data-i18n-key="admin.user.createAndLink">Erstellen & Link erzeugen</button>
     </div>
     <div style="font-size: 12px; color: var(--text-muted); margin-top: 8px;" data-i18n-key="admin.user.createHelp">
-      Der Benutzer setzt sein Passwort selbst über einen einmaligen Link. Wenn E-Mail konfiguriert ist, wird der Link automatisch verschickt. Ohne SMTP wird der Link manuell weitergegeben; die Adresse gilt danach als bestätigt, aber nicht mailbox-verifiziert.
+      The user sets their password through a one-time link. If email is configured, the link is sent automatically. Without SMTP, the link is shared manually; the address is then considered confirmed, but not mailbox-verified.
     </div>
     <div class="admin-error" id="create-error"></div>
     <div class="admin-success" id="create-success"></div>
@@ -315,12 +315,12 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
           <th>ID</th>
           <th data-i18n-key="admin.user.username">Benutzername</th>
           <th data-i18n-key="admin.user.displayName">Anzeigename</th>
-          <th data-i18n-key="admin.user.email">E-Mail</th>
-          <th data-i18n-key="admin.user.emailStatus">E-Mail Status</th>
+          <th data-i18n-key="admin.user.email">Email</th>
+          <th data-i18n-key="admin.user.emailStatus">Email Status</th>
           <th data-i18n-key="admin.user.login">Login</th>
           <th data-i18n-key="admin.user.twofa">2FA</th>
           <th data-i18n-key="admin.user.apiKeys">API Keys</th>
-          <th data-i18n-key="admin.user.password">Passwort</th>
+          <th data-i18n-key="admin.user.password">Password</th>
           <th data-i18n-key="admin.user.actions">Aktionen</th>
         </tr>
       </thead>
@@ -428,7 +428,7 @@ function getAuthHeaders() {
 }
 
 async function getApiError(response) {
-  const fallback = `Fehler ${response.status}: ${response.statusText || 'Anfrage fehlgeschlagen'}`;
+  const fallback = `Error ${response.status}: ${response.statusText || 'Request failed'}`;
   const data = await response.json().catch(() => null);
   if (!data) return fallback;
   if (typeof data.detail === 'string') return data.detail;
@@ -508,7 +508,7 @@ async function doAdminLogin() {
     document.getElementById('admin-content').style.display = 'block';
     await loadAdminData();
   } catch(e) {
-    document.getElementById('admin-login-error').textContent = 'Fehler: ' + e.message;
+    document.getElementById('admin-login-error').textContent = 'Error: ' + e.message;
   }
 }
 
@@ -538,7 +538,7 @@ async function loadUsers() {
     renderUsers(data.users);
   } catch(e) {
     document.getElementById('user-list').innerHTML =
-      `<tr><td colspan="8" class="empty-state">Fehler: ${e.message}</td></tr>`;
+      `<tr><td colspan="8" class="empty-state">Error: ${e.message}</td></tr>`;
     if (e.message.includes('403')) {
       localStorage.removeItem('admin_jwt_token');
       setTimeout(() => location.reload(), 2000);
