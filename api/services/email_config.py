@@ -62,7 +62,7 @@ def _parse_config_value(key: str, value: Optional[str]) -> Any:
     if key == "smtp_port":
         return _parse_int(value, field="SMTP-Port", min_value=1, max_value=65535)
     if key == "password_link_ttl_hours":
-        return _parse_int(value, field="Link-Gültigkeit", min_value=1, max_value=168)
+        return _parse_int(value, field="Link validity", min_value=1, max_value=168)
     return str(value or "").strip()
 
 
@@ -117,7 +117,7 @@ def normalize_email_config_update(data: dict[str, Any], *, existing_secret: str 
     from_address = _validate_email_or_empty(data.get("mail_from_address") or "", field="From-Adresse")
     reply_to = _validate_email_or_empty(data.get("mail_reply_to") or "", field="Reply-To")
     from_name = str(data.get("mail_from_name") or "nia-todo").strip() or "nia-todo"
-    ttl = _parse_int(data.get("password_link_ttl_hours", 24), field="Link-Gültigkeit", min_value=1, max_value=168)
+    ttl = _parse_int(data.get("password_link_ttl_hours", 24), field="Link validity", min_value=1, max_value=168)
 
     if smtp_enabled:
         if not smtp_host:
