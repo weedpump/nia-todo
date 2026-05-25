@@ -14,7 +14,7 @@ import json
 from dataclasses import dataclass
 from urllib.parse import urlparse
 
-from fastapi import HTTPException
+from errors import api_error
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives import hashes
@@ -132,19 +132,19 @@ def relying_party_for_request(request) -> WebAuthnRelyingParty:
     if public_base_url:
         parsed = urlparse(public_base_url)
         if parsed.scheme not in {"http", "https"} or not parsed.hostname:
-            raise HTTPException(400, "Öffentliche Basis-URL ist für Passkeys ungültig")
+            raise api_error(400, "passkey.publicBaseUrlInvalid", "Öffentliche Basis-URL ist für Passkeys ungültig")
         hostname = parsed.hostname.lower()
         if parsed.scheme != "https" and hostname not in LOCAL_RP_IDS:
-            raise HTTPException(400, "Passkeys benötigen HTTPS für die öffentliche Basis-URL")
+            raise api_error(400, "passkey.publicBaseUrlHttpsRequired", "Passkeys benötigen HTTPS für die öffentliche Basis-URL")
         origin = f"{parsed.scheme}://{parsed.netloc}"
         return WebAuthnRelyingParty(rp_id=hostname, origin=origin)
 
     parsed_request = urlparse(str(request.url))
     host = (parsed_request.hostname or "").lower()
     if host == "tauri.localhost":
-        raise HTTPException(400, "Passkeys in Native Apps benötigen zuerst die native Passkey-Bridge")
+        raise api_error(400, "passkey.nativeBridgeRequired", "Passkeys in Native Apps benötigen zuerst die native Passkey-Bridge")
     if host not in LOCAL_RP_IDS:
-        raise HTTPException(400, "Passkeys benötigen eine konfigurierte öffentliche Basis-URL")
+        raise api_error(400, "passkey.publicBaseUrlRequired", "Passkeys benötigen eine konfigurierte öffentliche Basis-URL")
     return WebAuthnRelyingParty(rp_id=host, origin=f"{parsed_request.scheme}://{parsed_request.netloc}")
 
 

@@ -31,6 +31,7 @@ function totp(secret) {
 async function run() {
   execFileSync('python3', ['-c', `import sqlite3\ndb=sqlite3.connect(${JSON.stringify(DB_PATH)})\ndb.execute("UPDATE users SET two_factor_enabled=1, two_factor_totp_secret=? WHERE username=?", (${JSON.stringify(SECRET)}, ${JSON.stringify(USERNAME)}))\nuser_id = db.execute("SELECT id FROM users WHERE username=?", (${JSON.stringify(USERNAME)},)).fetchone()[0]\ndb.execute("INSERT INTO passkeys (user_id, credential_id, public_key, name) VALUES (?, 'test-login-passkey', 'dummy-public-key', 'Test Passkey')", (user_id,))\ndb.commit()\ndb.close()`]);
   const { browser, page, visible, dumpErrors } = await launchPage();
+  await page.addInitScript(() => localStorage.setItem('nia-todo-language', 'de'));
   let dialogs = 0;
   page.on('dialog', dialog => { dialogs += 1; dialog.dismiss().catch(() => {}); });
   try {
