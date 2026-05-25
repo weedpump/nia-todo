@@ -869,7 +869,6 @@ async function createUser() {
     document.getElementById('new-username').value = '';
     document.getElementById('new-display-name').value = '';
     document.getElementById('new-email').value = '';
-    document.getElementById('new-language').value = 'de';
     await loadUsers();
   } catch(e) {
     document.getElementById('create-error').textContent = e.message;
