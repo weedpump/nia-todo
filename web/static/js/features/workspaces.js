@@ -92,6 +92,7 @@ export function createWorkspacesFeature({
     const workspaces = getWorkspaces();
     const currentId = ensureCurrentWorkspace();
     const current = workspaces.find(w => String(w.id) === String(currentId)) || workspaces[0] || null;
+    nameEl.removeAttribute('data-i18n-key');
     nameEl.textContent = current?.name || 'Workspace';
     dotEl.className = current?.icon ? 'workspace-current-dot has-icon' : 'workspace-current-dot';
     dotEl.style.background = current?.icon ? 'transparent' : (current?.color || '#6366f1');

@@ -39,6 +39,13 @@ async function run() {
     await waitForText('Inbox');
     await page.waitForFunction(() => document.querySelector('#workspace-current-name')?.textContent === 'Personal', null, { timeout: 10000 });
 
+    await page.click('#user-menu-button');
+    await page.click('#menu-settings-btn');
+    await visible('#settings-modal');
+    await page.evaluate(() => window.closeModal?.('settings-modal'));
+    await page.locator('#settings-modal').waitFor({ state: 'hidden', timeout: 10000 });
+    await page.waitForFunction(() => document.querySelector('#workspace-current-name')?.textContent === 'Personal', null, { timeout: 10000 });
+
     await openWorkspaceMenu();
     await page.locator('.workspace-menu-add').click();
     await page.locator('#workspace-modal').waitFor({ state: 'visible', timeout: 5000 });
