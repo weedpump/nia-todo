@@ -67,7 +67,7 @@ def _normalize_http_url(value: str, *, field: str, allow_empty: bool = False, or
     try:
         netloc = _canonical_netloc(parsed)
     except ValueError:
-        raise HTTPException(400, f"{field} enthält einen ungültigen Host oder Port")
+        raise HTTPException(400, f"{field} contains an invalid host or port")
 
     path = "" if origin_only else parsed.path.rstrip("/")
     return urlunparse((parsed.scheme.lower(), netloc, path, "", "", "")).rstrip("/")
@@ -87,7 +87,7 @@ def _normalize_forwarded_host(value: str) -> Optional[str]:
 
 
 def normalize_public_base_url(value: str) -> str:
-    return _normalize_http_url(value, field="Öffentliche Basis-URL", allow_empty=True)
+    return _normalize_http_url(value, field="Public base URL", allow_empty=True)
 
 
 def normalize_allowed_origins(value: Any) -> list[str]:
