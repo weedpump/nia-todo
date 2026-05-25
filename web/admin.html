@@ -431,18 +431,15 @@ async function getApiError(response) {
   const fallback = `Error ${response.status}: ${response.statusText || 'Request failed'}`;
   const data = await response.json().catch(() => null);
   if (!data) return fallback;
-  // Handle structured error format: {code, message, params, detail}
-  if (data.detail && typeof data.detail === 'object') {
-    const code = data.detail.code;
-    const params = data.detail.params || {};
-    if (code) {
-      const key = `api.error.${code}`;
-      const translated = t(key, params);
-      if (translated !== key) return translated;
-    }
-    return data.detail.message || fallback;
+  // Handle structured error format: {detail, code, params}
+  const code = data.code;
+  const params = data.params || {};
+  if (code) {
+    const key = `api.error.${code}`;
+    const translated = t(key, params);
+    if (translated !== key) return translated;
   }
-  // Legacy string format
+  // Fallback to detail string
   if (typeof data.detail === 'string') return data.detail;
   return fallback;
 }

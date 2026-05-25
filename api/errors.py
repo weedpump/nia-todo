@@ -10,16 +10,19 @@ from fastapi import HTTPException
 def error_detail(code: str, message: str, **params: Any) -> dict[str, Any]:
     """Return error detail compatible with legacy string format.
     
-    For backward compatibility, the 'detail' field contains the message string
-    directly, while structured data is provided in 'code' and 'params'.
-    Clients can use either: detail (string) or code+message+params (structured).
+    For backward compatibility, the response includes:
+    - `detail`: plain string message (legacy clients)
+    - `code`: error code for i18n lookup (new clients)
+    - `message`: same as detail (explicit)
+    - `params`: optional interpolation parameters
+    
+    HTTP response shape:
+    {"detail": "message", "code": "...", "params": {...}}
     """
-    detail: dict[str, Any] = {"code": code, "message": message}
+    result: dict[str, Any] = {"detail": message, "code": code}
     if params:
-        detail["params"] = params
-    # Backward compatibility: also expose message as plain string
-    detail["detail"] = message
-    return detail
+        result["params"] = params
+    return result
 
 
 def api_error(status_code: int, code: str, message: str, **params: Any) -> HTTPException:
