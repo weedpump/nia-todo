@@ -174,7 +174,7 @@
                 <div class="user-menu-email" id="user-menu-email">–</div>
               </div>
             </div>
-            <button type="button" class="user-menu-item" id="menu-settings-btn" onclick="closeUserMenu(); openSettingsModal()" title="Einstellungen" data-i18n-title-key="menu.settings" role="menuitem"><span data-icon="settings"></span><span data-i18n-key="menu.settings">Einstellungen</span></button>
+            <button type="button" class="user-menu-item" id="menu-settings-btn" onclick="closeUserMenu(); openSettingsModal()" title="Settings" data-i18n-title-key="menu.settings" role="menuitem"><span data-icon="settings"></span><span data-i18n-key="menu.settings">Settings</span></button>
             <button type="button" class="user-menu-item" id="theme-toggle-btn" onclick="cycleTheme()" role="menuitem"><span class="menu-item-icon" data-icon="monitor"></span><span class="menu-item-label">Theme: System</span></button>
             <button type="button" class="user-menu-item accent-preset-row" id="accent-preset-row" onclick="toggleAccentPresetMenu(event)" title="Preset Farbe" data-i18n-title-key="menu.presetColor" aria-expanded="false" role="menuitem"><span class="menu-item-icon accent-preset-current" id="accent-preset-current"></span><span class="menu-item-label" data-i18n-key="menu.presetColor">Preset Farbe</span><span class="accent-preset-chevron"></span></button>
             <div class="accent-preset-panel" id="accent-preset-panel" aria-label="Choose preset color" data-i18n-aria-label-key="menu.choosePresetColor"></div>
@@ -336,14 +336,14 @@
   <div class="modal" id="avatar-crop-modal">
     <div class="modal-overlay" onclick="cancelAvatarCrop()"></div>
     <div class="modal-content avatar-crop-modal-content">
-      <h3><span data-icon="image"></span> <span data-i18n-key="avatar.cropTitle">Avatar zuschneiden</span></h3>
+      <h3><span data-icon="image"></span> <span data-i18n-key="avatar.cropTitle">Crop avatar</span></h3>
       <button class="modal-close-x" onclick="cancelAvatarCrop()"><span data-icon="x"></span></button>
       <div class="avatar-crop-body">
         <div class="avatar-crop-stage" id="avatar-crop-stage">
           <img id="avatar-crop-image" alt="Avatar-Vorschau" data-i18n-alt-key="avatar.preview" draggable="false">
           <div class="avatar-crop-mask" aria-hidden="true"></div>
         </div>
-        <div class="avatar-crop-hint" data-i18n-key="avatar.cropHint">Bild ziehen · Pinch oder Mausrad zum Zoomen</div>
+        <div class="avatar-crop-hint" data-i18n-key="avatar.cropHint">Drag image · pinch or mouse wheel to zoom</div>
         <div class="avatar-crop-actions">
           <button type="button" class="btn btn-secondary" onclick="cancelAvatarCrop()" data-i18n-key="common.cancel">Cancel</button>
           <button type="button" class="btn btn-primary" onclick="saveAvatarCrop()" data-i18n-key="avatar.save">Save avatar</button>
@@ -389,7 +389,7 @@
   <div class="modal" id="settings-modal">
     <div class="modal-overlay" onclick="closeModal('settings-modal')"></div>
     <div class="modal-content">
-      <h3><span data-icon="settings"></span> <span data-i18n-key="settings.title">Einstellungen</span></h3>
+      <h3><span data-icon="settings"></span> <span data-i18n-key="settings.title">Settings</span></h3>
       <button class="modal-close-x" onclick="closeModal('settings-modal')"><span data-icon="x"></span></button>
       <div class="modal-body">
         <div class="settings-profile-card">
@@ -427,7 +427,7 @@
         <div class="form-group">
           <label for="settings-language" data-i18n-key="settings.language.browser">Use browser language</label>
           <select id="settings-language" onchange="changeLanguagePreference(this.value)">
-            <option value="auto" data-i18n-key="settings.language.auto">Automatisch</option>
+            <option value="auto" data-i18n-key="settings.language.auto">Automatic</option>
             <option value="de" data-i18n-key="settings.language.de">German</option>
             <option value="en" data-i18n-key="settings.language.en">English</option>
           </select>
@@ -441,7 +441,7 @@
           <input type="password" id="settings-old-password" placeholder="Current password" data-i18n-placeholder-key="settings.password.current" autocomplete="current-password" onkeydown="if(event.key==='Enter') document.getElementById('settings-new-password').focus()">
         </div>
         <div class="form-group">
-          <label data-i18n-key="settings.password.new">Neues Password</label>
+          <label data-i18n-key="settings.password.new">New password</label>
           <input type="password" id="settings-new-password" placeholder="New password (8+ characters)" data-i18n-placeholder-key="settings.password.newPlaceholder" autocomplete="new-password" onkeydown="if(event.key==='Enter') document.getElementById('settings-confirm-password').focus()">
         </div>
         <div class="form-group">

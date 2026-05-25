@@ -179,7 +179,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
     </div>
     <div class="admin-help" data-i18n-key="admin.instance.help">The base URL is used for external links. Origins and trusted proxies are line-based. Forwarded headers are only accepted from trusted proxies.</div>
     <div class="form-row" style="margin-top:12px;">
-      <button class="btn btn-primary" onclick="saveInstanceConfig()" data-i18n-key="admin.instance.save">Instance configuration speichern</button>
+      <button class="btn btn-primary" onclick="saveInstanceConfig()" data-i18n-key="admin.instance.save">Save instance configuration</button>
     </div>
     <div class="admin-error" id="instance-config-error"></div>
     <div class="admin-success" id="instance-config-success"></div>
@@ -292,7 +292,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
       <input type="text" id="new-username" data-i18n-placeholder-key="setup.usernameLabel" placeholder="Username" autocomplete="off" onkeydown="if(event.key==='Enter') document.getElementById('new-display-name').focus()">
       <input type="text" id="new-display-name" data-i18n-placeholder-key="setup.displayNameLabel" placeholder="Display name" onkeydown="if(event.key==='Enter') document.getElementById('new-email').focus()">
       <input type="email" id="new-email" data-i18n-placeholder-key="settings.profile.email" placeholder="Email" autocomplete="off" onkeydown="if(event.key==='Enter') createUser()">
-      <button class="btn btn-primary" onclick="createUser()" data-i18n-key="admin.user.createAndLink">Erstellen & Link erzeugen</button>
+      <button class="btn btn-primary" onclick="createUser()" data-i18n-key="admin.user.createAndLink">Create & generate link</button>
     </div>
     <div style="font-size: 12px; color: var(--text-muted); margin-top: 8px;" data-i18n-key="admin.user.createHelp">
       The user sets their password through a one-time link. If email is configured, the link is sent automatically. Without SMTP, the link is shared manually; the address is then considered confirmed, but not mailbox-verified.
