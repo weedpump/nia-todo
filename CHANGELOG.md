@@ -5,6 +5,28 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [2.3.0] - 2026-05-25
+
+### Added
+- Active sessions/devices management in user security settings, including current-session indicators and controls to revoke one device session or all active sessions/trusted devices.
+- Session-backed trusted-device handling: login JWTs can now be linked to stored user sessions and remembered/trusted devices, making device revocation enforceable immediately.
+- Project owners can move their own non-inbox projects between their workspaces. Shared members keep their independently chosen display workspace.
+
+### Changed
+- Trusted-device revocation no longer requires a fresh MFA reauth, so users can quickly remove stale or suspicious sessions/devices.
+- Trusted-device wording and API documentation now distinguish active device sessions from remembered/trusted devices more clearly.
+- Owner project workspace moves now move descendant projects together and return authoritative `updated_projects` data for offline clients.
+- Project WebSocket updates now send recipient-specific project views, preserving member display workspaces while exposing the owner's workspace as `owner_workspace_id`.
+
+### Fixed
+- Revoking a trusted/current device invalidates the linked JWT session and logs out affected clients instead of only deleting the remember-device cookie.
+- `/api/me` JWT refresh preserves and extends the existing session instead of creating duplicate sessions.
+- Trusted-device/session updates are more robust under repeated revoke attempts, stale sessions, and normal token refreshes.
+- Public API documentation table-of-contents generation handles deeper heading structures more cleanly.
+- Offline sync now applies all server-returned project updates after workspace moves, including moved descendants.
+- Separately shared child projects inside a moved subtree now notify the correct members and keep member display workspaces intact.
+- Mobile setup page scrolls correctly when the first-user setup form is taller than the viewport.
+
 ## [2.2.2] - 2026-05-25
 
 ### Fixed
