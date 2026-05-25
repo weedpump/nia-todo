@@ -12,7 +12,7 @@ from services.auth import create_admin_jwt_token, verify_admin_token
 from services.utils import normalize_email, sanitize_text, validate_email, validate_password, validate_admin_password
 from services.audit import log_audit
 from services.instance_config import get_instance_config, get_public_base_url, update_instance_config
-from services.email_config import can_send_email_links, get_email_config, get_password_link_ttl_hours, update_email_config
+from services.email_config import can_send_email_links, get_email_config, get_password_link_ttl_hours, is_email_configured, update_email_config
 from services.email import send_email, send_test_email
 from services.two_factor import clear_recovery_codes, get_two_factor_required, set_two_factor_required
 from services.email_templates import password_setup_email
@@ -295,7 +295,7 @@ def create_user(data: CreateUserRequest, request: Request, _: bool = Depends(req
         link = _make_password_setup_link(request, token)
         emailed = False
         db.commit()
-        if can_send_email_links():
+        if is_email_configured():
             try:
                 _send_password_setup_email(
                     to=data.email,
@@ -438,7 +438,7 @@ def admin_create_user_password_link(user_id: int, request: Request, _: bool = De
         link = _make_password_setup_link(request, token)
         emailed = False
         db.commit()
-        if can_send_email_links() and user['email'] and user['email_verified_at']:
+        if is_email_configured() and user['email'] and user['email_verified_at']:
             try:
                 _send_password_setup_email(
                     to=user['email'],
