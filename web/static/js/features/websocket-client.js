@@ -389,8 +389,11 @@ async function handleWsMessage(msg) {
           const localTime = new Date(local.updated_at || 0).getTime();
           const serverTime = new Date(msg.payload.updated_at || 0).getTime();
           if (serverTime >= localTime) {
-            await dbPut('projects', msg.payload);
-            projects = projects.map(p => p.id === msg.payload.id ? msg.payload : p);
+            const nextProject = local.is_shared && !msg.payload.is_shared
+              ? { ...msg.payload, workspace_id: local.workspace_id, owner_workspace_id: msg.payload.workspace_id, is_shared: local.is_shared, is_owner: local.is_owner, member_id: local.member_id, member_status: local.member_status, owner_username: local.owner_username || msg.payload.owner_username, owner_display_name: local.owner_display_name || msg.payload.owner_display_name }
+              : msg.payload;
+            await dbPut('projects', nextProject);
+            projects = projects.map(p => p.id === msg.payload.id ? nextProject : p);
             renderProjects();
             renderStats();
             renderTodos();

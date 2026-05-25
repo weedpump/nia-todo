@@ -171,34 +171,59 @@ async def update_project(project_id: int, data: ProjectUpdate, user_id: int = De
             proj = dict(row)
             await broadcast_change("project_update", proj, user_id)
             return proj
-        if "parent_id" in fields_set and data.parent_id is not None:
-            if data.parent_id == project_id:
+        target_workspace_id = existing['workspace_id']
+        moving_workspace = "workspace_id" in fields_set and data.workspace_id != existing['workspace_id']
+        if "workspace_id" in fields_set:
+            workspace = db.execute("SELECT id FROM workspaces WHERE id = ? AND user_id = ?", (data.workspace_id, user_id)).fetchone()
+            if not workspace:
+                raise HTTPException(404, "Workspace not found")
+            target_workspace_id = data.workspace_id
+            if moving_workspace and existing['is_inbox']:
+                raise HTTPException(400, "Inbox workspace cannot be changed")
+
+        next_parent_id = data.parent_id if "parent_id" in fields_set else existing['parent_id']
+        if next_parent_id is not None:
+            if next_parent_id == project_id:
                 raise HTTPException(400, "Project cannot be its own parent")
-            parent = db.execute("SELECT id, parent_id, workspace_id FROM projects WHERE id = ? AND user_id = ?", (data.parent_id, user_id)).fetchone()
+            parent = db.execute("SELECT id, parent_id, workspace_id FROM projects WHERE id = ? AND user_id = ?", (next_parent_id, user_id)).fetchone()
             if not parent:
                 raise HTTPException(404, "Parent project not found")
-            if parent['workspace_id'] != existing['workspace_id']:
+            if parent['workspace_id'] != target_workspace_id:
                 raise HTTPException(400, "Parent project belongs to another workspace")
-            current_check = data.parent_id
+            current_check = next_parent_id
             while current_check is not None:
                 ancestor = db.execute("SELECT parent_id FROM projects WHERE id = ? AND user_id = ?", (current_check, user_id)).fetchone()
                 if ancestor and ancestor['parent_id'] == project_id:
                     raise HTTPException(400, "Circular dependency")
                 current_check = ancestor['parent_id'] if ancestor else None
+
         updates = {}
-        if "workspace_id" in fields_set:
-            if data.workspace_id != existing['workspace_id']:
-                raise HTTPException(400, "Project workspace cannot be changed")
         for f in ["name", "color", "icon", "sort_order", "parent_id", "workspace_id"]:
             if f in fields_set:
                 updates[f] = getattr(data, f)
         if updates:
-            updates['updated_at'] = now_iso()
+            updated_at = now_iso()
+            updates['updated_at'] = updated_at
             allowed_cols = {"name", "color", "icon", "sort_order", "parent_id", "workspace_id", "updated_at"}
             safe_updates = {k: v for k, v in updates.items() if k in allowed_cols}
             set_clause = ", ".join(f"{k}=:{k}" for k in safe_updates)
             try:
                 db.execute(f"UPDATE projects SET {set_clause} WHERE id = :id", {**safe_updates, "id": project_id})
+                if moving_workspace:
+                    descendant_ids = []
+                    queue = [project_id]
+                    while queue:
+                        current_id = queue.pop(0)
+                        children = db.execute("SELECT id FROM projects WHERE parent_id = ? AND user_id = ?", (current_id, user_id)).fetchall()
+                        for child in children:
+                            descendant_ids.append(child['id'])
+                            queue.append(child['id'])
+                    if descendant_ids:
+                        placeholders = ','.join('?' for _ in descendant_ids)
+                        db.execute(
+                            f"UPDATE projects SET workspace_id = ?, updated_at = ? WHERE id IN ({placeholders})",
+                            (target_workspace_id, updated_at, *descendant_ids),
+                        )
                 db.commit()
             except sqlite3.IntegrityError:
                 raise HTTPException(409, "Project could not be saved")

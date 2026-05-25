@@ -1007,6 +1007,13 @@ Authorization: ApiKey nt_...
 { "parent_id": null }
 ```
 
+Project owners can move their own non-inbox projects to another of their workspaces:
+```json
+{ "workspace_id": 2 }
+```
+
+Shared-project members can also patch `workspace_id`, but only for their own display workspace. Owner moves do not change member display workspaces.
+
 **Response**
 ```json
 { "id": 7, "name": "Hobby Neu" }

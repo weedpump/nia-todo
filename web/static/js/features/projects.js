@@ -42,13 +42,68 @@ export function createProjectsFeature({
     return !!(user && project.user_id === user.id);
   }
 
+  function isProjectDescendant(candidate, ancestorId) {
+    if (!candidate || ancestorId == null) return false;
+    let parentId = candidate.parent_id;
+    const seen = new Set();
+    while (parentId != null && !seen.has(String(parentId))) {
+      if (String(parentId) === String(ancestorId)) return true;
+      seen.add(String(parentId));
+      const parent = getProjects().find(p => String(p.id) === String(parentId));
+      parentId = parent?.parent_id;
+    }
+    return false;
+  }
+
+  function renderParentProjectSelect(project = null, selectedParentId = null, workspaceId = null) {
+    const parentSelect = document.getElementById('project-parent-id');
+    if (!parentSelect) return;
+    parentSelect.innerHTML = `<option value="" data-i18n-key="project.noParent">${t('project.noParent')}</option>`;
+    const targetWorkspaceId = workspaceId || getCurrentWorkspaceId?.();
+    const projects = getProjects().filter(p => {
+      if (p.is_shared) return false;
+      if (targetWorkspaceId && String(p.workspace_id || '') !== String(targetWorkspaceId)) return false;
+      if (project && (String(p.id) === String(project.id) || isProjectDescendant(p, project.id))) return false;
+      return true;
+    });
+    const projectMap = new Map();
+    projects.forEach(p => projectMap.set(p.id, { id: p.id, name: p.name, parent_id: p.parent_id, sort_order: p.sort_order, color: p.color, is_inbox: p.is_inbox }));
+    projectMap.forEach(p => { p.children = []; });
+    const rootProjects = [];
+    projectMap.forEach(p => {
+      if (p.parent_id === null || p.parent_id === undefined) rootProjects.push(p);
+      else {
+        const parent = projectMap.get(p.parent_id);
+        if (parent) parent.children.push(p);
+        else rootProjects.push(p);
+      }
+    });
+    rootProjects.sort((a, b) => (!!a.is_inbox !== !!b.is_inbox ? (a.is_inbox ? -1 : 1) : a.name.localeCompare(b.name)));
+    function addProjectOptions(projectNode, depth = 0) {
+      if (projectNode.is_inbox) return;
+      const indent = '\u00A0'.repeat(depth * 2) + (depth > 0 ? '└─ ' : '');
+      const option = document.createElement('option');
+      option.value = projectNode.id;
+      option.textContent = indent + projectNode.name;
+      parentSelect.appendChild(option);
+      if (projectNode.children && projectNode.children.length > 0) {
+        projectNode.children.sort((a, b) => a.name.localeCompare(b.name));
+        projectNode.children.forEach(child => addProjectOptions(child, depth + 1));
+      }
+    }
+    rootProjects.forEach(p => addProjectOptions(p));
+    const selected = selectedParentId || '';
+    parentSelect.value = [...parentSelect.options].some(option => String(option.value) === String(selected)) ? String(selected) : '';
+  }
+
   function renderProjectWorkspaceSelect(project = null) {
     const group = document.getElementById('project-display-workspace-group');
     const select = document.getElementById('project-display-workspace-id');
     if (!group || !select) return;
     const sharedMemberProject = !!project?.is_shared && !isOwner(project);
-    group.style.display = sharedMemberProject ? '' : 'none';
-    select.disabled = !sharedMemberProject;
+    const ownMovableProject = !!project && isOwner(project) && !project.is_inbox;
+    group.style.display = (sharedMemberProject || ownMovableProject) ? '' : 'none';
+    select.disabled = !(sharedMemberProject || ownMovableProject);
     select.innerHTML = '';
     const workspaces = getWorkspaces?.() || [];
     for (const workspace of workspaces) {
@@ -57,9 +112,12 @@ export function createProjectsFeature({
       option.textContent = workspace.name || 'Workspace';
       select.appendChild(option);
     }
-    if (sharedMemberProject) {
+    if (sharedMemberProject || ownMovableProject) {
       select.value = String(project.workspace_id || getCurrentWorkspaceId?.() || workspaces[0]?.id || '');
     }
+    select.onchange = () => {
+      if (ownMovableProject) renderParentProjectSelect(project, null, select.value);
+    };
   }
 
   function showProjectModal(project = null, parentId = null) {
@@ -80,39 +138,7 @@ export function createProjectsFeature({
       modalTitle.textContent = t(modalTitle.dataset.i18nKey);
     }
 
-    const parentSelect = document.getElementById('project-parent-id');
-    if (parentSelect) {
-      parentSelect.innerHTML = `<option value="" data-i18n-key="project.noParent">${t('project.noParent')}</option>`;
-      const currentWorkspaceId = getCurrentWorkspaceId?.();
-      const projects = getProjects().filter(p => !p.is_shared && (!currentWorkspaceId || String(p.workspace_id || '') === String(currentWorkspaceId)));
-      const projectMap = new Map();
-      projects.forEach(p => projectMap.set(p.id, { id: p.id, name: p.name, parent_id: p.parent_id, sort_order: p.sort_order, color: p.color, is_inbox: p.is_inbox }));
-      projectMap.forEach(p => { p.children = []; });
-      const rootProjects = [];
-      projectMap.forEach(p => {
-        if (p.parent_id === null || p.parent_id === undefined) rootProjects.push(p);
-        else {
-          const parent = projectMap.get(p.parent_id);
-          if (parent) parent.children.push(p);
-        }
-      });
-      rootProjects.sort((a, b) => (!!a.is_inbox !== !!b.is_inbox ? (a.is_inbox ? -1 : 1) : a.name.localeCompare(b.name)));
-      function addProjectOptions(projectNode, depth = 0) {
-        if (project && projectNode.id === project.id) return;
-        if (projectNode.is_inbox) return;
-        const indent = '\u00A0'.repeat(depth * 2) + (depth > 0 ? '└─ ' : '');
-        const option = document.createElement('option');
-        option.value = projectNode.id;
-        option.textContent = indent + projectNode.name;
-        parentSelect.appendChild(option);
-        if (projectNode.children && projectNode.children.length > 0) {
-          projectNode.children.sort((a, b) => a.name.localeCompare(b.name));
-          projectNode.children.forEach(child => addProjectOptions(child, depth + 1));
-        }
-      }
-      rootProjects.forEach(p => addProjectOptions(p));
-      parentSelect.value = parentId || (project ? project.parent_id : '') || '';
-    }
+    renderParentProjectSelect(project, parentId || (project ? project.parent_id : '') || '', project?.workspace_id || getCurrentWorkspaceId?.());
 
     const parentFormGroup = document.getElementById('project-parent-id')?.closest('.form-group');
     if (parentFormGroup) parentFormGroup.style.display = (project && project.is_inbox) ? 'none' : '';
@@ -134,7 +160,6 @@ export function createProjectsFeature({
         selected: project.icon || '',
         color: project.color || '#6366f1',
       });
-      if (parentSelect) parentSelect.value = project.parent_id || '';
       const owner = isOwner(project);
       const shared = !!project.is_shared;
       if (deleteBtn) deleteBtn.style.display = (owner && !project.is_inbox) ? '' : 'none';
@@ -187,6 +212,7 @@ export function createProjectsFeature({
     const existing = id ? getProjects().find(p => String(p.id) === String(id)) : null;
     const sharedMemberProject = !!existing?.is_shared && !isOwner(existing);
     const displayWorkspaceId = document.getElementById('project-display-workspace-id')?.value || getCurrentWorkspaceId?.() || null;
+    const ownerProject = !!existing && isOwner(existing) && !existing.is_inbox;
     const projectData = sharedMemberProject ? {
       workspace_id: displayWorkspaceId ? parseInt(displayWorkspaceId) : null,
     } : {
@@ -195,7 +221,7 @@ export function createProjectsFeature({
       icon: document.getElementById('project-icon')?.value || null,
       sort_order: getProjects().length,
       parent_id: parentIdVal ? parseInt(parentIdVal) : null,
-      workspace_id: getCurrentWorkspaceId?.() || null,
+      workspace_id: ownerProject && displayWorkspaceId ? parseInt(displayWorkspaceId) : (getCurrentWorkspaceId?.() || null),
     };
 
     if (id) {
