@@ -1,770 +1,770 @@
 # Changelog
 
-Alle wichtigen Änderungen an diesem Projekt werden in dieser Datei dokumentiert.
+All notable changes to this project are documented in this file.
 
-Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
-und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
+The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
 ## [Unreleased]
 
 ### Fixed
-- Changelog-Link in Native Apps öffnet den Changelog über den Systembrowser statt innerhalb der App bzw. ohne sichtbaren Effekt.
+- The changelog link in native apps opens the changelog through the system browser instead of inside the app or with no visible effect.
 
 ## [2.1.0] - 2026-05-24
 
 ### Added
-- Öffentlicher Changelog unter `/changelog` ergänzt; die App verlinkt ihn im Versionsbereich, in Native Apps unter der App-Version und auf der Loginseite neben der API-Doku.
-- Windows-App kann beim Autostart optional direkt minimiert im Tray starten, ohne das Hauptfenster zu öffnen.
-- Geteilte Projekte können pro Mitglied einem eigenen Anzeige-Workspace zugeordnet werden; standardmäßig landen sie im Default-Workspace.
+- Public changelog under `/changelog` added; the app links to it in the version area, in native apps below the app version, and on the login page next to the API documentation.
+- Windows app can optionally start directly minimized to the tray on autostart without opening the main window.
+- Shared projects can be assigned to a member-specific display workspace; by default they land in the default workspace.
 
 ### Fixed
-- Migration für geteilte Projekt-Workspaces ist robuster bei partiell reparierten Legacy-Schemata.
-- API-Rate-Limit ist für die erweiterte App-/Admin-Nutzung weniger eng, sodass legitime kurze Aktionsfolgen und die Release-Test-Suite nicht unnötig in HTTP 429 laufen.
-- Die Suche in öffentlicher API-Doku und Changelog blendet bei Treffern die zugehörigen Überschriften mit ein, damit Versions- und Abschnittskontext sichtbar bleibt.
-- Geteilte Projekte erscheinen nicht mehr in jedem Workspace und Member können Projekt-Icons nicht mehr lokal scheinbar ändern.
-- Avatar kann in den Profileinstellungen wieder gelöscht werden; UI, API und gespeicherter User-State fallen danach sauber auf Initialen zurück.
-- Neuer-Todo-Dialog fokussiert beim Öffnen per `N`-Taste oder nativem Desktop-Hotkey direkt das Titelfeld.
-- Native Apps aktualisieren die Instanz-Konfiguration vor der Update-Prüfung erneut, damit eine frisch erhöhte `min_native_client_version` nicht durch stale Boot-Daten als optionales Update behandelbar bleibt.
+- Migration for shared project workspaces is more robust with partially repaired legacy schemas.
+- API rate limit is less tight for extended app/admin usage, so legitimate short action sequences and the release test suite do not unnecessarily run into HTTP 429.
+- Search in public API docs and changelog shows the associated headings for matches, so version and section context remains visible.
+- Shared projects no longer appear in every workspace, and members can no longer locally appear to change project icons.
+- Avatar can be deleted again in profile settings; UI, API, and stored user state cleanly fall back to initials afterward.
+- New-todo dialog focuses the title field directly when opened via the `N` key or native desktop hotkey.
+- Native apps refresh the instance configuration again before the update check, so a freshly increased `min_native_client_version` cannot remain treatable as an optional update due to stale boot data.
 
 ### Changed
-- Versionsbereich der Web-App zeigt die Versionsnummer separat über den gleich breiten Aktionen `Changelog` und `Neu laden`; Native Apps zeigen den Changelog-Link unter der App-Version ohne Reload-Aktion.
-- API-Doku-Link in den Einstellungen sitzt jetzt direkt in der API-Key-Sektion statt im Push-/Downloadbereich.
-- Öffentliche API-Dokumentation und Changelog nutzen neutrale, public-taugliche Formulierungen statt nutzer- oder instanzspezifischer Details.
+- Version area of the web app shows the version number separately above the equally wide actions `Changelog` and `Reload`; native apps show the changelog link below the app version without a reload action.
+- API docs link in settings now sits directly in the API key section instead of the push/download area.
+- Public API documentation and changelog use neutral, public-suitable wording instead of user- or instance-specific details.
 
 ## [2.0.1] - 2026-05-24
 
 ### Fixed
-- MFA-Login bietet bei Accounts mit Passkey und Authenticator/Recovery-Code wieder beide Methoden an; Native Apps bevorzugen den Code-Flow, damit Desktop-/Android-Passkey-Einschränkungen keine Login-Sackgasse erzeugen.
-- App-Download-Manifest und Download-Artefakte werden im Service Worker aktiv als `never-cache` behandelt und aus alten Caches entfernt, damit veraltete APK-/Installer-Links nicht weiter angezeigt werden.
-- Avatar-URLs werden in Native Apps relativ zur konfigurierten Server-URL aufgelöst, sodass Profilbilder nicht gegen die lokale App-Shell-Origin geladen werden.
-- Release-Script wartet beim optionalen Setzen von `min_native_client_version` auf die live migrierte `app_config`-Tabelle.
+- MFA login again offers both methods for accounts with passkey and authenticator/recovery code; native apps prefer the code flow so desktop/Android passkey limitations do not create a login dead end.
+- App download manifest and download artifacts are actively treated as `never-cache` in the service worker and removed from old caches, so outdated APK/installer links are no longer shown.
+- Avatar URLs are resolved in native apps relative to the configured server URL, so profile images are not loaded against the local app shell origin.
+- Release script waits for the live-migrated `app_config` table when optionally setting `min_native_client_version`.
 
 ## [2.0.0] - 2026-05-24
 
 ### Fixed
-- Release-Version-Checker validiert SemVer strenger und deckt `min_native_client_version`-Grenzen per Regressionstest ab.
-- Android-Release setzt generated `tauri.properties` vor dem APK-Build deterministisch, damit alte generated Versionen keinen späten Build-Fail verursachen.
-- Native App-Update-Hinweise können bei optionalen Updates bis zum nächsten Appstart verschoben werden; nur eine erhöhte `min_native_client_version` erzwingt das Update.
-- Release-Versionierung gehärtet: Web-, Service-Worker-, Tauri- und Cargo-Versionen werden konsistent gesetzt; `min_native_client_version` bleibt eine bewusst gepflegte Kompatibilitätsgrenze.
-- Release-Script hebt `min_native_client_version` nur noch mit explizitem `--set-min-app-version` an; Standard-Releases bleiben damit native-app-kompatibel.
-- Android-Release validiert jetzt neben `versionName` auch den erwarteten `versionCode`.
-- Fehlendes Native-Download-Manifest erzeugt keinen 404-/Console-Noise mehr, sondern liefert ein leeres Manifest mit HTTP 200.
+- Release version checker validates SemVer more strictly and covers `min_native_client_version` boundaries with a regression test.
+- Android release sets generated `tauri.properties` deterministically before the APK build, so old generated versions do not cause a late build failure.
+- Native app update notices can be deferred until the next app start for optional updates; only an increased `min_native_client_version` enforces the update.
+- Release versioning hardened: web, service worker, Tauri, and Cargo versions are set consistently; `min_native_client_version` remains a deliberately maintained compatibility boundary.
+- Release script only raises `min_native_client_version` with explicit `--set-min-app-version`; standard releases therefore remain native-app-compatible.
+- Android release now validates the expected `versionCode` in addition to `versionName`.
+- Missing native download manifest no longer creates 404/console noise, but returns an empty manifest with HTTP 200.
 
 ### Added
-- Workspaces als neue Anzeige-/Organisationsschicht für Projekte und Todos ergänzt.
-- Jeder Nutzer erhält einen Default-Workspace `Privat`; bestehende Projekte werden dorthin migriert.
-- Jeder Workspace besitzt eine eigene Inbox; bestehende und neue Workspace-Daten bleiben damit sauber getrennt.
-- Workspace-Switcher mit Custom-Dropdown, Farbauswahl, Erstellen, Umbenennen und Löschen ergänzt.
-- Lokales Lucide-SVG-Iconset als offline-/PWA-freundliche Icon-Basis ergänzt.
-- Optionale Icons für Projekte und Workspaces ergänzt; gesetzte Icons nutzen die jeweilige Projekt-/Workspace-Farbe.
-- Einklappbarer Icon-Picker mit Suche, Kategorien und allen lokal verfügbaren Lucide-Icons ergänzt.
-- Lokale Designfarben-Presets im User-Menü ergänzt: Standard plus sechs Akzentdesigns für Hell- und Dunkeltheme.
-- Lokaler Akzent-Intensitätsregler ergänzt, inklusive Option Akzentwirkung komplett auszuschalten.
-- Neues App-eigenes Danger-Confirm-Modal für Löschen von Todos, Projekten, Sections und Workspaces.
-- Frontend-/Backend-Regressionstests für Workspaces, Sharing, Workspace-Inboxes, Projektlöschung und Realtime-Sync ergänzt.
-- Generische Instanz-Konfiguration für öffentliche Basis-URL, erlaubte Origins/CORS und Trusted Proxies ergänzt.
-- Native Windows- und Android-Apps ergänzt, inklusive eigenem App-Update-Dialog mit externem Download-Button.
-- Native App-Downloads werden über ein einheitliches Manifest mit Plattform-/Architektur-/Version-/SHA256-Validierung ausgeliefert.
-- Öffentliche API-Dokumentation unter `/api` ergänzt; sie rendert die vorhandene `docs/api.md` leichtgewichtig als themekompatible HTML-Seite mit Suche, ohne Swagger/OpenAPI-UI.
-- Native Drag & Drop nutzt einen Pointer-/Touch-Fallback statt Browser-HTML5-DnD und unterstützt Android-Scrollen ohne versehentliches Verschieben oder klebende Hover-Markierung.
-- Native WebViews unterstützen Suche, Section-Enter und globale Tastaturpfade konsistent.
-- Native Regressionstests für Runtime-Konfiguration, Offline-Start, Windows-Installer-Cache und Android-WebView-Cache ergänzt.
-- **E-Mail/SMTP-Integration** für Einladungen, Passwort-Reset und E-Mail-Verifizierung ergänzt.
-- **Admin-UI für SMTP-Konfiguration** mit Host, Port, Security (none/starttls/tls), Auth, Absender und Test-Mail-Funktion.
-- **E-Mail-Vorlagen** für Setup-Link, Passwort-Reset, E-Mail-Verifizierung und Projekt-Sharing-Einladung.
-- **Verifizierte E-Mail-Semantik**: Login, Passwort-Reset und Projekt-Sharing funktionieren nur mit verifizierten E-Mails.
-- **E-Mail-Verifizierungs-Flow** mit Token-Hashing, Prefix-Lookup, TTL und sicherem Fallback bei SMTP-Ausfall.
-- **Neutrale API-Responses** bei E-Mail-basierten Aktionen (Passwort-Reset, Einladung) zur Vermeidung von User-Enumeration.
-- **Privacy-safe Member-Listen**: Pending Invites sind nur für den Invitee sichtbar, nicht für Owner oder andere Mitglieder.
-- **WebSocket-Broadcasts** bei Einladungen nur an Invitee (ohne `project_id` im Payload), um Pending-Invite-Existenz nicht zu leaken.
-- **Migrations 021–023** für SMTP-Konfiguration, case-insensitive E-Mail-Uniqueness und E-Mail-Trust-Source.
-- **Zwei-Faktor-Authentifizierung (2FA)** mit TOTP/Authenticator-App, Passkeys/WebAuthn inkl. Passkey-Reauth, Recovery Codes, Login-Challenge-Flow mit Attempt-Lockout, optionalem „Gerät merken“ und E-Mail-Code als gültigem Faktor für Accounts ohne TOTP/Passkey ergänzt.
-- **Passkeys produktionsgehärtet**: WebAuthn ist an HTTPS-`public_base_url` gebunden (`http` nur lokal), prüft Origin/RP-ID, User Verification, `none`-Attestation, Signaturen und Sign-Counter; Native Apps zeigen Passkeys erst nach separater nativer Passkey-Bridge.
-- **Android Native Passkeys** ergänzt: die offizielle Android-App nutzt AndroidX Credential Manager über eine native Callback-Bridge, validiert konfigurierte Server-Origin/RP-ID vor der Credential-Ceremony und verwendet serverseitig ausgelieferte Digital Asset Links für die offizielle App-Signatur.
-- **Official-App-Vertrauensmodell für Android** dokumentiert: Selfhoster hosten ihren Server und verbinden die offizielle App; eigene Package Names, F-Droid-/Re-Sign-Builds und Signing-Key-Rotation benötigen später eine explizite Config-/Migrationsstrategie.
-- **2FA-Admin-Steuerung** ergänzt: globale 2FA-Pflicht, Benutzer-Status inkl. Faktoren/API-Key-Hinweis und Admin-Reset pro Benutzer.
-- **2FA-/Reauth-Schutz** für sicherheitskritische Account-Aktionen ergänzt, u.a. E-Mail ändern, Passwort ändern, 2FA deaktivieren, Recovery Codes regenerieren, API-Key-Management und Passkey-Verwaltung; E-Mail-Code ist auch für Reauth nutzbar.
-- **One-Time-MFA-Action-Grants** ergänzt: Login-MFA und Trusted Devices zählen nur für App-Zugriff, jede sensible Aktion benötigt eine frische, einmalig konsumierte MFA-Bestätigung.
-- **2FA-Settings-UX** überarbeitet: TOTP-Setup mit QR-Code, Passkey-/TOTP-Gerätelisten mit Widerruf, App-eigene Sicherheitsdialoge statt Browser-`alert`/`prompt`/`confirm`, dynamische Reauth-Beschriftungen und theme-kompatible Eingabefelder.
-- **2FA-Replay-/Race-Hardening** ergänzt: atomarer Challenge-Verbrauch, table-backed Recovery-Code-Verbrauch, single-use E-Mail-Reauth-Codes, TOTP-Reauth-Timestep-Schutz und atomare Passkey-Challenge-Verwendung.
-- **Recovery-Code-Semantik** geschärft: Recovery Codes sind Backup-Faktoren zu TOTP/Passkey, werden beim Entfernen des letzten primären Faktors automatisch widerrufen und können nur mit aktivem primären Faktor neu erzeugt werden.
-- **Migrations 024–028** für 2FA-Status, Challenges, Attempt-Lockout, Trusted Devices, Passkeys, One-Time-MFA-Grants, Recovery-Code-Zeilen und Replay-Schutz ergänzt.
-- Konfigurierbarer `min_native_client_version`-Eintrag in `app_config` ergänzt, damit die native Kompatibilitätsgrenze explizit und migrationsgestützt gepflegt werden kann.
+- Workspaces added as a new display/organization layer for projects and todos.
+- Each user receives a default workspace `Private`; existing projects are migrated there.
+- Each workspace has its own inbox; existing and new workspace data therefore remains cleanly separated.
+- Workspace switcher with custom dropdown, color selection, create, rename, and delete added.
+- Local Lucide SVG icon set added as an offline-/PWA-friendly icon base.
+- Optional icons for projects and workspaces added; configured icons use the respective project/workspace color.
+- Collapsible icon picker with search, categories, and all locally available Lucide icons added.
+- Local design color presets added in the user menu: default plus six accent designs for light and dark theme.
+- Local accent intensity slider added, including an option to disable accent effects completely.
+- New app-owned danger confirm modal for deleting todos, projects, sections, and workspaces.
+- Frontend/backend regression tests for workspaces, sharing, workspace inboxes, project deletion, and realtime sync added.
+- Generic instance configuration for public base URL, allowed origins/CORS, and trusted proxies added.
+- Native Windows and Android apps added, including a dedicated app update dialog with external download button.
+- Native app downloads are delivered through a unified manifest with platform/architecture/version/SHA256 validation.
+- Public API documentation under `/api` added; it renders the existing `docs/api.md` as a lightweight theme-compatible HTML page with search, without Swagger/OpenAPI UI.
+- Native drag & drop uses a pointer/touch fallback instead of browser HTML5 DnD and supports Android scrolling without accidental moving or sticky hover highlighting.
+- Native WebViews support search, section enter, and global keyboard paths consistently.
+- Native regression tests for runtime configuration, offline start, Windows installer cache, and Android WebView cache added.
+- **Email/SMTP integration** added for invitations, password reset, and email verification.
+- **Admin UI for SMTP configuration** with host, port, security (none/starttls/tls), auth, sender, and test mail function.
+- **Email templates** for setup link, password reset, email verification, and project sharing invitation.
+- **Verified email semantics**: login, password reset, and project sharing only work with verified emails.
+- **Email verification flow** with token hashing, prefix lookup, TTL, and safe fallback on SMTP failure.
+- **Neutral API responses** for email-based actions (password reset, invitation) to prevent user enumeration.
+- **Privacy-safe member lists**: pending invites are visible only to the invitee, not to owners or other members.
+- **WebSocket broadcasts** for invitations only to the invitee (without `project_id` in the payload) to avoid leaking pending-invite existence.
+- **Migrations 021–023** for SMTP configuration, case-insensitive email uniqueness, and email trust source.
+- **Two-factor authentication (2FA)** added with TOTP/authenticator app, passkeys/WebAuthn including passkey reauth, recovery codes, login challenge flow with attempt lockout, optional “remember device”, and email code as a valid factor for accounts without TOTP/passkey.
+- **Passkeys production-hardened**: WebAuthn is bound to HTTPS `public_base_url` (`http` only locally), validates origin/RP ID, user verification, `none` attestation, signatures, and sign counter; native apps show passkeys only after a separate native passkey bridge.
+- **Android native passkeys** added: the official Android app uses AndroidX Credential Manager via a native callback bridge, validates configured server origin/RP ID before the credential ceremony, and uses server-delivered Digital Asset Links for the official app signature.
+- **Official-app trust model for Android** documented: self-hosters host their server and connect the official app; custom package names, F-Droid/re-sign builds, and signing key rotation later need an explicit config/migration strategy.
+- **2FA admin control** added: global 2FA requirement, user status including factors/API key note, and admin reset per user.
+- **2FA/reauth protection** added for security-critical account actions, including changing email, changing password, disabling 2FA, regenerating recovery codes, API key management, and passkey management; email code can also be used for reauth.
+- **One-time MFA action grants** added: login MFA and trusted devices count only for app access; every sensitive action requires a fresh, single-use MFA confirmation.
+- **2FA settings UX** revised: TOTP setup with QR code, passkey/TOTP device lists with revocation, app-owned security dialogs instead of browser `alert`/`prompt`/`confirm`, dynamic reauth labels, and theme-compatible input fields.
+- **2FA replay/race hardening** added: atomic challenge consumption, table-backed recovery code consumption, single-use email reauth codes, TOTP reauth timestep protection, and atomic passkey challenge usage.
+- **Recovery code semantics** sharpened: recovery codes are backup factors for TOTP/passkey, are automatically revoked when the last primary factor is removed, and can only be regenerated with an active primary factor.
+- **Migrations 024–028** added for 2FA status, challenges, attempt lockout, trusted devices, passkeys, one-time MFA grants, recovery code rows, and replay protection.
+- Configurable `min_native_client_version` entry in `app_config` added, so the native compatibility boundary can be maintained explicitly and migration-backed.
 
 ### Changed
-- System-E-Mails nutzen ein gemeinsames, modernes HTML/Text-Template mit nia-todo Branding, Logo-Unterstützung und einheitlichen Aktionsbuttons.
-- Projekt-, Todo-, Dashboard- und Section-Ansichten werden nach aktivem Workspace gefiltert; Benachrichtigungen, Reminder, Push und WebSocket-Sync bleiben global.
-- UI-Emojis wurden durch konsistente SVG-Icons bzw. neutrale Status-Texte ersetzt.
-- Neue Projekte werden im aktiven Workspace erstellt; Subprojekte müssen im selben Workspace wie ihr Parent bleiben.
-- Geteilte Projekte werden im vom jeweiligen Mitglied gewählten Workspace angezeigt und sind dort im Todo-Modal auswählbar.
-- Projektlöschung verschiebt enthaltene Todos in die Inbox desselben Workspaces statt pauschal in eine globale Inbox.
-- Workspace-Löschung verschiebt Projekte und Workspace-Inbox-Todos in den Default-Workspace.
-- Gleiche Projektnamen sind erlaubt; Projekt-Identität basiert auf IDs statt Namen.
-- WebSocket-Sync aktualisiert Workspaces, Projektlöschungen, Child-Projekte und Sharing-Restore-Ereignisse robuster über mehrere Clients hinweg.
-- Migrationslauf für Workspaces ist gegen partiell angewendete Workspace-Schema-Zustände robuster.
-- Default-Workspace `Privat` erhält direkt das Home-Icon; Inbox-Projekte erhalten direkt das Inbox-Icon.
-- Admin-, Setup-, Login- und Passwort-Dialoge wurden visuell auf das neue Button-/Icon-System angeglichen.
-- Akzentfarben wirken nur in der Haupt-App; Setup-, Admin- und Passwortseiten bleiben beim neutralen Theme.
-- Passwort-Setup-Links verwenden künftig die konfigurierte öffentliche Basis-URL statt implizit die Request-URL.
-- CORS lehnt unbekannte Origins konsequent ab; Forwarded-Header werden nur von konfigurierten Trusted Proxies akzeptiert.
-- Release-Workflow versioniert Web, Windows und Android gemeinsam, baut die nativen Artefakte immer mit und regeneriert das Download-Manifest aus den aktuellen Build-Artefakten.
-- Native Update-Manifest und Download-Dateien werden vom App-Cache ausgenommen und serverseitig mit `no-store` ausgeliefert.
-- Release-Publishing bereinigt `/downloads/` vor dem Veröffentlichen neuer App-Artefakte, sodass alte Installer/APKs nicht mehr per direkter URL abrufbar bleiben.
-- Release-Builds prüfen ein downloadfreies Tauri-Frontend-Bundle und brechen bei unerwartet großen Windows-/Android-Artefakten ab.
-- Native Windows- und Android-Downloads öffnen extern ohne CORS-Preflight-Falle; Android akzeptiert dabei nur sichere HTTP(S)-URLs ohne Control-Zeichen.
-- Android-Passkeys verwenden die offizielle App-Identity plus Release-Zertifikat in `/.well-known/assetlinks.json`; diese Bindung ist bewusst nicht pro Selfhost-Instanz konfigurierbar.
-- Windows-Upgrades räumen gezielt WebView-Cache-Verzeichnisse auf; Android migriert stale WebView-Cache-Zustände sauber.
-- **E-Mail-Sharing liefert neutrale Responses** (keine Member-Details) zur Vermeidung von E-Mail-Enumeration.
-- **Member-Listen zeigen nur `accepted` Mitglieder** — Pending Invites sind privat bis zur Annahme.
-- **Passwort-Reset und Einladungen** senden nur an verifizierte E-Mails; neutrale Responses verhindern Enumeration.
-- **SMTP-Secrets werden in API-Responses redacted** (`smtp_password_configured` statt Klartext).
-- Login-Antworten können jetzt eine 2FA-Challenge statt eines Access-Tokens liefern; Clients müssen dann `/api/2fa/challenge/verify` oder den Passkey-Verify-Flow abschließen. Global erzwungene 2FA ohne nutzbaren Faktor erzeugt nur einen Enrollment-Token; E-Mail-Code bleibt dabei Fallback-/Übergangspfad und zählt nicht als eingerichteter primärer Faktor.
-- Recovery Codes gelten nicht mehr als alleinstehender primärer Faktor: sobald TOTP und Passkeys entfernt sind, werden verbleibende Recovery Codes widerrufen und die user-seitige 2FA deaktiviert; globale 2FA-Policy kann danach weiterhin E-Mail-Code-MFA verlangen.
+- System emails use a shared, modern HTML/text template with nia-todo branding, logo support, and consistent action buttons.
+- Project, todo, dashboard, and section views are filtered by active workspace; notifications, reminders, push, and WebSocket sync remain global.
+- UI emojis were replaced with consistent SVG icons or neutral status texts.
+- New projects are created in the active workspace; subprojects must stay in the same workspace as their parent.
+- Shared projects are shown in the workspace selected by the respective member and are selectable there in the todo modal.
+- Project deletion moves contained todos to the inbox of the same workspace instead of broadly to a global inbox.
+- Workspace deletion moves projects and workspace inbox todos to the default workspace.
+- Identical project names are allowed; project identity is based on IDs instead of names.
+- WebSocket sync updates workspaces, project deletions, child projects, and sharing restore events more robustly across multiple clients.
+- Migration run for workspaces is more robust against partially applied workspace schema states.
+- Default workspace `Private` directly receives the home icon; inbox projects directly receive the inbox icon.
+- Admin, setup, login, and password dialogs were visually aligned with the new button/icon system.
+- Accent colors only affect the main app; setup, admin, and password pages remain on the neutral theme.
+- Password setup links now use the configured public base URL instead of implicitly using the request URL.
+- CORS consistently rejects unknown origins; forwarded headers are accepted only from configured trusted proxies.
+- Release workflow versions web, Windows, and Android together, always builds the native artifacts, and regenerates the download manifest from the current build artifacts.
+- Native update manifest and download files are excluded from the app cache and delivered server-side with `no-store`.
+- Release publishing cleans `/downloads/` before publishing new app artifacts, so old installers/APKs are no longer reachable via direct URL.
+- Release builds check a download-free Tauri frontend bundle and abort on unexpectedly large Windows/Android artifacts.
+- Native Windows and Android downloads open externally without a CORS preflight trap; Android accepts only safe HTTP(S) URLs without control characters.
+- Android passkeys use the official app identity plus release certificate in `/.well-known/assetlinks.json`; this binding is deliberately not configurable per self-hosted instance.
+- Windows upgrades specifically clean up WebView cache directories; Android cleanly migrates stale WebView cache states.
+- **Email sharing returns neutral responses** (no member details) to prevent email enumeration.
+- **Member lists show only `accepted` members** — pending invites are private until accepted.
+- **Password reset and invitations** are sent only to verified emails; neutral responses prevent enumeration.
+- **SMTP secrets are redacted in API responses** (`smtp_password_configured` instead of plaintext).
+- Login responses can now return a 2FA challenge instead of an access token; clients must then complete `/api/2fa/challenge/verify` or the passkey verify flow. Globally enforced 2FA without a usable factor only creates an enrollment token; email code remains a fallback/transition path and does not count as a configured primary factor.
+- Recovery codes no longer count as a standalone primary factor: once TOTP and passkeys are removed, remaining recovery codes are revoked and user-side 2FA is disabled; global 2FA policy can still require email-code MFA afterward.
 
 ### Fixed
-- Projektanlage in Workspaces erzeugt keine 500er mehr bei Datenbankkonflikten oder Workspace-Zuordnung.
-- Reload in einer Projektansicht stellt Navigation und aktive Sidebar-Markierung zuverlässig wieder her.
-- Reload im Dashboard markiert den Dashboard-Eintrag in der Sidebar wieder zuverlässig als aktiv.
-- Projektlöschung über UI/Offline-Sync umgeht nicht mehr die Backend-Workspace-Inbox-Logik.
-- Realtime-Sync entfernt gelöschte Parent-/Child-Projekte und stale lokale Cache-Einträge korrekt.
-- Shared-Project-Änderungen inklusive wiederhergestellter Mitglieder aktualisieren andere Clients per WebSocket.
-- Confirm-Dialog-Buttons sind optisch sauber zentriert.
-- Theme-Buttons, Admin-Mobile-Layout und Passwort-Setup-Aktionen sind kontrastreicher und sauber ausgerichtet.
-- Icon-/Farbwerte für Projekte und Workspaces werden backendseitig validiert und frontendseitig sicher gerendert.
-- Akzentverläufe, Plus-Button und Dashboard-Avatar bleiben bei allen Presets und Intensitäten optisch konsistent.
-- **E-Mail-Enumeration im Share-Flow geschlossen** (neutrale Responses, keine Member-Details bei E-Mail-Identifiern).
-- **Pending-Invite-Leaks über WebSocket behoben** (Broadcasts nur an Invitee, ohne `project_id`).
-- **E-Mail-Invite Lookup auf verifizierte E-Mails beschränkt** (kein Username-Matching bei E-Mail-Identifiern).
-- Sharing-UI hält lokal gestartete Username-Einladungen sichtbar, ohne privacy-safe Server-Member-Listen für Pending Invites wieder zu öffnen.
-- 2FA-Challenges, Reauth-Buckets, Recovery Codes und MFA-Action-Grants können nicht mehrfach für sicherheitskritische Aktionen wiederverwendet werden.
-- 2FA-/Security-Flows verwenden keine nativen Browser-Popups mehr; Bestätigungen, Passwortabfragen und Reauth laufen über App-Dialoge.
-- Offline-Cold-Start mit gecachter Session loggt erwartbare Server-Refresh-Netzwerkfehler nicht mehr als Frontend-Error.
-- 2FA-Enrollment-only Tokens laden nach Login oder Reload keine normale App-Oberfläche und keine lokalen Todo-Daten hinter dem Setup-Modal.
-- TOTP- und Passkey-Ersteinrichtung schließen den Enrollment-Lock sauber ab, initialisieren die App ohne Reload und fragen nur das mögliche Passwort-Secret ab.
-- Recovery-Code-Regeneration ist in UI und API nur mit aktivem primärem Faktor (TOTP oder Passkey) möglich; E-Mail-Code-only reicht dafür nicht.
-- Admin-2FA-Reset invalidiert bestehende Sessions per `token_version`, informiert Clients per WebSocket und trennt aktive User-WebSockets serverseitig.
-- Mobile 2FA-/Security-Modals, Workspace-Switcher-Topbar und API-Docs-Theme verhalten sich layout- und theme-konsistent.
+- Project creation in workspaces no longer produces 500s on database conflicts or workspace assignment.
+- Reload in a project view reliably restores navigation and active sidebar highlighting.
+- Reload in the dashboard reliably marks the dashboard entry in the sidebar as active again.
+- Project deletion via UI/offline sync no longer bypasses the backend workspace inbox logic.
+- Realtime sync correctly removes deleted parent/child projects and stale local cache entries.
+- Shared project changes including restored members update other clients via WebSocket.
+- Confirm dialog buttons are visually centered cleanly.
+- Theme buttons, admin mobile layout, and password setup actions are higher contrast and cleanly aligned.
+- Icon/color values for projects and workspaces are validated backend-side and rendered safely frontend-side.
+- Accent gradients, plus button, and dashboard avatar remain visually consistent across all presets and intensities.
+- **Email enumeration in the share flow closed** (neutral responses, no member details for email identifiers).
+- **Pending-invite leaks via WebSocket fixed** (broadcasts only to invitee, without `project_id`).
+- **Email invite lookup limited to verified emails** (no username matching for email identifiers).
+- Sharing UI keeps locally started username invitations visible without reopening privacy-safe server member lists for pending invites.
+- 2FA challenges, reauth buckets, recovery codes, and MFA action grants cannot be reused multiple times for security-critical actions.
+- 2FA/security flows no longer use native browser popups; confirmations, password prompts, and reauth run through app dialogs.
+- Offline cold start with cached session no longer logs expected server refresh network errors as frontend errors.
+- 2FA enrollment-only tokens do not load a normal app UI or local todo data behind the setup modal after login or reload.
+- Initial TOTP and passkey setup cleanly finish the enrollment lock, initialize the app without reload, and only ask for the possible password secret.
+- Recovery code regeneration is possible in UI and API only with an active primary factor (TOTP or passkey); email-code-only is not sufficient.
+- Admin 2FA reset invalidates existing sessions via `token_version`, informs clients via WebSocket, and disconnects active user WebSockets server-side.
+- Mobile 2FA/security modals, workspace switcher topbar, and API docs theme behave consistently in layout and theme.
 
 ## [1.7.3] - 2026-05-22
 
 ### Added
-- Projektansichten zeigen optional ein kompaktes projektbezogenes Dashboard-Widget.
-- User-Menü enthält einen gespeicherten Toggle für das Projekt-Widget.
+- Project views optionally show a compact project-related dashboard widget.
+- User menu contains a saved toggle for the project widget.
 
 ### Changed
-- Neue Standardansicht sortiert nach Priorität und blendet erledigte Todos aus, ohne bestehende Nutzerpräferenzen zu überschreiben.
-- Dashboard-Abstand und Projekt-Widget-Optik wurden optisch geglättet.
-- Toggle-Beschriftungen im User-Menü sind kürzer.
-- Projekt-Sections gruppieren Todos nach Status: In Arbeit, Offen, Erledigt.
+- New default view sorts by priority and hides completed todos without overwriting existing user preferences.
+- Dashboard spacing and project widget appearance were visually smoothed.
+- Toggle labels in the user menu are shorter.
+- Project sections group todos by status: in progress, open, completed.
 
 ### Fixed
-- API-Key-Zeitstempel werden aus UTC korrekt in lokale Zeit umgerechnet.
-- Projekt-Reload stellt Navigation vor dem ersten Rendern wieder her und verhindert falsche aktive Sidebar-Markierung.
+- API key timestamps are correctly converted from UTC to local time.
+- Project reload restores navigation before the first render and prevents incorrect active sidebar highlighting.
 
 ## [1.7.2] - 2026-05-22
 
 ### Changed
-- Web-Update-Modal nutzt kürzeren Text.
-- Native App-Version im Sidebar-Footer nutzt klarere Schreibweise ohne Bindestriche.
-- Mobile Update- und Verbinden-Buttons sind kompakter ausgerichtet.
-- Download-Manifest wird ohne doppelte App-Einträge normalisiert.
+- Web update modal uses shorter text.
+- Native app version in the sidebar footer uses clearer wording without hyphens.
+- Mobile update and connect buttons are aligned more compactly.
+- Download manifest is normalized without duplicate app entries.
 
 ## [1.7.1] - 2026-05-22
 
 ### Changed
-- Sidebar-Footer zeigt Web-App-Version und Reload-Button kompakt in einer Zeile.
-- Native App-Version wird darunter als einzeilige App-Version angezeigt.
+- Sidebar footer shows web app version and reload button compactly in one line.
+- Native app version is shown below as a one-line app version.
 
 ## [1.7.0] - 2026-05-22
 
 ### Added
-- Native Windows-/Android-Apps werden mit derselben Version wie die Web-App gebaut.
-- Web-App zeigt verfügbare native App-Updates mit Downloadbutton an.
-- Installierte native App-Version wird im Sidebar-Footer angezeigt.
+- Native Windows/Android apps are built with the same version as the web app.
+- Web app shows available native app updates with a download button.
+- Installed native app version is shown in the sidebar footer.
 
 ### Changed
-- Release-Script baut Web-App, Windows-Installer und Android-APK immer gemeinsam mit einer Version.
-- Service-Worker-Update-Hinweis ist jetzt ein verpflichtendes Fullscreen-Modal statt Sidebar-Button.
-- Update-Checks laufen robuster bei App-Start, Fokus, Online-Event und periodisch, ohne Offline-Start zu blockieren.
+- Release script always builds web app, Windows installer, and Android APK together with one version.
+- Service worker update notice is now a mandatory fullscreen modal instead of a sidebar button.
+- Update checks run more robustly on app start, focus, online event, and periodically without blocking offline start.
 
 ### Fixed
-- Release-Flow setzt Web-, Tauri-/Cargo- und Download-Versionen konsistent und schützt vor kaputten Zwischenständen.
+- Release flow sets web, Tauri/Cargo, and download versions consistently and protects against broken intermediate states.
 
 ## [1.6.5] - 2026-05-22
 
 ### Fixed
-- Settings-/User-Dropdown richtet alle Menü-Icons und Labels über eine feste Icon-Spalte konsistent aus.
-- Geöffnetes User-Dropdown bleibt beim Scrollen der Sidebar an der User-Kachel verankert.
-- Regressionstests für User-Menü-Alignment und Scroll-Verankerung ergänzt.
+- Settings/user dropdown consistently aligns all menu icons and labels through a fixed icon column.
+- Open user dropdown remains anchored to the user tile while scrolling the sidebar.
+- Regression tests for user menu alignment and scroll anchoring added.
 
 ## [1.6.4] - 2026-05-22
 
 ### Fixed
-- Offline→Online-Sync pusht lokale Änderungen vor autoritativem Server-Refresh, damit offline erledigte/bearbeitete Todos nicht wieder vom Serverstand überschrieben werden.
-- Offline-Status gewinnt jetzt über stale WebSocket-Status; die App versucht im echten Offline-Modus keine API-Syncs mehr.
-- Online-Event-Sync nutzt mehrere Retry-Versuche plus App-Fokus/Periodik, damit Native/WebView nach Netzwechsel lokale Queue-Änderungen zuverlässig zum Server pusht.
-- Regressionstest für offline erledigen → online synchronisieren → Server sieht Änderung → nach Reload erledigt bleiben ergänzt.
-- WebSocket-Realtime-Updates rendern nach eingehenden Änderungen wieder mit aktualisiertem In-Memory-State; Änderungen anderer Clients sind ohne Reload sichtbar.
-- Regressionstest für zwei Clients ergänzt: Client A ändert ein Todo, Client B sieht die Änderung live per WebSocket.
+- Offline→online sync pushes local changes before authoritative server refresh, so offline-completed/edited todos are not overwritten again by server state.
+- Offline status now wins over stale WebSocket status; the app no longer attempts API syncs in true offline mode.
+- Online-event sync uses multiple retry attempts plus app focus/periodic checks, so native/WebView reliably pushes local queue changes to the server after network changes.
+- Regression test added for complete offline → sync online → server sees change → remains completed after reload.
+- WebSocket realtime updates render with updated in-memory state again after incoming changes; changes from other clients are visible without reload.
+- Regression test added for two clients: client A changes a todo, client B sees the change live via WebSocket.
 
 ## [1.6.3] - 2026-05-21
 
 ### Changed
-- Manueller Reload-Button im Sidebar-Footer zeigt jetzt klar „↻ Neu laden“ statt nur Icon.
+- Manual reload button in the sidebar footer now clearly shows “↻ Reload” instead of only an icon.
 
 ### Fixed
-- Service Worker aktiviert neue Versionen nicht mehr, wenn der Precache fehlschlägt; dadurch bleibt bei instabiler/offliner Verbindung der letzte vollständige App-Cache erhalten.
-- Inline-Boot-Watchdog zeigt bei fehlenden App-Modulen einen Fehler statt endlosem Spinner.
-- Versions-Rendering löscht den manuellen Reload-Button nicht mehr nach dem App-Start.
-- Service-Worker-Precache enthält kein nicht existentes `/favicon.ico` mehr.
-- Test-Suite validiert jetzt, dass der Service-Worker-Precache alle Frontend-JS-Module und App-Shell-Assets enthält und keine stale Assets referenziert.
+- Service worker no longer activates new versions when precache fails; this preserves the last complete app cache on unstable/offline connections.
+- Inline boot watchdog shows an error when app modules are missing instead of an endless spinner.
+- Version rendering no longer deletes the manual reload button after app start.
+- Service worker precache no longer contains a nonexistent `/favicon.ico`.
+- Test suite now validates that the service worker precache contains all frontend JS modules and app shell assets and does not reference stale assets.
 
 ## [1.6.2] - 2026-05-21
 
 ### Added
-- Sidebar-Footer hat neben der Versionsnummer einen manuellen Reload-Button, der Service-Worker-Update/Cache-Refresh erzwingt und die Web-App neu lädt.
+- Sidebar footer has a manual reload button next to the version number that forces service worker update/cache refresh and reloads the web app.
 
 ### Fixed
-- Native Android-App entfernt den Service Worker beim Start nicht mehr, damit wiederholte Offline-Cold-Starts nicht in `ERR_NAME_NOT_RESOLVED` landen.
-- Release-Script bricht künftig ab, wenn für die Zielversion kein `CHANGELOG.md`-Abschnitt existiert.
+- Native Android app no longer removes the service worker on start, so repeated offline cold starts no longer land in `ERR_NAME_NOT_RESOLVED`.
+- Release script will now abort if no `CHANGELOG.md` section exists for the target version.
 
 ## [1.6.1] - 2026-05-21
 
 ### Fixed
-- Native Offline-Cold-Start in Windows-/Android-App lädt die App-Shell aus dem Service-Worker-Cache statt am Boot-Spinner hängen zu bleiben.
+- Native offline cold start in Windows/Android app loads the app shell from the service worker cache instead of getting stuck on the boot spinner.
 
 ## [1.6.0] - 2026-05-21
 
 ### Added
-- Native lokale Erinnerungsplanung für Windows/Tauri und Android/Tauri.
-  - Windows plant Reminder im laufenden Tray-/App-Prozess lokal.
-  - Android plant Reminder über `AlarmManager`, persistiert geplante Reminder und stellt sie nach Geräte-Neustart wieder her.
-- Android-Benachrichtigungen haben eine native Aktion „Erledigt“, die das Todo offline lokal als erledigt markiert und über die Sync-Queue später synchronisiert.
-- Android-App funktioniert nach einmaligem Laden auch offline inklusive Cold-Start über den Service-Worker-Cache.
-- Android nutzt ein eigenes monochromes Small-Notification-Icon.
+- Native local reminder scheduling for Windows/Tauri and Android/Tauri.
+  - Windows schedules reminders locally in the running tray/app process.
+  - Android schedules reminders through `AlarmManager`, persists scheduled reminders, and restores them after device restart.
+- Android notifications have a native action “Completed” that marks the todo as completed locally offline and later syncs it through the sync queue.
+- Android app works offline after a single load, including cold start through the service worker cache.
+- Android uses its own monochrome small notification icon.
 
 ### Changed
-- Native Apps verwenden bekannte Reminder-Zeitpunkte lokal; Browser/PWA-Push bleibt Browser/PWA-only.
-- Native Apps melden keine serverseitige WebSocket-Reminder-Bereitschaft mehr an.
-- Service Worker bleibt in nativen Wrappern aktiv, damit Offline-Cold-Start funktioniert; native Wrapper aktivieren Service-Worker-Updates automatisch.
-- Android nutzt native Systembar-/WindowInsets-Behandlung statt CSS-Hacks.
+- Native apps use known reminder times locally; browser/PWA push remains browser/PWA-only.
+- Native apps no longer register server-side WebSocket reminder readiness.
+- Service worker remains active in native wrappers so offline cold start works; native wrappers automatically activate service worker updates.
+- Android uses native system bar/window insets handling instead of CSS hacks.
 
 ### Fixed
-- Android-Server-URL-Setupscreen ist auf schmalen Displays korrekt zentriert und läuft nicht aus dem Viewport.
-- Android-Launcher-/Task-Icon und Notification-Icon sind konsistent mit der App.
-- Dashboard-Panels „Fokus“ und „Aktive Projekte“ sind optisch gleichmäßig ausgerichtet.
-- Klicks auf Projektlinks im Dashboard synchronisieren die aktive Sidebar-Auswahl.
-- Windows/Tauri startet offline nach App-Neustart wieder aus dem Cache statt beim leeren Startscreen hängen zu bleiben.
+- Android server URL setup screen is correctly centered on narrow displays and does not overflow the viewport.
+- Android launcher/task icon and notification icon are consistent with the app.
+- Dashboard panels “Focus” and “Active Projects” are visually evenly aligned.
+- Clicks on project links in the dashboard synchronize the active sidebar selection.
+- Windows/Tauri starts offline after app restart from cache again instead of getting stuck on the empty start screen.
 
 ### Known limitations
-- Android „Erledigt“ aus der nativen Benachrichtigung nutzt aktuell einen nativen IndexedDB-Single-Shot-Pfad. Das markiert zuverlässig offline erledigt, zeigt aber derzeit keinen Web-Undo-Toast.
+- Android “Completed” from the native notification currently uses a native IndexedDB single-shot path. This reliably marks completed offline, but currently shows no web undo toast.
 
 ## [1.5.2] - 2026-05-21
 
 ### Fixed
-- Android/Tauri-Start lädt die Web-App mit Native-Launch-Parameter, um stale Service-Worker-Navigation-Caches zu umgehen.
-- Service Worker wird in nativen Tauri-Wrappern deaktiviert und vorhandene Registrierungen werden entfernt, damit Android nicht im Boot-Spinner hängen bleibt.
-- Android bekommt ein natives Statusbar-Inset, damit Topbar und Sidebar nicht unter der System-Statusleiste liegen.
-- Boot-Prozess zeigt bei hängender Initialisierung einen Reload-Fehler statt endlosem Spinner.
+- Android/Tauri start loads the web app with a native launch parameter to bypass stale service worker navigation caches.
+- Service worker is disabled in native Tauri wrappers and existing registrations are removed so Android does not get stuck on the boot spinner.
+- Android gets a native statusbar inset so topbar and sidebar do not sit under the system status bar.
+- Boot process shows a reload error on hanging initialization instead of an endless spinner.
 
 ## [1.5.1] - 2026-05-21
 
 ### Changed
-- Android-APK wird jetzt mit dauerhaftem Release-Keystore signiert, damit zukünftige Android-Updates sauber überinstalliert werden können.
-- Download-Buttons nutzen feste Windows-/Android-SVG-Logos statt plattformabhängiger Emojis.
+- Android APK is now signed with a permanent release keystore so future Android updates can be installed cleanly over it.
+- Download buttons use fixed Windows/Android SVG logos instead of platform-dependent emojis.
 
 ### Fixed
-- Release-Script signiert Android-APKs zuverlässig mit `apksigner` und verifiziert die Signatur.
+- Release script reliably signs Android APKs with `apksigner` and verifies the signature.
 
 ## [1.5.0] - 2026-05-21
 
 ### Added
-- **Android Tauri-App** als nativer Wrapper neben Windows
-  - Lokale Server-URL-Auswahl wie bei Windows, ohne fest eingebaute Standard-URL
-  - Android-native Benachrichtigungen über Tauri Notification Plugin inklusive Runtime-Permission
-  - Android-App-ID auf die offizielle Release-App-ID umgestellt
-- **Android-Download im Browser**
-  - Download-Manifest enthält Windows-Setup und Android-APK gleichwertig
-  - Login- und Settings-Downloadbereich zeigen beide Plattformen nebeneinander an
+- **Android Tauri app** as a native wrapper alongside Windows
+  - Local server URL selection like Windows, without a hardcoded default URL
+  - Android-native notifications via Tauri Notification Plugin including runtime permission
+  - Android app ID changed to the official release app ID
+- **Android download in the browser**
+  - Download manifest contains Windows setup and Android APK equally
+  - Login and settings download area show both platforms side by side
 
 ### Changed
-- Native App-Einstellungen gelten für Windows und Android gemeinsam; Desktop-only Optionen wie Tray, Autostart und globale Hotkeys werden auf Android ausgeblendet.
-- Release-Automation baut und veröffentlicht neben dem Windows-Installer auch eine signierte Android-APK inklusive SHA256.
+- Native app settings apply to Windows and Android together; desktop-only options such as tray, autostart, and global hotkeys are hidden on Android.
+- Release automation builds and publishes a signed Android APK including SHA256 in addition to the Windows installer.
 
 ### Fixed
-- Android Statusbar-/Edge-to-edge-Überlappung behoben, indem der native Edge-to-edge-Modus entfernt wurde.
-- Android Launcher-/Task-Switcher-Icon aus den App-Icons neu generiert.
-- Browser-Push-Einstellungen werden in nativen Apps ausgeblendet, weil native Notifications dort separat laufen.
+- Android statusbar/edge-to-edge overlap fixed by removing native edge-to-edge mode.
+- Android launcher/task-switcher icon regenerated from the app icons.
+- Browser push settings are hidden in native apps because native notifications run separately there.
 
 ## [1.4.0] - 2026-05-21
 
 ### Added
-- **Windows Desktop-App auf Tauri-Basis**
-  - Server-URL wird lokal konfiguriert statt fest eingebaut
-  - Native Windows-Benachrichtigungen für Erinnerungen
-  - Globale Desktop-Hotkeys für App anzeigen/verstecken, neues Todo und Suche
-  - Hotkeys werden per Tastendruck erfasst und lokal gespeichert
-  - Fenstergröße, Position und maximierter Zustand werden über Neustarts hinweg wiederhergestellt
-- **Desktop-Download im Browser**
-  - Aktuelle Windows-Setup-Datei kann im normalen Browser unter Login und Einstellungen heruntergeladen werden
-  - Download wird in Desktop-App/PWA/Standalone-Modus ausgeblendet
-- **Release-Automation für Windows**
-  - `release.sh` setzt die Tauri-Version, baut das Windows-Setup und legt es versioniert unter `/downloads/` auf dem Live-Server ab
-  - Download-Manifest mit Version, Dateiname, Größe und SHA256 wird automatisch erzeugt
+- **Windows desktop app based on Tauri**
+  - Server URL is configured locally instead of hardcoded
+  - Native Windows notifications for reminders
+  - Global desktop hotkeys for show/hide app, new todo, and search
+  - Hotkeys are captured by keypress and stored locally
+  - Window size, position, and maximized state are restored across restarts
+- **Desktop download in the browser**
+  - Current Windows setup file can be downloaded in the regular browser under login and settings
+  - Download is hidden in desktop app/PWA/standalone mode
+- **Release automation for Windows**
+  - `release.sh` sets the Tauri version, builds the Windows setup, and places it versioned under `/downloads/` on the live server
+  - Download manifest with version, filename, size, and SHA256 is generated automatically
 
 ### Changed
-- Service Worker precached neue Desktop-/Download-Module und nutzt stabile Avatar-URLs für besseren Offline-Cache
+- Service worker precaches new desktop/download modules and uses stable avatar URLs for better offline cache
 
 ### Fixed
-- Offline-Cold-Start bleibt mit gültiger lokaler Session eingeloggt und lädt IndexedDB-Daten statt Login zu erzwingen
-- Avatare bleiben nach vorherigem Online-Laden auch offline sichtbar
-- Hotkey-Capture speichert keine Modifier-only Events mehr (`Ctrl` allein) und ignoriert Key-Repeat beim Gedrückthalten
+- Offline cold start remains logged in with a valid local session and loads IndexedDB data instead of forcing login
+- Avatars remain visible offline after prior online loading
+- Hotkey capture no longer stores modifier-only events (`Ctrl` alone) and ignores key repeat while holding keys
 
 ## [1.3.6] - 2026-05-21
 
 ### Fixed
-- Sidebar-Benutzermenü ist auf Desktop und Mobile schmaler und mittig am Sidebar-User-Container ausgerichtet
+- Sidebar user menu is narrower on desktop and mobile and centered on the sidebar user container
 
 ## [1.3.5] - 2026-05-21
 
 ### Fixed
-- Sidebar-Benutzermenü wird in Desktop-PWA und Mobile nicht mehr vom Sidebar-Overflow abgeschnitten
+- Sidebar user menu is no longer clipped by sidebar overflow in desktop PWA and mobile
 
 ## [1.3.4] - 2026-05-21
 
 ### Fixed
-- WebPush-VAPID-Claims werden pro Subscription isoliert, damit Android/FCM und Windows/WNS in einem gemeinsamen Versand nicht gegenseitig die Ziel-Audience überschreiben
+- WebPush VAPID claims are isolated per subscription so Android/FCM and Windows/WNS do not overwrite each other's target audience in a shared send
 
 ## [1.3.3] - 2026-05-21
 
 ### Fixed
-- Push-Test meldet jetzt das echte WebPush-Sendeergebnis statt immer Erfolg anzuzeigen
-- Test-Benachrichtigungen nutzen eindeutige Tags, damit Windows/Edge sie nicht still ersetzt oder zusammenfasst
+- Push test now reports the real WebPush send result instead of always showing success
+- Test notifications use unique tags so Windows/Edge does not silently replace or group them
 
 ## [1.3.2] - 2026-05-21
 
 ### Added
-- Mobile Sidebar lässt sich per defensiver Edge-Swipe-Geste von links öffnen
+- Mobile sidebar can be opened from the left with a defensive edge swipe gesture
 
 ### Changed
-- Swipe-Startzone wurde für Android verbreitert, damit die Browser-/System-Zurück-Geste weniger stört
+- Swipe start zone was widened for Android so the browser/system back gesture interferes less
 
 ## [1.3.1] - 2026-05-21
 
 ### Changed
-- Dashboard-Pill oben rechts entfernt, damit der Header ruhiger wirkt
-- **Aktive Projekte** sortiert jetzt nach der letzten Todo-Änderung pro Projekt statt nach offener Todo-Anzahl
-  - Nutzt `updated_at` mit Fallback auf `created_at`
-  - Zeigt relative Änderungszeit wie `vor 3 Min.` oder `vor 2 Std.`
+- Dashboard pill at top right removed so the header feels calmer
+- **Active Projects** now sorts by the last todo change per project instead of by open todo count
+  - Uses `updated_at` with fallback to `created_at`
+  - Shows relative change time such as `3 min ago` or `2 h ago`
 
 ## [1.3.0] - 2026-05-21
 
 ### Added
-- **Dashboard-Ansicht** ersetzt „Alle“ als zentrale Übersicht
-  - Persönliche Begrüßung mit Anzeigename, Avatar, Datum und Uhrzeit
-  - KPI-Karten für Gesamt, Offen, In Arbeit und Überfällig
-  - Fokusbereich mit Heute fällig, nächste 7 Tage, Erledigt und Erledigt-Quote
-  - Aktive Projekte als klickbare Übersicht
-- **Floating Action Button** zum Erstellen neuer Todos
-  - Runder Plus-Button rechts unten statt „Neues Todo“ in der Topbar
-  - Mobile Safe-Area und extra Listenabstand berücksichtigt
+- **Dashboard view** replaces “All” as the central overview
+  - Personal greeting with display name, avatar, date, and time
+  - KPI cards for total, open, in progress, and overdue
+  - Focus area with due today, next 7 days, completed, and completion rate
+  - Active projects as a clickable overview
+- **Floating Action Button** for creating new todos
+  - Round plus button at bottom right instead of “Neues Todo” in the topbar
+  - Mobile safe area and extra list spacing accounted for
 
 ### Changed
-- Globale Statistikleiste wird nicht mehr in Projektansichten angezeigt
-- Dashboard scrollt gemeinsam mit der Todo-Liste; Topbar bleibt sticky
-- Benutzer-/Einstellungsmenü wurde aus der Topbar in den unteren Sidebar-Footer verschoben
-- Sidebar-Ansicht „Alle“ wurde zu „Dashboard“ umbenannt
+- Global stats bar is no longer shown in project views
+- Dashboard scrolls together with the todo list; topbar remains sticky
+- User/settings menu was moved from the topbar to the lower sidebar footer
+- Sidebar view “All” was renamed to “Dashboard”
 
 ## [1.2.3] - 2026-05-21
 
 ### Fixed
-- **Header-Avatar optisch ausgerichtet**
-  - Avatar-Button sitzt jetzt sauber auf derselben Höhe wie die Topbar-Aktionen
-  - `Neues Todo`-Button und Avatar-Control nutzen konsistente 40px-Höhe
+- **Header avatar visually aligned**
+  - Avatar button now sits cleanly at the same height as the topbar actions
+  - `Neues Todo` button and avatar control use a consistent 40px height
 
 ## [1.2.2] - 2026-05-21
 
 ### Fixed
-- **Todo-Bearbeiten erhält Sections korrekt**
-  - Section-Auswahl im Edit-Modal wird jetzt anhand des Todo-Projekts geladen
-  - Bestehende `section_id` wird beim Öffnen korrekt vorausgewählt
-  - Speichern ohne Section-Änderung verschiebt Todos nicht mehr fälschlich nach „Unsortiert“
-- Regressionstest für Todo-Edit mit Section-Erhalt ergänzt
+- **Todo editing preserves sections correctly**
+  - Section selection in the edit modal is now loaded based on the todo project
+  - Existing `section_id` is correctly preselected when opening
+  - Saving without a section change no longer incorrectly moves todos to “Unsorted”
+- Regression test for todo edit with section preservation added
 
 ## [1.2.1] - 2026-05-21
 
 ### Fixed
-- **PWA-Offline-Cold-Start**: App bleibt nach komplettem Beenden und erneutem Öffnen ohne Netzwerk eingeloggt
-  - Temporäre Netzwerk-/Offline-Fehler bei `/api/me` löschen die lokale Session nicht mehr
-  - Gültige lokale Session wird aus gecachtem Benutzerprofil/JWT rekonstruiert
-  - Echte Auth-Fehler löschen die Session weiterhin korrekt
-- Regressionstest für Offline-Cold-Start ergänzt
+- **PWA offline cold start**: app remains logged in after complete quit and reopening without network
+  - Temporary network/offline errors for `/api/me` no longer delete the local session
+  - Valid local session is reconstructed from cached user profile/JWT
+  - Real auth errors still correctly delete the session
+- Regression test for offline cold start added
 
 ## [1.2.0] - 2026-05-21
 
 ### Added
-- **Avatar-/User-Menü oben rechts** als neuer Ort für globale Aktionen
-  - Einstellungen, Theme, Sortierung, erledigte Todos ausblenden und Logout im kompakten Menü
-  - Alter Sidebar-User-Footer wurde entfernt
-- **Benutzerprofil im Settings-Modal**
-  - Username wird read-only angezeigt
-  - Anzeigename ist inline wie die E-Mail bearbeitbar
-  - E-Mail und Profil laden beim Öffnen frische `/api/me` Daten
-- **Avatar-Upload über Settings**
-  - Runder Cropper mit Drag, Pinch-to-Zoom auf Mobile und Mausrad-/Trackpad-Zoom auf Desktop
-  - JPEG/PNG/WebP/GIF sowie HEIC/HEIF als Upload-Formate
-  - HEIC/HEIF wird serverseitig verarbeitet, wenn der Browser keine Vorschau unterstützt
-  - Gespeichert wird immer WebP unter `api/data/avatars/`; die DB speichert nur URL und Änderungszeitpunkt
-- **Avatar-Backups**
-  - Live-Backup sichert SQLite-DB, Metadaten und Avatar-Dateien gemeinsam als rotierendes ZIP pro Slot
+- **Avatar/user menu at top right** as a new place for global actions
+  - Settings, theme, sorting, hide completed todos, and logout in a compact menu
+  - Old sidebar user footer was removed
+- **User profile in settings modal**
+  - Username is displayed read-only
+  - Display name is editable inline like the email
+  - Email and profile load fresh `/api/me` data when opening
+- **Avatar upload through settings**
+  - Round cropper with drag, pinch-to-zoom on mobile, and mouse wheel/trackpad zoom on desktop
+  - JPEG/PNG/WebP/GIF as well as HEIC/HEIF as upload formats
+  - HEIC/HEIF is processed server-side when the browser does not support preview
+  - Always saved as WebP under `api/data/avatars/`; the DB stores only URL and modification timestamp
+- **Avatar backups**
+  - Live backup stores SQLite DB, metadata, and avatar files together as a rotating ZIP per slot
 
 ### Changed
-- User-Menü-Textfarben normalisiert, damit aktive Toggle-Einträge optisch ruhig bleiben
-- Settings-Profilbereich kompakter und sauberer angeordnet
+- User menu text colors normalized so active toggle entries stay visually calm
+- Settings profile area arranged more compactly and cleanly
 
 ### Fixed
-- Undo für erneut geöffnete Todos stellt den vorherigen Status korrekt wieder her
-- Avatar-Cropper zeigt Bilder auf Mobile korrekt an, statt wegen unsichtbarer Modal-Größe mit `scale(0)` zu starten
-- Projekt-Modal kann ein Subprojekt wieder zurück auf „kein Eltern-Projekt“ setzen (`parent_id: null` wird jetzt übernommen)
+- Undo for reopened todos correctly restores the previous status
+- Avatar cropper displays images correctly on mobile instead of starting with `scale(0)` due to invisible modal size
+- Project modal can set a subproject back to “no parent project” (`parent_id: null` is now applied)
 
 ## [1.1.0] - 2026-05-20
 
 ### Added
-- **Passwort-Setup-/Reset-Links** für Benutzer-Onboarding
-  - Admins erzeugen beim Benutzeranlegen automatisch einen einmaligen Setup-Link
-  - Admins können jederzeit einen neuen Passwort-Link für bestehende Benutzer erzeugen
-  - Öffentliche `/set-password` Seite zum Setzen des Passworts per Token
-  - Tokens werden gehashed gespeichert, sind einmalig und 24 Stunden gültig
-- **E-Mail-Adressen für Benutzer**
-  - E-Mail ist für neue Benutzer und den ersten Setup-Benutzer Pflicht
-  - Admin-UI zeigt E-Mail-Adressen in der Benutzerliste
-  - Admins können E-Mail-Adressen inline per Stift/Haken/X bearbeiten
-  - Benutzer können ihre eigene E-Mail im Einstellungsmodal inline bearbeiten
-- **E-Mail-Validierung** in Backend, Admin-UI, Setup-UI und User-Settings
+- **Password setup/reset links** for user onboarding
+  - Admins automatically generate a one-time setup link when creating users
+  - Admins can generate a new password link for existing users at any time
+  - Public `/set-password` page for setting the password by token
+  - Tokens are stored hashed, one-time use, and valid for 24 hours
+- **Email addresses for users**
+  - Email is required for new users and the first setup user
+  - Admin UI shows email addresses in the user list
+  - Admins can edit email addresses inline with pen/check/X
+  - Users can edit their own email inline in the settings modal
+- **Email validation** in backend, admin UI, setup UI, and user settings
 
 ### Changed
-- Admins setzen Benutzerpasswörter nicht mehr direkt; stattdessen werden Passwort-Links erzeugt
-- User-Settings laden beim Öffnen frische `/api/me` Daten, damit Admin-Änderungen sofort sichtbar sind
-- Admin-Benutzerliste vereinfacht: Status-Spalte entfernt, kompaktere E-Mail-Bearbeitung
-- Settings-Modal aufgeräumt: Passwort-Button sitzt direkt in der Passwort-Section
+- Admins no longer set user passwords directly; password links are generated instead
+- User settings load fresh `/api/me` data when opening so admin changes are visible immediately
+- Admin user list simplified: status column removed, more compact email editing
+- Settings modal cleaned up: password button sits directly in the password section
 
 ### Fixed
-- Todo-Erstellung übernimmt den gewählten Status korrekt und setzt `completed_at` bei direkt erledigten Todos
-- Admin-Tabellenlayout läuft beim Inline-Bearbeiten nicht mehr aus dem Container
-- Tabellen-Ellipsis erscheint nicht mehr fälschlich neben „Link erzeugen“
+- Todo creation correctly applies the selected status and sets `completed_at` for directly completed todos
+- Admin table layout no longer overflows the container during inline editing
+- Table ellipsis no longer incorrectly appears next to “Link erzeugen”
 
 ### Security
-- Passwort-Setup-Token werden nur gehashed gespeichert und sind nach Nutzung ungültig
-- E-Mail-Adressen müssen eindeutig und formal gültig sein
-- `/api/password-setup/complete` ist explizit tokenbasiert öffentlich, bleibt aber CSRF-unabhängig begrenzt auf den einmaligen Token
+- Password setup tokens are stored only hashed and are invalid after use
+- Email addresses must be unique and formally valid
+- `/api/password-setup/complete` is explicitly token-based public, but remains CSRF-independently limited to the one-time token
 
 ## [1.0.0] - 2026-05-20
 
 ### Added
-- **Projekt-Sharing**: Projekte können mit anderen Benutzern geteilt werden
-  - Einladungen per Benutzername
-  - Annahme/Ablehnung im UI
-  - Owner-/Member-Rollen mit klarer Readonly-Ansicht für geteilte Projekte
-  - Mitglieder entfernen, Projekt verlassen und Undo für beide Fälle
-  - Owner-Metadaten (`owner_username`, `owner_display_name`) für geteilte Projekte
-- **Stabile Inbox-Identität**: `projects.is_inbox` ersetzt harte Annahmen über Name oder ID
-  - Jeder Benutzer hat eine eigene Inbox
-  - Inbox darf umbenannt werden, bleibt aber geschützt
-  - Migration repariert fehlende/kaputte Inbox-Zuordnungen und projektlose Todos
-- **Frontend-Security-Test**: Neue Regressionstests für Markdown-XSS, Service-Worker API-Cache und Offline-Sync-Queue
-- **Sharing-Frontend-Test**: Playwright-Test für Einladen, Member-Liste, Readonly-UI und Owner-Sichtbarkeit
-- **Cold-Start Loading-Screen**: Zeigt beim App-Boot einen eigenen Ladezustand statt zu früher Loginmaske
+- **Project sharing**: projects can be shared with other users
+  - Invitations by username
+  - Accept/decline in the UI
+  - Owner/member roles with clear readonly view for shared projects
+  - Remove members, leave project, and undo for both cases
+  - Owner metadata (`owner_username`, `owner_display_name`) for shared projects
+- **Stable inbox identity**: `projects.is_inbox` replaces hard assumptions about name or ID
+  - Each user has their own inbox
+  - Inbox may be renamed but remains protected
+  - Migration repairs missing/broken inbox assignments and projectless todos
+- **Frontend security test**: new regression tests for Markdown XSS, service worker API cache, and offline sync queue
+- **Sharing frontend test**: Playwright test for invite, member list, readonly UI, and owner visibility
+- **Cold-start loading screen**: shows a dedicated loading state during app boot instead of an overly early login mask
 
 ### Changed
-- **Projekt-Namen nur pro Benutzer eindeutig** statt global eindeutig
-- **Todo-Default-Projekt**: Neue Todos ohne Projekt landen in der Inbox des aktuellen Benutzers
-- **Login/Reload-Stabilität**: Server-Refresh rendert sofort und persistiert Projekte/Todos/Sections direkt in IndexedDB
-- **PWA-Session**: User-Logins laufen 30 Tage und werden bei App-Öffnung automatisch verlängert, wenn sie bald ablaufen
-- **Service Worker**: `/api/*` wird nicht mehr gecached, um Auth-/User-Datenleaks zu vermeiden
-- **API-Key Auth**: CSRF-Bypass nur noch für `Authorization: ApiKey ...`; `Bearer nt_...` und `X-API-Key` werden abgelehnt
-- **Reminder/Deadline Eingaben**: Frontend- und Backendvalidierung für ungültige Datum-/Zeitwerte (`1900..9999`, gültige Uhrzeit)
+- **Project names unique only per user** instead of globally unique
+- **Todo default project**: new todos without project land in the current user's inbox
+- **Login/reload stability**: server refresh renders immediately and persists projects/todos/sections directly in IndexedDB
+- **PWA session**: user logins last 30 days and are automatically extended when opening the app if they expire soon
+- **Service worker**: `/api/*` is no longer cached to avoid auth/user data leaks
+- **API key auth**: CSRF bypass only for `Authorization: ApiKey ...`; `Bearer nt_...` and `X-API-Key` are rejected
+- **Reminder/deadline inputs**: frontend and backend validation for invalid date/time values (`1900..9999`, valid time)
 
 ### Fixed
-- **Multi-User-Isolation**: Projekt-/Section-/Todo-/Reminder-Filter validieren Zugriff vor Datenabfrage
-- **Shared Reminders**: Reminder sind benutzerspezifisch sichtbar und werden an den korrekten User dispatched
-- **Projekt löschen**: Todos werden in die Inbox des jeweiligen Users verschoben, nicht hart auf Projekt-ID 1
-- **Login Race**: Formular-Submit kann nicht mehr feuern, bevor die App-Module bereit sind
-- **App Import Failure**: Dynamische Importfehler zeigen jetzt einen Fehlerzustand mit „Neu laden“ statt Endlosspinner
-- **Markdown Rendering**: Token-Inhalte werden escaped, statt Regex-Reinjektion zu erlauben
-- **Offline Sync Queue**: Payloads werden whitelisted/sanitized
-- **Sharing UI Polish**: Inline-Invite-Fehler, dezente Member-Liste, kompakte Aktionsbuttons, sichtbare Owner-Info
+- **Multi-user isolation**: project/section/todo/reminder filters validate access before data queries
+- **Shared reminders**: reminders are user-specific visible and dispatched to the correct user
+- **Delete project**: todos are moved to the respective user's inbox, not hardcoded to project ID 1
+- **Login race**: form submit can no longer fire before the app modules are ready
+- **App import failure**: dynamic import errors now show an error state with “Reload” instead of endless spinner
+- **Markdown rendering**: token contents are escaped instead of allowing regex reinjection
+- **Offline sync queue**: payloads are whitelisted/sanitized
+- **Sharing UI polish**: inline invite errors, subtle member list, compact action buttons, visible owner info
 
 ### Security
-- CSRF-Härtung für API-Key-Verwechslung (`Bearer nt_...`)
-- IDOR-Schutz für fremde Projekt-/Section-Filter
-- Kein authenticated API Response Caching im Service Worker
-- Striktere Shared-Data-Isolation über REST und WebSocket
+- CSRF hardening for API key confusion (`Bearer nt_...`)
+- IDOR protection for foreign project/section filters
+- No authenticated API response caching in the service worker
+- Stricter shared-data isolation through REST and WebSocket
 
 ## [0.4.11] - 2026-05-20
 
 ### Architecture
-- **Backend modularisiert**: Monolithisches `main.py` aufgeteilt in Router + Services
-  - `api/routers/` — API-Endpunkte (auth, todos, projects, sections, push, admin, me, setup, dashboard, websocket, reminders)
-  - `api/services/` — Geschäftslogik (auth, push, audit, utils, websocket)
-  - `api/middleware/` — Security-Middleware (CSRF, Rate-Limiting)
-  - `api/migrations/` — Versionierte DB-Migrationen
-- **Frontend modularisiert**: Legacy-Inline-Skript ersetzt durch ES-Module-Architektur
-  - `web/static/js/features/` — Isolierte Feature-Module (auth, sync, todos, projects, sections, drag-drop, toast-undo, push, theme, websocket, view-preferences, service-worker-updates, app-lifecycle, ui-shell, navigation, section-actions, todo-rendering, app-rendering, api-keys, user-settings, connection-status, legacy-globals)
-  - `web/static/js/api/` — API-Clients (http, auth, todos, projects, sections, push)
-  - `web/static/js/core/` — Config + Utilities
-  - `web/static/js/storage/` — IndexedDB + App-Storage Wrapper
+- **Backend modularized**: monolithic `main.py` split into routers + services
+  - `api/routers/` — API endpoints (auth, todos, projects, sections, push, admin, me, setup, dashboard, websocket, reminders)
+  - `api/services/` — business logic (auth, push, audit, utils, websocket)
+  - `api/middleware/` — security middleware (CSRF, rate limiting)
+  - `api/migrations/` — versioned DB migrations
+- **Frontend modularized**: legacy inline script replaced by ES module architecture
+  - `web/static/js/features/` — isolated feature modules (auth, sync, todos, projects, sections, drag-drop, toast-undo, push, theme, websocket, view-preferences, service-worker-updates, app-lifecycle, ui-shell, navigation, section-actions, todo-rendering, app-rendering, api-keys, user-settings, connection-status, legacy-globals)
+  - `web/static/js/api/` — API clients (http, auth, todos, projects, sections, push)
+  - `web/static/js/core/` — config + utilities
+  - `web/static/js/storage/` — IndexedDB + app storage wrapper
 
 ### Added
-- **Test-Framework**: Frontend-Regressionstests mit Playwright (8 Module)
-  - `scripts/test_all.sh` — Gesamtsuite (Backend + 8 Frontend-Tests)
-  - `scripts/test_backend.py` — 40 API-Endpunkte mit automatischem DB-Backup/Restore
-  - `scripts/test_frontend_smoke.mjs` — Login, Project, Section, Todo, Theme, Search, Delete, Undo
-  - `scripts/test_frontend_app.mjs` — Todo-CRUD, Edit, Filter, Prio, Drag & Drop zwischen Sections
-  - `scripts/test_frontend_setup.mjs` — Setup-Flow, Admin-Erstellung, Erst-User
-  - `scripts/test_frontend_admin.mjs` — Admin-Login, User-Management, Passwort-Reset
-  - `scripts/test_frontend_settings.mjs` — API-Keys, Push-Settings, Passwort-Änderung
-  - `scripts/test_frontend_projects.mjs` — Project-CRUD, Subprojects, Farben
-  - `scripts/test_frontend_dragdrop.mjs` — Drag & Drop zwischen Sections und Projekten
-- **Doku**: Aufgeteilt in separate Dateien unter `docs/`
-  - `docs/api.md` — Vollständige API-Dokumentation (Request/Response/Body/Beispiele)
-  - `docs/testing.md` — Frontend- und Backend-Testanleitung
-  - `docs/workflow.md` — Git-Workflow, Branches, Release-Prozess
-  - `docs/architecture.md` — Frontend- und Backend-Architektur
-- **Release-Gate**: `./scripts/test_all.sh` muss vor Tag/Merge grün sein
+- **Test framework**: frontend regression tests with Playwright (8 modules)
+  - `scripts/test_all.sh` — full suite (backend + 8 frontend tests)
+  - `scripts/test_backend.py` — 40 API endpoints with automatic DB backup/restore
+  - `scripts/test_frontend_smoke.mjs` — login, project, section, todo, theme, search, delete, undo
+  - `scripts/test_frontend_app.mjs` — todo CRUD, edit, filter, prio, drag & drop between sections
+  - `scripts/test_frontend_setup.mjs` — setup flow, admin creation, first user
+  - `scripts/test_frontend_admin.mjs` — admin login, user management, password reset
+  - `scripts/test_frontend_settings.mjs` — API keys, push settings, password change
+  - `scripts/test_frontend_projects.mjs` — project CRUD, subprojects, colors
+  - `scripts/test_frontend_dragdrop.mjs` — drag & drop between sections and projects
+- **Docs**: split into separate files under `docs/`
+  - `docs/api.md` — complete API documentation (request/response/body/examples)
+  - `docs/testing.md` — frontend and backend test guide
+  - `docs/workflow.md` — Git workflow, branches, release process
+  - `docs/architecture.md` — frontend and backend architecture
+- **Release gate**: `./scripts/test_all.sh` must be green before tag/merge
 
 ### Fixed
-- **Startup-Performance**: `app.js` wird jetzt dynamisch nach DOMContentLoaded importiert
-  - Reduziert blockierenden Initial-Load erheblich
-- **Reload bleibt eingeloggt**: `startAppModule()` wird bei jedem Import explizit aufgerufen
-  - Vorher: ESM-Cache verhinderte Neuausführung der Startup-Seiteneffekte
-- **Service Worker**: Kein falscher Update-Hinweis bei Erstinstallation
-  - Update-Button nur bei `controller` vor Registrierung + `waiting`-Worker
-- **Service Worker**: Kein automatischer Reload-Loop beim ersten `controllerchange`
-- **Auth**: Login-Flow stabilisiert gegen Timeouts bei Setup-/Auth-Checks
-- **Settings-Test**: Push-Buttons robust gegen `display:none` im Test-Context
-- **Section-DnD-UX**: Trennlinien nur noch beim Verschieben von Sections, Todo-Zonen nur beim Verschieben von Todos
+- **Startup performance**: `app.js` is now imported dynamically after DOMContentLoaded
+  - Significantly reduces blocking initial load
+- **Reload remains logged in**: `startAppModule()` is called explicitly on every import
+  - Previously: ESM cache prevented re-execution of startup side effects
+- **Service worker**: no false update notice on first installation
+  - Update button only with `controller` before registration + `waiting` worker
+- **Service worker**: no automatic reload loop on the first `controllerchange`
+- **Auth**: login flow stabilized against timeouts during setup/auth checks
+- **Settings test**: push buttons robust against `display:none` in the test context
+- **Section DnD UX**: separators only when moving sections, todo zones only when moving todos
 
 ## [0.4.10] - 2026-05-18
 
 ### Changed
-- **Release-/Versionsupdate** auf `v0.4.10`
-  - Versionstexte in UI, Frontend und Service Worker angehoben
-  - Keine fachlichen Änderungen gegenüber `v0.4.9`
+- **Release/version update** to `v0.4.10`
+  - Version texts in UI, frontend, and service worker raised
+  - No functional changes compared to `v0.4.9`
 
 ## [0.4.9] - 2026-05-17
 
 ### Added
-- **Erledigte löschen**: Inline-Button neben "Neue Section" löscht alle done Todos im Projekt
-  - Inklusive Subprojekten
-  - Bestätigungsdialog mit Anzahl
-  - **Batch-Undo**: Rückgängig-Machen stellt alle gelöschten Todos wieder her
-- **Projekt merken**: Letztes ausgewähltes Projekt/Filter wird nach Reload wiederhergestellt
-- **Shortcut 'n'**: Öffnet Todo-Modal und fokussiert direkt das Titel-Feld
-- **Deadline & Überfälligkeit**: Zeigt wieder in Todo-Liste an (zweite Zeile)
-- **Beschreibung**: Wird jetzt in Todo-Liste angezeigt (dritte Zeile, max. 12 Wörter)
-- **Markdown Support**: Beschreibungen unterstützen **fett**, *kursiv*, `code`, - Listen, [Links](url)
-- **Live Markdown Preview**: Echtzeit-Vorschau im Todo-Bearbeitungs-Modal
+- **Delete completed**: inline button next to "New section" deletes all done todos in the project
+  - Including subprojects
+  - Confirmation dialog with count
+  - **Batch undo**: undo restores all deleted todos
+- **Remember project**: last selected project/filter is restored after reload
+- **Shortcut 'n'**: opens todo modal and directly focuses the title field
+- **Deadline & overdue**: shown again in todo list (second line)
+- **Description**: now shown in todo list (third line, max. 12 words)
+- **Markdown support**: descriptions support **bold**, *italic*, `code`, - lists, [links](url)
+- **Live Markdown Preview**: realtime preview in the todo edit modal
 
 ## [0.4.8] - 2026-05-16
 
 ### Added
-- **Push Notifications**: Vollständige PWA-Benachrichtigungen für Todo-Erinnerungen
-  - VAPID-basierte Web Push Notifications
-  - Settings-UI mit Server-Status-Check (zeigt "inaktiv" wenn Subscription tot)
-  - "Erledigt"-Action aus Notification markiert Todo direkt (App bleibt im Hintergrund)
-  - Background Task prüft alle **30 Sekunden** auf fällige Reminders
-  - Automatische Bereinigung: 14-tägiger Cleanup entfernt tote Subscriptions
-  - Server-Status Endpoint: `GET /api/push/status`
-- **UX-Verbesserung**: Neues Todo hat aktuelles Projekt vorausgewählt (oder Inbox)
+- **Push notifications**: complete PWA notifications for todo reminders
+  - VAPID-based Web Push Notifications
+  - Settings UI with server status check (shows "inactive" when subscription is dead)
+  - "Completed" action from notification marks todo directly (app stays in background)
+  - Background task checks every **30 seconds** for due reminders
+  - Automatic cleanup: 14-day cleanup removes dead subscriptions
+  - Server status endpoint: `GET /api/push/status`
+- **UX improvement**: new todo has current project preselected (or inbox)
 
 ### Fixed
-- **Reminder löschen**: Erinnerung kann jetzt entfernt werden (Feld leer → löscht Reminder)
-- **Sync-Duplikate**: Race-Condition für Todos, Sections und Projects behoben
-- **Async Startup**: Background-Loop startet jetzt zuverlässig (vorher sync def mit asyncio.create_task)
-- **Service Worker**: Ignoriert silent Health-Check Pushes (keine leeren Notifications)
-- **Undo-Toast**: Toast-Notification ist jetzt mittig zentriert auf Mobile
+- **Delete reminder**: reminder can now be removed (empty field → deletes reminder)
+- **Sync duplicates**: race condition for todos, sections, and projects fixed
+- **Async startup**: background loop now starts reliably (previously sync def with asyncio.create_task)
+- **Service worker**: ignores silent health-check pushes (no empty notifications)
+- **Undo toast**: toast notification is now centered on mobile
 
 ### Removed
-- Telegram-Reminder-Skripte (ersetzt durch Push Notifications)
-- Interne Audit-/Debug-Dateien aus dem Release-Paket entfernt
+- Telegram reminder scripts (replaced by push notifications)
+- Internal audit/debug files removed from the release package
 
 ## [0.4.6] - 2026-05-16
 
 ### Fixed
-- **Section-Broadcasts**: WebSocket-Broadcasts für Section-CRUD hinzugefügt
-  - `section_create`, `section_update`, `section_delete` werden jetzt in Echtzeit an andere Geräte gesendet
-  - Sections umbenennen/erstellen erscheint sofort auf allen verbundenen Geräten
-- **Sync-Consistency**: `sync_response` merged Todos jetzt nur, wenn keine lokalen pending Updates existieren
-  - Bisher konnte Server-Stand lokale Todo-Updates überschreiben (wie bei Projekten/Sections schon korrekt)
-- **Project WS Handler**: `renderStats()` und `renderTodos()` werden bei `project_create`/`project_update` aufgerufen
-  - Todo-Ansicht zeigt sofort aktualisierte Projekt-Namen/Farben ohne View-Wechsel
+- **Section broadcasts**: WebSocket broadcasts for section CRUD added
+  - `section_create`, `section_update`, `section_delete` are now sent to other devices in realtime
+  - Renaming/creating sections appears immediately on all connected devices
+- **Sync consistency**: `sync_response` now merges todos only when no local pending updates exist
+  - Previously server state could overwrite local todo updates (as already correct for projects/sections)
+- **Project WS handler**: `renderStats()` and `renderTodos()` are called on `project_create`/`project_update`
+  - Todo view immediately shows updated project names/colors without switching views
 
 ## [0.4.5] - 2026-05-16
 
 ### Fixed
-- **CSRF-Cookie-Support**: `credentials: 'include'` zu allen `fetch()`-Aufrufen hinzugefügt
-  - Alle schreibenden Operationen (PATCH, POST, DELETE) funktionieren jetzt korrekt
-  - Projekt-Umbenennungen, Farbänderungen, Todo-Updates etc. werden jetzt zum Server synchronisiert
-  - Login/Logout/API-Keys ebenfalls gefixt
-- **Migration 008**: `updated_at` Spalte zu `sections` hinzugefügt (für Offline-Sync)
+- **CSRF cookie support**: `credentials: 'include'` added to all `fetch()` calls
+  - All writing operations (PATCH, POST, DELETE) now work correctly
+  - Project renames, color changes, todo updates, etc. are now synced to the server
+  - Login/logout/API keys also fixed
+- **Migration 008**: `updated_at` column added to `sections` (for offline sync)
 
 ## [0.4.4] - 2026-05-16
 
 ### Added
-- **Sections Offline-First**: CREATE/UPDATE/DELETE Sections funktioniert jetzt offline mit Sync-Queue
-  - `updated_at` Spalte zu `sections` hinzugefügt
-  - Merge-Logik für Sections bei Server-Refresh (wie Todos/Projekte)
-  - Sync-Queue Handler: `CREATE_SECTION`, `UPDATE_SECTION`, `DELETE_SECTION`
+- **Sections offline-first**: CREATE/UPDATE/DELETE sections now works offline with sync queue
+  - `updated_at` column added to `sections`
+  - Merge logic for sections during server refresh (like todos/projects)
+  - Sync queue handler: `CREATE_SECTION`, `UPDATE_SECTION`, `DELETE_SECTION`
 
 ### Fixed
-- **Project-Sync**: Offline umbenannte Projekte werden nicht mehr vom Server überschrieben
-  - `updated_at` Vergleich + pending-changes-Check für Projekte in `refreshFromServer()`
-- **Mobile Scroll**: Letztes Todo wird nicht mehr abgeschnitten in der PWA
-  - `100dvh` statt `100vh` für korrekte Viewport-Höhe
-  - `padding-bottom` für Mobile Safe Areas
-  - Toast-Position berücksichtigt jetzt `safe-area-inset-bottom`
+- **Project sync**: offline-renamed projects are no longer overwritten by the server
+  - `updated_at` comparison + pending-changes check for projects in `refreshFromServer()`
+- **Mobile scroll**: last todo is no longer clipped in the PWA
+  - `100dvh` instead of `100vh` for correct viewport height
+  - `padding-bottom` for mobile safe areas
+  - Toast position now accounts for `safe-area-inset-bottom`
 
 ## [0.4.3] - 2026-05-16
 
 ### Changed
-- **Projekte alphabetisch sortiert**: Inbox (ID=1) immer zuerst, dann Custom-Projekte A→Z
+- **Projects sorted alphabetically**: inbox (ID=1) always first, then custom projects A→Z
 
 ## [0.4.2] - 2026-05-16
 
 ### Changed
-- **Projekte alphabetisch sortiert**: Sidebar-Baum, Todo-Modal Dropdown und Projekt-Modal Dropdown sortieren jetzt nach Projektname (A→Z)
+- **Projects sorted alphabetically**: sidebar tree, todo modal dropdown, and project modal dropdown now sort by project name (A→Z)
 
 ## [0.4.1] - 2026-05-16
 
 ### Added
-- **3-State Checkbox**: Klick auf Checkbox toggled Offen → In Arbeit → Erledigt → Offen
-- **Undo Toast**: "Rückgängig"-Button erscheint nach Erledigen/Löschen eines Todos (5s Timeout)
-- **Sort-Toggle**: Sortierung in Topbar wechselt zwischen Reihenfolge / Priorität / Alphabetisch
-- **Hide-Done Toggle**: Erledigte Todos app-wide ausblenden (localStorage)
-- **Offline-Indikator**: Nur sichtbar bei Offline — dezenter roter Punkt, kein Text
+- **3-state checkbox**: click on checkbox toggles open → in progress → completed → open
+- **Undo toast**: "Undo" button appears after completing/deleting a todo (5s timeout)
+- **Sort toggle**: sorting in topbar switches between order / priority / alphabetical
+- **Hide-done toggle**: hide completed todos app-wide (localStorage)
+- **Offline indicator**: only visible when offline — subtle red dot, no text
 
 ### Changed
-- **Theme Toggle**: Sidebar hat jetzt einen einzelnen Button statt drei (durchschaltet Light/Dark/System)
-- **Kompakte Todos**: Prio-Emoji vor dem Titel, kein Projekt-Name mehr, eine Zeile pro Todo
-- **Globale Ansichten**: Todos in All/Offen/In Arbeit/Erledigt jetzt nach Projekt gruppiert
-- **Sections**: Minimaler Stil ohne Hintergrund/Border, kein Folder-Icon
-- **Logout-Button**: Jetzt als Icon neben dem Settings-Icon in der Sidebar
-- **Topbar**: Neue Toggle-Buttons (40×40) für bessere Ergonomie
-- **"In Arbeit" über "Offen"**: Reihenfolge in globalen Ansichten geändert
+- **Theme toggle**: sidebar now has a single button instead of three (cycles Light/Dark/System)
+- **Compact todos**: prio emoji before the title, no project name anymore, one line per todo
+- **Global views**: todos in All/Open/In Progress/Completed now grouped by project
+- **Sections**: minimal style without background/border, no folder icon
+- **Logout button**: now as an icon next to the settings icon in the sidebar
+- **Topbar**: new toggle buttons (40×40) for better ergonomics
+- **"In progress" above "Open"**: order changed in global views
 
 ## [0.4.0] - 2026-05-16
 
 ### Added
-- **Multi-User Support**: Mehrere Benutzer mit eigenen Daten
-- **JWT Authentication**: Bearer Token mit 1-Tag-Laufzeit, `token_version` für sofortiges Invalidieren aller Sessions
-- **Admin Setup** (`/setup`): Admin-Passwort setzen + ersten Benutzer erstellen
-- **Admin Panel** (`/admin`): Benutzer anlegen, löschen, Passwörter zurücksetzen
-- **Passwort-Management**:
-  - Benutzer kann eigenes Passwort ändern (Einstellungen-Modal)
-  - Admin kann eigenes Passwort ändern
-  - Admin kann Benutzer-Passwörter zurücksetzen
-  - Console-Notfall-Reset: `api/change_admin_password.py`
-- **Passwort-Stärke-Validierung**: Admin 12+ Zeichen, Benutzer 8+ Zeichen (Groß-/Kleinbuchstabe, Ziffer, Sonderzeichen)
-- **Theme Toggle**: Light/Dark/System mit localStorage-Persistenz
-- **Daten-Isolation**: Benutzer sehen nur ihre eigenen Projekte, Todos und Sections
-- **IndexedDB-Cache-Sicherheit**: Automatisches Löschen bei Logout/User-Wechsel
-- **Migrationssystem erweitert**: 003_add_user_support.sql + 004_add_jwt_support.sql
-- **API-Key-Authentifizierung**: Benutzer können in den Einstellungen API-Keys generieren
-- **Rate-Limiting / Bruteforce-Schutz**: Login (5 Versuche / 15 Min), API (100 Requests / Min), WebSocket (max 10 pro IP)
-- **CORS**: Erlaubte Origins sind konfigurierbar und werden restriktiv geprüft
-- **CSRF-Protection**: Double-Submit Cookie Pattern für alle state-changing Endpoints
-- **Security Headers**: CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, HSTS
-- **Audit-Log**: Sicherheitsrelevante Events werden protokolliert
-- **Input-Sanitization**: HTML-Tags werden entfernt, Null-Bytes gestrippt
-- **Input-Validierung**: Username (3-32 Zeichen, alphanumeric), Passwort-Länge, Text-Längenlimits
+- **Multi-user support**: multiple users with their own data
+- **JWT authentication**: bearer token with 1-day lifetime, `token_version` for immediate invalidation of all sessions
+- **Admin setup** (`/setup`): set admin password + create first user
+- **Admin panel** (`/admin`): create users, delete users, reset passwords
+- **Password management**:
+  - User can change own password (settings modal)
+  - Admin can change own password
+  - Admin can reset user passwords
+  - Console emergency reset: `api/change_admin_password.py`
+- **Password strength validation**: admin 12+ characters, user 8+ characters (uppercase/lowercase letter, digit, special character)
+- **Theme toggle**: Light/Dark/System with localStorage persistence
+- **Data isolation**: users see only their own projects, todos, and sections
+- **IndexedDB cache security**: automatic deletion on logout/user switch
+- **Migration system expanded**: 003_add_user_support.sql + 004_add_jwt_support.sql
+- **API key authentication**: users can generate API keys in settings
+- **Rate limiting / brute-force protection**: login (5 attempts / 15 min), API (100 requests / min), WebSocket (max 10 per IP)
+- **CORS**: allowed origins are configurable and checked restrictively
+- **CSRF protection**: double-submit cookie pattern for all state-changing endpoints
+- **Security headers**: CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, HSTS
+- **Audit log**: security-relevant events are logged
+- **Input sanitization**: HTML tags are removed, null bytes stripped
+- **Input validation**: username (3-32 characters, alphanumeric), password length, text length limits
 
 ### Changed
-- Sidebar zeigt immer vollständigen Projektbaum (keine Toggle-Buttons mehr)
-- Admin-Panel mit eigener Login-Seite statt Browser-Prompt
-- Inbox (id=1) geschützt: Kein Löschen, kein Parent-Dropdown, nicht als Parent auswählbar
-- WebSocket Auth: Token wird als Message statt Query-Parameter gesendet
-- JWT-Ablaufzeit: 7 Tage → 1 Tag
-- OpenAPI docs deaktiviert in Produktion
-- **UI**: Admin-Link aus Sidebar entfernt (nur direkte URL /admin)
-- **UI**: Abmelden-Button als Icon neben Einstellungen, kompaktere User-Bar
+- Sidebar always shows complete project tree (no more toggle buttons)
+- Admin panel with dedicated login page instead of browser prompt
+- Inbox (id=1) protected: no deletion, no parent dropdown, not selectable as parent
+- WebSocket auth: token is sent as message instead of query parameter
+- JWT expiration time: 7 days → 1 day
+- OpenAPI docs disabled in production
+- **UI**: admin link removed from sidebar (direct URL only /admin)
+- **UI**: logout button as icon next to settings, more compact user bar
 
 ### Security
-- **SQL Injection** in `update_todo` und `update_project` behoben (Column-Whitelist)
-- **XSS** in Frontend und Admin-Panel behoben (`escapeHtml`, `escapeHtmlAttr`)
-- **Path Traversal** in SPA-Route behoben (`PurePath.name`)
-- **User-Löschung** löscht jetzt alle Benutzerdaten (Cascade)
-- **Setup-Admin** kann nicht mehrfach ausgeführt werden
-- **X-Forwarded-For** wird nur von internen Proxies vertraut
+- **SQL injection** fixed in `update_todo` and `update_project` (column whitelist)
+- **XSS** fixed in frontend and admin panel (`escapeHtml`, `escapeHtmlAttr`)
+- **Path traversal** fixed in SPA route (`PurePath.name`)
+- **User deletion** now deletes all user data (cascade)
+- **Setup admin** cannot be run multiple times
+- **X-Forwarded-For** is trusted only from internal proxies
 
 ## [0.3.3] - 2026-05-15
 
 ### Added
-- **Theme-Support**: Light/Dark/System-Theme mit Toggle in Sidebar
-- Theme-Einstellung wird in localStorage gespeichert
-- Theme reagiert live auf System-Theme-Änderungen ("System"-Modus)
+- **Theme support**: Light/Dark/System theme with toggle in sidebar
+- Theme setting is stored in localStorage
+- Theme reacts live to system theme changes ("System" mode)
 
 ## [0.3.2] - 2026-05-15
 
 ### Added
-- CHANGELOG.md mit vollständiger Versionshistorie
+- CHANGELOG.md with complete version history
 
 ### Fixed
-- Section-Button wird jetzt **immer** angezeigt (auch in leeren Projekten)
-- Empty-State überschreibt nicht mehr den "Neue Section"-Button
+- Section button is now **always** shown (even in empty projects)
+- Empty state no longer overwrites the "New section" button
 
 ## [0.3.1] - 2026-05-15
 
 ### Added
-- Automatisches Hochzählen der Dev-Version nach Release (release.sh)
-- DB-Backup vor Live-Upgrade (timestamped backups in api/data/backups/)
+- Automatic incrementing of the dev version after release (release.sh)
+- DB backup before live upgrade (timestamped backups in api/data/backups/)
 
 ### Changed
-- Sidebar zeigt immer vollständigen Projektbaum (keine Toggle-Buttons mehr)
-- Inbox ist geschützt: Kein Löschen, kein Parent-Dropdown, nicht als Parent auswählbar
+- Sidebar always shows complete project tree (no more toggle buttons)
+- Inbox is protected: no deletion, no parent dropdown, not selectable as parent
 
 ### Fixed
-- Projekt-Löschen wurde nicht synchronisiert (DELETE_PROJECT Handler fehlte)
-- Doppelte Projekte nach Erstellen (temp-ID Cleanup)
-- Doppelte Todos nach Erstellen (temp-ID + WS Handler Fix)
-- Dropdown-Einrückung für Sub-Subprojects (Non-Breaking Spaces)
-- Projektbaum im Todo-Modal Dropdown
+- Project deletion was not synced (DELETE_PROJECT handler was missing)
+- Duplicate projects after creation (temp ID cleanup)
+- Duplicate todos after creation (temp ID + WS handler fix)
+- Dropdown indentation for sub-subprojects (non-breaking spaces)
+- Project tree in todo modal dropdown
 
 ## [0.3.0] - 2026-05-15
 
 ### Added
-- **Subproject-Support**: Projekte können jetzt Eltern-Projekte haben
-- `parent_id` Spalte in `projects` Tabelle
-- Baumstruktur in Sidebar mit Einrückung
-- Rekursive Todo-Zählung in Subprojects
-- Cascade-Delete: Löschen eines Parents löscht alle Children
-- Zyklus-Erkennung: Verhindert zirkuläre Abhängigkeiten
-- Migrationssystem: 001_initial_schema.sql + 002_add_project_parent_id.sql
+- **Subproject support**: projects can now have parent projects
+- `parent_id` column in `projects` table
+- Tree structure in sidebar with indentation
+- Recursive todo count in subprojects
+- Cascade delete: deleting a parent deletes all children
+- Cycle detection: prevents circular dependencies
+- Migration system: 001_initial_schema.sql + 002_add_project_parent_id.sql
 
 ### Changed
-- Projekt-Modal: Parent-Dropdown mit Baumstruktur
-- API erweitert: create/update/delete mit `parent_id`
-- `db.py`: `UNIQUE(name, parent_id)` statt `UNIQUE(name)`
+- Project modal: parent dropdown with tree structure
+- API expanded: create/update/delete with `parent_id`
+- `db.py`: `UNIQUE(name, parent_id)` instead of `UNIQUE(name)`
 
 ### Fixed
-- Dropdown-Anzeige für verschachtelte Subprojects
-- Live-Upgrade: Migration 002 fügt `parent_id` sicher hinzu
+- Dropdown display for nested subprojects
+- Live upgrade: migration 002 safely adds `parent_id`
 
 ## [0.2.17] - 2026-05-14
 
 ### Added
-- Offline-First PWA mit IndexedDB
-- WebSocket Echtzeit-Sync
-- Service Worker mit Update-Mechanismus
-- Sync-Queue für Offline-Änderungen
+- Offline-first PWA with IndexedDB
+- WebSocket realtime sync
+- Service worker with update mechanism
+- Sync queue for offline changes
 
 ### Fixed
-- Verschiedene UI-Bugs
+- Various UI bugs
 
-## [0.2.0] - Früher
+## [0.2.0] - Earlier
 
 ### Added
-- Grundlegende Todo-Verwaltung
-- Projekte und Sections
-- Prioritäten und Fälligkeitsdaten
-- Reminder-Funktion
-- Dark Mode UI
+- Basic todo management
+- Projects and sections
+- Priorities and due dates
+- Reminder function
+- Dark mode UI
