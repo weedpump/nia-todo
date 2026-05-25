@@ -204,7 +204,7 @@ def me(response: Response, authorization: Optional[str] = Header(None), x_sessio
             if payload.get('mfa_login_at'):
                 token_user['mfa_login_at'] = payload.get('mfa_login_at')
             token_user["session_id"] = payload.get("sid")
-            result["access_token"] = create_jwt_token(token_user, db, mfa_enroll_only=bool(payload.get('mfa_enroll_only')))
+            result["access_token"] = create_jwt_token(token_user, db, mfa_enroll_only=bool(payload.get('mfa_enroll_only')), create_session=not bool(payload.get('sid')))
             result["token_type"] = "bearer"
             result["csrf_token"] = csrf_token
 
