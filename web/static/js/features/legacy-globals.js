@@ -35,6 +35,8 @@ function parseLegacyArg(raw, event) {
   const value = raw.trim();
   if (!value) return undefined;
   if (value === 'event') return event;
+  if (value === 'this.value') return event?.target?.value;
+  if (value === 'this.checked') return Boolean(event?.target?.checked);
   if (/^-?\d+(\.\d+)?$/.test(value)) return Number(value);
   if ((value.startsWith("'") && value.endsWith("'")) || (value.startsWith('"') && value.endsWith('"'))) {
     return value.slice(1, -1).replace(/\\'/g, "'").replace(/\\"/g, '"');
@@ -109,17 +111,22 @@ function bindNativeLegacyInputBridge() {
   }, true);
 }
 
-let legacyClickBridgeBound = false;
-function bindNativeLegacyClickBridge() {
-  if (legacyClickBridgeBound || !RUNTIME_CAPABILITIES.native) return;
-  legacyClickBridgeBound = true;
-  document.addEventListener('click', (event) => {
-    const target = event.target?.closest?.('[onclick]');
+function bindNativeLegacyEventBridge(eventName, attributeName) {
+  document.addEventListener(eventName, (event) => {
+    const target = event.target?.closest?.(`[${attributeName}]`);
     if (!target) return;
     event.preventDefault();
     event.stopImmediatePropagation();
-    runLegacyInlineAction(target.getAttribute('onclick'), event);
+    runLegacyInlineAction(target.getAttribute(attributeName), event);
   }, true);
+}
+
+let legacyInlineBridgeBound = false;
+function bindNativeLegacyInlineBridge() {
+  if (legacyInlineBridgeBound || !RUNTIME_CAPABILITIES.native) return;
+  legacyInlineBridgeBound = true;
+  bindNativeLegacyEventBridge('click', 'onclick');
+  bindNativeLegacyEventBridge('change', 'onchange');
 }
 
 export function exposeLegacyGlobals({
@@ -174,6 +181,6 @@ export function exposeLegacyGlobals({
     ...push,
     ...desktopIntegration,
   });
-  bindNativeLegacyClickBridge();
+  bindNativeLegacyInlineBridge();
   bindNativeLegacyInputBridge();
 }
