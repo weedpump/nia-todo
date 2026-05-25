@@ -338,7 +338,6 @@ def list_users(_: bool = Depends(require_admin)):
                    CASE WHEN u.two_factor_totp_secret IS NOT NULL AND u.two_factor_totp_secret != '' THEN 1 ELSE 0 END AS has_totp,
                    CASE WHEN u.two_factor_recovery_hashes IS NOT NULL AND u.two_factor_recovery_hashes != '[]' THEN 1 ELSE 0 END AS has_recovery_codes,
                    (SELECT COUNT(*) FROM passkeys p WHERE p.user_id = u.id AND p.revoked_at IS NULL) AS passkey_count,
-                   (SELECT COUNT(*) FROM trusted_devices td WHERE td.user_id = u.id AND td.revoked_at IS NULL AND td.expires_at >= strftime('%s','now')) AS trusted_device_count,
                    (SELECT COUNT(*) FROM api_keys ak WHERE ak.user_id = u.id AND ak.revoked_at IS NULL) AS api_key_count
             FROM users u
             ORDER BY u.id
