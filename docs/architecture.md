@@ -1,4 +1,4 @@
-# Architektur
+# Architecture
 
 ## Stack
 
@@ -7,71 +7,71 @@
 - Vanilla JS Frontend
 - Offline-PWA
 
-## Bereiche
+## Areas
 
-- `api/` -> Backend und Datenzugriff
-- `web/` -> UI, Service Worker, Manifest
-- `scripts/` -> Tests und Helfer
-- `systemd/` -> Services für Live/Dev
+- `api/` -> backend and data access
+- `web/` -> UI, Service Worker, manifest
+- `scripts/` -> tests and helpers
+- `systemd/` -> services for live/dev
 
-## Datenmodell
+## Data Model
 
-- Jeder Benutzer hat eine eigene Inbox (`projects.is_inbox = 1`), unabhängig vom Projektnamen
-- Projekt-Namen sind pro Benutzer eindeutig, nicht global
-- Geteilte Projekte werden über `project_members` verwaltet (`pending`, `accepted`, `removed`, `left`, `declined`)
+- Each user has their own inbox (`projects.is_inbox = 1`), regardless of the project name
+- Project names are unique per user, not globally
+- Shared projects are managed via `project_members` (`pending`, `accepted`, `removed`, `left`, `declined`)
 
 ## Sync
 
-- lokale Änderungen gehen in eine Sync-Queue
-- WebSocket/Sync halten lokale Daten und Serverzustand zusammen
-- Server-Refresh schreibt den autoritativen Zustand direkt in IndexedDB, damit Reloads nach Login stabil bleiben
+- local changes go into a sync queue
+- WebSocket/sync keeps local data and server state in sync
+- server refresh writes the authoritative state directly into IndexedDB so reloads after login stay stable
 
 ## Native Apps
 
-Die Native-Apps-Architektur wird nach Generic Server Config sauber neu geplant/umgebaut. Ziel ist keine reine Remote-WebView, sondern eine offline-robuste native App mit lokal verfügbarem UI-Shell, konfigurierbarer Remote-API und späterer Server-Verifikation über `/api/instance`.
+The native apps architecture is being cleanly replanned/rebuilt after Generic Server Config. The goal is not a pure remote WebView, but an offline-robust native app with a locally available UI shell, configurable remote API, and later server verification via `/api/instance`.
 
-Aktueller Plan: [Native Apps Clean Architecture Plan](native-apps-clean-architecture.md)
+Current plan: [Native Apps Clean Architecture Plan](native-apps-clean-architecture.md)
 
-Aktueller 2.0-Branch-Stand:
+Current 2.0 branch state:
 
-- Tauri bündelt die Web-App lokal aus `web/` statt nur eine Remote-Redirect-Shell auszuliefern.
-- Native Runtime liest die lokal gespeicherte Server-URL und nutzt sie als API-/WebSocket-Basis.
-- `/api/instance` verifiziert Server mit niedriginformativer öffentlicher Instanz-Metadaten-Antwort.
-- Native Erstkonfiguration läuft lokal, bevor Login/App-Sync startet.
+- Tauri bundles the web app locally from `web/` instead of shipping only a remote redirect shell.
+- Native runtime reads the locally stored server URL and uses it as the API/WebSocket base.
+- `/api/instance` verifies the server with a low-information public instance metadata response.
+- Native first-time setup runs locally before login/app sync starts.
 
-Bestands-/Legacy-Kontext:
+Legacy context:
 
-- Vorhandene Tauri-Dateien und die ältere Tauri-Doku dürfen nicht blind als Zielarchitektur gelten.
-- Tauri kann als Runtime erneut entschieden werden, aber Änderungen aus verworfenen Branches werden nicht übernommen.
-- Browser/PWA-Push bleibt Browser/PWA-only; native lokale Reminder werden separat geplant.
-- Offline-Cold-Start ist ein hartes Merge-Kriterium und muss auf Windows und Android manuell getestet werden.
+- Existing Tauri files and the older Tauri docs must not be treated blindly as the target architecture.
+- Tauri can still be chosen again as the runtime, but changes from discarded branches are not carried over.
+- Browser/PWA push stays browser/PWA-only; native local reminders are planned separately.
+- Offline cold start is a hard merge criterion and must be tested manually on Windows and Android.
 
 ## Auth
 
 - JWT / Session-Token
-- User-Sessions laufen 30 Tage und werden über `/api/me` gleitend verlängert, wenn sie bald ablaufen
-- Admin-Sessions sind kürzerlebig und separat versioniert
+- User sessions last 30 days and are rolling-extended via `/api/me` when they are about to expire
+- Admin sessions are shorter-lived and versioned separately
 - CSRF-Schutz für Browser-Sessions
-- API-Keys für externe Nutzung nur via `Authorization: ApiKey ...`
-- Benutzer sehen eigene Daten plus akzeptierte Shared-Projekte
-- Shared-Projektzugriff wird in Projekten, Todos, Sections, Reminders und WebSocket-Payloads geprüft
-- **E-Mail-Verifizierung**: Login, Passwort-Reset und Projekt-Sharing erfordern verifizierte E-Mails
-- **Neutrale API-Responses** bei E-Mail-basierten Aktionen verhindern User-Enumeration
-- **Pending Invites** sind aus Privacy-Gründen nur für den Invitee sichtbar (nicht für Owner/Members)
-- **2FA/MFA** ist in den normalen Passwort-Login eingebunden: Wenn ein Account 2FA benötigt und kein gültiges Trusted-Device-Cookie existiert, liefert `/api/login` eine Challenge statt eines Access-Tokens. Nach erfolgreicher Login-Challenge wird ein JWT mit `mfa_login_at` ausgestellt; sensitive Aktionen nutzen separate One-Time-MFA-Action-Grants.
-- **2FA-Methoden**: TOTP und Passkeys sind primäre selbstverwaltete Faktoren. Recovery Codes sind gehashed/table-backed gespeichert, einmalig nutzbar und nur Backup-Faktoren zu TOTP/Passkey; beim Entfernen des letzten primären Faktors werden sie automatisch widerrufen und können ohne aktiven primären Faktor nicht neu erzeugt werden. E-Mail-Code ist ein gültiger Fallback-Faktor, wenn kein stärkerer Faktor vorhanden ist, eine verifizierte E-Mail existiert und der Versand erfolgreich war. Passkeys nutzen WebAuthn-Challenge/Verify-Endpunkte mit ES256/P-256-Assertions, User-Verification-Pflicht, expliziter HTTPS-`public_base_url`-RP/Origin-Bindung (`http` nur lokal), `none`-Attestation-Parsing, Signaturprüfung und Sign-Counter-Rollback-Prüfung; Credentials liegen widerrufbar in `passkeys`/`passkey_challenges`. Native Passkeys laufen in Windows über die native WebAuthn-Bridge und in Android über AndroidX Credential Manager; Android ist bewusst an die offizielle App-ID `de.tobiaskneidl.nia_todo` und den Release-Key per Digital Asset Links gepinnt.
-- **Trusted Devices** werden als HttpOnly-Cookie plus gehashter Server-Token gespeichert, laufen nach 30 Tagen ab und werden über `two_factor_remember_version` bei Reset/Disable invalidiert. Trusted Devices erlauben App-Login ohne erneute MFA, zählen aber nicht für sensitive Aktionen: Passwortänderung oder API-Key-Verwaltung müssen weiterhin eine echte One-Time-MFA-Reauth auslösen.
-- **Security-sensitive Aktionen** nutzen One-Time-MFA-Action-Grants; bei 2FA-pflichtigen Accounts muss jede sensible Aktion genau einen frischen Grant konsumieren. Alte JWTs ohne Login-MFA-Assurance werden nach 2FA-Aktivierung/Policy für normale API-Auth abgelehnt. Reauth ist replay-gehärtet: Action-Grants werden atomar konsumiert, Reauth-Buckets nach Erfolg geschlossen, E-Mail-Codes gelöscht und TOTP-Reauth-Timesteps nur einmal akzeptiert. Der nicht-sensitive 2FA-Status bleibt für gültige interaktive JWTs lesbar, damit Clients den richtigen Reauth-Faktor wählen können.
-- **Audit-Events** dokumentieren 2FA-Policy-Änderungen, Enrollment, Recovery-Code-Erzeugung/-Nutzung, Challenge-Erfolg/-Fehler, E-Mail-Code-Versand für Login/Reauth, Passkey-Änderungen, Trusted-Device-Erzeugung/-Widerruf und Admin-Reset. Challenge- und Reauth-Verifikation sind per Attempt-Counter begrenzt, inklusive E-Mail-/Passkey-Reauth-Challenges; Challenge-Verbrauch erfolgt über `consumed_at IS NULL`-Updates gegen Replay/Races. API Keys sind bewusst als Maschinen-Token von interaktiver MFA ausgenommen und bleiben widerrufbar; Settings-UI reauthentifiziert API-Key-Management bei Bedarf, Admin-UI zeigt aktive API-Key-Anzahl als Hinweis, widerruft bestehende Keys aber nicht automatisch.
+- API keys for external use only via `Authorization: ApiKey ...`
+- Users see their own data plus accepted shared projects
+- shared project access is checked in projects, todos, sections, reminders, and WebSocket payloads
+- **Email verification**: login, password reset, and project sharing require verified emails
+- **Neutral API responses** for email-based actions prevent user enumeration
+- **Pending invites** are visible only to the invitee for privacy reasons (not to owners/members)
+- **2FA/MFA** is integrated into the normal password login: if an account requires 2FA and no valid trusted-device cookie exists, `/api/login` returns a challenge instead of an access token. After a successful login challenge, a JWT with `mfa_login_at` is issued; sensitive actions use separate one-time MFA action grants.
+- **2FA methods**: TOTP and passkeys are the primary self-managed factors. Recovery codes are stored hashed/table-backed, single-use, and only backup factors to TOTP/passkey; when the last primary factor is removed, they are automatically revoked and cannot be regenerated without an active primary factor. Email code is a valid fallback factor when no stronger factor is present, a verified email exists, and sending succeeded. Passkeys use WebAuthn challenge/verify endpoints with ES256/P-256 assertions, user-verification required, explicit HTTPS `public_base_url` RP/origin binding (`http` only locally), `none` attestation parsing, signature verification, and sign-counter rollback checks; credentials live revocably in `passkeys`/`passkey_challenges`. Native passkeys run on Windows through the native WebAuthn bridge and on Android through AndroidX Credential Manager; Android is deliberately pinned to the official app ID `de.tobiaskneidl.nia_todo` and the release key via Digital Asset Links.
+- **Trusted devices** are stored as an HttpOnly cookie plus hashed server token, expire after 30 days, and are invalidated via `two_factor_remember_version` on reset/disable. Trusted devices allow app login without repeat MFA, but do not count for sensitive actions: password changes or API key management must still trigger a real one-time MFA reauth.
+- **Security-sensitive actions** use one-time MFA action grants; for 2FA-required accounts, each sensitive action must consume exactly one fresh grant. Old JWTs without login MFA assurance are rejected for normal API auth after 2FA activation/policy. Reauth is replay-hardened: action grants are consumed atomically, reauth buckets are closed after success, email codes are deleted, and TOTP reauth timesteps are accepted only once. The non-sensitive 2FA status remains readable for valid interactive JWTs so clients can choose the correct reauth factor.
+- **Audit events** document 2FA policy changes, enrollment, recovery code generation/use, challenge success/failure, email code sending for login/reauth, passkey changes, trusted-device creation/revocation, and admin reset. Challenge and reauth verification are limited by attempt counters, including email/passkey reauth challenges; challenge consumption happens via `consumed_at IS NULL` updates against replay/races. API keys are deliberately excluded from interactive MFA as machine tokens and remain revocable; the settings UI reauthenticates API key management when needed, and the admin UI shows the active API key count as a hint but does not automatically revoke existing keys.
 
-## Benutzer-Onboarding
+## User Onboarding
 
-- E-Mail-Adressen sind für neue Benutzer Pflicht, werden validiert und eindeutig gehalten
-- Bestehende Benutzer ohne E-Mail bleiben migrierbar; Admin oder Benutzer können die Adresse nachtragen
-- Admins setzen Benutzerpasswörter nicht direkt
-- Neue Benutzer erhalten einen einmaligen Passwort-Setup-Link (`password_setup_tokens`)
-- Passwort-Setup-/Reset-Links sind 24 Stunden gültig und werden gehashed gespeichert
-- Benutzer können ihre eigene E-Mail und ihren Anzeigenamen im Settings-Modal ändern; der Username bleibt unveränderlich
-- Avatar-Bilder liegen als WebP-Dateien unter `api/data/avatars/`, die Datenbank speichert nur URL und Änderungszeitpunkt
-- Avatar-Uploads akzeptieren JPEG/PNG/WebP/GIF sowie HEIC/HEIF; HEIC wird serverseitig über `pillow-heif` oder `heif-convert` verarbeitet, wenn der Browser keine Vorschau/Crop unterstützt
-- Live-Backups sichern SQLite-DB, `metadata.json` und `api/data/avatars/` gemeinsam als rotierendes `nia-todo-live-daily-slot-XX.zip`
+- Email addresses are required for new users, are validated, and are kept unique
+- Existing users without an email remain migratable; admin or user can add the address later
+- Admins do not set user passwords directly
+- New users receive a one-time password setup link (`password_setup_tokens`)
+- Password setup/reset links are valid for 24 hours and are stored hashed
+- Users can change their own email and display name in the settings modal; the username remains immutable
+- Avatar images live as WebP files under `api/data/avatars/`; the database stores only the URL and modification timestamp
+- Avatar uploads accept JPEG/PNG/WebP/GIF as well as HEIC/HEIF; HEIC is processed server-side via `pillow-heif` or `heif-convert` when the browser does not support preview/cropping
+- Live backups save the SQLite DB, `metadata.json`, and `api/data/avatars/` together as a rotating `nia-todo-live-daily-slot-XX.zip`
