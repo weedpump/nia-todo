@@ -77,11 +77,11 @@ body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify
 
     <!-- Step 2: First User -->
     <div class="setup-step" id="step-2">
-      <h2><span data-icon="user-plus"></span> <span data-i18n-key="setup.firstUserTitle">Ersten Benutzer erstellen</span></h2>
+      <h2><span data-icon="user-plus"></span> <span data-i18n-key="setup.firstUserTitle">Create first user</span></h2>
       <p data-i18n-key="setup.firstUserHint">This user receives all existing data and is the first user. Email is required and will later become the login name. Password requirements: at least 8 characters, 1 uppercase, 1 lowercase, 1 digit, 1 special character.</p>
       <div class="setup-field">
-        <label data-i18n-key="setup.usernameLabel">Benutzername</label>
-        <input type="text" id="first-username" data-i18n-placeholder-key="setup.usernamePlaceholder" placeholder="z.B. max" autocomplete="username" onkeydown="if(event.key==='Enter') document.getElementById('first-display-name').focus()">
+        <label data-i18n-key="setup.usernameLabel">Username</label>
+        <input type="text" id="first-username" data-i18n-placeholder-key="setup.usernamePlaceholder" placeholder="e.g. max" autocomplete="username" onkeydown="if(event.key==='Enter') document.getElementById('first-display-name').focus()">
       </div>
       <div class="setup-field">
         <label data-i18n-key="setup.displayNameLabel">Anzeigename</label>
@@ -109,8 +109,8 @@ body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify
     </div>
 
     <div class="setup-theme-toggle">
-      <button data-theme="light" onclick="setTheme('light')" data-i18n-title-key="common.theme.light" title="Hell"><span data-icon="sun"></span></button>
-      <button data-theme="dark" onclick="setTheme('dark')" data-i18n-title-key="common.theme.dark" title="Dunkel"><span data-icon="moon"></span></button>
+      <button data-theme="light" onclick="setTheme('light')" data-i18n-title-key="common.theme.light" title="Light"><span data-icon="sun"></span></button>
+      <button data-theme="dark" onclick="setTheme('dark')" data-i18n-title-key="common.theme.dark" title="Dark"><span data-icon="moon"></span></button>
       <button data-theme="system" onclick="setTheme('system')" data-i18n-title-key="common.theme.system" title="System"><span data-icon="monitor"></span></button>
     </div>
   </div>

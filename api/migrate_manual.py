@@ -109,7 +109,7 @@ if __name__ == '__main__':
     run_migration_004()
     
     if check_db():
-        print("✅ Alle Migrationen erfolgreich!")
+        print("✅ All migrations completed successfully!")
     else:
         print("❌ Migrationen unvollstaendig")
         sys.exit(1)

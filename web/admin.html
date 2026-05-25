@@ -124,8 +124,8 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
     <div class="admin-nav">
       <a class="admin-back-btn" href="/" data-i18n-key="admin.backToApp">Back to app</a>
       <div class="admin-theme-toggle">
-        <button data-theme="light" onclick="setTheme('light')" data-i18n-title-key="common.theme.light" title="Hell"><span data-icon="sun"></span></button>
-        <button data-theme="dark" onclick="setTheme('dark')" data-i18n-title-key="common.theme.dark" title="Dunkel"><span data-icon="moon"></span></button>
+        <button data-theme="light" onclick="setTheme('light')" data-i18n-title-key="common.theme.light" title="Light"><span data-icon="sun"></span></button>
+        <button data-theme="dark" onclick="setTheme('dark')" data-i18n-title-key="common.theme.dark" title="Dark"><span data-icon="moon"></span></button>
         <button data-theme="system" onclick="setTheme('system')" data-i18n-title-key="common.theme.system" title="System"><span data-icon="monitor"></span></button>
       </div>
     </div>
@@ -137,17 +137,17 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
       <h3 id="admin-dialog-title" data-i18n-key="admin.dialog.confirmTitle">Confirm action</h3>
       <p id="admin-dialog-message"></p>
       <div class="admin-dialog-actions">
-        <button type="button" class="btn" id="admin-dialog-cancel" data-i18n-key="common.cancel">Abbrechen</button>
+        <button type="button" class="btn" id="admin-dialog-cancel" data-i18n-key="common.cancel">Cancel</button>
         <button type="submit" class="btn btn-primary" id="admin-dialog-confirm" data-i18n-key="common.confirm">Confirm</button>
       </div>
     </form>
   </div>
 
   <div class="admin-card" id="admin-login-card">
-    <h2><span data-icon="lock-keyhole"></span> <span data-i18n-key="admin.login.title">Admin-Anmeldung</span></h2>
+    <h2><span data-icon="lock-keyhole"></span> <span data-i18n-key="admin.login.title">Admin sign-in</span></h2>
     <div class="form-row">
-      <input type="password" id="admin-login-password" data-i18n-placeholder-key="admin.login.passwordPlaceholder" placeholder="Admin-Password eingeben" autocomplete="off" onkeydown="if(event.key==='Enter') doAdminLogin()">
-      <button class="btn btn-primary" onclick="doAdminLogin()" data-i18n-key="auth.signIn">Anmelden</button>
+      <input type="password" id="admin-login-password" data-i18n-placeholder-key="admin.login.passwordPlaceholder" placeholder="Enter admin password" autocomplete="off" onkeydown="if(event.key==='Enter') doAdminLogin()">
+      <button class="btn btn-primary" onclick="doAdminLogin()" data-i18n-key="auth.signIn">Sign in</button>
     </div>
     <div class="admin-error" id="admin-login-error"></div>
   </div>
@@ -157,7 +157,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
   <!-- Admin Toolbar -->
   <div class="admin-card admin-status-card">
     <span class="admin-status-text"><span data-icon="lock-keyhole"></span> <span data-i18n-key="admin.status.loggedIn">Logged in as admin</span></span>
-    <button class="btn btn-danger" onclick="adminLogout()" data-i18n-key="auth.signOut">Abmelden</button>
+    <button class="btn btn-danger" onclick="adminLogout()" data-i18n-key="auth.signOut">Sign out</button>
   </div>
 
   <!-- Instance Configuration -->
@@ -206,7 +206,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
         <select id="email-smtp-security">
           <option value="starttls">STARTTLS</option>
           <option value="tls">TLS/SSL</option>
-          <option value="none" data-i18n-key="admin.none">Keine</option>
+          <option value="none" data-i18n-key="admin.none">None</option>
         </select>
       </div>
       <div class="admin-config-field admin-config-checkbox">
@@ -287,9 +287,9 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 
   <!-- Create User -->
   <div class="admin-card" id="create-user-card">
-    <h2><span data-icon="user-plus"></span> <span data-i18n-key="admin.user.createTitle">Neuen Benutzer erstellen</span></h2>
+    <h2><span data-icon="user-plus"></span> <span data-i18n-key="admin.user.createTitle">Create new user</span></h2>
     <div class="form-row">
-      <input type="text" id="new-username" data-i18n-placeholder-key="setup.usernameLabel" placeholder="Benutzername" autocomplete="off" onkeydown="if(event.key==='Enter') document.getElementById('new-display-name').focus()">
+      <input type="text" id="new-username" data-i18n-placeholder-key="setup.usernameLabel" placeholder="Username" autocomplete="off" onkeydown="if(event.key==='Enter') document.getElementById('new-display-name').focus()">
       <input type="text" id="new-display-name" data-i18n-placeholder-key="setup.displayNameLabel" placeholder="Anzeigename" onkeydown="if(event.key==='Enter') document.getElementById('new-email').focus()">
       <input type="email" id="new-email" data-i18n-placeholder-key="settings.profile.email" placeholder="Email" autocomplete="off" onkeydown="if(event.key==='Enter') createUser()">
       <button class="btn btn-primary" onclick="createUser()" data-i18n-key="admin.user.createAndLink">Erstellen & Link erzeugen</button>
@@ -301,19 +301,19 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
     <div class="admin-success" id="create-success"></div>
     <div class="setup-link-box" id="create-link-box">
       <input type="text" id="create-link-input" readonly>
-      <button class="btn btn-primary" onclick="copySetupLink('create-link-input')" data-i18n-key="common.copy">Kopieren</button>
+      <button class="btn btn-primary" onclick="copySetupLink('create-link-input')" data-i18n-key="common.copy">Copy</button>
     </div>
   </div>
 
   <!-- User List -->
   <div class="admin-card">
-    <h2><span data-icon="users"></span> <span data-i18n-key="admin.user.title">Benutzer</span></h2>
+    <h2><span data-icon="users"></span> <span data-i18n-key="admin.user.title">Users</span></h2>
     <div class="user-table-wrap">
     <table class="user-table" id="user-table">
       <thead>
         <tr>
           <th>ID</th>
-          <th data-i18n-key="admin.user.username">Benutzername</th>
+          <th data-i18n-key="admin.user.username">Username</th>
           <th data-i18n-key="admin.user.displayName">Anzeigename</th>
           <th data-i18n-key="admin.user.email">Email</th>
           <th data-i18n-key="admin.user.emailStatus">Email Status</th>
