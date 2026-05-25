@@ -2,6 +2,7 @@
 
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends
+from errors import api_error
 from pydantic import BaseModel
 import sqlite3
 
@@ -37,7 +38,7 @@ def ensure_default_workspace(db, user_id: int) -> int:
         return row["id"]
     c = db.execute(
         "INSERT INTO workspaces (name, color, icon, sort_order, user_id, is_default, updated_at) VALUES (?, ?, ?, 0, ?, 1, ?)",
-        ("Privat", "#10b981", "home", user_id, now_iso()),
+        ("Personal", "#10b981", "home", user_id, now_iso()),
     )
     db.execute("UPDATE projects SET workspace_id = ? WHERE user_id = ? AND workspace_id IS NULL", (c.lastrowid, user_id))
     db.commit()
@@ -79,7 +80,7 @@ async def create_workspace(data: WorkspaceCreate, user_id: int = Depends(require
     data.color = normalize_color(data.color)
     data.icon = normalize_icon(data.icon)
     if not data.name:
-        raise HTTPException(422, "Workspace name required")
+        raise api_error(422, "workspace.nameRequired", "Workspace name required")
     with get_db() as db:
         ensure_default_workspace(db, user_id)
         try:
@@ -91,7 +92,7 @@ async def create_workspace(data: WorkspaceCreate, user_id: int = Depends(require
             ensure_workspace_inbox(db, user_id, workspace_id)
             db.commit()
         except sqlite3.IntegrityError:
-            raise HTTPException(409, "Workspace already exists")
+            raise api_error(409, "workspace.alreadyExists", "Workspace already exists")
         row = db.execute("SELECT * FROM workspaces WHERE id = ? AND user_id = ?", (workspace_id, user_id)).fetchone()
         workspace = dict(row)
         await broadcast_change("workspace_create", workspace, user_id)
@@ -104,7 +105,7 @@ async def update_workspace(workspace_id: int, data: WorkspaceUpdate, user_id: in
     if data.name is not None:
         data.name = sanitize_text(data.name)
         if not data.name:
-            raise HTTPException(422, "Workspace name required")
+            raise api_error(422, "workspace.nameRequired", "Workspace name required")
     if "color" in fields_set:
         data.color = normalize_color(data.color)
     if "icon" in fields_set:
@@ -112,7 +113,7 @@ async def update_workspace(workspace_id: int, data: WorkspaceUpdate, user_id: in
     with get_db() as db:
         existing = db.execute("SELECT * FROM workspaces WHERE id = ? AND user_id = ?", (workspace_id, user_id)).fetchone()
         if not existing:
-            raise HTTPException(404, "Workspace not found")
+            raise api_error(404, "workspace.notFound", "Workspace not found")
         updates = {}
         for field in ["name", "color", "icon", "sort_order"]:
             if field in fields_set:
@@ -124,7 +125,7 @@ async def update_workspace(workspace_id: int, data: WorkspaceUpdate, user_id: in
                 db.execute(f"UPDATE workspaces SET {set_clause} WHERE id = :id", {**updates, "id": workspace_id})
                 db.commit()
             except sqlite3.IntegrityError:
-                raise HTTPException(409, "Workspace already exists")
+                raise api_error(409, "workspace.alreadyExists", "Workspace already exists")
         row = db.execute("SELECT * FROM workspaces WHERE id = ? AND user_id = ?", (workspace_id, user_id)).fetchone()
         workspace = dict(row)
         await broadcast_change("workspace_update", workspace, user_id)
@@ -136,9 +137,9 @@ async def delete_workspace(workspace_id: int, user_id: int = Depends(require_aut
     with get_db() as db:
         existing = db.execute("SELECT * FROM workspaces WHERE id = ? AND user_id = ?", (workspace_id, user_id)).fetchone()
         if not existing:
-            raise HTTPException(404, "Workspace not found")
+            raise api_error(404, "workspace.notFound", "Workspace not found")
         if existing["is_default"]:
-            raise HTTPException(400, "Default workspace cannot be deleted")
+            raise api_error(400, "workspace.defaultCannotBeDeleted", "Default workspace cannot be deleted")
 
         default_id = ensure_default_workspace(db, user_id)
         default_inbox_id = ensure_workspace_inbox(db, user_id, default_id)

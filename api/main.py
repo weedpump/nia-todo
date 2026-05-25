@@ -210,7 +210,7 @@ def _document_html(title: str, subtitle: str, markdown: str, search_placeholder:
     <label class="search-box">
       <span aria-hidden="true">⌕</span>
       <input id="api-search" type="search" placeholder="{safe_placeholder}" autocomplete="off">
-      <button type="button" id="api-search-clear" title="Suche löschen" aria-label="Suche löschen">×</button>
+      <button type="button" id="api-search-clear" title="Clear search" aria-label="Clear search">×</button>
     </label>
     <div id="search-status"></div>
   </div>
@@ -309,7 +309,7 @@ def _document_html(title: str, subtitle: str, markdown: str, search_placeholder:
           const target = href.startsWith('#') ? document.getElementById(decodeURIComponent(href.slice(1))) : null;
           link.classList.toggle('hidden-by-search', Boolean(query) && target?.classList.contains('hidden-by-search'));
         }});
-        status.textContent = query ? `${{matches}} Treffer für „${{search.value.trim()}}“` : '';
+        status.textContent = query ? `${{matches}} results for “${{search.value.trim()}}”` : '';
       }}
       search.addEventListener('input', runSearch);
       clear.addEventListener('click', () => {{ search.value = ''; search.focus(); runSearch(); }});
@@ -324,7 +324,7 @@ def _api_docs_html() -> str:
     markdown = docs_path.read_text(encoding="utf-8") if docs_path.exists() else "# API\n\nKeine API-Doku gefunden."
     return _document_html(
         "nia-todo API",
-        "Öffentliche API-Dokumentation dieser Instanz. Authentifizierung läuft über JWT oder API-Key, je nach Endpoint.",
+        "Public API documentation for this instance. Authentication uses JWT or API key depending on the endpoint.",
         markdown,
         "API-Doku durchsuchen… z.B. API-Key, Passkey, /api/me",
     )
@@ -335,7 +335,7 @@ def _changelog_html() -> str:
     markdown = changelog_path.read_text(encoding="utf-8") if changelog_path.exists() else "# Changelog\n\nKein Changelog gefunden."
     return _document_html(
         "nia-todo Changelog",
-        "Öffentliche Versionshistorie mit den wichtigsten Änderungen, Korrekturen und Sicherheitsverbesserungen.",
+        "Public version history with the main changes, fixes, and security improvements.",
         markdown,
         "Changelog durchsuchen… z.B. Workspaces, Android, Sicherheit",
     )

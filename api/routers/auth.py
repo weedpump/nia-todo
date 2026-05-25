@@ -14,6 +14,7 @@ from middleware.security import generate_csrf_token, set_csrf_cookie
 from rate_limit import require_login_rate_limit, get_client_ip
 from services.audit import log_audit
 from services.two_factor import consume_mfa_action_grant, create_challenge, mfa_required_for_user, trusted_device_valid, user_mfa_state
+from errors import api_error
 
 router = APIRouter(prefix="/api")
 
@@ -42,22 +43,22 @@ def require_auth(authorization: Optional[str] = Header(None), x_session_token: O
     
     user_id = get_current_user(token)
     if not user_id:
-        raise HTTPException(401, "Not authenticated")
+        raise api_error(401, "auth.notAuthenticated", "Not authenticated")
     return user_id
 
 
 def require_recent_mfa_for_account_security(authorization: Optional[str] = Header(None)) -> int:
     if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(401, "Interactive JWT required")
+        raise api_error(401, "auth.interactiveJwtRequired", "Interactive JWT required")
     token = authorization[7:]
     with get_db() as db:
         payload = decode_jwt_token(token, db)
         if not payload or payload.get('mfa_enroll_only'):
-            raise HTTPException(401, "Not authenticated")
+            raise api_error(401, "auth.notAuthenticated", "Not authenticated")
         user_id = payload.get('user_id')
         if mfa_required_for_user(db, user_id):
             if not consume_mfa_action_grant(db, user_id, payload.get('mfa_grant')):
-                raise HTTPException(403, "2FA/Reauth erforderlich")
+                raise api_error(403, "mfa.reauthRequired", "2FA re-authentication required")
             db.commit()
         return user_id
 
@@ -71,7 +72,7 @@ def login(data: LoginRequest, request: Request, response: Response, _: None = De
         user = verify_user_credentials(db, data.username, data.password)
         if not user:
             log_audit(db, "login_failed", ip_address=ip, details=f"username={data.username}")
-            raise HTTPException(401, "Invalid credentials")
+            raise api_error(401, "auth.invalidCredentials", "Invalid credentials")
         mfa_required = mfa_required_for_user(db, user['id'])
         remembered = trusted_device_valid(db, user['id'], request.cookies.get('nia_2fa_device')) if mfa_required else False
         if mfa_required and not remembered:
@@ -159,7 +160,7 @@ def me(response: Response, authorization: Optional[str] = Header(None), x_sessio
         if not payload:
             user_id = sessions.get(token) if token else None
             if not user_id:
-                raise HTTPException(401, "Not authenticated")
+                raise api_error(401, "auth.notAuthenticated", "Not authenticated")
         else:
             user_id = payload.get('user_id')
         
