@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 
 ## [Unreleased]
 
+### Added
+- i18n v2 added with English and German UI translations, language selection, persisted per-user language preference, localized error messages, and English-only public documentation.
+
 ### Fixed
 - The changelog link in native apps opens the changelog through the system browser instead of inside the app or with no visible effect.
 
