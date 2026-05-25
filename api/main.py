@@ -147,7 +147,7 @@ def _document_html(title: str, subtitle: str, markdown: str, search_placeholder:
     safe_subtitle = html.escape(subtitle)
     safe_placeholder = html.escape(search_placeholder)
     return rf"""<!doctype html>
-<html lang="de">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -202,11 +202,11 @@ def _document_html(title: str, subtitle: str, markdown: str, search_placeholder:
         <h1>{safe_title}</h1>
         <p>{safe_subtitle}</p>
       </div>
-      <div class="toolbar" aria-label="Darstellung">
+      <div class="toolbar" aria-label="Display options">
         <div class="admin-theme-toggle">
-          <button type="button" data-theme="light" onclick="setTheme('light')" title="Hell"><span data-icon="sun"></span></button>
-          <button type="button" data-theme="dark" onclick="setTheme('dark')" title="Dunkel"><span data-icon="moon"></span></button>
-          <button type="button" data-theme="system" onclick="setTheme('system')" title="System"><span data-icon="monitor"></span></button>
+          <button type="button" data-theme="light" onclick="setTheme('light')" title="Light" aria-label="Light theme"><span data-icon="sun"></span></button>
+          <button type="button" data-theme="dark" onclick="setTheme('dark')" title="Dark" aria-label="Dark theme"><span data-icon="moon"></span></button>
+          <button type="button" data-theme="system" onclick="setTheme('system')" title="System" aria-label="System theme"><span data-icon="monitor"></span></button>
         </div>
       </div>
     </div>
@@ -220,7 +220,7 @@ def _document_html(title: str, subtitle: str, markdown: str, search_placeholder:
     <div id="search-status"></div>
   </div>
   <div class="layout">
-    <nav><strong>Inhalt</strong>{toc}</nav>
+    <nav><strong>Contents</strong>{toc}</nav>
     <main id="api-content">{content}</main>
   </div>
   <script>
@@ -326,23 +326,23 @@ def _document_html(title: str, subtitle: str, markdown: str, search_placeholder:
 
 def _api_docs_html() -> str:
     docs_path = DOCS_DIR / "api.md"
-    markdown = docs_path.read_text(encoding="utf-8") if docs_path.exists() else "# API\n\nKeine API-Doku gefunden."
+    markdown = docs_path.read_text(encoding="utf-8") if docs_path.exists() else "# API\n\nNo API documentation found."
     return _document_html(
         "nia-todo API",
         "Public API documentation for this instance. Authentication uses JWT or API key depending on the endpoint.",
         markdown,
-        "API-Doku durchsuchen… z.B. API-Key, Passkey, /api/me",
+        "Search API docs… e.g. API key, passkey, /api/me",
     )
 
 
 def _changelog_html() -> str:
     changelog_path = Path(__file__).parent.parent / "CHANGELOG.md"
-    markdown = changelog_path.read_text(encoding="utf-8") if changelog_path.exists() else "# Changelog\n\nKein Changelog gefunden."
+    markdown = changelog_path.read_text(encoding="utf-8") if changelog_path.exists() else "# Changelog\n\nNo changelog found."
     return _document_html(
         "nia-todo Changelog",
         "Public version history with the main changes, fixes, and security improvements.",
         markdown,
-        "Changelog durchsuchen… z.B. Workspaces, Android, Sicherheit",
+        "Search changelog… e.g. workspaces, Android, security",
     )
 
 def _no_store_html(content: str) -> HTMLResponse:
