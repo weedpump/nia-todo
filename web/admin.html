@@ -42,8 +42,11 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .btn-ghost:hover { background: var(--bg-tertiary); color: var(--text-primary); }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .form-row { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
-.form-row input { flex: 1; min-width: 150px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-primary); color: var(--text-primary); font-size: 14px; }
-.form-row input:focus, .admin-config-textarea:focus, .admin-config-field select:focus { outline: none; border-color: var(--accent); }
+.form-row input, .form-row select { flex: 1; min-width: 150px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-primary); color: var(--text-primary); font-size: 14px; }
+.form-row select { flex: 0 0 150px; min-width: 130px; padding-right: 36px; appearance: none; -webkit-appearance: none; cursor: pointer; background-image: linear-gradient(45deg, transparent 50%, var(--text-secondary) 50%), linear-gradient(135deg, var(--text-secondary) 50%, transparent 50%); background-position: calc(100% - 17px) 50%, calc(100% - 12px) 50%; background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; }
+.form-row select:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.form-row select option { background: var(--bg-secondary); color: var(--text-primary); }
+.form-row input:focus, .form-row select:focus, .admin-config-textarea:focus, .admin-config-field select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
 .admin-config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .admin-config-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .admin-config-field.full { grid-column: 1 / -1; }
@@ -98,7 +101,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
   .admin-card { padding: 16px; border-radius: 14px; margin-bottom: 14px; }
   .form-row { flex-direction: column; gap: 10px; }
   .admin-config-grid { grid-template-columns: 1fr; }
-  .form-row input { width: 100%; }
+  .form-row input, .form-row select { width: 100%; flex-basis: auto; }
   .form-row .btn { width: fit-content; max-width: 100%; min-height: 38px; }
   #admin-login-card .form-row .btn,
   #admin-password-card .form-row .btn,
