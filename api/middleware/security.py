@@ -54,7 +54,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         allowed, retry_after = rate_limiter.check_api(ip)
         if not allowed:
             return Response(
-                content='{"detail":"Zu viele Anfragen. Bitte langsamer machen."}',
+                content='{"detail":"Too many requests. Please slow down."}',
                 status_code=429,
                 headers={"Retry-After": str(retry_after), "Content-Type": "application/json"}
             )

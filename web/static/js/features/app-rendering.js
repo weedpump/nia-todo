@@ -1,4 +1,5 @@
 import { apiResourceUrl } from '../core/config.js';
+import { getActiveLanguage, t } from '../i18n/index.js';
 import { iconSvg, markerHtml, safeColor, safeIconName } from '../icons/lucide-icons.js';
 
 export function createAppRenderingFeature({
@@ -41,8 +42,8 @@ export function createAppRenderingFeature({
       changelog.href = '/changelog';
       changelog.target = '_blank';
       changelog.rel = 'noopener noreferrer';
-      changelog.title = 'Changelog öffnen';
-      changelog.textContent = 'Changelog';
+      changelog.title = t('version.openChangelog');
+      changelog.textContent = t('resource.changelog');
       actions.appendChild(changelog);
     }
 
@@ -59,8 +60,8 @@ export function createAppRenderingFeature({
       button.type = 'button';
       button.className = 'force-refresh-btn version-action-btn';
       button.id = 'force-refresh-btn';
-      button.title = 'Web-App neu herunterladen und Cache aktualisieren';
-      button.textContent = '↻ Neu laden';
+      button.title = t('version.refreshCache');
+      button.textContent = t('version.reload');
       button.addEventListener('click', () => window.forceReloadApp?.());
       actions.appendChild(button);
     }
@@ -141,7 +142,7 @@ export function createAppRenderingFeature({
       html += `${escapeHtml(project.name)}`;
       html += `<span class="badge">${countByProject(project.id, true)}</span>`;
       html += `</button>`;
-      html += `<button class="nav-edit" onclick="event.stopPropagation(); editProject(${escapeHtmlAttr(JSON.stringify(project.id))})" title="Bearbeiten">`;
+      html += `<button class="nav-edit" onclick="event.stopPropagation(); editProject(${escapeHtmlAttr(JSON.stringify(project.id))})" title="${escapeHtmlAttr(t('common.edit'))}">`;
       html += iconSvg('edit-3');
       html += `</button>`;
       html += `</div>`;
@@ -160,7 +161,7 @@ export function createAppRenderingFeature({
       html += rootProjects.map(p => renderProjectTree(p)).join('');
     }
     if (sharedProjects.length) {
-      html += `<div class="nav-title shared-title">Geteilte Projekte</div>`;
+      html += `<div class="nav-title shared-title">${escapeHtml(t('project.sharedProjects'))}</div>`;
       for (const project of sharedProjects) {
         html += renderProjectTree({ ...project, children: [] });
       }
@@ -198,12 +199,13 @@ export function createAppRenderingFeature({
     document.getElementById('count-done').textContent = done;
 
     const user = getCurrentUser?.();
-    const displayName = user?.display_name || user?.username || 'du';
+    const displayName = user?.display_name || user?.username || t('overview.defaultUser');
     const initial = (displayName.trim()[0] || 'U').toUpperCase();
     const avatarVersion = user?.avatar_updated_at ? encodeURIComponent(user.avatar_updated_at) : '';
     const avatarBaseSrc = user?.avatar_url ? apiResourceUrl(user.avatar_url) : '';
     const avatarSrc = avatarBaseSrc ? `${avatarBaseSrc}${avatarVersion ? `?v=${avatarVersion}` : ''}` : '';
-    const dateTime = new Intl.DateTimeFormat('de-DE', {
+    const locale = getActiveLanguage() === 'en' ? 'en-US' : 'de-DE';
+    const dateTime = new Intl.DateTimeFormat(locale, {
       weekday: 'long',
       day: '2-digit',
       month: 'long',
@@ -233,13 +235,13 @@ export function createAppRenderingFeature({
       if (!date) return '–';
       const diffMs = now.getTime() - date.getTime();
       const diffMinutes = Math.max(0, Math.round(diffMs / 60000));
-      if (diffMinutes < 1) return 'gerade eben';
-      if (diffMinutes < 60) return `vor ${diffMinutes} Min.`;
+      if (diffMinutes < 1) return t('time.justNow');
+      if (diffMinutes < 60) return t('time.minutesAgo', { count: diffMinutes });
       const diffHours = Math.round(diffMinutes / 60);
-      if (diffHours < 24) return `vor ${diffHours} Std.`;
+      if (diffHours < 24) return t('time.hoursAgo', { count: diffHours });
       const diffDays = Math.round(diffHours / 24);
-      if (diffDays < 7) return `vor ${diffDays} Tg.`;
-      return new Intl.DateTimeFormat('de-DE', { day: '2-digit', month: '2-digit' }).format(date);
+      if (diffDays < 7) return t('time.daysAgo', { count: diffDays });
+      return new Intl.DateTimeFormat(locale, { day: '2-digit', month: '2-digit' }).format(date);
     }
 
     const projectsByRecentTodo = projects
@@ -260,21 +262,21 @@ export function createAppRenderingFeature({
       .slice(0, 4);
 
     const cards = [
-      { cls: 'total', num: total, label: 'Gesamt', hint: 'Todos im System' },
-      { cls: 'pending', num: pending, label: 'Offen', hint: 'Warten auf Start' },
-      { cls: 'progress', num: inprog, label: 'In Arbeit', hint: 'Aktiv am Laufen' },
-      { cls: 'due', num: overdue, label: 'Überfällig', hint: overdue ? 'Braucht Liebe' : 'Alles entspannt' },
+      { cls: 'total', num: total, label: t('overview.stats.total'), hint: t('overview.stats.totalHint') },
+      { cls: 'pending', num: pending, label: t('todo.status.pending'), hint: t('overview.stats.pendingHint') },
+      { cls: 'progress', num: inprog, label: t('todo.status.inProgress'), hint: t('overview.stats.inProgressHint') },
+      { cls: 'due', num: overdue, label: t('overview.stats.overdue'), hint: overdue ? t('overview.stats.overdueNeedsCare') : t('overview.stats.overdueRelaxed') },
     ];
 
     const focusItems = [
-      { icon: iconSvg('calendar'), label: 'Heute fällig', value: dueToday },
-      { icon: iconSvg('calendar-days'), label: 'Nächste 7 Tage', value: dueWeek },
-      { icon: iconSvg('check-circle'), label: 'Erledigt', value: done },
-      { icon: iconSvg('chart-line'), label: 'Erledigt-Quote', value: `${completionRate}%` },
+      { icon: iconSvg('calendar'), label: t('overview.focus.dueToday'), value: dueToday },
+      { icon: iconSvg('calendar-days'), label: t('overview.focus.nextSevenDays'), value: dueWeek },
+      { icon: iconSvg('check-circle'), label: t('todo.status.done'), value: done },
+      { icon: iconSvg('chart-line'), label: t('overview.focus.completionRate'), value: `${completionRate}%` },
     ];
 
     el.innerHTML = `
-      <section class="overview-dashboard" aria-label="Todo-Dashboard">
+      <section class="overview-dashboard" aria-label="${escapeHtmlAttr(t('overview.aria'))}">
         <div class="overview-dashboard-header">
           <div class="overview-greeting">
             <div class="overview-avatar" aria-hidden="true">
@@ -282,8 +284,8 @@ export function createAppRenderingFeature({
             </div>
             <div>
               <div class="overview-kicker">${escapeHtml(dateTime)}</div>
-              <h2>Hallo, ${escapeHtml(displayName)}</h2>
-              <div class="overview-subtitle">Alle Todos auf einen Blick</div>
+              <h2>${escapeHtml(t('overview.greeting', { name: displayName }))}</h2>
+              <div class="overview-subtitle">${escapeHtml(t('overview.subtitle'))}</div>
             </div>
           </div>
         </div>
@@ -300,7 +302,7 @@ export function createAppRenderingFeature({
         </div>
         <div class="overview-detail-grid">
           <div class="overview-panel">
-            <div class="overview-panel-title">Fokus</div>
+            <div class="overview-panel-title">${escapeHtml(t('overview.focus.title'))}</div>
             <div class="overview-focus-list">
               ${focusItems.map(item => `
                 <div class="overview-focus-item">
@@ -312,7 +314,7 @@ export function createAppRenderingFeature({
             </div>
           </div>
           <div class="overview-panel">
-            <div class="overview-panel-title">Aktive Projekte</div>
+            <div class="overview-panel-title">${escapeHtml(t('overview.activeProjects'))}</div>
             <div class="overview-project-list">
               ${projectsByRecentTodo.length ? projectsByRecentTodo.map(project => `
                 <button type="button" class="overview-project-item" onclick="setFilter('${escapeHtmlAttr(project.id)}')">
@@ -320,7 +322,7 @@ export function createAppRenderingFeature({
                   <span>${escapeHtml(project.name)}</span>
                   <strong>${escapeHtml(project.latestTodoLabel)}</strong>
                 </button>
-              `).join('') : '<div class="overview-empty-mini">Noch keine Todo-Änderungen.</div>'}
+              `).join('') : `<div class="overview-empty-mini">${escapeHtml(t('overview.noTodoChanges'))}</div>`}
             </div>
           </div>
         </div>
@@ -345,19 +347,19 @@ export function createAppRenderingFeature({
     const activeTodos = projectTodos.filter(t => t.status !== 'done');
     const overdue = activeTodos.filter(t => t.due_date && new Date(t.due_date) < new Date()).length;
     const stats = [
-      { cls: 'total', icon: iconSvg('layout-dashboard'), num: projectTodos.length, label: 'Gesamt', hint: 'Todos im Projekt' },
-      { cls: 'pending', icon: iconSvg('clock'), num: projectTodos.filter(t => t.status === 'pending').length, label: 'Offen', hint: 'Noch zu tun' },
-      { cls: 'progress', icon: iconSvg('flame'), num: projectTodos.filter(t => t.status === 'in_progress').length, label: 'In Arbeit', hint: 'Aktiv bearbeitet' },
-      { cls: 'due', icon: iconSvg('triangle-alert'), num: overdue, label: 'Überfällig', hint: 'Brauchen Aufmerksamkeit' },
+      { cls: 'total', icon: iconSvg('layout-dashboard'), num: projectTodos.length, label: t('overview.stats.total'), hint: t('project.dashboard.totalHint') },
+      { cls: 'pending', icon: iconSvg('clock'), num: projectTodos.filter(t => t.status === 'pending').length, label: t('todo.status.pending'), hint: t('project.dashboard.pendingHint') },
+      { cls: 'progress', icon: iconSvg('flame'), num: projectTodos.filter(t => t.status === 'in_progress').length, label: t('todo.status.inProgress'), hint: t('project.dashboard.inProgressHint') },
+      { cls: 'due', icon: iconSvg('triangle-alert'), num: overdue, label: t('overview.stats.overdue'), hint: t('project.dashboard.overdueHint') },
     ];
     const color = safeColor(project.color);
-    const subtitle = project.is_shared ? 'Geteiltes Projekt' : 'Projektübersicht';
-    return `<section class="overview-dashboard project-dashboard" aria-label="Projekt-Dashboard">
+    const subtitle = project.is_shared ? t('project.dashboard.shared') : t('project.dashboard.subtitle');
+    return `<section class="overview-dashboard project-dashboard" aria-label="${escapeHtmlAttr(t('project.dashboard.aria'))}">
       <div class="overview-dashboard-header project-dashboard-header">
         <div class="overview-greeting">
           <span class="project-dashboard-avatar" style="--project-color:${escapeHtmlAttr(color)}">${safeIconName(project.icon) ? iconSvg(project.icon) : '<span class="project-dashboard-dot"></span>'}</span>
           <div>
-            <div class="overview-kicker">Projekt</div>
+            <div class="overview-kicker">${escapeHtml(t('todo.project'))}</div>
             <h2>${escapeHtml(project.name)}</h2>
             <div class="overview-subtitle">${subtitle}</div>
           </div>
@@ -431,15 +433,15 @@ export function createAppRenderingFeature({
       }
 
       html += `<div class="add-section-row">
-        <button class="btn-add-section" onclick="showAddSectionForm()">${iconSvg('plus')} Neue Section</button>
-        <button class="btn-add-section" onclick="clearDoneInProject()">${iconSvg('trash-2')} Erledigte löschen</button>
+        <button class="btn-add-section" onclick="showAddSectionForm()">${iconSvg('plus')} ${escapeHtml(t('section.new'))}</button>
+        <button class="btn-add-section" onclick="clearDoneInProject()">${iconSvg('trash-2')} ${escapeHtml(t('todo.clearDone'))}</button>
       </div>`;
 
       if (!filtered.length && !sections.length) {
         html += `<div class="empty-state">
           <div class="emoji">${iconSvg('check-circle')}</div>
-          <h3>Alles erledigt!</h3>
-          <p>Keine Todos in dieser Ansicht.</p>
+          <h3>${escapeHtml(t('empty.allDone'))}</h3>
+          <p>${escapeHtml(t('empty.noTodosInView'))}</p>
         </div>`;
       }
 
@@ -447,7 +449,11 @@ export function createAppRenderingFeature({
       return;
     }
 
-    const groups = { in_progress: `${iconSvg('flame')} In Arbeit`, pending: `${iconSvg('clock')} Offen`, done: `${iconSvg('check-circle')} Erledigt` };
+    const groups = {
+      in_progress: `${iconSvg('flame')} ${escapeHtml(t('todo.status.inProgress'))}`,
+      pending: `${iconSvg('clock')} ${escapeHtml(t('todo.status.pending'))}`,
+      done: `${iconSvg('check-circle')} ${escapeHtml(t('todo.status.done'))}`,
+    };
 
     if (currentFilter !== 'all' && groups[currentFilter]) filtered = filtered.filter(t => t.status === currentFilter);
     if (hideDone && currentFilter !== 'done') filtered = filtered.filter(t => t.status !== 'done');
@@ -492,7 +498,7 @@ export function createAppRenderingFeature({
           html += `<div class="project-group">
             <div class="project-group-header">
               <span class="project-dot" style="background:var(--text-muted)"></span>
-              <span class="project-group-name">Unsortiert</span>
+              <span class="project-group-name">${escapeHtml(t('project.unsorted'))}</span>
               <span class="project-group-count">${items.length}</span>
             </div>
             <div class="project-group-todos">${items.map(t => renderTodoItem(t)).join('')}</div>
@@ -506,8 +512,8 @@ export function createAppRenderingFeature({
     if (!filtered.length) {
       html = `<div class="empty-state">
         <div class="emoji">${iconSvg('check-circle')}</div>
-        <h3>Alles erledigt!</h3>
-        <p>Keine Todos in dieser Ansicht.</p>
+        <h3>${escapeHtml(t('empty.allDone'))}</h3>
+        <p>${escapeHtml(t('empty.noTodosInView'))}</p>
       </div>`;
     }
 
@@ -530,8 +536,8 @@ export function createAppRenderingFeature({
         <div class="invite-item" data-invite-id="${escapeHtmlAttr(invite.id)}">
           <span class="invite-title">${iconSvg('mail')} ${escapeHtml(invite.project_name)}</span>
           <div class="invite-actions">
-            <button class="invite-action invite-accept" onclick="acceptInvite(${invite.project_id}, ${invite.id})" title="Annehmen" aria-label="Einladung annehmen">${iconSvg('check')}</button>
-            <button class="invite-action invite-decline" onclick="declineInvite(${invite.project_id}, ${invite.id})" title="Ablehnen" aria-label="Einladung ablehnen">${iconSvg('x')}</button>
+            <button class="invite-action invite-accept" onclick="acceptInvite(${invite.project_id}, ${invite.id})" title="${escapeHtmlAttr(t('invite.accept'))}" aria-label="${escapeHtmlAttr(t('invite.acceptAria'))}">${iconSvg('check')}</button>
+            <button class="invite-action invite-decline" onclick="declineInvite(${invite.project_id}, ${invite.id})" title="${escapeHtmlAttr(t('invite.decline'))}" aria-label="${escapeHtmlAttr(t('invite.declineAria'))}">${iconSvg('x')}</button>
           </div>
         </div>
       `;

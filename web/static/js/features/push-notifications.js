@@ -1,5 +1,19 @@
+import { t } from '../i18n/index.js';
+
 export function createPushNotificationsFeature({ pushApi }) {
   let pushSubscription = null;
+  let lastPushStatus = 'default';
+  let lastPushError = '';
+
+  function pushMessage(key, params = {}) {
+    return { key, params };
+  }
+
+  function renderPushMessage(message) {
+    if (!message) return '';
+    if (typeof message === 'object' && message.key) return t(message.key, message.params || {});
+    return String(message);
+  }
 
   function updatePushStatus(status, errorText) {
     const statusEl = document.getElementById('push-status');
@@ -9,19 +23,21 @@ export function createPushNotificationsFeature({ pushApi }) {
     const errorEl = document.getElementById('push-error');
     if (!statusEl) return;
 
+    lastPushStatus = status;
+    lastPushError = errorText || '';
     const texts = {
-      granted: 'Erlaubt — du bekommst Benachrichtigungen',
-      denied: 'Blockiert — in den Browser-Einstellungen änderbar',
-      default: 'Noch nicht gefragt',
-      unknown: 'Service Worker nicht verfügbar',
-      unsupported: 'Nicht unterstützt (kein HTTPS?)',
+      granted: t('settings.push.state.granted'),
+      denied: t('settings.push.state.denied'),
+      default: t('settings.push.state.default'),
+      unknown: t('settings.push.state.unknown'),
+      unsupported: t('settings.push.state.unsupported'),
     };
-    statusEl.textContent = 'Status: ' + (texts[status] || status);
+    statusEl.textContent = t('settings.push.status', { status: texts[status] || status });
 
     if (enableBtn) enableBtn.style.display = status === 'default' ? 'inline-block' : 'none';
     if (disableBtn) disableBtn.style.display = status === 'granted' ? 'inline-block' : 'none';
     if (testBtn) testBtn.style.display = status === 'granted' ? 'inline-block' : 'none';
-    if (errorEl) errorEl.textContent = errorText || '';
+    if (errorEl) errorEl.textContent = renderPushMessage(errorText);
   }
 
   async function updatePushSettingsUI() {
@@ -40,7 +56,7 @@ export function createPushNotificationsFeature({ pushApi }) {
         try {
           const serverStatus = await pushApi.status();
           if (!serverStatus.has_subscriptions) {
-            updatePushStatus('default', 'Berechtigung vorhanden, aber Server kennt keine aktive Subscription. Klicke "Aktivieren".');
+            updatePushStatus('default', pushMessage('settings.push.serverSubscriptionMissing'));
             return;
           }
         } catch (e) {
@@ -48,27 +64,27 @@ export function createPushNotificationsFeature({ pushApi }) {
         }
         updatePushStatus('granted');
       } else if (perm === 'granted' && !sub) {
-        updatePushStatus('default', 'Berechtigung vorhanden, aber keine aktive Subscription. Klicke "Aktivieren".');
+        updatePushStatus('default', pushMessage('settings.push.browserSubscriptionMissing'));
       } else if (perm === 'denied') {
-        updatePushStatus('denied', 'In den Browser-Einstellungen für diese Seite änderbar.');
+        updatePushStatus('denied', pushMessage('settings.push.browserSettingsHint'));
       } else {
         updatePushStatus('default');
       }
     } catch (e) {
       console.error('[Push] Error checking subscription:', e);
-      updatePushStatus('unknown', 'Fehler beim Prüfen des Push-Status');
+      updatePushStatus('unknown', pushMessage('settings.push.statusCheckFailed'));
     }
   }
 
   async function enablePushNotifications() {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-      updatePushStatus('unsupported', 'Push-Benachrichtigungen werden in diesem Browser nicht unterstützt.');
+      updatePushStatus('unsupported', pushMessage('settings.push.unsupportedBrowser'));
       return;
     }
     try {
       const perm = await Notification.requestPermission();
       if (perm !== 'granted') {
-        updatePushStatus(perm, 'Berechtigung nicht erteilt.');
+        updatePushStatus(perm, pushMessage('settings.push.permissionNotGranted'));
         return;
       }
 
@@ -90,7 +106,7 @@ export function createPushNotificationsFeature({ pushApi }) {
       updatePushStatus('granted');
     } catch (e) {
       console.error('[Push] Enable failed:', e);
-      updatePushStatus('default', String(e.message || e) || 'Fehler beim Aktivieren');
+      updatePushStatus('default', String(e.message || e) || pushMessage('settings.push.enableFailed'));
     }
   }
 
@@ -101,28 +117,32 @@ export function createPushNotificationsFeature({ pushApi }) {
       if (sub) {
         await pushApi.unsubscribe({ endpoint: sub.endpoint, keys: {} });
         const unsubResult = await sub.unsubscribe();
-        if (!unsubResult) throw new Error('Browser-Subscription konnte nicht gelöscht werden');
+        if (!unsubResult) throw new Error(t('settings.push.browserUnsubscribeFailed'));
       }
       pushSubscription = null;
-      updatePushStatus('default', 'Push-Benachrichtigungen deaktiviert.');
+      updatePushStatus('default', pushMessage('settings.push.disabled'));
     } catch (e) {
       console.error('[Push] Disable failed:', e);
-      updatePushStatus('default', 'Fehler beim Deaktivieren: ' + String(e.message || e));
+      updatePushStatus('default', pushMessage('settings.push.disableFailed', { error: String(e.message || e) }));
     }
   }
 
   async function sendTestPush() {
     try {
-      const result = await pushApi.test({ title: 'nia-todo Test', body: 'Push Notifications funktionieren!' });
+      const result = await pushApi.test({ title: t('settings.push.testTitle'), body: t('settings.push.testBody') });
       if (result?.sent === false) {
-        updatePushStatus('granted', 'Test-Benachrichtigung konnte nicht gesendet werden. Keine aktive Subscription oder Push-Dienst hat abgelehnt.');
+        updatePushStatus('granted', pushMessage('settings.push.testNotSent'));
         return;
       }
-      updatePushStatus('granted', 'Test-Benachrichtigung gesendet!');
+      updatePushStatus('granted', pushMessage('settings.push.testSent'));
     } catch (e) {
-      updatePushStatus('granted', String(e.message || e) || 'Fehler beim Senden');
+      updatePushStatus('granted', String(e.message || e) || pushMessage('settings.push.sendFailed'));
     }
   }
+
+  window.addEventListener('nia-language-change', () => {
+    setTimeout(() => updatePushStatus(lastPushStatus, lastPushError), 0);
+  });
 
   return {
     updatePushStatus,

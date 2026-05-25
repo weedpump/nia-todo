@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.js';
 import { iconSvg } from '../icons/lucide-icons.js';
 import { createNativeBridge } from './native-bridge.js';
 
@@ -182,8 +183,8 @@ export function renderAccentPresetMenu() {
   const panel = document.getElementById('accent-preset-panel');
   const current = document.getElementById('accent-preset-current');
   if (panel) panel.innerHTML = `${renderAccentPresetOptions()}
-    <label class="accent-intensity-control" title="Akzent-Intensität">
-      <span class="accent-intensity-label">Intensität</span>
+    <label class="accent-intensity-control" title="${t('theme.accentIntensity')}">
+      <span class="accent-intensity-label">${t('theme.intensity')}</span>
       <input id="accent-intensity-slider" class="accent-intensity-slider" type="range" min="0" max="100" step="5" value="${intensity}">
       <span class="accent-intensity-value" id="accent-intensity-value">${intensity}%</span>
     </label>`;
@@ -230,16 +231,16 @@ export function applyTheme(mode) {
   const toggleBtn = document.getElementById('theme-toggle-btn');
   if (toggleBtn) {
     const icons = { light: iconSvg('sun'), dark: iconSvg('moon'), system: iconSvg('monitor') };
-    const titles = { light: 'Hell', dark: 'Dunkel', system: 'System' };
+    const titles = { light: t('common.theme.light'), dark: t('common.theme.dark'), system: t('common.theme.system') };
     const iconEl = toggleBtn.querySelector('.menu-item-icon');
     const labelEl = toggleBtn.querySelector('.menu-item-label');
     if (iconEl && labelEl) {
       iconEl.innerHTML = icons[mode] || icons.system;
-      labelEl.textContent = `Theme: ${titles[mode] || titles.system}`;
+      labelEl.textContent = t('menu.theme', { theme: titles[mode] || titles.system });
     } else {
       toggleBtn.textContent = icons[mode] || icons.system;
     }
-    toggleBtn.title = `Theme: ${titles[mode] || titles.system} (klicken zum Wechseln)`;
+    toggleBtn.title = t('menu.themeTitle', { theme: titles[mode] || titles.system });
   }
 }
 

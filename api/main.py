@@ -16,8 +16,9 @@ from middleware.security import SecurityHeadersMiddleware, RateLimitMiddleware, 
 from middleware.dynamic_cors import DynamicCORSMiddleware
 from services.push import check_and_send_reminders, cleanup_subscriptions
 from routers.websocket import websocket_endpoint
+from errors import APIError, api_error_handler
 
-# Migrationen beim Import ausführen
+# Run migrations on import
 run_migrations()
 
 app = FastAPI(title="nia-todo", version="0.4.0", docs_url=None, redoc_url=None, openapi_url=None)
@@ -48,6 +49,10 @@ app.include_router(me.router)
 app.include_router(sharing.router)
 app.include_router(password_setup.router)
 app.include_router(two_factor.router)
+
+# ─── Exception Handlers ──────────────────────────────────────────────────────
+
+app.add_exception_handler(APIError, api_error_handler)
 
 # ─── WebSocket ───────────────────────────────────────────────────────────────
 
@@ -142,7 +147,7 @@ def _document_html(title: str, subtitle: str, markdown: str, search_placeholder:
     safe_subtitle = html.escape(subtitle)
     safe_placeholder = html.escape(search_placeholder)
     return rf"""<!doctype html>
-<html lang="de">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -197,11 +202,11 @@ def _document_html(title: str, subtitle: str, markdown: str, search_placeholder:
         <h1>{safe_title}</h1>
         <p>{safe_subtitle}</p>
       </div>
-      <div class="toolbar" aria-label="Darstellung">
+      <div class="toolbar" aria-label="Display options">
         <div class="admin-theme-toggle">
-          <button type="button" data-theme="light" onclick="setTheme('light')" title="Hell"><span data-icon="sun"></span></button>
-          <button type="button" data-theme="dark" onclick="setTheme('dark')" title="Dunkel"><span data-icon="moon"></span></button>
-          <button type="button" data-theme="system" onclick="setTheme('system')" title="System"><span data-icon="monitor"></span></button>
+          <button type="button" data-theme="light" onclick="setTheme('light')" title="Light" aria-label="Light theme"><span data-icon="sun"></span></button>
+          <button type="button" data-theme="dark" onclick="setTheme('dark')" title="Dark" aria-label="Dark theme"><span data-icon="moon"></span></button>
+          <button type="button" data-theme="system" onclick="setTheme('system')" title="System" aria-label="System theme"><span data-icon="monitor"></span></button>
         </div>
       </div>
     </div>
@@ -210,12 +215,12 @@ def _document_html(title: str, subtitle: str, markdown: str, search_placeholder:
     <label class="search-box">
       <span aria-hidden="true">⌕</span>
       <input id="api-search" type="search" placeholder="{safe_placeholder}" autocomplete="off">
-      <button type="button" id="api-search-clear" title="Suche löschen" aria-label="Suche löschen">×</button>
+      <button type="button" id="api-search-clear" title="Clear search" aria-label="Clear search">×</button>
     </label>
     <div id="search-status"></div>
   </div>
   <div class="layout">
-    <nav><strong>Inhalt</strong>{toc}</nav>
+    <nav><strong>Contents</strong>{toc}</nav>
     <main id="api-content">{content}</main>
   </div>
   <script>
@@ -309,7 +314,7 @@ def _document_html(title: str, subtitle: str, markdown: str, search_placeholder:
           const target = href.startsWith('#') ? document.getElementById(decodeURIComponent(href.slice(1))) : null;
           link.classList.toggle('hidden-by-search', Boolean(query) && target?.classList.contains('hidden-by-search'));
         }});
-        status.textContent = query ? `${{matches}} Treffer für „${{search.value.trim()}}“` : '';
+        status.textContent = query ? `${{matches}} results for “${{search.value.trim()}}”` : '';
       }}
       search.addEventListener('input', runSearch);
       clear.addEventListener('click', () => {{ search.value = ''; search.focus(); runSearch(); }});
@@ -321,23 +326,23 @@ def _document_html(title: str, subtitle: str, markdown: str, search_placeholder:
 
 def _api_docs_html() -> str:
     docs_path = DOCS_DIR / "api.md"
-    markdown = docs_path.read_text(encoding="utf-8") if docs_path.exists() else "# API\n\nKeine API-Doku gefunden."
+    markdown = docs_path.read_text(encoding="utf-8") if docs_path.exists() else "# API\n\nNo API documentation found."
     return _document_html(
         "nia-todo API",
-        "Öffentliche API-Dokumentation dieser Instanz. Authentifizierung läuft über JWT oder API-Key, je nach Endpoint.",
+        "Public API documentation for this instance. Authentication uses JWT or API key depending on the endpoint.",
         markdown,
-        "API-Doku durchsuchen… z.B. API-Key, Passkey, /api/me",
+        "Search API docs… e.g. API key, passkey, /api/me",
     )
 
 
 def _changelog_html() -> str:
     changelog_path = Path(__file__).parent.parent / "CHANGELOG.md"
-    markdown = changelog_path.read_text(encoding="utf-8") if changelog_path.exists() else "# Changelog\n\nKein Changelog gefunden."
+    markdown = changelog_path.read_text(encoding="utf-8") if changelog_path.exists() else "# Changelog\n\nNo changelog found."
     return _document_html(
         "nia-todo Changelog",
-        "Öffentliche Versionshistorie mit den wichtigsten Änderungen, Korrekturen und Sicherheitsverbesserungen.",
+        "Public version history with the main changes, fixes, and security improvements.",
         markdown,
-        "Changelog durchsuchen… z.B. Workspaces, Android, Sicherheit",
+        "Search changelog… e.g. workspaces, Android, security",
     )
 
 def _no_store_html(content: str) -> HTMLResponse:

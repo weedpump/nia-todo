@@ -1,4 +1,5 @@
 import { API } from '../core/config.js';
+import { apiErrorFromResponse } from './errors.js';
 
 export function getAuthToken() {
   return localStorage.getItem('jwt_token') || localStorage.getItem('auth_token');
@@ -32,11 +33,7 @@ async function request(method, path, body) {
   if (body !== undefined) options.body = JSON.stringify(body);
   try {
     const r = await fetch(API + path, options);
-    if (!r.ok) {
-      const err = new Error(r.status + ' ' + r.statusText);
-      err.status = r.status;
-      throw err;
-    }
+    if (!r.ok) await apiErrorFromResponse(r, `${r.status} ${r.statusText}`);
     return r.json();
   } finally {
     if (timeout) clearTimeout(timeout);

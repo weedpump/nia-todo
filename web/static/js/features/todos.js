@@ -1,3 +1,5 @@
+import { t, translatePage } from '../i18n/index.js';
+
 export function createTodosFeature({
   getTodos,
   setTodos,
@@ -53,12 +55,12 @@ export function createTodosFeature({
 
     let message = '';
     if (input.validity.badInput || input.validity.typeMismatch || !input.validity.valid) {
-      message = `${label} ist ungültig`;
+      message = t('todo.invalidDate', { field: label });
     } else {
       const date = new Date(input.value);
       const year = Number(input.value.slice(0, 4));
       if (!Number.isFinite(date.getTime()) || year < 1900 || year > 9999) {
-        message = `${label} ist ungültig`;
+        message = t('todo.invalidDate', { field: label });
       }
     }
 
@@ -83,14 +85,14 @@ export function createTodosFeature({
       });
       input.addEventListener('invalid', (event) => {
         event.preventDefault();
-        validateDateTimeInput(id, id === 'todo-due' ? 'Deadline' : 'Erinnerung');
+        validateDateTimeInput(id, id === 'todo-due' ? t('todo.deadline') : t('todo.reminder'));
       });
     }
   }
 
   function validateTodoDateTimes() {
-    const dueOk = validateDateTimeInput('todo-due', 'Deadline');
-    const remindOk = validateDateTimeInput('todo-remind', 'Erinnerung');
+    const dueOk = validateDateTimeInput('todo-due', t('todo.deadline'));
+    const remindOk = validateDateTimeInput('todo-remind', t('todo.reminder'));
     if (!dueOk) document.getElementById('todo-due')?.focus();
     else if (!remindOk) document.getElementById('todo-remind')?.focus();
     return dueOk && remindOk;
@@ -105,31 +107,31 @@ export function createTodosFeature({
 
   async function markTodoDone(id) {
     if (!getAppInitialized() || !getDb()) return;
-    const t = getTodos().find(x => x.id === id);
-    if (!t || t.status === 'done') return;
-    const updatedTodo = { ...t, status: 'done', updated_at: new Date().toISOString() };
+    const todo = getTodos().find(x => x.id === id);
+    if (!todo || todo.status === 'done') return;
+    const updatedTodo = { ...todo, status: 'done', updated_at: new Date().toISOString() };
     await dbPut('todos', updatedTodo);
-    setTodos(getTodos().map(todo => todo.id === id ? updatedTodo : todo));
+    setTodos(getTodos().map(item => item.id === id ? updatedTodo : item));
     renderStats();
     renderTodos();
-    showToast('Todo erledigt', { type: 'status', id, previousStatus: t.status });
+    showToast(t('todo.toast.done'), { type: 'status', id, previousStatus: todo.status });
     await addToSyncQueue('UPDATE_TODO', { id, changes: { status: 'done' } });
     if (isOnlineForSync()) await syncWithServer();
   }
 
   async function toggleTodo(id) {
     if (!getAppInitialized() || !getDb()) return;
-    const t = getTodos().find(x => x.id === id);
-    if (!t) return;
+    const todo = getTodos().find(x => x.id === id);
+    if (!todo) return;
     const cycle = { pending: 'in_progress', in_progress: 'done', done: 'pending' };
-    const newStatus = cycle[t.status] || 'pending';
-    const updatedTodo = { ...t, status: newStatus, updated_at: new Date().toISOString() };
+    const newStatus = cycle[todo.status] || 'pending';
+    const updatedTodo = { ...todo, status: newStatus, updated_at: new Date().toISOString() };
     await dbPut('todos', updatedTodo);
-    setTodos(getTodos().map(todo => todo.id === id ? updatedTodo : todo));
+    setTodos(getTodos().map(item => item.id === id ? updatedTodo : item));
     renderStats();
     renderTodos();
-    if (newStatus === 'done') showToast('Todo erledigt', { type: 'status', id, previousStatus: t.status });
-    else if (t.status === 'done' && newStatus === 'pending') showToast('Todo wiedereröffnet', { type: 'status', id, previousStatus: t.status });
+    if (newStatus === 'done') showToast(t('todo.toast.done'), { type: 'status', id, previousStatus: todo.status });
+    else if (todo.status === 'done' && newStatus === 'pending') showToast(t('todo.toast.reopened'), { type: 'status', id, previousStatus: todo.status });
     await addToSyncQueue('UPDATE_TODO', { id, changes: { status: newStatus } });
     if (isOnlineForSync()) await syncWithServer();
   }
@@ -146,7 +148,11 @@ export function createTodosFeature({
     document.getElementById('todo-form')?.reset();
     clearDateTimeErrors();
     document.getElementById('todo-id').value = '';
-    document.getElementById('todo-modal-title').textContent = todo ? 'Todo bearbeiten' : 'Neues Todo';
+    const modalTitle = document.getElementById('todo-modal-title');
+    if (modalTitle) {
+      modalTitle.dataset.i18nKey = todo ? 'todo.edit' : 'todo.new';
+      modalTitle.textContent = t(modalTitle.dataset.i18nKey);
+    }
     const projSelect = document.getElementById('todo-project');
     if (projSelect) {
       projSelect.innerHTML = '';
@@ -213,7 +219,7 @@ export function createTodosFeature({
     const projectId = document.getElementById('todo-project').value;
     const sectionSelect = document.getElementById('todo-section');
     if (!sectionSelect) return;
-    sectionSelect.innerHTML = '<option value="">Keine Section (Unsortiert)</option>';
+    sectionSelect.innerHTML = `<option value="" data-i18n-key="todo.section.none">${t('todo.section.none')}</option>`;
     sectionSelect.disabled = true;
     if (!projectId) return;
     try {
@@ -232,6 +238,7 @@ export function createTodosFeature({
         const allSections = await dbGetAll('sections');
         projectSections = allSections.filter(s => s.project_id === parseInt(projectId));
       }
+      translatePage(sectionSelect);
       for (const s of projectSections) {
         const opt = document.createElement('option');
         opt.value = s.id;
@@ -306,9 +313,9 @@ export function createTodosFeature({
 
   async function deleteTodo(id) {
     const confirmed = await confirmDanger({
-      title: 'Todo löschen?',
-      message: 'Dieses Todo wird dauerhaft gelöscht.',
-      confirmText: 'Todo löschen',
+      title: t('todo.deleteTitle'),
+      message: t('todo.deleteMessage'),
+      confirmText: t('todo.deleteConfirm'),
     });
     if (!confirmed) return;
     const todo = getTodos().find(t => t.id === id);
@@ -318,7 +325,7 @@ export function createTodosFeature({
     renderStats();
     renderTodos();
     closeModal('todo-modal');
-    showToast('Todo gelöscht', { type: 'delete', id, data: { ...todo } });
+    showToast(t('todo.toast.deleted'), { type: 'delete', id, data: { ...todo } });
     await addToSyncQueue('DELETE_TODO', { id });
     if (isOnlineForSync()) await syncWithServer();
   }

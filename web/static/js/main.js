@@ -1,9 +1,11 @@
+import { initI18n, t } from './i18n/index.js';
+
 function showBootError(error) {
   const subtitle = document.getElementById('boot-subtitle');
   const spinner = document.getElementById('boot-spinner');
   const retry = document.getElementById('boot-retry');
   if (subtitle) {
-    subtitle.textContent = 'App konnte nicht geladen werden. Bitte neu laden.';
+    subtitle.textContent = t('boot.loadError');
     subtitle.title = error?.message || String(error || 'Import failed');
   }
   if (spinner) spinner.style.display = 'none';
@@ -17,13 +19,13 @@ function showNativeServerSetup(config) {
   overlay.innerHTML = `
     <form class="boot-card native-server-card" id="native-server-form">
       <img src="/static/icons/icon-192.png" class="boot-logo" alt="nia-todo">
-      <div class="boot-title">nia-todo verbinden</div>
-      <div class="boot-subtitle">Server-URL eingeben, danach prüfe ich die Instanz.</div>
-      <label class="native-server-label" for="native-server-url">Server</label>
+      <div class="boot-title">${t('nativeSetup.title')}</div>
+      <div class="boot-subtitle">${t('nativeSetup.subtitle')}</div>
+      <label class="native-server-label" for="native-server-url">${t('nativeSetup.serverLabel')}</label>
       <input class="native-server-input" id="native-server-url" type="text" inputmode="url" autocomplete="url" required placeholder="todo.example.test">
-      <button class="native-server-button" type="submit">Server prüfen & speichern</button>
+      <button class="native-server-button" type="submit">${t('nativeSetup.verifyAndSave')}</button>
       <div class="native-server-error" id="native-server-error"></div>
-      <div class="native-server-hint">Die App-Oberfläche ist lokal gebündelt. Der Server liefert nur API, Sync und Login.</div>
+      <div class="native-server-hint">${t('nativeSetup.hint')}</div>
     </form>
   `;
   const form = document.getElementById('native-server-form');
@@ -35,7 +37,7 @@ function showNativeServerSetup(config) {
     try {
       const serverUrl = config.normalizeServerUrl(input.value);
       const instance = await config.verifyInstance(serverUrl);
-      if (instance?.app !== 'nia-todo') throw new Error('Das ist kein nia-todo Server.');
+      if (instance?.app !== 'nia-todo') throw new Error(t('nativeSetup.notNiaTodoServer'));
       await config.getTauriInvoke()('desktop_set_server_url', { serverUrl });
       location.reload();
     } catch (error) {
@@ -47,6 +49,7 @@ function showNativeServerSetup(config) {
 const startImport = () => {
   setTimeout(async () => {
     try {
+      await initI18n();
       const config = await import('./core/config.js');
       const runtime = await config.initRuntimeConfig();
       window.NIA_TODO_RUNTIME = runtime;

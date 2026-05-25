@@ -1,3 +1,5 @@
+import { t } from '../i18n/index.js';
+
 export function createAppLifecycle({
   authApi,
   initTheme,
@@ -61,7 +63,7 @@ export function createAppLifecycle({
     const spinner = document.getElementById('boot-spinner');
     const retry = document.getElementById('boot-retry');
     if (subtitle) {
-      subtitle.textContent = 'App-Start hängt. Bitte neu laden.';
+      subtitle.textContent = t('boot.startTimeout');
       subtitle.title = error?.message || String(error || 'Boot timeout');
     }
     if (spinner) spinner.style.display = 'none';

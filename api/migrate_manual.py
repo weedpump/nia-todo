@@ -97,19 +97,19 @@ def check_db():
 
 if __name__ == '__main__':
     if not DB_PATH.exists():
-        print(f"❌ DB nicht gefunden: {DB_PATH}")
+        print(f"❌ DB not found: {DB_PATH}")
         sys.exit(1)
     
     if check_db():
-        print("✅ Migrationen bereits vorhanden")
+        print("✅ Migrations already present")
         sys.exit(0)
     
-    print("🚀 Starte Migrationen...")
+    print("🚀 Starting migrations...")
     run_migration_003()
     run_migration_004()
     
     if check_db():
-        print("✅ Alle Migrationen erfolgreich!")
+        print("✅ All migrations completed successfully!")
     else:
-        print("❌ Migrationen unvollstaendig")
+        print("❌ Migrations incomplete")
         sys.exit(1)

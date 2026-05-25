@@ -21,6 +21,7 @@ conn.close()
 async function run() {
   console.log('🔐 Running Playwright password reset/expired link test...');
   const { browser, page, assertNoFrontendErrors } = await launchPage();
+  await page.addInitScript(() => localStorage.setItem('nia-todo-language', 'de'));
 
   try {
     await page.goto(BASE_URL, { waitUntil: 'domcontentloaded' });

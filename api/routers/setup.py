@@ -11,6 +11,7 @@ from services.utils import normalize_email, sanitize_text, validate_email, valid
 from services.audit import log_audit
 from rate_limit import require_login_rate_limit, get_client_ip
 from middleware.security import generate_csrf_token, set_csrf_cookie
+from errors import validation_api_error
 
 router = APIRouter()
 
@@ -39,7 +40,7 @@ def setup_status():
 def setup_admin(data: AdminSetupRequest, request: Request, _: None = Depends(require_login_rate_limit)):
     error = validate_admin_password(data.admin_password)
     if error:
-        raise HTTPException(400, error)
+        raise validation_api_error(error)
     with get_db() as db:
         config = db.execute("SELECT setup_complete, admin_token_hash FROM admin_config WHERE id = 1").fetchone()
         if config and config['setup_complete']:
@@ -64,10 +65,10 @@ def setup_first_user(data: FirstUserRequest, request: Request, _: None = Depends
     data.display_name = sanitize_text(data.display_name)
     email_error = validate_email(data.email)
     if email_error:
-        raise HTTPException(400, email_error)
+        raise validation_api_error(email_error)
     error = validate_password(data.password)
     if error:
-        raise HTTPException(400, error)
+        raise validation_api_error(error)
     with get_db() as db:
         user_count = db.execute("SELECT COUNT(*) as c FROM users").fetchone()['c']
         if user_count > 0:
@@ -81,7 +82,7 @@ def setup_first_user(data: FirstUserRequest, request: Request, _: None = Depends
         user_id = c.lastrowid
         workspace = db.execute(
             "INSERT INTO workspaces (name, color, icon, sort_order, user_id, is_default, updated_at) VALUES (?, ?, ?, 0, ?, 1, datetime('now'))",
-            ('Privat', '#10b981', 'home', user_id)
+            ('Personal', '#10b981', 'home', user_id)
         )
         workspace_id = workspace.lastrowid
         db.execute("UPDATE projects SET user_id = ?, workspace_id = ?, is_inbox = CASE WHEN id = 1 THEN 1 ELSE COALESCE(is_inbox, 0) END WHERE user_id IS NULL", (user_id, workspace_id))
