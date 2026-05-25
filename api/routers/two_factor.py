@@ -165,7 +165,7 @@ def _reauth_bucket(db, user_id: int):
 
 
 def _send_reauth_email_code(db, user_id: int, bucket_id: int, ip_address: Optional[str] = None):
-    user = db.execute("SELECT email, display_name, username FROM users WHERE id = ?", (user_id,)).fetchone()
+    user = db.execute("SELECT email, display_name, username, language FROM users WHERE id = ?", (user_id,)).fetchone()
     if not user or not user["email"]:
         raise HTTPException(400, "E-Mail-Reauth ist nicht verfügbar")
     email_code = f"{secrets.randbelow(1_000_000):06d}"
@@ -175,6 +175,7 @@ def _send_reauth_email_code(db, user_id: int, bucket_id: int, ip_address: Option
         code=email_code,
         purpose="reauth",
         expires_minutes=10,
+        language=user['language'] or 'de',
     )
     send_email(to=user["email"], subject=subject, text=text, html=html)
     db.execute(

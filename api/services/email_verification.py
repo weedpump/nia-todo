@@ -46,7 +46,7 @@ def set_email_or_pending(db, *, user_id: int, email: str, request: Optional[Requ
             "email_verification_delivery": "admin_direct" if requested_by == "admin" else "unverified_no_smtp",
         }
 
-    user = db.execute("SELECT username, display_name FROM users WHERE id = ?", (user_id,)).fetchone()
+    user = db.execute("SELECT username, display_name, language FROM users WHERE id = ?", (user_id,)).fetchone()
     token = secrets.token_urlsafe(32)
     db.execute(
         """UPDATE users
@@ -64,6 +64,7 @@ def set_email_or_pending(db, *, user_id: int, email: str, request: Optional[Requ
         username=user['username'] if user else "",
         link=link,
         expires_hours=get_password_link_ttl_hours(),
+        language=(user['language'] if user else None) or 'de',
     )
     return {
         "email": None,
