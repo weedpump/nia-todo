@@ -1,9 +1,9 @@
 import { t } from '../i18n/index.js';
 
 const LEGACY_DETAIL_KEYS = new Map(Object.entries({
-  'Link ist ungültig oder abgelaufen': 'api.error.passwordSetup.invalidOrExpired',
-  'Ein neuer Link kann nur per E-Mail angefordert werden. Bitte Admin kontaktieren.': 'api.error.passwordSetup.emailOnlyResend',
-  'Neuer Link konnte nicht per E-Mail gesendet werden. Bitte Admin kontaktieren.': 'api.error.passwordSetup.resendEmailFailed',
+  'Link is invalid or expired': 'api.error.passwordSetup.invalidOrExpired',
+  'A new link can only be requested by email. Please contact an admin.': 'api.error.passwordSetup.emailOnlyResend',
+  'The new link could not be sent by email. Please contact an admin.': 'api.error.passwordSetup.resendEmailFailed',
   'Bitte eine gültige E-Mail-Adresse eingeben': 'api.error.validation.invalidEmail',
   'Passwort muss mindestens 8 Zeichen lang sein': 'api.error.validation.passwordTooShort8',
   'Passwort muss mindestens 12 Zeichen lang sein': 'api.error.validation.passwordTooShort12',

@@ -13,6 +13,9 @@ MAX_SUBJECT_LENGTH = 140
 
 
 EMAIL_COPY = {
+    "base": {
+        "auto_sent": "This email was sent automatically by nia-todo.",
+    },
     "de": {
         "auto_sent": "Diese Mail wurde automatisch von nia-todo gesendet.",
         "button_fallback": "Falls der Button nicht funktioniert, kopiere diesen Link:",
@@ -138,7 +141,7 @@ def _text_email(*, greeting: str, paragraphs: list[str], action_label: str | Non
         parts.append(f"{action_label}:\n{action_url}")
     if details:
         parts.extend(details)
-    parts.append(_copy(language)["auto_sent"])
+    parts.append(_copy(language)["auto_sent"] if language == "de" else _copy(language)["auto_sent"])
     return "\n\n".join(part.strip() for part in parts if part and part.strip())
 
 

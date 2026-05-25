@@ -337,13 +337,13 @@ export function createAuthSessionFeature({
     const button = document.getElementById('login-reset-submit');
     const identifier = input?.value?.trim() || '';
     if (!identifier) {
-      messageEl.textContent = 'Bitte Benutzername oder E-Mail eingeben.';
+      messageEl.textContent = 'Please enter username or email.';
       return;
     }
     if (button) button.disabled = true;
     try {
       const data = await authApi.requestPasswordReset(identifier);
-      messageEl.textContent = data.message || 'Falls ein passendes Konto existiert, wurde eine E-Mail gesendet.';
+      messageEl.textContent = data.message || 'If an account matches, an email has been sent.';
     } catch (e) {
       messageEl.textContent = e.message || 'Reset konnte nicht angefordert werden.';
     } finally {
