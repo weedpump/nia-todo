@@ -345,7 +345,7 @@ export function createAuthSessionFeature({
       const data = await authApi.requestPasswordReset(identifier);
       messageEl.textContent = data.message || 'If an account matches, an email has been sent.';
     } catch (e) {
-      messageEl.textContent = e.message || 'Reset konnte nicht angefordert werden.';
+      messageEl.textContent = e.message || 'Reset could not be requested.';
     } finally {
       if (button) button.disabled = false;
     }
