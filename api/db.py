@@ -75,9 +75,9 @@ CREATE INDEX IF NOT EXISTS idx_reminders_at ON reminders(remind_at);
 
 -- Default projects
 INSERT OR IGNORE INTO projects (id, name, color, sort_order, is_inbox) VALUES (1, 'Inbox', '#64748b', 0, 1);
-INSERT OR IGNORE INTO projects (id, name, color, sort_order, is_inbox) VALUES (2, 'Privat', '#10b981', 1, 0);
-INSERT OR IGNORE INTO projects (id, name, color, sort_order, is_inbox) VALUES (3, 'Arbeit', '#3b82f6', 2, 0);
-INSERT OR IGNORE INTO projects (id, name, color, sort_order, is_inbox) VALUES (4, 'Einkauf', '#f59e0b', 3, 0);
+INSERT OR IGNORE INTO projects (id, name, color, sort_order, is_inbox) VALUES (2, 'Personal', '#10b981', 1, 0);
+INSERT OR IGNORE INTO projects (id, name, color, sort_order, is_inbox) VALUES (3, 'Work', '#3b82f6', 2, 0);
+INSERT OR IGNORE INTO projects (id, name, color, sort_order, is_inbox) VALUES (4, 'Shopping', '#f59e0b', 3, 0);
 """
 
 @contextmanager
