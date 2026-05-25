@@ -162,7 +162,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 
   <!-- Instance Configuration -->
   <div class="admin-card" id="instance-config-card">
-    <h2><span data-icon="settings"></span> <span data-i18n-key="admin.instance.title">Instanz-Konfiguration</span></h2>
+    <h2><span data-icon="settings"></span> <span data-i18n-key="admin.instance.title">Instance configuration</span></h2>
     <div class="admin-config-grid">
       <div class="admin-config-field full">
         <label for="instance-public-url" data-i18n-key="admin.instance.publicUrl">Public base URL</label>
@@ -179,7 +179,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
     </div>
     <div class="admin-help" data-i18n-key="admin.instance.help">The base URL is used for external links. Origins and trusted proxies are line-based. Forwarded headers are only accepted from trusted proxies.</div>
     <div class="form-row" style="margin-top:12px;">
-      <button class="btn btn-primary" onclick="saveInstanceConfig()" data-i18n-key="admin.instance.save">Instanz-Konfiguration speichern</button>
+      <button class="btn btn-primary" onclick="saveInstanceConfig()" data-i18n-key="admin.instance.save">Instance configuration speichern</button>
     </div>
     <div class="admin-error" id="instance-config-error"></div>
     <div class="admin-success" id="instance-config-success"></div>
@@ -202,7 +202,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
         <input type="number" id="email-smtp-port" min="1" max="65535" value="587">
       </div>
       <div class="admin-config-field">
-        <label for="email-smtp-security" data-i18n-key="admin.email.transportSecurity">Transport-Sicherheit</label>
+        <label for="email-smtp-security" data-i18n-key="admin.email.transportSecurity">Transport security</label>
         <select id="email-smtp-security">
           <option value="starttls">STARTTLS</option>
           <option value="tls">TLS/SSL</option>
@@ -211,7 +211,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
       </div>
       <div class="admin-config-field admin-config-checkbox">
         <input type="checkbox" id="email-smtp-auth-enabled">
-        <label for="email-smtp-auth-enabled" data-i18n-key="admin.email.useSmtpAuth">SMTP Auth verwenden</label>
+        <label for="email-smtp-auth-enabled" data-i18n-key="admin.email.useSmtpAuth">Use SMTP auth</label>
       </div>
       <div class="admin-config-field">
         <label for="email-smtp-username">SMTP Username</label>
@@ -242,13 +242,13 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
         <label for="email-test-to" data-i18n-key="admin.email.testTo">Test-Mail an</label>
         <div class="form-row" style="margin-bottom:0;">
           <input type="email" id="email-test-to" placeholder="name@example.org" autocomplete="off">
-          <button class="btn btn-primary" onclick="sendTestEmail()" data-i18n-key="admin.email.sendTest">Test-Mail senden</button>
+          <button class="btn btn-primary" onclick="sendTestEmail()" data-i18n-key="admin.email.sendTest">Send test email</button>
         </div>
       </div>
     </div>
     <div class="admin-help" data-i18n-key="admin.email.help">Password/setup links use the public base URL from the instance configuration. SMTP passwords are never shown again. Without email sending enabled, addresses are considered confirmed after the manual setup link, but are not mailbox-verified.</div>
     <div class="form-row" style="margin-top:12px;">
-      <button class="btn btn-primary" onclick="saveEmailConfig()" data-i18n-key="admin.email.save">Email-Konfiguration speichern</button>
+      <button class="btn btn-primary" onclick="saveEmailConfig()" data-i18n-key="admin.email.save">Save email configuration</button>
     </div>
     <div class="admin-error" id="email-config-error"></div>
     <div class="admin-success" id="email-config-success"></div>
@@ -256,13 +256,13 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 
   <!-- Security / 2FA -->
   <div class="admin-card" id="security-card">
-    <h2><span data-icon="shield-check"></span> <span data-i18n-key="admin.security.title">Sicherheit / 2FA</span></h2>
+    <h2><span data-icon="shield-check"></span> <span data-i18n-key="admin.security.title">Security / 2FA</span></h2>
     <div class="security-policy-row">
       <div class="security-policy-main">
         <div class="security-policy-title" id="twofa-policy-title" data-i18n-key="admin.security.policyLoading">2FA requirement loading…</div>
         <div class="security-policy-desc" data-i18n-key="admin.security.policyDesc">Requires 2FA for all users. Sign-in is possible with an authenticator app, passkey, or existing recovery codes. If SMTP is configured, users without an authenticator/passkey can temporarily use an email code. Without any available method, they only get access to the 2FA setup.</div>
       </div>
-      <button class="btn btn-primary" id="twofa-policy-toggle" onclick="toggleTwoFactorPolicy()" data-i18n-key="admin.security.toggle">Umschalten</button>
+      <button class="btn btn-primary" id="twofa-policy-toggle" onclick="toggleTwoFactorPolicy()" data-i18n-key="admin.security.toggle">Toggle</button>
     </div>
     <div class="admin-help" data-i18n-key="admin.security.apiKeysHelp">API keys remain usable as machine tokens. Creating and revoking your own API keys requires recent MFA on accounts with mandatory MFA.</div>
     <div class="admin-error" id="security-error"></div>
@@ -290,7 +290,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
     <h2><span data-icon="user-plus"></span> <span data-i18n-key="admin.user.createTitle">Create new user</span></h2>
     <div class="form-row">
       <input type="text" id="new-username" data-i18n-placeholder-key="setup.usernameLabel" placeholder="Username" autocomplete="off" onkeydown="if(event.key==='Enter') document.getElementById('new-display-name').focus()">
-      <input type="text" id="new-display-name" data-i18n-placeholder-key="setup.displayNameLabel" placeholder="Anzeigename" onkeydown="if(event.key==='Enter') document.getElementById('new-email').focus()">
+      <input type="text" id="new-display-name" data-i18n-placeholder-key="setup.displayNameLabel" placeholder="Display name" onkeydown="if(event.key==='Enter') document.getElementById('new-email').focus()">
       <input type="email" id="new-email" data-i18n-placeholder-key="settings.profile.email" placeholder="Email" autocomplete="off" onkeydown="if(event.key==='Enter') createUser()">
       <button class="btn btn-primary" onclick="createUser()" data-i18n-key="admin.user.createAndLink">Erstellen & Link erzeugen</button>
     </div>
@@ -314,18 +314,18 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
         <tr>
           <th>ID</th>
           <th data-i18n-key="admin.user.username">Username</th>
-          <th data-i18n-key="admin.user.displayName">Anzeigename</th>
+          <th data-i18n-key="admin.user.displayName">Display name</th>
           <th data-i18n-key="admin.user.email">Email</th>
           <th data-i18n-key="admin.user.emailStatus">Email Status</th>
           <th data-i18n-key="admin.user.login">Login</th>
           <th data-i18n-key="admin.user.twofa">2FA</th>
           <th data-i18n-key="admin.user.apiKeys">API Keys</th>
           <th data-i18n-key="admin.user.password">Password</th>
-          <th data-i18n-key="admin.user.actions">Aktionen</th>
+          <th data-i18n-key="admin.user.actions">Actions</th>
         </tr>
       </thead>
       <tbody id="user-list">
-        <tr><td colspan="10" class="empty-state" data-i18n-key="common.loading">Lade...</td></tr>
+        <tr><td colspan="10" class="empty-state" data-i18n-key="common.loading">Loading...</td></tr>
       </tbody>
     </table>
     </div>
