@@ -37,7 +37,7 @@ def _parse_bool(value: Any, *, field: str) -> bool:
         return True
     if raw in {"false", "0", "no", "off", ""}:
         return False
-    raise HTTPException(400, f"{field} muss true oder false sein")
+    raise HTTPException(400, f"{field} must be true or false")
 
 
 def _serialize_bool(value: bool) -> str:
@@ -48,9 +48,9 @@ def _parse_int(value: Any, *, field: str, min_value: int, max_value: int) -> int
     try:
         parsed = int(value)
     except (TypeError, ValueError):
-        raise HTTPException(400, f"{field} muss eine Zahl sein")
+        raise HTTPException(400, f"{field} must be a number")
     if parsed < min_value or parsed > max_value:
-        raise HTTPException(400, f"{field} muss zwischen {min_value} und {max_value} liegen")
+        raise HTTPException(400, f"{field} must be between {min_value} and {max_value}")
     return parsed
 
 
@@ -62,7 +62,7 @@ def _parse_config_value(key: str, value: Optional[str]) -> Any:
     if key == "smtp_port":
         return _parse_int(value, field="SMTP-Port", min_value=1, max_value=65535)
     if key == "password_link_ttl_hours":
-        return _parse_int(value, field="Link-Gültigkeit", min_value=1, max_value=168)
+        return _parse_int(value, field="Link validity", min_value=1, max_value=168)
     return str(value or "").strip()
 
 
@@ -108,7 +108,7 @@ def normalize_email_config_update(data: dict[str, Any], *, existing_secret: str 
     smtp_port = _parse_int(data.get("smtp_port", 587), field="SMTP-Port", min_value=1, max_value=65535)
     smtp_security = str(data.get("smtp_security") or "starttls").strip().lower()
     if smtp_security not in SMTP_SECURITY_MODES:
-        raise HTTPException(400, "SMTP-Sicherheit muss none, starttls oder tls sein")
+        raise HTTPException(400, "SMTP security must be none, starttls or tls")
 
     smtp_username = str(data.get("smtp_username") or "").strip()
     raw_secret = data.get("smtp_password_secret", None)
@@ -117,15 +117,15 @@ def normalize_email_config_update(data: dict[str, Any], *, existing_secret: str 
     from_address = _validate_email_or_empty(data.get("mail_from_address") or "", field="From-Adresse")
     reply_to = _validate_email_or_empty(data.get("mail_reply_to") or "", field="Reply-To")
     from_name = str(data.get("mail_from_name") or "nia-todo").strip() or "nia-todo"
-    ttl = _parse_int(data.get("password_link_ttl_hours", 24), field="Link-Gültigkeit", min_value=1, max_value=168)
+    ttl = _parse_int(data.get("password_link_ttl_hours", 24), field="Link validity", min_value=1, max_value=168)
 
     if smtp_enabled:
         if not smtp_host:
-            raise HTTPException(400, "SMTP Host ist erforderlich, wenn E-Mail aktiviert ist")
+            raise HTTPException(400, "SMTP host is required when email is enabled")
         if not from_address:
-            raise HTTPException(400, "From-Adresse ist erforderlich, wenn E-Mail aktiviert ist")
+            raise HTTPException(400, "From address is required when email is enabled")
     if smtp_auth_enabled and not smtp_username:
-        raise HTTPException(400, "SMTP Username ist erforderlich, wenn Auth aktiviert ist")
+        raise HTTPException(400, "SMTP username is required when auth is enabled")
 
     return {
         "smtp_enabled": smtp_enabled,

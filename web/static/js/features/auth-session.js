@@ -1,5 +1,6 @@
 import { getAuthToken, getCsrfToken, getAuthHeaders } from '../api/http.js';
 import { RUNTIME_CAPABILITIES } from '../core/config.js';
+import { t } from '../i18n/index.js';
 
 export function createAuthSessionFeature({
   authApi,
@@ -93,7 +94,7 @@ export function createAuthSessionFeature({
         await window.openSettingsModal?.();
         const warningEl = document.getElementById('settings-2fa-error');
         if (warningEl) {
-          warningEl.textContent = '2FA ist für diese Instanz erforderlich. Richte bitte einen Authenticator oder Passkey ein; bis dahin ist der normale App-Zugriff gesperrt.';
+          warningEl.textContent = t('auth.mfa.enrollmentRequiredWarning');
         }
       }, 100);
     }
@@ -141,7 +142,7 @@ export function createAuthSessionFeature({
     if (codeInput) codeInput.value = '';
     if (switchBtn) switchBtn.classList.add('hidden');
     if (rememberInput) rememberInput.checked = false;
-    if (submitBtn) submitBtn.textContent = 'Anmelden';
+    if (submitBtn) submitBtn.textContent = t('auth.signIn');
     document.getElementById('login-username')?.removeAttribute('readonly');
     document.getElementById('login-password')?.removeAttribute('readonly');
     document.getElementById('login-forgot-btn')?.classList.toggle('hidden', !passwordResetAvailable);
@@ -160,32 +161,32 @@ export function createAuthSessionFeature({
     const hasCodeOption = Boolean(codeMethod);
     const hasPasskeyOption = canUseLoginPasskey();
     const labels = {
-      email: 'E-Mail-Code',
-      recovery_code: 'Recovery Code',
-      passkey: 'Passkey',
-      totp: methods.includes('recovery_code') ? 'Authenticator- oder Recovery Code' : 'Authenticator-Code',
+      email: t('security.mfa.code.email'),
+      recovery_code: t('security.mfa.code.recovery'),
+      passkey: t('security.mfa.passkeyName'),
+      totp: methods.includes('recovery_code') ? t('security.mfa.code.authOrRecovery') : t('security.mfa.code.authenticator'),
     };
-    const label = labels[pendingMfaMethod] || '2FA-Code';
+    const label = labels[pendingMfaMethod] || t('auth.mfa.codeLabel');
     if (hintEl) hintEl.textContent = pendingMfaMethod === 'email'
-      ? 'Wir haben dir einen 2FA-Code per E-Mail geschickt.'
+      ? t('auth.mfa.emailSent')
       : pendingMfaMethod === 'passkey'
-        ? 'Bestätige die Anmeldung mit deinem Passkey — oder nutze alternativ deinen 2FA-Code.'
+        ? t('auth.mfa.passkeyOrCodeHint')
         : hasPasskeyOption
-          ? 'Gib deinen 2FA-Code ein — oder nutze alternativ deinen Passkey.'
-          : 'Gib deinen 2FA-Code ein.';
+          ? t('auth.mfa.codeOrPasskeyHint')
+          : t('auth.mfa.codeHint');
     if (codeLabel) codeLabel.textContent = label;
     if (codeInput) {
       codeInput.value = '';
-      codeInput.placeholder = `${label} eingeben`;
+      codeInput.placeholder = t('auth.mfa.enterCodePlaceholder', { label });
       codeInput.required = pendingMfaMethod !== 'passkey';
     }
     if (codeWrap) codeWrap.style.display = pendingMfaMethod === 'passkey' ? 'none' : '';
     if (switchBtn) {
       const showSwitch = hasPasskeyOption && hasCodeOption;
       switchBtn.classList.toggle('hidden', !showSwitch);
-      switchBtn.textContent = pendingMfaMethod === 'passkey' ? 'Mit Authenticator-Code anmelden' : 'Mit Passkey anmelden';
+      switchBtn.textContent = pendingMfaMethod === 'passkey' ? t('auth.mfa.signInWithCode') : t('auth.mfa.signInWithPasskey');
     }
-    if (submitBtn) submitBtn.textContent = pendingMfaMethod === 'passkey' ? 'Mit Passkey anmelden' : '2FA bestätigen';
+    if (submitBtn) submitBtn.textContent = pendingMfaMethod === 'passkey' ? t('auth.mfa.signInWithPasskey') : t('auth.mfa.confirm');
     panel?.classList.remove('hidden');
     if (pendingMfaMethod === 'passkey') submitBtn?.focus();
     else codeInput?.focus();
@@ -207,14 +208,14 @@ export function createAuthSessionFeature({
   }
 
   async function verifyPendingMfaChallenge() {
-    if (!pendingMfaChallenge) throw new Error('Keine aktive 2FA-Challenge');
+    if (!pendingMfaChallenge) throw new Error(t('auth.mfa.noActiveChallenge'));
     const rememberDevice = !!document.getElementById('login-remember-device')?.checked;
     if (pendingMfaMethod === 'passkey') {
       const verified = await authApi.verifyPasskeyLogin(pendingMfaChallenge.challenge.challenge_token, rememberDevice);
       return completeLogin(verified);
     }
     const code = document.getElementById('login-mfa-code')?.value?.trim() || '';
-    if (!code) throw new Error('Bitte 2FA-Code eingeben');
+    if (!code) throw new Error(t('auth.mfa.codeRequired'));
     const method = pendingMfaMethod === 'totp' && code.includes('-') ? 'recovery_code' : pendingMfaMethod;
     const verified = await authApi.verify2fa(pendingMfaChallenge.challenge.challenge_token, method, code, rememberDevice);
     return completeLogin(verified);
@@ -336,15 +337,15 @@ export function createAuthSessionFeature({
     const button = document.getElementById('login-reset-submit');
     const identifier = input?.value?.trim() || '';
     if (!identifier) {
-      messageEl.textContent = 'Bitte Benutzername oder E-Mail eingeben.';
+      messageEl.textContent = 'Please enter username or email.';
       return;
     }
     if (button) button.disabled = true;
     try {
       const data = await authApi.requestPasswordReset(identifier);
-      messageEl.textContent = data.message || 'Falls ein passendes Konto existiert, wurde eine E-Mail gesendet.';
+      messageEl.textContent = data.message || 'If an account matches, an email has been sent.';
     } catch (e) {
-      messageEl.textContent = e.message || 'Reset konnte nicht angefordert werden.';
+      messageEl.textContent = e.message || 'Reset could not be requested.';
     } finally {
       if (button) button.disabled = false;
     }
@@ -401,7 +402,7 @@ export function createAuthSessionFeature({
       window.dispatchEvent(new CustomEvent('nia-logged-in'));
     } catch (err) {
       console.error('Login failed:', err);
-      errorEl.textContent = err.message || 'Login fehlgeschlagen';
+      errorEl.textContent = err.message || 'Login failed';
     } finally {
       loginInProgress = false;
       if (submitBtn) submitBtn.disabled = false;

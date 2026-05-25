@@ -40,12 +40,12 @@ def is_email_identifier(identifier: str) -> bool:
 
 
 def _neutral_email_share_response() -> dict:
-    return {"member": None, "notification_delivery": "unknown", "message": "Falls ein passender verifizierter Account existiert, wurde die Einladung verarbeitet."}
+    return {"member": None, "notification_delivery": "unknown", "message": "If a matching verified account exists, the invitation has been processed."}
 
 def get_user_by_verified_email(db, email: str) -> Optional[dict]:
     """Find user by verified email only. Does not match usernames."""
     row = db.execute(
-        """SELECT id, username, display_name, email, email_verified_at
+        """SELECT id, username, display_name, email, email_verified_at, language
            FROM users
            WHERE lower(email) = lower(?) AND email_verified_at IS NOT NULL
            LIMIT 1""",
@@ -55,7 +55,7 @@ def get_user_by_verified_email(db, email: str) -> Optional[dict]:
 
 def get_user_by_identifier(db, identifier: str) -> Optional[dict]:
     row = db.execute(
-        """SELECT id, username, display_name, email, email_verified_at
+        """SELECT id, username, display_name, email, email_verified_at, language
            FROM users
            WHERE username = ?
               OR (lower(email) = lower(?) AND email_verified_at IS NOT NULL)
@@ -253,6 +253,7 @@ async def share_project(project_id: int, data: ShareProjectRequest, request: Req
                 project_name=project.get('name'),
                 inviter_name=project.get('owner_display_name') or project.get('owner_username'),
                 link=get_public_base_url(request, require_configured=True),
+                language=target.get('language') or 'de',
             )
             try:
                 await run_in_threadpool(send_email, to=target['email'], subject=subject, text=text, html=html)

@@ -6,6 +6,7 @@ async function run() {
   const { browser, page } = await launchPage();
 
   try {
+    await page.addInitScript(() => localStorage.setItem('nia-todo-language', 'de'));
     await page.goto('http://localhost:8754/admin', { waitUntil: 'networkidle' });
     await page.locator('#admin-login-card').waitFor({ state: 'visible', timeout: 5000 });
 
@@ -48,8 +49,9 @@ async function run() {
     await page.getByRole('button', { name: 'Erstellen & Link erzeugen' }).click();
     await page.getByText('Bitte eine gültige E-Mail-Adresse eingeben').waitFor({ state: 'visible', timeout: 10000 });
     await page.fill('#new-email', 'admincreated@example.invalid');
+    await page.selectOption('#new-language', 'en');
     await page.getByRole('button', { name: 'Erstellen & Link erzeugen' }).click();
-    await page.getByText("Benutzer 'admincreated' erstellt. Link kopieren und senden:").waitFor({ state: 'visible', timeout: 10000 });
+    await page.getByText(/Benutzer .*admincreated.* erstellt.*Link kopieren und senden/).waitFor({ state: 'visible', timeout: 10000 });
     await page.locator('#create-link-input').waitFor({ state: 'visible', timeout: 10000 });
     const setupUrl = await page.locator('#create-link-input').inputValue();
     if (!setupUrl.startsWith(`${BASE_URL}/set-password?token=`)) throw new Error('Create user did not use configured public base URL');
@@ -57,6 +59,17 @@ async function run() {
     await page.locator('#user-list').getByText('admincreated@example.invalid').waitFor({ state: 'visible', timeout: 10000 });
     await page.locator('#user-list').getByText('Bestätigt').first().waitFor({ state: 'visible', timeout: 10000 });
     await page.locator('#user-list').getByText('Aktiv').first().waitFor({ state: 'visible', timeout: 10000 });
+    const createdLanguage = await page.evaluate(async () => {
+      const response = await fetch('/api/admin/users', {
+        headers: { Authorization: `Bearer ${localStorage.getItem('admin_jwt_token')}` },
+        credentials: 'include'
+      });
+      const data = await response.json();
+      return data.users.find((user) => user.username === 'admincreated')?.language;
+    });
+    if (createdLanguage !== 'en') throw new Error(`Expected created user language en, got ${createdLanguage}`);
+    const selectedLanguageAfterCreate = await page.locator('#new-language').inputValue();
+    if (selectedLanguageAfterCreate !== 'en') throw new Error(`Expected create-user language selection to remain en, got ${selectedLanguageAfterCreate}`);
     await page.locator('#user-list button[title="E-Mail bearbeiten"]').last().click();
     await page.locator('#user-list input[type="email"]').last().fill('broken-email');
     await page.locator('#user-list button[title="Speichern"]').last().click();

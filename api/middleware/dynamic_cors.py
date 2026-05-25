@@ -29,13 +29,13 @@ class DynamicCORSMiddleware(BaseHTTPMiddleware):
 
         if origin and not self._is_allowed_origin(request, origin):
             return Response(
-                content='{"detail":"Origin nicht erlaubt"}',
+                content='{"detail":"Origin not allowed"}',
                 status_code=403,
                 headers={"Content-Type": "application/json", "Vary": "Origin"},
             )
         if is_preflight and not self._requested_headers_allowed(request.headers):
             return Response(
-                content='{"detail":"CORS-Header nicht erlaubt"}',
+                content='{"detail":"CORS headers not allowed"}',
                 status_code=403,
                 headers={"Content-Type": "application/json", "Vary": "Origin"},
             )

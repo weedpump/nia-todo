@@ -1,5 +1,6 @@
 import { escapeHtml, escapeHtmlAttr, jsArg } from '../core/utils.js';
 import { iconSvg } from '../icons/lucide-icons.js';
+import { t } from '../i18n/index.js';
 
 export function createSectionsFeature({ getTodos, getCurrentProjectId, getSections, renderTodos }) {
   function renderSectionHeader(section) {
@@ -14,7 +15,7 @@ export function createSectionsFeature({ getTodos, getCurrentProjectId, getSectio
           ondragover="handleSectionDragOver(event)" ondrop="handleSectionDrop(event)">
           <span class="section-name" onclick="editSectionInline(${jsArg(section.id)})">${escapeHtml(section.name)}</span>
           <span class="section-count">${count}</span>
-          <button class="section-delete" onclick="event.stopPropagation(); deleteSection(${jsArg(section.id)})" title="Löschen">${iconSvg('x')}</button>
+          <button class="section-delete" onclick="event.stopPropagation(); deleteSection(${jsArg(section.id)})" title="${escapeHtmlAttr(t('section.delete'))}">${iconSvg('x')}</button>
         </div>
       `;
     }
@@ -23,7 +24,7 @@ export function createSectionsFeature({ getTodos, getCurrentProjectId, getSectio
     return `
       <div class="section-header section-unsorted" data-section-id="null"
         ondragover="handleSectionDragOver(event)" ondrop="handleSectionDrop(event)">
-        <span class="section-name">Unsortiert</span>
+        <span class="section-name">${escapeHtml(t('section.unsorted'))}</span>
         <span class="section-count">${unsortedCount}</span>
       </div>
     `;
@@ -34,10 +35,10 @@ export function createSectionsFeature({ getTodos, getCurrentProjectId, getSectio
     if (!el) return;
     el.innerHTML = `
       <div class="inline-section-form">
-        <input type="text" id="new-section-name" placeholder="Section-Name" autocomplete="off"
+        <input type="text" id="new-section-name" placeholder="${escapeHtmlAttr(t('section.namePlaceholder'))}" autocomplete="off"
           onkeydown="if(event.key==='Enter')saveNewSection();if(event.key==='Escape')renderTodos();">
-        <button onclick="saveNewSection()" title="Speichern">${iconSvg('check')}</button>
-        <button onclick="renderTodos()" title="Abbrechen">${iconSvg('x')}</button>
+        <button onclick="saveNewSection()" title="${escapeHtmlAttr(t('common.save'))}">${iconSvg('check')}</button>
+        <button onclick="renderTodos()" title="${escapeHtmlAttr(t('common.cancel'))}">${iconSvg('x')}</button>
       </div>
     `;
     document.getElementById('new-section-name')?.focus();
@@ -54,8 +55,8 @@ export function createSectionsFeature({ getTodos, getCurrentProjectId, getSectio
       <div class="inline-edit-form" style="flex:1;gap:6px;">
         <input type="text" id="edit-section-name-${escapeHtmlAttr(id)}" value="${escapeHtmlAttr(section.name)}" autocomplete="off" style="flex:1;"
           onkeydown="if(event.key==='Enter')saveSectionEdit(${jsArg(id)});if(event.key==='Escape')renderTodos();">
-        <button onclick="saveSectionEdit(${jsArg(id)})" title="Speichern">${iconSvg('check')}</button>
-        <button onclick="renderTodos()" title="Abbrechen">${iconSvg('x')}</button>
+        <button onclick="saveSectionEdit(${jsArg(id)})" title="${escapeHtmlAttr(t('common.save'))}">${iconSvg('check')}</button>
+        <button onclick="renderTodos()" title="${escapeHtmlAttr(t('common.cancel'))}">${iconSvg('x')}</button>
       </div>
     `;
     document.getElementById(`edit-section-name-${id}`)?.focus();

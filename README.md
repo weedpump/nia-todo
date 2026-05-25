@@ -1,8 +1,8 @@
 # ✨ nia-todo
 
-Selfhosted Todo-System — SQLite + FastAPI + Web-UI + Offline-PWA + native Windows-/Android-Apps.
+Selfhosted todo system — SQLite + FastAPI + Web UI + offline PWA + native Windows/Android apps.
 
-## 🌍 Instanzen
+## 🌍 Instances
 
 - **Live:** `http://todo-dev.kneidl-home.de:8753`
 - **Dev:** `http://todo-dev.kneidl-home.de:8754`
@@ -23,62 +23,62 @@ systemctl restart nia-todo-dev
 
 ## ✨ Features
 
-- 📝 Todos mit Beschreibung, Priorität, Deadline und Erinnerungen
-- 📁 Projekte/Kategorien inkl. Subprojekten und geschützter pro-User Inbox
-- 🤝 Projekt-Sharing zwischen Benutzern mit Einladungen und Undo
-- 📧 E-Mail/SMTP-Integration für Einladungen, Passwort-Reset und E-Mail-Verifizierung
-- 🔲 Sections pro Projekt
-- 📱 Offline-PWA plus native Windows-/Android-Wrapper
-- 🔐 Auth, Admin-Panel, API-Keys, CSRF-Schutz und User-Datenisolation
-- 🛡️ 2FA/MFA mit Authenticator-App (TOTP), Passkeys/WebAuthn inkl. nativer Windows-/Android-Bridge, E-Mail-Code-Fallback, Recovery Codes, Trusted Devices und Admin-Policy
-- ⏰ Erinnerungen/Deadlines mit validierter Datum-/Zeit-Eingabe
-- 🔔 Native lokale Reminder auf Windows und Android; Browser/PWA-Push bleibt Browser/PWA-only
-- 🎨 Theme-Toggle
-- 🗄️ SQLite lokal
+- 📝 Todos with description, priority, deadline, and reminders
+- 📁 Projects/categories including subprojects and protected per-user inbox
+- 🤝 Project sharing between users with invitations and undo
+- 📧 Email/SMTP integration for invitations, password reset, and email verification
+- 🔲 Sections per project
+- 📱 Offline PWA plus native Windows/Android wrappers
+- 🔐 Auth, admin panel, API keys, CSRF protection, and user data isolation
+- 🛡️ 2FA/MFA with authenticator app (TOTP), passkeys/WebAuthn including native Windows/Android bridge, email code fallback, recovery codes, trusted devices, and admin policy
+- ⏰ Reminders/deadlines with validated date/time input
+- 🔔 Native local reminders on Windows and Android; browser/PWA push remains browser/PWA-only
+- 🎨 Theme toggle
+- 🗄️ Local SQLite
 
-## 🧱 Projektstruktur
+## 🧱 Project Structure
 
-- `api/` — Backend, DB, Migrationen
-- `web/` — Web-UI, Service Worker, Manifest
-- `scripts/` — Test-Suiten und Hilfen
-- `docs/` — API-, Test- und Workflow-Doku
-- `systemd/` — Live-/Dev-Services
+- `api/` — Backend, DB, migrations
+- `web/` — Web UI, service worker, manifest
+- `scripts/` — Test suites and helpers
+- `docs/` — API, test, and workflow docs
+- `systemd/` — Live/dev services
 
-## 🔧 Entwicklung
+## 🔧 Development
 
-- Dev-Branch: `develop`
-- Dev-Ordner: `~/projects/nia-todo-dev`
-- Release nur über `./release.sh VERSION`
+- Dev branch: `develop`
+- Dev folder: `~/projects/nia-todo-dev`
+- Release only through `./release.sh VERSION`
 
 ## 🧪 Tests
 
 - `npm test`
 - `./scripts/test_all.sh`
-- gezielte 2FA-Regressionen: `python3 scripts/test_two_factor_services.py`, `node scripts/test_frontend_mfa_login.mjs`, `node scripts/test_frontend_security.mjs`
+- targeted 2FA regressions: `python3 scripts/test_two_factor_services.py`, `node scripts/test_frontend_mfa_login.mjs`, `node scripts/test_frontend_security.mjs`
 
-Details: [Test-Doku](docs/testing.md)
+Details: [Test docs](docs/testing.md)
 
-## 📚 Doku
+## 📚 Docs
 
-- [API-Doku](docs/api.md)
-- [Test-Doku](docs/testing.md)
-- [Workflow-Doku](docs/workflow.md)
-- [Architektur](docs/architecture.md)
-- [Native Apps Clean Architecture Plan](docs/native-apps-clean-architecture.md) — aktueller 2.0-Stand inkl. Android-Passkey-Vertrauensmodell
-- Changelog: `CHANGELOG.md` für Web-App, Windows-App und Android-App gemeinsam
+- [API docs](docs/api.md)
+- [Test docs](docs/testing.md)
+- [Workflow docs](docs/workflow.md)
+- [Architecture](docs/architecture.md)
+- [Native Apps Clean Architecture Plan](docs/native-apps-clean-architecture.md) — current 2.0 state including Android passkey trust model
+- Changelog: `CHANGELOG.md` shared by web app, Windows app, and Android app
 
-## ⚙️ Setup / Betrieb
+## ⚙️ Setup / Operations
 
-- Erstinstallation: `/setup`
-- Admin-Panel: `/admin`
-- 2FA-Policy und Benutzer-Reset: `/admin` → Security/Benutzerliste
-- Passkeys benötigen in produktiven Setups eine HTTPS-`public_base_url`; Android nutzt die offizielle App-Signatur über `/.well-known/assetlinks.json`
-- Dev-Branding: `setup-dev.sh`
+- Initial setup: `/setup`
+- Admin panel: `/admin`
+- 2FA policy and user reset: `/admin` → Security/user list
+- Passkeys require an HTTPS `public_base_url` in production setups; Android uses the official app signature through `/.well-known/assetlinks.json`
+- Dev branding: `setup-dev.sh`
 
-## Hinweise
+## Notes
 
-- DB-Dateien nicht committen
-- `web/manifest.json` wird vom Dev-/Release-Flow gepflegt
+- Do not commit DB files
+- `web/manifest.json` is maintained by the dev/release flow
 
 ---
 

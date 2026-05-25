@@ -262,7 +262,7 @@ def create_challenge(db, user_id: int, ip_address: Optional[str] = None, user_ag
         email_hash = bcrypt_hash(email_code)
         email_expires = utc_ts() + EMAIL_CODE_TTL_SECONDS
     if email_code:
-        user = db.execute("SELECT email, display_name, username FROM users WHERE id = ?", (user_id,)).fetchone()
+        user = db.execute("SELECT email, display_name, username, language FROM users WHERE id = ?", (user_id,)).fetchone()
         if not user or not user["email"]:
             methods = [m for m in methods if m != "email"]
             email_code = None
@@ -276,6 +276,7 @@ def create_challenge(db, user_id: int, ip_address: Optional[str] = None, user_ag
                 code=email_code,
                 purpose="login",
                 expires_minutes=10,
+                language=user['language'] or 'de',
             )
             send_email(to=user["email"], subject=subject, text=text, html=html)
             log_audit(db, "two_factor_email_code_sent", user_id=user_id, ip_address=ip_address)

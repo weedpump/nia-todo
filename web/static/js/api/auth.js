@@ -1,15 +1,12 @@
 import { API, RUNTIME_CAPABILITIES } from '../core/config.js';
 import { createNativeBridge } from '../features/native-bridge.js';
 import { getAuthHeaders } from './http.js';
+import { apiErrorFromResponse } from './errors.js';
+import { t } from '../i18n/index.js';
 
 async function parseOrThrow(response, fallback = 'Request failed') {
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const error = new Error(data.detail || fallback);
-    error.status = response.status;
-    throw error;
-  }
-  return data;
+  if (!response.ok) await apiErrorFromResponse(response, fallback);
+  return response.json().catch(() => ({}));
 }
 
 function b64urlToBuffer(value) {
@@ -80,7 +77,7 @@ export const authApi = {
       body: JSON.stringify({ username, password }),
       credentials: 'include',
     });
-    return parseOrThrow(response, 'Login fehlgeschlagen');
+    return parseOrThrow(response, t('api.auth.loginFailed'));
   },
 
   async verify2fa(challengeToken, method, code, rememberDevice = false) {
@@ -90,17 +87,17 @@ export const authApi = {
       body: JSON.stringify({ challenge_token: challengeToken, method, code, remember_device: rememberDevice }),
       credentials: 'include',
     });
-    return parseOrThrow(response, '2FA-Prüfung fehlgeschlagen');
+    return parseOrThrow(response, t('api.auth.twoFactorVerifyFailed'));
   },
 
   async verifyPasskeyLogin(challengeToken, rememberDevice = false) {
     if (RUNTIME_CAPABILITIES.native && !canUseNativePasskeyBridge()) {
-      throw new Error('Passkeys werden in dieser Native App noch nicht unterstützt. Bitte TOTP/Recovery verwenden.');
+      throw new Error(t('api.auth.nativePasskeysUnsupportedUseCode'));
     }
     const optionsResponse = await fetch(API + '/api/2fa/passkey/options', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ challenge_token: challengeToken }),
     });
-    const optionsData = await parseOrThrow(optionsResponse, 'Passkey-Challenge fehlgeschlagen');
+    const optionsData = await parseOrThrow(optionsResponse, t('api.auth.passkeyChallengeFailed'));
     const publicKey = optionsData.publicKey;
     let credential;
     try {
@@ -108,61 +105,61 @@ export const authApi = {
         ? await nativeBridge.passkeyAuthenticate(passkeyOrigin(optionsData), publicKey)
         : await navigator.credentials.get({ publicKey: browserPublicKeyFromJson(publicKey, 'get') });
     } catch (error) {
-      throw new Error(`Passkey-Anmeldung fehlgeschlagen: ${error?.message || error}`);
+      throw new Error(t('api.auth.passkeyLoginFailed', { error: error?.message || error }));
     }
     const verifyResponse = await fetch(API + '/api/2fa/passkey/verify', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ challenge_token: challengeToken, credential: credentialToJson(credential), remember_device: rememberDevice }),
     });
-    return parseOrThrow(verifyResponse, 'Passkey-Prüfung fehlgeschlagen');
+    return parseOrThrow(verifyResponse, t('api.auth.passkeyVerifyFailed'));
   },
 
   async twoFactorStatus() {
     const response = await fetch(API + '/api/me/2fa', { headers: getAuthHeaders(), credentials: 'include' });
-    return parseOrThrow(response, '2FA-Status fehlgeschlagen');
+    return parseOrThrow(response, t('api.auth.twoFactorStatusFailed'));
   },
 
   async startTotp() {
     const response = await fetch(API + '/api/me/2fa/totp/start', { method: 'POST', headers: getAuthHeaders(), credentials: 'include' });
-    return parseOrThrow(response, 'TOTP-Setup fehlgeschlagen');
+    return parseOrThrow(response, t('api.auth.totpSetupFailed'));
   },
 
   async confirmTotp(secret, code, password = '') {
     const response = await fetch(API + '/api/me/2fa/totp/confirm', {
       method: 'POST', headers: getAuthHeaders(), credentials: 'include', body: JSON.stringify({ secret, code, password }),
     });
-    return parseOrThrow(response, 'TOTP konnte nicht aktiviert werden');
+    return parseOrThrow(response, t('api.auth.totpEnableFailed'));
   },
 
   async disable2fa(code = '') {
     const response = await fetch(API + '/api/me/2fa/disable', {
       method: 'POST', headers: getAuthHeaders(), credentials: 'include', body: JSON.stringify({ code }),
     });
-    return parseOrThrow(response, '2FA konnte nicht deaktiviert werden');
+    return parseOrThrow(response, t('api.auth.twoFactorDisableFailed'));
   },
 
   async deleteTotp() {
     const response = await fetch(API + '/api/me/2fa/totp', { method: 'DELETE', headers: getAuthHeaders(), credentials: 'include' });
-    return parseOrThrow(response, 'Authenticator konnte nicht entfernt werden');
+    return parseOrThrow(response, t('api.auth.authenticatorRemoveFailed'));
   },
 
   async listPasskeys() {
     const response = await fetch(API + '/api/me/passkeys', { headers: getAuthHeaders(), credentials: 'include' });
-    return parseOrThrow(response, 'Passkeys konnten nicht geladen werden');
+    return parseOrThrow(response, t('api.auth.passkeysLoadFailed'));
   },
 
   async deletePasskey(id) {
     const response = await fetch(API + `/api/me/passkeys/${encodeURIComponent(id)}`, { method: 'DELETE', headers: getAuthHeaders(), credentials: 'include' });
-    return parseOrThrow(response, 'Passkey konnte nicht widerrufen werden');
+    return parseOrThrow(response, t('api.auth.passkeyRevokeFailed'));
   },
 
   async createPasskey(name = 'Passkey', password = '') {
     if (RUNTIME_CAPABILITIES.native && !canUseNativePasskeyBridge()) {
-      throw new Error('Passkeys werden in dieser Native App noch nicht unterstützt. Bitte im Browser verwalten.');
+      throw new Error(t('api.auth.nativePasskeysUnsupportedManageBrowser'));
     }
     const optionsResponse = await fetch(API + '/api/me/passkeys/options', {
       method: 'POST', headers: getAuthHeaders(), credentials: 'include', body: JSON.stringify({ name }),
     });
-    const optionsData = await parseOrThrow(optionsResponse, 'Passkey-Setup fehlgeschlagen');
+    const optionsData = await parseOrThrow(optionsResponse, t('api.auth.passkeySetupFailed'));
     const publicKey = optionsData.publicKey;
     let credential;
     try {
@@ -170,36 +167,36 @@ export const authApi = {
         ? await nativeBridge.passkeyRegister(passkeyOrigin(optionsData), publicKey)
         : await navigator.credentials.create({ publicKey: browserPublicKeyFromJson(publicKey, 'create') });
     } catch (error) {
-      throw new Error(`Passkey-Registrierung fehlgeschlagen: ${error?.message || error}`);
+      throw new Error(t('api.auth.passkeyRegistrationFailed', { error: error?.message || error }));
     }
     const verifyResponse = await fetch(API + '/api/me/passkeys/verify', {
       method: 'POST', headers: getAuthHeaders(), credentials: 'include', body: JSON.stringify({ name, challenge: optionsData.challenge, credential: credentialToJson(credential), password }),
     });
-    return parseOrThrow(verifyResponse, 'Passkey konnte nicht gespeichert werden');
+    return parseOrThrow(verifyResponse, t('api.auth.passkeySaveFailed'));
   },
 
   async reauth(method, code) {
     const response = await fetch(API + '/api/me/2fa/reauth', {
       method: 'POST', headers: getAuthHeaders(), credentials: 'include', body: JSON.stringify({ method, code }),
     });
-    return parseOrThrow(response, 'Reauth fehlgeschlagen');
+    return parseOrThrow(response, t('api.auth.reauthFailed'));
   },
 
   async startEmailReauth() {
     const response = await fetch(API + '/api/me/2fa/reauth/email/start', {
       method: 'POST', headers: getAuthHeaders(), credentials: 'include', body: JSON.stringify({}),
     });
-    return parseOrThrow(response, 'E-Mail-Reauth konnte nicht gestartet werden');
+    return parseOrThrow(response, t('api.auth.emailReauthStartFailed'));
   },
 
   async reauthPasskey() {
     if (RUNTIME_CAPABILITIES.native && !canUseNativePasskeyBridge()) {
-      throw new Error('Passkey-Reauth wird in dieser Native App noch nicht unterstützt.');
+      throw new Error(t('api.auth.nativePasskeyReauthUnsupported'));
     }
     const optionsResponse = await fetch(API + '/api/me/2fa/reauth/passkey/options', {
       method: 'POST', headers: getAuthHeaders(), credentials: 'include', body: JSON.stringify({}),
     });
-    const optionsData = await parseOrThrow(optionsResponse, 'Passkey-Reauth fehlgeschlagen');
+    const optionsData = await parseOrThrow(optionsResponse, t('api.auth.passkeyReauthFailed'));
     const publicKey = optionsData.publicKey;
     let credential;
     try {
@@ -207,17 +204,17 @@ export const authApi = {
         ? await nativeBridge.passkeyAuthenticate(passkeyOrigin(optionsData), publicKey)
         : await navigator.credentials.get({ publicKey: browserPublicKeyFromJson(publicKey, 'get') });
     } catch (error) {
-      throw new Error(`Passkey-Bestätigung fehlgeschlagen: ${error?.message || error}`);
+      throw new Error(t('api.auth.passkeyConfirmationFailed', { error: error?.message || error }));
     }
     const verifyResponse = await fetch(API + '/api/me/2fa/reauth/passkey/verify', {
       method: 'POST', headers: getAuthHeaders(), credentials: 'include', body: JSON.stringify({ challenge: optionsData.challenge, credential: credentialToJson(credential) }),
     });
-    return parseOrThrow(verifyResponse, 'Passkey-Reauth fehlgeschlagen');
+    return parseOrThrow(verifyResponse, t('api.auth.passkeyReauthFailed'));
   },
 
   async regenerateRecoveryCodes() {
     const response = await fetch(API + '/api/me/2fa/recovery-codes/regenerate', { method: 'POST', headers: getAuthHeaders(), credentials: 'include' });
-    return parseOrThrow(response, 'Recovery Codes konnten nicht erzeugt werden');
+    return parseOrThrow(response, t('api.auth.recoveryGenerateFailed'));
   },
 
   async me() {
@@ -225,7 +222,7 @@ export const authApi = {
       headers: getAuthHeaders(),
       credentials: 'include',
     });
-    return parseOrThrow(response, 'Not authenticated');
+    return parseOrThrow(response, t('api.auth.notAuthenticated'));
   },
 
   async logout() {
@@ -234,12 +231,12 @@ export const authApi = {
       headers: getAuthHeaders(),
       credentials: 'include',
     });
-    return parseOrThrow(response, 'Logout failed');
+    return parseOrThrow(response, t('api.auth.logoutFailed'));
   },
 
   async passwordSetupFeatures() {
     const response = await fetch(API + '/api/password-setup/features');
-    return parseOrThrow(response, 'Passwort-Reset-Status fehlgeschlagen');
+    return parseOrThrow(response, t('api.auth.passwordResetStatusFailed'));
   },
 
   async requestPasswordReset(identifier) {
@@ -249,7 +246,7 @@ export const authApi = {
       body: JSON.stringify({ identifier }),
       credentials: 'include',
     });
-    return parseOrThrow(response, 'Passwort-Reset konnte nicht angefordert werden');
+    return parseOrThrow(response, t('api.auth.passwordResetRequestFailed'));
   },
 
   async changePassword(oldPassword, newPassword) {
@@ -259,7 +256,7 @@ export const authApi = {
       body: JSON.stringify({ old_password: oldPassword, new_password: newPassword }),
       credentials: 'include',
     });
-    return parseOrThrow(response, 'Passwortänderung fehlgeschlagen');
+    return parseOrThrow(response, t('api.auth.passwordChangeFailed'));
   },
 
   async updateProfile(displayName) {
@@ -269,7 +266,17 @@ export const authApi = {
       body: JSON.stringify({ display_name: displayName }),
       credentials: 'include',
     });
-    return parseOrThrow(response, 'Profil konnte nicht geändert werden');
+    return parseOrThrow(response, t('api.auth.profileUpdateFailed'));
+  },
+
+  async updateLanguage(language) {
+    const response = await fetch(API + '/api/me/language', {
+      method: 'PATCH',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ language }),
+      credentials: 'include',
+    });
+    return parseOrThrow(response, t('api.auth.languageSaveFailed'));
   },
 
   async uploadAvatar(file) {
@@ -283,7 +290,7 @@ export const authApi = {
       body: file,
       credentials: 'include',
     });
-    return parseOrThrow(response, 'Avatar konnte nicht hochgeladen werden');
+    return parseOrThrow(response, t('api.auth.avatarUploadFailed'));
   },
 
   async deleteAvatar() {
@@ -292,7 +299,7 @@ export const authApi = {
       headers: getAuthHeaders(),
       credentials: 'include',
     });
-    return parseOrThrow(response, 'Avatar konnte nicht gelöscht werden');
+    return parseOrThrow(response, t('api.auth.avatarDeleteFailed'));
   },
 
   async verifyEmail(token) {
@@ -302,7 +309,7 @@ export const authApi = {
       body: JSON.stringify({ token }),
       credentials: 'include',
     });
-    return parseOrThrow(response, 'E-Mail konnte nicht bestätigt werden');
+    return parseOrThrow(response, t('api.auth.emailVerifyFailed'));
   },
 
   async updateEmail(email) {
@@ -312,7 +319,7 @@ export const authApi = {
       body: JSON.stringify({ email }),
       credentials: 'include',
     });
-    return parseOrThrow(response, 'E-Mail konnte nicht geändert werden');
+    return parseOrThrow(response, t('api.auth.emailUpdateFailed'));
   },
 
   async listApiKeys() {
@@ -320,7 +327,7 @@ export const authApi = {
       headers: getAuthHeaders(),
       credentials: 'include',
     });
-    return parseOrThrow(response, 'API-Key-Liste fehlgeschlagen');
+    return parseOrThrow(response, t('api.auth.apiKeyListFailed'));
   },
 
   async createApiKey(name) {
@@ -330,7 +337,7 @@ export const authApi = {
       body: JSON.stringify({ name }),
       credentials: 'include',
     });
-    return parseOrThrow(response, 'API-Key konnte nicht erstellt werden');
+    return parseOrThrow(response, t('api.auth.apiKeyCreateFailed'));
   },
 
   async revokeApiKey(keyId) {
@@ -339,11 +346,11 @@ export const authApi = {
       headers: getAuthHeaders(),
       credentials: 'include',
     });
-    return parseOrThrow(response, 'API-Key konnte nicht gelöscht werden');
+    return parseOrThrow(response, t('api.auth.apiKeyDeleteFailed'));
   },
 
   async setupStatus() {
     const response = await fetch(API + '/api/setup/status');
-    return parseOrThrow(response, 'Setup-Status fehlgeschlagen');
+    return parseOrThrow(response, t('api.auth.setupStatusFailed'));
   },
 };

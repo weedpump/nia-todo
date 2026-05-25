@@ -41,7 +41,7 @@ def send_email(*, to: str, subject: str, text: str, html: Optional[str] = None) 
     """Send one email using the configured SMTP server."""
     config = get_email_config(include_secret=True)
     if not is_email_configured():
-        raise HTTPException(400, "E-Mail ist nicht konfiguriert")
+        raise HTTPException(400, "Email is not configured")
 
     message = EmailMessage()
     message["From"] = _sender(config)
@@ -73,9 +73,9 @@ def send_email(*, to: str, subject: str, text: str, html: Optional[str] = None) 
                 smtp.login(config.get("smtp_username") or "", config.get("smtp_password_secret") or "")
             smtp.send_message(message)
     except smtplib.SMTPAuthenticationError:
-        raise HTTPException(400, "SMTP-Authentifizierung fehlgeschlagen")
+        raise HTTPException(400, "SMTP authentication failed")
     except (smtplib.SMTPException, OSError) as exc:
-        raise HTTPException(400, f"E-Mail konnte nicht gesendet werden: {type(exc).__name__}")
+        raise HTTPException(400, f"Email could not be sent: {type(exc).__name__}")
 
 
 def send_test_email(to: str) -> None:

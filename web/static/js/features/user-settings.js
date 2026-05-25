@@ -1,4 +1,5 @@
 import { RUNTIME_CAPABILITIES, apiResourceUrl } from '../core/config.js';
+import { getLanguagePreference, setLanguagePreference, adoptServerLanguagePreference, getActiveLanguage, t, translatePage } from '../i18n/index.js';
 import { iconSvg } from '../icons/lucide-icons.js';
 import qrcode from '../../vendor/qrcode-generator.js';
 import { confirmSecurityAction, performMfaReauth, promptSecurityPassword, promptSecurityText } from './security-dialogs.js';
@@ -19,6 +20,14 @@ function escapeHtmlAttr(value) {
     .replace(/'/g, '&#39;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
+}
+
+function formatLocaleDateTime(value) {
+  if (!value) return '-';
+  const raw = String(value);
+  const normalized = raw.replace(' ', 'T') + (raw.includes('Z') ? '' : 'Z');
+  const language = getActiveLanguage() === 'de' ? 'de-DE' : 'en-US';
+  return new Date(normalized).toLocaleString(language);
 }
 
 function isHeicFile(file) {
@@ -80,7 +89,7 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     const name = displayNameValue ? escapeHtml(displayNameValue) : '<span class="settings-email-missing">-</span>';
     return `<span class="settings-display-name-display" id="settings-display-name-display">
       <span class="settings-display-name-value">${name}</span>
-      <button type="button" class="settings-inline-action" title="Anzeigename bearbeiten" onclick="editUserDisplayName()">${iconSvg('edit-3')}</button>
+      <button type="button" class="settings-inline-action" title="${escapeHtmlAttr(t('settings.profile.editDisplayName'))}" onclick="editUserDisplayName()">${iconSvg('edit-3')}</button>
     </span>`;
   }
 
@@ -88,16 +97,21 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     const email = user?.email ? escapeHtml(user.email) : '<span class="settings-email-missing">-</span>';
     const verified = user?.email
       ? (user?.email_verified_at
-        ? '<span class="settings-email-status settings-email-verified">bestätigt</span>'
-        : '<span class="settings-email-status settings-email-unverified">nicht bestätigt</span>')
+        ? `<span class="settings-email-status settings-email-verified">${escapeHtml(t('settings.email.verified'))}</span>`
+        : `<span class="settings-email-status settings-email-unverified">${escapeHtml(t('settings.email.unverified'))}</span>`)
       : '';
-    const pending = user?.pending_email ? `<span class="settings-email-pending">Ausstehend: ${escapeHtml(user.pending_email)}</span>` : '';
+    const pending = user?.pending_email ? `<span class="settings-email-pending">${escapeHtml(t('settings.email.pending', { email: user.pending_email }))}</span>` : '';
     return `<span class="settings-email-display" id="settings-email-display">
       <span class="settings-email-value">${email}</span>
       ${verified}
       ${pending}
-      <button type="button" class="settings-email-action" title="E-Mail bearbeiten" onclick="editUserEmail()">${iconSvg('edit-3')}</button>
+      <button type="button" class="settings-email-action" title="${escapeHtmlAttr(t('settings.email.edit'))}" onclick="editUserEmail()">${iconSvg('edit-3')}</button>
     </span>`;
+  }
+
+  function renderLanguageSetting() {
+    const select = document.getElementById('settings-language');
+    if (select) select.value = getLanguagePreference();
   }
 
   function renderUserInfo() {
@@ -109,6 +123,7 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     if (settingsDisplayNameCell && currentUser) settingsDisplayNameCell.innerHTML = renderDisplayNameDisplay(currentUser.display_name || currentUser.username);
     if (settingsEmailCell && currentUser) settingsEmailCell.innerHTML = renderSettingsEmailDisplay(currentUser);
     renderSettingsAvatar(currentUser);
+    renderLanguageSetting();
   }
 
   async function refreshCurrentUser() {
@@ -119,7 +134,9 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     localStorage.setItem('nia-mfa-enrollment-required', mfaEnrollmentRequired ? '1' : '0');
     if (freshUser.access_token) localStorage.setItem('jwt_token', freshUser.access_token);
     if (freshUser.csrf_token) localStorage.setItem('csrf_token', freshUser.csrf_token);
+    if (freshUser.language) await adoptServerLanguagePreference(freshUser.language);
     renderUserInfo();
+    translatePage(document);
   }
 
   function isMfaEnrollmentLocked() {
@@ -151,7 +168,7 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     const box = document.getElementById('settings-2fa-recovery');
     if (!box || !codes?.length) return;
     box.style.display = '';
-    box.innerHTML = `<strong>Recovery Codes — jetzt speichern:</strong><br><code style="white-space:pre-wrap; display:block; margin-top:8px;">${codes.map(escapeHtml).join('\n')}</code>`;
+    box.innerHTML = `<strong>${escapeHtml(t('settings.2fa.recoverySaveNow'))}</strong><br><code style="white-space:pre-wrap; display:block; margin-top:8px;">${codes.map(escapeHtml).join('\n')}</code>`;
   }
 
   function renderTotpQr(otpauthUrl) {
@@ -161,9 +178,9 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
       const qr = qrcode(0, 'M');
       qr.addData(otpauthUrl);
       qr.make();
-      qrEl.innerHTML = qr.createSvgTag({ cellSize: 5, margin: 3, scalable: true, title: 'TOTP QR-Code', alt: 'QR-Code für Authenticator-App' });
+      qrEl.innerHTML = qr.createSvgTag({ cellSize: 5, margin: 3, scalable: true, title: t('settings.2fa.qrTitle'), alt: t('settings.2fa.qrAlt') });
     } catch (err) {
-      qrEl.textContent = 'QR-Code konnte nicht erzeugt werden. Nutze den Secret-Key unten.';
+      qrEl.textContent = t('settings.2fa.qrFailed');
     }
   }
 
@@ -173,19 +190,20 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     const items = [];
     const enrollmentOnly = Boolean(isMfaEnrollmentLocked() || (state?.required && !state?.enabled && !state?.has_totp && !state?.has_passkey && !state?.has_recovery_codes && !state?.has_email_fallback));
     if (state.has_totp) {
-      items.push(`<div class="settings-device-row"><div><strong>Authenticator-App</strong><span>TOTP-Code eingerichtet</span></div><button type="button" class="btn btn-danger" onclick="removeTotpDevice()">Widerrufen</button></div>`);
+      items.push(`<div class="settings-device-row"><div><strong>${escapeHtml(t('settings.2fa.device.authenticator'))}</strong><span>${escapeHtml(t('settings.2fa.device.totpReady'))}</span></div><button type="button" class="btn btn-danger" onclick="removeTotpDevice()">${escapeHtml(t('settings.2fa.revoke'))}</button></div>`);
     }
     try {
       const data = enrollmentOnly ? { passkeys: [] } : await authApi.listPasskeys();
       (data.passkeys || []).forEach((pk) => {
-        const used = pk.last_used_at ? ` · zuletzt genutzt ${new Date(String(pk.last_used_at).replace(' ', 'T') + 'Z').toLocaleString('de-DE')}` : '';
-        items.push(`<div class="settings-device-row"><div><strong>${escapeHtml(pk.name || 'Passkey')}</strong><span>Passkey · erstellt ${escapeHtml(pk.created_at || '-')}${escapeHtml(used)}</span></div><button type="button" class="btn btn-danger" onclick="removePasskeyDevice(${Number(pk.id)})">Widerrufen</button></div>`);
+        const used = pk.last_used_at ? t('settings.2fa.device.lastUsed', { date: formatLocaleDateTime(pk.last_used_at) }) : '';
+        const details = t('settings.2fa.device.passkeyCreated', { created: pk.created_at || '-', used });
+        items.push(`<div class="settings-device-row"><div><strong>${escapeHtml(pk.name || t('settings.2fa.passkeyDefaultName'))}</strong><span>${escapeHtml(details)}</span></div><button type="button" class="btn btn-danger" onclick="removePasskeyDevice(${Number(pk.id)})">${escapeHtml(t('settings.2fa.revoke'))}</button></div>`);
       });
     } catch (err) {
-      items.push(`<div class="settings-device-note">Passkeys konnten nicht geladen werden: ${escapeHtml(err.message || err)}</div>`);
+      items.push(`<div class="settings-device-note">${escapeHtml(t('settings.2fa.device.passkeysLoadFailed', { error: err.message || err }))}</div>`);
     }
     if (!items.length) {
-      listEl.innerHTML = '<div class="settings-device-note">Noch keine Authenticator- oder Passkey-Geräte eingerichtet.</div>';
+      listEl.innerHTML = `<div class="settings-device-note">${escapeHtml(t('settings.2fa.noDevices'))}</div>`;
       return;
     }
     listEl.innerHTML = items.join('');
@@ -197,7 +215,7 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     const hasPrimaryFactor = Boolean(state?.has_totp || state?.has_passkey);
     button.style.display = hasPrimaryFactor ? '' : 'none';
     button.disabled = !hasPrimaryFactor;
-    button.title = hasPrimaryFactor ? '' : 'Recovery Codes benötigen einen Authenticator oder Passkey.';
+    button.title = hasPrimaryFactor ? '' : t('settings.2fa.recoveryNeedsPrimary');
   }
 
   async function refreshTwoFactorStatus() {
@@ -211,19 +229,20 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
       const parts = [];
       const hasPrimaryFactor = Boolean(state.has_totp || state.has_passkey);
       if (state.enabled) {
-        parts.push('aktiv');
+        parts.push(t('settings.2fa.state.active'));
       } else if (state.required && hasPrimaryFactor) {
-        parts.push('Einrichtung begonnen');
+        parts.push(t('settings.2fa.state.started'));
       } else if (state.required) {
-        parts.push('2FA-Pflicht aktiv — noch kein Authenticator oder Passkey eingerichtet');
+        parts.push(t('settings.2fa.state.requiredMissing'));
       } else {
-        parts.push('nicht aktiv');
+        parts.push(t('settings.2fa.state.inactive'));
       }
-      if (state.has_totp) parts.push('Authenticator-App eingerichtet');
-      if (state.has_passkey) parts.push(`${state.passkey_count} Passkey(s) eingerichtet`);
-      if (state.has_recovery_codes) parts.push(`${state.recovery_codes_remaining} Recovery Codes`);
-      if (state.has_email_fallback && !hasPrimaryFactor) parts.push('E-Mail-Code als Übergang verfügbar');
-      statusEl.textContent = `Status: ${parts.join(' · ')}`;
+      if (state.has_totp) parts.push(t('settings.2fa.factor.authenticator'));
+      if (state.has_passkey) parts.push(t('settings.2fa.factor.passkeys', { count: state.passkey_count }));
+      if (state.has_recovery_codes) parts.push(t('settings.2fa.factor.recovery', { count: state.recovery_codes_remaining }));
+      if (state.has_email_fallback && !hasPrimaryFactor) parts.push(t('settings.2fa.factor.emailFallback'));
+      statusEl.removeAttribute('data-i18n-key');
+      statusEl.textContent = t('settings.2fa.status', { status: parts.join(' · ') });
       document.getElementById('settings-2fa-actions')?.querySelectorAll('button').forEach((btn) => {
         if (btn.textContent.includes('deaktivieren')) btn.style.display = state.enabled ? '' : 'none';
       });
@@ -232,7 +251,7 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     } catch (e) {
       lastTwoFactorState = null;
       updateRecoveryCodesAction(null);
-      if (errorEl) errorEl.textContent = e.message || '2FA-Status konnte nicht geladen werden';
+      if (errorEl) errorEl.textContent = e.message || t('settings.2fa.loadFailed');
     }
   }
 
@@ -248,6 +267,8 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     document.getElementById('settings-profile-success').textContent = '';
     document.getElementById('settings-avatar-error').textContent = '';
     document.getElementById('settings-avatar-success').textContent = '';
+    document.getElementById('settings-language-error').textContent = '';
+    document.getElementById('settings-language-success').textContent = '';
     document.getElementById('settings-2fa-error').textContent = '';
     document.getElementById('settings-2fa-success').textContent = '';
     document.getElementById('settings-2fa-setup').style.display = 'none';
@@ -265,14 +286,28 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     }
   }
 
+  async function changeLanguagePreference(mode) {
+    const errorEl = document.getElementById('settings-language-error');
+    const successEl = document.getElementById('settings-language-success');
+    if (errorEl) errorEl.textContent = '';
+    if (successEl) successEl.textContent = '';
+    try {
+      await setLanguagePreference(mode, { authApi, syncServer: true });
+      renderLanguageSetting();
+      if (successEl) successEl.textContent = t('settings.language.saved');
+    } catch (error) {
+      if (errorEl) errorEl.textContent = error?.message || t('settings.language.saveFailed');
+    }
+  }
+
   function editUserDisplayName() {
     const currentName = getCurrentUser()?.display_name || getCurrentUser()?.username || '';
     const cell = document.getElementById('settings-display-name-cell');
     if (!cell) return;
     cell.innerHTML = `<span class="settings-display-name-edit" id="settings-display-name-edit">
-      <input id="settings-display-name-input" type="text" maxlength="80" value="${escapeHtmlAttr(currentName)}" placeholder="Anzeigename" autocomplete="name" onkeydown="if(event.key==='Enter') saveUserProfile(); if(event.key==='Escape') cancelUserDisplayNameEdit()">
-      <button type="button" class="settings-inline-action" title="Speichern" onclick="saveUserProfile()">${iconSvg('check')}</button>
-      <button type="button" class="settings-inline-action" title="Abbrechen" onclick="cancelUserDisplayNameEdit()">${iconSvg('x')}</button>
+      <input id="settings-display-name-input" type="text" maxlength="80" value="${escapeHtmlAttr(currentName)}" placeholder="${escapeHtmlAttr(t('settings.profile.displayName'))}" autocomplete="name" onkeydown="if(event.key==='Enter') saveUserProfile(); if(event.key==='Escape') cancelUserDisplayNameEdit()">
+      <button type="button" class="settings-inline-action" title="${escapeHtmlAttr(t('common.save'))}" onclick="saveUserProfile()">${iconSvg('check')}</button>
+      <button type="button" class="settings-inline-action" title="${escapeHtmlAttr(t('common.cancel'))}" onclick="cancelUserDisplayNameEdit()">${iconSvg('x')}</button>
     </span>`;
     document.getElementById('settings-display-name-input')?.focus();
   }
@@ -289,7 +324,7 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     errorEl.textContent = '';
     successEl.textContent = '';
     if (!displayName) {
-      errorEl.textContent = 'Anzeigename ist erforderlich';
+      errorEl.textContent = t('settings.profile.displayNameRequired');
       return;
     }
     try {
@@ -297,7 +332,7 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
       const currentUser = getCurrentUser();
       if (currentUser) setCurrentUser({ ...currentUser, ...data });
       renderUserInfo();
-      successEl.textContent = 'Profil gespeichert';
+      successEl.textContent = t('settings.profile.saved');
     } catch (e) {
       errorEl.textContent = e.message;
     }
@@ -431,7 +466,7 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     }, { passive: false });
   }
 
-  async function uploadOriginalAvatar(file, fallbackMessage = 'Avatar gespeichert') {
+  async function uploadOriginalAvatar(file, fallbackMessage = t('settings.avatar.saved')) {
     const input = document.getElementById('settings-avatar-input');
     const errorEl = document.getElementById('settings-avatar-error');
     const successEl = document.getElementById('settings-avatar-success');
@@ -456,11 +491,11 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     successEl.textContent = '';
     if (!file) return;
     if (!file.type.startsWith('image/') && !isHeicFile(file)) {
-      errorEl.textContent = 'Bitte ein gültiges Bild hochladen';
+      errorEl.textContent = t('settings.avatar.invalidImage');
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
-      errorEl.textContent = 'Bild ist zu groß';
+      errorEl.textContent = t('settings.avatar.tooLarge');
       return;
     }
 
@@ -487,10 +522,10 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     img.onerror = async () => {
       resetCropState();
       if (isHeicFile(file)) {
-        await uploadOriginalAvatar(file, 'Avatar gespeichert. HEIC wurde serverseitig zentriert zugeschnitten.');
+        await uploadOriginalAvatar(file, t('settings.avatar.savedHeicCentered'));
       } else {
         if (input) input.value = '';
-        errorEl.textContent = 'Bild konnte nicht geöffnet werden';
+        errorEl.textContent = t('settings.avatar.openFailed');
       }
     };
     img.src = cropState.objectUrl;
@@ -531,7 +566,7 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
 
     const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/webp', 0.9));
     if (!blob) {
-      errorEl.textContent = 'Avatar konnte nicht erzeugt werden';
+      errorEl.textContent = t('settings.avatar.generateFailed');
       return;
     }
 
@@ -542,7 +577,7 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
       if (currentUser) setCurrentUser({ ...currentUser, ...data });
       cancelAvatarCrop();
       renderUserInfo();
-      successEl.textContent = 'Avatar gespeichert';
+      successEl.textContent = t('settings.avatar.saved');
     } catch (e) {
       errorEl.textContent = e.message;
     }
@@ -550,9 +585,9 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
 
   async function deleteUserAvatar() {
     const confirmed = await confirmSecurityAction({
-      title: 'Avatar löschen?',
-      message: 'Dein Profilbild wird entfernt und durch deine Initiale ersetzt.',
-      confirmText: 'Avatar löschen',
+      title: t('settings.avatar.deleteTitle'),
+      message: t('settings.avatar.deleteMessage'),
+      confirmText: t('settings.avatar.deleteConfirm'),
       danger: true,
     });
     if (!confirmed) return;
@@ -565,7 +600,7 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
       const currentUser = getCurrentUser();
       if (currentUser) setCurrentUser({ ...currentUser, ...data });
       renderUserInfo();
-      successEl.textContent = 'Avatar gelöscht';
+      successEl.textContent = t('settings.avatar.deleted');
     } catch (e) {
       errorEl.textContent = e.message;
     }
@@ -576,9 +611,9 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     const cell = document.getElementById('settings-email-cell');
     if (!cell) return;
     cell.innerHTML = `<span class="settings-email-edit" id="settings-email-edit">
-      <input id="settings-email-input" type="email" value="${escapeHtmlAttr(currentEmail)}" placeholder="E-Mail setzen" autocomplete="email" onkeydown="if(event.key==='Enter') saveUserEmail(); if(event.key==='Escape') cancelUserEmailEdit()">
-      <button type="button" class="settings-email-action" title="Speichern" onclick="saveUserEmail()">${iconSvg('check')}</button>
-      <button type="button" class="settings-email-action" title="Abbrechen" onclick="cancelUserEmailEdit()">${iconSvg('x')}</button>
+      <input id="settings-email-input" type="email" value="${escapeHtmlAttr(currentEmail)}" placeholder="${escapeHtmlAttr(t('settings.email.placeholder'))}" autocomplete="email" onkeydown="if(event.key==='Enter') saveUserEmail(); if(event.key==='Escape') cancelUserEmailEdit()">
+      <button type="button" class="settings-email-action" title="${escapeHtmlAttr(t('common.save'))}" onclick="saveUserEmail()">${iconSvg('check')}</button>
+      <button type="button" class="settings-email-action" title="${escapeHtmlAttr(t('common.cancel'))}" onclick="cancelUserEmailEdit()">${iconSvg('x')}</button>
     </span>`;
     document.getElementById('settings-email-input')?.focus();
   }
@@ -596,27 +631,27 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     successEl.textContent = '';
 
     if (!email) {
-      errorEl.textContent = 'E-Mail ist erforderlich';
+      errorEl.textContent = t('settings.email.required');
       return;
     }
     if (!isValidEmail(email)) {
-      errorEl.textContent = 'Bitte eine gültige E-Mail-Adresse eingeben';
+      errorEl.textContent = t('settings.email.invalid');
       return;
     }
 
     try {
-      const data = await withRecentMfaRetry(() => authApi.updateEmail(email), 'das Ändern der E-Mail-Adresse');
+      const data = await withRecentMfaRetry(() => authApi.updateEmail(email), t('settings.email.mfaPurpose'));
       if (data.email_verification_delivery === 'unavailable') {
         await refreshCurrentUser().catch(() => renderUserInfo());
-        errorEl.textContent = 'E-Mail schon vergeben';
+        errorEl.textContent = t('settings.email.alreadyUsed');
         return;
       }
       const currentUser = getCurrentUser();
       if (currentUser) setCurrentUser({ ...currentUser, email: data.email || currentUser.email, pending_email: data.pending_email || null });
       await refreshCurrentUser().catch(() => renderUserInfo());
       successEl.textContent = data.email_verification_required
-        ? 'Bestätigungsmail gesendet'
-        : (data.email_verification_delivery === 'unverified_no_smtp' ? 'E-Mail gespeichert, aber ohne SMTP nicht per Mail bestätigt' : 'E-Mail gespeichert und bestätigt');
+        ? t('settings.email.verificationSent')
+        : (data.email_verification_delivery === 'unverified_no_smtp' ? t('settings.email.savedUnverifiedNoSmtp') : t('settings.email.savedVerified'));
     } catch (e) {
       errorEl.textContent = e.message;
     }
@@ -628,7 +663,7 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     errorEl.textContent = '';
     successEl.textContent = '';
     try {
-      const data = await withRecentMfaRetry(() => authApi.startTotp(), 'das Einrichten von TOTP');
+      const data = await withRecentMfaRetry(() => authApi.startTotp(), t('settings.2fa.purpose.setupTotp'));
       pendingTotpSecret = data.secret;
       pendingTotpUrl = data.otpauth_url || '';
       document.getElementById('settings-2fa-secret').textContent = data.secret;
@@ -648,16 +683,16 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     errorEl.textContent = '';
     successEl.textContent = '';
     if (!pendingTotpSecret || !code) {
-      errorEl.textContent = 'Secret und Code sind erforderlich';
+      errorEl.textContent = t('settings.2fa.secretAndCodeRequired');
       return;
     }
     try {
       const password = await promptSecurityPassword({
-        title: 'TOTP aktivieren',
-        message: 'Bitte bestätige mit deinem Passwort. Danach bekommst du Recovery Codes angezeigt.',
-        primaryText: '2FA aktivieren',
+        title: t('settings.2fa.enableTitle'),
+        message: t('settings.2fa.enableMessage'),
+        primaryText: t('settings.2fa.enable'),
       });
-      if (!password) throw new Error('Passwortbestätigung erforderlich');
+      if (!password) throw new Error(t('security.passwordRequired'));
       const data = await authApi.confirmTotp(pendingTotpSecret, code, password);
       const wasEnrollmentLocked = isMfaEnrollmentLocked();
       if (data.access_token) localStorage.setItem('jwt_token', data.access_token);
@@ -669,7 +704,7 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
       pendingTotpUrl = '';
       document.getElementById('settings-2fa-setup').style.display = 'none';
       renderRecoveryCodes(data.recovery_codes);
-      successEl.textContent = '2FA aktiviert';
+      successEl.textContent = t('settings.2fa.enabled');
       await refreshTwoFactorStatus();
       if (wasEnrollmentLocked) {
         document.getElementById('settings-modal')?.classList.remove('active');
@@ -681,11 +716,11 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     }
   }
 
-  async function ensureRecentMfa(purpose = 'diese Sicherheitsaktion') {
+  async function ensureRecentMfa(purpose = t('security.mfa.purposeDefault')) {
     await performMfaReauth({ authApi, purpose });
   }
 
-  async function withRecentMfaRetry(action, purpose = 'diese Sicherheitsaktion') {
+  async function withRecentMfaRetry(action, purpose = t('security.mfa.purposeDefault')) {
     try {
       return await action();
     } catch (e) {
@@ -696,16 +731,16 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
   }
 
   async function disableTwoFactor() {
-    const confirmed = await confirmSecurityAction({ title: '2FA deaktivieren?', message: 'Alle zweiten Faktoren, Recovery Codes und vertrauenswürdigen Geräte werden widerrufen.', confirmText: '2FA deaktivieren', danger: true });
+    const confirmed = await confirmSecurityAction({ title: t('settings.2fa.disableTitle'), message: t('settings.2fa.disableMessage'), confirmText: t('settings.2fa.disable'), danger: true });
     if (!confirmed) return;
     const errorEl = document.getElementById('settings-2fa-error');
     const successEl = document.getElementById('settings-2fa-success');
     errorEl.textContent = '';
     successEl.textContent = '';
     try {
-      await ensureRecentMfa('das Deaktivieren von 2FA');
+      await ensureRecentMfa(t('settings.2fa.purpose.disable'));
       await authApi.disable2fa('');
-      successEl.textContent = '2FA deaktiviert';
+      successEl.textContent = t('settings.2fa.disabled');
       await refreshTwoFactorStatus();
     } catch (e) {
       errorEl.textContent = e.message;
@@ -718,26 +753,26 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     errorEl.textContent = '';
     successEl.textContent = '';
     if (!(RUNTIME_CAPABILITIES.nativePasskeys || (!RUNTIME_CAPABILITIES.native && window.PublicKeyCredential && navigator.credentials))) {
-      errorEl.textContent = 'Passkeys werden von dieser Umgebung nicht unterstützt';
+      errorEl.textContent = t('settings.2fa.passkeyUnsupported');
       return;
     }
     try {
       const state = await authApi.twoFactorStatus().catch(() => ({}));
       const wasEnrollmentLocked = Boolean(isMfaEnrollmentLocked() || shouldLockForTwoFactorState(state));
       const hasExistingSecondFactor = Boolean(state.has_totp || state.has_passkey || state.has_recovery_codes || state.has_email_fallback);
-      if ((state.enabled || state.required) && hasExistingSecondFactor && !wasEnrollmentLocked) await ensureRecentMfa('das Hinzufügen eines Passkeys');
-      const name = await promptSecurityText({ title: 'Passkey hinzufügen', message: 'Vergib einen Namen für diesen Passkey.', label: 'Name', value: 'Passkey', required: true, primaryText: 'Weiter' });
-      if (!name) throw new Error('Passkey-Setup abgebrochen');
-      const password = await promptSecurityPassword({ title: 'Passkey hinzufügen', message: 'Bitte bestätige mit deinem Passwort. Danach öffnet sich die Passkey-Registrierung.', primaryText: 'Passkey erstellen' });
-      if (!password) throw new Error('Passwortbestätigung erforderlich');
-      const data = await authApi.createPasskey(name.trim() || 'Passkey', password);
+      if ((state.enabled || state.required) && hasExistingSecondFactor && !wasEnrollmentLocked) await ensureRecentMfa(t('settings.2fa.purpose.addPasskey'));
+      const name = await promptSecurityText({ title: t('settings.2fa.addPasskey'), message: t('settings.2fa.passkeyAddMessage'), label: t('common.name'), value: t('settings.2fa.passkeyDefaultName'), required: true, primaryText: t('common.continue') });
+      if (!name) throw new Error(t('settings.2fa.passkeySetupCancelled'));
+      const password = await promptSecurityPassword({ title: t('settings.2fa.addPasskey'), message: t('settings.2fa.passkeyPasswordMessage'), primaryText: t('settings.2fa.passkeyCreate') });
+      if (!password) throw new Error(t('security.passwordRequired'));
+      const data = await authApi.createPasskey(name.trim() || t('settings.2fa.passkeyDefaultName'), password);
       if (data.access_token) localStorage.setItem('jwt_token', data.access_token);
       localStorage.setItem('nia-mfa-enrollment-required', '0');
       const currentUser = getCurrentUser();
       if (currentUser) setCurrentUser({ ...currentUser, token: data.access_token || currentUser.token, mfa_enrollment_required: false });
       updateSettingsEnrollmentLock();
       if (data.recovery_codes?.length) renderRecoveryCodes(data.recovery_codes);
-      successEl.textContent = 'Passkey gespeichert';
+      successEl.textContent = t('settings.2fa.passkeySaved');
       await refreshTwoFactorStatus();
       if (wasEnrollmentLocked) {
         document.getElementById('settings-modal')?.classList.remove('active');
@@ -750,16 +785,16 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
   }
 
   async function removeTotpDevice() {
-    const confirmed = await confirmSecurityAction({ title: 'Authenticator widerrufen?', message: 'Der TOTP-Secret wird entfernt. Stelle sicher, dass noch ein anderer Faktor verfügbar ist.', confirmText: 'Authenticator widerrufen', danger: true });
+    const confirmed = await confirmSecurityAction({ title: t('settings.2fa.revokeTotpTitle'), message: t('settings.2fa.revokeTotpMessage'), confirmText: t('settings.2fa.revokeTotpConfirm'), danger: true });
     if (!confirmed) return;
     const errorEl = document.getElementById('settings-2fa-error');
     const successEl = document.getElementById('settings-2fa-success');
     errorEl.textContent = '';
     successEl.textContent = '';
     try {
-      await ensureRecentMfa('das Widerrufen des Authenticators');
+      await ensureRecentMfa(t('settings.2fa.purpose.revokeTotp'));
       await authApi.deleteTotp();
-      successEl.textContent = 'Authenticator widerrufen';
+      successEl.textContent = t('settings.2fa.totpRevoked');
       await refreshTwoFactorStatus();
     } catch (e) {
       errorEl.textContent = e.message;
@@ -767,16 +802,16 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
   }
 
   async function removePasskeyDevice(passkeyId) {
-    const confirmed = await confirmSecurityAction({ title: 'Passkey widerrufen?', message: 'Dieser Passkey kann danach nicht mehr für Login oder 2FA verwendet werden.', confirmText: 'Passkey widerrufen', danger: true });
+    const confirmed = await confirmSecurityAction({ title: t('settings.2fa.revokePasskeyTitle'), message: t('settings.2fa.revokePasskeyMessage'), confirmText: t('settings.2fa.revokePasskeyConfirm'), danger: true });
     if (!confirmed) return;
     const errorEl = document.getElementById('settings-2fa-error');
     const successEl = document.getElementById('settings-2fa-success');
     errorEl.textContent = '';
     successEl.textContent = '';
     try {
-      await ensureRecentMfa('das Widerrufen eines Passkeys');
+      await ensureRecentMfa(t('settings.2fa.purpose.revokePasskey'));
       await authApi.deletePasskey(passkeyId);
-      successEl.textContent = 'Passkey widerrufen';
+      successEl.textContent = t('settings.2fa.passkeyRevoked');
       await refreshTwoFactorStatus();
     } catch (e) {
       errorEl.textContent = e.message;
@@ -789,15 +824,15 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     errorEl.textContent = '';
     successEl.textContent = '';
     if (!(lastTwoFactorState?.has_totp || lastTwoFactorState?.has_passkey)) {
-      errorEl.textContent = 'Recovery Codes können nur mit aktivem Authenticator oder Passkey erzeugt werden.';
+      errorEl.textContent = t('settings.2fa.recoveryNeedsPrimary');
       updateRecoveryCodesAction(lastTwoFactorState);
       return;
     }
     try {
-      await ensureRecentMfa('das Erzeugen neuer Recovery Codes');
+      await ensureRecentMfa(t('settings.2fa.purpose.regenerateRecovery'));
       const data = await authApi.regenerateRecoveryCodes();
       renderRecoveryCodes(data.recovery_codes);
-      successEl.textContent = 'Neue Recovery Codes erzeugt';
+      successEl.textContent = t('settings.2fa.recoveryRegenerated');
       await refreshTwoFactorStatus();
     } catch (e) {
       errorEl.textContent = e.message;
@@ -813,17 +848,17 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     document.getElementById('settings-pw-success').textContent = '';
 
     if (!oldPw || !newPw || !confirmPw) {
-      document.getElementById('settings-pw-error').textContent = 'Alle Felder sind erforderlich';
+      document.getElementById('settings-pw-error').textContent = t('settings.password.allRequired');
       return;
     }
     if (newPw !== confirmPw) {
-      document.getElementById('settings-pw-error').textContent = 'Passwörter stimmen nicht überein';
+      document.getElementById('settings-pw-error').textContent = t('settings.password.mismatch');
       return;
     }
 
     try {
-      await withRecentMfaRetry(() => authApi.changePassword(oldPw, newPw), 'das Ändern deines Passworts');
-      document.getElementById('settings-pw-success').textContent = 'Passwort geändert! Du wirst abgemeldet...';
+      await withRecentMfaRetry(() => authApi.changePassword(oldPw, newPw), t('settings.password.mfaPurpose'));
+      document.getElementById('settings-pw-success').textContent = t('settings.password.changed');
       setTimeout(() => logout(), 1500);
     } catch (e) {
       document.getElementById('settings-pw-error').textContent = e.message;
@@ -833,6 +868,7 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
   return {
     renderUserInfo,
     openSettingsModal,
+    changeLanguagePreference,
     editUserDisplayName,
     cancelUserDisplayNameEdit,
     saveUserProfile,

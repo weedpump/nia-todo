@@ -1,6 +1,8 @@
 // Lucide icon subset, vendored as SVG path data for offline/PWA use.
 // Source style: https://lucide.dev (ISC). Icons render with currentColor.
 
+import { t } from '../i18n/index.js';
+
 export const ICONS = {
   'layout-dashboard': '<rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/>',
   'circle': '<circle cx="12" cy="12" r="10"/>',
@@ -72,27 +74,27 @@ export const ICONS = {
 
 export const ICON_PICKER_CATEGORIES = [
   {
-    label: 'Alltag',
+    labelKey: 'iconPicker.category.everyday',
     icons: ['home', 'inbox', 'shopping-cart', 'calendar', 'calendar-days', 'clock', 'bell', 'heart', 'star', 'users', 'user-plus', 'mail'],
   },
   {
-    label: 'Arbeit & Technik',
+    labelKey: 'iconPicker.category.workTech',
     icons: ['briefcase', 'folder', 'file-text', 'book-open', 'code', 'terminal', 'server', 'database', 'cloud', 'wifi', 'laptop', 'cpu', 'keyboard', 'smartphone'],
   },
   {
-    label: 'Organisation',
+    labelKey: 'iconPicker.category.organization',
     icons: ['layout-dashboard', 'chart-line', 'tag', 'bookmark', 'flag', 'map-pin', 'archive', 'package', 'clipboard', 'download', 'share-2', 'image'],
   },
   {
-    label: 'Status & Sicherheit',
+    labelKey: 'iconPicker.category.statusSecurity',
     icons: ['check-circle', 'check', 'flame', 'triangle-alert', 'shield', 'lock-keyhole', 'key-round', 'ban', 'circle'],
   },
   {
-    label: 'Tools & Bewegung',
+    labelKey: 'iconPicker.category.toolsMovement',
     icons: ['settings', 'wrench', 'hammer', 'bug', 'rocket', 'car', 'plane'],
   },
   {
-    label: 'System',
+    labelKey: 'iconPicker.category.system',
     icons: ['sun', 'moon', 'monitor', 'search', 'menu', 'plus', 'edit-3', 'trash-2', 'refresh-cw', 'arrow-left', 'log-out', 'x'],
   },
 ];
@@ -140,7 +142,7 @@ function currentIconPreview(icon, color) {
 }
 
 function currentIconLabel(icon) {
-  return icon || 'Kein Icon';
+  return icon || t('iconPicker.none');
 }
 
 export function renderIconPicker({ container, input, selected = '', color = '#6366f1' }) {
@@ -152,36 +154,39 @@ export function renderIconPicker({ container, input, selected = '', color = '#63
     <button type="button" class="icon-picker-current" aria-expanded="false">
       ${currentIconPreview(safeSelected, safePickerColor)}
       <span class="icon-picker-current-text">
-        <span class="icon-picker-current-label">Gewähltes Icon</span>
+        <span class="icon-picker-current-label">${t('iconPicker.selected')}</span>
         <span class="icon-picker-current-name">${currentIconLabel(safeSelected)}</span>
       </span>
       <svg class="icon-picker-current-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
     </button>
     <div class="icon-picker-panel" hidden>
       <div class="icon-picker-toolbar">
-        <input class="icon-picker-search" type="search" placeholder="Icon suchen..." aria-label="Icon suchen">
+        <input class="icon-picker-search" type="search" placeholder="${t('iconPicker.searchPlaceholder')}" aria-label="${t('iconPicker.searchAria')}">
       </div>
       <div class="icon-picker-sections">
         <section class="icon-picker-section" data-category="none">
-          <div class="icon-picker-category-title">Ohne Icon</div>
+          <div class="icon-picker-category-title">${t('iconPicker.noneCategory')}</div>
           <div class="icon-picker-grid">
-            <button type="button" class="icon-picker-option ${!safeSelected ? 'active' : ''}" data-value="" data-search="kein icon ohne dot farbe" title="Kein Icon">
+            <button type="button" class="icon-picker-option ${!safeSelected ? 'active' : ''}" data-value="" data-search="${t('iconPicker.noneSearch')}" title="${t('iconPicker.none')}">
               <span class="icon-picker-dot" style="background:${safePickerColor}"></span>
             </button>
           </div>
         </section>
-        ${ICON_PICKER_CATEGORIES.map(category => `
-          <section class="icon-picker-section" data-category="${category.label.toLowerCase()}">
-            <div class="icon-picker-category-title">${category.label}</div>
+        ${ICON_PICKER_CATEGORIES.map(category => {
+          const categoryLabel = t(category.labelKey);
+          return `
+          <section class="icon-picker-section" data-category="${category.labelKey}">
+            <div class="icon-picker-category-title">${categoryLabel}</div>
             <div class="icon-picker-grid">
               ${category.icons.map(name => `
-                <button type="button" class="icon-picker-option ${safeSelected === name ? 'active' : ''}" data-value="${name}" data-search="${name.replace(/-/g, ' ')} ${category.label.toLowerCase()}" title="${name}" style="color:${safePickerColor}">
+                <button type="button" class="icon-picker-option ${safeSelected === name ? 'active' : ''}" data-value="${name}" data-search="${name.replace(/-/g, ' ')} ${categoryLabel.toLowerCase()}" title="${name}" style="color:${safePickerColor}">
                   ${iconSvg(name)}
                 </button>
               `).join('')}
             </div>
           </section>
-        `).join('')}
+        `;
+        }).join('')}
       </div>
     </div>
   `;

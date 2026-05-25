@@ -92,7 +92,7 @@ export async function launchPage() {
       await page.locator('.add-section-row').waitFor({ state: 'visible' });
     },
     openTodoModal: async () => {
-      await page.getByRole('button', { name: /Neues Todo/ }).click();
+      await page.getByRole('button', { name: /Neues Todo|New todo/i }).click();
       await page.locator('#todo-modal').waitFor({ state: 'visible', timeout: 5000 });
     },
     ensureSectionOptions: async (expectedLabels, { disabled = false } = {}) => {

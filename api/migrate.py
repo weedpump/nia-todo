@@ -156,7 +156,7 @@ def repair_workspace_migration(conn):
     CREATE INDEX IF NOT EXISTS idx_workspaces_user ON workspaces(user_id);
 
     INSERT OR IGNORE INTO workspaces (name, color, sort_order, user_id, is_default, updated_at)
-    SELECT 'Privat', '#10b981', 0, u.id, 1, datetime('now')
+    SELECT 'Personal', '#10b981', 0, u.id, 1, datetime('now')
     FROM users u
     WHERE NOT EXISTS (SELECT 1 FROM workspaces w WHERE w.user_id = u.id);
 
@@ -204,7 +204,7 @@ def repair_icon_migration(conn):
         UPDATE workspaces
         SET icon = 'home'
         WHERE COALESCE(is_default, 0) = 1
-          AND name = 'Privat'
+          AND name = 'Personal'
           AND (icon IS NULL OR TRIM(icon) = '')
     """)
     conn.commit()

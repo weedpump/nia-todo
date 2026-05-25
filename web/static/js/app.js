@@ -1,4 +1,4 @@
-// nia-todo: Frontend app mit Offline-First PWA + WebSocket Echtzeit-Sync
+// nia-todo: Frontend app with offline-first PWA + WebSocket realtime sync
 import { APP_VERSION, WS_URL } from './core/config.js';
 import { escapeHtml, escapeHtmlAttr, formatDate, jsArg, renderMarkdown, truncateWords } from './core/utils.js';
 import { authApi, projectsApi, pushApi, sectionsApi, sharingApi, todosApi, workspacesApi } from './api/index.js';
@@ -31,6 +31,7 @@ import { createSectionActionsFeature } from './features/section-actions.js';
 import { createUiShell } from './features/ui-shell.js';
 import { createAppLifecycle } from './features/app-lifecycle.js';
 import { exposeLegacyGlobals } from './features/legacy-globals.js';
+import { t, translatePage } from './i18n/index.js';
 import { hydrateIcons } from './icons/lucide-icons.js';
 let todos = [];
 let projects = [];
@@ -207,6 +208,7 @@ const handleLogin = authSessionFeature.handleLogin;
 const bindLoginForm = authSessionFeature.bindLoginForm;
 const renderUserInfo = userSettingsFeature.renderUserInfo;
 const openSettingsModal = userSettingsFeature.openSettingsModal;
+const changeLanguagePreference = userSettingsFeature.changeLanguagePreference;
 const editUserEmail = userSettingsFeature.editUserEmail;
 const cancelUserEmailEdit = userSettingsFeature.cancelUserEmailEdit;
 const saveUserEmail = userSettingsFeature.saveUserEmail;
@@ -436,23 +438,23 @@ async function markTodoDoneFromNative(action) {
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
   if (!appInitialized || !db) {
-    showToast?.('Notification-Aktion konnte nicht ausgeführt werden: App noch nicht bereit.');
+    showToast?.(t('notification.action.appNotReady'));
     return false;
   }
   if (actionUserId && currentUser?.id != null && actionUserId !== String(currentUser.id)) {
     console.warn('[NativeAction] Ignored notification action for another user', { actionUserId, currentUserId: currentUser.id });
-    showToast?.('Notification-Aktion gehört zu einem anderen Benutzer und wurde ignoriert.');
+    showToast?.(t('notification.action.otherUserIgnored'));
     return false;
   }
   const numericId = /^\d+$/.test(rawId) ? Number(rawId) : rawId;
   const todo = todos.find((item) => item.id === numericId || String(item.id) === rawId);
   if (!todo) {
     console.warn('[NativeAction] Todo not found for notification action', { id: rawId, knownIds: todos.map((item) => item.id) });
-    showToast?.(`Notification-Aktion: Todo nicht gefunden (${rawId}).`);
+    showToast?.(t('notification.action.todoNotFound', { id: rawId }));
     return false;
   }
   await markTodoDone(todo.id);
-  showToast?.('Todo per Benachrichtigung erledigt.');
+  showToast?.(t('notification.action.todoCompleted'));
   return true;
 }
 
@@ -612,6 +614,18 @@ export function startAppModule() {
   bindNativePointerDragDrop();
   desktopIntegration?.init();
   startNativeDoneActionPolling();
+  window.addEventListener('nia-language-change', () => {
+    translatePage(document);
+    applyTheme(localStorage.getItem('theme') || 'system');
+    renderProjects();
+    renderWorkspaces();
+    renderStats();
+    renderTodos();
+    updateToggleDoneButton();
+    updateSortButton();
+    updateProjectWidgetButton();
+    hydrateIcons(document);
+  });
   setInterval(() => renderStats(), 30 * 1000);
 
   // Expose legacy inline handlers for module-loaded frontend.
@@ -644,7 +658,7 @@ export function startAppModule() {
       testDesktopNotification: () => desktopIntegration?.testNotification(),
       updateDesktopHotkey: (action, shortcut) => desktopIntegration?.updateHotkey(action, shortcut),
     },
-    userSettings: { renderUserInfo, openSettingsModal, editUserDisplayName, cancelUserDisplayNameEdit, saveUserProfile, startAvatarUpload, cancelAvatarCrop, saveAvatarCrop, deleteUserAvatar, editUserEmail, cancelUserEmailEdit, saveUserEmail, changeUserPassword, startTwoFactorTotp, confirmTwoFactorTotp, disableTwoFactor, addPasskey, regenerateRecoveryCodes, removeTotpDevice, removePasskeyDevice },
+    userSettings: { renderUserInfo, openSettingsModal, changeLanguagePreference, editUserDisplayName, cancelUserDisplayNameEdit, saveUserProfile, startAvatarUpload, cancelAvatarCrop, saveAvatarCrop, deleteUserAvatar, editUserEmail, cancelUserEmailEdit, saveUserEmail, changeUserPassword, startTwoFactorTotp, confirmTwoFactorTotp, disableTwoFactor, addPasskey, regenerateRecoveryCodes, removeTotpDevice, removePasskeyDevice },
     userMenu: { toggleUserMenu, closeUserMenu, updateUserMenu },
   });
 

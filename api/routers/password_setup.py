@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 from db import get_db
 from rate_limit import rate_limiter, get_client_ip, require_password_reset_rate_limit
+from errors import api_error, validation_api_error
 from services.audit import log_audit
 from services.email import send_email
 from services.email_config import can_send_email_links, get_password_link_ttl_hours
@@ -61,7 +62,7 @@ def _get_valid_token(db, token: str):
     if not token or len(token) < 24:
         return None
     return db.execute(
-        """SELECT pst.*, u.username, u.display_name, u.email, u.email_verified_at
+        """SELECT pst.*, u.username, u.display_name, u.email, u.email_verified_at, u.language
            FROM password_setup_tokens pst
            JOIN users u ON u.id = pst.user_id
            WHERE pst.token_prefix = ?
@@ -79,7 +80,7 @@ def _get_expired_resend_context(db, token: str):
     if not token or len(token) < 24:
         return None
     return db.execute(
-        """SELECT pst.*, u.username, u.display_name, u.email, u.email_verified_at
+        """SELECT pst.*, u.username, u.display_name, u.email, u.email_verified_at, u.language
            FROM password_setup_tokens pst
            JOIN users u ON u.id = pst.user_id
            WHERE pst.token_prefix = ?
@@ -105,7 +106,7 @@ def password_setup_features():
 @router.post("/request")
 def request_password_reset(data: RequestPasswordResetRequest, request: Request, _: None = Depends(require_password_reset_rate_limit)):
     identifier = (data.identifier or "").strip()
-    neutral = {"message": "Falls ein passendes Konto existiert, wurde eine E-Mail gesendet."}
+    neutral = {"message": "If an account matches, an email has been sent."}
     if not identifier or not can_send_email_links():
         return neutral
 
@@ -115,7 +116,7 @@ def request_password_reset(data: RequestPasswordResetRequest, request: Request, 
 
     with get_db() as db:
         user = db.execute(
-            """SELECT id, username, display_name, email, email_verified_at
+            """SELECT id, username, display_name, email, email_verified_at, language
                FROM users
                WHERE (username = ? OR lower(email) = lower(?))
                  AND email_verified_at IS NOT NULL
@@ -133,6 +134,7 @@ def request_password_reset(data: RequestPasswordResetRequest, request: Request, 
             link=link,
             purpose="reset",
             expires_hours=get_password_link_ttl_hours(),
+            language=user['language'] or 'de',
         )
         db.commit()
         try:
@@ -176,7 +178,7 @@ def validate_password_setup_token(token: str):
                 "display_name": expired['display_name'],
                 "purpose": expired['purpose'],
             }
-        raise HTTPException(404, "Link ist ungültig oder abgelaufen")
+        raise api_error(404, "passwordSetup.invalidOrExpired", "Link is invalid or expired")
 
 
 @router.post("/resend")
@@ -184,11 +186,11 @@ def resend_password_setup_link(data: ResendPasswordSetupRequest, request: Reques
     with get_db() as db:
         row = _get_expired_resend_context(db, data.token)
         if not row:
-            raise HTTPException(404, "Link ist ungültig oder abgelaufen")
+            raise api_error(404, "passwordSetup.invalidOrExpired", "Link is invalid or expired")
         new_token = _create_password_setup_token(db, row['user_id'], row['purpose'], "user")
         can_email = can_send_email_links() and bool(row['email']) and (row['purpose'] == 'invite' or bool(row['email_verified_at']))
         if not can_email:
-            raise HTTPException(400, "Ein neuer Link kann nur per E-Mail angefordert werden. Bitte Admin kontaktieren.")
+            raise api_error(400, "passwordSetup.emailOnlyResend", "A new link can only be requested by email. Please contact an admin.")
         link = _make_password_setup_link(request, new_token, require_configured=True)
         emailed = False
         if can_email:
@@ -198,6 +200,7 @@ def resend_password_setup_link(data: ResendPasswordSetupRequest, request: Reques
                 link=link,
                 purpose=row['purpose'],
                 expires_hours=get_password_link_ttl_hours(),
+                language=row['language'] or 'de',
             )
             db.commit()
             try:
@@ -213,11 +216,11 @@ def resend_password_setup_link(data: ResendPasswordSetupRequest, request: Reques
                 )
                 log_audit(db, "password_setup_email_failed", user_id=row['user_id'], ip_address=get_client_ip(request), details=f"purpose={row['purpose']}; resend=true")
                 db.commit()
-                raise HTTPException(400, "Neuer Link konnte nicht per E-Mail gesendet werden. Bitte Admin kontaktieren.")
+                raise api_error(400, "passwordSetup.resendEmailFailed", "The new link could not be sent by email. Please contact an admin.")
         log_audit(db, "password_setup_link_replaced", user_id=row['user_id'], ip_address=get_client_ip(request), details=f"purpose={row['purpose']}; delivery={'email' if emailed else 'manual'}")
         db.commit()
     response = {
-        "message": "Neuer Link wurde per E-Mail gesendet." if emailed else "Neuer Link wurde erstellt.",
+        "message": "A new link has been sent by email." if emailed else "A new link has been created.",
         "password_setup_delivery": "email" if emailed else "manual",
         "password_setup_expires_hours": get_password_link_ttl_hours(),
     }
@@ -230,11 +233,11 @@ def resend_password_setup_link(data: ResendPasswordSetupRequest, request: Reques
 def complete_password_setup(data: CompletePasswordSetupRequest):
     error = validate_password(data.password)
     if error:
-        raise HTTPException(400, error)
+        raise validation_api_error(error)
     with get_db() as db:
         row = _get_valid_token(db, data.token)
         if not row:
-            raise HTTPException(404, "Link ist ungültig oder abgelaufen")
+            raise api_error(404, "passwordSetup.invalidOrExpired", "Link is invalid or expired")
         token_update = db.execute(
             """UPDATE password_setup_tokens
                SET used_at = datetime('now'), status = 'used'
@@ -245,7 +248,7 @@ def complete_password_setup(data: CompletePasswordSetupRequest):
             (row['id'],)
         )
         if token_update.rowcount != 1:
-            raise HTTPException(404, "Link ist ungültig oder abgelaufen")
+            raise api_error(404, "passwordSetup.invalidOrExpired", "Link is invalid or expired")
         password_hash = bcrypt.hashpw(data.password.encode(), bcrypt.gensalt()).decode()
         if row['purpose'] == 'invite':
             db.execute(
@@ -264,4 +267,4 @@ def complete_password_setup(data: CompletePasswordSetupRequest):
             )
         log_audit(db, "password_setup_link_used", user_id=row['user_id'], details=f"purpose={row['purpose']}")
         db.commit()
-        return {"message": "Passwort gesetzt. Du kannst dich jetzt anmelden."}
+        return {"message": "Password set. You can now sign in."}

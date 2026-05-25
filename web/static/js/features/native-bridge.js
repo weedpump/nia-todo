@@ -1,4 +1,5 @@
 import { RUNTIME_CAPABILITIES, getTauri, getTauriInvoke } from '../core/config.js';
+import { t } from '../i18n/index.js';
 
 export function createNativeBridge() {
   const android = () => window.NiaAndroidNative || null;
@@ -123,23 +124,23 @@ export function createNativeBridge() {
           try {
             pending.resolve(typeof payload === 'string' ? JSON.parse(payload) : payload);
           } catch (_error) {
-            pending.reject(new Error('Android Passkey-Antwort war kein gültiges JSON'));
+            pending.reject(new Error(t('native.passkey.invalidAndroidJson')));
           }
         } else {
-          pending.reject(new Error(payload || 'Android Passkey-Aufruf fehlgeschlagen'));
+          pending.reject(new Error(payload || t('native.passkey.androidCallFailed')));
         }
       },
     });
   }
 
   function invokeAndroidPasskey(method, origin, publicKey) {
-    if (!hasAndroidMethod(method)) throw new Error('Android Passkey-Bridge nicht verfügbar');
+    if (!hasAndroidMethod(method)) throw new Error(t('native.passkey.androidBridgeUnavailable'));
     ensureAndroidPasskeyCallback();
     const requestId = globalThis.crypto?.randomUUID?.() || `passkey-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     return new Promise((resolve, reject) => {
       const timeoutId = setTimeout(() => {
         androidPasskeyRequests.delete(requestId);
-        reject(new Error('Android Passkey-Aufruf abgelaufen'));
+        reject(new Error(t('native.passkey.androidCallTimedOut')));
       }, ANDROID_PASSKEY_TIMEOUT_MS);
       androidPasskeyRequests.set(requestId, { resolve, reject, timeoutId });
       try {
@@ -153,13 +154,13 @@ export function createNativeBridge() {
   }
 
   async function passkeyRegister(origin, publicKey) {
-    if (!supportsNativePasskeys()) throw new Error('Native Passkey-Bridge nicht verfügbar');
+    if (!supportsNativePasskeys()) throw new Error(t('native.passkey.bridgeUnavailable'));
     if (isAndroid()) return invokeAndroidPasskey('passkeyRegister', origin, publicKey);
     return invokeTauri('desktop_passkey_register', { origin, options: publicKey });
   }
 
   async function passkeyAuthenticate(origin, publicKey) {
-    if (!supportsNativePasskeys()) throw new Error('Native Passkey-Bridge nicht verfügbar');
+    if (!supportsNativePasskeys()) throw new Error(t('native.passkey.bridgeUnavailable'));
     if (isAndroid()) return invokeAndroidPasskey('passkeyAuthenticate', origin, publicKey);
     return invokeTauri('desktop_passkey_authenticate', { origin, options: publicKey });
   }

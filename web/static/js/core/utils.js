@@ -1,3 +1,5 @@
+import { getActiveLanguage, t as i18nT } from '../i18n/index.js';
+
 export function escapeHtml(str) {
   if (str == null) return '';
   const div = document.createElement('div');
@@ -28,11 +30,12 @@ export function formatDate(isoString) {
 
   const isToday = date.toDateString() === today.toDateString();
   const isTomorrow = date.toDateString() === tomorrow.toDateString();
-  const time = date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+  const locale = getActiveLanguage() === 'en' ? 'en-US' : 'de-DE';
+  const time = date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
 
-  if (isToday) return `Heute ${time}`;
-  if (isTomorrow) return `Morgen ${time}`;
-  return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + time;
+  if (isToday) return i18nT('date.todayAt', { time });
+  if (isTomorrow) return i18nT('date.tomorrowAt', { time });
+  return `${date.toLocaleDateString(locale, { day: '2-digit', month: '2-digit', year: 'numeric' })} ${time}`;
 }
 
 

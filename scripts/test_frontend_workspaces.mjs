@@ -33,10 +33,11 @@ async function run() {
   }
 
   try {
+    await page.addInitScript(() => localStorage.setItem('nia-todo-language', 'de'));
     await loginApp();
     await visible('#workspace-current-btn');
     await waitForText('Inbox');
-    await page.waitForFunction(() => document.querySelector('#workspace-current-name')?.textContent === 'Privat', null, { timeout: 10000 });
+    await page.waitForFunction(() => document.querySelector('#workspace-current-name')?.textContent === 'Personal', null, { timeout: 10000 });
 
     await openWorkspaceMenu();
     await page.locator('.workspace-menu-add').click();
@@ -54,7 +55,7 @@ async function run() {
     await page.locator('#project-modal').waitFor({ state: 'hidden', timeout: 10000 });
     await waitForText('Beruf Projekt');
 
-    await chooseWorkspace('Privat');
+    await chooseWorkspace('Personal');
     await page.waitForFunction(() => !document.body.innerText.includes('Beruf Projekt'), null, { timeout: 10000 });
 
     await page.getByRole('button', { name: /Projekt hinzufügen/ }).click();
@@ -102,7 +103,7 @@ async function run() {
     await visible('#confirm-modal');
     await page.click('#confirm-confirm-btn');
     await page.locator('#workspace-modal').waitFor({ state: 'hidden', timeout: 10000 });
-    await page.waitForFunction(() => document.querySelector('#workspace-current-name')?.textContent === 'Privat', null, { timeout: 10000 });
+    await page.waitForFunction(() => document.querySelector('#workspace-current-name')?.textContent === 'Personal', null, { timeout: 10000 });
     await page.locator('.nav-btn[data-filter="all"]').click();
     await page.waitForFunction(() => document.querySelectorAll('.nav-btn').length >= 2 && document.body.innerText.includes('Beruf Projekt'), null, { timeout: 20000 });
 

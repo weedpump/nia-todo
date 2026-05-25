@@ -20,26 +20,26 @@ def normalize_email(email: str) -> str:
 def validate_email(email: str) -> str:
     """Validate email address shape. Returns error or empty string."""
     if not email:
-        return "E-Mail ist erforderlich"
+        return "validation.email.required"
     if len(email) > 254:
-        return "E-Mail ist zu lang"
+        return "validation.email.tooLong"
     if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]{2,}", email):
-        return "Bitte eine gültige E-Mail-Adresse eingeben"
+        return "validation.email.invalid"
     return ""
 
 
 def validate_password(password: str, min_length: int = 8) -> str:
     """Validate password meets security requirements. Returns error or empty string."""
     if len(password) < min_length:
-        return f"Passwort muss mindestens {min_length} Zeichen lang sein"
+        return f"validation.password.tooShort.{min_length}"
     if not re.search(r'[A-Z]', password):
-        return "Passwort muss mindestens einen Großbuchstaben enthalten"
+        return "validation.password.uppercase"
     if not re.search(r'[a-z]', password):
-        return "Passwort muss mindestens einen Kleinbuchstaben enthalten"
+        return "validation.password.lowercase"
     if not re.search(r'\d', password):
-        return "Passwort muss mindestens eine Ziffer enthalten"
+        return "validation.password.digit"
     if not re.search(r'[!@#$%^*&*()_+\-=\[\]{};\':"\\|,.\u003c\u003e\/?]', password):
-        return "Passwort muss mindestens ein Sonderzeichen enthalten"
+        return "validation.password.special"
     return ""
 
 

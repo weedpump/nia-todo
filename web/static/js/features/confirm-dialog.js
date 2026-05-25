@@ -1,3 +1,5 @@
+import { t } from '../i18n/index.js';
+
 export function createConfirmDialogFeature() {
   let pendingResolve = null;
 
@@ -9,15 +11,31 @@ export function createConfirmDialogFeature() {
     if (resolve) resolve(result);
   }
 
-  function confirmDanger({ title = 'Wirklich löschen?', message = '', confirmText = 'Löschen', cancelText = 'Abbrechen' } = {}) {
+  function confirmDanger({ title = t('confirm.deleteTitle'), message = '', confirmText = t('todo.delete'), cancelText = t('common.cancel') } = {}) {
     if (pendingResolve) close(false);
     const modal = document.getElementById('confirm-modal');
     if (!modal) return Promise.resolve(window.confirm(message || title));
 
-    document.getElementById('confirm-title').textContent = title;
-    document.getElementById('confirm-message').textContent = message;
-    document.getElementById('confirm-confirm-btn').textContent = confirmText;
-    document.getElementById('confirm-cancel-btn').textContent = cancelText;
+    const titleEl = document.getElementById('confirm-title');
+    const messageEl = document.getElementById('confirm-message');
+    const confirmEl = document.getElementById('confirm-confirm-btn');
+    const cancelEl = document.getElementById('confirm-cancel-btn');
+    if (titleEl) {
+      titleEl.removeAttribute('data-i18n-key');
+      titleEl.textContent = title;
+    }
+    if (messageEl) {
+      messageEl.removeAttribute('data-i18n-key');
+      messageEl.textContent = message;
+    }
+    if (confirmEl) {
+      confirmEl.removeAttribute('data-i18n-key');
+      confirmEl.textContent = confirmText;
+    }
+    if (cancelEl) {
+      cancelEl.removeAttribute('data-i18n-key');
+      cancelEl.textContent = cancelText;
+    }
     modal.classList.add('active');
 
     return new Promise((resolve) => {

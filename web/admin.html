@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>nia-todo Admin</title>
+<title data-i18n-key="admin.pageTitle">nia-todo Admin</title>
 <link rel="stylesheet" href="/static/style.css">
 <style>
 body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: auto; }
@@ -42,8 +42,11 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .btn-ghost:hover { background: var(--bg-tertiary); color: var(--text-primary); }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .form-row { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
-.form-row input { flex: 1; min-width: 150px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-primary); color: var(--text-primary); font-size: 14px; }
-.form-row input:focus, .admin-config-textarea:focus, .admin-config-field select:focus { outline: none; border-color: var(--accent); }
+.form-row input, .form-row select { flex: 1; min-width: 150px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-primary); color: var(--text-primary); font-size: 14px; }
+.form-row select { flex: 0 0 150px; min-width: 130px; padding-right: 36px; appearance: none; -webkit-appearance: none; cursor: pointer; background-image: linear-gradient(45deg, transparent 50%, var(--text-secondary) 50%), linear-gradient(135deg, var(--text-secondary) 50%, transparent 50%); background-position: calc(100% - 17px) 50%, calc(100% - 12px) 50%; background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; }
+.form-row select:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.form-row select option { background: var(--bg-secondary); color: var(--text-primary); }
+.form-row input:focus, .form-row select:focus, .admin-config-textarea:focus, .admin-config-field select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
 .admin-config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .admin-config-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .admin-config-field.full { grid-column: 1 / -1; }
@@ -98,7 +101,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
   .admin-card { padding: 16px; border-radius: 14px; margin-bottom: 14px; }
   .form-row { flex-direction: column; gap: 10px; }
   .admin-config-grid { grid-template-columns: 1fr; }
-  .form-row input { width: 100%; }
+  .form-row input, .form-row select { width: 100%; flex-basis: auto; }
   .form-row .btn { width: fit-content; max-width: 100%; min-height: 38px; }
   #admin-login-card .form-row .btn,
   #admin-password-card .form-row .btn,
@@ -120,13 +123,13 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 <body>
 <div class="admin-container">
   <div class="admin-header">
-    <h1><span data-icon="shield"></span> nia-todo Admin</h1>
+    <h1><span data-icon="shield"></span> <span data-i18n-key="admin.title">nia-todo Admin</span></h1>
     <div class="admin-nav">
-      <a class="admin-back-btn" href="/">Zurück zur App</a>
+      <a class="admin-back-btn" href="/" data-i18n-key="admin.backToApp">Back to app</a>
       <div class="admin-theme-toggle">
-        <button data-theme="light" onclick="setTheme('light')" title="Hell"><span data-icon="sun"></span></button>
-        <button data-theme="dark" onclick="setTheme('dark')" title="Dunkel"><span data-icon="moon"></span></button>
-        <button data-theme="system" onclick="setTheme('system')" title="System"><span data-icon="monitor"></span></button>
+        <button data-theme="light" onclick="setTheme('light')" data-i18n-title-key="common.theme.light" title="Light"><span data-icon="sun"></span></button>
+        <button data-theme="dark" onclick="setTheme('dark')" data-i18n-title-key="common.theme.dark" title="Dark"><span data-icon="moon"></span></button>
+        <button data-theme="system" onclick="setTheme('system')" data-i18n-title-key="common.theme.system" title="System"><span data-icon="monitor"></span></button>
       </div>
     </div>
   </div>
@@ -134,20 +137,20 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
   <div class="admin-dialog" id="admin-action-dialog" role="dialog" aria-modal="true" aria-labelledby="admin-dialog-title">
     <div class="admin-dialog-overlay" id="admin-dialog-overlay"></div>
     <form class="admin-dialog-content" id="admin-dialog-form">
-      <h3 id="admin-dialog-title">Aktion bestätigen</h3>
+      <h3 id="admin-dialog-title" data-i18n-key="admin.dialog.confirmTitle">Confirm action</h3>
       <p id="admin-dialog-message"></p>
       <div class="admin-dialog-actions">
-        <button type="button" class="btn" id="admin-dialog-cancel">Abbrechen</button>
-        <button type="submit" class="btn btn-primary" id="admin-dialog-confirm">Bestätigen</button>
+        <button type="button" class="btn" id="admin-dialog-cancel" data-i18n-key="common.cancel">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="admin-dialog-confirm" data-i18n-key="common.confirm">Confirm</button>
       </div>
     </form>
   </div>
 
   <div class="admin-card" id="admin-login-card">
-    <h2><span data-icon="lock-keyhole"></span> Admin-Anmeldung</h2>
+    <h2><span data-icon="lock-keyhole"></span> <span data-i18n-key="admin.login.title">Admin sign-in</span></h2>
     <div class="form-row">
-      <input type="password" id="admin-login-password" placeholder="Admin-Passwort eingeben" autocomplete="off" onkeydown="if(event.key==='Enter') doAdminLogin()">
-      <button class="btn btn-primary" onclick="doAdminLogin()">Anmelden</button>
+      <input type="password" id="admin-login-password" data-i18n-placeholder-key="admin.login.passwordPlaceholder" placeholder="Enter admin password" autocomplete="off" onkeydown="if(event.key==='Enter') doAdminLogin()">
+      <button class="btn btn-primary" onclick="doAdminLogin()" data-i18n-key="auth.signIn">Sign in</button>
     </div>
     <div class="admin-error" id="admin-login-error"></div>
   </div>
@@ -156,16 +159,16 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 
   <!-- Admin Toolbar -->
   <div class="admin-card admin-status-card">
-    <span class="admin-status-text"><span data-icon="lock-keyhole"></span> Eingeloggt als Admin</span>
-    <button class="btn btn-danger" onclick="adminLogout()">Abmelden</button>
+    <span class="admin-status-text"><span data-icon="lock-keyhole"></span> <span data-i18n-key="admin.status.loggedIn">Logged in as admin</span></span>
+    <button class="btn btn-danger" onclick="adminLogout()" data-i18n-key="auth.signOut">Sign out</button>
   </div>
 
   <!-- Instance Configuration -->
   <div class="admin-card" id="instance-config-card">
-    <h2><span data-icon="settings"></span> Instanz-Konfiguration</h2>
+    <h2><span data-icon="settings"></span> <span data-i18n-key="admin.instance.title">Instance configuration</span></h2>
     <div class="admin-config-grid">
       <div class="admin-config-field full">
-        <label for="instance-public-url">Öffentliche Basis-URL</label>
+        <label for="instance-public-url" data-i18n-key="admin.instance.publicUrl">Public base URL</label>
         <input type="url" id="instance-public-url" placeholder="https://todo.example.org" autocomplete="off">
       </div>
       <div class="admin-config-field full">
@@ -177,9 +180,9 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
         <textarea id="instance-trusted-proxies" class="admin-config-textarea" placeholder="10.0.10.14&#10;172.18.0.0/16"></textarea>
       </div>
     </div>
-    <div class="admin-help">Basis-URL wird für externe Links genutzt. Origins und Trusted Proxies sind zeilenweise. Forwarded-Header werden nur von Trusted Proxies akzeptiert.</div>
+    <div class="admin-help" data-i18n-key="admin.instance.help">The base URL is used for external links. Origins and trusted proxies are line-based. Forwarded headers are only accepted from trusted proxies.</div>
     <div class="form-row" style="margin-top:12px;">
-      <button class="btn btn-primary" onclick="saveInstanceConfig()">Instanz-Konfiguration speichern</button>
+      <button class="btn btn-primary" onclick="saveInstanceConfig()" data-i18n-key="admin.instance.save">Save instance configuration</button>
     </div>
     <div class="admin-error" id="instance-config-error"></div>
     <div class="admin-success" id="instance-config-success"></div>
@@ -187,11 +190,11 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 
   <!-- Email Configuration -->
   <div class="admin-card" id="email-config-card">
-    <h2><span data-icon="mail"></span> E-Mail / SMTP</h2>
+    <h2><span data-icon="mail"></span> <span data-i18n-key="admin.email.title">Email / SMTP</span></h2>
     <div class="admin-config-grid">
       <div class="admin-config-field admin-config-checkbox full">
         <input type="checkbox" id="email-smtp-enabled">
-        <label for="email-smtp-enabled">E-Mail-Versand aktivieren</label>
+        <label for="email-smtp-enabled" data-i18n-key="admin.email.enableSending">Enable email sending</label>
       </div>
       <div class="admin-config-field">
         <label for="email-smtp-host">SMTP Host</label>
@@ -202,32 +205,32 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
         <input type="number" id="email-smtp-port" min="1" max="65535" value="587">
       </div>
       <div class="admin-config-field">
-        <label for="email-smtp-security">Transport-Sicherheit</label>
+        <label for="email-smtp-security" data-i18n-key="admin.email.transportSecurity">Transport security</label>
         <select id="email-smtp-security">
           <option value="starttls">STARTTLS</option>
           <option value="tls">TLS/SSL</option>
-          <option value="none">Keine</option>
+          <option value="none" data-i18n-key="admin.none">None</option>
         </select>
       </div>
       <div class="admin-config-field admin-config-checkbox">
         <input type="checkbox" id="email-smtp-auth-enabled">
-        <label for="email-smtp-auth-enabled">SMTP Auth verwenden</label>
+        <label for="email-smtp-auth-enabled" data-i18n-key="admin.email.useSmtpAuth">Use SMTP auth</label>
       </div>
       <div class="admin-config-field">
         <label for="email-smtp-username">SMTP Username</label>
         <input type="text" id="email-smtp-username" autocomplete="off">
       </div>
       <div class="admin-config-field">
-        <label for="email-smtp-password">SMTP Passwort / Secret</label>
-        <input type="password" id="email-smtp-password" placeholder="Leer lassen = unverändert" autocomplete="new-password">
+        <label for="email-smtp-password" data-i18n-key="admin.email.smtpPassword">SMTP password / secret</label>
+        <input type="password" id="email-smtp-password" data-i18n-placeholder-key="admin.email.keepSecretPlaceholder" placeholder="Leave blank = unchanged" autocomplete="new-password">
         <div class="admin-secret-note" id="email-smtp-password-note"></div>
       </div>
       <div class="admin-config-field">
-        <label for="email-from-address">From-Adresse</label>
+        <label for="email-from-address" data-i18n-key="admin.email.fromAddress">From-Adresse</label>
         <input type="email" id="email-from-address" placeholder="todo@example.org" autocomplete="off">
       </div>
       <div class="admin-config-field">
-        <label for="email-from-name">From-Name</label>
+        <label for="email-from-name" data-i18n-key="admin.email.fromName">From-Name</label>
         <input type="text" id="email-from-name" placeholder="nia-todo" autocomplete="off">
       </div>
       <div class="admin-config-field">
@@ -235,20 +238,20 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
         <input type="email" id="email-reply-to" placeholder="support@example.org" autocomplete="off">
       </div>
       <div class="admin-config-field">
-        <label for="email-link-ttl">Link-Gültigkeit in Stunden</label>
+        <label for="email-link-ttl" data-i18n-key="admin.email.linkTtl">Link validity in hours</label>
         <input type="number" id="email-link-ttl" min="1" max="168" value="24">
       </div>
       <div class="admin-config-field full">
-        <label for="email-test-to">Test-Mail an</label>
+        <label for="email-test-to" data-i18n-key="admin.email.testTo">Test-Mail an</label>
         <div class="form-row" style="margin-bottom:0;">
           <input type="email" id="email-test-to" placeholder="name@example.org" autocomplete="off">
-          <button class="btn btn-primary" onclick="sendTestEmail()">Test-Mail senden</button>
+          <button class="btn btn-primary" onclick="sendTestEmail()" data-i18n-key="admin.email.sendTest">Send test email</button>
         </div>
       </div>
     </div>
-    <div class="admin-help">Passwort-/Setup-Links nutzen die öffentliche Basis-URL aus der Instanz-Konfiguration. SMTP-Passwörter werden nie wieder angezeigt. Ohne aktivierten E-Mail-Versand gelten Adressen nach dem manuellen Setup-Link als bestätigt, werden aber nicht per Mailbox geprüft.</div>
+    <div class="admin-help" data-i18n-key="admin.email.help">Password/setup links use the public base URL from the instance configuration. SMTP passwords are never shown again. Without email sending enabled, addresses are considered confirmed after the manual setup link, but are not mailbox-verified.</div>
     <div class="form-row" style="margin-top:12px;">
-      <button class="btn btn-primary" onclick="saveEmailConfig()">E-Mail-Konfiguration speichern</button>
+      <button class="btn btn-primary" onclick="saveEmailConfig()" data-i18n-key="admin.email.save">Save email configuration</button>
     </div>
     <div class="admin-error" id="email-config-error"></div>
     <div class="admin-success" id="email-config-success"></div>
@@ -256,30 +259,30 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 
   <!-- Security / 2FA -->
   <div class="admin-card" id="security-card">
-    <h2><span data-icon="shield-check"></span> Sicherheit / 2FA</h2>
+    <h2><span data-icon="shield-check"></span> <span data-i18n-key="admin.security.title">Security / 2FA</span></h2>
     <div class="security-policy-row">
       <div class="security-policy-main">
-        <div class="security-policy-title" id="twofa-policy-title">2FA-Pflicht lädt…</div>
-        <div class="security-policy-desc">Erzwingt 2FA für alle Benutzer. Anmeldung ist mit Authenticator-App, Passkey oder vorhandenen Recovery Codes möglich. Wenn SMTP eingerichtet ist, können Benutzer ohne Authenticator/Passkey vorübergehend einen E-Mail-Code nutzen. Ohne verfügbare Methode erhalten sie nur Zugriff auf die 2FA-Einrichtung.</div>
+        <div class="security-policy-title" id="twofa-policy-title" data-i18n-key="admin.security.policyLoading">2FA requirement loading…</div>
+        <div class="security-policy-desc" data-i18n-key="admin.security.policyDesc">Requires 2FA for all users. Sign-in is possible with an authenticator app, passkey, or existing recovery codes. If SMTP is configured, users without an authenticator/passkey can temporarily use an email code. Without any available method, they only get access to the 2FA setup.</div>
       </div>
-      <button class="btn btn-primary" id="twofa-policy-toggle" onclick="toggleTwoFactorPolicy()">Umschalten</button>
+      <button class="btn btn-primary" id="twofa-policy-toggle" onclick="toggleTwoFactorPolicy()" data-i18n-key="admin.security.toggle">Toggle</button>
     </div>
-    <div class="admin-help">API-Keys bleiben als Machine-Tokens nutzbar. Erstellung und Widerruf eigener API-Keys benötigen bei MFA-pflichtigen Accounts recent MFA.</div>
+    <div class="admin-help" data-i18n-key="admin.security.apiKeysHelp">API keys remain usable as machine tokens. Creating and revoking your own API keys requires recent MFA on accounts with mandatory MFA.</div>
     <div class="admin-error" id="security-error"></div>
     <div class="admin-success" id="security-success"></div>
   </div>
 
   <!-- Change Admin Password -->
   <div class="admin-card" id="admin-password-card">
-    <h2><span data-icon="key-round"></span> Eigenes Admin-Passwort ändern</h2>
+    <h2><span data-icon="key-round"></span> <span data-i18n-key="admin.password.title">Change own admin password</span></h2>
     <div class="form-row">
-      <input type="password" id="admin-old-password" placeholder="Aktuelles Admin-Passwort" autocomplete="off" onkeydown="if(event.key==='Enter') document.getElementById('admin-new-password').focus()">
-      <input type="password" id="admin-new-password" placeholder="Neues Admin-Passwort (12+ Zeichen)" autocomplete="new-password" onkeydown="if(event.key==='Enter') document.getElementById('admin-confirm-password').focus()">
-      <input type="password" id="admin-confirm-password" placeholder="Neues Passwort bestätigen" autocomplete="new-password" onkeydown="if(event.key==='Enter') changeAdminPassword()">
-      <button class="btn btn-primary" onclick="changeAdminPassword()">Admin-Passwort ändern</button>
+      <input type="password" id="admin-old-password" data-i18n-placeholder-key="admin.password.currentPlaceholder" placeholder="Current admin password" autocomplete="off" onkeydown="if(event.key==='Enter') document.getElementById('admin-new-password').focus()">
+      <input type="password" id="admin-new-password" data-i18n-placeholder-key="admin.password.newPlaceholder" placeholder="New admin password (12+ characters)" autocomplete="new-password" onkeydown="if(event.key==='Enter') document.getElementById('admin-confirm-password').focus()">
+      <input type="password" id="admin-confirm-password" data-i18n-placeholder-key="setup.confirmPasswordLabel" placeholder="Confirm new password" autocomplete="new-password" onkeydown="if(event.key==='Enter') changeAdminPassword()">
+      <button class="btn btn-primary" onclick="changeAdminPassword()" data-i18n-key="admin.password.change">Change admin password</button>
     </div>
-    <div style="font-size: 12px; color: var(--text-muted); margin-top: 8px;">
-      Mindestens 12 Zeichen, 1 Großbuchstabe, 1 Kleinbuchstabe, 1 Ziffer, 1 Sonderzeichen
+    <div style="font-size: 12px; color: var(--text-muted); margin-top: 8px;" data-i18n-key="admin.password.requirements">
+      At least 12 characters, 1 uppercase, 1 lowercase, 1 digit, 1 special character
     </div>
     <div class="admin-error" id="admin-pw-error"></div>
     <div class="admin-success" id="admin-pw-success"></div>
@@ -287,45 +290,49 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 
   <!-- Create User -->
   <div class="admin-card" id="create-user-card">
-    <h2><span data-icon="user-plus"></span> Neuen Benutzer erstellen</h2>
+    <h2><span data-icon="user-plus"></span> <span data-i18n-key="admin.user.createTitle">Create new user</span></h2>
     <div class="form-row">
-      <input type="text" id="new-username" placeholder="Benutzername" autocomplete="off" onkeydown="if(event.key==='Enter') document.getElementById('new-display-name').focus()">
-      <input type="text" id="new-display-name" placeholder="Anzeigename" onkeydown="if(event.key==='Enter') document.getElementById('new-email').focus()">
-      <input type="email" id="new-email" placeholder="E-Mail" autocomplete="off" onkeydown="if(event.key==='Enter') createUser()">
-      <button class="btn btn-primary" onclick="createUser()">Erstellen & Link erzeugen</button>
+      <input type="text" id="new-username" data-i18n-placeholder-key="setup.usernameLabel" placeholder="Username" autocomplete="off" onkeydown="if(event.key==='Enter') document.getElementById('new-display-name').focus()">
+      <input type="text" id="new-display-name" data-i18n-placeholder-key="setup.displayNameLabel" placeholder="Display name" onkeydown="if(event.key==='Enter') document.getElementById('new-email').focus()">
+      <input type="email" id="new-email" data-i18n-placeholder-key="settings.profile.email" placeholder="Email" autocomplete="off" onkeydown="if(event.key==='Enter') document.getElementById('new-language').focus()">
+      <select id="new-language" data-i18n-title-key="admin.user.language" title="Language" onkeydown="if(event.key==='Enter') createUser()">
+        <option value="de" data-i18n-key="settings.language.de">German</option>
+        <option value="en" data-i18n-key="settings.language.en">English</option>
+      </select>
+      <button class="btn btn-primary" onclick="createUser()" data-i18n-key="admin.user.createAndLink">Create & generate link</button>
     </div>
-    <div style="font-size: 12px; color: var(--text-muted); margin-top: 8px;">
-      Der Benutzer setzt sein Passwort selbst über einen einmaligen Link. Wenn E-Mail konfiguriert ist, wird der Link automatisch verschickt. Ohne SMTP wird der Link manuell weitergegeben; die Adresse gilt danach als bestätigt, aber nicht mailbox-verifiziert.
+    <div style="font-size: 12px; color: var(--text-muted); margin-top: 8px;" data-i18n-key="admin.user.createHelp">
+      The user sets their password through a one-time link. If email is configured, the link is sent automatically. Without SMTP, the link is shared manually; the address is then considered confirmed, but not mailbox-verified.
     </div>
     <div class="admin-error" id="create-error"></div>
     <div class="admin-success" id="create-success"></div>
     <div class="setup-link-box" id="create-link-box">
       <input type="text" id="create-link-input" readonly>
-      <button class="btn btn-primary" onclick="copySetupLink('create-link-input')">Kopieren</button>
+      <button class="btn btn-primary" onclick="copySetupLink('create-link-input')" data-i18n-key="common.copy">Copy</button>
     </div>
   </div>
 
   <!-- User List -->
   <div class="admin-card">
-    <h2><span data-icon="users"></span> Benutzer</h2>
+    <h2><span data-icon="users"></span> <span data-i18n-key="admin.user.title">Users</span></h2>
     <div class="user-table-wrap">
     <table class="user-table" id="user-table">
       <thead>
         <tr>
           <th>ID</th>
-          <th>Benutzername</th>
-          <th>Anzeigename</th>
-          <th>E-Mail</th>
-          <th>E-Mail Status</th>
-          <th>Login</th>
-          <th>2FA</th>
-          <th>API Keys</th>
-          <th>Passwort</th>
-          <th>Aktionen</th>
+          <th data-i18n-key="admin.user.username">Username</th>
+          <th data-i18n-key="admin.user.displayName">Display name</th>
+          <th data-i18n-key="admin.user.email">Email</th>
+          <th data-i18n-key="admin.user.emailStatus">Email Status</th>
+          <th data-i18n-key="admin.user.login">Login</th>
+          <th data-i18n-key="admin.user.twofa">2FA</th>
+          <th data-i18n-key="admin.user.apiKeys">API Keys</th>
+          <th data-i18n-key="admin.user.password">Password</th>
+          <th data-i18n-key="admin.user.actions">Actions</th>
         </tr>
       </thead>
       <tbody id="user-list">
-        <tr><td colspan="8" class="empty-state">Lade...</td></tr>
+        <tr><td colspan="10" class="empty-state" data-i18n-key="common.loading">Loading...</td></tr>
       </tbody>
     </table>
     </div>
@@ -334,6 +341,11 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
   </div>
 </div>
 
+<script type="module">
+import { initI18n, t as i18nT } from './static/js/i18n/index.js';
+await initI18n();
+window.t = i18nT;
+</script>
 <script>
 const API = '';
 
@@ -423,10 +435,31 @@ function getAuthHeaders() {
 }
 
 async function getApiError(response) {
-  const fallback = `Fehler ${response.status}: ${response.statusText || 'Anfrage fehlgeschlagen'}`;
+  const fallback = `Error ${response.status}: ${response.statusText || 'Request failed'}`;
   const data = await response.json().catch(() => null);
   if (!data) return fallback;
-  if (typeof data.detail === 'string') return data.detail;
+  
+  // Handle flat format: {detail, code, params}
+  let code = data.code;
+  let detail = data.detail;
+  let params = data.params || {};
+  
+  // Handle nested format: {detail: {detail, code, params}}
+  if (detail && typeof detail === 'object' && !Array.isArray(detail)) {
+    code = detail.code || code;
+    params = detail.params || params;
+    detail = detail.detail || detail.message || fallback;
+  }
+  
+  // Try i18n lookup
+  if (code) {
+    const key = `api.error.${code}`;
+    const translated = t(key, params);
+    if (translated !== key) return translated;
+  }
+  
+  // Fallback to detail string
+  if (typeof detail === 'string') return detail;
   return fallback;
 }
 
@@ -472,7 +505,7 @@ async function doAdminLogin() {
   document.getElementById('admin-login-error').textContent = '';
 
   if (!password) {
-    document.getElementById('admin-login-error').textContent = 'Bitte Admin-Passwort eingeben';
+    document.getElementById('admin-login-error').textContent = t('admin.login.passwordRequired');
     return;
   }
 
@@ -485,9 +518,9 @@ async function doAdminLogin() {
     const data = await r.json();
     if (!r.ok) {
       if (r.status === 401) {
-        document.getElementById('admin-login-error').textContent = 'Falsches Admin-Passwort';
+        document.getElementById('admin-login-error').textContent = t('admin.login.invalidPassword');
       } else {
-        document.getElementById('admin-login-error').textContent = data.detail || 'Fehler beim Anmelden';
+        document.getElementById('admin-login-error').textContent = data.detail || t('admin.login.failed');
       }
       return;
     }
@@ -503,7 +536,7 @@ async function doAdminLogin() {
     document.getElementById('admin-content').style.display = 'block';
     await loadAdminData();
   } catch(e) {
-    document.getElementById('admin-login-error').textContent = 'Fehler: ' + e.message;
+    document.getElementById('admin-login-error').textContent = 'Error: ' + e.message;
   }
 }
 
@@ -533,7 +566,7 @@ async function loadUsers() {
     renderUsers(data.users);
   } catch(e) {
     document.getElementById('user-list').innerHTML =
-      `<tr><td colspan="8" class="empty-state">Fehler: ${e.message}</td></tr>`;
+      `<tr><td colspan="8" class="empty-state">Error: ${e.message}</td></tr>`;
     if (e.message.includes('403')) {
       localStorage.removeItem('admin_jwt_token');
       setTimeout(() => location.reload(), 2000);
@@ -562,7 +595,7 @@ function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
 }
 
-function adminDialog({ title, message, confirmText = 'Bestätigen', danger = false, hideCancel = false }) {
+function adminDialog({ title, message, confirmText = t('common.confirm'), danger = false, hideCancel = false }) {
   const modal = document.getElementById('admin-action-dialog');
   const form = document.getElementById('admin-dialog-form');
   const cancel = document.getElementById('admin-dialog-cancel');
@@ -624,8 +657,8 @@ function renderTwoFactorPolicy(policy) {
   twoFactorPolicyRequired = !!policy.required;
   const title = document.getElementById('twofa-policy-title');
   const btn = document.getElementById('twofa-policy-toggle');
-  if (title) title.textContent = twoFactorPolicyRequired ? 'Globale 2FA-Pflicht ist aktiv' : 'Globale 2FA-Pflicht ist deaktiviert';
-  if (btn) btn.textContent = twoFactorPolicyRequired ? '2FA-Pflicht deaktivieren' : '2FA-Pflicht aktivieren';
+  if (title) title.textContent = twoFactorPolicyRequired ? t('admin.security.policyActive') : t('admin.security.policyInactive');
+  if (btn) btn.textContent = twoFactorPolicyRequired ? t('admin.security.disablePolicy') : t('admin.security.enablePolicy');
 }
 
 async function toggleTwoFactorPolicy() {
@@ -635,18 +668,18 @@ async function toggleTwoFactorPolicy() {
   errorEl.textContent = '';
   successEl.textContent = '';
   const confirmed = await adminConfirm({
-    title: next ? 'Globale 2FA-Pflicht aktivieren?' : 'Globale 2FA-Pflicht deaktivieren?',
+    title: next ? t('admin.security.enablePolicyTitle') : t('admin.security.disablePolicyTitle'),
     message: next
-      ? 'Benutzer brauchen danach Authenticator-App, Passkey oder vorhandene Recovery Codes. Wenn SMTP eingerichtet ist, können Benutzer ohne Authenticator/Passkey vorübergehend einen E-Mail-Code nutzen; sonst erhalten sie nur Zugriff auf die 2FA-Einrichtung.'
-      : 'Benutzer mit eigener 2FA bleiben weiterhin geschützt.',
-    confirmText: next ? '2FA-Pflicht aktivieren' : '2FA-Pflicht deaktivieren',
+      ? t('admin.security.enablePolicyMessage')
+      : t('admin.security.disablePolicyMessage'),
+    confirmText: next ? t('admin.security.enablePolicy') : t('admin.security.disablePolicy'),
     danger: !next,
   });
   if (!confirmed) return;
   try {
     const data = await apiPatch('/api/admin/2fa-policy', { required: next });
     renderTwoFactorPolicy(data);
-    successEl.textContent = next ? 'Globale 2FA-Pflicht aktiviert.' : 'Globale 2FA-Pflicht deaktiviert.';
+    successEl.textContent = next ? t('admin.security.policyEnabled') : t('admin.security.policyDisabled');
     await loadUsers();
   } catch (e) {
     errorEl.textContent = e.message;
@@ -666,8 +699,8 @@ function renderEmailConfig(config) {
   document.getElementById('email-reply-to').value = config.mail_reply_to || '';
   document.getElementById('email-link-ttl').value = config.password_link_ttl_hours || 24;
   document.getElementById('email-smtp-password-note').textContent = config.smtp_password_configured
-    ? 'Passwort ist gespeichert. Leer lassen, um es unverändert zu behalten.'
-    : 'Noch kein SMTP-Passwort gespeichert.';
+    ? t('admin.email.passwordStoredNote')
+    : t('admin.email.noPasswordStoredNote');
 }
 
 function readEmailConfigForm() {
@@ -694,7 +727,7 @@ async function saveEmailConfig() {
   try {
     const data = await apiPatch('/api/admin/email-config', readEmailConfigForm());
     renderEmailConfig(data);
-    document.getElementById('email-config-success').textContent = 'E-Mail-Konfiguration gespeichert.';
+    document.getElementById('email-config-success').textContent = t('admin.email.saved');
   } catch(e) {
     document.getElementById('email-config-error').textContent = e.message;
   }
@@ -705,12 +738,12 @@ async function sendTestEmail() {
   document.getElementById('email-config-success').textContent = '';
   const to = document.getElementById('email-test-to').value.trim();
   if (!isValidEmail(to)) {
-    document.getElementById('email-config-error').textContent = 'Bitte eine gültige Test-E-Mail-Adresse eingeben';
+    document.getElementById('email-config-error').textContent = t('admin.email.invalidTestAddress');
     return;
   }
   try {
     await apiPost('/api/admin/email-config/test', { to });
-    document.getElementById('email-config-success').textContent = 'Test-Mail gesendet.';
+    document.getElementById('email-config-success').textContent = t('admin.email.testSent');
   } catch(e) {
     document.getElementById('email-config-error').textContent = e.message;
   }
@@ -726,7 +759,7 @@ async function saveInstanceConfig() {
       trusted_proxies: parseOriginsInput(document.getElementById('instance-trusted-proxies').value),
     });
     renderInstanceConfig(data);
-    document.getElementById('instance-config-success').textContent = 'Instanz-Konfiguration gespeichert.';
+    document.getElementById('instance-config-success').textContent = t('admin.instance.saved');
   } catch(e) {
     document.getElementById('instance-config-error').textContent = e.message;
   }
@@ -737,16 +770,16 @@ function renderUserEmailCell(user) {
 }
 
 function renderUserEmailStatus(user) {
-  if (user.pending_email) return `<span class="badge badge-warning" title="Wartet auf Bestätigung">Ausstehend</span>`;
-  if (!user.email) return `<span class="badge badge-muted">Keine</span>`;
-  if (user.email_verified_at) return `<span class="badge badge-success" title="E-Mail ist bestätigt">Bestätigt</span>`;
-  return `<span class="badge badge-warning" title="E-Mail ist gespeichert, aber nicht bestätigt">Unbestätigt</span>`;
+  if (user.pending_email) return `<span class="badge badge-warning" title="${escapeHtmlAttr(t('admin.user.emailStatus.pendingTitle'))}">${escapeHtml(t('admin.user.emailStatus.pending'))}</span>`;
+  if (!user.email) return `<span class="badge badge-muted">${escapeHtml(t('admin.none'))}</span>`;
+  if (user.email_verified_at) return `<span class="badge badge-success" title="${escapeHtmlAttr(t('admin.user.emailStatus.verifiedTitle'))}">${escapeHtml(t('admin.user.emailStatus.verified'))}</span>`;
+  return `<span class="badge badge-warning" title="${escapeHtmlAttr(t('admin.user.emailStatus.unverifiedTitle'))}">${escapeHtml(t('admin.user.emailStatus.unverified'))}</span>`;
 }
 
 function renderUserLoginStatus(user) {
   return user.password_configured
-    ? `<span class="badge badge-success" title="Passwort gesetzt / Einladung angenommen">Aktiv</span>`
-    : `<span class="badge badge-warning" title="Setup-Link wurde noch nicht eingelöst">Einladung offen</span>`;
+    ? `<span class="badge badge-success" title="${escapeHtmlAttr(t('admin.user.login.activeTitle'))}">${escapeHtml(t('admin.user.login.active'))}</span>`
+    : `<span class="badge badge-warning" title="${escapeHtmlAttr(t('admin.user.login.inviteOpenTitle'))}">${escapeHtml(t('admin.user.login.inviteOpen'))}</span>`;
 }
 
 function renderUserTwoFactorStatus(user) {
@@ -755,14 +788,14 @@ function renderUserTwoFactorStatus(user) {
   if (user.has_totp) factors.push('TOTP');
   if (Number(user.passkey_count || 0) > 0) factors.push(`${user.passkey_count} Passkey`);
   if (user.has_recovery_codes) factors.push('Recovery');
-  if (user.has_email_fallback) factors.push('E-Mail-Code Übergang');
-  if (Number(user.trusted_device_count || 0) > 0) factors.push(`${user.trusted_device_count} Gerät`);
+  if (user.has_email_fallback) factors.push(t('admin.user.twofa.emailFallback'));
+  if (Number(user.trusted_device_count || 0) > 0) factors.push(t('admin.user.twofa.trustedDevices', { count: user.trusted_device_count }));
   const badge = enabled
-    ? `<span class="badge badge-success">Aktiv</span>`
-    : (twoFactorPolicyRequired ? `<span class="badge badge-warning">Pflicht</span>` : `<span class="badge badge-muted">Aus</span>`);
-  const detail = factors.length ? factors.map(escapeHtml).join(' · ') : (twoFactorPolicyRequired ? 'Nur 2FA-Einrichtung möglich' : '-');
+    ? `<span class="badge badge-success">${escapeHtml(t('admin.user.twofa.active'))}</span>`
+    : (twoFactorPolicyRequired ? `<span class="badge badge-warning">${escapeHtml(t('admin.user.twofa.required'))}</span>` : `<span class="badge badge-muted">${escapeHtml(t('admin.user.twofa.off'))}</span>`);
+  const detail = factors.length ? factors.map(escapeHtml).join(' · ') : (twoFactorPolicyRequired ? t('admin.user.twofa.setupOnly') : '-');
   const reset = (enabled || Number(user.passkey_count || 0) > 0 || Number(user.trusted_device_count || 0) > 0)
-    ? `<button class="btn btn-danger admin-table-action" style="margin-top:6px;" onclick="resetUserTwoFactor(${user.id}, '${escapeHtmlAttr(user.username)}')">${iconSvg('shield-check')} Reset</button>`
+    ? `<button class="btn btn-danger admin-table-action" style="margin-top:6px;" onclick="resetUserTwoFactor(${user.id}, '${escapeHtmlAttr(user.username)}')">${iconSvg('shield-check')} ${escapeHtml(t('admin.user.twofa.resetShort'))}</button>`
     : '';
   return `<div class="twofa-stack">${badge}<span class="admin-help" style="margin:0;">${detail}</span></div>${reset}`;
 }
@@ -770,35 +803,35 @@ function renderUserTwoFactorStatus(user) {
 function renderUserApiKeys(user) {
   const count = Number(user.api_key_count || 0);
   if (!count) return `<span class="badge badge-muted">0</span>`;
-  return `<span class="badge badge-warning" title="Bestehende API-Keys bleiben als Machine-Tokens ohne MFA nutzbar">${count} aktiv</span>`;
+  return `<span class="badge badge-warning" title="${escapeHtmlAttr(t('admin.user.apiKeysMachineTokenHint'))}">${count} ${escapeHtml(t('admin.user.active'))}</span>`;
 }
 
 function renderUserEmailDisplay(userId, emailValue) {
   const email = emailValue ? escapeHtml(emailValue) : '<span class="email-missing">-</span>';
   return `<span class="email-display" id="email-display-${userId}">
     <span>${email}</span>
-    <button class="btn btn-ghost" title="E-Mail bearbeiten" onclick="editUserEmail(${userId}, '${escapeHtmlAttr(emailValue || '')}')">${iconSvg('edit-3')}</button>
+    <button class="btn btn-ghost" title="${escapeHtmlAttr(t('admin.user.editEmail'))}" onclick="editUserEmail(${userId}, '${escapeHtmlAttr(emailValue || '')}')">${iconSvg('edit-3')}</button>
   </span>`;
 }
 
 function renderUsers(users) {
   const tbody = document.getElementById('user-list');
   if (!users || users.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="10" class="empty-state">Keine Benutzer</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="10" class="empty-state">${escapeHtml(t('admin.user.empty'))}</td></tr>`;
     return;
   }
   tbody.innerHTML = users.map(u => `
     <tr>
       <td><span class="admin-mobile-label">ID</span>${u.id}</td>
-      <td><span class="admin-mobile-label">Benutzername</span>${escapeHtml(u.username)}</td>
-      <td><span class="admin-mobile-label">Anzeigename</span>${escapeHtml(u.display_name) || '-'}</td>
-      <td><span class="admin-mobile-label">E-Mail</span>${renderUserEmailCell(u)}</td>
-      <td><span class="admin-mobile-label">E-Mail Status</span>${renderUserEmailStatus(u)}</td>
-      <td><span class="admin-mobile-label">Login</span>${renderUserLoginStatus(u)}</td>
+      <td><span class="admin-mobile-label">${escapeHtml(t('setup.usernameLabel'))}</span>${escapeHtml(u.username)}</td>
+      <td><span class="admin-mobile-label">${escapeHtml(t('setup.displayNameLabel'))}</span>${escapeHtml(u.display_name) || '-'}</td>
+      <td><span class="admin-mobile-label">${escapeHtml(t('settings.profile.email'))}</span>${renderUserEmailCell(u)}</td>
+      <td><span class="admin-mobile-label">${escapeHtml(t('admin.user.emailStatus'))}</span>${renderUserEmailStatus(u)}</td>
+      <td><span class="admin-mobile-label">${escapeHtml(t('admin.user.login'))}</span>${renderUserLoginStatus(u)}</td>
       <td><span class="admin-mobile-label">2FA</span>${renderUserTwoFactorStatus(u)}</td>
-      <td><span class="admin-mobile-label">API Keys</span>${renderUserApiKeys(u)}</td>
-      <td><span class="admin-mobile-label">Passwort</span><button class="btn btn-primary admin-table-action" onclick="generatePasswordLink(${u.id}, '${escapeHtmlAttr(u.username)}')">${iconSvg('link')} Link</button></td>
-      <td><span class="admin-mobile-label">Aktionen</span>${u.is_admin ? '-' : `<button class="btn btn-danger admin-table-action" onclick="deleteUser(${u.id}, '${escapeHtmlAttr(u.username)}')">${iconSvg('trash')} Löschen</button>`}</td>
+      <td><span class="admin-mobile-label">${escapeHtml(t('settings.apiKeys.title'))}</span>${renderUserApiKeys(u)}</td>
+      <td><span class="admin-mobile-label">${escapeHtml(t('auth.password'))}</span><button class="btn btn-primary admin-table-action" onclick="generatePasswordLink(${u.id}, '${escapeHtmlAttr(u.username)}')">${iconSvg('link')} ${escapeHtml(t('admin.user.passwordLink'))}</button></td>
+      <td><span class="admin-mobile-label">${escapeHtml(t('admin.user.actions'))}</span>${u.is_admin ? '-' : `<button class="btn btn-danger admin-table-action" onclick="deleteUser(${u.id}, '${escapeHtmlAttr(u.username)}')">${iconSvg('trash')} ${escapeHtml(t('common.delete'))}</button>`}</td>
     </tr>
   `).join('');
 }
@@ -807,17 +840,18 @@ async function createUser() {
   const username = document.getElementById('new-username').value.trim();
   const displayName = document.getElementById('new-display-name').value.trim();
   const email = document.getElementById('new-email').value.trim();
+  const language = document.getElementById('new-language').value;
 
   document.getElementById('create-error').textContent = '';
   document.getElementById('create-success').textContent = '';
   document.getElementById('create-link-box').style.display = 'none';
 
   if (!username || !email) {
-    document.getElementById('create-error').textContent = 'Benutzername und E-Mail sind erforderlich';
+    document.getElementById('create-error').textContent = t('admin.user.usernameEmailRequired');
     return;
   }
   if (!isValidEmail(email)) {
-    document.getElementById('create-error').textContent = 'Bitte eine gültige E-Mail-Adresse eingeben';
+    document.getElementById('create-error').textContent = t('setup.error.invalidEmail');
     return;
   }
 
@@ -825,12 +859,13 @@ async function createUser() {
     const data = await apiPost('/api/admin/users', {
       username: username,
       display_name: displayName || username,
-      email: email
+      email: email,
+      language: language
     });
     if (data.password_setup_delivery === 'email') {
-      document.getElementById('create-success').textContent = `Benutzer '${username}' erstellt. Einladungs-Mail wurde gesendet.`;
+      document.getElementById('create-success').textContent = t('admin.user.createdEmailSent', { username });
     } else {
-      document.getElementById('create-success').textContent = `Benutzer '${username}' erstellt. Link kopieren und senden:`;
+      document.getElementById('create-success').textContent = t('admin.user.createdCopyLink', { username });
       document.getElementById('create-link-input').value = data.password_setup_url || '';
       document.getElementById('create-link-box').style.display = 'flex';
     }
@@ -847,9 +882,9 @@ function editUserEmail(userId, currentEmail) {
   const container = document.getElementById(`email-display-${userId}`);
   if (!container) return;
   container.outerHTML = `<span class="email-edit" id="email-edit-${userId}">
-    <input id="email-input-${userId}" type="email" value="${escapeHtmlAttr(currentEmail || '')}" placeholder="E-Mail setzen" onkeydown="if(event.key==='Enter') saveUserEmail(${userId}); if(event.key==='Escape') cancelUserEmailEdit(${userId}, '${escapeHtmlAttr(currentEmail || '')}')">
-    <button class="btn btn-ghost" title="Speichern" onclick="saveUserEmail(${userId})">${iconSvg('check')}</button>
-    <button class="btn btn-ghost" title="Abbrechen" onclick="cancelUserEmailEdit(${userId}, '${escapeHtmlAttr(currentEmail || '')}')">${iconSvg('x')}</button>
+    <input id="email-input-${userId}" type="email" value="${escapeHtmlAttr(currentEmail || '')}" placeholder="${escapeHtmlAttr(t('admin.user.emailPlaceholder'))}" onkeydown="if(event.key==='Enter') saveUserEmail(${userId}); if(event.key==='Escape') cancelUserEmailEdit(${userId}, '${escapeHtmlAttr(currentEmail || '')}')">
+    <button class="btn btn-ghost" title="${escapeHtmlAttr(t('common.save'))}" onclick="saveUserEmail(${userId})">${iconSvg('check')}</button>
+    <button class="btn btn-ghost" title="${escapeHtmlAttr(t('common.cancel'))}" onclick="cancelUserEmailEdit(${userId}, '${escapeHtmlAttr(currentEmail || '')}')">${iconSvg('x')}</button>
   </span>`;
   document.getElementById(`email-input-${userId}`)?.focus();
 }
@@ -866,43 +901,43 @@ async function saveUserEmail(userId) {
   const errorEl = document.getElementById('security-error');
   if (errorEl) errorEl.textContent = '';
   if (!email) {
-    if (errorEl) errorEl.textContent = 'E-Mail ist erforderlich';
+    if (errorEl) errorEl.textContent = t('admin.user.emailRequired');
     return;
   }
   if (!isValidEmail(email)) {
-    if (errorEl) errorEl.textContent = 'Bitte eine gültige E-Mail-Adresse eingeben';
+    if (errorEl) errorEl.textContent = t('setup.error.invalidEmail');
     return;
   }
   try {
     await apiPatch(`/api/admin/users/${userId}`, { email });
     await loadUsers();
   } catch(e) {
-    if (errorEl) errorEl.textContent = 'Fehler: ' + e.message;
+    if (errorEl) errorEl.textContent = t('admin.errorWithMessage', { error: e.message });
   }
 }
 
 async function resetUserTwoFactor(userId, username) {
   const confirmed = await adminConfirm({
-    title: '2FA zurücksetzen?',
-    message: `2FA für '${username}' wirklich zurücksetzen? TOTP, Passkeys und gemerkte Geräte werden widerrufen.`,
-    confirmText: '2FA zurücksetzen',
+    title: t('admin.user.reset2faTitle'),
+    message: t('admin.user.reset2faMessage', { username }),
+    confirmText: t('admin.user.reset2faConfirm'),
     danger: true,
   });
   if (!confirmed) return;
   try {
     await apiPost(`/api/admin/users/${userId}/2fa/reset`, {});
-    document.getElementById('security-success').textContent = `2FA für ${username} zurückgesetzt.`;
+    document.getElementById('security-success').textContent = t('admin.user.reset2faSuccess', { username });
     await loadUsers();
   } catch(e) {
-    document.getElementById('security-error').textContent = 'Fehler: ' + e.message;
+    document.getElementById('security-error').textContent = t('admin.errorWithMessage', { error: e.message });
   }
 }
 
 async function deleteUser(userId, username) {
   const confirmed = await adminConfirm({
-    title: 'Benutzer löschen?',
-    message: `Benutzer '${username}' wirklich löschen?`,
-    confirmText: 'Benutzer löschen',
+    title: t('admin.user.deleteTitle'),
+    message: t('admin.user.deleteMessage', { username }),
+    confirmText: t('admin.user.deleteConfirm'),
     danger: true,
   });
   if (!confirmed) return;
@@ -910,7 +945,7 @@ async function deleteUser(userId, username) {
     await apiDelete(`/api/admin/users/${userId}`);
     await loadUsers();
   } catch(e) {
-    await adminNotice('Fehler', 'Fehler: ' + e.message);
+    await adminNotice(t('common.error'), t('admin.errorWithMessage', { error: e.message }));
   }
 }
 
@@ -923,17 +958,17 @@ async function changeAdminPassword() {
   document.getElementById('admin-pw-success').textContent = '';
 
   if (!oldPw || !newPw || !confirmPw) {
-    document.getElementById('admin-pw-error').textContent = 'Alle Felder sind erforderlich';
+    document.getElementById('admin-pw-error').textContent = t('settings.password.allRequired');
     return;
   }
   if (newPw !== confirmPw) {
-    document.getElementById('admin-pw-error').textContent = 'Passwörter stimmen nicht überein';
+    document.getElementById('admin-pw-error').textContent = t('settings.password.mismatch');
     return;
   }
 
   try {
     await apiPost('/api/admin/change-password', { old_password: oldPw, new_password: newPw });
-    document.getElementById('admin-pw-success').textContent = 'Admin-Passwort geändert! Melde dich erneut an.';
+    document.getElementById('admin-pw-success').textContent = t('admin.password.changed');
     document.getElementById('admin-old-password').value = '';
     document.getElementById('admin-new-password').value = '';
     document.getElementById('admin-confirm-password').value = '';
@@ -954,17 +989,17 @@ async function generatePasswordLink(userId, username) {
   try {
     const data = await apiPost(`/api/admin/users/${userId}/password-link`, {});
     if (data.password_setup_delivery === 'email') {
-      await adminNotice('Passwort-Mail gesendet', `Passwort-Mail für ${username} wurde gesendet.`);
+      await adminNotice(t('admin.user.passwordMailSentTitle'), t('admin.user.passwordMailSentMessage', { username }));
       return;
     }
     const link = data.password_setup_url;
     const copied = await navigator.clipboard.writeText(link).then(() => true).catch(() => false);
     await adminNotice(
-      copied ? 'Passwort-Link kopiert' : 'Passwort-Link erstellt',
-      `Passwort-Link für ${username}${copied ? ' wurde kopiert' : ''}: ${link}`,
+      copied ? t('admin.user.passwordLinkCopiedTitle') : t('admin.user.passwordLinkCreatedTitle'),
+      t(copied ? 'admin.user.passwordLinkCopiedMessage' : 'admin.user.passwordLinkCreatedMessage', { username, link }),
     );
   } catch(e) {
-    await adminNotice('Fehler', 'Fehler: ' + e.message);
+    await adminNotice(t('common.error'), t('admin.errorWithMessage', { error: e.message }));
   }
 }
 

@@ -1,6 +1,6 @@
-# Test-Doku
+# Test Docs
 
-## Einstieg
+## Getting Started
 
 - `./scripts/test_all.sh`
 - `npm test`
@@ -9,129 +9,129 @@
 
 `python3 scripts/test_backend.py`
 
-Deckt ab:
+Covers:
 - Setup
 - Auth
 - Admin
-- API-Keys
-- Projekte
+- API keys
+- Projects
 - Sections
 - Todos
 - Push
 - Reminders
-- Projekt-Sharing und Multi-User-Isolation
-- Security-Regressionen für CSRF/API-Key, IDOR und Datum-/Zeitvalidierung
-- **E-Mail/SMTP-Integration (neutrale Responses, verifizierte E-Mail-Lookups)**
-- **2FA-Service-/Security-Regressionen für TOTP, Recovery-Code-Verbrauch, Challenge-Lockout, alte JWTs nach Policy-Aktivierung, WebAuthn-RP/Origin/HTTPS-Bindung, One-Time-MFA-Grants, Reauth-Replay-Schutz und Recovery-Code-Cleanup nach Entfernen des letzten primären Faktors**
+- Project sharing and multi-user isolation
+- Security regressions for CSRF/API key, IDOR, and date/time validation
+- **Email/SMTP integration (neutral responses, verified email lookups)**
+- **2FA service/security regressions for TOTP, recovery code consumption, challenge lockout, old JWTs after policy activation, WebAuthn RP/origin/HTTPS binding, one-time MFA grants, reauth replay protection, and recovery code cleanup after removing the last primary factor**
 
 ## Frontend
 
 ### Smoke
 - Login
-- App-Start
-- Projekt anlegen
+- App start
+- Create project
 - Search
-- Delete + Undo
+- Delete + undo
 
 ### App
-- Sections anlegen/umbenennen/löschen
-- Todo mit Section-Zuordnung
-- Projektwechsel im Todo-Modal
-- kompletter Todo-Edit-Flow
-- Validierung ungültiger Deadline-/Reminder-Werte
-- Regression gegen `temp is not defined`
+- Create/rename/delete sections
+- Todo with section assignment
+- Project switch in the todo modal
+- Complete todo edit flow
+- Validation of invalid deadline/reminder values
+- Regression against `temp is not defined`
 
 ### Setup
-- Erstinstallations-Flow
+- Initial setup flow
 
 ### Admin
-- Admin-Login
-- User-Verwaltung
-- **Globale 2FA-Pflicht aktivieren/deaktivieren + Statusanzeige in der Benutzerliste**
-- **SMTP-Konfiguration + Test-Mail**
+- Admin login
+- User management
+- **Enable/disable global 2FA requirement + status display in the user list**
+- **SMTP configuration + test mail**
 
 ### Settings
-- Settings öffnen
-- API-Key erstellen/widerrufen
-- Push-Status/Test/Deaktivieren
-- Passwort ändern
-- **E-Mail-Verifizierung**
-- **2FA-Settings-UI: Status, TOTP-Setup mit QR-Code, Recovery-Code-Anzeige, Passkey-/TOTP-Gerätelisten, Deaktivieren/Widerrufen/Regenerieren und Security-Dialoge ohne Browser-Popups**
+- Open settings
+- Create/revoke API key
+- Push status/test/disable
+- Change password
+- **Email verification**
+- **2FA settings UI: status, TOTP setup with QR code, recovery code display, passkey/TOTP device lists, disable/revoke/regenerate, and security dialogs without browser popups**
 
 ### Projects
-- Projekt anlegen
-- Subprojekt anlegen
-- Projekt bearbeiten/löschen
+- Create project
+- Create subproject
+- Edit/delete project
 
 ### Drag & Drop
-- Todo zwischen Sections verschieben
-- Unsortiert
-- Section-Reorder-Basis
+- Move todo between sections
+- Unsorted
+- Basic section reorder
 
 ### Sharing
-- Projekt einladen/annehmen/ablehnen
-- Member-Liste und Undo-Aktionen
-- Shared-Projekt-Readonly-UI
-- Owner-/Member-Sichtbarkeit
-- **E-Mail-Invite (neutrale Response, keine pending Members sichtbar)**
+- Invite/accept/reject project
+- Member list and undo actions
+- Shared project readonly UI
+- Owner/member visibility
+- **Email invite (neutral response, no pending members visible)**
 
 ### Security
-- Markdown-XSS-Regression
-- Service-Worker cached keine `/api/*` Antworten
-- Offline-Sync-Queue lässt nur erlaubte Felder durch
-- **E-Mail-Enumeration-Schutz (neutrale Responses bei Passwort-Reset/Invite)**
-- **2FA-/MFA-Regressionen: Native-Passkey-Deferral, Recovery-Code-Fallback-Labels, Security-Dialoge statt `alert/prompt/confirm`, One-Time-Grant-Verbrauch und sensible Aktionen mit frischer Reauth**
+- Markdown XSS regression
+- Service worker does not cache `/api/*` responses
+- Offline sync queue only allows permitted fields
+- **Email enumeration protection (neutral responses for password reset/invite)**
+- **2FA/MFA regressions: native passkey deferral, recovery code fallback labels, security dialogs instead of `alert/prompt/confirm`, one-time grant consumption, and sensitive actions with fresh reauth**
 
-## Release-Gate
+## Release Gate
 
-- `release.sh` ruft zuerst `./scripts/test_all.sh` auf
-- bei Fehler: sofort Abbruch
-- kein Merge, kein Tag, kein Push
+- `release.sh` calls `./scripts/test_all.sh` first
+- on error: abort immediately
+- no merge, no tag, no push
 
-Für 2FA-Änderungen zusätzlich sinnvoll vor Release/Review:
+Additionally useful for 2FA changes before release/review:
 - `python3 scripts/test_two_factor_services.py`
 - `node scripts/test_frontend_mfa_login.mjs`
 - `node scripts/test_frontend_settings.mjs`
 - `node scripts/test_frontend_admin.mjs`
 - `node scripts/test_frontend_security.mjs`
-- `node scripts/test_frontend_native_passkeys.mjs` bei Native-Passkey-Änderungen; deckt Browser, Windows/Tauri invoke und Android `JavascriptInterface` Callback-Bridge ab.
-- Bei Android-Passkey-Änderungen zusätzlich prüfen, dass `/.well-known/assetlinks.json` weiterhin Package `de.tobiaskneidl.nia_todo`, den offiziellen Release-Fingerprint und `delegate_permission/common.get_login_creds` ausliefert.
+- `node scripts/test_frontend_native_passkeys.mjs` for native passkey changes; covers browser, Windows/Tauri invoke, and Android `JavascriptInterface` callback bridge.
+- For Android passkey changes, additionally verify that `/.well-known/assetlinks.json` still serves package `de.tobiaskneidl.nia_todo`, the official release fingerprint, and `delegate_permission/common.get_login_creds`.
 
-Manuelle 2FA-Smoke-Pfade:
-- TOTP einrichten, QR-Code scannen, Login mit TOTP abschließen.
-- Passkey hinzufügen, Login/Reauth per Passkey abschließen.
-- Android-App mit selfhosted Server-URL verbinden; Passkey-Flow muss mit der offiziellen App funktionieren, Custom/Re-Sign-Builds sind für 2.0 kein unterstützter Testpfad.
-- TOTP/Passkey widerrufen; beim letzten primären Faktor müssen Recovery Codes verschwinden und user-seitige 2FA deaktiviert werden.
-- Sensitive Aktionen nacheinander ausführen; jede Aktion muss eine frische MFA-Reauth verlangen.
-- Trusted Device muss Login-MFA überspringen können, aber keine sensitive Aktion autorisieren.
-- Recovery Code und E-Mail-Code dürfen nach erfolgreicher Nutzung nicht erneut funktionieren.
+Manual 2FA smoke paths:
+- Set up TOTP, scan QR code, complete login with TOTP.
+- Add passkey, complete login/reauth via passkey.
+- Connect Android app to selfhosted server URL; passkey flow must work with the official app, custom/re-sign builds are not a supported test path for 2.0.
+- Revoke TOTP/passkey; when removing the last primary factor, recovery codes must disappear and user-side 2FA must be disabled.
+- Execute sensitive actions one after another; every action must require fresh MFA reauth.
+- Trusted device must be able to skip login MFA, but must not authorize sensitive actions.
+- Recovery code and email code must not work again after successful use.
 
-## E-Mail/SMTP-Tests
+## Email/SMTP Tests
 
-### Service-Tests
+### Service Tests
 `python3 scripts/test_email_services.py`
 
-Testet:
-- SMTP-Konfiguration (get/patch)
-- E-Mail-Versand (send_email)
-- E-Mail-Vorlagen (templates)
-- Token-Hashing/Prefix-Lookup
+Tests:
+- SMTP configuration (get/patch)
+- Email sending (send_email)
+- Email templates (templates)
+- Token hashing/prefix lookup
 
-### Migrationstests
+### Migration Tests
 `python3 scripts/test_migration_022_email_duplicates.py`
 
-Testet:
-- Case-insensitive E-Mail-Uniqueness
-- Duplikate werden bereinigt
+Tests:
+- Case-insensitive email uniqueness
+- Duplicates are cleaned up
 
 `python3 scripts/test_migration_email_partial_recovery.py`
 
-Testet:
-- Partielle Schema-Zustände werden repariert
-- Migration ist idempotent
+Tests:
+- Partial schema states are repaired
+- Migration is idempotent
 
-## Hinweise
+## Notes
 
-- Frontend-Tests laufen gegen headless Chromium
-- Tests sichern/restoren die Dev-DB; DB-mutierende Tests immer seriell laufen lassen, nicht parallel
-- `web/manifest.json` wird vom Dev-/Release-Flow gepflegt
+- Frontend tests run against headless Chromium
+- Tests back up/restore the dev DB; always run DB-mutating tests serially, not in parallel
+- `web/manifest.json` is maintained by the dev/release flow
