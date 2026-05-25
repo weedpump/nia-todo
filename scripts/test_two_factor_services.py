@@ -4,9 +4,12 @@
 import json
 import sqlite3
 import tempfile
+import time
 from pathlib import Path
 
 import bcrypt
+import jwt as pyjwt
+from fastapi import Response
 
 BASE = Path(__file__).resolve().parents[1]
 import sys
@@ -17,8 +20,8 @@ import migrate
 from fastapi import HTTPException
 
 import services.two_factor as two_factor_module
-from services.auth import create_jwt_token, get_current_user
-from routers.auth import require_recent_mfa_for_account_security
+from services.auth import USER_JWT_EXPIRY_DAYS, create_jwt_token, decode_jwt_token, get_current_user, get_jwt_secret
+from routers.auth import me, require_recent_mfa_for_account_security
 from routers.two_factor import ReauthRequest, reauth, regenerate_recovery_codes, require_2fa_status_auth
 from services.webauthn import ANDROID_PACKAGE_NAME, ANDROID_PASSKEY_ORIGINS, ANDROID_RELEASE_CERT_SHA256, relying_party_for_request, verify_client_data
 from services.two_factor import (
@@ -31,6 +34,7 @@ from services.two_factor import (
     bcrypt_hash,
     generate_totp_secret,
     get_valid_challenge,
+    get_valid_trusted_device_id,
     list_user_device_sessions,
     mark_challenge_consumed,
     record_challenge_failure,
@@ -196,6 +200,55 @@ def main():
         conn.commit()
         assert revoked and get_current_user(session_token) is None
         assert conn.execute("SELECT revoked_at FROM trusted_devices WHERE id = ?", (trusted_device_id,)).fetchone()["revoked_at"]
+        assert revoke_device_session(conn, user_id, session_payload["id"]) is None
+
+        # Trusted-cookie logins must bind the new JWT session to the trusted-device row.
+        remembered_token, remembered_device_id = create_trusted_device(conn, user_id, "Remembered Browser", return_id=True)
+        valid_trusted_device = get_valid_trusted_device_id(conn, user_id, remembered_token)
+        assert valid_trusted_device and valid_trusted_device[0] == remembered_device_id
+        remembered_session_token = create_jwt_token(
+            dict(user),
+            conn,
+            mfa_login_verified=True,
+            create_session=True,
+            trusted_device_id=valid_trusted_device[0],
+            user_agent="Remembered Browser",
+            ip_address="127.0.0.2",
+        )
+        remembered_session = conn.execute(
+            "SELECT id, trusted_device_id FROM user_sessions WHERE user_id = ? AND trusted_device_id = ? AND revoked_at IS NULL",
+            (user_id, remembered_device_id),
+        ).fetchone()
+        assert remembered_session and remembered_session["trusted_device_id"] == remembered_device_id
+        conn.commit()
+        assert get_current_user(remembered_session_token) == user_id
+
+        # /api/me JWT refresh extends the backing DB session expiry too.
+        refresh_session_token = create_jwt_token(dict(user), conn, mfa_login_verified=True, create_session=True, user_agent="Refresh Browser", ip_address="127.0.0.3")
+        refresh_payload = decode_jwt_token(refresh_session_token, conn)
+        refresh_session_id = refresh_payload["sid"]
+        old_exp = int(time.time()) + 60
+        conn.execute("UPDATE user_sessions SET expires_at = ?, last_used_at = datetime('now', '-10 minutes') WHERE id = ?", (old_exp, refresh_session_id))
+        secret_key = get_jwt_secret(conn)
+        near_exp_payload = dict(refresh_payload)
+        near_exp_payload["iat"] = int(time.time()) - 10
+        near_exp_payload["exp"] = old_exp
+        near_exp_token = pyjwt.encode(near_exp_payload, secret_key, algorithm="HS256")
+        conn.commit()
+        me_response = me(Response(), authorization=f"Bearer {near_exp_token}")
+        assert me_response.get("access_token"), "near-expiry /api/me should refresh JWT"
+        refreshed_session = conn.execute("SELECT expires_at, last_used_at FROM user_sessions WHERE id = ?", (refresh_session_id,)).fetchone()
+        assert refreshed_session and int(refreshed_session["expires_at"]) >= int(time.time()) + (USER_JWT_EXPIRY_DAYS * 86400) - 5
+
+        # Session last_used_at is updated with throttling when stale.
+        stale_session_token = create_jwt_token(dict(user), conn, mfa_login_verified=True, create_session=True, user_agent="Stale Browser", ip_address="127.0.0.4")
+        stale_payload = decode_jwt_token(stale_session_token, conn)
+        stale_session_id = stale_payload["sid"]
+        conn.execute("UPDATE user_sessions SET last_used_at = datetime('now', '-10 minutes') WHERE id = ?", (stale_session_id,))
+        conn.commit()
+        assert get_current_user(stale_session_token) == user_id
+        stale_last_used = conn.execute("SELECT strftime('%s', last_used_at) AS ts FROM user_sessions WHERE id = ?", (stale_session_id,)).fetchone()["ts"]
+        assert int(stale_last_used) >= int(time.time()) - 60
 
         # Enabling global MFA invalidates old non-MFA JWTs for normal API auth.
         old_token = create_jwt_token(dict(user), conn, mfa_verified=False)
