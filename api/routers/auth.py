@@ -154,7 +154,7 @@ def logout(authorization: Optional[str] = Header(None), x_session_token: Optiona
     return {"logged_out": True}
 
 @router.get("/me")
-def me(response: Response, authorization: Optional[str] = Header(None), x_session_token: Optional[str] = Header(None)):
+def me(request: Request, response: Response, authorization: Optional[str] = Header(None), x_session_token: Optional[str] = Header(None)):
     token = None
     if authorization and authorization.startswith("Bearer "):
         token = authorization[7:]
@@ -197,7 +197,12 @@ def me(response: Response, authorization: Optional[str] = Header(None), x_sessio
             "mfa_enrollment_required": enroll_only,
         }
 
-        if payload and should_refresh_user_jwt(payload):
+        # Tokens issued before per-device sessions do not contain a sid and
+        # cannot be listed/revoked individually. Opportunistically migrate the
+        # current token on /me so existing browser sessions become trackable
+        # without requiring an explicit logout/login.
+        needs_session_migration = bool(payload and not payload.get("sid"))
+        if payload and (should_refresh_user_jwt(payload) or needs_session_migration):
             csrf_token = generate_csrf_token()
             set_csrf_cookie(response, csrf_token)
             token_user = dict(user)
@@ -206,8 +211,18 @@ def me(response: Response, authorization: Optional[str] = Header(None), x_sessio
             if payload.get('mfa_login_at'):
                 token_user['mfa_login_at'] = payload.get('mfa_login_at')
             token_user["session_id"] = payload.get("sid")
+            trusted_device = get_valid_trusted_device_id(db, user_id, request.cookies.get('nia_2fa_device'))
+            trusted_device_id = trusted_device[0] if trusted_device else None
             new_exp = int(time.time()) + USER_JWT_EXPIRY_DAYS * 86400
-            result["access_token"] = create_jwt_token(token_user, db, mfa_enroll_only=bool(payload.get('mfa_enroll_only')), create_session=not bool(payload.get('sid')))
+            result["access_token"] = create_jwt_token(
+                token_user,
+                db,
+                mfa_enroll_only=bool(payload.get('mfa_enroll_only')),
+                create_session=needs_session_migration,
+                trusted_device_id=trusted_device_id,
+                user_agent=request.headers.get('user-agent', ''),
+                ip_address=get_client_ip(request),
+            )
             if payload.get("sid"):
                 db.execute(
                     "UPDATE user_sessions SET expires_at = ?, last_used_at = datetime('now') WHERE id = ? AND user_id = ?",
