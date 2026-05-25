@@ -3,6 +3,7 @@
 import secrets
 import sqlite3
 import time
+import uuid
 import bcrypt
 import jwt as pyjwt
 from typing import Optional
@@ -37,7 +38,42 @@ def get_jwt_secret(db) -> str:
     return secret
 
 
-def create_jwt_token(user: dict, db, mfa_verified: bool = False, mfa_enroll_only: bool = False, mfa_login_verified: bool = False, mfa_grant: str = None) -> str:
+def create_user_session(db, user_id: int, *, trusted_device_id: int = None, user_agent: str = "", ip_address: str = "", expires_at: int = None) -> str:
+    session_id = uuid.uuid4().hex
+    expiry = expires_at or (int(time.time()) + USER_JWT_EXPIRY_DAYS * 86400)
+    db.execute(
+        """INSERT INTO user_sessions (id, user_id, trusted_device_id, user_agent, ip_address, expires_at, created_at, last_used_at)
+           VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))""",
+        (session_id, user_id, trusted_device_id, (user_agent or "")[:255], (ip_address or "")[:80], expiry),
+    )
+    return session_id
+
+
+def revoke_user_session(db, user_id: int, session_id: str) -> int:
+    cur = db.execute(
+        "UPDATE user_sessions SET revoked_at = datetime('now') WHERE user_id = ? AND id = ? AND revoked_at IS NULL",
+        (user_id, session_id),
+    )
+    return cur.rowcount
+
+
+def revoke_user_sessions_for_trusted_device(db, user_id: int, trusted_device_id: int) -> int:
+    cur = db.execute(
+        "UPDATE user_sessions SET revoked_at = datetime('now') WHERE user_id = ? AND trusted_device_id = ? AND revoked_at IS NULL",
+        (user_id, trusted_device_id),
+    )
+    return cur.rowcount
+
+
+def revoke_all_user_sessions(db, user_id: int) -> int:
+    cur = db.execute(
+        "UPDATE user_sessions SET revoked_at = datetime('now') WHERE user_id = ? AND revoked_at IS NULL",
+        (user_id,),
+    )
+    return cur.rowcount
+
+
+def create_jwt_token(user: dict, db, mfa_verified: bool = False, mfa_enroll_only: bool = False, mfa_login_verified: bool = False, mfa_grant: str = None, create_session: bool = False, trusted_device_id: int = None, user_agent: str = "", ip_address: str = "") -> str:
     """Create a JWT token with user info, token_version and MFA assurance.
 
     mfa_login_at means MFA was satisfied for app access only (login challenge or
@@ -46,6 +82,17 @@ def create_jwt_token(user: dict, db, mfa_verified: bool = False, mfa_enroll_only
     """
     secret = get_jwt_secret(db)
     now = int(time.time())
+    exp = now + (USER_JWT_EXPIRY_DAYS * 86400)
+    session_id = user.get('session_id') or user.get('sid')
+    if create_session and not session_id:
+        session_id = create_user_session(
+            db,
+            user['id'],
+            trusted_device_id=trusted_device_id,
+            user_agent=user_agent,
+            ip_address=ip_address,
+            expires_at=exp,
+        )
     payload = {
         "user_id": user['id'],
         "username": user['username'],
@@ -55,8 +102,9 @@ def create_jwt_token(user: dict, db, mfa_verified: bool = False, mfa_enroll_only
         "mfa_login_at": now if mfa_login_verified else user.get('mfa_login_at'),
         "mfa_grant": mfa_grant or user.get('mfa_grant'),
         "mfa_enroll_only": bool(mfa_enroll_only),
+        "sid": session_id,
         "iat": now,
-        "exp": now + (USER_JWT_EXPIRY_DAYS * 86400)
+        "exp": exp
     }
     return pyjwt.encode(payload, secret, algorithm=JWT_ALGORITHM)
 
@@ -77,6 +125,14 @@ def decode_jwt_token(token: str, db) -> Optional[dict]:
             return None
         if db_version['token_version'] != payload.get('token_version'):
             return None
+        session_id = payload.get('sid')
+        if session_id:
+            session = db.execute(
+                "SELECT id FROM user_sessions WHERE id = ? AND user_id = ? AND revoked_at IS NULL AND expires_at >= ?",
+                (session_id, user_id, int(time.time())),
+            ).fetchone()
+            if not session:
+                return None
         return payload
     except (pyjwt.ExpiredSignatureError, pyjwt.InvalidTokenError):
         return None

@@ -14,7 +14,7 @@ from errors import api_error
 from middleware.security import generate_csrf_token, set_csrf_cookie
 from rate_limit import get_client_ip
 from routers.auth import require_auth
-from services.auth import create_jwt_token, decode_jwt_token, verify_user_credentials
+from services.auth import create_jwt_token, decode_jwt_token, revoke_all_user_sessions, verify_user_credentials
 from services.audit import log_audit
 from services.webauthn import (
     b64url_decode, b64url_encode, cose_to_json, parse_auth_data,
@@ -26,10 +26,10 @@ from services.two_factor import (
     consume_mfa_action_grant, create_challenge, create_mfa_action_grant,
     create_recovery_codes, create_trusted_device, generate_totp_secret,
     get_two_factor_required, get_valid_challenge,
-    mark_challenge_consumed, mfa_required_for_user, provisioning_uri,
-    revoke_trusted_devices, set_two_factor_required, trusted_device_valid,
+    list_user_device_sessions, mark_challenge_consumed, mfa_required_for_user, provisioning_uri,
+    revoke_device_session, revoke_trusted_devices, set_two_factor_required, trusted_device_valid,
     user_mfa_state, validate_mfa_action_grant, verify_challenge_method, verify_totp, consume_totp_reauth_code, REAUTH_MAX_AGE_SECONDS,
-    EMAIL_CODE_TTL_SECONDS, record_challenge_failure, sha256_hex, bcrypt_hash, bcrypt_check, utc_ts,
+    EMAIL_CODE_TTL_SECONDS, record_challenge_failure, sha256_hex, bcrypt_hash, utc_ts,
 )
 from services.email import send_email
 from services.email_templates import two_factor_code_email
@@ -125,11 +125,22 @@ def require_2fa_status_auth(authorization: Optional[str] = Header(None)) -> int:
     This endpoint intentionally does not require an MFA action grant: the frontend
     needs it to decide which reauth ceremony to start for sensitive actions.
     """
+    payload = require_interactive_auth_payload(authorization)
+    return payload.get("user_id")
+
+
+def require_interactive_auth_payload(authorization: Optional[str] = Header(None)) -> dict:
+    """Require a valid interactive user JWT, but no fresh MFA action grant.
+
+    This is for defensive account/session actions such as revoking remembered
+    devices or sessions. It intentionally excludes API keys and enrollment-only
+    tokens, but does not demand a new MFA ceremony.
+    """
     with get_db() as db:
         payload = _current_payload(authorization, db)
-        if not payload:
+        if not payload or payload.get("mfa_enroll_only"):
             raise api_error(401, "auth.notAuthenticated", "Not authenticated")
-        return payload.get("user_id")
+        return payload
 
 
 def _reauth_bucket(db, user_id: int):
@@ -238,13 +249,14 @@ def verify_login_challenge(data: VerifyChallengeRequest, request: Request, respo
             "SELECT id, username, display_name, email, email_verified_at, email_trust_source, avatar_url, is_admin, token_version FROM users WHERE id = ?",
             (challenge["user_id"],),
         ).fetchone()
-        token = create_jwt_token(dict(user), db, mfa_login_verified=True)
+        trusted_device_token = None
+        trusted_device_id = None
+        if data.remember_device:
+            trusted_device_token, trusted_device_id = create_trusted_device(db, user["id"], request.headers.get("user-agent", ""), return_id=True)
+            response.set_cookie("nia_2fa_device", trusted_device_token, max_age=30 * 86400, httponly=True, secure=request.url.scheme == "https", samesite="lax")
+        token = create_jwt_token(dict(user), db, mfa_login_verified=True, create_session=True, trusted_device_id=trusted_device_id, user_agent=request.headers.get("user-agent", ""), ip_address=ip)
         csrf_token = generate_csrf_token()
         set_csrf_cookie(response, csrf_token)
-        trusted_device_token = None
-        if data.remember_device:
-            trusted_device_token = create_trusted_device(db, user["id"], request.headers.get("user-agent", ""))
-            response.set_cookie("nia_2fa_device", trusted_device_token, max_age=30 * 86400, httponly=True, secure=request.url.scheme == "https", samesite="lax")
         log_audit(db, "two_factor_challenge_passed", user_id=user["id"], ip_address=ip, details=f"method={data.method}; remember_device={bool(trusted_device_token)}")
         db.commit()
         return {
@@ -266,65 +278,45 @@ def get_own_2fa(user_id: int = Depends(require_2fa_status_auth)):
         return user_mfa_state(db, user_id)
 
 
-def _trusted_device_is_current(row, token: Optional[str]) -> bool:
-    if not token or not row["token_prefix"] or token[:12] != row["token_prefix"]:
-        return False
-    return bcrypt_check(token, row["token_hash"])
-
-
 @router.get("/me/2fa/trusted-devices")
-def list_trusted_devices(request: Request, user_id: int = Depends(require_2fa_status_auth)):
+def list_trusted_devices(request: Request, payload: dict = Depends(require_interactive_auth_payload)):
     with get_db() as db:
-        state = user_mfa_state(db, user_id)
-        rows = db.execute(
-            """SELECT id, token_hash, token_prefix, user_agent,
-                      created_at, last_used_at, datetime(expires_at, 'unixepoch') AS expires_at
-               FROM trusted_devices
-               WHERE user_id = ? AND revoked_at IS NULL AND expires_at >= ? AND remember_version = ?
-               ORDER BY COALESCE(last_used_at, created_at) DESC""",
-            (user_id, utc_ts(), state.get("remember_version", 1)),
-        ).fetchall()
-        current_token = request.cookies.get("nia_2fa_device")
         return {
-            "trusted_devices": [
-                {
-                    "id": row["id"],
-                    "user_agent": row["user_agent"] or "",
-                    "created_at": row["created_at"],
-                    "last_used_at": row["last_used_at"],
-                    "expires_at": row["expires_at"],
-                    "current_device": _trusted_device_is_current(row, current_token),
-                }
-                for row in rows
-            ]
+            "trusted_devices": list_user_device_sessions(
+                db,
+                payload["user_id"],
+                current_session_id=payload.get("sid"),
+                current_trusted_token=request.cookies.get("nia_2fa_device"),
+            )
         }
 
 
 @router.delete("/me/2fa/trusted-devices")
-def delete_all_trusted_devices(response: Response, user_id: int = Depends(require_2fa_status_auth)):
+def delete_all_trusted_devices(response: Response, payload: dict = Depends(require_interactive_auth_payload)):
+    user_id = payload["user_id"]
     with get_db() as db:
         revoke_trusted_devices(db, user_id)
+        revoke_all_user_sessions(db, user_id)
+        log_audit(db, "user_sessions_revoked", user_id=user_id, details="scope=all")
         db.commit()
     response.delete_cookie("nia_2fa_device", httponly=True, samesite="lax")
-    return {"revoked": True}
+    return {"revoked": True, "current_session": True}
 
 
 @router.delete("/me/2fa/trusted-devices/{device_id}")
-def delete_trusted_device(device_id: int, request: Request, response: Response, user_id: int = Depends(require_2fa_status_auth)):
+def delete_trusted_device(device_id: str, request: Request, response: Response, payload: dict = Depends(require_interactive_auth_payload)):
+    user_id = payload["user_id"]
+    current_session = payload.get("sid") == device_id
     with get_db() as db:
-        row = db.execute(
-            "SELECT id, token_hash, token_prefix FROM trusted_devices WHERE id = ? AND user_id = ? AND revoked_at IS NULL",
-            (device_id, user_id),
-        ).fetchone()
+        row = revoke_device_session(db, user_id, device_id)
         if not row:
-            raise api_error(404, "mfa.trustedDeviceNotFound", "Trusted device not found")
-        current_device = _trusted_device_is_current(row, request.cookies.get("nia_2fa_device"))
-        db.execute("UPDATE trusted_devices SET revoked_at = datetime('now') WHERE id = ? AND user_id = ?", (device_id, user_id))
-        log_audit(db, "two_factor_trusted_device_revoked", user_id=user_id, details=f"device_id={device_id}; current_device={current_device}")
+            raise api_error(404, "mfa.trustedDeviceNotFound", "Device session not found")
+        current_trusted_device = bool(row.get("trusted_device_id")) and row.get("token_prefix") and request.cookies.get("nia_2fa_device", "")[:12] == row.get("token_prefix")
+        log_audit(db, "user_session_revoked", user_id=user_id, details=f"session_id={device_id}; trusted_device_id={row.get('trusted_device_id')}; current_session={current_session}")
         db.commit()
-    if current_device:
+    if current_session or current_trusted_device:
         response.delete_cookie("nia_2fa_device", httponly=True, samesite="lax")
-    return {"revoked": True, "current_device": current_device}
+    return {"revoked": True, "current_session": current_session}
 
 
 @router.post("/me/2fa/totp/start")
@@ -336,7 +328,7 @@ def start_totp(user_id: int = Depends(require_enrollment_or_recent_mfa)):
 
 
 @router.post("/me/2fa/totp/confirm")
-def confirm_totp(data: TotpConfirmRequest, user_id: int = Depends(require_enrollment_or_mfa_action)):
+def confirm_totp(data: TotpConfirmRequest, request: Request, authorization: Optional[str] = Header(None), user_id: int = Depends(require_enrollment_or_mfa_action)):
     if not verify_totp(data.secret, data.code):
         raise api_error(400, "mfa.totpInvalid", "Invalid TOTP code")
     with get_db() as db:
@@ -349,8 +341,11 @@ def confirm_totp(data: TotpConfirmRequest, user_id: int = Depends(require_enroll
         )
         codes = create_recovery_codes(db, user_id)
         log_audit(db, "two_factor_totp_enabled", user_id=user_id)
-        token_user = db.execute("SELECT id, username, is_admin, token_version FROM users WHERE id = ?", (user_id,)).fetchone()
-        access_token = create_jwt_token(dict(token_user), db, mfa_login_verified=True)
+        token_user = dict(db.execute("SELECT id, username, is_admin, token_version FROM users WHERE id = ?", (user_id,)).fetchone())
+        payload = _current_payload(authorization, db) or {}
+        if payload.get("sid"):
+            token_user["session_id"] = payload.get("sid")
+        access_token = create_jwt_token(token_user, db, mfa_login_verified=True, create_session=not bool(payload.get("sid")), user_agent=request.headers.get("user-agent", ""), ip_address=get_client_ip(request))
         db.commit()
         return {"enabled": True, "recovery_codes": codes, "access_token": access_token, "token_type": "bearer"}
 
@@ -456,6 +451,7 @@ def reauth(data: ReauthRequest, authorization: Optional[str] = Header(None)):
         user = db.execute("SELECT id, username, is_admin, token_version FROM users WHERE id = ?", (user_id,)).fetchone()
         token_user = dict(user)
         token_user["mfa_login_at"] = payload.get("mfa_login_at") or payload.get("mfa_at")
+        token_user["session_id"] = payload.get("sid")
         token = create_jwt_token(token_user, db, mfa_grant=create_mfa_action_grant(db, user_id))
         log_audit(db, "two_factor_reauth_success", user_id=user_id)
         db.commit()
@@ -492,7 +488,7 @@ def passkey_registration_options(data: PasskeyNameRequest, request: Request, use
 
 
 @router.post("/me/passkeys/verify")
-def passkey_registration_verify(data: PasskeyRegistrationVerifyRequest, request: Request, user_id: int = Depends(require_enrollment_or_mfa_action)):
+def passkey_registration_verify(data: PasskeyRegistrationVerifyRequest, request: Request, authorization: Optional[str] = Header(None), user_id: int = Depends(require_enrollment_or_mfa_action)):
     credential = data.credential or {}
     response = credential.get("response") or {}
     rp = relying_party_for_request(request)
@@ -536,8 +532,11 @@ def passkey_registration_verify(data: PasskeyRegistrationVerifyRequest, request:
             recovery_codes = create_recovery_codes(db, user_id)
         db.execute("UPDATE users SET two_factor_enabled = 1, two_factor_updated_at = datetime('now') WHERE id = ?", (user_id,))
         log_audit(db, "passkey_added", user_id=user_id, details=f"credential_id={credential_id[:12]}")
-        token_user = db.execute("SELECT id, username, is_admin, token_version FROM users WHERE id = ?", (user_id,)).fetchone()
-        access_token = create_jwt_token(dict(token_user), db, mfa_login_verified=True)
+        token_user = dict(db.execute("SELECT id, username, is_admin, token_version FROM users WHERE id = ?", (user_id,)).fetchone())
+        payload = _current_payload(authorization, db) or {}
+        if payload.get("sid"):
+            token_user["session_id"] = payload.get("sid")
+        access_token = create_jwt_token(token_user, db, mfa_login_verified=True, create_session=not bool(payload.get("sid")), user_agent=request.headers.get("user-agent", ""), ip_address=get_client_ip(request))
         db.commit()
         return {"registered": True, "recovery_codes": recovery_codes, "access_token": access_token, "token_type": "bearer"}
 
@@ -623,12 +622,14 @@ def passkey_login_verify(data: PasskeyLoginVerifyRequest, request: Request, resp
             raise api_error(401, "mfa.challengeAlreadyUsed", "2FA-Challenge bereits verwendet")
         db.execute("UPDATE passkeys SET last_used_at = datetime('now'), sign_count = MAX(sign_count, ?) WHERE id = ?", (parsed["sign_count"], key["id"]))
         user = db.execute("SELECT id, username, display_name, email, email_verified_at, email_trust_source, avatar_url, is_admin, token_version FROM users WHERE id = ?", (challenge["user_id"],)).fetchone()
-        token = create_jwt_token(dict(user), db, mfa_login_verified=True)
+        trusted_device_token = None
+        trusted_device_id = None
+        if data.remember_device:
+            trusted_device_token, trusted_device_id = create_trusted_device(db, user["id"], request.headers.get("user-agent", ""), return_id=True)
+            response.set_cookie("nia_2fa_device", trusted_device_token, max_age=30 * 86400, httponly=True, secure=request.url.scheme == "https", samesite="lax")
+        token = create_jwt_token(dict(user), db, mfa_login_verified=True, create_session=True, trusted_device_id=trusted_device_id, user_agent=request.headers.get("user-agent", ""), ip_address=ip)
         csrf_token = generate_csrf_token()
         set_csrf_cookie(response, csrf_token)
-        trusted_device_token = create_trusted_device(db, user["id"], request.headers.get("user-agent", "")) if data.remember_device else None
-        if trusted_device_token:
-            response.set_cookie("nia_2fa_device", trusted_device_token, max_age=30 * 86400, httponly=True, secure=request.url.scheme == "https", samesite="lax")
         log_audit(db, "two_factor_challenge_passed", user_id=user["id"], ip_address=ip, details=f"method=passkey; remember_device={bool(trusted_device_token)}")
         db.commit()
         return {"access_token": token, "token_type": "bearer", "csrf_token": csrf_token, "user": {"id": user["id"], "username": user["username"], "display_name": user["display_name"], "email": user["email"], "email_verified_at": user["email_verified_at"], "email_trust_source": user["email_trust_source"], "avatar_url": user["avatar_url"], "is_admin": bool(user["is_admin"])}}
@@ -704,6 +705,7 @@ def passkey_reauth_verify(data: PasskeyReauthVerifyRequest, request: Request, au
         user = db.execute("SELECT id, username, is_admin, token_version FROM users WHERE id = ?", (user_id,)).fetchone()
         token_user = dict(user)
         token_user["mfa_login_at"] = payload.get("mfa_login_at") or payload.get("mfa_at")
+        token_user["session_id"] = payload.get("sid")
         token = create_jwt_token(token_user, db, mfa_grant=create_mfa_action_grant(db, user_id))
         log_audit(db, "two_factor_reauth_success", user_id=user_id, details="method=passkey")
         db.commit()
