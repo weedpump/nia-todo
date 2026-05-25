@@ -103,6 +103,24 @@ async function run() {
     }, null, { timeout: 10000 });
     await clickProjectNav('Frontend Project A');
 
+    await page.evaluate(() => {
+      window.__originalFetchForSectionsFallback = window.fetch;
+      window.fetch = (input, init) => {
+        const url = typeof input === 'string' ? input : input?.url || '';
+        if (url.includes('/api/sections/by-project/')) return Promise.reject(new Error('simulated sections outage'));
+        return window.__originalFetchForSectionsFallback(input, init);
+      };
+    });
+    await openTodoModal();
+    await page.fill('#todo-title', 'Offline-ish section cache fallback');
+    await page.selectOption('#todo-project', { label: 'Frontend Project A' });
+    await ensureSectionOptions(['Section A', 'Section B']);
+    await page.evaluate(() => {
+      window.closeModal?.('todo-modal');
+      if (window.__originalFetchForSectionsFallback) window.fetch = window.__originalFetchForSectionsFallback;
+      delete window.__originalFetchForSectionsFallback;
+    });
+
     await openTodoModal();
     await page.fill('#todo-title', 'Section Todo');
     await page.selectOption('#todo-status', 'in_progress');
