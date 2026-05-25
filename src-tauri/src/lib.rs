@@ -107,6 +107,7 @@ fn save_settings(app: &AppHandle, settings: &DesktopSettings) -> Result<(), Stri
   fs::write(path, raw).map_err(|err| err.to_string())
 }
 
+#[cfg(any(desktop, target_os = "windows"))]
 const START_MINIMIZED_ARG: &str = "--nia-start-minimized-to-tray";
 
 #[cfg(target_os = "windows")]
