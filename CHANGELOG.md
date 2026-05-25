@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 
 ### Fixed
 - Todo dialogs no longer overflow horizontally on iOS Safari/Chrome when deadline or reminder date/time fields are visible.
+- The active workspace name in the top bar no longer falls back to the translated generic label after opening and closing user settings.
 - Existing pre-2.3.0 browser sessions are now migrated into revokable device sessions on the next `/api/me` auth check, so users do not need to log out and back in before the current device appears in Active sessions/devices.
 
 ## [2.3.0] - 2026-05-25
