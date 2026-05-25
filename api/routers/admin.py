@@ -31,6 +31,7 @@ class CreateUserRequest(BaseModel):
     username: str
     display_name: str
     email: str
+    language: str = "de"
 
 class UpdateUserRequest(BaseModel):
     email: str
@@ -251,6 +252,9 @@ def create_user(data: CreateUserRequest, request: Request, _: bool = Depends(req
     data.username = sanitize_text(data.username)
     data.display_name = sanitize_text(data.display_name)
     data.email = normalize_email(sanitize_text(data.email))
+    data.language = (data.language or 'de').strip().lower()
+    if data.language not in {'de', 'en'}:
+        raise api_error(400, 'language.invalid', 'Invalid language')
     email_error = validate_email(data.email)
     if email_error:
         raise validation_api_error(email_error)
@@ -264,8 +268,8 @@ def create_user(data: CreateUserRequest, request: Request, _: bool = Depends(req
                 raise HTTPException(409, "Email already exists")
         unusable_password_hash = bcrypt.hashpw(secrets.token_urlsafe(32).encode(), bcrypt.gensalt()).decode()
         c = db.execute(
-            "INSERT INTO users (username, display_name, email, password_hash, is_admin) VALUES (?, ?, ?, ?, 0)",
-            (data.username, data.display_name, data.email, unusable_password_hash)
+            "INSERT INTO users (username, display_name, email, password_hash, is_admin, language) VALUES (?, ?, ?, ?, 0, ?)",
+            (data.username, data.display_name, data.email, unusable_password_hash, data.language)
         )
         user_id = c.lastrowid
 
@@ -299,7 +303,7 @@ def create_user(data: CreateUserRequest, request: Request, _: bool = Depends(req
                     username=data.username,
                     link=link,
                     purpose="invite",
-                    language='de',
+                    language=data.language,
                 )
                 emailed = True
             except Exception:
@@ -314,6 +318,7 @@ def create_user(data: CreateUserRequest, request: Request, _: bool = Depends(req
             "username": data.username,
             "display_name": data.display_name,
             "email": data.email,
+            "language": data.language,
             "created_at": now_iso(),
             "password_setup_expires_hours": _password_link_ttl_hours(),
             "password_setup_delivery": "email" if emailed else "manual",
@@ -328,7 +333,7 @@ def list_users(_: bool = Depends(require_admin)):
     with get_db() as db:
         rows = db.execute("""
             SELECT u.id, u.username, u.display_name, u.email, u.email_verified_at, u.email_trust_source,
-                   u.pending_email, u.password_hash IS NOT NULL AS password_configured, u.is_admin, u.created_at,
+                   u.pending_email, u.password_hash IS NOT NULL AS password_configured, u.is_admin, u.language, u.created_at,
                    COALESCE(u.two_factor_enabled, 0) AS two_factor_enabled,
                    CASE WHEN u.two_factor_totp_secret IS NOT NULL AND u.two_factor_totp_secret != '' THEN 1 ELSE 0 END AS has_totp,
                    CASE WHEN u.two_factor_recovery_hashes IS NOT NULL AND u.two_factor_recovery_hashes != '[]' THEN 1 ELSE 0 END AS has_recovery_codes,

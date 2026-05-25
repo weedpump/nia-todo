@@ -617,6 +617,10 @@ export function startAppModule() {
   window.addEventListener('nia-language-change', () => {
     translatePage(document);
     applyTheme(localStorage.getItem('theme') || 'system');
+    renderProjects();
+    renderWorkspaces();
+    renderStats();
+    renderTodos();
     updateToggleDoneButton();
     updateSortButton();
     updateProjectWidgetButton();

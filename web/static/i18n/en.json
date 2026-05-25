@@ -608,6 +608,7 @@
   "admin.user.createdEmailSent": "User {username} created. Invitation email was sent.",
   "admin.user.createdCopyLink": "User {username} created. Copy and send the link:",
   "admin.user.emailRequired": "Email is required",
+  "admin.user.language": "Language",
   "admin.errorWithMessage": "Error: {error}",
   "admin.user.login": "Login",
   "admin.user.passwordLink": "Link",
