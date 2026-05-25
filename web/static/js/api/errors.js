@@ -11,6 +11,10 @@ const LEGACY_DETAIL_KEYS = new Map(Object.entries({
   'Passwort muss mindestens einen Kleinbuchstaben enthalten': 'api.error.validation.passwordLowercase',
   'Passwort muss mindestens eine Ziffer enthalten': 'api.error.validation.passwordDigit',
   'Passwort muss mindestens ein Sonderzeichen enthalten': 'api.error.validation.passwordSpecial',
+  'Too many login attempts. Please try again in 15 minutes.': 'api.error.rateLimit.login',
+  'Too many requests. Please try again later.': 'api.error.rateLimit.passwordReset',
+  'Too many requests. Please slow down.': 'api.error.rateLimit.api',
+  'You are not authenticated.': 'api.error.auth.notAuthenticated',
 }));
 
 function messageFromDetail(detail, fallback) {

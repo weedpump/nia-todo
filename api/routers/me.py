@@ -27,6 +27,7 @@ from services.audit import log_audit
 from services.email import send_email
 from services.email_verification import clear_pending_email, set_email_or_pending, verify_pending_email
 from services.utils import normalize_email, sanitize_text, validate_email, validate_password
+from errors import api_error
 
 router = APIRouter(prefix="/api/me")
 
@@ -84,11 +85,11 @@ def _load_avatar_image(body: bytes, content_type: str) -> Image.Image:
 def update_own_language(data: UpdateLanguageRequest, user_id: int = Depends(require_auth)):
     language = (data.language or 'auto').strip().lower()
     if language not in {'auto', 'de', 'en'}:
-        raise HTTPException(400, 'Ungültige Sprache')
+        raise api_error(400, 'language.invalid', 'Invalid language')
     with get_db() as db:
         user = db.execute("SELECT id FROM users WHERE id = ?", (user_id,)).fetchone()
         if not user:
-            raise HTTPException(404, 'User not found')
+            raise api_error(404, 'user.notFound', 'User not found')
         db.execute("UPDATE users SET language = ? WHERE id = ?", (language, user_id))
         db.commit()
     return {'language': language}
@@ -97,9 +98,9 @@ def update_own_language(data: UpdateLanguageRequest, user_id: int = Depends(requ
 def update_own_profile(data: UpdateProfileRequest, user_id: int = Depends(require_auth)):
     display_name = sanitize_text(data.display_name)
     if not display_name:
-        raise HTTPException(400, "Anzeigename ist erforderlich")
+        raise api_error(400, 'profile.displayNameRequired', 'Display name is required')
     if len(display_name) > 80:
-        raise HTTPException(400, "Anzeigename ist zu lang")
+        raise api_error(400, 'profile.displayNameTooLong', 'Display name is too long')
     with get_db() as db:
         user = db.execute("SELECT id, username, email, email_trust_source, avatar_url, avatar_updated_at, is_admin, language FROM users WHERE id = ?", (user_id,)).fetchone()
         if not user:
@@ -122,20 +123,20 @@ def update_own_profile(data: UpdateProfileRequest, user_id: int = Depends(requir
 async def upload_own_avatar(request: Request, user_id: int = Depends(require_auth)):
     content_type = (request.headers.get("content-type") or "").split(";", 1)[0].lower()
     if content_type in {"image/heic", "image/heif"} and not HEIC_SUPPORTED:
-        raise HTTPException(400, "HEIC wird auf diesem Server noch nicht unterstützt")
+        raise api_error(400, 'avatar.heicUnsupported', 'HEIC is not supported on this server')
     if content_type not in ALLOWED_AVATAR_CONTENT_TYPES:
-        raise HTTPException(400, "Bitte ein gültiges Bild hochladen")
+        raise api_error(400, 'avatar.invalidImage', 'Please upload a valid image')
 
     body = await request.body()
     if not body:
-        raise HTTPException(400, "Bild ist erforderlich")
+        raise api_error(400, 'avatar.required', 'Image is required')
     if len(body) > MAX_AVATAR_BYTES:
-        raise HTTPException(400, "Bild ist zu groß")
+        raise api_error(400, 'avatar.tooLarge', 'Image is too large')
 
     try:
         image = _load_avatar_image(body, content_type)
     except (UnidentifiedImageError, OSError, SyntaxError, subprocess.SubprocessError):
-        raise HTTPException(400, "Bitte ein gültiges Bild hochladen")
+        raise api_error(400, 'avatar.invalidImage', 'Please upload a valid image')
 
     width, height = image.size
     side = min(width, height)
@@ -181,10 +182,10 @@ def verify_own_pending_email(data: dict, user_id: int = Depends(require_auth)):
     token = sanitize_text(data.get("token") if isinstance(data, dict) else "")
     with get_db() as db:
         if not verify_pending_email(db, token, user_id=user_id):
-            raise HTTPException(404, "Bestätigungslink ist ungültig oder abgelaufen")
+            raise api_error(404, 'emailVerification.invalidOrExpired', 'Confirmation link is invalid or expired')
         log_audit(db, "email_verification_completed", user_id=user_id)
         db.commit()
-    return {"message": "E-Mail bestätigt."}
+    return {"message": "Email verified."}
 
 
 @router.patch("/email")
@@ -208,7 +209,7 @@ def update_own_email(data: UpdateEmailRequest, request: Request, user_id: int = 
                 "pending_email": None,
                 "email_verification_required": False,
                 "email_verification_delivery": "unavailable",
-                "message": "E-Mail konnte nicht geändert werden.",
+                "message": "Email could not be changed.",
             }
         result = set_email_or_pending(db, user_id=user_id, email=email, request=request, requested_by="user")
         verification_email = result.pop("_verification_email", None)
@@ -220,7 +221,7 @@ def update_own_email(data: UpdateEmailRequest, request: Request, user_id: int = 
                 clear_pending_email(db, user_id=user_id)
                 log_audit(db, "email_verification_email_failed", user_id=user_id, details="requested_by=user")
                 db.commit()
-                raise HTTPException(400, "Bestätigungsmail konnte nicht gesendet werden. E-Mail wurde nicht geändert.")
+                raise api_error(400, 'email.changeVerificationFailed', 'The confirmation email could not be sent. The email was not changed.')
         log_audit(db, "email_verification_requested" if result.get("email_verification_required") else "email_changed_direct", user_id=user_id, details=f"delivery={result.get('email_verification_delivery')}")
         db.commit()
     return result
@@ -236,11 +237,11 @@ def change_own_password(data: ChangePasswordRequest, user_id: int = Depends(requ
         if not row:
             raise HTTPException(404, "User not found")
         if not bcrypt.checkpw(data.old_password.encode(), row['password_hash'].encode()):
-            raise HTTPException(401, "Altes Passwort ist falsch")
+            raise api_error(401, 'password.oldInvalid', 'Wrong current password')
         new_hash = bcrypt.hashpw(data.new_password.encode(), bcrypt.gensalt()).decode()
         db.execute(
             "UPDATE users SET password_hash = ?, token_version = token_version + 1 WHERE id = ?",
             (new_hash, user_id)
         )
         db.commit()
-    return {"message": "Passwort geändert. Bitte melde dich erneut an."}
+    return {"message": "Password changed. Please sign in again."}

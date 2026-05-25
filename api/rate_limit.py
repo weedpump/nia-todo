@@ -107,7 +107,7 @@ def require_login_rate_limit(request: Request):
     if not rate_limiter.check_login(ip):
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Zu viele Login-Versuche. Bitte in 15 Minuten erneut versuchen."
+            detail={"code": "rateLimit.login", "message": "Too many login attempts. Please try again in 15 minutes."}
         )
 
 
@@ -116,7 +116,7 @@ def require_password_reset_rate_limit(request: Request):
     if not rate_limiter.check_password_reset(f"ip:{ip}"):
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Zu viele Anfragen. Bitte später erneut versuchen."
+            detail={"code": "rateLimit.passwordReset", "message": "Too many requests. Please try again later."}
         )
 
 
@@ -126,6 +126,6 @@ def require_api_rate_limit(request: Request):
     if not allowed:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Zu viele Anfragen. Bitte langsamer machen.",
+            detail={"code": "rateLimit.api", "message": "Too many requests. Please slow down."},
             headers={"Retry-After": str(retry_after)}
         )

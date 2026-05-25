@@ -53,17 +53,17 @@ def _normalize_http_url(value: str, *, field: str, allow_empty: bool = False, or
     if not raw:
         if allow_empty:
             return ""
-        raise HTTPException(400, f"{field} ist erforderlich")
+        raise HTTPException(400, f"{field} is required")
 
     parsed = urlparse(raw)
     if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-        raise HTTPException(400, f"{field} muss eine gültige http(s)-URL sein")
+        raise HTTPException(400, f"{field} must be a valid http(s) URL")
     if parsed.username or parsed.password:
-        raise HTTPException(400, f"{field} darf keine Zugangsdaten enthalten")
+        raise HTTPException(400, f"{field} must not contain credentials")
     if parsed.query or parsed.fragment:
-        raise HTTPException(400, f"{field} darf keinen Query-String oder Fragment enthalten")
+        raise HTTPException(400, f"{field} must not contain a query string or fragment")
     if origin_only and parsed.path not in {"", "/"}:
-        raise HTTPException(400, f"{field} darf nur Scheme, Host und optional Port enthalten")
+        raise HTTPException(400, f"{field} may only contain scheme, host and optional port")
     try:
         netloc = _canonical_netloc(parsed)
     except ValueError:
@@ -96,7 +96,7 @@ def normalize_allowed_origins(value: Any) -> list[str]:
     elif isinstance(value, list):
         origins = [str(item).strip() for item in value]
     else:
-        raise HTTPException(400, "Allowed Origins müssen eine Liste sein")
+        raise HTTPException(400, "Allowed Origins must be a list")
 
     normalized: list[str] = []
     seen = set()
@@ -116,7 +116,7 @@ def normalize_trusted_proxies(value: Any) -> list[str]:
     elif isinstance(value, list):
         entries = [str(item).strip() for item in value]
     else:
-        raise HTTPException(400, "Trusted Proxies müssen eine Liste sein")
+        raise HTTPException(400, "Trusted Proxies must be a list")
 
     normalized: list[str] = []
     seen = set()
@@ -126,9 +126,9 @@ def normalize_trusted_proxies(value: Any) -> list[str]:
         try:
             network = ipaddress.ip_network(entry, strict=False)
         except ValueError:
-            raise HTTPException(400, f"Ungültiger Trusted Proxy: {entry}")
+            raise HTTPException(400, f"Invalid trusted proxy: {entry}")
         if network.prefixlen == 0:
-            raise HTTPException(400, f"Trusted Proxy darf nicht das gesamte Internet umfassen: {entry}")
+            raise HTTPException(400, f"Trusted proxy must not cover the entire internet: {entry}")
         item = str(network)
         if item not in seen:
             normalized.append(item)
@@ -359,5 +359,5 @@ def get_public_base_url(request: Request, *, require_configured: bool = False) -
     if configured:
         return configured
     if require_configured:
-        raise HTTPException(400, "Öffentliche Basis-URL muss konfiguriert sein, bevor E-Mail-Links versendet werden")
+        raise HTTPException(400, "Public base URL must be configured before sending email links")
     return _request_origin(request)
