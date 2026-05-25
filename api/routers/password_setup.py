@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 from db import get_db
 from rate_limit import rate_limiter, get_client_ip, require_password_reset_rate_limit
+from errors import api_error
 from services.audit import log_audit
 from services.email import send_email
 from services.email_config import can_send_email_links, get_password_link_ttl_hours
@@ -177,7 +178,7 @@ def validate_password_setup_token(token: str):
                 "display_name": expired['display_name'],
                 "purpose": expired['purpose'],
             }
-        raise HTTPException(404, "Link ist ungültig oder abgelaufen")
+        raise api_error(404, "passwordSetup.invalidOrExpired", "Link ist ungültig oder abgelaufen")
 
 
 @router.post("/resend")
@@ -185,11 +186,11 @@ def resend_password_setup_link(data: ResendPasswordSetupRequest, request: Reques
     with get_db() as db:
         row = _get_expired_resend_context(db, data.token)
         if not row:
-            raise HTTPException(404, "Link ist ungültig oder abgelaufen")
+            raise api_error(404, "passwordSetup.invalidOrExpired", "Link ist ungültig oder abgelaufen")
         new_token = _create_password_setup_token(db, row['user_id'], row['purpose'], "user")
         can_email = can_send_email_links() and bool(row['email']) and (row['purpose'] == 'invite' or bool(row['email_verified_at']))
         if not can_email:
-            raise HTTPException(400, "Ein neuer Link kann nur per E-Mail angefordert werden. Bitte Admin kontaktieren.")
+            raise api_error(400, "passwordSetup.emailOnlyResend", "Ein neuer Link kann nur per E-Mail angefordert werden. Bitte Admin kontaktieren.")
         link = _make_password_setup_link(request, new_token, require_configured=True)
         emailed = False
         if can_email:
@@ -215,7 +216,7 @@ def resend_password_setup_link(data: ResendPasswordSetupRequest, request: Reques
                 )
                 log_audit(db, "password_setup_email_failed", user_id=row['user_id'], ip_address=get_client_ip(request), details=f"purpose={row['purpose']}; resend=true")
                 db.commit()
-                raise HTTPException(400, "Neuer Link konnte nicht per E-Mail gesendet werden. Bitte Admin kontaktieren.")
+                raise api_error(400, "passwordSetup.resendEmailFailed", "Neuer Link konnte nicht per E-Mail gesendet werden. Bitte Admin kontaktieren.")
         log_audit(db, "password_setup_link_replaced", user_id=row['user_id'], ip_address=get_client_ip(request), details=f"purpose={row['purpose']}; delivery={'email' if emailed else 'manual'}")
         db.commit()
     response = {
@@ -236,7 +237,7 @@ def complete_password_setup(data: CompletePasswordSetupRequest):
     with get_db() as db:
         row = _get_valid_token(db, data.token)
         if not row:
-            raise HTTPException(404, "Link ist ungültig oder abgelaufen")
+            raise api_error(404, "passwordSetup.invalidOrExpired", "Link ist ungültig oder abgelaufen")
         token_update = db.execute(
             """UPDATE password_setup_tokens
                SET used_at = datetime('now'), status = 'used'
@@ -247,7 +248,7 @@ def complete_password_setup(data: CompletePasswordSetupRequest):
             (row['id'],)
         )
         if token_update.rowcount != 1:
-            raise HTTPException(404, "Link ist ungültig oder abgelaufen")
+            raise api_error(404, "passwordSetup.invalidOrExpired", "Link ist ungültig oder abgelaufen")
         password_hash = bcrypt.hashpw(data.password.encode(), bcrypt.gensalt()).decode()
         if row['purpose'] == 'invite':
             db.execute(
