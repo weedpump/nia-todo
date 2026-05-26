@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - Active sessions/devices in user settings are now collapsed by default, show the session count, and include privacy-local IP classification details.
 - Native clients now send app/platform metadata so active sessions/devices can show clearer device labels.
 - TOTP status now shows "1 TOTP" in admin panel and settings (consistent with passkey count display).
+- Public release packaging now builds a clean AGPL-licensed source export, a full Debian/Ubuntu server bundle, and a Docker image from tag checkout.
+- Public release publishing can push the source snapshot/tag to GitHub, upload the `.deb`, checksum, and manifest as GitHub release assets, and push the Docker image to GHCR.
+- Packaged server backups now use bundled backup/restore helpers, a systemd timer, runtime-data isolation, and hardened restore validation.
 
 ### Changed
 - Session IP tracking now records the real client IP behind trusted reverse proxies using `X-Forwarded-For` or `X-Real-IP`, and keeps it updated during normal authenticated activity, MFA/re-auth flows, and WebSocket authentication.
