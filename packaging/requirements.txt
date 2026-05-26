@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+pydantic
+bcrypt
+PyJWT
+cryptography
+Pillow
+py-vapid
+pywebpush
+pillow-heif

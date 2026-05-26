@@ -1,15 +1,16 @@
 [Unit]
-Description=Nia-Todo FastAPI Server
+Description=nia-todo FastAPI Server
 After=network.target
 
 [Service]
 Type=simple
-WorkingDirectory=~/projects/nia-todo/api
-Environment="NIA_TODO_DB=nia-todo.db"
-ExecStart=/usr/bin/python3 -m uvicorn main:app --host 0.0.0.0 --port 8753 --no-proxy-headers
+WorkingDirectory=/opt/nia-todo
+EnvironmentFile=-/etc/nia-todo/nia-todo.env
+ExecStart=/opt/nia-todo/start.sh
 Restart=always
 RestartSec=5
-User=root
+User=nia-todo
+Group=nia-todo
 
 [Install]
 WantedBy=multi-user.target
