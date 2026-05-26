@@ -12,6 +12,7 @@ A public release has exactly two distribution targets:
    - contains bundled Windows/Android client downloads under `/opt/nia-todo/web/downloads/`
 2. Docker image
    - built from the same clean public export
+   - contains the same bundled Windows/Android client downloads under `/app/web/downloads/`
    - Python wheels are prepared before the final `docker build` in a temporary Python builder container; the final Dockerfile only installs from the local wheelhouse
 
 Windows and Android installers/APKs are embedded into the server bundle, not published as separate required public assets.
