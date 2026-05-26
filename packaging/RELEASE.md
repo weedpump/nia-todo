@@ -46,4 +46,4 @@ Excluded examples:
 
 ## Notes
 
-The package currently installs Python dependencies during package installation via `pip`. For fully offline installation, add wheel vendoring later.
+The Debian package vendors Python wheels during release packaging and installs dependencies from the bundled wheelhouse. The installer does not need to download Python packages during normal installation.

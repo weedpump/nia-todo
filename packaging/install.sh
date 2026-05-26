@@ -56,8 +56,12 @@ ENV
 fi
 
 python3 -m venv "${APP_DIR}/.venv"
-"${APP_DIR}/.venv/bin/pip" install --upgrade pip
-"${APP_DIR}/.venv/bin/pip" install -r "${APP_DIR}/requirements.txt"
+if [ -d "${APP_DIR}/wheelhouse" ]; then
+  "${APP_DIR}/.venv/bin/pip" install --no-index --find-links="${APP_DIR}/wheelhouse" -r "${APP_DIR}/requirements.txt"
+  rm -rf "${APP_DIR}/wheelhouse"
+else
+  "${APP_DIR}/.venv/bin/pip" install -r "${APP_DIR}/requirements.txt"
+fi
 
 # Ensure start.sh uses the venv Python without modifying application code.
 cat > "${APP_DIR}/run-service.sh" <<'RUN'
