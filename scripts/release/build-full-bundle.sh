@@ -59,8 +59,9 @@ scripts/release/export-public.sh "${VERSION}" --output "${EXPORT_DIR}" --force
 
 rm -rf "${EXPORT_DIR}/wheelhouse"
 mkdir -p "${EXPORT_DIR}/wheelhouse"
+EXPORT_DIR_ABS="$(cd "${EXPORT_DIR}" && pwd)"
 docker run --rm \
-  -v "${EXPORT_DIR}:/work" \
+  -v "${EXPORT_DIR_ABS}:/work" \
   -w /work \
   python:3.13.5-slim \
   python -m pip wheel --wheel-dir /work/wheelhouse -r /work/requirements.txt
