@@ -8,9 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 ## [2.5.0] - 2026-05-26
 
 ### Added
-- Public release packaging now builds a clean AGPL-licensed source export, a full Debian/Ubuntu server bundle, and a Docker image from tag checkout.
-- Public release publishing can push the source snapshot/tag to GitHub, upload the `.deb`, checksum, and manifest as GitHub release assets, and push the Docker image to GHCR.
-- Packaged server backups now use bundled backup/restore helpers, a systemd timer, runtime-data isolation, and hardened restore validation.
+- Initial public release packaging for a clean AGPL-licensed source export, a full Debian/Ubuntu server bundle, and a Docker image built from tag checkout.
+- Initial public release publishing workflow for pushing the source snapshot/tag to GitHub, uploading the `.deb`, checksum, and manifest as GitHub release assets, and publishing the Docker image to GHCR.
+- Packaged server backup/restore support with bundled helper commands, a systemd timer, runtime-data isolation, and hardened restore validation.
 
 ## [2.4.0] - 2026-05-26
 
