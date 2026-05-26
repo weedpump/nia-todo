@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 
 ## [2.3.1] - 2026-05-26
 
+### Added
+- Active sessions/devices in user settings are now collapsed by default, show the session count, and include privacy-local IP classification details.
+
+### Changed
+- Session IP tracking now records the real client IP behind trusted reverse proxies using `X-Forwarded-For` or `X-Real-IP`, and keeps it updated during normal authenticated activity, MFA/re-auth flows, and WebSocket authentication.
+
 ### Fixed
 - Todo dialogs no longer overflow horizontally on iOS Safari/Chrome when deadline or reminder date/time fields are visible.
 - The active workspace name in the top bar no longer falls back to the translated generic label after opening and closing user settings.
