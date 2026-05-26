@@ -1,7 +1,6 @@
 [Unit]
 Description=nia-todo backup job
-Requires=nia-todo.service
-After=network.target nia-todo.service
+After=nia-todo.service
 
 [Service]
 Type=oneshot
