@@ -72,7 +72,7 @@ Details: [Test docs](docs/testing.md)
 - Initial setup: `/setup`
 - Admin panel: `/admin`
 - 2FA policy and user reset: `/admin` → Security/user list
-- Passkeys require an HTTPS `public_base_url` in production setups; Android uses the official app signature through `/.well-known/assetlinks.json`
+- Passkeys require an HTTPS `public_base_url` in production setups; Android uses the bundled app signature through `/.well-known/assetlinks.json`
 - Dev branding: `setup-dev.sh`
 
 ## 📄 License

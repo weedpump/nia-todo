@@ -1,6 +1,6 @@
 # <img src="web/static/icons/icon-512.png" alt="nia-todo icon" width="32" height="32"> nia-todo
 
-Self-hosted todo system — SQLite + FastAPI + Web UI + offline PWA + official native Windows/Android clients.
+Self-hosted todo system — SQLite + FastAPI + Web UI + offline PWA + native Windows/Android clients.
 
 nia-todo is designed for private self-hosting: install the server, open the web app, then download the bundled native apps directly from your own instance.
 
@@ -26,8 +26,8 @@ nia-todo is designed for private self-hosting: install the server, open the web 
 - 🤝 Project sharing between users with invitations and undo
 - 📧 Email/SMTP integration for invitations, password reset, and email verification
 - 📱 Offline-capable PWA with local IndexedDB sync queue
-- 🖥️ Official native Windows app wrapper
-- 🤖 Official native Android APK
+- 🖥️ Native Windows app wrapper
+- 🤖 Native Android APK
 - 🔐 Auth, admin panel, API keys, CSRF protection, and per-user data isolation
 - 🛡️ 2FA/MFA with TOTP, passkeys/WebAuthn, email-code fallback, recovery codes, trusted devices, and admin policy
 - 🔔 Native local reminders on Windows and Android; browser/PWA push remains browser/PWA-only
@@ -180,7 +180,7 @@ sudo journalctl -u nia-todo -f
 - Runtime data: `/var/lib/nia-todo`
 - Configuration: `/etc/nia-todo/nia-todo.env`
 
-For production use, configure a correct HTTPS `public_base_url` in the admin panel. Passkeys and native app integrations rely on it. Android passkeys use the official app signature through `/.well-known/assetlinks.json`.
+For production use, configure a correct HTTPS `public_base_url` in the admin panel. Passkeys and native app integrations rely on it. Android passkeys use the bundled app signature through `/.well-known/assetlinks.json`.
 
 ## 📚 Documentation
 

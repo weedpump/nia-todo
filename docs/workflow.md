@@ -49,7 +49,7 @@ Native build notes from `v1.6.0` onward:
 
 - Windows installer includes the local reminder scheduler; reminders work offline as long as app/tray is running.
 - Android APK includes the local `AlarmManager` scheduler; reminders work offline and are rescheduled after device reboot.
-- Android passkeys require the official app ID `de.tobiaskneidl.nia_todo` and the release key; selfhosters only connect this official app to their server URL.
+- Android passkeys require the bundled app ID `de.tobiaskneidl.nia_todo` and the release key; selfhosters connect the bundled app to their server URL.
 - Browser/PWA push remains browser/PWA-only; native apps should not depend on the server WebSocket for reminders.
 - Service worker remains active even in native wrappers so offline cold start works.
 - After a successful release, `release.sh` cleans local Tauri build artifacts via `cargo clean --manifest-path src-tauri/Cargo.toml`. If needed, this can be skipped with `CLEAN_BUILD_ARTIFACTS_AFTER_RELEASE=0 ./release.sh VERSION`.
