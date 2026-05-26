@@ -94,11 +94,14 @@ def get_client_ip(request: Request) -> str:
 
 
 def get_client_ip_ws(websocket: WebSocket) -> str:
-    """Get real client IP from WebSocket, trusting X-Forwarded-For only from configured proxies."""
+    """Get real client IP from WebSocket, trusting proxy headers only from configured proxies."""
     client_host = websocket.client.host if websocket.client else None
     forwarded = forwarded_client_ip(client_host, websocket.headers.get("X-Forwarded-For"))
     if forwarded:
         return forwarded
+    real_ip = forwarded_client_ip(client_host, websocket.headers.get("X-Real-IP"))
+    if real_ip:
+        return real_ip
     return client_host or "unknown"
 
 

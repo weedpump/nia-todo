@@ -23,6 +23,7 @@ import services.two_factor as two_factor_module
 from services.auth import USER_JWT_EXPIRY_DAYS, create_jwt_token, decode_jwt_token, get_current_user, get_jwt_secret
 from routers.auth import me, require_recent_mfa_for_account_security
 from routers.two_factor import ReauthRequest, reauth, regenerate_recovery_codes, require_2fa_status_auth
+from rate_limit import get_client_ip_ws
 from services.webauthn import ANDROID_PACKAGE_NAME, ANDROID_PASSKEY_ORIGINS, ANDROID_RELEASE_CERT_SHA256, relying_party_for_request, verify_client_data
 from services.two_factor import (
     clear_recovery_codes_if_no_primary_factor,
@@ -90,6 +91,12 @@ class FakeRequest:
         self.client = FakeClient(client_host)
 
 
+class FakeWebSocket:
+    def __init__(self, headers=None, client_host="127.0.0.1"):
+        self.headers = headers or {}
+        self.client = FakeClient(client_host)
+
+
 def create_user(conn, username="mfauser", password="Secret123!", email="mfa@example.invalid"):
     password_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
     cur = conn.execute(
@@ -104,7 +111,14 @@ def main():
     for path in with_temp_db():
         conn = sqlite3.connect(path)
         conn.row_factory = sqlite3.Row
+        conn.execute("INSERT OR REPLACE INTO app_config (key, value, updated_at) VALUES ('trusted_proxies', ?, datetime('now'))", ('["127.0.0.1/32"]',))
+        conn.commit()
         user_id = create_user(conn)
+
+        assert get_client_ip_ws(FakeWebSocket(headers={"X-Real-IP": "198.51.100.42"})) == "198.51.100.42"
+        assert get_client_ip_ws(FakeWebSocket(headers={"X-Forwarded-For": "198.51.100.43", "X-Real-IP": "198.51.100.42"})) == "198.51.100.43"
+        assert get_client_ip_ws(FakeWebSocket(headers={"X-Real-IP": "198.51.100.42"}, client_host="10.0.0.10")) == "10.0.0.10"
+        assert get_client_ip_ws(FakeWebSocket(headers={"X-Real-IP": "not-an-ip"})) == "127.0.0.1"
 
         secret = generate_totp_secret()
         code = _totp(secret, int(utc_ts() / 30))
@@ -176,12 +190,12 @@ def main():
         assert verify_challenge_method(conn, reauth_bucket, "email", "123456")
         email_user = conn.execute("SELECT id, username, is_admin, token_version FROM users WHERE id = ?", (email_user_id,)).fetchone()
         email_token = create_jwt_token(dict(email_user), conn, mfa_login_verified=True)
-        reauth_response = reauth(ReauthRequest(method="email", code="123456"), authorization=f"Bearer {email_token}")
+        reauth_response = reauth(ReauthRequest(method="email", code="123456"), FakeRequest("https://todo.example.invalid"), authorization=f"Bearer {email_token}")
         assert reauth_response["access_token"]
         used_reauth_bucket = conn.execute("SELECT email_code_hash, email_code_expires_at, consumed_at FROM two_factor_challenges WHERE token_hash = ?", (bucket_hash,)).fetchone()
         assert used_reauth_bucket["email_code_hash"] is None and used_reauth_bucket["email_code_expires_at"] is None and used_reauth_bucket["consumed_at"]
         try:
-            reauth(ReauthRequest(method="email", code="123456"), authorization=f"Bearer {email_token}")
+            reauth(ReauthRequest(method="email", code="123456"), FakeRequest("https://todo.example.invalid"), authorization=f"Bearer {email_token}")
             raise AssertionError("email reauth code must not mint multiple grants after success")
         except HTTPException as exc:
             assert exc.status_code == 401
@@ -300,29 +314,29 @@ def main():
         set_two_factor_required(conn, True)
         conn.commit()
         assert get_current_user(old_token) is None
-        assert require_2fa_status_auth(authorization=f"Bearer {old_token}") == user_id
+        assert require_2fa_status_auth(FakeRequest("https://todo.example.invalid"), authorization=f"Bearer {old_token}") == user_id
 
         # Trusted-device login is sufficient for normal app access, but must not satisfy recent-MFA gates.
         trusted_login_token = create_jwt_token(dict(user), conn, mfa_login_verified=True)
         assert get_current_user(trusted_login_token) == user_id
-        totp_reauth = reauth(ReauthRequest(method="totp", code=code), authorization=f"Bearer {trusted_login_token}")
+        totp_reauth = reauth(ReauthRequest(method="totp", code=code), FakeRequest("https://todo.example.invalid"), authorization=f"Bearer {trusted_login_token}")
         assert totp_reauth["access_token"]
         try:
-            reauth(ReauthRequest(method="totp", code=code), authorization=f"Bearer {trusted_login_token}")
+            reauth(ReauthRequest(method="totp", code=code), FakeRequest("https://todo.example.invalid"), authorization=f"Bearer {trusted_login_token}")
             raise AssertionError("same TOTP timestep must not mint multiple reauth grants")
         except HTTPException as exc:
             assert exc.status_code == 401
         try:
-            require_recent_mfa_for_account_security(authorization=f"Bearer {trusted_login_token}")
+            require_recent_mfa_for_account_security(FakeRequest("https://todo.example.invalid"), authorization=f"Bearer {trusted_login_token}")
             raise AssertionError("trusted-device login must not authorize sensitive actions")
         except HTTPException as exc:
             assert exc.status_code == 403
         grant = create_mfa_action_grant(conn, user_id)
         conn.commit()
         fresh_mfa_token = create_jwt_token(dict(user), conn, mfa_grant=grant)
-        assert require_recent_mfa_for_account_security(authorization=f"Bearer {fresh_mfa_token}") == user_id
+        assert require_recent_mfa_for_account_security(FakeRequest("https://todo.example.invalid"), authorization=f"Bearer {fresh_mfa_token}") == user_id
         try:
-            require_recent_mfa_for_account_security(authorization=f"Bearer {fresh_mfa_token}")
+            require_recent_mfa_for_account_security(FakeRequest("https://todo.example.invalid"), authorization=f"Bearer {fresh_mfa_token}")
             raise AssertionError("MFA action grant must be single-use")
         except HTTPException as exc:
             assert exc.status_code == 403

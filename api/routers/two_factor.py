@@ -92,9 +92,9 @@ def _current_payload(authorization: Optional[str], db, client_ip: Optional[str] 
     return decode_jwt_token(authorization[7:], db, client_ip=client_ip)
 
 
-def require_enrollment_or_recent_mfa(authorization: Optional[str] = Header(None)) -> int:
+def require_enrollment_or_recent_mfa(request: Request, authorization: Optional[str] = Header(None)) -> int:
     with get_db() as db:
-        payload = _current_payload(authorization, db)
+        payload = _current_payload(authorization, db, client_ip=get_client_ip(request))
         if not payload:
             raise api_error(401, "auth.notAuthenticated", "Not authenticated")
         user_id = payload.get("user_id")
@@ -105,9 +105,9 @@ def require_enrollment_or_recent_mfa(authorization: Optional[str] = Header(None)
         return user_id
 
 
-def require_enrollment_or_mfa_action(authorization: Optional[str] = Header(None)) -> int:
+def require_enrollment_or_mfa_action(request: Request, authorization: Optional[str] = Header(None)) -> int:
     with get_db() as db:
-        payload = _current_payload(authorization, db)
+        payload = _current_payload(authorization, db, client_ip=get_client_ip(request))
         if not payload:
             raise api_error(401, "auth.notAuthenticated", "Not authenticated")
         user_id = payload.get("user_id")
@@ -217,9 +217,9 @@ def _record_passkey_challenge_failure(db, challenge_id: int) -> None:
     db.execute("UPDATE passkey_challenges SET attempts = ?, locked_until = ? WHERE id = ?", (attempts, locked_until, challenge_id))
 
 
-def require_recent_mfa(authorization: Optional[str] = Header(None)) -> int:
+def require_recent_mfa(request: Request, authorization: Optional[str] = Header(None)) -> int:
     with get_db() as db:
-        payload = _current_payload(authorization, db)
+        payload = _current_payload(authorization, db, client_ip=get_client_ip(request))
         if not payload:
             raise api_error(401, "auth.notAuthenticated", "Not authenticated")
         user_id = payload.get("user_id")
@@ -343,7 +343,7 @@ def confirm_totp(data: TotpConfirmRequest, request: Request, authorization: Opti
         codes = create_recovery_codes(db, user_id)
         log_audit(db, "two_factor_totp_enabled", user_id=user_id)
         token_user = dict(db.execute("SELECT id, username, is_admin, token_version FROM users WHERE id = ?", (user_id,)).fetchone())
-        payload = _current_payload(authorization, db) or {}
+        payload = _current_payload(authorization, db, client_ip=get_client_ip(request)) or {}
         if payload.get("sid"):
             token_user["session_id"] = payload.get("sid")
         access_token = create_jwt_token(token_user, db, mfa_login_verified=True, create_session=not bool(payload.get("sid")), user_agent=session_user_agent(request), ip_address=get_client_ip(request))
@@ -403,7 +403,7 @@ def regenerate_recovery_codes(user_id: int = Depends(require_recent_mfa)):
 @router.post("/me/2fa/reauth/email/start")
 def start_email_reauth(request: Request, authorization: Optional[str] = Header(None)):
     with get_db() as db:
-        payload = _current_payload(authorization, db)
+        payload = _current_payload(authorization, db, client_ip=get_client_ip(request))
         if not payload:
             raise api_error(401, "auth.notAuthenticated", "Not authenticated")
         user_id = payload["user_id"]
@@ -419,9 +419,9 @@ def start_email_reauth(request: Request, authorization: Optional[str] = Header(N
 
 
 @router.post("/me/2fa/reauth")
-def reauth(data: ReauthRequest, authorization: Optional[str] = Header(None)):
+def reauth(data: ReauthRequest, request: Request, authorization: Optional[str] = Header(None)):
     with get_db() as db:
-        payload = _current_payload(authorization, db)
+        payload = _current_payload(authorization, db, client_ip=get_client_ip(request))
         if not payload:
             raise api_error(401, "auth.notAuthenticated", "Not authenticated")
         user_id = payload["user_id"]
@@ -534,7 +534,7 @@ def passkey_registration_verify(data: PasskeyRegistrationVerifyRequest, request:
         db.execute("UPDATE users SET two_factor_enabled = 1, two_factor_updated_at = datetime('now') WHERE id = ?", (user_id,))
         log_audit(db, "passkey_added", user_id=user_id, details=f"credential_id={credential_id[:12]}")
         token_user = dict(db.execute("SELECT id, username, is_admin, token_version FROM users WHERE id = ?", (user_id,)).fetchone())
-        payload = _current_payload(authorization, db) or {}
+        payload = _current_payload(authorization, db, client_ip=get_client_ip(request)) or {}
         if payload.get("sid"):
             token_user["session_id"] = payload.get("sid")
         access_token = create_jwt_token(token_user, db, mfa_login_verified=True, create_session=not bool(payload.get("sid")), user_agent=session_user_agent(request), ip_address=get_client_ip(request))
@@ -665,7 +665,7 @@ def passkey_reauth_options(request: Request, user_id: int = Depends(require_auth
 @router.post("/me/2fa/reauth/passkey/verify")
 def passkey_reauth_verify(data: PasskeyReauthVerifyRequest, request: Request, authorization: Optional[str] = Header(None)):
     with get_db() as db:
-        payload = _current_payload(authorization, db)
+        payload = _current_payload(authorization, db, client_ip=get_client_ip(request))
         if not payload:
             raise api_error(401, "auth.notAuthenticated", "Not authenticated")
         user_id = payload["user_id"]
