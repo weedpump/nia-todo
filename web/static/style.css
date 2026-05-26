@@ -3572,6 +3572,40 @@ input[type="color"]::-moz-color-swatch {
   gap: 8px;
 }
 
+.settings-sessions-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+}
+
+.settings-sessions-chevron {
+  display: inline-block;
+  font-size: 18px;
+  line-height: 1;
+  transition: transform 0.15s ease;
+}
+
+.settings-sessions-toggle[aria-expanded="true"] .settings-sessions-chevron {
+  transform: rotate(90deg);
+}
+
+.settings-session-count {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+#settings-2fa-trusted-panel {
+  margin-top: 8px;
+}
+
 .settings-device-row {
   background: var(--bg-tertiary);
   border: 1px solid var(--border);

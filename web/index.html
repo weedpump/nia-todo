@@ -487,12 +487,18 @@
           <div class="settings-2fa-subtitle" data-i18n-key="settings.2fa.configuredFactors">Eingerichtete Faktoren</div>
           <div id="settings-2fa-devices" class="settings-2fa-devices"></div>
         </div>
-        <div class="settings-2fa-devices-wrap">
+        <div class="settings-2fa-devices-wrap settings-sessions-wrap">
           <div class="settings-2fa-subtitle settings-2fa-trusted-header">
-            <span data-i18n-key="settings.2fa.trustedDevices">Vertrauenswürdige Geräte</span>
-            <button type="button" class="btn btn-danger btn-small" onclick="revokeAllTrustedDevices()" data-i18n-key="settings.2fa.revokeAllTrusted">Alle widerrufen</button>
+            <button type="button" id="settings-sessions-toggle" class="settings-sessions-toggle" onclick="toggleTrustedDevicesList()" aria-expanded="false" aria-controls="settings-2fa-trusted-panel">
+              <span class="settings-sessions-chevron">›</span>
+              <span data-i18n-key="settings.2fa.trustedDevices">Aktive Sessions / Geräte</span>
+              <span id="settings-2fa-session-count" class="settings-session-count"></span>
+            </button>
+            <button type="button" class="btn btn-danger btn-small" onclick="revokeAllTrustedDevices()" data-i18n-key="settings.2fa.revokeAllTrusted">Alle abmelden</button>
           </div>
-          <div id="settings-2fa-trusted-devices" class="settings-2fa-devices"></div>
+          <div id="settings-2fa-trusted-panel" hidden>
+            <div id="settings-2fa-trusted-devices" class="settings-2fa-devices"></div>
+          </div>
         </div>
         <div id="settings-2fa-recovery" style="display:none; background:var(--bg-tertiary); border-radius:var(--radius); padding:12px; margin:8px 0;"></div>
         <div id="settings-2fa-error" style="color:var(--danger); font-size:13px; margin-top:8px;"></div>

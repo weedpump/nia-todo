@@ -190,17 +190,43 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     return sessionDeviceName(device, t);
   }
 
+  function sessionIpLocation(device) {
+    const ip = String(device.ip_address || '').trim();
+    if (!ip) return '';
+    const lower = ip.toLowerCase();
+    const parts = ip.split('.').map(part => Number(part));
+    const isIpv4 = parts.length === 4 && parts.every(part => Number.isInteger(part) && part >= 0 && part <= 255);
+    let locationKey = 'settings.2fa.sessionLocationPublic';
+    if (ip === '127.0.0.1' || lower === '::1') locationKey = 'settings.2fa.sessionLocationLocal';
+    else if (isIpv4 && (parts[0] === 10 || (parts[0] === 192 && parts[1] === 168) || (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31))) locationKey = 'settings.2fa.sessionLocationPrivate';
+    else if (isIpv4 && parts[0] === 100 && parts[1] >= 64 && parts[1] <= 127) locationKey = 'settings.2fa.sessionLocationCarrierNat';
+    else if (lower.startsWith('fc') || lower.startsWith('fd') || lower.startsWith('fe80:')) locationKey = 'settings.2fa.sessionLocationPrivate';
+    return t('settings.2fa.sessionIpLocation', { ip, location: t(locationKey) });
+  }
+
+  function toggleTrustedDevicesList(forceOpen = null) {
+    const panel = document.getElementById('settings-2fa-trusted-panel');
+    const toggle = document.getElementById('settings-sessions-toggle');
+    if (!panel || !toggle) return;
+    const open = forceOpen === null ? panel.hidden : Boolean(forceOpen);
+    panel.hidden = !open;
+    toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
 
   async function renderTrustedDevices(enrollmentOnly = false) {
     const listEl = document.getElementById('settings-2fa-trusted-devices');
     if (!listEl) return;
+    const countEl = document.getElementById('settings-2fa-session-count');
+    toggleTrustedDevicesList(false);
     if (enrollmentOnly) {
+      if (countEl) countEl.textContent = '';
       listEl.innerHTML = `<div class="settings-device-note">${escapeHtml(t('settings.2fa.trustedDevicesUnavailable'))}</div>`;
       return;
     }
     try {
       const data = await authApi.listTrustedDevices();
       const devices = data.trusted_devices || [];
+      if (countEl) countEl.textContent = devices.length ? `(${devices.length})` : '';
       if (!devices.length) {
         listEl.innerHTML = `<div class="settings-device-note">${escapeHtml(t('settings.2fa.noTrustedDevices'))}</div>`;
         return;
@@ -211,9 +237,12 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
         const lastUsed = device.last_used_at ? formatLocaleDateTime(device.last_used_at) : t('common.never');
         const expires = device.expires_at ? formatLocaleDateTime(device.expires_at) : '-';
         const details = t('settings.2fa.trustedDeviceDetails', { lastUsed, expires }) + trusted;
-        return `<div class="settings-device-row"><div><strong>${escapeHtml(trustedDeviceName(device))}${current}</strong><span>${escapeHtml(details)}</span><span title="${escapeHtmlAttr(cleanSessionUserAgent(device.user_agent || ''))}">${escapeHtml(cleanSessionUserAgent(device.user_agent || '').slice(0, 120))}</span></div><button type="button" class="btn btn-danger" onclick="revokeTrustedDevice('${escapeHtmlAttr(device.id)}')">${escapeHtml(t('settings.2fa.revoke'))}</button></div>`;
+        const ipLocation = sessionIpLocation(device);
+        const userAgent = cleanSessionUserAgent(device.user_agent || '');
+        return `<div class="settings-device-row"><div><strong>${escapeHtml(trustedDeviceName(device))}${current}</strong><span>${escapeHtml(details)}</span>${ipLocation ? `<span>${escapeHtml(ipLocation)}</span>` : ''}<span title="${escapeHtmlAttr(userAgent)}">${escapeHtml(userAgent.slice(0, 120))}</span></div><button type="button" class="btn btn-danger" onclick="revokeTrustedDevice('${escapeHtmlAttr(device.id)}')">${escapeHtml(t('settings.2fa.revoke'))}</button></div>`;
       }).join('');
     } catch (err) {
+      if (countEl) countEl.textContent = '';
       listEl.innerHTML = `<div class="settings-device-note">${escapeHtml(t('settings.2fa.trustedDevicesLoadFailed', { error: err.message || err }))}</div>`;
     }
   }
@@ -972,6 +1001,7 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     regenerateRecoveryCodes,
     removeTotpDevice,
     removePasskeyDevice,
+    toggleTrustedDevicesList,
     revokeTrustedDevice,
     revokeAllTrustedDevices,
   };

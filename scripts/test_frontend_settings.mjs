@@ -187,8 +187,12 @@ async function run() {
     await visible('#settings-modal');
     await page.waitForFunction(() => {
       const rows = [...document.querySelectorAll('#settings-2fa-trusted-devices .settings-device-row')];
-      return rows.some((row) => row.innerText.includes('this device') || row.innerText.includes('dieses Gerät'));
+      const collapsed = document.getElementById('settings-2fa-trusted-panel')?.hidden === true;
+      return collapsed && rows.some((row) => row.innerText.includes('this device') || row.innerText.includes('dieses Gerät'));
     }, null, { timeout: 10000 });
+    await page.click('#settings-sessions-toggle');
+    await page.locator('#settings-2fa-trusted-panel').waitFor({ state: 'visible', timeout: 5000 });
+    await page.waitForFunction(() => document.getElementById('settings-2fa-trusted-devices')?.innerText.includes('IP:'), null, { timeout: 5000 });
     const currentSessionRevokeButton = page.locator('#settings-2fa-trusted-devices .settings-device-row', { hasText: /this device|dieses Gerät/ }).locator('button').first();
     await currentSessionRevokeButton.click();
     await page.locator('#security-action-modal').waitFor({ state: 'visible', timeout: 10000 });
