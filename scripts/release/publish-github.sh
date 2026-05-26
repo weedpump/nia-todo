@@ -18,6 +18,8 @@ Options:
   --no-gh-release           Do not create/upload GitHub release assets
   --no-docker-push          Do not push Docker image to GHCR
   --latest                  Also push GHCR :latest tag
+  --git-author-name NAME    Public Git commit/tag author name (default: GitHub account name/login)
+  --git-author-email EMAIL  Public Git commit/tag author email (default: GitHub noreply email)
   --execute                 Actually push/upload. Default is dry-run.
   -h, --help                Show this help
 
@@ -35,6 +37,8 @@ PUSH_SOURCE=1
 CREATE_RELEASE=1
 PUSH_DOCKER=1
 LATEST=0
+PUBLIC_GIT_AUTHOR_NAME=""
+PUBLIC_GIT_AUTHOR_EMAIL=""
 EXECUTE=0
 
 while [ "$#" -gt 0 ]; do
@@ -49,6 +53,8 @@ while [ "$#" -gt 0 ]; do
     --no-gh-release) CREATE_RELEASE=0; shift ;;
     --no-docker-push) PUSH_DOCKER=0; shift ;;
     --latest) LATEST=1; shift ;;
+    --git-author-name) PUBLIC_GIT_AUTHOR_NAME="${2:-}"; shift 2 ;;
+    --git-author-email) PUBLIC_GIT_AUTHOR_EMAIL="${2:-}"; shift 2 ;;
     --execute) EXECUTE=1; shift ;;
     --*) echo "Unknown option: $1" >&2; usage; exit 2 ;;
     *) [ -z "${VERSION}" ] || { echo "Multiple versions supplied" >&2; exit 2; }; VERSION="$1"; shift ;;
@@ -107,6 +113,19 @@ run() {
   fi
 }
 
+resolve_public_git_identity() {
+  if [ -n "${PUBLIC_GIT_AUTHOR_NAME}" ] && [ -n "${PUBLIC_GIT_AUTHOR_EMAIL}" ]; then
+    return
+  fi
+  local gh_user_json gh_login gh_id gh_name
+  gh_user_json="$(gh api user)"
+  gh_login="$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("login") or "")' <<<"${gh_user_json}")"
+  gh_id="$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("id") or "")' <<<"${gh_user_json}")"
+  gh_name="$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("name") or "")' <<<"${gh_user_json}")"
+  PUBLIC_GIT_AUTHOR_NAME="${PUBLIC_GIT_AUTHOR_NAME:-${gh_name:-${gh_login}}}"
+  PUBLIC_GIT_AUTHOR_EMAIL="${PUBLIC_GIT_AUTHOR_EMAIL:-${gh_id}+${gh_login}@users.noreply.github.com}"
+}
+
 if [ "${EXECUTE}" != "1" ]; then
   echo "ℹ️  Dry-run only. Add --execute to push/upload."
 fi
@@ -124,6 +143,9 @@ if [ "${PUSH_SOURCE}" = "1" ]; then
   if [ "${EXECUTE}" = "1" ]; then
     rsync -a --delete --exclude .git "${SOURCE_DIR}/" "${TMP}/repo/"
     cd "${TMP}/repo"
+    resolve_public_git_identity
+    git config user.name "${PUBLIC_GIT_AUTHOR_NAME}"
+    git config user.email "${PUBLIC_GIT_AUTHOR_EMAIL}"
     git checkout -B main
     git add -A
     git commit -m "Release ${TAG}" || echo "No public source changes to commit"
