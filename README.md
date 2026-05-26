@@ -79,7 +79,42 @@ sudo apt install ./nia-todo-server-vX.Y.Z-full.deb
 
 ## 🐳 Docker
 
-Using the included compose file:
+Run the published image directly:
+
+```bash
+docker run -d \
+  --name nia-todo \
+  --restart unless-stopped \
+  -p 8753:8753 \
+  -e NIA_TODO_HOST=0.0.0.0 \
+  -e NIA_TODO_PORT=8753 \
+  -e NIA_TODO_DATA_DIR=/data \
+  -e NIA_TODO_DB=nia-todo.db \
+  -v nia-todo-data:/data \
+  ghcr.io/weedpump/nia-todo:latest
+```
+
+Or create a local `compose.yml` without cloning the source repository:
+
+```yaml
+services:
+  nia-todo:
+    image: ghcr.io/weedpump/nia-todo:latest
+    ports:
+      - "8753:8753"
+    environment:
+      NIA_TODO_HOST: 0.0.0.0
+      NIA_TODO_PORT: 8753
+      NIA_TODO_DATA_DIR: /data
+      NIA_TODO_DB: nia-todo.db
+    volumes:
+      - nia-todo-data:/data
+
+volumes:
+  nia-todo-data:
+```
+
+Then start it:
 
 ```bash
 docker compose up -d
