@@ -73,6 +73,10 @@ sudo apt install ./nia-todo-server-vX.Y.Z-full.deb
 systemctl status nia-todo --no-pager
 curl -fsS http://127.0.0.1:8753/api/setup/status
 curl -fsS http://127.0.0.1:8753/downloads/app-downloads.json | python3 -m json.tool
+sudo test -f /var/lib/nia-todo/nia-todo.db
+systemctl status nia-todo-backup.timer --no-pager
+sudo nia-todo-backup
+ls -1 /var/lib/nia-todo/backups | tail
 ```
 
 Expected:

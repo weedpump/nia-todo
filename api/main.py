@@ -410,8 +410,8 @@ async def on_startup():
 
 # ─── Static Frontend ─────────────────────────────────────────────────────────
 
-DATA_DIR = Path(__file__).parent / "data"
-AVATAR_DIR = DATA_DIR / "avatars"
+from paths import AVATAR_DIR
+
 AVATAR_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/api/avatars", StaticFiles(directory=str(AVATAR_DIR)), name="avatars")
 

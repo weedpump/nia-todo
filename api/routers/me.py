@@ -20,7 +20,7 @@ except ImportError:
 HEIF_CONVERT_BIN = shutil.which("heif-convert")
 HEIC_SUPPORTED = PILLOW_HEIC_SUPPORTED or bool(HEIF_CONVERT_BIN)
 
-from db import DB_PATH, get_db, now_iso
+from db import get_db, now_iso
 from routers.auth import require_auth
 from routers.two_factor import require_recent_mfa
 from services.audit import log_audit
@@ -28,10 +28,9 @@ from services.email import send_email
 from services.email_verification import clear_pending_email, set_email_or_pending, verify_pending_email
 from services.utils import normalize_email, sanitize_text, validate_email, validate_password
 from errors import api_error, validation_api_error
+from paths import AVATAR_DIR
 
 router = APIRouter(prefix="/api/me")
-
-AVATAR_DIR = DB_PATH.parent / "avatars"
 AVATAR_SIZE = 256
 MAX_AVATAR_BYTES = 5 * 1024 * 1024
 ALLOWED_AVATAR_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif", "image/heic", "image/heif"}

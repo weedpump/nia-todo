@@ -7,9 +7,10 @@ services:
     environment:
       NIA_TODO_HOST: 0.0.0.0
       NIA_TODO_PORT: 8753
+      NIA_TODO_DATA_DIR: /data
       NIA_TODO_DB: nia-todo.db
     volumes:
-      - nia-todo-data:/app/api/data
+      - nia-todo-data:/data
 
 volumes:
   nia-todo-data:

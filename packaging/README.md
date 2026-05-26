@@ -51,6 +51,11 @@ After setup, native app downloads are available from your instance under:
 http://YOUR-SERVER:8753/downloads/
 ```
 
+## 📄 License
+
+This project is licensed under the GNU Affero General Public License v3.0 or later (AGPL-3.0-or-later).
+See [`LICENSE`](LICENSE).
+
 ## 🔄 Updates
 
 Install the newer `.deb` package over the existing installation:
@@ -60,12 +65,13 @@ sudo apt install ./nia-todo-server-vX.Y.Z-full.deb
 ```
 
 The package keeps existing runtime data and creates a pre-upgrade SQLite backup when a database exists.
+It also installs a daily systemd backup timer by default.
 
 Recommended before major upgrades:
 
 ```bash
 sudo systemctl stop nia-todo
-sudo cp -a /opt/nia-todo/api/data /opt/nia-todo/api/data.backup.$(date +%Y%m%d-%H%M%S)
+sudo cp -a /var/lib/nia-todo /var/lib/nia-todo.backup.$(date +%Y%m%d-%H%M%S)
 sudo apt install ./nia-todo-server-vX.Y.Z-full.deb
 ```
 
@@ -80,13 +86,13 @@ docker compose up -d
 Default container data volume:
 
 ```text
-/app/api/data
+/data
 ```
 
 ## 🧱 Default package layout
 
 - App: `/opt/nia-todo`
-- Data: `/opt/nia-todo/api/data`
+- Data: `/var/lib/nia-todo`
 - Config: `/etc/nia-todo/nia-todo.env`
 - Service: `nia-todo.service`
 
@@ -94,6 +100,8 @@ Useful commands:
 
 ```bash
 sudo systemctl status nia-todo
+sudo systemctl status nia-todo-backup.timer
+sudo systemctl start nia-todo-backup.service
 sudo systemctl restart nia-todo
 sudo journalctl -u nia-todo -f
 ```
@@ -133,10 +141,37 @@ Frontend/native development uses the Node/Tauri tooling declared in `package.jso
 
 ## 🗄️ Backup
 
-Back up this directory regularly:
+The Debian package installs an automatic daily backup timer by default:
+
+```bash
+sudo systemctl status nia-todo-backup.timer
+sudo systemctl start nia-todo-backup.service
+```
+
+Manual backup:
+
+```bash
+sudo nia-todo-backup
+```
+
+Manual restore:
+
+```bash
+sudo systemctl stop nia-todo
+sudo nia-todo-restore /var/lib/nia-todo/backups/nia-todo-YYYYMMDD-HHMMSS.zip
+sudo systemctl start nia-todo
+```
+
+For fresh migration from an older/private install, the simplest path is:
+
+1. Create a backup on the old install.
+2. Install the new package or start the new Docker deployment.
+3. Restore the backup into the new data directory.
+
+Runtime data lives here:
 
 ```text
-/opt/nia-todo/api/data
+/var/lib/nia-todo
 ```
 
 It contains the SQLite database, generated keys, avatars, and local runtime data.

@@ -73,7 +73,7 @@ for prefix in api web docs src-tauri; do
   copy_tracked_prefix "${prefix}"
 done
 
-for file in CHANGELOG.md package.json package-lock.json start.sh .gitignore; do
+for file in CHANGELOG.md LICENSE package.json package-lock.json start.sh .gitignore; do
   if [ -f "${file}" ]; then
     cp -p "${file}" "${OUTPUT_ABS}/${file}"
   fi
@@ -86,10 +86,18 @@ cp -p packaging/requirements.txt "${OUTPUT_ABS}/requirements.txt"
 cp -p packaging/Dockerfile "${OUTPUT_ABS}/Dockerfile"
 cp -p packaging/docker-compose.yml "${OUTPUT_ABS}/docker-compose.yml"
 cp -p packaging/install.sh "${OUTPUT_ABS}/install.sh"
+mkdir -p "${OUTPUT_ABS}/scripts"
+cp -p packaging/scripts/backup.sh "${OUTPUT_ABS}/scripts/backup.sh"
+cp -p packaging/scripts/nia-todo-backup.sh "${OUTPUT_ABS}/scripts/nia-todo-backup.sh"
+cp -p packaging/scripts/nia-todo-restore.sh "${OUTPUT_ABS}/scripts/nia-todo-restore.sh"
 mkdir -p "${OUTPUT_ABS}/packaging/systemd"
 cp -p packaging/systemd/nia-todo.service "${OUTPUT_ABS}/packaging/systemd/nia-todo.service"
+cp -p packaging/systemd/nia-todo-backup.service "${OUTPUT_ABS}/packaging/systemd/nia-todo-backup.service"
+cp -p packaging/systemd/nia-todo-backup.timer "${OUTPUT_ABS}/packaging/systemd/nia-todo-backup.timer"
 mkdir -p "${OUTPUT_ABS}/systemd"
 cp -p packaging/systemd/nia-todo.service "${OUTPUT_ABS}/systemd/nia-todo.service"
+cp -p packaging/systemd/nia-todo-backup.service "${OUTPUT_ABS}/systemd/nia-todo-backup.service"
+cp -p packaging/systemd/nia-todo-backup.timer "${OUTPUT_ABS}/systemd/nia-todo-backup.timer"
 
 
 # Normalize release/public branding in the exported tree. The private dev working
