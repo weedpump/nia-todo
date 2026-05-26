@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 
 ### Changed
 - Windows installers now use English and German installer languages instead of German-only text, with NSIS showing a language selector.
+- Release test runs retry frontend E2E checks once to avoid aborting full releases on transient Playwright/WebSocket timing flakes.
 
 ## [2.5.0] - 2026-05-26
 
