@@ -24,6 +24,7 @@ scripts/release/export-public.sh X.Y.Z --output dist/public/nia-todo-X.Y.Z --ini
 scripts/release/build-full-bundle.sh X.Y.Z --windows-installer /path/app.exe --android-apk /path/app.apk
 scripts/release/build-docker.sh X.Y.Z --tag nia-todo:X.Y.Z
 scripts/release/public-release.sh X.Y.Z --windows-installer /path/app.exe --android-apk /path/app.apk
+scripts/release/publish-github.sh X.Y.Z --github-repo OWNER/REPO
 ```
 
 For local dry-runs without native app artifacts:
@@ -44,6 +45,16 @@ Excluded examples:
 - private/dev service files
 - internal workflow docs
 - test harness files with private paths
+
+## Publishing
+
+`publish-github.sh` is intentionally dry-run by default. Add `--execute` only when the target GitHub repository/release should actually be updated.
+
+It can publish:
+
+- the clean public source snapshot and tag
+- the GitHub release with the full `.deb`, checksum and release manifest
+- the Docker image to GHCR
 
 ## Notes
 
