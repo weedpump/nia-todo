@@ -5,19 +5,23 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
-## [2.3.2] - 2026-05-26
+## [2.4.0] - 2026-05-26
 
 ### Added
 - Mobile todo rows now support swipe actions: swipe left toggles done, swipe right toggles in-progress, with a left-edge deadzone to avoid sidebar gesture conflicts.
 - Active sessions/devices in user settings are now collapsed by default, show the session count, and include privacy-local IP classification details.
 - Native clients now send app/platform metadata so active sessions/devices can show clearer device labels.
+- TOTP status now shows "1 TOTP" in admin panel and settings (consistent with passkey count display).
 
 ### Changed
 - Session IP tracking now records the real client IP behind trusted reverse proxies using `X-Forwarded-For` or `X-Real-IP`, and keeps it updated during normal authenticated activity, MFA/re-auth flows, and WebSocket authentication.
+- TOTP setup button is now hidden when TOTP is already configured, preventing duplicate setup.
 
 ### Fixed
 - iOS Safari/Chrome no longer zooms the page when focusing todo inputs, selects, or text fields.
 - Session/device labels are more stable across browser, native, and WebView clients, including service-worker precaching for the shared device-label helper.
+- Admin panel now shows actual TOTP count ("1 TOTP") instead of just "TOTP" label.
+- Fixed ReferenceError in settings UI when rendering TOTP status with active TOTP.
 
 ## [2.3.1] - 2026-05-26
 
