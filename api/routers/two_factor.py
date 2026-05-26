@@ -86,10 +86,10 @@ class PasskeyReauthVerifyRequest(BaseModel):
     credential: dict
 
 
-def _current_payload(authorization: Optional[str], db) -> Optional[dict]:
+def _current_payload(authorization: Optional[str], db, client_ip: Optional[str] = None) -> Optional[dict]:
     if not authorization or not authorization.startswith("Bearer "):
         return None
-    return decode_jwt_token(authorization[7:], db)
+    return decode_jwt_token(authorization[7:], db, client_ip=client_ip)
 
 
 def require_enrollment_or_recent_mfa(authorization: Optional[str] = Header(None)) -> int:
@@ -120,17 +120,17 @@ def require_enrollment_or_mfa_action(authorization: Optional[str] = Header(None)
         return user_id
 
 
-def require_2fa_status_auth(authorization: Optional[str] = Header(None)) -> int:
+def require_2fa_status_auth(request: Request, authorization: Optional[str] = Header(None)) -> int:
     """Allow reading non-sensitive 2FA factor metadata with a valid interactive JWT.
 
     This endpoint intentionally does not require an MFA action grant: the frontend
     needs it to decide which reauth ceremony to start for sensitive actions.
     """
-    payload = require_interactive_auth_payload(authorization)
+    payload = require_interactive_auth_payload(request, authorization)
     return payload.get("user_id")
 
 
-def require_interactive_auth_payload(authorization: Optional[str] = Header(None)) -> dict:
+def require_interactive_auth_payload(request: Request, authorization: Optional[str] = Header(None)) -> dict:
     """Require a valid interactive user JWT, but no fresh MFA action grant.
 
     This is for defensive account/session actions such as revoking remembered
@@ -138,7 +138,7 @@ def require_interactive_auth_payload(authorization: Optional[str] = Header(None)
     tokens, but does not demand a new MFA ceremony.
     """
     with get_db() as db:
-        payload = _current_payload(authorization, db)
+        payload = _current_payload(authorization, db, client_ip=get_client_ip(request))
         if not payload or payload.get("mfa_enroll_only"):
             raise api_error(401, "auth.notAuthenticated", "Not authenticated")
         return payload

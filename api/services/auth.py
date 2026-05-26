@@ -109,7 +109,7 @@ def create_jwt_token(user: dict, db, mfa_verified: bool = False, mfa_enroll_only
     return pyjwt.encode(payload, secret, algorithm=JWT_ALGORITHM)
 
 
-def decode_jwt_token(token: str, db) -> Optional[dict]:
+def decode_jwt_token(token: str, db, client_ip: Optional[str] = None) -> Optional[dict]:
     """Decode and validate a JWT token."""
     if not token:
         return None
@@ -129,7 +129,7 @@ def decode_jwt_token(token: str, db) -> Optional[dict]:
         if session_id:
             now = int(time.time())
             session = db.execute(
-                """SELECT id, last_used_at
+                """SELECT id, last_used_at, ip_address
                    FROM user_sessions
                    WHERE id = ? AND user_id = ? AND revoked_at IS NULL AND expires_at >= ?""",
                 (session_id, user_id, now),
@@ -140,8 +140,17 @@ def decode_jwt_token(token: str, db) -> Optional[dict]:
             if session["last_used_at"]:
                 last_used_row = db.execute("SELECT strftime('%s', ?) AS ts", (session["last_used_at"],)).fetchone()
                 last_used_ts = int(last_used_row["ts"] or 0) if last_used_row else None
-            if not last_used_ts or last_used_ts <= now - 300:
-                db.execute("UPDATE user_sessions SET last_used_at = datetime('now') WHERE id = ? AND user_id = ?", (session_id, user_id))
+            current_ip = (client_ip or "")[:80]
+            ip_changed = bool(current_ip and current_ip != (session["ip_address"] or ""))
+            should_touch = not last_used_ts or last_used_ts <= now - 300 or ip_changed
+            if should_touch:
+                if current_ip:
+                    db.execute(
+                        "UPDATE user_sessions SET last_used_at = datetime('now'), ip_address = ? WHERE id = ? AND user_id = ?",
+                        (current_ip, session_id, user_id),
+                    )
+                else:
+                    db.execute("UPDATE user_sessions SET last_used_at = datetime('now') WHERE id = ? AND user_id = ?", (session_id, user_id))
         return payload
     except (pyjwt.ExpiredSignatureError, pyjwt.InvalidTokenError):
         return None
@@ -156,7 +165,7 @@ def should_refresh_user_jwt(payload: dict) -> bool:
     return remaining_seconds <= USER_JWT_REFRESH_THRESHOLD_DAYS * 86400
 
 
-def get_current_user(token: Optional[str] = None) -> Optional[int]:
+def get_current_user(token: Optional[str] = None, client_ip: Optional[str] = None) -> Optional[int]:
     """Extract user_id from JWT token, API key, or legacy session fallback."""
     if not token:
         return None
@@ -166,7 +175,7 @@ def get_current_user(token: Optional[str] = None) -> Optional[int]:
         return legacy_user
     # JWT
     with get_db() as db:
-        payload = decode_jwt_token(token, db)
+        payload = decode_jwt_token(token, db, client_ip=client_ip)
         if payload:
             if payload.get('mfa_enroll_only'):
                 return None

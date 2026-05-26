@@ -31,7 +31,7 @@ class CreateApiKeyRequest(BaseModel):
 
 # ─── Helpers ───────────────────────────────────────────────────────────────────
 
-def require_auth(authorization: Optional[str] = Header(None), x_session_token: Optional[str] = Header(None)) -> int:
+def require_auth(request: Request, authorization: Optional[str] = Header(None), x_session_token: Optional[str] = Header(None)) -> int:
     token = None
     if authorization and authorization.startswith("Bearer "):
         bearer = authorization[7:]
@@ -42,7 +42,7 @@ def require_auth(authorization: Optional[str] = Header(None), x_session_token: O
     elif x_session_token:
         token = x_session_token
     
-    user_id = get_current_user(token)
+    user_id = get_current_user(token, client_ip=get_client_ip(request))
     if not user_id:
         raise api_error(401, "auth.notAuthenticated", "Not authenticated")
     return user_id
@@ -139,7 +139,7 @@ def logout(authorization: Optional[str] = Header(None), x_session_token: Optiona
         token = x_session_token
     
     with get_db() as db:
-        payload = decode_jwt_token(token, db)
+        payload = decode_jwt_token(token, db, client_ip=get_client_ip(request) if request else None)
         if payload:
             user_id = payload.get('user_id')
             session_id = payload.get('sid')
@@ -163,7 +163,7 @@ def me(request: Request, response: Response, authorization: Optional[str] = Head
         token = x_session_token
     
     with get_db() as db:
-        payload = decode_jwt_token(token, db)
+        payload = decode_jwt_token(token, db, client_ip=get_client_ip(request))
         if not payload:
             user_id = sessions.get(token) if token else None
             if not user_id:
@@ -226,8 +226,8 @@ def me(request: Request, response: Response, authorization: Optional[str] = Head
             )
             if payload.get("sid"):
                 db.execute(
-                    "UPDATE user_sessions SET expires_at = ?, last_used_at = datetime('now') WHERE id = ? AND user_id = ?",
-                    (new_exp, payload["sid"], user_id),
+                    "UPDATE user_sessions SET expires_at = ?, last_used_at = datetime('now'), ip_address = ? WHERE id = ? AND user_id = ?",
+                    (new_exp, get_client_ip(request), payload["sid"], user_id),
                 )
             result["token_type"] = "bearer"
             result["csrf_token"] = csrf_token
