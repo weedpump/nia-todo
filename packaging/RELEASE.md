@@ -15,7 +15,7 @@ A public release has exactly two distribution targets:
    - contains the same bundled Windows/Android client downloads under `/app/web/downloads/`
    - Python wheels are prepared before the final `docker build` in a temporary Python builder container; the final Dockerfile only installs from the local wheelhouse
 
-Windows and Android installers/APKs are embedded into the server bundle, not published as separate required public assets.
+Windows and Android installers/APKs are embedded into both release targets, not published as separate required public assets. They must come from the local native build output, either via explicit `--windows-installer` / `--android-apk` paths or via the standard `dist/native/vX.Y.Z/` artifact directory.
 
 ## Scripts
 
