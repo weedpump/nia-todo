@@ -1,0 +1,124 @@
+#!/bin/bash
+# Orchestrate the public nia-todo release artifacts from local builds.
+# This does not touch the private deploy flow and does not modify app source.
+
+set -euo pipefail
+
+usage() {
+  cat <<'USAGE'
+Usage: scripts/release/public-release.sh VERSION [options]
+
+Builds the public source export plus the release artifacts that are published
+outside the private development repo.
+
+Options:
+  --windows-installer FILE   Signed Windows installer to embed in the server bundle
+  --android-apk FILE         Signed Android APK to embed in the server bundle
+  --output-dir DIR           Release artifact output dir (default: dist/release)
+  --work-dir DIR             Temporary build dir (default: dist/build/public-release-VERSION)
+  --docker-tag TAG           Docker image tag (default: nia-todo:VERSION)
+  --docker-latest            Also tag Docker image as nia-todo:latest
+  --skip-docker              Do not build Docker image
+  --allow-missing-apps       Allow test bundle without Windows/Android app files
+  --init-public-git          Initialize exported public source as fresh git repo/tag
+  --force                    Remove existing work/output staging dirs where needed
+  --dry-run                  Validate inputs and print planned commands only
+USAGE
+}
+
+VERSION=""
+WINDOWS_INSTALLER=""
+ANDROID_APK=""
+OUTPUT_DIR="dist/release"
+WORK_DIR=""
+DOCKER_TAG=""
+DOCKER_LATEST=0
+SKIP_DOCKER=0
+ALLOW_MISSING_APPS=0
+INIT_PUBLIC_GIT=0
+FORCE=0
+DRY_RUN=0
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    -h|--help) usage; exit 0 ;;
+    --windows-installer) WINDOWS_INSTALLER="${2:-}"; shift 2 ;;
+    --android-apk) ANDROID_APK="${2:-}"; shift 2 ;;
+    --output-dir) OUTPUT_DIR="${2:-}"; shift 2 ;;
+    --work-dir) WORK_DIR="${2:-}"; shift 2 ;;
+    --docker-tag) DOCKER_TAG="${2:-}"; shift 2 ;;
+    --docker-latest) DOCKER_LATEST=1; shift ;;
+    --skip-docker) SKIP_DOCKER=1; shift ;;
+    --allow-missing-apps) ALLOW_MISSING_APPS=1; shift ;;
+    --init-public-git) INIT_PUBLIC_GIT=1; shift ;;
+    --force) FORCE=1; shift ;;
+    --dry-run) DRY_RUN=1; shift ;;
+    --*) echo "Unknown option: $1" >&2; usage; exit 2 ;;
+    *) [ -z "${VERSION}" ] || { echo "Multiple versions supplied" >&2; exit 2; }; VERSION="$1"; shift ;;
+  esac
+done
+
+[ -n "${VERSION}" ] || { usage; exit 2; }
+if ! [[ "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "Invalid stable version: ${VERSION}" >&2
+  exit 2
+fi
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "${ROOT_DIR}"
+
+WORK_DIR="${WORK_DIR:-dist/build/public-release-${VERSION}}"
+PUBLIC_EXPORT_DIR="${WORK_DIR}/public-source"
+DOCKER_CONTEXT_DIR="${WORK_DIR}/docker-context"
+DOCKER_TAG="${DOCKER_TAG:-nia-todo:${VERSION}}"
+
+if [ "${ALLOW_MISSING_APPS}" != "1" ]; then
+  [ -n "${WINDOWS_INSTALLER}" ] && [ -f "${WINDOWS_INSTALLER}" ] || { echo "Missing --windows-installer FILE" >&2; exit 1; }
+  [ -n "${ANDROID_APK}" ] && [ -f "${ANDROID_APK}" ] || { echo "Missing --android-apk FILE" >&2; exit 1; }
+fi
+
+run() {
+  echo "+ $*"
+  if [ "${DRY_RUN}" != "1" ]; then
+    "$@"
+  fi
+}
+
+EXPORT_ARGS=("${VERSION}" --output "${PUBLIC_EXPORT_DIR}")
+BUNDLE_ARGS=("${VERSION}" --output-dir "${OUTPUT_DIR}" --work-dir "${WORK_DIR}/full-bundle")
+DOCKER_ARGS=("${VERSION}" --tag "${DOCKER_TAG}" --output "${DOCKER_CONTEXT_DIR}")
+
+if [ "${FORCE}" = "1" ]; then
+  EXPORT_ARGS+=(--force)
+  BUNDLE_ARGS+=(--force)
+  DOCKER_ARGS+=(--force)
+fi
+if [ "${INIT_PUBLIC_GIT}" = "1" ]; then
+  EXPORT_ARGS+=(--init-git)
+fi
+if [ "${ALLOW_MISSING_APPS}" = "1" ]; then
+  BUNDLE_ARGS+=(--allow-missing-apps)
+fi
+if [ -n "${WINDOWS_INSTALLER}" ]; then
+  BUNDLE_ARGS+=(--windows-installer "${WINDOWS_INSTALLER}")
+fi
+if [ -n "${ANDROID_APK}" ]; then
+  BUNDLE_ARGS+=(--android-apk "${ANDROID_APK}")
+fi
+if [ "${DOCKER_LATEST}" = "1" ]; then
+  DOCKER_ARGS+=(--latest)
+fi
+
+run scripts/release/export-public.sh "${EXPORT_ARGS[@]}"
+run scripts/release/build-full-bundle.sh "${BUNDLE_ARGS[@]}"
+if [ "${SKIP_DOCKER}" != "1" ]; then
+  run scripts/release/build-docker.sh "${DOCKER_ARGS[@]}"
+else
+  echo "↷ Docker build skipped"
+fi
+
+if [ "${DRY_RUN}" = "1" ]; then
+  echo "✅ Dry run complete"
+else
+  echo "✅ Public release artifacts prepared in ${OUTPUT_DIR}"
+fi
