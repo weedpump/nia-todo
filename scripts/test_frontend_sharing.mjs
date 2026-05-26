@@ -5,6 +5,14 @@ async function run() {
   console.log('🌐 Running Playwright frontend sharing test...');
   const { browser, page, visible, loginApp, assertNoFrontendErrors } = await launchPage();
 
+  const openProjectEdit = async (name) => {
+    const item = page.locator('.project-tree-item').filter({ hasText: name }).first();
+    await item.waitFor({ state: 'visible', timeout: 20000 });
+    const editButton = item.locator('.nav-edit');
+    await editButton.waitFor({ state: 'visible', timeout: 10000 });
+    await editButton.click();
+  };
+
   try {
     await loginApp();
 
@@ -37,7 +45,7 @@ async function run() {
     // ─── Test UI Flow ───
 
     // 1. Open project edit modal
-    await page.locator('.project-tree-item').filter({ hasText: 'Sharing Test Project' }).first().locator('.nav-edit').click();
+    await openProjectEdit('Sharing Test Project');
     await visible('#project-modal');
 
     // 2. Sharing section should be visible
@@ -122,7 +130,7 @@ async function run() {
     // await page.getByText('ausstehend').waitFor({ state: 'visible', timeout: 10000 });
     await page.evaluate(() => window.closeModal('project-modal'));
     await page.waitForTimeout(500);
-    await page.locator('.project-tree-item').filter({ hasText: 'Sharing Test Project' }).first().locator('.nav-edit').click();
+    await openProjectEdit('Sharing Test Project');
     await page.waitForTimeout(500);
     // Expand sharing section if not auto-expanded
     const sharingTab = await page.locator('[data-tab="sharing"]').first();
@@ -227,7 +235,7 @@ async function run() {
     await page.locator('.project-tree-item').filter({ hasText: 'Sharing Test Project' }).waitFor({ state: 'visible', timeout: 10000 });
     
     // 9. Accepted shared project should show owner info and muted readonly fields for the member
-    await page.locator('.project-tree-item').filter({ hasText: 'Sharing Test Project' }).first().locator('.nav-edit').click();
+    await openProjectEdit('Sharing Test Project');
     await page.locator('#project-owner-info').waitFor({ state: 'visible', timeout: 10000 });
     await page.getByText(/Geteilt von|Shared by/).waitFor({ state: 'visible', timeout: 10000 });
     const readonlyClass = await page.locator('#project-form').evaluate(el => el.classList.contains('readonly-project'));
@@ -261,7 +269,7 @@ async function run() {
     if (!teamWorkspace.id) throw new Error('Failed to create member workspace: ' + JSON.stringify(teamWorkspace));
     await page.reload({ waitUntil: 'networkidle' });
     await page.locator('#user-menu-button').waitFor({ state: 'visible', timeout: 10000 });
-    await page.locator('.project-tree-item').filter({ hasText: 'Sharing Test Project' }).first().locator('.nav-edit').click();
+    await openProjectEdit('Sharing Test Project');
     await page.locator('#project-display-workspace-id').selectOption(String(teamWorkspace.id));
     await page.click('#project-save-btn');
     await page.locator('#project-modal').waitFor({ state: 'hidden', timeout: 10000 });

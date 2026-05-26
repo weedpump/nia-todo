@@ -27,6 +27,7 @@ run_step() {
 
 run_step_retry() {
   local label="$1"
+  local code
   shift
   step "$label"
   if "$@"; then
@@ -34,7 +35,7 @@ run_step_retry() {
     return 0
   fi
 
-  local code=$?
+  code=$?
   echo "⚠️  FEHLER: $label"
   echo "   Exit-Code: $code"
   echo "   Wiederhole einmal, um Playwright-/Realtime-Timing-Flakes abzufangen..."
