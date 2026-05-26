@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "nia-todo",
-  "version": "2.5.0",
+  "version": "2.5.1",
   "identifier": "de.tobiaskneidl.nia-todo",
   "build": {
     "beforeDevCommand": "",
@@ -39,11 +39,11 @@
     ],
     "windows": {
       "wix": {
-        "language": "de-DE"
+        "language": ["en-US", "de-DE"]
       },
       "nsis": {
-        "displayLanguageSelector": false,
-        "languages": ["German"],
+        "displayLanguageSelector": true,
+        "languages": ["English", "German"],
         "installerHooks": "windows/nsis-hooks.nsh"
       }
     }

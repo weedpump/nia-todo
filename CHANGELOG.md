@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [2.5.1] - 2026-05-26
+
+### Changed
+- Windows installers now use English and German installer languages instead of German-only text, with NSIS showing a language selector.
+- Release test runs retry frontend E2E checks once to avoid aborting full releases on transient Playwright/WebSocket timing flakes.
+
 ## [2.5.0] - 2026-05-26
 
 ### Added
