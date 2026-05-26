@@ -4,6 +4,17 @@ Self-hosted todo system — SQLite + FastAPI + Web UI + offline PWA + official n
 
 nia-todo is designed for private self-hosting: install the server, open the web app, then download the bundled native apps directly from your own instance.
 
+## 📸 Screenshots
+
+<p>
+  <img src="docs/screenshots/desktop-light.png" alt="nia-todo desktop light theme" width="49%">
+  <img src="docs/screenshots/desktop-dark.png" alt="nia-todo desktop dark theme" width="49%">
+</p>
+<p>
+  <img src="docs/screenshots/mobile-light.png" alt="nia-todo mobile light theme" width="24%">
+  <img src="docs/screenshots/mobile-dark.png" alt="nia-todo mobile dark theme" width="24%">
+</p>
+
 ## ✨ Features
 
 - 📝 Todos with description, priority, deadline, status, and reminders
