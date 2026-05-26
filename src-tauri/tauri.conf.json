@@ -39,11 +39,11 @@
     ],
     "windows": {
       "wix": {
-        "language": "de-DE"
+        "language": ["en-US", "de-DE"]
       },
       "nsis": {
-        "displayLanguageSelector": false,
-        "languages": ["German"],
+        "displayLanguageSelector": true,
+        "languages": ["English", "German"],
         "installerHooks": "windows/nsis-hooks.nsh"
       }
     }
