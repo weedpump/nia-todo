@@ -1,8 +1,4 @@
-# ✨ nia-todo
-
-<p align="center">
-  <img src="web/static/icons/icon-512.png" alt="nia-todo icon" width="128" height="128">
-</p>
+# <img src="web/static/icons/icon-512.png" alt="nia-todo icon" width="32" height="32"> nia-todo
 
 Selfhosted todo system — SQLite + FastAPI + Web UI + offline PWA + native Windows/Android apps.
 

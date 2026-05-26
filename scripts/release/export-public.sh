@@ -81,6 +81,7 @@ done
 
 # Public overlays replace private/dev-local files.
 cp -p packaging/README.md "${OUTPUT_ABS}/README.md"
+sed -i 's#../../web/static/icons/icon-512.png#web/static/icons/icon-512.png#g' "${OUTPUT_ABS}/README.md"
 cp -p packaging/requirements.txt "${OUTPUT_ABS}/requirements.txt"
 cp -p packaging/Dockerfile "${OUTPUT_ABS}/Dockerfile"
 cp -p packaging/docker-compose.yml "${OUTPUT_ABS}/docker-compose.yml"
