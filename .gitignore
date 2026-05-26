@@ -39,6 +39,9 @@ src-tauri/frontend-dist/
 
 api/data/daily-backups/
 
-# Generated release downloads (written by release.sh on live server)
+# Generated release downloads (bundled into release artifacts)
 web/downloads/*
 !web/downloads/.gitkeep
+
+# Local release artifacts
+dist/
