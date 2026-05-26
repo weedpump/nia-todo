@@ -10,9 +10,8 @@ from pywebpush import webpush, WebPushException
 from cryptography.hazmat.primitives import serialization
 
 from db import get_db
+from paths import VAPID_KEYS_PATH
 from services.websocket import manager
-
-VAPID_KEYS_PATH = Path(__file__).parent.parent / "data" / "vapid_keys.json"
 VAPID_CLAIMS = {"sub": "mailto:nia-todo@kneidl-home.de"}
 
 

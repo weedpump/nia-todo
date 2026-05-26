@@ -1,15 +1,11 @@
 """nia-todo: Selfhosted Todo-System mit SQLite + FastAPI + Web-UI"""
 
-import os
 import sqlite3
 import json
 from datetime import datetime, timezone
-from pathlib import Path
 from contextlib import contextmanager
 
-DB_NAME = os.getenv('NIA_TODO_DB', 'nia-todo.db')
-DB_PATH = Path(__file__).parent / "data" / DB_NAME
-DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+from paths import DB_PATH
 
 INIT_SQL = """
 -- Projects/Kategorien
@@ -82,6 +78,7 @@ INSERT OR IGNORE INTO projects (id, name, color, sort_order, is_inbox) VALUES (4
 
 @contextmanager
 def get_db():
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(DB_PATH), detect_types=sqlite3.PARSE_DECLTYPES)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")

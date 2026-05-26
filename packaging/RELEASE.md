@@ -59,3 +59,15 @@ It can publish:
 ## Notes
 
 The Debian package vendors pinned Python wheels during release packaging and installs dependencies from the bundled wheelhouse. The installer does not need to download Python packages during normal installation.
+
+Runtime data is intentionally outside the application directory:
+
+- Debian package: `/var/lib/nia-todo`
+- Docker image: `/data`
+
+Both contain the SQLite database, avatars, VAPID keys and local backups.
+
+The Debian package also installs a daily backup timer (`nia-todo-backup.timer`) and ships manual backup/restore helpers:
+
+- `nia-todo-backup`
+- `nia-todo-restore <backup.zip>`

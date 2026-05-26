@@ -4,6 +4,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     NIA_TODO_HOST=0.0.0.0 \
     NIA_TODO_PORT=8753 \
+    NIA_TODO_DATA_DIR=/data \
     NIA_TODO_DB=nia-todo.db
 
 WORKDIR /app
@@ -14,12 +15,12 @@ RUN pip install --no-cache-dir --no-index --find-links=wheelhouse -r requirement
     && rm -rf wheelhouse
 
 COPY . .
-RUN mkdir -p /app/api/data \
+RUN mkdir -p /data \
     && useradd -m -u 10001 nia-todo \
-    && chown -R nia-todo:nia-todo /app
+    && chown -R nia-todo:nia-todo /app /data
 
 USER nia-todo
 EXPOSE 8753
-VOLUME ["/app/api/data"]
+VOLUME ["/data"]
 
 CMD ["./start.sh"]

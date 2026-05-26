@@ -2,6 +2,8 @@
 # Start nia-todo server
 
 cd "$(dirname "$0")"
-echo "🚀 Starting nia-todo on http://0.0.0.0:8753"
+HOST="${NIA_TODO_HOST:-0.0.0.0}"
+PORT="${NIA_TODO_PORT:-8753}"
+echo "🚀 Starting nia-todo on http://${HOST}:${PORT}"
 cd api
-exec python3 -m uvicorn main:app --host 0.0.0.0 --port 8753 --no-proxy-headers
+exec python3 -m uvicorn main:app --host "${HOST}" --port "${PORT}" --no-proxy-headers

@@ -5,6 +5,7 @@ set -euo pipefail
 
 APP_DIR="${NIA_TODO_APP_DIR:-/opt/nia-todo}"
 ETC_DIR="${NIA_TODO_ETC_DIR:-/etc/nia-todo}"
+DATA_DIR="${NIA_TODO_DATA_DIR:-/var/lib/nia-todo}"
 SERVICE_NAME="${NIA_TODO_SERVICE_NAME:-nia-todo}"
 USER_NAME="${NIA_TODO_USER:-nia-todo}"
 GROUP_NAME="${NIA_TODO_GROUP:-nia-todo}"
@@ -22,37 +23,35 @@ if ! id "${USER_NAME}" >/dev/null 2>&1; then
   useradd --system --gid "${GROUP_NAME}" --home-dir "${APP_DIR}" --shell /usr/sbin/nologin "${USER_NAME}"
 fi
 
-mkdir -p "${APP_DIR}" "${ETC_DIR}"
+mkdir -p "${APP_DIR}" "${ETC_DIR}" "${DATA_DIR}" "${DATA_DIR}/backups" "${DATA_DIR}/avatars"
 
-if [ -f "${APP_DIR}/api/data/nia-todo.db" ]; then
-  backup_dir="${APP_DIR}/api/data/backups"
-  mkdir -p "${backup_dir}"
-  cp "${APP_DIR}/api/data/nia-todo.db" "${backup_dir}/pre-install-$(date +%Y%m%d-%H%M%S).db"
+if [ -f "${DATA_DIR}/nia-todo.db" ]; then
+  cp "${DATA_DIR}/nia-todo.db" "${DATA_DIR}/backups/pre-install-$(date +%Y%m%d-%H%M%S).db" || true
 fi
 
-# Preserve runtime data, replace application files.
-mkdir -p "${APP_DIR}/api/data"
-tmp_data="$(mktemp -d)"
+# One-time migration from pre-public-package layout.
 if [ -d "${APP_DIR}/api/data" ]; then
-  cp -a "${APP_DIR}/api/data/." "${tmp_data}/" || true
+  cp -an "${APP_DIR}/api/data/." "${DATA_DIR}/" || true
 fi
 
-find "${APP_DIR}" -mindepth 1 -maxdepth 1 ! -name api -exec rm -rf {} +
-mkdir -p "${APP_DIR}/api"
-find "${APP_DIR}/api" -mindepth 1 -maxdepth 1 ! -name data -exec rm -rf {} +
-
+# Replace application files. Runtime data lives in DATA_DIR, not APP_DIR.
+find "${APP_DIR}" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
 cp -a "${SOURCE_DIR}/." "${APP_DIR}/"
+install -d -m 755 "${APP_DIR}/scripts"
+cp -a "${SOURCE_DIR}/scripts/." "${APP_DIR}/scripts/"
 rm -rf "${APP_DIR}/api/data"
 mkdir -p "${APP_DIR}/api/data"
-cp -a "${tmp_data}/." "${APP_DIR}/api/data/" || true
-rm -rf "${tmp_data}"
+: > "${APP_DIR}/api/data/.gitkeep"
 
 if [ ! -f "${ETC_DIR}/nia-todo.env" ]; then
   cat > "${ETC_DIR}/nia-todo.env" <<ENV
 NIA_TODO_HOST=0.0.0.0
 NIA_TODO_PORT=8753
+NIA_TODO_DATA_DIR=${DATA_DIR}
 NIA_TODO_DB=nia-todo.db
 ENV
+elif ! grep -q '^NIA_TODO_DATA_DIR=' "${ETC_DIR}/nia-todo.env"; then
+  printf '\nNIA_TODO_DATA_DIR=%s\n' "${DATA_DIR}" >> "${ETC_DIR}/nia-todo.env"
 fi
 
 python3 -m venv "${APP_DIR}/.venv"
@@ -75,13 +74,21 @@ chmod +x "${APP_DIR}/run-service.sh" "${APP_DIR}/start.sh"
 
 cp "${APP_DIR}/packaging/systemd/nia-todo.service" "/etc/systemd/system/${SERVICE_NAME}.service"
 sed -i 's#ExecStart=/opt/nia-todo/start.sh#ExecStart=/opt/nia-todo/run-service.sh#' "/etc/systemd/system/${SERVICE_NAME}.service"
+cp "${APP_DIR}/packaging/systemd/nia-todo-backup.service" "/etc/systemd/system/${SERVICE_NAME}-backup.service"
+cp "${APP_DIR}/packaging/systemd/nia-todo-backup.timer" "/etc/systemd/system/${SERVICE_NAME}-backup.timer"
+install -m 755 "${APP_DIR}/scripts/nia-todo-backup.sh" "/usr/local/bin/nia-todo-backup"
+install -m 755 "${APP_DIR}/scripts/nia-todo-restore.sh" "/usr/local/bin/nia-todo-restore"
 
-chown -R "${USER_NAME}:${GROUP_NAME}" "${APP_DIR}"
+chown -R "${USER_NAME}:${GROUP_NAME}" "${APP_DIR}" "${DATA_DIR}"
+chmod 750 "${DATA_DIR}"
+[ ! -f "${DATA_DIR}/vapid_keys.json" ] || chmod 600 "${DATA_DIR}/vapid_keys.json"
 chown -R root:root "${ETC_DIR}"
 
 systemctl daemon-reload
 systemctl enable "${SERVICE_NAME}"
+systemctl enable "${SERVICE_NAME}-backup.timer"
 systemctl restart "${SERVICE_NAME}"
 
 echo "nia-todo installed/updated in ${APP_DIR}."
 echo "Service: systemctl status ${SERVICE_NAME}"
+echo "Backup timer: systemctl status ${SERVICE_NAME}-backup.timer"

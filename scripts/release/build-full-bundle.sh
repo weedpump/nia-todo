@@ -115,12 +115,13 @@ PY
 
 DEB_ROOT="${WORK_DIR}/debroot"
 PKG_DIR="${DEB_ROOT}/opt/nia-todo"
-mkdir -p "${PKG_DIR}" "${DEB_ROOT}/DEBIAN" "${DEB_ROOT}/lib/systemd/system" "${DEB_ROOT}/etc/nia-todo"
+mkdir -p "${PKG_DIR}" "${DEB_ROOT}/DEBIAN" "${DEB_ROOT}/lib/systemd/system" "${DEB_ROOT}/etc/nia-todo" "${DEB_ROOT}/var/lib/nia-todo"
 cp -a "${EXPORT_DIR}/." "${PKG_DIR}/"
 
 cat > "${DEB_ROOT}/etc/nia-todo/nia-todo.env" <<'ENV'
 NIA_TODO_HOST=0.0.0.0
 NIA_TODO_PORT=8753
+NIA_TODO_DATA_DIR=/var/lib/nia-todo
 NIA_TODO_DB=nia-todo.db
 ENV
 
@@ -135,6 +136,8 @@ chmod +x "${PKG_DIR}/run-service.sh" "${PKG_DIR}/start.sh"
 
 cp "${EXPORT_DIR}/packaging/systemd/nia-todo.service" "${DEB_ROOT}/lib/systemd/system/nia-todo.service"
 sed -i 's#ExecStart=/opt/nia-todo/start.sh#ExecStart=/opt/nia-todo/run-service.sh#' "${DEB_ROOT}/lib/systemd/system/nia-todo.service"
+cp "${EXPORT_DIR}/packaging/systemd/nia-todo-backup.service" "${DEB_ROOT}/lib/systemd/system/nia-todo-backup.service"
+cp "${EXPORT_DIR}/packaging/systemd/nia-todo-backup.timer" "${DEB_ROOT}/lib/systemd/system/nia-todo-backup.timer"
 
 cat > "${DEB_ROOT}/DEBIAN/conffiles" <<'EOF'
 /etc/nia-todo/nia-todo.env
@@ -160,16 +163,30 @@ fi
 if ! id nia-todo >/dev/null 2>&1; then
   adduser --system --ingroup nia-todo --home /opt/nia-todo --no-create-home --disabled-login nia-todo
 fi
-mkdir -p /opt/nia-todo/api/data /opt/nia-todo/api/data/backups
-if [ -f /opt/nia-todo/api/data/nia-todo.db ]; then
-  cp /opt/nia-todo/api/data/nia-todo.db "/opt/nia-todo/api/data/backups/pre-upgrade-$(date +%Y%m%d-%H%M%S).db" || true
+if [ -f /etc/nia-todo/nia-todo.env ] && ! grep -q '^NIA_TODO_DATA_DIR=' /etc/nia-todo/nia-todo.env; then
+  printf '\nNIA_TODO_DATA_DIR=/var/lib/nia-todo\n' >> /etc/nia-todo/nia-todo.env
 fi
+mkdir -p /var/lib/nia-todo /var/lib/nia-todo/backups /var/lib/nia-todo/avatars /opt/nia-todo/api/data
+if [ -f /var/lib/nia-todo/nia-todo.db ]; then
+  cp /var/lib/nia-todo/nia-todo.db "/var/lib/nia-todo/backups/pre-upgrade-$(date +%Y%m%d-%H%M%S).db" || true
+fi
+if [ -d /opt/nia-todo/api/data ]; then
+  cp -an /opt/nia-todo/api/data/. /var/lib/nia-todo/ || true
+fi
+rm -rf /opt/nia-todo/api/data
+mkdir -p /opt/nia-todo/api/data
+: > /opt/nia-todo/api/data/.gitkeep
 python3 -m venv /opt/nia-todo/.venv
 /opt/nia-todo/.venv/bin/pip install --no-index --find-links=/opt/nia-todo/wheelhouse -r /opt/nia-todo/requirements.txt
 rm -rf /opt/nia-todo/wheelhouse
-chown -R nia-todo:nia-todo /opt/nia-todo
+install -m 755 /opt/nia-todo/scripts/nia-todo-backup.sh /usr/local/bin/nia-todo-backup
+install -m 755 /opt/nia-todo/scripts/nia-todo-restore.sh /usr/local/bin/nia-todo-restore
+chown -R nia-todo:nia-todo /opt/nia-todo /var/lib/nia-todo
+chmod 750 /var/lib/nia-todo
+[ ! -f /var/lib/nia-todo/vapid_keys.json ] || chmod 600 /var/lib/nia-todo/vapid_keys.json
 systemctl daemon-reload || true
 systemctl enable nia-todo.service || true
+systemctl enable nia-todo-backup.timer || true
 systemctl restart nia-todo.service || true
 POSTINST
 chmod 755 "${DEB_ROOT}/DEBIAN/postinst"

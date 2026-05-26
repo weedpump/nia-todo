@@ -4,14 +4,11 @@ Migrationen werden als nummerierte .sql Dateien in migrations/ gespeichert.
 Beim Server-Start wird automatisch geprüft welche fehlen und ausgeführt.
 """
 
-import os
 import sqlite3
 import re
 from pathlib import Path
 
-# DB-Pfad: Env-Variable oder Default
-DB_NAME = os.getenv('NIA_TODO_DB', 'nia-todo.db')
-DB_PATH = Path(__file__).parent / "data" / DB_NAME
+from paths import DB_PATH
 
 MIGRATIONS_DIR = Path(__file__).parent / "migrations"
 
