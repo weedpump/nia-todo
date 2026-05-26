@@ -220,6 +220,7 @@ const addPasskey = userSettingsFeature.addPasskey;
 const regenerateRecoveryCodes = userSettingsFeature.regenerateRecoveryCodes;
 const removeTotpDevice = userSettingsFeature.removeTotpDevice;
 const removePasskeyDevice = userSettingsFeature.removePasskeyDevice;
+const toggleTrustedDevicesList = userSettingsFeature.toggleTrustedDevicesList;
 const revokeTrustedDevice = userSettingsFeature.revokeTrustedDevice;
 const revokeAllTrustedDevices = userSettingsFeature.revokeAllTrustedDevices;
 const editUserDisplayName = userSettingsFeature.editUserDisplayName;
@@ -659,7 +660,7 @@ export function startAppModule() {
       testDesktopNotification: () => desktopIntegration?.testNotification(),
       updateDesktopHotkey: (action, shortcut) => desktopIntegration?.updateHotkey(action, shortcut),
     },
-    userSettings: { renderUserInfo, openSettingsModal, changeLanguagePreference, editUserDisplayName, cancelUserDisplayNameEdit, saveUserProfile, startAvatarUpload, cancelAvatarCrop, saveAvatarCrop, deleteUserAvatar, editUserEmail, cancelUserEmailEdit, saveUserEmail, changeUserPassword, startTwoFactorTotp, confirmTwoFactorTotp, disableTwoFactor, addPasskey, regenerateRecoveryCodes, removeTotpDevice, removePasskeyDevice, revokeTrustedDevice, revokeAllTrustedDevices },
+    userSettings: { renderUserInfo, openSettingsModal, changeLanguagePreference, editUserDisplayName, cancelUserDisplayNameEdit, saveUserProfile, startAvatarUpload, cancelAvatarCrop, saveAvatarCrop, deleteUserAvatar, editUserEmail, cancelUserEmailEdit, saveUserEmail, changeUserPassword, startTwoFactorTotp, confirmTwoFactorTotp, disableTwoFactor, addPasskey, regenerateRecoveryCodes, removeTotpDevice, removePasskeyDevice, toggleTrustedDevicesList, revokeTrustedDevice, revokeAllTrustedDevices },
     userMenu: { toggleUserMenu, closeUserMenu, updateUserMenu },
   });
 
