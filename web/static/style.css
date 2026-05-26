@@ -1377,6 +1377,18 @@ body {
 .form-group select:focus,
 .form-group textarea:focus { border-color: var(--accent); }
 
+/* iOS WebKit zooms the page when focusing editable controls below 16px.
+   That zooms modals too and reintroduces horizontal scrolling on iPhone. */
+@supports (-webkit-touch-callout: none) {
+  @media (max-width: 768px) {
+    input,
+    select,
+    textarea {
+      font-size: 16px !important;
+    }
+  }
+}
+
 /* iOS Safari gives native date/time controls a wide intrinsic min-size.
    Keep deadline/reminder fields inside mobile todo modals instead of
    letting them force horizontal scrolling. */
