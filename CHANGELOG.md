@@ -5,6 +5,11 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- GitHub release notes are now generated from the matching `CHANGELOG.md` version section, with distribution targets appended automatically.
+
 ## [2.5.1] - 2026-05-26
 
 ### Changed
