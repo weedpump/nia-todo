@@ -1,0 +1,14 @@
+{
+  "$schema": "../gen/schemas/android-schema.json",
+  "identifier": "android-minimal",
+  "description": "Minimal Android capability for nia-todo local bundled UI.",
+  "platforms": ["android"],
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "allow-desktop-get-settings",
+    "allow-desktop-set-server-url",
+    "allow-desktop-clear-server-url",
+    "allow-desktop-open-url"
+  ]
+}

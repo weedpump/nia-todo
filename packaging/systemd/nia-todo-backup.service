@@ -1,0 +1,10 @@
+[Unit]
+Description=nia-todo backup job
+After=nia-todo.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=-/etc/nia-todo/nia-todo.env
+ExecStart=/opt/nia-todo/scripts/nia-todo-backup.sh
+User=nia-todo
+Group=nia-todo

@@ -1,0 +1,16 @@
+[Unit]
+Description=nia-todo FastAPI Server
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/nia-todo
+EnvironmentFile=-/etc/nia-todo/nia-todo.env
+ExecStart=/opt/nia-todo/start.sh
+Restart=always
+RestartSec=5
+User=nia-todo
+Group=nia-todo
+
+[Install]
+WantedBy=multi-user.target

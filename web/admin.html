@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title data-i18n-key="admin.pageTitle">nia-todo Admin</title>
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: auto; }
+.admin-container { width: min(100%, 1080px); margin: 0 auto; padding: 40px 20px; }
+.admin-header { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 32px; }
+.admin-header h1 { font-size: 24px; margin: 0; color: var(--text-primary); display: inline-flex; align-items: center; gap: 10px; }
+.admin-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 16px; padding: 24px; margin-bottom: 24px; box-shadow: var(--shadow); }
+.admin-card h2 { font-size: 16px; margin: 0 0 16px 0; color: var(--text-primary); display: inline-flex; align-items: center; gap: 8px; }
+.user-table-wrap { width: 100%; overflow-x: auto; }
+.user-table { width: 100%; border-collapse: collapse; table-layout: fixed; min-width: 1080px; }
+.user-table th { text-align: left; padding: 12px; font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--border); }
+.user-table td { padding: 12px; font-size: 14px; color: var(--text-primary); border-bottom: 1px solid var(--border); vertical-align: middle; }
+.user-table th:nth-child(1), .user-table td:nth-child(1) { width: 44px; }
+.user-table th:nth-child(2), .user-table td:nth-child(2) { width: 125px; }
+.user-table th:nth-child(3), .user-table td:nth-child(3) { width: 140px; }
+.user-table th:nth-child(4), .user-table td:nth-child(4) { width: 210px; }
+.user-table th:nth-child(5), .user-table td:nth-child(5) { width: 95px; }
+.user-table th:nth-child(6), .user-table td:nth-child(6) { width: 90px; }
+.user-table th:nth-child(7), .user-table td:nth-child(7) { width: 160px; }
+.user-table th:nth-child(8), .user-table td:nth-child(8) { width: 80px; }
+.user-table th:nth-child(9), .user-table td:nth-child(9) { width: 125px; }
+.user-table th:nth-child(10), .user-table td:nth-child(10) { width: 95px; }
+.user-table tr:last-child td { border-bottom: none; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; }
+.badge-admin { background: var(--accent); color: white; }
+.badge-user { background: var(--bg-tertiary); color: var(--text-secondary); }
+.badge-success { background: color-mix(in srgb, var(--success) 16%, transparent); color: var(--success); }
+.badge-warning { background: color-mix(in srgb, var(--warning) 16%, transparent); color: var(--warning); }
+.badge-muted { background: var(--bg-tertiary); color: var(--text-muted); }
+.btn { padding: 8px 16px; border: none; border-radius: var(--radius); font-size: 13px; cursor: pointer; font-weight: 500; display:inline-flex; align-items:center; justify-content:center; gap:6px; line-height:1.2; text-align:center; }
+.btn-danger { background: var(--danger); color: white; }
+.btn-danger:hover { opacity: 0.9; }
+.btn-primary { background: var(--accent); color: white; }
+.btn-primary:hover { background: var(--accent-hover); }
+.btn-ghost { background: transparent; color: var(--text-secondary); padding: 4px 6px; }
+.btn-ghost:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.form-row { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+.form-row input, .form-row select { flex: 1; min-width: 150px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-primary); color: var(--text-primary); font-size: 14px; }
+.form-row select { flex: 0 0 150px; min-width: 130px; padding-right: 36px; appearance: none; -webkit-appearance: none; cursor: pointer; background-image: linear-gradient(45deg, transparent 50%, var(--text-secondary) 50%), linear-gradient(135deg, var(--text-secondary) 50%, transparent 50%); background-position: calc(100% - 17px) 50%, calc(100% - 12px) 50%; background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; }
+.form-row select:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.form-row select option { background: var(--bg-secondary); color: var(--text-primary); }
+.form-row input:focus, .form-row select:focus, .admin-config-textarea:focus, .admin-config-field select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
+.admin-config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.admin-config-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.admin-config-field.full { grid-column: 1 / -1; }
+.admin-config-field label { font-size: 12px; font-weight: 650; color: var(--text-secondary); }
+.admin-config-field input, .admin-config-field select, .admin-config-textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-primary); color: var(--text-primary); font-size: 14px; }
+.admin-config-field input[type="checkbox"] { width: auto; }
+.admin-config-checkbox { flex-direction: row; align-items: center; gap: 10px; padding: 9px 0; }
+.admin-config-checkbox label { margin: 0; }
+.admin-secret-note { font-size: 12px; color: var(--text-muted); }
+.admin-config-textarea { min-height: 82px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.admin-help { font-size: 12px; color: var(--text-muted); margin-top: 8px; }
+.admin-error { color: var(--danger); font-size: 13px; margin-top: 8px; }
+.admin-success { color: var(--success); font-size: 13px; margin-top: 8px; }
+.setup-link-box { margin-top: 12px; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-primary); display: none; gap: 8px; align-items: center; }
+.setup-link-box input { flex: 1; min-width: 0; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-secondary); color: var(--text-primary); font-size: 13px; }
+.email-display { display: inline-flex; align-items: center; gap: 6px; width: 100%; max-width: 100%; }
+.email-display span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.user-table th:nth-child(4), .user-table td:nth-child(4) { overflow: hidden; }
+.admin-table-action { min-width: 0; width: 100%; padding: 6px 8px; white-space: nowrap; }
+.email-missing { color: var(--text-muted); }
+.email-edit { display: grid; grid-template-columns: minmax(0, 1fr) 28px 28px; align-items: center; gap: 4px; width: 100%; max-width: 100%; }
+.email-edit input { min-width: 0; width: 100%; padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-primary); color: var(--text-primary); font-size: 13px; }
+.email-edit .btn-ghost { padding: 4px; width: 28px; height: 28px; line-height: 1; }
+.admin-nav { display: flex; gap: 12px; align-items: center; }
+.admin-back-btn { height: 32px; min-height: 32px; padding: 0 12px; box-sizing: border-box; border-radius: var(--radius); background: var(--accent); color: white; text-decoration: none; font-size: 13px; font-weight: 600; line-height: 32px; display: inline-block; }
+.admin-back-btn:hover { background: var(--accent-hover); }
+.empty-state { text-align: center; padding: 40px; color: var(--text-muted); }
+.admin-theme-toggle { display: flex; gap: 6px; }
+.admin-theme-toggle button { width: 32px; height: 32px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-primary); color: var(--text-secondary); cursor: pointer; display:inline-flex; align-items:center; justify-content:center; transition: background .15s, border-color .15s, color .15s, transform .1s; }
+.admin-theme-toggle button:hover { background: var(--bg-secondary); color: var(--text-primary); }
+.admin-theme-toggle button.active { background: var(--accent); border-color: var(--accent); color: white; transform: scale(1.05); }
+.admin-status-card { padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.security-policy-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.security-policy-main { display: flex; flex-direction: column; gap: 4px; }
+.security-policy-title { font-weight: 650; color: var(--text-primary); }
+.security-policy-desc { font-size: 13px; color: var(--text-muted); }
+.twofa-stack { display: flex; flex-wrap: wrap; gap: 4px; }
+.admin-status-text { font-size: 14px; color: var(--text-secondary); display:inline-flex; align-items:center; gap:8px; }
+.admin-mobile-label { display: none; color: var(--text-muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 2px; }
+.admin-dialog { display: none; position: fixed; inset: 0; z-index: 500; align-items: center; justify-content: center; padding: 16px; }
+.admin-dialog.active { display: flex; }
+.admin-dialog-overlay { position: absolute; inset: 0; background: rgba(0,0,0,.62); backdrop-filter: blur(4px); }
+.admin-dialog-content { position: relative; z-index: 1; width: min(100%, 430px); background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow-lg); padding: 22px; }
+.admin-dialog-content h3 { margin: 0 0 8px 0; font-size: 18px; color: var(--text-primary); }
+.admin-dialog-content p { margin: 0; color: var(--text-muted); font-size: 14px; line-height: 1.45; }
+.admin-dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+.ui-icon { width: 1em; height: 1em; display: inline-block; vertical-align: -0.14em; }
+@media (max-width: 720px) {
+  .admin-container { padding: 18px 12px 32px; }
+  .admin-header { align-items: flex-start; flex-direction: column; margin-bottom: 18px; }
+  .admin-nav { width: 100%; justify-content: space-between; }
+  .admin-card { padding: 16px; border-radius: 14px; margin-bottom: 14px; }
+  .form-row { flex-direction: column; gap: 10px; }
+  .admin-config-grid { grid-template-columns: 1fr; }
+  .form-row input, .form-row select { width: 100%; flex-basis: auto; }
+  .form-row .btn { width: fit-content; max-width: 100%; min-height: 38px; }
+  #admin-login-card .form-row .btn,
+  #admin-password-card .form-row .btn,
+  #create-user-card .form-row .btn { width: 100%; }
+  .setup-link-box { flex-direction: column; align-items: stretch; }
+  .setup-link-box .btn { width: 100%; min-height: 38px; }
+  .admin-status-card { align-items: flex-start; flex-direction: column; }
+  .user-table-wrap { overflow: visible; }
+  .user-table, .user-table thead, .user-table tbody, .user-table tr, .user-table td { display: block; width: 100%; min-width: 0; }
+  .user-table thead { display: none; }
+  .user-table tr { border: 1px solid var(--border); border-radius: 14px; padding: 12px; margin-bottom: 12px; background: var(--bg-primary); }
+  .user-table td { border-bottom: 0; padding: 7px 0; font-size: 14px; }
+  .user-table th:nth-child(n), .user-table td:nth-child(n) { width: auto; }
+  .admin-mobile-label { display: block; }
+  .email-edit { grid-template-columns: minmax(0, 1fr) 32px 32px; }
+}
+</style>
+</head>
+<body>
+<div class="admin-container">
+  <div class="admin-header">
+    <h1><span data-icon="shield"></span> <span data-i18n-key="admin.title">nia-todo Admin</span></h1>
+    <div class="admin-nav">
+      <a class="admin-back-btn" href="/" data-i18n-key="admin.backToApp">Back to app</a>
+      <div class="admin-theme-toggle">
+        <button data-theme="light" onclick="setTheme('light')" data-i18n-title-key="common.theme.light" title="Light"><span data-icon="sun"></span></button>
+        <button data-theme="dark" onclick="setTheme('dark')" data-i18n-title-key="common.theme.dark" title="Dark"><span data-icon="moon"></span></button>
+        <button data-theme="system" onclick="setTheme('system')" data-i18n-title-key="common.theme.system" title="System"><span data-icon="monitor"></span></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="admin-dialog" id="admin-action-dialog" role="dialog" aria-modal="true" aria-labelledby="admin-dialog-title">
+    <div class="admin-dialog-overlay" id="admin-dialog-overlay"></div>
+    <form class="admin-dialog-content" id="admin-dialog-form">
+      <h3 id="admin-dialog-title" data-i18n-key="admin.dialog.confirmTitle">Confirm action</h3>
+      <p id="admin-dialog-message"></p>
+      <div class="admin-dialog-actions">
+        <button type="button" class="btn" id="admin-dialog-cancel" data-i18n-key="common.cancel">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="admin-dialog-confirm" data-i18n-key="common.confirm">Confirm</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="admin-card" id="admin-login-card">
+    <h2><span data-icon="lock-keyhole"></span> <span data-i18n-key="admin.login.title">Admin sign-in</span></h2>
+    <div class="form-row">
+      <input type="password" id="admin-login-password" data-i18n-placeholder-key="admin.login.passwordPlaceholder" placeholder="Enter admin password" autocomplete="off" onkeydown="if(event.key==='Enter') doAdminLogin()">
+      <button class="btn btn-primary" onclick="doAdminLogin()" data-i18n-key="auth.signIn">Sign in</button>
+    </div>
+    <div class="admin-error" id="admin-login-error"></div>
+  </div>
+
+  <div id="admin-content" style="display:none;">
+
+  <!-- Admin Toolbar -->
+  <div class="admin-card admin-status-card">
+    <span class="admin-status-text"><span data-icon="lock-keyhole"></span> <span data-i18n-key="admin.status.loggedIn">Logged in as admin</span></span>
+    <button class="btn btn-danger" onclick="adminLogout()" data-i18n-key="auth.signOut">Sign out</button>
+  </div>
+
+  <!-- Instance Configuration -->
+  <div class="admin-card" id="instance-config-card">
+    <h2><span data-icon="settings"></span> <span data-i18n-key="admin.instance.title">Instance configuration</span></h2>
+    <div class="admin-config-grid">
+      <div class="admin-config-field full">
+        <label for="instance-public-url" data-i18n-key="admin.instance.publicUrl">Public base URL</label>
+        <input type="url" id="instance-public-url" placeholder="https://todo.example.org" autocomplete="off">
+      </div>
+      <div class="admin-config-field full">
+        <label for="instance-allowed-origins">Allowed Origins / CORS</label>
+        <textarea id="instance-allowed-origins" class="admin-config-textarea" placeholder="https://todo.example.org&#10;https://todo-dev.example.org"></textarea>
+      </div>
+      <div class="admin-config-field full">
+        <label for="instance-trusted-proxies">Trusted Proxies</label>
+        <textarea id="instance-trusted-proxies" class="admin-config-textarea" placeholder="10.0.10.14&#10;172.18.0.0/16"></textarea>
+      </div>
+    </div>
+    <div class="admin-help" data-i18n-key="admin.instance.help">The base URL is used for external links. Origins and trusted proxies are line-based. Forwarded headers are only accepted from trusted proxies.</div>
+    <div class="form-row" style="margin-top:12px;">
+      <button class="btn btn-primary" onclick="saveInstanceConfig()" data-i18n-key="admin.instance.save">Save instance configuration</button>
+    </div>
+    <div class="admin-error" id="instance-config-error"></div>
+    <div class="admin-success" id="instance-config-success"></div>
+  </div>
+
+  <!-- Email Configuration -->
+  <div class="admin-card" id="email-config-card">
+    <h2><span data-icon="mail"></span> <span data-i18n-key="admin.email.title">Email / SMTP</span></h2>
+    <div class="admin-config-grid">
+      <div class="admin-config-field admin-config-checkbox full">
+        <input type="checkbox" id="email-smtp-enabled">
+        <label for="email-smtp-enabled" data-i18n-key="admin.email.enableSending">Enable email sending</label>
+      </div>
+      <div class="admin-config-field">
+        <label for="email-smtp-host">SMTP Host</label>
+        <input type="text" id="email-smtp-host" placeholder="smtp.example.org" autocomplete="off">
+      </div>
+      <div class="admin-config-field">
+        <label for="email-smtp-port">SMTP Port</label>
+        <input type="number" id="email-smtp-port" min="1" max="65535" value="587">
+      </div>
+      <div class="admin-config-field">
+        <label for="email-smtp-security" data-i18n-key="admin.email.transportSecurity">Transport security</label>
+        <select id="email-smtp-security">
+          <option value="starttls">STARTTLS</option>
+          <option value="tls">TLS/SSL</option>
+          <option value="none" data-i18n-key="admin.none">None</option>
+        </select>
+      </div>
+      <div class="admin-config-field admin-config-checkbox">
+        <input type="checkbox" id="email-smtp-auth-enabled">
+        <label for="email-smtp-auth-enabled" data-i18n-key="admin.email.useSmtpAuth">Use SMTP auth</label>
+      </div>
+      <div class="admin-config-field">
+        <label for="email-smtp-username">SMTP Username</label>
+        <input type="text" id="email-smtp-username" autocomplete="off">
+      </div>
+      <div class="admin-config-field">
+        <label for="email-smtp-password" data-i18n-key="admin.email.smtpPassword">SMTP password / secret</label>
+        <input type="password" id="email-smtp-password" data-i18n-placeholder-key="admin.email.keepSecretPlaceholder" placeholder="Leave blank = unchanged" autocomplete="new-password">
+        <div class="admin-secret-note" id="email-smtp-password-note"></div>
+      </div>
+      <div class="admin-config-field">
+        <label for="email-from-address" data-i18n-key="admin.email.fromAddress">From-Adresse</label>
+        <input type="email" id="email-from-address" placeholder="todo@example.org" autocomplete="off">
+      </div>
+      <div class="admin-config-field">
+        <label for="email-from-name" data-i18n-key="admin.email.fromName">From-Name</label>
+        <input type="text" id="email-from-name" placeholder="nia-todo" autocomplete="off">
+      </div>
+      <div class="admin-config-field">
+        <label for="email-reply-to">Reply-To optional</label>
+        <input type="email" id="email-reply-to" placeholder="support@example.org" autocomplete="off">
+      </div>
+      <div class="admin-config-field">
+        <label for="email-link-ttl" data-i18n-key="admin.email.linkTtl">Link validity in hours</label>
+        <input type="number" id="email-link-ttl" min="1" max="168" value="24">
+      </div>
+      <div class="admin-config-field full">
+        <label for="email-test-to" data-i18n-key="admin.email.testTo">Test-Mail an</label>
+        <div class="form-row" style="margin-bottom:0;">
+          <input type="email" id="email-test-to" placeholder="name@example.org" autocomplete="off">
+          <button class="btn btn-primary" onclick="sendTestEmail()" data-i18n-key="admin.email.sendTest">Send test email</button>
+        </div>
+      </div>
+    </div>
+    <div class="admin-help" data-i18n-key="admin.email.help">Password/setup links use the public base URL from the instance configuration. SMTP passwords are never shown again. Without email sending enabled, addresses are considered confirmed after the manual setup link, but are not mailbox-verified.</div>
+    <div class="form-row" style="margin-top:12px;">
+      <button class="btn btn-primary" onclick="saveEmailConfig()" data-i18n-key="admin.email.save">Save email configuration</button>
+    </div>
+    <div class="admin-error" id="email-config-error"></div>
+    <div class="admin-success" id="email-config-success"></div>
+  </div>
+
+  <!-- Security / 2FA -->
+  <div class="admin-card" id="security-card">
+    <h2><span data-icon="shield-check"></span> <span data-i18n-key="admin.security.title">Security / 2FA</span></h2>
+    <div class="security-policy-row">
+      <div class="security-policy-main">
+        <div class="security-policy-title" id="twofa-policy-title" data-i18n-key="admin.security.policyLoading">2FA requirement loading…</div>
+        <div class="security-policy-desc" data-i18n-key="admin.security.policyDesc">Requires 2FA for all users. Sign-in is possible with an authenticator app, passkey, or existing recovery codes. If SMTP is configured, users without an authenticator/passkey can temporarily use an email code. Without any available method, they only get access to the 2FA setup.</div>
+      </div>
+      <button class="btn btn-primary" id="twofa-policy-toggle" onclick="toggleTwoFactorPolicy()" data-i18n-key="admin.security.toggle">Toggle</button>
+    </div>
+    <div class="admin-help" data-i18n-key="admin.security.apiKeysHelp">API keys remain usable as machine tokens. Creating and revoking your own API keys requires recent MFA on accounts with mandatory MFA.</div>
+    <div class="admin-error" id="security-error"></div>
+    <div class="admin-success" id="security-success"></div>
+  </div>
+
+  <!-- Change Admin Password -->
+  <div class="admin-card" id="admin-password-card">
+    <h2><span data-icon="key-round"></span> <span data-i18n-key="admin.password.title">Change own admin password</span></h2>
+    <div class="form-row">
+      <input type="password" id="admin-old-password" data-i18n-placeholder-key="admin.password.currentPlaceholder" placeholder="Current admin password" autocomplete="off" onkeydown="if(event.key==='Enter') document.getElementById('admin-new-password').focus()">
+      <input type="password" id="admin-new-password" data-i18n-placeholder-key="admin.password.newPlaceholder" placeholder="New admin password (12+ characters)" autocomplete="new-password" onkeydown="if(event.key==='Enter') document.getElementById('admin-confirm-password').focus()">
+      <input type="password" id="admin-confirm-password" data-i18n-placeholder-key="setup.confirmPasswordLabel" placeholder="Confirm new password" autocomplete="new-password" onkeydown="if(event.key==='Enter') changeAdminPassword()">
+      <button class="btn btn-primary" onclick="changeAdminPassword()" data-i18n-key="admin.password.change">Change admin password</button>
+    </div>
+    <div style="font-size: 12px; color: var(--text-muted); margin-top: 8px;" data-i18n-key="admin.password.requirements">
+      At least 12 characters, 1 uppercase, 1 lowercase, 1 digit, 1 special character
+    </div>
+    <div class="admin-error" id="admin-pw-error"></div>
+    <div class="admin-success" id="admin-pw-success"></div>
+  </div>
+
+  <!-- Create User -->
+  <div class="admin-card" id="create-user-card">
+    <h2><span data-icon="user-plus"></span> <span data-i18n-key="admin.user.createTitle">Create new user</span></h2>
+    <div class="form-row">
+      <input type="text" id="new-username" data-i18n-placeholder-key="setup.usernameLabel" placeholder="Username" autocomplete="off" onkeydown="if(event.key==='Enter') document.getElementById('new-display-name').focus()">
+      <input type="text" id="new-display-name" data-i18n-placeholder-key="setup.displayNameLabel" placeholder="Display name" onkeydown="if(event.key==='Enter') document.getElementById('new-email').focus()">
+      <input type="email" id="new-email" data-i18n-placeholder-key="settings.profile.email" placeholder="Email" autocomplete="off" onkeydown="if(event.key==='Enter') document.getElementById('new-language').focus()">
+      <select id="new-language" data-i18n-title-key="admin.user.language" title="Language" onkeydown="if(event.key==='Enter') createUser()">
+        <option value="de" data-i18n-key="settings.language.de">German</option>
+        <option value="en" data-i18n-key="settings.language.en">English</option>
+      </select>
+      <button class="btn btn-primary" onclick="createUser()" data-i18n-key="admin.user.createAndLink">Create & generate link</button>
+    </div>
+    <div style="font-size: 12px; color: var(--text-muted); margin-top: 8px;" data-i18n-key="admin.user.createHelp">
+      The user sets their password through a one-time link. If email is configured, the link is sent automatically. Without SMTP, the link is shared manually; the address is then considered confirmed, but not mailbox-verified.
+    </div>
+    <div class="admin-error" id="create-error"></div>
+    <div class="admin-success" id="create-success"></div>
+    <div class="setup-link-box" id="create-link-box">
+      <input type="text" id="create-link-input" readonly>
+      <button class="btn btn-primary" onclick="copySetupLink('create-link-input')" data-i18n-key="common.copy">Copy</button>
+    </div>
+  </div>
+
+  <!-- User List -->
+  <div class="admin-card">
+    <h2><span data-icon="users"></span> <span data-i18n-key="admin.user.title">Users</span></h2>
+    <div class="user-table-wrap">
+    <table class="user-table" id="user-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th data-i18n-key="admin.user.username">Username</th>
+          <th data-i18n-key="admin.user.displayName">Display name</th>
+          <th data-i18n-key="admin.user.email">Email</th>
+          <th data-i18n-key="admin.user.emailStatus">Email Status</th>
+          <th data-i18n-key="admin.user.login">Login</th>
+          <th data-i18n-key="admin.user.twofa">2FA</th>
+          <th data-i18n-key="admin.user.apiKeys">API Keys</th>
+          <th data-i18n-key="admin.user.password">Password</th>
+          <th data-i18n-key="admin.user.actions">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="user-list">
+        <tr><td colspan="10" class="empty-state" data-i18n-key="common.loading">Loading...</td></tr>
+      </tbody>
+    </table>
+    </div>
+  </div>
+
+  </div>
+</div>
+
+<script type="module">
+import { initI18n, t as i18nT } from './static/js/i18n/index.js';
+await initI18n();
+window.t = i18nT;
+</script>
+<script>
+const API = '';
+
+const ICONS = {
+  shield: '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>',
+  moon: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
+  monitor: '<rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/>',
+  'lock-keyhole': '<circle cx="12" cy="16" r="1"/><rect x="3" y="10" width="18" height="12" rx="2"/><path d="M7 10V7a5 5 0 0 1 10 0v3"/>',
+  'key-round': '<path d="M2 18v3h3l9.7-9.7"/><circle cx="16.5" cy="7.5" r="5.5"/>',
+  'user-plus': '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/>',
+  users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+  'edit-3': '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
+  check: '<path d="M20 6 9 17l-5-5"/>',
+  x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  trash: '<path d="M3 6h18"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><path d="M19 6l-1 14c-.1 1-1 2-2 2H8c-1 0-1.9-1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/>',
+  link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+  'shield-check': '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>',
+  settings: '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.73l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
+  mail: '<path d="m22 7-8.991 5.727a2 2 0 0 1-2.009 0L2 7"/><rect x="2" y="4" width="20" height="16" rx="2"/>',
+};
+function iconSvg(name) {
+  const paths = ICONS[name] || ICONS.shield;
+  return `<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
+}
+function hydrateIcons(root = document) {
+  root.querySelectorAll('[data-icon]').forEach(el => { el.innerHTML = iconSvg(el.getAttribute('data-icon')); });
+}
+hydrateIcons();
+let adminToken = null;
+
+function setTheme(mode) {
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const isDark = mode === 'dark' || (mode === 'system' && prefersDark);
+  document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+  localStorage.setItem('theme', mode);
+  document.querySelectorAll('.admin-theme-toggle button').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.theme === mode);
+  });
+}
+
+// Init theme
+const storedTheme = localStorage.getItem('theme');
+if (storedTheme && storedTheme !== 'system') setTheme(storedTheme);
+else setTheme('system');
+
+// Migrate old token storage: clear old plaintext admin_token
+function migrateOldAdminToken() {
+  const oldToken = localStorage.getItem('admin_token');
+  if (oldToken) {
+    localStorage.removeItem('admin_token');
+  }
+}
+migrateOldAdminToken();
+
+function getAdminToken() {
+  return localStorage.getItem('admin_jwt_token');
+}
+
+adminToken = getAdminToken();
+
+if (adminToken) {
+  // Try to use stored JWT, if invalid show login
+  loadAdminData().then(() => {
+    document.getElementById('admin-login-card').style.display = 'none';
+    document.getElementById('admin-content').style.display = 'block';
+  }).catch(() => {
+    localStorage.removeItem('admin_jwt_token');
+    adminToken = null;
+    document.getElementById('admin-login-card').style.display = 'block';
+  });
+} else {
+  document.getElementById('admin-login-card').style.display = 'block';
+}
+
+function getAuthHeaders() {
+  const headers = {};
+  if (adminToken) {
+    headers['Authorization'] = 'Bearer ' + adminToken;
+  }
+  // Add CSRF token for state-changing requests
+  const csrf = localStorage.getItem('csrf_token');
+  if (csrf) {
+    headers['X-CSRF-Token'] = csrf;
+  }
+  return headers;
+}
+
+async function getApiError(response) {
+  const fallback = `Error ${response.status}: ${response.statusText || 'Request failed'}`;
+  const data = await response.json().catch(() => null);
+  if (!data) return fallback;
+  
+  // Handle flat format: {detail, code, params}
+  let code = data.code;
+  let detail = data.detail;
+  let params = data.params || {};
+  
+  // Handle nested format: {detail: {detail, code, params}}
+  if (detail && typeof detail === 'object' && !Array.isArray(detail)) {
+    code = detail.code || code;
+    params = detail.params || params;
+    detail = detail.detail || detail.message || fallback;
+  }
+  
+  // Try i18n lookup
+  if (code) {
+    const key = `api.error.${code}`;
+    const translated = t(key, params);
+    if (translated !== key) return translated;
+  }
+  
+  // Fallback to detail string
+  if (typeof detail === 'string') return detail;
+  return fallback;
+}
+
+async function apiGet(path) {
+  const r = await fetch(API + path, {
+    headers: getAuthHeaders()
+  });
+  if (!r.ok) throw new Error(await getApiError(r));
+  return r.json();
+}
+
+async function apiPost(path, body) {
+  const r = await fetch(API + path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    body: JSON.stringify(body)
+  });
+  if (!r.ok) throw new Error(await getApiError(r));
+  return r.json();
+}
+
+async function apiPatch(path, body) {
+  const r = await fetch(API + path, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    body: JSON.stringify(body)
+  });
+  if (!r.ok) throw new Error(await getApiError(r));
+  return r.json();
+}
+
+async function apiDelete(path) {
+  const r = await fetch(API + path, {
+    method: 'DELETE',
+    headers: getAuthHeaders()
+  });
+  if (!r.ok) throw new Error(await getApiError(r));
+  return r.json();
+}
+
+async function doAdminLogin() {
+  const password = document.getElementById('admin-login-password').value;
+  document.getElementById('admin-login-error').textContent = '';
+
+  if (!password) {
+    document.getElementById('admin-login-error').textContent = t('admin.login.passwordRequired');
+    return;
+  }
+
+  try {
+    const r = await fetch(API + '/api/admin/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password })
+    });
+    const data = await r.json();
+    if (!r.ok) {
+      if (r.status === 401) {
+        document.getElementById('admin-login-error').textContent = t('admin.login.invalidPassword');
+      } else {
+        document.getElementById('admin-login-error').textContent = data.detail || t('admin.login.failed');
+      }
+      return;
+    }
+
+    adminToken = data.access_token;
+    localStorage.setItem('admin_jwt_token', data.access_token);
+    // Store CSRF token from cookie (Double-Submit Cookie pattern)
+    // The server sets it as a cookie; we also get it in the response body
+    if (data.csrf_token) {
+      localStorage.setItem('csrf_token', data.csrf_token);
+    }
+    document.getElementById('admin-login-card').style.display = 'none';
+    document.getElementById('admin-content').style.display = 'block';
+    await loadAdminData();
+  } catch(e) {
+    document.getElementById('admin-login-error').textContent = 'Error: ' + e.message;
+  }
+}
+
+let twoFactorPolicyRequired = false;
+
+async function loadAdminData() {
+  const [usersData, configData, emailConfigData, twoFactorPolicy] = await Promise.all([
+    apiGet('/api/admin/users'),
+    apiGet('/api/admin/instance-config'),
+    apiGet('/api/admin/email-config'),
+    apiGet('/api/admin/2fa-policy'),
+  ]);
+  twoFactorPolicyRequired = !!twoFactorPolicy.required;
+  renderTwoFactorPolicy(twoFactorPolicy);
+  renderUsers(usersData.users);
+  renderInstanceConfig(configData);
+  renderEmailConfig(emailConfigData);
+}
+
+async function loadUsers() {
+  try {
+    const data = await apiGet('/api/admin/users');
+    if (typeof data.two_factor_required === 'boolean') {
+      twoFactorPolicyRequired = data.two_factor_required;
+      renderTwoFactorPolicy({ required: twoFactorPolicyRequired });
+    }
+    renderUsers(data.users);
+  } catch(e) {
+    document.getElementById('user-list').innerHTML =
+      `<tr><td colspan="8" class="empty-state">Error: ${e.message}</td></tr>`;
+    if (e.message.includes('403')) {
+      localStorage.removeItem('admin_jwt_token');
+      setTimeout(() => location.reload(), 2000);
+    }
+  }
+}
+
+function escapeHtml(str) {
+  if (str == null) return '';
+  const div = document.createElement('div');
+  div.textContent = String(str);
+  return div.innerHTML;
+}
+
+function escapeHtmlAttr(str) {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
+}
+
+function adminDialog({ title, message, confirmText = t('common.confirm'), danger = false, hideCancel = false }) {
+  const modal = document.getElementById('admin-action-dialog');
+  const form = document.getElementById('admin-dialog-form');
+  const cancel = document.getElementById('admin-dialog-cancel');
+  const confirmBtn = document.getElementById('admin-dialog-confirm');
+  const overlay = document.getElementById('admin-dialog-overlay');
+  document.getElementById('admin-dialog-title').textContent = title;
+  document.getElementById('admin-dialog-message').textContent = message;
+  confirmBtn.textContent = confirmText;
+  confirmBtn.classList.toggle('btn-danger', danger);
+  confirmBtn.classList.toggle('btn-primary', !danger);
+  cancel.style.display = hideCancel ? 'none' : '';
+  modal.classList.add('active');
+  return new Promise((resolve) => {
+    let settled = false;
+    const cleanup = () => {
+      form.removeEventListener('submit', onSubmit);
+      cancel.removeEventListener('click', onCancel);
+      overlay.removeEventListener('click', onCancel);
+      document.removeEventListener('keydown', onKey);
+      modal.classList.remove('active');
+      cancel.style.display = '';
+    };
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve(value);
+    };
+    const onSubmit = (event) => { event.preventDefault(); finish(true); };
+    const onCancel = () => finish(false);
+    const onKey = (event) => { if (event.key === 'Escape') finish(false); };
+    form.addEventListener('submit', onSubmit);
+    cancel.addEventListener('click', onCancel);
+    overlay.addEventListener('click', onCancel);
+    document.addEventListener('keydown', onKey);
+    confirmBtn.focus();
+  });
+}
+
+function adminConfirm(options) {
+  return adminDialog(options);
+}
+
+function adminNotice(title, message) {
+  return adminDialog({ title, message, confirmText: 'OK', hideCancel: true });
+}
+
+function renderInstanceConfig(config) {
+  document.getElementById('instance-public-url').value = config.public_base_url || '';
+  document.getElementById('instance-allowed-origins').value = (config.allowed_origins || []).join('\n');
+  document.getElementById('instance-trusted-proxies').value = (config.trusted_proxies || []).join('\n');
+}
+
+function parseOriginsInput(value) {
+  return value.split(/[\n,]/).map(item => item.trim()).filter(Boolean);
+}
+
+function renderTwoFactorPolicy(policy) {
+  twoFactorPolicyRequired = !!policy.required;
+  const title = document.getElementById('twofa-policy-title');
+  const btn = document.getElementById('twofa-policy-toggle');
+  if (title) title.textContent = twoFactorPolicyRequired ? t('admin.security.policyActive') : t('admin.security.policyInactive');
+  if (btn) btn.textContent = twoFactorPolicyRequired ? t('admin.security.disablePolicy') : t('admin.security.enablePolicy');
+}
+
+async function toggleTwoFactorPolicy() {
+  const next = !twoFactorPolicyRequired;
+  const errorEl = document.getElementById('security-error');
+  const successEl = document.getElementById('security-success');
+  errorEl.textContent = '';
+  successEl.textContent = '';
+  const confirmed = await adminConfirm({
+    title: next ? t('admin.security.enablePolicyTitle') : t('admin.security.disablePolicyTitle'),
+    message: next
+      ? t('admin.security.enablePolicyMessage')
+      : t('admin.security.disablePolicyMessage'),
+    confirmText: next ? t('admin.security.enablePolicy') : t('admin.security.disablePolicy'),
+    danger: !next,
+  });
+  if (!confirmed) return;
+  try {
+    const data = await apiPatch('/api/admin/2fa-policy', { required: next });
+    renderTwoFactorPolicy(data);
+    successEl.textContent = next ? t('admin.security.policyEnabled') : t('admin.security.policyDisabled');
+    await loadUsers();
+  } catch (e) {
+    errorEl.textContent = e.message;
+  }
+}
+
+function renderEmailConfig(config) {
+  document.getElementById('email-smtp-enabled').checked = !!config.smtp_enabled;
+  document.getElementById('email-smtp-host').value = config.smtp_host || '';
+  document.getElementById('email-smtp-port').value = config.smtp_port || 587;
+  document.getElementById('email-smtp-security').value = config.smtp_security || 'starttls';
+  document.getElementById('email-smtp-auth-enabled').checked = !!config.smtp_auth_enabled;
+  document.getElementById('email-smtp-username').value = config.smtp_username || '';
+  document.getElementById('email-smtp-password').value = '';
+  document.getElementById('email-from-address').value = config.mail_from_address || '';
+  document.getElementById('email-from-name').value = config.mail_from_name || 'nia-todo';
+  document.getElementById('email-reply-to').value = config.mail_reply_to || '';
+  document.getElementById('email-link-ttl').value = config.password_link_ttl_hours || 24;
+  document.getElementById('email-smtp-password-note').textContent = config.smtp_password_configured
+    ? t('admin.email.passwordStoredNote')
+    : t('admin.email.noPasswordStoredNote');
+}
+
+function readEmailConfigForm() {
+  const secret = document.getElementById('email-smtp-password').value;
+  const data = {
+    smtp_enabled: document.getElementById('email-smtp-enabled').checked,
+    smtp_host: document.getElementById('email-smtp-host').value.trim(),
+    smtp_port: Number(document.getElementById('email-smtp-port').value || 587),
+    smtp_security: document.getElementById('email-smtp-security').value,
+    smtp_auth_enabled: document.getElementById('email-smtp-auth-enabled').checked,
+    smtp_username: document.getElementById('email-smtp-username').value.trim(),
+    mail_from_address: document.getElementById('email-from-address').value.trim(),
+    mail_from_name: document.getElementById('email-from-name').value.trim() || 'nia-todo',
+    mail_reply_to: document.getElementById('email-reply-to').value.trim(),
+    password_link_ttl_hours: Number(document.getElementById('email-link-ttl').value || 24),
+  };
+  if (secret) data.smtp_password_secret = secret;
+  return data;
+}
+
+async function saveEmailConfig() {
+  document.getElementById('email-config-error').textContent = '';
+  document.getElementById('email-config-success').textContent = '';
+  try {
+    const data = await apiPatch('/api/admin/email-config', readEmailConfigForm());
+    renderEmailConfig(data);
+    document.getElementById('email-config-success').textContent = t('admin.email.saved');
+  } catch(e) {
+    document.getElementById('email-config-error').textContent = e.message;
+  }
+}
+
+async function sendTestEmail() {
+  document.getElementById('email-config-error').textContent = '';
+  document.getElementById('email-config-success').textContent = '';
+  const to = document.getElementById('email-test-to').value.trim();
+  if (!isValidEmail(to)) {
+    document.getElementById('email-config-error').textContent = t('admin.email.invalidTestAddress');
+    return;
+  }
+  try {
+    await apiPost('/api/admin/email-config/test', { to });
+    document.getElementById('email-config-success').textContent = t('admin.email.testSent');
+  } catch(e) {
+    document.getElementById('email-config-error').textContent = e.message;
+  }
+}
+
+async function saveInstanceConfig() {
+  document.getElementById('instance-config-error').textContent = '';
+  document.getElementById('instance-config-success').textContent = '';
+  try {
+    const data = await apiPatch('/api/admin/instance-config', {
+      public_base_url: document.getElementById('instance-public-url').value.trim(),
+      allowed_origins: parseOriginsInput(document.getElementById('instance-allowed-origins').value),
+      trusted_proxies: parseOriginsInput(document.getElementById('instance-trusted-proxies').value),
+    });
+    renderInstanceConfig(data);
+    document.getElementById('instance-config-success').textContent = t('admin.instance.saved');
+  } catch(e) {
+    document.getElementById('instance-config-error').textContent = e.message;
+  }
+}
+
+function renderUserEmailCell(user) {
+  return renderUserEmailDisplay(user.id, user.email || '');
+}
+
+function renderUserEmailStatus(user) {
+  if (user.pending_email) return `<span class="badge badge-warning" title="${escapeHtmlAttr(t('admin.user.emailStatus.pendingTitle'))}">${escapeHtml(t('admin.user.emailStatus.pending'))}</span>`;
+  if (!user.email) return `<span class="badge badge-muted">${escapeHtml(t('admin.none'))}</span>`;
+  if (user.email_verified_at) return `<span class="badge badge-success" title="${escapeHtmlAttr(t('admin.user.emailStatus.verifiedTitle'))}">${escapeHtml(t('admin.user.emailStatus.verified'))}</span>`;
+  return `<span class="badge badge-warning" title="${escapeHtmlAttr(t('admin.user.emailStatus.unverifiedTitle'))}">${escapeHtml(t('admin.user.emailStatus.unverified'))}</span>`;
+}
+
+function renderUserLoginStatus(user) {
+  return user.password_configured
+    ? `<span class="badge badge-success" title="${escapeHtmlAttr(t('admin.user.login.activeTitle'))}">${escapeHtml(t('admin.user.login.active'))}</span>`
+    : `<span class="badge badge-warning" title="${escapeHtmlAttr(t('admin.user.login.inviteOpenTitle'))}">${escapeHtml(t('admin.user.login.inviteOpen'))}</span>`;
+}
+
+function renderUserTwoFactorStatus(user) {
+  const enabled = !!user.two_factor_enabled;
+  const factors = [];
+  if (user.has_totp) factors.push('1 TOTP');
+  if (Number(user.passkey_count || 0) > 0) factors.push(`${user.passkey_count} Passkey`);
+  if (user.has_recovery_codes) factors.push('Recovery');
+  if (user.has_email_fallback) factors.push(t('admin.user.twofa.emailFallback'));
+  const badge = enabled
+    ? `<span class="badge badge-success">${escapeHtml(t('admin.user.twofa.active'))}</span>`
+    : (twoFactorPolicyRequired ? `<span class="badge badge-warning">${escapeHtml(t('admin.user.twofa.required'))}</span>` : `<span class="badge badge-muted">${escapeHtml(t('admin.user.twofa.off'))}</span>`);
+  const detail = factors.length ? factors.map(escapeHtml).join(' · ') : (twoFactorPolicyRequired ? t('admin.user.twofa.setupOnly') : '-');
+  const reset = (enabled || Number(user.passkey_count || 0) > 0)
+    ? `<button class="btn btn-danger admin-table-action" style="margin-top:6px;" onclick="resetUserTwoFactor(${user.id}, '${escapeHtmlAttr(user.username)}')">${iconSvg('shield-check')} ${escapeHtml(t('admin.user.twofa.resetShort'))}</button>`
+    : '';
+  return `<div class="twofa-stack">${badge}<span class="admin-help" style="margin:0;">${detail}</span></div>${reset}`;
+}
+
+function renderUserApiKeys(user) {
+  const count = Number(user.api_key_count || 0);
+  if (!count) return `<span class="badge badge-muted">0</span>`;
+  return `<span class="badge badge-warning" title="${escapeHtmlAttr(t('admin.user.apiKeysMachineTokenHint'))}">${count} ${escapeHtml(t('admin.user.active'))}</span>`;
+}
+
+function renderUserEmailDisplay(userId, emailValue) {
+  const email = emailValue ? escapeHtml(emailValue) : '<span class="email-missing">-</span>';
+  return `<span class="email-display" id="email-display-${userId}">
+    <span>${email}</span>
+    <button class="btn btn-ghost" title="${escapeHtmlAttr(t('admin.user.editEmail'))}" onclick="editUserEmail(${userId}, '${escapeHtmlAttr(emailValue || '')}')">${iconSvg('edit-3')}</button>
+  </span>`;
+}
+
+function renderUsers(users) {
+  const tbody = document.getElementById('user-list');
+  if (!users || users.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="10" class="empty-state">${escapeHtml(t('admin.user.empty'))}</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = users.map(u => `
+    <tr>
+      <td><span class="admin-mobile-label">ID</span>${u.id}</td>
+      <td><span class="admin-mobile-label">${escapeHtml(t('setup.usernameLabel'))}</span>${escapeHtml(u.username)}</td>
+      <td><span class="admin-mobile-label">${escapeHtml(t('setup.displayNameLabel'))}</span>${escapeHtml(u.display_name) || '-'}</td>
+      <td><span class="admin-mobile-label">${escapeHtml(t('settings.profile.email'))}</span>${renderUserEmailCell(u)}</td>
+      <td><span class="admin-mobile-label">${escapeHtml(t('admin.user.emailStatus'))}</span>${renderUserEmailStatus(u)}</td>
+      <td><span class="admin-mobile-label">${escapeHtml(t('admin.user.login'))}</span>${renderUserLoginStatus(u)}</td>
+      <td><span class="admin-mobile-label">2FA</span>${renderUserTwoFactorStatus(u)}</td>
+      <td><span class="admin-mobile-label">${escapeHtml(t('settings.apiKeys.title'))}</span>${renderUserApiKeys(u)}</td>
+      <td><span class="admin-mobile-label">${escapeHtml(t('auth.password'))}</span><button class="btn btn-primary admin-table-action" onclick="generatePasswordLink(${u.id}, '${escapeHtmlAttr(u.username)}')">${iconSvg('link')} ${escapeHtml(t('admin.user.passwordLink'))}</button></td>
+      <td><span class="admin-mobile-label">${escapeHtml(t('admin.user.actions'))}</span>${u.is_admin ? '-' : `<button class="btn btn-danger admin-table-action" onclick="deleteUser(${u.id}, '${escapeHtmlAttr(u.username)}')">${iconSvg('trash')} ${escapeHtml(t('common.delete'))}</button>`}</td>
+    </tr>
+  `).join('');
+}
+
+async function createUser() {
+  const username = document.getElementById('new-username').value.trim();
+  const displayName = document.getElementById('new-display-name').value.trim();
+  const email = document.getElementById('new-email').value.trim();
+  const language = document.getElementById('new-language').value;
+
+  document.getElementById('create-error').textContent = '';
+  document.getElementById('create-success').textContent = '';
+  document.getElementById('create-link-box').style.display = 'none';
+
+  if (!username || !email) {
+    document.getElementById('create-error').textContent = t('admin.user.usernameEmailRequired');
+    return;
+  }
+  if (!isValidEmail(email)) {
+    document.getElementById('create-error').textContent = t('setup.error.invalidEmail');
+    return;
+  }
+
+  try {
+    const data = await apiPost('/api/admin/users', {
+      username: username,
+      display_name: displayName || username,
+      email: email,
+      language: language
+    });
+    if (data.password_setup_delivery === 'email') {
+      document.getElementById('create-success').textContent = t('admin.user.createdEmailSent', { username });
+    } else {
+      document.getElementById('create-success').textContent = t('admin.user.createdCopyLink', { username });
+      document.getElementById('create-link-input').value = data.password_setup_url || '';
+      document.getElementById('create-link-box').style.display = 'flex';
+    }
+    document.getElementById('new-username').value = '';
+    document.getElementById('new-display-name').value = '';
+    document.getElementById('new-email').value = '';
+    await loadUsers();
+  } catch(e) {
+    document.getElementById('create-error').textContent = e.message;
+  }
+}
+
+function editUserEmail(userId, currentEmail) {
+  const container = document.getElementById(`email-display-${userId}`);
+  if (!container) return;
+  container.outerHTML = `<span class="email-edit" id="email-edit-${userId}">
+    <input id="email-input-${userId}" type="email" value="${escapeHtmlAttr(currentEmail || '')}" placeholder="${escapeHtmlAttr(t('admin.user.emailPlaceholder'))}" onkeydown="if(event.key==='Enter') saveUserEmail(${userId}); if(event.key==='Escape') cancelUserEmailEdit(${userId}, '${escapeHtmlAttr(currentEmail || '')}')">
+    <button class="btn btn-ghost" title="${escapeHtmlAttr(t('common.save'))}" onclick="saveUserEmail(${userId})">${iconSvg('check')}</button>
+    <button class="btn btn-ghost" title="${escapeHtmlAttr(t('common.cancel'))}" onclick="cancelUserEmailEdit(${userId}, '${escapeHtmlAttr(currentEmail || '')}')">${iconSvg('x')}</button>
+  </span>`;
+  document.getElementById(`email-input-${userId}`)?.focus();
+}
+
+function cancelUserEmailEdit(userId, currentEmail) {
+  const container = document.getElementById(`email-edit-${userId}`);
+  if (!container) return;
+  container.outerHTML = renderUserEmailDisplay(userId, currentEmail || '');
+}
+
+async function saveUserEmail(userId) {
+  const input = document.getElementById(`email-input-${userId}`);
+  const email = input?.value?.trim() || '';
+  const errorEl = document.getElementById('security-error');
+  if (errorEl) errorEl.textContent = '';
+  if (!email) {
+    if (errorEl) errorEl.textContent = t('admin.user.emailRequired');
+    return;
+  }
+  if (!isValidEmail(email)) {
+    if (errorEl) errorEl.textContent = t('setup.error.invalidEmail');
+    return;
+  }
+  try {
+    await apiPatch(`/api/admin/users/${userId}`, { email });
+    await loadUsers();
+  } catch(e) {
+    if (errorEl) errorEl.textContent = t('admin.errorWithMessage', { error: e.message });
+  }
+}
+
+async function resetUserTwoFactor(userId, username) {
+  const confirmed = await adminConfirm({
+    title: t('admin.user.reset2faTitle'),
+    message: t('admin.user.reset2faMessage', { username }),
+    confirmText: t('admin.user.reset2faConfirm'),
+    danger: true,
+  });
+  if (!confirmed) return;
+  try {
+    await apiPost(`/api/admin/users/${userId}/2fa/reset`, {});
+    document.getElementById('security-success').textContent = t('admin.user.reset2faSuccess', { username });
+    await loadUsers();
+  } catch(e) {
+    document.getElementById('security-error').textContent = t('admin.errorWithMessage', { error: e.message });
+  }
+}
+
+async function deleteUser(userId, username) {
+  const confirmed = await adminConfirm({
+    title: t('admin.user.deleteTitle'),
+    message: t('admin.user.deleteMessage', { username }),
+    confirmText: t('admin.user.deleteConfirm'),
+    danger: true,
+  });
+  if (!confirmed) return;
+  try {
+    await apiDelete(`/api/admin/users/${userId}`);
+    await loadUsers();
+  } catch(e) {
+    await adminNotice(t('common.error'), t('admin.errorWithMessage', { error: e.message }));
+  }
+}
+
+async function changeAdminPassword() {
+  const oldPw = document.getElementById('admin-old-password').value;
+  const newPw = document.getElementById('admin-new-password').value;
+  const confirmPw = document.getElementById('admin-confirm-password').value;
+
+  document.getElementById('admin-pw-error').textContent = '';
+  document.getElementById('admin-pw-success').textContent = '';
+
+  if (!oldPw || !newPw || !confirmPw) {
+    document.getElementById('admin-pw-error').textContent = t('settings.password.allRequired');
+    return;
+  }
+  if (newPw !== confirmPw) {
+    document.getElementById('admin-pw-error').textContent = t('settings.password.mismatch');
+    return;
+  }
+
+  try {
+    await apiPost('/api/admin/change-password', { old_password: oldPw, new_password: newPw });
+    document.getElementById('admin-pw-success').textContent = t('admin.password.changed');
+    document.getElementById('admin-old-password').value = '';
+    document.getElementById('admin-new-password').value = '';
+    document.getElementById('admin-confirm-password').value = '';
+    setTimeout(() => adminLogout(), 2000);
+  } catch(e) {
+    document.getElementById('admin-pw-error').textContent = e.message;
+  }
+}
+
+// --- User Password Links ---
+async function copySetupLink(inputId) {
+  const input = document.getElementById(inputId);
+  if (!input?.value) return;
+  await navigator.clipboard.writeText(input.value);
+}
+
+async function generatePasswordLink(userId, username) {
+  try {
+    const data = await apiPost(`/api/admin/users/${userId}/password-link`, {});
+    if (data.password_setup_delivery === 'email') {
+      await adminNotice(t('admin.user.passwordMailSentTitle'), t('admin.user.passwordMailSentMessage', { username }));
+      return;
+    }
+    const link = data.password_setup_url;
+    const copied = await navigator.clipboard.writeText(link).then(() => true).catch(() => false);
+    await adminNotice(
+      copied ? t('admin.user.passwordLinkCopiedTitle') : t('admin.user.passwordLinkCreatedTitle'),
+      t(copied ? 'admin.user.passwordLinkCopiedMessage' : 'admin.user.passwordLinkCreatedMessage', { username, link }),
+    );
+  } catch(e) {
+    await adminNotice(t('common.error'), t('admin.errorWithMessage', { error: e.message }));
+  }
+}
+
+async function adminLogout() {
+  try {
+    // Call backend logout to invalidate all admin JWTs
+    await fetch(API + '/api/admin/logout', {
+      method: 'POST',
+      headers: getAuthHeaders()
+    });
+  } catch(e) {
+    // Ignore errors on logout
+  }
+  localStorage.removeItem('admin_jwt_token');
+  localStorage.removeItem('csrf_token');
+  adminToken = null;
+  document.getElementById('admin-content').style.display = 'none';
+  document.getElementById('admin-login-card').style.display = 'block';
+  document.getElementById('admin-login-password').value = '';
+}
+
+</script>
+</body>
+</html>

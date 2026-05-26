@@ -1,0 +1,20 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Default desktop window capability for nia-todo local bundled UI.",
+  "platforms": ["windows", "macOS", "linux"],
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "notification:default",
+    "allow-desktop-get-settings",
+    "allow-desktop-set-setting",
+    "allow-desktop-set-server-url",
+    "allow-desktop-clear-server-url",
+    "allow-desktop-open-url",
+    "allow-desktop-set-hotkey",
+    "allow-desktop-request-notification-permission",
+    "allow-desktop-notify",
+    "allow-desktop-schedule-reminders"
+  ]
+}

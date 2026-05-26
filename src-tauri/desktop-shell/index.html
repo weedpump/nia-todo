@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>nia-todo Server verbinden</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, system-ui, -apple-system, Segoe UI, sans-serif; }
+    body { margin:0; min-height:100vh; display:grid; place-items:center; background:#0f172a; color:#e5e7eb; }
+    main { box-sizing:border-box; width:min(440px, calc(100vw - 32px)); background:#111827; border:1px solid #263244; border-radius:22px; padding:28px; box-shadow:0 24px 80px rgba(0,0,0,.45); }
+    @media (max-width: 520px), (pointer: coarse) {
+      body { padding:24px; box-sizing:border-box; }
+      main { width:min(360px, 100%); padding:32px 24px; }
+    }
+    h1 { margin:0 0 8px; font-size:24px; }
+    p { margin:0 0 22px; color:#9ca3af; line-height:1.45; }
+    label { display:block; font-size:13px; color:#cbd5e1; margin-bottom:8px; }
+    input { width:100%; box-sizing:border-box; border:1px solid #334155; background:#020617; color:#f8fafc; border-radius:12px; padding:13px 14px; font-size:15px; outline:none; }
+    input:focus { border-color:#6366f1; box-shadow:0 0 0 3px rgba(99,102,241,.18); }
+    button { width:100%; margin-top:14px; border:0; border-radius:12px; padding:13px 16px; background:#6366f1; color:white; font-weight:700; font-size:15px; cursor:pointer; }
+    button:hover { background:#5558e3; }
+    .error { min-height:18px; margin-top:12px; color:#f87171; font-size:13px; }
+    .hint { margin-top:14px; color:#64748b; font-size:12px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>nia-todo verbinden</h1>
+    <p>Bitte gib die Server-URL ein, mit der diese App verbunden werden soll.</p>
+    <form id="server-form">
+      <label for="server-url">Server-URL</label>
+      <input id="server-url" type="url" autocomplete="url" required>
+      <button type="submit">Verbinden</button>
+      <div class="error" id="error"></div>
+      <div class="hint">Die URL wird lokal in dieser App gespeichert und kann später in den App-Einstellungen geändert werden.</div>
+    </form>
+  </main>
+  <script>
+    const invoke = window.__TAURI__?.core?.invoke;
+    const input = document.getElementById('server-url');
+    const errorEl = document.getElementById('error');
+
+    function normalizeUrl(value) {
+      const raw = value.trim().replace(/\/+$/, '');
+      const url = new URL(raw);
+      if (!['http:', 'https:'].includes(url.protocol)) throw new Error('Bitte eine http(s)-URL eingeben.');
+      return url.origin + url.pathname.replace(/\/+$/, '');
+    }
+
+    function nativeLaunchUrl(serverUrl) {
+      const url = new URL(serverUrl);
+      url.searchParams.set('nativeApp', 'tauri');
+      return url.toString();
+    }
+
+    async function boot() {
+      if (!invoke) {
+        errorEl.textContent = 'Tauri API nicht verfügbar.';
+        return;
+      }
+      const settings = await invoke('desktop_get_settings');
+      if (settings?.serverUrl) {
+        location.replace(nativeLaunchUrl(settings.serverUrl));
+      }
+    }
+
+    document.getElementById('server-form').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      errorEl.textContent = '';
+      try {
+        const serverUrl = normalizeUrl(input.value);
+        await invoke('desktop_set_server_url', { serverUrl });
+        location.replace(nativeLaunchUrl(serverUrl));
+      } catch (error) {
+        errorEl.textContent = error?.message || String(error);
+      }
+    });
+
+    boot().catch((error) => { errorEl.textContent = error?.message || String(error); });
+  </script>
+</body>
+</html>

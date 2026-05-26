@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Database (NEVER commit SQLite DBs)
+*.db
+api/data/*.db
+api/data/*.db.backup*
+api/data/*.db.bak
+api/data/*.db.bak
+api/data/avatars/
+
+# Environment
+.env
+.venv
+env/
+venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Dev-only files
+api/data/vapid_keys.json
+test-results.json
+node_modules/
+src-tauri/target/
+src-tauri/frontend-dist/
+
+api/data/daily-backups/
+
+# Generated release downloads (bundled into release artifacts)
+web/downloads/*
+!web/downloads/.gitkeep
+
+# Local release artifacts
+dist/

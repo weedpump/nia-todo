@@ -1,0 +1,11 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "windows-passkeys",
+  "description": "Windows-only native WebAuthn bridge for nia-todo passkeys.",
+  "platforms": ["windows"],
+  "windows": ["main"],
+  "permissions": [
+    "allow-desktop-passkey-register",
+    "allow-desktop-passkey-authenticate"
+  ]
+}

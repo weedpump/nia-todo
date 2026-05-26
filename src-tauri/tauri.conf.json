@@ -1,0 +1,51 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "nia-todo",
+  "version": "2.5.0",
+  "identifier": "de.tobiaskneidl.nia-todo",
+  "build": {
+    "beforeDevCommand": "",
+    "beforeBuildCommand": "python3 scripts/prepare_tauri_frontend_dist.py",
+    "devUrl": "http://localhost:8754",
+    "frontendDist": "frontend-dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "nia-todo",
+        "width": 1180,
+        "height": 820,
+        "minWidth": 380,
+        "minHeight": 620,
+        "resizable": true,
+        "fullscreen": false,
+        "visible": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' data: http: https:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self' http: https: ws: wss:"
+    },
+    "withGlobalTauri": true
+  },
+  "bundle": {
+    "active": true,
+    "publisher": "Tobias Kneidl",
+    "copyright": "Copyright © 2026 Tobias Kneidl",
+    "targets": ["nsis", "msi"],
+    "icon": [
+      "../web/static/icons/icon-192.png",
+      "../web/static/icons/icon-512.png"
+    ],
+    "windows": {
+      "wix": {
+        "language": "de-DE"
+      },
+      "nsis": {
+        "displayLanguageSelector": false,
+        "languages": ["German"],
+        "installerHooks": "windows/nsis-hooks.nsh"
+      }
+    }
+  }
+}

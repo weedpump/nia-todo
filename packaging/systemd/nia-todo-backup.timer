@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily nia-todo backup timer
+
+[Timer]
+OnCalendar=*-*-* 03:20:00
+Persistent=true
+Unit=nia-todo-backup.service
+
+[Install]
+WantedBy=timers.target

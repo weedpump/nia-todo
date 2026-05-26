@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title data-i18n-key="setup.pageTitle">nia-todo Setup</title>
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body { margin: 0; min-height: 100vh; min-height: 100dvh; display: flex; align-items: center; justify-content: center; background: var(--bg-primary); overflow-y: auto; }
+.setup-container { width: 100%; max-width: 440px; padding: max(20px, env(safe-area-inset-top)) 20px max(20px, env(safe-area-inset-bottom)); box-sizing: border-box; }
+.setup-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 16px; padding: 40px 32px; box-shadow: var(--shadow); }
+.setup-header { text-align: center; margin-bottom: 32px; }
+.setup-logo { 
+  font-size: 48px; 
+  margin: 0 auto 12px auto;
+  display: block;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+}
+.setup-title { font-size: 24px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
+.setup-subtitle { font-size: 14px; color: var(--text-muted); }
+.setup-step { display: none; }
+.setup-step.active { display: block; }
+.setup-step h2 { font-size: 18px; margin-bottom: 8px; color: var(--text-primary); display:inline-flex; align-items:center; gap:8px; }
+.setup-step p { font-size: 13px; color: var(--text-secondary); margin-bottom: 20px; }
+.setup-field { margin-bottom: 16px; }
+.setup-field label { display: block; font-size: 13px; font-weight: 500; color: var(--text-secondary); margin-bottom: 6px; }
+.setup-field input { width: 100%; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-primary); color: var(--text-primary); font-size: 15px; outline: none; box-sizing: border-box; }
+.setup-field input:focus { border-color: var(--accent); }
+.setup-btn { width: 100%; padding: 14px; border: none; border-radius: var(--radius); background: var(--accent); color: white; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 8px; }
+.setup-btn:hover { background: var(--accent-hover); }
+.setup-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.setup-error { color: var(--danger); font-size: 13px; margin-top: 8px; text-align: center; min-height: 20px; }
+.setup-success { color: var(--success); font-size: 13px; margin-top: 8px; text-align: center; }
+.step-indicator { display: flex; justify-content: center; gap: 8px; margin-bottom: 24px; }
+.step-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--border); transition: background 0.3s; }
+.step-dot.active { background: var(--accent); }
+.setup-theme-toggle { display: flex; justify-content: center; gap: 8px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
+.setup-theme-toggle button { width: 36px; height: 36px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-primary); color: var(--text-secondary); cursor: pointer; display:inline-flex; align-items:center; justify-content:center; transition: background .15s, border-color .15s, color .15s, transform .1s; }
+.ui-icon { width: 1em; height: 1em; display:inline-block; vertical-align:-0.14em; }
+.success-icon { width:48px; height:48px; margin:0 auto 16px; color:var(--success); }
+.success-icon .ui-icon { width:48px; height:48px; }
+.setup-theme-toggle button:hover { background: var(--bg-secondary); color: var(--text-primary); }
+.setup-theme-toggle button.active { background: var(--accent); border-color: var(--accent); color: white; transform: scale(1.05); }
+@media (max-width: 520px), (max-height: 760px) {
+  body { align-items: flex-start; }
+  .setup-container { max-width: none; padding-left: 12px; padding-right: 12px; }
+  .setup-card { padding: 28px 20px; }
+  .setup-header { margin-bottom: 24px; }
+}
+@media (max-height: 680px) {
+  .setup-card { padding-top: 20px; padding-bottom: 20px; }
+  .setup-header { margin-bottom: 18px; }
+  .setup-logo { width: 52px; height: 52px; font-size: 40px; }
+  .step-indicator { margin-bottom: 18px; }
+}
+</style>
+</head>
+<body>
+<div class="setup-container">
+  <div class="setup-card">
+    <div class="setup-header">
+      <img src="/static/icons/icon-192.png" class="setup-logo" alt="nia-todo">
+      <div class="setup-title">nia-todo</div>
+      <div class="setup-subtitle" data-i18n-key="setup.subtitle">Erstinstallation</div>
+    </div>
+
+    <div class="step-indicator">
+      <div class="step-dot active" id="dot-1"></div>
+      <div class="step-dot" id="dot-2"></div>
+    </div>
+
+    <!-- Step 1: Admin Password -->
+    <div class="setup-step active" id="step-1">
+      <h2><span data-icon="lock-keyhole"></span> <span data-i18n-key="setup.adminPasswordTitle">Set admin password</span></h2>
+      <p data-i18n-key="setup.adminPasswordHint">This password is required to manage users. Requirements: at least 12 characters, 1 uppercase, 1 lowercase, 1 digit, 1 special character.</p>
+      <div class="setup-field">
+        <label data-i18n-key="setup.adminPasswordLabel">Admin password</label>
+        <input type="password" id="admin-password" data-i18n-placeholder-key="setup.adminPasswordPlaceholder" placeholder="Enter a secure password" autocomplete="new-password" onkeydown="if(event.key==='Enter') setAdminPassword()">
+      </div>
+      <div class="setup-field">
+        <label data-i18n-key="setup.confirmPasswordLabel">Confirm password</label>
+        <input type="password" id="admin-password-confirm" data-i18n-placeholder-key="setup.repeatPasswordPlaceholder" placeholder="Repeat password" onkeydown="if(event.key==='Enter') setAdminPassword()">
+      </div>
+      <button class="setup-btn" onclick="setAdminPassword()" data-i18n-key="common.continue">Continue</button>
+      <div class="setup-error" id="error-1"></div>
+    </div>
+
+    <!-- Step 2: First User -->
+    <div class="setup-step" id="step-2">
+      <h2><span data-icon="user-plus"></span> <span data-i18n-key="setup.firstUserTitle">Create first user</span></h2>
+      <p data-i18n-key="setup.firstUserHint">This user receives all existing data and is the first user. Email is required and will later become the login name. Password requirements: at least 8 characters, 1 uppercase, 1 lowercase, 1 digit, 1 special character.</p>
+      <div class="setup-field">
+        <label data-i18n-key="setup.usernameLabel">Username</label>
+        <input type="text" id="first-username" data-i18n-placeholder-key="setup.usernamePlaceholder" placeholder="e.g. max" autocomplete="username" onkeydown="if(event.key==='Enter') document.getElementById('first-display-name').focus()">
+      </div>
+      <div class="setup-field">
+        <label data-i18n-key="setup.displayNameLabel">Display name</label>
+        <input type="text" id="first-display-name" placeholder="Max Mustermann" onkeydown="if(event.key==='Enter') document.getElementById('first-email').focus()">
+      </div>
+      <div class="setup-field">
+        <label data-i18n-key="settings.profile.email">Email</label>
+        <input type="email" id="first-email" placeholder="max@example.com" autocomplete="email" onkeydown="if(event.key==='Enter') document.getElementById('first-password').focus()">
+      </div>
+      <div class="setup-field">
+        <label data-i18n-key="auth.password">Password</label>
+        <input type="password" id="first-password" data-i18n-placeholder-key="auth.passwordPlaceholder" placeholder="Password" autocomplete="new-password" onkeydown="if(event.key==='Enter') createFirstUser()">
+      </div>
+      <button class="setup-btn" onclick="createFirstUser()" data-i18n-key="setup.finishInstallation">Finish installation</button>
+      <div class="setup-error" id="error-2"></div>
+    </div>
+
+    <!-- Success -->
+    <div class="setup-step" id="step-success">
+      <div style="text-align: center; padding: 20px 0;">
+        <div class="success-icon" data-icon="check-circle"></div>
+        <h2 style="margin-bottom: 8px;" data-i18n-key="setup.doneTitle">Fertig!</h2>
+        <p data-i18n-key="setup.doneMessage">Dein nia-todo ist eingerichtet. Du wirst gleich weitergeleitet...</p>
+      </div>
+    </div>
+
+    <div class="setup-theme-toggle">
+      <button data-theme="light" onclick="setTheme('light')" data-i18n-title-key="common.theme.light" title="Light"><span data-icon="sun"></span></button>
+      <button data-theme="dark" onclick="setTheme('dark')" data-i18n-title-key="common.theme.dark" title="Dark"><span data-icon="moon"></span></button>
+      <button data-theme="system" onclick="setTheme('system')" data-i18n-title-key="common.theme.system" title="System"><span data-icon="monitor"></span></button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { hydrateIcons } from './static/js/icons/lucide-icons.js';
+hydrateIcons(document);
+</script>
+<script type="module">
+import { initI18n, t } from './static/js/i18n/index.js';
+import { apiErrorFromResponse } from './static/js/api/errors.js';
+await initI18n();
+
+const API = '';
+
+
+function setTheme(mode) {
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const isDark = mode === 'dark' || (mode === 'system' && prefersDark);
+  document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+  localStorage.setItem('theme', mode);
+  document.querySelectorAll('.setup-theme-toggle button').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.theme === mode);
+  });
+}
+
+// Init theme
+const stored = localStorage.getItem('theme');
+if (stored && stored !== 'system') setTheme(stored);
+else setTheme('system');
+
+// Check setup status on load
+async function checkSetup() {
+  try {
+    const r = await fetch(API + '/api/setup/status');
+    const data = await r.json();
+    if (data.setup_complete) {
+      window.location.href = '/';
+    }
+  } catch(e) {
+    console.error('Setup check failed:', e);
+  }
+}
+checkSetup();
+window.setTheme = setTheme;
+window.setAdminPassword = setAdminPassword;
+window.createFirstUser = createFirstUser;
+
+function showStep(step) {
+  document.querySelectorAll('.setup-step').forEach(s => s.classList.remove('active'));
+  document.getElementById('step-' + step).classList.add('active');
+  document.querySelectorAll('.step-dot').forEach((d, i) => d.classList.toggle('active', i + 1 === step));
+}
+
+function showError(step, msg) {
+  document.getElementById('error-' + step).textContent = msg;
+}
+
+async function getApiErrorMessage(response) {
+  try {
+    await apiErrorFromResponse(response, t('common.error'));
+  } catch (error) {
+    return error?.message || t('common.error');
+  }
+  return t('common.error');
+}
+
+async function setAdminPassword() {
+  const pw = document.getElementById('admin-password').value;
+  const confirm = document.getElementById('admin-password-confirm').value;
+  
+  if (!pw || pw.length < 12) {
+    showError(1, t('setup.error.adminPasswordTooShort'));
+    return;
+  }
+  if (pw !== confirm) {
+    showError(1, t('settings.password.mismatch'));
+    return;
+  }
+  
+  try {
+    const r = await fetch(API + '/api/setup/admin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ admin_password: pw })
+    });
+    if (!r.ok) {
+      showError(1, await getApiErrorMessage(r));
+      return;
+    }
+    showError(1, '');
+    showStep(2);
+  } catch(e) {
+    showError(1, t('setup.error.network'));
+  }
+}
+
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
+}
+
+async function createFirstUser() {
+  const username = document.getElementById('first-username').value.trim();
+  const displayName = document.getElementById('first-display-name').value.trim();
+  const email = document.getElementById('first-email').value.trim();
+  const password = document.getElementById('first-password').value;
+  
+  if (!username || !email || !password) {
+    showError(2, t('setup.error.firstUserRequired'));
+    return;
+  }
+  if (!isValidEmail(email)) {
+    showError(2, t('setup.error.invalidEmail'));
+    return;
+  }
+  
+  try {
+    const r = await fetch(API + '/api/setup/first-user', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: username,
+        email: email,
+        display_name: displayName || username,
+        password: password
+      })
+    });
+    if (!r.ok) {
+      showError(2, await getApiErrorMessage(r));
+      return;
+    }
+    showError(2, '');
+    showStep('success');
+    setTimeout(() => window.location.href = '/', 2000);
+  } catch(e) {
+    showError(2, t('setup.error.network'));
+  }
+}
+</script>
+</body>
+</html>
