@@ -56,6 +56,10 @@ const safeLink = renderMarkdown('[docs](https://example.com/path?q=1)');
 assert(safeLink.includes('<a href="https://example.com/path?q=1"'), 'safe HTTPS links should still render');
 assert(safeLink.includes('rel="noopener noreferrer"'), 'external links must include noopener noreferrer');
 
+const cssSource = readFileSync(new URL('../web/static/style.css', import.meta.url), 'utf8');
+assert(cssSource.includes('iOS WebKit zooms the page when focusing editable controls below 16px'), 'mobile iOS inputs must document why 16px focus font size is required');
+assert(cssSource.includes('@supports (-webkit-touch-callout: none)') && cssSource.includes('font-size: 16px !important'), 'mobile iOS inputs/selects/textareas must stay at least 16px to prevent WebKit focus zoom');
+
 const swSource = readFileSync(new URL('../web/sw.js', import.meta.url), 'utf8');
 assert(!swSource.includes("caches.open(API_CACHE)"), 'service worker must not cache authenticated API responses');
 assert(swSource.indexOf("url.pathname.startsWith('/api/avatars/')") < swSource.indexOf("url.pathname.startsWith('/api/')"), 'service worker must cache static avatars before the generic API network-only rule');
