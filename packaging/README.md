@@ -6,14 +6,18 @@ nia-todo is designed for private self-hosting: install the server, open the web 
 
 ## 📸 Screenshots
 
-<p>
-  <img src="docs/screenshots/desktop-light.png" alt="nia-todo desktop light theme" width="49%">
-  <img src="docs/screenshots/desktop-dark.png" alt="nia-todo desktop dark theme" width="49%">
+<p align="center">
+  <img src="docs/screenshots/desktop-light.png" alt="nia-todo desktop light theme" width="48%">
+  <img src="docs/screenshots/desktop-dark.png" alt="nia-todo desktop dark theme" width="48%">
 </p>
-<p>
-  <img src="docs/screenshots/mobile-light.png" alt="nia-todo mobile light theme" width="24%">
-  <img src="docs/screenshots/mobile-dark.png" alt="nia-todo mobile dark theme" width="24%">
+<p align="center"><em>Desktop web app — light and dark theme</em></p>
+
+<p align="center">
+  <img src="docs/screenshots/mobile-light.png" alt="nia-todo mobile light theme" width="23%">
+  &nbsp;&nbsp;
+  <img src="docs/screenshots/mobile-dark.png" alt="nia-todo mobile dark theme" width="23%">
 </p>
+<p align="center"><em>Mobile/PWA layout — light and dark theme</em></p>
 
 ## ✨ Features
 
