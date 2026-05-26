@@ -39,17 +39,38 @@ Download the full server bundle from the release page, then install it:
 sudo apt install ./nia-todo-server-vX.Y.Z-full.deb
 ```
 
-Open the setup page:
+The package enables and starts the server automatically. Check it with:
+
+```bash
+sudo systemctl status nia-todo
+sudo journalctl -u nia-todo -f
+```
+
+Then open the setup page in your browser and create the initial admin account:
 
 ```text
 http://YOUR-SERVER:8753/setup
 ```
 
-After setup, native app downloads are available from your instance under:
+After setup, open the app at:
+
+```text
+http://YOUR-SERVER:8753/
+```
+
+The admin panel is available at:
+
+```text
+http://YOUR-SERVER:8753/admin
+```
+
+Native app downloads are served by your own instance under:
 
 ```text
 http://YOUR-SERVER:8753/downloads/
 ```
+
+For production use, put nia-todo behind HTTPS/reverse proxy and set the public base URL in the admin panel. Passkeys and native app integrations rely on the public URL being correct.
 
 ## 📄 License
 
