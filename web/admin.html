@@ -785,7 +785,7 @@ function renderUserLoginStatus(user) {
 function renderUserTwoFactorStatus(user) {
   const enabled = !!user.two_factor_enabled;
   const factors = [];
-  if (user.has_totp) factors.push('TOTP');
+  if (user.has_totp) factors.push('1 TOTP');
   if (Number(user.passkey_count || 0) > 0) factors.push(`${user.passkey_count} Passkey`);
   if (user.has_recovery_codes) factors.push('Recovery');
   if (user.has_email_fallback) factors.push(t('admin.user.twofa.emailFallback'));

@@ -193,6 +193,13 @@ async function run() {
     await page.click('#settings-sessions-toggle');
     await page.locator('#settings-2fa-trusted-panel').waitFor({ state: 'visible', timeout: 5000 });
     await page.waitForFunction(() => document.getElementById('settings-2fa-trusted-devices')?.innerText.includes('IP:'), null, { timeout: 5000 });
+    await page.waitForFunction(() => {
+      const devicesText = document.getElementById('settings-2fa-devices')?.innerText || '';
+      const setupBtn = document.querySelector('#settings-2fa-actions button[onclick="startTwoFactorTotp()"]');
+      const setupBtnVisible = setupBtn ? window.getComputedStyle(setupBtn).display !== 'none' : false;
+      const noTotpYet = /Noch nicht eingerichtet|Not set up yet/.test(devicesText);
+      return setupBtnVisible && noTotpYet;
+    }, null, { timeout: 10000 });
     const currentSessionRevokeButton = page.locator('#settings-2fa-trusted-devices .settings-device-row', { hasText: /this device|dieses Gerät/ }).locator('button').first();
     await currentSessionRevokeButton.click();
     await page.locator('#security-action-modal').waitFor({ state: 'visible', timeout: 10000 });
@@ -203,6 +210,17 @@ async function run() {
     await page.click('#user-menu-button');
     await page.click('#menu-settings-btn');
     await visible('#settings-modal');
+
+    await page.waitForFunction(() => {
+      const statusText = document.getElementById('settings-2fa-status')?.textContent || '';
+      const devicesText = document.getElementById('settings-2fa-devices')?.innerText || '';
+      const setupBtn = document.querySelector('#settings-2fa-actions button[onclick="startTwoFactorTotp()"]');
+      const setupBtnVisible = setupBtn ? window.getComputedStyle(setupBtn).display !== 'none' : false;
+      const noTotpYet = /Noch nicht eingerichtet|Not set up yet/.test(devicesText);
+      const noReferenceError = !statusText.includes('ReferenceError') && !statusText.includes('totpCountLabel');
+      return setupBtnVisible && noTotpYet && noReferenceError;
+    }, null, { timeout: 10000 });
+
     await page.fill('#settings-old-password', USER_PASSWORD);
     await page.fill('#settings-new-password', 'FrontendChanged123!');
     await page.fill('#settings-confirm-password', 'FrontendChanged123!');
