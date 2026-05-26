@@ -175,18 +175,31 @@ fi
 
 if [ "${CREATE_RELEASE}" = "1" ]; then
   RELEASE_NOTES="${ARTIFACT_DIR}/github-release-notes.md"
+  CHANGELOG_SECTION="${ARTIFACT_DIR}/github-release-notes-changelog.md"
   if [ "${EXECUTE}" = "1" ]; then
-    cat > "${RELEASE_NOTES}" <<NOTES
-nia-todo ${TAG}
-
-Distribution targets:
-- Full Debian/Ubuntu server bundle: $(basename "${DEB}")
-- Docker image: ${GHCR_IMAGE}:${VERSION}
-
-Windows and Android apps are bundled into the server package/image and served via /downloads/.
-NOTES
+    python3 - "${ROOT_DIR}/CHANGELOG.md" "${VERSION}" "${CHANGELOG_SECTION}" <<'PY'
+from pathlib import Path
+import sys
+changelog = Path(sys.argv[1]).read_text()
+version = sys.argv[2]
+out = Path(sys.argv[3])
+start = changelog.find(f"## [{version}] ")
+if start == -1:
+    raise SystemExit(f"Missing changelog section for {version}")
+rest = changelog[start:]
+next_idx = rest.find("\n## [", 1)
+section = rest if next_idx == -1 else rest[:next_idx]
+out.write_text(section.strip() + "\n")
+PY
+    {
+      cat "${CHANGELOG_SECTION}"
+      printf "\nDistribution targets:\n"
+      printf "%s\n" "- Full Debian/Ubuntu server bundle: $(basename "${DEB}")"
+      printf "%s\n" "- Docker image: ${GHCR_IMAGE}:${VERSION}"
+      printf "\nWindows and Android apps are bundled into the server package/image and served via /downloads/.\n"
+    } > "${RELEASE_NOTES}"
   else
-    echo "+ cat > ${RELEASE_NOTES}"
+    echo "+ generate release notes from CHANGELOG.md section ${VERSION}"
   fi
   ASSETS=("${DEB}" "${DEB_SHA}")
   [ ! -f "${RELEASE_MANIFEST}" ] || ASSETS+=("${RELEASE_MANIFEST}")
