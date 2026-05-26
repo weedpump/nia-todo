@@ -39,6 +39,8 @@ PUSH_DOCKER=1
 LATEST=0
 PUBLIC_GIT_AUTHOR_NAME=""
 PUBLIC_GIT_AUTHOR_EMAIL=""
+PUBLIC_GIT_LOGIN=""
+PUBLIC_GIT_ID=""
 EXECUTE=0
 
 while [ "$#" -gt 0 ]; do
@@ -114,16 +116,24 @@ run() {
 }
 
 resolve_public_git_identity() {
-  if [ -n "${PUBLIC_GIT_AUTHOR_NAME}" ] && [ -n "${PUBLIC_GIT_AUTHOR_EMAIL}" ]; then
-    return
-  fi
-  local gh_user_json gh_login gh_id gh_name
+  local gh_user_json gh_name
   gh_user_json="$(gh api user)"
-  gh_login="$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("login") or "")' <<<"${gh_user_json}")"
-  gh_id="$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("id") or "")' <<<"${gh_user_json}")"
+  PUBLIC_GIT_LOGIN="$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("login") or "")' <<<"${gh_user_json}")"
+  PUBLIC_GIT_ID="$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("id") or "")' <<<"${gh_user_json}")"
   gh_name="$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("name") or "")' <<<"${gh_user_json}")"
-  PUBLIC_GIT_AUTHOR_NAME="${PUBLIC_GIT_AUTHOR_NAME:-${gh_name:-${gh_login}}}"
-  PUBLIC_GIT_AUTHOR_EMAIL="${PUBLIC_GIT_AUTHOR_EMAIL:-${gh_id}+${gh_login}@users.noreply.github.com}"
+  PUBLIC_GIT_AUTHOR_NAME="${PUBLIC_GIT_AUTHOR_NAME:-${gh_name:-${PUBLIC_GIT_LOGIN}}}"
+  PUBLIC_GIT_AUTHOR_EMAIL="${PUBLIC_GIT_AUTHOR_EMAIL:-${PUBLIC_GIT_ID}+${PUBLIC_GIT_LOGIN}@users.noreply.github.com}"
+}
+
+validate_public_git_identity() {
+  local expected_email
+  expected_email="${PUBLIC_GIT_ID}+${PUBLIC_GIT_LOGIN}@users.noreply.github.com"
+  if [[ "${PUBLIC_GIT_AUTHOR_EMAIL}" =~ ^[0-9]+\+${PUBLIC_GIT_LOGIN}@users\.noreply\.github\.com$ ]] && [ "${PUBLIC_GIT_AUTHOR_EMAIL}" != "${expected_email}" ]; then
+    echo "GitHub noreply author email does not match authenticated account id." >&2
+    echo "Expected: ${expected_email}" >&2
+    echo "Got:      ${PUBLIC_GIT_AUTHOR_EMAIL}" >&2
+    exit 1
+  fi
 }
 
 if [ "${EXECUTE}" != "1" ]; then
@@ -144,6 +154,7 @@ if [ "${PUSH_SOURCE}" = "1" ]; then
     rsync -a --delete --exclude .git "${SOURCE_DIR}/" "${TMP}/repo/"
     cd "${TMP}/repo"
     resolve_public_git_identity
+    validate_public_git_identity
     git config user.name "${PUBLIC_GIT_AUTHOR_NAME}"
     git config user.email "${PUBLIC_GIT_AUTHOR_EMAIL}"
     git checkout -B main
