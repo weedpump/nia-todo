@@ -57,6 +57,14 @@ mkdir -p "${WORK_DIR}" "${OUTPUT_DIR}"
 EXPORT_DIR="${WORK_DIR}/source"
 scripts/release/export-public.sh "${VERSION}" --output "${EXPORT_DIR}" --force
 
+rm -rf "${EXPORT_DIR}/wheelhouse"
+mkdir -p "${EXPORT_DIR}/wheelhouse"
+docker run --rm \
+  -v "${EXPORT_DIR}:/work" \
+  -w /work \
+  python:3.13.5-slim \
+  python -m pip wheel --wheel-dir /work/wheelhouse -r /work/requirements.txt
+
 DOWNLOAD_DIR="${EXPORT_DIR}/web/downloads"
 mkdir -p "${DOWNLOAD_DIR}"
 WINDOWS_NAME="nia-todo-v${VERSION}-windows-x64-setup.exe"
@@ -138,7 +146,7 @@ Version: ${VERSION}
 Section: web
 Priority: optional
 Architecture: all
-Depends: python3, python3-venv, python3-pip, adduser
+Depends: python3 (>= 3.13), python3-venv, python3-pip, adduser
 Maintainer: nia-todo maintainers
 Description: Self-hosted todo system with bundled native app downloads
 EOF
@@ -157,8 +165,8 @@ if [ -f /opt/nia-todo/api/data/nia-todo.db ]; then
   cp /opt/nia-todo/api/data/nia-todo.db "/opt/nia-todo/api/data/backups/pre-upgrade-$(date +%Y%m%d-%H%M%S).db" || true
 fi
 python3 -m venv /opt/nia-todo/.venv
-/opt/nia-todo/.venv/bin/pip install --upgrade pip
-/opt/nia-todo/.venv/bin/pip install -r /opt/nia-todo/requirements.txt
+/opt/nia-todo/.venv/bin/pip install --no-index --find-links=/opt/nia-todo/wheelhouse -r /opt/nia-todo/requirements.txt
+rm -rf /opt/nia-todo/wheelhouse
 chown -R nia-todo:nia-todo /opt/nia-todo
 systemctl daemon-reload || true
 systemctl enable nia-todo.service || true
