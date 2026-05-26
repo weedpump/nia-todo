@@ -52,7 +52,7 @@ mkdir -p "${OUTPUT}/wheelhouse"
 docker run --rm \
   -v "${OUTPUT}:/work" \
   -w /work \
-  python:3.12-slim \
+  python:3.13.5-slim \
   python -m pip wheel --wheel-dir /work/wheelhouse -r /work/requirements.txt
 
 docker build -t "${TAG}" "${OUTPUT}"
