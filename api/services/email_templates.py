@@ -162,9 +162,9 @@ def _modern_fallback_link_html(link: str, *, language: str = "de") -> str:
     safe_link = escape(link)
     safe_href = escape(link, quote=True)
     return (
-        f'<p style="margin:18px 0 0;color:{MUTED_COLOR};font-size:13px;line-height:1.6;">'
+        f'<p class="modern-muted" style="margin:18px 0 0;color:{MUTED_COLOR};font-size:13px;line-height:1.6;">'
         f'{escape(_copy(language)["button_fallback"])}<br>'
-        f'<a href="{safe_href}" style="color:{LINK_COLOR};word-break:break-all;text-decoration:underline;">{safe_link}</a>'
+        f'<a class="modern-link" href="{safe_href}" style="color:{LINK_COLOR};word-break:break-all;text-decoration:underline;">{safe_link}</a>'
         '</p>'
     )
 
@@ -194,17 +194,17 @@ def _detail_box(items: list[str]) -> str:
     if not items:
         return ""
     if len(items) == 1:
-        content = f'<div style="margin:0;color:#475569;font-size:14px;line-height:1.5;">{escape(items[0])}</div>'
+        content = f'<div class="modern-detail-text" style="margin:0;color:#475569;font-size:14px;line-height:1.5;">{escape(items[0])}</div>'
     else:
         rows = "".join(
-            f'<li style="margin:7px 0;color:#475569;font-size:14px;line-height:1.5;">{escape(item)}</li>'
+            f'<li class="modern-detail-text" style="margin:7px 0;color:#475569;font-size:14px;line-height:1.5;">{escape(item)}</li>'
             for item in items
         )
         content = f'<ul style="margin:0;padding-left:19px;">{rows}</ul>'
     return (
         '<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin:24px 0 0;">'
         '<tr>'
-        '<td style="padding:15px 17px;border:1px solid #e2e8f0;border-radius:16px;background:#f8fafc;">'
+        '<td class="modern-detail-box" style="padding:15px 17px;border:1px solid #e2e8f0;border-radius:16px;background:#f8fafc;">'
         f'{content}'
         '</td>'
         '</tr>'
@@ -213,12 +213,12 @@ def _detail_box(items: list[str]) -> str:
 
 
 def _modern_body_html(*, safe_name: str, paragraphs: list[str], action_label: str | None, action_url: str | None, details: list[str], inline_code: str | None = None, language: str = "de") -> str:
-    body = [f'<p style="margin:0 0 16px;font-size:16px;line-height:1.7;color:#334155;">{escape(_copy(language)["greeting"].format(name=safe_name))}</p>']
+    body = [f'<p class="modern-text" style="margin:0 0 16px;font-size:16px;line-height:1.7;color:#334155;">{escape(_copy(language)["greeting"].format(name=safe_name))}</p>']
     for index, paragraph in enumerate(paragraphs):
         suffix = ""
         if inline_code and index == len(paragraphs) - 1:
-            suffix = f' <strong style="font-weight:900;color:#0f172a;">{escape(inline_code)}</strong>'
-        body.append(f'<p style="margin:0 0 16px;font-size:16px;line-height:1.7;color:#334155;">{escape(paragraph)}{suffix}</p>')
+            suffix = f' <strong class="modern-code" style="font-weight:900;color:#0f172a;">{escape(inline_code)}</strong>'
+        body.append(f'<p class="modern-text" style="margin:0 0 16px;font-size:16px;line-height:1.7;color:#334155;">{escape(paragraph)}{suffix}</p>')
     if action_label and action_url:
         body.append(_modern_button_html(action_label, action_url))
         body.append(_modern_fallback_link_html(action_url, language=language))
@@ -264,6 +264,12 @@ def _layout(*, title: str, preheader: str, modern_body_html: str, outlook_body_h
         box-shadow:0 1px 0 rgba(199,210,254,.18),0 18px 42px rgba(0,0,0,.42) !important;
       }}
       .modern-body, .modern-footer {{ background:#0b1020 !important; }}
+      .modern-text {{ color:#dbe4ff !important; }}
+      .modern-code {{ color:#ffffff !important; }}
+      .modern-muted {{ color:#a5b4fc !important; }}
+      .modern-link {{ color:#c7d2fe !important; }}
+      .modern-detail-box {{ background:#111a33 !important; border-color:rgba(199,210,254,.24) !important; }}
+      .modern-detail-text {{ color:#dbe4ff !important; }}
       .modern-button {{ background:#1e293b !important; box-shadow:0 0 0 1px rgba(199,210,254,.22) !important; }}
       .modern-button a {{ background:#1e293b !important; color:#ffffff !important; }}
     }}
@@ -330,7 +336,7 @@ def _layout(*, title: str, preheader: str, modern_body_html: str, outlook_body_h
         <tr><td class="modern-body" style="padding:30px 28px 24px;background:#ffffff;">
           {modern_body_html}
         </td></tr>
-        <tr><td class="modern-footer" style="padding:0 28px 32px;background:#ffffff;color:#94a3b8;font-size:12px;line-height:1.5;">{escape(_copy(language)["auto_sent"])}<br>{escape(_copy(language)["unexpected"])}</td></tr>
+        <tr><td class="modern-footer modern-muted" style="padding:0 28px 32px;background:#ffffff;color:#94a3b8;font-size:12px;line-height:1.5;">{escape(_copy(language)["auto_sent"])}<br>{escape(_copy(language)["unexpected"])}</td></tr>
       </table>
     </td></tr>
   </table>

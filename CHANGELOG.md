@@ -19,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 
 ### Fixed
 - iOS Safari/Chrome no longer zooms the page when focusing todo inputs, selects, or text fields.
+- Sidebar user menu dropdown is now opaque in iOS Safari instead of letting the sidebar bleed through.
+- Todo swipe action reveal colors now render correctly in iOS Safari by using dedicated action backdrops instead of relying on transformed-element shadows.
+- Modern email templates now keep body text, details, links, and bold 2FA codes readable in iOS Mail dark mode without changing the Outlook/MSO template path.
 - Session/device labels are more stable across browser, native, and WebView clients, including service-worker precaching for the shared device-label helper.
 - Admin panel now shows actual TOTP count ("1 TOTP") instead of just "TOTP" label.
 - Fixed ReferenceError in settings UI when rendering TOTP status with active TOTP.
