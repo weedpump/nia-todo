@@ -472,10 +472,11 @@ class TestSuite:
         if not ok(status) or not token:
             self.results["session_stores_real_ip_from_trusted_proxy"] = {"status": status, "passed": False, "expected": "login succeeds"}
             return False
-        status, devices = curl("GET", "/api/me/2fa/trusted-devices", token=token, cookie_jar="/tmp/nia_user_real_ip_cookies.txt")
+        me_status, _ = curl("GET", "/api/me", token=token, cookie_jar="/tmp/nia_user_real_ip_cookies.txt", headers={"X-Real-IP": "198.51.100.43"})
+        status, devices = curl("GET", "/api/me/2fa/trusted-devices", token=token, cookie_jar="/tmp/nia_user_real_ip_cookies.txt", headers={"X-Real-IP": "198.51.100.43"})
         sessions = devices.get("trusted_devices", []) if devices else []
-        passed = ok(status) and any(session.get("ip_address") == "198.51.100.42" for session in sessions)
-        self.results["session_stores_real_ip_from_trusted_proxy"] = {"status": status, "passed": passed, "expected": "session IP from trusted X-Real-IP"}
+        passed = ok(me_status) and ok(status) and any(session.get("ip_address") == "198.51.100.43" for session in sessions)
+        self.results["session_stores_real_ip_from_trusted_proxy"] = {"status": status, "passed": passed, "expected": "session IP updates from trusted X-Real-IP on normal request"}
         return passed
 
     def test_strict_cors_allowed_origin_preflight(self):

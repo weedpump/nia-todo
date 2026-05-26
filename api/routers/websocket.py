@@ -29,7 +29,7 @@ async def websocket_endpoint(websocket: WebSocket):
         msg_type = data.get("type", "")
         if msg_type == "auth":
             token = data.get("token")
-            user_id = get_current_user(token)
+            user_id = get_current_user(token, client_ip=ip)
             if user_id:
                 ws_user_id = user_id
                 manager.register_auth(websocket, user_id)
@@ -47,7 +47,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
             if msg_type == "auth":
                 token = data.get("token")
-                user_id = get_current_user(token)
+                user_id = get_current_user(token, client_ip=ip)
                 if user_id:
                     ws_user_id = user_id
                     manager.register_auth(websocket, user_id)
