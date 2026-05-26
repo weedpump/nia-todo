@@ -463,6 +463,21 @@ class TestSuite:
         self.results["instance_config_audit_written"] = {"status": 200 if passed else 500, "passed": passed, "expected": "audit row for config change"}
         return passed
 
+    def test_session_stores_real_ip_from_trusted_proxy(self):
+        status, data = curl("POST", "/api/login", {
+            "username": "testuser",
+            "password": USER_PASSWORD,
+        }, cookie_jar="/tmp/nia_user_real_ip_cookies.txt", headers={"X-Real-IP": "198.51.100.42"})
+        token = data.get("access_token") if data else None
+        if not ok(status) or not token:
+            self.results["session_stores_real_ip_from_trusted_proxy"] = {"status": status, "passed": False, "expected": "login succeeds"}
+            return False
+        status, devices = curl("GET", "/api/me/2fa/trusted-devices", token=token, cookie_jar="/tmp/nia_user_real_ip_cookies.txt")
+        sessions = devices.get("trusted_devices", []) if devices else []
+        passed = ok(status) and any(session.get("ip_address") == "198.51.100.42" for session in sessions)
+        self.results["session_stores_real_ip_from_trusted_proxy"] = {"status": status, "passed": passed, "expected": "session IP from trusted X-Real-IP"}
+        return passed
+
     def test_strict_cors_allowed_origin_preflight(self):
         status, headers = curl_headers("OPTIONS", "/api/admin/login", {
             "Origin": "https://allowed.example",
@@ -1493,6 +1508,7 @@ class TestSuite:
             self.test_untrusted_proxy_ignores_forwarded_host,
             self.test_instance_config_update,
             self.test_instance_config_audit_written,
+            self.test_session_stores_real_ip_from_trusted_proxy,
             self.test_email_links_disabled_without_public_base_url,
             self.test_password_reset_requires_verified_email,
             self.test_strict_cors_allowed_origin_preflight,

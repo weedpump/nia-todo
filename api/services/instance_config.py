@@ -327,7 +327,12 @@ def forwarded_client_ip(client_host: Optional[str], forwarded: Optional[str]) ->
 
 def get_forwarded_client_ip(request: Request) -> Optional[str]:
     client_host = request.client.host if request.client else None
-    return forwarded_client_ip(client_host, request.headers.get("X-Forwarded-For"))
+    # Prefer X-Forwarded-For chains, but support common reverse-proxy
+    # deployments that only send X-Real-IP.
+    forwarded = forwarded_client_ip(client_host, request.headers.get("X-Forwarded-For"))
+    if forwarded:
+        return forwarded
+    return forwarded_client_ip(client_host, request.headers.get("X-Real-IP"))
 
 
 def _request_origin(request: Request) -> str:
