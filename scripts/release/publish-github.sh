@@ -189,7 +189,10 @@ if start == -1:
 rest = changelog[start:]
 next_idx = rest.find("\n## [", 1)
 section = rest if next_idx == -1 else rest[:next_idx]
-out.write_text(section.strip() + "\n")
+lines = section.strip().splitlines()
+if lines and lines[0].startswith(f"## [{version}]"):
+    lines = lines[1:]
+out.write_text("\n".join(lines).strip() + "\n")
 PY
     {
       cat "${CHANGELOG_SECTION}"
