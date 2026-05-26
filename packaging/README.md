@@ -1,37 +1,149 @@
-# nia-todo
+# ✨ nia-todo
 
-Self-hosted todo system with SQLite, FastAPI, Web UI, offline PWA, and official native Windows/Android clients.
+Self-hosted todo system — SQLite + FastAPI + Web UI + offline PWA + official native Windows/Android clients.
 
-## Install
+nia-todo is designed for private self-hosting: install the server, open the web app, then download the bundled native apps directly from your own instance.
 
-For Debian/Ubuntu hosts, use the full server bundle from the release page:
+## ✨ Features
+
+- 📝 Todos with description, priority, deadline, status, and reminders
+- 📁 Projects/categories with subprojects, sections, workspaces, and protected per-user inboxes
+- 🤝 Project sharing between users with invitations and undo
+- 📧 Email/SMTP integration for invitations, password reset, and email verification
+- 📱 Offline-capable PWA with local IndexedDB sync queue
+- 🖥️ Official native Windows app wrapper
+- 🤖 Official native Android APK
+- 🔐 Auth, admin panel, API keys, CSRF protection, and per-user data isolation
+- 🛡️ 2FA/MFA with TOTP, passkeys/WebAuthn, email-code fallback, recovery codes, trusted devices, and admin policy
+- 🔔 Native local reminders on Windows and Android; browser/PWA push remains browser/PWA-only
+- 🎨 Theme toggle and English/German UI language support
+- 🗄️ Local SQLite database
+
+## 📦 Release artifacts
+
+Each public release provides exactly these distribution targets:
+
+- **Full server bundle**: `nia-todo-server-vX.Y.Z-full.deb`
+  - installs/updates the server
+  - includes the Web/PWA frontend
+  - includes bundled native app downloads under `/downloads/`
+- **Docker image**: for container-based installations
+
+The Windows and Android clients are shipped inside the server bundle so your own server can serve them locally.
+
+## 🚀 Debian/Ubuntu installation
+
+Download the full server bundle from the release page, then install it:
 
 ```bash
-tar -xzf nia-todo-server-vX.Y.Z-full.tar.gz
-cd nia-todo-server-vX.Y.Z
-sudo ./install.sh
+sudo apt install ./nia-todo-server-vX.Y.Z-full.deb
 ```
 
-Then open:
+Open the setup page:
 
 ```text
 http://YOUR-SERVER:8753/setup
 ```
 
-The installed server serves bundled native app downloads under `/downloads/`.
+After setup, native app downloads are available from your instance under:
 
-## Docker
+```text
+http://YOUR-SERVER:8753/downloads/
+```
+
+## 🔄 Updates
+
+Install the newer `.deb` package over the existing installation:
+
+```bash
+sudo apt install ./nia-todo-server-vX.Y.Z-full.deb
+```
+
+The package keeps existing runtime data and creates a pre-upgrade SQLite backup when a database exists.
+
+Recommended before major upgrades:
+
+```bash
+sudo systemctl stop nia-todo
+sudo cp -a /opt/nia-todo/api/data /opt/nia-todo/api/data.backup.$(date +%Y%m%d-%H%M%S)
+sudo apt install ./nia-todo-server-vX.Y.Z-full.deb
+```
+
+## 🐳 Docker
+
+Using the included compose file:
 
 ```bash
 docker compose up -d
 ```
 
-## Data
+Default container data volume:
 
-Default package layout:
+```text
+/app/api/data
+```
+
+## 🧱 Default package layout
 
 - App: `/opt/nia-todo`
 - Data: `/opt/nia-todo/api/data`
+- Config: `/etc/nia-todo/nia-todo.env`
 - Service: `nia-todo.service`
 
-Back up `api/data/` before migrations or host moves.
+Useful commands:
+
+```bash
+sudo systemctl status nia-todo
+sudo systemctl restart nia-todo
+sudo journalctl -u nia-todo -f
+```
+
+## ⚙️ Setup / operations
+
+- Initial setup: `/setup`
+- Admin panel: `/admin`
+- API docs: see [`docs/api.md`](docs/api.md)
+- Architecture notes: see [`docs/architecture.md`](docs/architecture.md)
+- Test/release notes: see [`docs/testing.md`](docs/testing.md)
+- Changelog: see [`CHANGELOG.md`](CHANGELOG.md)
+
+Production passkeys require a correct HTTPS `public_base_url` in the admin instance settings. Android passkeys use the official app signature through `/.well-known/assetlinks.json`.
+
+## 📚 Documentation
+
+- [API documentation](docs/api.md)
+- [Architecture](docs/architecture.md)
+- [Testing](docs/testing.md)
+- [Native Apps Clean Architecture Plan](docs/native-apps-clean-architecture.md)
+- [Changelog](CHANGELOG.md)
+
+## 🧪 Development / source builds
+
+The public repository is a clean source snapshot for releases. For normal self-hosting, use the release package or Docker image.
+
+Basic local source run:
+
+```bash
+python3 -m venv .venv
+. .venv/bin/activate
+pip install -r requirements.txt
+./start.sh
+```
+
+Frontend/native development uses the Node/Tauri tooling declared in `package.json` and `src-tauri/`.
+
+## 🗄️ Backup
+
+Back up this directory regularly:
+
+```text
+/opt/nia-todo/api/data
+```
+
+It contains the SQLite database, generated keys, avatars, and local runtime data.
+
+## Notes
+
+- Do not commit database files or generated runtime data.
+- The bundled native app downloads are generated during release packaging.
+- `CHANGELOG.md` is shared by web app, server, Windows app, and Android app.
