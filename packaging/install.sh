@@ -85,9 +85,9 @@ chmod 750 "${DATA_DIR}"
 chown -R root:root "${ETC_DIR}"
 
 systemctl daemon-reload
-systemctl enable "${SERVICE_NAME}"
-systemctl enable "${SERVICE_NAME}-backup.timer"
-systemctl restart "${SERVICE_NAME}"
+systemctl enable "${SERVICE_NAME}.service"
+systemctl enable --now "${SERVICE_NAME}-backup.timer"
+systemctl restart "${SERVICE_NAME}.service"
 
 echo "nia-todo installed/updated in ${APP_DIR}."
 echo "Service: systemctl status ${SERVICE_NAME}"

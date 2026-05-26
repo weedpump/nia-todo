@@ -186,7 +186,7 @@ chmod 750 /var/lib/nia-todo
 [ ! -f /var/lib/nia-todo/vapid_keys.json ] || chmod 600 /var/lib/nia-todo/vapid_keys.json
 systemctl daemon-reload || true
 systemctl enable nia-todo.service || true
-systemctl enable nia-todo-backup.timer || true
+systemctl enable --now nia-todo-backup.timer || true
 systemctl restart nia-todo.service || true
 POSTINST
 chmod 755 "${DEB_ROOT}/DEBIAN/postinst"
@@ -195,6 +195,8 @@ cat > "${DEB_ROOT}/DEBIAN/prerm" <<'PRERM'
 #!/bin/bash
 set -e
 if [ "${1:-}" = "remove" ]; then
+  systemctl stop nia-todo-backup.timer || true
+  systemctl disable nia-todo-backup.timer || true
   systemctl stop nia-todo.service || true
   systemctl disable nia-todo.service || true
 fi
