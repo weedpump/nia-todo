@@ -138,5 +138,41 @@ fi
 if [ "${DRY_RUN}" = "1" ]; then
   echo "✅ Dry run complete"
 else
+  mkdir -p "${OUTPUT_DIR}"
+  python3 - "${VERSION}" "${OUTPUT_DIR}" "${PUBLIC_EXPORT_DIR}" "${DOCKER_TAG}" "${WINDOWS_INSTALLER}" "${ANDROID_APK}" <<'PYM'
+import hashlib
+import json
+import subprocess
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+version, output_dir, source_dir, docker_tag, windows_path, android_path = sys.argv[1:]
+out = Path(output_dir)
+deb = out / f"nia-todo-server-v{version}-full.deb"
+manifest = {
+    "version": f"v{version}",
+    "generated_at": datetime.now(timezone.utc).isoformat(),
+    "public_source": {"tag": f"v{version}"},
+    "docker_image": docker_tag,
+    "artifacts": [],
+}
+for path in [deb, Path(str(deb) + ".sha256"), Path(windows_path) if windows_path else None, Path(android_path) if android_path else None]:
+    if not path or not path.exists():
+        continue
+    h = hashlib.sha256()
+    with path.open("rb") as fh:
+        for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+            h.update(chunk)
+    manifest["artifacts"].append({"name": path.name, "size_bytes": path.stat().st_size, "sha256": h.hexdigest()})
+try:
+    image_id = subprocess.check_output(["docker", "image", "inspect", docker_tag, "--format", "{{.Id}}"], text=True).strip()
+    if image_id:
+        manifest["docker_image_id"] = image_id
+except Exception:
+    pass
+(out / "release-manifest.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+PYM
+  echo "✅ Release manifest: ${OUTPUT_DIR}/release-manifest.json"
   echo "✅ Public release artifacts prepared in ${OUTPUT_DIR}"
 fi
