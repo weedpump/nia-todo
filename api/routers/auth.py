@@ -48,12 +48,12 @@ def require_auth(request: Request, authorization: Optional[str] = Header(None), 
     return user_id
 
 
-def require_recent_mfa_for_account_security(authorization: Optional[str] = Header(None)) -> int:
+def require_recent_mfa_for_account_security(request: Request, authorization: Optional[str] = Header(None)) -> int:
     if not authorization or not authorization.startswith("Bearer "):
         raise api_error(401, "auth.interactiveJwtRequired", "Interactive JWT required")
     token = authorization[7:]
     with get_db() as db:
-        payload = decode_jwt_token(token, db)
+        payload = decode_jwt_token(token, db, client_ip=get_client_ip(request))
         if not payload or payload.get('mfa_enroll_only'):
             raise api_error(401, "auth.notAuthenticated", "Not authenticated")
         user_id = payload.get('user_id')
