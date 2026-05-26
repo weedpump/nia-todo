@@ -128,6 +128,12 @@ export function createTodosFeature({
     await setTodoStatus(id, 'in_progress');
   }
 
+  async function toggleTodoStatus(id, status) {
+    const todo = getTodos().find(x => String(x.id) === String(id));
+    if (!todo) return;
+    await setTodoStatus(todo.id, todo.status === status ? 'pending' : status);
+  }
+
   function bindTodoSwipeGestures() {
     if (document.documentElement.dataset.todoSwipeBound === '1') return;
     document.documentElement.dataset.todoSwipeBound = '1';
@@ -135,6 +141,7 @@ export function createTodosFeature({
     const thresholdPx = 80;
     const thresholdRatio = 0.35;
     const lockThreshold = 10;
+    const leftEdgeSwipeDeadzonePx = 72;
     let active = null;
     let suppressClickUntil = 0;
 
@@ -173,7 +180,8 @@ export function createTodosFeature({
         const absX = Math.abs(active.dx);
         const absY = Math.abs(active.dy);
         if (absX < lockThreshold && absY < lockThreshold) return;
-        active.locked = absX > absY * 1.25 ? 'horizontal' : 'vertical';
+        const isRightSwipeFromLeftEdge = active.dx > 0 && active.startX < leftEdgeSwipeDeadzonePx;
+        active.locked = absX > absY * 1.25 && !isRightSwipeFromLeftEdge ? 'horizontal' : 'vertical';
         if (active.locked === 'vertical') return;
         active.item.setAttribute('draggable', 'false');
         active.item.classList.add('swiping');
@@ -204,8 +212,8 @@ export function createTodosFeature({
       if (current.swiped || shouldAct) suppressClickUntil = Date.now() + 450;
       if (!shouldAct) return;
       event.preventDefault();
-      if (current.dx < 0) await markTodoDone(current.id);
-      else await markTodoInProgress(current.id);
+      if (current.dx < 0) await toggleTodoStatus(current.id, 'done');
+      else await toggleTodoStatus(current.id, 'in_progress');
     };
 
     document.addEventListener('pointerup', finish, { passive: false });
