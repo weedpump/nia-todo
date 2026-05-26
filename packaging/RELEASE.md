@@ -46,4 +46,4 @@ Excluded examples:
 
 ## Notes
 
-The Debian package vendors Python wheels during release packaging and installs dependencies from the bundled wheelhouse. The installer does not need to download Python packages during normal installation.
+The Debian package vendors pinned Python wheels during release packaging and installs dependencies from the bundled wheelhouse. The installer does not need to download Python packages during normal installation.
