@@ -74,7 +74,7 @@ for prefix in api web docs src-tauri; do
   copy_tracked_prefix "${prefix}"
 done
 
-for file in CHANGELOG.md LICENSE package.json package-lock.json start.sh .gitignore; do
+for file in CHANGELOG.md LICENSE NOTICE package.json package-lock.json start.sh .gitignore; do
   if [ -f "${file}" ]; then
     cp -p "${file}" "${OUTPUT_ABS}/${file}"
   fi
