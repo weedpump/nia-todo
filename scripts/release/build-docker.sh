@@ -114,8 +114,9 @@ PYD
 
 rm -rf "${OUTPUT}/wheelhouse"
 mkdir -p "${OUTPUT}/wheelhouse"
+OUTPUT_ABS="$(cd "${OUTPUT}" && pwd)"
 docker run --rm \
-  -v "${OUTPUT}:/work" \
+  -v "${OUTPUT_ABS}:/work" \
   -w /work \
   python:3.13.5-slim \
   python -m pip wheel --wheel-dir /work/wheelhouse -r /work/requirements.txt
