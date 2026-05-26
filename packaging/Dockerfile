@@ -8,12 +8,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends build-essential \
-    && rm -rf /var/lib/apt/lists/*
-
 COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+COPY wheelhouse ./wheelhouse
+RUN pip install --no-cache-dir --no-index --find-links=wheelhouse -r requirements.txt \
+    && rm -rf wheelhouse
 
 COPY . .
 RUN mkdir -p /app/api/data \

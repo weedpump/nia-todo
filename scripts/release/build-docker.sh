@@ -47,6 +47,14 @@ cd "${ROOT_DIR}"
 
 scripts/release/export-public.sh "${VERSION}" --output "${OUTPUT}" ${FORCE:+--force}
 
+rm -rf "${OUTPUT}/wheelhouse"
+mkdir -p "${OUTPUT}/wheelhouse"
+docker run --rm \
+  -v "${OUTPUT}:/work" \
+  -w /work \
+  python:3.12-slim \
+  python -m pip wheel --wheel-dir /work/wheelhouse -r /work/requirements.txt
+
 docker build -t "${TAG}" "${OUTPUT}"
 if [ "${LATEST}" = "1" ]; then
   docker tag "${TAG}" nia-todo:latest
