@@ -204,7 +204,7 @@ export function createTodosFeature({
       if (current.swiped || shouldAct) suppressClickUntil = Date.now() + 450;
       if (!shouldAct) return;
       event.preventDefault();
-      if (current.dx > 0) await markTodoDone(current.id);
+      if (current.dx < 0) await markTodoDone(current.id);
       else await markTodoInProgress(current.id);
     };
 
