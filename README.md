@@ -75,6 +75,12 @@ Details: [Test docs](docs/testing.md)
 - Passkeys require an HTTPS `public_base_url` in production setups; Android uses the official app signature through `/.well-known/assetlinks.json`
 - Dev branding: `setup-dev.sh`
 
+## 📄 License
+
+Copyright (C) 2026 Tobias Kneidl
+
+nia-todo is free software licensed under the GNU Affero General Public License v3.0 or later (AGPL-3.0-or-later). See [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE).
+
 ## Notes
 
 - Do not commit DB files

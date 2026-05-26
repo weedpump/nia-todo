@@ -1,6 +1,7 @@
 {
   "name": "nia-todo",
   "private": true,
+  "license": "AGPL-3.0-or-later",
   "type": "module",
   "scripts": {
     "test": "./scripts/test_all.sh",

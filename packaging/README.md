@@ -53,8 +53,10 @@ http://YOUR-SERVER:8753/downloads/
 
 ## 📄 License
 
-This project is licensed under the GNU Affero General Public License v3.0 or later (AGPL-3.0-or-later).
-See [`LICENSE`](LICENSE).
+Copyright (C) 2026 Tobias Kneidl
+
+nia-todo is free software licensed under the GNU Affero General Public License v3.0 or later (AGPL-3.0-or-later).
+See [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE).
 
 ## 🔄 Updates
 
