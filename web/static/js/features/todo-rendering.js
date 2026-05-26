@@ -11,7 +11,7 @@ export function renderTodoItem(t) {
   const hasDesc = desc && desc.length > 0;
 
   return `
-    <div class="todo-item ${t.status === 'done' ? 'done' : t.status === 'in_progress' ? 'in-progress' : ''}" data-id="${t.id}" draggable="true" onclick="editTodo(${t.id})"
+    <div class="todo-item ${t.status === 'done' ? 'done' : t.status === 'in_progress' ? 'in-progress' : ''}" data-id="${t.id}" data-status="${escapeHtml(t.status)}" draggable="true" onclick="editTodo(${t.id})"
       ondragstart="handleTodoDragStart(event)" ondragend="handleTodoDragEnd(event)">
       <div class="todo-check" onclick="event.stopPropagation(); toggleTodo(${t.id})">
         ${t.status === 'done' ? iconSvg('check') : t.status === 'in_progress' ? iconSvg('flame') : ''}

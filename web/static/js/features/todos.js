@@ -105,35 +105,121 @@ export function createTodosFeature({
     return Number.isFinite(date.getTime()) ? date.toISOString() : null;
   }
 
-  async function markTodoDone(id) {
+  async function setTodoStatus(id, status) {
     if (!getAppInitialized() || !getDb()) return;
-    const todo = getTodos().find(x => x.id === id);
-    if (!todo || todo.status === 'done') return;
-    const updatedTodo = { ...todo, status: 'done', updated_at: new Date().toISOString() };
+    const todo = getTodos().find(x => String(x.id) === String(id));
+    if (!todo || todo.status === status) return;
+    const updatedTodo = { ...todo, status, updated_at: new Date().toISOString() };
     await dbPut('todos', updatedTodo);
-    setTodos(getTodos().map(item => item.id === id ? updatedTodo : item));
+    setTodos(getTodos().map(item => String(item.id) === String(id) ? updatedTodo : item));
     renderStats();
     renderTodos();
-    showToast(t('todo.toast.done'), { type: 'status', id, previousStatus: todo.status });
-    await addToSyncQueue('UPDATE_TODO', { id, changes: { status: 'done' } });
+    if (status === 'done') showToast(t('todo.toast.done'), { type: 'status', id: todo.id, previousStatus: todo.status });
+    else if (todo.status === 'done' && status === 'pending') showToast(t('todo.toast.reopened'), { type: 'status', id: todo.id, previousStatus: todo.status });
+    await addToSyncQueue('UPDATE_TODO', { id: todo.id, changes: { status } });
     if (isOnlineForSync()) await syncWithServer();
   }
 
+  async function markTodoDone(id) {
+    await setTodoStatus(id, 'done');
+  }
+
+  async function markTodoInProgress(id) {
+    await setTodoStatus(id, 'in_progress');
+  }
+
+  function bindTodoSwipeGestures() {
+    if (document.documentElement.dataset.todoSwipeBound === '1') return;
+    document.documentElement.dataset.todoSwipeBound = '1';
+
+    const thresholdPx = 80;
+    const thresholdRatio = 0.35;
+    const lockThreshold = 10;
+    let active = null;
+    let suppressClickUntil = 0;
+
+    document.addEventListener('click', (event) => {
+      if (Date.now() > suppressClickUntil) return;
+      if (!event.target?.closest?.('.todo-item')) return;
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation?.();
+    }, true);
+
+    document.addEventListener('pointerdown', (event) => {
+      if (!event.isPrimary || (event.pointerType && event.pointerType !== 'touch' && event.pointerType !== 'pen')) return;
+      const item = event.target?.closest?.('.todo-item');
+      if (!item || event.target.closest('button, input, select, textarea, a, .todo-check, .todo-actions')) return;
+      active = {
+        item,
+        id: item.dataset.id,
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        dx: 0,
+        dy: 0,
+        locked: null,
+        swiped: false,
+        originalDraggable: item.getAttribute('draggable'),
+      };
+    }, { passive: true });
+
+    document.addEventListener('pointermove', (event) => {
+      if (!active || event.pointerId !== active.pointerId) return;
+      active.dx = event.clientX - active.startX;
+      active.dy = event.clientY - active.startY;
+
+      if (!active.locked) {
+        const absX = Math.abs(active.dx);
+        const absY = Math.abs(active.dy);
+        if (absX < lockThreshold && absY < lockThreshold) return;
+        active.locked = absX > absY * 1.25 ? 'horizontal' : 'vertical';
+        if (active.locked === 'vertical') return;
+        active.item.setAttribute('draggable', 'false');
+        active.item.classList.add('swiping');
+      }
+
+      if (active.locked !== 'horizontal') return;
+      event.preventDefault();
+      const max = Math.min(130, active.item.clientWidth * 0.45);
+      const dx = Math.max(-max, Math.min(max, active.dx));
+      active.item.style.setProperty('--swipe-x', `${dx}px`);
+      active.item.classList.toggle('swipe-right', dx > 0);
+      active.item.classList.toggle('swipe-left', dx < 0);
+      active.swiped = Math.abs(dx) > lockThreshold;
+    }, { passive: false });
+
+    const finish = async (event) => {
+      if (!active || event.pointerId !== active.pointerId) return;
+      const current = active;
+      active = null;
+      const item = current.item;
+      const actionThreshold = Math.max(thresholdPx, item.clientWidth * thresholdRatio);
+      const shouldAct = current.locked === 'horizontal' && Math.abs(current.dx) >= actionThreshold;
+      item.classList.remove('swiping', 'swipe-right', 'swipe-left');
+      item.style.removeProperty('--swipe-x');
+      if (current.originalDraggable === null) item.removeAttribute('draggable');
+      else item.setAttribute('draggable', current.originalDraggable);
+
+      if (current.swiped || shouldAct) suppressClickUntil = Date.now() + 450;
+      if (!shouldAct) return;
+      event.preventDefault();
+      if (current.dx > 0) await markTodoDone(current.id);
+      else await markTodoInProgress(current.id);
+    };
+
+    document.addEventListener('pointerup', finish, { passive: false });
+    document.addEventListener('pointercancel', finish, { passive: false });
+  }
+
+  bindTodoSwipeGestures();
+
   async function toggleTodo(id) {
     if (!getAppInitialized() || !getDb()) return;
-    const todo = getTodos().find(x => x.id === id);
+    const todo = getTodos().find(x => String(x.id) === String(id));
     if (!todo) return;
     const cycle = { pending: 'in_progress', in_progress: 'done', done: 'pending' };
-    const newStatus = cycle[todo.status] || 'pending';
-    const updatedTodo = { ...todo, status: newStatus, updated_at: new Date().toISOString() };
-    await dbPut('todos', updatedTodo);
-    setTodos(getTodos().map(item => item.id === id ? updatedTodo : item));
-    renderStats();
-    renderTodos();
-    if (newStatus === 'done') showToast(t('todo.toast.done'), { type: 'status', id, previousStatus: todo.status });
-    else if (todo.status === 'done' && newStatus === 'pending') showToast(t('todo.toast.reopened'), { type: 'status', id, previousStatus: todo.status });
-    await addToSyncQueue('UPDATE_TODO', { id, changes: { status: newStatus } });
-    if (isOnlineForSync()) await syncWithServer();
+    await setTodoStatus(todo.id, cycle[todo.status] || 'pending');
   }
 
   function focusTodoTitle() {
@@ -312,7 +398,7 @@ export function createTodosFeature({
   }
 
   function editTodo(id) {
-    const todo = getTodos().find(t => t.id === id);
+    const todo = getTodos().find(t => String(t.id) === String(id));
     if (todo) showTodoModal(todo);
   }
 
@@ -340,5 +426,5 @@ export function createTodosFeature({
     if (isOnlineForSync()) await syncWithServer();
   }
 
-  return { markTodoDone, toggleTodo, showTodoModal, onProjectChange, saveTodo, editTodo, deleteTodoFromModal, deleteTodo };
+  return { markTodoDone, markTodoInProgress, setTodoStatus, toggleTodo, showTodoModal, onProjectChange, saveTodo, editTodo, deleteTodoFromModal, deleteTodo };
 }

@@ -191,6 +191,39 @@ async function run() {
     await page.waitForFunction(() => document.body.innerText.includes('Section Todo Edited'), { timeout: 10000 });
     await page.locator('.nav-btn[data-filter="all"]').click();
 
+    await page.setViewportSize({ width: 390, height: 844 });
+    const swipeTodoByTitle = async (title, dx) => {
+      await page.evaluate(({ title, dx }) => {
+        const titleEl = Array.from(document.querySelectorAll('.todo-title')).find(el => (el.textContent || '').includes(title));
+        const item = titleEl?.closest('.todo-item');
+        if (!item) throw new Error(`Todo item not found for swipe test: ${title}`);
+        const rect = item.getBoundingClientRect();
+        const startX = rect.left + rect.width / 2;
+        const startY = rect.top + rect.height / 2;
+        const pointer = { pointerId: 77, pointerType: 'touch', isPrimary: true, bubbles: true, cancelable: true };
+        item.dispatchEvent(new PointerEvent('pointerdown', { ...pointer, clientX: startX, clientY: startY }));
+        document.dispatchEvent(new PointerEvent('pointermove', { ...pointer, clientX: startX + dx, clientY: startY + 2 }));
+        document.dispatchEvent(new PointerEvent('pointerup', { ...pointer, clientX: startX + dx, clientY: startY + 2 }));
+      }, { title, dx });
+    };
+    await swipeTodoByTitle('Project Switch Todo', 140);
+    await page.waitForFunction(async () => {
+      const jwt = localStorage.getItem('jwt_token');
+      const data = await fetch('/api/todos', { headers: { 'Authorization': `Bearer ${jwt}` }, credentials: 'include' }).then(r => r.json());
+      return data.todos.some(todo => todo.title === 'Project Switch Todo' && todo.status === 'done');
+    }, null, { timeout: 10000 });
+    await page.evaluate(() => window.setFilter?.('done'));
+    await page.waitForFunction(() => document.body.innerText.includes('Project Switch Todo'), { timeout: 10000 });
+    await swipeTodoByTitle('Project Switch Todo', -140);
+    await page.waitForFunction(async () => {
+      const jwt = localStorage.getItem('jwt_token');
+      const data = await fetch('/api/todos', { headers: { 'Authorization': `Bearer ${jwt}` }, credentials: 'include' }).then(r => r.json());
+      return data.todos.some(todo => todo.title === 'Project Switch Todo' && todo.status === 'in_progress');
+    }, null, { timeout: 10000 });
+    await page.evaluate(() => window.setFilter?.('all'));
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await page.waitForTimeout(500);
+
     await page.click('#user-menu-button');
     await page.click('#toggle-done-btn');
     await page.click('#sort-toggle-btn');
