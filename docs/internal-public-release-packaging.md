@@ -17,14 +17,30 @@ A public release has exactly two distribution targets:
 
 Windows and Android installers/APKs are embedded into both release targets, not published as separate required public assets. They must come from the local native build output, either via explicit `--windows-installer` / `--android-apk` paths or via the standard `dist/native/vX.Y.Z/` artifact directory.
 
-## Scripts
+## Release entrypoint
+
+A real release is started through the top-level release script and includes GitHub/GHCR publishing plus local cleanup:
+
+```bash
+./release.sh X.Y.Z --github-repo OWNER/REPO
+```
+
+Useful options:
+
+```bash
+./release.sh X.Y.Z --github-repo OWNER/REPO --github-latest
+./release.sh X.Y.Z --github-repo OWNER/REPO --set-min-app-version
+./release.sh X.Y.Z --github-repo OWNER/REPO --keep-release-artifacts
+```
+
+The lower-level scripts are implementation steps used by `release.sh`:
 
 ```bash
 scripts/release/export-public.sh X.Y.Z --output dist/public/nia-todo-X.Y.Z --init-git
 scripts/release/build-full-bundle.sh X.Y.Z --windows-installer /path/app.exe --android-apk /path/app.apk
 scripts/release/build-docker.sh X.Y.Z --tag nia-todo:X.Y.Z
 scripts/release/public-release.sh X.Y.Z --windows-installer /path/app.exe --android-apk /path/app.apk
-scripts/release/publish-github.sh X.Y.Z --github-repo OWNER/REPO
+scripts/release/publish-github.sh X.Y.Z --github-repo OWNER/REPO --execute
 ```
 
 For local dry-runs without native app artifacts:
@@ -48,9 +64,9 @@ Excluded examples:
 
 ## Publishing
 
-`publish-github.sh` is intentionally dry-run by default. Add `--execute` only when the target GitHub repository/release should actually be updated.
+`release.sh` calls `publish-github.sh --execute` after the public artifacts are built. `publish-github.sh` remains dry-run by default when invoked directly, so manual publish experiments do not accidentally update GitHub/GHCR.
 
-It can publish:
+It publishes:
 
 - the clean public source snapshot and tag
 - the GitHub release with the full `.deb`, checksum and release manifest
@@ -71,3 +87,5 @@ The Debian package also installs a daily backup timer (`nia-todo-backup.timer`) 
 
 - `nia-todo-backup`
 - `nia-todo-restore <backup.zip>`
+
+After a successful release, `release.sh` removes local `dist/native/vX.Y.Z`, `dist/release/vX.Y.Z`, `dist/build/public-release-vX.Y.Z`, and local Docker tags for `nia-todo:X.Y.Z` plus the GHCR publish tags. Use `--keep-release-artifacts` only for debugging.
