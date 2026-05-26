@@ -252,8 +252,10 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     if (!listEl) return;
     const items = [];
     const enrollmentOnly = Boolean(isMfaEnrollmentLocked() || (state?.required && !state?.enabled && !state?.has_totp && !state?.has_passkey && !state?.has_recovery_codes && !state?.has_email_fallback));
-    if (state.has_totp) {
+    if (state?.has_totp) {
       items.push(`<div class="settings-device-row"><div><strong>${escapeHtml(t('settings.2fa.device.authenticator'))}</strong><span>${escapeHtml(t('settings.2fa.device.totpReady'))}</span></div><button type="button" class="btn btn-danger" onclick="removeTotpDevice()">${escapeHtml(t('settings.2fa.revoke'))}</button></div>`);
+    } else if (!enrollmentOnly) {
+      items.push(`<div class="settings-device-row"><div><strong>${escapeHtml(t('settings.2fa.device.authenticator'))}</strong><span>${escapeHtml(t('settings.2fa.device.totpNotSet'))}</span></div><button type="button" class="btn btn-primary" onclick="startTwoFactorTotp()">${escapeHtml(t('settings.2fa.setupAuthenticator'))}</button></div>`);
     }
     try {
       const data = enrollmentOnly ? { passkeys: [] } : await authApi.listPasskeys();
@@ -300,12 +302,14 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
       } else {
         parts.push(t('settings.2fa.state.inactive'));
       }
-      if (state.has_totp) parts.push(t('settings.2fa.factor.authenticator'));
+      if (state.has_totp) parts.push(t('settings.2fa.factor.authenticator', { count: 1 }));
       if (state.has_passkey) parts.push(t('settings.2fa.factor.passkeys', { count: state.passkey_count }));
       if (state.has_recovery_codes) parts.push(t('settings.2fa.factor.recovery', { count: state.recovery_codes_remaining }));
       if (state.has_email_fallback && !hasPrimaryFactor) parts.push(t('settings.2fa.factor.emailFallback'));
       statusEl.removeAttribute('data-i18n-key');
       statusEl.textContent = t('settings.2fa.status', { status: parts.join(' · ') });
+      const setupBtn = document.querySelector('#settings-2fa-actions button[onclick="startTwoFactorTotp()"]');
+      if (setupBtn) setupBtn.style.display = state.has_totp ? 'none' : '';
       document.getElementById('settings-2fa-actions')?.querySelectorAll('button').forEach((btn) => {
         if (btn.textContent.includes('deaktivieren')) btn.style.display = state.enabled ? '' : 'none';
       });
