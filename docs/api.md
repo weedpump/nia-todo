@@ -219,13 +219,13 @@ Activates TOTP after password confirmation and returns new recovery codes exactl
 
 Passkeys are bound to the configured public base URL (`public_base_url`). HTTPS is mandatory for non-localhost hosts; without `public_base_url`, production passkey flows for non-localhost hosts fail closed. Windows Native uses a native WebAuthn bridge with server-provided origin; for this, the server URL configured in the app must match the `public_base_url` origin/RP ID.
 
-Android Native uses AndroidX Credential Manager. Each self-hosted server instance serves `/.well-known/assetlinks.json` for the official Android app:
+Android Native uses AndroidX Credential Manager. Each self-hosted server instance serves `/.well-known/assetlinks.json` for the bundled Android app:
 
-- Package: official release app ID
-- Release certificate: official release certificate fingerprint
+- Package: bundled release app ID
+- Release certificate: bundled release certificate fingerprint
 - Relation: `delegate_permission/common.get_login_creds`
 
-In addition to the HTTPS web origin, the server accepts the pinned Android app origin `android:apk-key-hash:...`, while the RP ID hash continues to be checked against `public_base_url`. This is an intentional official-app trust model: self-hosters host their server and connect the Android app shipped by us to their server URL. Custom package names, F-Droid/re-sign builds, and signing-key rotation are not part of the current 2.0 model and will later need an explicit config/migration strategy.
+In addition to the HTTPS web origin, the server accepts the pinned Android app origin `android:apk-key-hash:...`, while the RP ID hash continues to be checked against `public_base_url`. Self-hosters run their own server and connect the bundled Android app to their server URL. Custom package names, F-Droid/re-sign builds, and signing-key rotation are not part of the current 2.0 model and will later need an explicit config/migration strategy.
 
 ### Admin Policy
 - `GET /api/admin/2fa-policy`
@@ -1342,7 +1342,7 @@ Returns the available Windows/Android artifacts with version, platform, architec
 ### Android Digital Asset Links
 `GET /.well-known/assetlinks.json`
 
-Returns the pinned relationship between server and official Android app for native passkeys.
+Returns the pinned relationship between server and bundled Android app for native passkeys.
 
 ## Notes
 

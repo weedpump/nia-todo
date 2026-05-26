@@ -1,6 +1,6 @@
 # <img src="web/static/icons/icon-512.png" alt="nia-todo icon" width="32" height="32"> nia-todo
 
-Self-hosted todo system — SQLite + FastAPI + Web UI + offline PWA + official native Windows/Android clients.
+Self-hosted todo system — SQLite + FastAPI + Web UI + offline PWA + native Windows/Android clients.
 
 nia-todo is designed for private self-hosting: install the server, open the web app, then download the bundled native apps directly from your own instance.
 
@@ -26,8 +26,8 @@ nia-todo is designed for private self-hosting: install the server, open the web 
 - 🤝 Project sharing between users with invitations and undo
 - 📧 Email/SMTP integration for invitations, password reset, and email verification
 - 📱 Offline-capable PWA with local IndexedDB sync queue
-- 🖥️ Official native Windows app wrapper
-- 🤖 Official native Android APK
+- 🖥️ Native Windows app wrapper
+- 🤖 Native Android APK
 - 🔐 Auth, admin panel, API keys, CSRF protection, and per-user data isolation
 - 🛡️ 2FA/MFA with TOTP, passkeys/WebAuthn, email-code fallback, recovery codes, trusted devices, and admin policy
 - 🔔 Native local reminders on Windows and Android; browser/PWA push remains browser/PWA-only
@@ -36,7 +36,7 @@ nia-todo is designed for private self-hosting: install the server, open the web 
 
 ## 📦 Release artifacts
 
-Each public release provides exactly these distribution targets:
+Public releases provide these main distribution targets:
 
 - **Full server bundle**: `nia-todo-server-vX.Y.Z-full.deb`
   - installs/updates the server
@@ -44,7 +44,7 @@ Each public release provides exactly these distribution targets:
   - includes bundled native app downloads under `/downloads/`
 - **Docker image**: for container-based installations
 
-The Windows and Android clients are shipped inside the server bundle so your own server can serve them locally.
+The Windows and Android clients are shipped inside the server bundle so your own instance can serve them locally from `/downloads/`.
 
 ## 🚀 Debian/Ubuntu installation
 
@@ -86,13 +86,6 @@ http://YOUR-SERVER:8753/downloads/
 ```
 
 For production use, put nia-todo behind HTTPS/reverse proxy and set the public base URL in the admin panel. Passkeys and native app integrations rely on the public URL being correct.
-
-## 📄 License
-
-Copyright (C) 2026 Tobias Kneidl
-
-nia-todo is free software licensed under the GNU Affero General Public License v3.0 or later (AGPL-3.0-or-later).
-See [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE).
 
 ## 🔄 Updates
 
@@ -183,18 +176,17 @@ sudo journalctl -u nia-todo -f
 
 - Initial setup: `/setup`
 - Admin panel: `/admin`
-- API docs: see [`docs/api.md`](docs/api.md)
-- Architecture notes: see [`docs/architecture.md`](docs/architecture.md)
-- Test/release notes: see [`docs/testing.md`](docs/testing.md)
-- Changelog: see [`CHANGELOG.md`](CHANGELOG.md)
+- Native app downloads: `/downloads/`
+- Runtime data: `/var/lib/nia-todo`
+- Configuration: `/etc/nia-todo/nia-todo.env`
 
-Production passkeys require a correct HTTPS `public_base_url` in the admin instance settings. Android passkeys use the official app signature through `/.well-known/assetlinks.json`.
+For production use, configure a correct HTTPS `public_base_url` in the admin panel. Passkeys and native app integrations rely on it. Android passkeys use the bundled app signature through `/.well-known/assetlinks.json`.
 
 ## 📚 Documentation
 
 - [API documentation](docs/api.md)
 - [Architecture](docs/architecture.md)
-- [Testing](docs/testing.md)
+- [Testing and release notes](docs/testing.md)
 - [Changelog](CHANGELOG.md)
 
 ## 🧪 Development / source builds
@@ -235,22 +227,17 @@ sudo nia-todo-restore /var/lib/nia-todo/backups/nia-todo-YYYYMMDD-HHMMSS.zip
 sudo systemctl start nia-todo
 ```
 
-For fresh migration from an older/private install, the simplest path is:
+For migrating an existing install, the simplest path is:
 
 1. Create a backup on the old install.
 2. Install the new package or start the new Docker deployment.
 3. Restore the backup into the new data directory.
 
-Runtime data lives here:
+Runtime data lives in `/var/lib/nia-todo`. It contains the SQLite database, generated keys, avatars, and local runtime data.
 
-```text
-/var/lib/nia-todo
-```
+## 📄 License
 
-It contains the SQLite database, generated keys, avatars, and local runtime data.
+Copyright (C) 2026 Tobias Kneidl
 
-## Notes
-
-- Do not commit database files or generated runtime data.
-- The bundled native app downloads are generated during release packaging.
-- `CHANGELOG.md` is shared by web app, server, Windows app, and Android app.
+nia-todo is free software licensed under the GNU Affero General Public License v3.0 or later (AGPL-3.0-or-later).
+See [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE).

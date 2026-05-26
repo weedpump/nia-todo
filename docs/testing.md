@@ -95,12 +95,12 @@ Additionally useful for 2FA changes before release/review:
 - `node scripts/test_frontend_admin.mjs`
 - `node scripts/test_frontend_security.mjs`
 - `node scripts/test_frontend_native_passkeys.mjs` for native passkey changes; covers browser, Windows/Tauri invoke, and Android `JavascriptInterface` callback bridge.
-- For Android passkey changes, additionally verify that `/.well-known/assetlinks.json` still serves package `de.tobiaskneidl.nia_todo`, the official release fingerprint, and `delegate_permission/common.get_login_creds`.
+- For Android passkey changes, additionally verify that `/.well-known/assetlinks.json` still serves package `de.tobiaskneidl.nia_todo`, the bundled release fingerprint, and `delegate_permission/common.get_login_creds`.
 
 Manual 2FA smoke paths:
 - Set up TOTP, scan QR code, complete login with TOTP.
 - Add passkey, complete login/reauth via passkey.
-- Connect Android app to selfhosted server URL; passkey flow must work with the official app, custom/re-sign builds are not a supported test path for 2.0.
+- Connect Android app to selfhosted server URL; passkey flow must work with the bundled app, custom/re-sign builds are not a supported test path for 2.0.
 - Revoke TOTP/passkey; when removing the last primary factor, recovery codes must disappear and user-side 2FA must be disabled.
 - Execute sensitive actions one after another; every action must require fresh MFA reauth.
 - Trusted device must be able to skip login MFA, but must not authorize sensitive actions.
