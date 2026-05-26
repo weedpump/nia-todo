@@ -114,7 +114,6 @@ Production passkeys require a correct HTTPS `public_base_url` in the admin insta
 - [API documentation](docs/api.md)
 - [Architecture](docs/architecture.md)
 - [Testing](docs/testing.md)
-- [Native Apps Clean Architecture Plan](docs/native-apps-clean-architecture.md)
 - [Changelog](CHANGELOG.md)
 
 ## 🧪 Development / source builds
