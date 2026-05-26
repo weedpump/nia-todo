@@ -210,15 +210,15 @@ async function run() {
     await page.waitForFunction(async () => {
       const jwt = localStorage.getItem('jwt_token');
       const data = await fetch('/api/todos', { headers: { 'Authorization': `Bearer ${jwt}` }, credentials: 'include' }).then(r => r.json());
-      return data.todos.some(todo => todo.title === 'Project Switch Todo' && todo.status === 'done');
+      return data.todos.some(todo => todo.title === 'Project Switch Todo' && todo.status === 'in_progress');
     }, null, { timeout: 10000 });
-    await page.evaluate(() => window.setFilter?.('done'));
+    await page.evaluate(() => window.setFilter?.('in_progress'));
     await page.waitForFunction(() => document.body.innerText.includes('Project Switch Todo'), { timeout: 10000 });
     await swipeTodoByTitle('Project Switch Todo', -140);
     await page.waitForFunction(async () => {
       const jwt = localStorage.getItem('jwt_token');
       const data = await fetch('/api/todos', { headers: { 'Authorization': `Bearer ${jwt}` }, credentials: 'include' }).then(r => r.json());
-      return data.todos.some(todo => todo.title === 'Project Switch Todo' && todo.status === 'in_progress');
+      return data.todos.some(todo => todo.title === 'Project Switch Todo' && todo.status === 'done');
     }, null, { timeout: 10000 });
     await page.evaluate(() => window.setFilter?.('all'));
     await page.setViewportSize({ width: 1280, height: 720 });
