@@ -101,9 +101,14 @@ if [ "${ALLOW_MISSING_APPS}" = "1" ]; then
 fi
 if [ -n "${WINDOWS_INSTALLER}" ]; then
   BUNDLE_ARGS+=(--windows-installer "${WINDOWS_INSTALLER}")
+  DOCKER_ARGS+=(--windows-installer "${WINDOWS_INSTALLER}")
 fi
 if [ -n "${ANDROID_APK}" ]; then
   BUNDLE_ARGS+=(--android-apk "${ANDROID_APK}")
+  DOCKER_ARGS+=(--android-apk "${ANDROID_APK}")
+fi
+if [ "${ALLOW_MISSING_APPS}" = "1" ]; then
+  DOCKER_ARGS+=(--allow-missing-apps)
 fi
 if [ "${DOCKER_LATEST}" = "1" ]; then
   DOCKER_ARGS+=(--latest)
