@@ -402,3 +402,42 @@ Conclusion:
   - no workspace bootstrap/context injection,
   - fixed tiny system prompt for JSON extraction only.
 - Without that dedicated lightweight agent, the LLM budget is dominated by unrelated main-agent context and is not representative.
+
+### 2026-05-27: Dedicated `openclaw/braindump` agent measurement
+
+Configured a dedicated OpenClaw-compatible agent target:
+
+- `openclaw/braindump`
+- backend model: `openai-codex/gpt-5.4-mini`
+- no skills
+- minimal tool profile
+- separate tiny workspace under `.local/braindump-agent-workspace`
+- fixed JSON extraction system prompt
+
+Prompt-token impact:
+
+- `openclaw/default`: about 16,757 prompt tokens for fixture 001 because the normal main-agent context is injected.
+- Initial `openclaw/braindump` using the normal Nia workspace: about 5,985 prompt tokens.
+- `openclaw/braindump` with separate minimal workspace/tool profile: about 962 prompt tokens for the full fixture transcript, about 837-846 prompt tokens per 4s window.
+
+Full transcript extraction, fixture 001:
+
+- 5 repeated runs with the minimal BrainDump agent: 4.72s, 4.84s, 5.06s, 9.33s, 10.60s.
+- Prompt tokens: 962.
+- Completion tokens: about 200.
+- Output JSON was valid and semantically correct.
+
+4s window extraction, fixture 001:
+
+- Window 1: STT 4.10s + LLM 3.62s.
+- Window 2: STT 4.24s + LLM 5.46s.
+- Window 3: STT 4.10s + LLM 3.47s.
+- Window 4: STT 4.24s + LLM 3.78s.
+- Final tail window: STT 4.61s + LLM 3.55s.
+
+Budget conclusion:
+
+- The dedicated OpenClaw agent fixes the context/token problem enough for representative measurement.
+- The current STT+LLM serial window budget is still too slow for the target: final stop-to-ready is roughly 8s on fixture 001 even with the lightweight agent.
+- The biggest bottleneck remains the current whisper.cpp small 4s-window path, because STT alone is already around or above the entire 4s tail budget.
+- Next experiment should test faster STT settings/model or true incremental/VAD strategy before investing further in UI polish.
