@@ -1164,14 +1164,16 @@ body {
 .todo-due.overdue { color: var(--danger); font-weight: 600; }
 
 .todo-actions {
-  display: none;
+  display: flex;
   align-items: center;
   gap: 6px;
+  visibility: hidden;
+  flex: 0 0 auto;
 }
 
 .todo-item:hover .todo-actions,
 .todo-item:focus-within .todo-actions {
-  display: flex;
+  visibility: visible;
 }
 
 .todo-actions button {
@@ -1207,8 +1209,7 @@ body {
 }
 
 @media (min-width: 1024px) {
-  .todo-item:hover .todo-status-select,
-  .todo-item:focus-within .todo-status-select {
+  .todo-status-select {
     display: inline-flex;
   }
 }
@@ -1961,7 +1962,7 @@ input[type="color"]::-moz-color-swatch {
 /* Mobile: always show todo actions */
 @media (max-width: 768px) {
   .todo-actions {
-    display: flex;
+    visibility: visible;
   }
   .section-count {
     display: inline-block;
@@ -2416,8 +2417,16 @@ input[type="color"]::-moz-color-swatch {
   background: linear-gradient(135deg, rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.14)), var(--bg-secondary));
 }
 
-.login-download-panel {
+.login-download-panel,
+.login-download-launcher {
   margin-top: 14px;
+}
+
+.login-download-launcher {
+  width: 100%;
+  min-height: 38px;
+  margin-left: 0;
+  margin-right: 0;
 }
 
 .settings-download-panel {
