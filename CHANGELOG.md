@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 ## [2.5.2] - 2026-05-28
 
 ### Added
-- Browser/PWA download discovery now includes a compact `Apps herunterladen` launcher in the sidebar footer and on the login page, both opening a shared app download modal.
+- Browser/PWA download discovery now includes a compact `Download apps` launcher in the sidebar footer and on the login page, both opening a shared app download modal.
 - The app download modal now shows Windows and Android downloads side by side and includes the exact server hostname users should enter in the native apps, preferring the configured public base URL and falling back to the current host without `https://`.
 - Todo rows on wide screens now expose an inline status menu for quickly switching between open, in-progress, and done without opening the todo dialog.
 - Keyboard shortcuts now support hovering a todo and pressing Space to cycle its status, plus `Ctrl+1` through `Ctrl+6` to switch between workspaces inside the app.
