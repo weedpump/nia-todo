@@ -190,16 +190,19 @@
           </div>
         </div>
 
-        <div class="app-download-panel sidebar-download-panel" data-app-download-panel style="display:none;">
-          <div class="app-download-heading"><span data-icon="download"></span> <span data-i18n-key="appDownloads.title">Apps herunterladen</span></div>
-          <p class="app-download-subtitle" data-i18n-key="appDownloads.sidebarSubtitle">Desktop- oder Android-App installieren.</p>
-          <div class="app-downloads sidebar-downloads" data-app-downloads style="display:none;"></div>
-        </div>
+        <button type="button" class="app-download-launcher sidebar-download-launcher" data-app-download-launcher onclick="openAppDownloadsModal()" style="display:none;">
+          <span class="app-download-launcher-icon" data-icon="download"></span>
+          <span class="app-download-launcher-text">
+            <span class="app-download-launcher-title" data-i18n-key="appDownloads.title">Apps herunterladen</span>
+            <span class="app-download-launcher-subtitle" data-i18n-key="appDownloads.sidebarSubtitle">Desktop- oder Android-App installieren.</span>
+          </span>
+          <span class="app-download-launcher-arrow" data-icon="chevron-right"></span>
+        </button>
 
         <!-- Version & Update -->
         <div class="version-bar" id="version-bar">
           <div class="version-info" id="version-info">
-            <span class="version-text">v2.5.4-dev</span>
+            <span class="version-text">v2.5.5-dev</span>
           </div>
           <div class="version-actions web-version-actions" id="version-actions">
             <a class="changelog-link version-action-btn" id="changelog-link" href="/changelog" target="_blank" rel="noopener noreferrer" title="Open changelog" data-i18n-title-key="version.openChangelog" data-i18n-key="resource.changelog">Changelog</a>
@@ -235,6 +238,17 @@
           <button type="button" class="btn btn-secondary" id="native-app-update-later-btn" data-i18n-key="update.native.later">Later</button>
           <a class="btn btn-primary" id="native-app-update-download-btn" href="#" download data-i18n-key="update.native.download">Update herunterladen</a>
         </div>
+      </div>
+    </div>
+
+    <div class="modal app-downloads-modal" id="app-downloads-modal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="app-downloads-modal-title">
+      <div class="modal-overlay" onclick="closeModal('app-downloads-modal')"></div>
+      <div class="modal-content app-downloads-modal-content" data-app-download-panel style="display:none;">
+        <button class="modal-close-x" onclick="closeModal('app-downloads-modal')"><span data-icon="x"></span></button>
+        <div class="web-update-icon" aria-hidden="true" data-icon="download"></div>
+        <h3 id="app-downloads-modal-title" data-i18n-key="appDownloads.title">Apps herunterladen</h3>
+        <p class="app-download-modal-subtitle" data-i18n-key="appDownloads.modalSubtitle">Installiere nia-todo als native App auf deinem Gerät.</p>
+        <div class="app-downloads modal-downloads" data-app-downloads style="display:none;"></div>
       </div>
     </div>
 

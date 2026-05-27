@@ -44,6 +44,7 @@
   "resource.changelog": "Changelog",
   "appDownloads.title": "Apps herunterladen",
   "appDownloads.subtitle": "Windows- und Android-App direkt installieren.",
+  "appDownloads.modalSubtitle": "Installiere nia-todo als native App auf deinem Gerät.",
   "appDownloads.sidebarSubtitle": "Desktop- oder Android-App installieren.",
   "settings.title": "Einstellungen",
   "settings.profile.username": "Username",
