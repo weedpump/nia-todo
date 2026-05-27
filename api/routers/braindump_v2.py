@@ -9,6 +9,7 @@ import subprocess
 import tempfile
 import time
 import urllib.request
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -76,8 +77,10 @@ Shopping rules:
 - If no matching project/section exists, leave project_name and section_name null.
 
 Time rules:
-- Detect relative and absolute times, including phrases like tomorrow, tonight, this evening, morgen, heute Abend, demain, mañana, etc.
-- If a specific time is mentioned, include it in deadline and/or reminder.
+- Detect relative and absolute times, including phrases like tomorrow, tonight, this evening, morgen, übermorgen Abend, demain, mañana, etc.
+- deadline and reminder must be ISO-8601 datetime strings when possible, e.g. "2026-05-29T19:00:00+02:00".
+- reminder is a date/time field: never output raw natural-language phrases like "übermorgen Abend" as reminder. Use ISO datetime or null.
+- If a specific or inferable time is mentioned, include it in deadline and/or reminder.
 - For appointments, create a concrete task like "Go to the dentist" / "Zum Zahnarzt gehen".
 
 Quality rules:
@@ -143,6 +146,74 @@ def _is_filler_only(value: str) -> bool:
 
 def _item_key(value: str) -> str:
     return re.sub(r"[^a-z0-9äöüß]+", "", value.lower())
+
+
+def _candidate_key(candidate: dict) -> str:
+    return _item_key(str(candidate.get("title") or ""))
+
+
+def _dedupe_normalized_candidates(candidates: list[dict]) -> list[dict]:
+    result = []
+    seen = set()
+    for candidate in candidates:
+        key = _candidate_key(candidate)
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        result.append(candidate)
+    return result
+
+
+def _parse_relative_temporal(value: str) -> str | None:
+    clean = re.sub(r"\s+", " ", str(value or "").strip().lower())
+    if not clean:
+        return None
+    try:
+        parsed = datetime.fromisoformat(clean.replace("Z", "+00:00"))
+        return parsed.isoformat(timespec="minutes")
+    except ValueError:
+        pass
+
+    now = datetime.now().astimezone()
+    days = None
+    if "übermorgen" in clean or "uebermorgen" in clean or "day after tomorrow" in clean or "pasado mañana" in clean or "après-demain" in clean or "apres-demain" in clean:
+        days = 2
+    elif "morgen" in clean or "tomorrow" in clean or "mañana" in clean or "demain" in clean:
+        days = 1
+    elif "heute" in clean or "today" in clean or "hoy" in clean or "aujourd" in clean:
+        days = 0
+    if days is None:
+        return None
+
+    hour = 9
+    minute = 0
+    time_match = re.search(r"\b(\d{1,2})(?::(\d{2}))?\s*(?:uhr|h)?\b", clean)
+    if time_match:
+        hour = int(time_match.group(1))
+        minute = int(time_match.group(2) or 0)
+    elif re.search(r"abend|evening|soir|noche", clean):
+        hour = 19
+    elif re.search(r"nachmittag|afternoon|tarde", clean):
+        hour = 15
+    elif re.search(r"mittag|noon|midi|mediod", clean):
+        hour = 12
+    elif re.search(r"morgen früh|früh|morning|matin|mañana", clean):
+        hour = 9
+    if hour > 23 or minute > 59:
+        return None
+    target = (now + timedelta(days=days)).replace(hour=hour, minute=minute, second=0, microsecond=0)
+    return target.isoformat(timespec="minutes")
+
+
+def _normalize_temporal_field(value, *, require_time: bool = False) -> str | None:
+    if value in (None, ""):
+        return None
+    parsed = _parse_relative_temporal(str(value))
+    if not parsed:
+        return None
+    if require_time and "T" not in parsed:
+        return None
+    return parsed
 
 
 def _negated_items(text: str) -> set[str]:
@@ -223,9 +294,9 @@ def _normalize_braindump_json(parsed: dict, transcript: str) -> dict:
             # when the LLM mapped them to explicit workspace context.
             kind = "shopping"
             title = _clean_shopping_title(title)
-        deadline = candidate.get("deadline")
-        reminder = candidate.get("reminder")
-        if deadline and reminder and re.search(r"\d", str(deadline)) and not re.search(r"\d", str(reminder)):
+        deadline = _normalize_temporal_field(candidate.get("deadline"))
+        reminder = _normalize_temporal_field(candidate.get("reminder"), require_time=True)
+        if deadline and candidate.get("reminder") and not reminder:
             reminder = deadline
         normalized.append({
             "title": title,
@@ -235,6 +306,7 @@ def _normalize_braindump_json(parsed: dict, transcript: str) -> dict:
             "reminder": reminder,
             "kind": kind,
         })
+    normalized = _dedupe_normalized_candidates(normalized)
     transcript_lower = transcript.lower().strip()
     if len(normalized) == 1:
         raw = normalized[0]["title"]
@@ -254,7 +326,7 @@ def _normalize_braindump_json(parsed: dict, transcript: str) -> dict:
         if _item_key(item["title"]) not in existing:
             normalized.append(item)
             existing.add(_item_key(item["title"]))
-    return {"candidates": normalized}
+    return {"candidates": _dedupe_normalized_candidates(normalized)}
 
 
 class TextSegmentRequest(BaseModel):
@@ -383,7 +455,8 @@ def _extract_with_openclaw(text: str, segment_id: int, workspace_context: dict |
     token = _load_openclaw_token()
     if not token:
         raise RuntimeError("OpenClaw gateway token not found")
-    user_content = f"Instructions:\n{BRAINDUMP_EXTRACTOR_PROMPT}\n\n{_format_workspace_context(workspace_context)}\n\nTranscript:\n{text}"
+    current_datetime = datetime.now().astimezone().isoformat(timespec="minutes")
+    user_content = f"Instructions:\n{BRAINDUMP_EXTRACTOR_PROMPT}\n\nCurrent datetime: {current_datetime}\n\n{_format_workspace_context(workspace_context)}\n\nTranscript:\n{text}"
     payload = {
         "model": "openclaw/braindump",
         "messages": [
