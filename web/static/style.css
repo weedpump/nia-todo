@@ -4715,3 +4715,5 @@ input[type="color"]::-moz-color-swatch {
   .bd-columns { grid-template-columns: 1fr; }
 
 }
+
+.bd-note { margin: 8px 0 0; font-size: .82rem; opacity: .72; }
