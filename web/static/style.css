@@ -2541,6 +2541,16 @@ input[type="color"]::-moz-color-swatch {
 
 .app-downloads-modal-content {
   max-width: 420px;
+  text-align: center;
+}
+
+.app-downloads-modal-body {
+  text-align: center;
+}
+
+.app-downloads-modal-body .web-update-icon {
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .app-download-modal-subtitle {
@@ -2570,6 +2580,15 @@ input[type="color"]::-moz-color-swatch {
 @media (max-width: 420px) {
   .modal-downloads {
     flex-direction: column;
+  }
+}
+
+@media (max-width: 768px) {
+  .app-downloads-modal-body {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 24px 16px;
   }
 }
 
