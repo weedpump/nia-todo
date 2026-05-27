@@ -28,6 +28,15 @@ This document is the project memory for the implementation. Keep it concise and 
 - No hidden auto-create of todos without user confirmation.
 - No fragile live draft system that can lose already spoken content.
 - No performance optimization without measuring the current bottleneck.
+- No admin UI for BrainDump provider configuration yet.
+- No user-facing OpenClaw/Whisper/STT model configuration yet.
+- No token/provider management until the core BrainDump flow is proven.
+
+## MVP configuration rule
+
+For BrainDump v2 MVP, infrastructure may be hardcoded in backend/dev settings.
+
+Reason: if the core session pipeline does not work reliably, a polished configuration UI has no value and only adds complexity. Provider/admin configuration can be added after the flow is correct, fast enough, and testable.
 
 ## Core architecture rule
 
@@ -196,3 +205,16 @@ What did not work:
 Current rule:
 
 - Correct incremental state first. Tail-only finalize. Measure before optimizing.
+### 2026-05-27: MVP config is intentionally hardcoded
+
+Decision:
+
+- Do not build admin/provider configuration UI in the first v2 implementation.
+- Hardcode OpenClaw/STT/Whisper settings in backend/dev configuration for now.
+
+Reason:
+
+- The hard problem is the live BrainDump session pipeline.
+- Configuration UI is only useful after the core flow is proven reliable and fast enough.
+- Avoid spending time on surface area that may be thrown away if the architecture changes.
+
