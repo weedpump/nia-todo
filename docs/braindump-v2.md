@@ -100,6 +100,29 @@ Suggested fields:
 - `source_segment_ids`
 - `warnings` / `needs_review`
 
+
+## Test protocol
+
+Tobi should not be the live trial-and-error tester during core development.
+
+For audio/STT work, use controlled fixture recordings:
+
+1. Nia writes a short test script that Tobi should speak exactly enough for realistic speech.
+2. Tobi sends the spoken recording as Telegram audio.
+3. Nia uses that same audio as a repeatable fixture whenever possible.
+4. Expected transcript, expected todo candidates, expected deadlines/reminders, and expected project/section targets are known before the test.
+5. Each run measures:
+   - audio duration
+   - audio ingest/transport latency
+   - first transcript segment latency
+   - incremental segment timing
+   - stop/final-tail latency
+   - final candidate correctness
+   - whether late spoken words were lost
+6. Tobi only tests manually at the end when the UI/UX needs human review.
+
+If Telegram/OpenClaw does not expose the raw audio file to the agent runtime, use an explicit uploaded audio fixture/file path instead of relying on the transcript. Transcript-only input is not a valid BrainDump audio/STT test.
+
 ## Development phases
 
 ### Phase 1: Audio/STT feasibility spike
@@ -256,4 +279,18 @@ Reason:
 What changes now:
 
 - Next implementation work should focus on a minimal real audio/STT spike with measurements before polishing candidate extraction or UI behavior.
+### 2026-05-27: Controlled audio fixtures instead of live user testing
+
+Decision:
+
+- Tobi should not repeatedly test broken live builds.
+- Nia will provide fixed scripts for Tobi to record as audio fixtures.
+- Development tests should replay those recordings and compare measured output against known expected todos/timing.
+- Manual Tobi testing is reserved for late UI/UX validation.
+
+Reason:
+
+- Repeated manual live testing caused frustration and produced noisy evidence.
+- Controlled audio fixtures make failures reproducible and measurable.
+- Transcript-only testing remains invalid for the core audio/STT problem.
 
