@@ -17,6 +17,10 @@ export function createBrainDumpLiveDebugFeature() {
     audioChunks: [],
     mediaChunks: 0,
     lastSnapshotChunkCount: 0,
+    latestQueuedSegmentId: 0,
+    latestAppliedSegmentId: 0,
+    finalSegmentId: 0,
+    finalProcessed: false,
     segments: [],
     candidates: [],
     timer: null,
@@ -86,7 +90,7 @@ export function createBrainDumpLiveDebugFeature() {
   function render() {
     const elapsed = state.recording ? (performance.now() - state.startedAt) / 1000 : (state.startedAt ? (state.stoppedAt - state.startedAt) / 1000 : 0);
     const waiting = state.queue.length + state.active;
-    if (state.stoppedAt && waiting === 0 && !state.finalJsonAt) state.finalJsonAt = performance.now();
+    if (state.stoppedAt && state.finalProcessed && !state.finalJsonAt) state.finalJsonAt = performance.now();
     const stopToJson = state.finalJsonAt ? `${((state.finalJsonAt - state.stoppedAt) / 1000).toFixed(2)}s` : (state.stoppedAt ? `läuft… (${waiting} offen)` : '–');
     const status = state.recording ? 'recording' : (waiting ? 'processing' : (state.stoppedAt ? 'stopped' : 'idle/ready'));
     const metrics = document.getElementById('bd-metrics');
@@ -121,6 +125,10 @@ export function createBrainDumpLiveDebugFeature() {
     state.audioChunks = [];
     state.mediaChunks = 0;
     state.lastSnapshotChunkCount = 0;
+    state.latestQueuedSegmentId = 0;
+    state.latestAppliedSegmentId = 0;
+    state.finalSegmentId = 0;
+    state.finalProcessed = false;
     state.segmentId = 0;
     state.startedAt = performance.now();
     state.stoppedAt = 0;
@@ -222,10 +230,16 @@ export function createBrainDumpLiveDebugFeature() {
       segmentId,
       audioStartMs: 0,
       audioEndMs,
+      kind: reason,
       status: `${reason} queued (${Math.round(blob.size / 1024)} KiB, ${state.audioChunks.length} chunks)`,
       transcript: '',
       timing: null,
     };
+    state.latestQueuedSegmentId = segmentId;
+    if (state.stoppedAt) {
+      state.finalSegmentId = segmentId;
+      state.finalProcessed = false;
+    }
     state.segments.push(item);
     pumpItem(item, blob);
   }
@@ -243,6 +257,10 @@ export function createBrainDumpLiveDebugFeature() {
 
   function pumpItem(item, blob) {
     if (state.stoppedAt) state.finalJsonAt = 0;
+    for (const pending of state.queue) {
+      pending.item.status = `stale skipped by #${item.segmentId}`;
+    }
+    state.queue = [];
     state.queue.push({ item, blob });
     pump();
   }
@@ -289,13 +307,24 @@ export function createBrainDumpLiveDebugFeature() {
       }
       if (!response.ok) throw new Error(await response.text());
       const data = await response.json();
-      item.status = 'done';
       item.transcript = data.transcript || '';
       item.timing = data.timing;
       item.wallMs = Math.round(performance.now() - started);
       const next = Array.isArray(data.json?.candidates) ? data.json.candidates : [];
-      if (next.length) state.candidates = dedupe([...state.candidates, ...next]);
-      if (!next.length) item.status = 'done (no candidates)';
+      if (item.segmentId < state.latestQueuedSegmentId && !state.stoppedAt) {
+        item.status = `stale done, ignored by #${state.latestQueuedSegmentId}`;
+        return;
+      }
+      if (state.finalSegmentId && item.segmentId < state.finalSegmentId) {
+        item.status = `stale done, ignored by final #${state.finalSegmentId}`;
+        return;
+      }
+      item.status = next.length ? 'done/latest' : 'done/latest (no candidates)';
+      state.latestAppliedSegmentId = Math.max(state.latestAppliedSegmentId, item.segmentId);
+      state.candidates = next;
+      if (state.finalSegmentId && item.segmentId === state.finalSegmentId) {
+        state.finalProcessed = true;
+      }
     } catch (error) {
       item.status = 'error';
       item.error = String(error?.message || error);
