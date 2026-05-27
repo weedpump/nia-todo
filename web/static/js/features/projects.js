@@ -300,6 +300,13 @@ export function createProjectsFeature({
     if (id) deleteProject(parseInt(id));
   }
 
+  async function removeDeletedTodosFromLocalState(deletedIds) {
+    const ids = new Set((deletedIds || []).map(id => Number(id)));
+    if (!ids.size) return;
+    await Promise.all([...ids].map(id => deleteFromDB('todos', id)));
+    setTodos(getTodos().filter(todo => !ids.has(Number(todo.id))));
+  }
+
   async function clearDoneFromModal() {
     const id = document.getElementById('project-id').value;
     if (!id) return;
@@ -315,16 +322,11 @@ export function createProjectsFeature({
     });
     if (!confirmed) return;
     try {
-      const r = await projectsApi.clearDone(projectId);
-      if (r.ok) {
-        const result = await r.json();
-        setProjects(getProjects());
-        renderStats();
-        renderTodos();
-        showToast(t('project.done.deleted', { count: result.deleted_count }));
-      } else {
-        showToast(t('project.done.deleteFailed'));
-      }
+      const result = await projectsApi.clearDone(projectId);
+      await removeDeletedTodosFromLocalState(result.deleted_ids);
+      renderStats();
+      renderTodos();
+      showToast(t('project.done.deleted', { count: result.deleted_count }));
     } catch (err) {
       console.error('Clear done error:', err);
       showToast(t('project.done.deleteFailed'));
@@ -344,12 +346,12 @@ export function createProjectsFeature({
       confirmText: t('project.done.deleteConfirm'),
     });
     if (!confirmed) return;
-    showBatchToast(t('project.done.deleted', { count: doneTodos.length }), { todos: doneTodos });
     try {
-      const r = await projectsApi.clearDone(currentProjectId);
-      if (!r.ok) showToast(t('project.done.deleteFailed'));
+      const result = await projectsApi.clearDone(currentProjectId);
+      await removeDeletedTodosFromLocalState(result.deleted_ids);
       renderStats();
       renderTodos();
+      showToast(t('project.done.deleted', { count: result.deleted_count }));
     } catch (err) {
       console.error('Clear done error:', err);
       showToast(t('project.done.deleteFailed'));
