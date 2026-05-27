@@ -119,6 +119,40 @@ export function createWorkspacesFeature({
     `;
   }
 
+  function isShortcutTypingTarget(element) {
+    const tag = element?.tagName;
+    return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || element?.isContentEditable;
+  }
+
+  function workspaceIndexFromShortcut(event) {
+    if (!event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return null;
+    if (/^[1-6]$/.test(event.key)) return Number(event.key) - 1;
+    const digitMatch = event.code?.match(/^Digit([1-6])$/);
+    if (digitMatch) return Number(digitMatch[1]) - 1;
+    const numpadMatch = event.code?.match(/^Numpad([1-6])$/);
+    if (numpadMatch) return Number(numpadMatch[1]) - 1;
+    return null;
+  }
+
+  function bindWorkspaceShortcuts() {
+    if (document.documentElement.dataset.workspaceShortcutsBound === '1') return;
+    document.documentElement.dataset.workspaceShortcutsBound = '1';
+    document.addEventListener('keydown', async (event) => {
+      const index = workspaceIndexFromShortcut(event);
+      if (index === null) return;
+      if (isShortcutTypingTarget(document.activeElement)) return;
+      if (document.querySelector('.modal.active')) return;
+      const workspace = getWorkspaces()[index];
+      if (!workspace) return;
+      if (String(workspace.id) === String(getCurrentWorkspaceId())) {
+        event.preventDefault();
+        return;
+      }
+      event.preventDefault();
+      await switchWorkspace(workspace.id);
+    }, true);
+  }
+
   async function switchWorkspace(workspaceId) {
     const next = normalizeWorkspaceId(workspaceId);
     setCurrentWorkspaceId(next);
@@ -267,6 +301,7 @@ export function createWorkspacesFeature({
     document.addEventListener('click', (event) => {
       if (!event.target.closest?.('#workspace-switcher')) closeWorkspaceMenu();
     });
+    bindWorkspaceShortcuts();
   }
 
   return {
