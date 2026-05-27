@@ -190,25 +190,20 @@
           </div>
         </div>
 
-        <button type="button" class="app-download-launcher sidebar-download-launcher" data-app-download-launcher onclick="openAppDownloadsModal()" style="display:none;">
-          <span class="app-download-launcher-icon" data-icon="download"></span>
-          <span class="app-download-launcher-text">
-            <span class="app-download-launcher-title" data-i18n-key="appDownloads.title">Apps herunterladen</span>
-            <span class="app-download-launcher-subtitle" data-i18n-key="appDownloads.sidebarSubtitle">Desktop- oder Android-App installieren.</span>
-          </span>
-          <span class="app-download-launcher-arrow" data-icon="chevron-right"></span>
-        </button>
-
         <!-- Version & Update -->
         <div class="version-bar" id="version-bar">
           <div class="version-info" id="version-info">
-            <span class="version-text">v2.5.5-dev</span>
+            <span class="version-text">v2.5.6-dev</span>
           </div>
           <div class="version-actions web-version-actions" id="version-actions">
             <a class="changelog-link version-action-btn" id="changelog-link" href="/changelog" target="_blank" rel="noopener noreferrer" title="Open changelog" data-i18n-title-key="version.openChangelog" data-i18n-key="resource.changelog">Changelog</a>
             <span class="version-action-separator" aria-hidden="true">|</span>
             <button type="button" class="force-refresh-btn version-action-btn" id="force-refresh-btn" onclick="forceReloadApp()" title="Web-App neu herunterladen und Cache aktualisieren" data-i18n-title-key="version.refreshCache" data-i18n-key="version.reload">↻ Neu laden</button>
           </div>
+          <button type="button" class="app-download-launcher" data-app-download-launcher onclick="openAppDownloadsModal()" style="display:none;">
+            <span data-icon="download"></span>
+            <span data-i18n-key="appDownloads.title">Apps herunterladen</span>
+          </button>
           <div class="native-version-info" data-native-app-version style="display:none;"></div>
         </div>
       </div>

@@ -25,7 +25,7 @@ assert(downloads.includes('openAppDownloadsModal'), 'download feature must expos
 assert(downloads.includes('app-download-platform'), 'download buttons must render visible platform labels');
 assert(downloads.includes('platformLabel(download.platform)'), 'download buttons must use platform labels, not just icons/version');
 assert(css.includes('.app-download-heading'), 'download panels need visible headings');
-assert(css.includes('.app-download-launcher'), 'sidebar downloads should be a compact launcher tile');
+assert(css.includes('.app-download-launcher'), 'sidebar downloads should be a subtle bottom action');
 assert(css.includes('.app-downloads-modal-content'), 'download modal needs dedicated layout styles');
 assert(css.includes('.app-download-text'), 'download buttons need structured label/version text');
 assert(sw.includes('/static/icons/platform/android.svg'), 'service worker must precache Android platform icon');
