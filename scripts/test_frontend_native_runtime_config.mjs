@@ -31,7 +31,7 @@ async function installTauriStub(page, settings, options = {}) {
           }
           if (command === 'desktop_request_notification_permission') return 'granted';
           if (command === 'desktop_schedule_reminders') return 0;
-          if (command === 'desktop_get_app_version') return appVersion || '2.0.0-test';
+          if (command === 'desktop_get_app_version') return appVersion || '9.9.9-test';
           if (command === 'desktop_open_url') {
             window.__nativeOpenedUrls = window.__nativeOpenedUrls || [];
             window.__nativeOpenedUrls.push(args.url);
@@ -96,7 +96,7 @@ async function testNativeChangelogOpensExternally() {
   const { browser, page, dumpErrors } = await launchPage();
   try {
     await installTauriStub(page, { serverUrl: BASE_URL }, {
-      appVersion: '2.1.1-dev',
+      appVersion: '9.9.9-test',
       userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
     });
     await page.goto(BASE_URL, { waitUntil: 'domcontentloaded' });
