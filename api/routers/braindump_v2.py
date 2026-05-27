@@ -33,38 +33,39 @@ WHISPER_MODELS = {
     "base": Path("/opt/whisper.cpp/models/ggml-base.bin"),
     "small": Path("/opt/whisper.cpp/models/ggml-small.bin"),
 }
+SHOPPING_PROJECT_NAME = None  # kind=shopping is resolved to the user's configured shopping list later.
 
-BRAINDUMP_EXTRACTOR_PROMPT = """Du bist der semantische nia-todo BrainDump-Extractor.
-Deine Aufgabe ist NICHT Diktat. Du musst mitdenken: Absichten erkennen, Rücknahmen beachten, Dinge klassifizieren und sinnvolle Todos erzeugen.
-Antworte ausschließlich mit kompaktem gültigem JSON in dieser Form:
+BRAINDUMP_EXTRACTOR_PROMPT = """You are the semantic nia-todo BrainDump extractor.
+This is NOT dictation. Think: detect intent, corrections, negations, reminders, dates, shopping items and concrete todos.
+Reply only compact valid JSON in this exact shape:
 {"candidates":[{"title":"...","project_name":null,"section_name":null,"deadline":null,"reminder":null,"kind":"todo"}]}
 
-Harte Regeln:
-- Schreibe ALLE Titel auf Deutsch. Niemals ins Englische übersetzen.
-- Niemals wortwörtlich abtippen, wenn eine bessere Todo-Formulierung möglich ist.
-- Erzeuge sinnvolle, atomare Todos. Kein Sammel-Todo für mehrere unabhängige Dinge.
-- Rücknahmen/Negationen gelten: "doch keine Cookies", "lass das weg", "brauchen wir nicht" -> NICHT aufnehmen.
-- Korrekturen überschreiben ältere Aussagen.
-- Fülltext, Metakommentare, Diskussion über das System, "Danke", "Video" usw. ignorieren.
-- Einkaufs-/Besorgungs-Items automatisch als Einkauf erkennen: project_name="Einkaufsliste", kind="shopping".
-- Termine/Erinnerungen erkennen: Uhrzeiten/"morgen"/"heute Abend" in reminder/deadline setzen.
-- Bei Arzt/Zahnarzt/Termin: konkretes Todo mit Zeit erzeugen, z.B. "Zum Zahnarzt gehen".
-- Bei Alltagshandlungen: sinnvollen Imperativ/Infinitiv erzeugen, z.B. "Duschen".
-- Korrigiere offensichtliche STT-Fehler kontextuell, z.B. "zu meiner Marm/Mam" -> "zu meiner Mama".
-- Bei rohen Einkaufslisten: einzelne Shopping-Items erzeugen, nicht die Liste kopieren.
-- Kein Markdown, keine Erklärung, kein Text außerhalb JSON.
+Hard rules:
+- Output titles in the same natural language as the transcript/user. Do not force German or English.
+- Do not transcribe word-for-word when a better todo title is possible.
+- Create meaningful atomic todos. No mega todo for unrelated items.
+- Corrections and negations win: "no cookies", "actually no cookies", "leave that out", "we don't need it" -> do NOT include the removed item.
+- Ignore filler, meta discussion, thanks, comments about the system, etc.
+- Detect shopping/grocery/buying items automatically: kind="shopping". Do not rely on a localized list name.
+- For shopping candidates set project_name=null; the app will route kind="shopping" to the user's configured/localized shopping list.
+- Detect reminders/deadlines from phrases like tomorrow, tonight, at 15:00, mañana, demain, etc.
+- For appointments, create a concrete todo with the time.
+- For daily actions, produce a clean action title.
+- Clean obvious STT errors from context when safe.
+- For raw shopping lists, output individual shopping items, not the copied list.
+- No Markdown, no explanation, no text outside JSON.
 
-Beispiele:
-Transkript: "Ich brauche Kartoffeln, Erdbeeren, Chips, nee doch keine Chips, aber Kokosmilch."
-JSON: {"candidates":[{"title":"Kartoffeln","project_name":"Einkaufsliste","section_name":null,"deadline":null,"reminder":null,"kind":"shopping"},{"title":"Erdbeeren","project_name":"Einkaufsliste","section_name":null,"deadline":null,"reminder":null,"kind":"shopping"},{"title":"Kokosmilch","project_name":"Einkaufsliste","section_name":null,"deadline":null,"reminder":null,"kind":"shopping"}]}
-Transkript: "Ich muss duschen. Erinnere mich morgen daran, dass ich um 15 Uhr zum Zahnarzt muss. Ach ja, wir müssen noch Honig kaufen."
-JSON: {"candidates":[{"title":"Duschen","project_name":null,"section_name":null,"deadline":null,"reminder":null,"kind":"todo"},{"title":"Zum Zahnarzt gehen","project_name":null,"section_name":null,"deadline":"morgen 15:00","reminder":"morgen 15:00","kind":"todo"},{"title":"Honig","project_name":"Einkaufsliste","section_name":null,"deadline":null,"reminder":null,"kind":"shopping"}]}
+Examples:
+Transcript: "I need potatoes, strawberries, chips, actually no chips, but coconut milk."
+JSON: {"candidates":[{"title":"potatoes","project_name":null,"section_name":null,"deadline":null,"reminder":null,"kind":"shopping"},{"title":"strawberries","project_name":null,"section_name":null,"deadline":null,"reminder":null,"kind":"shopping"},{"title":"coconut milk","project_name":null,"section_name":null,"deadline":null,"reminder":null,"kind":"shopping"}]}
+Transcript: "Ich muss duschen. Erinnere mich morgen daran, dass ich um 15 Uhr zum Zahnarzt muss. Ach ja, wir müssen noch Honig kaufen."
+JSON: {"candidates":[{"title":"Duschen","project_name":null,"section_name":null,"deadline":null,"reminder":null,"kind":"todo"},{"title":"Zum Zahnarzt gehen","project_name":null,"section_name":null,"deadline":"morgen 15:00","reminder":"morgen 15:00","kind":"todo"},{"title":"Honig","project_name":null,"section_name":null,"deadline":null,"reminder":null,"kind":"shopping"}]}
 
-Transkript:
+Transcript:
 """
 
 LIST_VERB_RE = re.compile(r"\b(muss|soll|erinnere|erinnern|vorbereiten|aufräumen|entsorgen|bestellen|machen|erledigen|kaufen|besorgen|einkaufen)\b", re.IGNORECASE)
-SHOPPING_INTENT_RE = re.compile(r"\b(kaufen|besorgen|einkaufen|brauche|brauchen|bräuchte|bräuchten|benötige|benötigen|holen)\b", re.IGNORECASE)
+SHOPPING_INTENT_RE = re.compile(r"\b(kaufen|besorgen|einkaufen|brauche|brauchen|bräuchte|bräuchten|benötige|benötigen|holen|buy|need|needs|get|purchase|comprar|compro|necesito|acheter|achète|acheterai|courses)\b", re.IGNORECASE)
 
 
 def _clean_title(value: str) -> str:
@@ -76,8 +77,8 @@ def _clean_title(value: str) -> str:
 
 
 def _clean_shopping_title(value: str) -> str:
-    value = re.sub(r"\b(kaufen|besorgen|einkaufen|holen)\b", "", value, flags=re.IGNORECASE)
-    value = re.sub(r"^(wir müssen|ich muss|muss|bitte|noch)\s+", "", value.strip(), flags=re.IGNORECASE)
+    value = re.sub(r"\b(kaufen|besorgen|einkaufen|holen|buy|need|needs|get|purchase|comprar|compro|necesito|acheter|achète)\b", "", value, flags=re.IGNORECASE)
+    value = re.sub(r"^(wir müssen|ich muss|muss|bitte|noch|also we|we|i|je|nous|yo)\s+", "", value.strip(), flags=re.IGNORECASE)
     return _clean_title(value)
 
 
@@ -92,9 +93,9 @@ def _split_plain_enumeration(text: str) -> list[dict]:
     items = [item for item in items if 1 < len(item) <= 80]
     if len(items) < 2:
         return []
-    return [{"title": item, "project_name": "Einkaufsliste", "section_name": None, "deadline": None, "reminder": None, "kind": "shopping"} for item in items]
+    return [{"title": item, "project_name": SHOPPING_PROJECT_NAME, "section_name": None, "deadline": None, "reminder": None, "kind": "shopping"} for item in items]
 
-NEGATED_ITEM_RE = re.compile(r"(?:doch\s+)?keine?n?\s+([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß -]{1,40})|([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß -]{1,40})\s+(?:brauchen wir nicht|lass(?:t)? (?:die|das|den)? ?weg)", re.IGNORECASE)
+NEGATED_ITEM_RE = re.compile(r"(?:doch\s+)?keine?n?\s+([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß -]{1,40})|(?:no|not|pas|sin)\s+([A-Za-zÀ-ÿÄÖÜäöüß][A-Za-zÀ-ÿÄÖÜäöüß -]{1,40})|([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß -]{1,40})\s+(?:brauchen wir nicht|lass(?:t)? (?:die|das|den)? ?weg)", re.IGNORECASE)
 NON_SHOPPING_TASK_RE = re.compile(r"\b(zahnarzt|arzt|termin|duschen|marm|mom|mama|gehen|erinner|nachmittag|abend|morgen)\b", re.IGNORECASE)
 
 
@@ -105,7 +106,7 @@ def _item_key(value: str) -> str:
 def _negated_items(text: str) -> set[str]:
     result = set()
     for match in NEGATED_ITEM_RE.finditer(text):
-        item = _clean_shopping_title(match.group(1) or match.group(2) or "")
+        item = _clean_shopping_title(match.group(1) or match.group(2) or match.group(3) or "")
         if item:
             result.add(_item_key(item))
     return result
@@ -114,15 +115,15 @@ def _negated_items(text: str) -> set[str]:
 def _split_shopping_phrase(value: str) -> list[str]:
     value = re.sub(r"(?:nee|nein)?\s*(?:doch\s+)?keine?n?\s+[A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß -]{1,40}", "", value, flags=re.IGNORECASE)
     value = re.sub(r"\b(ich|wir)\s+(?:brauche|brauchen|bräuchte|bräuchten|benötige|benötigen)\b", "", value, flags=re.IGNORECASE)
-    value = re.sub(r"\b(muss|müssen|noch|bitte|auch|dafür|aber|ach ?ja)\b", " ", value, flags=re.IGNORECASE)
-    value = re.sub(r"\b(kaufen|besorgen|einkaufen|holen)\b", "", value, flags=re.IGNORECASE)
+    value = re.sub(r"\b(muss|müssen|noch|bitte|auch|dafür|aber|ach ?ja|also|we|i|wir|ich|yo|nous|je)\b", " ", value, flags=re.IGNORECASE)
+    value = re.sub(r"\b(kaufen|besorgen|einkaufen|holen|buy|need|needs|get|purchase|comprar|compro|necesito|acheter|achète)\b", "", value, flags=re.IGNORECASE)
     parts = [p.strip() for p in re.split(r",|\s+und\s+|\s+oder\s+|\s*&\s*", value, flags=re.IGNORECASE)]
     result = []
     for part in parts:
         cleaned = _clean_shopping_title(part)
         if not (1 < len(cleaned) <= 80):
             continue
-        if re.search(r"\b(keine|brauchen|muss|müssen|zahnarzt|morgen|abend|nachmittag|marm|mom|weg|lasst)\b", cleaned, re.IGNORECASE):
+        if re.search(r"\b(keine|kein|no|not|pas|sin|brauchen|muss|müssen|zahnarzt|morgen|abend|nachmittag|marm|mom|weg|lasst)\b", cleaned, re.IGNORECASE):
             continue
         result.append(cleaned)
     return result
@@ -140,7 +141,7 @@ def _extract_shopping_candidates(text: str) -> list[dict]:
             continue
         phrase = chunk
         if is_shopping and not is_plain_list:
-            match = re.search(r"(?:^|,|und|ach ?ja)\s*([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß -]{1,60}?)\s+(?:muss|müssen)?\s*(?:ich|wir)?\s*(?:noch\s+)?(?:kaufen|besorgen|einkaufen|holen)\b", chunk, re.IGNORECASE)
+            match = re.search(r"(?:^|,|und|ach ?ja)\s*([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß -]{1,60}?)\s+(?:muss|müssen)?\s*(?:ich|wir)?\s*(?:noch\s+)?(?:kaufen|besorgen|einkaufen|holen|buy|need|needs|get|purchase|comprar|compro|necesito|acheter|achète)\b", chunk, re.IGNORECASE)
             if match:
                 phrase = match.group(1)
             else:
@@ -154,7 +155,7 @@ def _extract_shopping_candidates(text: str) -> list[dict]:
             if not key or key in negated or key in seen:
                 continue
             seen.add(key)
-            candidates.append({"title": item, "project_name": "Einkaufsliste", "section_name": None, "deadline": None, "reminder": None, "kind": "shopping"})
+            candidates.append({"title": item, "project_name": SHOPPING_PROJECT_NAME, "section_name": None, "deadline": None, "reminder": None, "kind": "shopping"})
     return candidates
 
 def _normalize_braindump_json(parsed: dict, transcript: str) -> dict:
@@ -172,9 +173,9 @@ def _normalize_braindump_json(parsed: dict, transcript: str) -> dict:
         if len(title) > 30 and (',' in title or ' und ' in title.lower() or ' or ' in title.lower()):
             continue
         project_name = candidate.get("project_name")
-        kind = candidate.get("kind") or ("shopping" if project_name == "Einkaufsliste" else "todo")
-        if SHOPPING_INTENT_RE.search(title) or project_name == "Einkaufsliste" or kind == "shopping":
-            project_name = "Einkaufsliste"
+        kind = candidate.get("kind") or "todo"
+        if SHOPPING_INTENT_RE.search(title) or kind == "shopping":
+            project_name = SHOPPING_PROJECT_NAME
             kind = "shopping"
             title = _clean_shopping_title(title)
         deadline = candidate.get("deadline")
@@ -203,7 +204,7 @@ def _normalize_braindump_json(parsed: dict, transcript: str) -> dict:
     # Deterministic safety net: do not let the LLM drop obvious shopping items
     # from raw list clauses like "Ich brauche Kartoffeln, Salat, Chips".
     shopping = _extract_shopping_candidates(transcript)
-    existing = {_item_key(item.get("title", "")) for item in normalized if item.get("project_name") == "Einkaufsliste" or item.get("kind") == "shopping"}
+    existing = {_item_key(item.get("title", "")) for item in normalized if item.get("kind") == "shopping"}
     for item in shopping:
         if _item_key(item["title"]) not in existing:
             normalized.append(item)
@@ -253,7 +254,7 @@ def _transcribe_wav(wav: Path, model_name: str) -> tuple[float, str]:
     elapsed_ms, proc = _run([
         "whisper-cli",
         "-m", str(model),
-        "-l", "de",
+        "-l", "auto",
         "-nt",
         "-np",
         "-mc", "0",
