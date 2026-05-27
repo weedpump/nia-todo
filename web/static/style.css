@@ -2671,29 +2671,30 @@ input[type="color"]::-moz-color-swatch {
 .app-download-server-box {
   width: 100%;
   margin: 0 0 14px;
-  padding: 12px;
-  border: 1px solid rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.28));
+  padding: 10px 12px;
+  border: 1px solid var(--border);
   border-radius: 12px;
-  background: rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.10));
+  background: color-mix(in srgb, var(--bg-tertiary) 72%, transparent);
   text-align: center;
 }
 
 .app-download-server-label {
   margin-bottom: 7px;
-  color: var(--text-secondary);
+  color: var(--text-muted);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 650;
 }
 
 .app-download-server-host {
   display: inline-flex;
   max-width: 100%;
-  padding: 6px 10px;
+  padding: 5px 9px;
+  border: 1px solid color-mix(in srgb, var(--border) 78%, var(--accent) 22%);
   border-radius: 8px;
   background: var(--bg-primary);
   color: var(--text-primary);
-  font-size: 14px;
-  font-weight: 800;
+  font-size: 13px;
+  font-weight: 750;
   overflow-wrap: anywhere;
 }
 
