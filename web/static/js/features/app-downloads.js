@@ -199,12 +199,57 @@ function getMinimumNativeClientVersion(instance = window.NIA_TODO_RUNTIME?.insta
   return instance?.min_native_client_version || '';
 }
 
+function downloadPanelForTarget(target) {
+  return target?.closest?.('[data-app-download-panel]') || null;
+}
+
+function setDownloadTargetVisible(target, visible) {
+  if (!target) return;
+  target.style.display = visible ? '' : 'none';
+  const panel = downloadPanelForTarget(target);
+  if (panel) panel.style.display = visible ? '' : 'none';
+}
+
+function setDownloadLaunchersVisible(launchers, visible) {
+  launchers.forEach((launcher) => { launcher.style.display = visible ? '' : 'none'; });
+}
+
+function serverAddressFromUrl(value) {
+  try {
+    const url = new URL(value || location.origin, location.origin);
+    const path = url.pathname && url.pathname !== '/' ? url.pathname.replace(/\/+$/, '') : '';
+    return `${url.host}${path}`;
+  } catch (_error) {
+    return location.host;
+  }
+}
+
+async function getDownloadServerAddress() {
+  const fallback = serverAddressFromUrl(location.origin);
+  try {
+    const instance = await verifyInstance(location.origin);
+    return serverAddressFromUrl(instance?.public_base_url || location.origin);
+  } catch (error) {
+    console.warn('[Downloads] Server address hint fallback to current host', error);
+    return fallback;
+  }
+}
+
+function renderDownloadServerAddress(address) {
+  document.querySelectorAll('[data-app-download-server-host]').forEach((target) => {
+    target.textContent = address || serverAddressFromUrl(location.origin);
+  });
+}
+
 function renderDownloads(target, downloads) {
-  if (!target || !downloads?.length) return;
+  if (!target || !downloads?.length) {
+    setDownloadTargetVisible(target, false);
+    return;
+  }
   target.replaceChildren();
   for (const download of downloads) {
     const link = document.createElement('a');
-    link.className = 'app-download-button';
+    link.className = `app-download-button app-download-button-${download.platform}`;
     link.href = download.url;
     link.download = download.filename;
     link.title = platformTitle(download);
@@ -219,12 +264,23 @@ function renderDownloads(target, downloads) {
     }
     link.appendChild(icon);
 
+    const text = document.createElement('span');
+    text.className = 'app-download-text';
+
+    const platform = document.createElement('span');
+    platform.className = 'app-download-platform';
+    platform.textContent = platformLabel(download.platform);
+    text.appendChild(platform);
+
     const version = document.createElement('span');
+    version.className = 'app-download-version';
     version.textContent = download.version || '';
-    link.appendChild(version);
+    text.appendChild(version);
+
+    link.appendChild(text);
     target.appendChild(link);
   }
-  target.style.display = '';
+  setDownloadTargetVisible(target, true);
 }
 
 function changelogUrl() {
@@ -306,6 +362,18 @@ export function createAppDownloadsFeature() {
   let refreshInterval = null;
   let refreshInFlight = null;
 
+  function openAppDownloadsModal() {
+    if (!isBrowserDownloadEligible()) return;
+    document.getElementById('user-menu')?.classList.remove('active');
+    document.getElementById('user-menu-button')?.setAttribute('aria-expanded', 'false');
+    document.getElementById('sidebar')?.classList.remove('open');
+    document.getElementById('sidebar-overlay')?.classList.remove('active');
+    const modal = document.getElementById('app-downloads-modal');
+    modal?.classList.add('active');
+    modal?.removeAttribute('aria-hidden');
+    refreshAppDownloads();
+  }
+
   function installNativeChangelogLinks(nativeBridge) {
     if (!RUNTIME_CAPABILITIES.native || nativeChangelogListenerInstalled) return;
     nativeChangelogListenerInstalled = true;
@@ -351,8 +419,9 @@ export function createAppDownloadsFeature() {
 
   async function initAppDownloads() {
     const downloadTargets = Array.from(document.querySelectorAll('[data-app-downloads]'));
+    const downloadLaunchers = Array.from(document.querySelectorAll('[data-app-download-launcher]'));
     const nativeVersionTargets = Array.from(document.querySelectorAll('[data-native-app-version]'));
-    if (!downloadTargets.length && !nativeVersionTargets.length && !document.getElementById('native-app-update-modal')) return;
+    if (!downloadTargets.length && !downloadLaunchers.length && !nativeVersionTargets.length && !document.getElementById('native-app-update-modal')) return;
 
     const nativeBridge = createNativeBridge();
     installNativeChangelogLinks(nativeBridge);
@@ -371,9 +440,12 @@ export function createAppDownloadsFeature() {
       if (!downloads.length) throw new Error('app downloads missing');
 
       if (isBrowserDownloadEligible()) {
+        renderDownloadServerAddress(await getDownloadServerAddress());
         downloadTargets.forEach((target) => renderDownloads(target, downloads));
+        setDownloadLaunchersVisible(downloadLaunchers, true);
       } else {
-        downloadTargets.forEach((target) => { target.style.display = 'none'; });
+        downloadTargets.forEach((target) => setDownloadTargetVisible(target, false));
+        setDownloadLaunchersVisible(downloadLaunchers, false);
       }
 
       const nativeDownload = downloads.find((download) => download.platform === nativePlatform);
@@ -389,7 +461,8 @@ export function createAppDownloadsFeature() {
       }
     } catch (error) {
       console.info('[Downloads] No app download available', error);
-      downloadTargets.forEach((target) => { target.style.display = 'none'; });
+      downloadTargets.forEach((target) => setDownloadTargetVisible(target, false));
+      setDownloadLaunchersVisible(downloadLaunchers, false);
       if (!hasNativeVersion) nativeVersionTargets.forEach((target) => { target.style.display = 'none'; });
     }
   }
@@ -404,5 +477,5 @@ export function createAppDownloadsFeature() {
     refreshInterval = null;
   }
 
-  return { initAppDownloads: startAppDownloads, refreshAppDownloads, stopAppDownloads };
+  return { initAppDownloads: startAppDownloads, refreshAppDownloads, stopAppDownloads, openAppDownloadsModal };
 }

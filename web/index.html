@@ -107,11 +107,15 @@
         <button class="theme-option" data-theme="dark" onclick="setTheme('dark')" title="Dark" data-i18n-title-key="common.theme.dark"><span data-icon="moon"></span></button>
         <button class="theme-option" data-theme="system" onclick="setTheme('system')" title="System" data-i18n-title-key="common.theme.system"><span data-icon="monitor"></span></button>
       </div>
-      <div class="app-downloads login-downloads" data-app-downloads style="display:none;"></div>
       <div class="app-resource-links login-resource-links">
         <a class="app-resource-link" href="/api" target="_blank" rel="noopener"><span data-icon="book-open"></span> <span data-i18n-key="resource.apiDocs">API-Doku</span></a>
         <a class="app-resource-link" href="/changelog" target="_blank" rel="noopener"><span data-icon="list"></span> <span data-i18n-key="resource.changelog">Changelog</span></a>
       </div>
+      <div class="login-download-divider" aria-hidden="true"></div>
+      <button type="button" class="app-download-launcher login-download-launcher" data-app-download-launcher onclick="openAppDownloadsModal()" style="display:none;">
+        <span data-icon="download"></span>
+        <span data-i18n-key="appDownloads.title">Apps herunterladen</span>
+      </button>
     </div>
   </div>
 
@@ -186,16 +190,22 @@
           </div>
         </div>
 
+
         <!-- Version & Update -->
         <div class="version-bar" id="version-bar">
           <div class="version-info" id="version-info">
-            <span class="version-text">v2.5.1</span>
+            <span class="version-text">v2.5.2</span>
           </div>
           <div class="version-actions web-version-actions" id="version-actions">
             <a class="changelog-link version-action-btn" id="changelog-link" href="/changelog" target="_blank" rel="noopener noreferrer" title="Open changelog" data-i18n-title-key="version.openChangelog" data-i18n-key="resource.changelog">Changelog</a>
             <span class="version-action-separator" aria-hidden="true">|</span>
             <button type="button" class="force-refresh-btn version-action-btn" id="force-refresh-btn" onclick="forceReloadApp()" title="Web-App neu herunterladen und Cache aktualisieren" data-i18n-title-key="version.refreshCache" data-i18n-key="version.reload">↻ Neu laden</button>
           </div>
+          <div class="version-download-divider web-version-actions" aria-hidden="true"></div>
+          <button type="button" class="app-download-launcher" data-app-download-launcher onclick="openAppDownloadsModal()" style="display:none;">
+            <span data-icon="download"></span>
+            <span data-i18n-key="appDownloads.title">Apps herunterladen</span>
+          </button>
           <div class="native-version-info" data-native-app-version style="display:none;"></div>
         </div>
       </div>
@@ -224,6 +234,23 @@
         <div class="web-update-actions">
           <button type="button" class="btn btn-secondary" id="native-app-update-later-btn" data-i18n-key="update.native.later">Later</button>
           <a class="btn btn-primary" id="native-app-update-download-btn" href="#" download data-i18n-key="update.native.download">Update herunterladen</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal app-downloads-modal" id="app-downloads-modal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="app-downloads-modal-title">
+      <div class="modal-overlay" onclick="closeModal('app-downloads-modal')"></div>
+      <div class="modal-content app-downloads-modal-content" data-app-download-panel style="display:none;">
+        <h3 id="app-downloads-modal-title" data-i18n-key="appDownloads.title">Apps herunterladen</h3>
+        <button class="modal-close-x" onclick="closeModal('app-downloads-modal')"><span data-icon="x"></span></button>
+        <div class="modal-body app-downloads-modal-body">
+          <div class="web-update-icon" aria-hidden="true" data-icon="download"></div>
+          <p class="app-download-modal-subtitle" data-i18n-key="appDownloads.modalSubtitle">Installiere nia-todo als native App auf deinem Gerät.</p>
+          <div class="app-download-server-box">
+            <div class="app-download-server-label" data-i18n-key="appDownloads.serverHostLabel">Bitte gib in der App folgende Adresse ein:</div>
+            <code class="app-download-server-host" data-app-download-server-host>–</code>
+          </div>
+          <div class="app-downloads modal-downloads" data-app-downloads style="display:none;"></div>
         </div>
       </div>
     </div>
@@ -530,7 +557,6 @@
           </div>
           <div id="push-error" style="color:var(--danger); font-size:13px; margin-top:8px;"></div>
         </div>
-        <div class="app-downloads settings-downloads" data-app-downloads style="display:none;"></div>
         <div id="desktop-settings-section" style="display:none;">
           <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">
           <h4 style="margin:0 0 12px 0; font-size:14px;"><span data-icon="smartphone"></span> <span data-i18n-key="settings.desktop.title">App</span></h4>

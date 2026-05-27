@@ -82,36 +82,58 @@ def _markdown_to_html(markdown: str, toc_filter=None) -> tuple[str, str]:
     body: list[str] = []
     toc: list[tuple[int, str, str]] = []
     in_code = False
-    in_list = False
     code_lines: list[str] = []
+    list_stack: list[dict[str, object]] = []
     used_slugs: dict[str, int] = {}
 
-    def close_list():
-        nonlocal in_list
-        if in_list:
+    def close_list_to(depth: int = 0):
+        while len(list_stack) > depth:
+            state = list_stack.pop()
+            if state.get("li_open"):
+                body.append("</li>")
             body.append("</ul>")
-            in_list = False
+
+    def render_list_item(indent: int, text: str):
+        nonlocal list_stack
+        if not list_stack:
+            body.append("<ul>")
+            list_stack.append({"indent": indent, "li_open": False})
+        elif indent > int(list_stack[-1]["indent"]):
+            body.append("<ul>")
+            list_stack.append({"indent": indent, "li_open": False})
+        else:
+            while list_stack and indent < int(list_stack[-1]["indent"]):
+                close_list_to(len(list_stack) - 1)
+            if not list_stack or indent != int(list_stack[-1]["indent"]):
+                body.append("<ul>")
+                list_stack.append({"indent": indent, "li_open": False})
+
+        if list_stack[-1].get("li_open"):
+            body.append("</li>")
+        body.append(f"<li>{_render_inline_markdown(text.strip())}")
+        list_stack[-1]["li_open"] = True
 
     for line in lines:
-        stripped = line.rstrip()
+        expanded = line.expandtabs(2)
+        stripped = expanded.rstrip()
         if stripped.startswith("```"):
             if in_code:
                 body.append(f"<pre><code>{html.escape(chr(10).join(code_lines))}</code></pre>")
                 code_lines = []
                 in_code = False
             else:
-                close_list()
+                close_list_to()
                 in_code = True
             continue
         if in_code:
             code_lines.append(stripped)
             continue
         if not stripped:
-            close_list()
+            close_list_to()
             continue
         heading = re.match(r"^(#{1,4})\s+(.+)$", stripped)
         if heading:
-            close_list()
+            close_list_to()
             level = len(heading.group(1))
             text = heading.group(2).strip()
             base_slug = _slugify_heading(text)
@@ -122,25 +144,22 @@ def _markdown_to_html(markdown: str, toc_filter=None) -> tuple[str, str]:
                 toc.append((level, slug, text))
             body.append(f'<h{level} id="{slug}">{_render_inline_markdown(text)}</h{level}>')
             continue
-        if stripped.startswith("- "):
-            if not in_list:
-                body.append("<ul>")
-                in_list = True
-            body.append(f"<li>{_render_inline_markdown(stripped[2:].strip())}</li>")
+        list_item = re.match(r"^(\s*)-\s+(.+)$", expanded.rstrip())
+        if list_item:
+            render_list_item(len(list_item.group(1)), list_item.group(2))
             continue
-        close_list()
+        close_list_to()
         body.append(f"<p>{_render_inline_markdown(stripped)}</p>")
 
     if in_code:
         body.append(f"<pre><code>{html.escape(chr(10).join(code_lines))}</code></pre>")
-    close_list()
+    close_list_to()
     toc_html = "".join(
         f'<a class="toc-level-{level}" href="#{slug}">{html.escape(text)}</a>'
         for level, slug, text in toc
         if level <= 3
     )
     return "\n".join(body), toc_html
-
 
 def _document_html(title: str, subtitle: str, markdown: str, search_placeholder: str, toc_filter=None) -> str:
     content, toc = _markdown_to_html(markdown, toc_filter=toc_filter)

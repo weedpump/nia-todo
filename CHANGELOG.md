@@ -5,6 +5,30 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [2.5.2] - 2026-05-28
+
+### Added
+- Browser/PWA download discovery now includes a compact `Apps herunterladen` launcher in the sidebar footer and on the login page, both opening a shared app download modal.
+- The app download modal now shows Windows and Android downloads side by side and includes the exact server hostname users should enter in the native apps, preferring the configured public base URL and falling back to the current host without `https://`.
+- Todo rows on wide screens now expose an inline status menu for quickly switching between open, in-progress, and done without opening the todo dialog.
+- Keyboard shortcuts now support hovering a todo and pressing Space to cycle its status, plus `Ctrl+1` through `Ctrl+6` to switch between workspaces inside the app.
+- Frontend regression coverage was added for app download visibility, quick todo status controls, project clear-done handling, workspace number shortcuts, and changelog nested list rendering.
+
+### Changed
+- App download UI is browser-only, hidden from native apps/PWA standalone mode, removed from user settings, and styled consistently with the existing mobile fullscreen modal patterns.
+- Todo row quick actions are always visible and layout-stable, preventing hover height jumps in long lists.
+- The inline todo status control now uses a custom rounded dropdown, closes on click-away/Escape, and renders above surrounding app chrome.
+- Login page resource/download placement now mirrors the sidebar structure more closely, with API docs and changelog above a divider and the app download launcher at the bottom.
+- GitHub release notes are now generated from the matching `CHANGELOG.md` version section, with distribution targets appended automatically.
+
+### Fixed
+- Clearing completed todos in a project now handles the project API response correctly instead of expecting a raw fetch response.
+- App download modal layering now works from the login page instead of opening behind the login overlay.
+- The Android platform download icon now renders correctly.
+- The public changelog renderer now preserves nested bullet lists instead of rendering indented sub-bullets as left-aligned plain paragraphs.
+
 ## [2.5.1] - 2026-05-26
 
 ### Changed

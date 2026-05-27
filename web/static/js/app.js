@@ -61,6 +61,7 @@ const pushFeature = createPushNotificationsFeature({ pushApi });
 const confirmDialogFeature = createConfirmDialogFeature();
 const confirmDanger = confirmDialogFeature.confirmDanger;
 const appDownloadsFeature = createAppDownloadsFeature();
+const openAppDownloadsModal = appDownloadsFeature.openAppDownloadsModal;
 const viewPreferences = createViewPreferencesFeature({
   getHideDone: () => hideDone,
   setHideDone: (value) => { hideDone = value; },
@@ -431,6 +432,7 @@ const clearDoneInProject = projectsFeature.clearDoneInProject;
 
 const markTodoDone = todosFeature.markTodoDone;
 const markTodoInProgress = todosFeature.markTodoInProgress;
+const setTodoStatus = todosFeature.setTodoStatus;
 async function markTodoDoneFromNative(action) {
   const rawAction = typeof action === 'object' && action ? action : { id: action };
   const rawId = String(rawAction.id || '');
@@ -641,10 +643,11 @@ export function startAppModule() {
   sync: { isOnlineForSync, syncWithServer, refreshFromServer },
   ui: { toggleSidebar, closeSidebar, closeModal, setupDescPreview },
   lifecycle: { initServiceWorker, triggerUpdate, forceReloadApp, initApp, loadFromLocalDB, loadAll },
+  appDownloads: { openAppDownloadsModal },
   rendering: { renderVersionInfo, renderProjects, renderStats, renderTodos, renderSectionHeader, countByProject },
   navigation: { setFilter, loadSectionsForCurrentProject },
   workspaces: { renderWorkspaces, switchWorkspace, createWorkspace, showWorkspaceModal, closeWorkspaceModal, saveWorkspace, deleteWorkspaceFromModal, toggleWorkspaceMenu, closeWorkspaceMenu, loadWorkspacesFromServer },
-  todos: { markTodoDone, markTodoInProgress, markTodoDoneFromNative, toggleTodo, showTodoModal, onProjectChange, saveTodo, editTodo, deleteTodoFromModal, deleteTodo },
+  todos: { markTodoDone, markTodoInProgress, markTodoDoneFromNative, setTodoStatus, toggleTodo, showTodoModal, onProjectChange, saveTodo, editTodo, deleteTodoFromModal, deleteTodo },
   projects: { showProjectModal, editProject, saveProject, deleteProject, deleteProjectFromModal, clearDoneFromModal, clearDoneInProject },
   sharing: { inviteUserToProject: () => sharingFeature.inviteByUsername(), leaveProjectFromModal: () => sharingFeature.leaveProject(), undoLeaveProject: (data) => sharingFeature.undoLeaveProject(data), undoRemoveMember: (data) => sharingFeature.undoRemoveMember(data), undoInvite: (data) => sharingFeature.undoInvite(data), acceptInvite: (pid, iid) => sharingFeature.acceptInvite(pid, iid), declineInvite: (pid, iid) => sharingFeature.declineInvite(pid, iid), showShareInput: () => sharingFeature.showShareInput() },
   projectSharing: { setProject: (project) => sharingFeature.setProject(project), applyProjectModalState: (project, canEdit, shared) => sharingFeature.applyProjectModalState(project, canEdit, shared), loadInvites: () => sharingFeature.loadInvites() },
