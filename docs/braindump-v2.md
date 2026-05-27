@@ -536,3 +536,68 @@ Conclusion:
 - Best measured end-to-JSON path so far: `base` + 4s windows + 2 LLM workers, about 5.7s after stop.
 - `small` is more accurate but about 7.9s after stop in the same real-time test.
 - More LLM parallelism (4 workers) caused worse tail latency due to an outlier; keep LLM concurrency low unless a provider/path with predictable latency is used.
+
+### 2026-05-27: Semantic BrainDump v2 current state before pausing
+
+Status at pause:
+
+- Branch: `feature/braindump-v2`.
+- Dev project path: `~/projects/nia-todo-dev`.
+- Latest pushed feature commits:
+  - `a6096a7 Make BrainDump extractor language neutral`
+  - `c6b753c Clarify BrainDump semantic extractor prompt`
+  - `333f851 Add context-aware BrainDump semantic extraction`
+  - `e8b8b50 Filter BrainDump filler-only candidates`
+  - `75ccdc2 Normalize BrainDump reminders and dedupe items`
+
+What works now:
+
+- BrainDump v2 is behind the per-user `users.braindump_enabled` gate.
+- Browser live-debug flow records microphone audio and sends accumulated audio snapshots to the backend.
+- Backend live path uses `ffmpeg -> whisper-cli -> OpenClaw JSON extraction`.
+- Whisper language is now `auto`, not hardcoded German.
+- BrainDump uses `openclaw/braindump` and currently tests with full `gpt-5.4` instead of mini per Tobi's request.
+- The product BrainDump prompt is now sent directly with every extraction; it no longer relies only on the stale/tiny OpenClaw agent prompt.
+- The extractor receives workspace context: existing projects, workspaces and sections.
+- Project/section mapping is context-aware: the LLM may choose only exact existing `project_name` / `section_name` values when clearly appropriate.
+- There is no hardcoded `Einkaufsliste` routing. `kind="shopping"` is only an internal semantic signal.
+- Shopping/grocery lists, homework, stamp-collection examples and Spanish examples passed live semantic checks.
+- Filler-only candidates like `nee`, `nein`, `doch`, `okay`, `ähm` are filtered.
+- Duplicate candidates from LLM output plus deterministic safety-net are deduped.
+- Natural-language reminder/deadline text like `übermorgenabend` is normalized to an ISO datetime such as `2026-05-29T19:00+02:00`; unparseable reminder text is dropped instead of being written into date fields.
+
+Tests/checks that passed before pausing:
+
+- `python3 scripts/test_braindump_v2_services.py`
+- `python3 scripts/test_braindump_v2_extractor_normalization.py`
+- `python3 scripts/test_braindump_semantic_extractor.py` -> 4/4 live OpenClaw checks
+- `node --check web/static/js/features/braindump-live-debug.js`
+- `node scripts/test_sw_precache.mjs`
+- `nia-todo-dev` was restarted and active on the feature branch before switching back to `develop`.
+
+Important product decisions:
+
+- Normal users/self-hosters should not have to write prompts.
+- The default product BrainDump prompt/context path is the normal UX.
+- Optional OpenClaw/STT/system-prompt configuration can exist later as an advanced fallback/pro mode, not as the default requirement.
+- BrainDump must behave like a semantic assistant, not dictation.
+- The app should provide real context (projects/sections/workspaces); the LLM should infer the sensible mapping from that context.
+
+Known limitations / next work:
+
+- The current live debug path still uses accumulated audio snapshots; this is robust for browser/WebM decoding but inefficient.
+- Need replace/debug toward a true efficient live pipeline once semantics are stable.
+- Need wire final candidates into real todo creation with `project_id` / `section_id` mapping instead of only debug JSON display.
+- Need ensure ISO reminder/deadline parsing is robust across more languages and ambiguous phrases; current parser covers common German/English/Spanish/French relative terms but is still MVP-level.
+- Need decide whether `kind="shopping"` should remain as an internal value exposed to frontend or be transformed into a more general `intent`/`category` field before release.
+- Need rerun real mobile live test after resuming and inspect logs for STT/LLM timing, duplicates, tail handling and candidate correctness.
+- Need consider switching BrainDump agent back from full `gpt-5.4` to `gpt-5.4-mini` after prompt/context fixes, because GPT Mini should likely handle this now.
+
+Resume plan:
+
+1. Start from `feature/braindump-v2`.
+2. Re-run the deterministic and live semantic tests above.
+3. Do one controlled real UI test with grocery + negation + reminder + section mapping.
+4. Inspect backend logs/timing rather than guessing from screenshots.
+5. If semantics stay good, implement candidate confirmation into real todos and project/section id resolution.
+6. Only then optimize the live audio pipeline and final stop-to-ready latency.
