@@ -1023,7 +1023,8 @@ body {
   box-shadow: inset -4px 0 0 var(--success);
 }
 
-.todo-item:hover {
+.todo-item:hover,
+.todo-item:focus-within {
   border-color: var(--accent);
   background: linear-gradient(90deg, rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.12)), var(--bg-tertiary));
   box-shadow: inset 3px 0 0 color-mix(in srgb, var(--accent) 62%, var(--text-primary));
@@ -1164,7 +1165,13 @@ body {
 
 .todo-actions {
   display: none;
+  align-items: center;
   gap: 6px;
+}
+
+.todo-item:hover .todo-actions,
+.todo-item:focus-within .todo-actions {
+  display: flex;
 }
 
 .todo-actions button {
@@ -1178,6 +1185,33 @@ body {
 }
 
 .todo-actions button:hover { background: var(--bg-hover); color: var(--text-primary); }
+
+.todo-status-select {
+  display: none;
+  max-width: 128px;
+  padding: 4px 24px 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.todo-status-select:hover,
+.todo-status-select:focus {
+  border-color: rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.45));
+  color: var(--text-primary);
+  outline: none;
+}
+
+@media (min-width: 1024px) {
+  .todo-item:hover .todo-status-select,
+  .todo-item:focus-within .todo-status-select {
+    display: inline-flex;
+  }
+}
 
 /* Empty state */
 .empty-state {
@@ -1927,7 +1961,7 @@ input[type="color"]::-moz-color-swatch {
 /* Mobile: always show todo actions */
 @media (max-width: 768px) {
   .todo-actions {
-    opacity: 1;
+    display: flex;
   }
   .section-count {
     display: inline-block;

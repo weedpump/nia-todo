@@ -29,6 +29,11 @@ export function renderTodoItem(t) {
         ` : ''}
       </div>
       <div class="todo-actions" onclick="event.stopPropagation()">
+        <select class="todo-status-select" value="${escapeHtml(t.status)}" aria-label="${escapeHtml(i18nT('todo.status'))}" title="${escapeHtml(i18nT('todo.status'))}" onchange="event.stopPropagation(); setTodoStatus(${t.id}, this.value)" onclick="event.stopPropagation()" onpointerdown="event.stopPropagation()">
+          <option value="pending" ${t.status === 'pending' ? 'selected' : ''}>${escapeHtml(i18nT('todo.status.pending'))}</option>
+          <option value="in_progress" ${t.status === 'in_progress' ? 'selected' : ''}>${escapeHtml(i18nT('todo.status.inProgress'))}</option>
+          <option value="done" ${t.status === 'done' ? 'selected' : ''}>${escapeHtml(i18nT('todo.status.done'))}</option>
+        </select>
         <button onclick="deleteTodo(${t.id})" title="${escapeHtml(i18nT('common.delete'))}">${iconSvg('trash-2')}</button>
       </div>
     </div>

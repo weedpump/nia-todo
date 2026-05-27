@@ -220,7 +220,41 @@ export function createTodosFeature({
     document.addEventListener('pointercancel', finish, { passive: false });
   }
 
+  function isInteractiveTarget(element) {
+    const tag = element?.tagName;
+    return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'BUTTON' || tag === 'A' || element?.isContentEditable;
+  }
+
+  function bindTodoHoverKeyboardShortcuts() {
+    if (document.documentElement.dataset.todoHoverKeyboardBound === '1') return;
+    document.documentElement.dataset.todoHoverKeyboardBound = '1';
+    let hoveredTodoId = null;
+
+    document.addEventListener('pointerover', (event) => {
+      const item = event.target?.closest?.('.todo-item[data-id]');
+      if (item) hoveredTodoId = item.dataset.id;
+    }, { passive: true });
+
+    document.addEventListener('pointerout', (event) => {
+      const item = event.target?.closest?.('.todo-item[data-id]');
+      if (!item || item.contains(event.relatedTarget)) return;
+      if (hoveredTodoId === item.dataset.id) hoveredTodoId = null;
+    }, { passive: true });
+
+    document.addEventListener('keydown', async (event) => {
+      if (event.key !== ' ' && event.key !== 'Spacebar') return;
+      if (!hoveredTodoId || event.ctrlKey || event.metaKey || event.altKey) return;
+      if (isInteractiveTarget(document.activeElement)) return;
+      if (document.querySelector('.modal.active')) return;
+      const item = Array.from(document.querySelectorAll('.todo-item[data-id]')).find(el => el.dataset.id === String(hoveredTodoId));
+      if (!item) return;
+      event.preventDefault();
+      await toggleTodo(hoveredTodoId);
+    });
+  }
+
   bindTodoSwipeGestures();
+  bindTodoHoverKeyboardShortcuts();
 
   async function toggleTodo(id) {
     if (!getAppInitialized() || !getDb()) return;
