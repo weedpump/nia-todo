@@ -2700,9 +2700,9 @@ input[type="color"]::-moz-color-swatch {
 }
 
 .version-download-divider {
-  width: calc(100% - 32px);
+  width: calc(100% + 32px);
   height: 1px;
-  margin: 2px 16px 0;
+  margin: 2px -16px 0;
   background: var(--border);
   opacity: 0.95;
 }
