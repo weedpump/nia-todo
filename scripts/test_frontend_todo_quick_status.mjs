@@ -31,9 +31,10 @@ async function run() {
     if (Math.abs(heightAfterHover - heightBeforeHover) > 0.5) {
       throw new Error(`Todo hover changed row height from ${heightBeforeHover} to ${heightAfterHover}`);
     }
-    const statusSelect = item.locator('.todo-status-select');
-    await statusSelect.waitFor({ state: 'visible', timeout: 5000 });
-    await statusSelect.selectOption('in_progress');
+    const statusMenu = item.locator('.todo-status-menu');
+    await statusMenu.waitFor({ state: 'visible', timeout: 5000 });
+    await statusMenu.locator('summary').click();
+    await statusMenu.locator('.todo-status-options button').filter({ hasText: /In Arbeit|In progress/i }).click();
     await waitForTodoStatus(page, title, 'in_progress');
 
     await item.hover();
