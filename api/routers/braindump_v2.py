@@ -50,6 +50,7 @@ Harte Regeln:
 - Termine/Erinnerungen erkennen: Uhrzeiten/"morgen"/"heute Abend" in reminder/deadline setzen.
 - Bei Arzt/Zahnarzt/Termin: konkretes Todo mit Zeit erzeugen, z.B. "Zum Zahnarzt gehen".
 - Bei Alltagshandlungen: sinnvollen Imperativ/Infinitiv erzeugen, z.B. "Duschen".
+- Korrigiere offensichtliche STT-Fehler kontextuell, z.B. "zu meiner Marm/Mam" -> "zu meiner Mama".
 - Bei rohen Einkaufslisten: einzelne Shopping-Items erzeugen, nicht die Liste kopieren.
 - Kein Markdown, keine Erklärung, kein Text außerhalb JSON.
 
@@ -68,6 +69,8 @@ SHOPPING_INTENT_RE = re.compile(r"\b(kaufen|besorgen|einkaufen|brauche|brauchen|
 
 def _clean_title(value: str) -> str:
     value = re.sub(r"^(ich brauche|ich benötige|bitte|noch)\s+", "", value.strip(), flags=re.IGNORECASE)
+    value = re.sub(r"\b(meiner|meine|der)\s+(marm|mam)\b", lambda m: f"{m.group(1)} Mama", value, flags=re.IGNORECASE)
+    value = re.sub(r"\bMarm\b", "Mama", value)
     value = value.strip(" .,:;!?-–—\t\n\r")
     return value[:1].upper() + value[1:] if value else ""
 
