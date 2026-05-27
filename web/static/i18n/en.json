@@ -42,6 +42,10 @@
   "auth.signOut": "Sign out",
   "resource.apiDocs": "API docs",
   "resource.changelog": "Changelog",
+  "appDownloads.title": "Download apps",
+  "appDownloads.subtitle": "Install the Windows and Android app directly.",
+  "appDownloads.modalSubtitle": "Install nia-todo as a native app on your device.",
+  "appDownloads.sidebarSubtitle": "Install the desktop or Android app.",
   "settings.title": "Settings",
   "settings.profile.username": "Username",
   "settings.profile.displayName": "Display name",
@@ -780,5 +784,6 @@
   "api.auth.trustedDeviceRevokeFailed": "Trusted device could not be revoked",
   "api.auth.trustedDevicesRevokeFailed": "Active sessions / devices could not be revoked",
   "api.error.mfa.trustedDeviceNotFound": "Device session not found",
-  "settings.2fa.trustedDeviceRemembered": "2FA remembered"
+  "settings.2fa.trustedDeviceRemembered": "2FA remembered",
+  "appDownloads.serverHostLabel": "Enter this address in the app:"
 }

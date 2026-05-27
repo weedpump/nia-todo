@@ -29,6 +29,17 @@ export function renderTodoItem(t) {
         ` : ''}
       </div>
       <div class="todo-actions" onclick="event.stopPropagation()">
+        <details class="todo-status-menu" onclick="event.stopPropagation()">
+          <summary aria-label="${escapeHtml(i18nT('todo.status'))}" title="${escapeHtml(i18nT('todo.status'))}">
+            <span>${escapeHtml(i18nT(t.status === 'done' ? 'todo.status.done' : t.status === 'in_progress' ? 'todo.status.inProgress' : 'todo.status.pending'))}</span>
+            ${iconSvg('chevron-down')}
+          </summary>
+          <div class="todo-status-options">
+            <button type="button" class="${t.status === 'pending' ? 'active' : ''}" onclick="this.closest('details')?.removeAttribute('open'); setTodoStatus(${t.id}, 'pending')">${escapeHtml(i18nT('todo.status.pending'))}</button>
+            <button type="button" class="${t.status === 'in_progress' ? 'active' : ''}" onclick="this.closest('details')?.removeAttribute('open'); setTodoStatus(${t.id}, 'in_progress')">${escapeHtml(i18nT('todo.status.inProgress'))}</button>
+            <button type="button" class="${t.status === 'done' ? 'active' : ''}" onclick="this.closest('details')?.removeAttribute('open'); setTodoStatus(${t.id}, 'done')">${escapeHtml(i18nT('todo.status.done'))}</button>
+          </div>
+        </details>
         <button onclick="deleteTodo(${t.id})" title="${escapeHtml(i18nT('common.delete'))}">${iconSvg('trash-2')}</button>
       </div>
     </div>

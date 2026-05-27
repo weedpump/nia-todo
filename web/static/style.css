@@ -1023,7 +1023,8 @@ body {
   box-shadow: inset -4px 0 0 var(--success);
 }
 
-.todo-item:hover {
+.todo-item:hover,
+.todo-item:focus-within {
   border-color: var(--accent);
   background: linear-gradient(90deg, rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.12)), var(--bg-tertiary));
   box-shadow: inset 3px 0 0 color-mix(in srgb, var(--accent) 62%, var(--text-primary));
@@ -1163,8 +1164,10 @@ body {
 .todo-due.overdue { color: var(--danger); font-weight: 600; }
 
 .todo-actions {
-  display: none;
+  display: flex;
+  align-items: center;
   gap: 6px;
+  flex: 0 0 auto;
 }
 
 .todo-actions button {
@@ -1178,6 +1181,94 @@ body {
 }
 
 .todo-actions button:hover { background: var(--bg-hover); color: var(--text-primary); }
+
+.todo-status-menu {
+  display: none;
+  position: relative;
+}
+
+.todo-item:has(.todo-status-menu[open]) {
+  z-index: 180;
+}
+
+.todo-status-menu summary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 108px;
+  padding: 5px 9px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  list-style: none;
+  list-style-type: none;
+  appearance: none;
+  -webkit-appearance: none;
+  user-select: none;
+  transition: border-color 0.15s, background 0.15s, color 0.15s, transform 0.15s;
+}
+
+.todo-status-menu summary::-webkit-details-marker { display: none; }
+.todo-status-menu summary::marker { content: ""; font-size: 0; }
+
+.todo-status-menu summary:hover,
+.todo-status-menu[open] summary {
+  border-color: rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.45));
+  background: rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.10));
+  color: var(--text-primary);
+}
+
+.todo-status-menu summary .ui-icon {
+  width: 13px;
+  height: 13px;
+  opacity: 0.75;
+  transition: transform 0.15s;
+}
+
+.todo-status-menu[open] summary .ui-icon {
+  transform: rotate(180deg);
+}
+
+.todo-status-options {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 80;
+  min-width: 136px;
+  padding: 6px;
+  border: 1px solid rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.28));
+  border-radius: 12px;
+  background: var(--bg-primary);
+  box-shadow: 0 14px 34px rgba(0,0,0,0.24);
+}
+
+.todo-status-options button {
+  width: 100%;
+  justify-content: flex-start;
+  padding: 8px 10px;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.todo-status-options button:hover,
+.todo-status-options button.active {
+  background: rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.14));
+  color: var(--text-primary);
+}
+
+@media (min-width: 1024px) {
+  .todo-status-menu {
+    display: inline-block;
+  }
+}
 
 /* Empty state */
 .empty-state {
@@ -1288,6 +1379,10 @@ body {
 }
 
 .modal.active { display: flex; }
+
+#app-downloads-modal.active {
+  z-index: 1200;
+}
 
 .modal-overlay {
   position: absolute;
@@ -1926,9 +2021,6 @@ input[type="color"]::-moz-color-swatch {
 
 /* Mobile: always show todo actions */
 @media (max-width: 768px) {
-  .todo-actions {
-    opacity: 1;
-  }
   .section-count {
     display: inline-block;
   }
@@ -2375,19 +2467,70 @@ input[type="color"]::-moz-color-swatch {
   transform: scale(1.05);
 }
 
-.app-downloads {
-  display: flex;
-  gap: 8px;
+.app-download-panel {
+  padding: 12px;
+  border: 1px solid rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.28));
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.14)), var(--bg-secondary));
+}
+
+.login-download-panel,
+.login-download-launcher {
   margin-top: 14px;
 }
 
-.login-downloads {
-  padding-top: 14px;
-  border-top: 1px solid var(--border);
+.login-download-launcher {
+  width: 100%;
+  min-height: 38px;
+  margin-left: 0;
+  margin-right: 0;
+}
+
+.login-download-divider {
+  height: 1px;
+  margin: 12px 0 10px;
+  background: var(--border);
+  opacity: 0.95;
+}
+
+.settings-download-panel {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.app-download-heading,
+.app-download-settings-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 4px;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.app-download-heading .ui-icon,
+.app-download-settings-title .ui-icon {
+  width: 16px;
+  height: 16px;
+  color: var(--accent);
+}
+
+.app-download-subtitle {
+  margin: 0 0 10px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.app-downloads {
+  display: flex;
+  gap: 8px;
 }
 
 .settings-downloads {
-  margin: 16px 0 0;
+  margin: 10px 0 0;
 }
 
 .app-download-button {
@@ -2396,8 +2539,8 @@ input[type="color"]::-moz-color-swatch {
   min-width: 0;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 9px 12px;
+  gap: 9px;
+  padding: 10px 12px;
   border: 1px solid rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.4));
   border-radius: var(--radius);
   background: rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.18));
@@ -2459,14 +2602,34 @@ input[type="color"]::-moz-color-swatch {
   height: 16px;
 }
 
-.app-download-button span:first-child {
-  font-size: 18px;
-  line-height: 1;
+.app-download-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  line-height: 1.1;
+}
+
+.app-download-platform {
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.app-download-version {
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.app-download-button:hover .app-download-platform,
+.app-download-button:hover .app-download-version {
+  color: inherit;
 }
 
 .app-download-icon {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   flex: 0 0 auto;
   background: currentColor;
   mask: center / contain no-repeat;
@@ -2481,6 +2644,88 @@ input[type="color"]::-moz-color-swatch {
 .app-download-icon-android {
   mask-image: url('/static/icons/platform/android.svg');
   -webkit-mask-image: url('/static/icons/platform/android.svg');
+}
+
+.app-downloads-modal-content {
+  max-width: 420px;
+  text-align: center;
+}
+
+.app-downloads-modal-body {
+  text-align: center;
+}
+
+.app-downloads-modal-body .web-update-icon {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.app-download-modal-subtitle {
+  margin: 0 0 16px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.app-download-server-box {
+  width: 100%;
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bg-tertiary) 72%, transparent);
+  text-align: center;
+}
+
+.app-download-server-label {
+  margin-bottom: 7px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.app-download-server-host {
+  display: inline-flex;
+  max-width: 100%;
+  padding: 5px 9px;
+  border: 1px solid color-mix(in srgb, var(--border) 78%, var(--accent) 22%);
+  border-radius: 8px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 750;
+  overflow-wrap: anywhere;
+}
+
+.modal-downloads {
+  flex-direction: row;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.modal-downloads .app-download-button {
+  justify-content: center;
+  padding: 13px 14px;
+  text-align: center;
+}
+
+.modal-downloads .app-download-text {
+  align-items: center;
+}
+
+@media (max-width: 768px) {
+  .app-downloads-modal-body {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 24px 16px;
+  }
+}
+
+.modal-downloads .app-download-icon {
+  width: 24px;
+  height: 24px;
 }
 
 @media (max-width: 768px) {
@@ -2613,6 +2858,53 @@ input[type="color"]::-moz-color-swatch {
 
 .version-action-btn {
   min-width: 104px;
+}
+
+.version-download-divider {
+  width: calc(100% + 32px);
+  height: 1px;
+  margin: 2px -16px 0;
+  background: var(--border);
+  opacity: 0.95;
+}
+
+.app-download-launcher {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: calc(100% - 24px);
+  min-height: 34px;
+  margin: 4px 12px 0;
+  padding: 7px 10px;
+  border: 1px solid rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.28));
+  border-radius: var(--radius);
+  background: rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.10));
+  color: color-mix(in srgb, var(--accent-hover) 72%, var(--text-secondary));
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1;
+  transition: border-color 0.15s, background 0.15s, color 0.15s, transform 0.15s;
+}
+
+.app-download-launcher:hover {
+  border-color: rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.45));
+  background: rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.16));
+  color: var(--accent-hover);
+  transform: translateY(-1px);
+}
+
+.app-download-launcher .ui-icon {
+  width: 15px;
+  height: 15px;
+  color: currentColor;
+  opacity: 0.86;
+}
+
+.app-download-launcher:hover .ui-icon {
+  color: currentColor;
+  opacity: 1;
 }
 
 .changelog-link:hover,
