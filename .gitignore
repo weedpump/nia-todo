@@ -46,3 +46,6 @@ web/downloads/*
 
 # Local release artifacts
 dist/
+
+# Local BrainDump/OpenClaw scratch artifacts
+.local/
