@@ -295,3 +295,27 @@ Reason:
 - Controlled audio fixtures make failures reproducible and measurable.
 - Transcript-only testing remains invalid for the core audio/STT problem.
 
+
+### 2026-05-27: Controlled audio fixture 001 baseline
+
+Fixture:
+
+- Source: Telegram OGG from Tobi's scripted recording.
+- Duration: about 16.12s.
+- Expected todos: milk/coffee shopping, Snoopy food reminder 18:00, tax documents by Friday, clean cellar, dispose old boxes.
+
+Results:
+
+- OGG -> 16 kHz mono WAV conversion: about 89ms.
+- Full-file whisper.cpp small STT: about 6.49s; transcript was correct.
+- whisper-server full-file STT: about 7.07s in one run; correct transcript.
+- Accumulated replay every 4s produced correct text but each STT call took about 4.0-4.9s.
+- Windowed 4s replay produced useful segments with about 4.1-4.6s STT latency per window.
+- Final 4s tail was recognized correctly, but took about 4.6s, which misses the desired 1-3s stop-to-ready target.
+
+Conclusion:
+
+- Raw Telegram OGG fixtures are usable.
+- Conversion is not the bottleneck.
+- Local whisper.cpp small is accurate enough for this fixture, but too slow for the target UX if every 4s window takes about 4s STT.
+- Next work should test a faster STT path/model or true streaming/VAD before building UI polish.
