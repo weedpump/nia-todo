@@ -124,6 +124,18 @@ For audio/STT work, use controlled fixture recordings:
 If Telegram/OpenClaw does not expose the raw audio file to the agent runtime, use an explicit uploaded audio fixture/file path instead of relying on the transcript. Transcript-only input is not a valid BrainDump audio/STT test.
 
 
+
+## Live response rule
+
+The LLM must behave like a live co-author, not a post-hoc summarizer.
+
+That means:
+
+- As soon as a stable transcript chunk exists, the LLM should already start producing candidate output from that chunk.
+- By the time the user stops, almost all candidate reasoning should already be done.
+- Stop should only need a tiny tail correction / merge pass.
+- If the LLM waits for the end, the design is wrong.
+
 ## Latency target
 
 The 4-second budget is **not** 4 seconds total from recording start.
@@ -350,4 +362,16 @@ Reason:
 
 - A 30-second recording can reasonably finish at about 34 seconds total if the system has already processed most of the audio during capture.
 - The hard requirement is that the system must not wait until stop to start work.
+### 2026-05-27: LLM must work live, not at the end
+
+Decision:
+
+- The LLM is not allowed to wait until stop to start reasoning.
+- Candidate generation must happen incrementally while audio is still coming in.
+- Stop only finishes the remaining tail and merges already-produced candidates.
+
+Reason:
+
+- Tobi wants a live co-author behavior: speak, and the assistant is already working/answering as the sentence unfolds.
+- A post-stop-only LLM would violate the intended UX even if it stayed under 4s.
 
