@@ -279,6 +279,7 @@ Reason:
 What changes now:
 
 - Next implementation work should focus on a minimal real audio/STT spike with measurements before polishing candidate extraction or UI behavior.
+
 ### 2026-05-27: Controlled audio fixtures instead of live user testing
 
 Decision:
