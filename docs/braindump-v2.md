@@ -441,3 +441,37 @@ Budget conclusion:
 - The current STT+LLM serial window budget is still too slow for the target: final stop-to-ready is roughly 8s on fixture 001 even with the lightweight agent.
 - The biggest bottleneck remains the current whisper.cpp small 4s-window path, because STT alone is already around or above the entire 4s tail budget.
 - Next experiment should test faster STT settings/model or true incremental/VAD strategy before investing further in UI polish.
+
+### 2026-05-27: Faster STT model experiment
+
+Downloaded real whisper.cpp `tiny` and `base` GGML models for controlled local benchmarking. The existing `for-tests-*` files under `/opt/whisper.cpp/models` are tiny placeholder/test files and not usable for BrainDump quality tests.
+
+CLI benchmark on fixture 001, 4s windows, `-t 4 -mc 0`:
+
+- `tiny` default: avg ~0.72s, max ~0.74s, but too inaccurate (`Snoopy` badly mangled, phrase errors).
+- `tiny` greedy/no-fallback: avg ~0.59s, max ~0.60s, still too inaccurate.
+- `base` default: avg ~1.48s, max ~1.63s, mostly usable but minor name errors (`Slubi`).
+- `base` greedy/no-fallback: avg ~1.34s, max ~1.38s, best speed/quality compromise in this run (`Snoopie`, otherwise usable).
+- `small` default: avg ~5.25s, max ~5.42s.
+- `small` greedy/no-fallback: avg ~4.81s, max ~4.97s.
+
+2s window notes:
+
+- `base` greedy/no-fallback: avg ~1.22s, max ~1.29s, but short windows fragment context and produce partial/error-prone text (`Ich muss mal`, `Herr Rinnere...`).
+- `tiny` is fast enough but too inaccurate for trusted todo extraction.
+
+Server benchmark notes:
+
+- Current `whisper-server` with `small` remains around ~4.3-4.7s for 2s-4s windowed calls once measured sequentially.
+- Parallel probe calls against the same server caused contention and invalid inflated timings; future harnesses should serialize STT benchmarks or run isolated server instances.
+
+LLM compact-output experiment:
+
+- Shortened `openclaw/braindump` prompt reduced a smoke call to ~751 prompt tokens / 28 completion tokens and ~3.5s latency.
+- A subsequent multi-window LLM run hit an OpenClaw/gpt-mini timeout on the second window, so compact LLM latency remains variable and cannot yet be treated as consistently under budget.
+
+Budget conclusion:
+
+- Best current candidate: `base` + greedy/no-fallback + 4s-ish stable windows, with live LLM running in parallel on stable chunks.
+- Final tail with `base` STT (~1.3-1.6s) plus a good compact LLM call (~3.5s typical) is close to the 4s target but not reliably below it yet.
+- For MVP, prefer `base` over `small`; keep `small` only as accuracy fallback or final correction if needed.
