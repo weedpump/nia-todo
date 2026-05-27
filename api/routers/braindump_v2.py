@@ -130,6 +130,15 @@ def _split_plain_enumeration(text: str) -> list[dict]:
 
 NEGATED_ITEM_RE = re.compile(r"(?:doch\s+)?keine?n?\s+([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß -]{1,40})|(?:no|not|pas|sin)\s+([A-Za-zÀ-ÿÄÖÜäöüß][A-Za-zÀ-ÿÄÖÜäöüß -]{1,40})|([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß -]{1,40})\s+(?:brauchen wir nicht|lass(?:t)? (?:die|das|den)? ?weg)", re.IGNORECASE)
 NON_SHOPPING_TASK_RE = re.compile(r"\b(zahnarzt|arzt|termin|duschen|marm|mom|mama|gehen|erinner|nachmittag|abend|morgen)\b", re.IGNORECASE)
+FILLER_ONLY_RE = re.compile(
+    r"^(?:äh+|ähm+|hm+|okay|ok|ja|jo|nein|nee|ne|no|non|pas|sin|doch|aber|also|ach ?ja|bitte|danke)$",
+    re.IGNORECASE,
+)
+
+
+def _is_filler_only(value: str) -> bool:
+    clean = re.sub(r"[^A-Za-zÀ-ÿÄÖÜäöüß]+", "", value or "")
+    return not clean or bool(FILLER_ONLY_RE.match(clean))
 
 
 def _item_key(value: str) -> str:
@@ -203,6 +212,8 @@ def _normalize_braindump_json(parsed: dict, transcript: str) -> dict:
         if not title:
             continue
         title = _clean_title(title)
+        if _is_filler_only(title):
+            continue
         if len(title) > 30 and (',' in title or ' und ' in title.lower() or ' or ' in title.lower()):
             continue
         project_name = candidate.get("project_name")
