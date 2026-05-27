@@ -2706,12 +2706,12 @@ input[type="color"]::-moz-color-swatch {
   gap: 7px;
   width: calc(100% - 24px);
   min-height: 34px;
-  margin: 4px 12px 0;
+  margin: 8px 12px 0;
   padding: 7px 10px;
-  border: 1px solid var(--border);
+  border: 1px solid rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.28));
   border-radius: var(--radius);
-  background: var(--bg-tertiary);
-  color: var(--text-secondary);
+  background: rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.10));
+  color: color-mix(in srgb, var(--accent-hover) 72%, var(--text-secondary));
   cursor: pointer;
   font-size: 12px;
   font-weight: 650;
@@ -2720,20 +2720,22 @@ input[type="color"]::-moz-color-swatch {
 }
 
 .app-download-launcher:hover {
-  border-color: rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.35));
-  background: var(--bg-hover);
-  color: var(--text-primary);
+  border-color: rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.45));
+  background: rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.16));
+  color: var(--accent-hover);
   transform: translateY(-1px);
 }
 
 .app-download-launcher .ui-icon {
   width: 15px;
   height: 15px;
-  color: var(--text-muted);
+  color: currentColor;
+  opacity: 0.86;
 }
 
 .app-download-launcher:hover .ui-icon {
-  color: var(--accent);
+  color: currentColor;
+  opacity: 1;
 }
 
 .changelog-link:hover,

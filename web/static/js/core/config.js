@@ -4,7 +4,7 @@ export let API = '';
 export let WS_URL = websocketUrlFromBase(location.origin);
 export const DB_NAME = 'nia-todo-db';
 export const DB_VERSION = 4;
-export const APP_VERSION = 'v2.5.6-dev';
+export const APP_VERSION = 'v2.5.7-dev';
 
 export function getTauri() {
   return window.__TAURI__ || null;
