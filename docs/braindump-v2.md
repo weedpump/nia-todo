@@ -123,6 +123,25 @@ For audio/STT work, use controlled fixture recordings:
 
 If Telegram/OpenClaw does not expose the raw audio file to the agent runtime, use an explicit uploaded audio fixture/file path instead of relying on the transcript. Transcript-only input is not a valid BrainDump audio/STT test.
 
+
+## Latency target
+
+The 4-second budget is **not** 4 seconds total from recording start.
+
+It means:
+
+- The pipeline may stay up to about 4 seconds behind the live recording during speaking.
+- At stop, only the remaining ~4 seconds of unfinished work may remain.
+- Therefore the user experiences: start speaking -> work begins immediately -> preview stays at most ~4 seconds behind -> stop -> final result appears within up to 4 seconds.
+
+Practical interpretation:
+
+- If the recording has reached second 18, at least roughly seconds 1-14 should already be processed.
+- If the recording has reached second 30 and the user stops, only roughly the last 4 seconds may remain to finalize.
+- The pipeline must continuously drain while recording is ongoing.
+
+This means the design goal is a **sliding processing window**, not a single post-stop batch job.
+
 ## Development phases
 
 ### Phase 1: Audio/STT feasibility spike
@@ -319,3 +338,16 @@ Conclusion:
 - Conversion is not the bottleneck.
 - Local whisper.cpp small is accurate enough for this fixture, but too slow for the target UX if every 4s window takes about 4s STT.
 - Next work should test a faster STT path/model or true streaming/VAD before building UI polish.
+### 2026-05-27: 4-second target is a sliding lag, not total runtime
+
+Decision:
+
+- The user clarified the 4-second limit applies to the remaining lag after stop, not to the full recording runtime.
+- The pipeline must run continuously while the user speaks, always staying roughly within a small lag budget behind the live audio.
+- Stop is only the final drain of the already-in-flight pipeline.
+
+Reason:
+
+- A 30-second recording can reasonably finish at about 34 seconds total if the system has already processed most of the audio during capture.
+- The hard requirement is that the system must not wait until stop to start work.
+
