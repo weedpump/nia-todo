@@ -21,6 +21,7 @@ export function createBrainDumpLiveDebugFeature() {
     latestAppliedSegmentId: 0,
     finalSegmentId: 0,
     finalProcessed: false,
+    finalSnapshotApplied: false,
     segments: [],
     candidates: [],
     timer: null,
@@ -129,6 +130,7 @@ export function createBrainDumpLiveDebugFeature() {
     state.latestAppliedSegmentId = 0;
     state.finalSegmentId = 0;
     state.finalProcessed = false;
+    state.finalSnapshotApplied = false;
     state.segmentId = 0;
     state.startedAt = performance.now();
     state.stoppedAt = 0;
@@ -239,6 +241,7 @@ export function createBrainDumpLiveDebugFeature() {
     if (state.stoppedAt) {
       state.finalSegmentId = segmentId;
       state.finalProcessed = false;
+      state.finalSnapshotApplied = false;
     }
     state.segments.push(item);
     pumpItem(item, blob);
@@ -311,18 +314,18 @@ export function createBrainDumpLiveDebugFeature() {
       item.timing = data.timing;
       item.wallMs = Math.round(performance.now() - started);
       const next = Array.isArray(data.json?.candidates) ? data.json.candidates : [];
-      if (item.segmentId < state.latestQueuedSegmentId && !state.stoppedAt) {
-        item.status = `stale done, ignored by #${state.latestQueuedSegmentId}`;
+      if (state.stoppedAt && item.segmentId < state.finalSegmentId) {
+        item.status = `stale done, ignored by final #${state.finalSegmentId}`;
         return;
       }
-      if (state.finalSegmentId && item.segmentId < state.finalSegmentId) {
-        item.status = `stale done, ignored by final #${state.finalSegmentId}`;
+      if (!state.stoppedAt && item.segmentId < state.latestQueuedSegmentId) {
+        item.status = `stale done, ignored by #${state.latestQueuedSegmentId}`;
         return;
       }
       item.status = next.length ? 'done/latest' : 'done/latest (no candidates)';
       state.latestAppliedSegmentId = Math.max(state.latestAppliedSegmentId, item.segmentId);
       state.candidates = next;
-      if (state.finalSegmentId && item.segmentId === state.finalSegmentId) {
+      if (state.stoppedAt && item.segmentId === state.finalSegmentId) {
         state.finalProcessed = true;
       }
     } catch (error) {
@@ -332,17 +335,6 @@ export function createBrainDumpLiveDebugFeature() {
     }
   }
 
-  function dedupe(candidates) {
-    const seen = new Set();
-    const result = [];
-    for (const candidate of candidates) {
-      const key = String(candidate.title || '').toLowerCase().replace(/[^a-z0-9äöüß]+/g, ' ').trim();
-      if (!key || seen.has(key)) continue;
-      seen.add(key);
-      result.push(candidate);
-    }
-    return result;
-  }
 
   return { init };
 }

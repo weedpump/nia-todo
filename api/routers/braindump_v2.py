@@ -41,7 +41,10 @@ Antworte ausschließlich mit kompaktem gültigem JSON in dieser Form:
 Harte Regeln:
 - Schreibe ALLE Titel auf Deutsch. Niemals ins Englische übersetzen.
 - Fasse nicht zusammen.
+- Formuliere echte Todo-Ziele, keine Wort-für-Wort-Diktatwiedergabe.
+- Verdichte Aufzählungen zu sinnvollen Todo-Titeln statt sie wortwörtlich zu kopieren.
 - Wenn der Nutzer mehrere Dinge aufzählt, mache daraus mehrere einzelne Todo-Kandidaten.
+- Bei reinen Aufzählungen ohne Verb musst du die Liste in sinnvolle Todo-Titel umformen.
 - Komma-/und-Listen wie "Kartoffeln, Erdbeeren und Salat" sind einzelne Einträge: "Kartoffeln", "Erdbeeren", "Salat".
 - Kein Sammel-Todo wie "Kartoffeln, Erdbeeren und Salat kaufen".
 - Kein Markdown, keine Erklärung, kein Text außerhalb JSON.
@@ -50,13 +53,10 @@ Harte Regeln:
 Transkript:
 """
 
-SHOPPING_VERBS_RE = re.compile(r"\b(kaufen|besorgen|einkaufen|buy|purchase|get)\b", re.IGNORECASE)
-LIST_VERB_RE = re.compile(r"\b(muss|soll|erinnere|erinnern|vorbereiten|aufräumen|entsorgen|bestellen|machen|erledigen)\b", re.IGNORECASE)
+LIST_VERB_RE = re.compile(r"\b(muss|soll|erinnere|erinnern|vorbereiten|aufräumen|entsorgen|bestellen|machen|erledigen|kaufen|besorgen|einkaufen)\b", re.IGNORECASE)
 
 
-def _clean_list_item(value: str) -> str:
-    value = re.sub(r"\b(buy|purchase|get)\b", "", value, flags=re.IGNORECASE)
-    value = SHOPPING_VERBS_RE.sub("", value)
+def _clean_title(value: str) -> str:
     value = re.sub(r"^(ich brauche|ich benötige|bitte|noch)\s+", "", value.strip(), flags=re.IGNORECASE)
     value = value.strip(" .,:;!?-–—\t\n\r")
     return value[:1].upper() + value[1:] if value else ""
@@ -66,12 +66,10 @@ def _split_plain_enumeration(text: str) -> list[dict]:
     source = text.strip().strip(" .!?;:")
     if not source or "," not in source:
         return []
-    # Do not split normal sentences with task verbs; this override is only for dictated item lists.
     if LIST_VERB_RE.search(source):
         return []
-    source = SHOPPING_VERBS_RE.sub("", source)
     parts = [p.strip() for p in re.split(r",|\s+und\s+|\s+oder\s+|\s*&\s*", source, flags=re.IGNORECASE)]
-    items = [_clean_list_item(part) for part in parts]
+    items = [_clean_title(part) for part in parts]
     items = [item for item in items if 1 < len(item) <= 80]
     if len(items) < 2:
         return []
@@ -79,12 +77,9 @@ def _split_plain_enumeration(text: str) -> list[dict]:
 
 
 def _normalize_braindump_json(parsed: dict, transcript: str) -> dict:
-    list_candidates = _split_plain_enumeration(transcript)
-    if list_candidates:
-        return {"candidates": list_candidates}
     candidates = parsed.get("candidates") if isinstance(parsed, dict) else None
     if not isinstance(candidates, list):
-        return {"candidates": []}
+        candidates = []
     normalized = []
     for candidate in candidates:
         if not isinstance(candidate, dict):
@@ -92,11 +87,25 @@ def _normalize_braindump_json(parsed: dict, transcript: str) -> dict:
         title = str(candidate.get("title") or "").strip()
         if not title:
             continue
+        title = _clean_title(title)
+        if len(title) > 30 and (',' in title or ' und ' in title.lower() or ' or ' in title.lower()):
+            continue
         normalized.append({
             "title": title,
             "deadline": candidate.get("deadline"),
             "reminder": candidate.get("reminder"),
         })
+    transcript_lower = transcript.lower().strip()
+    if len(normalized) == 1:
+        raw = normalized[0]["title"]
+        if ("," in raw or " und " in raw.lower() or " or " in raw.lower() or raw.lower().startswith("buy ")) and len(raw) > 30:
+            split = _split_plain_enumeration(transcript)
+            if split:
+                return {"candidates": split}
+    if not normalized and ("," in transcript or " und " in transcript_lower):
+        split = _split_plain_enumeration(transcript)
+        if split:
+            return {"candidates": split}
     return {"candidates": normalized}
 
 
