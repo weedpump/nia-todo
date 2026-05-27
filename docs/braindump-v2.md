@@ -494,3 +494,45 @@ Conclusion:
 - Giving the LXC 8 logical CPUs helps compared with the earlier worse constrained/contended runs, but `small` still does not scale well past 4 threads on this host.
 - Best `small` setting observed is still 4 threads + greedy/no-fallback, around ~3.9s average, with a >4s final-window worst case.
 - `small` remains marginal for the full live pipeline because LLM still needs time. Keep `base` for live STT and use `small` only as optional final/accuracy correction.
+
+### 2026-05-27: Real-time stop-to-JSON replay measurement
+
+Ran a stricter fixture replay test matching the UX question:
+
+1. Start replaying controlled audio fixture 001 in real time.
+2. At each stable 4s boundary, start STT while the audio continues.
+3. Start LLM extraction as soon as that window's STT text is available.
+4. When the recording ends, measure how long until the aggregate JSON is available.
+
+Harness details:
+
+- Audio duration: 16.113s.
+- Windows: 0-4s, 4-8s, 8-12s, 12-16s.
+- Sub-second leftover tail (0.113s) intentionally ignored; processing it caused Whisper hallucination (`* Musik *`) and is not a valid BrainDump tail strategy.
+- STT worker: serial, one window at a time.
+- LLM workers tested with 2 and 4 parallel calls against `openclaw/braindump`.
+
+Results:
+
+- `base`, 4 threads, greedy/no-fallback, 2 LLM workers:
+  - JSON ready at 21.823s from play start.
+  - Stop-to-JSON from actual audio end: about 5.71s.
+  - STT per window: about 1.0-1.1s.
+  - LLM per window: 3.5-7.8s.
+  - JSON available, but quality still imperfect (`Snoopie`; one incomplete-candidate artifact in a middle fragment).
+- `base`, 4 threads, greedy/no-fallback, 4 LLM workers:
+  - JSON ready at 23.855s from play start.
+  - Stop-to-JSON from actual audio end: about 7.74s.
+  - Worse because one LLM call took 14.65s; more parallelism is not automatically better.
+- `small`, 4 threads, greedy/no-fallback, 2 LLM workers:
+  - JSON ready at 23.993s from play start.
+  - Stop-to-JSON from actual audio end: about 7.88s.
+  - STT per window: about 3.7-4.1s.
+  - JSON quality better than `base` for this fixture (`Snoopy` correct), but latency worse.
+
+Conclusion:
+
+- Yes, the pipeline can run STT/LLM while recording is ongoing, but current OpenClaw LLM latency dominates enough that the measured wait after stop is still above the 4s target.
+- Best measured end-to-JSON path so far: `base` + 4s windows + 2 LLM workers, about 5.7s after stop.
+- `small` is more accurate but about 7.9s after stop in the same real-time test.
+- More LLM parallelism (4 workers) caused worse tail latency due to an outlier; keep LLM concurrency low unless a provider/path with predictable latency is used.
