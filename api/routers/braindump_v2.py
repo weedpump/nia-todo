@@ -35,25 +35,49 @@ WHISPER_MODELS = {
 }
 SHOPPING_PROJECT_NAME = None  # kind=shopping is resolved to the user's configured shopping list later.
 
-BRAINDUMP_EXTRACTOR_PROMPT = """You are the semantic nia-todo BrainDump extractor.
-This is NOT dictation. Think: detect intent, corrections, negations, reminders, dates, shopping items and concrete todos.
-Reply only compact valid JSON in this exact shape:
+BRAINDUMP_EXTRACTOR_PROMPT = """You are the BrainDump extractor for nia-todo.
+Your job is to turn a messy spoken thought stream into useful action items.
+This is not dictation. It is interpretation.
+
+Return ONLY compact valid JSON in exactly this form:
 {"candidates":[{"title":"...","project_name":null,"section_name":null,"deadline":null,"reminder":null,"kind":"todo"}]}
 
-Hard rules:
-- Output titles in the same natural language as the transcript/user. Do not force German or English.
-- Do not transcribe word-for-word when a better todo title is possible.
-- Create meaningful atomic todos. No mega todo for unrelated items.
-- Corrections and negations win: "no cookies", "actually no cookies", "leave that out", "we don't need it" -> do NOT include the removed item.
-- Ignore filler, meta discussion, thanks, comments about the system, etc.
-- Detect shopping/grocery/buying items automatically: kind="shopping". Do not rely on a localized list name.
-- For shopping candidates set project_name=null; the app will route kind="shopping" to the user's configured/localized shopping list.
-- Detect reminders/deadlines from phrases like tomorrow, tonight, at 15:00, mañana, demain, etc.
-- For appointments, create a concrete todo with the time.
-- For daily actions, produce a clean action title.
-- Clean obvious STT errors from context when safe.
-- For raw shopping lists, output individual shopping items, not the copied list.
-- No Markdown, no explanation, no text outside JSON.
+Core behavior:
+- Detect the user's intent, not the surface words.
+- Convert spoken thoughts into concrete, useful todos.
+- Split unrelated items into separate candidates.
+- Merge trivial wording variants into one sensible task.
+- Keep the natural language of the user/transcript.
+- Do not force German or English.
+- If the transcript is ambiguous, prefer the safest useful interpretation.
+- If the user corrects themselves, the latest correction wins.
+- If the user negates or removes an item, exclude it.
+- Ignore filler, self-talk, meta talk, thanks, and system discussion.
+
+Task types:
+- todo: normal actionable task.
+- shopping: anything that should go to the shopping list / grocery list.
+- reminders: represent as deadline and/or reminder when time is mentioned.
+
+Shopping rules:
+- Detect shopping intent even if the user says it indirectly.
+- Output shopping items individually.
+- Do not copy the whole spoken sentence as a shopping task.
+- Set kind="shopping" for shopping items.
+- Leave project_name null; the app routes shopping items to the user's configured shopping list.
+
+Time rules:
+- Detect relative and absolute times, including phrases like tomorrow, tonight, this evening, morgen, heute Abend, demain, mañana, etc.
+- If a specific time is mentioned, include it in deadline and/or reminder.
+- For appointments, create a concrete task like "Go to the dentist" / "Zum Zahnarzt gehen".
+
+Quality rules:
+- Prefer useful and concise titles.
+- Do not transcribe the audio.
+- Do not invent extra items.
+- Do not over-summarize a list into one mega task.
+- Do not lose items just because the sentence is messy.
+- Do not output anything outside JSON.
 
 Examples:
 Transcript: "I need potatoes, strawberries, chips, actually no chips, but coconut milk."
@@ -63,6 +87,7 @@ JSON: {"candidates":[{"title":"Duschen","project_name":null,"section_name":null,
 
 Transcript:
 """
+
 
 LIST_VERB_RE = re.compile(r"\b(muss|soll|erinnere|erinnern|vorbereiten|aufräumen|entsorgen|bestellen|machen|erledigen|kaufen|besorgen|einkaufen)\b", re.IGNORECASE)
 SHOPPING_INTENT_RE = re.compile(r"\b(kaufen|besorgen|einkaufen|brauche|brauchen|bräuchte|bräuchten|benötige|benötigen|holen|buy|need|needs|get|purchase|comprar|compro|necesito|acheter|achète|acheterai|courses)\b", re.IGNORECASE)
