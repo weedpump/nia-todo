@@ -63,7 +63,7 @@ Transkript:
 """
 
 LIST_VERB_RE = re.compile(r"\b(muss|soll|erinnere|erinnern|vorbereiten|aufräumen|entsorgen|bestellen|machen|erledigen|kaufen|besorgen|einkaufen)\b", re.IGNORECASE)
-SHOPPING_INTENT_RE = re.compile(r"\b(kaufen|besorgen|einkaufen|brauche|benötige|holen)\b", re.IGNORECASE)
+SHOPPING_INTENT_RE = re.compile(r"\b(kaufen|besorgen|einkaufen|brauche|brauchen|bräuchte|bräuchten|benötige|benötigen|holen)\b", re.IGNORECASE)
 
 
 def _clean_title(value: str) -> str:
@@ -91,6 +91,68 @@ def _split_plain_enumeration(text: str) -> list[dict]:
         return []
     return [{"title": item, "project_name": "Einkaufsliste", "section_name": None, "deadline": None, "reminder": None, "kind": "shopping"} for item in items]
 
+NEGATED_ITEM_RE = re.compile(r"(?:doch\s+)?keine?n?\s+([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß -]{1,40})|([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß -]{1,40})\s+(?:brauchen wir nicht|lass(?:t)? (?:die|das|den)? ?weg)", re.IGNORECASE)
+NON_SHOPPING_TASK_RE = re.compile(r"\b(zahnarzt|arzt|termin|duschen|marm|mom|mama|gehen|erinner|nachmittag|abend|morgen)\b", re.IGNORECASE)
+
+
+def _item_key(value: str) -> str:
+    return re.sub(r"[^a-z0-9äöüß]+", "", value.lower())
+
+
+def _negated_items(text: str) -> set[str]:
+    result = set()
+    for match in NEGATED_ITEM_RE.finditer(text):
+        item = _clean_shopping_title(match.group(1) or match.group(2) or "")
+        if item:
+            result.add(_item_key(item))
+    return result
+
+
+def _split_shopping_phrase(value: str) -> list[str]:
+    value = re.sub(r"(?:nee|nein)?\s*(?:doch\s+)?keine?n?\s+[A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß -]{1,40}", "", value, flags=re.IGNORECASE)
+    value = re.sub(r"\b(ich|wir)\s+(?:brauche|brauchen|bräuchte|bräuchten|benötige|benötigen)\b", "", value, flags=re.IGNORECASE)
+    value = re.sub(r"\b(muss|müssen|noch|bitte|auch|dafür|aber|ach ?ja)\b", " ", value, flags=re.IGNORECASE)
+    value = re.sub(r"\b(kaufen|besorgen|einkaufen|holen)\b", "", value, flags=re.IGNORECASE)
+    parts = [p.strip() for p in re.split(r",|\s+und\s+|\s+oder\s+|\s*&\s*", value, flags=re.IGNORECASE)]
+    result = []
+    for part in parts:
+        cleaned = _clean_shopping_title(part)
+        if not (1 < len(cleaned) <= 80):
+            continue
+        if re.search(r"\b(keine|brauchen|muss|müssen|zahnarzt|morgen|abend|nachmittag|marm|mom|weg|lasst)\b", cleaned, re.IGNORECASE):
+            continue
+        result.append(cleaned)
+    return result
+
+
+def _extract_shopping_candidates(text: str) -> list[dict]:
+    negated = _negated_items(text)
+    candidates = []
+    seen = set()
+    chunks = [chunk.strip() for chunk in re.split(r"[.!?;]+", text) if chunk.strip()]
+    for chunk in chunks:
+        is_plain_list = "," in chunk and not NON_SHOPPING_TASK_RE.search(chunk)
+        is_shopping = bool(SHOPPING_INTENT_RE.search(chunk))
+        if not is_plain_list and not is_shopping:
+            continue
+        phrase = chunk
+        if is_shopping and not is_plain_list:
+            match = re.search(r"(?:^|,|und|ach ?ja)\s*([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß -]{1,60}?)\s+(?:muss|müssen)?\s*(?:ich|wir)?\s*(?:noch\s+)?(?:kaufen|besorgen|einkaufen|holen)\b", chunk, re.IGNORECASE)
+            if match:
+                phrase = match.group(1)
+            else:
+                match = re.search(r"(?:^|,|und|aber)\s*([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß -]{1,60}?)\s+(?:bräuchte|bräuchten|brauche|brauchen|benötige|benötigen)\s+(?:ich|wir)?\b", chunk, re.IGNORECASE)
+                if match:
+                    phrase = match.group(1)
+                elif re.search(r"\b(?:brauche|brauchen|bräuchte|bräuchten|benötige|benötigen)\b", chunk, re.IGNORECASE):
+                    phrase = re.split(r"\b(?:brauche|brauchen|bräuchte|bräuchten|benötige|benötigen)\b", chunk, flags=re.IGNORECASE)[-1]
+        for item in _split_shopping_phrase(phrase):
+            key = _item_key(item)
+            if not key or key in negated or key in seen:
+                continue
+            seen.add(key)
+            candidates.append({"title": item, "project_name": "Einkaufsliste", "section_name": None, "deadline": None, "reminder": None, "kind": "shopping"})
+    return candidates
 
 def _normalize_braindump_json(parsed: dict, transcript: str) -> dict:
     candidates = parsed.get("candidates") if isinstance(parsed, dict) else None
@@ -135,6 +197,14 @@ def _normalize_braindump_json(parsed: dict, transcript: str) -> dict:
         split = _split_plain_enumeration(transcript)
         if split:
             return {"candidates": split}
+    # Deterministic safety net: do not let the LLM drop obvious shopping items
+    # from raw list clauses like "Ich brauche Kartoffeln, Salat, Chips".
+    shopping = _extract_shopping_candidates(transcript)
+    existing = {_item_key(item.get("title", "")) for item in normalized if item.get("project_name") == "Einkaufsliste" or item.get("kind") == "shopping"}
+    for item in shopping:
+        if _item_key(item["title"]) not in existing:
+            normalized.append(item)
+            existing.add(_item_key(item["title"]))
     return {"candidates": normalized}
 
 
