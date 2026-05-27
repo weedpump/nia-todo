@@ -1167,13 +1167,7 @@ body {
   display: flex;
   align-items: center;
   gap: 6px;
-  visibility: hidden;
   flex: 0 0 auto;
-}
-
-.todo-item:hover .todo-actions,
-.todo-item:focus-within .todo-actions {
-  visibility: visible;
 }
 
 .todo-actions button {
@@ -1188,29 +1182,83 @@ body {
 
 .todo-actions button:hover { background: var(--bg-hover); color: var(--text-primary); }
 
-.todo-status-select {
+.todo-status-menu {
   display: none;
-  max-width: 128px;
-  padding: 4px 24px 4px 8px;
+  position: relative;
+}
+
+.todo-status-menu summary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 108px;
+  padding: 5px 9px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 999px;
   background: var(--bg-tertiary);
   color: var(--text-secondary);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
+  line-height: 1;
   cursor: pointer;
+  list-style: none;
+  user-select: none;
+  transition: border-color 0.15s, background 0.15s, color 0.15s, transform 0.15s;
 }
 
-.todo-status-select:hover,
-.todo-status-select:focus {
+.todo-status-menu summary::-webkit-details-marker { display: none; }
+
+.todo-status-menu summary:hover,
+.todo-status-menu[open] summary {
   border-color: rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.45));
+  background: rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.10));
   color: var(--text-primary);
-  outline: none;
+}
+
+.todo-status-menu summary .ui-icon {
+  width: 13px;
+  height: 13px;
+  opacity: 0.75;
+  transition: transform 0.15s;
+}
+
+.todo-status-menu[open] summary .ui-icon {
+  transform: rotate(180deg);
+}
+
+.todo-status-options {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 80;
+  min-width: 136px;
+  padding: 6px;
+  border: 1px solid rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.28));
+  border-radius: 12px;
+  background: var(--bg-primary);
+  box-shadow: 0 14px 34px rgba(0,0,0,0.24);
+}
+
+.todo-status-options button {
+  width: 100%;
+  justify-content: flex-start;
+  padding: 8px 10px;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.todo-status-options button:hover,
+.todo-status-options button.active {
+  background: rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.14));
+  color: var(--text-primary);
 }
 
 @media (min-width: 1024px) {
-  .todo-status-select {
-    display: inline-flex;
+  .todo-status-menu {
+    display: inline-block;
   }
 }
 
@@ -1961,9 +2009,6 @@ input[type="color"]::-moz-color-swatch {
 
 /* Mobile: always show todo actions */
 @media (max-width: 768px) {
-  .todo-actions {
-    visibility: visible;
-  }
   .section-count {
     display: inline-block;
   }
@@ -2427,6 +2472,13 @@ input[type="color"]::-moz-color-swatch {
   min-height: 38px;
   margin-left: 0;
   margin-right: 0;
+}
+
+.login-download-divider {
+  height: 1px;
+  margin: 12px 0 10px;
+  background: var(--border);
+  opacity: 0.95;
 }
 
 .settings-download-panel {
