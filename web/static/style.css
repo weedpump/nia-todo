@@ -2714,7 +2714,7 @@ input[type="color"]::-moz-color-swatch {
   gap: 7px;
   width: calc(100% - 24px);
   min-height: 34px;
-  margin: 0 12px;
+  margin: 4px 12px 0;
   padding: 7px 10px;
   border: 1px solid rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.28));
   border-radius: var(--radius);
