@@ -34,32 +34,48 @@ WHISPER_MODELS = {
     "small": Path("/opt/whisper.cpp/models/ggml-small.bin"),
 }
 
-BRAINDUMP_EXTRACTOR_PROMPT = """Du bist der nia-todo BrainDump-Extractor.
+BRAINDUMP_EXTRACTOR_PROMPT = """Du bist der semantische nia-todo BrainDump-Extractor.
+Deine Aufgabe ist NICHT Diktat. Du musst mitdenken: Absichten erkennen, Rücknahmen beachten, Dinge klassifizieren und sinnvolle Todos erzeugen.
 Antworte ausschließlich mit kompaktem gültigem JSON in dieser Form:
-{"candidates":[{"title":"...","deadline":null,"reminder":null}]}
+{"candidates":[{"title":"...","project_name":null,"section_name":null,"deadline":null,"reminder":null,"kind":"todo"}]}
 
 Harte Regeln:
 - Schreibe ALLE Titel auf Deutsch. Niemals ins Englische übersetzen.
-- Fasse nicht zusammen.
-- Formuliere echte Todo-Ziele, keine Wort-für-Wort-Diktatwiedergabe.
-- Verdichte Aufzählungen zu sinnvollen Todo-Titeln statt sie wortwörtlich zu kopieren.
-- Wenn der Nutzer mehrere Dinge aufzählt, mache daraus mehrere einzelne Todo-Kandidaten.
-- Bei reinen Aufzählungen ohne Verb musst du die Liste in sinnvolle Todo-Titel umformen.
-- Komma-/und-Listen wie "Kartoffeln, Erdbeeren und Salat" sind einzelne Einträge: "Kartoffeln", "Erdbeeren", "Salat".
-- Kein Sammel-Todo wie "Kartoffeln, Erdbeeren und Salat kaufen".
+- Niemals wortwörtlich abtippen, wenn eine bessere Todo-Formulierung möglich ist.
+- Erzeuge sinnvolle, atomare Todos. Kein Sammel-Todo für mehrere unabhängige Dinge.
+- Rücknahmen/Negationen gelten: "doch keine Cookies", "lass das weg", "brauchen wir nicht" -> NICHT aufnehmen.
+- Korrekturen überschreiben ältere Aussagen.
+- Fülltext, Metakommentare, Diskussion über das System, "Danke", "Video" usw. ignorieren.
+- Einkaufs-/Besorgungs-Items automatisch als Einkauf erkennen: project_name="Einkaufsliste", kind="shopping".
+- Termine/Erinnerungen erkennen: Uhrzeiten/"morgen"/"heute Abend" in reminder/deadline setzen.
+- Bei Arzt/Zahnarzt/Termin: konkretes Todo mit Zeit erzeugen, z.B. "Zum Zahnarzt gehen".
+- Bei Alltagshandlungen: sinnvollen Imperativ/Infinitiv erzeugen, z.B. "Duschen".
+- Bei rohen Einkaufslisten: einzelne Shopping-Items erzeugen, nicht die Liste kopieren.
 - Kein Markdown, keine Erklärung, kein Text außerhalb JSON.
-- Nur stabile, konkrete Todos aufnehmen.
+
+Beispiele:
+Transkript: "Ich brauche Kartoffeln, Erdbeeren, Chips, nee doch keine Chips, aber Kokosmilch."
+JSON: {"candidates":[{"title":"Kartoffeln","project_name":"Einkaufsliste","section_name":null,"deadline":null,"reminder":null,"kind":"shopping"},{"title":"Erdbeeren","project_name":"Einkaufsliste","section_name":null,"deadline":null,"reminder":null,"kind":"shopping"},{"title":"Kokosmilch","project_name":"Einkaufsliste","section_name":null,"deadline":null,"reminder":null,"kind":"shopping"}]}
+Transkript: "Ich muss duschen. Erinnere mich morgen daran, dass ich um 15 Uhr zum Zahnarzt muss. Ach ja, wir müssen noch Honig kaufen."
+JSON: {"candidates":[{"title":"Duschen","project_name":null,"section_name":null,"deadline":null,"reminder":null,"kind":"todo"},{"title":"Zum Zahnarzt gehen","project_name":null,"section_name":null,"deadline":"morgen 15:00","reminder":"morgen 15:00","kind":"todo"},{"title":"Honig","project_name":"Einkaufsliste","section_name":null,"deadline":null,"reminder":null,"kind":"shopping"}]}
 
 Transkript:
 """
 
 LIST_VERB_RE = re.compile(r"\b(muss|soll|erinnere|erinnern|vorbereiten|aufräumen|entsorgen|bestellen|machen|erledigen|kaufen|besorgen|einkaufen)\b", re.IGNORECASE)
+SHOPPING_INTENT_RE = re.compile(r"\b(kaufen|besorgen|einkaufen|brauche|benötige|holen)\b", re.IGNORECASE)
 
 
 def _clean_title(value: str) -> str:
     value = re.sub(r"^(ich brauche|ich benötige|bitte|noch)\s+", "", value.strip(), flags=re.IGNORECASE)
     value = value.strip(" .,:;!?-–—\t\n\r")
     return value[:1].upper() + value[1:] if value else ""
+
+
+def _clean_shopping_title(value: str) -> str:
+    value = re.sub(r"\b(kaufen|besorgen|einkaufen|holen)\b", "", value, flags=re.IGNORECASE)
+    value = re.sub(r"^(wir müssen|ich muss|muss|bitte|noch)\s+", "", value.strip(), flags=re.IGNORECASE)
+    return _clean_title(value)
 
 
 def _split_plain_enumeration(text: str) -> list[dict]:
@@ -73,7 +89,7 @@ def _split_plain_enumeration(text: str) -> list[dict]:
     items = [item for item in items if 1 < len(item) <= 80]
     if len(items) < 2:
         return []
-    return [{"title": item, "deadline": None, "reminder": None} for item in items]
+    return [{"title": item, "project_name": "Einkaufsliste", "section_name": None, "deadline": None, "reminder": None, "kind": "shopping"} for item in items]
 
 
 def _normalize_braindump_json(parsed: dict, transcript: str) -> dict:
@@ -90,10 +106,23 @@ def _normalize_braindump_json(parsed: dict, transcript: str) -> dict:
         title = _clean_title(title)
         if len(title) > 30 and (',' in title or ' und ' in title.lower() or ' or ' in title.lower()):
             continue
+        project_name = candidate.get("project_name")
+        kind = candidate.get("kind") or ("shopping" if project_name == "Einkaufsliste" else "todo")
+        if SHOPPING_INTENT_RE.search(title) or project_name == "Einkaufsliste" or kind == "shopping":
+            project_name = "Einkaufsliste"
+            kind = "shopping"
+            title = _clean_shopping_title(title)
+        deadline = candidate.get("deadline")
+        reminder = candidate.get("reminder")
+        if deadline and reminder and re.search(r"\d", str(deadline)) and not re.search(r"\d", str(reminder)):
+            reminder = deadline
         normalized.append({
             "title": title,
-            "deadline": candidate.get("deadline"),
-            "reminder": candidate.get("reminder"),
+            "project_name": project_name,
+            "section_name": candidate.get("section_name"),
+            "deadline": deadline,
+            "reminder": reminder,
+            "kind": kind,
         })
     transcript_lower = transcript.lower().strip()
     if len(normalized) == 1:
