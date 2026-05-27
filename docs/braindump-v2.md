@@ -102,26 +102,45 @@ Suggested fields:
 
 ## Development phases
 
-### Phase 1: Text-session domain prototype
+### Phase 1: Audio/STT feasibility spike
 
-Goal: prove the incremental session/candidate model without audio complexity.
+Goal: prove the actually risky part first: microphone audio -> reliable incremental STT -> stable segment stream.
 
-- Create a BrainDump session API using text segments.
-- Feed text chunks as if they came from live STT.
-- Generate/update candidates incrementally.
-- Keep newest candidates at top in API response/UI model.
-- Implement tail-only finalize.
-- Add tests for segment processing, candidate stability, duplicate merging, deadline/reminder parsing, and project/section resolution hooks.
+Text-only input is not enough evidence. Clean typed text will always look good and does not validate the hard problem.
+
+- Build the smallest possible microphone/STT path.
+- Capture real browser audio in the same format the final app will use.
+- Stream or upload audio in a way that produces usable partial/final transcript segments.
+- Measure latency for audio capture, transport, STT segment availability, and final tail flush.
+- Prove that late words are not lost on stop/silence.
+- Keep the existing text-session domain only as a state/candidate scaffold, not as proof that BrainDump works.
 
 Exit criteria:
 
-- Simulated live transcript produces stable preview candidates.
-- Finalize does not reprocess the whole transcript.
-- Tests prove no committed candidate is lost during finalize.
+- Real speech produces transcript segments while speaking.
+- Stop/silence flush includes the final spoken words.
+- Segment latency is low enough that todo extraction can plausibly keep up live.
+- We understand exactly which audio/STT approach works and which one fails.
 
-### Phase 2: Preview UI with simulated transcript
+### Phase 2: Session/candidate pipeline on real STT segments
 
-Goal: make the live UX correct before adding microphone/STT.
+Goal: feed proven STT segments into the BrainDump session model.
+
+- Convert STT partial/final events into session transcript segments.
+- Generate/update live candidate preview from real transcribed speech.
+- Keep newest candidates at top in API response/UI model.
+- Implement tail-only finalize.
+- Add tests for no lost committed candidates and no full transcript reprocessing.
+
+Exit criteria:
+
+- Real speech creates stable preview candidates while speaking.
+- Finalize processes only the tail.
+- Last spoken todos are not lost.
+
+### Phase 3: Preview UI on real audio flow
+
+Goal: make the live UX correct with the proven audio/STT path.
 
 - Add UI state for listening/processing/finalizing/ready.
 - Render candidates newest-first.
@@ -130,22 +149,8 @@ Goal: make the live UX correct before adding microphone/STT.
 
 Exit criteria:
 
-- UI can replay a scripted transcript and show live candidate updates.
+- UI shows live candidate updates from real speech.
 - User-confirmed creation works from candidate preview.
-
-### Phase 3: Audio/STT integration
-
-Goal: connect real microphone input to the already-proven session model.
-
-- Add microphone recording and chunk/segment upload.
-- Add server-side STT segment handling.
-- Add silence detection / automatic stop.
-- Feed STT results into the same text-session API path.
-
-Exit criteria:
-
-- Real speech creates the same event/candidate flow as simulated text.
-- Stop finalization only processes the tail.
 
 ### Phase 4: Project, section, deadline, reminder resolution
 
@@ -233,4 +238,22 @@ Reason:
 
 - BrainDump may consume host-side STT/LLM resources and should be explicitly enabled by an admin.
 - Keeping the permission boundary in the domain avoids adding it awkwardly later.
+
+### 2026-05-27: Pivot Phase 1 to real audio/STT first
+
+Decision:
+
+- Do not treat text-only BrainDump as proof of the feature.
+- Move real microphone/audio/STT feasibility to Phase 1.
+- Keep the current text-session service only as a useful session-state scaffold.
+
+Reason:
+
+- The old failure was not typed text -> structured candidates.
+- The actual hard problem was browser audio, chunks/streaming, transcription latency, tail flushing, and not losing late spoken words.
+- Starting with clean typed text risks validating the easy path while missing the broken path.
+
+What changes now:
+
+- Next implementation work should focus on a minimal real audio/STT spike with measurements before polishing candidate extraction or UI behavior.
 
