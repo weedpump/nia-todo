@@ -61,6 +61,7 @@ const pushFeature = createPushNotificationsFeature({ pushApi });
 const confirmDialogFeature = createConfirmDialogFeature();
 const confirmDanger = confirmDialogFeature.confirmDanger;
 const appDownloadsFeature = createAppDownloadsFeature();
+const openAppDownloadsModal = appDownloadsFeature.openAppDownloadsModal;
 const viewPreferences = createViewPreferencesFeature({
   getHideDone: () => hideDone,
   setHideDone: (value) => { hideDone = value; },
@@ -641,6 +642,7 @@ export function startAppModule() {
   sync: { isOnlineForSync, syncWithServer, refreshFromServer },
   ui: { toggleSidebar, closeSidebar, closeModal, setupDescPreview },
   lifecycle: { initServiceWorker, triggerUpdate, forceReloadApp, initApp, loadFromLocalDB, loadAll },
+  appDownloads: { openAppDownloadsModal },
   rendering: { renderVersionInfo, renderProjects, renderStats, renderTodos, renderSectionHeader, countByProject },
   navigation: { setFilter, loadSectionsForCurrentProject },
   workspaces: { renderWorkspaces, switchWorkspace, createWorkspace, showWorkspaceModal, closeWorkspaceModal, saveWorkspace, deleteWorkspaceFromModal, toggleWorkspaceMenu, closeWorkspaceMenu, loadWorkspacesFromServer },
