@@ -24,7 +24,13 @@ async function run() {
     await page.waitForFunction((value) => document.body.innerText.includes(value), title, { timeout: 10000 });
 
     const item = page.locator('.todo-item').filter({ hasText: title }).first();
+    await item.waitFor({ state: 'visible', timeout: 5000 });
+    const heightBeforeHover = await item.evaluate(el => el.getBoundingClientRect().height);
     await item.hover();
+    const heightAfterHover = await item.evaluate(el => el.getBoundingClientRect().height);
+    if (Math.abs(heightAfterHover - heightBeforeHover) > 0.5) {
+      throw new Error(`Todo hover changed row height from ${heightBeforeHover} to ${heightAfterHover}`);
+    }
     const statusSelect = item.locator('.todo-status-select');
     await statusSelect.waitFor({ state: 'visible', timeout: 5000 });
     await statusSelect.selectOption('in_progress');
