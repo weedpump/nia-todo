@@ -2552,14 +2552,25 @@ input[type="color"]::-moz-color-swatch {
 }
 
 .modal-downloads {
-  flex-direction: column;
+  flex-direction: row;
   gap: 10px;
   margin-top: 4px;
 }
 
 .modal-downloads .app-download-button {
-  justify-content: flex-start;
+  justify-content: center;
   padding: 13px 14px;
+  text-align: center;
+}
+
+.modal-downloads .app-download-text {
+  align-items: center;
+}
+
+@media (max-width: 420px) {
+  .modal-downloads {
+    flex-direction: column;
+  }
 }
 
 .modal-downloads .app-download-icon {
