@@ -39,11 +39,19 @@ async function run() {
     const statusMenu = item.locator('.todo-status-menu');
     await statusMenu.waitFor({ state: 'visible', timeout: 5000 });
     await statusMenu.locator('summary').click();
+    const chevronPaths = await statusMenu.locator('summary .ui-icon path').count();
+    const chevronCircles = await statusMenu.locator('summary .ui-icon circle').count();
+    if (chevronPaths < 1 || chevronCircles !== 0) {
+      throw new Error('Todo status menu indicator must be a chevron, not fallback circle icon');
+    }
     const menuZIndex = await item.evaluate((el) => Number(getComputedStyle(el).zIndex) || 0);
     const topbarZIndex = await page.locator('.topbar').evaluate((el) => Number(getComputedStyle(el).zIndex) || 0);
     if (menuZIndex <= topbarZIndex) {
       throw new Error(`Open todo status menu z-index ${menuZIndex} must be above topbar ${topbarZIndex}`);
     }
+    await page.locator('.topbar').click({ position: { x: 20, y: 20 } });
+    await page.waitForFunction(() => !document.querySelector('.todo-status-menu[open]'), null, { timeout: 5000 });
+    await statusMenu.locator('summary').click();
     await statusMenu.locator('.todo-status-options button').filter({ hasText: /In Arbeit|In progress/i }).click();
     await waitForTodoStatus(page, title, 'in_progress');
 

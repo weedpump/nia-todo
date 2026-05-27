@@ -225,6 +225,26 @@ export function createTodosFeature({
     return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'BUTTON' || tag === 'A' || element?.isContentEditable;
   }
 
+  function closeTodoStatusMenus(except = null) {
+    document.querySelectorAll('.todo-status-menu[open]').forEach((menu) => {
+      if (menu !== except) menu.removeAttribute('open');
+    });
+  }
+
+  function bindTodoStatusMenuBehavior() {
+    if (document.documentElement.dataset.todoStatusMenuBound === '1') return;
+    document.documentElement.dataset.todoStatusMenuBound = '1';
+
+    document.addEventListener('click', (event) => {
+      const menu = event.target?.closest?.('.todo-status-menu');
+      closeTodoStatusMenus(menu || null);
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') closeTodoStatusMenus();
+    });
+  }
+
   function bindTodoHoverKeyboardShortcuts() {
     if (document.documentElement.dataset.todoHoverKeyboardBound === '1') return;
     document.documentElement.dataset.todoHoverKeyboardBound = '1';
@@ -254,6 +274,7 @@ export function createTodosFeature({
   }
 
   bindTodoSwipeGestures();
+  bindTodoStatusMenuBehavior();
   bindTodoHoverKeyboardShortcuts();
 
   async function toggleTodo(id) {
