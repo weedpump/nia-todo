@@ -375,3 +375,30 @@ Reason:
 - Tobi wants a live co-author behavior: speak, and the assistant is already working/answering as the sentence unfolds.
 - A post-stop-only LLM would violate the intended UX even if it stayed under 4s.
 
+
+### 2026-05-27: Current OpenClaw default-agent LLM latency baseline
+
+Fixture:
+
+- Same controlled fixture 001 transcript, 248 transcript chars.
+- Probe path: OpenClaw OpenAI-compatible `POST /v1/chat/completions` on gateway port 18789.
+- Agent target: `openclaw/default`.
+- Backend override: `gpt-5.4-mini`.
+
+Results:
+
+- Prompt text in probe: 761 chars.
+- Actual reported prompt tokens: about 16,757 tokens per run because the default `main` agent injects its normal context/bootstrap.
+- LLM extraction runs: about 4.93s, 5.12s, 7.58s in the cleaned stateless probe; an earlier repeated-session run also produced a 14.2s outlier.
+- JSON output was valid and mostly correct, but this path is too heavy for BrainDump's live budget.
+
+Conclusion:
+
+- Measuring through `openclaw/default` is useful as a negative baseline only.
+- The real BrainDump architecture needs a dedicated OpenClaw agent/profile with:
+  - `model`: `openai-codex/gpt-5.4-mini` / alias `gpt-mini` equivalent,
+  - no tools,
+  - no history,
+  - no workspace bootstrap/context injection,
+  - fixed tiny system prompt for JSON extraction only.
+- Without that dedicated lightweight agent, the LLM budget is dominated by unrelated main-agent context and is not representative.
