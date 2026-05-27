@@ -199,12 +199,26 @@ function getMinimumNativeClientVersion(instance = window.NIA_TODO_RUNTIME?.insta
   return instance?.min_native_client_version || '';
 }
 
+function downloadPanelForTarget(target) {
+  return target?.closest?.('[data-app-download-panel]') || null;
+}
+
+function setDownloadTargetVisible(target, visible) {
+  if (!target) return;
+  target.style.display = visible ? '' : 'none';
+  const panel = downloadPanelForTarget(target);
+  if (panel) panel.style.display = visible ? '' : 'none';
+}
+
 function renderDownloads(target, downloads) {
-  if (!target || !downloads?.length) return;
+  if (!target || !downloads?.length) {
+    setDownloadTargetVisible(target, false);
+    return;
+  }
   target.replaceChildren();
   for (const download of downloads) {
     const link = document.createElement('a');
-    link.className = 'app-download-button';
+    link.className = `app-download-button app-download-button-${download.platform}`;
     link.href = download.url;
     link.download = download.filename;
     link.title = platformTitle(download);
@@ -219,12 +233,23 @@ function renderDownloads(target, downloads) {
     }
     link.appendChild(icon);
 
+    const text = document.createElement('span');
+    text.className = 'app-download-text';
+
+    const platform = document.createElement('span');
+    platform.className = 'app-download-platform';
+    platform.textContent = platformLabel(download.platform);
+    text.appendChild(platform);
+
     const version = document.createElement('span');
+    version.className = 'app-download-version';
     version.textContent = download.version || '';
-    link.appendChild(version);
+    text.appendChild(version);
+
+    link.appendChild(text);
     target.appendChild(link);
   }
-  target.style.display = '';
+  setDownloadTargetVisible(target, true);
 }
 
 function changelogUrl() {
@@ -373,7 +398,7 @@ export function createAppDownloadsFeature() {
       if (isBrowserDownloadEligible()) {
         downloadTargets.forEach((target) => renderDownloads(target, downloads));
       } else {
-        downloadTargets.forEach((target) => { target.style.display = 'none'; });
+        downloadTargets.forEach((target) => setDownloadTargetVisible(target, false));
       }
 
       const nativeDownload = downloads.find((download) => download.platform === nativePlatform);
@@ -389,7 +414,7 @@ export function createAppDownloadsFeature() {
       }
     } catch (error) {
       console.info('[Downloads] No app download available', error);
-      downloadTargets.forEach((target) => { target.style.display = 'none'; });
+      downloadTargets.forEach((target) => setDownloadTargetVisible(target, false));
       if (!hasNativeVersion) nativeVersionTargets.forEach((target) => { target.style.display = 'none'; });
     }
   }
