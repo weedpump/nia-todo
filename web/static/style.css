@@ -1187,6 +1187,10 @@ body {
   position: relative;
 }
 
+.todo-item:has(.todo-status-menu[open]) {
+  z-index: 180;
+}
+
 .todo-status-menu summary {
   display: inline-flex;
   align-items: center;
@@ -1203,11 +1207,15 @@ body {
   line-height: 1;
   cursor: pointer;
   list-style: none;
+  list-style-type: none;
+  appearance: none;
+  -webkit-appearance: none;
   user-select: none;
   transition: border-color 0.15s, background 0.15s, color 0.15s, transform 0.15s;
 }
 
 .todo-status-menu summary::-webkit-details-marker { display: none; }
+.todo-status-menu summary::marker { content: ""; font-size: 0; }
 
 .todo-status-menu summary:hover,
 .todo-status-menu[open] summary {
@@ -1371,6 +1379,10 @@ body {
 }
 
 .modal.active { display: flex; }
+
+#app-downloads-modal.active {
+  z-index: 1200;
+}
 
 .modal-overlay {
   position: absolute;
