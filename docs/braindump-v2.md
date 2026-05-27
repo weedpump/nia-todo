@@ -475,3 +475,22 @@ Budget conclusion:
 - Best current candidate: `base` + greedy/no-fallback + 4s-ish stable windows, with live LLM running in parallel on stable chunks.
 - Final tail with `base` STT (~1.3-1.6s) plus a good compact LLM call (~3.5s typical) is close to the 4s target but not reliably below it yet.
 - For MVP, prefer `base` over `small`; keep `small` only as accuracy fallback or final correction if needed.
+
+### 2026-05-27: `small` retest after 8 CPUs visible
+
+The LXC now exposes 8 logical CPUs (`nproc=8`, cpuset `0-7`) on an i5-1135G7 host (4 physical cores / 8 threads). Retested `ggml-small.bin` on fixture 001, 4s windows via `whisper-cli`.
+
+Results:
+
+- `small`, `-t 4` default: avg ~4.15s, max ~4.26s.
+- `small`, `-t 4 -bo 1 -bs 1 -nf`: avg ~3.86s, max ~4.21s.
+- `small`, `-t 6` default: avg ~4.46s, max ~4.52s.
+- `small`, `-t 6 -bo 1 -bs 1 -nf`: avg ~4.15s, max ~4.20s.
+- `small`, `-t 8` default: avg ~4.81s, max ~5.17s.
+- `small`, `-t 8 -bo 1 -bs 1 -nf`: avg ~4.22s, max ~4.34s.
+
+Conclusion:
+
+- Giving the LXC 8 logical CPUs helps compared with the earlier worse constrained/contended runs, but `small` still does not scale well past 4 threads on this host.
+- Best `small` setting observed is still 4 threads + greedy/no-fallback, around ~3.9s average, with a >4s final-window worst case.
+- `small` remains marginal for the full live pipeline because LLM still needs time. Keep `base` for live STT and use `small` only as optional final/accuracy correction.
