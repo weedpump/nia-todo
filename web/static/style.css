@@ -2577,12 +2577,6 @@ input[type="color"]::-moz-color-swatch {
   align-items: center;
 }
 
-@media (max-width: 420px) {
-  .modal-downloads {
-    flex-direction: column;
-  }
-}
-
 @media (max-width: 768px) {
   .app-downloads-modal-body {
     display: flex;
