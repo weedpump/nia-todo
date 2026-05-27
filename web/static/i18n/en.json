@@ -784,5 +784,6 @@
   "api.auth.trustedDeviceRevokeFailed": "Trusted device could not be revoked",
   "api.auth.trustedDevicesRevokeFailed": "Active sessions / devices could not be revoked",
   "api.error.mfa.trustedDeviceNotFound": "Device session not found",
-  "settings.2fa.trustedDeviceRemembered": "2FA remembered"
+  "settings.2fa.trustedDeviceRemembered": "2FA remembered",
+  "appDownloads.serverHostLabel": "Enter this address in the app:"
 }

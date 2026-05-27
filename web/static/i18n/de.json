@@ -784,5 +784,6 @@
   "api.auth.trustedDeviceRevokeFailed": "Vertrauenswürdiges Gerät konnte nicht widerrufen werden",
   "api.auth.trustedDevicesRevokeFailed": "Aktive Sessions / Geräte konnten nicht widerrufen werden",
   "api.error.mfa.trustedDeviceNotFound": "Geräte-Session nicht gefunden",
-  "settings.2fa.trustedDeviceRemembered": "2FA gemerkt"
+  "settings.2fa.trustedDeviceRemembered": "2FA gemerkt",
+  "appDownloads.serverHostLabel": "Bitte gib in der App folgende Adresse ein:"
 }

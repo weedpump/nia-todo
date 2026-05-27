@@ -214,6 +214,33 @@ function setDownloadLaunchersVisible(launchers, visible) {
   launchers.forEach((launcher) => { launcher.style.display = visible ? '' : 'none'; });
 }
 
+function serverAddressFromUrl(value) {
+  try {
+    const url = new URL(value || location.origin, location.origin);
+    const path = url.pathname && url.pathname !== '/' ? url.pathname.replace(/\/+$/, '') : '';
+    return `${url.host}${path}`;
+  } catch (_error) {
+    return location.host;
+  }
+}
+
+async function getDownloadServerAddress() {
+  const fallback = serverAddressFromUrl(location.origin);
+  try {
+    const instance = await verifyInstance(location.origin);
+    return serverAddressFromUrl(instance?.public_base_url || location.origin);
+  } catch (error) {
+    console.warn('[Downloads] Server address hint fallback to current host', error);
+    return fallback;
+  }
+}
+
+function renderDownloadServerAddress(address) {
+  document.querySelectorAll('[data-app-download-server-host]').forEach((target) => {
+    target.textContent = address || serverAddressFromUrl(location.origin);
+  });
+}
+
 function renderDownloads(target, downloads) {
   if (!target || !downloads?.length) {
     setDownloadTargetVisible(target, false);
@@ -413,6 +440,7 @@ export function createAppDownloadsFeature() {
       if (!downloads.length) throw new Error('app downloads missing');
 
       if (isBrowserDownloadEligible()) {
+        renderDownloadServerAddress(await getDownloadServerAddress());
         downloadTargets.forEach((target) => renderDownloads(target, downloads));
         setDownloadLaunchersVisible(downloadLaunchers, true);
       } else {
