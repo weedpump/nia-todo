@@ -15,6 +15,7 @@ This document is the project memory for the implementation. Keep it concise and 
 - After a few seconds of silence, listening stops automatically and the UI signals completion/finalization.
 - After stop, the remaining processing should take about 1-3 seconds, not 10-15 seconds.
 - User can review candidates and add all or selected candidates.
+- BrainDump must be explicitly enabled per user by an admin before the user can access it.
 - Candidates should be assigned to a sensible project.
 - If project sections exist, candidates should be assigned to sensible sections where possible.
 - Deadlines and reminders should be detected from natural language:
@@ -31,6 +32,7 @@ This document is the project memory for the implementation. Keep it concise and 
 - No admin UI for BrainDump provider configuration yet.
 - No user-facing OpenClaw/Whisper/STT model configuration yet.
 - No token/provider management until the core BrainDump flow is proven.
+- No full admin UI for per-user BrainDump enablement in Phase 1; keep the permission requirement in the domain/API design.
 
 ## MVP configuration rule
 
@@ -205,6 +207,7 @@ What did not work:
 Current rule:
 
 - Correct incremental state first. Tail-only finalize. Measure before optimizing.
+
 ### 2026-05-27: MVP config is intentionally hardcoded
 
 Decision:
@@ -217,4 +220,17 @@ Reason:
 - The hard problem is the live BrainDump session pipeline.
 - Configuration UI is only useful after the core flow is proven reliable and fast enough.
 - Avoid spending time on surface area that may be thrown away if the architecture changes.
+
+### 2026-05-27: BrainDump requires per-user admin enablement
+
+Decision:
+
+- BrainDump must not become available to every user automatically.
+- The domain/API should include a per-user allow gate from the beginning.
+- The polished admin UI for managing this can wait until the core flow works.
+
+Reason:
+
+- BrainDump may consume host-side STT/LLM resources and should be explicitly enabled by an admin.
+- Keeping the permission boundary in the domain avoids adding it awkwardly later.
 
