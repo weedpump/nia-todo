@@ -2375,19 +2375,59 @@ input[type="color"]::-moz-color-swatch {
   transform: scale(1.05);
 }
 
-.app-downloads {
-  display: flex;
-  gap: 8px;
+.app-download-panel {
+  padding: 12px;
+  border: 1px solid rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.28));
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.14)), var(--bg-secondary));
+}
+
+.login-download-panel {
   margin-top: 14px;
 }
 
-.login-downloads {
-  padding-top: 14px;
-  border-top: 1px solid var(--border);
+.sidebar-download-panel {
+  margin: 0 12px 10px;
+}
+
+.settings-download-panel {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.app-download-heading,
+.app-download-settings-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 4px;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.app-download-heading .ui-icon,
+.app-download-settings-title .ui-icon {
+  width: 16px;
+  height: 16px;
+  color: var(--accent);
+}
+
+.app-download-subtitle {
+  margin: 0 0 10px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.app-downloads {
+  display: flex;
+  gap: 8px;
 }
 
 .settings-downloads {
-  margin: 16px 0 0;
+  margin: 10px 0 0;
 }
 
 .app-download-button {
@@ -2396,8 +2436,8 @@ input[type="color"]::-moz-color-swatch {
   min-width: 0;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 9px 12px;
+  gap: 9px;
+  padding: 10px 12px;
   border: 1px solid rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.4));
   border-radius: var(--radius);
   background: rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.18));
@@ -2459,14 +2499,34 @@ input[type="color"]::-moz-color-swatch {
   height: 16px;
 }
 
-.app-download-button span:first-child {
-  font-size: 18px;
-  line-height: 1;
+.app-download-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  line-height: 1.1;
+}
+
+.app-download-platform {
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.app-download-version {
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.app-download-button:hover .app-download-platform,
+.app-download-button:hover .app-download-version {
+  color: inherit;
 }
 
 .app-download-icon {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   flex: 0 0 auto;
   background: currentColor;
   mask: center / contain no-repeat;
@@ -2481,6 +2541,12 @@ input[type="color"]::-moz-color-swatch {
 .app-download-icon-android {
   mask-image: url('/static/icons/platform/android.svg');
   -webkit-mask-image: url('/static/icons/platform/android.svg');
+}
+
+@media (max-width: 1120px) {
+  .sidebar-download-panel .app-downloads {
+    flex-direction: column;
+  }
 }
 
 @media (max-width: 768px) {

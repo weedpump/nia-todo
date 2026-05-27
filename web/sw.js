@@ -1,5 +1,5 @@
 // nia-todo Service Worker - robust offline-first, update system, and push notifications
-const SW_VERSION = 'v2.5.3-dev';
+const SW_VERSION = 'v2.5.4-dev';
 const CACHE_NAME = 'nia-todo-' + SW_VERSION;
 
 // Assets required for offline startup
@@ -63,7 +63,9 @@ const PRECACHE_ASSETS = [
   '/static/js/features/security-dialogs.js',
   '/static/vendor/qrcode-generator.js',
   '/static/icons/icon-192.png',
-  '/static/icons/icon-512.png'
+  '/static/icons/icon-512.png',
+  '/static/icons/platform/android.svg',
+  '/static/icons/platform/windows.svg'
 ];
 
 // Inline Offline-Fallback

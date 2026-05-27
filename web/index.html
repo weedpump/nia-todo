@@ -107,7 +107,11 @@
         <button class="theme-option" data-theme="dark" onclick="setTheme('dark')" title="Dark" data-i18n-title-key="common.theme.dark"><span data-icon="moon"></span></button>
         <button class="theme-option" data-theme="system" onclick="setTheme('system')" title="System" data-i18n-title-key="common.theme.system"><span data-icon="monitor"></span></button>
       </div>
-      <div class="app-downloads login-downloads" data-app-downloads style="display:none;"></div>
+      <div class="app-download-panel login-download-panel" data-app-download-panel style="display:none;">
+        <div class="app-download-heading"><span data-icon="download"></span> <span data-i18n-key="appDownloads.title">Apps herunterladen</span></div>
+        <p class="app-download-subtitle" data-i18n-key="appDownloads.subtitle">Windows- und Android-App direkt installieren.</p>
+        <div class="app-downloads login-downloads" data-app-downloads style="display:none;"></div>
+      </div>
       <div class="app-resource-links login-resource-links">
         <a class="app-resource-link" href="/api" target="_blank" rel="noopener"><span data-icon="book-open"></span> <span data-i18n-key="resource.apiDocs">API-Doku</span></a>
         <a class="app-resource-link" href="/changelog" target="_blank" rel="noopener"><span data-icon="list"></span> <span data-i18n-key="resource.changelog">Changelog</span></a>
@@ -186,10 +190,16 @@
           </div>
         </div>
 
+        <div class="app-download-panel sidebar-download-panel" data-app-download-panel style="display:none;">
+          <div class="app-download-heading"><span data-icon="download"></span> <span data-i18n-key="appDownloads.title">Apps herunterladen</span></div>
+          <p class="app-download-subtitle" data-i18n-key="appDownloads.sidebarSubtitle">Desktop- oder Android-App installieren.</p>
+          <div class="app-downloads sidebar-downloads" data-app-downloads style="display:none;"></div>
+        </div>
+
         <!-- Version & Update -->
         <div class="version-bar" id="version-bar">
           <div class="version-info" id="version-info">
-            <span class="version-text">v2.5.3-dev</span>
+            <span class="version-text">v2.5.4-dev</span>
           </div>
           <div class="version-actions web-version-actions" id="version-actions">
             <a class="changelog-link version-action-btn" id="changelog-link" href="/changelog" target="_blank" rel="noopener noreferrer" title="Open changelog" data-i18n-title-key="version.openChangelog" data-i18n-key="resource.changelog">Changelog</a>
@@ -530,7 +540,12 @@
           </div>
           <div id="push-error" style="color:var(--danger); font-size:13px; margin-top:8px;"></div>
         </div>
-        <div class="app-downloads settings-downloads" data-app-downloads style="display:none;"></div>
+        <div class="app-download-panel settings-download-panel" data-app-download-panel style="display:none;">
+          <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">
+          <h4 class="app-download-settings-title"><span data-icon="download"></span> <span data-i18n-key="appDownloads.title">Apps herunterladen</span></h4>
+          <p class="app-download-subtitle" data-i18n-key="appDownloads.subtitle">Windows- und Android-App direkt installieren.</p>
+          <div class="app-downloads settings-downloads" data-app-downloads style="display:none;"></div>
+        </div>
         <div id="desktop-settings-section" style="display:none;">
           <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">
           <h4 style="margin:0 0 12px 0; font-size:14px;"><span data-icon="smartphone"></span> <span data-i18n-key="settings.desktop.title">App</span></h4>
