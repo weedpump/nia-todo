@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import subprocess
 import tempfile
 import time
@@ -32,6 +33,71 @@ WHISPER_MODELS = {
     "base": Path("/opt/whisper.cpp/models/ggml-base.bin"),
     "small": Path("/opt/whisper.cpp/models/ggml-small.bin"),
 }
+
+BRAINDUMP_EXTRACTOR_PROMPT = """Du bist der nia-todo BrainDump-Extractor.
+Antworte ausschließlich mit kompaktem gültigem JSON in dieser Form:
+{"candidates":[{"title":"...","deadline":null,"reminder":null}]}
+
+Harte Regeln:
+- Schreibe ALLE Titel auf Deutsch. Niemals ins Englische übersetzen.
+- Fasse nicht zusammen.
+- Wenn der Nutzer mehrere Dinge aufzählt, mache daraus mehrere einzelne Todo-Kandidaten.
+- Komma-/und-Listen wie "Kartoffeln, Erdbeeren und Salat" sind einzelne Einträge: "Kartoffeln", "Erdbeeren", "Salat".
+- Kein Sammel-Todo wie "Kartoffeln, Erdbeeren und Salat kaufen".
+- Kein Markdown, keine Erklärung, kein Text außerhalb JSON.
+- Nur stabile, konkrete Todos aufnehmen.
+
+Transkript:
+"""
+
+SHOPPING_VERBS_RE = re.compile(r"\b(kaufen|besorgen|einkaufen|buy|purchase|get)\b", re.IGNORECASE)
+LIST_VERB_RE = re.compile(r"\b(muss|soll|erinnere|erinnern|vorbereiten|aufräumen|entsorgen|bestellen|machen|erledigen)\b", re.IGNORECASE)
+
+
+def _clean_list_item(value: str) -> str:
+    value = re.sub(r"\b(buy|purchase|get)\b", "", value, flags=re.IGNORECASE)
+    value = SHOPPING_VERBS_RE.sub("", value)
+    value = re.sub(r"^(ich brauche|ich benötige|bitte|noch)\s+", "", value.strip(), flags=re.IGNORECASE)
+    value = value.strip(" .,:;!?-–—\t\n\r")
+    return value[:1].upper() + value[1:] if value else ""
+
+
+def _split_plain_enumeration(text: str) -> list[dict]:
+    source = text.strip().strip(" .!?;:")
+    if not source or "," not in source:
+        return []
+    # Do not split normal sentences with task verbs; this override is only for dictated item lists.
+    if LIST_VERB_RE.search(source):
+        return []
+    source = SHOPPING_VERBS_RE.sub("", source)
+    parts = [p.strip() for p in re.split(r",|\s+und\s+|\s+oder\s+|\s*&\s*", source, flags=re.IGNORECASE)]
+    items = [_clean_list_item(part) for part in parts]
+    items = [item for item in items if 1 < len(item) <= 80]
+    if len(items) < 2:
+        return []
+    return [{"title": item, "deadline": None, "reminder": None} for item in items]
+
+
+def _normalize_braindump_json(parsed: dict, transcript: str) -> dict:
+    list_candidates = _split_plain_enumeration(transcript)
+    if list_candidates:
+        return {"candidates": list_candidates}
+    candidates = parsed.get("candidates") if isinstance(parsed, dict) else None
+    if not isinstance(candidates, list):
+        return {"candidates": []}
+    normalized = []
+    for candidate in candidates:
+        if not isinstance(candidate, dict):
+            continue
+        title = str(candidate.get("title") or "").strip()
+        if not title:
+            continue
+        normalized.append({
+            "title": title,
+            "deadline": candidate.get("deadline"),
+            "reminder": candidate.get("reminder"),
+        })
+    return {"candidates": normalized}
 
 
 class TextSegmentRequest(BaseModel):
@@ -115,8 +181,8 @@ def _extract_with_openclaw(text: str, segment_id: int) -> tuple[float, dict, dic
         result = json.loads(response.read().decode("utf-8"))
     elapsed_ms = (time.perf_counter() - started) * 1000
     content = result["choices"][0]["message"]["content"]
-    parsed = json.loads(content)
-    return elapsed_ms, parsed, result.get("usage"), content
+    parsed = _normalize_braindump_json(json.loads(content), text)
+    return elapsed_ms, parsed, result.get("usage"), json.dumps(parsed, ensure_ascii=False, separators=(",", ":"))
 
 
 def require_braindump_access(user_id: int):
