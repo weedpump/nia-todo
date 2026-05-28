@@ -2763,25 +2763,22 @@ input[type="color"]::-moz-color-swatch {
 
 @media (max-width: 768px) {
   .login-overlay {
-    align-items: stretch;
-    justify-content: flex-start;
-    overflow: hidden;
+    display: block;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
     padding: 0;
   }
 
   .login-box {
     width: 100%;
     max-width: none;
-    height: 100dvh;
-    min-height: 0;
+    min-height: 100dvh;
     margin: 0;
-    padding: calc(28px + env(safe-area-inset-top)) 20px calc(84px + env(safe-area-inset-bottom));
+    padding: calc(28px + env(safe-area-inset-top)) 20px calc(32px + env(safe-area-inset-bottom));
     border: 0;
     border-radius: 0;
     box-shadow: none;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
   }
 
   .login-brand {
@@ -2789,9 +2786,16 @@ input[type="color"]::-moz-color-swatch {
   }
 
   .login-overlay > .login-update-refresh {
-    z-index: 1;
-    bottom: max(12px, env(safe-area-inset-bottom));
+    position: static;
+    transform: none;
+    display: flex;
+    width: fit-content;
     max-width: calc(100vw - 32px);
+    margin: 12px auto max(16px, env(safe-area-inset-bottom));
+  }
+
+  .login-overlay > .login-update-refresh:hover {
+    transform: none;
   }
 }
 
