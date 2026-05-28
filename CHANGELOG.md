@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 
 ### Added
 - Today Focus mode helps surface pinned, overdue, due-today, and high-priority todos, and can be toggled with the `F` keyboard shortcut.
-- Quick Add now understands inline todo syntax for priority, due dates, reminders, projects, and sections.
+- Quick Add now understands inline todo syntax for priority, due dates, reminders, projects, and sections, with live visual chips for recognized tokens.
 - Todo rows now support snooze actions for quickly moving due dates forward.
 - Todos can now be pinned into a dedicated pinned group for easier access.
 - Pin/unpin and snooze changes now support undo from the toast action.

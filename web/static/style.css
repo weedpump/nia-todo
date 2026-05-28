@@ -4437,6 +4437,36 @@ input[type="color"]::-moz-color-swatch {
   line-height: 1.35;
 }
 
+.quick-add-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.quick-add-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px;
+  border: 1px solid rgba(var(--accent-rgb), 0.35);
+  border-radius: 999px;
+  background: rgba(var(--accent-rgb), 0.12);
+  color: var(--text-primary);
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.quick-add-chip-label {
+  color: var(--text-secondary);
+}
+
+.quick-add-chip.priority { border-color: rgba(245, 158, 11, 0.45); background: rgba(245, 158, 11, 0.13); }
+.quick-add-chip.due { border-color: rgba(99, 102, 241, 0.45); background: rgba(99, 102, 241, 0.14); }
+.quick-add-chip.reminder { border-color: rgba(34, 197, 94, 0.45); background: rgba(34, 197, 94, 0.13); }
+.quick-add-chip.project { border-color: rgba(14, 165, 233, 0.45); background: rgba(14, 165, 233, 0.13); }
+.quick-add-chip.section { border-color: rgba(168, 85, 247, 0.45); background: rgba(168, 85, 247, 0.13); }
+
 .checkbox-row label {
   display: inline-flex;
   align-items: center;
