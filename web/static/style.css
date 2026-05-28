@@ -933,6 +933,35 @@ body {
   padding: 4px 0;
 }
 
+.pinned-todos-group {
+  margin-bottom: 18px;
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--border));
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.12)), color-mix(in srgb, var(--bg-secondary) 88%, transparent));
+  box-shadow: 0 12px 28px rgba(0,0,0,0.08);
+}
+
+.pinned-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--accent);
+  margin-bottom: 10px;
+  padding: 0;
+  font-weight: 900;
+}
+
+.pinned-title .ui-icon {
+  width: 15px;
+  height: 15px;
+  fill: color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
+.pinned-todos .todo-item:last-child {
+  margin-bottom: 0;
+}
+
 /* Project groups within global views */
 .project-group {
   margin-bottom: 12px;
@@ -1160,8 +1189,9 @@ body {
   color: var(--text-muted);
 }
 
-.todo-due { color: var(--warning); }
-.todo-due.overdue { color: var(--danger); font-weight: 600; }
+.todo-due { color: var(--text-muted); }
+.todo-due.soon { color: var(--warning); font-weight: 600; }
+.todo-due.overdue { color: var(--danger); font-weight: 700; }
 
 .todo-actions {
   display: flex;
@@ -4191,6 +4221,7 @@ input[type="color"]::-moz-color-swatch {
 
 /* Proposal: today focus, quick add, pins, snooze, sync badge */
 .today-focus-btn {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 7px;
@@ -4248,8 +4279,9 @@ input[type="color"]::-moz-color-swatch {
 }
 
 .todo-item.pinned {
-  border-color: color-mix(in srgb, var(--accent) 38%, var(--border));
-  box-shadow: inset 3px 0 0 var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 58%, var(--border));
+  background: linear-gradient(90deg, rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.13)), var(--bg-secondary) 42%);
+  box-shadow: inset 4px 0 0 var(--accent), 0 0 0 1px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.12));
 }
 
 .todo-pin-marker {
@@ -4425,8 +4457,20 @@ input[type="color"]::-moz-color-swatch {
 
 @media (max-width: 640px) {
   .today-focus-btn {
-    min-width: 86px;
-    padding: 8px 10px;
+    min-width: 36px;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    justify-content: center;
+    gap: 0;
+  }
+  .today-focus-btn span[data-i18n-key="todayFocus.short"] { display: none; }
+  .today-focus-btn.active::after {
+    position: absolute;
+    right: 5px;
+    top: 5px;
+    width: 6px;
+    height: 6px;
   }
   .todo-snooze-menu .todo-status-options { right: 0; left: auto; }
 }

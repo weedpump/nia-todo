@@ -819,6 +819,7 @@
   "todayFocus.disable": "Disable today focus",
   "quickAdd.hint": "Tip: “Milk tomorrow 18:00 #Shopping !high” detects date, project, and priority.",
   "todo.pinned": "Pinned",
+  "todo.pinnedGroup": "Pinned",
   "todo.pin": "Pin",
   "todo.unpin": "Unpin",
   "todo.snooze": "Later",
