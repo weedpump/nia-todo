@@ -26,6 +26,14 @@ async function run() {
   try {
     await page.goto(BASE_URL, { waitUntil: 'domcontentloaded' });
     await page.locator('#login-overlay').waitFor({ state: 'visible', timeout: 10000 });
+    await page.locator('.login-update-panel').waitFor({ state: 'visible', timeout: 10000 });
+    await page.getByText('Probleme beim Anmelden oder fehlt das 2FA-Feld?').waitFor({ state: 'visible', timeout: 10000 });
+    await page.locator('.login-update-refresh').waitFor({ state: 'visible', timeout: 10000 });
+    const updateModalZIndex = await page.locator('#web-update-modal').evaluate(el => getComputedStyle(el).zIndex);
+    const loginOverlayZIndex = await page.locator('#login-overlay').evaluate(el => getComputedStyle(el).zIndex);
+    if (Number(updateModalZIndex) <= Number(loginOverlayZIndex)) {
+      throw new Error(`Web update modal must appear above login overlay: modal=${updateModalZIndex}, login=${loginOverlayZIndex}`);
+    }
     await page.locator('#login-forgot-btn').waitFor({ state: 'hidden', timeout: 10000 });
     await page.locator('#login-reset-panel').waitFor({ state: 'hidden', timeout: 5000 });
 

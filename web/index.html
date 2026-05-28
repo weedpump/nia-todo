@@ -108,6 +108,10 @@
         <button class="theme-option" data-theme="dark" onclick="setTheme('dark')" title="Dark" data-i18n-title-key="common.theme.dark"><span data-icon="moon"></span></button>
         <button class="theme-option" data-theme="system" onclick="setTheme('system')" title="System" data-i18n-title-key="common.theme.system"><span data-icon="monitor"></span></button>
       </div>
+      <div class="login-update-panel">
+        <div class="login-update-text" data-i18n-key="auth.loginUpdateHint">Probleme beim Anmelden oder fehlt das 2FA-Feld?</div>
+        <button type="button" class="login-update-refresh force-refresh-btn" data-force-refresh-button onclick="forceReloadApp()" title="Web-App neu herunterladen und Cache aktualisieren" data-i18n-title-key="version.refreshCache"><span data-icon="refresh-cw"></span><span data-i18n-key="version.reload">↻ Neu laden</span></button>
+      </div>
       <div class="app-resource-links login-resource-links">
         <a class="app-resource-link" href="/api" target="_blank" rel="noopener"><span data-icon="book-open"></span> <span data-i18n-key="resource.apiDocs">API-Doku</span></a>
         <a class="app-resource-link" href="/changelog" target="_blank" rel="noopener"><span data-icon="list"></span> <span data-i18n-key="resource.changelog">Changelog</span></a>
@@ -195,7 +199,7 @@
         <!-- Version & Update -->
         <div class="version-bar" id="version-bar">
           <div class="version-info" id="version-info">
-            <span class="version-text">v2.5.4-dev</span>
+            <span class="version-text">v2.5.5-dev</span>
           </div>
           <div class="version-actions web-version-actions" id="version-actions">
             <a class="changelog-link version-action-btn" id="changelog-link" href="/changelog" target="_blank" rel="noopener noreferrer" title="Open changelog" data-i18n-title-key="version.openChangelog" data-i18n-key="resource.changelog">Changelog</a>

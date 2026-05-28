@@ -216,9 +216,9 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
   }
 
   async function forceReloadApp() {
-    const button = document.getElementById('force-refresh-btn');
-    const previousTitle = button?.title;
-    if (button) {
+    const buttons = Array.from(document.querySelectorAll('#force-refresh-btn, [data-force-refresh-button]'));
+    const previousTitles = new Map(buttons.map(button => [button, button.title]));
+    for (const button of buttons) {
       button.disabled = true;
       button.title = 'Web-App wird neu geladen…';
     }
@@ -261,9 +261,9 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
       console.error('Forced app reload failed:', err);
       window.location.reload();
     } finally {
-      if (button) {
+      for (const button of buttons) {
         button.disabled = false;
-        button.title = previousTitle || 'Web-App neu herunterladen und Cache aktualisieren';
+        button.title = previousTitles.get(button) || 'Web-App neu herunterladen und Cache aktualisieren';
       }
     }
   }
