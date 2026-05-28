@@ -51,6 +51,11 @@ Description: nia-todo fake update package for local integration/manual tests
             f"CONFIG='{app_root}/web/static/js/core/config.js'\n"
             "if [ -f \"$CONFIG\" ]; then\n"
             f"  python3 - <<'PY'\nfrom pathlib import Path\nimport re\npath = Path({str(app_root / 'web/static/js/core/config.js')!r})\ntext = path.read_text(encoding='utf-8')\ntext, count = re.subn(r\"APP_VERSION\\s*=\\s*['\\\"]v?[^'\\\"]+['\\\"]\", \"APP_VERSION = 'v{args.version}'\", text, count=1)\nif count != 1:\n    raise SystemExit('APP_VERSION replacement failed')\npath.write_text(text, encoding='utf-8')\nPY\n"
+            "fi\n"
+            "DROPIN='/etc/systemd/system/nia-todo-dev.service.d/server-update-manual-test.conf'\n"
+            "if [ -f \"$DROPIN\" ]; then\n"
+            f"  sed -i 's/^Environment=NIA_TODO_UPDATE_CURRENT_VERSION=.*/Environment=NIA_TODO_UPDATE_CURRENT_VERSION={args.version}/' \"$DROPIN\"\n"
+            "  systemctl daemon-reload || true\n"
             "fi\n",
             encoding="utf-8",
         )
