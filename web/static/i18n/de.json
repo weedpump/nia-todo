@@ -617,6 +617,8 @@
   "admin.user.language": "Sprache",
   "admin.errorWithMessage": "Fehler: {error}",
   "admin.user.login": "Login",
+  "admin.user.lastActive": "Zuletzt aktiv",
+  "admin.user.neverActive": "Nie aktiv",
   "admin.user.passwordLink": "Link",
   "admin.security.title": "Sicherheit / 2FA",
   "admin.security.policyLoading": "2FA-Pflicht lädt…",
