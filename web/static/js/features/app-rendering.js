@@ -466,8 +466,18 @@ export function createAppRenderingFeature({
       }
       if (hideDone && currentFilter !== 'done') filtered = filtered.filter(t => t.status !== 'done');
 
+      const showPinnedGroup = currentFilter === 'all';
+      const pinnedProjectTodos = showPinnedGroup ? filtered.filter(t => t.is_pinned) : [];
+      const sectionSource = showPinnedGroup ? filtered.filter(t => !t.is_pinned) : filtered;
+      if (pinnedProjectTodos.length) {
+        html += `<div class="pinned-todos-group">
+          <div class="todo-group-title pinned-title">${iconSvg('star')} ${escapeHtml(t('todo.pinnedGroup'))} (${pinnedProjectTodos.length})</div>
+          <div class="project-group-todos pinned-todos">${pinnedProjectTodos.map(t => renderTodoItem(t)).join('')}</div>
+        </div>`;
+      }
+
       sections.forEach((section, index) => {
-        const sectionTodos = sortProjectSectionTodos(filtered.filter(t => t.section_id === section.id));
+        const sectionTodos = sortProjectSectionTodos(sectionSource.filter(t => t.section_id === section.id));
         html += `<div class="section-dropzone" data-drop-index="${index}" ondragover="handleSectionDragOver(event)" ondrop="handleSectionDrop(event)"></div>`;
         html += renderSectionHeader(section, sectionTodos);
         html += `<div class="section-todos" data-section-id="${escapeHtmlAttr(section.id)}" ondragover="handleTodoDragOver(event)" ondrop="handleTodoDrop(event)">`;
@@ -478,7 +488,7 @@ export function createAppRenderingFeature({
         html += `<div class="section-dropzone" data-drop-index="${sections.length}" ondragover="handleSectionDragOver(event)" ondrop="handleSectionDrop(event)"></div>`;
       }
 
-      const unsorted = sortProjectSectionTodos(filtered.filter(t => !t.section_id || !validSectionIds.has(t.section_id)));
+      const unsorted = sortProjectSectionTodos(sectionSource.filter(t => !t.section_id || !validSectionIds.has(t.section_id)));
       if (unsorted.length || sections.length) {
         html += renderSectionHeader(null, unsorted);
         html += `<div class="section-todos" data-section-id="null" ondragover="handleTodoDragOver(event)" ondrop="handleTodoDrop(event)">`;
@@ -513,9 +523,19 @@ export function createAppRenderingFeature({
     if (hideDone && currentFilter !== 'done') filtered = filtered.filter(t => t.status !== 'done');
 
     let html = '';
+    if (currentFilter === 'all') {
+      const pinnedItems = filtered.filter(t => t.is_pinned);
+      if (pinnedItems.length) {
+        html += `<div class="todo-group pinned-todos-group">
+          <div class="todo-group-title pinned-title">${iconSvg('star')} ${escapeHtml(t('todo.pinnedGroup'))} (${pinnedItems.length})</div>
+          <div class="project-group-todos pinned-todos">${pinnedItems.map(t => renderTodoItem(t)).join('')}</div>
+        </div>`;
+      }
+    }
+    const groupedSource = currentFilter === 'all' ? filtered.filter(t => !t.is_pinned) : filtered;
     for (const [status, title] of Object.entries(groups)) {
       if (currentFilter !== 'all' && currentFilter !== status) continue;
-      const statusItems = filtered.filter(t => t.status === status);
+      const statusItems = groupedSource.filter(t => t.status === status);
       if (!statusItems.length) continue;
 
       html += `<div class="todo-group"><div class="todo-group-title">${title} (${statusItems.length})</div>`;

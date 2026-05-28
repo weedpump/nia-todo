@@ -3,7 +3,18 @@ import { t as i18nT } from '../i18n/index.js';
 import { iconSvg } from '../icons/lucide-icons.js';
 
 export function renderTodoItem(t) {
-  const isOverdue = t.due_date && t.status !== 'done' && new Date(t.due_date) < new Date();
+  const dueDate = t.due_date ? new Date(t.due_date) : null;
+  const now = new Date();
+  const isOverdue = dueDate && t.status !== 'done' && dueDate < now;
+  let dueTone = '';
+  if (dueDate && !isOverdue && t.status !== 'done') {
+    const todayStart = new Date(now);
+    todayStart.setHours(0, 0, 0, 0);
+    const soonEnd = new Date(todayStart);
+    soonEnd.setDate(soonEnd.getDate() + 3);
+    soonEnd.setHours(23, 59, 59, 999);
+    dueTone = dueDate <= soonEnd ? 'soon' : 'neutral';
+  }
   const dueStr = t.due_date ? formatDate(t.due_date) : '';
   const prioColor = { 1: '#ef4444', 2: '#f59e0b', 3: '#10b981', 4: '#94a3b8' }[t.priority] || '#94a3b8';
   const hasMeta = dueStr || t.remind_at;
@@ -26,7 +37,7 @@ export function renderTodoItem(t) {
         </div>
         ${hasMeta || hasDesc ? `
         <div class="todo-meta-row">
-          ${dueStr ? `<span class="todo-due ${isOverdue ? 'overdue' : ''}">${iconSvg('calendar')} ${dueStr}${isOverdue ? ` (${escapeHtml(i18nT('todo.overdue'))})` : ''}</span>` : ''}
+          ${dueStr ? `<span class="todo-due ${isOverdue ? 'overdue' : dueTone}">${iconSvg('calendar')} ${dueStr}${isOverdue ? ` (${escapeHtml(i18nT('todo.overdue'))})` : ''}</span>` : ''}
           ${desc ? `<span class="todo-desc-preview">${renderMarkdown(desc)}</span>` : ''}
         </div>
         ` : ''}
