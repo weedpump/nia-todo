@@ -731,7 +731,7 @@ function renderServerUpdate(status) {
     command.textContent = status.docker_update_hint || 'docker compose pull && docker compose up -d';
   } else if (installType === 'deb') {
     help.textContent = status.can_install
-      ? 'Debian installation detected. The update button downloads the signed release asset, verifies SHA256, then runs the restricted host update helper.'
+      ? 'Debian installation detected. The update button runs a restricted host helper that downloads the release package and verifies SHA256 before installing.'
       : 'Debian installation detected. Automatic update becomes available after this feature version has installed the update helper.';
   } else {
     help.textContent = 'This installation type is shown for visibility only and is not self-updateable.';
