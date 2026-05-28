@@ -840,6 +840,7 @@
   "quickAdd.syntax.reminderPrefixes": "remind|reminder|notify|alarm",
   "quickAdd.syntax.sectionPrefixes": "section",
   "quickAdd.syntax.projectPrefixes": "project",
+  "quickAdd.syntax.timeSuffixes": "o'clock|oclock",
   "quickAdd.syntax.priority.veryHigh": "!p1|!urgent",
   "quickAdd.syntax.priority.high": "!p2|!high",
   "quickAdd.syntax.priority.medium": "!p3|!medium",
