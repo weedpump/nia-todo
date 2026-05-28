@@ -4061,6 +4061,29 @@ input[type="color"]::-moz-color-swatch {
   border-color: color-mix(in srgb, var(--accent) 28%, var(--border));
 }
 
+.native-android .touch-feedback,
+.native-android button.touch-feedback,
+.native-android [role="button"].touch-feedback,
+.native-android .nav-btn.touch-feedback,
+.native-android .workspace-current-btn.touch-feedback,
+.native-android .user-menu-item.touch-feedback,
+.native-android .todo-item.touch-feedback,
+.native-android .overview-project-item.touch-feedback,
+.native-android .section-name.touch-feedback {
+  background-color: var(--press-bg) !important;
+  box-shadow: inset 0 0 0 999px rgba(var(--accent-rgb), 0.14), 0 0 0 2px var(--press-ring), 0 8px 20px rgba(var(--accent-rgb), 0.18) !important;
+  transform: translateY(1px) scale(0.975);
+}
+
+.native-android .todo-item.touch-feedback,
+.native-android .overview-project-item.touch-feedback {
+  background-color: color-mix(in srgb, var(--bg-tertiary) 62%, var(--accent)) !important;
+}
+
+.native-android .btn-primary.touch-feedback {
+  background-color: color-mix(in srgb, var(--accent-hover) 90%, white) !important;
+}
+
 /* Settings 2FA UX */
 .settings-2fa-setup-card {
   background: var(--bg-tertiary);
