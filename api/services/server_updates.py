@@ -92,7 +92,7 @@ def detect_installation_type() -> str:
     if _dpkg_package_installed("nia-todo"):
         return "deb"
     current = normalize_version(_read_web_app_version())
-    if current.endswith("-dev") or Path("~/projects/nia-todo-dev").exists():
+    if current.endswith("-dev"):
         return "dev"
     return "unknown"
 
