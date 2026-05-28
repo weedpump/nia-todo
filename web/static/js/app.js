@@ -306,15 +306,40 @@ const disconnectWebSocket = wsClient.disconnectWebSocket;
 const updateConnectionStatus = () => updateConnectionStatusView(wsClient.getWsState());
 const handleWsMessage = wsClient.handleWsMessage;
 
+function openMobileSearch() {
+  const box = document.getElementById('search-box');
+  const input = document.getElementById('search-input');
+  box?.classList.add('open');
+  requestAnimationFrame(() => {
+    input?.focus();
+    input?.select();
+  });
+}
+
+function closeMobileSearch() {
+  const box = document.getElementById('search-box');
+  const input = document.getElementById('search-input');
+  if (input?.value) {
+    input.value = '';
+    renderTodos();
+  }
+  box?.classList.remove('open');
+  input?.blur();
+}
+
+function toggleMobileSearch() {
+  const box = document.getElementById('search-box');
+  if (box?.classList.contains('open')) closeMobileSearch();
+  else openMobileSearch();
+}
+
 desktopIntegration = createDesktopIntegration({
   showToast: (...args) => showToast(...args),
   onHotkeyNewTodo: async () => {
     await showTodoModal();
   },
   onHotkeySearch: () => {
-    const searchInput = document.getElementById('search-input');
-    searchInput?.focus();
-    searchInput?.select();
+    openMobileSearch();
   },
   getCurrentUser: () => currentUser,
 });
@@ -642,6 +667,12 @@ export function startAppModule() {
   confirmDialogFeature.bindConfirmDialog();
   appDownloadsFeature.initAppDownloads();
   bindNativePointerDragDrop();
+  document.addEventListener('click', (event) => {
+    const box = document.getElementById('search-box');
+    const input = document.getElementById('search-input');
+    if (!box?.classList.contains('open') || box.contains(event.target) || input?.value) return;
+    box.classList.remove('open');
+  });
   desktopIntegration?.init();
   startNativeDoneActionPolling();
   window.addEventListener('nia-language-change', () => {
@@ -668,7 +699,7 @@ export function startAppModule() {
   websocket: { getReconnectDelay, connectWebSocket, wsSend, startPingInterval, stopPingInterval, scheduleReconnect, disconnectWebSocket, updateConnectionStatus, handleWsMessage },
   storage: { openDB, dbGetAll, dbPut, dbClear, getFromDB, deleteFromDB, clearSyncQueue, addToSyncQueue },
   sync: { isOnlineForSync, syncWithServer, refreshFromServer },
-  ui: { toggleSidebar, closeSidebar, closeModal, setupDescPreview },
+  ui: { toggleSidebar, closeSidebar, closeModal, setupDescPreview, openMobileSearch, closeMobileSearch, toggleMobileSearch },
   lifecycle: { initServiceWorker, triggerUpdate, forceReloadApp, initApp, loadFromLocalDB, loadAll },
   appDownloads: { openAppDownloadsModal },
   rendering: { renderVersionInfo, renderProjects, renderStats, renderTodos, renderSectionHeader, countByProject },
