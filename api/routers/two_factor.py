@@ -526,8 +526,8 @@ def passkey_registration_verify(data: PasskeyRegistrationVerifyRequest, request:
             raise api_error(401, "passkey.challengeAlreadyUsed", "Passkey challenge already used")
         credential_id = b64url_encode(attested.credential_id)
         db.execute(
-            """INSERT INTO passkeys (user_id, credential_id, public_key, sign_count, name, transports, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, datetime('now'))""",
+            """INSERT INTO passkeys (user_id, credential_id, public_key, sign_count, name, transports, discoverable, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, 1, datetime('now'))""",
             (user_id, credential_id, cose_to_json(attested.cose_key), attested.sign_count, (data.name or "Passkey")[:80], json.dumps(credential.get("transports") or [])),
         )
         recovery_codes = []
@@ -608,7 +608,7 @@ def passwordless_passkey_login_verify(data: PasswordlessPasskeyVerifyRequest, re
         if not challenge or (challenge["locked_until"] and int(challenge["locked_until"]) > int(time.time())):
             raise api_error(401, "passkey.challengeInvalidOrExpired", "Passkey challenge is invalid or expired")
         key = db.execute("SELECT * FROM passkeys WHERE credential_id = ? AND revoked_at IS NULL", (cred_id,)).fetchone()
-        if not key:
+        if not key or not int(key["discoverable"] or 0):
             db.execute("UPDATE passkey_login_challenges SET attempts = attempts + 1, locked_until = CASE WHEN attempts + 1 >= 5 THEN ? ELSE locked_until END WHERE id = ?", (int(time.time()) + 300, challenge["id"]))
             db.commit()
             raise api_error(401, "passkey.unknown", "Unknown passkey")
@@ -620,7 +620,7 @@ def passwordless_passkey_login_verify(data: PasswordlessPasskeyVerifyRequest, re
             verify_client_data(client_data_json, "webauthn.get", b64url_encode(data.challenge.encode()), rp.origin)
             parsed = parse_auth_data(auth_data, rp.rp_id, require_attested=False, require_user_verified=True)
             user_handle = cred_response.get("userHandle")
-            if user_handle and user_handle != b64url_encode(str(key["user_id"]).encode()):
+            if not user_handle or user_handle != b64url_encode(str(key["user_id"]).encode()):
                 raise ValueError("User handle mismatch")
             if int(key["sign_count"] or 0) > 0 and parsed["sign_count"] > 0 and parsed["sign_count"] <= int(key["sign_count"]):
                 raise ValueError("Sign counter rollback")
