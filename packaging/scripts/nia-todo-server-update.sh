@@ -19,6 +19,11 @@ if [ "$#" -ne 0 ]; then
 fi
 
 install -d -m 0755 -o root -g root "${CACHE_DIR}"
+exec 9>"${CACHE_DIR}/update.lock"
+if ! flock -n 9; then
+  echo "Another nia-todo server update is already running." >&2
+  exit 1
+fi
 
 DEB_PATH="$({
 python3 - <<'PY'
@@ -57,6 +62,7 @@ release = fetch_json(api_url)
 tag = str(release.get("tag_name") or "")
 if not re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+", tag):
     raise RuntimeError(f"latest release tag is not stable SemVer: {tag!r}")
+tag_version = tag[1:]
 assets = release.get("assets") or []
 deb = None
 for asset in assets:
@@ -66,6 +72,9 @@ for asset in assets:
 if not deb:
     raise RuntimeError("release does not contain a nia-todo full Debian package")
 deb_name = str(deb.get("name") or "")
+deb_version = asset_re.fullmatch(deb_name).group("version")
+if deb_version != tag_version:
+    raise RuntimeError(f"Debian package version {deb_version!r} does not match release tag {tag!r}")
 sha_name = deb_name + ".sha256"
 sha = next((asset for asset in assets if isinstance(asset, dict) and asset.get("name") == sha_name), None)
 if not sha:
