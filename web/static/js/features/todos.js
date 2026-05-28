@@ -140,10 +140,10 @@ export function createTodosFeature({
     return normalizedName(value).replace(/\s+/g, '');
   }
 
-  function quickAddAliases(key, fallback = '') {
+  function quickAddAliases(key) {
     const value = t(key);
-    const raw = value === key ? fallback : value;
-    return raw.split('|').map(item => item.trim().toLowerCase()).filter(Boolean);
+    if (!value || value === key) return [];
+    return value.split('|').map(item => item.trim().toLowerCase()).filter(Boolean);
   }
 
   function findProjectByQuickAddName(rawName) {
@@ -168,12 +168,12 @@ export function createTodosFeature({
 
   function parseRelativeQuickAddDate(value, now = new Date()) {
     const n = String(value || '').toLowerCase();
-    const todayWords = quickAddAliases('quickAdd.syntax.today', 'today');
-    const tomorrowWords = quickAddAliases('quickAdd.syntax.tomorrow', 'tomorrow');
-    const dayAfterWords = quickAddAliases('quickAdd.syntax.dayAfterTomorrow', 'day-after-tomorrow');
-    const weekendWords = quickAddAliases('quickAdd.syntax.weekend', 'weekend');
-    const nextWeekWords = quickAddAliases('quickAdd.syntax.nextWeek', 'next-week');
-    const weekdays = quickAddAliases('quickAdd.syntax.weekdays', 'sunday|monday|tuesday|wednesday|thursday|friday|saturday');
+    const todayWords = quickAddAliases('quickAdd.syntax.today');
+    const tomorrowWords = quickAddAliases('quickAdd.syntax.tomorrow');
+    const dayAfterWords = quickAddAliases('quickAdd.syntax.dayAfterTomorrow');
+    const weekendWords = quickAddAliases('quickAdd.syntax.weekend');
+    const nextWeekWords = quickAddAliases('quickAdd.syntax.nextWeek');
+    const weekdays = quickAddAliases('quickAdd.syntax.weekdays');
     const weekdayIndex = weekdays.indexOf(n);
     let due = null;
     if (todayWords.includes(n)) { due = startOfToday(now); due.setHours(18, 0, 0, 0); }
@@ -212,10 +212,10 @@ export function createTodosFeature({
     const allSections = await loadSectionsForQuickAdd();
     const activeProjectId = formProjectId || currentProjectId;
     const prefixAliases = {
-      due: ['due', 'deadline', ...quickAddAliases('quickAdd.syntax.duePrefixes')],
-      remind: ['remind', 'reminder', 'notify', 'alarm', ...quickAddAliases('quickAdd.syntax.reminderPrefixes')],
-      section: ['section', ...quickAddAliases('quickAdd.syntax.sectionPrefixes')],
-      project: ['project', ...quickAddAliases('quickAdd.syntax.projectPrefixes')],
+      due: quickAddAliases('quickAdd.syntax.duePrefixes'),
+      remind: quickAddAliases('quickAdd.syntax.reminderPrefixes'),
+      section: quickAddAliases('quickAdd.syntax.sectionPrefixes'),
+      project: quickAddAliases('quickAdd.syntax.projectPrefixes'),
     };
     const addMatch = (type, tokenIndex, label, value = '') => {
       matches.push({ type, label, value, token: tokens[tokenIndex] });
@@ -225,10 +225,10 @@ export function createTodosFeature({
     tokens.forEach((token, index) => {
       const normalized = token.toLowerCase();
       const priorityMap = new Map([
-        ...quickAddAliases('quickAdd.syntax.priority.veryHigh', '!p1|!urgent').map(alias => [alias, 1]),
-        ...quickAddAliases('quickAdd.syntax.priority.high', '!p2|!high').map(alias => [alias, 2]),
-        ...quickAddAliases('quickAdd.syntax.priority.medium', '!p3|!medium').map(alias => [alias, 3]),
-        ...quickAddAliases('quickAdd.syntax.priority.low', '!p4|!low').map(alias => [alias, 4]),
+        ...quickAddAliases('quickAdd.syntax.priority.veryHigh').map(alias => [alias, 1]),
+        ...quickAddAliases('quickAdd.syntax.priority.high').map(alias => [alias, 2]),
+        ...quickAddAliases('quickAdd.syntax.priority.medium').map(alias => [alias, 3]),
+        ...quickAddAliases('quickAdd.syntax.priority.low').map(alias => [alias, 4]),
       ]);
       if (priorityMap.has(normalized)) {
         changes.priority = priorityMap.get(normalized);
@@ -315,7 +315,6 @@ export function createTodosFeature({
       if (time) setDateField('due', time, i);
     }
 
-    if (currentProjectId && !changes.project_id) changes.project_id = currentProjectId;
     const title = tokens.filter((_, index) => !used.has(index)).join(' ').trim() || original;
     return { title, changes, matches };
   }
@@ -718,7 +717,7 @@ export function createTodosFeature({
     };
     if (parsedQuickAdd) {
       if (parsedQuickAdd.changes.priority && Number(document.getElementById('todo-priority').value) === 3) todoData.priority = parsedQuickAdd.changes.priority;
-      if (parsedQuickAdd.changes.project_id && !getCurrentProjectId()) todoData.project_id = parsedQuickAdd.changes.project_id;
+      if (parsedQuickAdd.changes.project_id) todoData.project_id = parsedQuickAdd.changes.project_id;
       if (parsedQuickAdd.changes.section_id && !todoData.section_id) todoData.section_id = parsedQuickAdd.changes.section_id;
       if (parsedQuickAdd.changes.due_date && !todoData.due_date) todoData.due_date = parsedQuickAdd.changes.due_date;
       if (parsedQuickAdd.changes.remind_at && !todoData.remind_at) todoData.remind_at = parsedQuickAdd.changes.remind_at;
