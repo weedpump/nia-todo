@@ -114,7 +114,7 @@ async function testNativeChangelogOpensExternally() {
     await page.locator('[data-native-app-version] a.changelog-link').dispatchEvent('click');
     await page.waitForFunction(() => {
       const opened = JSON.parse(localStorage.getItem('__nativeOpenedUrls') || '[]');
-      return opened.includes(`${location.origin}/changelog`);
+      return opened.length === 1 && opened[0] === `${location.origin}/changelog`;
     }, null, { timeout: 10_000 });
     const path = await page.evaluate(() => location.pathname);
     if (path !== '/') throw new Error(`Native changelog click must not navigate inside app, got ${path}`);

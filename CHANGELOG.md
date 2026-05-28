@@ -7,17 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 
 ## [Unreleased]
 
-### Changed
-- Workspace number shortcuts now use `Alt+1` through `Alt+6` instead of browser-reserved `Ctrl+1` through `Ctrl+6`.
-
 ### Added
 - Passwordless passkey login is now available directly from the normal login screen, using discoverable/resident WebAuthn credentials to identify the account without username/password.
 - Passkey login challenges now use dedicated replay-protected challenge storage with rate limiting, cleanup, and server-side user-handle validation.
 
 ### Changed
+- Workspace number shortcuts now use `Alt+1` through `Alt+6` instead of browser-reserved `Ctrl+1` through `Ctrl+6`.
 - New passkey registrations now require discoverable/resident credentials so newly created passkeys can be used for passwordless login, while existing non-discoverable passkeys continue to work for MFA and re-authentication.
 
 ### Fixed
+- Native Changelog links now open exactly once in the external browser instead of ignoring the first click or opening duplicate tabs.
 - User settings no longer show an empty Authenticator App device tile when no authenticator app is configured.
 - The Add passkey action is hidden when no public base URL is configured and passkey setup would fail.
 
