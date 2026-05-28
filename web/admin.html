@@ -79,6 +79,18 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .admin-theme-toggle button:hover { background: var(--bg-secondary); color: var(--text-primary); }
 .admin-theme-toggle button.active { background: var(--accent); border-color: var(--accent); color: white; transform: scale(1.05); }
 .admin-status-card { padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.server-update-card { position: relative; overflow: hidden; border-width: 2px; }
+.server-update-card::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 8px; background: var(--border); }
+.server-update-card.update-ok { border-color: color-mix(in srgb, var(--success) 55%, var(--border)); background: linear-gradient(90deg, color-mix(in srgb, var(--success) 12%, transparent), var(--bg-secondary) 42%); }
+.server-update-card.update-ok::before { background: var(--success); }
+.server-update-card.update-warning { border-color: color-mix(in srgb, var(--warning) 70%, var(--border)); background: linear-gradient(90deg, color-mix(in srgb, var(--warning) 18%, transparent), var(--bg-secondary) 46%); }
+.server-update-card.update-warning::before { background: var(--warning); }
+.server-update-card.update-danger { border-color: color-mix(in srgb, var(--danger) 75%, var(--border)); background: linear-gradient(90deg, color-mix(in srgb, var(--danger) 18%, transparent), var(--bg-secondary) 46%); box-shadow: 0 0 0 1px color-mix(in srgb, var(--danger) 18%, transparent), var(--shadow); }
+.server-update-card.update-danger::before { background: var(--danger); }
+.server-update-badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }
+.server-update-badge.ok { background: color-mix(in srgb, var(--success) 18%, transparent); color: var(--success); }
+.server-update-badge.warning { background: color-mix(in srgb, var(--warning) 22%, transparent); color: var(--warning); }
+.server-update-badge.danger { background: color-mix(in srgb, var(--danger) 20%, transparent); color: var(--danger); }
 .security-policy-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .security-policy-main { display: flex; flex-direction: column; gap: 4px; }
 .security-policy-title { font-weight: 650; color: var(--text-primary); }
@@ -164,8 +176,8 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
   </div>
 
   <!-- Server Update -->
-  <div class="admin-card" id="server-update-card">
-    <h2><span data-icon="download-cloud"></span> <span>Server update</span></h2>
+  <div class="admin-card server-update-card" id="server-update-card">
+    <h2><span data-icon="download-cloud"></span> <span>Server update</span> <span class="server-update-badge ok" id="server-update-badge">Checking</span></h2>
     <div class="security-policy-row">
       <div class="security-policy-main">
         <div class="security-policy-title" id="server-update-title">Checking for updates…</div>
@@ -735,6 +747,27 @@ function renderServerUpdateProgress(progress) {
   }
 }
 
+function renderServerUpdateStatusVisual(status) {
+  const card = document.getElementById('server-update-card');
+  const badge = document.getElementById('server-update-badge');
+  const severity = status.update_severity || (status.update_available ? 'minor_patch' : 'none');
+  card.classList.remove('update-ok', 'update-warning', 'update-danger');
+  badge.classList.remove('ok', 'warning', 'danger');
+  if (severity === 'major') {
+    card.classList.add('update-danger');
+    badge.classList.add('danger');
+    badge.textContent = 'Major update';
+  } else if (severity === 'minor_patch' || status.update_available) {
+    card.classList.add('update-warning');
+    badge.classList.add('warning');
+    badge.textContent = 'Update available';
+  } else {
+    card.classList.add('update-ok');
+    badge.classList.add('ok');
+    badge.textContent = 'Up to date';
+  }
+}
+
 function renderServerUpdate(status) {
   const latest = status.latest_release || {};
   const latestVersion = latest.version ? `v${latest.version}` : 'unknown';
@@ -745,6 +778,7 @@ function renderServerUpdate(status) {
   const help = document.getElementById('server-update-help');
   const command = document.getElementById('server-update-command');
   const button = document.getElementById('server-update-install');
+  renderServerUpdateStatusVisual(status);
   title.textContent = status.update_available
     ? `Update available: ${currentVersion} → ${latestVersion}`
     : `Server version: ${currentVersion}`;
