@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawn, execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
 const ROOT = resolve(new URL('../..', import.meta.url).pathname);
@@ -36,6 +36,10 @@ async function waitForHttp(url, timeoutMs = 10_000) {
 if (process.getuid && process.getuid() !== 0) {
   throw new Error('Run as root. This prepares systemd/drop-in/helper state for manual update testing.');
 }
+
+console.log('🧹 Resetting previous manual test package state...');
+try { sh('dpkg', ['--purge', 'nia-todo']); } catch {}
+try { sh('git', ['restore', 'web/static/js/core/config.js'], { cwd: ROOT }); } catch {}
 
 console.log(`📦 Creating real manual test package v${VERSION}...`);
 sh('python3', ['scripts/dev/make-update-test-release.py', VERSION, '--output', RELEASE_DIR, '--base-url', BASE_URL, '--dev-app-root', ROOT], { cwd: ROOT });
