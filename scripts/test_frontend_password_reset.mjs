@@ -40,6 +40,10 @@ async function run() {
     if (!consoleMessages.some(message => message.includes('SW: registration scheduled'))) {
       throw new Error('Service worker update checks should be initialized before login');
     }
+    await page.waitForTimeout(500);
+    if (consoleMessages.some(message => message.includes('[WS] Connecting to'))) {
+      throw new Error('WebSocket must not connect before login');
+    }
     await page.locator('#login-forgot-btn').waitFor({ state: 'hidden', timeout: 10000 });
     await page.locator('#login-reset-panel').waitFor({ state: 'hidden', timeout: 5000 });
 

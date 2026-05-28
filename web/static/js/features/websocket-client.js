@@ -39,6 +39,12 @@ function getReconnectDelay() {
 }
 
 function connectWebSocket() {
+  if (!getAuthToken()) {
+    console.log('[WS] No auth token, skipping connection');
+    wsState = 'disconnected';
+    updateConnectionStatus();
+    return;
+  }
   if (ws && (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN)) {
     console.log('[WS] Already connecting or open');
     return;
@@ -137,6 +143,10 @@ function stopPingInterval() {
 }
 
 function scheduleReconnect() {
+  if (!getAuthToken()) {
+    console.log('WS: no auth token, reconnect skipped');
+    return;
+  }
   if (reconnectTimer) return;
   if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
     console.warn('WS: max reconnect attempts reached');

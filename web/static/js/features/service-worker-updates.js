@@ -1,4 +1,4 @@
-import { RUNTIME_CAPABILITIES } from '../core/config.js';
+import { APP_VERSION, RUNTIME_CAPABILITIES } from '../core/config.js';
 
 export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
   let swRegistration = null;
@@ -18,6 +18,27 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
 
   function isNativeApp() {
     return RUNTIME_CAPABILITIES.native;
+  }
+
+  function normalizeVersion(value) {
+    return String(value || '').trim().replace(/^v/i, '');
+  }
+
+  async function fetchCurrentServiceWorkerVersion() {
+    try {
+      const response = await fetch(`/sw.js?update-check=${Date.now()}`, { cache: 'reload' });
+      if (!response.ok) return '';
+      const text = await response.text();
+      return text.match(/SW_VERSION\s*=\s*['\"]([^'\"]+)['\"]/)?.[1] || '';
+    } catch (err) {
+      console.warn('SW: Could not read current service worker version', err);
+      return '';
+    }
+  }
+
+  async function shouldPromptForFirstInstallUpdate() {
+    const swVersion = await fetchCurrentServiceWorkerVersion();
+    return Boolean(swVersion && normalizeVersion(swVersion) !== normalizeVersion(APP_VERSION));
   }
 
   function withTimeout(promise, timeoutMs, label) {
@@ -66,7 +87,14 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
           newWorker.addEventListener('statechange', () => {
             if (newWorker.state !== 'installed') return;
             if (!hadControllerAtRegistration) {
-              console.log('SW: First installation completed — no update prompt');
+              shouldPromptForFirstInstallUpdate().then((shouldPrompt) => {
+                if (shouldPrompt) {
+                  console.log('SW: First installation is newer than loaded app — showing update prompt');
+                  markUpdateAvailable(newWorker);
+                } else {
+                  console.log('SW: First installation completed — no update prompt');
+                }
+              });
               return;
             }
             if (!reg.waiting) {
@@ -213,9 +241,9 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
       swRegistration.waiting.postMessage({ action: 'skipWaiting' });
       return true;
     }
-    console.log('SW: No waiting worker to activate');
-    if (primary) primary.disabled = false;
-    return false;
+    console.log('SW: No waiting worker to activate — falling back to hard reload');
+    await forceReloadApp();
+    return true;
   }
 
   async function forceReloadApp() {
