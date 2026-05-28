@@ -5,7 +5,20 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.5.3] - 2026-05-28
+
+### Added
+- Passwordless passkey login is now available directly from the normal login screen, using discoverable/resident WebAuthn credentials to identify the account without username/password.
+- Passkey login challenges now use dedicated replay-protected challenge storage with rate limiting, cleanup, and server-side user-handle validation.
+
+### Changed
+- Workspace number shortcuts now use `Alt+1` through `Alt+6` instead of browser-reserved `Ctrl+1` through `Ctrl+6`.
+- New passkey registrations now require discoverable/resident credentials so newly created passkeys can be used for passwordless login, while existing non-discoverable passkeys continue to work for MFA and re-authentication.
+
+### Fixed
+- Native Changelog links now open exactly once in the external browser instead of ignoring the first click or opening duplicate tabs.
+- User settings no longer show an empty Authenticator App device tile when no authenticator app is configured.
+- The Add passkey action is hidden when no public base URL is configured and passkey setup would fail.
 
 ## [2.5.2] - 2026-05-28
 
@@ -13,7 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - Browser/PWA download discovery now includes a compact `Download apps` launcher in the sidebar footer and on the login page, both opening a shared app download modal.
 - The app download modal now shows Windows and Android downloads side by side and includes the exact server hostname users should enter in the native apps, preferring the configured public base URL and falling back to the current host without `https://`.
 - Todo rows on wide screens now expose an inline status menu for quickly switching between open, in-progress, and done without opening the todo dialog.
-- Keyboard shortcuts now support hovering a todo and pressing Space to cycle its status, plus `Ctrl+1` through `Ctrl+6` to switch between workspaces inside the app.
+- Keyboard shortcuts now support hovering a todo and pressing Space to cycle its status, plus `Alt+1` through `Alt+6` to switch between workspaces inside the app.
 - Frontend regression coverage was added for app download visibility, quick todo status controls, project clear-done handling, workspace number shortcuts, and changelog nested list rendering.
 
 ### Changed
