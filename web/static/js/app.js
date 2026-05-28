@@ -333,6 +333,22 @@ function toggleMobileSearch() {
   else openMobileSearch();
 }
 
+function isTypingTarget(element) {
+  const tag = element?.tagName;
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || element?.isContentEditable;
+}
+
+function bindTodayFocusHotkey() {
+  if (document.documentElement.dataset.todayFocusHotkeyBound === '1') return;
+  document.documentElement.dataset.todayFocusHotkeyBound = '1';
+  document.addEventListener('keydown', (event) => {
+    if (event.key?.toLowerCase() !== 'f' || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
+    if (isTypingTarget(event.target) || document.querySelector('.modal.active')) return;
+    event.preventDefault();
+    toggleTodayFocus();
+  });
+}
+
 desktopIntegration = createDesktopIntegration({
   showToast: (...args) => showToast(...args),
   onHotkeyNewTodo: async () => {
@@ -667,6 +683,7 @@ export function startAppModule() {
   confirmDialogFeature.bindConfirmDialog();
   appDownloadsFeature.initAppDownloads();
   bindNativePointerDragDrop();
+  bindTodayFocusHotkey();
   document.addEventListener('click', (event) => {
     const box = document.getElementById('search-box');
     const input = document.getElementById('search-input');

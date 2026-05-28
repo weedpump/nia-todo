@@ -2725,10 +2725,10 @@ input[type="color"]::-moz-color-swatch {
   padding-top: 8px;
 }
 
-#login-overlay > .login-update-refresh {
+.login-box > .login-update-refresh {
   display: flex;
   width: fit-content;
-  max-width: calc(100% - 32px);
+  max-width: 100%;
   min-height: 30px;
   margin: 10px auto 0;
   padding: 7px 10px;
@@ -2739,7 +2739,7 @@ input[type="color"]::-moz-color-swatch {
   opacity: 0.82;
 }
 
-#login-overlay > .login-update-refresh:hover {
+.login-box > .login-update-refresh:hover {
   opacity: 1;
 }
 

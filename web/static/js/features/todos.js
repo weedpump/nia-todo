@@ -269,7 +269,7 @@ export function createTodosFeature({
     document.addEventListener('pointerdown', (event) => {
       if (!event.isPrimary || (event.pointerType && event.pointerType !== 'touch' && event.pointerType !== 'pen')) return;
       const item = event.target?.closest?.('.todo-item');
-      if (!item || event.target.closest('button, input, select, textarea, a, .todo-check, .todo-actions')) return;
+      if (!item || event.target.closest('input, select, textarea, .todo-check')) return;
       active = {
         item,
         id: item.dataset.id,
