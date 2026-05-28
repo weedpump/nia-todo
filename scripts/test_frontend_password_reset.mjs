@@ -21,6 +21,8 @@ conn.close()
 async function run() {
   console.log('🔐 Running Playwright password reset/expired link test...');
   const { browser, page, assertNoFrontendErrors } = await launchPage();
+  const consoleMessages = [];
+  page.on('console', message => consoleMessages.push(message.text()));
   await page.addInitScript(() => localStorage.setItem('nia-todo-language', 'de'));
 
   try {
@@ -33,6 +35,10 @@ async function run() {
     const loginOverlayZIndex = await page.locator('#login-overlay').evaluate(el => getComputedStyle(el).zIndex);
     if (Number(updateModalZIndex) <= Number(loginOverlayZIndex)) {
       throw new Error(`Web update modal must appear above login overlay: modal=${updateModalZIndex}, login=${loginOverlayZIndex}`);
+    }
+    await page.waitForFunction(() => window.__niaAppModuleStarted === true, null, { timeout: 10000 });
+    if (!consoleMessages.some(message => message.includes('SW: registration scheduled'))) {
+      throw new Error('Service worker update checks should be initialized before login');
     }
     await page.locator('#login-forgot-btn').waitFor({ state: 'hidden', timeout: 10000 });
     await page.locator('#login-reset-panel').waitFor({ state: 'hidden', timeout: 5000 });

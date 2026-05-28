@@ -218,6 +218,12 @@ export function createAppLifecycle({
           // Continue with login overlay when setup check fails or times out.
         }
 
+        try {
+          await initServiceWorker();
+        } catch (e) {
+          console.warn('Service worker init failed before auth:', e);
+        }
+
         let authed = false;
         try {
           authed = await checkAuth();
