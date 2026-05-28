@@ -182,8 +182,7 @@ fi
 write_status "running" "Installing Debian package…" "${PACKAGE_VERSION}"
 export DEBIAN_FRONTEND=noninteractive
 apt-get install -y "${DEB_PATH}"
-write_status "running" "Restarting nia-todo service…" "${PACKAGE_VERSION}"
-systemctl restart "${SERVICE_NAME}.service"
-write_status "success" "nia-todo updated successfully. Hard reload required." "${PACKAGE_VERSION}"
+write_status "success" "nia-todo updated successfully. Service restart requested. Hard reload required." "${PACKAGE_VERSION}"
+systemctl restart --no-block "${SERVICE_NAME}.service"
 
 echo "nia-todo updated to ${PACKAGE_VERSION}."
