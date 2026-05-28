@@ -60,8 +60,7 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
     serviceWorkerInitStarted = true;
     if (isNativeApp()) {
       hideUpdateModal();
-      console.log('SW: web update checks skipped in native runtime');
-      return;
+      console.log('SW: web update prompts suppressed in native runtime');
     }
     if (!('serviceWorker' in navigator) || typeof navigator.serviceWorker?.register !== 'function') return;
 
