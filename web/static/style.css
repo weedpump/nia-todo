@@ -2072,9 +2072,13 @@ input[type="color"]::-moz-color-swatch {
 }
 
 .login-overlay {
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+  padding: 32px 16px;
 }
 
 .boot-overlay {
@@ -2256,6 +2260,7 @@ input[type="color"]::-moz-color-swatch {
 .login-box {
   width: 100%;
   max-width: 380px;
+  margin: auto 0;
   padding: 40px 32px;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
