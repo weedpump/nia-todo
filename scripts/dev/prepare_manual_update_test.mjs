@@ -12,6 +12,7 @@ const PID_FILE = `${ROOT}/.local/manual-update-release/http-server.pid`;
 const HELPER_SRC = `${ROOT}/packaging/scripts/nia-todo-server-update.sh`;
 const HELPER_DST = '/usr/local/bin/nia-todo-server-update';
 const SOURCE_CONFIG = '/etc/nia-todo/update-source.env';
+const STATUS_FILE = '/var/cache/nia-todo/updates/status.json';
 const SERVICE = process.env.NIA_TODO_SERVICE || 'nia-todo-dev';
 const DROPIN_DIR = `/etc/systemd/system/${SERVICE}.service.d`;
 const DROPIN_FILE = `${DROPIN_DIR}/server-update-manual-test.conf`;
@@ -54,6 +55,7 @@ writeFileSync(PID_FILE, `${server.pid}\n`, 'utf8');
 await waitForHttp(`${BASE_URL}/latest.json`);
 
 console.log('🔧 Installing helper and dev-service test overrides...');
+rmSync(STATUS_FILE, { force: true });
 sh('install', ['-m', '755', '-o', 'root', '-g', 'root', HELPER_SRC, HELPER_DST]);
 mkdirSync(dirname(SOURCE_CONFIG), { recursive: true });
 writeFileSync(SOURCE_CONFIG, `RELEASE_API_LATEST=${BASE_URL}/latest.json\nSERVICE_NAME=${SERVICE}\n`, 'utf8');
