@@ -76,12 +76,27 @@ def test_update_progress_status_file():
     assert_equal(progress["target_version"], "9.9.9", "progress target")
 
 
+def test_update_progress_reconciles_stale_running_status():
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "status.json"
+        path.write_text(
+            json.dumps({"state": "installing", "message": "Installing Debian package...", "target_version": "2.5.5"}),
+            encoding="utf-8",
+        )
+        with patch.object(server_updates, "UPDATE_STATUS_FILE", path), \
+             patch.object(server_updates, "_read_web_app_version", return_value="2.5.5"):
+            progress = server_updates.get_update_progress()
+    assert_equal(progress["state"], "success", "reconciled progress state")
+    assert_equal(progress["target_version"], "2.5.5", "reconciled progress target")
+
+
 def main():
     test_version_compare()
     test_update_severity()
     test_docker_status_is_hint_only()
     test_deb_requires_helper()
     test_update_progress_status_file()
+    test_update_progress_reconciles_stale_running_status()
     print("✅ server update tests passed")
 
 
