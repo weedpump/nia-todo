@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - Todos can now be pinned into a dedicated pinned group for easier access.
 - Pin/unpin and snooze changes now support undo from the toast action.
 - Mobile/native UX feedback now uses visible rounded press states with accent color, ring, glow, and subtle scale feedback instead of the default square browser highlight.
+- Native haptic feedback now confirms real todo status changes on supported devices.
 - Sync visibility now includes a compact pending-sync badge that fits the mobile top bar alongside the offline indicator.
 - Admin user management now shows each user's last activity so inactive accounts are easier to identify.
 
