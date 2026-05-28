@@ -830,11 +830,5 @@
   "todo.snooze.nextWeek": "Nächste Woche",
   "todo.toast.pinned": "Todo angepinnt",
   "todo.toast.unpinned": "Pin gelöst",
-  "todo.toast.snoozed": "Todo verschoben",
-  "todayAgenda.title": "Heute im Fokus",
-  "todayAgenda.empty": "Heute ist nichts Dringendes offen.",
-  "todayAgenda.open": "offen",
-  "todayAgenda.overdue": "überfällig",
-  "todayAgenda.pinned": "gepinnt",
-  "todayAgenda.noTime": "ohne Uhrzeit"
+  "todo.toast.snoozed": "Todo verschoben"
 }
