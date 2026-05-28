@@ -486,6 +486,7 @@ const navigationFeature = createNavigationFeature({
 });
 const setFilter = navigationFeature.setFilter;
 const loadSectionsForCurrentProject = navigationFeature.loadSectionsForCurrentProject;
+const bindNavigationHistory = navigationFeature.bindNavigationHistory;
 
 const showProjectModal = projectsFeature.showProjectModal;
 const editProject = projectsFeature.editProject;
@@ -684,6 +685,7 @@ export function startAppModule() {
   appDownloadsFeature.initAppDownloads();
   bindNativePointerDragDrop();
   bindTodayFocusHotkey();
+  bindNavigationHistory();
   document.addEventListener('click', (event) => {
     const box = document.getElementById('search-box');
     const input = document.getElementById('search-input');
@@ -720,7 +722,7 @@ export function startAppModule() {
   lifecycle: { initServiceWorker, triggerUpdate, forceReloadApp, initApp, loadFromLocalDB, loadAll },
   appDownloads: { openAppDownloadsModal },
   rendering: { renderVersionInfo, renderProjects, renderStats, renderTodos, renderSectionHeader, countByProject },
-  navigation: { setFilter, loadSectionsForCurrentProject },
+  navigation: { setFilter, loadSectionsForCurrentProject, bindNavigationHistory },
   workspaces: { renderWorkspaces, switchWorkspace, createWorkspace, showWorkspaceModal, closeWorkspaceModal, saveWorkspace, deleteWorkspaceFromModal, toggleWorkspaceMenu, closeWorkspaceMenu, loadWorkspacesFromServer },
   todos: { markTodoDone, markTodoInProgress, markTodoDoneFromNative, setTodoStatus, toggleTodo, toggleTodoPin, snoozeTodo, showTodoModal, onProjectChange, saveTodo, editTodo, deleteTodoFromModal, deleteTodo },
   projects: { showProjectModal, editProject, saveProject, deleteProject, deleteProjectFromModal, clearDoneFromModal, clearDoneInProject },
