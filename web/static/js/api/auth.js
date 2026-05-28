@@ -59,8 +59,8 @@ function browserPublicKeyFromJson(publicKey, mode) {
   if (mode === 'create') {
     next.user.id = b64urlToBuffer(next.user.id);
     next.excludeCredentials = (next.excludeCredentials || []).map(item => ({ ...item, id: b64urlToBuffer(item.id) }));
-  } else {
-    next.allowCredentials = (next.allowCredentials || []).map(item => ({ ...item, id: b64urlToBuffer(item.id) }));
+  } else if (Array.isArray(next.allowCredentials)) {
+    next.allowCredentials = next.allowCredentials.map(item => ({ ...item, id: b64urlToBuffer(item.id) }));
   }
   return next;
 }
@@ -78,6 +78,29 @@ export const authApi = {
       credentials: 'include',
     });
     return parseOrThrow(response, t('api.auth.loginFailed'));
+  },
+
+  async loginWithPasskey() {
+    if (RUNTIME_CAPABILITIES.native && !canUseNativePasskeyBridge()) {
+      throw new Error(t('api.auth.nativePasskeysUnsupportedUseCode'));
+    }
+    const optionsResponse = await fetch(API + '/api/login/passkey/options', {
+      method: 'POST', headers: getJsonHeaders(), credentials: 'include', body: JSON.stringify({}),
+    });
+    const optionsData = await parseOrThrow(optionsResponse, t('api.auth.passkeyChallengeFailed'));
+    const publicKey = optionsData.publicKey;
+    let credential;
+    try {
+      credential = canUseNativePasskeyBridge()
+        ? await nativeBridge.passkeyAuthenticate(passkeyOrigin(optionsData), publicKey)
+        : await navigator.credentials.get({ publicKey: browserPublicKeyFromJson(publicKey, 'get') });
+    } catch (error) {
+      throw new Error(t('api.auth.passkeyLoginFailed', { error: error?.message || error }));
+    }
+    const verifyResponse = await fetch(API + '/api/login/passkey/verify', {
+      method: 'POST', headers: getJsonHeaders(), credentials: 'include', body: JSON.stringify({ challenge: optionsData.challenge, credential: credentialToJson(credential) }),
+    });
+    return parseOrThrow(verifyResponse, t('api.auth.passkeyVerifyFailed'));
   },
 
   async verify2fa(challengeToken, method, code, rememberDevice = false) {

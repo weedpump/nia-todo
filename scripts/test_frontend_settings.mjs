@@ -197,8 +197,8 @@ async function run() {
       const devicesText = document.getElementById('settings-2fa-devices')?.innerText || '';
       const setupBtn = document.querySelector('#settings-2fa-actions button[onclick="startTwoFactorTotp()"]');
       const setupBtnVisible = setupBtn ? window.getComputedStyle(setupBtn).display !== 'none' : false;
-      const noTotpYet = /Noch nicht eingerichtet|Not set up yet/.test(devicesText);
-      return setupBtnVisible && noTotpYet;
+      const duplicateTotpSetupCardHidden = !/Noch nicht eingerichtet|Not set up yet/.test(devicesText);
+      return setupBtnVisible && duplicateTotpSetupCardHidden;
     }, null, { timeout: 10000 });
     const currentSessionRevokeButton = page.locator('#settings-2fa-trusted-devices .settings-device-row', { hasText: /this device|dieses Gerät/ }).locator('button').first();
     await currentSessionRevokeButton.click();
@@ -216,9 +216,9 @@ async function run() {
       const devicesText = document.getElementById('settings-2fa-devices')?.innerText || '';
       const setupBtn = document.querySelector('#settings-2fa-actions button[onclick="startTwoFactorTotp()"]');
       const setupBtnVisible = setupBtn ? window.getComputedStyle(setupBtn).display !== 'none' : false;
-      const noTotpYet = /Noch nicht eingerichtet|Not set up yet/.test(devicesText);
+      const duplicateTotpSetupCardHidden = !/Noch nicht eingerichtet|Not set up yet/.test(devicesText);
       const noReferenceError = !statusText.includes('ReferenceError') && !statusText.includes('totpCountLabel');
-      return setupBtnVisible && noTotpYet && noReferenceError;
+      return setupBtnVisible && duplicateTotpSetupCardHidden && noReferenceError;
     }, null, { timeout: 10000 });
 
     await page.fill('#settings-old-password', USER_PASSWORD);
