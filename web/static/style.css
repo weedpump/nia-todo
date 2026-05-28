@@ -2566,6 +2566,33 @@ input[type="color"]::-moz-color-swatch {
   padding-top: 8px;
 }
 
+.login-overlay > .login-update-refresh {
+  position: fixed;
+  left: 50%;
+  bottom: max(18px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  min-height: 26px;
+  padding: 5px 10px;
+  border-color: rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.18));
+  background: rgba(var(--bg-secondary-rgb), 0.55);
+  color: var(--text-muted);
+  font-size: 11px;
+  opacity: 0.72;
+  backdrop-filter: blur(10px);
+}
+
+.login-overlay > .login-update-refresh:hover {
+  transform: translateX(-50%) translateY(-1px);
+  opacity: 1;
+}
+
+@media (max-width: 480px) {
+  .login-overlay > .login-update-refresh {
+    bottom: max(10px, env(safe-area-inset-bottom));
+    max-width: calc(100vw - 32px);
+  }
+}
+
 .settings-resource-links {
   margin-bottom: 4px;
 }
@@ -2779,8 +2806,9 @@ input[type="color"]::-moz-color-swatch {
 }
 
 .native-app .version-info,
-.native-app .web-version-actions {
-  display: none;
+.native-app .web-version-actions,
+.native-app #web-update-modal {
+  display: none !important;
 }
 
 .version-info,
@@ -2921,7 +2949,7 @@ input[type="color"]::-moz-color-swatch {
 }
 
 .web-update-modal {
-  z-index: 450;
+  z-index: 1200;
 }
 
 .web-update-backdrop {

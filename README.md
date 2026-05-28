@@ -89,7 +89,10 @@ For production use, put nia-todo behind HTTPS/reverse proxy and set the public b
 
 ## 🔄 Updates
 
-Install the newer `.deb` package over the existing installation:
+Debian/systemd installations can be updated from the admin panel when a newer GitHub release is available.
+The server downloads the `.deb`, verifies the published SHA256 checksum, creates a pre-upgrade SQLite backup, installs the package through a restricted root helper, and restarts the service.
+
+Manual update still works:
 
 ```bash
 sudo apt install ./nia-todo-server-vX.Y.Z-full.deb
@@ -107,6 +110,12 @@ sudo apt install ./nia-todo-server-vX.Y.Z-full.deb
 ```
 
 ## 🐳 Docker
+
+Docker installations are not self-updated from inside the nia-todo container. The admin panel can show that a newer release exists, but you update Docker by pulling the newest image and recreating the container/stack:
+
+```bash
+docker compose pull && docker compose up -d
+```
 
 Run the published image directly:
 

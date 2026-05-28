@@ -1,4 +1,4 @@
-import { RUNTIME_CAPABILITIES } from '../core/config.js';
+import { APP_VERSION, RUNTIME_CAPABILITIES } from '../core/config.js';
 
 export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
   let swRegistration = null;
@@ -7,6 +7,7 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
   let hadControllerAtRegistration = false;
   let updateCheckInFlight = false;
   let lastUpdateCheckAt = 0;
+  let serviceWorkerInitStarted = false;
 
   const STARTUP_SW_DELAY_MS = 5000;
   const UPDATE_CHECK_TIMEOUT_MS = 8000;
@@ -19,6 +20,27 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
     return RUNTIME_CAPABILITIES.native;
   }
 
+  function normalizeVersion(value) {
+    return String(value || '').trim().replace(/^v/i, '');
+  }
+
+  async function fetchCurrentServiceWorkerVersion() {
+    try {
+      const response = await fetch(`/sw.js?update-check=${Date.now()}`, { cache: 'reload' });
+      if (!response.ok) return '';
+      const text = await response.text();
+      return text.match(/SW_VERSION\s*=\s*['\"]([^'\"]+)['\"]/)?.[1] || '';
+    } catch (err) {
+      console.warn('SW: Could not read current service worker version', err);
+      return '';
+    }
+  }
+
+  async function shouldPromptForFirstInstallUpdate() {
+    const swVersion = await fetchCurrentServiceWorkerVersion();
+    return Boolean(swVersion && normalizeVersion(swVersion) !== normalizeVersion(APP_VERSION));
+  }
+
   function withTimeout(promise, timeoutMs, label) {
     return Promise.race([
       promise,
@@ -26,7 +48,20 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
     ]);
   }
 
+  function hideUpdateModal() {
+    const modal = document.getElementById('web-update-modal');
+    if (!modal) return;
+    modal.classList.remove('active');
+    modal.setAttribute('aria-hidden', 'true');
+  }
+
   async function initServiceWorker() {
+    if (serviceWorkerInitStarted) return;
+    serviceWorkerInitStarted = true;
+    if (isNativeApp()) {
+      hideUpdateModal();
+      console.log('SW: web update prompts suppressed in native runtime');
+    }
     if (!('serviceWorker' in navigator) || typeof navigator.serviceWorker?.register !== 'function') return;
 
     console.log('SW: registration scheduled');
@@ -63,7 +98,14 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
           newWorker.addEventListener('statechange', () => {
             if (newWorker.state !== 'installed') return;
             if (!hadControllerAtRegistration) {
-              console.log('SW: First installation completed — no update prompt');
+              shouldPromptForFirstInstallUpdate().then((shouldPrompt) => {
+                if (shouldPrompt) {
+                  console.log('SW: First installation is newer than loaded app — showing update prompt');
+                  markUpdateAvailable(newWorker);
+                } else {
+                  console.log('SW: First installation completed — no update prompt');
+                }
+              });
               return;
             }
             if (!reg.waiting) {
@@ -210,15 +252,15 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
       swRegistration.waiting.postMessage({ action: 'skipWaiting' });
       return true;
     }
-    console.log('SW: No waiting worker to activate');
-    if (primary) primary.disabled = false;
-    return false;
+    console.log('SW: No waiting worker to activate — falling back to hard reload');
+    await forceReloadApp();
+    return true;
   }
 
   async function forceReloadApp() {
-    const button = document.getElementById('force-refresh-btn');
-    const previousTitle = button?.title;
-    if (button) {
+    const buttons = Array.from(document.querySelectorAll('#force-refresh-btn, [data-force-refresh-button]'));
+    const previousTitles = new Map(buttons.map(button => [button, button.title]));
+    for (const button of buttons) {
       button.disabled = true;
       button.title = 'Web-App wird neu geladen…';
     }
@@ -261,9 +303,9 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
       console.error('Forced app reload failed:', err);
       window.location.reload();
     } finally {
-      if (button) {
+      for (const button of buttons) {
         button.disabled = false;
-        button.title = previousTitle || 'Web-App neu herunterladen und Cache aktualisieren';
+        button.title = previousTitles.get(button) || 'Web-App neu herunterladen und Cache aktualisieren';
       }
     }
   }
