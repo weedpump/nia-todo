@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Focused tests for server update status logic."""
 
+import json
 import sys
+import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
@@ -57,10 +59,21 @@ def test_deb_requires_helper():
     assert_equal(status["can_install"], False, "deb helper missing")
 
 
+def test_update_progress_status_file():
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "status.json"
+        path.write_text(json.dumps({"state": "success", "message": "done", "target_version": "9.9.9"}), encoding="utf-8")
+        with patch.object(server_updates, "UPDATE_STATUS_FILE", path):
+            progress = server_updates.get_update_progress()
+    assert_equal(progress["state"], "success", "progress state")
+    assert_equal(progress["target_version"], "9.9.9", "progress target")
+
+
 def main():
     test_version_compare()
     test_docker_status_is_hint_only()
     test_deb_requires_helper()
+    test_update_progress_status_file()
     print("✅ server update tests passed")
 
 
