@@ -7,6 +7,7 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
   let hadControllerAtRegistration = false;
   let updateCheckInFlight = false;
   let lastUpdateCheckAt = 0;
+  let serviceWorkerInitStarted = false;
 
   const STARTUP_SW_DELAY_MS = 5000;
   const UPDATE_CHECK_TIMEOUT_MS = 8000;
@@ -27,6 +28,8 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
   }
 
   async function initServiceWorker() {
+    if (serviceWorkerInitStarted) return;
+    serviceWorkerInitStarted = true;
     if (!('serviceWorker' in navigator) || typeof navigator.serviceWorker?.register !== 'function') return;
 
     console.log('SW: registration scheduled');
