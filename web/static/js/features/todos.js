@@ -104,6 +104,118 @@ export function createTodosFeature({
     const date = new Date(value);
     return Number.isFinite(date.getTime()) ? date.toISOString() : null;
   }
+  function runHapticFeedback(pattern = 12) {
+    try {
+      if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') navigator.vibrate(pattern);
+    } catch (error) {
+      // Haptics are best-effort only.
+    }
+  }
+
+  function setDateTimeInputValue(id, date) {
+    const input = document.getElementById(id);
+    if (!input || !date || !Number.isFinite(date.getTime())) return;
+    input.value = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}T${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}`;
+  }
+
+  function startOfToday(base = new Date()) {
+    const d = new Date(base);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }
+
+  function nextWeekday(base, targetDay) {
+    const d = startOfToday(base);
+    const delta = (targetDay + 7 - d.getDay()) % 7 || 7;
+    d.setDate(d.getDate() + delta);
+    d.setHours(9, 0, 0, 0);
+    return d;
+  }
+
+  function parseQuickAddTitle(rawTitle, currentProjectId) {
+    const original = String(rawTitle || '').trim();
+    if (!original) return { title: original, changes: {} };
+    const now = new Date();
+    const tokens = original.split(/\s+/);
+    const used = new Set();
+    const changes = {};
+
+    tokens.forEach((token, index) => {
+      const normalized = token.toLowerCase();
+      const priorityMap = {
+        '!p1': 1, '!urgent': 1, '!sehrhoch': 1, '!sehr-hoch': 1,
+        '!hoch': 2, '!high': 2, '!p2': 2,
+        '!mittel': 3, '!medium': 3, '!p3': 3,
+        '!niedrig': 4, '!low': 4, '!p4': 4,
+      };
+      if (priorityMap[normalized]) {
+        changes.priority = priorityMap[normalized];
+        used.add(index);
+      }
+    });
+
+    tokens.forEach((token, index) => {
+      if (!token.startsWith('#') || token.length < 2) return;
+      const wanted = token.slice(1).replace(/[-_]/g, ' ').toLowerCase();
+      const project = getProjects().find(p => String(p.name || '').toLowerCase() === wanted || String(p.name || '').toLowerCase().replace(/\s+/g, '') === wanted.replace(/\s+/g, ''));
+      if (project) {
+        changes.project_id = project.id;
+        used.add(index);
+      }
+    });
+
+    let due = null;
+    for (let i = 0; i < tokens.length; i += 1) {
+      const n = tokens[i].toLowerCase();
+      if (['heute', 'today'].includes(n)) { due = startOfToday(now); due.setHours(18, 0, 0, 0); used.add(i); }
+      else if (['morgen', 'tomorrow'].includes(n)) { due = startOfToday(now); due.setDate(due.getDate() + 1); due.setHours(9, 0, 0, 0); used.add(i); }
+      else if (['übermorgen', 'uebermorgen'].includes(n)) { due = startOfToday(now); due.setDate(due.getDate() + 2); due.setHours(9, 0, 0, 0); used.add(i); }
+      else if (['wochenende', 'weekend'].includes(n)) { due = nextWeekday(now, 6); used.add(i); }
+      else if (n === 'montag') { due = nextWeekday(now, 1); used.add(i); }
+      else if (n === 'dienstag') { due = nextWeekday(now, 2); used.add(i); }
+      else if (n === 'mittwoch') { due = nextWeekday(now, 3); used.add(i); }
+      else if (n === 'donnerstag') { due = nextWeekday(now, 4); used.add(i); }
+      else if (n === 'freitag') { due = nextWeekday(now, 5); used.add(i); }
+      else if (n === 'samstag') { due = nextWeekday(now, 6); used.add(i); }
+      else if (n === 'sonntag') { due = nextWeekday(now, 0); used.add(i); }
+      else if (n === 'nächste' && ['woche', 'week'].includes(tokens[i + 1]?.toLowerCase())) { due = startOfToday(now); due.setDate(due.getDate() + 7); due.setHours(9, 0, 0, 0); used.add(i); used.add(i + 1); }
+    }
+
+    const timeIndex = tokens.findIndex((token, index) => !used.has(index) && /^([01]?\d|2[0-3])[:.]([0-5]\d)$/.test(token));
+    if (timeIndex >= 0) {
+      const [, hh, mm] = tokens[timeIndex].match(/^([01]?\d|2[0-3])[:.]([0-5]\d)$/);
+      if (!due) due = startOfToday(now);
+      due.setHours(Number(hh), Number(mm), 0, 0);
+      if (due < now && !tokens.some(token => ['heute', 'today'].includes(token.toLowerCase()))) due.setDate(due.getDate() + 1);
+      used.add(timeIndex);
+    }
+
+    if (due) changes.due_date = due.toISOString();
+    if (currentProjectId && !changes.project_id) changes.project_id = currentProjectId;
+    const title = tokens.filter((_, index) => !used.has(index)).join(' ').trim() || original;
+    return { title, changes };
+  }
+
+  function getSnoozeDate(mode, todo) {
+    const base = todo?.due_date ? new Date(todo.due_date) : new Date();
+    const now = new Date();
+    const start = Number.isFinite(base.getTime()) && base > now ? base : now;
+    const next = new Date(start);
+    if (mode === 'hour') next.setHours(next.getHours() + 1);
+    else if (mode === 'evening') {
+      next.setHours(18, 0, 0, 0);
+      if (next <= now) next.setDate(next.getDate() + 1);
+    } else if (mode === 'tomorrow') {
+      next.setDate(now.getDate() + 1);
+      next.setHours(9, 0, 0, 0);
+    } else if (mode === 'weekend') return nextWeekday(now, 6);
+    else if (mode === 'next-week') {
+      next.setDate(now.getDate() + 7);
+      next.setHours(9, 0, 0, 0);
+    }
+    return next;
+  }
+
 
   async function setTodoStatus(id, status) {
     if (!getAppInitialized() || !getDb()) return;
@@ -114,7 +226,10 @@ export function createTodosFeature({
     setTodos(getTodos().map(item => String(item.id) === String(id) ? updatedTodo : item));
     renderStats();
     renderTodos();
-    if (status === 'done') showToast(t('todo.toast.done'), { type: 'status', id: todo.id, previousStatus: todo.status });
+    if (status === 'done') {
+      runHapticFeedback();
+      showToast(t('todo.toast.done'), { type: 'status', id: todo.id, previousStatus: todo.status });
+    }
     else if (todo.status === 'done' && status === 'pending') showToast(t('todo.toast.reopened'), { type: 'status', id: todo.id, previousStatus: todo.status });
     await addToSyncQueue('UPDATE_TODO', { id: todo.id, changes: { status } });
     if (isOnlineForSync()) await syncWithServer();
@@ -338,6 +453,7 @@ export function createTodosFeature({
       document.getElementById('todo-title').value = todo.title;
       document.getElementById('todo-desc').value = todo.description || '';
       document.getElementById('todo-priority').value = todo.priority;
+      document.getElementById('todo-pinned').checked = Boolean(todo.is_pinned);
       document.getElementById('todo-status').value = todo.status;
       document.getElementById('todo-project').value = todo.project_id || '';
       await onProjectChange(todo.section_id);
@@ -351,6 +467,7 @@ export function createTodosFeature({
         document.getElementById('todo-remind').value = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
       }
     } else {
+      document.getElementById('todo-pinned').checked = false;
       const currentWorkspaceId = getCurrentWorkspaceId?.();
       const workspaceProjects = getProjects().filter(p => !p.is_shared && (!currentWorkspaceId || String(p.workspace_id || '') === String(currentWorkspaceId)));
       const inboxProject = workspaceProjects.find(p => p.is_inbox) || workspaceProjects[0];
@@ -416,16 +533,23 @@ export function createTodosFeature({
     if (!getAppInitialized() || !getDb()) return;
     if (!validateTodoDateTimes()) return;
     const id = document.getElementById('todo-id').value;
+    const parsedQuickAdd = id ? null : parseQuickAddTitle(document.getElementById('todo-title').value, getCurrentProjectId());
     const todoData = {
-      title: document.getElementById('todo-title').value,
+      title: parsedQuickAdd?.title || document.getElementById('todo-title').value,
       description: document.getElementById('todo-desc').value,
       priority: parseInt(document.getElementById('todo-priority').value),
+      is_pinned: document.getElementById('todo-pinned')?.checked || false,
       project_id: document.getElementById('todo-project').value ? parseInt(document.getElementById('todo-project').value) : null,
       section_id: document.getElementById('todo-section').value ? parseInt(document.getElementById('todo-section').value) : null,
       status: document.getElementById('todo-status').value,
       due_date: toIsoOrNull('todo-due'),
       remind_at: toIsoOrNull('todo-remind'),
     };
+    if (parsedQuickAdd) {
+      if (parsedQuickAdd.changes.priority && Number(document.getElementById('todo-priority').value) === 3) todoData.priority = parsedQuickAdd.changes.priority;
+      if (parsedQuickAdd.changes.project_id && !getCurrentProjectId()) todoData.project_id = parsedQuickAdd.changes.project_id;
+      if (parsedQuickAdd.changes.due_date && !todoData.due_date) todoData.due_date = parsedQuickAdd.changes.due_date;
+    }
     if (id) {
       const existing = getTodos().find(t => t.id === parseInt(id));
       if (existing) {
@@ -460,6 +584,33 @@ export function createTodosFeature({
     }
   }
 
+  async function updateTodoFields(id, changes, toastMessage = null) {
+    if (!getAppInitialized() || !getDb()) return;
+    const todo = getTodos().find(x => String(x.id) === String(id));
+    if (!todo) return;
+    const updatedTodo = { ...todo, ...changes, updated_at: new Date().toISOString() };
+    await dbPut('todos', updatedTodo);
+    setTodos(getTodos().map(item => String(item.id) === String(id) ? updatedTodo : item));
+    renderStats();
+    renderTodos();
+    if (toastMessage) showToast(toastMessage);
+    await addToSyncQueue('UPDATE_TODO', { id: todo.id, changes });
+    if (isOnlineForSync()) await syncWithServer();
+  }
+
+  async function toggleTodoPin(id) {
+    const todo = getTodos().find(x => String(x.id) === String(id));
+    if (!todo) return;
+    await updateTodoFields(id, { is_pinned: !Boolean(todo.is_pinned) }, Boolean(todo.is_pinned) ? t('todo.toast.unpinned') : t('todo.toast.pinned'));
+  }
+
+  async function snoozeTodo(id, mode) {
+    const todo = getTodos().find(x => String(x.id) === String(id));
+    if (!todo) return;
+    const due = getSnoozeDate(mode, todo);
+    await updateTodoFields(id, { due_date: due.toISOString() }, t('todo.toast.snoozed'));
+  }
+
   function editTodo(id) {
     const todo = getTodos().find(t => String(t.id) === String(id));
     if (todo) showTodoModal(todo);
@@ -489,5 +640,5 @@ export function createTodosFeature({
     if (isOnlineForSync()) await syncWithServer();
   }
 
-  return { markTodoDone, markTodoInProgress, setTodoStatus, toggleTodo, showTodoModal, onProjectChange, saveTodo, editTodo, deleteTodoFromModal, deleteTodo };
+  return { markTodoDone, markTodoInProgress, setTodoStatus, toggleTodo, toggleTodoPin, snoozeTodo, showTodoModal, onProjectChange, saveTodo, editTodo, deleteTodoFromModal, deleteTodo };
 }

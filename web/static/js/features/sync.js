@@ -37,7 +37,7 @@ export function createSyncFeature({
     if (!item || typeof item !== 'object' || typeof item.action !== 'string') return null;
     const data = item.data && typeof item.data === 'object' ? item.data : {};
     const changes = data.changes && typeof data.changes === 'object' ? data.changes : {};
-    const todoFields = ['title', 'description', 'priority', 'status', 'project_id', 'section_id', 'due_date', 'remind_at', '_tempId'];
+    const todoFields = ['title', 'description', 'priority', 'is_pinned', 'status', 'project_id', 'section_id', 'due_date', 'remind_at', '_tempId'];
     const projectFields = ['name', 'color', 'icon', 'sort_order', 'parent_id', 'workspace_id', '_tempId'];
     const sectionFields = ['name', 'sort_order', 'project_id', '_tempId'];
 

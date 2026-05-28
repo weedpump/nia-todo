@@ -2577,10 +2577,10 @@ input[type="color"]::-moz-color-swatch {
   padding-top: 8px;
 }
 
-.login-box > .login-update-refresh {
+#login-overlay > .login-update-refresh {
   display: flex;
   width: fit-content;
-  max-width: 100%;
+  max-width: calc(100% - 32px);
   min-height: 30px;
   margin: 10px auto 0;
   padding: 7px 10px;
@@ -2591,7 +2591,7 @@ input[type="color"]::-moz-color-swatch {
   opacity: 0.82;
 }
 
-.login-box > .login-update-refresh:hover {
+#login-overlay > .login-update-refresh:hover {
   opacity: 1;
 }
 
@@ -4177,4 +4177,150 @@ input[type="color"]::-moz-color-swatch {
 
 .security-action-modal {
   z-index: 420;
+}
+
+/* Proposal: today focus, quick add, pins, snooze, sync badge */
+.today-focus-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  border-radius: 999px;
+  padding: 8px 11px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.today-focus-btn:hover,
+.today-focus-btn.active {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg-secondary));
+}
+
+.today-focus-btn .ui-icon { width: 15px; height: 15px; }
+
+.quick-add-hint {
+  margin-top: 6px;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.checkbox-row label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.todo-item.pinned {
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--border));
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.todo-pin-marker {
+  display: inline-flex;
+  color: var(--accent);
+  margin-right: 2px;
+}
+
+.todo-pin-marker .ui-icon,
+.todo-pin-btn .ui-icon,
+.todo-snooze-menu summary .ui-icon {
+  width: 15px;
+  height: 15px;
+}
+
+.todo-pin-btn.active {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.todo-snooze-menu {
+  position: relative;
+}
+
+.todo-snooze-menu summary {
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.todo-snooze-menu summary::-webkit-details-marker { display: none; }
+
+.today-agenda-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.today-agenda-item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 11px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.today-agenda-item:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: color-mix(in srgb, var(--accent) 7%, var(--bg-secondary));
+}
+
+.today-agenda-item span:nth-child(2) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.today-agenda-item strong {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.today-agenda-prio.p1 { background: #ef4444; }
+.today-agenda-prio.p2 { background: #f59e0b; }
+.today-agenda-prio.p3 { background: #10b981; }
+.today-agenda-prio.p4 { background: #94a3b8; }
+
+.status-syncing,
+.status-pending-sync {
+  display: inline-flex !important;
+  align-items: center;
+  min-width: 0;
+  height: 26px;
+  padding: 0 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  border: 1px solid color-mix(in srgb, var(--warning) 35%, var(--border));
+  color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 10%, var(--bg-secondary));
+}
+
+.status-syncing::after,
+.status-pending-sync::after { content: none; }
+
+@media (max-width: 640px) {
+  .today-focus-btn span:not(.ui-icon) { display: none; }
+  .today-focus-btn { padding: 8px; }
+  .todo-snooze-menu .todo-status-options { right: 0; left: auto; }
 }
