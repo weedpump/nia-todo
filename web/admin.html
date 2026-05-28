@@ -396,6 +396,8 @@ function hydrateIcons(root = document) {
 }
 hydrateIcons();
 let adminToken = null;
+let serverUpdatePollTimer = null;
+let serverUpdateReloadPromptShown = false;
 
 function setTheme(mode) {
   const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -708,6 +710,30 @@ async function toggleTwoFactorPolicy() {
   }
 }
 
+function renderServerUpdateProgress(progress) {
+  const success = document.getElementById('server-update-success');
+  const error = document.getElementById('server-update-error');
+  if (!progress || progress.state === 'idle') return;
+  const message = progress.message || 'Update status unknown.';
+  if (progress.state === 'failed') {
+    error.textContent = message;
+    if (serverUpdatePollTimer) clearInterval(serverUpdatePollTimer);
+    serverUpdatePollTimer = null;
+    return;
+  }
+  success.textContent = progress.target_version
+    ? `${message} Target: v${progress.target_version}`
+    : message;
+  if (progress.state === 'success') {
+    if (serverUpdatePollTimer) clearInterval(serverUpdatePollTimer);
+    serverUpdatePollTimer = null;
+    if (!serverUpdateReloadPromptShown) {
+      serverUpdateReloadPromptShown = true;
+      showServerUpdateReloadNotice();
+    }
+  }
+}
+
 function renderServerUpdate(status) {
   const latest = status.latest_release || {};
   const latestVersion = latest.version ? `v${latest.version}` : 'unknown';
@@ -725,6 +751,7 @@ function renderServerUpdate(status) {
   button.disabled = !status.can_install;
   command.style.display = 'none';
   command.textContent = '';
+  renderServerUpdateProgress(status.progress);
   if (installType === 'docker' && status.update_available) {
     help.textContent = 'Docker installations are not updated from inside nia-todo. Pull the newest image and restart the stack:';
     command.style.display = 'block';
@@ -738,9 +765,54 @@ function renderServerUpdate(status) {
   }
 }
 
-async function refreshServerUpdateStatus() {
-  document.getElementById('server-update-error').textContent = '';
-  document.getElementById('server-update-success').textContent = '';
+async function hardReloadAfterServerUpdate() {
+  try {
+    if ('serviceWorker' in navigator && typeof navigator.serviceWorker.getRegistrations === 'function') {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map(reg => reg.unregister().catch(() => false)));
+    }
+    if ('caches' in window && typeof caches.keys === 'function') {
+      const names = await caches.keys();
+      await Promise.all(names.map(name => caches.delete(name).catch(() => false)));
+    }
+  } catch (err) {
+    console.warn('Hard reload cleanup after server update failed:', err);
+  }
+  window.location.replace(`/admin?server-updated=${Date.now()}`);
+}
+
+async function showServerUpdateReloadNotice() {
+  const confirmed = await adminDialog({
+    title: 'Server update complete',
+    message: 'The server update is complete. The admin page will now clear cached app assets and reload from the updated server.',
+    confirmText: 'Reload now',
+    hideCancel: true,
+  });
+  if (confirmed) await hardReloadAfterServerUpdate();
+}
+
+async function pollServerUpdateProgress() {
+  try {
+    const progress = await apiGet('/api/admin/server-update/progress');
+    renderServerUpdateProgress(progress);
+    if (progress.state === 'success' || progress.state === 'failed') {
+      await refreshServerUpdateStatus({ keepMessages: true });
+    }
+  } catch (e) {
+    document.getElementById('server-update-success').textContent = 'Waiting for server restart…';
+  }
+}
+
+function startServerUpdatePolling() {
+  if (serverUpdatePollTimer) clearInterval(serverUpdatePollTimer);
+  serverUpdatePollTimer = setInterval(pollServerUpdateProgress, 2500);
+}
+
+async function refreshServerUpdateStatus(options = {}) {
+  if (!options.keepMessages) {
+    document.getElementById('server-update-error').textContent = '';
+    document.getElementById('server-update-success').textContent = '';
+  }
   try {
     renderServerUpdate(await apiGet('/api/admin/server-update'));
   } catch (e) {
@@ -759,12 +831,14 @@ async function installServerUpdate() {
   if (!confirmed) return;
   const button = document.getElementById('server-update-install');
   button.disabled = true;
+  serverUpdateReloadPromptShown = false;
   try {
     const result = await apiPost('/api/admin/server-update/install', {});
     document.getElementById('server-update-success').textContent = result.started
       ? `Update to v${result.target_version} started. The server may restart now.`
       : 'Update command finished without starting successfully.';
-    setTimeout(refreshServerUpdateStatus, 5000);
+    startServerUpdatePolling();
+    setTimeout(pollServerUpdateProgress, 1000);
   } catch (e) {
     document.getElementById('server-update-error').textContent = e.message;
     await refreshServerUpdateStatus();

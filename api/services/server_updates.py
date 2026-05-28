@@ -14,11 +14,15 @@ from typing import Any
 
 from services.instance_config import _read_web_app_version
 
-GITHUB_API_LATEST = "https://api.github.com/repos/weedpump/nia-todo/releases/latest"
-GITHUB_RELEASES_URL = "https://github.com/weedpump/nia-todo/releases"
+DEFAULT_RELEASE_API_LATEST = "https://api.github.com/repos/weedpump/nia-todo/releases/latest"
+DEFAULT_RELEASES_URL = "https://github.com/weedpump/nia-todo/releases"
 DEB_ASSET_RE = re.compile(r"^nia-todo-server-v(?P<version>[0-9]+\.[0-9]+\.[0-9]+)-full\.deb$")
 HELPER = "/usr/local/bin/nia-todo-server-update"
 UPDATE_LOG_DIR = Path(os.environ.get("NIA_TODO_UPDATE_LOG_DIR", "/var/lib/nia-todo/update-logs"))
+UPDATE_STATUS_FILE = Path(os.environ.get("NIA_TODO_UPDATE_STATUS_FILE", "/var/cache/nia-todo/updates/status.json"))
+UPDATE_RELEASE_API_URL = os.environ.get("NIA_TODO_UPDATE_RELEASE_API_URL", DEFAULT_RELEASE_API_LATEST)
+UPDATE_RELEASES_URL = os.environ.get("NIA_TODO_UPDATE_RELEASES_URL", DEFAULT_RELEASES_URL)
+INSTALLATION_TYPE_OVERRIDE = os.environ.get("NIA_TODO_INSTALLATION_TYPE", "").strip().lower()
 
 
 @dataclass(frozen=True)
@@ -104,7 +108,7 @@ def _dpkg_package_installed(package: str) -> bool:
 
 
 def get_latest_release() -> dict[str, Any]:
-    data = _http_json(GITHUB_API_LATEST)
+    data = _http_json(UPDATE_RELEASE_API_URL)
     tag_name = str(data.get("tag_name") or "").strip()
     latest = stable_version(tag_name)
     assets = [
@@ -122,20 +126,33 @@ def get_latest_release() -> dict[str, Any]:
     return {
         "tag_name": tag_name,
         "version": latest,
-        "html_url": data.get("html_url") or GITHUB_RELEASES_URL,
+        "html_url": data.get("html_url") or UPDATE_RELEASES_URL,
         "deb_asset": deb_asset.__dict__ if deb_asset else None,
         "sha256_asset": sha_asset.__dict__ if sha_asset else None,
         "manifest_asset": manifest_asset.__dict__ if manifest_asset else None,
     }
 
 
+def get_update_progress() -> dict[str, Any]:
+    if not UPDATE_STATUS_FILE.exists():
+        return {"state": "idle", "message": "No update is running."}
+    try:
+        data = json.loads(UPDATE_STATUS_FILE.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {"state": "unknown", "message": "Update status could not be read."}
+    if not isinstance(data, dict):
+        return {"state": "unknown", "message": "Update status is invalid."}
+    return data
+
+
 def get_update_status() -> dict[str, Any]:
     current = normalize_version(_read_web_app_version())
-    install_type = detect_installation_type()
+    install_type = INSTALLATION_TYPE_OVERRIDE if INSTALLATION_TYPE_OVERRIDE in {"deb", "docker", "dev", "unknown"} else detect_installation_type()
     status: dict[str, Any] = {
         "current_version": current,
         "installation_type": install_type,
-        "github_releases_url": GITHUB_RELEASES_URL,
+        "github_releases_url": UPDATE_RELEASES_URL,
+        "release_api_url": UPDATE_RELEASE_API_URL,
         "supported": install_type == "deb",
         "helper_available": Path(HELPER).exists(),
         "update_available": False,
@@ -144,10 +161,11 @@ def get_update_status() -> dict[str, Any]:
         "compare": None,
         "message": "",
         "docker_update_hint": "docker compose pull && docker compose up -d",
+        "progress": get_update_progress(),
     }
     try:
         release = get_latest_release()
-    except (urllib.error.URLError, TimeoutError, ValueError, json.JSONDecodeError) as exc:
+    except (urllib.error.URLError, TimeoutError, ValueError, json.JSONDecodeError, OSError) as exc:
         status["message"] = f"Could not check GitHub release: {type(exc).__name__}"
         return status
 

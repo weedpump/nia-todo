@@ -6,7 +6,15 @@ set -euo pipefail
 
 SERVICE_NAME="${NIA_TODO_SERVICE_NAME:-nia-todo}"
 CACHE_DIR="/var/cache/nia-todo/updates"
-GITHUB_API_LATEST="https://api.github.com/repos/weedpump/nia-todo/releases/latest"
+STATUS_FILE="${CACHE_DIR}/status.json"
+SOURCE_CONFIG="/etc/nia-todo/update-source.env"
+RELEASE_API_LATEST="https://api.github.com/repos/weedpump/nia-todo/releases/latest"
+
+if [ -f "${SOURCE_CONFIG}" ]; then
+  # Optional root-owned test hook. The app user cannot pass this through sudo.
+  # shellcheck disable=SC1090
+  source "${SOURCE_CONFIG}"
+fi
 
 if [ "$(id -u)" -ne 0 ]; then
   echo "This helper must run as root." >&2
@@ -19,8 +27,34 @@ if [ "$#" -ne 0 ]; then
 fi
 
 install -d -m 0755 -o root -g root "${CACHE_DIR}"
+write_status() {
+  local state="$1"
+  local message="$2"
+  local version="${3:-}"
+  python3 - "$STATUS_FILE" "$state" "$message" "$version" <<'PY'
+import json
+import sys
+from datetime import datetime, timezone
+path, state, message, version = sys.argv[1:5]
+payload = {
+    "state": state,
+    "message": message,
+    "target_version": version or None,
+    "updated_at": datetime.now(timezone.utc).isoformat(),
+}
+with open(path, "w", encoding="utf-8") as fh:
+    json.dump(payload, fh, indent=2)
+    fh.write("\n")
+PY
+  chmod 0644 "$STATUS_FILE" || true
+}
+
+trap 'rc=$?; if [ "$rc" -ne 0 ]; then write_status "failed" "Server update failed. Check the update log."; fi' EXIT
+export RELEASE_API_LATEST
+write_status "running" "Starting server update…"
 exec 9>"${CACHE_DIR}/update.lock"
 if ! flock -n 9; then
+  write_status "failed" "Another nia-todo server update is already running."
   echo "Another nia-todo server update is already running." >&2
   exit 1
 fi
@@ -36,7 +70,7 @@ import tempfile
 import urllib.request
 from pathlib import Path
 
-api_url = "https://api.github.com/repos/weedpump/nia-todo/releases/latest"
+api_url = os.environ.get("RELEASE_API_LATEST", "https://api.github.com/repos/weedpump/nia-todo/releases/latest")
 cache_dir = Path("/var/cache/nia-todo/updates")
 asset_re = re.compile(r"^nia-todo-server-v(?P<version>[0-9]+\.[0-9]+\.[0-9]+)-full\.deb$")
 
@@ -58,6 +92,7 @@ def fetch_bytes(url: str, max_bytes: int):
         raise RuntimeError("download too large")
     return data
 
+print("phase=fetch_release", file=sys.stderr)
 release = fetch_json(api_url)
 tag = str(release.get("tag_name") or "")
 if not re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+", tag):
@@ -80,6 +115,7 @@ sha = next((asset for asset in assets if isinstance(asset, dict) and asset.get("
 if not sha:
     raise RuntimeError(f"release does not contain matching checksum asset {sha_name}")
 
+print(f"phase=download_checksum version={tag_version}", file=sys.stderr)
 sha_text = fetch_bytes(str(sha["browser_download_url"]), 64 * 1024).decode("utf-8", errors="replace")
 parts = sha_text.strip().split()
 if not parts or not re.fullmatch(r"[a-fA-F0-9]{64}", parts[0]):
@@ -88,7 +124,9 @@ if len(parts) > 1 and Path(parts[-1]).name != deb_name:
     raise RuntimeError("checksum asset filename does not match Debian package")
 expected_sha = parts[0].lower()
 
+print(f"phase=download_deb asset={deb_name}", file=sys.stderr)
 data = fetch_bytes(str(deb["browser_download_url"]), 350 * 1024 * 1024)
+print("phase=verify_sha256", file=sys.stderr)
 actual_sha = hashlib.sha256(data).hexdigest()
 if actual_sha != expected_sha:
     raise RuntimeError("downloaded Debian package checksum mismatch")
@@ -128,13 +166,24 @@ if ! [[ "${PACKAGE_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   exit 2
 fi
 
+write_status "running" "Downloaded and verified package. Creating backup…" "${PACKAGE_VERSION}"
+
 if [ -f /var/lib/nia-todo/nia-todo.db ]; then
   mkdir -p /var/lib/nia-todo/backups
   cp /var/lib/nia-todo/nia-todo.db "/var/lib/nia-todo/backups/pre-self-update-$(date +%Y%m%d-%H%M%S).db" || true
 fi
 
+if [ "${NIA_TODO_UPDATE_DRY_RUN:-0}" = "1" ]; then
+  write_status "success" "Dry-run update completed. Hard reload required." "${PACKAGE_VERSION}"
+  echo "nia-todo dry-run update validated package ${PACKAGE_VERSION}."
+  exit 0
+fi
+
+write_status "running" "Installing Debian package…" "${PACKAGE_VERSION}"
 export DEBIAN_FRONTEND=noninteractive
 apt-get install -y "${DEB_PATH}"
+write_status "running" "Restarting nia-todo service…" "${PACKAGE_VERSION}"
 systemctl restart "${SERVICE_NAME}.service"
+write_status "success" "nia-todo updated successfully. Hard reload required." "${PACKAGE_VERSION}"
 
 echo "nia-todo updated to ${PACKAGE_VERSION}."

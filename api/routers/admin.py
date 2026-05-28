@@ -18,7 +18,7 @@ from services.two_factor import clear_recovery_codes, get_two_factor_required, s
 from services.email_templates import password_setup_email
 from services.websocket import manager
 from services.email_verification import clear_pending_email, set_email_or_pending
-from services.server_updates import get_update_status, install_latest_deb_update
+from services.server_updates import get_update_progress, get_update_status, install_latest_deb_update
 from rate_limit import require_login_rate_limit, get_client_ip
 from middleware.security import generate_csrf_token, set_csrf_cookie
 from errors import api_error, validation_api_error
@@ -211,6 +211,11 @@ def admin_send_test_email(data: TestEmailRequest, request: Request, _: bool = De
 @router.get("/server-update")
 def admin_get_server_update_status(_: bool = Depends(require_admin)):
     return get_update_status()
+
+
+@router.get("/server-update/progress")
+def admin_get_server_update_progress(_: bool = Depends(require_admin)):
+    return get_update_progress()
 
 
 @router.post("/server-update/install")
