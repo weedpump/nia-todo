@@ -398,6 +398,7 @@ hydrateIcons();
 let adminToken = null;
 let serverUpdatePollTimer = null;
 let serverUpdateReloadPromptShown = false;
+let serverUpdateStartedInThisPage = false;
 
 function setTheme(mode) {
   const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -727,7 +728,7 @@ function renderServerUpdateProgress(progress) {
   if (progress.state === 'success') {
     if (serverUpdatePollTimer) clearInterval(serverUpdatePollTimer);
     serverUpdatePollTimer = null;
-    if (!serverUpdateReloadPromptShown) {
+    if (serverUpdateStartedInThisPage && !serverUpdateReloadPromptShown) {
       serverUpdateReloadPromptShown = true;
       showServerUpdateReloadNotice();
     }
@@ -832,6 +833,7 @@ async function installServerUpdate() {
   const button = document.getElementById('server-update-install');
   button.disabled = true;
   serverUpdateReloadPromptShown = false;
+  serverUpdateStartedInThisPage = true;
   try {
     const result = await apiPost('/api/admin/server-update/install', {});
     document.getElementById('server-update-success').textContent = result.started
