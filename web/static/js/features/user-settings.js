@@ -254,8 +254,6 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     const enrollmentOnly = Boolean(isMfaEnrollmentLocked() || (state?.required && !state?.enabled && !state?.has_totp && !state?.has_passkey && !state?.has_recovery_codes && !state?.has_email_fallback));
     if (state?.has_totp) {
       items.push(`<div class="settings-device-row"><div><strong>${escapeHtml(t('settings.2fa.device.authenticator'))}</strong><span>${escapeHtml(t('settings.2fa.device.totpReady'))}</span></div><button type="button" class="btn btn-danger" onclick="removeTotpDevice()">${escapeHtml(t('settings.2fa.revoke'))}</button></div>`);
-    } else if (!enrollmentOnly) {
-      items.push(`<div class="settings-device-row"><div><strong>${escapeHtml(t('settings.2fa.device.authenticator'))}</strong><span>${escapeHtml(t('settings.2fa.device.totpNotSet'))}</span></div><button type="button" class="btn btn-primary" onclick="startTwoFactorTotp()">${escapeHtml(t('settings.2fa.setupAuthenticator'))}</button></div>`);
     }
     try {
       const data = enrollmentOnly ? { passkeys: [] } : await authApi.listPasskeys();
@@ -310,6 +308,8 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
       statusEl.textContent = t('settings.2fa.status', { status: parts.join(' · ') });
       const setupBtn = document.querySelector('#settings-2fa-actions button[onclick="startTwoFactorTotp()"]');
       if (setupBtn) setupBtn.style.display = state.has_totp ? 'none' : '';
+      const passkeyBtn = document.querySelector('#settings-2fa-actions button[onclick="addPasskey()"]');
+      if (passkeyBtn) passkeyBtn.style.display = state.passkey_setup_available === false ? 'none' : '';
       document.getElementById('settings-2fa-actions')?.querySelectorAll('button').forEach((btn) => {
         if (btn.textContent.includes('deaktivieren')) btn.style.display = state.enabled ? '' : 'none';
       });
@@ -826,6 +826,10 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     }
     try {
       const state = await authApi.twoFactorStatus().catch(() => ({}));
+      if (state.passkey_setup_available === false) {
+        errorEl.textContent = t('settings.2fa.passkeyNeedsBaseUrl');
+        return;
+      }
       const wasEnrollmentLocked = Boolean(isMfaEnrollmentLocked() || shouldLockForTwoFactorState(state));
       const hasExistingSecondFactor = Boolean(state.has_totp || state.has_passkey || state.has_recovery_codes || state.has_email_fallback);
       if ((state.enabled || state.required) && hasExistingSecondFactor && !wasEnrollmentLocked) await ensureRecentMfa(t('settings.2fa.purpose.addPasskey'));

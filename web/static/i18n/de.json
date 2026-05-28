@@ -279,6 +279,7 @@
   "settings.2fa.disableMessage": "Alle zweiten Faktoren, Recovery Codes und vertrauenswürdigen Geräte werden widerrufen.",
   "settings.2fa.disabled": "2FA deaktiviert",
   "settings.2fa.passkeyUnsupported": "Passkeys werden von dieser Umgebung nicht unterstützt",
+  "settings.2fa.passkeyNeedsBaseUrl": "Passkeys benötigen eine konfigurierte öffentliche Basis-URL.",
   "settings.2fa.passkeyAddMessage": "Vergib einen Namen für diesen Passkey.",
   "settings.2fa.passkeyPasswordMessage": "Bitte bestätige mit deinem Passwort. Danach öffnet sich die Passkey-Registrierung.",
   "settings.2fa.passkeyCreate": "Passkey erstellen",

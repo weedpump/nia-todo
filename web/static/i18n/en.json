@@ -279,6 +279,7 @@
   "settings.2fa.disableMessage": "All second factors, recovery codes, and trusted devices will be revoked.",
   "settings.2fa.disabled": "2FA disabled",
   "settings.2fa.passkeyUnsupported": "Passkeys are not supported in this environment",
+  "settings.2fa.passkeyNeedsBaseUrl": "Passkeys need a configured public base URL.",
   "settings.2fa.passkeyAddMessage": "Choose a name for this passkey.",
   "settings.2fa.passkeyPasswordMessage": "Please confirm with your password. The passkey registration will open afterwards.",
   "settings.2fa.passkeyCreate": "Create passkey",

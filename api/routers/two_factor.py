@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from db import get_db
 from errors import api_error
 from middleware.security import generate_csrf_token, set_csrf_cookie
-from rate_limit import get_client_ip
+from rate_limit import get_client_ip, require_login_rate_limit
 from routers.auth import require_auth
 from services.auth import create_jwt_token, decode_jwt_token, revoke_all_user_sessions, verify_user_credentials
 from services.audit import log_audit
@@ -20,7 +20,7 @@ from services.client_info import session_user_agent
 from services.webauthn import (
     b64url_decode, b64url_encode, cose_to_json, parse_auth_data,
     parse_none_attestation, relying_party_for_request, verify_assertion_signature,
-    verify_client_data,
+    verify_client_data, passkeys_available_for_request,
 )
 from services.two_factor import (
     clear_recovery_codes, clear_recovery_codes_if_no_primary_factor,
@@ -79,6 +79,11 @@ class PasskeyLoginVerifyRequest(BaseModel):
     challenge_token: str
     credential: dict
     remember_device: bool = False
+
+
+class PasswordlessPasskeyVerifyRequest(BaseModel):
+    challenge: str
+    credential: dict
 
 
 class PasskeyReauthVerifyRequest(BaseModel):
@@ -274,9 +279,11 @@ def verify_login_challenge(data: VerifyChallengeRequest, request: Request, respo
 
 
 @router.get("/me/2fa")
-def get_own_2fa(user_id: int = Depends(require_2fa_status_auth)):
+def get_own_2fa(request: Request, user_id: int = Depends(require_2fa_status_auth)):
     with get_db() as db:
-        return user_mfa_state(db, user_id)
+        state = user_mfa_state(db, user_id)
+        state["passkey_setup_available"] = passkeys_available_for_request(request)
+        return state
 
 
 @router.get("/me/2fa/trusted-devices")
@@ -477,7 +484,7 @@ def passkey_registration_options(data: PasskeyNameRequest, request: Request, use
             "rp": {"name": "nia-todo", "id": rp.rp_id},
             "user": {"id": b64url_encode(str(user_id).encode()), "name": user["username"], "displayName": user["display_name"] or user["username"]},
             "pubKeyCredParams": [{"type": "public-key", "alg": -7}],
-            "authenticatorSelection": {"userVerification": "required", "residentKey": "preferred"},
+            "authenticatorSelection": {"userVerification": "required", "residentKey": "required", "requireResidentKey": True},
             "timeout": 60000,
             "attestation": "none",
             "excludeCredentials": [{"type": "public-key", "id": r["credential_id"]} for r in existing],
@@ -519,8 +526,8 @@ def passkey_registration_verify(data: PasskeyRegistrationVerifyRequest, request:
             raise api_error(401, "passkey.challengeAlreadyUsed", "Passkey challenge already used")
         credential_id = b64url_encode(attested.credential_id)
         db.execute(
-            """INSERT INTO passkeys (user_id, credential_id, public_key, sign_count, name, transports, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, datetime('now'))""",
+            """INSERT INTO passkeys (user_id, credential_id, public_key, sign_count, name, transports, discoverable, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, 1, datetime('now'))""",
             (user_id, credential_id, cose_to_json(attested.cose_key), attested.sign_count, (data.name or "Passkey")[:80], json.dumps(credential.get("transports") or [])),
         )
         recovery_codes = []
@@ -560,6 +567,83 @@ def delete_passkey(passkey_id: int, user_id: int = Depends(require_recent_mfa)):
         log_audit(db, "passkey_removed", user_id=user_id, details=f"passkey_id={passkey_id}; recovery_cleared={recovery_cleared}")
         db.commit()
         return {"removed": passkey_id}
+
+
+@router.post("/login/passkey/options")
+def passwordless_passkey_login_options(request: Request, _: None = Depends(require_login_rate_limit)):
+    challenge = secrets.token_urlsafe(32)
+    now = int(time.time())
+    rp = relying_party_for_request(request)
+    with get_db() as db:
+        db.execute("DELETE FROM passkey_login_challenges WHERE expires_at < ?", (now - 3600,))
+        db.execute(
+            "INSERT INTO passkey_login_challenges (challenge_hash, expires_at) VALUES (?, ?)",
+            (sha256_hex(challenge), now + 300),
+        )
+        db.commit()
+    return {
+        "challenge": challenge,
+        "publicKey": {
+            "challenge": b64url_encode(challenge.encode()),
+            "timeout": 60000,
+            "userVerification": "required",
+            "rpId": rp.rp_id,
+        },
+        "origin": rp.origin,
+    }
+
+
+@router.post("/login/passkey/verify")
+def passwordless_passkey_login_verify(data: PasswordlessPasskeyVerifyRequest, request: Request, response: Response, _: None = Depends(require_login_rate_limit)):
+    ip = get_client_ip(request)
+    credential = data.credential or {}
+    cred_id = credential.get("id") or credential.get("rawId")
+    cred_response = credential.get("response") or {}
+    with get_db() as db:
+        challenge = db.execute(
+            """SELECT * FROM passkey_login_challenges
+               WHERE challenge_hash = ? AND consumed_at IS NULL AND expires_at >= ?""",
+            (sha256_hex(data.challenge), int(time.time())),
+        ).fetchone()
+        if not challenge or (challenge["locked_until"] and int(challenge["locked_until"]) > int(time.time())):
+            raise api_error(401, "passkey.challengeInvalidOrExpired", "Passkey challenge is invalid or expired")
+        key = db.execute("SELECT * FROM passkeys WHERE credential_id = ? AND revoked_at IS NULL", (cred_id,)).fetchone()
+        if not key or not int(key["discoverable"] or 0):
+            db.execute("UPDATE passkey_login_challenges SET attempts = attempts + 1, locked_until = CASE WHEN attempts + 1 >= 5 THEN ? ELSE locked_until END WHERE id = ?", (int(time.time()) + 300, challenge["id"]))
+            db.commit()
+            raise api_error(401, "passkey.unknown", "Unknown passkey")
+        try:
+            client_data_json = b64url_decode(cred_response.get("clientDataJSON", ""))
+            auth_data = b64url_decode(cred_response.get("authenticatorData", ""))
+            signature = b64url_decode(cred_response.get("signature", ""))
+            rp = relying_party_for_request(request)
+            verify_client_data(client_data_json, "webauthn.get", b64url_encode(data.challenge.encode()), rp.origin)
+            parsed = parse_auth_data(auth_data, rp.rp_id, require_attested=False, require_user_verified=True)
+            user_handle = cred_response.get("userHandle")
+            if not user_handle or user_handle != b64url_encode(str(key["user_id"]).encode()):
+                raise ValueError("User handle mismatch")
+            if int(key["sign_count"] or 0) > 0 and parsed["sign_count"] > 0 and parsed["sign_count"] <= int(key["sign_count"]):
+                raise ValueError("Sign counter rollback")
+            verify_assertion_signature(key["public_key"], auth_data, client_data_json, signature)
+        except Exception:
+            db.execute("UPDATE passkey_login_challenges SET attempts = attempts + 1, locked_until = CASE WHEN attempts + 1 >= 5 THEN ? ELSE locked_until END WHERE id = ?", (int(time.time()) + 300, challenge["id"]))
+            log_audit(db, "login_failed", user_id=key["user_id"], ip_address=ip, details="method=passkey")
+            db.commit()
+            raise api_error(401, "passkey.verifyFailed", "Passkey verification failed")
+        cur = db.execute("UPDATE passkey_login_challenges SET consumed_at = datetime('now') WHERE id = ? AND consumed_at IS NULL", (challenge["id"],))
+        if cur.rowcount != 1:
+            db.commit()
+            raise api_error(401, "passkey.challengeAlreadyUsed", "Passkey challenge already used")
+        db.execute("UPDATE passkeys SET last_used_at = datetime('now'), sign_count = MAX(sign_count, ?) WHERE id = ?", (parsed["sign_count"], key["id"]))
+        user = db.execute("SELECT id, username, display_name, email, email_verified_at, email_trust_source, avatar_url, is_admin, token_version FROM users WHERE id = ?", (key["user_id"],)).fetchone()
+        token = create_jwt_token(dict(user), db, mfa_login_verified=True, create_session=True, user_agent=session_user_agent(request), ip_address=ip)
+        csrf_token = generate_csrf_token()
+        set_csrf_cookie(response, csrf_token)
+        log_audit(db, "login_success", user_id=user["id"], ip_address=ip, details="method=passkey")
+        from rate_limit import rate_limiter
+        rate_limiter.record_successful_login(ip)
+        db.commit()
+        return {"access_token": token, "token_type": "bearer", "csrf_token": csrf_token, "user": {"id": user["id"], "username": user["username"], "display_name": user["display_name"], "email": user["email"], "email_verified_at": user["email_verified_at"], "email_trust_source": user["email_trust_source"], "avatar_url": user["avatar_url"], "is_admin": bool(user["is_admin"])}}
 
 
 @router.post("/2fa/passkey/options")
