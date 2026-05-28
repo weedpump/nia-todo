@@ -38,6 +38,8 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .btn-danger:hover { opacity: 0.9; }
 .btn-primary { background: var(--accent); color: white; }
 .btn-primary:hover { background: var(--accent-hover); }
+.btn-secondary { background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid color-mix(in srgb, var(--border) 78%, var(--text-muted)); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+.btn-secondary:hover { background: color-mix(in srgb, var(--bg-tertiary) 82%, var(--accent)); border-color: color-mix(in srgb, var(--accent) 42%, var(--border)); }
 .btn-ghost { background: transparent; color: var(--text-secondary); padding: 4px 6px; }
 .btn-ghost:hover { background: var(--bg-tertiary); color: var(--text-primary); }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -177,18 +179,18 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 
   <!-- Server Update -->
   <div class="admin-card server-update-card" id="server-update-card">
-    <h2><span data-icon="download-cloud"></span> <span>Server update</span> <span class="server-update-badge ok" id="server-update-badge">Checking</span></h2>
+    <h2><span data-icon="download-cloud"></span> <span data-i18n-key="admin.serverUpdate.title">Server update</span> <span class="server-update-badge ok" id="server-update-badge" data-i18n-key="admin.serverUpdate.badge.checking">Checking</span></h2>
     <div class="security-policy-row">
       <div class="security-policy-main">
-        <div class="security-policy-title" id="server-update-title">Checking for updates…</div>
-        <div class="security-policy-desc" id="server-update-desc">Current server version and latest GitHub release are checked online.</div>
+        <div class="security-policy-title" id="server-update-title" data-i18n-key="admin.serverUpdate.checkingTitle">Suche nach Updates…</div>
+        <div class="security-policy-desc" id="server-update-desc" data-i18n-key="admin.serverUpdate.checkingDesc">Aktuelle Server-Version und neuestes Release werden geprüft.</div>
       </div>
-      <button class="btn btn-primary" id="server-update-install" onclick="installServerUpdate()" disabled>Install update</button>
+      <button class="btn btn-primary" id="server-update-install" onclick="installServerUpdate()" disabled data-i18n-key="admin.serverUpdate.install">Update installieren</button>
     </div>
     <div class="admin-help" id="server-update-help"></div>
     <pre class="admin-config-textarea" id="server-update-command" style="display:none; margin-top:12px; white-space:pre-wrap;"></pre>
     <div class="form-row" style="margin-top:12px;">
-      <button class="btn" onclick="refreshServerUpdateStatus()">Check again</button>
+      <button class="btn btn-secondary" onclick="refreshServerUpdateStatus()" data-i18n-key="admin.serverUpdate.checkAgain">Erneut prüfen</button>
     </div>
     <div class="admin-error" id="server-update-error"></div>
     <div class="admin-success" id="server-update-success"></div>
@@ -756,15 +758,15 @@ function renderServerUpdateStatusVisual(status) {
   if (severity === 'major') {
     card.classList.add('update-danger');
     badge.classList.add('danger');
-    badge.textContent = 'Major update';
+    badge.textContent = t('admin.serverUpdate.badge.major');
   } else if (severity === 'minor_patch' || status.update_available) {
     card.classList.add('update-warning');
     badge.classList.add('warning');
-    badge.textContent = 'Update available';
+    badge.textContent = t('admin.serverUpdate.badge.available');
   } else {
     card.classList.add('update-ok');
     badge.classList.add('ok');
-    badge.textContent = 'Up to date';
+    badge.textContent = t('admin.serverUpdate.badge.current');
   }
 }
 
@@ -780,23 +782,27 @@ function renderServerUpdate(status) {
   const button = document.getElementById('server-update-install');
   renderServerUpdateStatusVisual(status);
   title.textContent = status.update_available
-    ? `Update available: ${currentVersion} → ${latestVersion}`
-    : `Server version: ${currentVersion}`;
-  desc.textContent = `${status.message || ''} Installation: ${installType}. Latest GitHub release: ${latestVersion}.`;
+    ? t('admin.serverUpdate.updateAvailableTitle', { current: currentVersion, latest: latestVersion })
+    : t('admin.serverUpdate.currentTitle', { current: currentVersion });
+  desc.textContent = t('admin.serverUpdate.desc', {
+    message: status.message || '',
+    installType,
+    latest: latestVersion,
+  });
   button.disabled = !status.can_install;
   command.style.display = 'none';
   command.textContent = '';
   renderServerUpdateProgress(status.progress);
   if (installType === 'docker' && status.update_available) {
-    help.textContent = 'Docker installations are not updated from inside nia-todo. Pull the newest image and restart the stack:';
+    help.textContent = t('admin.serverUpdate.dockerHelp');
     command.style.display = 'block';
     command.textContent = status.docker_update_hint || 'docker compose pull && docker compose up -d';
   } else if (installType === 'deb') {
     help.textContent = status.can_install
-      ? 'Debian installation detected. The update button runs a restricted host helper that downloads the release package and verifies SHA256 before installing.'
-      : 'Debian installation detected. Automatic update becomes available after this feature version has installed the update helper.';
+      ? t('admin.serverUpdate.debHelpReady')
+      : t('admin.serverUpdate.debHelpUnavailable');
   } else {
-    help.textContent = 'This installation type is shown for visibility only and is not self-updateable.';
+    help.textContent = t('admin.serverUpdate.unsupportedHelp');
   }
 }
 
@@ -818,9 +824,9 @@ async function hardReloadAfterServerUpdate() {
 
 async function showServerUpdateReloadNotice() {
   const confirmed = await adminDialog({
-    title: 'Server update complete',
-    message: 'The server update is complete. The admin page will now clear cached app assets and reload from the updated server.',
-    confirmText: 'Reload now',
+    title: t('admin.serverUpdate.reloadTitle'),
+    message: t('admin.serverUpdate.reloadMessage'),
+    confirmText: t('admin.serverUpdate.reloadNow'),
     hideCancel: true,
   });
   if (confirmed) await hardReloadAfterServerUpdate();
@@ -834,7 +840,7 @@ async function pollServerUpdateProgress() {
       await refreshServerUpdateStatus({ keepMessages: true });
     }
   } catch (e) {
-    document.getElementById('server-update-success').textContent = 'Waiting for server restart…';
+    document.getElementById('server-update-success').textContent = t('admin.serverUpdate.waitingRestart');
   }
 }
 
@@ -859,9 +865,9 @@ async function installServerUpdate() {
   document.getElementById('server-update-error').textContent = '';
   document.getElementById('server-update-success').textContent = '';
   const confirmed = await adminConfirm({
-    title: 'Install server update?',
-    message: 'nia-todo will download the newest GitHub release, verify the checksum, install the Debian package, and restart the server service.',
-    confirmText: 'Install update',
+    title: t('admin.serverUpdate.confirmTitle'),
+    message: t('admin.serverUpdate.confirmMessage'),
+    confirmText: t('admin.serverUpdate.install'),
   });
   if (!confirmed) return;
   const button = document.getElementById('server-update-install');
@@ -871,8 +877,8 @@ async function installServerUpdate() {
   try {
     const result = await apiPost('/api/admin/server-update/install', {});
     document.getElementById('server-update-success').textContent = result.started
-      ? `Update to v${result.target_version} started. The server may restart now.`
-      : 'Update command finished without starting successfully.';
+      ? t('admin.serverUpdate.started', { version: `v${result.target_version}` })
+      : t('admin.serverUpdate.notStarted');
     startServerUpdatePolling();
     setTimeout(pollServerUpdateProgress, 1000);
   } catch (e) {
