@@ -38,6 +38,8 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .btn-danger:hover { opacity: 0.9; }
 .btn-primary { background: var(--accent); color: white; }
 .btn-primary:hover { background: var(--accent-hover); }
+.btn-secondary { background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid color-mix(in srgb, var(--border) 78%, var(--text-muted)); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+.btn-secondary:hover { background: color-mix(in srgb, var(--bg-tertiary) 82%, var(--accent)); border-color: color-mix(in srgb, var(--accent) 42%, var(--border)); }
 .btn-ghost { background: transparent; color: var(--text-secondary); padding: 4px 6px; }
 .btn-ghost:hover { background: var(--bg-tertiary); color: var(--text-primary); }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -79,6 +81,18 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .admin-theme-toggle button:hover { background: var(--bg-secondary); color: var(--text-primary); }
 .admin-theme-toggle button.active { background: var(--accent); border-color: var(--accent); color: white; transform: scale(1.05); }
 .admin-status-card { padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.server-update-card { position: relative; overflow: hidden; border-width: 2px; }
+.server-update-card::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 8px; background: var(--border); }
+.server-update-card.update-ok { border-color: color-mix(in srgb, var(--success) 55%, var(--border)); background: linear-gradient(90deg, color-mix(in srgb, var(--success) 12%, transparent), var(--bg-secondary) 42%); }
+.server-update-card.update-ok::before { background: var(--success); }
+.server-update-card.update-warning { border-color: color-mix(in srgb, var(--warning) 70%, var(--border)); background: linear-gradient(90deg, color-mix(in srgb, var(--warning) 18%, transparent), var(--bg-secondary) 46%); }
+.server-update-card.update-warning::before { background: var(--warning); }
+.server-update-card.update-danger { border-color: color-mix(in srgb, var(--danger) 75%, var(--border)); background: linear-gradient(90deg, color-mix(in srgb, var(--danger) 18%, transparent), var(--bg-secondary) 46%); box-shadow: 0 0 0 1px color-mix(in srgb, var(--danger) 18%, transparent), var(--shadow); }
+.server-update-card.update-danger::before { background: var(--danger); }
+.server-update-badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }
+.server-update-badge.ok { background: color-mix(in srgb, var(--success) 18%, transparent); color: var(--success); }
+.server-update-badge.warning { background: color-mix(in srgb, var(--warning) 22%, transparent); color: var(--warning); }
+.server-update-badge.danger { background: color-mix(in srgb, var(--danger) 20%, transparent); color: var(--danger); }
 .security-policy-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .security-policy-main { display: flex; flex-direction: column; gap: 4px; }
 .security-policy-title { font-weight: 650; color: var(--text-primary); }
@@ -161,6 +175,25 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
   <div class="admin-card admin-status-card">
     <span class="admin-status-text"><span data-icon="lock-keyhole"></span> <span data-i18n-key="admin.status.loggedIn">Logged in as admin</span></span>
     <button class="btn btn-danger" onclick="adminLogout()" data-i18n-key="auth.signOut">Sign out</button>
+  </div>
+
+  <!-- Server Update -->
+  <div class="admin-card server-update-card" id="server-update-card">
+    <h2><span data-icon="download-cloud"></span> <span data-i18n-key="admin.serverUpdate.title">Server update</span> <span class="server-update-badge ok" id="server-update-badge" data-i18n-key="admin.serverUpdate.badge.checking">Checking</span></h2>
+    <div class="security-policy-row">
+      <div class="security-policy-main">
+        <div class="security-policy-title" id="server-update-title" data-i18n-key="admin.serverUpdate.checkingTitle">Suche nach Updates…</div>
+        <div class="security-policy-desc" id="server-update-desc" data-i18n-key="admin.serverUpdate.checkingDesc">Aktuelle Server-Version und neuestes Release werden geprüft.</div>
+      </div>
+      <button class="btn btn-primary" id="server-update-install" onclick="installServerUpdate()" disabled data-i18n-key="admin.serverUpdate.install">Update installieren</button>
+    </div>
+    <div class="admin-help" id="server-update-help"></div>
+    <pre class="admin-config-textarea" id="server-update-command" style="display:none; margin-top:12px; white-space:pre-wrap;"></pre>
+    <div class="form-row" style="margin-top:12px;">
+      <button class="btn btn-secondary" onclick="refreshServerUpdateStatus()" data-i18n-key="admin.serverUpdate.checkAgain">Erneut prüfen</button>
+    </div>
+    <div class="admin-error" id="server-update-error"></div>
+    <div class="admin-success" id="server-update-success"></div>
   </div>
 
   <!-- Instance Configuration -->
@@ -365,6 +398,7 @@ const ICONS = {
   link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
   'shield-check': '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>',
   settings: '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.73l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
+  'download-cloud': '<path d="M12 13v8"/><path d="m8 17 4 4 4-4"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>',
   mail: '<path d="m22 7-8.991 5.727a2 2 0 0 1-2.009 0L2 7"/><rect x="2" y="4" width="20" height="16" rx="2"/>',
 };
 function iconSvg(name) {
@@ -376,6 +410,9 @@ function hydrateIcons(root = document) {
 }
 hydrateIcons();
 let adminToken = null;
+let serverUpdatePollTimer = null;
+let serverUpdateReloadPromptShown = false;
+let serverUpdateStartedInThisPage = false;
 
 function setTheme(mode) {
   const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -543,17 +580,19 @@ async function doAdminLogin() {
 let twoFactorPolicyRequired = false;
 
 async function loadAdminData() {
-  const [usersData, configData, emailConfigData, twoFactorPolicy] = await Promise.all([
+  const [usersData, configData, emailConfigData, twoFactorPolicy, serverUpdate] = await Promise.all([
     apiGet('/api/admin/users'),
     apiGet('/api/admin/instance-config'),
     apiGet('/api/admin/email-config'),
     apiGet('/api/admin/2fa-policy'),
+    apiGet('/api/admin/server-update'),
   ]);
   twoFactorPolicyRequired = !!twoFactorPolicy.required;
   renderTwoFactorPolicy(twoFactorPolicy);
   renderUsers(usersData.users);
   renderInstanceConfig(configData);
   renderEmailConfig(emailConfigData);
+  renderServerUpdate(serverUpdate);
 }
 
 async function loadUsers() {
@@ -683,6 +722,165 @@ async function toggleTwoFactorPolicy() {
     await loadUsers();
   } catch (e) {
     errorEl.textContent = e.message;
+  }
+}
+
+function renderServerUpdateProgress(progress) {
+  const success = document.getElementById('server-update-success');
+  const error = document.getElementById('server-update-error');
+  if (!progress || progress.state === 'idle') return;
+  const message = progress.message || 'Update status unknown.';
+  if (progress.state === 'failed') {
+    error.textContent = message;
+    if (serverUpdatePollTimer) clearInterval(serverUpdatePollTimer);
+    serverUpdatePollTimer = null;
+    return;
+  }
+  success.textContent = progress.target_version
+    ? `${message} Target: v${progress.target_version}`
+    : message;
+  if (progress.state === 'success') {
+    if (serverUpdatePollTimer) clearInterval(serverUpdatePollTimer);
+    serverUpdatePollTimer = null;
+    if (serverUpdateStartedInThisPage && !serverUpdateReloadPromptShown) {
+      serverUpdateReloadPromptShown = true;
+      showServerUpdateReloadNotice();
+    }
+  }
+}
+
+function renderServerUpdateStatusVisual(status) {
+  const card = document.getElementById('server-update-card');
+  const badge = document.getElementById('server-update-badge');
+  const severity = status.update_severity || (status.update_available ? 'minor_patch' : 'none');
+  card.classList.remove('update-ok', 'update-warning', 'update-danger');
+  badge.classList.remove('ok', 'warning', 'danger');
+  if (severity === 'major') {
+    card.classList.add('update-danger');
+    badge.classList.add('danger');
+    badge.textContent = t('admin.serverUpdate.badge.major');
+  } else if (severity === 'minor_patch' || status.update_available) {
+    card.classList.add('update-warning');
+    badge.classList.add('warning');
+    badge.textContent = t('admin.serverUpdate.badge.available');
+  } else {
+    card.classList.add('update-ok');
+    badge.classList.add('ok');
+    badge.textContent = t('admin.serverUpdate.badge.current');
+  }
+}
+
+function renderServerUpdate(status) {
+  const latest = status.latest_release || {};
+  const latestVersion = latest.version ? `v${latest.version}` : 'unknown';
+  const currentVersion = status.current_version ? `v${status.current_version}` : 'unknown';
+  const installType = status.installation_type || 'unknown';
+  const title = document.getElementById('server-update-title');
+  const desc = document.getElementById('server-update-desc');
+  const help = document.getElementById('server-update-help');
+  const command = document.getElementById('server-update-command');
+  const button = document.getElementById('server-update-install');
+  renderServerUpdateStatusVisual(status);
+  title.textContent = status.update_available
+    ? t('admin.serverUpdate.updateAvailableTitle', { current: currentVersion, latest: latestVersion })
+    : t('admin.serverUpdate.currentTitle', { current: currentVersion });
+  desc.textContent = '';
+  desc.style.display = 'none';
+  button.disabled = !status.can_install;
+  command.style.display = 'none';
+  command.textContent = '';
+  renderServerUpdateProgress(status.progress);
+  if (installType === 'docker' && status.update_available) {
+    help.textContent = t('admin.serverUpdate.dockerHelp');
+    command.style.display = 'block';
+    command.textContent = status.docker_update_hint || 'docker compose pull && docker compose up -d';
+  } else if (installType === 'deb') {
+    help.textContent = status.can_install
+      ? t('admin.serverUpdate.debHelpReady')
+      : t('admin.serverUpdate.debHelpUnavailable');
+  } else {
+    help.textContent = t('admin.serverUpdate.unsupportedHelp');
+  }
+}
+
+async function hardReloadAfterServerUpdate() {
+  try {
+    if ('serviceWorker' in navigator && typeof navigator.serviceWorker.getRegistrations === 'function') {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map(reg => reg.unregister().catch(() => false)));
+    }
+    if ('caches' in window && typeof caches.keys === 'function') {
+      const names = await caches.keys();
+      await Promise.all(names.map(name => caches.delete(name).catch(() => false)));
+    }
+  } catch (err) {
+    console.warn('Hard reload cleanup after server update failed:', err);
+  }
+  window.location.replace(`/admin?server-updated=${Date.now()}`);
+}
+
+async function showServerUpdateReloadNotice() {
+  const confirmed = await adminDialog({
+    title: t('admin.serverUpdate.reloadTitle'),
+    message: t('admin.serverUpdate.reloadMessage'),
+    confirmText: t('admin.serverUpdate.reloadNow'),
+    hideCancel: true,
+  });
+  if (confirmed) await hardReloadAfterServerUpdate();
+}
+
+async function pollServerUpdateProgress() {
+  try {
+    const progress = await apiGet('/api/admin/server-update/progress');
+    renderServerUpdateProgress(progress);
+    if (progress.state === 'success' || progress.state === 'failed') {
+      await refreshServerUpdateStatus({ keepMessages: true });
+    }
+  } catch (e) {
+    document.getElementById('server-update-success').textContent = t('admin.serverUpdate.waitingRestart');
+  }
+}
+
+function startServerUpdatePolling() {
+  if (serverUpdatePollTimer) clearInterval(serverUpdatePollTimer);
+  serverUpdatePollTimer = setInterval(pollServerUpdateProgress, 2500);
+}
+
+async function refreshServerUpdateStatus(options = {}) {
+  if (!options.keepMessages) {
+    document.getElementById('server-update-error').textContent = '';
+    document.getElementById('server-update-success').textContent = '';
+  }
+  try {
+    renderServerUpdate(await apiGet('/api/admin/server-update'));
+  } catch (e) {
+    document.getElementById('server-update-error').textContent = e.message;
+  }
+}
+
+async function installServerUpdate() {
+  document.getElementById('server-update-error').textContent = '';
+  document.getElementById('server-update-success').textContent = '';
+  const confirmed = await adminConfirm({
+    title: t('admin.serverUpdate.confirmTitle'),
+    message: t('admin.serverUpdate.confirmMessage'),
+    confirmText: t('admin.serverUpdate.install'),
+  });
+  if (!confirmed) return;
+  const button = document.getElementById('server-update-install');
+  button.disabled = true;
+  serverUpdateReloadPromptShown = false;
+  serverUpdateStartedInThisPage = true;
+  try {
+    const result = await apiPost('/api/admin/server-update/install', {});
+    document.getElementById('server-update-success').textContent = result.started
+      ? t('admin.serverUpdate.started', { version: `v${result.target_version}` })
+      : t('admin.serverUpdate.notStarted');
+    startServerUpdatePolling();
+    setTimeout(pollServerUpdateProgress, 1000);
+  } catch (e) {
+    document.getElementById('server-update-error').textContent = e.message;
+    await refreshServerUpdateStatus();
   }
 }
 

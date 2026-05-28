@@ -5,6 +5,18 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [2.5.4] - 2026-05-28
+
+### Added
+- Admin panel server update management for packaged Debian/systemd installations, including release checks, update severity indicators, install progress polling, and a guarded host helper that downloads the latest `.deb`, verifies SHA256, installs it, and requests a service restart.
+- Docker installations now show update availability and manual `docker compose pull && docker compose up -d` guidance instead of attempting unsafe in-container self-updates.
+- The login screen now exposes a subtle app refresh action and can show web-app update prompts before authentication, helping users recover from stale cached clients that miss newer login/2FA UI.
+
+### Changed
+- Server update status copy is localized and simplified so the update card relies on clear version, severity, and Debian/Docker-specific helper text.
+- Public source exports and full Debian bundles now include the server update helper and normalize exported web/service-worker versions to the released version.
+- WebSocket connections are skipped while logged out, preventing unauthenticated reconnect loops on the login page.
+
 ## [2.5.3] - 2026-05-28
 
 ### Added
