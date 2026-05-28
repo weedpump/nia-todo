@@ -23,6 +23,7 @@ UPDATE_STATUS_FILE = Path(os.environ.get("NIA_TODO_UPDATE_STATUS_FILE", "/var/ca
 UPDATE_RELEASE_API_URL = os.environ.get("NIA_TODO_UPDATE_RELEASE_API_URL", DEFAULT_RELEASE_API_LATEST)
 UPDATE_RELEASES_URL = os.environ.get("NIA_TODO_UPDATE_RELEASES_URL", DEFAULT_RELEASES_URL)
 INSTALLATION_TYPE_OVERRIDE = os.environ.get("NIA_TODO_INSTALLATION_TYPE", "").strip().lower()
+CURRENT_VERSION_OVERRIDE = os.environ.get("NIA_TODO_UPDATE_CURRENT_VERSION", "").strip()
 
 
 @dataclass(frozen=True)
@@ -146,7 +147,7 @@ def get_update_progress() -> dict[str, Any]:
 
 
 def get_update_status() -> dict[str, Any]:
-    current = normalize_version(_read_web_app_version())
+    current = normalize_version(CURRENT_VERSION_OVERRIDE or _read_web_app_version())
     install_type = INSTALLATION_TYPE_OVERRIDE if INSTALLATION_TYPE_OVERRIDE in {"deb", "docker", "dev", "unknown"} else detect_installation_type()
     status: dict[str, Any] = {
         "current_version": current,
