@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 
 ### Fixed
 - Server update progress now reconciles stale `installing` states when the installed server version already matches or exceeds the update target, preventing completed updates from leaving outdated progress text in the admin panel.
+- Login layout now stays usable on small mobile and desktop viewports: mobile uses a fullscreen scrollable form, login actions keep consistent sizing, and short desktop windows scroll instead of clipping the form.
 
 ## [2.5.5] - 2026-05-28
 
