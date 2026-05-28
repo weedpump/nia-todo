@@ -2572,31 +2572,21 @@ input[type="color"]::-moz-color-swatch {
   padding-top: 8px;
 }
 
-.login-overlay > .login-update-refresh {
-  position: fixed;
-  left: 50%;
-  bottom: max(18px, env(safe-area-inset-bottom));
-  transform: translateX(-50%);
-  min-height: 26px;
-  padding: 5px 10px;
+.login-box > .login-update-refresh {
+  display: flex;
+  width: 100%;
+  min-height: 30px;
+  margin-top: 10px;
+  padding: 7px 10px;
   border-color: rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.18));
-  background: rgba(var(--bg-secondary-rgb), 0.55);
+  background: var(--bg-secondary);
   color: var(--text-muted);
   font-size: 11px;
-  opacity: 0.72;
-  backdrop-filter: blur(10px);
+  opacity: 0.82;
 }
 
-.login-overlay > .login-update-refresh:hover {
-  transform: translateX(-50%) translateY(-1px);
+.login-box > .login-update-refresh:hover {
   opacity: 1;
-}
-
-@media (max-width: 480px) {
-  .login-overlay > .login-update-refresh {
-    bottom: max(10px, env(safe-area-inset-bottom));
-    max-width: calc(100vw - 32px);
-  }
 }
 
 .settings-resource-links {
@@ -2785,18 +2775,6 @@ input[type="color"]::-moz-color-swatch {
     margin-bottom: 24px;
   }
 
-  .login-overlay > .login-update-refresh {
-    position: static;
-    transform: none;
-    display: flex;
-    width: fit-content;
-    max-width: calc(100vw - 32px);
-    margin: 12px auto max(16px, env(safe-area-inset-bottom));
-  }
-
-  .login-overlay > .login-update-refresh:hover {
-    transform: none;
-  }
 }
 
 @media (max-width: 768px) and (max-height: 700px) {
