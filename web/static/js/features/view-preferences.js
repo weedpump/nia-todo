@@ -68,7 +68,10 @@ export function createViewPreferencesFeature({ getHideDone, setHideDone, getSort
     if (!btn || !getTodayFocus) return;
     const active = getTodayFocus();
     btn.classList.toggle('active', active);
+    btn.setAttribute('aria-pressed', active ? 'true' : 'false');
     btn.title = active ? t('todayFocus.disable') : t('todayFocus.enable');
+    const label = btn.querySelector('[data-i18n-key="todayFocus.short"]');
+    if (label) label.textContent = active ? t('todayFocus.on') : t('todayFocus.short');
   }
 
   function cycleSort() {

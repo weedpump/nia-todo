@@ -226,10 +226,8 @@ export function createTodosFeature({
     setTodos(getTodos().map(item => String(item.id) === String(id) ? updatedTodo : item));
     renderStats();
     renderTodos();
-    if (status === 'done') {
-      runHapticFeedback();
-      showToast(t('todo.toast.done'), { type: 'status', id: todo.id, previousStatus: todo.status });
-    }
+    runHapticFeedback(status === 'done' ? 18 : 10);
+    if (status === 'done') showToast(t('todo.toast.done'), { type: 'status', id: todo.id, previousStatus: todo.status });
     else if (todo.status === 'done' && status === 'pending') showToast(t('todo.toast.reopened'), { type: 'status', id: todo.id, previousStatus: todo.status });
     await addToSyncQueue('UPDATE_TODO', { id: todo.id, changes: { status } });
     if (isOnlineForSync()) await syncWithServer();
@@ -340,8 +338,8 @@ export function createTodosFeature({
     return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'BUTTON' || tag === 'A' || element?.isContentEditable;
   }
 
-  function closeTodoStatusMenus(except = null) {
-    document.querySelectorAll('.todo-status-menu[open]').forEach((menu) => {
+  function closeTodoActionMenus(except = null) {
+    document.querySelectorAll('.todo-status-menu[open], .todo-snooze-menu[open]').forEach((menu) => {
       if (menu !== except) menu.removeAttribute('open');
     });
   }
@@ -351,12 +349,17 @@ export function createTodosFeature({
     document.documentElement.dataset.todoStatusMenuBound = '1';
 
     document.addEventListener('click', (event) => {
-      const menu = event.target?.closest?.('.todo-status-menu');
-      closeTodoStatusMenus(menu || null);
+      const menu = event.target?.closest?.('.todo-status-menu, .todo-snooze-menu');
+      closeTodoActionMenus(menu || null);
     });
 
+    document.addEventListener('toggle', (event) => {
+      const menu = event.target?.closest?.('.todo-status-menu, .todo-snooze-menu');
+      if (menu?.open) closeTodoActionMenus(menu);
+    }, true);
+
     document.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape') closeTodoStatusMenus();
+      if (event.key === 'Escape') closeTodoActionMenus();
     });
   }
 
