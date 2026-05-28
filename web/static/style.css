@@ -2574,9 +2574,10 @@ input[type="color"]::-moz-color-swatch {
 
 .login-box > .login-update-refresh {
   display: flex;
-  width: 100%;
+  width: fit-content;
+  max-width: 100%;
   min-height: 30px;
-  margin-top: 10px;
+  margin: 10px auto 0;
   padding: 7px 10px;
   border-color: rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.18));
   background: var(--bg-secondary);
@@ -2964,6 +2965,13 @@ input[type="color"]::-moz-color-swatch {
 .app-download-launcher:hover .ui-icon {
   color: currentColor;
   opacity: 1;
+}
+
+.login-box > .login-download-launcher {
+  display: flex;
+  width: 100%;
+  margin-left: 0;
+  margin-right: 0;
 }
 
 .changelog-link:hover,
