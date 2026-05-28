@@ -1170,25 +1170,34 @@ body {
   flex: 0 0 auto;
 }
 
-.todo-actions button {
+.todo-actions button,
+.todo-snooze-menu summary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
   background: none;
   border: none;
   color: var(--text-muted);
   cursor: pointer;
   font-size: 16px;
-  padding: 4px;
-  border-radius: 4px;
+  padding: 0;
+  border-radius: 7px;
+  line-height: 1;
 }
 
-.todo-actions button:hover { background: var(--bg-hover); color: var(--text-primary); }
+.todo-actions button:hover,
+.todo-snooze-menu summary:hover { background: var(--bg-hover); color: var(--text-primary); }
 
 .todo-status-menu {
   display: none;
   position: relative;
 }
 
-.todo-item:has(.todo-status-menu[open]) {
-  z-index: 180;
+.todo-item:has(.todo-status-menu[open]),
+.todo-item:has(.todo-snooze-menu[open]) {
+  z-index: 240;
 }
 
 .todo-status-menu summary {
@@ -1239,7 +1248,7 @@ body {
   position: absolute;
   top: calc(100% + 6px);
   right: 0;
-  z-index: 80;
+  z-index: 1000;
   min-width: 136px;
   padding: 6px;
   border: 1px solid rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.28));
@@ -1250,6 +1259,7 @@ body {
 
 .todo-status-options button {
   width: 100%;
+  height: auto;
   justify-content: flex-start;
   padding: 8px 10px;
   border-radius: 8px;
@@ -4183,23 +4193,40 @@ input[type="color"]::-moz-color-swatch {
 .today-focus-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
+  min-width: 92px;
   border: 1px solid var(--border);
   background: var(--bg-secondary);
   color: var(--text-secondary);
   border-radius: 999px;
-  padding: 8px 11px;
+  padding: 8px 12px;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 800;
   cursor: pointer;
+  box-shadow: inset 0 0 0 1px transparent;
   transition: all 0.18s ease;
 }
 
-.today-focus-btn:hover,
-.today-focus-btn.active {
+.today-focus-btn:hover {
   color: var(--accent);
   border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
   background: color-mix(in srgb, var(--accent) 10%, var(--bg-secondary));
+}
+
+.today-focus-btn.active {
+  color: white;
+  border-color: var(--accent);
+  background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 72%, #111827));
+  box-shadow: 0 8px 20px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.26));
+}
+
+.today-focus-btn.active::after {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.95;
 }
 
 .today-focus-btn .ui-icon { width: 15px; height: 15px; }
@@ -4249,27 +4276,71 @@ input[type="color"]::-moz-color-swatch {
 
 .todo-snooze-menu summary {
   list-style: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
+}
+
+.todo-snooze-menu summary:hover,
+.todo-snooze-menu[open] summary {
+  background: var(--bg-hover);
+  color: var(--text-primary);
 }
 
 .todo-snooze-menu summary::-webkit-details-marker { display: none; }
+.todo-snooze-menu summary::marker { content: ""; font-size: 0; }
+
+.todo-snooze-menu .todo-status-options {
+  right: 0;
+  left: auto;
+  min-width: 152px;
+}
+
+.today-agenda-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.today-agenda-title small {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.today-agenda-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 0;
+  margin: -2px 0 9px;
+}
+
+.today-agenda-chips span {
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.10));
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.today-agenda-chips .danger {
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  color: var(--danger);
+}
 
 .today-agenda-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 7px;
 }
 
 .today-agenda-item {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
   width: 100%;
-  padding: 10px 11px;
+  padding: 9px 10px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--bg-secondary);
@@ -4283,17 +4354,50 @@ input[type="color"]::-moz-color-swatch {
   background: color-mix(in srgb, var(--accent) 7%, var(--bg-secondary));
 }
 
-.today-agenda-item span:nth-child(2) {
+.today-agenda-item.overdue {
+  border-color: color-mix(in srgb, var(--danger) 32%, var(--border));
+}
+
+.today-agenda-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 2px;
+}
+
+.today-agenda-text strong,
+.today-agenda-text small {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.today-agenda-item strong {
+.today-agenda-text strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.today-agenda-text strong .ui-icon {
+  width: 13px;
+  height: 13px;
+  color: var(--accent);
+  flex: 0 0 auto;
+}
+
+.today-agenda-text small,
+.today-agenda-time {
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
+}
+
+.today-agenda-time {
+  white-space: nowrap;
 }
 
 .today-agenda-prio.p1 { background: #ef4444; }
@@ -4320,7 +4424,9 @@ input[type="color"]::-moz-color-swatch {
 .status-pending-sync::after { content: none; }
 
 @media (max-width: 640px) {
-  .today-focus-btn span:not(.ui-icon) { display: none; }
-  .today-focus-btn { padding: 8px; }
+  .today-focus-btn {
+    min-width: 86px;
+    padding: 8px 10px;
+  }
   .todo-snooze-menu .todo-status-options { right: 0; left: auto; }
 }

@@ -178,6 +178,8 @@ export function createAppRenderingFeature({
     const currentFilter = getCurrentFilter();
     const currentProjectId = getCurrentProjectId();
     const now = new Date();
+    const todayStart = new Date(now);
+    todayStart.setHours(0, 0, 0, 0);
     const todayEnd = new Date(now);
     todayEnd.setHours(23, 59, 59, 999);
     const weekEnd = new Date(now);
@@ -276,12 +278,19 @@ export function createAppRenderingFeature({
       { icon: iconSvg('chart-line'), label: t('overview.focus.completionRate'), value: `${completionRate}%` },
     ];
 
-    const todayAgendaItems = sortTodoList(activeTodos.filter(todo => {
+    const todayAgendaPool = activeTodos.filter(todo => {
       if (todo.is_pinned) return true;
       if (!todo.due_date) return Number(todo.priority) === 1;
       const due = new Date(todo.due_date);
       return Number.isFinite(due.getTime()) && due <= todayEnd;
-    })).slice(0, 5);
+    });
+    const todayAgendaItems = sortTodoList(todayAgendaPool).slice(0, 4);
+    const pinnedToday = todayAgendaPool.filter(todo => todo.is_pinned).length;
+    const overdueToday = todayAgendaPool.filter(todo => {
+      if (!todo.due_date) return false;
+      const due = new Date(todo.due_date);
+      return Number.isFinite(due.getTime()) && due < now;
+    }).length;
 
     el.innerHTML = `
       <section class="overview-dashboard" aria-label="${escapeHtmlAttr(t('overview.aria'))}">
@@ -322,15 +331,26 @@ export function createAppRenderingFeature({
             </div>
           </div>
           <div class="overview-panel today-agenda-panel">
-            <div class="overview-panel-title">${escapeHtml(t('todayAgenda.title'))}</div>
+            <div class="overview-panel-title today-agenda-title">
+              <span>${escapeHtml(t('todayAgenda.title'))}</span>
+              <small>${todayAgendaPool.length} ${escapeHtml(t('todayAgenda.open'))}</small>
+            </div>
+            <div class="today-agenda-chips">
+              ${overdueToday ? `<span class="danger">${overdueToday} ${escapeHtml(t('todayAgenda.overdue'))}</span>` : ''}
+              ${pinnedToday ? `<span>${pinnedToday} ${escapeHtml(t('todayAgenda.pinned'))}</span>` : ''}
+            </div>
             <div class="today-agenda-list">
               ${todayAgendaItems.length ? todayAgendaItems.map(todo => {
                 const due = todo.due_date ? new Date(todo.due_date) : null;
-                const dueLabel = due && Number.isFinite(due.getTime()) ? new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit' }).format(due) : '';
-                return `<button type="button" class="today-agenda-item" onclick='editTodo(${escapeHtmlAttr(JSON.stringify(todo.id))})'>
+                const dueIsValid = due && Number.isFinite(due.getTime());
+                const dueLabel = dueIsValid
+                  ? (due < todayStart ? t('todayAgenda.overdue') : new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit' }).format(due))
+                  : (todo.is_pinned ? t('todo.pinned') : t('todayAgenda.noTime'));
+                const project = projects.find(p => String(p.id) === String(todo.project_id));
+                return `<button type="button" class="today-agenda-item ${dueIsValid && due < now ? 'overdue' : ''}" onclick='editTodo(${escapeHtmlAttr(JSON.stringify(todo.id))})'>
                   <span class="today-agenda-prio priority-dot p${escapeHtmlAttr(String(todo.priority || 3))}"></span>
-                  <span>${todo.is_pinned ? iconSvg('star') : ''}${escapeHtml(todo.title)}</span>
-                  <strong>${escapeHtml(dueLabel || (todo.is_pinned ? t('todo.pinned') : ''))}</strong>
+                  <span class="today-agenda-text"><strong>${todo.is_pinned ? iconSvg('star') : ''}${escapeHtml(todo.title)}</strong><small>${escapeHtml(project?.name || '')}</small></span>
+                  <span class="today-agenda-time">${escapeHtml(dueLabel)}</span>
                 </button>`;
               }).join('') : `<div class="overview-empty-mini">${escapeHtml(t('todayAgenda.empty'))}</div>`}
             </div>

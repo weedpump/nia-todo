@@ -812,7 +812,8 @@
   "api.error.mfa.trustedDeviceNotFound": "Device session not found",
   "settings.2fa.trustedDeviceRemembered": "2FA remembered",
   "appDownloads.serverHostLabel": "Enter this address in the app:",
-  "todayFocus.short": "Today",
+  "todayFocus.short": "Focus",
+  "todayFocus.on": "Focus on",
   "todayFocus.toggleTitle": "Today focus",
   "todayFocus.enable": "Enable today focus",
   "todayFocus.disable": "Disable today focus",
@@ -829,6 +830,10 @@
   "todo.toast.pinned": "Todo pinned",
   "todo.toast.unpinned": "Pin removed",
   "todo.toast.snoozed": "Todo moved",
-  "todayAgenda.title": "What is up today?",
-  "todayAgenda.empty": "Nothing urgent today."
+  "todayAgenda.title": "Today focus",
+  "todayAgenda.empty": "Nothing urgent today.",
+  "todayAgenda.open": "open",
+  "todayAgenda.overdue": "overdue",
+  "todayAgenda.pinned": "pinned",
+  "todayAgenda.noTime": "no time"
 }
