@@ -935,11 +935,12 @@ body {
 
 .pinned-todos-group {
   margin-bottom: 18px;
-  padding: 10px;
+  padding: 12px;
   border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--border));
-  border-radius: var(--radius-lg);
+  border-radius: 22px;
   background: linear-gradient(135deg, rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.12)), color-mix(in srgb, var(--bg-secondary) 88%, transparent));
   box-shadow: 0 12px 28px rgba(0,0,0,0.08);
+  overflow: visible;
 }
 
 .pinned-title {
@@ -4280,6 +4281,7 @@ input[type="color"]::-moz-color-swatch {
 
 .todo-item.pinned {
   border-color: color-mix(in srgb, var(--accent) 58%, var(--border));
+  border-radius: 16px;
   background: linear-gradient(90deg, rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.13)), var(--bg-secondary) 42%);
   box-shadow: inset 4px 0 0 var(--accent), 0 0 0 1px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.12));
 }
@@ -4374,7 +4376,7 @@ input[type="color"]::-moz-color-swatch {
   width: 100%;
   padding: 9px 10px;
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: 16px;
   background: var(--bg-secondary);
   color: var(--text-primary);
   text-align: left;
