@@ -13,6 +13,7 @@ export function createAppRenderingFeature({
   getCurrentProjectId,
   getCurrentWorkspaceId,
   getHideDone,
+  getTodayFocus,
   getShowProjectWidget,
   getCurrentUser,
   sortTodoList,
@@ -275,6 +276,13 @@ export function createAppRenderingFeature({
       { icon: iconSvg('chart-line'), label: t('overview.focus.completionRate'), value: `${completionRate}%` },
     ];
 
+    const todayAgendaItems = sortTodoList(activeTodos.filter(todo => {
+      if (todo.is_pinned) return true;
+      if (!todo.due_date) return Number(todo.priority) === 1;
+      const due = new Date(todo.due_date);
+      return Number.isFinite(due.getTime()) && due <= todayEnd;
+    })).slice(0, 5);
+
     el.innerHTML = `
       <section class="overview-dashboard" aria-label="${escapeHtmlAttr(t('overview.aria'))}">
         <div class="overview-dashboard-header">
@@ -311,6 +319,20 @@ export function createAppRenderingFeature({
                   <strong>${item.value}</strong>
                 </div>
               `).join('')}
+            </div>
+          </div>
+          <div class="overview-panel today-agenda-panel">
+            <div class="overview-panel-title">${escapeHtml(t('todayAgenda.title'))}</div>
+            <div class="today-agenda-list">
+              ${todayAgendaItems.length ? todayAgendaItems.map(todo => {
+                const due = todo.due_date ? new Date(todo.due_date) : null;
+                const dueLabel = due && Number.isFinite(due.getTime()) ? new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit' }).format(due) : '';
+                return `<button type="button" class="today-agenda-item" onclick='editTodo(${escapeHtmlAttr(JSON.stringify(todo.id))})'>
+                  <span class="today-agenda-prio priority-dot p${escapeHtmlAttr(String(todo.priority || 3))}"></span>
+                  <span>${todo.is_pinned ? iconSvg('star') : ''}${escapeHtml(todo.title)}</span>
+                  <strong>${escapeHtml(dueLabel || (todo.is_pinned ? t('todo.pinned') : ''))}</strong>
+                </button>`;
+              }).join('') : `<div class="overview-empty-mini">${escapeHtml(t('todayAgenda.empty'))}</div>`}
             </div>
           </div>
           <div class="overview-panel">
@@ -396,6 +418,18 @@ export function createAppRenderingFeature({
         (t.title || '').toLowerCase().includes(search) ||
         (t.description || '').toLowerCase().includes(search)
       );
+    }
+    if (getTodayFocus?.() && currentFilter !== 'done') {
+      const now = new Date();
+      const todayEnd = new Date(now);
+      todayEnd.setHours(23, 59, 59, 999);
+      filtered = filtered.filter(todo => {
+        if (todo.status === 'done') return false;
+        if (todo.is_pinned) return true;
+        if (!todo.due_date) return Number(todo.priority) === 1;
+        const due = new Date(todo.due_date);
+        return Number.isFinite(due.getTime()) && due <= todayEnd;
+      });
     }
     filtered = sortTodoList(filtered);
 

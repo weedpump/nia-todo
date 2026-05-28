@@ -20,6 +20,7 @@ class TodoCreate(BaseModel):
     title: str
     description: str = ""
     priority: int = Field(default=3, ge=1, le=4)
+    is_pinned: bool = False
     status: str = "pending"
     project_id: Optional[int] = None
     section_id: Optional[int] = None
@@ -30,6 +31,7 @@ class TodoUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     priority: Optional[int] = None
+    is_pinned: Optional[bool] = None
     status: Optional[str] = None
     project_id: Optional[int] = None
     section_id: Optional[int] = None
@@ -158,7 +160,7 @@ def list_todos(status: Optional[str] = None, project_id: Optional[int] = None, s
         if section_id is not None:
             sql += " AND t.section_id = ?"
             params.append(section_id)
-        sql += " ORDER BY CASE t.status WHEN 'pending' THEN 0 WHEN 'in_progress' THEN 1 WHEN 'done' THEN 2 ELSE 3 END, t.priority, t.due_date IS NULL, t.due_date"
+        sql += " ORDER BY COALESCE(t.is_pinned, 0) DESC, CASE t.status WHEN 'pending' THEN 0 WHEN 'in_progress' THEN 1 WHEN 'done' THEN 2 ELSE 3 END, t.priority, t.due_date IS NULL, t.due_date"
         rows = db.execute(sql, params).fetchall()
         return {"todos": [row_to_dict(r) for r in rows]}
 
@@ -176,9 +178,9 @@ async def create_todo(data: TodoCreate, user_id: int = Depends(require_auth)):
         completed_at = now if data.status == 'done' else None
         c = db.execute(
             """INSERT INTO todos
-               (title, description, priority, status, project_id, section_id, due_date, completed_at, updated_at, user_id)
-               VALUES (?,?,?,?,?,?,?,?,?,?)""",
-            (data.title, data.description, data.priority, data.status, data.project_id, data.section_id, data.due_date, completed_at, now, user_id)
+               (title, description, priority, is_pinned, status, project_id, section_id, due_date, completed_at, updated_at, user_id)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+            (data.title, data.description, data.priority, int(bool(data.is_pinned)), data.status, data.project_id, data.section_id, data.due_date, completed_at, now, user_id)
         )
         todo_id = c.lastrowid
         if data.remind_at:
@@ -218,7 +220,7 @@ async def update_todo(todo_id: int, data: TodoUpdate, user_id: int = Depends(req
         _validate_todo_target(db, target_project_id, target_section_id, user_id)
 
         updates = {}
-        for f in ["title", "description", "priority", "project_id", "section_id", "due_date", "status"]:
+        for f in ["title", "description", "priority", "is_pinned", "project_id", "section_id", "due_date", "status"]:
             if f in dumped:
                 updates[f] = dumped[f]
         if updates:
@@ -227,7 +229,9 @@ async def update_todo(todo_id: int, data: TodoUpdate, user_id: int = Depends(req
                 updates['completed_at'] = now_iso()
             elif data.status != 'done' and existing['status'] == 'done':
                 updates['completed_at'] = None
-            allowed_cols = {"title", "description", "priority", "project_id", "section_id", "due_date", "status", "completed_at", "updated_at"}
+            if 'is_pinned' in updates:
+                updates['is_pinned'] = int(bool(updates['is_pinned']))
+            allowed_cols = {"title", "description", "priority", "is_pinned", "project_id", "section_id", "due_date", "status", "completed_at", "updated_at"}
             safe_updates = {k:v for k,v in updates.items() if k in allowed_cols}
             set_clause = ", ".join(f"{k}=:{k}" for k in safe_updates)
             db.execute(f"UPDATE todos SET {set_clause} WHERE id = :id", {**safe_updates, "id": todo_id})
