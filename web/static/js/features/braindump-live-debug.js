@@ -1,5 +1,5 @@
 import { API } from '../core/config.js';
-import { getAuthHeaders } from '../api/http.js';
+import { getAuthHeaders, getAuthToken } from '../api/http.js';
 import { escapeHtml } from '../core/utils.js';
 
 export function createBrainDumpLiveDebugFeature() {
@@ -35,19 +35,19 @@ export function createBrainDumpLiveDebugFeature() {
   async function init() {
     const todoList = document.getElementById('todo-list');
     if (!todoList || document.getElementById('braindump-live-debug')) return;
+    const loginOverlay = document.getElementById('login-overlay');
+    const loginVisible = loginOverlay && window.getComputedStyle(loginOverlay).display !== 'none';
+    const userMenuVisible = !!document.getElementById('user-menu-button')?.offsetParent;
+    if (loginVisible || !userMenuVisible || !getAuthToken()) return;
     try {
       const access = await fetch(`${API}/api/braindump/v2/access`, {
         headers: getAuthHeaders(),
         credentials: 'include',
       });
-      if (!access.ok) {
-        scheduleInitRetry();
-        return;
-      }
+      if (!access.ok) return;
       const data = await access.json();
       if (!data.enabled) return;
     } catch {
-      scheduleInitRetry();
       return;
     }
     const panel = document.createElement('section');
