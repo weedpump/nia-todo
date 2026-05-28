@@ -570,13 +570,15 @@ def delete_passkey(passkey_id: int, user_id: int = Depends(require_recent_mfa)):
 
 
 @router.post("/login/passkey/options")
-def passwordless_passkey_login_options(request: Request):
+def passwordless_passkey_login_options(request: Request, _: None = Depends(require_login_rate_limit)):
     challenge = secrets.token_urlsafe(32)
+    now = int(time.time())
     rp = relying_party_for_request(request)
     with get_db() as db:
+        db.execute("DELETE FROM passkey_login_challenges WHERE expires_at < ?", (now - 3600,))
         db.execute(
             "INSERT INTO passkey_login_challenges (challenge_hash, expires_at) VALUES (?, ?)",
-            (sha256_hex(challenge), int(time.time()) + 300),
+            (sha256_hex(challenge), now + 300),
         )
         db.commit()
     return {
@@ -617,6 +619,9 @@ def passwordless_passkey_login_verify(data: PasswordlessPasskeyVerifyRequest, re
             rp = relying_party_for_request(request)
             verify_client_data(client_data_json, "webauthn.get", b64url_encode(data.challenge.encode()), rp.origin)
             parsed = parse_auth_data(auth_data, rp.rp_id, require_attested=False, require_user_verified=True)
+            user_handle = cred_response.get("userHandle")
+            if user_handle and user_handle != b64url_encode(str(key["user_id"]).encode()):
+                raise ValueError("User handle mismatch")
             if int(key["sign_count"] or 0) > 0 and parsed["sign_count"] > 0 and parsed["sign_count"] <= int(key["sign_count"]):
                 raise ValueError("Sign counter rollback")
             verify_assertion_signature(key["public_key"], auth_data, client_data_json, signature)
