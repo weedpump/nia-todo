@@ -104,7 +104,7 @@ async function run() {
     await page.fill('#admin-login-password', ADMIN_PASSWORD);
     await page.click('text=Anmelden');
     await page.locator('#admin-content').waitFor({ state: 'visible', timeout: 10000 });
-    await page.locator('#user-list').getByRole('row', { name: /admincreated/ }).getByText('Aktiv').waitFor({ state: 'visible', timeout: 10000 });
+    await page.locator('#user-list').getByRole('row', { name: /admincreated/ }).getByText('Aktiv', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
 
     await page.fill('#admin-old-password', ADMIN_PASSWORD);
     await page.fill('#admin-new-password', 'NewFrontendAdmin123!');

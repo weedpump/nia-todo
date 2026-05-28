@@ -596,7 +596,10 @@ export function createTodosFeature({
     setTodos(getTodos().map(item => String(item.id) === String(id) ? updatedTodo : item));
     renderStats();
     renderTodos();
-    if (toastMessage) showToast(toastMessage);
+    if (toastMessage) {
+      const previousChanges = Object.fromEntries(Object.keys(changes).map((key) => [key, todo[key]]));
+      showToast(toastMessage, { type: 'fields', id: todo.id, changes: previousChanges });
+    }
     await addToSyncQueue('UPDATE_TODO', { id: todo.id, changes });
     if (isOnlineForSync()) await syncWithServer();
   }
