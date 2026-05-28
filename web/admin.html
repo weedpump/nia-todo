@@ -491,6 +491,11 @@ async function getApiError(response) {
     params = detail.params || params;
     detail = detail.detail || detail.message || fallback;
   }
+
+  // Handle FastAPI/Pydantic validation arrays instead of leaking [object Object].
+  if (Array.isArray(detail)) {
+    detail = detail.map(item => item?.msg || item?.message || item?.detail).filter(Boolean).join(', ') || fallback;
+  }
   
   // Try i18n lookup
   if (code) {
@@ -556,15 +561,15 @@ async function doAdminLogin() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ password })
     });
-    const data = await r.json();
     if (!r.ok) {
       if (r.status === 401) {
         document.getElementById('admin-login-error').textContent = t('admin.login.invalidPassword');
       } else {
-        document.getElementById('admin-login-error').textContent = data.detail || t('admin.login.failed');
+        document.getElementById('admin-login-error').textContent = await getApiError(r) || t('admin.login.failed');
       }
       return;
     }
+    const data = await r.json();
 
     adminToken = data.access_token;
     localStorage.setItem('admin_jwt_token', data.access_token);
