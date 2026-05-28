@@ -25,6 +25,13 @@ def test_version_compare():
     assert_equal(server_updates.compare_versions("2.5.4", "2.5.4-dev"), None, "dev unsafe")
 
 
+def test_update_severity():
+    assert_equal(server_updates.update_severity("3.0.0", "2.9.9"), "major", "major severity")
+    assert_equal(server_updates.update_severity("2.6.0", "2.5.9"), "minor_patch", "minor severity")
+    assert_equal(server_updates.update_severity("2.5.10", "2.5.9"), "minor_patch", "patch severity")
+    assert_equal(server_updates.update_severity("2.5.9", "2.5.9"), "none", "no update severity")
+
+
 def test_docker_status_is_hint_only():
     release = {
         "tag_name": "v2.5.5",
@@ -71,6 +78,7 @@ def test_update_progress_status_file():
 
 def main():
     test_version_compare()
+    test_update_severity()
     test_docker_status_is_hint_only()
     test_deb_requires_helper()
     test_update_progress_status_file()

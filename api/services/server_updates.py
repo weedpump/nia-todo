@@ -74,6 +74,18 @@ def compare_versions(left: str | None, right: str | None) -> int | None:
     return (left_tuple > right_tuple) - (left_tuple < right_tuple)
 
 
+def update_severity(latest: str | None, current: str | None) -> str:
+    latest_tuple = version_tuple(latest)
+    current_tuple = version_tuple(current)
+    if latest_tuple is None or current_tuple is None:
+        return "unknown"
+    if latest_tuple <= current_tuple:
+        return "none"
+    if latest_tuple[0] > current_tuple[0]:
+        return "major"
+    return "minor_patch"
+
+
 def detect_installation_type() -> str:
     if Path("/.dockerenv").exists() or _proc_cgroup_mentions_docker():
         return "docker"
@@ -157,6 +169,7 @@ def get_update_status() -> dict[str, Any]:
         "supported": install_type == "deb",
         "helper_available": Path(HELPER).exists(),
         "update_available": False,
+        "update_severity": "unknown",
         "can_install": False,
         "latest_release": None,
         "compare": None,
@@ -175,6 +188,7 @@ def get_update_status() -> dict[str, Any]:
     status["latest_release"] = release
     status["compare"] = cmp
     status["update_available"] = cmp == 1
+    status["update_severity"] = update_severity(latest, current)
     if cmp is None:
         status["message"] = "Version could not be compared safely."
     elif cmp == 0:
