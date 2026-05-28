@@ -108,10 +108,6 @@
         <button class="theme-option" data-theme="dark" onclick="setTheme('dark')" title="Dark" data-i18n-title-key="common.theme.dark"><span data-icon="moon"></span></button>
         <button class="theme-option" data-theme="system" onclick="setTheme('system')" title="System" data-i18n-title-key="common.theme.system"><span data-icon="monitor"></span></button>
       </div>
-      <div class="login-update-panel">
-        <div class="login-update-text" data-i18n-key="auth.loginUpdateHint">Probleme beim Anmelden oder fehlt das 2FA-Feld?</div>
-        <button type="button" class="login-update-refresh force-refresh-btn" data-force-refresh-button onclick="forceReloadApp()" title="Web-App neu herunterladen und Cache aktualisieren" data-i18n-title-key="version.refreshCache"><span data-icon="refresh-cw"></span><span data-i18n-key="version.reload">↻ Neu laden</span></button>
-      </div>
       <div class="app-resource-links login-resource-links">
         <a class="app-resource-link" href="/api" target="_blank" rel="noopener"><span data-icon="book-open"></span> <span data-i18n-key="resource.apiDocs">API-Doku</span></a>
         <a class="app-resource-link" href="/changelog" target="_blank" rel="noopener"><span data-icon="list"></span> <span data-i18n-key="resource.changelog">Changelog</span></a>
@@ -122,6 +118,7 @@
         <span data-i18n-key="appDownloads.title">Apps herunterladen</span>
       </button>
     </div>
+    <button type="button" class="login-update-refresh force-refresh-btn" data-force-refresh-button onclick="forceReloadApp()" title="Web-App neu herunterladen und Cache aktualisieren" data-i18n-title-key="version.refreshCache"><span data-icon="refresh-cw"></span><span data-i18n-key="auth.loginUpdateAction">Anmeldeproblem? App neu laden</span></button>
   </div>
 
   <div id="app">

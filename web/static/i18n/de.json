@@ -38,7 +38,7 @@
   "auth.mfa.rememberDevice": "Dieses Gerät 30 Tage merken",
   "auth.reset.requestLink": "Reset-Link anfordern",
   "auth.forgotPassword": "Passwort vergessen?",
-  "auth.loginUpdateHint": "Probleme beim Anmelden oder fehlt das 2FA-Feld?",
+  "auth.loginUpdateAction": "Anmeldeproblem? App neu laden",
   "auth.signIn": "Anmelden",
   "auth.signOut": "Abmelden",
   "resource.apiDocs": "API-Doku",
