@@ -22,7 +22,13 @@ async function run() {
   console.log('🔐 Running Playwright password reset/expired link test...');
   const { browser, page, assertNoFrontendErrors } = await launchPage();
   const consoleMessages = [];
-  page.on('console', message => consoleMessages.push(message.text()));
+  page.on('console', async (message) => {
+    const text = message.text();
+    consoleMessages.push(text);
+    if (text.includes('SW: Update check done (startup)')) {
+      await page.evaluate(() => { window.__niaSawStartupSwUpdateCheck = true; }).catch(() => {});
+    }
+  });
   await page.addInitScript(() => localStorage.setItem('nia-todo-language', 'de'));
 
   try {
@@ -40,6 +46,10 @@ async function run() {
     if (!consoleMessages.some(message => message.includes('SW: registration scheduled'))) {
       throw new Error('Service worker update checks should be initialized before login');
     }
+    await page.waitForFunction(() => document.querySelector('#login-overlay:not(.hidden)'), null, { timeout: 10000 });
+    await page.waitForFunction(() => window.__niaSawStartupSwUpdateCheck === true, null, { timeout: 15000 }).catch(() => {
+      throw new Error('Browser/PWA service worker startup update check must run while the login overlay is still visible');
+    });
     await page.waitForTimeout(500);
     if (consoleMessages.some(message => message.includes('[WS] Connecting to'))) {
       throw new Error('WebSocket must not connect before login');

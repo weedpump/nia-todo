@@ -106,8 +106,10 @@ const androidReminderSource = readFileSync(new URL('../src-tauri/gen/android/app
 assert(androidReminderSource.includes('EXTRA_USER_ID') && androidReminderSource.includes('schedule.optString("userId"'), 'Android reminder actions must preserve the scheduled user id');
 assert(swSource.includes('/static/js/features/app-downloads.js'), 'service worker must precache the app downloads module');
 const serviceWorkerUpdatesSource = readFileSync(new URL('../web/static/js/features/service-worker-updates.js', import.meta.url), 'utf8');
-assert(serviceWorkerUpdatesSource.includes('Web-app update prompt suppressed in native runtime'), 'native apps must not show the web app reload update modal');
+assert(serviceWorkerUpdatesSource.includes('bundled app assets are loaded locally'), 'native apps must skip the web service worker because bundled app assets are local');
+assert(serviceWorkerUpdatesSource.includes('scheduleUpdateCheck(\'startup\''), 'browser/PWA service worker update checks must run at startup, including before login');
 assert(downloadsSource.includes('showNativeUpdateModal'), 'native app updates must use the native update modal');
+assert(downloadsSource.includes('deferUntilAfterLogin'), 'native app update prompts must be deferred until after login');
 assert(downloadsSource.includes('validateDownloadEntry'), 'app download manifests must be validated before rendering');
 assert(downloadsSource.includes("rawUrl.startsWith('/downloads/')"), 'app download URLs must be constrained to same-origin /downloads paths');
 assert(downloadsSource.includes('DOWNLOAD_SHA_RE'), 'app download manifests must validate sha256 values');

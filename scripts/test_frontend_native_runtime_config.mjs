@@ -208,6 +208,17 @@ async function testNativeLanguageSettingPersistsThroughInlineChangeBridge() {
   }
 }
 
+async function assertNoWebServiceWorker(page) {
+  const state = await page.evaluate(async () => {
+    if (!('serviceWorker' in navigator)) return { supported: false, registrations: 0, controlled: false };
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    return { supported: true, registrations: registrations.length, controlled: Boolean(navigator.serviceWorker.controller) };
+  });
+  if (state.registrations !== 0 || state.controlled) {
+    throw new Error(`Native runtime must not register/use the web Service Worker: ${JSON.stringify(state)}`);
+  }
+}
+
 async function testNativeUpdateUsesModalWithDownloadButton() {
   const { browser, page, dumpErrors } = await launchPage();
   try {
@@ -215,7 +226,10 @@ async function testNativeUpdateUsesModalWithDownloadButton() {
       appVersion: '1.7.0',
       userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
     });
+    let instanceRequests = 0;
+    let manifestRequests = 0;
     await page.route(new RegExp(`${BASE_URL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/api/instance$`), async (route) => {
+      instanceRequests += 1;
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -232,6 +246,7 @@ async function testNativeUpdateUsesModalWithDownloadButton() {
       });
     });
     await page.route(new RegExp(`${BASE_URL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/downloads/app-downloads\\.json(?:\\?.*)?$`), async (route) => {
+      manifestRequests += 1;
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -253,12 +268,27 @@ async function testNativeUpdateUsesModalWithDownloadButton() {
 
     await page.goto(BASE_URL, { waitUntil: 'domcontentloaded' });
     await page.locator('#login-overlay').waitFor({ state: 'visible', timeout: 10_000 });
+    await assertNoWebServiceWorker(page);
+    await page.waitForFunction(() => window.__nativeInvokeCalls?.some(call => call.command === 'desktop_get_app_version'), null, { timeout: 10_000 });
+    await page.waitForFunction(() => document.querySelector('#login-overlay:not(.hidden)'), null, { timeout: 10_000 });
+    const deadline = Date.now() + 10_000;
+    while ((manifestRequests < 1 || instanceRequests < 1) && Date.now() < deadline) {
+      await page.waitForTimeout(100);
+    }
+    if (manifestRequests < 1) throw new Error('Native app update check must fetch app-downloads manifest before login');
+    if (instanceRequests < 1) throw new Error(`Native app update check must inspect server instance metadata, got ${instanceRequests}`);
+    const preLoginNativeModal = await page.locator('#native-app-update-modal.active').count();
+    if (preLoginNativeModal !== 0) throw new Error('Native app update prompt must not be shown before login');
+    const preLoginWebModal = await page.locator('#web-update-modal.active').count();
+    if (preLoginWebModal !== 0) throw new Error('Native runtime must not show web update modal before login');
+
     await page.fill('#login-username', USERNAME);
     await page.fill('#login-password', USER_PASSWORD);
     await page.click('button.login-btn');
     await page.locator('#login-overlay').waitFor({ state: 'hidden', timeout: 15_000 });
 
     await page.locator('#native-app-update-modal.active').waitFor({ state: 'visible', timeout: 10_000 });
+    await assertNoWebServiceWorker(page);
     const href = await page.locator('#native-app-update-download-btn').getAttribute('href');
     if (href !== `${BASE_URL}/downloads/nia-todo-v1.7.1-windows-x64-setup.exe`) throw new Error(`Unexpected native update href: ${href}`);
     const laterVisible = await page.locator('#native-app-update-later-btn:visible').count();
