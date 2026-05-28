@@ -5,6 +5,15 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [2.5.5] - 2026-05-28
+
+### Fixed
+- Native apps now stay independent from the browser/PWA Service Worker: bundled app assets load locally, while native update checks use the native app update flow.
+- Browser/PWA web-app update checks remain active before login so stale cached login or 2FA screens can recover before authentication.
+
+### Changed
+- Regression tests now explicitly lock the browser/PWA versus native update behavior so web update prompts, native app update prompts, and offline startup paths cannot be mixed accidentally.
+
 ## [2.5.4] - 2026-05-28
 
 ### Added

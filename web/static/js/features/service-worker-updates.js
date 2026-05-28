@@ -60,7 +60,8 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
     serviceWorkerInitStarted = true;
     if (isNativeApp()) {
       hideUpdateModal();
-      console.log('SW: web update prompts suppressed in native runtime');
+      console.log('SW: skipped in native runtime; bundled app assets are loaded locally');
+      return;
     }
     if (!('serviceWorker' in navigator) || typeof navigator.serviceWorker?.register !== 'function') return;
 
