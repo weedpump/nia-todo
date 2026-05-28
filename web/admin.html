@@ -784,11 +784,8 @@ function renderServerUpdate(status) {
   title.textContent = status.update_available
     ? t('admin.serverUpdate.updateAvailableTitle', { current: currentVersion, latest: latestVersion })
     : t('admin.serverUpdate.currentTitle', { current: currentVersion });
-  desc.textContent = t('admin.serverUpdate.desc', {
-    message: status.message || '',
-    installType,
-    latest: latestVersion,
-  });
+  desc.textContent = '';
+  desc.style.display = 'none';
   button.disabled = !status.can_install;
   command.style.display = 'none';
   command.textContent = '';
