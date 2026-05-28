@@ -425,7 +425,13 @@ body {
     var(--bg-secondary);
 }
 
-.search-box { flex: 1; }
+.search-box {
+  flex: 1;
+  position: relative;
+}
+.search-toggle-btn {
+  display: none;
+}
 .search-box input {
   width: 100%;
   padding: 10px 14px;
@@ -1803,6 +1809,55 @@ input[type="color"]::-moz-color-swatch {
   .topbar {
     padding: 12px 16px;
     gap: 10px;
+  }
+  .search-box {
+    flex: 0 0 auto;
+    order: 2;
+  }
+  .search-toggle-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--bg-primary);
+    color: var(--text-secondary);
+    cursor: pointer;
+  }
+  .search-toggle-btn:hover,
+  .search-box.open .search-toggle-btn {
+    border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+    background: color-mix(in srgb, var(--accent) 10%, var(--bg-primary));
+    color: var(--accent);
+  }
+  .search-toggle-btn .ui-icon {
+    width: 17px;
+    height: 17px;
+  }
+  .search-box input {
+    position: absolute;
+    top: 0;
+    right: 0;
+    z-index: 20;
+    width: min(calc(100vw - 84px), 360px);
+    height: 36px;
+    padding: 8px 40px 8px 12px;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(8px) scaleX(0.96);
+    transform-origin: right center;
+    transition: opacity 0.16s ease, transform 0.16s ease;
+  }
+  .search-box.open input {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(0) scaleX(1);
+  }
+  .search-box.open .search-toggle-btn {
+    position: relative;
+    z-index: 21;
   }
   .topbar-workspace-switcher {
     width: min(190px, 42vw);

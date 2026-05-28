@@ -262,8 +262,9 @@
       <!-- Top bar -->
       <div class="topbar">
         <button class="hamburger" onclick="toggleSidebar()" aria-label="Open menu" data-i18n-aria-label-key="topbar.openMenu"><span data-icon="menu"></span></button>
-        <div class="search-box">
-          <input type="text" id="search-input" placeholder="Todo suchen..." data-i18n-placeholder-key="topbar.searchTodo" oninput="renderTodos()">
+        <div class="search-box" id="search-box">
+          <button type="button" class="search-toggle-btn" id="search-toggle-btn" onclick="toggleMobileSearch()" aria-label="Suche öffnen" data-i18n-aria-label-key="common.search" title="Suche" data-i18n-title-key="common.search"><span data-icon="search"></span></button>
+          <input type="text" id="search-input" placeholder="Todo suchen..." data-i18n-placeholder-key="topbar.searchTodo" oninput="renderTodos()" onkeydown="if(event.key==='Escape')closeMobileSearch()">
         </div>
         <div class="topbar-actions">
           <div class="workspace-switcher topbar-workspace-switcher" id="workspace-switcher">
