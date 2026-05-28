@@ -125,7 +125,7 @@ export function createWorkspacesFeature({
   }
 
   function workspaceIndexFromShortcut(event) {
-    if (!event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return null;
+    if (!event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return null;
     if (/^[1-6]$/.test(event.key)) return Number(event.key) - 1;
     const digitMatch = event.code?.match(/^Digit([1-6])$/);
     if (digitMatch) return Number(digitMatch[1]) - 1;

@@ -65,10 +65,10 @@ async function run() {
     await chooseWorkspace('Personal');
     await page.waitForFunction(() => !document.body.innerText.includes('Beruf Projekt'), null, { timeout: 10000 });
 
-    await page.keyboard.press('Control+2');
+    await page.keyboard.press('Alt+2');
     await page.waitForFunction(() => document.querySelector('#workspace-current-name')?.textContent === 'Beruflich', null, { timeout: 10000 });
     await waitForText('Beruf Projekt');
-    await page.keyboard.press('Control+1');
+    await page.keyboard.press('Alt+1');
     await page.waitForFunction(() => document.querySelector('#workspace-current-name')?.textContent === 'Personal', null, { timeout: 10000 });
     await page.waitForFunction(() => !document.body.innerText.includes('Beruf Projekt'), null, { timeout: 10000 });
 
