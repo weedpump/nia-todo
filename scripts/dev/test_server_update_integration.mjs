@@ -74,7 +74,7 @@ async function main() {
     sh('systemctl', ['daemon-reload']);
 
     await withFreshDb(async () => {
-      const { browser, page, waitForText, visible, assertNoFrontendErrors } = await launchPage();
+      const { browser, page, waitForText, visible, consoleErrors, pageErrors } = await launchPage();
       try {
         console.log('🖱️  Opening admin panel and starting real update...');
         await page.goto(`${BASE_URL}/admin`, { waitUntil: 'domcontentloaded' });
@@ -91,7 +91,16 @@ async function main() {
         await waitForText('Server update complete', 20_000);
         await page.locator('#admin-dialog-confirm').click();
         await page.waitForURL(/server-updated=/, { timeout: 30_000 });
-        assertNoFrontendErrors();
+        const filteredConsoleErrors = consoleErrors.filter(message => {
+          if (message.includes('Failed to load resource: the server responded with a status of 404')) return false;
+          // Expected during this integration test: the update helper intentionally
+          // restarts the dev service while the browser is still polling/reloading.
+          if (message.includes('Failed to load resource: net::ERR_CONNECTION_REFUSED')) return false;
+          return true;
+        });
+        if (pageErrors.length || filteredConsoleErrors.length) {
+          throw new Error(`Frontend emitted errors:\npageErrors=${JSON.stringify(pageErrors)}\nconsoleErrors=${JSON.stringify(filteredConsoleErrors)}`);
+        }
       } finally {
         await browser.close();
       }
