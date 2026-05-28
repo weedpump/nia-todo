@@ -1,3 +1,5 @@
+import { t } from '../i18n/index.js';
+
 export function updateConnectionStatus(wsState, { pendingCount = 0, syncing = false } = {}) {
   const indicator = document.getElementById('online-status');
   if (!indicator) return;
@@ -6,8 +8,8 @@ export function updateConnectionStatus(wsState, { pendingCount = 0, syncing = fa
     indicator.style.display = 'inline-flex';
     indicator.className = 'status-syncing';
     indicator.dataset.count = '';
-    indicator.textContent = 'Sync';
-    indicator.title = 'Synchronisierung läuft';
+    indicator.textContent = t('connection.sync.short');
+    indicator.title = t('connection.syncing');
     return;
   }
 
@@ -16,7 +18,7 @@ export function updateConnectionStatus(wsState, { pendingCount = 0, syncing = fa
     indicator.className = 'status-pending-sync';
     indicator.dataset.count = String(Math.min(pendingCount, 99));
     indicator.textContent = `${pendingCount}`;
-    indicator.title = `${pendingCount} lokale Änderung${pendingCount === 1 ? '' : 'en'} warten auf Sync`;
+    indicator.title = t(pendingCount === 1 ? 'connection.pendingSync.one' : 'connection.pendingSync.many', { count: pendingCount });
     return;
   }
 
@@ -31,6 +33,6 @@ export function updateConnectionStatus(wsState, { pendingCount = 0, syncing = fa
     indicator.className = 'status-offline';
     indicator.dataset.count = '';
     indicator.textContent = '';
-    indicator.title = 'Offline';
+    indicator.title = t('connection.offline');
   }
 }
