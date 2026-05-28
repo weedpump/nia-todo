@@ -177,6 +177,7 @@ export function createAppRenderingFeature({
     const projects = getWorkspaceProjects();
     const currentFilter = getCurrentFilter();
     const currentProjectId = getCurrentProjectId();
+    const search = document.getElementById('search-input')?.value?.trim() || '';
     const now = new Date();
     const todayEnd = new Date(now);
     todayEnd.setHours(23, 59, 59, 999);
@@ -218,7 +219,7 @@ export function createAppRenderingFeature({
       button.classList.toggle('active', !currentProjectId && button.dataset.filter === String(currentFilter));
     });
 
-    const showDashboard = currentFilter === 'all' && !currentProjectId;
+    const showDashboard = currentFilter === 'all' && !currentProjectId && !search;
     el.hidden = !showDashboard;
     if (!showDashboard) {
       el.innerHTML = '';
@@ -388,7 +389,7 @@ export function createAppRenderingFeature({
     const currentFilter = getCurrentFilter();
     const currentProjectId = getCurrentProjectId();
     const hideDone = getHideDone();
-    const search = document.getElementById('search-input')?.value?.toLowerCase() || '';
+    const search = document.getElementById('search-input')?.value?.trim().toLowerCase() || '';
 
     let filtered = getWorkspaceTodos();
     if (currentProjectId) filtered = filtered.filter(t => t.project_id === currentProjectId);
@@ -416,7 +417,7 @@ export function createAppRenderingFeature({
       let html = '';
       const currentProject = projects.find(p => Number(p.id) === Number(currentProjectId));
       const projectTodos = getWorkspaceTodos().filter(t => Number(t.project_id) === Number(currentProjectId));
-      html += renderProjectDashboard(currentProject, projectTodos);
+      if (!search) html += renderProjectDashboard(currentProject, projectTodos);
       const sections = allSections.filter(s => Number(s.project_id) === Number(currentProjectId));
       const validSectionIds = new Set(sections.map(s => s.id));
 
