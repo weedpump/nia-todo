@@ -38,6 +38,7 @@
   "auth.mfa.rememberDevice": "Remember this device for 30 days",
   "auth.reset.requestLink": "Request reset link",
   "auth.forgotPassword": "Forgot password?",
+  "auth.loginUpdateHint": "Trouble signing in or missing the 2FA field?",
   "auth.signIn": "Sign in",
   "auth.signOut": "Sign out",
   "resource.apiDocs": "API docs",
