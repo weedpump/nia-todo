@@ -48,9 +48,21 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
     ]);
   }
 
+  function hideUpdateModal() {
+    const modal = document.getElementById('web-update-modal');
+    if (!modal) return;
+    modal.classList.remove('active');
+    modal.setAttribute('aria-hidden', 'true');
+  }
+
   async function initServiceWorker() {
     if (serviceWorkerInitStarted) return;
     serviceWorkerInitStarted = true;
+    if (isNativeApp()) {
+      hideUpdateModal();
+      console.log('SW: web update checks skipped in native runtime');
+      return;
+    }
     if (!('serviceWorker' in navigator) || typeof navigator.serviceWorker?.register !== 'function') return;
 
     console.log('SW: registration scheduled');

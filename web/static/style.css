@@ -2806,8 +2806,9 @@ input[type="color"]::-moz-color-swatch {
 }
 
 .native-app .version-info,
-.native-app .web-version-actions {
-  display: none;
+.native-app .web-version-actions,
+.native-app #web-update-modal {
+  display: none !important;
 }
 
 .version-info,

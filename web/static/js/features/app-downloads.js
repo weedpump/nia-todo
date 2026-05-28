@@ -298,8 +298,45 @@ function renderNativeAppVersion(target, platform, currentVersion, nativeBridge) 
   target.style.display = '';
 }
 
+function isLoginOverlayVisible() {
+  const overlay = document.getElementById('login-overlay');
+  return Boolean(overlay && !overlay.classList.contains('hidden') && overlay.getAttribute('aria-hidden') !== 'true');
+}
+
+function hasAuthToken() {
+  return Boolean(localStorage.getItem('jwt_token') || localStorage.getItem('auth_token'));
+}
+
+function deferUntilAfterLogin(callback) {
+  const overlay = document.getElementById('login-overlay');
+  const ready = () => hasAuthToken() && !isLoginOverlayVisible();
+  if (ready()) {
+    callback();
+    return;
+  }
+  let done = false;
+  let observer = null;
+  let timer = null;
+  const finishIfReady = () => {
+    if (done || !ready()) return;
+    done = true;
+    observer?.disconnect();
+    if (timer) window.clearInterval(timer);
+    callback();
+  };
+  if (overlay) {
+    observer = new MutationObserver(finishIfReady);
+    observer.observe(overlay, { attributes: true, attributeFilter: ['class', 'aria-hidden', 'style'] });
+  }
+  timer = window.setInterval(finishIfReady, 500);
+}
+
 function showNativeUpdateModal(download, currentVersion, nativeBridge = null, options = {}) {
   if (!download?.url) return;
+  if (!hasAuthToken() || isLoginOverlayVisible()) {
+    deferUntilAfterLogin(() => showNativeUpdateModal(download, currentVersion, nativeBridge, options));
+    return;
+  }
   const { forced = false, minVersion = '' } = options;
   const modal = document.getElementById('native-app-update-modal');
   const title = document.getElementById('native-app-update-title');

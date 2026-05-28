@@ -157,12 +157,17 @@ fi
 
 PACKAGE_NAME="$(dpkg-deb -f "${DEB_PATH}" Package)"
 PACKAGE_VERSION="$(dpkg-deb -f "${DEB_PATH}" Version)"
+EXPECTED_VERSION="$(basename "${DEB_PATH}" | sed -n 's/^nia-todo-server-v\([0-9][0-9.]*\)-full\.deb$/\1/p')"
 if [ "${PACKAGE_NAME}" != "nia-todo" ]; then
   echo "Refusing package '${PACKAGE_NAME}', expected 'nia-todo'." >&2
   exit 2
 fi
 if ! [[ "${PACKAGE_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   echo "Refusing non-stable package version '${PACKAGE_VERSION}'." >&2
+  exit 2
+fi
+if [ -z "${EXPECTED_VERSION}" ] || [ "${PACKAGE_VERSION}" != "${EXPECTED_VERSION}" ]; then
+  echo "Refusing package version '${PACKAGE_VERSION}', expected '${EXPECTED_VERSION}' from verified release asset." >&2
   exit 2
 fi
 
