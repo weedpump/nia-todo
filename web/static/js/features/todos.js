@@ -1,4 +1,4 @@
-import { t, translatePage } from '../i18n/index.js';
+import { getActiveLanguage, t, translatePage } from '../i18n/index.js';
 
 export function createTodosFeature({
   getTodos,
@@ -199,7 +199,7 @@ export function createTodosFeature({
     if (!value) return '';
     const date = new Date(value);
     if (!Number.isFinite(date.getTime())) return '';
-    return new Intl.DateTimeFormat(undefined, { dateStyle: 'short', timeStyle: 'short' }).format(date);
+    return new Intl.DateTimeFormat(getActiveLanguage(), { dateStyle: 'short', timeStyle: 'short' }).format(date);
   }
 
   async function parseQuickAddTitle(rawTitle, currentProjectId, formProjectId = null) {
