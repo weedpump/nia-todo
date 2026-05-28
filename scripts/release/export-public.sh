@@ -110,6 +110,7 @@ cp -p packaging/systemd/nia-todo-backup.timer "${OUTPUT_ABS}/systemd/nia-todo-ba
 # copy may be branded as Dev; public snapshots must be production-branded.
 if [ -f "${OUTPUT_ABS}/web/static/js/core/config.js" ]; then
   sed -i "s/export const DB_NAME = 'nia-todo-db';/export const DB_NAME = 'nia-todo-db';/" "${OUTPUT_ABS}/web/static/js/core/config.js"
+  sed -i "s/export const APP_VERSION = 'v[^']*';/export const APP_VERSION = 'v${VERSION}';/" "${OUTPUT_ABS}/web/static/js/core/config.js"
 fi
 if [ -f "${OUTPUT_ABS}/web/manifest.json" ]; then
   sed -i 's/"name": "nia-todo"/"name": "nia-todo"/' "${OUTPUT_ABS}/web/manifest.json"
@@ -118,6 +119,10 @@ fi
 if [ -f "${OUTPUT_ABS}/web/index.html" ]; then
   sed -i 's/<title>nia-todo<\/title>/<title>nia-todo<\/title>/' "${OUTPUT_ABS}/web/index.html"
   sed -i 's/>nia-todo<\/span>/>nia-todo<\/span>/' "${OUTPUT_ABS}/web/index.html"
+  sed -i "s/<span class=\"version-text\">v[^<]*<\/span>/<span class=\"version-text\">v${VERSION}<\/span>/" "${OUTPUT_ABS}/web/index.html"
+fi
+if [ -f "${OUTPUT_ABS}/web/sw.js" ]; then
+  sed -i "s/const SW_VERSION = 'v[^']*';/const SW_VERSION = 'v${VERSION}';/" "${OUTPUT_ABS}/web/sw.js"
 fi
 if [ -f "${OUTPUT_ABS}/api/services/push.py" ]; then
   sed -i 's#mailto:nia-todo@kneidl-home.de#mailto:nia-todo@example.invalid#' "${OUTPUT_ABS}/api/services/push.py"
