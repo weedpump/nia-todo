@@ -13,12 +13,38 @@ export function createNavigationFeature({
   renderStats,
   renderTodos,
 }) {
-  function setFilter(filter) {
+  const baseFilters = ['all','pending','in_progress','done'];
+  let applyingHistory = false;
+
+  function routeForFilter(filter) {
+    const normalized = String(filter || 'all');
+    if (baseFilters.includes(normalized)) return normalized === 'all' ? `${location.pathname}` : `${location.pathname}?view=${encodeURIComponent(normalized)}`;
+    return `${location.pathname}?project=${encodeURIComponent(normalized)}`;
+  }
+
+  function filterFromLocation() {
+    const params = new URLSearchParams(location.search);
+    const project = params.get('project');
+    if (project) return project;
+    const view = params.get('view');
+    return baseFilters.includes(view) ? view : 'all';
+  }
+
+  function updateHistory(filter, replace = false) {
+    if (applyingHistory || typeof history === 'undefined') return;
+    const url = routeForFilter(filter);
+    const state = { niaTodoView: true, filter: String(filter || 'all') };
+    if (replace || !history.state?.niaTodoView) history.replaceState(state, '', url);
+    else history.pushState(state, '', url);
+  }
+
+  function setFilter(filter, options = {}) {
     setCurrentFilter(filter);
     const nextProjectId = (!['all','pending','in_progress','done'].includes(filter)) ? parseInt(filter) : null;
     setCurrentProjectId(nextProjectId);
 
     localStorage.setItem('nia-last-filter', filter);
+    updateHistory(filter, Boolean(options.replaceHistory));
 
     document.querySelectorAll('.nav-btn').forEach((button) => {
       const buttonFilter = String(button.dataset.filter || '');
@@ -70,5 +96,17 @@ export function createNavigationFeature({
     }
   }
 
-  return { setFilter, loadSectionsForCurrentProject };
+  function bindNavigationHistory() {
+    if (document.documentElement.dataset.navigationHistoryBound === '1') return;
+    document.documentElement.dataset.navigationHistoryBound = '1';
+    const initialFilter = location.search ? filterFromLocation() : (localStorage.getItem('nia-last-filter') || 'all');
+    updateHistory(initialFilter, true);
+    window.addEventListener('popstate', () => {
+      applyingHistory = true;
+      setFilter(filterFromLocation());
+      applyingHistory = false;
+    });
+  }
+
+  return { setFilter, loadSectionsForCurrentProject, bindNavigationHistory };
 }

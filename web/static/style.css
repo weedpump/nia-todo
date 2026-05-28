@@ -54,52 +54,76 @@ body {
 
 #app { display: flex; height: 100dvh; }
 
-.native-android,
-.native-android * {
+html,
+body,
+button,
+a,
+[role="button"],
+input,
+select,
+textarea,
+.todo-item,
+.nav-btn,
+.workspace-current-btn,
+.user-menu-item,
+.overview-project-item {
   -webkit-tap-highlight-color: transparent;
 }
 
-.native-android button:focus,
-.native-android [role="button"]:focus,
-.native-android .nav-btn:focus,
-.native-android .workspace-current-btn:focus {
+button:focus,
+a:focus,
+[role="button"]:focus,
+.todo-item:focus,
+.nav-btn:focus,
+.workspace-current-btn:focus,
+.user-menu-item:focus,
+.overview-project-item:focus {
   outline: none;
 }
 
-.native-android button,
-.native-android [role="button"],
-.native-android .nav-btn,
-.native-android .workspace-current-btn,
-.native-android .user-menu-item,
-.native-android .todo-item {
-  transition: background-color 0.12s ease, box-shadow 0.12s ease, transform 0.08s ease, opacity 0.12s ease;
+button,
+a,
+[role="button"],
+.nav-btn,
+.workspace-current-btn,
+.user-menu-item,
+.todo-item,
+.overview-project-item {
+  transition: background-color 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease, transform 0.08s ease, opacity 0.12s ease, filter 0.12s ease;
 }
 
-.native-android button:active,
-.native-android [role="button"]:active,
-.native-android .nav-btn:active,
-.native-android .workspace-current-btn:active,
-.native-android .user-menu-item:active,
-.native-android .todo-item:active,
-.native-android .touch-feedback {
-  background-color: rgba(var(--accent-rgb), 0.14);
-  box-shadow: inset 0 0 0 999px rgba(var(--accent-rgb), 0.04);
-  transform: scale(0.985);
+button:active,
+a:active,
+[role="button"]:active,
+.nav-btn:active,
+.workspace-current-btn:active,
+.user-menu-item:active,
+.todo-item:active,
+.overview-project-item:active,
+.touch-feedback {
+  box-shadow: inset 0 0 0 999px rgba(var(--accent-rgb), 0.055), 0 0 0 1px rgba(var(--accent-rgb), 0.12);
+  transform: translateY(1px) scale(0.988);
 }
 
-.native-android .btn-primary.touch-feedback,
-.native-android .btn-primary:active {
+.btn-primary.touch-feedback,
+.btn-primary:active {
   filter: brightness(1.08);
 }
 
-.native-android input:focus-visible,
-.native-android textarea:focus-visible,
-.native-android select:focus-visible {
-  outline: 2px solid rgba(var(--accent-rgb), 0.5);
-  outline-offset: 2px;
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible,
+.nav-btn:focus-visible,
+.workspace-current-btn:focus-visible,
+.user-menu-item:focus-visible,
+.todo-item:focus-visible,
+.overview-project-item:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.28), 0 0 0 1px rgba(var(--accent-rgb), 0.45);
 }
-
-
 
 /* Sidebar */
 .sidebar {
