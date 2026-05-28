@@ -132,68 +132,230 @@ export function createTodosFeature({
     return d;
   }
 
-  function parseQuickAddTitle(rawTitle, currentProjectId) {
+  function normalizedName(value) {
+    return String(value || '').toLowerCase().replace(/[-_]/g, ' ').replace(/\s+/g, ' ').trim();
+  }
+
+  function compactName(value) {
+    return normalizedName(value).replace(/\s+/g, '');
+  }
+
+  function quickAddAliases(key, fallback = '') {
+    const value = t(key);
+    const raw = value === key ? fallback : value;
+    return raw.split('|').map(item => item.trim().toLowerCase()).filter(Boolean);
+  }
+
+  function findProjectByQuickAddName(rawName) {
+    const wanted = normalizedName(rawName);
+    const compact = compactName(rawName);
+    return getProjects().find(p => normalizedName(p.name) === wanted || compactName(p.name) === compact) || null;
+  }
+
+  async function loadSectionsForQuickAdd() {
+    try { return await dbGetAll('sections'); }
+    catch { return []; }
+  }
+
+  function findSectionByQuickAddName(rawName, projectId, allSections = []) {
+    const wanted = normalizedName(rawName);
+    const compact = compactName(rawName);
+    return allSections.find(s => {
+      if (projectId && String(s.project_id) !== String(projectId)) return false;
+      return normalizedName(s.name) === wanted || compactName(s.name) === compact;
+    }) || null;
+  }
+
+  function parseRelativeQuickAddDate(value, now = new Date()) {
+    const n = String(value || '').toLowerCase();
+    const todayWords = quickAddAliases('quickAdd.syntax.today', 'today');
+    const tomorrowWords = quickAddAliases('quickAdd.syntax.tomorrow', 'tomorrow');
+    const dayAfterWords = quickAddAliases('quickAdd.syntax.dayAfterTomorrow', 'day-after-tomorrow');
+    const weekendWords = quickAddAliases('quickAdd.syntax.weekend', 'weekend');
+    const nextWeekWords = quickAddAliases('quickAdd.syntax.nextWeek', 'next-week');
+    const weekdays = quickAddAliases('quickAdd.syntax.weekdays', 'sunday|monday|tuesday|wednesday|thursday|friday|saturday');
+    const weekdayIndex = weekdays.indexOf(n);
+    let due = null;
+    if (todayWords.includes(n)) { due = startOfToday(now); due.setHours(18, 0, 0, 0); }
+    else if (tomorrowWords.includes(n)) { due = startOfToday(now); due.setDate(due.getDate() + 1); due.setHours(9, 0, 0, 0); }
+    else if (dayAfterWords.includes(n)) { due = startOfToday(now); due.setDate(due.getDate() + 2); due.setHours(9, 0, 0, 0); }
+    else if (weekendWords.includes(n)) due = nextWeekday(now, 6);
+    else if (nextWeekWords.includes(n)) { due = startOfToday(now); due.setDate(due.getDate() + 7); due.setHours(9, 0, 0, 0); }
+    else if (weekdayIndex >= 0) due = nextWeekday(now, weekdayIndex % 7);
+    return due;
+  }
+
+  function applyQuickAddTime(date, rawTime, now = new Date()) {
+    const match = String(rawTime || '').match(/^([01]?\d|2[0-3])[:.]([0-5]\d)$/);
+    if (!match) return null;
+    const next = date ? new Date(date) : startOfToday(now);
+    next.setHours(Number(match[1]), Number(match[2]), 0, 0);
+    if (next < now && !date) next.setDate(next.getDate() + 1);
+    return next;
+  }
+
+  function quickAddDateLabel(value) {
+    if (!value) return '';
+    const date = new Date(value);
+    if (!Number.isFinite(date.getTime())) return '';
+    return new Intl.DateTimeFormat(undefined, { dateStyle: 'short', timeStyle: 'short' }).format(date);
+  }
+
+  async function parseQuickAddTitle(rawTitle, currentProjectId, formProjectId = null) {
     const original = String(rawTitle || '').trim();
-    if (!original) return { title: original, changes: {} };
+    if (!original) return { title: original, changes: {}, matches: [] };
     const now = new Date();
     const tokens = original.split(/\s+/);
     const used = new Set();
     const changes = {};
+    const matches = [];
+    const allSections = await loadSectionsForQuickAdd();
+    const activeProjectId = formProjectId || currentProjectId;
+    const prefixAliases = {
+      due: ['due', 'deadline', ...quickAddAliases('quickAdd.syntax.duePrefixes')],
+      remind: ['remind', 'reminder', 'notify', 'alarm', ...quickAddAliases('quickAdd.syntax.reminderPrefixes')],
+      section: ['section', ...quickAddAliases('quickAdd.syntax.sectionPrefixes')],
+      project: ['project', ...quickAddAliases('quickAdd.syntax.projectPrefixes')],
+    };
+    const addMatch = (type, tokenIndex, label, value = '') => {
+      matches.push({ type, label, value, token: tokens[tokenIndex] });
+      used.add(tokenIndex);
+    };
 
     tokens.forEach((token, index) => {
       const normalized = token.toLowerCase();
-      const priorityMap = {
-        '!p1': 1, '!urgent': 1, '!sehrhoch': 1, '!sehr-hoch': 1,
-        '!hoch': 2, '!high': 2, '!p2': 2,
-        '!mittel': 3, '!medium': 3, '!p3': 3,
-        '!niedrig': 4, '!low': 4, '!p4': 4,
-      };
-      if (priorityMap[normalized]) {
-        changes.priority = priorityMap[normalized];
-        used.add(index);
+      const priorityMap = new Map([
+        ...quickAddAliases('quickAdd.syntax.priority.veryHigh', '!p1|!urgent').map(alias => [alias, 1]),
+        ...quickAddAliases('quickAdd.syntax.priority.high', '!p2|!high').map(alias => [alias, 2]),
+        ...quickAddAliases('quickAdd.syntax.priority.medium', '!p3|!medium').map(alias => [alias, 3]),
+        ...quickAddAliases('quickAdd.syntax.priority.low', '!p4|!low').map(alias => [alias, 4]),
+      ]);
+      if (priorityMap.has(normalized)) {
+        changes.priority = priorityMap.get(normalized);
+        addMatch('priority', index, t('quickAdd.detected.priority'), t(`todo.priority.${changes.priority === 1 ? 'veryHigh' : changes.priority === 2 ? 'high' : changes.priority === 3 ? 'medium' : 'low'}`));
       }
     });
 
     tokens.forEach((token, index) => {
-      if (!token.startsWith('#') || token.length < 2) return;
-      const wanted = token.slice(1).replace(/[-_]/g, ' ').toLowerCase();
-      const project = getProjects().find(p => String(p.name || '').toLowerCase() === wanted || String(p.name || '').toLowerCase().replace(/\s+/g, '') === wanted.replace(/\s+/g, ''));
+      if (used.has(index)) return;
+      let projectName = null;
+      if (token.startsWith('#') && token.length > 1) projectName = token.slice(1);
+      else {
+        const parts = token.split(':');
+        if (parts.length >= 2 && prefixAliases.project.includes(parts[0].toLowerCase())) projectName = parts.slice(1).join(':');
+      }
+      if (!projectName) return;
+      const project = findProjectByQuickAddName(projectName);
       if (project) {
         changes.project_id = project.id;
-        used.add(index);
+        addMatch('project', index, t('quickAdd.detected.project'), project.name);
       }
     });
 
-    let due = null;
+    tokens.forEach((token, index) => {
+      if (used.has(index)) return;
+      let sectionName = null;
+      if ((token.startsWith('/') || token.startsWith('§')) && token.length > 1) sectionName = token.slice(1);
+      else {
+        const parts = token.split(':');
+        if (parts.length >= 2 && prefixAliases.section.includes(parts[0].toLowerCase())) sectionName = parts.slice(1).join(':');
+      }
+      if (!sectionName) return;
+      const projectId = changes.project_id || activeProjectId;
+      const section = findSectionByQuickAddName(sectionName, projectId, allSections);
+      if (section) {
+        changes.section_id = section.id;
+        if (!changes.project_id && section.project_id) changes.project_id = section.project_id;
+        addMatch('section', index, t('quickAdd.detected.section'), section.name);
+      }
+    });
+
+    function setDateField(kind, date, index) {
+      if (!date || !Number.isFinite(date.getTime())) return;
+      const field = kind === 'remind' ? 'remind_at' : 'due_date';
+      changes[field] = date.toISOString();
+      addMatch(kind === 'remind' ? 'reminder' : 'due', index, t(kind === 'remind' ? 'quickAdd.detected.reminder' : 'quickAdd.detected.due'), quickAddDateLabel(changes[field]));
+    }
+
+    function applyImmediateTime(kind, index) {
+      const nextIndex = index + 1;
+      if (!tokens[nextIndex] || used.has(nextIndex)) return;
+      const field = kind === 'remind' ? 'remind_at' : 'due_date';
+      const time = applyQuickAddTime(changes[field] ? new Date(changes[field]) : null, tokens[nextIndex], now);
+      if (time) setDateField(kind, time, nextIndex);
+    }
+
     for (let i = 0; i < tokens.length; i += 1) {
-      const n = tokens[i].toLowerCase();
-      if (['heute', 'today'].includes(n)) { due = startOfToday(now); due.setHours(18, 0, 0, 0); used.add(i); }
-      else if (['morgen', 'tomorrow'].includes(n)) { due = startOfToday(now); due.setDate(due.getDate() + 1); due.setHours(9, 0, 0, 0); used.add(i); }
-      else if (['übermorgen', 'uebermorgen'].includes(n)) { due = startOfToday(now); due.setDate(due.getDate() + 2); due.setHours(9, 0, 0, 0); used.add(i); }
-      else if (['wochenende', 'weekend'].includes(n)) { due = nextWeekday(now, 6); used.add(i); }
-      else if (n === 'montag') { due = nextWeekday(now, 1); used.add(i); }
-      else if (n === 'dienstag') { due = nextWeekday(now, 2); used.add(i); }
-      else if (n === 'mittwoch') { due = nextWeekday(now, 3); used.add(i); }
-      else if (n === 'donnerstag') { due = nextWeekday(now, 4); used.add(i); }
-      else if (n === 'freitag') { due = nextWeekday(now, 5); used.add(i); }
-      else if (n === 'samstag') { due = nextWeekday(now, 6); used.add(i); }
-      else if (n === 'sonntag') { due = nextWeekday(now, 0); used.add(i); }
-      else if (n === 'nächste' && ['woche', 'week'].includes(tokens[i + 1]?.toLowerCase())) { due = startOfToday(now); due.setDate(due.getDate() + 7); due.setHours(9, 0, 0, 0); used.add(i); used.add(i + 1); }
+      if (used.has(i)) continue;
+      const token = tokens[i];
+      const n = token.toLowerCase();
+      const colonParts = token.split(':');
+      if (colonParts.length >= 2) {
+        const prefix = colonParts[0].toLowerCase();
+        const rawValue = colonParts.slice(1).join(':');
+        const kind = prefixAliases.remind.includes(prefix) ? 'remind' : (prefixAliases.due.includes(prefix) ? 'due' : null);
+        if (kind) {
+          let date = parseRelativeQuickAddDate(rawValue, now) || null;
+          date = applyQuickAddTime(date, rawValue, now) || date;
+          if (date) { setDateField(kind, date, i); applyImmediateTime(kind, i); }
+          continue;
+        }
+      }
+      const relativeDate = parseRelativeQuickAddDate(n, now);
+      if (relativeDate) { setDateField('due', relativeDate, i); applyImmediateTime('due', i); }
+      else if (tokens[i + 1]) {
+        const phraseDate = parseRelativeQuickAddDate(`${n}-${tokens[i + 1].toLowerCase()}`, now);
+        if (phraseDate) { setDateField('due', phraseDate, i); used.add(i + 1); applyImmediateTime('due', i + 1); }
+      }
     }
 
-    const timeIndex = tokens.findIndex((token, index) => !used.has(index) && /^([01]?\d|2[0-3])[:.]([0-5]\d)$/.test(token));
-    if (timeIndex >= 0) {
-      const [, hh, mm] = tokens[timeIndex].match(/^([01]?\d|2[0-3])[:.]([0-5]\d)$/);
-      if (!due) due = startOfToday(now);
-      due.setHours(Number(hh), Number(mm), 0, 0);
-      if (due < now && !tokens.some(token => ['heute', 'today'].includes(token.toLowerCase()))) due.setDate(due.getDate() + 1);
-      used.add(timeIndex);
+    for (let i = 0; i < tokens.length; i += 1) {
+      if (used.has(i)) continue;
+      const time = applyQuickAddTime(changes.due_date ? new Date(changes.due_date) : null, tokens[i], now);
+      if (time) setDateField('due', time, i);
     }
 
-    if (due) changes.due_date = due.toISOString();
     if (currentProjectId && !changes.project_id) changes.project_id = currentProjectId;
     const title = tokens.filter((_, index) => !used.has(index)).join(' ').trim() || original;
-    return { title, changes };
+    return { title, changes, matches };
+  }
+
+  function renderQuickAddPreview(result) {
+    const preview = document.getElementById('quick-add-preview');
+    if (!preview) return;
+    const matches = result?.matches || [];
+    preview.innerHTML = '';
+    preview.hidden = !matches.length;
+    if (!matches.length) return;
+    for (const match of matches) {
+      const chip = document.createElement('span');
+      chip.className = `quick-add-chip ${match.type}`;
+      const label = document.createElement('span');
+      label.className = 'quick-add-chip-label';
+      label.textContent = match.label;
+      const value = document.createElement('strong');
+      value.textContent = match.value || match.token || '';
+      chip.append(label, value);
+      preview.appendChild(chip);
+    }
+  }
+
+  function bindQuickAddPreview() {
+    const input = document.getElementById('todo-title');
+    if (!input || input.dataset.quickAddPreviewBound === '1') return;
+    input.dataset.quickAddPreviewBound = '1';
+    let seq = 0;
+    const update = async () => {
+      const id = document.getElementById('todo-id')?.value;
+      if (id) { renderQuickAddPreview(null); return; }
+      const mySeq = ++seq;
+      const projectId = document.getElementById('todo-project')?.value || null;
+      const result = await parseQuickAddTitle(input.value, getCurrentProjectId(), projectId);
+      if (mySeq === seq) renderQuickAddPreview(result);
+    };
+    input.addEventListener('input', update);
+    document.getElementById('todo-project')?.addEventListener('change', update);
+    window.setTimeout(update, 0);
   }
 
   function getSnoozeDate(mode, todo) {
@@ -480,6 +642,12 @@ export function createTodosFeature({
 
     document.getElementById('todo-delete-btn').style.display = todo ? '' : 'none';
     setupDescPreview();
+    bindQuickAddPreview();
+    renderQuickAddPreview(null);
+    if (!todo) {
+      const quickAddResult = await parseQuickAddTitle(document.getElementById('todo-title')?.value || '', getCurrentProjectId(), document.getElementById('todo-project')?.value || null);
+      renderQuickAddPreview(quickAddResult);
+    }
     document.getElementById('todo-modal')?.classList.add('active');
     if (!todo) focusTodoTitle();
   }
@@ -536,7 +704,7 @@ export function createTodosFeature({
     if (!getAppInitialized() || !getDb()) return;
     if (!validateTodoDateTimes()) return;
     const id = document.getElementById('todo-id').value;
-    const parsedQuickAdd = id ? null : parseQuickAddTitle(document.getElementById('todo-title').value, getCurrentProjectId());
+    const parsedQuickAdd = id ? null : await parseQuickAddTitle(document.getElementById('todo-title').value, getCurrentProjectId(), document.getElementById('todo-project')?.value || null);
     const todoData = {
       title: parsedQuickAdd?.title || document.getElementById('todo-title').value,
       description: document.getElementById('todo-desc').value,
@@ -551,7 +719,9 @@ export function createTodosFeature({
     if (parsedQuickAdd) {
       if (parsedQuickAdd.changes.priority && Number(document.getElementById('todo-priority').value) === 3) todoData.priority = parsedQuickAdd.changes.priority;
       if (parsedQuickAdd.changes.project_id && !getCurrentProjectId()) todoData.project_id = parsedQuickAdd.changes.project_id;
+      if (parsedQuickAdd.changes.section_id && !todoData.section_id) todoData.section_id = parsedQuickAdd.changes.section_id;
       if (parsedQuickAdd.changes.due_date && !todoData.due_date) todoData.due_date = parsedQuickAdd.changes.due_date;
+      if (parsedQuickAdd.changes.remind_at && !todoData.remind_at) todoData.remind_at = parsedQuickAdd.changes.remind_at;
     }
     if (id) {
       const existing = getTodos().find(t => t.id === parseInt(id));
