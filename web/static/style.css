@@ -2566,37 +2566,31 @@ input[type="color"]::-moz-color-swatch {
   padding-top: 8px;
 }
 
-.login-update-panel {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-top: 14px;
-  padding: 10px;
-  border: 1px solid rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.28));
-  border-radius: var(--radius);
-  background: rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.08));
+.login-overlay > .login-update-refresh {
+  position: fixed;
+  left: 50%;
+  bottom: max(18px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  min-height: 26px;
+  padding: 5px 10px;
+  border-color: rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.18));
+  background: rgba(var(--bg-secondary-rgb), 0.55);
+  color: var(--text-muted);
+  font-size: 11px;
+  opacity: 0.72;
+  backdrop-filter: blur(10px);
 }
 
-.login-update-text {
-  min-width: 0;
-  color: var(--text-secondary);
-  font-size: 12px;
-  font-weight: 650;
-  line-height: 1.25;
-}
-
-.login-update-refresh {
-  flex: 0 0 auto;
-  min-height: 30px;
-  padding: 6px 10px;
-  color: var(--text-primary);
-  border-color: rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.35));
+.login-overlay > .login-update-refresh:hover {
+  transform: translateX(-50%) translateY(-1px);
+  opacity: 1;
 }
 
 @media (max-width: 480px) {
-  .login-update-panel { flex-direction: column; align-items: stretch; }
-  .login-update-refresh { width: 100%; }
+  .login-overlay > .login-update-refresh {
+    bottom: max(10px, env(safe-area-inset-bottom));
+    max-width: calc(100vw - 32px);
+  }
 }
 
 .settings-resource-links {
