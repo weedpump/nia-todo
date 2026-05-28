@@ -119,6 +119,18 @@ def rp_id_hash(rp_id: str) -> bytes:
     return hashlib.sha256(rp_id.encode()).digest()
 
 
+def has_configured_public_base_url() -> bool:
+    return bool((get_instance_config().get("public_base_url") or "").strip())
+
+
+def passkeys_available_for_request(request) -> bool:
+    try:
+        relying_party_for_request(request)
+        return True
+    except Exception:
+        return False
+
+
 def relying_party_for_request(request) -> WebAuthnRelyingParty:
     """Return pinned WebAuthn RP settings.
 

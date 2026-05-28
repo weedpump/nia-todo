@@ -2341,7 +2341,7 @@ input[type="color"]::-moz-color-swatch {
   transform: translateY(0);
 }
 
-.login-forgot-btn, .login-reset-submit {
+.login-passkey-btn, .login-forgot-btn, .login-reset-submit {
   width: 100%;
   margin-top: 10px;
   padding: 10px 12px;
@@ -2354,7 +2354,7 @@ input[type="color"]::-moz-color-swatch {
   cursor: pointer;
 }
 
-.login-forgot-btn:hover, .login-reset-submit:hover {
+.login-passkey-btn:hover, .login-forgot-btn:hover, .login-reset-submit:hover {
   background: var(--bg-tertiary);
   color: var(--text-primary);
 }

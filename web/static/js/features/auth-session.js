@@ -111,9 +111,13 @@ export function createAuthSessionFeature({
     return challengeData?.challenge?.methods || [];
   }
 
+  function browserOrNativePasskeysAvailable() {
+    return ((!RUNTIME_CAPABILITIES.native && window.PublicKeyCredential && navigator.credentials) || RUNTIME_CAPABILITIES.nativePasskeys);
+  }
+
   function canUseLoginPasskey(challengeData = pendingMfaChallenge) {
     const methods = loginMfaMethods(challengeData);
-    return methods.includes('passkey') && ((!RUNTIME_CAPABILITIES.native && window.PublicKeyCredential && navigator.credentials) || RUNTIME_CAPABILITIES.nativePasskeys);
+    return methods.includes('passkey') && browserOrNativePasskeysAvailable();
   }
 
   function preferredCodeMfaMethod(challengeData = pendingMfaChallenge) {
@@ -370,6 +374,31 @@ export function createAuthSessionFeature({
     }
   }
 
+  async function handlePasswordlessPasskeyLogin() {
+    if (loginInProgress) return;
+    loginInProgress = true;
+    const errorEl = document.getElementById('login-error');
+    const button = document.getElementById('login-passkey-btn');
+    if (errorEl) errorEl.textContent = '';
+    if (button) button.disabled = true;
+    try {
+      const data = await authApi.loginWithPasskey();
+      await completeLogin(data);
+      resetLoginMfaPanel();
+      hideLoginOverlay();
+      renderUserInfo();
+      if (!getAppInitialized()) await initApp();
+      await refreshFromServer();
+      window.dispatchEvent(new CustomEvent('nia-logged-in'));
+    } catch (err) {
+      console.error('Passkey login failed:', err);
+      if (errorEl) errorEl.textContent = err.message || t('api.auth.passkeyLoginFailed', { error: '' });
+    } finally {
+      loginInProgress = false;
+      if (button) button.disabled = false;
+    }
+  }
+
   async function handleLogin(e) {
     e?.preventDefault?.();
     if (loginInProgress) return;
@@ -415,6 +444,11 @@ export function createAuthSessionFeature({
     if (!form) return;
     loginFormBound = true;
     form.addEventListener('submit', handleLogin);
+    const passkeyBtn = document.getElementById('login-passkey-btn');
+    if (passkeyBtn) {
+      passkeyBtn.classList.toggle('hidden', !browserOrNativePasskeysAvailable());
+      passkeyBtn.addEventListener('click', handlePasswordlessPasskeyLogin);
+    }
     document.getElementById('login-forgot-btn')?.addEventListener('click', toggleResetPanel);
     document.getElementById('login-mfa-switch-btn')?.addEventListener('click', () => {
       selectLoginMfaMethod(pendingMfaMethod === 'passkey' ? preferredCodeMfaMethod() : 'passkey');
