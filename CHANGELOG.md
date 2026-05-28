@@ -5,6 +5,11 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- Server update progress now reconciles stale `installing` states when the installed server version already matches or exceeds the update target, preventing completed updates from leaving outdated progress text in the admin panel.
+
 ## [2.5.5] - 2026-05-28
 
 ### Fixed
