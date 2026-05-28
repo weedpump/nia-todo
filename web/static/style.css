@@ -447,7 +447,14 @@ body {
   box-shadow: 0 0 0 3px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.22));
 }
 
-.topbar-actions { display: flex; align-items: center; gap: 8px; position: relative; flex: 0 0 auto; }
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+  flex: 0 0 auto;
+  margin-left: auto;
+}
 
 .fab-add-todo {
   position: fixed;
@@ -1807,12 +1814,16 @@ input[type="color"]::-moz-color-swatch {
   .sidebar-overlay.active { display: block; }
 
   .topbar {
-    padding: 12px 16px;
-    gap: 10px;
+    padding: 12px 12px;
+    gap: 8px;
+  }
+  .topbar-actions {
+    gap: 6px;
+    margin-left: auto;
   }
   .search-box {
     flex: 0 0 auto;
-    order: 2;
+    order: initial;
   }
   .search-toggle-btn {
     display: inline-flex;
@@ -1839,15 +1850,15 @@ input[type="color"]::-moz-color-swatch {
   .search-box input {
     position: absolute;
     top: 0;
-    right: 0;
+    left: 0;
     z-index: 20;
-    width: min(calc(100vw - 84px), 360px);
+    width: min(calc(100vw - 120px), 360px);
     height: 36px;
-    padding: 8px 40px 8px 12px;
+    padding: 8px 12px 8px 44px;
     opacity: 0;
     pointer-events: none;
-    transform: translateX(8px) scaleX(0.96);
-    transform-origin: right center;
+    transform: translateX(-8px) scaleX(0.96);
+    transform-origin: left center;
     transition: opacity 0.16s ease, transform 0.16s ease;
   }
   .search-box.open input {
@@ -2128,7 +2139,7 @@ input[type="color"]::-moz-color-swatch {
   width: 22px;
   height: 22px;
   border-radius: 12px;
-  margin-right: 8px;
+  margin-right: 0;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
@@ -3471,7 +3482,7 @@ input[type="color"]::-moz-color-swatch {
 }
 
 .topbar-workspace-switcher {
-  width: min(210px, 28vw);
+  width: min(250px, 32vw);
 }
 
 .topbar-workspace-switcher .workspace-current-btn {
@@ -3482,7 +3493,7 @@ input[type="color"]::-moz-color-swatch {
 .topbar-workspace-switcher .workspace-menu {
   left: auto;
   right: 0;
-  width: min(230px, calc(100vw - 2rem));
+  width: min(270px, calc(100vw - 2rem));
 }
 
 .workspace-menu.open {
@@ -3491,7 +3502,7 @@ input[type="color"]::-moz-color-swatch {
 
 @media (max-width: 768px) {
   .topbar-workspace-switcher {
-    width: min(190px, 42vw);
+    width: min(210px, 52vw);
   }
 }
 
