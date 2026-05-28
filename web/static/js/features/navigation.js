@@ -16,10 +16,8 @@ export function createNavigationFeature({
   const baseFilters = ['all','pending','in_progress','done'];
   let applyingHistory = false;
 
-  function routeForFilter(filter) {
-    const normalized = String(filter || 'all');
-    if (baseFilters.includes(normalized)) return normalized === 'all' ? `${location.pathname}` : `${location.pathname}?view=${encodeURIComponent(normalized)}`;
-    return `${location.pathname}?project=${encodeURIComponent(normalized)}`;
+  function cleanRoute() {
+    return `${location.pathname}${location.hash || ''}`;
   }
 
   function filterFromLocation() {
@@ -30,12 +28,16 @@ export function createNavigationFeature({
     return baseFilters.includes(view) ? view : 'all';
   }
 
+  function filterFromHistoryState(event = null) {
+    const stateFilter = event?.state?.niaTodoView ? event.state.filter : history.state?.filter;
+    return stateFilter || filterFromLocation();
+  }
+
   function updateHistory(filter, replace = false) {
     if (applyingHistory || typeof history === 'undefined') return;
-    const url = routeForFilter(filter);
     const state = { niaTodoView: true, filter: String(filter || 'all') };
-    if (replace || !history.state?.niaTodoView) history.replaceState(state, '', url);
-    else history.pushState(state, '', url);
+    if (replace || !history.state?.niaTodoView) history.replaceState(state, '', cleanRoute());
+    else history.pushState(state, '', cleanRoute());
   }
 
   function setFilter(filter, options = {}) {
@@ -101,9 +103,9 @@ export function createNavigationFeature({
     document.documentElement.dataset.navigationHistoryBound = '1';
     const initialFilter = location.search ? filterFromLocation() : (localStorage.getItem('nia-last-filter') || 'all');
     updateHistory(initialFilter, true);
-    window.addEventListener('popstate', () => {
+    window.addEventListener('popstate', (event) => {
       applyingHistory = true;
-      setFilter(filterFromLocation());
+      setFilter(filterFromHistoryState(event));
       applyingHistory = false;
     });
   }
