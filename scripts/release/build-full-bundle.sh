@@ -167,7 +167,8 @@ fi
 if [ -f /etc/nia-todo/nia-todo.env ] && ! grep -q '^NIA_TODO_DATA_DIR=' /etc/nia-todo/nia-todo.env; then
   printf '\nNIA_TODO_DATA_DIR=/var/lib/nia-todo\n' >> /etc/nia-todo/nia-todo.env
 fi
-mkdir -p /var/lib/nia-todo /var/lib/nia-todo/backups /var/lib/nia-todo/avatars /var/lib/nia-todo/updates /opt/nia-todo/api/data
+mkdir -p /var/lib/nia-todo /var/lib/nia-todo/backups /var/lib/nia-todo/avatars /opt/nia-todo/api/data
+install -d -m 0755 -o root -g root /var/cache/nia-todo/updates
 if [ -f /var/lib/nia-todo/nia-todo.db ]; then
   cp /var/lib/nia-todo/nia-todo.db "/var/lib/nia-todo/backups/pre-upgrade-$(date +%Y%m%d-%H%M%S).db" || true
 fi
@@ -182,10 +183,10 @@ python3 -m venv /opt/nia-todo/.venv
 rm -rf /opt/nia-todo/wheelhouse
 install -m 755 /opt/nia-todo/scripts/nia-todo-backup.sh /usr/local/bin/nia-todo-backup
 install -m 755 /opt/nia-todo/scripts/nia-todo-restore.sh /usr/local/bin/nia-todo-restore
-install -m 755 /opt/nia-todo/scripts/nia-todo-server-update.sh /usr/local/bin/nia-todo-server-update
+install -m 755 -o root -g root /opt/nia-todo/scripts/nia-todo-server-update.sh /usr/local/bin/nia-todo-server-update
 mkdir -p /etc/sudoers.d
 cat > /etc/sudoers.d/nia-todo-server-update <<'SUDOERS'
-nia-todo ALL=(root) NOPASSWD: /usr/local/bin/nia-todo-server-update /var/lib/nia-todo/updates/nia-todo-server-v*-full.deb
+nia-todo ALL=(root) NOPASSWD: /usr/local/bin/nia-todo-server-update
 SUDOERS
 chmod 440 /etc/sudoers.d/nia-todo-server-update
 chown -R nia-todo:nia-todo /opt/nia-todo /var/lib/nia-todo

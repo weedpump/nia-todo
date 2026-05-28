@@ -78,10 +78,10 @@ cp "${APP_DIR}/packaging/systemd/nia-todo-backup.service" "/etc/systemd/system/$
 cp "${APP_DIR}/packaging/systemd/nia-todo-backup.timer" "/etc/systemd/system/${SERVICE_NAME}-backup.timer"
 install -m 755 "${APP_DIR}/scripts/nia-todo-backup.sh" "/usr/local/bin/nia-todo-backup"
 install -m 755 "${APP_DIR}/scripts/nia-todo-restore.sh" "/usr/local/bin/nia-todo-restore"
-install -m 755 "${APP_DIR}/scripts/nia-todo-server-update.sh" "/usr/local/bin/nia-todo-server-update"
-mkdir -p "${DATA_DIR}/updates"
+install -m 755 -o root -g root "${APP_DIR}/scripts/nia-todo-server-update.sh" "/usr/local/bin/nia-todo-server-update"
+install -d -m 0755 -o root -g root "/var/cache/nia-todo/updates"
 cat > "/etc/sudoers.d/nia-todo-server-update" <<SUDOERS
-${USER_NAME} ALL=(root) NOPASSWD: /usr/local/bin/nia-todo-server-update /var/lib/nia-todo/updates/nia-todo-server-v*-full.deb
+${USER_NAME} ALL=(root) NOPASSWD: /usr/local/bin/nia-todo-server-update
 SUDOERS
 chmod 440 "/etc/sudoers.d/nia-todo-server-update"
 
