@@ -307,16 +307,28 @@ export function createTodosFeature({
       const token = tokens[i];
       const n = token.toLowerCase();
       const colonParts = token.split(':');
-      if (colonParts.length >= 2) {
-        const prefix = colonParts[0].toLowerCase();
-        const rawValue = colonParts.slice(1).join(':');
-        const kind = prefixAliases.remind.includes(prefix) ? 'remind' : (prefixAliases.due.includes(prefix) ? 'due' : null);
-        if (kind) {
-          let date = parseRelativeQuickAddDate(rawValue, now) || null;
-          date = applyQuickAddTime(date || baseDateForKind(kind), rawValue, now) || date;
-          if (date) { setDateField(kind, date, i); applyImmediateTime(kind, i); }
-          continue;
+      const rawPrefix = colonParts[0].toLowerCase();
+      const inlineValue = colonParts.length >= 2 ? colonParts.slice(1).join(':') : '';
+      const inlineKind = colonParts.length >= 2 && inlineValue.trim()
+        ? (prefixAliases.remind.includes(rawPrefix) ? 'remind' : (prefixAliases.due.includes(rawPrefix) ? 'due' : null))
+        : null;
+      const spacedKind = !inlineKind && token.endsWith(':')
+        ? (prefixAliases.remind.includes(token.slice(0, -1).toLowerCase()) ? 'remind' : (prefixAliases.due.includes(token.slice(0, -1).toLowerCase()) ? 'due' : null))
+        : null;
+      const bareKind = !inlineKind && !spacedKind
+        ? (prefixAliases.remind.includes(n) ? 'remind' : (prefixAliases.due.includes(n) ? 'due' : null))
+        : null;
+      const kind = inlineKind || spacedKind || bareKind;
+      if (kind) {
+        const rawValue = inlineKind ? inlineValue : (tokens[i + 1] || '');
+        let date = parseRelativeQuickAddDate(rawValue, now) || null;
+        date = applyQuickAddTime(date || baseDateForKind(kind), rawValue, now) || date;
+        if (date) {
+          setDateField(kind, date, i);
+          if (!inlineKind) used.add(i + 1);
+          applyImmediateTime(kind, inlineKind ? i : i + 1);
         }
+        continue;
       }
       const relativeDate = parseRelativeQuickAddDate(n, now);
       if (relativeDate) { setDateField('due', relativeDate, i); applyImmediateTime('due', i); }

@@ -65,7 +65,7 @@ async function run() {
 
     await page.evaluate(async () => window.changeLanguagePreference('de'));
     await openTodoModal();
-    await page.fill('#todo-title', 'Deutsch morgen 19 Uhr erinnerung:17:30 #QuickShopping /ColdGoods !hoch');
+    await page.fill('#todo-title', 'Deutsch morgen 19 Uhr erinnerung: 17:30 #QuickShopping /ColdGoods !hoch');
     await page.waitForFunction(() => {
       const chips = Array.from(document.querySelectorAll('#quick-add-preview .quick-add-chip'));
       return chips.filter(el => el.classList.contains('due')).length === 1
