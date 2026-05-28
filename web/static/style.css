@@ -1818,8 +1818,13 @@ input[type="color"]::-moz-color-swatch {
     gap: 8px;
   }
   .topbar-actions {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: grid;
+    grid-template-columns: minmax(30px, 1fr) auto;
+    align-items: center;
     gap: 6px;
-    margin-left: auto;
+    margin-left: 0;
   }
   .search-box {
     flex: 0 0 auto;
@@ -1871,7 +1876,43 @@ input[type="color"]::-moz-color-swatch {
     z-index: 21;
   }
   .topbar-workspace-switcher {
-    width: min(190px, 42vw);
+    width: min(210px, 52vw);
+    justify-self: end;
+  }
+  #online-status {
+    justify-self: center;
+    align-self: center;
+    width: 30px;
+    height: 30px;
+    margin: 0;
+  }
+  .status-syncing,
+  .status-pending-sync {
+    width: 30px;
+    min-width: 30px;
+    height: 28px;
+    padding: 0;
+    font-size: 0;
+  }
+  .status-syncing::before {
+    width: 9px;
+    height: 9px;
+    margin-right: 0;
+  }
+  .status-pending-sync::after {
+    content: attr(data-count);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: 999px;
+    background: var(--warning);
+    color: var(--bg-primary);
+    font-size: 11px;
+    font-weight: 950;
+    line-height: 1;
   }
   .fab-add-todo {
     right: calc(18px + env(safe-area-inset-right, 0px));
