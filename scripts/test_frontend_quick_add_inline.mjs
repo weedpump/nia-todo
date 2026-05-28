@@ -63,6 +63,35 @@ async function run() {
         && remind.getHours() === 17 && remind.getMinutes() === 30;
     }, { projectId: created.project.id, sectionId: created.section.id }, { timeout: 10000 });
 
+    await page.evaluate(async () => window.changeLanguagePreference('de'));
+    await openTodoModal();
+    await page.fill('#todo-title', 'Deutsch morgen 19 Uhr erinnerung:17:30 #QuickShopping /ColdGoods !hoch');
+    await page.waitForFunction(() => {
+      const chips = Array.from(document.querySelectorAll('#quick-add-preview .quick-add-chip'));
+      return chips.filter(el => el.classList.contains('due')).length === 1
+        && chips.filter(el => el.classList.contains('reminder')).length === 1
+        && chips.filter(el => el.classList.contains('project')).length === 1
+        && chips.filter(el => el.classList.contains('section')).length === 1
+        && chips.filter(el => el.classList.contains('priority')).length === 1;
+    }, null, { timeout: 5000 });
+
+    await page.click('button[form="todo-form"]');
+    await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });
+    await page.waitForFunction(async ({ projectId, sectionId }) => {
+      const jwt = localStorage.getItem('jwt_token');
+      const data = await fetch('/api/todos', { headers: { 'Authorization': `Bearer ${jwt}` }, credentials: 'include' }).then(r => r.json());
+      const todo = data.todos.find(item => item.title === 'Deutsch');
+      if (!todo) return false;
+      if (String(todo.project_id) !== String(projectId)) return false;
+      if (String(todo.section_id) !== String(sectionId)) return false;
+      if (todo.priority !== 2 || !todo.due_date || !todo.remind_at) return false;
+      const due = new Date(todo.due_date);
+      const remind = new Date(todo.remind_at);
+      return due.getHours() === 19 && due.getMinutes() === 0
+        && remind.getHours() === 17 && remind.getMinutes() === 30
+        && due.toDateString() === remind.toDateString();
+    }, { projectId: created.project.id, sectionId: created.section.id }, { timeout: 10000 });
+
     assertNoFrontendErrors();
     console.log('✅ Frontend quick add inline syntax test passed');
   } finally {

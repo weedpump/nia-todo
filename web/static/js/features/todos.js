@@ -186,10 +186,11 @@ export function createTodosFeature({
   }
 
   function applyQuickAddTime(date, rawTime, now = new Date()) {
-    const match = String(rawTime || '').match(/^([01]?\d|2[0-3])[:.]([0-5]\d)$/);
+    const value = String(rawTime || '').trim().toLowerCase();
+    const match = value.match(/^([01]?\d|2[0-3])(?:[:.]([0-5]\d))?$/);
     if (!match) return null;
     const next = date ? new Date(date) : startOfToday(now);
-    next.setHours(Number(match[1]), Number(match[2]), 0, 0);
+    next.setHours(Number(match[1]), Number(match[2] || 0), 0, 0);
     if (next < now && !date) next.setDate(next.getDate() + 1);
     return next;
   }
@@ -209,6 +210,7 @@ export function createTodosFeature({
     const used = new Set();
     const changes = {};
     const matches = [];
+    const matchIndexes = new Map();
     const allSections = await loadSectionsForQuickAdd();
     const activeProjectId = formProjectId || currentProjectId;
     const prefixAliases = {
@@ -217,8 +219,16 @@ export function createTodosFeature({
       section: quickAddAliases('quickAdd.syntax.sectionPrefixes'),
       project: quickAddAliases('quickAdd.syntax.projectPrefixes'),
     };
-    const addMatch = (type, tokenIndex, label, value = '') => {
-      matches.push({ type, label, value, token: tokens[tokenIndex] });
+    const timeSuffixes = quickAddAliases('quickAdd.syntax.timeSuffixes');
+    const addMatch = (type, tokenIndex, label, value = '', uniqueKey = null) => {
+      if (uniqueKey && matchIndexes.has(uniqueKey)) {
+        const existing = matches[matchIndexes.get(uniqueKey)];
+        existing.value = value;
+        existing.token = tokens[tokenIndex];
+      } else {
+        if (uniqueKey) matchIndexes.set(uniqueKey, matches.length);
+        matches.push({ type, label, value, token: tokens[tokenIndex] });
+      }
       used.add(tokenIndex);
     };
 
@@ -274,15 +284,22 @@ export function createTodosFeature({
       if (!date || !Number.isFinite(date.getTime())) return;
       const field = kind === 'remind' ? 'remind_at' : 'due_date';
       changes[field] = date.toISOString();
-      addMatch(kind === 'remind' ? 'reminder' : 'due', index, t(kind === 'remind' ? 'quickAdd.detected.reminder' : 'quickAdd.detected.due'), quickAddDateLabel(changes[field]));
+      addMatch(kind === 'remind' ? 'reminder' : 'due', index, t(kind === 'remind' ? 'quickAdd.detected.reminder' : 'quickAdd.detected.due'), quickAddDateLabel(changes[field]), field);
+    }
+
+    function baseDateForKind(kind) {
+      if (kind === 'remind') return changes.remind_at ? new Date(changes.remind_at) : (changes.due_date ? new Date(changes.due_date) : null);
+      return changes.due_date ? new Date(changes.due_date) : null;
     }
 
     function applyImmediateTime(kind, index) {
       const nextIndex = index + 1;
       if (!tokens[nextIndex] || used.has(nextIndex)) return;
-      const field = kind === 'remind' ? 'remind_at' : 'due_date';
-      const time = applyQuickAddTime(changes[field] ? new Date(changes[field]) : null, tokens[nextIndex], now);
-      if (time) setDateField(kind, time, nextIndex);
+      const time = applyQuickAddTime(baseDateForKind(kind), tokens[nextIndex], now);
+      if (!time) return;
+      setDateField(kind, time, nextIndex);
+      const suffixIndex = nextIndex + 1;
+      if (timeSuffixes.includes(tokens[suffixIndex]?.toLowerCase())) used.add(suffixIndex);
     }
 
     for (let i = 0; i < tokens.length; i += 1) {
@@ -296,7 +313,7 @@ export function createTodosFeature({
         const kind = prefixAliases.remind.includes(prefix) ? 'remind' : (prefixAliases.due.includes(prefix) ? 'due' : null);
         if (kind) {
           let date = parseRelativeQuickAddDate(rawValue, now) || null;
-          date = applyQuickAddTime(date, rawValue, now) || date;
+          date = applyQuickAddTime(date || baseDateForKind(kind), rawValue, now) || date;
           if (date) { setDateField(kind, date, i); applyImmediateTime(kind, i); }
           continue;
         }
@@ -311,8 +328,13 @@ export function createTodosFeature({
 
     for (let i = 0; i < tokens.length; i += 1) {
       if (used.has(i)) continue;
+      const suffixIndex = i + 1;
+      const hasTimeSuffix = timeSuffixes.includes(tokens[suffixIndex]?.toLowerCase());
       const time = applyQuickAddTime(changes.due_date ? new Date(changes.due_date) : null, tokens[i], now);
-      if (time) setDateField('due', time, i);
+      if (!time) continue;
+      if (!/[:.]/.test(tokens[i]) && !hasTimeSuffix) continue;
+      setDateField('due', time, i);
+      if (hasTimeSuffix) used.add(suffixIndex);
     }
 
     const title = tokens.filter((_, index) => !used.has(index)).join(' ').trim() || original;
