@@ -19,11 +19,17 @@ async function run() {
         method: 'POST', headers, credentials: 'include',
         body: JSON.stringify({ name: 'Cold Goods', sort_order: 0 })
       }).then(r => r.json());
-      return { project, section };
+      const activeProject = await fetch('/api/projects', {
+        method: 'POST', headers, credentials: 'include',
+        body: JSON.stringify({ name: 'Active Context', color: '#6366f1', icon: 'folder', sort_order: 1 })
+      }).then(r => r.json());
+      return { project, section, activeProject };
     });
 
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.locator('#user-menu-button').waitFor({ state: 'visible', timeout: 10000 });
+    await page.evaluate((projectId) => window.setFilter(String(projectId)), created.activeProject.id);
+    await page.locator('.add-section-row').waitFor({ state: 'visible', timeout: 10000 });
     await openTodoModal();
     await page.fill('#todo-title', 'Buy milk tomorrow 18:00 remind:17:30 #QuickShopping /ColdGoods !high');
 
