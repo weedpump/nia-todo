@@ -543,6 +543,7 @@ export function createTodosFeature({
     const thresholdRatio = 0.35;
     const lockThreshold = 10;
     const leftEdgeSwipeDeadzonePx = 72;
+    const interactiveSwipeTarget = 'button, input, select, textarea, a, summary, details, .todo-check, .todo-actions, [role="button"]';
     let active = null;
     let suppressClickUntil = 0;
 
@@ -557,7 +558,7 @@ export function createTodosFeature({
     document.addEventListener('pointerdown', (event) => {
       if (!event.isPrimary || (event.pointerType && event.pointerType !== 'touch' && event.pointerType !== 'pen')) return;
       const item = event.target?.closest?.('.todo-item');
-      if (!item || event.target.closest('input, select, textarea, .todo-check')) return;
+      if (!item || event.target.closest(interactiveSwipeTarget)) return;
       active = {
         item,
         id: item.dataset.id,
@@ -585,6 +586,8 @@ export function createTodosFeature({
         active.locked = absX > absY * 1.25 && !isRightSwipeFromLeftEdge ? 'horizontal' : 'vertical';
         if (active.locked === 'vertical') return;
         active.item.setAttribute('draggable', 'false');
+        active.item.classList.remove('touch-feedback');
+        if (active.item.__niaTouchFeedbackTimer) window.clearTimeout(active.item.__niaTouchFeedbackTimer);
         active.item.classList.add('swiping');
       }
 

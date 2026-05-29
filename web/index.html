@@ -343,8 +343,12 @@
             </select>
           </div>
         </div>
-        <div class="form-group checkbox-row">
-          <label><input type="checkbox" id="todo-pinned"> <span data-i18n-key="todo.pinned">Oben anpinnen</span></label>
+        <div class="form-group checkbox-row pin-checkbox-row">
+          <label class="pin-checkbox-label">
+            <input type="checkbox" id="todo-pinned">
+            <span class="pin-checkbox-box" aria-hidden="true"></span>
+            <span data-i18n-key="todo.pinned">Oben anpinnen</span>
+          </label>
         </div>
         <div class="form-row">
           <div class="form-group">
