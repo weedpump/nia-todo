@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS todos (
     title TEXT NOT NULL,
     description TEXT DEFAULT '',
     priority INTEGER DEFAULT 3,
+    is_pinned INTEGER DEFAULT 0,
     status TEXT DEFAULT 'pending',
     due_date TEXT,
     completed_at TEXT,
@@ -98,6 +99,11 @@ def init_db():
             conn.execute("ALTER TABLE users ADD COLUMN language TEXT DEFAULT 'auto'")
         except Exception:
             pass
+        try:
+            conn.execute("ALTER TABLE todos ADD COLUMN is_pinned INTEGER NOT NULL DEFAULT 0")
+        except Exception:
+            pass
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_todos_pinned ON todos(is_pinned)")
         conn.commit()
 
 def row_to_dict(row):

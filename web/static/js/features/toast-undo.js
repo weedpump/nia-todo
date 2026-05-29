@@ -61,6 +61,8 @@ export function createToastUndoFeature({
       else toggleTodo(undoAction.id);
     } else if (undoAction.type === 'delete') {
       restoreTodo(undoAction.id, undoAction.data);
+    } else if (undoAction.type === 'fields') {
+      restoreTodoFields(undoAction.id, undoAction.changes);
     } else if (undoAction.type === 'batch_delete' && pendingUndoBatch) {
       restoreBatchTodos();
     } else if (undoAction.type === 'member_invite' && onUndoInvite) {
@@ -74,15 +76,19 @@ export function createToastUndoFeature({
   }
 
   async function restoreTodoStatus(id, status) {
+    await restoreTodoFields(id, { status });
+  }
+
+  async function restoreTodoFields(id, changes) {
     if (!getDb()) return;
-    const t = getTodos().find(x => x.id === id);
+    const t = getTodos().find(x => String(x.id) === String(id));
     if (!t) return;
-    const updatedTodo = { ...t, status, updated_at: new Date().toISOString() };
+    const updatedTodo = { ...t, ...changes, updated_at: new Date().toISOString() };
     await dbPut('todos', updatedTodo);
-    setTodos(getTodos().map(todo => todo.id === id ? updatedTodo : todo));
+    setTodos(getTodos().map(todo => String(todo.id) === String(id) ? updatedTodo : todo));
     renderStats();
     renderTodos();
-    await addToSyncQueue('UPDATE_TODO', { id, changes: { status } });
+    await addToSyncQueue('UPDATE_TODO', { id, changes });
     if (isOnlineForSync()) await syncWithServer();
   }
 
@@ -132,5 +138,6 @@ export function createToastUndoFeature({
     undoLastAction,
     restoreBatchTodos,
     restoreTodo,
+    restoreTodoFields,
   };
 }
