@@ -202,11 +202,76 @@ export function createTodosFeature({
     return new Intl.DateTimeFormat(getActiveLanguage(), { dateStyle: 'short', timeStyle: 'short' }).format(date);
   }
 
+  function tokenIndexMap(rawText) {
+    const indexes = [];
+    const pattern = /\S+/g;
+    let match;
+    while ((match = pattern.exec(rawText)) !== null) indexes.push({ start: match.index, end: match.index + match[0].length });
+    return indexes;
+  }
+
+  function markTokenRange(used, tokenSpans, start, end) {
+    tokenSpans.forEach((span, index) => {
+      if (span.start < end && span.end > start) used.add(index);
+    });
+  }
+
+  function tokenIndexForRange(tokenSpans, start, end) {
+    const index = tokenSpans.findIndex(span => span.start < end && span.end > start);
+    return index >= 0 ? index : 0;
+  }
+
+  function escapeRegExp(value) {
+    return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  function aliasPattern(aliases) {
+    return aliases
+      .filter(Boolean)
+      .sort((a, b) => b.length - a.length)
+      .map(alias => escapeRegExp(alias).replace(/\\\s+/g, '\\s+'))
+      .join('|');
+  }
+
+  function quickAddNamePatterns(items = []) {
+    const variants = new Set();
+    items.forEach(item => {
+      const name = String(item.name || '').trim();
+      if (!name) return;
+      variants.add(escapeRegExp(name).replace(/\\\s+/g, '\\s+'));
+      const compact = compactName(name);
+      if (compact && compact !== normalizedName(name)) variants.add(escapeRegExp(compact));
+    });
+    return Array.from(variants).sort((a, b) => b.length - a.length).join('|');
+  }
+
+  function projectNamePattern() {
+    return quickAddNamePatterns(getProjects());
+  }
+
+  function sectionNamePattern(allSections = []) {
+    return quickAddNamePatterns(allSections);
+  }
+
+  function addTokenMatch(matches, matchIndexes, used, tokenSpans, tokens, type, start, end, label, value = '', uniqueKey = null) {
+    const tokenIndex = tokenIndexForRange(tokenSpans, start, end);
+    if (uniqueKey && matchIndexes.has(uniqueKey)) {
+      const existing = matches[matchIndexes.get(uniqueKey)];
+      existing.value = value;
+      existing.token = tokens[tokenIndex] || '';
+    } else {
+      if (uniqueKey) matchIndexes.set(uniqueKey, matches.length);
+      matches.push({ type, label, value, token: tokens[tokenIndex] || '' });
+    }
+    markTokenRange(used, tokenSpans, start, end);
+  }
+
   async function parseQuickAddTitle(rawTitle, currentProjectId, formProjectId = null) {
     const original = String(rawTitle || '').trim();
     if (!original) return { title: original, changes: {}, matches: [] };
     const now = new Date();
     const tokens = original.split(/\s+/);
+    const tokenSpans = tokenIndexMap(original);
     const used = new Set();
     const changes = {};
     const matches = [];
@@ -220,15 +285,21 @@ export function createTodosFeature({
       project: quickAddAliases('quickAdd.syntax.projectPrefixes'),
     };
     const timeSuffixes = quickAddAliases('quickAdd.syntax.timeSuffixes');
-    const addMatch = (type, tokenIndex, label, value = '', uniqueKey = null) => {
-      if (uniqueKey && matchIndexes.has(uniqueKey)) {
-        const existing = matches[matchIndexes.get(uniqueKey)];
-        existing.value = value;
-        existing.token = tokens[tokenIndex];
-      } else {
-        if (uniqueKey) matchIndexes.set(uniqueKey, matches.length);
-        matches.push({ type, label, value, token: tokens[tokenIndex] });
-      }
+    const timeSuffixPattern = aliasPattern(timeSuffixes);
+    const dateAliases = [
+      ...quickAddAliases('quickAdd.syntax.today'),
+      ...quickAddAliases('quickAdd.syntax.tomorrow'),
+      ...quickAddAliases('quickAdd.syntax.dayAfterTomorrow'),
+      ...quickAddAliases('quickAdd.syntax.weekend'),
+      ...quickAddAliases('quickAdd.syntax.nextWeek'),
+      ...quickAddAliases('quickAdd.syntax.weekdays'),
+    ];
+    const timePattern = `(?:[01]?\\d|2[0-3])(?:[:.]?[0-5]\\d)?(?:\\s+(?:${timeSuffixPattern}))?`;
+    const datePattern = aliasPattern(dateAliases);
+    const valuePattern = datePattern ? `(?:${datePattern})(?:\\s+${timePattern})?|${timePattern}` : timePattern;
+
+    const addMatch = (type, tokenIndex, label, value = '') => {
+      matches.push({ type, label, value, token: tokens[tokenIndex] });
       used.add(tokenIndex);
     };
 
@@ -246,45 +317,75 @@ export function createTodosFeature({
       }
     });
 
-    tokens.forEach((token, index) => {
-      if (used.has(index)) return;
-      let projectName = null;
-      if (token.startsWith('#') && token.length > 1) projectName = token.slice(1);
-      else {
-        const parts = token.split(':');
-        if (parts.length >= 2 && prefixAliases.project.includes(parts[0].toLowerCase())) projectName = parts.slice(1).join(':');
+    const projectNames = projectNamePattern();
+    if (projectNames) {
+      const projectPrefixPattern = aliasPattern(prefixAliases.project);
+      const projectRegexes = [
+        new RegExp(`(^|\\s)#(?<name>${projectNames})(?=$|\\s)`, 'giu'),
+      ];
+      if (projectPrefixPattern) projectRegexes.push(new RegExp(`(^|\\s)(?:${projectPrefixPattern})\\s*:\\s*(?<name>${projectNames})(?=$|\\s)`, 'giu'));
+      for (const regex of projectRegexes) {
+        for (const match of original.matchAll(regex)) {
+          const name = match.groups?.name;
+          const start = match.index + match[0].indexOf(name) - (match[0].includes('#') ? 1 : 0);
+          const end = match.index + match[0].length;
+          const project = findProjectByQuickAddName(name);
+          if (!project) continue;
+          changes.project_id = project.id;
+          addTokenMatch(matches, matchIndexes, used, tokenSpans, tokens, 'project', start, end, t('quickAdd.detected.project'), project.name, 'project_id');
+        }
       }
-      if (!projectName) return;
-      const project = findProjectByQuickAddName(projectName);
-      if (project) {
-        changes.project_id = project.id;
-        addMatch('project', index, t('quickAdd.detected.project'), project.name);
-      }
-    });
+    }
 
-    tokens.forEach((token, index) => {
-      if (used.has(index)) return;
-      let sectionName = null;
-      if ((token.startsWith('/') || token.startsWith('§')) && token.length > 1) sectionName = token.slice(1);
-      else {
-        const parts = token.split(':');
-        if (parts.length >= 2 && prefixAliases.section.includes(parts[0].toLowerCase())) sectionName = parts.slice(1).join(':');
+    const sectionNames = sectionNamePattern(allSections);
+    if (sectionNames) {
+      const sectionPrefixPattern = aliasPattern(prefixAliases.section);
+      const sectionRegexes = [
+        new RegExp(`(^|\\s)[/§](?<name>${sectionNames})(?=$|\\s)`, 'giu'),
+      ];
+      if (sectionPrefixPattern) sectionRegexes.push(new RegExp(`(^|\\s)(?:${sectionPrefixPattern})\\s*:\\s*(?<name>${sectionNames})(?=$|\\s)`, 'giu'));
+      for (const regex of sectionRegexes) {
+        for (const match of original.matchAll(regex)) {
+          const name = match.groups?.name;
+          const start = match.index + match[0].search(/[\/§]|\S+\s*:/u);
+          const end = match.index + match[0].length;
+          const projectId = changes.project_id || activeProjectId;
+          const section = findSectionByQuickAddName(name, projectId, allSections);
+          if (!section) continue;
+          changes.section_id = section.id;
+          if (!changes.project_id && section.project_id) changes.project_id = section.project_id;
+          addTokenMatch(matches, matchIndexes, used, tokenSpans, tokens, 'section', start, end, t('quickAdd.detected.section'), section.name, 'section_id');
+        }
       }
-      if (!sectionName) return;
-      const projectId = changes.project_id || activeProjectId;
-      const section = findSectionByQuickAddName(sectionName, projectId, allSections);
-      if (section) {
-        changes.section_id = section.id;
-        if (!changes.project_id && section.project_id) changes.project_id = section.project_id;
-        addMatch('section', index, t('quickAdd.detected.section'), section.name);
-      }
-    });
+    }
 
-    function setDateField(kind, date, index) {
+    function normalizeTimeValue(rawValue) {
+      let value = String(rawValue || '').trim().toLowerCase();
+      for (const suffix of timeSuffixes) value = value.replace(new RegExp(`\\s+${escapeRegExp(suffix)}$`, 'iu'), '');
+      const compact = value.match(/^([01]?\d|2[0-3])([0-5]\d)$/);
+      if (compact) value = `${compact[1]}:${compact[2]}`;
+      return value;
+    }
+
+    function parseQuickAddDateValue(rawValue, kind) {
+      const parts = String(rawValue || '').trim().split(/\s+/).filter(Boolean);
+      let date = null;
+      let consumed = 0;
+      for (let length = Math.min(3, parts.length); length >= 1; length -= 1) {
+        const candidate = parts.slice(0, length).join('-').toLowerCase();
+        date = parseRelativeQuickAddDate(candidate, now);
+        if (date) { consumed = length; break; }
+      }
+      const timeValue = normalizeTimeValue(parts.slice(consumed).join(' '));
+      date = applyQuickAddTime(date || baseDateForKind(kind), timeValue, now) || date;
+      return date;
+    }
+
+    function setDateField(kind, date, start, end) {
       if (!date || !Number.isFinite(date.getTime())) return;
       const field = kind === 'remind' ? 'remind_at' : 'due_date';
       changes[field] = date.toISOString();
-      addMatch(kind === 'remind' ? 'reminder' : 'due', index, t(kind === 'remind' ? 'quickAdd.detected.reminder' : 'quickAdd.detected.due'), quickAddDateLabel(changes[field]), field);
+      addTokenMatch(matches, matchIndexes, used, tokenSpans, tokens, kind === 'remind' ? 'reminder' : 'due', start, end, t(kind === 'remind' ? 'quickAdd.detected.reminder' : 'quickAdd.detected.due'), quickAddDateLabel(changes[field]), field);
     }
 
     function baseDateForKind(kind) {
@@ -292,61 +393,50 @@ export function createTodosFeature({
       return changes.due_date ? new Date(changes.due_date) : null;
     }
 
-    function applyImmediateTime(kind, index) {
-      const nextIndex = index + 1;
-      if (!tokens[nextIndex] || used.has(nextIndex)) return;
-      const time = applyQuickAddTime(baseDateForKind(kind), tokens[nextIndex], now);
-      if (!time) return;
-      setDateField(kind, time, nextIndex);
-      const suffixIndex = nextIndex + 1;
-      if (timeSuffixes.includes(tokens[suffixIndex]?.toLowerCase())) used.add(suffixIndex);
-    }
-
-    for (let i = 0; i < tokens.length; i += 1) {
-      if (used.has(i)) continue;
-      const token = tokens[i];
-      const n = token.toLowerCase();
-      const colonParts = token.split(':');
-      const rawPrefix = colonParts[0].toLowerCase();
-      const inlineValue = colonParts.length >= 2 ? colonParts.slice(1).join(':') : '';
-      const inlineKind = colonParts.length >= 2 && inlineValue.trim()
-        ? (prefixAliases.remind.includes(rawPrefix) ? 'remind' : (prefixAliases.due.includes(rawPrefix) ? 'due' : null))
-        : null;
-      const spacedKind = !inlineKind && token.endsWith(':')
-        ? (prefixAliases.remind.includes(token.slice(0, -1).toLowerCase()) ? 'remind' : (prefixAliases.due.includes(token.slice(0, -1).toLowerCase()) ? 'due' : null))
-        : null;
-      const bareKind = !inlineKind && !spacedKind
-        ? (prefixAliases.remind.includes(n) ? 'remind' : (prefixAliases.due.includes(n) ? 'due' : null))
-        : null;
-      const kind = inlineKind || spacedKind || bareKind;
-      if (kind) {
-        const rawValue = inlineKind ? inlineValue : (tokens[i + 1] || '');
-        let date = parseRelativeQuickAddDate(rawValue, now) || null;
-        date = applyQuickAddTime(date || baseDateForKind(kind), rawValue, now) || date;
-        if (date) {
-          setDateField(kind, date, i);
-          if (!inlineKind) used.add(i + 1);
-          applyImmediateTime(kind, inlineKind ? i : i + 1);
-        }
-        continue;
-      }
-      const relativeDate = parseRelativeQuickAddDate(n, now);
-      if (relativeDate) { setDateField('due', relativeDate, i); applyImmediateTime('due', i); }
-      else if (tokens[i + 1]) {
-        const phraseDate = parseRelativeQuickAddDate(`${n}-${tokens[i + 1].toLowerCase()}`, now);
-        if (phraseDate) { setDateField('due', phraseDate, i); used.add(i + 1); applyImmediateTime('due', i + 1); }
+    const dateCandidates = [];
+    const duePrefixPattern = aliasPattern(prefixAliases.due);
+    const remindPrefixPattern = aliasPattern(prefixAliases.remind);
+    const prefixedPatterns = [];
+    if (duePrefixPattern) prefixedPatterns.push({ kind: 'due', regex: new RegExp(`(^|\\s)(?:${duePrefixPattern})\\s*:?\\s*(?<value>${valuePattern})(?=$|\\s)`, 'giu') });
+    if (remindPrefixPattern) prefixedPatterns.push({ kind: 'remind', regex: new RegExp(`(^|\\s)(?:${remindPrefixPattern})\\s*:?\\s*(?<value>${valuePattern})(?=$|\\s)`, 'giu') });
+    for (const { kind, regex } of prefixedPatterns) {
+      for (const match of original.matchAll(regex)) {
+        const value = match.groups?.value;
+        const valueOffset = match[0].lastIndexOf(value);
+        dateCandidates.push({
+          kind,
+          value,
+          start: match.index + match[0].search(/\S/u),
+          end: match.index + valueOffset + value.length,
+        });
       }
     }
 
-    for (let i = 0; i < tokens.length; i += 1) {
-      if (used.has(i)) continue;
-      const suffixIndex = i + 1;
-      const hasTimeSuffix = timeSuffixes.includes(tokens[suffixIndex]?.toLowerCase());
-      const time = applyQuickAddTime(changes.due_date ? new Date(changes.due_date) : null, tokens[i], now);
-      if (!time) continue;
-      if (!/[:.]/.test(tokens[i]) && !hasTimeSuffix) continue;
-      setDateField('due', time, i);
-      if (hasTimeSuffix) used.add(suffixIndex);
+    if (datePattern) {
+      const dueRegex = new RegExp(`(^|\\s)(?<value>(?:${datePattern})(?:\\s+${timePattern})?)(?=$|\\s)`, 'giu');
+      for (const match of original.matchAll(dueRegex)) {
+        const value = match.groups?.value;
+        const start = match.index + match[0].lastIndexOf(value);
+        dateCandidates.push({ kind: 'due', value, start, end: start + value.length });
+      }
+    }
+
+    dateCandidates.sort((a, b) => a.start - b.start || (a.kind === 'remind' ? -1 : 1));
+    for (const candidate of dateCandidates) {
+      if (tokenSpans.some((span, index) => used.has(index) && span.start < candidate.end && span.end > candidate.start)) continue;
+      const date = parseQuickAddDateValue(candidate.value, candidate.kind);
+      setDateField(candidate.kind, date, candidate.start, candidate.end);
+    }
+
+    const explicitTimeRegex = new RegExp(`(^|\\s)(?<value>${timePattern})(?=$|\\s)`, 'giu');
+    for (const match of original.matchAll(explicitTimeRegex)) {
+      const value = match.groups?.value;
+      const start = match.index + match[0].lastIndexOf(value);
+      const end = start + value.length;
+      if (tokenSpans.some((span, index) => used.has(index) && span.start < end && span.end > start)) continue;
+      if (!/[:.]|\s/.test(value)) continue;
+      const date = parseQuickAddDateValue(value, 'due');
+      setDateField('due', date, start, end);
     }
 
     const title = tokens.filter((_, index) => !used.has(index)).join(' ').trim() || original;
@@ -755,6 +845,11 @@ export function createTodosFeature({
       if (parsedQuickAdd.changes.section_id && !todoData.section_id) todoData.section_id = parsedQuickAdd.changes.section_id;
       if (parsedQuickAdd.changes.due_date && !todoData.due_date) todoData.due_date = parsedQuickAdd.changes.due_date;
       if (parsedQuickAdd.changes.remind_at && !todoData.remind_at) todoData.remind_at = parsedQuickAdd.changes.remind_at;
+    }
+    if (todoData.section_id && todoData.project_id) {
+      const allSections = await loadSectionsForQuickAdd();
+      const selectedSection = allSections.find(section => String(section.id) === String(todoData.section_id));
+      if (!selectedSection || String(selectedSection.project_id) !== String(todoData.project_id)) todoData.section_id = null;
     }
     if (id) {
       const existing = getTodos().find(t => t.id === parseInt(id));

@@ -23,7 +23,11 @@ async function run() {
         method: 'POST', headers, credentials: 'include',
         body: JSON.stringify({ name: 'Active Context', color: '#6366f1', icon: 'folder', sort_order: 1 })
       }).then(r => r.json());
-      return { project, section, activeProject };
+      const activeSection = await fetch(`/api/sections/by-project/${activeProject.id}`, {
+        method: 'POST', headers, credentials: 'include',
+        body: JSON.stringify({ name: 'Active Section', sort_order: 0 })
+      }).then(r => r.json());
+      return { project, section, activeProject, activeSection };
     });
 
     await page.reload({ waitUntil: 'domcontentloaded' });
@@ -31,7 +35,7 @@ async function run() {
     await page.evaluate((projectId) => window.setFilter(String(projectId)), created.activeProject.id);
     await page.locator('.add-section-row').waitFor({ state: 'visible', timeout: 10000 });
     await openTodoModal();
-    await page.fill('#todo-title', 'Buy milk tomorrow 18:00 remind:17:30 #QuickShopping /ColdGoods !high');
+    await page.fill('#todo-title', 'Buy milk tomorrow 18:00 remind:17:30 #Quick Shopping /Cold Goods !high');
 
     await page.waitForFunction(() => {
       const text = document.querySelector('#quick-add-preview')?.innerText || '';
@@ -65,7 +69,7 @@ async function run() {
 
     await page.evaluate(async () => window.changeLanguagePreference('de'));
     await openTodoModal();
-    await page.fill('#todo-title', 'Deutsch morgen 19 Uhr erinnerung: 17:30 #QuickShopping /ColdGoods !hoch');
+    await page.fill('#todo-title', 'Deutsch morgen 19 Uhr erinnerung: 17:30 projekt: Quick Shopping /Cold Goods !hoch');
     await page.waitForFunction(() => {
       const chips = Array.from(document.querySelectorAll('#quick-add-preview .quick-add-chip'));
       return chips.filter(el => el.classList.contains('due')).length === 1
@@ -91,6 +95,24 @@ async function run() {
         && remind.getHours() === 17 && remind.getMinutes() === 30
         && due.toDateString() === remind.toDateString();
     }, { projectId: created.project.id, sectionId: created.section.id }, { timeout: 10000 });
+
+    await page.evaluate((projectId) => window.setFilter(String(projectId)), created.activeProject.id);
+    await page.locator('.add-section-row').waitFor({ state: 'visible', timeout: 10000 });
+    await openTodoModal();
+    await page.selectOption('#todo-section', String(created.activeSection.id));
+    await page.fill('#todo-title', 'Project only #Quick Shopping');
+    await page.waitForFunction(() => {
+      const chips = Array.from(document.querySelectorAll('#quick-add-preview .quick-add-chip'));
+      return chips.filter(el => el.classList.contains('project')).length === 1;
+    }, null, { timeout: 5000 });
+    await page.click('button[form="todo-form"]');
+    await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });
+    await page.waitForFunction(async ({ projectId }) => {
+      const jwt = localStorage.getItem('jwt_token');
+      const data = await fetch('/api/todos', { headers: { 'Authorization': `Bearer ${jwt}` }, credentials: 'include' }).then(r => r.json());
+      const todo = data.todos.find(item => item.title === 'Project only');
+      return todo && String(todo.project_id) === String(projectId) && !todo.section_id;
+    }, { projectId: created.project.id }, { timeout: 10000 });
 
     assertNoFrontendErrors();
     console.log('✅ Frontend quick add inline syntax test passed');
