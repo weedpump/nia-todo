@@ -2,6 +2,7 @@
 """Focused tests for server update status logic."""
 
 import json
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -84,6 +85,15 @@ def test_deb_requires_helper():
     assert_equal(status["can_install"], False, "deb helper missing")
 
 
+def test_update_helper_detaches_via_systemd_run_before_package_install():
+    helper = ROOT / "packaging/scripts/nia-todo-server-update.sh"
+    subprocess.run(["bash", "-n", str(helper)], check=True)
+    text = helper.read_text(encoding="utf-8")
+    assert "systemd-run" in text
+    assert "--systemd-child" in text
+    assert text.index("systemd-run") < text.index("apt-get install -y")
+
+
 def test_update_progress_status_file():
     with tempfile.TemporaryDirectory() as tmp:
         path = Path(tmp) / "status.json"
@@ -115,6 +125,7 @@ def main():
     test_detect_debian_systemd_install_when_dpkg_metadata_missing()
     test_docker_status_is_hint_only()
     test_deb_requires_helper()
+    test_update_helper_detaches_via_systemd_run_before_package_install()
     test_update_progress_status_file()
     test_update_progress_reconciles_stale_running_status()
     print("✅ server update tests passed")
