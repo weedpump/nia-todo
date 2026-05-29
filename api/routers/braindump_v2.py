@@ -101,7 +101,7 @@ JSON: {"candidates":[{"title":"Duschen","project_name":null,"section_name":null,
 
 
 LIST_VERB_RE = re.compile(r"\b(muss|soll|erinnere|erinnern|vorbereiten|aufräumen|entsorgen|bestellen|machen|erledigen|kaufen|besorgen|einkaufen)\b", re.IGNORECASE)
-SHOPPING_INTENT_RE = re.compile(r"\b(kaufen|besorgen|einkaufen|brauche|brauchen|bräuchte|bräuchten|benötige|benötigen|holen|buy|need|needs|get|purchase|comprar|compro|necesito|acheter|achète|acheterai|courses)\b", re.IGNORECASE)
+SHOPPING_INTENT_RE = re.compile(r"\b(kaufen|besorgen|einkaufen|einkaufsliste|shopping list|brauche|brauchen|bräuchte|bräuchten|benötige|benötigen|holen|buy|need|needs|get|purchase|comprar|compro|necesito|acheter|achète|acheterai|courses)\b", re.IGNORECASE)
 
 
 def _clean_title(value: str) -> str:
@@ -114,7 +114,9 @@ def _clean_title(value: str) -> str:
 
 def _clean_shopping_title(value: str) -> str:
     value = re.sub(r"\b(kaufen|besorgen|einkaufen|holen|buy|need|needs|get|purchase|comprar|compro|necesito|acheter|achète)\b", "", value, flags=re.IGNORECASE)
+    value = re.sub(r"\b(nicht|not)\b", "", value, flags=re.IGNORECASE)
     value = re.sub(r"^(wir müssen|ich muss|muss|bitte|noch|also we|we|i|je|nous|yo)\s+", "", value.strip(), flags=re.IGNORECASE)
+    value = re.sub(r"^(die|der|das|den|ein|eine|einen|the|el|la|los|las|le|les)\s+", "", value.strip(), flags=re.IGNORECASE)
     return _clean_title(value)
 
 
@@ -131,10 +133,10 @@ def _split_plain_enumeration(text: str) -> list[dict]:
         return []
     return [{"title": item, "project_name": SHOPPING_PROJECT_NAME, "section_name": None, "deadline": None, "reminder": None, "kind": "shopping"} for item in items]
 
-NEGATED_ITEM_RE = re.compile(r"(?:doch\s+)?keine?n?\s+([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß -]{1,40})|(?:no|not|pas|sin)\s+([A-Za-zÀ-ÿÄÖÜäöüß][A-Za-zÀ-ÿÄÖÜäöüß -]{1,40})|([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß -]{1,40})\s+(?:brauchen wir nicht|lass(?:t)? (?:die|das|den)? ?weg)", re.IGNORECASE)
+NEGATED_ITEM_RE = re.compile(r"(?:doch\s+)?keine?n?\s+([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß -]{1,40})|(?:no|not|pas|sin)\s+([A-Za-zÀ-ÿÄÖÜäöüß][A-Za-zÀ-ÿÄÖÜäöüß -]{1,40})|([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß -]{1,40})\s+(?:brauchen wir nicht|lass(?:t)? (?:die|das|den)? ?weg|nicht|not)", re.IGNORECASE)
 NON_SHOPPING_TASK_RE = re.compile(r"\b(zahnarzt|arzt|termin|duschen|marm|mom|mama|gehen|erinner|nachmittag|abend|morgen)\b", re.IGNORECASE)
 FILLER_ONLY_RE = re.compile(
-    r"^(?:äh+|ähm+|hm+|okay|ok|ja|jo|nein|nee|ne|no|non|pas|sin|doch|aber|also|ach ?ja|bitte|danke)$",
+    r"^(?:äh+|ähm+|hm+|okay|ok|ja|jo|nein|nee|ne|no|non|pas|sin|doch|aber|also|ach ?ja|ach ?nee|bitte|danke)$",
     re.IGNORECASE,
 )
 
@@ -152,14 +154,22 @@ def _candidate_key(candidate: dict) -> str:
     return _item_key(str(candidate.get("title") or ""))
 
 
+def _keys_equivalent(left: str, right: str) -> bool:
+    if left == right:
+        return True
+    if min(len(left), len(right)) < 4:
+        return False
+    return abs(len(left) - len(right)) <= 3 and (left.startswith(right) or right.startswith(left))
+
+
 def _dedupe_normalized_candidates(candidates: list[dict]) -> list[dict]:
     result = []
-    seen = set()
+    seen = []
     for candidate in candidates:
         key = _candidate_key(candidate)
-        if not key or key in seen:
+        if not key or any(_keys_equivalent(key, existing) for existing in seen):
             continue
-        seen.add(key)
+        seen.append(key)
         result.append(candidate)
     return result
 
@@ -229,12 +239,14 @@ def _split_shopping_phrase(value: str) -> list[str]:
     value = re.sub(r"(?:nee|nein)?\s*(?:doch\s+)?keine?n?\s+[A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß -]{1,40}", "", value, flags=re.IGNORECASE)
     value = re.sub(r"\b(ich|wir)\s+(?:brauche|brauchen|bräuchte|bräuchten|benötige|benötigen)\b", "", value, flags=re.IGNORECASE)
     value = re.sub(r"\b(muss|müssen|noch|bitte|auch|dafür|aber|ach ?ja|also|we|i|wir|ich|yo|nous|je)\b", " ", value, flags=re.IGNORECASE)
-    value = re.sub(r"\b(kaufen|besorgen|einkaufen|holen|buy|need|needs|get|purchase|comprar|compro|necesito|acheter|achète)\b", "", value, flags=re.IGNORECASE)
+    value = re.sub(r"\b(morgen|heute|tomorrow|today|mañana|demain|hoy)\b", " ", value, flags=re.IGNORECASE)
+    value = re.sub(r"\b(?:auf|in|für|zu)\s+(?:der|die|das)?\s*(?:einkaufsliste|shopping list)\b.*$", "", value, flags=re.IGNORECASE)
+    value = re.sub(r"\b(kaufen|besorgen|einkaufen|einkaufsliste|holen|buy|need|needs|get|purchase|comprar|compro|necesito|acheter|achète)\b", "", value, flags=re.IGNORECASE)
     parts = [p.strip() for p in re.split(r",|\s+und\s+|\s+oder\s+|\s+and\s+|\s+y\s+|\s+e\s+|\s+et\s+|\s*&\s*", value, flags=re.IGNORECASE)]
     result = []
     for part in parts:
         cleaned = _clean_shopping_title(part)
-        if not (1 < len(cleaned) <= 80):
+        if not (1 < len(cleaned) <= 80) or _is_filler_only(cleaned):
             continue
         if re.search(r"\b(keine|kein|no|not|pas|sin|brauchen|muss|müssen|zahnarzt|morgen|abend|nachmittag|marm|mom|weg|lasst)\b", cleaned, re.IGNORECASE):
             continue
@@ -271,10 +283,51 @@ def _extract_shopping_candidates(text: str) -> list[dict]:
             candidates.append({"title": item, "project_name": SHOPPING_PROJECT_NAME, "section_name": None, "deadline": None, "reminder": None, "kind": "shopping"})
     return candidates
 
-def _normalize_braindump_json(parsed: dict, transcript: str) -> dict:
+
+def _find_shopping_project(workspace_context: dict | None) -> dict | None:
+    projects = (workspace_context or {}).get("projects") or []
+    for project in projects:
+        name = str(project.get("name") or "")
+        if re.search(r"einkauf|shopping|compras|courses", name, re.IGNORECASE):
+            return project
+    for project in projects:
+        sections = " ".join(str(section) for section in project.get("sections") or [])
+        if re.search(r"milch|dairy|lácteos|obst|fruit|fruta|gemüse|vegetable|verdura", sections, re.IGNORECASE):
+            return project
+    return None
+
+
+def _route_shopping_candidate(candidate: dict, workspace_context: dict | None) -> dict:
+    if candidate.get("kind") != "shopping":
+        return candidate
+    project = _find_shopping_project(workspace_context)
+    if not project:
+        return candidate
+    routed = dict(candidate)
+    if not routed.get("project_name"):
+        routed["project_name"] = project.get("name")
+    if not routed.get("section_name"):
+        title = str(routed.get("title") or "")
+        sections = [str(section) for section in project.get("sections") or []]
+        section_rules = [
+            (r"milch|hafermilch|joghurt|käse|kaese|dairy|leche|lait", r"milch|dairy|lácteos|lacteos|lait"),
+            (r"banane|banana|apfel|erdbeer|kartoffel|obst|gemüse|gemuese|fruit|fruta|verdura", r"obst|gemüse|gemuese|fruit|fruta|verdura|vegetable"),
+        ]
+        for title_pattern, section_pattern in section_rules:
+            if not re.search(title_pattern, title, re.IGNORECASE):
+                continue
+            for section in sections:
+                if re.search(section_pattern, section, re.IGNORECASE):
+                    routed["section_name"] = section
+                    return routed
+    return routed
+
+
+def _normalize_braindump_json(parsed: dict, transcript: str, workspace_context: dict | None = None) -> dict:
     candidates = parsed.get("candidates") if isinstance(parsed, dict) else None
     if not isinstance(candidates, list):
         candidates = []
+    negated = _negated_items(transcript)
     normalized = []
     for candidate in candidates:
         if not isinstance(candidate, dict):
@@ -294,18 +347,21 @@ def _normalize_braindump_json(parsed: dict, transcript: str) -> dict:
             # when the LLM mapped them to explicit workspace context.
             kind = "shopping"
             title = _clean_shopping_title(title)
+            key = _item_key(title)
+            if not key or key in negated:
+                continue
         deadline = _normalize_temporal_field(candidate.get("deadline"))
         reminder = _normalize_temporal_field(candidate.get("reminder"), require_time=True)
         if deadline and candidate.get("reminder") and not reminder:
             reminder = deadline
-        normalized.append({
+        normalized.append(_route_shopping_candidate({
             "title": title,
             "project_name": project_name,
             "section_name": candidate.get("section_name"),
             "deadline": deadline,
             "reminder": reminder,
             "kind": kind,
-        })
+        }, workspace_context))
     normalized = _dedupe_normalized_candidates(normalized)
     transcript_lower = transcript.lower().strip()
     if len(normalized) == 1:
@@ -324,7 +380,7 @@ def _normalize_braindump_json(parsed: dict, transcript: str) -> dict:
     existing = {_item_key(item.get("title", "")) for item in normalized if item.get("kind") == "shopping"}
     for item in shopping:
         if _item_key(item["title"]) not in existing:
-            normalized.append(item)
+            normalized.append(_route_shopping_candidate(item, workspace_context))
             existing.add(_item_key(item["title"]))
     return {"candidates": _dedupe_normalized_candidates(normalized)}
 
@@ -480,7 +536,7 @@ def _extract_with_openclaw(text: str, segment_id: int, workspace_context: dict |
         result = json.loads(response.read().decode("utf-8"))
     elapsed_ms = (time.perf_counter() - started) * 1000
     content = result["choices"][0]["message"]["content"]
-    parsed = _normalize_braindump_json(json.loads(content), text)
+    parsed = _normalize_braindump_json(json.loads(content), text, workspace_context)
     return elapsed_ms, parsed, result.get("usage"), json.dumps(parsed, ensure_ascii=False, separators=(",", ":"))
 
 
