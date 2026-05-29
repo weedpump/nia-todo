@@ -50,6 +50,7 @@ class MainActivity : TauriActivity() {
     enableEdgeToEdge()
     applySystemBarsTheme(false)
     ReminderReceiver.createNotificationChannel(this)
+    ReminderReceiver.rescheduleStoredReminders(this)
     clearStaleWebViewCachesOnVersionChange()
     persistDoneActionFromIntent(intent)
     super.onCreate(savedInstanceState)
