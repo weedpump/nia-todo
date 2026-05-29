@@ -20,6 +20,7 @@ DEB_ASSET_RE = re.compile(r"^nia-todo-server-v(?P<version>[0-9]+\.[0-9]+\.[0-9]+
 HELPER = "/usr/local/bin/nia-todo-server-update"
 SERVICE_NAME = os.environ.get("NIA_TODO_SERVICE_NAME", "nia-todo").strip() or "nia-todo"
 UPDATE_LOG_DIR = Path(os.environ.get("NIA_TODO_UPDATE_LOG_DIR", "/var/lib/nia-todo/update-logs"))
+UPDATE_LOG_FILE = UPDATE_LOG_DIR / "nia-todo-server-update.log"
 UPDATE_STATUS_FILE = Path(os.environ.get("NIA_TODO_UPDATE_STATUS_FILE", "/var/cache/nia-todo/updates/status.json"))
 UPDATE_RELEASE_API_URL = os.environ.get("NIA_TODO_UPDATE_RELEASE_API_URL", DEFAULT_RELEASE_API_LATEST)
 UPDATE_RELEASES_URL = os.environ.get("NIA_TODO_UPDATE_RELEASES_URL", DEFAULT_RELEASES_URL)
@@ -138,7 +139,17 @@ def _looks_like_debian_systemd_install() -> bool:
         for name in service_names
         for directory in ("/etc/systemd/system", "/lib/systemd/system", "/usr/lib/systemd/system")
     )
-    return helper.exists() and any(path.exists() for path in service_files)
+    return _root_owned_not_group_world_writable(helper) and any(
+        _root_owned_not_group_world_writable(path) for path in service_files
+    )
+
+
+def _root_owned_not_group_world_writable(path: Path) -> bool:
+    try:
+        st = path.stat()
+    except OSError:
+        return False
+    return st.st_uid == 0 and (st.st_mode & 0o022) == 0
 
 
 def get_latest_release() -> dict[str, Any]:
@@ -262,7 +273,7 @@ def install_latest_deb_update() -> dict[str, Any]:
         raise RuntimeError("Release checksum asset does not match Debian package name.")
 
     UPDATE_LOG_DIR.mkdir(parents=True, exist_ok=True)
-    log_path = UPDATE_LOG_DIR / f"nia-todo-server-update-v{version}.log"
+    log_path = UPDATE_LOG_FILE
     log_file = log_path.open("ab")
     try:
         process = subprocess.Popen(
