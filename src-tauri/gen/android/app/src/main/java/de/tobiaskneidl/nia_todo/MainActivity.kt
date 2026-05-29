@@ -10,6 +10,7 @@ import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
+import android.view.HapticFeedbackConstants
 import android.view.ViewGroup
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
@@ -49,6 +50,7 @@ class MainActivity : TauriActivity() {
     enableEdgeToEdge()
     applySystemBarsTheme(false)
     ReminderReceiver.createNotificationChannel(this)
+    ReminderReceiver.rescheduleStoredReminders(this)
     clearStaleWebViewCachesOnVersionChange()
     persistDoneActionFromIntent(intent)
     super.onCreate(savedInstanceState)
@@ -285,6 +287,16 @@ class MainActivity : TauriActivity() {
     @JavascriptInterface
     fun scheduleReminders(schedulesJson: String): Int {
       return ReminderReceiver.scheduleReminders(this@MainActivity, schedulesJson)
+    }
+
+    @JavascriptInterface
+    fun hapticFeedback(patternMs: Int): Boolean {
+      val effect = if (patternMs >= 18) HapticFeedbackConstants.CONFIRM else HapticFeedbackConstants.VIRTUAL_KEY
+      runOnUiThread {
+        val view = appWebView ?: window.decorView
+        view.performHapticFeedback(effect)
+      }
+      return true
     }
 
     @JavascriptInterface
