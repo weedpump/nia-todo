@@ -535,6 +535,50 @@ export function createTodosFeature({
     await setTodoStatus(todo.id, todo.status === status ? 'pending' : status);
   }
 
+  const todoInteractiveTargetSelector = 'button, input, select, textarea, a, label, summary, details, .todo-check, .todo-actions, [role="button"], [contenteditable="true"]';
+
+  function isTodoInteractiveTarget(target) {
+    return Boolean(target?.closest?.(todoInteractiveTargetSelector));
+  }
+
+  function bindTodoItemClickBehavior() {
+    if (document.documentElement.dataset.todoItemClickBound === '1') return;
+    document.documentElement.dataset.todoItemClickBound = '1';
+    let press = null;
+
+    document.addEventListener('pointerdown', (event) => {
+      if (!event.isPrimary || event.button > 0) return;
+      const item = event.target?.closest?.('.todo-item[data-id]');
+      if (!item || isTodoInteractiveTarget(event.target)) return;
+      press = { item, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, moved: false };
+      item.classList.add('todo-press-active');
+    }, { passive: true });
+
+    document.addEventListener('pointermove', (event) => {
+      if (!press || event.pointerId !== press.pointerId) return;
+      if (Math.abs(event.clientX - press.startX) > 6 || Math.abs(event.clientY - press.startY) > 6) {
+        press.moved = true;
+        press.item.classList.remove('todo-press-active');
+      }
+    }, { passive: true });
+
+    const clearPress = (event) => {
+      if (!press || event.pointerId !== press.pointerId) return;
+      press.item.classList.remove('todo-press-active');
+      press = null;
+    };
+    document.addEventListener('pointerup', clearPress, { passive: true });
+    document.addEventListener('pointercancel', clearPress, { passive: true });
+
+    document.addEventListener('click', (event) => {
+      if (event.defaultPrevented) return;
+      const item = event.target?.closest?.('.todo-item[data-id]');
+      if (!item || isTodoInteractiveTarget(event.target)) return;
+      event.preventDefault();
+      editTodo(item.dataset.id);
+    });
+  }
+
   function bindTodoSwipeGestures() {
     if (document.documentElement.dataset.todoSwipeBound === '1') return;
     document.documentElement.dataset.todoSwipeBound = '1';
@@ -543,7 +587,7 @@ export function createTodosFeature({
     const thresholdRatio = 0.35;
     const lockThreshold = 10;
     const leftEdgeSwipeDeadzonePx = 72;
-    const interactiveSwipeTarget = 'button, input, select, textarea, a, summary, details, .todo-check, .todo-actions, [role="button"]';
+    const interactiveSwipeTarget = todoInteractiveTargetSelector;
     let active = null;
     let suppressClickUntil = 0;
 
@@ -682,6 +726,7 @@ export function createTodosFeature({
     });
   }
 
+  bindTodoItemClickBehavior();
   bindTodoSwipeGestures();
   bindTodoStatusMenuBehavior();
   bindTodoHoverKeyboardShortcuts();
