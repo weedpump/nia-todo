@@ -20,7 +20,7 @@ class ReminderReceiver : BroadcastReceiver() {
     when (intent.action) {
       ACTION_SHOW_REMINDER -> showReminder(context, intent)
       Intent.ACTION_BOOT_COMPLETED,
-      Intent.ACTION_LOCKED_BOOT_COMPLETED,
+      Intent.ACTION_USER_UNLOCKED,
       Intent.ACTION_MY_PACKAGE_REPLACED,
       "android.intent.action.QUICKBOOT_POWERON" -> rescheduleStoredReminders(context)
     }
