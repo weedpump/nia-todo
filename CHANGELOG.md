@@ -5,6 +5,18 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [2.6.2] - 2026-05-29
+
+### Fixed
+- Android native notification settings can now be toggled without the app hitting the `desktop_set_setting` ACL error.
+- Android native haptic feedback now uses the app bridge for todo status changes, with browser vibration kept as fallback.
+- Android native reminders are rehydrated after login, app start, boot, user unlock, and app updates so existing todo reminders are scheduled locally again.
+- Todo list API responses now include reminder metadata needed by native clients to rebuild local reminder schedules after a fresh install or login.
+- Android reminder alarms now prefer exact while-idle scheduling when permitted, with safe fallback behavior when Android or OEM policy denies exact alarms.
+
+### Changed
+- Native Android reminder and haptic regression coverage is now part of the regular test suite, including reminder rehydration and alarm-policy checks.
+
 ## [2.6.1] - 2026-05-29
 
 ### Fixed
