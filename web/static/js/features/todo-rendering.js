@@ -24,11 +24,11 @@ export function renderTodoItem(t) {
   const pinned = Boolean(t.is_pinned);
 
   return `
-    <div class="todo-item ${t.status === 'done' ? 'done' : t.status === 'in_progress' ? 'in-progress' : ''} ${pinned ? 'pinned' : ''}" data-id="${escapeHtmlAttr(String(t.id))}" data-status="${escapeHtml(t.status)}" draggable="true" onclick='editTodo(${idArg})' 
+    <div class="todo-item ${t.status === 'done' ? 'done' : t.status === 'in_progress' ? 'in-progress' : ''} ${pinned ? 'pinned' : ''}" data-id="${escapeHtmlAttr(String(t.id))}" data-status="${escapeHtml(t.status)}" draggable="true"
       ondragstart="handleTodoDragStart(event)" ondragend="handleTodoDragEnd(event)">
-      <div class="todo-check" onclick='event.stopPropagation(); toggleTodo(${idArg})'>
+      <button type="button" class="todo-check" onclick='event.stopPropagation(); toggleTodo(${idArg})' aria-label="${escapeHtmlAttr(i18nT('todo.status'))}">
         ${t.status === 'done' ? iconSvg('check') : t.status === 'in_progress' ? iconSvg('flame') : ''}
-      </div>
+      </button>
       <div class="todo-body ${hasMeta || hasDesc ? 'has-meta' : ''}">
         <div class="todo-main">
           <span class="todo-prio priority-dot" title="${escapeHtml(i18nT('todo.priority'))}" style="background:${prioColor}"></span>
@@ -64,8 +64,8 @@ export function renderTodoItem(t) {
             <button type="button" onclick='this.closest("details")?.removeAttribute("open"); snoozeTodo(${idArg}, "next-week")'>${escapeHtml(i18nT('todo.snooze.nextWeek'))}</button>
           </div>
         </details>
-        <button onclick='toggleTodoPin(${idArg})' class="todo-pin-btn ${pinned ? 'active' : ''}" title="${escapeHtml(pinned ? i18nT('todo.unpin') : i18nT('todo.pin'))}">${iconSvg('star')}</button>
-        <button onclick='deleteTodo(${idArg})' title="${escapeHtml(i18nT('common.delete'))}">${iconSvg('trash-2')}</button>
+        <button type="button" onclick='toggleTodoPin(${idArg})' class="todo-pin-btn ${pinned ? 'active' : ''}" title="${escapeHtml(pinned ? i18nT('todo.unpin') : i18nT('todo.pin'))}">${iconSvg('star')}</button>
+        <button type="button" onclick='deleteTodo(${idArg})' title="${escapeHtml(i18nT('common.delete'))}">${iconSvg('trash-2')}</button>
       </div>
     </div>
   `;

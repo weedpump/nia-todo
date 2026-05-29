@@ -53,6 +53,13 @@ ENV
 elif ! grep -q '^NIA_TODO_DATA_DIR=' "${ETC_DIR}/nia-todo.env"; then
   printf '\nNIA_TODO_DATA_DIR=%s\n' "${DATA_DIR}" >> "${ETC_DIR}/nia-todo.env"
 fi
+if [ "${SERVICE_NAME}" != "nia-todo" ]; then
+  if grep -q '^NIA_TODO_SERVICE_NAME=' "${ETC_DIR}/nia-todo.env"; then
+    sed -i "s/^NIA_TODO_SERVICE_NAME=.*/NIA_TODO_SERVICE_NAME=${SERVICE_NAME}/" "${ETC_DIR}/nia-todo.env"
+  else
+    printf '\nNIA_TODO_SERVICE_NAME=%s\n' "${SERVICE_NAME}" >> "${ETC_DIR}/nia-todo.env"
+  fi
+fi
 
 python3 -m venv "${APP_DIR}/.venv"
 if [ -d "${APP_DIR}/wheelhouse" ]; then
@@ -80,8 +87,15 @@ install -m 755 "${APP_DIR}/scripts/nia-todo-backup.sh" "/usr/local/bin/nia-todo-
 install -m 755 "${APP_DIR}/scripts/nia-todo-restore.sh" "/usr/local/bin/nia-todo-restore"
 install -m 755 -o root -g root "${APP_DIR}/scripts/nia-todo-server-update.sh" "/usr/local/bin/nia-todo-server-update"
 install -d -m 0755 -o root -g root "/var/cache/nia-todo/updates"
+if [ "${SERVICE_NAME}" != "nia-todo" ]; then
+  cat > "${ETC_DIR}/update-source.env" <<ENV
+SERVICE_NAME=${SERVICE_NAME}
+ENV
+  chown root:root "${ETC_DIR}/update-source.env"
+  chmod 0644 "${ETC_DIR}/update-source.env"
+fi
 cat > "/etc/sudoers.d/nia-todo-server-update" <<SUDOERS
-${USER_NAME} ALL=(root) NOPASSWD: /usr/local/bin/nia-todo-server-update
+${USER_NAME} ALL=(root) NOPASSWD: /usr/local/bin/nia-todo-server-update ""
 SUDOERS
 chmod 440 "/etc/sudoers.d/nia-todo-server-update"
 
