@@ -17,6 +17,14 @@ from pydantic import BaseModel
 
 from db import get_db
 from routers.auth import require_auth
+from routers.todos import (
+    TodoCreate,
+    _validate_todo_dates,
+    _validate_todo_status,
+    _validate_todo_target,
+    fetch_todo,
+    get_user_inbox_project_id,
+)
 from services.braindump_v2 import (
     append_text_segment,
     create_session,
@@ -25,6 +33,7 @@ from services.braindump_v2 import (
     get_session,
 )
 from services.utils import sanitize_text
+from services.websocket import broadcast_change
 
 
 router = APIRouter(prefix="/api/braindump/v2")
@@ -390,6 +399,20 @@ class TextSegmentRequest(BaseModel):
     final: bool = True
 
 
+class BrainDumpTodoCandidate(BaseModel):
+    title: str
+    notes: str = ""
+    project_name: str | None = None
+    section_name: str | None = None
+    deadline: str | None = None
+    reminder: str | None = None
+    kind: str = "todo"
+
+
+class BrainDumpCreateTodosRequest(BaseModel):
+    candidates: list[BrainDumpTodoCandidate]
+
+
 
 def _run(cmd: list[str]) -> tuple[float, subprocess.CompletedProcess[str]]:
     started = time.perf_counter()
@@ -507,6 +530,82 @@ def _format_workspace_context(context: dict | None) -> str:
     return "\n".join(lines)
 
 
+def _name_key(value: str | None) -> str:
+    return re.sub(r"\s+", " ", str(value or "").strip()).casefold()
+
+
+def _resolve_project_id(db, user_id: int, project_name: str | None) -> int | None:
+    if not project_name:
+        return get_user_inbox_project_id(db, user_id)
+    rows = db.execute(
+        """
+        SELECT p.id, p.name
+        FROM projects p
+        LEFT JOIN project_members pm ON pm.project_id = p.id AND pm.user_id = ? AND pm.status = 'accepted'
+        WHERE p.user_id = ? OR pm.id IS NOT NULL
+        """,
+        (user_id, user_id),
+    ).fetchall()
+    matches = [row for row in rows if _name_key(row["name"]) == _name_key(project_name)]
+    if len(matches) != 1:
+        raise HTTPException(422, f"BrainDump project not found: {project_name}")
+    return matches[0]["id"]
+
+
+def _resolve_section_id(db, project_id: int | None, section_name: str | None) -> int | None:
+    if not section_name:
+        return None
+    if project_id is None:
+        raise HTTPException(422, "BrainDump section requires a project")
+    rows = db.execute("SELECT id, name FROM sections WHERE project_id = ?", (project_id,)).fetchall()
+    matches = [row for row in rows if _name_key(row["name"]) == _name_key(section_name)]
+    if len(matches) != 1:
+        raise HTTPException(422, f"BrainDump section not found: {section_name}")
+    return matches[0]["id"]
+
+
+def _create_todos_from_braindump_candidates(db, user_id: int, candidates: list[BrainDumpTodoCandidate]) -> list[dict]:
+    if not candidates:
+        raise HTTPException(422, "No BrainDump candidates selected")
+    if len(candidates) > 50:
+        raise HTTPException(422, "Too many BrainDump candidates")
+    created = []
+    now = datetime.now().astimezone().isoformat(timespec="seconds")
+    for candidate in candidates:
+        title = sanitize_text(candidate.title)
+        notes = sanitize_text(candidate.notes or "")
+        if not title:
+            raise HTTPException(422, "BrainDump candidate title is required")
+        project_id = _resolve_project_id(db, user_id, candidate.project_name)
+        section_id = _resolve_section_id(db, project_id, candidate.section_name)
+        data = TodoCreate(
+            title=title,
+            description=notes,
+            priority=3,
+            status="pending",
+            project_id=project_id,
+            section_id=section_id,
+            due_date=candidate.deadline,
+            remind_at=candidate.reminder,
+        )
+        _validate_todo_dates(data)
+        _validate_todo_status(data.status)
+        _validate_todo_target(db, data.project_id, data.section_id, user_id)
+        cursor = db.execute(
+            """INSERT INTO todos
+               (title, description, priority, is_pinned, status, project_id, section_id, due_date, completed_at, updated_at, user_id)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+            (data.title, data.description, data.priority, int(bool(data.is_pinned)), data.status, data.project_id, data.section_id, data.due_date, None, now, user_id),
+        )
+        todo_id = cursor.lastrowid
+        if data.remind_at:
+            db.execute("INSERT INTO reminders (todo_id, remind_at, user_id) VALUES (?,?,?)", (todo_id, data.remind_at, user_id))
+        todo = fetch_todo(db, todo_id, user_id)
+        if todo:
+            created.append(todo)
+    return created
+
+
 def _extract_with_openclaw(text: str, segment_id: int, workspace_context: dict | None = None) -> tuple[float, dict, dict | None, str]:
     token = _load_openclaw_token()
     if not token:
@@ -617,6 +716,18 @@ async def process_live_audio_segment(
             "total_ms": round(total_ms, 2),
         },
     }
+
+
+@router.post("/todos")
+async def create_todos_from_braindump(data: BrainDumpCreateTodosRequest, user_id: int = Depends(require_auth)):
+    """Create real todos from user-confirmed BrainDump candidates."""
+    require_braindump_access(user_id)
+    with get_db() as db:
+        created = _create_todos_from_braindump_candidates(db, user_id, data.candidates)
+        db.commit()
+    for todo in created:
+        await broadcast_change("todo_create", todo, user_id, todo.get("project_id"))
+    return {"todos": created}
 
 
 @router.post("/sessions")

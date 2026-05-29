@@ -24,6 +24,9 @@ export function createBrainDumpLiveDebugFeature() {
     finalSnapshotApplied: false,
     segments: [],
     candidates: [],
+    selectedCandidateKeys: new Set(),
+    creating: false,
+    createMessage: '',
     timer: null,
     requestTimer: null,
     finalJsonAt: 0,
@@ -74,12 +77,30 @@ export function createBrainDumpLiveDebugFeature() {
       <div class="bd-note">Sendet absichtlich immer die kumulierte Aufnahme, weil einzelne WebM-Chunks mobil oft nicht standalone dekodierbar sind.</div>
       <div class="bd-columns">
         <div class="bd-card"><h4>Live Segmente</h4><div id="bd-segments" class="bd-log muted">Noch nichts aufgenommen.</div></div>
-        <div class="bd-card"><h4>JSON Kandidaten</h4><pre id="bd-json" class="bd-json">[]</pre></div>
+        <div class="bd-card">
+          <h4>Kandidaten</h4>
+          <div id="bd-candidates" class="bd-candidates muted">Noch keine Kandidaten.</div>
+          <div class="bd-create-row">
+            <button type="button" class="btn btn-primary" id="bd-create-todos" disabled>Ausgewählte erstellen</button>
+            <span id="bd-create-status" class="bd-create-status"></span>
+          </div>
+          <details class="bd-json-details"><summary>JSON anzeigen</summary><pre id="bd-json" class="bd-json">[]</pre></details>
+        </div>
       </div>
     `;
     todoList.parentNode.insertBefore(panel, todoList);
     document.getElementById('bd-start')?.addEventListener('click', start);
     document.getElementById('bd-stop')?.addEventListener('click', stop);
+    document.getElementById('bd-create-todos')?.addEventListener('click', createSelectedTodos);
+    panel.addEventListener('change', (event) => {
+      const box = event.target?.closest?.('[data-bd-candidate-key]');
+      if (!box) return;
+      const key = box.getAttribute('data-bd-candidate-key');
+      if (!key) return;
+      if (box.checked) state.selectedCandidateKeys.add(key);
+      else state.selectedCandidateKeys.delete(key);
+      render();
+    });
   }
 
   function scheduleInitRetry() {
@@ -108,6 +129,30 @@ export function createBrainDumpLiveDebugFeature() {
           <div class="bd-transcript">${escapeHtml(s.transcript || s.error || '')}</div>
         </div>`).join('');
     }
+    const candidatesEl = document.getElementById('bd-candidates');
+    if (candidatesEl) {
+      if (!state.candidates.length) {
+        candidatesEl.className = 'bd-candidates muted';
+        candidatesEl.textContent = 'Noch keine Kandidaten.';
+      } else {
+        candidatesEl.className = 'bd-candidates';
+        candidatesEl.innerHTML = state.candidates.map((candidate) => {
+          const key = candidateKey(candidate);
+          const checked = state.selectedCandidateKeys.has(key) ? 'checked' : '';
+          const route = [candidate.project_name, candidate.section_name].filter(Boolean).join(' / ') || 'Inbox/Fallback';
+          const dates = [candidate.deadline ? `Deadline: ${candidate.deadline}` : '', candidate.reminder ? `Reminder: ${candidate.reminder}` : ''].filter(Boolean).join(' · ');
+          return `<label class="bd-candidate"><input type="checkbox" data-bd-candidate-key="${escapeHtml(key)}" ${checked}> <span><b>${escapeHtml(candidate.title || '')}</b><small>${escapeHtml(route)}${dates ? ` · ${escapeHtml(dates)}` : ''}</small></span></label>`;
+        }).join('');
+      }
+    }
+    const selectedCount = selectedCandidates().length;
+    const createBtn = document.getElementById('bd-create-todos');
+    if (createBtn) {
+      createBtn.disabled = state.creating || state.recording || state.active > 0 || !selectedCount;
+      createBtn.textContent = state.creating ? 'Erstelle…' : `Ausgewählte erstellen (${selectedCount})`;
+    }
+    const createStatus = document.getElementById('bd-create-status');
+    if (createStatus) createStatus.textContent = state.createMessage || '';
     const json = document.getElementById('bd-json');
     if (json) json.textContent = JSON.stringify({ candidates: state.candidates }, null, 2);
   }
@@ -120,7 +165,8 @@ export function createBrainDumpLiveDebugFeature() {
       return;
     }
     state.segments = [];
-    state.candidates = [];
+    applyCandidates([]);
+    state.createMessage = '';
     state.queue = [];
     state.active = 0;
     state.audioChunks = [];
@@ -280,6 +326,46 @@ export function createBrainDumpLiveDebugFeature() {
     }
   }
 
+  function candidateKey(candidate) {
+    return [candidate.title, candidate.project_name, candidate.section_name, candidate.deadline, candidate.reminder, candidate.kind].map((value) => String(value || '').trim()).join('|');
+  }
+
+  function applyCandidates(candidates) {
+    state.candidates = Array.isArray(candidates) ? candidates : [];
+    state.selectedCandidateKeys = new Set(state.candidates.map(candidateKey));
+  }
+
+  function selectedCandidates() {
+    return state.candidates.filter((candidate) => state.selectedCandidateKeys.has(candidateKey(candidate)));
+  }
+
+  async function createSelectedTodos() {
+    const candidates = selectedCandidates();
+    if (!candidates.length || state.creating) return;
+    state.creating = true;
+    state.createMessage = '';
+    render();
+    try {
+      const response = await fetch(`${API}/api/braindump/v2/todos`, {
+        method: 'POST',
+        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ candidates }),
+      });
+      if (!response.ok) throw new Error(await response.text());
+      const data = await response.json();
+      const count = Array.isArray(data.todos) ? data.todos.length : 0;
+      state.createMessage = `${count} Todo${count === 1 ? '' : 's'} erstellt`;
+      state.selectedCandidateKeys.clear();
+      if (typeof window.refreshFromServer === 'function') await window.refreshFromServer();
+    } catch (error) {
+      state.createMessage = `Fehler: ${String(error?.message || error)}`;
+    } finally {
+      state.creating = false;
+      render();
+    }
+  }
+
   async function processSegment({ item, blob }) {
     item.status = 'sending';
     render();
@@ -324,7 +410,7 @@ export function createBrainDumpLiveDebugFeature() {
       }
       item.status = next.length ? 'done/latest' : 'done/latest (no candidates)';
       state.latestAppliedSegmentId = Math.max(state.latestAppliedSegmentId, item.segmentId);
-      state.candidates = next;
+      applyCandidates(next);
       if (state.stoppedAt && item.segmentId === state.finalSegmentId) {
         state.finalProcessed = true;
       }

@@ -4717,3 +4717,29 @@ input[type="color"]::-moz-color-swatch {
 }
 
 .bd-note { margin: 8px 0 0; font-size: .82rem; opacity: .72; }
+
+/* BrainDump candidate confirmation */
+.bd-candidates {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 280px;
+  overflow: auto;
+}
+.bd-candidate {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 9px 10px;
+  border: 1px solid rgba(148,163,184,.25);
+  border-radius: 12px;
+  background: rgba(255,255,255,.035);
+  cursor: pointer;
+}
+.bd-candidate input { margin-top: 3px; }
+.bd-candidate span { display:flex; flex-direction:column; gap:3px; min-width:0; }
+.bd-candidate small { opacity:.72; overflow-wrap:anywhere; }
+.bd-create-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:12px; }
+.bd-create-status { font-size:.88rem; opacity:.8; }
+.bd-json-details { margin-top:12px; }
+.bd-json-details summary { cursor:pointer; opacity:.75; }
