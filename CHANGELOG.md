@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [2.6.3] - 2026-05-29
+
+### Fixed
+- Android haptic feedback now falls back to direct vibrator feedback on Samsung devices where WebView/View haptics can report success without a perceptible pulse.
+- Android native haptic fallback now declares the required `VIBRATE` permission and keeps non-Samsung devices on the standard system haptic path with vibrator fallback only when needed.
+
 ## [2.6.2] - 2026-05-29
 
 ### Fixed
