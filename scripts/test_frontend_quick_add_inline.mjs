@@ -114,6 +114,40 @@ async function run() {
       return todo && String(todo.project_id) === String(projectId) && !todo.section_id;
     }, { projectId: created.project.id }, { timeout: 10000 });
 
+    await openTodoModal();
+    await page.fill('#todo-title', 'Reminder only erinnerung: morgen 17:30');
+    await page.waitForFunction(() => {
+      const chips = Array.from(document.querySelectorAll('#quick-add-preview .quick-add-chip'));
+      return chips.filter(el => el.classList.contains('reminder')).length === 1
+        && chips.filter(el => el.classList.contains('due')).length === 0;
+    }, null, { timeout: 5000 });
+    await page.click('button[form="todo-form"]');
+    await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });
+    await page.waitForFunction(async () => {
+      const jwt = localStorage.getItem('jwt_token');
+      const data = await fetch('/api/todos', { headers: { 'Authorization': `Bearer ${jwt}` }, credentials: 'include' }).then(r => r.json());
+      const todo = data.todos.find(item => item.title === 'Reminder only');
+      if (!todo || todo.due_date || !todo.remind_at) return false;
+      const remind = new Date(todo.remind_at);
+      return remind.getHours() === 17 && remind.getMinutes() === 30;
+    }, null, { timeout: 10000 });
+
+    await page.evaluate(async () => window.changeLanguagePreference('en'));
+    await openTodoModal();
+    await page.fill('#todo-title', 'Plan next week');
+    await page.waitForFunction(() => {
+      const chips = Array.from(document.querySelectorAll('#quick-add-preview .quick-add-chip'));
+      return chips.filter(el => el.classList.contains('due')).length === 1;
+    }, null, { timeout: 5000 });
+    await page.click('button[form="todo-form"]');
+    await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });
+    await page.waitForFunction(async () => {
+      const jwt = localStorage.getItem('jwt_token');
+      const data = await fetch('/api/todos', { headers: { 'Authorization': `Bearer ${jwt}` }, credentials: 'include' }).then(r => r.json());
+      const todo = data.todos.find(item => item.title === 'Plan');
+      return Boolean(todo?.due_date);
+    }, null, { timeout: 10000 });
+
     assertNoFrontendErrors();
     console.log('✅ Frontend quick add inline syntax test passed');
   } finally {

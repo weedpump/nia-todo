@@ -834,7 +834,7 @@
   "quickAdd.syntax.tomorrow": "tomorrow",
   "quickAdd.syntax.dayAfterTomorrow": "day-after-tomorrow",
   "quickAdd.syntax.weekend": "weekend",
-  "quickAdd.syntax.nextWeek": "next-week",
+  "quickAdd.syntax.nextWeek": "next week|next-week",
   "quickAdd.syntax.weekdays": "sunday|monday|tuesday|wednesday|thursday|friday|saturday",
   "quickAdd.syntax.duePrefixes": "due|deadline|by",
   "quickAdd.syntax.reminderPrefixes": "remind|reminder|notify|alarm",

@@ -372,8 +372,9 @@ export function createTodosFeature({
       let date = null;
       let consumed = 0;
       for (let length = Math.min(3, parts.length); length >= 1; length -= 1) {
-        const candidate = parts.slice(0, length).join('-').toLowerCase();
-        date = parseRelativeQuickAddDate(candidate, now);
+        const spacedCandidate = parts.slice(0, length).join(' ').toLowerCase();
+        const dashedCandidate = parts.slice(0, length).join('-').toLowerCase();
+        date = parseRelativeQuickAddDate(spacedCandidate, now) || parseRelativeQuickAddDate(dashedCandidate, now);
         if (date) { consumed = length; break; }
       }
       const timeValue = normalizeTimeValue(parts.slice(consumed).join(' '));
@@ -394,6 +395,7 @@ export function createTodosFeature({
     }
 
     const dateCandidates = [];
+    const prefixedRanges = [];
     const duePrefixPattern = aliasPattern(prefixAliases.due);
     const remindPrefixPattern = aliasPattern(prefixAliases.remind);
     const prefixedPatterns = [];
@@ -403,12 +405,10 @@ export function createTodosFeature({
       for (const match of original.matchAll(regex)) {
         const value = match.groups?.value;
         const valueOffset = match[0].lastIndexOf(value);
-        dateCandidates.push({
-          kind,
-          value,
-          start: match.index + match[0].search(/\S/u),
-          end: match.index + valueOffset + value.length,
-        });
+        const start = match.index + match[0].search(/\S/u);
+        const end = match.index + valueOffset + value.length;
+        dateCandidates.push({ kind, value, start, end });
+        prefixedRanges.push({ kind, start, end });
       }
     }
 
@@ -417,7 +417,9 @@ export function createTodosFeature({
       for (const match of original.matchAll(dueRegex)) {
         const value = match.groups?.value;
         const start = match.index + match[0].lastIndexOf(value);
-        dateCandidates.push({ kind: 'due', value, start, end: start + value.length });
+        const end = start + value.length;
+        if (prefixedRanges.some(range => range.kind === 'remind' && range.start <= start && range.end >= end)) continue;
+        dateCandidates.push({ kind: 'due', value, start, end });
       }
     }
 
@@ -434,6 +436,7 @@ export function createTodosFeature({
       const start = match.index + match[0].lastIndexOf(value);
       const end = start + value.length;
       if (tokenSpans.some((span, index) => used.has(index) && span.start < end && span.end > start)) continue;
+      if (prefixedRanges.some(range => range.kind === 'remind' && range.start <= start && range.end >= end)) continue;
       if (!/[:.]|\s/.test(value)) continue;
       const date = parseQuickAddDateValue(value, 'due');
       setDateField('due', date, start, end);
