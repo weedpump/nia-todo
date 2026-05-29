@@ -32,6 +32,8 @@ async function run() {
 
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.locator('#user-menu-button').waitFor({ state: 'visible', timeout: 10000 });
+    await page.waitForFunction(() => typeof window.setFilter === 'function', null, { timeout: 10000 });
+    await page.waitForFunction(() => typeof window.setFilter === 'function', null, { timeout: 10000 });
     await page.evaluate((projectId) => window.setFilter(String(projectId)), created.activeProject.id);
     await page.locator('.add-section-row').waitFor({ state: 'visible', timeout: 10000 });
     await openTodoModal();
