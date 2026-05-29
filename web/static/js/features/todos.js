@@ -587,7 +587,7 @@ export function createTodosFeature({
     const thresholdRatio = 0.35;
     const lockThreshold = 10;
     const leftEdgeSwipeDeadzonePx = 72;
-    const interactiveSwipeTarget = todoInteractiveTargetSelector;
+    const actionZoneLockThreshold = 36;
     let active = null;
     let suppressClickUntil = 0;
 
@@ -602,7 +602,9 @@ export function createTodosFeature({
     document.addEventListener('pointerdown', (event) => {
       if (!event.isPrimary || (event.pointerType && event.pointerType !== 'touch' && event.pointerType !== 'pen')) return;
       const item = event.target?.closest?.('.todo-item');
-      if (!item || event.target.closest(interactiveSwipeTarget)) return;
+      if (!item) return;
+      const startedInActionZone = Boolean(event.target.closest('.todo-actions'));
+      if (isTodoInteractiveTarget(event.target) && !startedInActionZone) return;
       active = {
         item,
         id: item.dataset.id,
@@ -613,6 +615,7 @@ export function createTodosFeature({
         dy: 0,
         locked: null,
         swiped: false,
+        startedInActionZone,
         originalDraggable: item.getAttribute('draggable'),
       };
     }, { passive: true });
@@ -625,9 +628,10 @@ export function createTodosFeature({
       if (!active.locked) {
         const absX = Math.abs(active.dx);
         const absY = Math.abs(active.dy);
-        if (absX < lockThreshold && absY < lockThreshold) return;
+        const requiredLockThreshold = active.startedInActionZone ? actionZoneLockThreshold : lockThreshold;
+        if (absX < requiredLockThreshold && absY < lockThreshold) return;
         const isRightSwipeFromLeftEdge = active.dx > 0 && active.startX < leftEdgeSwipeDeadzonePx;
-        active.locked = absX > absY * 1.25 && !isRightSwipeFromLeftEdge ? 'horizontal' : 'vertical';
+        active.locked = absX >= requiredLockThreshold && absX > absY * 1.25 && !isRightSwipeFromLeftEdge ? 'horizontal' : 'vertical';
         if (active.locked === 'vertical') return;
         active.item.setAttribute('draggable', 'false');
         active.item.classList.remove('touch-feedback');
@@ -642,7 +646,7 @@ export function createTodosFeature({
       active.item.style.setProperty('--swipe-x', `${dx}px`);
       active.item.classList.toggle('swipe-right', dx > 0);
       active.item.classList.toggle('swipe-left', dx < 0);
-      active.swiped = Math.abs(dx) > lockThreshold;
+      active.swiped = true;
     }, { passive: false });
 
     const finish = async (event) => {
