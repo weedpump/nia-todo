@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { readFile } from 'node:fs/promises';
 import { withFreshDb, launchPage, BASE_URL, USERNAME, USER_PASSWORD } from './frontend_test_lib.mjs';
 
 async function todoMatches(page, title, expected = {}) {
@@ -32,6 +33,10 @@ async function waitForTodo(page, title, expected = {}) {
 
 async function run() {
   console.log('🤖 Running Android todo gestures test...');
+  const androidCapability = JSON.parse(await readFile(new URL('../src-tauri/capabilities/android.json', import.meta.url), 'utf8'));
+  if (!androidCapability.permissions.includes('allow-desktop-set-setting')) {
+    throw new Error('Android capability must allow desktop_set_setting for native notification toggles');
+  }
   const { browser, page, openTodoModal, assertNoFrontendErrors } = await launchPage();
   const title = 'Android Gesture Todo';
   const quickActionTitle = 'Android Quick Action Pin Todo';
@@ -42,6 +47,13 @@ async function run() {
       Object.defineProperty(navigator, 'userAgent', {
         get: () => 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36',
       });
+      window.__androidHapticCalls = [];
+      window.NiaAndroidNative = {
+        hapticFeedback: (pattern) => {
+          window.__androidHapticCalls.push(Number(pattern));
+          return true;
+        },
+      };
     });
 
     await page.setViewportSize({ width: 390, height: 844 });
@@ -90,6 +102,7 @@ async function run() {
     }
     if (midSwipe.hasTouchFeedback) throw new Error('Android swipe kept touch feedback on todo item');
     await waitForTodo(page, title, { status: 'in_progress' });
+    await page.waitForFunction(() => window.__androidHapticCalls?.includes(10), null, { timeout: 5000 });
     await page.waitForTimeout(500);
 
     const driftResult = await page.evaluate((value) => {
@@ -131,6 +144,7 @@ async function run() {
       throw new Error(`Action-zone swipe did not translate todo without tapping delete: ${JSON.stringify(actionZoneSwipe)}`);
     }
     await waitForTodo(page, quickActionTitle, { status: 'done' });
+    await page.waitForFunction(() => window.__androidHapticCalls?.includes(18), null, { timeout: 5000 });
     await page.waitForTimeout(500);
 
     const item = todoItem();
