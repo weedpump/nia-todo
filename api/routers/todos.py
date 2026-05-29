@@ -162,7 +162,23 @@ def list_todos(status: Optional[str] = None, project_id: Optional[int] = None, s
             params.append(section_id)
         sql += " ORDER BY COALESCE(t.is_pinned, 0) DESC, CASE t.status WHEN 'pending' THEN 0 WHEN 'in_progress' THEN 1 WHEN 'done' THEN 2 ELSE 3 END, t.priority, t.due_date IS NULL, t.due_date"
         rows = db.execute(sql, params).fetchall()
-        return {"todos": [row_to_dict(r) for r in rows]}
+        todos = [row_to_dict(r) for r in rows]
+        todo_ids = [todo['id'] for todo in todos]
+        reminders_by_todo = {todo_id: [] for todo_id in todo_ids}
+        if todo_ids:
+            placeholders = ','.join('?' for _ in todo_ids)
+            reminder_rows = db.execute(
+                f"""SELECT id, todo_id, remind_at, sent_at FROM reminders
+                   WHERE todo_id IN ({placeholders}) AND (user_id = ? OR user_id IS NULL)
+                   ORDER BY remind_at""",
+                [*todo_ids, user_id]
+            ).fetchall()
+            for reminder in reminder_rows:
+                reminder_dict = dict(reminder)
+                reminders_by_todo.setdefault(reminder_dict.pop('todo_id'), []).append(reminder_dict)
+        for todo in todos:
+            todo['reminders'] = reminders_by_todo.get(todo['id'], [])
+        return {"todos": todos}
 
 @router.post("")
 async def create_todo(data: TodoCreate, user_id: int = Depends(require_auth)):

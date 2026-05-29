@@ -31,6 +31,7 @@ venv/
 Thumbs.db
 
 # Dev-only files
+.local/
 api/data/vapid_keys.json
 test-results.json
 node_modules/
