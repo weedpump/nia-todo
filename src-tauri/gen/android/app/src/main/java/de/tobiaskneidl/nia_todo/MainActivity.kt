@@ -2,6 +2,7 @@ package de.tobiaskneidl.nia_todo
 
 import android.Manifest
 import android.app.PendingIntent
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import java.util.Locale
@@ -10,6 +11,10 @@ import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
+import android.os.Looper
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import android.view.HapticFeedbackConstants
 import android.view.ViewGroup
 import android.webkit.JavascriptInterface
@@ -31,6 +36,9 @@ import kotlinx.coroutines.launch
 import org.json.JSONObject
 import java.io.File
 import java.net.URI
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 
 class MainActivity : TauriActivity() {
@@ -147,6 +155,57 @@ class MainActivity : TauriActivity() {
       val host = (uri.host ?: "").lowercase(Locale.ROOT)
       val localShellHost = host == "tauri.localhost" || host == "localhost" || host == "127.0.0.1" || host == "::1"
       (scheme == "http" || scheme == "https") && localShellHost
+    } catch (_: Exception) {
+      false
+    }
+  }
+
+  private fun performViewHapticFeedback(effect: Int): Boolean {
+    val result = AtomicBoolean(false)
+    val action = Runnable {
+      val view = appWebView ?: window.decorView
+      @Suppress("DEPRECATION")
+      result.set(view.performHapticFeedback(effect, HapticFeedbackConstants.FLAG_IGNORE_VIEW_SETTING))
+    }
+
+    if (Looper.myLooper() == Looper.getMainLooper()) {
+      action.run()
+      return result.get()
+    }
+
+    val latch = CountDownLatch(1)
+    runOnUiThread {
+      try {
+        action.run()
+      } finally {
+        latch.countDown()
+      }
+    }
+    latch.await(250, TimeUnit.MILLISECONDS)
+    return result.get()
+  }
+
+  private fun shouldUseDirectHapticFallback(): Boolean {
+    return Build.MANUFACTURER.equals("samsung", ignoreCase = true)
+  }
+
+  private fun vibrateHapticFallback(patternMs: Int): Boolean {
+    return try {
+      val durationMs = patternMs.coerceIn(8, 80).toLong()
+      val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        getSystemService(VibratorManager::class.java).defaultVibrator
+      } else {
+        @Suppress("DEPRECATION")
+        getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+      }
+      if (!vibrator.hasVibrator()) return false
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        vibrator.vibrate(VibrationEffect.createOneShot(durationMs, VibrationEffect.DEFAULT_AMPLITUDE))
+      } else {
+        @Suppress("DEPRECATION")
+        vibrator.vibrate(durationMs)
+      }
+      true
     } catch (_: Exception) {
       false
     }
@@ -292,11 +351,9 @@ class MainActivity : TauriActivity() {
     @JavascriptInterface
     fun hapticFeedback(patternMs: Int): Boolean {
       val effect = if (patternMs >= 18) HapticFeedbackConstants.CONFIRM else HapticFeedbackConstants.VIRTUAL_KEY
-      runOnUiThread {
-        val view = appWebView ?: window.decorView
-        view.performHapticFeedback(effect)
-      }
-      return true
+      if (shouldUseDirectHapticFallback()) return vibrateHapticFallback(patternMs)
+      if (performViewHapticFeedback(effect)) return true
+      return vibrateHapticFallback(patternMs)
     }
 
     @JavascriptInterface
