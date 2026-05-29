@@ -64,7 +64,7 @@ sh('install', ['-m', '755', '-o', 'root', '-g', 'root', HELPER_SRC, HELPER_DST])
 mkdirSync(dirname(SOURCE_CONFIG), { recursive: true });
 writeFileSync(SOURCE_CONFIG, `RELEASE_API_LATEST=${BASE_URL}/latest.json\nSERVICE_NAME=${SERVICE}\n`, 'utf8');
 mkdirSync(DROPIN_DIR, { recursive: true });
-writeFileSync(DROPIN_FILE, `[Service]\nEnvironment=NIA_TODO_INSTALLATION_TYPE=deb\nEnvironment=NIA_TODO_UPDATE_CURRENT_VERSION=2.5.4\nEnvironment=NIA_TODO_UPDATE_RELEASE_API_URL=${BASE_URL}/latest.json\n`, 'utf8');
+writeFileSync(DROPIN_FILE, `[Service]\nEnvironment=NIA_TODO_SERVICE_NAME=${SERVICE}\nEnvironment=NIA_TODO_UPDATE_CURRENT_VERSION=2.5.4\nEnvironment=NIA_TODO_UPDATE_RELEASE_API_URL=${BASE_URL}/latest.json\n`, 'utf8');
 sh('systemctl', ['daemon-reload']);
 sh('systemctl', ['restart', SERVICE]);
 
