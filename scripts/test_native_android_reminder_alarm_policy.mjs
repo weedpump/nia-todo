@@ -12,7 +12,7 @@ function assert(condition, message) {
 assert(manifest.includes('android.permission.SCHEDULE_EXACT_ALARM'), 'Android reminders need SCHEDULE_EXACT_ALARM permission for reliable exact scheduling');
 for (const action of [
   'android.intent.action.BOOT_COMPLETED',
-  'android.intent.action.LOCKED_BOOT_COMPLETED',
+  'android.intent.action.USER_UNLOCKED',
   'android.intent.action.MY_PACKAGE_REPLACED',
   'android.intent.action.QUICKBOOT_POWERON',
 ]) {

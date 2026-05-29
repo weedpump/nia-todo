@@ -1,32 +1,28 @@
 #!/usr/bin/env node
-import { withFreshDb, launchPage, BASE_URL, USERNAME, USER_PASSWORD } from './frontend_test_lib.mjs';
+import { execFileSync } from 'node:child_process';
+import { withFreshDb, launchPage, BASE_URL, USERNAME, USER_PASSWORD, DB_PATH } from './frontend_test_lib.mjs';
 
-async function loginSession() {
-  const response = await fetch(`${BASE_URL}/api/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: USERNAME, password: USER_PASSWORD }),
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(`Login failed: ${response.status} ${JSON.stringify(data)}`);
-  return { token: data.access_token, csrfToken: data.csrf_token };
-}
-
-async function createReminderTodo(session, title) {
+function createExistingReminderTodo(title) {
   const remindAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
-  const response = await fetch(`${BASE_URL}/api/todos`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${session.token}`,
-      'X-CSRF-Token': session.csrfToken,
-      Cookie: `csrf_token=${session.csrfToken}`,
-    },
-    body: JSON.stringify({ title, status: 'pending', priority: 2, remind_at: remindAt }),
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(`Create reminder todo failed: ${response.status} ${JSON.stringify(data)}`);
-  return data;
+  const script = `
+import json, sqlite3
+conn = sqlite3.connect(${JSON.stringify(DB_PATH)})
+conn.row_factory = sqlite3.Row
+user = conn.execute("SELECT id FROM users WHERE username = ?", (${JSON.stringify(USERNAME)},)).fetchone()
+if not user:
+    raise SystemExit("frontend test user missing")
+project = conn.execute("SELECT id FROM projects WHERE user_id = ? AND COALESCE(is_inbox, 0) = 1 ORDER BY id LIMIT 1", (user["id"],)).fetchone()
+if not project:
+    raise SystemExit("frontend test inbox missing")
+cur = conn.execute("""INSERT INTO todos
+    (title, description, priority, is_pinned, status, project_id, section_id, due_date, completed_at, updated_at, user_id)
+    VALUES (?, '', 2, 0, 'pending', ?, NULL, NULL, NULL, datetime('now'), ?)""", (${JSON.stringify(title)}, project["id"], user["id"]))
+todo_id = cur.lastrowid
+conn.execute("INSERT INTO reminders (todo_id, remind_at, user_id) VALUES (?, ?, ?)", (todo_id, ${JSON.stringify(remindAt)}, user["id"]))
+conn.commit()
+print(json.dumps({"id": todo_id, "title": ${JSON.stringify(title)}, "remind_at": ${JSON.stringify(remindAt)}}))
+`;
+  return JSON.parse(execFileSync('python3', ['-c', script], { encoding: 'utf8' }));
 }
 
 async function installAndroidNativeStub(page) {
@@ -60,8 +56,7 @@ async function installAndroidNativeStub(page) {
 async function run() {
   console.log('🔔 Running Android reminder rehydration test...');
   const title = 'Existing Android Reminder Todo';
-  const session = await loginSession();
-  const todo = await createReminderTodo(session, title);
+  const todo = createExistingReminderTodo(title);
   const { browser, page, dumpErrors, assertNoFrontendErrors } = await launchPage();
   try {
     await installAndroidNativeStub(page);
