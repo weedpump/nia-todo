@@ -110,6 +110,29 @@ async function run() {
     }, quickActionTitle);
     if (driftResult.swiping || driftResult.swipeX) throw new Error(`Interactive quick-action drift started swipe: ${JSON.stringify(driftResult)}`);
 
+    const actionZoneSwipe = await page.evaluate((value) => {
+      const titleEl = Array.from(document.querySelectorAll('.todo-title')).find(el => (el.textContent || '').includes(value));
+      const item = titleEl?.closest('.todo-item');
+      const deleteButton = item?.querySelector('.todo-actions button:last-child');
+      if (!item || !deleteButton) throw new Error('Delete quick-action missing for action-zone swipe test');
+      const rect = deleteButton.getBoundingClientRect();
+      const startX = rect.right - 2;
+      const startY = rect.top + rect.height / 2;
+      const pointer = { pointerId: 90, pointerType: 'touch', isPrimary: true, bubbles: true, cancelable: true };
+      deleteButton.dispatchEvent(new PointerEvent('pointerdown', { ...pointer, clientX: startX, clientY: startY }));
+      document.dispatchEvent(new PointerEvent('pointermove', { ...pointer, clientX: startX - 70, clientY: startY + 1 }));
+      const transform = getComputedStyle(item).transform;
+      const swipeX = item.style.getPropertyValue('--swipe-x');
+      document.dispatchEvent(new PointerEvent('pointermove', { ...pointer, clientX: startX - 220, clientY: startY + 1 }));
+      document.dispatchEvent(new PointerEvent('pointerup', { ...pointer, clientX: startX - 220, clientY: startY + 1 }));
+      return { transform, swipeX, confirmOpen: Boolean(document.querySelector('#confirm-modal.active')) };
+    }, quickActionTitle);
+    if (!actionZoneSwipe.swipeX || actionZoneSwipe.transform === 'none' || actionZoneSwipe.confirmOpen) {
+      throw new Error(`Action-zone swipe did not translate todo without tapping delete: ${JSON.stringify(actionZoneSwipe)}`);
+    }
+    await waitForTodo(page, quickActionTitle, { status: 'done' });
+    await page.waitForTimeout(500);
+
     const item = todoItem();
     await item.locator('.todo-snooze-menu summary').click();
     await item.locator('.todo-snooze-menu[open]').waitFor({ state: 'visible', timeout: 5000 });
