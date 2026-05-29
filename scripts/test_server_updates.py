@@ -2,6 +2,7 @@
 """Focused tests for server update status logic."""
 
 import json
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -49,6 +50,24 @@ def test_docker_status_is_hint_only():
     assert "Docker" in status["message"]
 
 
+def test_detect_prefers_debian_package_over_container_markers():
+    with patch.object(server_updates, "_dpkg_package_installed", return_value=True), \
+         patch.object(server_updates, "_looks_like_debian_systemd_install", return_value=False), \
+         patch.object(server_updates, "_proc_cgroup_mentions_docker", return_value=True), \
+         patch.object(server_updates.Path, "exists", return_value=True):
+        install_type = server_updates.detect_installation_type()
+    assert_equal(install_type, "deb", "dpkg package wins over container markers")
+
+
+def test_detect_debian_systemd_install_when_dpkg_metadata_missing():
+    with patch.object(server_updates, "_dpkg_package_installed", return_value=False), \
+         patch.object(server_updates, "_looks_like_debian_systemd_install", return_value=True), \
+         patch.object(server_updates, "_proc_cgroup_mentions_docker", return_value=False), \
+         patch.object(server_updates.Path, "exists", return_value=False):
+        install_type = server_updates.detect_installation_type()
+    assert_equal(install_type, "deb", "systemd/helper install is treated as deb")
+
+
 def test_deb_requires_helper():
     release = {
         "tag_name": "v2.5.5",
@@ -64,6 +83,40 @@ def test_deb_requires_helper():
         status = server_updates.get_update_status()
     assert_equal(status["update_available"], True, "deb update available")
     assert_equal(status["can_install"], False, "deb helper missing")
+
+
+def test_update_helper_resolves_service_name_after_source_config():
+    helper = ROOT / "packaging/scripts/nia-todo-server-update.sh"
+    text = helper.read_text(encoding="utf-8")
+    assert 'SERVICE_NAME="${SERVICE_NAME:-}"' in text
+    assert text.index('source "${SOURCE_CONFIG}"') < text.index('SERVICE_NAME="${SERVICE_NAME:-${NIA_TODO_SERVICE_NAME:-nia-todo}}"')
+
+
+def test_update_helper_detaches_via_systemd_run_before_package_install():
+    helper = ROOT / "packaging/scripts/nia-todo-server-update.sh"
+    subprocess.run(["bash", "-n", str(helper)], check=True)
+    text = helper.read_text(encoding="utf-8")
+    assert "systemd-run" in text
+    assert "--systemd-child" in text
+    assert "StandardOutput=append:" in text
+    assert "systemd-run detach failed; refusing to run apt/dpkg" in text
+    assert "continuing in current process" not in text
+    assert text.index("flock -n 9") < text.index("systemd-run") < text.index("apt-get install -y")
+
+
+def test_public_installer_persists_custom_service_name_for_app_and_helper():
+    text = (ROOT / "packaging/install.sh").read_text(encoding="utf-8")
+    assert 'if [ "${SERVICE_NAME}" != "nia-todo" ]; then' in text
+    assert "NIA_TODO_SERVICE_NAME=${SERVICE_NAME}" in text
+    assert '"${ETC_DIR}/nia-todo.env"' in text
+    assert "SERVICE_NAME=${SERVICE_NAME}" in text
+    assert '"${ETC_DIR}/update-source.env"' in text
+
+
+def test_update_sudoers_allows_no_helper_args():
+    for relative in ("packaging/install.sh", "scripts/release/build-full-bundle.sh"):
+        text = (ROOT / relative).read_text(encoding="utf-8")
+        assert '/usr/local/bin/nia-todo-server-update ""' in text
 
 
 def test_update_progress_status_file():
@@ -93,8 +146,14 @@ def test_update_progress_reconciles_stale_running_status():
 def main():
     test_version_compare()
     test_update_severity()
+    test_detect_prefers_debian_package_over_container_markers()
+    test_detect_debian_systemd_install_when_dpkg_metadata_missing()
     test_docker_status_is_hint_only()
     test_deb_requires_helper()
+    test_update_helper_resolves_service_name_after_source_config()
+    test_update_helper_detaches_via_systemd_run_before_package_install()
+    test_public_installer_persists_custom_service_name_for_app_and_helper()
+    test_update_sudoers_allows_no_helper_args()
     test_update_progress_status_file()
     test_update_progress_reconciles_stale_running_status()
     print("✅ server update tests passed")

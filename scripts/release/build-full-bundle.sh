@@ -186,7 +186,7 @@ install -m 755 /opt/nia-todo/scripts/nia-todo-restore.sh /usr/local/bin/nia-todo
 install -m 755 -o root -g root /opt/nia-todo/scripts/nia-todo-server-update.sh /usr/local/bin/nia-todo-server-update
 mkdir -p /etc/sudoers.d
 cat > /etc/sudoers.d/nia-todo-server-update <<'SUDOERS'
-nia-todo ALL=(root) NOPASSWD: /usr/local/bin/nia-todo-server-update
+nia-todo ALL=(root) NOPASSWD: /usr/local/bin/nia-todo-server-update ""
 SUDOERS
 chmod 440 /etc/sudoers.d/nia-todo-server-update
 chown -R nia-todo:nia-todo /opt/nia-todo /var/lib/nia-todo

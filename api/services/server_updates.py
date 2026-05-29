@@ -18,7 +18,9 @@ DEFAULT_RELEASE_API_LATEST = "https://api.github.com/repos/weedpump/nia-todo/rel
 DEFAULT_RELEASES_URL = "https://github.com/weedpump/nia-todo/releases"
 DEB_ASSET_RE = re.compile(r"^nia-todo-server-v(?P<version>[0-9]+\.[0-9]+\.[0-9]+)-full\.deb$")
 HELPER = "/usr/local/bin/nia-todo-server-update"
+SERVICE_NAME = os.environ.get("NIA_TODO_SERVICE_NAME", "nia-todo").strip() or "nia-todo"
 UPDATE_LOG_DIR = Path(os.environ.get("NIA_TODO_UPDATE_LOG_DIR", "/var/lib/nia-todo/update-logs"))
+UPDATE_LOG_FILE = UPDATE_LOG_DIR / "nia-todo-server-update.log"
 UPDATE_STATUS_FILE = Path(os.environ.get("NIA_TODO_UPDATE_STATUS_FILE", "/var/cache/nia-todo/updates/status.json"))
 UPDATE_RELEASE_API_URL = os.environ.get("NIA_TODO_UPDATE_RELEASE_API_URL", DEFAULT_RELEASE_API_LATEST)
 UPDATE_RELEASES_URL = os.environ.get("NIA_TODO_UPDATE_RELEASES_URL", DEFAULT_RELEASES_URL)
@@ -87,10 +89,12 @@ def update_severity(latest: str | None, current: str | None) -> str:
 
 
 def detect_installation_type() -> str:
-    if Path("/.dockerenv").exists() or _proc_cgroup_mentions_docker():
-        return "docker"
     if _dpkg_package_installed("nia-todo"):
         return "deb"
+    if _looks_like_debian_systemd_install():
+        return "deb"
+    if Path("/.dockerenv").exists() or _proc_cgroup_mentions_docker():
+        return "docker"
     current = normalize_version(_read_web_app_version())
     if current.endswith("-dev"):
         return "dev"
@@ -118,6 +122,34 @@ def _dpkg_package_installed(package: str) -> bool:
     except (OSError, subprocess.SubprocessError):
         return False
     return result.returncode == 0 and "install ok installed" in result.stdout
+
+
+def _looks_like_debian_systemd_install() -> bool:
+    """Detect public Debian/systemd installs even when dpkg metadata is missing.
+
+    Some valid installations are bootstrapped with the public installer instead of
+    a package-manager-owned first install. They still install the same restricted
+    helper and systemd service and can safely transition through the verified
+    Debian package self-update path.
+    """
+    helper = Path(HELPER)
+    service_names = tuple(dict.fromkeys((SERVICE_NAME, "nia-todo")))
+    service_files = tuple(
+        Path(directory) / f"{name}.service"
+        for name in service_names
+        for directory in ("/etc/systemd/system", "/lib/systemd/system", "/usr/lib/systemd/system")
+    )
+    return _root_owned_not_group_world_writable(helper) and any(
+        _root_owned_not_group_world_writable(path) for path in service_files
+    )
+
+
+def _root_owned_not_group_world_writable(path: Path) -> bool:
+    try:
+        st = path.stat()
+    except OSError:
+        return False
+    return st.st_uid == 0 and (st.st_mode & 0o022) == 0
 
 
 def get_latest_release() -> dict[str, Any]:
@@ -241,7 +273,7 @@ def install_latest_deb_update() -> dict[str, Any]:
         raise RuntimeError("Release checksum asset does not match Debian package name.")
 
     UPDATE_LOG_DIR.mkdir(parents=True, exist_ok=True)
-    log_path = UPDATE_LOG_DIR / f"nia-todo-server-update-v{version}.log"
+    log_path = UPDATE_LOG_FILE
     log_file = log_path.open("ab")
     try:
         process = subprocess.Popen(
