@@ -1,4 +1,6 @@
+import { RUNTIME_CAPABILITIES } from '../core/config.js';
 import { getActiveLanguage, t, translatePage } from '../i18n/index.js';
+import { createNativeBridge } from './native-bridge.js';
 
 export function createTodosFeature({
   getTodos,
@@ -24,6 +26,7 @@ export function createTodosFeature({
   setupDescPreview,
   renderMarkdown,
 }) {
+  const nativeBridge = createNativeBridge();
   let todoFormBound = false;
 
   function bindTodoForm() {
@@ -106,6 +109,7 @@ export function createTodosFeature({
   }
   function runHapticFeedback(pattern = 12) {
     try {
+      if (RUNTIME_CAPABILITIES.android && nativeBridge.hapticFeedback(pattern)) return;
       if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') navigator.vibrate(pattern);
     } catch (error) {
       // Haptics are best-effort only.
