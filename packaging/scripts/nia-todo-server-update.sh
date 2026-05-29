@@ -21,7 +21,10 @@ if [ "$(id -u)" -ne 0 ]; then
   exit 1
 fi
 
-if [ "$#" -ne 0 ]; then
+RUN_IN_PLACE=0
+if [ "$#" -eq 1 ] && [ "${1:-}" = "--systemd-child" ]; then
+  RUN_IN_PLACE=1
+elif [ "$#" -ne 0 ]; then
   echo "Usage: nia-todo-server-update" >&2
   exit 2
 fi
@@ -50,8 +53,26 @@ PY
 }
 
 trap 'rc=$?; if [ "$rc" -ne 0 ]; then write_status "failed" "Server update failed. Check the update log."; fi' EXIT
-export RELEASE_API_LATEST
+export RELEASE_API_LATEST SERVICE_NAME
 write_status "running" "Starting server update…"
+
+if [ "${RUN_IN_PLACE}" != "1" ] && [ "${NIA_TODO_UPDATE_NO_SYSTEMD_RUN:-0}" != "1" ] && command -v systemd-run >/dev/null 2>&1; then
+  UNIT="nia-todo-server-update-$(date +%s)-$$"
+  if systemd-run \
+      --unit="${UNIT}" \
+      --collect \
+      --property=Type=exec \
+      --property=KillMode=process \
+      --setenv="RELEASE_API_LATEST=${RELEASE_API_LATEST}" \
+      --setenv="SERVICE_NAME=${SERVICE_NAME}" \
+      "$(readlink -f "$0")" --systemd-child; then
+    write_status "running" "Server update detached from app service. Installing package…"
+    echo "nia-todo server update detached into systemd unit ${UNIT}."
+    exit 0
+  fi
+  echo "systemd-run detach failed; continuing in current process." >&2
+fi
+
 exec 9>"${CACHE_DIR}/update.lock"
 if ! flock -n 9; then
   write_status "failed" "Another nia-todo server update is already running."
