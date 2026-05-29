@@ -59,6 +59,19 @@ FIXTURES = [
         "expect_sections_any": ["Mathe", "Englisch"],
     },
     {
+        "name": "implicit_grocery_section_inference_without_user_section_hints",
+        "context": {
+            "projects": [
+                {"name": "Inbox", "workspace": "Personal", "is_inbox": True, "sections": []},
+                {"name": "Einkaufsliste", "workspace": "Personal", "is_inbox": False, "sections": ["Obst und Gemüse", "Milchprodukte", "Tierbedarf"]},
+            ]
+        },
+        "text": "Ich brauche Milch, Hafermilch, Bananen und Hundefutter.",
+        "expect_titles": ["milch", "hafermilch", "banan", "hundefutter"],
+        "expect_project_any": ["Einkaufsliste"],
+        "expect_sections_any": ["Milchprodukte", "Obst und Gemüse", "Tierbedarf"],
+    },
+    {
         "name": "spanish_grocery_language_and_negation",
         "context": {
             "projects": [

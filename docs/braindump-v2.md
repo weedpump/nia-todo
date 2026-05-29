@@ -582,6 +582,8 @@ Important product decisions:
 - Optional OpenClaw/STT/system-prompt configuration can exist later as an advanced fallback/pro mode, not as the default requirement.
 - BrainDump must behave like a semantic assistant, not dictation.
 - The app should provide real context (projects/sections/workspaces); the LLM should infer the sensible mapping from that context.
+- Users should not need to dictate shopping-list sections. For example, saying "Milch, Hafermilch und Bananen" should be enough for BrainDump to place dairy items into a dairy section and fruit into a fruit/produce section when those sections exist.
+- Explicit section hints from the user may override/confirm routing, but they are not required for the intended UX.
 
 Known limitations / next work:
 
