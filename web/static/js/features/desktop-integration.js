@@ -110,6 +110,7 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
   let latestTodos = [];
   let reminderScheduleTimer = null;
   let settingsControlsBound = false;
+  let settingsLoaded = !isNativeApp();
 
   async function loadSettings() {
     if (!isNativeApp()) return settings;
@@ -117,6 +118,8 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
       settings = mergeSettings(await nativeBridge.getSettings());
     } catch (error) {
       console.warn('[Desktop] Failed to load settings', error);
+    } finally {
+      settingsLoaded = true;
     }
     return settings;
   }
@@ -184,6 +187,7 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
     await loadSettings();
     renderSettings();
     if (isDesktopApp()) bindHotkeyEvents();
+    syncLocalReminders(latestTodos, { immediate: true });
     announceNotificationReadiness();
   }
 
@@ -219,8 +223,12 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
   async function announceNotificationReadiness() {
     // Native apps schedule Todo reminders locally. Server push/WebSocket
     // notification readiness is intentionally browser/PWA-only now.
-    if (!isNativeApp() || !settings.notifications) return;
-    await ensureNativeNotificationPermission();
+    if (!isNativeApp()) return;
+    if (!settingsLoaded) await loadSettings();
+    if (!settings.notifications) return;
+    if (await ensureNativeNotificationPermission()) {
+      syncLocalReminders(latestTodos, { immediate: true });
+    }
   }
 
   async function notifyReminder(reminder) {
@@ -292,6 +300,7 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
   function syncLocalReminders(todos = [], { immediate = false } = {}) {
     latestTodos = Array.isArray(todos) ? todos : [];
     if (!RUNTIME_CAPABILITIES.nativeNotifications) return;
+    if (!settingsLoaded) return;
     if (reminderScheduleTimer) {
       clearTimeout(reminderScheduleTimer);
       reminderScheduleTimer = null;

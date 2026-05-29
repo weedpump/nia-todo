@@ -19,7 +19,10 @@ class ReminderReceiver : BroadcastReceiver() {
   override fun onReceive(context: Context, intent: Intent) {
     when (intent.action) {
       ACTION_SHOW_REMINDER -> showReminder(context, intent)
-      Intent.ACTION_BOOT_COMPLETED -> rescheduleStoredReminders(context)
+      Intent.ACTION_BOOT_COMPLETED,
+      Intent.ACTION_USER_UNLOCKED,
+      Intent.ACTION_MY_PACKAGE_REPLACED,
+      "android.intent.action.QUICKBOOT_POWERON" -> rescheduleStoredReminders(context)
     }
   }
 
@@ -136,15 +139,43 @@ class ReminderReceiver : BroadcastReceiver() {
           flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         ) ?: continue
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-          alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, dueAtMs, pendingIntent)
-        } else {
-          alarmManager.set(AlarmManager.RTC_WAKEUP, dueAtMs, pendingIntent)
-        }
+        scheduleReminderAlarm(alarmManager, dueAtMs, pendingIntent)
         scheduled += 1
       }
 
       return scheduled
+    }
+
+    private fun scheduleReminderAlarm(alarmManager: AlarmManager, dueAtMs: Long, pendingIntent: PendingIntent) {
+      try {
+        if (canScheduleExactAlarms(alarmManager)) {
+          if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, dueAtMs, pendingIntent)
+          } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+            alarmManager.setExact(AlarmManager.RTC_WAKEUP, dueAtMs, pendingIntent)
+          } else {
+            alarmManager.set(AlarmManager.RTC_WAKEUP, dueAtMs, pendingIntent)
+          }
+          return
+        }
+      } catch (_: SecurityException) {
+        // Exact alarms can be revoked by Android/OEM policy; fall back below.
+      }
+
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, dueAtMs, pendingIntent)
+      } else {
+        alarmManager.set(AlarmManager.RTC_WAKEUP, dueAtMs, pendingIntent)
+      }
+    }
+
+    private fun canScheduleExactAlarms(alarmManager: AlarmManager): Boolean {
+      if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return true
+      return try {
+        alarmManager.canScheduleExactAlarms()
+      } catch (_: Exception) {
+        false
+      }
     }
 
     private fun cancelReminders(context: Context, schedulesJson: String) {

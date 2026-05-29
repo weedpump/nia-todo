@@ -96,6 +96,11 @@ export function createNativeBridge() {
     return scheduleReminders([]);
   }
 
+  function hapticFeedback(pattern = 12) {
+    if (hasAndroidMethod('hapticFeedback')) return Boolean(android().hapticFeedback(Number(pattern) || 12));
+    return false;
+  }
+
   const androidPasskeyRequests = new Map();
   const ANDROID_PASSKEY_TIMEOUT_MS = 90_000;
 
@@ -241,6 +246,7 @@ export function createNativeBridge() {
     notify,
     scheduleReminders,
     clearReminders,
+    hapticFeedback,
     supportsNativePasskeys,
     passkeyRegister,
     passkeyAuthenticate,
