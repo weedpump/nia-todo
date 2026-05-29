@@ -117,8 +117,8 @@
         <span data-icon="download"></span>
         <span data-i18n-key="appDownloads.title">Apps herunterladen</span>
       </button>
+      <button type="button" class="login-update-refresh force-refresh-btn" data-force-refresh-button onclick="forceReloadApp()" title="Web-App neu herunterladen und Cache aktualisieren" data-i18n-title-key="version.refreshCache"><span data-icon="refresh-cw"></span><span data-i18n-key="auth.loginUpdateAction">Anmeldeproblem? App neu laden</span></button>
     </div>
-    <button type="button" class="login-update-refresh force-refresh-btn" data-force-refresh-button onclick="forceReloadApp()" title="Web-App neu herunterladen und Cache aktualisieren" data-i18n-title-key="version.refreshCache"><span data-icon="refresh-cw"></span><span data-i18n-key="auth.loginUpdateAction">Anmeldeproblem? App neu laden</span></button>
   </div>
 
   <div id="app">
@@ -196,7 +196,7 @@
         <!-- Version & Update -->
         <div class="version-bar" id="version-bar">
           <div class="version-info" id="version-info">
-            <span class="version-text">v2.5.5</span>
+            <span class="version-text">v2.6.0</span>
           </div>
           <div class="version-actions web-version-actions" id="version-actions">
             <a class="changelog-link version-action-btn" id="changelog-link" href="/changelog" target="_blank" rel="noopener noreferrer" title="Open changelog" data-i18n-title-key="version.openChangelog" data-i18n-key="resource.changelog">Changelog</a>
@@ -262,10 +262,13 @@
       <!-- Top bar -->
       <div class="topbar">
         <button class="hamburger" onclick="toggleSidebar()" aria-label="Open menu" data-i18n-aria-label-key="topbar.openMenu"><span data-icon="menu"></span></button>
-        <div class="search-box">
-          <input type="text" id="search-input" placeholder="Todo suchen..." data-i18n-placeholder-key="topbar.searchTodo" oninput="renderTodos()">
+        <button type="button" class="today-focus-btn" id="today-focus-btn" onclick="toggleTodayFocus()" title="Heute-Fokus" data-i18n-title-key="todayFocus.toggleTitle"><span data-icon="target"></span><span data-i18n-key="todayFocus.short">Fokus</span></button>
+        <div class="search-box" id="search-box">
+          <button type="button" class="search-toggle-btn" id="search-toggle-btn" onclick="toggleMobileSearch()" aria-label="Suche öffnen" data-i18n-aria-label-key="common.search" title="Suche" data-i18n-title-key="common.search"><span data-icon="search"></span></button>
+          <input type="text" id="search-input" placeholder="Todo suchen..." data-i18n-placeholder-key="topbar.searchTodo" oninput="renderStats();renderTodos()" onkeydown="if(event.key==='Escape')closeMobileSearch()">
         </div>
         <div class="topbar-actions">
+          <span id="online-status" class="status-online"></span>
           <div class="workspace-switcher topbar-workspace-switcher" id="workspace-switcher">
             <button type="button" class="workspace-current-btn" id="workspace-current-btn" onclick="toggleWorkspaceMenu(event)" aria-haspopup="menu" aria-expanded="false">
               <span class="workspace-current-dot" id="workspace-current-dot"></span>
@@ -274,7 +277,6 @@
             </button>
             <div class="workspace-menu" id="workspace-menu" role="menu"></div>
           </div>
-          <span id="online-status" class="status-online"></span>
         </div>
       </div>
 
@@ -302,6 +304,8 @@
         <div class="form-group">
           <label data-i18n-key="todo.title">Titel</label>
           <input type="text" id="todo-title" required placeholder="Was ist zu tun?" data-i18n-placeholder-key="todo.titlePlaceholder">
+          <div class="quick-add-hint" data-i18n-key="quickAdd.hint">Tipp: „Milch morgen 18:00 erinnerung:17:30 #Einkauf /Kühlung !hoch“ erkennt Deadline, Erinnerung, Projekt, Abschnitt und Priorität.</div>
+          <div class="quick-add-preview" id="quick-add-preview" aria-live="polite" hidden></div>
         </div>
         <div class="form-group">
           <label data-i18n-key="todo.description">Beschreibung</label>
@@ -338,6 +342,9 @@
               <option value="" data-i18n-key="todo.section.none">No section (unsorted)</option>
             </select>
           </div>
+        </div>
+        <div class="form-group checkbox-row">
+          <label><input type="checkbox" id="todo-pinned"> <span data-i18n-key="todo.pinned">Oben anpinnen</span></label>
         </div>
         <div class="form-row">
           <div class="form-group">

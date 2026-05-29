@@ -121,6 +121,15 @@ def repair_two_factor_hardening_migration(conn):
     conn.commit()
 
 
+
+def repair_todo_pins_migration(conn):
+    if not table_exists(conn, "todos"):
+        conn.commit()
+        return
+    add_column_if_missing(conn, "todos", "is_pinned", "INTEGER NOT NULL DEFAULT 0")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_todos_pinned ON todos(is_pinned)")
+    conn.commit()
+
 def repair_passkey_challenge_hardening_migration(conn):
     add_column_if_missing(conn, "passkey_challenges", "attempts", "INTEGER NOT NULL DEFAULT 0")
     add_column_if_missing(conn, "passkey_challenges", "locked_until", "INTEGER")
@@ -390,6 +399,11 @@ def run_migrations():
                 elif version == 30 and ("duplicate column" in error_msg or "already exists" in error_msg or "no such table: project_members" in error_msg):
                     print(f"[MIGRATION] ⚠️ {filepath.name} - shared project display workspace schema partially exists, repairing remaining schema")
                     repair_shared_project_display_workspace_migration(conn)
+                    set_db_version(conn, version)
+                    applied += 1
+                elif version == 37 and ("duplicate column" in error_msg or "already exists" in error_msg or "no such table: todos" in error_msg):
+                    print(f"[MIGRATION] ⚠️ {filepath.name} - todo pins schema partially exists or todos table is absent, repairing remaining schema")
+                    repair_todo_pins_migration(conn)
                     set_db_version(conn, version)
                     applied += 1
                 elif "duplicate column" in error_msg or "already exists" in error_msg:

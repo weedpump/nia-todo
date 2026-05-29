@@ -146,6 +146,20 @@ def get_latest_release() -> dict[str, Any]:
     }
 
 
+def _reconcile_progress_with_current_version(progress: dict[str, Any], current: str | None) -> dict[str, Any]:
+    state = str(progress.get("state") or "")
+    if state in {"success", "failed", "idle"}:
+        return progress
+    target = progress.get("target_version")
+    if compare_versions(current, str(target) if target else None) in {0, 1}:
+        return {
+            **progress,
+            "state": "success",
+            "message": "Server update installed. Reload the app to finish.",
+        }
+    return progress
+
+
 def get_update_progress() -> dict[str, Any]:
     if not UPDATE_STATUS_FILE.exists():
         return {"state": "idle", "message": "No update is running."}
@@ -155,7 +169,8 @@ def get_update_progress() -> dict[str, Any]:
         return {"state": "unknown", "message": "Update status could not be read."}
     if not isinstance(data, dict):
         return {"state": "unknown", "message": "Update status is invalid."}
-    return data
+    current = normalize_version(CURRENT_VERSION_OVERRIDE or _read_web_app_version())
+    return _reconcile_progress_with_current_version(data, current)
 
 
 def get_update_status() -> dict[str, Any]:

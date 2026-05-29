@@ -83,7 +83,11 @@ export function createAppLifecycle({
   }
 
   function restoreSavedNavigation() {
-    const savedFilter = localStorage.getItem('nia-last-filter');
+    const params = new URLSearchParams(window.location.search || '');
+    const urlProject = params.get('project');
+    const urlView = params.get('view');
+    const historyFilter = window.history?.state?.niaTodoView ? window.history.state.filter : null;
+    const savedFilter = urlProject || (['all','pending','in_progress','done'].includes(urlView) ? urlView : historyFilter || localStorage.getItem('nia-last-filter'));
     if (!savedFilter) return;
     setCurrentFilter(savedFilter);
     if (!['all','pending','in_progress','done'].includes(savedFilter)) {

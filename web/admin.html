@@ -13,7 +13,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .admin-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 16px; padding: 24px; margin-bottom: 24px; box-shadow: var(--shadow); }
 .admin-card h2 { font-size: 16px; margin: 0 0 16px 0; color: var(--text-primary); display: inline-flex; align-items: center; gap: 8px; }
 .user-table-wrap { width: 100%; overflow-x: auto; }
-.user-table { width: 100%; border-collapse: collapse; table-layout: fixed; min-width: 1080px; }
+.user-table { width: 100%; border-collapse: collapse; table-layout: fixed; min-width: 1220px; }
 .user-table th { text-align: left; padding: 12px; font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--border); }
 .user-table td { padding: 12px; font-size: 14px; color: var(--text-primary); border-bottom: 1px solid var(--border); vertical-align: middle; }
 .user-table th:nth-child(1), .user-table td:nth-child(1) { width: 44px; }
@@ -22,10 +22,11 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .user-table th:nth-child(4), .user-table td:nth-child(4) { width: 210px; }
 .user-table th:nth-child(5), .user-table td:nth-child(5) { width: 95px; }
 .user-table th:nth-child(6), .user-table td:nth-child(6) { width: 90px; }
-.user-table th:nth-child(7), .user-table td:nth-child(7) { width: 160px; }
-.user-table th:nth-child(8), .user-table td:nth-child(8) { width: 80px; }
-.user-table th:nth-child(9), .user-table td:nth-child(9) { width: 125px; }
-.user-table th:nth-child(10), .user-table td:nth-child(10) { width: 95px; }
+.user-table th:nth-child(7), .user-table td:nth-child(7) { width: 140px; }
+.user-table th:nth-child(8), .user-table td:nth-child(8) { width: 160px; }
+.user-table th:nth-child(9), .user-table td:nth-child(9) { width: 80px; }
+.user-table th:nth-child(10), .user-table td:nth-child(10) { width: 125px; }
+.user-table th:nth-child(11), .user-table td:nth-child(11) { width: 95px; }
 .user-table tr:last-child td { border-bottom: none; }
 .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; }
 .badge-admin { background: var(--accent); color: white; }
@@ -68,6 +69,8 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .email-display span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .user-table th:nth-child(4), .user-table td:nth-child(4) { overflow: hidden; }
 .admin-table-action { min-width: 0; width: 100%; padding: 6px 8px; white-space: nowrap; }
+.admin-last-active { display: inline-block; color: var(--text-secondary); font-size: 12px; line-height: 1.35; }
+.admin-last-active.muted { color: var(--text-muted); }
 .email-missing { color: var(--text-muted); }
 .email-edit { display: grid; grid-template-columns: minmax(0, 1fr) 28px 28px; align-items: center; gap: 4px; width: 100%; max-width: 100%; }
 .email-edit input { min-width: 0; width: 100%; padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-primary); color: var(--text-primary); font-size: 13px; }
@@ -358,6 +361,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
           <th data-i18n-key="admin.user.email">Email</th>
           <th data-i18n-key="admin.user.emailStatus">Email Status</th>
           <th data-i18n-key="admin.user.login">Login</th>
+          <th data-i18n-key="admin.user.lastActive">Last active</th>
           <th data-i18n-key="admin.user.twofa">2FA</th>
           <th data-i18n-key="admin.user.apiKeys">API Keys</th>
           <th data-i18n-key="admin.user.password">Password</th>
@@ -365,7 +369,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
         </tr>
       </thead>
       <tbody id="user-list">
-        <tr><td colspan="10" class="empty-state" data-i18n-key="common.loading">Loading...</td></tr>
+        <tr><td colspan="11" class="empty-state" data-i18n-key="common.loading">Loading...</td></tr>
       </tbody>
     </table>
     </div>
@@ -487,6 +491,11 @@ async function getApiError(response) {
     params = detail.params || params;
     detail = detail.detail || detail.message || fallback;
   }
+
+  // Handle FastAPI/Pydantic validation arrays instead of leaking [object Object].
+  if (Array.isArray(detail)) {
+    detail = detail.map(item => item?.msg || item?.message || item?.detail).filter(Boolean).join(', ') || fallback;
+  }
   
   // Try i18n lookup
   if (code) {
@@ -552,15 +561,15 @@ async function doAdminLogin() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ password })
     });
-    const data = await r.json();
     if (!r.ok) {
       if (r.status === 401) {
         document.getElementById('admin-login-error').textContent = t('admin.login.invalidPassword');
       } else {
-        document.getElementById('admin-login-error').textContent = data.detail || t('admin.login.failed');
+        document.getElementById('admin-login-error').textContent = await getApiError(r) || t('admin.login.failed');
       }
       return;
     }
+    const data = await r.json();
 
     adminToken = data.access_token;
     localStorage.setItem('admin_jwt_token', data.access_token);
@@ -605,7 +614,7 @@ async function loadUsers() {
     renderUsers(data.users);
   } catch(e) {
     document.getElementById('user-list').innerHTML =
-      `<tr><td colspan="8" class="empty-state">Error: ${e.message}</td></tr>`;
+      `<tr><td colspan="11" class="empty-state">Error: ${e.message}</td></tr>`;
     if (e.message.includes('403')) {
       localStorage.removeItem('admin_jwt_token');
       setTimeout(() => location.reload(), 2000);
@@ -632,6 +641,24 @@ function escapeHtmlAttr(str) {
 
 function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
+}
+
+function parseServerTimestamp(value) {
+  if (!value) return null;
+  const raw = String(value).trim();
+  const hasTimezone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(raw);
+  const normalized = raw.includes('T') ? raw : raw.replace(' ', 'T');
+  const date = new Date(hasTimezone ? normalized : `${normalized}Z`);
+  return Number.isFinite(date.getTime()) ? date : null;
+}
+
+function formatServerTimestamp(value) {
+  const date = parseServerTimestamp(value);
+  if (!date) return '-';
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  }).format(date);
 }
 
 function adminDialog({ title, message, confirmText = t('common.confirm'), danger = false, hideCancel = false }) {
@@ -1003,6 +1030,12 @@ function renderUserApiKeys(user) {
   return `<span class="badge badge-warning" title="${escapeHtmlAttr(t('admin.user.apiKeysMachineTokenHint'))}">${count} ${escapeHtml(t('admin.user.active'))}</span>`;
 }
 
+function renderUserLastActive(user) {
+  const formatted = formatServerTimestamp(user.last_active_at);
+  const label = user.last_active_at ? formatted : t('admin.user.neverActive');
+  return `<span class="admin-last-active ${user.last_active_at ? '' : 'muted'}">${escapeHtml(label)}</span>`;
+}
+
 function renderUserEmailDisplay(userId, emailValue) {
   const email = emailValue ? escapeHtml(emailValue) : '<span class="email-missing">-</span>';
   return `<span class="email-display" id="email-display-${userId}">
@@ -1014,7 +1047,7 @@ function renderUserEmailDisplay(userId, emailValue) {
 function renderUsers(users) {
   const tbody = document.getElementById('user-list');
   if (!users || users.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="10" class="empty-state">${escapeHtml(t('admin.user.empty'))}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="11" class="empty-state">${escapeHtml(t('admin.user.empty'))}</td></tr>`;
     return;
   }
   tbody.innerHTML = users.map(u => `
@@ -1025,6 +1058,7 @@ function renderUsers(users) {
       <td><span class="admin-mobile-label">${escapeHtml(t('settings.profile.email'))}</span>${renderUserEmailCell(u)}</td>
       <td><span class="admin-mobile-label">${escapeHtml(t('admin.user.emailStatus'))}</span>${renderUserEmailStatus(u)}</td>
       <td><span class="admin-mobile-label">${escapeHtml(t('admin.user.login'))}</span>${renderUserLoginStatus(u)}</td>
+      <td><span class="admin-mobile-label">${escapeHtml(t('admin.user.lastActive'))}</span>${renderUserLastActive(u)}</td>
       <td><span class="admin-mobile-label">2FA</span>${renderUserTwoFactorStatus(u)}</td>
       <td><span class="admin-mobile-label">${escapeHtml(t('settings.apiKeys.title'))}</span>${renderUserApiKeys(u)}</td>
       <td><span class="admin-mobile-label">${escapeHtml(t('auth.password'))}</span><button class="btn btn-primary admin-table-action" onclick="generatePasswordLink(${u.id}, '${escapeHtmlAttr(u.username)}')">${iconSvg('link')} ${escapeHtml(t('admin.user.passwordLink'))}</button></td>

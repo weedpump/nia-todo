@@ -46,6 +46,7 @@ let syncInProgress = false;
 let hideDone = localStorage.getItem('nia-hide-done') !== 'false';
 let sortMode = localStorage.getItem('nia-sort') || 'priority';
 let showProjectWidget = localStorage.getItem('nia-project-widget') !== 'false';
+let todayFocus = localStorage.getItem('nia-today-focus') === 'true';
 let desktopIntegration = null;
 
 function setTodosState(next) {
@@ -69,6 +70,8 @@ const viewPreferences = createViewPreferencesFeature({
   setSortMode: (value) => { sortMode = value; },
   getShowProjectWidget: () => showProjectWidget,
   setShowProjectWidget: (value) => { showProjectWidget = value; },
+  getTodayFocus: () => todayFocus,
+  setTodayFocus: (value) => { todayFocus = value; },
   renderTodos: () => renderTodos(),
 });
 const toggleHideDone = viewPreferences.toggleHideDone;
@@ -78,6 +81,8 @@ const updateSortButton = viewPreferences.updateSortButton;
 const sortTodoList = viewPreferences.sortTodoList;
 const toggleProjectWidget = viewPreferences.toggleProjectWidget;
 const updateProjectWidgetButton = viewPreferences.updateProjectWidgetButton;
+const toggleTodayFocus = viewPreferences.toggleTodayFocus;
+const updateTodayFocusButton = viewPreferences.updateTodayFocusButton;
 const sectionsFeature = createSectionsFeature({
   getTodos: () => todos,
   getCurrentProjectId: () => currentProjectId,
@@ -93,7 +98,21 @@ const dbClear = appStorage.dbClear;
 const getFromDB = appStorage.getFromDB;
 const deleteFromDB = appStorage.deleteFromDB;
 const clearSyncQueue = appStorage.clearSyncQueue;
-const addToSyncQueue = appStorage.addToSyncQueue;
+async function updateConnectionStatusView(wsState = wsClient?.getWsState?.()) {
+  let pendingCount = 0;
+  try {
+    if (db) pendingCount = (await dbGetAll('syncQueue')).length;
+  } catch (error) {
+    console.warn('Failed to read sync queue for status badge', error);
+  }
+  renderConnectionStatus(wsState, { pendingCount, syncing: syncInProgressRef.value });
+}
+
+async function addToSyncQueue(action, data) {
+  const result = await appStorage.addToSyncQueue(action, data);
+  updateConnectionStatusView().catch(() => {});
+  return result;
+}
 const syncInProgressRef = { value: syncInProgress };
 const syncFeature = createSyncFeature({
   getDb: () => db,
@@ -253,7 +272,7 @@ const wsClient = createWebSocketClient({
   wsUrl: WS_URL,
   getAuthToken: () => getAuthToken(),
   syncWithServer: () => syncWithServer(),
-  renderConnectionStatus,
+  renderConnectionStatus: (state) => updateConnectionStatusView(state),
   dbGetAll,
   dbPut,
   getFromDB,
@@ -284,8 +303,51 @@ const startPingInterval = wsClient.startPingInterval;
 const stopPingInterval = wsClient.stopPingInterval;
 const scheduleReconnect = wsClient.scheduleReconnect;
 const disconnectWebSocket = wsClient.disconnectWebSocket;
-const updateConnectionStatus = wsClient.updateConnectionStatus;
+const updateConnectionStatus = () => updateConnectionStatusView(wsClient.getWsState());
 const handleWsMessage = wsClient.handleWsMessage;
+
+function openMobileSearch() {
+  const box = document.getElementById('search-box');
+  const input = document.getElementById('search-input');
+  box?.classList.add('open');
+  requestAnimationFrame(() => {
+    input?.focus();
+    input?.select();
+  });
+}
+
+function closeMobileSearch() {
+  const box = document.getElementById('search-box');
+  const input = document.getElementById('search-input');
+  if (input?.value) {
+    input.value = '';
+    renderTodos();
+  }
+  box?.classList.remove('open');
+  input?.blur();
+}
+
+function toggleMobileSearch() {
+  const box = document.getElementById('search-box');
+  if (box?.classList.contains('open')) closeMobileSearch();
+  else openMobileSearch();
+}
+
+function isTypingTarget(element) {
+  const tag = element?.tagName;
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || element?.isContentEditable;
+}
+
+function bindTodayFocusHotkey() {
+  if (document.documentElement.dataset.todayFocusHotkeyBound === '1') return;
+  document.documentElement.dataset.todayFocusHotkeyBound = '1';
+  document.addEventListener('keydown', (event) => {
+    if (event.key?.toLowerCase() !== 'f' || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
+    if (isTypingTarget(event.target) || document.querySelector('.modal.active')) return;
+    event.preventDefault();
+    toggleTodayFocus();
+  });
+}
 
 desktopIntegration = createDesktopIntegration({
   showToast: (...args) => showToast(...args),
@@ -293,9 +355,7 @@ desktopIntegration = createDesktopIntegration({
     await showTodoModal();
   },
   onHotkeySearch: () => {
-    const searchInput = document.getElementById('search-input');
-    searchInput?.focus();
-    searchInput?.select();
+    openMobileSearch();
   },
   getCurrentUser: () => currentUser,
 });
@@ -310,13 +370,17 @@ function isOnlineForSync() {
 }
 
 async function syncWithServer() {
+  await updateConnectionStatusView(wsClient.getWsState());
   await syncFeature.syncWithServer({ wsState: wsClient.getWsState(), syncInProgressRef });
   syncInProgress = syncInProgressRef.value;
+  await updateConnectionStatusView(wsClient.getWsState());
 }
 
 async function refreshFromServer() {
+  await updateConnectionStatusView(wsClient.getWsState());
   await syncFeature.refreshFromServer({ wsState: wsClient.getWsState(), syncInProgressRef });
   syncInProgress = syncInProgressRef.value;
+  await updateConnectionStatusView(wsClient.getWsState());
   ensureCurrentWorkspace();
   renderWorkspaces();
   renderProjects();
@@ -356,6 +420,7 @@ const appRendering = createAppRenderingFeature({
   getCurrentProjectId: () => currentProjectId,
   getCurrentWorkspaceId: () => currentWorkspaceId,
   getHideDone: () => hideDone,
+  getTodayFocus: () => todayFocus,
   getShowProjectWidget: () => showProjectWidget,
   getCurrentUser: () => currentUser,
   sortTodoList,
@@ -421,6 +486,7 @@ const navigationFeature = createNavigationFeature({
 });
 const setFilter = navigationFeature.setFilter;
 const loadSectionsForCurrentProject = navigationFeature.loadSectionsForCurrentProject;
+const bindNavigationHistory = navigationFeature.bindNavigationHistory;
 
 const showProjectModal = projectsFeature.showProjectModal;
 const editProject = projectsFeature.editProject;
@@ -433,6 +499,8 @@ const clearDoneInProject = projectsFeature.clearDoneInProject;
 const markTodoDone = todosFeature.markTodoDone;
 const markTodoInProgress = todosFeature.markTodoInProgress;
 const setTodoStatus = todosFeature.setTodoStatus;
+const toggleTodoPin = todosFeature.toggleTodoPin;
+const snoozeTodo = todosFeature.snoozeTodo;
 async function markTodoDoneFromNative(action) {
   const rawAction = typeof action === 'object' && action ? action : { id: action };
   const rawId = String(rawAction.id || '');
@@ -616,6 +684,14 @@ export function startAppModule() {
   confirmDialogFeature.bindConfirmDialog();
   appDownloadsFeature.initAppDownloads();
   bindNativePointerDragDrop();
+  bindTodayFocusHotkey();
+  bindNavigationHistory();
+  document.addEventListener('click', (event) => {
+    const box = document.getElementById('search-box');
+    const input = document.getElementById('search-input');
+    if (!box?.classList.contains('open') || box.contains(event.target) || input?.value) return;
+    box.classList.remove('open');
+  });
   desktopIntegration?.init();
   startNativeDoneActionPolling();
   window.addEventListener('nia-language-change', () => {
@@ -628,6 +704,7 @@ export function startAppModule() {
     updateToggleDoneButton();
     updateSortButton();
     updateProjectWidgetButton();
+    updateTodayFocusButton();
     hydrateIcons(document);
   });
   setInterval(() => renderStats(), 30 * 1000);
@@ -641,19 +718,19 @@ export function startAppModule() {
   websocket: { getReconnectDelay, connectWebSocket, wsSend, startPingInterval, stopPingInterval, scheduleReconnect, disconnectWebSocket, updateConnectionStatus, handleWsMessage },
   storage: { openDB, dbGetAll, dbPut, dbClear, getFromDB, deleteFromDB, clearSyncQueue, addToSyncQueue },
   sync: { isOnlineForSync, syncWithServer, refreshFromServer },
-  ui: { toggleSidebar, closeSidebar, closeModal, setupDescPreview },
+  ui: { toggleSidebar, closeSidebar, closeModal, setupDescPreview, openMobileSearch, closeMobileSearch, toggleMobileSearch },
   lifecycle: { initServiceWorker, triggerUpdate, forceReloadApp, initApp, loadFromLocalDB, loadAll },
   appDownloads: { openAppDownloadsModal },
   rendering: { renderVersionInfo, renderProjects, renderStats, renderTodos, renderSectionHeader, countByProject },
-  navigation: { setFilter, loadSectionsForCurrentProject },
+  navigation: { setFilter, loadSectionsForCurrentProject, bindNavigationHistory },
   workspaces: { renderWorkspaces, switchWorkspace, createWorkspace, showWorkspaceModal, closeWorkspaceModal, saveWorkspace, deleteWorkspaceFromModal, toggleWorkspaceMenu, closeWorkspaceMenu, loadWorkspacesFromServer },
-  todos: { markTodoDone, markTodoInProgress, markTodoDoneFromNative, setTodoStatus, toggleTodo, showTodoModal, onProjectChange, saveTodo, editTodo, deleteTodoFromModal, deleteTodo },
+  todos: { markTodoDone, markTodoInProgress, markTodoDoneFromNative, setTodoStatus, toggleTodo, toggleTodoPin, snoozeTodo, showTodoModal, onProjectChange, saveTodo, editTodo, deleteTodoFromModal, deleteTodo },
   projects: { showProjectModal, editProject, saveProject, deleteProject, deleteProjectFromModal, clearDoneFromModal, clearDoneInProject },
   sharing: { inviteUserToProject: () => sharingFeature.inviteByUsername(), leaveProjectFromModal: () => sharingFeature.leaveProject(), undoLeaveProject: (data) => sharingFeature.undoLeaveProject(data), undoRemoveMember: (data) => sharingFeature.undoRemoveMember(data), undoInvite: (data) => sharingFeature.undoInvite(data), acceptInvite: (pid, iid) => sharingFeature.acceptInvite(pid, iid), declineInvite: (pid, iid) => sharingFeature.declineInvite(pid, iid), showShareInput: () => sharingFeature.showShareInput() },
   projectSharing: { setProject: (project) => sharingFeature.setProject(project), applyProjectModalState: (project, canEdit, shared) => sharingFeature.applyProjectModalState(project, canEdit, shared), loadInvites: () => sharingFeature.loadInvites() },
   sections: { showAddSectionForm, saveNewSection, editSectionInline, saveSectionEdit, deleteSection },
   dragDrop: { handleTodoDragStart, handleTodoDragEnd, handleTodoDragOver, handleTodoDrop, handleSectionDragStart, handleSectionDragEnd, handleSectionDragOver, handleSectionDrop },
-  viewPreferences: { toggleHideDone, updateToggleDoneButton, cycleSort, updateSortButton, sortTodoList, toggleProjectWidget, updateProjectWidgetButton },
+  viewPreferences: { toggleHideDone, updateToggleDoneButton, cycleSort, updateSortButton, sortTodoList, toggleProjectWidget, updateProjectWidgetButton, toggleTodayFocus, updateTodayFocusButton },
   toastUndo: { showToast, showBatchToast, hideToast, undoLastAction, restoreBatchTodos, restoreTodo },
     push: { updatePushStatus, updatePushSettingsUI, enablePushNotifications, disablePushNotifications, sendTestPush },
     desktopIntegration: {

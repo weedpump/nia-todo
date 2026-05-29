@@ -104,11 +104,11 @@ export function createUiShell({ renderMarkdown, showTodoModal }) {
   function bindTouchFeedback() {
     if (touchFeedbackBound || typeof document === 'undefined') return;
     touchFeedbackBound = true;
-    const selector = 'button, [role="button"], .nav-btn, .workspace-current-btn, .user-menu-item, .todo-item';
+    const selector = 'button, [role="button"], .nav-btn, .workspace-current-btn, .user-menu-item, .todo-item, .overview-project-item, .section-name';
     const clear = (el) => {
       if (!el) return;
       window.clearTimeout(el.__niaTouchFeedbackTimer);
-      el.__niaTouchFeedbackTimer = window.setTimeout(() => el.classList.remove('touch-feedback'), 150);
+      el.__niaTouchFeedbackTimer = window.setTimeout(() => el.classList.remove('touch-feedback'), 240);
     };
     document.addEventListener('pointerdown', (event) => {
       if (!document.documentElement.classList.contains('native-android')) return;

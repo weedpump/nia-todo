@@ -5,6 +5,32 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [2.6.0] - 2026-05-29
+
+### Added
+- Today Focus mode helps surface pinned, overdue, due-today, and high-priority todos, and can be toggled with the `F` keyboard shortcut.
+- Quick Add now understands inline todo syntax for priority, due dates, reminders, projects, and sections, with live visual chips for recognized tokens.
+- Todo rows now support snooze actions for quickly moving due dates forward.
+- Todos can now be pinned into a dedicated pinned group for easier access.
+- Pin/unpin and snooze changes now support undo from the toast action.
+- Mobile/native UX feedback now uses visible rounded press states with accent color, ring, glow, and subtle scale feedback instead of the default square browser highlight.
+- Native haptic feedback now confirms real todo status changes on supported devices.
+- Sync visibility now includes a compact pending-sync badge that fits the mobile top bar alongside the offline indicator.
+- Admin user management now shows each user's last activity so inactive accounts are easier to identify.
+
+### Changed
+- Mobile todo navigation is more compact: search collapses to an icon, focus/search stay on the left, workspace selection stays on the right, and offline/sync indicators are centered between them.
+- Dashboard and project widgets are hidden while searching so mobile search results start immediately at the top of the list.
+- Browser Back/Forward now navigates between app views such as dashboard, filters, and projects while keeping the address bar clean.
+- Pinned todo cards, deadline emphasis, and project/todo focus styling were refined for clearer hierarchy without making the UI heavier.
+
+### Fixed
+- Server update progress now reconciles stale `installing` states when the installed server version already matches or exceeds the update target, preventing completed updates from leaving outdated progress text in the admin panel.
+- Login layout now stays usable on small mobile and desktop viewports: mobile uses a fullscreen scrollable form, login actions keep consistent sizing, and short desktop windows scroll instead of clipping the form.
+- Todo swipe gestures still work when starting over the right-side todo action area for pin, snooze, or delete.
+- The login refresh action stays attached to the login form instead of drifting to the page footer.
+- Admin login errors now render readable messages for structured API errors such as rate limits instead of showing `[object Object]`.
+
 ## [2.5.5] - 2026-05-28
 
 ### Fixed

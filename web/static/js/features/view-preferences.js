@@ -1,7 +1,7 @@
 import { t } from '../i18n/index.js';
 import { iconSvg } from '../icons/lucide-icons.js';
 
-export function createViewPreferencesFeature({ getHideDone, setHideDone, getSortMode, setSortMode, getShowProjectWidget, setShowProjectWidget, renderTodos }) {
+export function createViewPreferencesFeature({ getHideDone, setHideDone, getSortMode, setSortMode, getShowProjectWidget, setShowProjectWidget, getTodayFocus, setTodayFocus, renderTodos }) {
   function toggleHideDone() {
     const next = !getHideDone();
     setHideDone(next);
@@ -54,6 +54,26 @@ export function createViewPreferencesFeature({ getHideDone, setHideDone, getSort
     btn.title = title;
   }
 
+  function toggleTodayFocus() {
+    if (!getTodayFocus || !setTodayFocus) return;
+    const next = !getTodayFocus();
+    setTodayFocus(next);
+    localStorage.setItem('nia-today-focus', next ? 'true' : 'false');
+    updateTodayFocusButton();
+    renderTodos();
+  }
+
+  function updateTodayFocusButton() {
+    const btn = document.getElementById('today-focus-btn');
+    if (!btn || !getTodayFocus) return;
+    const active = getTodayFocus();
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    btn.title = active ? t('todayFocus.disable') : t('todayFocus.enable');
+    const label = btn.querySelector('[data-i18n-key="todayFocus.short"]');
+    if (label) label.textContent = active ? t('todayFocus.on') : t('todayFocus.short');
+  }
+
   function cycleSort() {
     const modes = ['order', 'priority', 'alpha'];
     const idx = modes.indexOf(getSortMode());
@@ -85,10 +105,13 @@ export function createViewPreferencesFeature({ getHideDone, setHideDone, getSort
   }
 
   function sortTodoList(list) {
+    const withPinsFirst = (items) => [...items].sort((a, b) => Number(Boolean(b.is_pinned)) - Number(Boolean(a.is_pinned)));
     const sortMode = getSortMode();
     if (sortMode === 'priority') {
       const prioOrder = { 1: 0, 2: 1, 3: 2, 4: 3 };
       return [...list].sort((a, b) => {
+        const pinned = Number(Boolean(b.is_pinned)) - Number(Boolean(a.is_pinned));
+        if (pinned) return pinned;
         const pa = prioOrder[a.priority] ?? 4;
         const pb = prioOrder[b.priority] ?? 4;
         if (pa !== pb) return pa - pb;
@@ -96,12 +119,18 @@ export function createViewPreferencesFeature({ getHideDone, setHideDone, getSort
       });
     }
     if (sortMode === 'alpha') {
-      return [...list].sort((a, b) =>
-        (a.title || '').toLowerCase().localeCompare((b.title || '').toLowerCase())
-      );
+      return [...list].sort((a, b) => {
+        const pinned = Number(Boolean(b.is_pinned)) - Number(Boolean(a.is_pinned));
+        if (pinned) return pinned;
+        return (a.title || '').toLowerCase().localeCompare((b.title || '').toLowerCase());
+      });
     }
-    return [...list].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+    return withPinsFirst(list).sort((a, b) => {
+      const pinned = Number(Boolean(b.is_pinned)) - Number(Boolean(a.is_pinned));
+      if (pinned) return pinned;
+      return (a.sort_order ?? 0) - (b.sort_order ?? 0);
+    });
   }
 
-  return { toggleHideDone, updateToggleDoneButton, toggleProjectWidget, updateProjectWidgetButton, cycleSort, updateSortButton, sortTodoList };
+  return { toggleHideDone, updateToggleDoneButton, toggleProjectWidget, updateProjectWidgetButton, toggleTodayFocus, updateTodayFocusButton, cycleSort, updateSortButton, sortTodoList };
 }
