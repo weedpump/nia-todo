@@ -47,11 +47,61 @@ def test_drops_unparseable_reminder_text():
     assert_true(result["candidates"][0]["reminder"] is None, result)
 
 
+def test_filters_negated_and_filler_candidates_from_llm_output():
+    parsed = {
+        "candidates": [
+            {"title": "Milch", "kind": "shopping"},
+            {"title": "Kaffee", "kind": "shopping"},
+            {"title": "Ach nee", "kind": "shopping"},
+            {"title": "Kaffee nicht", "kind": "shopping"},
+            {"title": "Hafermilch", "kind": "shopping"},
+        ]
+    }
+    transcript = "Ich muss morgen Milch und Kaffee einkaufen. Ach nee, Kaffee nicht. Dafür bitte Hafermilch."
+    result = _normalize_braindump_json(parsed, transcript)
+    titles = [item["title"] for item in result["candidates"]]
+    assert_true("Milch" in titles, titles)
+    assert_true("Hafermilch" in titles, titles)
+    assert_true("Kaffee" not in titles, titles)
+    assert_true("Kaffee nicht" not in titles, titles)
+    assert_true("Ach nee" not in titles, titles)
+
+
+def test_dedupes_stt_truncated_item_variant():
+    parsed = {"candidates": [{"title": "Bananen", "kind": "shopping"}, {"title": "Banan", "kind": "shopping"}]}
+    result = _normalize_braindump_json(parsed, "Bananen auf der Einkaufsliste")
+    titles = [item["title"] for item in result["candidates"]]
+    assert_true(titles == ["Bananen"], titles)
+
+
+def test_safety_net_keeps_non_negated_shopping_and_routes_sections():
+    parsed = {"candidates": []}
+    transcript = "Ich muss morgen Milch und Kaffee einkaufen. Ach nee, Kaffee nicht. Dafür bitte Hafermilch und Bananen auf der Einkaufsliste."
+    context = {
+        "projects": [
+            {"name": "Inbox", "sections": []},
+            {"name": "Einkaufsliste", "sections": ["Obst und Gemüse", "Milchprodukte"]},
+        ]
+    }
+    result = _normalize_braindump_json(parsed, transcript, context)
+    by_title = {item["title"]: item for item in result["candidates"]}
+    assert_true("Milch" in by_title, result)
+    assert_true("Hafermilch" in by_title, result)
+    assert_true("Bananen" in by_title, result)
+    assert_true("Kaffee" not in by_title, result)
+    assert_true(by_title["Milch"]["project_name"] == "Einkaufsliste", result)
+    assert_true(by_title["Milch"]["section_name"] == "Milchprodukte", result)
+    assert_true(by_title["Bananen"]["section_name"] == "Obst und Gemüse", result)
+
+
 def main():
     tests = [
         test_dedupes_llm_and_safety_net_shopping_items,
         test_normalizes_relative_reminder_to_iso_datetime,
         test_drops_unparseable_reminder_text,
+        test_filters_negated_and_filler_candidates_from_llm_output,
+        test_dedupes_stt_truncated_item_variant,
+        test_safety_net_keeps_non_negated_shopping_and_routes_sections,
     ]
     for test in tests:
         test()
