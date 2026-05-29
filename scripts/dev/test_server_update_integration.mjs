@@ -70,7 +70,7 @@ async function main() {
     mkdirSync(dirname(SOURCE_CONFIG), { recursive: true });
     writeFileSync(SOURCE_CONFIG, `RELEASE_API_LATEST=${LATEST_URL}\nSERVICE_NAME=${SERVICE}\n`, 'utf8');
     mkdirSync(DROPIN_DIR, { recursive: true });
-    writeFileSync(DROPIN_FILE, `[Service]\nEnvironment=NIA_TODO_INSTALLATION_TYPE=deb\nEnvironment=NIA_TODO_UPDATE_CURRENT_VERSION=2.5.4\nEnvironment=NIA_TODO_UPDATE_RELEASE_API_URL=${LATEST_URL}\n`, 'utf8');
+    writeFileSync(DROPIN_FILE, `[Service]\nEnvironment=NIA_TODO_SERVICE_NAME=${SERVICE}\nEnvironment=NIA_TODO_UPDATE_CURRENT_VERSION=2.5.4\nEnvironment=NIA_TODO_UPDATE_RELEASE_API_URL=${LATEST_URL}\n`, 'utf8');
     sh('systemctl', ['daemon-reload']);
 
     await withFreshDb(async () => {
