@@ -757,6 +757,11 @@ function renderServerUpdateProgress(progress) {
   const error = document.getElementById('server-update-error');
   if (!progress || progress.state === 'idle') return;
   const message = progress.message || 'Update status unknown.';
+  if (progress.state === 'success' && !serverUpdateStartedInThisPage) {
+    if (serverUpdatePollTimer) clearInterval(serverUpdatePollTimer);
+    serverUpdatePollTimer = null;
+    return;
+  }
   if (progress.state === 'failed') {
     error.textContent = message;
     if (serverUpdatePollTimer) clearInterval(serverUpdatePollTimer);
@@ -817,7 +822,7 @@ function renderServerUpdate(status) {
   command.style.display = 'none';
   command.textContent = '';
   renderServerUpdateProgress(status.progress);
-  if (installType === 'docker' && status.update_available) {
+  if (installType === 'docker') {
     help.textContent = t('admin.serverUpdate.dockerHelp');
     command.style.display = 'block';
     command.textContent = status.docker_update_hint || 'docker compose pull && docker compose up -d';

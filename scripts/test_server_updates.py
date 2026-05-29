@@ -49,6 +49,24 @@ def test_docker_status_is_hint_only():
     assert "Docker" in status["message"]
 
 
+def test_detect_prefers_debian_package_over_container_markers():
+    with patch.object(server_updates, "_dpkg_package_installed", return_value=True), \
+         patch.object(server_updates, "_looks_like_debian_systemd_install", return_value=False), \
+         patch.object(server_updates, "_proc_cgroup_mentions_docker", return_value=True), \
+         patch.object(server_updates.Path, "exists", return_value=True):
+        install_type = server_updates.detect_installation_type()
+    assert_equal(install_type, "deb", "dpkg package wins over container markers")
+
+
+def test_detect_debian_systemd_install_when_dpkg_metadata_missing():
+    with patch.object(server_updates, "_dpkg_package_installed", return_value=False), \
+         patch.object(server_updates, "_looks_like_debian_systemd_install", return_value=True), \
+         patch.object(server_updates, "_proc_cgroup_mentions_docker", return_value=False), \
+         patch.object(server_updates.Path, "exists", return_value=False):
+        install_type = server_updates.detect_installation_type()
+    assert_equal(install_type, "deb", "systemd/helper install is treated as deb")
+
+
 def test_deb_requires_helper():
     release = {
         "tag_name": "v2.5.5",
@@ -93,6 +111,8 @@ def test_update_progress_reconciles_stale_running_status():
 def main():
     test_version_compare()
     test_update_severity()
+    test_detect_prefers_debian_package_over_container_markers()
+    test_detect_debian_systemd_install_when_dpkg_metadata_missing()
     test_docker_status_is_hint_only()
     test_deb_requires_helper()
     test_update_progress_status_file()
