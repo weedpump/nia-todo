@@ -832,7 +832,7 @@
   "quickAdd.detected.section": "Section",
   "quickAdd.syntax.today": "today",
   "quickAdd.syntax.tomorrow": "tomorrow",
-  "quickAdd.syntax.dayAfterTomorrow": "day-after-tomorrow",
+  "quickAdd.syntax.dayAfterTomorrow": "day after tomorrow|day-after-tomorrow",
   "quickAdd.syntax.weekend": "weekend",
   "quickAdd.syntax.nextWeek": "next week|next-week",
   "quickAdd.syntax.weekdays": "sunday|monday|tuesday|wednesday|thursday|friday|saturday",
