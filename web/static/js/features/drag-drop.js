@@ -14,10 +14,12 @@ export function createDragDropFeature({
   let dragSrcSectionId = null;
   let currentSectionDropIndex = null;
   let pointerDrag = null;
+  let nativeSummaryPointer = null;
   let suppressNextNativeClick = false;
   const TOUCH_LONG_PRESS_MS = 320;
   const TOUCH_SCROLL_CANCEL_PX = 10;
   const MOUSE_DRAG_THRESHOLD_PX = 8;
+  const SUMMARY_TOGGLE_MOVE_THRESHOLD_PX = 8;
 
   function eventDataTransfer(e) {
     return e.dataTransfer || { setData() {}, effectAllowed: 'move', dropEffect: 'move' };
@@ -341,6 +343,29 @@ export function createDragDropFeature({
     });
   }
 
+  function isNativePointerDragInteractiveTarget(target) {
+    return Boolean(target?.closest?.('button, input, textarea, select, a, summary, details, .todo-check, .todo-actions, [role="button"]'));
+  }
+
+  function nativeTodoDetailsSummaryFromTarget(target) {
+    return target?.closest?.('.todo-status-menu > summary, .todo-snooze-menu > summary') || null;
+  }
+
+  function toggleNativeTodoDetailsSummary(summary) {
+    const details = summary?.parentElement;
+    if (!summary || !details) return false;
+    document.querySelectorAll('.todo-status-menu[open], .todo-snooze-menu[open]').forEach((menu) => {
+      if (menu !== details) menu.removeAttribute('open');
+    });
+    details.open = !details.open;
+    return true;
+  }
+
+  function clearNativeSummaryPointer(pointerId = null) {
+    if (pointerId !== null && nativeSummaryPointer?.pointerId !== pointerId) return;
+    nativeSummaryPointer = null;
+  }
+
   function bindNativePointerDragDrop() {
     if (!RUNTIME_CAPABILITIES.native || bindNativePointerDragDrop.bound) return;
     bindNativePointerDragDrop.bound = true;
@@ -373,7 +398,19 @@ export function createDragDropFeature({
 
     document.addEventListener('pointerdown', (event) => {
       if (event.button !== undefined && event.button !== 0) return;
-      if (event.target.closest('button, input, textarea, select, a')) return;
+      const summary = nativeTodoDetailsSummaryFromTarget(event.target);
+      if (summary) {
+        nativeSummaryPointer = {
+          pointerId: event.pointerId,
+          summary,
+          startX: event.clientX,
+          startY: event.clientY,
+          canceled: false,
+        };
+        return;
+      }
+      clearNativeSummaryPointer();
+      if (isNativePointerDragInteractiveTarget(event.target)) return;
       const todo = event.target.closest('.todo-item[data-id]');
       if (todo) {
         startNativePointerDrag(event, todo, 'todo', /^\d+$/.test(String(todo.dataset.id)) ? parseInt(todo.dataset.id) : todo.dataset.id);
@@ -386,6 +423,11 @@ export function createDragDropFeature({
     }, true);
 
     document.addEventListener('pointermove', (event) => {
+      if (nativeSummaryPointer?.pointerId === event.pointerId) {
+        const dx = event.clientX - nativeSummaryPointer.startX;
+        const dy = event.clientY - nativeSummaryPointer.startY;
+        if (Math.hypot(dx, dy) > SUMMARY_TOGGLE_MOVE_THRESHOLD_PX) nativeSummaryPointer.canceled = true;
+      }
       if (!pointerDrag || pointerDrag.pointerId !== event.pointerId) return;
       pointerDrag.lastX = event.clientX;
       pointerDrag.lastY = event.clientY;
@@ -408,12 +450,26 @@ export function createDragDropFeature({
     }, { capture: true, passive: false });
 
     document.addEventListener('pointerup', (event) => {
+      if (event.button !== undefined && event.button !== 0) return;
+      const summaryPointer = nativeSummaryPointer?.pointerId === event.pointerId ? nativeSummaryPointer : null;
+      clearNativeSummaryPointer(event.pointerId);
+      if (!pointerDrag && summaryPointer && !summaryPointer.canceled && nativeTodoDetailsSummaryFromTarget(event.target) === summaryPointer.summary) {
+        toggleNativeTodoDetailsSummary(summaryPointer.summary);
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        return;
+      }
       if (!pointerDrag || pointerDrag.pointerId !== event.pointerId) return;
+      if (!pointerDrag.active && isNativePointerDragInteractiveTarget(event.target)) {
+        cancelNativePointerDrag();
+        return;
+      }
       event.preventDefault();
       finishNativePointerDrag(event);
     }, true);
 
     document.addEventListener('pointercancel', (event) => {
+      clearNativeSummaryPointer(event.pointerId);
       if (!pointerDrag || pointerDrag.pointerId !== event.pointerId) return;
       if (pointerDrag.active && pointerDrag.isTouch) return;
       if (pointerDrag.active) finishNativePointerDrag(event);
@@ -451,6 +507,7 @@ export function createDragDropFeature({
     document.addEventListener('click', (event) => {
       if (!suppressNextNativeClick) return;
       suppressNextNativeClick = false;
+      if (isNativePointerDragInteractiveTarget(event.target)) return;
       event.preventDefault();
       event.stopImmediatePropagation();
     }, true);

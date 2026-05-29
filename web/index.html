@@ -196,7 +196,7 @@
         <!-- Version & Update -->
         <div class="version-bar" id="version-bar">
           <div class="version-info" id="version-info">
-            <span class="version-text">v2.6.0</span>
+            <span class="version-text">v2.6.1</span>
           </div>
           <div class="version-actions web-version-actions" id="version-actions">
             <a class="changelog-link version-action-btn" id="changelog-link" href="/changelog" target="_blank" rel="noopener noreferrer" title="Open changelog" data-i18n-title-key="version.openChangelog" data-i18n-key="resource.changelog">Changelog</a>
@@ -343,8 +343,12 @@
             </select>
           </div>
         </div>
-        <div class="form-group checkbox-row">
-          <label><input type="checkbox" id="todo-pinned"> <span data-i18n-key="todo.pinned">Oben anpinnen</span></label>
+        <div class="form-group checkbox-row pin-checkbox-row">
+          <label class="pin-checkbox-label">
+            <input type="checkbox" id="todo-pinned">
+            <span class="pin-checkbox-box" aria-hidden="true"></span>
+            <span data-i18n-key="todo.pinned">Oben anpinnen</span>
+          </label>
         </div>
         <div class="form-row">
           <div class="form-group">

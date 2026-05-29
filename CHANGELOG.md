@@ -5,6 +5,19 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [2.6.1] - 2026-05-29
+
+### Fixed
+- Debian/systemd server self-updates now run in a detached transient systemd unit so package installation is not killed by the app service restart, avoiding interrupted `dpkg` states.
+- Server update detection is more robust across Debian packages, Docker deployments, and development checkouts, and completed updates reconcile stale progress state in the admin panel.
+- Windows/Tauri todo quick actions now keep nested controls usable: checkbox, status, snooze, pin, and delete actions no longer trigger todo edit or unwanted press feedback.
+- Android/native todo swipe gestures now coexist with quick-action controls: taps remain button actions, while intentional horizontal swipes can start from the right-side action area.
+- Todo row press feedback is now isolated to empty todo-card areas so interactive controls no longer make the row jitter or open the edit dialog.
+
+### Changed
+- Server update helper installation and sudoers handling were hardened with stricter path/config validation and safer failure behavior.
+- Frontend regression coverage now locks todo interactive click isolation, native quick-action handling, and Android action-zone swipe behavior.
+
 ## [2.6.0] - 2026-05-29
 
 ### Added

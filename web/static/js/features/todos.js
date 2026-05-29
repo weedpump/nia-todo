@@ -535,6 +535,50 @@ export function createTodosFeature({
     await setTodoStatus(todo.id, todo.status === status ? 'pending' : status);
   }
 
+  const todoInteractiveTargetSelector = 'button, input, select, textarea, a, label, summary, details, .todo-check, .todo-actions, [role="button"], [contenteditable="true"]';
+
+  function isTodoInteractiveTarget(target) {
+    return Boolean(target?.closest?.(todoInteractiveTargetSelector));
+  }
+
+  function bindTodoItemClickBehavior() {
+    if (document.documentElement.dataset.todoItemClickBound === '1') return;
+    document.documentElement.dataset.todoItemClickBound = '1';
+    let press = null;
+
+    document.addEventListener('pointerdown', (event) => {
+      if (!event.isPrimary || event.button > 0) return;
+      const item = event.target?.closest?.('.todo-item[data-id]');
+      if (!item || isTodoInteractiveTarget(event.target)) return;
+      press = { item, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, moved: false };
+      item.classList.add('todo-press-active');
+    }, { passive: true });
+
+    document.addEventListener('pointermove', (event) => {
+      if (!press || event.pointerId !== press.pointerId) return;
+      if (Math.abs(event.clientX - press.startX) > 6 || Math.abs(event.clientY - press.startY) > 6) {
+        press.moved = true;
+        press.item.classList.remove('todo-press-active');
+      }
+    }, { passive: true });
+
+    const clearPress = (event) => {
+      if (!press || event.pointerId !== press.pointerId) return;
+      press.item.classList.remove('todo-press-active');
+      press = null;
+    };
+    document.addEventListener('pointerup', clearPress, { passive: true });
+    document.addEventListener('pointercancel', clearPress, { passive: true });
+
+    document.addEventListener('click', (event) => {
+      if (event.defaultPrevented) return;
+      const item = event.target?.closest?.('.todo-item[data-id]');
+      if (!item || isTodoInteractiveTarget(event.target)) return;
+      event.preventDefault();
+      editTodo(item.dataset.id);
+    });
+  }
+
   function bindTodoSwipeGestures() {
     if (document.documentElement.dataset.todoSwipeBound === '1') return;
     document.documentElement.dataset.todoSwipeBound = '1';
@@ -543,6 +587,7 @@ export function createTodosFeature({
     const thresholdRatio = 0.35;
     const lockThreshold = 10;
     const leftEdgeSwipeDeadzonePx = 72;
+    const actionZoneLockThreshold = 36;
     let active = null;
     let suppressClickUntil = 0;
 
@@ -557,7 +602,9 @@ export function createTodosFeature({
     document.addEventListener('pointerdown', (event) => {
       if (!event.isPrimary || (event.pointerType && event.pointerType !== 'touch' && event.pointerType !== 'pen')) return;
       const item = event.target?.closest?.('.todo-item');
-      if (!item || event.target.closest('input, select, textarea, .todo-check')) return;
+      if (!item) return;
+      const startedInActionZone = Boolean(event.target.closest('.todo-actions'));
+      if (isTodoInteractiveTarget(event.target) && !startedInActionZone) return;
       active = {
         item,
         id: item.dataset.id,
@@ -568,6 +615,7 @@ export function createTodosFeature({
         dy: 0,
         locked: null,
         swiped: false,
+        startedInActionZone,
         originalDraggable: item.getAttribute('draggable'),
       };
     }, { passive: true });
@@ -580,11 +628,14 @@ export function createTodosFeature({
       if (!active.locked) {
         const absX = Math.abs(active.dx);
         const absY = Math.abs(active.dy);
-        if (absX < lockThreshold && absY < lockThreshold) return;
+        const requiredLockThreshold = active.startedInActionZone ? actionZoneLockThreshold : lockThreshold;
+        if (absX < requiredLockThreshold && absY < lockThreshold) return;
         const isRightSwipeFromLeftEdge = active.dx > 0 && active.startX < leftEdgeSwipeDeadzonePx;
-        active.locked = absX > absY * 1.25 && !isRightSwipeFromLeftEdge ? 'horizontal' : 'vertical';
+        active.locked = absX >= requiredLockThreshold && absX > absY * 1.25 && !isRightSwipeFromLeftEdge ? 'horizontal' : 'vertical';
         if (active.locked === 'vertical') return;
         active.item.setAttribute('draggable', 'false');
+        active.item.classList.remove('touch-feedback');
+        if (active.item.__niaTouchFeedbackTimer) window.clearTimeout(active.item.__niaTouchFeedbackTimer);
         active.item.classList.add('swiping');
       }
 
@@ -595,7 +646,7 @@ export function createTodosFeature({
       active.item.style.setProperty('--swipe-x', `${dx}px`);
       active.item.classList.toggle('swipe-right', dx > 0);
       active.item.classList.toggle('swipe-left', dx < 0);
-      active.swiped = Math.abs(dx) > lockThreshold;
+      active.swiped = true;
     }, { passive: false });
 
     const finish = async (event) => {
@@ -679,6 +730,7 @@ export function createTodosFeature({
     });
   }
 
+  bindTodoItemClickBehavior();
   bindTodoSwipeGestures();
   bindTodoStatusMenuBehavior();
   bindTodoHoverKeyboardShortcuts();

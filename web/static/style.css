@@ -102,7 +102,7 @@ a:active,
 .nav-btn:active,
 .workspace-current-btn:active,
 .user-menu-item:active,
-.todo-item:active,
+.todo-item.todo-press-active,
 .overview-project-item:active,
 .touch-feedback {
   background-color: var(--press-bg);
@@ -117,7 +117,7 @@ a:active,
 }
 
 .todo-item.touch-feedback,
-.todo-item:active,
+.todo-item.todo-press-active,
 .overview-project-item.touch-feedback,
 .overview-project-item:active {
   background-color: color-mix(in srgb, var(--bg-tertiary) 62%, var(--accent));
@@ -1063,7 +1063,7 @@ select:focus-visible {
 }
 
 .todo-item.swiping {
-  transform: translateX(var(--swipe-x, 0));
+  transform: translate3d(var(--swipe-x, 0), 0, 0);
   transition: none;
   user-select: none;
   z-index: 2;
@@ -1125,6 +1125,9 @@ select:focus-visible {
   font-size: 11px;
   color: var(--success);
   transition: all 0.15s;
+  background: transparent;
+  padding: 0;
+  appearance: none;
 }
 
 .todo-check:hover { border-color: var(--accent); }
@@ -4080,6 +4083,19 @@ input[type="color"]::-moz-color-swatch {
   background-color: color-mix(in srgb, var(--bg-tertiary) 62%, var(--accent)) !important;
 }
 
+.native-android .todo-item.swiping {
+  transform: translate3d(var(--swipe-x, 0), 0, 0) !important;
+  background: var(--bg-secondary) !important;
+}
+
+.native-android .todo-item.swiping.swipe-right {
+  box-shadow: inset 4px 0 0 var(--warning) !important;
+}
+
+.native-android .todo-item.swiping.swipe-left {
+  box-shadow: inset -4px 0 0 var(--success) !important;
+}
+
 .native-android .btn-primary.touch-feedback {
   background-color: color-mix(in srgb, var(--accent-hover) 90%, white) !important;
 }
@@ -4474,6 +4490,73 @@ input[type="color"]::-moz-color-swatch {
   color: var(--text-secondary);
   font-size: 14px;
   cursor: pointer;
+}
+
+.pin-checkbox-row {
+  margin-top: -2px;
+  margin-bottom: 18px;
+}
+
+.pin-checkbox-label {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.10)), var(--bg-primary));
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.pin-checkbox-label input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.pin-checkbox-box {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 2px solid color-mix(in srgb, var(--accent) 36%, var(--border));
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  color: white;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.pin-checkbox-box::before {
+  content: "★";
+  font-size: 13px;
+  line-height: 1;
+  opacity: 0;
+  transform: scale(0.7) rotate(-12deg);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.pin-checkbox-label:has(input:checked) {
+  border-color: color-mix(in srgb, var(--accent) 70%, var(--border));
+  background: linear-gradient(135deg, rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.20)), var(--bg-secondary));
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.12));
+}
+
+.pin-checkbox-label:has(input:focus-visible) {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.22));
+}
+
+.pin-checkbox-label:has(input:checked) .pin-checkbox-box {
+  border-color: var(--accent);
+  background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 72%, #fbbf24));
+  box-shadow: 0 6px 16px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.28));
+}
+
+.pin-checkbox-label:has(input:checked) .pin-checkbox-box::before {
+  opacity: 1;
+  transform: scale(1) rotate(0deg);
 }
 
 .todo-item.pinned {
