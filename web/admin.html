@@ -145,6 +145,10 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
   .admin-status-card { align-items: flex-start; flex-direction: column; }
   .admin-status-actions { width: 100%; }
   .admin-status-actions .btn { flex: 1; }
+  #admin-password-dialog { padding: 0; align-items: stretch; justify-content: stretch; }
+  #admin-password-dialog .admin-dialog-content { width: 100%; min-height: 100dvh; border: 0; border-radius: 0; padding: 22px 18px; display: flex; flex-direction: column; justify-content: center; }
+  #admin-password-dialog .admin-dialog-actions { margin-top: 22px; }
+  #admin-password-dialog .admin-dialog-actions .btn { flex: 1; min-height: 42px; }
   .user-table, .user-table tbody, .user-table tr, .user-table td { display: block; width: 100%; min-width: 0; }
   .user-table tr { padding: 12px; margin-bottom: 0; }
   .user-table td { padding: 7px 0; margin-top: 0 !important; }
@@ -225,7 +229,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
   <div class="admin-card admin-status-card">
     <span class="admin-status-text"><span data-icon="lock-keyhole"></span> <span data-i18n-key="admin.status.loggedIn">Logged in as admin</span></span>
     <div class="admin-status-actions">
-      <button class="btn btn-secondary" onclick="openAdminPasswordDialog()" data-i18n-key="admin.password.change">Change admin password</button>
+      <button class="btn btn-secondary" onclick="openAdminPasswordDialog()" data-i18n-key="admin.password.shortChange">Change password</button>
       <button class="btn btn-danger" onclick="adminLogout()" data-i18n-key="auth.signOut">Sign out</button>
     </div>
   </div>
@@ -442,6 +446,10 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
         <option value="de" data-i18n-key="settings.language.de">German</option>
         <option value="en" data-i18n-key="settings.language.en">English</option>
       </select>
+      <div class="admin-config-field admin-config-checkbox" id="new-braindump-field" style="display:none;">
+        <input type="checkbox" id="new-braindump-enabled">
+        <label for="new-braindump-enabled" data-i18n-key="admin.user.enableBrainDump">BrainDump AI aktivieren</label>
+      </div>
       <button class="btn btn-primary" onclick="createUser()" data-i18n-key="admin.user.createAndLink">Create & generate link</button>
     </div>
     <div style="font-size: 12px; color: var(--text-muted); margin-top: 8px;" data-i18n-key="admin.user.createHelp">
@@ -953,6 +961,10 @@ function renderBrainDumpConfig(config) {
   document.getElementById('braindump-stt-token-note').textContent = config.stt_token_configured ? 'STT token stored.' : 'No STT token stored.';
   const heading = document.getElementById('user-braindump-heading');
   if (heading) heading.style.display = brainDumpFeatureEnabled ? '' : 'none';
+  const createField = document.getElementById('new-braindump-field');
+  const createToggle = document.getElementById('new-braindump-enabled');
+  if (createField) createField.style.display = brainDumpFeatureEnabled ? '' : 'none';
+  if (!brainDumpFeatureEnabled && createToggle) createToggle.checked = false;
 }
 
 function readBrainDumpConfigForm() {
@@ -1417,6 +1429,7 @@ async function createUser() {
   const displayName = document.getElementById('new-display-name').value.trim();
   const email = document.getElementById('new-email').value.trim();
   const language = document.getElementById('new-language').value;
+  const brainDumpEnabled = brainDumpFeatureEnabled && !!document.getElementById('new-braindump-enabled')?.checked;
 
   document.getElementById('create-error').textContent = '';
   document.getElementById('create-success').textContent = '';
@@ -1436,7 +1449,8 @@ async function createUser() {
       username: username,
       display_name: displayName || username,
       email: email,
-      language: language
+      language: language,
+      braindump_enabled: brainDumpEnabled
     });
     if (data.password_setup_delivery === 'email') {
       document.getElementById('create-success').textContent = t('admin.user.createdEmailSent', { username });
@@ -1448,6 +1462,8 @@ async function createUser() {
     document.getElementById('new-username').value = '';
     document.getElementById('new-display-name').value = '';
     document.getElementById('new-email').value = '';
+    const brainDumpCreateToggle = document.getElementById('new-braindump-enabled');
+    if (brainDumpCreateToggle) brainDumpCreateToggle.checked = false;
     await loadUsers();
   } catch(e) {
     document.getElementById('create-error').textContent = e.message;
