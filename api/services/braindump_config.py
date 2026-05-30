@@ -112,18 +112,27 @@ SUPPORTED_LLM_PROVIDERS = {"openai_compatible"}
 SUPPORTED_SYSTEM_PROMPT_MODES = {"default", "append", "replace"}
 
 
-def _append_path(base_url: str, suffix: str) -> str:
-    parsed = urlparse(base_url.rstrip("/"))
-    path = parsed.path.rstrip("/") + suffix
-    return urlunparse((parsed.scheme, parsed.netloc, path, "", "", ""))
+def _llm_endpoint_url(config: dict[str, Any], endpoint: str) -> str:
+    raw = str(config.get("llm_base_url") or DEFAULT_BRAINDUMP_CONFIG["llm_base_url"]).strip().rstrip("/")
+    parsed = urlparse(raw)
+    path = parsed.path.rstrip("/")
+    if path.endswith("/v1/chat/completions"):
+        final_path = path if endpoint == "chat/completions" else path[: -len("/chat/completions")] + "/models"
+    elif path.endswith("/v1/models"):
+        final_path = path if endpoint == "models" else path[: -len("/models")] + "/chat/completions"
+    elif path.endswith("/v1"):
+        final_path = f"{path}/{endpoint}"
+    else:
+        final_path = f"{path}/v1/{endpoint}"
+    return urlunparse((parsed.scheme, parsed.netloc, final_path, "", "", ""))
 
 
 def llm_chat_url(config: dict[str, Any]) -> str:
-    return _append_path(str(config.get("llm_base_url") or DEFAULT_BRAINDUMP_CONFIG["llm_base_url"]), "/v1/chat/completions")
+    return _llm_endpoint_url(config, "chat/completions")
 
 
 def llm_models_url(config: dict[str, Any]) -> str:
-    return _append_path(str(config.get("llm_base_url") or DEFAULT_BRAINDUMP_CONFIG["llm_base_url"]), "/v1/models")
+    return _llm_endpoint_url(config, "models")
 
 
 # Backward-compatible aliases for older imports/tests.

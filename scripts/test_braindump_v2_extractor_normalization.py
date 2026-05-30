@@ -16,6 +16,7 @@ from routers.braindump_v2 import (  # noqa: E402
     _normalize_braindump_json,
     _parse_llm_json_content,
 )
+from services.braindump_config import llm_chat_url, llm_models_url  # noqa: E402
 
 
 def assert_true(condition: bool, message: str):
@@ -139,6 +140,9 @@ def test_multilingual_negated_shopping_cleanup():
     titles = [item["title"] for item in result["candidates"]]
     assert_true("Coffee" not in titles and "But not coffee" not in titles, result)
     assert_true("Milk" in titles and "Bread" in titles, result)
+    compact = _normalize_braindump_json({"candidates": []}, "We need milk not coffee.")
+    compact_titles = [item["title"] for item in compact["candidates"]]
+    assert_true("Coffee" not in compact_titles and "Milk" in compact_titles, compact)
 
 
 def test_invalid_llm_section_is_cleared_when_workspace_known():
@@ -198,6 +202,25 @@ def test_multilingual_titles_are_preserved():
     assert_true(any("lait" in item["title"].lower() for item in french["candidates"]), french)
 
 
+def test_date_only_reminder_is_rejected_but_deadline_kept():
+    result = _normalize_braindump_json({"candidates": [{"title": "Pay invoice", "kind": "reminder", "deadline": "2026-06-01", "reminder": "2026-06-01"}]}, "Pay invoice on 2026-06-01.")
+    item = result["candidates"][0]
+    assert_true(item["deadline"] and "2026-06-01" in item["deadline"], item)
+    assert_true(item["reminder"] is None, item)
+
+
+def test_llm_endpoint_urls_accept_root_v1_and_full_paths():
+    cases = [
+        ("https://api.openai.com", "https://api.openai.com/v1/chat/completions", "https://api.openai.com/v1/models"),
+        ("https://api.openai.com/v1", "https://api.openai.com/v1/chat/completions", "https://api.openai.com/v1/models"),
+        ("http://localhost:1234/v1/chat/completions", "http://localhost:1234/v1/chat/completions", "http://localhost:1234/v1/models"),
+    ]
+    for base, chat, models in cases:
+        config = {"llm_base_url": base}
+        assert_true(llm_chat_url(config) == chat, llm_chat_url(config))
+        assert_true(llm_models_url(config) == models, llm_models_url(config))
+
+
 def test_workspace_context_is_compact():
     context = {"projects": [{"name": f"Project {idx}", "workspace": "Private", "sections": [f"Section {idx}-{s}" for s in range(20)]} for idx in range(60)]}
     formatted = _format_workspace_context(context)
@@ -238,6 +261,8 @@ def main():
         test_reminder_kind_copies_deadline_to_reminder,
         test_evening_iso_2359_normalizes_to_1900,
         test_multilingual_titles_are_preserved,
+        test_date_only_reminder_is_rejected_but_deadline_kept,
+        test_llm_endpoint_urls_accept_root_v1_and_full_paths,
         test_workspace_context_is_compact,
         test_remote_stt_response_parsing_and_multipart_payload,
     ]

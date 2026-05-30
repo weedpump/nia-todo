@@ -81,7 +81,7 @@ def _split_plain_enumeration(text: str) -> list[dict]:
         return []
     return [{"title": item, "project_name": SHOPPING_PROJECT_NAME, "section_name": None, "deadline": None, "reminder": None, "kind": "shopping"} for item in items]
 
-NEGATED_ITEM_RE = re.compile(r"(?:doch\s+)?keine?n?\s+([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß -]{1,40})|(?:no|not|pas|sin)\s+([A-Za-zÀ-ÿÄÖÜäöüß][A-Za-zÀ-ÿÄÖÜäöüß -]{1,40})|([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß -]{1,40})\s+(?:brauchen wir nicht|lass(?:t)? (?:die|das|den)? ?weg|nicht|not)", re.IGNORECASE)
+NEGATED_ITEM_RE = re.compile(r"(?:doch\s+)?keine?n?\s+([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß -]{1,40})|(?:no|not|pas|sin)\s+([A-Za-zÀ-ÿÄÖÜäöüß][A-Za-zÀ-ÿÄÖÜäöüß -]{1,40})|([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß -]{1,40})\s+(?:brauchen wir nicht|lass(?:t)? (?:die|das|den)? ?weg|nicht)", re.IGNORECASE)
 NON_SHOPPING_TASK_RE = re.compile(r"\b(zahnarzt|arzt|termin|duschen|marm|mom|mama|gehen|erinner|nachmittag|abend|morgen|teste|testen|test|danke|okay)\b", re.IGNORECASE)
 FILLER_ONLY_RE = re.compile(
     r"^(?:äh+|ähm+|hm+|okay|ok|ja|jo|nein|nee|ne|no|non|pas|sin|doch|aber|also|ach ?ja|ach ?nee|bitte|danke)$",
@@ -122,13 +122,20 @@ def _dedupe_normalized_candidates(candidates: list[dict]) -> list[dict]:
     return result
 
 
-def _parse_relative_temporal(value: str) -> str | None:
-    clean = re.sub(r"\s+", " ", str(value or "").strip().lower())
+def _parse_relative_temporal(value: str) -> tuple[str, bool] | None:
+    raw = str(value or "").strip()
+    clean = re.sub(r"\s+", " ", raw.lower())
     if not clean:
         return None
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", clean):
+        try:
+            parsed = datetime.fromisoformat(clean).astimezone()
+            return parsed.isoformat(timespec="minutes"), False
+        except ValueError:
+            return None
     try:
         parsed = datetime.fromisoformat(clean.replace("Z", "+00:00"))
-        return parsed.isoformat(timespec="minutes")
+        return parsed.isoformat(timespec="minutes"), bool(re.search(r"[T ]\d{1,2}:\d{2}", raw))
     except ValueError:
         pass
 
@@ -160,18 +167,25 @@ def _parse_relative_temporal(value: str) -> str | None:
     if hour > 23 or minute > 59:
         return None
     target = (now + timedelta(days=days)).replace(hour=hour, minute=minute, second=0, microsecond=0)
-    return target.isoformat(timespec="minutes")
+    return target.isoformat(timespec="minutes"), bool(time_match or re.search(r"abend|evening|soir|noche|nachmittag|afternoon|tarde|mittag|noon|midi|mediod|morgen früh|früh|morning|matin", clean))
+
+
+def _temporal_has_explicit_time(value) -> bool:
+    parsed_result = _parse_relative_temporal(str(value))
+    return bool(parsed_result and parsed_result[1])
 
 
 def _normalize_temporal_field(value, *, require_time: bool = False, transcript: str = "") -> str | None:
     if value in (None, ""):
         return None
-    parsed = _parse_relative_temporal(str(value))
-    if not parsed:
+    parsed_result = _parse_relative_temporal(str(value))
+    if not parsed_result:
         return None
+    parsed, has_explicit_time = parsed_result
     if re.search(r"abend|evening|soir|noche", transcript or "", re.IGNORECASE) and re.search(r"T23:59(?::00)?", parsed):
         parsed = re.sub(r"T23:59(?::00)?", "T19:00", parsed)
-    if require_time and "T" not in parsed:
+        has_explicit_time = True
+    if require_time and not has_explicit_time:
         return None
     return parsed
 
@@ -213,6 +227,7 @@ def _is_noise_candidate_title(title: str) -> bool:
 
 def _split_shopping_phrase(value: str) -> list[str]:
     value = re.sub(r"(?:nee|nein)?\s*(?:doch\s+)?keine?n?\s+[A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß -]{1,40}", "", value, flags=re.IGNORECASE)
+    value = re.sub(r"\b(?:but|aber|pero|mais)?\s*(?:not|no|sin|pas(?:\s+de)?)\s+[A-Za-zÀ-ÿÄÖÜäöüß][A-Za-zÀ-ÿÄÖÜäöüß -]{1,40}", "", value, flags=re.IGNORECASE)
     value = re.sub(r"\b(ich|wir)\s+(?:brauche|brauchen|bräuchte|bräuchten|benötige|benötigen)\b", "", value, flags=re.IGNORECASE)
     value = re.sub(r"\b(muss|müssen|noch|bitte|auch|danach|dafür|aber|ach ?ja|also|we|i|wir|ich|yo|nous|je|but|pero|mais)\b", " ", value, flags=re.IGNORECASE)
     value = re.sub(r"\b(morgen|heute|tomorrow|today|mañana|demain|hoy)\b", " ", value, flags=re.IGNORECASE)
@@ -463,9 +478,11 @@ def _normalize_braindump_json(parsed: dict, transcript: str, workspace_context: 
             key = _item_key(title)
             if not key or key in negated or _title_is_negated(title, transcript):
                 continue
-        deadline = _normalize_temporal_field(candidate.get("deadline") or candidate.get("due") or candidate.get("due_date") or candidate.get("dueDate"), transcript=transcript)
-        reminder = _normalize_temporal_field(candidate.get("reminder") or candidate.get("remind_at") or candidate.get("reminder_at") or candidate.get("remindAt") or candidate.get("reminderAt"), require_time=True, transcript=transcript)
-        if deadline and (candidate.get("reminder") or kind == "reminder") and not reminder:
+        deadline_source = candidate.get("deadline") or candidate.get("due") or candidate.get("due_date") or candidate.get("dueDate")
+        reminder_source = candidate.get("reminder") or candidate.get("remind_at") or candidate.get("reminder_at") or candidate.get("remindAt") or candidate.get("reminderAt")
+        deadline = _normalize_temporal_field(deadline_source, transcript=transcript)
+        reminder = _normalize_temporal_field(reminder_source, require_time=True, transcript=transcript)
+        if deadline and (reminder_source or kind == "reminder") and not reminder and _temporal_has_explicit_time(deadline_source):
             reminder = deadline
         normalized.append(_route_workspace_candidate(_route_shopping_candidate({
             "title": title,
@@ -779,14 +796,25 @@ def _is_local_openclaw_base_url(base_url: str) -> bool:
     return parsed.hostname in {"127.0.0.1", "localhost"} and parsed.port == 18789
 
 
+
+
+def _post_llm_chat(payload: dict, headers: dict[str, str], config: dict) -> dict:
+    body = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(
+        llm_chat_url(config),
+        data=body,
+        headers=headers,
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=float(config.get("llm_timeout_seconds") or 180)) as response:
+        return json.loads(response.read().decode("utf-8"))
+
 def _extract_with_llm(text: str, segment_id: int, workspace_context: dict | None = None, config: dict | None = None) -> tuple[float, dict, dict | None, str]:
     config = config or get_braindump_config(include_secrets=True)
     base_url = str(config.get("llm_base_url") or "").strip()
     token = str(config.get("llm_api_key") or "").strip()
     if not token and _is_local_openclaw_base_url(base_url):
         token = _load_local_openclaw_token() or ""
-    if not token:
-        raise RuntimeError("BrainDump LLM API key is not configured")
     system_prompt = build_effective_system_prompt(config)
     current_datetime = datetime.now().astimezone().isoformat(timespec="minutes")
     user_content = f"Current datetime: {current_datetime}\n\n{_format_workspace_context(workspace_context)}\n\nTranscript:\n{text}"
@@ -801,18 +829,19 @@ def _extract_with_llm(text: str, segment_id: int, workspace_context: dict | None
         "max_tokens": 500,
         "user": f"nia-todo-live-braindump-{segment_id}-{int(time.time() * 1000)}",
     }
-    body = json.dumps(payload).encode("utf-8")
-    headers = {"Content-Type": "application/json", "Authorization": f"Bearer {token}"}
+    headers = {"Content-Type": "application/json"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
     headers.update(parse_extra_headers(str(config.get("llm_extra_headers_json") or "")))
-    req = urllib.request.Request(
-        llm_chat_url(config),
-        data=body,
-        headers=headers,
-        method="POST",
-    )
     started = time.perf_counter()
-    with urllib.request.urlopen(req, timeout=float(config.get("llm_timeout_seconds") or 180)) as response:
-        result = json.loads(response.read().decode("utf-8"))
+    try:
+        result = _post_llm_chat(payload, headers, config)
+    except urllib.error.HTTPError as exc:
+        if exc.code not in {400, 422} or "user" not in payload:
+            raise
+        payload = dict(payload)
+        payload.pop("user", None)
+        result = _post_llm_chat(payload, headers, config)
     elapsed_ms = (time.perf_counter() - started) * 1000
     content = result["choices"][0]["message"].get("content", "")
     parsed = _normalize_braindump_json(_parse_llm_json_content(content), text, workspace_context)
