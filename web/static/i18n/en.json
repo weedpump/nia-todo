@@ -573,7 +573,7 @@
   "admin.instance.publicUrl": "Public base URL",
   "admin.instance.help": "Base URL is used for external links. Origins and trusted proxies are line-based. Forwarded headers are only accepted from trusted proxies.",
   "admin.instance.save": "Save instance configuration",
-  "admin.email.title": "Email / SMTP",
+  "admin.email.title": "SMTP",
   "admin.email.enableSending": "Enable email sending",
   "admin.email.transportSecurity": "Transport security",
   "admin.none": "None",
