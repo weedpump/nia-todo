@@ -104,6 +104,27 @@ def test_parses_markdown_fenced_llm_json():
     assert_true(parsed["candidates"][0]["title"] == "Chips", parsed)
 
 
+def test_filters_plain_list_noise_from_safety_net():
+    result = _normalize_braindump_json({"candidates": []}, "Ähm ja okay danke, ich teste nur kurz.")
+    assert_true(result["candidates"] == [], result)
+
+
+def test_removes_negated_items_added_by_llm_or_safety_net():
+    parsed = {"candidates": [{"title": "Milch", "kind": "shopping"}, {"title": "Kaffee", "kind": "shopping"}, {"title": "Hafermilch", "kind": "shopping"}]}
+    result = _normalize_braindump_json(parsed, "Ich brauche Milch, Kaffee, ach nee Kaffee nicht, und Hafermilch.")
+    titles = [item["title"] for item in result["candidates"]]
+    assert_true("Milch" in titles and "Hafermilch" in titles, titles)
+    assert_true("Kaffee" not in titles, titles)
+
+
+def test_maps_section_name_used_as_project_to_real_project_section():
+    parsed = {"candidates": [{"title": "Restore-Doku für Bareos prüfen", "project_name": "Bareos", "kind": "todo"}]}
+    context = {"projects": [{"name": "Arbeit", "sections": ["Bareos", "OpenClaw"]}]}
+    result = _normalize_braindump_json(parsed, "Für Bareos die Restore-Doku prüfen", context)
+    item = result["candidates"][0]
+    assert_true(item["project_name"] == "Arbeit" and item["section_name"] == "Bareos", item)
+
+
 def test_remote_stt_response_parsing_and_multipart_payload():
     body, content_type = _build_multipart_form_data(
         {"response_format": "json", "language": "de"},
@@ -125,6 +146,9 @@ def main():
         test_dedupes_stt_truncated_item_variant,
         test_safety_net_keeps_non_negated_shopping_and_routes_sections,
         test_parses_markdown_fenced_llm_json,
+        test_filters_plain_list_noise_from_safety_net,
+        test_removes_negated_items_added_by_llm_or_safety_net,
+        test_maps_section_name_used_as_project_to_real_project_section,
         test_remote_stt_response_parsing_and_multipart_payload,
     ]
     for test in tests:
