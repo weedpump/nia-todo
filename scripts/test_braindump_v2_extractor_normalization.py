@@ -148,6 +148,14 @@ def test_evening_iso_2359_normalizes_to_1900():
     assert_true("T19:00" in item["deadline"], item)
 
 
+def test_multilingual_titles_are_preserved():
+    spanish = _normalize_braindump_json({"candidates": [{"title": "huevos", "kind": "shopping"}, {"title": "revisar los documentos", "kind": "todo"}]}, "Necesito huevos. Mañana revisar los documentos.")
+    french = _normalize_braindump_json({"candidates": [{"title": "acheter du lait", "kind": "shopping"}]}, "Il faut acheter du lait.")
+    assert_true(any(item["title"].lower() == "huevos" for item in spanish["candidates"]), spanish)
+    assert_true(any("documentos" in item["title"].lower() for item in spanish["candidates"]), spanish)
+    assert_true(any("lait" in item["title"].lower() for item in french["candidates"]), french)
+
+
 def test_workspace_context_is_compact():
     context = {"projects": [{"name": f"Project {idx}", "workspace": "Private", "sections": [f"Section {idx}-{s}" for s in range(20)]} for idx in range(60)]}
     formatted = _format_workspace_context(context)
@@ -182,6 +190,7 @@ def main():
         test_replacement_with_statt_removes_old_item,
         test_reminder_kind_copies_deadline_to_reminder,
         test_evening_iso_2359_normalizes_to_1900,
+        test_multilingual_titles_are_preserved,
         test_workspace_context_is_compact,
         test_remote_stt_response_parsing_and_multipart_payload,
     ]

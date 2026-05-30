@@ -17,32 +17,32 @@ Turn messy speech into todo candidates. Return ONLY compact JSON, no Markdown/pr
 If nothing useful/actionable was said, return {"candidates":[]}.
 
 Rules:
-- Extract intent, not dictation. Keep titles short, concrete, in the transcript language. Never translate nouns or task titles.
+- Extract intent, not dictation. Keep each title in the same language as that spoken item. Never translate nouns or task titles.
 - Split unrelated tasks/items. Merge duplicates and wording variants.
-- Latest correction wins. Remove negated/replaced items completely: "Kaffee nicht", "keine Chips", "Nachos statt Chips" => no Chips/Kaffee.
+- Latest correction wins. Remove negated/replaced items completely (e.g. "no chips", "Kaffee nicht", "sin leche", "Nachos statt Chips").
 - Ignore filler, tests, thanks, meta talk, completed actions, and questions.
 - Never invent projects/sections. Use only exact names from Workspace context when clearly fitting; otherwise null.
-- If a transcript names a section (e.g. "Bareos") under a project (e.g. "Arbeit"), use that project + section.
+- If a transcript names a section under a project, use that exact project + section from Workspace.
 
 Kinds:
 - todo = action to do. shopping = buy/obtain item. reminder = explicit timed follow-up. appointment = event-like task. note = useful info, not actionable.
 
 Shopping:
-- Detect direct and indirect buying needs ("brauche", "ist leer", "keine Eier mehr").
+- Detect direct and indirect buying needs in any language (e.g. "need", "brauche", "ist leer", "no queda", "il manque").
 - Output each shopping item separately. Do not output whole sentences.
 - Do not mark non-shopping tasks as shopping just because a list exists.
 
 Time:
 - Convert clear relative/absolute times to ISO-8601 with timezone when possible.
-- morgen=tomorrow, übermorgen=day after tomorrow, Abend/evening=19:00, Nachmittag=15:00, Mittag=12:00, Morgen/früh=09:00.
+- Common relative words: tomorrow/morgen/mañana/demain, day after tomorrow/übermorgen/pasado mañana/après-demain. evening/Abend/noche/soir=19:00, afternoon/Nachmittag/tarde=15:00, noon/Mittag/midi=12:00, morning/früh/matin=09:00.
 - reminder/deadline must be ISO or null; never natural language.
 - If only a date is known, use deadline, leave reminder null unless an explicit reminder was requested.
 
 Examples:
 Transcript: "I need potatoes, strawberries, chips, actually no chips, but coconut milk."
 JSON: {"candidates":[{"title":"potatoes","project_name":null,"section_name":null,"deadline":null,"reminder":null,"kind":"shopping"},{"title":"strawberries","project_name":null,"section_name":null,"deadline":null,"reminder":null,"kind":"shopping"},{"title":"coconut milk","project_name":null,"section_name":null,"deadline":null,"reminder":null,"kind":"shopping"}]}
-Transcript: "Ich brauche Eier und Klopapier. Morgen die Steuerunterlagen raussuchen."
-JSON: {"candidates":[{"title":"Eier","project_name":null,"section_name":null,"deadline":null,"reminder":null,"kind":"shopping"},{"title":"Klopapier","project_name":null,"section_name":null,"deadline":null,"reminder":null,"kind":"shopping"},{"title":"Steuerunterlagen raussuchen","project_name":null,"section_name":null,"deadline":"morgen","reminder":null,"kind":"todo"}]}
+Transcript: "Necesito huevos y papel higiénico. Mañana revisar los documentos de impuestos."
+JSON: {"candidates":[{"title":"huevos","project_name":null,"section_name":null,"deadline":null,"reminder":null,"kind":"shopping"},{"title":"papel higiénico","project_name":null,"section_name":null,"deadline":null,"reminder":null,"kind":"shopping"},{"title":"revisar los documentos de impuestos","project_name":null,"section_name":null,"deadline":"mañana","reminder":null,"kind":"todo"}]}
 Transcript: "Ähm danke, ich teste nur kurz."
 JSON: {"candidates":[]}
 """
