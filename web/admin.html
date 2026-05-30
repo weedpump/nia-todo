@@ -73,6 +73,9 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .admin-config-field input[type="checkbox"] { width: auto; }
 .admin-config-checkbox { flex-direction: row; align-items: center; gap: 12px; padding: 9px 0; }
 .admin-config-checkbox label { margin: 0; }
+.admin-config-checkbox.switch-right { justify-content: space-between; }
+.admin-config-checkbox.switch-right label { flex: 1 1 auto; }
+.admin-config-checkbox.switch-right input[type="checkbox"] { order: 2; margin-left: auto; }
 .admin-config-checkbox input[type="checkbox"] { appearance: none; -webkit-appearance: none; width: 46px; height: 26px; flex: 0 0 46px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--border) 78%, var(--text-muted)); background: var(--bg-tertiary); position: relative; cursor: pointer; transition: background .16s, border-color .16s, box-shadow .16s; }
 .admin-config-checkbox input[type="checkbox"]::after { content: ''; position: absolute; width: 20px; height: 20px; top: 2px; left: 2px; border-radius: 50%; background: var(--text-secondary); box-shadow: 0 2px 5px rgba(0,0,0,.28); transition: transform .16s, background .16s; }
 .admin-config-checkbox input[type="checkbox"]:checked { background: color-mix(in srgb, var(--success) 72%, var(--accent)); border-color: color-mix(in srgb, var(--success) 86%, white); }
@@ -137,6 +140,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
   .form-row { flex-direction: column; gap: 10px; }
   .admin-config-grid { grid-template-columns: 1fr; }
   .form-row input, .form-row select { width: 100%; flex-basis: auto; }
+  .form-row .admin-config-checkbox input[type="checkbox"] { width: 46px; min-width: 46px; flex: 0 0 46px; }
   .form-row .btn { width: fit-content; max-width: 100%; min-height: 38px; }
   #admin-login-card .form-row .btn,
   #create-user-card .form-row .btn { width: 100%; }
@@ -448,9 +452,9 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
         <option value="de" data-i18n-key="settings.language.de">German</option>
         <option value="en" data-i18n-key="settings.language.en">English</option>
       </select>
-      <div class="admin-config-field admin-config-checkbox" id="new-braindump-field" style="display:none;">
-        <input type="checkbox" id="new-braindump-enabled">
+      <div class="admin-config-field admin-config-checkbox switch-right" id="new-braindump-field" style="display:none;">
         <label for="new-braindump-enabled" data-i18n-key="admin.user.enableBrainDump">BrainDump AI aktivieren</label>
+        <input type="checkbox" id="new-braindump-enabled">
       </div>
       <button class="btn btn-primary" onclick="createUser()" data-i18n-key="admin.user.createAndLink">Create & generate link</button>
     </div>
