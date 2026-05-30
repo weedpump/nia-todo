@@ -227,8 +227,13 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 
   <!-- BrainDump Configuration -->
   <div class="admin-card" id="braindump-config-card">
-    <h2><span data-icon="mic"></span> BrainDump AI / STT</h2>
+    <h2><span data-icon="mic"></span> BrainDump AI / STT <span class="badge badge-warning">Experimental</span></h2>
+    <div class="admin-help">Experimental feature. Disabled by default; configure LLM/STT explicitly before enabling it for users.</div>
     <div class="admin-config-grid">
+      <div class="admin-config-field admin-config-checkbox full">
+        <input type="checkbox" id="braindump-enabled">
+        <label for="braindump-enabled">Enable BrainDump experimental feature</label>
+      </div>
       <div class="admin-config-field">
         <label for="braindump-llm-provider">LLM provider</label>
         <select id="braindump-llm-provider">
@@ -442,7 +447,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
           <th data-i18n-key="admin.user.lastActive">Last active</th>
           <th data-i18n-key="admin.user.twofa">2FA</th>
           <th data-i18n-key="admin.user.apiKeys">API Keys</th>
-          <th data-i18n-key="admin.user.brainDump">BrainDump</th>
+          <th id="user-braindump-heading" data-i18n-key="admin.user.brainDump">BrainDump</th>
           <th data-i18n-key="admin.user.password">Password</th>
           <th data-i18n-key="admin.user.actions">Actions</th>
         </tr>
@@ -666,6 +671,7 @@ async function doAdminLogin() {
 }
 
 let twoFactorPolicyRequired = false;
+let brainDumpFeatureEnabled = false;
 
 async function loadAdminData() {
   const [usersData, configData, brainDumpConfigData, emailConfigData, twoFactorPolicy, serverUpdate] = await Promise.all([
@@ -677,10 +683,11 @@ async function loadAdminData() {
     apiGet('/api/admin/server-update'),
   ]);
   twoFactorPolicyRequired = !!twoFactorPolicy.required;
+  brainDumpFeatureEnabled = !!brainDumpConfigData.enabled;
   renderTwoFactorPolicy(twoFactorPolicy);
-  renderUsers(usersData.users);
   renderInstanceConfig(configData);
   renderBrainDumpConfig(brainDumpConfigData);
+  renderUsers(usersData.users);
   renderEmailConfig(emailConfigData);
   renderServerUpdate(serverUpdate);
 }
@@ -801,9 +808,11 @@ function parseOriginsInput(value) {
 }
 
 function renderBrainDumpConfig(config) {
+  brainDumpFeatureEnabled = !!config.enabled;
+  document.getElementById('braindump-enabled').checked = brainDumpFeatureEnabled;
   document.getElementById('braindump-llm-provider').value = config.llm_provider || 'openai_compatible';
-  document.getElementById('braindump-llm-base-url').value = config.llm_base_url || 'http://127.0.0.1:18789';
-  document.getElementById('braindump-llm-model').value = config.llm_model || 'openclaw/default';
+  document.getElementById('braindump-llm-base-url').value = config.llm_base_url || '';
+  document.getElementById('braindump-llm-model').value = config.llm_model || '';
   document.getElementById('braindump-llm-extra-headers').value = config.llm_extra_headers_json || '';
   document.getElementById('braindump-llm-timeout').value = config.llm_timeout_seconds || 180;
   document.getElementById('braindump-llm-api-key').value = '';
@@ -811,25 +820,28 @@ function renderBrainDumpConfig(config) {
   document.getElementById('braindump-system-prompt-mode').value = config.system_prompt_mode || 'default';
   document.getElementById('braindump-system-prompt-custom').value = config.system_prompt_custom || '';
   document.getElementById('braindump-stt-provider').value = config.stt_provider || 'whisper_cpp_remote';
-  document.getElementById('braindump-stt-url').value = config.stt_url || 'http://127.0.0.1:8766/inference';
-  document.getElementById('braindump-stt-language').value = config.stt_language || 'de';
+  document.getElementById('braindump-stt-url').value = config.stt_url || '';
+  document.getElementById('braindump-stt-language').value = config.stt_language || '';
   document.getElementById('braindump-stt-timeout').value = config.stt_timeout_seconds || 60;
   document.getElementById('braindump-stt-token').value = '';
   document.getElementById('braindump-stt-token-note').textContent = config.stt_token_configured ? 'STT token stored.' : 'No STT token stored.';
+  const heading = document.getElementById('user-braindump-heading');
+  if (heading) heading.style.display = brainDumpFeatureEnabled ? '' : 'none';
 }
 
 function readBrainDumpConfigForm() {
   const data = {
+    enabled: document.getElementById('braindump-enabled').checked,
     llm_provider: document.getElementById('braindump-llm-provider').value,
     llm_base_url: document.getElementById('braindump-llm-base-url').value.trim(),
-    llm_model: document.getElementById('braindump-llm-model').value.trim() || 'openclaw/default',
+    llm_model: document.getElementById('braindump-llm-model').value.trim(),
     llm_extra_headers_json: document.getElementById('braindump-llm-extra-headers').value.trim(),
     llm_timeout_seconds: Number(document.getElementById('braindump-llm-timeout').value || 180),
     system_prompt_mode: document.getElementById('braindump-system-prompt-mode').value,
     system_prompt_custom: document.getElementById('braindump-system-prompt-custom').value.trim(),
     stt_provider: document.getElementById('braindump-stt-provider').value,
     stt_url: document.getElementById('braindump-stt-url').value.trim(),
-    stt_language: document.getElementById('braindump-stt-language').value.trim() || 'de',
+    stt_language: document.getElementById('braindump-stt-language').value.trim(),
     stt_timeout_seconds: Number(document.getElementById('braindump-stt-timeout').value || 60),
   };
   const llmApiKey = document.getElementById('braindump-llm-api-key').value;
@@ -845,6 +857,7 @@ async function saveBrainDumpConfig() {
   try {
     const data = await apiPatch('/api/admin/braindump-config', readBrainDumpConfigForm());
     renderBrainDumpConfig(data);
+    await loadUsers();
     document.getElementById('braindump-config-success').textContent = 'BrainDump configuration saved.';
   } catch(e) {
     document.getElementById('braindump-config-error').textContent = e.message;
@@ -1207,8 +1220,11 @@ function renderUserEmailDisplay(userId, emailValue) {
 
 function renderUsers(users) {
   const tbody = document.getElementById('user-list');
+  const brainDumpHeading = document.getElementById('user-braindump-heading');
+  if (brainDumpHeading) brainDumpHeading.style.display = brainDumpFeatureEnabled ? '' : 'none';
+  const colSpan = brainDumpFeatureEnabled ? 12 : 11;
   if (!users || users.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="12" class="empty-state">${escapeHtml(t('admin.user.empty'))}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="${colSpan}" class="empty-state">${escapeHtml(t('admin.user.empty'))}</td></tr>`;
     return;
   }
   tbody.innerHTML = users.map(u => `
@@ -1222,7 +1238,7 @@ function renderUsers(users) {
       <td><span class="admin-mobile-label">${escapeHtml(t('admin.user.lastActive'))}</span>${renderUserLastActive(u)}</td>
       <td><span class="admin-mobile-label">2FA</span>${renderUserTwoFactorStatus(u)}</td>
       <td><span class="admin-mobile-label">${escapeHtml(t('settings.apiKeys.title'))}</span>${renderUserApiKeys(u)}</td>
-      <td><span class="admin-mobile-label">${escapeHtml(t('admin.user.brainDump'))}</span>${renderUserBrainDump(u)}</td>
+      ${brainDumpFeatureEnabled ? `<td><span class="admin-mobile-label">${escapeHtml(t('admin.user.brainDump'))}</span>${renderUserBrainDump(u)}</td>` : ''}
       <td><span class="admin-mobile-label">${escapeHtml(t('auth.password'))}</span><button class="btn btn-primary admin-table-action" onclick="generatePasswordLink(${u.id}, '${escapeHtmlAttr(u.username)}')">${iconSvg('link')} ${escapeHtml(t('admin.user.passwordLink'))}</button></td>
       <td><span class="admin-mobile-label">${escapeHtml(t('admin.user.actions'))}</span>${u.is_admin ? '-' : `<button class="btn btn-danger admin-table-action" onclick="deleteUser(${u.id}, '${escapeHtmlAttr(u.username)}')">${iconSvg('trash')} ${escapeHtml(t('common.delete'))}</button>`}</td>
     </tr>

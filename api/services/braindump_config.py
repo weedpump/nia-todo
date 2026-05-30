@@ -22,6 +22,8 @@ Rules:
 - Latest correction wins. Remove negated/replaced items completely (e.g. "no chips", "Kaffee nicht", "sin leche", "Nachos statt Chips").
 - Ignore filler, tests, thanks, meta talk, completed actions, and questions.
 - Never invent projects/sections. Use only exact names from Workspace context when clearly fitting; otherwise null.
+- Actively choose a section when an existing section is semantically appropriate, even if its exact words were not spoken. Use category knowledge: map items to the closest existing section by meaning (e.g. a cheese can fit a dairy section, a snack can fit a sweets/snacks section, a beverage can fit a drinks section).
+- If no existing section is clearly semantically appropriate, leave section_name null. Do not create new section names.
 - If a transcript names a section under a project, use that exact project + section from Workspace.
 
 Kinds:
@@ -48,6 +50,7 @@ JSON: {"candidates":[]}
 """
 
 BRAINDUMP_CONFIG_KEYS = (
+    "braindump_enabled",
     "braindump_llm_provider",
     "braindump_llm_base_url",
     "braindump_llm_api_key",
@@ -69,22 +72,24 @@ BRAINDUMP_CONFIG_KEYS = (
 )
 
 DEFAULT_BRAINDUMP_CONFIG = {
+    "enabled": False,
     "llm_provider": "openai_compatible",
-    "llm_base_url": "http://127.0.0.1:18789",
+    "llm_base_url": "",
     "llm_api_key": "",
-    "llm_model": "openclaw/default",
+    "llm_model": "",
     "llm_extra_headers_json": "",
     "llm_timeout_seconds": 180.0,
     "system_prompt_mode": "default",
     "system_prompt_custom": "",
     "stt_provider": "whisper_cpp_remote",
-    "stt_url": "http://127.0.0.1:8766/inference",
+    "stt_url": "",
     "stt_token": "",
-    "stt_language": "de",
+    "stt_language": "",
     "stt_timeout_seconds": 60.0,
 }
 
 KEY_TO_FIELD = {
+    "braindump_enabled": "enabled",
     "braindump_llm_provider": "llm_provider",
     "braindump_llm_base_url": "llm_base_url",
     "braindump_llm_api_key": "llm_api_key",
@@ -113,7 +118,9 @@ SUPPORTED_SYSTEM_PROMPT_MODES = {"default", "append", "replace"}
 
 
 def _llm_endpoint_url(config: dict[str, Any], endpoint: str) -> str:
-    raw = str(config.get("llm_base_url") or DEFAULT_BRAINDUMP_CONFIG["llm_base_url"]).strip().rstrip("/")
+    raw = str(config.get("llm_base_url") or "").strip().rstrip("/")
+    if not raw:
+        raise HTTPException(400, "LLM base URL is not configured")
     parsed = urlparse(raw)
     path = parsed.path.rstrip("/")
     if path.endswith("/v1/chat/completions"):
@@ -184,7 +191,7 @@ def _normalize_llm_provider(value: str) -> str:
 def _normalize_model(value: str) -> str:
     model = str(value or "").strip()
     if not model:
-        return DEFAULT_BRAINDUMP_CONFIG["llm_model"]
+        return ""
     if any(ch.isspace() for ch in model) or len(model) > 160:
         raise HTTPException(400, "LLM model is invalid")
     return model
@@ -229,10 +236,19 @@ def _normalize_stt_provider(value: str) -> str:
 
 
 def _normalize_language(value: str) -> str:
-    language = str(value or "de").strip().lower()
-    if not language or len(language) > 16:
+    language = str(value or "").strip().lower()
+    if len(language) > 16:
         raise HTTPException(400, "STT language is invalid")
     return language
+
+
+def _normalize_enabled(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    text = str(value or "").strip().lower()
+    return text in {"1", "true", "yes", "on", "enabled"}
 
 
 def _normalize_timeout(value: Any, *, label: str) -> float:
@@ -248,8 +264,9 @@ def _normalize_timeout(value: Any, *, label: str) -> float:
 def normalize_braindump_config(data: dict[str, Any], *, existing: dict[str, Any] | None = None) -> dict[str, Any]:
     current = {**DEFAULT_BRAINDUMP_CONFIG, **(existing or {})}
     normalized = {
+        "enabled": _normalize_enabled(data.get("enabled", current["enabled"])),
         "llm_provider": _normalize_llm_provider(data.get("llm_provider", current["llm_provider"])),
-        "llm_base_url": _normalize_http_url(data.get("llm_base_url", current["llm_base_url"]), field="LLM base URL"),
+        "llm_base_url": _normalize_http_url(data.get("llm_base_url", current["llm_base_url"]), field="LLM base URL", allow_empty=True),
         "llm_api_key": current.get("llm_api_key") or "",
         "llm_model": _normalize_model(data.get("llm_model", current["llm_model"])),
         "llm_extra_headers_json": _normalize_extra_headers_json(data.get("llm_extra_headers_json", current["llm_extra_headers_json"])),
@@ -257,7 +274,7 @@ def normalize_braindump_config(data: dict[str, Any], *, existing: dict[str, Any]
         "system_prompt_mode": _normalize_prompt_mode(data.get("system_prompt_mode", current["system_prompt_mode"])),
         "system_prompt_custom": _normalize_custom_prompt(data.get("system_prompt_custom", current["system_prompt_custom"])),
         "stt_provider": _normalize_stt_provider(data.get("stt_provider", current["stt_provider"])),
-        "stt_url": _normalize_http_url(data.get("stt_url", current["stt_url"]), field="STT URL"),
+        "stt_url": _normalize_http_url(data.get("stt_url", current["stt_url"]), field="STT URL", allow_empty=True),
         "stt_token": current.get("stt_token") or "",
         "stt_language": _normalize_language(data.get("stt_language", current["stt_language"])),
         "stt_timeout_seconds": _normalize_timeout(data.get("stt_timeout_seconds", current["stt_timeout_seconds"]), label="STT"),
@@ -266,16 +283,25 @@ def normalize_braindump_config(data: dict[str, Any], *, existing: dict[str, Any]
         normalized["llm_api_key"] = _normalize_token(data.get("llm_api_key_secret"))
     if "stt_token_secret" in data and data.get("stt_token_secret") is not None:
         normalized["stt_token"] = _normalize_token(data.get("stt_token_secret"))
+    if normalized["enabled"]:
+        if not normalized["llm_base_url"]:
+            raise HTTPException(400, "LLM base URL is required when BrainDump is enabled")
+        if not normalized["llm_model"]:
+            raise HTTPException(400, "LLM model is required when BrainDump is enabled")
+        if normalized["stt_provider"] == "whisper_cpp_remote" and not normalized["stt_url"]:
+            raise HTTPException(400, "STT URL is required when BrainDump remote STT is enabled")
     return normalized
 
 
 def _parse_value(field: str, value: str | None) -> Any:
     if value is None:
         return DEFAULT_BRAINDUMP_CONFIG[field]
+    if field == "enabled":
+        return _normalize_enabled(value)
     if field in {"stt_timeout_seconds", "llm_timeout_seconds"}:
         return _normalize_timeout(value, label="STT" if field.startswith("stt") else "LLM")
     if field in {"llm_base_url", "stt_url"}:
-        return _normalize_http_url(value, field="LLM base URL" if field == "llm_base_url" else "STT URL")
+        return _normalize_http_url(value, field="LLM base URL" if field == "llm_base_url" else "STT URL", allow_empty=True)
     if field == "llm_provider":
         return _normalize_llm_provider(value)
     if field == "llm_model":

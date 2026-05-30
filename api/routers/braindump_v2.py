@@ -637,8 +637,10 @@ def _transcribe_remote_whisper(audio: bytes, filename: str, content_type: str, c
         "response_format": "json",
         "temperature": "0.0",
         "temperature_inc": "0.0",
-        "language": str(config.get("stt_language") or "de"),
     }
+    language = str(config.get("stt_language") or "").strip()
+    if language:
+        fields["language"] = language
     body, multipart_type = _build_multipart_form_data(fields, {"file": (filename, audio, content_type)})
     headers = {"Content-Type": multipart_type}
     stt_token = str(config.get("stt_token") or "").strip()
@@ -850,8 +852,11 @@ def _extract_with_llm(text: str, segment_id: int, workspace_context: dict | None
     system_prompt = build_effective_system_prompt(config)
     current_datetime = datetime.now().astimezone().isoformat(timespec="minutes")
     user_content = f"Current datetime: {current_datetime}\n\n{_format_workspace_context(workspace_context)}\n\nTranscript:\n{text}"
+    model_name = str(config.get("llm_model") or "").strip()
+    if not model_name:
+        raise RuntimeError("BrainDump LLM model is not configured")
     payload = {
-        "model": str(config.get("llm_model") or "openclaw/default"),
+        "model": model_name,
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_content},
@@ -881,6 +886,9 @@ def _extract_with_llm(text: str, segment_id: int, workspace_context: dict | None
 
 
 def require_braindump_access(user_id: int):
+    config = get_braindump_config(include_secrets=True)
+    if not config.get("enabled"):
+        raise HTTPException(403, "BrainDump experimental feature is disabled")
     with get_db() as db:
         try:
             ensure_braindump_enabled(db, user_id)

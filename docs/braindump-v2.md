@@ -36,28 +36,30 @@ This document is the project memory for the implementation. Keep it concise and 
 
 ## MVP configuration rule
 
-For BrainDump v2 MVP, provider configuration lives in the admin panel / DB-backed app config, with safe defaults for development.
+For BrainDump v2 MVP, provider configuration lives in the admin panel / DB-backed app config. The feature is experimental and disabled by default; fresh installs must not ship with a ready-made Localhost/OpenClaw endpoint configured.
 
 Current split:
 
-- LLM: any OpenAI-compatible Chat Completions endpoint via admin-configured base URL/API key/model. OpenClaw is only the default dev preset, not a required dependency.
-- STT: remote `whisper.cpp` server by default.
+- Global feature switch: `braindump_enabled` must be enabled by an admin before user-level BrainDump access is meaningful.
+- LLM: any OpenAI-compatible Chat Completions endpoint via admin-configured base URL/API key/model. OpenClaw is one possible endpoint, not a required dependency or default preset.
+- STT: remote `whisper.cpp` server or local whisper.cpp CLI fallback, configured explicitly by the admin.
 
 Admin-configured fields:
 
 ```text
+Enabled: false by default
 LLM provider: openai_compatible
-LLM base URL: http://127.0.0.1:18789
+LLM base URL: empty by default
 LLM API key: stored server-side, never echoed back to the admin UI
-LLM model: openclaw/default, llama3.1, qwen2.5, etc.
+LLM model: empty by default; examples: openclaw/default, llama3.1, qwen2.5, etc.
 LLM extra headers JSON: optional, e.g. {"x-openclaw-model":"gpt-mini"}
 LLM timeout seconds: 180
 System prompt mode: default | append | replace
 Custom system prompt/instructions: optional
 STT provider: whisper_cpp_remote
-STT URL: http://127.0.0.1:8766/inference
+STT URL: empty by default
 STT token: optional, stored server-side, never echoed back
-STT language: de
+STT language: optional/empty by default
 STT timeout seconds: 60
 ```
 
