@@ -902,5 +902,7 @@
   "admin.user.brainDumpDisabledSaved": "BrainDump disabled for user.",
   "braindump.record.finish": "Finish & process",
   "braindump.processing.transcribing": "1/2 Transcribing audio…",
-  "braindump.processing.extracting": "2/2 Finding todo suggestions…"
+  "braindump.processing.extracting": "2/2 Finding todo suggestions…",
+  "admin.overview.ariaLabel": "Admin sections",
+  "admin.overview.policySummary": "Policy"
 }
