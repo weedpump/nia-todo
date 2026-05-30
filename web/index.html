@@ -247,7 +247,7 @@
         <button class="modal-close-x" onclick="closeModal('app-downloads-modal')"><span data-icon="x"></span></button>
         <div class="modal-body app-downloads-modal-body">
           <div class="web-update-icon" aria-hidden="true" data-icon="download"></div>
-          <p class="app-download-modal-subtitle" data-i18n-key="appDownloads.modalSubtitle">Installiere nia-todo als native App auf deinem Gerät.</p>
+          <p class="app-download-modal-subtitle" data-i18n-key="appDownloads.modalSubtitle">Install nia-todo as a native app on your device.</p>
           <div class="app-download-server-box">
             <div class="app-download-server-label" data-i18n-key="appDownloads.serverHostLabel">Bitte gib in der App folgende Adresse ein:</div>
             <code class="app-download-server-host" data-app-download-server-host>–</code>
@@ -495,18 +495,18 @@
         <div id="settings-pw-error" style="color:var(--danger); font-size:13px; margin-top:8px;"></div>
         <div id="settings-pw-success" style="color:var(--success); font-size:13px; margin-top:8px;"></div>
         <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">
-        <h4 style="margin:0 0 12px 0; font-size:14px;"><span data-icon="shield"></span> <span data-i18n-key="settings.2fa.title">Zwei-Faktor-Authentifizierung</span></h4>
+        <h4 style="margin:0 0 12px 0; font-size:14px;"><span data-icon="shield"></span> <span data-i18n-key="settings.2fa.title">Two-factor authentication</span></h4>
         <div id="settings-2fa-status" style="font-size:13px; color:var(--text-secondary); margin-bottom:10px;" data-i18n-key="settings.2fa.statusChecking">Status: Checking...</div>
         <div id="settings-2fa-actions" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px;">
-          <button type="button" class="btn btn-primary" onclick="startTwoFactorTotp()" data-i18n-key="settings.2fa.setupAuthenticator">Authenticator-App einrichten</button>
+          <button type="button" class="btn btn-primary" onclick="startTwoFactorTotp()" data-i18n-key="settings.2fa.setupAuthenticator">Set up authenticator app</button>
           <button type="button" class="btn btn-secondary" onclick="addPasskey()" data-i18n-key="settings.2fa.addPasskey">Add passkey</button>
-          <button type="button" class="btn btn-secondary" id="settings-2fa-regenerate-recovery-btn" onclick="regenerateRecoveryCodes()" data-i18n-key="settings.2fa.regenerateRecovery">Neue Recovery Codes erzeugen</button>
-          <button type="button" class="btn btn-danger" id="settings-2fa-disable-btn" onclick="disableTwoFactor()" data-i18n-key="settings.2fa.disable">2FA deaktivieren</button>
+          <button type="button" class="btn btn-secondary" id="settings-2fa-regenerate-recovery-btn" onclick="regenerateRecoveryCodes()" data-i18n-key="settings.2fa.regenerateRecovery">Generate new recovery codes</button>
+          <button type="button" class="btn btn-danger" id="settings-2fa-disable-btn" onclick="disableTwoFactor()" data-i18n-key="settings.2fa.disable">Disable 2FA</button>
         </div>
         <div id="settings-2fa-setup" class="settings-2fa-setup-card" style="display:none;">
           <div class="settings-2fa-setup-header">
             <div>
-              <strong data-i18n-key="settings.2fa.setupAuthenticator">Authenticator-App einrichten</strong>
+              <strong data-i18n-key="settings.2fa.setupAuthenticator">Set up authenticator app</strong>
               <p data-i18n-key="settings.2fa.setupHint">Scan the QR code, enter the code, then confirm with your password.</p>
             </div>
           </div>
@@ -521,7 +521,7 @@
           </div>
           <label class="settings-2fa-code-label" for="settings-2fa-code" data-i18n-key="settings.2fa.appCode">6-stelliger Code aus der App</label>
           <input type="text" id="settings-2fa-code" inputmode="numeric" autocomplete="one-time-code" placeholder="123456">
-          <button type="button" class="btn btn-primary" onclick="confirmTwoFactorTotp()" data-i18n-key="settings.2fa.enable">2FA aktivieren</button>
+          <button type="button" class="btn btn-primary" onclick="confirmTwoFactorTotp()" data-i18n-key="settings.2fa.enable">Enable 2FA</button>
         </div>
         <div class="settings-2fa-devices-wrap">
           <div class="settings-2fa-subtitle" data-i18n-key="settings.2fa.configuredFactors">Eingerichtete Faktoren</div>
@@ -531,7 +531,7 @@
           <div class="settings-2fa-subtitle settings-2fa-trusted-header">
             <button type="button" id="settings-sessions-toggle" class="settings-sessions-toggle" onclick="toggleTrustedDevicesList()" aria-expanded="false" aria-controls="settings-2fa-trusted-panel">
               <span class="settings-sessions-chevron">›</span>
-              <span data-i18n-key="settings.2fa.trustedDevices">Aktive Sessions / Geräte</span>
+              <span data-i18n-key="settings.2fa.trustedDevices">Active sessions / devices</span>
               <span id="settings-2fa-session-count" class="settings-session-count"></span>
             </button>
             <button type="button" class="btn btn-danger btn-small" onclick="revokeAllTrustedDevices()" data-i18n-key="settings.2fa.revokeAllTrusted">Alle abmelden</button>
@@ -561,11 +561,11 @@
         <div id="api-key-error" style="color:var(--danger); font-size:13px; margin-top:8px;"></div>
         <div id="browser-push-settings-section">
           <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">
-          <h4 style="margin:0 0 12px 0; font-size:14px;"><span data-icon="bell"></span> <span data-i18n-key="settings.push.title">Push Benachrichtigungen</span></h4>
+          <h4 style="margin:0 0 12px 0; font-size:14px;"><span data-icon="bell"></span> <span data-i18n-key="settings.push.title">Push notifications</span></h4>
           <div id="push-status" style="font-size:13px; color:var(--text-secondary); margin-bottom:12px;" data-i18n-key="settings.push.statusChecking">Status: Checking...</div>
           <div id="push-actions">
-            <button class="btn btn-primary" id="push-enable-btn" onclick="enablePushNotifications()" style="display:none;" data-i18n-key="settings.push.enable">Benachrichtigungen aktivieren</button>
-            <button class="btn btn-danger" id="push-disable-btn" onclick="disablePushNotifications()" style="display:none;" data-i18n-key="common.disable">Deaktivieren</button>
+            <button class="btn btn-primary" id="push-enable-btn" onclick="enablePushNotifications()" style="display:none;" data-i18n-key="settings.push.enable">Enable notifications</button>
+            <button class="btn btn-danger" id="push-disable-btn" onclick="disablePushNotifications()" style="display:none;" data-i18n-key="common.disable">Disable</button>
             <button class="btn btn-secondary" id="push-test-btn" onclick="sendTestPush()" style="display:none;" data-i18n-key="settings.push.test">Send test</button>
           </div>
           <div id="push-error" style="color:var(--danger); font-size:13px; margin-top:8px;"></div>
@@ -588,7 +588,7 @@
             </label>
           </div>
           <label class="settings-toggle-row">
-            <span data-i18n-key="settings.desktop.nativeNotifications">Native Benachrichtigungen</span>
+            <span data-i18n-key="settings.desktop.nativeNotifications">Native notifications</span>
             <input type="checkbox" id="desktop-notifications">
           </label>
           <button class="btn btn-secondary" type="button" onclick="testDesktopNotification()" style="margin-top:8px;" data-i18n-key="settings.desktop.testNotification">Test notification</button>
