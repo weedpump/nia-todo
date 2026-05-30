@@ -94,6 +94,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .admin-config-checkbox input[type="checkbox"]:checked::after { transform: translateX(20px); background: white; }
 .admin-config-checkbox input[type="checkbox"]:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 24%, transparent); }
 .admin-secret-note { font-size: 12px; color: var(--text-muted); }
+.admin-inline-check { display: inline-flex; align-items: center; gap: 8px; width: fit-content; cursor: pointer; }
 .admin-config-textarea { min-height: 82px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .admin-help { font-size: 12px; color: var(--text-muted); margin-top: 8px; }
 .admin-error { color: var(--danger); font-size: 13px; margin-top: 8px; }
@@ -383,77 +384,82 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 
   <!-- BrainDump Configuration -->
   <div class="admin-card" id="braindump-config-card">
-    <h2><span data-icon="sparkles"></span> BrainDump AI <span class="server-update-badge warning">Experimental</span></h2>
-    <div class="admin-help">Experimental feature. Disabled by default; configure LLM/STT explicitly before enabling it for users.</div>
+    <h2><span data-icon="sparkles"></span> <span data-i18n-key="admin.braindump.title">BrainDump AI</span> <span class="server-update-badge warning" data-i18n-key="admin.experimental">Experimental</span></h2>
+    <div class="admin-help" data-i18n-key="admin.braindump.help">Experimental feature. Disabled by default; configure LLM/STT explicitly before enabling it for users.</div>
     <div class="admin-config-grid">
       <div class="admin-config-field">
-        <label for="braindump-llm-provider">LLM provider</label>
+        <label for="braindump-llm-provider" data-i18n-key="admin.braindump.llmProvider">LLM endpoint</label>
         <select id="braindump-llm-provider">
-          <option value="openai_compatible">OpenAI-compatible Chat Completions</option>
+          <option value="openai_compatible" data-i18n-key="admin.braindump.provider.openaiCompatible">OpenAI-compatible endpoint</option>
+          <option value="ollama" data-i18n-key="admin.braindump.provider.ollama">Ollama API</option>
         </select>
       </div>
       <div class="admin-config-field">
-        <label for="braindump-llm-base-url">LLM base URL</label>
+        <label for="braindump-llm-base-url" data-i18n-key="admin.braindump.llmBaseUrl">LLM base URL</label>
         <input type="url" id="braindump-llm-base-url" placeholder="http://llm:11434" autocomplete="off">
       </div>
       <div class="admin-config-field">
-        <label for="braindump-llm-model">LLM model</label>
+        <label for="braindump-llm-model" data-i18n-key="admin.braindump.llmModel">LLM model</label>
         <input type="text" id="braindump-llm-model" placeholder="openclaw/default or llama3.1" autocomplete="off">
       </div>
       <div class="admin-config-field">
-        <label for="braindump-llm-api-key">LLM API key</label>
-        <input type="password" id="braindump-llm-api-key" placeholder="Leave blank = unchanged" autocomplete="new-password">
+        <label for="braindump-llm-api-key" data-i18n-key="admin.braindump.llmApiKeyOptional">LLM API key optional</label>
+        <input type="password" id="braindump-llm-api-key" data-i18n-placeholder-key="admin.braindump.optionalSecretPlaceholder" placeholder="Optional; blank = no change" autocomplete="new-password">
+        <label class="admin-inline-check">
+          <input type="checkbox" id="braindump-llm-api-key-clear">
+          <span data-i18n-key="admin.braindump.clearStoredKey">Clear stored key</span>
+        </label>
         <div class="admin-secret-note" id="braindump-llm-api-key-note"></div>
       </div>
       <div class="admin-config-field full">
-        <label for="braindump-llm-extra-headers">LLM extra headers JSON optional</label>
+        <label for="braindump-llm-extra-headers" data-i18n-key="admin.braindump.llmExtraHeaders">LLM extra headers JSON optional</label>
         <input type="text" id="braindump-llm-extra-headers" placeholder='{"x-openclaw-model":"gpt-mini"}' autocomplete="off">
       </div>
       <div class="admin-config-field">
-        <label for="braindump-llm-timeout">LLM timeout seconds</label>
+        <label for="braindump-llm-timeout" data-i18n-key="admin.braindump.llmTimeout">LLM timeout seconds</label>
         <input type="number" id="braindump-llm-timeout" min="1" max="300" value="180">
       </div>
       <div class="admin-config-field">
-        <label for="braindump-system-prompt-mode">System prompt</label>
+        <label for="braindump-system-prompt-mode" data-i18n-key="admin.braindump.systemPrompt">System prompt</label>
         <select id="braindump-system-prompt-mode">
-          <option value="default">Use nia-todo default</option>
-          <option value="append">Append custom instructions</option>
-          <option value="replace">Replace default prompt</option>
+          <option value="default" data-i18n-key="admin.braindump.systemPrompt.default">Use nia-todo default</option>
+          <option value="append" data-i18n-key="admin.braindump.systemPrompt.append">Append custom instructions</option>
+          <option value="replace" data-i18n-key="admin.braindump.systemPrompt.replace">Replace default prompt</option>
         </select>
       </div>
       <div class="admin-config-field full">
-        <label for="braindump-system-prompt-custom">Custom system prompt / instructions</label>
-        <textarea id="braindump-system-prompt-custom" class="admin-config-textarea" rows="8" placeholder="Optional. Leave empty to use the built-in BrainDump extractor prompt."></textarea>
+        <label for="braindump-system-prompt-custom" data-i18n-key="admin.braindump.customSystemPrompt">Custom system prompt / instructions</label>
+        <textarea id="braindump-system-prompt-custom" class="admin-config-textarea" rows="8" data-i18n-placeholder-key="admin.braindump.customSystemPromptPlaceholder" placeholder="Optional. Leave empty to use the built-in BrainDump extractor prompt."></textarea>
       </div>
       <div class="admin-config-field">
-        <label for="braindump-stt-provider">STT provider</label>
+        <label for="braindump-stt-provider" data-i18n-key="admin.braindump.sttProvider">STT provider</label>
         <select id="braindump-stt-provider">
-          <option value="whisper_cpp_remote">Remote whisper.cpp server</option>
-          <option value="local_whisper_cpp">Local whisper.cpp CLI fallback</option>
+          <option value="whisper_cpp_remote" data-i18n-key="admin.braindump.sttProvider.remoteWhisper">Remote whisper.cpp server</option>
+          <option value="local_whisper_cpp" data-i18n-key="admin.braindump.sttProvider.localWhisper">Local whisper.cpp CLI fallback</option>
         </select>
       </div>
       <div class="admin-config-field">
-        <label for="braindump-stt-url">STT URL</label>
+        <label for="braindump-stt-url" data-i18n-key="admin.braindump.sttUrl">STT URL</label>
         <input type="url" id="braindump-stt-url" placeholder="http://whisper:8766/inference" autocomplete="off">
       </div>
       <div class="admin-config-field">
-        <label for="braindump-stt-language">STT language</label>
+        <label for="braindump-stt-language" data-i18n-key="admin.braindump.sttLanguage">STT language</label>
         <input type="text" id="braindump-stt-language" placeholder="de" autocomplete="off">
       </div>
       <div class="admin-config-field">
-        <label for="braindump-stt-timeout">STT timeout seconds</label>
+        <label for="braindump-stt-timeout" data-i18n-key="admin.braindump.sttTimeout">STT timeout seconds</label>
         <input type="number" id="braindump-stt-timeout" min="1" max="300" value="60">
       </div>
       <div class="admin-config-field full">
-        <label for="braindump-stt-token">STT token optional</label>
-        <input type="password" id="braindump-stt-token" placeholder="Leave blank = unchanged" autocomplete="new-password">
+        <label for="braindump-stt-token" data-i18n-key="admin.braindump.sttTokenOptional">STT token optional</label>
+        <input type="password" id="braindump-stt-token" data-i18n-placeholder-key="admin.email.keepSecretPlaceholder" placeholder="Leave blank = unchanged" autocomplete="new-password">
         <div class="admin-secret-note" id="braindump-stt-token-note"></div>
       </div>
     </div>
-    <div class="admin-help">BrainDump talks to any OpenAI-compatible Chat Completions endpoint. OpenClaw is only one possible endpoint; use model <code>openclaw/default</code> there, or any model name required by your provider.</div>
+    <div class="admin-help" data-i18n-key="admin.braindump.endpointHelp">BrainDump talks to any OpenAI-compatible endpoint. OpenClaw is only one possible endpoint; use model <code>openclaw/default</code> there, or any model name required by your provider.</div>
     <div class="form-row" style="margin-top:12px;">
-      <button class="btn btn-primary" onclick="saveBrainDumpConfig()">Save BrainDump configuration</button>
-      <button class="btn btn-secondary" onclick="testBrainDumpConfig()">Test connection</button>
+      <button class="btn btn-primary" onclick="saveBrainDumpConfig()" data-i18n-key="admin.braindump.save">Save BrainDump configuration</button>
+      <button class="btn btn-secondary" onclick="testBrainDumpConfig()" data-i18n-key="admin.braindump.testConnection">Test connection</button>
     </div>
     <div class="admin-error" id="braindump-config-error"></div>
     <div class="admin-success" id="braindump-config-success"></div>
@@ -556,17 +562,20 @@ function iconSvg(name) {
 
 function getSectionSummary(card) {
   const translate = window.t || ((key) => key);
-  if (card.id === 'braindump-config-card') return 'AI/STT';
-  if (card.id === 'email-config-card') return 'SMTP';
-  if (card.id === 'security-card') return translate('admin.overview.policySummary');
+  if (card.id === 'braindump-config-card') return translate('admin.braindump.summary');
+  if (card.id === 'email-config-card') return translate('admin.email.summary');
+  if (card.id === 'security-card') return translate('admin.security.summary');
   return '';
 }
 
 function buildSectionToggle(inputId) {
   const input = document.getElementById(inputId);
   if (!input) return null;
+  const translate = window.t || ((key) => key);
   const wrapper = document.createElement('span');
   wrapper.className = 'admin-section-toggle admin-config-checkbox';
+  wrapper.title = translate('admin.section.enable');
+  wrapper.setAttribute('aria-label', translate('admin.section.enable'));
   wrapper.addEventListener('click', (event) => event.stopPropagation());
   input.classList.remove('admin-header-switch-source');
   input.addEventListener('click', (event) => event.stopPropagation());
@@ -979,7 +988,10 @@ function renderBrainDumpConfig(config) {
   document.getElementById('braindump-llm-extra-headers').value = config.llm_extra_headers_json || '';
   document.getElementById('braindump-llm-timeout').value = config.llm_timeout_seconds || 180;
   document.getElementById('braindump-llm-api-key').value = '';
-  document.getElementById('braindump-llm-api-key-note').textContent = config.llm_api_key_configured ? 'LLM API key stored.' : 'No LLM API key stored.';
+  document.getElementById('braindump-llm-api-key-clear').checked = false;
+  document.getElementById('braindump-llm-api-key-note').textContent = config.llm_api_key_configured
+    ? window.t('admin.braindump.llmApiKeyStoredNote')
+    : window.t('admin.braindump.llmApiKeyEmptyNote');
   document.getElementById('braindump-system-prompt-mode').value = config.system_prompt_mode || 'default';
   document.getElementById('braindump-system-prompt-custom').value = config.system_prompt_custom || '';
   document.getElementById('braindump-stt-provider').value = config.stt_provider || 'whisper_cpp_remote';
@@ -987,7 +999,7 @@ function renderBrainDumpConfig(config) {
   document.getElementById('braindump-stt-language').value = config.stt_language || '';
   document.getElementById('braindump-stt-timeout').value = config.stt_timeout_seconds || 60;
   document.getElementById('braindump-stt-token').value = '';
-  document.getElementById('braindump-stt-token-note').textContent = config.stt_token_configured ? 'STT token stored.' : 'No STT token stored.';
+  document.getElementById('braindump-stt-token-note').textContent = config.stt_token_configured ? window.t('admin.braindump.sttTokenStoredNote') : window.t('admin.braindump.sttTokenEmptyNote');
   const heading = document.getElementById('user-braindump-heading');
   if (heading) heading.style.display = brainDumpFeatureEnabled ? '' : 'none';
   const createField = document.getElementById('new-braindump-field');
@@ -1012,8 +1024,10 @@ function readBrainDumpConfigForm() {
     stt_timeout_seconds: Number(document.getElementById('braindump-stt-timeout').value || 60),
   };
   const llmApiKey = document.getElementById('braindump-llm-api-key').value;
+  const clearLlmApiKey = document.getElementById('braindump-llm-api-key-clear').checked;
   const sttToken = document.getElementById('braindump-stt-token').value;
-  if (llmApiKey) data.llm_api_key_secret = llmApiKey;
+  if (clearLlmApiKey) data.llm_api_key_secret = '';
+  else if (llmApiKey) data.llm_api_key_secret = llmApiKey;
   if (sttToken) data.stt_token_secret = sttToken;
   return data;
 }
@@ -1025,7 +1039,7 @@ async function saveBrainDumpConfig() {
     const data = await apiPatch('/api/admin/braindump-config', readBrainDumpConfigForm());
     renderBrainDumpConfig(data);
     await loadUsers();
-    document.getElementById('braindump-config-success').textContent = 'BrainDump configuration saved.';
+    document.getElementById('braindump-config-success').textContent = window.t('admin.braindump.saved');
   } catch(e) {
     document.getElementById('braindump-config-error').textContent = e.message;
   }
@@ -1040,7 +1054,7 @@ async function autoSaveBrainDumpToggle() {
     const data = await apiPatch('/api/admin/braindump-config', readBrainDumpConfigForm());
     renderBrainDumpConfig(data);
     await loadUsers();
-    document.getElementById('braindump-config-success').textContent = 'BrainDump configuration saved.';
+    document.getElementById('braindump-config-success').textContent = window.t('admin.braindump.saved');
   } catch (e) {
     if (toggle) toggle.checked = previous;
     document.getElementById('braindump-config-error').textContent = e.message;
@@ -1052,8 +1066,8 @@ async function testBrainDumpConfig() {
   document.getElementById('braindump-config-success').textContent = '';
   try {
     const data = await apiPost('/api/admin/braindump-config/test', {});
-    const llm = data.llm?.ok ? 'LLM OK' : `LLM failed: ${data.llm?.message || 'unknown'}`;
-    const stt = data.stt?.ok ? 'STT OK' : `STT failed: ${data.stt?.message || 'unknown'}`;
+    const llm = data.llm?.ok ? window.t('admin.braindump.llmOk') : window.t('admin.braindump.llmFailed', { message: data.llm?.message || window.t('admin.unknown') });
+    const stt = data.stt?.ok ? window.t('admin.braindump.sttOk') : window.t('admin.braindump.sttFailed', { message: data.stt?.message || window.t('admin.unknown') });
     const message = `${llm}; ${stt}`;
     if (data.llm?.ok && data.stt?.ok) document.getElementById('braindump-config-success').textContent = message;
     else document.getElementById('braindump-config-error').textContent = message;

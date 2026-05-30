@@ -843,6 +843,25 @@ def _post_llm_chat(payload: dict, headers: dict[str, str], config: dict) -> dict
     with urllib.request.urlopen(req, timeout=float(config.get("llm_timeout_seconds") or 180)) as response:
         return json.loads(response.read().decode("utf-8"))
 
+
+def _llm_request_payload(payload: dict, config: dict) -> dict:
+    provider = str(config.get("llm_provider") or "openai_compatible").strip().lower()
+    if provider == "ollama":
+        return {
+            "model": payload["model"],
+            "messages": payload["messages"],
+            "stream": False,
+            "options": {"temperature": payload.get("temperature", 0)},
+        }
+    return payload
+
+
+def _llm_response_content(result: dict, config: dict) -> str:
+    provider = str(config.get("llm_provider") or "openai_compatible").strip().lower()
+    if provider == "ollama":
+        return str(result.get("message", {}).get("content") or "")
+    return result["choices"][0]["message"].get("content", "")
+
 def _extract_with_llm(text: str, segment_id: int, workspace_context: dict | None = None, config: dict | None = None) -> tuple[float, dict, dict | None, str]:
     config = config or get_braindump_config(include_secrets=True)
     base_url = str(config.get("llm_base_url") or "").strip()
@@ -870,17 +889,18 @@ def _extract_with_llm(text: str, segment_id: int, workspace_context: dict | None
     if token:
         headers["Authorization"] = f"Bearer {token}"
     headers.update(parse_extra_headers(str(config.get("llm_extra_headers_json") or "")))
+    request_payload = _llm_request_payload(payload, config)
     started = time.perf_counter()
     try:
-        result = _post_llm_chat(payload, headers, config)
+        result = _post_llm_chat(request_payload, headers, config)
     except urllib.error.HTTPError as exc:
-        if exc.code not in {400, 422} or "user" not in payload:
+        if exc.code not in {400, 422} or "user" not in request_payload:
             raise
-        payload = dict(payload)
-        payload.pop("user", None)
-        result = _post_llm_chat(payload, headers, config)
+        request_payload = dict(request_payload)
+        request_payload.pop("user", None)
+        result = _post_llm_chat(request_payload, headers, config)
     elapsed_ms = (time.perf_counter() - started) * 1000
-    content = result["choices"][0]["message"].get("content", "")
+    content = _llm_response_content(result, config)
     parsed = _normalize_braindump_json(_parse_llm_json_content(content), text, workspace_context)
     return elapsed_ms, parsed, result.get("usage"), json.dumps(parsed, ensure_ascii=False, separators=(",", ":"))
 

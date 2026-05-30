@@ -4510,6 +4510,9 @@ input[type="color"]::-moz-color-swatch {
 
 .pin-checkbox-label input {
   position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
   opacity: 0;
   pointer-events: none;
 }
@@ -4685,11 +4688,13 @@ input[type="color"]::-moz-color-swatch {
   }
   .todo-snooze-menu .todo-status-options { right: 0; left: auto; }
 
+}
+
 /* BrainDump modal */
 .braindump-fab {
   position: fixed;
-  right: calc(24px + env(safe-area-inset-right, 0px));
-  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  right: calc(104px + env(safe-area-inset-right, 0px));
+  bottom: calc(29px + env(safe-area-inset-bottom, 0px));
   z-index: 260;
   width: 52px;
   height: 52px;
@@ -4843,8 +4848,29 @@ input[type="color"]::-moz-color-swatch {
 .braindump-candidate-card:not(:has(input:checked)) .braindump-check { background: transparent; }
 .braindump-candidate-card .priority-dot { background: var(--accent); }
 .braindump-create-status { margin-top: 10px; color: var(--text-secondary); font-size: 13px; }
-.braindump-actions { justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
-.braindump-actions .btn { min-height: 40px; }
+.braindump-actions {
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  flex-wrap: nowrap;
+  flex: 0 0 auto;
+  margin-top: 0;
+  padding: 16px 24px 22px;
+  background: color-mix(in srgb, var(--bg-secondary) 94%, transparent);
+}
+.braindump-actions .btn { min-height: 40px; white-space: nowrap; }
+.braindump-actions .btn[hidden] { display: none !important; }
+.braindump-actions .btn:disabled,
+.braindump-actions .btn.is-muted {
+  cursor: not-allowed;
+  color: var(--text-muted);
+  border-color: color-mix(in srgb, var(--border) 82%, transparent);
+  background: color-mix(in srgb, var(--bg-tertiary) 72%, transparent);
+  box-shadow: none;
+  opacity: .82;
+}
+#braindump-record { margin-left: auto; }
+.braindump-actions:has(#braindump-record[hidden]) #braindump-create { margin-left: auto; }
 
 @keyframes braindump-pulse {
   0%, 100% { transform: scale(1); box-shadow: 0 16px 34px rgba(var(--accent-rgb), calc(var(--accent-intensity) * .42)); }
@@ -4889,6 +4915,7 @@ input[type="color"]::-moz-color-swatch {
     width: 100%;
     min-width: 0;
     min-height: 36px;
+    margin-left: 0 !important;
     padding: 8px 9px;
     font-size: 12px;
     line-height: 1.15;
