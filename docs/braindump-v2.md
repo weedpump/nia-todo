@@ -59,7 +59,7 @@ Recommended whisper.cpp server command for development:
 /opt/whisper.cpp/bin/whisper-server \
   --host 127.0.0.1 \
   --port 8766 \
-  --model /opt/whisper.cpp/models/ggml-base.bin \
+  --model /opt/whisper.cpp/models/ggml-small.bin \
   --language de \
   --convert \
   --inference-path /inference
