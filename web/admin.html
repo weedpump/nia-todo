@@ -27,21 +27,21 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .user-table-wrap { width: 100%; overflow: visible; }
 .user-table { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: auto; min-width: 0; }
 .user-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
-.user-table tbody { display: grid; gap: 12px; }
-.user-table tr { display: grid; grid-template-columns: minmax(170px, .9fr) minmax(230px, 1.3fr) minmax(260px, 1.35fr) minmax(170px, .75fr); grid-template-areas: 'id name contact access' 'id status security actions'; gap: 10px 14px; padding: 14px; border: 1px solid color-mix(in srgb, var(--border) 78%, transparent); border-radius: 16px; background: color-mix(in srgb, var(--bg-primary) 72%, var(--bg-secondary)); }
+.user-table tbody { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.user-table tr { display: grid; grid-template-columns: minmax(0, 1fr) minmax(130px, .78fr); grid-template-areas: 'id actions' 'name access' 'contact access' 'status security'; gap: 8px 12px; padding: 12px; border: 1px solid color-mix(in srgb, var(--border) 78%, transparent); border-radius: 14px; background: color-mix(in srgb, var(--bg-primary) 72%, var(--bg-secondary)); align-content: start; }
 .user-table td { display: block; min-width: 0; padding: 0; font-size: 14px; color: var(--text-primary); border-bottom: 0; vertical-align: middle; }
 .user-table td:nth-child(1) { grid-area: id; color: var(--text-muted); font-size: 12px; align-self: start; }
 .user-table td:nth-child(2) { grid-area: name; font-weight: 750; font-size: 15px; }
-.user-table td:nth-child(3) { grid-area: id; margin-top: 26px; color: var(--text-secondary); }
+.user-table td:nth-child(3) { grid-area: name; color: var(--text-secondary); }
 .user-table td:nth-child(4) { grid-area: contact; overflow: hidden; }
 .user-table td:nth-child(5) { grid-area: status; }
-.user-table td:nth-child(6) { grid-area: status; margin-top: 34px; }
-.user-table td:nth-child(7) { grid-area: contact; margin-top: 50px; }
+.user-table td:nth-child(6) { grid-area: status; margin-top: 28px; }
+.user-table td:nth-child(7) { grid-area: contact; margin-top: 42px; }
 .user-table td:nth-child(8) { grid-area: security; }
 .user-table td:nth-child(9) { grid-area: access; }
-.user-table td:nth-child(10) { grid-area: access; margin-top: 44px; }
+.user-table td:nth-child(10) { grid-area: access; margin-top: 42px; }
 .user-table td:nth-child(11) { grid-area: actions; }
-.user-table td:nth-child(12) { grid-area: actions; margin-top: 44px; }
+.user-table td:nth-child(12) { grid-area: actions; margin-top: 38px; }
 .user-table tr:last-child td { border-bottom: none; }
 .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; }
 .badge-admin { background: var(--accent); color: white; }
@@ -75,7 +75,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .admin-config-checkbox label { margin: 0; }
 .admin-config-checkbox.switch-right { justify-content: space-between; }
 .admin-config-checkbox.switch-right label { flex: 1 1 auto; }
-.admin-config-checkbox.switch-right input[type="checkbox"] { order: 2; margin-left: auto; }
+.admin-config-checkbox.switch-right input[type="checkbox"] { order: 2; margin-left: auto; width: 46px; min-width: 46px; max-width: 46px; flex: 0 0 46px; }
 .admin-config-checkbox input[type="checkbox"] { appearance: none; -webkit-appearance: none; width: 46px; height: 26px; flex: 0 0 46px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--border) 78%, var(--text-muted)); background: var(--bg-tertiary); position: relative; cursor: pointer; transition: background .16s, border-color .16s, box-shadow .16s; }
 .admin-config-checkbox input[type="checkbox"]::after { content: ''; position: absolute; width: 20px; height: 20px; top: 2px; left: 2px; border-radius: 50%; background: var(--text-secondary); box-shadow: 0 2px 5px rgba(0,0,0,.28); transition: transform .16s, background .16s; }
 .admin-config-checkbox input[type="checkbox"]:checked { background: color-mix(in srgb, var(--success) 72%, var(--accent)); border-color: color-mix(in srgb, var(--success) 86%, white); }
@@ -157,6 +157,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
   #admin-password-dialog .admin-dialog-actions { margin-top: 22px; }
   #admin-password-dialog .admin-dialog-actions .btn { flex: 1; min-height: 42px; }
   .user-table, .user-table tbody, .user-table tr, .user-table td { display: block; width: 100%; min-width: 0; }
+  .user-table tbody { display: grid; grid-template-columns: 1fr; }
   .user-table tr { padding: 12px; margin-bottom: 0; }
   .user-table td { padding: 7px 0; margin-top: 0 !important; }
   .admin-section-summary { display: none; }
