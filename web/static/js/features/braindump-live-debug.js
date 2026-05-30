@@ -44,6 +44,7 @@ export function createBrainDumpLiveDebugFeature() {
     createMessage: '',
     error: '',
     transcript: '',
+    candidateRenderSignature: '',
     initAttempts: 0,
   };
 
@@ -215,6 +216,7 @@ export function createBrainDumpLiveDebugFeature() {
     state.createMessage = '';
     state.error = '';
     state.transcript = '';
+    state.candidateRenderSignature = '';
     state.level = 0;
     state.peak = 0;
     state.startedAt = 0;
@@ -440,8 +442,14 @@ export function createBrainDumpLiveDebugFeature() {
   }
 
   function applyCandidates(candidates) {
-    state.candidates = Array.isArray(candidates) ? candidates : [];
-    state.selectedCandidateKeys = new Set(state.candidates.map(candidateKey));
+    const nextCandidates = Array.isArray(candidates) ? candidates : [];
+    const previousSelected = state.selectedCandidateKeys;
+    state.candidates = nextCandidates;
+    state.selectedCandidateKeys = new Set(nextCandidates.map((candidate) => {
+      const key = candidateKey(candidate);
+      return previousSelected.size === 0 || previousSelected.has(key) ? key : null;
+    }).filter(Boolean));
+    state.candidateRenderSignature = '';
   }
 
   function selectedCandidates() {
@@ -557,6 +565,13 @@ export function createBrainDumpLiveDebugFeature() {
     if (subtitle) subtitle.textContent = t(state.candidates.length === 1 ? 'braindump.results.count.one' : 'braindump.results.count.many', { count: state.candidates.length });
     if (selectAll) selectAll.textContent = selectedCandidates().length === state.candidates.length ? t('braindump.selectNone') : t('braindump.selectAll');
     if (status) status.textContent = state.createMessage || '';
+    const signature = JSON.stringify({
+      candidates: state.candidates.map(candidateKey),
+      selected: Array.from(state.selectedCandidateKeys).sort(),
+      language: document.documentElement.lang || '',
+    });
+    if (signature === state.candidateRenderSignature) return;
+    state.candidateRenderSignature = signature;
     container.innerHTML = state.candidates.map((candidate, index) => renderCandidate(candidate, index)).join('');
   }
 
