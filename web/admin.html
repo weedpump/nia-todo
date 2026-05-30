@@ -28,21 +28,23 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .user-table { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: auto; min-width: 0; }
 .user-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
 .user-table tbody { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.user-table tr { display: grid; grid-template-columns: minmax(0, 1fr) minmax(130px, .78fr); grid-template-areas: 'id actions' 'name access' 'contact access' 'status security'; gap: 8px 12px; padding: 12px; border: 1px solid color-mix(in srgb, var(--border) 78%, transparent); border-radius: 14px; background: color-mix(in srgb, var(--bg-primary) 72%, var(--bg-secondary)); align-content: start; }
-.user-table td { display: block; min-width: 0; padding: 0; font-size: 14px; color: var(--text-primary); border-bottom: 0; vertical-align: middle; }
-.user-table td:nth-child(1) { grid-area: id; color: var(--text-muted); font-size: 12px; align-self: start; }
-.user-table td:nth-child(2) { grid-area: name; font-weight: 750; font-size: 15px; }
-.user-table td:nth-child(3) { grid-area: name; color: var(--text-secondary); }
-.user-table td:nth-child(4) { grid-area: contact; overflow: hidden; }
-.user-table td:nth-child(5) { grid-area: status; }
-.user-table td:nth-child(6) { grid-area: status; margin-top: 28px; }
-.user-table td:nth-child(7) { grid-area: contact; margin-top: 42px; }
-.user-table td:nth-child(8) { grid-area: security; }
-.user-table td:nth-child(9) { grid-area: access; }
-.user-table td:nth-child(10) { grid-area: access; margin-top: 42px; }
-.user-table td:nth-child(11) { grid-area: actions; }
-.user-table td:nth-child(12) { grid-area: actions; margin-top: 38px; }
+.user-table tr { display: block; min-width: 0; border: 1px solid color-mix(in srgb, var(--border) 78%, transparent); border-radius: 14px; background: color-mix(in srgb, var(--bg-primary) 72%, var(--bg-secondary)); overflow: hidden; }
 .user-table tr:last-child td { border-bottom: none; }
+.user-table td.user-card-cell { display: block; padding: 0; border: 0; color: var(--text-primary); }
+.user-card { display: grid; grid-template-rows: auto auto auto auto; gap: 12px; padding: 14px; min-height: 100%; }
+.user-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding-bottom: 10px; border-bottom: 1px solid color-mix(in srgb, var(--border) 58%, transparent); }
+.user-card-identity { min-width: 0; }
+.user-card-title { font-size: 16px; font-weight: 800; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.user-card-subtitle { margin-top: 2px; font-size: 12px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.user-card-id { flex: 0 0 auto; font-size: 11px; color: var(--text-muted); background: var(--bg-tertiary); border-radius: 999px; padding: 3px 8px; }
+.user-card-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px 12px; }
+.user-card-field { min-width: 0; }
+.user-card-label { display: block; color: var(--text-muted); font-size: 10px; font-weight: 750; text-transform: uppercase; letter-spacing: .055em; margin-bottom: 4px; }
+.user-card-value { min-width: 0; color: var(--text-primary); font-size: 13px; }
+.user-card-features { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.user-card-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; align-items: center; }
+.user-card-actions.single { grid-template-columns: 1fr; }
+.user-card-actions .admin-table-action { width: 100%; }
 .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; }
 .badge-admin { background: var(--accent); color: white; }
 .badge-user { background: var(--bg-tertiary); color: var(--text-secondary); }
@@ -158,8 +160,12 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
   #admin-password-dialog .admin-dialog-actions .btn { flex: 1; min-height: 42px; }
   .user-table, .user-table tbody, .user-table tr, .user-table td { display: block; width: 100%; min-width: 0; }
   .user-table tbody { display: grid; grid-template-columns: 1fr; }
-  .user-table tr { padding: 12px; margin-bottom: 0; }
-  .user-table td { padding: 7px 0; margin-top: 0 !important; }
+  .user-table tr { padding: 0; margin-bottom: 0; }
+  .user-table td.user-card-cell { padding: 0; margin-top: 0 !important; }
+  .user-card { padding: 12px; gap: 10px; }
+  .user-card-grid,
+  .user-card-features,
+  .user-card-actions { grid-template-columns: 1fr; }
   .admin-section-summary { display: none; }
   .email-edit { grid-template-columns: minmax(0, 1fr) 32px 32px; }
 }
@@ -1414,22 +1420,62 @@ function renderUsers(users) {
     tbody.innerHTML = `<tr><td colspan="${colSpan}" class="empty-state">${escapeHtml(t('admin.user.empty'))}</td></tr>`;
     return;
   }
-  tbody.innerHTML = users.map(u => `
+  tbody.innerHTML = users.map(u => {
+    const title = escapeHtml(u.display_name || u.username);
+    const subtitle = u.display_name && u.display_name !== u.username ? escapeHtml(u.username) : escapeHtml(t('setup.usernameLabel'));
+    const deleteButton = u.is_admin ? '' : `<button class="btn btn-danger admin-table-action" onclick="deleteUser(${u.id}, '${escapeHtmlAttr(u.username)}')">${iconSvg('trash')} ${escapeHtml(t('common.delete'))}</button>`;
+    const actionsClass = u.is_admin ? 'user-card-actions single' : 'user-card-actions';
+    return `
     <tr role="row">
-      <td role="cell" headers="user-col-id"><span class="admin-mobile-label" aria-hidden="true">ID</span>${u.id}</td>
-      <td role="cell" headers="user-col-username"><span class="admin-mobile-label" aria-hidden="true">${escapeHtml(t('setup.usernameLabel'))}</span>${escapeHtml(u.username)}</td>
-      <td role="cell" headers="user-col-display-name"><span class="admin-mobile-label" aria-hidden="true">${escapeHtml(t('setup.displayNameLabel'))}</span>${escapeHtml(u.display_name) || '-'}</td>
-      <td role="cell" headers="user-col-email"><span class="admin-mobile-label" aria-hidden="true">${escapeHtml(t('settings.profile.email'))}</span>${renderUserEmailCell(u)}</td>
-      <td role="cell" headers="user-col-email-status"><span class="admin-mobile-label" aria-hidden="true">${escapeHtml(t('admin.user.emailStatus'))}</span>${renderUserEmailStatus(u)}</td>
-      <td role="cell" headers="user-col-login"><span class="admin-mobile-label" aria-hidden="true">${escapeHtml(t('admin.user.login'))}</span>${renderUserLoginStatus(u)}</td>
-      <td role="cell" headers="user-col-last-active"><span class="admin-mobile-label" aria-hidden="true">${escapeHtml(t('admin.user.lastActive'))}</span>${renderUserLastActive(u)}</td>
-      <td role="cell" headers="user-col-twofa"><span class="admin-mobile-label" aria-hidden="true">2FA</span>${renderUserTwoFactorStatus(u)}</td>
-      <td role="cell" headers="user-col-api-keys"><span class="admin-mobile-label" aria-hidden="true">${escapeHtml(t('settings.apiKeys.title'))}</span>${renderUserApiKeys(u)}</td>
-      ${brainDumpFeatureEnabled ? `<td role="cell" headers="user-braindump-heading"><span class="admin-mobile-label" aria-hidden="true">${escapeHtml(t('admin.user.brainDump'))}</span>${renderUserBrainDump(u)}</td>` : ''}
-      <td role="cell" headers="user-col-password"><span class="admin-mobile-label" aria-hidden="true">${escapeHtml(t('auth.password'))}</span><button class="btn btn-primary admin-table-action" onclick="generatePasswordLink(${u.id}, '${escapeHtmlAttr(u.username)}')">${iconSvg('link')} ${escapeHtml(t('admin.user.passwordLink'))}</button></td>
-      <td role="cell" headers="user-col-actions"><span class="admin-mobile-label" aria-hidden="true">${escapeHtml(t('admin.user.actions'))}</span>${u.is_admin ? '-' : `<button class="btn btn-danger admin-table-action" onclick="deleteUser(${u.id}, '${escapeHtmlAttr(u.username)}')">${iconSvg('trash')} ${escapeHtml(t('common.delete'))}</button>`}</td>
-    </tr>
-  `).join('');
+      <td class="user-card-cell" colspan="${colSpan}">
+        <article class="user-card">
+          <header class="user-card-header">
+            <div class="user-card-identity">
+              <div class="user-card-title" role="cell" headers="user-col-display-name">${title}</div>
+              <div class="user-card-subtitle" role="cell" headers="user-col-username">${subtitle}</div>
+            </div>
+            <span class="user-card-id" role="cell" headers="user-col-id">ID ${u.id}</span>
+          </header>
+
+          <div class="user-card-grid">
+            <div class="user-card-field">
+              <span class="user-card-label">${escapeHtml(t('settings.profile.email'))}</span>
+              <div class="user-card-value" role="cell" headers="user-col-email">${renderUserEmailCell(u)}</div>
+            </div>
+            <div class="user-card-field">
+              <span class="user-card-label">${escapeHtml(t('admin.user.lastActive'))}</span>
+              <div class="user-card-value" role="cell" headers="user-col-last-active">${renderUserLastActive(u)}</div>
+            </div>
+            <div class="user-card-field">
+              <span class="user-card-label">${escapeHtml(t('admin.user.emailStatus'))}</span>
+              <div class="user-card-value" role="cell" headers="user-col-email-status">${renderUserEmailStatus(u)}</div>
+            </div>
+            <div class="user-card-field">
+              <span class="user-card-label">${escapeHtml(t('admin.user.login'))}</span>
+              <div class="user-card-value" role="cell" headers="user-col-login">${renderUserLoginStatus(u)}</div>
+            </div>
+          </div>
+
+          <div class="user-card-features">
+            <div class="user-card-field">
+              <span class="user-card-label">2FA</span>
+              <div class="user-card-value" role="cell" headers="user-col-twofa">${renderUserTwoFactorStatus(u)}</div>
+            </div>
+            <div class="user-card-field">
+              <span class="user-card-label">${escapeHtml(t('settings.apiKeys.title'))}</span>
+              <div class="user-card-value" role="cell" headers="user-col-api-keys">${renderUserApiKeys(u)}</div>
+            </div>
+            ${brainDumpFeatureEnabled ? `<div class="user-card-field"><span class="user-card-label">${escapeHtml(t('admin.user.brainDump'))}</span><div class="user-card-value" role="cell" headers="user-braindump-heading">${renderUserBrainDump(u)}</div></div>` : ''}
+          </div>
+
+          <div class="${actionsClass}">
+            <button class="btn btn-primary admin-table-action" role="cell" headers="user-col-password" onclick="generatePasswordLink(${u.id}, '${escapeHtmlAttr(u.username)}')">${iconSvg('link')} ${escapeHtml(t('admin.user.passwordLink'))}</button>
+            ${deleteButton}
+          </div>
+        </article>
+      </td>
+    </tr>`;
+  }).join('');
 }
 
 async function createUser() {
