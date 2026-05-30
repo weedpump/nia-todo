@@ -5,6 +5,13 @@ async function run() {
   console.log('🌐 Running Playwright frontend admin test...');
   const { browser, page } = await launchPage();
 
+  async function expandSection(cardSelector) {
+    const card = page.locator(cardSelector);
+    await card.waitFor({ state: 'visible', timeout: 10000 });
+    const collapsed = await card.evaluate((el) => el.classList.contains('collapsed'));
+    if (collapsed) await card.locator('.admin-section-header').click();
+  }
+
   try {
     await page.addInitScript(() => localStorage.setItem('nia-todo-language', 'de'));
     await page.goto('http://localhost:8754/admin', { waitUntil: 'networkidle' });
@@ -18,31 +25,30 @@ async function run() {
     await page.click('text=Anmelden');
     await page.locator('#admin-content').waitFor({ state: 'visible', timeout: 10000 });
 
-    await page.locator('#security-card').waitFor({ state: 'visible', timeout: 10000 });
+    await expandSection('#security-card');
     await page.getByText('Globale 2FA-Pflicht ist deaktiviert').waitFor({ state: 'visible', timeout: 10000 });
     await page.locator('#twofa-policy-toggle').click();
-    await page.locator('#admin-action-dialog').waitFor({ state: 'visible', timeout: 10000 });
-    await page.locator('#admin-dialog-confirm').click();
     await page.getByText('Globale 2FA-Pflicht aktiviert.').waitFor({ state: 'visible', timeout: 10000 });
     await page.getByText('Globale 2FA-Pflicht ist aktiv').waitFor({ state: 'visible', timeout: 10000 });
+    await expandSection('#user-list-card');
     await page.locator('#user-list').getByText('Pflicht').first().waitFor({ state: 'visible', timeout: 10000 });
     await page.locator('#twofa-policy-toggle').click();
-    await page.locator('#admin-action-dialog').waitFor({ state: 'visible', timeout: 10000 });
-    await page.locator('#admin-dialog-confirm').click();
     await page.getByText('Globale 2FA-Pflicht deaktiviert.').waitFor({ state: 'visible', timeout: 10000 });
 
-    await page.locator('#instance-config-card').waitFor({ state: 'visible', timeout: 10000 });
+    await expandSection('#instance-config-card');
     await page.fill('#instance-public-url', BASE_URL);
     await page.fill('#instance-allowed-origins', `${BASE_URL}\nhttps://example.invalid`);
     await page.fill('#instance-trusted-proxies', '127.0.0.1\n10.0.10.0/24');
     await page.getByRole('button', { name: 'Instanz-Konfiguration speichern' }).click();
     await page.getByText('Instanz-Konfiguration gespeichert.').waitFor({ state: 'visible', timeout: 10000 });
 
+    await expandSection('#user-list-card');
     await page.locator('#user-list button[title="E-Mail bearbeiten"]').first().click();
     await page.locator('#user-list input[type="email"]').first().waitFor({ state: 'visible', timeout: 5000 });
     await page.locator('#user-list button[title="Abbrechen"]').first().click();
     await page.locator('#user-list input[type="email"]').waitFor({ state: 'detached', timeout: 5000 });
 
+    await expandSection('#create-user-card');
     await page.fill('#new-username', 'admincreated');
     await page.fill('#new-display-name', 'Admin Created');
     await page.fill('#new-email', 'broken-email');
@@ -104,8 +110,10 @@ async function run() {
     await page.fill('#admin-login-password', ADMIN_PASSWORD);
     await page.click('text=Anmelden');
     await page.locator('#admin-content').waitFor({ state: 'visible', timeout: 10000 });
+    await expandSection('#user-list-card');
     await page.locator('#user-list').getByRole('row', { name: /admincreated/ }).getByText('Aktiv', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
 
+    await expandSection('#admin-password-card');
     await page.fill('#admin-old-password', ADMIN_PASSWORD);
     await page.fill('#admin-new-password', 'NewFrontendAdmin123!');
     await page.fill('#admin-confirm-password', 'NewFrontendAdmin123!');

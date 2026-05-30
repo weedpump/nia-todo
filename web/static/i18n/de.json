@@ -903,6 +903,7 @@
   "braindump.record.finish": "Fertig & verarbeiten",
   "braindump.processing.transcribing": "1/2 Audio wird transkribiert…",
   "braindump.processing.extracting": "2/2 Todo-Vorschläge werden erkannt…",
-  "admin.overview.ariaLabel": "Admin-Bereiche",
-  "admin.overview.policySummary": "Richtlinie"
+  "admin.overview.policySummary": "Richtlinie",
+  "admin.toggle.enabled": "Aktiv",
+  "admin.toggle.required": "Erzwingen"
 }
