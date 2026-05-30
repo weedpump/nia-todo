@@ -224,6 +224,61 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
     <div class="admin-success" id="instance-config-success"></div>
   </div>
 
+  <!-- BrainDump Configuration -->
+  <div class="admin-card" id="braindump-config-card">
+    <h2><span data-icon="mic"></span> BrainDump AI / STT</h2>
+    <div class="admin-config-grid">
+      <div class="admin-config-field">
+        <label for="braindump-openclaw-url">OpenClaw URL</label>
+        <input type="url" id="braindump-openclaw-url" placeholder="http://openclaw:18789" autocomplete="off">
+      </div>
+      <div class="admin-config-field">
+        <label for="braindump-openclaw-model">OpenClaw model target</label>
+        <input type="text" id="braindump-openclaw-model" placeholder="openclaw/default" autocomplete="off">
+      </div>
+      <div class="admin-config-field">
+        <label for="braindump-openclaw-backend-model">Backend model override optional</label>
+        <input type="text" id="braindump-openclaw-backend-model" placeholder="gpt-mini" autocomplete="off">
+      </div>
+      <div class="admin-config-field">
+        <label for="braindump-openclaw-token">OpenClaw token</label>
+        <input type="password" id="braindump-openclaw-token" placeholder="Leave blank = unchanged" autocomplete="new-password">
+        <div class="admin-secret-note" id="braindump-openclaw-token-note"></div>
+      </div>
+      <div class="admin-config-field">
+        <label for="braindump-stt-provider">STT provider</label>
+        <select id="braindump-stt-provider">
+          <option value="whisper_cpp_remote">Remote whisper.cpp server</option>
+          <option value="local_whisper_cpp">Local whisper.cpp CLI fallback</option>
+        </select>
+      </div>
+      <div class="admin-config-field">
+        <label for="braindump-stt-url">STT URL</label>
+        <input type="url" id="braindump-stt-url" placeholder="http://whisper:8766/inference" autocomplete="off">
+      </div>
+      <div class="admin-config-field">
+        <label for="braindump-stt-language">STT language</label>
+        <input type="text" id="braindump-stt-language" placeholder="de" autocomplete="off">
+      </div>
+      <div class="admin-config-field">
+        <label for="braindump-stt-timeout">STT timeout seconds</label>
+        <input type="number" id="braindump-stt-timeout" min="1" max="300" value="60">
+      </div>
+      <div class="admin-config-field full">
+        <label for="braindump-stt-token">STT token optional</label>
+        <input type="password" id="braindump-stt-token" placeholder="Leave blank = unchanged" autocomplete="new-password">
+        <div class="admin-secret-note" id="braindump-stt-token-note"></div>
+      </div>
+    </div>
+    <div class="admin-help">Default is OpenClaw for LLM plus remote whisper.cpp for STT. Dedicated OpenClaw agents are optional; use <code>openclaw/default</code> unless you created one yourself.</div>
+    <div class="form-row" style="margin-top:12px;">
+      <button class="btn btn-primary" onclick="saveBrainDumpConfig()">Save BrainDump configuration</button>
+      <button class="btn btn-secondary" onclick="testBrainDumpConfig()">Test connection</button>
+    </div>
+    <div class="admin-error" id="braindump-config-error"></div>
+    <div class="admin-success" id="braindump-config-success"></div>
+  </div>
+
   <!-- Email Configuration -->
   <div class="admin-card" id="email-config-card">
     <h2><span data-icon="mail"></span> <span data-i18n-key="admin.email.title">Email / SMTP</span></h2>
@@ -589,9 +644,10 @@ async function doAdminLogin() {
 let twoFactorPolicyRequired = false;
 
 async function loadAdminData() {
-  const [usersData, configData, emailConfigData, twoFactorPolicy, serverUpdate] = await Promise.all([
+  const [usersData, configData, brainDumpConfigData, emailConfigData, twoFactorPolicy, serverUpdate] = await Promise.all([
     apiGet('/api/admin/users'),
     apiGet('/api/admin/instance-config'),
+    apiGet('/api/admin/braindump-config'),
     apiGet('/api/admin/email-config'),
     apiGet('/api/admin/2fa-policy'),
     apiGet('/api/admin/server-update'),
@@ -600,6 +656,7 @@ async function loadAdminData() {
   renderTwoFactorPolicy(twoFactorPolicy);
   renderUsers(usersData.users);
   renderInstanceConfig(configData);
+  renderBrainDumpConfig(brainDumpConfigData);
   renderEmailConfig(emailConfigData);
   renderServerUpdate(serverUpdate);
 }
@@ -717,6 +774,64 @@ function renderInstanceConfig(config) {
 
 function parseOriginsInput(value) {
   return value.split(/[\n,]/).map(item => item.trim()).filter(Boolean);
+}
+
+function renderBrainDumpConfig(config) {
+  document.getElementById('braindump-openclaw-url').value = config.openclaw_url || 'http://127.0.0.1:18789';
+  document.getElementById('braindump-openclaw-model').value = config.openclaw_model || 'openclaw/default';
+  document.getElementById('braindump-openclaw-backend-model').value = config.openclaw_backend_model || '';
+  document.getElementById('braindump-openclaw-token').value = '';
+  document.getElementById('braindump-openclaw-token-note').textContent = config.openclaw_token_configured ? 'OpenClaw token stored.' : 'No OpenClaw token stored.';
+  document.getElementById('braindump-stt-provider').value = config.stt_provider || 'whisper_cpp_remote';
+  document.getElementById('braindump-stt-url').value = config.stt_url || 'http://127.0.0.1:8766/inference';
+  document.getElementById('braindump-stt-language').value = config.stt_language || 'de';
+  document.getElementById('braindump-stt-timeout').value = config.stt_timeout_seconds || 60;
+  document.getElementById('braindump-stt-token').value = '';
+  document.getElementById('braindump-stt-token-note').textContent = config.stt_token_configured ? 'STT token stored.' : 'No STT token stored.';
+}
+
+function readBrainDumpConfigForm() {
+  const data = {
+    openclaw_url: document.getElementById('braindump-openclaw-url').value.trim(),
+    openclaw_model: document.getElementById('braindump-openclaw-model').value.trim() || 'openclaw/default',
+    openclaw_backend_model: document.getElementById('braindump-openclaw-backend-model').value.trim(),
+    stt_provider: document.getElementById('braindump-stt-provider').value,
+    stt_url: document.getElementById('braindump-stt-url').value.trim(),
+    stt_language: document.getElementById('braindump-stt-language').value.trim() || 'de',
+    stt_timeout_seconds: Number(document.getElementById('braindump-stt-timeout').value || 60),
+  };
+  const openclawToken = document.getElementById('braindump-openclaw-token').value;
+  const sttToken = document.getElementById('braindump-stt-token').value;
+  if (openclawToken) data.openclaw_token_secret = openclawToken;
+  if (sttToken) data.stt_token_secret = sttToken;
+  return data;
+}
+
+async function saveBrainDumpConfig() {
+  document.getElementById('braindump-config-error').textContent = '';
+  document.getElementById('braindump-config-success').textContent = '';
+  try {
+    const data = await apiPatch('/api/admin/braindump-config', readBrainDumpConfigForm());
+    renderBrainDumpConfig(data);
+    document.getElementById('braindump-config-success').textContent = 'BrainDump configuration saved.';
+  } catch(e) {
+    document.getElementById('braindump-config-error').textContent = e.message;
+  }
+}
+
+async function testBrainDumpConfig() {
+  document.getElementById('braindump-config-error').textContent = '';
+  document.getElementById('braindump-config-success').textContent = '';
+  try {
+    const data = await apiPost('/api/admin/braindump-config/test', {});
+    const openclaw = data.openclaw?.ok ? 'OpenClaw OK' : `OpenClaw failed: ${data.openclaw?.message || 'unknown'}`;
+    const stt = data.stt?.ok ? 'STT OK' : `STT failed: ${data.stt?.message || 'unknown'}`;
+    const message = `${openclaw}; ${stt}`;
+    if (data.openclaw?.ok && data.stt?.ok) document.getElementById('braindump-config-success').textContent = message;
+    else document.getElementById('braindump-config-error').textContent = message;
+  } catch(e) {
+    document.getElementById('braindump-config-error').textContent = e.message;
+  }
 }
 
 function renderTwoFactorPolicy(policy) {

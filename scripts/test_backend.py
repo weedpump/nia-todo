@@ -350,6 +350,28 @@ class TestSuite:
         self.results["instance_config_get"] = {"status": status, "passed": passed, "expected": "200 + admin config fields without public identity"}
         return passed
 
+    def test_braindump_config_get(self):
+        status, data = curl("GET", "/api/admin/braindump-config", token=self.admin_token, cookie_jar="/tmp/nia_admin_cookies.txt")
+        passed = ok(status) and data and data.get("openclaw_model") == "openclaw/default" and data.get("stt_provider") == "whisper_cpp_remote" and "openclaw_token" not in data and "stt_token" not in data
+        self.results["braindump_config_get"] = {"status": status, "passed": passed, "expected": "200 + BrainDump config without secrets"}
+        return passed
+
+    def test_braindump_config_update(self):
+        status, data = curl("PATCH", "/api/admin/braindump-config", {
+            "openclaw_url": "http://openclaw.local:18789/",
+            "openclaw_token_secret": "test-openclaw-token",
+            "openclaw_model": "openclaw/default",
+            "openclaw_backend_model": "gpt-mini",
+            "stt_provider": "whisper_cpp_remote",
+            "stt_url": "http://whisper.local:8766/inference",
+            "stt_token_secret": "test-stt-token",
+            "stt_language": "de",
+            "stt_timeout_seconds": 42,
+        }, token=self.admin_token, csrf=self.admin_csrf, cookie_jar="/tmp/nia_admin_cookies.txt")
+        passed = ok(status) and data and data.get("openclaw_url") == "http://openclaw.local:18789" and data.get("stt_url") == "http://whisper.local:8766/inference" and data.get("openclaw_token_configured") is True and data.get("stt_token_configured") is True and "test-openclaw-token" not in str(data)
+        self.results["braindump_config_update"] = {"status": status, "passed": passed, "expected": "200 + normalized BrainDump config, secrets hidden"}
+        return passed
+
     def test_password_reset_features_disabled_without_email(self):
         status, data = curl("GET", "/api/password-setup/features")
         passed = ok(status) and data and data.get("email_configured") is False and data.get("password_reset_available") is False
@@ -1501,6 +1523,8 @@ class TestSuite:
             # Admin session needed to create sharing test user
             self.test_admin_login,
             self.test_instance_config_get,
+            self.test_braindump_config_get,
+            self.test_braindump_config_update,
             self.test_password_reset_features_disabled_without_email,
             self.test_password_reset_request_without_email_config_is_neutral,
             self.test_strict_cors_unknown_origin_rejected,
