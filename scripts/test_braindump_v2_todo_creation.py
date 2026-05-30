@@ -24,12 +24,18 @@ def make_db():
     db.executescript(
         """
         CREATE TABLE users (id INTEGER PRIMARY KEY, username TEXT, braindump_enabled INTEGER NOT NULL DEFAULT 1);
+        CREATE TABLE workspaces (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL
+        );
         CREATE TABLE projects (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
             user_id INTEGER,
             is_inbox INTEGER DEFAULT 0,
-            sort_order INTEGER DEFAULT 0
+            sort_order INTEGER DEFAULT 0,
+            parent_id INTEGER,
+            workspace_id INTEGER
         );
         CREATE TABLE project_members (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -67,9 +73,10 @@ def make_db():
         """
     )
     db.execute("INSERT INTO users (id, username, braindump_enabled) VALUES (1, 'tobi', 1)")
-    db.execute("INSERT INTO projects (id, name, user_id, is_inbox) VALUES (1, 'Inbox', 1, 1)")
-    db.execute("INSERT INTO projects (id, name, user_id, is_inbox) VALUES (2, 'Einkaufsliste', 1, 0)")
-    db.execute("INSERT INTO projects (id, name, user_id, is_inbox) VALUES (3, 'Haushalt', 1, 0)")
+    db.execute("INSERT INTO workspaces (id, name) VALUES (1, 'Privat')")
+    db.execute("INSERT INTO projects (id, name, user_id, is_inbox, workspace_id) VALUES (1, 'Inbox', 1, 1, 1)")
+    db.execute("INSERT INTO projects (id, name, user_id, is_inbox, workspace_id) VALUES (2, 'Einkaufsliste', 1, 0, 1)")
+    db.execute("INSERT INTO projects (id, name, user_id, is_inbox, workspace_id) VALUES (3, 'Haushalt', 1, 0, 1)")
     db.execute("INSERT INTO sections (id, project_id, name) VALUES (10, 2, 'Obst und Gemüse')")
     db.execute("INSERT INTO sections (id, project_id, name) VALUES (11, 2, 'Milchprodukte')")
     db.execute("INSERT INTO sections (id, project_id, name) VALUES (12, 3, 'Keller')")
@@ -99,6 +106,17 @@ def test_creates_confirmed_candidates_with_project_section_and_reminder():
     assert_true(snoopy["reminders"][0]["remind_at"] == "2026-05-30T18:00+02:00", snoopy)
 
 
+def test_creates_candidate_with_unique_section_even_when_project_missing():
+    db = make_db()
+    created = _create_todos_from_braindump_candidates(
+        db,
+        1,
+        [BrainDumpTodoCandidate(title="Alte Kartons entsorgen", section_name="Keller")],
+    )
+    assert_true(created[0]["project_id"] == 3, created)
+    assert_true(created[0]["section_id"] == 12, created)
+
+
 def test_rejects_unknown_project_name():
     db = make_db()
     try:
@@ -122,6 +140,7 @@ def test_rejects_section_outside_project():
 def main():
     tests = [
         test_creates_confirmed_candidates_with_project_section_and_reminder,
+        test_creates_candidate_with_unique_section_even_when_project_missing,
         test_rejects_unknown_project_name,
         test_rejects_section_outside_project,
     ]
