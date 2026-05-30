@@ -854,6 +854,10 @@ function escapeHtmlAttr(str) {
     .replace(/>/g, '&gt;');
 }
 
+function jsStringAttr(value) {
+  return escapeHtmlAttr(JSON.stringify(String(value ?? '')));
+}
+
 function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
 }
@@ -1376,6 +1380,10 @@ function renderUserEmailCell(user) {
   return renderUserEmailDisplay(user.id, user.email || '');
 }
 
+function renderUserUsernameCell(user) {
+  return renderUserUsernameDisplay(user.id, user.username || '');
+}
+
 function renderUserEmailStatus(user) {
   if (user.pending_email) return `<span class="badge badge-warning" title="${escapeHtmlAttr(t('admin.user.emailStatus.pendingTitle'))}">${escapeHtml(t('admin.user.emailStatus.pending'))}</span>`;
   if (!user.email) return `<span class="badge badge-muted">${escapeHtml(t('admin.none'))}</span>`;
@@ -1405,7 +1413,7 @@ function renderUserTwoFactorStatus(user) {
 
 function renderUserTwoFactorResetButton(user) {
   if (!user.two_factor_enabled && Number(user.passkey_count || 0) <= 0) return '';
-  return `<button class="btn btn-danger admin-table-action" onclick="resetUserTwoFactor(${user.id}, '${escapeHtmlAttr(user.username)}')">${iconSvg('shield-check')} ${escapeHtml(t('admin.user.twofa.resetShort'))}</button>`;
+  return `<button class="btn btn-danger admin-table-action" onclick="resetUserTwoFactor(${user.id}, ${jsStringAttr(user.username)})">${iconSvg('shield-check')} ${escapeHtml(t('admin.user.twofa.resetShort'))}</button>`;
 }
 
 function renderUserApiKeys(user) {
@@ -1424,6 +1432,14 @@ function renderUserLastActive(user) {
   const formatted = formatServerTimestamp(user.last_active_at);
   const label = user.last_active_at ? formatted : t('admin.user.neverActive');
   return `<span class="admin-last-active ${user.last_active_at ? '' : 'muted'}">${escapeHtml(label)}</span>`;
+}
+
+function renderUserUsernameDisplay(userId, usernameValue) {
+  const username = usernameValue ? escapeHtml(usernameValue) : '<span class="email-missing">-</span>';
+  return `<span class="email-display" id="username-display-${userId}">
+    <span>${username}</span>
+    <button class="btn btn-ghost" title="${escapeHtmlAttr(t('admin.user.editUsername'))}" onclick="editUserUsername(${userId}, ${jsStringAttr(usernameValue || '')})">${iconSvg('edit-3')}</button>
+  </span>`;
 }
 
 function renderUserEmailDisplay(userId, emailValue) {
@@ -1447,7 +1463,7 @@ function renderUsers(users) {
     const title = escapeHtml(u.display_name || u.username);
     const subtitle = u.display_name && u.display_name !== u.username ? escapeHtml(u.username) : escapeHtml(t('setup.usernameLabel'));
     const resetTwoFactorButton = renderUserTwoFactorResetButton(u);
-    const deleteButton = u.is_admin ? '' : `<button class="btn btn-danger admin-table-action" onclick="deleteUser(${u.id}, '${escapeHtmlAttr(u.username)}')">${iconSvg('trash')} ${escapeHtml(t('common.delete'))}</button>`;
+    const deleteButton = u.is_admin ? '' : `<button class="btn btn-danger admin-table-action" onclick="deleteUser(${u.id}, ${jsStringAttr(u.username)})">${iconSvg('trash')} ${escapeHtml(t('common.delete'))}</button>`;
     const actionCount = 1 + (resetTwoFactorButton ? 1 : 0) + (deleteButton ? 1 : 0);
     const actionsClass = actionCount === 1 ? 'user-card-actions single' : (actionCount === 2 ? 'user-card-actions two' : 'user-card-actions');
     return `
@@ -1463,6 +1479,7 @@ function renderUsers(users) {
           </header>
 
           <div class="user-card-section">
+            <div class="user-card-row"><span class="user-card-label">${escapeHtml(t('setup.usernameLabel'))}</span><div class="user-card-value">${renderUserUsernameCell(u)}</div></div>
             <div class="user-card-row"><span class="user-card-label">${escapeHtml(t('settings.profile.email'))}</span><div class="user-card-value">${renderUserEmailCell(u)}</div></div>
             <div class="user-card-row"><span class="user-card-label">${escapeHtml(t('admin.user.emailStatus'))}</span><div class="user-card-value">${renderUserEmailStatus(u)}</div></div>
             <div class="user-card-row"><span class="user-card-label">${escapeHtml(t('admin.user.lastActive'))}</span><div class="user-card-value">${renderUserLastActive(u)}</div></div>
@@ -1472,7 +1489,7 @@ function renderUsers(users) {
           </div>
 
           <div class="${actionsClass}">
-            <button class="btn btn-primary admin-table-action" onclick="generatePasswordLink(${u.id}, '${escapeHtmlAttr(u.username)}')">${iconSvg('link')} ${escapeHtml(t('admin.user.passwordLink'))}</button>
+            <button class="btn btn-primary admin-table-action" onclick="generatePasswordLink(${u.id}, ${jsStringAttr(u.username)})">${iconSvg('link')} ${escapeHtml(t('admin.user.passwordLink'))}</button>
             ${resetTwoFactorButton}
             ${deleteButton}
           </div>
@@ -1525,6 +1542,51 @@ async function createUser() {
     await loadUsers();
   } catch(e) {
     document.getElementById('create-error').textContent = e.message;
+  }
+}
+
+function editUserUsername(userId, currentUsername) {
+  const container = document.getElementById(`username-display-${userId}`);
+  if (!container) return;
+  container.outerHTML = `<span class="email-edit" id="username-edit-${userId}">
+    <input id="username-input-${userId}" type="text" value="${escapeHtmlAttr(currentUsername || '')}" placeholder="${escapeHtmlAttr(t('setup.usernameLabel'))}" autocomplete="off" maxlength="80" onkeydown="if(event.key==='Enter') saveUserUsername(${userId}, ${jsStringAttr(currentUsername || '')}); if(event.key==='Escape') cancelUserUsernameEdit(${userId}, ${jsStringAttr(currentUsername || '')})">
+    <button class="btn btn-ghost" title="${escapeHtmlAttr(t('common.save'))}" onclick="saveUserUsername(${userId}, ${jsStringAttr(currentUsername || '')})">${iconSvg('check')}</button>
+    <button class="btn btn-ghost" title="${escapeHtmlAttr(t('common.cancel'))}" onclick="cancelUserUsernameEdit(${userId}, ${jsStringAttr(currentUsername || '')})">${iconSvg('x')}</button>
+  </span>`;
+  document.getElementById(`username-input-${userId}`)?.focus();
+}
+
+function cancelUserUsernameEdit(userId, currentUsername) {
+  const container = document.getElementById(`username-edit-${userId}`);
+  if (!container) return;
+  container.outerHTML = renderUserUsernameDisplay(userId, currentUsername || '');
+}
+
+async function saveUserUsername(userId, currentUsername) {
+  const input = document.getElementById(`username-input-${userId}`);
+  const username = input?.value?.trim() || '';
+  const errorEl = document.getElementById('security-error');
+  if (errorEl) errorEl.textContent = '';
+  if (!username) {
+    if (errorEl) errorEl.textContent = t('admin.user.usernameRequired');
+    return;
+  }
+  if (username === currentUsername) {
+    cancelUserUsernameEdit(userId, currentUsername);
+    return;
+  }
+  const confirmed = await adminConfirm({
+    title: t('admin.user.changeUsernameTitle'),
+    message: t('admin.user.changeUsernameMessage', { oldUsername: currentUsername, newUsername: username }),
+    confirmText: t('admin.user.changeUsernameConfirm'),
+    danger: true,
+  });
+  if (!confirmed) return;
+  try {
+    await apiPatch(`/api/admin/users/${userId}`, { username });
+    await loadUsers();
+  } catch(e) {
+    if (errorEl) errorEl.textContent = t('admin.errorWithMessage', { error: e.message });
   }
 }
 

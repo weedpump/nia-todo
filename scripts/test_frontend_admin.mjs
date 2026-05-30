@@ -91,7 +91,7 @@ async function run() {
     await page.locator('#create-link-input').waitFor({ state: 'visible', timeout: 10000 });
     const setupUrl = await page.locator('#create-link-input').inputValue();
     if (!setupUrl.startsWith(`${BASE_URL}/set-password?token=`)) throw new Error('Create user did not use configured public base URL');
-    await page.locator('#user-list').getByText('admincreated', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
+    await page.locator('#user-list').getByText('admincreated', { exact: true }).first().waitFor({ state: 'visible', timeout: 10000 });
     await page.locator('#user-list').getByText('admincreated@example.invalid').waitFor({ state: 'visible', timeout: 10000 });
     await page.locator('#user-list').getByText('Bestätigt').first().waitFor({ state: 'visible', timeout: 10000 });
     await page.locator('#user-list').getByText('Aktiv').first().waitFor({ state: 'visible', timeout: 10000 });
@@ -123,6 +123,14 @@ async function run() {
     await page.locator('#user-list button[title="Speichern"]').last().click();
     await page.locator('#user-list').getByText('admincreated-updated@example.invalid').waitFor({ state: 'visible', timeout: 10000 });
 
+    await page.locator('#user-list button[title="Benutzernamen bearbeiten"]').last().click();
+    await page.locator('#user-list input[type="text"]').last().fill("admino'neil");
+    await page.locator('#user-list button[title="Speichern"]').last().click();
+    await page.getByRole('heading', { name: 'Benutzernamen ändern?' }).waitFor({ state: 'visible', timeout: 10000 });
+    await page.getByText(/Bestehende Passkeys bleiben gültig/).waitFor({ state: 'visible', timeout: 10000 });
+    await page.locator('#admin-dialog-confirm').click();
+    await page.locator('#user-list').getByText("admino'neil", { exact: true }).first().waitFor({ state: 'visible', timeout: 10000 });
+
     await page.goto(setupUrl, { waitUntil: 'networkidle' });
     await page.getByRole('heading', { name: /Passwort setzen/ }).waitFor({ state: 'visible', timeout: 10000 });
     await page.fill('#password', 'AdminCreated123!');
@@ -133,7 +141,7 @@ async function run() {
       const response = await fetch('/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: 'admincreated', password: 'AdminCreated123!' }),
+        body: JSON.stringify({ username: "admino'neil", password: 'AdminCreated123!' }),
         credentials: 'include'
       });
       return response.status;
@@ -150,6 +158,7 @@ async function run() {
     await page.click('text=Anmelden');
     await page.locator('#admin-content').waitFor({ state: 'visible', timeout: 10000 });
     await expandSection('#user-list-card');
+    await page.locator('#user-list').getByText("admino'neil", { exact: true }).first().waitFor({ state: 'visible', timeout: 10000 });
     await page.locator('#user-list').getByText('admincreated-updated@example.invalid').waitFor({ state: 'visible', timeout: 10000 });
     await page.locator('#user-list').getByText('Aktiv', { exact: true }).first().waitFor({ state: 'visible', timeout: 10000 });
 
