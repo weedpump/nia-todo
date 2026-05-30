@@ -111,7 +111,8 @@ async function run() {
     await page.click('text=Anmelden');
     await page.locator('#admin-content').waitFor({ state: 'visible', timeout: 10000 });
     await expandSection('#user-list-card');
-    await page.locator('#user-list').getByRole('row', { name: /admincreated/ }).getByText('Aktiv', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
+    await page.locator('#user-list').getByText('admincreated-updated@example.invalid').waitFor({ state: 'visible', timeout: 10000 });
+    await page.locator('#user-list').getByText('Aktiv', { exact: true }).first().waitFor({ state: 'visible', timeout: 10000 });
 
     await page.getByRole('button', { name: 'Passwort ändern' }).click();
     await page.locator('#admin-password-dialog').waitFor({ state: 'visible', timeout: 10000 });
