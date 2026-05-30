@@ -246,7 +246,8 @@ def admin_test_braindump_config(_: bool = Depends(require_admin)):
             req = urllib.request.Request(llm_models_url(config), headers=headers)
             with urllib.request.urlopen(req, timeout=10) as response:
                 payload = response.read().decode("utf-8", errors="replace")
-            result["llm"] = {"ok": True, "message": "LLM endpoint reachable", "sample": payload[:400]}
+            provider_name = "Ollama API" if str(config.get("llm_provider") or "") == "ollama" else "LLM endpoint"
+            result["llm"] = {"ok": True, "message": f"{provider_name} reachable", "sample": payload[:400]}
         except Exception as exc:
             result["llm"] = {"ok": False, "message": str(exc)}
 

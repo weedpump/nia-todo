@@ -113,11 +113,31 @@ LEGACY_KEY_TO_FIELD = {
 
 FIELD_TO_KEY = {field: key for key, field in KEY_TO_FIELD.items()}
 SUPPORTED_STT_PROVIDERS = {"whisper_cpp_remote", "local_whisper_cpp"}
-SUPPORTED_LLM_PROVIDERS = {"openai_compatible"}
+SUPPORTED_LLM_PROVIDERS = {"openai_compatible", "ollama"}
 SUPPORTED_SYSTEM_PROMPT_MODES = {"default", "append", "replace"}
 
 
+def _ollama_endpoint_url(config: dict[str, Any], endpoint: str) -> str:
+    raw = str(config.get("llm_base_url") or "").strip().rstrip("/")
+    if not raw:
+        raise HTTPException(400, "LLM base URL is not configured")
+    parsed = urlparse(raw)
+    path = parsed.path.rstrip("/")
+    if path.endswith(f"/api/{endpoint}"):
+        final_path = path
+    elif path.endswith("/api/chat") or path.endswith("/api/tags"):
+        final_path = f"{path.rsplit('/', 1)[0]}/{endpoint}"
+    elif path.endswith("/api"):
+        final_path = f"{path}/{endpoint}"
+    else:
+        final_path = f"{path}/api/{endpoint}"
+    return urlunparse((parsed.scheme, parsed.netloc, final_path, "", "", ""))
+
+
 def _llm_endpoint_url(config: dict[str, Any], endpoint: str) -> str:
+    provider = str(config.get("llm_provider") or DEFAULT_BRAINDUMP_CONFIG["llm_provider"]).strip().lower()
+    if provider == "ollama":
+        return _ollama_endpoint_url(config, "chat" if endpoint == "chat/completions" else "tags")
     raw = str(config.get("llm_base_url") or "").strip().rstrip("/")
     if not raw:
         raise HTTPException(400, "LLM base URL is not configured")
