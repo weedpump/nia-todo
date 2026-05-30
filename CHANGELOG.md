@@ -5,6 +5,22 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Experimental BrainDump voice capture for turning spoken notes into user-confirmed todo candidates, including a dedicated microphone modal, live audio feedback, silence-based finish flow, selectable suggestion cards, and confirmed todo creation.
+- Admin-configurable BrainDump provider settings for OpenAI-compatible LLM endpoints and STT providers, with write-only secrets, connection testing, and optional custom prompt modes.
+- Global experimental BrainDump enablement plus per-user access controls, disabled by default so fresh installs do not expose or preconfigure BrainDump automatically.
+- Remote whisper.cpp server STT support with local whisper.cpp fallback, using a real STT → LLM split flow with truthful processing phases.
+
+### Changed
+- BrainDump extraction now uses compact multilingual prompts and backend guardrails for small/local models, preserving the spoken item language and routing projects/sections only to existing workspace names when semantically appropriate.
+- BrainDump self-hosting documentation now treats OpenClaw as one optional OpenAI-compatible endpoint rather than a required dependency.
+
+### Fixed
+- BrainDump parsing now tolerates common local-LLM output variants such as fenced JSON, top-level arrays, alias field names, and minor JSON formatting quirks.
+- BrainDump normalization filters filler/negated shopping items more reliably, deduplicates variants, and validates project/section targets before todo creation.
+
 ## [2.6.3] - 2026-05-29
 
 ### Fixed
