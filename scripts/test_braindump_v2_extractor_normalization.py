@@ -12,6 +12,7 @@ sys.path.insert(0, str(ROOT / "api"))
 from routers.braindump_v2 import (  # noqa: E402
     _build_multipart_form_data,
     _extract_transcript_from_stt_response,
+    _format_workspace_context,
     _normalize_braindump_json,
     _parse_llm_json_content,
 )
@@ -125,6 +126,35 @@ def test_maps_section_name_used_as_project_to_real_project_section():
     assert_true(item["project_name"] == "Arbeit" and item["section_name"] == "Bareos", item)
 
 
+def test_replacement_with_statt_removes_old_item():
+    parsed = {"candidates": [{"title": "Nachos", "kind": "shopping"}, {"title": "Setz Chips", "kind": "shopping"}]}
+    result = _normalize_braindump_json(parsed, "Setz Chips auf die Einkaufsliste, nein doch lieber Nachos statt Chips.")
+    titles = [item["title"] for item in result["candidates"]]
+    assert_true("Nachos" in titles, titles)
+    assert_true(not any("Chips" in title for title in titles), titles)
+
+
+def test_reminder_kind_copies_deadline_to_reminder():
+    parsed = {"candidates": [{"title": "Snoopy Tabletten geben", "kind": "reminder", "deadline": "morgen 18:00", "reminder": None}]}
+    result = _normalize_braindump_json(parsed, "Erinnere mich morgen um 18 Uhr daran Snoopy Tabletten zu geben.")
+    item = result["candidates"][0]
+    assert_true(item["reminder"] and "T18:00" in item["reminder"], item)
+
+
+def test_evening_iso_2359_normalizes_to_1900():
+    parsed = {"candidates": [{"title": "Tierarzt mit Snoopy", "kind": "appointment", "deadline": "2026-06-01T23:59:00+02:00"}]}
+    result = _normalize_braindump_json(parsed, "Übermorgen Abend zum Tierarzt mit Snoopy.")
+    item = result["candidates"][0]
+    assert_true("T19:00" in item["deadline"], item)
+
+
+def test_workspace_context_is_compact():
+    context = {"projects": [{"name": f"Project {idx}", "workspace": "Private", "sections": [f"Section {idx}-{s}" for s in range(20)]} for idx in range(60)]}
+    formatted = _format_workspace_context(context)
+    assert_true(len(formatted) <= 4005, len(formatted))
+    assert_true("Project 0" in formatted and "Project 59" not in formatted, formatted[-200:])
+
+
 def test_remote_stt_response_parsing_and_multipart_payload():
     body, content_type = _build_multipart_form_data(
         {"response_format": "json", "language": "de"},
@@ -149,6 +179,10 @@ def main():
         test_filters_plain_list_noise_from_safety_net,
         test_removes_negated_items_added_by_llm_or_safety_net,
         test_maps_section_name_used_as_project_to_real_project_section,
+        test_replacement_with_statt_removes_old_item,
+        test_reminder_kind_copies_deadline_to_reminder,
+        test_evening_iso_2359_normalizes_to_1900,
+        test_workspace_context_is_compact,
         test_remote_stt_response_parsing_and_multipart_payload,
     ]
     for test in tests:

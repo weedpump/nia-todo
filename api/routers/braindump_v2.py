@@ -60,7 +60,7 @@ def _clean_title(value: str) -> str:
 
 
 def _clean_shopping_title(value: str) -> str:
-    value = re.sub(r"\b(kaufen|besorgen|einkaufen|holen|buy|need|needs|get|purchase|comprar|compro|necesito|acheter|achète)\b", "", value, flags=re.IGNORECASE)
+    value = re.sub(r"\b(kaufen|besorgen|einkaufen|holen|setz(?:e)?|setze|pack(?:e)?|auf(?:\s+die)?(?:\s+einkaufsliste)?|liste|buy|need|needs|get|purchase|comprar|compro|necesito|acheter|achète)\b", "", value, flags=re.IGNORECASE)
     value = re.sub(r"\b(nicht|not)\b", "", value, flags=re.IGNORECASE)
     value = re.sub(r"^(wir müssen|ich muss|muss|bitte|noch|also we|we|i|je|nous|yo)\s+", "", value.strip(), flags=re.IGNORECASE)
     value = re.sub(r"^(die|der|das|den|ein|eine|einen|the|el|la|los|las|le|les)\s+", "", value.strip(), flags=re.IGNORECASE)
@@ -162,12 +162,14 @@ def _parse_relative_temporal(value: str) -> str | None:
     return target.isoformat(timespec="minutes")
 
 
-def _normalize_temporal_field(value, *, require_time: bool = False) -> str | None:
+def _normalize_temporal_field(value, *, require_time: bool = False, transcript: str = "") -> str | None:
     if value in (None, ""):
         return None
     parsed = _parse_relative_temporal(str(value))
     if not parsed:
         return None
+    if re.search(r"abend|evening|soir|noche", transcript or "", re.IGNORECASE) and re.search(r"T23:59(?::00)?", parsed):
+        parsed = re.sub(r"T23:59(?::00)?", "T19:00", parsed)
     if require_time and "T" not in parsed:
         return None
     return parsed
@@ -177,6 +179,10 @@ def _negated_items(text: str) -> set[str]:
     result = set()
     for match in NEGATED_ITEM_RE.finditer(text):
         item = _clean_shopping_title(match.group(1) or match.group(2) or match.group(3) or "")
+        if item:
+            result.add(_item_key(item))
+    for match in re.finditer(r"\b(?:statt|anstatt|instead of)\s+([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß -]{1,40})", text, re.IGNORECASE):
+        item = _clean_shopping_title(match.group(1) or "")
         if item:
             result.add(_item_key(item))
     return result
@@ -213,7 +219,7 @@ def _split_shopping_phrase(value: str) -> list[str]:
         cleaned = _clean_shopping_title(part)
         if not (1 < len(cleaned) <= 80) or _is_filler_only(cleaned):
             continue
-        if re.search(r"\b(keine|kein|no|not|pas|sin|brauchen|muss|müssen|zahnarzt|morgen|abend|nachmittag|marm|mom|weg|lasst)\b", cleaned, re.IGNORECASE):
+        if re.search(r"\b(keine|kein|nein|no|not|pas|sin|brauchen|muss|müssen|zahnarzt|morgen|montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag|abend|nachmittag|rechnung|zahlen|bezahlen|marm|mom|weg|lasst|reicht|statt)\b", cleaned, re.IGNORECASE):
             continue
         result.append(cleaned)
     return result
@@ -370,9 +376,9 @@ def _normalize_braindump_json(parsed: dict, transcript: str, workspace_context: 
             key = _item_key(title)
             if not key or key in negated or _title_is_negated(title, transcript):
                 continue
-        deadline = _normalize_temporal_field(candidate.get("deadline"))
-        reminder = _normalize_temporal_field(candidate.get("reminder"), require_time=True)
-        if deadline and candidate.get("reminder") and not reminder:
+        deadline = _normalize_temporal_field(candidate.get("deadline"), transcript=transcript)
+        reminder = _normalize_temporal_field(candidate.get("reminder"), require_time=True, transcript=transcript)
+        if deadline and (candidate.get("reminder") or kind == "reminder") and not reminder:
             reminder = deadline
         normalized.append(_route_workspace_candidate(_route_shopping_candidate({
             "title": title,
@@ -555,7 +561,7 @@ def _load_braindump_workspace_context(db, user_id: int) -> dict:
         LEFT JOIN workspaces w ON w.id = p.workspace_id
         WHERE p.user_id = ?
         ORDER BY COALESCE(p.is_inbox, 0) DESC, p.sort_order, p.id
-        LIMIT 80
+        LIMIT 40
         """,
         (user_id,),
     ).fetchall()
@@ -569,7 +575,7 @@ def _load_braindump_workspace_context(db, user_id: int) -> dict:
             FROM sections
             WHERE project_id IN ({placeholders})
             ORDER BY sort_order, id
-            LIMIT 240
+            LIMIT 320
             """,
             project_ids,
         ).fetchall()
@@ -591,18 +597,18 @@ def _load_braindump_workspace_context(db, user_id: int) -> dict:
 def _format_workspace_context(context: dict | None) -> str:
     projects = (context or {}).get("projects") or []
     if not projects:
-        return "Workspace context: no projects or sections provided. Leave project_name and section_name null unless the transcript explicitly names them."
-    lines = ["Workspace context: choose project_name/section_name only from these exact existing names when clearly appropriate:"]
-    for project in projects:
-        label = project.get("name") or ""
-        workspace = project.get("workspace")
-        if workspace:
-            label = f"{label} (workspace: {workspace})"
-        sections = project.get("sections") or []
+        return "Workspace: none. Use project_name=null and section_name=null unless explicitly obvious."
+    lines = ["Workspace: use only these exact project/section names when clearly fitting:"]
+    for project in projects[:40]:
+        label = str(project.get("name") or "")[:80]
+        sections = [str(section)[:60] for section in (project.get("sections") or [])[:8]]
         if sections:
-            label += "; sections: " + ", ".join(str(section) for section in sections)
+            label += " | sections: " + ", ".join(sections)
         lines.append(f"- {label}")
-    return "\n".join(lines)
+    text = "\n".join(lines)
+    if len(text) > 4000:
+        return text[:3990].rstrip() + "\n- ..."
+    return text
 
 
 def _name_key(value: str | None) -> str:
