@@ -350,6 +350,33 @@ class TestSuite:
         self.results["instance_config_get"] = {"status": status, "passed": passed, "expected": "200 + admin config fields without public identity"}
         return passed
 
+    def test_braindump_config_get(self):
+        status, data = curl("GET", "/api/admin/braindump-config", token=self.admin_token, cookie_jar="/tmp/nia_admin_cookies.txt")
+        passed = ok(status) and data and data.get("enabled") is False and data.get("llm_model") == "" and data.get("llm_base_url") == "" and data.get("llm_provider") == "openai_compatible" and data.get("stt_provider") == "whisper_cpp_remote" and data.get("stt_url") == "" and "llm_api_key" not in data and "stt_token" not in data and "default_system_prompt" in data
+        self.results["braindump_config_get"] = {"status": status, "passed": passed, "expected": "200 + disabled BrainDump config without endpoint defaults or secrets"}
+        return passed
+
+    def test_braindump_config_update(self):
+        status, data = curl("PATCH", "/api/admin/braindump-config", {
+            "enabled": True,
+            "llm_provider": "openai_compatible",
+            "llm_base_url": "http://llm.local:18789/",
+            "llm_api_key_secret": "test-llm-key",
+            "llm_model": "openclaw/default",
+            "llm_extra_headers_json": "{\"x-openclaw-model\":\"gpt-mini\"}",
+            "llm_timeout_seconds": 42,
+            "system_prompt_mode": "append",
+            "system_prompt_custom": "Prefer short German todo titles.",
+            "stt_provider": "whisper_cpp_remote",
+            "stt_url": "http://whisper.local:8766/inference",
+            "stt_token_secret": "test-stt-token",
+            "stt_language": "de",
+            "stt_timeout_seconds": 42,
+        }, token=self.admin_token, csrf=self.admin_csrf, cookie_jar="/tmp/nia_admin_cookies.txt")
+        passed = ok(status) and data and data.get("enabled") is True and data.get("llm_base_url") == "http://llm.local:18789" and data.get("stt_url") == "http://whisper.local:8766/inference" and data.get("llm_api_key_configured") is True and data.get("stt_token_configured") is True and data.get("system_prompt_mode") == "append" and "test-llm-key" not in str(data)
+        self.results["braindump_config_update"] = {"status": status, "passed": passed, "expected": "200 + normalized generic BrainDump config, secrets hidden"}
+        return passed
+
     def test_password_reset_features_disabled_without_email(self):
         status, data = curl("GET", "/api/password-setup/features")
         passed = ok(status) and data and data.get("email_configured") is False and data.get("password_reset_available") is False
@@ -639,6 +666,20 @@ class TestSuite:
             self.created_ids["user"].append(data.get("id"))
         passed = ok(status) and data and data.get("password_setup_url") and data.get("password_setup_expires_hours") == 24
         self.results["admin_create_user"] = {"status": status, "passed": passed, "expected": "200 + password_setup_url + 24h expiry"}
+        return passed
+
+    def test_admin_toggle_braindump_user_access(self):
+        user_id = self.created_ids.get("user", [None])[-1]
+        if not user_id:
+            self.results["admin_toggle_braindump_user_access"] = {"status": -1, "passed": False, "expected": "created user id"}
+            return False
+        status, data = curl("PATCH", f"/api/admin/users/{user_id}", {
+            "braindump_enabled": True,
+        }, token=self.admin_token, csrf=self.admin_csrf, cookie_jar="/tmp/nia_admin_cookies.txt")
+        list_status, list_data = curl("GET", "/api/admin/users", token=self.admin_token, cookie_jar="/tmp/nia_admin_cookies.txt")
+        user = next((item for item in (list_data or {}).get("users", []) if item.get("id") == user_id), None)
+        passed = ok(status) and ok(list_status) and data and data.get("braindump_enabled") is True and user and bool(user.get("braindump_enabled")) is True
+        self.results["admin_toggle_braindump_user_access"] = {"status": status if not ok(status) else list_status, "passed": passed, "expected": "PATCH enables BrainDump and list exposes flag"}
         return passed
 
     def test_admin_create_shared_user(self):
@@ -1501,6 +1542,8 @@ class TestSuite:
             # Admin session needed to create sharing test user
             self.test_admin_login,
             self.test_instance_config_get,
+            self.test_braindump_config_get,
+            self.test_braindump_config_update,
             self.test_password_reset_features_disabled_without_email,
             self.test_password_reset_request_without_email_config_is_neutral,
             self.test_strict_cors_unknown_origin_rejected,
@@ -1602,6 +1645,7 @@ class TestSuite:
             self.test_admin_list_users,
             self.test_invalid_admin_email_rejected,
             self.test_admin_create_user,
+            self.test_admin_toggle_braindump_user_access,
             self.test_expired_password_setup_public_resend_blocked_without_smtp,
             self.test_admin_password_link_unverified_email_uses_manual_delivery,
             self.test_admin_change_user_password,
