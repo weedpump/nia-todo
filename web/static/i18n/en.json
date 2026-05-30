@@ -569,6 +569,7 @@
   "admin.login.invalidPassword": "Wrong admin password",
   "admin.login.failed": "Sign-in failed",
   "admin.status.loggedIn": "Signed in as admin",
+  "admin.section.enable": "Enable",
   "admin.instance.title": "Instance configuration",
   "admin.instance.publicUrl": "Public base URL",
   "admin.instance.help": "Base URL is used for external links. Origins and trusted proxies are line-based. Forwarded headers are only accepted from trusted proxies.",
