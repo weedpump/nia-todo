@@ -13,6 +13,7 @@ from routers.braindump_v2 import (  # noqa: E402
     _build_multipart_form_data,
     _extract_transcript_from_stt_response,
     _normalize_braindump_json,
+    _parse_llm_json_content,
 )
 
 
@@ -98,6 +99,11 @@ def test_safety_net_keeps_non_negated_shopping_and_routes_sections():
     assert_true(by_title["Bananen"]["section_name"] == "Obst und Gemüse", result)
 
 
+def test_parses_markdown_fenced_llm_json():
+    parsed = _parse_llm_json_content('```json\n{"candidates":[{"title":"Chips","kind":"shopping"}]}\n```')
+    assert_true(parsed["candidates"][0]["title"] == "Chips", parsed)
+
+
 def test_remote_stt_response_parsing_and_multipart_payload():
     body, content_type = _build_multipart_form_data(
         {"response_format": "json", "language": "de"},
@@ -118,6 +124,7 @@ def main():
         test_filters_negated_and_filler_candidates_from_llm_output,
         test_dedupes_stt_truncated_item_variant,
         test_safety_net_keeps_non_negated_shopping_and_routes_sections,
+        test_parses_markdown_fenced_llm_json,
         test_remote_stt_response_parsing_and_multipart_payload,
     ]
     for test in tests:
