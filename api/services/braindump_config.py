@@ -11,23 +11,98 @@ from fastapi import HTTPException
 from db import get_db
 from services.instance_config import _normalize_http_url
 
+DEFAULT_BRAINDUMP_SYSTEM_PROMPT = """You are the BrainDump extractor for nia-todo.
+Your job is to turn a messy spoken thought stream into useful action items and route them into the user's existing todo structure.
+This is not dictation. It is interpretation and lightweight planning.
+
+Return ONLY compact valid JSON in exactly this form:
+{"candidates":[{"title":"...","project_name":null,"section_name":null,"deadline":null,"reminder":null,"kind":"todo"}]}
+
+Core behavior:
+- Detect the user's intent, not the surface words.
+- Convert spoken thoughts into concrete, useful todos.
+- Split unrelated items into separate candidates.
+- Merge trivial wording variants into one sensible task.
+- Keep the natural language of the user/transcript.
+- Do not force German or English.
+- If the transcript is ambiguous, prefer the safest useful interpretation.
+- If the user corrects themselves, the latest correction wins.
+- If the user negates or removes an item, exclude it.
+- Ignore filler, self-talk, meta talk, thanks, and system discussion.
+- Use the provided workspace context. It contains the user's current projects and sections.
+- Do not assume built-in project names. There is no universal "shopping list".
+- If an existing project or section clearly fits, set project_name and/or section_name to the exact existing name.
+- If no existing project/section clearly fits, leave it null. Do not invent names.
+- Prefer context-aware routing over generic categories. Example: if project "Stamps" exists and the user talks about stamp albums, route there.
+- If sections like "Fruit", "Vegetables", "Dairy" exist, route individual matching items to the right section.
+
+Task types:
+- todo: normal actionable task.
+- shopping: anything that is about buying/obtaining items. This is an internal semantic signal, not a project name.
+- reminder: explicit reminder or timed follow-up.
+- appointment: calendar-like event/action.
+- note: useful captured note that is not yet actionable.
+
+Shopping rules:
+- Detect shopping intent even if the user says it indirectly.
+- Output shopping items individually.
+- Do not copy the whole spoken sentence as a shopping task.
+- Set kind="shopping" for shopping items.
+- If workspace context contains a clearly matching project/section for shopping items, use it.
+- If no matching project/section exists, leave project_name and section_name null.
+
+Time rules:
+- Detect relative and absolute times, including phrases like tomorrow, tonight, this evening, morgen, übermorgen Abend, demain, mañana, etc.
+- deadline and reminder must be ISO-8601 datetime strings when possible, e.g. "2026-05-29T19:00:00+02:00".
+- reminder is a date/time field: never output raw natural-language phrases like "übermorgen Abend" as reminder. Use ISO datetime or null.
+- If a specific or inferable time is mentioned, include it in deadline and/or reminder.
+- For appointments, create a concrete task like "Go to the dentist" / "Zum Zahnarzt gehen".
+
+Quality rules:
+- Prefer useful and concise titles.
+- Do not transcribe the audio.
+- Do not invent extra items.
+- Do not over-summarize a list into one mega task.
+- Do not lose items just because the sentence is messy.
+- Do not output anything outside JSON.
+
+Examples without workspace context:
+Transcript: "I need potatoes, strawberries, chips, actually no chips, but coconut milk."
+JSON: {"candidates":[{"title":"potatoes","project_name":null,"section_name":null,"deadline":null,"reminder":null,"kind":"shopping"},{"title":"strawberries","project_name":null,"section_name":null,"deadline":null,"reminder":null,"kind":"shopping"},{"title":"coconut milk","project_name":null,"section_name":null,"deadline":null,"reminder":null,"kind":"shopping"}]}
+Transcript: "Ich muss duschen. Erinnere mich morgen daran, dass ich um 15 Uhr zum Zahnarzt muss. Ach ja, wir müssen noch Honig kaufen."
+JSON: {"candidates":[{"title":"Duschen","project_name":null,"section_name":null,"deadline":null,"reminder":null,"kind":"todo"},{"title":"Zum Zahnarzt gehen","project_name":null,"section_name":null,"deadline":"morgen 15:00","reminder":"morgen 15:00","kind":"todo"},{"title":"Honig","project_name":null,"section_name":null,"deadline":null,"reminder":null,"kind":"shopping"}]}
+"""
+
 BRAINDUMP_CONFIG_KEYS = (
-    "braindump_openclaw_url",
-    "braindump_openclaw_token",
-    "braindump_openclaw_model",
-    "braindump_openclaw_backend_model",
+    "braindump_llm_provider",
+    "braindump_llm_base_url",
+    "braindump_llm_api_key",
+    "braindump_llm_model",
+    "braindump_llm_extra_headers_json",
+    "braindump_llm_timeout_seconds",
+    "braindump_system_prompt_mode",
+    "braindump_system_prompt_custom",
     "braindump_stt_provider",
     "braindump_stt_url",
     "braindump_stt_token",
     "braindump_stt_language",
     "braindump_stt_timeout_seconds",
+    # Legacy OpenClaw-specific keys, read for migration/backward compatibility.
+    "braindump_openclaw_url",
+    "braindump_openclaw_token",
+    "braindump_openclaw_model",
+    "braindump_openclaw_backend_model",
 )
 
 DEFAULT_BRAINDUMP_CONFIG = {
-    "openclaw_url": "http://127.0.0.1:18789",
-    "openclaw_token": "",
-    "openclaw_model": "openclaw/default",
-    "openclaw_backend_model": "",
+    "llm_provider": "openai_compatible",
+    "llm_base_url": "http://127.0.0.1:18789",
+    "llm_api_key": "",
+    "llm_model": "openclaw/default",
+    "llm_extra_headers_json": "",
+    "llm_timeout_seconds": 180.0,
+    "system_prompt_mode": "default",
+    "system_prompt_custom": "",
     "stt_provider": "whisper_cpp_remote",
     "stt_url": "http://127.0.0.1:8766/inference",
     "stt_token": "",
@@ -36,10 +111,14 @@ DEFAULT_BRAINDUMP_CONFIG = {
 }
 
 KEY_TO_FIELD = {
-    "braindump_openclaw_url": "openclaw_url",
-    "braindump_openclaw_token": "openclaw_token",
-    "braindump_openclaw_model": "openclaw_model",
-    "braindump_openclaw_backend_model": "openclaw_backend_model",
+    "braindump_llm_provider": "llm_provider",
+    "braindump_llm_base_url": "llm_base_url",
+    "braindump_llm_api_key": "llm_api_key",
+    "braindump_llm_model": "llm_model",
+    "braindump_llm_extra_headers_json": "llm_extra_headers_json",
+    "braindump_llm_timeout_seconds": "llm_timeout_seconds",
+    "braindump_system_prompt_mode": "system_prompt_mode",
+    "braindump_system_prompt_custom": "system_prompt_custom",
     "braindump_stt_provider": "stt_provider",
     "braindump_stt_url": "stt_url",
     "braindump_stt_token": "stt_token",
@@ -47,8 +126,16 @@ KEY_TO_FIELD = {
     "braindump_stt_timeout_seconds": "stt_timeout_seconds",
 }
 
+LEGACY_KEY_TO_FIELD = {
+    "braindump_openclaw_url": "llm_base_url",
+    "braindump_openclaw_token": "llm_api_key",
+    "braindump_openclaw_model": "llm_model",
+}
+
 FIELD_TO_KEY = {field: key for key, field in KEY_TO_FIELD.items()}
 SUPPORTED_STT_PROVIDERS = {"whisper_cpp_remote", "local_whisper_cpp"}
+SUPPORTED_LLM_PROVIDERS = {"openai_compatible"}
+SUPPORTED_SYSTEM_PROMPT_MODES = {"default", "append", "replace"}
 
 
 def _append_path(base_url: str, suffix: str) -> str:
@@ -57,30 +144,77 @@ def _append_path(base_url: str, suffix: str) -> str:
     return urlunparse((parsed.scheme, parsed.netloc, path, "", "", ""))
 
 
-def openclaw_chat_url(config: dict[str, Any]) -> str:
-    return _append_path(str(config.get("openclaw_url") or DEFAULT_BRAINDUMP_CONFIG["openclaw_url"]), "/v1/chat/completions")
+def llm_chat_url(config: dict[str, Any]) -> str:
+    return _append_path(str(config.get("llm_base_url") or DEFAULT_BRAINDUMP_CONFIG["llm_base_url"]), "/v1/chat/completions")
 
 
-def openclaw_models_url(config: dict[str, Any]) -> str:
-    return _append_path(str(config.get("openclaw_url") or DEFAULT_BRAINDUMP_CONFIG["openclaw_url"]), "/v1/models")
+def llm_models_url(config: dict[str, Any]) -> str:
+    return _append_path(str(config.get("llm_base_url") or DEFAULT_BRAINDUMP_CONFIG["llm_base_url"]), "/v1/models")
 
 
-def _normalize_model_target(value: str) -> str:
+# Backward-compatible aliases for older imports/tests.
+openclaw_chat_url = llm_chat_url
+openclaw_models_url = llm_models_url
+
+
+def build_effective_system_prompt(config: dict[str, Any] | None = None) -> str:
+    config = config or {}
+    mode = str(config.get("system_prompt_mode") or "default").strip().lower()
+    custom = str(config.get("system_prompt_custom") or "").strip()
+    if mode == "replace" and custom:
+        return custom
+    if mode == "append" and custom:
+        return f"{DEFAULT_BRAINDUMP_SYSTEM_PROMPT.rstrip()}\n\nAdditional admin instructions:\n{custom}"
+    return DEFAULT_BRAINDUMP_SYSTEM_PROMPT
+
+
+def parse_extra_headers(value: str | None) -> dict[str, str]:
+    raw = str(value or "").strip()
+    if not raw:
+        return {}
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(400, f"LLM extra headers must be valid JSON: {exc.msg}") from exc
+    if not isinstance(parsed, dict):
+        raise HTTPException(400, "LLM extra headers must be a JSON object")
+    headers: dict[str, str] = {}
+    forbidden = {"authorization", "content-type"}
+    for key, item in parsed.items():
+        header = str(key).strip()
+        if not header or header.lower() in forbidden or any(ch in header for ch in "\r\n:"):
+            raise HTTPException(400, f"LLM extra header is not allowed: {header}")
+        value_str = str(item).strip()
+        if any(ch in value_str for ch in "\r\n"):
+            raise HTTPException(400, f"LLM extra header contains invalid characters: {header}")
+        headers[header] = value_str
+    return headers
+
+
+def _normalize_llm_provider(value: str) -> str:
+    provider = str(value or DEFAULT_BRAINDUMP_CONFIG["llm_provider"]).strip().lower()
+    if provider not in SUPPORTED_LLM_PROVIDERS:
+        raise HTTPException(400, f"Unsupported BrainDump LLM provider: {provider}")
+    return provider
+
+
+def _normalize_model(value: str) -> str:
     model = str(value or "").strip()
     if not model:
-        return DEFAULT_BRAINDUMP_CONFIG["openclaw_model"]
-    if any(ch.isspace() for ch in model) or len(model) > 120:
-        raise HTTPException(400, "OpenClaw model target is invalid")
+        return DEFAULT_BRAINDUMP_CONFIG["llm_model"]
+    if any(ch.isspace() for ch in model) or len(model) > 160:
+        raise HTTPException(400, "LLM model is invalid")
     return model
 
 
-def _normalize_optional_model(value: str) -> str:
-    model = str(value or "").strip()
-    if not model:
+def _normalize_extra_headers_json(value: str | None) -> str:
+    raw = str(value or "").strip()
+    if not raw:
         return ""
-    if any(ch.isspace() for ch in model) or len(model) > 120:
-        raise HTTPException(400, "OpenClaw backend model is invalid")
-    return model
+    if len(raw) > 4096:
+        raise HTTPException(400, "LLM extra headers are too long")
+    headers = parse_extra_headers(raw)
+    return json.dumps(headers, ensure_ascii=False, separators=(",", ":"))
 
 
 def _normalize_token(value: Optional[str]) -> str:
@@ -88,6 +222,20 @@ def _normalize_token(value: Optional[str]) -> str:
     if len(token) > 4096:
         raise HTTPException(400, "Token is too long")
     return token
+
+
+def _normalize_prompt_mode(value: str) -> str:
+    mode = str(value or "default").strip().lower()
+    if mode not in SUPPORTED_SYSTEM_PROMPT_MODES:
+        raise HTTPException(400, "System prompt mode must be default, append, or replace")
+    return mode
+
+
+def _normalize_custom_prompt(value: str | None) -> str:
+    prompt = str(value or "").strip()
+    if len(prompt) > 20000:
+        raise HTTPException(400, "System prompt is too long")
+    return prompt
 
 
 def _normalize_stt_provider(value: str) -> str:
@@ -104,31 +252,35 @@ def _normalize_language(value: str) -> str:
     return language
 
 
-def _normalize_timeout(value: Any) -> float:
+def _normalize_timeout(value: Any, *, label: str) -> float:
     try:
         timeout = float(value)
     except (TypeError, ValueError):
-        raise HTTPException(400, "STT timeout must be a number")
+        raise HTTPException(400, f"{label} timeout must be a number")
     if timeout < 1 or timeout > 300:
-        raise HTTPException(400, "STT timeout must be between 1 and 300 seconds")
+        raise HTTPException(400, f"{label} timeout must be between 1 and 300 seconds")
     return timeout
 
 
 def normalize_braindump_config(data: dict[str, Any], *, existing: dict[str, Any] | None = None) -> dict[str, Any]:
     current = {**DEFAULT_BRAINDUMP_CONFIG, **(existing or {})}
     normalized = {
-        "openclaw_url": _normalize_http_url(data.get("openclaw_url", current["openclaw_url"]), field="OpenClaw URL"),
-        "openclaw_token": current.get("openclaw_token") or "",
-        "openclaw_model": _normalize_model_target(data.get("openclaw_model", current["openclaw_model"])),
-        "openclaw_backend_model": _normalize_optional_model(data.get("openclaw_backend_model", current["openclaw_backend_model"])),
+        "llm_provider": _normalize_llm_provider(data.get("llm_provider", current["llm_provider"])),
+        "llm_base_url": _normalize_http_url(data.get("llm_base_url", current["llm_base_url"]), field="LLM base URL"),
+        "llm_api_key": current.get("llm_api_key") or "",
+        "llm_model": _normalize_model(data.get("llm_model", current["llm_model"])),
+        "llm_extra_headers_json": _normalize_extra_headers_json(data.get("llm_extra_headers_json", current["llm_extra_headers_json"])),
+        "llm_timeout_seconds": _normalize_timeout(data.get("llm_timeout_seconds", current["llm_timeout_seconds"]), label="LLM"),
+        "system_prompt_mode": _normalize_prompt_mode(data.get("system_prompt_mode", current["system_prompt_mode"])),
+        "system_prompt_custom": _normalize_custom_prompt(data.get("system_prompt_custom", current["system_prompt_custom"])),
         "stt_provider": _normalize_stt_provider(data.get("stt_provider", current["stt_provider"])),
         "stt_url": _normalize_http_url(data.get("stt_url", current["stt_url"]), field="STT URL"),
         "stt_token": current.get("stt_token") or "",
         "stt_language": _normalize_language(data.get("stt_language", current["stt_language"])),
-        "stt_timeout_seconds": _normalize_timeout(data.get("stt_timeout_seconds", current["stt_timeout_seconds"])),
+        "stt_timeout_seconds": _normalize_timeout(data.get("stt_timeout_seconds", current["stt_timeout_seconds"]), label="STT"),
     }
-    if "openclaw_token_secret" in data and data.get("openclaw_token_secret") is not None:
-        normalized["openclaw_token"] = _normalize_token(data.get("openclaw_token_secret"))
+    if "llm_api_key_secret" in data and data.get("llm_api_key_secret") is not None:
+        normalized["llm_api_key"] = _normalize_token(data.get("llm_api_key_secret"))
     if "stt_token_secret" in data and data.get("stt_token_secret") is not None:
         normalized["stt_token"] = _normalize_token(data.get("stt_token_secret"))
     return normalized
@@ -137,44 +289,66 @@ def normalize_braindump_config(data: dict[str, Any], *, existing: dict[str, Any]
 def _parse_value(field: str, value: str | None) -> Any:
     if value is None:
         return DEFAULT_BRAINDUMP_CONFIG[field]
-    if field == "stt_timeout_seconds":
-        return _normalize_timeout(value)
-    if field in {"openclaw_url", "stt_url"}:
-        return _normalize_http_url(value, field="OpenClaw URL" if field == "openclaw_url" else "STT URL")
+    if field in {"stt_timeout_seconds", "llm_timeout_seconds"}:
+        return _normalize_timeout(value, label="STT" if field.startswith("stt") else "LLM")
+    if field in {"llm_base_url", "stt_url"}:
+        return _normalize_http_url(value, field="LLM base URL" if field == "llm_base_url" else "STT URL")
+    if field == "llm_provider":
+        return _normalize_llm_provider(value)
+    if field == "llm_model":
+        return _normalize_model(value)
+    if field == "llm_extra_headers_json":
+        return _normalize_extra_headers_json(value)
+    if field == "system_prompt_mode":
+        return _normalize_prompt_mode(value)
+    if field == "system_prompt_custom":
+        return _normalize_custom_prompt(value)
     if field == "stt_provider":
         return _normalize_stt_provider(value)
     if field == "stt_language":
         return _normalize_language(value)
-    if field == "openclaw_model":
-        return _normalize_model_target(value)
-    if field == "openclaw_backend_model":
-        return _normalize_optional_model(value)
-    if field in {"openclaw_token", "stt_token"}:
+    if field in {"llm_api_key", "stt_token"}:
         return _normalize_token(value)
     return value
 
 
 def get_braindump_config(*, include_secrets: bool = False) -> dict[str, Any]:
     values = dict(DEFAULT_BRAINDUMP_CONFIG)
+    rows = []
     try:
         with get_db() as db:
             placeholders = ",".join("?" for _ in BRAINDUMP_CONFIG_KEYS)
             rows = db.execute(f"SELECT key, value FROM app_config WHERE key IN ({placeholders})", BRAINDUMP_CONFIG_KEYS).fetchall()
     except Exception:
         rows = []
+    present_new_fields = set()
+    legacy_backend_model = ""
     for row in rows:
-        field = KEY_TO_FIELD.get(row["key"])
-        if not field:
+        key = row["key"]
+        field = KEY_TO_FIELD.get(key)
+        if field:
+            present_new_fields.add(field)
+            try:
+                values[field] = _parse_value(field, row["value"])
+            except HTTPException:
+                values[field] = DEFAULT_BRAINDUMP_CONFIG[field]
             continue
-        try:
-            values[field] = _parse_value(field, row["value"])
-        except HTTPException:
-            values[field] = DEFAULT_BRAINDUMP_CONFIG[field]
+        legacy_field = LEGACY_KEY_TO_FIELD.get(key)
+        if legacy_field and legacy_field not in present_new_fields:
+            try:
+                values[legacy_field] = _parse_value(legacy_field, row["value"])
+            except HTTPException:
+                values[legacy_field] = DEFAULT_BRAINDUMP_CONFIG[legacy_field]
+        elif key == "braindump_openclaw_backend_model":
+            legacy_backend_model = str(row["value"] or "").strip()
+    if legacy_backend_model and not values.get("llm_extra_headers_json"):
+        values["llm_extra_headers_json"] = _normalize_extra_headers_json(json.dumps({"x-openclaw-model": legacy_backend_model}))
     if include_secrets:
         return values
-    public = {key: value for key, value in values.items() if key not in {"openclaw_token", "stt_token"}}
-    public["openclaw_token_configured"] = bool(values.get("openclaw_token"))
+    public = {key: value for key, value in values.items() if key not in {"llm_api_key", "stt_token"}}
+    public["llm_api_key_configured"] = bool(values.get("llm_api_key"))
     public["stt_token_configured"] = bool(values.get("stt_token"))
+    public["default_system_prompt"] = DEFAULT_BRAINDUMP_SYSTEM_PROMPT
     return public
 
 
@@ -184,9 +358,9 @@ def update_braindump_config(data: dict[str, Any], *, client_ip: Optional[str] = 
     serialized = {FIELD_TO_KEY[key]: str(value) for key, value in normalized.items()}
     old_serialized = {FIELD_TO_KEY[key]: str(value) for key, value in existing.items()}
     changed = [key for key, value in serialized.items() if old_serialized.get(key) != value]
-    public_changed = [key for key in changed if key not in {"braindump_openclaw_token", "braindump_stt_token"}]
-    if "braindump_openclaw_token" in changed:
-        public_changed.append("braindump_openclaw_token")
+    public_changed = [key for key in changed if key not in {"braindump_llm_api_key", "braindump_stt_token"}]
+    if "braindump_llm_api_key" in changed:
+        public_changed.append("braindump_llm_api_key")
     if "braindump_stt_token" in changed:
         public_changed.append("braindump_stt_token")
     with get_db() as db:

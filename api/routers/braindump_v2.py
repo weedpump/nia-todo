@@ -25,7 +25,9 @@ from routers.todos import (
     fetch_todo,
     get_user_inbox_project_id,
 )
-from services.braindump_config import get_braindump_config, openclaw_chat_url
+from urllib.parse import urlparse
+
+from services.braindump_config import build_effective_system_prompt, get_braindump_config, llm_chat_url, parse_extra_headers
 from services.braindump_v2 import (
     append_text_segment,
     create_session,
@@ -44,70 +46,6 @@ WHISPER_MODELS = {
     "small": Path("/opt/whisper.cpp/models/ggml-small.bin"),
 }
 SHOPPING_PROJECT_NAME = None  # kind=shopping is resolved to the user's configured shopping list later.
-
-BRAINDUMP_EXTRACTOR_PROMPT = """You are the BrainDump extractor for nia-todo.
-Your job is to turn a messy spoken thought stream into useful action items and route them into the user's existing todo structure.
-This is not dictation. It is interpretation and lightweight planning.
-
-Return ONLY compact valid JSON in exactly this form:
-{"candidates":[{"title":"...","project_name":null,"section_name":null,"deadline":null,"reminder":null,"kind":"todo"}]}
-
-Core behavior:
-- Detect the user's intent, not the surface words.
-- Convert spoken thoughts into concrete, useful todos.
-- Split unrelated items into separate candidates.
-- Merge trivial wording variants into one sensible task.
-- Keep the natural language of the user/transcript.
-- Do not force German or English.
-- If the transcript is ambiguous, prefer the safest useful interpretation.
-- If the user corrects themselves, the latest correction wins.
-- If the user negates or removes an item, exclude it.
-- Ignore filler, self-talk, meta talk, thanks, and system discussion.
-- Use the provided workspace context. It contains the user's current projects and sections.
-- Do not assume built-in project names. There is no universal "shopping list".
-- If an existing project or section clearly fits, set project_name and/or section_name to the exact existing name.
-- If no existing project/section clearly fits, leave it null. Do not invent names.
-- Prefer context-aware routing over generic categories. Example: if project "Stamps" exists and the user talks about stamp albums, route there.
-- If sections like "Fruit", "Vegetables", "Dairy" exist, route individual matching items to the right section.
-
-Task types:
-- todo: normal actionable task.
-- shopping: anything that is about buying/obtaining items. This is an internal semantic signal, not a project name.
-- reminder: explicit reminder or timed follow-up.
-- appointment: calendar-like event/action.
-- note: useful captured note that is not yet actionable.
-
-Shopping rules:
-- Detect shopping intent even if the user says it indirectly.
-- Output shopping items individually.
-- Do not copy the whole spoken sentence as a shopping task.
-- Set kind="shopping" for shopping items.
-- If workspace context contains a clearly matching project/section for shopping items, use it.
-- If no matching project/section exists, leave project_name and section_name null.
-
-Time rules:
-- Detect relative and absolute times, including phrases like tomorrow, tonight, this evening, morgen, übermorgen Abend, demain, mañana, etc.
-- deadline and reminder must be ISO-8601 datetime strings when possible, e.g. "2026-05-29T19:00:00+02:00".
-- reminder is a date/time field: never output raw natural-language phrases like "übermorgen Abend" as reminder. Use ISO datetime or null.
-- If a specific or inferable time is mentioned, include it in deadline and/or reminder.
-- For appointments, create a concrete task like "Go to the dentist" / "Zum Zahnarzt gehen".
-
-Quality rules:
-- Prefer useful and concise titles.
-- Do not transcribe the audio.
-- Do not invent extra items.
-- Do not over-summarize a list into one mega task.
-- Do not lose items just because the sentence is messy.
-- Do not output anything outside JSON.
-
-Examples without workspace context:
-Transcript: "I need potatoes, strawberries, chips, actually no chips, but coconut milk."
-JSON: {"candidates":[{"title":"potatoes","project_name":null,"section_name":null,"deadline":null,"reminder":null,"kind":"shopping"},{"title":"strawberries","project_name":null,"section_name":null,"deadline":null,"reminder":null,"kind":"shopping"},{"title":"coconut milk","project_name":null,"section_name":null,"deadline":null,"reminder":null,"kind":"shopping"}]}
-Transcript: "Ich muss duschen. Erinnere mich morgen daran, dass ich um 15 Uhr zum Zahnarzt muss. Ach ja, wir müssen noch Honig kaufen."
-JSON: {"candidates":[{"title":"Duschen","project_name":null,"section_name":null,"deadline":null,"reminder":null,"kind":"todo"},{"title":"Zum Zahnarzt gehen","project_name":null,"section_name":null,"deadline":"morgen 15:00","reminder":"morgen 15:00","kind":"todo"},{"title":"Honig","project_name":null,"section_name":null,"deadline":null,"reminder":null,"kind":"shopping"}]}
-"""
-
-
 
 LIST_VERB_RE = re.compile(r"\b(muss|soll|erinnere|erinnern|vorbereiten|aufräumen|entsorgen|bestellen|machen|erledigen|kaufen|besorgen|einkaufen)\b", re.IGNORECASE)
 SHOPPING_INTENT_RE = re.compile(r"\b(kaufen|besorgen|einkaufen|einkaufsliste|shopping list|brauche|brauchen|bräuchte|bräuchten|benötige|benötigen|holen|buy|need|needs|get|purchase|comprar|compro|necesito|acheter|achète|acheterai|courses)\b", re.IGNORECASE)
@@ -421,7 +359,7 @@ def _run(cmd: list[str]) -> tuple[float, subprocess.CompletedProcess[str]]:
     return elapsed_ms, proc
 
 
-def _load_openclaw_token() -> str | None:
+def _load_local_openclaw_token() -> str | None:
     path = Path.home() / ".openclaw" / "openclaw.json"
     if not path.exists():
         return None
@@ -668,17 +606,26 @@ def _create_todos_from_braindump_candidates(db, user_id: int, candidates: list[B
     return created
 
 
-def _extract_with_openclaw(text: str, segment_id: int, workspace_context: dict | None = None, config: dict | None = None) -> tuple[float, dict, dict | None, str]:
+def _is_local_openclaw_base_url(base_url: str) -> bool:
+    parsed = urlparse(str(base_url or ""))
+    return parsed.hostname in {"127.0.0.1", "localhost"} and parsed.port == 18789
+
+
+def _extract_with_llm(text: str, segment_id: int, workspace_context: dict | None = None, config: dict | None = None) -> tuple[float, dict, dict | None, str]:
     config = config or get_braindump_config(include_secrets=True)
-    token = str(config.get("openclaw_token") or "").strip() or _load_openclaw_token()
+    base_url = str(config.get("llm_base_url") or "").strip()
+    token = str(config.get("llm_api_key") or "").strip()
+    if not token and _is_local_openclaw_base_url(base_url):
+        token = _load_local_openclaw_token() or ""
     if not token:
-        raise RuntimeError("OpenClaw gateway token not configured")
+        raise RuntimeError("BrainDump LLM API key is not configured")
+    system_prompt = build_effective_system_prompt(config)
     current_datetime = datetime.now().astimezone().isoformat(timespec="minutes")
-    user_content = f"Instructions:\n{BRAINDUMP_EXTRACTOR_PROMPT}\n\nCurrent datetime: {current_datetime}\n\n{_format_workspace_context(workspace_context)}\n\nTranscript:\n{text}"
+    user_content = f"Instructions:\n{system_prompt}\n\nCurrent datetime: {current_datetime}\n\n{_format_workspace_context(workspace_context)}\n\nTranscript:\n{text}"
     payload = {
-        "model": str(config.get("openclaw_model") or "openclaw/default"),
+        "model": str(config.get("llm_model") or "openclaw/default"),
         "messages": [
-            {"role": "system", "content": BRAINDUMP_EXTRACTOR_PROMPT},
+            {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_content},
         ],
         "temperature": 0,
@@ -688,17 +635,15 @@ def _extract_with_openclaw(text: str, segment_id: int, workspace_context: dict |
     }
     body = json.dumps(payload).encode("utf-8")
     headers = {"Content-Type": "application/json", "Authorization": f"Bearer {token}"}
-    backend_model = str(config.get("openclaw_backend_model") or "").strip()
-    if backend_model:
-        headers["x-openclaw-model"] = backend_model
+    headers.update(parse_extra_headers(str(config.get("llm_extra_headers_json") or "")))
     req = urllib.request.Request(
-        openclaw_chat_url(config),
+        llm_chat_url(config),
         data=body,
         headers=headers,
         method="POST",
     )
     started = time.perf_counter()
-    with urllib.request.urlopen(req, timeout=180) as response:
+    with urllib.request.urlopen(req, timeout=float(config.get("llm_timeout_seconds") or 180)) as response:
         result = json.loads(response.read().decode("utf-8"))
     elapsed_ms = (time.perf_counter() - started) * 1000
     content = result["choices"][0]["message"]["content"]
@@ -759,7 +704,7 @@ async def process_live_audio_segment(
         def process_bytes():
             if stt_provider == "whisper_cpp_remote":
                 stt_ms, transcript = _transcribe_remote_whisper(audio_bytes, f"segment-{segment_id}{suffix}", content_type or "application/octet-stream", braindump_config)
-                llm_ms, parsed, usage, raw_json = _extract_with_openclaw(transcript, segment_id, workspace_context, braindump_config)
+                llm_ms, parsed, usage, raw_json = _extract_with_llm(transcript, segment_id, workspace_context, braindump_config)
                 return 0.0, stt_ms, transcript, llm_ms, parsed, usage, raw_json
             with tempfile.TemporaryDirectory(prefix="nia-braindump-live-") as tmp:
                 tmpdir = Path(tmp)
@@ -768,7 +713,7 @@ async def process_live_audio_segment(
                 raw_path.write_bytes(audio_bytes)
                 convert_ms = _convert_audio_to_wav(raw_path, wav_path)
                 stt_ms, transcript = _transcribe_wav(wav_path, model)
-                llm_ms, parsed, usage, raw_json = _extract_with_openclaw(transcript, segment_id, workspace_context, braindump_config)
+                llm_ms, parsed, usage, raw_json = _extract_with_llm(transcript, segment_id, workspace_context, braindump_config)
                 return convert_ms, stt_ms, transcript, llm_ms, parsed, usage, raw_json
 
         convert_ms, stt_ms, transcript, llm_ms, parsed, usage, raw_json = await asyncio.to_thread(process_bytes)
