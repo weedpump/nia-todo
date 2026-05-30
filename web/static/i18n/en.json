@@ -903,5 +903,7 @@
   "braindump.record.finish": "Finish & process",
   "braindump.processing.transcribing": "1/2 Transcribing audio…",
   "braindump.processing.extracting": "2/2 Finding todo suggestions…",
-  "admin.overview.policySummary": "Policy"
+  "admin.overview.policySummary": "Policy",
+  "admin.password.shortChange": "Change password",
+  "admin.user.enableBrainDump": "Enable BrainDump AI"
 }

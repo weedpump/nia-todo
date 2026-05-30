@@ -37,6 +37,7 @@ class CreateUserRequest(BaseModel):
     display_name: str
     email: str
     language: str = "de"
+    braindump_enabled: bool = False
 
 class UpdateUserRequest(BaseModel):
     email: Optional[str] = None
@@ -381,8 +382,8 @@ def create_user(data: CreateUserRequest, request: Request, _: bool = Depends(req
                 raise HTTPException(409, "Email already exists")
         unusable_password_hash = bcrypt.hashpw(secrets.token_urlsafe(32).encode(), bcrypt.gensalt()).decode()
         c = db.execute(
-            "INSERT INTO users (username, display_name, email, password_hash, is_admin, language) VALUES (?, ?, ?, ?, 0, ?)",
-            (data.username, data.display_name, data.email, unusable_password_hash, data.language)
+            "INSERT INTO users (username, display_name, email, password_hash, is_admin, language, braindump_enabled) VALUES (?, ?, ?, ?, 0, ?, ?)",
+            (data.username, data.display_name, data.email, unusable_password_hash, data.language, 1 if data.braindump_enabled else 0)
         )
         user_id = c.lastrowid
 
@@ -432,6 +433,7 @@ def create_user(data: CreateUserRequest, request: Request, _: bool = Depends(req
             "display_name": data.display_name,
             "email": data.email,
             "language": data.language,
+            "braindump_enabled": bool(data.braindump_enabled),
             "created_at": now_iso(),
             "password_setup_expires_hours": _password_link_ttl_hours(),
             "password_setup_delivery": "email" if emailed else "manual",

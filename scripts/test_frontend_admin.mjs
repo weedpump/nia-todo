@@ -113,7 +113,7 @@ async function run() {
     await expandSection('#user-list-card');
     await page.locator('#user-list').getByRole('row', { name: /admincreated/ }).getByText('Aktiv', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
 
-    await page.getByRole('button', { name: 'Admin-Passwort ändern' }).click();
+    await page.getByRole('button', { name: 'Passwort ändern' }).click();
     await page.locator('#admin-password-dialog').waitFor({ state: 'visible', timeout: 10000 });
     await page.fill('#admin-old-password', ADMIN_PASSWORD);
     await page.fill('#admin-new-password', 'NewFrontendAdmin123!');
