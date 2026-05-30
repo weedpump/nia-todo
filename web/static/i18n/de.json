@@ -877,7 +877,7 @@
   "braindump.selectNone": "Alle abwählen",
   "braindump.retry": "Nochmal sprechen",
   "braindump.record.start": "Aufnahme starten",
-  "braindump.record.stop": "Stoppen",
+  "braindump.record.stop": "Fertig & verarbeiten",
   "braindump.create": "Ausgewählte übernehmen",
   "braindump.create.count": "Ausgewählte übernehmen ({count})",
   "braindump.create.busy": "Übernehme…",
@@ -899,5 +899,8 @@
   "admin.user.brainDumpEnable": "Freischalten",
   "admin.user.brainDumpDisable": "Sperren",
   "admin.user.brainDumpEnabledSaved": "BrainDump für Benutzer freigeschaltet.",
-  "admin.user.brainDumpDisabledSaved": "BrainDump für Benutzer gesperrt."
+  "admin.user.brainDumpDisabledSaved": "BrainDump für Benutzer gesperrt.",
+  "braindump.record.finish": "Fertig & verarbeiten",
+  "braindump.processing.transcribing": "Audio wird transkribiert…",
+  "braindump.processing.extracting": "Todo-Vorschläge werden erkannt…"
 }

@@ -4794,6 +4794,9 @@ input[type="color"]::-moz-color-swatch {
   transition: height .08s linear, transform .08s linear, opacity .12s ease;
 }
 .braindump-status { position: relative; z-index: 1; text-align: center; font-size: 18px; font-weight: 850; color: var(--text-primary); }
+.braindump-processing { position: relative; z-index: 1; margin: 10px auto 0; display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; color: var(--text-secondary); font-size: 13px; }
+.braindump-processing[hidden] { display: none !important; }
+.braindump-spinner { width: 16px; height: 16px; border-radius: 999px; border: 2px solid color-mix(in srgb, var(--accent) 24%, var(--border)); border-top-color: var(--accent); animation: braindump-spin .75s linear infinite; }
 .braindump-hint { position: relative; z-index: 1; margin-top: 6px; text-align: center; color: var(--text-secondary); font-size: 13px; }
 .braindump-transcript {
   position: relative;
@@ -4851,6 +4854,7 @@ input[type="color"]::-moz-color-swatch {
   from { opacity: 0; transform: translateY(14px) scale(.985); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
+@keyframes braindump-spin { to { transform: rotate(360deg); } }
 
 @media (max-width: 768px) {
   .braindump-fab {
@@ -4872,14 +4876,29 @@ input[type="color"]::-moz-color-swatch {
   .braindump-wave { gap: 3px; min-height: 70px; margin-bottom: 10px; }
   .braindump-wave span { width: 4px; max-height: 66px; }
   .braindump-status { font-size: 16px; }
+  .braindump-processing { margin-top: 8px; font-size: 12px; }
   .braindump-hint { font-size: 12px; }
   .braindump-results-head { align-items: flex-start; }
   .braindump-actions {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    padding: 10px 12px calc(12px + env(safe-area-inset-bottom, 0px));
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 7px;
+    padding: 8px 10px calc(10px + env(safe-area-inset-bottom, 0px));
   }
-  .braindump-actions .btn { width: 100%; min-width: 0; padding-left: 10px; padding-right: 10px; white-space: normal; }
+  .braindump-actions .btn {
+    width: 100%;
+    min-width: 0;
+    min-height: 36px;
+    padding: 8px 9px;
+    font-size: 12px;
+    line-height: 1.15;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  #braindump-record,
   #braindump-create { grid-column: 1 / -1; }
+  #braindump-create { order: 1; }
+  #braindump-record { order: 1; }
+  #braindump-retry { order: 2; }
+  #braindump-cancel { order: 3; }
 }

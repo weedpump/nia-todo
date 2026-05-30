@@ -7,7 +7,7 @@ import { t } from '../i18n/index.js';
 const SILENCE_LEVEL = 0.035;
 const SILENCE_STOP_MS = 3200;
 const MIN_RECORDING_MS = 1600;
-const SNAPSHOT_INTERVAL_MS = 4500;
+const SNAPSHOT_INTERVAL_MS = 3000;
 
 export function createBrainDumpLiveDebugFeature() {
   const state = {
@@ -122,6 +122,7 @@ export function createBrainDumpLiveDebugFeature() {
           <div class="braindump-stage" id="braindump-stage">
             <div class="braindump-wave" id="braindump-wave" aria-hidden="true">${Array.from({ length: 24 }, (_, index) => `<span style="--i:${index}"></span>`).join('')}</div>
             <div class="braindump-status" id="braindump-status">${t('braindump.status.ready')}</div>
+            <div class="braindump-processing" id="braindump-processing" hidden><span class="braindump-spinner" aria-hidden="true"></span><span id="braindump-processing-text">${t('braindump.processing.transcribing')}</span></div>
             <div class="braindump-hint" id="braindump-hint">${t('braindump.hint.idle')}</div>
             <div class="braindump-transcript" id="braindump-transcript" hidden></div>
           </div>
@@ -503,6 +504,8 @@ export function createBrainDumpLiveDebugFeature() {
     const error = document.getElementById('braindump-error');
     const transcript = document.getElementById('braindump-transcript');
     const stage = document.getElementById('braindump-stage');
+    const processing = document.getElementById('braindump-processing');
+    const processingText = document.getElementById('braindump-processing-text');
     const orb = document.getElementById('braindump-orb');
     const wave = document.getElementById('braindump-wave');
     const selectedCount = selectedCandidates().length;
@@ -525,18 +528,25 @@ export function createBrainDumpLiveDebugFeature() {
             ? t('braindump.status.readyWithCandidates')
             : t('braindump.status.ready');
     }
+    const isBusy = state.processing || state.active || state.queue.length;
+    if (processing) processing.hidden = !isBusy || state.recording;
+    if (processingText) {
+      processingText.textContent = state.transcript
+        ? t('braindump.processing.extracting')
+        : t('braindump.processing.transcribing');
+    }
     if (hint) {
       const silenceLeft = state.recording && state.hasVoice ? Math.max(0, (SILENCE_STOP_MS - (performance.now() - state.lastVoiceAt)) / 1000) : null;
       hint.textContent = state.recording
         ? (silenceLeft == null ? t('braindump.hint.recording') : t('braindump.hint.silence', { seconds: silenceLeft.toFixed(1) }))
-        : state.processing || state.active || state.queue.length
+        : isBusy
           ? t('braindump.hint.processing')
           : t('braindump.hint.idle');
     }
     if (orb) orb.innerHTML = state.processing || state.active ? iconSvg('sparkles') : iconSvg(state.recording ? 'mic' : 'mic');
     if (recordBtn) {
       recordBtn.hidden = state.processing || state.candidates.length > 0;
-      recordBtn.textContent = state.recording ? t('braindump.record.stop') : t('braindump.record.start');
+      recordBtn.textContent = state.recording ? t('braindump.record.finish') : t('braindump.record.start');
     }
     if (retryBtn) retryBtn.hidden = state.recording || state.processing || (!state.candidates.length && !state.error && !state.transcript);
     if (createBtn) {

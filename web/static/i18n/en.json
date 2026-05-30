@@ -877,7 +877,7 @@
   "braindump.selectNone": "Deselect all",
   "braindump.retry": "Speak again",
   "braindump.record.start": "Start recording",
-  "braindump.record.stop": "Stop",
+  "braindump.record.stop": "Finish & process",
   "braindump.create": "Accept selected",
   "braindump.create.count": "Accept selected ({count})",
   "braindump.create.busy": "Accepting…",
@@ -899,5 +899,8 @@
   "admin.user.brainDumpEnable": "Enable",
   "admin.user.brainDumpDisable": "Disable",
   "admin.user.brainDumpEnabledSaved": "BrainDump enabled for user.",
-  "admin.user.brainDumpDisabledSaved": "BrainDump disabled for user."
+  "admin.user.brainDumpDisabledSaved": "BrainDump disabled for user.",
+  "braindump.record.finish": "Finish & process",
+  "braindump.processing.transcribing": "Transcribing audio…",
+  "braindump.processing.extracting": "Finding todo suggestions…"
 }
