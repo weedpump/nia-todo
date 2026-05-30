@@ -4688,8 +4688,8 @@ input[type="color"]::-moz-color-swatch {
 /* BrainDump modal */
 .braindump-fab {
   position: fixed;
-  right: calc(24px + env(safe-area-inset-right, 0px));
-  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  right: calc(104px + env(safe-area-inset-right, 0px));
+  bottom: calc(29px + env(safe-area-inset-bottom, 0px));
   z-index: 260;
   width: 52px;
   height: 52px;
