@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 ## [Unreleased]
 
 ### Added
-- Experimental BrainDump voice capture for turning spoken notes into user-confirmed todo candidates, including configurable LLM/STT providers, global and per-user access controls, robust local-model parsing, and self-hosting documentation.
+- Experimental BrainDump voice capture for turning spoken notes into user-confirmed todo candidates, including configurable LLM/STT providers, OpenAI-compatible and Ollama backends, OpenClaw agent selection, desktop/native app recording support, global and per-user access controls, robust local-model parsing, and self-hosting documentation.
 - Admins can now edit a user's username from the admin panel, with duplicate/empty validation, safe handling for special characters such as apostrophes, and a confirmation warning that passkeys remain bound to the internal user ID while device-side account labels may still show the old username.
 
 ### Changed
