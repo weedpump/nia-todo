@@ -24,7 +24,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .admin-card h2 { font-size: 16px; margin: 0 0 16px 0; color: var(--text-primary); display: inline-flex; align-items: center; gap: 8px; }
 .user-table-wrap { width: 100%; overflow: visible; }
 .user-table { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: auto; min-width: 0; }
-.user-table thead { display: none; }
+.user-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
 .user-table tbody { display: grid; gap: 12px; }
 .user-table tr { display: grid; grid-template-columns: minmax(170px, .9fr) minmax(230px, 1.3fr) minmax(260px, 1.35fr) minmax(170px, .75fr); grid-template-areas: 'id name contact access' 'id status security actions'; gap: 10px 14px; padding: 14px; border: 1px solid color-mix(in srgb, var(--border) 78%, transparent); border-radius: 16px; background: color-mix(in srgb, var(--bg-primary) 72%, var(--bg-secondary)); }
 .user-table td { display: block; min-width: 0; padding: 0; font-size: 14px; color: var(--text-primary); border-bottom: 0; vertical-align: middle; }
@@ -199,7 +199,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
     <button class="btn btn-danger" onclick="adminLogout()" data-i18n-key="auth.signOut">Sign out</button>
   </div>
 
-  <nav class="admin-overview" aria-label="Admin sections">
+  <nav class="admin-overview" aria-label="Admin sections" data-i18n-aria-label-key="admin.overview.ariaLabel">
     <a href="#server-update-card"><span data-i18n-key="admin.serverUpdate.title">Server update</span><span data-icon="chevron-down"></span></a>
     <a href="#instance-config-card"><span data-i18n-key="admin.instance.title">Instance configuration</span><span data-icon="chevron-down"></span></a>
     <a href="#braindump-config-card"><span>BrainDump</span><span data-icon="chevron-down"></span></a>
@@ -466,18 +466,18 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
     <table class="user-table" id="user-table">
       <thead>
         <tr>
-          <th>ID</th>
-          <th data-i18n-key="admin.user.username">Username</th>
-          <th data-i18n-key="admin.user.displayName">Display name</th>
-          <th data-i18n-key="admin.user.email">Email</th>
-          <th data-i18n-key="admin.user.emailStatus">Email Status</th>
-          <th data-i18n-key="admin.user.login">Login</th>
-          <th data-i18n-key="admin.user.lastActive">Last active</th>
-          <th data-i18n-key="admin.user.twofa">2FA</th>
-          <th data-i18n-key="admin.user.apiKeys">API Keys</th>
+          <th id="user-col-id">ID</th>
+          <th id="user-col-username" data-i18n-key="admin.user.username">Username</th>
+          <th id="user-col-display-name" data-i18n-key="admin.user.displayName">Display name</th>
+          <th id="user-col-email" data-i18n-key="admin.user.email">Email</th>
+          <th id="user-col-email-status" data-i18n-key="admin.user.emailStatus">Email Status</th>
+          <th id="user-col-login" data-i18n-key="admin.user.login">Login</th>
+          <th id="user-col-last-active" data-i18n-key="admin.user.lastActive">Last active</th>
+          <th id="user-col-twofa" data-i18n-key="admin.user.twofa">2FA</th>
+          <th id="user-col-api-keys" data-i18n-key="admin.user.apiKeys">API Keys</th>
           <th id="user-braindump-heading" data-i18n-key="admin.user.brainDump">BrainDump</th>
-          <th data-i18n-key="admin.user.password">Password</th>
-          <th data-i18n-key="admin.user.actions">Actions</th>
+          <th id="user-col-password" data-i18n-key="admin.user.password">Password</th>
+          <th id="user-col-actions" data-i18n-key="admin.user.actions">Actions</th>
         </tr>
       </thead>
       <tbody id="user-list">
@@ -494,6 +494,8 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 import { initI18n, t as i18nT } from './static/js/i18n/index.js';
 await initI18n();
 window.t = i18nT;
+window.adminI18nReady = true;
+window.dispatchEvent(new CustomEvent('admin-i18n-ready'));
 </script>
 <script>
 const API = '';
@@ -524,6 +526,7 @@ function iconSvg(name) {
 }
 
 function setupAdminSections() {
+  const translate = window.t || ((key) => key);
   const cards = document.querySelectorAll('#admin-content > .admin-card[id]:not(.admin-status-card):not(#user-list-card)');
   cards.forEach((card, index) => {
     if (card.dataset.sectionReady === '1') return;
@@ -538,7 +541,7 @@ function setupAdminSections() {
       node = next;
     }
     const titleHtml = heading.innerHTML;
-    const summary = card.id === 'braindump-config-card' ? 'AI/STT' : card.id === 'email-config-card' ? 'SMTP' : card.id === 'security-card' ? 'Policy' : '';
+    const summary = card.id === 'braindump-config-card' ? 'AI/STT' : card.id === 'email-config-card' ? 'SMTP' : card.id === 'security-card' ? translate('admin.overview.policySummary') : '';
     heading.innerHTML = `<button type="button" class="admin-section-header" aria-expanded="true"><span class="admin-section-title">${titleHtml}</span><span class="admin-section-summary">${summary}</span><span class="admin-section-chevron">${iconSvg('chevron-down')}</span></button>`;
     card.appendChild(body);
     card.classList.add('admin-section-card');
@@ -565,7 +568,8 @@ function hydrateIcons(root = document) {
   root.querySelectorAll('[data-icon]').forEach(el => { el.innerHTML = iconSvg(el.getAttribute('data-icon')); });
 }
 hydrateIcons();
-setupAdminSections();
+if (window.adminI18nReady) setupAdminSections();
+else window.addEventListener('admin-i18n-ready', setupAdminSections, { once: true });
 let adminToken = null;
 let serverUpdatePollTimer = null;
 let serverUpdateReloadPromptShown = false;
@@ -1298,18 +1302,18 @@ function renderUsers(users) {
   }
   tbody.innerHTML = users.map(u => `
     <tr role="row">
-      <td role="cell"><span class="admin-mobile-label" aria-hidden="true">ID</span>${u.id}</td>
-      <td role="cell"><span class="admin-mobile-label" aria-hidden="true">${escapeHtml(t('setup.usernameLabel'))}</span>${escapeHtml(u.username)}</td>
-      <td role="cell"><span class="admin-mobile-label" aria-hidden="true">${escapeHtml(t('setup.displayNameLabel'))}</span>${escapeHtml(u.display_name) || '-'}</td>
-      <td role="cell"><span class="admin-mobile-label" aria-hidden="true">${escapeHtml(t('settings.profile.email'))}</span>${renderUserEmailCell(u)}</td>
-      <td role="cell"><span class="admin-mobile-label" aria-hidden="true">${escapeHtml(t('admin.user.emailStatus'))}</span>${renderUserEmailStatus(u)}</td>
-      <td role="cell"><span class="admin-mobile-label" aria-hidden="true">${escapeHtml(t('admin.user.login'))}</span>${renderUserLoginStatus(u)}</td>
-      <td role="cell"><span class="admin-mobile-label" aria-hidden="true">${escapeHtml(t('admin.user.lastActive'))}</span>${renderUserLastActive(u)}</td>
-      <td role="cell"><span class="admin-mobile-label" aria-hidden="true">2FA</span>${renderUserTwoFactorStatus(u)}</td>
-      <td role="cell"><span class="admin-mobile-label" aria-hidden="true">${escapeHtml(t('settings.apiKeys.title'))}</span>${renderUserApiKeys(u)}</td>
-      ${brainDumpFeatureEnabled ? `<td role="cell"><span class="admin-mobile-label" aria-hidden="true">${escapeHtml(t('admin.user.brainDump'))}</span>${renderUserBrainDump(u)}</td>` : ''}
-      <td role="cell"><span class="admin-mobile-label" aria-hidden="true">${escapeHtml(t('auth.password'))}</span><button class="btn btn-primary admin-table-action" onclick="generatePasswordLink(${u.id}, '${escapeHtmlAttr(u.username)}')">${iconSvg('link')} ${escapeHtml(t('admin.user.passwordLink'))}</button></td>
-      <td role="cell"><span class="admin-mobile-label" aria-hidden="true">${escapeHtml(t('admin.user.actions'))}</span>${u.is_admin ? '-' : `<button class="btn btn-danger admin-table-action" onclick="deleteUser(${u.id}, '${escapeHtmlAttr(u.username)}')">${iconSvg('trash')} ${escapeHtml(t('common.delete'))}</button>`}</td>
+      <td role="cell" headers="user-col-id"><span class="admin-mobile-label" aria-hidden="true">ID</span>${u.id}</td>
+      <td role="cell" headers="user-col-username"><span class="admin-mobile-label" aria-hidden="true">${escapeHtml(t('setup.usernameLabel'))}</span>${escapeHtml(u.username)}</td>
+      <td role="cell" headers="user-col-display-name"><span class="admin-mobile-label" aria-hidden="true">${escapeHtml(t('setup.displayNameLabel'))}</span>${escapeHtml(u.display_name) || '-'}</td>
+      <td role="cell" headers="user-col-email"><span class="admin-mobile-label" aria-hidden="true">${escapeHtml(t('settings.profile.email'))}</span>${renderUserEmailCell(u)}</td>
+      <td role="cell" headers="user-col-email-status"><span class="admin-mobile-label" aria-hidden="true">${escapeHtml(t('admin.user.emailStatus'))}</span>${renderUserEmailStatus(u)}</td>
+      <td role="cell" headers="user-col-login"><span class="admin-mobile-label" aria-hidden="true">${escapeHtml(t('admin.user.login'))}</span>${renderUserLoginStatus(u)}</td>
+      <td role="cell" headers="user-col-last-active"><span class="admin-mobile-label" aria-hidden="true">${escapeHtml(t('admin.user.lastActive'))}</span>${renderUserLastActive(u)}</td>
+      <td role="cell" headers="user-col-twofa"><span class="admin-mobile-label" aria-hidden="true">2FA</span>${renderUserTwoFactorStatus(u)}</td>
+      <td role="cell" headers="user-col-api-keys"><span class="admin-mobile-label" aria-hidden="true">${escapeHtml(t('settings.apiKeys.title'))}</span>${renderUserApiKeys(u)}</td>
+      ${brainDumpFeatureEnabled ? `<td role="cell" headers="user-braindump-heading"><span class="admin-mobile-label" aria-hidden="true">${escapeHtml(t('admin.user.brainDump'))}</span>${renderUserBrainDump(u)}</td>` : ''}
+      <td role="cell" headers="user-col-password"><span class="admin-mobile-label" aria-hidden="true">${escapeHtml(t('auth.password'))}</span><button class="btn btn-primary admin-table-action" onclick="generatePasswordLink(${u.id}, '${escapeHtmlAttr(u.username)}')">${iconSvg('link')} ${escapeHtml(t('admin.user.passwordLink'))}</button></td>
+      <td role="cell" headers="user-col-actions"><span class="admin-mobile-label" aria-hidden="true">${escapeHtml(t('admin.user.actions'))}</span>${u.is_admin ? '-' : `<button class="btn btn-danger admin-table-action" onclick="deleteUser(${u.id}, '${escapeHtmlAttr(u.username)}')">${iconSvg('trash')} ${escapeHtml(t('common.delete'))}</button>`}</td>
     </tr>
   `).join('');
 }
