@@ -885,6 +885,10 @@ def _extract_with_llm(text: str, segment_id: int, workspace_context: dict | None
     return elapsed_ms, parsed, result.get("usage"), json.dumps(parsed, ensure_ascii=False, separators=(",", ":"))
 
 
+# Backward-compatible alias for older validation/probe scripts.
+_extract_with_openclaw = _extract_with_llm
+
+
 def require_braindump_access(user_id: int):
     config = get_braindump_config(include_secrets=True)
     if not config.get("enabled"):
@@ -1073,6 +1077,7 @@ def create_braindump_session(user_id: int = Depends(require_auth)):
 
 @router.get("/sessions/{session_id}")
 def get_braindump_session(session_id: str, user_id: int = Depends(require_auth)):
+    require_braindump_access(user_id)
     try:
         return get_session(session_id, user_id).to_dict()
     except KeyError:
