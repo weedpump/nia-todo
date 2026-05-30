@@ -4845,7 +4845,15 @@ input[type="color"]::-moz-color-swatch {
 .braindump-candidate-card:not(:has(input:checked)) .braindump-check { background: transparent; }
 .braindump-candidate-card .priority-dot { background: var(--accent); }
 .braindump-create-status { margin-top: 10px; color: var(--text-secondary); font-size: 13px; }
-.braindump-actions { justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+.braindump-actions {
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+  flex: 0 0 auto;
+  margin-top: 0;
+  padding: 16px 24px 22px;
+  background: color-mix(in srgb, var(--bg-secondary) 94%, transparent);
+}
 .braindump-actions .btn { min-height: 40px; }
 
 @keyframes braindump-pulse {
