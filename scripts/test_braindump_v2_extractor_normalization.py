@@ -9,6 +9,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "api"))
 
+from routers.admin import _validate_configured_llm_model  # noqa: E402
 from routers.braindump_v2 import (  # noqa: E402
     _build_multipart_form_data,
     _extract_transcript_from_stt_response,
@@ -244,6 +245,15 @@ def test_ollama_provider_urls_payload_and_response_content():
     assert_true(_llm_response_content({"message": {"content": "{\"candidates\":[]}"}}, {"llm_provider": "ollama"}) == '{"candidates":[]}', "ollama content parse")
 
 
+def test_admin_llm_models_payload_validates_configured_model():
+    openai_payload = '{"object":"list","data":[{"id":"openclaw/default"},{"id":"openclaw/braindump"}]}'
+    assert_true(_validate_configured_llm_model(openai_payload, "openclaw/braindump") is None, "valid OpenClaw agent should pass")
+    error = _validate_configured_llm_model(openai_payload, "openclaw/braindumpd")
+    assert_true(error and "openclaw/braindumpd" in error and "openclaw/braindump" in error, error)
+    ollama_payload = '{"models":[{"name":"gpt-oss:120b"},{"name":"llama3.1"}]}'
+    assert_true(_validate_configured_llm_model(ollama_payload, "gpt-oss:120b") is None, "valid Ollama model should pass")
+
+
 def test_workspace_context_is_compact():
     context = {"projects": [{"name": f"Project {idx}", "workspace": "Private", "sections": [f"Section {idx}-{s}" for s in range(20)]} for idx in range(60)]}
     formatted = _format_workspace_context(context)
@@ -287,6 +297,7 @@ def main():
         test_date_only_reminder_is_rejected_but_deadline_kept,
         test_llm_endpoint_urls_accept_root_v1_and_full_paths,
         test_ollama_provider_urls_payload_and_response_content,
+        test_admin_llm_models_payload_validates_configured_model,
         test_workspace_context_is_compact,
         test_remote_stt_response_parsing_and_multipart_payload,
     ]
