@@ -624,7 +624,7 @@
   "admin.user.login": "Login",
   "admin.user.lastActive": "Last active",
   "admin.user.neverActive": "Never active",
-  "admin.user.passwordLink": "Link",
+  "admin.user.passwordLink": "Reset password",
   "admin.security.title": "Require 2FA",
   "admin.security.policyLoading": "2FA requirement loading…",
   "admin.security.policyDesc": "Enforces 2FA for all users. Sign-in is possible with authenticator app, passkey, or existing recovery codes. If SMTP is configured, users without authenticator/passkey can temporarily use an email code. Without an available method, they only get access to 2FA setup.",

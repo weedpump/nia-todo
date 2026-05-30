@@ -31,17 +31,26 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .user-table tr { display: block; min-width: 0; border: 1px solid color-mix(in srgb, var(--border) 78%, transparent); border-radius: 14px; background: color-mix(in srgb, var(--bg-primary) 72%, var(--bg-secondary)); overflow: hidden; }
 .user-table tr:last-child td { border-bottom: none; }
 .user-table td.user-card-cell { display: block; padding: 0; border: 0; color: var(--text-primary); }
-.user-card { display: grid; grid-template-rows: auto auto auto auto; gap: 12px; padding: 14px; min-height: 100%; }
-.user-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding-bottom: 10px; border-bottom: 1px solid color-mix(in srgb, var(--border) 58%, transparent); }
-.user-card-identity { min-width: 0; }
-.user-card-title { font-size: 16px; font-weight: 800; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.user-card { display: grid; grid-template-rows: auto auto auto auto auto; gap: 12px; padding: 14px; min-height: 100%; }
+.user-card-header { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 12px; padding-bottom: 10px; border-bottom: 1px solid color-mix(in srgb, var(--border) 58%, transparent); }
+.user-card-identity, .user-card-meta { min-width: 0; }
+.user-card-meta { display: grid; grid-template-columns: minmax(0, 1fr) minmax(112px, .72fr); gap: 10px; }
+.user-card-title-line { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.user-card-title { min-width: 0; font-size: 16px; font-weight: 800; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .user-card-subtitle { margin-top: 2px; font-size: 12px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.user-card-id { flex: 0 0 auto; font-size: 11px; color: var(--text-muted); background: var(--bg-tertiary); border-radius: 999px; padding: 3px 8px; }
-.user-card-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px 12px; }
+.user-card-id { flex: 0 0 auto; font-size: 10px; color: var(--text-muted); background: var(--bg-tertiary); border-radius: 999px; padding: 2px 6px; }
+.user-card-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px 12px; }
 .user-card-field { min-width: 0; }
 .user-card-label { display: block; color: var(--text-muted); font-size: 10px; font-weight: 750; text-transform: uppercase; letter-spacing: .055em; margin-bottom: 4px; }
 .user-card-value { min-width: 0; color: var(--text-primary); font-size: 13px; }
-.user-card-features { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.user-card-braindump { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 2px; }
+.user-card-braindump .user-card-label { margin: 0; }
+.user-card-braindump-control { display: inline-flex; align-items: center; gap: 10px; }
+.user-card-switch { appearance: none; -webkit-appearance: none; width: 46px; height: 26px; flex: 0 0 46px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--border) 78%, var(--text-muted)); background: var(--bg-tertiary); position: relative; cursor: pointer; transition: background .16s, border-color .16s, box-shadow .16s; }
+.user-card-switch::after { content: ''; position: absolute; width: 20px; height: 20px; top: 2px; left: 2px; border-radius: 50%; background: var(--text-secondary); box-shadow: 0 2px 5px rgba(0,0,0,.28); transition: transform .16s, background .16s; }
+.user-card-switch:checked { background: color-mix(in srgb, var(--success) 72%, var(--accent)); border-color: color-mix(in srgb, var(--success) 86%, white); }
+.user-card-switch:checked::after { transform: translateX(20px); background: white; }
+.user-card-switch:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 24%, transparent); outline: none; }
 .user-card-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; align-items: center; }
 .user-card-actions.single { grid-template-columns: 1fr; }
 .user-card-actions .admin-table-action { width: 100%; }
@@ -163,8 +172,9 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
   .user-table tr { padding: 0; margin-bottom: 0; }
   .user-table td.user-card-cell { padding: 0; margin-top: 0 !important; }
   .user-card { padding: 12px; gap: 10px; }
-  .user-card-grid,
-  .user-card-features,
+  .user-card-header,
+  .user-card-meta,
+  .user-card-row,
   .user-card-actions { grid-template-columns: 1fr; }
   .admin-section-summary { display: none; }
   .email-edit { grid-template-columns: minmax(0, 1fr) 32px 32px; }
@@ -1391,10 +1401,7 @@ function renderUserApiKeys(user) {
 function renderUserBrainDump(user) {
   const enabled = !!user.braindump_enabled;
   const label = enabled ? t('admin.user.brainDumpEnabled') : t('admin.user.brainDumpDisabled');
-  const next = enabled ? 'false' : 'true';
-  const btnClass = enabled ? 'btn-secondary' : 'btn-primary';
-  const action = enabled ? t('admin.user.brainDumpDisable') : t('admin.user.brainDumpEnable');
-  return `<div class="twofa-stack"><span class="badge ${enabled ? 'badge-success' : 'badge-muted'}">${escapeHtml(label)}</span><button class="btn ${btnClass} admin-table-action" style="margin-top:6px;" onclick="toggleUserBrainDump(${user.id}, ${next})">${escapeHtml(action)}</button></div>`;
+  return `<div class="user-card-braindump-control"><span class="badge ${enabled ? 'badge-success' : 'badge-muted'}">${escapeHtml(label)}</span><input class="user-card-switch" type="checkbox" ${enabled ? 'checked' : ''} aria-label="${escapeHtmlAttr(t('admin.user.brainDump'))}" onchange="toggleUserBrainDump(${user.id}, this.checked)"></div>`;
 }
 
 function renderUserLastActive(user) {
@@ -1431,21 +1438,22 @@ function renderUsers(users) {
         <article class="user-card">
           <header class="user-card-header">
             <div class="user-card-identity">
-              <div class="user-card-title" role="cell" headers="user-col-display-name">${title}</div>
+              <div class="user-card-title-line"><div class="user-card-title" role="cell" headers="user-col-display-name">${title}</div><span class="user-card-id" role="cell" headers="user-col-id">ID ${u.id}</span></div>
               <div class="user-card-subtitle" role="cell" headers="user-col-username">${subtitle}</div>
             </div>
-            <span class="user-card-id" role="cell" headers="user-col-id">ID ${u.id}</span>
+            <div class="user-card-meta">
+              <div class="user-card-field">
+                <span class="user-card-label">${escapeHtml(t('settings.profile.email'))}</span>
+                <div class="user-card-value" role="cell" headers="user-col-email">${renderUserEmailCell(u)}</div>
+              </div>
+              <div class="user-card-field">
+                <span class="user-card-label">${escapeHtml(t('admin.user.lastActive'))}</span>
+                <div class="user-card-value" role="cell" headers="user-col-last-active">${renderUserLastActive(u)}</div>
+              </div>
+            </div>
           </header>
 
-          <div class="user-card-grid">
-            <div class="user-card-field">
-              <span class="user-card-label">${escapeHtml(t('settings.profile.email'))}</span>
-              <div class="user-card-value" role="cell" headers="user-col-email">${renderUserEmailCell(u)}</div>
-            </div>
-            <div class="user-card-field">
-              <span class="user-card-label">${escapeHtml(t('admin.user.lastActive'))}</span>
-              <div class="user-card-value" role="cell" headers="user-col-last-active">${renderUserLastActive(u)}</div>
-            </div>
+          <div class="user-card-row">
             <div class="user-card-field">
               <span class="user-card-label">${escapeHtml(t('admin.user.emailStatus'))}</span>
               <div class="user-card-value" role="cell" headers="user-col-email-status">${renderUserEmailStatus(u)}</div>
@@ -1456,7 +1464,7 @@ function renderUsers(users) {
             </div>
           </div>
 
-          <div class="user-card-features">
+          <div class="user-card-row">
             <div class="user-card-field">
               <span class="user-card-label">2FA</span>
               <div class="user-card-value" role="cell" headers="user-col-twofa">${renderUserTwoFactorStatus(u)}</div>
@@ -1465,8 +1473,9 @@ function renderUsers(users) {
               <span class="user-card-label">${escapeHtml(t('settings.apiKeys.title'))}</span>
               <div class="user-card-value" role="cell" headers="user-col-api-keys">${renderUserApiKeys(u)}</div>
             </div>
-            ${brainDumpFeatureEnabled ? `<div class="user-card-field"><span class="user-card-label">${escapeHtml(t('admin.user.brainDump'))}</span><div class="user-card-value" role="cell" headers="user-braindump-heading">${renderUserBrainDump(u)}</div></div>` : ''}
           </div>
+
+          ${brainDumpFeatureEnabled ? `<div class="user-card-braindump" role="cell" headers="user-braindump-heading"><span class="user-card-label">${escapeHtml(t('admin.user.brainDump'))}</span>${renderUserBrainDump(u)}</div>` : ''}
 
           <div class="${actionsClass}">
             <button class="btn btn-primary admin-table-action" role="cell" headers="user-col-password" onclick="generatePasswordLink(${u.id}, '${escapeHtmlAttr(u.username)}')">${iconSvg('link')} ${escapeHtml(t('admin.user.passwordLink'))}</button>
