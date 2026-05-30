@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 ## [Unreleased]
 
 ### Added
-- Experimental BrainDump voice capture for turning spoken notes into user-confirmed todo candidates, including configurable LLM/STT providers, OpenAI-compatible and Ollama backends, OpenClaw agent selection, desktop/native app recording support, global and per-user access controls, robust local-model parsing, and self-hosting documentation.
+- Experimental BrainDump voice capture for turning spoken notes into user-confirmed todo candidates, including configurable LLM/STT providers, OpenAI-compatible and Ollama backends, OpenClaw agent selection, desktop/native app recording support, polished admin configuration, global and per-user access controls, robust local-model parsing, and self-hosting documentation.
 - Admins can now edit a user's username from the admin panel, with duplicate/empty validation, safe handling for special characters such as apostrophes, and a confirmation warning that passkeys remain bound to the internal user ID while device-side account labels may still show the old username.
 
 ### Changed
@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - HTML fallback text for localized settings UI now defaults to English consistently before translations are applied.
 
 ### Fixed
+- Todo modal no longer shows a horizontal scrollbar on desktop due to the hidden pinned-checkbox control overflowing the dialog.
 - User settings now hide the Disable 2FA button reliably when two-factor authentication is inactive, independent of the current UI language.
 
 ## [2.6.3] - 2026-05-29
