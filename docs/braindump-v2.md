@@ -40,16 +40,20 @@ For BrainDump v2 MVP, provider configuration lives in the admin panel / DB-backe
 
 Current split:
 
-- LLM: OpenClaw via admin-configured Gateway URL/token/model target; default URL points at the local OpenClaw Gateway.
+- LLM: any OpenAI-compatible Chat Completions endpoint via admin-configured base URL/API key/model. OpenClaw is only the default dev preset, not a required dependency.
 - STT: remote `whisper.cpp` server by default.
 
 Admin-configured fields:
 
 ```text
-OpenClaw URL: http://127.0.0.1:18789
-OpenClaw token: stored server-side, never echoed back to the admin UI
-OpenClaw model target: openclaw/default
-OpenClaw backend model override: optional, sent as x-openclaw-model
+LLM provider: openai_compatible
+LLM base URL: http://127.0.0.1:18789
+LLM API key: stored server-side, never echoed back to the admin UI
+LLM model: openclaw/default, llama3.1, qwen2.5, etc.
+LLM extra headers JSON: optional, e.g. {"x-openclaw-model":"gpt-mini"}
+LLM timeout seconds: 180
+System prompt mode: default | append | replace
+Custom system prompt/instructions: optional
 STT provider: whisper_cpp_remote
 STT URL: http://127.0.0.1:8766/inference
 STT token: optional, stored server-side, never echoed back

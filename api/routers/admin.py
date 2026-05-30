@@ -14,7 +14,7 @@ from db import get_db, now_iso
 from services.auth import create_admin_jwt_token, verify_admin_token
 from services.utils import normalize_email, sanitize_text, validate_email, validate_password, validate_admin_password
 from services.audit import log_audit
-from services.braindump_config import get_braindump_config, openclaw_models_url, update_braindump_config
+from services.braindump_config import get_braindump_config, llm_models_url, parse_extra_headers, update_braindump_config
 from services.instance_config import get_instance_config, get_public_base_url, update_instance_config
 from services.email_config import can_send_email_links, get_email_config, get_password_link_ttl_hours, is_email_configured, update_email_config
 from services.email import send_email, send_test_email
@@ -60,10 +60,14 @@ class InstanceConfigRequest(BaseModel):
     trusted_proxies: list[str] = []
 
 class BrainDumpConfigRequest(BaseModel):
-    openclaw_url: str = "http://127.0.0.1:18789"
-    openclaw_token_secret: Optional[str] = None
-    openclaw_model: str = "openclaw/default"
-    openclaw_backend_model: str = ""
+    llm_provider: str = "openai_compatible"
+    llm_base_url: str = "http://127.0.0.1:18789"
+    llm_api_key_secret: Optional[str] = None
+    llm_model: str = "openclaw/default"
+    llm_extra_headers_json: str = ""
+    llm_timeout_seconds: float = 180
+    system_prompt_mode: str = "default"
+    system_prompt_custom: str = ""
     stt_provider: str = "whisper_cpp_remote"
     stt_url: str = "http://127.0.0.1:8766/inference"
     stt_token_secret: Optional[str] = None
@@ -215,21 +219,23 @@ def _stt_health_url(stt_url: str) -> str:
 def admin_test_braindump_config(_: bool = Depends(require_admin)):
     config = get_braindump_config(include_secrets=True)
     result = {
-        "openclaw": {"ok": False, "message": "not tested"},
+        "llm": {"ok": False, "message": "not tested"},
         "stt": {"ok": False, "message": "not tested"},
     }
 
-    token = str(config.get("openclaw_token") or "").strip()
+    token = str(config.get("llm_api_key") or "").strip()
     if not token:
-        result["openclaw"] = {"ok": False, "message": "OpenClaw token is not configured"}
+        result["llm"] = {"ok": False, "message": "LLM API key is not configured"}
     else:
         try:
-            req = urllib.request.Request(openclaw_models_url(config), headers={"Authorization": f"Bearer {token}"})
+            headers = {"Authorization": f"Bearer {token}"}
+            headers.update(parse_extra_headers(str(config.get("llm_extra_headers_json") or "")))
+            req = urllib.request.Request(llm_models_url(config), headers=headers)
             with urllib.request.urlopen(req, timeout=10) as response:
                 payload = response.read().decode("utf-8", errors="replace")
-            result["openclaw"] = {"ok": True, "message": "OpenClaw reachable", "sample": payload[:400]}
+            result["llm"] = {"ok": True, "message": "LLM endpoint reachable", "sample": payload[:400]}
         except Exception as exc:
-            result["openclaw"] = {"ok": False, "message": str(exc)}
+            result["llm"] = {"ok": False, "message": str(exc)}
 
     if config.get("stt_provider") == "local_whisper_cpp":
         result["stt"] = {"ok": True, "message": "Local whisper.cpp provider selected; runtime availability is checked when audio is processed"}

@@ -352,24 +352,28 @@ class TestSuite:
 
     def test_braindump_config_get(self):
         status, data = curl("GET", "/api/admin/braindump-config", token=self.admin_token, cookie_jar="/tmp/nia_admin_cookies.txt")
-        passed = ok(status) and data and data.get("openclaw_model") == "openclaw/default" and data.get("stt_provider") == "whisper_cpp_remote" and "openclaw_token" not in data and "stt_token" not in data
-        self.results["braindump_config_get"] = {"status": status, "passed": passed, "expected": "200 + BrainDump config without secrets"}
+        passed = ok(status) and data and data.get("llm_model") == "openclaw/default" and data.get("llm_provider") == "openai_compatible" and data.get("stt_provider") == "whisper_cpp_remote" and "llm_api_key" not in data and "stt_token" not in data and "default_system_prompt" in data
+        self.results["braindump_config_get"] = {"status": status, "passed": passed, "expected": "200 + generic BrainDump config without secrets"}
         return passed
 
     def test_braindump_config_update(self):
         status, data = curl("PATCH", "/api/admin/braindump-config", {
-            "openclaw_url": "http://openclaw.local:18789/",
-            "openclaw_token_secret": "test-openclaw-token",
-            "openclaw_model": "openclaw/default",
-            "openclaw_backend_model": "gpt-mini",
+            "llm_provider": "openai_compatible",
+            "llm_base_url": "http://llm.local:18789/",
+            "llm_api_key_secret": "test-llm-key",
+            "llm_model": "openclaw/default",
+            "llm_extra_headers_json": "{\"x-openclaw-model\":\"gpt-mini\"}",
+            "llm_timeout_seconds": 42,
+            "system_prompt_mode": "append",
+            "system_prompt_custom": "Prefer short German todo titles.",
             "stt_provider": "whisper_cpp_remote",
             "stt_url": "http://whisper.local:8766/inference",
             "stt_token_secret": "test-stt-token",
             "stt_language": "de",
             "stt_timeout_seconds": 42,
         }, token=self.admin_token, csrf=self.admin_csrf, cookie_jar="/tmp/nia_admin_cookies.txt")
-        passed = ok(status) and data and data.get("openclaw_url") == "http://openclaw.local:18789" and data.get("stt_url") == "http://whisper.local:8766/inference" and data.get("openclaw_token_configured") is True and data.get("stt_token_configured") is True and "test-openclaw-token" not in str(data)
-        self.results["braindump_config_update"] = {"status": status, "passed": passed, "expected": "200 + normalized BrainDump config, secrets hidden"}
+        passed = ok(status) and data and data.get("llm_base_url") == "http://llm.local:18789" and data.get("stt_url") == "http://whisper.local:8766/inference" and data.get("llm_api_key_configured") is True and data.get("stt_token_configured") is True and data.get("system_prompt_mode") == "append" and "test-llm-key" not in str(data)
+        self.results["braindump_config_update"] = {"status": status, "passed": passed, "expected": "200 + normalized generic BrainDump config, secrets hidden"}
         return passed
 
     def test_password_reset_features_disabled_without_email(self):
