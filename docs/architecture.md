@@ -28,23 +28,21 @@
 
 ## Native Apps
 
-The native apps architecture is being cleanly replanned/rebuilt after Generic Server Config. The goal is not a pure remote WebView, but an offline-robust native app with a locally available UI shell, configurable remote API, and later server verification via `/api/instance`.
+Native apps are shipped from the same Tauri codebase and share the web UI version with the server release. They are not pure remote WebViews: the app bundles a local UI shell, stores the configured server URL locally, verifies the target server through `/api/instance`, and uses that URL as API/WebSocket base.
 
-Current plan: [Native Apps Clean Architecture Plan](native-apps-clean-architecture.md)
+Current state:
 
-Current 2.0 branch state:
+- Tauri bundles a clean `src-tauri/frontend-dist` generated from `web/`; `web/downloads/` is deliberately excluded from the native bundle.
+- Windows and Android releases use the same `X.Y.Z` version as web/server and are built by `release.sh`.
+- Native local reminders are implemented: Windows uses the local scheduler/tray path, Android uses `AlarmManager` and rehydrates reminders after reboot/app restart.
+- Offline cold start is supported through the bundled UI shell plus service-worker cache.
+- Native passkeys are supported: Windows uses the native WebAuthn bridge; Android uses AndroidX Credential Manager and the bundled app ID/signing-key binding exposed through `/.well-known/assetlinks.json`.
+- Browser/PWA push remains browser/PWA-only; native reminders must not depend on browser push.
 
-- Tauri bundles the web app locally from `web/` instead of shipping only a remote redirect shell.
-- Native runtime reads the locally stored server URL and uses it as the API/WebSocket base.
-- `/api/instance` verifies the server with a low-information public instance metadata response.
-- Native first-time setup runs locally before login/app sync starts.
+Operational constraints:
 
-Legacy context:
-
-- Existing Tauri files and the older Tauri docs must not be treated blindly as the target architecture.
-- Tauri can still be chosen again as the runtime, but changes from discarded branches are not carried over.
-- Browser/PWA push stays browser/PWA-only; native local reminders are planned separately.
-- Offline cold start is a hard merge criterion and must be tested manually on Windows and Android.
+- Android is pinned to app ID `de.tobiaskneidl.nia_todo` and the permanent release key. Re-sign/custom package builds need an explicit migration strategy before they can be passkey-compatible.
+- Native app compatibility is controlled by `min_native_client_version` from `/api/instance`; normal releases do not raise it unless `release.sh --set-min-app-version` is used.
 
 ## Auth
 
