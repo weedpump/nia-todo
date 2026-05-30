@@ -17,6 +17,8 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .admin-section-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; cursor: pointer; border: 0; background: transparent; color: inherit; padding: 0; font: inherit; text-align: left; }
 .admin-section-title { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
 .admin-section-summary { color: var(--text-muted); font-size: 12px; font-weight: 600; margin-left: auto; white-space: nowrap; }
+.admin-section-toggle { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; color: var(--text-muted); font-size: 12px; font-weight: 700; }
+.admin-section-toggle input { flex: 0 0 46px; }
 .admin-section-chevron { color: var(--text-muted); transition: transform .15s ease; }
 .admin-section-card.collapsed .admin-section-chevron { transform: rotate(-90deg); }
 .admin-section-body { margin-top: 16px; }
@@ -94,9 +96,6 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .email-edit input { min-width: 0; width: 100%; padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-primary); color: var(--text-primary); font-size: 13px; }
 .email-edit .btn-ghost { padding: 4px; width: 28px; height: 28px; line-height: 1; }
 .admin-nav { display: flex; gap: 12px; align-items: center; }
-.admin-overview { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 18px; }
-.admin-overview a { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; background: color-mix(in srgb, var(--bg-secondary) 86%, var(--bg-primary)); color: var(--text-secondary); text-decoration: none; font-size: 13px; font-weight: 650; }
-.admin-overview a:hover { color: var(--text-primary); border-color: color-mix(in srgb, var(--accent) 44%, var(--border)); background: color-mix(in srgb, var(--bg-tertiary) 82%, var(--accent)); }
 .admin-back-btn { height: 32px; min-height: 32px; padding: 0 12px; box-sizing: border-box; border-radius: var(--radius); background: var(--accent); color: white; text-decoration: none; font-size: 13px; font-weight: 600; line-height: 32px; display: inline-block; }
 .admin-back-btn:hover { background: var(--accent-hover); }
 .empty-state { text-align: center; padding: 40px; color: var(--text-muted); }
@@ -124,6 +123,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .twofa-stack { display: flex; flex-wrap: wrap; gap: 4px; }
 .admin-status-text { font-size: 14px; color: var(--text-secondary); display:inline-flex; align-items:center; gap:8px; }
 .admin-mobile-label { display: block; color: var(--text-muted); font-size: 10px; font-weight: 750; text-transform: uppercase; letter-spacing: .055em; margin-bottom: 3px; }
+.admin-header-switch-source { position: absolute; opacity: 0; pointer-events: none; }
 .admin-dialog { display: none; position: fixed; inset: 0; z-index: 500; align-items: center; justify-content: center; padding: 16px; }
 .admin-dialog.active { display: flex; }
 .admin-dialog-overlay { position: absolute; inset: 0; background: rgba(0,0,0,.62); backdrop-filter: blur(4px); }
@@ -150,7 +150,6 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
   .user-table, .user-table tbody, .user-table tr, .user-table td { display: block; width: 100%; min-width: 0; }
   .user-table tr { padding: 12px; margin-bottom: 0; }
   .user-table td { padding: 7px 0; margin-top: 0 !important; }
-  .admin-overview { grid-template-columns: 1fr 1fr; }
   .admin-section-summary { display: none; }
   .email-edit { grid-template-columns: minmax(0, 1fr) 32px 32px; }
 }
@@ -192,22 +191,15 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
   </div>
 
   <div id="admin-content" style="display:none;">
+  <input type="checkbox" id="braindump-enabled" class="admin-header-switch-source" aria-label="BrainDump aktivieren">
+  <input type="checkbox" id="email-smtp-enabled" class="admin-header-switch-source" data-i18n-aria-label-key="admin.email.enableSending" aria-label="Enable email sending">
+  <input type="checkbox" id="twofa-policy-toggle" class="admin-header-switch-source" data-i18n-aria-label-key="admin.security.toggle" aria-label="Toggle 2FA policy">
 
   <!-- Admin Toolbar -->
   <div class="admin-card admin-status-card">
     <span class="admin-status-text"><span data-icon="lock-keyhole"></span> <span data-i18n-key="admin.status.loggedIn">Logged in as admin</span></span>
     <button class="btn btn-danger" onclick="adminLogout()" data-i18n-key="auth.signOut">Sign out</button>
   </div>
-
-  <nav class="admin-overview" aria-label="Admin sections" data-i18n-aria-label-key="admin.overview.ariaLabel">
-    <a href="#server-update-card"><span data-i18n-key="admin.serverUpdate.title">Server update</span><span data-icon="chevron-down"></span></a>
-    <a href="#instance-config-card"><span data-i18n-key="admin.instance.title">Instance configuration</span><span data-icon="chevron-down"></span></a>
-    <a href="#braindump-config-card"><span>BrainDump</span><span data-icon="chevron-down"></span></a>
-    <a href="#email-config-card"><span data-i18n-key="admin.email.title">Email / SMTP</span><span data-icon="chevron-down"></span></a>
-    <a href="#security-card"><span data-i18n-key="admin.security.title">Security / 2FA</span><span data-icon="chevron-down"></span></a>
-    <a href="#create-user-card"><span data-i18n-key="admin.user.createTitle">Create new user</span><span data-icon="chevron-down"></span></a>
-    <a href="#user-list-card"><span data-i18n-key="admin.user.title">Users</span><span data-icon="chevron-down"></span></a>
-  </nav>
 
   <!-- Server Update -->
   <div class="admin-card server-update-card" id="server-update-card">
@@ -258,10 +250,6 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
     <h2><span data-icon="mic"></span> BrainDump AI / STT <span class="badge badge-warning">Experimental</span></h2>
     <div class="admin-help">Experimental feature. Disabled by default; configure LLM/STT explicitly before enabling it for users.</div>
     <div class="admin-config-grid">
-      <div class="admin-config-field admin-config-checkbox full">
-        <input type="checkbox" id="braindump-enabled">
-        <label for="braindump-enabled">Enable BrainDump experimental feature</label>
-      </div>
       <div class="admin-config-field">
         <label for="braindump-llm-provider">LLM provider</label>
         <select id="braindump-llm-provider">
@@ -339,10 +327,6 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
   <div class="admin-card" id="email-config-card">
     <h2><span data-icon="mail"></span> <span data-i18n-key="admin.email.title">Email / SMTP</span></h2>
     <div class="admin-config-grid">
-      <div class="admin-config-field admin-config-checkbox full">
-        <input type="checkbox" id="email-smtp-enabled">
-        <label for="email-smtp-enabled" data-i18n-key="admin.email.enableSending">Enable email sending</label>
-      </div>
       <div class="admin-config-field">
         <label for="email-smtp-host">SMTP Host</label>
         <input type="text" id="email-smtp-host" placeholder="smtp.example.org" autocomplete="off">
@@ -412,7 +396,6 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
         <div class="security-policy-title" id="twofa-policy-title" data-i18n-key="admin.security.policyLoading">2FA requirement loading…</div>
         <div class="security-policy-desc" data-i18n-key="admin.security.policyDesc">Requires 2FA for all users. Sign-in is possible with an authenticator app, passkey, or existing recovery codes. If SMTP is configured, users without an authenticator/passkey can temporarily use an email code. Without any available method, they only get access to the 2FA setup.</div>
       </div>
-      <button class="btn btn-primary" id="twofa-policy-toggle" onclick="toggleTwoFactorPolicy()" data-i18n-key="admin.security.toggle">Toggle</button>
     </div>
     <div class="admin-help" data-i18n-key="admin.security.apiKeysHelp">API keys remain usable as machine tokens. Creating and revoking your own API keys requires recent MFA on accounts with mandatory MFA.</div>
     <div class="admin-error" id="security-error"></div>
@@ -525,10 +508,33 @@ function iconSvg(name) {
   return `<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
 }
 
+function getSectionSummary(card) {
+  const translate = window.t || ((key) => key);
+  if (card.id === 'braindump-config-card') return 'AI/STT';
+  if (card.id === 'email-config-card') return 'SMTP';
+  if (card.id === 'security-card') return translate('admin.overview.policySummary');
+  return '';
+}
+
+function buildSectionToggle(inputId, labelText) {
+  const input = document.getElementById(inputId);
+  if (!input) return null;
+  const wrapper = document.createElement('span');
+  wrapper.className = 'admin-section-toggle admin-config-checkbox';
+  wrapper.addEventListener('click', (event) => event.stopPropagation());
+  input.classList.remove('admin-header-switch-source');
+  input.addEventListener('click', (event) => event.stopPropagation());
+  const label = document.createElement('span');
+  label.textContent = labelText;
+  wrapper.appendChild(input);
+  wrapper.appendChild(label);
+  return wrapper;
+}
+
 function setupAdminSections() {
   const translate = window.t || ((key) => key);
-  const cards = document.querySelectorAll('#admin-content > .admin-card[id]:not(.admin-status-card):not(#user-list-card)');
-  cards.forEach((card, index) => {
+  const cards = document.querySelectorAll('#admin-content > .admin-card[id]:not(.admin-status-card)');
+  cards.forEach((card) => {
     if (card.dataset.sectionReady === '1') return;
     const heading = card.querySelector(':scope > h2');
     if (!heading) return;
@@ -541,29 +547,32 @@ function setupAdminSections() {
       node = next;
     }
     const titleHtml = heading.innerHTML;
-    const summary = card.id === 'braindump-config-card' ? 'AI/STT' : card.id === 'email-config-card' ? 'SMTP' : card.id === 'security-card' ? translate('admin.overview.policySummary') : '';
-    heading.innerHTML = `<button type="button" class="admin-section-header" aria-expanded="true"><span class="admin-section-title">${titleHtml}</span><span class="admin-section-summary">${summary}</span><span class="admin-section-chevron">${iconSvg('chevron-down')}</span></button>`;
+    const summary = getSectionSummary(card);
+    heading.innerHTML = `<button type="button" class="admin-section-header" aria-expanded="false"><span class="admin-section-title">${titleHtml}</span></button>`;
+    const headerButton = heading.querySelector('button');
+    const headerToggle = card.id === 'braindump-config-card'
+      ? buildSectionToggle('braindump-enabled', translate('admin.toggle.enabled'))
+      : card.id === 'email-config-card'
+        ? buildSectionToggle('email-smtp-enabled', translate('admin.toggle.enabled'))
+        : card.id === 'security-card'
+          ? buildSectionToggle('twofa-policy-toggle', translate('admin.toggle.required'))
+          : null;
+    if (headerToggle) headerButton.appendChild(headerToggle);
+    else if (summary) headerButton.insertAdjacentHTML('beforeend', `<span class="admin-section-summary">${summary}</span>`);
+    headerButton.insertAdjacentHTML('beforeend', `<span class="admin-section-chevron">${iconSvg('chevron-down')}</span>`);
     card.appendChild(body);
-    card.classList.add('admin-section-card');
+    card.classList.add('admin-section-card', 'collapsed');
     card.dataset.sectionReady = '1';
-    if (['braindump-config-card', 'email-config-card'].includes(card.id)) card.classList.add('collapsed');
-    const button = heading.querySelector('button');
-    const setExpandedState = () => button.setAttribute('aria-expanded', card.classList.contains('collapsed') ? 'false' : 'true');
-    setExpandedState();
-    button.addEventListener('click', () => {
+    const setExpandedState = () => headerButton.setAttribute('aria-expanded', card.classList.contains('collapsed') ? 'false' : 'true');
+    headerButton.addEventListener('click', () => {
       card.classList.toggle('collapsed');
       setExpandedState();
     });
+    setExpandedState();
   });
-  document.querySelectorAll('.admin-overview a[href^="#"]').forEach(link => {
-    link.addEventListener('click', () => {
-      const card = document.querySelector(link.getAttribute('href'));
-      if (!card?.classList.contains('admin-section-card')) return;
-      card.classList.remove('collapsed');
-      card.querySelector('.admin-section-header')?.setAttribute('aria-expanded', 'true');
-    });
-  });
+  wireHeaderToggles();
 }
+
 function hydrateIcons(root = document) {
   root.querySelectorAll('[data-icon]').forEach(el => { el.innerHTML = iconSvg(el.getAttribute('data-icon')); });
 }
@@ -937,6 +946,22 @@ async function saveBrainDumpConfig() {
   }
 }
 
+async function autoSaveBrainDumpToggle() {
+  const toggle = document.getElementById('braindump-enabled');
+  const previous = brainDumpFeatureEnabled;
+  document.getElementById('braindump-config-error').textContent = '';
+  document.getElementById('braindump-config-success').textContent = '';
+  try {
+    const data = await apiPatch('/api/admin/braindump-config', readBrainDumpConfigForm());
+    renderBrainDumpConfig(data);
+    await loadUsers();
+    document.getElementById('braindump-config-success').textContent = 'BrainDump configuration saved.';
+  } catch (e) {
+    if (toggle) toggle.checked = previous;
+    document.getElementById('braindump-config-error').textContent = e.message;
+  }
+}
+
 async function testBrainDumpConfig() {
   document.getElementById('braindump-config-error').textContent = '';
   document.getElementById('braindump-config-success').textContent = '';
@@ -955,32 +980,24 @@ async function testBrainDumpConfig() {
 function renderTwoFactorPolicy(policy) {
   twoFactorPolicyRequired = !!policy.required;
   const title = document.getElementById('twofa-policy-title');
-  const btn = document.getElementById('twofa-policy-toggle');
+  const toggle = document.getElementById('twofa-policy-toggle');
   if (title) title.textContent = twoFactorPolicyRequired ? t('admin.security.policyActive') : t('admin.security.policyInactive');
-  if (btn) btn.textContent = twoFactorPolicyRequired ? t('admin.security.disablePolicy') : t('admin.security.enablePolicy');
+  if (toggle) toggle.checked = twoFactorPolicyRequired;
 }
 
-async function toggleTwoFactorPolicy() {
-  const next = !twoFactorPolicyRequired;
+async function setTwoFactorPolicy(required) {
   const errorEl = document.getElementById('security-error');
   const successEl = document.getElementById('security-success');
+  const toggle = document.getElementById('twofa-policy-toggle');
   errorEl.textContent = '';
   successEl.textContent = '';
-  const confirmed = await adminConfirm({
-    title: next ? t('admin.security.enablePolicyTitle') : t('admin.security.disablePolicyTitle'),
-    message: next
-      ? t('admin.security.enablePolicyMessage')
-      : t('admin.security.disablePolicyMessage'),
-    confirmText: next ? t('admin.security.enablePolicy') : t('admin.security.disablePolicy'),
-    danger: !next,
-  });
-  if (!confirmed) return;
   try {
-    const data = await apiPatch('/api/admin/2fa-policy', { required: next });
+    const data = await apiPatch('/api/admin/2fa-policy', { required: !!required });
     renderTwoFactorPolicy(data);
-    successEl.textContent = next ? t('admin.security.policyEnabled') : t('admin.security.policyDisabled');
+    successEl.textContent = data.required ? t('admin.security.policyEnabled') : t('admin.security.policyDisabled');
     await loadUsers();
   } catch (e) {
+    if (toggle) toggle.checked = twoFactorPolicyRequired;
     errorEl.textContent = e.message;
   }
 }
@@ -1193,6 +1210,39 @@ async function saveEmailConfig() {
     document.getElementById('email-config-success').textContent = t('admin.email.saved');
   } catch(e) {
     document.getElementById('email-config-error').textContent = e.message;
+  }
+}
+
+async function autoSaveEmailToggle() {
+  const toggle = document.getElementById('email-smtp-enabled');
+  const previous = !toggle?.checked;
+  document.getElementById('email-config-error').textContent = '';
+  document.getElementById('email-config-success').textContent = '';
+  try {
+    const data = await apiPatch('/api/admin/email-config', readEmailConfigForm());
+    renderEmailConfig(data);
+    document.getElementById('email-config-success').textContent = t('admin.email.saved');
+  } catch(e) {
+    if (toggle) toggle.checked = previous;
+    document.getElementById('email-config-error').textContent = e.message;
+  }
+}
+
+function wireHeaderToggles() {
+  const brainDumpToggle = document.getElementById('braindump-enabled');
+  if (brainDumpToggle && brainDumpToggle.dataset.autosaveReady !== '1') {
+    brainDumpToggle.dataset.autosaveReady = '1';
+    brainDumpToggle.addEventListener('change', autoSaveBrainDumpToggle);
+  }
+  const emailToggle = document.getElementById('email-smtp-enabled');
+  if (emailToggle && emailToggle.dataset.autosaveReady !== '1') {
+    emailToggle.dataset.autosaveReady = '1';
+    emailToggle.addEventListener('change', autoSaveEmailToggle);
+  }
+  const twofaToggle = document.getElementById('twofa-policy-toggle');
+  if (twofaToggle && twofaToggle.dataset.autosaveReady !== '1') {
+    twofaToggle.dataset.autosaveReady = '1';
+    twofaToggle.addEventListener('change', () => setTwoFactorPolicy(twofaToggle.checked));
   }
 }
 
