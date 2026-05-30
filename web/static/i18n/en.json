@@ -901,6 +901,6 @@
   "admin.user.brainDumpEnabledSaved": "BrainDump enabled for user.",
   "admin.user.brainDumpDisabledSaved": "BrainDump disabled for user.",
   "braindump.record.finish": "Finish & process",
-  "braindump.processing.transcribing": "Transcribing audio…",
-  "braindump.processing.extracting": "Finding todo suggestions…"
+  "braindump.processing.transcribing": "1/2 Transcribing audio…",
+  "braindump.processing.extracting": "2/2 Finding todo suggestions…"
 }

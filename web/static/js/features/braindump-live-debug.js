@@ -23,6 +23,7 @@ export function createBrainDumpLiveDebugFeature() {
     requestTimer: null,
     recording: false,
     processing: false,
+    processingPhase: '',
     startedAt: 0,
     stoppedAt: 0,
     lastVoiceAt: 0,
@@ -217,6 +218,7 @@ export function createBrainDumpLiveDebugFeature() {
     state.createMessage = '';
     state.error = '';
     state.transcript = '';
+    state.processingPhase = '';
     state.candidateRenderSignature = '';
     state.level = 0;
     state.peak = 0;
@@ -250,6 +252,7 @@ export function createBrainDumpLiveDebugFeature() {
       state.recorder.addEventListener('stop', cleanupRecordingHandles);
       state.recording = true;
       state.processing = false;
+      state.processingPhase = '';
       state.startedAt = performance.now();
       state.lastVoiceAt = state.startedAt;
       state.recorder.start();
@@ -268,6 +271,7 @@ export function createBrainDumpLiveDebugFeature() {
     if (!state.recording) return;
     state.recording = false;
     state.processing = true;
+    state.processingPhase = 'transcribing';
     state.stoppedAt = performance.now();
     if (state.requestTimer) clearInterval(state.requestTimer);
     state.requestTimer = null;
@@ -277,6 +281,7 @@ export function createBrainDumpLiveDebugFeature() {
       if (!state.audioChunks.length && state.active === 0 && !state.queue.length) {
         state.error = reason === 'auto' ? t('braindump.error.noVoice') : t('braindump.error.noAudio');
         state.processing = false;
+        state.processingPhase = '';
         render();
       }
     }, 700);
@@ -391,7 +396,10 @@ export function createBrainDumpLiveDebugFeature() {
       state.active += 1;
       processSegment(job).finally(() => {
         state.active -= 1;
-        if (state.stoppedAt && state.active === 0 && state.queue.length === 0) state.processing = false;
+        if (state.stoppedAt && state.active === 0 && state.queue.length === 0) {
+          state.processing = false;
+          state.processingPhase = '';
+        }
         pump();
         render();
         stopRenderTimerIfIdle();
@@ -399,9 +407,17 @@ export function createBrainDumpLiveDebugFeature() {
     }
   }
 
+  async function fetchWithTimeout(url, options, timeoutMs = 60_000) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      return await fetch(url, { ...options, signal: controller.signal });
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
   async function processSegment({ item, blob }) {
-    const headers = getAuthHeaders();
-    headers['Content-Type'] = blob.type || 'application/octet-stream';
     const params = new URLSearchParams({
       segment_id: String(item.segmentId),
       audio_start_ms: String(item.audioStartMs),
@@ -409,25 +425,39 @@ export function createBrainDumpLiveDebugFeature() {
       model: 'small',
     });
     try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 60_000);
-      let response;
-      try {
-        response = await fetch(`${API}/api/braindump/v2/live/audio-segment?${params}`, {
-          method: 'POST',
-          headers,
-          credentials: 'include',
-          body: blob,
-          signal: controller.signal,
-        });
-      } finally {
-        clearTimeout(timeout);
-      }
-      if (!response.ok) throw new Error(await response.text());
-      const data = await response.json();
+      state.processingPhase = 'transcribing';
+      render();
+      const transcribeHeaders = getAuthHeaders();
+      transcribeHeaders['Content-Type'] = blob.type || 'application/octet-stream';
+      const transcribeResponse = await fetchWithTimeout(`${API}/api/braindump/v2/live/audio-segment/transcribe?${params}`, {
+        method: 'POST',
+        headers: transcribeHeaders,
+        credentials: 'include',
+        body: blob,
+      });
+      if (!transcribeResponse.ok) throw new Error(await transcribeResponse.text());
+      const transcribed = await transcribeResponse.json();
       if (state.stoppedAt && item.segmentId < state.finalSegmentId) return;
       if (!state.stoppedAt && item.segmentId < state.latestQueuedSegmentId) return;
-      state.transcript = data.transcript || state.transcript || '';
+      state.transcript = transcribed.transcript || state.transcript || '';
+      state.processingPhase = 'extracting';
+      render();
+
+      const extractResponse = await fetchWithTimeout(`${API}/api/braindump/v2/live/text-segment/extract`, {
+        method: 'POST',
+        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          transcript: state.transcript,
+          segment_id: item.segmentId,
+          audio_start_ms: item.audioStartMs,
+          audio_end_ms: item.audioEndMs,
+        }),
+      });
+      if (!extractResponse.ok) throw new Error(await extractResponse.text());
+      const data = await extractResponse.json();
+      if (state.stoppedAt && item.segmentId < state.finalSegmentId) return;
+      if (!state.stoppedAt && item.segmentId < state.latestQueuedSegmentId) return;
       const candidates = Array.isArray(data.json?.candidates) ? data.json.candidates : [];
       state.latestAppliedSegmentId = Math.max(state.latestAppliedSegmentId, item.segmentId);
       applyCandidates(candidates);
@@ -435,6 +465,7 @@ export function createBrainDumpLiveDebugFeature() {
     } catch (error) {
       state.error = String(error?.message || error);
       state.processing = false;
+      state.processingPhase = '';
     }
   }
 

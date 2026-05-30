@@ -4894,11 +4894,11 @@ input[type="color"]::-moz-color-swatch {
     line-height: 1.15;
     white-space: normal;
     overflow-wrap: anywhere;
+    justify-content: center;
+    text-align: center;
   }
-  #braindump-record,
-  #braindump-create { grid-column: 1 / -1; }
-  #braindump-create { order: 1; }
-  #braindump-record { order: 1; }
+  #braindump-record { grid-column: 1 / 2; order: 1; }
+  #braindump-create { grid-column: 2 / 3; order: 1; }
   #braindump-retry { order: 2; }
   #braindump-cancel { order: 3; }
 }
