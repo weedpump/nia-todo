@@ -39,8 +39,9 @@ class CreateUserRequest(BaseModel):
     language: str = "de"
 
 class UpdateUserRequest(BaseModel):
-    email: str
+    email: Optional[str] = None
     display_name: Optional[str] = None
+    braindump_enabled: Optional[bool] = None
 
 class ChangeAdminPasswordRequest(BaseModel):
     old_password: str
@@ -434,6 +435,7 @@ def list_users(_: bool = Depends(require_admin)):
         rows = db.execute("""
             SELECT u.id, u.username, u.display_name, u.email, u.email_verified_at, u.email_trust_source,
                    u.pending_email, u.password_hash IS NOT NULL AS password_configured, u.is_admin, u.language, u.created_at,
+                   COALESCE(u.braindump_enabled, 0) AS braindump_enabled,
                    COALESCE(u.two_factor_enabled, 0) AS two_factor_enabled,
                    CASE WHEN u.two_factor_totp_secret IS NOT NULL AND u.two_factor_totp_secret != '' THEN 1 ELSE 0 END AS has_totp,
                    CASE WHEN u.two_factor_recovery_hashes IS NOT NULL AND u.two_factor_recovery_hashes != '[]' THEN 1 ELSE 0 END AS has_recovery_codes,
@@ -453,36 +455,45 @@ def list_users(_: bool = Depends(require_admin)):
 
 @router.patch("/users/{user_id}")
 def update_user(user_id: int, data: UpdateUserRequest, request: Request, _: bool = Depends(require_admin)):
-    email = normalize_email(sanitize_text(data.email))
+    email = normalize_email(sanitize_text(data.email)) if data.email is not None else None
     display_name = sanitize_text(data.display_name) if data.display_name is not None else None
-    email_error = validate_email(email)
-    if email_error:
-        raise validation_api_error(email_error)
+    if email is not None:
+        email_error = validate_email(email)
+        if email_error:
+            raise validation_api_error(email_error)
     with get_db() as db:
-        user = db.execute("SELECT id, email FROM users WHERE id = ?", (user_id,)).fetchone()
+        user = db.execute("SELECT id, email, COALESCE(braindump_enabled, 0) AS braindump_enabled FROM users WHERE id = ?", (user_id,)).fetchone()
         if not user:
             raise api_error(404, "user.notFound", "User not found")
-        existing_email = db.execute("SELECT id FROM users WHERE (lower(email) = lower(?) OR lower(pending_email) = lower(?)) AND id != ?", (email, email, user_id)).fetchone()
-        if existing_email:
-            raise HTTPException(409, "Email already exists")
+        if email is not None:
+            existing_email = db.execute("SELECT id FROM users WHERE (lower(email) = lower(?) OR lower(pending_email) = lower(?)) AND id != ?", (email, email, user_id)).fetchone()
+            if existing_email:
+                raise HTTPException(409, "Email already exists")
         if display_name is not None:
             db.execute("UPDATE users SET display_name = ? WHERE id = ?", (display_name, user_id))
-        result = {"email": email, "pending_email": None, "email_verification_required": False}
-        if email != user['email']:
-            result = set_email_or_pending(db, user_id=user_id, email=email, request=request, requested_by="admin")
-            verification_email = result.pop("_verification_email", None)
-            if verification_email:
-                db.commit()
-                try:
-                    send_email(**verification_email)
-                except Exception:
-                    clear_pending_email(db, user_id=user_id)
-                    log_audit(db, "email_verification_email_failed", user_id=user_id, details="requested_by=admin")
+        result = {"email": user["email"], "pending_email": None, "email_verification_required": False}
+        if email is not None:
+            result = {"email": email, "pending_email": None, "email_verification_required": False}
+            if email != user['email']:
+                result = set_email_or_pending(db, user_id=user_id, email=email, request=request, requested_by="admin")
+                verification_email = result.pop("_verification_email", None)
+                if verification_email:
                     db.commit()
-                    raise api_error(400, "email.changeVerificationFailed", "The confirmation email could not be sent. The email was not changed.")
-            log_audit(db, "email_verification_requested" if result.get("email_verification_required") else "email_changed_direct", user_id=user_id, details=f"requested_by=admin; delivery={result.get('email_verification_delivery')}")
+                    try:
+                        send_email(**verification_email)
+                    except Exception:
+                        clear_pending_email(db, user_id=user_id)
+                        log_audit(db, "email_verification_email_failed", user_id=user_id, details="requested_by=admin")
+                        db.commit()
+                        raise api_error(400, "email.changeVerificationFailed", "The confirmation email could not be sent. The email was not changed.")
+                log_audit(db, "email_verification_requested" if result.get("email_verification_required") else "email_changed_direct", user_id=user_id, details=f"requested_by=admin; delivery={result.get('email_verification_delivery')}")
+        if data.braindump_enabled is not None:
+            enabled = 1 if data.braindump_enabled else 0
+            if enabled != int(user["braindump_enabled"] or 0):
+                db.execute("UPDATE users SET braindump_enabled = ? WHERE id = ?", (enabled, user_id))
+                log_audit(db, "braindump_access_changed", user_id=user_id, ip_address=get_client_ip(request), details=f"enabled={bool(enabled)}")
         db.commit()
-        return {"id": user_id, "display_name": display_name, **result}
+        return {"id": user_id, "display_name": display_name, "braindump_enabled": bool(data.braindump_enabled) if data.braindump_enabled is not None else bool(user["braindump_enabled"]), **result}
 
 @router.delete("/users/{user_id}")
 def delete_user(user_id: int, _: bool = Depends(require_admin)):
