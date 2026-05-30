@@ -270,6 +270,32 @@ def _route_shopping_candidate(candidate: dict, workspace_context: dict | None) -
     return routed
 
 
+def _parse_llm_json_content(content: str) -> dict:
+    """Parse OpenAI-compatible LLM content, tolerating Markdown-fenced JSON."""
+    raw = str(content or "").strip()
+    if not raw:
+        raise ValueError("LLM response was empty")
+    fenced = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", raw, flags=re.IGNORECASE | re.DOTALL)
+    candidates = [raw]
+    if fenced:
+        candidates.insert(0, fenced.group(1).strip())
+    first = raw.find("{")
+    last = raw.rfind("}")
+    if first != -1 and last > first:
+        candidates.append(raw[first:last + 1])
+    last_error = None
+    for candidate in candidates:
+        try:
+            parsed = json.loads(candidate)
+        except json.JSONDecodeError as exc:
+            last_error = exc
+            continue
+        if not isinstance(parsed, dict):
+            raise ValueError("LLM JSON response must be an object")
+        return parsed
+    raise ValueError(f"Could not parse LLM JSON response: {last_error}")
+
+
 def _normalize_braindump_json(parsed: dict, transcript: str, workspace_context: dict | None = None) -> dict:
     candidates = parsed.get("candidates") if isinstance(parsed, dict) else None
     if not isinstance(candidates, list):
@@ -647,7 +673,7 @@ def _extract_with_llm(text: str, segment_id: int, workspace_context: dict | None
         result = json.loads(response.read().decode("utf-8"))
     elapsed_ms = (time.perf_counter() - started) * 1000
     content = result["choices"][0]["message"]["content"]
-    parsed = _normalize_braindump_json(json.loads(content), text, workspace_context)
+    parsed = _normalize_braindump_json(_parse_llm_json_content(content), text, workspace_context)
     return elapsed_ms, parsed, result.get("usage"), json.dumps(parsed, ensure_ascii=False, separators=(",", ":"))
 
 
