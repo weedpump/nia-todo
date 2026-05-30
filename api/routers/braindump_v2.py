@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import ast
 import json
 import re
 import subprocess
@@ -48,7 +49,7 @@ WHISPER_MODELS = {
 SHOPPING_PROJECT_NAME = None  # kind=shopping is resolved to the user's configured shopping list later.
 
 LIST_VERB_RE = re.compile(r"\b(muss|soll|erinnere|erinnern|vorbereiten|aufräumen|entsorgen|bestellen|machen|erledigen|kaufen|besorgen|einkaufen|teste|testen|test)\b", re.IGNORECASE)
-SHOPPING_INTENT_RE = re.compile(r"\b(kaufen|besorgen|einkaufen|einkaufsliste|shopping list|brauche|brauchen|bräuchte|bräuchten|benötige|benötigen|holen|buy|need|needs|get|purchase|comprar|compro|necesito|acheter|achète|acheterai|courses)\b", re.IGNORECASE)
+SHOPPING_INTENT_RE = re.compile(r"\b(kaufen|besorgen|einkaufen|einkaufsliste|shopping list|brauche|brauchen|bräuchte|bräuchten|benötige|benötigen|ist leer|leer|holen|buy|need|needs|out of|get|purchase|comprar|compro|necesito|necesitamos|no queda|acheter|achète|acheterai|courses|il faut|manque)\b", re.IGNORECASE)
 
 
 def _clean_title(value: str) -> str:
@@ -60,10 +61,10 @@ def _clean_title(value: str) -> str:
 
 
 def _clean_shopping_title(value: str) -> str:
-    value = re.sub(r"\b(kaufen|besorgen|einkaufen|holen|setz(?:e)?|setze|pack(?:e)?|auf(?:\s+die)?(?:\s+einkaufsliste)?|liste|buy|need|needs|get|purchase|comprar|compro|necesito|acheter|achète)\b", "", value, flags=re.IGNORECASE)
+    value = re.sub(r"\b(kaufen|besorgen|einkaufen|holen|setz(?:e)?|setze|pack(?:e)?|auf(?:\s+die)?(?:\s+einkaufsliste)?|liste|buy|need|needs|get|purchase|comprar|compro|necesito|necesitamos|acheter|achète|il faut|manque)\b", "", value, flags=re.IGNORECASE)
     value = re.sub(r"\b(nicht|not)\b", "", value, flags=re.IGNORECASE)
     value = re.sub(r"^(wir müssen|ich muss|muss|bitte|noch|also we|we|i|je|nous|yo)\s+", "", value.strip(), flags=re.IGNORECASE)
-    value = re.sub(r"^(die|der|das|den|ein|eine|einen|the|el|la|los|las|le|les)\s+", "", value.strip(), flags=re.IGNORECASE)
+    value = re.sub(r"^(die|der|das|den|ein|eine|einen|the|el|la|los|las|un|una|unos|unas|le|la|les|du|des|de la|de l)\s+", "", value.strip(), flags=re.IGNORECASE)
     return _clean_title(value)
 
 
@@ -211,8 +212,9 @@ def _split_shopping_phrase(value: str) -> list[str]:
     value = re.sub(r"\b(ich|wir)\s+(?:brauche|brauchen|bräuchte|bräuchten|benötige|benötigen)\b", "", value, flags=re.IGNORECASE)
     value = re.sub(r"\b(muss|müssen|noch|bitte|auch|danach|dafür|aber|ach ?ja|also|we|i|wir|ich|yo|nous|je)\b", " ", value, flags=re.IGNORECASE)
     value = re.sub(r"\b(morgen|heute|tomorrow|today|mañana|demain|hoy)\b", " ", value, flags=re.IGNORECASE)
+    value = re.sub(r"\b\d{1,2}(?::\d{2})?\s*(?:uhr|h)?\b", " ", value, flags=re.IGNORECASE)
     value = re.sub(r"\b(?:auf|in|für|zu)\s+(?:der|die|das)?\s*(?:einkaufsliste|shopping list)\b.*$", "", value, flags=re.IGNORECASE)
-    value = re.sub(r"\b(kaufen|besorgen|einkaufen|einkaufsliste|holen|buy|need|needs|get|purchase|comprar|compro|necesito|acheter|achète)\b", "", value, flags=re.IGNORECASE)
+    value = re.sub(r"\b(kaufen|besorgen|einkaufen|einkaufsliste|holen|setz(?:e)?|setze|pack(?:e)?|auf(?:\s+die)?(?:\s+einkaufsliste)?|liste|buy|need|needs|get|purchase|comprar|compro|necesito|necesitamos|acheter|achète|il faut|manque)\b", "", value, flags=re.IGNORECASE)
     parts = [p.strip() for p in re.split(r",|\s+und\s+|\s+oder\s+|\s+and\s+|\s+y\s+|\s+e\s+|\s+et\s+|\s*&\s*", value, flags=re.IGNORECASE)]
     result = []
     for part in parts:
@@ -236,16 +238,21 @@ def _extract_shopping_candidates(text: str) -> list[dict]:
         if not is_plain_list and not is_shopping:
             continue
         phrase = chunk
-        if is_shopping and not is_plain_list:
-            match = re.search(r"(?:^|,|und|ach ?ja)\s*([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß -]{1,60}?)\s+(?:muss|müssen)?\s*(?:ich|wir)?\s*(?:noch\s+)?(?:kaufen|besorgen|einkaufen|holen|buy|need|needs|get|purchase|comprar|compro|necesito|acheter|achète)\b", chunk, re.IGNORECASE)
+        low_stock_match = re.search(r"(?:keine?n?\s+(.+?)\s+mehr|no queda\s+(.+)|out of\s+(.+)|(?:il manque|manque)\s+(.+)|(.+?)\s+(?:ist|sind|is|are)\s+(?:leer|empty|low))", chunk, re.IGNORECASE)
+        if low_stock_match:
+            phrase = next((group for group in low_stock_match.groups() if group), chunk)
+        if is_shopping and not is_plain_list and phrase == chunk:
+            match = re.search(r"(?:^|,|und|ach ?ja)\s*([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß -]{1,60}?)\s+(?:muss|müssen)?\s*(?:ich|wir)?\s*(?:noch\s+)?(?:kaufen|besorgen|einkaufen|holen|get|purchase|comprar|compro)\b", chunk, re.IGNORECASE)
             if match:
                 phrase = match.group(1)
             else:
                 match = re.search(r"(?:^|,|und|aber)\s*([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß -]{1,60}?)\s+(?:bräuchte|bräuchten|brauche|brauchen|benötige|benötigen)\s+(?:ich|wir)?\b", chunk, re.IGNORECASE)
                 if match:
                     phrase = match.group(1)
-                elif re.search(r"\b(?:brauche|brauchen|bräuchte|bräuchten|benötige|benötigen)\b", chunk, re.IGNORECASE):
-                    phrase = re.split(r"\b(?:brauche|brauchen|bräuchte|bräuchten|benötige|benötigen)\b", chunk, flags=re.IGNORECASE)[-1]
+                elif re.search(r"\b(?:brauche|brauchen|bräuchte|bräuchten|benötige|benötigen|need|needs|necesito|necesitamos)\b", chunk, re.IGNORECASE):
+                    phrase = re.split(r"\b(?:brauche|brauchen|bräuchte|bräuchten|benötige|benötigen|need|needs|necesito|necesitamos)\b", chunk, flags=re.IGNORECASE)[-1]
+                elif re.search(r"\b(?:buy|get|purchase|comprar|acheter|achète)\b", chunk, re.IGNORECASE):
+                    phrase = re.split(r"\b(?:buy|get|purchase|comprar|acheter|achète)\b", chunk, flags=re.IGNORECASE)[-1]
         for item in _split_shopping_phrase(phrase):
             key = _item_key(item)
             if not key or key in negated or key in seen:
@@ -323,42 +330,106 @@ def _route_shopping_candidate(candidate: dict, workspace_context: dict | None) -
     return routed
 
 
-def _parse_llm_json_content(content: str) -> dict:
-    """Parse OpenAI-compatible LLM content, tolerating Markdown-fenced JSON."""
-    raw = str(content or "").strip()
+def _normalize_llm_response_shape(parsed):
+    if isinstance(parsed, list):
+        return {"candidates": parsed}
+    if not isinstance(parsed, dict):
+        raise ValueError("LLM JSON response must be an object or array")
+    if isinstance(parsed.get("candidates"), list):
+        return parsed
+    if any(parsed.get(key) for key in ("title", "task", "text", "item", "name")):
+        return {"candidates": [parsed]}
+    for key in ("todos", "tasks", "items", "todo_candidates"):
+        if isinstance(parsed.get(key), list):
+            result = dict(parsed)
+            result["candidates"] = parsed[key]
+            return result
+    return parsed
+
+
+def _strip_json_comments(value: str) -> str:
+    value = re.sub(r"(?m)^\s*//.*$", "", value)
+    value = re.sub(r"/\*.*?\*/", "", value, flags=re.DOTALL)
+    return value
+
+
+def _json_loads_lenient(value: str):
+    attempts = [value]
+    stripped = _strip_json_comments(value)
+    if stripped != value:
+        attempts.append(stripped)
+    no_trailing_commas = re.sub(r",\s*([}\]])", r"\1", stripped)
+    if no_trailing_commas not in attempts:
+        attempts.append(no_trailing_commas)
+    last_error = None
+    for attempt in attempts:
+        try:
+            return json.loads(attempt)
+        except json.JSONDecodeError as exc:
+            last_error = exc
+    try:
+        return ast.literal_eval(no_trailing_commas)
+    except (SyntaxError, ValueError) as exc:
+        last_error = exc
+    raise last_error or ValueError("invalid JSON")
+
+
+def _extract_llm_message_text(content) -> str:
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts = []
+        for item in content:
+            if isinstance(item, str):
+                parts.append(item)
+            elif isinstance(item, dict):
+                text = item.get("text") or item.get("content") or item.get("value")
+                if text:
+                    parts.append(str(text))
+        return "\n".join(parts)
+    return str(content or "")
+
+
+def _parse_llm_json_content(content) -> dict:
+    """Parse OpenAI-compatible LLM content, tolerating common local-model JSON variants."""
+    raw = _extract_llm_message_text(content).strip()
     if not raw:
         raise ValueError("LLM response was empty")
-    fenced = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", raw, flags=re.IGNORECASE | re.DOTALL)
+    fenced = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", raw, flags=re.IGNORECASE)
     candidates = [raw]
     if fenced:
         candidates.insert(0, fenced.group(1).strip())
-    first = raw.find("{")
-    last = raw.rfind("}")
-    if first != -1 and last > first:
-        candidates.append(raw[first:last + 1])
+    for open_char, close_char in (("{", "}"), ("[", "]")):
+        first = raw.find(open_char)
+        last = raw.rfind(close_char)
+        if first != -1 and last > first:
+            candidates.append(raw[first:last + 1])
     last_error = None
     for candidate in candidates:
         try:
-            parsed = json.loads(candidate)
-        except json.JSONDecodeError as exc:
+            return _normalize_llm_response_shape(_json_loads_lenient(candidate))
+        except (json.JSONDecodeError, ValueError) as exc:
             last_error = exc
             continue
-        if not isinstance(parsed, dict):
-            raise ValueError("LLM JSON response must be an object")
-        return parsed
     raise ValueError(f"Could not parse LLM JSON response: {last_error}")
 
 
 def _normalize_braindump_json(parsed: dict, transcript: str, workspace_context: dict | None = None) -> dict:
+    try:
+        parsed = _normalize_llm_response_shape(parsed)
+    except ValueError:
+        parsed = {}
     candidates = parsed.get("candidates") if isinstance(parsed, dict) else None
     if not isinstance(candidates, list):
         candidates = []
     negated = _negated_items(transcript)
     normalized = []
     for candidate in candidates:
+        if isinstance(candidate, str):
+            candidate = {"title": candidate}
         if not isinstance(candidate, dict):
             continue
-        title = str(candidate.get("title") or "").strip()
+        title = str(candidate.get("title") or candidate.get("task") or candidate.get("text") or candidate.get("item") or candidate.get("name") or "").strip()
         if not title:
             continue
         title = _clean_title(title)
@@ -366,8 +437,12 @@ def _normalize_braindump_json(parsed: dict, transcript: str, workspace_context: 
             continue
         if len(title) > 30 and (',' in title or ' und ' in title.lower() or ' or ' in title.lower()):
             continue
-        project_name = candidate.get("project_name")
-        kind = candidate.get("kind") or "todo"
+        project_name = candidate.get("project_name") or candidate.get("projectName")
+        kind = str(candidate.get("kind") or candidate.get("type") or "todo").strip().lower()
+        if kind in {"task", "action", "todo_item"}:
+            kind = "todo"
+        elif kind in {"grocery", "groceries", "buy", "purchase"}:
+            kind = "shopping"
         if SHOPPING_INTENT_RE.search(title) or kind == "shopping":
             # kind=shopping is a semantic signal. Keep project/section names
             # when the LLM mapped them to explicit workspace context.
@@ -376,14 +451,14 @@ def _normalize_braindump_json(parsed: dict, transcript: str, workspace_context: 
             key = _item_key(title)
             if not key or key in negated or _title_is_negated(title, transcript):
                 continue
-        deadline = _normalize_temporal_field(candidate.get("deadline"), transcript=transcript)
-        reminder = _normalize_temporal_field(candidate.get("reminder"), require_time=True, transcript=transcript)
+        deadline = _normalize_temporal_field(candidate.get("deadline") or candidate.get("due") or candidate.get("due_date") or candidate.get("dueDate"), transcript=transcript)
+        reminder = _normalize_temporal_field(candidate.get("reminder") or candidate.get("remind_at") or candidate.get("reminder_at") or candidate.get("remindAt") or candidate.get("reminderAt"), require_time=True, transcript=transcript)
         if deadline and (candidate.get("reminder") or kind == "reminder") and not reminder:
             reminder = deadline
         normalized.append(_route_workspace_candidate(_route_shopping_candidate({
             "title": title,
-            "project_name": project_name,
-            "section_name": candidate.get("section_name"),
+            "project_name": project_name or candidate.get("project"),
+            "section_name": candidate.get("section_name") or candidate.get("sectionName") or candidate.get("section"),
             "deadline": deadline,
             "reminder": reminder,
             "kind": kind,
@@ -727,7 +802,7 @@ def _extract_with_llm(text: str, segment_id: int, workspace_context: dict | None
     with urllib.request.urlopen(req, timeout=float(config.get("llm_timeout_seconds") or 180)) as response:
         result = json.loads(response.read().decode("utf-8"))
     elapsed_ms = (time.perf_counter() - started) * 1000
-    content = result["choices"][0]["message"]["content"]
+    content = result["choices"][0]["message"].get("content", "")
     parsed = _normalize_braindump_json(_parse_llm_json_content(content), text, workspace_context)
     return elapsed_ms, parsed, result.get("usage"), json.dumps(parsed, ensure_ascii=False, separators=(",", ":"))
 
