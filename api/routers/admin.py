@@ -1,6 +1,9 @@
 """nia-todo: Admin endpoints (users, setup, password management)"""
 
 from typing import Optional
+from urllib.parse import urlparse, urlunparse
+import urllib.request
+
 from fastapi import APIRouter, Request, Response, HTTPException, Depends
 from pydantic import BaseModel
 import bcrypt
@@ -11,6 +14,7 @@ from db import get_db, now_iso
 from services.auth import create_admin_jwt_token, verify_admin_token
 from services.utils import normalize_email, sanitize_text, validate_email, validate_password, validate_admin_password
 from services.audit import log_audit
+from services.braindump_config import get_braindump_config, llm_models_url, parse_extra_headers, update_braindump_config
 from services.instance_config import get_instance_config, get_public_base_url, update_instance_config
 from services.email_config import can_send_email_links, get_email_config, get_password_link_ttl_hours, is_email_configured, update_email_config
 from services.email import send_email, send_test_email
@@ -35,8 +39,9 @@ class CreateUserRequest(BaseModel):
     language: str = "de"
 
 class UpdateUserRequest(BaseModel):
-    email: str
+    email: Optional[str] = None
     display_name: Optional[str] = None
+    braindump_enabled: Optional[bool] = None
 
 class ChangeAdminPasswordRequest(BaseModel):
     old_password: str
@@ -54,6 +59,22 @@ class InstanceConfigRequest(BaseModel):
     public_base_url: str = ""
     allowed_origins: list[str] = []
     trusted_proxies: list[str] = []
+
+class BrainDumpConfigRequest(BaseModel):
+    enabled: bool = False
+    llm_provider: str = "openai_compatible"
+    llm_base_url: str = ""
+    llm_api_key_secret: Optional[str] = None
+    llm_model: str = ""
+    llm_extra_headers_json: str = ""
+    llm_timeout_seconds: float = 180
+    system_prompt_mode: str = "default"
+    system_prompt_custom: str = ""
+    stt_provider: str = "whisper_cpp_remote"
+    stt_url: str = ""
+    stt_token_secret: Optional[str] = None
+    stt_language: str = ""
+    stt_timeout_seconds: float = 60
 
 class EmailConfigRequest(BaseModel):
     smtp_enabled: bool = False
@@ -176,6 +197,69 @@ def admin_update_instance_config(data: InstanceConfigRequest, request: Request, 
         trusted_proxies=data.trusted_proxies,
         client_ip=get_client_ip(request),
     )
+
+
+# ─── BrainDump Configuration ────────────────────────────────────────────────
+
+@router.get("/braindump-config")
+def admin_get_braindump_config(_: bool = Depends(require_admin)):
+    return get_braindump_config(include_secrets=False)
+
+
+@router.patch("/braindump-config")
+def admin_update_braindump_config(data: BrainDumpConfigRequest, request: Request, _: bool = Depends(require_admin)):
+    return update_braindump_config(data.model_dump(), client_ip=get_client_ip(request))
+
+
+def _stt_health_url(stt_url: str) -> str:
+    parsed = urlparse(stt_url)
+    base_path = parsed.path.rsplit("/", 1)[0]
+    return urlunparse((parsed.scheme, parsed.netloc, f"{base_path}/health", "", "", ""))
+
+
+@router.post("/braindump-config/test")
+def admin_test_braindump_config(_: bool = Depends(require_admin)):
+    config = get_braindump_config(include_secrets=True)
+    if not config.get("enabled"):
+        return {
+            "llm": {"ok": False, "message": "BrainDump experimental feature is disabled"},
+            "stt": {"ok": False, "message": "BrainDump experimental feature is disabled"},
+        }
+    result = {
+        "llm": {"ok": False, "message": "not tested"},
+        "stt": {"ok": False, "message": "not tested"},
+    }
+
+    token = str(config.get("llm_api_key") or "").strip()
+    if not str(config.get("llm_base_url") or "").strip():
+        result["llm"] = {"ok": False, "message": "LLM base URL is not configured"}
+    elif not str(config.get("llm_model") or "").strip():
+        result["llm"] = {"ok": False, "message": "LLM model is not configured"}
+    else:
+        try:
+            headers = {}
+            if token:
+                headers["Authorization"] = f"Bearer {token}"
+            headers.update(parse_extra_headers(str(config.get("llm_extra_headers_json") or "")))
+            req = urllib.request.Request(llm_models_url(config), headers=headers)
+            with urllib.request.urlopen(req, timeout=10) as response:
+                payload = response.read().decode("utf-8", errors="replace")
+            result["llm"] = {"ok": True, "message": "LLM endpoint reachable", "sample": payload[:400]}
+        except Exception as exc:
+            result["llm"] = {"ok": False, "message": str(exc)}
+
+    if config.get("stt_provider") == "local_whisper_cpp":
+        result["stt"] = {"ok": True, "message": "Local whisper.cpp provider selected; runtime availability is checked when audio is processed"}
+    elif not str(config.get("stt_url") or "").strip():
+        result["stt"] = {"ok": False, "message": "STT URL is not configured"}
+    else:
+        try:
+            with urllib.request.urlopen(_stt_health_url(str(config.get("stt_url") or "")), timeout=10) as response:
+                payload = response.read().decode("utf-8", errors="replace")
+            result["stt"] = {"ok": True, "message": "STT endpoint reachable", "sample": payload[:400]}
+        except Exception as exc:
+            result["stt"] = {"ok": False, "message": str(exc)}
+    return result
 
 
 # ─── Email Configuration ────────────────────────────────────────────────────
@@ -363,6 +447,7 @@ def list_users(_: bool = Depends(require_admin)):
         rows = db.execute("""
             SELECT u.id, u.username, u.display_name, u.email, u.email_verified_at, u.email_trust_source,
                    u.pending_email, u.password_hash IS NOT NULL AS password_configured, u.is_admin, u.language, u.created_at,
+                   COALESCE(u.braindump_enabled, 0) AS braindump_enabled,
                    COALESCE(u.two_factor_enabled, 0) AS two_factor_enabled,
                    CASE WHEN u.two_factor_totp_secret IS NOT NULL AND u.two_factor_totp_secret != '' THEN 1 ELSE 0 END AS has_totp,
                    CASE WHEN u.two_factor_recovery_hashes IS NOT NULL AND u.two_factor_recovery_hashes != '[]' THEN 1 ELSE 0 END AS has_recovery_codes,
@@ -382,36 +467,45 @@ def list_users(_: bool = Depends(require_admin)):
 
 @router.patch("/users/{user_id}")
 def update_user(user_id: int, data: UpdateUserRequest, request: Request, _: bool = Depends(require_admin)):
-    email = normalize_email(sanitize_text(data.email))
+    email = normalize_email(sanitize_text(data.email)) if data.email is not None else None
     display_name = sanitize_text(data.display_name) if data.display_name is not None else None
-    email_error = validate_email(email)
-    if email_error:
-        raise validation_api_error(email_error)
+    if email is not None:
+        email_error = validate_email(email)
+        if email_error:
+            raise validation_api_error(email_error)
     with get_db() as db:
-        user = db.execute("SELECT id, email FROM users WHERE id = ?", (user_id,)).fetchone()
+        user = db.execute("SELECT id, email, COALESCE(braindump_enabled, 0) AS braindump_enabled FROM users WHERE id = ?", (user_id,)).fetchone()
         if not user:
             raise api_error(404, "user.notFound", "User not found")
-        existing_email = db.execute("SELECT id FROM users WHERE (lower(email) = lower(?) OR lower(pending_email) = lower(?)) AND id != ?", (email, email, user_id)).fetchone()
-        if existing_email:
-            raise HTTPException(409, "Email already exists")
+        if email is not None:
+            existing_email = db.execute("SELECT id FROM users WHERE (lower(email) = lower(?) OR lower(pending_email) = lower(?)) AND id != ?", (email, email, user_id)).fetchone()
+            if existing_email:
+                raise HTTPException(409, "Email already exists")
         if display_name is not None:
             db.execute("UPDATE users SET display_name = ? WHERE id = ?", (display_name, user_id))
-        result = {"email": email, "pending_email": None, "email_verification_required": False}
-        if email != user['email']:
-            result = set_email_or_pending(db, user_id=user_id, email=email, request=request, requested_by="admin")
-            verification_email = result.pop("_verification_email", None)
-            if verification_email:
-                db.commit()
-                try:
-                    send_email(**verification_email)
-                except Exception:
-                    clear_pending_email(db, user_id=user_id)
-                    log_audit(db, "email_verification_email_failed", user_id=user_id, details="requested_by=admin")
+        result = {"email": user["email"], "pending_email": None, "email_verification_required": False}
+        if email is not None:
+            result = {"email": email, "pending_email": None, "email_verification_required": False}
+            if email != user['email']:
+                result = set_email_or_pending(db, user_id=user_id, email=email, request=request, requested_by="admin")
+                verification_email = result.pop("_verification_email", None)
+                if verification_email:
                     db.commit()
-                    raise api_error(400, "email.changeVerificationFailed", "The confirmation email could not be sent. The email was not changed.")
-            log_audit(db, "email_verification_requested" if result.get("email_verification_required") else "email_changed_direct", user_id=user_id, details=f"requested_by=admin; delivery={result.get('email_verification_delivery')}")
+                    try:
+                        send_email(**verification_email)
+                    except Exception:
+                        clear_pending_email(db, user_id=user_id)
+                        log_audit(db, "email_verification_email_failed", user_id=user_id, details="requested_by=admin")
+                        db.commit()
+                        raise api_error(400, "email.changeVerificationFailed", "The confirmation email could not be sent. The email was not changed.")
+                log_audit(db, "email_verification_requested" if result.get("email_verification_required") else "email_changed_direct", user_id=user_id, details=f"requested_by=admin; delivery={result.get('email_verification_delivery')}")
+        if data.braindump_enabled is not None:
+            enabled = 1 if data.braindump_enabled else 0
+            if enabled != int(user["braindump_enabled"] or 0):
+                db.execute("UPDATE users SET braindump_enabled = ? WHERE id = ?", (enabled, user_id))
+                log_audit(db, "braindump_access_changed", user_id=user_id, ip_address=get_client_ip(request), details=f"enabled={bool(enabled)}")
         db.commit()
-        return {"id": user_id, "display_name": display_name, **result}
+        return {"id": user_id, "display_name": display_name, "braindump_enabled": bool(data.braindump_enabled) if data.braindump_enabled is not None else bool(user["braindump_enabled"]), **result}
 
 @router.delete("/users/{user_id}")
 def delete_user(user_id: int, _: bool = Depends(require_admin)):
