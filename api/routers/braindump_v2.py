@@ -63,8 +63,8 @@ def _clean_title(value: str) -> str:
 def _clean_shopping_title(value: str) -> str:
     value = re.sub(r"\b(kaufen|besorgen|einkaufen|holen|setz(?:e)?|setze|pack(?:e)?|auf(?:\s+die)?(?:\s+einkaufsliste)?|liste|buy|need|needs|get|purchase|comprar|compro|necesito|necesitamos|acheter|achète|il faut|manque)\b", "", value, flags=re.IGNORECASE)
     value = re.sub(r"\b(nicht|not)\b", "", value, flags=re.IGNORECASE)
-    value = re.sub(r"^(wir müssen|ich muss|muss|bitte|noch|also we|we|i|je|nous|yo)\s+", "", value.strip(), flags=re.IGNORECASE)
-    value = re.sub(r"^(die|der|das|den|ein|eine|einen|the|el|la|los|las|un|una|unos|unas|le|la|les|du|des|de la|de l)\s+", "", value.strip(), flags=re.IGNORECASE)
+    value = re.sub(r"^(wir müssen|ich muss|muss|bitte|noch|also we|we|i|je|nous|yo|but|pero|mais)\s+", "", value.strip(), flags=re.IGNORECASE)
+    value = re.sub(r"^(die|der|das|den|ein|eine|einen|the|el|la|los|las|un|una|unos|unas|le|la|les|du|des|de|de la|de l)\s+", "", value.strip(), flags=re.IGNORECASE)
     return _clean_title(value)
 
 
@@ -72,7 +72,7 @@ def _split_plain_enumeration(text: str) -> list[dict]:
     source = text.strip().strip(" .!?;:")
     if not source or "," not in source:
         return []
-    if LIST_VERB_RE.search(source):
+    if LIST_VERB_RE.search(source) or SHOPPING_INTENT_RE.search(source):
         return []
     parts = [p.strip() for p in re.split(r",|\s+und\s+|\s+oder\s+|\s+and\s+|\s+y\s+|\s+e\s+|\s+et\s+|\s*&\s*", source, flags=re.IGNORECASE)]
     items = [_clean_title(part) for part in parts]
@@ -178,6 +178,10 @@ def _normalize_temporal_field(value, *, require_time: bool = False, transcript: 
 
 def _negated_items(text: str) -> set[str]:
     result = set()
+    for match in re.finditer(r"\b(?:but|aber|pero|mais)?\s*(?:not|no|sin|pas(?:\s+de)?)\s+([A-Za-zÀ-ÿÄÖÜäöüß][A-Za-zÀ-ÿÄÖÜäöüß -]{1,40})", text, re.IGNORECASE):
+        item = _clean_shopping_title(match.group(1) or "")
+        if item:
+            result.add(_item_key(item))
     for match in NEGATED_ITEM_RE.finditer(text):
         item = _clean_shopping_title(match.group(1) or match.group(2) or match.group(3) or "")
         if item:
@@ -210,7 +214,7 @@ def _is_noise_candidate_title(title: str) -> bool:
 def _split_shopping_phrase(value: str) -> list[str]:
     value = re.sub(r"(?:nee|nein)?\s*(?:doch\s+)?keine?n?\s+[A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß -]{1,40}", "", value, flags=re.IGNORECASE)
     value = re.sub(r"\b(ich|wir)\s+(?:brauche|brauchen|bräuchte|bräuchten|benötige|benötigen)\b", "", value, flags=re.IGNORECASE)
-    value = re.sub(r"\b(muss|müssen|noch|bitte|auch|danach|dafür|aber|ach ?ja|also|we|i|wir|ich|yo|nous|je)\b", " ", value, flags=re.IGNORECASE)
+    value = re.sub(r"\b(muss|müssen|noch|bitte|auch|danach|dafür|aber|ach ?ja|also|we|i|wir|ich|yo|nous|je|but|pero|mais)\b", " ", value, flags=re.IGNORECASE)
     value = re.sub(r"\b(morgen|heute|tomorrow|today|mañana|demain|hoy)\b", " ", value, flags=re.IGNORECASE)
     value = re.sub(r"\b\d{1,2}(?::\d{2})?\s*(?:uhr|h)?\b", " ", value, flags=re.IGNORECASE)
     value = re.sub(r"\b(?:auf|in|für|zu)\s+(?:der|die|das)?\s*(?:einkaufsliste|shopping list)\b.*$", "", value, flags=re.IGNORECASE)
@@ -291,10 +295,15 @@ def _route_workspace_candidate(candidate: dict, workspace_context: dict | None) 
                     routed["project_name"] = project.get("name")
                     routed["section_name"] = section_str
                     return routed
-    if project_name and not section_name:
+    if project_name:
         project = project_names.get(project_name.lower())
-        haystack = f"{routed.get('title') or ''} {project_name}"
-        if project:
+        if project and section_name:
+            known_sections = {str(section).lower() for section in project.get("sections") or []}
+            if section_name.lower() not in known_sections:
+                routed["section_name"] = None
+                section_name = ""
+        if project and not section_name:
+            haystack = f"{routed.get('title') or ''} {project_name}"
             for section in project.get("sections") or []:
                 section_str = str(section)
                 if re.search(rf"\b{re.escape(section_str)}\b", haystack, re.IGNORECASE):
@@ -314,6 +323,9 @@ def _route_shopping_candidate(candidate: dict, workspace_context: dict | None) -
         routed["project_name"] = project.get("name")
     title = str(routed.get("title") or "")
     sections = [str(section) for section in project.get("sections") or []]
+    current_section = str(routed.get("section_name") or "").strip()
+    if current_section and current_section.lower() not in {section.lower() for section in sections}:
+        routed["section_name"] = None
     section_rules = [
         (r"milch|hafermilch|joghurt|käse|kaese|dairy|leche|lait", r"milch|dairy|lácteos|lacteos|lait"),
         (r"banane|banana|apfel|erdbeer|kartoffel|obst|gemüse|gemuese|fruit|fruta|verdura", r"obst|gemüse|gemuese|fruit|fruta|verdura|vegetable"),

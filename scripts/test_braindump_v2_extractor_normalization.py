@@ -134,6 +134,19 @@ def test_multilingual_safety_net_extracts_direct_purchase_phrases():
     assert_true(any("Lait" == item["title"] for item in french["candidates"]), french)
 
 
+def test_multilingual_negated_shopping_cleanup():
+    result = _normalize_braindump_json({"candidates": [{"title": "But coffee", "kind": "shopping"}]}, "We need milk and bread, but not coffee.")
+    titles = [item["title"] for item in result["candidates"]]
+    assert_true("Coffee" not in titles and "But not coffee" not in titles, result)
+    assert_true("Milk" in titles and "Bread" in titles, result)
+
+
+def test_invalid_llm_section_is_cleared_when_workspace_known():
+    context = {"projects": [{"name": "Shopping", "sections": ["Dairy"]}]}
+    result = _normalize_braindump_json({"candidates": [{"title": "Bread", "project_name": "Shopping", "section_name": "Shopping | Drinks", "kind": "shopping"}]}, "Buy bread.", context)
+    assert_true(result["candidates"][0]["section_name"] is None, result)
+
+
 def test_filters_plain_list_noise_from_safety_net():
     result = _normalize_braindump_json({"candidates": []}, "Ähm ja okay danke, ich teste nur kurz.")
     assert_true(result["candidates"] == [], result)
@@ -216,6 +229,8 @@ def main():
         test_parses_common_local_llm_json_variants,
         test_normalizes_alias_fields_from_local_models,
         test_multilingual_safety_net_extracts_direct_purchase_phrases,
+        test_multilingual_negated_shopping_cleanup,
+        test_invalid_llm_section_is_cleared_when_workspace_known,
         test_filters_plain_list_noise_from_safety_net,
         test_removes_negated_items_added_by_llm_or_safety_net,
         test_maps_section_name_used_as_project_to_real_project_section,
