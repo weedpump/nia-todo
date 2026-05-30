@@ -569,6 +569,7 @@
   "admin.login.invalidPassword": "Falsches Admin-Passwort",
   "admin.login.failed": "Fehler beim Anmelden",
   "admin.status.loggedIn": "Eingeloggt als Admin",
+  "admin.section.enable": "Aktivieren",
   "admin.instance.title": "Instanz-Konfiguration",
   "admin.instance.publicUrl": "Öffentliche Basis-URL",
   "admin.instance.help": "Basis-URL wird für externe Links genutzt. Origins und Trusted Proxies sind zeilenweise. Forwarded-Header werden nur von Trusted Proxies akzeptiert.",

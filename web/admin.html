@@ -561,9 +561,9 @@ function iconSvg(name) {
 
 function getSectionSummary(card) {
   const translate = window.t || ((key) => key);
-  if (card.id === 'braindump-config-card') return translate('admin.braindump.summary');
-  if (card.id === 'email-config-card') return 'SMTP';
-  if (card.id === 'security-card') return translate('admin.overview.policySummary');
+  if (card.id === 'braindump-config-card') return translate('admin.section.enable');
+  if (card.id === 'email-config-card') return translate('admin.section.enable');
+  if (card.id === 'security-card') return translate('admin.section.enable');
   return '';
 }
 
