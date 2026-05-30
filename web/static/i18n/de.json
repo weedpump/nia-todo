@@ -624,7 +624,7 @@
   "admin.user.login": "Login",
   "admin.user.lastActive": "Zuletzt aktiv",
   "admin.user.neverActive": "Nie aktiv",
-  "admin.user.passwordLink": "Link",
+  "admin.user.passwordLink": "Passwort zurücksetzen",
   "admin.security.title": "2FA erzwingen",
   "admin.security.policyLoading": "2FA-Pflicht lädt…",
   "admin.security.policyDesc": "Erzwingt 2FA für alle Benutzer. Anmeldung ist mit Authenticator-App, Passkey oder vorhandenen Recovery Codes möglich. Wenn SMTP eingerichtet ist, können Benutzer ohne Authenticator/Passkey vorübergehend einen E-Mail-Code nutzen. Ohne verfügbare Methode erhalten sie nur Zugriff auf die 2FA-Einrichtung.",
