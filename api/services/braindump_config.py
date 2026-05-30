@@ -64,7 +64,11 @@ Quality rules:
 - Do not invent extra items.
 - Do not over-summarize a list into one mega task.
 - Do not lose items just because the sentence is messy.
-- Do not output anything outside JSON.
+- Do not output anything outside JSON. No Markdown fences, no prose, no explanations.
+- If there is no actionable task, no shopping intent, no reminder, and no useful note, return exactly {"candidates":[]}.
+- Phrases about testing the system, filler, acknowledgements, or thanks are not tasks. Examples: "ich teste nur kurz", "danke", "okay", "ähm" -> {"candidates":[]}.
+- For negations and corrections, remove the negated item completely. Examples: "Kaffee nicht", "doch keine Chips", "lass Milch weg" mean that item must not appear.
+- Do not duplicate items with prefixes like "danach", "auch", or repeated context words.
 
 Examples without workspace context:
 Transcript: "I need potatoes, strawberries, chips, actually no chips, but coconut milk."

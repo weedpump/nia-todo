@@ -47,7 +47,7 @@ WHISPER_MODELS = {
 }
 SHOPPING_PROJECT_NAME = None  # kind=shopping is resolved to the user's configured shopping list later.
 
-LIST_VERB_RE = re.compile(r"\b(muss|soll|erinnere|erinnern|vorbereiten|aufräumen|entsorgen|bestellen|machen|erledigen|kaufen|besorgen|einkaufen)\b", re.IGNORECASE)
+LIST_VERB_RE = re.compile(r"\b(muss|soll|erinnere|erinnern|vorbereiten|aufräumen|entsorgen|bestellen|machen|erledigen|kaufen|besorgen|einkaufen|teste|testen|test)\b", re.IGNORECASE)
 SHOPPING_INTENT_RE = re.compile(r"\b(kaufen|besorgen|einkaufen|einkaufsliste|shopping list|brauche|brauchen|bräuchte|bräuchten|benötige|benötigen|holen|buy|need|needs|get|purchase|comprar|compro|necesito|acheter|achète|acheterai|courses)\b", re.IGNORECASE)
 
 
@@ -81,7 +81,7 @@ def _split_plain_enumeration(text: str) -> list[dict]:
     return [{"title": item, "project_name": SHOPPING_PROJECT_NAME, "section_name": None, "deadline": None, "reminder": None, "kind": "shopping"} for item in items]
 
 NEGATED_ITEM_RE = re.compile(r"(?:doch\s+)?keine?n?\s+([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß -]{1,40})|(?:no|not|pas|sin)\s+([A-Za-zÀ-ÿÄÖÜäöüß][A-Za-zÀ-ÿÄÖÜäöüß -]{1,40})|([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß -]{1,40})\s+(?:brauchen wir nicht|lass(?:t)? (?:die|das|den)? ?weg|nicht|not)", re.IGNORECASE)
-NON_SHOPPING_TASK_RE = re.compile(r"\b(zahnarzt|arzt|termin|duschen|marm|mom|mama|gehen|erinner|nachmittag|abend|morgen)\b", re.IGNORECASE)
+NON_SHOPPING_TASK_RE = re.compile(r"\b(zahnarzt|arzt|termin|duschen|marm|mom|mama|gehen|erinner|nachmittag|abend|morgen|teste|testen|test|danke|okay)\b", re.IGNORECASE)
 FILLER_ONLY_RE = re.compile(
     r"^(?:äh+|ähm+|hm+|okay|ok|ja|jo|nein|nee|ne|no|non|pas|sin|doch|aber|also|ach ?ja|ach ?nee|bitte|danke)$",
     re.IGNORECASE,
@@ -182,10 +182,28 @@ def _negated_items(text: str) -> set[str]:
     return result
 
 
+def _title_is_negated(title: str, text: str) -> bool:
+    key = _item_key(title)
+    if not key:
+        return False
+    if key in _negated_items(text):
+        return True
+    compact = re.sub(r"\s+", " ", text or "").strip()
+    title_pattern = re.escape(str(title).strip())
+    return bool(re.search(rf"\b{title_pattern}\b\s*(?:bitte\s*)?(?:nicht|weg|weglassen)", compact, re.IGNORECASE))
+
+
+def _is_noise_candidate_title(title: str) -> bool:
+    clean = re.sub(r"\s+", " ", str(title or "").strip().lower())
+    if _is_filler_only(clean):
+        return True
+    return bool(re.fullmatch(r"(?:ähm?\s+)?(?:ja\s+)?(?:okay|ok)?\s*(?:danke)?\s*(?:ich\s+)?(?:teste|test)\s+(?:nur\s+)?(?:kurz|mal)?", clean))
+
+
 def _split_shopping_phrase(value: str) -> list[str]:
     value = re.sub(r"(?:nee|nein)?\s*(?:doch\s+)?keine?n?\s+[A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß -]{1,40}", "", value, flags=re.IGNORECASE)
     value = re.sub(r"\b(ich|wir)\s+(?:brauche|brauchen|bräuchte|bräuchten|benötige|benötigen)\b", "", value, flags=re.IGNORECASE)
-    value = re.sub(r"\b(muss|müssen|noch|bitte|auch|dafür|aber|ach ?ja|also|we|i|wir|ich|yo|nous|je)\b", " ", value, flags=re.IGNORECASE)
+    value = re.sub(r"\b(muss|müssen|noch|bitte|auch|danach|dafür|aber|ach ?ja|also|we|i|wir|ich|yo|nous|je)\b", " ", value, flags=re.IGNORECASE)
     value = re.sub(r"\b(morgen|heute|tomorrow|today|mañana|demain|hoy)\b", " ", value, flags=re.IGNORECASE)
     value = re.sub(r"\b(?:auf|in|für|zu)\s+(?:der|die|das)?\s*(?:einkaufsliste|shopping list)\b.*$", "", value, flags=re.IGNORECASE)
     value = re.sub(r"\b(kaufen|besorgen|einkaufen|einkaufsliste|holen|buy|need|needs|get|purchase|comprar|compro|necesito|acheter|achète)\b", "", value, flags=re.IGNORECASE)
@@ -244,6 +262,34 @@ def _find_shopping_project(workspace_context: dict | None) -> dict | None:
     return None
 
 
+def _route_workspace_candidate(candidate: dict, workspace_context: dict | None) -> dict:
+    projects = (workspace_context or {}).get("projects") or []
+    if not projects:
+        return candidate
+    routed = dict(candidate)
+    project_name = str(routed.get("project_name") or "").strip()
+    section_name = str(routed.get("section_name") or "").strip()
+    project_names = {str(project.get("name") or "").lower(): project for project in projects}
+    if project_name and project_name.lower() not in project_names:
+        for project in projects:
+            for section in project.get("sections") or []:
+                section_str = str(section)
+                if section_str.lower() == project_name.lower():
+                    routed["project_name"] = project.get("name")
+                    routed["section_name"] = section_str
+                    return routed
+    if project_name and not section_name:
+        project = project_names.get(project_name.lower())
+        haystack = f"{routed.get('title') or ''} {project_name}"
+        if project:
+            for section in project.get("sections") or []:
+                section_str = str(section)
+                if re.search(rf"\b{re.escape(section_str)}\b", haystack, re.IGNORECASE):
+                    routed["section_name"] = section_str
+                    return routed
+    return routed
+
+
 def _route_shopping_candidate(candidate: dict, workspace_context: dict | None) -> dict:
     if candidate.get("kind") != "shopping":
         return candidate
@@ -253,20 +299,21 @@ def _route_shopping_candidate(candidate: dict, workspace_context: dict | None) -
     routed = dict(candidate)
     if not routed.get("project_name"):
         routed["project_name"] = project.get("name")
-    if not routed.get("section_name"):
-        title = str(routed.get("title") or "")
-        sections = [str(section) for section in project.get("sections") or []]
-        section_rules = [
-            (r"milch|hafermilch|joghurt|käse|kaese|dairy|leche|lait", r"milch|dairy|lácteos|lacteos|lait"),
-            (r"banane|banana|apfel|erdbeer|kartoffel|obst|gemüse|gemuese|fruit|fruta|verdura", r"obst|gemüse|gemuese|fruit|fruta|verdura|vegetable"),
-        ]
-        for title_pattern, section_pattern in section_rules:
-            if not re.search(title_pattern, title, re.IGNORECASE):
-                continue
-            for section in sections:
-                if re.search(section_pattern, section, re.IGNORECASE):
-                    routed["section_name"] = section
-                    return routed
+    title = str(routed.get("title") or "")
+    sections = [str(section) for section in project.get("sections") or []]
+    section_rules = [
+        (r"milch|hafermilch|joghurt|käse|kaese|dairy|leche|lait", r"milch|dairy|lácteos|lacteos|lait"),
+        (r"banane|banana|apfel|erdbeer|kartoffel|obst|gemüse|gemuese|fruit|fruta|verdura", r"obst|gemüse|gemuese|fruit|fruta|verdura|vegetable"),
+        (r"tiefkühl|tiefkuehl|frozen", r"tiefkühl|tiefkuehl|frozen"),
+        (r"cola|wasser|saft|bier|getränk|getraenk|drink", r"getränk|getraenk|drink"),
+    ]
+    for title_pattern, section_pattern in section_rules:
+        if not re.search(title_pattern, title, re.IGNORECASE):
+            continue
+        for section in sections:
+            if re.search(section_pattern, section, re.IGNORECASE):
+                routed["section_name"] = section
+                return routed
     return routed
 
 
@@ -309,7 +356,7 @@ def _normalize_braindump_json(parsed: dict, transcript: str, workspace_context: 
         if not title:
             continue
         title = _clean_title(title)
-        if _is_filler_only(title):
+        if _is_filler_only(title) or _is_noise_candidate_title(title):
             continue
         if len(title) > 30 and (',' in title or ' und ' in title.lower() or ' or ' in title.lower()):
             continue
@@ -321,20 +368,20 @@ def _normalize_braindump_json(parsed: dict, transcript: str, workspace_context: 
             kind = "shopping"
             title = _clean_shopping_title(title)
             key = _item_key(title)
-            if not key or key in negated:
+            if not key or key in negated or _title_is_negated(title, transcript):
                 continue
         deadline = _normalize_temporal_field(candidate.get("deadline"))
         reminder = _normalize_temporal_field(candidate.get("reminder"), require_time=True)
         if deadline and candidate.get("reminder") and not reminder:
             reminder = deadline
-        normalized.append(_route_shopping_candidate({
+        normalized.append(_route_workspace_candidate(_route_shopping_candidate({
             "title": title,
             "project_name": project_name,
             "section_name": candidate.get("section_name"),
             "deadline": deadline,
             "reminder": reminder,
             "kind": kind,
-        }, workspace_context))
+        }, workspace_context), workspace_context))
     normalized = _dedupe_normalized_candidates(normalized)
     transcript_lower = transcript.lower().strip()
     if len(normalized) == 1:
@@ -352,8 +399,10 @@ def _normalize_braindump_json(parsed: dict, transcript: str, workspace_context: 
     shopping = _extract_shopping_candidates(transcript)
     existing = {_item_key(item.get("title", "")) for item in normalized if item.get("kind") == "shopping"}
     for item in shopping:
+        if _title_is_negated(item["title"], transcript):
+            continue
         if _item_key(item["title"]) not in existing:
-            normalized.append(_route_shopping_candidate(item, workspace_context))
+            normalized.append(_route_workspace_candidate(_route_shopping_candidate(item, workspace_context), workspace_context))
             existing.add(_item_key(item["title"]))
     return {"candidates": _dedupe_normalized_candidates(normalized)}
 
@@ -647,7 +696,7 @@ def _extract_with_llm(text: str, segment_id: int, workspace_context: dict | None
         raise RuntimeError("BrainDump LLM API key is not configured")
     system_prompt = build_effective_system_prompt(config)
     current_datetime = datetime.now().astimezone().isoformat(timespec="minutes")
-    user_content = f"Instructions:\n{system_prompt}\n\nCurrent datetime: {current_datetime}\n\n{_format_workspace_context(workspace_context)}\n\nTranscript:\n{text}"
+    user_content = f"Current datetime: {current_datetime}\n\n{_format_workspace_context(workspace_context)}\n\nTranscript:\n{text}"
     payload = {
         "model": str(config.get("llm_model") or "openclaw/default"),
         "messages": [
