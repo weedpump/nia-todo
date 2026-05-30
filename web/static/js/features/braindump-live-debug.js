@@ -8,6 +8,8 @@ const SILENCE_LEVEL = 0.035;
 const SILENCE_STOP_MS = 3200;
 const MIN_RECORDING_MS = 1600;
 const SNAPSHOT_INTERVAL_MS = 3000;
+const RECORDER_TIMESLICE_MS = 1000;
+const MIN_AUDIO_CHUNK_BYTES = 96;
 
 export function createBrainDumpLiveDebugFeature() {
   const state = {
@@ -54,8 +56,7 @@ export function createBrainDumpLiveDebugFeature() {
     if (!app || document.getElementById('braindump-modal')) return;
     const loginOverlay = document.getElementById('login-overlay');
     const loginVisible = loginOverlay && window.getComputedStyle(loginOverlay).display !== 'none';
-    const userMenuVisible = !!document.getElementById('user-menu-button')?.offsetParent;
-    if (loginVisible || !userMenuVisible || !getAuthToken()) return scheduleInitRetry();
+    if (loginVisible || !getAuthToken()) return scheduleInitRetry();
     await checkAccess();
     if (!state.enabled) return;
     injectLauncher();
@@ -255,7 +256,10 @@ export function createBrainDumpLiveDebugFeature() {
       state.processingPhase = '';
       state.startedAt = performance.now();
       state.lastVoiceAt = state.startedAt;
-      state.recorder.start();
+      // A timeslice makes desktop WebViews emit real audio chunks while recording instead of
+      // relying on a final requestData() race at stop time. Browsers that ignore it still emit
+      // the final chunk on stop.
+      state.recorder.start(RECORDER_TIMESLICE_MS);
       state.requestTimer = setInterval(() => requestRecorderData(), SNAPSHOT_INTERVAL_MS);
       state.renderTimer = setInterval(render, 120);
       render();
@@ -357,7 +361,7 @@ export function createBrainDumpLiveDebugFeature() {
 
   function onChunk(event) {
     const size = event.data?.size || 0;
-    if (!event.data || size < 1200) return;
+    if (!event.data || size < MIN_AUDIO_CHUNK_BYTES) return;
     state.audioChunks.push(event.data);
     const audioEndMs = Math.round((performance.now() || 0) - state.startedAt);
     queueAccumulatedSnapshot(audioEndMs, state.stoppedAt ? 'final' : 'snapshot');
