@@ -722,7 +722,7 @@
   "admin.braindump.sttLanguage": "STT language",
   "admin.braindump.sttTimeout": "STT timeout seconds",
   "admin.braindump.sttTokenOptional": "STT token optional",
-  "admin.braindump.endpointHelp": "BrainDump talks to any OpenAI-compatible endpoint. OpenClaw is only one possible endpoint; use model `openclaw/default` there, or any model name required by your provider.",
+  "admin.braindump.endpointHelp": "BrainDump talks to OpenAI-compatible endpoints (for example LM Studio) or directly to the Ollama API (`/api/chat`). For Ollama Cloud use `https://ollama.com` with an API key; local Ollama usually uses `http://localhost:11434` without a key.",
   "admin.braindump.save": "Save BrainDump configuration",
   "admin.braindump.testConnection": "Test connection",
   "admin.braindump.saved": "BrainDump configuration saved.",
@@ -953,5 +953,6 @@
   "admin.user.changeUsernameConfirm": "Change username",
   "api.error.user.usernameRequired": "Username is required",
   "api.error.user.usernameTooLong": "Username is too long",
-  "api.error.user.usernameExists": "Username already exists"
+  "api.error.user.usernameExists": "Username already exists",
+  "admin.braindump.provider.ollama": "Ollama API"
 }
