@@ -113,11 +113,12 @@ async function run() {
     await expandSection('#user-list-card');
     await page.locator('#user-list').getByRole('row', { name: /admincreated/ }).getByText('Aktiv', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
 
-    await expandSection('#admin-password-card');
+    await page.getByRole('button', { name: 'Admin-Passwort ändern' }).click();
+    await page.locator('#admin-password-dialog').waitFor({ state: 'visible', timeout: 10000 });
     await page.fill('#admin-old-password', ADMIN_PASSWORD);
     await page.fill('#admin-new-password', 'NewFrontendAdmin123!');
     await page.fill('#admin-confirm-password', 'NewFrontendAdmin123!');
-    await page.locator('#admin-password-card button.btn-primary').click();
+    await page.locator('#admin-password-dialog button.btn-primary').click();
     await page.getByText('Admin-Passwort geändert! Melde dich erneut an.').waitFor({ state: 'visible', timeout: 10000 });
 
     console.log('✅ Frontend admin test passed');
