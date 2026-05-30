@@ -8,16 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 ## [Unreleased]
 
 ### Added
-- Experimental BrainDump voice capture for turning spoken notes into user-confirmed todo candidates, including configurable LLM/STT providers, global enablement, and per-user access controls.
+- Experimental BrainDump voice capture for turning spoken notes into user-confirmed todo candidates, including configurable LLM/STT providers, global and per-user access controls, robust local-model parsing, and self-hosting documentation.
 
 ### Changed
 - Admin UI has been streamlined with collapsible configuration sections, autosaving header switches, responsive user cards, and a dialog-based admin password change flow.
-- BrainDump extraction now uses compact multilingual prompts and backend guardrails for small/local models, preserving the spoken item language and routing projects/sections only to existing workspace names when semantically appropriate.
-- BrainDump self-hosting documentation now treats OpenClaw as one optional OpenAI-compatible endpoint rather than a required dependency.
-
-### Fixed
-- BrainDump parsing now tolerates common local-LLM output variants such as fenced JSON, top-level arrays, alias field names, and minor JSON formatting quirks.
-- BrainDump normalization filters filler/negated shopping items more reliably, deduplicates variants, and validates project/section targets before todo creation.
 
 ## [2.6.3] - 2026-05-29
 
