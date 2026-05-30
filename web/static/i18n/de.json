@@ -573,7 +573,7 @@
   "admin.instance.publicUrl": "Öffentliche Basis-URL",
   "admin.instance.help": "Basis-URL wird für externe Links genutzt. Origins und Trusted Proxies sind zeilenweise. Forwarded-Header werden nur von Trusted Proxies akzeptiert.",
   "admin.instance.save": "Instanz-Konfiguration speichern",
-  "admin.email.title": "E-Mail / SMTP",
+  "admin.email.title": "SMTP",
   "admin.email.enableSending": "E-Mail-Versand aktivieren",
   "admin.email.transportSecurity": "Transport-Sicherheit",
   "admin.none": "Keine",
@@ -603,7 +603,7 @@
   "admin.user.twofa.required": "Pflicht",
   "admin.user.twofa.off": "Aus",
   "admin.user.twofa.setupOnly": "Nur 2FA-Einrichtung möglich",
-  "admin.user.twofa.resetShort": "Reset",
+  "admin.user.twofa.resetShort": "Reset 2FA",
   "admin.user.apiKeysMachineTokenHint": "Bestehende API-Keys bleiben als Machine-Tokens ohne MFA nutzbar",
   "admin.user.active": "aktiv",
   "admin.user.empty": "Keine Benutzer",
@@ -624,8 +624,8 @@
   "admin.user.login": "Login",
   "admin.user.lastActive": "Zuletzt aktiv",
   "admin.user.neverActive": "Nie aktiv",
-  "admin.user.passwordLink": "Link",
-  "admin.security.title": "Sicherheit / 2FA",
+  "admin.user.passwordLink": "Passwort zurücksetzen",
+  "admin.security.title": "2FA erzwingen",
   "admin.security.policyLoading": "2FA-Pflicht lädt…",
   "admin.security.policyDesc": "Erzwingt 2FA für alle Benutzer. Anmeldung ist mit Authenticator-App, Passkey oder vorhandenen Recovery Codes möglich. Wenn SMTP eingerichtet ist, können Benutzer ohne Authenticator/Passkey vorübergehend einen E-Mail-Code nutzen. Ohne verfügbare Methode erhalten sie nur Zugriff auf die 2FA-Einrichtung.",
   "admin.security.toggle": "Umschalten",
@@ -902,5 +902,8 @@
   "admin.user.brainDumpDisabledSaved": "BrainDump für Benutzer gesperrt.",
   "braindump.record.finish": "Fertig & verarbeiten",
   "braindump.processing.transcribing": "1/2 Audio wird transkribiert…",
-  "braindump.processing.extracting": "2/2 Todo-Vorschläge werden erkannt…"
+  "braindump.processing.extracting": "2/2 Todo-Vorschläge werden erkannt…",
+  "admin.overview.policySummary": "Richtlinie",
+  "admin.password.shortChange": "Passwort ändern",
+  "admin.user.enableBrainDump": "BrainDump AI aktivieren"
 }

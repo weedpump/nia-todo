@@ -7,33 +7,59 @@
 <link rel="stylesheet" href="/static/style.css">
 <style>
 body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: auto; }
-.admin-container { width: min(100%, 1080px); margin: 0 auto; padding: 40px 20px; }
+.admin-container { width: min(100%, 1180px); margin: 0 auto; padding: 34px 20px; }
 .admin-header { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 32px; }
 .admin-header h1 { font-size: 24px; margin: 0; color: var(--text-primary); display: inline-flex; align-items: center; gap: 10px; }
-.admin-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 16px; padding: 24px; margin-bottom: 24px; box-shadow: var(--shadow); }
+.admin-card { background: color-mix(in srgb, var(--bg-secondary) 94%, var(--bg-primary)); border: 1px solid color-mix(in srgb, var(--border) 82%, transparent); border-radius: 18px; padding: 22px; margin-bottom: 18px; box-shadow: var(--shadow); }
+.admin-section-card { overflow: hidden; transition: border-color .15s, background .15s; }
+.admin-section-card.collapsed { padding-bottom: 0; }
+.admin-section-card h2 { width: 100%; }
+.admin-section-header-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; }
+.admin-section-header { display: flex; align-items: center; gap: 12px; flex: 1 1 auto; min-width: 0; cursor: pointer; border: 0; background: transparent; color: inherit; padding: 0; font: inherit; text-align: left; }
+.admin-section-title { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.admin-section-summary { color: var(--text-muted); font-size: 12px; font-weight: 600; margin-left: auto; white-space: nowrap; }
+.admin-section-toggle { display: inline-flex; align-items: center; flex: 0 0 auto; }
+.admin-section-toggle input { flex: 0 0 46px; }
+.admin-section-chevron { color: var(--text-muted); transition: transform .15s ease; }
+.admin-section-card.collapsed .admin-section-chevron { transform: rotate(-90deg); }
+.admin-section-body { margin-top: 16px; }
+.admin-section-card.collapsed .admin-section-body { display: none; }
 .admin-card h2 { font-size: 16px; margin: 0 0 16px 0; color: var(--text-primary); display: inline-flex; align-items: center; gap: 8px; }
-.user-table-wrap { width: 100%; overflow-x: auto; }
-.user-table { width: 100%; border-collapse: collapse; table-layout: fixed; min-width: 1320px; }
-.user-table th { text-align: left; padding: 12px; font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--border); }
-.user-table td { padding: 12px; font-size: 14px; color: var(--text-primary); border-bottom: 1px solid var(--border); vertical-align: middle; }
-.user-table th:nth-child(1), .user-table td:nth-child(1) { width: 44px; }
-.user-table th:nth-child(2), .user-table td:nth-child(2) { width: 125px; }
-.user-table th:nth-child(3), .user-table td:nth-child(3) { width: 140px; }
-.user-table th:nth-child(4), .user-table td:nth-child(4) { width: 210px; }
-.user-table th:nth-child(5), .user-table td:nth-child(5) { width: 95px; }
-.user-table th:nth-child(6), .user-table td:nth-child(6) { width: 90px; }
-.user-table th:nth-child(7), .user-table td:nth-child(7) { width: 140px; }
-.user-table th:nth-child(8), .user-table td:nth-child(8) { width: 160px; }
-.user-table th:nth-child(9), .user-table td:nth-child(9) { width: 80px; }
-.user-table th:nth-child(10), .user-table td:nth-child(10) { width: 100px; }
-.user-table th:nth-child(11), .user-table td:nth-child(11) { width: 125px; }
-.user-table th:nth-child(12), .user-table td:nth-child(12) { width: 95px; }
+.user-table-wrap { width: 100%; overflow: visible; }
+.user-table { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: auto; min-width: 0; }
+.user-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
+.user-table tbody { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.user-table tr { display: block; min-width: 0; border: 1px solid color-mix(in srgb, var(--border) 78%, transparent); border-radius: 14px; background: color-mix(in srgb, var(--bg-primary) 72%, var(--bg-secondary)); overflow: hidden; }
 .user-table tr:last-child td { border-bottom: none; }
+.user-table td.user-card-cell { display: block; padding: 0; border: 0; color: var(--text-primary); }
+.user-card { display: flex; flex-direction: column; gap: 12px; padding: 14px; min-height: 100%; }
+.user-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding-bottom: 10px; border-bottom: 1px solid color-mix(in srgb, var(--border) 58%, transparent); }
+.user-card-title-wrap { min-width: 0; }
+.user-card-title-line { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.user-card-title { min-width: 0; font-size: 16px; font-weight: 800; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.user-card-subtitle { margin-top: 2px; font-size: 12px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.user-card-id { flex: 0 0 auto; font-size: 10px; color: var(--text-muted); background: var(--bg-tertiary); border-radius: 999px; padding: 2px 6px; }
+.user-card-section { display: flex; flex-direction: column; gap: 0; }
+.user-card-row { display: grid; grid-template-columns: 118px minmax(0, 1fr); gap: 12px; align-items: center; min-height: 30px; padding: 6px 0; border-bottom: 1px solid color-mix(in srgb, var(--border) 36%, transparent); }
+.user-card-row:last-child { border-bottom: 0; }
+.user-card-label { display: block; color: var(--text-muted); font-size: 11px; font-weight: 650; }
+.user-card-value { min-width: 0; color: var(--text-primary); font-size: 13px; }
+.user-card-braindump-control { justify-content: flex-start; }
+.user-card-braindump-control { display: inline-flex; align-items: center; gap: 10px; }
+.user-card-switch { appearance: none; -webkit-appearance: none; width: 46px; height: 26px; flex: 0 0 46px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--border) 78%, var(--text-muted)); background: var(--bg-tertiary); position: relative; cursor: pointer; transition: background .16s, border-color .16s, box-shadow .16s; }
+.user-card-switch::after { content: ''; position: absolute; width: 20px; height: 20px; top: 2px; left: 2px; border-radius: 50%; background: var(--text-secondary); box-shadow: 0 2px 5px rgba(0,0,0,.28); transition: transform .16s, background .16s; }
+.user-card-switch:checked { background: color-mix(in srgb, var(--success) 72%, var(--accent)); border-color: color-mix(in srgb, var(--success) 86%, white); }
+.user-card-switch:checked::after { transform: translateX(20px); background: white; }
+.user-card-switch:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 24%, transparent); outline: none; }
+.user-card-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; align-items: center; }
+.user-card-actions.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.user-card-actions.single { grid-template-columns: 1fr; }
+.user-card-actions .admin-table-action { width: 100%; }
 .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; }
 .badge-admin { background: var(--accent); color: white; }
 .badge-user { background: var(--bg-tertiary); color: var(--text-secondary); }
 .badge-success { background: color-mix(in srgb, var(--success) 16%, transparent); color: var(--success); }
-.badge-warning { background: color-mix(in srgb, var(--warning) 16%, transparent); color: var(--warning); }
+.badge-warning { background: color-mix(in srgb, var(--warning) 22%, transparent); color: var(--warning); }
 .badge-muted { background: var(--bg-tertiary); color: var(--text-muted); }
 .btn { padding: 8px 16px; border: none; border-radius: var(--radius); font-size: 13px; cursor: pointer; font-weight: 500; display:inline-flex; align-items:center; justify-content:center; gap:6px; line-height:1.2; text-align:center; }
 .btn-danger { background: var(--danger); color: white; }
@@ -57,8 +83,16 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .admin-config-field label { font-size: 12px; font-weight: 650; color: var(--text-secondary); }
 .admin-config-field input, .admin-config-field select, .admin-config-textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-primary); color: var(--text-primary); font-size: 14px; }
 .admin-config-field input[type="checkbox"] { width: auto; }
-.admin-config-checkbox { flex-direction: row; align-items: center; gap: 10px; padding: 9px 0; }
+.admin-config-checkbox { flex-direction: row; align-items: center; gap: 12px; padding: 9px 0; }
 .admin-config-checkbox label { margin: 0; }
+.admin-config-checkbox.switch-right { justify-content: space-between; }
+.admin-config-checkbox.switch-right label { flex: 1 1 auto; }
+.admin-config-checkbox.switch-right input[type="checkbox"] { order: 2; margin-left: auto; width: 46px; min-width: 46px; max-width: 46px; flex: 0 0 46px; }
+.admin-config-checkbox input[type="checkbox"] { appearance: none; -webkit-appearance: none; width: 46px; height: 26px; flex: 0 0 46px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--border) 78%, var(--text-muted)); background: var(--bg-tertiary); position: relative; cursor: pointer; transition: background .16s, border-color .16s, box-shadow .16s; }
+.admin-config-checkbox input[type="checkbox"]::after { content: ''; position: absolute; width: 20px; height: 20px; top: 2px; left: 2px; border-radius: 50%; background: var(--text-secondary); box-shadow: 0 2px 5px rgba(0,0,0,.28); transition: transform .16s, background .16s; }
+.admin-config-checkbox input[type="checkbox"]:checked { background: color-mix(in srgb, var(--success) 72%, var(--accent)); border-color: color-mix(in srgb, var(--success) 86%, white); }
+.admin-config-checkbox input[type="checkbox"]:checked::after { transform: translateX(20px); background: white; }
+.admin-config-checkbox input[type="checkbox"]:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 24%, transparent); }
 .admin-secret-note { font-size: 12px; color: var(--text-muted); }
 .admin-config-textarea { min-height: 82px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .admin-help { font-size: 12px; color: var(--text-muted); margin-top: 8px; }
@@ -85,14 +119,11 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .admin-theme-toggle button:hover { background: var(--bg-secondary); color: var(--text-primary); }
 .admin-theme-toggle button.active { background: var(--accent); border-color: var(--accent); color: white; transform: scale(1.05); }
 .admin-status-card { padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-.server-update-card { position: relative; overflow: hidden; border-width: 2px; }
-.server-update-card::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 8px; background: var(--border); }
-.server-update-card.update-ok { border-color: color-mix(in srgb, var(--success) 55%, var(--border)); background: linear-gradient(90deg, color-mix(in srgb, var(--success) 12%, transparent), var(--bg-secondary) 42%); }
-.server-update-card.update-ok::before { background: var(--success); }
-.server-update-card.update-warning { border-color: color-mix(in srgb, var(--warning) 70%, var(--border)); background: linear-gradient(90deg, color-mix(in srgb, var(--warning) 18%, transparent), var(--bg-secondary) 46%); }
-.server-update-card.update-warning::before { background: var(--warning); }
-.server-update-card.update-danger { border-color: color-mix(in srgb, var(--danger) 75%, var(--border)); background: linear-gradient(90deg, color-mix(in srgb, var(--danger) 18%, transparent), var(--bg-secondary) 46%); box-shadow: 0 0 0 1px color-mix(in srgb, var(--danger) 18%, transparent), var(--shadow); }
-.server-update-card.update-danger::before { background: var(--danger); }
+.admin-status-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.server-update-card { position: relative; overflow: hidden; }
+.server-update-card.update-ok,
+.server-update-card.update-warning,
+.server-update-card.update-danger { border-color: color-mix(in srgb, var(--border) 82%, transparent); background: color-mix(in srgb, var(--bg-secondary) 94%, var(--bg-primary)); box-shadow: var(--shadow); }
 .server-update-badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }
 .server-update-badge.ok { background: color-mix(in srgb, var(--success) 18%, transparent); color: var(--success); }
 .server-update-badge.warning { background: color-mix(in srgb, var(--warning) 22%, transparent); color: var(--warning); }
@@ -103,7 +134,8 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .security-policy-desc { font-size: 13px; color: var(--text-muted); }
 .twofa-stack { display: flex; flex-wrap: wrap; gap: 4px; }
 .admin-status-text { font-size: 14px; color: var(--text-secondary); display:inline-flex; align-items:center; gap:8px; }
-.admin-mobile-label { display: none; color: var(--text-muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 2px; }
+.admin-mobile-label { display: block; color: var(--text-muted); font-size: 10px; font-weight: 750; text-transform: uppercase; letter-spacing: .055em; margin-bottom: 3px; }
+.admin-header-switch-source { position: absolute; opacity: 0; pointer-events: none; }
 .admin-dialog { display: none; position: fixed; inset: 0; z-index: 500; align-items: center; justify-content: center; padding: 16px; }
 .admin-dialog.active { display: flex; }
 .admin-dialog-overlay { position: absolute; inset: 0; background: rgba(0,0,0,.62); backdrop-filter: blur(4px); }
@@ -120,20 +152,31 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
   .form-row { flex-direction: column; gap: 10px; }
   .admin-config-grid { grid-template-columns: 1fr; }
   .form-row input, .form-row select { width: 100%; flex-basis: auto; }
+  .form-row .admin-config-checkbox input[type="checkbox"] { width: 46px; min-width: 46px; flex: 0 0 46px; }
   .form-row .btn { width: fit-content; max-width: 100%; min-height: 38px; }
   #admin-login-card .form-row .btn,
-  #admin-password-card .form-row .btn,
   #create-user-card .form-row .btn { width: 100%; }
   .setup-link-box { flex-direction: column; align-items: stretch; }
   .setup-link-box .btn { width: 100%; min-height: 38px; }
   .admin-status-card { align-items: flex-start; flex-direction: column; }
-  .user-table-wrap { overflow: visible; }
-  .user-table, .user-table thead, .user-table tbody, .user-table tr, .user-table td { display: block; width: 100%; min-width: 0; }
-  .user-table thead { display: none; }
-  .user-table tr { border: 1px solid var(--border); border-radius: 14px; padding: 12px; margin-bottom: 12px; background: var(--bg-primary); }
-  .user-table td { border-bottom: 0; padding: 7px 0; font-size: 14px; }
-  .user-table th:nth-child(n), .user-table td:nth-child(n) { width: auto; }
-  .admin-mobile-label { display: block; }
+  .admin-status-actions { width: 100%; align-items: stretch; }
+  .admin-status-actions .btn { flex: 1 1 0; min-height: 38px; }
+  .admin-status-actions .btn-secondary,
+  .admin-status-actions .btn-danger { flex: 1 1 0; }
+  .admin-status-actions .btn-danger { border: 1px solid transparent; }
+  #admin-password-dialog { padding: 0; align-items: stretch; justify-content: stretch; }
+  #admin-password-dialog .admin-dialog-content { width: 100%; min-height: 100dvh; border: 0; border-radius: 0; padding: 22px 18px; display: flex; flex-direction: column; justify-content: center; }
+  #admin-password-dialog .admin-dialog-actions { margin-top: 22px; }
+  #admin-password-dialog .admin-dialog-actions .btn { flex: 1; min-height: 42px; }
+  .user-table, .user-table tbody, .user-table tr, .user-table td { display: block; width: 100%; min-width: 0; }
+  .user-table tbody { display: grid; grid-template-columns: 1fr; }
+  .user-table tr { padding: 0; margin-bottom: 0; }
+  .user-table td.user-card-cell { padding: 0; margin-top: 0 !important; }
+  .user-card { padding: 12px; gap: 10px; }
+  .user-card-header { flex-direction: column; gap: 8px; }
+  .user-card-row { grid-template-columns: 1fr; gap: 4px; align-items: start; }
+  .user-card-actions { grid-template-columns: 1fr; }
+  .admin-section-summary { display: none; }
   .email-edit { grid-template-columns: minmax(0, 1fr) 32px 32px; }
 }
 </style>
@@ -164,6 +207,34 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
     </form>
   </div>
 
+  <div class="admin-dialog" id="admin-password-dialog" role="dialog" aria-modal="true" aria-labelledby="admin-password-dialog-title">
+    <div class="admin-dialog-overlay" id="admin-password-dialog-overlay"></div>
+    <form class="admin-dialog-content" id="admin-password-dialog-form">
+      <h3 id="admin-password-dialog-title" data-i18n-key="admin.password.title">Change own admin password</h3>
+      <div class="admin-config-field full">
+        <label for="admin-old-password" data-i18n-key="admin.password.currentPlaceholder">Current admin password</label>
+        <input type="password" id="admin-old-password" autocomplete="off" onkeydown="if(event.key==='Enter') document.getElementById('admin-new-password').focus()">
+      </div>
+      <div class="admin-config-field full" style="margin-top:10px;">
+        <label for="admin-new-password" data-i18n-key="admin.password.newPlaceholder">New admin password (12+ characters)</label>
+        <input type="password" id="admin-new-password" autocomplete="new-password" onkeydown="if(event.key==='Enter') document.getElementById('admin-confirm-password').focus()">
+      </div>
+      <div class="admin-config-field full" style="margin-top:10px;">
+        <label for="admin-confirm-password" data-i18n-key="setup.confirmPasswordLabel">Confirm new password</label>
+        <input type="password" id="admin-confirm-password" autocomplete="new-password" onkeydown="if(event.key==='Enter') changeAdminPassword()">
+      </div>
+      <div style="font-size: 12px; color: var(--text-muted); margin-top: 10px;" data-i18n-key="admin.password.requirements">
+        At least 12 characters, 1 uppercase, 1 lowercase, 1 digit, 1 special character
+      </div>
+      <div class="admin-error" id="admin-pw-error"></div>
+      <div class="admin-success" id="admin-pw-success"></div>
+      <div class="admin-dialog-actions">
+        <button type="button" class="btn" id="admin-password-dialog-cancel" data-i18n-key="common.cancel">Cancel</button>
+        <button type="submit" class="btn btn-primary" data-i18n-key="admin.password.change">Change admin password</button>
+      </div>
+    </form>
+  </div>
+
   <div class="admin-card" id="admin-login-card">
     <h2><span data-icon="lock-keyhole"></span> <span data-i18n-key="admin.login.title">Admin sign-in</span></h2>
     <div class="form-row">
@@ -174,11 +245,17 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
   </div>
 
   <div id="admin-content" style="display:none;">
+  <input type="checkbox" id="braindump-enabled" class="admin-header-switch-source" aria-label="BrainDump aktivieren">
+  <input type="checkbox" id="email-smtp-enabled" class="admin-header-switch-source" data-i18n-aria-label-key="admin.email.enableSending" aria-label="Enable email sending">
+  <input type="checkbox" id="twofa-policy-toggle" class="admin-header-switch-source" data-i18n-aria-label-key="admin.security.toggle" aria-label="Toggle 2FA policy">
 
   <!-- Admin Toolbar -->
   <div class="admin-card admin-status-card">
     <span class="admin-status-text"><span data-icon="lock-keyhole"></span> <span data-i18n-key="admin.status.loggedIn">Logged in as admin</span></span>
-    <button class="btn btn-danger" onclick="adminLogout()" data-i18n-key="auth.signOut">Sign out</button>
+    <div class="admin-status-actions">
+      <button class="btn btn-secondary" onclick="openAdminPasswordDialog()" data-i18n-key="admin.password.shortChange">Change password</button>
+      <button class="btn btn-danger" onclick="adminLogout()" data-i18n-key="auth.signOut">Sign out</button>
+    </div>
   </div>
 
   <!-- Server Update -->
@@ -225,15 +302,90 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
     <div class="admin-success" id="instance-config-success"></div>
   </div>
 
+  <!-- Email Configuration -->
+  <div class="admin-card" id="email-config-card">
+    <h2><span data-icon="mail"></span> <span data-i18n-key="admin.email.title">SMTP</span></h2>
+    <div class="admin-config-grid">
+      <div class="admin-config-field">
+        <label for="email-smtp-host">SMTP Host</label>
+        <input type="text" id="email-smtp-host" placeholder="smtp.example.org" autocomplete="off">
+      </div>
+      <div class="admin-config-field">
+        <label for="email-smtp-port">SMTP Port</label>
+        <input type="number" id="email-smtp-port" min="1" max="65535" value="587">
+      </div>
+      <div class="admin-config-field">
+        <label for="email-smtp-security" data-i18n-key="admin.email.transportSecurity">Transport security</label>
+        <select id="email-smtp-security">
+          <option value="starttls">STARTTLS</option>
+          <option value="tls">TLS/SSL</option>
+          <option value="none" data-i18n-key="admin.none">None</option>
+        </select>
+      </div>
+      <div class="admin-config-field admin-config-checkbox">
+        <input type="checkbox" id="email-smtp-auth-enabled">
+        <label for="email-smtp-auth-enabled" data-i18n-key="admin.email.useSmtpAuth">Use SMTP auth</label>
+      </div>
+      <div class="admin-config-field">
+        <label for="email-smtp-username">SMTP Username</label>
+        <input type="text" id="email-smtp-username" autocomplete="off">
+      </div>
+      <div class="admin-config-field">
+        <label for="email-smtp-password" data-i18n-key="admin.email.smtpPassword">SMTP password / secret</label>
+        <input type="password" id="email-smtp-password" data-i18n-placeholder-key="admin.email.keepSecretPlaceholder" placeholder="Leave blank = unchanged" autocomplete="new-password">
+        <div class="admin-secret-note" id="email-smtp-password-note"></div>
+      </div>
+      <div class="admin-config-field">
+        <label for="email-from-address" data-i18n-key="admin.email.fromAddress">From-Adresse</label>
+        <input type="email" id="email-from-address" placeholder="todo@example.org" autocomplete="off">
+      </div>
+      <div class="admin-config-field">
+        <label for="email-from-name" data-i18n-key="admin.email.fromName">From-Name</label>
+        <input type="text" id="email-from-name" placeholder="nia-todo" autocomplete="off">
+      </div>
+      <div class="admin-config-field">
+        <label for="email-reply-to">Reply-To optional</label>
+        <input type="email" id="email-reply-to" placeholder="support@example.org" autocomplete="off">
+      </div>
+      <div class="admin-config-field">
+        <label for="email-link-ttl" data-i18n-key="admin.email.linkTtl">Link validity in hours</label>
+        <input type="number" id="email-link-ttl" min="1" max="168" value="24">
+      </div>
+      <div class="admin-config-field full">
+        <label for="email-test-to" data-i18n-key="admin.email.testTo">Test-Mail an</label>
+        <div class="form-row" style="margin-bottom:0;">
+          <input type="email" id="email-test-to" placeholder="name@example.org" autocomplete="off">
+          <button class="btn btn-primary" onclick="sendTestEmail()" data-i18n-key="admin.email.sendTest">Send test email</button>
+        </div>
+      </div>
+    </div>
+    <div class="admin-help" data-i18n-key="admin.email.help">Password/setup links use the public base URL from the instance configuration. SMTP passwords are never shown again. Without email sending enabled, addresses are considered confirmed after the manual setup link, but are not mailbox-verified.</div>
+    <div class="form-row" style="margin-top:12px;">
+      <button class="btn btn-primary" onclick="saveEmailConfig()" data-i18n-key="admin.email.save">Save email configuration</button>
+    </div>
+    <div class="admin-error" id="email-config-error"></div>
+    <div class="admin-success" id="email-config-success"></div>
+  </div>
+
+  <!-- Security / 2FA -->
+  <div class="admin-card" id="security-card">
+    <h2><span data-icon="shield-check"></span> <span data-i18n-key="admin.security.title">Require 2FA</span></h2>
+    <div class="security-policy-row">
+      <div class="security-policy-main">
+        <div class="security-policy-title" id="twofa-policy-title" data-i18n-key="admin.security.policyLoading">2FA requirement loading…</div>
+        <div class="security-policy-desc" data-i18n-key="admin.security.policyDesc">Requires 2FA for all users. Sign-in is possible with an authenticator app, passkey, or existing recovery codes. If SMTP is configured, users without an authenticator/passkey can temporarily use an email code. Without any available method, they only get access to the 2FA setup.</div>
+      </div>
+    </div>
+    <div class="admin-help" data-i18n-key="admin.security.apiKeysHelp">API keys remain usable as machine tokens. Creating and revoking your own API keys requires recent MFA on accounts with mandatory MFA.</div>
+    <div class="admin-error" id="security-error"></div>
+    <div class="admin-success" id="security-success"></div>
+  </div>
+
   <!-- BrainDump Configuration -->
   <div class="admin-card" id="braindump-config-card">
-    <h2><span data-icon="mic"></span> BrainDump AI / STT <span class="badge badge-warning">Experimental</span></h2>
+    <h2><span data-icon="sparkles"></span> BrainDump AI <span class="server-update-badge warning">Experimental</span></h2>
     <div class="admin-help">Experimental feature. Disabled by default; configure LLM/STT explicitly before enabling it for users.</div>
     <div class="admin-config-grid">
-      <div class="admin-config-field admin-config-checkbox full">
-        <input type="checkbox" id="braindump-enabled">
-        <label for="braindump-enabled">Enable BrainDump experimental feature</label>
-      </div>
       <div class="admin-config-field">
         <label for="braindump-llm-provider">LLM provider</label>
         <select id="braindump-llm-provider">
@@ -307,106 +459,6 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
     <div class="admin-success" id="braindump-config-success"></div>
   </div>
 
-  <!-- Email Configuration -->
-  <div class="admin-card" id="email-config-card">
-    <h2><span data-icon="mail"></span> <span data-i18n-key="admin.email.title">Email / SMTP</span></h2>
-    <div class="admin-config-grid">
-      <div class="admin-config-field admin-config-checkbox full">
-        <input type="checkbox" id="email-smtp-enabled">
-        <label for="email-smtp-enabled" data-i18n-key="admin.email.enableSending">Enable email sending</label>
-      </div>
-      <div class="admin-config-field">
-        <label for="email-smtp-host">SMTP Host</label>
-        <input type="text" id="email-smtp-host" placeholder="smtp.example.org" autocomplete="off">
-      </div>
-      <div class="admin-config-field">
-        <label for="email-smtp-port">SMTP Port</label>
-        <input type="number" id="email-smtp-port" min="1" max="65535" value="587">
-      </div>
-      <div class="admin-config-field">
-        <label for="email-smtp-security" data-i18n-key="admin.email.transportSecurity">Transport security</label>
-        <select id="email-smtp-security">
-          <option value="starttls">STARTTLS</option>
-          <option value="tls">TLS/SSL</option>
-          <option value="none" data-i18n-key="admin.none">None</option>
-        </select>
-      </div>
-      <div class="admin-config-field admin-config-checkbox">
-        <input type="checkbox" id="email-smtp-auth-enabled">
-        <label for="email-smtp-auth-enabled" data-i18n-key="admin.email.useSmtpAuth">Use SMTP auth</label>
-      </div>
-      <div class="admin-config-field">
-        <label for="email-smtp-username">SMTP Username</label>
-        <input type="text" id="email-smtp-username" autocomplete="off">
-      </div>
-      <div class="admin-config-field">
-        <label for="email-smtp-password" data-i18n-key="admin.email.smtpPassword">SMTP password / secret</label>
-        <input type="password" id="email-smtp-password" data-i18n-placeholder-key="admin.email.keepSecretPlaceholder" placeholder="Leave blank = unchanged" autocomplete="new-password">
-        <div class="admin-secret-note" id="email-smtp-password-note"></div>
-      </div>
-      <div class="admin-config-field">
-        <label for="email-from-address" data-i18n-key="admin.email.fromAddress">From-Adresse</label>
-        <input type="email" id="email-from-address" placeholder="todo@example.org" autocomplete="off">
-      </div>
-      <div class="admin-config-field">
-        <label for="email-from-name" data-i18n-key="admin.email.fromName">From-Name</label>
-        <input type="text" id="email-from-name" placeholder="nia-todo" autocomplete="off">
-      </div>
-      <div class="admin-config-field">
-        <label for="email-reply-to">Reply-To optional</label>
-        <input type="email" id="email-reply-to" placeholder="support@example.org" autocomplete="off">
-      </div>
-      <div class="admin-config-field">
-        <label for="email-link-ttl" data-i18n-key="admin.email.linkTtl">Link validity in hours</label>
-        <input type="number" id="email-link-ttl" min="1" max="168" value="24">
-      </div>
-      <div class="admin-config-field full">
-        <label for="email-test-to" data-i18n-key="admin.email.testTo">Test-Mail an</label>
-        <div class="form-row" style="margin-bottom:0;">
-          <input type="email" id="email-test-to" placeholder="name@example.org" autocomplete="off">
-          <button class="btn btn-primary" onclick="sendTestEmail()" data-i18n-key="admin.email.sendTest">Send test email</button>
-        </div>
-      </div>
-    </div>
-    <div class="admin-help" data-i18n-key="admin.email.help">Password/setup links use the public base URL from the instance configuration. SMTP passwords are never shown again. Without email sending enabled, addresses are considered confirmed after the manual setup link, but are not mailbox-verified.</div>
-    <div class="form-row" style="margin-top:12px;">
-      <button class="btn btn-primary" onclick="saveEmailConfig()" data-i18n-key="admin.email.save">Save email configuration</button>
-    </div>
-    <div class="admin-error" id="email-config-error"></div>
-    <div class="admin-success" id="email-config-success"></div>
-  </div>
-
-  <!-- Security / 2FA -->
-  <div class="admin-card" id="security-card">
-    <h2><span data-icon="shield-check"></span> <span data-i18n-key="admin.security.title">Security / 2FA</span></h2>
-    <div class="security-policy-row">
-      <div class="security-policy-main">
-        <div class="security-policy-title" id="twofa-policy-title" data-i18n-key="admin.security.policyLoading">2FA requirement loading…</div>
-        <div class="security-policy-desc" data-i18n-key="admin.security.policyDesc">Requires 2FA for all users. Sign-in is possible with an authenticator app, passkey, or existing recovery codes. If SMTP is configured, users without an authenticator/passkey can temporarily use an email code. Without any available method, they only get access to the 2FA setup.</div>
-      </div>
-      <button class="btn btn-primary" id="twofa-policy-toggle" onclick="toggleTwoFactorPolicy()" data-i18n-key="admin.security.toggle">Toggle</button>
-    </div>
-    <div class="admin-help" data-i18n-key="admin.security.apiKeysHelp">API keys remain usable as machine tokens. Creating and revoking your own API keys requires recent MFA on accounts with mandatory MFA.</div>
-    <div class="admin-error" id="security-error"></div>
-    <div class="admin-success" id="security-success"></div>
-  </div>
-
-  <!-- Change Admin Password -->
-  <div class="admin-card" id="admin-password-card">
-    <h2><span data-icon="key-round"></span> <span data-i18n-key="admin.password.title">Change own admin password</span></h2>
-    <div class="form-row">
-      <input type="password" id="admin-old-password" data-i18n-placeholder-key="admin.password.currentPlaceholder" placeholder="Current admin password" autocomplete="off" onkeydown="if(event.key==='Enter') document.getElementById('admin-new-password').focus()">
-      <input type="password" id="admin-new-password" data-i18n-placeholder-key="admin.password.newPlaceholder" placeholder="New admin password (12+ characters)" autocomplete="new-password" onkeydown="if(event.key==='Enter') document.getElementById('admin-confirm-password').focus()">
-      <input type="password" id="admin-confirm-password" data-i18n-placeholder-key="setup.confirmPasswordLabel" placeholder="Confirm new password" autocomplete="new-password" onkeydown="if(event.key==='Enter') changeAdminPassword()">
-      <button class="btn btn-primary" onclick="changeAdminPassword()" data-i18n-key="admin.password.change">Change admin password</button>
-    </div>
-    <div style="font-size: 12px; color: var(--text-muted); margin-top: 8px;" data-i18n-key="admin.password.requirements">
-      At least 12 characters, 1 uppercase, 1 lowercase, 1 digit, 1 special character
-    </div>
-    <div class="admin-error" id="admin-pw-error"></div>
-    <div class="admin-success" id="admin-pw-success"></div>
-  </div>
-
   <!-- Create User -->
   <div class="admin-card" id="create-user-card">
     <h2><span data-icon="user-plus"></span> <span data-i18n-key="admin.user.createTitle">Create new user</span></h2>
@@ -418,6 +470,10 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
         <option value="de" data-i18n-key="settings.language.de">German</option>
         <option value="en" data-i18n-key="settings.language.en">English</option>
       </select>
+      <div class="admin-config-field admin-config-checkbox switch-right" id="new-braindump-field" style="display:none;">
+        <label for="new-braindump-enabled" data-i18n-key="admin.user.enableBrainDump">BrainDump AI aktivieren</label>
+        <input type="checkbox" id="new-braindump-enabled">
+      </div>
       <button class="btn btn-primary" onclick="createUser()" data-i18n-key="admin.user.createAndLink">Create & generate link</button>
     </div>
     <div style="font-size: 12px; color: var(--text-muted); margin-top: 8px;" data-i18n-key="admin.user.createHelp">
@@ -432,24 +488,24 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
   </div>
 
   <!-- User List -->
-  <div class="admin-card">
+  <div class="admin-card" id="user-list-card">
     <h2><span data-icon="users"></span> <span data-i18n-key="admin.user.title">Users</span></h2>
     <div class="user-table-wrap">
     <table class="user-table" id="user-table">
       <thead>
         <tr>
-          <th>ID</th>
-          <th data-i18n-key="admin.user.username">Username</th>
-          <th data-i18n-key="admin.user.displayName">Display name</th>
-          <th data-i18n-key="admin.user.email">Email</th>
-          <th data-i18n-key="admin.user.emailStatus">Email Status</th>
-          <th data-i18n-key="admin.user.login">Login</th>
-          <th data-i18n-key="admin.user.lastActive">Last active</th>
-          <th data-i18n-key="admin.user.twofa">2FA</th>
-          <th data-i18n-key="admin.user.apiKeys">API Keys</th>
+          <th id="user-col-id">ID</th>
+          <th id="user-col-username" data-i18n-key="admin.user.username">Username</th>
+          <th id="user-col-display-name" data-i18n-key="admin.user.displayName">Display name</th>
+          <th id="user-col-email" data-i18n-key="admin.user.email">Email</th>
+          <th id="user-col-email-status" data-i18n-key="admin.user.emailStatus">Email Status</th>
+          <th id="user-col-login" data-i18n-key="admin.user.login">Login</th>
+          <th id="user-col-last-active" data-i18n-key="admin.user.lastActive">Last active</th>
+          <th id="user-col-twofa" data-i18n-key="admin.user.twofa">2FA</th>
+          <th id="user-col-api-keys" data-i18n-key="admin.user.apiKeys">API Keys</th>
           <th id="user-braindump-heading" data-i18n-key="admin.user.brainDump">BrainDump</th>
-          <th data-i18n-key="admin.user.password">Password</th>
-          <th data-i18n-key="admin.user.actions">Actions</th>
+          <th id="user-col-password" data-i18n-key="admin.user.password">Password</th>
+          <th id="user-col-actions" data-i18n-key="admin.user.actions">Actions</th>
         </tr>
       </thead>
       <tbody id="user-list">
@@ -466,6 +522,8 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 import { initI18n, t as i18nT } from './static/js/i18n/index.js';
 await initI18n();
 window.t = i18nT;
+window.adminI18nReady = true;
+window.dispatchEvent(new CustomEvent('admin-i18n-ready'));
 </script>
 <script>
 const API = '';
@@ -477,6 +535,7 @@ const ICONS = {
   monitor: '<rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/>',
   'lock-keyhole': '<circle cx="12" cy="16" r="1"/><rect x="3" y="10" width="18" height="12" rx="2"/><path d="M7 10V7a5 5 0 0 1 10 0v3"/>',
   'key-round': '<path d="M2 18v3h3l9.7-9.7"/><circle cx="16.5" cy="7.5" r="5.5"/>',
+  'chevron-down': '<path d="m6 9 6 6 6-6"/>',
   'user-plus': '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/>',
   users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
   'edit-3': '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
@@ -487,16 +546,84 @@ const ICONS = {
   'shield-check': '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>',
   settings: '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.73l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
   'download-cloud': '<path d="M12 13v8"/><path d="m8 17 4 4 4-4"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>',
+  sparkles: '<path d="M12 3l1.9 5.8L20 11l-6.1 2.2L12 19l-1.9-5.8L4 11l6.1-2.2L12 3Z"/><path d="M19 3v4"/><path d="M21 5h-4"/>',
   mail: '<path d="m22 7-8.991 5.727a2 2 0 0 1-2.009 0L2 7"/><rect x="2" y="4" width="20" height="16" rx="2"/>',
 };
 function iconSvg(name) {
   const paths = ICONS[name] || ICONS.shield;
   return `<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
 }
+
+function getSectionSummary(card) {
+  const translate = window.t || ((key) => key);
+  if (card.id === 'braindump-config-card') return 'AI/STT';
+  if (card.id === 'email-config-card') return 'SMTP';
+  if (card.id === 'security-card') return translate('admin.overview.policySummary');
+  return '';
+}
+
+function buildSectionToggle(inputId) {
+  const input = document.getElementById(inputId);
+  if (!input) return null;
+  const wrapper = document.createElement('span');
+  wrapper.className = 'admin-section-toggle admin-config-checkbox';
+  wrapper.addEventListener('click', (event) => event.stopPropagation());
+  input.classList.remove('admin-header-switch-source');
+  input.addEventListener('click', (event) => event.stopPropagation());
+  wrapper.appendChild(input);
+  return wrapper;
+}
+
+function setupAdminSections() {
+  const translate = window.t || ((key) => key);
+  const cards = document.querySelectorAll('#admin-content > .admin-card[id]:not(.admin-status-card)');
+  cards.forEach((card) => {
+    if (card.dataset.sectionReady === '1') return;
+    const heading = card.querySelector(':scope > h2');
+    if (!heading) return;
+    const body = document.createElement('div');
+    body.className = 'admin-section-body';
+    let node = heading.nextSibling;
+    while (node) {
+      const next = node.nextSibling;
+      body.appendChild(node);
+      node = next;
+    }
+    const titleHtml = heading.innerHTML;
+    const summary = getSectionSummary(card);
+    heading.innerHTML = `<span class="admin-section-header-row"><button type="button" class="admin-section-header" aria-expanded="false"><span class="admin-section-title">${titleHtml}</span></button></span>`;
+    const headerRow = heading.querySelector('.admin-section-header-row');
+    const headerButton = heading.querySelector('button');
+    const headerToggle = card.id === 'braindump-config-card'
+      ? buildSectionToggle('braindump-enabled')
+      : card.id === 'email-config-card'
+        ? buildSectionToggle('email-smtp-enabled')
+        : card.id === 'security-card'
+          ? buildSectionToggle('twofa-policy-toggle')
+          : null;
+    if (summary) headerButton.insertAdjacentHTML('beforeend', `<span class="admin-section-summary">${summary}</span>`);
+    if (headerToggle) headerRow.appendChild(headerToggle);
+    headerRow.insertAdjacentHTML('beforeend', `<span class="admin-section-chevron">${iconSvg('chevron-down')}</span>`);
+    card.appendChild(body);
+    card.classList.add('admin-section-card', 'collapsed');
+    card.dataset.sectionReady = '1';
+    const setExpandedState = () => headerButton.setAttribute('aria-expanded', card.classList.contains('collapsed') ? 'false' : 'true');
+    headerButton.addEventListener('click', () => {
+      card.classList.toggle('collapsed');
+      setExpandedState();
+    });
+    setExpandedState();
+  });
+  wireHeaderToggles();
+}
+
 function hydrateIcons(root = document) {
   root.querySelectorAll('[data-icon]').forEach(el => { el.innerHTML = iconSvg(el.getAttribute('data-icon')); });
 }
 hydrateIcons();
+setupAdminPasswordDialog();
+if (window.adminI18nReady) setupAdminSections();
+else window.addEventListener('admin-i18n-ready', setupAdminSections, { once: true });
 let adminToken = null;
 let serverUpdatePollTimer = null;
 let serverUpdateReloadPromptShown = false;
@@ -797,6 +924,38 @@ function adminNotice(title, message) {
   return adminDialog({ title, message, confirmText: 'OK', hideCancel: true });
 }
 
+function closeAdminPasswordDialog() {
+  document.getElementById('admin-password-dialog')?.classList.remove('active');
+}
+
+function openAdminPasswordDialog() {
+  const dialog = document.getElementById('admin-password-dialog');
+  if (!dialog) return;
+  document.getElementById('admin-old-password').value = '';
+  document.getElementById('admin-new-password').value = '';
+  document.getElementById('admin-confirm-password').value = '';
+  document.getElementById('admin-pw-error').textContent = '';
+  document.getElementById('admin-pw-success').textContent = '';
+  dialog.classList.add('active');
+  document.getElementById('admin-old-password')?.focus();
+}
+
+function setupAdminPasswordDialog() {
+  const dialog = document.getElementById('admin-password-dialog');
+  const form = document.getElementById('admin-password-dialog-form');
+  const cancel = document.getElementById('admin-password-dialog-cancel');
+  const overlay = document.getElementById('admin-password-dialog-overlay');
+  form?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    changeAdminPassword();
+  });
+  cancel?.addEventListener('click', closeAdminPasswordDialog);
+  overlay?.addEventListener('click', closeAdminPasswordDialog);
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && dialog?.classList.contains('active')) closeAdminPasswordDialog();
+  });
+}
+
 function renderInstanceConfig(config) {
   document.getElementById('instance-public-url').value = config.public_base_url || '';
   document.getElementById('instance-allowed-origins').value = (config.allowed_origins || []).join('\n');
@@ -827,6 +986,10 @@ function renderBrainDumpConfig(config) {
   document.getElementById('braindump-stt-token-note').textContent = config.stt_token_configured ? 'STT token stored.' : 'No STT token stored.';
   const heading = document.getElementById('user-braindump-heading');
   if (heading) heading.style.display = brainDumpFeatureEnabled ? '' : 'none';
+  const createField = document.getElementById('new-braindump-field');
+  const createToggle = document.getElementById('new-braindump-enabled');
+  if (createField) createField.style.display = brainDumpFeatureEnabled ? '' : 'none';
+  if (!brainDumpFeatureEnabled && createToggle) createToggle.checked = false;
 }
 
 function readBrainDumpConfigForm() {
@@ -864,6 +1027,22 @@ async function saveBrainDumpConfig() {
   }
 }
 
+async function autoSaveBrainDumpToggle() {
+  const toggle = document.getElementById('braindump-enabled');
+  const previous = brainDumpFeatureEnabled;
+  document.getElementById('braindump-config-error').textContent = '';
+  document.getElementById('braindump-config-success').textContent = '';
+  try {
+    const data = await apiPatch('/api/admin/braindump-config', readBrainDumpConfigForm());
+    renderBrainDumpConfig(data);
+    await loadUsers();
+    document.getElementById('braindump-config-success').textContent = 'BrainDump configuration saved.';
+  } catch (e) {
+    if (toggle) toggle.checked = previous;
+    document.getElementById('braindump-config-error').textContent = e.message;
+  }
+}
+
 async function testBrainDumpConfig() {
   document.getElementById('braindump-config-error').textContent = '';
   document.getElementById('braindump-config-success').textContent = '';
@@ -882,32 +1061,37 @@ async function testBrainDumpConfig() {
 function renderTwoFactorPolicy(policy) {
   twoFactorPolicyRequired = !!policy.required;
   const title = document.getElementById('twofa-policy-title');
-  const btn = document.getElementById('twofa-policy-toggle');
+  const toggle = document.getElementById('twofa-policy-toggle');
   if (title) title.textContent = twoFactorPolicyRequired ? t('admin.security.policyActive') : t('admin.security.policyInactive');
-  if (btn) btn.textContent = twoFactorPolicyRequired ? t('admin.security.disablePolicy') : t('admin.security.enablePolicy');
+  if (toggle) toggle.checked = twoFactorPolicyRequired;
 }
 
-async function toggleTwoFactorPolicy() {
-  const next = !twoFactorPolicyRequired;
+async function setTwoFactorPolicy(required) {
   const errorEl = document.getElementById('security-error');
   const successEl = document.getElementById('security-success');
+  const toggle = document.getElementById('twofa-policy-toggle');
   errorEl.textContent = '';
   successEl.textContent = '';
-  const confirmed = await adminConfirm({
-    title: next ? t('admin.security.enablePolicyTitle') : t('admin.security.disablePolicyTitle'),
-    message: next
-      ? t('admin.security.enablePolicyMessage')
-      : t('admin.security.disablePolicyMessage'),
-    confirmText: next ? t('admin.security.enablePolicy') : t('admin.security.disablePolicy'),
-    danger: !next,
-  });
-  if (!confirmed) return;
+  const nextRequired = !!required;
+  if (!nextRequired && twoFactorPolicyRequired) {
+    const confirmed = await adminConfirm({
+      title: t('admin.security.disablePolicyTitle'),
+      message: t('admin.security.disablePolicyMessage'),
+      confirmText: t('admin.security.disablePolicy'),
+      danger: true,
+    });
+    if (!confirmed) {
+      if (toggle) toggle.checked = twoFactorPolicyRequired;
+      return;
+    }
+  }
   try {
-    const data = await apiPatch('/api/admin/2fa-policy', { required: next });
+    const data = await apiPatch('/api/admin/2fa-policy', { required: nextRequired });
     renderTwoFactorPolicy(data);
-    successEl.textContent = next ? t('admin.security.policyEnabled') : t('admin.security.policyDisabled');
+    successEl.textContent = data.required ? t('admin.security.policyEnabled') : t('admin.security.policyDisabled');
     await loadUsers();
   } catch (e) {
+    if (toggle) toggle.checked = twoFactorPolicyRequired;
     errorEl.textContent = e.message;
   }
 }
@@ -1123,6 +1307,39 @@ async function saveEmailConfig() {
   }
 }
 
+async function autoSaveEmailToggle() {
+  const toggle = document.getElementById('email-smtp-enabled');
+  const previous = !toggle?.checked;
+  document.getElementById('email-config-error').textContent = '';
+  document.getElementById('email-config-success').textContent = '';
+  try {
+    const data = await apiPatch('/api/admin/email-config', readEmailConfigForm());
+    renderEmailConfig(data);
+    document.getElementById('email-config-success').textContent = t('admin.email.saved');
+  } catch(e) {
+    if (toggle) toggle.checked = previous;
+    document.getElementById('email-config-error').textContent = e.message;
+  }
+}
+
+function wireHeaderToggles() {
+  const brainDumpToggle = document.getElementById('braindump-enabled');
+  if (brainDumpToggle && brainDumpToggle.dataset.autosaveReady !== '1') {
+    brainDumpToggle.dataset.autosaveReady = '1';
+    brainDumpToggle.addEventListener('change', autoSaveBrainDumpToggle);
+  }
+  const emailToggle = document.getElementById('email-smtp-enabled');
+  if (emailToggle && emailToggle.dataset.autosaveReady !== '1') {
+    emailToggle.dataset.autosaveReady = '1';
+    emailToggle.addEventListener('change', autoSaveEmailToggle);
+  }
+  const twofaToggle = document.getElementById('twofa-policy-toggle');
+  if (twofaToggle && twofaToggle.dataset.autosaveReady !== '1') {
+    twofaToggle.dataset.autosaveReady = '1';
+    twofaToggle.addEventListener('change', () => setTwoFactorPolicy(twofaToggle.checked));
+  }
+}
+
 async function sendTestEmail() {
   document.getElementById('email-config-error').textContent = '';
   document.getElementById('email-config-success').textContent = '';
@@ -1183,10 +1400,12 @@ function renderUserTwoFactorStatus(user) {
     ? `<span class="badge badge-success">${escapeHtml(t('admin.user.twofa.active'))}</span>`
     : (twoFactorPolicyRequired ? `<span class="badge badge-warning">${escapeHtml(t('admin.user.twofa.required'))}</span>` : `<span class="badge badge-muted">${escapeHtml(t('admin.user.twofa.off'))}</span>`);
   const detail = factors.length ? factors.map(escapeHtml).join(' · ') : (twoFactorPolicyRequired ? t('admin.user.twofa.setupOnly') : '-');
-  const reset = (enabled || Number(user.passkey_count || 0) > 0)
-    ? `<button class="btn btn-danger admin-table-action" style="margin-top:6px;" onclick="resetUserTwoFactor(${user.id}, '${escapeHtmlAttr(user.username)}')">${iconSvg('shield-check')} ${escapeHtml(t('admin.user.twofa.resetShort'))}</button>`
-    : '';
-  return `<div class="twofa-stack">${badge}<span class="admin-help" style="margin:0;">${detail}</span></div>${reset}`;
+  return `<div class="twofa-stack">${badge}<span class="admin-help" style="margin:0;">${detail}</span></div>`;
+}
+
+function renderUserTwoFactorResetButton(user) {
+  if (!user.two_factor_enabled && Number(user.passkey_count || 0) <= 0) return '';
+  return `<button class="btn btn-danger admin-table-action" onclick="resetUserTwoFactor(${user.id}, '${escapeHtmlAttr(user.username)}')">${iconSvg('shield-check')} ${escapeHtml(t('admin.user.twofa.resetShort'))}</button>`;
 }
 
 function renderUserApiKeys(user) {
@@ -1198,10 +1417,7 @@ function renderUserApiKeys(user) {
 function renderUserBrainDump(user) {
   const enabled = !!user.braindump_enabled;
   const label = enabled ? t('admin.user.brainDumpEnabled') : t('admin.user.brainDumpDisabled');
-  const next = enabled ? 'false' : 'true';
-  const btnClass = enabled ? 'btn-secondary' : 'btn-primary';
-  const action = enabled ? t('admin.user.brainDumpDisable') : t('admin.user.brainDumpEnable');
-  return `<div class="twofa-stack"><span class="badge ${enabled ? 'badge-success' : 'badge-muted'}">${escapeHtml(label)}</span><button class="btn ${btnClass} admin-table-action" style="margin-top:6px;" onclick="toggleUserBrainDump(${user.id}, ${next})">${escapeHtml(action)}</button></div>`;
+  return `<div class="user-card-braindump-control"><span class="badge ${enabled ? 'badge-success' : 'badge-muted'}">${escapeHtml(label)}</span><input class="user-card-switch" type="checkbox" ${enabled ? 'checked' : ''} aria-label="${escapeHtmlAttr(t('admin.user.brainDump'))}" onchange="toggleUserBrainDump(${user.id}, this.checked)"></div>`;
 }
 
 function renderUserLastActive(user) {
@@ -1227,22 +1443,43 @@ function renderUsers(users) {
     tbody.innerHTML = `<tr><td colspan="${colSpan}" class="empty-state">${escapeHtml(t('admin.user.empty'))}</td></tr>`;
     return;
   }
-  tbody.innerHTML = users.map(u => `
+  tbody.innerHTML = users.map(u => {
+    const title = escapeHtml(u.display_name || u.username);
+    const subtitle = u.display_name && u.display_name !== u.username ? escapeHtml(u.username) : escapeHtml(t('setup.usernameLabel'));
+    const resetTwoFactorButton = renderUserTwoFactorResetButton(u);
+    const deleteButton = u.is_admin ? '' : `<button class="btn btn-danger admin-table-action" onclick="deleteUser(${u.id}, '${escapeHtmlAttr(u.username)}')">${iconSvg('trash')} ${escapeHtml(t('common.delete'))}</button>`;
+    const actionCount = 1 + (resetTwoFactorButton ? 1 : 0) + (deleteButton ? 1 : 0);
+    const actionsClass = actionCount === 1 ? 'user-card-actions single' : (actionCount === 2 ? 'user-card-actions two' : 'user-card-actions');
+    return `
     <tr>
-      <td><span class="admin-mobile-label">ID</span>${u.id}</td>
-      <td><span class="admin-mobile-label">${escapeHtml(t('setup.usernameLabel'))}</span>${escapeHtml(u.username)}</td>
-      <td><span class="admin-mobile-label">${escapeHtml(t('setup.displayNameLabel'))}</span>${escapeHtml(u.display_name) || '-'}</td>
-      <td><span class="admin-mobile-label">${escapeHtml(t('settings.profile.email'))}</span>${renderUserEmailCell(u)}</td>
-      <td><span class="admin-mobile-label">${escapeHtml(t('admin.user.emailStatus'))}</span>${renderUserEmailStatus(u)}</td>
-      <td><span class="admin-mobile-label">${escapeHtml(t('admin.user.login'))}</span>${renderUserLoginStatus(u)}</td>
-      <td><span class="admin-mobile-label">${escapeHtml(t('admin.user.lastActive'))}</span>${renderUserLastActive(u)}</td>
-      <td><span class="admin-mobile-label">2FA</span>${renderUserTwoFactorStatus(u)}</td>
-      <td><span class="admin-mobile-label">${escapeHtml(t('settings.apiKeys.title'))}</span>${renderUserApiKeys(u)}</td>
-      ${brainDumpFeatureEnabled ? `<td><span class="admin-mobile-label">${escapeHtml(t('admin.user.brainDump'))}</span>${renderUserBrainDump(u)}</td>` : ''}
-      <td><span class="admin-mobile-label">${escapeHtml(t('auth.password'))}</span><button class="btn btn-primary admin-table-action" onclick="generatePasswordLink(${u.id}, '${escapeHtmlAttr(u.username)}')">${iconSvg('link')} ${escapeHtml(t('admin.user.passwordLink'))}</button></td>
-      <td><span class="admin-mobile-label">${escapeHtml(t('admin.user.actions'))}</span>${u.is_admin ? '-' : `<button class="btn btn-danger admin-table-action" onclick="deleteUser(${u.id}, '${escapeHtmlAttr(u.username)}')">${iconSvg('trash')} ${escapeHtml(t('common.delete'))}</button>`}</td>
-    </tr>
-  `).join('');
+      <td class="user-card-cell" colspan="${colSpan}">
+        <article class="user-card">
+          <header class="user-card-header">
+            <div class="user-card-title-wrap">
+              <div class="user-card-title-line"><div class="user-card-title">${title}</div><span class="user-card-id">ID ${u.id}</span></div>
+              <div class="user-card-subtitle">${subtitle}</div>
+            </div>
+            ${renderUserLoginStatus(u)}
+          </header>
+
+          <div class="user-card-section">
+            <div class="user-card-row"><span class="user-card-label">${escapeHtml(t('settings.profile.email'))}</span><div class="user-card-value">${renderUserEmailCell(u)}</div></div>
+            <div class="user-card-row"><span class="user-card-label">${escapeHtml(t('admin.user.emailStatus'))}</span><div class="user-card-value">${renderUserEmailStatus(u)}</div></div>
+            <div class="user-card-row"><span class="user-card-label">${escapeHtml(t('admin.user.lastActive'))}</span><div class="user-card-value">${renderUserLastActive(u)}</div></div>
+            <div class="user-card-row"><span class="user-card-label">2FA</span><div class="user-card-value">${renderUserTwoFactorStatus(u)}</div></div>
+            <div class="user-card-row"><span class="user-card-label">${escapeHtml(t('settings.apiKeys.title'))}</span><div class="user-card-value">${renderUserApiKeys(u)}</div></div>
+            ${brainDumpFeatureEnabled ? `<div class="user-card-row"><span class="user-card-label">${escapeHtml(t('admin.user.brainDump'))}</span><div class="user-card-value">${renderUserBrainDump(u)}</div></div>` : ''}
+          </div>
+
+          <div class="${actionsClass}">
+            <button class="btn btn-primary admin-table-action" onclick="generatePasswordLink(${u.id}, '${escapeHtmlAttr(u.username)}')">${iconSvg('link')} ${escapeHtml(t('admin.user.passwordLink'))}</button>
+            ${resetTwoFactorButton}
+            ${deleteButton}
+          </div>
+        </article>
+      </td>
+    </tr>`;
+  }).join('');
 }
 
 async function createUser() {
@@ -1250,6 +1487,7 @@ async function createUser() {
   const displayName = document.getElementById('new-display-name').value.trim();
   const email = document.getElementById('new-email').value.trim();
   const language = document.getElementById('new-language').value;
+  const brainDumpEnabled = brainDumpFeatureEnabled && !!document.getElementById('new-braindump-enabled')?.checked;
 
   document.getElementById('create-error').textContent = '';
   document.getElementById('create-success').textContent = '';
@@ -1269,7 +1507,8 @@ async function createUser() {
       username: username,
       display_name: displayName || username,
       email: email,
-      language: language
+      language: language,
+      braindump_enabled: brainDumpEnabled
     });
     if (data.password_setup_delivery === 'email') {
       document.getElementById('create-success').textContent = t('admin.user.createdEmailSent', { username });
@@ -1281,6 +1520,8 @@ async function createUser() {
     document.getElementById('new-username').value = '';
     document.getElementById('new-display-name').value = '';
     document.getElementById('new-email').value = '';
+    const brainDumpCreateToggle = document.getElementById('new-braindump-enabled');
+    if (brainDumpCreateToggle) brainDumpCreateToggle.checked = false;
     await loadUsers();
   } catch(e) {
     document.getElementById('create-error').textContent = e.message;

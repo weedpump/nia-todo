@@ -573,7 +573,7 @@
   "admin.instance.publicUrl": "Public base URL",
   "admin.instance.help": "Base URL is used for external links. Origins and trusted proxies are line-based. Forwarded headers are only accepted from trusted proxies.",
   "admin.instance.save": "Save instance configuration",
-  "admin.email.title": "Email / SMTP",
+  "admin.email.title": "SMTP",
   "admin.email.enableSending": "Enable email sending",
   "admin.email.transportSecurity": "Transport security",
   "admin.none": "None",
@@ -603,7 +603,7 @@
   "admin.user.twofa.required": "Required",
   "admin.user.twofa.off": "Off",
   "admin.user.twofa.setupOnly": "Only 2FA setup possible",
-  "admin.user.twofa.resetShort": "Reset",
+  "admin.user.twofa.resetShort": "Reset 2FA",
   "admin.user.apiKeysMachineTokenHint": "Existing API keys remain usable as machine tokens without MFA",
   "admin.user.active": "active",
   "admin.user.empty": "No users",
@@ -624,8 +624,8 @@
   "admin.user.login": "Login",
   "admin.user.lastActive": "Last active",
   "admin.user.neverActive": "Never active",
-  "admin.user.passwordLink": "Link",
-  "admin.security.title": "Security / 2FA",
+  "admin.user.passwordLink": "Reset password",
+  "admin.security.title": "Require 2FA",
   "admin.security.policyLoading": "2FA requirement loading…",
   "admin.security.policyDesc": "Enforces 2FA for all users. Sign-in is possible with authenticator app, passkey, or existing recovery codes. If SMTP is configured, users without authenticator/passkey can temporarily use an email code. Without an available method, they only get access to 2FA setup.",
   "admin.security.toggle": "Toggle",
@@ -902,5 +902,8 @@
   "admin.user.brainDumpDisabledSaved": "BrainDump disabled for user.",
   "braindump.record.finish": "Finish & process",
   "braindump.processing.transcribing": "1/2 Transcribing audio…",
-  "braindump.processing.extracting": "2/2 Finding todo suggestions…"
+  "braindump.processing.extracting": "2/2 Finding todo suggestions…",
+  "admin.overview.policySummary": "Policy",
+  "admin.password.shortChange": "Change password",
+  "admin.user.enableBrainDump": "Enable BrainDump AI"
 }

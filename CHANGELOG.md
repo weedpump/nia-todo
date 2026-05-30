@@ -8,16 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 ## [Unreleased]
 
 ### Added
+- Admin UI now uses collapsible configuration sections with autosaving header switches for BrainDump, SMTP, and global 2FA policy controls.
+- Admin user creation can optionally grant BrainDump access when BrainDump is globally enabled; the per-user option stays off by default.
 - Experimental BrainDump voice capture for turning spoken notes into user-confirmed todo candidates, including a dedicated microphone modal, live audio feedback, silence-based finish flow, selectable suggestion cards, and confirmed todo creation.
 - Admin-configurable BrainDump provider settings for OpenAI-compatible LLM endpoints and STT providers, with write-only secrets, connection testing, and optional custom prompt modes.
 - Global experimental BrainDump enablement plus per-user access controls, disabled by default so fresh installs do not expose or preconfigure BrainDump automatically.
 - Remote whisper.cpp server STT support with local whisper.cpp fallback, using a real STT → LLM split flow with truthful processing phases.
 
 ### Changed
+- Admin user management now uses responsive, compact user cards instead of a wide desktop table, including clearer status rows and mobile-friendly actions.
+- Admin password change moved from a full settings card into a dedicated dialog opened from the Admin header.
 - BrainDump extraction now uses compact multilingual prompts and backend guardrails for small/local models, preserving the spoken item language and routing projects/sections only to existing workspace names when semantically appropriate.
 - BrainDump self-hosting documentation now treats OpenClaw as one optional OpenAI-compatible endpoint rather than a required dependency.
 
 ### Fixed
+- Admin section header switches no longer nest interactive controls inside accordion buttons, improving HTML validity and keyboard/screenreader behavior.
+- Disabling global 2FA policy from the Admin UI now requires confirmation and rolls the switch back if cancelled.
 - BrainDump parsing now tolerates common local-LLM output variants such as fenced JSON, top-level arrays, alias field names, and minor JSON formatting quirks.
 - BrainDump normalization filters filler/negated shopping items more reliably, deduplicates variants, and validates project/section targets before todo creation.
 
