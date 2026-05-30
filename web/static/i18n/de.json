@@ -603,7 +603,7 @@
   "admin.user.twofa.required": "Pflicht",
   "admin.user.twofa.off": "Aus",
   "admin.user.twofa.setupOnly": "Nur 2FA-Einrichtung möglich",
-  "admin.user.twofa.resetShort": "Reset",
+  "admin.user.twofa.resetShort": "Reset 2FA",
   "admin.user.apiKeysMachineTokenHint": "Bestehende API-Keys bleiben als Machine-Tokens ohne MFA nutzbar",
   "admin.user.active": "aktiv",
   "admin.user.empty": "Keine Benutzer",
