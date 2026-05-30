@@ -105,6 +105,35 @@ def test_parses_markdown_fenced_llm_json():
     assert_true(parsed["candidates"][0]["title"] == "Chips", parsed)
 
 
+def test_parses_common_local_llm_json_variants():
+    as_array = _parse_llm_json_content('[{"title":"Call Moni","kind":"todo",}]')
+    as_tasks = _parse_llm_json_content('{"tasks":[{"task":"Buy milk","type":"grocery"}]}')
+    as_parts = _parse_llm_json_content([{"type":"text","text":"```json\n{\"items\":[\"Water plants\"]}\n```"}])
+    as_single = _parse_llm_json_content("{'title':'Check backup','kind':'todo'}")
+    assert_true(as_array["candidates"][0]["title"] == "Call Moni", as_array)
+    assert_true(as_tasks["candidates"][0]["task"] == "Buy milk", as_tasks)
+    assert_true(as_parts["candidates"][0] == "Water plants", as_parts)
+    assert_true(as_single["candidates"][0]["title"] == "Check backup", as_single)
+
+
+def test_normalizes_alias_fields_from_local_models():
+    parsed = {"tasks": [{"task": "Buy milk", "type": "grocery", "dueDate": "tomorrow 18:00", "projectName": "Shopping", "sectionName": "Dairy"}]}
+    result = _normalize_braindump_json(parsed, "Buy milk tomorrow 18:00")
+    item = result["candidates"][0]
+    assert_true(item["title"] == "Milk", item)
+    assert_true(item["kind"] == "shopping", item)
+    assert_true(item["deadline"] and "T18:00" in item["deadline"], item)
+
+
+def test_multilingual_safety_net_extracts_direct_purchase_phrases():
+    spanish = _normalize_braindump_json({"candidates": []}, "Necesito huevos y papel higiénico.")
+    english = _normalize_braindump_json({"candidates": []}, "We need milk and bread.")
+    french = _normalize_braindump_json({"candidates": []}, "Il faut acheter du lait et du pain.")
+    assert_true(any("Huevos" == item["title"] for item in spanish["candidates"]), spanish)
+    assert_true(any("Milk" == item["title"] for item in english["candidates"]), english)
+    assert_true(any("Lait" == item["title"] for item in french["candidates"]), french)
+
+
 def test_filters_plain_list_noise_from_safety_net():
     result = _normalize_braindump_json({"candidates": []}, "Ähm ja okay danke, ich teste nur kurz.")
     assert_true(result["candidates"] == [], result)
@@ -184,6 +213,9 @@ def main():
         test_dedupes_stt_truncated_item_variant,
         test_safety_net_keeps_non_negated_shopping_and_routes_sections,
         test_parses_markdown_fenced_llm_json,
+        test_parses_common_local_llm_json_variants,
+        test_normalizes_alias_fields_from_local_models,
+        test_multilingual_safety_net_extracts_direct_purchase_phrases,
         test_filters_plain_list_noise_from_safety_net,
         test_removes_negated_items_added_by_llm_or_safety_net,
         test_maps_section_name_used_as_project_to_real_project_section,
