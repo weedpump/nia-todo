@@ -352,12 +352,13 @@ class TestSuite:
 
     def test_braindump_config_get(self):
         status, data = curl("GET", "/api/admin/braindump-config", token=self.admin_token, cookie_jar="/tmp/nia_admin_cookies.txt")
-        passed = ok(status) and data and data.get("llm_model") == "openclaw/default" and data.get("llm_provider") == "openai_compatible" and data.get("stt_provider") == "whisper_cpp_remote" and "llm_api_key" not in data and "stt_token" not in data and "default_system_prompt" in data
-        self.results["braindump_config_get"] = {"status": status, "passed": passed, "expected": "200 + generic BrainDump config without secrets"}
+        passed = ok(status) and data and data.get("enabled") is False and data.get("llm_model") == "" and data.get("llm_base_url") == "" and data.get("llm_provider") == "openai_compatible" and data.get("stt_provider") == "whisper_cpp_remote" and data.get("stt_url") == "" and "llm_api_key" not in data and "stt_token" not in data and "default_system_prompt" in data
+        self.results["braindump_config_get"] = {"status": status, "passed": passed, "expected": "200 + disabled BrainDump config without endpoint defaults or secrets"}
         return passed
 
     def test_braindump_config_update(self):
         status, data = curl("PATCH", "/api/admin/braindump-config", {
+            "enabled": True,
             "llm_provider": "openai_compatible",
             "llm_base_url": "http://llm.local:18789/",
             "llm_api_key_secret": "test-llm-key",
@@ -372,7 +373,7 @@ class TestSuite:
             "stt_language": "de",
             "stt_timeout_seconds": 42,
         }, token=self.admin_token, csrf=self.admin_csrf, cookie_jar="/tmp/nia_admin_cookies.txt")
-        passed = ok(status) and data and data.get("llm_base_url") == "http://llm.local:18789" and data.get("stt_url") == "http://whisper.local:8766/inference" and data.get("llm_api_key_configured") is True and data.get("stt_token_configured") is True and data.get("system_prompt_mode") == "append" and "test-llm-key" not in str(data)
+        passed = ok(status) and data and data.get("enabled") is True and data.get("llm_base_url") == "http://llm.local:18789" and data.get("stt_url") == "http://whisper.local:8766/inference" and data.get("llm_api_key_configured") is True and data.get("stt_token_configured") is True and data.get("system_prompt_mode") == "append" and "test-llm-key" not in str(data)
         self.results["braindump_config_update"] = {"status": status, "passed": passed, "expected": "200 + normalized generic BrainDump config, secrets hidden"}
         return passed
 

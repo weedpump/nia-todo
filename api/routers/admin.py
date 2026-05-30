@@ -61,18 +61,19 @@ class InstanceConfigRequest(BaseModel):
     trusted_proxies: list[str] = []
 
 class BrainDumpConfigRequest(BaseModel):
+    enabled: bool = False
     llm_provider: str = "openai_compatible"
-    llm_base_url: str = "http://127.0.0.1:18789"
+    llm_base_url: str = ""
     llm_api_key_secret: Optional[str] = None
-    llm_model: str = "openclaw/default"
+    llm_model: str = ""
     llm_extra_headers_json: str = ""
     llm_timeout_seconds: float = 180
     system_prompt_mode: str = "default"
     system_prompt_custom: str = ""
     stt_provider: str = "whisper_cpp_remote"
-    stt_url: str = "http://127.0.0.1:8766/inference"
+    stt_url: str = ""
     stt_token_secret: Optional[str] = None
-    stt_language: str = "de"
+    stt_language: str = ""
     stt_timeout_seconds: float = 60
 
 class EmailConfigRequest(BaseModel):
@@ -219,17 +220,26 @@ def _stt_health_url(stt_url: str) -> str:
 @router.post("/braindump-config/test")
 def admin_test_braindump_config(_: bool = Depends(require_admin)):
     config = get_braindump_config(include_secrets=True)
+    if not config.get("enabled"):
+        return {
+            "llm": {"ok": False, "message": "BrainDump experimental feature is disabled"},
+            "stt": {"ok": False, "message": "BrainDump experimental feature is disabled"},
+        }
     result = {
         "llm": {"ok": False, "message": "not tested"},
         "stt": {"ok": False, "message": "not tested"},
     }
 
     token = str(config.get("llm_api_key") or "").strip()
-    if not token:
-        result["llm"] = {"ok": False, "message": "LLM API key is not configured"}
+    if not str(config.get("llm_base_url") or "").strip():
+        result["llm"] = {"ok": False, "message": "LLM base URL is not configured"}
+    elif not str(config.get("llm_model") or "").strip():
+        result["llm"] = {"ok": False, "message": "LLM model is not configured"}
     else:
         try:
-            headers = {"Authorization": f"Bearer {token}"}
+            headers = {}
+            if token:
+                headers["Authorization"] = f"Bearer {token}"
             headers.update(parse_extra_headers(str(config.get("llm_extra_headers_json") or "")))
             req = urllib.request.Request(llm_models_url(config), headers=headers)
             with urllib.request.urlopen(req, timeout=10) as response:
@@ -240,6 +250,8 @@ def admin_test_braindump_config(_: bool = Depends(require_admin)):
 
     if config.get("stt_provider") == "local_whisper_cpp":
         result["stt"] = {"ok": True, "message": "Local whisper.cpp provider selected; runtime availability is checked when audio is processed"}
+    elif not str(config.get("stt_url") or "").strip():
+        result["stt"] = {"ok": False, "message": "STT URL is not configured"}
     else:
         try:
             with urllib.request.urlopen(_stt_health_url(str(config.get("stt_url") or "")), timeout=10) as response:
