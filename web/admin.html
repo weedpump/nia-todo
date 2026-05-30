@@ -14,10 +14,11 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .admin-section-card { overflow: hidden; transition: border-color .15s, background .15s; }
 .admin-section-card.collapsed { padding-bottom: 0; }
 .admin-section-card h2 { width: 100%; }
-.admin-section-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; cursor: pointer; border: 0; background: transparent; color: inherit; padding: 0; font: inherit; text-align: left; }
+.admin-section-header-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; }
+.admin-section-header { display: flex; align-items: center; gap: 12px; flex: 1 1 auto; min-width: 0; cursor: pointer; border: 0; background: transparent; color: inherit; padding: 0; font: inherit; text-align: left; }
 .admin-section-title { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
 .admin-section-summary { color: var(--text-muted); font-size: 12px; font-weight: 600; margin-left: auto; white-space: nowrap; }
-.admin-section-toggle { display: inline-flex; align-items: center; margin-left: auto; }
+.admin-section-toggle { display: inline-flex; align-items: center; flex: 0 0 auto; }
 .admin-section-toggle input { flex: 0 0 46px; }
 .admin-section-chevron { color: var(--text-muted); transition: transform .15s ease; }
 .admin-section-card.collapsed .admin-section-chevron { transform: rotate(-90deg); }
@@ -590,7 +591,8 @@ function setupAdminSections() {
     }
     const titleHtml = heading.innerHTML;
     const summary = getSectionSummary(card);
-    heading.innerHTML = `<button type="button" class="admin-section-header" aria-expanded="false"><span class="admin-section-title">${titleHtml}</span></button>`;
+    heading.innerHTML = `<span class="admin-section-header-row"><button type="button" class="admin-section-header" aria-expanded="false"><span class="admin-section-title">${titleHtml}</span></button></span>`;
+    const headerRow = heading.querySelector('.admin-section-header-row');
     const headerButton = heading.querySelector('button');
     const headerToggle = card.id === 'braindump-config-card'
       ? buildSectionToggle('braindump-enabled')
@@ -599,9 +601,9 @@ function setupAdminSections() {
         : card.id === 'security-card'
           ? buildSectionToggle('twofa-policy-toggle')
           : null;
-    if (headerToggle) headerButton.appendChild(headerToggle);
-    else if (summary) headerButton.insertAdjacentHTML('beforeend', `<span class="admin-section-summary">${summary}</span>`);
-    headerButton.insertAdjacentHTML('beforeend', `<span class="admin-section-chevron">${iconSvg('chevron-down')}</span>`);
+    if (summary) headerButton.insertAdjacentHTML('beforeend', `<span class="admin-section-summary">${summary}</span>`);
+    if (headerToggle) headerRow.appendChild(headerToggle);
+    headerRow.insertAdjacentHTML('beforeend', `<span class="admin-section-chevron">${iconSvg('chevron-down')}</span>`);
     card.appendChild(body);
     card.classList.add('admin-section-card', 'collapsed');
     card.dataset.sectionReady = '1';
@@ -1070,8 +1072,21 @@ async function setTwoFactorPolicy(required) {
   const toggle = document.getElementById('twofa-policy-toggle');
   errorEl.textContent = '';
   successEl.textContent = '';
+  const nextRequired = !!required;
+  if (!nextRequired && twoFactorPolicyRequired) {
+    const confirmed = await adminConfirm({
+      title: t('admin.security.disablePolicyTitle'),
+      message: t('admin.security.disablePolicyMessage'),
+      confirmText: t('admin.security.disablePolicy'),
+      danger: true,
+    });
+    if (!confirmed) {
+      if (toggle) toggle.checked = twoFactorPolicyRequired;
+      return;
+    }
+  }
   try {
-    const data = await apiPatch('/api/admin/2fa-policy', { required: !!required });
+    const data = await apiPatch('/api/admin/2fa-policy', { required: nextRequired });
     renderTwoFactorPolicy(data);
     successEl.textContent = data.required ? t('admin.security.policyEnabled') : t('admin.security.policyDisabled');
     await loadUsers();
@@ -1436,28 +1451,28 @@ function renderUsers(users) {
     const actionCount = 1 + (resetTwoFactorButton ? 1 : 0) + (deleteButton ? 1 : 0);
     const actionsClass = actionCount === 1 ? 'user-card-actions single' : (actionCount === 2 ? 'user-card-actions two' : 'user-card-actions');
     return `
-    <tr role="row">
+    <tr>
       <td class="user-card-cell" colspan="${colSpan}">
         <article class="user-card">
           <header class="user-card-header">
             <div class="user-card-title-wrap">
-              <div class="user-card-title-line"><div class="user-card-title" role="cell" headers="user-col-display-name">${title}</div><span class="user-card-id" role="cell" headers="user-col-id">ID ${u.id}</span></div>
-              <div class="user-card-subtitle" role="cell" headers="user-col-username">${subtitle}</div>
+              <div class="user-card-title-line"><div class="user-card-title">${title}</div><span class="user-card-id">ID ${u.id}</span></div>
+              <div class="user-card-subtitle">${subtitle}</div>
             </div>
             ${renderUserLoginStatus(u)}
           </header>
 
           <div class="user-card-section">
-            <div class="user-card-row"><span class="user-card-label">${escapeHtml(t('settings.profile.email'))}</span><div class="user-card-value" role="cell" headers="user-col-email">${renderUserEmailCell(u)}</div></div>
-            <div class="user-card-row"><span class="user-card-label">${escapeHtml(t('admin.user.emailStatus'))}</span><div class="user-card-value" role="cell" headers="user-col-email-status">${renderUserEmailStatus(u)}</div></div>
-            <div class="user-card-row"><span class="user-card-label">${escapeHtml(t('admin.user.lastActive'))}</span><div class="user-card-value" role="cell" headers="user-col-last-active">${renderUserLastActive(u)}</div></div>
-            <div class="user-card-row"><span class="user-card-label">2FA</span><div class="user-card-value" role="cell" headers="user-col-twofa">${renderUserTwoFactorStatus(u)}</div></div>
-            <div class="user-card-row"><span class="user-card-label">${escapeHtml(t('settings.apiKeys.title'))}</span><div class="user-card-value" role="cell" headers="user-col-api-keys">${renderUserApiKeys(u)}</div></div>
-            ${brainDumpFeatureEnabled ? `<div class="user-card-row"><span class="user-card-label">${escapeHtml(t('admin.user.brainDump'))}</span><div class="user-card-value" role="cell" headers="user-braindump-heading">${renderUserBrainDump(u)}</div></div>` : ''}
+            <div class="user-card-row"><span class="user-card-label">${escapeHtml(t('settings.profile.email'))}</span><div class="user-card-value">${renderUserEmailCell(u)}</div></div>
+            <div class="user-card-row"><span class="user-card-label">${escapeHtml(t('admin.user.emailStatus'))}</span><div class="user-card-value">${renderUserEmailStatus(u)}</div></div>
+            <div class="user-card-row"><span class="user-card-label">${escapeHtml(t('admin.user.lastActive'))}</span><div class="user-card-value">${renderUserLastActive(u)}</div></div>
+            <div class="user-card-row"><span class="user-card-label">2FA</span><div class="user-card-value">${renderUserTwoFactorStatus(u)}</div></div>
+            <div class="user-card-row"><span class="user-card-label">${escapeHtml(t('settings.apiKeys.title'))}</span><div class="user-card-value">${renderUserApiKeys(u)}</div></div>
+            ${brainDumpFeatureEnabled ? `<div class="user-card-row"><span class="user-card-label">${escapeHtml(t('admin.user.brainDump'))}</span><div class="user-card-value">${renderUserBrainDump(u)}</div></div>` : ''}
           </div>
 
           <div class="${actionsClass}">
-            <button class="btn btn-primary admin-table-action" role="cell" headers="user-col-password" onclick="generatePasswordLink(${u.id}, '${escapeHtmlAttr(u.username)}')">${iconSvg('link')} ${escapeHtml(t('admin.user.passwordLink'))}</button>
+            <button class="btn btn-primary admin-table-action" onclick="generatePasswordLink(${u.id}, '${escapeHtmlAttr(u.username)}')">${iconSvg('link')} ${escapeHtml(t('admin.user.passwordLink'))}</button>
             ${resetTwoFactorButton}
             ${deleteButton}
           </div>
