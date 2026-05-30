@@ -148,9 +148,10 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
   .setup-link-box .btn { width: 100%; min-height: 38px; }
   .admin-status-card { align-items: flex-start; flex-direction: column; }
   .admin-status-actions { width: 100%; align-items: stretch; }
-  .admin-status-actions .btn { flex: 0 1 auto; min-height: 38px; }
-  .admin-status-actions .btn-secondary { flex: 1 1 0; }
-  .admin-status-actions .btn-danger { flex: 0 0 auto; }
+  .admin-status-actions .btn { flex: 1 1 0; min-height: 38px; }
+  .admin-status-actions .btn-secondary,
+  .admin-status-actions .btn-danger { flex: 1 1 0; }
+  .admin-status-actions .btn-danger { border: 1px solid transparent; }
   #admin-password-dialog { padding: 0; align-items: stretch; justify-content: stretch; }
   #admin-password-dialog .admin-dialog-content { width: 100%; min-height: 100dvh; border: 0; border-radius: 0; padding: 22px 18px; display: flex; flex-direction: column; justify-content: center; }
   #admin-password-dialog .admin-dialog-actions { margin-top: 22px; }
