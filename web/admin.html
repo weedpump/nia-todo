@@ -17,7 +17,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .admin-section-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; cursor: pointer; border: 0; background: transparent; color: inherit; padding: 0; font: inherit; text-align: left; }
 .admin-section-title { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
 .admin-section-summary { color: var(--text-muted); font-size: 12px; font-weight: 600; margin-left: auto; white-space: nowrap; }
-.admin-section-toggle { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; color: var(--text-muted); font-size: 12px; font-weight: 700; }
+.admin-section-toggle { display: inline-flex; align-items: center; margin-left: auto; }
 .admin-section-toggle input { flex: 0 0 46px; }
 .admin-section-chevron { color: var(--text-muted); transition: transform .15s ease; }
 .admin-section-card.collapsed .admin-section-chevron { transform: rotate(-90deg); }
@@ -386,7 +386,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 
   <!-- Security / 2FA -->
   <div class="admin-card" id="security-card">
-    <h2><span data-icon="shield-check"></span> <span data-i18n-key="admin.security.title">Security / 2FA</span></h2>
+    <h2><span data-icon="shield-check"></span> <span data-i18n-key="admin.security.title">Require 2FA</span></h2>
     <div class="security-policy-row">
       <div class="security-policy-main">
         <div class="security-policy-title" id="twofa-policy-title" data-i18n-key="admin.security.policyLoading">2FA requirement loading…</div>
@@ -512,7 +512,7 @@ function getSectionSummary(card) {
   return '';
 }
 
-function buildSectionToggle(inputId, labelText) {
+function buildSectionToggle(inputId) {
   const input = document.getElementById(inputId);
   if (!input) return null;
   const wrapper = document.createElement('span');
@@ -520,10 +520,7 @@ function buildSectionToggle(inputId, labelText) {
   wrapper.addEventListener('click', (event) => event.stopPropagation());
   input.classList.remove('admin-header-switch-source');
   input.addEventListener('click', (event) => event.stopPropagation());
-  const label = document.createElement('span');
-  label.textContent = labelText;
   wrapper.appendChild(input);
-  wrapper.appendChild(label);
   return wrapper;
 }
 
@@ -547,11 +544,11 @@ function setupAdminSections() {
     heading.innerHTML = `<button type="button" class="admin-section-header" aria-expanded="false"><span class="admin-section-title">${titleHtml}</span></button>`;
     const headerButton = heading.querySelector('button');
     const headerToggle = card.id === 'braindump-config-card'
-      ? buildSectionToggle('braindump-enabled', translate('admin.toggle.enabled'))
+      ? buildSectionToggle('braindump-enabled')
       : card.id === 'email-config-card'
-        ? buildSectionToggle('email-smtp-enabled', translate('admin.toggle.enabled'))
+        ? buildSectionToggle('email-smtp-enabled')
         : card.id === 'security-card'
-          ? buildSectionToggle('twofa-policy-toggle', translate('admin.toggle.required'))
+          ? buildSectionToggle('twofa-policy-toggle')
           : null;
     if (headerToggle) headerButton.appendChild(headerToggle);
     else if (summary) headerButton.insertAdjacentHTML('beforeend', `<span class="admin-section-summary">${summary}</span>`);
