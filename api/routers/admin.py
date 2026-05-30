@@ -1,6 +1,7 @@
 """nia-todo: Admin endpoints (users, setup, password management)"""
 
 from typing import Optional
+import json
 from urllib.parse import urlparse, urlunparse
 import urllib.request
 
@@ -28,6 +29,40 @@ from middleware.security import generate_csrf_token, set_csrf_cookie
 from errors import api_error, validation_api_error
 
 router = APIRouter(prefix="/api/admin")
+
+
+def _model_ids_from_llm_models_payload(payload: str) -> set[str]:
+    try:
+        data = json.loads(payload)
+    except json.JSONDecodeError:
+        return set()
+    items = []
+    if isinstance(data, dict):
+        if isinstance(data.get("data"), list):
+            items = data["data"]
+        elif isinstance(data.get("models"), list):
+            items = data["models"]
+    elif isinstance(data, list):
+        items = data
+    ids: set[str] = set()
+    for item in items:
+        if isinstance(item, str):
+            ids.add(item)
+        elif isinstance(item, dict):
+            value = item.get("id") or item.get("name") or item.get("model")
+            if isinstance(value, str) and value.strip():
+                ids.add(value.strip())
+    return ids
+
+
+def _validate_configured_llm_model(payload: str, model: str) -> str | None:
+    model = str(model or "").strip()
+    ids = _model_ids_from_llm_models_payload(payload)
+    if ids and model not in ids:
+        sample = ", ".join(sorted(ids)[:8])
+        suffix = f" Available: {sample}" if sample else ""
+        return f"LLM model is not listed by the endpoint: {model}.{suffix}"
+    return None
 
 
 # ─── Pydantic Models ─────────────────────────────────────────────────────────
@@ -100,7 +135,6 @@ class TwoFactorPolicyRequest(BaseModel):
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
 
-from typing import Optional
 from fastapi import Header
 
 def require_admin(authorization: Optional[str] = Header(None)):
@@ -246,7 +280,12 @@ def admin_test_braindump_config(_: bool = Depends(require_admin)):
             req = urllib.request.Request(llm_models_url(config), headers=headers)
             with urllib.request.urlopen(req, timeout=10) as response:
                 payload = response.read().decode("utf-8", errors="replace")
-            result["llm"] = {"ok": True, "message": "LLM endpoint reachable", "sample": payload[:400]}
+            model_error = _validate_configured_llm_model(payload, str(config.get("llm_model") or ""))
+            provider_name = "Ollama API" if str(config.get("llm_provider") or "") == "ollama" else "LLM endpoint"
+            if model_error:
+                result["llm"] = {"ok": False, "message": model_error, "sample": payload[:400]}
+            else:
+                result["llm"] = {"ok": True, "message": f"{provider_name} reachable", "sample": payload[:400]}
         except Exception as exc:
             result["llm"] = {"ok": False, "message": str(exc)}
 

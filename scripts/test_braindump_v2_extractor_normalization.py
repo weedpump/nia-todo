@@ -9,10 +9,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "api"))
 
+from routers.admin import _validate_configured_llm_model  # noqa: E402
 from routers.braindump_v2 import (  # noqa: E402
     _build_multipart_form_data,
     _extract_transcript_from_stt_response,
     _format_workspace_context,
+    _llm_request_payload,
+    _llm_response_content,
     _normalize_braindump_json,
     _parse_llm_json_content,
 )
@@ -216,9 +219,39 @@ def test_llm_endpoint_urls_accept_root_v1_and_full_paths():
         ("http://localhost:1234/v1/chat/completions", "http://localhost:1234/v1/chat/completions", "http://localhost:1234/v1/models"),
     ]
     for base, chat, models in cases:
-        config = {"llm_base_url": base}
+        config = {"llm_provider": "openai_compatible", "llm_base_url": base}
         assert_true(llm_chat_url(config) == chat, llm_chat_url(config))
         assert_true(llm_models_url(config) == models, llm_models_url(config))
+
+
+def test_ollama_provider_urls_payload_and_response_content():
+    cases = [
+        ("http://localhost:11434", "http://localhost:11434/api/chat", "http://localhost:11434/api/tags"),
+        ("https://ollama.com/api", "https://ollama.com/api/chat", "https://ollama.com/api/tags"),
+        ("https://ollama.com/api/chat", "https://ollama.com/api/chat", "https://ollama.com/api/tags"),
+    ]
+    for base, chat, tags in cases:
+        config = {"llm_provider": "ollama", "llm_base_url": base}
+        assert_true(llm_chat_url(config) == chat, llm_chat_url(config))
+        assert_true(llm_models_url(config) == tags, llm_models_url(config))
+    payload = _llm_request_payload({
+        "model": "gpt-oss:120b",
+        "messages": [{"role": "user", "content": "Hi"}],
+        "temperature": 0,
+        "stream": False,
+        "user": "ignored-for-ollama",
+    }, {"llm_provider": "ollama"})
+    assert_true(payload == {"model": "gpt-oss:120b", "messages": [{"role": "user", "content": "Hi"}], "stream": False, "options": {"temperature": 0}}, payload)
+    assert_true(_llm_response_content({"message": {"content": "{\"candidates\":[]}"}}, {"llm_provider": "ollama"}) == '{"candidates":[]}', "ollama content parse")
+
+
+def test_admin_llm_models_payload_validates_configured_model():
+    openai_payload = '{"object":"list","data":[{"id":"openclaw/default"},{"id":"openclaw/braindump"}]}'
+    assert_true(_validate_configured_llm_model(openai_payload, "openclaw/braindump") is None, "valid OpenClaw agent should pass")
+    error = _validate_configured_llm_model(openai_payload, "openclaw/braindumpd")
+    assert_true(error and "openclaw/braindumpd" in error and "openclaw/braindump" in error, error)
+    ollama_payload = '{"models":[{"name":"gpt-oss:120b"},{"name":"llama3.1"}]}'
+    assert_true(_validate_configured_llm_model(ollama_payload, "gpt-oss:120b") is None, "valid Ollama model should pass")
 
 
 def test_workspace_context_is_compact():
@@ -263,6 +296,8 @@ def main():
         test_multilingual_titles_are_preserved,
         test_date_only_reminder_is_rejected_but_deadline_kept,
         test_llm_endpoint_urls_accept_root_v1_and_full_paths,
+        test_ollama_provider_urls_payload_and_response_content,
+        test_admin_llm_models_payload_validates_configured_model,
         test_workspace_context_is_compact,
         test_remote_stt_response_parsing_and_multipart_payload,
     ]
