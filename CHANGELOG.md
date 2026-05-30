@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 
 ### Added
 - Experimental BrainDump voice capture for turning spoken notes into user-confirmed todo candidates, including configurable LLM/STT providers, global and per-user access controls, robust local-model parsing, and self-hosting documentation.
-- Admins can now edit a user's username from the admin panel, with duplicate/empty validation and a confirmation warning that passkeys remain bound to the internal user ID while device-side account labels may still show the old username.
+- Admins can now edit a user's username from the admin panel, with duplicate/empty validation, safe handling for special characters such as apostrophes, and a confirmation warning that passkeys remain bound to the internal user ID while device-side account labels may still show the old username.
 
 ### Changed
 - Admin UI has been streamlined with collapsible configuration sections, autosaving header switches, responsive user cards, and a dialog-based admin password change flow.
