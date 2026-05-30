@@ -954,5 +954,7 @@
   "api.error.user.usernameRequired": "Benutzername ist erforderlich",
   "api.error.user.usernameTooLong": "Benutzername ist zu lang",
   "api.error.user.usernameExists": "Benutzername existiert bereits",
-  "admin.braindump.provider.ollama": "Ollama API"
+  "admin.braindump.provider.ollama": "Ollama API",
+  "admin.email.summary": "SMTP",
+  "admin.security.summary": "2FA-Regel"
 }

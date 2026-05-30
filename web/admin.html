@@ -562,17 +562,20 @@ function iconSvg(name) {
 
 function getSectionSummary(card) {
   const translate = window.t || ((key) => key);
-  if (card.id === 'braindump-config-card') return translate('admin.section.enable');
-  if (card.id === 'email-config-card') return translate('admin.section.enable');
-  if (card.id === 'security-card') return translate('admin.section.enable');
+  if (card.id === 'braindump-config-card') return translate('admin.braindump.summary');
+  if (card.id === 'email-config-card') return translate('admin.email.summary');
+  if (card.id === 'security-card') return translate('admin.security.summary');
   return '';
 }
 
 function buildSectionToggle(inputId) {
   const input = document.getElementById(inputId);
   if (!input) return null;
+  const translate = window.t || ((key) => key);
   const wrapper = document.createElement('span');
   wrapper.className = 'admin-section-toggle admin-config-checkbox';
+  wrapper.title = translate('admin.section.enable');
+  wrapper.setAttribute('aria-label', translate('admin.section.enable'));
   wrapper.addEventListener('click', (event) => event.stopPropagation());
   input.classList.remove('admin-header-switch-source');
   input.addEventListener('click', (event) => event.stopPropagation());
