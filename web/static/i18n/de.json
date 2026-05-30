@@ -892,5 +892,12 @@
   "braindump.kind.shopping": "Einkauf",
   "braindump.kind.reminder": "Erinnerung",
   "braindump.kind.deadline": "Deadline",
-  "braindump.kind.todo": "Todo"
+  "braindump.kind.todo": "Todo",
+  "admin.user.brainDump": "BrainDump",
+  "admin.user.brainDumpEnabled": "Aktiv",
+  "admin.user.brainDumpDisabled": "Aus",
+  "admin.user.brainDumpEnable": "Freischalten",
+  "admin.user.brainDumpDisable": "Sperren",
+  "admin.user.brainDumpEnabledSaved": "BrainDump für Benutzer freigeschaltet.",
+  "admin.user.brainDumpDisabledSaved": "BrainDump für Benutzer gesperrt."
 }

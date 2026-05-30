@@ -13,7 +13,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .admin-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 16px; padding: 24px; margin-bottom: 24px; box-shadow: var(--shadow); }
 .admin-card h2 { font-size: 16px; margin: 0 0 16px 0; color: var(--text-primary); display: inline-flex; align-items: center; gap: 8px; }
 .user-table-wrap { width: 100%; overflow-x: auto; }
-.user-table { width: 100%; border-collapse: collapse; table-layout: fixed; min-width: 1220px; }
+.user-table { width: 100%; border-collapse: collapse; table-layout: fixed; min-width: 1320px; }
 .user-table th { text-align: left; padding: 12px; font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--border); }
 .user-table td { padding: 12px; font-size: 14px; color: var(--text-primary); border-bottom: 1px solid var(--border); vertical-align: middle; }
 .user-table th:nth-child(1), .user-table td:nth-child(1) { width: 44px; }
@@ -25,8 +25,9 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .user-table th:nth-child(7), .user-table td:nth-child(7) { width: 140px; }
 .user-table th:nth-child(8), .user-table td:nth-child(8) { width: 160px; }
 .user-table th:nth-child(9), .user-table td:nth-child(9) { width: 80px; }
-.user-table th:nth-child(10), .user-table td:nth-child(10) { width: 125px; }
-.user-table th:nth-child(11), .user-table td:nth-child(11) { width: 95px; }
+.user-table th:nth-child(10), .user-table td:nth-child(10) { width: 100px; }
+.user-table th:nth-child(11), .user-table td:nth-child(11) { width: 125px; }
+.user-table th:nth-child(12), .user-table td:nth-child(12) { width: 95px; }
 .user-table tr:last-child td { border-bottom: none; }
 .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; }
 .badge-admin { background: var(--accent); color: white; }
@@ -441,12 +442,13 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
           <th data-i18n-key="admin.user.lastActive">Last active</th>
           <th data-i18n-key="admin.user.twofa">2FA</th>
           <th data-i18n-key="admin.user.apiKeys">API Keys</th>
+          <th data-i18n-key="admin.user.brainDump">BrainDump</th>
           <th data-i18n-key="admin.user.password">Password</th>
           <th data-i18n-key="admin.user.actions">Actions</th>
         </tr>
       </thead>
       <tbody id="user-list">
-        <tr><td colspan="11" class="empty-state" data-i18n-key="common.loading">Loading...</td></tr>
+        <tr><td colspan="12" class="empty-state" data-i18n-key="common.loading">Loading...</td></tr>
       </tbody>
     </table>
     </div>
@@ -693,7 +695,7 @@ async function loadUsers() {
     renderUsers(data.users);
   } catch(e) {
     document.getElementById('user-list').innerHTML =
-      `<tr><td colspan="11" class="empty-state">Error: ${e.message}</td></tr>`;
+      `<tr><td colspan="12" class="empty-state">Error: ${e.message}</td></tr>`;
     if (e.message.includes('403')) {
       localStorage.removeItem('admin_jwt_token');
       setTimeout(() => location.reload(), 2000);
@@ -1180,6 +1182,15 @@ function renderUserApiKeys(user) {
   return `<span class="badge badge-warning" title="${escapeHtmlAttr(t('admin.user.apiKeysMachineTokenHint'))}">${count} ${escapeHtml(t('admin.user.active'))}</span>`;
 }
 
+function renderUserBrainDump(user) {
+  const enabled = !!user.braindump_enabled;
+  const label = enabled ? t('admin.user.brainDumpEnabled') : t('admin.user.brainDumpDisabled');
+  const next = enabled ? 'false' : 'true';
+  const btnClass = enabled ? 'btn-secondary' : 'btn-primary';
+  const action = enabled ? t('admin.user.brainDumpDisable') : t('admin.user.brainDumpEnable');
+  return `<div class="twofa-stack"><span class="badge ${enabled ? 'badge-success' : 'badge-muted'}">${escapeHtml(label)}</span><button class="btn ${btnClass} admin-table-action" style="margin-top:6px;" onclick="toggleUserBrainDump(${user.id}, ${next})">${escapeHtml(action)}</button></div>`;
+}
+
 function renderUserLastActive(user) {
   const formatted = formatServerTimestamp(user.last_active_at);
   const label = user.last_active_at ? formatted : t('admin.user.neverActive');
@@ -1197,7 +1208,7 @@ function renderUserEmailDisplay(userId, emailValue) {
 function renderUsers(users) {
   const tbody = document.getElementById('user-list');
   if (!users || users.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="11" class="empty-state">${escapeHtml(t('admin.user.empty'))}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="12" class="empty-state">${escapeHtml(t('admin.user.empty'))}</td></tr>`;
     return;
   }
   tbody.innerHTML = users.map(u => `
@@ -1211,6 +1222,7 @@ function renderUsers(users) {
       <td><span class="admin-mobile-label">${escapeHtml(t('admin.user.lastActive'))}</span>${renderUserLastActive(u)}</td>
       <td><span class="admin-mobile-label">2FA</span>${renderUserTwoFactorStatus(u)}</td>
       <td><span class="admin-mobile-label">${escapeHtml(t('settings.apiKeys.title'))}</span>${renderUserApiKeys(u)}</td>
+      <td><span class="admin-mobile-label">${escapeHtml(t('admin.user.brainDump'))}</span>${renderUserBrainDump(u)}</td>
       <td><span class="admin-mobile-label">${escapeHtml(t('auth.password'))}</span><button class="btn btn-primary admin-table-action" onclick="generatePasswordLink(${u.id}, '${escapeHtmlAttr(u.username)}')">${iconSvg('link')} ${escapeHtml(t('admin.user.passwordLink'))}</button></td>
       <td><span class="admin-mobile-label">${escapeHtml(t('admin.user.actions'))}</span>${u.is_admin ? '-' : `<button class="btn btn-danger admin-table-action" onclick="deleteUser(${u.id}, '${escapeHtmlAttr(u.username)}')">${iconSvg('trash')} ${escapeHtml(t('common.delete'))}</button>`}</td>
     </tr>
@@ -1291,6 +1303,20 @@ async function saveUserEmail(userId) {
   }
   try {
     await apiPatch(`/api/admin/users/${userId}`, { email });
+    await loadUsers();
+  } catch(e) {
+    if (errorEl) errorEl.textContent = t('admin.errorWithMessage', { error: e.message });
+  }
+}
+
+async function toggleUserBrainDump(userId, enabled) {
+  const errorEl = document.getElementById('security-error') || document.getElementById('create-error');
+  const successEl = document.getElementById('security-success') || document.getElementById('create-success');
+  if (errorEl) errorEl.textContent = '';
+  if (successEl) successEl.textContent = '';
+  try {
+    await apiPatch(`/api/admin/users/${userId}`, { braindump_enabled: !!enabled });
+    if (successEl) successEl.textContent = enabled ? t('admin.user.brainDumpEnabledSaved') : t('admin.user.brainDumpDisabledSaved');
     await loadUsers();
   } catch(e) {
     if (errorEl) errorEl.textContent = t('admin.errorWithMessage', { error: e.message });

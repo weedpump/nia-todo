@@ -892,5 +892,12 @@
   "braindump.kind.shopping": "Shopping",
   "braindump.kind.reminder": "Reminder",
   "braindump.kind.deadline": "Deadline",
-  "braindump.kind.todo": "Todo"
+  "braindump.kind.todo": "Todo",
+  "admin.user.brainDump": "BrainDump",
+  "admin.user.brainDumpEnabled": "Enabled",
+  "admin.user.brainDumpDisabled": "Off",
+  "admin.user.brainDumpEnable": "Enable",
+  "admin.user.brainDumpDisable": "Disable",
+  "admin.user.brainDumpEnabledSaved": "BrainDump enabled for user.",
+  "admin.user.brainDumpDisabledSaved": "BrainDump disabled for user."
 }
