@@ -29,28 +29,32 @@ This document is the project memory for the implementation. Keep it concise and 
 - No hidden auto-create of todos without user confirmation.
 - No fragile live draft system that can lose already spoken content.
 - No performance optimization without measuring the current bottleneck.
-- No admin UI for BrainDump provider configuration yet.
-- No user-facing OpenClaw/Whisper/STT model configuration yet.
-- No token/provider management until the core BrainDump flow is proven.
+- No automatic OpenClaw agent/config creation from nia-todo.
+- No built-in whisper.cpp installation management in nia-todo; admins provide an STT endpoint.
+- No user-facing per-user OpenClaw/Whisper/STT model selection yet.
 - No full admin UI for per-user BrainDump enablement in Phase 1; keep the permission requirement in the domain/API design.
 
 ## MVP configuration rule
 
-For BrainDump v2 MVP, provider configuration lives in backend environment variables, not in a polished admin UI yet.
+For BrainDump v2 MVP, provider configuration lives in the admin panel / DB-backed app config, with safe defaults for development.
 
 Current split:
 
-- LLM: OpenClaw via `NIA_TODO_OPENCLAW_URL` later; current dev default still points at the local OpenClaw Gateway chat endpoint.
+- LLM: OpenClaw via admin-configured Gateway URL/token/model target; default URL points at the local OpenClaw Gateway.
 - STT: remote `whisper.cpp` server by default.
 
-STT environment variables:
+Admin-configured fields:
 
-```env
-NIA_TODO_STT_PROVIDER=whisper_cpp_remote
-NIA_TODO_STT_URL=http://127.0.0.1:8766/inference
-NIA_TODO_STT_LANGUAGE=de
-NIA_TODO_STT_TOKEN=
-NIA_TODO_STT_TIMEOUT_SECONDS=60
+```text
+OpenClaw URL: http://127.0.0.1:18789
+OpenClaw token: stored server-side, never echoed back to the admin UI
+OpenClaw model target: openclaw/default
+OpenClaw backend model override: optional, sent as x-openclaw-model
+STT provider: whisper_cpp_remote
+STT URL: http://127.0.0.1:8766/inference
+STT token: optional, stored server-side, never echoed back
+STT language: de
+STT timeout seconds: 60
 ```
 
 Recommended whisper.cpp server command for development:
@@ -65,7 +69,7 @@ Recommended whisper.cpp server command for development:
   --inference-path /inference
 ```
 
-Reason: if the core session pipeline does not work reliably, a polished configuration UI has no value and only adds complexity. Provider/admin configuration can be added after the flow is correct, fast enough, and testable.
+Shared whisper.cpp note: on the OpenClaw LXC, prefer one `whisper-server` process on port `8766`. nia-todo talks to that `/inference` endpoint directly. OpenClaw's own audio pipeline does not expose this as a public STT API; if OpenClaw should also avoid spawning `whisper-cli`, configure its audio model separately to call the same server (for example via a small CLI wrapper) instead of starting a second whisper.cpp service.
 
 ## Core architecture rule
 

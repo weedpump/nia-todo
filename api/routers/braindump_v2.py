@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
 import re
 import subprocess
 import tempfile
@@ -26,6 +25,7 @@ from routers.todos import (
     fetch_todo,
     get_user_inbox_project_id,
 )
+from services.braindump_config import get_braindump_config, openclaw_chat_url
 from services.braindump_v2 import (
     append_text_segment,
     create_session,
@@ -39,12 +39,6 @@ from services.websocket import broadcast_change
 
 router = APIRouter(prefix="/api/braindump/v2")
 
-OPENCLAW_CHAT_URL = "http://127.0.0.1:18789/v1/chat/completions"
-BRAINDUMP_STT_PROVIDER = os.getenv("NIA_TODO_STT_PROVIDER", "whisper_cpp_remote")
-BRAINDUMP_STT_URL = os.getenv("NIA_TODO_STT_URL", "http://127.0.0.1:8766/inference")
-BRAINDUMP_STT_TOKEN = os.getenv("NIA_TODO_STT_TOKEN")
-BRAINDUMP_STT_LANGUAGE = os.getenv("NIA_TODO_STT_LANGUAGE", "de")
-BRAINDUMP_STT_TIMEOUT_SECONDS = float(os.getenv("NIA_TODO_STT_TIMEOUT_SECONDS", "60"))
 WHISPER_MODELS = {
     "base": Path("/opt/whisper.cpp/models/ggml-base.bin"),
     "small": Path("/opt/whisper.cpp/models/ggml-small.bin"),
@@ -506,23 +500,25 @@ def _extract_transcript_from_stt_response(body: bytes, content_type: str) -> str
     return " ".join(transcript.split())
 
 
-def _transcribe_remote_whisper(audio: bytes, filename: str, content_type: str) -> tuple[float, str]:
-    if not BRAINDUMP_STT_URL:
-        raise RuntimeError("NIA_TODO_STT_URL is not configured")
+def _transcribe_remote_whisper(audio: bytes, filename: str, content_type: str, config: dict) -> tuple[float, str]:
+    stt_url = str(config.get("stt_url") or "").strip()
+    if not stt_url:
+        raise RuntimeError("BrainDump STT URL is not configured")
     fields = {
         "response_format": "json",
         "temperature": "0.0",
         "temperature_inc": "0.0",
-        "language": BRAINDUMP_STT_LANGUAGE,
+        "language": str(config.get("stt_language") or "de"),
     }
     body, multipart_type = _build_multipart_form_data(fields, {"file": (filename, audio, content_type)})
     headers = {"Content-Type": multipart_type}
-    if BRAINDUMP_STT_TOKEN:
-        headers["Authorization"] = f"Bearer {BRAINDUMP_STT_TOKEN}"
-    req = urllib.request.Request(BRAINDUMP_STT_URL, data=body, headers=headers, method="POST")
+    stt_token = str(config.get("stt_token") or "").strip()
+    if stt_token:
+        headers["Authorization"] = f"Bearer {stt_token}"
+    req = urllib.request.Request(stt_url, data=body, headers=headers, method="POST")
     started = time.perf_counter()
     try:
-        with urllib.request.urlopen(req, timeout=BRAINDUMP_STT_TIMEOUT_SECONDS) as response:
+        with urllib.request.urlopen(req, timeout=float(config.get("stt_timeout_seconds") or 60)) as response:
             response_body = response.read()
             response_type = response.headers.get("content-type", "")
     except Exception as exc:
@@ -672,14 +668,15 @@ def _create_todos_from_braindump_candidates(db, user_id: int, candidates: list[B
     return created
 
 
-def _extract_with_openclaw(text: str, segment_id: int, workspace_context: dict | None = None) -> tuple[float, dict, dict | None, str]:
-    token = _load_openclaw_token()
+def _extract_with_openclaw(text: str, segment_id: int, workspace_context: dict | None = None, config: dict | None = None) -> tuple[float, dict, dict | None, str]:
+    config = config or get_braindump_config(include_secrets=True)
+    token = str(config.get("openclaw_token") or "").strip() or _load_openclaw_token()
     if not token:
-        raise RuntimeError("OpenClaw gateway token not found")
+        raise RuntimeError("OpenClaw gateway token not configured")
     current_datetime = datetime.now().astimezone().isoformat(timespec="minutes")
     user_content = f"Instructions:\n{BRAINDUMP_EXTRACTOR_PROMPT}\n\nCurrent datetime: {current_datetime}\n\n{_format_workspace_context(workspace_context)}\n\nTranscript:\n{text}"
     payload = {
-        "model": "openclaw/braindump",
+        "model": str(config.get("openclaw_model") or "openclaw/default"),
         "messages": [
             {"role": "system", "content": BRAINDUMP_EXTRACTOR_PROMPT},
             {"role": "user", "content": user_content},
@@ -690,10 +687,14 @@ def _extract_with_openclaw(text: str, segment_id: int, workspace_context: dict |
         "user": f"nia-todo-live-braindump-{segment_id}-{int(time.time() * 1000)}",
     }
     body = json.dumps(payload).encode("utf-8")
+    headers = {"Content-Type": "application/json", "Authorization": f"Bearer {token}"}
+    backend_model = str(config.get("openclaw_backend_model") or "").strip()
+    if backend_model:
+        headers["x-openclaw-model"] = backend_model
     req = urllib.request.Request(
-        OPENCLAW_CHAT_URL,
+        openclaw_chat_url(config),
         data=body,
-        headers={"Content-Type": "application/json", "Authorization": f"Bearer {token}"},
+        headers=headers,
         method="POST",
     )
     started = time.perf_counter()
@@ -739,9 +740,10 @@ async def process_live_audio_segment(
 ):
     """Process one live BrainDump audio window and return timing diagnostics."""
     require_braindump_access(user_id)
-    stt_provider = BRAINDUMP_STT_PROVIDER.strip().lower()
+    braindump_config = get_braindump_config(include_secrets=True)
+    stt_provider = str(braindump_config.get("stt_provider") or "whisper_cpp_remote").strip().lower()
     if stt_provider not in {"whisper_cpp_remote", "local_whisper_cpp"}:
-        raise HTTPException(500, f"Unsupported BrainDump STT provider: {BRAINDUMP_STT_PROVIDER}")
+        raise HTTPException(500, f"Unsupported BrainDump STT provider: {stt_provider}")
     if stt_provider == "local_whisper_cpp" and model not in WHISPER_MODELS:
         raise HTTPException(400, "Unsupported BrainDump STT model")
     received_at = time.perf_counter()
@@ -756,8 +758,8 @@ async def process_live_audio_segment(
 
         def process_bytes():
             if stt_provider == "whisper_cpp_remote":
-                stt_ms, transcript = _transcribe_remote_whisper(audio_bytes, f"segment-{segment_id}{suffix}", content_type or "application/octet-stream")
-                llm_ms, parsed, usage, raw_json = _extract_with_openclaw(transcript, segment_id, workspace_context)
+                stt_ms, transcript = _transcribe_remote_whisper(audio_bytes, f"segment-{segment_id}{suffix}", content_type or "application/octet-stream", braindump_config)
+                llm_ms, parsed, usage, raw_json = _extract_with_openclaw(transcript, segment_id, workspace_context, braindump_config)
                 return 0.0, stt_ms, transcript, llm_ms, parsed, usage, raw_json
             with tempfile.TemporaryDirectory(prefix="nia-braindump-live-") as tmp:
                 tmpdir = Path(tmp)
@@ -766,7 +768,7 @@ async def process_live_audio_segment(
                 raw_path.write_bytes(audio_bytes)
                 convert_ms = _convert_audio_to_wav(raw_path, wav_path)
                 stt_ms, transcript = _transcribe_wav(wav_path, model)
-                llm_ms, parsed, usage, raw_json = _extract_with_openclaw(transcript, segment_id, workspace_context)
+                llm_ms, parsed, usage, raw_json = _extract_with_openclaw(transcript, segment_id, workspace_context, braindump_config)
                 return convert_ms, stt_ms, transcript, llm_ms, parsed, usage, raw_json
 
         convert_ms, stt_ms, transcript, llm_ms, parsed, usage, raw_json = await asyncio.to_thread(process_bytes)
