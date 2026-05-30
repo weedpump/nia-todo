@@ -4,16 +4,10 @@ Selfhosted todo system — SQLite + FastAPI + Web UI + offline PWA + native Wind
 
 ## 🌍 Instances
 
-- **Live:** `http://todo-dev.kneidl-home.de:8753`
-- **Dev:** `http://todo-dev.kneidl-home.de:8754`
+- **Production:** runs on a separate LXC managed by Tobi; this dev checkout does not contain live data or a live service.
+- **Dev:** `http://todo-dev.kneidl-home.de:8754` from `~/projects/nia-todo-dev`
 
 ## 🚀 Quick Start
-
-### Live
-```bash
-cd ~/projects/nia-todo
-systemctl restart nia-todo
-```
 
 ### Dev
 ```bash
@@ -43,13 +37,13 @@ systemctl restart nia-todo-dev
 - `web/` — Web UI, service worker, manifest
 - `scripts/` — Test suites and helpers
 - `docs/` — API, test, and workflow docs
-- `systemd/` — Live/dev services
+- `systemd/` — service units and packaging helpers
 
 ## 🔧 Development
 
 - Dev branch: `develop`
 - Dev folder: `~/projects/nia-todo-dev`
-- Release only through `./release.sh VERSION`
+- Release only from `develop` through `./release.sh VERSION --github-repo OWNER/REPO`
 
 ## 🧪 Tests
 
@@ -65,7 +59,6 @@ Details: [Test docs](docs/testing.md)
 - [Test docs](docs/testing.md)
 - [Workflow docs](docs/workflow.md)
 - [Architecture](docs/architecture.md)
-- [Native Apps Clean Architecture Plan](docs/native-apps-clean-architecture.md) — current 2.0 state including Android passkey trust model
 - Changelog: `CHANGELOG.md` shared by web app, Windows app, and Android app
 
 ## ⚙️ Setup / Operations

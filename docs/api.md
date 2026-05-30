@@ -207,7 +207,7 @@ Activates TOTP after password confirmation and returns new recovery codes exactl
 
 ### Active Device Sessions / Trusted Devices
 - `GET /api/me/2fa/trusted-devices` — lists active signed-in device sessions for the current user, not only trusted 2FA devices. Sessions can optionally be linked to a trusted 2FA-remember device and include metadata such as user agent, last use, expiry, and whether it is the current session.
-- `DELETE /api/me/2fa/trusted-devices/{id}` — revokes one device session using a normal interactive JWT plus CSRF protection; no fresh MFA action grant is required because this only reduces account access. If the session was linked to a trusted 2FA device, that trusted-device token is revoked too. Revoking the current session signs out the current browser/app.
+- `DELETE /api/me/2fa/trusted-devices/{id}` / `DELETE /api/me/2fa/trusted-devices/{device_id}` — revokes one device session using a normal interactive JWT plus CSRF protection; no fresh MFA action grant is required because this only reduces account access. If the session was linked to a trusted 2FA device, that trusted-device token is revoked too. Revoking the current session signs out the current browser/app.
 - `DELETE /api/me/2fa/trusted-devices` — revokes all active user sessions and all trusted 2FA devices for the current user, then signs out the current browser/app.
 
 ### Passkeys
@@ -215,7 +215,7 @@ Activates TOTP after password confirmation and returns new recovery codes exactl
 - `POST /api/me/passkeys/options` — prepare registration options/challenge; allowed with enrollment-only JWT or fresh MFA reauth.
 - `POST /api/me/passkeys/verify` — complete WebAuthn registration with password confirmation; allowed with enrollment-only JWT or single-use MFA action grant and returns a fresh MFA JWT.
 - `POST /api/2fa/passkey/options` and `POST /api/2fa/passkey/verify` — complete login challenge via passkey.
-- `DELETE /api/me/passkeys/{id}` — revoke passkey, requires a fresh one-time MFA reauth. If no primary factor (TOTP/passkey) remains afterwards, recovery codes are automatically revoked and user-side 2FA is disabled; with a global policy, email-code MFA can still apply as a fallback.
+- `DELETE /api/me/passkeys/{id}` / `DELETE /api/me/passkeys/{passkey_id}` — revoke passkey, requires a fresh one-time MFA reauth. If no primary factor (TOTP/passkey) remains afterwards, recovery codes are automatically revoked and user-side 2FA is disabled; with a global policy, email-code MFA can still apply as a fallback.
 
 Passkeys are bound to the configured public base URL (`public_base_url`). HTTPS is mandatory for non-localhost hosts; without `public_base_url`, production passkey flows for non-localhost hosts fail closed. Windows Native uses a native WebAuthn bridge with server-provided origin; for this, the server URL configured in the app must match the `public_base_url` origin/RP ID.
 
@@ -661,7 +661,7 @@ Optionally, `display_name` can be provided as well.
 ```
 
 ### Generate Password Setup/Reset Link
-`POST /api/admin/users/{id}/change-password`
+`POST /api/admin/users/{id}/change-password` / `POST /api/admin/users/{user_id}/change-password`
 
 > Compatibility endpoint: admins no longer set passwords directly. The endpoint generates a one-time link.
 
@@ -758,7 +758,7 @@ Links are valid for 24 hours and can be used only once.
 The full `key` is shown only once during creation.
 
 ### Revoke
-`DELETE /api/me/api-keys/{id}`
+`DELETE /api/me/api-keys/{id}` / `DELETE /api/me/api-keys/{key_id}`
 
 **Response**
 ```json
@@ -812,7 +812,7 @@ Authorization: ApiKey nt_...
 ```
 
 ### Single Todo
-`GET /api/todos/{id}`
+`GET /api/todos/{id}` / `GET /api/todos/{todo_id}`
 
 **Response**
 ```json
@@ -863,7 +863,7 @@ Authorization: ApiKey nt_...
 ```
 
 ### Update
-`PATCH /api/todos/{id}`
+`PATCH /api/todos/{id}` / `PATCH /api/todos/{todo_id}`
 
 **Body**
 - same fields as POST, all optional
@@ -879,7 +879,7 @@ Authorization: ApiKey nt_...
 ```
 
 ### Delete
-`DELETE /api/todos/{id}`
+`DELETE /api/todos/{id}` / `DELETE /api/todos/{todo_id}`
 
 **Response**
 ```json
@@ -925,7 +925,7 @@ Authorization: ApiKey nt_...
 ```
 
 ### Update
-`PATCH /api/workspaces/{id}`
+`PATCH /api/workspaces/{id}` / `PATCH /api/workspaces/{workspace_id}`
 
 **Body**
 ```json
@@ -938,7 +938,7 @@ Authorization: ApiKey nt_...
 ```
 
 ### Delete
-`DELETE /api/workspaces/{id}`
+`DELETE /api/workspaces/{id}` / `DELETE /api/workspaces/{workspace_id}`
 
 **Response**
 ```json
@@ -1043,7 +1043,7 @@ Subtree workspace move response:
 ```
 
 ### Delete Completed Todos in Project
-`POST /api/projects/{id}/clear-done`
+`POST /api/projects/{id}/clear-done` / `POST /api/projects/{project_id}/clear-done`
 
 **Response**
 ```json
@@ -1214,7 +1214,7 @@ Owners cannot leave their own projects.
 ```
 
 ### Sections of a Project
-`GET /api/sections/by-project/{projectId}`
+`GET /api/sections/by-project/{projectId}` / `GET /api/sections/by-project/{project_id}`
 
 **Response**
 ```json
@@ -1226,7 +1226,7 @@ Owners cannot leave their own projects.
 ```
 
 ### Create
-`POST /api/sections/by-project/{projectId}`
+`POST /api/sections/by-project/{projectId}` / `POST /api/sections/by-project/{project_id}`
 
 **Body**
 ```json
@@ -1239,7 +1239,7 @@ Owners cannot leave their own projects.
 ```
 
 ### Update
-`PATCH /api/sections/{id}`
+`PATCH /api/sections/{id}` / `PATCH /api/sections/{section_id}`
 
 **Body**
 ```json
@@ -1252,7 +1252,7 @@ Owners cannot leave their own projects.
 ```
 
 ### Delete
-`DELETE /api/sections/{id}`
+`DELETE /api/sections/{id}` / `DELETE /api/sections/{section_id}`
 
 **Response**
 ```json
@@ -1281,7 +1281,7 @@ Owners cannot leave their own projects.
 ```
 
 ### Mark as Sent
-`POST /api/reminders/{id}/sent`
+`POST /api/reminders/{id}/sent` / `POST /api/reminders/{reminder_id}/sent`
 
 **Response**
 ```json
@@ -1343,6 +1343,154 @@ Returns the available Windows/Android artifacts with version, platform, architec
 `GET /.well-known/assetlinks.json`
 
 Returns the pinned relationship between server and bundled Android app for native passkeys.
+
+
+## Current Route Coverage Notes
+
+This document is intentionally example-oriented, not a generated OpenAPI spec. During the 2026-05-31 docs audit it was checked against the FastAPI router inventory and the sections below were added for newer runtime/admin/BrainDump routes.
+
+## Profile / Preferences
+
+### Change Own Language
+`PATCH /api/me/language`
+
+**Body**
+```json
+{ "language": "de" }
+```
+
+**Response**
+Returns the updated current-user payload.
+
+## Passwordless Passkey Login
+
+These are public login endpoints for users who already have passkeys:
+
+- `POST /api/login/passkey/options` — creates a passwordless WebAuthn challenge.
+- `POST /api/login/passkey/verify` — verifies the assertion and returns the normal login response (`access_token`, `csrf_token`, `user`).
+
+2FA challenge passkeys remain separate:
+
+- `POST /api/2fa/passkey/options`
+- `POST /api/2fa/passkey/verify`
+
+## Admin: BrainDump Configuration
+
+### Fetch BrainDump Configuration
+`GET /api/admin/braindump-config`
+
+Returns the stored admin configuration without secrets. Secret fields are represented as configured booleans; API keys/tokens are never echoed back.
+
+### Update BrainDump Configuration
+`PATCH /api/admin/braindump-config`
+
+**Body**
+```json
+{
+  "enabled": false,
+  "llm_provider": "openai_compatible",
+  "llm_base_url": "https://llm.example/v1",
+  "llm_api_key_secret": "***",
+  "llm_model": "openclaw/default",
+  "llm_extra_headers_json": "{}",
+  "llm_timeout_seconds": 180,
+  "system_prompt_mode": "default",
+  "system_prompt_custom": "",
+  "stt_provider": "whisper_cpp_remote",
+  "stt_url": "http://127.0.0.1:8766/inference",
+  "stt_token_secret": "***",
+  "stt_language": "de",
+  "stt_timeout_seconds": 60
+}
+```
+
+Supported STT providers are `whisper_cpp_remote` and `local_whisper_cpp`. Secrets are write-only; omitted/empty secret fields preserve or clear according to the admin config service rules.
+
+### Test BrainDump Configuration
+`POST /api/admin/braindump-config/test`
+
+Probes the configured LLM model endpoint and STT health endpoint. If BrainDump is disabled, both probes return disabled status instead of performing network calls.
+
+## Admin: Server Updates
+
+These endpoints support package-based self-updates for installed Debian servers. They do not participate in the development release workflow.
+
+- `GET /api/admin/server-update` — current installed version, latest release status, availability and UI message.
+- `GET /api/admin/server-update/progress` — progress/result of a running or recently finished update process.
+- `POST /api/admin/server-update/install` — starts installing the latest eligible `.deb` update; returns process metadata or a blocked/error response.
+
+## BrainDump v2
+
+BrainDump requires both global admin enablement and per-user access. All user endpoints below require normal user auth and return `403` when BrainDump is disabled for the caller.
+
+### Access
+`GET /api/braindump/v2/access`
+
+**Response**
+```json
+{ "enabled": true }
+```
+
+### Live Audio Transcription
+`POST /api/braindump/v2/live/audio-segment/transcribe?segment_id=1&audio_start_ms=0&audio_end_ms=4000&model=base`
+
+Request body is raw audio (`webm`, `ogg`, or another browser-provided content type). The endpoint returns transcript plus timing data and does not run LLM extraction.
+
+### Live Text Extraction
+`POST /api/braindump/v2/live/text-segment/extract`
+
+**Body**
+```json
+{
+  "transcript": "Milch kaufen und morgen Rechnung bezahlen",
+  "segment_id": 1,
+  "audio_start_ms": 0,
+  "audio_end_ms": 4000
+}
+```
+
+Returns normalized candidate JSON, raw model output, token/usage metadata when available, and timing data.
+
+### Combined Live Audio Segment
+`POST /api/braindump/v2/live/audio-segment?segment_id=1&audio_start_ms=0&audio_end_ms=4000&model=base`
+
+Backward-compatible combined endpoint: transcribes one audio segment and immediately extracts candidates.
+
+### Create Todos from Confirmed Candidates
+`POST /api/braindump/v2/todos`
+
+**Body**
+```json
+{
+  "candidates": [
+    {
+      "title": "Milch kaufen",
+      "notes": "",
+      "project_name": "Einkaufsliste",
+      "section_name": null,
+      "deadline": null,
+      "reminder": null,
+      "kind": "shopping"
+    }
+  ]
+}
+```
+
+Creates real todos from user-confirmed candidates and broadcasts normal todo create events.
+
+### Session Pipeline
+
+- `POST /api/braindump/v2/sessions` — create an in-memory BrainDump session.
+- `GET /api/braindump/v2/sessions/{session_id}` — fetch session state.
+- `POST /api/braindump/v2/sessions/{session_id}/segments/text` with `{ "text": "...", "final": true }` — append a text segment.
+- `POST /api/braindump/v2/sessions/{session_id}/finalize` — finalize the session.
+
+The session pipeline is primarily for incremental text/session state and debugging; live audio production flows use the live segment endpoints.
+
+## Public Web Routes
+
+- `GET /changelog` and `GET /changelog/` — public HTML changelog.
+- `GET /api` and `GET /api/` — public HTML API documentation.
 
 ## Notes
 
