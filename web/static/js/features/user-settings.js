@@ -310,9 +310,8 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
       if (setupBtn) setupBtn.style.display = state.has_totp ? 'none' : '';
       const passkeyBtn = document.querySelector('#settings-2fa-actions button[onclick="addPasskey()"]');
       if (passkeyBtn) passkeyBtn.style.display = state.passkey_setup_available === false ? 'none' : '';
-      document.getElementById('settings-2fa-actions')?.querySelectorAll('button').forEach((btn) => {
-        if (btn.textContent.includes('deaktivieren')) btn.style.display = state.enabled ? '' : 'none';
-      });
+      const disableBtn = document.getElementById('settings-2fa-disable-btn');
+      if (disableBtn) disableBtn.style.display = state.enabled ? '' : 'none';
       updateSettingsEnrollmentLock(state);
       await renderTwoFactorDevices(state);
       await renderTrustedDevices(shouldLockForTwoFactorState(state));
