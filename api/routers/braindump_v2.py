@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import re
 import subprocess
 import tempfile
@@ -39,6 +40,11 @@ from services.websocket import broadcast_change
 router = APIRouter(prefix="/api/braindump/v2")
 
 OPENCLAW_CHAT_URL = "http://127.0.0.1:18789/v1/chat/completions"
+BRAINDUMP_STT_PROVIDER = os.getenv("NIA_TODO_STT_PROVIDER", "whisper_cpp_remote")
+BRAINDUMP_STT_URL = os.getenv("NIA_TODO_STT_URL", "http://127.0.0.1:8766/inference")
+BRAINDUMP_STT_TOKEN = os.getenv("NIA_TODO_STT_TOKEN")
+BRAINDUMP_STT_LANGUAGE = os.getenv("NIA_TODO_STT_LANGUAGE", "de")
+BRAINDUMP_STT_TIMEOUT_SECONDS = float(os.getenv("NIA_TODO_STT_TIMEOUT_SECONDS", "60"))
 WHISPER_MODELS = {
     "base": Path("/opt/whisper.cpp/models/ggml-base.bin"),
     "small": Path("/opt/whisper.cpp/models/ggml-small.bin"),
@@ -465,6 +471,66 @@ def _transcribe_wav(wav: Path, model_name: str) -> tuple[float, str]:
     return elapsed_ms, " ".join(proc.stdout.split())
 
 
+def _build_multipart_form_data(fields: dict[str, str], files: dict[str, tuple[str, bytes, str]]) -> tuple[bytes, str]:
+    boundary = f"----nia-todo-braindump-{int(time.time() * 1000)}"
+    chunks: list[bytes] = []
+    for name, value in fields.items():
+        chunks.append(f"--{boundary}\r\n".encode("utf-8"))
+        chunks.append(f'Content-Disposition: form-data; name="{name}"\r\n\r\n'.encode("utf-8"))
+        chunks.append(str(value).encode("utf-8"))
+        chunks.append(b"\r\n")
+    for name, (filename, content, content_type) in files.items():
+        safe_filename = filename.replace('"', "")
+        chunks.append(f"--{boundary}\r\n".encode("utf-8"))
+        chunks.append(
+            f'Content-Disposition: form-data; name="{name}"; filename="{safe_filename}"\r\n'
+            f"Content-Type: {content_type}\r\n\r\n".encode("utf-8")
+        )
+        chunks.append(content)
+        chunks.append(b"\r\n")
+    chunks.append(f"--{boundary}--\r\n".encode("utf-8"))
+    return b"".join(chunks), f"multipart/form-data; boundary={boundary}"
+
+
+def _extract_transcript_from_stt_response(body: bytes, content_type: str) -> str:
+    text = body.decode("utf-8", errors="replace")
+    if "json" not in content_type.lower():
+        return " ".join(text.split())
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"STT returned invalid JSON: {exc}") from exc
+    transcript = payload.get("text") if isinstance(payload, dict) else None
+    if not isinstance(transcript, str):
+        raise RuntimeError("STT response is missing text")
+    return " ".join(transcript.split())
+
+
+def _transcribe_remote_whisper(audio: bytes, filename: str, content_type: str) -> tuple[float, str]:
+    if not BRAINDUMP_STT_URL:
+        raise RuntimeError("NIA_TODO_STT_URL is not configured")
+    fields = {
+        "response_format": "json",
+        "temperature": "0.0",
+        "temperature_inc": "0.0",
+        "language": BRAINDUMP_STT_LANGUAGE,
+    }
+    body, multipart_type = _build_multipart_form_data(fields, {"file": (filename, audio, content_type)})
+    headers = {"Content-Type": multipart_type}
+    if BRAINDUMP_STT_TOKEN:
+        headers["Authorization"] = f"Bearer {BRAINDUMP_STT_TOKEN}"
+    req = urllib.request.Request(BRAINDUMP_STT_URL, data=body, headers=headers, method="POST")
+    started = time.perf_counter()
+    try:
+        with urllib.request.urlopen(req, timeout=BRAINDUMP_STT_TIMEOUT_SECONDS) as response:
+            response_body = response.read()
+            response_type = response.headers.get("content-type", "")
+    except Exception as exc:
+        raise RuntimeError(f"remote STT request failed: {exc}") from exc
+    elapsed_ms = (time.perf_counter() - started) * 1000
+    return elapsed_ms, _extract_transcript_from_stt_response(response_body, response_type)
+
+
 
 def _load_braindump_workspace_context(db, user_id: int) -> dict:
     """Return a compact routing context for the BrainDump LLM.
@@ -673,7 +739,10 @@ async def process_live_audio_segment(
 ):
     """Process one live BrainDump audio window and return timing diagnostics."""
     require_braindump_access(user_id)
-    if model not in WHISPER_MODELS:
+    stt_provider = BRAINDUMP_STT_PROVIDER.strip().lower()
+    if stt_provider not in {"whisper_cpp_remote", "local_whisper_cpp"}:
+        raise HTTPException(500, f"Unsupported BrainDump STT provider: {BRAINDUMP_STT_PROVIDER}")
+    if stt_provider == "local_whisper_cpp" and model not in WHISPER_MODELS:
         raise HTTPException(400, "Unsupported BrainDump STT model")
     received_at = time.perf_counter()
     with get_db() as db:
@@ -686,6 +755,10 @@ async def process_live_audio_segment(
             raise RuntimeError("audio segment too small")
 
         def process_bytes():
+            if stt_provider == "whisper_cpp_remote":
+                stt_ms, transcript = _transcribe_remote_whisper(audio_bytes, f"segment-{segment_id}{suffix}", content_type or "application/octet-stream")
+                llm_ms, parsed, usage, raw_json = _extract_with_openclaw(transcript, segment_id, workspace_context)
+                return 0.0, stt_ms, transcript, llm_ms, parsed, usage, raw_json
             with tempfile.TemporaryDirectory(prefix="nia-braindump-live-") as tmp:
                 tmpdir = Path(tmp)
                 raw_path = tmpdir / f"segment-{segment_id}{suffix}"
@@ -705,6 +778,7 @@ async def process_live_audio_segment(
         "audio_start_ms": audio_start_ms,
         "audio_end_ms": audio_end_ms,
         "model": model,
+        "stt_provider": stt_provider,
         "transcript": transcript,
         "json": parsed,
         "raw_json": raw_json,

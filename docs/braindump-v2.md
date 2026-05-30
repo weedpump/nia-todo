@@ -36,7 +36,34 @@ This document is the project memory for the implementation. Keep it concise and 
 
 ## MVP configuration rule
 
-For BrainDump v2 MVP, infrastructure may be hardcoded in backend/dev settings.
+For BrainDump v2 MVP, provider configuration lives in backend environment variables, not in a polished admin UI yet.
+
+Current split:
+
+- LLM: OpenClaw via `NIA_TODO_OPENCLAW_URL` later; current dev default still points at the local OpenClaw Gateway chat endpoint.
+- STT: remote `whisper.cpp` server by default.
+
+STT environment variables:
+
+```env
+NIA_TODO_STT_PROVIDER=whisper_cpp_remote
+NIA_TODO_STT_URL=http://127.0.0.1:8766/inference
+NIA_TODO_STT_LANGUAGE=de
+NIA_TODO_STT_TOKEN=
+NIA_TODO_STT_TIMEOUT_SECONDS=60
+```
+
+Recommended whisper.cpp server command for development:
+
+```bash
+/opt/whisper.cpp/bin/whisper-server \
+  --host 127.0.0.1 \
+  --port 8766 \
+  --model /opt/whisper.cpp/models/ggml-base.bin \
+  --language de \
+  --convert \
+  --inference-path /inference
+```
 
 Reason: if the core session pipeline does not work reliably, a polished configuration UI has no value and only adds complexity. Provider/admin configuration can be added after the flow is correct, fast enough, and testable.
 

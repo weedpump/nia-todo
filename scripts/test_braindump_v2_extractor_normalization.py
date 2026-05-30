@@ -9,7 +9,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "api"))
 
-from routers.braindump_v2 import _normalize_braindump_json  # noqa: E402
+from routers.braindump_v2 import (  # noqa: E402
+    _build_multipart_form_data,
+    _extract_transcript_from_stt_response,
+    _normalize_braindump_json,
+)
 
 
 def assert_true(condition: bool, message: str):
@@ -94,6 +98,18 @@ def test_safety_net_keeps_non_negated_shopping_and_routes_sections():
     assert_true(by_title["Bananen"]["section_name"] == "Obst und Gemüse", result)
 
 
+def test_remote_stt_response_parsing_and_multipart_payload():
+    body, content_type = _build_multipart_form_data(
+        {"response_format": "json", "language": "de"},
+        {"file": ("segment.ogg", b"audio-bytes", "audio/ogg")},
+    )
+    assert_true("multipart/form-data" in content_type, content_type)
+    assert_true(b'name="file"; filename="segment.ogg"' in body, body[:200])
+    assert_true(b"audio-bytes" in body, body[:200])
+    transcript = _extract_transcript_from_stt_response(b'{"text":"  Hallo   Welt  "}', "application/json")
+    assert_true(transcript == "Hallo Welt", transcript)
+
+
 def main():
     tests = [
         test_dedupes_llm_and_safety_net_shopping_items,
@@ -102,6 +118,7 @@ def main():
         test_filters_negated_and_filler_candidates_from_llm_output,
         test_dedupes_stt_truncated_item_variant,
         test_safety_net_keeps_non_negated_shopping_and_routes_sections,
+        test_remote_stt_response_parsing_and_multipart_payload,
     ]
     for test in tests:
         test()
