@@ -123,6 +123,15 @@ async function run() {
     });
 
     await loginApp();
+    await page.locator('.fab-add-todo').click();
+    await page.locator('#todo-modal.active').waitFor({ state: 'visible', timeout: 5000 });
+    const todoModalNoHorizontalOverflow = await page.evaluate(() => {
+      const modal = document.querySelector('#todo-modal .modal-content');
+      return Boolean(modal && modal.scrollWidth <= modal.clientWidth + 1);
+    });
+    if (!todoModalNoHorizontalOverflow) throw new Error('Todo modal should not scroll horizontally on desktop');
+    await page.evaluate(() => window.closeModal('todo-modal'));
+    await page.waitForFunction(() => !document.getElementById('todo-modal')?.classList.contains('active'), null, { timeout: 5000 });
     await page.locator('#braindump-fab').waitFor({ state: 'visible', timeout: 10000 });
     const desktopFabOk = await page.evaluate(() => {
       const brainDumpEl = document.getElementById('braindump-fab');
