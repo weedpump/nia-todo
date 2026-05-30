@@ -377,6 +377,26 @@ class TestSuite:
         self.results["braindump_config_update"] = {"status": status, "passed": passed, "expected": "200 + normalized generic BrainDump config, secrets hidden"}
         return passed
 
+    def test_braindump_config_llm_api_key_optional(self):
+        status, data = curl("PATCH", "/api/admin/braindump-config", {
+            "enabled": True,
+            "llm_provider": "openai_compatible",
+            "llm_base_url": "http://127.0.0.1:1234/v1",
+            "llm_api_key_secret": "",
+            "llm_model": "local-model",
+            "llm_extra_headers_json": "",
+            "llm_timeout_seconds": 42,
+            "system_prompt_mode": "default",
+            "system_prompt_custom": "",
+            "stt_provider": "whisper_cpp_remote",
+            "stt_url": "http://whisper.local:8766/inference",
+            "stt_language": "de",
+            "stt_timeout_seconds": 42,
+        }, token=self.admin_token, csrf=self.admin_csrf, cookie_jar="/tmp/nia_admin_cookies.txt")
+        passed = ok(status) and data and data.get("enabled") is True and data.get("llm_base_url") == "http://127.0.0.1:1234/v1" and data.get("llm_model") == "local-model" and data.get("llm_api_key_configured") is False and "llm_api_key" not in data
+        self.results["braindump_config_llm_api_key_optional"] = {"status": status, "passed": passed, "expected": "200 + enabled local OpenAI-compatible LLM without API key"}
+        return passed
+
     def test_password_reset_features_disabled_without_email(self):
         status, data = curl("GET", "/api/password-setup/features")
         passed = ok(status) and data and data.get("email_configured") is False and data.get("password_reset_available") is False
@@ -1544,6 +1564,7 @@ class TestSuite:
             self.test_instance_config_get,
             self.test_braindump_config_get,
             self.test_braindump_config_update,
+            self.test_braindump_config_llm_api_key_optional,
             self.test_password_reset_features_disabled_without_email,
             self.test_password_reset_request_without_email_config_is_neutral,
             self.test_strict_cors_unknown_origin_rejected,

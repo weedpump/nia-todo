@@ -94,6 +94,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .admin-config-checkbox input[type="checkbox"]:checked::after { transform: translateX(20px); background: white; }
 .admin-config-checkbox input[type="checkbox"]:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 24%, transparent); }
 .admin-secret-note { font-size: 12px; color: var(--text-muted); }
+.admin-inline-check { display: inline-flex; align-items: center; gap: 8px; width: fit-content; cursor: pointer; }
 .admin-config-textarea { min-height: 82px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .admin-help { font-size: 12px; color: var(--text-muted); margin-top: 8px; }
 .admin-error { color: var(--danger); font-size: 13px; margin-top: 8px; }
@@ -401,8 +402,12 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
         <input type="text" id="braindump-llm-model" placeholder="openclaw/default or llama3.1" autocomplete="off">
       </div>
       <div class="admin-config-field">
-        <label for="braindump-llm-api-key">LLM API key</label>
-        <input type="password" id="braindump-llm-api-key" placeholder="Leave blank = unchanged" autocomplete="new-password">
+        <label for="braindump-llm-api-key">LLM API key optional</label>
+        <input type="password" id="braindump-llm-api-key" placeholder="Optional; blank = no change" autocomplete="new-password">
+        <label class="admin-inline-check">
+          <input type="checkbox" id="braindump-llm-api-key-clear">
+          Clear stored key
+        </label>
         <div class="admin-secret-note" id="braindump-llm-api-key-note"></div>
       </div>
       <div class="admin-config-field full">
@@ -979,7 +984,10 @@ function renderBrainDumpConfig(config) {
   document.getElementById('braindump-llm-extra-headers').value = config.llm_extra_headers_json || '';
   document.getElementById('braindump-llm-timeout').value = config.llm_timeout_seconds || 180;
   document.getElementById('braindump-llm-api-key').value = '';
-  document.getElementById('braindump-llm-api-key-note').textContent = config.llm_api_key_configured ? 'LLM API key stored.' : 'No LLM API key stored.';
+  document.getElementById('braindump-llm-api-key-clear').checked = false;
+  document.getElementById('braindump-llm-api-key-note').textContent = config.llm_api_key_configured
+    ? 'LLM API key stored. Leave blank to keep it, or clear it for local endpoints like LM Studio.'
+    : 'No LLM API key stored. This is valid for local endpoints like LM Studio.';
   document.getElementById('braindump-system-prompt-mode').value = config.system_prompt_mode || 'default';
   document.getElementById('braindump-system-prompt-custom').value = config.system_prompt_custom || '';
   document.getElementById('braindump-stt-provider').value = config.stt_provider || 'whisper_cpp_remote';
@@ -1012,8 +1020,10 @@ function readBrainDumpConfigForm() {
     stt_timeout_seconds: Number(document.getElementById('braindump-stt-timeout').value || 60),
   };
   const llmApiKey = document.getElementById('braindump-llm-api-key').value;
+  const clearLlmApiKey = document.getElementById('braindump-llm-api-key-clear').checked;
   const sttToken = document.getElementById('braindump-stt-token').value;
-  if (llmApiKey) data.llm_api_key_secret = llmApiKey;
+  if (clearLlmApiKey) data.llm_api_key_secret = '';
+  else if (llmApiKey) data.llm_api_key_secret = llmApiKey;
   if (sttToken) data.stt_token_secret = sttToken;
   return data;
 }
