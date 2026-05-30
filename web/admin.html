@@ -7,27 +7,39 @@
 <link rel="stylesheet" href="/static/style.css">
 <style>
 body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: auto; }
-.admin-container { width: min(100%, 1080px); margin: 0 auto; padding: 40px 20px; }
+.admin-container { width: min(100%, 1180px); margin: 0 auto; padding: 34px 20px; }
 .admin-header { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 32px; }
 .admin-header h1 { font-size: 24px; margin: 0; color: var(--text-primary); display: inline-flex; align-items: center; gap: 10px; }
-.admin-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 16px; padding: 24px; margin-bottom: 24px; box-shadow: var(--shadow); }
+.admin-card { background: color-mix(in srgb, var(--bg-secondary) 94%, var(--bg-primary)); border: 1px solid color-mix(in srgb, var(--border) 82%, transparent); border-radius: 18px; padding: 22px; margin-bottom: 18px; box-shadow: var(--shadow); }
+.admin-section-card { overflow: hidden; transition: border-color .15s, background .15s; }
+.admin-section-card.collapsed { padding-bottom: 0; }
+.admin-section-card h2 { width: 100%; }
+.admin-section-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; cursor: pointer; border: 0; background: transparent; color: inherit; padding: 0; font: inherit; text-align: left; }
+.admin-section-title { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.admin-section-summary { color: var(--text-muted); font-size: 12px; font-weight: 600; margin-left: auto; white-space: nowrap; }
+.admin-section-chevron { color: var(--text-muted); transition: transform .15s ease; }
+.admin-section-card.collapsed .admin-section-chevron { transform: rotate(-90deg); }
+.admin-section-body { margin-top: 16px; }
+.admin-section-card.collapsed .admin-section-body { display: none; }
 .admin-card h2 { font-size: 16px; margin: 0 0 16px 0; color: var(--text-primary); display: inline-flex; align-items: center; gap: 8px; }
-.user-table-wrap { width: 100%; overflow-x: auto; }
-.user-table { width: 100%; border-collapse: collapse; table-layout: fixed; min-width: 1320px; }
-.user-table th { text-align: left; padding: 12px; font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--border); }
-.user-table td { padding: 12px; font-size: 14px; color: var(--text-primary); border-bottom: 1px solid var(--border); vertical-align: middle; }
-.user-table th:nth-child(1), .user-table td:nth-child(1) { width: 44px; }
-.user-table th:nth-child(2), .user-table td:nth-child(2) { width: 125px; }
-.user-table th:nth-child(3), .user-table td:nth-child(3) { width: 140px; }
-.user-table th:nth-child(4), .user-table td:nth-child(4) { width: 210px; }
-.user-table th:nth-child(5), .user-table td:nth-child(5) { width: 95px; }
-.user-table th:nth-child(6), .user-table td:nth-child(6) { width: 90px; }
-.user-table th:nth-child(7), .user-table td:nth-child(7) { width: 140px; }
-.user-table th:nth-child(8), .user-table td:nth-child(8) { width: 160px; }
-.user-table th:nth-child(9), .user-table td:nth-child(9) { width: 80px; }
-.user-table th:nth-child(10), .user-table td:nth-child(10) { width: 100px; }
-.user-table th:nth-child(11), .user-table td:nth-child(11) { width: 125px; }
-.user-table th:nth-child(12), .user-table td:nth-child(12) { width: 95px; }
+.user-table-wrap { width: 100%; overflow: visible; }
+.user-table { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: auto; min-width: 0; }
+.user-table thead { display: none; }
+.user-table tbody { display: grid; gap: 12px; }
+.user-table tr { display: grid; grid-template-columns: minmax(170px, .9fr) minmax(230px, 1.3fr) minmax(260px, 1.35fr) minmax(170px, .75fr); grid-template-areas: 'id name contact access' 'id status security actions'; gap: 10px 14px; padding: 14px; border: 1px solid color-mix(in srgb, var(--border) 78%, transparent); border-radius: 16px; background: color-mix(in srgb, var(--bg-primary) 72%, var(--bg-secondary)); }
+.user-table td { display: block; min-width: 0; padding: 0; font-size: 14px; color: var(--text-primary); border-bottom: 0; vertical-align: middle; }
+.user-table td:nth-child(1) { grid-area: id; color: var(--text-muted); font-size: 12px; align-self: start; }
+.user-table td:nth-child(2) { grid-area: name; font-weight: 750; font-size: 15px; }
+.user-table td:nth-child(3) { grid-area: id; margin-top: 26px; color: var(--text-secondary); }
+.user-table td:nth-child(4) { grid-area: contact; overflow: hidden; }
+.user-table td:nth-child(5) { grid-area: status; }
+.user-table td:nth-child(6) { grid-area: status; margin-top: 34px; }
+.user-table td:nth-child(7) { grid-area: contact; margin-top: 50px; }
+.user-table td:nth-child(8) { grid-area: security; }
+.user-table td:nth-child(9) { grid-area: access; }
+.user-table td:nth-child(10) { grid-area: access; margin-top: 44px; }
+.user-table td:nth-child(11) { grid-area: actions; }
+.user-table td:nth-child(12) { grid-area: actions; margin-top: 44px; }
 .user-table tr:last-child td { border-bottom: none; }
 .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; }
 .badge-admin { background: var(--accent); color: white; }
@@ -57,8 +69,13 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .admin-config-field label { font-size: 12px; font-weight: 650; color: var(--text-secondary); }
 .admin-config-field input, .admin-config-field select, .admin-config-textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-primary); color: var(--text-primary); font-size: 14px; }
 .admin-config-field input[type="checkbox"] { width: auto; }
-.admin-config-checkbox { flex-direction: row; align-items: center; gap: 10px; padding: 9px 0; }
+.admin-config-checkbox { flex-direction: row; align-items: center; gap: 12px; padding: 9px 0; }
 .admin-config-checkbox label { margin: 0; }
+.admin-config-checkbox input[type="checkbox"] { appearance: none; -webkit-appearance: none; width: 46px; height: 26px; flex: 0 0 46px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--border) 78%, var(--text-muted)); background: var(--bg-tertiary); position: relative; cursor: pointer; transition: background .16s, border-color .16s, box-shadow .16s; }
+.admin-config-checkbox input[type="checkbox"]::after { content: ''; position: absolute; width: 20px; height: 20px; top: 2px; left: 2px; border-radius: 50%; background: var(--text-secondary); box-shadow: 0 2px 5px rgba(0,0,0,.28); transition: transform .16s, background .16s; }
+.admin-config-checkbox input[type="checkbox"]:checked { background: color-mix(in srgb, var(--success) 72%, var(--accent)); border-color: color-mix(in srgb, var(--success) 86%, white); }
+.admin-config-checkbox input[type="checkbox"]:checked::after { transform: translateX(20px); background: white; }
+.admin-config-checkbox input[type="checkbox"]:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 24%, transparent); }
 .admin-secret-note { font-size: 12px; color: var(--text-muted); }
 .admin-config-textarea { min-height: 82px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .admin-help { font-size: 12px; color: var(--text-muted); margin-top: 8px; }
@@ -77,6 +94,9 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .email-edit input { min-width: 0; width: 100%; padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-primary); color: var(--text-primary); font-size: 13px; }
 .email-edit .btn-ghost { padding: 4px; width: 28px; height: 28px; line-height: 1; }
 .admin-nav { display: flex; gap: 12px; align-items: center; }
+.admin-overview { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 18px; }
+.admin-overview a { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; background: color-mix(in srgb, var(--bg-secondary) 86%, var(--bg-primary)); color: var(--text-secondary); text-decoration: none; font-size: 13px; font-weight: 650; }
+.admin-overview a:hover { color: var(--text-primary); border-color: color-mix(in srgb, var(--accent) 44%, var(--border)); background: color-mix(in srgb, var(--bg-tertiary) 82%, var(--accent)); }
 .admin-back-btn { height: 32px; min-height: 32px; padding: 0 12px; box-sizing: border-box; border-radius: var(--radius); background: var(--accent); color: white; text-decoration: none; font-size: 13px; font-weight: 600; line-height: 32px; display: inline-block; }
 .admin-back-btn:hover { background: var(--accent-hover); }
 .empty-state { text-align: center; padding: 40px; color: var(--text-muted); }
@@ -103,7 +123,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .security-policy-desc { font-size: 13px; color: var(--text-muted); }
 .twofa-stack { display: flex; flex-wrap: wrap; gap: 4px; }
 .admin-status-text { font-size: 14px; color: var(--text-secondary); display:inline-flex; align-items:center; gap:8px; }
-.admin-mobile-label { display: none; color: var(--text-muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 2px; }
+.admin-mobile-label { display: block; color: var(--text-muted); font-size: 10px; font-weight: 750; text-transform: uppercase; letter-spacing: .055em; margin-bottom: 3px; }
 .admin-dialog { display: none; position: fixed; inset: 0; z-index: 500; align-items: center; justify-content: center; padding: 16px; }
 .admin-dialog.active { display: flex; }
 .admin-dialog-overlay { position: absolute; inset: 0; background: rgba(0,0,0,.62); backdrop-filter: blur(4px); }
@@ -127,13 +147,11 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
   .setup-link-box { flex-direction: column; align-items: stretch; }
   .setup-link-box .btn { width: 100%; min-height: 38px; }
   .admin-status-card { align-items: flex-start; flex-direction: column; }
-  .user-table-wrap { overflow: visible; }
-  .user-table, .user-table thead, .user-table tbody, .user-table tr, .user-table td { display: block; width: 100%; min-width: 0; }
-  .user-table thead { display: none; }
-  .user-table tr { border: 1px solid var(--border); border-radius: 14px; padding: 12px; margin-bottom: 12px; background: var(--bg-primary); }
-  .user-table td { border-bottom: 0; padding: 7px 0; font-size: 14px; }
-  .user-table th:nth-child(n), .user-table td:nth-child(n) { width: auto; }
-  .admin-mobile-label { display: block; }
+  .user-table, .user-table tbody, .user-table tr, .user-table td { display: block; width: 100%; min-width: 0; }
+  .user-table tr { padding: 12px; margin-bottom: 0; }
+  .user-table td { padding: 7px 0; margin-top: 0 !important; }
+  .admin-overview { grid-template-columns: 1fr 1fr; }
+  .admin-section-summary { display: none; }
   .email-edit { grid-template-columns: minmax(0, 1fr) 32px 32px; }
 }
 </style>
@@ -180,6 +198,16 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
     <span class="admin-status-text"><span data-icon="lock-keyhole"></span> <span data-i18n-key="admin.status.loggedIn">Logged in as admin</span></span>
     <button class="btn btn-danger" onclick="adminLogout()" data-i18n-key="auth.signOut">Sign out</button>
   </div>
+
+  <nav class="admin-overview" aria-label="Admin sections">
+    <a href="#server-update-card"><span data-i18n-key="admin.serverUpdate.title">Server update</span><span data-icon="chevron-down"></span></a>
+    <a href="#instance-config-card"><span data-i18n-key="admin.instance.title">Instance configuration</span><span data-icon="chevron-down"></span></a>
+    <a href="#braindump-config-card"><span>BrainDump</span><span data-icon="chevron-down"></span></a>
+    <a href="#email-config-card"><span data-i18n-key="admin.email.title">Email / SMTP</span><span data-icon="chevron-down"></span></a>
+    <a href="#security-card"><span data-i18n-key="admin.security.title">Security / 2FA</span><span data-icon="chevron-down"></span></a>
+    <a href="#create-user-card"><span data-i18n-key="admin.user.createTitle">Create new user</span><span data-icon="chevron-down"></span></a>
+    <a href="#user-list-card"><span data-i18n-key="admin.user.title">Users</span><span data-icon="chevron-down"></span></a>
+  </nav>
 
   <!-- Server Update -->
   <div class="admin-card server-update-card" id="server-update-card">
@@ -432,7 +460,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
   </div>
 
   <!-- User List -->
-  <div class="admin-card">
+  <div class="admin-card" id="user-list-card">
     <h2><span data-icon="users"></span> <span data-i18n-key="admin.user.title">Users</span></h2>
     <div class="user-table-wrap">
     <table class="user-table" id="user-table">
@@ -477,6 +505,7 @@ const ICONS = {
   monitor: '<rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/>',
   'lock-keyhole': '<circle cx="12" cy="16" r="1"/><rect x="3" y="10" width="18" height="12" rx="2"/><path d="M7 10V7a5 5 0 0 1 10 0v3"/>',
   'key-round': '<path d="M2 18v3h3l9.7-9.7"/><circle cx="16.5" cy="7.5" r="5.5"/>',
+  'chevron-down': '<path d="m6 9 6 6 6-6"/>',
   'user-plus': '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/>',
   users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
   'edit-3': '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
@@ -493,10 +522,50 @@ function iconSvg(name) {
   const paths = ICONS[name] || ICONS.shield;
   return `<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
 }
+
+function setupAdminSections() {
+  const cards = document.querySelectorAll('#admin-content > .admin-card[id]:not(.admin-status-card):not(#user-list-card)');
+  cards.forEach((card, index) => {
+    if (card.dataset.sectionReady === '1') return;
+    const heading = card.querySelector(':scope > h2');
+    if (!heading) return;
+    const body = document.createElement('div');
+    body.className = 'admin-section-body';
+    let node = heading.nextSibling;
+    while (node) {
+      const next = node.nextSibling;
+      body.appendChild(node);
+      node = next;
+    }
+    const titleHtml = heading.innerHTML;
+    const summary = card.id === 'braindump-config-card' ? 'AI/STT' : card.id === 'email-config-card' ? 'SMTP' : card.id === 'security-card' ? 'Policy' : '';
+    heading.innerHTML = `<button type="button" class="admin-section-header" aria-expanded="true"><span class="admin-section-title">${titleHtml}</span><span class="admin-section-summary">${summary}</span><span class="admin-section-chevron">${iconSvg('chevron-down')}</span></button>`;
+    card.appendChild(body);
+    card.classList.add('admin-section-card');
+    card.dataset.sectionReady = '1';
+    if (['braindump-config-card', 'email-config-card'].includes(card.id)) card.classList.add('collapsed');
+    const button = heading.querySelector('button');
+    const setExpandedState = () => button.setAttribute('aria-expanded', card.classList.contains('collapsed') ? 'false' : 'true');
+    setExpandedState();
+    button.addEventListener('click', () => {
+      card.classList.toggle('collapsed');
+      setExpandedState();
+    });
+  });
+  document.querySelectorAll('.admin-overview a[href^="#"]').forEach(link => {
+    link.addEventListener('click', () => {
+      const card = document.querySelector(link.getAttribute('href'));
+      if (!card?.classList.contains('admin-section-card')) return;
+      card.classList.remove('collapsed');
+      card.querySelector('.admin-section-header')?.setAttribute('aria-expanded', 'true');
+    });
+  });
+}
 function hydrateIcons(root = document) {
   root.querySelectorAll('[data-icon]').forEach(el => { el.innerHTML = iconSvg(el.getAttribute('data-icon')); });
 }
 hydrateIcons();
+setupAdminSections();
 let adminToken = null;
 let serverUpdatePollTimer = null;
 let serverUpdateReloadPromptShown = false;
@@ -1228,19 +1297,19 @@ function renderUsers(users) {
     return;
   }
   tbody.innerHTML = users.map(u => `
-    <tr>
-      <td><span class="admin-mobile-label">ID</span>${u.id}</td>
-      <td><span class="admin-mobile-label">${escapeHtml(t('setup.usernameLabel'))}</span>${escapeHtml(u.username)}</td>
-      <td><span class="admin-mobile-label">${escapeHtml(t('setup.displayNameLabel'))}</span>${escapeHtml(u.display_name) || '-'}</td>
-      <td><span class="admin-mobile-label">${escapeHtml(t('settings.profile.email'))}</span>${renderUserEmailCell(u)}</td>
-      <td><span class="admin-mobile-label">${escapeHtml(t('admin.user.emailStatus'))}</span>${renderUserEmailStatus(u)}</td>
-      <td><span class="admin-mobile-label">${escapeHtml(t('admin.user.login'))}</span>${renderUserLoginStatus(u)}</td>
-      <td><span class="admin-mobile-label">${escapeHtml(t('admin.user.lastActive'))}</span>${renderUserLastActive(u)}</td>
-      <td><span class="admin-mobile-label">2FA</span>${renderUserTwoFactorStatus(u)}</td>
-      <td><span class="admin-mobile-label">${escapeHtml(t('settings.apiKeys.title'))}</span>${renderUserApiKeys(u)}</td>
-      ${brainDumpFeatureEnabled ? `<td><span class="admin-mobile-label">${escapeHtml(t('admin.user.brainDump'))}</span>${renderUserBrainDump(u)}</td>` : ''}
-      <td><span class="admin-mobile-label">${escapeHtml(t('auth.password'))}</span><button class="btn btn-primary admin-table-action" onclick="generatePasswordLink(${u.id}, '${escapeHtmlAttr(u.username)}')">${iconSvg('link')} ${escapeHtml(t('admin.user.passwordLink'))}</button></td>
-      <td><span class="admin-mobile-label">${escapeHtml(t('admin.user.actions'))}</span>${u.is_admin ? '-' : `<button class="btn btn-danger admin-table-action" onclick="deleteUser(${u.id}, '${escapeHtmlAttr(u.username)}')">${iconSvg('trash')} ${escapeHtml(t('common.delete'))}</button>`}</td>
+    <tr role="row">
+      <td role="cell"><span class="admin-mobile-label" aria-hidden="true">ID</span>${u.id}</td>
+      <td role="cell"><span class="admin-mobile-label" aria-hidden="true">${escapeHtml(t('setup.usernameLabel'))}</span>${escapeHtml(u.username)}</td>
+      <td role="cell"><span class="admin-mobile-label" aria-hidden="true">${escapeHtml(t('setup.displayNameLabel'))}</span>${escapeHtml(u.display_name) || '-'}</td>
+      <td role="cell"><span class="admin-mobile-label" aria-hidden="true">${escapeHtml(t('settings.profile.email'))}</span>${renderUserEmailCell(u)}</td>
+      <td role="cell"><span class="admin-mobile-label" aria-hidden="true">${escapeHtml(t('admin.user.emailStatus'))}</span>${renderUserEmailStatus(u)}</td>
+      <td role="cell"><span class="admin-mobile-label" aria-hidden="true">${escapeHtml(t('admin.user.login'))}</span>${renderUserLoginStatus(u)}</td>
+      <td role="cell"><span class="admin-mobile-label" aria-hidden="true">${escapeHtml(t('admin.user.lastActive'))}</span>${renderUserLastActive(u)}</td>
+      <td role="cell"><span class="admin-mobile-label" aria-hidden="true">2FA</span>${renderUserTwoFactorStatus(u)}</td>
+      <td role="cell"><span class="admin-mobile-label" aria-hidden="true">${escapeHtml(t('settings.apiKeys.title'))}</span>${renderUserApiKeys(u)}</td>
+      ${brainDumpFeatureEnabled ? `<td role="cell"><span class="admin-mobile-label" aria-hidden="true">${escapeHtml(t('admin.user.brainDump'))}</span>${renderUserBrainDump(u)}</td>` : ''}
+      <td role="cell"><span class="admin-mobile-label" aria-hidden="true">${escapeHtml(t('auth.password'))}</span><button class="btn btn-primary admin-table-action" onclick="generatePasswordLink(${u.id}, '${escapeHtmlAttr(u.username)}')">${iconSvg('link')} ${escapeHtml(t('admin.user.passwordLink'))}</button></td>
+      <td role="cell"><span class="admin-mobile-label" aria-hidden="true">${escapeHtml(t('admin.user.actions'))}</span>${u.is_admin ? '-' : `<button class="btn btn-danger admin-table-action" onclick="deleteUser(${u.id}, '${escapeHtmlAttr(u.username)}')">${iconSvg('trash')} ${escapeHtml(t('common.delete'))}</button>`}</td>
     </tr>
   `).join('');
 }
