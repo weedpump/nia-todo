@@ -31,8 +31,7 @@ This document is the project memory for the implementation. Keep it concise and 
 - No performance optimization without measuring the current bottleneck.
 - No automatic OpenClaw agent/config creation from nia-todo.
 - No built-in whisper.cpp installation management in nia-todo; admins provide an STT endpoint.
-- No user-facing per-user OpenClaw/Whisper/STT model selection yet.
-- No full admin UI for per-user BrainDump enablement in Phase 1; keep the permission requirement in the domain/API design.
+- No user-facing per-user OpenClaw/Whisper/STT model selection yet; provider configuration is admin-only.
 
 ## MVP configuration rule
 
@@ -63,19 +62,29 @@ STT language: optional/empty by default
 STT timeout seconds: 60
 ```
 
-Recommended whisper.cpp server command for development:
+Example whisper.cpp server command for local development (language/model are chosen by the server operator, not by BrainDump UI):
 
 ```bash
 /opt/whisper.cpp/bin/whisper-server \
   --host 127.0.0.1 \
   --port 8766 \
   --model /opt/whisper.cpp/models/ggml-small.bin \
-  --language de \
   --convert \
   --inference-path /inference
 ```
 
 Shared whisper.cpp note: on the OpenClaw LXC, prefer one `whisper-server` process on port `8766`. nia-todo talks to that `/inference` endpoint directly. OpenClaw's own audio pipeline does not expose this as a public STT API; if OpenClaw should also avoid spawning `whisper-cli`, configure its audio model separately to call the same server (for example via a small CLI wrapper) instead of starting a second whisper.cpp service.
+
+Operational notes:
+
+- Global BrainDump enablement and per-user BrainDump access are separate gates. The per-user column/action in Admin UI is only shown after the global experimental feature is enabled.
+- Admin-configured LLM/STT tokens are write-only: they are stored server-side and never echoed back. Empty secret fields preserve existing secrets; explicitly saving an empty secret value through the API clears it.
+- `POST /api/admin/braindump-config/test` behaves as follows:
+  - disabled global feature -> reports BrainDump experimental feature disabled;
+  - LLM provider -> probes the configured OpenAI-compatible `/v1/models` URL; auth is optional for local/no-auth providers;
+  - remote whisper.cpp -> probes sibling `/health` next to `/inference`;
+  - local whisper.cpp fallback -> reports that runtime availability is checked when audio is processed.
+- nia-todo never creates OpenClaw agents and never mutates OpenClaw configuration automatically. If OpenClaw is used, admins configure it manually as one OpenAI-compatible endpoint.
 
 ## Core architecture rule
 
@@ -304,31 +313,30 @@ Current rule:
 
 - Correct incremental state first. Tail-only finalize. Measure before optimizing.
 
-### 2026-05-27: MVP config is intentionally hardcoded
+### 2026-05-27: Superseded - MVP config used temporary static provider settings
+
+Historical decision, now superseded:
+
+- Early v2 experiments intentionally used static OpenClaw/STT/Whisper settings while the live pipeline was still unproven.
+- This is no longer the product behavior. Current BrainDump uses DB-backed Admin configuration, is globally disabled by default, and requires explicit LLM/STT provider settings before enablement.
+
+Reason this changed:
+
+- Once the core flow worked, self-host readiness became the priority.
+- OpenClaw must remain optional; nia-todo should only require an OpenAI-compatible LLM endpoint plus an STT provider chosen by the admin.
+
+### 2026-05-27: BrainDump requires admin enablement
 
 Decision:
 
-- Do not build admin/provider configuration UI in the first v2 implementation.
-- Hardcode OpenClaw/STT/Whisper settings in backend/dev configuration for now.
-
-Reason:
-
-- The hard problem is the live BrainDump session pipeline.
-- Configuration UI is only useful after the core flow is proven reliable and fast enough.
-- Avoid spending time on surface area that may be thrown away if the architecture changes.
-
-### 2026-05-27: BrainDump requires per-user admin enablement
-
-Decision:
-
-- BrainDump must not become available to every user automatically.
-- The domain/API should include a per-user allow gate from the beginning.
-- The polished admin UI for managing this can wait until the core flow works.
+- BrainDump must not become available automatically.
+- The current product has two gates: a global experimental feature switch and per-user allow flags.
+- The Admin UI now manages both: global provider/feature configuration first, then per-user BrainDump access.
 
 Reason:
 
 - BrainDump may consume host-side STT/LLM resources and should be explicitly enabled by an admin.
-- Keeping the permission boundary in the domain avoids adding it awkwardly later.
+- Keeping the permission boundary explicit avoids accidental access when self-hosters experiment with providers.
 
 ### 2026-05-27: Pivot Phase 1 to real audio/STT first
 
@@ -574,69 +582,33 @@ Conclusion:
 - `small` is more accurate but about 7.9s after stop in the same real-time test.
 - More LLM parallelism (4 workers) caused worse tail latency due to an outlier; keep LLM concurrency low unless a provider/path with predictable latency is used.
 
-### 2026-05-27: Semantic BrainDump v2 current state before pausing
+### 2026-05-27: Superseded - semantic BrainDump state before Admin config/selfhost pass
 
-Status at pause:
+This section captures the state before the later selfhost/admin work. It is historical and superseded where it mentions `whisper-cli`, dedicated `openclaw/braindump`, or missing Admin UI.
+
+Current behavior after the selfhost/admin pass:
 
 - Branch: `feature/braindump-v2`.
 - Dev project path: `~/projects/nia-todo-dev`.
-- Latest pushed feature commits:
-  - `a6096a7 Make BrainDump extractor language neutral`
-  - `c6b753c Clarify BrainDump semantic extractor prompt`
-  - `333f851 Add context-aware BrainDump semantic extraction`
-  - `e8b8b50 Filter BrainDump filler-only candidates`
-  - `75ccdc2 Normalize BrainDump reminders and dedupe items`
-
-What works now:
-
-- BrainDump v2 is behind the per-user `users.braindump_enabled` gate.
-- Browser live-debug flow records microphone audio and sends accumulated audio snapshots to the backend.
-- Backend live path uses `ffmpeg -> whisper-cli -> OpenClaw JSON extraction`.
-- Whisper language is now `auto`, not hardcoded German.
-- BrainDump uses `openclaw/braindump` and currently tests with full `gpt-5.4` instead of mini per Tobi's request.
-- The product BrainDump prompt is now sent directly with every extraction; it no longer relies only on the stale/tiny OpenClaw agent prompt.
-- The extractor receives workspace context: existing projects, workspaces and sections.
-- Project/section mapping is context-aware: the LLM may choose only exact existing `project_name` / `section_name` values when clearly appropriate.
-- There is no hardcoded `Einkaufsliste` routing. `kind="shopping"` is only an internal semantic signal.
-- Shopping/grocery lists, homework, stamp-collection examples and Spanish examples passed live semantic checks.
-- Filler-only candidates like `nee`, `nein`, `doch`, `okay`, `ähm` are filtered.
-- Duplicate candidates from LLM output plus deterministic safety-net are deduped.
-- Natural-language reminder/deadline text like `übermorgenabend` is normalized to an ISO datetime such as `2026-05-29T19:00+02:00`; unparseable reminder text is dropped instead of being written into date fields.
-
-Tests/checks that passed before pausing:
-
-- `python3 scripts/test_braindump_v2_services.py`
-- `python3 scripts/test_braindump_v2_extractor_normalization.py`
-- `python3 scripts/test_braindump_semantic_extractor.py` -> 4/4 live OpenClaw checks
-- `node --check web/static/js/features/braindump-live-debug.js`
-- `node scripts/test_sw_precache.mjs`
-- `nia-todo-dev` was restarted and active on the feature branch before switching back to `develop`.
-
-Important product decisions:
-
-- Normal users/self-hosters should not have to write prompts.
-- The default product BrainDump prompt/context path is the normal UX.
-- Optional OpenClaw/STT/system-prompt configuration can exist later as an advanced fallback/pro mode, not as the default requirement.
-- BrainDump must behave like a semantic assistant, not dictation.
-- The app should provide real context (projects/sections/workspaces); the LLM should infer the sensible mapping from that context.
-- Users should not need to dictate shopping-list sections. For example, saying "Milch, Hafermilch und Bananen" should be enough for BrainDump to place dairy items into a dairy section and fruit into a fruit/produce section when those sections exist.
-- Explicit section hints from the user may override/confirm routing, but they are not required for the intended UX.
+- BrainDump is gated twice: global experimental `braindump_enabled` config plus per-user `users.braindump_enabled`.
+- Browser voice UI records audio, sends it to a real STT endpoint first, then sends the returned transcript to LLM extraction as a separate request. Phase labels reflect those actual requests.
+- Backend live path is provider-configurable:
+  - remote whisper.cpp server via `/inference`, with model chosen server-side;
+  - or local whisper.cpp CLI fallback;
+  - OpenAI-compatible LLM endpoint for JSON extraction.
+- OpenClaw is optional and treated only as one OpenAI-compatible provider. nia-todo does not create OpenClaw agents or mutate OpenClaw config.
+- The built-in product BrainDump prompt is sent with each extraction unless an admin explicitly replaces it.
+- The extractor receives compact workspace context: existing projects, workspaces and sections.
+- Project/section mapping is context-aware: the LLM may choose only exact existing `project_name` / `section_name` values when semantically appropriate.
+- Prompt and guardrails are language-neutral: titles stay in the language spoken by the user/item and are not translated.
+- There is no hardcoded `Einkaufsliste` routing. `kind="shopping"` is an internal semantic signal.
+- User-confirmed candidates can now be created as real todos with validated project/section IDs.
 
 Known limitations / next work:
 
-- The current live debug path still uses accumulated audio snapshots; this is robust for browser/WebM decoding but inefficient.
-- Need replace/debug toward a true efficient live pipeline once semantics are stable.
-- Need wire final candidates into real todo creation with `project_id` / `section_id` mapping instead of only debug JSON display.
-- Need ensure ISO reminder/deadline parsing is robust across more languages and ambiguous phrases; current parser covers common German/English/Spanish/French relative terms but is still MVP-level.
-- Need decide whether `kind="shopping"` should remain as an internal value exposed to frontend or be transformed into a more general `intent`/`category` field before release.
-- Need rerun real mobile live test after resuming and inspect logs for STT/LLM timing, duplicates, tail handling and candidate correctness.
-- Need consider switching BrainDump agent back from full `gpt-5.4` to `gpt-5.4-mini` after prompt/context fixes, because GPT Mini should likely handle this now.
-
-Resume plan:
-
-1. Start from `feature/braindump-v2`.
-2. Re-run the deterministic and live semantic tests above.
-3. Do one controlled real UI test with grocery + negation + reminder + section mapping.
-4. Inspect backend logs/timing rather than guessing from screenshots.
-5. If semantics stay good, implement candidate confirmation into real todos and project/section id resolution.
-6. Only then optimize the live audio pipeline and final stop-to-ready latency.
+- True streaming/SSE/WebSocket progress is deferred; current UX uses split STT -> LLM requests with truthful phases.
+- Real provider quality depends on the configured STT model/server and LLM. Small/local LLMs may miss subtle semantic section routing.
+- Audio upload byte caps remain a hardening consideration.
+- Broader fresh-install/selfhost testing on a separate LXC is still pending.
+- Inspect backend logs/timing rather than guessing from screenshots when tuning real-provider behavior.
+- Only then optimize the live audio pipeline and final stop-to-ready latency.
