@@ -585,8 +585,9 @@ export function createBrainDumpLiveDebugFeature() {
     }
     if (retryBtn) retryBtn.hidden = state.recording || state.processing || (!state.candidates.length && !state.error && !state.transcript);
     if (createBtn) {
-      createBtn.hidden = !state.candidates.length;
+      createBtn.hidden = false;
       createBtn.disabled = state.creating || state.recording || state.processing || !selectedCount;
+      createBtn.classList.toggle('is-muted', createBtn.disabled || !selectedCount);
       createBtn.textContent = state.creating ? t('braindump.create.busy') : t('braindump.create.count', { count: selectedCount });
     }
     if (results) results.hidden = !state.candidates.length;
