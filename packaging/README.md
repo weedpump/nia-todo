@@ -31,8 +31,22 @@ nia-todo is designed for private self-hosting: install the server, open the web 
 - 🔐 Auth, admin panel, API keys, CSRF protection, and per-user data isolation
 - 🛡️ 2FA/MFA with TOTP, passkeys/WebAuthn, email-code fallback, recovery codes, trusted devices, and admin policy
 - 🔔 Native local reminders on Windows and Android; browser/PWA push remains browser/PWA-only
+- 🎙️ Experimental BrainDump voice capture for turning spoken notes into reviewed todo candidates, backed by configurable STT/LLM providers
 - 🎨 Theme toggle and English/German UI language support
 - 🗄️ Local SQLite database
+
+## 🎙️ Experimental BrainDump
+
+BrainDump is an optional voice-capture workflow for turning natural spoken notes into todo candidates that the user reviews before creation. It is disabled by default and must be enabled by an admin.
+
+Supported provider styles include:
+
+- remote or local STT endpoints compatible with whisper.cpp-style transcription APIs
+- OpenAI-compatible LLM endpoints such as LM Studio
+- Ollama API endpoints, including local Ollama and Ollama Cloud
+- OpenClaw's OpenAI-compatible gateway using an agent model such as `openclaw/braindump`
+
+Admins configure BrainDump in `/admin`, test provider connectivity there, enable the global feature, and then grant access per user. Native Windows/Android apps and the desktop web app can use the microphone workflow when the underlying platform grants microphone permission.
 
 ## 📦 Release artifacts
 
