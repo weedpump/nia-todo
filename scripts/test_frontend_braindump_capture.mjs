@@ -124,12 +124,23 @@ async function run() {
 
     await loginApp();
     await page.locator('#braindump-fab').waitFor({ state: 'visible', timeout: 10000 });
-    const separated = await page.evaluate(() => {
-      const brainDump = document.getElementById('braindump-fab').getBoundingClientRect();
-      const addTodo = document.querySelector('.fab-add-todo').getBoundingClientRect();
-      return brainDump.right <= addTodo.left - 8;
+    const desktopFabOk = await page.evaluate(() => {
+      const brainDumpEl = document.getElementById('braindump-fab');
+      const addTodoEl = document.querySelector('.fab-add-todo');
+      const brainDump = brainDumpEl?.getBoundingClientRect();
+      const addTodo = addTodoEl?.getBoundingClientRect();
+      const style = brainDumpEl ? getComputedStyle(brainDumpEl) : null;
+      return Boolean(
+        brainDumpEl && addTodoEl && brainDump && addTodo && style &&
+        style.position === 'fixed' &&
+        style.display === 'flex' &&
+        Number(style.zIndex) >= 260 &&
+        brainDump.width >= 46 && brainDump.height >= 46 &&
+        brainDump.right <= addTodo.left - 8 &&
+        brainDump.left >= 0 && brainDump.bottom <= window.innerHeight
+      );
     });
-    if (!separated) throw new Error('Desktop BrainDump FAB overlaps the add-todo FAB');
+    if (!desktopFabOk) throw new Error('Desktop BrainDump FAB is not visibly positioned beside the add-todo FAB');
 
     await page.locator('#braindump-fab').click();
     await page.locator('#braindump-modal.active').waitFor({ state: 'visible', timeout: 5000 });
