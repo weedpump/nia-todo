@@ -4685,6 +4685,8 @@ input[type="color"]::-moz-color-swatch {
   }
   .todo-snooze-menu .todo-status-options { right: 0; left: auto; }
 
+}
+
 /* BrainDump modal */
 .braindump-fab {
   position: fixed;
