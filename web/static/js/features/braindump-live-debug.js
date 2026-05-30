@@ -2,6 +2,7 @@ import { API } from '../core/config.js';
 import { getAuthHeaders, getAuthToken } from '../api/http.js';
 import { escapeHtml, formatDate } from '../core/utils.js';
 import { iconSvg } from '../icons/lucide-icons.js';
+import { t } from '../i18n/index.js';
 
 const SILENCE_LEVEL = 0.035;
 const SILENCE_STOP_MS = 3200;
@@ -88,11 +89,16 @@ export function createBrainDumpLiveDebugFeature() {
     fab.id = 'braindump-fab';
     fab.className = 'braindump-fab';
     fab.type = 'button';
-    fab.title = 'BrainDump';
-    fab.setAttribute('aria-label', 'BrainDump öffnen');
+    updateLauncherLabel(fab);
     fab.innerHTML = iconSvg('mic');
     fab.addEventListener('click', open);
     document.body.appendChild(fab);
+  }
+
+  function updateLauncherLabel(fab = document.getElementById('braindump-fab')) {
+    if (!fab) return;
+    fab.title = t('braindump.open');
+    fab.setAttribute('aria-label', t('braindump.open'));
   }
 
   function injectModal() {
@@ -106,36 +112,36 @@ export function createBrainDumpLiveDebugFeature() {
         <div class="braindump-hero">
           <div class="braindump-orb" id="braindump-orb">${iconSvg('mic')}</div>
           <div>
-            <h3 id="braindump-title">BrainDump</h3>
-            <p id="braindump-subtitle">Sprich frei. Ich mache daraus Todo-Vorschläge.</p>
+            <h3 id="braindump-title">${t('braindump.title')}</h3>
+            <p id="braindump-subtitle">${t('braindump.subtitle')}</p>
           </div>
-          <button class="modal-close-x braindump-close" id="braindump-close" type="button">${iconSvg('x')}</button>
+          <button class="modal-close-x braindump-close" id="braindump-close" type="button" aria-label="${escapeHtml(t('common.close'))}" title="${escapeHtml(t('common.close'))}">${iconSvg('x')}</button>
         </div>
         <div class="modal-body braindump-body">
           <div class="braindump-stage" id="braindump-stage">
             <div class="braindump-wave" id="braindump-wave" aria-hidden="true">${Array.from({ length: 24 }, (_, index) => `<span style="--i:${index}"></span>`).join('')}</div>
-            <div class="braindump-status" id="braindump-status">Bereit</div>
-            <div class="braindump-hint" id="braindump-hint">Denkpausen sind okay — nach ein paar Sekunden Stille stoppt die Aufnahme automatisch.</div>
+            <div class="braindump-status" id="braindump-status">${t('braindump.status.ready')}</div>
+            <div class="braindump-hint" id="braindump-hint">${t('braindump.hint.idle')}</div>
             <div class="braindump-transcript" id="braindump-transcript" hidden></div>
           </div>
           <div class="braindump-error" id="braindump-error" hidden></div>
           <div class="braindump-results" id="braindump-results" hidden>
             <div class="braindump-results-head">
               <div>
-                <strong>Gefundene Todos</strong>
-                <span id="braindump-results-subtitle">Prüfen und übernehmen.</span>
+                <strong>${t('braindump.results.title')}</strong>
+                <span id="braindump-results-subtitle">${t('braindump.results.subtitle')}</span>
               </div>
-              <button type="button" class="btn btn-secondary btn-sm" id="braindump-select-all">Alle auswählen</button>
+              <button type="button" class="btn btn-secondary btn-sm" id="braindump-select-all">${t('braindump.selectAll')}</button>
             </div>
             <div class="braindump-candidates" id="braindump-candidates"></div>
             <div class="braindump-create-status" id="braindump-create-status"></div>
           </div>
         </div>
         <div class="modal-actions braindump-actions">
-          <button type="button" class="btn btn-secondary" id="braindump-cancel">Schließen</button>
-          <button type="button" class="btn btn-secondary" id="braindump-retry" hidden>Nochmal sprechen</button>
-          <button type="button" class="btn btn-primary" id="braindump-record">Aufnahme starten</button>
-          <button type="button" class="btn btn-primary" id="braindump-create" hidden disabled>Ausgewählte übernehmen</button>
+          <button type="button" class="btn btn-secondary" id="braindump-cancel">${t('common.close')}</button>
+          <button type="button" class="btn btn-secondary" id="braindump-retry" hidden>${t('braindump.retry')}</button>
+          <button type="button" class="btn btn-primary" id="braindump-record">${t('braindump.record.start')}</button>
+          <button type="button" class="btn btn-primary" id="braindump-create" hidden disabled>${t('braindump.create')}</button>
         </div>
       </div>
     `;
@@ -147,6 +153,11 @@ export function createBrainDumpLiveDebugFeature() {
     document.getElementById('braindump-retry')?.addEventListener('click', start);
     document.getElementById('braindump-create')?.addEventListener('click', createSelectedTodos);
     document.getElementById('braindump-select-all')?.addEventListener('click', toggleAllCandidates);
+    window.addEventListener('nia-language-change', () => {
+      updateLauncherLabel();
+      updateStaticLabels();
+      render();
+    });
     modal.addEventListener('change', (event) => {
       const box = event.target?.closest?.('[data-bd-candidate-key]');
       if (!box) return;
@@ -158,8 +169,28 @@ export function createBrainDumpLiveDebugFeature() {
     });
   }
 
+  function updateStaticLabels() {
+    updateLauncherLabel();
+    const title = document.getElementById('braindump-title');
+    const subtitle = document.getElementById('braindump-subtitle');
+    const closeBtn = document.getElementById('braindump-close');
+    const cancelBtn = document.getElementById('braindump-cancel');
+    const retryBtn = document.getElementById('braindump-retry');
+    const resultsTitle = document.querySelector('.braindump-results-head strong');
+    if (title) title.textContent = t('braindump.title');
+    if (subtitle) subtitle.textContent = t('braindump.subtitle');
+    if (closeBtn) {
+      closeBtn.setAttribute('aria-label', t('common.close'));
+      closeBtn.setAttribute('title', t('common.close'));
+    }
+    if (cancelBtn) cancelBtn.textContent = t('common.close');
+    if (retryBtn) retryBtn.textContent = t('braindump.retry');
+    if (resultsTitle) resultsTitle.textContent = t('braindump.results.title');
+  }
+
   function open() {
     injectModal();
+    updateStaticLabels();
     document.getElementById('braindump-modal')?.classList.add('active');
     render();
   }
@@ -195,7 +226,7 @@ export function createBrainDumpLiveDebugFeature() {
   async function start() {
     if (state.recording) return;
     if (!window.MediaRecorder || !navigator.mediaDevices?.getUserMedia) {
-      state.error = 'Audioaufnahme wird von diesem Browser nicht unterstützt.';
+      state.error = t('braindump.error.unsupported');
       render();
       return;
     }
@@ -241,7 +272,7 @@ export function createBrainDumpLiveDebugFeature() {
     try { state.recorder?.stop(); } catch {}
     setTimeout(() => {
       if (!state.audioChunks.length && state.active === 0 && !state.queue.length) {
-        state.error = reason === 'auto' ? 'Keine verwertbare Stimme erkannt.' : 'Keine verwertbare Aufnahme erhalten.';
+        state.error = reason === 'auto' ? t('braindump.error.noVoice') : t('braindump.error.noAudio');
         state.processing = false;
         render();
       }
@@ -439,12 +470,12 @@ export function createBrainDumpLiveDebugFeature() {
       if (!response.ok) throw new Error(await response.text());
       const data = await response.json();
       const count = Array.isArray(data.todos) ? data.todos.length : 0;
-      state.createMessage = `${count} Todo${count === 1 ? '' : 's'} erstellt`;
+      state.createMessage = t(count === 1 ? 'braindump.created.one' : 'braindump.created.many', { count });
       state.selectedCandidateKeys.clear();
       if (typeof window.refreshFromServer === 'function') await window.refreshFromServer();
       setTimeout(close, 850);
     } catch (error) {
-      state.createMessage = `Fehler: ${String(error?.message || error)}`;
+      state.createMessage = t('common.error') + ': ' + String(error?.message || error);
     } finally {
       state.creating = false;
       render();
@@ -479,31 +510,31 @@ export function createBrainDumpLiveDebugFeature() {
     }
     if (status) {
       status.textContent = state.recording
-        ? `Ich höre zu · ${elapsed.toFixed(1)}s`
+        ? t('braindump.status.listening', { seconds: elapsed.toFixed(1) })
         : state.processing || state.active || state.queue.length
-          ? 'Ich sortiere deine Gedanken…'
+          ? t('braindump.status.processing')
           : state.candidates.length
-            ? 'Vorschläge bereit'
-            : 'Bereit';
+            ? t('braindump.status.readyWithCandidates')
+            : t('braindump.status.ready');
     }
     if (hint) {
       const silenceLeft = state.recording && state.hasVoice ? Math.max(0, (SILENCE_STOP_MS - (performance.now() - state.lastVoiceAt)) / 1000) : null;
       hint.textContent = state.recording
-        ? (silenceLeft == null ? 'Sprich einfach los — der Ausschlag zeigt, ob Stimme erkannt wird.' : `Denkpause erkannt. Auto-Stop in ${silenceLeft.toFixed(1)}s bei Stille.`)
+        ? (silenceLeft == null ? t('braindump.hint.recording') : t('braindump.hint.silence', { seconds: silenceLeft.toFixed(1) }))
         : state.processing || state.active || state.queue.length
-          ? 'Audio wird transkribiert und in Todo-Vorschläge verwandelt.'
-          : 'Denkpausen sind okay — nach ein paar Sekunden Stille stoppt die Aufnahme automatisch.';
+          ? t('braindump.hint.processing')
+          : t('braindump.hint.idle');
     }
     if (orb) orb.innerHTML = state.processing || state.active ? iconSvg('sparkles') : iconSvg(state.recording ? 'mic' : 'mic');
     if (recordBtn) {
       recordBtn.hidden = state.processing || state.candidates.length > 0;
-      recordBtn.textContent = state.recording ? 'Stoppen' : 'Aufnahme starten';
+      recordBtn.textContent = state.recording ? t('braindump.record.stop') : t('braindump.record.start');
     }
     if (retryBtn) retryBtn.hidden = state.recording || state.processing || (!state.candidates.length && !state.error && !state.transcript);
     if (createBtn) {
       createBtn.hidden = !state.candidates.length;
       createBtn.disabled = state.creating || state.recording || state.processing || !selectedCount;
-      createBtn.textContent = state.creating ? 'Übernehme…' : `Ausgewählte übernehmen (${selectedCount})`;
+      createBtn.textContent = state.creating ? t('braindump.create.busy') : t('braindump.create.count', { count: selectedCount });
     }
     if (results) results.hidden = !state.candidates.length;
     if (error) {
@@ -523,8 +554,8 @@ export function createBrainDumpLiveDebugFeature() {
     const selectAll = document.getElementById('braindump-select-all');
     const status = document.getElementById('braindump-create-status');
     if (!container) return;
-    if (subtitle) subtitle.textContent = `${state.candidates.length} Vorschlag${state.candidates.length === 1 ? '' : 'e'} gefunden.`;
-    if (selectAll) selectAll.textContent = selectedCandidates().length === state.candidates.length ? 'Alle abwählen' : 'Alle auswählen';
+    if (subtitle) subtitle.textContent = t(state.candidates.length === 1 ? 'braindump.results.count.one' : 'braindump.results.count.many', { count: state.candidates.length });
+    if (selectAll) selectAll.textContent = selectedCandidates().length === state.candidates.length ? t('braindump.selectNone') : t('braindump.selectAll');
     if (status) status.textContent = state.createMessage || '';
     container.innerHTML = state.candidates.map((candidate, index) => renderCandidate(candidate, index)).join('');
   }
@@ -532,11 +563,11 @@ export function createBrainDumpLiveDebugFeature() {
   function renderCandidate(candidate, index) {
     const key = candidateKey(candidate);
     const checked = state.selectedCandidateKeys.has(key) ? 'checked' : '';
-    const route = [candidate.project_name, candidate.section_name].filter(Boolean).join(' / ') || 'Inbox';
+    const route = [candidate.project_name, candidate.section_name].filter(Boolean).join(' / ') || t('braindump.route.inbox');
     const due = candidate.deadline ? formatDate(candidate.deadline) : '';
     const reminder = candidate.reminder ? formatDate(candidate.reminder) : '';
     const kind = candidate.kind || 'todo';
-    const meta = [route, due ? `Fällig ${due}` : '', reminder ? `Erinnert ${reminder}` : '', kind !== 'todo' ? kind : ''].filter(Boolean).join(' · ');
+    const meta = [route, due ? t('braindump.meta.due', { date: due }) : '', reminder ? t('braindump.meta.reminder', { date: reminder }) : '', kind !== 'todo' ? t(`braindump.kind.${kind}`) : ''].filter(Boolean).join(' · ');
     return `
       <label class="braindump-candidate-card todo-item" style="--bd-delay:${Math.min(index, 8) * 55}ms">
         <input type="checkbox" data-bd-candidate-key="${escapeHtml(key)}" ${checked}>

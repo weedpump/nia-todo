@@ -651,24 +651,30 @@ def _transcribe_remote_whisper(audio: bytes, filename: str, content_type: str, c
 
 
 
+def _accessible_project_rows(db, user_id: int, *, limit: int | None = None):
+    limit_sql = f"LIMIT {int(limit)}" if limit else ""
+    return db.execute(
+        f"""
+        SELECT p.id, p.name, COALESCE(p.is_inbox, 0) AS is_inbox,
+               p.parent_id, p.workspace_id, w.name AS workspace_name
+        FROM projects p
+        LEFT JOIN workspaces w ON w.id = p.workspace_id
+        LEFT JOIN project_members pm ON pm.project_id = p.id AND pm.user_id = ? AND pm.status = 'accepted'
+        WHERE p.user_id = ? OR pm.id IS NOT NULL
+        ORDER BY COALESCE(p.is_inbox, 0) DESC, p.sort_order, p.id
+        {limit_sql}
+        """,
+        (user_id, user_id),
+    ).fetchall()
+
+
 def _load_braindump_workspace_context(db, user_id: int) -> dict:
     """Return a compact routing context for the BrainDump LLM.
 
     The extractor must not know hard-coded project names. It gets the user's
     actual structure and may choose exact names from it when the fit is clear.
     """
-    projects = db.execute(
-        """
-        SELECT p.id, p.name, COALESCE(p.is_inbox, 0) AS is_inbox,
-               p.parent_id, p.workspace_id, w.name AS workspace_name
-        FROM projects p
-        LEFT JOIN workspaces w ON w.id = p.workspace_id
-        WHERE p.user_id = ?
-        ORDER BY COALESCE(p.is_inbox, 0) DESC, p.sort_order, p.id
-        LIMIT 40
-        """,
-        (user_id,),
-    ).fetchall()
+    projects = _accessible_project_rows(db, user_id, limit=40)
     project_ids = [row["id"] for row in projects]
     sections_by_project: dict[int, list[str]] = {pid: [] for pid in project_ids}
     if project_ids:
@@ -722,19 +728,29 @@ def _name_key(value: str | None) -> str:
 def _resolve_project_id(db, user_id: int, project_name: str | None) -> int | None:
     if not project_name:
         return get_user_inbox_project_id(db, user_id)
-    rows = db.execute(
-        """
-        SELECT p.id, p.name
-        FROM projects p
-        LEFT JOIN project_members pm ON pm.project_id = p.id AND pm.user_id = ? AND pm.status = 'accepted'
-        WHERE p.user_id = ? OR pm.id IS NOT NULL
-        """,
-        (user_id, user_id),
-    ).fetchall()
+    rows = _accessible_project_rows(db, user_id)
     matches = [row for row in rows if _name_key(row["name"]) == _name_key(project_name)]
     if len(matches) != 1:
         raise HTTPException(422, f"BrainDump project not found: {project_name}")
     return matches[0]["id"]
+
+
+def _resolve_unique_section_target(db, user_id: int, section_name: str | None) -> tuple[int | None, int | None]:
+    if not section_name:
+        return None, None
+    projects = _accessible_project_rows(db, user_id)
+    project_ids = [row["id"] for row in projects]
+    if not project_ids:
+        return None, None
+    placeholders = ",".join("?" for _ in project_ids)
+    rows = db.execute(
+        f"SELECT id, project_id, name FROM sections WHERE project_id IN ({placeholders})",
+        project_ids,
+    ).fetchall()
+    matches = [row for row in rows if _name_key(row["name"]) == _name_key(section_name)]
+    if len(matches) != 1:
+        return None, None
+    return matches[0]["project_id"], matches[0]["id"]
 
 
 def _resolve_section_id(db, project_id: int | None, section_name: str | None) -> int | None:
@@ -761,8 +777,18 @@ def _create_todos_from_braindump_candidates(db, user_id: int, candidates: list[B
         notes = sanitize_text(candidate.notes or "")
         if not title:
             raise HTTPException(422, "BrainDump candidate title is required")
-        project_id = _resolve_project_id(db, user_id, candidate.project_name)
-        section_id = _resolve_section_id(db, project_id, candidate.section_name)
+        project_name = candidate.project_name
+        section_name = candidate.section_name
+        unique_section_project_id = None
+        unique_section_id = None
+        if section_name:
+            unique_section_project_id, unique_section_id = _resolve_unique_section_target(db, user_id, section_name)
+        if not project_name and unique_section_project_id:
+            project_id = unique_section_project_id
+            section_id = unique_section_id
+        else:
+            project_id = _resolve_project_id(db, user_id, project_name)
+            section_id = _resolve_section_id(db, project_id, section_name)
         data = TodoCreate(
             title=title,
             description=notes,
