@@ -34,7 +34,9 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .user-card { display: grid; grid-template-rows: auto auto auto auto auto; gap: 12px; padding: 14px; min-height: 100%; }
 .user-card-header { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 12px; padding-bottom: 10px; border-bottom: 1px solid color-mix(in srgb, var(--border) 58%, transparent); }
 .user-card-identity, .user-card-meta { min-width: 0; }
-.user-card-meta { display: grid; grid-template-columns: minmax(0, 1fr) minmax(112px, .72fr); gap: 10px; }
+.user-card-meta { display: grid; grid-template-columns: 1fr; gap: 6px; }
+.user-card-meta .user-card-field { display: grid; grid-template-columns: 82px minmax(0, 1fr); gap: 10px; align-items: center; }
+.user-card-meta .user-card-label { margin: 0; }
 .user-card-title-line { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .user-card-title { min-width: 0; font-size: 16px; font-weight: 800; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .user-card-subtitle { margin-top: 2px; font-size: 12px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -43,15 +45,16 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .user-card-field { min-width: 0; }
 .user-card-label { display: block; color: var(--text-muted); font-size: 10px; font-weight: 750; text-transform: uppercase; letter-spacing: .055em; margin-bottom: 4px; }
 .user-card-value { min-width: 0; color: var(--text-primary); font-size: 13px; }
-.user-card-braindump { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 2px; }
-.user-card-braindump .user-card-label { margin: 0; }
+.user-card-braindump-field { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; }
+.user-card-braindump-field .user-card-label { margin: 0; }
 .user-card-braindump-control { display: inline-flex; align-items: center; gap: 10px; }
 .user-card-switch { appearance: none; -webkit-appearance: none; width: 46px; height: 26px; flex: 0 0 46px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--border) 78%, var(--text-muted)); background: var(--bg-tertiary); position: relative; cursor: pointer; transition: background .16s, border-color .16s, box-shadow .16s; }
 .user-card-switch::after { content: ''; position: absolute; width: 20px; height: 20px; top: 2px; left: 2px; border-radius: 50%; background: var(--text-secondary); box-shadow: 0 2px 5px rgba(0,0,0,.28); transition: transform .16s, background .16s; }
 .user-card-switch:checked { background: color-mix(in srgb, var(--success) 72%, var(--accent)); border-color: color-mix(in srgb, var(--success) 86%, white); }
 .user-card-switch:checked::after { transform: translateX(20px); background: white; }
 .user-card-switch:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 24%, transparent); outline: none; }
-.user-card-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; align-items: center; }
+.user-card-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; align-items: center; }
+.user-card-actions.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .user-card-actions.single { grid-template-columns: 1fr; }
 .user-card-actions .admin-table-action { width: 100%; }
 .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; }
@@ -1386,10 +1389,12 @@ function renderUserTwoFactorStatus(user) {
     ? `<span class="badge badge-success">${escapeHtml(t('admin.user.twofa.active'))}</span>`
     : (twoFactorPolicyRequired ? `<span class="badge badge-warning">${escapeHtml(t('admin.user.twofa.required'))}</span>` : `<span class="badge badge-muted">${escapeHtml(t('admin.user.twofa.off'))}</span>`);
   const detail = factors.length ? factors.map(escapeHtml).join(' · ') : (twoFactorPolicyRequired ? t('admin.user.twofa.setupOnly') : '-');
-  const reset = (enabled || Number(user.passkey_count || 0) > 0)
-    ? `<button class="btn btn-danger admin-table-action" style="margin-top:6px;" onclick="resetUserTwoFactor(${user.id}, '${escapeHtmlAttr(user.username)}')">${iconSvg('shield-check')} ${escapeHtml(t('admin.user.twofa.resetShort'))}</button>`
-    : '';
-  return `<div class="twofa-stack">${badge}<span class="admin-help" style="margin:0;">${detail}</span></div>${reset}`;
+  return `<div class="twofa-stack">${badge}<span class="admin-help" style="margin:0;">${detail}</span></div>`;
+}
+
+function renderUserTwoFactorResetButton(user) {
+  if (!user.two_factor_enabled && Number(user.passkey_count || 0) <= 0) return '';
+  return `<button class="btn btn-danger admin-table-action" onclick="resetUserTwoFactor(${user.id}, '${escapeHtmlAttr(user.username)}')">${iconSvg('shield-check')} ${escapeHtml(t('admin.user.twofa.resetShort'))}</button>`;
 }
 
 function renderUserApiKeys(user) {
@@ -1430,8 +1435,10 @@ function renderUsers(users) {
   tbody.innerHTML = users.map(u => {
     const title = escapeHtml(u.display_name || u.username);
     const subtitle = u.display_name && u.display_name !== u.username ? escapeHtml(u.username) : escapeHtml(t('setup.usernameLabel'));
+    const resetTwoFactorButton = renderUserTwoFactorResetButton(u);
     const deleteButton = u.is_admin ? '' : `<button class="btn btn-danger admin-table-action" onclick="deleteUser(${u.id}, '${escapeHtmlAttr(u.username)}')">${iconSvg('trash')} ${escapeHtml(t('common.delete'))}</button>`;
-    const actionsClass = u.is_admin ? 'user-card-actions single' : 'user-card-actions';
+    const actionCount = 1 + (resetTwoFactorButton ? 1 : 0) + (deleteButton ? 1 : 0);
+    const actionsClass = actionCount === 1 ? 'user-card-actions single' : (actionCount === 2 ? 'user-card-actions two' : 'user-card-actions');
     return `
     <tr role="row">
       <td class="user-card-cell" colspan="${colSpan}">
@@ -1475,10 +1482,11 @@ function renderUsers(users) {
             </div>
           </div>
 
-          ${brainDumpFeatureEnabled ? `<div class="user-card-braindump" role="cell" headers="user-braindump-heading"><span class="user-card-label">${escapeHtml(t('admin.user.brainDump'))}</span>${renderUserBrainDump(u)}</div>` : ''}
+          ${brainDumpFeatureEnabled ? `<div class="user-card-row"><div class="user-card-braindump-field" role="cell" headers="user-braindump-heading"><span class="user-card-label">${escapeHtml(t('admin.user.brainDump'))}</span>${renderUserBrainDump(u)}</div><div aria-hidden="true"></div></div>` : ''}
 
           <div class="${actionsClass}">
             <button class="btn btn-primary admin-table-action" role="cell" headers="user-col-password" onclick="generatePasswordLink(${u.id}, '${escapeHtmlAttr(u.username)}')">${iconSvg('link')} ${escapeHtml(t('admin.user.passwordLink'))}</button>
+            ${resetTwoFactorButton}
             ${deleteButton}
           </div>
         </article>
