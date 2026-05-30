@@ -40,6 +40,7 @@ class CreateUserRequest(BaseModel):
     braindump_enabled: bool = False
 
 class UpdateUserRequest(BaseModel):
+    username: Optional[str] = None
     email: Optional[str] = None
     display_name: Optional[str] = None
     braindump_enabled: Optional[bool] = None
@@ -469,16 +470,28 @@ def list_users(_: bool = Depends(require_admin)):
 
 @router.patch("/users/{user_id}")
 def update_user(user_id: int, data: UpdateUserRequest, request: Request, _: bool = Depends(require_admin)):
+    username = sanitize_text(data.username) if data.username is not None else None
     email = normalize_email(sanitize_text(data.email)) if data.email is not None else None
     display_name = sanitize_text(data.display_name) if data.display_name is not None else None
+    if username is not None:
+        if not username:
+            raise api_error(400, "user.usernameRequired", "Username is required")
+        if len(username) > 80:
+            raise api_error(400, "user.usernameTooLong", "Username is too long")
     if email is not None:
         email_error = validate_email(email)
         if email_error:
             raise validation_api_error(email_error)
     with get_db() as db:
-        user = db.execute("SELECT id, email, COALESCE(braindump_enabled, 0) AS braindump_enabled FROM users WHERE id = ?", (user_id,)).fetchone()
+        user = db.execute("SELECT id, username, email, COALESCE(braindump_enabled, 0) AS braindump_enabled FROM users WHERE id = ?", (user_id,)).fetchone()
         if not user:
             raise api_error(404, "user.notFound", "User not found")
+        if username is not None and username != user["username"]:
+            existing_username = db.execute("SELECT id FROM users WHERE username = ? AND id != ?", (username, user_id)).fetchone()
+            if existing_username:
+                raise api_error(409, "user.usernameExists", "Username already exists")
+            db.execute("UPDATE users SET username = ? WHERE id = ?", (username, user_id))
+            log_audit(db, "username_changed_by_admin", user_id=user_id, ip_address=get_client_ip(request), details=f"old_username={user['username']}; new_username={username}")
         if email is not None:
             existing_email = db.execute("SELECT id FROM users WHERE (lower(email) = lower(?) OR lower(pending_email) = lower(?)) AND id != ?", (email, email, user_id)).fetchone()
             if existing_email:
@@ -507,7 +520,7 @@ def update_user(user_id: int, data: UpdateUserRequest, request: Request, _: bool
                 db.execute("UPDATE users SET braindump_enabled = ? WHERE id = ?", (enabled, user_id))
                 log_audit(db, "braindump_access_changed", user_id=user_id, ip_address=get_client_ip(request), details=f"enabled={bool(enabled)}")
         db.commit()
-        return {"id": user_id, "display_name": display_name, "braindump_enabled": bool(data.braindump_enabled) if data.braindump_enabled is not None else bool(user["braindump_enabled"]), **result}
+        return {"id": user_id, "username": username if username is not None else user["username"], "display_name": display_name, "braindump_enabled": bool(data.braindump_enabled) if data.braindump_enabled is not None else bool(user["braindump_enabled"]), **result}
 
 @router.delete("/users/{user_id}")
 def delete_user(user_id: int, _: bool = Depends(require_admin)):

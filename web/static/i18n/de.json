@@ -905,5 +905,13 @@
   "braindump.processing.extracting": "2/2 Todo-Vorschläge werden erkannt…",
   "admin.overview.policySummary": "Richtlinie",
   "admin.password.shortChange": "Passwort ändern",
-  "admin.user.enableBrainDump": "BrainDump AI aktivieren"
+  "admin.user.enableBrainDump": "BrainDump AI aktivieren",
+  "admin.user.editUsername": "Benutzernamen bearbeiten",
+  "admin.user.usernameRequired": "Benutzername ist erforderlich",
+  "admin.user.changeUsernameTitle": "Benutzernamen ändern?",
+  "admin.user.changeUsernameMessage": "Benutzernamen von {oldUsername} zu {newUsername} ändern? Bestehende Passkeys bleiben gültig, weil sie an die interne Benutzer-ID gebunden sind. Das auf Geräten gespeicherte Konto-Label kann aber den alten Benutzernamen anzeigen, bis Passkeys neu erstellt werden. Bestehende Sessions können den alten Namen anzeigen, bis die App Benutzerdaten neu lädt.",
+  "admin.user.changeUsernameConfirm": "Benutzernamen ändern",
+  "api.error.user.usernameRequired": "Benutzername ist erforderlich",
+  "api.error.user.usernameTooLong": "Benutzername ist zu lang",
+  "api.error.user.usernameExists": "Benutzername existiert bereits"
 }
