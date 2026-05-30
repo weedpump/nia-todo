@@ -573,7 +573,7 @@
   "admin.instance.publicUrl": "Öffentliche Basis-URL",
   "admin.instance.help": "Basis-URL wird für externe Links genutzt. Origins und Trusted Proxies sind zeilenweise. Forwarded-Header werden nur von Trusted Proxies akzeptiert.",
   "admin.instance.save": "Instanz-Konfiguration speichern",
-  "admin.email.title": "E-Mail / SMTP",
+  "admin.email.title": "SMTP",
   "admin.email.enableSending": "E-Mail-Versand aktivieren",
   "admin.email.transportSecurity": "Transport-Sicherheit",
   "admin.none": "Keine",
