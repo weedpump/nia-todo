@@ -536,6 +536,12 @@ class BrainDumpCreateTodosRequest(BaseModel):
     candidates: list[BrainDumpTodoCandidate]
 
 
+class BrainDumpExtractRequest(BaseModel):
+    transcript: str
+    segment_id: int
+    audio_start_ms: int = 0
+    audio_end_ms: int = 0
+
 
 def _run(cmd: list[str]) -> tuple[float, subprocess.CompletedProcess[str]]:
     started = time.perf_counter()
@@ -897,6 +903,100 @@ def get_braindump_access(user_id: int = Depends(require_auth)):
     return {"enabled": enabled}
 
 
+def _transcribe_live_audio_bytes(audio_bytes: bytes, content_type: str, segment_id: int, model: str, config: dict) -> tuple[float, float, str, str]:
+    stt_provider = str(config.get("stt_provider") or "whisper_cpp_remote").strip().lower()
+    if stt_provider not in {"whisper_cpp_remote", "local_whisper_cpp"}:
+        raise RuntimeError(f"Unsupported BrainDump STT provider: {stt_provider}")
+    if stt_provider == "local_whisper_cpp" and model not in WHISPER_MODELS:
+        raise ValueError("Unsupported BrainDump STT model")
+    if len(audio_bytes) < 1200:
+        raise RuntimeError("audio segment too small")
+    suffix = ".webm" if "webm" in content_type else ".ogg" if "ogg" in content_type else ".audio"
+    if stt_provider == "whisper_cpp_remote":
+        stt_ms, transcript = _transcribe_remote_whisper(audio_bytes, f"segment-{segment_id}{suffix}", content_type or "application/octet-stream", config)
+        return 0.0, stt_ms, transcript, stt_provider
+    with tempfile.TemporaryDirectory(prefix="nia-braindump-live-") as tmp:
+        tmpdir = Path(tmp)
+        raw_path = tmpdir / f"segment-{segment_id}{suffix}"
+        wav_path = tmpdir / f"segment-{segment_id}.wav"
+        raw_path.write_bytes(audio_bytes)
+        convert_ms = _convert_audio_to_wav(raw_path, wav_path)
+        stt_ms, transcript = _transcribe_wav(wav_path, model)
+        return convert_ms, stt_ms, transcript, stt_provider
+
+
+@router.post("/live/audio-segment/transcribe")
+async def transcribe_live_audio_segment(
+    request: Request,
+    segment_id: int = Query(...),
+    audio_start_ms: int = Query(0),
+    audio_end_ms: int = Query(0),
+    model: str = Query("base"),
+    user_id: int = Depends(require_auth),
+):
+    """Transcribe one live BrainDump audio window. LLM extraction is a separate step."""
+    require_braindump_access(user_id)
+    config = get_braindump_config(include_secrets=True)
+    received_at = time.perf_counter()
+    content_type = request.headers.get("content-type", "")
+    audio_bytes = await request.body()
+    try:
+        convert_ms, stt_ms, transcript, stt_provider = await asyncio.to_thread(
+            _transcribe_live_audio_bytes, audio_bytes, content_type, segment_id, model, config
+        )
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    except Exception as exc:
+        raise HTTPException(500, f"BrainDump transcription failed: {exc}")
+    total_ms = (time.perf_counter() - received_at) * 1000
+    return {
+        "segment_id": segment_id,
+        "audio_start_ms": audio_start_ms,
+        "audio_end_ms": audio_end_ms,
+        "model": model,
+        "stt_provider": stt_provider,
+        "transcript": transcript,
+        "timing": {
+            "convert_ms": round(convert_ms, 2),
+            "stt_ms": round(stt_ms, 2),
+            "total_ms": round(total_ms, 2),
+        },
+    }
+
+
+@router.post("/live/text-segment/extract")
+async def extract_live_text_segment(data: BrainDumpExtractRequest, user_id: int = Depends(require_auth)):
+    """Extract BrainDump candidates from a transcript returned by the STT step."""
+    require_braindump_access(user_id)
+    transcript = sanitize_text(data.transcript)
+    if not transcript:
+        raise HTTPException(422, "BrainDump transcript is required")
+    config = get_braindump_config(include_secrets=True)
+    received_at = time.perf_counter()
+    with get_db() as db:
+        workspace_context = _load_braindump_workspace_context(db, user_id)
+    try:
+        llm_ms, parsed, usage, raw_json = await asyncio.to_thread(
+            _extract_with_llm, transcript, data.segment_id, workspace_context, config
+        )
+    except Exception as exc:
+        raise HTTPException(500, f"BrainDump extraction failed: {exc}")
+    total_ms = (time.perf_counter() - received_at) * 1000
+    return {
+        "segment_id": data.segment_id,
+        "audio_start_ms": data.audio_start_ms,
+        "audio_end_ms": data.audio_end_ms,
+        "transcript": transcript,
+        "json": parsed,
+        "raw_json": raw_json,
+        "usage": usage,
+        "timing": {
+            "llm_ms": round(llm_ms, 2),
+            "total_ms": round(total_ms, 2),
+        },
+    }
+
+
 @router.post("/live/audio-segment")
 async def process_live_audio_segment(
     request: Request,
@@ -906,40 +1006,23 @@ async def process_live_audio_segment(
     model: str = Query("base"),
     user_id: int = Depends(require_auth),
 ):
-    """Process one live BrainDump audio window and return timing diagnostics."""
+    """Backward-compatible combined live endpoint: transcribe, then extract."""
     require_braindump_access(user_id)
-    braindump_config = get_braindump_config(include_secrets=True)
-    stt_provider = str(braindump_config.get("stt_provider") or "whisper_cpp_remote").strip().lower()
-    if stt_provider not in {"whisper_cpp_remote", "local_whisper_cpp"}:
-        raise HTTPException(500, f"Unsupported BrainDump STT provider: {stt_provider}")
-    if stt_provider == "local_whisper_cpp" and model not in WHISPER_MODELS:
-        raise HTTPException(400, "Unsupported BrainDump STT model")
+    config = get_braindump_config(include_secrets=True)
     received_at = time.perf_counter()
+    content_type = request.headers.get("content-type", "")
+    audio_bytes = await request.body()
     with get_db() as db:
         workspace_context = _load_braindump_workspace_context(db, user_id)
-    content_type = request.headers.get("content-type", "")
-    suffix = ".webm" if "webm" in content_type else ".ogg" if "ogg" in content_type else ".audio"
-    audio_bytes = await request.body()
     try:
-        if len(audio_bytes) < 1200:
-            raise RuntimeError("audio segment too small")
-
-        def process_bytes():
-            if stt_provider == "whisper_cpp_remote":
-                stt_ms, transcript = _transcribe_remote_whisper(audio_bytes, f"segment-{segment_id}{suffix}", content_type or "application/octet-stream", braindump_config)
-                llm_ms, parsed, usage, raw_json = _extract_with_llm(transcript, segment_id, workspace_context, braindump_config)
-                return 0.0, stt_ms, transcript, llm_ms, parsed, usage, raw_json
-            with tempfile.TemporaryDirectory(prefix="nia-braindump-live-") as tmp:
-                tmpdir = Path(tmp)
-                raw_path = tmpdir / f"segment-{segment_id}{suffix}"
-                wav_path = tmpdir / f"segment-{segment_id}.wav"
-                raw_path.write_bytes(audio_bytes)
-                convert_ms = _convert_audio_to_wav(raw_path, wav_path)
-                stt_ms, transcript = _transcribe_wav(wav_path, model)
-                llm_ms, parsed, usage, raw_json = _extract_with_llm(transcript, segment_id, workspace_context, braindump_config)
-                return convert_ms, stt_ms, transcript, llm_ms, parsed, usage, raw_json
-
-        convert_ms, stt_ms, transcript, llm_ms, parsed, usage, raw_json = await asyncio.to_thread(process_bytes)
+        convert_ms, stt_ms, transcript, stt_provider = await asyncio.to_thread(
+            _transcribe_live_audio_bytes, audio_bytes, content_type, segment_id, model, config
+        )
+        llm_ms, parsed, usage, raw_json = await asyncio.to_thread(
+            _extract_with_llm, transcript, segment_id, workspace_context, config
+        )
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
     except Exception as exc:
         raise HTTPException(500, f"BrainDump live segment failed: {exc}")
     total_ms = (time.perf_counter() - received_at) * 1000
