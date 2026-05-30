@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 
 ### Changed
 - Admin UI has been streamlined with collapsible configuration sections, autosaving header switches, responsive user cards, and a dialog-based admin password change flow.
+- HTML fallback text for localized settings UI now defaults to English consistently before translations are applied.
+
+### Fixed
+- User settings now hide the Disable 2FA button reliably when two-factor authentication is inactive, independent of the current UI language.
 
 ## [2.6.3] - 2026-05-29
 
