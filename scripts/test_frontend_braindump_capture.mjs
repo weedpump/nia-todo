@@ -165,20 +165,21 @@ async function run() {
 
     await page.locator('#braindump-fab').click();
     await page.locator('#braindump-modal.active').waitFor({ state: 'visible', timeout: 5000 });
-    const initialAcceptMuted = await page.evaluate(() => {
-      const button = document.getElementById('braindump-create');
-      const record = document.getElementById('braindump-record');
-      if (!button || !record) return false;
-      const acceptRect = button.getBoundingClientRect();
-      const recordRect = record.getBoundingClientRect();
-      return button.disabled && button.classList.contains('is-muted') && acceptRect.left > recordRect.right;
-    });
-    if (!initialAcceptMuted) throw new Error('BrainDump accept button should start muted and stay in the right action group');
-    await page.locator('#braindump-record').click();
     await page.waitForFunction(() => window.__braindumpRecorderTimeslice === 1000, null, { timeout: 5000 });
+    const immediateRecordingState = await page.evaluate(() => {
+      const modal = document.getElementById('braindump-modal');
+      const create = document.getElementById('braindump-create');
+      const record = document.getElementById('braindump-record');
+      return Boolean(
+        modal?.classList.contains('is-recording') &&
+        record && !record.hidden && /Fertig|Finish/.test(record.textContent || '') &&
+        create?.hidden === true
+      );
+    });
+    if (!immediateRecordingState) throw new Error('BrainDump should start recording immediately and show only the finish action before results');
     const usedMinimalFallback = await page.evaluate(() => window.__braindumpEnhancedConstraintsFailed === true && window.__braindumpGetUserMediaCalls === 2 && window.__braindumpLastGetUserMediaConstraints?.audio === true);
     if (!usedMinimalFallback) throw new Error('BrainDump should retry Android WebView microphone capture with minimal audio constraints after NotReadableError');
-    await page.locator('#braindump-record').click({ force: true });
+    await page.locator('#braindump-record').click();
     await page.getByText('Milch kaufen', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
     await page.getByText('Snoopy Tabletten geben', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
     const acceptReady = await page.evaluate(() => {
