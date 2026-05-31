@@ -27,7 +27,7 @@ systemctl restart nia-todo-dev
 - 🛡️ 2FA/MFA with authenticator app (TOTP), passkeys/WebAuthn including native Windows/Android bridge, email code fallback, recovery codes, trusted devices, and admin policy
 - ⏰ Reminders/deadlines with validated date/time input
 - 🔔 Native local reminders on Windows and Android; browser/PWA push remains browser/PWA-only
-- 🎙️ Experimental BrainDump voice capture for turning spoken notes into reviewed todo candidates, with configurable STT/LLM providers including OpenAI-compatible endpoints, Ollama, and OpenClaw agents
+- 🎙️ BrainDump voice capture for turning spoken notes into reviewed todo candidates, with configurable STT/LLM providers including OpenAI-compatible endpoints, Ollama, and OpenClaw agents
 - 🎨 Theme toggle
 - 🗄️ Local SQLite
 
@@ -69,7 +69,7 @@ Details: [Test docs](docs/testing.md)
 - Admin panel: `/admin`
 - 2FA policy and user reset: `/admin` → Security/user list
 - Passkeys require an HTTPS `public_base_url` in production setups; Android uses the bundled app signature through `/.well-known/assetlinks.json`
-- BrainDump is experimental and disabled by default: configure global STT/LLM providers in `/admin`, enable the global feature, then grant per-user access. See [BrainDump v2](docs/braindump-v2.md).
+- BrainDump is disabled by default until configured: set up global STT/LLM providers in `/admin`, enable the global feature, then grant per-user access. See [BrainDump](docs/braindump-v2.md).
 - Dev branding: `setup-dev.sh`
 
 ## 📄 License
