@@ -1110,7 +1110,7 @@ select:focus-visible {
 .todo-item.swiping::before {
   content: attr(data-swipe-right-label);
   right: 100%;
-  justify-content: flex-start;
+  justify-content: flex-end;
   width: max(var(--swipe-x, 0), 120px);
   transform-origin: right center;
   background: linear-gradient(90deg, rgba(245, 158, 11, .58), rgba(217, 119, 6, .94));
@@ -1120,7 +1120,7 @@ select:focus-visible {
 .todo-item.swiping::after {
   content: attr(data-swipe-left-label);
   left: 100%;
-  justify-content: flex-end;
+  justify-content: flex-start;
   width: max(calc(var(--swipe-x, 0) * -1), 120px);
   transform-origin: left center;
   background: linear-gradient(90deg, rgba(22, 163, 74, .94), rgba(34, 197, 94, .58));
