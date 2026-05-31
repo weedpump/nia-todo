@@ -4518,6 +4518,7 @@ input[type="color"]::-moz-color-swatch {
 }
 
 .pin-checkbox-label {
+  position: relative;
   width: 100%;
   min-height: 44px;
   padding: 10px 12px;
@@ -4529,11 +4530,12 @@ input[type="color"]::-moz-color-swatch {
 
 .pin-checkbox-label input {
   position: absolute;
-  width: 1px;
-  height: 1px;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   margin: 0;
   opacity: 0;
-  pointer-events: none;
+  cursor: pointer;
 }
 
 .pin-checkbox-box {

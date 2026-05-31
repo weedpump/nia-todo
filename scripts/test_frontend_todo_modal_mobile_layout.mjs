@@ -1,0 +1,83 @@
+#!/usr/bin/env node
+import { withFreshDb, launchPage } from './frontend_test_lib.mjs';
+
+function assertCloseEnough(actual, expected, tolerance, label) {
+  if (Math.abs(actual - expected) > tolerance) {
+    throw new Error(`${label} changed too much: before=${expected}, after=${actual}, tolerance=${tolerance}`);
+  }
+}
+
+async function modalMetrics(page) {
+  return page.evaluate(() => {
+    const modal = document.querySelector('#todo-modal');
+    const content = document.querySelector('#todo-modal .todo-modal-content');
+    const header = document.querySelector('#todo-modal .todo-modal-header');
+    const close = document.querySelector('#todo-modal .modal-close-x');
+    const body = document.querySelector('#todo-modal .todo-modal-body');
+    const footer = document.querySelector('#todo-modal .todo-modal-actions');
+    const viewportHeight = window.visualViewport?.height || window.innerHeight;
+    const viewportWidth = window.visualViewport?.width || window.innerWidth;
+    const rect = (el) => {
+      const r = el.getBoundingClientRect();
+      return { top: r.top, right: r.right, bottom: r.bottom, left: r.left, width: r.width, height: r.height };
+    };
+    return {
+      viewportHeight,
+      viewportWidth,
+      bodyScrollWidth: document.body.scrollWidth,
+      active: modal?.classList.contains('active') || false,
+      content: rect(content),
+      header: rect(header),
+      close: rect(close),
+      body: rect(body),
+      footer: rect(footer),
+      closeVisible: Boolean(close && getComputedStyle(close).display !== 'none' && close.getBoundingClientRect().height > 0),
+    };
+  });
+}
+
+function assertMobileTodoModalLayout(metrics, label) {
+  if (!metrics.active) throw new Error(`${label}: todo modal is not active`);
+  if (!metrics.closeVisible) throw new Error(`${label}: close icon is not visible`);
+  if (metrics.close.top < -1 || metrics.close.right > metrics.viewportWidth + 1) {
+    throw new Error(`${label}: close icon moved out of viewport: ${JSON.stringify(metrics.close)}`);
+  }
+  if (metrics.footer.bottom < metrics.viewportHeight - 2 || metrics.footer.bottom > metrics.viewportHeight + 2) {
+    throw new Error(`${label}: footer is not anchored to bottom: footer=${JSON.stringify(metrics.footer)}, viewportHeight=${metrics.viewportHeight}`);
+  }
+  if (metrics.body.height < 120) {
+    throw new Error(`${label}: modal body collapsed: ${JSON.stringify(metrics.body)}`);
+  }
+  if (metrics.bodyScrollWidth > metrics.viewportWidth + 1) {
+    throw new Error(`${label}: horizontal body overflow: scrollWidth=${metrics.bodyScrollWidth}, viewportWidth=${metrics.viewportWidth}`);
+  }
+}
+
+async function run() {
+  console.log('📱 Running todo modal mobile pin layout test...');
+  const { browser, page, openTodoModal, loginApp, assertNoFrontendErrors } = await launchPage();
+  try {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await loginApp();
+    await openTodoModal();
+
+    const before = await modalMetrics(page);
+    assertMobileTodoModalLayout(before, 'before pin toggle');
+
+    await page.locator('.pin-checkbox-label').click();
+    await page.waitForTimeout(120);
+
+    const after = await modalMetrics(page);
+    assertMobileTodoModalLayout(after, 'after pin toggle');
+    assertCloseEnough(after.header.top, before.header.top, 1, 'header top');
+    assertCloseEnough(after.footer.bottom, before.footer.bottom, 1, 'footer bottom');
+    assertCloseEnough(after.content.height, before.content.height, 1, 'modal content height');
+
+    assertNoFrontendErrors();
+    console.log('✅ Todo modal mobile pin layout test passed');
+  } finally {
+    await browser.close();
+  }
+}
+
+await withFreshDb(run);
