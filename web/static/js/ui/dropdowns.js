@@ -1,3 +1,5 @@
+import { iconSvg } from '../icons/lucide-icons.js';
+
 const registry = new WeakMap();
 let openState = null;
 let nextId = 1;
@@ -83,7 +85,7 @@ function renderMenu(instance) {
     row.disabled = option.disabled;
     row.setAttribute('aria-selected', option.value === instance.select.value ? 'true' : 'false');
     if (option.disabled) row.setAttribute('aria-disabled', 'true');
-    row.innerHTML = `<span class="ui-select-option-branch" aria-hidden="true"></span><span class="ui-select-option-label">${escapeHtml(optionLabel(option))}</span><span class="ui-select-option-check" aria-hidden="true">✓</span>`;
+    row.innerHTML = `<span class="ui-select-option-branch" aria-hidden="true"></span><span class="ui-select-option-label">${escapeHtml(optionLabel(option))}</span><span class="ui-select-option-check" aria-hidden="true">${iconSvg('check')}</span>`;
     row.addEventListener('click', () => {
       if (option.disabled) return;
       chooseIndex(instance, index);
