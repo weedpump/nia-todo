@@ -79,6 +79,18 @@ async function run() {
     if (!profileSectionState.hasUserPath || profileSectionState.headingBackground !== 'none' || profileSectionState.avatarRadius === '999px' || !profileSectionState.fieldRowColumns?.includes('128px')) {
       throw new Error(`Settings profile section is not using the tidy standard-card layout: ${JSON.stringify(profileSectionState)}`);
     }
+    await page.setViewportSize({ width: 390, height: 844 });
+    const mobileProfileSpacing = await page.evaluate(() => {
+      const rows = Array.from(document.querySelectorAll('#settings-section-profile .settings-field-row')).map((row) => {
+        const rect = row.getBoundingClientRect();
+        return { label: row.querySelector('.settings-field-label')?.textContent?.trim(), top: rect.top, bottom: rect.bottom };
+      });
+      return rows.slice(0, -1).map((row, index) => ({ from: row.label, to: rows[index + 1].label, gap: rows[index + 1].top - row.bottom }));
+    });
+    if (mobileProfileSpacing.length >= 2 && Math.abs(mobileProfileSpacing[0].gap - mobileProfileSpacing[1].gap) > 1) {
+      throw new Error(`Mobile profile field spacing is uneven: ${JSON.stringify(mobileProfileSpacing)}`);
+    }
+    await page.setViewportSize({ width: 1280, height: 720 });
     await page.locator('#settings-username').waitFor({ state: 'visible' });
     await page.locator('#settings-username').getByText('frontenduser').waitFor({ state: 'visible', timeout: 10000 });
     await page.locator('#settings-display-name-cell button[onclick="editUserDisplayName()"]').click();
