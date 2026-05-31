@@ -219,12 +219,13 @@ async function run() {
     const usedMinimalFallback = await page.evaluate(() => window.__braindumpEnhancedConstraintsFailed === true && window.__braindumpGetUserMediaCalls === 2 && window.__braindumpLastGetUserMediaConstraints?.audio === true);
     if (!usedMinimalFallback) throw new Error('BrainDump should retry Android WebView microphone capture with minimal audio constraints after NotReadableError');
     await page.evaluate(() => document.getElementById('braindump-record')?.click());
-    await page.getByText('Milch kaufen', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
-    await page.getByText('Snoopy Tabletten geben', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
+    await page.locator('.braindump-title-input').first().waitFor({ state: 'visible', timeout: 10000 });
+    await page.waitForFunction(() => Array.from(document.querySelectorAll('.braindump-title-input')).some(input => input.value === 'Milch kaufen'), null, { timeout: 10000 });
+    await page.waitForFunction(() => Array.from(document.querySelectorAll('.braindump-title-input')).some(input => input.value === 'Snoopy Tabletten geben'), null, { timeout: 10000 });
     const groupedByProject = await page.evaluate(() => {
       const groups = Array.from(document.querySelectorAll('.braindump-candidate-group')).map(group => ({
         heading: group.querySelector('.braindump-candidate-group-head span')?.textContent?.trim() || '',
-        titles: Array.from(group.querySelectorAll('.todo-title')).map(title => title.textContent?.trim() || ''),
+        titles: Array.from(group.querySelectorAll('.braindump-title-input')).map(title => title.value?.trim() || ''),
       }));
       return groups;
     });
@@ -232,6 +233,21 @@ async function run() {
       { heading: 'Einkauf', titles: ['Milch kaufen'] },
       { heading: 'Privat', titles: ['Snoopy Tabletten geben', 'Keller aufräumen'] },
     ])) throw new Error(`BrainDump preview should group candidates by project in stable order: ${JSON.stringify(groupedByProject)}`);
+    const quickFixOk = await page.evaluate(() => {
+      const firstCard = document.querySelector('.braindump-candidate-card');
+      const title = firstCard?.querySelector('.braindump-title-input');
+      const kind = firstCard?.querySelector('[data-bd-field="kind"]');
+      if (!title || !kind) return false;
+      title.value = 'Hafermilch kaufen';
+      title.dispatchEvent(new Event('input', { bubbles: true }));
+      kind.value = 'todo';
+      kind.dispatchEvent(new Event('change', { bubbles: true }));
+      const removeButton = Array.from(document.querySelectorAll('.braindump-candidate-card')).find(card => card.querySelector('.braindump-title-input')?.value === 'Keller aufräumen')?.querySelector('[data-bd-action="remove"]');
+      removeButton?.click();
+      const titles = Array.from(document.querySelectorAll('.braindump-title-input')).map(input => input.value);
+      return titles.includes('Hafermilch kaufen') && !titles.includes('Keller aufräumen');
+    });
+    if (!quickFixOk) throw new Error('BrainDump quick-fix controls should edit title/type and remove candidates');
     const acceptReady = await page.evaluate(() => {
       const button = document.getElementById('braindump-create');
       return Boolean(button && !button.disabled && !button.classList.contains('is-muted'));

@@ -5240,12 +5240,49 @@ input[type="color"]::-moz-color-swatch {
 }
 .braindump-modal.is-processing .braindump-candidate-card { animation: none; }
 .braindump-candidate-card input { position:absolute; opacity:0; pointer-events:none; }
-.braindump-candidate-card .todo-body { min-width: 0; }
+.braindump-candidate-card .todo-body { min-width: 0; gap: 6px; }
+.braindump-title-input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-weight: 700;
+  padding: 0;
+  outline: none;
+}
+.braindump-title-input:focus { color: var(--accent); }
+.braindump-quickfix-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) auto auto;
+  gap: 8px;
+  align-items: center;
+  margin-top: 2px;
+}
+.braindump-quickfix-row select {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  border-radius: 10px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  padding: 7px 9px;
+  font-size: 12px;
+}
+.braindump-quickfix-row select:disabled { opacity: .55; }
+.braindump-kind-field { max-width: 130px; }
+.braindump-remove-candidate { width: 34px; height: 34px; flex: 0 0 auto; }
 .braindump-check { flex: 0 0 auto; display:inline-flex; align-items:center; justify-content:center; }
 .braindump-check svg { width: 15px; height: 15px; }
-.braindump-candidate-card:not(:has(input:checked)) { opacity: .68; }
-.braindump-candidate-card:not(:has(input:checked)) .braindump-check { background: transparent; }
+.braindump-candidate-card:not(:has(input[type="checkbox"]:checked)) { opacity: .68; }
+.braindump-candidate-card:not(:has(input[type="checkbox"]:checked)) .braindump-check { background: transparent; }
 .braindump-candidate-card .priority-dot { background: var(--accent); }
+@media (max-width: 640px) {
+  .braindump-quickfix-row { grid-template-columns: 1fr 1fr; }
+  .braindump-kind-field { max-width: none; }
+  .braindump-remove-candidate { justify-self: end; }
+}
 .braindump-create-status { margin-top: 10px; color: var(--text-secondary); font-size: 13px; }
 .braindump-actions {
   align-items: center;
