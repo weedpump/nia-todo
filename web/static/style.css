@@ -6032,7 +6032,10 @@ input[type="color"]::-moz-color-swatch {
 
 /* Entity modals: Project and Workspace */
 .entity-modal-content {
+  display: flex;
+  flex-direction: column;
   max-width: min(760px, 96vw);
+  max-height: min(90vh, 860px);
   padding: 0;
   overflow: hidden;
 }
@@ -6062,6 +6065,10 @@ input[type="color"]::-moz-color-swatch {
 }
 
 .entity-modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   padding: 18px;
   background: color-mix(in srgb, var(--bg-primary) 18%, transparent);
 }
@@ -6077,6 +6084,7 @@ input[type="color"]::-moz-color-swatch {
 }
 
 .entity-modal-actions {
+  flex: 0 0 auto;
   margin: 0;
   padding: 14px 18px 18px;
   border-top: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
@@ -6103,6 +6111,8 @@ input[type="color"]::-moz-color-swatch {
 @media (max-width: 768px) {
   .entity-modal-content {
     max-width: none;
+    max-height: none;
+    height: 100%;
   }
 
   .entity-modal-header {
@@ -6171,15 +6181,16 @@ input[type="color"]::-moz-color-swatch {
 
 @media (max-width: 768px) {
   .entity-modal-content {
-    display: block;
+    display: flex;
+    flex-direction: column;
     min-height: 100%;
-    height: auto;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
+    height: 100%;
+    overflow: hidden;
   }
 
   .entity-modal-body {
-    overflow: visible;
+    min-height: 0;
+    overflow-y: auto;
   }
 
   .entity-modal-body .ui-section-card {
