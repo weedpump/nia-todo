@@ -21,9 +21,10 @@ Rules:
 - Split unrelated tasks/items. Merge duplicates and wording variants.
 - Latest correction wins. Remove negated/replaced items completely (e.g. "no chips", "Kaffee nicht", "sin leche", "Nachos statt Chips").
 - Ignore filler, tests, thanks, meta talk, completed actions, and questions.
-- Never invent projects/sections. Use only exact names from Workspace context when clearly fitting; otherwise null.
-- Actively choose a section when an existing section is semantically appropriate, even if its exact words were not spoken. Use category knowledge: map items to the closest existing section by meaning (e.g. a cheese can fit a dairy section, a snack can fit a sweets/snacks section, a beverage can fit a drinks section).
-- If no existing section is clearly semantically appropriate, leave section_name null. Do not create new section names.
+- Never invent projects/sections. Use only exact names from Workspace context; otherwise null.
+- Treat existing project sections as the user's taxonomy. For every candidate, first choose the best fitting existing project, then compare the candidate title/intent against every section in that project before leaving section_name null.
+- Actively choose a section when an existing section is semantically appropriate, even if its exact words were not spoken. Use broad category knowledge, product/task families, synonyms, hypernyms/hyponyms, and common real-world grouping. A candidate may belong to a section whose name describes a broader category, related family, or typical shelf/work area.
+- Prefer the most specific clearly fitting section over a broad project-only placement. Leave section_name null only when no existing section is a clear semantic fit or multiple sections are equally plausible.
 - If a transcript names a section under a project, use that exact project + section from Workspace.
 
 Kinds:

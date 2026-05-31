@@ -716,16 +716,16 @@ def _format_workspace_context(context: dict | None) -> str:
     projects = (context or {}).get("projects") or []
     if not projects:
         return "Workspace: none. Use project_name=null and section_name=null unless explicitly obvious."
-    lines = ["Workspace: use only these exact project/section names when clearly fitting:"]
+    lines = ["Workspace: use only these exact project/section names. Treat sections as the user's taxonomy and choose the closest clear semantic fit:"]
     for project in projects[:40]:
         label = str(project.get("name") or "")[:80]
-        sections = [str(section)[:60] for section in (project.get("sections") or [])[:8]]
+        sections = [str(section)[:60] for section in (project.get("sections") or [])[:16]]
         if sections:
             label += " | sections: " + ", ".join(sections)
         lines.append(f"- {label}")
     text = "\n".join(lines)
-    if len(text) > 4000:
-        return text[:3990].rstrip() + "\n- ..."
+    if len(text) > 5000:
+        return text[:4990].rstrip() + "\n- ..."
     return text
 
 
