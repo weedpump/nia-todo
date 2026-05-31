@@ -302,6 +302,15 @@ class MainActivity : TauriActivity() {
   }
 
   @Synchronized
+  private fun nativeAudioAmplitude(): Int {
+    return try {
+      nativeAudioRecorder?.maxAmplitude ?: 0
+    } catch (_: Exception) {
+      0
+    }
+  }
+
+  @Synchronized
   private fun stopNativeAudioRecording(): String {
     val recorder = nativeAudioRecorder
     val file = nativeAudioFile
@@ -410,6 +419,11 @@ class MainActivity : TauriActivity() {
     @JavascriptInterface
     fun stopAudioRecording(): String {
       return this@MainActivity.stopNativeAudioRecording()
+    }
+
+    @JavascriptInterface
+    fun audioAmplitude(): Int {
+      return this@MainActivity.nativeAudioAmplitude()
     }
 
     @JavascriptInterface
