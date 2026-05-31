@@ -26,6 +26,9 @@ async function run() {
     await page.locator('#admin-content').waitFor({ state: 'visible', timeout: 10000 });
     const nestedHeaderInputs = await page.locator('.admin-section-header input, .admin-section-header button, .admin-section-header select, .admin-section-header textarea').count();
     if (nestedHeaderInputs !== 0) throw new Error('Admin section header button contains nested interactive controls');
+    await expandSection('#email-config-card');
+    await expandSection('#braindump-config-card');
+    await expandSection('#create-user-card');
     const adminSelectState = await page.evaluate(() => {
       const ids = ['email-smtp-security', 'braindump-llm-provider', 'braindump-system-prompt-mode', 'braindump-stt-provider', 'new-language'];
       return ids.map((id) => {
@@ -40,6 +43,30 @@ async function run() {
     });
     const unhydratedAdminSelects = adminSelectState.filter((item) => !item.hiddenNative || !item.hasTrigger);
     if (unhydratedAdminSelects.length) throw new Error(`Admin selects are not fully hydrated: ${JSON.stringify(adminSelectState)}`);
+    const adminSelectLayout = await page.evaluate(() => {
+      const ids = ['email-smtp-security', 'braindump-llm-provider', 'braindump-system-prompt-mode', 'braindump-stt-provider', 'new-language'];
+      return ids.map((id) => {
+        const wrapper = document.querySelector(`.ui-select[data-select-id="${id}"]`);
+        const trigger = wrapper?.querySelector('.ui-select-trigger');
+        const chevron = wrapper?.querySelector('.ui-select-chevron');
+        const wrapperRect = wrapper?.getBoundingClientRect();
+        const triggerRect = trigger?.getBoundingClientRect();
+        const chevronRect = chevron?.getBoundingClientRect();
+        return {
+          id,
+          wrapperHeight: wrapperRect?.height || 0,
+          triggerHeight: triggerRect?.height || 0,
+          chevronHeight: chevronRect?.height || 0,
+          chevronTopDelta: chevronRect && triggerRect ? Math.abs(chevronRect.top - triggerRect.top) : 999,
+        };
+      });
+    });
+    const brokenAdminSelectLayout = adminSelectLayout.filter((item) => (
+      Math.abs(item.wrapperHeight - item.triggerHeight) > 2
+      || Math.abs(item.chevronHeight - item.triggerHeight) > 2
+      || item.chevronTopDelta > 2
+    ));
+    if (brokenAdminSelectLayout.length) throw new Error(`Admin custom select layout is broken: ${JSON.stringify(adminSelectLayout)}`);
 
     await expandSection('#security-card');
     await page.getByText('Globale 2FA-Pflicht ist deaktiviert').waitFor({ state: 'visible', timeout: 10000 });
