@@ -17,7 +17,8 @@ export function renderTodoItem(t) {
   }
   const dueStr = t.due_date ? formatDate(t.due_date) : '';
   const prioColor = { 1: '#ef4444', 2: '#f59e0b', 3: '#10b981', 4: '#94a3b8' }[t.priority] || '#94a3b8';
-  const hasMeta = dueStr || t.remind_at;
+  const remindStr = t.remind_at ? formatDate(t.remind_at) : '';
+  const hasMeta = dueStr || remindStr;
   const desc = t.description ? truncateWords(t.description, 12) : '';
   const hasDesc = desc && desc.length > 0;
   const idArg = JSON.stringify(t.id);
@@ -32,12 +33,18 @@ export function renderTodoItem(t) {
       <div class="todo-body ${hasMeta || hasDesc ? 'has-meta' : ''}">
         <div class="todo-main">
           <span class="todo-prio priority-dot" title="${escapeHtml(i18nT('todo.priority'))}" style="background:${prioColor}"></span>
-          ${pinned ? `<span class="todo-pin-marker" title="${escapeHtml(i18nT('todo.pinned'))}">${iconSvg('star')}</span>` : ''}
-          <span class="todo-title">${escapeHtml(t.title)}</span>
+          <div class="todo-title-wrap">
+            <span class="todo-title">${escapeHtml(t.title)}</span>
+            <div class="todo-badges">
+              ${pinned ? `<span class="todo-badge pinned" title="${escapeHtml(i18nT('todo.pinned'))}">${iconSvg('star')} ${escapeHtml(i18nT('todo.pinned'))}</span>` : ''}
+              ${t.status === 'in_progress' ? `<span class="todo-badge progress">${iconSvg('flame')} ${escapeHtml(i18nT('todo.status.inProgress'))}</span>` : ''}
+            </div>
+          </div>
         </div>
         ${hasMeta || hasDesc ? `
         <div class="todo-meta-row">
-          ${dueStr ? `<span class="todo-due ${isOverdue ? 'overdue' : dueTone}">${iconSvg('calendar')} ${dueStr}${isOverdue ? ` (${escapeHtml(i18nT('todo.overdue'))})` : ''}</span>` : ''}
+          ${dueStr ? `<span class="todo-meta-chip todo-due ${isOverdue ? 'overdue' : dueTone}">${iconSvg('calendar')} ${dueStr}${isOverdue ? ` (${escapeHtml(i18nT('todo.overdue'))})` : ''}</span>` : ''}
+          ${remindStr ? `<span class="todo-meta-chip todo-reminder">${iconSvg('bell')} ${remindStr}</span>` : ''}
           ${desc ? `<span class="todo-desc-preview">${renderMarkdown(desc)}</span>` : ''}
         </div>
         ` : ''}
