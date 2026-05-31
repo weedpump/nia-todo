@@ -966,5 +966,8 @@
   "settings.section.apiHint": "Manage access for automations and integrations.",
   "settings.section.notifications": "Notifications",
   "settings.section.notificationsHint": "Test browser push and native reminders.",
-  "settings.section.appHint": "Desktop integration, native notifications, and global hotkeys."
+  "settings.section.appHint": "Desktop integration, native notifications, and global hotkeys.",
+  "settings.nav.aria": "Settings sections",
+  "braindump.status.starting": "Starting microphone…",
+  "braindump.hint.starting": "One moment — recording will start automatically."
 }
