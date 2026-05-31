@@ -14,8 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 ### Changed
 - Todo, project, workspace, user settings, admin, topbar, user-menu, and BrainDump surfaces have been visually aligned around calmer cards, consistent icon tiles, improved spacing, responsive mobile layouts, and reusable UI primitives.
 - Todo cards now have a more polished layout with safer description previews, reminder metadata chips, aligned action menus, and smoother swipe gestures with elastic movement, action labels, threshold feedback, and full-width iPad/mobile swiping.
-- BrainDump opens into a voice-first flow that starts recording immediately from the launcher, groups/sorts preview candidates by project, and keeps its modal/action layout aligned with the redesigned UI system.
-- BrainDump preview candidates now include quick-fix controls for editing the title, project, section, type, or removing a suggestion before creating todos.
+- BrainDump opens into a voice-first flow that starts recording immediately from the launcher, groups/sorts preview candidates by project, indents subprojects in quick-fix dropdowns, and keeps its modal/action layout aligned with the redesigned UI system.
+- BrainDump preview candidates now include compact quick-fix controls for editing the title, project, and section before creating todos, using the shared custom dropdown system and an inline icon-only edit action.
 - BrainDump extraction now uses a provider-neutral, language-agnostic ledger contract so capable OpenAI-compatible, Ollama, OpenClaw-agent, or other chat/instruct models apply later corrections/removals before returning final candidates.
 - BrainDump's deterministic shopping safety net now only fills completely empty extractions, preventing regex-derived fallback items from re-adding candidates that a capable LLM correctly removed semantically.
 - Frontend regression coverage now locks the shared dropdown behavior, redesigned modal/layout expectations, mobile todo modal layout, admin/settings selects, BrainDump capture flow, native/mobile todo gestures, and provider-neutral correction handling.
