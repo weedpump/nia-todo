@@ -31,12 +31,14 @@ Implemented:
 - Settings language selector: `#settings-language`
 - Project modal selectors: `#project-display-workspace-id`, `#project-parent-id`
 - Todo card/list status and snooze action menus aligned to shared `.ui-menu` / `.ui-menu-item` styling
+- Admin config/user selects: SMTP security, BrainDump provider/mode selects, and new-user language
+- shared dropdown trigger aligned to the standard input field visual contract
+- shared selected-option checkmark uses the same Lucide `check` icon treatment as the workspace dropdown
 
 Still to inspect/migrate before calling the redesign complete:
 
 - Workspace modal menu-like selectors, if any remain visible
 - Project sharing/member action menus, if exposed as dropdown-like controls
-- Admin user/config dropdowns if included in release scope
 
 ## Non-Negotiables
 
@@ -184,7 +186,7 @@ Add shared CSS only once:
 - `.ui-menu-separator`
 - `.visually-hidden` or equivalent accessible utility if not present
 
-Keep visual values aligned with `docs/design-concept.md`.
+Keep visual values aligned with `docs/design-concept.md`. The closed `.ui-select-trigger` should inherit the standard field look globally (standard radius, `var(--bg-primary)`, normal weight, no component-specific trigger skin) and fill its container height so sibling inputs/selects align on desktop and mobile.
 
 ## Phase 2: Migrate Todo Modal Selects
 

@@ -169,6 +169,7 @@ Use for settings, multi-section configuration, or review flows:
 - Help text should use muted color and `12px` size.
 - Errors use `.settings-field-error` or equivalent danger style.
 - Success messages use `.settings-field-success` or equivalent success style.
+- Empty inline error/success containers must not reserve layout space; hide empty status rows globally instead of patching individual forms.
 
 ## Dropdowns, Selects, and Menus
 
@@ -209,15 +210,16 @@ Do not add component-specific dropdown class families such as `.project-select-*
 
 Closed dropdown trigger:
 
-- height: `40px` desktop, `42px` mobile minimum
-- border radius: `12-13px`
+- fills its field container height (`height: 100%`) with `40px` desktop and `42px` mobile minimums
+- border radius: use the standard field radius (`var(--radius)`) unless the surrounding component explicitly uses a larger field radius everywhere
 - horizontal padding: `12px` left, `38-42px` right when a chevron is present
-- background: same calm card/input language as other form fields
-- border: subtle default border, accent border on hover/focus
+- background: same input field surface as sibling text fields (`var(--bg-primary)` by default)
+- border: same subtle default field border, accent border on hover/focus
 - focus ring: visible accent ring, matching other inputs
-- selected label: `13-14px`, `650-700` weight for short values
+- selected label: `13-14px`, regular field weight unless a specific compact menu pattern requires emphasis
 - icon/color chip, when present: left aligned, `16-20px`, never stretched
 - chevron: right aligned, muted, rotates or changes opacity when open
+- avoid component-specific trigger restyling; if dropdowns and inputs diverge visually, fix the shared primitive or the shared field primitive
 
 Open menu:
 
@@ -238,7 +240,7 @@ Option rows:
 - gap: `8px`
 - label must never overlap icon, badge, checkmark, or chevron
 - long labels truncate with ellipsis unless multiline is explicitly required
-- selected option shows a checkmark or selected state, not only color
+- selected option shows the shared Lucide `check` icon (`iconSvg('check')`) aligned like the workspace dropdown check, not a raw text glyph
 - destructive menu actions use danger color and must be separated from neutral actions
 - disabled options remain visible only when that teaches the user why they cannot pick them; otherwise hide them
 
@@ -314,6 +316,8 @@ These surfaces must use the shared dropdown/menu primitive before the redesign i
 - Todo cards/list: status and snooze popovers should be migrated or aligned to the same `.ui-menu` option-row styling
 - Project sharing/member actions if they expose row-level action menus
 - Admin user/config screens if they are part of the same release scope
+
+When a custom select sits beside standard inputs, the visible trigger must match sibling field height, top/bottom alignment, radius, background, border, and empty-state spacing on both desktop and mobile. Do not solve these as screen-specific overrides.
 
 ### Existing Native Select Handling
 
@@ -415,7 +419,7 @@ For every new UI change:
 
 ## Current Reference Patterns
 
-- User Settings modal: wide settings modal, section nav, section cards, consistent button groups.
+- User Settings modal: wide settings modal, section nav, section cards, consistent button groups; profile content stays inside the standard section-card treatment and should be tidied through internal layout, not by adding a special profile header.
 - Project/Workspace modals: compact entity modal pattern using shared `.ui-section-*` cards, `.ui-field-grid`, and the same title/icon tile sizing as Todo Modal.
 - BrainDump modal: voice-first immediate recording flow.
 - Admin UI: card-based configuration sections and compact admin controls.
