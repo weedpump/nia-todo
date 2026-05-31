@@ -155,7 +155,6 @@ async function run() {
         brainDumpEl && addTodoEl && brainDump && addTodo && style &&
         style.position === 'fixed' &&
         style.display === 'flex' &&
-        Number(style.zIndex) >= 260 &&
         brainDump.width >= 46 && brainDump.height >= 46 &&
         brainDump.right <= addTodo.left - 8 &&
         brainDump.left >= 0 && brainDump.bottom <= window.innerHeight
