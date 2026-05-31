@@ -5,17 +5,20 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.7.0] - 2026-05-31
 
 ### Added
-- Experimental BrainDump voice capture for turning spoken notes into user-confirmed todo candidates, including configurable LLM/STT providers, OpenAI-compatible and Ollama backends, OpenClaw agent selection, desktop/native app recording support, polished admin configuration, global and per-user access controls, robust local-model parsing, and self-hosting documentation.
+- BrainDump voice capture for turning spoken notes into user-confirmed todo candidates, including configurable LLM/STT providers, OpenAI-compatible and Ollama backends, OpenClaw agent selection, desktop/native app recording support, polished admin configuration, global and per-user access controls, robust local-model parsing, and self-hosting documentation.
 - Admins can now edit a user's username from the admin panel, with duplicate/empty validation, safe handling for special characters such as apostrophes, and a confirmation warning that passkeys remain bound to the internal user ID while device-side account labels may still show the old username.
 
 ### Changed
 - Admin UI has been streamlined with collapsible configuration sections, autosaving header switches, responsive user cards, and a dialog-based admin password change flow.
 - HTML fallback text for localized settings UI now defaults to English consistently before translations are applied.
+- Native app login screens are cleaner and more compact: the browser-only app reload action and divider are hidden, and the server-switch area no longer reserves unnecessary empty space.
 
 ### Fixed
+- Android BrainDump recording now falls back to a native `MediaRecorder` bridge when WebView microphone capture fails, including live level feedback, silence auto-stop, lifecycle cleanup, trusted local WebView gating, and recording size/duration guards.
+- Android WebView cache refresh now also handles same-version APK reinstalls, avoiding stale bundled frontend assets during native app updates and testing.
 - Todo modal no longer shows a horizontal scrollbar on desktop due to the hidden pinned-checkbox control overflowing the dialog.
 - User settings now hide the Disable 2FA button reliably when two-factor authentication is inactive, independent of the current UI language.
 
