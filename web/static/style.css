@@ -1043,7 +1043,7 @@ select:focus-visible {
   border-radius: 10px;
 }
 .project-group-todos {
-  padding-left: 16px;
+  padding-left: 0;
 }
 
 .todo-item {
@@ -5047,7 +5047,8 @@ input[type="color"]::-moz-color-swatch {
   margin-bottom: 16px;
 }
 
-.settings-section-icon {
+.settings-section-icon,
+.ui-section-icon {
   width: 38px;
   height: 38px;
   border-radius: 14px;
@@ -5725,8 +5726,8 @@ input[type="color"]::-moz-color-swatch {
 }
 
 .project-group-todos {
-  padding-left: 12px;
-  border-left: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  padding-left: 0;
+  border-left: 0;
 }
 
 .todo-item {
@@ -5914,10 +5915,6 @@ input[type="color"]::-moz-color-swatch {
     margin-top: 1px;
   }
 
-  .todo-actions {
-    display: none;
-  }
-
   .todo-desc-preview {
     max-width: 100%;
   }
@@ -5952,7 +5949,7 @@ input[type="color"]::-moz-color-swatch {
   }
 }
 
-/* Review fixes: settings scroll/close, todo icons, todo dropdowns */
+/* Settings modal desktop shell */
 @media (min-width: 769px) {
   #settings-modal .settings-modal-content {
     display: flex;
@@ -6026,10 +6023,4 @@ input[type="color"]::-moz-color-swatch {
     right: 0;
     left: auto;
   }
-}
-
-/* Dashboard todo groups should not show a side divider */
-.project-group-todos {
-  padding-left: 0;
-  border-left: 0;
 }
