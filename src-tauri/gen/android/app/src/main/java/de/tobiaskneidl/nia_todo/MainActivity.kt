@@ -14,6 +14,7 @@ import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
 import android.os.Looper
+import android.os.SystemClock
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
@@ -48,10 +49,13 @@ class MainActivity : TauriActivity() {
   private val lastWebViewCacheVersionKey = "last_webview_cache_version"
   private val lightSystemBarColor = Color.rgb(248, 250, 252)
   private val darkSystemBarColor = Color.rgb(15, 15, 35)
+  private val maxNativeAudioDurationMs = 120_000
+  private val maxNativeAudioBytes = 8 * 1024 * 1024
   private val notificationIds = AtomicInteger(1000)
   private var appWebView: WebView? = null
   private var nativeAudioRecorder: MediaRecorder? = null
   private var nativeAudioFile: File? = null
+  private var nativeAudioStartedAtMs: Long = 0
   @Volatile private var configuredPasskeyOrigin: String? = null
   private val credentialManager by lazy { CredentialManager.create(this) }
 
@@ -73,6 +77,11 @@ class MainActivity : TauriActivity() {
     super.onNewIntent(intent)
     setIntent(intent)
     persistDoneActionFromIntent(intent)
+  }
+
+  override fun onDestroy() {
+    cleanupNativeAudioRecording()
+    super.onDestroy()
   }
 
   private fun clearStaleWebViewCachesOnVersionChange() {
@@ -151,7 +160,7 @@ class MainActivity : TauriActivity() {
     return canonical
   }
 
-  private fun isTrustedPasskeyWebView(): Boolean {
+  private fun isTrustedLocalWebView(): Boolean {
     val url = appWebView?.url ?: return false
     return try {
       val uri = URI(url)
@@ -162,6 +171,10 @@ class MainActivity : TauriActivity() {
     } catch (_: Exception) {
       false
     }
+  }
+
+  private fun isTrustedPasskeyWebView(): Boolean {
+    return isTrustedLocalWebView()
   }
 
   private fun performViewHapticFeedback(effect: Int): Boolean {
@@ -272,13 +285,25 @@ class MainActivity : TauriActivity() {
   }
 
   @Synchronized
+  private fun cleanupNativeAudioRecording(deleteFile: Boolean = true) {
+    val recorder = nativeAudioRecorder
+    val file = nativeAudioFile
+    nativeAudioRecorder = null
+    nativeAudioFile = null
+    nativeAudioStartedAtMs = 0
+    try { recorder?.release() } catch (_: Exception) {}
+    if (deleteFile) file?.delete()
+  }
+
+  @Synchronized
   private fun startNativeAudioRecording(): String {
     return try {
+      if (!isTrustedLocalWebView()) return JSONObject().put("ok", false).put("error", "Native Aufnahme nur im lokalen App-Kontext verfügbar").toString()
       if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
         requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 7302)
         return JSONObject().put("ok", false).put("error", "Mikrofonberechtigung fehlt").toString()
       }
-      stopNativeAudioRecording()
+      cleanupNativeAudioRecording()
       val file = File.createTempFile("braindump-native-", ".m4a", cacheDir)
       val recorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) MediaRecorder(this) else @Suppress("DEPRECATION") MediaRecorder()
       recorder.setAudioSource(MediaRecorder.AudioSource.MIC)
@@ -286,23 +311,28 @@ class MainActivity : TauriActivity() {
       recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
       recorder.setAudioEncodingBitRate(96_000)
       recorder.setAudioSamplingRate(44_100)
+      recorder.setMaxDuration(maxNativeAudioDurationMs)
       recorder.setOutputFile(file.absolutePath)
       recorder.prepare()
       recorder.start()
       nativeAudioRecorder = recorder
       nativeAudioFile = file
-      JSONObject().put("ok", true).put("mime", "audio/mp4").toString()
+      nativeAudioStartedAtMs = SystemClock.elapsedRealtime()
+      JSONObject()
+        .put("ok", true)
+        .put("mime", "audio/mp4")
+        .put("maxDurationMs", maxNativeAudioDurationMs)
+        .put("maxBytes", maxNativeAudioBytes)
+        .toString()
     } catch (error: Exception) {
-      try { nativeAudioRecorder?.release() } catch (_: Exception) {}
-      nativeAudioRecorder = null
-      nativeAudioFile?.delete()
-      nativeAudioFile = null
+      cleanupNativeAudioRecording()
       JSONObject().put("ok", false).put("error", error.message ?: error.javaClass.simpleName).toString()
     }
   }
 
   @Synchronized
   private fun nativeAudioAmplitude(): Int {
+    if (!isTrustedLocalWebView()) return 0
     return try {
       nativeAudioRecorder?.maxAmplitude ?: 0
     } catch (_: Exception) {
@@ -312,19 +342,29 @@ class MainActivity : TauriActivity() {
 
   @Synchronized
   private fun stopNativeAudioRecording(): String {
+    if (!isTrustedLocalWebView()) return JSONObject().put("ok", false).put("error", "Native Aufnahme nur im lokalen App-Kontext verfügbar").toString()
     val recorder = nativeAudioRecorder
     val file = nativeAudioFile
     nativeAudioRecorder = null
     nativeAudioFile = null
+    val startedAtMs = nativeAudioStartedAtMs
+    nativeAudioStartedAtMs = 0
     if (recorder == null || file == null) return JSONObject().put("ok", false).put("error", "Keine aktive native Aufnahme").toString()
     return try {
       try { recorder.stop() } catch (_: Exception) {}
       recorder.release()
+      val elapsedMs = if (startedAtMs > 0) SystemClock.elapsedRealtime() - startedAtMs else 0
+      val size = file.length()
+      if (size > maxNativeAudioBytes) {
+        file.delete()
+        return JSONObject().put("ok", false).put("error", "Aufnahme ist zu lang").put("size", size).put("maxBytes", maxNativeAudioBytes).toString()
+      }
       val bytes = file.readBytes()
       file.delete()
       JSONObject()
         .put("ok", true)
         .put("mime", "audio/mp4")
+        .put("durationMs", elapsedMs)
         .put("size", bytes.size)
         .put("base64", Base64.encodeToString(bytes, Base64.NO_WRAP))
         .toString()

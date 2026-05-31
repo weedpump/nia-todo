@@ -3,6 +3,7 @@ import { getAuthHeaders, getAuthToken } from '../api/http.js';
 import { escapeHtml, formatDate } from '../core/utils.js';
 import { iconSvg } from '../icons/lucide-icons.js';
 import { t } from '../i18n/index.js';
+import { createNativeBridge } from './native-bridge.js';
 
 const SILENCE_LEVEL = 0.035;
 const SILENCE_STOP_MS = 3200;
@@ -12,6 +13,7 @@ const RECORDER_TIMESLICE_MS = 1000;
 const MIN_AUDIO_CHUNK_BYTES = 96;
 
 export function createBrainDumpLiveDebugFeature() {
+  const nativeBridge = createNativeBridge();
   const state = {
     accessChecked: false,
     enabled: false,
@@ -231,15 +233,7 @@ export function createBrainDumpLiveDebugFeature() {
   }
 
   function hasNativeAudioBridge() {
-    return Boolean(window.NiaAndroidNative?.startAudioRecording && window.NiaAndroidNative?.stopAudioRecording);
-  }
-
-  function hasNativeAudioAmplitudeBridge() {
-    return Boolean(window.NiaAndroidNative?.audioAmplitude);
-  }
-
-  function parseNativeAudioResult(raw) {
-    try { return JSON.parse(String(raw || '{}')); } catch { return { ok: false, error: String(raw || 'Native audio error') }; }
+    return nativeBridge.supportsAudioRecording();
   }
 
   function blobFromBase64(base64, mime) {
@@ -250,7 +244,7 @@ export function createBrainDumpLiveDebugFeature() {
   }
 
   function startNativeAudioRecording() {
-    const result = parseNativeAudioResult(window.NiaAndroidNative.startAudioRecording());
+    const result = nativeBridge.startAudioRecording();
     if (!result.ok) throw new Error(result.error || 'Native audio recording failed');
     state.nativeRecording = true;
     state.recording = true;
@@ -378,7 +372,7 @@ export function createBrainDumpLiveDebugFeature() {
   function updateNativeAudioLevel() {
     if (!state.nativeRecording || !state.recording) return;
     try {
-      const amplitude = hasNativeAudioAmplitudeBridge() ? Number(window.NiaAndroidNative.audioAmplitude() || 0) : 0;
+      const amplitude = Number(nativeBridge.audioAmplitude() || 0);
       const normalized = Math.max(0, Math.min(1, amplitude / 32767));
       state.level = Math.min(1, normalized * 3.2);
       state.peak = Math.max(state.level, state.peak * 0.92);
@@ -449,7 +443,7 @@ export function createBrainDumpLiveDebugFeature() {
 
   function queueNativeAudioRecording() {
     try {
-      const result = parseNativeAudioResult(window.NiaAndroidNative.stopAudioRecording());
+      const result = nativeBridge.stopAudioRecording();
       if (!result.ok) throw new Error(result.error || 'Native audio recording failed');
       const blob = blobFromBase64(result.base64, result.mime || 'audio/mp4');
       if (blob.size < MIN_AUDIO_CHUNK_BYTES) throw new Error(t('braindump.error.noAudio'));
