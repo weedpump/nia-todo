@@ -477,7 +477,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
     <div class="form-row">
       <input type="text" id="new-username" data-i18n-placeholder-key="setup.usernameLabel" placeholder="Username" autocomplete="off" onkeydown="if(event.key==='Enter') document.getElementById('new-display-name').focus()">
       <input type="text" id="new-display-name" data-i18n-placeholder-key="setup.displayNameLabel" placeholder="Display name" onkeydown="if(event.key==='Enter') document.getElementById('new-email').focus()">
-      <input type="email" id="new-email" data-i18n-placeholder-key="settings.profile.email" placeholder="Email" autocomplete="off" onkeydown="if(event.key==='Enter') document.getElementById('new-language').focus()">
+      <input type="email" id="new-email" data-i18n-placeholder-key="settings.profile.email" placeholder="Email" autocomplete="off" onkeydown="if(event.key==='Enter') focusAdminCreateLanguage()">
       <select id="new-language" data-i18n-title-key="admin.user.language" title="Language" onkeydown="if(event.key==='Enter') createUser()">
         <option value="de" data-i18n-key="settings.language.de">German</option>
         <option value="en" data-i18n-key="settings.language.en">English</option>
@@ -1542,6 +1542,12 @@ function renderUsers(users) {
       </td>
     </tr>`;
   }).join('');
+}
+
+function focusAdminCreateLanguage() {
+  const select = document.getElementById('new-language');
+  const trigger = document.querySelector('.ui-select[data-select-id="new-language"] .ui-select-trigger');
+  (trigger || select)?.focus();
 }
 
 async function createUser() {
