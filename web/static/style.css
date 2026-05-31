@@ -2007,6 +2007,8 @@ select:focus-visible {
 .settings-inline-action:hover { background: var(--bg-tertiary); color: var(--text-primary); }
 .settings-field-error { color: var(--danger); font-size: 13px; margin-top: 8px; }
 .settings-field-success { color: var(--success); font-size: 13px; margin-top: 8px; }
+.settings-field-error:empty,
+.settings-field-success:empty { display: none; }
 
 #avatar-crop-modal { z-index: 420; }
 .avatar-crop-modal-content { max-width: 420px; }
