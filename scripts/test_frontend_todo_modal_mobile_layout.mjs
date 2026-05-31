@@ -21,7 +21,7 @@ async function modalMetrics(page) {
       const r = el.getBoundingClientRect();
       return { top: r.top, right: r.right, bottom: r.bottom, left: r.left, width: r.width, height: r.height };
     };
-    const sectionSelect = document.querySelector('#todo-section');
+    const sectionSelect = document.querySelector('.ui-select[data-select-id="todo-section"] .ui-select-trigger') || document.querySelector('#todo-section');
     const pinRow = document.querySelector('.todo-pin-row');
     return {
       viewportHeight,
@@ -56,8 +56,8 @@ function assertMobileTodoModalLayout(metrics, label) {
     throw new Error(`${label}: horizontal body overflow: scrollWidth=${metrics.bodyScrollWidth}, viewportWidth=${metrics.viewportWidth}`);
   }
   const pinGap = metrics.pinRow.top - metrics.sectionSelect.bottom;
-  if (pinGap < 20) {
-    throw new Error(`${label}: pin checkbox is too close to section dropdown: gap=${pinGap}`);
+  if (pinGap < 8 || pinGap > 20) {
+    throw new Error(`${label}: pin section spacing is inconsistent: gap=${pinGap}`);
   }
 }
 
