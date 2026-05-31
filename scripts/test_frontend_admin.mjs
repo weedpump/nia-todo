@@ -26,6 +26,20 @@ async function run() {
     await page.locator('#admin-content').waitFor({ state: 'visible', timeout: 10000 });
     const nestedHeaderInputs = await page.locator('.admin-section-header input, .admin-section-header button, .admin-section-header select, .admin-section-header textarea').count();
     if (nestedHeaderInputs !== 0) throw new Error('Admin section header button contains nested interactive controls');
+    const adminSelectState = await page.evaluate(() => {
+      const ids = ['email-smtp-security', 'braindump-llm-provider', 'braindump-system-prompt-mode', 'braindump-stt-provider', 'new-language'];
+      return ids.map((id) => {
+        const select = document.getElementById(id);
+        const rect = select?.getBoundingClientRect();
+        return {
+          id,
+          hiddenNative: select?.classList.contains('visually-hidden-native-select') && rect && rect.width <= 1,
+          hasTrigger: !!document.querySelector(`.ui-select[data-select-id="${id}"] .ui-select-trigger`),
+        };
+      });
+    });
+    const unhydratedAdminSelects = adminSelectState.filter((item) => !item.hiddenNative || !item.hasTrigger);
+    if (unhydratedAdminSelects.length) throw new Error(`Admin selects are not fully hydrated: ${JSON.stringify(adminSelectState)}`);
 
     await expandSection('#security-card');
     await page.getByText('Globale 2FA-Pflicht ist deaktiviert').waitFor({ state: 'visible', timeout: 10000 });
@@ -85,7 +99,10 @@ async function run() {
     await page.getByRole('button', { name: 'Erstellen & Link erzeugen' }).click();
     await page.getByText('Bitte eine gültige E-Mail-Adresse eingeben').waitFor({ state: 'visible', timeout: 10000 });
     await page.fill('#new-email', 'admincreated@example.invalid');
-    await page.selectOption('#new-language', 'en');
+    await page.locator('.ui-select[data-select-id="new-language"] .ui-select-trigger').click();
+    await page.locator('.ui-select-menu').waitFor({ state: 'visible', timeout: 5000 });
+    await page.locator('.ui-select-option[data-value="en"]').click();
+    await page.locator('.ui-select-menu').waitFor({ state: 'hidden', timeout: 5000 });
     await page.getByRole('button', { name: 'Erstellen & Link erzeugen' }).click();
     await page.getByText(/Benutzer .*admincreated.* erstellt.*Link kopieren und senden/).waitFor({ state: 'visible', timeout: 10000 });
     await page.locator('#create-link-input').waitFor({ state: 'visible', timeout: 10000 });
