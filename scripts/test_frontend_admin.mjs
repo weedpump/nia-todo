@@ -43,30 +43,37 @@ async function run() {
     });
     const unhydratedAdminSelects = adminSelectState.filter((item) => !item.hiddenNative || !item.hasTrigger);
     if (unhydratedAdminSelects.length) throw new Error(`Admin selects are not fully hydrated: ${JSON.stringify(adminSelectState)}`);
-    const adminSelectLayout = await page.evaluate(() => {
-      const ids = ['email-smtp-security', 'braindump-llm-provider', 'braindump-system-prompt-mode', 'braindump-stt-provider', 'new-language'];
-      return ids.map((id) => {
-        const wrapper = document.querySelector(`.ui-select[data-select-id="${id}"]`);
-        const trigger = wrapper?.querySelector('.ui-select-trigger');
-        const chevron = wrapper?.querySelector('.ui-select-chevron');
-        const wrapperRect = wrapper?.getBoundingClientRect();
-        const triggerRect = trigger?.getBoundingClientRect();
-        const chevronRect = chevron?.getBoundingClientRect();
-        return {
-          id,
-          wrapperHeight: wrapperRect?.height || 0,
-          triggerHeight: triggerRect?.height || 0,
-          chevronHeight: chevronRect?.height || 0,
-          chevronTopDelta: chevronRect && triggerRect ? Math.abs(chevronRect.top - triggerRect.top) : 999,
-        };
+    async function assertAdminSelectLayout(context) {
+      const adminSelectLayout = await page.evaluate(() => {
+        const ids = ['email-smtp-security', 'braindump-llm-provider', 'braindump-system-prompt-mode', 'braindump-stt-provider', 'new-language'];
+        return ids.map((id) => {
+          const wrapper = document.querySelector(`.ui-select[data-select-id="${id}"]`);
+          const trigger = wrapper?.querySelector('.ui-select-trigger');
+          const chevron = wrapper?.querySelector('.ui-select-chevron');
+          const wrapperRect = wrapper?.getBoundingClientRect();
+          const triggerRect = trigger?.getBoundingClientRect();
+          const chevronRect = chevron?.getBoundingClientRect();
+          return {
+            id,
+            wrapperHeight: wrapperRect?.height || 0,
+            triggerHeight: triggerRect?.height || 0,
+            chevronHeight: chevronRect?.height || 0,
+            chevronTopDelta: chevronRect && triggerRect ? Math.abs(chevronRect.top - triggerRect.top) : 999,
+          };
+        });
       });
-    });
-    const brokenAdminSelectLayout = adminSelectLayout.filter((item) => (
-      Math.abs(item.wrapperHeight - item.triggerHeight) > 2
-      || Math.abs(item.chevronHeight - item.triggerHeight) > 2
-      || item.chevronTopDelta > 2
-    ));
-    if (brokenAdminSelectLayout.length) throw new Error(`Admin custom select layout is broken: ${JSON.stringify(adminSelectLayout)}`);
+      const brokenAdminSelectLayout = adminSelectLayout.filter((item) => (
+        Math.abs(item.wrapperHeight - item.triggerHeight) > 2
+        || Math.abs(item.chevronHeight - item.triggerHeight) > 2
+        || item.chevronTopDelta > 2
+      ));
+      if (brokenAdminSelectLayout.length) throw new Error(`Admin custom select layout is broken (${context}): ${JSON.stringify(adminSelectLayout)}`);
+    }
+    await assertAdminSelectLayout('desktop');
+    const adminDesktopViewport = page.viewportSize();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await assertAdminSelectLayout('mobile');
+    await page.setViewportSize(adminDesktopViewport || { width: 1280, height: 720 });
 
     await expandSection('#security-card');
     await page.getByText('Globale 2FA-Pflicht ist deaktiviert').waitFor({ state: 'visible', timeout: 10000 });
