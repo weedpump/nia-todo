@@ -2405,11 +2405,10 @@ input[type="color"]::-moz-color-swatch {
 }
 
 .login-native-server-panel {
-  margin-top: 18px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border);
+  margin-top: 14px;
+  padding-top: 0;
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .login-native-server-toggle {
@@ -2438,7 +2437,11 @@ input[type="color"]::-moz-color-swatch {
 .login-native-server-status {
   font-size: 13px;
   color: var(--text-muted);
-  min-height: 18px;
+  min-height: 0;
+}
+
+.login-native-server-status:empty {
+  display: none;
 }
 
 @keyframes boot-spin {
@@ -2781,6 +2784,19 @@ input[type="color"]::-moz-color-swatch {
 
 .login-box > .login-update-refresh:hover {
   opacity: 1;
+}
+
+.native-app .login-box > .login-update-refresh,
+.native-app .login-download-divider {
+  display: none !important;
+}
+
+.native-app .login-resource-links {
+  margin-bottom: 0;
+}
+
+.native-app .login-native-server-panel {
+  margin-top: 14px;
 }
 
 .settings-resource-links {
