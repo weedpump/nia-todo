@@ -588,8 +588,8 @@ This section captures the state before the later selfhost/admin work. It is hist
 
 Current behavior after the selfhost/admin pass:
 
-- Branch: `feature/braindump-v2`.
-- Dev project path: `~/projects/nia-todo-dev`.
+- Development happened on the BrainDump v2 feature branch before it was merged for release.
+- Local development used the standard self-hosted dev instance; no production paths or secrets are required for BrainDump v2.
 - BrainDump is gated twice: global experimental `braindump_enabled` config plus per-user `users.braindump_enabled`.
 - Browser voice UI records audio, sends it to a real STT endpoint first, then sends the returned transcript to LLM extraction as a separate request. Phase labels reflect those actual requests.
 - Backend live path is provider-configurable:
