@@ -1940,20 +1940,26 @@ select:focus-visible {
 
 .settings-profile-card {
   display: grid;
-  grid-template-columns: 76px minmax(0, 1fr);
-  gap: 18px;
-  align-items: flex-start;
+  grid-template-columns: 104px minmax(0, 1fr);
+  gap: 20px;
+  align-items: stretch;
   margin-bottom: 16px;
 }
-.settings-avatar-panel { display: grid; justify-items: center; gap: 8px; }
+.settings-avatar-panel {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 10px;
+  padding: 4px 0;
+}
 .settings-avatar-button {
-  width: 72px;
-  height: 72px;
+  width: 88px;
+  height: 88px;
   border: 1px solid rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.45));
-  border-radius: 999px;
-  background: linear-gradient(135deg, rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.35)), rgba(var(--accent-hover-rgb), calc(var(--accent-intensity) * 0.18)));
+  border-radius: 26px;
+  background: radial-gradient(circle at 30% 24%, rgba(255,255,255,.16), transparent 36%), linear-gradient(135deg, rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.42)), rgba(var(--accent-hover-rgb), calc(var(--accent-intensity) * 0.22)));
   color: var(--text-primary);
-  font-size: 24px;
+  font-size: 28px;
   font-weight: 800;
   cursor: pointer;
   overflow: hidden;
@@ -5402,6 +5408,23 @@ input[type="color"]::-moz-color-swatch {
 
 .settings-profile-section .settings-profile-card {
   margin-bottom: 0;
+}
+
+.settings-profile-section .settings-section-heading {
+  align-items: center;
+  margin: -2px -2px 18px;
+  padding: 12px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 9%, transparent), color-mix(in srgb, var(--bg-primary) 52%, transparent));
+  border: 1px solid color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.settings-profile-section .settings-section-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bg-primary) 34%, transparent);
 }
 
 .settings-subcard,
