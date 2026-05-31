@@ -61,6 +61,24 @@ async function run() {
     }, null, { timeout: 10000 });
     await page.click('#menu-settings-btn');
     await visible('#settings-modal');
+    const profileHeaderState = await page.evaluate(() => {
+      const icon = document.querySelector('#settings-section-profile .settings-section-icon svg');
+      const iconBox = document.querySelector('#settings-section-profile .settings-section-icon');
+      const heading = document.querySelector('#settings-section-profile .settings-section-heading');
+      const avatar = document.querySelector('#settings-section-profile .settings-avatar-button');
+      const iconBoxStyle = iconBox ? getComputedStyle(iconBox) : null;
+      const headingStyle = heading ? getComputedStyle(heading) : null;
+      const avatarStyle = avatar ? getComputedStyle(avatar) : null;
+      return {
+        hasUserPath: Boolean(icon?.querySelector('path')),
+        iconRadius: iconBoxStyle?.borderRadius,
+        headingBackground: headingStyle?.backgroundImage,
+        avatarRadius: avatarStyle?.borderRadius,
+      };
+    });
+    if (!profileHeaderState.hasUserPath || profileHeaderState.iconRadius === '50%' || profileHeaderState.headingBackground === 'none' || profileHeaderState.avatarRadius === '999px') {
+      throw new Error(`Settings profile header did not render the redesigned user treatment: ${JSON.stringify(profileHeaderState)}`);
+    }
     await page.locator('#settings-username').waitFor({ state: 'visible' });
     await page.locator('#settings-username').getByText('frontenduser').waitFor({ state: 'visible', timeout: 10000 });
     await page.locator('#settings-display-name-cell button[onclick="editUserDisplayName()"]').click();
