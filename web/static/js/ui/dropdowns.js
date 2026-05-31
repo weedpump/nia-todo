@@ -71,12 +71,27 @@ function renderMenu(instance) {
 function positionDropdown(trigger, menu) {
   const rect = trigger.getBoundingClientRect();
   const edge = 12;
+  const isMobile = window.matchMedia?.('(max-width: 768px)')?.matches;
+  menu.classList.toggle('is-mobile-sheet', Boolean(isMobile));
+  menu.style.visibility = 'hidden';
+  menu.style.display = 'block';
+
+  if (isMobile) {
+    menu.style.minWidth = '';
+    menu.style.maxWidth = '';
+    menu.style.width = '';
+    menu.style.left = '';
+    menu.style.top = '';
+    menu.style.maxHeight = '';
+    menu.style.visibility = '';
+    menu.classList.remove('opens-above');
+    return;
+  }
+
   const minWidth = rect.width;
   menu.style.minWidth = `${Math.max(minWidth, 160)}px`;
   menu.style.maxWidth = `min(280px, calc(100vw - ${edge * 2}px))`;
   menu.style.maxHeight = `min(320px, calc(100vh - ${edge * 2}px))`;
-  menu.style.visibility = 'hidden';
-  menu.style.display = 'block';
   const menuRect = menu.getBoundingClientRect();
   const width = Math.min(Math.max(menuRect.width, minWidth, 160), window.innerWidth - edge * 2);
   const spaceBelow = window.innerHeight - rect.bottom - edge;
@@ -268,7 +283,6 @@ export function hydrateSelect(select, options = {}) {
   const chevron = document.createElement('span');
   chevron.className = 'ui-select-chevron';
   chevron.setAttribute('aria-hidden', 'true');
-  chevron.textContent = '⌄';
   trigger.append(value, chevron);
 
   const menu = document.createElement('div');
