@@ -84,15 +84,28 @@ async function run() {
     await page.locator('.ui-select-menu').waitFor({ state: 'visible', timeout: 5000 });
     const mobileMenuState = await page.evaluate(() => {
       const menu = document.querySelector('.ui-select-menu');
+      const trigger = document.querySelector('.ui-select[data-select-id="todo-project"] .ui-select-trigger');
       const rect = menu?.getBoundingClientRect();
+      const triggerRect = trigger?.getBoundingClientRect();
       return {
-        hasSheetClass: menu?.classList.contains('is-mobile-sheet') || false,
-        bottomGap: Math.abs(window.innerHeight - rect.bottom),
+        hasPopoverClass: menu?.classList.contains('is-mobile-popover') || false,
+        isSheet: menu?.classList.contains('is-mobile-sheet') || false,
+        top: rect.top,
+        bottom: rect.bottom,
+        left: rect.left,
+        right: rect.right,
+        height: rect.height,
+        triggerBottom: triggerRect.bottom,
+        viewportHeight: window.innerHeight,
+        viewportWidth: window.innerWidth,
         overflow: document.body.scrollWidth > window.innerWidth + 1,
       };
     });
-    if (!mobileMenuState.hasSheetClass) throw new Error('Mobile dropdown did not use sheet placement');
-    if (mobileMenuState.bottomGap > 40) throw new Error(`Mobile sheet is not bottom anchored: ${JSON.stringify(mobileMenuState)}`);
+    if (!mobileMenuState.hasPopoverClass || mobileMenuState.isSheet) throw new Error(`Mobile dropdown did not use anchored popover placement: ${JSON.stringify(mobileMenuState)}`);
+    if (mobileMenuState.top < 8 || mobileMenuState.bottom > mobileMenuState.viewportHeight - 8) throw new Error(`Mobile popover is not viewport-clamped: ${JSON.stringify(mobileMenuState)}`);
+    if (mobileMenuState.left < 8 || mobileMenuState.right > mobileMenuState.viewportWidth - 8) throw new Error(`Mobile popover is not horizontally clamped: ${JSON.stringify(mobileMenuState)}`);
+    if (mobileMenuState.height > 290) throw new Error(`Mobile popover is too tall: ${JSON.stringify(mobileMenuState)}`);
+    if (Math.abs(mobileMenuState.top - mobileMenuState.triggerBottom) > 80 && mobileMenuState.top > mobileMenuState.triggerBottom) throw new Error(`Mobile popover is not field anchored: ${JSON.stringify(mobileMenuState)}`);
     if (mobileMenuState.overflow) throw new Error('Mobile dropdown caused horizontal overflow');
 
     assertNoFrontendErrors();

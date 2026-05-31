@@ -82,36 +82,34 @@ function positionDropdown(trigger, menu) {
   const rect = trigger.getBoundingClientRect();
   const edge = 12;
   const isMobile = window.matchMedia?.('(max-width: 768px)')?.matches;
-  menu.classList.toggle('is-mobile-sheet', Boolean(isMobile));
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+  const minWidth = rect.width;
+  const maxWidth = isMobile ? viewportWidth - edge * 2 : Math.min(280, viewportWidth - edge * 2);
+
+  menu.classList.toggle('is-mobile-popover', Boolean(isMobile));
+  menu.classList.remove('is-mobile-sheet');
   menu.style.visibility = 'hidden';
   menu.style.display = 'block';
-
-  if (isMobile) {
-    menu.style.minWidth = '';
-    menu.style.maxWidth = '';
-    menu.style.width = '';
-    menu.style.left = '';
-    menu.style.top = '';
-    menu.style.maxHeight = '';
-    menu.style.visibility = '';
-    menu.classList.remove('opens-above');
-    return;
-  }
-
-  const minWidth = rect.width;
   menu.style.minWidth = `${Math.max(minWidth, 160)}px`;
-  menu.style.maxWidth = `min(280px, calc(100vw - ${edge * 2}px))`;
-  menu.style.maxHeight = `min(320px, calc(100vh - ${edge * 2}px))`;
+  menu.style.maxWidth = `${maxWidth}px`;
+  menu.style.maxHeight = isMobile ? `min(280px, calc(45vh))` : `min(320px, calc(100vh - ${edge * 2}px))`;
+
   const menuRect = menu.getBoundingClientRect();
-  const width = Math.min(Math.max(menuRect.width, minWidth, 160), window.innerWidth - edge * 2);
-  const spaceBelow = window.innerHeight - rect.bottom - edge;
+  const width = Math.min(Math.max(menuRect.width, minWidth, 160), maxWidth);
+  const spaceBelow = viewportHeight - rect.bottom - edge;
   const spaceAbove = rect.top - edge;
-  const openAbove = spaceBelow < Math.min(menuRect.height, 220) && spaceAbove > spaceBelow;
+  const preferredHeight = Math.min(menuRect.height, isMobile ? Math.min(280, viewportHeight * 0.45) : 320);
+  const openAbove = spaceBelow < Math.min(preferredHeight, 180) && spaceAbove > spaceBelow;
+  const availableHeight = Math.max(120, openAbove ? spaceAbove - 6 : spaceBelow - 6);
+  const height = Math.min(preferredHeight, availableHeight);
   const top = openAbove
-    ? Math.max(edge, rect.top - Math.min(menuRect.height, spaceAbove) - 6)
-    : Math.min(window.innerHeight - edge - Math.min(menuRect.height, spaceBelow), rect.bottom + 6);
-  const left = Math.min(Math.max(edge, rect.left), window.innerWidth - edge - width);
+    ? Math.max(edge, rect.top - height - 6)
+    : Math.min(viewportHeight - edge - height, rect.bottom + 6);
+  const left = Math.min(Math.max(edge, rect.left), viewportWidth - edge - width);
+
   menu.style.width = `${width}px`;
+  menu.style.maxHeight = `${height}px`;
   menu.style.left = `${left}px`;
   menu.style.top = `${Math.max(edge, top)}px`;
   menu.style.visibility = '';
