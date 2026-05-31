@@ -135,7 +135,11 @@ async function run() {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ json: { candidates: [{ title: 'Milch kaufen', kind: 'shopping' }, { title: 'Snoopy Tabletten geben', kind: 'reminder' }] } }),
+        body: JSON.stringify({ json: { candidates: [
+          { title: 'Milch kaufen', project_name: 'Einkauf', kind: 'shopping' },
+          { title: 'Snoopy Tabletten geben', project_name: 'Privat', kind: 'reminder' },
+          { title: 'Keller aufräumen', project_name: 'Privat', kind: 'todo' },
+        ] } }),
       });
     });
 
@@ -217,6 +221,17 @@ async function run() {
     await page.evaluate(() => document.getElementById('braindump-record')?.click());
     await page.getByText('Milch kaufen', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
     await page.getByText('Snoopy Tabletten geben', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
+    const groupedByProject = await page.evaluate(() => {
+      const groups = Array.from(document.querySelectorAll('.braindump-candidate-group')).map(group => ({
+        heading: group.querySelector('.braindump-candidate-group-head span')?.textContent?.trim() || '',
+        titles: Array.from(group.querySelectorAll('.todo-title')).map(title => title.textContent?.trim() || ''),
+      }));
+      return groups;
+    });
+    if (JSON.stringify(groupedByProject) !== JSON.stringify([
+      { heading: 'Einkauf', titles: ['Milch kaufen'] },
+      { heading: 'Privat', titles: ['Snoopy Tabletten geben', 'Keller aufräumen'] },
+    ])) throw new Error(`BrainDump preview should group candidates by project in stable order: ${JSON.stringify(groupedByProject)}`);
     const acceptReady = await page.evaluate(() => {
       const button = document.getElementById('braindump-create');
       return Boolean(button && !button.disabled && !button.classList.contains('is-muted'));
