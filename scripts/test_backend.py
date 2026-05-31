@@ -49,7 +49,7 @@ def service_restart():
     """Restart the dev service."""
     subprocess.run(f"systemctl restart {SERVICE}", shell=True, capture_output=True, check=True)
 
-def service_wait(timeout: int = 10) -> bool:
+def service_wait(timeout: int = 30) -> bool:
     """Wait for service to be ready. Returns True if successful."""
     for _ in range(timeout * 10):
         try:
