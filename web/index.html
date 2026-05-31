@@ -740,92 +740,143 @@
   </div>
   <div class="modal" id="workspace-modal">
     <div class="modal-overlay" onclick="closeWorkspaceModal()"></div>
-    <div class="modal-content small-modal">
-      <h3 id="workspace-modal-title" data-i18n-key="workspace.new">Neuer Workspace</h3>
+    <div class="modal-content entity-modal-content workspace-modal-content">
+      <div class="entity-modal-header">
+        <div class="entity-modal-title-icon" data-icon="briefcase"></div>
+        <div>
+          <h3 id="workspace-modal-title" data-i18n-key="workspace.new">Neuer Workspace</h3>
+          <p data-i18n-key="workspace.modalHint">Organisiere Projekte nach Kontext, Team oder Bereich.</p>
+        </div>
+      </div>
       <button class="modal-close-x" onclick="closeWorkspaceModal()"><span data-icon="x"></span></button>
-      <div class="modal-body">
-        <form id="workspace-form">
+      <div class="modal-body entity-modal-body">
+        <form id="workspace-form" class="entity-modal-form">
           <input type="hidden" id="workspace-id">
-          <div class="form-group">
-            <label data-i18n-key="common.name">Name</label>
-            <input type="text" id="workspace-name" required maxlength="80" placeholder="e.g. Personal, Work" data-i18n-placeholder-key="workspace.namePlaceholder">
-          </div>
-          <div class="form-group">
-            <label data-i18n-key="common.color">Farbe</label>
-            <input type="color" id="workspace-color" value="#6366f1">
-          </div>
-          <div class="form-group">
-            <label data-i18n-key="workspace.icon">Icon (optional)</label>
-            <input type="hidden" id="workspace-icon">
-            <div id="workspace-icon-picker" class="icon-picker" aria-label="Choose workspace icon" data-i18n-aria-label-key="workspace.chooseIcon"></div>
-          </div>
-          <div id="workspace-error" class="settings-field-error"></div>
-          <div class="modal-actions split-actions">
-            <button type="button" class="btn btn-danger" id="workspace-delete-btn" onclick="deleteWorkspaceFromModal()" style="display:none;" data-i18n-key="todo.delete">Delete</button>
-            <div class="modal-actions-right">
-              <button type="button" class="btn btn-secondary" onclick="closeWorkspaceModal()" data-i18n-key="common.cancel">Cancel</button>
-              <button type="submit" class="btn btn-primary" data-i18n-key="common.save">Save</button>
+          <section class="ui-section-card">
+            <div class="ui-section-heading">
+              <div class="ui-section-icon" data-icon="briefcase"></div>
+              <div>
+                <h4 data-i18n-key="workspace.details">Details</h4>
+                <p data-i18n-key="workspace.detailsHint">Name, Farbe und Icon für diesen Workspace.</p>
+              </div>
             </div>
-          </div>
+            <div class="ui-field-grid two-columns">
+              <div class="form-group">
+                <label data-i18n-key="common.name">Name</label>
+                <input type="text" id="workspace-name" required maxlength="80" placeholder="e.g. Personal, Work" data-i18n-placeholder-key="workspace.namePlaceholder">
+              </div>
+              <div class="form-group">
+                <label data-i18n-key="common.color">Farbe</label>
+                <input type="color" id="workspace-color" value="#6366f1">
+              </div>
+            </div>
+            <div class="form-group">
+              <label data-i18n-key="workspace.icon">Icon (optional)</label>
+              <input type="hidden" id="workspace-icon">
+              <div id="workspace-icon-picker" class="icon-picker" aria-label="Choose workspace icon" data-i18n-aria-label-key="workspace.chooseIcon"></div>
+            </div>
+            <div id="workspace-error" class="settings-field-error"></div>
+          </section>
         </form>
+      </div>
+      <div class="modal-actions split-actions entity-modal-actions">
+        <button type="button" class="btn btn-danger" id="workspace-delete-btn" onclick="deleteWorkspaceFromModal()" style="display:none;" data-i18n-key="todo.delete">Delete</button>
+        <div class="modal-actions-right">
+          <button type="button" class="btn btn-secondary" onclick="closeWorkspaceModal()" data-i18n-key="common.cancel">Cancel</button>
+          <button type="submit" form="workspace-form" class="btn btn-primary" data-i18n-key="common.save">Save</button>
+        </div>
       </div>
     </div>
   </div>
 
   <div class="modal" id="project-modal">
     <div class="modal-overlay" onclick="closeModal('project-modal')"></div>
-    <div class="modal-content">
-      <h3 id="project-modal-title" data-i18n-key="project.new">New project</h3>
+    <div class="modal-content entity-modal-content project-modal-content">
+      <div class="entity-modal-header">
+        <div class="entity-modal-title-icon" data-icon="folder"></div>
+        <div>
+          <h3 id="project-modal-title" data-i18n-key="project.new">New project</h3>
+          <p data-i18n-key="project.modalHint">Strukturiere Todos mit Farbe, Icon und optionaler Hierarchie.</p>
+        </div>
+      </div>
       <button class="modal-close-x" onclick="closeModal('project-modal')"><span data-icon="x"></span></button>
-      <div class="modal-body">
-      <form id="project-form">
-        <input type="hidden" id="project-id">
-        <div class="form-group">
-          <label data-i18n-key="common.name">Name</label>
-          <input type="text" id="project-name" required>
-        </div>
-        <div class="form-group">
-          <label data-i18n-key="common.color">Farbe</label>
-          <input type="color" id="project-color" value="#6366f1">
-        </div>
-        <div class="form-group">
-          <label data-i18n-key="project.icon">Icon (optional)</label>
-          <input type="hidden" id="project-icon">
-          <div id="project-icon-picker" class="icon-picker" aria-label="Choose project icon" data-i18n-aria-label-key="project.chooseIcon"></div>
-        </div>
-        <div class="form-group" id="project-display-workspace-group" style="display:none;">
-          <label data-i18n-key="project.displayWorkspace">Anzeigen in Workspace</label>
-          <select id="project-display-workspace-id"></select>
-        </div>
-        <div class="form-group">
-          <label data-i18n-key="project.parent">Parent project (optional)</label>
-          <select id="project-parent-id">
-            <option value="" data-i18n-key="project.noParent">-- No parent project --</option>
-          </select>
-        </div>
-      </form>
-
-      <div id="project-sharing-section" style="display:none; margin-top:16px; padding-top:16px; border-top:1px solid var(--border);">
-        <div id="project-owner-info" class="project-owner-info" style="display:none;"><span class="project-owner-label" data-i18n-key="project.share.ownerLabel">Geteilt von</span><span class="project-owner-name"></span></div>
-        <div id="project-sharing-content">
-          <h4 style="margin:0 0 10px 0;" data-i18n-key="project.share.sharedWith">Geteilt mit</h4>
-          <div id="project-members-list"></div>
-          <div id="project-share-row" class="form-group" style="margin-top:10px;">
-            <label data-i18n-key="project.share.inviteUser">Invite user</label>
-            <div style="display:flex; gap:8px;">
-              <input id="project-share-username" type="text" class="form-control" placeholder="Username or email" data-i18n-placeholder-key="project.share.usernamePlaceholder" style="flex:1;">
-              <button type="button" class="btn btn-primary" onclick="inviteUserToProject()" data-i18n-key="project.share.invite">Einladen</button>
+      <div class="modal-body entity-modal-body">
+        <form id="project-form" class="entity-modal-form">
+          <input type="hidden" id="project-id">
+          <section class="ui-section-card">
+            <div class="ui-section-heading">
+              <div class="ui-section-icon" data-icon="folder"></div>
+              <div>
+                <h4 data-i18n-key="project.details">Details</h4>
+                <p data-i18n-key="project.detailsHint">Name, Farbe und Icon für dieses Projekt.</p>
+              </div>
             </div>
-            <div id="project-share-error" class="form-error"></div>
+            <div class="ui-field-grid two-columns">
+              <div class="form-group">
+                <label data-i18n-key="common.name">Name</label>
+                <input type="text" id="project-name" required>
+              </div>
+              <div class="form-group">
+                <label data-i18n-key="common.color">Farbe</label>
+                <input type="color" id="project-color" value="#6366f1">
+              </div>
+            </div>
+            <div class="form-group">
+              <label data-i18n-key="project.icon">Icon (optional)</label>
+              <input type="hidden" id="project-icon">
+              <div id="project-icon-picker" class="icon-picker" aria-label="Choose project icon" data-i18n-aria-label-key="project.chooseIcon"></div>
+            </div>
+          </section>
+          <section class="ui-section-card">
+            <div class="ui-section-heading">
+              <div class="ui-section-icon" data-icon="layout-dashboard"></div>
+              <div>
+                <h4 data-i18n-key="project.organization">Einordnung</h4>
+                <p data-i18n-key="project.organizationHint">Workspace und Parent-Projekt bestimmen, wo das Projekt erscheint.</p>
+              </div>
+            </div>
+            <div class="ui-field-grid project-organization-grid">
+              <div class="form-group" id="project-display-workspace-group" style="display:none;">
+                <label data-i18n-key="project.displayWorkspace">Anzeigen in Workspace</label>
+                <select id="project-display-workspace-id"></select>
+              </div>
+              <div class="form-group">
+                <label data-i18n-key="project.parent">Parent project (optional)</label>
+                <select id="project-parent-id">
+                  <option value="" data-i18n-key="project.noParent">-- No parent project --</option>
+                </select>
+              </div>
+            </div>
+          </section>
+        </form>
+
+        <section id="project-sharing-section" class="ui-section-card project-sharing-card" style="display:none;">
+          <div class="ui-section-heading">
+            <div class="ui-section-icon" data-icon="share-2"></div>
+            <div>
+              <h4 data-i18n-key="project.share.sharedWith">Geteilt mit</h4>
+              <p data-i18n-key="project.share.hint">Lade andere Nutzer zu diesem Projekt ein oder verwalte bestehende Mitglieder.</p>
+            </div>
           </div>
-        </div>
-        <div id="project-share-start-row" style="margin-top:10px;">
-          <button type="button" class="btn btn-secondary" onclick="showShareInput()"><span data-icon="share-2"></span> <span data-i18n-key="project.share.start">Teilen</span></button>
-        </div>
-        <button type="button" class="btn btn-secondary" id="project-leave-btn" onclick="leaveProjectFromModal()" style="display:none; margin-top:10px;" data-i18n-key="project.share.leave">Leave project</button>
+          <div id="project-owner-info" class="project-owner-info" style="display:none;"><span class="project-owner-label" data-i18n-key="project.share.ownerLabel">Geteilt von</span><span class="project-owner-name"></span></div>
+          <div id="project-sharing-content">
+            <div id="project-members-list"></div>
+            <div id="project-share-row" class="form-group project-share-row">
+              <label data-i18n-key="project.share.inviteUser">Invite user</label>
+              <div class="project-share-inline">
+                <input id="project-share-username" type="text" class="form-control" placeholder="Username or email" data-i18n-placeholder-key="project.share.usernamePlaceholder">
+                <button type="button" class="btn btn-primary" onclick="inviteUserToProject()" data-i18n-key="project.share.invite">Einladen</button>
+              </div>
+              <div id="project-share-error" class="form-error"></div>
+            </div>
+          </div>
+          <div id="project-share-start-row" class="project-share-start-row">
+            <button type="button" class="btn btn-secondary" onclick="showShareInput()"><span data-icon="share-2"></span> <span data-i18n-key="project.share.start">Teilen</span></button>
+          </div>
+          <button type="button" class="btn btn-secondary project-leave-btn" id="project-leave-btn" onclick="leaveProjectFromModal()" style="display:none;" data-i18n-key="project.share.leave">Leave project</button>
+        </section>
       </div>
-      </div>
-      <div class="modal-actions">
+      <div class="modal-actions entity-modal-actions">
         <button type="button" class="btn btn-danger" id="project-delete-btn" onclick="deleteProjectFromModal()" style="margin-right:auto;display:none;"><span data-icon="trash-2"></span> <span data-i18n-key="project.delete">Delete project</span></button>
         <button type="button" class="btn btn-secondary" onclick="closeModal('project-modal')" data-i18n-key="common.cancel">Cancel</button>
         <button type="submit" form="project-form" class="btn btn-primary" id="project-save-btn" data-i18n-key="common.save">Save</button>
