@@ -139,10 +139,13 @@ def test_multilingual_safety_net_extracts_direct_purchase_phrases():
 
 
 def test_multilingual_negated_shopping_cleanup():
-    result = _normalize_braindump_json({"candidates": [{"title": "But coffee", "kind": "shopping"}]}, "We need milk and bread, but not coffee.")
+    result = _normalize_braindump_json({"candidates": []}, "We need milk and bread, but not coffee.")
     titles = [item["title"] for item in result["candidates"]]
     assert_true("Coffee" not in titles and "But not coffee" not in titles, result)
     assert_true("Milk" in titles and "Bread" in titles, result)
+    llm_result = _normalize_braindump_json({"candidates": [{"title": "Milk", "kind": "shopping"}, {"title": "Bread", "kind": "shopping"}]}, "We need milk and bread, but not coffee.")
+    llm_titles = [item["title"] for item in llm_result["candidates"]]
+    assert_true(llm_titles == ["Milk", "Bread"], llm_result)
     compact = _normalize_braindump_json({"candidates": []}, "We need milk not coffee.")
     compact_titles = [item["title"] for item in compact["candidates"]]
     assert_true("Coffee" not in compact_titles and "Milk" in compact_titles, compact)
@@ -185,11 +188,20 @@ def test_replacement_with_statt_removes_old_item():
 
 def test_default_prompt_requires_language_agnostic_correction_handling():
     prompt = DEFAULT_BRAINDUMP_SYSTEM_PROMPT
-    assert_true("language-independently" in prompt, prompt)
+    assert_true("language-independently using semantic meaning, not keyword matching" in prompt, prompt)
     assert_true("system prompt language, UI language, and spoken transcript language may all differ" in prompt, prompt)
+    assert_true("Process the whole transcript chronologically as edits to a temporary ledger/working set" in prompt, prompt)
+    assert_true("Classify each clause by intent" in prompt, prompt)
     assert_true("in any language" in prompt, prompt)
-    assert_true("negates, retracts, deletes, cancels, excludes, or replaces" in prompt, prompt)
-    assert_true("leftover sentence fragments" in prompt, prompt)
+    assert_true("negates, retracts, deletes, cancels, excludes, crosses off, removes, or replaces" in prompt, prompt)
+    assert_true("bare noun fragment followed by a correction/removal clause is not enough" in prompt, prompt)
+    assert_true("Resolve pronouns, ellipsis, and short references" in prompt, prompt)
+    assert_true("ledger entry" in prompt, prompt)
+    assert_true("no longer wants/needs" in prompt, prompt)
+    assert_true("validate every candidate" in prompt, prompt)
+    assert_true("preserve explicit dates/times/reminders" in prompt, prompt)
+    assert_true("Prefer omission over false positives" in prompt, prompt)
+    assert_true("add A, B, C; later remove B; later add D" in prompt, prompt)
 
 
 def test_reminder_kind_copies_deadline_to_reminder():
