@@ -86,7 +86,13 @@ class MainActivity : TauriActivity() {
 
   private fun clearStaleWebViewCachesOnVersionChange() {
     val prefs = getSharedPreferences(nativePrefsName, MODE_PRIVATE)
-    val currentVersion = BuildConfig.VERSION_NAME
+    val packageUpdatedAt = try {
+      @Suppress("DEPRECATION")
+      packageManager.getPackageInfo(packageName, 0).lastUpdateTime
+    } catch (_: Exception) {
+      0L
+    }
+    val currentVersion = "${BuildConfig.VERSION_NAME}:$packageUpdatedAt"
     if (prefs.getString(lastWebViewCacheVersionKey, "") == currentVersion) return
 
     val defaultProfile = File(dataDir, "app_webview/Default")

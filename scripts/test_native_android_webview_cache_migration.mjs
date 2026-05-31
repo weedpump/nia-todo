@@ -8,6 +8,7 @@ const source = fs.readFileSync(mainActivityPath, 'utf8');
 
 assert.match(source, /clearStaleWebViewCachesOnVersionChange\(\)/, 'Android must run WebView cache migration before WebView startup');
 assert.match(source, /BuildConfig\.VERSION_NAME/, 'Android cache migration must be version-gated');
+assert.match(source, /lastUpdateTime/, 'Android cache migration must also account for same-version APK reinstalls');
 assert.match(source, /File\(dataDir, "app_webview\/Default"\)/, 'Android cache migration must target the default WebView profile');
 
 for (const volatileDir of ['Service Worker', 'Cache', 'Code Cache', 'GPUCache']) {
