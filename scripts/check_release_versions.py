@@ -112,9 +112,9 @@ def main() -> int:
         "Cargo.lock app version": cargo_lock_app_version(),
     }
     min_native_client_version = first(
-        r'min_native_client_version\s*=\s*str\(values\.get\("min_native_client_version"\)\s*or\s*"([^"]+)"\)\.strip\(\)\s*or\s*"[^"]+"',
+        r'SOURCE_MIN_NATIVE_CLIENT_VERSION\s*=\s*"([^"]+)"',
         instance_config,
-        "min_native_client_version",
+        "min_native_client_version source floor",
     )
     min_native_migration_version = first(
         r"\('min_native_client_version', '([^']+)'\)",
