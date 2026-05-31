@@ -536,6 +536,7 @@ class BrainDumpTodoCandidate(BaseModel):
 
 class BrainDumpCreateTodosRequest(BaseModel):
     candidates: list[BrainDumpTodoCandidate]
+    workspace_id: int | None = None
 
 
 class BrainDumpExtractRequest(BaseModel):
@@ -543,6 +544,7 @@ class BrainDumpExtractRequest(BaseModel):
     segment_id: int
     audio_start_ms: int = 0
     audio_end_ms: int = 0
+    workspace_id: int | None = None
 
 
 def _run(cmd: list[str]) -> tuple[float, subprocess.CompletedProcess[str]]:
@@ -661,30 +663,74 @@ def _transcribe_remote_whisper(audio: bytes, filename: str, content_type: str, c
 
 
 
-def _accessible_project_rows(db, user_id: int, *, limit: int | None = None):
+def _user_default_workspace_id(db, user_id: int) -> int | None:
+    row = db.execute(
+        "SELECT id FROM workspaces WHERE user_id = ? AND COALESCE(is_default, 0) = 1 ORDER BY id LIMIT 1",
+        (user_id,),
+    ).fetchone()
+    if row:
+        return row["id"]
+    row = db.execute("SELECT id FROM workspaces WHERE user_id = ? ORDER BY id LIMIT 1", (user_id,)).fetchone()
+    return row["id"] if row else None
+
+
+def _ensure_workspace_access(db, user_id: int, workspace_id: int | None) -> int | None:
+    if workspace_id is None:
+        return None
+    row = db.execute("SELECT id FROM workspaces WHERE id = ? AND user_id = ?", (workspace_id, user_id)).fetchone()
+    if not row:
+        raise HTTPException(404, "Workspace not found")
+    return workspace_id
+
+
+def _workspace_inbox_project_id(db, user_id: int, workspace_id: int | None) -> int | None:
+    if workspace_id is None:
+        return get_user_inbox_project_id(db, user_id)
+    row = db.execute(
+        """SELECT id FROM projects
+           WHERE user_id = ? AND workspace_id = ? AND COALESCE(is_inbox, 0) = 1
+           ORDER BY id LIMIT 1""",
+        (user_id, workspace_id),
+    ).fetchone()
+    if row:
+        return row["id"]
+    return get_user_inbox_project_id(db, user_id)
+
+
+def _accessible_project_rows(db, user_id: int, *, workspace_id: int | None = None, limit: int | None = None):
     limit_sql = f"LIMIT {int(limit)}" if limit else ""
+    default_workspace_id = _user_default_workspace_id(db, user_id)
+    params: list[int] = [user_id, default_workspace_id or 0, user_id, user_id, default_workspace_id or 0, user_id]
+    workspace_filter = ""
+    if workspace_id is not None:
+        workspace_filter = "AND CASE WHEN p.user_id = ? THEN p.workspace_id ELSE COALESCE(pm.workspace_id, ?) END = ?"
+        params.extend([user_id, default_workspace_id or 0, workspace_id])
     return db.execute(
         f"""
         SELECT p.id, p.name, COALESCE(p.is_inbox, 0) AS is_inbox,
-               p.parent_id, p.workspace_id, w.name AS workspace_name
+               p.parent_id,
+               CASE WHEN p.user_id = ? THEN p.workspace_id ELSE COALESCE(pm.workspace_id, ?) END AS workspace_id,
+               w.name AS workspace_name
         FROM projects p
-        LEFT JOIN workspaces w ON w.id = p.workspace_id
         LEFT JOIN project_members pm ON pm.project_id = p.id AND pm.user_id = ? AND pm.status = 'accepted'
-        WHERE p.user_id = ? OR pm.id IS NOT NULL
+        LEFT JOIN workspaces w ON w.id = CASE WHEN p.user_id = ? THEN p.workspace_id ELSE COALESCE(pm.workspace_id, ?) END
+        WHERE (p.user_id = ? OR pm.id IS NOT NULL)
+          {workspace_filter}
         ORDER BY COALESCE(p.is_inbox, 0) DESC, p.sort_order, p.id
         {limit_sql}
         """,
-        (user_id, user_id),
+        params,
     ).fetchall()
 
 
-def _load_braindump_workspace_context(db, user_id: int) -> dict:
+def _load_braindump_workspace_context(db, user_id: int, workspace_id: int | None = None) -> dict:
     """Return a compact routing context for the BrainDump LLM.
 
     The extractor must not know hard-coded project names. It gets the user's
     actual structure and may choose exact names from it when the fit is clear.
     """
-    projects = _accessible_project_rows(db, user_id, limit=40)
+    workspace_id = _ensure_workspace_access(db, user_id, workspace_id)
+    projects = _accessible_project_rows(db, user_id, workspace_id=workspace_id, limit=40)
     project_ids = [row["id"] for row in projects]
     sections_by_project: dict[int, list[str]] = {pid: [] for pid in project_ids}
     if project_ids:
@@ -701,7 +747,10 @@ def _load_braindump_workspace_context(db, user_id: int) -> dict:
         ).fetchall()
         for section in sections:
             sections_by_project.setdefault(section["project_id"], []).append(section["name"])
+    workspace_names = [row["workspace_name"] for row in projects if row["workspace_name"]]
     return {
+        "workspace_id": workspace_id,
+        "workspace_name": workspace_names[0] if workspace_id is not None and workspace_names else None,
         "projects": [
             {
                 "name": row["name"],
@@ -716,11 +765,17 @@ def _load_braindump_workspace_context(db, user_id: int) -> dict:
 
 def _format_workspace_context(context: dict | None) -> str:
     projects = (context or {}).get("projects") or []
+    workspace_name = (context or {}).get("workspace_name")
     if not projects:
         return "Workspace: none. Use project_name=null and section_name=null unless explicitly obvious."
-    lines = ["Workspace: use only these exact project/section names. Treat sections as the user's taxonomy and choose the closest clear semantic fit:"]
+    if workspace_name:
+        lines = [f"Current workspace: {str(workspace_name)[:80]}. Use only these exact project/section names from this workspace. Treat sections as the user's taxonomy and choose the closest clear semantic fit:"]
+    else:
+        lines = ["Workspace: use only these exact project/section names. Treat sections as the user's taxonomy and choose the closest clear semantic fit:"]
     for project in projects[:40]:
         label = str(project.get("name") or "")[:80]
+        if not workspace_name and project.get("workspace"):
+            label = f"{str(project.get('workspace'))[:60]} / {label}"
         sections = [str(section)[:60] for section in (project.get("sections") or [])[:16]]
         if sections:
             label += " | sections: " + ", ".join(sections)
@@ -735,20 +790,20 @@ def _name_key(value: str | None) -> str:
     return re.sub(r"\s+", " ", str(value or "").strip()).casefold()
 
 
-def _resolve_project_id(db, user_id: int, project_name: str | None) -> int | None:
+def _resolve_project_id(db, user_id: int, project_name: str | None, workspace_id: int | None = None) -> int | None:
     if not project_name:
-        return get_user_inbox_project_id(db, user_id)
-    rows = _accessible_project_rows(db, user_id)
+        return _workspace_inbox_project_id(db, user_id, workspace_id)
+    rows = _accessible_project_rows(db, user_id, workspace_id=workspace_id)
     matches = [row for row in rows if _name_key(row["name"]) == _name_key(project_name)]
     if len(matches) != 1:
         raise HTTPException(422, f"BrainDump project not found: {project_name}")
     return matches[0]["id"]
 
 
-def _resolve_unique_section_target(db, user_id: int, section_name: str | None) -> tuple[int | None, int | None]:
+def _resolve_unique_section_target(db, user_id: int, section_name: str | None, workspace_id: int | None = None) -> tuple[int | None, int | None]:
     if not section_name:
         return None, None
-    projects = _accessible_project_rows(db, user_id)
+    projects = _accessible_project_rows(db, user_id, workspace_id=workspace_id)
     project_ids = [row["id"] for row in projects]
     if not project_ids:
         return None, None
@@ -775,7 +830,8 @@ def _resolve_section_id(db, project_id: int | None, section_name: str | None) ->
     return matches[0]["id"]
 
 
-def _create_todos_from_braindump_candidates(db, user_id: int, candidates: list[BrainDumpTodoCandidate]) -> list[dict]:
+def _create_todos_from_braindump_candidates(db, user_id: int, candidates: list[BrainDumpTodoCandidate], workspace_id: int | None = None) -> list[dict]:
+    workspace_id = _ensure_workspace_access(db, user_id, workspace_id)
     if not candidates:
         raise HTTPException(422, "No BrainDump candidates selected")
     if len(candidates) > 50:
@@ -792,12 +848,12 @@ def _create_todos_from_braindump_candidates(db, user_id: int, candidates: list[B
         unique_section_project_id = None
         unique_section_id = None
         if section_name:
-            unique_section_project_id, unique_section_id = _resolve_unique_section_target(db, user_id, section_name)
+            unique_section_project_id, unique_section_id = _resolve_unique_section_target(db, user_id, section_name, workspace_id)
         if not project_name and unique_section_project_id:
             project_id = unique_section_project_id
             section_id = unique_section_id
         else:
-            project_id = _resolve_project_id(db, user_id, project_name)
+            project_id = _resolve_project_id(db, user_id, project_name, workspace_id)
             section_id = _resolve_section_id(db, project_id, section_name)
         data = TodoCreate(
             title=title,
@@ -1031,7 +1087,7 @@ async def extract_live_text_segment(data: BrainDumpExtractRequest, user_id: int 
     config = get_braindump_config(include_secrets=True)
     received_at = time.perf_counter()
     with get_db() as db:
-        workspace_context = _load_braindump_workspace_context(db, user_id)
+        workspace_context = _load_braindump_workspace_context(db, user_id, data.workspace_id)
     try:
         llm_ms, parsed, usage, raw_json = await asyncio.to_thread(
             _extract_with_llm, transcript, data.segment_id, workspace_context, config
@@ -1061,6 +1117,7 @@ async def process_live_audio_segment(
     audio_start_ms: int = Query(0),
     audio_end_ms: int = Query(0),
     model: str = Query("base"),
+    workspace_id: int | None = Query(None),
     user_id: int = Depends(require_auth),
 ):
     """Backward-compatible combined live endpoint: transcribe, then extract."""
@@ -1070,7 +1127,7 @@ async def process_live_audio_segment(
     content_type = request.headers.get("content-type", "")
     audio_bytes = await request.body()
     with get_db() as db:
-        workspace_context = _load_braindump_workspace_context(db, user_id)
+        workspace_context = _load_braindump_workspace_context(db, user_id, workspace_id)
     try:
         convert_ms, stt_ms, transcript, stt_provider = await asyncio.to_thread(
             _transcribe_live_audio_bytes, audio_bytes, content_type, segment_id, model, config
@@ -1107,7 +1164,7 @@ async def create_todos_from_braindump(data: BrainDumpCreateTodosRequest, user_id
     """Create real todos from user-confirmed BrainDump candidates."""
     require_braindump_access(user_id)
     with get_db() as db:
-        created = _create_todos_from_braindump_candidates(db, user_id, data.candidates)
+        created = _create_todos_from_braindump_candidates(db, user_id, data.candidates, data.workspace_id)
         db.commit()
     for todo in created:
         await broadcast_change("todo_create", todo, user_id, todo.get("project_id"))

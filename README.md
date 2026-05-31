@@ -205,6 +205,31 @@ sudo journalctl -u nia-todo -f
 
 For production use, configure a correct HTTPS `public_base_url` in the admin panel. Passkeys and native app integrations rely on it. Android passkeys use the bundled app signature through `/.well-known/assetlinks.json`.
 
+## 🔑 Reset the admin password
+
+If you lose the admin password, reset it directly on the server. The tool reads the configured database location automatically.
+
+Debian/systemd installation:
+
+```bash
+sudo nia-todo-admin-password-reset
+sudo systemctl restart nia-todo
+```
+
+Docker Compose installation:
+
+```bash
+docker compose exec nia-todo nia-todo-admin-password-reset
+```
+
+Plain Docker installation:
+
+```bash
+docker exec -it nia-todo nia-todo-admin-password-reset
+```
+
+The password must follow the normal admin password rules. Existing admin sessions are invalidated after the reset.
+
 ## 📚 Documentation
 
 - [API documentation](docs/api.md)

@@ -5,6 +5,18 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [2.8.1] - 2026-05-31
+
+### Added
+- A packaged admin password recovery command is now available for Debian/systemd and Docker installs: `nia-todo-admin-password-reset` resolves the configured SQLite database, validates the new password, updates the admin hash, and invalidates existing admin sessions.
+
+### Fixed
+- Public GitHub source exports now allowlist documentation instead of copying internal docs wholesale, keeping only API docs and README screenshots public.
+- Public GitHub source exports no longer duplicate systemd units at the repository root; package units live only under `packaging/systemd`.
+- BrainDump now uses the currently selected workspace as its routing context, matching the New Todo flow: extraction, candidate quick-fix project lists, inbox fallback, project resolution, and unique-section routing are limited to projects/sections visible in that workspace.
+- BrainDump now includes member-visible shared projects according to the member's display workspace, so shared-project routing follows the user's own workspace organization instead of the owner's workspace.
+- Release-enforced native app compatibility floors now win over older persisted `app_config.min_native_client_version` values, so releases built with `--set-min-app-version` are reflected correctly by `/api/instance` even when production already has an older DB value.
+
 ## [2.8.0] - 2026-05-31
 
 ### Added
