@@ -24,6 +24,7 @@ export function createBrainDumpLiveDebugFeature() {
     renderTimer: null,
     requestTimer: null,
     recording: false,
+    nativeRecording: false,
     processing: false,
     processingPhase: '',
     startedAt: 0,
@@ -229,6 +230,34 @@ export function createBrainDumpLiveDebugFeature() {
     state.hasVoice = false;
   }
 
+  function hasNativeAudioBridge() {
+    return Boolean(window.NiaAndroidNative?.startAudioRecording && window.NiaAndroidNative?.stopAudioRecording);
+  }
+
+  function parseNativeAudioResult(raw) {
+    try { return JSON.parse(String(raw || '{}')); } catch { return { ok: false, error: String(raw || 'Native audio error') }; }
+  }
+
+  function blobFromBase64(base64, mime) {
+    const binary = atob(base64 || '');
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+    return new Blob([bytes], { type: mime || 'audio/mp4' });
+  }
+
+  function startNativeAudioRecording() {
+    const result = parseNativeAudioResult(window.NiaAndroidNative.startAudioRecording());
+    if (!result.ok) throw new Error(result.error || 'Native audio recording failed');
+    state.nativeRecording = true;
+    state.recording = true;
+    state.processing = false;
+    state.processingPhase = '';
+    state.startedAt = performance.now();
+    state.lastVoiceAt = state.startedAt;
+    state.renderTimer = setInterval(render, 120);
+    render();
+  }
+
   async function getMicrophoneStream() {
     const enhancedConstraints = { audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } };
     try {
@@ -245,14 +274,26 @@ export function createBrainDumpLiveDebugFeature() {
 
   async function start() {
     if (state.recording) return;
-    if (!window.MediaRecorder || !navigator.mediaDevices?.getUserMedia) {
+    const canUseWebRecorder = Boolean(window.MediaRecorder && navigator.mediaDevices?.getUserMedia);
+    if (!canUseWebRecorder && !hasNativeAudioBridge()) {
       state.error = t('braindump.error.unsupported');
       render();
       return;
     }
     resetSession();
     try {
-      state.stream = await getMicrophoneStream();
+      if (!canUseWebRecorder) {
+        startNativeAudioRecording();
+        return;
+      }
+      try {
+        state.stream = await getMicrophoneStream();
+      } catch (error) {
+        if (!hasNativeAudioBridge()) throw error;
+        console.warn('[BrainDump] WebView microphone capture failed; using native Android recorder', error);
+        startNativeAudioRecording();
+        return;
+      }
       setupAudioMeter();
       const mimeCandidates = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus', 'audio/ogg'];
       const mimeType = mimeCandidates.find((value) => {
@@ -293,8 +334,13 @@ export function createBrainDumpLiveDebugFeature() {
     state.stoppedAt = performance.now();
     if (state.requestTimer) clearInterval(state.requestTimer);
     state.requestTimer = null;
-    requestRecorderData();
-    try { state.recorder?.stop(); } catch {}
+    if (state.nativeRecording) {
+      queueNativeAudioRecording();
+      cleanupRecordingHandles();
+    } else {
+      requestRecorderData();
+      try { state.recorder?.stop(); } catch {}
+    }
     setTimeout(() => {
       if (!state.audioChunks.length && state.active === 0 && !state.queue.length) {
         state.error = reason === 'auto' ? t('braindump.error.noVoice') : t('braindump.error.noAudio');
@@ -345,6 +391,8 @@ export function createBrainDumpLiveDebugFeature() {
   }
 
   function cleanupRecordingHandles() {
+    state.nativeRecording = false;
+    state.recorder = null;
     state.stream?.getTracks().forEach((track) => track.stop());
     state.stream = null;
     if (state.levelTimer) clearInterval(state.levelTimer);
@@ -373,6 +421,22 @@ export function createBrainDumpLiveDebugFeature() {
     }
   }
 
+  function queueNativeAudioRecording() {
+    try {
+      const result = parseNativeAudioResult(window.NiaAndroidNative.stopAudioRecording());
+      if (!result.ok) throw new Error(result.error || 'Native audio recording failed');
+      const blob = blobFromBase64(result.base64, result.mime || 'audio/mp4');
+      if (blob.size < MIN_AUDIO_CHUNK_BYTES) throw new Error(t('braindump.error.noAudio'));
+      state.audioChunks.push(blob);
+      const audioEndMs = Math.round((state.stoppedAt || performance.now()) - state.startedAt);
+      queueAccumulatedSnapshot(audioEndMs, 'final');
+    } catch (error) {
+      state.error = String(error?.message || error);
+      state.processing = false;
+      state.processingPhase = '';
+    }
+  }
+
   function onChunk(event) {
     const size = event.data?.size || 0;
     if (!event.data || size < MIN_AUDIO_CHUNK_BYTES) return;
@@ -386,7 +450,7 @@ export function createBrainDumpLiveDebugFeature() {
     if (!state.audioChunks.length) return;
     if (!state.stoppedAt && state.audioChunks.length === state.lastSnapshotChunkCount) return;
     state.lastSnapshotChunkCount = state.audioChunks.length;
-    const type = state.recorder?.mimeType || state.audioChunks[0]?.type || 'audio/webm';
+    const type = state.audioChunks[0]?.type || state.recorder?.mimeType || 'audio/webm';
     const blob = new Blob(state.audioChunks, { type });
     const item = {
       segmentId: ++state.segmentId,

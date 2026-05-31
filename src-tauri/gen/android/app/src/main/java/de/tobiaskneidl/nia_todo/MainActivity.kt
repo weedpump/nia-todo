@@ -4,7 +4,9 @@ import android.Manifest
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.media.MediaRecorder
 import android.net.Uri
+import android.util.Base64
 import java.util.Locale
 import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
@@ -48,6 +50,8 @@ class MainActivity : TauriActivity() {
   private val darkSystemBarColor = Color.rgb(15, 15, 35)
   private val notificationIds = AtomicInteger(1000)
   private var appWebView: WebView? = null
+  private var nativeAudioRecorder: MediaRecorder? = null
+  private var nativeAudioFile: File? = null
   @Volatile private var configuredPasskeyOrigin: String? = null
   private val credentialManager by lazy { CredentialManager.create(this) }
 
@@ -267,6 +271,61 @@ class MainActivity : TauriActivity() {
     return "prompt"
   }
 
+  @Synchronized
+  private fun startNativeAudioRecording(): String {
+    return try {
+      if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+        requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 7302)
+        return JSONObject().put("ok", false).put("error", "Mikrofonberechtigung fehlt").toString()
+      }
+      stopNativeAudioRecording()
+      val file = File.createTempFile("braindump-native-", ".m4a", cacheDir)
+      val recorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) MediaRecorder(this) else @Suppress("DEPRECATION") MediaRecorder()
+      recorder.setAudioSource(MediaRecorder.AudioSource.MIC)
+      recorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+      recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+      recorder.setAudioEncodingBitRate(96_000)
+      recorder.setAudioSamplingRate(44_100)
+      recorder.setOutputFile(file.absolutePath)
+      recorder.prepare()
+      recorder.start()
+      nativeAudioRecorder = recorder
+      nativeAudioFile = file
+      JSONObject().put("ok", true).put("mime", "audio/mp4").toString()
+    } catch (error: Exception) {
+      try { nativeAudioRecorder?.release() } catch (_: Exception) {}
+      nativeAudioRecorder = null
+      nativeAudioFile?.delete()
+      nativeAudioFile = null
+      JSONObject().put("ok", false).put("error", error.message ?: error.javaClass.simpleName).toString()
+    }
+  }
+
+  @Synchronized
+  private fun stopNativeAudioRecording(): String {
+    val recorder = nativeAudioRecorder
+    val file = nativeAudioFile
+    nativeAudioRecorder = null
+    nativeAudioFile = null
+    if (recorder == null || file == null) return JSONObject().put("ok", false).put("error", "Keine aktive native Aufnahme").toString()
+    return try {
+      try { recorder.stop() } catch (_: Exception) {}
+      recorder.release()
+      val bytes = file.readBytes()
+      file.delete()
+      JSONObject()
+        .put("ok", true)
+        .put("mime", "audio/mp4")
+        .put("size", bytes.size)
+        .put("base64", Base64.encodeToString(bytes, Base64.NO_WRAP))
+        .toString()
+    } catch (error: Exception) {
+      try { recorder.release() } catch (_: Exception) {}
+      file.delete()
+      JSONObject().put("ok", false).put("error", error.message ?: error.javaClass.simpleName).toString()
+    }
+  }
+
   private fun showNativeNotification(title: String, body: String): Boolean {
     if (notificationPermissionState() != "granted") return false
     ReminderReceiver.createNotificationChannel(this)
@@ -341,6 +400,16 @@ class MainActivity : TauriActivity() {
     @JavascriptInterface
     fun notify(title: String, body: String): Boolean {
       return this@MainActivity.showNativeNotification(title, body)
+    }
+
+    @JavascriptInterface
+    fun startAudioRecording(): String {
+      return this@MainActivity.startNativeAudioRecording()
+    }
+
+    @JavascriptInterface
+    fun stopAudioRecording(): String {
+      return this@MainActivity.stopNativeAudioRecording()
     }
 
     @JavascriptInterface

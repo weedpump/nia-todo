@@ -5,6 +5,7 @@ console.log('🤖 Running Android microphone permission test...');
 const manifest = readFileSync('src-tauri/gen/android/app/src/main/AndroidManifest.xml', 'utf8');
 const buildGradle = readFileSync('src-tauri/gen/android/app/build.gradle.kts', 'utf8');
 const webChromeClient = readFileSync('src-tauri/gen/android/app/src/main/java/de/tobiaskneidl/nia_todo/generated/RustWebChromeClient.kt', 'utf8');
+const mainActivity = readFileSync('src-tauri/gen/android/app/src/main/java/de/tobiaskneidl/nia_todo/MainActivity.kt', 'utf8');
 
 for (const permission of ['android.permission.RECORD_AUDIO']) {
   if (!manifest.includes(`android:name="${permission}"`)) {
@@ -24,4 +25,10 @@ if (webChromeClient.includes('Manifest.permission.MODIFY_AUDIO_SETTINGS')) {
   throw new Error('Tauri WebChromeClient must request RECORD_AUDIO only; MODIFY_AUDIO_SETTINGS makes WebView getUserMedia fail with Permission denied');
 }
 
-console.log('✅ Android microphone permissions present and WebView request patched');
+for (const snippet of ['fun startAudioRecording(): String', 'fun stopAudioRecording(): String', 'MediaRecorder.AudioSource.MIC', 'MediaRecorder.OutputFormat.MPEG_4', 'Base64.NO_WRAP']) {
+  if (!mainActivity.includes(snippet)) {
+    throw new Error(`Missing native Android microphone recorder bridge snippet: ${snippet}`);
+  }
+}
+
+console.log('✅ Android microphone permissions present, WebView request patched, native recorder bridge present');
