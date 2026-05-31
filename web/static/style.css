@@ -5951,3 +5951,79 @@ input[type="color"]::-moz-color-swatch {
     bottom: calc(23px + env(safe-area-inset-bottom, 0px));
   }
 }
+
+/* Review fixes: settings scroll/close, todo icons, todo dropdowns */
+@media (min-width: 769px) {
+  #settings-modal .settings-modal-content {
+    display: flex;
+    flex-direction: column;
+    max-height: min(90vh, 860px);
+  }
+
+  #settings-modal .settings-modal-header,
+  #settings-modal .settings-modal-actions {
+    flex: 0 0 auto;
+  }
+
+  #settings-modal .settings-modal-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  #settings-modal .settings-nav,
+  #settings-modal .settings-sections {
+    max-height: 100%;
+    overflow-y: auto;
+  }
+
+  #settings-modal .modal-close-x {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+.todo-modal-title-icon .ui-icon,
+.ui-section-icon .ui-icon {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+}
+
+.todo-modal-title-icon .ui-icon {
+  width: 22px;
+  height: 22px;
+}
+
+.todo-status-options {
+  display: grid;
+  gap: 4px;
+  min-width: 172px;
+  max-width: min(240px, calc(100vw - 24px));
+}
+
+.todo-snooze-menu .todo-status-options {
+  min-width: 178px;
+}
+
+.todo-status-options button,
+.todo-actions .todo-status-options button {
+  display: flex;
+  width: 100%;
+  min-height: 34px;
+  height: auto;
+  justify-content: flex-start;
+  align-items: center;
+  padding: 8px 10px;
+  white-space: nowrap;
+  line-height: 1.2;
+  text-align: left;
+}
+
+@media (max-width: 768px) {
+  .todo-status-options {
+    right: 0;
+    left: auto;
+  }
+}
