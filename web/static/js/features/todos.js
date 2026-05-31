@@ -801,6 +801,7 @@ export function createTodosFeature({
         const opt = document.createElement('option');
         opt.value = projectNode.id;
         opt.style.color = projectNode.color;
+        opt.dataset.depth = String(depth);
         opt.textContent = indent + projectNode.name;
         projSelect.appendChild(opt);
         if (projectNode.children && projectNode.children.length > 0) {

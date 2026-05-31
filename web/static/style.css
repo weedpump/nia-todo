@@ -1693,21 +1693,18 @@ select:focus-visible {
   justify-content: center;
   color: var(--text-muted);
   pointer-events: none;
+  transition: transform 0.15s ease, color 0.15s ease;
 }
 
-.ui-select-chevron::before {
-  content: "";
-  width: 8px;
-  height: 8px;
-  border-right: 2px solid currentColor;
-  border-bottom: 2px solid currentColor;
-  transform: translateY(-2px) rotate(45deg);
-  transition: transform .15s ease, opacity .15s ease;
+.ui-select-chevron svg {
+  display: block;
+  width: 16px;
+  height: 16px;
 }
 
-.ui-select.is-open .ui-select-chevron::before {
-  transform: translateY(2px) rotate(225deg);
-  opacity: .9;
+.ui-select.is-open .ui-select-chevron {
+  transform: rotate(180deg);
+  color: var(--accent-hover);
 }
 
 .ui-select-menu,
@@ -1734,7 +1731,7 @@ select:focus-visible {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 10px;
+  padding: 8px 10px 8px calc(10px + (var(--ui-select-depth, 0) * 18px));
   border: 0;
   border-radius: 10px;
   background: transparent;
@@ -1764,6 +1761,21 @@ select:focus-visible {
 .ui-menu-item:disabled {
   cursor: not-allowed;
   opacity: .54;
+}
+
+.ui-select-option-branch {
+  display: none;
+  flex: 0 0 auto;
+  width: 12px;
+  height: 10px;
+  border-left: 2px solid color-mix(in srgb, var(--text-muted) 72%, transparent);
+  border-bottom: 2px solid color-mix(in srgb, var(--text-muted) 72%, transparent);
+  border-bottom-left-radius: 3px;
+  transform: translateY(-2px);
+}
+
+.ui-select-option[data-depth]:not([data-depth="0"]) .ui-select-option-branch {
+  display: inline-block;
 }
 
 .ui-select-option-label {
