@@ -64,7 +64,10 @@ const confirmDialogFeature = createConfirmDialogFeature();
 const confirmDanger = confirmDialogFeature.confirmDanger;
 const appDownloadsFeature = createAppDownloadsFeature();
 const openAppDownloadsModal = appDownloadsFeature.openAppDownloadsModal;
-const brainDumpLiveFeature = createBrainDumpLiveFeature();
+const brainDumpLiveFeature = createBrainDumpLiveFeature({
+  getProjects: () => projects,
+  getSections: () => sections,
+});
 const viewPreferences = createViewPreferencesFeature({
   getHideDone: () => hideDone,
   setHideDone: (value) => { hideDone = value; },
