@@ -5240,9 +5240,29 @@ input[type="color"]::-moz-color-swatch {
 }
 .braindump-modal.is-processing .braindump-candidate-card { animation: none; }
 .braindump-candidate-card > input[type="checkbox"] { position:absolute; opacity:0; pointer-events:none; }
-.braindump-candidate-card .todo-body { min-width: 0; gap: 6px; }
-.braindump-card-actions { margin-top: 2px; }
-.braindump-edit-candidate { min-height: 30px; padding: 5px 9px; }
+.braindump-candidate-card .todo-body {
+  min-width: 0;
+  gap: 6px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+.braindump-candidate-card .todo-main,
+.braindump-candidate-card .todo-meta-row,
+.braindump-quickfix-panel { grid-column: 1 / -1; }
+.braindump-edit-candidate {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+}
+.braindump-edit-candidate svg { width: 16px; height: 16px; }
+.braindump-candidate-card.is-editing .braindump-edit-candidate {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 13%, var(--bg-tertiary));
+}
 .braindump-quickfix-panel {
   display: grid;
   grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) minmax(0, 1fr);
@@ -5280,6 +5300,7 @@ input[type="color"]::-moz-color-swatch {
   box-shadow: 0 0 0 3px rgba(var(--accent-rgb), .14);
 }
 .braindump-ui-select { width: 100%; }
+.braindump-ui-select-menu { z-index: 380; }
 .braindump-ui-select .ui-select-trigger { min-height: 38px; }
 .braindump-check { flex: 0 0 auto; display:inline-flex; align-items:center; justify-content:center; }
 .braindump-check svg { width: 15px; height: 15px; }
