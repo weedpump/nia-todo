@@ -1889,8 +1889,10 @@ input[type="color"]::-moz-color-swatch {
     color: var(--accent);
   }
   .search-toggle-btn .ui-icon {
+    display: block;
     width: 17px;
     height: 17px;
+    margin: 0;
   }
   .search-box input {
     position: absolute;
@@ -4425,6 +4427,7 @@ input[type="color"]::-moz-color-swatch {
   position: relative;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 7px;
   min-width: 92px;
   border: 1px solid var(--border);
@@ -4461,7 +4464,7 @@ input[type="color"]::-moz-color-swatch {
   opacity: 0.95;
 }
 
-.today-focus-btn .ui-icon { width: 15px; height: 15px; }
+.today-focus-btn .ui-icon { display: block; width: 15px; height: 15px; margin: 0; }
 
 .quick-add-hint {
   margin-top: 6px;
@@ -5924,8 +5927,10 @@ input[type="color"]::-moz-color-swatch {
 @media (max-width: 768px) {
   .todo-actions {
     display: flex;
-    flex-direction: column;
-    gap: 6px;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 5px;
     margin-left: 2px;
   }
 
