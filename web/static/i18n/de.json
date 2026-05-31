@@ -956,5 +956,15 @@
   "api.error.user.usernameExists": "Benutzername existiert bereits",
   "admin.braindump.provider.ollama": "Ollama API",
   "admin.email.summary": "SMTP",
-  "admin.security.summary": "2FA-Regel"
+  "admin.security.summary": "2FA-Regel",
+  "settings.overview.subtitle": "Profil, Sicherheit, API und App-Verhalten an einem Ort.",
+  "settings.section.profile": "Profil",
+  "settings.section.profileHint": "Avatar, Name und E-Mail-Adresse.",
+  "settings.section.languageHint": "Sprache automatisch übernehmen oder fest setzen.",
+  "settings.section.security": "Sicherheit",
+  "settings.section.securityHint": "Passwort, Zwei-Faktor-Authentifizierung und aktive Geräte.",
+  "settings.section.apiHint": "Zugriff für Automationen und Integrationen verwalten.",
+  "settings.section.notifications": "Benachrichtigungen",
+  "settings.section.notificationsHint": "Browser-Push und native Erinnerungen testen.",
+  "settings.section.appHint": "Desktop-Integration, native Benachrichtigungen und globale Hotkeys."
 }
