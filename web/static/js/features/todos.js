@@ -660,7 +660,7 @@ export function createTodosFeature({
 
       if (active.locked !== 'horizontal') return;
       event.preventDefault();
-      const max = Math.min(130, active.item.clientWidth * 0.45);
+      const max = Math.max(0, active.item.clientWidth);
       const dx = Math.max(-max, Math.min(max, active.dx));
       active.item.style.setProperty('--swipe-x', `${dx}px`);
       active.item.classList.toggle('swipe-right', dx > 0);

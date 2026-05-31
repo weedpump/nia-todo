@@ -6049,6 +6049,13 @@ input[type="color"]::-moz-color-swatch {
   transform: translateY(-1px);
 }
 
+.todo-item.swiping,
+.todo-item.swiping:hover,
+.todo-item.swiping:focus-within {
+  transform: translate3d(var(--swipe-x, 0), 0, 0);
+  transition: none;
+}
+
 .todo-item.done {
   opacity: .58;
   background: color-mix(in srgb, var(--bg-secondary) 84%, var(--bg-primary));
