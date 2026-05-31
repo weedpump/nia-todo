@@ -70,6 +70,29 @@ async function run() {
       if (brokenAdminSelectLayout.length) throw new Error(`Admin custom select layout is broken (${context}): ${JSON.stringify(adminSelectLayout)}`);
     }
     await assertAdminSelectLayout('desktop');
+    const createUserLanguageVisualStyle = await page.evaluate(() => {
+      const email = document.getElementById('new-email');
+      const trigger = document.querySelector('.ui-select[data-select-id="new-language"] .ui-select-trigger');
+      const emailStyle = email ? getComputedStyle(email) : null;
+      const triggerStyle = trigger ? getComputedStyle(trigger) : null;
+      return {
+        emailHeight: email?.getBoundingClientRect().height || 0,
+        triggerHeight: trigger?.getBoundingClientRect().height || 0,
+        emailRadius: emailStyle?.borderRadius,
+        triggerRadius: triggerStyle?.borderRadius,
+        emailBackground: emailStyle?.backgroundColor,
+        triggerBackground: triggerStyle?.backgroundColor,
+        triggerBoxShadow: triggerStyle?.boxShadow,
+      };
+    });
+    if (
+      Math.abs(createUserLanguageVisualStyle.emailHeight - createUserLanguageVisualStyle.triggerHeight) > 1
+      || createUserLanguageVisualStyle.emailRadius !== createUserLanguageVisualStyle.triggerRadius
+      || createUserLanguageVisualStyle.emailBackground !== createUserLanguageVisualStyle.triggerBackground
+      || createUserLanguageVisualStyle.triggerBoxShadow !== 'none'
+    ) {
+      throw new Error(`Create-user language dropdown visual style differs from sibling input: ${JSON.stringify(createUserLanguageVisualStyle)}`);
+    }
     const adminDesktopViewport = page.viewportSize();
     await page.setViewportSize({ width: 390, height: 844 });
     await assertAdminSelectLayout('mobile');
