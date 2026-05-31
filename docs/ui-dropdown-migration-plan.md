@@ -16,11 +16,11 @@ All redesigned user-facing dropdowns and action menus must share one coherent vi
 
 ## Branch and Scope
 
-- Working tree: `~/projects/nia-todo-dev`
-- Branch: `fix/user-settings-ui-redesign`
+- Working tree: project checkout root
+- Branch: implementation branch
 - Source of truth: `docs/design-concept.md`
-- Do not merge to `develop` without Tobi's explicit approval.
-- Do not release from this branch.
+- Merge only after review and explicit approval.
+- Release only from the standard release branch.
 
 ## Current Status
 
