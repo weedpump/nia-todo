@@ -63,7 +63,7 @@ def _clean_title(value: str) -> str:
 def _clean_shopping_title(value: str) -> str:
     value = re.sub(r"\b(kaufen|besorgen|einkaufen|holen|setz(?:e)?|setze|pack(?:e)?|auf(?:\s+die)?(?:\s+einkaufsliste)?|liste|buy|need|needs|get|purchase|comprar|compro|necesito|necesitamos|acheter|achète|il faut|manque)\b", "", value, flags=re.IGNORECASE)
     value = re.sub(r"\b(nicht|not)\b", "", value, flags=re.IGNORECASE)
-    value = re.sub(r"^(wir müssen|ich muss|muss|bitte|noch|also we|we|i|je|nous|yo|but|pero|mais)\s+", "", value.strip(), flags=re.IGNORECASE)
+    value = re.sub(r"^(wir müssen|ich muss|ich brauche|ich benötige|wir brauchen|wir benötigen|brauche|brauchen|benötige|benötigen|muss|bitte|noch|also we|we|i|je|nous|yo|but|pero|mais)\s+", "", value.strip(), flags=re.IGNORECASE)
     value = re.sub(r"^(die|der|das|den|ein|eine|einen|the|el|la|los|las|un|una|unos|unas|le|la|les|du|des|de|de la|de l)\s+", "", value.strip(), flags=re.IGNORECASE)
     return _clean_title(value)
 
@@ -196,6 +196,10 @@ def _negated_items(text: str) -> set[str]:
         item = _clean_shopping_title(match.group(1) or "")
         if item:
             result.add(_item_key(item))
+    for match in re.finditer(r"\b(?:streiche|streich|lösche|loesche|entferne|remove|delete|cross off)\s+(?:bitte\s+)?(?:die|den|das|der|the)?\s*([A-Za-zÀ-ÿÄÖÜäöüß][A-Za-zÀ-ÿÄÖÜäöüß -]{1,40}?)(?:\s+wieder)?(?:[,.;!?]|$)", text, re.IGNORECASE):
+        item = _clean_shopping_title(match.group(1) or "")
+        if item:
+            result.add(_item_key(item))
     for match in NEGATED_ITEM_RE.finditer(text):
         item = _clean_shopping_title(match.group(1) or match.group(2) or match.group(3) or "")
         if item:
@@ -222,10 +226,15 @@ def _is_noise_candidate_title(title: str) -> bool:
     clean = re.sub(r"\s+", " ", str(title or "").strip().lower())
     if _is_filler_only(clean):
         return True
+    if re.search(r"\b(?:streiche|streich|lösche|loesche|entferne|remove|delete|cross off)\b", clean):
+        return True
+    if re.fullmatch(r"(?:und\s+|aber\s+|doch\s+|dafür\s+|dafuer\s+)*(?:brauche|brauchen|benötige|benoetige|need|needs)(?:\s+doch)?", clean):
+        return True
     return bool(re.fullmatch(r"(?:ähm?\s+)?(?:ja\s+)?(?:okay|ok)?\s*(?:danke)?\s*(?:ich\s+)?(?:teste|test)\s+(?:nur\s+)?(?:kurz|mal)?", clean))
 
 
 def _split_shopping_phrase(value: str) -> list[str]:
+    value = re.sub(r"\b(?:streiche|streich|lösche|loesche|entferne|remove|delete|cross off)\s+(?:bitte\s+)?(?:die|den|das|der|the)?\s*[A-Za-zÀ-ÿÄÖÜäöüß][A-Za-zÀ-ÿÄÖÜäöüß -]{1,40}?(?:\s+wieder)?(?:[,.;!?]|$)", "", value, flags=re.IGNORECASE)
     value = re.sub(r"(?:nee|nein)?\s*(?:doch\s+)?keine?n?\s+[A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß -]{1,40}", "", value, flags=re.IGNORECASE)
     value = re.sub(r"\b(?:but|aber|pero|mais)?\s*(?:not|no|sin|pas(?:\s+de)?)\s+[A-Za-zÀ-ÿÄÖÜäöüß][A-Za-zÀ-ÿÄÖÜäöüß -]{1,40}", "", value, flags=re.IGNORECASE)
     value = re.sub(r"\b(ich|wir)\s+(?:brauche|brauchen|bräuchte|bräuchten|benötige|benötigen)\b", "", value, flags=re.IGNORECASE)
@@ -240,7 +249,7 @@ def _split_shopping_phrase(value: str) -> list[str]:
         cleaned = _clean_shopping_title(part)
         if not (1 < len(cleaned) <= 80) or _is_filler_only(cleaned):
             continue
-        if re.search(r"\b(keine|kein|nein|no|not|pas|sin|brauchen|muss|müssen|zahnarzt|morgen|montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag|abend|nachmittag|rechnung|zahlen|bezahlen|marm|mom|weg|lasst|reicht|statt)\b", cleaned, re.IGNORECASE):
+        if re.search(r"\b(keine|kein|nein|no|not|pas|sin|brauche|brauchen|benötige|benoetige|muss|müssen|zahnarzt|morgen|montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag|abend|nachmittag|rechnung|zahlen|bezahlen|marm|mom|weg|lasst|reicht|statt|streiche|streich|lösche|loesche|entferne|remove|delete)\b", cleaned, re.IGNORECASE):
             continue
         result.append(cleaned)
     return result
