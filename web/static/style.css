@@ -1617,6 +1617,181 @@ select:focus-visible {
 .form-group select:focus,
 .form-group textarea:focus { border-color: var(--accent); }
 
+.visually-hidden-native-select {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  margin: -1px !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  clip: rect(0 0 0 0) !important;
+  clip-path: inset(50%) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+/* Shared dropdown/select primitives */
+.ui-select {
+  position: relative;
+  min-width: 0;
+}
+
+.ui-select-trigger {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 40px 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--border) 84%, transparent);
+  border-radius: 13px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--bg-secondary) 94%, var(--bg-primary)), var(--bg-secondary));
+  color: var(--text-primary);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bg-primary) 45%, transparent);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.2;
+  text-align: left;
+  cursor: pointer;
+  outline: none;
+  transition: border-color .15s ease, box-shadow .15s ease, background .15s ease, opacity .15s ease;
+}
+
+.ui-select-trigger:hover {
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--border));
+}
+
+.ui-select-trigger:focus-visible,
+.ui-select.is-open .ui-select-trigger {
+  border-color: color-mix(in srgb, var(--accent) 72%, var(--border));
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.18));
+}
+
+.ui-select.is-disabled .ui-select-trigger {
+  cursor: not-allowed;
+  opacity: .62;
+}
+
+.ui-select-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui-select-chevron {
+  position: absolute;
+  right: 13px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  font-size: 18px;
+  line-height: 1;
+  transition: transform .15s ease, opacity .15s ease;
+  pointer-events: none;
+}
+
+.ui-select.is-open .ui-select-chevron {
+  transform: translateY(-50%) rotate(180deg);
+  opacity: .9;
+}
+
+.ui-select-menu,
+.ui-menu {
+  position: fixed;
+  z-index: 340;
+  padding: 6px;
+  overflow-y: auto;
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border));
+  border-radius: 14px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--bg-secondary) 96%, var(--bg-primary)), var(--bg-secondary));
+  box-shadow: 0 18px 42px rgba(0,0,0,.30), 0 0 0 1px color-mix(in srgb, var(--bg-primary) 28%, transparent);
+}
+
+.ui-select-menu[hidden],
+.ui-menu[hidden] {
+  display: none !important;
+}
+
+.ui-select-option,
+.ui-menu-item {
+  width: 100%;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.25;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ui-select-option:hover,
+.ui-select-option.is-highlighted,
+.ui-menu-item:hover {
+  background: color-mix(in srgb, var(--accent) 13%, var(--bg-tertiary));
+  color: var(--text-primary);
+}
+
+.ui-select-option[aria-selected="true"] {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.ui-select-option:disabled,
+.ui-select-option.is-disabled,
+.ui-menu-item:disabled {
+  cursor: not-allowed;
+  opacity: .54;
+}
+
+.ui-select-option-label {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui-select-option-check {
+  flex: 0 0 auto;
+  opacity: 0;
+  font-weight: 900;
+}
+
+.ui-select-option[aria-selected="true"] .ui-select-option-check {
+  opacity: 1;
+}
+
+.ui-menu-separator {
+  height: 1px;
+  margin: 6px;
+  background: color-mix(in srgb, var(--border) 82%, transparent);
+}
+
+@media (max-width: 768px) {
+  .ui-select-trigger {
+    min-height: 42px;
+    font-size: 16px;
+  }
+
+  .ui-select-option,
+  .ui-menu-item {
+    min-height: 40px;
+    font-size: 14px;
+  }
+}
+
 /* iOS WebKit zooms the page when focusing editable controls below 16px.
    That zooms modals too and reintroduces horizontal scrolling on iPhone. */
 @supports (-webkit-touch-callout: none) {
