@@ -1,5 +1,6 @@
 import { RUNTIME_CAPABILITIES } from '../core/config.js';
 import { getActiveLanguage, t, translatePage } from '../i18n/index.js';
+import { hydrateSelect, refreshSelect } from '../ui/dropdowns.js';
 import { createNativeBridge } from './native-bridge.js';
 
 export function createTodosFeature({
@@ -35,6 +36,20 @@ export function createTodosFeature({
     if (!form) return;
     todoFormBound = true;
     form.addEventListener('submit', saveTodo);
+  }
+
+  function hydrateTodoSelects() {
+    for (const id of ['todo-priority', 'todo-status', 'todo-project', 'todo-section']) {
+      const select = document.getElementById(id);
+      if (!select) continue;
+      hydrateSelect(select);
+      refreshSelect(select);
+    }
+  }
+
+  function refreshTodoSelect(id) {
+    const select = document.getElementById(id);
+    if (select) refreshSelect(select);
   }
 
   function clearDateTimeErrors() {
@@ -756,6 +771,7 @@ export function createTodosFeature({
   async function showTodoModal(todo = null) {
     bindTodoForm();
     bindDateTimeValidation();
+    hydrateTodoSelects();
     document.getElementById('todo-form')?.reset();
     clearDateTimeErrors();
     document.getElementById('todo-id').value = '';
@@ -822,6 +838,7 @@ export function createTodosFeature({
       await onProjectChange(null);
     }
 
+    hydrateTodoSelects();
     document.getElementById('todo-delete-btn').style.display = todo ? '' : 'none';
     setupDescPreview();
     bindQuickAddPreview();
@@ -840,6 +857,7 @@ export function createTodosFeature({
     if (!sectionSelect) return;
     sectionSelect.innerHTML = `<option value="" data-i18n-key="todo.section.none">${t('todo.section.none')}</option>`;
     sectionSelect.disabled = true;
+    refreshTodoSelect('todo-section');
     if (!projectId) return;
 
     const loadLocalSections = async () => {
@@ -878,6 +896,8 @@ export function createTodosFeature({
       if (selectedSectionId !== null) sectionSelect.value = selectedSectionId;
     } catch (e) {
       console.error('Failed to load sections for project', e);
+    } finally {
+      refreshTodoSelect('todo-section');
     }
   }
 
