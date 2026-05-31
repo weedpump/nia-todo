@@ -147,7 +147,7 @@ export function createBrainDumpLiveDebugFeature() {
         <div class="modal-actions braindump-actions">
           <button type="button" class="btn btn-secondary" id="braindump-cancel">${t('common.close')}</button>
           <button type="button" class="btn btn-secondary" id="braindump-retry" hidden>${t('braindump.retry')}</button>
-          <button type="button" class="btn btn-primary" id="braindump-record">${t('braindump.record.start')}</button>
+          <button type="button" class="btn btn-primary" id="braindump-record" hidden>${t('braindump.record.finish')}</button>
           <button type="button" class="btn btn-primary" id="braindump-create" hidden disabled>${t('braindump.create')}</button>
         </div>
       </div>
@@ -200,10 +200,13 @@ export function createBrainDumpLiveDebugFeature() {
     updateStaticLabels();
     document.getElementById('braindump-modal')?.classList.add('active');
     render();
+    if (!state.recording && !state.processing && !state.active && !state.queue.length && !state.creating) {
+      void start();
+    }
   }
 
   async function close() {
-    if (state.recording) await stop('close');
+    if (state.recording) cancelRecording();
     document.getElementById('braindump-modal')?.classList.remove('active');
   }
 
@@ -273,7 +276,7 @@ export function createBrainDumpLiveDebugFeature() {
   }
 
   async function start() {
-    if (state.recording) return;
+    if (state.recording || state.processing || state.active || state.queue.length || state.creating) return;
     const canUseWebRecorder = Boolean(window.MediaRecorder && navigator.mediaDevices?.getUserMedia);
     if (!canUseWebRecorder && !hasNativeAudioBridge()) {
       state.error = t('braindump.error.unsupported');
@@ -324,6 +327,25 @@ export function createBrainDumpLiveDebugFeature() {
       cleanupRecordingHandles();
       render();
     }
+  }
+
+  function cancelRecording() {
+    if (!state.recording) return;
+    state.recording = false;
+    state.processing = false;
+    state.processingPhase = '';
+    if (state.requestTimer) clearInterval(state.requestTimer);
+    state.requestTimer = null;
+    if (state.nativeRecording) {
+      try { nativeBridge.stopAudioRecording(); } catch {}
+    } else {
+      try { state.recorder?.removeEventListener('dataavailable', onChunk); } catch {}
+      try { state.recorder?.removeEventListener('stop', cleanupRecordingHandles); } catch {}
+      try { state.recorder?.stop(); } catch {}
+    }
+    cleanupRecordingHandles();
+    resetSession();
+    render();
   }
 
   async function stop(reason = 'manual') {
@@ -678,8 +700,8 @@ export function createBrainDumpLiveDebugFeature() {
     }
     if (orb) orb.innerHTML = state.processing || state.active ? iconSvg('sparkles') : iconSvg(state.recording ? 'mic' : 'mic');
     if (recordBtn) {
-      recordBtn.hidden = state.processing || state.candidates.length > 0;
-      recordBtn.textContent = state.recording ? t('braindump.record.finish') : t('braindump.record.start');
+      recordBtn.hidden = !state.recording || state.processing || state.candidates.length > 0;
+      recordBtn.textContent = t('braindump.record.finish');
     }
     if (retryBtn) retryBtn.hidden = state.recording || state.processing || (!state.candidates.length && !state.error && !state.transcript);
     if (createBtn) {
