@@ -29,6 +29,34 @@ async function run() {
     });
     if (!hiddenNative) throw new Error('Todo modal native selects are still visible');
 
+    const sharedTriggerStyle = await page.evaluate(() => {
+      const trigger = document.querySelector('.ui-select[data-select-id="todo-priority"] .ui-select-trigger');
+      const style = trigger ? getComputedStyle(trigger) : null;
+      return {
+        radius: style?.borderRadius,
+        expectedRadius: getComputedStyle(document.documentElement).getPropertyValue('--radius').trim(),
+        background: style?.backgroundColor,
+        expectedBackground: (() => {
+          const probe = document.createElement('div');
+          probe.style.background = 'var(--bg-primary)';
+          document.body.appendChild(probe);
+          const value = getComputedStyle(probe).backgroundColor;
+          probe.remove();
+          return value;
+        })(),
+        boxShadow: style?.boxShadow,
+        fontWeight: style?.fontWeight,
+      };
+    });
+    if (
+      sharedTriggerStyle.radius !== sharedTriggerStyle.expectedRadius
+      || sharedTriggerStyle.background !== sharedTriggerStyle.expectedBackground
+      || sharedTriggerStyle.boxShadow !== 'none'
+      || sharedTriggerStyle.fontWeight !== '400'
+    ) {
+      throw new Error(`Shared dropdown trigger style drifted from the standard field primitive: ${JSON.stringify(sharedTriggerStyle)}`);
+    }
+
     const accessibleLabels = await page.evaluate(() => {
       const labels = {};
       for (const id of ['todo-priority', 'todo-status', 'todo-project', 'todo-section']) {
