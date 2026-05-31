@@ -59,12 +59,12 @@ Mobile behavior:
 
 ## Cards and Sections
 
-Use this structure for settings-like areas:
+Use generic UI composition primitives for new card-based areas:
 
 ```html
-<section class="settings-section-card">
-  <div class="settings-section-heading">
-    <div class="settings-section-icon" data-icon="shield"></div>
+<section class="ui-section-card">
+  <div class="ui-section-heading">
+    <div class="ui-section-icon" data-icon="shield"></div>
     <div>
       <h4>Section title</h4>
       <p>Short explanation of what this section controls.</p>
@@ -74,9 +74,13 @@ Use this structure for settings-like areas:
 </section>
 ```
 
+Settings currently use compatible settings-specific aliases (`.settings-section-card`, `.settings-section-heading`, `.settings-section-icon`). Keep them visually aligned with the generic `.ui-section-*` primitives; do not create separate icon-tile sizing or centering rules unless the component genuinely needs a different size.
+
 Guidelines:
 
 - Heading: icon + title + short hint.
+- Put `data-icon` directly on the icon tile (`.ui-section-icon` / `.settings-section-icon`) so the shared icon hydrator owns the SVG markup.
+- Use only icon names available in `web/static/js/icons/lucide-icons.js`; unknown names intentionally fall back to a circle and should be treated as a bug in user-facing UI.
 - Keep hints short; one sentence is enough.
 - Use nested subcards for dense areas such as security, 2FA, or app integrations.
 - Do not mix unrelated controls in the same card.
@@ -160,11 +164,21 @@ Use for settings, multi-section configuration, or review flows:
 
 - Use `.form-group` for label + input/select/textarea.
 - Inputs should be full-width inside their container.
-- Use grid layouts on desktop only when fields are logically parallel.
+- Use `.ui-field-grid` for grouped form fields; add `.two-columns` only when fields are logically parallel on desktop.
 - On mobile, form grids collapse to one column.
 - Help text should use muted color and `12px` size.
 - Errors use `.settings-field-error` or equivalent danger style.
 - Success messages use `.settings-field-success` or equivalent success style.
+
+## Lists and Todo Cards
+
+Todo cards in the main dashboard/list should follow the same calm card language as modals:
+
+- No vertical divider beside grouped todos in the dashboard; project grouping should be expressed through spacing, group headers, and cards.
+- Keep row actions available on mobile because native/gesture tests and wrapper flows rely on them.
+- Use compact badges/chips for pinned, in-progress, due, overdue, and reminder metadata.
+- Status and snooze popovers should use a vertical grid, adequate minimum width, and no text overlap.
+- Preserve existing DOM classes, IDs, and JS handlers unless the JS is updated in the same commit.
 
 ## Navigation
 
@@ -213,7 +227,9 @@ Before considering UI work ready:
 
 For every new UI change:
 
-- Reuse existing `.btn`, `.form-group`, `.modal-*`, and card classes where possible.
+- Reuse existing `.btn`, `.form-group`, `.modal-*`, `.ui-section-*`, `.ui-field-grid`, badge/chip, and card classes where possible.
+- Prefer extending shared primitives over appending component-specific override blocks.
+- If a visual fix applies to more than one component, move it into the shared primitive instead of patching only the current screen.
 - Add i18n keys for all persistent user-facing labels.
 - Avoid inline styles for layout and spacing.
 - Keep JS-bound IDs stable.
