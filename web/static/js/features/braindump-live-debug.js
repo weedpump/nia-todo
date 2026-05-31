@@ -229,6 +229,20 @@ export function createBrainDumpLiveDebugFeature() {
     state.hasVoice = false;
   }
 
+  async function getMicrophoneStream() {
+    const enhancedConstraints = { audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } };
+    try {
+      return await navigator.mediaDevices.getUserMedia(enhancedConstraints);
+    } catch (error) {
+      const message = String(error?.message || error || '').toLowerCase();
+      const name = String(error?.name || '').toLowerCase();
+      const shouldRetryMinimal = name === 'notreadableerror' || message.includes('could not start audio source');
+      if (!shouldRetryMinimal) throw error;
+      console.warn('[BrainDump] enhanced microphone constraints failed; retrying with minimal audio constraints', error);
+      return navigator.mediaDevices.getUserMedia({ audio: true });
+    }
+  }
+
   async function start() {
     if (state.recording) return;
     if (!window.MediaRecorder || !navigator.mediaDevices?.getUserMedia) {
@@ -238,7 +252,7 @@ export function createBrainDumpLiveDebugFeature() {
     }
     resetSession();
     try {
-      state.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+      state.stream = await getMicrophoneStream();
       setupAudioMeter();
       const mimeCandidates = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus', 'audio/ogg'];
       const mimeType = mimeCandidates.find((value) => {

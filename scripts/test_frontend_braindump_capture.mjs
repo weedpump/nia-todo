@@ -59,7 +59,19 @@ async function run() {
       const fakeTrack = { stop() { window.__braindumpTrackStopped = true; } };
       Object.defineProperty(navigator, 'mediaDevices', {
         configurable: true,
-        value: { getUserMedia: async () => ({ getTracks: () => [fakeTrack] }) },
+        value: {
+          getUserMedia: async (constraints) => {
+            window.__braindumpGetUserMediaCalls = (window.__braindumpGetUserMediaCalls || 0) + 1;
+            window.__braindumpLastGetUserMediaConstraints = constraints;
+            if (constraints?.audio && constraints.audio !== true && !window.__braindumpEnhancedConstraintsFailed) {
+              window.__braindumpEnhancedConstraintsFailed = true;
+              const error = new Error('Could not start audio source');
+              error.name = 'NotReadableError';
+              throw error;
+            }
+            return { getTracks: () => [fakeTrack] };
+          },
+        },
       });
       class FakeMediaRecorder extends EventTarget {
         static isTypeSupported(type) { return ['audio/webm;codecs=opus', 'audio/webm'].includes(type); }
@@ -164,6 +176,8 @@ async function run() {
     if (!initialAcceptMuted) throw new Error('BrainDump accept button should start muted and stay in the right action group');
     await page.locator('#braindump-record').click();
     await page.waitForFunction(() => window.__braindumpRecorderTimeslice === 1000, null, { timeout: 5000 });
+    const usedMinimalFallback = await page.evaluate(() => window.__braindumpEnhancedConstraintsFailed === true && window.__braindumpGetUserMediaCalls === 2 && window.__braindumpLastGetUserMediaConstraints?.audio === true);
+    if (!usedMinimalFallback) throw new Error('BrainDump should retry Android WebView microphone capture with minimal audio constraints after NotReadableError');
     await page.locator('#braindump-record').click({ force: true });
     await page.getByText('Milch kaufen', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
     await page.getByText('Snoopy Tabletten geben', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
