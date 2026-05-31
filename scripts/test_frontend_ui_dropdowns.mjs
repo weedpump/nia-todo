@@ -53,8 +53,18 @@ async function run() {
     await page.evaluate(() => document.querySelector('.ui-select[data-select-id="todo-project"] .ui-select-trigger')?.scrollIntoView({ block: 'center' }));
     await projectTrigger.click();
     await page.locator('.ui-select-menu').waitFor({ state: 'visible', timeout: 5000 });
-    const overflow = await page.evaluate(() => document.body.scrollWidth > window.innerWidth + 1);
-    if (overflow) throw new Error('Mobile dropdown caused horizontal overflow');
+    const mobileMenuState = await page.evaluate(() => {
+      const menu = document.querySelector('.ui-select-menu');
+      const rect = menu?.getBoundingClientRect();
+      return {
+        hasSheetClass: menu?.classList.contains('is-mobile-sheet') || false,
+        bottomGap: Math.abs(window.innerHeight - rect.bottom),
+        overflow: document.body.scrollWidth > window.innerWidth + 1,
+      };
+    });
+    if (!mobileMenuState.hasSheetClass) throw new Error('Mobile dropdown did not use sheet placement');
+    if (mobileMenuState.bottomGap > 40) throw new Error(`Mobile sheet is not bottom anchored: ${JSON.stringify(mobileMenuState)}`);
+    if (mobileMenuState.overflow) throw new Error('Mobile dropdown caused horizontal overflow');
 
     assertNoFrontendErrors();
     console.log('✅ Shared UI dropdown primitive test passed');
