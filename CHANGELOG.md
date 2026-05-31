@@ -15,12 +15,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - Todo, project, workspace, user settings, admin, topbar, user-menu, and BrainDump surfaces have been visually aligned around calmer cards, consistent icon tiles, improved spacing, responsive mobile layouts, and reusable UI primitives.
 - Todo cards now have a more polished layout with safer description previews, reminder metadata chips, aligned action menus, and smoother swipe gestures with elastic movement, action labels, threshold feedback, and full-width iPad/mobile swiping.
 - BrainDump opens into a voice-first flow that starts recording immediately from the launcher and keeps its modal/action layout aligned with the redesigned UI system.
-- Frontend regression coverage now locks the shared dropdown behavior, redesigned modal/layout expectations, mobile todo modal layout, admin/settings selects, BrainDump capture flow, and native/mobile todo gestures.
+- BrainDump extraction now uses a provider-neutral, language-agnostic ledger contract so capable OpenAI-compatible, Ollama, OpenClaw-agent, or other chat/instruct models apply later corrections/removals before returning final candidates.
+- BrainDump's deterministic shopping safety net now only fills completely empty extractions, preventing regex-derived fallback items from re-adding candidates that a capable LLM correctly removed semantically.
+- Frontend regression coverage now locks the shared dropdown behavior, redesigned modal/layout expectations, mobile todo modal layout, admin/settings selects, BrainDump capture flow, native/mobile todo gestures, and provider-neutral correction handling.
 
 ### Fixed
 - Mobile todo swipe gestures again move the todo card itself instead of only revealing the background, support full-width swipes on iPad/mobile, and keep action labels visible on narrow screens.
 - Redesigned dropdowns no longer appear as visible browser-default selects in migrated surfaces, avoid modal clipping, preserve existing JS-bound select IDs, and keep German/English labels readable.
 - Project sharing/member management and workspace controls were reviewed for the redesign scope; workspace-specific controls remain intentional custom patterns, while project sharing uses inline actions rather than dropdown-style member menus.
+- BrainDump no longer turns later correction/removal phrases or orphaned sentence fragments into todos when the configured LLM already returned semantic candidates.
 
 ## [2.7.0] - 2026-05-31
 
