@@ -3,6 +3,7 @@ import { getAuthHeaders, getAuthToken } from '../api/http.js';
 import { escapeHtml, escapeHtmlAttr, formatDate } from '../core/utils.js';
 import { iconSvg } from '../icons/lucide-icons.js';
 import { t } from '../i18n/index.js';
+import { hydrateSelect, refreshSelect } from '../ui/dropdowns.js';
 import { createNativeBridge } from './native-bridge.js';
 
 const SILENCE_LEVEL = 0.035;
@@ -55,6 +56,7 @@ export function createBrainDumpLiveFeature(options = {}) {
     initAttempts: 0,
     startToken: 0,
     candidateIdCounter: 0,
+    editingCandidateKey: '',
   };
 
   async function init() {
@@ -179,7 +181,10 @@ export function createBrainDumpLiveFeature(options = {}) {
         return;
       }
       const field = event.target?.closest?.('[data-bd-field]');
-      if (field) updateCandidateField(field);
+      if (field) {
+        updateCandidateField(field);
+        if (field.tagName === 'SELECT') refreshSelect(field);
+      }
     });
     modal.addEventListener('input', (event) => {
       const field = event.target?.closest?.('input[data-bd-field="title"]');
@@ -188,7 +193,7 @@ export function createBrainDumpLiveFeature(options = {}) {
     modal.addEventListener('click', (event) => {
       const action = event.target?.closest?.('[data-bd-action]');
       if (!action) return;
-      if (action.getAttribute('data-bd-action') === 'remove') removeCandidate(action.getAttribute('data-bd-candidate-key'));
+      if (action.getAttribute('data-bd-action') === 'edit') toggleCandidateEditor(action.getAttribute('data-bd-candidate-key'));
     });
   }
 
@@ -689,10 +694,8 @@ export function createBrainDumpLiveFeature(options = {}) {
     if (rerender) render();
   }
 
-  function removeCandidate(key) {
-    if (!key) return;
-    state.candidates = state.candidates.filter(candidate => candidateKey(candidate) !== key);
-    state.selectedCandidateKeys.delete(key);
+  function toggleCandidateEditor(key) {
+    state.editingCandidateKey = state.editingCandidateKey === key ? '' : (key || '');
     state.candidateRenderSignature = '';
     render();
   }
@@ -820,11 +823,20 @@ export function createBrainDumpLiveFeature(options = {}) {
       selected: Array.from(state.selectedCandidateKeys).sort(),
       projectOptions: getProjectOptions().map(project => `${project.id}:${project.name}`).join('|'),
       sectionOptions: (typeof options.getSections === 'function' ? options.getSections() : []).map(section => `${section.project_id}:${section.name}`).join('|'),
+      editing: state.editingCandidateKey,
       language: document.documentElement.lang || '',
     });
     if (signature === state.candidateRenderSignature) return;
     state.candidateRenderSignature = signature;
     container.innerHTML = renderCandidateGroups();
+    hydrateCandidateSelects(container);
+  }
+
+  function hydrateCandidateSelects(container) {
+    container.querySelectorAll('select[data-bd-field]').forEach(select => {
+      hydrateSelect(select, { className: 'braindump-ui-select', menuClassName: 'braindump-ui-select-menu' });
+      refreshSelect(select);
+    });
   }
 
   function getProjectOptions() {
@@ -923,6 +935,7 @@ export function createBrainDumpLiveFeature(options = {}) {
   function renderCandidate(candidate, index) {
     const key = candidateKey(candidate);
     const checked = state.selectedCandidateKeys.has(key) ? 'checked' : '';
+    const isEditing = state.editingCandidateKey === key;
     const checkboxId = `braindump-candidate-${key}`;
     const route = [candidate.project_name, candidate.section_name].filter(Boolean).join(' / ') || t('braindump.route.inbox');
     const due = candidate.deadline ? formatDate(candidate.deadline) : '';
@@ -930,21 +943,38 @@ export function createBrainDumpLiveFeature(options = {}) {
     const kind = candidate.kind || 'todo';
     const meta = [route, due ? t('braindump.meta.due', { date: due }) : '', reminder ? t('braindump.meta.reminder', { date: reminder }) : '', kind !== 'todo' ? t(`braindump.kind.${kind}`) : ''].filter(Boolean).join(' · ');
     return `
-      <div class="braindump-candidate-card todo-item" style="--bd-delay:${Math.min(index, 8) * 55}ms">
+      <div class="braindump-candidate-card todo-item ${isEditing ? 'is-editing' : ''}" style="--bd-delay:${Math.min(index, 8) * 55}ms">
         <input id="${escapeHtmlAttr(checkboxId)}" type="checkbox" data-bd-candidate-key="${escapeHtmlAttr(key)}" ${checked}>
         <label class="todo-check braindump-check" for="${escapeHtmlAttr(checkboxId)}">${checked ? iconSvg('check') : ''}</label>
         <span class="todo-body has-meta">
           <span class="todo-main">
             <span class="todo-prio priority-dot"></span>
-            <input class="braindump-title-input" type="text" value="${escapeHtmlAttr(candidate.title || '')}" data-bd-candidate-key="${escapeHtmlAttr(key)}" data-bd-field="title" aria-label="${escapeHtmlAttr(t('braindump.quickfix.title'))}">
+            <span class="todo-title">${escapeHtml(candidate.title || '')}</span>
           </span>
           <span class="todo-meta-row"><span class="todo-desc-preview">${escapeHtml(meta)}</span></span>
-          <span class="braindump-quickfix-row">
-            <select class="braindump-field" data-bd-candidate-key="${escapeHtmlAttr(key)}" data-bd-field="project_name" aria-label="${escapeHtmlAttr(t('braindump.quickfix.project'))}">${renderProjectOptions(candidate.project_name)}</select>
-            <select class="braindump-field" data-bd-candidate-key="${escapeHtmlAttr(key)}" data-bd-field="section_name" aria-label="${escapeHtmlAttr(t('braindump.quickfix.section'))}" ${candidate.project_name ? '' : 'disabled'}>${renderSectionOptions(candidate)}</select>
-            <select class="braindump-field braindump-kind-field" data-bd-candidate-key="${escapeHtmlAttr(key)}" data-bd-field="kind" aria-label="${escapeHtmlAttr(t('braindump.quickfix.kind'))}">${renderKindOptions(kind)}</select>
-            <button class="btn-icon danger braindump-remove-candidate" type="button" data-bd-action="remove" data-bd-candidate-key="${escapeHtmlAttr(key)}" aria-label="${escapeHtmlAttr(t('braindump.quickfix.remove'))}" title="${escapeHtmlAttr(t('braindump.quickfix.remove'))}">${iconSvg('trash-2')}</button>
+          <span class="braindump-card-actions">
+            <button class="btn btn-secondary btn-sm braindump-edit-candidate" type="button" data-bd-action="edit" data-bd-candidate-key="${escapeHtmlAttr(key)}" aria-expanded="${isEditing ? 'true' : 'false'}">${escapeHtml(t(isEditing ? 'braindump.quickfix.done' : 'braindump.quickfix.edit'))}</button>
           </span>
+          ${isEditing ? `
+            <span class="braindump-quickfix-panel">
+              <label class="braindump-quickfix-field braindump-quickfix-title-field">
+                <span>${escapeHtml(t('braindump.quickfix.title'))}</span>
+                <input class="braindump-title-input" type="text" value="${escapeHtmlAttr(candidate.title || '')}" data-bd-candidate-key="${escapeHtmlAttr(key)}" data-bd-field="title">
+              </label>
+              <label class="braindump-quickfix-field">
+                <span>${escapeHtml(t('braindump.quickfix.project'))}</span>
+                <select data-ui-select class="braindump-field" data-bd-candidate-key="${escapeHtmlAttr(key)}" data-bd-field="project_name">${renderProjectOptions(candidate.project_name)}</select>
+              </label>
+              <label class="braindump-quickfix-field">
+                <span>${escapeHtml(t('braindump.quickfix.section'))}</span>
+                <select data-ui-select class="braindump-field" data-bd-candidate-key="${escapeHtmlAttr(key)}" data-bd-field="section_name" ${candidate.project_name ? '' : 'disabled'}>${renderSectionOptions(candidate)}</select>
+              </label>
+              <label class="braindump-quickfix-field">
+                <span>${escapeHtml(t('braindump.quickfix.kind'))}</span>
+                <select data-ui-select class="braindump-field braindump-kind-field" data-bd-candidate-key="${escapeHtmlAttr(key)}" data-bd-field="kind">${renderKindOptions(kind)}</select>
+              </label>
+            </span>
+          ` : ''}
         </span>
       </div>
     `;

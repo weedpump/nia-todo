@@ -5239,49 +5239,55 @@ input[type="color"]::-moz-color-swatch {
   animation-delay: var(--bd-delay, 0ms);
 }
 .braindump-modal.is-processing .braindump-candidate-card { animation: none; }
-.braindump-candidate-card input { position:absolute; opacity:0; pointer-events:none; }
+.braindump-candidate-card > input[type="checkbox"] { position:absolute; opacity:0; pointer-events:none; }
 .braindump-candidate-card .todo-body { min-width: 0; gap: 6px; }
+.braindump-card-actions { margin-top: 2px; }
+.braindump-edit-candidate { min-height: 30px; padding: 5px 9px; }
+.braindump-quickfix-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) minmax(0, 1fr) minmax(120px, .7fr);
+  gap: 10px;
+  align-items: end;
+  margin-top: 8px;
+  padding-top: 10px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+}
+.braindump-quickfix-field {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 750;
+}
+.braindump-quickfix-title-field { grid-column: span 1; }
 .braindump-title-input {
   width: 100%;
   min-width: 0;
-  border: 0;
-  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bg-secondary) 88%, transparent);
   color: var(--text-primary);
   font: inherit;
+  font-size: 13px;
   font-weight: 700;
-  padding: 0;
+  padding: 9px 10px;
   outline: none;
 }
-.braindump-title-input:focus { color: var(--accent); }
-.braindump-quickfix-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) auto auto;
-  gap: 8px;
-  align-items: center;
-  margin-top: 2px;
+.braindump-title-input:focus {
+  border-color: color-mix(in srgb, var(--accent) 62%, var(--border));
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), .14);
 }
-.braindump-quickfix-row select {
-  width: 100%;
-  min-width: 0;
-  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
-  border-radius: 10px;
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  padding: 7px 9px;
-  font-size: 12px;
-}
-.braindump-quickfix-row select:disabled { opacity: .55; }
-.braindump-kind-field { max-width: 130px; }
-.braindump-remove-candidate { width: 34px; height: 34px; flex: 0 0 auto; }
+.braindump-ui-select { width: 100%; }
+.braindump-ui-select .ui-select-trigger { min-height: 38px; }
 .braindump-check { flex: 0 0 auto; display:inline-flex; align-items:center; justify-content:center; }
 .braindump-check svg { width: 15px; height: 15px; }
 .braindump-candidate-card:not(:has(input[type="checkbox"]:checked)) { opacity: .68; }
 .braindump-candidate-card:not(:has(input[type="checkbox"]:checked)) .braindump-check { background: transparent; }
 .braindump-candidate-card .priority-dot { background: var(--accent); }
-@media (max-width: 640px) {
-  .braindump-quickfix-row { grid-template-columns: 1fr 1fr; }
-  .braindump-kind-field { max-width: none; }
-  .braindump-remove-candidate { justify-self: end; }
+@media (max-width: 760px) {
+  .braindump-quickfix-panel { grid-template-columns: 1fr; }
 }
 .braindump-create-status { margin-top: 10px; color: var(--text-secondary); font-size: 13px; }
 .braindump-actions {

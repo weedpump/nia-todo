@@ -219,13 +219,13 @@ async function run() {
     const usedMinimalFallback = await page.evaluate(() => window.__braindumpEnhancedConstraintsFailed === true && window.__braindumpGetUserMediaCalls === 2 && window.__braindumpLastGetUserMediaConstraints?.audio === true);
     if (!usedMinimalFallback) throw new Error('BrainDump should retry Android WebView microphone capture with minimal audio constraints after NotReadableError');
     await page.evaluate(() => document.getElementById('braindump-record')?.click());
-    await page.locator('.braindump-title-input').first().waitFor({ state: 'visible', timeout: 10000 });
-    await page.waitForFunction(() => Array.from(document.querySelectorAll('.braindump-title-input')).some(input => input.value === 'Milch kaufen'), null, { timeout: 10000 });
-    await page.waitForFunction(() => Array.from(document.querySelectorAll('.braindump-title-input')).some(input => input.value === 'Snoopy Tabletten geben'), null, { timeout: 10000 });
+    await page.locator('.braindump-candidate-card').first().waitFor({ state: 'visible', timeout: 10000 });
+    await page.waitForFunction(() => Array.from(document.querySelectorAll('.todo-title')).some(input => input.textContent?.trim() === 'Milch kaufen'), null, { timeout: 10000 });
+    await page.waitForFunction(() => Array.from(document.querySelectorAll('.todo-title')).some(input => input.textContent?.trim() === 'Snoopy Tabletten geben'), null, { timeout: 10000 });
     const groupedByProject = await page.evaluate(() => {
       const groups = Array.from(document.querySelectorAll('.braindump-candidate-group')).map(group => ({
         heading: group.querySelector('.braindump-candidate-group-head span')?.textContent?.trim() || '',
-        titles: Array.from(group.querySelectorAll('.braindump-title-input')).map(title => title.value?.trim() || ''),
+        titles: Array.from(group.querySelectorAll('.todo-title')).map(title => title.textContent?.trim() || ''),
       }));
       return groups;
     });
@@ -234,20 +234,24 @@ async function run() {
       { heading: 'Privat', titles: ['Snoopy Tabletten geben', 'Keller aufräumen'] },
     ])) throw new Error(`BrainDump preview should group candidates by project in stable order: ${JSON.stringify(groupedByProject)}`);
     const quickFixOk = await page.evaluate(() => {
-      const firstCard = document.querySelector('.braindump-candidate-card');
+      document.querySelector('.braindump-candidate-card [data-bd-action="edit"]')?.click();
+      const firstCard = document.querySelector('.braindump-candidate-card.is-editing');
       const title = firstCard?.querySelector('.braindump-title-input');
       const kind = firstCard?.querySelector('[data-bd-field="kind"]');
-      if (!title || !kind) return false;
+      const customSelects = firstCard?.querySelectorAll('.ui-select-trigger').length || 0;
+      const removeButton = firstCard?.querySelector('[data-bd-action="remove"]');
+      window.__braindumpQuickFixDebug = { hasTitle: Boolean(title), hasKind: Boolean(kind), customSelects, hasRemoveButton: Boolean(removeButton), html: firstCard?.innerHTML || '' };
+      if (!title || !kind || customSelects < 3 || removeButton) return false;
       title.value = 'Hafermilch kaufen';
       title.dispatchEvent(new Event('input', { bubbles: true }));
       kind.value = 'todo';
       kind.dispatchEvent(new Event('change', { bubbles: true }));
-      const removeButton = Array.from(document.querySelectorAll('.braindump-candidate-card')).find(card => card.querySelector('.braindump-title-input')?.value === 'Keller aufräumen')?.querySelector('[data-bd-action="remove"]');
-      removeButton?.click();
-      const titles = Array.from(document.querySelectorAll('.braindump-title-input')).map(input => input.value);
-      return titles.includes('Hafermilch kaufen') && !titles.includes('Keller aufräumen');
+      return firstCard.querySelector('.braindump-title-input')?.value === 'Hafermilch kaufen';
     });
-    if (!quickFixOk) throw new Error('BrainDump quick-fix controls should edit title/type and remove candidates');
+    if (!quickFixOk) {
+      const debug = await page.evaluate(() => window.__braindumpQuickFixDebug);
+      throw new Error(`BrainDump quick-fix controls should use shared dropdowns, edit title/type, and avoid a remove button: ${JSON.stringify(debug)}`);
+    }
     const acceptReady = await page.evaluate(() => {
       const button = document.getElementById('braindump-create');
       return Boolean(button && !button.disabled && !button.classList.contains('is-muted'));
