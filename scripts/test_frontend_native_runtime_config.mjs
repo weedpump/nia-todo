@@ -504,6 +504,44 @@ async function testNativeUpdateRejectsUnsafeManifestDownload() {
   }
 }
 
+async function testNativeLoginChromeIsCompact() {
+  const { browser, page, dumpErrors } = await launchPage();
+  try {
+    await installTauriStub(page, { serverUrl: BASE_URL }, {
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    });
+    await page.goto(BASE_URL, { waitUntil: 'domcontentloaded' });
+    await page.locator('#login-overlay').waitFor({ state: 'visible', timeout: 10_000 });
+    await page.locator('#login-native-server-switch').waitFor({ state: 'visible', timeout: 10_000 });
+    const result = await page.evaluate(() => {
+      const style = (selector) => getComputedStyle(document.querySelector(selector));
+      const refresh = style('.login-box > .login-update-refresh');
+      const divider = style('.login-download-divider');
+      const panel = style('.login-native-server-panel');
+      const status = style('.login-native-server-status');
+      return {
+        nativeClass: document.documentElement.classList.contains('native-app'),
+        refreshDisplay: refresh.display,
+        dividerDisplay: divider.display,
+        panelPaddingTop: panel.paddingTop,
+        panelBorderTopWidth: panel.borderTopWidth,
+        statusDisplay: status.display,
+      };
+    });
+    if (!result.nativeClass) throw new Error('Native login must add native-app class');
+    if (result.refreshDisplay !== 'none') throw new Error(`Native login reload button must be hidden, got ${result.refreshDisplay}`);
+    if (result.dividerDisplay !== 'none') throw new Error(`Native login divider must be hidden, got ${result.dividerDisplay}`);
+    if (result.panelPaddingTop !== '0px') throw new Error(`Native login server panel must be compact, got padding-top=${result.panelPaddingTop}`);
+    if (result.panelBorderTopWidth !== '0px') throw new Error(`Native login server panel must not add an extra separator, got border-top-width=${result.panelBorderTopWidth}`);
+    if (result.statusDisplay !== 'none') throw new Error(`Empty native login server status must not reserve vertical space, got ${result.statusDisplay}`);
+  } catch (error) {
+    console.log('DEBUG frontend errors:', JSON.stringify(dumpErrors()));
+    throw error;
+  } finally {
+    await browser.close();
+  }
+}
+
 async function testNativeRuntimeUsesConfiguredServerUrl() {
   execFileSync('python3', ['-c', `import sqlite3\ndb=sqlite3.connect(${JSON.stringify(DB_PATH)})\ndb.execute("UPDATE users SET avatar_url='/api/avatars/user-1.webp', avatar_updated_at='2026-05-24 15:45:00' WHERE username=?", (${JSON.stringify(USERNAME)},))\ndb.commit()\ndb.close()`]);
   const { browser, page, dumpErrors } = await launchPage();
@@ -534,6 +572,7 @@ async function testNativeRuntimeUsesConfiguredServerUrl() {
 async function run() {
   console.log('🧭 Running native runtime config regression test...');
   await testNativeSetupWithoutServerUrl();
+  await testNativeLoginChromeIsCompact();
   await testNativeRuntimeUsesConfiguredServerUrl();
   await testNativeChangelogPillOpensOnlyOnce();
   await testNativeChangelogOpensExternally();
