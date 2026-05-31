@@ -101,6 +101,33 @@ export function createNativeBridge() {
     return false;
   }
 
+  function parseAndroidJsonResult(raw, fallbackError = 'Android bridge call failed') {
+    try {
+      return JSON.parse(String(raw || '{}'));
+    } catch {
+      return { ok: false, error: String(raw || fallbackError) };
+    }
+  }
+
+  function supportsAudioRecording() {
+    return hasAndroidMethod('startAudioRecording') && hasAndroidMethod('stopAudioRecording');
+  }
+
+  function startAudioRecording() {
+    if (!supportsAudioRecording()) return { ok: false, error: 'Android audio bridge unavailable' };
+    return parseAndroidJsonResult(android().startAudioRecording(), 'Android audio recording failed');
+  }
+
+  function stopAudioRecording() {
+    if (!supportsAudioRecording()) return { ok: false, error: 'Android audio bridge unavailable' };
+    return parseAndroidJsonResult(android().stopAudioRecording(), 'Android audio recording failed');
+  }
+
+  function audioAmplitude() {
+    if (!hasAndroidMethod('audioAmplitude')) return 0;
+    return Number(android().audioAmplitude() || 0);
+  }
+
   const androidPasskeyRequests = new Map();
   const ANDROID_PASSKEY_TIMEOUT_MS = 90_000;
 
@@ -247,6 +274,10 @@ export function createNativeBridge() {
     scheduleReminders,
     clearReminders,
     hapticFeedback,
+    supportsAudioRecording,
+    startAudioRecording,
+    stopAudioRecording,
+    audioAmplitude,
     supportsNativePasskeys,
     passkeyRegister,
     passkeyAuthenticate,

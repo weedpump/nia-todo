@@ -84,9 +84,11 @@ assert(userSettingsSource.includes("promptSecurityPassword({ title: t('settings.
 
 const nativeBridgeSource = readFileSync(new URL('../web/static/js/features/native-bridge.js', import.meta.url), 'utf8');
 const desktopSource = readFileSync(new URL('../web/static/js/features/desktop-integration.js', import.meta.url), 'utf8');
+const brainDumpSource = readFileSync(new URL('../web/static/js/features/braindump-live-debug.js', import.meta.url), 'utf8');
 assert(desktopSource.includes('if (event.repeat) return null'), 'hotkey capture must ignore repeated modifier keydown events');
 assert(desktopSource.includes('if (isModifierKey(event)) return'), 'hotkey capture must not save a bare modifier as the main key');
 assert(!desktopSource.includes('window.NiaAndroidNative'), 'desktop integration must use the native bridge adapter, not direct Android globals');
+assert(!brainDumpSource.includes('window.NiaAndroidNative'), 'BrainDump must use the native bridge adapter, not direct Android globals');
 assert(!desktopSource.includes('getTauriInvoke'), 'desktop integration must use the native bridge adapter, not direct Tauri invoke');
 assert(desktopSource.includes('userId,'), 'native reminder schedules must carry the current user id for action isolation');
 
@@ -102,6 +104,9 @@ assert(appSource.includes('actionUserId') && appSource.includes('currentUser.id'
 const androidMainSource = readFileSync(new URL('../src-tauri/gen/android/app/src/main/java/de/tobiaskneidl/nia_todo/MainActivity.kt', import.meta.url), 'utf8');
 assert(!androidMainSource.includes('indexedDB.open'), 'Android notification actions must not inject direct IndexedDB writes');
 assert(androidMainSource.includes('consumePendingDoneAction'), 'Android notification actions must be handed to the web app through a pending action bridge');
+assert(androidMainSource.includes('override fun onDestroy()') && androidMainSource.includes('cleanupNativeAudioRecording()'), 'Android native audio recorder must be released during Activity destruction');
+assert(androidMainSource.includes('isTrustedLocalWebView()') && androidMainSource.includes('Native Aufnahme nur im lokalen App-Kontext verfügbar'), 'Android native audio recorder bridge must be limited to the trusted local WebView origin');
+assert(androidMainSource.includes('maxNativeAudioDurationMs') && androidMainSource.includes('maxNativeAudioBytes') && androidMainSource.includes('setMaxDuration(maxNativeAudioDurationMs)'), 'Android native audio recorder must enforce duration and size guards');
 const androidReminderSource = readFileSync(new URL('../src-tauri/gen/android/app/src/main/java/de/tobiaskneidl/nia_todo/ReminderReceiver.kt', import.meta.url), 'utf8');
 assert(androidReminderSource.includes('EXTRA_USER_ID') && androidReminderSource.includes('schedule.optString("userId"'), 'Android reminder actions must preserve the scheduled user id');
 assert(swSource.includes('/static/js/features/app-downloads.js'), 'service worker must precache the app downloads module');

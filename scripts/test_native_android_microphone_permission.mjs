@@ -25,7 +25,7 @@ if (webChromeClient.includes('Manifest.permission.MODIFY_AUDIO_SETTINGS')) {
   throw new Error('Tauri WebChromeClient must request RECORD_AUDIO only; MODIFY_AUDIO_SETTINGS makes WebView getUserMedia fail with Permission denied');
 }
 
-for (const snippet of ['fun startAudioRecording(): String', 'fun stopAudioRecording(): String', 'fun audioAmplitude(): Int', 'maxAmplitude', 'MediaRecorder.AudioSource.MIC', 'MediaRecorder.OutputFormat.MPEG_4', 'Base64.NO_WRAP']) {
+for (const snippet of ['fun startAudioRecording(): String', 'fun stopAudioRecording(): String', 'fun audioAmplitude(): Int', 'maxAmplitude', 'MediaRecorder.AudioSource.MIC', 'MediaRecorder.OutputFormat.MPEG_4', 'Base64.NO_WRAP', 'override fun onDestroy()', 'cleanupNativeAudioRecording()', 'isTrustedLocalWebView()', 'maxNativeAudioDurationMs', 'maxNativeAudioBytes', 'setMaxDuration(maxNativeAudioDurationMs)']) {
   if (!mainActivity.includes(snippet)) {
     throw new Error(`Missing native Android microphone recorder bridge snippet: ${snippet}`);
   }
