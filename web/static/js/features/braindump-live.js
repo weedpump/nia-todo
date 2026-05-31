@@ -769,7 +769,40 @@ export function createBrainDumpLiveFeature() {
     });
     if (signature === state.candidateRenderSignature) return;
     state.candidateRenderSignature = signature;
-    container.innerHTML = state.candidates.map((candidate, index) => renderCandidate(candidate, index)).join('');
+    container.innerHTML = renderCandidateGroups();
+  }
+
+  function candidateProjectLabel(candidate) {
+    return candidate.project_name || t('braindump.route.inbox');
+  }
+
+  function groupedCandidates() {
+    const groups = [];
+    const byProject = new Map();
+    state.candidates.forEach((candidate, index) => {
+      const project = candidateProjectLabel(candidate);
+      if (!byProject.has(project)) {
+        const group = { project, items: [] };
+        byProject.set(project, group);
+        groups.push(group);
+      }
+      byProject.get(project).items.push({ candidate, index });
+    });
+    return groups;
+  }
+
+  function renderCandidateGroups() {
+    return groupedCandidates().map(group => `
+      <section class="braindump-candidate-group" aria-label="${escapeHtml(group.project)}">
+        <div class="braindump-candidate-group-head">
+          <span>${escapeHtml(group.project)}</span>
+          <small>${t(group.items.length === 1 ? 'braindump.group.count.one' : 'braindump.group.count.many', { count: group.items.length })}</small>
+        </div>
+        <div class="braindump-candidate-group-items">
+          ${group.items.map(({ candidate, index }) => renderCandidate(candidate, index)).join('')}
+        </div>
+      </section>
+    `).join('');
   }
 
   function renderCandidate(candidate, index) {

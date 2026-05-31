@@ -5211,7 +5211,24 @@ input[type="color"]::-moz-color-swatch {
 .braindump-results-head div { display:flex; flex-direction:column; gap:2px; }
 .braindump-results-head span { color: var(--text-secondary); font-size: 13px; }
 .btn-sm { padding: 7px 10px; font-size: 12px; }
-.braindump-candidates { display:flex; flex-direction:column; gap:10px; }
+.braindump-candidates { display:flex; flex-direction:column; gap:14px; }
+.braindump-candidate-group { display:flex; flex-direction:column; gap:8px; }
+.braindump-candidate-group-head {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding: 0 2px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 800;
+}
+.braindump-candidate-group-head small {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+.braindump-candidate-group-items { display:flex; flex-direction:column; gap:10px; }
 .braindump-candidate-card {
   position: relative;
   display: flex;

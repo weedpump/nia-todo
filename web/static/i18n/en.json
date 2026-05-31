@@ -913,6 +913,8 @@
   "braindump.results.subtitle": "Review and accept.",
   "braindump.results.count.one": "{count} suggestion found.",
   "braindump.results.count.many": "{count} suggestions found.",
+  "braindump.group.count.one": "{count} suggestion",
+  "braindump.group.count.many": "{count} suggestions",
   "braindump.selectAll": "Select all",
   "braindump.selectNone": "Deselect all",
   "braindump.retry": "Speak again",
