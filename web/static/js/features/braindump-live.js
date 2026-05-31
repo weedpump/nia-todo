@@ -1,8 +1,9 @@
 import { API } from '../core/config.js';
 import { getAuthHeaders, getAuthToken } from '../api/http.js';
-import { escapeHtml, formatDate } from '../core/utils.js';
+import { escapeHtml, escapeHtmlAttr, formatDate } from '../core/utils.js';
 import { iconSvg } from '../icons/lucide-icons.js';
 import { t } from '../i18n/index.js';
+import { hydrateSelect, refreshSelect } from '../ui/dropdowns.js';
 import { createNativeBridge } from './native-bridge.js';
 
 const SILENCE_LEVEL = 0.035;
@@ -12,7 +13,7 @@ const SNAPSHOT_INTERVAL_MS = 3000;
 const RECORDER_TIMESLICE_MS = 1000;
 const MIN_AUDIO_CHUNK_BYTES = 96;
 
-export function createBrainDumpLiveDebugFeature() {
+export function createBrainDumpLiveFeature(options = {}) {
   const nativeBridge = createNativeBridge();
   const state = {
     accessChecked: false,
@@ -27,6 +28,7 @@ export function createBrainDumpLiveDebugFeature() {
     requestTimer: null,
     recording: false,
     nativeRecording: false,
+    starting: false,
     processing: false,
     processingPhase: '',
     startedAt: 0,
@@ -52,6 +54,9 @@ export function createBrainDumpLiveDebugFeature() {
     transcript: '',
     candidateRenderSignature: '',
     initAttempts: 0,
+    startToken: 0,
+    candidateIdCounter: 0,
+    editingCandidateKey: '',
   };
 
   async function init() {
@@ -147,7 +152,7 @@ export function createBrainDumpLiveDebugFeature() {
         <div class="modal-actions braindump-actions">
           <button type="button" class="btn btn-secondary" id="braindump-cancel">${t('common.close')}</button>
           <button type="button" class="btn btn-secondary" id="braindump-retry" hidden>${t('braindump.retry')}</button>
-          <button type="button" class="btn btn-primary" id="braindump-record">${t('braindump.record.start')}</button>
+          <button type="button" class="btn btn-primary" id="braindump-record" hidden>${t('braindump.record.finish')}</button>
           <button type="button" class="btn btn-primary" id="braindump-create" hidden disabled>${t('braindump.create')}</button>
         </div>
       </div>
@@ -166,13 +171,29 @@ export function createBrainDumpLiveDebugFeature() {
       render();
     });
     modal.addEventListener('change', (event) => {
-      const box = event.target?.closest?.('[data-bd-candidate-key]');
-      if (!box) return;
-      const key = box.getAttribute('data-bd-candidate-key');
-      if (!key) return;
-      if (box.checked) state.selectedCandidateKeys.add(key);
-      else state.selectedCandidateKeys.delete(key);
-      render();
+      const checkbox = event.target?.closest?.('input[type="checkbox"][data-bd-candidate-key]');
+      if (checkbox) {
+        const key = checkbox.getAttribute('data-bd-candidate-key');
+        if (!key) return;
+        if (checkbox.checked) state.selectedCandidateKeys.add(key);
+        else state.selectedCandidateKeys.delete(key);
+        render();
+        return;
+      }
+      const field = event.target?.closest?.('[data-bd-field]');
+      if (field) {
+        updateCandidateField(field);
+        if (field.tagName === 'SELECT') refreshSelect(field);
+      }
+    });
+    modal.addEventListener('input', (event) => {
+      const field = event.target?.closest?.('input[data-bd-field="title"]');
+      if (field) updateCandidateField(field, { rerender: false });
+    });
+    modal.addEventListener('click', (event) => {
+      const action = event.target?.closest?.('[data-bd-action]');
+      if (!action) return;
+      if (action.getAttribute('data-bd-action') === 'edit') toggleCandidateEditor(action.getAttribute('data-bd-candidate-key'));
     });
   }
 
@@ -200,10 +221,20 @@ export function createBrainDumpLiveDebugFeature() {
     updateStaticLabels();
     document.getElementById('braindump-modal')?.classList.add('active');
     render();
+    if (!state.recording && !state.starting && !state.processing && !state.active && !state.queue.length && !state.creating) {
+      void start();
+    }
   }
 
   async function close() {
-    if (state.recording) await stop('close');
+    if (state.starting) {
+      state.startToken += 1;
+      state.starting = false;
+      cleanupRecordingHandles();
+      resetSession();
+    } else if (state.recording) {
+      cancelRecording();
+    }
     document.getElementById('braindump-modal')?.classList.remove('active');
   }
 
@@ -224,6 +255,7 @@ export function createBrainDumpLiveDebugFeature() {
     state.transcript = '';
     state.processingPhase = '';
     state.candidateRenderSignature = '';
+    state.starting = false;
     state.level = 0;
     state.peak = 0;
     state.startedAt = 0;
@@ -247,6 +279,7 @@ export function createBrainDumpLiveDebugFeature() {
     const result = nativeBridge.startAudioRecording();
     if (!result.ok) throw new Error(result.error || 'Native audio recording failed');
     state.nativeRecording = true;
+    state.starting = false;
     state.recording = true;
     state.processing = false;
     state.processingPhase = '';
@@ -273,7 +306,7 @@ export function createBrainDumpLiveDebugFeature() {
   }
 
   async function start() {
-    if (state.recording) return;
+    if (state.recording || state.starting || state.processing || state.active || state.queue.length || state.creating) return;
     const canUseWebRecorder = Boolean(window.MediaRecorder && navigator.mediaDevices?.getUserMedia);
     if (!canUseWebRecorder && !hasNativeAudioBridge()) {
       state.error = t('braindump.error.unsupported');
@@ -281,15 +314,27 @@ export function createBrainDumpLiveDebugFeature() {
       return;
     }
     resetSession();
+    const startToken = state.startToken + 1;
+    state.startToken = startToken;
+    state.starting = true;
+    render();
     try {
       if (!canUseWebRecorder) {
         startNativeAudioRecording();
         return;
       }
       try {
-        state.stream = await getMicrophoneStream();
+        const stream = await getMicrophoneStream();
+        const modalActive = document.getElementById('braindump-modal')?.classList.contains('active');
+        if (startToken !== state.startToken || !state.starting || !modalActive) {
+          stream?.getTracks?.().forEach((track) => track.stop());
+          return;
+        }
+        state.stream = stream;
       } catch (error) {
         if (!hasNativeAudioBridge()) throw error;
+        const modalActive = document.getElementById('braindump-modal')?.classList.contains('active');
+        if (startToken !== state.startToken || !state.starting || !modalActive) return;
         console.warn('[BrainDump] WebView microphone capture failed; using native Android recorder', error);
         startNativeAudioRecording();
         return;
@@ -306,6 +351,7 @@ export function createBrainDumpLiveDebugFeature() {
         render();
       });
       state.recorder.addEventListener('stop', cleanupRecordingHandles);
+      state.starting = false;
       state.recording = true;
       state.processing = false;
       state.processingPhase = '';
@@ -320,10 +366,31 @@ export function createBrainDumpLiveDebugFeature() {
       render();
     } catch (error) {
       state.error = String(error?.message || error);
+      state.starting = false;
       state.recording = false;
       cleanupRecordingHandles();
       render();
     }
+  }
+
+  function cancelRecording() {
+    if (!state.recording) return;
+    state.recording = false;
+    state.starting = false;
+    state.processing = false;
+    state.processingPhase = '';
+    if (state.requestTimer) clearInterval(state.requestTimer);
+    state.requestTimer = null;
+    if (state.nativeRecording) {
+      try { nativeBridge.stopAudioRecording(); } catch {}
+    } else {
+      try { state.recorder?.removeEventListener('dataavailable', onChunk); } catch {}
+      try { state.recorder?.removeEventListener('stop', cleanupRecordingHandles); } catch {}
+      try { state.recorder?.stop(); } catch {}
+    }
+    cleanupRecordingHandles();
+    resetSession();
+    render();
   }
 
   async function stop(reason = 'manual') {
@@ -571,12 +638,27 @@ export function createBrainDumpLiveDebugFeature() {
     }
   }
 
-  function candidateKey(candidate) {
+  function rawCandidateKey(candidate) {
     return [candidate.title, candidate.project_name, candidate.section_name, candidate.deadline, candidate.reminder, candidate.kind].map((value) => String(value || '').trim()).join('|');
   }
 
+  function candidateKey(candidate) {
+    if (!candidate._bdId) {
+      state.candidateIdCounter += 1;
+      candidate._bdId = `bd-${state.candidateIdCounter}`;
+    }
+    return candidate._bdId;
+  }
+
   function applyCandidates(candidates) {
-    const nextCandidates = Array.isArray(candidates) ? candidates : [];
+    const previousByRawKey = new Map(state.candidates.map(candidate => [rawCandidateKey(candidate), candidate]));
+    const nextCandidates = (Array.isArray(candidates) ? candidates : []).map((candidate) => {
+      const next = { ...candidate };
+      const previous = previousByRawKey.get(rawCandidateKey(candidate));
+      if (previous?._bdId) next._bdId = previous._bdId;
+      candidateKey(next);
+      return next;
+    });
     const previousSelected = state.selectedCandidateKeys;
     state.candidates = nextCandidates;
     state.selectedCandidateKeys = new Set(nextCandidates.map((candidate) => {
@@ -587,12 +669,34 @@ export function createBrainDumpLiveDebugFeature() {
   }
 
   function selectedCandidates() {
-    return state.candidates.filter((candidate) => state.selectedCandidateKeys.has(candidateKey(candidate)));
+    return state.candidates
+      .filter((candidate) => state.selectedCandidateKeys.has(candidateKey(candidate)))
+      .map(({ _bdId, ...candidate }) => candidate);
   }
 
   function toggleAllCandidates() {
     const allSelected = state.candidates.length && selectedCandidates().length === state.candidates.length;
     state.selectedCandidateKeys = allSelected ? new Set() : new Set(state.candidates.map(candidateKey));
+    render();
+  }
+
+  function findCandidate(key) {
+    return state.candidates.find(candidate => candidateKey(candidate) === key);
+  }
+
+  function updateCandidateField(field, { rerender = true } = {}) {
+    const candidate = findCandidate(field.getAttribute('data-bd-candidate-key'));
+    const name = field.getAttribute('data-bd-field');
+    if (!candidate || !name) return;
+    candidate[name] = field.value || null;
+    if (name === 'project_name') candidate.section_name = null;
+    state.candidateRenderSignature = '';
+    if (rerender) render();
+  }
+
+  function toggleCandidateEditor(key) {
+    state.editingCandidateKey = state.editingCandidateKey === key ? '' : (key || '');
+    state.candidateRenderSignature = '';
     render();
   }
 
@@ -643,6 +747,7 @@ export function createBrainDumpLiveDebugFeature() {
     const wave = document.getElementById('braindump-wave');
     const selectedCount = selectedCandidates().length;
     modal.classList.toggle('is-recording', state.recording);
+    modal.classList.toggle('is-starting', state.starting);
     modal.classList.toggle('is-processing', state.processing || state.active > 0 || state.queue.length > 0);
     stage?.style.setProperty('--bd-level', String(Math.max(0.08, state.level)));
     stage?.style.setProperty('--bd-peak', String(Math.max(0.10, state.peak)));
@@ -653,13 +758,15 @@ export function createBrainDumpLiveDebugFeature() {
       });
     }
     if (status) {
-      status.textContent = state.recording
-        ? t('braindump.status.listening', { seconds: elapsed.toFixed(1) })
-        : state.processing || state.active || state.queue.length
-          ? t('braindump.status.processing')
-          : state.candidates.length
-            ? t('braindump.status.readyWithCandidates')
-            : t('braindump.status.ready');
+      status.textContent = state.starting
+        ? t('braindump.status.starting')
+        : state.recording
+          ? t('braindump.status.listening', { seconds: elapsed.toFixed(1) })
+          : state.processing || state.active || state.queue.length
+            ? t('braindump.status.processing')
+            : state.candidates.length
+              ? t('braindump.status.readyWithCandidates')
+              : t('braindump.status.ready');
     }
     const isBusy = state.processing || state.active || state.queue.length;
     if (processing) processing.hidden = !isBusy || state.recording;
@@ -670,21 +777,23 @@ export function createBrainDumpLiveDebugFeature() {
     }
     if (hint) {
       const silenceLeft = state.recording && state.hasVoice ? Math.max(0, (SILENCE_STOP_MS - (performance.now() - state.lastVoiceAt)) / 1000) : null;
-      hint.textContent = state.recording
-        ? (silenceLeft == null ? t('braindump.hint.recording') : t('braindump.hint.silence', { seconds: silenceLeft.toFixed(1) }))
-        : isBusy
-          ? t('braindump.hint.processing')
-          : t('braindump.hint.idle');
+      hint.textContent = state.starting
+        ? t('braindump.hint.starting')
+        : state.recording
+          ? (silenceLeft == null ? t('braindump.hint.recording') : t('braindump.hint.silence', { seconds: silenceLeft.toFixed(1) }))
+          : isBusy
+            ? t('braindump.hint.processing')
+            : t('braindump.hint.idle');
     }
-    if (orb) orb.innerHTML = state.processing || state.active ? iconSvg('sparkles') : iconSvg(state.recording ? 'mic' : 'mic');
+    if (orb) orb.innerHTML = state.starting || state.processing || state.active ? iconSvg('sparkles') : iconSvg(state.recording ? 'mic' : 'mic');
     if (recordBtn) {
-      recordBtn.hidden = state.processing || state.candidates.length > 0;
-      recordBtn.textContent = state.recording ? t('braindump.record.finish') : t('braindump.record.start');
+      recordBtn.hidden = state.starting || !state.recording || state.processing || state.candidates.length > 0;
+      recordBtn.textContent = t('braindump.record.finish');
     }
-    if (retryBtn) retryBtn.hidden = state.recording || state.processing || (!state.candidates.length && !state.error && !state.transcript);
+    if (retryBtn) retryBtn.hidden = state.starting || state.recording || state.processing || (!state.candidates.length && !state.error && !state.transcript);
     if (createBtn) {
-      createBtn.hidden = false;
-      createBtn.disabled = state.creating || state.recording || state.processing || !selectedCount;
+      createBtn.hidden = !state.candidates.length;
+      createBtn.disabled = state.creating || state.starting || state.recording || state.processing || !selectedCount;
       createBtn.classList.toggle('is-muted', createBtn.disabled || !selectedCount);
       createBtn.textContent = state.creating ? t('braindump.create.busy') : t('braindump.create.count', { count: selectedCount });
     }
@@ -710,35 +819,167 @@ export function createBrainDumpLiveDebugFeature() {
     if (selectAll) selectAll.textContent = selectedCandidates().length === state.candidates.length ? t('braindump.selectNone') : t('braindump.selectAll');
     if (status) status.textContent = state.createMessage || '';
     const signature = JSON.stringify({
-      candidates: state.candidates.map(candidateKey),
+      candidates: state.candidates.map(candidate => [candidateKey(candidate), rawCandidateKey(candidate)].join(':')),
       selected: Array.from(state.selectedCandidateKeys).sort(),
+      projectOptions: getProjectOptions().map(project => `${project.id}:${project.name}`).join('|'),
+      sectionOptions: (typeof options.getSections === 'function' ? options.getSections() : []).map(section => `${section.project_id}:${section.name}`).join('|'),
+      editing: state.editingCandidateKey,
       language: document.documentElement.lang || '',
     });
     if (signature === state.candidateRenderSignature) return;
     state.candidateRenderSignature = signature;
-    container.innerHTML = state.candidates.map((candidate, index) => renderCandidate(candidate, index)).join('');
+    container.innerHTML = renderCandidateGroups();
+    hydrateCandidateSelects(container);
+  }
+
+  function hydrateCandidateSelects(container) {
+    container.querySelectorAll('select[data-bd-field]').forEach(select => {
+      hydrateSelect(select, { className: 'braindump-ui-select', menuClassName: 'braindump-ui-select-menu' });
+      refreshSelect(select);
+    });
+  }
+
+  function getProjectOptions() {
+    const projects = (typeof options.getProjects === 'function' ? options.getProjects() : [])
+      .filter(project => project && !project.archived);
+    const projectMap = new Map();
+    projects.forEach(project => projectMap.set(project.id, { ...project, children: [] }));
+    const roots = [];
+    projectMap.forEach(project => {
+      const parent = projectMap.get(project.parent_id);
+      if (parent && !project.is_shared) parent.children.push(project);
+      else roots.push(project);
+    });
+    const sortProjects = (a, b) => {
+      if (Boolean(a.is_inbox) !== Boolean(b.is_inbox)) return a.is_inbox ? 1 : -1;
+      return String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' });
+    };
+    const flattened = [];
+    function addProject(project, depth = 0) {
+      flattened.push({ ...project, _bdDepth: depth });
+      project.children.sort(sortProjects).forEach(child => addProject(child, depth + 1));
+    }
+    roots.sort(sortProjects).forEach(project => addProject(project));
+    return flattened;
+  }
+
+  function getProjectByName(name) {
+    const normalized = String(name || '').trim().toLowerCase();
+    if (!normalized) return null;
+    return getProjectOptions().find(project => String(project.name || '').trim().toLowerCase() === normalized) || null;
+  }
+
+  function getSectionOptionsForProject(projectName) {
+    const sections = typeof options.getSections === 'function' ? options.getSections() : [];
+    const project = getProjectByName(projectName);
+    if (!project) return [];
+    return sections
+      .filter(section => String(section.project_id || '') === String(project.id))
+      .slice()
+      .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' }));
+  }
+
+  function candidateProjectLabel(candidate) {
+    return candidate.project_name || t('braindump.route.inbox');
+  }
+
+  function groupedCandidates() {
+    const byProject = new Map();
+    state.candidates.forEach((candidate, index) => {
+      const project = candidateProjectLabel(candidate);
+      if (!byProject.has(project)) byProject.set(project, { project, inbox: !candidate.project_name, items: [] });
+      byProject.get(project).items.push({ candidate, index });
+    });
+    return Array.from(byProject.values()).sort((a, b) => {
+      if (a.inbox !== b.inbox) return a.inbox ? 1 : -1;
+      return a.project.localeCompare(b.project, undefined, { sensitivity: 'base' });
+    }).map(group => ({
+      ...group,
+      items: group.items.slice().sort((a, b) => {
+        const sectionCompare = String(a.candidate.section_name || '').localeCompare(String(b.candidate.section_name || ''), undefined, { sensitivity: 'base' });
+        return sectionCompare || a.index - b.index;
+      }),
+    }));
+  }
+
+  function renderCandidateGroups() {
+    return groupedCandidates().map(group => `
+      <section class="braindump-candidate-group" aria-label="${escapeHtmlAttr(group.project)}">
+        <div class="braindump-candidate-group-head">
+          <span>${escapeHtml(group.project)}</span>
+          <small>${t(group.items.length === 1 ? 'braindump.group.count.one' : 'braindump.group.count.many', { count: group.items.length })}</small>
+        </div>
+        <div class="braindump-candidate-group-items">
+          ${group.items.map(({ candidate, index }) => renderCandidate(candidate, index)).join('')}
+        </div>
+      </section>
+    `).join('');
+  }
+
+  function renderProjectOptions(selectedName) {
+    const selected = String(selectedName || '');
+    const optionsHtml = [`<option value="">${escapeHtml(t('braindump.route.inbox'))}</option>`];
+    getProjectOptions().forEach(project => {
+      const name = String(project.name || '');
+      const depth = Number(project._bdDepth || 0);
+      const prefix = depth > 0 ? `${'\u00A0'.repeat(depth * 2)}└─ ` : '';
+      optionsHtml.push(`<option value="${escapeHtmlAttr(name)}" data-depth="${depth}" ${name === selected ? 'selected' : ''}>${prefix}${escapeHtml(name)}</option>`);
+    });
+    if (selected && !getProjectByName(selected)) optionsHtml.push(`<option value="${escapeHtmlAttr(selected)}" selected>${escapeHtml(selected)}</option>`);
+    return optionsHtml.join('');
+  }
+
+  function renderSectionOptions(candidate) {
+    const selected = String(candidate.section_name || '');
+    const sections = getSectionOptionsForProject(candidate.project_name);
+    const optionsHtml = [`<option value="">${escapeHtml(t('braindump.quickfix.noSection'))}</option>`];
+    sections.forEach(section => {
+      const name = String(section.name || '');
+      optionsHtml.push(`<option value="${escapeHtmlAttr(name)}" ${name === selected ? 'selected' : ''}>${escapeHtml(name)}</option>`);
+    });
+    if (selected && !sections.some(section => String(section.name || '') === selected)) optionsHtml.push(`<option value="${escapeHtmlAttr(selected)}" selected>${escapeHtml(selected)}</option>`);
+    return optionsHtml.join('');
   }
 
   function renderCandidate(candidate, index) {
     const key = candidateKey(candidate);
     const checked = state.selectedCandidateKeys.has(key) ? 'checked' : '';
+    const isEditing = state.editingCandidateKey === key;
+    const checkboxId = `braindump-candidate-${key}`;
     const route = [candidate.project_name, candidate.section_name].filter(Boolean).join(' / ') || t('braindump.route.inbox');
     const due = candidate.deadline ? formatDate(candidate.deadline) : '';
     const reminder = candidate.reminder ? formatDate(candidate.reminder) : '';
     const kind = candidate.kind || 'todo';
     const meta = [route, due ? t('braindump.meta.due', { date: due }) : '', reminder ? t('braindump.meta.reminder', { date: reminder }) : '', kind !== 'todo' ? t(`braindump.kind.${kind}`) : ''].filter(Boolean).join(' · ');
     return `
-      <label class="braindump-candidate-card todo-item" style="--bd-delay:${Math.min(index, 8) * 55}ms">
-        <input type="checkbox" data-bd-candidate-key="${escapeHtml(key)}" ${checked}>
-        <span class="todo-check braindump-check">${checked ? iconSvg('check') : ''}</span>
+      <div class="braindump-candidate-card todo-item ${isEditing ? 'is-editing' : ''}" style="--bd-delay:${Math.min(index, 8) * 55}ms">
+        <input id="${escapeHtmlAttr(checkboxId)}" type="checkbox" data-bd-candidate-key="${escapeHtmlAttr(key)}" ${checked}>
+        <label class="todo-check braindump-check" for="${escapeHtmlAttr(checkboxId)}">${checked ? iconSvg('check') : ''}</label>
         <span class="todo-body has-meta">
           <span class="todo-main">
             <span class="todo-prio priority-dot"></span>
             <span class="todo-title">${escapeHtml(candidate.title || '')}</span>
+            <button class="braindump-edit-candidate" type="button" data-bd-action="edit" data-bd-candidate-key="${escapeHtmlAttr(key)}" aria-expanded="${isEditing ? 'true' : 'false'}" aria-label="${escapeHtmlAttr(t(isEditing ? 'braindump.quickfix.done' : 'braindump.quickfix.edit'))}" title="${escapeHtmlAttr(t(isEditing ? 'braindump.quickfix.done' : 'braindump.quickfix.edit'))}">${iconSvg('edit-3')}</button>
           </span>
           <span class="todo-meta-row"><span class="todo-desc-preview">${escapeHtml(meta)}</span></span>
+          ${isEditing ? `
+            <span class="braindump-quickfix-panel">
+              <label class="braindump-quickfix-field braindump-quickfix-title-field">
+                <span>${escapeHtml(t('braindump.quickfix.title'))}</span>
+                <input class="braindump-title-input" type="text" value="${escapeHtmlAttr(candidate.title || '')}" data-bd-candidate-key="${escapeHtmlAttr(key)}" data-bd-field="title">
+              </label>
+              <div class="braindump-quickfix-field">
+                <span id="braindump-project-label-${escapeHtmlAttr(key)}">${escapeHtml(t('braindump.quickfix.project'))}</span>
+                <select data-ui-select class="braindump-field" data-bd-candidate-key="${escapeHtmlAttr(key)}" data-bd-field="project_name" aria-labelledby="braindump-project-label-${escapeHtmlAttr(key)}">${renderProjectOptions(candidate.project_name)}</select>
+              </div>
+              <div class="braindump-quickfix-field">
+                <span id="braindump-section-label-${escapeHtmlAttr(key)}">${escapeHtml(t('braindump.quickfix.section'))}</span>
+                <select data-ui-select class="braindump-field" data-bd-candidate-key="${escapeHtmlAttr(key)}" data-bd-field="section_name" aria-labelledby="braindump-section-label-${escapeHtmlAttr(key)}" ${candidate.project_name ? '' : 'disabled'}>${renderSectionOptions(candidate)}</select>
+              </div>
+            </span>
+          ` : ''}
         </span>
-      </label>
+      </div>
     `;
   }
 

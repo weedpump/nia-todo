@@ -76,6 +76,12 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .form-row select { flex: 0 0 150px; min-width: 130px; padding-right: 36px; appearance: none; -webkit-appearance: none; cursor: pointer; background-image: linear-gradient(45deg, transparent 50%, var(--text-secondary) 50%), linear-gradient(135deg, var(--text-secondary) 50%, transparent 50%); background-position: calc(100% - 17px) 50%, calc(100% - 12px) 50%; background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; }
 .form-row select:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
 .form-row select option { background: var(--bg-secondary); color: var(--text-primary); }
+.admin-ui-select { flex: 0 1 150px; width: 150px; min-width: 130px; }
+.admin-config-field .admin-ui-select { flex: 0 0 auto; width: 100%; min-width: 0; }
+@media (max-width: 720px) {
+  .form-row .admin-ui-select { flex: 0 0 auto; width: 100%; min-width: 0; }
+}
+.admin-ui-select-menu { z-index: 420; }
 .form-row input:focus, .form-row select:focus, .admin-config-textarea:focus, .admin-config-field select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
 .admin-config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .admin-config-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
@@ -384,8 +390,8 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 
   <!-- BrainDump Configuration -->
   <div class="admin-card" id="braindump-config-card">
-    <h2><span data-icon="sparkles"></span> <span data-i18n-key="admin.braindump.title">BrainDump AI</span> <span class="server-update-badge warning" data-i18n-key="admin.experimental">Experimental</span></h2>
-    <div class="admin-help" data-i18n-key="admin.braindump.help">Experimental feature. Disabled by default; configure LLM/STT explicitly before enabling it for users.</div>
+    <h2><span data-icon="sparkles"></span> <span data-i18n-key="admin.braindump.title">BrainDump AI</span></h2>
+    <div class="admin-help" data-i18n-key="admin.braindump.help">Disabled by default; configure LLM/STT explicitly before enabling it for users.</div>
     <div class="admin-config-grid">
       <div class="admin-config-field">
         <label for="braindump-llm-provider" data-i18n-key="admin.braindump.llmProvider">LLM endpoint</label>
@@ -471,7 +477,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
     <div class="form-row">
       <input type="text" id="new-username" data-i18n-placeholder-key="setup.usernameLabel" placeholder="Username" autocomplete="off" onkeydown="if(event.key==='Enter') document.getElementById('new-display-name').focus()">
       <input type="text" id="new-display-name" data-i18n-placeholder-key="setup.displayNameLabel" placeholder="Display name" onkeydown="if(event.key==='Enter') document.getElementById('new-email').focus()">
-      <input type="email" id="new-email" data-i18n-placeholder-key="settings.profile.email" placeholder="Email" autocomplete="off" onkeydown="if(event.key==='Enter') document.getElementById('new-language').focus()">
+      <input type="email" id="new-email" data-i18n-placeholder-key="settings.profile.email" placeholder="Email" autocomplete="off" onkeydown="if(event.key==='Enter') focusAdminCreateLanguage()">
       <select id="new-language" data-i18n-title-key="admin.user.language" title="Language" onkeydown="if(event.key==='Enter') createUser()">
         <option value="de" data-i18n-key="settings.language.de">German</option>
         <option value="en" data-i18n-key="settings.language.en">English</option>
@@ -526,8 +532,31 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 
 <script type="module">
 import { initI18n, t as i18nT } from './static/js/i18n/index.js';
+import { hydrateSelect, refreshSelect } from './static/js/ui/dropdowns.js';
+const ADMIN_SELECT_IDS = [
+  'email-smtp-security',
+  'braindump-llm-provider',
+  'braindump-system-prompt-mode',
+  'braindump-stt-provider',
+  'new-language',
+];
+window.hydrateAdminSelects = () => {
+  ADMIN_SELECT_IDS.forEach((id) => {
+    const select = document.getElementById(id);
+    if (!select) return;
+    hydrateSelect(select, { className: 'admin-ui-select', menuClassName: 'admin-ui-select-menu' });
+    refreshSelect(select);
+  });
+};
+window.refreshAdminSelects = () => {
+  ADMIN_SELECT_IDS.forEach((id) => {
+    const select = document.getElementById(id);
+    if (select) refreshSelect(select);
+  });
+};
 await initI18n();
 window.t = i18nT;
+window.hydrateAdminSelects();
 window.adminI18nReady = true;
 window.dispatchEvent(new CustomEvent('admin-i18n-ready'));
 </script>
@@ -999,6 +1028,7 @@ function renderBrainDumpConfig(config) {
   document.getElementById('braindump-stt-language').value = config.stt_language || '';
   document.getElementById('braindump-stt-timeout').value = config.stt_timeout_seconds || 60;
   document.getElementById('braindump-stt-token').value = '';
+  window.refreshAdminSelects?.();
   document.getElementById('braindump-stt-token-note').textContent = config.stt_token_configured ? window.t('admin.braindump.sttTokenStoredNote') : window.t('admin.braindump.sttTokenEmptyNote');
   const heading = document.getElementById('user-braindump-heading');
   if (heading) heading.style.display = brainDumpFeatureEnabled ? '' : 'none';
@@ -1290,6 +1320,7 @@ function renderEmailConfig(config) {
   document.getElementById('email-from-name').value = config.mail_from_name || 'nia-todo';
   document.getElementById('email-reply-to').value = config.mail_reply_to || '';
   document.getElementById('email-link-ttl').value = config.password_link_ttl_hours || 24;
+  window.refreshAdminSelects?.();
   document.getElementById('email-smtp-password-note').textContent = config.smtp_password_configured
     ? t('admin.email.passwordStoredNote')
     : t('admin.email.noPasswordStoredNote');
@@ -1511,6 +1542,12 @@ function renderUsers(users) {
       </td>
     </tr>`;
   }).join('');
+}
+
+function focusAdminCreateLanguage() {
+  const select = document.getElementById('new-language');
+  const trigger = document.querySelector('.ui-select[data-select-id="new-language"] .ui-select-trigger');
+  (trigger || select)?.focus();
 }
 
 async function createUser() {

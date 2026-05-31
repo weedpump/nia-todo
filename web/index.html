@@ -196,7 +196,7 @@
         <!-- Version & Update -->
         <div class="version-bar" id="version-bar">
           <div class="version-info" id="version-info">
-            <span class="version-text">v2.7.0</span>
+            <span class="version-text">v2.8.0</span>
           </div>
           <div class="version-actions web-version-actions" id="version-actions">
             <a class="changelog-link version-action-btn" id="changelog-link" href="/changelog" target="_blank" rel="noopener noreferrer" title="Open changelog" data-i18n-title-key="version.openChangelog" data-i18n-key="resource.changelog">Changelog</a>
@@ -295,79 +295,121 @@
   <!-- Todo Modal -->
   <div class="modal" id="todo-modal">
     <div class="modal-overlay" onclick="closeModal('todo-modal')"></div>
-    <div class="modal-content">
-      <h3 id="todo-modal-title" data-i18n-key="todo.new">New todo</h3>
+    <div class="modal-content todo-modal-content">
+      <div class="todo-modal-header">
+        <div class="todo-modal-title-icon" data-icon="check-circle"></div>
+        <div>
+          <h3 id="todo-modal-title" data-i18n-key="todo.new">New todo</h3>
+          <p data-i18n-key="todo.modal.subtitle">Capture the task, then add planning details only if needed.</p>
+        </div>
+      </div>
       <button class="modal-close-x" onclick="closeModal('todo-modal')"><span data-icon="x"></span></button>
-      <div class="modal-body">
-      <form id="todo-form">
+      <div class="modal-body todo-modal-body">
+      <form id="todo-form" class="todo-modal-form">
         <input type="hidden" id="todo-id">
-        <div class="form-group">
-          <label data-i18n-key="todo.title">Titel</label>
-          <input type="text" id="todo-title" required placeholder="Was ist zu tun?" data-i18n-placeholder-key="todo.titlePlaceholder">
-          <div class="quick-add-hint" data-i18n-key="quickAdd.hint">Tipp: „Milch morgen 18:00 erinnerung:17:30 #Einkauf /Kühlung !hoch“ erkennt Deadline, Erinnerung, Projekt, Abschnitt und Priorität.</div>
-          <div class="quick-add-preview" id="quick-add-preview" aria-live="polite" hidden></div>
-        </div>
-        <div class="form-group">
-          <label data-i18n-key="todo.description">Beschreibung</label>
-          <textarea id="todo-desc" rows="3" placeholder="Details... Markdown: **fett**, *kursiv*, `code`, - Liste, [Link](url)" data-i18n-placeholder-key="todo.descriptionPlaceholder"></textarea>
-          <div id="todo-desc-preview" class="desc-live-preview"></div>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label data-i18n-key="todo.priority">Priority</label>
-            <select id="todo-priority">
-              <option value="1" data-i18n-key="todo.priority.veryHigh">Sehr hoch</option>
-              <option value="2" data-i18n-key="todo.priority.high">Hoch</option>
-              <option value="3" selected data-i18n-key="todo.priority.medium">Mittel</option>
-              <option value="4" data-i18n-key="todo.priority.low">Niedrig</option>
-            </select>
+        <section class="ui-section-card todo-section-card todo-main-section">
+          <div class="ui-section-heading">
+            <div class="ui-section-icon" data-icon="edit-3"></div>
+            <div>
+              <h4 data-i18n-key="todo.section.content">Inhalt</h4>
+              <p data-i18n-key="todo.section.contentHint">Titel und optionale Beschreibung.</p>
+            </div>
+          </div>
+          <div class="form-group todo-title-group">
+            <label data-i18n-key="todo.title">Titel</label>
+            <input type="text" id="todo-title" required placeholder="Was ist zu tun?" data-i18n-placeholder-key="todo.titlePlaceholder">
+            <div class="quick-add-hint" data-i18n-key="quickAdd.hint">Tipp: „Milch morgen 18:00 erinnerung:17:30 #Einkauf /Kühlung !hoch“ erkennt Deadline, Erinnerung, Projekt, Abschnitt und Priorität.</div>
+            <div class="quick-add-preview" id="quick-add-preview" aria-live="polite" hidden></div>
           </div>
           <div class="form-group">
-            <label data-i18n-key="todo.status">Status</label>
-            <select id="todo-status">
-              <option value="pending" data-i18n-key="todo.status.pending">Offen</option>
-              <option value="in_progress" data-i18n-key="todo.status.inProgress">In progress</option>
-              <option value="done" data-i18n-key="todo.status.done">Erledigt</option>
-            </select>
+            <label data-i18n-key="todo.description">Beschreibung</label>
+            <textarea id="todo-desc" rows="3" placeholder="Details... Markdown: **fett**, *kursiv*, `code`, - Liste, [Link](url)" data-i18n-placeholder-key="todo.descriptionPlaceholder"></textarea>
+            <div id="todo-desc-preview" class="desc-live-preview"></div>
           </div>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label data-i18n-key="todo.project">Project</label>
-            <select id="todo-project" onchange="onProjectChange()"></select>
+        </section>
+
+        <section class="ui-section-card todo-section-card">
+          <div class="ui-section-heading">
+            <div class="ui-section-icon" data-icon="settings"></div>
+            <div>
+              <h4 data-i18n-key="todo.section.organize">Einordnen</h4>
+              <p data-i18n-key="todo.section.organizeHint">Priorität, Status, Projekt und Section.</p>
+            </div>
           </div>
-          <div class="form-group">
-            <label data-i18n-key="todo.section">Section</label>
-            <select id="todo-section" disabled>
-              <option value="" data-i18n-key="todo.section.none">No section (unsorted)</option>
-            </select>
+          <div class="ui-field-grid two-columns">
+            <div class="form-group">
+              <label data-i18n-key="todo.priority">Priority</label>
+              <select id="todo-priority">
+                <option value="1" data-i18n-key="todo.priority.veryHigh">Sehr hoch</option>
+                <option value="2" data-i18n-key="todo.priority.high">Hoch</option>
+                <option value="3" selected data-i18n-key="todo.priority.medium">Mittel</option>
+                <option value="4" data-i18n-key="todo.priority.low">Niedrig</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label data-i18n-key="todo.status">Status</label>
+              <select id="todo-status">
+                <option value="pending" data-i18n-key="todo.status.pending">Offen</option>
+                <option value="in_progress" data-i18n-key="todo.status.inProgress">In progress</option>
+                <option value="done" data-i18n-key="todo.status.done">Erledigt</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label data-i18n-key="todo.project">Project</label>
+              <select id="todo-project" onchange="onProjectChange()"></select>
+            </div>
+            <div class="form-group">
+              <label data-i18n-key="todo.section">Section</label>
+              <select id="todo-section" disabled>
+                <option value="" data-i18n-key="todo.section.none">No section (unsorted)</option>
+              </select>
+            </div>
           </div>
-        </div>
-        <div class="form-group checkbox-row pin-checkbox-row">
-          <label class="pin-checkbox-label">
-            <input type="checkbox" id="todo-pinned">
-            <span class="pin-checkbox-box" aria-hidden="true"></span>
-            <span data-i18n-key="todo.pinned">Oben anpinnen</span>
-          </label>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label data-i18n-key="todo.deadline">Deadline</label>
-            <input type="datetime-local" id="todo-due" min="1900-01-01T00:00" max="9999-12-31T23:59" step="60">
-            <div id="todo-due-error" class="form-error compact"></div>
+          <div class="form-group checkbox-row pin-checkbox-row todo-pin-row">
+            <label class="pin-checkbox-heading" for="todo-pinned" data-i18n-key="todo.pin">Anpinnen</label>
+            <label class="pin-checkbox-label">
+              <input type="checkbox" id="todo-pinned">
+              <span class="pin-checkbox-box" aria-hidden="true"></span>
+              <span data-i18n-key="todo.pinned">Oben anpinnen</span>
+            </label>
           </div>
-          <div class="form-group">
-            <label data-i18n-key="todo.reminder">Erinnerung</label>
-            <input type="datetime-local" id="todo-remind" min="1900-01-01T00:00" max="9999-12-31T23:59" step="60">
-            <div id="todo-remind-error" class="form-error compact"></div>
+        </section>
+
+        <section class="ui-section-card todo-section-card">
+          <div class="ui-section-heading">
+            <div class="ui-section-icon" data-icon="calendar-days"></div>
+            <div>
+              <h4 data-i18n-key="todo.section.schedule">Planung</h4>
+              <p data-i18n-key="todo.section.scheduleHint">Deadline und Erinnerung, falls diese Aufgabe zeitkritisch ist.</p>
+            </div>
           </div>
-        </div>
+          <div class="ui-field-grid two-columns">
+            <div class="form-group">
+              <label data-i18n-key="todo.deadline">Deadline</label>
+              <div class="datetime-input-wrap">
+                <input type="datetime-local" id="todo-due" min="1900-01-01T00:00" max="9999-12-31T23:59" step="60">
+                <span class="datetime-input-icon" data-icon="calendar-days" aria-hidden="true"></span>
+              </div>
+              <div id="todo-due-error" class="form-error compact"></div>
+            </div>
+            <div class="form-group">
+              <label data-i18n-key="todo.reminder">Erinnerung</label>
+              <div class="datetime-input-wrap">
+                <input type="datetime-local" id="todo-remind" min="1900-01-01T00:00" max="9999-12-31T23:59" step="60">
+                <span class="datetime-input-icon" data-icon="calendar-days" aria-hidden="true"></span>
+              </div>
+              <div id="todo-remind-error" class="form-error compact"></div>
+            </div>
+          </div>
+        </section>
       </form>
       </div>
-      <div class="modal-actions">
-        <button type="button" class="btn btn-danger" id="todo-delete-btn" onclick="deleteTodoFromModal()" style="margin-right:auto;display:none;"><span data-icon="trash-2"></span> <span data-i18n-key="todo.delete">Delete</span></button>
-        <button type="button" class="btn btn-secondary" onclick="closeModal('todo-modal')" data-i18n-key="common.cancel">Cancel</button>
-        <button type="submit" form="todo-form" class="btn btn-primary" data-i18n-key="common.save">Save</button>
+      <div class="modal-actions todo-modal-actions">
+        <button type="button" class="btn btn-danger" id="todo-delete-btn" onclick="deleteTodoFromModal()" style="display:none;"><span data-icon="trash-2"></span> <span data-i18n-key="todo.delete">Delete</span></button>
+        <div class="todo-modal-actions-main">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('todo-modal')" data-i18n-key="common.cancel">Cancel</button>
+          <button type="submit" form="todo-form" class="btn btn-primary" data-i18n-key="common.save">Save</button>
+        </div>
       </div>
     </div>
   </div>
@@ -428,282 +470,420 @@
   <!-- Settings Modal -->
   <div class="modal" id="settings-modal">
     <div class="modal-overlay" onclick="closeModal('settings-modal')"></div>
-    <div class="modal-content">
-      <h3><span data-icon="settings"></span> <span data-i18n-key="settings.title">Settings</span></h3>
-      <button class="modal-close-x" onclick="closeModal('settings-modal')"><span data-icon="x"></span></button>
-      <div class="modal-body">
-        <div class="settings-profile-card">
-          <div class="settings-avatar-panel">
-            <button type="button" class="settings-avatar-button" onclick="document.getElementById('settings-avatar-input').click()" title="Change avatar" data-i18n-title-key="avatar.change">
-              <span id="settings-avatar-initial">U</span>
-              <img id="settings-avatar-preview" alt="Avatar" style="display:none;">
-            </button>
-            <button type="button" class="settings-avatar-remove" id="settings-avatar-remove" onclick="deleteUserAvatar()" style="display:none;" data-i18n-key="avatar.delete">Delete avatar</button>
-          </div>
-          <input type="file" id="settings-avatar-input" accept="image/png,image/jpeg,image/webp,image/gif,image/heic,image/heif,.heic,.heif" style="display:none;" onchange="startAvatarUpload(this.files?.[0])">
-          <div class="settings-profile-fields">
-            <div class="settings-field-row">
-              <div class="settings-field-label" data-i18n-key="settings.profile.username">Username</div>
-              <div id="settings-username" class="settings-readonly-value">–</div>
-            </div>
-            <div class="settings-field-row">
-              <div class="settings-field-label" data-i18n-key="settings.profile.displayName">Display name</div>
-              <div id="settings-display-name-cell" class="settings-inline-cell">–</div>
-              <div id="settings-profile-error" class="settings-field-error"></div>
-              <div id="settings-profile-success" class="settings-field-success"></div>
-            </div>
-            <div class="settings-field-row">
-              <div class="settings-field-label" data-i18n-key="settings.profile.email">Email</div>
-              <div id="settings-email-cell" class="settings-inline-cell">–</div>
-              <div id="settings-email-error" class="settings-field-error"></div>
-              <div id="settings-email-success" class="settings-field-success"></div>
-            </div>
-          </div>
-        </div>
-        <div id="settings-avatar-error" class="settings-field-error"></div>
-        <div id="settings-avatar-success" class="settings-field-success"></div>
-        <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">
-        <h4 style="margin:0 0 12px 0; font-size:14px;"><span data-icon="book-open"></span> <span data-i18n-key="settings.language.label">Language</span></h4>
-        <div class="form-group">
-          <label for="settings-language" data-i18n-key="settings.language.browser">Use browser language</label>
-          <select id="settings-language" onchange="changeLanguagePreference(this.value)">
-            <option value="auto" data-i18n-key="settings.language.auto">Automatic</option>
-            <option value="de" data-i18n-key="settings.language.de">German</option>
-            <option value="en" data-i18n-key="settings.language.en">English</option>
-          </select>
-        </div>
-        <div id="settings-language-error" class="settings-field-error"></div>
-        <div id="settings-language-success" class="settings-field-success"></div>
-        <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">
-        <h4 style="margin:0 0 12px 0; font-size:14px;"><span data-icon="key-round"></span> <span data-i18n-key="settings.password.title">Change password</span></h4>
-        <div class="form-group">
-          <label data-i18n-key="settings.password.current">Current password</label>
-          <input type="password" id="settings-old-password" placeholder="Current password" data-i18n-placeholder-key="settings.password.current" autocomplete="current-password" onkeydown="if(event.key==='Enter') document.getElementById('settings-new-password').focus()">
-        </div>
-        <div class="form-group">
-          <label data-i18n-key="settings.password.new">New password</label>
-          <input type="password" id="settings-new-password" placeholder="New password (8+ characters)" data-i18n-placeholder-key="settings.password.newPlaceholder" autocomplete="new-password" onkeydown="if(event.key==='Enter') document.getElementById('settings-confirm-password').focus()">
-        </div>
-        <div class="form-group">
-          <label data-i18n-key="settings.password.confirm">Confirm password</label>
-          <input type="password" id="settings-confirm-password" placeholder="Repeat new password" data-i18n-placeholder-key="settings.password.repeatPlaceholder" autocomplete="new-password" onkeydown="if(event.key==='Enter') changeUserPassword()">
-        </div>
-        <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;" data-i18n-key="settings.password.requirements">
-          At least 8 characters, 1 uppercase, 1 lowercase, 1 digit, 1 special character
-        </div>
-        <button type="button" class="btn btn-primary" onclick="changeUserPassword()" style="margin-top:12px;" data-i18n-key="settings.password.title">Change password</button>
-        <div id="settings-pw-error" style="color:var(--danger); font-size:13px; margin-top:8px;"></div>
-        <div id="settings-pw-success" style="color:var(--success); font-size:13px; margin-top:8px;"></div>
-        <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">
-        <h4 style="margin:0 0 12px 0; font-size:14px;"><span data-icon="shield"></span> <span data-i18n-key="settings.2fa.title">Two-factor authentication</span></h4>
-        <div id="settings-2fa-status" style="font-size:13px; color:var(--text-secondary); margin-bottom:10px;" data-i18n-key="settings.2fa.statusChecking">Status: Checking...</div>
-        <div id="settings-2fa-actions" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px;">
-          <button type="button" class="btn btn-primary" onclick="startTwoFactorTotp()" data-i18n-key="settings.2fa.setupAuthenticator">Set up authenticator app</button>
-          <button type="button" class="btn btn-secondary" onclick="addPasskey()" data-i18n-key="settings.2fa.addPasskey">Add passkey</button>
-          <button type="button" class="btn btn-secondary" id="settings-2fa-regenerate-recovery-btn" onclick="regenerateRecoveryCodes()" data-i18n-key="settings.2fa.regenerateRecovery">Generate new recovery codes</button>
-          <button type="button" class="btn btn-danger" id="settings-2fa-disable-btn" onclick="disableTwoFactor()" data-i18n-key="settings.2fa.disable">Disable 2FA</button>
-        </div>
-        <div id="settings-2fa-setup" class="settings-2fa-setup-card" style="display:none;">
-          <div class="settings-2fa-setup-header">
-            <div>
-              <strong data-i18n-key="settings.2fa.setupAuthenticator">Set up authenticator app</strong>
-              <p data-i18n-key="settings.2fa.setupHint">Scan the QR code, enter the code, then confirm with your password.</p>
-            </div>
-          </div>
-          <div class="settings-2fa-setup-grid">
-            <div id="settings-2fa-qr" class="settings-2fa-qr" aria-label="TOTP QR-Code" data-i18n-aria-label-key="settings.2fa.qrAria"></div>
-            <div class="settings-2fa-manual">
-              <label data-i18n-key="settings.2fa.secretKey">Secret-Key</label>
-              <code id="settings-2fa-secret"></code>
-              <label for="settings-2fa-otpauth">otpauth URL</label>
-              <input type="text" id="settings-2fa-otpauth" readonly>
-            </div>
-          </div>
-          <label class="settings-2fa-code-label" for="settings-2fa-code" data-i18n-key="settings.2fa.appCode">6-stelliger Code aus der App</label>
-          <input type="text" id="settings-2fa-code" inputmode="numeric" autocomplete="one-time-code" placeholder="123456">
-          <button type="button" class="btn btn-primary" onclick="confirmTwoFactorTotp()" data-i18n-key="settings.2fa.enable">Enable 2FA</button>
-        </div>
-        <div class="settings-2fa-devices-wrap">
-          <div class="settings-2fa-subtitle" data-i18n-key="settings.2fa.configuredFactors">Eingerichtete Faktoren</div>
-          <div id="settings-2fa-devices" class="settings-2fa-devices"></div>
-        </div>
-        <div class="settings-2fa-devices-wrap settings-sessions-wrap">
-          <div class="settings-2fa-subtitle settings-2fa-trusted-header">
-            <button type="button" id="settings-sessions-toggle" class="settings-sessions-toggle" onclick="toggleTrustedDevicesList()" aria-expanded="false" aria-controls="settings-2fa-trusted-panel">
-              <span class="settings-sessions-chevron">›</span>
-              <span data-i18n-key="settings.2fa.trustedDevices">Active sessions / devices</span>
-              <span id="settings-2fa-session-count" class="settings-session-count"></span>
-            </button>
-            <button type="button" class="btn btn-danger btn-small" onclick="revokeAllTrustedDevices()" data-i18n-key="settings.2fa.revokeAllTrusted">Alle abmelden</button>
-          </div>
-          <div id="settings-2fa-trusted-panel" hidden>
-            <div id="settings-2fa-trusted-devices" class="settings-2fa-devices"></div>
-          </div>
-        </div>
-        <div id="settings-2fa-recovery" style="display:none; background:var(--bg-tertiary); border-radius:var(--radius); padding:12px; margin:8px 0;"></div>
-        <div id="settings-2fa-error" style="color:var(--danger); font-size:13px; margin-top:8px;"></div>
-        <div id="settings-2fa-success" style="color:var(--success); font-size:13px; margin-top:8px;"></div>
-        <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">
-        <h4 style="margin:0 0 12px 0; font-size:14px;"><span data-icon="key-round"></span> <span data-i18n-key="settings.apiKeys.title">API-Keys</span></h4>
-        <div id="api-keys-list" style="margin-bottom:12px;">
-          <!-- API keys loaded dynamically -->
-        </div>
-        <button class="btn btn-primary" onclick="createApiKey()" style="margin-bottom:8px;" data-i18n-key="settings.apiKeys.create">Create new API key</button>
-        <div class="app-resource-links settings-resource-links api-settings-resource-links">
-          <a class="app-resource-link" href="/api" target="_blank" rel="noopener"><span data-icon="book-open"></span> <span data-i18n-key="resource.apiDocs">API-Doku</span></a>
-        </div>
-        <div id="api-key-created" style="display:none; background:var(--bg-tertiary); padding:12px; border-radius:var(--radius); margin-top:8px;">
-          <p style="color:var(--warning); font-size:13px; margin:0 0 8px 0;"><span data-icon="triangle-alert"></span> <span data-i18n-key="settings.apiKeys.copyNowWarning">Copy the key now — it will not be shown again!</span></p>
-          <code id="api-key-value" style="display:block; background:var(--bg-primary); padding:8px; border-radius:var(--radius); font-family:monospace; word-break:break-all; font-size:13px; margin-bottom:8px;"></code>
-          <button class="btn btn-secondary" onclick="copyApiKey()" style="font-size:13px;"><span data-icon="clipboard"></span> <span data-i18n-key="common.copy">Copy</span></button>
-          <div id="api-key-copy-status" style="color:var(--success); font-size:12px; margin-top:8px;"></div>
-        </div>
-        <div id="api-key-error" style="color:var(--danger); font-size:13px; margin-top:8px;"></div>
-        <div id="browser-push-settings-section">
-          <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">
-          <h4 style="margin:0 0 12px 0; font-size:14px;"><span data-icon="bell"></span> <span data-i18n-key="settings.push.title">Push notifications</span></h4>
-          <div id="push-status" style="font-size:13px; color:var(--text-secondary); margin-bottom:12px;" data-i18n-key="settings.push.statusChecking">Status: Checking...</div>
-          <div id="push-actions">
-            <button class="btn btn-primary" id="push-enable-btn" onclick="enablePushNotifications()" style="display:none;" data-i18n-key="settings.push.enable">Enable notifications</button>
-            <button class="btn btn-danger" id="push-disable-btn" onclick="disablePushNotifications()" style="display:none;" data-i18n-key="common.disable">Disable</button>
-            <button class="btn btn-secondary" id="push-test-btn" onclick="sendTestPush()" style="display:none;" data-i18n-key="settings.push.test">Send test</button>
-          </div>
-          <div id="push-error" style="color:var(--danger); font-size:13px; margin-top:8px;"></div>
-        </div>
-        <div id="desktop-settings-section" style="display:none;">
-          <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">
-          <h4 style="margin:0 0 12px 0; font-size:14px;"><span data-icon="smartphone"></span> <span data-i18n-key="settings.desktop.title">App</span></h4>
-          <div data-desktop-only>
-            <label class="settings-toggle-row">
-              <span data-i18n-key="settings.desktop.minimizeToTray">Minimieren ins Tray statt beenden</span>
-              <input type="checkbox" id="desktop-minimize-to-tray">
-            </label>
-            <label class="settings-toggle-row">
-              <span data-i18n-key="settings.desktop.autostart">Autostart mit Windows</span>
-              <input type="checkbox" id="desktop-autostart">
-            </label>
-            <label class="settings-toggle-row">
-              <span data-i18n-key="settings.desktop.startMinimizedToTray">Beim Autostart minimiert im Tray starten</span>
-              <input type="checkbox" id="desktop-start-minimized-to-tray">
-            </label>
-          </div>
-          <label class="settings-toggle-row">
-            <span data-i18n-key="settings.desktop.nativeNotifications">Native notifications</span>
-            <input type="checkbox" id="desktop-notifications">
-          </label>
-          <button class="btn btn-secondary" type="button" onclick="testDesktopNotification()" style="margin-top:8px;" data-i18n-key="settings.desktop.testNotification">Test notification</button>
-          <div class="desktop-hotkeys-settings" data-desktop-only>
-            <h5><span data-icon="keyboard"></span> <span data-i18n-key="settings.desktop.hotkeys.title">Globale Hotkeys</span></h5>
-            <p><span data-i18n-key="settings.desktop.hotkeys.hint">Click the field, press the shortcut, done.</span> <code>Backspace</code>/<code data-i18n-key="settings.desktop.hotkeys.deleteKey">Del</code> <span data-i18n-key="settings.desktop.hotkeys.clearHint">clears the hotkey.</span></p>
-            <div class="form-group">
-              <label data-i18n-key="settings.desktop.hotkeys.toggleApp">App anzeigen/verstecken</label>
-              <input class="hotkey-capture-input" type="text" id="desktop-hotkey-toggle-app" inputmode="none" autocomplete="off" aria-label="Hotkey to show or hide the app" data-i18n-aria-label-key="settings.desktop.hotkeys.toggleAppAria">
-            </div>
-            <div class="form-group">
-              <label data-i18n-key="settings.desktop.hotkeys.newTodo">Open a new todo directly</label>
-              <input class="hotkey-capture-input" type="text" id="desktop-hotkey-new-todo" inputmode="none" autocomplete="off" aria-label="Hotkey for new todo" data-i18n-aria-label-key="settings.desktop.hotkeys.newTodoAria">
-            </div>
-            <div class="form-group">
-              <label data-i18n-key="settings.desktop.hotkeys.search">Suche fokussieren</label>
-              <input class="hotkey-capture-input" type="text" id="desktop-hotkey-search" inputmode="none" autocomplete="off" aria-label="Hotkey for search" data-i18n-aria-label-key="settings.desktop.hotkeys.searchAria">
-            </div>
-          </div>
-          <div id="desktop-settings-status" data-desktop-settings-status style="font-size:13px; color:var(--text-muted); margin-top:8px;"></div>
+    <div class="modal-content settings-modal-content">
+      <div class="settings-modal-header">
+        <div>
+          <h3><span data-icon="settings"></span> <span data-i18n-key="settings.title">Settings</span></h3>
+          <p class="settings-modal-subtitle"><span data-i18n-key="settings.overview.subtitle">Profil, Sicherheit, API und App-Verhalten an einem Ort.</span></p>
         </div>
       </div>
-      <div class="modal-actions">
+      <button class="modal-close-x" onclick="closeModal('settings-modal')"><span data-icon="x"></span></button>
+      <div class="modal-body settings-modal-body">
+        <nav class="settings-nav" aria-label="Settings sections" data-i18n-aria-label-key="settings.nav.aria">
+          <a href="#settings-section-profile"><span data-icon="user"></span><span data-i18n-key="settings.section.profile">Profil</span></a>
+          <a href="#settings-section-language"><span data-icon="book-open"></span><span data-i18n-key="settings.language.label">Language</span></a>
+          <a href="#settings-section-security"><span data-icon="shield"></span><span data-i18n-key="settings.section.security">Sicherheit</span></a>
+          <a href="#settings-section-api"><span data-icon="key-round"></span><span data-i18n-key="settings.apiKeys.title">API-Keys</span></a>
+          <a href="#settings-section-notifications" id="settings-nav-notifications"><span data-icon="bell"></span><span data-i18n-key="settings.section.notifications">Benachrichtigungen</span></a>
+          <a href="#settings-section-app" id="settings-nav-app"><span data-icon="smartphone"></span><span data-i18n-key="settings.desktop.title">App</span></a>
+        </nav>
+
+        <div class="settings-sections">
+          <section class="settings-section-card settings-profile-section" id="settings-section-profile">
+            <div class="settings-section-heading">
+              <div class="settings-section-icon" data-icon="user"></div>
+              <div>
+                <h4 data-i18n-key="settings.section.profile">Profil</h4>
+                <p data-i18n-key="settings.section.profileHint">Avatar, Name und E-Mail-Adresse.</p>
+              </div>
+            </div>
+            <div class="settings-profile-card">
+              <div class="settings-avatar-panel">
+                <button type="button" class="settings-avatar-button" onclick="document.getElementById('settings-avatar-input').click()" title="Change avatar" data-i18n-title-key="avatar.change">
+                  <span id="settings-avatar-initial">U</span>
+                  <img id="settings-avatar-preview" alt="Avatar" style="display:none;">
+                </button>
+                <button type="button" class="settings-avatar-remove" id="settings-avatar-remove" onclick="deleteUserAvatar()" style="display:none;" data-i18n-key="avatar.delete">Delete avatar</button>
+              </div>
+              <input type="file" id="settings-avatar-input" accept="image/png,image/jpeg,image/webp,image/gif,image/heic,image/heif,.heic,.heif" style="display:none;" onchange="startAvatarUpload(this.files?.[0])">
+              <div class="settings-profile-fields">
+                <div class="settings-field-row">
+                  <div class="settings-field-label" data-i18n-key="settings.profile.username">Username</div>
+                  <div id="settings-username" class="settings-readonly-value">–</div>
+                </div>
+                <div class="settings-field-row">
+                  <div class="settings-field-label" data-i18n-key="settings.profile.displayName">Display name</div>
+                  <div id="settings-display-name-cell" class="settings-inline-cell">–</div>
+                  <div id="settings-profile-error" class="settings-field-error"></div>
+                  <div id="settings-profile-success" class="settings-field-success"></div>
+                </div>
+                <div class="settings-field-row">
+                  <div class="settings-field-label" data-i18n-key="settings.profile.email">Email</div>
+                  <div id="settings-email-cell" class="settings-inline-cell">–</div>
+                  <div id="settings-email-error" class="settings-field-error"></div>
+                  <div id="settings-email-success" class="settings-field-success"></div>
+                </div>
+              </div>
+            </div>
+            <div id="settings-avatar-error" class="settings-field-error"></div>
+            <div id="settings-avatar-success" class="settings-field-success"></div>
+          </section>
+
+          <section class="settings-section-card" id="settings-section-language">
+            <div class="settings-section-heading">
+              <div class="settings-section-icon" data-icon="book-open"></div>
+              <div>
+                <h4><span data-i18n-key="settings.language.label">Language</span></h4>
+                <p data-i18n-key="settings.section.languageHint">Sprache automatisch übernehmen oder fest setzen.</p>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="settings-language" data-i18n-key="settings.language.browser">Use browser language</label>
+              <select id="settings-language" onchange="changeLanguagePreference(this.value)">
+                <option value="auto" data-i18n-key="settings.language.auto">Automatic</option>
+                <option value="de" data-i18n-key="settings.language.de">German</option>
+                <option value="en" data-i18n-key="settings.language.en">English</option>
+              </select>
+            </div>
+            <div id="settings-language-error" class="settings-field-error"></div>
+            <div id="settings-language-success" class="settings-field-success"></div>
+          </section>
+
+          <section class="settings-section-card" id="settings-section-security">
+            <div class="settings-section-heading">
+              <div class="settings-section-icon" data-icon="shield"></div>
+              <div>
+                <h4 data-i18n-key="settings.section.security">Sicherheit</h4>
+                <p data-i18n-key="settings.section.securityHint">Passwort, Zwei-Faktor-Authentifizierung und aktive Geräte.</p>
+              </div>
+            </div>
+            <div class="settings-subcard">
+              <div class="settings-subcard-heading">
+                <h5><span data-icon="key-round"></span> <span data-i18n-key="settings.password.title">Change password</span></h5>
+              </div>
+              <div class="settings-password-grid">
+                <div class="form-group">
+                  <label data-i18n-key="settings.password.current">Current password</label>
+                  <input type="password" id="settings-old-password" placeholder="Current password" data-i18n-placeholder-key="settings.password.current" autocomplete="current-password" onkeydown="if(event.key==='Enter') document.getElementById('settings-new-password').focus()">
+                </div>
+                <div class="form-group">
+                  <label data-i18n-key="settings.password.new">New password</label>
+                  <input type="password" id="settings-new-password" placeholder="New password (8+ characters)" data-i18n-placeholder-key="settings.password.newPlaceholder" autocomplete="new-password" onkeydown="if(event.key==='Enter') document.getElementById('settings-confirm-password').focus()">
+                </div>
+                <div class="form-group">
+                  <label data-i18n-key="settings.password.confirm">Confirm password</label>
+                  <input type="password" id="settings-confirm-password" placeholder="Repeat new password" data-i18n-placeholder-key="settings.password.repeatPlaceholder" autocomplete="new-password" onkeydown="if(event.key==='Enter') changeUserPassword()">
+                </div>
+              </div>
+              <div class="settings-help-text" data-i18n-key="settings.password.requirements">
+                At least 8 characters, 1 uppercase, 1 lowercase, 1 digit, 1 special character
+              </div>
+              <div class="settings-card-actions">
+                <button type="button" class="btn btn-primary" onclick="changeUserPassword()" data-i18n-key="settings.password.title">Change password</button>
+              </div>
+              <div id="settings-pw-error" class="settings-field-error"></div>
+              <div id="settings-pw-success" class="settings-field-success"></div>
+            </div>
+
+            <div class="settings-subcard settings-security-subcard">
+              <div class="settings-subcard-heading">
+                <h5><span data-icon="shield"></span> <span data-i18n-key="settings.2fa.title">Two-factor authentication</span></h5>
+                <div id="settings-2fa-status" class="settings-status-pill" data-i18n-key="settings.2fa.statusChecking">Status: Checking...</div>
+              </div>
+              <div id="settings-2fa-actions" class="settings-action-row">
+                <button type="button" class="btn btn-primary" onclick="startTwoFactorTotp()" data-i18n-key="settings.2fa.setupAuthenticator">Set up authenticator app</button>
+                <button type="button" class="btn btn-secondary" onclick="addPasskey()" data-i18n-key="settings.2fa.addPasskey">Add passkey</button>
+                <button type="button" class="btn btn-secondary" id="settings-2fa-regenerate-recovery-btn" onclick="regenerateRecoveryCodes()" data-i18n-key="settings.2fa.regenerateRecovery">Generate new recovery codes</button>
+                <button type="button" class="btn btn-danger" id="settings-2fa-disable-btn" onclick="disableTwoFactor()" data-i18n-key="settings.2fa.disable">Disable 2FA</button>
+              </div>
+              <div id="settings-2fa-setup" class="settings-2fa-setup-card" style="display:none;">
+                <div class="settings-2fa-setup-header">
+                  <div>
+                    <strong data-i18n-key="settings.2fa.setupAuthenticator">Set up authenticator app</strong>
+                    <p data-i18n-key="settings.2fa.setupHint">Scan the QR code, enter the code, then confirm with your password.</p>
+                  </div>
+                </div>
+                <div class="settings-2fa-setup-grid">
+                  <div id="settings-2fa-qr" class="settings-2fa-qr" aria-label="TOTP QR-Code" data-i18n-aria-label-key="settings.2fa.qrAria"></div>
+                  <div class="settings-2fa-manual">
+                    <label data-i18n-key="settings.2fa.secretKey">Secret-Key</label>
+                    <code id="settings-2fa-secret"></code>
+                    <label for="settings-2fa-otpauth">otpauth URL</label>
+                    <input type="text" id="settings-2fa-otpauth" readonly>
+                  </div>
+                </div>
+                <label class="settings-2fa-code-label" for="settings-2fa-code" data-i18n-key="settings.2fa.appCode">6-stelliger Code aus der App</label>
+                <input type="text" id="settings-2fa-code" inputmode="numeric" autocomplete="one-time-code" placeholder="123456">
+                <button type="button" class="btn btn-primary" onclick="confirmTwoFactorTotp()" data-i18n-key="settings.2fa.enable">Enable 2FA</button>
+              </div>
+              <div class="settings-2fa-devices-wrap">
+                <div class="settings-2fa-subtitle" data-i18n-key="settings.2fa.configuredFactors">Eingerichtete Faktoren</div>
+                <div id="settings-2fa-devices" class="settings-2fa-devices"></div>
+              </div>
+              <div class="settings-2fa-devices-wrap settings-sessions-wrap">
+                <div class="settings-2fa-subtitle settings-2fa-trusted-header">
+                  <button type="button" id="settings-sessions-toggle" class="settings-sessions-toggle" onclick="toggleTrustedDevicesList()" aria-expanded="false" aria-controls="settings-2fa-trusted-panel">
+                    <span class="settings-sessions-chevron">›</span>
+                    <span data-i18n-key="settings.2fa.trustedDevices">Active sessions / devices</span>
+                    <span id="settings-2fa-session-count" class="settings-session-count"></span>
+                  </button>
+                  <button type="button" class="btn btn-danger btn-small" onclick="revokeAllTrustedDevices()" data-i18n-key="settings.2fa.revokeAllTrusted">Alle abmelden</button>
+                </div>
+                <div id="settings-2fa-trusted-panel" hidden>
+                  <div id="settings-2fa-trusted-devices" class="settings-2fa-devices"></div>
+                </div>
+              </div>
+              <div id="settings-2fa-recovery" class="settings-recovery-box" style="display:none;"></div>
+              <div id="settings-2fa-error" class="settings-field-error"></div>
+              <div id="settings-2fa-success" class="settings-field-success"></div>
+            </div>
+          </section>
+
+          <section class="settings-section-card" id="settings-section-api">
+            <div class="settings-section-heading">
+              <div class="settings-section-icon" data-icon="key-round"></div>
+              <div>
+                <h4><span data-i18n-key="settings.apiKeys.title">API-Keys</span></h4>
+                <p data-i18n-key="settings.section.apiHint">Zugriff für Automationen und Integrationen verwalten.</p>
+              </div>
+            </div>
+            <div id="api-keys-list" class="settings-list-space">
+              <!-- API keys loaded dynamically -->
+            </div>
+            <div class="settings-action-row">
+              <button class="btn btn-primary" onclick="createApiKey()" data-i18n-key="settings.apiKeys.create">Create new API key</button>
+              <div class="app-resource-links settings-resource-links api-settings-resource-links">
+                <a class="app-resource-link" href="/api" target="_blank" rel="noopener"><span data-icon="book-open"></span> <span data-i18n-key="resource.apiDocs">API-Doku</span></a>
+              </div>
+            </div>
+            <div id="api-key-created" class="settings-secret-box" style="display:none;">
+              <p><span data-icon="triangle-alert"></span> <span data-i18n-key="settings.apiKeys.copyNowWarning">Copy the key now — it will not be shown again!</span></p>
+              <code id="api-key-value"></code>
+              <button class="btn btn-secondary" onclick="copyApiKey()"><span data-icon="clipboard"></span> <span data-i18n-key="common.copy">Copy</span></button>
+              <div id="api-key-copy-status" class="settings-field-success"></div>
+            </div>
+            <div id="api-key-error" class="settings-field-error"></div>
+          </section>
+
+          <section class="settings-section-card" id="settings-section-notifications">
+            <div class="settings-section-heading">
+              <div class="settings-section-icon" data-icon="bell"></div>
+              <div>
+                <h4 data-i18n-key="settings.section.notifications">Benachrichtigungen</h4>
+                <p data-i18n-key="settings.section.notificationsHint">Browser-Push und native Erinnerungen testen.</p>
+              </div>
+            </div>
+            <div id="browser-push-settings-section" class="settings-notification-panel">
+              <div class="settings-subcard-heading">
+                <h5><span data-icon="bell"></span> <span data-i18n-key="settings.push.title">Push notifications</span></h5>
+                <div id="push-status" class="settings-status-pill" data-i18n-key="settings.push.statusChecking">Status: Checking...</div>
+              </div>
+              <div id="push-actions" class="settings-action-row">
+                <button class="btn btn-primary" id="push-enable-btn" onclick="enablePushNotifications()" style="display:none;" data-i18n-key="settings.push.enable">Enable notifications</button>
+                <button class="btn btn-danger" id="push-disable-btn" onclick="disablePushNotifications()" style="display:none;" data-i18n-key="common.disable">Disable</button>
+                <button class="btn btn-secondary" id="push-test-btn" onclick="sendTestPush()" style="display:none;" data-i18n-key="settings.push.test">Send test</button>
+              </div>
+              <div id="push-error" class="settings-field-error"></div>
+            </div>
+          </section>
+
+          <section class="settings-section-card" id="settings-section-app">
+            <div id="desktop-settings-section" style="display:none;">
+              <div class="settings-section-heading">
+                <div class="settings-section-icon" data-icon="smartphone"></div>
+                <div>
+                  <h4><span data-i18n-key="settings.desktop.title">App</span></h4>
+                  <p data-i18n-key="settings.section.appHint">Desktop-Integration, Native Notifications und globale Hotkeys.</p>
+                </div>
+              </div>
+              <div class="settings-toggle-grid" data-desktop-only>
+                <label class="settings-toggle-row">
+                  <span data-i18n-key="settings.desktop.minimizeToTray">Minimieren ins Tray statt beenden</span>
+                  <input type="checkbox" id="desktop-minimize-to-tray">
+                </label>
+                <label class="settings-toggle-row">
+                  <span data-i18n-key="settings.desktop.autostart">Autostart mit Windows</span>
+                  <input type="checkbox" id="desktop-autostart">
+                </label>
+                <label class="settings-toggle-row">
+                  <span data-i18n-key="settings.desktop.startMinimizedToTray">Beim Autostart minimiert im Tray starten</span>
+                  <input type="checkbox" id="desktop-start-minimized-to-tray">
+                </label>
+              </div>
+              <label class="settings-toggle-row settings-toggle-feature">
+                <span data-i18n-key="settings.desktop.nativeNotifications">Native notifications</span>
+                <input type="checkbox" id="desktop-notifications">
+              </label>
+              <div class="settings-card-actions">
+                <button class="btn btn-secondary" type="button" onclick="testDesktopNotification()" data-i18n-key="settings.desktop.testNotification">Test notification</button>
+              </div>
+              <div class="desktop-hotkeys-settings" data-desktop-only>
+                <h5><span data-icon="keyboard"></span> <span data-i18n-key="settings.desktop.hotkeys.title">Globale Hotkeys</span></h5>
+                <p><span data-i18n-key="settings.desktop.hotkeys.hint">Click the field, press the shortcut, done.</span> <code>Backspace</code>/<code data-i18n-key="settings.desktop.hotkeys.deleteKey">Del</code> <span data-i18n-key="settings.desktop.hotkeys.clearHint">clears the hotkey.</span></p>
+                <div class="settings-hotkey-grid">
+                  <div class="form-group">
+                    <label data-i18n-key="settings.desktop.hotkeys.toggleApp">App anzeigen/verstecken</label>
+                    <input class="hotkey-capture-input" type="text" id="desktop-hotkey-toggle-app" inputmode="none" autocomplete="off" aria-label="Hotkey to show or hide the app" data-i18n-aria-label-key="settings.desktop.hotkeys.toggleAppAria">
+                  </div>
+                  <div class="form-group">
+                    <label data-i18n-key="settings.desktop.hotkeys.newTodo">Open a new todo directly</label>
+                    <input class="hotkey-capture-input" type="text" id="desktop-hotkey-new-todo" inputmode="none" autocomplete="off" aria-label="Hotkey for new todo" data-i18n-aria-label-key="settings.desktop.hotkeys.newTodoAria">
+                  </div>
+                  <div class="form-group">
+                    <label data-i18n-key="settings.desktop.hotkeys.search">Suche fokussieren</label>
+                    <input class="hotkey-capture-input" type="text" id="desktop-hotkey-search" inputmode="none" autocomplete="off" aria-label="Hotkey for search" data-i18n-aria-label-key="settings.desktop.hotkeys.searchAria">
+                  </div>
+                </div>
+              </div>
+              <div id="desktop-settings-status" class="settings-help-text" data-desktop-settings-status></div>
+            </div>
+          </section>
+        </div>
+      </div>
+      <div class="modal-actions settings-modal-actions">
         <button type="button" class="btn btn-secondary" id="settings-close-btn" onclick="closeModal('settings-modal')" data-i18n-key="settings.close">Close</button>
       </div>
     </div>
   </div>
   <div class="modal" id="workspace-modal">
     <div class="modal-overlay" onclick="closeWorkspaceModal()"></div>
-    <div class="modal-content small-modal">
-      <h3 id="workspace-modal-title" data-i18n-key="workspace.new">Neuer Workspace</h3>
+    <div class="modal-content entity-modal-content workspace-modal-content">
+      <div class="entity-modal-header">
+        <div class="entity-modal-title-icon" data-icon="briefcase"></div>
+        <div>
+          <h3 id="workspace-modal-title" data-i18n-key="workspace.new">Neuer Workspace</h3>
+          <p data-i18n-key="workspace.modalHint">Organisiere Projekte nach Kontext, Team oder Bereich.</p>
+        </div>
+      </div>
       <button class="modal-close-x" onclick="closeWorkspaceModal()"><span data-icon="x"></span></button>
-      <div class="modal-body">
-        <form id="workspace-form">
+      <div class="modal-body entity-modal-body">
+        <form id="workspace-form" class="entity-modal-form">
           <input type="hidden" id="workspace-id">
-          <div class="form-group">
-            <label data-i18n-key="common.name">Name</label>
-            <input type="text" id="workspace-name" required maxlength="80" placeholder="e.g. Personal, Work" data-i18n-placeholder-key="workspace.namePlaceholder">
-          </div>
-          <div class="form-group">
-            <label data-i18n-key="common.color">Farbe</label>
-            <input type="color" id="workspace-color" value="#6366f1">
-          </div>
-          <div class="form-group">
-            <label data-i18n-key="workspace.icon">Icon (optional)</label>
-            <input type="hidden" id="workspace-icon">
-            <div id="workspace-icon-picker" class="icon-picker" aria-label="Choose workspace icon" data-i18n-aria-label-key="workspace.chooseIcon"></div>
-          </div>
-          <div id="workspace-error" class="settings-field-error"></div>
-          <div class="modal-actions split-actions">
-            <button type="button" class="btn btn-danger" id="workspace-delete-btn" onclick="deleteWorkspaceFromModal()" style="display:none;" data-i18n-key="todo.delete">Delete</button>
-            <div class="modal-actions-right">
-              <button type="button" class="btn btn-secondary" onclick="closeWorkspaceModal()" data-i18n-key="common.cancel">Cancel</button>
-              <button type="submit" class="btn btn-primary" data-i18n-key="common.save">Save</button>
+          <section class="ui-section-card">
+            <div class="ui-section-heading">
+              <div class="ui-section-icon" data-icon="briefcase"></div>
+              <div>
+                <h4 data-i18n-key="workspace.details">Details</h4>
+                <p data-i18n-key="workspace.detailsHint">Name, Farbe und Icon für diesen Workspace.</p>
+              </div>
             </div>
-          </div>
+            <div class="ui-field-grid two-columns">
+              <div class="form-group">
+                <label data-i18n-key="common.name">Name</label>
+                <input type="text" id="workspace-name" required maxlength="80" placeholder="e.g. Personal, Work" data-i18n-placeholder-key="workspace.namePlaceholder">
+              </div>
+              <div class="form-group">
+                <label data-i18n-key="common.color">Farbe</label>
+                <input type="color" id="workspace-color" value="#6366f1">
+              </div>
+            </div>
+            <div class="form-group">
+              <label data-i18n-key="workspace.icon">Icon (optional)</label>
+              <input type="hidden" id="workspace-icon">
+              <div id="workspace-icon-picker" class="icon-picker" aria-label="Choose workspace icon" data-i18n-aria-label-key="workspace.chooseIcon"></div>
+            </div>
+            <div id="workspace-error" class="settings-field-error"></div>
+          </section>
         </form>
+      </div>
+      <div class="modal-actions split-actions entity-modal-actions">
+        <button type="button" class="btn btn-danger" id="workspace-delete-btn" onclick="deleteWorkspaceFromModal()" style="display:none;" data-i18n-key="todo.delete">Delete</button>
+        <div class="modal-actions-right">
+          <button type="button" class="btn btn-secondary" onclick="closeWorkspaceModal()" data-i18n-key="common.cancel">Cancel</button>
+          <button type="submit" form="workspace-form" class="btn btn-primary" data-i18n-key="common.save">Save</button>
+        </div>
       </div>
     </div>
   </div>
 
   <div class="modal" id="project-modal">
     <div class="modal-overlay" onclick="closeModal('project-modal')"></div>
-    <div class="modal-content">
-      <h3 id="project-modal-title" data-i18n-key="project.new">New project</h3>
+    <div class="modal-content entity-modal-content project-modal-content">
+      <div class="entity-modal-header">
+        <div class="entity-modal-title-icon" data-icon="folder"></div>
+        <div>
+          <h3 id="project-modal-title" data-i18n-key="project.new">New project</h3>
+          <p data-i18n-key="project.modalHint">Strukturiere Todos mit Farbe, Icon und optionaler Hierarchie.</p>
+        </div>
+      </div>
       <button class="modal-close-x" onclick="closeModal('project-modal')"><span data-icon="x"></span></button>
-      <div class="modal-body">
-      <form id="project-form">
-        <input type="hidden" id="project-id">
-        <div class="form-group">
-          <label data-i18n-key="common.name">Name</label>
-          <input type="text" id="project-name" required>
-        </div>
-        <div class="form-group">
-          <label data-i18n-key="common.color">Farbe</label>
-          <input type="color" id="project-color" value="#6366f1">
-        </div>
-        <div class="form-group">
-          <label data-i18n-key="project.icon">Icon (optional)</label>
-          <input type="hidden" id="project-icon">
-          <div id="project-icon-picker" class="icon-picker" aria-label="Choose project icon" data-i18n-aria-label-key="project.chooseIcon"></div>
-        </div>
-        <div class="form-group" id="project-display-workspace-group" style="display:none;">
-          <label data-i18n-key="project.displayWorkspace">Anzeigen in Workspace</label>
-          <select id="project-display-workspace-id"></select>
-        </div>
-        <div class="form-group">
-          <label data-i18n-key="project.parent">Parent project (optional)</label>
-          <select id="project-parent-id">
-            <option value="" data-i18n-key="project.noParent">-- No parent project --</option>
-          </select>
-        </div>
-      </form>
-
-      <div id="project-sharing-section" style="display:none; margin-top:16px; padding-top:16px; border-top:1px solid var(--border);">
-        <div id="project-owner-info" class="project-owner-info" style="display:none;"><span class="project-owner-label" data-i18n-key="project.share.ownerLabel">Geteilt von</span><span class="project-owner-name"></span></div>
-        <div id="project-sharing-content">
-          <h4 style="margin:0 0 10px 0;" data-i18n-key="project.share.sharedWith">Geteilt mit</h4>
-          <div id="project-members-list"></div>
-          <div id="project-share-row" class="form-group" style="margin-top:10px;">
-            <label data-i18n-key="project.share.inviteUser">Invite user</label>
-            <div style="display:flex; gap:8px;">
-              <input id="project-share-username" type="text" class="form-control" placeholder="Username or email" data-i18n-placeholder-key="project.share.usernamePlaceholder" style="flex:1;">
-              <button type="button" class="btn btn-primary" onclick="inviteUserToProject()" data-i18n-key="project.share.invite">Einladen</button>
+      <div class="modal-body entity-modal-body">
+        <form id="project-form" class="entity-modal-form">
+          <input type="hidden" id="project-id">
+          <section class="ui-section-card">
+            <div class="ui-section-heading">
+              <div class="ui-section-icon" data-icon="folder"></div>
+              <div>
+                <h4 data-i18n-key="project.details">Details</h4>
+                <p data-i18n-key="project.detailsHint">Name, Farbe und Icon für dieses Projekt.</p>
+              </div>
             </div>
-            <div id="project-share-error" class="form-error"></div>
+            <div class="ui-field-grid two-columns">
+              <div class="form-group">
+                <label data-i18n-key="common.name">Name</label>
+                <input type="text" id="project-name" required>
+              </div>
+              <div class="form-group">
+                <label data-i18n-key="common.color">Farbe</label>
+                <input type="color" id="project-color" value="#6366f1">
+              </div>
+            </div>
+            <div class="form-group">
+              <label data-i18n-key="project.icon">Icon (optional)</label>
+              <input type="hidden" id="project-icon">
+              <div id="project-icon-picker" class="icon-picker" aria-label="Choose project icon" data-i18n-aria-label-key="project.chooseIcon"></div>
+            </div>
+          </section>
+          <section class="ui-section-card">
+            <div class="ui-section-heading">
+              <div class="ui-section-icon" data-icon="layout-dashboard"></div>
+              <div>
+                <h4 data-i18n-key="project.organization">Einordnung</h4>
+                <p data-i18n-key="project.organizationHint">Workspace und Parent-Projekt bestimmen, wo das Projekt erscheint.</p>
+              </div>
+            </div>
+            <div class="ui-field-grid project-organization-grid">
+              <div class="form-group" id="project-display-workspace-group" style="display:none;">
+                <label data-i18n-key="project.displayWorkspace">Anzeigen in Workspace</label>
+                <select id="project-display-workspace-id"></select>
+              </div>
+              <div class="form-group">
+                <label data-i18n-key="project.parent">Parent project (optional)</label>
+                <select id="project-parent-id">
+                  <option value="" data-i18n-key="project.noParent">-- No parent project --</option>
+                </select>
+              </div>
+            </div>
+          </section>
+        </form>
+
+        <section id="project-sharing-section" class="ui-section-card project-sharing-card" style="display:none;">
+          <div class="ui-section-heading">
+            <div class="ui-section-icon" data-icon="share-2"></div>
+            <div>
+              <h4 data-i18n-key="project.share.sharedWith">Geteilt mit</h4>
+              <p data-i18n-key="project.share.hint">Lade andere Nutzer zu diesem Projekt ein oder verwalte bestehende Mitglieder.</p>
+            </div>
           </div>
-        </div>
-        <div id="project-share-start-row" style="margin-top:10px;">
-          <button type="button" class="btn btn-secondary" onclick="showShareInput()"><span data-icon="share-2"></span> <span data-i18n-key="project.share.start">Teilen</span></button>
-        </div>
-        <button type="button" class="btn btn-secondary" id="project-leave-btn" onclick="leaveProjectFromModal()" style="display:none; margin-top:10px;" data-i18n-key="project.share.leave">Leave project</button>
+          <div id="project-owner-info" class="project-owner-info" style="display:none;"><span class="project-owner-label" data-i18n-key="project.share.ownerLabel">Geteilt von</span><span class="project-owner-name"></span></div>
+          <div id="project-sharing-content">
+            <div id="project-members-list"></div>
+            <div id="project-share-row" class="form-group project-share-row">
+              <label data-i18n-key="project.share.inviteUser">Invite user</label>
+              <div class="project-share-inline">
+                <input id="project-share-username" type="text" class="form-control" placeholder="Username or email" data-i18n-placeholder-key="project.share.usernamePlaceholder">
+                <button type="button" class="btn btn-primary" onclick="inviteUserToProject()" data-i18n-key="project.share.invite">Einladen</button>
+              </div>
+              <div id="project-share-error" class="form-error"></div>
+            </div>
+          </div>
+          <div id="project-share-start-row" class="project-share-start-row">
+            <button type="button" class="btn btn-secondary" onclick="showShareInput()"><span data-icon="share-2"></span> <span data-i18n-key="project.share.start">Teilen</span></button>
+          </div>
+          <button type="button" class="btn btn-secondary project-leave-btn" id="project-leave-btn" onclick="leaveProjectFromModal()" style="display:none;" data-i18n-key="project.share.leave">Leave project</button>
+        </section>
       </div>
-      </div>
-      <div class="modal-actions">
+      <div class="modal-actions entity-modal-actions">
         <button type="button" class="btn btn-danger" id="project-delete-btn" onclick="deleteProjectFromModal()" style="margin-right:auto;display:none;"><span data-icon="trash-2"></span> <span data-i18n-key="project.delete">Delete project</span></button>
         <button type="button" class="btn btn-secondary" onclick="closeModal('project-modal')" data-i18n-key="common.cancel">Cancel</button>
         <button type="submit" form="project-form" class="btn btn-primary" id="project-save-btn" data-i18n-key="common.save">Save</button>

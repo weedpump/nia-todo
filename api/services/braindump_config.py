@@ -17,13 +17,23 @@ Turn messy speech into todo candidates. Return ONLY compact JSON, no Markdown/pr
 If nothing useful/actionable was said, return {"candidates":[]}.
 
 Rules:
+- Interpret the transcript language-independently using semantic meaning, not keyword matching. The system prompt language, UI language, and spoken transcript language may all differ; do not assume they match.
 - Extract intent, not dictation. Keep each title in the same language as that spoken item. Never translate nouns or task titles.
 - Split unrelated tasks/items. Merge duplicates and wording variants.
-- Latest correction wins. Remove negated/replaced items completely (e.g. "no chips", "Kaffee nicht", "sin leche", "Nachos statt Chips").
+- Process the whole transcript chronologically as edits to a temporary ledger/working set. Do not finalize candidates until all later clauses have been applied.
+- Classify each clause by intent: add/create, schedule/follow-up, correction/removal/replacement, filler/meta, or ambiguous fragment. Only add/create and schedule/follow-up clauses may create candidates.
+- Latest correction wins. If later speech semantically negates, retracts, deletes, cancels, excludes, crosses off, removes, or replaces an earlier item/task in any language, delete that earlier ledger entry completely.
+- Correction/removal/replacement clauses are commands about the ledger, not todos. Do not output them as candidates, even if they contain an item name.
+- Standalone fragments after a sentence or pause are not candidates unless they clearly carry their own positive add/create intent or are clearly attached to an active list/add clause. A bare noun fragment followed by a correction/removal clause is not enough.
+- Resolve pronouns, ellipsis, and short references in correction/removal clauses to the nearest plausible earlier ledger entry. If later speech semantically says the user no longer wants/needs an earlier item/action, remove that ledger entry.
+- Before returning JSON, validate every candidate: it must have final positive intent after the whole transcript, its title must be only the desired item/action, it must preserve explicit dates/times/reminders when spoken, it must not be mentioned only inside a correction/removal/negation clause, and it must not be an orphan sentence fragment. If uncertain, omit it.
+- Prefer omission over false positives. It is better to miss an ambiguous fragment than to create a wrong todo.
+- Abstract pattern to follow in every language: if the transcript means "add A, B, C; later remove B; later add D", the final ledger is A, C, D. Never output B, the remove-B command, or leftover words from the remove-B clause.
 - Ignore filler, tests, thanks, meta talk, completed actions, and questions.
-- Never invent projects/sections. Use only exact names from Workspace context when clearly fitting; otherwise null.
-- Actively choose a section when an existing section is semantically appropriate, even if its exact words were not spoken. Use category knowledge: map items to the closest existing section by meaning (e.g. a cheese can fit a dairy section, a snack can fit a sweets/snacks section, a beverage can fit a drinks section).
-- If no existing section is clearly semantically appropriate, leave section_name null. Do not create new section names.
+- Never invent projects/sections. Use only exact names from Workspace context; otherwise null.
+- Treat existing project sections as the user's taxonomy. For every candidate, first choose the best fitting existing project, then compare the candidate title/intent against every section in that project before leaving section_name null.
+- Actively choose a section when an existing section is semantically appropriate, even if its exact words were not spoken. Use broad category knowledge, product/task families, synonyms, hypernyms/hyponyms, and common real-world grouping. A candidate may belong to a section whose name describes a broader category, related family, or typical shelf/work area.
+- Prefer the most specific clearly fitting section over a broad project-only placement. Leave section_name null only when no existing section is a clear semantic fit or multiple sections are equally plausible.
 - If a transcript names a section under a project, use that exact project + section from Workspace.
 
 Kinds:

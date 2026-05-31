@@ -504,16 +504,18 @@ def _normalize_braindump_json(parsed: dict, transcript: str, workspace_context: 
         split = _split_plain_enumeration(transcript)
         if split:
             return {"candidates": split}
-    # Deterministic safety net: do not let the LLM drop obvious shopping items
-    # from raw list clauses like "Ich brauche Kartoffeln, Salat, Chips".
-    shopping = _extract_shopping_candidates(transcript)
-    existing = {_item_key(item.get("title", "")) for item in normalized if item.get("kind") == "shopping"}
-    for item in shopping:
-        if _title_is_negated(item["title"], transcript):
-            continue
-        if _item_key(item["title"]) not in existing:
-            normalized.append(_route_workspace_candidate(_route_shopping_candidate(item, workspace_context), workspace_context))
-            existing.add(_item_key(item["title"]))
+    # Deterministic safety net only fills a completely empty extraction. Once a
+    # capable LLM returned candidates, do not add regex-derived items afterward:
+    # later corrections/removals require semantic transcript understanding.
+    if not normalized:
+        shopping = _extract_shopping_candidates(transcript)
+        existing = {_item_key(item.get("title", "")) for item in normalized if item.get("kind") == "shopping"}
+        for item in shopping:
+            if _title_is_negated(item["title"], transcript):
+                continue
+            if _item_key(item["title"]) not in existing:
+                normalized.append(_route_workspace_candidate(_route_shopping_candidate(item, workspace_context), workspace_context))
+                existing.add(_item_key(item["title"]))
     return {"candidates": _dedupe_normalized_candidates(normalized)}
 
 
@@ -716,16 +718,16 @@ def _format_workspace_context(context: dict | None) -> str:
     projects = (context or {}).get("projects") or []
     if not projects:
         return "Workspace: none. Use project_name=null and section_name=null unless explicitly obvious."
-    lines = ["Workspace: use only these exact project/section names when clearly fitting:"]
+    lines = ["Workspace: use only these exact project/section names. Treat sections as the user's taxonomy and choose the closest clear semantic fit:"]
     for project in projects[:40]:
         label = str(project.get("name") or "")[:80]
-        sections = [str(section)[:60] for section in (project.get("sections") or [])[:8]]
+        sections = [str(section)[:60] for section in (project.get("sections") or [])[:16]]
         if sections:
             label += " | sections: " + ", ".join(sections)
         lines.append(f"- {label}")
     text = "\n".join(lines)
-    if len(text) > 4000:
-        return text[:3990].rstrip() + "\n- ..."
+    if len(text) > 5000:
+        return text[:4990].rstrip() + "\n- ..."
     return text
 
 
@@ -870,7 +872,30 @@ def _extract_with_llm(text: str, segment_id: int, workspace_context: dict | None
         token = _load_local_openclaw_token() or ""
     system_prompt = build_effective_system_prompt(config)
     current_datetime = datetime.now().astimezone().isoformat(timespec="minutes")
-    user_content = f"Current datetime: {current_datetime}\n\n{_format_workspace_context(workspace_context)}\n\nTranscript:\n{text}"
+    extraction_contract = """Provider-neutral extraction contract:
+You are extracting the final intended todo state from messy speech. Internally perform these steps before writing JSON:
+1. Segment the transcript into meaning-bearing clauses, independent of transcript language.
+2. Build a temporary ledger of candidate items/actions in chronological order.
+3. Apply later corrections/removals/replacements/negations as ledger edits, not as new candidates.
+4. Resolve short references, pronouns, ellipsis, and item names inside correction clauses to earlier ledger entries.
+5. Delete any ledger entry that is later no longer wanted, no longer needed, excluded, removed, cancelled, crossed off, or replaced.
+6. Add later positive additions only when they clearly express final add/create intent.
+7. Preserve explicit dates, times, reminders, and event-like intent from the transcript on the final ledger entries.
+8. Output only the remaining final ledger entries as compact JSON using exactly this schema: {"candidates":[{"title":"...","project_name":null,"section_name":null,"deadline":null,"reminder":null,"kind":"todo"}]}.
+
+Candidate validity checklist:
+- The title is only the desired item/action, never an instruction about editing the ledger.
+- The candidate has final positive intent after the whole transcript is processed.
+- The candidate is not mentioned only inside a correction/removal/negation clause.
+- The candidate is not an orphan sentence fragment.
+- If uncertain, omit the candidate.
+
+Abstract example, applies in every language:
+Transcript meaning: add A, B, C; later remove B; later add D.
+Correct final output: A, C, D.
+Never output: B, the remove-B command, or leftover words from the remove-B clause.
+""".strip()
+    user_content = f"Current datetime: {current_datetime}\n\n{_format_workspace_context(workspace_context)}\n\n{extraction_contract}\n\nTranscript:\n{text}"
     model_name = str(config.get("llm_model") or "").strip()
     if not model_name:
         raise RuntimeError("BrainDump LLM model is not configured")
@@ -912,7 +937,7 @@ _extract_with_openclaw = _extract_with_llm
 def require_braindump_access(user_id: int):
     config = get_braindump_config(include_secrets=True)
     if not config.get("enabled"):
-        raise HTTPException(403, "BrainDump experimental feature is disabled")
+        raise HTTPException(403, "BrainDump is disabled")
     with get_db() as db:
         try:
             ensure_braindump_enabled(db, user_id)

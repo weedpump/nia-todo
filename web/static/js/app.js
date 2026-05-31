@@ -28,7 +28,7 @@ import { createAppDownloadsFeature } from './features/app-downloads.js';
 import { createAppRenderingFeature } from './features/app-rendering.js';
 import { createNavigationFeature } from './features/navigation.js';
 import { createSectionActionsFeature } from './features/section-actions.js';
-import { createBrainDumpLiveDebugFeature } from './features/braindump-live-debug.js';
+import { createBrainDumpLiveFeature } from './features/braindump-live.js';
 import { createUiShell } from './features/ui-shell.js';
 import { createAppLifecycle } from './features/app-lifecycle.js';
 import { exposeLegacyGlobals } from './features/legacy-globals.js';
@@ -64,7 +64,10 @@ const confirmDialogFeature = createConfirmDialogFeature();
 const confirmDanger = confirmDialogFeature.confirmDanger;
 const appDownloadsFeature = createAppDownloadsFeature();
 const openAppDownloadsModal = appDownloadsFeature.openAppDownloadsModal;
-const brainDumpLiveDebugFeature = createBrainDumpLiveDebugFeature();
+const brainDumpLiveFeature = createBrainDumpLiveFeature({
+  getProjects: () => projects,
+  getSections: () => sections,
+});
 const viewPreferences = createViewPreferencesFeature({
   getHideDone: () => hideDone,
   setHideDone: (value) => { hideDone = value; },
@@ -665,7 +668,7 @@ const appLifecycle = createAppLifecycle({
 });
 const initApp = async function() {
   await appLifecycle.initApp();
-  brainDumpLiveDebugFeature.init();
+  brainDumpLiveFeature.init();
   if (sharingFeature?.loadInvites) {
     sharingFeature.loadInvites();
   }
@@ -688,7 +691,7 @@ export function startAppModule() {
   hydrateIcons(document);
   confirmDialogFeature.bindConfirmDialog();
   appDownloadsFeature.initAppDownloads();
-  brainDumpLiveDebugFeature.init();
+  brainDumpLiveFeature.init();
   bindNativePointerDragDrop();
   bindTodayFocusHotkey();
   bindNavigationHistory();

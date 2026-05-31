@@ -5,6 +5,28 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [2.8.0] - 2026-05-31
+
+### Added
+- A shared custom dropdown/menu system now powers redesigned user-facing selectors and action menus across todos, projects, settings, and admin screens, with keyboard support, accessible hidden native-select synchronization, viewport-aware menu placement, and regression coverage.
+- A formal UI design concept and dropdown migration plan now document the app's card-based modal patterns, mobile behavior, shared controls, BrainDump UX expectations, and intentional exceptions.
+
+### Changed
+- Todo, project, workspace, user settings, admin, topbar, user-menu, and BrainDump surfaces have been visually aligned around calmer cards, consistent icon tiles, improved spacing, responsive mobile layouts, and reusable UI primitives.
+- Todo cards now have a more polished layout with safer description previews, reminder metadata chips, aligned action menus, and smoother swipe gestures with elastic movement, action labels, threshold feedback, and full-width iPad/mobile swiping.
+- BrainDump opens into a voice-first flow that starts recording immediately from the launcher, groups/sorts preview candidates by project, indents subprojects in quick-fix dropdowns, and keeps its modal/action layout aligned with the redesigned UI system.
+- BrainDump documentation and admin/README wording now present the feature as configured/controlled rather than experimental.
+- BrainDump preview candidates now include compact quick-fix controls for editing the title, project, and section before creating todos, using the shared custom dropdown system and an inline icon-only edit action.
+- BrainDump extraction now uses a provider-neutral, language-agnostic ledger contract so capable OpenAI-compatible, Ollama, OpenClaw-agent, or other chat/instruct models apply later corrections/removals before returning final candidates.
+- BrainDump's deterministic shopping safety net now only fills completely empty extractions, preventing regex-derived fallback items from re-adding candidates that a capable LLM correctly removed semantically.
+- Frontend regression coverage now locks the shared dropdown behavior, redesigned modal/layout expectations, mobile todo modal layout, admin/settings selects, BrainDump capture flow, native/mobile todo gestures, and provider-neutral correction handling.
+
+### Fixed
+- Mobile todo swipe gestures again move the todo card itself instead of only revealing the background, support full-width swipes on iPad/mobile, and keep action labels visible on narrow screens.
+- Redesigned dropdowns no longer appear as visible browser-default selects in migrated surfaces, avoid modal clipping, preserve existing JS-bound select IDs, and keep German/English labels readable.
+- Project sharing/member management and workspace controls were reviewed for the redesign scope; workspace-specific controls remain intentional custom patterns, while project sharing uses inline actions rather than dropdown-style member menus.
+- BrainDump no longer turns later correction/removal phrases or orphaned sentence fragments into todos when the configured LLM already returned semantic candidates.
+
 ## [2.7.0] - 2026-05-31
 
 ### Added

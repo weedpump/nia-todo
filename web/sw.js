@@ -1,5 +1,5 @@
 // nia-todo Service Worker - robust offline-first, update system, and push notifications
-const SW_VERSION = 'v2.7.0';
+const SW_VERSION = 'v2.8.0';
 const CACHE_NAME = 'nia-todo-' + SW_VERSION;
 
 // Assets required for offline startup
@@ -29,6 +29,7 @@ const PRECACHE_ASSETS = [
   '/static/js/sync/queue.js',
   '/static/js/icons/lucide-icons.js',
   '/static/js/i18n/index.js',
+  '/static/js/ui/dropdowns.js',
   '/static/i18n/de.json',
   '/static/i18n/en.json',
   '/static/js/features/api-keys.js',
@@ -60,7 +61,7 @@ const PRECACHE_ASSETS = [
   '/static/js/features/service-worker-updates.js',
   '/static/js/features/section-actions.js',
   '/static/js/features/sections.js',
-  '/static/js/features/braindump-live-debug.js',
+  '/static/js/features/braindump-live.js',
   '/static/js/features/security-dialogs.js',
   '/static/vendor/qrcode-generator.js',
   '/static/icons/icon-192.png',

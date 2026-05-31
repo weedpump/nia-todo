@@ -2,6 +2,7 @@ import { RUNTIME_CAPABILITIES, apiResourceUrl } from '../core/config.js';
 import { getLanguagePreference, setLanguagePreference, adoptServerLanguagePreference, getActiveLanguage, t, translatePage } from '../i18n/index.js';
 import { cleanSessionUserAgent, sessionDeviceName } from '../core/device-labels.js';
 import { iconSvg } from '../icons/lucide-icons.js';
+import { hydrateSelect, refreshSelect } from '../ui/dropdowns.js';
 import qrcode from '../../vendor/qrcode-generator.js';
 import { confirmSecurityAction, performMfaReauth, promptSecurityPassword, promptSecurityText } from './security-dialogs.js';
 function isValidEmail(email) {
@@ -113,7 +114,10 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
 
   function renderLanguageSetting() {
     const select = document.getElementById('settings-language');
-    if (select) select.value = getLanguagePreference();
+    if (!select) return;
+    hydrateSelect(select);
+    select.value = getLanguagePreference();
+    refreshSelect(select);
   }
 
   function renderUserInfo() {
