@@ -35,10 +35,10 @@ Implemented:
 - shared dropdown trigger aligned to the standard input field visual contract
 - shared selected-option checkmark uses the same Lucide `check` icon treatment as the workspace dropdown
 
-Still to inspect/migrate before calling the redesign complete:
+Intentional exceptions / inspected scope:
 
-- Workspace modal menu-like selectors, if any remain visible
-- Project sharing/member action menus, if exposed as dropdown-like controls
+- Workspace menu and workspace icon picker keep their existing custom workspace patterns by product decision; they are not part of the shared dropdown migration scope.
+- Project sharing/member management was inspected on 2026-05-31: it exposes inline invite/remove/leave actions, not dropdown-like member action menus, so no `.ui-menu` migration is needed there.
 
 ## Non-Negotiables
 
