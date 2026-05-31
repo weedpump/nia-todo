@@ -89,6 +89,7 @@ assert(desktopSource.includes('if (event.repeat) return null'), 'hotkey capture 
 assert(desktopSource.includes('if (isModifierKey(event)) return'), 'hotkey capture must not save a bare modifier as the main key');
 assert(!desktopSource.includes('window.NiaAndroidNative'), 'desktop integration must use the native bridge adapter, not direct Android globals');
 assert(!brainDumpSource.includes('window.NiaAndroidNative'), 'BrainDump must use the native bridge adapter, not direct Android globals');
+assert(brainDumpSource.includes('aria-label="${escapeHtmlAttr(group.project)}"'), 'BrainDump project group labels must use attribute escaping, not HTML escaping');
 assert(!desktopSource.includes('getTauriInvoke'), 'desktop integration must use the native bridge adapter, not direct Tauri invoke');
 assert(desktopSource.includes('userId,'), 'native reminder schedules must carry the current user id for action isolation');
 
