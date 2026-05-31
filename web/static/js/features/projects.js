@@ -55,38 +55,6 @@ export function createProjectsFeature({
     return false;
   }
 
-  function renderProjectSelectControl(select) {
-    if (!select) return;
-    const escapeAttr = value => String(value ?? '').replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
-    const escapeText = value => String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
-    select.classList.add('project-native-select');
-    const existing = select.nextElementSibling?.classList?.contains('project-custom-select') ? select.nextElementSibling : null;
-    const control = existing || document.createElement('details');
-    control.className = 'project-custom-select';
-    control.toggleAttribute('aria-disabled', select.disabled);
-    const selectedOption = select.options[select.selectedIndex] || select.options[0];
-    const selectedLabel = selectedOption?.textContent || '';
-    control.innerHTML = `
-      <summary><span>${escapeText(selectedLabel)}</span></summary>
-      <div class="project-custom-select-menu">
-        ${Array.from(select.options).map(option => `
-          <button type="button" class="${String(option.value) === String(select.value) ? 'active' : ''}" data-value="${escapeAttr(option.value)}">${escapeText(option.textContent)}</button>
-        `).join('')}
-      </div>
-    `;
-    if (!existing) select.insertAdjacentElement('afterend', control);
-    control.querySelectorAll('button[data-value]').forEach(button => {
-      button.disabled = select.disabled;
-      button.addEventListener('click', () => {
-        if (select.disabled) return;
-        select.value = button.getAttribute('data-value') || '';
-        select.dispatchEvent(new Event('change', { bubbles: true }));
-        control.removeAttribute('open');
-        renderProjectSelectControl(select);
-      });
-    });
-  }
-
   function renderParentProjectSelect(project = null, selectedParentId = null, workspaceId = null) {
     const parentSelect = document.getElementById('project-parent-id');
     if (!parentSelect) return;
@@ -126,7 +94,6 @@ export function createProjectsFeature({
     rootProjects.forEach(p => addProjectOptions(p));
     const selected = selectedParentId || '';
     parentSelect.value = [...parentSelect.options].some(option => String(option.value) === String(selected)) ? String(selected) : '';
-    renderProjectSelectControl(parentSelect);
   }
 
   function renderProjectWorkspaceSelect(project = null) {
@@ -150,9 +117,7 @@ export function createProjectsFeature({
     }
     select.onchange = () => {
       if (ownMovableProject) renderParentProjectSelect(project, null, select.value);
-      renderProjectSelectControl(select);
     };
-    renderProjectSelectControl(select);
   }
 
   function showProjectModal(project = null, parentId = null) {
@@ -201,8 +166,6 @@ export function createProjectsFeature({
       if (sharingFeature?.applyProjectModalState) {
         sharingFeature.applyProjectModalState(project, owner, shared);
       }
-      renderProjectSelectControl(document.getElementById('project-parent-id'));
-      renderProjectSelectControl(document.getElementById('project-display-workspace-id'));
     } else {
       if (sharingSection) sharingSection.style.display = 'none';
       if (deleteBtn) deleteBtn.style.display = 'none';
