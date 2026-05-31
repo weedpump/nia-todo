@@ -1883,6 +1883,14 @@ select:focus-visible {
   stroke-width: 2.2;
 }
 
+@media (max-width: 768px) {
+  .form-group input[type="date"]::-webkit-calendar-picker-indicator,
+  .form-group input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+  .form-group input[type="time"]::-webkit-calendar-picker-indicator {
+    display: none;
+  }
+}
+
 .settings-profile-card {
   display: grid;
   grid-template-columns: 76px minmax(0, 1fr);
