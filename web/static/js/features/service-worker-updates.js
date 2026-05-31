@@ -67,6 +67,7 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
 
     console.log('SW: registration scheduled');
     setTimeout(async () => {
+      if (!('serviceWorker' in navigator) || typeof navigator.serviceWorker?.register !== 'function') return;
       const startedAt = performance.now();
       try {
         console.log('SW: registering...');
