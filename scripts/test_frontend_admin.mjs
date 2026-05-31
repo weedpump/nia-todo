@@ -70,6 +70,21 @@ async function run() {
       if (brokenAdminSelectLayout.length) throw new Error(`Admin custom select layout is broken (${context}): ${JSON.stringify(adminSelectLayout)}`);
     }
     await assertAdminSelectLayout('desktop');
+    async function assertCreateUserLanguageAlignment(context) {
+      const createUserRowMetrics = await page.evaluate(() => ['new-username', 'new-display-name', 'new-email', 'new-language'].map((id) => {
+        const element = id === 'new-language'
+          ? document.querySelector('.ui-select[data-select-id="new-language"]')
+          : document.getElementById(id);
+        const rect = element?.getBoundingClientRect();
+        return { id, top: rect?.top || 0, height: rect?.height || 0, bottom: rect?.bottom || 0 };
+      }));
+      const reference = createUserRowMetrics.find((item) => item.id === 'new-email');
+      const language = createUserRowMetrics.find((item) => item.id === 'new-language');
+      if (!reference || !language || Math.abs(language.top - reference.top) > 2 || Math.abs(language.height - reference.height) > 2 || Math.abs(language.bottom - reference.bottom) > 2) {
+        throw new Error(`Create-user language dropdown alignment is broken (${context}): ${JSON.stringify(createUserRowMetrics)}`);
+      }
+    }
+    await assertCreateUserLanguageAlignment('desktop');
     const adminDesktopViewport = page.viewportSize();
     await page.setViewportSize({ width: 390, height: 844 });
     await assertAdminSelectLayout('mobile');
