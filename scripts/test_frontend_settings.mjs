@@ -61,6 +61,36 @@ async function run() {
     }, null, { timeout: 10000 });
     await page.click('#menu-settings-btn');
     await visible('#settings-modal');
+    const profileSectionState = await page.evaluate(() => {
+      const icon = document.querySelector('#settings-section-profile .settings-section-icon svg');
+      const heading = document.querySelector('#settings-section-profile .settings-section-heading');
+      const avatar = document.querySelector('#settings-section-profile .settings-avatar-button');
+      const fieldRow = document.querySelector('#settings-section-profile .settings-field-row');
+      const headingStyle = heading ? getComputedStyle(heading) : null;
+      const avatarStyle = avatar ? getComputedStyle(avatar) : null;
+      const fieldRowStyle = fieldRow ? getComputedStyle(fieldRow) : null;
+      return {
+        hasUserPath: Boolean(icon?.querySelector('path')),
+        headingBackground: headingStyle?.backgroundImage,
+        avatarRadius: avatarStyle?.borderRadius,
+        fieldRowColumns: fieldRowStyle?.gridTemplateColumns,
+      };
+    });
+    if (!profileSectionState.hasUserPath || profileSectionState.headingBackground !== 'none' || profileSectionState.avatarRadius === '999px' || !profileSectionState.fieldRowColumns?.includes('128px')) {
+      throw new Error(`Settings profile section is not using the tidy standard-card layout: ${JSON.stringify(profileSectionState)}`);
+    }
+    await page.setViewportSize({ width: 390, height: 844 });
+    const mobileProfileSpacing = await page.evaluate(() => {
+      const rows = Array.from(document.querySelectorAll('#settings-section-profile .settings-field-row')).map((row) => {
+        const rect = row.getBoundingClientRect();
+        return { label: row.querySelector('.settings-field-label')?.textContent?.trim(), top: rect.top, bottom: rect.bottom };
+      });
+      return rows.slice(0, -1).map((row, index) => ({ from: row.label, to: rows[index + 1].label, gap: rows[index + 1].top - row.bottom }));
+    });
+    if (mobileProfileSpacing.length >= 2 && Math.abs(mobileProfileSpacing[0].gap - mobileProfileSpacing[1].gap) > 1) {
+      throw new Error(`Mobile profile field spacing is uneven: ${JSON.stringify(mobileProfileSpacing)}`);
+    }
+    await page.setViewportSize({ width: 1280, height: 720 });
     await page.locator('#settings-username').waitFor({ state: 'visible' });
     await page.locator('#settings-username').getByText('frontenduser').waitFor({ state: 'visible', timeout: 10000 });
     await page.locator('#settings-display-name-cell button[onclick="editUserDisplayName()"]').click();
@@ -175,7 +205,19 @@ async function run() {
       return text.includes('deaktiviert') || text.includes('disabled');
     }, { timeout: 10000 });
 
-    await page.selectOption('#settings-language', 'en');
+    const languageSelectState = await page.evaluate(() => {
+      const select = document.getElementById('settings-language');
+      const rect = select?.getBoundingClientRect();
+      return {
+        hiddenNative: select?.classList.contains('visually-hidden-native-select') && rect && rect.width <= 1,
+        hasTrigger: !!document.querySelector('.ui-select[data-select-id="settings-language"] .ui-select-trigger'),
+      };
+    });
+    if (!languageSelectState.hiddenNative || !languageSelectState.hasTrigger) throw new Error(`Settings language select was not hydrated: ${JSON.stringify(languageSelectState)}`);
+    await page.locator('.ui-select[data-select-id="settings-language"] .ui-select-trigger').click();
+    await page.locator('.ui-select-menu').waitFor({ state: 'visible', timeout: 5000 });
+    await page.locator('.ui-select-option[data-value="en"]').click();
+    await page.locator('.ui-select-menu').waitFor({ state: 'hidden', timeout: 5000 });
     await page.getByText('Language saved.').waitFor({ state: 'visible', timeout: 10000 });
     await page.evaluate(() => window.closeModal?.('settings-modal'));
     await page.locator('#settings-modal').waitFor({ state: 'hidden', timeout: 10000 });

@@ -44,6 +44,7 @@ systemctl restart nia-todo-dev
 - Dev branch: `develop`
 - Dev folder: `~/projects/nia-todo-dev`
 - Release only from `develop` through `./release.sh VERSION --github-repo OWNER/REPO`
+- UI changes must follow the [Design Concept](docs/design-concept.md) for desktop/mobile layout, modals, buttons, and reusable patterns. Dropdown/select work must also follow the [UI Dropdown Migration Plan](docs/ui-dropdown-migration-plan.md).
 
 ## 🧪 Tests
 
@@ -59,6 +60,7 @@ Details: [Test docs](docs/testing.md)
 - [Test docs](docs/testing.md)
 - [Workflow docs](docs/workflow.md)
 - [Architecture](docs/architecture.md)
+- [Design Concept](docs/design-concept.md)
 - Changelog: `CHANGELOG.md` shared by web app, Windows app, and Android app
 
 ## ⚙️ Setup / Operations

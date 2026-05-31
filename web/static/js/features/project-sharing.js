@@ -1,4 +1,5 @@
 import { t } from '../i18n/index.js';
+import { refreshSelect } from '../ui/dropdowns.js';
 import { iconSvg } from '../icons/lucide-icons.js';
 
 export function createProjectSharingFeature({
@@ -336,11 +337,15 @@ export function createProjectSharingFeature({
       if (el) {
         el.disabled = !canEdit;
         el.setAttribute('aria-readonly', canEdit ? 'false' : 'true');
+        if (el.tagName === 'SELECT') refreshSelect(el);
       }
     }
     const canMoveSharedDisplay = !!project && shared && !isOwn;
     const canMoveOwnProject = !!project && isOwn && !project.is_inbox;
-    if (displayWorkspace) displayWorkspace.disabled = !(canMoveSharedDisplay || canMoveOwnProject);
+    if (displayWorkspace) {
+      displayWorkspace.disabled = !(canMoveSharedDisplay || canMoveOwnProject);
+      refreshSelect(displayWorkspace);
+    }
     if (iconPicker) {
       iconPicker.style.pointerEvents = canEdit ? '' : 'none';
       iconPicker.style.opacity = canEdit ? '' : '0.6';
