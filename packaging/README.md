@@ -208,8 +208,6 @@ For production use, configure a correct HTTPS `public_base_url` in the admin pan
 ## 📚 Documentation
 
 - [API documentation](docs/api.md)
-- [Architecture](docs/architecture.md)
-- [Testing and release notes](docs/testing.md)
 - [Changelog](CHANGELOG.md)
 
 ## 🧪 Development / source builds
