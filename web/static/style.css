@@ -4722,6 +4722,15 @@ input[type="color"]::-moz-color-swatch {
   margin-bottom: 18px;
 }
 
+.checkbox-row .pin-checkbox-heading {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
 .pin-checkbox-label {
   position: relative;
   width: 100%;
