@@ -87,6 +87,22 @@ async function run() {
 
     await priority.click();
     await page.locator('.ui-select-menu').waitFor({ state: 'visible', timeout: 5000 });
+    const selectedCheckIcon = await page.evaluate(() => {
+      const selected = document.querySelector('.ui-select-option[aria-selected="true"] .ui-select-option-check');
+      const icon = selected?.querySelector('svg.ui-icon');
+      const style = selected ? getComputedStyle(selected) : null;
+      const iconRect = icon?.getBoundingClientRect();
+      return {
+        hasIcon: Boolean(icon),
+        text: selected?.textContent?.trim() || '',
+        color: style?.color,
+        width: iconRect?.width || 0,
+        height: iconRect?.height || 0,
+      };
+    });
+    if (!selectedCheckIcon.hasIcon || selectedCheckIcon.text !== '' || selectedCheckIcon.width !== 15 || selectedCheckIcon.height !== 15) {
+      throw new Error(`Shared dropdown selected check icon does not match workspace icon style: ${JSON.stringify(selectedCheckIcon)}`);
+    }
     await page.locator('.ui-select-option').filter({ hasText: /Sehr hoch|Very high/i }).click();
     const priorityValue = await page.locator('#todo-priority').evaluate((el) => el.value);
     if (priorityValue !== '1') throw new Error(`Priority native value did not sync, got ${priorityValue}`);

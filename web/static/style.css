@@ -1817,8 +1817,16 @@ select:focus-visible {
 
 .ui-select-option-check {
   flex: 0 0 auto;
+  margin-left: auto;
+  color: var(--accent);
+  display: inline-flex;
+  align-items: center;
   opacity: 0;
-  font-weight: 900;
+}
+
+.ui-select-option-check .ui-icon {
+  width: 15px;
+  height: 15px;
 }
 
 .ui-select-option[aria-selected="true"] .ui-select-option-check {
