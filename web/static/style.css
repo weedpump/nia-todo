@@ -1884,10 +1884,22 @@ select:focus-visible {
 }
 
 @media (max-width: 768px) {
+  .form-group input[type="date"],
+  .form-group input[type="datetime-local"],
+  .form-group input[type="time"] {
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
   .form-group input[type="date"]::-webkit-calendar-picker-indicator,
   .form-group input[type="datetime-local"]::-webkit-calendar-picker-indicator,
-  .form-group input[type="time"]::-webkit-calendar-picker-indicator {
+  .form-group input[type="time"]::-webkit-calendar-picker-indicator,
+  .form-group input[type="date"]::-webkit-inner-spin-button,
+  .form-group input[type="datetime-local"]::-webkit-inner-spin-button,
+  .form-group input[type="time"]::-webkit-inner-spin-button {
     display: none;
+    -webkit-appearance: none;
+    appearance: none;
   }
 }
 
