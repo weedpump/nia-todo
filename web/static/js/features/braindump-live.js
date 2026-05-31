@@ -57,6 +57,7 @@ export function createBrainDumpLiveFeature(options = {}) {
     startToken: 0,
     candidateIdCounter: 0,
     editingCandidateKey: '',
+    workspaceId: null,
   };
 
   async function init() {
@@ -262,6 +263,7 @@ export function createBrainDumpLiveFeature(options = {}) {
     state.stoppedAt = 0;
     state.lastVoiceAt = 0;
     state.hasVoice = false;
+    state.workspaceId = null;
   }
 
   function hasNativeAudioBridge() {
@@ -314,6 +316,7 @@ export function createBrainDumpLiveFeature(options = {}) {
       return;
     }
     resetSession();
+    state.workspaceId = currentWorkspaceId();
     const startToken = state.startToken + 1;
     state.startToken = startToken;
     state.starting = true;
@@ -586,7 +589,16 @@ export function createBrainDumpLiveFeature(options = {}) {
     }
   }
 
+  function currentWorkspaceId() {
+    return typeof options.getCurrentWorkspaceId === 'function' ? options.getCurrentWorkspaceId() : null;
+  }
+
+  function activeWorkspaceId() {
+    return state.workspaceId || currentWorkspaceId();
+  }
+
   async function processSegment({ item, blob }) {
+    const workspaceId = activeWorkspaceId();
     const params = new URLSearchParams({
       segment_id: String(item.segmentId),
       audio_start_ms: String(item.audioStartMs),
@@ -621,6 +633,7 @@ export function createBrainDumpLiveFeature(options = {}) {
           segment_id: item.segmentId,
           audio_start_ms: item.audioStartMs,
           audio_end_ms: item.audioEndMs,
+          workspace_id: workspaceId ? Number(workspaceId) : null,
         }),
       });
       if (!extractResponse.ok) throw new Error(await extractResponse.text());
@@ -711,7 +724,7 @@ export function createBrainDumpLiveFeature(options = {}) {
         method: 'POST',
         headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ candidates }),
+        body: JSON.stringify({ candidates, workspace_id: activeWorkspaceId() ? Number(activeWorkspaceId()) : null }),
       });
       if (!response.ok) throw new Error(await response.text());
       const data = await response.json();
@@ -840,8 +853,10 @@ export function createBrainDumpLiveFeature(options = {}) {
   }
 
   function getProjectOptions() {
+    const workspaceId = activeWorkspaceId();
     const projects = (typeof options.getProjects === 'function' ? options.getProjects() : [])
-      .filter(project => project && !project.archived);
+      .filter(project => project && !project.archived)
+      .filter(project => !workspaceId || String(project.workspace_id || '') === String(workspaceId));
     const projectMap = new Map();
     projects.forEach(project => projectMap.set(project.id, { ...project, children: [] }));
     const roots = [];
