@@ -178,7 +178,7 @@ Todo cards in the main dashboard/list should follow the same calm card language 
 - Keep row actions available on mobile because native/gesture tests and wrapper flows rely on them.
 - Use compact badges/chips for pinned, in-progress, due, overdue, and reminder metadata.
 - Render reminder chips from both `todo.remind_at` and the first reminder in `todo.reminders` because API responses may carry reminders in the related collection.
-- Todo-list descriptions are previews: normalize multiline text to a single-line ellipsis; full multiline text belongs in the edit/detail modal.
+- Todo-list descriptions are previews: normalize multiline text to a single-line ellipsis, but still render safe inline Markdown (`**bold**`, `*italic*`, code, safe links); full multiline text belongs in the edit/detail modal.
 - Status and snooze popovers should use a vertical grid, adequate minimum width, and no text overlap.
 - Preserve existing DOM classes, IDs, and JS handlers unless the JS is updated in the same commit.
 
