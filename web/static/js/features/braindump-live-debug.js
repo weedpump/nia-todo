@@ -234,6 +234,10 @@ export function createBrainDumpLiveDebugFeature() {
     return Boolean(window.NiaAndroidNative?.startAudioRecording && window.NiaAndroidNative?.stopAudioRecording);
   }
 
+  function hasNativeAudioAmplitudeBridge() {
+    return Boolean(window.NiaAndroidNative?.audioAmplitude);
+  }
+
   function parseNativeAudioResult(raw) {
     try { return JSON.parse(String(raw || '{}')); } catch { return { ok: false, error: String(raw || 'Native audio error') }; }
   }
@@ -254,6 +258,8 @@ export function createBrainDumpLiveDebugFeature() {
     state.processingPhase = '';
     state.startedAt = performance.now();
     state.lastVoiceAt = state.startedAt;
+    if (state.levelTimer) clearInterval(state.levelTimer);
+    state.levelTimer = setInterval(updateNativeAudioLevel, 80);
     state.renderTimer = setInterval(render, 120);
     render();
   }
@@ -366,6 +372,26 @@ export function createBrainDumpLiveDebugFeature() {
       state.levelTimer = setInterval(updateAudioLevel, 80);
     } catch (error) {
       console.warn('[BrainDump] audio meter unavailable', error);
+    }
+  }
+
+  function updateNativeAudioLevel() {
+    if (!state.nativeRecording || !state.recording) return;
+    try {
+      const amplitude = hasNativeAudioAmplitudeBridge() ? Number(window.NiaAndroidNative.audioAmplitude() || 0) : 0;
+      const normalized = Math.max(0, Math.min(1, amplitude / 32767));
+      state.level = Math.min(1, normalized * 3.2);
+      state.peak = Math.max(state.level, state.peak * 0.92);
+      const now = performance.now();
+      if (state.level > SILENCE_LEVEL) {
+        state.hasVoice = true;
+        state.lastVoiceAt = now;
+      }
+      if (state.hasVoice && now - state.startedAt > MIN_RECORDING_MS && now - state.lastVoiceAt > SILENCE_STOP_MS) {
+        stop('auto');
+      }
+    } catch (error) {
+      console.warn('[BrainDump] native audio level unavailable', error);
     }
   }
 
