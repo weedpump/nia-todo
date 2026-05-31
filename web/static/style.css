@@ -1843,7 +1843,6 @@ select:focus-visible {
 .form-group input[type="datetime-local"],
 .form-group input[type="time"] {
   max-width: 100%;
-  padding-right: 38px;
   color-scheme: dark;
 }
 
