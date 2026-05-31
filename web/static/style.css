@@ -5245,7 +5245,7 @@ input[type="color"]::-moz-color-swatch {
 .braindump-edit-candidate { min-height: 30px; padding: 5px 9px; }
 .braindump-quickfix-panel {
   display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) minmax(0, 1fr) minmax(120px, .7fr);
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) minmax(0, 1fr);
   gap: 10px;
   align-items: end;
   margin-top: 8px;

@@ -925,13 +925,6 @@ export function createBrainDumpLiveFeature(options = {}) {
     return optionsHtml.join('');
   }
 
-  function renderKindOptions(selectedKind) {
-    const selected = selectedKind || 'todo';
-    return ['todo', 'shopping', 'reminder', 'appointment', 'note'].map(kind => `
-      <option value="${kind}" ${kind === selected ? 'selected' : ''}>${escapeHtml(t(`braindump.kind.${kind}`))}</option>
-    `).join('');
-  }
-
   function renderCandidate(candidate, index) {
     const key = candidateKey(candidate);
     const checked = state.selectedCandidateKeys.has(key) ? 'checked' : '';
@@ -961,18 +954,14 @@ export function createBrainDumpLiveFeature(options = {}) {
                 <span>${escapeHtml(t('braindump.quickfix.title'))}</span>
                 <input class="braindump-title-input" type="text" value="${escapeHtmlAttr(candidate.title || '')}" data-bd-candidate-key="${escapeHtmlAttr(key)}" data-bd-field="title">
               </label>
-              <label class="braindump-quickfix-field">
-                <span>${escapeHtml(t('braindump.quickfix.project'))}</span>
-                <select data-ui-select class="braindump-field" data-bd-candidate-key="${escapeHtmlAttr(key)}" data-bd-field="project_name">${renderProjectOptions(candidate.project_name)}</select>
-              </label>
-              <label class="braindump-quickfix-field">
-                <span>${escapeHtml(t('braindump.quickfix.section'))}</span>
-                <select data-ui-select class="braindump-field" data-bd-candidate-key="${escapeHtmlAttr(key)}" data-bd-field="section_name" ${candidate.project_name ? '' : 'disabled'}>${renderSectionOptions(candidate)}</select>
-              </label>
-              <label class="braindump-quickfix-field">
-                <span>${escapeHtml(t('braindump.quickfix.kind'))}</span>
-                <select data-ui-select class="braindump-field braindump-kind-field" data-bd-candidate-key="${escapeHtmlAttr(key)}" data-bd-field="kind">${renderKindOptions(kind)}</select>
-              </label>
+              <div class="braindump-quickfix-field">
+                <span id="braindump-project-label-${escapeHtmlAttr(key)}">${escapeHtml(t('braindump.quickfix.project'))}</span>
+                <select data-ui-select class="braindump-field" data-bd-candidate-key="${escapeHtmlAttr(key)}" data-bd-field="project_name" aria-labelledby="braindump-project-label-${escapeHtmlAttr(key)}">${renderProjectOptions(candidate.project_name)}</select>
+              </div>
+              <div class="braindump-quickfix-field">
+                <span id="braindump-section-label-${escapeHtmlAttr(key)}">${escapeHtml(t('braindump.quickfix.section'))}</span>
+                <select data-ui-select class="braindump-field" data-bd-candidate-key="${escapeHtmlAttr(key)}" data-bd-field="section_name" aria-labelledby="braindump-section-label-${escapeHtmlAttr(key)}" ${candidate.project_name ? '' : 'disabled'}>${renderSectionOptions(candidate)}</select>
+              </div>
             </span>
           ` : ''}
         </span>
