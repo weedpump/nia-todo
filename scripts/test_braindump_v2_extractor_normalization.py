@@ -185,6 +185,8 @@ def test_replacement_with_statt_removes_old_item():
 
 def test_default_prompt_requires_language_agnostic_correction_handling():
     prompt = DEFAULT_BRAINDUMP_SYSTEM_PROMPT
+    assert_true("language-independently" in prompt, prompt)
+    assert_true("system prompt language, UI language, and spoken transcript language may all differ" in prompt, prompt)
     assert_true("in any language" in prompt, prompt)
     assert_true("negates, retracts, deletes, cancels, excludes, or replaces" in prompt, prompt)
     assert_true("leftover sentence fragments" in prompt, prompt)
