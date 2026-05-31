@@ -5,7 +5,7 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.8.0] - 2026-05-31
 
 ### Added
 - A shared custom dropdown/menu system now powers redesigned user-facing selectors and action menus across todos, projects, settings, and admin screens, with keyboard support, accessible hidden native-select synchronization, viewport-aware menu placement, and regression coverage.
