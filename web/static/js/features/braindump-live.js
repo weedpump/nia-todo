@@ -943,9 +943,9 @@ export function createBrainDumpLiveFeature(options = {}) {
           <span class="todo-main">
             <span class="todo-prio priority-dot"></span>
             <span class="todo-title">${escapeHtml(candidate.title || '')}</span>
+            <button class="braindump-edit-candidate" type="button" data-bd-action="edit" data-bd-candidate-key="${escapeHtmlAttr(key)}" aria-expanded="${isEditing ? 'true' : 'false'}" aria-label="${escapeHtmlAttr(t(isEditing ? 'braindump.quickfix.done' : 'braindump.quickfix.edit'))}" title="${escapeHtmlAttr(t(isEditing ? 'braindump.quickfix.done' : 'braindump.quickfix.edit'))}">${iconSvg('edit-3')}</button>
           </span>
           <span class="todo-meta-row"><span class="todo-desc-preview">${escapeHtml(meta)}</span></span>
-          <button class="btn-icon braindump-edit-candidate" type="button" data-bd-action="edit" data-bd-candidate-key="${escapeHtmlAttr(key)}" aria-expanded="${isEditing ? 'true' : 'false'}" aria-label="${escapeHtmlAttr(t(isEditing ? 'braindump.quickfix.done' : 'braindump.quickfix.edit'))}" title="${escapeHtmlAttr(t(isEditing ? 'braindump.quickfix.done' : 'braindump.quickfix.edit'))}">${iconSvg('edit-3')}</button>
           ${isEditing ? `
             <span class="braindump-quickfix-panel">
               <label class="braindump-quickfix-field braindump-quickfix-title-field">

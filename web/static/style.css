@@ -5240,29 +5240,32 @@ input[type="color"]::-moz-color-swatch {
 }
 .braindump-modal.is-processing .braindump-candidate-card { animation: none; }
 .braindump-candidate-card > input[type="checkbox"] { position:absolute; opacity:0; pointer-events:none; }
-.braindump-candidate-card .todo-body {
-  min-width: 0;
-  gap: 6px;
+.braindump-candidate-card .todo-body { min-width: 0; gap: 6px; }
+.braindump-candidate-card .todo-main {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
+  gap: 8px;
 }
-.braindump-candidate-card .todo-main,
-.braindump-candidate-card .todo-meta-row,
-.braindump-quickfix-panel { grid-column: 1 / -1; }
 .braindump-edit-candidate {
-  grid-column: 2;
-  grid-row: 1 / span 2;
-  align-self: center;
-  width: 34px;
-  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-left: auto;
   flex: 0 0 auto;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0;
+  border-radius: 7px;
+  line-height: 1;
 }
+.braindump-edit-candidate:hover { background: var(--bg-hover); color: var(--text-primary); }
 .braindump-edit-candidate svg { width: 16px; height: 16px; }
-.braindump-candidate-card.is-editing .braindump-edit-candidate {
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 13%, var(--bg-tertiary));
-}
+.braindump-candidate-card.is-editing .braindump-edit-candidate { color: var(--accent); }
 .braindump-quickfix-panel {
   display: grid;
   grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) minmax(0, 1fr);
