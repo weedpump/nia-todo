@@ -77,6 +77,7 @@ async function run() {
       const triggerStyle = trigger ? getComputedStyle(trigger) : null;
       return {
         emailHeight: email?.getBoundingClientRect().height || 0,
+        wrapperHeight: trigger?.closest('.ui-select')?.getBoundingClientRect().height || 0,
         triggerHeight: trigger?.getBoundingClientRect().height || 0,
         emailRadius: emailStyle?.borderRadius,
         triggerRadius: triggerStyle?.borderRadius,
@@ -87,6 +88,7 @@ async function run() {
     });
     if (
       Math.abs(createUserLanguageVisualStyle.emailHeight - createUserLanguageVisualStyle.triggerHeight) > 1
+      || Math.abs(createUserLanguageVisualStyle.wrapperHeight - createUserLanguageVisualStyle.triggerHeight) > 1
       || createUserLanguageVisualStyle.emailRadius !== createUserLanguageVisualStyle.triggerRadius
       || createUserLanguageVisualStyle.emailBackground !== createUserLanguageVisualStyle.triggerBackground
       || createUserLanguageVisualStyle.triggerBoxShadow !== 'none'
