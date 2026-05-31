@@ -57,6 +57,26 @@ rust {
     rootDirRel = "../../../"
 }
 
+tasks.register("patchTauriWebChromeMicrophonePermission") {
+    val webChromeClient = file("src/main/java/de/tobiaskneidl/nia_todo/generated/RustWebChromeClient.kt")
+    doLast {
+        if (!webChromeClient.exists()) return@doLast
+        val source = webChromeClient.readText()
+        val patched = source.replace(
+            "      permissionList.add(Manifest.permission.MODIFY_AUDIO_SETTINGS)\n      permissionList.add(Manifest.permission.RECORD_AUDIO)",
+            "      permissionList.add(Manifest.permission.RECORD_AUDIO)"
+        )
+        if (patched != source) {
+            webChromeClient.writeText(patched)
+            println("Patched Tauri WebView microphone permission request to RECORD_AUDIO only")
+        }
+    }
+}
+
+tasks.matching { it.name.startsWith("compile") && it.name.endsWith("Kotlin") }.configureEach {
+    dependsOn("patchTauriWebChromeMicrophonePermission")
+}
+
 dependencies {
     implementation("androidx.webkit:webkit:1.14.0")
     implementation("androidx.appcompat:appcompat:1.7.1")
