@@ -1,4 +1,4 @@
-import { escapeHtml, escapeHtmlAttr, formatDate, renderMarkdown, truncateWords } from '../core/utils.js';
+import { escapeHtml, escapeHtmlAttr, formatDate, truncateWords } from '../core/utils.js';
 import { t as i18nT } from '../i18n/index.js';
 import { iconSvg } from '../icons/lucide-icons.js';
 
@@ -16,10 +16,11 @@ export function renderTodoItem(t) {
     dueTone = dueDate <= soonEnd ? 'soon' : 'neutral';
   }
   const dueStr = t.due_date ? formatDate(t.due_date) : '';
+  const reminderTime = t.remind_at || t.reminders?.find?.(r => !r.sent_at)?.remind_at || t.reminders?.[0]?.remind_at || '';
   const prioColor = { 1: '#ef4444', 2: '#f59e0b', 3: '#10b981', 4: '#94a3b8' }[t.priority] || '#94a3b8';
-  const remindStr = t.remind_at ? formatDate(t.remind_at) : '';
+  const remindStr = reminderTime ? formatDate(reminderTime) : '';
   const hasMeta = dueStr || remindStr;
-  const desc = t.description ? truncateWords(t.description, 12) : '';
+  const desc = t.description ? truncateWords(String(t.description).replace(/\s+/g, ' ').trim(), 18) : '';
   const hasDesc = desc && desc.length > 0;
   const idArg = JSON.stringify(t.id);
   const pinned = Boolean(t.is_pinned);
@@ -42,13 +43,13 @@ export function renderTodoItem(t) {
             ${badgeHtml ? `<div class="todo-badges">${badgeHtml}</div>` : ''}
           </div>
         </div>
-        ${hasMeta || hasDesc ? `
+        ${hasMeta ? `
         <div class="todo-meta-row">
           ${dueStr ? `<span class="todo-meta-chip todo-due ${isOverdue ? 'overdue' : dueTone}">${iconSvg('calendar')} ${dueStr}${isOverdue ? ` (${escapeHtml(i18nT('todo.overdue'))})` : ''}</span>` : ''}
           ${remindStr ? `<span class="todo-meta-chip todo-reminder">${iconSvg('bell')} ${remindStr}</span>` : ''}
-          ${desc ? `<span class="todo-desc-preview">${renderMarkdown(desc)}</span>` : ''}
         </div>
         ` : ''}
+        ${hasDesc ? `<div class="todo-desc-preview" title="${escapeHtmlAttr(String(t.description || ''))}">${escapeHtml(desc)}</div>` : ''}
       </div>
       <div class="todo-actions" onclick="event.stopPropagation()">
         <details class="todo-status-menu" onclick="event.stopPropagation()">
