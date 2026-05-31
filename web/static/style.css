@@ -1330,34 +1330,39 @@ select:focus-visible {
   transform: rotate(180deg);
 }
 
-.todo-status-options {
+.todo-action-menu.ui-menu {
   position: absolute;
   top: calc(100% + 6px);
   right: 0;
+  left: auto;
   z-index: 1000;
-  min-width: 136px;
-  padding: 6px;
-  border: 1px solid rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.28));
-  border-radius: 12px;
-  background: var(--bg-primary);
-  box-shadow: 0 14px 34px rgba(0,0,0,0.24);
+  min-width: 172px;
+  max-width: min(240px, calc(100vw - 24px));
 }
 
-.todo-status-options button {
-  width: 100%;
-  height: auto;
+.todo-action-menu .ui-menu-item {
   justify-content: flex-start;
-  padding: 8px 10px;
-  border-radius: 8px;
   color: var(--text-secondary);
-  font-size: 12px;
-  font-weight: 700;
+  white-space: nowrap;
 }
 
-.todo-status-options button:hover,
-.todo-status-options button.active {
-  background: rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.14));
-  color: var(--text-primary);
+.todo-action-menu .ui-menu-item span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.todo-action-menu .ui-menu-item .ui-icon {
+  width: 15px;
+  height: 15px;
+  margin-left: auto;
+  color: var(--accent);
+}
+
+.todo-action-menu .ui-menu-item.active,
+.todo-action-menu .ui-menu-item[aria-current="true"] {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--accent);
 }
 
 @media (min-width: 1024px) {
@@ -6246,6 +6251,14 @@ input[type="color"]::-moz-color-swatch {
   max-width: min(240px, calc(100vw - 24px));
 }
 
+.todo-action-menu.ui-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  left: auto;
+  z-index: 1000;
+}
+
 .todo-snooze-menu .todo-status-options {
   min-width: 178px;
 }
@@ -6265,7 +6278,7 @@ input[type="color"]::-moz-color-swatch {
 }
 
 @media (max-width: 768px) {
-  .todo-status-options {
+  .todo-action-menu.ui-menu {
     right: 0;
     left: auto;
   }

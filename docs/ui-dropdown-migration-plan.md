@@ -30,10 +30,10 @@ Implemented:
 - Todo modal selects: `#todo-priority`, `#todo-status`, `#todo-project`, `#todo-section`
 - Settings language selector: `#settings-language`
 - Project modal selectors: `#project-display-workspace-id`, `#project-parent-id`
+- Todo card/list status and snooze action menus aligned to shared `.ui-menu` / `.ui-menu-item` styling
 
 Still to inspect/migrate before calling the redesign complete:
 
-- Todo card/list status and snooze action menus
 - Workspace modal menu-like selectors, if any remain visible
 - Project sharing/member action menus, if exposed as dropdown-like controls
 - Admin user/config dropdowns if included in release scope
