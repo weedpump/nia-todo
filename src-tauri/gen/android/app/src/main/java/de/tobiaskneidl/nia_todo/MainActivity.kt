@@ -166,8 +166,8 @@ class MainActivity : TauriActivity() {
     return canonical
   }
 
-  private fun isTrustedLocalWebView(): Boolean {
-    val url = appWebView?.url ?: return false
+  private fun isTrustedLocalWebViewUrl(url: String?): Boolean {
+    if (url.isNullOrBlank()) return false
     return try {
       val uri = URI(url)
       val scheme = (uri.scheme ?: "").lowercase(Locale.ROOT)
@@ -177,6 +177,23 @@ class MainActivity : TauriActivity() {
     } catch (_: Exception) {
       false
     }
+  }
+
+  private fun isTrustedLocalWebView(): Boolean {
+    val webView = appWebView ?: return false
+    if (Looper.myLooper() == Looper.getMainLooper()) return isTrustedLocalWebViewUrl(webView.url)
+
+    val result = AtomicBoolean(false)
+    val latch = CountDownLatch(1)
+    runOnUiThread {
+      try {
+        result.set(isTrustedLocalWebViewUrl(webView.url))
+      } finally {
+        latch.countDown()
+      }
+    }
+    latch.await(250, TimeUnit.MILLISECONDS)
+    return result.get()
   }
 
   private fun isTrustedPasskeyWebView(): Boolean {
