@@ -105,6 +105,42 @@ async function run() {
     await page.waitForFunction(() => window.__androidHapticCalls?.includes(10), null, { timeout: 5000 });
     await page.waitForTimeout(500);
 
+    await page.setViewportSize({ width: 834, height: 1112 });
+    const wideSwipe = await page.evaluate((value) => {
+      const titleEl = Array.from(document.querySelectorAll('.todo-title')).find(el => (el.textContent || '').includes(value));
+      const item = titleEl?.closest('.todo-item');
+      if (!item) throw new Error('Todo item missing for wide swipe test');
+      const rect = item.getBoundingClientRect();
+      const startX = rect.left + rect.width * 0.5;
+      const startY = rect.top + rect.height / 2;
+      const pointer = { pointerId: 91, pointerType: 'touch', isPrimary: true, bubbles: true, cancelable: true };
+      item.dispatchEvent(new PointerEvent('pointerdown', { ...pointer, clientX: startX, clientY: startY }));
+      document.dispatchEvent(new PointerEvent('pointermove', { ...pointer, clientX: startX + 520, clientY: startY + 2 }));
+      const transform = getComputedStyle(item).transform;
+      const swipeX = item.style.getPropertyValue('--swipe-x');
+      document.dispatchEvent(new PointerEvent('pointermove', { ...pointer, clientX: startX + 4, clientY: startY + 1 }));
+      document.dispatchEvent(new PointerEvent('pointerup', { ...pointer, clientX: startX + 4, clientY: startY + 1 }));
+      return { transform, swipeX, width: rect.width };
+    }, title);
+    const wideSwipeX = Number.parseFloat(wideSwipe.swipeX);
+    if (!wideSwipe.swipeX || wideSwipeX < wideSwipe.width - 4 || !wideSwipe.transform.includes(String(Math.round(wideSwipeX)))) {
+      throw new Error(`Wide/iPad-style swipe was still visually clamped: ${JSON.stringify(wideSwipe)}`);
+    }
+    await todoItem().hover();
+    const swipingBeatsHover = await page.evaluate((value) => {
+      const titleEl = Array.from(document.querySelectorAll('.todo-title')).find(el => (el.textContent || '').includes(value));
+      const item = titleEl?.closest('.todo-item');
+      if (!item) throw new Error('Todo item missing for hover cascade test');
+      item.classList.add('swiping', 'swipe-right');
+      item.style.setProperty('--swipe-x', '240px');
+      const transform = getComputedStyle(item).transform;
+      item.classList.remove('swiping', 'swipe-right');
+      item.style.removeProperty('--swipe-x');
+      return transform;
+    }, title);
+    if (!swipingBeatsHover.includes('240')) throw new Error(`Swipe transform was overridden by hover/focus styling: ${swipingBeatsHover}`);
+    await page.setViewportSize({ width: 390, height: 844 });
+
     const driftResult = await page.evaluate((value) => {
       const titleEl = Array.from(document.querySelectorAll('.todo-title')).find(el => (el.textContent || '').includes(value));
       const item = titleEl?.closest('.todo-item');
