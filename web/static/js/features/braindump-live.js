@@ -840,13 +840,27 @@ export function createBrainDumpLiveFeature(options = {}) {
   }
 
   function getProjectOptions() {
-    return (typeof options.getProjects === 'function' ? options.getProjects() : [])
-      .filter(project => project && !project.archived)
-      .slice()
-      .sort((a, b) => {
-        if (Boolean(a.is_inbox) !== Boolean(b.is_inbox)) return a.is_inbox ? 1 : -1;
-        return String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' });
-      });
+    const projects = (typeof options.getProjects === 'function' ? options.getProjects() : [])
+      .filter(project => project && !project.archived);
+    const projectMap = new Map();
+    projects.forEach(project => projectMap.set(project.id, { ...project, children: [] }));
+    const roots = [];
+    projectMap.forEach(project => {
+      const parent = projectMap.get(project.parent_id);
+      if (parent && !project.is_shared) parent.children.push(project);
+      else roots.push(project);
+    });
+    const sortProjects = (a, b) => {
+      if (Boolean(a.is_inbox) !== Boolean(b.is_inbox)) return a.is_inbox ? 1 : -1;
+      return String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' });
+    };
+    const flattened = [];
+    function addProject(project, depth = 0) {
+      flattened.push({ ...project, _bdDepth: depth });
+      project.children.sort(sortProjects).forEach(child => addProject(child, depth + 1));
+    }
+    roots.sort(sortProjects).forEach(project => addProject(project));
+    return flattened;
   }
 
   function getProjectByName(name) {
@@ -907,7 +921,9 @@ export function createBrainDumpLiveFeature(options = {}) {
     const optionsHtml = [`<option value="">${escapeHtml(t('braindump.route.inbox'))}</option>`];
     getProjectOptions().forEach(project => {
       const name = String(project.name || '');
-      optionsHtml.push(`<option value="${escapeHtmlAttr(name)}" ${name === selected ? 'selected' : ''}>${escapeHtml(name)}</option>`);
+      const depth = Number(project._bdDepth || 0);
+      const prefix = depth > 0 ? `${'\u00A0'.repeat(depth * 2)}└─ ` : '';
+      optionsHtml.push(`<option value="${escapeHtmlAttr(name)}" data-depth="${depth}" ${name === selected ? 'selected' : ''}>${prefix}${escapeHtml(name)}</option>`);
     });
     if (selected && !getProjectByName(selected)) optionsHtml.push(`<option value="${escapeHtmlAttr(selected)}" selected>${escapeHtml(selected)}</option>`);
     return optionsHtml.join('');

@@ -144,6 +144,26 @@ async function run() {
     });
 
     await loginApp();
+    const parentProject = await page.evaluate(async () => {
+      const response = await fetch('/api/projects', {
+        method: 'POST',
+        headers: window.getAuthHeaders(),
+        credentials: 'include',
+        body: JSON.stringify({ name: 'BrainDump Parent', color: '#6366f1' }),
+      });
+      if (!response.ok) throw new Error(await response.text());
+      return response.json();
+    });
+    await page.evaluate(async (parentId) => {
+      const response = await fetch('/api/projects', {
+        method: 'POST',
+        headers: window.getAuthHeaders(),
+        credentials: 'include',
+        body: JSON.stringify({ name: 'BrainDump Child', color: '#6366f1', parent_id: parentId }),
+      });
+      if (!response.ok) throw new Error(await response.text());
+      if (typeof window.refreshFromServer === 'function') await window.refreshFromServer();
+    }, parentProject.id);
     await page.locator('.fab-add-todo').click();
     await page.locator('#todo-modal.active').waitFor({ state: 'visible', timeout: 5000 });
     const todoModalNoHorizontalOverflow = await page.evaluate(() => {
@@ -243,13 +263,18 @@ async function run() {
       const firstTrigger = firstCard?.querySelector('.ui-select-trigger');
       firstTrigger?.click();
       const menu = document.querySelector('.ui-select-menu');
-      const menuOptions = Array.from(document.querySelectorAll('.ui-select-menu .ui-select-option-label')).map(option => option.textContent?.trim() || '').filter(Boolean);
+      const menuRows = Array.from(document.querySelectorAll('.ui-select-menu .ui-select-option')).map(option => ({
+        label: option.querySelector('.ui-select-option-label')?.textContent?.trim() || '',
+        depth: option.dataset.depth || '0',
+      })).filter(option => option.label);
+      const menuOptions = menuRows.map(option => option.label);
       const modalZ = Number.parseInt(getComputedStyle(document.getElementById('braindump-modal')).zIndex || '0', 10);
       const menuZ = Number.parseInt(getComputedStyle(menu).zIndex || '0', 10);
       const editButton = firstCard?.querySelector('[data-bd-action="edit"]');
       const editIsIconOnly = Boolean(editButton?.querySelector('svg')) && !(editButton?.textContent || '').trim();
-      window.__braindumpQuickFixDebug = { hasTitle: Boolean(title), customSelects, menuOptions, modalZ, menuZ, editIsIconOnly, hasTypeField: Boolean(typeField), hasRemoveButton: Boolean(removeButton), html: firstCard?.innerHTML || '' };
-      if (!title || customSelects < 2 || menuOptions.length === 0 || !(menuZ > modalZ) || !editIsIconOnly || typeField || removeButton) return false;
+      const childIndented = menuRows.some(option => option.label === 'BrainDump Child' && option.depth === '1');
+      window.__braindumpQuickFixDebug = { hasTitle: Boolean(title), customSelects, menuRows, modalZ, menuZ, editIsIconOnly, childIndented, hasTypeField: Boolean(typeField), hasRemoveButton: Boolean(removeButton), html: firstCard?.innerHTML || '' };
+      if (!title || customSelects < 2 || menuOptions.length === 0 || !childIndented || !(menuZ > modalZ) || !editIsIconOnly || typeField || removeButton) return false;
       title.value = 'Hafermilch kaufen';
       title.dispatchEvent(new Event('input', { bubbles: true }));
       return firstCard.querySelector('.braindump-title-input')?.value === 'Hafermilch kaufen';
