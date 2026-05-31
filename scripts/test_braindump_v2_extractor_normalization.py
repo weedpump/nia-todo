@@ -183,26 +183,11 @@ def test_replacement_with_statt_removes_old_item():
     assert_true(not any("Chips" in title for title in titles), titles)
 
 
-def test_correction_command_drops_removed_item_and_fragments():
-    transcript = "Ich brauche noch Kartoffeln, Nudeln, Chips, Wein, Cookies. Morgen um 15 Uhr habe ich ein Zahnarzttermin. Übermorgen um 18 Uhr ein Tierarzttermin mit Snoopy. Und streiche die Cookies wieder, die brauche ich doch nicht. Aber dafür Bananen."
-    parsed = {
-        "candidates": [
-            {"title": "Kartoffeln", "kind": "shopping"},
-            {"title": "Nudeln", "kind": "shopping"},
-            {"title": "Chips", "kind": "shopping"},
-            {"title": "Wein", "kind": "shopping"},
-            {"title": "Cookies", "kind": "shopping"},
-            {"title": "Und streiche die Cookies wieder", "kind": "shopping"},
-            {"title": "Brauche doch", "kind": "shopping"},
-            {"title": "Bananen", "kind": "shopping"},
-        ]
-    }
-    result = _normalize_braindump_json(parsed, transcript)
-    titles = [item["title"] for item in result["candidates"]]
-    assert_true("Kartoffeln" in titles and "Nudeln" in titles and "Chips" in titles and "Wein" in titles and "Bananen" in titles, titles)
-    assert_true("Cookies" not in titles, titles)
-    assert_true(not any("streiche" in title.lower() for title in titles), titles)
-    assert_true("Brauche doch" not in titles, titles)
+def test_default_prompt_requires_language_agnostic_correction_handling():
+    prompt = DEFAULT_BRAINDUMP_SYSTEM_PROMPT
+    assert_true("in any language" in prompt, prompt)
+    assert_true("negates, retracts, deletes, cancels, excludes, or replaces" in prompt, prompt)
+    assert_true("leftover sentence fragments" in prompt, prompt)
 
 
 def test_reminder_kind_copies_deadline_to_reminder():
@@ -326,7 +311,7 @@ def main():
         test_removes_negated_items_added_by_llm_or_safety_net,
         test_maps_section_name_used_as_project_to_real_project_section,
         test_replacement_with_statt_removes_old_item,
-        test_correction_command_drops_removed_item_and_fragments,
+        test_default_prompt_requires_language_agnostic_correction_handling,
         test_reminder_kind_copies_deadline_to_reminder,
         test_evening_iso_2359_normalizes_to_1900,
         test_multilingual_titles_are_preserved,

@@ -19,7 +19,8 @@ If nothing useful/actionable was said, return {"candidates":[]}.
 Rules:
 - Extract intent, not dictation. Keep each title in the same language as that spoken item. Never translate nouns or task titles.
 - Split unrelated tasks/items. Merge duplicates and wording variants.
-- Latest correction wins. Remove negated/replaced items completely (e.g. "no chips", "Kaffee nicht", "sin leche", "Nachos statt Chips").
+- Latest correction wins. If later speech negates, retracts, deletes, cancels, excludes, or replaces an earlier item/task in any language, remove the earlier candidate completely.
+- Do not output correction/removal instructions, negation clauses, or leftover sentence fragments as candidates. Only output the final desired items/actions after all corrections are applied.
 - Ignore filler, tests, thanks, meta talk, completed actions, and questions.
 - Never invent projects/sections. Use only exact names from Workspace context; otherwise null.
 - Treat existing project sections as the user's taxonomy. For every candidate, first choose the best fitting existing project, then compare the candidate title/intent against every section in that project before leaving section_name null.
