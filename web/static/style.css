@@ -597,15 +597,12 @@ select:focus-visible {
   position: absolute;
   top: calc(100% + 10px);
   right: 0;
-  width: 260px;
-  padding: 8px;
-  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
+  width: 264px;
+  padding: 6px;
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border));
   border-radius: 14px;
-  background:
-    radial-gradient(circle at top left, rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.18)), transparent 38%),
-    color-mix(in srgb, var(--bg-secondary) 94%, transparent);
-  box-shadow: 0 18px 50px rgba(0,0,0,0.34);
-  backdrop-filter: blur(14px);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--bg-secondary) 96%, var(--bg-primary)), var(--bg-secondary));
+  box-shadow: 0 18px 42px rgba(0,0,0,.30), 0 0 0 1px color-mix(in srgb, var(--bg-primary) 28%, transparent);
   z-index: 250;
 }
 .sidebar-user-menu-wrap .user-menu {
@@ -630,7 +627,9 @@ select:focus-visible {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 10px 12px;
+  padding: 9px 9px 11px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
 }
 .user-menu-avatar {
   width: 38px;
@@ -650,23 +649,26 @@ select:focus-visible {
 .user-menu-email { font-size: 12px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .user-menu-item {
   width: 100%;
+  min-height: 36px;
   display: grid;
   grid-template-columns: 24px minmax(0, 1fr) auto;
   align-items: center;
-  column-gap: 10px;
-  padding: 10px 11px;
+  column-gap: 9px;
+  padding: 8px 10px;
   border: none;
   border-radius: 10px;
   background: transparent;
   color: var(--text-secondary);
-  font-size: 14px;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.2;
   text-align: left;
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
 }
-.user-menu-item:hover { background: var(--bg-hover); color: var(--text-primary); }
+.user-menu-item:hover { background: color-mix(in srgb, var(--accent) 11%, var(--bg-tertiary)); color: var(--text-primary); }
 .user-menu-item.active { color: var(--text-secondary); }
-.user-menu-item.danger:hover { color: var(--danger); background: rgba(239,68,68,0.12); }
+.user-menu-item.danger:hover { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); }
 .accent-preset-row[aria-expanded="true"] {
   background: rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.20));
   color: var(--text-primary);
@@ -692,10 +694,14 @@ select:focus-visible {
 .accent-preset-row[aria-expanded="true"] .accent-preset-chevron { transform: rotate(180deg); color: var(--accent-hover); }
 .accent-preset-panel {
   display: none;
-  grid-template-columns: repeat(7, 24px);
+  grid-template-columns: repeat(7, 22px);
   justify-content: space-between;
-  gap: 8px 4px;
-  padding: 9px 10px 12px;
+  gap: 8px 5px;
+  margin: 3px 2px 6px;
+  padding: 9px;
+  border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--border));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bg-tertiary) 72%, transparent);
 }
 .accent-preset-panel.active { display: grid; }
 .accent-intensity-control {
@@ -720,8 +726,8 @@ select:focus-visible {
   cursor: pointer;
 }
 .accent-preset-option {
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   padding: 0;
   border: none;
   border-radius: 999px;
@@ -738,8 +744,8 @@ select:focus-visible {
 }
 .accent-preset-option:active { transform: scale(0.96); }
 .accent-preset-swatch {
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   border-radius: 999px;
   flex-shrink: 0;
   background: linear-gradient(135deg, var(--accent-swatch-dark) 0 50%, var(--accent-swatch-light) 50% 100%);
@@ -757,7 +763,7 @@ select:focus-visible {
   line-height: 1;
 }
 .user-menu-item .menu-item-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.user-menu-separator { height: 1px; background: var(--border); margin: 6px 4px; }
+.user-menu-separator { height: 1px; background: color-mix(in srgb, var(--border) 78%, transparent); margin: 6px 4px; }
 
 /* Overview dashboard */
 .stats-bar {
@@ -3846,16 +3852,15 @@ input[type="color"]::-moz-color-swatch {
 .workspace-menu {
   display: none;
   position: absolute;
-  z-index: 40;
+  z-index: 250;
   top: calc(100% + 0.45rem);
   left: 0;
   right: 0;
-  padding: 0.35rem;
-  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
-  border-radius: 0.9rem;
-  background: color-mix(in srgb, var(--bg-secondary) 96%, transparent);
-  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.18);
-  backdrop-filter: blur(12px);
+  padding: 6px;
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border));
+  border-radius: 14px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--bg-secondary) 96%, var(--bg-primary)), var(--bg-secondary));
+  box-shadow: 0 18px 42px rgba(0,0,0,.30), 0 0 0 1px color-mix(in srgb, var(--bg-primary) 28%, transparent);
 }
 
 .topbar-workspace-switcher {
@@ -3885,18 +3890,18 @@ input[type="color"]::-moz-color-swatch {
 
 .workspace-menu-list {
   display: grid;
-  gap: 0.2rem;
+  gap: 3px;
 }
 
 .workspace-menu-row {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
-  border-radius: 0.65rem;
+  gap: 3px;
+  border-radius: 10px;
 }
 
 .workspace-menu-row.active {
-  background: color-mix(in srgb, var(--accent) 13%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
 .workspace-menu-choice,
@@ -3910,13 +3915,17 @@ input[type="color"]::-moz-color-swatch {
 
 .workspace-menu-choice {
   min-width: 0;
+  min-height: 36px;
   flex: 1;
   display: flex;
   align-items: center;
-  gap: 0.55rem;
-  padding: 0.55rem 0.55rem;
+  gap: 8px;
+  padding: 8px 9px;
   text-align: left;
-  border-radius: 0.65rem;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.2;
 }
 
 .workspace-menu-choice span:nth-child(2) {
@@ -3928,12 +3937,12 @@ input[type="color"]::-moz-color-swatch {
 .workspace-menu-choice:hover,
 .workspace-menu-edit:hover,
 .workspace-menu-add:hover {
-  background: var(--bg-hover);
+  background: color-mix(in srgb, var(--accent) 11%, var(--bg-tertiary));
 }
 
 .workspace-menu-check {
   margin-left: auto;
-  color: var(--accent-hover);
+  color: var(--accent);
   display: inline-flex;
   align-items: center;
 }
@@ -3944,11 +3953,11 @@ input[type="color"]::-moz-color-swatch {
 }
 
 .workspace-menu-edit {
-  width: 2rem;
-  height: 2rem;
+  width: 32px;
+  height: 32px;
   display: grid;
   place-items: center;
-  border-radius: 0.55rem;
+  border-radius: 9px;
   color: var(--text-muted);
 }
 
@@ -3958,13 +3967,15 @@ input[type="color"]::-moz-color-swatch {
 
 .workspace-menu-add {
   width: 100%;
-  margin-top: 0.35rem;
-  padding: 0.6rem 0.65rem;
-  border-top: 1px solid var(--border);
-  color: var(--accent-hover);
+  min-height: 36px;
+  margin-top: 6px;
+  padding: 8px 9px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+  color: var(--accent);
   text-align: left;
-  border-radius: 0.65rem;
-  font-weight: 600;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .small-modal {
