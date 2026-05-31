@@ -53,6 +53,7 @@ export function createBrainDumpLiveDebugFeature() {
     transcript: '',
     candidateRenderSignature: '',
     initAttempts: 0,
+    startToken: 0,
   };
 
   async function init() {
@@ -207,7 +208,14 @@ export function createBrainDumpLiveDebugFeature() {
   }
 
   async function close() {
-    if (state.recording) cancelRecording();
+    if (state.starting) {
+      state.startToken += 1;
+      state.starting = false;
+      cleanupRecordingHandles();
+      resetSession();
+    } else if (state.recording) {
+      cancelRecording();
+    }
     document.getElementById('braindump-modal')?.classList.remove('active');
   }
 
@@ -287,6 +295,8 @@ export function createBrainDumpLiveDebugFeature() {
       return;
     }
     resetSession();
+    const startToken = state.startToken + 1;
+    state.startToken = startToken;
     state.starting = true;
     render();
     try {
@@ -295,9 +305,17 @@ export function createBrainDumpLiveDebugFeature() {
         return;
       }
       try {
-        state.stream = await getMicrophoneStream();
+        const stream = await getMicrophoneStream();
+        const modalActive = document.getElementById('braindump-modal')?.classList.contains('active');
+        if (startToken !== state.startToken || !state.starting || !modalActive) {
+          stream?.getTracks?.().forEach((track) => track.stop());
+          return;
+        }
+        state.stream = stream;
       } catch (error) {
         if (!hasNativeAudioBridge()) throw error;
+        const modalActive = document.getElementById('braindump-modal')?.classList.contains('active');
+        if (startToken !== state.startToken || !state.starting || !modalActive) return;
         console.warn('[BrainDump] WebView microphone capture failed; using native Android recorder', error);
         startNativeAudioRecording();
         return;
