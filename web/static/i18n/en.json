@@ -976,5 +976,14 @@
   "todo.section.organize": "Organize",
   "todo.section.organizeHint": "Priority, status, project, and section.",
   "todo.section.schedule": "Schedule",
-  "todo.section.scheduleHint": "Deadline and reminder if this task is time-sensitive."
+  "todo.section.scheduleHint": "Deadline and reminder if this task is time-sensitive.",
+  "workspace.modalHint": "Organize projects by context, team, or area.",
+  "workspace.details": "Details",
+  "workspace.detailsHint": "Name, color, and icon for this workspace.",
+  "project.modalHint": "Structure todos with a color, icon, and optional hierarchy.",
+  "project.details": "Details",
+  "project.detailsHint": "Name, color, and icon for this project.",
+  "project.organization": "Organization",
+  "project.organizationHint": "Workspace and parent project define where this project appears.",
+  "project.share.hint": "Invite other users to this project or manage existing members."
 }

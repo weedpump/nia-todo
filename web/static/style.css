@@ -5474,7 +5474,8 @@ input[type="color"]::-moz-color-swatch {
     linear-gradient(135deg, color-mix(in srgb, var(--bg-secondary) 94%, var(--bg-primary)), var(--bg-secondary));
 }
 
-.todo-modal-title-icon {
+.todo-modal-title-icon,
+.entity-modal-title-icon {
   width: 42px;
   height: 42px;
   border-radius: 16px;
@@ -5564,7 +5565,8 @@ input[type="color"]::-moz-color-swatch {
     gap: 10px;
   }
 
-  .todo-modal-title-icon {
+  .todo-modal-title-icon,
+  .entity-modal-title-icon {
     width: 36px;
     height: 36px;
     border-radius: 13px;
@@ -5950,13 +5952,15 @@ input[type="color"]::-moz-color-swatch {
 }
 
 .todo-modal-title-icon .ui-icon,
+.entity-modal-title-icon .ui-icon,
 .ui-section-icon .ui-icon {
   width: 20px;
   height: 20px;
   flex: 0 0 auto;
 }
 
-.todo-modal-title-icon .ui-icon {
+.todo-modal-title-icon .ui-icon,
+.entity-modal-title-icon .ui-icon {
   width: 22px;
   height: 22px;
 }
@@ -6023,5 +6027,171 @@ input[type="color"]::-moz-color-swatch {
 @media (max-width: 768px) {
   .todo-body .todo-desc-preview {
     max-width: 100%;
+  }
+}
+
+/* Entity modals: Project and Workspace */
+.entity-modal-content {
+  max-width: min(760px, 96vw);
+  padding: 0;
+  overflow: hidden;
+}
+
+.entity-modal-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 22px 26px 18px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  background:
+    radial-gradient(circle at top left, rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.20)), transparent 42%),
+    linear-gradient(135deg, color-mix(in srgb, var(--bg-secondary) 94%, var(--bg-primary)), var(--bg-secondary));
+}
+
+.entity-modal-header h3 {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.entity-modal-header p {
+  margin: 6px 0 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.entity-modal-body {
+  padding: 18px;
+  background: color-mix(in srgb, var(--bg-primary) 18%, transparent);
+}
+
+.entity-modal-form {
+  display: grid;
+  gap: 14px;
+}
+
+.entity-modal-body .ui-section-card + .ui-section-card,
+.entity-modal-form + .project-sharing-card {
+  margin-top: 14px;
+}
+
+.entity-modal-actions {
+  margin: 0;
+  padding: 14px 18px 18px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  background: color-mix(in srgb, var(--bg-secondary) 94%, var(--bg-primary));
+}
+
+.project-share-row,
+.project-share-start-row,
+.project-leave-btn {
+  margin-top: 12px;
+}
+
+.project-share-inline {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.project-share-inline input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+@media (max-width: 768px) {
+  .entity-modal-content {
+    max-width: none;
+  }
+
+  .entity-modal-header {
+    padding: 12px 44px 12px 16px;
+    gap: 10px;
+  }
+
+  .entity-modal-title-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 13px;
+  }
+
+  .entity-modal-header h3 {
+    font-size: 17px;
+  }
+
+  .entity-modal-header p {
+    display: none;
+  }
+
+  .entity-modal-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+  }
+
+  .entity-modal-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 10px 12px calc(12px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .entity-modal-actions .btn,
+  .entity-modal-actions .modal-actions-right,
+  .entity-modal-actions .modal-actions-right .btn,
+  .project-share-inline .btn {
+    width: 100%;
+  }
+
+  .entity-modal-actions .modal-actions-right,
+  .project-share-inline {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+}
+
+/* Entity modal polish: compact forms, no empty mobile fullscreen gaps */
+.entity-modal-body .ui-section-card {
+  padding: 16px;
+}
+
+.entity-modal-body .ui-section-heading {
+  margin-bottom: 12px;
+}
+
+.entity-modal-body .form-group:last-child {
+  margin-bottom: 0;
+}
+
+.project-organization-grid {
+  grid-template-columns: 1fr;
+}
+
+@media (max-width: 768px) {
+  .entity-modal-content {
+    display: block;
+    min-height: 100%;
+    height: auto;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .entity-modal-body {
+    overflow: visible;
+  }
+
+  .entity-modal-body .ui-section-card {
+    padding: 14px;
+  }
+
+  .entity-modal-body .ui-section-heading {
+    margin-bottom: 10px;
+  }
+
+  .entity-modal-actions {
+    position: relative;
+    border-top: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
   }
 }

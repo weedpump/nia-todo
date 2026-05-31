@@ -241,5 +241,6 @@ For every new UI change:
 ## Current Reference Patterns
 
 - User Settings modal: wide settings modal, section nav, section cards, consistent button groups.
+- Project/Workspace modals: compact entity modal pattern using shared `.ui-section-*` cards, `.ui-field-grid`, and the same title/icon tile sizing as Todo Modal.
 - BrainDump modal: voice-first immediate recording flow.
 - Admin UI: card-based configuration sections and compact admin controls.
