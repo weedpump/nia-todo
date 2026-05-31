@@ -225,7 +225,7 @@ def get_public_instance_info(request: Request) -> dict[str, Any]:
     values = _read_config_keys(("public_base_url", "instance_display_name", "min_native_client_version"))
     public_base_url = values.get("public_base_url") or get_public_base_url(request)
     display_name = str(values.get("instance_display_name") or "nia-todo").strip() or "nia-todo"
-    min_native_client_version = str(values.get("min_native_client_version") or "2.4.0").strip() or "2.4.0"
+    min_native_client_version = str(values.get("min_native_client_version") or "2.8.0").strip() or "2.8.0"
     return {
         "app": "nia-todo",
         "instance_id": _ensure_instance_id(),
