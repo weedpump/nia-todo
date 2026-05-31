@@ -21,6 +21,8 @@ async function modalMetrics(page) {
       const r = el.getBoundingClientRect();
       return { top: r.top, right: r.right, bottom: r.bottom, left: r.left, width: r.width, height: r.height };
     };
+    const sectionSelect = document.querySelector('#todo-section');
+    const pinRow = document.querySelector('.todo-pin-row');
     return {
       viewportHeight,
       viewportWidth,
@@ -31,6 +33,8 @@ async function modalMetrics(page) {
       close: rect(close),
       body: rect(body),
       footer: rect(footer),
+      sectionSelect: rect(sectionSelect),
+      pinRow: rect(pinRow),
       closeVisible: Boolean(close && getComputedStyle(close).display !== 'none' && close.getBoundingClientRect().height > 0),
     };
   });
@@ -50,6 +54,10 @@ function assertMobileTodoModalLayout(metrics, label) {
   }
   if (metrics.bodyScrollWidth > metrics.viewportWidth + 1) {
     throw new Error(`${label}: horizontal body overflow: scrollWidth=${metrics.bodyScrollWidth}, viewportWidth=${metrics.viewportWidth}`);
+  }
+  const pinGap = metrics.pinRow.top - metrics.sectionSelect.bottom;
+  if (pinGap < 20) {
+    throw new Error(`${label}: pin checkbox is too close to section dropdown: gap=${pinGap}`);
   }
 }
 

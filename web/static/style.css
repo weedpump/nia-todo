@@ -5524,7 +5524,7 @@ input[type="color"]::-moz-color-swatch {
 }
 
 .todo-pin-row {
-  margin-top: 2px;
+  margin-top: 20px;
 }
 
 .todo-modal-actions {
