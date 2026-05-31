@@ -172,7 +172,7 @@ Use for settings, multi-section configuration, or review flows:
 
 ## Dropdowns, Selects, and Menus
 
-Dropdowns are a first-class UI primitive in nia-todo. They must not look like browser-default controls on desktop.
+Dropdowns are a first-class UI primitive in nia-todo. They must not look like browser-default controls on desktop. The implementation sequence and test gates are defined in [UI Dropdown Migration Plan](ui-dropdown-migration-plan.md).
 
 ### Non-negotiable Rule
 
