@@ -12,7 +12,15 @@ function escapeHtml(value) {
 }
 
 function optionLabel(option) {
-  return option?.textContent?.trim() || option?.label || option?.value || '';
+  return option?.textContent?.trim().replace(/^└─\s*/, '') || option?.label || option?.value || '';
+}
+
+function optionDepth(option) {
+  const explicit = Number.parseInt(option?.dataset?.depth || '', 10);
+  if (Number.isFinite(explicit)) return Math.max(0, explicit);
+  const text = option?.textContent || '';
+  const nbspCount = (text.match(/^\u00A0+/)?.[0]?.length || 0);
+  return Math.max(0, Math.floor(nbspCount / 2));
 }
 
 function visibleOptions(select) {
@@ -55,10 +63,12 @@ function renderMenu(instance) {
     row.setAttribute('role', 'option');
     row.dataset.value = option.value;
     row.dataset.index = String(index);
+    row.dataset.depth = String(optionDepth(option));
+    row.style.setProperty('--ui-select-depth', row.dataset.depth);
     row.disabled = option.disabled;
     row.setAttribute('aria-selected', option.value === instance.select.value ? 'true' : 'false');
     if (option.disabled) row.setAttribute('aria-disabled', 'true');
-    row.innerHTML = `<span class="ui-select-option-label">${escapeHtml(optionLabel(option))}</span><span class="ui-select-option-check" aria-hidden="true">✓</span>`;
+    row.innerHTML = `<span class="ui-select-option-branch" aria-hidden="true"></span><span class="ui-select-option-label">${escapeHtml(optionLabel(option))}</span><span class="ui-select-option-check" aria-hidden="true">✓</span>`;
     row.addEventListener('click', () => {
       if (option.disabled) return;
       chooseIndex(instance, index);
@@ -283,6 +293,7 @@ export function hydrateSelect(select, options = {}) {
   const chevron = document.createElement('span');
   chevron.className = 'ui-select-chevron';
   chevron.setAttribute('aria-hidden', 'true');
+  chevron.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
   trigger.append(value, chevron);
 
   const menu = document.createElement('div');

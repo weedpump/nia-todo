@@ -6,6 +6,17 @@ async function run() {
   const { browser, page, openTodoModal, loginApp, assertNoFrontendErrors } = await launchPage();
   try {
     await loginApp();
+    await page.evaluate(async () => {
+      const jwt = localStorage.getItem('jwt_token');
+      const csrf = localStorage.getItem('csrf_token');
+      const headers = { Authorization: `Bearer ${jwt}`, 'Content-Type': 'application/json', 'X-CSRF-Token': csrf };
+      const createProject = async (body) => fetch('/api/projects', { method: 'POST', headers, credentials: 'include', body: JSON.stringify(body) }).then(r => r.json());
+      const parent = await createProject({ name: 'Dropdown Parent', color: '#6366f1' });
+      const child = await createProject({ name: 'Dropdown Child', color: '#6366f1', parent_id: parent.id, workspace_id: parent.workspace_id });
+      await createProject({ name: 'Dropdown Grandchild', color: '#6366f1', parent_id: child.id, workspace_id: parent.workspace_id });
+      await window.refreshFromServer?.();
+      await window.renderProjects?.();
+    });
     await openTodoModal();
 
     const hiddenNative = await page.evaluate(() => {
@@ -31,6 +42,24 @@ async function run() {
     const priorityValue = await page.locator('#todo-priority').evaluate((el) => el.value);
     if (priorityValue !== '1') throw new Error(`Priority native value did not sync, got ${priorityValue}`);
 
+    await page.locator('.ui-select[data-select-id="todo-project"] .ui-select-trigger').click();
+    await page.locator('.ui-select-menu').waitFor({ state: 'visible', timeout: 5000 });
+    const projectDepths = await page.evaluate(() => Array.from(document.querySelectorAll('.ui-select-option')).map(option => ({
+      label: option.textContent.trim(),
+      depth: Number(option.dataset.depth || '0'),
+      paddingLeft: Number.parseFloat(getComputedStyle(option).paddingLeft),
+    })).filter(option => option.label.includes('Dropdown')));
+    if (!projectDepths.some(option => option.label.includes('Child') && option.depth === 1)) throw new Error(`Child project depth missing: ${JSON.stringify(projectDepths)}`);
+    if (!projectDepths.some(option => option.label.includes('Grandchild') && option.depth === 2)) throw new Error(`Grandchild project depth missing: ${JSON.stringify(projectDepths)}`);
+    const child = projectDepths.find(option => option.label.includes('Child'));
+    const grandchild = projectDepths.find(option => option.label.includes('Grandchild'));
+    if (!(grandchild.paddingLeft > child.paddingLeft)) throw new Error(`Project indentation did not increase by depth: ${JSON.stringify(projectDepths)}`);
+    await page.keyboard.press('Escape');
+    await page.locator('.ui-select-menu').waitFor({ state: 'hidden', timeout: 5000 });
+
+    await page.evaluate(() => window.closeModal?.('todo-modal'));
+    await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });
+    await openTodoModal();
     const status = page.locator('.ui-select[data-select-id="todo-status"] .ui-select-trigger');
     await status.focus();
     await page.keyboard.press('Enter');
