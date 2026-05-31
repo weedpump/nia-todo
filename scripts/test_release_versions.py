@@ -67,8 +67,8 @@ def set_min_native(tmp: Path, version: str) -> None:
     path = tmp / "api/services/instance_config.py"
     text = path.read_text(encoding="utf-8")
     text = __import__("re").sub(
-        r'(min_native_client_version\s*=\s*str\(values\.get\("min_native_client_version"\)\s*or\s*)"[^"]+"(\)\.strip\(\)\s*or\s*)"[^"]+"',
-        rf'\1"{version}"\2"{version}"',
+        r'SOURCE_MIN_NATIVE_CLIENT_VERSION\s*=\s*"[^"]+"',
+        f'SOURCE_MIN_NATIVE_CLIENT_VERSION = "{version}"',
         text,
         count=1,
     )
