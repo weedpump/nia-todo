@@ -105,10 +105,6 @@ mkdir -p "${OUTPUT_ABS}/packaging/systemd"
 cp -p packaging/systemd/nia-todo.service "${OUTPUT_ABS}/packaging/systemd/nia-todo.service"
 cp -p packaging/systemd/nia-todo-backup.service "${OUTPUT_ABS}/packaging/systemd/nia-todo-backup.service"
 cp -p packaging/systemd/nia-todo-backup.timer "${OUTPUT_ABS}/packaging/systemd/nia-todo-backup.timer"
-mkdir -p "${OUTPUT_ABS}/systemd"
-cp -p packaging/systemd/nia-todo.service "${OUTPUT_ABS}/systemd/nia-todo.service"
-cp -p packaging/systemd/nia-todo-backup.service "${OUTPUT_ABS}/systemd/nia-todo-backup.service"
-cp -p packaging/systemd/nia-todo-backup.timer "${OUTPUT_ABS}/systemd/nia-todo-backup.timer"
 
 
 # Normalize release/public branding in the exported tree. The private dev working
