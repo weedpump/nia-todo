@@ -183,6 +183,7 @@ python3 -m venv /opt/nia-todo/.venv
 rm -rf /opt/nia-todo/wheelhouse
 install -m 755 /opt/nia-todo/scripts/nia-todo-backup.sh /usr/local/bin/nia-todo-backup
 install -m 755 /opt/nia-todo/scripts/nia-todo-restore.sh /usr/local/bin/nia-todo-restore
+install -m 755 /opt/nia-todo/scripts/nia-todo-admin-password-reset.sh /usr/local/bin/nia-todo-admin-password-reset
 install -m 755 -o root -g root /opt/nia-todo/scripts/nia-todo-server-update.sh /usr/local/bin/nia-todo-server-update
 mkdir -p /etc/sudoers.d
 cat > /etc/sudoers.d/nia-todo-server-update <<'SUDOERS'

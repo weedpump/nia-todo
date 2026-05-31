@@ -56,7 +56,7 @@ copy_tracked_prefix() {
     case "${file}" in
       */__pycache__/*|*.pyc|*.pyo|*.db|*.db-*|*.db.backup*|*.db.bak) continue ;;
       api/data/*) [ "${file}" = "api/data/.gitkeep" ] || continue ;;
-      api/migrate_manual.py|api/change_admin_password.py) continue ;;
+      api/migrate_manual.py) continue ;;
       web/downloads/*) [ "${file}" = "web/downloads/.gitkeep" ] || continue ;;
       src-tauri/target/*|src-tauri/frontend-dist/*|src-tauri/gen/android/app/build/*) continue ;;
       scripts/test_*|scripts/frontend_test_lib.mjs|scripts/*_test_*.mjs) continue ;;
@@ -100,6 +100,7 @@ mkdir -p "${OUTPUT_ABS}/scripts"
 cp -p packaging/scripts/backup.sh "${OUTPUT_ABS}/scripts/backup.sh"
 cp -p packaging/scripts/nia-todo-backup.sh "${OUTPUT_ABS}/scripts/nia-todo-backup.sh"
 cp -p packaging/scripts/nia-todo-restore.sh "${OUTPUT_ABS}/scripts/nia-todo-restore.sh"
+cp -p packaging/scripts/nia-todo-admin-password-reset.sh "${OUTPUT_ABS}/scripts/nia-todo-admin-password-reset.sh"
 cp -p packaging/scripts/nia-todo-server-update.sh "${OUTPUT_ABS}/scripts/nia-todo-server-update.sh"
 mkdir -p "${OUTPUT_ABS}/packaging/systemd"
 cp -p packaging/systemd/nia-todo.service "${OUTPUT_ABS}/packaging/systemd/nia-todo.service"
