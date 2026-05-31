@@ -84,7 +84,7 @@ assert(userSettingsSource.includes("promptSecurityPassword({ title: t('settings.
 
 const nativeBridgeSource = readFileSync(new URL('../web/static/js/features/native-bridge.js', import.meta.url), 'utf8');
 const desktopSource = readFileSync(new URL('../web/static/js/features/desktop-integration.js', import.meta.url), 'utf8');
-const brainDumpSource = readFileSync(new URL('../web/static/js/features/braindump-live-debug.js', import.meta.url), 'utf8');
+const brainDumpSource = readFileSync(new URL('../web/static/js/features/braindump-live.js', import.meta.url), 'utf8');
 assert(desktopSource.includes('if (event.repeat) return null'), 'hotkey capture must ignore repeated modifier keydown events');
 assert(desktopSource.includes('if (isModifierKey(event)) return'), 'hotkey capture must not save a bare modifier as the main key');
 assert(!desktopSource.includes('window.NiaAndroidNative'), 'desktop integration must use the native bridge adapter, not direct Android globals');

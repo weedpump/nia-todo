@@ -12,7 +12,7 @@ const SNAPSHOT_INTERVAL_MS = 3000;
 const RECORDER_TIMESLICE_MS = 1000;
 const MIN_AUDIO_CHUNK_BYTES = 96;
 
-export function createBrainDumpLiveDebugFeature() {
+export function createBrainDumpLiveFeature() {
   const nativeBridge = createNativeBridge();
   const state = {
     accessChecked: false,
