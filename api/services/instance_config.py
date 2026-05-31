@@ -24,6 +24,8 @@ DEFAULT_INSTANCE_CONFIG = {
     "min_native_client_version": "1.7.0",
 }
 
+SOURCE_MIN_NATIVE_CLIENT_VERSION = "2.8.0"
+
 PUBLIC_INSTANCE_CAPABILITIES = [
     "offline-sync",
     "reminders",
@@ -221,11 +223,35 @@ def _read_web_app_version() -> str:
     return match.group(1) if match else "unknown"
 
 
+def _version_parts(value: str) -> tuple[int, int, int] | None:
+    match = re.match(r"^\s*(\d+)\.(\d+)\.(\d+)(?:[-+].*)?\s*$", str(value or ""))
+    if not match:
+        return None
+    return tuple(int(part) for part in match.groups())
+
+
+def _max_native_client_version(configured: str, source_floor: str = SOURCE_MIN_NATIVE_CLIENT_VERSION) -> str:
+    """Return the effective native compatibility floor.
+
+    ``min_native_client_version`` is stored in app_config and may already exist
+    from an older release. Release builds with --set-min-app-version update the
+    source floor, so the public endpoint must not let an older DB value lower
+    that release-enforced minimum. A higher configured value still wins.
+    """
+    configured_value = str(configured or "").strip()
+    source_value = str(source_floor or "").strip()
+    configured_parts = _version_parts(configured_value)
+    source_parts = _version_parts(source_value)
+    if configured_parts and source_parts:
+        return configured_value if configured_parts >= source_parts else source_value
+    return configured_value or source_value or DEFAULT_INSTANCE_CONFIG["min_native_client_version"]
+
+
 def get_public_instance_info(request: Request) -> dict[str, Any]:
     values = _read_config_keys(("public_base_url", "instance_display_name", "min_native_client_version"))
     public_base_url = values.get("public_base_url") or get_public_base_url(request)
     display_name = str(values.get("instance_display_name") or "nia-todo").strip() or "nia-todo"
-    min_native_client_version = str(values.get("min_native_client_version") or "2.8.0").strip() or "2.8.0"
+    min_native_client_version = _max_native_client_version(str(values.get("min_native_client_version") or ""))
     return {
         "app": "nia-todo",
         "instance_id": _ensure_instance_id(),
