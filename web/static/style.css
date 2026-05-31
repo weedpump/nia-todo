@@ -1075,40 +1075,74 @@ select:focus-visible {
   transition: none;
   user-select: none;
   z-index: 2;
+  --swipe-progress: 0;
 }
 
-.todo-item.swiping::before {
-  content: "";
+.todo-item.swipe-settling,
+.todo-item.swipe-committing {
+  transition: transform 0.18s cubic-bezier(.2, .82, .22, 1), border-color 0.14s ease, box-shadow 0.14s ease;
+}
+
+.todo-item.swipe-committing {
+  transition-duration: 0.13s;
+}
+
+.todo-item.swiping::before,
+.todo-item.swiping::after {
   position: absolute;
   top: -1px;
   bottom: -1px;
-  width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 120px;
+  padding: 0 18px;
   border-radius: var(--radius);
+  color: white;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .015em;
+  opacity: calc(.42 + (var(--swipe-progress, 0) * .58));
+  transform: scale(calc(.92 + (var(--swipe-progress, 0) * .08)));
   pointer-events: none;
 }
 
-.todo-item.swipe-right {
-  border-color: var(--warning);
-  box-shadow: inset 4px 0 0 var(--warning);
+.todo-item.swiping::before {
+  content: attr(data-swipe-right-label);
+  right: 100%;
+  justify-content: flex-start;
+  width: max(var(--swipe-x, 0), 120px);
+  transform-origin: right center;
+  background: linear-gradient(90deg, rgba(245, 158, 11, .58), rgba(217, 119, 6, .94));
+  box-shadow: inset 4px 0 0 var(--warning), 0 10px 24px rgba(217, 119, 6, .20);
 }
 
-.todo-item.swipe-right::before {
-  right: 100%;
-  width: var(--swipe-x, 0);
-  background: rgba(245, 158, 11, 0.28);
-  box-shadow: inset 4px 0 0 var(--warning);
+.todo-item.swiping::after {
+  content: attr(data-swipe-left-label);
+  left: 100%;
+  justify-content: flex-end;
+  width: max(calc(var(--swipe-x, 0) * -1), 120px);
+  transform-origin: left center;
+  background: linear-gradient(90deg, rgba(22, 163, 74, .94), rgba(34, 197, 94, .58));
+  box-shadow: inset -4px 0 0 var(--success), 0 10px 24px rgba(22, 163, 74, .20);
+}
+
+.todo-item.swipe-right {
+  border-color: color-mix(in srgb, var(--warning) 72%, var(--border));
+  box-shadow: inset 4px 0 0 var(--warning), 0 12px 28px rgba(217, 119, 6, calc(.08 + (var(--swipe-progress, 0) * .13)));
+}
+
+.todo-item.swipe-right.swipe-ready {
+  box-shadow: inset 5px 0 0 var(--warning), 0 16px 34px rgba(217, 119, 6, .22);
 }
 
 .todo-item.swipe-left {
-  border-color: var(--success);
-  box-shadow: inset -4px 0 0 var(--success);
+  border-color: color-mix(in srgb, var(--success) 72%, var(--border));
+  box-shadow: inset -4px 0 0 var(--success), 0 12px 28px rgba(22, 163, 74, calc(.08 + (var(--swipe-progress, 0) * .13)));
 }
 
-.todo-item.swipe-left::before {
-  left: 100%;
-  width: calc(var(--swipe-x, 0) * -1);
-  background: rgba(34, 197, 94, 0.30);
-  box-shadow: inset -4px 0 0 var(--success);
+.todo-item.swipe-left.swipe-ready {
+  box-shadow: inset -5px 0 0 var(--success), 0 16px 34px rgba(22, 163, 74, .22);
 }
 
 .todo-item:hover,
@@ -6053,6 +6087,11 @@ input[type="color"]::-moz-color-swatch {
 .todo-item.swiping:hover,
 .todo-item.swiping:focus-within {
   transform: translate3d(var(--swipe-x, 0), 0, 0);
+}
+
+.todo-item.swiping:not(.swipe-settling):not(.swipe-committing),
+.todo-item.swiping:not(.swipe-settling):not(.swipe-committing):hover,
+.todo-item.swiping:not(.swipe-settling):not(.swipe-committing):focus-within {
   transition: none;
 }
 
