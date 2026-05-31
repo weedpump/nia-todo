@@ -52,6 +52,21 @@ function renderValue(instance) {
   instance.trigger.classList.toggle('is-placeholder', !selected || selected.value === '');
 }
 
+function selectLabelElement(select) {
+  if (!select) return null;
+  if (select.id) {
+    const explicit = document.querySelector(`label[for="${CSS.escape(select.id)}"]`);
+    if (explicit) return explicit;
+  }
+  return select.closest('.form-group')?.querySelector('label') || null;
+}
+
+function ensureElementId(element, prefix) {
+  if (!element) return '';
+  if (!element.id) element.id = `${prefix}-${nextId++}`;
+  return element.id;
+}
+
 function renderMenu(instance) {
   instance.menu.innerHTML = '';
   const options = visibleOptions(instance.select);
@@ -287,6 +302,7 @@ export function hydrateSelect(select, options = {}) {
   trigger.setAttribute('aria-expanded', 'false');
 
   const value = document.createElement('span');
+  value.id = `${select.id}-ui-value`;
   value.className = 'ui-select-value';
   const chevron = document.createElement('span');
   chevron.className = 'ui-select-chevron';
@@ -301,6 +317,15 @@ export function hydrateSelect(select, options = {}) {
   menu.hidden = true;
   menu.addEventListener('keydown', onMenuKeydown);
   trigger.setAttribute('aria-controls', menu.id);
+
+  const label = selectLabelElement(select);
+  const labelId = ensureElementId(label, `${select.id}-label`);
+  if (labelId) {
+    trigger.setAttribute('aria-labelledby', `${labelId} ${value.id}`);
+    menu.setAttribute('aria-labelledby', labelId);
+  } else {
+    trigger.setAttribute('aria-label', select.getAttribute('aria-label') || select.name || select.id);
+  }
 
   wrapper.append(trigger);
   select.insertAdjacentElement('afterend', wrapper);

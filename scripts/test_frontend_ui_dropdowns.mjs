@@ -29,6 +29,27 @@ async function run() {
     });
     if (!hiddenNative) throw new Error('Todo modal native selects are still visible');
 
+    const accessibleLabels = await page.evaluate(() => {
+      const labels = {};
+      for (const id of ['todo-priority', 'todo-status', 'todo-project', 'todo-section']) {
+        const trigger = document.querySelector(`.ui-select[data-select-id="${id}"] .ui-select-trigger`);
+        const labelledBy = trigger?.getAttribute('aria-labelledby') || '';
+        labels[id] = {
+          labelledBy,
+          labelText: labelledBy.split(/\s+/).map(labelId => document.getElementById(labelId)?.textContent?.trim()).filter(Boolean).join(' '),
+          ariaHiddenNative: document.getElementById(id)?.getAttribute('aria-hidden'),
+        };
+      }
+      return labels;
+    });
+    for (const [id, info] of Object.entries(accessibleLabels)) {
+      if (!info.labelledBy || info.ariaHiddenNative !== 'true') throw new Error(`Missing accessible select labeling for ${id}: ${JSON.stringify(info)}`);
+    }
+    if (!accessibleLabels['todo-priority'].labelText.match(/Priority|Priorität/i)) throw new Error(`Priority trigger is not label-associated: ${JSON.stringify(accessibleLabels['todo-priority'])}`);
+    if (!accessibleLabels['todo-status'].labelText.match(/Status/i)) throw new Error(`Status trigger is not label-associated: ${JSON.stringify(accessibleLabels['todo-status'])}`);
+    if (!accessibleLabels['todo-project'].labelText.match(/Project|Projekt/i)) throw new Error(`Project trigger is not label-associated: ${JSON.stringify(accessibleLabels['todo-project'])}`);
+    if (!accessibleLabels['todo-section'].labelText.match(/Section/i)) throw new Error(`Section trigger is not label-associated: ${JSON.stringify(accessibleLabels['todo-section'])}`);
+
     const priority = page.locator('.ui-select[data-select-id="todo-priority"] .ui-select-trigger');
     await priority.scrollIntoViewIfNeeded();
     await priority.click();
