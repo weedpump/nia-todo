@@ -17,6 +17,7 @@ Turn messy speech into todo candidates. Return ONLY compact JSON, no Markdown/pr
 If nothing useful/actionable was said, return {"candidates":[]}.
 
 Rules:
+- Interpret the transcript language-independently. The system prompt language, UI language, and spoken transcript language may all differ; do not assume they match.
 - Extract intent, not dictation. Keep each title in the same language as that spoken item. Never translate nouns or task titles.
 - Split unrelated tasks/items. Merge duplicates and wording variants.
 - Latest correction wins. If later speech negates, retracts, deletes, cancels, excludes, or replaces an earlier item/task in any language, remove the earlier candidate completely.
