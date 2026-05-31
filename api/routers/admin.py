@@ -334,8 +334,8 @@ def admin_test_braindump_config(_: bool = Depends(require_admin)):
     config = get_braindump_config(include_secrets=True)
     if not config.get("enabled"):
         return {
-            "llm": {"ok": False, "message": "BrainDump experimental feature is disabled"},
-            "stt": {"ok": False, "message": "BrainDump experimental feature is disabled"},
+            "llm": {"ok": False, "message": "BrainDump is disabled"},
+            "stt": {"ok": False, "message": "BrainDump is disabled"},
         }
     result = {
         "llm": {"ok": False, "message": "not tested"},

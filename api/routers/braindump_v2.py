@@ -937,7 +937,7 @@ _extract_with_openclaw = _extract_with_llm
 def require_braindump_access(user_id: int):
     config = get_braindump_config(include_secrets=True)
     if not config.get("enabled"):
-        raise HTTPException(403, "BrainDump experimental feature is disabled")
+        raise HTTPException(403, "BrainDump is disabled")
     with get_db() as db:
         try:
             ensure_braindump_enabled(db, user_id)
