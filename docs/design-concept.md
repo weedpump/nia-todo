@@ -170,6 +170,179 @@ Use for settings, multi-section configuration, or review flows:
 - Errors use `.settings-field-error` or equivalent danger style.
 - Success messages use `.settings-field-success` or equivalent success style.
 
+## Dropdowns, Selects, and Menus
+
+Dropdowns are a first-class UI primitive in nia-todo. They must not look like browser-default controls on desktop.
+
+### Non-negotiable Rule
+
+User-facing dropdowns must use the shared custom dropdown/menu primitive.
+
+Native `<select>` elements are allowed only as:
+
+- a hidden source of truth for existing form integration
+- a progressive-enhancement fallback when JavaScript fails
+- a platform fallback when a custom menu would be less accessible or technically unsafe
+
+If a native `<select>` remains visible in a redesigned user-facing surface, the UI is not finished.
+
+### Primitive Names
+
+Use one shared primitive family for all dropdown-like controls:
+
+- `.ui-select` — field-sized single-value selector
+- `.ui-select-trigger` — visible closed control
+- `.ui-select-value` — selected label/content
+- `.ui-select-chevron` — disclosure indicator
+- `.ui-select-menu` — popup container
+- `.ui-select-option` — selectable row
+- `.ui-select-option.is-selected` — current selected option
+- `.ui-select-option.is-highlighted` — keyboard/hover active option
+- `.ui-select-option.is-disabled` — unavailable option
+- `.ui-menu` — action menu variant for non-form actions
+- `.ui-menu-item` — action row
+- `.ui-menu-separator` — visual group separator
+
+Do not add component-specific dropdown class families such as `.project-select-*`, `.settings-dropdown-*`, or `.todo-menu-*` unless they only add tiny layout hooks around the shared primitive. Visual styling belongs in the shared primitive.
+
+### Visual Contract
+
+Closed dropdown trigger:
+
+- height: `40px` desktop, `42px` mobile minimum
+- border radius: `12-13px`
+- horizontal padding: `12px` left, `38-42px` right when a chevron is present
+- background: same calm card/input language as other form fields
+- border: subtle default border, accent border on hover/focus
+- focus ring: visible accent ring, matching other inputs
+- selected label: `13-14px`, `650-700` weight for short values
+- icon/color chip, when present: left aligned, `16-20px`, never stretched
+- chevron: right aligned, muted, rotates or changes opacity when open
+
+Open menu:
+
+- fixed-position or portal-style placement when inside modals to avoid clipping by scroll containers
+- minimum width equal to the trigger width
+- maximum width: `min(280px, calc(100vw - 24px))` unless the content requires more
+- maximum height: `min(320px, calc(100vh - 24px))`, scroll internally
+- border radius: `14px`
+- padding: `6px`
+- border and background must match modal/card elevation
+- shadow must make it read as a floating layer without feeling heavy
+- z-index must sit above the current modal body but below global critical overlays
+
+Option rows:
+
+- min height: `36px` desktop, `40px` mobile
+- padding: `8px 10px`
+- gap: `8px`
+- label must never overlap icon, badge, checkmark, or chevron
+- long labels truncate with ellipsis unless multiline is explicitly required
+- selected option shows a checkmark or selected state, not only color
+- destructive menu actions use danger color and must be separated from neutral actions
+- disabled options remain visible only when that teaches the user why they cannot pick them; otherwise hide them
+
+### Behavior Contract
+
+All custom dropdowns/menus must support:
+
+- click/tap trigger opens and closes the menu
+- outside click closes the menu
+- `Escape` closes the menu and returns focus to the trigger
+- `Enter`/`Space` opens the menu from the trigger
+- arrow keys move the highlighted option
+- `Enter` selects the highlighted option
+- `Tab` leaves the control without trapping focus
+- opening one dropdown closes any other open dropdown
+- selection updates the hidden native `<select>`/input and dispatches a `change` event when existing code expects one
+- menu placement recalculates on open, scroll, resize, and orientation change
+- scrollable modal bodies must not clip menus
+
+### Accessibility Contract
+
+For select-like controls:
+
+- trigger uses `role="combobox"` or a button pattern with correct `aria-haspopup="listbox"`
+- menu uses `role="listbox"`
+- options use `role="option"`
+- selected option uses `aria-selected="true"`
+- disabled option uses `aria-disabled="true"`
+- trigger exposes `aria-expanded`
+- trigger references the menu with `aria-controls` when possible
+- labels remain real `<label>` elements tied to the hidden native field or the visible trigger
+
+For action menus:
+
+- trigger uses `aria-haspopup="menu"`
+- menu uses `role="menu"`
+- items use `role="menuitem"` unless a stronger semantic element is needed
+
+Keyboard behavior must be tested. A pretty dropdown that cannot be used without a mouse is a regression.
+
+### Mobile Contract
+
+Mobile dropdowns still use the shared visual language, but placement may adapt:
+
+- short menus may open as anchored popovers
+- long menus may use a bottom-sheet style variant of the same primitive
+- touch targets are at least `40-42px` high
+- menu width must not cause horizontal page overflow
+- the page/body must not become horizontally scrollable
+- dropdowns inside fullscreen modals must remain reachable above the fixed footer actions
+
+Do not fall back to ugly native mobile selects just because implementation is inconvenient. Native fallback is allowed only when the custom version is measurably worse for accessibility or platform behavior.
+
+### Searchable and Large Lists
+
+For lists with more than roughly 12 options, consider a searchable variant:
+
+- `.ui-select-search` at the top of the menu
+- filtering keeps keyboard highlight predictable
+- empty state row explains there are no matches
+- search input must not break `Escape`, outside-click, or modal focus behavior
+
+Use this for project/workspace/user lists if they become long. Do not invent a separate autocomplete visual style.
+
+### Required Migration Targets
+
+These surfaces must use the shared dropdown/menu primitive before the redesign is considered complete:
+
+- Todo modal: priority, status, project, section
+- Project modal: workspace display, parent project
+- Workspace modal: any icon/color/category selector that behaves like a menu
+- Settings modal: language, notification/native-app options, theme/accent choices where applicable
+- Todo cards/list: status and snooze popovers should be migrated or aligned to the same `.ui-menu` option-row styling
+- Project sharing/member actions if they expose row-level action menus
+- Admin user/config screens if they are part of the same release scope
+
+### Existing Native Select Handling
+
+When replacing an existing `<select>`:
+
+1. Keep the original element ID if JavaScript already depends on it.
+2. Visually hide the native select with an accessible utility class, not `display:none`, if the label relationship depends on it.
+3. Render the custom `.ui-select` next to it or hydrate it from JavaScript.
+4. Keep the native select value synchronized both ways.
+5. Dispatch `change` on the native select after custom selection.
+6. Preserve disabled/read-only behavior.
+7. Preserve form reset behavior.
+8. Add tests for selection, keyboard behavior, outside click, and modal clipping.
+
+### Done Criteria
+
+A dropdown migration is done only when all of this is true:
+
+- no visible browser-default select remains in the target surface on desktop
+- desktop and mobile screenshots show the same design language
+- keyboard behavior works
+- outside-click and `Escape` close the menu
+- menu is not clipped inside modals
+- long labels do not overlap controls
+- German and English labels both fit or truncate cleanly
+- hidden native fields still update existing save logic
+- Playwright coverage exists for at least one representative form dropdown and one action menu
+- `git diff --check` passes
+
 ## Lists and Todo Cards
 
 Todo cards in the main dashboard/list should follow the same calm card language as modals:
@@ -229,13 +402,15 @@ Before considering UI work ready:
 
 For every new UI change:
 
-- Reuse existing `.btn`, `.form-group`, `.modal-*`, `.ui-section-*`, `.ui-field-grid`, badge/chip, and card classes where possible.
+- Reuse existing `.btn`, `.form-group`, `.modal-*`, `.ui-section-*`, `.ui-field-grid`, `.ui-select`, `.ui-menu`, badge/chip, and card classes where possible.
 - Prefer extending shared primitives over appending component-specific override blocks.
 - If a visual fix applies to more than one component, move it into the shared primitive instead of patching only the current screen.
+- Do not leave visible browser-default selects/dropdowns in redesigned user-facing surfaces.
 - Add i18n keys for all persistent user-facing labels.
 - Avoid inline styles for layout and spacing.
 - Keep JS-bound IDs stable.
 - Test at least one desktop and one mobile viewport with Playwright or a browser.
+- For dropdown/menu work, test keyboard behavior, outside-click, `Escape`, hidden native value sync, and modal clipping.
 - Run syntax/format checks matching the touched files.
 
 ## Current Reference Patterns
