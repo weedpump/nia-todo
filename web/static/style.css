@@ -1,6 +1,7 @@
 /* nia-todo: Modern, clean, compact */
 
 :root {
+  color-scheme: dark;
   /* ─── Dark Theme (default) ─── */
   --bg-primary: #0f0f23;
   --bg-secondary: #1a1a2e;
@@ -26,6 +27,7 @@
 }
 
 [data-theme="light"] {
+  color-scheme: light;
   --bg-primary: #f8fafc;
   --bg-secondary: #f1f5f9;
   --bg-tertiary: #e2e8f0;
@@ -1841,8 +1843,45 @@ select:focus-visible {
 .form-group input[type="datetime-local"],
 .form-group input[type="time"] {
   max-width: 100%;
-  -webkit-appearance: none;
-  appearance: none;
+  padding-right: 38px;
+  color-scheme: dark;
+}
+
+[data-theme="light"] .form-group input[type="date"],
+[data-theme="light"] .form-group input[type="datetime-local"],
+[data-theme="light"] .form-group input[type="time"] {
+  color-scheme: light;
+}
+
+.form-group input[type="date"]::-webkit-calendar-picker-indicator,
+.form-group input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+.form-group input[type="time"]::-webkit-calendar-picker-indicator {
+  opacity: 0;
+  cursor: pointer;
+}
+
+.datetime-input-wrap {
+  position: relative;
+}
+
+.datetime-input-icon {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.datetime-input-icon .ui-icon {
+  width: 17px;
+  height: 17px;
+  stroke-width: 2.2;
 }
 
 .settings-profile-card {

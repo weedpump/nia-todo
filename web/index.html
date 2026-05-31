@@ -386,12 +386,18 @@
           <div class="ui-field-grid two-columns">
             <div class="form-group">
               <label data-i18n-key="todo.deadline">Deadline</label>
-              <input type="datetime-local" id="todo-due" min="1900-01-01T00:00" max="9999-12-31T23:59" step="60">
+              <div class="datetime-input-wrap">
+                <input type="datetime-local" id="todo-due" min="1900-01-01T00:00" max="9999-12-31T23:59" step="60">
+                <span class="datetime-input-icon" data-icon="calendar-days" aria-hidden="true"></span>
+              </div>
               <div id="todo-due-error" class="form-error compact"></div>
             </div>
             <div class="form-group">
               <label data-i18n-key="todo.reminder">Erinnerung</label>
-              <input type="datetime-local" id="todo-remind" min="1900-01-01T00:00" max="9999-12-31T23:59" step="60">
+              <div class="datetime-input-wrap">
+                <input type="datetime-local" id="todo-remind" min="1900-01-01T00:00" max="9999-12-31T23:59" step="60">
+                <span class="datetime-input-icon" data-icon="calendar-days" aria-hidden="true"></span>
+              </div>
               <div id="todo-remind-error" class="form-error compact"></div>
             </div>
           </div>
