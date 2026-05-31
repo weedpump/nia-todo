@@ -92,13 +92,19 @@ async function run() {
       document.dispatchEvent(new PointerEvent('pointermove', { ...pointer, clientX: startX + 70, clientY: startY + 2 }));
       const transform = getComputedStyle(item).transform;
       const swipeX = item.style.getPropertyValue('--swipe-x');
+      const swipeProgress = Number.parseFloat(item.style.getPropertyValue('--swipe-progress'));
       const hasTouchFeedback = item.classList.contains('touch-feedback');
+      const readyBeforeThreshold = item.classList.contains('swipe-ready');
       document.dispatchEvent(new PointerEvent('pointermove', { ...pointer, clientX: startX + 220, clientY: startY + 2 }));
+      const readyAfterThreshold = item.classList.contains('swipe-ready');
       document.dispatchEvent(new PointerEvent('pointerup', { ...pointer, clientX: startX + 220, clientY: startY + 2 }));
-      return { transform, swipeX, hasTouchFeedback };
+      return { transform, swipeX, swipeProgress, hasTouchFeedback, readyBeforeThreshold, readyAfterThreshold };
     }, title);
     if (!midSwipe.swipeX || midSwipe.transform === 'none' || !midSwipe.transform.includes('70')) {
       throw new Error(`Android swipe did not translate todo item: ${JSON.stringify(midSwipe)}`);
+    }
+    if (!(midSwipe.swipeProgress > 0 && midSwipe.swipeProgress < 1) || midSwipe.readyBeforeThreshold || !midSwipe.readyAfterThreshold) {
+      throw new Error(`Android swipe did not expose smooth progress/ready state: ${JSON.stringify(midSwipe)}`);
     }
     if (midSwipe.hasTouchFeedback) throw new Error('Android swipe kept touch feedback on todo item');
     await waitForTodo(page, title, { status: 'in_progress' });
@@ -118,13 +124,14 @@ async function run() {
       document.dispatchEvent(new PointerEvent('pointermove', { ...pointer, clientX: startX + 520, clientY: startY + 2 }));
       const transform = getComputedStyle(item).transform;
       const swipeX = item.style.getPropertyValue('--swipe-x');
+      const ready = item.classList.contains('swipe-ready');
       document.dispatchEvent(new PointerEvent('pointermove', { ...pointer, clientX: startX + 4, clientY: startY + 1 }));
       document.dispatchEvent(new PointerEvent('pointerup', { ...pointer, clientX: startX + 4, clientY: startY + 1 }));
-      return { transform, swipeX, width: rect.width };
+      return { transform, swipeX, ready, width: rect.width };
     }, title);
     const wideSwipeX = Number.parseFloat(wideSwipe.swipeX);
-    if (!wideSwipe.swipeX || wideSwipeX < wideSwipe.width - 4 || !wideSwipe.transform.includes(String(Math.round(wideSwipeX)))) {
-      throw new Error(`Wide/iPad-style swipe was still visually clamped: ${JSON.stringify(wideSwipe)}`);
+    if (!wideSwipe.swipeX || wideSwipeX < wideSwipe.width - 4 || !wideSwipe.transform.includes(String(Math.round(wideSwipeX))) || !wideSwipe.ready) {
+      throw new Error(`Wide/iPad-style swipe was still visually clamped or missed ready state: ${JSON.stringify(wideSwipe)}`);
     }
     await todoItem().hover();
     const swipingBeatsHover = await page.evaluate((value) => {
