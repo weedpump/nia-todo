@@ -6027,3 +6027,9 @@ input[type="color"]::-moz-color-swatch {
     left: auto;
   }
 }
+
+/* Dashboard todo groups should not show a side divider */
+.project-group-todos {
+  padding-left: 0;
+  border-left: 0;
+}
