@@ -10,7 +10,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "api"))
 
-from routers.braindump_v2 import BrainDumpTodoCandidate, _create_todos_from_braindump_candidates  # noqa: E402
+from routers.braindump_v2 import BrainDumpTodoCandidate, _create_todos_from_braindump_candidates, _load_braindump_workspace_context  # noqa: E402
 
 
 def assert_true(condition, message):
@@ -26,7 +26,9 @@ def make_db():
         CREATE TABLE users (id INTEGER PRIMARY KEY, username TEXT, braindump_enabled INTEGER NOT NULL DEFAULT 1);
         CREATE TABLE workspaces (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL
+            name TEXT NOT NULL,
+            user_id INTEGER,
+            is_default INTEGER DEFAULT 0
         );
         CREATE TABLE projects (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -41,7 +43,8 @@ def make_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             project_id INTEGER NOT NULL,
             user_id INTEGER NOT NULL,
-            status TEXT DEFAULT 'accepted'
+            status TEXT DEFAULT 'accepted',
+            workspace_id INTEGER
         );
         CREATE TABLE sections (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -73,13 +76,17 @@ def make_db():
         """
     )
     db.execute("INSERT INTO users (id, username, braindump_enabled) VALUES (1, 'tobi', 1)")
-    db.execute("INSERT INTO workspaces (id, name) VALUES (1, 'Privat')")
+    db.execute("INSERT INTO workspaces (id, name, user_id, is_default) VALUES (1, 'Privat', 1, 1)")
+    db.execute("INSERT INTO workspaces (id, name, user_id, is_default) VALUES (2, 'Arbeit', 1, 0)")
     db.execute("INSERT INTO projects (id, name, user_id, is_inbox, workspace_id) VALUES (1, 'Inbox', 1, 1, 1)")
     db.execute("INSERT INTO projects (id, name, user_id, is_inbox, workspace_id) VALUES (2, 'Einkaufsliste', 1, 0, 1)")
     db.execute("INSERT INTO projects (id, name, user_id, is_inbox, workspace_id) VALUES (3, 'Haushalt', 1, 0, 1)")
+    db.execute("INSERT INTO projects (id, name, user_id, is_inbox, workspace_id) VALUES (4, 'Inbox', 1, 1, 2)")
+    db.execute("INSERT INTO projects (id, name, user_id, is_inbox, workspace_id) VALUES (5, 'IT', 1, 0, 2)")
     db.execute("INSERT INTO sections (id, project_id, name) VALUES (10, 2, 'Obst und Gemüse')")
     db.execute("INSERT INTO sections (id, project_id, name) VALUES (11, 2, 'Milchprodukte')")
     db.execute("INSERT INTO sections (id, project_id, name) VALUES (12, 3, 'Keller')")
+    db.execute("INSERT INTO sections (id, project_id, name) VALUES (13, 5, 'Serverraum')")
     return db
 
 
@@ -117,6 +124,36 @@ def test_creates_candidate_with_unique_section_even_when_project_missing():
     assert_true(created[0]["section_id"] == 12, created)
 
 
+def test_workspace_context_filters_projects_and_routes_inbox():
+    db = make_db()
+    context = _load_braindump_workspace_context(db, 1, workspace_id=2)
+    project_names = [project["name"] for project in context["projects"]]
+    assert_true(context["workspace_name"] == "Arbeit", context)
+    assert_true(project_names == ["Inbox", "IT"], project_names)
+    assert_true(context["projects"][1]["sections"] == ["Serverraum"], context)
+
+    created = _create_todos_from_braindump_candidates(
+        db,
+        1,
+        [BrainDumpTodoCandidate(title="Backup prüfen"), BrainDumpTodoCandidate(title="Rack aufräumen", project_name="IT", section_name="Serverraum")],
+        workspace_id=2,
+    )
+    by_title = {todo["title"]: todo for todo in created}
+    assert_true(by_title["Backup prüfen"]["project_id"] == 4, by_title)
+    assert_true(by_title["Rack aufräumen"]["project_id"] == 5, by_title)
+    assert_true(by_title["Rack aufräumen"]["section_id"] == 13, by_title)
+
+
+def test_workspace_context_rejects_project_from_other_workspace():
+    db = make_db()
+    try:
+        _create_todos_from_braindump_candidates(db, 1, [BrainDumpTodoCandidate(title="X", project_name="Einkaufsliste")], workspace_id=2)
+    except Exception as exc:
+        assert_true(getattr(exc, "status_code", None) == 422, exc)
+    else:
+        raise AssertionError("project outside current workspace should fail")
+
+
 def test_rejects_unknown_project_name():
     db = make_db()
     try:
@@ -141,6 +178,8 @@ def main():
     tests = [
         test_creates_confirmed_candidates_with_project_section_and_reminder,
         test_creates_candidate_with_unique_section_even_when_project_missing,
+        test_workspace_context_filters_projects_and_routes_inbox,
+        test_workspace_context_rejects_project_from_other_workspace,
         test_rejects_unknown_project_name,
         test_rejects_section_outside_project,
     ]

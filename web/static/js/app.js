@@ -67,6 +67,7 @@ const openAppDownloadsModal = appDownloadsFeature.openAppDownloadsModal;
 const brainDumpLiveFeature = createBrainDumpLiveFeature({
   getProjects: () => projects,
   getSections: () => sections,
+  getCurrentWorkspaceId: () => currentWorkspaceId,
 });
 const viewPreferences = createViewPreferencesFeature({
   getHideDone: () => hideDone,
