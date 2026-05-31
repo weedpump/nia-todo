@@ -2,7 +2,11 @@
 
 from typing import Optional
 import json
-from urllib.parse import urlparse, urlunparse
+import math
+import struct
+import uuid
+import wave
+from io import BytesIO
 import urllib.request
 
 from fastapi import APIRouter, Request, Response, HTTPException, Depends
@@ -247,10 +251,82 @@ def admin_update_braindump_config(data: BrainDumpConfigRequest, request: Request
     return update_braindump_config(data.model_dump(), client_ip=get_client_ip(request))
 
 
-def _stt_health_url(stt_url: str) -> str:
-    parsed = urlparse(stt_url)
-    base_path = parsed.path.rsplit("/", 1)[0]
-    return urlunparse((parsed.scheme, parsed.netloc, f"{base_path}/health", "", "", ""))
+def _build_multipart_form_data(fields: dict[str, str], files: dict[str, tuple[str, bytes, str]]) -> tuple[bytes, str]:
+    boundary = f"----nia-todo-admin-stt-probe-{uuid.uuid4().hex}"
+    chunks: list[bytes] = []
+    for name, value in fields.items():
+        chunks.append(f"--{boundary}\r\n".encode())
+        chunks.append(f'Content-Disposition: form-data; name="{name}"\r\n\r\n'.encode())
+        chunks.append(str(value).encode("utf-8"))
+        chunks.append(b"\r\n")
+    for name, (filename, data, content_type) in files.items():
+        chunks.append(f"--{boundary}\r\n".encode())
+        chunks.append(f'Content-Disposition: form-data; name="{name}"; filename="{filename}"\r\n'.encode())
+        chunks.append(f"Content-Type: {content_type}\r\n\r\n".encode())
+        chunks.append(data)
+        chunks.append(b"\r\n")
+    chunks.append(f"--{boundary}--\r\n".encode())
+    return b"".join(chunks), f"multipart/form-data; boundary={boundary}"
+
+
+def _admin_stt_probe_wav() -> bytes:
+    # Short synthetic tone: enough to prove the configured endpoint accepts and processes real audio.
+    sample_rate = 16000
+    duration_seconds = 0.35
+    frames = int(sample_rate * duration_seconds)
+    buffer = BytesIO()
+    with wave.open(buffer, "wb") as wav:
+        wav.setnchannels(1)
+        wav.setsampwidth(2)
+        wav.setframerate(sample_rate)
+        samples = bytearray()
+        for index in range(frames):
+            value = int(0.18 * 32767 * math.sin(2 * math.pi * 440 * index / sample_rate))
+            samples.extend(struct.pack("<h", value))
+        wav.writeframes(bytes(samples))
+    return buffer.getvalue()
+
+
+def _validate_stt_probe_response(payload: bytes, content_type: str) -> str:
+    text = payload.decode("utf-8", errors="replace").strip()
+    if "json" not in content_type.lower():
+        return text[:400]
+    try:
+        data = json.loads(text or "{}")
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"STT returned invalid JSON: {exc}") from exc
+    transcript = data.get("text") if isinstance(data, dict) else None
+    if not isinstance(transcript, str):
+        raise RuntimeError("STT response is missing text")
+    return text[:400]
+
+
+def _probe_remote_stt(config: dict) -> tuple[bool, str, str]:
+    stt_url = str(config.get("stt_url") or "").strip()
+    if not stt_url:
+        return False, "STT URL is not configured", ""
+    fields = {
+        "response_format": "json",
+        "temperature": "0.0",
+        "temperature_inc": "0.0",
+    }
+    language = str(config.get("stt_language") or "").strip()
+    if language:
+        fields["language"] = language
+    body, multipart_type = _build_multipart_form_data(
+        fields,
+        {"file": ("nia-todo-stt-probe.wav", _admin_stt_probe_wav(), "audio/wav")},
+    )
+    headers = {"Content-Type": multipart_type}
+    stt_token = str(config.get("stt_token") or "").strip()
+    if stt_token:
+        headers["Authorization"] = f"Bearer {stt_token}"
+    req = urllib.request.Request(stt_url, data=body, headers=headers, method="POST")
+    timeout = min(float(config.get("stt_timeout_seconds") or 60), 30.0)
+    with urllib.request.urlopen(req, timeout=timeout) as response:
+        payload = response.read()
+        sample = _validate_stt_probe_response(payload, response.headers.get("content-type", ""))
+    return True, "STT endpoint accepted and processed a probe audio request", sample
 
 
 @router.post("/braindump-config/test")
@@ -258,8 +334,8 @@ def admin_test_braindump_config(_: bool = Depends(require_admin)):
     config = get_braindump_config(include_secrets=True)
     if not config.get("enabled"):
         return {
-            "llm": {"ok": False, "message": "BrainDump experimental feature is disabled"},
-            "stt": {"ok": False, "message": "BrainDump experimental feature is disabled"},
+            "llm": {"ok": False, "message": "BrainDump is disabled"},
+            "stt": {"ok": False, "message": "BrainDump is disabled"},
         }
     result = {
         "llm": {"ok": False, "message": "not tested"},
@@ -291,13 +367,12 @@ def admin_test_braindump_config(_: bool = Depends(require_admin)):
 
     if config.get("stt_provider") == "local_whisper_cpp":
         result["stt"] = {"ok": True, "message": "Local whisper.cpp provider selected; runtime availability is checked when audio is processed"}
-    elif not str(config.get("stt_url") or "").strip():
-        result["stt"] = {"ok": False, "message": "STT URL is not configured"}
     else:
         try:
-            with urllib.request.urlopen(_stt_health_url(str(config.get("stt_url") or "")), timeout=10) as response:
-                payload = response.read().decode("utf-8", errors="replace")
-            result["stt"] = {"ok": True, "message": "STT endpoint reachable", "sample": payload[:400]}
+            ok, message, sample = _probe_remote_stt(config)
+            result["stt"] = {"ok": ok, "message": message}
+            if sample:
+                result["stt"]["sample"] = sample
         except Exception as exc:
             result["stt"] = {"ok": False, "message": str(exc)}
     return result
