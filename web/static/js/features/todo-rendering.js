@@ -57,20 +57,20 @@ export function renderTodoItem(t) {
             <span>${escapeHtml(i18nT(t.status === 'done' ? 'todo.status.done' : t.status === 'in_progress' ? 'todo.status.inProgress' : 'todo.status.pending'))}</span>
             ${iconSvg('chevron-down')}
           </summary>
-          <div class="todo-status-options">
-            <button type="button" class="${t.status === 'pending' ? 'active' : ''}" onclick='this.closest("details")?.removeAttribute("open"); setTodoStatus(${idArg}, "pending")'>${escapeHtml(i18nT('todo.status.pending'))}</button>
-            <button type="button" class="${t.status === 'in_progress' ? 'active' : ''}" onclick='this.closest("details")?.removeAttribute("open"); setTodoStatus(${idArg}, "in_progress")'>${escapeHtml(i18nT('todo.status.inProgress'))}</button>
-            <button type="button" class="${t.status === 'done' ? 'active' : ''}" onclick='this.closest("details")?.removeAttribute("open"); setTodoStatus(${idArg}, "done")'>${escapeHtml(i18nT('todo.status.done'))}</button>
+          <div class="todo-status-options todo-action-menu ui-menu" role="menu">
+            <button type="button" class="ui-menu-item ${t.status === 'pending' ? 'active' : ''}" role="menuitem" aria-current="${t.status === 'pending' ? 'true' : 'false'}" onclick='this.closest("details")?.removeAttribute("open"); setTodoStatus(${idArg}, "pending")'><span>${escapeHtml(i18nT('todo.status.pending'))}</span>${t.status === 'pending' ? iconSvg('check') : ''}</button>
+            <button type="button" class="ui-menu-item ${t.status === 'in_progress' ? 'active' : ''}" role="menuitem" aria-current="${t.status === 'in_progress' ? 'true' : 'false'}" onclick='this.closest("details")?.removeAttribute("open"); setTodoStatus(${idArg}, "in_progress")'><span>${escapeHtml(i18nT('todo.status.inProgress'))}</span>${t.status === 'in_progress' ? iconSvg('check') : ''}</button>
+            <button type="button" class="ui-menu-item ${t.status === 'done' ? 'active' : ''}" role="menuitem" aria-current="${t.status === 'done' ? 'true' : 'false'}" onclick='this.closest("details")?.removeAttribute("open"); setTodoStatus(${idArg}, "done")'><span>${escapeHtml(i18nT('todo.status.done'))}</span>${t.status === 'done' ? iconSvg('check') : ''}</button>
           </div>
         </details>
         <details class="todo-snooze-menu" onclick="event.stopPropagation()">
           <summary aria-label="${escapeHtml(i18nT('todo.snooze'))}" title="${escapeHtml(i18nT('todo.snooze'))}">${iconSvg('clock')}</summary>
-          <div class="todo-status-options">
-            <button type="button" onclick='this.closest("details")?.removeAttribute("open"); snoozeTodo(${idArg}, "hour")'>${escapeHtml(i18nT('todo.snooze.hour'))}</button>
-            <button type="button" onclick='this.closest("details")?.removeAttribute("open"); snoozeTodo(${idArg}, "evening")'>${escapeHtml(i18nT('todo.snooze.evening'))}</button>
-            <button type="button" onclick='this.closest("details")?.removeAttribute("open"); snoozeTodo(${idArg}, "tomorrow")'>${escapeHtml(i18nT('todo.snooze.tomorrow'))}</button>
-            <button type="button" onclick='this.closest("details")?.removeAttribute("open"); snoozeTodo(${idArg}, "weekend")'>${escapeHtml(i18nT('todo.snooze.weekend'))}</button>
-            <button type="button" onclick='this.closest("details")?.removeAttribute("open"); snoozeTodo(${idArg}, "next-week")'>${escapeHtml(i18nT('todo.snooze.nextWeek'))}</button>
+          <div class="todo-status-options todo-action-menu ui-menu" role="menu">
+            <button type="button" class="ui-menu-item" role="menuitem" onclick='this.closest("details")?.removeAttribute("open"); snoozeTodo(${idArg}, "hour")'>${escapeHtml(i18nT('todo.snooze.hour'))}</button>
+            <button type="button" class="ui-menu-item" role="menuitem" onclick='this.closest("details")?.removeAttribute("open"); snoozeTodo(${idArg}, "evening")'>${escapeHtml(i18nT('todo.snooze.evening'))}</button>
+            <button type="button" class="ui-menu-item" role="menuitem" onclick='this.closest("details")?.removeAttribute("open"); snoozeTodo(${idArg}, "tomorrow")'>${escapeHtml(i18nT('todo.snooze.tomorrow'))}</button>
+            <button type="button" class="ui-menu-item" role="menuitem" onclick='this.closest("details")?.removeAttribute("open"); snoozeTodo(${idArg}, "weekend")'>${escapeHtml(i18nT('todo.snooze.weekend'))}</button>
+            <button type="button" class="ui-menu-item" role="menuitem" onclick='this.closest("details")?.removeAttribute("open"); snoozeTodo(${idArg}, "next-week")'>${escapeHtml(i18nT('todo.snooze.nextWeek'))}</button>
           </div>
         </details>
         <button type="button" onclick='toggleTodoPin(${idArg})' class="todo-pin-btn ${pinned ? 'active' : ''}" title="${escapeHtml(pinned ? i18nT('todo.unpin') : i18nT('todo.pin'))}">${iconSvg('star')}</button>
