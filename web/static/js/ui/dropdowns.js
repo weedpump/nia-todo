@@ -337,6 +337,7 @@ export function hydrateSelect(select, options = {}) {
 
   trigger.addEventListener('click', () => openDropdown(instance));
   trigger.addEventListener('keydown', (event) => onTriggerKeydown(instance, event));
+  select.addEventListener('focus', () => trigger.focus());
   select.addEventListener('change', () => refreshSelect(select));
 
   refreshSelect(select);

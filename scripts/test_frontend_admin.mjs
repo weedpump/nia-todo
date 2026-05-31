@@ -158,9 +158,11 @@ async function run() {
     await page.getByRole('button', { name: 'Erstellen & Link erzeugen' }).click();
     await page.getByText('Bitte eine gültige E-Mail-Adresse eingeben').waitFor({ state: 'visible', timeout: 10000 });
     await page.fill('#new-email', 'admincreated@example.invalid');
-    await page.locator('.ui-select[data-select-id="new-language"] .ui-select-trigger').click();
+    await page.locator('#new-email').press('Enter');
+    await page.waitForFunction(() => document.activeElement?.matches?.('.ui-select[data-select-id="new-language"] .ui-select-trigger'), null, { timeout: 5000 });
     await page.locator('.ui-select-menu').waitFor({ state: 'visible', timeout: 5000 });
-    await page.locator('.ui-select-option[data-value="en"]').click();
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
     await page.locator('.ui-select-menu').waitFor({ state: 'hidden', timeout: 5000 });
     await page.getByRole('button', { name: 'Erstellen & Link erzeugen' }).click();
     await page.getByText(/Benutzer .*admincreated.* erstellt.*Link kopieren und senden/).waitFor({ state: 'visible', timeout: 10000 });
