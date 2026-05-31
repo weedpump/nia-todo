@@ -82,8 +82,14 @@ export function createSyncFeature({
       }
       try {
         if (item.action === 'CREATE_TODO') {
-          const res = await todosApi.create(item.data);
+          let res = await todosApi.create(item.data);
+          let localTempTodo = null;
           if (item.data._tempId) {
+            localTempTodo = await getFromDB('todos', item.data._tempId);
+            const localSectionChanged = localTempTodo && localTempTodo.section_id !== item.data.section_id;
+            if (localSectionChanged) {
+              res = await todosApi.update(res.id, { section_id: localTempTodo.section_id });
+            }
             await deleteFromDB('todos', item.data._tempId);
             setTodos(getTodos().filter(t => t.id !== item.data._tempId));
           }

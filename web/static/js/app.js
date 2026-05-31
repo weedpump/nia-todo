@@ -584,6 +584,8 @@ const dragDropFeature = createDragDropFeature({
   todosApi,
   sectionsApi,
   renderTodos: () => renderTodos(),
+  dbGetAll,
+  dbPut,
 });
 const handleTodoDragStart = dragDropFeature.handleTodoDragStart;
 const handleTodoDragEnd = dragDropFeature.handleTodoDragEnd;

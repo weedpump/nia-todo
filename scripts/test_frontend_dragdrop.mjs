@@ -27,7 +27,8 @@ async function run() {
 
     await page.waitForFunction(() => {
       const containers = Array.from(document.querySelectorAll('.section-todos'));
-      return containers.some(el => el.innerText.includes('Drag Todo'));
+      const todo = document.querySelector('.todo-item[data-id]');
+      return containers.some(el => el.innerText.includes('Drag Todo')) && todo && !String(todo.dataset.id).startsWith('temp-');
     }, { timeout: 10000 });
 
     const afterCreate = await page.evaluate(() => Array.from(document.querySelectorAll('.section-todos')).map(el => ({

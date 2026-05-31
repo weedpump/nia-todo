@@ -9,6 +9,8 @@ export function createDragDropFeature({
   todosApi,
   sectionsApi,
   renderTodos,
+  dbGetAll,
+  dbPut,
 }) {
   let dragSrcTodoId = null;
   let dragSrcSectionId = null;
@@ -60,7 +62,17 @@ export function createDragDropFeature({
     setTodos(nextTodos);
     renderTodos();
 
+    if (dbPut) await dbPut('todos', updatedTodo);
+
     const isTempTodo = String(todo.id).startsWith('temp-');
+    if (isTempTodo && dbGetAll && dbPut) {
+      const queue = await dbGetAll('syncQueue');
+      const createItem = queue.find(item => item.action === 'CREATE_TODO' && String(item.data?._tempId) === String(todo.id));
+      if (createItem) {
+        await dbPut('syncQueue', { ...createItem, data: { ...createItem.data, section_id: sectionId } });
+      }
+    }
+
     if (isOnlineForSync() && !isTempTodo) {
       try {
         await todosApi.update(todo.id, { section_id: sectionId });
