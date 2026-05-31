@@ -1332,17 +1332,27 @@ select:focus-visible {
 
 .todo-action-menu.ui-menu {
   position: absolute;
-  top: calc(100% + 6px);
+  top: calc(100% + 5px);
   right: 0;
   left: auto;
   z-index: 1000;
-  min-width: 172px;
-  max-width: min(240px, calc(100vw - 24px));
+  min-width: 148px;
+  max-width: min(210px, calc(100vw - 24px));
+  padding: 4px;
+  border-radius: 11px;
+  box-shadow: 0 10px 26px rgba(0,0,0,.20), 0 0 0 1px color-mix(in srgb, var(--bg-primary) 20%, transparent);
 }
 
 .todo-action-menu .ui-menu-item {
+  min-height: 30px;
   justify-content: flex-start;
+  gap: 7px;
+  padding: 6px 8px;
+  border-radius: 8px;
   color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.15;
   white-space: nowrap;
 }
 
@@ -1353,8 +1363,8 @@ select:focus-visible {
 }
 
 .todo-action-menu .ui-menu-item .ui-icon {
-  width: 15px;
-  height: 15px;
+  width: 13px;
+  height: 13px;
   margin-left: auto;
   color: var(--accent);
 }
@@ -6246,34 +6256,32 @@ input[type="color"]::-moz-color-swatch {
 
 .todo-status-options {
   display: grid;
-  gap: 4px;
-  min-width: 172px;
-  max-width: min(240px, calc(100vw - 24px));
+  gap: 3px;
 }
 
 .todo-action-menu.ui-menu {
   position: absolute;
-  top: calc(100% + 6px);
+  top: calc(100% + 5px);
   right: 0;
   left: auto;
   z-index: 1000;
 }
 
 .todo-snooze-menu .todo-status-options {
-  min-width: 178px;
+  min-width: 156px;
 }
 
 .todo-status-options button,
 .todo-actions .todo-status-options button {
   display: flex;
   width: 100%;
-  min-height: 34px;
+  min-height: 30px;
   height: auto;
   justify-content: flex-start;
   align-items: center;
-  padding: 8px 10px;
+  padding: 6px 8px;
   white-space: nowrap;
-  line-height: 1.2;
+  line-height: 1.15;
   text-align: left;
 }
 
