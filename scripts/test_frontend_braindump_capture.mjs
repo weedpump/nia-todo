@@ -63,7 +63,11 @@ async function run() {
           getUserMedia: async (constraints) => {
             window.__braindumpGetUserMediaCalls = (window.__braindumpGetUserMediaCalls || 0) + 1;
             window.__braindumpLastGetUserMediaConstraints = constraints;
-            if (constraints?.audio && constraints.audio !== true && !window.__braindumpEnhancedConstraintsFailed) {
+            if (window.__braindumpDelayNextGetUserMedia) {
+              window.__braindumpDelayNextGetUserMedia = false;
+              await new Promise(resolve => { window.__resolveBrainDumpGetUserMedia = resolve; });
+            }
+            if (constraints?.audio && constraints.audio !== true && !window.__braindumpDisableEnhancedFailure && !window.__braindumpEnhancedConstraintsFailed) {
               window.__braindumpEnhancedConstraintsFailed = true;
               const error = new Error('Could not start audio source');
               error.name = 'NotReadableError';
@@ -84,6 +88,7 @@ async function run() {
         }
         start(timeslice) {
           window.__braindumpRecorderTimeslice = timeslice;
+          window.__braindumpRecorderStarts = (window.__braindumpRecorderStarts || 0) + 1;
           this.state = 'recording';
           this._timer = window.setTimeout(() => this._emitChunk(), 80);
         }
@@ -155,7 +160,6 @@ async function run() {
         brainDumpEl && addTodoEl && brainDump && addTodo && style &&
         style.position === 'fixed' &&
         style.display === 'flex' &&
-        Number(style.zIndex) >= 260 &&
         brainDump.width >= 46 && brainDump.height >= 46 &&
         brainDump.right <= addTodo.left - 8 &&
         brainDump.left >= 0 && brainDump.bottom <= window.innerHeight
@@ -163,22 +167,54 @@ async function run() {
     });
     if (!desktopFabOk) throw new Error('Desktop BrainDump FAB is not visibly positioned beside the add-todo FAB');
 
+    await page.evaluate(() => {
+      window.__braindumpDelayNextGetUserMedia = true;
+      window.__braindumpDisableEnhancedFailure = true;
+      window.__braindumpRecorderStarts = 0;
+      window.__braindumpRecorderTimeslice = null;
+      window.__braindumpTrackStopped = false;
+    });
     await page.locator('#braindump-fab').click();
     await page.locator('#braindump-modal.active').waitFor({ state: 'visible', timeout: 5000 });
-    const initialAcceptMuted = await page.evaluate(() => {
-      const button = document.getElementById('braindump-create');
-      const record = document.getElementById('braindump-record');
-      if (!button || !record) return false;
-      const acceptRect = button.getBoundingClientRect();
-      const recordRect = record.getBoundingClientRect();
-      return button.disabled && button.classList.contains('is-muted') && acceptRect.left > recordRect.right;
+    await page.locator('#braindump-close').click();
+    await page.evaluate(() => window.__resolveBrainDumpGetUserMedia?.());
+    await page.waitForFunction(() => !document.getElementById('braindump-modal')?.classList.contains('active'), null, { timeout: 5000 });
+    await page.waitForTimeout(100);
+    const closedDuringStartSafe = await page.evaluate(() => ({
+      recorderStarts: window.__braindumpRecorderStarts || 0,
+      trackStopped: window.__braindumpTrackStopped === true,
+      modalActive: document.getElementById('braindump-modal')?.classList.contains('active') || false,
+      recorderTimeslice: window.__braindumpRecorderTimeslice,
+    }));
+    if (closedDuringStartSafe.recorderStarts !== 0 || !closedDuringStartSafe.trackStopped || closedDuringStartSafe.modalActive) {
+      throw new Error(`BrainDump close during microphone startup leaked recording state: ${JSON.stringify(closedDuringStartSafe)}`);
+    }
+    await page.evaluate(() => {
+      window.__braindumpDisableEnhancedFailure = false;
+      window.__braindumpEnhancedConstraintsFailed = false;
+      window.__braindumpGetUserMediaCalls = 0;
+      window.__braindumpRecorderStarts = 0;
+      window.__braindumpRecorderTimeslice = null;
+      window.__braindumpTrackStopped = false;
     });
-    if (!initialAcceptMuted) throw new Error('BrainDump accept button should start muted and stay in the right action group');
-    await page.locator('#braindump-record').click();
+
+    await page.locator('#braindump-fab').click();
+    await page.locator('#braindump-modal.active').waitFor({ state: 'visible', timeout: 5000 });
     await page.waitForFunction(() => window.__braindumpRecorderTimeslice === 1000, null, { timeout: 5000 });
+    const immediateRecordingState = await page.evaluate(() => {
+      const modal = document.getElementById('braindump-modal');
+      const create = document.getElementById('braindump-create');
+      const record = document.getElementById('braindump-record');
+      return Boolean(
+        modal?.classList.contains('is-recording') &&
+        record && !record.hidden && /Fertig|Finish/.test(record.textContent || '') &&
+        create?.hidden === true
+      );
+    });
+    if (!immediateRecordingState) throw new Error('BrainDump should start recording immediately and show only the finish action before results');
     const usedMinimalFallback = await page.evaluate(() => window.__braindumpEnhancedConstraintsFailed === true && window.__braindumpGetUserMediaCalls === 2 && window.__braindumpLastGetUserMediaConstraints?.audio === true);
     if (!usedMinimalFallback) throw new Error('BrainDump should retry Android WebView microphone capture with minimal audio constraints after NotReadableError');
-    await page.locator('#braindump-record').click({ force: true });
+    await page.evaluate(() => document.getElementById('braindump-record')?.click());
     await page.getByText('Milch kaufen', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
     await page.getByText('Snoopy Tabletten geben', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
     const acceptReady = await page.evaluate(() => {

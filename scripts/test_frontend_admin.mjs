@@ -26,6 +26,79 @@ async function run() {
     await page.locator('#admin-content').waitFor({ state: 'visible', timeout: 10000 });
     const nestedHeaderInputs = await page.locator('.admin-section-header input, .admin-section-header button, .admin-section-header select, .admin-section-header textarea').count();
     if (nestedHeaderInputs !== 0) throw new Error('Admin section header button contains nested interactive controls');
+    await expandSection('#email-config-card');
+    await expandSection('#braindump-config-card');
+    await expandSection('#create-user-card');
+    const adminSelectState = await page.evaluate(() => {
+      const ids = ['email-smtp-security', 'braindump-llm-provider', 'braindump-system-prompt-mode', 'braindump-stt-provider', 'new-language'];
+      return ids.map((id) => {
+        const select = document.getElementById(id);
+        const rect = select?.getBoundingClientRect();
+        return {
+          id,
+          hiddenNative: select?.classList.contains('visually-hidden-native-select') && rect && rect.width <= 1,
+          hasTrigger: !!document.querySelector(`.ui-select[data-select-id="${id}"] .ui-select-trigger`),
+        };
+      });
+    });
+    const unhydratedAdminSelects = adminSelectState.filter((item) => !item.hiddenNative || !item.hasTrigger);
+    if (unhydratedAdminSelects.length) throw new Error(`Admin selects are not fully hydrated: ${JSON.stringify(adminSelectState)}`);
+    async function assertAdminSelectLayout(context) {
+      const adminSelectLayout = await page.evaluate(() => {
+        const ids = ['email-smtp-security', 'braindump-llm-provider', 'braindump-system-prompt-mode', 'braindump-stt-provider', 'new-language'];
+        return ids.map((id) => {
+          const wrapper = document.querySelector(`.ui-select[data-select-id="${id}"]`);
+          const trigger = wrapper?.querySelector('.ui-select-trigger');
+          const chevron = wrapper?.querySelector('.ui-select-chevron');
+          const wrapperRect = wrapper?.getBoundingClientRect();
+          const triggerRect = trigger?.getBoundingClientRect();
+          const chevronRect = chevron?.getBoundingClientRect();
+          return {
+            id,
+            wrapperHeight: wrapperRect?.height || 0,
+            triggerHeight: triggerRect?.height || 0,
+            chevronHeight: chevronRect?.height || 0,
+            chevronTopDelta: chevronRect && triggerRect ? Math.abs(chevronRect.top - triggerRect.top) : 999,
+          };
+        });
+      });
+      const brokenAdminSelectLayout = adminSelectLayout.filter((item) => (
+        Math.abs(item.wrapperHeight - item.triggerHeight) > 2
+        || Math.abs(item.chevronHeight - item.triggerHeight) > 2
+        || item.chevronTopDelta > 2
+      ));
+      if (brokenAdminSelectLayout.length) throw new Error(`Admin custom select layout is broken (${context}): ${JSON.stringify(adminSelectLayout)}`);
+    }
+    await assertAdminSelectLayout('desktop');
+    const createUserLanguageVisualStyle = await page.evaluate(() => {
+      const email = document.getElementById('new-email');
+      const trigger = document.querySelector('.ui-select[data-select-id="new-language"] .ui-select-trigger');
+      const emailStyle = email ? getComputedStyle(email) : null;
+      const triggerStyle = trigger ? getComputedStyle(trigger) : null;
+      return {
+        emailHeight: email?.getBoundingClientRect().height || 0,
+        wrapperHeight: trigger?.closest('.ui-select')?.getBoundingClientRect().height || 0,
+        triggerHeight: trigger?.getBoundingClientRect().height || 0,
+        emailRadius: emailStyle?.borderRadius,
+        triggerRadius: triggerStyle?.borderRadius,
+        emailBackground: emailStyle?.backgroundColor,
+        triggerBackground: triggerStyle?.backgroundColor,
+        triggerBoxShadow: triggerStyle?.boxShadow,
+      };
+    });
+    if (
+      Math.abs(createUserLanguageVisualStyle.emailHeight - createUserLanguageVisualStyle.triggerHeight) > 1
+      || Math.abs(createUserLanguageVisualStyle.wrapperHeight - createUserLanguageVisualStyle.triggerHeight) > 1
+      || createUserLanguageVisualStyle.emailRadius !== createUserLanguageVisualStyle.triggerRadius
+      || createUserLanguageVisualStyle.emailBackground !== createUserLanguageVisualStyle.triggerBackground
+      || createUserLanguageVisualStyle.triggerBoxShadow !== 'none'
+    ) {
+      throw new Error(`Create-user language dropdown visual style differs from sibling input: ${JSON.stringify(createUserLanguageVisualStyle)}`);
+    }
+    const adminDesktopViewport = page.viewportSize();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await assertAdminSelectLayout('mobile');
+    await page.setViewportSize(adminDesktopViewport || { width: 1280, height: 720 });
 
     await expandSection('#security-card');
     await page.getByText('Globale 2FA-Pflicht ist deaktiviert').waitFor({ state: 'visible', timeout: 10000 });
@@ -85,7 +158,12 @@ async function run() {
     await page.getByRole('button', { name: 'Erstellen & Link erzeugen' }).click();
     await page.getByText('Bitte eine gültige E-Mail-Adresse eingeben').waitFor({ state: 'visible', timeout: 10000 });
     await page.fill('#new-email', 'admincreated@example.invalid');
-    await page.selectOption('#new-language', 'en');
+    await page.locator('#new-email').press('Enter');
+    await page.waitForFunction(() => document.activeElement?.matches?.('.ui-select[data-select-id="new-language"] .ui-select-trigger'), null, { timeout: 5000 });
+    await page.locator('.ui-select-menu').waitFor({ state: 'visible', timeout: 5000 });
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
+    await page.locator('.ui-select-menu').waitFor({ state: 'hidden', timeout: 5000 });
     await page.getByRole('button', { name: 'Erstellen & Link erzeugen' }).click();
     await page.getByText(/Benutzer .*admincreated.* erstellt.*Link kopieren und senden/).waitFor({ state: 'visible', timeout: 10000 });
     await page.locator('#create-link-input').waitFor({ state: 'visible', timeout: 10000 });

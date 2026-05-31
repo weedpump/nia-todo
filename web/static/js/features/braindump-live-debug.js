@@ -27,6 +27,7 @@ export function createBrainDumpLiveDebugFeature() {
     requestTimer: null,
     recording: false,
     nativeRecording: false,
+    starting: false,
     processing: false,
     processingPhase: '',
     startedAt: 0,
@@ -52,6 +53,7 @@ export function createBrainDumpLiveDebugFeature() {
     transcript: '',
     candidateRenderSignature: '',
     initAttempts: 0,
+    startToken: 0,
   };
 
   async function init() {
@@ -147,7 +149,7 @@ export function createBrainDumpLiveDebugFeature() {
         <div class="modal-actions braindump-actions">
           <button type="button" class="btn btn-secondary" id="braindump-cancel">${t('common.close')}</button>
           <button type="button" class="btn btn-secondary" id="braindump-retry" hidden>${t('braindump.retry')}</button>
-          <button type="button" class="btn btn-primary" id="braindump-record">${t('braindump.record.start')}</button>
+          <button type="button" class="btn btn-primary" id="braindump-record" hidden>${t('braindump.record.finish')}</button>
           <button type="button" class="btn btn-primary" id="braindump-create" hidden disabled>${t('braindump.create')}</button>
         </div>
       </div>
@@ -200,10 +202,20 @@ export function createBrainDumpLiveDebugFeature() {
     updateStaticLabels();
     document.getElementById('braindump-modal')?.classList.add('active');
     render();
+    if (!state.recording && !state.starting && !state.processing && !state.active && !state.queue.length && !state.creating) {
+      void start();
+    }
   }
 
   async function close() {
-    if (state.recording) await stop('close');
+    if (state.starting) {
+      state.startToken += 1;
+      state.starting = false;
+      cleanupRecordingHandles();
+      resetSession();
+    } else if (state.recording) {
+      cancelRecording();
+    }
     document.getElementById('braindump-modal')?.classList.remove('active');
   }
 
@@ -224,6 +236,7 @@ export function createBrainDumpLiveDebugFeature() {
     state.transcript = '';
     state.processingPhase = '';
     state.candidateRenderSignature = '';
+    state.starting = false;
     state.level = 0;
     state.peak = 0;
     state.startedAt = 0;
@@ -247,6 +260,7 @@ export function createBrainDumpLiveDebugFeature() {
     const result = nativeBridge.startAudioRecording();
     if (!result.ok) throw new Error(result.error || 'Native audio recording failed');
     state.nativeRecording = true;
+    state.starting = false;
     state.recording = true;
     state.processing = false;
     state.processingPhase = '';
@@ -273,7 +287,7 @@ export function createBrainDumpLiveDebugFeature() {
   }
 
   async function start() {
-    if (state.recording) return;
+    if (state.recording || state.starting || state.processing || state.active || state.queue.length || state.creating) return;
     const canUseWebRecorder = Boolean(window.MediaRecorder && navigator.mediaDevices?.getUserMedia);
     if (!canUseWebRecorder && !hasNativeAudioBridge()) {
       state.error = t('braindump.error.unsupported');
@@ -281,15 +295,27 @@ export function createBrainDumpLiveDebugFeature() {
       return;
     }
     resetSession();
+    const startToken = state.startToken + 1;
+    state.startToken = startToken;
+    state.starting = true;
+    render();
     try {
       if (!canUseWebRecorder) {
         startNativeAudioRecording();
         return;
       }
       try {
-        state.stream = await getMicrophoneStream();
+        const stream = await getMicrophoneStream();
+        const modalActive = document.getElementById('braindump-modal')?.classList.contains('active');
+        if (startToken !== state.startToken || !state.starting || !modalActive) {
+          stream?.getTracks?.().forEach((track) => track.stop());
+          return;
+        }
+        state.stream = stream;
       } catch (error) {
         if (!hasNativeAudioBridge()) throw error;
+        const modalActive = document.getElementById('braindump-modal')?.classList.contains('active');
+        if (startToken !== state.startToken || !state.starting || !modalActive) return;
         console.warn('[BrainDump] WebView microphone capture failed; using native Android recorder', error);
         startNativeAudioRecording();
         return;
@@ -306,6 +332,7 @@ export function createBrainDumpLiveDebugFeature() {
         render();
       });
       state.recorder.addEventListener('stop', cleanupRecordingHandles);
+      state.starting = false;
       state.recording = true;
       state.processing = false;
       state.processingPhase = '';
@@ -320,10 +347,31 @@ export function createBrainDumpLiveDebugFeature() {
       render();
     } catch (error) {
       state.error = String(error?.message || error);
+      state.starting = false;
       state.recording = false;
       cleanupRecordingHandles();
       render();
     }
+  }
+
+  function cancelRecording() {
+    if (!state.recording) return;
+    state.recording = false;
+    state.starting = false;
+    state.processing = false;
+    state.processingPhase = '';
+    if (state.requestTimer) clearInterval(state.requestTimer);
+    state.requestTimer = null;
+    if (state.nativeRecording) {
+      try { nativeBridge.stopAudioRecording(); } catch {}
+    } else {
+      try { state.recorder?.removeEventListener('dataavailable', onChunk); } catch {}
+      try { state.recorder?.removeEventListener('stop', cleanupRecordingHandles); } catch {}
+      try { state.recorder?.stop(); } catch {}
+    }
+    cleanupRecordingHandles();
+    resetSession();
+    render();
   }
 
   async function stop(reason = 'manual') {
@@ -643,6 +691,7 @@ export function createBrainDumpLiveDebugFeature() {
     const wave = document.getElementById('braindump-wave');
     const selectedCount = selectedCandidates().length;
     modal.classList.toggle('is-recording', state.recording);
+    modal.classList.toggle('is-starting', state.starting);
     modal.classList.toggle('is-processing', state.processing || state.active > 0 || state.queue.length > 0);
     stage?.style.setProperty('--bd-level', String(Math.max(0.08, state.level)));
     stage?.style.setProperty('--bd-peak', String(Math.max(0.10, state.peak)));
@@ -653,13 +702,15 @@ export function createBrainDumpLiveDebugFeature() {
       });
     }
     if (status) {
-      status.textContent = state.recording
-        ? t('braindump.status.listening', { seconds: elapsed.toFixed(1) })
-        : state.processing || state.active || state.queue.length
-          ? t('braindump.status.processing')
-          : state.candidates.length
-            ? t('braindump.status.readyWithCandidates')
-            : t('braindump.status.ready');
+      status.textContent = state.starting
+        ? t('braindump.status.starting')
+        : state.recording
+          ? t('braindump.status.listening', { seconds: elapsed.toFixed(1) })
+          : state.processing || state.active || state.queue.length
+            ? t('braindump.status.processing')
+            : state.candidates.length
+              ? t('braindump.status.readyWithCandidates')
+              : t('braindump.status.ready');
     }
     const isBusy = state.processing || state.active || state.queue.length;
     if (processing) processing.hidden = !isBusy || state.recording;
@@ -670,21 +721,23 @@ export function createBrainDumpLiveDebugFeature() {
     }
     if (hint) {
       const silenceLeft = state.recording && state.hasVoice ? Math.max(0, (SILENCE_STOP_MS - (performance.now() - state.lastVoiceAt)) / 1000) : null;
-      hint.textContent = state.recording
-        ? (silenceLeft == null ? t('braindump.hint.recording') : t('braindump.hint.silence', { seconds: silenceLeft.toFixed(1) }))
-        : isBusy
-          ? t('braindump.hint.processing')
-          : t('braindump.hint.idle');
+      hint.textContent = state.starting
+        ? t('braindump.hint.starting')
+        : state.recording
+          ? (silenceLeft == null ? t('braindump.hint.recording') : t('braindump.hint.silence', { seconds: silenceLeft.toFixed(1) }))
+          : isBusy
+            ? t('braindump.hint.processing')
+            : t('braindump.hint.idle');
     }
-    if (orb) orb.innerHTML = state.processing || state.active ? iconSvg('sparkles') : iconSvg(state.recording ? 'mic' : 'mic');
+    if (orb) orb.innerHTML = state.starting || state.processing || state.active ? iconSvg('sparkles') : iconSvg(state.recording ? 'mic' : 'mic');
     if (recordBtn) {
-      recordBtn.hidden = state.processing || state.candidates.length > 0;
-      recordBtn.textContent = state.recording ? t('braindump.record.finish') : t('braindump.record.start');
+      recordBtn.hidden = state.starting || !state.recording || state.processing || state.candidates.length > 0;
+      recordBtn.textContent = t('braindump.record.finish');
     }
-    if (retryBtn) retryBtn.hidden = state.recording || state.processing || (!state.candidates.length && !state.error && !state.transcript);
+    if (retryBtn) retryBtn.hidden = state.starting || state.recording || state.processing || (!state.candidates.length && !state.error && !state.transcript);
     if (createBtn) {
-      createBtn.hidden = false;
-      createBtn.disabled = state.creating || state.recording || state.processing || !selectedCount;
+      createBtn.hidden = !state.candidates.length;
+      createBtn.disabled = state.creating || state.starting || state.recording || state.processing || !selectedCount;
       createBtn.classList.toggle('is-muted', createBtn.disabled || !selectedCount);
       createBtn.textContent = state.creating ? t('braindump.create.busy') : t('braindump.create.count', { count: selectedCount });
     }
