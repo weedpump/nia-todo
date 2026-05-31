@@ -175,7 +175,19 @@ async function run() {
       return text.includes('deaktiviert') || text.includes('disabled');
     }, { timeout: 10000 });
 
-    await page.selectOption('#settings-language', 'en');
+    const languageSelectState = await page.evaluate(() => {
+      const select = document.getElementById('settings-language');
+      const rect = select?.getBoundingClientRect();
+      return {
+        hiddenNative: select?.classList.contains('visually-hidden-native-select') && rect && rect.width <= 1,
+        hasTrigger: !!document.querySelector('.ui-select[data-select-id="settings-language"] .ui-select-trigger'),
+      };
+    });
+    if (!languageSelectState.hiddenNative || !languageSelectState.hasTrigger) throw new Error(`Settings language select was not hydrated: ${JSON.stringify(languageSelectState)}`);
+    await page.locator('.ui-select[data-select-id="settings-language"] .ui-select-trigger').click();
+    await page.locator('.ui-select-menu').waitFor({ state: 'visible', timeout: 5000 });
+    await page.locator('.ui-select-option[data-value="en"]').click();
+    await page.locator('.ui-select-menu').waitFor({ state: 'hidden', timeout: 5000 });
     await page.getByText('Language saved.').waitFor({ state: 'visible', timeout: 10000 });
     await page.evaluate(() => window.closeModal?.('settings-modal'));
     await page.locator('#settings-modal').waitFor({ state: 'hidden', timeout: 10000 });

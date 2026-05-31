@@ -1,6 +1,21 @@
 #!/usr/bin/env node
 import { withFreshDb, launchPage } from './frontend_test_lib.mjs';
 
+async function chooseUiSelectOption(page, selectId, option) {
+  const trigger = page.locator(`.ui-select[data-select-id="${selectId}"] .ui-select-trigger`);
+  await trigger.scrollIntoViewIfNeeded();
+  await trigger.click();
+  await page.locator('.ui-select-menu').waitFor({ state: 'visible', timeout: 5000 });
+  if (option?.label) {
+    await page.locator('.ui-select-option').filter({ hasText: option.label }).first().click();
+  } else if (option?.value !== undefined) {
+    await page.locator(`.ui-select-option[data-value="${option.value}"]`).first().click();
+  } else {
+    await page.locator('.ui-select-option').first().click();
+  }
+  await page.locator('.ui-select-menu').waitFor({ state: 'hidden', timeout: 5000 });
+}
+
 async function run() {
   console.log('🌐 Running Playwright frontend projects test...');
   const { browser, page, visible, loginApp, waitForText, assertNoFrontendErrors } = await launchPage();
@@ -19,13 +34,32 @@ async function run() {
     await page.click('button[onclick="showProjectModal()"]');
     await visible('#project-modal');
     await page.fill('#project-name', 'Project Child');
-    await page.selectOption('#project-parent-id', { label: 'Project Parent' });
+    const childModalSelectState = await page.evaluate(() => {
+      const select = document.getElementById('project-parent-id');
+      const rect = select?.getBoundingClientRect();
+      return {
+        hiddenNative: select?.classList.contains('visually-hidden-native-select') && rect && rect.width <= 1,
+        hasTrigger: !!document.querySelector('.ui-select[data-select-id="project-parent-id"] .ui-select-trigger'),
+      };
+    });
+    if (!childModalSelectState.hiddenNative || !childModalSelectState.hasTrigger) throw new Error(`Project parent select was not hydrated: ${JSON.stringify(childModalSelectState)}`);
+    await chooseUiSelectOption(page, 'project-parent-id', { label: 'Project Parent' });
     await page.click('button[form="project-form"]');
     await page.locator('#project-modal').waitFor({ state: 'hidden', timeout: 5000 });
     await page.waitForFunction(() => document.body.innerText.includes('Project Child'), { timeout: 10000 });
 
     await page.locator('.project-tree-item').filter({ hasText: 'Project Parent' }).first().locator('.nav-edit').click();
     await visible('#project-modal');
+    const workspaceSelectState = await page.evaluate(() => {
+      const select = document.getElementById('project-display-workspace-id');
+      const rect = select?.getBoundingClientRect();
+      return {
+        hiddenNative: select?.classList.contains('visually-hidden-native-select') && rect && rect.width <= 1,
+        hasTrigger: !!document.querySelector('.ui-select[data-select-id="project-display-workspace-id"] .ui-select-trigger'),
+        groupDisplay: document.getElementById('project-display-workspace-group')?.style.display || '',
+      };
+    });
+    if (!workspaceSelectState.hiddenNative || !workspaceSelectState.hasTrigger) throw new Error(`Project workspace select was not hydrated: ${JSON.stringify(workspaceSelectState)}`);
     await page.fill('#project-name', 'Project Parent Renamed');
     await page.click('button[form="project-form"]');
     await page.locator('#project-modal').waitFor({ state: 'hidden', timeout: 5000 });
@@ -38,7 +72,7 @@ async function run() {
 
     await page.locator('.project-tree-item').filter({ hasText: 'Project Child' }).first().locator('.nav-edit').click();
     await visible('#project-modal');
-    await page.selectOption('#project-parent-id', '');
+    await chooseUiSelectOption(page, 'project-parent-id', { value: '' });
     await page.click('button[form="project-form"]');
     await page.locator('#project-modal').waitFor({ state: 'hidden', timeout: 5000 });
     await page.waitForFunction(async () => {
@@ -49,7 +83,7 @@ async function run() {
 
     await page.locator('.project-tree-item').filter({ hasText: 'Project Child' }).first().locator('.nav-edit').click();
     await visible('#project-modal');
-    await page.selectOption('#project-parent-id', { label: 'Project Parent Renamed' });
+    await chooseUiSelectOption(page, 'project-parent-id', { label: 'Project Parent Renamed' });
     await page.click('button[form="project-form"]');
     await page.locator('#project-modal').waitFor({ state: 'hidden', timeout: 5000 });
     await page.waitForFunction(async () => {

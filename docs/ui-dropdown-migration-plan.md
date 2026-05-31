@@ -22,6 +22,22 @@ All redesigned user-facing dropdowns and action menus must share one coherent vi
 - Do not merge to `develop` without Tobi's explicit approval.
 - Do not release from this branch.
 
+## Current Status
+
+Implemented:
+
+- shared dropdown primitive in `web/static/js/ui/dropdowns.js`
+- Todo modal selects: `#todo-priority`, `#todo-status`, `#todo-project`, `#todo-section`
+- Settings language selector: `#settings-language`
+- Project modal selectors: `#project-display-workspace-id`, `#project-parent-id`
+
+Still to inspect/migrate before calling the redesign complete:
+
+- Todo card/list status and snooze action menus
+- Workspace modal menu-like selectors, if any remain visible
+- Project sharing/member action menus, if exposed as dropdown-like controls
+- Admin user/config dropdowns if included in release scope
+
 ## Non-Negotiables
 
 1. No visible browser-default select in a redesigned target surface.

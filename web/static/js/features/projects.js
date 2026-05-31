@@ -1,5 +1,6 @@
 import { t } from '../i18n/index.js';
 import { renderIconPicker } from '../icons/lucide-icons.js';
+import { hydrateSelect, refreshSelect } from '../ui/dropdowns.js';
 
 export function createProjectsFeature({
   getProjects,
@@ -94,6 +95,8 @@ export function createProjectsFeature({
     rootProjects.forEach(p => addProjectOptions(p));
     const selected = selectedParentId || '';
     parentSelect.value = [...parentSelect.options].some(option => String(option.value) === String(selected)) ? String(selected) : '';
+    hydrateSelect(parentSelect);
+    refreshSelect(parentSelect);
   }
 
   function renderProjectWorkspaceSelect(project = null) {
@@ -117,7 +120,10 @@ export function createProjectsFeature({
     }
     select.onchange = () => {
       if (ownMovableProject) renderParentProjectSelect(project, null, select.value);
+      refreshSelect(select);
     };
+    hydrateSelect(select);
+    refreshSelect(select);
   }
 
   function showProjectModal(project = null, parentId = null) {
