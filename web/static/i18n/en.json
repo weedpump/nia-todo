@@ -969,5 +969,12 @@
   "settings.section.appHint": "Desktop integration, native notifications, and global hotkeys.",
   "settings.nav.aria": "Settings sections",
   "braindump.status.starting": "Starting microphone…",
-  "braindump.hint.starting": "One moment — recording will start automatically."
+  "braindump.hint.starting": "One moment — recording will start automatically.",
+  "todo.modal.subtitle": "Capture the task, then add planning details only if needed.",
+  "todo.section.content": "Content",
+  "todo.section.contentHint": "Title and optional description.",
+  "todo.section.organize": "Organize",
+  "todo.section.organizeHint": "Priority, status, project, and section.",
+  "todo.section.schedule": "Schedule",
+  "todo.section.scheduleHint": "Deadline and reminder if this task is time-sensitive."
 }
