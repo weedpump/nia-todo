@@ -19,7 +19,7 @@ from routers.braindump_v2 import (  # noqa: E402
     _normalize_braindump_json,
     _parse_llm_json_content,
 )
-from services.braindump_config import llm_chat_url, llm_models_url  # noqa: E402
+from services.braindump_config import DEFAULT_BRAINDUMP_SYSTEM_PROMPT, llm_chat_url, llm_models_url  # noqa: E402
 
 
 def assert_true(condition: bool, message: str):
@@ -257,8 +257,21 @@ def test_admin_llm_models_payload_validates_configured_model():
 def test_workspace_context_is_compact():
     context = {"projects": [{"name": f"Project {idx}", "workspace": "Private", "sections": [f"Section {idx}-{s}" for s in range(20)]} for idx in range(60)]}
     formatted = _format_workspace_context(context)
-    assert_true(len(formatted) <= 4005, len(formatted))
+    assert_true(len(formatted) <= 5005, len(formatted))
     assert_true("Project 0" in formatted and "Project 59" not in formatted, formatted[-200:])
+
+
+def test_workspace_context_exposes_more_than_first_eight_sections():
+    context = {"projects": [{"name": "Project", "workspace": "Private", "sections": [f"Section {idx}" for idx in range(12)] + ["Specific Semantic Bucket"]}]}
+    formatted = _format_workspace_context(context)
+    assert_true("Specific Semantic Bucket" in formatted, formatted)
+
+
+def test_default_prompt_requires_generic_semantic_section_routing():
+    prompt = DEFAULT_BRAINDUMP_SYSTEM_PROMPT
+    assert_true("Treat existing project sections as the user's taxonomy" in prompt, prompt)
+    assert_true("synonyms" in prompt and "hypernyms" in prompt and "hyponyms" in prompt, prompt)
+    assert_true("exact project + section" in prompt, prompt)
 
 
 def test_remote_stt_response_parsing_and_multipart_payload():
@@ -299,6 +312,8 @@ def main():
         test_ollama_provider_urls_payload_and_response_content,
         test_admin_llm_models_payload_validates_configured_model,
         test_workspace_context_is_compact,
+        test_workspace_context_exposes_more_than_first_eight_sections,
+        test_default_prompt_requires_generic_semantic_section_routing,
         test_remote_stt_response_parsing_and_multipart_payload,
     ]
     for test in tests:
