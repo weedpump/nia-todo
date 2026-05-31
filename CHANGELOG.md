@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [2.8.1] - 2026-05-31
+
+### Fixed
+- BrainDump now uses the currently selected workspace as its routing context, matching the New Todo flow: extraction, candidate quick-fix project lists, inbox fallback, project resolution, and unique-section routing are limited to projects/sections visible in that workspace.
+- BrainDump now includes member-visible shared projects according to the member's display workspace, so shared-project routing follows the user's own workspace organization instead of the owner's workspace.
+- Release-enforced native app compatibility floors now win over older persisted `app_config.min_native_client_version` values, so releases built with `--set-min-app-version` are reflected correctly by `/api/instance` even when production already has an older DB value.
+
 ## [2.8.0] - 2026-05-31
 
 ### Added
