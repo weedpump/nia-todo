@@ -904,7 +904,7 @@ export function createBrainDumpLiveFeature(options = {}) {
 
   function renderCandidateGroups() {
     return groupedCandidates().map(group => `
-      <section class="braindump-candidate-group" aria-label="${escapeHtml(group.project)}">
+      <section class="braindump-candidate-group" aria-label="${escapeHtmlAttr(group.project)}">
         <div class="braindump-candidate-group-head">
           <span>${escapeHtml(group.project)}</span>
           <small>${t(group.items.length === 1 ? 'braindump.group.count.one' : 'braindump.group.count.many', { count: group.items.length })}</small>
