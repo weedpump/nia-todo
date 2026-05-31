@@ -19,7 +19,7 @@ from routers.braindump_v2 import (  # noqa: E402
     _normalize_braindump_json,
     _parse_llm_json_content,
 )
-from services.braindump_config import llm_chat_url, llm_models_url  # noqa: E402
+from services.braindump_config import DEFAULT_BRAINDUMP_SYSTEM_PROMPT, llm_chat_url, llm_models_url  # noqa: E402
 
 
 def assert_true(condition: bool, message: str):
@@ -139,10 +139,13 @@ def test_multilingual_safety_net_extracts_direct_purchase_phrases():
 
 
 def test_multilingual_negated_shopping_cleanup():
-    result = _normalize_braindump_json({"candidates": [{"title": "But coffee", "kind": "shopping"}]}, "We need milk and bread, but not coffee.")
+    result = _normalize_braindump_json({"candidates": []}, "We need milk and bread, but not coffee.")
     titles = [item["title"] for item in result["candidates"]]
     assert_true("Coffee" not in titles and "But not coffee" not in titles, result)
     assert_true("Milk" in titles and "Bread" in titles, result)
+    llm_result = _normalize_braindump_json({"candidates": [{"title": "Milk", "kind": "shopping"}, {"title": "Bread", "kind": "shopping"}]}, "We need milk and bread, but not coffee.")
+    llm_titles = [item["title"] for item in llm_result["candidates"]]
+    assert_true(llm_titles == ["Milk", "Bread"], llm_result)
     compact = _normalize_braindump_json({"candidates": []}, "We need milk not coffee.")
     compact_titles = [item["title"] for item in compact["candidates"]]
     assert_true("Coffee" not in compact_titles and "Milk" in compact_titles, compact)
@@ -181,6 +184,24 @@ def test_replacement_with_statt_removes_old_item():
     titles = [item["title"] for item in result["candidates"]]
     assert_true("Nachos" in titles, titles)
     assert_true(not any("Chips" in title for title in titles), titles)
+
+
+def test_default_prompt_requires_language_agnostic_correction_handling():
+    prompt = DEFAULT_BRAINDUMP_SYSTEM_PROMPT
+    assert_true("language-independently using semantic meaning, not keyword matching" in prompt, prompt)
+    assert_true("system prompt language, UI language, and spoken transcript language may all differ" in prompt, prompt)
+    assert_true("Process the whole transcript chronologically as edits to a temporary ledger/working set" in prompt, prompt)
+    assert_true("Classify each clause by intent" in prompt, prompt)
+    assert_true("in any language" in prompt, prompt)
+    assert_true("negates, retracts, deletes, cancels, excludes, crosses off, removes, or replaces" in prompt, prompt)
+    assert_true("bare noun fragment followed by a correction/removal clause is not enough" in prompt, prompt)
+    assert_true("Resolve pronouns, ellipsis, and short references" in prompt, prompt)
+    assert_true("ledger entry" in prompt, prompt)
+    assert_true("no longer wants/needs" in prompt, prompt)
+    assert_true("validate every candidate" in prompt, prompt)
+    assert_true("preserve explicit dates/times/reminders" in prompt, prompt)
+    assert_true("Prefer omission over false positives" in prompt, prompt)
+    assert_true("add A, B, C; later remove B; later add D" in prompt, prompt)
 
 
 def test_reminder_kind_copies_deadline_to_reminder():
@@ -257,8 +278,21 @@ def test_admin_llm_models_payload_validates_configured_model():
 def test_workspace_context_is_compact():
     context = {"projects": [{"name": f"Project {idx}", "workspace": "Private", "sections": [f"Section {idx}-{s}" for s in range(20)]} for idx in range(60)]}
     formatted = _format_workspace_context(context)
-    assert_true(len(formatted) <= 4005, len(formatted))
+    assert_true(len(formatted) <= 5005, len(formatted))
     assert_true("Project 0" in formatted and "Project 59" not in formatted, formatted[-200:])
+
+
+def test_workspace_context_exposes_more_than_first_eight_sections():
+    context = {"projects": [{"name": "Project", "workspace": "Private", "sections": [f"Section {idx}" for idx in range(12)] + ["Specific Semantic Bucket"]}]}
+    formatted = _format_workspace_context(context)
+    assert_true("Specific Semantic Bucket" in formatted, formatted)
+
+
+def test_default_prompt_requires_generic_semantic_section_routing():
+    prompt = DEFAULT_BRAINDUMP_SYSTEM_PROMPT
+    assert_true("Treat existing project sections as the user's taxonomy" in prompt, prompt)
+    assert_true("synonyms" in prompt and "hypernyms" in prompt and "hyponyms" in prompt, prompt)
+    assert_true("exact project + section" in prompt, prompt)
 
 
 def test_remote_stt_response_parsing_and_multipart_payload():
@@ -291,6 +325,7 @@ def main():
         test_removes_negated_items_added_by_llm_or_safety_net,
         test_maps_section_name_used_as_project_to_real_project_section,
         test_replacement_with_statt_removes_old_item,
+        test_default_prompt_requires_language_agnostic_correction_handling,
         test_reminder_kind_copies_deadline_to_reminder,
         test_evening_iso_2359_normalizes_to_1900,
         test_multilingual_titles_are_preserved,
@@ -299,6 +334,8 @@ def main():
         test_ollama_provider_urls_payload_and_response_content,
         test_admin_llm_models_payload_validates_configured_model,
         test_workspace_context_is_compact,
+        test_workspace_context_exposes_more_than_first_eight_sections,
+        test_default_prompt_requires_generic_semantic_section_routing,
         test_remote_stt_response_parsing_and_multipart_payload,
     ]
     for test in tests:
