@@ -242,16 +242,21 @@ async function run() {
       const removeButton = firstCard?.querySelector('[data-bd-action="remove"]');
       const firstTrigger = firstCard?.querySelector('.ui-select-trigger');
       firstTrigger?.click();
+      const menu = document.querySelector('.ui-select-menu');
       const menuOptions = Array.from(document.querySelectorAll('.ui-select-menu .ui-select-option-label')).map(option => option.textContent?.trim() || '').filter(Boolean);
-      window.__braindumpQuickFixDebug = { hasTitle: Boolean(title), customSelects, menuOptions, hasTypeField: Boolean(typeField), hasRemoveButton: Boolean(removeButton), html: firstCard?.innerHTML || '' };
-      if (!title || customSelects < 2 || menuOptions.length === 0 || typeField || removeButton) return false;
+      const modalZ = Number.parseInt(getComputedStyle(document.getElementById('braindump-modal')).zIndex || '0', 10);
+      const menuZ = Number.parseInt(getComputedStyle(menu).zIndex || '0', 10);
+      const editButton = firstCard?.querySelector('[data-bd-action="edit"]');
+      const editIsIconOnly = Boolean(editButton?.querySelector('svg')) && !(editButton?.textContent || '').trim();
+      window.__braindumpQuickFixDebug = { hasTitle: Boolean(title), customSelects, menuOptions, modalZ, menuZ, editIsIconOnly, hasTypeField: Boolean(typeField), hasRemoveButton: Boolean(removeButton), html: firstCard?.innerHTML || '' };
+      if (!title || customSelects < 2 || menuOptions.length === 0 || !(menuZ > modalZ) || !editIsIconOnly || typeField || removeButton) return false;
       title.value = 'Hafermilch kaufen';
       title.dispatchEvent(new Event('input', { bubbles: true }));
       return firstCard.querySelector('.braindump-title-input')?.value === 'Hafermilch kaufen';
     });
     if (!quickFixOk) {
       const debug = await page.evaluate(() => window.__braindumpQuickFixDebug);
-      throw new Error(`BrainDump quick-fix controls should use shared dropdowns, edit title, and avoid type/remove controls: ${JSON.stringify(debug)}`);
+      throw new Error(`BrainDump quick-fix controls should use visible shared dropdowns, an icon-only edit button, and avoid type/remove controls: ${JSON.stringify(debug)}`);
     }
     const acceptReady = await page.evaluate(() => {
       const button = document.getElementById('braindump-create');

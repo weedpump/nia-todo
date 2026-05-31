@@ -945,9 +945,7 @@ export function createBrainDumpLiveFeature(options = {}) {
             <span class="todo-title">${escapeHtml(candidate.title || '')}</span>
           </span>
           <span class="todo-meta-row"><span class="todo-desc-preview">${escapeHtml(meta)}</span></span>
-          <span class="braindump-card-actions">
-            <button class="btn btn-secondary btn-sm braindump-edit-candidate" type="button" data-bd-action="edit" data-bd-candidate-key="${escapeHtmlAttr(key)}" aria-expanded="${isEditing ? 'true' : 'false'}">${escapeHtml(t(isEditing ? 'braindump.quickfix.done' : 'braindump.quickfix.edit'))}</button>
-          </span>
+          <button class="btn-icon braindump-edit-candidate" type="button" data-bd-action="edit" data-bd-candidate-key="${escapeHtmlAttr(key)}" aria-expanded="${isEditing ? 'true' : 'false'}" aria-label="${escapeHtmlAttr(t(isEditing ? 'braindump.quickfix.done' : 'braindump.quickfix.edit'))}" title="${escapeHtmlAttr(t(isEditing ? 'braindump.quickfix.done' : 'braindump.quickfix.edit'))}">${iconSvg('edit-3')}</button>
           ${isEditing ? `
             <span class="braindump-quickfix-panel">
               <label class="braindump-quickfix-field braindump-quickfix-title-field">
