@@ -4716,7 +4716,7 @@ input[type="color"]::-moz-color-swatch {
   position: fixed;
   right: calc(104px + env(safe-area-inset-right, 0px));
   bottom: calc(29px + env(safe-area-inset-bottom, 0px));
-  z-index: 260;
+  z-index: 180;
   width: 52px;
   height: 52px;
   border: 1px solid color-mix(in srgb, var(--accent) 62%, var(--border));
@@ -6080,7 +6080,6 @@ input[type="color"]::-moz-color-swatch {
   gap: 14px;
 }
 
-.entity-modal-body .ui-section-card + .ui-section-card,
 .entity-modal-form + .project-sharing-card {
   margin-top: 14px;
 }
