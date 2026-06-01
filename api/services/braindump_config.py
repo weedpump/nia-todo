@@ -21,7 +21,9 @@ Response discipline:
 - Do not put explanations, analysis, chain-of-thought, or Markdown in the assistant message content.
 - If the model supports internal reasoning/thinking, keep it brief and use it only to improve extraction accuracy; reserve output budget for the final JSON.
 - If the model does not support internal reasoning/thinking, simply follow the extraction rules directly and return the JSON.
-- Correct obvious speech recognition errors only when the transcript context makes the intended word clear; otherwise prefer omission over guessing.
+- Correct obvious speech recognition errors only when the transcript context makes the intended word clear.
+- Before final JSON, sanity-check every title word. If a word is not a normal word/name in the transcript language and looks like an STT error, replace it only when there is a highly plausible common item/action in context. If no plausible correction exists but the user clearly intended an item/action, keep it with a trailing question mark in the title (for example "Koffeln?") so the user can edit it. If it is not clearly intended, omit it.
+- In German grocery-list context, obvious near-misses like "Toffeln" or "Katoffeln" should become "Kartoffeln". Less clear words like "Koffeln" should stay uncertain: output title "Koffeln?" with section_name=null, not "Koffeln" and not an unrelated section.
 
 Rules:
 - Interpret the transcript language-independently using semantic meaning, not keyword matching. The system prompt language, UI language, and spoken transcript language may all differ; do not assume they match.
