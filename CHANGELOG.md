@@ -5,6 +5,23 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [2.9.0] - 2026-06-01
+
+### Added
+- BrainDump regression coverage now locks the validation-only extraction contract, STT auto-language behavior, title quick-fix payloads, and project/section fallback edge cases in both focused tests and the main test runner.
+
+### Changed
+- BrainDump now treats the configured LLM as the sole semantic source for corrections, removals, replacements, shopping intent, and STT-error interpretation while the backend only parses JSON, normalizes fields/dates, validates workspace project/section names, deduplicates, and safely falls back to the workspace inbox.
+- BrainDump workspace context is now passed to the LLM as compact structured JSON with explicit project-to-section nesting, reducing ambiguous section/project routing for local and OpenClaw-agent models.
+- BrainDump STT defaults to automatic language detection and no longer sends `language=auto` to Whisper-compatible remote STT endpoints.
+- The OpenClaw BrainDump agent path can be used via the OpenAI-compatible endpoint/model pair, allowing `openclaw/braindump` to route extraction through the dedicated OpenClaw agent.
+
+### Fixed
+- BrainDump local/OpenAI-compatible LLM calls now use a larger dynamic completion budget and retry empty length-limited responses, preventing reasoning-capable local models from spending the whole response budget before emitting JSON.
+- BrainDump no longer exposes or relies on a `kind` field in candidate extraction, preview, or creation payloads; all extracted entries are normal todo candidates.
+- BrainDump no longer applies backend shopping/negation/replacement regex fallbacks, semantic title rewrites, title-based section routing, or transcript-derived safety-net candidates that could contradict the LLM output.
+- Unknown BrainDump projects now fall back to the active workspace inbox, and sections are only kept when their project was explicitly and validly matched; `project_name=null` always creates in the workspace inbox with no section.
+
 ## [2.8.2] - 2026-06-01
 
 ### Changed
