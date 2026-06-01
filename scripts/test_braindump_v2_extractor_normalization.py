@@ -31,19 +31,19 @@ def assert_true(condition: bool, message: str):
         raise AssertionError(message)
 
 
-def test_dedupes_llm_and_safety_net_shopping_items():
+def test_dedupes_exact_llm_candidates_without_semantic_rewrites():
     parsed = {
         "candidates": [
-            {"title": "Hafermilch", "kind": "shopping", "project_name": "Einkauf", "section_name": "Milchprodukte"},
-            {"title": "Hafermilch", "kind": "shopping"},
-            {"title": "Honig kaufen", "kind": "shopping"},
-            {"title": "Honig", "kind": "shopping"},
+            {"title": "Hafermilch", "project_name": "Einkauf", "section_name": "Milchprodukte"},
+            {"title": "Hafermilch"},
+            {"title": "Honig kaufen"},
+            {"title": "Honig"},
         ]
     }
     result = _normalize_braindump_json(parsed, "Hafermilch und Honig kaufen")
     titles = [item["title"] for item in result["candidates"]]
     assert_true(titles.count("Hafermilch") == 1, f"expected one Hafermilch, got {titles}")
-    assert_true(titles.count("Honig") == 1, f"expected one Honig, got {titles}")
+    assert_true("Honig kaufen" in titles and "Honig" in titles, titles)
 
 
 def test_normalizes_relative_reminder_to_iso_datetime():
@@ -124,12 +124,12 @@ def test_parses_common_local_llm_json_variants():
     assert_true(as_single["candidates"][0]["title"] == "Check backup", as_single)
 
 
-def test_normalizes_alias_fields_from_local_models():
+def test_normalizes_alias_fields_from_local_models_without_kind_semantics():
     parsed = {"tasks": [{"task": "Buy milk", "type": "grocery", "dueDate": "tomorrow 18:00", "projectName": "Shopping", "sectionName": "Dairy"}]}
     result = _normalize_braindump_json(parsed, "Buy milk tomorrow 18:00")
     item = result["candidates"][0]
-    assert_true(item["title"] == "Milk", item)
-    assert_true(item["kind"] == "shopping", item)
+    assert_true(item["title"] == "Buy milk", item)
+    assert_true("kind" not in item, item)
     assert_true(item["deadline"] and "T18:00" in item["deadline"], item)
 
 
@@ -210,6 +210,8 @@ def test_default_prompt_requires_language_agnostic_correction_handling():
     assert_true("If the model supports internal reasoning/thinking" in prompt, prompt)
     assert_true("If the model does not support internal reasoning/thinking" in prompt, prompt)
     assert_true("Correct obvious speech recognition errors" in prompt, prompt)
+    assert_true("Everything is a todo" in prompt, prompt)
+    assert_true("Do not output kind" in prompt, prompt)
 
 
 def test_llm_token_budget_and_empty_response_diagnostic():
@@ -402,27 +404,20 @@ def test_remote_stt_response_parsing_and_multipart_payload():
 
 def main():
     tests = [
-        test_dedupes_llm_and_safety_net_shopping_items,
+        test_dedupes_exact_llm_candidates_without_semantic_rewrites,
         test_normalizes_relative_reminder_to_iso_datetime,
         test_drops_unparseable_reminder_text,
-        test_filters_negated_and_filler_candidates_from_llm_output,
         test_dedupes_stt_truncated_item_variant,
-        test_safety_net_keeps_non_negated_shopping_and_routes_sections,
         test_parses_markdown_fenced_llm_json,
         test_parses_common_local_llm_json_variants,
-        test_normalizes_alias_fields_from_local_models,
-        test_multilingual_safety_net_extracts_direct_purchase_phrases,
-        test_multilingual_negated_shopping_cleanup,
+        test_normalizes_alias_fields_from_local_models_without_kind_semantics,
         test_invalid_llm_section_is_cleared_when_workspace_known,
         test_filters_plain_list_noise_from_safety_net,
-        test_removes_negated_items_added_by_llm_or_safety_net,
         test_maps_section_name_used_as_project_to_real_project_section,
-        test_replacement_with_statt_removes_old_item,
         test_default_prompt_requires_language_agnostic_correction_handling,
         test_llm_token_budget_and_empty_response_diagnostic,
         test_extract_with_llm_retries_empty_reasoning_response,
         test_extract_with_llm_retries_empty_ollama_length_response,
-        test_reminder_kind_copies_deadline_to_reminder,
         test_evening_iso_2359_normalizes_to_1900,
         test_multilingual_titles_are_preserved,
         test_date_only_reminder_is_rejected_but_deadline_kept,

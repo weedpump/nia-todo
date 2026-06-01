@@ -454,7 +454,6 @@ def _normalize_braindump_json(parsed: dict, transcript: str, workspace_context: 
     candidates = parsed.get("candidates") if isinstance(parsed, dict) else None
     if not isinstance(candidates, list):
         candidates = []
-    negated = _negated_items(transcript)
     normalized = []
     for candidate in candidates:
         if isinstance(candidate, str):
@@ -470,57 +469,19 @@ def _normalize_braindump_json(parsed: dict, transcript: str, workspace_context: 
         if len(title) > 30 and (',' in title or ' und ' in title.lower() or ' or ' in title.lower()):
             continue
         project_name = candidate.get("project_name") or candidate.get("projectName")
-        kind = str(candidate.get("kind") or candidate.get("type") or "todo").strip().lower()
-        if kind in {"task", "action", "todo_item"}:
-            kind = "todo"
-        elif kind in {"grocery", "groceries", "buy", "purchase"}:
-            kind = "shopping"
-        if SHOPPING_INTENT_RE.search(title) or kind == "shopping":
-            # kind=shopping is a semantic signal. Keep project/section names
-            # when the LLM mapped them to explicit workspace context.
-            kind = "shopping"
-            title = _clean_shopping_title(title)
-            key = _item_key(title)
-            if not key or key in negated or _title_is_negated(title, transcript):
-                continue
         deadline_source = candidate.get("deadline") or candidate.get("due") or candidate.get("due_date") or candidate.get("dueDate")
         reminder_source = candidate.get("reminder") or candidate.get("remind_at") or candidate.get("reminder_at") or candidate.get("remindAt") or candidate.get("reminderAt")
         deadline = _normalize_temporal_field(deadline_source, transcript=transcript)
         reminder = _normalize_temporal_field(reminder_source, require_time=True, transcript=transcript)
-        if deadline and (reminder_source or kind == "reminder") and not reminder and _temporal_has_explicit_time(deadline_source):
+        if deadline and reminder_source and not reminder and _temporal_has_explicit_time(deadline_source):
             reminder = deadline
-        normalized.append(_route_workspace_candidate(_route_shopping_candidate({
+        normalized.append(_route_workspace_candidate({
             "title": title,
             "project_name": project_name or candidate.get("project"),
             "section_name": candidate.get("section_name") or candidate.get("sectionName") or candidate.get("section"),
             "deadline": deadline,
             "reminder": reminder,
-            "kind": kind,
-        }, workspace_context), workspace_context))
-    normalized = _dedupe_normalized_candidates(normalized)
-    transcript_lower = transcript.lower().strip()
-    if len(normalized) == 1:
-        raw = normalized[0]["title"]
-        if ("," in raw or " und " in raw.lower() or " or " in raw.lower() or raw.lower().startswith("buy ")) and len(raw) > 30:
-            split = _split_plain_enumeration(transcript)
-            if split:
-                return {"candidates": split}
-    if not normalized and ("," in transcript or " und " in transcript_lower):
-        split = _split_plain_enumeration(transcript)
-        if split:
-            return {"candidates": split}
-    # Deterministic safety net only fills a completely empty extraction. Once a
-    # capable LLM returned candidates, do not add regex-derived items afterward:
-    # later corrections/removals require semantic transcript understanding.
-    if not normalized:
-        shopping = _extract_shopping_candidates(transcript)
-        existing = {_item_key(item.get("title", "")) for item in normalized if item.get("kind") == "shopping"}
-        for item in shopping:
-            if _title_is_negated(item["title"], transcript):
-                continue
-            if _item_key(item["title"]) not in existing:
-                normalized.append(_route_workspace_candidate(_route_shopping_candidate(item, workspace_context), workspace_context))
-                existing.add(_item_key(item["title"]))
+        }, workspace_context))
     return {"candidates": _dedupe_normalized_candidates(normalized)}
 
 
@@ -536,7 +497,7 @@ class BrainDumpTodoCandidate(BaseModel):
     section_name: str | None = None
     deadline: str | None = None
     reminder: str | None = None
-    kind: str = "todo"
+    kind: str = "todo"  # Backward-compatible UI field; ignored by todo creation.
 
 
 class BrainDumpCreateTodosRequest(BaseModel):
@@ -774,17 +735,27 @@ def _format_workspace_context(context: dict | None) -> str:
     if not projects:
         return "Workspace: none. Use project_name=null and section_name=null unless explicitly obvious."
     if workspace_name:
-        lines = [f"Current workspace: {str(workspace_name)[:80]}. Use only these exact project/section names from this workspace. Treat sections as the user's taxonomy and choose the closest clear semantic fit:"]
+        lines = [
+            f"Current workspace: {str(workspace_name)[:80]}.",
+            "Use only these exact projects. A section is valid only under the project where it is listed. Do not attach a section to any other project:",
+        ]
     else:
-        lines = ["Workspace: use only these exact project/section names. Treat sections as the user's taxonomy and choose the closest clear semantic fit:"]
+        lines = [
+            "Workspace context:",
+            "Use only these exact projects. A section is valid only under the project where it is listed. Do not attach a section to any other project:",
+        ]
     for project in projects[:40]:
         label = str(project.get("name") or "")[:80]
         if not workspace_name and project.get("workspace"):
             label = f"{str(project.get('workspace'))[:60]} / {label}"
+        lines.append(f"- project: {label}")
         sections = [str(section)[:60] for section in (project.get("sections") or [])[:16]]
         if sections:
-            label += " | sections: " + ", ".join(sections)
-        lines.append(f"- {label}")
+            lines.append("  sections:")
+            for section in sections:
+                lines.append(f"  - {section}")
+        else:
+            lines.append("  sections: []")
     text = "\n".join(lines)
     if len(text) > 5000:
         return text[:4990].rstrip() + "\n- ..."
@@ -1016,7 +987,8 @@ Before writing JSON:
 6. Add later positive additions only when they clearly express final add/create intent.
 7. Preserve explicit dates, times, reminders, and event-like intent from the transcript on the final ledger entries.
 8. Correct obvious speech recognition errors only when context makes the intended word clear.
-9. Output only the remaining final ledger entries as compact JSON using exactly this schema: {"candidates":[{"title":"...","project_name":null,"section_name":null,"deadline":null,"reminder":null,"kind":"todo"}]}.
+9. Output only the remaining final ledger entries as compact JSON using exactly this schema: {"candidates":[{"title":"...","project_name":null,"section_name":null,"deadline":null,"reminder":null}]}.
+10. Everything is a todo. Do not output kind, type, category, or other parallel classification fields.
 
 Response requirement: the assistant message content must start with { and contain only valid compact JSON. No Markdown, prose, explanation, or analysis in content.
 
