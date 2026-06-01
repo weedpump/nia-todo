@@ -339,11 +339,8 @@ def _route_shopping_candidate(candidate: dict, workspace_context: dict | None) -
     if not project:
         return candidate
     routed = dict(candidate)
-    # `kind=shopping` is an explicit semantic signal. Local LLMs often put the
-    # current workspace/default project into project_name while still selecting
-    # sections from the actual shopping-list project. Force shopping candidates
-    # to the discovered shopping project so valid shopping sections survive.
-    routed["project_name"] = project.get("name")
+    if not routed.get("project_name"):
+        routed["project_name"] = project.get("name")
     title = str(routed.get("title") or "")
     sections = [str(section) for section in project.get("sections") or []]
     current_section = str(routed.get("section_name") or "").strip()

@@ -88,29 +88,6 @@ def test_dedupes_stt_truncated_item_variant():
     assert_true(titles == ["Bananen"], titles)
 
 
-def test_shopping_kind_forces_discovered_shopping_project():
-    context = {
-        "workspace_name": "Personal",
-        "projects": [
-            {"name": "Personal", "sections": ["Einkauf"]},
-            {"name": "Einkaufsliste", "sections": ["Obst & Gemüse", "Kühlregal", "Pasta & Soßen", "Süßigkeiten", "Getränke"]},
-        ],
-    }
-    parsed = {"candidates": [
-        {"title": "Nudeln", "project_name": "Personal", "section_name": "Pasta & Soßen", "kind": "shopping"},
-        {"title": "Hafermilch", "project_name": "Personal", "section_name": "Kühlregal", "kind": "shopping"},
-        {"title": "Wein", "project_name": "Personal", "section_name": "Getränke", "kind": "shopping"},
-    ]}
-    result = _normalize_braindump_json(parsed, "Ich brauche Nudeln, Hafermilch und Wein.", context)
-    by_title = {item["title"]: item for item in result["candidates"]}
-    assert_true(by_title["Nudeln"]["project_name"] == "Einkaufsliste", result)
-    assert_true(by_title["Nudeln"]["section_name"] == "Pasta & Soßen", result)
-    assert_true(by_title["Hafermilch"]["project_name"] == "Einkaufsliste", result)
-    assert_true(by_title["Hafermilch"]["section_name"] == "Kühlregal", result)
-    assert_true(by_title["Wein"]["project_name"] == "Einkaufsliste", result)
-    assert_true(by_title["Wein"]["section_name"] == "Getränke", result)
-
-
 def test_safety_net_keeps_non_negated_shopping_and_routes_sections():
     parsed = {"candidates": []}
     transcript = "Ich muss morgen Milch und Kaffee einkaufen. Ach nee, Kaffee nicht. Dafür bitte Hafermilch und Bananen auf der Einkaufsliste."
@@ -430,7 +407,6 @@ def main():
         test_drops_unparseable_reminder_text,
         test_filters_negated_and_filler_candidates_from_llm_output,
         test_dedupes_stt_truncated_item_variant,
-        test_shopping_kind_forces_discovered_shopping_project,
         test_safety_net_keeps_non_negated_shopping_and_routes_sections,
         test_parses_markdown_fenced_llm_json,
         test_parses_common_local_llm_json_variants,
