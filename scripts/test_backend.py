@@ -352,7 +352,7 @@ class TestSuite:
 
     def test_braindump_config_get(self):
         status, data = curl("GET", "/api/admin/braindump-config", token=self.admin_token, cookie_jar="/tmp/nia_admin_cookies.txt")
-        passed = ok(status) and data and data.get("enabled") is False and data.get("llm_model") == "" and data.get("llm_base_url") == "" and data.get("llm_provider") == "openai_compatible" and data.get("stt_provider") == "whisper_cpp_remote" and data.get("stt_url") == "" and "llm_api_key" not in data and "stt_token" not in data and "default_system_prompt" in data
+        passed = ok(status) and data and data.get("enabled") is False and data.get("llm_model") == "" and data.get("llm_base_url") == "" and data.get("llm_provider") == "openai_compatible" and data.get("stt_provider") == "whisper_cpp_remote" and data.get("stt_url") == "" and data.get("stt_language") == "auto" and "llm_api_key" not in data and "stt_token" not in data and "default_system_prompt" in data
         self.results["braindump_config_get"] = {"status": status, "passed": passed, "expected": "200 + disabled BrainDump config without endpoint defaults or secrets"}
         return passed
 

@@ -101,7 +101,7 @@ DEFAULT_BRAINDUMP_CONFIG = {
     "stt_provider": "whisper_cpp_remote",
     "stt_url": "",
     "stt_token": "",
-    "stt_language": "",
+    "stt_language": "auto",
     "stt_timeout_seconds": 60.0,
 }
 
@@ -273,7 +273,7 @@ def _normalize_stt_provider(value: str) -> str:
 
 
 def _normalize_language(value: str) -> str:
-    language = str(value or "").strip().lower()
+    language = str(value or "auto").strip().lower() or "auto"
     if len(language) > 16:
         raise HTTPException(400, "STT language is invalid")
     return language
