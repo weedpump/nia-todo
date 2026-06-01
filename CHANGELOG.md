@@ -5,6 +5,11 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- API key rows in user settings now use the shared settings device-row layout, placing the revoke button below the key details on mobile like passkey and authenticator entries.
+
 ## [2.8.1] - 2026-05-31
 
 ### Added
