@@ -235,6 +235,8 @@ const bindLoginForm = authSessionFeature.bindLoginForm;
 const renderUserInfo = userSettingsFeature.renderUserInfo;
 const openSettingsModal = userSettingsFeature.openSettingsModal;
 const changeLanguagePreference = userSettingsFeature.changeLanguagePreference;
+const changeBrainDumpLearningSetting = userSettingsFeature.changeBrainDumpLearningSetting;
+const resetBrainDumpLearning = userSettingsFeature.resetBrainDumpLearning;
 const editUserEmail = userSettingsFeature.editUserEmail;
 const cancelUserEmailEdit = userSettingsFeature.cancelUserEmailEdit;
 const saveUserEmail = userSettingsFeature.saveUserEmail;
@@ -750,7 +752,7 @@ export function startAppModule() {
       testDesktopNotification: () => desktopIntegration?.testNotification(),
       updateDesktopHotkey: (action, shortcut) => desktopIntegration?.updateHotkey(action, shortcut),
     },
-    userSettings: { renderUserInfo, openSettingsModal, changeLanguagePreference, editUserDisplayName, cancelUserDisplayNameEdit, saveUserProfile, startAvatarUpload, cancelAvatarCrop, saveAvatarCrop, deleteUserAvatar, editUserEmail, cancelUserEmailEdit, saveUserEmail, changeUserPassword, startTwoFactorTotp, confirmTwoFactorTotp, disableTwoFactor, addPasskey, regenerateRecoveryCodes, removeTotpDevice, removePasskeyDevice, toggleTrustedDevicesList, revokeTrustedDevice, revokeAllTrustedDevices },
+    userSettings: { renderUserInfo, openSettingsModal, changeLanguagePreference, changeBrainDumpLearningSetting, resetBrainDumpLearning, editUserDisplayName, cancelUserDisplayNameEdit, saveUserProfile, startAvatarUpload, cancelAvatarCrop, saveAvatarCrop, deleteUserAvatar, editUserEmail, cancelUserEmailEdit, saveUserEmail, changeUserPassword, startTwoFactorTotp, confirmTwoFactorTotp, disableTwoFactor, addPasskey, regenerateRecoveryCodes, removeTotpDevice, removePasskeyDevice, toggleTrustedDevicesList, revokeTrustedDevice, revokeAllTrustedDevices },
     userMenu: { toggleUserMenu, closeUserMenu, updateUserMenu },
   });
 

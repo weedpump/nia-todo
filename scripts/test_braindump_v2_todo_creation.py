@@ -10,7 +10,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "api"))
 
-from routers.braindump_v2 import BrainDumpTodoCandidate, _create_todos_from_braindump_candidates, _load_braindump_workspace_context  # noqa: E402
+from routers.braindump_v2 import BrainDumpTodoCandidate, _apply_learned_routes, _braindump_learning_settings, _create_todos_from_braindump_candidates, _load_braindump_workspace_context, _reset_braindump_learning  # noqa: E402
 
 
 def assert_true(condition, message):
@@ -23,7 +23,7 @@ def make_db():
     db.row_factory = sqlite3.Row
     db.executescript(
         """
-        CREATE TABLE users (id INTEGER PRIMARY KEY, username TEXT, braindump_enabled INTEGER NOT NULL DEFAULT 1);
+        CREATE TABLE users (id INTEGER PRIMARY KEY, username TEXT, braindump_enabled INTEGER NOT NULL DEFAULT 1, braindump_learning_enabled INTEGER NOT NULL DEFAULT 1);
         CREATE TABLE workspaces (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
@@ -73,6 +73,17 @@ def make_db():
             sent_at TEXT,
             user_id INTEGER
         );
+        CREATE TABLE braindump_route_learning (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            workspace_id INTEGER,
+            token TEXT NOT NULL,
+            project_id INTEGER NOT NULL,
+            section_id INTEGER,
+            hits INTEGER NOT NULL DEFAULT 1,
+            last_used_at TEXT NOT NULL,
+            created_at TEXT DEFAULT (datetime('now'))
+        );
         """
     )
     db.execute("INSERT INTO users (id, username, braindump_enabled) VALUES (1, 'tobi', 1)")
@@ -86,6 +97,7 @@ def make_db():
     db.execute("INSERT INTO sections (id, project_id, name) VALUES (9, 1, 'Keller')")
     db.execute("INSERT INTO sections (id, project_id, name) VALUES (10, 2, 'Obst und Gemüse')")
     db.execute("INSERT INTO sections (id, project_id, name) VALUES (11, 2, 'Milchprodukte')")
+    db.execute("INSERT INTO sections (id, project_id, name) VALUES (14, 2, 'Vorratschrank')")
     db.execute("INSERT INTO sections (id, project_id, name) VALUES (12, 3, 'Keller')")
     db.execute("INSERT INTO sections (id, project_id, name) VALUES (13, 5, 'Serverraum')")
     return db
@@ -173,6 +185,85 @@ def test_section_outside_project_is_cleared():
     assert_true(created[0]["section_id"] is None, created)
 
 
+def test_route_learning_learns_confirmed_routes_and_applies_conservatively():
+    db = make_db()
+    for _ in range(2):
+        _create_todos_from_braindump_candidates(
+            db,
+            1,
+            [BrainDumpTodoCandidate(title="Snoopy Futter bestellen", project_name="Einkaufsliste", section_name="Milchprodukte")],
+            workspace_id=1,
+        )
+    settings = _braindump_learning_settings(db, 1)
+    assert_true(settings["enabled"] is True, settings)
+    assert_true(settings["learned_routes"] >= 2, settings)
+
+    parsed = {"candidates": [{"title": "Snoopy Futter kaufen", "project_name": None, "section_name": None, "deadline": None, "reminder": None}]}
+    routed = _apply_learned_routes(db, 1, 1, parsed)
+    candidate = routed["candidates"][0]
+    assert_true(candidate["project_name"] == "Einkaufsliste", candidate)
+    assert_true(candidate["section_name"] == "Milchprodukte", candidate)
+
+    other_workspace = _apply_learned_routes(db, 1, 2, parsed)
+    assert_true(other_workspace["candidates"][0]["project_name"] is None, other_workspace)
+
+
+def test_route_learning_can_be_disabled_and_reset():
+    db = make_db()
+    db.execute("UPDATE users SET braindump_learning_enabled = 0 WHERE id = 1")
+    _create_todos_from_braindump_candidates(db, 1, [BrainDumpTodoCandidate(title="Snoopy Futter", project_name="Einkaufsliste")], workspace_id=1)
+    assert_true(_braindump_learning_settings(db, 1)["learned_routes"] == 0, "disabled learning should not write rows")
+
+    db.execute("UPDATE users SET braindump_learning_enabled = 1 WHERE id = 1")
+    _create_todos_from_braindump_candidates(db, 1, [BrainDumpTodoCandidate(title="Snoopy Futter", project_name="Einkaufsliste")], workspace_id=1)
+    assert_true(_braindump_learning_settings(db, 1)["learned_routes"] > 0, "enabled learning should write rows")
+    deleted = _reset_braindump_learning(db, 1)
+    assert_true(deleted > 0, deleted)
+    assert_true(_braindump_learning_settings(db, 1)["learned_routes"] == 0, "reset should delete own rows")
+
+
+def test_manual_preview_correction_wins_over_previous_route_learning():
+    db = make_db()
+    # Simulate repeated accepted LLM suggestions for Milchprodukte.
+    for _ in range(3):
+        _create_todos_from_braindump_candidates(
+            db,
+            1,
+            [BrainDumpTodoCandidate(
+                title="Milch",
+                project_name="Einkaufsliste",
+                section_name="Milchprodukte",
+                original_project_name="Einkaufsliste",
+                original_section_name="Milchprodukte",
+                original_route_present=True,
+            )],
+            workspace_id=1,
+        )
+
+    before = _apply_learned_routes(db, 1, 1, {"candidates": [{"title": "Milch", "project_name": "Einkaufsliste", "section_name": "Milchprodukte"}]})
+    assert_true(before["candidates"][0]["section_name"] == "Milchprodukte", before)
+
+    # One explicit user correction in the preview should become the preferred future route.
+    _create_todos_from_braindump_candidates(
+        db,
+        1,
+        [BrainDumpTodoCandidate(
+            title="Milch",
+            project_name="Einkaufsliste",
+            section_name="Vorratschrank",
+            original_project_name="Einkaufsliste",
+            original_section_name="Milchprodukte",
+            original_route_present=True,
+        )],
+        workspace_id=1,
+    )
+
+    after = _apply_learned_routes(db, 1, 1, {"candidates": [{"title": "Milch", "project_name": "Einkaufsliste", "section_name": "Milchprodukte"}]})
+    assert_true(after["candidates"][0]["section_name"] == "Vorratschrank", after)
+    missing_section = _apply_learned_routes(db, 1, 1, {"candidates": [{"title": "Milch", "project_name": "Einkaufsliste", "section_name": None}]})
+    assert_true(missing_section["candidates"][0]["section_name"] == "Vorratschrank", missing_section)
+
+
 def main():
     tests = [
         test_creates_confirmed_candidates_with_project_section_and_reminder,
@@ -182,6 +273,9 @@ def main():
         test_unknown_project_name_falls_back_to_inbox,
         test_unknown_project_name_ignores_matching_inbox_section,
         test_section_outside_project_is_cleared,
+        test_route_learning_learns_confirmed_routes_and_applies_conservatively,
+        test_route_learning_can_be_disabled_and_reset,
+        test_manual_preview_correction_wins_over_previous_route_learning,
     ]
     for test in tests:
         test()

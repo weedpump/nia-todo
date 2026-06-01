@@ -8,21 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 ## [2.9.0] - 2026-06-01
 
 ### Added
+- BrainDump can now remember where each user places confirmed tasks and use those preferences to suggest matching projects and sections in future previews, with a user setting to turn this off and delete saved assignments.
 - Admin user management now includes a client-side user search with live result counts and an empty-state message for unmatched filters.
-- BrainDump regression coverage now locks the validation-only extraction contract, STT auto-language behavior, title quick-fix payloads, and project/section fallback edge cases in both focused tests and the main test runner.
 
 ### Changed
-- BrainDump now treats the configured LLM as the sole semantic source for corrections, removals, replacements, shopping intent, and STT-error interpretation while the backend only parses JSON, normalizes fields/dates, validates workspace project/section names, deduplicates, and safely falls back to the workspace inbox.
-- BrainDump workspace context is now passed to the LLM as compact structured JSON with explicit project-to-section nesting, reducing ambiguous section/project routing for local and OpenClaw-agent models.
+- BrainDump routing is now more reliable: project/section context is passed to the configured model in a compact structured form, backend validation prevents invalid destinations, and saved user preferences are applied only after model extraction so they are never sent to the model.
 - BrainDump STT defaults to automatic language detection and no longer sends `language=auto` to Whisper-compatible remote STT endpoints.
 - The OpenClaw BrainDump agent path can be used via the OpenAI-compatible endpoint/model pair, allowing `openclaw/braindump` to route extraction through the dedicated OpenClaw agent.
 
 ### Fixed
 - Admin sign-in now focuses the password field immediately when the login card is shown, including after logout or an expired stored admin token.
-- BrainDump local/OpenAI-compatible LLM calls now use a larger dynamic completion budget and retry empty length-limited responses, preventing reasoning-capable local models from spending the whole response budget before emitting JSON.
-- BrainDump no longer exposes or relies on a `kind` field in candidate extraction, preview, or creation payloads; all extracted entries are normal todo candidates.
-- BrainDump no longer applies backend shopping/negation/replacement regex fallbacks, semantic title rewrites, title-based section routing, or transcript-derived safety-net candidates that could contradict the LLM output.
-- Unknown BrainDump projects now fall back to the active workspace inbox, and sections are only kept when their project was explicitly and validly matched; `project_name=null` always creates in the workspace inbox with no section.
+- BrainDump extraction is now stricter and safer: it no longer relies on backend semantic fallbacks or internal `kind` markers, handles local/OpenAI-compatible model responses more robustly, and falls back unknown projects to the active workspace inbox while keeping sections only when they belong to a valid matched project.
 
 ## [2.8.2] - 2026-06-01
 

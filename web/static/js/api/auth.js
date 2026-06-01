@@ -317,6 +317,33 @@ export const authApi = {
     return parseOrThrow(response, t('api.auth.languageSaveFailed'));
   },
 
+  async getBrainDumpLearning() {
+    const response = await fetch(API + '/api/braindump/v2/learning', {
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    });
+    return parseOrThrow(response, t('api.auth.braindumpLearningLoadFailed'));
+  },
+
+  async updateBrainDumpLearning(enabled) {
+    const response = await fetch(API + '/api/braindump/v2/learning', {
+      method: 'PATCH',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ enabled: Boolean(enabled) }),
+      credentials: 'include',
+    });
+    return parseOrThrow(response, t('api.auth.braindumpLearningSaveFailed'));
+  },
+
+  async resetBrainDumpLearning() {
+    const response = await fetch(API + '/api/braindump/v2/learning', {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    });
+    return parseOrThrow(response, t('api.auth.braindumpLearningResetFailed'));
+  },
+
   async uploadAvatar(file) {
     const headers = getAuthHeaders();
     delete headers['Content-Type'];

@@ -6,6 +6,7 @@ import asyncio
 import ast
 import json
 import re
+import sqlite3
 import subprocess
 import tempfile
 import time
@@ -307,11 +308,18 @@ class BrainDumpTodoCandidate(BaseModel):
     section_name: str | None = None
     deadline: str | None = None
     reminder: str | None = None
+    original_project_name: str | None = None
+    original_section_name: str | None = None
+    original_route_present: bool = False
 
 
 class BrainDumpCreateTodosRequest(BaseModel):
     candidates: list[BrainDumpTodoCandidate]
     workspace_id: int | None = None
+
+
+class BrainDumpLearningSettingsRequest(BaseModel):
+    enabled: bool
 
 
 class BrainDumpExtractRequest(BaseModel):
@@ -571,6 +579,240 @@ def _name_key(value: str | None) -> str:
     return re.sub(r"\s+", " ", str(value or "").strip()).casefold()
 
 
+BRAINDUMP_LEARNING_MIN_TOKEN_LENGTH = 3
+BRAINDUMP_LEARNING_MAX_TOKENS = 12
+BRAINDUMP_LEARNING_APPLY_MIN_SCORE = 2
+BRAINDUMP_LEARNING_APPLY_MIN_MARGIN = 2
+BRAINDUMP_LEARNING_OVERRIDE_MIN_SCORE = 4
+BRAINDUMP_LEARNING_OVERRIDE_MIN_MARGIN = 3
+
+BRAINDUMP_LEARNING_STOPWORDS = {
+    "aber", "alle", "alles", "also", "and", "auf", "aus", "bei", "bitte", "das", "den", "der", "die", "dies", "ein", "eine", "einen", "einer", "eines", "for", "für", "hab", "habe", "ich", "im", "in", "ist", "it", "mit", "nach", "noch", "oder", "of", "the", "to", "und", "vom", "von", "was", "wir", "zum", "zur",
+    "add", "aufgabe", "besorgen", "brauche", "bring", "bringen", "buy", "erinnere", "erinnern", "holen", "kaufen", "mach", "machen", "need", "todo", "tun",
+}
+
+
+def _learning_tokens(title: str) -> list[str]:
+    tokens = []
+    seen = set()
+    for token in re.findall(r"[\wäöüÄÖÜß]+", str(title or "").casefold(), flags=re.UNICODE):
+        token = token.strip("_")
+        if len(token) < BRAINDUMP_LEARNING_MIN_TOKEN_LENGTH or token.isdigit() or token in BRAINDUMP_LEARNING_STOPWORDS:
+            continue
+        if token in seen:
+            continue
+        seen.add(token)
+        tokens.append(token)
+        if len(tokens) >= BRAINDUMP_LEARNING_MAX_TOKENS:
+            break
+    return tokens
+
+
+def _learning_enabled_for_user(db, user_id: int) -> bool:
+    try:
+        row = db.execute("SELECT COALESCE(braindump_learning_enabled, 1) AS enabled FROM users WHERE id = ?", (user_id,)).fetchone()
+    except sqlite3.OperationalError:
+        return True
+    return bool(row and row["enabled"])
+
+
+def _learning_row_count(db, user_id: int) -> int:
+    try:
+        row = db.execute("SELECT COUNT(*) AS count FROM braindump_route_learning WHERE user_id = ?", (user_id,)).fetchone()
+    except sqlite3.OperationalError:
+        return 0
+    return int(row["count"] if row else 0)
+
+
+def _learn_braindump_route(db, user_id: int, workspace_id: int | None, title: str, project_id: int | None, section_id: int | None, *, corrected: bool = False):
+    if not _learning_enabled_for_user(db, user_id):
+        return
+    tokens = _learning_tokens(title)
+    if not tokens or project_id is None:
+        return
+    now = datetime.now().astimezone().isoformat(timespec="seconds")
+    for token in tokens:
+        cursor = db.execute(
+            """
+            UPDATE braindump_route_learning
+            SET hits = hits + 1, last_used_at = ?
+            WHERE user_id = ?
+              AND ((workspace_id IS NULL AND ? IS NULL) OR workspace_id = ?)
+              AND token = ?
+              AND project_id = ?
+              AND ((section_id IS NULL AND ? IS NULL) OR section_id = ?)
+            """,
+            (now, user_id, workspace_id, workspace_id, token, project_id, section_id, section_id),
+        )
+        if cursor.rowcount:
+            continue
+        insert_cursor = db.execute(
+            """
+            INSERT OR IGNORE INTO braindump_route_learning (user_id, workspace_id, token, project_id, section_id, hits, last_used_at)
+            VALUES (?, ?, ?, ?, ?, 1, ?)
+            """,
+            (user_id, workspace_id, token, project_id, section_id, now),
+        )
+        if not insert_cursor.rowcount:
+            db.execute(
+                """
+                UPDATE braindump_route_learning
+                SET hits = hits + 1, last_used_at = ?
+                WHERE user_id = ?
+                  AND ((workspace_id IS NULL AND ? IS NULL) OR workspace_id = ?)
+                  AND token = ?
+                  AND project_id = ?
+                  AND ((section_id IS NULL AND ? IS NULL) OR section_id = ?)
+                """,
+                (now, user_id, workspace_id, workspace_id, token, project_id, section_id, section_id),
+            )
+        if corrected:
+            competitor = db.execute(
+                """
+                SELECT MAX(hits) AS max_hits
+                FROM braindump_route_learning
+                WHERE user_id = ?
+                  AND ((workspace_id IS NULL AND ? IS NULL) OR workspace_id = ?)
+                  AND token = ?
+                  AND NOT (project_id = ? AND ((section_id IS NULL AND ? IS NULL) OR section_id = ?))
+                """,
+                (user_id, workspace_id, workspace_id, token, project_id, section_id, section_id),
+            ).fetchone()
+            desired_hits = int((competitor["max_hits"] if competitor else 0) or 0) + BRAINDUMP_LEARNING_OVERRIDE_MIN_MARGIN
+            db.execute(
+                """
+                UPDATE braindump_route_learning
+                SET hits = MAX(hits, ?), last_used_at = ?
+                WHERE user_id = ?
+                  AND ((workspace_id IS NULL AND ? IS NULL) OR workspace_id = ?)
+                  AND token = ?
+                  AND project_id = ?
+                  AND ((section_id IS NULL AND ? IS NULL) OR section_id = ?)
+                """,
+                (desired_hits, now, user_id, workspace_id, workspace_id, token, project_id, section_id, section_id),
+            )
+
+
+def _candidate_route_ids(db, user_id: int, workspace_id: int | None, candidate: dict) -> tuple[int | None, int | None, bool]:
+    project_id, project_matched = _resolve_project_target(db, user_id, candidate.get("project_name"), workspace_id)
+    section_id = _resolve_section_id(db, project_id, candidate.get("section_name")) if project_matched else None
+    return project_id, section_id, project_matched
+
+
+def _route_name_lookup(db, user_id: int, workspace_id: int | None, project_ids: set[int], section_ids: set[int]) -> tuple[dict[int, str], dict[int, tuple[int, str]]]:
+    project_names: dict[int, str] = {}
+    section_names: dict[int, tuple[int, str]] = {}
+    if project_ids:
+        rows = _accessible_project_rows(db, user_id, workspace_id=workspace_id)
+        allowed_project_ids = set(project_ids)
+        for row in rows:
+            if row["id"] in allowed_project_ids:
+                project_names[row["id"]] = row["name"]
+    if section_ids:
+        placeholders = ",".join("?" for _ in section_ids)
+        rows = db.execute(f"SELECT id, project_id, name FROM sections WHERE id IN ({placeholders})", list(section_ids)).fetchall()
+        for row in rows:
+            if row["project_id"] in project_names:
+                section_names[row["id"]] = (row["project_id"], row["name"])
+    return project_names, section_names
+
+
+def _best_learned_route(db, user_id: int, workspace_id: int | None, title: str) -> tuple[int | None, int | None, int, int]:
+    tokens = _learning_tokens(title)
+    if not tokens:
+        return None, None, 0, 0
+    placeholders = ",".join("?" for _ in tokens)
+    rows = db.execute(
+        f"""
+        SELECT project_id, section_id, SUM(hits) AS score
+        FROM braindump_route_learning
+        WHERE user_id = ?
+          AND ((workspace_id IS NULL AND ? IS NULL) OR workspace_id = ?)
+          AND token IN ({placeholders})
+        GROUP BY project_id, section_id
+        ORDER BY score DESC
+        LIMIT 2
+        """,
+        [user_id, workspace_id, workspace_id, *tokens],
+    ).fetchall()
+    if not rows:
+        return None, None, 0, 0
+    best = rows[0]
+    second_score = int(rows[1]["score"] if len(rows) > 1 else 0)
+    return best["project_id"], best["section_id"], int(best["score"] or 0), second_score
+
+
+def _apply_learned_routes(db, user_id: int, workspace_id: int | None, parsed: dict) -> dict:
+    if not _learning_enabled_for_user(db, user_id):
+        return parsed
+    candidates = parsed.get("candidates") if isinstance(parsed, dict) else None
+    if not isinstance(candidates, list):
+        return parsed
+    try:
+        route_results = []
+        project_ids: set[int] = set()
+        section_ids: set[int] = set()
+        for candidate in candidates:
+            if not isinstance(candidate, dict):
+                route_results.append(None)
+                continue
+            project_id, section_id, score, second_score = _best_learned_route(db, user_id, workspace_id, str(candidate.get("title") or ""))
+            margin = score - second_score
+            if project_id is None or score < BRAINDUMP_LEARNING_APPLY_MIN_SCORE or margin < BRAINDUMP_LEARNING_APPLY_MIN_MARGIN:
+                route_results.append(None)
+                continue
+            project_ids.add(project_id)
+            if section_id is not None:
+                section_ids.add(section_id)
+            route_results.append((project_id, section_id, score, margin))
+        project_names, section_names = _route_name_lookup(db, user_id, workspace_id, project_ids, section_ids)
+        routed_candidates = []
+        for candidate, learned in zip(candidates, route_results):
+            if not isinstance(candidate, dict) or not learned:
+                routed_candidates.append(candidate)
+                continue
+            project_id, section_id, score, margin = learned
+            project_name = project_names.get(project_id)
+            if not project_name:
+                routed_candidates.append(candidate)
+                continue
+            current_project_id, current_section_id, current_matched = _candidate_route_ids(db, user_id, workspace_id, candidate)
+            has_existing_project = bool(candidate.get("project_name") and current_matched)
+            has_existing_section = bool(has_existing_project and candidate.get("section_name") and current_section_id is not None)
+            may_override = score >= BRAINDUMP_LEARNING_OVERRIDE_MIN_SCORE and margin >= BRAINDUMP_LEARNING_OVERRIDE_MIN_MARGIN
+            if has_existing_project and current_project_id == project_id and current_section_id == section_id:
+                routed_candidates.append(candidate)
+                continue
+            if has_existing_project and current_project_id == project_id and not has_existing_section:
+                pass
+            elif has_existing_project and not may_override:
+                routed_candidates.append(candidate)
+                continue
+            routed = dict(candidate)
+            routed["project_name"] = project_name
+            if section_id is not None and section_id in section_names and section_names[section_id][0] == project_id:
+                routed["section_name"] = section_names[section_id][1]
+            else:
+                routed["section_name"] = None
+            routed_candidates.append(routed)
+        return {**parsed, "candidates": routed_candidates}
+    except sqlite3.OperationalError:
+        return parsed
+
+
+def _braindump_learning_settings(db, user_id: int) -> dict:
+    enabled = _learning_enabled_for_user(db, user_id)
+    return {"enabled": enabled, "learned_routes": _learning_row_count(db, user_id)}
+
+
+def _reset_braindump_learning(db, user_id: int) -> int:
+    try:
+        cursor = db.execute("DELETE FROM braindump_route_learning WHERE user_id = ?", (user_id,))
+    except sqlite3.OperationalError:
+        return 0
+    return int(cursor.rowcount or 0)
+
+
 def _resolve_project_target(db, user_id: int, project_name: str | None, workspace_id: int | None = None) -> tuple[int | None, bool]:
     if not project_name:
         return _workspace_inbox_project_id(db, user_id, workspace_id), False
@@ -637,6 +879,16 @@ def _create_todos_from_braindump_candidates(db, user_id: int, candidates: list[B
             db.execute("INSERT INTO reminders (todo_id, remind_at, user_id) VALUES (?,?,?)", (todo_id, data.remind_at, user_id))
         todo = fetch_todo(db, todo_id, user_id)
         if todo:
+            if project_matched:
+                original_project_id, original_section_id, original_matched = None, None, False
+                if candidate.original_project_name:
+                    original_project_id, original_matched = _resolve_project_target(db, user_id, candidate.original_project_name, workspace_id)
+                    original_section_id = _resolve_section_id(db, original_project_id, candidate.original_section_name) if original_matched else None
+                corrected_route = bool(
+                    candidate.original_route_present
+                    and (not original_matched or original_project_id != data.project_id or original_section_id != data.section_id)
+                )
+                _learn_braindump_route(db, user_id, workspace_id, data.title, data.project_id, data.section_id, corrected=corrected_route)
             created.append(todo)
     return created
 
@@ -945,6 +1197,9 @@ async def extract_live_text_segment(data: BrainDumpExtractRequest, user_id: int 
         llm_ms, parsed, usage, raw_json = await asyncio.to_thread(
             _extract_with_llm, transcript, data.segment_id, workspace_context, config
         )
+        with get_db() as db:
+            parsed = _apply_learned_routes(db, user_id, data.workspace_id, parsed)
+        raw_json = json.dumps(parsed, ensure_ascii=False, separators=(",", ":"))
     except Exception as exc:
         raise HTTPException(500, f"BrainDump extraction failed: {exc}")
     total_ms = (time.perf_counter() - received_at) * 1000
@@ -988,6 +1243,9 @@ async def process_live_audio_segment(
         llm_ms, parsed, usage, raw_json = await asyncio.to_thread(
             _extract_with_llm, transcript, segment_id, workspace_context, config
         )
+        with get_db() as db:
+            parsed = _apply_learned_routes(db, user_id, workspace_id, parsed)
+        raw_json = json.dumps(parsed, ensure_ascii=False, separators=(",", ":"))
     except ValueError as exc:
         raise HTTPException(400, str(exc))
     except Exception as exc:
@@ -1010,6 +1268,37 @@ async def process_live_audio_segment(
             "total_ms": round(total_ms, 2),
         },
     }
+
+
+@router.get("/learning")
+def get_braindump_learning_settings(user_id: int = Depends(require_auth)):
+    """Return the current user's local BrainDump route-learning settings."""
+    with get_db() as db:
+        return _braindump_learning_settings(db, user_id)
+
+
+@router.patch("/learning")
+def update_braindump_learning_settings(data: BrainDumpLearningSettingsRequest, user_id: int = Depends(require_auth)):
+    """Enable or disable local BrainDump route learning for the current user."""
+    with get_db() as db:
+        user = db.execute("SELECT id FROM users WHERE id = ?", (user_id,)).fetchone()
+        if not user:
+            raise HTTPException(404, "User not found")
+        db.execute("UPDATE users SET braindump_learning_enabled = ? WHERE id = ?", (1 if data.enabled else 0, user_id))
+        if not data.enabled:
+            _reset_braindump_learning(db, user_id)
+        db.commit()
+        return _braindump_learning_settings(db, user_id)
+
+
+@router.delete("/learning")
+def reset_braindump_learning(user_id: int = Depends(require_auth)):
+    """Reset only the current user's learned BrainDump route counters."""
+    with get_db() as db:
+        deleted = _reset_braindump_learning(db, user_id)
+        db.commit()
+        settings = _braindump_learning_settings(db, user_id)
+    return {**settings, "deleted": deleted}
 
 
 @router.post("/todos")
