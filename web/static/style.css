@@ -5595,7 +5595,21 @@ input[type="color"]::-moz-color-swatch {
   line-height: 1.3;
 }
 
-.settings-list-space { margin-bottom: 12px; }
+.settings-list-space {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.settings-api-key-details {
+  min-width: 0;
+}
+
+.settings-api-key-revoke {
+  font-size: 12px;
+  padding: 5px 9px;
+  flex-shrink: 0;
+}
 
 .settings-secret-box,
 .settings-recovery-box {
