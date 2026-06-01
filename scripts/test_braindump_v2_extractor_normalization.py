@@ -23,7 +23,7 @@ from routers.braindump_v2 import (  # noqa: E402
     _normalize_braindump_json,
     _parse_llm_json_content,
 )
-from services.braindump_config import DEFAULT_BRAINDUMP_SYSTEM_PROMPT, llm_chat_url, llm_models_url  # noqa: E402
+from services.braindump_config import DEFAULT_BRAINDUMP_CONFIG, DEFAULT_BRAINDUMP_SYSTEM_PROMPT, normalize_braindump_config, llm_chat_url, llm_models_url  # noqa: E402
 
 
 def assert_true(condition: bool, message: str):
@@ -317,6 +317,14 @@ def test_date_only_reminder_is_rejected_but_deadline_kept():
     assert_true(item["reminder"] is None, item)
 
 
+def test_default_stt_language_is_auto():
+    assert_true(DEFAULT_BRAINDUMP_CONFIG["stt_language"] == "auto", DEFAULT_BRAINDUMP_CONFIG)
+    normalized = normalize_braindump_config({})
+    assert_true(normalized["stt_language"] == "auto", normalized)
+    cleared = normalize_braindump_config({"stt_language": ""})
+    assert_true(cleared["stt_language"] == "auto", cleared)
+
+
 def test_llm_endpoint_urls_accept_root_v1_and_full_paths():
     cases = [
         ("https://api.openai.com", "https://api.openai.com/v1/chat/completions", "https://api.openai.com/v1/models"),
@@ -418,6 +426,7 @@ def main():
         test_evening_iso_2359_normalizes_to_1900,
         test_multilingual_titles_are_preserved,
         test_date_only_reminder_is_rejected_but_deadline_kept,
+        test_default_stt_language_is_auto,
         test_llm_endpoint_urls_accept_root_v1_and_full_paths,
         test_ollama_provider_urls_payload_and_response_content,
         test_admin_llm_models_payload_validates_configured_model,

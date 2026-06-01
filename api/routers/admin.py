@@ -114,7 +114,7 @@ class BrainDumpConfigRequest(BaseModel):
     stt_provider: str = "whisper_cpp_remote"
     stt_url: str = ""
     stt_token_secret: Optional[str] = None
-    stt_language: str = ""
+    stt_language: str = "auto"
     stt_timeout_seconds: float = 60
 
 class EmailConfigRequest(BaseModel):
