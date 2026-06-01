@@ -107,6 +107,13 @@ def test_unknown_llm_project_is_cleared_to_inbox_fallback():
     assert_true(item["project_name"] is None and item["section_name"] is None, item)
 
 
+def test_section_without_project_is_cleared_to_inbox_fallback():
+    context = {"projects": [{"name": "Shopping", "sections": ["Dairy"]}]}
+    result = _normalize_braindump_json({"candidates": [{"title": "Task", "project_name": None, "section_name": "Dairy"}]}, "Task", context)
+    item = result["candidates"][0]
+    assert_true(item["project_name"] is None and item["section_name"] is None, item)
+
+
 def test_backend_does_not_assign_sections_from_title():
     context = {"projects": [{"name": "Privat", "sections": ["Snoopy"]}]}
     result = _normalize_braindump_json({"candidates": [{"title": "Snoopy Tabletten geben", "project_name": "Privat"}]}, "Snoopy Tabletten geben", context)
@@ -361,6 +368,7 @@ def main():
         test_normalizes_alias_fields_from_local_models_without_kind_semantics,
         test_invalid_llm_section_is_cleared_when_workspace_known,
         test_unknown_llm_project_is_cleared_to_inbox_fallback,
+        test_section_without_project_is_cleared_to_inbox_fallback,
         test_backend_does_not_assign_sections_from_title,
         test_backend_keeps_complex_llm_titles,
         test_backend_does_not_semantically_rewrite_llm_candidates,

@@ -83,6 +83,7 @@ def make_db():
     db.execute("INSERT INTO projects (id, name, user_id, is_inbox, workspace_id) VALUES (3, 'Haushalt', 1, 0, 1)")
     db.execute("INSERT INTO projects (id, name, user_id, is_inbox, workspace_id) VALUES (4, 'Inbox', 1, 1, 2)")
     db.execute("INSERT INTO projects (id, name, user_id, is_inbox, workspace_id) VALUES (5, 'IT', 1, 0, 2)")
+    db.execute("INSERT INTO sections (id, project_id, name) VALUES (9, 1, 'Keller')")
     db.execute("INSERT INTO sections (id, project_id, name) VALUES (10, 2, 'Obst und Gemüse')")
     db.execute("INSERT INTO sections (id, project_id, name) VALUES (11, 2, 'Milchprodukte')")
     db.execute("INSERT INTO sections (id, project_id, name) VALUES (12, 3, 'Keller')")
@@ -113,7 +114,7 @@ def test_creates_confirmed_candidates_with_project_section_and_reminder():
     assert_true(snoopy["reminders"][0]["remind_at"] == "2026-05-30T18:00+02:00", snoopy)
 
 
-def test_project_null_uses_inbox_even_with_section_name():
+def test_project_null_uses_inbox_even_with_matching_inbox_section_name():
     db = make_db()
     created = _create_todos_from_braindump_candidates(
         db,
@@ -158,6 +159,13 @@ def test_unknown_project_name_falls_back_to_inbox():
     assert_true(created[0]["section_id"] is None, created)
 
 
+def test_unknown_project_name_ignores_matching_inbox_section():
+    db = make_db()
+    created = _create_todos_from_braindump_candidates(db, 1, [BrainDumpTodoCandidate(title="X", project_name="Gibt es nicht", section_name="Keller")])
+    assert_true(created[0]["project_id"] == 1, created)
+    assert_true(created[0]["section_id"] is None, created)
+
+
 def test_section_outside_project_is_cleared():
     db = make_db()
     created = _create_todos_from_braindump_candidates(db, 1, [BrainDumpTodoCandidate(title="X", project_name="Einkaufsliste", section_name="Keller")])
@@ -168,10 +176,11 @@ def test_section_outside_project_is_cleared():
 def main():
     tests = [
         test_creates_confirmed_candidates_with_project_section_and_reminder,
-        test_project_null_uses_inbox_even_with_section_name,
+        test_project_null_uses_inbox_even_with_matching_inbox_section_name,
         test_workspace_context_filters_projects_and_routes_inbox,
         test_workspace_context_project_from_other_workspace_falls_back_to_inbox,
         test_unknown_project_name_falls_back_to_inbox,
+        test_unknown_project_name_ignores_matching_inbox_section,
         test_section_outside_project_is_cleared,
     ]
     for test in tests:

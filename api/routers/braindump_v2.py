@@ -160,16 +160,19 @@ def _route_workspace_candidate(candidate: dict, workspace_context: dict | None) 
     project_name = str(routed.get("project_name") or "").strip()
     section_name = str(routed.get("section_name") or "").strip()
     project_names = {str(project.get("name") or "").lower(): project for project in projects}
-    if project_name and project_name.lower() not in project_names:
+    if not project_name:
         routed["project_name"] = None
         routed["section_name"] = None
         return routed
-    if project_name:
-        project = project_names.get(project_name.lower())
-        if project and section_name:
-            known_sections = {str(section).lower() for section in project.get("sections") or []}
-            if section_name.lower() not in known_sections:
-                routed["section_name"] = None
+    if project_name.lower() not in project_names:
+        routed["project_name"] = None
+        routed["section_name"] = None
+        return routed
+    project = project_names.get(project_name.lower())
+    if project and section_name:
+        known_sections = {str(section).lower() for section in project.get("sections") or []}
+        if section_name.lower() not in known_sections:
+            routed["section_name"] = None
     return routed
 
 
@@ -568,14 +571,19 @@ def _name_key(value: str | None) -> str:
     return re.sub(r"\s+", " ", str(value or "").strip()).casefold()
 
 
-def _resolve_project_id(db, user_id: int, project_name: str | None, workspace_id: int | None = None) -> int | None:
+def _resolve_project_target(db, user_id: int, project_name: str | None, workspace_id: int | None = None) -> tuple[int | None, bool]:
     if not project_name:
-        return _workspace_inbox_project_id(db, user_id, workspace_id)
+        return _workspace_inbox_project_id(db, user_id, workspace_id), False
     rows = _accessible_project_rows(db, user_id, workspace_id=workspace_id)
     matches = [row for row in rows if _name_key(row["name"]) == _name_key(project_name)]
     if len(matches) != 1:
-        return _workspace_inbox_project_id(db, user_id, workspace_id)
-    return matches[0]["id"]
+        return _workspace_inbox_project_id(db, user_id, workspace_id), False
+    return matches[0]["id"], True
+
+
+def _resolve_project_id(db, user_id: int, project_name: str | None, workspace_id: int | None = None) -> int | None:
+    project_id, _matched = _resolve_project_target(db, user_id, project_name, workspace_id)
+    return project_id
 
 
 def _resolve_section_id(db, project_id: int | None, section_name: str | None) -> int | None:
@@ -603,8 +611,8 @@ def _create_todos_from_braindump_candidates(db, user_id: int, candidates: list[B
             raise HTTPException(422, "BrainDump candidate title is required")
         project_name = candidate.project_name
         section_name = candidate.section_name
-        project_id = _resolve_project_id(db, user_id, project_name, workspace_id)
-        section_id = _resolve_section_id(db, project_id, section_name) if project_name else None
+        project_id, project_matched = _resolve_project_target(db, user_id, project_name, workspace_id)
+        section_id = _resolve_section_id(db, project_id, section_name) if project_matched else None
         data = TodoCreate(
             title=title,
             description=notes,
