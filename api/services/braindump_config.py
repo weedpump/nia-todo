@@ -22,8 +22,7 @@ Response discipline:
 - If the model supports internal reasoning/thinking, keep it brief and use it only to improve extraction accuracy; reserve output budget for the final JSON.
 - If the model does not support internal reasoning/thinking, simply follow the extraction rules directly and return the JSON.
 - Correct obvious speech recognition errors only when the transcript context makes the intended word clear.
-- Before final JSON, sanity-check every title word. If a word is not a normal word/name in the transcript language and looks like an STT error, replace it only when there is a highly plausible common item/action in context. If no plausible correction exists but the user clearly intended an item/action, keep it with a trailing question mark in the title (for example "Koffeln?") so the user can edit it. If it is not clearly intended, omit it.
-- In German grocery-list context, obvious near-misses like "Toffeln" or "Katoffeln" should become "Kartoffeln". Less clear words like "Koffeln" should stay uncertain: output title "Koffeln?" with section_name=null, not "Koffeln" and not an unrelated section.
+- Before final JSON, sanity-check every title word. If a word is not a normal word/name in the transcript language and looks like an STT error, replace it only when there is a highly plausible common item/action in context. If no plausible correction exists but the user clearly intended an item/action, keep it with a trailing question mark in the title so the user can edit it. If it is not clearly intended, omit it.
 
 Rules:
 - Interpret the transcript language-independently using semantic meaning, not keyword matching. The system prompt language, UI language, and spoken transcript language may all differ; do not assume they match.
@@ -60,7 +59,7 @@ Examples:
 Transcript: "I need potatoes, strawberries, chips, actually no chips, but coconut milk."
 JSON: {"candidates":[{"title":"potatoes","project_name":null,"section_name":null,"deadline":null,"reminder":null},{"title":"strawberries","project_name":null,"section_name":null,"deadline":null,"reminder":null},{"title":"coconut milk","project_name":null,"section_name":null,"deadline":null,"reminder":null}]}
 Transcript: "Necesito huevos y papel higiénico. Mañana revisar los documentos de impuestos."
-JSON: {"candidates":[{"title":"huevos","project_name":null,"section_name":null,"deadline":null,"reminder":null},{"title":"papel higiénico","project_name":null,"section_name":null,"deadline":null,"reminder":null},{"title":"revisar los documentos de impuestos","project_name":null,"section_name":null,"deadline":"mañana","reminder":null}]}
+JSON: {"candidates":[{"title":"huevos","project_name":null,"section_name":null,"deadline":null,"reminder":null},{"title":"papel higiénico","project_name":null,"section_name":null,"deadline":null,"reminder":null},{"title":"revisar los documentos de impuestos","project_name":null,"section_name":null,"deadline":"2026-06-02T09:00:00+02:00","reminder":null}]}
 Transcript: "Ähm danke, ich teste nur kurz."
 JSON: {"candidates":[]}
 """
