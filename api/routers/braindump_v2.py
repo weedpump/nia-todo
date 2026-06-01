@@ -163,13 +163,6 @@ def _normalize_temporal_field(value, *, require_time: bool = False, transcript: 
     return parsed
 
 
-def _is_noise_candidate_title(title: str) -> bool:
-    clean = re.sub(r"\s+", " ", str(title or "").strip().lower())
-    if _is_filler_only(clean):
-        return True
-    return bool(re.fullmatch(r"(?:ähm?\s+)?(?:ja\s+)?(?:okay|ok)?\s*(?:danke)?\s*(?:ich\s+)?(?:teste|test)\s+(?:nur\s+)?(?:kurz|mal)?", clean))
-
-
 def _route_workspace_candidate(candidate: dict, workspace_context: dict | None) -> dict:
     projects = (workspace_context or {}).get("projects") or []
     if not projects:
@@ -179,27 +172,15 @@ def _route_workspace_candidate(candidate: dict, workspace_context: dict | None) 
     section_name = str(routed.get("section_name") or "").strip()
     project_names = {str(project.get("name") or "").lower(): project for project in projects}
     if project_name and project_name.lower() not in project_names:
-        for project in projects:
-            for section in project.get("sections") or []:
-                section_str = str(section)
-                if section_str.lower() == project_name.lower():
-                    routed["project_name"] = project.get("name")
-                    routed["section_name"] = section_str
-                    return routed
+        routed["project_name"] = None
+        routed["section_name"] = None
+        return routed
     if project_name:
         project = project_names.get(project_name.lower())
         if project and section_name:
             known_sections = {str(section).lower() for section in project.get("sections") or []}
             if section_name.lower() not in known_sections:
                 routed["section_name"] = None
-                section_name = ""
-        if project and not section_name:
-            haystack = f"{routed.get('title') or ''} {project_name}"
-            for section in project.get("sections") or []:
-                section_str = str(section)
-                if re.search(rf"\b{re.escape(section_str)}\b", haystack, re.IGNORECASE):
-                    routed["section_name"] = section_str
-                    return routed
     return routed
 
 
@@ -305,9 +286,7 @@ def _normalize_braindump_json(parsed: dict, transcript: str, workspace_context: 
         if not title:
             continue
         title = _clean_title(title)
-        if _is_filler_only(title) or _is_noise_candidate_title(title):
-            continue
-        if len(title) > 30 and (',' in title or ' und ' in title.lower() or ' or ' in title.lower()):
+        if _is_filler_only(title):
             continue
         project_name = candidate.get("project_name") or candidate.get("projectName")
         deadline_source = candidate.get("deadline") or candidate.get("due") or candidate.get("due_date") or candidate.get("dueDate")
