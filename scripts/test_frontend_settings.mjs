@@ -179,6 +179,24 @@ async function run() {
     await page.waitForFunction(() => document.getElementById('api-key-value')?.textContent?.trim().length > 0, { timeout: 10000 });
     await page.waitForFunction(() => document.getElementById('api-keys-list')?.innerText?.includes('Frontend Test Key'), { timeout: 10000 });
 
+    await page.setViewportSize({ width: 390, height: 844 });
+    const apiKeyMobileLayout = await page.evaluate(() => {
+      const row = document.querySelector('#api-keys-list .settings-api-key-row');
+      const button = row?.querySelector('.settings-api-key-revoke');
+      if (!row || !button) return null;
+      const rowRect = row.getBoundingClientRect();
+      const buttonRect = button.getBoundingClientRect();
+      return {
+        flexDirection: getComputedStyle(row).flexDirection,
+        buttonStartsBelowMiddle: buttonRect.top > rowRect.top + rowRect.height / 2,
+        buttonFillsContentWidth: buttonRect.width >= rowRect.width - 28,
+      };
+    });
+    if (!apiKeyMobileLayout?.flexDirection?.includes('column') || !apiKeyMobileLayout.buttonStartsBelowMiddle || !apiKeyMobileLayout.buttonFillsContentWidth) {
+      throw new Error(`API key mobile revoke button layout is wrong: ${JSON.stringify(apiKeyMobileLayout)}`);
+    }
+    await page.setViewportSize({ width: 1280, height: 720 });
+
     await page.evaluate(() => window.sendTestPush());
     await page.waitForFunction(() => {
       const text = document.getElementById('push-error')?.textContent || '';
