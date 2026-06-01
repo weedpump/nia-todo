@@ -669,6 +669,9 @@ export function createBrainDumpLiveFeature(options = {}) {
       const next = { ...candidate };
       const previous = previousByRawKey.get(rawCandidateKey(candidate));
       if (previous?._bdId) next._bdId = previous._bdId;
+      next.original_project_name = previous?.original_project_name ?? next.project_name ?? null;
+      next.original_section_name = previous?.original_section_name ?? next.section_name ?? null;
+      next.original_route_present = true;
       candidateKey(next);
       return next;
     });
