@@ -51,43 +51,11 @@ WHISPER_MODELS = {
     "base": Path("/opt/whisper.cpp/models/ggml-base.bin"),
     "small": Path("/opt/whisper.cpp/models/ggml-small.bin"),
 }
-SHOPPING_PROJECT_NAME = None  # kind=shopping is resolved to the user's configured shopping list later.
-
-LIST_VERB_RE = re.compile(r"\b(muss|soll|erinnere|erinnern|vorbereiten|aufräumen|entsorgen|bestellen|machen|erledigen|kaufen|besorgen|einkaufen|teste|testen|test)\b", re.IGNORECASE)
-SHOPPING_INTENT_RE = re.compile(r"\b(kaufen|besorgen|einkaufen|einkaufsliste|shopping list|brauche|brauchen|bräuchte|bräuchten|benötige|benötigen|ist leer|leer|holen|buy|need|needs|out of|get|purchase|comprar|compro|necesito|necesitamos|no queda|acheter|achète|acheterai|courses|il faut|manque)\b", re.IGNORECASE)
-
-
 def _clean_title(value: str) -> str:
-    value = re.sub(r"^(ich brauche|ich benötige|bitte|noch)\s+", "", value.strip(), flags=re.IGNORECASE)
-    value = re.sub(r"\b(meiner|meine|der)\s+(marm|mam)\b", lambda m: f"{m.group(1)} Mama", value, flags=re.IGNORECASE)
-    value = re.sub(r"\bMarm\b", "Mama", value)
-    value = value.strip(" .,:;!?-–—\t\n\r")
+    value = str(value or "").strip(" .,:;!?-–—\t\n\r")
     return value[:1].upper() + value[1:] if value else ""
 
 
-def _clean_shopping_title(value: str) -> str:
-    value = re.sub(r"\b(kaufen|besorgen|einkaufen|holen|setz(?:e)?|setze|pack(?:e)?|auf(?:\s+die)?(?:\s+einkaufsliste)?|liste|buy|need|needs|get|purchase|comprar|compro|necesito|necesitamos|acheter|achète|il faut|manque)\b", "", value, flags=re.IGNORECASE)
-    value = re.sub(r"\b(nicht|not)\b", "", value, flags=re.IGNORECASE)
-    value = re.sub(r"^(wir müssen|ich muss|muss|bitte|noch|also we|we|i|je|nous|yo|but|pero|mais)\s+", "", value.strip(), flags=re.IGNORECASE)
-    value = re.sub(r"^(die|der|das|den|ein|eine|einen|the|el|la|los|las|un|una|unos|unas|le|la|les|du|des|de|de la|de l)\s+", "", value.strip(), flags=re.IGNORECASE)
-    return _clean_title(value)
-
-
-def _split_plain_enumeration(text: str) -> list[dict]:
-    source = text.strip().strip(" .!?;:")
-    if not source or "," not in source:
-        return []
-    if LIST_VERB_RE.search(source) or SHOPPING_INTENT_RE.search(source):
-        return []
-    parts = [p.strip() for p in re.split(r",|\s+und\s+|\s+oder\s+|\s+and\s+|\s+y\s+|\s+e\s+|\s+et\s+|\s*&\s*", source, flags=re.IGNORECASE)]
-    items = [_clean_title(part) for part in parts]
-    items = [item for item in items if 1 < len(item) <= 80]
-    if len(items) < 2:
-        return []
-    return [{"title": item, "project_name": SHOPPING_PROJECT_NAME, "section_name": None, "deadline": None, "reminder": None, "kind": "shopping"} for item in items]
-
-NEGATED_ITEM_RE = re.compile(r"(?:doch\s+)?keine?n?\s+([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß -]{1,40})|(?:no|not|pas|sin)\s+([A-Za-zÀ-ÿÄÖÜäöüß][A-Za-zÀ-ÿÄÖÜäöüß -]{1,40})|([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß -]{1,40})\s+(?:brauchen wir nicht|lass(?:t)? (?:die|das|den)? ?weg|nicht)", re.IGNORECASE)
-NON_SHOPPING_TASK_RE = re.compile(r"\b(zahnarzt|arzt|termin|duschen|marm|mom|mama|gehen|erinner|nachmittag|abend|morgen|teste|testen|test|danke|okay)\b", re.IGNORECASE)
 FILLER_ONLY_RE = re.compile(
     r"^(?:äh+|ähm+|hm+|okay|ok|ja|jo|nein|nee|ne|no|non|pas|sin|doch|aber|also|ach ?ja|ach ?nee|bitte|danke)$",
     re.IGNORECASE,
@@ -195,108 +163,11 @@ def _normalize_temporal_field(value, *, require_time: bool = False, transcript: 
     return parsed
 
 
-def _negated_items(text: str) -> set[str]:
-    result = set()
-    for match in re.finditer(r"\b(?:but|aber|pero|mais)?\s*(?:not|no|sin|pas(?:\s+de)?)\s+([A-Za-zÀ-ÿÄÖÜäöüß][A-Za-zÀ-ÿÄÖÜäöüß -]{1,40})", text, re.IGNORECASE):
-        item = _clean_shopping_title(match.group(1) or "")
-        if item:
-            result.add(_item_key(item))
-    for match in NEGATED_ITEM_RE.finditer(text):
-        item = _clean_shopping_title(match.group(1) or match.group(2) or match.group(3) or "")
-        if item:
-            result.add(_item_key(item))
-    for match in re.finditer(r"\b(?:statt|anstatt|instead of)\s+([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß -]{1,40})", text, re.IGNORECASE):
-        item = _clean_shopping_title(match.group(1) or "")
-        if item:
-            result.add(_item_key(item))
-    return result
-
-
-def _title_is_negated(title: str, text: str) -> bool:
-    key = _item_key(title)
-    if not key:
-        return False
-    if key in _negated_items(text):
-        return True
-    compact = re.sub(r"\s+", " ", text or "").strip()
-    title_pattern = re.escape(str(title).strip())
-    return bool(re.search(rf"\b{title_pattern}\b\s*(?:bitte\s*)?(?:nicht|weg|weglassen)", compact, re.IGNORECASE))
-
-
 def _is_noise_candidate_title(title: str) -> bool:
     clean = re.sub(r"\s+", " ", str(title or "").strip().lower())
     if _is_filler_only(clean):
         return True
     return bool(re.fullmatch(r"(?:ähm?\s+)?(?:ja\s+)?(?:okay|ok)?\s*(?:danke)?\s*(?:ich\s+)?(?:teste|test)\s+(?:nur\s+)?(?:kurz|mal)?", clean))
-
-
-def _split_shopping_phrase(value: str) -> list[str]:
-    value = re.sub(r"(?:nee|nein)?\s*(?:doch\s+)?keine?n?\s+[A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß -]{1,40}", "", value, flags=re.IGNORECASE)
-    value = re.sub(r"\b(?:but|aber|pero|mais)?\s*(?:not|no|sin|pas(?:\s+de)?)\s+[A-Za-zÀ-ÿÄÖÜäöüß][A-Za-zÀ-ÿÄÖÜäöüß -]{1,40}", "", value, flags=re.IGNORECASE)
-    value = re.sub(r"\b(ich|wir)\s+(?:brauche|brauchen|bräuchte|bräuchten|benötige|benötigen)\b", "", value, flags=re.IGNORECASE)
-    value = re.sub(r"\b(muss|müssen|noch|bitte|auch|danach|dafür|aber|ach ?ja|also|we|i|wir|ich|yo|nous|je|but|pero|mais)\b", " ", value, flags=re.IGNORECASE)
-    value = re.sub(r"\b(morgen|heute|tomorrow|today|mañana|demain|hoy)\b", " ", value, flags=re.IGNORECASE)
-    value = re.sub(r"\b\d{1,2}(?::\d{2})?\s*(?:uhr|h)?\b", " ", value, flags=re.IGNORECASE)
-    value = re.sub(r"\b(?:auf|in|für|zu)\s+(?:der|die|das)?\s*(?:einkaufsliste|shopping list)\b.*$", "", value, flags=re.IGNORECASE)
-    value = re.sub(r"\b(kaufen|besorgen|einkaufen|einkaufsliste|holen|setz(?:e)?|setze|pack(?:e)?|auf(?:\s+die)?(?:\s+einkaufsliste)?|liste|buy|need|needs|get|purchase|comprar|compro|necesito|necesitamos|acheter|achète|il faut|manque)\b", "", value, flags=re.IGNORECASE)
-    parts = [p.strip() for p in re.split(r",|\s+und\s+|\s+oder\s+|\s+and\s+|\s+y\s+|\s+e\s+|\s+et\s+|\s*&\s*", value, flags=re.IGNORECASE)]
-    result = []
-    for part in parts:
-        cleaned = _clean_shopping_title(part)
-        if not (1 < len(cleaned) <= 80) or _is_filler_only(cleaned):
-            continue
-        if re.search(r"\b(keine|kein|nein|no|not|pas|sin|brauchen|muss|müssen|zahnarzt|morgen|montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag|abend|nachmittag|rechnung|zahlen|bezahlen|marm|mom|weg|lasst|reicht|statt)\b", cleaned, re.IGNORECASE):
-            continue
-        result.append(cleaned)
-    return result
-
-
-def _extract_shopping_candidates(text: str) -> list[dict]:
-    negated = _negated_items(text)
-    candidates = []
-    seen = set()
-    chunks = [chunk.strip() for chunk in re.split(r"[.!?;]+", text) if chunk.strip()]
-    for chunk in chunks:
-        is_plain_list = "," in chunk and not NON_SHOPPING_TASK_RE.search(chunk)
-        is_shopping = bool(SHOPPING_INTENT_RE.search(chunk))
-        if not is_plain_list and not is_shopping:
-            continue
-        phrase = chunk
-        low_stock_match = re.search(r"(?:keine?n?\s+(.+?)\s+mehr|no queda\s+(.+)|out of\s+(.+)|(?:il manque|manque)\s+(.+)|(.+?)\s+(?:ist|sind|is|are)\s+(?:leer|empty|low))", chunk, re.IGNORECASE)
-        if low_stock_match:
-            phrase = next((group for group in low_stock_match.groups() if group), chunk)
-        if is_shopping and not is_plain_list and phrase == chunk:
-            match = re.search(r"(?:^|,|und|ach ?ja)\s*([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß -]{1,60}?)\s+(?:muss|müssen)?\s*(?:ich|wir)?\s*(?:noch\s+)?(?:kaufen|besorgen|einkaufen|holen|get|purchase|comprar|compro)\b", chunk, re.IGNORECASE)
-            if match:
-                phrase = match.group(1)
-            else:
-                match = re.search(r"(?:^|,|und|aber)\s*([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß -]{1,60}?)\s+(?:bräuchte|bräuchten|brauche|brauchen|benötige|benötigen)\s+(?:ich|wir)?\b", chunk, re.IGNORECASE)
-                if match:
-                    phrase = match.group(1)
-                elif re.search(r"\b(?:brauche|brauchen|bräuchte|bräuchten|benötige|benötigen|need|needs|necesito|necesitamos)\b", chunk, re.IGNORECASE):
-                    phrase = re.split(r"\b(?:brauche|brauchen|bräuchte|bräuchten|benötige|benötigen|need|needs|necesito|necesitamos)\b", chunk, flags=re.IGNORECASE)[-1]
-                elif re.search(r"\b(?:buy|get|purchase|comprar|acheter|achète)\b", chunk, re.IGNORECASE):
-                    phrase = re.split(r"\b(?:buy|get|purchase|comprar|acheter|achète)\b", chunk, flags=re.IGNORECASE)[-1]
-        for item in _split_shopping_phrase(phrase):
-            key = _item_key(item)
-            if not key or key in negated or key in seen:
-                continue
-            seen.add(key)
-            candidates.append({"title": item, "project_name": SHOPPING_PROJECT_NAME, "section_name": None, "deadline": None, "reminder": None, "kind": "shopping"})
-    return candidates
-
-
-def _find_shopping_project(workspace_context: dict | None) -> dict | None:
-    projects = (workspace_context or {}).get("projects") or []
-    for project in projects:
-        name = str(project.get("name") or "")
-        if re.search(r"einkauf|shopping|compras|courses", name, re.IGNORECASE):
-            return project
-    for project in projects:
-        sections = " ".join(str(section) for section in project.get("sections") or [])
-        if re.search(r"milch|dairy|lácteos|obst|fruit|fruta|gemüse|vegetable|verdura", sections, re.IGNORECASE):
-            return project
-    return None
 
 
 def _route_workspace_candidate(candidate: dict, workspace_context: dict | None) -> dict:
@@ -329,36 +200,6 @@ def _route_workspace_candidate(candidate: dict, workspace_context: dict | None) 
                 if re.search(rf"\b{re.escape(section_str)}\b", haystack, re.IGNORECASE):
                     routed["section_name"] = section_str
                     return routed
-    return routed
-
-
-def _route_shopping_candidate(candidate: dict, workspace_context: dict | None) -> dict:
-    if candidate.get("kind") != "shopping":
-        return candidate
-    project = _find_shopping_project(workspace_context)
-    if not project:
-        return candidate
-    routed = dict(candidate)
-    if not routed.get("project_name"):
-        routed["project_name"] = project.get("name")
-    title = str(routed.get("title") or "")
-    sections = [str(section) for section in project.get("sections") or []]
-    current_section = str(routed.get("section_name") or "").strip()
-    if current_section and current_section.lower() not in {section.lower() for section in sections}:
-        routed["section_name"] = None
-    section_rules = [
-        (r"milch|hafermilch|joghurt|käse|kaese|dairy|leche|lait", r"milch|dairy|lácteos|lacteos|lait"),
-        (r"banane|banana|apfel|erdbeer|kartoffel|obst|gemüse|gemuese|fruit|fruta|verdura", r"obst|gemüse|gemuese|fruit|fruta|verdura|vegetable"),
-        (r"tiefkühl|tiefkuehl|frozen", r"tiefkühl|tiefkuehl|frozen"),
-        (r"cola|wasser|saft|bier|getränk|getraenk|drink", r"getränk|getraenk|drink"),
-    ]
-    for title_pattern, section_pattern in section_rules:
-        if not re.search(title_pattern, title, re.IGNORECASE):
-            continue
-        for section in sections:
-            if re.search(section_pattern, section, re.IGNORECASE):
-                routed["section_name"] = section
-                return routed
     return routed
 
 
@@ -608,7 +449,7 @@ def _transcribe_remote_whisper(audio: bytes, filename: str, content_type: str, c
         "temperature_inc": "0.0",
     }
     language = str(config.get("stt_language") or "").strip()
-    if language:
+    if language and language.lower() != "auto":
         fields["language"] = language
     body, multipart_type = _build_multipart_form_data(fields, {"file": (filename, audio, content_type)})
     headers = {"Content-Type": multipart_type}
@@ -981,7 +822,7 @@ Before writing JSON:
 5. Delete any ledger entry that is later no longer wanted, no longer needed, excluded, removed, cancelled, crossed off, or replaced.
 6. Add later positive additions only when they clearly express final add/create intent.
 7. Preserve explicit dates, times, reminders, and event-like intent from the transcript on the final ledger entries.
-8. Correct obvious speech recognition errors only when context makes the intended word clear. Sanity-check every title word before final JSON. If a word is not a normal word/name in the transcript language and looks like an STT error, replace it only when there is a highly plausible common item/action in context. If no plausible correction exists but the user clearly intended an item/action, keep it with a trailing question mark in the title so the user can edit it. If it is not clearly intended, omit it. In German grocery-list context, obvious near-misses like "Toffeln" or "Katoffeln" should become "Kartoffeln". Less clear words like "Koffeln" should stay uncertain: output title "Koffeln?" with section_name=null, not "Koffeln" and not an unrelated section.
+8. Correct obvious speech recognition errors only when context makes the intended word clear. Sanity-check every title word before final JSON. If a word is not a normal word/name in the transcript language and looks like an STT error, replace it only when there is a highly plausible common item/action in context. If no plausible correction exists but the user clearly intended an item/action, keep it with a trailing question mark in the title so the user can edit it. If it is not clearly intended, omit it.
 9. Output only the remaining final ledger entries as compact JSON using exactly this schema: {"candidates":[{"title":"...","project_name":null,"section_name":null,"deadline":null,"reminder":null}]}.
 
 Response requirement: the assistant message content must start with { and contain only valid compact JSON. No Markdown, prose, explanation, or analysis in content.
