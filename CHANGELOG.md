@@ -5,6 +5,21 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [2.9.0] - 2026-06-01
+
+### Added
+- BrainDump can now remember where each user places confirmed tasks and use those preferences to suggest matching projects and sections in future previews, with a user setting to turn this off and delete saved assignments.
+- Admin user management now includes a client-side user search with live result counts and an empty-state message for unmatched filters.
+
+### Changed
+- BrainDump routing is now more reliable: project/section context is passed to the configured model in a compact structured form, backend validation prevents invalid destinations, and saved user preferences are applied only after model extraction so they are never sent to the model.
+- BrainDump STT defaults to automatic language detection and no longer sends `language=auto` to Whisper-compatible remote STT endpoints.
+- The OpenClaw BrainDump agent path can be used via the OpenAI-compatible endpoint/model pair, allowing `openclaw/braindump` to route extraction through the dedicated OpenClaw agent.
+
+### Fixed
+- Admin sign-in now focuses the password field immediately when the login card is shown, including after logout or an expired stored admin token.
+- BrainDump extraction is now stricter and safer: it no longer relies on backend semantic fallbacks or internal `kind` markers, handles local/OpenAI-compatible model responses more robustly, and falls back unknown projects to the active workspace inbox while keeping sections only when they belong to a valid matched project.
+
 ## [2.8.2] - 2026-06-01
 
 ### Changed

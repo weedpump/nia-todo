@@ -6,6 +6,7 @@ import asyncio
 import ast
 import json
 import re
+import sqlite3
 import subprocess
 import tempfile
 import time
@@ -42,56 +43,18 @@ from services.websocket import broadcast_change
 
 router = APIRouter(prefix="/api/braindump/v2")
 
+BRAINDUMP_LLM_MAX_TOKENS_MIN = 1200
+BRAINDUMP_LLM_MAX_TOKENS_DEFAULT = 2000
+BRAINDUMP_LLM_MAX_TOKENS_RETRY = 3000
+BRAINDUMP_LLM_MAX_TOKENS_CAP = 4000
+
 WHISPER_MODELS = {
     "base": Path("/opt/whisper.cpp/models/ggml-base.bin"),
     "small": Path("/opt/whisper.cpp/models/ggml-small.bin"),
 }
-SHOPPING_PROJECT_NAME = None  # kind=shopping is resolved to the user's configured shopping list later.
-
-LIST_VERB_RE = re.compile(r"\b(muss|soll|erinnere|erinnern|vorbereiten|aufräumen|entsorgen|bestellen|machen|erledigen|kaufen|besorgen|einkaufen|teste|testen|test)\b", re.IGNORECASE)
-SHOPPING_INTENT_RE = re.compile(r"\b(kaufen|besorgen|einkaufen|einkaufsliste|shopping list|brauche|brauchen|bräuchte|bräuchten|benötige|benötigen|ist leer|leer|holen|buy|need|needs|out of|get|purchase|comprar|compro|necesito|necesitamos|no queda|acheter|achète|acheterai|courses|il faut|manque)\b", re.IGNORECASE)
-
-
 def _clean_title(value: str) -> str:
-    value = re.sub(r"^(ich brauche|ich benötige|bitte|noch)\s+", "", value.strip(), flags=re.IGNORECASE)
-    value = re.sub(r"\b(meiner|meine|der)\s+(marm|mam)\b", lambda m: f"{m.group(1)} Mama", value, flags=re.IGNORECASE)
-    value = re.sub(r"\bMarm\b", "Mama", value)
-    value = value.strip(" .,:;!?-–—\t\n\r")
+    value = str(value or "").strip(" .,:;!?-–—\t\n\r")
     return value[:1].upper() + value[1:] if value else ""
-
-
-def _clean_shopping_title(value: str) -> str:
-    value = re.sub(r"\b(kaufen|besorgen|einkaufen|holen|setz(?:e)?|setze|pack(?:e)?|auf(?:\s+die)?(?:\s+einkaufsliste)?|liste|buy|need|needs|get|purchase|comprar|compro|necesito|necesitamos|acheter|achète|il faut|manque)\b", "", value, flags=re.IGNORECASE)
-    value = re.sub(r"\b(nicht|not)\b", "", value, flags=re.IGNORECASE)
-    value = re.sub(r"^(wir müssen|ich muss|muss|bitte|noch|also we|we|i|je|nous|yo|but|pero|mais)\s+", "", value.strip(), flags=re.IGNORECASE)
-    value = re.sub(r"^(die|der|das|den|ein|eine|einen|the|el|la|los|las|un|una|unos|unas|le|la|les|du|des|de|de la|de l)\s+", "", value.strip(), flags=re.IGNORECASE)
-    return _clean_title(value)
-
-
-def _split_plain_enumeration(text: str) -> list[dict]:
-    source = text.strip().strip(" .!?;:")
-    if not source or "," not in source:
-        return []
-    if LIST_VERB_RE.search(source) or SHOPPING_INTENT_RE.search(source):
-        return []
-    parts = [p.strip() for p in re.split(r",|\s+und\s+|\s+oder\s+|\s+and\s+|\s+y\s+|\s+e\s+|\s+et\s+|\s*&\s*", source, flags=re.IGNORECASE)]
-    items = [_clean_title(part) for part in parts]
-    items = [item for item in items if 1 < len(item) <= 80]
-    if len(items) < 2:
-        return []
-    return [{"title": item, "project_name": SHOPPING_PROJECT_NAME, "section_name": None, "deadline": None, "reminder": None, "kind": "shopping"} for item in items]
-
-NEGATED_ITEM_RE = re.compile(r"(?:doch\s+)?keine?n?\s+([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß -]{1,40})|(?:no|not|pas|sin)\s+([A-Za-zÀ-ÿÄÖÜäöüß][A-Za-zÀ-ÿÄÖÜäöüß -]{1,40})|([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß -]{1,40})\s+(?:brauchen wir nicht|lass(?:t)? (?:die|das|den)? ?weg|nicht)", re.IGNORECASE)
-NON_SHOPPING_TASK_RE = re.compile(r"\b(zahnarzt|arzt|termin|duschen|marm|mom|mama|gehen|erinner|nachmittag|abend|morgen|teste|testen|test|danke|okay)\b", re.IGNORECASE)
-FILLER_ONLY_RE = re.compile(
-    r"^(?:äh+|ähm+|hm+|okay|ok|ja|jo|nein|nee|ne|no|non|pas|sin|doch|aber|also|ach ?ja|ach ?nee|bitte|danke)$",
-    re.IGNORECASE,
-)
-
-
-def _is_filler_only(value: str) -> bool:
-    clean = re.sub(r"[^A-Za-zÀ-ÿÄÖÜäöüß]+", "", value or "")
-    return not clean or bool(FILLER_ONLY_RE.match(clean))
 
 
 def _item_key(value: str) -> str:
@@ -190,110 +153,6 @@ def _normalize_temporal_field(value, *, require_time: bool = False, transcript: 
     return parsed
 
 
-def _negated_items(text: str) -> set[str]:
-    result = set()
-    for match in re.finditer(r"\b(?:but|aber|pero|mais)?\s*(?:not|no|sin|pas(?:\s+de)?)\s+([A-Za-zÀ-ÿÄÖÜäöüß][A-Za-zÀ-ÿÄÖÜäöüß -]{1,40})", text, re.IGNORECASE):
-        item = _clean_shopping_title(match.group(1) or "")
-        if item:
-            result.add(_item_key(item))
-    for match in NEGATED_ITEM_RE.finditer(text):
-        item = _clean_shopping_title(match.group(1) or match.group(2) or match.group(3) or "")
-        if item:
-            result.add(_item_key(item))
-    for match in re.finditer(r"\b(?:statt|anstatt|instead of)\s+([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß -]{1,40})", text, re.IGNORECASE):
-        item = _clean_shopping_title(match.group(1) or "")
-        if item:
-            result.add(_item_key(item))
-    return result
-
-
-def _title_is_negated(title: str, text: str) -> bool:
-    key = _item_key(title)
-    if not key:
-        return False
-    if key in _negated_items(text):
-        return True
-    compact = re.sub(r"\s+", " ", text or "").strip()
-    title_pattern = re.escape(str(title).strip())
-    return bool(re.search(rf"\b{title_pattern}\b\s*(?:bitte\s*)?(?:nicht|weg|weglassen)", compact, re.IGNORECASE))
-
-
-def _is_noise_candidate_title(title: str) -> bool:
-    clean = re.sub(r"\s+", " ", str(title or "").strip().lower())
-    if _is_filler_only(clean):
-        return True
-    return bool(re.fullmatch(r"(?:ähm?\s+)?(?:ja\s+)?(?:okay|ok)?\s*(?:danke)?\s*(?:ich\s+)?(?:teste|test)\s+(?:nur\s+)?(?:kurz|mal)?", clean))
-
-
-def _split_shopping_phrase(value: str) -> list[str]:
-    value = re.sub(r"(?:nee|nein)?\s*(?:doch\s+)?keine?n?\s+[A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß -]{1,40}", "", value, flags=re.IGNORECASE)
-    value = re.sub(r"\b(?:but|aber|pero|mais)?\s*(?:not|no|sin|pas(?:\s+de)?)\s+[A-Za-zÀ-ÿÄÖÜäöüß][A-Za-zÀ-ÿÄÖÜäöüß -]{1,40}", "", value, flags=re.IGNORECASE)
-    value = re.sub(r"\b(ich|wir)\s+(?:brauche|brauchen|bräuchte|bräuchten|benötige|benötigen)\b", "", value, flags=re.IGNORECASE)
-    value = re.sub(r"\b(muss|müssen|noch|bitte|auch|danach|dafür|aber|ach ?ja|also|we|i|wir|ich|yo|nous|je|but|pero|mais)\b", " ", value, flags=re.IGNORECASE)
-    value = re.sub(r"\b(morgen|heute|tomorrow|today|mañana|demain|hoy)\b", " ", value, flags=re.IGNORECASE)
-    value = re.sub(r"\b\d{1,2}(?::\d{2})?\s*(?:uhr|h)?\b", " ", value, flags=re.IGNORECASE)
-    value = re.sub(r"\b(?:auf|in|für|zu)\s+(?:der|die|das)?\s*(?:einkaufsliste|shopping list)\b.*$", "", value, flags=re.IGNORECASE)
-    value = re.sub(r"\b(kaufen|besorgen|einkaufen|einkaufsliste|holen|setz(?:e)?|setze|pack(?:e)?|auf(?:\s+die)?(?:\s+einkaufsliste)?|liste|buy|need|needs|get|purchase|comprar|compro|necesito|necesitamos|acheter|achète|il faut|manque)\b", "", value, flags=re.IGNORECASE)
-    parts = [p.strip() for p in re.split(r",|\s+und\s+|\s+oder\s+|\s+and\s+|\s+y\s+|\s+e\s+|\s+et\s+|\s*&\s*", value, flags=re.IGNORECASE)]
-    result = []
-    for part in parts:
-        cleaned = _clean_shopping_title(part)
-        if not (1 < len(cleaned) <= 80) or _is_filler_only(cleaned):
-            continue
-        if re.search(r"\b(keine|kein|nein|no|not|pas|sin|brauchen|muss|müssen|zahnarzt|morgen|montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag|abend|nachmittag|rechnung|zahlen|bezahlen|marm|mom|weg|lasst|reicht|statt)\b", cleaned, re.IGNORECASE):
-            continue
-        result.append(cleaned)
-    return result
-
-
-def _extract_shopping_candidates(text: str) -> list[dict]:
-    negated = _negated_items(text)
-    candidates = []
-    seen = set()
-    chunks = [chunk.strip() for chunk in re.split(r"[.!?;]+", text) if chunk.strip()]
-    for chunk in chunks:
-        is_plain_list = "," in chunk and not NON_SHOPPING_TASK_RE.search(chunk)
-        is_shopping = bool(SHOPPING_INTENT_RE.search(chunk))
-        if not is_plain_list and not is_shopping:
-            continue
-        phrase = chunk
-        low_stock_match = re.search(r"(?:keine?n?\s+(.+?)\s+mehr|no queda\s+(.+)|out of\s+(.+)|(?:il manque|manque)\s+(.+)|(.+?)\s+(?:ist|sind|is|are)\s+(?:leer|empty|low))", chunk, re.IGNORECASE)
-        if low_stock_match:
-            phrase = next((group for group in low_stock_match.groups() if group), chunk)
-        if is_shopping and not is_plain_list and phrase == chunk:
-            match = re.search(r"(?:^|,|und|ach ?ja)\s*([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß -]{1,60}?)\s+(?:muss|müssen)?\s*(?:ich|wir)?\s*(?:noch\s+)?(?:kaufen|besorgen|einkaufen|holen|get|purchase|comprar|compro)\b", chunk, re.IGNORECASE)
-            if match:
-                phrase = match.group(1)
-            else:
-                match = re.search(r"(?:^|,|und|aber)\s*([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß -]{1,60}?)\s+(?:bräuchte|bräuchten|brauche|brauchen|benötige|benötigen)\s+(?:ich|wir)?\b", chunk, re.IGNORECASE)
-                if match:
-                    phrase = match.group(1)
-                elif re.search(r"\b(?:brauche|brauchen|bräuchte|bräuchten|benötige|benötigen|need|needs|necesito|necesitamos)\b", chunk, re.IGNORECASE):
-                    phrase = re.split(r"\b(?:brauche|brauchen|bräuchte|bräuchten|benötige|benötigen|need|needs|necesito|necesitamos)\b", chunk, flags=re.IGNORECASE)[-1]
-                elif re.search(r"\b(?:buy|get|purchase|comprar|acheter|achète)\b", chunk, re.IGNORECASE):
-                    phrase = re.split(r"\b(?:buy|get|purchase|comprar|acheter|achète)\b", chunk, flags=re.IGNORECASE)[-1]
-        for item in _split_shopping_phrase(phrase):
-            key = _item_key(item)
-            if not key or key in negated or key in seen:
-                continue
-            seen.add(key)
-            candidates.append({"title": item, "project_name": SHOPPING_PROJECT_NAME, "section_name": None, "deadline": None, "reminder": None, "kind": "shopping"})
-    return candidates
-
-
-def _find_shopping_project(workspace_context: dict | None) -> dict | None:
-    projects = (workspace_context or {}).get("projects") or []
-    for project in projects:
-        name = str(project.get("name") or "")
-        if re.search(r"einkauf|shopping|compras|courses", name, re.IGNORECASE):
-            return project
-    for project in projects:
-        sections = " ".join(str(section) for section in project.get("sections") or [])
-        if re.search(r"milch|dairy|lácteos|obst|fruit|fruta|gemüse|vegetable|verdura", sections, re.IGNORECASE):
-            return project
-    return None
-
-
 def _route_workspace_candidate(candidate: dict, workspace_context: dict | None) -> dict:
     projects = (workspace_context or {}).get("projects") or []
     if not projects:
@@ -302,58 +161,19 @@ def _route_workspace_candidate(candidate: dict, workspace_context: dict | None) 
     project_name = str(routed.get("project_name") or "").strip()
     section_name = str(routed.get("section_name") or "").strip()
     project_names = {str(project.get("name") or "").lower(): project for project in projects}
-    if project_name and project_name.lower() not in project_names:
-        for project in projects:
-            for section in project.get("sections") or []:
-                section_str = str(section)
-                if section_str.lower() == project_name.lower():
-                    routed["project_name"] = project.get("name")
-                    routed["section_name"] = section_str
-                    return routed
-    if project_name:
-        project = project_names.get(project_name.lower())
-        if project and section_name:
-            known_sections = {str(section).lower() for section in project.get("sections") or []}
-            if section_name.lower() not in known_sections:
-                routed["section_name"] = None
-                section_name = ""
-        if project and not section_name:
-            haystack = f"{routed.get('title') or ''} {project_name}"
-            for section in project.get("sections") or []:
-                section_str = str(section)
-                if re.search(rf"\b{re.escape(section_str)}\b", haystack, re.IGNORECASE):
-                    routed["section_name"] = section_str
-                    return routed
-    return routed
-
-
-def _route_shopping_candidate(candidate: dict, workspace_context: dict | None) -> dict:
-    if candidate.get("kind") != "shopping":
-        return candidate
-    project = _find_shopping_project(workspace_context)
-    if not project:
-        return candidate
-    routed = dict(candidate)
-    if not routed.get("project_name"):
-        routed["project_name"] = project.get("name")
-    title = str(routed.get("title") or "")
-    sections = [str(section) for section in project.get("sections") or []]
-    current_section = str(routed.get("section_name") or "").strip()
-    if current_section and current_section.lower() not in {section.lower() for section in sections}:
+    if not project_name:
+        routed["project_name"] = None
         routed["section_name"] = None
-    section_rules = [
-        (r"milch|hafermilch|joghurt|käse|kaese|dairy|leche|lait", r"milch|dairy|lácteos|lacteos|lait"),
-        (r"banane|banana|apfel|erdbeer|kartoffel|obst|gemüse|gemuese|fruit|fruta|verdura", r"obst|gemüse|gemuese|fruit|fruta|verdura|vegetable"),
-        (r"tiefkühl|tiefkuehl|frozen", r"tiefkühl|tiefkuehl|frozen"),
-        (r"cola|wasser|saft|bier|getränk|getraenk|drink", r"getränk|getraenk|drink"),
-    ]
-    for title_pattern, section_pattern in section_rules:
-        if not re.search(title_pattern, title, re.IGNORECASE):
-            continue
-        for section in sections:
-            if re.search(section_pattern, section, re.IGNORECASE):
-                routed["section_name"] = section
-                return routed
+        return routed
+    if project_name.lower() not in project_names:
+        routed["project_name"] = None
+        routed["section_name"] = None
+        return routed
+    project = project_names.get(project_name.lower())
+    if project and section_name:
+        known_sections = {str(section).lower() for section in project.get("sections") or []}
+        if section_name.lower() not in known_sections:
+            routed["section_name"] = None
     return routed
 
 
@@ -449,7 +269,6 @@ def _normalize_braindump_json(parsed: dict, transcript: str, workspace_context: 
     candidates = parsed.get("candidates") if isinstance(parsed, dict) else None
     if not isinstance(candidates, list):
         candidates = []
-    negated = _negated_items(transcript)
     normalized = []
     for candidate in candidates:
         if isinstance(candidate, str):
@@ -460,62 +279,20 @@ def _normalize_braindump_json(parsed: dict, transcript: str, workspace_context: 
         if not title:
             continue
         title = _clean_title(title)
-        if _is_filler_only(title) or _is_noise_candidate_title(title):
-            continue
-        if len(title) > 30 and (',' in title or ' und ' in title.lower() or ' or ' in title.lower()):
-            continue
         project_name = candidate.get("project_name") or candidate.get("projectName")
-        kind = str(candidate.get("kind") or candidate.get("type") or "todo").strip().lower()
-        if kind in {"task", "action", "todo_item"}:
-            kind = "todo"
-        elif kind in {"grocery", "groceries", "buy", "purchase"}:
-            kind = "shopping"
-        if SHOPPING_INTENT_RE.search(title) or kind == "shopping":
-            # kind=shopping is a semantic signal. Keep project/section names
-            # when the LLM mapped them to explicit workspace context.
-            kind = "shopping"
-            title = _clean_shopping_title(title)
-            key = _item_key(title)
-            if not key or key in negated or _title_is_negated(title, transcript):
-                continue
         deadline_source = candidate.get("deadline") or candidate.get("due") or candidate.get("due_date") or candidate.get("dueDate")
         reminder_source = candidate.get("reminder") or candidate.get("remind_at") or candidate.get("reminder_at") or candidate.get("remindAt") or candidate.get("reminderAt")
         deadline = _normalize_temporal_field(deadline_source, transcript=transcript)
         reminder = _normalize_temporal_field(reminder_source, require_time=True, transcript=transcript)
-        if deadline and (reminder_source or kind == "reminder") and not reminder and _temporal_has_explicit_time(deadline_source):
+        if deadline and reminder_source and not reminder and _temporal_has_explicit_time(deadline_source):
             reminder = deadline
-        normalized.append(_route_workspace_candidate(_route_shopping_candidate({
+        normalized.append(_route_workspace_candidate({
             "title": title,
             "project_name": project_name or candidate.get("project"),
             "section_name": candidate.get("section_name") or candidate.get("sectionName") or candidate.get("section"),
             "deadline": deadline,
             "reminder": reminder,
-            "kind": kind,
-        }, workspace_context), workspace_context))
-    normalized = _dedupe_normalized_candidates(normalized)
-    transcript_lower = transcript.lower().strip()
-    if len(normalized) == 1:
-        raw = normalized[0]["title"]
-        if ("," in raw or " und " in raw.lower() or " or " in raw.lower() or raw.lower().startswith("buy ")) and len(raw) > 30:
-            split = _split_plain_enumeration(transcript)
-            if split:
-                return {"candidates": split}
-    if not normalized and ("," in transcript or " und " in transcript_lower):
-        split = _split_plain_enumeration(transcript)
-        if split:
-            return {"candidates": split}
-    # Deterministic safety net only fills a completely empty extraction. Once a
-    # capable LLM returned candidates, do not add regex-derived items afterward:
-    # later corrections/removals require semantic transcript understanding.
-    if not normalized:
-        shopping = _extract_shopping_candidates(transcript)
-        existing = {_item_key(item.get("title", "")) for item in normalized if item.get("kind") == "shopping"}
-        for item in shopping:
-            if _title_is_negated(item["title"], transcript):
-                continue
-            if _item_key(item["title"]) not in existing:
-                normalized.append(_route_workspace_candidate(_route_shopping_candidate(item, workspace_context), workspace_context))
-                existing.add(_item_key(item["title"]))
+        }, workspace_context))
     return {"candidates": _dedupe_normalized_candidates(normalized)}
 
 
@@ -531,12 +308,18 @@ class BrainDumpTodoCandidate(BaseModel):
     section_name: str | None = None
     deadline: str | None = None
     reminder: str | None = None
-    kind: str = "todo"
+    original_project_name: str | None = None
+    original_section_name: str | None = None
+    original_route_present: bool = False
 
 
 class BrainDumpCreateTodosRequest(BaseModel):
     candidates: list[BrainDumpTodoCandidate]
     workspace_id: int | None = None
+
+
+class BrainDumpLearningSettingsRequest(BaseModel):
+    enabled: bool
 
 
 class BrainDumpExtractRequest(BaseModel):
@@ -643,7 +426,7 @@ def _transcribe_remote_whisper(audio: bytes, filename: str, content_type: str, c
         "temperature_inc": "0.0",
     }
     language = str(config.get("stt_language") or "").strip()
-    if language:
+    if language and language.lower() != "auto":
         fields["language"] = language
     body, multipart_type = _build_multipart_form_data(fields, {"file": (filename, audio, content_type)})
     headers = {"Content-Type": multipart_type}
@@ -766,23 +549,29 @@ def _load_braindump_workspace_context(db, user_id: int, workspace_id: int | None
 def _format_workspace_context(context: dict | None) -> str:
     projects = (context or {}).get("projects") or []
     workspace_name = (context or {}).get("workspace_name")
-    if not projects:
-        return "Workspace: none. Use project_name=null and section_name=null unless explicitly obvious."
-    if workspace_name:
-        lines = [f"Current workspace: {str(workspace_name)[:80]}. Use only these exact project/section names from this workspace. Treat sections as the user's taxonomy and choose the closest clear semantic fit:"]
-    else:
-        lines = ["Workspace: use only these exact project/section names. Treat sections as the user's taxonomy and choose the closest clear semantic fit:"]
-    for project in projects[:40]:
-        label = str(project.get("name") or "")[:80]
-        if not workspace_name and project.get("workspace"):
-            label = f"{str(project.get('workspace'))[:60]} / {label}"
-        sections = [str(section)[:60] for section in (project.get("sections") or [])[:16]]
-        if sections:
-            label += " | sections: " + ", ".join(sections)
-        lines.append(f"- {label}")
-    text = "\n".join(lines)
-    if len(text) > 5000:
-        return text[:4990].rstrip() + "\n- ..."
+    payload = {
+        "workspace_name": workspace_name,
+        "rules": [
+            "Use only exact project_name values from workspace.projects[].name, otherwise null.",
+            "Use only section_name values listed inside the selected project's sections array, otherwise null.",
+            "Never attach a section to a different project than the one where it is listed.",
+            "Return only the output object with candidates; do not copy workspace data into the output.",
+        ],
+        "projects": [
+            {
+                "name": str(project.get("name") or "")[:80],
+                "sections": [str(section)[:60] for section in (project.get("sections") or [])[:16]],
+            }
+            for project in projects[:40]
+            if str(project.get("name") or "").strip()
+        ],
+    }
+    if not payload["projects"]:
+        payload["rules"].append("No projects are available; use project_name=null and section_name=null.")
+    text = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+    while len(text) > 5000 and len(payload["projects"]) > 1:
+        payload["projects"] = payload["projects"][:-1]
+        text = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
     return text
 
 
@@ -790,43 +579,262 @@ def _name_key(value: str | None) -> str:
     return re.sub(r"\s+", " ", str(value or "").strip()).casefold()
 
 
-def _resolve_project_id(db, user_id: int, project_name: str | None, workspace_id: int | None = None) -> int | None:
+BRAINDUMP_LEARNING_MIN_TOKEN_LENGTH = 3
+BRAINDUMP_LEARNING_MAX_TOKENS = 12
+BRAINDUMP_LEARNING_APPLY_MIN_SCORE = 2
+BRAINDUMP_LEARNING_APPLY_MIN_MARGIN = 2
+BRAINDUMP_LEARNING_OVERRIDE_MIN_SCORE = 4
+BRAINDUMP_LEARNING_OVERRIDE_MIN_MARGIN = 3
+
+BRAINDUMP_LEARNING_STOPWORDS = {
+    "aber", "alle", "alles", "also", "and", "auf", "aus", "bei", "bitte", "das", "den", "der", "die", "dies", "ein", "eine", "einen", "einer", "eines", "for", "für", "hab", "habe", "ich", "im", "in", "ist", "it", "mit", "nach", "noch", "oder", "of", "the", "to", "und", "vom", "von", "was", "wir", "zum", "zur",
+    "add", "aufgabe", "besorgen", "brauche", "bring", "bringen", "buy", "erinnere", "erinnern", "holen", "kaufen", "mach", "machen", "need", "todo", "tun",
+}
+
+
+def _learning_tokens(title: str) -> list[str]:
+    tokens = []
+    seen = set()
+    for token in re.findall(r"[\wäöüÄÖÜß]+", str(title or "").casefold(), flags=re.UNICODE):
+        token = token.strip("_")
+        if len(token) < BRAINDUMP_LEARNING_MIN_TOKEN_LENGTH or token.isdigit() or token in BRAINDUMP_LEARNING_STOPWORDS:
+            continue
+        if token in seen:
+            continue
+        seen.add(token)
+        tokens.append(token)
+        if len(tokens) >= BRAINDUMP_LEARNING_MAX_TOKENS:
+            break
+    return tokens
+
+
+def _learning_enabled_for_user(db, user_id: int) -> bool:
+    try:
+        row = db.execute("SELECT COALESCE(braindump_learning_enabled, 1) AS enabled FROM users WHERE id = ?", (user_id,)).fetchone()
+    except sqlite3.OperationalError:
+        return True
+    return bool(row and row["enabled"])
+
+
+def _learning_row_count(db, user_id: int) -> int:
+    try:
+        row = db.execute("SELECT COUNT(*) AS count FROM braindump_route_learning WHERE user_id = ?", (user_id,)).fetchone()
+    except sqlite3.OperationalError:
+        return 0
+    return int(row["count"] if row else 0)
+
+
+def _learn_braindump_route(db, user_id: int, workspace_id: int | None, title: str, project_id: int | None, section_id: int | None, *, corrected: bool = False):
+    if not _learning_enabled_for_user(db, user_id):
+        return
+    tokens = _learning_tokens(title)
+    if not tokens or project_id is None:
+        return
+    now = datetime.now().astimezone().isoformat(timespec="seconds")
+    for token in tokens:
+        cursor = db.execute(
+            """
+            UPDATE braindump_route_learning
+            SET hits = hits + 1, last_used_at = ?
+            WHERE user_id = ?
+              AND ((workspace_id IS NULL AND ? IS NULL) OR workspace_id = ?)
+              AND token = ?
+              AND project_id = ?
+              AND ((section_id IS NULL AND ? IS NULL) OR section_id = ?)
+            """,
+            (now, user_id, workspace_id, workspace_id, token, project_id, section_id, section_id),
+        )
+        if cursor.rowcount:
+            continue
+        insert_cursor = db.execute(
+            """
+            INSERT OR IGNORE INTO braindump_route_learning (user_id, workspace_id, token, project_id, section_id, hits, last_used_at)
+            VALUES (?, ?, ?, ?, ?, 1, ?)
+            """,
+            (user_id, workspace_id, token, project_id, section_id, now),
+        )
+        if not insert_cursor.rowcount:
+            db.execute(
+                """
+                UPDATE braindump_route_learning
+                SET hits = hits + 1, last_used_at = ?
+                WHERE user_id = ?
+                  AND ((workspace_id IS NULL AND ? IS NULL) OR workspace_id = ?)
+                  AND token = ?
+                  AND project_id = ?
+                  AND ((section_id IS NULL AND ? IS NULL) OR section_id = ?)
+                """,
+                (now, user_id, workspace_id, workspace_id, token, project_id, section_id, section_id),
+            )
+        if corrected:
+            competitor = db.execute(
+                """
+                SELECT MAX(hits) AS max_hits
+                FROM braindump_route_learning
+                WHERE user_id = ?
+                  AND ((workspace_id IS NULL AND ? IS NULL) OR workspace_id = ?)
+                  AND token = ?
+                  AND NOT (project_id = ? AND ((section_id IS NULL AND ? IS NULL) OR section_id = ?))
+                """,
+                (user_id, workspace_id, workspace_id, token, project_id, section_id, section_id),
+            ).fetchone()
+            desired_hits = int((competitor["max_hits"] if competitor else 0) or 0) + BRAINDUMP_LEARNING_OVERRIDE_MIN_MARGIN
+            db.execute(
+                """
+                UPDATE braindump_route_learning
+                SET hits = MAX(hits, ?), last_used_at = ?
+                WHERE user_id = ?
+                  AND ((workspace_id IS NULL AND ? IS NULL) OR workspace_id = ?)
+                  AND token = ?
+                  AND project_id = ?
+                  AND ((section_id IS NULL AND ? IS NULL) OR section_id = ?)
+                """,
+                (desired_hits, now, user_id, workspace_id, workspace_id, token, project_id, section_id, section_id),
+            )
+
+
+def _candidate_route_ids(db, user_id: int, workspace_id: int | None, candidate: dict) -> tuple[int | None, int | None, bool]:
+    project_id, project_matched = _resolve_project_target(db, user_id, candidate.get("project_name"), workspace_id)
+    section_id = _resolve_section_id(db, project_id, candidate.get("section_name")) if project_matched else None
+    return project_id, section_id, project_matched
+
+
+def _route_name_lookup(db, user_id: int, workspace_id: int | None, project_ids: set[int], section_ids: set[int]) -> tuple[dict[int, str], dict[int, tuple[int, str]]]:
+    project_names: dict[int, str] = {}
+    section_names: dict[int, tuple[int, str]] = {}
+    if project_ids:
+        rows = _accessible_project_rows(db, user_id, workspace_id=workspace_id)
+        allowed_project_ids = set(project_ids)
+        for row in rows:
+            if row["id"] in allowed_project_ids:
+                project_names[row["id"]] = row["name"]
+    if section_ids:
+        placeholders = ",".join("?" for _ in section_ids)
+        rows = db.execute(f"SELECT id, project_id, name FROM sections WHERE id IN ({placeholders})", list(section_ids)).fetchall()
+        for row in rows:
+            if row["project_id"] in project_names:
+                section_names[row["id"]] = (row["project_id"], row["name"])
+    return project_names, section_names
+
+
+def _best_learned_route(db, user_id: int, workspace_id: int | None, title: str) -> tuple[int | None, int | None, int, int]:
+    tokens = _learning_tokens(title)
+    if not tokens:
+        return None, None, 0, 0
+    placeholders = ",".join("?" for _ in tokens)
+    rows = db.execute(
+        f"""
+        SELECT project_id, section_id, SUM(hits) AS score
+        FROM braindump_route_learning
+        WHERE user_id = ?
+          AND ((workspace_id IS NULL AND ? IS NULL) OR workspace_id = ?)
+          AND token IN ({placeholders})
+        GROUP BY project_id, section_id
+        ORDER BY score DESC
+        LIMIT 2
+        """,
+        [user_id, workspace_id, workspace_id, *tokens],
+    ).fetchall()
+    if not rows:
+        return None, None, 0, 0
+    best = rows[0]
+    second_score = int(rows[1]["score"] if len(rows) > 1 else 0)
+    return best["project_id"], best["section_id"], int(best["score"] or 0), second_score
+
+
+def _apply_learned_routes(db, user_id: int, workspace_id: int | None, parsed: dict) -> dict:
+    if not _learning_enabled_for_user(db, user_id):
+        return parsed
+    candidates = parsed.get("candidates") if isinstance(parsed, dict) else None
+    if not isinstance(candidates, list):
+        return parsed
+    try:
+        route_results = []
+        project_ids: set[int] = set()
+        section_ids: set[int] = set()
+        for candidate in candidates:
+            if not isinstance(candidate, dict):
+                route_results.append(None)
+                continue
+            project_id, section_id, score, second_score = _best_learned_route(db, user_id, workspace_id, str(candidate.get("title") or ""))
+            margin = score - second_score
+            if project_id is None or score < BRAINDUMP_LEARNING_APPLY_MIN_SCORE or margin < BRAINDUMP_LEARNING_APPLY_MIN_MARGIN:
+                route_results.append(None)
+                continue
+            project_ids.add(project_id)
+            if section_id is not None:
+                section_ids.add(section_id)
+            route_results.append((project_id, section_id, score, margin))
+        project_names, section_names = _route_name_lookup(db, user_id, workspace_id, project_ids, section_ids)
+        routed_candidates = []
+        for candidate, learned in zip(candidates, route_results):
+            if not isinstance(candidate, dict) or not learned:
+                routed_candidates.append(candidate)
+                continue
+            project_id, section_id, score, margin = learned
+            project_name = project_names.get(project_id)
+            if not project_name:
+                routed_candidates.append(candidate)
+                continue
+            current_project_id, current_section_id, current_matched = _candidate_route_ids(db, user_id, workspace_id, candidate)
+            has_existing_project = bool(candidate.get("project_name") and current_matched)
+            has_existing_section = bool(has_existing_project and candidate.get("section_name") and current_section_id is not None)
+            may_override = score >= BRAINDUMP_LEARNING_OVERRIDE_MIN_SCORE and margin >= BRAINDUMP_LEARNING_OVERRIDE_MIN_MARGIN
+            if has_existing_project and current_project_id == project_id and current_section_id == section_id:
+                routed_candidates.append(candidate)
+                continue
+            if has_existing_project and current_project_id == project_id and not has_existing_section:
+                pass
+            elif has_existing_project and not may_override:
+                routed_candidates.append(candidate)
+                continue
+            routed = dict(candidate)
+            routed["project_name"] = project_name
+            if section_id is not None and section_id in section_names and section_names[section_id][0] == project_id:
+                routed["section_name"] = section_names[section_id][1]
+            else:
+                routed["section_name"] = None
+            routed_candidates.append(routed)
+        return {**parsed, "candidates": routed_candidates}
+    except sqlite3.OperationalError:
+        return parsed
+
+
+def _braindump_learning_settings(db, user_id: int) -> dict:
+    enabled = _learning_enabled_for_user(db, user_id)
+    return {"enabled": enabled, "learned_routes": _learning_row_count(db, user_id)}
+
+
+def _reset_braindump_learning(db, user_id: int) -> int:
+    try:
+        cursor = db.execute("DELETE FROM braindump_route_learning WHERE user_id = ?", (user_id,))
+    except sqlite3.OperationalError:
+        return 0
+    return int(cursor.rowcount or 0)
+
+
+def _resolve_project_target(db, user_id: int, project_name: str | None, workspace_id: int | None = None) -> tuple[int | None, bool]:
     if not project_name:
-        return _workspace_inbox_project_id(db, user_id, workspace_id)
+        return _workspace_inbox_project_id(db, user_id, workspace_id), False
     rows = _accessible_project_rows(db, user_id, workspace_id=workspace_id)
     matches = [row for row in rows if _name_key(row["name"]) == _name_key(project_name)]
     if len(matches) != 1:
-        raise HTTPException(422, f"BrainDump project not found: {project_name}")
-    return matches[0]["id"]
+        return _workspace_inbox_project_id(db, user_id, workspace_id), False
+    return matches[0]["id"], True
 
 
-def _resolve_unique_section_target(db, user_id: int, section_name: str | None, workspace_id: int | None = None) -> tuple[int | None, int | None]:
-    if not section_name:
-        return None, None
-    projects = _accessible_project_rows(db, user_id, workspace_id=workspace_id)
-    project_ids = [row["id"] for row in projects]
-    if not project_ids:
-        return None, None
-    placeholders = ",".join("?" for _ in project_ids)
-    rows = db.execute(
-        f"SELECT id, project_id, name FROM sections WHERE project_id IN ({placeholders})",
-        project_ids,
-    ).fetchall()
-    matches = [row for row in rows if _name_key(row["name"]) == _name_key(section_name)]
-    if len(matches) != 1:
-        return None, None
-    return matches[0]["project_id"], matches[0]["id"]
+def _resolve_project_id(db, user_id: int, project_name: str | None, workspace_id: int | None = None) -> int | None:
+    project_id, _matched = _resolve_project_target(db, user_id, project_name, workspace_id)
+    return project_id
 
 
 def _resolve_section_id(db, project_id: int | None, section_name: str | None) -> int | None:
-    if not section_name:
+    if not section_name or project_id is None:
         return None
-    if project_id is None:
-        raise HTTPException(422, "BrainDump section requires a project")
     rows = db.execute("SELECT id, name FROM sections WHERE project_id = ?", (project_id,)).fetchall()
     matches = [row for row in rows if _name_key(row["name"]) == _name_key(section_name)]
     if len(matches) != 1:
-        raise HTTPException(422, f"BrainDump section not found: {section_name}")
+        return None
     return matches[0]["id"]
 
 
@@ -845,16 +853,8 @@ def _create_todos_from_braindump_candidates(db, user_id: int, candidates: list[B
             raise HTTPException(422, "BrainDump candidate title is required")
         project_name = candidate.project_name
         section_name = candidate.section_name
-        unique_section_project_id = None
-        unique_section_id = None
-        if section_name:
-            unique_section_project_id, unique_section_id = _resolve_unique_section_target(db, user_id, section_name, workspace_id)
-        if not project_name and unique_section_project_id:
-            project_id = unique_section_project_id
-            section_id = unique_section_id
-        else:
-            project_id = _resolve_project_id(db, user_id, project_name, workspace_id)
-            section_id = _resolve_section_id(db, project_id, section_name)
+        project_id, project_matched = _resolve_project_target(db, user_id, project_name, workspace_id)
+        section_id = _resolve_section_id(db, project_id, section_name) if project_matched else None
         data = TodoCreate(
             title=title,
             description=notes,
@@ -879,6 +879,16 @@ def _create_todos_from_braindump_candidates(db, user_id: int, candidates: list[B
             db.execute("INSERT INTO reminders (todo_id, remind_at, user_id) VALUES (?,?,?)", (todo_id, data.remind_at, user_id))
         todo = fetch_todo(db, todo_id, user_id)
         if todo:
+            if project_matched:
+                original_project_id, original_section_id, original_matched = None, None, False
+                if candidate.original_project_name:
+                    original_project_id, original_matched = _resolve_project_target(db, user_id, candidate.original_project_name, workspace_id)
+                    original_section_id = _resolve_section_id(db, original_project_id, candidate.original_section_name) if original_matched else None
+                corrected_route = bool(
+                    candidate.original_route_present
+                    and (not original_matched or original_project_id != data.project_id or original_section_id != data.section_id)
+                )
+                _learn_braindump_route(db, user_id, workspace_id, data.title, data.project_id, data.section_id, corrected=corrected_route)
             created.append(todo)
     return created
 
@@ -905,11 +915,14 @@ def _post_llm_chat(payload: dict, headers: dict[str, str], config: dict) -> dict
 def _llm_request_payload(payload: dict, config: dict) -> dict:
     provider = str(config.get("llm_provider") or "openai_compatible").strip().lower()
     if provider == "ollama":
+        options = {"temperature": payload.get("temperature", 0)}
+        if payload.get("max_tokens"):
+            options["num_predict"] = payload["max_tokens"]
         return {
             "model": payload["model"],
             "messages": payload["messages"],
             "stream": False,
-            "options": {"temperature": payload.get("temperature", 0)},
+            "options": options,
         }
     return payload
 
@@ -920,6 +933,74 @@ def _llm_response_content(result: dict, config: dict) -> str:
         return str(result.get("message", {}).get("content") or "")
     return result["choices"][0]["message"].get("content", "")
 
+
+def _llm_finish_reason(result: dict, config: dict) -> str | None:
+    provider = str(config.get("llm_provider") or "openai_compatible").strip().lower()
+    if provider == "ollama":
+        done_reason = result.get("done_reason") or result.get("message", {}).get("done_reason")
+        return str(done_reason) if done_reason else None
+    choices = result.get("choices") or []
+    if not choices:
+        return None
+    finish_reason = choices[0].get("finish_reason")
+    return str(finish_reason) if finish_reason else None
+
+
+def _llm_usage(result: dict, config: dict) -> dict | None:
+    provider = str(config.get("llm_provider") or "openai_compatible").strip().lower()
+    if provider == "ollama":
+        usage = {
+            "prompt_tokens": result.get("prompt_eval_count"),
+            "completion_tokens": result.get("eval_count"),
+        }
+        usage = {key: value for key, value in usage.items() if value is not None}
+        return usage or None
+    usage = result.get("usage")
+    return usage if isinstance(usage, dict) else None
+
+
+def _llm_reasoning_tokens(usage: dict | None) -> int | None:
+    if not usage:
+        return None
+    details = usage.get("completion_tokens_details")
+    if not isinstance(details, dict):
+        return None
+    value = details.get("reasoning_tokens")
+    return int(value) if isinstance(value, int) else None
+
+
+def _braindump_llm_max_tokens(text: str, *, retry: bool = False) -> int:
+    # Local reasoning models may spend completion tokens on hidden/internal thought before
+    # emitting JSON. Scale by transcript length, but keep a safe default for short inputs.
+    estimated = BRAINDUMP_LLM_MAX_TOKENS_DEFAULT + max(0, len(text) // 4)
+    if retry:
+        estimated = max(estimated, BRAINDUMP_LLM_MAX_TOKENS_RETRY)
+    return max(BRAINDUMP_LLM_MAX_TOKENS_MIN, min(estimated, BRAINDUMP_LLM_MAX_TOKENS_CAP))
+
+
+def _llm_empty_content_diagnostic(result: dict, config: dict, max_tokens: int) -> str:
+    usage = _llm_usage(result, config)
+    finish_reason = _llm_finish_reason(result, config)
+    completion_tokens = usage.get("completion_tokens") if usage else None
+    reasoning_tokens = _llm_reasoning_tokens(usage)
+    parts = ["LLM response was empty"]
+    if finish_reason:
+        parts.append(f"finish_reason={finish_reason}")
+    parts.append(f"max_tokens={max_tokens}")
+    if completion_tokens is not None:
+        parts.append(f"completion_tokens={completion_tokens}")
+    if reasoning_tokens is not None:
+        parts.append(f"reasoning_tokens={reasoning_tokens}")
+    return "; ".join(parts)
+
+
+def _should_retry_empty_llm_content(result: dict, config: dict) -> bool:
+    finish_reason = (_llm_finish_reason(result, config) or "").lower()
+    usage = _llm_usage(result, config)
+    reasoning_tokens = _llm_reasoning_tokens(usage) or 0
+    return finish_reason in {"length", "max_tokens"} or reasoning_tokens > 0
+
+
 def _extract_with_llm(text: str, segment_id: int, workspace_context: dict | None = None, config: dict | None = None) -> tuple[float, dict, dict | None, str]:
     config = config or get_braindump_config(include_secrets=True)
     base_url = str(config.get("llm_base_url") or "").strip()
@@ -929,7 +1010,9 @@ def _extract_with_llm(text: str, segment_id: int, workspace_context: dict | None
     system_prompt = build_effective_system_prompt(config)
     current_datetime = datetime.now().astimezone().isoformat(timespec="minutes")
     extraction_contract = """Provider-neutral extraction contract:
-You are extracting the final intended todo state from messy speech. Internally perform these steps before writing JSON:
+You are extracting the final intended todo state from messy speech. Work internally if helpful, but keep any internal reasoning concise and reserve output budget for the final JSON. Models without a separate reasoning/thinking mode must follow the same rules directly.
+
+Before writing JSON:
 1. Segment the transcript into meaning-bearing clauses, independent of transcript language.
 2. Build a temporary ledger of candidate items/actions in chronological order.
 3. Apply later corrections/removals/replacements/negations as ledger edits, not as new candidates.
@@ -937,7 +1020,10 @@ You are extracting the final intended todo state from messy speech. Internally p
 5. Delete any ledger entry that is later no longer wanted, no longer needed, excluded, removed, cancelled, crossed off, or replaced.
 6. Add later positive additions only when they clearly express final add/create intent.
 7. Preserve explicit dates, times, reminders, and event-like intent from the transcript on the final ledger entries.
-8. Output only the remaining final ledger entries as compact JSON using exactly this schema: {"candidates":[{"title":"...","project_name":null,"section_name":null,"deadline":null,"reminder":null,"kind":"todo"}]}.
+8. Correct obvious speech recognition errors only when context makes the intended word clear. Sanity-check every title word before final JSON. If a word is not a normal word/name in the transcript language and looks like an STT error, replace it only when there is a highly plausible common item/action in context. If no plausible correction exists but the user clearly intended an item/action, keep it with a trailing question mark in the title so the user can edit it. If it is not clearly intended, omit it.
+9. Output only the remaining final ledger entries as compact JSON using exactly this schema: {"candidates":[{"title":"...","project_name":null,"section_name":null,"deadline":null,"reminder":null}]}.
+
+Response requirement: the assistant message content must start with { and contain only valid compact JSON. No Markdown, prose, explanation, or analysis in content.
 
 Candidate validity checklist:
 - The title is only the desired item/action, never an instruction about editing the ledger.
@@ -951,39 +1037,58 @@ Transcript meaning: add A, B, C; later remove B; later add D.
 Correct final output: A, C, D.
 Never output: B, the remove-B command, or leftover words from the remove-B clause.
 """.strip()
-    user_content = f"Current datetime: {current_datetime}\n\n{_format_workspace_context(workspace_context)}\n\n{extraction_contract}\n\nTranscript:\n{text}"
+    user_content = f"Current datetime: {current_datetime}\n\nWorkspace JSON:\n{_format_workspace_context(workspace_context)}\n\nOutput JSON shape:\n{{\"candidates\":[{{\"title\":\"...\",\"project_name\":null,\"section_name\":null,\"deadline\":null,\"reminder\":null}}]}}\n\n{extraction_contract}\n\nTranscript:\n{text}"
     model_name = str(config.get("llm_model") or "").strip()
     if not model_name:
         raise RuntimeError("BrainDump LLM model is not configured")
-    payload = {
-        "model": model_name,
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_content},
-        ],
-        "temperature": 0,
-        "stream": False,
-        "max_tokens": 500,
-        "user": f"nia-todo-live-braindump-{segment_id}-{int(time.time() * 1000)}",
-    }
+    def build_payload(max_tokens: int, *, retry: bool = False) -> dict:
+        retry_instruction = ""
+        if retry:
+            retry_instruction = "\n\nRetry instruction: the previous response did not provide final JSON content before its output budget ended. Return the compact JSON immediately in assistant message content. Keep any internal reasoning minimal."
+        return {
+            "model": model_name,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"{user_content}{retry_instruction}"},
+            ],
+            "temperature": 0,
+            "stream": False,
+            "max_tokens": max_tokens,
+            "user": f"nia-todo-live-braindump-{segment_id}-{int(time.time() * 1000)}",
+        }
+
     headers = {"Content-Type": "application/json"}
     if token:
         headers["Authorization"] = f"Bearer {token}"
     headers.update(parse_extra_headers(str(config.get("llm_extra_headers_json") or "")))
-    request_payload = _llm_request_payload(payload, config)
+
+    def send_payload(payload_to_send: dict) -> dict:
+        request_payload = _llm_request_payload(payload_to_send, config)
+        try:
+            return _post_llm_chat(request_payload, headers, config)
+        except urllib.error.HTTPError as exc:
+            if exc.code not in {400, 422} or "user" not in request_payload:
+                raise
+            request_payload = dict(request_payload)
+            request_payload.pop("user", None)
+            return _post_llm_chat(request_payload, headers, config)
+
     started = time.perf_counter()
-    try:
-        result = _post_llm_chat(request_payload, headers, config)
-    except urllib.error.HTTPError as exc:
-        if exc.code not in {400, 422} or "user" not in request_payload:
-            raise
-        request_payload = dict(request_payload)
-        request_payload.pop("user", None)
-        result = _post_llm_chat(request_payload, headers, config)
-    elapsed_ms = (time.perf_counter() - started) * 1000
+    max_tokens = _braindump_llm_max_tokens(text)
+    result = send_payload(build_payload(max_tokens))
     content = _llm_response_content(result, config)
+
+    if not str(content or "").strip() and _should_retry_empty_llm_content(result, config):
+        retry_max_tokens = _braindump_llm_max_tokens(text, retry=True)
+        result = send_payload(build_payload(retry_max_tokens, retry=True))
+        content = _llm_response_content(result, config)
+        max_tokens = retry_max_tokens
+
+    elapsed_ms = (time.perf_counter() - started) * 1000
+    if not str(content or "").strip():
+        raise RuntimeError(_llm_empty_content_diagnostic(result, config, max_tokens))
     parsed = _normalize_braindump_json(_parse_llm_json_content(content), text, workspace_context)
-    return elapsed_ms, parsed, result.get("usage"), json.dumps(parsed, ensure_ascii=False, separators=(",", ":"))
+    return elapsed_ms, parsed, _llm_usage(result, config), json.dumps(parsed, ensure_ascii=False, separators=(",", ":"))
 
 
 # Backward-compatible alias for older validation/probe scripts.
@@ -1092,6 +1197,9 @@ async def extract_live_text_segment(data: BrainDumpExtractRequest, user_id: int 
         llm_ms, parsed, usage, raw_json = await asyncio.to_thread(
             _extract_with_llm, transcript, data.segment_id, workspace_context, config
         )
+        with get_db() as db:
+            parsed = _apply_learned_routes(db, user_id, data.workspace_id, parsed)
+        raw_json = json.dumps(parsed, ensure_ascii=False, separators=(",", ":"))
     except Exception as exc:
         raise HTTPException(500, f"BrainDump extraction failed: {exc}")
     total_ms = (time.perf_counter() - received_at) * 1000
@@ -1135,6 +1243,9 @@ async def process_live_audio_segment(
         llm_ms, parsed, usage, raw_json = await asyncio.to_thread(
             _extract_with_llm, transcript, segment_id, workspace_context, config
         )
+        with get_db() as db:
+            parsed = _apply_learned_routes(db, user_id, workspace_id, parsed)
+        raw_json = json.dumps(parsed, ensure_ascii=False, separators=(",", ":"))
     except ValueError as exc:
         raise HTTPException(400, str(exc))
     except Exception as exc:
@@ -1157,6 +1268,40 @@ async def process_live_audio_segment(
             "total_ms": round(total_ms, 2),
         },
     }
+
+
+@router.get("/learning")
+def get_braindump_learning_settings(user_id: int = Depends(require_auth)):
+    """Return the current user's local BrainDump route-learning settings."""
+    require_braindump_access(user_id)
+    with get_db() as db:
+        return _braindump_learning_settings(db, user_id)
+
+
+@router.patch("/learning")
+def update_braindump_learning_settings(data: BrainDumpLearningSettingsRequest, user_id: int = Depends(require_auth)):
+    """Enable or disable local BrainDump route learning for the current user."""
+    require_braindump_access(user_id)
+    with get_db() as db:
+        user = db.execute("SELECT id FROM users WHERE id = ?", (user_id,)).fetchone()
+        if not user:
+            raise HTTPException(404, "User not found")
+        db.execute("UPDATE users SET braindump_learning_enabled = ? WHERE id = ?", (1 if data.enabled else 0, user_id))
+        if not data.enabled:
+            _reset_braindump_learning(db, user_id)
+        db.commit()
+        return _braindump_learning_settings(db, user_id)
+
+
+@router.delete("/learning")
+def reset_braindump_learning(user_id: int = Depends(require_auth)):
+    """Reset only the current user's learned BrainDump route counters."""
+    require_braindump_access(user_id)
+    with get_db() as db:
+        deleted = _reset_braindump_learning(db, user_id)
+        db.commit()
+        settings = _braindump_learning_settings(db, user_id)
+    return {**settings, "deleted": deleted}
 
 
 @router.post("/todos")

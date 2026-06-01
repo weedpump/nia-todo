@@ -216,7 +216,8 @@ def get_current_user_allow_mfa_enrollment(token: Optional[str] = None) -> Option
 def verify_user_credentials(db, username: str, password: str) -> Optional[dict]:
     identifier = (username or "").strip()
     row = db.execute(
-        """SELECT id, username, display_name, email, email_verified_at, email_trust_source, avatar_url, password_hash, is_admin, token_version
+        """SELECT id, username, display_name, email, email_verified_at, email_trust_source, avatar_url, password_hash, is_admin, token_version,
+                  COALESCE(braindump_enabled, 0) AS braindump_enabled, COALESCE(braindump_learning_enabled, 1) AS braindump_learning_enabled
            FROM users
            WHERE username = ?
               OR (lower(email) = lower(?) AND email_verified_at IS NOT NULL)

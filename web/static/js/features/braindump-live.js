@@ -652,7 +652,7 @@ export function createBrainDumpLiveFeature(options = {}) {
   }
 
   function rawCandidateKey(candidate) {
-    return [candidate.title, candidate.project_name, candidate.section_name, candidate.deadline, candidate.reminder, candidate.kind].map((value) => String(value || '').trim()).join('|');
+    return [candidate.title, candidate.project_name, candidate.section_name, candidate.deadline, candidate.reminder].map((value) => String(value || '').trim()).join('|');
   }
 
   function candidateKey(candidate) {
@@ -669,6 +669,9 @@ export function createBrainDumpLiveFeature(options = {}) {
       const next = { ...candidate };
       const previous = previousByRawKey.get(rawCandidateKey(candidate));
       if (previous?._bdId) next._bdId = previous._bdId;
+      next.original_project_name = previous?.original_project_name ?? next.project_name ?? null;
+      next.original_section_name = previous?.original_section_name ?? next.section_name ?? null;
+      next.original_route_present = true;
       candidateKey(next);
       return next;
     });
@@ -964,8 +967,7 @@ export function createBrainDumpLiveFeature(options = {}) {
     const route = [candidate.project_name, candidate.section_name].filter(Boolean).join(' / ') || t('braindump.route.inbox');
     const due = candidate.deadline ? formatDate(candidate.deadline) : '';
     const reminder = candidate.reminder ? formatDate(candidate.reminder) : '';
-    const kind = candidate.kind || 'todo';
-    const meta = [route, due ? t('braindump.meta.due', { date: due }) : '', reminder ? t('braindump.meta.reminder', { date: reminder }) : '', kind !== 'todo' ? t(`braindump.kind.${kind}`) : ''].filter(Boolean).join(' · ');
+    const meta = [route, due ? t('braindump.meta.due', { date: due }) : '', reminder ? t('braindump.meta.reminder', { date: reminder }) : ''].filter(Boolean).join(' · ');
     return `
       <div class="braindump-candidate-card todo-item ${isEditing ? 'is-editing' : ''}" style="--bd-delay:${Math.min(index, 8) * 55}ms">
         <input id="${escapeHtmlAttr(checkboxId)}" type="checkbox" data-bd-candidate-key="${escapeHtmlAttr(key)}" ${checked}>

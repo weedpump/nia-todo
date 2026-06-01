@@ -26,6 +26,11 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .admin-section-card.collapsed .admin-section-body { display: none; }
 .admin-card h2 { font-size: 16px; margin: 0 0 16px 0; color: var(--text-primary); display: inline-flex; align-items: center; gap: 8px; }
 .user-table-wrap { width: 100%; overflow: visible; }
+.user-list-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+.user-search-wrap { flex: 1 1 260px; min-width: 220px; }
+.user-search-input { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-primary); color: var(--text-primary); font-size: 14px; }
+.user-search-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
+.user-search-count { color: var(--text-muted); font-size: 12px; font-weight: 650; white-space: nowrap; }
 .user-table { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: auto; min-width: 0; }
 .user-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
 .user-table tbody { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
@@ -159,6 +164,9 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
   .form-row { flex-direction: column; gap: 10px; }
   .admin-config-grid { grid-template-columns: 1fr; }
   .form-row input, .form-row select { width: 100%; flex-basis: auto; }
+  .user-list-toolbar { align-items: stretch; flex-direction: column; }
+  .user-search-wrap { flex-basis: auto; min-width: 0; }
+  .user-search-count { white-space: normal; }
   .form-row .admin-config-checkbox input[type="checkbox"] { width: 46px; min-width: 46px; flex: 0 0 46px; }
   .form-row .btn { width: fit-content; max-width: 100%; min-height: 38px; }
   #admin-login-card .form-row .btn,
@@ -502,6 +510,12 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
   <!-- User List -->
   <div class="admin-card" id="user-list-card">
     <h2><span data-icon="users"></span> <span data-i18n-key="admin.user.title">Users</span></h2>
+    <div class="user-list-toolbar">
+      <label class="user-search-wrap" for="user-search">
+        <input class="user-search-input" type="search" id="user-search" data-i18n-placeholder-key="admin.user.searchPlaceholder" placeholder="Search users" autocomplete="off" oninput="renderUsers()">
+      </label>
+      <div class="user-search-count" id="user-search-count"></div>
+    </div>
     <div class="user-table-wrap">
     <table class="user-table" id="user-table">
       <thead>
@@ -666,6 +680,13 @@ let adminToken = null;
 let serverUpdatePollTimer = null;
 let serverUpdateReloadPromptShown = false;
 let serverUpdateStartedInThisPage = false;
+let adminUsers = [];
+
+function focusAdminLoginPassword() {
+  window.setTimeout(() => {
+    document.getElementById('admin-login-password')?.focus({ preventScroll: true });
+  }, 0);
+}
 
 function setTheme(mode) {
   const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -706,9 +727,11 @@ if (adminToken) {
     localStorage.removeItem('admin_jwt_token');
     adminToken = null;
     document.getElementById('admin-login-card').style.display = 'block';
+    focusAdminLoginPassword();
   });
 } else {
   document.getElementById('admin-login-card').style.display = 'block';
+  focusAdminLoginPassword();
 }
 
 function getAuthHeaders() {
@@ -1496,15 +1519,39 @@ function renderUserEmailDisplay(userId, emailValue) {
 }
 
 function renderUsers(users) {
+  if (Array.isArray(users)) adminUsers = users;
   const tbody = document.getElementById('user-list');
+  const searchInput = document.getElementById('user-search');
+  const searchCount = document.getElementById('user-search-count');
+  const query = (searchInput?.value || '').trim().toLowerCase();
+  const filteredUsers = query
+    ? adminUsers.filter((user) => [
+        user.id,
+        user.username,
+        user.display_name,
+        user.email,
+        user.email_status,
+        user.last_active_at,
+        user.is_admin ? t('admin.user.admin') : t('admin.user.active'),
+      ].some((value) => String(value ?? '').toLowerCase().includes(query)))
+    : adminUsers;
   const brainDumpHeading = document.getElementById('user-braindump-heading');
   if (brainDumpHeading) brainDumpHeading.style.display = brainDumpFeatureEnabled ? '' : 'none';
   const colSpan = brainDumpFeatureEnabled ? 12 : 11;
-  if (!users || users.length === 0) {
+  if (searchCount) {
+    searchCount.textContent = query
+      ? t('admin.user.searchCount', { shown: filteredUsers.length, total: adminUsers.length })
+      : t('admin.user.totalCount', { total: adminUsers.length });
+  }
+  if (!adminUsers || adminUsers.length === 0) {
     tbody.innerHTML = `<tr><td colspan="${colSpan}" class="empty-state">${escapeHtml(t('admin.user.empty'))}</td></tr>`;
     return;
   }
-  tbody.innerHTML = users.map(u => {
+  if (filteredUsers.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="${colSpan}" class="empty-state">${escapeHtml(t('admin.user.searchEmpty'))}</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = filteredUsers.map(u => {
     const title = escapeHtml(u.display_name || u.username);
     const subtitle = u.display_name && u.display_name !== u.username ? escapeHtml(u.username) : escapeHtml(t('setup.usernameLabel'));
     const resetTwoFactorButton = renderUserTwoFactorResetButton(u);
@@ -1796,6 +1843,7 @@ async function adminLogout() {
   document.getElementById('admin-content').style.display = 'none';
   document.getElementById('admin-login-card').style.display = 'block';
   document.getElementById('admin-login-password').value = '';
+  focusAdminLoginPassword();
 }
 
 </script>

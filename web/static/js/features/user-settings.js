@@ -130,6 +130,7 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     if (settingsEmailCell && currentUser) settingsEmailCell.innerHTML = renderSettingsEmailDisplay(currentUser);
     renderSettingsAvatar(currentUser);
     renderLanguageSetting();
+    renderBrainDumpLearningSetting(currentUser);
   }
 
   async function refreshCurrentUser() {
@@ -340,6 +341,8 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     document.getElementById('settings-avatar-success').textContent = '';
     document.getElementById('settings-language-error').textContent = '';
     document.getElementById('settings-language-success').textContent = '';
+    document.getElementById('settings-braindump-error').textContent = '';
+    document.getElementById('settings-braindump-success').textContent = '';
     document.getElementById('settings-2fa-error').textContent = '';
     document.getElementById('settings-2fa-success').textContent = '';
     document.getElementById('settings-2fa-setup').style.display = 'none';
@@ -354,6 +357,68 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
       resetApiKeyUi();
       loadApiKeys();
       updatePushSettingsUI();
+    }
+    if (getCurrentUser()?.braindump_enabled) loadBrainDumpLearningSetting().catch(() => {});
+  }
+
+  function renderBrainDumpLearningSetting(user = getCurrentUser()) {
+    const enabled = Boolean(user?.braindump_enabled);
+    const section = document.getElementById('settings-section-braindump');
+    const nav = document.getElementById('settings-nav-braindump');
+    if (section) section.hidden = !enabled;
+    if (nav) nav.hidden = !enabled;
+    const checkbox = document.getElementById('settings-braindump-learning');
+    if (checkbox) checkbox.checked = user?.braindump_learning_enabled !== false;
+  }
+
+  function setBrainDumpLearningStatus(data = null) {
+    if (!data) return;
+    const countEl = document.getElementById('settings-braindump-learning-count');
+    if (countEl) countEl.textContent = t('settings.braindump.learning.count', { count: Number(data.learned_routes || 0) });
+  }
+
+  async function loadBrainDumpLearningSetting() {
+    if (!getCurrentUser()?.braindump_enabled) {
+      renderBrainDumpLearningSetting();
+      return null;
+    }
+    const data = await authApi.getBrainDumpLearning();
+    const currentUser = getCurrentUser();
+    if (currentUser) setCurrentUser({ ...currentUser, braindump_learning_enabled: data.enabled });
+    renderBrainDumpLearningSetting({ ...currentUser, braindump_learning_enabled: data.enabled });
+    setBrainDumpLearningStatus(data);
+    return data;
+  }
+
+  async function changeBrainDumpLearningSetting(enabled) {
+    const errorEl = document.getElementById('settings-braindump-error');
+    const successEl = document.getElementById('settings-braindump-success');
+    if (errorEl) errorEl.textContent = '';
+    if (successEl) successEl.textContent = '';
+    try {
+      const data = await authApi.updateBrainDumpLearning(enabled);
+      const currentUser = getCurrentUser();
+      if (currentUser) setCurrentUser({ ...currentUser, braindump_learning_enabled: data.enabled });
+      renderBrainDumpLearningSetting({ ...currentUser, braindump_learning_enabled: data.enabled });
+      setBrainDumpLearningStatus(data);
+      if (successEl) successEl.textContent = data.enabled ? t('settings.braindump.learning.enabled') : t('settings.braindump.learning.disabled');
+    } catch (error) {
+      renderBrainDumpLearningSetting();
+      if (errorEl) errorEl.textContent = error?.message || t('settings.braindump.learning.saveFailed');
+    }
+  }
+
+  async function resetBrainDumpLearning() {
+    const errorEl = document.getElementById('settings-braindump-error');
+    const successEl = document.getElementById('settings-braindump-success');
+    if (errorEl) errorEl.textContent = '';
+    if (successEl) successEl.textContent = '';
+    try {
+      const data = await authApi.resetBrainDumpLearning();
+      setBrainDumpLearningStatus(data);
+      if (successEl) successEl.textContent = t('settings.braindump.learning.resetDone');
+    } catch (error) {
+      if (errorEl) errorEl.textContent = error?.message || t('settings.braindump.learning.resetFailed');
     }
   }
 
@@ -994,6 +1059,8 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     renderUserInfo,
     openSettingsModal,
     changeLanguagePreference,
+    changeBrainDumpLearningSetting,
+    resetBrainDumpLearning,
     editUserDisplayName,
     cancelUserDisplayNameEdit,
     saveUserProfile,

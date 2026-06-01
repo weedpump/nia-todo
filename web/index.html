@@ -196,7 +196,7 @@
         <!-- Version & Update -->
         <div class="version-bar" id="version-bar">
           <div class="version-info" id="version-info">
-            <span class="version-text">v2.8.2</span>
+            <span class="version-text">v2.9.0</span>
           </div>
           <div class="version-actions web-version-actions" id="version-actions">
             <a class="changelog-link version-action-btn" id="changelog-link" href="/changelog" target="_blank" rel="noopener noreferrer" title="Open changelog" data-i18n-title-key="version.openChangelog" data-i18n-key="resource.changelog">Changelog</a>
@@ -482,6 +482,7 @@
         <nav class="settings-nav" aria-label="Settings sections" data-i18n-aria-label-key="settings.nav.aria">
           <a href="#settings-section-profile"><span data-icon="user"></span><span data-i18n-key="settings.section.profile">Profil</span></a>
           <a href="#settings-section-language"><span data-icon="book-open"></span><span data-i18n-key="settings.language.label">Language</span></a>
+          <a href="#settings-section-braindump" id="settings-nav-braindump"><span data-icon="sparkles"></span><span data-i18n-key="settings.braindump.title">BrainDump</span></a>
           <a href="#settings-section-security"><span data-icon="shield"></span><span data-i18n-key="settings.section.security">Sicherheit</span></a>
           <a href="#settings-section-api"><span data-icon="key-round"></span><span data-i18n-key="settings.apiKeys.title">API-Keys</span></a>
           <a href="#settings-section-notifications" id="settings-nav-notifications"><span data-icon="bell"></span><span data-i18n-key="settings.section.notifications">Benachrichtigungen</span></a>
@@ -547,6 +548,31 @@
             </div>
             <div id="settings-language-error" class="settings-field-error"></div>
             <div id="settings-language-success" class="settings-field-success"></div>
+          </section>
+
+          <section class="settings-section-card" id="settings-section-braindump">
+            <div class="settings-section-heading">
+              <div class="settings-section-icon" data-icon="sparkles"></div>
+              <div>
+                <h4 data-i18n-key="settings.braindump.title">BrainDump</h4>
+                <p data-i18n-key="settings.braindump.hint">Lokale Lernfunktion für Projekt- und Section-Zuordnungen.</p>
+              </div>
+            </div>
+            <div class="settings-subcard">
+              <label class="settings-toggle-row settings-toggle-feature settings-switch-row">
+                <span data-i18n-key="settings.braindump.learning.label">BrainDump merkt sich passende Listen</span>
+                <input type="checkbox" class="settings-switch" id="settings-braindump-learning" onchange="changeBrainDumpLearningSetting(this.checked)">
+              </label>
+              <div class="settings-help-text" data-i18n-key="settings.braindump.learning.help">
+                Wenn du Aufgaben in eine andere Liste oder Section verschiebst, merkt sich BrainDump diese Entscheidung für dein Konto und schlägt sie beim nächsten Mal eher vor. Audio und gesprochener Text werden dafür nicht gespeichert.
+              </div>
+              <div class="settings-help-text" id="settings-braindump-learning-count"></div>
+              <div class="settings-card-actions">
+                <button type="button" class="btn btn-secondary" onclick="resetBrainDumpLearning()" data-i18n-key="settings.braindump.learning.reset">Gelernte Zuordnungen zurücksetzen</button>
+              </div>
+              <div id="settings-braindump-error" class="settings-field-error"></div>
+              <div id="settings-braindump-success" class="settings-field-success"></div>
+            </div>
           </section>
 
           <section class="settings-section-card" id="settings-section-security">

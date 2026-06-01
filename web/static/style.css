@@ -3795,6 +3795,44 @@ input[type="color"]::-moz-color-swatch {
   height: 18px;
   accent-color: var(--accent);
 }
+.settings-toggle-row input[type="checkbox"].settings-switch {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 46px;
+  min-width: 46px;
+  height: 26px;
+  flex: 0 0 46px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--border) 78%, var(--text-muted));
+  background: var(--bg-tertiary);
+  position: relative;
+  cursor: pointer;
+  transition: background .16s, border-color .16s, box-shadow .16s;
+}
+.settings-toggle-row input[type="checkbox"].settings-switch::after {
+  content: '';
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  top: 2px;
+  left: 2px;
+  border-radius: 50%;
+  background: var(--text-secondary);
+  box-shadow: 0 2px 5px rgba(0,0,0,.28);
+  transition: transform .16s, background .16s;
+}
+.settings-toggle-row input[type="checkbox"].settings-switch:checked {
+  background: color-mix(in srgb, var(--success) 72%, var(--accent));
+  border-color: color-mix(in srgb, var(--success) 86%, white);
+}
+.settings-toggle-row input[type="checkbox"].settings-switch:checked::after {
+  transform: translateX(20px);
+  background: white;
+}
+.settings-toggle-row input[type="checkbox"].settings-switch:focus-visible {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 24%, transparent);
+  outline: none;
+}
 .settings-server-row {
   display: flex;
   gap: 8px;

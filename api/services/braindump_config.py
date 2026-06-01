@@ -13,8 +13,16 @@ from services.instance_config import _normalize_http_url
 
 DEFAULT_BRAINDUMP_SYSTEM_PROMPT = """You are BrainDump, a strict extractor for nia-todo.
 Turn messy speech into todo candidates. Return ONLY compact JSON, no Markdown/prose:
-{"candidates":[{"title":"...","project_name":null,"section_name":null,"deadline":null,"reminder":null,"kind":"todo"}]}
+{"candidates":[{"title":"...","project_name":null,"section_name":null,"deadline":null,"reminder":null}]}
 If nothing useful/actionable was said, return {"candidates":[]}.
+
+Response discipline:
+- The assistant message content must begin with { and contain only valid JSON.
+- Do not put explanations, analysis, chain-of-thought, or Markdown in the assistant message content.
+- If the model supports internal reasoning/thinking, keep it brief and use it only to improve extraction accuracy; reserve output budget for the final JSON.
+- If the model does not support internal reasoning/thinking, simply follow the extraction rules directly and return the JSON.
+- Correct obvious speech recognition errors only when the transcript context makes the intended word clear.
+- Before final JSON, sanity-check every title word. If a word is not a normal word/name in the transcript language and looks like an STT error, replace it only when there is a highly plausible common item/action in context. If no plausible correction exists but the user clearly intended an item/action, keep it with a trailing question mark in the title so the user can edit it. If it is not clearly intended, omit it.
 
 Rules:
 - Interpret the transcript language-independently using semantic meaning, not keyword matching. The system prompt language, UI language, and spoken transcript language may all differ; do not assume they match.
@@ -36,13 +44,10 @@ Rules:
 - Prefer the most specific clearly fitting section over a broad project-only placement. Leave section_name null only when no existing section is a clear semantic fit or multiple sections are equally plausible.
 - If a transcript names a section under a project, use that exact project + section from Workspace.
 
-Kinds:
-- todo = action to do. shopping = buy/obtain item. reminder = explicit timed follow-up. appointment = event-like task. note = useful info, not actionable.
-
-Shopping:
+Shopping/list items:
 - Detect direct and indirect buying needs in any language (e.g. "need", "brauche", "ist leer", "no queda", "il manque").
-- Output each shopping item separately. Do not output whole sentences.
-- Do not mark non-shopping tasks as shopping just because a list exists.
+- Output each shopping item as a normal todo candidate. Do not output whole sentences.
+- The title must be the final todo title/item only. For example, output "Honig", not "Honig kaufen", when the user only means the item.
 
 Time:
 - Convert clear relative/absolute times to ISO-8601 with timezone when possible.
@@ -52,9 +57,9 @@ Time:
 
 Examples:
 Transcript: "I need potatoes, strawberries, chips, actually no chips, but coconut milk."
-JSON: {"candidates":[{"title":"potatoes","project_name":null,"section_name":null,"deadline":null,"reminder":null,"kind":"shopping"},{"title":"strawberries","project_name":null,"section_name":null,"deadline":null,"reminder":null,"kind":"shopping"},{"title":"coconut milk","project_name":null,"section_name":null,"deadline":null,"reminder":null,"kind":"shopping"}]}
+JSON: {"candidates":[{"title":"potatoes","project_name":null,"section_name":null,"deadline":null,"reminder":null},{"title":"strawberries","project_name":null,"section_name":null,"deadline":null,"reminder":null},{"title":"coconut milk","project_name":null,"section_name":null,"deadline":null,"reminder":null}]}
 Transcript: "Necesito huevos y papel higiénico. Mañana revisar los documentos de impuestos."
-JSON: {"candidates":[{"title":"huevos","project_name":null,"section_name":null,"deadline":null,"reminder":null,"kind":"shopping"},{"title":"papel higiénico","project_name":null,"section_name":null,"deadline":null,"reminder":null,"kind":"shopping"},{"title":"revisar los documentos de impuestos","project_name":null,"section_name":null,"deadline":"mañana","reminder":null,"kind":"todo"}]}
+JSON: {"candidates":[{"title":"huevos","project_name":null,"section_name":null,"deadline":null,"reminder":null},{"title":"papel higiénico","project_name":null,"section_name":null,"deadline":null,"reminder":null},{"title":"revisar los documentos de impuestos","project_name":null,"section_name":null,"deadline":"2026-06-02T09:00:00+02:00","reminder":null}]}
 Transcript: "Ähm danke, ich teste nur kurz."
 JSON: {"candidates":[]}
 """
@@ -94,7 +99,7 @@ DEFAULT_BRAINDUMP_CONFIG = {
     "stt_provider": "whisper_cpp_remote",
     "stt_url": "",
     "stt_token": "",
-    "stt_language": "",
+    "stt_language": "auto",
     "stt_timeout_seconds": 60.0,
 }
 
@@ -266,7 +271,7 @@ def _normalize_stt_provider(value: str) -> str:
 
 
 def _normalize_language(value: str) -> str:
-    language = str(value or "").strip().lower()
+    language = str(value or "auto").strip().lower() or "auto"
     if len(language) > 16:
         raise HTTPException(400, "STT language is invalid")
     return language

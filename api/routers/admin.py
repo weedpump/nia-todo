@@ -114,7 +114,7 @@ class BrainDumpConfigRequest(BaseModel):
     stt_provider: str = "whisper_cpp_remote"
     stt_url: str = ""
     stt_token_secret: Optional[str] = None
-    stt_language: str = ""
+    stt_language: str = "auto"
     stt_timeout_seconds: float = 60
 
 class EmailConfigRequest(BaseModel):
@@ -311,7 +311,7 @@ def _probe_remote_stt(config: dict) -> tuple[bool, str, str]:
         "temperature_inc": "0.0",
     }
     language = str(config.get("stt_language") or "").strip()
-    if language:
+    if language and language.lower() != "auto":
         fields["language"] = language
     body, multipart_type = _build_multipart_form_data(
         fields,

@@ -102,6 +102,8 @@ def login(data: LoginRequest, request: Request, response: Response, _: None = De
                     "email_verified_at": user.get('email_verified_at'),
                     "email_trust_source": user.get('email_trust_source'),
                     "avatar_url": user.get('avatar_url'),
+                    "braindump_enabled": bool(user.get('braindump_enabled', False)),
+                    "braindump_learning_enabled": bool(user.get('braindump_learning_enabled', True)),
                     "is_admin": bool(user.get('is_admin', False))
                 },
                 "state": state,
@@ -124,6 +126,8 @@ def login(data: LoginRequest, request: Request, response: Response, _: None = De
                 "email_verified_at": user.get('email_verified_at'),
                 "email_trust_source": user.get('email_trust_source'),
                 "avatar_url": user.get('avatar_url'),
+                "braindump_enabled": bool(user.get('braindump_enabled', False)),
+                "braindump_learning_enabled": bool(user.get('braindump_learning_enabled', True)),
                 "is_admin": bool(user.get('is_admin', False))
             },
             "csrf_token": csrf_token,
@@ -172,7 +176,7 @@ def me(request: Request, response: Response, authorization: Optional[str] = Head
             user_id = payload.get('user_id')
         
         user = db.execute(
-            "SELECT id, username, display_name, email, email_verified_at, email_trust_source, pending_email, avatar_url, avatar_updated_at, is_admin, token_version, language FROM users WHERE id = ?",
+            "SELECT id, username, display_name, email, email_verified_at, email_trust_source, pending_email, avatar_url, avatar_updated_at, is_admin, token_version, language, COALESCE(braindump_enabled, 0) AS braindump_enabled, COALESCE(braindump_learning_enabled, 1) AS braindump_learning_enabled FROM users WHERE id = ?",
             (user_id,)
         ).fetchone()
         if not user:
@@ -193,6 +197,8 @@ def me(request: Request, response: Response, authorization: Optional[str] = Head
             "avatar_url": user['avatar_url'],
             "avatar_updated_at": user['avatar_updated_at'],
             "language": user['language'] or 'auto',
+            "braindump_enabled": bool(user['braindump_enabled']),
+            "braindump_learning_enabled": bool(user['braindump_learning_enabled']),
             "is_admin": bool(user['is_admin']),
             "two_factor": mfa_state,
             "mfa_enrollment_required": enroll_only,
