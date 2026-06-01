@@ -732,33 +732,29 @@ def _load_braindump_workspace_context(db, user_id: int, workspace_id: int | None
 def _format_workspace_context(context: dict | None) -> str:
     projects = (context or {}).get("projects") or []
     workspace_name = (context or {}).get("workspace_name")
-    if not projects:
-        return "Workspace: none. Use project_name=null and section_name=null unless explicitly obvious."
-    if workspace_name:
-        lines = [
-            f"Current workspace: {str(workspace_name)[:80]}.",
-            "Use only these exact projects. A section is valid only under the project where it is listed. Do not attach a section to any other project:",
-        ]
-    else:
-        lines = [
-            "Workspace context:",
-            "Use only these exact projects. A section is valid only under the project where it is listed. Do not attach a section to any other project:",
-        ]
-    for project in projects[:40]:
-        label = str(project.get("name") or "")[:80]
-        if not workspace_name and project.get("workspace"):
-            label = f"{str(project.get('workspace'))[:60]} / {label}"
-        lines.append(f"- project: {label}")
-        sections = [str(section)[:60] for section in (project.get("sections") or [])[:16]]
-        if sections:
-            lines.append("  sections:")
-            for section in sections:
-                lines.append(f"  - {section}")
-        else:
-            lines.append("  sections: []")
-    text = "\n".join(lines)
-    if len(text) > 5000:
-        return text[:4990].rstrip() + "\n- ..."
+    payload = {
+        "workspace_name": workspace_name,
+        "rules": [
+            "Use only exact project_name values from workspace.projects[].name, otherwise null.",
+            "Use only section_name values listed inside the selected project's sections array, otherwise null.",
+            "Never attach a section to a different project than the one where it is listed.",
+            "Return only the output object with candidates; do not copy workspace data into the output.",
+        ],
+        "projects": [
+            {
+                "name": str(project.get("name") or "")[:80],
+                "sections": [str(section)[:60] for section in (project.get("sections") or [])[:16]],
+            }
+            for project in projects[:40]
+            if str(project.get("name") or "").strip()
+        ],
+    }
+    if not payload["projects"]:
+        payload["rules"].append("No projects are available; use project_name=null and section_name=null.")
+    text = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+    while len(text) > 5000 and len(payload["projects"]) > 1:
+        payload["projects"] = payload["projects"][:-1]
+        text = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
     return text
 
 
@@ -988,7 +984,6 @@ Before writing JSON:
 7. Preserve explicit dates, times, reminders, and event-like intent from the transcript on the final ledger entries.
 8. Correct obvious speech recognition errors only when context makes the intended word clear.
 9. Output only the remaining final ledger entries as compact JSON using exactly this schema: {"candidates":[{"title":"...","project_name":null,"section_name":null,"deadline":null,"reminder":null}]}.
-10. Everything is a todo. Do not output kind, type, category, or other parallel classification fields.
 
 Response requirement: the assistant message content must start with { and contain only valid compact JSON. No Markdown, prose, explanation, or analysis in content.
 
@@ -1004,7 +999,7 @@ Transcript meaning: add A, B, C; later remove B; later add D.
 Correct final output: A, C, D.
 Never output: B, the remove-B command, or leftover words from the remove-B clause.
 """.strip()
-    user_content = f"Current datetime: {current_datetime}\n\n{_format_workspace_context(workspace_context)}\n\n{extraction_contract}\n\nTranscript:\n{text}"
+    user_content = f"Current datetime: {current_datetime}\n\nWorkspace JSON:\n{_format_workspace_context(workspace_context)}\n\nOutput JSON shape:\n{{\"candidates\":[{{\"title\":\"...\",\"project_name\":null,\"section_name\":null,\"deadline\":null,\"reminder\":null}}]}}\n\n{extraction_contract}\n\nTranscript:\n{text}"
     model_name = str(config.get("llm_model") or "").strip()
     if not model_name:
         raise RuntimeError("BrainDump LLM model is not configured")

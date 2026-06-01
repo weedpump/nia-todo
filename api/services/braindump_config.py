@@ -22,7 +22,6 @@ Response discipline:
 - If the model supports internal reasoning/thinking, keep it brief and use it only to improve extraction accuracy; reserve output budget for the final JSON.
 - If the model does not support internal reasoning/thinking, simply follow the extraction rules directly and return the JSON.
 - Correct obvious speech recognition errors only when the transcript context makes the intended word clear; otherwise prefer omission over guessing.
-- Everything is a todo. Do not output kind, type, category, or other parallel classification fields.
 
 Rules:
 - Interpret the transcript language-independently using semantic meaning, not keyword matching. The system prompt language, UI language, and spoken transcript language may all differ; do not assume they match.

@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -210,8 +211,7 @@ def test_default_prompt_requires_language_agnostic_correction_handling():
     assert_true("If the model supports internal reasoning/thinking" in prompt, prompt)
     assert_true("If the model does not support internal reasoning/thinking" in prompt, prompt)
     assert_true("Correct obvious speech recognition errors" in prompt, prompt)
-    assert_true("Everything is a todo" in prompt, prompt)
-    assert_true("Do not output kind" in prompt, prompt)
+    assert_true("kind" not in prompt.lower(), prompt)
 
 
 def test_llm_token_budget_and_empty_response_diagnostic():
@@ -370,17 +370,23 @@ def test_admin_llm_models_payload_validates_configured_model():
     assert_true(_validate_configured_llm_model(ollama_payload, "gpt-oss:120b") is None, "valid Ollama model should pass")
 
 
-def test_workspace_context_is_compact():
-    context = {"projects": [{"name": f"Project {idx}", "workspace": "Private", "sections": [f"Section {idx}-{s}" for s in range(20)]} for idx in range(60)]}
+def test_workspace_context_is_compact_json():
+    context = {"workspace_name": "Private", "projects": [{"name": f"Project {idx}", "workspace": "Private", "sections": [f"Section {idx}-{s}" for s in range(20)]} for idx in range(60)]}
     formatted = _format_workspace_context(context)
+    payload = json.loads(formatted)
     assert_true(len(formatted) <= 5005, len(formatted))
-    assert_true("Project 0" in formatted and "Project 59" not in formatted, formatted[-200:])
+    assert_true(payload["workspace_name"] == "Private", payload)
+    assert_true(payload["projects"][0]["name"] == "Project 0", payload["projects"][:1])
+    assert_true(all("name" in project and "sections" in project for project in payload["projects"]), payload)
 
 
-def test_workspace_context_exposes_more_than_first_eight_sections():
+def test_workspace_context_json_preserves_project_section_nesting():
     context = {"projects": [{"name": "Project", "workspace": "Private", "sections": [f"Section {idx}" for idx in range(12)] + ["Specific Semantic Bucket"]}]}
     formatted = _format_workspace_context(context)
-    assert_true("Specific Semantic Bucket" in formatted, formatted)
+    payload = json.loads(formatted)
+    assert_true(payload["projects"][0]["name"] == "Project", payload)
+    assert_true("Specific Semantic Bucket" in payload["projects"][0]["sections"], payload)
+    assert_true(any("Never attach a section" in rule for rule in payload["rules"]), payload)
 
 
 def test_default_prompt_requires_generic_semantic_section_routing():
@@ -425,8 +431,8 @@ def main():
         test_llm_endpoint_urls_accept_root_v1_and_full_paths,
         test_ollama_provider_urls_payload_and_response_content,
         test_admin_llm_models_payload_validates_configured_model,
-        test_workspace_context_is_compact,
-        test_workspace_context_exposes_more_than_first_eight_sections,
+        test_workspace_context_is_compact_json,
+        test_workspace_context_json_preserves_project_section_nesting,
         test_default_prompt_requires_generic_semantic_section_routing,
         test_remote_stt_response_parsing_and_multipart_payload,
     ]
