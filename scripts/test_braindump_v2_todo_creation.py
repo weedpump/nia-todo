@@ -83,6 +83,7 @@ def make_db():
     db.execute("INSERT INTO projects (id, name, user_id, is_inbox, workspace_id) VALUES (3, 'Haushalt', 1, 0, 1)")
     db.execute("INSERT INTO projects (id, name, user_id, is_inbox, workspace_id) VALUES (4, 'Inbox', 1, 1, 2)")
     db.execute("INSERT INTO projects (id, name, user_id, is_inbox, workspace_id) VALUES (5, 'IT', 1, 0, 2)")
+    db.execute("INSERT INTO sections (id, project_id, name) VALUES (9, 1, 'Keller')")
     db.execute("INSERT INTO sections (id, project_id, name) VALUES (10, 2, 'Obst und Gemüse')")
     db.execute("INSERT INTO sections (id, project_id, name) VALUES (11, 2, 'Milchprodukte')")
     db.execute("INSERT INTO sections (id, project_id, name) VALUES (12, 3, 'Keller')")
@@ -93,8 +94,8 @@ def make_db():
 def test_creates_confirmed_candidates_with_project_section_and_reminder():
     db = make_db()
     candidates = [
-        BrainDumpTodoCandidate(title="Hafermilch", project_name="Einkaufsliste", section_name="Milchprodukte", kind="shopping"),
-        BrainDumpTodoCandidate(title="Bananen", project_name="Einkaufsliste", section_name="Obst und Gemüse", kind="shopping"),
+        BrainDumpTodoCandidate(title="Hafermilch", project_name="Einkaufsliste", section_name="Milchprodukte"),
+        BrainDumpTodoCandidate(title="Bananen", project_name="Einkaufsliste", section_name="Obst und Gemüse"),
         BrainDumpTodoCandidate(title="Snoopy Futter geben", reminder="2026-05-30T18:00+02:00", deadline="2026-05-30T18:00+02:00"),
         BrainDumpTodoCandidate(title="Alte Kartons entsorgen", project_name="Haushalt", section_name="Keller"),
     ]
@@ -113,15 +114,15 @@ def test_creates_confirmed_candidates_with_project_section_and_reminder():
     assert_true(snoopy["reminders"][0]["remind_at"] == "2026-05-30T18:00+02:00", snoopy)
 
 
-def test_creates_candidate_with_unique_section_even_when_project_missing():
+def test_project_null_uses_inbox_even_with_matching_inbox_section_name():
     db = make_db()
     created = _create_todos_from_braindump_candidates(
         db,
         1,
         [BrainDumpTodoCandidate(title="Alte Kartons entsorgen", section_name="Keller")],
     )
-    assert_true(created[0]["project_id"] == 3, created)
-    assert_true(created[0]["section_id"] == 12, created)
+    assert_true(created[0]["project_id"] == 1, created)
+    assert_true(created[0]["section_id"] is None, created)
 
 
 def test_workspace_context_filters_projects_and_routes_inbox():
@@ -144,44 +145,43 @@ def test_workspace_context_filters_projects_and_routes_inbox():
     assert_true(by_title["Rack aufräumen"]["section_id"] == 13, by_title)
 
 
-def test_workspace_context_rejects_project_from_other_workspace():
+def test_workspace_context_project_from_other_workspace_falls_back_to_inbox():
     db = make_db()
-    try:
-        _create_todos_from_braindump_candidates(db, 1, [BrainDumpTodoCandidate(title="X", project_name="Einkaufsliste")], workspace_id=2)
-    except Exception as exc:
-        assert_true(getattr(exc, "status_code", None) == 422, exc)
-    else:
-        raise AssertionError("project outside current workspace should fail")
+    created = _create_todos_from_braindump_candidates(db, 1, [BrainDumpTodoCandidate(title="X", project_name="Einkaufsliste")], workspace_id=2)
+    assert_true(created[0]["project_id"] == 4, created)
+    assert_true(created[0]["section_id"] is None, created)
 
 
-def test_rejects_unknown_project_name():
+def test_unknown_project_name_falls_back_to_inbox():
     db = make_db()
-    try:
-        _create_todos_from_braindump_candidates(db, 1, [BrainDumpTodoCandidate(title="X", project_name="Gibt es nicht")])
-    except Exception as exc:
-        assert_true(getattr(exc, "status_code", None) == 422, exc)
-    else:
-        raise AssertionError("unknown project should fail")
+    created = _create_todos_from_braindump_candidates(db, 1, [BrainDumpTodoCandidate(title="X", project_name="Gibt es nicht")])
+    assert_true(created[0]["project_id"] == 1, created)
+    assert_true(created[0]["section_id"] is None, created)
 
 
-def test_rejects_section_outside_project():
+def test_unknown_project_name_ignores_matching_inbox_section():
     db = make_db()
-    try:
-        _create_todos_from_braindump_candidates(db, 1, [BrainDumpTodoCandidate(title="X", project_name="Einkaufsliste", section_name="Keller")])
-    except Exception as exc:
-        assert_true(getattr(exc, "status_code", None) == 422, exc)
-    else:
-        raise AssertionError("section outside project should fail")
+    created = _create_todos_from_braindump_candidates(db, 1, [BrainDumpTodoCandidate(title="X", project_name="Gibt es nicht", section_name="Keller")])
+    assert_true(created[0]["project_id"] == 1, created)
+    assert_true(created[0]["section_id"] is None, created)
+
+
+def test_section_outside_project_is_cleared():
+    db = make_db()
+    created = _create_todos_from_braindump_candidates(db, 1, [BrainDumpTodoCandidate(title="X", project_name="Einkaufsliste", section_name="Keller")])
+    assert_true(created[0]["project_id"] == 2, created)
+    assert_true(created[0]["section_id"] is None, created)
 
 
 def main():
     tests = [
         test_creates_confirmed_candidates_with_project_section_and_reminder,
-        test_creates_candidate_with_unique_section_even_when_project_missing,
+        test_project_null_uses_inbox_even_with_matching_inbox_section_name,
         test_workspace_context_filters_projects_and_routes_inbox,
-        test_workspace_context_rejects_project_from_other_workspace,
-        test_rejects_unknown_project_name,
-        test_rejects_section_outside_project,
+        test_workspace_context_project_from_other_workspace_falls_back_to_inbox,
+        test_unknown_project_name_falls_back_to_inbox,
+        test_unknown_project_name_ignores_matching_inbox_section,
+        test_section_outside_project_is_cleared,
     ]
     for test in tests:
         test()

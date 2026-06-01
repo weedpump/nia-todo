@@ -52,6 +52,7 @@ async function run() {
   const { browser, page, loginApp, assertNoFrontendErrors } = await launchPage();
   let transcribeCalls = 0;
   let extractCalls = 0;
+  let createPayload = null;
 
   try {
     await page.addInitScript(() => {
@@ -136,10 +137,18 @@ async function run() {
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({ json: { candidates: [
-          { title: 'Milch kaufen', project_name: 'Einkauf', kind: 'shopping' },
-          { title: 'Snoopy Tabletten geben', project_name: 'Privat', kind: 'reminder' },
-          { title: 'Keller aufräumen', project_name: 'Privat', kind: 'todo' },
+          { title: 'Milch kaufen', project_name: 'Einkauf' },
+          { title: 'Snoopy Tabletten geben', project_name: 'Privat' },
+          { title: 'Keller aufräumen', project_name: 'Privat' },
         ] } }),
+      });
+    });
+    await page.route('**/api/braindump/v2/todos', async (route) => {
+      createPayload = route.request().postDataJSON();
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ todos: [{ id: 9001 }, { id: 9002 }, { id: 9003 }] }),
       });
     });
 
@@ -288,6 +297,12 @@ async function run() {
       return Boolean(button && !button.disabled && !button.classList.contains('is-muted'));
     });
     if (!acceptReady) throw new Error('BrainDump accept button should become prominent when todos are selected');
+    await page.locator('#braindump-create').click();
+    await page.waitForFunction(() => document.getElementById('braindump-create-status')?.textContent?.trim(), null, { timeout: 5000 });
+    if (!createPayload) throw new Error('BrainDump create endpoint was not called');
+    const submittedTitles = (createPayload.candidates || []).map(candidate => candidate.title);
+    if (!submittedTitles.includes('Hafermilch kaufen')) throw new Error(`Edited BrainDump title was not submitted: ${JSON.stringify(createPayload)}`);
+    if ((createPayload.candidates || []).some(candidate => Object.prototype.hasOwnProperty.call(candidate, 'kind'))) throw new Error(`BrainDump create payload must not include kind: ${JSON.stringify(createPayload)}`);
     if (!transcribeCalls || !extractCalls) throw new Error(`Expected BrainDump live calls, got transcribe=${transcribeCalls} extract=${extractCalls}`);
     const trackStopped = await page.evaluate(() => window.__braindumpTrackStopped === true);
     if (!trackStopped) throw new Error('BrainDump did not stop microphone tracks after recording');

@@ -55,8 +55,32 @@ def test_remote_stt_probe_posts_to_exact_configured_url():
     assert method == "POST"
     assert b'Content-Disposition: form-data; name="file"' in body
     assert b'nia-todo-stt-probe.wav' in body
+    assert b'name="language"' in body and b'\r\nde\r\n' in body
     assert headers.get("Authorization") == "Bearer secret-token"
     assert "multipart/form-data" in headers.get("Content-type", headers.get("Content-Type", ""))
+
+
+def test_remote_stt_probe_omits_auto_language_field():
+    calls: list[tuple[str, str, bytes, dict]] = []
+    original_urlopen = admin.urllib.request.urlopen
+
+    def fake_urlopen(req, timeout=0):
+        calls.append((req.full_url, req.get_method(), req.data, dict(req.header_items())))
+        return FakeResponse()
+
+    admin.urllib.request.urlopen = fake_urlopen
+    try:
+        ok, _message, _sample = admin._probe_remote_stt({
+            "stt_url": "http://stt.example.test/custom/transcribe",
+            "stt_language": "auto",
+            "stt_timeout_seconds": 42,
+        })
+    finally:
+        admin.urllib.request.urlopen = original_urlopen
+
+    assert ok is True
+    assert calls, "probe must perform an HTTP request"
+    assert b'name="language"' not in calls[0][2]
 
 
 def test_remote_stt_probe_rejects_invalid_json_response():
@@ -79,6 +103,7 @@ def test_remote_stt_probe_rejects_invalid_json_response():
 
 def main() -> int:
     test_remote_stt_probe_posts_to_exact_configured_url()
+    test_remote_stt_probe_omits_auto_language_field()
     test_remote_stt_probe_rejects_invalid_json_response()
     print("✅ BrainDump admin STT probe regression tests passed")
     return 0
