@@ -10,10 +10,14 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "api"))
 
 from routers.admin import _validate_configured_llm_model  # noqa: E402
+from routers import braindump_v2 as braindump_mod  # noqa: E402
 from routers.braindump_v2 import (  # noqa: E402
+    _braindump_llm_max_tokens,
     _build_multipart_form_data,
     _extract_transcript_from_stt_response,
+    _extract_with_llm,
     _format_workspace_context,
+    _llm_empty_content_diagnostic,
     _llm_request_payload,
     _llm_response_content,
     _normalize_braindump_json,
@@ -202,6 +206,86 @@ def test_default_prompt_requires_language_agnostic_correction_handling():
     assert_true("preserve explicit dates/times/reminders" in prompt, prompt)
     assert_true("Prefer omission over false positives" in prompt, prompt)
     assert_true("add A, B, C; later remove B; later add D" in prompt, prompt)
+    assert_true("The assistant message content must begin with {" in prompt, prompt)
+    assert_true("If the model supports internal reasoning/thinking" in prompt, prompt)
+    assert_true("If the model does not support internal reasoning/thinking" in prompt, prompt)
+    assert_true("Correct obvious speech recognition errors" in prompt, prompt)
+
+
+def test_llm_token_budget_and_empty_response_diagnostic():
+    short_budget = _braindump_llm_max_tokens("Kartoffeln")
+    retry_budget = _braindump_llm_max_tokens("Kartoffeln", retry=True)
+    assert_true(short_budget >= 1200, short_budget)
+    assert_true(retry_budget > short_budget, (short_budget, retry_budget))
+    diagnostic = _llm_empty_content_diagnostic({
+        "choices": [{"message": {"content": ""}, "finish_reason": "length"}],
+        "usage": {"completion_tokens": 500, "completion_tokens_details": {"reasoning_tokens": 497}},
+    }, {"llm_provider": "openai_compatible"}, 2000)
+    assert_true("finish_reason=length" in diagnostic, diagnostic)
+    assert_true("reasoning_tokens=497" in diagnostic, diagnostic)
+
+
+def test_extract_with_llm_retries_empty_reasoning_response():
+    calls = []
+    original_post = braindump_mod._post_llm_chat
+
+    def fake_post(payload, headers, config):
+        calls.append(payload)
+        if len(calls) == 1:
+            return {
+                "choices": [{"message": {"content": ""}, "finish_reason": "length"}],
+                "usage": {"completion_tokens": 500, "completion_tokens_details": {"reasoning_tokens": 497}},
+            }
+        return {
+            "choices": [{"message": {"content": '{"candidates":[{"title":"Kartoffeln","kind":"shopping"}]}'}, "finish_reason": "stop"}],
+            "usage": {"completion_tokens": 40},
+        }
+
+    try:
+        braindump_mod._post_llm_chat = fake_post
+        elapsed, parsed, usage, raw = _extract_with_llm(
+            "Ich brauche noch Kartoffeln, streiche Cookies.",
+            42,
+            config={"llm_provider": "openai_compatible", "llm_base_url": "http://localhost:1234", "llm_model": "local-test", "llm_timeout_seconds": 1},
+        )
+    finally:
+        braindump_mod._post_llm_chat = original_post
+
+    assert_true(elapsed >= 0, elapsed)
+    assert_true(parsed["candidates"][0]["title"] == "Kartoffeln", parsed)
+    assert_true(usage == {"completion_tokens": 40}, usage)
+    assert_true('"Kartoffeln"' in raw, raw)
+    assert_true(len(calls) == 2, len(calls))
+    assert_true(calls[0]["max_tokens"] >= 1200, calls[0]["max_tokens"])
+    assert_true(calls[1]["max_tokens"] >= 3000, calls[1]["max_tokens"])
+    assert_true("Retry instruction" in calls[1]["messages"][1]["content"], calls[1]["messages"][1]["content"])
+
+
+def test_extract_with_llm_retries_empty_ollama_length_response():
+    calls = []
+    original_post = braindump_mod._post_llm_chat
+
+    def fake_post(payload, headers, config):
+        calls.append(payload)
+        if len(calls) == 1:
+            return {"message": {"content": ""}, "done_reason": "length", "eval_count": 500}
+        return {"message": {"content": '{"candidates":[{"title":"Bananen","kind":"shopping"}]}'}, "done_reason": "stop", "eval_count": 32}
+
+    try:
+        braindump_mod._post_llm_chat = fake_post
+        _, parsed, usage, _ = _extract_with_llm(
+            "Ich brauche noch Bananen.",
+            43,
+            config={"llm_provider": "ollama", "llm_base_url": "http://localhost:11434", "llm_model": "local-test", "llm_timeout_seconds": 1},
+        )
+    finally:
+        braindump_mod._post_llm_chat = original_post
+
+    assert_true(parsed["candidates"][0]["title"] == "Bananen", parsed)
+    assert_true(usage == {"completion_tokens": 32}, usage)
+    assert_true(len(calls) == 2, len(calls))
+    assert_true(calls[0]["options"]["num_predict"] >= 1200, calls[0])
+    assert_true(calls[1]["options"]["num_predict"] >= 3000, calls[1])
 
 
 def test_reminder_kind_copies_deadline_to_reminder():
@@ -260,9 +344,10 @@ def test_ollama_provider_urls_payload_and_response_content():
         "messages": [{"role": "user", "content": "Hi"}],
         "temperature": 0,
         "stream": False,
+        "max_tokens": 2000,
         "user": "ignored-for-ollama",
     }, {"llm_provider": "ollama"})
-    assert_true(payload == {"model": "gpt-oss:120b", "messages": [{"role": "user", "content": "Hi"}], "stream": False, "options": {"temperature": 0}}, payload)
+    assert_true(payload == {"model": "gpt-oss:120b", "messages": [{"role": "user", "content": "Hi"}], "stream": False, "options": {"temperature": 0, "num_predict": 2000}}, payload)
     assert_true(_llm_response_content({"message": {"content": "{\"candidates\":[]}"}}, {"llm_provider": "ollama"}) == '{"candidates":[]}', "ollama content parse")
 
 
@@ -326,6 +411,9 @@ def main():
         test_maps_section_name_used_as_project_to_real_project_section,
         test_replacement_with_statt_removes_old_item,
         test_default_prompt_requires_language_agnostic_correction_handling,
+        test_llm_token_budget_and_empty_response_diagnostic,
+        test_extract_with_llm_retries_empty_reasoning_response,
+        test_extract_with_llm_retries_empty_ollama_length_response,
         test_reminder_kind_copies_deadline_to_reminder,
         test_evening_iso_2359_normalizes_to_1900,
         test_multilingual_titles_are_preserved,

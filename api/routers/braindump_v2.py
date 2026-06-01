@@ -42,6 +42,11 @@ from services.websocket import broadcast_change
 
 router = APIRouter(prefix="/api/braindump/v2")
 
+BRAINDUMP_LLM_MAX_TOKENS_MIN = 1200
+BRAINDUMP_LLM_MAX_TOKENS_DEFAULT = 2000
+BRAINDUMP_LLM_MAX_TOKENS_RETRY = 3000
+BRAINDUMP_LLM_MAX_TOKENS_CAP = 4000
+
 WHISPER_MODELS = {
     "base": Path("/opt/whisper.cpp/models/ggml-base.bin"),
     "small": Path("/opt/whisper.cpp/models/ggml-small.bin"),
@@ -905,11 +910,14 @@ def _post_llm_chat(payload: dict, headers: dict[str, str], config: dict) -> dict
 def _llm_request_payload(payload: dict, config: dict) -> dict:
     provider = str(config.get("llm_provider") or "openai_compatible").strip().lower()
     if provider == "ollama":
+        options = {"temperature": payload.get("temperature", 0)}
+        if payload.get("max_tokens"):
+            options["num_predict"] = payload["max_tokens"]
         return {
             "model": payload["model"],
             "messages": payload["messages"],
             "stream": False,
-            "options": {"temperature": payload.get("temperature", 0)},
+            "options": options,
         }
     return payload
 
@@ -920,6 +928,74 @@ def _llm_response_content(result: dict, config: dict) -> str:
         return str(result.get("message", {}).get("content") or "")
     return result["choices"][0]["message"].get("content", "")
 
+
+def _llm_finish_reason(result: dict, config: dict) -> str | None:
+    provider = str(config.get("llm_provider") or "openai_compatible").strip().lower()
+    if provider == "ollama":
+        done_reason = result.get("done_reason") or result.get("message", {}).get("done_reason")
+        return str(done_reason) if done_reason else None
+    choices = result.get("choices") or []
+    if not choices:
+        return None
+    finish_reason = choices[0].get("finish_reason")
+    return str(finish_reason) if finish_reason else None
+
+
+def _llm_usage(result: dict, config: dict) -> dict | None:
+    provider = str(config.get("llm_provider") or "openai_compatible").strip().lower()
+    if provider == "ollama":
+        usage = {
+            "prompt_tokens": result.get("prompt_eval_count"),
+            "completion_tokens": result.get("eval_count"),
+        }
+        usage = {key: value for key, value in usage.items() if value is not None}
+        return usage or None
+    usage = result.get("usage")
+    return usage if isinstance(usage, dict) else None
+
+
+def _llm_reasoning_tokens(usage: dict | None) -> int | None:
+    if not usage:
+        return None
+    details = usage.get("completion_tokens_details")
+    if not isinstance(details, dict):
+        return None
+    value = details.get("reasoning_tokens")
+    return int(value) if isinstance(value, int) else None
+
+
+def _braindump_llm_max_tokens(text: str, *, retry: bool = False) -> int:
+    # Local reasoning models may spend completion tokens on hidden/internal thought before
+    # emitting JSON. Scale by transcript length, but keep a safe default for short inputs.
+    estimated = BRAINDUMP_LLM_MAX_TOKENS_DEFAULT + max(0, len(text) // 4)
+    if retry:
+        estimated = max(estimated, BRAINDUMP_LLM_MAX_TOKENS_RETRY)
+    return max(BRAINDUMP_LLM_MAX_TOKENS_MIN, min(estimated, BRAINDUMP_LLM_MAX_TOKENS_CAP))
+
+
+def _llm_empty_content_diagnostic(result: dict, config: dict, max_tokens: int) -> str:
+    usage = _llm_usage(result, config)
+    finish_reason = _llm_finish_reason(result, config)
+    completion_tokens = usage.get("completion_tokens") if usage else None
+    reasoning_tokens = _llm_reasoning_tokens(usage)
+    parts = ["LLM response was empty"]
+    if finish_reason:
+        parts.append(f"finish_reason={finish_reason}")
+    parts.append(f"max_tokens={max_tokens}")
+    if completion_tokens is not None:
+        parts.append(f"completion_tokens={completion_tokens}")
+    if reasoning_tokens is not None:
+        parts.append(f"reasoning_tokens={reasoning_tokens}")
+    return "; ".join(parts)
+
+
+def _should_retry_empty_llm_content(result: dict, config: dict) -> bool:
+    finish_reason = (_llm_finish_reason(result, config) or "").lower()
+    usage = _llm_usage(result, config)
+    reasoning_tokens = _llm_reasoning_tokens(usage) or 0
+    return finish_reason in {"length", "max_tokens"} or reasoning_tokens > 0
+
+
 def _extract_with_llm(text: str, segment_id: int, workspace_context: dict | None = None, config: dict | None = None) -> tuple[float, dict, dict | None, str]:
     config = config or get_braindump_config(include_secrets=True)
     base_url = str(config.get("llm_base_url") or "").strip()
@@ -929,7 +1005,9 @@ def _extract_with_llm(text: str, segment_id: int, workspace_context: dict | None
     system_prompt = build_effective_system_prompt(config)
     current_datetime = datetime.now().astimezone().isoformat(timespec="minutes")
     extraction_contract = """Provider-neutral extraction contract:
-You are extracting the final intended todo state from messy speech. Internally perform these steps before writing JSON:
+You are extracting the final intended todo state from messy speech. Work internally if helpful, but keep any internal reasoning concise and reserve output budget for the final JSON. Models without a separate reasoning/thinking mode must follow the same rules directly.
+
+Before writing JSON:
 1. Segment the transcript into meaning-bearing clauses, independent of transcript language.
 2. Build a temporary ledger of candidate items/actions in chronological order.
 3. Apply later corrections/removals/replacements/negations as ledger edits, not as new candidates.
@@ -937,7 +1015,10 @@ You are extracting the final intended todo state from messy speech. Internally p
 5. Delete any ledger entry that is later no longer wanted, no longer needed, excluded, removed, cancelled, crossed off, or replaced.
 6. Add later positive additions only when they clearly express final add/create intent.
 7. Preserve explicit dates, times, reminders, and event-like intent from the transcript on the final ledger entries.
-8. Output only the remaining final ledger entries as compact JSON using exactly this schema: {"candidates":[{"title":"...","project_name":null,"section_name":null,"deadline":null,"reminder":null,"kind":"todo"}]}.
+8. Correct obvious speech recognition errors only when context makes the intended word clear.
+9. Output only the remaining final ledger entries as compact JSON using exactly this schema: {"candidates":[{"title":"...","project_name":null,"section_name":null,"deadline":null,"reminder":null,"kind":"todo"}]}.
+
+Response requirement: the assistant message content must start with { and contain only valid compact JSON. No Markdown, prose, explanation, or analysis in content.
 
 Candidate validity checklist:
 - The title is only the desired item/action, never an instruction about editing the ledger.
@@ -955,35 +1036,54 @@ Never output: B, the remove-B command, or leftover words from the remove-B claus
     model_name = str(config.get("llm_model") or "").strip()
     if not model_name:
         raise RuntimeError("BrainDump LLM model is not configured")
-    payload = {
-        "model": model_name,
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_content},
-        ],
-        "temperature": 0,
-        "stream": False,
-        "max_tokens": 500,
-        "user": f"nia-todo-live-braindump-{segment_id}-{int(time.time() * 1000)}",
-    }
+    def build_payload(max_tokens: int, *, retry: bool = False) -> dict:
+        retry_instruction = ""
+        if retry:
+            retry_instruction = "\n\nRetry instruction: the previous response did not provide final JSON content before its output budget ended. Return the compact JSON immediately in assistant message content. Keep any internal reasoning minimal."
+        return {
+            "model": model_name,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"{user_content}{retry_instruction}"},
+            ],
+            "temperature": 0,
+            "stream": False,
+            "max_tokens": max_tokens,
+            "user": f"nia-todo-live-braindump-{segment_id}-{int(time.time() * 1000)}",
+        }
+
     headers = {"Content-Type": "application/json"}
     if token:
         headers["Authorization"] = f"Bearer {token}"
     headers.update(parse_extra_headers(str(config.get("llm_extra_headers_json") or "")))
-    request_payload = _llm_request_payload(payload, config)
+
+    def send_payload(payload_to_send: dict) -> dict:
+        request_payload = _llm_request_payload(payload_to_send, config)
+        try:
+            return _post_llm_chat(request_payload, headers, config)
+        except urllib.error.HTTPError as exc:
+            if exc.code not in {400, 422} or "user" not in request_payload:
+                raise
+            request_payload = dict(request_payload)
+            request_payload.pop("user", None)
+            return _post_llm_chat(request_payload, headers, config)
+
     started = time.perf_counter()
-    try:
-        result = _post_llm_chat(request_payload, headers, config)
-    except urllib.error.HTTPError as exc:
-        if exc.code not in {400, 422} or "user" not in request_payload:
-            raise
-        request_payload = dict(request_payload)
-        request_payload.pop("user", None)
-        result = _post_llm_chat(request_payload, headers, config)
-    elapsed_ms = (time.perf_counter() - started) * 1000
+    max_tokens = _braindump_llm_max_tokens(text)
+    result = send_payload(build_payload(max_tokens))
     content = _llm_response_content(result, config)
+
+    if not str(content or "").strip() and _should_retry_empty_llm_content(result, config):
+        retry_max_tokens = _braindump_llm_max_tokens(text, retry=True)
+        result = send_payload(build_payload(retry_max_tokens, retry=True))
+        content = _llm_response_content(result, config)
+        max_tokens = retry_max_tokens
+
+    elapsed_ms = (time.perf_counter() - started) * 1000
+    if not str(content or "").strip():
+        raise RuntimeError(_llm_empty_content_diagnostic(result, config, max_tokens))
     parsed = _normalize_braindump_json(_parse_llm_json_content(content), text, workspace_context)
-    return elapsed_ms, parsed, result.get("usage"), json.dumps(parsed, ensure_ascii=False, separators=(",", ":"))
+    return elapsed_ms, parsed, _llm_usage(result, config), json.dumps(parsed, ensure_ascii=False, separators=(",", ":"))
 
 
 # Backward-compatible alias for older validation/probe scripts.
