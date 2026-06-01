@@ -100,6 +100,24 @@ def test_invalid_llm_section_is_cleared_when_workspace_known():
     assert_true(result["candidates"][0]["section_name"] is None, result)
 
 
+def test_unknown_llm_project_is_cleared_to_inbox_fallback():
+    context = {"projects": [{"name": "Shopping", "sections": ["Dairy"]}]}
+    result = _normalize_braindump_json({"candidates": [{"title": "Task", "project_name": "Ghost", "section_name": "Nope"}]}, "Task", context)
+    item = result["candidates"][0]
+    assert_true(item["project_name"] is None and item["section_name"] is None, item)
+
+
+def test_backend_does_not_assign_sections_from_title():
+    context = {"projects": [{"name": "Privat", "sections": ["Snoopy"]}]}
+    result = _normalize_braindump_json({"candidates": [{"title": "Snoopy Tabletten geben", "project_name": "Privat"}]}, "Snoopy Tabletten geben", context)
+    item = result["candidates"][0]
+    assert_true(item["project_name"] == "Privat" and item["section_name"] is None, item)
+
+
+def test_backend_keeps_complex_llm_titles():
+    result = _normalize_braindump_json({"candidates": [{"title": "Lisa und Tom zur Party einladen, Geschenk besorgen"}]}, "")
+    titles = [item["title"] for item in result["candidates"]]
+    assert_true("Lisa und Tom zur Party einladen, Geschenk besorgen" in titles, titles)
 
 
 def test_backend_does_not_semantically_rewrite_llm_candidates():
@@ -121,14 +139,6 @@ def test_empty_llm_candidates_do_not_trigger_transcript_fallback():
     result = _normalize_braindump_json({"candidates": []}, "Ich brauche Milch und Kaffee.")
     assert_true(result == {"candidates": []}, result)
 
-def test_maps_section_name_used_as_project_to_real_project_section():
-    parsed = {"candidates": [{"title": "Restore-Doku für Bareos prüfen", "project_name": "Bareos"}]}
-    context = {"projects": [{"name": "Arbeit", "sections": ["Bareos", "OpenClaw"]}]}
-    result = _normalize_braindump_json(parsed, "Für Bareos die Restore-Doku prüfen", context)
-    item = result["candidates"][0]
-    assert_true(item["project_name"] == "Arbeit" and item["section_name"] == "Bareos", item)
-
-
 def test_default_prompt_requires_language_agnostic_correction_handling():
     prompt = DEFAULT_BRAINDUMP_SYSTEM_PROMPT
     assert_true("language-independently using semantic meaning, not keyword matching" in prompt, prompt)
@@ -149,7 +159,6 @@ def test_default_prompt_requires_language_agnostic_correction_handling():
     assert_true("If the model supports internal reasoning/thinking" in prompt, prompt)
     assert_true("If the model does not support internal reasoning/thinking" in prompt, prompt)
     assert_true("Correct obvious speech recognition errors" in prompt, prompt)
-    assert_true("trailing question mark" in prompt, prompt)
     assert_true("trailing question mark" in prompt, prompt)
     assert_true("kind" not in prompt.lower(), prompt)
 
@@ -351,9 +360,11 @@ def main():
         test_parses_common_local_llm_json_variants,
         test_normalizes_alias_fields_from_local_models_without_kind_semantics,
         test_invalid_llm_section_is_cleared_when_workspace_known,
+        test_unknown_llm_project_is_cleared_to_inbox_fallback,
+        test_backend_does_not_assign_sections_from_title,
+        test_backend_keeps_complex_llm_titles,
         test_backend_does_not_semantically_rewrite_llm_candidates,
         test_empty_llm_candidates_do_not_trigger_transcript_fallback,
-        test_maps_section_name_used_as_project_to_real_project_section,
         test_default_prompt_requires_language_agnostic_correction_handling,
         test_llm_token_budget_and_empty_response_diagnostic,
         test_extract_with_llm_retries_empty_reasoning_response,
