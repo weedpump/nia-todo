@@ -56,17 +56,6 @@ def _clean_title(value: str) -> str:
     return value[:1].upper() + value[1:] if value else ""
 
 
-FILLER_ONLY_RE = re.compile(
-    r"^(?:äh+|ähm+|hm+|okay|ok|ja|jo|nein|nee|ne|no|non|pas|sin|doch|aber|also|ach ?ja|ach ?nee|bitte|danke)$",
-    re.IGNORECASE,
-)
-
-
-def _is_filler_only(value: str) -> bool:
-    clean = re.sub(r"[^A-Za-zÀ-ÿÄÖÜäöüß]+", "", value or "")
-    return not clean or bool(FILLER_ONLY_RE.match(clean))
-
-
 def _item_key(value: str) -> str:
     return re.sub(r"[^a-z0-9äöüß]+", "", value.lower())
 
@@ -286,8 +275,6 @@ def _normalize_braindump_json(parsed: dict, transcript: str, workspace_context: 
         if not title:
             continue
         title = _clean_title(title)
-        if _is_filler_only(title):
-            continue
         project_name = candidate.get("project_name") or candidate.get("projectName")
         deadline_source = candidate.get("deadline") or candidate.get("due") or candidate.get("due_date") or candidate.get("dueDate")
         reminder_source = candidate.get("reminder") or candidate.get("remind_at") or candidate.get("reminder_at") or candidate.get("remindAt") or candidate.get("reminderAt")
@@ -587,37 +574,17 @@ def _resolve_project_id(db, user_id: int, project_name: str | None, workspace_id
     rows = _accessible_project_rows(db, user_id, workspace_id=workspace_id)
     matches = [row for row in rows if _name_key(row["name"]) == _name_key(project_name)]
     if len(matches) != 1:
-        raise HTTPException(422, f"BrainDump project not found: {project_name}")
+        return _workspace_inbox_project_id(db, user_id, workspace_id)
     return matches[0]["id"]
 
 
-def _resolve_unique_section_target(db, user_id: int, section_name: str | None, workspace_id: int | None = None) -> tuple[int | None, int | None]:
-    if not section_name:
-        return None, None
-    projects = _accessible_project_rows(db, user_id, workspace_id=workspace_id)
-    project_ids = [row["id"] for row in projects]
-    if not project_ids:
-        return None, None
-    placeholders = ",".join("?" for _ in project_ids)
-    rows = db.execute(
-        f"SELECT id, project_id, name FROM sections WHERE project_id IN ({placeholders})",
-        project_ids,
-    ).fetchall()
-    matches = [row for row in rows if _name_key(row["name"]) == _name_key(section_name)]
-    if len(matches) != 1:
-        return None, None
-    return matches[0]["project_id"], matches[0]["id"]
-
-
 def _resolve_section_id(db, project_id: int | None, section_name: str | None) -> int | None:
-    if not section_name:
+    if not section_name or project_id is None:
         return None
-    if project_id is None:
-        raise HTTPException(422, "BrainDump section requires a project")
     rows = db.execute("SELECT id, name FROM sections WHERE project_id = ?", (project_id,)).fetchall()
     matches = [row for row in rows if _name_key(row["name"]) == _name_key(section_name)]
     if len(matches) != 1:
-        raise HTTPException(422, f"BrainDump section not found: {section_name}")
+        return None
     return matches[0]["id"]
 
 
@@ -636,16 +603,8 @@ def _create_todos_from_braindump_candidates(db, user_id: int, candidates: list[B
             raise HTTPException(422, "BrainDump candidate title is required")
         project_name = candidate.project_name
         section_name = candidate.section_name
-        unique_section_project_id = None
-        unique_section_id = None
-        if section_name:
-            unique_section_project_id, unique_section_id = _resolve_unique_section_target(db, user_id, section_name, workspace_id)
-        if not project_name and unique_section_project_id:
-            project_id = unique_section_project_id
-            section_id = unique_section_id
-        else:
-            project_id = _resolve_project_id(db, user_id, project_name, workspace_id)
-            section_id = _resolve_section_id(db, project_id, section_name)
+        project_id = _resolve_project_id(db, user_id, project_name, workspace_id)
+        section_id = _resolve_section_id(db, project_id, section_name) if project_name else None
         data = TodoCreate(
             title=title,
             description=notes,
