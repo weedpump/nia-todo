@@ -114,6 +114,7 @@ def main():
         conn.execute("INSERT OR REPLACE INTO app_config (key, value, updated_at) VALUES ('trusted_proxies', ?, datetime('now'))", ('["127.0.0.1/32"]',))
         conn.commit()
         user_id = create_user(conn)
+        conn.commit()
 
         assert get_client_ip_ws(FakeWebSocket(headers={"X-Real-IP": "198.51.100.42"})) == "198.51.100.42"
         assert get_client_ip_ws(FakeWebSocket(headers={"X-Forwarded-For": "198.51.100.43", "X-Real-IP": "198.51.100.42"})) == "198.51.100.43"
