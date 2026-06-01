@@ -5,7 +5,7 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.8.2] - 2026-06-01
 
 ### Changed
 - Todo swipe gestures now feel more native and polished, with richer action reveal plates, progress-tinted cards, stronger ready-state feedback, and Android-specific visual depth.
