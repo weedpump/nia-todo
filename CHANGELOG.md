@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 ## [2.9.0] - 2026-06-01
 
 ### Added
+- Admin user management now includes a client-side user search with live result counts and an empty-state message for unmatched filters.
 - BrainDump regression coverage now locks the validation-only extraction contract, STT auto-language behavior, title quick-fix payloads, and project/section fallback edge cases in both focused tests and the main test runner.
 
 ### Changed
@@ -17,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - The OpenClaw BrainDump agent path can be used via the OpenAI-compatible endpoint/model pair, allowing `openclaw/braindump` to route extraction through the dedicated OpenClaw agent.
 
 ### Fixed
+- Admin sign-in now focuses the password field immediately when the login card is shown, including after logout or an expired stored admin token.
 - BrainDump local/OpenAI-compatible LLM calls now use a larger dynamic completion budget and retry empty length-limited responses, preventing reasoning-capable local models from spending the whole response budget before emitting JSON.
 - BrainDump no longer exposes or relies on a `kind` field in candidate extraction, preview, or creation payloads; all extracted entries are normal todo candidates.
 - BrainDump no longer applies backend shopping/negation/replacement regex fallbacks, semantic title rewrites, title-based section routing, or transcript-derived safety-net candidates that could contradict the LLM output.
