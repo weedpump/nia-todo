@@ -63,10 +63,10 @@ export function createApiKeysFeature({ authApi }) {
     keys.forEach(k => {
       const revoked = k.revoked_at;
       const container = document.createElement('div');
-      container.style.cssText = 'background:var(--bg-tertiary); padding:10px 12px; border-radius:var(--radius); margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;';
+      container.className = 'settings-device-row settings-api-key-row';
 
       const left = document.createElement('div');
-      left.style.minWidth = '0';
+      left.className = 'settings-api-key-details';
 
       const nameRow = document.createElement('div');
       nameRow.style.cssText = 'font-size:13px; font-weight:500; margin-bottom:2px;';
@@ -97,8 +97,7 @@ export function createApiKeysFeature({ authApi }) {
 
       if (!revoked) {
         const btn = document.createElement('button');
-        btn.className = 'btn btn-danger';
-        btn.style.cssText = 'font-size:12px; padding:4px 8px; flex-shrink:0; margin-left:8px;';
+        btn.className = 'btn btn-danger settings-api-key-revoke';
         btn.title = t('settings.apiKeys.revoke');
         btn.innerHTML = iconSvg('trash-2');
         btn.onclick = () => revokeApiKey(k.id);

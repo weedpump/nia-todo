@@ -5,6 +5,15 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [2.8.2] - 2026-06-01
+
+### Changed
+- Todo swipe gestures now feel more native and polished, with richer action reveal plates, progress-tinted cards, stronger ready-state feedback, and Android-specific visual depth.
+- Desktop users can now press Delete/Entf while hovering or focusing a todo to open the normal delete confirmation, then press Enter to confirm.
+
+### Fixed
+- API key rows in user settings now use the shared settings device-row layout, placing the revoke button below the key details on mobile like passkey and authenticator entries.
+
 ## [2.8.1] - 2026-05-31
 
 ### Added

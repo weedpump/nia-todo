@@ -786,15 +786,26 @@ export function createTodosFeature({
       if (hoveredTodoId === item.dataset.id) hoveredTodoId = null;
     }, { passive: true });
 
+    function getShortcutTodoId() {
+      const focusedItem = document.activeElement?.closest?.('.todo-item[data-id]');
+      const id = focusedItem?.dataset.id || hoveredTodoId;
+      if (!id) return null;
+      const item = Array.from(document.querySelectorAll('.todo-item[data-id]')).find(el => el.dataset.id === String(id));
+      return item ? item.dataset.id : null;
+    }
+
     document.addEventListener('keydown', async (event) => {
-      if (event.key !== ' ' && event.key !== 'Spacebar') return;
-      if (!hoveredTodoId || event.ctrlKey || event.metaKey || event.altKey) return;
+      const isSpace = event.key === ' ' || event.key === 'Spacebar';
+      const isDelete = event.key === 'Delete';
+      if (!isSpace && !isDelete) return;
+      if (event.repeat || event.ctrlKey || event.metaKey || event.altKey) return;
       if (isInteractiveTarget(document.activeElement)) return;
       if (document.querySelector('.modal.active')) return;
-      const item = Array.from(document.querySelectorAll('.todo-item[data-id]')).find(el => el.dataset.id === String(hoveredTodoId));
-      if (!item) return;
+      const todoId = getShortcutTodoId();
+      if (!todoId) return;
       event.preventDefault();
-      await toggleTodo(hoveredTodoId);
+      if (isDelete) await deleteTodo(Number(todoId));
+      else await toggleTodo(todoId);
     });
   }
 

@@ -1,6 +1,6 @@
 [package]
 name = "nia-todo-desktop"
-version = "2.8.1"
+version = "2.8.2"
 description = "Windows desktop wrapper for nia-todo"
 authors = ["Tobias Kneidl"]
 edition = "2021"
