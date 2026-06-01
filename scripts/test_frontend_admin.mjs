@@ -16,6 +16,7 @@ async function run() {
     await page.addInitScript(() => localStorage.setItem('nia-todo-language', 'de'));
     await page.goto('http://localhost:8754/admin', { waitUntil: 'networkidle' });
     await page.locator('#admin-login-card').waitFor({ state: 'visible', timeout: 5000 });
+    await page.waitForFunction(() => document.activeElement?.id === 'admin-login-password');
 
     await page.fill('#admin-login-password', 'wrong');
     await page.click('text=Anmelden');
@@ -107,6 +108,11 @@ async function run() {
     await page.getByText('Globale 2FA-Pflicht ist aktiv').waitFor({ state: 'visible', timeout: 10000 });
     await expandSection('#user-list-card');
     await page.locator('#user-list').getByText('Pflicht').first().waitFor({ state: 'visible', timeout: 10000 });
+    await page.fill('#user-search', 'frontenduser');
+    await page.locator('#user-search-count').getByText('1 von 1 Benutzern').waitFor({ state: 'visible', timeout: 5000 });
+    await page.fill('#user-search', 'definitely-no-user');
+    await page.getByText('Keine passenden Benutzer gefunden').waitFor({ state: 'visible', timeout: 5000 });
+    await page.fill('#user-search', '');
     await page.locator('#twofa-policy-toggle').click();
     await page.getByRole('heading', { name: 'Globale 2FA-Pflicht deaktivieren?' }).waitFor({ state: 'visible', timeout: 10000 });
     await page.getByRole('button', { name: 'Abbrechen' }).click();
