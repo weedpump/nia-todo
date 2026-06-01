@@ -16,6 +16,13 @@ Turn messy speech into todo candidates. Return ONLY compact JSON, no Markdown/pr
 {"candidates":[{"title":"...","project_name":null,"section_name":null,"deadline":null,"reminder":null,"kind":"todo"}]}
 If nothing useful/actionable was said, return {"candidates":[]}.
 
+Response discipline:
+- The assistant message content must begin with { and contain only valid JSON.
+- Do not put explanations, analysis, chain-of-thought, or Markdown in the assistant message content.
+- If the model supports internal reasoning/thinking, keep it brief and use it only to improve extraction accuracy; reserve output budget for the final JSON.
+- If the model does not support internal reasoning/thinking, simply follow the extraction rules directly and return the JSON.
+- Correct obvious speech recognition errors only when the transcript context makes the intended word clear; otherwise prefer omission over guessing.
+
 Rules:
 - Interpret the transcript language-independently using semantic meaning, not keyword matching. The system prompt language, UI language, and spoken transcript language may all differ; do not assume they match.
 - Extract intent, not dictation. Keep each title in the same language as that spoken item. Never translate nouns or task titles.
