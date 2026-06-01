@@ -211,6 +211,8 @@ def test_default_prompt_requires_language_agnostic_correction_handling():
     assert_true("If the model supports internal reasoning/thinking" in prompt, prompt)
     assert_true("If the model does not support internal reasoning/thinking" in prompt, prompt)
     assert_true("Correct obvious speech recognition errors" in prompt, prompt)
+    assert_true("trailing question mark" in prompt, prompt)
+    assert_true("Toffeln" in prompt and "Kartoffeln" in prompt, prompt)
     assert_true("kind" not in prompt.lower(), prompt)
 
 

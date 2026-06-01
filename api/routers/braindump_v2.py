@@ -497,7 +497,6 @@ class BrainDumpTodoCandidate(BaseModel):
     section_name: str | None = None
     deadline: str | None = None
     reminder: str | None = None
-    kind: str = "todo"  # Backward-compatible UI field; ignored by todo creation.
 
 
 class BrainDumpCreateTodosRequest(BaseModel):
@@ -982,7 +981,7 @@ Before writing JSON:
 5. Delete any ledger entry that is later no longer wanted, no longer needed, excluded, removed, cancelled, crossed off, or replaced.
 6. Add later positive additions only when they clearly express final add/create intent.
 7. Preserve explicit dates, times, reminders, and event-like intent from the transcript on the final ledger entries.
-8. Correct obvious speech recognition errors only when context makes the intended word clear.
+8. Correct obvious speech recognition errors only when context makes the intended word clear. Sanity-check every title word before final JSON. If a word is not a normal word/name in the transcript language and looks like an STT error, replace it only when there is a highly plausible common item/action in context. If no plausible correction exists but the user clearly intended an item/action, keep it with a trailing question mark in the title so the user can edit it. If it is not clearly intended, omit it. In German grocery-list context, obvious near-misses like "Toffeln" or "Katoffeln" should become "Kartoffeln". Less clear words like "Koffeln" should stay uncertain: output title "Koffeln?" with section_name=null, not "Koffeln" and not an unrelated section.
 9. Output only the remaining final ledger entries as compact JSON using exactly this schema: {"candidates":[{"title":"...","project_name":null,"section_name":null,"deadline":null,"reminder":null}]}.
 
 Response requirement: the assistant message content must start with { and contain only valid compact JSON. No Markdown, prose, explanation, or analysis in content.
