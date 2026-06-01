@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 
 ## [Unreleased]
 
+### Changed
+- Todo swipe gestures now feel more native and polished, with richer action reveal plates, progress-tinted cards, stronger ready-state feedback, and Android-specific visual depth.
+
 ### Fixed
 - API key rows in user settings now use the shared settings device-row layout, placing the revoke button below the key details on mobile like passkey and authenticator entries.
 
