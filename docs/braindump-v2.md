@@ -12,6 +12,7 @@ This document describes the current implemented feature. Historical experiments 
 - The transcript is extracted into todo candidates by the configured LLM provider.
 - Candidates are shown in a preview grouped by project; candidates without a project are grouped under Inbox and shown last.
 - The user can edit the candidate title, project, and section before creation.
+- Confirmed project/section choices can train local per-user routing counters for future BrainDump previews.
 - Only selected candidates are created; BrainDump never auto-creates todos without confirmation.
 - Creation currently creates todos only. There is no user-facing candidate type selector.
 
@@ -131,15 +132,16 @@ node --check web/static/js/app.js
 
 For release work, also run the normal frontend/backend regression gates that touch admin config, native audio, service worker precache, and changelog rendering.
 
-## Deferred: learned routing defaults
+## Learned routing defaults
 
-Learned project/section defaults are intentionally not part of the current feature.
+BrainDump route learning is intentionally local, conservative, and user-specific:
 
-If added later, they must be:
-
-- strictly user-specific;
-- learned only after confirmed candidate creation;
-- isolated across users;
-- preferably stored by project/section IDs, not only names;
-- resettable/disableable by the user or admin;
-- conservative enough to avoid silently misrouting tasks.
+- Learnings are written only after confirmed candidate creation with a valid project route.
+- Stored data is limited to aggregate title-token counters mapped to project/section IDs.
+- Audio, transcripts, full candidate text, and notes are not stored for learning.
+- Learned data is never sent to the configured LLM provider.
+- Learning is isolated by user and workspace.
+- Users can disable learning and reset their learned routes.
+- Learned routes are applied after LLM extraction and normal workspace validation.
+- Manual preview route corrections are boosted so the corrected route can win over earlier accepted defaults.
+- Ambiguous scores are ignored; preview confirmation remains mandatory.
