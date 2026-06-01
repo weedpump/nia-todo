@@ -46,8 +46,32 @@ async function enableBrainDumpForFrontendUser() {
   });
 }
 
+async function assertBrainDumpHiddenWithoutAccess() {
+  const { browser, page, loginApp } = await launchPage();
+  try {
+    await loginApp();
+    await page.waitForTimeout(1200);
+    const disabledState = await page.evaluate(async () => {
+      const access = await fetch('/api/braindump/v2/access', { headers: window.getAuthHeaders?.() || {}, credentials: 'include' }).then(response => response.json());
+      const learningStatus = await fetch('/api/braindump/v2/learning', { headers: window.getAuthHeaders?.() || {}, credentials: 'include' }).then(response => response.status);
+      return {
+        accessEnabled: Boolean(access.enabled),
+        learningStatus,
+        fabExists: Boolean(document.getElementById('braindump-fab')),
+        modalExists: Boolean(document.getElementById('braindump-modal')),
+      };
+    });
+    if (disabledState.accessEnabled || disabledState.learningStatus !== 403 || disabledState.fabExists || disabledState.modalExists) {
+      throw new Error(`BrainDump disabled users must not see or access BrainDump UI/features: ${JSON.stringify(disabledState)}`);
+    }
+  } finally {
+    await browser.close();
+  }
+}
+
 async function run() {
   console.log('🎙️ Running BrainDump frontend capture test...');
+  await assertBrainDumpHiddenWithoutAccess();
   await enableBrainDumpForFrontendUser();
   const { browser, page, loginApp, assertNoFrontendErrors } = await launchPage();
   let transcribeCalls = 0;
