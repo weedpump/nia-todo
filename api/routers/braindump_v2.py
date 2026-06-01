@@ -1273,6 +1273,7 @@ async def process_live_audio_segment(
 @router.get("/learning")
 def get_braindump_learning_settings(user_id: int = Depends(require_auth)):
     """Return the current user's local BrainDump route-learning settings."""
+    require_braindump_access(user_id)
     with get_db() as db:
         return _braindump_learning_settings(db, user_id)
 
@@ -1280,6 +1281,7 @@ def get_braindump_learning_settings(user_id: int = Depends(require_auth)):
 @router.patch("/learning")
 def update_braindump_learning_settings(data: BrainDumpLearningSettingsRequest, user_id: int = Depends(require_auth)):
     """Enable or disable local BrainDump route learning for the current user."""
+    require_braindump_access(user_id)
     with get_db() as db:
         user = db.execute("SELECT id FROM users WHERE id = ?", (user_id,)).fetchone()
         if not user:
@@ -1294,6 +1296,7 @@ def update_braindump_learning_settings(data: BrainDumpLearningSettingsRequest, u
 @router.delete("/learning")
 def reset_braindump_learning(user_id: int = Depends(require_auth)):
     """Reset only the current user's learned BrainDump route counters."""
+    require_braindump_access(user_id)
     with get_db() as db:
         deleted = _reset_braindump_learning(db, user_id)
         db.commit()

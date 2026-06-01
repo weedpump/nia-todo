@@ -358,10 +358,15 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
       loadApiKeys();
       updatePushSettingsUI();
     }
-    loadBrainDumpLearningSetting().catch(() => {});
+    if (getCurrentUser()?.braindump_enabled) loadBrainDumpLearningSetting().catch(() => {});
   }
 
   function renderBrainDumpLearningSetting(user = getCurrentUser()) {
+    const enabled = Boolean(user?.braindump_enabled);
+    const section = document.getElementById('settings-section-braindump');
+    const nav = document.getElementById('settings-nav-braindump');
+    if (section) section.hidden = !enabled;
+    if (nav) nav.hidden = !enabled;
     const checkbox = document.getElementById('settings-braindump-learning');
     if (checkbox) checkbox.checked = user?.braindump_learning_enabled !== false;
   }
@@ -373,6 +378,10 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
   }
 
   async function loadBrainDumpLearningSetting() {
+    if (!getCurrentUser()?.braindump_enabled) {
+      renderBrainDumpLearningSetting();
+      return null;
+    }
     const data = await authApi.getBrainDumpLearning();
     const currentUser = getCurrentUser();
     if (currentUser) setCurrentUser({ ...currentUser, braindump_learning_enabled: data.enabled });
