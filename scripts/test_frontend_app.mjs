@@ -154,6 +154,30 @@ async function run() {
     await page.click('button[form="todo-form"]');
     await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });
 
+    await openTodoModal();
+    await page.fill('#todo-title', 'Delete Shortcut Todo');
+    await page.selectOption('#todo-project', { label: 'Frontend Project A' });
+    await ensureSectionOptions(['Section A Renamed', 'Section B']);
+    await page.click('button[form="todo-form"]');
+    await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });
+    await page.waitForFunction(() => document.body.innerText.includes('Delete Shortcut Todo'), { timeout: 10000 });
+    await page.evaluate(() => {
+      const titleEl = Array.from(document.querySelectorAll('.todo-title')).find(el => (el.textContent || '').includes('Delete Shortcut Todo'));
+      const item = titleEl?.closest('.todo-item');
+      if (!item) throw new Error('Delete Shortcut Todo item missing');
+      item.dispatchEvent(new PointerEvent('pointerover', { pointerId: 91, pointerType: 'mouse', isPrimary: true, bubbles: true }));
+    });
+    await page.keyboard.press('Delete');
+    await visible('#confirm-modal');
+    await page.waitForFunction(() => document.activeElement?.id === 'confirm-confirm-btn', { timeout: 5000 });
+    await page.keyboard.press('Enter');
+    await page.locator('#confirm-modal').waitFor({ state: 'hidden', timeout: 5000 });
+    await page.waitForFunction(async () => {
+      const jwt = localStorage.getItem('jwt_token');
+      const data = await fetch('/api/todos', { headers: { 'Authorization': `Bearer ${jwt}` }, credentials: 'include' }).then(r => r.json());
+      return !data.todos.some(todo => todo.title === 'Delete Shortcut Todo');
+    }, null, { timeout: 10000 });
+
     const deleteSectionButton = page.locator('.section-header').filter({ hasText: 'Section A Renamed' }).first().locator('.section-delete');
     await deleteSectionButton.click();
     await visible('#confirm-modal');
