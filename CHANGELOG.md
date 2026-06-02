@@ -5,6 +5,14 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [2.10.1] - 2026-06-02
+
+### Fixed
+- Focus view filters now visually match the dashboard and project widgets, including the shared widget card styling, round icon avatar placement, header rhythm, and desktop stat subtitles.
+- Focus filter inputs and dropdowns now use the softer modal-style control background in dark and light themes instead of appearing as nearly black fields.
+- BrainDump preview correction fields for candidate title, project, section, and dropdown search now use the same softer control styling as the rest of the redesigned UI.
+- Mobile topbar search now stays inside the viewport when expanded instead of overflowing to the right on narrow screens.
+
 ## [2.10.0] - 2026-06-02
 
 ### Added
