@@ -534,10 +534,12 @@ function bindTodayFocusHotkey() {
   if (document.documentElement.dataset.todayFocusHotkeyBound === '1') return;
   document.documentElement.dataset.todayFocusHotkeyBound = '1';
   document.addEventListener('keydown', (event) => {
-    if (event.key?.toLowerCase() !== 'f' || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
+    const key = event.key?.toLowerCase();
+    if ((key !== 'f' && key !== 'm') || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
     if (isTypingTarget(event.target) || document.querySelector('.modal.active')) return;
     event.preventDefault();
-    toggleTodayFocus();
+    if (key === 'f') toggleTodayFocus();
+    else toggleMinimalTodos();
   });
 }
 
