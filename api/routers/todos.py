@@ -353,40 +353,51 @@ async def update_todo(todo_id: int, data: TodoUpdate, user_id: int = Depends(req
             if data.remind_at:
                 db.execute("INSERT INTO reminders (todo_id, remind_at, user_id) VALUES (?,?,?)", (todo_id, data.remind_at, user_id))
         recurrence_created_todo = None
+        recurrence_inserted = False
         normalized_existing_rule = existing.get('recurring_rule')
         if isinstance(normalized_existing_rule, dict):
             normalized_existing_rule = json.dumps(normalized_existing_rule, separators=(',', ':'), sort_keys=True)
         effective_rule = updates.get('recurring_rule', normalized_existing_rule) if updates else normalized_existing_rule
         rule = _decode_recurring_rule(effective_rule)
         became_done = dumped.get('status') == 'done' and existing.get('status') != 'done'
+        recurrence_series_parent_id = existing.get('parent_id') or todo_id
+        recurrence_existing_next_id = None
         if became_done and rule:
             next_due_date = _next_recurring_datetime(updates.get('due_date', existing.get('due_date')), rule)
             next_remind_at = _next_recurring_datetime(data.remind_at if 'remind_at' in dumped else (existing.get('reminders') or [{}])[0].get('remind_at'), rule)
             if next_due_date or next_remind_at:
-                now_next = now_iso()
-                c = db.execute(
-                    """INSERT INTO todos
-                       (title, description, priority, is_pinned, status, project_id, section_id, due_date, completed_at, recurring_rule, parent_id, updated_at, user_id)
-                       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                    (updates.get('title', existing.get('title')), updates.get('description', existing.get('description') or ''), updates.get('priority', existing.get('priority')), int(bool(updates.get('is_pinned', existing.get('is_pinned')))), 'pending', target_project_id, target_section_id, next_due_date, None, effective_rule, existing.get('parent_id') or todo_id, now_next, user_id)
-                )
-                next_todo_id = c.lastrowid
-                if next_remind_at:
-                    db.execute("INSERT INTO reminders (todo_id, remind_at, user_id) VALUES (?,?,?)", (next_todo_id, next_remind_at, user_id))
+                existing_next = db.execute(
+                    """SELECT id FROM todos
+                       WHERE parent_id = ?
+                         AND user_id = ?
+                         AND COALESCE(due_date, '') = COALESCE(?, '')
+                         AND status != 'archived'
+                       ORDER BY id LIMIT 1""",
+                    (recurrence_series_parent_id, user_id, next_due_date)
+                ).fetchone()
+                if existing_next:
+                    recurrence_existing_next_id = existing_next['id']
+                else:
+                    now_next = now_iso()
+                    c = db.execute(
+                        """INSERT INTO todos
+                           (title, description, priority, is_pinned, status, project_id, section_id, due_date, completed_at, recurring_rule, parent_id, updated_at, user_id)
+                           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                        (updates.get('title', existing.get('title')), updates.get('description', existing.get('description') or ''), updates.get('priority', existing.get('priority')), int(bool(updates.get('is_pinned', existing.get('is_pinned')))), 'pending', target_project_id, target_section_id, next_due_date, None, effective_rule, recurrence_series_parent_id, now_next, user_id)
+                    )
+                    recurrence_existing_next_id = c.lastrowid
+                    recurrence_inserted = True
+                    if next_remind_at:
+                        db.execute("INSERT INTO reminders (todo_id, remind_at, user_id) VALUES (?,?,?)", (recurrence_existing_next_id, next_remind_at, user_id))
         db.commit()
         todo = fetch_todo(db, todo_id, user_id)
-        if became_done and rule:
-            next_row = db.execute(
-                "SELECT id FROM todos WHERE parent_id = ? AND user_id = ? ORDER BY id DESC LIMIT 1",
-                (existing.get('parent_id') or todo_id, user_id)
-            ).fetchone()
-            if next_row and next_row['id'] != todo_id:
-                recurrence_created_todo = fetch_todo(db, next_row['id'], user_id)
-                todo['recurrence_created_todo'] = recurrence_created_todo
+        if became_done and rule and recurrence_existing_next_id:
+            recurrence_created_todo = fetch_todo(db, recurrence_existing_next_id, user_id)
+            todo['recurrence_created_todo'] = recurrence_created_todo
         broadcast_todo = dict(todo)
         broadcast_todo.pop('recurrence_created_todo', None)
         await broadcast_change("todo_update", broadcast_todo, user_id, todo.get('project_id'))
-        if recurrence_created_todo:
+        if recurrence_created_todo and recurrence_inserted:
             await broadcast_change("todo_create", recurrence_created_todo, user_id, recurrence_created_todo.get('project_id'))
         return todo
 

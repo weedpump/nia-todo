@@ -124,6 +124,16 @@ def main():
     assert_true(next_todo["reminders"][0]["remind_at"] == "2026-06-03T07:30:00+02:00", next_todo)
     assert_true(next_todo["recurring_rule"]["frequency"] == "daily", next_todo)
 
+    reopen_res = client.patch(f"/api/todos/{todo['id']}", json={"status": "pending"})
+    assert_true(reopen_res.status_code == 200, reopen_res.text)
+    done_again_res = client.patch(f"/api/todos/{todo['id']}", json={"status": "done"})
+    assert_true(done_again_res.status_code == 200, done_again_res.text)
+    done_again = done_again_res.json()
+    assert_true(done_again.get("recurrence_created_todo", {}).get("id") == next_todo["id"], done_again)
+    all_todos = client.get("/api/todos").json()["todos"]
+    tomorrow_occurrences = [item for item in all_todos if item.get("parent_id") == todo["id"] and item.get("due_date") == "2026-06-03T08:00:00+02:00"]
+    assert_true(len(tomorrow_occurrences) == 1, tomorrow_occurrences)
+
     invalid = client.post("/api/todos", json={"title": "No deadline", "recurring_rule": {"frequency": "weekly"}})
     assert_true(invalid.status_code == 422, invalid.text)
 
