@@ -402,9 +402,10 @@ export function createAppRenderingFeature({
     return today;
   }
 
-  function applyFocusFilters(items) {
+  function applyFocusFilters(items, validProjectIds = null) {
     const filters = getFocusFilters?.() || {};
-    const projectIds = new Set((filters.projectIds || []).map(Number));
+    const rawProjectIds = (filters.projectIds || []).map(Number);
+    const projectIds = new Set(validProjectIds ? rawProjectIds.filter(id => validProjectIds.has(id)) : rawProjectIds);
     const priorities = new Set((filters.priorities || [1, 2, 3, 4]).map(Number));
     const statuses = new Set(filters.statuses || ['pending', 'in_progress']);
     const now = new Date();
@@ -442,7 +443,8 @@ export function createAppRenderingFeature({
     const normalizedProjectSearch = projectSearch.toLocaleLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     const dueMode = filters.dueMode || 'next_days';
     const dueDays = Math.max(1, Number(filters.dueDays || 7));
-    const projectIds = new Set((filters.projectIds || []).map(Number));
+    const validProjectIds = new Set(projects.map(project => Number(project.id)));
+    const projectIds = new Set((filters.projectIds || []).map(Number).filter(id => validProjectIds.has(id)));
     const priorities = new Set((filters.priorities || [1, 2, 3, 4]).map(Number));
     const statuses = new Set(filters.statuses || ['pending', 'in_progress']);
     const selectedProjectNames = [...projects]
@@ -456,7 +458,7 @@ export function createAppRenderingFeature({
       projectSummary,
       t('focus.summary.priorities', { count: priorities.size }),
     ];
-    const filteredForStats = applyFocusFilters(getTodos?.() || []);
+    const filteredForStats = applyFocusFilters(getWorkspaceTodos(), validProjectIds);
     const activeForStats = filteredForStats.filter(todo => todo.status !== 'done');
     const overdueForStats = activeForStats.filter(todo => {
       const due = parseTodoDate(todo.due_date);
@@ -603,7 +605,7 @@ export function createAppRenderingFeature({
       });
     }
     if (currentFilter === 'focus' && !currentProjectId) {
-      filtered = applyFocusFilters(filtered);
+      filtered = applyFocusFilters(filtered, new Set(projects.map(project => Number(project.id))));
     }
     filtered = sortTodoList(filtered);
 

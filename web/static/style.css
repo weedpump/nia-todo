@@ -6949,7 +6949,7 @@ input[type="color"]::-moz-color-swatch {
 
 .focus-filter-split {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) minmax(170px, auto);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
   gap: 14px;
   align-items: start;
 }
