@@ -5,6 +5,31 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [2.10.0] - 2026-06-02
+
+### Added
+- The main open-todos navigation has been replaced with a new Focus view that lets users build a filtered working set by due date, projects, priorities, and statuses, including searchable project dropdowns with subproject indentation and consistent project markers.
+- A new topbar Minimal mode makes dense todo lists one-line by showing only the checkbox, priority marker, title, and right-side actions.
+- Todos can now repeat daily, weekly, monthly, or yearly from the New/Edit Todo planning card; completing a recurring todo creates the next occurrence with its reminder shifted forward.
+- The BrainDump admin configuration now shows the current backend-provided default extraction prompt as a readonly reference before admins append or replace custom instructions.
+
+### Changed
+- Project invite metadata now tracks whether an invite was created from a username or email identifier, with a conservative migration that keeps existing pending invites hidden unless they can be safely classified.
+- Sharing regression coverage now verifies owner reload visibility, invitee reload hydration, and the verified-email privacy boundary.
+- Project, priority, and status selectors now use the shared custom dropdown presentation more consistently, including project search, project icons/dots, priority color dots, and status icons where applicable.
+
+### Fixed
+- Mobile topbar layout now keeps the workspace switcher compact as an icon/color chip so Focus, Minimal mode, search, and offline/sync indicators no longer crowd or overlap.
+- Snoozing a todo now shifts an existing reminder together with the deadline, preserving the reminder's offset instead of leaving it behind on the old time.
+- Reopening and completing the same recurring todo again now reuses the already-created next occurrence instead of creating duplicate future todos.
+- Windows desktop autostart now repairs its startup registration on app launch/settings load, so updates no longer leave the app setting enabled while the Windows Task Manager startup entry disappears.
+- BrainDump preview project and section dropdowns now scroll smoothly in the Android app without jittering while editing candidate todos.
+- Todo rows now keep the checkbox, priority dot, and right-side actions vertically centered for wrapped titles and todos with descriptions; descriptions and metadata align under the title text instead of slipping left under the priority dot.
+- Desktop todo list titles and the New/Edit Todo title field now use calmer normal-weight sizing instead of oversized bold text.
+- Todo lists now keep enough bottom scroll clearance so the final todo, section, or group header is not hidden behind the New Todo and BrainDump floating buttons.
+- Project sharing invitations now survive app restarts reliably: owners can still see and revoke pending username invites, and invitees see pending project invitations again after reload, reconnect, or returning online.
+- Neutral email-based project invites remain privacy-safe after reload by hiding matched pending email invites from owner member lists, avoiding account enumeration while preserving the invite for the recipient.
+
 ## [2.9.0] - 2026-06-01
 
 ### Added

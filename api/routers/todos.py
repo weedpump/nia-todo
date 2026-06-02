@@ -1,6 +1,8 @@
 """nia-todo: Todo endpoints"""
 
-from datetime import datetime
+import calendar
+import json
+from datetime import datetime, timedelta
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field
@@ -26,6 +28,7 @@ class TodoCreate(BaseModel):
     section_id: Optional[int] = None
     due_date: Optional[str] = None
     remind_at: Optional[str] = None
+    recurring_rule: Optional[dict] = None
 
 class TodoUpdate(BaseModel):
     title: Optional[str] = None
@@ -37,11 +40,13 @@ class TodoUpdate(BaseModel):
     section_id: Optional[int] = None
     due_date: Optional[str] = None
     remind_at: Optional[str] = None
+    recurring_rule: Optional[dict] = None
 
 
 # ─── Helpers ───────────────────────────────────────────────────────────────────
 
 ALLOWED_TODO_STATUSES = {"pending", "in_progress", "done"}
+ALLOWED_RECURRENCE_FREQUENCIES = {"daily", "weekly", "monthly", "yearly"}
 
 
 def get_user_inbox_project_id(db, user_id: int) -> Optional[int]:
@@ -76,7 +81,7 @@ def fetch_todo(db, todo_id: int, reminder_user_id: Optional[int] = None) -> Opti
             (todo_id, reminder_user_id)
         ).fetchall()
     d['reminders'] = [dict(r) for r in rem_rows]
-    return d
+    return _recurring_rule_response(d)
 
 
 def _todo_project_access(db, todo: dict, user_id: int) -> bool:
@@ -118,6 +123,82 @@ def _validate_todo_dates(data):
 def _validate_todo_status(status: Optional[str]):
     if status is not None and status not in ALLOWED_TODO_STATUSES:
         raise HTTPException(422, "Invalid status")
+
+
+def _normalize_recurring_rule(rule: Optional[dict]) -> Optional[str]:
+    if not rule:
+        return None
+    if not isinstance(rule, dict):
+        raise HTTPException(422, "Invalid recurring_rule")
+    frequency = str(rule.get('frequency') or '').strip().lower()
+    if frequency in ('', 'none'):
+        return None
+    if frequency not in ALLOWED_RECURRENCE_FREQUENCIES:
+        raise HTTPException(422, "Invalid recurring_rule frequency")
+    try:
+        interval = int(rule.get('interval') or 1)
+    except (TypeError, ValueError):
+        raise HTTPException(422, "Invalid recurring_rule interval")
+    if interval < 1 or interval > 999:
+        raise HTTPException(422, "Invalid recurring_rule interval")
+    normalized = {
+        "frequency": frequency,
+        "interval": interval,
+        "preserve_time": True,
+    }
+    return json.dumps(normalized, separators=(',', ':'), sort_keys=True)
+
+
+def _decode_recurring_rule(value) -> Optional[dict]:
+    if not value:
+        return None
+    if isinstance(value, dict):
+        return value
+    try:
+        data = json.loads(value)
+    except (TypeError, ValueError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _last_day_of_month(year: int, month: int) -> int:
+    return calendar.monthrange(year, month)[1]
+
+
+def _add_months(dt: datetime, months: int) -> datetime:
+    month_index = dt.month - 1 + months
+    year = dt.year + month_index // 12
+    month = month_index % 12 + 1
+    day = min(dt.day, _last_day_of_month(year, month))
+    return dt.replace(year=year, month=month, day=day)
+
+
+def _next_recurring_datetime(value: Optional[str], rule: dict) -> Optional[str]:
+    if not value:
+        return None
+    try:
+        base = datetime.fromisoformat(str(value).replace('Z', '+00:00'))
+    except ValueError:
+        return None
+    interval = int(rule.get('interval') or 1)
+    frequency = rule.get('frequency')
+    if frequency == 'daily':
+        next_dt = base + timedelta(days=interval)
+    elif frequency == 'weekly':
+        next_dt = base + timedelta(weeks=interval)
+    elif frequency == 'monthly':
+        next_dt = _add_months(base, interval)
+    elif frequency == 'yearly':
+        next_dt = _add_months(base, interval * 12)
+    else:
+        return None
+    return next_dt.isoformat()
+
+
+def _recurring_rule_response(todo: dict) -> dict:
+    if todo and isinstance(todo.get('recurring_rule'), str):
+        todo['recurring_rule'] = _decode_recurring_rule(todo.get('recurring_rule'))
+    return todo
 
 
 # ─── Endpoints ─────────────────────────────────────────────────────────────────
@@ -178,6 +259,7 @@ def list_todos(status: Optional[str] = None, project_id: Optional[int] = None, s
                 reminders_by_todo.setdefault(reminder_dict.pop('todo_id'), []).append(reminder_dict)
         for todo in todos:
             todo['reminders'] = reminders_by_todo.get(todo['id'], [])
+            _recurring_rule_response(todo)
         return {"todos": todos}
 
 @router.post("")
@@ -192,11 +274,14 @@ async def create_todo(data: TodoCreate, user_id: int = Depends(require_auth)):
         _validate_todo_target(db, data.project_id, data.section_id, user_id)
         now = now_iso()
         completed_at = now if data.status == 'done' else None
+        recurring_rule = _normalize_recurring_rule(data.recurring_rule)
+        if recurring_rule and not data.due_date:
+            raise HTTPException(422, "Recurring todos require due_date")
         c = db.execute(
             """INSERT INTO todos
-               (title, description, priority, is_pinned, status, project_id, section_id, due_date, completed_at, updated_at, user_id)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
-            (data.title, data.description, data.priority, int(bool(data.is_pinned)), data.status, data.project_id, data.section_id, data.due_date, completed_at, now, user_id)
+               (title, description, priority, is_pinned, status, project_id, section_id, due_date, completed_at, recurring_rule, updated_at, user_id)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (data.title, data.description, data.priority, int(bool(data.is_pinned)), data.status, data.project_id, data.section_id, data.due_date, completed_at, recurring_rule, now, user_id)
         )
         todo_id = c.lastrowid
         if data.remind_at:
@@ -239,15 +324,21 @@ async def update_todo(todo_id: int, data: TodoUpdate, user_id: int = Depends(req
         for f in ["title", "description", "priority", "is_pinned", "project_id", "section_id", "due_date", "status"]:
             if f in dumped:
                 updates[f] = dumped[f]
+        if 'recurring_rule' in dumped:
+            updates['recurring_rule'] = _normalize_recurring_rule(dumped.get('recurring_rule'))
+        effective_due_date = dumped.get('due_date', existing.get('due_date'))
+        effective_recurring_rule = updates.get('recurring_rule', existing.get('recurring_rule')) if updates else existing.get('recurring_rule')
+        if effective_recurring_rule and not effective_due_date:
+            raise HTTPException(422, "Recurring todos require due_date")
         if updates:
             updates['updated_at'] = now_iso()
             if data.status == 'done' and existing['status'] != 'done':
                 updates['completed_at'] = now_iso()
-            elif data.status != 'done' and existing['status'] == 'done':
+            elif data.status is not None and data.status != 'done' and existing['status'] == 'done':
                 updates['completed_at'] = None
             if 'is_pinned' in updates:
                 updates['is_pinned'] = int(bool(updates['is_pinned']))
-            allowed_cols = {"title", "description", "priority", "is_pinned", "project_id", "section_id", "due_date", "status", "completed_at", "updated_at"}
+            allowed_cols = {"title", "description", "priority", "is_pinned", "project_id", "section_id", "due_date", "status", "completed_at", "updated_at", "recurring_rule"}
             safe_updates = {k:v for k,v in updates.items() if k in allowed_cols}
             set_clause = ", ".join(f"{k}=:{k}" for k in safe_updates)
             db.execute(f"UPDATE todos SET {set_clause} WHERE id = :id", {**safe_updates, "id": todo_id})
@@ -261,9 +352,53 @@ async def update_todo(todo_id: int, data: TodoUpdate, user_id: int = Depends(req
                 db.execute("DELETE FROM reminders WHERE todo_id = ? AND user_id = ?", (todo_id, user_id))
             if data.remind_at:
                 db.execute("INSERT INTO reminders (todo_id, remind_at, user_id) VALUES (?,?,?)", (todo_id, data.remind_at, user_id))
+        recurrence_created_todo = None
+        recurrence_inserted = False
+        normalized_existing_rule = existing.get('recurring_rule')
+        if isinstance(normalized_existing_rule, dict):
+            normalized_existing_rule = json.dumps(normalized_existing_rule, separators=(',', ':'), sort_keys=True)
+        effective_rule = updates.get('recurring_rule', normalized_existing_rule) if updates else normalized_existing_rule
+        rule = _decode_recurring_rule(effective_rule)
+        became_done = dumped.get('status') == 'done' and existing.get('status') != 'done'
+        recurrence_series_parent_id = existing.get('parent_id') or todo_id
+        recurrence_existing_next_id = None
+        if became_done and rule:
+            next_due_date = _next_recurring_datetime(updates.get('due_date', existing.get('due_date')), rule)
+            next_remind_at = _next_recurring_datetime(data.remind_at if 'remind_at' in dumped else (existing.get('reminders') or [{}])[0].get('remind_at'), rule)
+            if next_due_date or next_remind_at:
+                existing_next = db.execute(
+                    """SELECT id FROM todos
+                       WHERE parent_id = ?
+                         AND user_id = ?
+                         AND COALESCE(due_date, '') = COALESCE(?, '')
+                         AND status != 'archived'
+                       ORDER BY id LIMIT 1""",
+                    (recurrence_series_parent_id, user_id, next_due_date)
+                ).fetchone()
+                if existing_next:
+                    recurrence_existing_next_id = existing_next['id']
+                else:
+                    now_next = now_iso()
+                    c = db.execute(
+                        """INSERT INTO todos
+                           (title, description, priority, is_pinned, status, project_id, section_id, due_date, completed_at, recurring_rule, parent_id, updated_at, user_id)
+                           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                        (updates.get('title', existing.get('title')), updates.get('description', existing.get('description') or ''), updates.get('priority', existing.get('priority')), int(bool(updates.get('is_pinned', existing.get('is_pinned')))), 'pending', target_project_id, target_section_id, next_due_date, None, effective_rule, recurrence_series_parent_id, now_next, user_id)
+                    )
+                    recurrence_existing_next_id = c.lastrowid
+                    recurrence_inserted = True
+                    if next_remind_at:
+                        db.execute("INSERT INTO reminders (todo_id, remind_at, user_id) VALUES (?,?,?)", (recurrence_existing_next_id, next_remind_at, user_id))
         db.commit()
         todo = fetch_todo(db, todo_id, user_id)
-        await broadcast_change("todo_update", todo, user_id, todo.get('project_id'))
+        if became_done and rule and recurrence_existing_next_id:
+            recurrence_created_todo = fetch_todo(db, recurrence_existing_next_id, user_id)
+            todo['recurrence_created_todo'] = recurrence_created_todo
+        broadcast_todo = dict(todo)
+        broadcast_todo.pop('recurrence_created_todo', None)
+        await broadcast_change("todo_update", broadcast_todo, user_id, todo.get('project_id'))
+        if recurrence_created_todo and recurrence_inserted:
+            await broadcast_change("todo_create", recurrence_created_todo, user_id, recurrence_created_todo.get('project_id'))
         return todo
 
 @router.delete("/{todo_id}")

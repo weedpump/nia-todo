@@ -850,7 +850,12 @@ export function createBrainDumpLiveFeature(options = {}) {
 
   function hydrateCandidateSelects(container) {
     container.querySelectorAll('select[data-bd-field]').forEach(select => {
-      hydrateSelect(select, { className: 'braindump-ui-select', menuClassName: 'braindump-ui-select-menu' });
+      const projectSelect = select.matches('[data-project-select]');
+      hydrateSelect(select, {
+        className: projectSelect ? 'braindump-ui-select project-ui-select' : 'braindump-ui-select',
+        menuClassName: projectSelect ? 'braindump-ui-select-menu project-ui-select-menu' : 'braindump-ui-select-menu',
+        ...(projectSelect ? { searchPlaceholder: t('focus.projects.search'), searchLabel: t('focus.projects.search'), emptyText: t('focus.projects.noMatches') } : {}),
+      });
       refreshSelect(select);
     });
   }
@@ -940,8 +945,7 @@ export function createBrainDumpLiveFeature(options = {}) {
     getProjectOptions().forEach(project => {
       const name = String(project.name || '');
       const depth = Number(project._bdDepth || 0);
-      const prefix = depth > 0 ? `${'\u00A0'.repeat(depth * 2)}└─ ` : '';
-      optionsHtml.push(`<option value="${escapeHtmlAttr(name)}" data-depth="${depth}" ${name === selected ? 'selected' : ''}>${prefix}${escapeHtml(name)}</option>`);
+      optionsHtml.push(`<option value="${escapeHtmlAttr(name)}" data-depth="${depth}" data-project-color="${escapeHtmlAttr(project.color || '#6366f1')}" data-project-icon="${escapeHtmlAttr(project.icon || '')}" ${name === selected ? 'selected' : ''}>${escapeHtml(name)}</option>`);
     });
     if (selected && !getProjectByName(selected)) optionsHtml.push(`<option value="${escapeHtmlAttr(selected)}" selected>${escapeHtml(selected)}</option>`);
     return optionsHtml.join('');
@@ -987,7 +991,7 @@ export function createBrainDumpLiveFeature(options = {}) {
               </label>
               <div class="braindump-quickfix-field">
                 <span id="braindump-project-label-${escapeHtmlAttr(key)}">${escapeHtml(t('braindump.quickfix.project'))}</span>
-                <select data-ui-select class="braindump-field" data-bd-candidate-key="${escapeHtmlAttr(key)}" data-bd-field="project_name" aria-labelledby="braindump-project-label-${escapeHtmlAttr(key)}">${renderProjectOptions(candidate.project_name)}</select>
+                <select data-ui-select data-project-select class="braindump-field" data-bd-candidate-key="${escapeHtmlAttr(key)}" data-bd-field="project_name" aria-labelledby="braindump-project-label-${escapeHtmlAttr(key)}">${renderProjectOptions(candidate.project_name)}</select>
               </div>
               <div class="braindump-quickfix-field">
                 <span id="braindump-section-label-${escapeHtmlAttr(key)}">${escapeHtml(t('braindump.quickfix.section'))}</span>

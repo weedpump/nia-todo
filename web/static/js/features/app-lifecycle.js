@@ -35,6 +35,8 @@ export function createAppLifecycle({
   updateToggleDoneButton,
   updateSortButton,
   updateProjectWidgetButton,
+  updateMinimalTodosButton,
+  refreshInvites = null,
 }) {
   let lifecycleInitialized = false;
 
@@ -83,18 +85,15 @@ export function createAppLifecycle({
   }
 
   function restoreSavedNavigation() {
+    const baseFilters = ['all','focus','pending','in_progress','done'];
     const params = new URLSearchParams(window.location.search || '');
     const urlProject = params.get('project');
     const urlView = params.get('view');
     const historyFilter = window.history?.state?.niaTodoView ? window.history.state.filter : null;
-    const savedFilter = urlProject || (['all','pending','in_progress','done'].includes(urlView) ? urlView : historyFilter || localStorage.getItem('nia-last-filter'));
+    const savedFilter = urlProject || (baseFilters.includes(urlView) ? urlView : historyFilter || localStorage.getItem('nia-last-filter'));
     if (!savedFilter) return;
     setCurrentFilter(savedFilter);
-    if (!['all','pending','in_progress','done'].includes(savedFilter)) {
-      setCurrentProjectId(parseInt(savedFilter, 10));
-    } else {
-      setCurrentProjectId(null);
-    }
+    setCurrentProjectId(baseFilters.includes(savedFilter) ? null : parseInt(savedFilter, 10));
   }
 
   async function loadFromLocalDB() {
@@ -144,12 +143,14 @@ export function createAppLifecycle({
 
     if (isOnlineForSync()) {
       console.log('Online at startup - syncing...');
-      refreshFromServer().catch(err => {
-        // A cached/offline cold start can race with browser network state: the
-        // page may still report online while fetches already fail. Keep the
-        // cached session usable and avoid surfacing this as a frontend error.
-        console.warn('Server refresh failed:', err);
-      });
+      refreshFromServer()
+        .then(() => refreshInvites?.())
+        .catch(err => {
+          // A cached/offline cold start can race with browser network state: the
+          // page may still report online while fetches already fail. Keep the
+          // cached session usable and avoid surfacing this as a frontend error.
+          console.warn('Server refresh failed:', err);
+        });
     }
 
     updateConnectionStatus();
@@ -157,7 +158,9 @@ export function createAppLifecycle({
     updateToggleDoneButton();
     updateSortButton();
     updateProjectWidgetButton?.();
+    updateMinimalTodosButton?.();
     initTheme();
+    refreshInvites?.();
 
     console.log('App initialized');
   }
@@ -172,7 +175,9 @@ export function createAppLifecycle({
       for (const delay of [1000, 3000, 8000]) {
         setTimeout(() => {
           if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
-          syncWithServer().catch(err => console.warn(`Sync attempt failed after ${reason}:`, err));
+          syncWithServer()
+            .then(() => refreshInvites?.())
+            .catch(err => console.warn(`Sync attempt failed after ${reason}:`, err));
         }, delay);
       }
     };

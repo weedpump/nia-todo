@@ -2,6 +2,15 @@ import { escapeHtml, escapeHtmlAttr, formatDate, renderMarkdown, truncateWords }
 import { t as i18nT } from '../i18n/index.js';
 import { iconSvg } from '../icons/lucide-icons.js';
 
+function recurringLabel(rule) {
+  if (!rule || typeof rule !== 'object') return '';
+  const frequency = String(rule.frequency || '').toLowerCase();
+  const interval = Number.parseInt(rule.interval || 1, 10) || 1;
+  const key = `todo.recurring.label.${frequency}`;
+  const label = i18nT(key, { interval });
+  return label === key ? '' : label;
+}
+
 export function renderTodoItem(t) {
   const dueDate = t.due_date ? new Date(t.due_date) : null;
   const now = new Date();
@@ -19,7 +28,8 @@ export function renderTodoItem(t) {
   const reminderTime = t.remind_at || t.reminders?.find?.(r => !r.sent_at)?.remind_at || t.reminders?.[0]?.remind_at || '';
   const prioColor = { 1: '#ef4444', 2: '#f59e0b', 3: '#10b981', 4: '#94a3b8' }[t.priority] || '#94a3b8';
   const remindStr = reminderTime ? formatDate(reminderTime) : '';
-  const hasMeta = dueStr || remindStr;
+  const recurrenceStr = recurringLabel(t.recurring_rule);
+  const hasMeta = dueStr || remindStr || recurrenceStr;
   const desc = t.description ? truncateWords(String(t.description).replace(/\s+/g, ' ').trim(), 18) : '';
   const hasDesc = desc && desc.length > 0;
   const idArg = JSON.stringify(t.id);
@@ -41,15 +51,16 @@ export function renderTodoItem(t) {
           <div class="todo-title-wrap">
             <span class="todo-title">${escapeHtml(t.title)}</span>
             ${badgeHtml ? `<div class="todo-badges">${badgeHtml}</div>` : ''}
+            ${hasMeta ? `
+            <div class="todo-meta-row">
+              ${dueStr ? `<span class="todo-meta-chip todo-due ${isOverdue ? 'overdue' : dueTone}">${iconSvg('calendar')} ${dueStr}${isOverdue ? ` (${escapeHtml(i18nT('todo.overdue'))})` : ''}</span>` : ''}
+              ${remindStr ? `<span class="todo-meta-chip todo-reminder">${iconSvg('bell')} ${remindStr}</span>` : ''}
+              ${recurrenceStr ? `<span class="todo-meta-chip todo-recurring">${iconSvg('repeat')} ${escapeHtml(recurrenceStr)}</span>` : ''}
+            </div>
+            ` : ''}
+            ${hasDesc ? `<div class="todo-desc-preview" title="${escapeHtmlAttr(String(t.description || ''))}">${renderMarkdown(desc)}</div>` : ''}
           </div>
         </div>
-        ${hasMeta ? `
-        <div class="todo-meta-row">
-          ${dueStr ? `<span class="todo-meta-chip todo-due ${isOverdue ? 'overdue' : dueTone}">${iconSvg('calendar')} ${dueStr}${isOverdue ? ` (${escapeHtml(i18nT('todo.overdue'))})` : ''}</span>` : ''}
-          ${remindStr ? `<span class="todo-meta-chip todo-reminder">${iconSvg('bell')} ${remindStr}</span>` : ''}
-        </div>
-        ` : ''}
-        ${hasDesc ? `<div class="todo-desc-preview" title="${escapeHtmlAttr(String(t.description || ''))}">${renderMarkdown(desc)}</div>` : ''}
       </div>
       <div class="todo-actions" onclick="event.stopPropagation()">
         <details class="todo-status-menu" onclick="event.stopPropagation()">

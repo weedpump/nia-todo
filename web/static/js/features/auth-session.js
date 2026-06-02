@@ -388,7 +388,7 @@ export function createAuthSessionFeature({
       hideLoginOverlay();
       renderUserInfo();
       if (!getAppInitialized()) await initApp();
-      await refreshFromServer();
+      await refreshFromServer().catch(err => console.warn('Post-login refresh failed:', err));
       window.dispatchEvent(new CustomEvent('nia-logged-in'));
     } catch (err) {
       console.error('Passkey login failed:', err);
@@ -426,7 +426,7 @@ export function createAuthSessionFeature({
       const enrollmentOnly = localStorage.getItem('nia-mfa-enrollment-required') === '1';
       if (!enrollmentOnly) {
         if (!getAppInitialized()) await initApp();
-        await refreshFromServer();
+        await refreshFromServer().catch(err => console.warn('Post-login refresh failed:', err));
       }
       window.dispatchEvent(new CustomEvent('nia-logged-in'));
     } catch (err) {

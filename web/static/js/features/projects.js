@@ -68,7 +68,7 @@ export function createProjectsFeature({
       return true;
     });
     const projectMap = new Map();
-    projects.forEach(p => projectMap.set(p.id, { id: p.id, name: p.name, parent_id: p.parent_id, sort_order: p.sort_order, color: p.color, is_inbox: p.is_inbox }));
+    projects.forEach(p => projectMap.set(p.id, { id: p.id, name: p.name, parent_id: p.parent_id, sort_order: p.sort_order, color: p.color, icon: p.icon, is_inbox: p.is_inbox }));
     projectMap.forEach(p => { p.children = []; });
     const rootProjects = [];
     projectMap.forEach(p => {
@@ -82,10 +82,12 @@ export function createProjectsFeature({
     rootProjects.sort((a, b) => (!!a.is_inbox !== !!b.is_inbox ? (a.is_inbox ? -1 : 1) : a.name.localeCompare(b.name)));
     function addProjectOptions(projectNode, depth = 0) {
       if (projectNode.is_inbox) return;
-      const indent = '\u00A0'.repeat(depth * 2) + (depth > 0 ? '└─ ' : '');
       const option = document.createElement('option');
       option.value = projectNode.id;
-      option.textContent = indent + projectNode.name;
+      option.dataset.depth = String(depth);
+      option.dataset.projectColor = projectNode.color || '#6366f1';
+      option.dataset.projectIcon = projectNode.icon || '';
+      option.textContent = projectNode.name;
       parentSelect.appendChild(option);
       if (projectNode.children && projectNode.children.length > 0) {
         projectNode.children.sort((a, b) => a.name.localeCompare(b.name));
@@ -95,7 +97,7 @@ export function createProjectsFeature({
     rootProjects.forEach(p => addProjectOptions(p));
     const selected = selectedParentId || '';
     parentSelect.value = [...parentSelect.options].some(option => String(option.value) === String(selected)) ? String(selected) : '';
-    hydrateSelect(parentSelect);
+    hydrateSelect(parentSelect, { className: 'project-ui-select', menuClassName: 'project-ui-select-menu', searchPlaceholder: t('focus.projects.search'), searchLabel: t('focus.projects.search'), emptyText: t('focus.projects.noMatches') });
     refreshSelect(parentSelect);
   }
 

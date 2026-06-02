@@ -39,10 +39,10 @@ export function createTodosFeature({
   }
 
   function hydrateTodoSelects() {
-    for (const id of ['todo-priority', 'todo-status', 'todo-project', 'todo-section']) {
+    for (const id of ['todo-priority', 'todo-status', 'todo-project', 'todo-section', 'todo-recurring-frequency']) {
       const select = document.getElementById(id);
       if (!select) continue;
-      hydrateSelect(select);
+      hydrateSelect(select, id === 'todo-project' ? { className: 'project-ui-select', menuClassName: 'project-ui-select-menu', searchPlaceholder: t('focus.projects.search'), searchLabel: t('focus.projects.search'), emptyText: t('focus.projects.noMatches') } : {});
       refreshSelect(select);
     }
   }
@@ -122,6 +122,55 @@ export function createTodosFeature({
     const date = new Date(value);
     return Number.isFinite(date.getTime()) ? date.toISOString() : null;
   }
+
+  function normalizeRecurringRule(rule) {
+    if (!rule || typeof rule !== 'object') return null;
+    const frequency = String(rule.frequency || 'none').toLowerCase();
+    if (!['daily', 'weekly', 'monthly', 'yearly'].includes(frequency)) return null;
+    const interval = Math.max(1, Math.min(999, Number.parseInt(rule.interval || 1, 10) || 1));
+    return { frequency, interval, preserve_time: true };
+  }
+
+  function recurringRuleFromForm() {
+    const frequency = document.getElementById('todo-recurring-frequency')?.value || 'none';
+    if (frequency === 'none') return null;
+    const interval = Number.parseInt(document.getElementById('todo-recurring-interval')?.value || '1', 10);
+    return normalizeRecurringRule({ frequency, interval });
+  }
+
+  function updateRecurringControls() {
+    const frequency = document.getElementById('todo-recurring-frequency')?.value || 'none';
+    const interval = document.getElementById('todo-recurring-interval');
+    const intervalGroup = document.getElementById('todo-recurring-interval-group');
+    const hint = document.getElementById('todo-recurring-hint');
+    const active = frequency !== 'none';
+    if (interval) interval.disabled = !active;
+    if (intervalGroup) intervalGroup.classList.toggle('is-disabled', !active);
+    if (hint) hint.textContent = active ? t('todo.recurring.requiresDeadline') : t('todo.recurring.hint');
+    if (!active) {
+      const dueInput = document.getElementById('todo-due');
+      const dueError = document.getElementById('todo-due-error');
+      dueInput?.setCustomValidity('');
+      if (dueError?.textContent === t('todo.recurring.deadlineRequired')) dueError.textContent = '';
+    }
+  }
+
+  function bindRecurringControls() {
+    const select = document.getElementById('todo-recurring-frequency');
+    const interval = document.getElementById('todo-recurring-interval');
+    if (select && select.dataset.recurringBound !== '1') {
+      select.dataset.recurringBound = '1';
+      select.addEventListener('change', updateRecurringControls);
+    }
+    if (interval && interval.dataset.recurringBound !== '1') {
+      interval.dataset.recurringBound = '1';
+      interval.addEventListener('input', () => {
+        if (!interval.value || Number(interval.value) < 1) interval.value = '1';
+      });
+    }
+    updateRecurringControls();
+  }
+
   function runHapticFeedback(pattern = 12) {
     try {
       if (RUNTIME_CAPABILITIES.android && nativeBridge.hapticFeedback(pattern)) return;
@@ -832,6 +881,7 @@ export function createTodosFeature({
     bindTodoForm();
     bindDateTimeValidation();
     hydrateTodoSelects();
+    bindRecurringControls();
     document.getElementById('todo-form')?.reset();
     clearDateTimeErrors();
     document.getElementById('todo-id').value = '';
@@ -857,12 +907,13 @@ export function createTodosFeature({
       });
       rootProjects.sort((a, b) => (!!a.is_inbox !== !!b.is_inbox ? (a.is_inbox ? -1 : 1) : a.name.localeCompare(b.name)));
       function addProjectOptions(projectNode, depth = 0) {
-        const indent = '\u00A0'.repeat(depth * 2) + (depth > 0 ? '└─ ' : '');
         const opt = document.createElement('option');
         opt.value = projectNode.id;
         opt.style.color = projectNode.color;
         opt.dataset.depth = String(depth);
-        opt.textContent = indent + projectNode.name;
+        opt.dataset.projectColor = projectNode.color || '#6366f1';
+        opt.dataset.projectIcon = projectNode.icon || '';
+        opt.textContent = projectNode.name;
         projSelect.appendChild(opt);
         if (projectNode.children && projectNode.children.length > 0) {
           projectNode.children.sort((a, b) => a.name.localeCompare(b.name));
@@ -885,6 +936,10 @@ export function createTodosFeature({
         const d = new Date(todo.due_date);
         document.getElementById('todo-due').value = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
       }
+      const recurringRule = normalizeRecurringRule(todo.recurring_rule);
+      document.getElementById('todo-recurring-frequency').value = recurringRule?.frequency || 'none';
+      document.getElementById('todo-recurring-interval').value = recurringRule?.interval || 1;
+      updateRecurringControls();
       const reminderDate = todo.remind_at || (todo.reminders && todo.reminders[0] && todo.reminders[0].remind_at);
       if (reminderDate) {
         const d = new Date(reminderDate);
@@ -892,6 +947,9 @@ export function createTodosFeature({
       }
     } else {
       document.getElementById('todo-pinned').checked = false;
+      document.getElementById('todo-recurring-frequency').value = 'none';
+      document.getElementById('todo-recurring-interval').value = 1;
+      updateRecurringControls();
       const currentWorkspaceId = getCurrentWorkspaceId?.();
       const workspaceProjects = getProjects().filter(p => !p.is_shared && (!currentWorkspaceId || String(p.workspace_id || '') === String(currentWorkspaceId)));
       const inboxProject = workspaceProjects.find(p => p.is_inbox) || workspaceProjects[0];
@@ -900,6 +958,7 @@ export function createTodosFeature({
     }
 
     hydrateTodoSelects();
+    updateRecurringControls();
     document.getElementById('todo-delete-btn').style.display = todo ? '' : 'none';
     setupDescPreview();
     bindQuickAddPreview();
@@ -978,6 +1037,7 @@ export function createTodosFeature({
       status: document.getElementById('todo-status').value,
       due_date: toIsoOrNull('todo-due'),
       remind_at: toIsoOrNull('todo-remind'),
+      recurring_rule: recurringRuleFromForm(),
     };
     if (parsedQuickAdd) {
       if (parsedQuickAdd.changes.priority && Number(document.getElementById('todo-priority').value) === 3) todoData.priority = parsedQuickAdd.changes.priority;
@@ -985,6 +1045,15 @@ export function createTodosFeature({
       if (parsedQuickAdd.changes.section_id && !todoData.section_id) todoData.section_id = parsedQuickAdd.changes.section_id;
       if (parsedQuickAdd.changes.due_date && !todoData.due_date) todoData.due_date = parsedQuickAdd.changes.due_date;
       if (parsedQuickAdd.changes.remind_at && !todoData.remind_at) todoData.remind_at = parsedQuickAdd.changes.remind_at;
+    }
+    if (todoData.recurring_rule && !todoData.due_date) {
+      const dueInput = document.getElementById('todo-due');
+      const dueError = document.getElementById('todo-due-error');
+      const message = t('todo.recurring.deadlineRequired');
+      dueInput?.setCustomValidity(message);
+      if (dueError) dueError.textContent = message;
+      dueInput?.focus();
+      return;
     }
     if (todoData.section_id && todoData.project_id) {
       const allSections = await loadSectionsForQuickAdd();
@@ -1048,11 +1117,31 @@ export function createTodosFeature({
     await updateTodoFields(id, { is_pinned: !Boolean(todo.is_pinned) }, Boolean(todo.is_pinned) ? t('todo.toast.unpinned') : t('todo.toast.pinned'));
   }
 
+  function getTodoReminderTime(todo) {
+    const raw = todo?.remind_at || todo?.reminders?.find?.(reminder => !reminder.sent_at)?.remind_at || todo?.reminders?.[0]?.remind_at;
+    if (!raw) return null;
+    const date = new Date(raw);
+    return Number.isFinite(date.getTime()) ? date : null;
+  }
+
+  function getSnoozedReminderDate(todo, nextDue) {
+    const reminder = getTodoReminderTime(todo);
+    if (!reminder || !nextDue || !Number.isFinite(nextDue.getTime())) return null;
+    const previousDue = todo?.due_date ? new Date(todo.due_date) : null;
+    if (previousDue && Number.isFinite(previousDue.getTime())) {
+      return new Date(reminder.getTime() + (nextDue.getTime() - previousDue.getTime()));
+    }
+    return new Date(nextDue);
+  }
+
   async function snoozeTodo(id, mode) {
     const todo = getTodos().find(x => String(x.id) === String(id));
     if (!todo) return;
     const due = getSnoozeDate(mode, todo);
-    await updateTodoFields(id, { due_date: due.toISOString() }, t('todo.toast.snoozed'));
+    const reminder = getSnoozedReminderDate(todo, due);
+    const changes = { due_date: due.toISOString() };
+    if (reminder) changes.remind_at = reminder.toISOString();
+    await updateTodoFields(id, changes, t('todo.toast.snoozed'));
   }
 
   function editTodo(id) {

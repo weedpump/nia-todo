@@ -138,9 +138,9 @@
           <span data-icon="layout-dashboard"></span> <span data-i18n-key="nav.dashboard">Dashboard</span>
           <span class="badge" id="count-all">0</span>
         </button>
-        <button class="nav-btn" data-filter="pending" onclick="setFilter('pending')">
-          <span data-icon="clock"></span> <span data-i18n-key="nav.open">Offen</span>
-          <span class="badge" id="count-pending">0</span>
+        <button class="nav-btn" data-filter="focus" onclick="setFilter('focus')">
+          <span data-icon="target"></span> <span data-i18n-key="nav.focus">Fokus</span>
+          <span class="badge" id="count-focus">0</span>
         </button>
         <button class="nav-btn" data-filter="in_progress" onclick="setFilter('in_progress')">
           <span data-icon="flame"></span> <span data-i18n-key="nav.inProgress">In progress</span>
@@ -196,7 +196,7 @@
         <!-- Version & Update -->
         <div class="version-bar" id="version-bar">
           <div class="version-info" id="version-info">
-            <span class="version-text">v2.9.0</span>
+            <span class="version-text">v2.10.0</span>
           </div>
           <div class="version-actions web-version-actions" id="version-actions">
             <a class="changelog-link version-action-btn" id="changelog-link" href="/changelog" target="_blank" rel="noopener noreferrer" title="Open changelog" data-i18n-title-key="version.openChangelog" data-i18n-key="resource.changelog">Changelog</a>
@@ -263,6 +263,7 @@
       <div class="topbar">
         <button class="hamburger" onclick="toggleSidebar()" aria-label="Open menu" data-i18n-aria-label-key="topbar.openMenu"><span data-icon="menu"></span></button>
         <button type="button" class="today-focus-btn" id="today-focus-btn" onclick="toggleTodayFocus()" title="Heute-Fokus" data-i18n-title-key="todayFocus.toggleTitle"><span data-icon="target"></span><span data-i18n-key="todayFocus.short">Fokus</span></button>
+        <button type="button" class="minimal-todos-btn" id="minimal-todos-btn" onclick="toggleMinimalTodos()" title="Minimalistische Todo-Liste" data-i18n-title-key="minimalTodos.toggleTitle"><span data-icon="list"></span><span data-i18n-key="minimalTodos.short">Minimal</span></button>
         <div class="search-box" id="search-box">
           <button type="button" class="search-toggle-btn" id="search-toggle-btn" onclick="toggleMobileSearch()" aria-label="Suche öffnen" data-i18n-aria-label-key="common.search" title="Suche" data-i18n-title-key="common.search"><span data-icon="search"></span></button>
           <input type="text" id="search-input" placeholder="Todo suchen..." data-i18n-placeholder-key="topbar.searchTodo" oninput="renderStats();renderTodos()" onkeydown="if(event.key==='Escape')closeMobileSearch()">
@@ -340,18 +341,18 @@
             <div class="form-group">
               <label data-i18n-key="todo.priority">Priority</label>
               <select id="todo-priority">
-                <option value="1" data-i18n-key="todo.priority.veryHigh">Sehr hoch</option>
-                <option value="2" data-i18n-key="todo.priority.high">Hoch</option>
-                <option value="3" selected data-i18n-key="todo.priority.medium">Mittel</option>
-                <option value="4" data-i18n-key="todo.priority.low">Niedrig</option>
+                <option value="1" data-option-color="#ef4444" data-i18n-key="todo.priority.veryHigh">Sehr hoch</option>
+                <option value="2" data-option-color="#f59e0b" data-i18n-key="todo.priority.high">Hoch</option>
+                <option value="3" data-option-color="#10b981" selected data-i18n-key="todo.priority.medium">Mittel</option>
+                <option value="4" data-option-color="#94a3b8" data-i18n-key="todo.priority.low">Niedrig</option>
               </select>
             </div>
             <div class="form-group">
               <label data-i18n-key="todo.status">Status</label>
               <select id="todo-status">
-                <option value="pending" data-i18n-key="todo.status.pending">Offen</option>
-                <option value="in_progress" data-i18n-key="todo.status.inProgress">In progress</option>
-                <option value="done" data-i18n-key="todo.status.done">Erledigt</option>
+                <option value="pending" data-option-icon="clock" data-i18n-key="todo.status.pending">Offen</option>
+                <option value="in_progress" data-option-icon="flame" data-i18n-key="todo.status.inProgress">In progress</option>
+                <option value="done" data-option-icon="check-circle" data-i18n-key="todo.status.done">Erledigt</option>
               </select>
             </div>
             <div class="form-group">
@@ -399,6 +400,31 @@
                 <span class="datetime-input-icon" data-icon="calendar-days" aria-hidden="true"></span>
               </div>
               <div id="todo-remind-error" class="form-error compact"></div>
+            </div>
+          </div>
+          <div class="todo-recurring-subsection">
+            <div class="todo-recurring-heading">
+              <span data-icon="repeat"></span>
+              <div>
+                <strong data-i18n-key="todo.recurring">Wiederholung</strong>
+                <p id="todo-recurring-hint" data-i18n-key="todo.recurring.hint">Optional regelmäßig neu erstellen.</p>
+              </div>
+            </div>
+            <div class="ui-field-grid two-columns">
+              <div class="form-group">
+                <label data-i18n-key="todo.recurring.frequency">Wiederholung</label>
+                <select id="todo-recurring-frequency">
+                  <option value="none" selected data-option-icon="ban" data-i18n-key="todo.recurring.none">Keine Wiederholung</option>
+                  <option value="daily" data-option-icon="repeat" data-i18n-key="todo.recurring.daily">Täglich</option>
+                  <option value="weekly" data-option-icon="repeat" data-i18n-key="todo.recurring.weekly">Wöchentlich</option>
+                  <option value="monthly" data-option-icon="repeat" data-i18n-key="todo.recurring.monthly">Monatlich</option>
+                  <option value="yearly" data-option-icon="repeat" data-i18n-key="todo.recurring.yearly">Jährlich</option>
+                </select>
+              </div>
+              <div class="form-group" id="todo-recurring-interval-group">
+                <label data-i18n-key="todo.recurring.interval">Intervall</label>
+                <input type="number" id="todo-recurring-interval" min="1" max="999" step="1" value="1" inputmode="numeric">
+              </div>
             </div>
           </div>
         </section>

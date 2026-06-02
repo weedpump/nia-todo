@@ -1,6 +1,7 @@
 import { apiResourceUrl } from '../core/config.js';
 import { getActiveLanguage, t } from '../i18n/index.js';
 import { iconSvg, markerHtml, safeColor, safeIconName } from '../icons/lucide-icons.js';
+import { hydrateSelect, refreshSelect } from '../ui/dropdowns.js';
 
 export function createAppRenderingFeature({
   appVersion,
@@ -16,6 +17,10 @@ export function createAppRenderingFeature({
   getTodayFocus,
   getShowProjectWidget,
   getCurrentUser,
+  getFocusFilters,
+  getFocusFiltersExpanded,
+  getFocusProjectMenuOpen,
+  getFocusProjectSearch,
   sortTodoList,
   renderTodoItem,
   renderSectionHeader,
@@ -190,15 +195,22 @@ export function createAppRenderingFeature({
     const pending = todos.filter(t => t.status === 'pending').length;
     const inprog = todos.filter(t => t.status === 'in_progress').length;
     const done = todos.filter(t => t.status === 'done').length;
+    const validProjectIds = new Set(projects.map(project => Number(project.id)));
+    const focusCount = applyFocusFilters(todos, validProjectIds).length;
     const overdue = activeTodos.filter(t => t.due_date && new Date(t.due_date) < now).length;
     const dueToday = activeTodos.filter(t => t.due_date && new Date(t.due_date) >= now && new Date(t.due_date) <= todayEnd).length;
     const dueWeek = activeTodos.filter(t => t.due_date && new Date(t.due_date) > todayEnd && new Date(t.due_date) <= weekEnd).length;
     const completionRate = total ? Math.round((done / total) * 100) : 0;
 
-    document.getElementById('count-all').textContent = total;
-    document.getElementById('count-pending').textContent = pending;
-    document.getElementById('count-in_progress').textContent = inprog;
-    document.getElementById('count-done').textContent = done;
+    const setCount = (id, value) => {
+      const node = document.getElementById(id);
+      if (node) node.textContent = value;
+    };
+    setCount('count-all', total);
+    setCount('count-focus', focusCount);
+    setCount('count-pending', pending);
+    setCount('count-in_progress', inprog);
+    setCount('count-done', done);
 
     const user = getCurrentUser?.();
     const displayName = user?.display_name || user?.username || t('overview.defaultUser');
@@ -215,7 +227,7 @@ export function createAppRenderingFeature({
       minute: '2-digit',
     }).format(now);
 
-    document.querySelectorAll('.nav-btn[data-filter="all"], .nav-btn[data-filter="pending"], .nav-btn[data-filter="in_progress"], .nav-btn[data-filter="done"]').forEach((button) => {
+    document.querySelectorAll('.nav-btn[data-filter="all"], .nav-btn[data-filter="focus"], .nav-btn[data-filter="pending"], .nav-btn[data-filter="in_progress"], .nav-btn[data-filter="done"]').forEach((button) => {
       button.classList.toggle('active', !currentProjectId && button.dataset.filter === String(currentFilter));
     });
 
@@ -381,6 +393,198 @@ export function createAppRenderingFeature({
     </section>`;
   }
 
+  function parseTodoDate(value) {
+    if (!value) return null;
+    const date = new Date(String(value).includes('T') ? value : String(value).replace(' ', 'T'));
+    return Number.isFinite(date.getTime()) ? date : null;
+  }
+
+  function endOfToday() {
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+    return today;
+  }
+
+  function applyFocusFilters(items, validProjectIds = null) {
+    const filters = getFocusFilters?.() || {};
+    const rawProjectIds = (filters.projectIds || []).map(Number);
+    const projectIds = new Set(validProjectIds ? rawProjectIds.filter(id => validProjectIds.has(id)) : rawProjectIds);
+    const priorities = new Set((filters.priorities || [1, 2, 3, 4]).map(Number));
+    const statuses = new Set(filters.statuses || ['pending', 'in_progress']);
+    const now = new Date();
+    const todayEnd = endOfToday();
+    const tomorrowStart = new Date(todayEnd);
+    tomorrowStart.setDate(tomorrowStart.getDate() + 1);
+    tomorrowStart.setHours(0, 0, 0, 0);
+    const tomorrowEnd = new Date(tomorrowStart);
+    tomorrowEnd.setHours(23, 59, 59, 999);
+    const daysEnd = new Date(todayEnd);
+    daysEnd.setDate(daysEnd.getDate() + Math.max(1, Number(filters.dueDays || 7) - 1));
+
+    return items.filter(todo => {
+      if (statuses.size && !statuses.has(todo.status)) return false;
+      if (projectIds.size && !projectIds.has(Number(todo.project_id))) return false;
+      if (priorities.size && !priorities.has(Number(todo.priority))) return false;
+
+      const due = parseTodoDate(todo.due_date);
+      switch (filters.dueMode || 'next_days') {
+        case 'any':
+          return true;
+        case 'none':
+          return !due;
+        case 'overdue':
+          return Boolean(due && due < now && todo.status !== 'done');
+        case 'today':
+          return Boolean(due && due >= new Date(now.toDateString()) && due <= todayEnd);
+        case 'tomorrow':
+          return Boolean(due && due >= tomorrowStart && due <= tomorrowEnd);
+        case 'next_days':
+        default:
+          return Boolean(due && due <= daysEnd);
+      }
+    });
+  }
+
+  function renderFocusControls(projects) {
+    const filters = getFocusFilters?.() || {};
+    const expanded = Boolean(getFocusFiltersExpanded?.());
+    const projectMenuOpen = Boolean(getFocusProjectMenuOpen?.());
+    const projectSearch = String(getFocusProjectSearch?.() || '');
+    const normalizedProjectSearch = projectSearch.toLocaleLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const dueMode = filters.dueMode || 'next_days';
+    const dueDays = Math.max(1, Number(filters.dueDays || 7));
+    const validProjectIds = new Set(projects.map(project => Number(project.id)));
+    const projectIds = new Set((filters.projectIds || []).map(Number).filter(id => validProjectIds.has(id)));
+    const priorities = new Set((filters.priorities || [1, 2, 3, 4]).map(Number));
+    const statuses = new Set(filters.statuses || ['pending', 'in_progress']);
+    const selectedProjectNames = [...projects]
+      .filter(project => projectIds.has(Number(project.id)))
+      .map(project => project.name);
+    const projectSummary = selectedProjectNames.length
+      ? (selectedProjectNames.length <= 2 ? selectedProjectNames.join(', ') : t('focus.projects.selectedCount', { count: selectedProjectNames.length }))
+      : t('focus.projects.all');
+    const activeParts = [
+      dueMode === 'next_days' ? t('focus.summary.nextDays', { count: dueDays }) : t(`focus.due.${dueMode}`),
+      projectSummary,
+      t('focus.summary.priorities', { count: priorities.size }),
+    ];
+    const filteredForStats = applyFocusFilters(getWorkspaceTodos(), validProjectIds);
+    const activeForStats = filteredForStats.filter(todo => todo.status !== 'done');
+    const overdueForStats = activeForStats.filter(todo => {
+      const due = parseTodoDate(todo.due_date);
+      return Boolean(due && due < new Date());
+    }).length;
+    const focusStats = [
+      { cls: 'total', num: filteredForStats.length, label: t('overview.stats.total') },
+      { cls: 'pending', num: filteredForStats.filter(todo => todo.status === 'pending').length, label: t('todo.status.pending') },
+      { cls: 'progress', num: filteredForStats.filter(todo => todo.status === 'in_progress').length, label: t('todo.status.inProgress') },
+      { cls: 'due', num: overdueForStats, label: t('overview.stats.overdue') },
+    ];
+    const statusOptions = [
+      ['pending', iconSvg('clock'), t('todo.status.pending')],
+      ['in_progress', iconSvg('flame'), t('todo.status.inProgress')],
+      ['done', iconSvg('check-circle'), t('todo.status.done')],
+    ];
+    const priorityOptions = [
+      [1, t('todo.priority.veryHigh'), '#ef4444'],
+      [2, t('todo.priority.high'), '#f59e0b'],
+      [3, t('todo.priority.medium'), '#10b981'],
+      [4, t('todo.priority.low'), '#94a3b8'],
+    ];
+    const projectMap = new Map();
+    projects.forEach(project => projectMap.set(project.id, { ...project, children: [] }));
+    const rootProjects = [];
+    projectMap.forEach(project => {
+      if (project.parent_id === null || project.parent_id === undefined) rootProjects.push(project);
+      else {
+        const parent = projectMap.get(project.parent_id);
+        if (parent) parent.children.push(project);
+        else rootProjects.push(project);
+      }
+    });
+    rootProjects.sort((a, b) => (!!a.is_inbox !== !!b.is_inbox ? (a.is_inbox ? -1 : 1) : a.name.localeCompare(b.name)));
+    const renderProjectOption = (project, depth = 0) => {
+      const selected = projectIds.has(Number(project.id));
+      const children = (project.children || []).sort((a, b) => a.name.localeCompare(b.name));
+      const label = String(project.name || '');
+      const matchesSearch = !normalizedProjectSearch || label.toLocaleLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(normalizedProjectSearch);
+      return `<button type="button" class="focus-project-option ${selected ? 'is-selected' : ''}" style="--project-depth:${depth}" data-focus-project-option data-label="${escapeHtmlAttr(label)}" ${matchesSearch ? '' : 'hidden'} onclick="toggleFocusProject(${Number(project.id)})" role="menuitemcheckbox" aria-checked="${selected ? 'true' : 'false'}">${markerHtml(project)}<span>${escapeHtml(label)}</span><span class="focus-project-check" aria-hidden="true">${iconSvg('check')}</span></button>${children.map(child => renderProjectOption(child, depth + 1)).join('')}`;
+    };
+    const projectOptions = rootProjects.map(project => renderProjectOption(project)).join('') || `<div class="focus-project-empty">${escapeHtml(t('focus.noProjects'))}</div>`;
+    const projectMatchCount = rootProjects.length ? (projectOptions.match(/data-focus-project-option/g) || []).length - (projectOptions.match(/data-focus-project-option[^>]*hidden/g) || []).length : 0;
+    const headingActions = expanded
+      ? `<button type="button" class="btn btn-secondary btn-small focus-reset-btn" onclick="resetFocusFilters()">${iconSvg('refresh-cw')} ${escapeHtml(t('focus.reset'))}</button><button type="button" class="btn btn-secondary btn-small focus-toggle-btn" onclick="toggleFocusFiltersExpanded()" aria-expanded="true">${iconSvg('chevron-up')} ${escapeHtml(t('focus.collapse'))}</button>`
+      : `<button type="button" class="btn btn-secondary btn-small focus-toggle-btn" onclick="toggleFocusFiltersExpanded()" aria-expanded="false">${iconSvg('chevron-down')} ${escapeHtml(t('focus.expand'))}</button>`;
+
+    return `<section class="focus-filter-card ${expanded ? 'is-expanded' : 'is-collapsed'}" aria-label="${escapeHtmlAttr(t('focus.aria'))}">
+      <div class="ui-section-heading focus-filter-heading">
+        <div class="ui-section-icon focus-filter-icon" aria-hidden="true">${iconSvg('target')}</div>
+        <div>
+          <h4>${escapeHtml(t('focus.title'))}</h4>
+          <p>${escapeHtml(t('focus.subtitle'))}</p>
+          <div class="focus-filter-summary">${activeParts.map(part => `<span>${escapeHtml(part)}</span>`).join('')}</div>
+        </div>
+        <div class="focus-heading-actions">${headingActions}</div>
+      </div>
+      ${!expanded ? `<div class="overview-stat-grid focus-stat-grid">
+        ${focusStats.map(stat => `<div class="overview-stat-card focus-stat-card ${stat.cls}"><div class="overview-stat-num">${stat.num}</div><div><div class="overview-stat-label">${escapeHtml(stat.label)}</div></div></div>`).join('')}
+      </div>` : ''}
+      <div class="focus-filter-body" ${expanded ? '' : 'hidden'}>
+        <div class="focus-filter-grid">
+          <div class="form-group focus-due-field">
+            <label for="focus-due-mode">${escapeHtml(t('focus.due.label'))}</label>
+            <select id="focus-due-mode" data-ui-select onchange="setFocusDueMode(this.value)">
+              <option value="any" ${dueMode === 'any' ? 'selected' : ''}>${escapeHtml(t('focus.due.any'))}</option>
+              <option value="next_days" ${dueMode === 'next_days' ? 'selected' : ''}>${escapeHtml(t('focus.due.nextDays'))}</option>
+              <option value="today" ${dueMode === 'today' ? 'selected' : ''}>${escapeHtml(t('focus.due.today'))}</option>
+              <option value="tomorrow" ${dueMode === 'tomorrow' ? 'selected' : ''}>${escapeHtml(t('focus.due.tomorrow'))}</option>
+              <option value="overdue" ${dueMode === 'overdue' ? 'selected' : ''}>${escapeHtml(t('focus.due.overdue'))}</option>
+              <option value="none" ${dueMode === 'none' ? 'selected' : ''}>${escapeHtml(t('focus.due.none'))}</option>
+            </select>
+          </div>
+          <div class="form-group focus-days-field ${dueMode === 'next_days' ? '' : 'is-muted'}">
+            <label for="focus-due-days">${escapeHtml(t('focus.due.days'))}</label>
+            <input id="focus-due-days" type="number" min="1" max="365" value="${escapeHtmlAttr(dueDays)}" ${dueMode === 'next_days' ? '' : 'disabled'} onchange="setFocusDueDays(this.value)">
+          </div>
+        </div>
+        <div class="focus-filter-section">
+          <div class="focus-filter-label">${iconSvg('folder')} ${escapeHtml(t('focus.projects'))}</div>
+          <div class="focus-project-dropdown ${projectMenuOpen ? 'is-open' : ''}">
+            <button type="button" class="ui-select-trigger focus-project-trigger" onclick="toggleFocusProjectMenu()" aria-haspopup="menu" aria-expanded="${projectMenuOpen ? 'true' : 'false'}">
+              <span class="ui-select-value">${escapeHtml(projectSummary)}</span>
+              <span class="ui-select-chevron" aria-hidden="true">${iconSvg('chevron-down')}</span>
+            </button>
+            <div class="focus-project-menu ui-select-menu project-ui-select-menu" role="menu" ${projectMenuOpen ? '' : 'hidden'}>
+              <div class="ui-select-search">
+                <span class="ui-select-search-icon" aria-hidden="true">${iconSvg('search')}</span>
+                <input type="search" class="ui-select-search-input" value="${escapeHtmlAttr(projectSearch)}" placeholder="${escapeHtmlAttr(t('focus.projects.search'))}" aria-label="${escapeHtmlAttr(t('focus.projects.search'))}" oninput="filterFocusProjectMenu(this.value)" onkeydown="handleFocusProjectMenuKeydown(event)">
+              </div>
+              ${projectOptions}
+              <div class="ui-select-empty focus-project-empty" ${projectMatchCount > 0 || !rootProjects.length ? 'hidden' : ''}>${escapeHtml(t('focus.projects.noMatches'))}</div>
+            </div>
+          </div>
+        </div>
+        <div class="focus-filter-section focus-filter-split">
+          <div>
+            <div class="focus-filter-label">${iconSvg('flag')} ${escapeHtml(t('focus.priorities'))}</div>
+            <div class="focus-chip-row">${priorityOptions.map(([priority, label, color]) => `<button type="button" class="focus-chip priority-chip ${priorities.has(priority) ? 'active' : ''}" onclick="toggleFocusPriority(${priority})"><span class="priority-dot" style="--priority-color:${escapeHtmlAttr(color)}"></span><span>${escapeHtml(label)}</span></button>`).join('')}</div>
+          </div>
+          <div>
+            <div class="focus-filter-label">${iconSvg('list')} ${escapeHtml(t('focus.statuses'))}</div>
+            <div class="focus-chip-row">${statusOptions.map(([status, icon, label]) => `<button type="button" class="focus-chip ${statuses.has(status) ? 'active' : ''}" onclick="toggleFocusStatus('${escapeHtmlAttr(status)}')">${icon}<span>${escapeHtml(label)}</span></button>`).join('')}</div>
+          </div>
+        </div>
+      </div>
+    </section>`;
+  }
+
+  function hydrateFocusControls() {
+    const select = document.getElementById('focus-due-mode');
+    if (!select) return;
+    hydrateSelect(select);
+    refreshSelect(select);
+  }
+
   function renderTodos() {
     const el = document.getElementById('todo-list');
     if (!el) return;
@@ -410,6 +614,9 @@ export function createAppRenderingFeature({
         const due = new Date(todo.due_date);
         return Number.isFinite(due.getTime()) && due <= todayEnd;
       });
+    }
+    if (currentFilter === 'focus' && !currentProjectId) {
+      filtered = applyFocusFilters(filtered, new Set(projects.map(project => Number(project.id))));
     }
     filtered = sortTodoList(filtered);
 
@@ -479,11 +686,12 @@ export function createAppRenderingFeature({
       done: `${iconSvg('check-circle')} ${escapeHtml(t('todo.status.done'))}`,
     };
 
-    if (currentFilter !== 'all' && groups[currentFilter]) filtered = filtered.filter(t => t.status === currentFilter);
-    if (hideDone && currentFilter !== 'done') filtered = filtered.filter(t => t.status !== 'done');
+    const isAggregateFilter = currentFilter === 'all' || currentFilter === 'focus';
+    if (!isAggregateFilter && groups[currentFilter]) filtered = filtered.filter(t => t.status === currentFilter);
+    if (hideDone && currentFilter !== 'done' && currentFilter !== 'focus') filtered = filtered.filter(t => t.status !== 'done');
 
-    let html = '';
-    if (currentFilter === 'all') {
+    let html = currentFilter === 'focus' ? renderFocusControls(projects) : '';
+    if (isAggregateFilter) {
       const pinnedItems = filtered.filter(t => t.is_pinned);
       if (pinnedItems.length) {
         html += `<div class="todo-group pinned-todos-group">
@@ -492,9 +700,9 @@ export function createAppRenderingFeature({
         </div>`;
       }
     }
-    const groupedSource = currentFilter === 'all' ? filtered.filter(t => !t.is_pinned) : filtered;
+    const groupedSource = isAggregateFilter ? filtered.filter(t => !t.is_pinned) : filtered;
     for (const [status, title] of Object.entries(groups)) {
-      if (currentFilter !== 'all' && currentFilter !== status) continue;
+      if (!isAggregateFilter && currentFilter !== status) continue;
       const statusItems = groupedSource.filter(t => t.status === status);
       if (!statusItems.length) continue;
 
@@ -544,7 +752,7 @@ export function createAppRenderingFeature({
     }
 
     if (!filtered.length) {
-      html = `<div class="empty-state">
+      html = `${currentFilter === 'focus' ? renderFocusControls(projects) : ''}<div class="empty-state">
         <div class="emoji">${iconSvg('check-circle')}</div>
         <h3>${escapeHtml(t('empty.allDone'))}</h3>
         <p>${escapeHtml(t('empty.noTodosInView'))}</p>
@@ -552,6 +760,7 @@ export function createAppRenderingFeature({
     }
 
     el.innerHTML = html;
+    if (currentFilter === 'focus') hydrateFocusControls();
   }
 
   function renderInvites(invites) {

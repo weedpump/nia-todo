@@ -840,7 +840,8 @@ Authorization: ApiKey nt_...
   "project_id": 2,
   "section_id": 1,
   "due_date": "2026-05-14T10:00:00Z",
-  "remind_at": "2026-05-14T09:00:00Z"
+  "remind_at": "2026-05-14T09:00:00Z",
+  "recurring_rule": {"frequency": "daily", "interval": 1}
 }
 ```
 
@@ -852,6 +853,7 @@ Authorization: ApiKey nt_...
 - `section_id` int, optional
 - `due_date` ISO-8601, optional, valid year `1900..9999`
 - `remind_at` ISO-8601, optional, valid year `1900..9999`
+- `recurring_rule` object, optional; MVP supports `frequency= daily|weekly|monthly|yearly` and `interval >= 1`. Requires `due_date`. When a recurring todo is completed, the API marks the current todo done and creates the next pending occurrence.
 
 **Response**
 ```json
