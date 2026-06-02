@@ -1041,5 +1041,20 @@
   "settings.braindump.learning.resetFailed": "Gemerkte Zuordnungen konnten nicht gelöscht werden.",
   "api.auth.braindumpLearningLoadFailed": "BrainDump-Lernen konnte nicht geladen werden.",
   "api.auth.braindumpLearningSaveFailed": "BrainDump-Lernen konnte nicht gespeichert werden.",
-  "api.auth.braindumpLearningResetFailed": "BrainDump-Lernen konnte nicht zurückgesetzt werden."
+  "api.auth.braindumpLearningResetFailed": "BrainDump-Lernen konnte nicht zurückgesetzt werden.",
+  "todo.recurring": "Wiederholung",
+  "todo.recurring.hint": "Optional regelmäßig neu erstellen.",
+  "todo.recurring.requiresDeadline": "Wiederkehrende Todos brauchen eine Deadline als Startpunkt.",
+  "todo.recurring.deadlineRequired": "Wiederkehrende Todos brauchen eine Deadline.",
+  "todo.recurring.frequency": "Wiederholung",
+  "todo.recurring.interval": "Alle",
+  "todo.recurring.none": "Keine Wiederholung",
+  "todo.recurring.daily": "Täglich",
+  "todo.recurring.weekly": "Wöchentlich",
+  "todo.recurring.monthly": "Monatlich",
+  "todo.recurring.yearly": "Jährlich",
+  "todo.recurring.label.daily": "Alle {interval} Tag(e)",
+  "todo.recurring.label.weekly": "Alle {interval} Woche(n)",
+  "todo.recurring.label.monthly": "Alle {interval} Monat(e)",
+  "todo.recurring.label.yearly": "Alle {interval} Jahr(e)"
 }
