@@ -2239,6 +2239,9 @@ input[type="color"]::-moz-color-swatch {
   .search-box {
     flex: 0 0 auto;
     order: initial;
+    position: relative;
+    width: 36px;
+    min-width: 36px;
   }
   .search-toggle-btn {
     display: inline-flex;
@@ -2269,7 +2272,8 @@ input[type="color"]::-moz-color-swatch {
     top: 0;
     left: 0;
     z-index: 20;
-    width: min(calc(100vw - 120px), 360px);
+    width: min(calc(100vw - 156px), 360px);
+    max-width: calc(100vw - 24px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px));
     height: 36px;
     padding: 8px 12px 8px 44px;
     opacity: 0;
