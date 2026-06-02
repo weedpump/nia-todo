@@ -173,6 +173,33 @@ async function run() {
     if (Math.abs(mobileMenuState.top - mobileMenuState.triggerBottom) > 80 && mobileMenuState.top > mobileMenuState.triggerBottom) throw new Error(`Mobile popover is not field anchored: ${JSON.stringify(mobileMenuState)}`);
     if (mobileMenuState.overflow) throw new Error('Mobile dropdown caused horizontal overflow');
 
+    const ownScrollHandling = await page.evaluate(() => {
+      const menu = document.querySelector('.ui-select-menu');
+      const trigger = document.querySelector('.ui-select[data-select-id="todo-project"] .ui-select-trigger');
+      if (!menu || !trigger) return { missing: true };
+      const originalGetBoundingClientRect = trigger.getBoundingClientRect.bind(trigger);
+      let triggerRectReads = 0;
+      trigger.getBoundingClientRect = () => {
+        triggerRectReads += 1;
+        return originalGetBoundingClientRect();
+      };
+      menu.dispatchEvent(new Event('scroll'));
+      const style = getComputedStyle(menu);
+      trigger.getBoundingClientRect = originalGetBoundingClientRect;
+      return {
+        triggerRectReads,
+        overscrollBehavior: style.overscrollBehaviorY || style.overscrollBehavior,
+        webkitOverflowScrolling: style.webkitOverflowScrolling || '',
+        touchAction: style.touchAction,
+      };
+    });
+    if (ownScrollHandling.missing || ownScrollHandling.triggerRectReads !== 0) {
+      throw new Error(`Dropdown repositioned while its own menu scrolled: ${JSON.stringify(ownScrollHandling)}`);
+    }
+    if (ownScrollHandling.overscrollBehavior !== 'contain' || ownScrollHandling.touchAction !== 'pan-y') {
+      throw new Error(`Mobile dropdown scroll containment styles missing: ${JSON.stringify(ownScrollHandling)}`);
+    }
+
     assertNoFrontendErrors();
     console.log('✅ Shared UI dropdown primitive test passed');
   } finally {

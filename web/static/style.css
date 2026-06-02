@@ -1790,6 +1790,9 @@ select:focus-visible {
   z-index: 340;
   padding: 6px;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
   border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border));
   border-radius: 14px;
   background: linear-gradient(135deg, color-mix(in srgb, var(--bg-secondary) 96%, var(--bg-primary)), var(--bg-secondary));
