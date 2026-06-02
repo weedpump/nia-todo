@@ -123,12 +123,18 @@ def get_project_members(db, project_id: int, include_inactive=False, owner_only=
             (project_id,)
         ).fetchall()
     else:
-        # Owner view without inactive: see pending + accepted
+        # Owner view without inactive: see accepted members and pending username invites.
+        # Pending email invites use a neutral owner response and must not reveal
+        # whether the email matched a real account after reload.
         rows = db.execute(
             """SELECT pm.*, u.username, u.display_name
                FROM project_members pm
                JOIN users u ON pm.user_id = u.id
-               WHERE pm.project_id = ? AND pm.status IN ('pending', 'accepted')
+               WHERE pm.project_id = ?
+                 AND (
+                   pm.status = 'accepted'
+                   OR (pm.status = 'pending' AND COALESCE(pm.invite_identifier_type, 'username') != 'email')
+                 )
                ORDER BY pm.created_at""",
             (project_id,)
         ).fetchall()
@@ -238,11 +244,14 @@ async def share_project(project_id: int, data: ShareProjectRequest, request: Req
 
         # Create invitation
         c = db.execute(
-            """INSERT INTO project_members (project_id, user_id, invited_by, status, created_at, updated_at)
-               VALUES (?, ?, ?, 'pending', datetime('now'), datetime('now'))
+            """INSERT INTO project_members (project_id, user_id, invited_by, status, invite_identifier_type, created_at, updated_at)
+               VALUES (?, ?, ?, 'pending', ?, datetime('now'), datetime('now'))
                ON CONFLICT(project_id, user_id) DO UPDATE SET
-               status = 'pending', invited_by = excluded.invited_by, updated_at = datetime('now')""",
-            (project_id, target['id'], user_id)
+               status = 'pending',
+               invited_by = excluded.invited_by,
+               invite_identifier_type = excluded.invite_identifier_type,
+               updated_at = datetime('now')""",
+            (project_id, target['id'], user_id, 'email' if email_identifier else 'username')
         )
         emailed = False
         db.commit()
