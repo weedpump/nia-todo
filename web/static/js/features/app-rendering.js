@@ -195,7 +195,7 @@ export function createAppRenderingFeature({
     const pending = todos.filter(t => t.status === 'pending').length;
     const inprog = todos.filter(t => t.status === 'in_progress').length;
     const done = todos.filter(t => t.status === 'done').length;
-    const validProjectIds = new Set(projects.map(project => String(project.id)));
+    const validProjectIds = new Set(projects.map(project => Number(project.id)));
     const focusCount = applyFocusFilters(todos, validProjectIds).length;
     const overdue = activeTodos.filter(t => t.due_date && new Date(t.due_date) < now).length;
     const dueToday = activeTodos.filter(t => t.due_date && new Date(t.due_date) >= now && new Date(t.due_date) <= todayEnd).length;
