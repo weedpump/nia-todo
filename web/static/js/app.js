@@ -55,6 +55,7 @@ const DEFAULT_FOCUS_FILTERS = Object.freeze({
   statuses: ['pending', 'in_progress'],
 });
 let todayFocus = localStorage.getItem('nia-today-focus') === 'true';
+let minimalTodos = localStorage.getItem('nia-minimal-todos') === 'true';
 let focusFilters = loadFocusFilters();
 let focusFiltersExpanded = false;
 let focusProjectMenuOpen = false;
@@ -257,6 +258,8 @@ const viewPreferences = createViewPreferencesFeature({
   setShowProjectWidget: (value) => { showProjectWidget = value; },
   getTodayFocus: () => todayFocus,
   setTodayFocus: (value) => { todayFocus = value; },
+  getMinimalTodos: () => minimalTodos,
+  setMinimalTodos: (value) => { minimalTodos = value; },
   renderTodos: () => renderTodos(),
 });
 const toggleHideDone = viewPreferences.toggleHideDone;
@@ -268,6 +271,8 @@ const toggleProjectWidget = viewPreferences.toggleProjectWidget;
 const updateProjectWidgetButton = viewPreferences.updateProjectWidgetButton;
 const toggleTodayFocus = viewPreferences.toggleTodayFocus;
 const updateTodayFocusButton = viewPreferences.updateTodayFocusButton;
+const toggleMinimalTodos = viewPreferences.toggleMinimalTodos;
+const updateMinimalTodosButton = viewPreferences.updateMinimalTodosButton;
 const sectionsFeature = createSectionsFeature({
   getTodos: () => todos,
   getCurrentProjectId: () => currentProjectId,
@@ -850,6 +855,7 @@ const appLifecycle = createAppLifecycle({
   updateToggleDoneButton,
   updateSortButton,
   updateProjectWidgetButton,
+  updateMinimalTodosButton,
   renderWorkspaces,
   refreshInvites: () => sharingFeature?.loadInvites?.(),
 });
@@ -906,6 +912,7 @@ export function startAppModule() {
     updateSortButton();
     updateProjectWidgetButton();
     updateTodayFocusButton();
+    updateMinimalTodosButton();
     hydrateIcons(document);
   });
   setInterval(() => renderStats(), 30 * 1000);
@@ -931,7 +938,7 @@ export function startAppModule() {
   projectSharing: { setProject: (project) => sharingFeature.setProject(project), applyProjectModalState: (project, canEdit, shared) => sharingFeature.applyProjectModalState(project, canEdit, shared), loadInvites: () => sharingFeature.loadInvites() },
   sections: { showAddSectionForm, saveNewSection, editSectionInline, saveSectionEdit, deleteSection },
   dragDrop: { handleTodoDragStart, handleTodoDragEnd, handleTodoDragOver, handleTodoDrop, handleSectionDragStart, handleSectionDragEnd, handleSectionDragOver, handleSectionDrop },
-  viewPreferences: { toggleHideDone, updateToggleDoneButton, cycleSort, updateSortButton, sortTodoList, toggleProjectWidget, updateProjectWidgetButton, toggleTodayFocus, updateTodayFocusButton, updateFocusFilters, toggleFocusFiltersExpanded, toggleFocusProjectMenu, closeFocusProjectMenu, resetFocusFilters, setFocusDueMode, setFocusDueDays, toggleFocusProject, filterFocusProjectMenu, handleFocusProjectMenuKeydown, toggleFocusPriority, toggleFocusStatus },
+  viewPreferences: { toggleHideDone, updateToggleDoneButton, cycleSort, updateSortButton, sortTodoList, toggleProjectWidget, updateProjectWidgetButton, toggleTodayFocus, updateTodayFocusButton, toggleMinimalTodos, updateMinimalTodosButton, updateFocusFilters, toggleFocusFiltersExpanded, toggleFocusProjectMenu, closeFocusProjectMenu, resetFocusFilters, setFocusDueMode, setFocusDueDays, toggleFocusProject, filterFocusProjectMenu, handleFocusProjectMenuKeydown, toggleFocusPriority, toggleFocusStatus },
   toastUndo: { showToast, showBatchToast, hideToast, undoLastAction, restoreBatchTodos, restoreTodo },
     push: { updatePushStatus, updatePushSettingsUI, enablePushNotifications, disablePushNotifications, sendTestPush },
     desktopIntegration: {

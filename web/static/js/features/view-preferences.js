@@ -1,7 +1,7 @@
 import { t } from '../i18n/index.js';
 import { iconSvg } from '../icons/lucide-icons.js';
 
-export function createViewPreferencesFeature({ getHideDone, setHideDone, getSortMode, setSortMode, getShowProjectWidget, setShowProjectWidget, getTodayFocus, setTodayFocus, renderTodos }) {
+export function createViewPreferencesFeature({ getHideDone, setHideDone, getSortMode, setSortMode, getShowProjectWidget, setShowProjectWidget, getTodayFocus, setTodayFocus, getMinimalTodos, setMinimalTodos, renderTodos }) {
   function toggleHideDone() {
     const next = !getHideDone();
     setHideDone(next);
@@ -74,6 +74,28 @@ export function createViewPreferencesFeature({ getHideDone, setHideDone, getSort
     if (label) label.textContent = active ? t('todayFocus.on') : t('todayFocus.short');
   }
 
+
+  function toggleMinimalTodos() {
+    if (!getMinimalTodos || !setMinimalTodos) return;
+    const next = !getMinimalTodos();
+    setMinimalTodos(next);
+    localStorage.setItem('nia-minimal-todos', next ? 'true' : 'false');
+    updateMinimalTodosButton();
+    renderTodos();
+  }
+
+  function updateMinimalTodosButton() {
+    const btn = document.getElementById('minimal-todos-btn');
+    if (!btn || !getMinimalTodos) return;
+    const active = getMinimalTodos();
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    btn.title = active ? t('minimalTodos.disable') : t('minimalTodos.enable');
+    document.body?.classList.toggle('is-minimal-todos', active);
+    const label = btn.querySelector('[data-i18n-key="minimalTodos.short"]');
+    if (label) label.textContent = active ? t('minimalTodos.on') : t('minimalTodos.short');
+  }
+
   function cycleSort() {
     const modes = ['order', 'priority', 'alpha'];
     const idx = modes.indexOf(getSortMode());
@@ -132,5 +154,5 @@ export function createViewPreferencesFeature({ getHideDone, setHideDone, getSort
     });
   }
 
-  return { toggleHideDone, updateToggleDoneButton, toggleProjectWidget, updateProjectWidgetButton, toggleTodayFocus, updateTodayFocusButton, cycleSort, updateSortButton, sortTodoList };
+  return { toggleHideDone, updateToggleDoneButton, toggleProjectWidget, updateProjectWidgetButton, toggleTodayFocus, updateTodayFocusButton, toggleMinimalTodos, updateMinimalTodosButton, cycleSort, updateSortButton, sortTodoList };
 }
