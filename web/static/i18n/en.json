@@ -1041,5 +1041,20 @@
   "settings.braindump.learning.resetFailed": "Could not delete remembered assignments.",
   "api.auth.braindumpLearningLoadFailed": "Could not load BrainDump learning.",
   "api.auth.braindumpLearningSaveFailed": "Could not save BrainDump learning.",
-  "api.auth.braindumpLearningResetFailed": "Could not reset BrainDump learning."
+  "api.auth.braindumpLearningResetFailed": "Could not reset BrainDump learning.",
+  "todo.recurring": "Repeat",
+  "todo.recurring.hint": "Optionally create the next occurrence automatically.",
+  "todo.recurring.requiresDeadline": "Recurring todos need a deadline as the starting point.",
+  "todo.recurring.deadlineRequired": "Recurring todos need a deadline.",
+  "todo.recurring.frequency": "Repeat",
+  "todo.recurring.interval": "Every",
+  "todo.recurring.none": "No repeat",
+  "todo.recurring.daily": "Daily",
+  "todo.recurring.weekly": "Weekly",
+  "todo.recurring.monthly": "Monthly",
+  "todo.recurring.yearly": "Yearly",
+  "todo.recurring.label.daily": "Every {interval} day(s)",
+  "todo.recurring.label.weekly": "Every {interval} week(s)",
+  "todo.recurring.label.monthly": "Every {interval} month(s)",
+  "todo.recurring.label.yearly": "Every {interval} year(s)"
 }

@@ -323,6 +323,8 @@ const syncFeature = createSyncFeature({
   projectsApi,
   sectionsApi,
   workspacesApi,
+  renderStats: () => renderStats(),
+  renderTodos: () => renderTodos(),
 });
 const todosFeature = createTodosFeature({
   getTodos: () => todos,
