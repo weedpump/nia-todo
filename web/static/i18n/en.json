@@ -737,6 +737,8 @@
   "admin.braindump.systemPrompt.default": "Use nia-todo default",
   "admin.braindump.systemPrompt.append": "Append custom instructions",
   "admin.braindump.systemPrompt.replace": "Replace default prompt",
+  "admin.braindump.defaultSystemPrompt": "Current nia-todo default extraction prompt",
+  "admin.braindump.defaultSystemPromptHelp": "Loaded from the backend's active default prompt definition. Use it as reference before appending or replacing instructions.",
   "admin.braindump.customSystemPrompt": "Custom system prompt / instructions",
   "admin.braindump.customSystemPromptPlaceholder": "Optional. Leave empty to use the built-in BrainDump extractor prompt.",
   "admin.braindump.sttProvider": "STT provider",

@@ -1117,11 +1117,31 @@ export function createTodosFeature({
     await updateTodoFields(id, { is_pinned: !Boolean(todo.is_pinned) }, Boolean(todo.is_pinned) ? t('todo.toast.unpinned') : t('todo.toast.pinned'));
   }
 
+  function getTodoReminderTime(todo) {
+    const raw = todo?.remind_at || todo?.reminders?.find?.(reminder => !reminder.sent_at)?.remind_at || todo?.reminders?.[0]?.remind_at;
+    if (!raw) return null;
+    const date = new Date(raw);
+    return Number.isFinite(date.getTime()) ? date : null;
+  }
+
+  function getSnoozedReminderDate(todo, nextDue) {
+    const reminder = getTodoReminderTime(todo);
+    if (!reminder || !nextDue || !Number.isFinite(nextDue.getTime())) return null;
+    const previousDue = todo?.due_date ? new Date(todo.due_date) : null;
+    if (previousDue && Number.isFinite(previousDue.getTime())) {
+      return new Date(reminder.getTime() + (nextDue.getTime() - previousDue.getTime()));
+    }
+    return new Date(nextDue);
+  }
+
   async function snoozeTodo(id, mode) {
     const todo = getTodos().find(x => String(x.id) === String(id));
     if (!todo) return;
     const due = getSnoozeDate(mode, todo);
-    await updateTodoFields(id, { due_date: due.toISOString() }, t('todo.toast.snoozed'));
+    const reminder = getSnoozedReminderDate(todo, due);
+    const changes = { due_date: due.toISOString() };
+    if (reminder) changes.remind_at = reminder.toISOString();
+    await updateTodoFields(id, changes, t('todo.toast.snoozed'));
   }
 
   function editTodo(id) {

@@ -30,6 +30,24 @@ async function run() {
     await expandSection('#email-config-card');
     await expandSection('#braindump-config-card');
     await expandSection('#create-user-card');
+    const defaultPromptState = await page.evaluate(async () => {
+      const response = await fetch('/api/admin/braindump-config', {
+        headers: { Authorization: `Bearer ${localStorage.getItem('admin_jwt_token')}` },
+      });
+      const config = await response.json();
+      const field = document.getElementById('braindump-default-system-prompt');
+      return {
+        apiPrompt: config.default_system_prompt,
+        fieldValue: field?.value,
+        readonly: !!field?.readOnly,
+      };
+    });
+    if (!defaultPromptState.apiPrompt || !defaultPromptState.apiPrompt.includes('You are BrainDump')) {
+      throw new Error('BrainDump default prompt missing from admin config API');
+    }
+    if (defaultPromptState.fieldValue !== defaultPromptState.apiPrompt || !defaultPromptState.readonly) {
+      throw new Error('BrainDump default prompt is not rendered as readonly API-provided reference');
+    }
     const adminSelectState = await page.evaluate(() => {
       const ids = ['email-smtp-security', 'braindump-llm-provider', 'braindump-system-prompt-mode', 'braindump-stt-provider', 'new-language'];
       return ids.map((id) => {

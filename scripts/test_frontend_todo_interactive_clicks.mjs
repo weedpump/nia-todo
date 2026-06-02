@@ -15,6 +15,25 @@ async function waitForTodo(page, title, expected = {}) {
   }, { title, expected }, { timeout: 10000 });
 }
 
+async function waitForSnoozedReminderOffset(page, title, expectedOffsetMs) {
+  return page.waitForFunction(async ({ title, expectedOffsetMs }) => {
+    const jwt = localStorage.getItem('jwt_token');
+    const data = await fetch('/api/todos', { headers: { Authorization: `Bearer ${jwt}` }, credentials: 'include' }).then(r => r.json());
+    const todo = data.todos.find(item => item.title === title);
+    if (!todo) return false;
+    const reminder = todo.remind_at || todo.reminders?.find?.(item => !item.sent_at)?.remind_at || todo.reminders?.[0]?.remind_at;
+    if (!todo.due_date || !reminder) return false;
+    const due = new Date(todo.due_date);
+    const remind = new Date(reminder);
+    if (!Number.isFinite(due.getTime()) || !Number.isFinite(remind.getTime())) return false;
+    return Math.abs((due.getTime() - remind.getTime()) - expectedOffsetMs) < 1000 ? todo : false;
+  }, { title, expectedOffsetMs }, { timeout: 10000 });
+}
+
+function localDateTimeValue(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}T${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+}
+
 async function assertTodoModalHidden(page, context) {
   const active = await page.locator('#todo-modal.active').count();
   if (active !== 0) throw new Error(`Todo modal opened from ${context}`);
@@ -29,7 +48,9 @@ async function run() {
   console.log('🖱️ Running todo interactive click isolation test...');
   const { browser, page, openTodoModal, loginApp, assertNoFrontendErrors } = await launchPage();
   const title = 'Interactive Click Isolation Todo';
+  const snoozeReminderTitle = 'Snooze Keeps Reminder Offset Todo';
   const todoItem = () => page.locator('.todo-item').filter({ hasText: title }).last();
+  const snoozeReminderItem = () => page.locator('.todo-item').filter({ hasText: snoozeReminderTitle }).last();
 
   try {
     await loginApp();
@@ -70,6 +91,27 @@ async function run() {
     await waitForTodo(page, title, { pinned: true });
     await assertTodoModalHidden(page, 'pin button');
     await assertTodoDidNotPress(page, item, 'pin button');
+
+    await openTodoModal();
+    const originalDue = new Date();
+    originalDue.setDate(originalDue.getDate() + 7);
+    originalDue.setHours(10, 0, 0, 0);
+    const originalReminder = new Date(originalDue.getTime() - 60 * 60 * 1000);
+    await page.fill('#todo-title', snoozeReminderTitle);
+    await page.fill('#todo-due', localDateTimeValue(originalDue));
+    await page.fill('#todo-remind', localDateTimeValue(originalReminder));
+    await page.click('button[form="todo-form"]');
+    await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });
+    await waitForTodo(page, snoozeReminderTitle, { due: true });
+
+    const reminderItem = snoozeReminderItem();
+    await reminderItem.locator('.todo-snooze-menu summary').click();
+    await reminderItem.locator('.todo-snooze-menu[open]').waitFor({ state: 'visible', timeout: 5000 });
+    await reminderItem.locator('.todo-snooze-menu .todo-status-options button').filter({ hasText: /Morgen|Tomorrow/i }).click();
+    const snoozedHandle = await waitForSnoozedReminderOffset(page, snoozeReminderTitle, 60 * 60 * 1000);
+    const snoozed = await snoozedHandle.jsonValue();
+    if (!snoozed?.due_date) throw new Error('Snoozed todo did not retain due date and reminder');
+    await assertTodoModalHidden(page, 'snooze reminder option');
 
     item = todoItem();
     await item.locator('.todo-body').click();

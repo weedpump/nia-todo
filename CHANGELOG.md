@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - The main open-todos navigation has been replaced with a new Focus view that lets users build a filtered working set by due date, projects, priorities, and statuses, including searchable project dropdowns with subproject indentation and consistent project markers.
 - A new topbar Minimal mode makes dense todo lists one-line by showing only the checkbox, priority marker, title, and right-side actions.
 - Todos can now repeat daily, weekly, monthly, or yearly from the New/Edit Todo planning card; completing a recurring todo creates the next occurrence with its reminder shifted forward.
+- The BrainDump admin configuration now shows the current backend-provided default extraction prompt as a readonly reference before admins append or replace custom instructions.
 
 ### Changed
 - Project invite metadata now tracks whether an invite was created from a username or email identifier, with a conservative migration that keeps existing pending invites hidden unless they can be safely classified.
@@ -18,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - Project, priority, and status selectors now use the shared custom dropdown presentation more consistently, including project search, project icons/dots, priority color dots, and status icons where applicable.
 
 ### Fixed
+- Mobile topbar layout now keeps the workspace switcher compact as an icon/color chip so Focus, Minimal mode, search, and offline/sync indicators no longer crowd or overlap.
+- Snoozing a todo now shifts an existing reminder together with the deadline, preserving the reminder's offset instead of leaving it behind on the old time.
 - Reopening and completing the same recurring todo again now reuses the already-created next occurrence instead of creating duplicate future todos.
 - Windows desktop autostart now repairs its startup registration on app launch/settings load, so updates no longer leave the app setting enabled while the Windows Task Manager startup entry disappears.
 - BrainDump preview project and section dropdowns now scroll smoothly in the Android app without jittering while editing candidate todos.
