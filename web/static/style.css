@@ -7076,12 +7076,18 @@ input[type="color"]::-moz-color-swatch {
   }
 }
 
+@media (max-width: 768px) {
+  .focus-filter-summary {
+    margin: -2px 0 12px;
+  }
+}
+
 /* Focus filter refinements */
 .focus-filter-summary {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin-top: 8px;
+  margin: -4px 0 14px 64px;
 }
 
 .focus-filter-summary span {

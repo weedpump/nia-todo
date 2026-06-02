@@ -524,11 +524,11 @@ export function createAppRenderingFeature({
             <div class="overview-kicker">${escapeHtml(t('focus.kicker'))}</div>
             <h2>${escapeHtml(t('focus.title'))}</h2>
             <div class="overview-subtitle">${escapeHtml(t('focus.subtitle'))}</div>
-            <div class="focus-filter-summary">${activeParts.map(part => `<span>${escapeHtml(part)}</span>`).join('')}</div>
           </div>
         </div>
         <div class="focus-heading-actions">${headingActions}</div>
       </div>
+      <div class="focus-filter-summary">${activeParts.map(part => `<span>${escapeHtml(part)}</span>`).join('')}</div>
       ${!expanded ? `<div class="overview-stat-grid focus-stat-grid">
         ${focusStats.map(stat => `<div class="overview-stat-card focus-stat-card ${stat.cls}"><div class="overview-stat-num">${stat.num}</div><div><div class="overview-stat-label">${escapeHtml(stat.label)}</div><div class="overview-stat-hint">${escapeHtml(stat.hint)}</div></div></div>`).join('')}
       </div>` : ''}
