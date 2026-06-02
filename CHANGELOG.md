@@ -5,6 +5,11 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [2.10.2] - 2026-06-02
+
+### Fixed
+- Upgraded installs now add the missing `todos.recurring_rule` and `todos.parent_id` database columns required by recurring todos, preventing todo edit/reminder sync from failing with backend 500 errors after 2.10 updates.
+
 ## [2.10.1] - 2026-06-02
 
 ### Fixed

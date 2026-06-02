@@ -311,6 +311,17 @@ def repair_shared_project_display_workspace_migration(conn):
     conn.commit()
 
 
+
+def repair_todo_recurrence_columns_migration(conn):
+    """Make migration 041 idempotent for databases missing recurrence columns."""
+    if not table_exists(conn, "todos"):
+        conn.commit()
+        return
+    add_column_if_missing(conn, "todos", "recurring_rule", "TEXT")
+    add_column_if_missing(conn, "todos", "parent_id", "INTEGER")
+    conn.commit()
+
+
 def get_migration_files():
     """Holt alle Migrations-Dateien sortiert nach Nummer."""
     if not MIGRATIONS_DIR.exists():
@@ -404,6 +415,11 @@ def run_migrations():
                 elif version == 37 and ("duplicate column" in error_msg or "already exists" in error_msg or "no such table: todos" in error_msg):
                     print(f"[MIGRATION] ⚠️ {filepath.name} - todo pins schema partially exists or todos table is absent, repairing remaining schema")
                     repair_todo_pins_migration(conn)
+                    set_db_version(conn, version)
+                    applied += 1
+                elif version == 41 and ("duplicate column" in error_msg or "already exists" in error_msg or "no such table: todos" in error_msg):
+                    print(f"[MIGRATION] ⚠️ {filepath.name} - todo recurrence columns partially exist, repairing remaining schema")
+                    repair_todo_recurrence_columns_migration(conn)
                     set_db_version(conn, version)
                     applied += 1
                 elif "duplicate column" in error_msg or "already exists" in error_msg:
