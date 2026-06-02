@@ -413,7 +413,6 @@ export function createAppRenderingFeature({
     daysEnd.setDate(daysEnd.getDate() + Math.max(1, Number(filters.dueDays || 7) - 1));
 
     return items.filter(todo => {
-      if (!filters.includeDone && todo.status === 'done') return false;
       if (statuses.size && !statuses.has(todo.status)) return false;
       if (projectIds.size && !projectIds.has(Number(todo.project_id))) return false;
       if (priorities.size && !priorities.has(Number(todo.priority))) return false;
@@ -456,7 +455,6 @@ export function createAppRenderingFeature({
       dueMode === 'next_days' ? t('focus.summary.nextDays', { count: dueDays }) : t(`focus.due.${dueMode}`),
       projectSummary,
       t('focus.summary.priorities', { count: priorities.size }),
-      filters.includeDone ? t('focus.doneShown') : t('focus.doneHidden'),
     ];
     const statusOptions = [
       ['pending', iconSvg('clock'), t('todo.status.pending')],
@@ -546,10 +544,6 @@ export function createAppRenderingFeature({
           <div>
             <div class="focus-filter-label">${iconSvg('list')} ${escapeHtml(t('focus.statuses'))}</div>
             <div class="focus-chip-row">${statusOptions.map(([status, icon, label]) => `<button type="button" class="focus-chip ${statuses.has(status) ? 'active' : ''}" onclick="toggleFocusStatus('${escapeHtmlAttr(status)}')">${icon}<span>${escapeHtml(label)}</span></button>`).join('')}</div>
-          </div>
-          <div>
-            <div class="focus-filter-label">${iconSvg('check-circle')} ${escapeHtml(t('focus.doneVisibility'))}</div>
-            <button type="button" class="focus-chip ${filters.includeDone ? 'active' : ''}" onclick="toggleFocusDone()">${filters.includeDone ? iconSvg('check-circle') : iconSvg('ban')}<span>${escapeHtml(filters.includeDone ? t('focus.doneShown') : t('focus.doneHidden'))}</span></button>
           </div>
         </div>
       </div>

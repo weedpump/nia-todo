@@ -53,7 +53,6 @@ const DEFAULT_FOCUS_FILTERS = Object.freeze({
   projectIds: [],
   priorities: [1, 2, 3, 4],
   statuses: ['pending', 'in_progress'],
-  includeDone: false,
 });
 let todayFocus = localStorage.getItem('nia-today-focus') === 'true';
 let focusFilters = loadFocusFilters();
@@ -76,7 +75,6 @@ function normalizeFocusFilters(value = {}) {
   };
   next.dueMode = dueModes.has(next.dueMode) ? next.dueMode : DEFAULT_FOCUS_FILTERS.dueMode;
   next.dueDays = Math.min(365, Math.max(1, Number.parseInt(next.dueDays, 10) || DEFAULT_FOCUS_FILTERS.dueDays));
-  next.includeDone = Boolean(next.includeDone);
   if (!next.priorities.length) next.priorities = [...DEFAULT_FOCUS_FILTERS.priorities];
   if (!next.statuses.length) next.statuses = [...DEFAULT_FOCUS_FILTERS.statuses];
   return next;
@@ -199,10 +197,6 @@ function setFocusDueMode(dueMode) {
 
 function setFocusDueDays(dueDays) {
   updateFocusFilters({ dueDays });
-}
-
-function toggleFocusDone() {
-  updateFocusFilters({ includeDone: !focusFilters.includeDone });
 }
 
 function toggleFocusProject(projectId) {
@@ -938,7 +932,7 @@ export function startAppModule() {
   projectSharing: { setProject: (project) => sharingFeature.setProject(project), applyProjectModalState: (project, canEdit, shared) => sharingFeature.applyProjectModalState(project, canEdit, shared), loadInvites: () => sharingFeature.loadInvites() },
   sections: { showAddSectionForm, saveNewSection, editSectionInline, saveSectionEdit, deleteSection },
   dragDrop: { handleTodoDragStart, handleTodoDragEnd, handleTodoDragOver, handleTodoDrop, handleSectionDragStart, handleSectionDragEnd, handleSectionDragOver, handleSectionDrop },
-  viewPreferences: { toggleHideDone, updateToggleDoneButton, cycleSort, updateSortButton, sortTodoList, toggleProjectWidget, updateProjectWidgetButton, toggleTodayFocus, updateTodayFocusButton, updateFocusFilters, toggleFocusFiltersExpanded, toggleFocusProjectMenu, closeFocusProjectMenu, resetFocusFilters, setFocusDueMode, setFocusDueDays, toggleFocusDone, toggleFocusProject, filterFocusProjectMenu, handleFocusProjectMenuKeydown, toggleFocusPriority, toggleFocusStatus },
+  viewPreferences: { toggleHideDone, updateToggleDoneButton, cycleSort, updateSortButton, sortTodoList, toggleProjectWidget, updateProjectWidgetButton, toggleTodayFocus, updateTodayFocusButton, updateFocusFilters, toggleFocusFiltersExpanded, toggleFocusProjectMenu, closeFocusProjectMenu, resetFocusFilters, setFocusDueMode, setFocusDueDays, toggleFocusProject, filterFocusProjectMenu, handleFocusProjectMenuKeydown, toggleFocusPriority, toggleFocusStatus },
   toastUndo: { showToast, showBatchToast, hideToast, undoLastAction, restoreBatchTodos, restoreTodo },
     push: { updatePushStatus, updatePushSettingsUI, enablePushNotifications, disablePushNotifications, sendTestPush },
     desktopIntegration: {
