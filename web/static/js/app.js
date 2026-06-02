@@ -59,6 +59,7 @@ let todayFocus = localStorage.getItem('nia-today-focus') === 'true';
 let focusFilters = loadFocusFilters();
 let focusFiltersExpanded = localStorage.getItem('nia-focus-filters-expanded') === 'true';
 let focusProjectMenuOpen = false;
+let focusProjectSearch = '';
 let desktopIntegration = null;
 
 function normalizeFocusFilters(value = {}) {
@@ -105,20 +106,89 @@ function toggleFocusFiltersExpanded() {
   renderTodos();
 }
 
+function applyFocusProjectMenuSearch() {
+  const term = String(focusProjectSearch || '').toLocaleLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const menu = document.querySelector('.focus-project-menu');
+  if (!menu) return;
+  let visibleCount = 0;
+  menu.querySelectorAll('[data-focus-project-option]').forEach(option => {
+    const label = String(option.dataset.label || '').toLocaleLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const matches = !term || label.includes(term);
+    option.hidden = !matches;
+    if (matches) visibleCount += 1;
+  });
+  const empty = menu.querySelector('.ui-select-empty');
+  if (empty) empty.hidden = visibleCount > 0 || !menu.querySelector('[data-focus-project-option]');
+  const highlighted = menu.querySelector('[data-focus-project-option].is-highlighted');
+  if (!highlighted || highlighted.hidden) highlightFocusProjectOption(focusProjectOptionRows()[0]);
+}
+
+function filterFocusProjectMenu(value) {
+  focusProjectSearch = String(value || '');
+  applyFocusProjectMenuSearch();
+}
+
+function focusProjectOptionRows() {
+  return Array.from(document.querySelectorAll('.focus-project-menu [data-focus-project-option]')).filter(option => !option.hidden);
+}
+
+function highlightFocusProjectOption(target) {
+  const rows = focusProjectOptionRows();
+  rows.forEach(option => option.classList.remove('is-highlighted'));
+  if (!target) return;
+  target.classList.add('is-highlighted');
+  target.scrollIntoView({ block: 'nearest' });
+}
+
+function moveFocusProjectHighlight(direction = 1) {
+  const rows = focusProjectOptionRows();
+  if (!rows.length) return;
+  const current = rows.findIndex(option => option.classList.contains('is-highlighted'));
+  const next = current >= 0 ? (current + direction + rows.length) % rows.length : (direction > 0 ? 0 : rows.length - 1);
+  highlightFocusProjectOption(rows[next]);
+}
+
+function handleFocusProjectMenuKeydown(event) {
+  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    event.preventDefault();
+    moveFocusProjectHighlight(event.key === 'ArrowDown' ? 1 : -1);
+    return;
+  }
+  if (event.key === 'Enter') {
+    const target = document.querySelector('.focus-project-menu [data-focus-project-option].is-highlighted:not([hidden])') || focusProjectOptionRows()[0];
+    if (target) {
+      event.preventDefault();
+      target.click();
+    }
+    return;
+  }
+  if (event.key === 'Escape') {
+    event.preventDefault();
+    closeFocusProjectMenu();
+  }
+}
+
 function toggleFocusProjectMenu() {
   focusProjectMenuOpen = !focusProjectMenuOpen;
+  if (!focusProjectMenuOpen) focusProjectSearch = '';
   renderTodos();
+  if (focusProjectMenuOpen) window.setTimeout(() => {
+    document.querySelector('.focus-project-menu .ui-select-search-input')?.focus();
+    highlightFocusProjectOption(focusProjectOptionRows()[0]);
+  }, 0);
 }
 
 function closeFocusProjectMenu() {
   if (!focusProjectMenuOpen) return;
   focusProjectMenuOpen = false;
+  focusProjectSearch = '';
   renderTodos();
 }
 
 function resetFocusFilters() {
   focusFilters = normalizeFocusFilters();
   focusProjectMenuOpen = false;
+  focusProjectSearch = '';
   saveFocusFilters();
   renderTodos();
 }
@@ -143,6 +213,10 @@ function toggleFocusProject(projectId) {
   else current.add(id);
   updateFocusFilters({ projectIds: Array.from(current) });
   focusProjectMenuOpen = true;
+  window.setTimeout(() => {
+    document.querySelector('.focus-project-menu .ui-select-search-input')?.focus();
+    highlightFocusProjectOption(focusProjectOptionRows()[0]);
+  }, 0);
 }
 
 function toggleFocusPriority(priority) {
@@ -546,6 +620,7 @@ const appRendering = createAppRenderingFeature({
   getFocusFilters: () => focusFilters,
   getFocusFiltersExpanded: () => focusFiltersExpanded,
   getFocusProjectMenuOpen: () => focusProjectMenuOpen,
+  getFocusProjectSearch: () => focusProjectSearch,
   sortTodoList,
   renderTodoItem,
   renderSectionHeader,
@@ -863,7 +938,7 @@ export function startAppModule() {
   projectSharing: { setProject: (project) => sharingFeature.setProject(project), applyProjectModalState: (project, canEdit, shared) => sharingFeature.applyProjectModalState(project, canEdit, shared), loadInvites: () => sharingFeature.loadInvites() },
   sections: { showAddSectionForm, saveNewSection, editSectionInline, saveSectionEdit, deleteSection },
   dragDrop: { handleTodoDragStart, handleTodoDragEnd, handleTodoDragOver, handleTodoDrop, handleSectionDragStart, handleSectionDragEnd, handleSectionDragOver, handleSectionDrop },
-  viewPreferences: { toggleHideDone, updateToggleDoneButton, cycleSort, updateSortButton, sortTodoList, toggleProjectWidget, updateProjectWidgetButton, toggleTodayFocus, updateTodayFocusButton, updateFocusFilters, toggleFocusFiltersExpanded, toggleFocusProjectMenu, closeFocusProjectMenu, resetFocusFilters, setFocusDueMode, setFocusDueDays, toggleFocusDone, toggleFocusProject, toggleFocusPriority, toggleFocusStatus },
+  viewPreferences: { toggleHideDone, updateToggleDoneButton, cycleSort, updateSortButton, sortTodoList, toggleProjectWidget, updateProjectWidgetButton, toggleTodayFocus, updateTodayFocusButton, updateFocusFilters, toggleFocusFiltersExpanded, toggleFocusProjectMenu, closeFocusProjectMenu, resetFocusFilters, setFocusDueMode, setFocusDueDays, toggleFocusDone, toggleFocusProject, filterFocusProjectMenu, handleFocusProjectMenuKeydown, toggleFocusPriority, toggleFocusStatus },
   toastUndo: { showToast, showBatchToast, hideToast, undoLastAction, restoreBatchTodos, restoreTodo },
     push: { updatePushStatus, updatePushSettingsUI, enablePushNotifications, disablePushNotifications, sendTestPush },
     desktopIntegration: {

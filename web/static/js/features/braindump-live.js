@@ -854,6 +854,7 @@ export function createBrainDumpLiveFeature(options = {}) {
       hydrateSelect(select, {
         className: projectSelect ? 'braindump-ui-select project-ui-select' : 'braindump-ui-select',
         menuClassName: projectSelect ? 'braindump-ui-select-menu project-ui-select-menu' : 'braindump-ui-select-menu',
+        ...(projectSelect ? { searchPlaceholder: t('focus.projects.search'), searchLabel: t('focus.projects.search'), emptyText: t('focus.projects.noMatches') } : {}),
       });
       refreshSelect(select);
     });
