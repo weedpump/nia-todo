@@ -17,7 +17,8 @@ systemctl restart nia-todo-dev
 
 ## ✨ Features
 
-- 📝 Todos with description, priority, deadline, and reminders
+- 📝 Todos with description, priority, deadline, reminders, and recurring schedules
+- 🔁 Recurring todos with daily, weekly, monthly, or yearly intervals; completing one creates the next occurrence
 - 📁 Projects/categories including subprojects and protected per-user inbox
 - 🤝 Project sharing between users with invitations and undo
 - 📧 Email/SMTP integration for invitations, password reset, and email verification
@@ -26,6 +27,7 @@ systemctl restart nia-todo-dev
 - 🔐 Auth, admin panel, API keys, CSRF protection, and user data isolation
 - 🛡️ 2FA/MFA with authenticator app (TOTP), passkeys/WebAuthn including native Windows/Android bridge, email code fallback, recovery codes, trusted devices, and admin policy
 - ⏰ Reminders/deadlines with validated date/time input
+- 🔁 Recurring todos require a due date and can carry reminders forward to the next occurrence
 - 🔔 Native local reminders on Windows and Android; browser/PWA push remains browser/PWA-only
 - 🎙️ BrainDump voice capture for turning spoken notes into reviewed todo candidates, with configurable STT/LLM providers including OpenAI-compatible endpoints, Ollama, and OpenClaw agents
 - 🎨 Theme toggle

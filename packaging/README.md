@@ -21,7 +21,8 @@ nia-todo is designed for private self-hosting: install the server, open the web 
 
 ## ✨ Features
 
-- 📝 Todos with description, priority, deadline, status, and reminders
+- 📝 Todos with description, priority, deadline, status, reminders, and recurring schedules
+- 🔁 Recurring todos with daily, weekly, monthly, or yearly intervals; completing one creates the next occurrence
 - 📁 Projects/categories with subprojects, sections, workspaces, and protected per-user inboxes
 - 🤝 Project sharing between users with invitations and undo
 - 📧 Email/SMTP integration for invitations, password reset, and email verification
@@ -34,6 +35,10 @@ nia-todo is designed for private self-hosting: install the server, open the web 
 - 🎙️ BrainDump voice capture for turning spoken notes into reviewed todo candidates, backed by configurable STT/LLM providers
 - 🎨 Theme toggle and English/German UI language support
 - 🗄️ Local SQLite database
+
+## 🔁 Recurring todos
+
+Todos can be configured to repeat daily, weekly, monthly, or yearly with a custom interval. A recurring todo requires a due date; when the current occurrence is completed, nia-todo keeps it done and creates the next pending occurrence automatically. Existing reminders move forward with the same recurrence rhythm when possible.
 
 ## 🎙️ BrainDump
 
