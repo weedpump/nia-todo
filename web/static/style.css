@@ -6038,8 +6038,8 @@ input[type="color"]::-moz-color-swatch {
 }
 
 .todo-title-group input {
-  font-size: 16px;
-  font-weight: 650;
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .todo-pin-row {
@@ -6189,7 +6189,7 @@ input[type="color"]::-moz-color-swatch {
 
 /* Todo list/card visual refresh */
 .todo-list {
-  padding: 18px 24px 28px;
+  padding: 18px 24px max(118px, calc(96px + env(safe-area-inset-bottom, 0px)));
 }
 
 .todo-group {
@@ -6276,7 +6276,7 @@ input[type="color"]::-moz-color-swatch {
 }
 
 .todo-main {
-  align-items: flex-start;
+  align-items: center;
   gap: 10px;
 }
 
@@ -6289,7 +6289,7 @@ input[type="color"]::-moz-color-swatch {
 
 .todo-title {
   font-size: 14px;
-  font-weight: 650;
+  font-weight: 500;
   line-height: 1.35;
   color: var(--text-primary);
 }
@@ -6397,7 +6397,7 @@ input[type="color"]::-moz-color-swatch {
 
 @media (max-width: 768px) {
   .todo-list {
-    padding: 12px 12px 24px;
+    padding: 12px 12px max(112px, calc(96px + env(safe-area-inset-bottom, 0px)));
   }
 
   .project-group-todos {
@@ -6406,14 +6406,14 @@ input[type="color"]::-moz-color-swatch {
   }
 
   .todo-item {
-    align-items: flex-start;
+    align-items: center;
     gap: 10px;
     padding: 12px;
     border-radius: 15px;
   }
 
   .todo-check {
-    margin-top: 1px;
+    margin-top: 0;
   }
 
   .todo-desc-preview {

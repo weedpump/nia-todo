@@ -98,6 +98,17 @@ fn load_settings(app: &AppHandle) -> DesktopSettings {
   serde_json::from_str(&raw).unwrap_or_default()
 }
 
+fn repair_autostart_registration(settings: &DesktopSettings) {
+  if settings.autostart {
+    // Windows installers/updates can remove or stale the HKCU Run entry while
+    // the app-local setting still says autostart is enabled. Re-register on
+    // app start/settings read so the checkbox and Windows startup state heal.
+    if let Err(err) = set_autostart(true, settings.start_minimized_to_tray) {
+      eprintln!("Failed to repair autostart registration: {err}");
+    }
+  }
+}
+
 fn save_settings(app: &AppHandle, settings: &DesktopSettings) -> Result<(), String> {
   let path = settings_path(app)?;
   if let Some(parent) = path.parent() {
@@ -299,7 +310,9 @@ fn desktop_get_app_version() -> String {
 
 #[tauri::command]
 fn desktop_get_settings(app: AppHandle) -> DesktopSettings {
-  load_settings(&app)
+  let settings = load_settings(&app);
+  repair_autostart_registration(&settings);
+  settings
 }
 
 #[tauri::command]
@@ -944,6 +957,7 @@ pub fn run() {
       #[cfg(desktop)]
       {
         apply_global_hotkeys(_app.handle())?;
+        repair_autostart_registration(&load_settings(_app.handle()));
         build_tray(_app)?;
         if let Some(window) = _app.get_webview_window("main") {
           let app_handle = _app.handle().clone();
