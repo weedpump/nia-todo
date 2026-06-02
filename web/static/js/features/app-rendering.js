@@ -411,7 +411,8 @@ export function createAppRenderingFeature({
     const now = new Date();
     const todayEnd = endOfToday();
     const tomorrowStart = new Date(todayEnd);
-    tomorrowStart.setMilliseconds(1);
+    tomorrowStart.setDate(tomorrowStart.getDate() + 1);
+    tomorrowStart.setHours(0, 0, 0, 0);
     const tomorrowEnd = new Date(tomorrowStart);
     tomorrowEnd.setHours(23, 59, 59, 999);
     const daysEnd = new Date(todayEnd);
