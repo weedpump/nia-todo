@@ -56,7 +56,7 @@ const DEFAULT_FOCUS_FILTERS = Object.freeze({
 });
 let todayFocus = localStorage.getItem('nia-today-focus') === 'true';
 let focusFilters = loadFocusFilters();
-let focusFiltersExpanded = localStorage.getItem('nia-focus-filters-expanded') === 'true';
+let focusFiltersExpanded = false;
 let focusProjectMenuOpen = false;
 let focusProjectSearch = '';
 let desktopIntegration = null;
@@ -100,7 +100,6 @@ function updateFocusFilters(patch = {}) {
 
 function toggleFocusFiltersExpanded() {
   focusFiltersExpanded = !focusFiltersExpanded;
-  localStorage.setItem('nia-focus-filters-expanded', focusFiltersExpanded ? 'true' : 'false');
   renderTodos();
 }
 

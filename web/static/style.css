@@ -7362,3 +7362,17 @@ input[type="color"]::-moz-color-swatch {
   width: 15px;
   height: 15px;
 }
+
+/* Collapsed Focus stats */
+.focus-stat-grid {
+  margin-top: 14px;
+}
+
+.focus-stat-card {
+  min-height: 58px;
+  padding: 12px 14px;
+}
+
+.focus-stat-card .overview-stat-label {
+  line-height: 1.15;
+}
