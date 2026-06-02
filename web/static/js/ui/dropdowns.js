@@ -22,9 +22,9 @@ function optionProjectMarker(option) {
   const color = escapeHtml(option.dataset.projectColor || '#6366f1');
   const icon = String(option.dataset.projectIcon || '').trim();
   if (icon) {
-    return `<span class="ui-select-project-marker" style="--project-color:${color}">${iconSvg(icon)}</span>`;
+    return `<span class="ui-select-project-marker entity-icon" style="color:${color}">${iconSvg(icon)}</span>`;
   }
-  return `<span class="ui-select-project-dot" style="--project-color:${color}"></span>`;
+  return `<span class="ui-select-project-dot project-dot" style="background:${color}"></span>`;
 }
 
 function optionDepth(option) {

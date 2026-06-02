@@ -485,7 +485,7 @@ export function createAppRenderingFeature({
     };
     const projectOptions = rootProjects.map(project => renderProjectOption(project)).join('') || `<div class="focus-project-empty">${escapeHtml(t('focus.noProjects'))}</div>`;
     const headingActions = expanded
-      ? `<button type="button" class="btn btn-secondary btn-small focus-toggle-btn" onclick="toggleFocusFiltersExpanded()" aria-expanded="true">${iconSvg('chevron-up')} ${escapeHtml(t('focus.collapse'))}</button><button type="button" class="btn btn-secondary btn-small focus-reset-btn" onclick="resetFocusFilters()">${iconSvg('refresh-cw')} ${escapeHtml(t('focus.reset'))}</button>`
+      ? `<button type="button" class="btn btn-secondary btn-small focus-reset-btn" onclick="resetFocusFilters()">${iconSvg('refresh-cw')} ${escapeHtml(t('focus.reset'))}</button><button type="button" class="btn btn-secondary btn-small focus-toggle-btn" onclick="toggleFocusFiltersExpanded()" aria-expanded="true">${iconSvg('chevron-up')} ${escapeHtml(t('focus.collapse'))}</button>`
       : `<button type="button" class="btn btn-secondary btn-small focus-toggle-btn" onclick="toggleFocusFiltersExpanded()" aria-expanded="false">${iconSvg('chevron-down')} ${escapeHtml(t('focus.expand'))}</button>`;
 
     return `<section class="focus-filter-card ${expanded ? 'is-expanded' : 'is-collapsed'}" aria-label="${escapeHtmlAttr(t('focus.aria'))}">
@@ -530,7 +530,7 @@ export function createAppRenderingFeature({
         <div class="focus-filter-section focus-filter-split">
           <div>
             <div class="focus-filter-label">${iconSvg('flag')} ${escapeHtml(t('focus.priorities'))}</div>
-            <div class="focus-chip-row">${priorityOptions.map(([priority, label, color]) => `<button type="button" class="focus-chip priority-chip ${priorities.has(priority) ? 'active' : ''}" onclick="toggleFocusPriority(${priority})"><span class="priority-dot" style="--priority-color:${escapeHtmlAttr(color)}"></span><span>P${priority} · ${escapeHtml(label)}</span></button>`).join('')}</div>
+            <div class="focus-chip-row">${priorityOptions.map(([priority, label, color]) => `<button type="button" class="focus-chip priority-chip ${priorities.has(priority) ? 'active' : ''}" onclick="toggleFocusPriority(${priority})"><span class="priority-dot" style="--priority-color:${escapeHtmlAttr(color)}"></span><span>${escapeHtml(label)}</span></button>`).join('')}</div>
           </div>
           <div>
             <div class="focus-filter-label">${iconSvg('list')} ${escapeHtml(t('focus.statuses'))}</div>
