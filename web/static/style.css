@@ -1824,6 +1824,12 @@ select:focus-visible {
   cursor: pointer;
 }
 
+.ui-select-option[hidden],
+.ui-menu-item[hidden],
+.focus-project-option[hidden] {
+  display: none !important;
+}
+
 .ui-select-option:hover,
 .ui-select-option.is-highlighted,
 .ui-menu-item:hover {
