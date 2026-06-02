@@ -8,7 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 ## [2.10.0] - 2026-06-02
 
 ### Fixed
+- Windows desktop autostart now repairs its startup registration on app launch/settings load, so updates no longer leave the app setting enabled while the Windows Task Manager startup entry disappears.
 - BrainDump preview project and section dropdowns now scroll smoothly in the Android app without jittering while editing candidate todos.
+- Todo rows now keep the checkbox, priority dot, and right-side actions vertically centered for wrapped titles and todos with descriptions; descriptions and metadata align under the title text instead of slipping left under the priority dot.
+- Desktop todo list titles and the New/Edit Todo title field now use calmer normal-weight sizing instead of oversized bold text.
+- Todo lists now keep enough bottom scroll clearance so the final todo, section, or group header is not hidden behind the New Todo and BrainDump floating buttons.
 - Project sharing invitations now survive app restarts reliably: owners can still see and revoke pending username invites, and invitees see pending project invitations again after reload, reconnect, or returning online.
 - Neutral email-based project invites remain privacy-safe after reload by hiding matched pending email invites from owner member lists, avoiding account enumeration while preserving the invite for the recipient.
 

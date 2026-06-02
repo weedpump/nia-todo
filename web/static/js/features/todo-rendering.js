@@ -41,15 +41,15 @@ export function renderTodoItem(t) {
           <div class="todo-title-wrap">
             <span class="todo-title">${escapeHtml(t.title)}</span>
             ${badgeHtml ? `<div class="todo-badges">${badgeHtml}</div>` : ''}
+            ${hasMeta ? `
+            <div class="todo-meta-row">
+              ${dueStr ? `<span class="todo-meta-chip todo-due ${isOverdue ? 'overdue' : dueTone}">${iconSvg('calendar')} ${dueStr}${isOverdue ? ` (${escapeHtml(i18nT('todo.overdue'))})` : ''}</span>` : ''}
+              ${remindStr ? `<span class="todo-meta-chip todo-reminder">${iconSvg('bell')} ${remindStr}</span>` : ''}
+            </div>
+            ` : ''}
+            ${hasDesc ? `<div class="todo-desc-preview" title="${escapeHtmlAttr(String(t.description || ''))}">${renderMarkdown(desc)}</div>` : ''}
           </div>
         </div>
-        ${hasMeta ? `
-        <div class="todo-meta-row">
-          ${dueStr ? `<span class="todo-meta-chip todo-due ${isOverdue ? 'overdue' : dueTone}">${iconSvg('calendar')} ${dueStr}${isOverdue ? ` (${escapeHtml(i18nT('todo.overdue'))})` : ''}</span>` : ''}
-          ${remindStr ? `<span class="todo-meta-chip todo-reminder">${iconSvg('bell')} ${remindStr}</span>` : ''}
-        </div>
-        ` : ''}
-        ${hasDesc ? `<div class="todo-desc-preview" title="${escapeHtmlAttr(String(t.description || ''))}">${renderMarkdown(desc)}</div>` : ''}
       </div>
       <div class="todo-actions" onclick="event.stopPropagation()">
         <details class="todo-status-menu" onclick="event.stopPropagation()">
