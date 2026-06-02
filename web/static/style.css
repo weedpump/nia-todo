@@ -5376,9 +5376,10 @@ input[type="color"]::-moz-color-swatch {
 .braindump-title-input {
   width: 100%;
   min-width: 0;
-  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border) 84%, transparent);
   border-radius: 12px;
-  background: color-mix(in srgb, var(--bg-secondary) 88%, transparent);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--bg-secondary) 94%, var(--bg-primary)), var(--bg-secondary));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bg-primary) 45%, transparent);
   color: var(--text-primary);
   font: inherit;
   font-size: 13px;
@@ -5387,12 +5388,23 @@ input[type="color"]::-moz-color-swatch {
   outline: none;
 }
 .braindump-title-input:focus {
-  border-color: color-mix(in srgb, var(--accent) 62%, var(--border));
-  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), .14);
+  border-color: color-mix(in srgb, var(--accent) 72%, var(--border));
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.18));
 }
 .braindump-ui-select { width: 100%; }
 .braindump-ui-select-menu { z-index: 380; }
-.braindump-ui-select .ui-select-trigger { min-height: 38px; }
+.braindump-ui-select .ui-select-trigger,
+.braindump-ui-select.project-ui-select .ui-select-trigger,
+.braindump-ui-select .ui-select-search-input {
+  min-height: 38px;
+  border-color: color-mix(in srgb, var(--border) 84%, transparent);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--bg-secondary) 94%, var(--bg-primary)), var(--bg-secondary));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bg-primary) 45%, transparent);
+}
+.braindump-ui-select .ui-select-search-input:focus {
+  border-color: color-mix(in srgb, var(--accent) 72%, var(--border));
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.18));
+}
 .braindump-check { flex: 0 0 auto; display:inline-flex; align-items:center; justify-content:center; }
 .braindump-check svg { width: 15px; height: 15px; }
 .braindump-candidate-card:not(:has(input[type="checkbox"]:checked)) { opacity: .68; }
