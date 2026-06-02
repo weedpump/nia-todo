@@ -47,8 +47,99 @@ let syncInProgress = false;
 let hideDone = localStorage.getItem('nia-hide-done') !== 'false';
 let sortMode = localStorage.getItem('nia-sort') || 'priority';
 let showProjectWidget = localStorage.getItem('nia-project-widget') !== 'false';
+const DEFAULT_FOCUS_FILTERS = Object.freeze({
+  dueMode: 'next_days',
+  dueDays: 7,
+  projectIds: [],
+  priorities: [1, 2, 3, 4],
+  statuses: ['pending', 'in_progress'],
+  includeDone: false,
+});
 let todayFocus = localStorage.getItem('nia-today-focus') === 'true';
+let focusFilters = loadFocusFilters();
 let desktopIntegration = null;
+
+function normalizeFocusFilters(value = {}) {
+  const source = value && typeof value === 'object' ? value : {};
+  const dueModes = new Set(['any', 'none', 'overdue', 'today', 'next_days']);
+  const statuses = new Set(['pending', 'in_progress', 'done']);
+  const priorities = new Set([1, 2, 3, 4]);
+  const next = {
+    ...DEFAULT_FOCUS_FILTERS,
+    ...source,
+    projectIds: Array.isArray(source.projectIds) ? source.projectIds.map(Number).filter(Number.isFinite) : [...DEFAULT_FOCUS_FILTERS.projectIds],
+    priorities: Array.isArray(source.priorities) ? source.priorities.map(Number).filter(priority => priorities.has(priority)) : [...DEFAULT_FOCUS_FILTERS.priorities],
+    statuses: Array.isArray(source.statuses) ? source.statuses.filter(status => statuses.has(status)) : [...DEFAULT_FOCUS_FILTERS.statuses],
+  };
+  next.dueMode = dueModes.has(next.dueMode) ? next.dueMode : DEFAULT_FOCUS_FILTERS.dueMode;
+  next.dueDays = Math.min(365, Math.max(1, Number.parseInt(next.dueDays, 10) || DEFAULT_FOCUS_FILTERS.dueDays));
+  next.includeDone = Boolean(next.includeDone);
+  if (!next.priorities.length) next.priorities = [...DEFAULT_FOCUS_FILTERS.priorities];
+  if (!next.statuses.length) next.statuses = [...DEFAULT_FOCUS_FILTERS.statuses];
+  return next;
+}
+
+function loadFocusFilters() {
+  try {
+    return normalizeFocusFilters(JSON.parse(localStorage.getItem('nia-focus-filters') || '{}'));
+  } catch {
+    return normalizeFocusFilters();
+  }
+}
+
+function saveFocusFilters() {
+  localStorage.setItem('nia-focus-filters', JSON.stringify(focusFilters));
+}
+
+function updateFocusFilters(patch = {}) {
+  focusFilters = normalizeFocusFilters({ ...focusFilters, ...patch });
+  saveFocusFilters();
+  renderTodos();
+}
+
+function resetFocusFilters() {
+  focusFilters = normalizeFocusFilters();
+  saveFocusFilters();
+  renderTodos();
+}
+
+function setFocusDueMode(dueMode) {
+  updateFocusFilters({ dueMode });
+}
+
+function setFocusDueDays(dueDays) {
+  updateFocusFilters({ dueDays });
+}
+
+function toggleFocusDone() {
+  updateFocusFilters({ includeDone: !focusFilters.includeDone });
+}
+
+function toggleFocusProject(projectId) {
+  const id = Number(projectId);
+  if (!Number.isFinite(id)) return;
+  const current = new Set(focusFilters.projectIds || []);
+  if (current.has(id)) current.delete(id);
+  else current.add(id);
+  updateFocusFilters({ projectIds: Array.from(current) });
+}
+
+function toggleFocusPriority(priority) {
+  const value = Number(priority);
+  if (![1, 2, 3, 4].includes(value)) return;
+  const current = new Set(focusFilters.priorities || []);
+  if (current.has(value) && current.size > 1) current.delete(value);
+  else current.add(value);
+  updateFocusFilters({ priorities: Array.from(current).sort((a, b) => a - b) });
+}
+
+function toggleFocusStatus(status) {
+  if (!['pending', 'in_progress', 'done'].includes(status)) return;
+  const current = new Set(focusFilters.statuses || []);
+  if (current.has(status) && current.size > 1) current.delete(status);
+  else current.add(status);
+  updateFocusFilters({ statuses: Array.from(current) });
+}
 
 function setTodosState(next) {
   todos = next;
@@ -431,6 +522,7 @@ const appRendering = createAppRenderingFeature({
   getTodayFocus: () => todayFocus,
   getShowProjectWidget: () => showProjectWidget,
   getCurrentUser: () => currentUser,
+  getFocusFilters: () => focusFilters,
   sortTodoList,
   renderTodoItem,
   renderSectionHeader,
@@ -743,7 +835,7 @@ export function startAppModule() {
   projectSharing: { setProject: (project) => sharingFeature.setProject(project), applyProjectModalState: (project, canEdit, shared) => sharingFeature.applyProjectModalState(project, canEdit, shared), loadInvites: () => sharingFeature.loadInvites() },
   sections: { showAddSectionForm, saveNewSection, editSectionInline, saveSectionEdit, deleteSection },
   dragDrop: { handleTodoDragStart, handleTodoDragEnd, handleTodoDragOver, handleTodoDrop, handleSectionDragStart, handleSectionDragEnd, handleSectionDragOver, handleSectionDrop },
-  viewPreferences: { toggleHideDone, updateToggleDoneButton, cycleSort, updateSortButton, sortTodoList, toggleProjectWidget, updateProjectWidgetButton, toggleTodayFocus, updateTodayFocusButton },
+  viewPreferences: { toggleHideDone, updateToggleDoneButton, cycleSort, updateSortButton, sortTodoList, toggleProjectWidget, updateProjectWidgetButton, toggleTodayFocus, updateTodayFocusButton, updateFocusFilters, resetFocusFilters, setFocusDueMode, setFocusDueDays, toggleFocusDone, toggleFocusProject, toggleFocusPriority, toggleFocusStatus },
   toastUndo: { showToast, showBatchToast, hideToast, undoLastAction, restoreBatchTodos, restoreTodo },
     push: { updatePushStatus, updatePushSettingsUI, enablePushNotifications, disablePushNotifications, sendTestPush },
     desktopIntegration: {

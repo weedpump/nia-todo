@@ -84,18 +84,15 @@ export function createAppLifecycle({
   }
 
   function restoreSavedNavigation() {
+    const baseFilters = ['all','focus','pending','in_progress','done'];
     const params = new URLSearchParams(window.location.search || '');
     const urlProject = params.get('project');
     const urlView = params.get('view');
     const historyFilter = window.history?.state?.niaTodoView ? window.history.state.filter : null;
-    const savedFilter = urlProject || (['all','pending','in_progress','done'].includes(urlView) ? urlView : historyFilter || localStorage.getItem('nia-last-filter'));
+    const savedFilter = urlProject || (baseFilters.includes(urlView) ? urlView : historyFilter || localStorage.getItem('nia-last-filter'));
     if (!savedFilter) return;
     setCurrentFilter(savedFilter);
-    if (!['all','pending','in_progress','done'].includes(savedFilter)) {
-      setCurrentProjectId(parseInt(savedFilter, 10));
-    } else {
-      setCurrentProjectId(null);
-    }
+    setCurrentProjectId(baseFilters.includes(savedFilter) ? null : parseInt(savedFilter, 10));
   }
 
   async function loadFromLocalDB() {

@@ -13,7 +13,7 @@ export function createNavigationFeature({
   renderStats,
   renderTodos,
 }) {
-  const baseFilters = ['all','pending','in_progress','done'];
+  const baseFilters = ['all','focus','pending','in_progress','done'];
   let applyingHistory = false;
 
   function cleanRoute() {
@@ -42,7 +42,7 @@ export function createNavigationFeature({
 
   function setFilter(filter, options = {}) {
     setCurrentFilter(filter);
-    const nextProjectId = (!['all','pending','in_progress','done'].includes(filter)) ? parseInt(filter) : null;
+    const nextProjectId = baseFilters.includes(filter) ? null : parseInt(filter, 10);
     setCurrentProjectId(nextProjectId);
 
     localStorage.setItem('nia-last-filter', filter);
