@@ -21,14 +21,25 @@ function normalizeSearch(value) {
   return String(value || '').toLocaleLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
 
-function optionProjectMarker(option) {
-  if (!option?.dataset?.projectColor && !option?.dataset?.projectIcon) return '';
-  const color = escapeHtml(option.dataset.projectColor || '#6366f1');
-  const icon = String(option.dataset.projectIcon || '').trim();
-  if (icon) {
-    return `<span class="ui-select-project-marker entity-icon" style="color:${color}">${iconSvg(icon)}</span>`;
+function optionMarker(option) {
+  if (!option?.dataset) return '';
+  if (option.dataset.projectColor || option.dataset.projectIcon) {
+    const color = escapeHtml(option.dataset.projectColor || '#6366f1');
+    const icon = String(option.dataset.projectIcon || '').trim();
+    if (icon) {
+      return `<span class="ui-select-project-marker entity-icon" style="color:${color}">${iconSvg(icon)}</span>`;
+    }
+    return `<span class="ui-select-project-dot project-dot" style="background:${color}"></span>`;
   }
-  return `<span class="ui-select-project-dot project-dot" style="background:${color}"></span>`;
+  if (option.dataset.optionIcon) {
+    const color = escapeHtml(option.dataset.optionColor || 'currentColor');
+    return `<span class="ui-select-option-marker ui-select-option-icon" style="color:${color}">${iconSvg(option.dataset.optionIcon)}</span>`;
+  }
+  if (option.dataset.optionColor) {
+    const color = escapeHtml(option.dataset.optionColor);
+    return `<span class="ui-select-option-marker ui-select-option-dot" style="background:${color};color:${color}"></span>`;
+  }
+  return '';
 }
 
 function optionDepth(option) {
@@ -70,7 +81,7 @@ function optionId(instance, index) {
 function renderValue(instance) {
   const selected = selectedOption(instance.select);
   const label = selected ? optionLabel(selected) : (instance.options.placeholder || '—');
-  const marker = optionProjectMarker(selected);
+  const marker = optionMarker(selected);
   if (marker) {
     instance.value.innerHTML = `${marker}<span class="ui-select-value-label">${escapeHtml(label)}</span>`;
   } else {
@@ -157,8 +168,10 @@ function renderMenu(instance) {
     row.disabled = option.disabled;
     row.setAttribute('aria-selected', option.value === instance.select.value ? 'true' : 'false');
     if (option.disabled) row.setAttribute('aria-disabled', 'true');
-    row.classList.toggle('has-project-marker', Boolean(optionProjectMarker(option)));
-    row.innerHTML = `<span class="ui-select-option-branch" aria-hidden="true"></span>${optionProjectMarker(option)}<span class="ui-select-option-label">${escapeHtml(optionLabel(option))}</span><span class="ui-select-option-check" aria-hidden="true">${iconSvg('check')}</span>`;
+    const marker = optionMarker(option);
+    row.classList.toggle('has-project-marker', Boolean(option.dataset?.projectColor || option.dataset?.projectIcon));
+    row.classList.toggle('has-option-marker', Boolean(marker));
+    row.innerHTML = `<span class="ui-select-option-branch" aria-hidden="true"></span>${marker}<span class="ui-select-option-label">${escapeHtml(optionLabel(option))}</span><span class="ui-select-option-check" aria-hidden="true">${iconSvg('check')}</span>`;
     row.addEventListener('click', () => {
       if (option.disabled) return;
       chooseIndex(instance, index);
