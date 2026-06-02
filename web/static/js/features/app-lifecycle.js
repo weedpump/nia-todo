@@ -35,6 +35,7 @@ export function createAppLifecycle({
   updateToggleDoneButton,
   updateSortButton,
   updateProjectWidgetButton,
+  updateMinimalTodosButton,
   refreshInvites = null,
 }) {
   let lifecycleInitialized = false;
@@ -157,6 +158,7 @@ export function createAppLifecycle({
     updateToggleDoneButton();
     updateSortButton();
     updateProjectWidgetButton?.();
+    updateMinimalTodosButton?.();
     initTheme();
     refreshInvites?.();
 

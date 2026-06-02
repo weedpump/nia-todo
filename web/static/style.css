@@ -4841,7 +4841,8 @@ input[type="color"]::-moz-color-swatch {
 
 
 /* Proposal: today focus, quick add, pins, snooze, sync badge */
-.today-focus-btn {
+.today-focus-btn,
+.minimal-todos-btn {
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -4860,20 +4861,23 @@ input[type="color"]::-moz-color-swatch {
   transition: all 0.18s ease;
 }
 
-.today-focus-btn:hover {
+.today-focus-btn:hover,
+.minimal-todos-btn:hover {
   color: var(--accent);
   border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
   background: color-mix(in srgb, var(--accent) 10%, var(--bg-secondary));
 }
 
-.today-focus-btn.active {
+.today-focus-btn.active,
+.minimal-todos-btn.active {
   color: white;
   border-color: var(--accent);
   background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 72%, #111827));
   box-shadow: 0 8px 20px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.26));
 }
 
-.today-focus-btn.active::after {
+.today-focus-btn.active::after,
+.minimal-todos-btn.active::after {
   content: "";
   width: 7px;
   height: 7px;
@@ -4882,7 +4886,8 @@ input[type="color"]::-moz-color-swatch {
   opacity: 0.95;
 }
 
-.today-focus-btn .ui-icon { display: block; width: 15px; height: 15px; margin: 0; }
+.today-focus-btn .ui-icon,
+.minimal-todos-btn .ui-icon { display: block; width: 15px; height: 15px; margin: 0; }
 
 .quick-add-hint {
   margin-top: 6px;
@@ -5090,7 +5095,8 @@ input[type="color"]::-moz-color-swatch {
 .status-pending-sync::after { content: none; }
 
 @media (max-width: 640px) {
-  .today-focus-btn {
+  .today-focus-btn,
+  .minimal-todos-btn {
     min-width: 36px;
     width: 36px;
     height: 36px;
@@ -5098,8 +5104,10 @@ input[type="color"]::-moz-color-swatch {
     justify-content: center;
     gap: 0;
   }
-  .today-focus-btn span[data-i18n-key="todayFocus.short"] { display: none; }
-  .today-focus-btn.active::after {
+  .today-focus-btn span[data-i18n-key="todayFocus.short"],
+  .minimal-todos-btn span[data-i18n-key="minimalTodos.short"] { display: none; }
+  .today-focus-btn.active::after,
+  .minimal-todos-btn.active::after {
     position: absolute;
     right: 5px;
     top: 5px;
@@ -7375,4 +7383,42 @@ input[type="color"]::-moz-color-swatch {
 
 .focus-stat-card .overview-stat-label {
   line-height: 1.15;
+}
+
+/* Minimal todo list mode */
+body.is-minimal-todos .todo-item {
+  min-height: 44px;
+  align-items: center;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+body.is-minimal-todos .todo-body,
+body.is-minimal-todos .todo-body.has-meta {
+  min-width: 0;
+}
+
+body.is-minimal-todos .todo-main {
+  align-items: center;
+}
+
+body.is-minimal-todos .todo-title-wrap {
+  min-width: 0;
+}
+
+body.is-minimal-todos .todo-title {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.is-minimal-todos .todo-badges,
+body.is-minimal-todos .todo-meta-row,
+body.is-minimal-todos .todo-desc-preview {
+  display: none !important;
+}
+
+body.is-minimal-todos .todo-actions {
+  align-self: center;
 }

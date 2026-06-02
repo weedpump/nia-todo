@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 
 ### Added
 - The main open-todos navigation has been replaced with a new Focus view that lets users build a filtered working set by due date, projects, priorities, and statuses, including searchable project dropdowns with subproject indentation and consistent project markers.
+- A new topbar Minimal mode makes dense todo lists one-line by showing only the checkbox, priority marker, title, and right-side actions.
 
 ### Changed
 - Project invite metadata now tracks whether an invite was created from a username or email identifier, with a conservative migration that keeps existing pending invites hidden unless they can be safely classified.
