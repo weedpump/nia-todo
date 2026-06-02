@@ -668,6 +668,7 @@ const appLifecycle = createAppLifecycle({
   updateSortButton,
   updateProjectWidgetButton,
   renderWorkspaces,
+  refreshInvites: () => sharingFeature?.loadInvites?.(),
 });
 const initApp = async function() {
   await appLifecycle.initApp();
