@@ -129,7 +129,8 @@ async function run() {
     // Pending invites are no longer visible in member list (privacy-safe)
     // await page.getByText('ausstehend').waitFor({ state: 'visible', timeout: 10000 });
     await page.evaluate(() => window.closeModal('project-modal'));
-    await page.waitForTimeout(500);
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.locator('#user-menu-button').waitFor({ state: 'visible', timeout: 10000 });
     await openProjectEdit('Sharing Test Project');
     await page.waitForTimeout(500);
     // Expand sharing section if not auto-expanded
@@ -191,28 +192,15 @@ async function run() {
     console.log('Invites section visible:', sectionVisible);
     
     if (!sectionVisible) {
-      // Force reload invites via JS
-      await page.evaluate(() => {
-        if (typeof window.loadInvites === 'function') {
-          window.loadInvites();
-        }
-      });
-      await page.waitForTimeout(2000);
-      
-      const sectionVisibleAfter = await invitesSection.isVisible();
-      console.log('Invites section visible after manual loadInvites:', sectionVisibleAfter);
-      
-      if (!sectionVisibleAfter) {
-        const invitesDebug = await page.evaluate(async () => {
-          const jwt = localStorage.getItem('jwt_token');
-          const res = await fetch('/api/projects/invites', {
-            headers: { 'Authorization': `Bearer ${jwt}` }
-          });
-          return await res.json();
+      const invitesDebug = await page.evaluate(async () => {
+        const jwt = localStorage.getItem('jwt_token');
+        const res = await fetch('/api/projects/invites', {
+          headers: { 'Authorization': `Bearer ${jwt}` }
         });
-        console.log('Invites API response:', invitesDebug);
-        throw new Error('Invites section not visible even after manual loadInvites() - API returned: ' + JSON.stringify(invitesDebug));
-      }
+        return await res.json();
+      });
+      console.log('Invites API response:', invitesDebug);
+      throw new Error('Invites section not visible after app reload - API returned: ' + JSON.stringify(invitesDebug));
     }
     
     const inviteItemVisible = await page.locator('.invite-item').filter({ hasText: 'Sharing Test Project' }).isVisible();

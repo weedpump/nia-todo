@@ -495,9 +495,10 @@ def list_project_members(project_id: int, user_id: int = Depends(require_auth)):
         if not is_owner and not is_member:
             raise HTTPException(403, "Not authorized to view members")
 
-        # All users (including owner) see only accepted members to avoid enumeration via pending invites
-        # Pending invites are internal state until accepted
-        members = get_project_members(db, project_id, include_inactive=False, owner_only=True)
+        # Owners must see their own pending invites so they can revoke them even
+        # after a reload. Non-owners still only see accepted members to avoid
+        # leaking pending invite state to other project members.
+        members = get_project_members(db, project_id, include_inactive=False, owner_only=not is_owner)
         return {"members": members}
 
 

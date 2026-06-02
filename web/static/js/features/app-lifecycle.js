@@ -35,6 +35,7 @@ export function createAppLifecycle({
   updateToggleDoneButton,
   updateSortButton,
   updateProjectWidgetButton,
+  refreshInvites = null,
 }) {
   let lifecycleInitialized = false;
 
@@ -144,12 +145,14 @@ export function createAppLifecycle({
 
     if (isOnlineForSync()) {
       console.log('Online at startup - syncing...');
-      refreshFromServer().catch(err => {
-        // A cached/offline cold start can race with browser network state: the
-        // page may still report online while fetches already fail. Keep the
-        // cached session usable and avoid surfacing this as a frontend error.
-        console.warn('Server refresh failed:', err);
-      });
+      refreshFromServer()
+        .then(() => refreshInvites?.())
+        .catch(err => {
+          // A cached/offline cold start can race with browser network state: the
+          // page may still report online while fetches already fail. Keep the
+          // cached session usable and avoid surfacing this as a frontend error.
+          console.warn('Server refresh failed:', err);
+        });
     }
 
     updateConnectionStatus();
@@ -158,6 +161,7 @@ export function createAppLifecycle({
     updateSortButton();
     updateProjectWidgetButton?.();
     initTheme();
+    refreshInvites?.();
 
     console.log('App initialized');
   }
@@ -172,7 +176,9 @@ export function createAppLifecycle({
       for (const delay of [1000, 3000, 8000]) {
         setTimeout(() => {
           if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
-          syncWithServer().catch(err => console.warn(`Sync attempt failed after ${reason}:`, err));
+          syncWithServer()
+            .then(() => refreshInvites?.())
+            .catch(err => console.warn(`Sync attempt failed after ${reason}:`, err));
         }, delay);
       }
     };
