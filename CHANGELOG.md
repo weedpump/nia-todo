@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 ### Added
 - The main open-todos navigation has been replaced with a new Focus view that lets users build a filtered working set by due date, projects, priorities, and statuses, including searchable project dropdowns with subproject indentation and consistent project markers.
 - A new topbar Minimal mode makes dense todo lists one-line by showing only the checkbox, priority marker, title, and right-side actions.
+- Todos can now repeat daily, weekly, monthly, or yearly from the New/Edit Todo planning card; completing a recurring todo creates the next occurrence with its reminder shifted forward.
 
 ### Changed
 - Project invite metadata now tracks whether an invite was created from a username or email identifier, with a conservative migration that keeps existing pending invites hidden unless they can be safely classified.
@@ -17,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - Project, priority, and status selectors now use the shared custom dropdown presentation more consistently, including project search, project icons/dots, priority color dots, and status icons where applicable.
 
 ### Fixed
+- Reopening and completing the same recurring todo again now reuses the already-created next occurrence instead of creating duplicate future todos.
 - Windows desktop autostart now repairs its startup registration on app launch/settings load, so updates no longer leave the app setting enabled while the Windows Task Manager startup entry disappears.
 - BrainDump preview project and section dropdowns now scroll smoothly in the Android app without jittering while editing candidate todos.
 - Todo rows now keep the checkbox, priority dot, and right-side actions vertically centered for wrapped titles and todos with descriptions; descriptions and metadata align under the title text instead of slipping left under the priority dot.
