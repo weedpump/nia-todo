@@ -462,10 +462,10 @@ export function createAppRenderingFeature({
       ['done', iconSvg('check-circle'), t('todo.status.done')],
     ];
     const priorityOptions = [
-      [1, t('todo.priority.veryHigh'), 'var(--danger)'],
-      [2, t('todo.priority.high'), 'var(--warning)'],
-      [3, t('todo.priority.medium'), 'var(--accent)'],
-      [4, t('todo.priority.low'), 'var(--text-muted)'],
+      [1, t('todo.priority.veryHigh'), '#ef4444'],
+      [2, t('todo.priority.high'), '#f59e0b'],
+      [3, t('todo.priority.medium'), '#10b981'],
+      [4, t('todo.priority.low'), '#94a3b8'],
     ];
     const projectMap = new Map();
     projects.forEach(project => projectMap.set(project.id, { ...project, children: [] }));
