@@ -97,7 +97,7 @@ export function createProjectsFeature({
     rootProjects.forEach(p => addProjectOptions(p));
     const selected = selectedParentId || '';
     parentSelect.value = [...parentSelect.options].some(option => String(option.value) === String(selected)) ? String(selected) : '';
-    hydrateSelect(parentSelect, { className: 'project-ui-select', menuClassName: 'project-ui-select-menu' });
+    hydrateSelect(parentSelect, { className: 'project-ui-select', menuClassName: 'project-ui-select-menu', searchPlaceholder: t('focus.projects.search'), searchLabel: t('focus.projects.search'), emptyText: t('focus.projects.noMatches') });
     refreshSelect(parentSelect);
   }
 

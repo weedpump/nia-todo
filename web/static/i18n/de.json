@@ -404,6 +404,8 @@
   "focus.projects": "Projekte",
   "focus.projects.all": "Alle Projekte",
   "focus.projects.selectedCount": "{count} Projekte",
+  "focus.projects.search": "Projekte suchen",
+  "focus.projects.noMatches": "Keine Projekte gefunden.",
   "focus.noProjects": "Keine Projekte in diesem Workspace.",
   "focus.priorities": "Prioritäten",
   "focus.statuses": "Status",

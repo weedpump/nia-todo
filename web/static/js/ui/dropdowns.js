@@ -17,6 +17,10 @@ function optionLabel(option) {
   return option?.textContent?.trim().replace(/^└─\s*/, '') || option?.label || option?.value || '';
 }
 
+function normalizeSearch(value) {
+  return String(value || '').toLocaleLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
 function optionProjectMarker(option) {
   if (!option?.dataset?.projectColor && !option?.dataset?.projectIcon) return '';
   const color = escapeHtml(option.dataset.projectColor || '#6366f1');
@@ -41,6 +45,13 @@ function visibleOptions(select) {
 
 function selectedOption(select) {
   return visibleOptions(select).find(option => option.value === select.value) || visibleOptions(select)[0] || null;
+}
+
+function isSearchable(instance) {
+  if (instance?.options?.searchable === true) return true;
+  const className = `${instance?.options?.className || ''} ${instance?.options?.menuClassName || ''}`;
+  if (className.includes('project-ui-select')) return true;
+  return visibleOptions(instance?.select).some(option => option.dataset?.projectColor || option.dataset?.projectIcon);
 }
 
 function setNativeValue(select, value, { dispatch = true } = {}) {
@@ -84,8 +95,53 @@ function ensureElementId(element, prefix) {
   return element.id;
 }
 
+function applySearchFilter(instance) {
+  const term = normalizeSearch(instance.searchTerm || '');
+  const rows = Array.from(instance.menu.querySelectorAll('.ui-select-option'));
+  let visibleCount = 0;
+  rows.forEach(row => {
+    const matches = !term || normalizeSearch(row.dataset.label || '').includes(term);
+    row.hidden = !matches;
+    if (matches) visibleCount += 1;
+  });
+  const empty = instance.menu.querySelector('.ui-select-empty');
+  if (empty) empty.hidden = visibleCount > 0;
+  const highlighted = highlightedOption(instance);
+  if (!highlighted || highlighted.hidden || highlighted.disabled) {
+    const first = rows.find(row => !row.hidden && !row.disabled);
+    if (first) highlightIndex(instance, Number(first.dataset.index));
+  }
+}
+
+function renderSearch(instance) {
+  if (!isSearchable(instance)) return;
+  const searchWrap = document.createElement('div');
+  searchWrap.className = 'ui-select-search';
+  searchWrap.innerHTML = `<span class="ui-select-search-icon" aria-hidden="true">${iconSvg('search')}</span>`;
+  const input = document.createElement('input');
+  input.type = 'search';
+  input.className = 'ui-select-search-input';
+  input.value = instance.searchTerm || '';
+  input.placeholder = instance.options.searchPlaceholder || 'Projekte suchen';
+  input.setAttribute('aria-label', instance.options.searchLabel || input.placeholder);
+  input.addEventListener('input', () => {
+    instance.searchTerm = input.value;
+    applySearchFilter(instance);
+    positionDropdown(instance.trigger, instance.menu);
+  });
+  input.addEventListener('keydown', (event) => {
+    event.stopPropagation();
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'Enter') {
+      onMenuKeydown(event);
+    }
+  });
+  searchWrap.appendChild(input);
+  instance.menu.appendChild(searchWrap);
+}
+
 function renderMenu(instance) {
   instance.menu.innerHTML = '';
+  renderSearch(instance);
   const options = visibleOptions(instance.select);
   options.forEach((option, index) => {
     const row = document.createElement('button');
@@ -96,6 +152,7 @@ function renderMenu(instance) {
     row.dataset.value = option.value;
     row.dataset.index = String(index);
     row.dataset.depth = String(optionDepth(option));
+    row.dataset.label = optionLabel(option);
     row.style.setProperty('--ui-select-depth', row.dataset.depth);
     row.disabled = option.disabled;
     row.setAttribute('aria-selected', option.value === instance.select.value ? 'true' : 'false');
@@ -109,6 +166,14 @@ function renderMenu(instance) {
     row.addEventListener('mouseenter', () => highlightIndex(instance, index));
     instance.menu.appendChild(row);
   });
+  if (isSearchable(instance)) {
+    const empty = document.createElement('div');
+    empty.className = 'ui-select-empty';
+    empty.hidden = true;
+    empty.textContent = instance.options.emptyText || 'Keine Projekte gefunden';
+    instance.menu.appendChild(empty);
+    applySearchFilter(instance);
+  }
 }
 
 function positionDropdown(trigger, menu) {
@@ -150,13 +215,17 @@ function positionDropdown(trigger, menu) {
 }
 
 function highlightedOption(instance) {
-  return instance.menu.querySelector('.ui-select-option.is-highlighted');
+  return instance.menu.querySelector('.ui-select-option.is-highlighted:not([hidden])');
+}
+
+function menuOptionRows(instance) {
+  return Array.from(instance.menu.querySelectorAll('.ui-select-option')).filter(row => !row.hidden);
 }
 
 function highlightIndex(instance, index) {
   const options = Array.from(instance.menu.querySelectorAll('.ui-select-option'));
   options.forEach(option => option.classList.remove('is-highlighted'));
-  const target = options[index];
+  const target = options.find(option => Number(option.dataset.index) === Number(index) && !option.hidden);
   if (!target || target.disabled) return;
   target.classList.add('is-highlighted');
   instance.trigger.setAttribute('aria-activedescendant', target.id);
@@ -164,6 +233,15 @@ function highlightIndex(instance, index) {
 }
 
 function firstEnabledIndex(instance, start = 0, direction = 1) {
+  if (openState?.instance === instance) {
+    const rows = menuOptionRows(instance).filter(row => !row.disabled);
+    if (!rows.length) return -1;
+    const currentPosition = rows.findIndex(row => Number(row.dataset.index) === Number(start));
+    if (currentPosition >= 0) return Number(rows[currentPosition].dataset.index);
+    const ordered = rows.map(row => Number(row.dataset.index));
+    if (direction > 0) return ordered.find(index => index >= start) ?? ordered[0];
+    return [...ordered].reverse().find(index => index <= start) ?? ordered[ordered.length - 1];
+  }
   const options = visibleOptions(instance.select);
   if (!options.length) return -1;
   for (let step = 0; step < options.length; step += 1) {
@@ -195,6 +273,7 @@ function openDropdown(instance) {
     return;
   }
   closeOpenDropdown('open-another');
+  instance.searchTerm = '';
   renderMenu(instance);
   document.body.appendChild(instance.menu);
   instance.trigger.setAttribute('aria-expanded', 'true');
@@ -204,6 +283,9 @@ function openDropdown(instance) {
   const index = selectedIndex(instance);
   if (index >= 0) highlightIndex(instance, index);
   openState = { instance };
+  if (isSearchable(instance)) {
+    window.setTimeout(() => instance.menu.querySelector('.ui-select-search-input')?.focus(), 0);
+  }
 }
 
 export function closeOpenDropdown(reason = 'programmatic') {

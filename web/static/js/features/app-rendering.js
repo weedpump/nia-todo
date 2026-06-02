@@ -20,6 +20,7 @@ export function createAppRenderingFeature({
   getFocusFilters,
   getFocusFiltersExpanded,
   getFocusProjectMenuOpen,
+  getFocusProjectSearch,
   sortTodoList,
   renderTodoItem,
   renderSectionHeader,
@@ -438,6 +439,8 @@ export function createAppRenderingFeature({
     const filters = getFocusFilters?.() || {};
     const expanded = Boolean(getFocusFiltersExpanded?.());
     const projectMenuOpen = Boolean(getFocusProjectMenuOpen?.());
+    const projectSearch = String(getFocusProjectSearch?.() || '');
+    const normalizedProjectSearch = projectSearch.toLocaleLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     const dueMode = filters.dueMode || 'next_days';
     const dueDays = Math.max(1, Number(filters.dueDays || 7));
     const projectIds = new Set((filters.projectIds || []).map(Number));
@@ -481,9 +484,12 @@ export function createAppRenderingFeature({
     const renderProjectOption = (project, depth = 0) => {
       const selected = projectIds.has(Number(project.id));
       const children = (project.children || []).sort((a, b) => a.name.localeCompare(b.name));
-      return `<button type="button" class="focus-project-option ${selected ? 'is-selected' : ''}" style="--project-depth:${depth}" onclick="toggleFocusProject(${Number(project.id)})" role="menuitemcheckbox" aria-checked="${selected ? 'true' : 'false'}">${markerHtml(project)}<span>${escapeHtml(project.name)}</span><span class="focus-project-check" aria-hidden="true">${iconSvg('check')}</span></button>${children.map(child => renderProjectOption(child, depth + 1)).join('')}`;
+      const label = String(project.name || '');
+      const matchesSearch = !normalizedProjectSearch || label.toLocaleLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(normalizedProjectSearch);
+      return `<button type="button" class="focus-project-option ${selected ? 'is-selected' : ''}" style="--project-depth:${depth}" data-focus-project-option data-label="${escapeHtmlAttr(label)}" ${matchesSearch ? '' : 'hidden'} onclick="toggleFocusProject(${Number(project.id)})" role="menuitemcheckbox" aria-checked="${selected ? 'true' : 'false'}">${markerHtml(project)}<span>${escapeHtml(label)}</span><span class="focus-project-check" aria-hidden="true">${iconSvg('check')}</span></button>${children.map(child => renderProjectOption(child, depth + 1)).join('')}`;
     };
     const projectOptions = rootProjects.map(project => renderProjectOption(project)).join('') || `<div class="focus-project-empty">${escapeHtml(t('focus.noProjects'))}</div>`;
+    const projectMatchCount = rootProjects.length ? (projectOptions.match(/data-focus-project-option/g) || []).length - (projectOptions.match(/data-focus-project-option[^>]*hidden/g) || []).length : 0;
     const headingActions = expanded
       ? `<button type="button" class="btn btn-secondary btn-small focus-reset-btn" onclick="resetFocusFilters()">${iconSvg('refresh-cw')} ${escapeHtml(t('focus.reset'))}</button><button type="button" class="btn btn-secondary btn-small focus-toggle-btn" onclick="toggleFocusFiltersExpanded()" aria-expanded="true">${iconSvg('chevron-up')} ${escapeHtml(t('focus.collapse'))}</button>`
       : `<button type="button" class="btn btn-secondary btn-small focus-toggle-btn" onclick="toggleFocusFiltersExpanded()" aria-expanded="false">${iconSvg('chevron-down')} ${escapeHtml(t('focus.expand'))}</button>`;
@@ -522,8 +528,13 @@ export function createAppRenderingFeature({
               <span class="ui-select-value">${escapeHtml(projectSummary)}</span>
               <span class="ui-select-chevron" aria-hidden="true">${iconSvg('chevron-down')}</span>
             </button>
-            <div class="focus-project-menu ui-menu" role="menu" ${projectMenuOpen ? '' : 'hidden'}>
+            <div class="focus-project-menu ui-select-menu project-ui-select-menu" role="menu" ${projectMenuOpen ? '' : 'hidden'}>
+              <div class="ui-select-search">
+                <span class="ui-select-search-icon" aria-hidden="true">${iconSvg('search')}</span>
+                <input type="search" class="ui-select-search-input" value="${escapeHtmlAttr(projectSearch)}" placeholder="${escapeHtmlAttr(t('focus.projects.search'))}" aria-label="${escapeHtmlAttr(t('focus.projects.search'))}" oninput="filterFocusProjectMenu(this.value)" onkeydown="handleFocusProjectMenuKeydown(event)">
+              </div>
               ${projectOptions}
+              <div class="ui-select-empty focus-project-empty" ${projectMatchCount > 0 || !rootProjects.length ? 'hidden' : ''}>${escapeHtml(t('focus.projects.noMatches'))}</div>
             </div>
           </div>
         </div>

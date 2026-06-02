@@ -42,7 +42,7 @@ export function createTodosFeature({
     for (const id of ['todo-priority', 'todo-status', 'todo-project', 'todo-section']) {
       const select = document.getElementById(id);
       if (!select) continue;
-      hydrateSelect(select, id === 'todo-project' ? { className: 'project-ui-select', menuClassName: 'project-ui-select-menu' } : {});
+      hydrateSelect(select, id === 'todo-project' ? { className: 'project-ui-select', menuClassName: 'project-ui-select-menu', searchPlaceholder: t('focus.projects.search'), searchLabel: t('focus.projects.search'), emptyText: t('focus.projects.noMatches') } : {});
       refreshSelect(select);
     }
   }
