@@ -7076,12 +7076,6 @@ input[type="color"]::-moz-color-swatch {
   }
 }
 
-@media (max-width: 768px) {
-  .focus-filter-summary {
-    margin: -2px 0 12px;
-  }
-}
-
 /* Focus filter refinements */
 .focus-filter-summary {
   display: flex;
@@ -7102,6 +7096,12 @@ input[type="color"]::-moz-color-swatch {
   color: var(--text-secondary);
   font-size: 12px;
   font-weight: 700;
+}
+
+@media (max-width: 768px) {
+  .focus-filter-summary {
+    margin: -2px 0 12px;
+  }
 }
 
 .focus-heading-actions {
