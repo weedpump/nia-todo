@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [2.10.0] - 2026-06-02
+
+### Fixed
+- Project sharing invitations now survive app restarts reliably: owners can still see and revoke pending username invites, and invitees see pending project invitations again after reload, reconnect, or returning online.
+- Neutral email-based project invites remain privacy-safe after reload by hiding matched pending email invites from owner member lists, avoiding account enumeration while preserving the invite for the recipient.
+
+### Changed
+- Project invite metadata now tracks whether an invite was created from a username or email identifier, with a conservative migration that keeps existing pending invites hidden unless they can be safely classified.
+- Sharing regression coverage now verifies owner reload visibility, invitee reload hydration, and the verified-email privacy boundary.
+
 ## [2.9.0] - 2026-06-01
 
 ### Added
