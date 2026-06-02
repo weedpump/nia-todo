@@ -17,6 +17,8 @@ export function createSyncFeature({
   projectsApi,
   sectionsApi,
   workspacesApi,
+  renderStats,
+  renderTodos,
 }) {
   function isOnlineForSync(wsState) {
     // Browser/native offline state must win over a stale WebSocket state.
@@ -37,7 +39,7 @@ export function createSyncFeature({
     if (!item || typeof item !== 'object' || typeof item.action !== 'string') return null;
     const data = item.data && typeof item.data === 'object' ? item.data : {};
     const changes = data.changes && typeof data.changes === 'object' ? data.changes : {};
-    const todoFields = ['title', 'description', 'priority', 'is_pinned', 'status', 'project_id', 'section_id', 'due_date', 'remind_at', '_tempId'];
+    const todoFields = ['title', 'description', 'priority', 'is_pinned', 'status', 'project_id', 'section_id', 'due_date', 'remind_at', 'recurring_rule', '_tempId'];
     const projectFields = ['name', 'color', 'icon', 'sort_order', 'parent_id', 'workspace_id', '_tempId'];
     const sectionFields = ['name', 'sort_order', 'project_id', '_tempId'];
 
@@ -100,11 +102,21 @@ export function createSyncFeature({
           successCount++;
         } else if (item.action === 'UPDATE_TODO') {
           const serverTodo = await todosApi.update(item.data.id, item.data.changes);
+          const recurrenceCreatedTodo = serverTodo?.recurrence_created_todo;
+          const cleanServerTodo = serverTodo ? { ...serverTodo } : null;
+          if (cleanServerTodo) delete cleanServerTodo.recurrence_created_todo;
           const localTodo = await getFromDB('todos', item.data.id);
-          const nextTodo = serverTodo || (localTodo ? { ...localTodo, ...item.data.changes, updated_at: new Date().toISOString() } : null);
+          const nextTodo = cleanServerTodo || (localTodo ? { ...localTodo, ...item.data.changes, updated_at: new Date().toISOString() } : null);
           if (nextTodo) {
             await dbPut('todos', nextTodo);
             setTodos(getTodos().map(todo => todo.id === item.data.id ? nextTodo : todo));
+          }
+          if (recurrenceCreatedTodo?.id) {
+            await dbPut('todos', recurrenceCreatedTodo);
+            const known = getTodos().some(todo => String(todo.id) === String(recurrenceCreatedTodo.id));
+            setTodos(known ? getTodos().map(todo => String(todo.id) === String(recurrenceCreatedTodo.id) ? recurrenceCreatedTodo : todo) : [...getTodos(), recurrenceCreatedTodo]);
+            renderStats?.();
+            renderTodos?.();
           }
           successCount++;
         } else if (item.action === 'DELETE_TODO') {

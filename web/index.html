@@ -402,6 +402,31 @@
               <div id="todo-remind-error" class="form-error compact"></div>
             </div>
           </div>
+          <div class="todo-recurring-subsection">
+            <div class="todo-recurring-heading">
+              <span data-icon="repeat"></span>
+              <div>
+                <strong data-i18n-key="todo.recurring">Wiederholung</strong>
+                <p id="todo-recurring-hint" data-i18n-key="todo.recurring.hint">Optional regelmäßig neu erstellen.</p>
+              </div>
+            </div>
+            <div class="ui-field-grid two-columns">
+              <div class="form-group">
+                <label data-i18n-key="todo.recurring.frequency">Wiederholung</label>
+                <select id="todo-recurring-frequency">
+                  <option value="none" selected data-option-icon="ban" data-i18n-key="todo.recurring.none">Keine Wiederholung</option>
+                  <option value="daily" data-option-icon="repeat" data-i18n-key="todo.recurring.daily">Täglich</option>
+                  <option value="weekly" data-option-icon="repeat" data-i18n-key="todo.recurring.weekly">Wöchentlich</option>
+                  <option value="monthly" data-option-icon="repeat" data-i18n-key="todo.recurring.monthly">Monatlich</option>
+                  <option value="yearly" data-option-icon="repeat" data-i18n-key="todo.recurring.yearly">Jährlich</option>
+                </select>
+              </div>
+              <div class="form-group" id="todo-recurring-interval-group">
+                <label data-i18n-key="todo.recurring.interval">Intervall</label>
+                <input type="number" id="todo-recurring-interval" min="1" max="999" step="1" value="1" inputmode="numeric">
+              </div>
+            </div>
+          </div>
         </section>
       </form>
       </div>

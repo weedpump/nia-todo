@@ -27,6 +27,8 @@ from typing import Optional, Tuple, Any
 BASE = Path("~/projects/nia-todo-dev")
 DB_PATH = BASE / "api" / "data" / "nia-todo-dev.db"
 DB_BACKUP = BASE / "api" / "data" / "nia-todo-dev.db.backup"
+DB_WAL = Path(str(DB_PATH) + "-wal")
+DB_SHM = Path(str(DB_PATH) + "-shm")
 URL = "http://localhost:8754"
 SERVICE = "nia-todo-dev"
 
@@ -64,8 +66,17 @@ def service_wait(timeout: int = 30) -> bool:
 # --- Database Backup/Restore --------------------------------------------------
 
 def db_backup():
-    """Backup existing database by renaming it."""
+    """Backup existing database after stopping the service and checkpointing SQLite WAL."""
+    service_stop()
     if DB_PATH.exists():
+        with sqlite3.connect(DB_PATH) as db:
+            db.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+            check = db.execute("PRAGMA quick_check").fetchone()[0]
+            if check != "ok":
+                raise RuntimeError(f"DB quick_check failed before backup: {check}")
+        for sidecar in (DB_WAL, DB_SHM):
+            if sidecar.exists():
+                sidecar.unlink()
         if DB_BACKUP.exists():
             DB_BACKUP.unlink()
         shutil.move(str(DB_PATH), str(DB_BACKUP))
@@ -76,8 +87,9 @@ def db_backup():
 def db_restore():
     """Restore original database from backup."""
     service_stop()
-    if DB_PATH.exists():
-        DB_PATH.unlink()
+    for path in (DB_PATH, DB_WAL, DB_SHM):
+        if path.exists():
+            path.unlink()
     if DB_BACKUP.exists():
         shutil.move(str(DB_BACKUP), str(DB_PATH))
         print(f"  🔄 DB wiederhergestellt: {DB_PATH}")
@@ -88,9 +100,10 @@ def db_restore():
 
 def db_reset():
     """Remove any existing DB for fresh start."""
-    if DB_PATH.exists():
-        DB_PATH.unlink()
-        print("  🗑️  Alte DB entfernt")
+    for path in (DB_PATH, DB_WAL, DB_SHM):
+        if path.exists():
+            path.unlink()
+    print("  🗑️  Alte DB entfernt")
 
 # --- HTTP Helper --------------------------------------------------------------
 
