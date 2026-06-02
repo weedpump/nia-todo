@@ -7422,3 +7422,48 @@ body.is-minimal-todos .todo-desc-preview {
 body.is-minimal-todos .todo-actions {
   align-self: center;
 }
+
+.todo-recurring-subsection {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.todo-recurring-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 12px;
+  color: var(--text-primary);
+}
+
+.todo-recurring-heading > span {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.14);
+  flex: 0 0 auto;
+}
+
+.todo-recurring-heading svg {
+  width: 16px;
+  height: 16px;
+}
+
+.todo-recurring-heading p {
+  margin: 2px 0 0;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+#todo-recurring-interval-group.is-disabled {
+  opacity: 0.55;
+}
+
+.todo-meta-chip.todo-recurring {
+  color: var(--accent);
+}
