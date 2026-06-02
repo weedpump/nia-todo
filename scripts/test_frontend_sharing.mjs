@@ -121,6 +121,17 @@ async function run() {
       const r = await fetch('/api/password-setup/complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, password: 'EmailTargetPass123!' }),
+        credentials: 'include'
+      });
+      if (!r.ok) throw new Error('Failed to set email invite target password: ' + JSON.stringify(await r.json().catch(() => ({}))));
+    }, { setupUrl: emailInviteUser.password_setup_url });
+
+    await page.evaluate(async ({ setupUrl }) => {
+      const token = new URL(setupUrl).searchParams.get('token');
+      const r = await fetch('/api/password-setup/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token, password: 'MoniPass123!' }),
         credentials: 'include'
       });
