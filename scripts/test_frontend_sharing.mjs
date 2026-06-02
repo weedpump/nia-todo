@@ -101,6 +101,21 @@ async function run() {
       return await r.json();
     }, { jwt: adminLogin.access_token, csrf: adminLogin.csrf_token });
     if (!createdUser.id) throw new Error('Failed to create invite target user: ' + JSON.stringify(createdUser));
+
+    const emailInviteUser = await page.evaluate(async ({ jwt, csrf }) => {
+      const r = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${jwt}`,
+          'X-CSRF-Token': csrf
+        },
+        body: JSON.stringify({ username: 'emailtarget', display_name: 'Email Target', email: 'emailtarget@example.invalid' }),
+        credentials: 'include'
+      });
+      return await r.json();
+    }, { jwt: adminLogin.access_token, csrf: adminLogin.csrf_token });
+    if (!emailInviteUser.id) throw new Error('Failed to create email invite target user: ' + JSON.stringify(emailInviteUser));
     await page.evaluate(async ({ setupUrl }) => {
       const token = new URL(setupUrl).searchParams.get('token');
       const r = await fetch('/api/password-setup/complete', {
@@ -122,6 +137,18 @@ async function run() {
       localStorage.setItem('jwt_token', data.access_token);
       localStorage.setItem('csrf_token', data.csrf_token);
     });
+
+    await page.fill('#project-share-username', 'emailtarget@example.invalid');
+    await page.locator('#project-share-row button').click();
+    await page.getByText(/Einladung verarbeitet|Invitation processed/).waitFor({ state: 'visible', timeout: 10000 });
+    await page.evaluate(() => window.closeModal('project-modal'));
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.locator('#user-menu-button').waitFor({ state: 'visible', timeout: 10000 });
+    await openProjectEdit('Sharing Test Project');
+    await page.waitForTimeout(500);
+    const leakedEmailInvite = await page.locator('.sharing-member-row').filter({ hasText: 'Email Target' }).isVisible().catch(() => false);
+    if (leakedEmailInvite) throw new Error('Neutral email invite must not reveal the matched user after reload');
+    await page.locator('#project-share-start-row button').click();
 
     await page.fill('#project-share-username', 'moni');
     await page.locator('#project-share-row button').click();
