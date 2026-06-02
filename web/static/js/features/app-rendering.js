@@ -456,6 +456,18 @@ export function createAppRenderingFeature({
       projectSummary,
       t('focus.summary.priorities', { count: priorities.size }),
     ];
+    const filteredForStats = applyFocusFilters(getTodos?.() || []);
+    const activeForStats = filteredForStats.filter(todo => todo.status !== 'done');
+    const overdueForStats = activeForStats.filter(todo => {
+      const due = parseTodoDate(todo.due_date);
+      return Boolean(due && due < new Date());
+    }).length;
+    const focusStats = [
+      { cls: 'total', num: filteredForStats.length, label: t('overview.stats.total') },
+      { cls: 'pending', num: filteredForStats.filter(todo => todo.status === 'pending').length, label: t('todo.status.pending') },
+      { cls: 'progress', num: filteredForStats.filter(todo => todo.status === 'in_progress').length, label: t('todo.status.inProgress') },
+      { cls: 'due', num: overdueForStats, label: t('overview.stats.overdue') },
+    ];
     const statusOptions = [
       ['pending', iconSvg('clock'), t('todo.status.pending')],
       ['in_progress', iconSvg('flame'), t('todo.status.inProgress')],
@@ -502,6 +514,9 @@ export function createAppRenderingFeature({
         </div>
         <div class="focus-heading-actions">${headingActions}</div>
       </div>
+      ${!expanded ? `<div class="overview-stat-grid focus-stat-grid">
+        ${focusStats.map(stat => `<div class="overview-stat-card focus-stat-card ${stat.cls}"><div class="overview-stat-num">${stat.num}</div><div><div class="overview-stat-label">${escapeHtml(stat.label)}</div></div></div>`).join('')}
+      </div>` : ''}
       <div class="focus-filter-body" ${expanded ? '' : 'hidden'}>
         <div class="focus-filter-grid">
           <div class="form-group focus-due-field">
