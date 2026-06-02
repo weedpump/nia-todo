@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 
 ## [2.10.0] - 2026-06-02
 
+### Added
+- The main open-todos navigation has been replaced with a new Focus view that lets users build a filtered working set by due date, projects, priorities, and statuses, including searchable project dropdowns with subproject indentation and consistent project markers.
+
+### Changed
+- Project invite metadata now tracks whether an invite was created from a username or email identifier, with a conservative migration that keeps existing pending invites hidden unless they can be safely classified.
+- Sharing regression coverage now verifies owner reload visibility, invitee reload hydration, and the verified-email privacy boundary.
+- Project, priority, and status selectors now use the shared custom dropdown presentation more consistently, including project search, project icons/dots, priority color dots, and status icons where applicable.
+
 ### Fixed
 - Windows desktop autostart now repairs its startup registration on app launch/settings load, so updates no longer leave the app setting enabled while the Windows Task Manager startup entry disappears.
 - BrainDump preview project and section dropdowns now scroll smoothly in the Android app without jittering while editing candidate todos.
@@ -15,10 +23,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - Todo lists now keep enough bottom scroll clearance so the final todo, section, or group header is not hidden behind the New Todo and BrainDump floating buttons.
 - Project sharing invitations now survive app restarts reliably: owners can still see and revoke pending username invites, and invitees see pending project invitations again after reload, reconnect, or returning online.
 - Neutral email-based project invites remain privacy-safe after reload by hiding matched pending email invites from owner member lists, avoiding account enumeration while preserving the invite for the recipient.
-
-### Changed
-- Project invite metadata now tracks whether an invite was created from a username or email identifier, with a conservative migration that keeps existing pending invites hidden unless they can be safely classified.
-- Sharing regression coverage now verifies owner reload visibility, invitee reload hydration, and the verified-email privacy boundary.
 
 ## [2.9.0] - 2026-06-01
 
