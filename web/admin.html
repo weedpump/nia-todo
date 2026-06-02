@@ -107,6 +107,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .admin-secret-note { font-size: 12px; color: var(--text-muted); }
 .admin-inline-check { display: inline-flex; align-items: center; gap: 8px; width: fit-content; cursor: pointer; }
 .admin-config-textarea { min-height: 82px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.admin-config-textarea.readonly { color: var(--text-secondary); background: color-mix(in srgb, var(--bg-primary) 82%, var(--bg-tertiary)); white-space: pre; }
 .admin-help { font-size: 12px; color: var(--text-muted); margin-top: 8px; }
 .admin-error { color: var(--danger); font-size: 13px; margin-top: 8px; }
 .admin-success { color: var(--success); font-size: 13px; margin-top: 8px; }
@@ -440,6 +441,11 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
           <option value="append" data-i18n-key="admin.braindump.systemPrompt.append">Append custom instructions</option>
           <option value="replace" data-i18n-key="admin.braindump.systemPrompt.replace">Replace default prompt</option>
         </select>
+      </div>
+      <div class="admin-config-field full">
+        <label for="braindump-default-system-prompt" data-i18n-key="admin.braindump.defaultSystemPrompt">Current nia-todo default extraction prompt</label>
+        <textarea id="braindump-default-system-prompt" class="admin-config-textarea readonly" rows="12" readonly spellcheck="false"></textarea>
+        <div class="admin-help" data-i18n-key="admin.braindump.defaultSystemPromptHelp">Loaded from the backend's active default prompt definition. Use it as reference before appending or replacing instructions.</div>
       </div>
       <div class="admin-config-field full">
         <label for="braindump-system-prompt-custom" data-i18n-key="admin.braindump.customSystemPrompt">Custom system prompt / instructions</label>
@@ -1045,6 +1051,7 @@ function renderBrainDumpConfig(config) {
     ? window.t('admin.braindump.llmApiKeyStoredNote')
     : window.t('admin.braindump.llmApiKeyEmptyNote');
   document.getElementById('braindump-system-prompt-mode').value = config.system_prompt_mode || 'default';
+  document.getElementById('braindump-default-system-prompt').value = config.default_system_prompt || '';
   document.getElementById('braindump-system-prompt-custom').value = config.system_prompt_custom || '';
   document.getElementById('braindump-stt-provider').value = config.stt_provider || 'whisper_cpp_remote';
   document.getElementById('braindump-stt-url').value = config.stt_url || '';

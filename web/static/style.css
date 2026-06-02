@@ -4008,7 +4008,21 @@ input[type="color"]::-moz-color-swatch {
 
 @media (max-width: 768px) {
   .topbar-workspace-switcher {
-    width: min(210px, 52vw);
+    width: 36px;
+    flex: 0 0 36px;
+  }
+  .topbar-workspace-switcher .workspace-current-btn {
+    width: 36px;
+    min-height: 36px;
+    height: 36px;
+    padding: 0;
+    justify-content: center;
+    gap: 0;
+    border-radius: 999px;
+  }
+  .topbar-workspace-switcher .workspace-current-name,
+  .topbar-workspace-switcher .workspace-current-chevron {
+    display: none;
   }
 }
 
