@@ -466,10 +466,27 @@ export function createAppRenderingFeature({
       [3, t('todo.priority.medium'), 'var(--accent)'],
       [4, t('todo.priority.low'), 'var(--text-muted)'],
     ];
-    const projectOptions = [...projects]
-      .sort((a, b) => (a.is_inbox ? -1 : b.is_inbox ? 1 : a.name.localeCompare(b.name)))
-      .map(project => `<button type="button" class="focus-project-option ${projectIds.has(Number(project.id)) ? 'is-selected' : ''}" onclick="toggleFocusProject(${Number(project.id)})" role="menuitemcheckbox" aria-checked="${projectIds.has(Number(project.id)) ? 'true' : 'false'}">${markerHtml(project)}<span>${escapeHtml(project.name)}</span><span class="focus-project-check" aria-hidden="true">${iconSvg('check')}</span></button>`)
-      .join('') || `<div class="focus-project-empty">${escapeHtml(t('focus.noProjects'))}</div>`;
+    const projectMap = new Map();
+    projects.forEach(project => projectMap.set(project.id, { ...project, children: [] }));
+    const rootProjects = [];
+    projectMap.forEach(project => {
+      if (project.parent_id === null || project.parent_id === undefined) rootProjects.push(project);
+      else {
+        const parent = projectMap.get(project.parent_id);
+        if (parent) parent.children.push(project);
+        else rootProjects.push(project);
+      }
+    });
+    rootProjects.sort((a, b) => (!!a.is_inbox !== !!b.is_inbox ? (a.is_inbox ? -1 : 1) : a.name.localeCompare(b.name)));
+    const renderProjectOption = (project, depth = 0) => {
+      const selected = projectIds.has(Number(project.id));
+      const children = (project.children || []).sort((a, b) => a.name.localeCompare(b.name));
+      return `<button type="button" class="focus-project-option ${selected ? 'is-selected' : ''}" style="--project-depth:${depth}" onclick="toggleFocusProject(${Number(project.id)})" role="menuitemcheckbox" aria-checked="${selected ? 'true' : 'false'}">${markerHtml(project)}<span>${escapeHtml(project.name)}</span><span class="focus-project-check" aria-hidden="true">${iconSvg('check')}</span></button>${children.map(child => renderProjectOption(child, depth + 1)).join('')}`;
+    };
+    const projectOptions = rootProjects.map(project => renderProjectOption(project)).join('') || `<div class="focus-project-empty">${escapeHtml(t('focus.noProjects'))}</div>`;
+    const headingActions = expanded
+      ? `<button type="button" class="btn btn-secondary btn-small focus-toggle-btn" onclick="toggleFocusFiltersExpanded()" aria-expanded="true">${iconSvg('chevron-up')} ${escapeHtml(t('focus.collapse'))}</button><button type="button" class="btn btn-secondary btn-small focus-reset-btn" onclick="resetFocusFilters()">${iconSvg('refresh-cw')} ${escapeHtml(t('focus.reset'))}</button>`
+      : `<button type="button" class="btn btn-secondary btn-small focus-toggle-btn" onclick="toggleFocusFiltersExpanded()" aria-expanded="false">${iconSvg('chevron-down')} ${escapeHtml(t('focus.expand'))}</button>`;
 
     return `<section class="focus-filter-card ${expanded ? 'is-expanded' : 'is-collapsed'}" aria-label="${escapeHtmlAttr(t('focus.aria'))}">
       <div class="ui-section-heading focus-filter-heading">
@@ -479,10 +496,7 @@ export function createAppRenderingFeature({
           <p>${escapeHtml(t('focus.subtitle'))}</p>
           <div class="focus-filter-summary">${activeParts.map(part => `<span>${escapeHtml(part)}</span>`).join('')}</div>
         </div>
-        <div class="focus-heading-actions">
-          <button type="button" class="btn btn-secondary btn-small focus-toggle-btn" onclick="toggleFocusFiltersExpanded()" aria-expanded="${expanded ? 'true' : 'false'}">${iconSvg(expanded ? 'chevron-down' : 'settings')} ${escapeHtml(expanded ? t('focus.collapse') : t('focus.expand'))}</button>
-          <button type="button" class="btn btn-secondary btn-small focus-reset-btn" onclick="resetFocusFilters()">${iconSvg('refresh-cw')} ${escapeHtml(t('focus.reset'))}</button>
-        </div>
+        <div class="focus-heading-actions">${headingActions}</div>
       </div>
       <div class="focus-filter-body" ${expanded ? '' : 'hidden'}>
         <div class="focus-filter-grid">

@@ -42,7 +42,7 @@ export function createTodosFeature({
     for (const id of ['todo-priority', 'todo-status', 'todo-project', 'todo-section']) {
       const select = document.getElementById(id);
       if (!select) continue;
-      hydrateSelect(select);
+      hydrateSelect(select, id === 'todo-project' ? { className: 'project-ui-select', menuClassName: 'project-ui-select-menu' } : {});
       refreshSelect(select);
     }
   }
@@ -857,12 +857,13 @@ export function createTodosFeature({
       });
       rootProjects.sort((a, b) => (!!a.is_inbox !== !!b.is_inbox ? (a.is_inbox ? -1 : 1) : a.name.localeCompare(b.name)));
       function addProjectOptions(projectNode, depth = 0) {
-        const indent = '\u00A0'.repeat(depth * 2) + (depth > 0 ? '└─ ' : '');
         const opt = document.createElement('option');
         opt.value = projectNode.id;
         opt.style.color = projectNode.color;
         opt.dataset.depth = String(depth);
-        opt.textContent = indent + projectNode.name;
+        opt.dataset.projectColor = projectNode.color || '#6366f1';
+        opt.dataset.projectIcon = projectNode.icon || '';
+        opt.textContent = projectNode.name;
         projSelect.appendChild(opt);
         if (projectNode.children && projectNode.children.length > 0) {
           projectNode.children.sort((a, b) => a.name.localeCompare(b.name));

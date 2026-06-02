@@ -7213,3 +7213,66 @@ input[type="color"]::-moz-color-swatch {
     max-height: 42vh;
   }
 }
+
+/* Project-aware shared selects */
+.ui-select-value:has(.ui-select-project-marker),
+.ui-select-value:has(.ui-select-project-dot) {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ui-select-value-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui-select-project-marker,
+.ui-select-project-dot {
+  flex: 0 0 auto;
+}
+
+.ui-select-project-marker {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--project-color, var(--accent)) 46%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--project-color, var(--accent)) 62%, transparent);
+}
+
+.ui-select-project-marker .ui-icon,
+.ui-select-project-marker svg {
+  width: 13px;
+  height: 13px;
+}
+
+.ui-select-project-dot {
+  width: 10px;
+  height: 10px;
+  margin-inline: 4px;
+  border-radius: 999px;
+  background: var(--project-color, var(--accent));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--project-color, var(--accent)) 16%, transparent);
+}
+
+.ui-select-option.has-project-marker .ui-select-option-branch {
+  display: none !important;
+}
+
+.ui-select-option.has-project-marker {
+  padding-left: calc(10px + (var(--ui-select-depth, 0) * 18px));
+}
+
+.project-ui-select-menu {
+  min-width: min(320px, calc(100vw - 24px));
+}
+
+.focus-project-option {
+  padding-left: calc(10px + (var(--project-depth, 0) * 18px));
+}
