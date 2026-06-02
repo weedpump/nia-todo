@@ -133,7 +133,7 @@ def get_project_members(db, project_id: int, include_inactive=False, owner_only=
                WHERE pm.project_id = ?
                  AND (
                    pm.status = 'accepted'
-                   OR (pm.status = 'pending' AND COALESCE(pm.invite_identifier_type, 'username') != 'email')
+                   OR (pm.status = 'pending' AND pm.invite_identifier_type = 'username')
                  )
                ORDER BY pm.created_at""",
             (project_id,)
