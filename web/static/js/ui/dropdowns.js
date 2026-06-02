@@ -273,7 +273,15 @@ function bindGlobalListeners() {
   });
   window.addEventListener('resize', () => openState && positionDropdown(openState.instance.trigger, openState.instance.menu));
   window.addEventListener('orientationchange', () => openState && positionDropdown(openState.instance.trigger, openState.instance.menu));
-  document.addEventListener('scroll', () => openState && positionDropdown(openState.instance.trigger, openState.instance.menu), true);
+  document.addEventListener('scroll', (event) => {
+    if (!openState) return;
+    const { instance } = openState;
+    // The dropdown menu is itself scrollable. Repositioning it while its own
+    // scroll gesture is active can fight Android WebView's touch scrolling and
+    // make long option lists jitter.
+    if (event.target === instance.menu || instance.menu.contains(event.target)) return;
+    positionDropdown(instance.trigger, instance.menu);
+  }, true);
 }
 
 export function hydrateSelect(select, options = {}) {
