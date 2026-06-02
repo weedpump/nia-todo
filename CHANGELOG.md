@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 ## [2.10.0] - 2026-06-02
 
 ### Fixed
+- BrainDump preview project and section dropdowns now scroll smoothly in the Android app without jittering while editing candidate todos.
 - Project sharing invitations now survive app restarts reliably: owners can still see and revoke pending username invites, and invitees see pending project invitations again after reload, reconnect, or returning online.
 - Neutral email-based project invites remain privacy-safe after reload by hiding matched pending email invites from owner member lists, avoiding account enumeration while preserving the invite for the recipient.
 
