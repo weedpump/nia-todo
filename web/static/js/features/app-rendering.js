@@ -475,10 +475,10 @@ export function createAppRenderingFeature({
       return Boolean(due && due < new Date());
     }).length;
     const focusStats = [
-      { cls: 'total', num: filteredForStats.length, label: t('overview.stats.total') },
-      { cls: 'pending', num: filteredForStats.filter(todo => todo.status === 'pending').length, label: t('todo.status.pending') },
-      { cls: 'progress', num: filteredForStats.filter(todo => todo.status === 'in_progress').length, label: t('todo.status.inProgress') },
-      { cls: 'due', num: overdueForStats, label: t('overview.stats.overdue') },
+      { cls: 'total', num: filteredForStats.length, label: t('overview.stats.total'), hint: t('focus.stats.totalHint') },
+      { cls: 'pending', num: filteredForStats.filter(todo => todo.status === 'pending').length, label: t('todo.status.pending'), hint: t('focus.stats.pendingHint') },
+      { cls: 'progress', num: filteredForStats.filter(todo => todo.status === 'in_progress').length, label: t('todo.status.inProgress'), hint: t('focus.stats.inProgressHint') },
+      { cls: 'due', num: overdueForStats, label: t('overview.stats.overdue'), hint: overdueForStats ? t('overview.stats.overdueNeedsCare') : t('overview.stats.overdueRelaxed') },
     ];
     const statusOptions = [
       ['pending', iconSvg('clock'), t('todo.status.pending')],
@@ -516,18 +516,21 @@ export function createAppRenderingFeature({
       ? `<button type="button" class="btn btn-secondary btn-small focus-reset-btn" onclick="resetFocusFilters()">${iconSvg('refresh-cw')} ${escapeHtml(t('focus.reset'))}</button><button type="button" class="btn btn-secondary btn-small focus-toggle-btn" onclick="toggleFocusFiltersExpanded()" aria-expanded="true">${iconSvg('chevron-up')} ${escapeHtml(t('focus.collapse'))}</button>`
       : `<button type="button" class="btn btn-secondary btn-small focus-toggle-btn" onclick="toggleFocusFiltersExpanded()" aria-expanded="false">${iconSvg('chevron-down')} ${escapeHtml(t('focus.expand'))}</button>`;
 
-    return `<section class="focus-filter-card ${expanded ? 'is-expanded' : 'is-collapsed'}" aria-label="${escapeHtmlAttr(t('focus.aria'))}">
-      <div class="ui-section-heading focus-filter-heading">
-        <div class="ui-section-icon focus-filter-icon" aria-hidden="true">${iconSvg('target')}</div>
-        <div>
-          <h4>${escapeHtml(t('focus.title'))}</h4>
-          <p>${escapeHtml(t('focus.subtitle'))}</p>
-          <div class="focus-filter-summary">${activeParts.map(part => `<span>${escapeHtml(part)}</span>`).join('')}</div>
+    return `<section class="overview-dashboard focus-filter-card ${expanded ? 'is-expanded' : 'is-collapsed'}" aria-label="${escapeHtmlAttr(t('focus.aria'))}">
+      <div class="overview-dashboard-header focus-filter-heading">
+        <div class="overview-greeting">
+          <span class="overview-avatar focus-filter-avatar" aria-hidden="true">${iconSvg('target')}</span>
+          <div>
+            <div class="overview-kicker">${escapeHtml(t('focus.kicker'))}</div>
+            <h2>${escapeHtml(t('focus.title'))}</h2>
+            <div class="overview-subtitle">${escapeHtml(t('focus.subtitle'))}</div>
+            <div class="focus-filter-summary">${activeParts.map(part => `<span>${escapeHtml(part)}</span>`).join('')}</div>
+          </div>
         </div>
         <div class="focus-heading-actions">${headingActions}</div>
       </div>
       ${!expanded ? `<div class="overview-stat-grid focus-stat-grid">
-        ${focusStats.map(stat => `<div class="overview-stat-card focus-stat-card ${stat.cls}"><div class="overview-stat-num">${stat.num}</div><div><div class="overview-stat-label">${escapeHtml(stat.label)}</div></div></div>`).join('')}
+        ${focusStats.map(stat => `<div class="overview-stat-card focus-stat-card ${stat.cls}"><div class="overview-stat-num">${stat.num}</div><div><div class="overview-stat-label">${escapeHtml(stat.label)}</div><div class="overview-stat-hint">${escapeHtml(stat.hint)}</div></div></div>`).join('')}
       </div>` : ''}
       <div class="focus-filter-body" ${expanded ? '' : 'hidden'}>
         <div class="focus-filter-grid">
