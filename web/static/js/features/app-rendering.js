@@ -410,6 +410,10 @@ export function createAppRenderingFeature({
     const statuses = new Set(filters.statuses || ['pending', 'in_progress']);
     const now = new Date();
     const todayEnd = endOfToday();
+    const tomorrowStart = new Date(todayEnd);
+    tomorrowStart.setMilliseconds(1);
+    const tomorrowEnd = new Date(tomorrowStart);
+    tomorrowEnd.setHours(23, 59, 59, 999);
     const daysEnd = new Date(todayEnd);
     daysEnd.setDate(daysEnd.getDate() + Math.max(1, Number(filters.dueDays || 7) - 1));
 
@@ -428,6 +432,8 @@ export function createAppRenderingFeature({
           return Boolean(due && due < now && todo.status !== 'done');
         case 'today':
           return Boolean(due && due >= new Date(now.toDateString()) && due <= todayEnd);
+        case 'tomorrow':
+          return Boolean(due && due >= tomorrowStart && due <= tomorrowEnd);
         case 'next_days':
         default:
           return Boolean(due && due <= daysEnd);
@@ -527,6 +533,7 @@ export function createAppRenderingFeature({
               <option value="any" ${dueMode === 'any' ? 'selected' : ''}>${escapeHtml(t('focus.due.any'))}</option>
               <option value="next_days" ${dueMode === 'next_days' ? 'selected' : ''}>${escapeHtml(t('focus.due.nextDays'))}</option>
               <option value="today" ${dueMode === 'today' ? 'selected' : ''}>${escapeHtml(t('focus.due.today'))}</option>
+              <option value="tomorrow" ${dueMode === 'tomorrow' ? 'selected' : ''}>${escapeHtml(t('focus.due.tomorrow'))}</option>
               <option value="overdue" ${dueMode === 'overdue' ? 'selected' : ''}>${escapeHtml(t('focus.due.overdue'))}</option>
               <option value="none" ${dueMode === 'none' ? 'selected' : ''}>${escapeHtml(t('focus.due.none'))}</option>
             </select>

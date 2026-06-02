@@ -63,7 +63,7 @@ let desktopIntegration = null;
 
 function normalizeFocusFilters(value = {}) {
   const source = value && typeof value === 'object' ? value : {};
-  const dueModes = new Set(['any', 'none', 'overdue', 'today', 'next_days']);
+  const dueModes = new Set(['any', 'none', 'overdue', 'today', 'tomorrow', 'next_days']);
   const statuses = new Set(['pending', 'in_progress', 'done']);
   const priorities = new Set([1, 2, 3, 4]);
   const next = {

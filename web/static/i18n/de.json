@@ -398,6 +398,7 @@
   "focus.due.any": "Alle Fälligkeiten",
   "focus.due.nextDays": "Nächste X Tage",
   "focus.due.today": "Heute",
+  "focus.due.tomorrow": "Morgen",
   "focus.due.overdue": "Überfällig",
   "focus.due.none": "Ohne Datum",
   "focus.due.days": "Tage",
