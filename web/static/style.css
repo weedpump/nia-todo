@@ -7055,3 +7055,161 @@ input[type="color"]::-moz-color-swatch {
     flex: 0 0 auto;
   }
 }
+
+/* Focus filter refinements */
+.focus-filter-icon .ui-icon,
+.focus-filter-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.focus-filter-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.focus-filter-summary span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  max-width: 100%;
+  padding: 4px 8px;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-primary) 50%, transparent);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.focus-heading-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.focus-toggle-btn,
+.focus-reset-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.focus-filter-body[hidden] {
+  display: none !important;
+}
+
+.focus-filter-body {
+  padding-top: 2px;
+}
+
+.focus-project-dropdown {
+  position: relative;
+  max-width: 420px;
+}
+
+.focus-project-trigger {
+  min-height: 40px;
+}
+
+.focus-project-menu.ui-menu {
+  position: absolute;
+  left: 0;
+  right: auto;
+  top: calc(100% + 6px);
+  width: min(420px, calc(100vw - 48px));
+  max-height: min(320px, 48vh);
+  z-index: 80;
+}
+
+.focus-project-option {
+  width: 100%;
+  min-height: 38px;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) 18px;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  text-align: left;
+  cursor: pointer;
+}
+
+.focus-project-option:hover {
+  background: color-mix(in srgb, var(--accent) 13%, var(--bg-tertiary));
+}
+
+.focus-project-option.is-selected {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.focus-project-option span:nth-child(2) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.focus-project-check {
+  display: inline-flex;
+  justify-content: center;
+  opacity: 0;
+}
+
+.focus-project-option.is-selected .focus-project-check {
+  opacity: 1;
+}
+
+.focus-project-empty {
+  padding: 10px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.priority-chip {
+  min-width: 0;
+  justify-content: flex-start;
+}
+
+.priority-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: var(--priority-color, var(--accent));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--priority-color, var(--accent)) 16%, transparent);
+  flex: 0 0 auto;
+}
+
+@media (max-width: 768px) {
+  .focus-heading-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .focus-toggle-btn,
+  .focus-reset-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .focus-project-dropdown,
+  .focus-project-menu.ui-menu {
+    max-width: none;
+    width: 100%;
+  }
+
+  .focus-project-menu.ui-menu {
+    max-height: 42vh;
+  }
+}

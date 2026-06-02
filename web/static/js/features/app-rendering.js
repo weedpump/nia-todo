@@ -18,6 +18,8 @@ export function createAppRenderingFeature({
   getShowProjectWidget,
   getCurrentUser,
   getFocusFilters,
+  getFocusFiltersExpanded,
+  getFocusProjectMenuOpen,
   sortTodoList,
   renderTodoItem,
   renderSectionHeader,
@@ -434,62 +436,96 @@ export function createAppRenderingFeature({
 
   function renderFocusControls(projects) {
     const filters = getFocusFilters?.() || {};
+    const expanded = Boolean(getFocusFiltersExpanded?.());
+    const projectMenuOpen = Boolean(getFocusProjectMenuOpen?.());
     const dueMode = filters.dueMode || 'next_days';
     const dueDays = Math.max(1, Number(filters.dueDays || 7));
     const projectIds = new Set((filters.projectIds || []).map(Number));
     const priorities = new Set((filters.priorities || [1, 2, 3, 4]).map(Number));
     const statuses = new Set(filters.statuses || ['pending', 'in_progress']);
+    const selectedProjectNames = [...projects]
+      .filter(project => projectIds.has(Number(project.id)))
+      .map(project => project.name);
+    const projectSummary = selectedProjectNames.length
+      ? (selectedProjectNames.length <= 2 ? selectedProjectNames.join(', ') : t('focus.projects.selectedCount', { count: selectedProjectNames.length }))
+      : t('focus.projects.all');
+    const activeParts = [
+      dueMode === 'next_days' ? t('focus.summary.nextDays', { count: dueDays }) : t(`focus.due.${dueMode}`),
+      projectSummary,
+      t('focus.summary.priorities', { count: priorities.size }),
+      filters.includeDone ? t('focus.doneShown') : t('focus.doneHidden'),
+    ];
     const statusOptions = [
       ['pending', iconSvg('clock'), t('todo.status.pending')],
       ['in_progress', iconSvg('flame'), t('todo.status.inProgress')],
       ['done', iconSvg('check-circle'), t('todo.status.done')],
     ];
-    const projectButtons = [...projects]
+    const priorityOptions = [
+      [1, t('todo.priority.veryHigh'), 'var(--danger)'],
+      [2, t('todo.priority.high'), 'var(--warning)'],
+      [3, t('todo.priority.medium'), 'var(--accent)'],
+      [4, t('todo.priority.low'), 'var(--text-muted)'],
+    ];
+    const projectOptions = [...projects]
       .sort((a, b) => (a.is_inbox ? -1 : b.is_inbox ? 1 : a.name.localeCompare(b.name)))
-      .map(project => `<button type="button" class="focus-chip ${projectIds.has(Number(project.id)) ? 'active' : ''}" onclick="toggleFocusProject(${Number(project.id)})">${markerHtml(project)}<span>${escapeHtml(project.name)}</span></button>`)
-      .join('') || `<span class="focus-muted">${escapeHtml(t('focus.noProjects'))}</span>`;
+      .map(project => `<button type="button" class="focus-project-option ${projectIds.has(Number(project.id)) ? 'is-selected' : ''}" onclick="toggleFocusProject(${Number(project.id)})" role="menuitemcheckbox" aria-checked="${projectIds.has(Number(project.id)) ? 'true' : 'false'}">${markerHtml(project)}<span>${escapeHtml(project.name)}</span><span class="focus-project-check" aria-hidden="true">${iconSvg('check')}</span></button>`)
+      .join('') || `<div class="focus-project-empty">${escapeHtml(t('focus.noProjects'))}</div>`;
 
-    return `<section class="focus-filter-card" aria-label="${escapeHtmlAttr(t('focus.aria'))}">
+    return `<section class="focus-filter-card ${expanded ? 'is-expanded' : 'is-collapsed'}" aria-label="${escapeHtmlAttr(t('focus.aria'))}">
       <div class="ui-section-heading focus-filter-heading">
-        <div class="ui-section-icon" data-icon="target"></div>
+        <div class="ui-section-icon focus-filter-icon" aria-hidden="true">${iconSvg('target')}</div>
         <div>
           <h4>${escapeHtml(t('focus.title'))}</h4>
           <p>${escapeHtml(t('focus.subtitle'))}</p>
+          <div class="focus-filter-summary">${activeParts.map(part => `<span>${escapeHtml(part)}</span>`).join('')}</div>
         </div>
-        <button type="button" class="btn btn-secondary btn-small focus-reset-btn" onclick="resetFocusFilters()">${iconSvg('refresh-cw')} ${escapeHtml(t('focus.reset'))}</button>
-      </div>
-      <div class="focus-filter-grid">
-        <div class="form-group focus-due-field">
-          <label for="focus-due-mode">${escapeHtml(t('focus.due.label'))}</label>
-          <select id="focus-due-mode" data-ui-select onchange="setFocusDueMode(this.value)">
-            <option value="any" ${dueMode === 'any' ? 'selected' : ''}>${escapeHtml(t('focus.due.any'))}</option>
-            <option value="next_days" ${dueMode === 'next_days' ? 'selected' : ''}>${escapeHtml(t('focus.due.nextDays'))}</option>
-            <option value="today" ${dueMode === 'today' ? 'selected' : ''}>${escapeHtml(t('focus.due.today'))}</option>
-            <option value="overdue" ${dueMode === 'overdue' ? 'selected' : ''}>${escapeHtml(t('focus.due.overdue'))}</option>
-            <option value="none" ${dueMode === 'none' ? 'selected' : ''}>${escapeHtml(t('focus.due.none'))}</option>
-          </select>
-        </div>
-        <div class="form-group focus-days-field ${dueMode === 'next_days' ? '' : 'is-muted'}">
-          <label for="focus-due-days">${escapeHtml(t('focus.due.days'))}</label>
-          <input id="focus-due-days" type="number" min="1" max="365" value="${escapeHtmlAttr(dueDays)}" ${dueMode === 'next_days' ? '' : 'disabled'} onchange="setFocusDueDays(this.value)">
+        <div class="focus-heading-actions">
+          <button type="button" class="btn btn-secondary btn-small focus-toggle-btn" onclick="toggleFocusFiltersExpanded()" aria-expanded="${expanded ? 'true' : 'false'}">${iconSvg(expanded ? 'chevron-down' : 'settings')} ${escapeHtml(expanded ? t('focus.collapse') : t('focus.expand'))}</button>
+          <button type="button" class="btn btn-secondary btn-small focus-reset-btn" onclick="resetFocusFilters()">${iconSvg('refresh-cw')} ${escapeHtml(t('focus.reset'))}</button>
         </div>
       </div>
-      <div class="focus-filter-section">
-        <div class="focus-filter-label">${iconSvg('folder')} ${escapeHtml(t('focus.projects'))}</div>
-        <div class="focus-chip-row">${projectButtons}</div>
-      </div>
-      <div class="focus-filter-section focus-filter-split">
-        <div>
-          <div class="focus-filter-label">${iconSvg('flag')} ${escapeHtml(t('focus.priorities'))}</div>
-          <div class="focus-chip-row">${[1,2,3,4].map(priority => `<button type="button" class="focus-chip priority-chip ${priorities.has(priority) ? 'active' : ''}" onclick="toggleFocusPriority(${priority})">P${priority}</button>`).join('')}</div>
+      <div class="focus-filter-body" ${expanded ? '' : 'hidden'}>
+        <div class="focus-filter-grid">
+          <div class="form-group focus-due-field">
+            <label for="focus-due-mode">${escapeHtml(t('focus.due.label'))}</label>
+            <select id="focus-due-mode" data-ui-select onchange="setFocusDueMode(this.value)">
+              <option value="any" ${dueMode === 'any' ? 'selected' : ''}>${escapeHtml(t('focus.due.any'))}</option>
+              <option value="next_days" ${dueMode === 'next_days' ? 'selected' : ''}>${escapeHtml(t('focus.due.nextDays'))}</option>
+              <option value="today" ${dueMode === 'today' ? 'selected' : ''}>${escapeHtml(t('focus.due.today'))}</option>
+              <option value="overdue" ${dueMode === 'overdue' ? 'selected' : ''}>${escapeHtml(t('focus.due.overdue'))}</option>
+              <option value="none" ${dueMode === 'none' ? 'selected' : ''}>${escapeHtml(t('focus.due.none'))}</option>
+            </select>
+          </div>
+          <div class="form-group focus-days-field ${dueMode === 'next_days' ? '' : 'is-muted'}">
+            <label for="focus-due-days">${escapeHtml(t('focus.due.days'))}</label>
+            <input id="focus-due-days" type="number" min="1" max="365" value="${escapeHtmlAttr(dueDays)}" ${dueMode === 'next_days' ? '' : 'disabled'} onchange="setFocusDueDays(this.value)">
+          </div>
         </div>
-        <div>
-          <div class="focus-filter-label">${iconSvg('list')} ${escapeHtml(t('focus.statuses'))}</div>
-          <div class="focus-chip-row">${statusOptions.map(([status, icon, label]) => `<button type="button" class="focus-chip ${statuses.has(status) ? 'active' : ''}" onclick="toggleFocusStatus('${escapeHtmlAttr(status)}')">${icon}<span>${escapeHtml(label)}</span></button>`).join('')}</div>
+        <div class="focus-filter-section">
+          <div class="focus-filter-label">${iconSvg('folder')} ${escapeHtml(t('focus.projects'))}</div>
+          <div class="focus-project-dropdown ${projectMenuOpen ? 'is-open' : ''}">
+            <button type="button" class="ui-select-trigger focus-project-trigger" onclick="toggleFocusProjectMenu()" aria-haspopup="menu" aria-expanded="${projectMenuOpen ? 'true' : 'false'}">
+              <span class="ui-select-value">${escapeHtml(projectSummary)}</span>
+              <span class="ui-select-chevron" aria-hidden="true">${iconSvg('chevron-down')}</span>
+            </button>
+            <div class="focus-project-menu ui-menu" role="menu" ${projectMenuOpen ? '' : 'hidden'}>
+              ${projectOptions}
+            </div>
+          </div>
         </div>
-        <div>
-          <div class="focus-filter-label">${iconSvg('check-circle')} ${escapeHtml(t('focus.doneVisibility'))}</div>
-          <button type="button" class="focus-chip ${filters.includeDone ? 'active' : ''}" onclick="toggleFocusDone()">${filters.includeDone ? iconSvg('check-circle') : iconSvg('ban')}<span>${escapeHtml(filters.includeDone ? t('focus.doneShown') : t('focus.doneHidden'))}</span></button>
+        <div class="focus-filter-section focus-filter-split">
+          <div>
+            <div class="focus-filter-label">${iconSvg('flag')} ${escapeHtml(t('focus.priorities'))}</div>
+            <div class="focus-chip-row">${priorityOptions.map(([priority, label, color]) => `<button type="button" class="focus-chip priority-chip ${priorities.has(priority) ? 'active' : ''}" onclick="toggleFocusPriority(${priority})"><span class="priority-dot" style="--priority-color:${escapeHtmlAttr(color)}"></span><span>P${priority} · ${escapeHtml(label)}</span></button>`).join('')}</div>
+          </div>
+          <div>
+            <div class="focus-filter-label">${iconSvg('list')} ${escapeHtml(t('focus.statuses'))}</div>
+            <div class="focus-chip-row">${statusOptions.map(([status, icon, label]) => `<button type="button" class="focus-chip ${statuses.has(status) ? 'active' : ''}" onclick="toggleFocusStatus('${escapeHtmlAttr(status)}')">${icon}<span>${escapeHtml(label)}</span></button>`).join('')}</div>
+          </div>
+          <div>
+            <div class="focus-filter-label">${iconSvg('check-circle')} ${escapeHtml(t('focus.doneVisibility'))}</div>
+            <button type="button" class="focus-chip ${filters.includeDone ? 'active' : ''}" onclick="toggleFocusDone()">${filters.includeDone ? iconSvg('check-circle') : iconSvg('ban')}<span>${escapeHtml(filters.includeDone ? t('focus.doneShown') : t('focus.doneHidden'))}</span></button>
+          </div>
         </div>
       </div>
     </section>`;

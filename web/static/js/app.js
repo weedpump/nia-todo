@@ -57,6 +57,8 @@ const DEFAULT_FOCUS_FILTERS = Object.freeze({
 });
 let todayFocus = localStorage.getItem('nia-today-focus') === 'true';
 let focusFilters = loadFocusFilters();
+let focusFiltersExpanded = localStorage.getItem('nia-focus-filters-expanded') === 'true';
+let focusProjectMenuOpen = false;
 let desktopIntegration = null;
 
 function normalizeFocusFilters(value = {}) {
@@ -97,8 +99,26 @@ function updateFocusFilters(patch = {}) {
   renderTodos();
 }
 
+function toggleFocusFiltersExpanded() {
+  focusFiltersExpanded = !focusFiltersExpanded;
+  localStorage.setItem('nia-focus-filters-expanded', focusFiltersExpanded ? 'true' : 'false');
+  renderTodos();
+}
+
+function toggleFocusProjectMenu() {
+  focusProjectMenuOpen = !focusProjectMenuOpen;
+  renderTodos();
+}
+
+function closeFocusProjectMenu() {
+  if (!focusProjectMenuOpen) return;
+  focusProjectMenuOpen = false;
+  renderTodos();
+}
+
 function resetFocusFilters() {
   focusFilters = normalizeFocusFilters();
+  focusProjectMenuOpen = false;
   saveFocusFilters();
   renderTodos();
 }
@@ -122,6 +142,7 @@ function toggleFocusProject(projectId) {
   if (current.has(id)) current.delete(id);
   else current.add(id);
   updateFocusFilters({ projectIds: Array.from(current) });
+  focusProjectMenuOpen = true;
 }
 
 function toggleFocusPriority(priority) {
@@ -523,6 +544,8 @@ const appRendering = createAppRenderingFeature({
   getShowProjectWidget: () => showProjectWidget,
   getCurrentUser: () => currentUser,
   getFocusFilters: () => focusFilters,
+  getFocusFiltersExpanded: () => focusFiltersExpanded,
+  getFocusProjectMenuOpen: () => focusProjectMenuOpen,
   sortTodoList,
   renderTodoItem,
   renderSectionHeader,
@@ -794,8 +817,13 @@ export function startAppModule() {
   document.addEventListener('click', (event) => {
     const box = document.getElementById('search-box');
     const input = document.getElementById('search-input');
+    if (focusProjectMenuOpen && !event.target?.closest?.('.focus-project-dropdown')) closeFocusProjectMenu();
     if (!box?.classList.contains('open') || box.contains(event.target) || input?.value) return;
     box.classList.remove('open');
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape' || !focusProjectMenuOpen) return;
+    closeFocusProjectMenu();
   });
   desktopIntegration?.init();
   startNativeDoneActionPolling();
@@ -835,7 +863,7 @@ export function startAppModule() {
   projectSharing: { setProject: (project) => sharingFeature.setProject(project), applyProjectModalState: (project, canEdit, shared) => sharingFeature.applyProjectModalState(project, canEdit, shared), loadInvites: () => sharingFeature.loadInvites() },
   sections: { showAddSectionForm, saveNewSection, editSectionInline, saveSectionEdit, deleteSection },
   dragDrop: { handleTodoDragStart, handleTodoDragEnd, handleTodoDragOver, handleTodoDrop, handleSectionDragStart, handleSectionDragEnd, handleSectionDragOver, handleSectionDrop },
-  viewPreferences: { toggleHideDone, updateToggleDoneButton, cycleSort, updateSortButton, sortTodoList, toggleProjectWidget, updateProjectWidgetButton, toggleTodayFocus, updateTodayFocusButton, updateFocusFilters, resetFocusFilters, setFocusDueMode, setFocusDueDays, toggleFocusDone, toggleFocusProject, toggleFocusPriority, toggleFocusStatus },
+  viewPreferences: { toggleHideDone, updateToggleDoneButton, cycleSort, updateSortButton, sortTodoList, toggleProjectWidget, updateProjectWidgetButton, toggleTodayFocus, updateTodayFocusButton, updateFocusFilters, toggleFocusFiltersExpanded, toggleFocusProjectMenu, closeFocusProjectMenu, resetFocusFilters, setFocusDueMode, setFocusDueDays, toggleFocusDone, toggleFocusProject, toggleFocusPriority, toggleFocusStatus },
   toastUndo: { showToast, showBatchToast, hideToast, undoLastAction, restoreBatchTodos, restoreTodo },
     push: { updatePushStatus, updatePushSettingsUI, enablePushNotifications, disablePushNotifications, sendTestPush },
     desktopIntegration: {
