@@ -5,6 +5,11 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [2.10.4] - 2026-06-04
+
+### Fixed
+- Recurring todo interval inputs now stay editable while replacing the default `1`, so users can type values like `6` months directly instead of working around an immediate reset.
+
 ## [2.10.3] - 2026-06-04
 
 ### Added
