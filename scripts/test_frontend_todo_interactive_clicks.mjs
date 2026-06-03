@@ -93,6 +93,25 @@ async function run() {
     await assertTodoDidNotPress(page, item, 'pin button');
 
     await openTodoModal();
+    await page.selectOption('#todo-recurring-frequency', 'monthly');
+    await page.click('#todo-recurring-interval');
+    await page.keyboard.press('End');
+    await page.keyboard.press('Backspace');
+    const recurringIntervalAfterDelete = await page.locator('#todo-recurring-interval').inputValue();
+    if (recurringIntervalAfterDelete !== '') {
+      throw new Error(`Recurring interval should stay editable after deleting default 1, got ${JSON.stringify(recurringIntervalAfterDelete)}`);
+    }
+    await page.keyboard.type('6');
+    const recurringIntervalAfterTyping = await page.locator('#todo-recurring-interval').inputValue();
+    if (recurringIntervalAfterTyping !== '6') {
+      throw new Error(`Recurring interval should allow replacing 1 with 6, got ${JSON.stringify(recurringIntervalAfterTyping)}`);
+    }
+    await page.selectOption('#todo-recurring-frequency', 'none');
+    await page.locator('#todo-recurring-interval').blur();
+    await page.evaluate(() => window.closeModal('todo-modal'));
+    await page.locator('#todo-modal.active').waitFor({ state: 'hidden', timeout: 5000 });
+
+    await openTodoModal();
     const originalDue = new Date();
     originalDue.setDate(originalDue.getDate() + 7);
     originalDue.setHours(10, 0, 0, 0);
