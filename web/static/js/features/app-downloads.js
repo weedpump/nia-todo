@@ -252,7 +252,7 @@ function updateWebInstallUI() {
     };
   });
   document.querySelectorAll('[data-web-install-fallback]').forEach((hint) => {
-    hint.style.display = eligible && !canPrompt ? '' : 'none';
+    hint.style.display = ios && !canPrompt ? '' : 'none';
   });
   document.querySelectorAll('[data-ios-install-guide]').forEach((guide) => {
     guide.style.display = ios ? '' : 'none';
