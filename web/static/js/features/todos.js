@@ -164,8 +164,10 @@ export function createTodosFeature({
     }
     if (interval && interval.dataset.recurringBound !== '1') {
       interval.dataset.recurringBound = '1';
-      interval.addEventListener('input', () => {
-        if (!interval.value || Number(interval.value) < 1) interval.value = '1';
+      interval.addEventListener('blur', () => {
+        const value = Number.parseInt(interval.value, 10);
+        if (!Number.isFinite(value) || value < 1) interval.value = '1';
+        else if (value > 999) interval.value = '999';
       });
     }
     updateRecurringControls();
