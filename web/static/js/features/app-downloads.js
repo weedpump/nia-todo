@@ -3,12 +3,25 @@ import { t } from '../i18n/index.js';
 import { iconSvg } from '../icons/lucide-icons.js';
 import { createNativeBridge } from './native-bridge.js';
 
+let deferredPwaInstallPrompt = null;
+
 function isStandaloneDisplayMode() {
   return Boolean(
     window.matchMedia?.('(display-mode: standalone)')?.matches
     || window.matchMedia?.('(display-mode: fullscreen)')?.matches
     || window.navigator?.standalone
   );
+}
+
+function isIOSLikeBrowser() {
+  const ua = navigator.userAgent || '';
+  const iOSDevice = /iPad|iPhone|iPod/i.test(ua);
+  const iPadDesktopMode = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+  return iOSDevice || iPadDesktopMode;
+}
+
+function isWebInstallEligible() {
+  return !RUNTIME_CAPABILITIES.native && !isStandaloneDisplayMode();
 }
 
 function isBrowserDownloadEligible() {
@@ -214,6 +227,38 @@ function setDownloadLaunchersVisible(launchers, visible) {
   launchers.forEach((launcher) => { launcher.style.display = visible ? '' : 'none'; });
 }
 
+function updateWebInstallUI() {
+  const cards = Array.from(document.querySelectorAll('[data-web-install-card]'));
+  if (!cards.length) return;
+  const eligible = isWebInstallEligible();
+  const ios = eligible && isIOSLikeBrowser();
+  const canPrompt = eligible && Boolean(deferredPwaInstallPrompt);
+  cards.forEach((card) => { card.style.display = (ios || canPrompt) ? '' : 'none'; });
+  document.querySelectorAll('[data-web-install-prompt]').forEach((button) => {
+    button.style.display = canPrompt ? '' : 'none';
+    button.onclick = async () => {
+      if (!deferredPwaInstallPrompt) return;
+      const promptEvent = deferredPwaInstallPrompt;
+      deferredPwaInstallPrompt = null;
+      updateWebInstallUI();
+      try {
+        await promptEvent.prompt();
+        if (promptEvent.userChoice) await promptEvent.userChoice;
+      } catch (error) {
+        console.warn('[Downloads] Web install prompt failed', error);
+      } finally {
+        updateWebInstallUI();
+      }
+    };
+  });
+  document.querySelectorAll('[data-web-install-fallback]').forEach((hint) => {
+    hint.style.display = ios && !canPrompt ? '' : 'none';
+  });
+  document.querySelectorAll('[data-ios-install-guide]').forEach((guide) => {
+    guide.style.display = ios ? '' : 'none';
+  });
+}
+
 function serverAddressFromUrl(value) {
   try {
     const url = new URL(value || location.origin, location.origin);
@@ -391,7 +436,7 @@ export function createAppDownloadsFeature() {
   let refreshInFlight = null;
 
   function openAppDownloadsModal() {
-    if (!isBrowserDownloadEligible()) return;
+    if (!isBrowserDownloadEligible() && !isWebInstallEligible()) return;
     document.getElementById('user-menu')?.classList.remove('active');
     document.getElementById('user-menu-button')?.setAttribute('aria-expanded', 'false');
     document.getElementById('sidebar')?.classList.remove('open');
@@ -399,6 +444,7 @@ export function createAppDownloadsFeature() {
     const modal = document.getElementById('app-downloads-modal');
     modal?.classList.add('active');
     modal?.removeAttribute('aria-hidden');
+    updateWebInstallUI();
     refreshAppDownloads();
   }
 
@@ -464,6 +510,16 @@ export function createAppDownloadsFeature() {
   function installRefreshTriggers() {
     if (listenersInstalled) return;
     listenersInstalled = true;
+    window.addEventListener('beforeinstallprompt', (event) => {
+      event.preventDefault();
+      deferredPwaInstallPrompt = event;
+      updateWebInstallUI();
+    });
+    window.addEventListener('appinstalled', () => {
+      deferredPwaInstallPrompt = null;
+      updateWebInstallUI();
+    });
+    window.addEventListener('nia-language-change', updateWebInstallUI);
     window.addEventListener('online', () => { refreshAppDownloads(); });
     window.addEventListener('focus', () => { refreshAppDownloads(); });
     document.addEventListener('visibilitychange', () => {
@@ -476,6 +532,7 @@ export function createAppDownloadsFeature() {
     const downloadTargets = Array.from(document.querySelectorAll('[data-app-downloads]'));
     const downloadLaunchers = Array.from(document.querySelectorAll('[data-app-download-launcher]'));
     const nativeVersionTargets = Array.from(document.querySelectorAll('[data-native-app-version]'));
+    updateWebInstallUI();
     if (!downloadTargets.length && !downloadLaunchers.length && !nativeVersionTargets.length && !document.getElementById('native-app-update-modal')) return;
 
     const nativeBridge = createNativeBridge();

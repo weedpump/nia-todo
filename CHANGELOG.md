@@ -5,6 +5,15 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [2.10.3] - 2026-06-04
+
+### Added
+- A new guided web-install dialog now explains the iOS Safari add-to-home-screen flow with interactive step-by-step visuals and localized text.
+
+### Changed
+- The login page resource buttons now align their icons vertically with the label text.
+- The web-install dialog now uses a cleaner iOS-style share icon and no longer hardcodes the Dev label in its mock screenshots.
+
 ## [2.10.2] - 2026-06-02
 
 ### Fixed

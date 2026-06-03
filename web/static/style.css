@@ -3206,9 +3206,21 @@ input[type="color"]::-moz-color-swatch {
   transform: translateY(-1px);
 }
 
-.app-resource-link .ui-icon {
+.app-resource-link .ui-icon,
+.app-resource-link [data-icon] {
   width: 16px;
   height: 16px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+}
+
+.app-resource-link [data-icon] svg {
+  width: 16px;
+  height: 16px;
+  display: block;
 }
 
 .app-download-text {
@@ -3256,7 +3268,7 @@ input[type="color"]::-moz-color-swatch {
 }
 
 .app-downloads-modal-content {
-  max-width: 420px;
+  max-width: 640px;
   text-align: center;
 }
 
@@ -3335,6 +3347,266 @@ input[type="color"]::-moz-color-swatch {
 .modal-downloads .app-download-icon {
   width: 24px;
   height: 24px;
+}
+
+.app-install-card {
+  width: 100%;
+  margin: 0 0 16px;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--border) 78%, var(--accent) 22%);
+  border-radius: 18px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 10%, transparent), color-mix(in srgb, var(--bg-secondary) 90%, transparent));
+  text-align: left;
+}
+
+.app-install-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.app-install-card-icon {
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  border-radius: 14px;
+  background: var(--accent);
+  color: white;
+}
+
+.app-install-card h4 {
+  margin: 0 0 4px;
+  color: var(--text-primary);
+  font-size: 16px;
+}
+
+.app-install-card p,
+.ios-install-guide-intro,
+.ios-install-step-copy span,
+.web-install-fallback {
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.app-install-card p,
+.web-install-fallback {
+  margin: 0;
+}
+
+.web-install-prompt-btn {
+  width: 100%;
+  justify-content: center;
+  margin: 8px 0 12px;
+}
+
+.ios-install-guide {
+  margin-top: 12px;
+}
+
+.ios-install-guide-intro {
+  margin-bottom: 12px;
+}
+
+.ios-install-steps {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ios-install-steps li {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--bg-primary) 84%, transparent);
+}
+
+.ios-install-step-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ios-install-step-copy strong {
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.ios-install-shot {
+  position: relative;
+  min-height: 132px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 18px;
+  background: #f8fafc;
+  color: #111827;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.55);
+}
+
+.ios-shot-topbar,
+.ios-shot-toolbar,
+.ios-add-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.ios-shot-url {
+  flex: 1;
+  padding: 5px 8px;
+  border-radius: 10px;
+  background: #e5e7eb;
+  text-align: center;
+}
+
+.ios-shot-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 8px;
+  height: 86px;
+  margin: 0 10px 10px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #e0f2fe, #eef2ff);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.ios-shot-page img,
+.ios-add-preview img {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+}
+
+.ios-shot-page.muted {
+  height: 86px;
+  background: repeating-linear-gradient(0deg, #e5e7eb, #e5e7eb 10px, #f3f4f6 10px, #f3f4f6 20px);
+}
+
+.ios-shot-toolbar {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background: rgba(255,255,255,.94);
+  border-top: 1px solid #e5e7eb;
+}
+
+.ios-share-highlight,
+.ios-share-sheet .highlighted,
+.ios-add-header .blue {
+  color: #2563eb;
+}
+
+.ios-share-highlight {
+  position: relative;
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #2563eb;
+  border-radius: 999px;
+  background: #dbeafe;
+}
+
+.ios-share-arrow {
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 14px;
+  line-height: 1;
+  font-weight: 900;
+  color: #2563eb;
+}
+
+.ios-share-base {
+  position: absolute;
+  bottom: 6px;
+  left: 50%;
+  width: 12px;
+  height: 2px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: #2563eb;
+}
+
+.ios-share-sheet {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  left: 8px;
+  padding: 8px;
+  border-radius: 18px;
+  background: rgba(255,255,255,.97);
+  box-shadow: 0 16px 40px rgba(15, 23, 42, .18);
+}
+
+.ios-sheet-handle {
+  width: 36px;
+  height: 4px;
+  margin: 0 auto 8px;
+  border-radius: 999px;
+  background: #d1d5db;
+}
+
+.ios-sheet-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.ios-sheet-row.highlighted {
+  background: #dbeafe;
+}
+
+.ios-add-header {
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.ios-add-header strong {
+  font-size: 10px;
+  text-align: center;
+}
+
+.ios-add-preview {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 18px 14px;
+  padding: 12px;
+  border-radius: 14px;
+  background: #f3f4f6;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+@media (max-width: 640px) {
+  .ios-install-steps {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 768px) {

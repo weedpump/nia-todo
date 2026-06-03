@@ -196,7 +196,7 @@
         <!-- Version & Update -->
         <div class="version-bar" id="version-bar">
           <div class="version-info" id="version-info">
-            <span class="version-text">v2.10.2</span>
+            <span class="version-text">v2.10.3</span>
           </div>
           <div class="version-actions web-version-actions" id="version-actions">
             <a class="changelog-link version-action-btn" id="changelog-link" href="/changelog" target="_blank" rel="noopener noreferrer" title="Open changelog" data-i18n-title-key="version.openChangelog" data-i18n-key="resource.changelog">Changelog</a>
@@ -248,6 +248,68 @@
         <div class="modal-body app-downloads-modal-body">
           <div class="web-update-icon" aria-hidden="true" data-icon="download"></div>
           <p class="app-download-modal-subtitle" data-i18n-key="appDownloads.modalSubtitle">Install nia-todo as a native app on your device.</p>
+          <section class="app-install-card web-install-card" data-web-install-card style="display:none;">
+            <div class="app-install-card-header">
+              <div class="app-install-card-icon" aria-hidden="true" data-icon="smartphone"></div>
+              <div>
+                <h4 data-i18n-key="webInstall.title">Web-App installieren</h4>
+                <p data-i18n-key="webInstall.subtitle">Ohne App Store direkt auf den Home-Bildschirm.</p>
+              </div>
+            </div>
+            <button type="button" class="btn btn-primary web-install-prompt-btn" data-web-install-prompt style="display:none;">
+              <span data-icon="plus-square"></span>
+              <span data-i18n-key="webInstall.promptButton">Web-App installieren</span>
+            </button>
+            <p class="web-install-fallback" data-web-install-fallback style="display:none;" data-i18n-key="webInstall.promptUnavailable">Falls dein Browser keinen Installationsdialog anbietet, nutze die Anleitung unten.</p>
+            <div class="ios-install-guide" data-ios-install-guide style="display:none;">
+              <div class="ios-install-guide-intro" data-i18n-key="webInstall.ios.intro">Auf iPhone/iPad geht es über Safari: Teilen öffnen, dann „Zum Home-Bildschirm“ wählen.</div>
+              <ol class="ios-install-steps">
+                <li>
+                  <div class="ios-install-step-copy">
+                    <strong data-i18n-key="webInstall.ios.step1.title">1. In Safari öffnen</strong>
+                    <span data-i18n-key="webInstall.ios.step1.text">Rufe nia-todo in Safari auf. Andere Browser zeigen die Option oft nicht sauber an.</span>
+                  </div>
+                  <div class="ios-install-shot ios-shot-browser" aria-hidden="true">
+                    <div class="ios-shot-topbar"><span>AA</span><span class="ios-shot-url">nia-todo</span><span>↻</span></div>
+                    <div class="ios-shot-page"><img src="/static/icons/icon-192.png" alt=""><span>nia-todo</span></div>
+                  </div>
+                </li>
+                <li>
+                  <div class="ios-install-step-copy">
+                    <strong data-i18n-key="webInstall.ios.step2.title">2. Teilen antippen</strong>
+                    <span data-i18n-key="webInstall.ios.step2.text">Tippe unten in Safari auf das Teilen-Symbol.</span>
+                  </div>
+                  <div class="ios-install-shot ios-shot-share" aria-hidden="true">
+                    <div class="ios-shot-page muted"></div>
+                    <div class="ios-shot-toolbar"><span>‹</span><span>›</span><span class="ios-share-highlight" aria-hidden="true"><span class="ios-share-arrow">↑</span><span class="ios-share-base"></span></span><span>⌂</span><span>☰</span></div>
+                  </div>
+                </li>
+                <li>
+                  <div class="ios-install-step-copy">
+                    <strong data-i18n-key="webInstall.ios.step3.title">3. Zum Home-Bildschirm</strong>
+                    <span data-i18n-key="webInstall.ios.step3.text">Scrolle im Teilen-Menü und wähle „Zum Home-Bildschirm“.</span>
+                  </div>
+                  <div class="ios-install-shot ios-shot-menu" aria-hidden="true">
+                    <div class="ios-share-sheet">
+                      <div class="ios-sheet-handle"></div>
+                      <div class="ios-sheet-row"><span>♡</span><span data-i18n-key="webInstall.ios.mock.favorite">Favorit hinzufügen</span></div>
+                      <div class="ios-sheet-row highlighted"><span>＋</span><span data-i18n-key="webInstall.ios.mock.homeScreen">Zum Home-Bildschirm</span></div>
+                    </div>
+                  </div>
+                </li>
+                <li>
+                  <div class="ios-install-step-copy">
+                    <strong data-i18n-key="webInstall.ios.step4.title">4. Hinzufügen bestätigen</strong>
+                    <span data-i18n-key="webInstall.ios.step4.text">Prüfe den Namen und tippe oben rechts auf „Hinzufügen“.</span>
+                  </div>
+                  <div class="ios-install-shot ios-shot-add" aria-hidden="true">
+                    <div class="ios-add-header"><span data-i18n-key="common.cancel">Abbrechen</span><strong data-i18n-key="webInstall.ios.mock.addTitle">Zum Home-Bildschirm</strong><span class="blue" data-i18n-key="webInstall.ios.mock.add">Hinzufügen</span></div>
+                    <div class="ios-add-preview"><img src="/static/icons/icon-192.png" alt=""><span>nia-todo</span></div>
+                  </div>
+                </li>
+              </ol>
+            </div>
+          </section>
           <div class="app-download-server-box">
             <div class="app-download-server-label" data-i18n-key="appDownloads.serverHostLabel">Bitte gib in der App folgende Adresse ein:</div>
             <code class="app-download-server-host" data-app-download-server-host>–</code>
