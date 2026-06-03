@@ -233,7 +233,7 @@ function updateWebInstallUI() {
   const eligible = isWebInstallEligible();
   const ios = eligible && isIOSLikeBrowser();
   const canPrompt = eligible && Boolean(deferredPwaInstallPrompt);
-  cards.forEach((card) => { card.style.display = eligible ? '' : 'none'; });
+  cards.forEach((card) => { card.style.display = (ios || canPrompt) ? '' : 'none'; });
   document.querySelectorAll('[data-web-install-prompt]').forEach((button) => {
     button.style.display = canPrompt ? '' : 'none';
     button.onclick = async () => {
