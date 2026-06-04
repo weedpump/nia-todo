@@ -11,6 +11,7 @@ from db import get_db, row_to_dict, now_iso
 from routers.auth import require_auth
 from services.websocket import broadcast_change
 from services.utils import sanitize_text
+from services.geocoding import DEFAULT_RADIUS_M, geocode_address
 from services.sharing import can_access_project, can_manage_todos, get_project_ids_for_user
 
 router = APIRouter(prefix="/api/todos")
@@ -285,42 +286,31 @@ def _validate_location_reminder(db, data: Optional[dict], user_id: int) -> Optio
         place = db.execute("SELECT * FROM saved_places WHERE id = ? AND user_id = ?", (place_id, user_id)).fetchone()
         if not place:
             raise HTTPException(404, "Place not found")
+        return {
+            'trigger_type': trigger_type,
+            'place_id': place_id,
+            'label': '',
+            'address': sanitize_text(str(place['address'] or '')).strip()[:500],
+            'latitude': float(place['latitude']),
+            'longitude': float(place['longitude']),
+            'radius_m': DEFAULT_RADIUS_M,
+            'enabled': 1 if data.get('enabled', True) is not False else 0,
+            'source': sanitize_text(str(data.get('source') or EXPLICIT_REMINDER_SOURCE)).strip()[:40] or EXPLICIT_REMINDER_SOURCE,
+        }
 
-    def number(field, fallback=None):
-        raw = data.get(field, fallback)
-        try:
-            return float(raw)
-        except (TypeError, ValueError):
-            raise HTTPException(422, f"Invalid location reminder {field}")
-
-    latitude = float(place['latitude']) if place else number('latitude')
-    longitude = float(place['longitude']) if place else number('longitude')
-    if latitude < -90 or latitude > 90:
-        raise HTTPException(422, "Invalid location reminder latitude")
-    if longitude < -180 or longitude > 180:
-        raise HTTPException(422, "Invalid location reminder longitude")
-
-    try:
-        radius_m = int(data.get('radius_m') if data.get('radius_m') not in (None, '') else (place['radius_m'] if place else 150))
-    except (TypeError, ValueError):
-        raise HTTPException(422, "Invalid location reminder radius_m")
-    if radius_m < 25 or radius_m > 10000:
-        raise HTTPException(422, "Invalid location reminder radius_m")
-
-    label = sanitize_text(str(data.get('label') or (place['name'] if place else '') or '')).strip()[:120]
-    address = sanitize_text(str(data.get('address') or (place['address'] if place else '') or '')).strip()[:500]
+    address = sanitize_text(str(data.get('address') or '')).strip()[:500]
+    geocoded = geocode_address(address)
     return {
         'trigger_type': trigger_type,
-        'place_id': place_id if place else None,
-        'label': label,
-        'address': address,
-        'latitude': latitude,
-        'longitude': longitude,
-        'radius_m': radius_m,
+        'place_id': None,
+        'label': '',
+        'address': geocoded['address'],
+        'latitude': geocoded['latitude'],
+        'longitude': geocoded['longitude'],
+        'radius_m': DEFAULT_RADIUS_M,
         'enabled': 1 if data.get('enabled', True) is not False else 0,
         'source': sanitize_text(str(data.get('source') or EXPLICIT_REMINDER_SOURCE)).strip()[:40] or EXPLICIT_REMINDER_SOURCE,
     }
-
 
 def _insert_location_reminder(db, todo_id: int, user_id: int, location: dict):
     now = now_iso()
