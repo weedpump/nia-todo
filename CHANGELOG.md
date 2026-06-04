@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - BrainDump preview dropdowns are constrained above the modal action bar so open menus no longer block the create/accept button.
 
 ### Fixed
+- Public Debian/Docker builds now use a valid VAPID subject for Web Push notifications by honoring `NIA_TODO_VAPID_SUBJECT` or the configured HTTPS public base URL, instead of replacing the private development subject with `example.invalid`, which Apple Web Push rejects with `BadJwtToken`.
 - Snooze actions now keep deadlines and reminders consistent: undo restores both original values, `+1 hour` moves existing deadline/reminder values relative to themselves, and calendar presets such as this evening and tomorrow morning resolve from the current date.
 - Mobile todo action menus now open upward when there is not enough room below, avoiding viewport clipping and visible flip flicker.
 - Recurring todo interval inputs now stay editable while replacing the default `1`, so users can type values like `6` months directly instead of working around an immediate reset.
