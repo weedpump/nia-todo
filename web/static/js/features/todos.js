@@ -18,6 +18,7 @@ export function createTodosFeature({
   isOnlineForSync,
   syncWithServer,
   sectionsApi,
+  placesApi,
   renderProjects,
   renderStats,
   renderTodos,
@@ -29,6 +30,7 @@ export function createTodosFeature({
 }) {
   const nativeBridge = createNativeBridge();
   let todoFormBound = false;
+  let savedPlaces = [];
 
   function bindTodoForm() {
     if (todoFormBound) return;
@@ -39,7 +41,7 @@ export function createTodosFeature({
   }
 
   function hydrateTodoSelects() {
-    for (const id of ['todo-priority', 'todo-status', 'todo-project', 'todo-section', 'todo-recurring-frequency']) {
+    for (const id of ['todo-priority', 'todo-status', 'todo-project', 'todo-section', 'todo-recurring-frequency', 'todo-location-trigger', 'todo-location-place']) {
       const select = document.getElementById(id);
       if (!select) continue;
       hydrateSelect(select, id === 'todo-project' ? { className: 'project-ui-select', menuClassName: 'project-ui-select-menu', searchPlaceholder: t('focus.projects.search'), searchLabel: t('focus.projects.search'), emptyText: t('focus.projects.noMatches') } : {});
@@ -123,19 +125,30 @@ export function createTodosFeature({
     return Number.isFinite(date.getTime()) ? date.toISOString() : null;
   }
 
-  function normalizeRecurringRule(rule) {
+  function browserTimeZone() {
+    try {
+      return Intl.DateTimeFormat().resolvedOptions().timeZone || null;
+    } catch (_error) {
+      return null;
+    }
+  }
+
+  function normalizeRecurringRule(rule, { defaultTimezone = browserTimeZone() } = {}) {
     if (!rule || typeof rule !== 'object') return null;
     const frequency = String(rule.frequency || 'none').toLowerCase();
     if (!['daily', 'weekly', 'monthly', 'yearly'].includes(frequency)) return null;
     const interval = Math.max(1, Math.min(999, Number.parseInt(rule.interval || 1, 10) || 1));
-    return { frequency, interval, preserve_time: true };
+    const normalized = { frequency, interval, preserve_time: true };
+    const timezone = String(rule.timezone || defaultTimezone || '').trim();
+    if (timezone) normalized.timezone = timezone;
+    return normalized;
   }
 
   function recurringRuleFromForm() {
     const frequency = document.getElementById('todo-recurring-frequency')?.value || 'none';
     if (frequency === 'none') return null;
     const interval = Number.parseInt(document.getElementById('todo-recurring-interval')?.value || '1', 10);
-    return normalizeRecurringRule({ frequency, interval });
+    return normalizeRecurringRule({ frequency, interval, timezone: browserTimeZone() }, { defaultTimezone: null });
   }
 
   function updateRecurringControls() {
@@ -155,6 +168,123 @@ export function createTodosFeature({
     }
   }
 
+  function updateLocationReminderControls() {
+    const enabled = document.getElementById('todo-location-enabled')?.checked || false;
+    const fields = document.getElementById('todo-location-fields');
+    if (fields) {
+      fields.classList.toggle('is-disabled', !enabled);
+      fields.querySelectorAll('input, select, textarea, button').forEach((control) => { control.disabled = !enabled; });
+    }
+    const placeId = document.getElementById('todo-location-place')?.value || '';
+    const addressGroup = document.getElementById('todo-location-address-group');
+    if (addressGroup) addressGroup.hidden = Boolean(placeId);
+    const error = document.getElementById('todo-location-error');
+    if (error && !enabled) error.textContent = '';
+  }
+
+  async function loadSavedPlacesForTodoModal() {
+    if (!placesApi) return [];
+    try {
+      const data = await placesApi.list();
+      savedPlaces = data.places || [];
+    } catch (error) {
+      console.warn('Failed to load saved places', error);
+      savedPlaces = [];
+    }
+    renderLocationPlaceSelect();
+    return savedPlaces;
+  }
+
+  function renderLocationPlaceSelect(selectedId = '') {
+    const select = document.getElementById('todo-location-place');
+    if (!select) return;
+    select.innerHTML = `<option value="" data-i18n-key="todo.location.manualAddress">${t('todo.location.manualAddress')}</option>`;
+    for (const place of savedPlaces) {
+      const option = document.createElement('option');
+      option.value = String(place.id);
+      option.textContent = place.name;
+      option.dataset.address = place.address || '';
+      select.appendChild(option);
+    }
+    select.value = selectedId ? String(selectedId) : '';
+    refreshSelect(select);
+    updateLocationReminderControls();
+  }
+
+  function bindLocationReminderControls() {
+    const enabled = document.getElementById('todo-location-enabled');
+    if (enabled && enabled.dataset.locationBound !== '1') {
+      enabled.dataset.locationBound = '1';
+      enabled.addEventListener('change', updateLocationReminderControls);
+    }
+    const place = document.getElementById('todo-location-place');
+    if (place && place.dataset.locationBound !== '1') {
+      place.dataset.locationBound = '1';
+      place.addEventListener('change', updateLocationReminderControls);
+    }
+    updateLocationReminderControls();
+  }
+
+  function clearLocationReminderForm() {
+    const enabled = document.getElementById('todo-location-enabled');
+    if (enabled) enabled.checked = false;
+    const trigger = document.getElementById('todo-location-trigger');
+    if (trigger) trigger.value = 'arrival';
+    for (const id of ['todo-location-address']) {
+      const input = document.getElementById(id);
+      if (input) input.value = '';
+    }
+    const place = document.getElementById('todo-location-place');
+    if (place) place.value = '';
+    updateLocationReminderControls();
+  }
+
+  function populateLocationReminderForm(todo) {
+    clearLocationReminderForm();
+    const locationReminder = todo?.location_reminder || todo?.location_reminders?.[0];
+    if (!locationReminder) return;
+    const enabled = document.getElementById('todo-location-enabled');
+    if (enabled) enabled.checked = true;
+    const setValue = (id, value) => {
+      const input = document.getElementById(id);
+      if (input && value !== undefined && value !== null) input.value = String(value);
+    };
+    setValue('todo-location-trigger', locationReminder.trigger_type || locationReminder.triggerType || 'arrival');
+    renderLocationPlaceSelect(locationReminder.place_id || '');
+    if (!locationReminder.place_id) setValue('todo-location-address', locationReminder.address || '');
+    updateLocationReminderControls();
+  }
+
+  function locationReminderFromForm() {
+    const enabled = document.getElementById('todo-location-enabled')?.checked || false;
+    if (!enabled) return null;
+    const error = document.getElementById('todo-location-error');
+    if (error) error.textContent = '';
+    const placeId = document.getElementById('todo-location-place')?.value || '';
+    const address = document.getElementById('todo-location-address')?.value?.trim() || '';
+    if (!placeId && !address) {
+      if (error) error.textContent = t('todo.location.addressRequired');
+      document.getElementById('todo-location-address')?.focus();
+      throw new Error('Invalid location reminder address');
+    }
+    const payload = {
+      trigger_type: document.getElementById('todo-location-trigger')?.value || 'arrival',
+      enabled: true,
+    };
+    if (placeId) {
+      payload.place_id = Number(placeId);
+      const selectedPlace = savedPlaces.find(place => String(place.id) === String(placeId));
+      if (selectedPlace?.address) payload.address = String(selectedPlace.address);
+    } else {
+      payload.address = address;
+    }
+    return payload;
+  }
+
+  function locationReminderArrayFromPayload(locationReminder) {
+    return locationReminder ? [locationReminder] : [];
+  }
+
   function bindRecurringControls() {
     const select = document.getElementById('todo-recurring-frequency');
     const interval = document.getElementById('todo-recurring-interval');
@@ -164,8 +294,10 @@ export function createTodosFeature({
     }
     if (interval && interval.dataset.recurringBound !== '1') {
       interval.dataset.recurringBound = '1';
-      interval.addEventListener('input', () => {
-        if (!interval.value || Number(interval.value) < 1) interval.value = '1';
+      interval.addEventListener('blur', () => {
+        const value = Number.parseInt(interval.value, 10);
+        if (!Number.isFinite(value) || value < 1) interval.value = '1';
+        else if (value > 999) interval.value = '999';
       });
     }
     updateRecurringControls();
@@ -552,11 +684,16 @@ export function createTodosFeature({
     window.setTimeout(update, 0);
   }
 
+  function getTodoDueTime(todo) {
+    if (!todo?.due_date) return null;
+    const date = new Date(todo.due_date);
+    return Number.isFinite(date.getTime()) ? date : null;
+  }
+
   function getSnoozeDate(mode, todo) {
-    const base = todo?.due_date ? new Date(todo.due_date) : new Date();
     const now = new Date();
-    const start = Number.isFinite(base.getTime()) && base > now ? base : now;
-    const next = new Date(start);
+    const due = getTodoDueTime(todo);
+    const next = new Date(mode === 'hour' && due ? due : now);
     if (mode === 'hour') next.setHours(next.getHours() + 1);
     else if (mode === 'evening') {
       next.setHours(18, 0, 0, 0);
@@ -570,6 +707,21 @@ export function createTodosFeature({
       next.setHours(9, 0, 0, 0);
     }
     return next;
+  }
+
+  function getSnoozeChanges(mode, todo) {
+    const due = getSnoozeDate(mode, todo);
+    const reminder = getTodoReminderTime(todo);
+    const changes = { due_date: due.toISOString() };
+    if (mode === 'hour' && reminder) {
+      const nextReminder = new Date(reminder);
+      nextReminder.setHours(nextReminder.getHours() + 1);
+      changes.remind_at = nextReminder.toISOString();
+      return changes;
+    }
+    const shiftedReminder = getSnoozedReminderDate(todo, due);
+    if (shiftedReminder) changes.remind_at = shiftedReminder.toISOString();
+    return changes;
   }
 
 
@@ -794,10 +946,39 @@ export function createTodosFeature({
     return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'BUTTON' || tag === 'A' || element?.isContentEditable;
   }
 
+  function resetTodoActionMenuPlacement(menu) {
+    menu?.classList?.remove('opens-up', 'placement-ready');
+  }
+
   function closeTodoActionMenus(except = null) {
     document.querySelectorAll('.todo-status-menu[open], .todo-snooze-menu[open]').forEach((menu) => {
       if (menu !== except) menu.removeAttribute('open');
     });
+    document.querySelectorAll('.todo-status-menu.opens-up, .todo-status-menu.placement-ready, .todo-snooze-menu.opens-up, .todo-snooze-menu.placement-ready').forEach((menu) => {
+      if (menu !== except) resetTodoActionMenuPlacement(menu);
+    });
+  }
+
+  function updateTodoActionMenuPlacement(menu) {
+    if (!menu?.open) return;
+    const panel = menu.querySelector('.todo-action-menu');
+    const summary = menu.querySelector('summary');
+    if (!panel || !summary) return;
+    menu.classList.remove('opens-up', 'placement-ready');
+    const summaryRect = summary.getBoundingClientRect();
+    const panelRect = panel.getBoundingClientRect();
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+    const safeGap = 8;
+    const spaceBelow = viewportHeight - summaryRect.bottom - safeGap;
+    const spaceAbove = summaryRect.top - safeGap;
+    if (panelRect.height > spaceBelow && spaceAbove > spaceBelow) {
+      menu.classList.add('opens-up');
+    }
+    menu.classList.add('placement-ready');
+  }
+
+  function placeOpenTodoActionMenus() {
+    document.querySelectorAll('.todo-status-menu[open]:not(.placement-ready), .todo-snooze-menu[open]:not(.placement-ready)').forEach(updateTodoActionMenuPlacement);
   }
 
   function bindTodoStatusMenuBehavior() {
@@ -807,11 +988,17 @@ export function createTodosFeature({
     document.addEventListener('click', (event) => {
       const menu = event.target?.closest?.('.todo-status-menu, .todo-snooze-menu');
       closeTodoActionMenus(menu || null);
+      if (menu) queueMicrotask(placeOpenTodoActionMenus);
     });
 
     document.addEventListener('toggle', (event) => {
       const menu = event.target?.closest?.('.todo-status-menu, .todo-snooze-menu');
-      if (menu?.open) closeTodoActionMenus(menu);
+      if (menu?.open) {
+        closeTodoActionMenus(menu);
+        updateTodoActionMenuPlacement(menu);
+      } else if (menu) {
+        resetTodoActionMenuPlacement(menu);
+      }
     }, true);
 
     document.addEventListener('keydown', (event) => {
@@ -882,8 +1069,11 @@ export function createTodosFeature({
     bindDateTimeValidation();
     hydrateTodoSelects();
     bindRecurringControls();
+    bindLocationReminderControls();
+    await loadSavedPlacesForTodoModal();
     document.getElementById('todo-form')?.reset();
     clearDateTimeErrors();
+    clearLocationReminderForm();
     document.getElementById('todo-id').value = '';
     const modalTitle = document.getElementById('todo-modal-title');
     if (modalTitle) {
@@ -936,7 +1126,7 @@ export function createTodosFeature({
         const d = new Date(todo.due_date);
         document.getElementById('todo-due').value = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
       }
-      const recurringRule = normalizeRecurringRule(todo.recurring_rule);
+      const recurringRule = normalizeRecurringRule(todo.recurring_rule, { defaultTimezone: null });
       document.getElementById('todo-recurring-frequency').value = recurringRule?.frequency || 'none';
       document.getElementById('todo-recurring-interval').value = recurringRule?.interval || 1;
       updateRecurringControls();
@@ -945,6 +1135,7 @@ export function createTodosFeature({
         const d = new Date(reminderDate);
         document.getElementById('todo-remind').value = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
       }
+      populateLocationReminderForm(todo);
     } else {
       document.getElementById('todo-pinned').checked = false;
       document.getElementById('todo-recurring-frequency').value = 'none';
@@ -1039,6 +1230,11 @@ export function createTodosFeature({
       remind_at: toIsoOrNull('todo-remind'),
       recurring_rule: recurringRuleFromForm(),
     };
+    try {
+      todoData.location_reminder = locationReminderFromForm();
+    } catch (_error) {
+      return;
+    }
     if (parsedQuickAdd) {
       if (parsedQuickAdd.changes.priority && Number(document.getElementById('todo-priority').value) === 3) todoData.priority = parsedQuickAdd.changes.priority;
       if (parsedQuickAdd.changes.project_id) todoData.project_id = parsedQuickAdd.changes.project_id;
@@ -1060,6 +1256,7 @@ export function createTodosFeature({
       const selectedSection = allSections.find(section => String(section.id) === String(todoData.section_id));
       if (!selectedSection || String(selectedSection.project_id) !== String(todoData.project_id)) todoData.section_id = null;
     }
+    todoData.location_reminders = locationReminderArrayFromPayload(todoData.location_reminder);
     if (id) {
       const existing = getTodos().find(t => t.id === parseInt(id));
       if (existing) {
@@ -1104,7 +1301,10 @@ export function createTodosFeature({
     renderStats();
     renderTodos();
     if (toastMessage) {
-      const previousChanges = Object.fromEntries(Object.keys(changes).map((key) => [key, todo[key]]));
+      const previousChanges = Object.fromEntries(Object.keys(changes).map((key) => {
+        if (key === 'remind_at') return [key, getTodoReminderTime(todo)?.toISOString() || null];
+        return [key, todo[key] ?? null];
+      }));
       showToast(toastMessage, { type: 'fields', id: todo.id, changes: previousChanges });
     }
     await addToSyncQueue('UPDATE_TODO', { id: todo.id, changes });
@@ -1137,10 +1337,7 @@ export function createTodosFeature({
   async function snoozeTodo(id, mode) {
     const todo = getTodos().find(x => String(x.id) === String(id));
     if (!todo) return;
-    const due = getSnoozeDate(mode, todo);
-    const reminder = getSnoozedReminderDate(todo, due);
-    const changes = { due_date: due.toISOString() };
-    if (reminder) changes.remind_at = reminder.toISOString();
+    const changes = getSnoozeChanges(mode, todo);
     await updateTodoFields(id, changes, t('todo.toast.snoozed'));
   }
 

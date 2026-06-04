@@ -195,6 +195,8 @@ function positionDropdown(trigger, menu) {
   const isMobile = window.matchMedia?.('(max-width: 768px)')?.matches;
   const viewportWidth = window.innerWidth;
   const viewportHeight = window.innerHeight;
+  const modalActions = trigger.closest?.('#braindump-modal')?.querySelector?.('.braindump-actions');
+  const boundaryBottom = modalActions ? Math.max(edge * 2, modalActions.getBoundingClientRect().top - edge) : viewportHeight;
   const minWidth = rect.width;
   const maxWidth = isMobile ? viewportWidth - edge * 2 : Math.min(280, viewportWidth - edge * 2);
 
@@ -204,11 +206,11 @@ function positionDropdown(trigger, menu) {
   menu.style.display = 'block';
   menu.style.minWidth = `${Math.max(minWidth, 160)}px`;
   menu.style.maxWidth = `${maxWidth}px`;
-  menu.style.maxHeight = isMobile ? `min(280px, calc(45vh))` : `min(320px, calc(100vh - ${edge * 2}px))`;
+  menu.style.maxHeight = isMobile ? `min(280px, calc(45vh))` : `min(320px, ${Math.max(120, boundaryBottom - edge * 2)}px)`;
 
   const menuRect = menu.getBoundingClientRect();
   const width = Math.min(Math.max(menuRect.width, minWidth, 160), maxWidth);
-  const spaceBelow = viewportHeight - rect.bottom - edge;
+  const spaceBelow = boundaryBottom - rect.bottom - edge;
   const spaceAbove = rect.top - edge;
   const preferredHeight = Math.min(menuRect.height, isMobile ? Math.min(280, viewportHeight * 0.45) : 320);
   const openAbove = spaceBelow < Math.min(preferredHeight, 180) && spaceAbove > spaceBelow;
@@ -216,7 +218,7 @@ function positionDropdown(trigger, menu) {
   const height = Math.min(preferredHeight, availableHeight);
   const top = openAbove
     ? Math.max(edge, rect.top - height - 6)
-    : Math.min(viewportHeight - edge - height, rect.bottom + 6);
+    : Math.min(boundaryBottom - height, rect.bottom + 6);
   const left = Math.min(Math.max(edge, rect.left), viewportWidth - edge - width);
 
   menu.style.width = `${width}px`;

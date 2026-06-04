@@ -3,7 +3,7 @@ import { getAuthHeaders, getAuthToken } from '../api/http.js';
 import { escapeHtml, escapeHtmlAttr, formatDate } from '../core/utils.js';
 import { iconSvg } from '../icons/lucide-icons.js';
 import { t } from '../i18n/index.js';
-import { hydrateSelect, refreshSelect } from '../ui/dropdowns.js';
+import { closeOpenDropdown, hydrateSelect, refreshSelect } from '../ui/dropdowns.js';
 import { createNativeBridge } from './native-bridge.js';
 
 const SILENCE_LEVEL = 0.035;
@@ -12,6 +12,37 @@ const MIN_RECORDING_MS = 1600;
 const SNAPSHOT_INTERVAL_MS = 3000;
 const RECORDER_TIMESLICE_MS = 1000;
 const MIN_AUDIO_CHUNK_BYTES = 96;
+
+function recurringLabel(rule) {
+  if (!rule || typeof rule !== 'object') return '';
+  const frequency = String(rule.frequency || '').toLowerCase();
+  const interval = Number.parseInt(rule.interval || 1, 10) || 1;
+  const key = `todo.recurring.label.${frequency}`;
+  const label = t(key, { interval });
+  return label === key ? '' : label;
+}
+
+function isoToDateTimeLocal(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return '';
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 16);
+}
+
+function dateTimeLocalToIso(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isFinite(date.getTime()) ? date.toISOString() : null;
+}
+
+function normalizeRecurringRule(rule) {
+  if (!rule || typeof rule !== 'object') return null;
+  const frequency = String(rule.frequency || 'none').toLowerCase();
+  if (!['daily', 'weekly', 'monthly', 'yearly'].includes(frequency)) return null;
+  const interval = Math.max(1, Math.min(999, Number.parseInt(rule.interval || 1, 10) || 1));
+  return { frequency, interval, preserve_time: true };
+}
 
 export function createBrainDumpLiveFeature(options = {}) {
   const nativeBridge = createNativeBridge();
@@ -58,6 +89,7 @@ export function createBrainDumpLiveFeature(options = {}) {
     candidateIdCounter: 0,
     editingCandidateKey: '',
     workspaceId: null,
+    savedPlaces: [],
   };
 
   async function init() {
@@ -171,6 +203,11 @@ export function createBrainDumpLiveFeature(options = {}) {
       updateStaticLabels();
       render();
     });
+    window.addEventListener('nia:saved-places-updated', (event) => {
+      state.savedPlaces = Array.isArray(event.detail?.places) ? event.detail.places : [];
+      state.candidateRenderSignature = '';
+      render();
+    });
     modal.addEventListener('change', (event) => {
       const checkbox = event.target?.closest?.('input[type="checkbox"][data-bd-candidate-key]');
       if (checkbox) {
@@ -188,7 +225,7 @@ export function createBrainDumpLiveFeature(options = {}) {
       }
     });
     modal.addEventListener('input', (event) => {
-      const field = event.target?.closest?.('input[data-bd-field="title"]');
+      const field = event.target?.closest?.('input[data-bd-field]');
       if (field) updateCandidateField(field, { rerender: false });
     });
     modal.addEventListener('click', (event) => {
@@ -222,6 +259,7 @@ export function createBrainDumpLiveFeature(options = {}) {
     updateStaticLabels();
     document.getElementById('braindump-modal')?.classList.add('active');
     render();
+    void loadSavedPlaces();
     if (!state.recording && !state.starting && !state.processing && !state.active && !state.queue.length && !state.creating) {
       void start();
     }
@@ -264,6 +302,19 @@ export function createBrainDumpLiveFeature(options = {}) {
     state.lastVoiceAt = 0;
     state.hasVoice = false;
     state.workspaceId = null;
+  }
+
+  async function loadSavedPlaces() {
+    if (!options.placesApi?.list) return state.savedPlaces;
+    try {
+      const data = await options.placesApi.list();
+      state.savedPlaces = Array.isArray(data.places) ? data.places : [];
+      state.candidateRenderSignature = '';
+      render();
+    } catch (error) {
+      console.warn('[BrainDump] failed to load saved places', error);
+    }
+    return state.savedPlaces;
   }
 
   function hasNativeAudioBridge() {
@@ -652,7 +703,7 @@ export function createBrainDumpLiveFeature(options = {}) {
   }
 
   function rawCandidateKey(candidate) {
-    return [candidate.title, candidate.project_name, candidate.section_name, candidate.deadline, candidate.reminder].map((value) => String(value || '').trim()).join('|');
+    return [candidate.title, candidate.project_name, candidate.section_name, candidate.deadline, candidate.reminder, JSON.stringify(candidate.recurring_rule || null), JSON.stringify(candidate.location_reminder || null)].map((value) => String(value || '').trim()).join('|');
   }
 
   function candidateKey(candidate) {
@@ -684,10 +735,23 @@ export function createBrainDumpLiveFeature(options = {}) {
     state.candidateRenderSignature = '';
   }
 
+  function candidateForCreate(candidate) {
+    const { _bdId, ...clean } = candidate;
+    if (clean.location_reminder) {
+      const location = clean.location_reminder;
+      clean.location_reminder = {
+        trigger_type: location.trigger_type === 'departure' ? 'departure' : 'arrival',
+        place_id: location.place_id || null,
+        place_name: location.place_name || null,
+      };
+    }
+    return clean;
+  }
+
   function selectedCandidates() {
     return state.candidates
       .filter((candidate) => state.selectedCandidateKeys.has(candidateKey(candidate)))
-      .map(({ _bdId, ...candidate }) => candidate);
+      .map(candidateForCreate);
   }
 
   function toggleAllCandidates() {
@@ -704,19 +768,55 @@ export function createBrainDumpLiveFeature(options = {}) {
     const candidate = findCandidate(field.getAttribute('data-bd-candidate-key'));
     const name = field.getAttribute('data-bd-field');
     if (!candidate || !name) return;
-    candidate[name] = field.value || null;
+    if (name === 'deadline' || name === 'reminder') {
+      candidate[name] = dateTimeLocalToIso(field.value);
+    } else if (name === 'recurring_frequency') {
+      const frequency = field.value || 'none';
+      candidate.recurring_rule = frequency === 'none' ? null : normalizeRecurringRule({
+        ...(candidate.recurring_rule || {}),
+        frequency,
+        interval: candidate.recurring_rule?.interval || 1,
+      });
+    } else if (name === 'recurring_interval') {
+      const interval = Math.max(1, Math.min(999, Number.parseInt(field.value || '1', 10) || 1));
+      field.value = String(interval);
+      const frequency = candidate.recurring_rule?.frequency || 'daily';
+      candidate.recurring_rule = normalizeRecurringRule({ frequency, interval });
+    } else if (name === 'location_place_id') {
+      const placeId = field.value || '';
+      if (!placeId) {
+        candidate.location_reminder = null;
+      } else {
+        const place = state.savedPlaces.find(item => String(item.id) === String(placeId));
+        candidate.location_reminder = {
+          ...(candidate.location_reminder || {}),
+          trigger_type: candidate.location_reminder?.trigger_type || 'arrival',
+          place_id: place ? Number(place.id) : Number(placeId),
+          place_name: place?.name || candidate.location_reminder?.place_name || null,
+          enabled: true,
+          source: 'braindump',
+        };
+      }
+    } else if (name === 'location_trigger_type') {
+      if (!candidate.location_reminder) candidate.location_reminder = { trigger_type: 'arrival', enabled: true, source: 'braindump' };
+      candidate.location_reminder.trigger_type = field.value === 'departure' ? 'departure' : 'arrival';
+    } else {
+      candidate[name] = field.value || null;
+    }
     if (name === 'project_name') candidate.section_name = null;
     state.candidateRenderSignature = '';
     if (rerender) render();
   }
 
   function toggleCandidateEditor(key) {
+    closeOpenDropdown('braindump-edit-toggle');
     state.editingCandidateKey = state.editingCandidateKey === key ? '' : (key || '');
     state.candidateRenderSignature = '';
     render();
   }
 
   async function createSelectedTodos() {
+    closeOpenDropdown('braindump-create');
     const candidates = selectedCandidates();
     if (!candidates.length || state.creating) return;
     state.creating = true;
@@ -839,6 +939,7 @@ export function createBrainDumpLiveFeature(options = {}) {
       selected: Array.from(state.selectedCandidateKeys).sort(),
       projectOptions: getProjectOptions().map(project => `${project.id}:${project.name}`).join('|'),
       sectionOptions: (typeof options.getSections === 'function' ? options.getSections() : []).map(section => `${section.project_id}:${section.name}`).join('|'),
+      places: state.savedPlaces.map(place => `${place.id}:${place.name}`).join('|'),
       editing: state.editingCandidateKey,
       language: document.documentElement.lang || '',
     });
@@ -963,6 +1064,39 @@ export function createBrainDumpLiveFeature(options = {}) {
     return optionsHtml.join('');
   }
 
+  function renderRecurringOptions(candidate) {
+    const selected = normalizeRecurringRule(candidate.recurring_rule)?.frequency || 'none';
+    return ['none', 'daily', 'weekly', 'monthly', 'yearly'].map(frequency => {
+      const label = frequency === 'none' ? t('todo.recurring.none') : t(`todo.recurring.${frequency}`);
+      return `<option value="${frequency}" ${frequency === selected ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+    }).join('');
+  }
+
+  function locationReminderLabel(locationReminder) {
+    if (!locationReminder) return '';
+    const triggerKey = locationReminder.trigger_type === 'departure' ? 'todo.location.departureShort' : 'todo.location.arrivalShort';
+    const place = locationReminder.place_name || locationReminder.address || t('todo.location.title');
+    return `${t(triggerKey)} · ${place}`;
+  }
+
+  function renderLocationPlaceOptions(candidate) {
+    const selected = String(candidate.location_reminder?.place_id || '');
+    const optionsHtml = [`<option value="">${escapeHtml(t('braindump.location.none'))}</option>`];
+    state.savedPlaces.forEach(place => {
+      const id = String(place.id || '');
+      optionsHtml.push(`<option value="${escapeHtmlAttr(id)}" ${id === selected ? 'selected' : ''}>${escapeHtml(place.name || '')}</option>`);
+    });
+    if (selected && !state.savedPlaces.some(place => String(place.id || '') === selected)) {
+      optionsHtml.push(`<option value="${escapeHtmlAttr(selected)}" selected>${escapeHtml(candidate.location_reminder?.place_name || selected)}</option>`);
+    }
+    return optionsHtml.join('');
+  }
+
+  function renderLocationTriggerOptions(candidate) {
+    const selected = candidate.location_reminder?.trigger_type === 'departure' ? 'departure' : 'arrival';
+    return ['arrival', 'departure'].map(trigger => `<option value="${trigger}" ${trigger === selected ? 'selected' : ''}>${escapeHtml(t(`todo.location.${trigger}`))}</option>`).join('');
+  }
+
   function renderCandidate(candidate, index) {
     const key = candidateKey(candidate);
     const checked = state.selectedCandidateKeys.has(key) ? 'checked' : '';
@@ -971,7 +1105,9 @@ export function createBrainDumpLiveFeature(options = {}) {
     const route = [candidate.project_name, candidate.section_name].filter(Boolean).join(' / ') || t('braindump.route.inbox');
     const due = candidate.deadline ? formatDate(candidate.deadline) : '';
     const reminder = candidate.reminder ? formatDate(candidate.reminder) : '';
-    const meta = [route, due ? t('braindump.meta.due', { date: due }) : '', reminder ? t('braindump.meta.reminder', { date: reminder }) : ''].filter(Boolean).join(' · ');
+    const recurrence = recurringLabel(candidate.recurring_rule);
+    const location = locationReminderLabel(candidate.location_reminder);
+    const meta = [route, due ? t('braindump.meta.due', { date: due }) : '', reminder ? t('braindump.meta.reminder', { date: reminder }) : '', recurrence, location].filter(Boolean).join(' · ');
     return `
       <div class="braindump-candidate-card todo-item ${isEditing ? 'is-editing' : ''}" style="--bd-delay:${Math.min(index, 8) * 55}ms">
         <input id="${escapeHtmlAttr(checkboxId)}" type="checkbox" data-bd-candidate-key="${escapeHtmlAttr(key)}" ${checked}>
@@ -996,6 +1132,30 @@ export function createBrainDumpLiveFeature(options = {}) {
               <div class="braindump-quickfix-field">
                 <span id="braindump-section-label-${escapeHtmlAttr(key)}">${escapeHtml(t('braindump.quickfix.section'))}</span>
                 <select data-ui-select class="braindump-field" data-bd-candidate-key="${escapeHtmlAttr(key)}" data-bd-field="section_name" aria-labelledby="braindump-section-label-${escapeHtmlAttr(key)}" ${candidate.project_name ? '' : 'disabled'}>${renderSectionOptions(candidate)}</select>
+              </div>
+              <label class="braindump-quickfix-field">
+                <span>${escapeHtml(t('todo.deadline'))}</span>
+                <input class="braindump-field" type="datetime-local" value="${escapeHtmlAttr(isoToDateTimeLocal(candidate.deadline))}" data-bd-candidate-key="${escapeHtmlAttr(key)}" data-bd-field="deadline">
+              </label>
+              <label class="braindump-quickfix-field">
+                <span>${escapeHtml(t('todo.reminder'))}</span>
+                <input class="braindump-field" type="datetime-local" value="${escapeHtmlAttr(isoToDateTimeLocal(candidate.reminder))}" data-bd-candidate-key="${escapeHtmlAttr(key)}" data-bd-field="reminder">
+              </label>
+              <div class="braindump-quickfix-field">
+                <span id="braindump-recurring-label-${escapeHtmlAttr(key)}">${escapeHtml(t('todo.recurring'))}</span>
+                <select data-ui-select class="braindump-field" data-bd-candidate-key="${escapeHtmlAttr(key)}" data-bd-field="recurring_frequency" aria-labelledby="braindump-recurring-label-${escapeHtmlAttr(key)}">${renderRecurringOptions(candidate)}</select>
+              </div>
+              <label class="braindump-quickfix-field ${candidate.recurring_rule ? '' : 'is-disabled'}">
+                <span>${escapeHtml(t('todo.recurring.interval'))}</span>
+                <input class="braindump-field" type="number" min="1" max="999" step="1" value="${escapeHtmlAttr(normalizeRecurringRule(candidate.recurring_rule)?.interval || 1)}" data-bd-candidate-key="${escapeHtmlAttr(key)}" data-bd-field="recurring_interval" ${candidate.recurring_rule ? '' : 'disabled'}>
+              </label>
+              <div class="braindump-quickfix-field">
+                <span id="braindump-location-place-label-${escapeHtmlAttr(key)}">${escapeHtml(t('braindump.location.place'))}</span>
+                <select data-ui-select class="braindump-field" data-bd-candidate-key="${escapeHtmlAttr(key)}" data-bd-field="location_place_id" aria-labelledby="braindump-location-place-label-${escapeHtmlAttr(key)}">${renderLocationPlaceOptions(candidate)}</select>
+              </div>
+              <div class="braindump-quickfix-field ${candidate.location_reminder ? '' : 'is-disabled'}">
+                <span id="braindump-location-trigger-label-${escapeHtmlAttr(key)}">${escapeHtml(t('todo.location.trigger'))}</span>
+                <select data-ui-select class="braindump-field" data-bd-candidate-key="${escapeHtmlAttr(key)}" data-bd-field="location_trigger_type" aria-labelledby="braindump-location-trigger-label-${escapeHtmlAttr(key)}" ${candidate.location_reminder ? '' : 'disabled'}>${renderLocationTriggerOptions(candidate)}</select>
               </div>
             </span>
           ` : ''}

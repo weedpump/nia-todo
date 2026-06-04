@@ -49,6 +49,9 @@ class UpdateProfileRequest(BaseModel):
 class UpdateLanguageRequest(BaseModel):
     language: str
 
+class UpdateDefaultReminderRequest(BaseModel):
+    default_reminder_offset_minutes: int | None = None
+
 
 def _avatar_url(user_id: int) -> str:
     return f"/api/avatars/user-{user_id}.webp"
@@ -92,6 +95,25 @@ def update_own_language(data: UpdateLanguageRequest, user_id: int = Depends(requ
         db.execute("UPDATE users SET language = ? WHERE id = ?", (language, user_id))
         db.commit()
     return {'language': language}
+
+
+@router.patch('/default-reminder')
+def update_default_reminder(data: UpdateDefaultReminderRequest, user_id: int = Depends(require_auth)):
+    offset = data.default_reminder_offset_minutes
+    if offset is not None:
+        try:
+            offset = int(offset)
+        except (TypeError, ValueError):
+            raise api_error(400, 'defaultReminder.invalid', 'Invalid default reminder offset')
+        if offset < 0 or offset > 525600:
+            raise api_error(400, 'defaultReminder.invalid', 'Invalid default reminder offset')
+    with get_db() as db:
+        user = db.execute("SELECT id FROM users WHERE id = ?", (user_id,)).fetchone()
+        if not user:
+            raise api_error(404, 'user.notFound', 'User not found')
+        db.execute("UPDATE users SET default_reminder_offset_minutes = ? WHERE id = ?", (offset, user_id))
+        db.commit()
+    return {'default_reminder_offset_minutes': offset}
 
 @router.patch("/profile")
 def update_own_profile(data: UpdateProfileRequest, user_id: int = Depends(require_auth)):

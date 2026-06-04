@@ -38,7 +38,7 @@ function isHeicFile(file) {
   return type.includes('heic') || type.includes('heif') || name.endsWith('.heic') || name.endsWith('.heif');
 }
 
-export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentUser, resetApiKeyUi, loadApiKeys, updatePushSettingsUI, logout }) {
+export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, setCurrentUser, resetApiKeyUi, loadApiKeys, updatePushSettingsUI, logout }) {
   let lastTwoFactorState = null;
   let trustedDeviceRevokeInFlight = false;
   const cropState = {
@@ -120,6 +120,47 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     refreshSelect(select);
   }
 
+  function defaultReminderCustomValue(offsetMinutes) {
+    const offset = Number(offsetMinutes);
+    if (!Number.isFinite(offset) || offset <= 0) return { amount: 1, unit: 'hours' };
+    if (offset % 1440 === 0) return { amount: offset / 1440, unit: 'days' };
+    if (offset % 60 === 0) return { amount: offset / 60, unit: 'hours' };
+    return { amount: Math.max(1, Math.round(offset / 60)), unit: 'hours' };
+  }
+
+  function setDefaultReminderCustomRowVisible(visible) {
+    const customRow = document.getElementById('settings-default-reminder-custom-row');
+    if (!customRow) return;
+    customRow.hidden = !visible;
+    customRow.classList.toggle('is-active', Boolean(visible));
+  }
+
+  function renderDefaultReminderSetting(user = getCurrentUser()) {
+    const select = document.getElementById('settings-default-reminder');
+    const customInput = document.getElementById('settings-default-reminder-custom');
+    const customUnit = document.getElementById('settings-default-reminder-custom-unit');
+    if (!select) return;
+    hydrateSelect(select);
+    if (customUnit) hydrateSelect(customUnit);
+    const offset = user?.default_reminder_offset_minutes;
+    const knownValues = new Set(['0', '15', '60', '1440']);
+    if (offset === null || offset === undefined || offset === '') {
+      select.value = 'off';
+      setDefaultReminderCustomRowVisible(false);
+    } else if (knownValues.has(String(offset))) {
+      select.value = String(offset);
+      setDefaultReminderCustomRowVisible(false);
+    } else {
+      const custom = defaultReminderCustomValue(offset);
+      select.value = 'custom';
+      setDefaultReminderCustomRowVisible(true);
+      if (customInput) customInput.value = String(custom.amount);
+      if (customUnit) customUnit.value = custom.unit;
+    }
+    refreshSelect(select);
+    if (customUnit) refreshSelect(customUnit);
+  }
+
   function renderUserInfo() {
     const currentUser = getCurrentUser();
     const settingsUsernameEl = document.getElementById('settings-username');
@@ -130,7 +171,140 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     if (settingsEmailCell && currentUser) settingsEmailCell.innerHTML = renderSettingsEmailDisplay(currentUser);
     renderSettingsAvatar(currentUser);
     renderLanguageSetting();
+    renderDefaultReminderSetting(currentUser);
     renderBrainDumpLearningSetting(currentUser);
+  }
+
+  let savedPlaces = [];
+  let editingPlaceId = null;
+
+  function updatePlaceFormMode() {
+    const saveIcon = document.getElementById('settings-place-save-icon');
+    const saveLabel = document.getElementById('settings-place-save-label');
+    const cancelBtn = document.getElementById('settings-place-cancel-edit');
+    const editing = editingPlaceId !== null && editingPlaceId !== undefined;
+    if (saveIcon) {
+      const iconName = editing ? 'check' : 'plus';
+      saveIcon.dataset.icon = iconName;
+      saveIcon.innerHTML = iconSvg(iconName);
+    }
+    if (saveLabel) {
+      saveLabel.dataset.i18nKey = editing ? 'settings.places.update' : 'settings.places.save';
+      saveLabel.textContent = t(editing ? 'settings.places.update' : 'settings.places.save');
+    }
+    if (cancelBtn) cancelBtn.hidden = !editing;
+  }
+
+  function resetPlaceForm() {
+    const nameEl = document.getElementById('settings-place-name');
+    const addressEl = document.getElementById('settings-place-address');
+    if (nameEl) nameEl.value = '';
+    if (addressEl) addressEl.value = '';
+    editingPlaceId = null;
+    updatePlaceFormMode();
+  }
+
+  async function loadSavedPlaces() {
+    const listEl = document.getElementById('settings-places-list');
+    if (!placesApi || !listEl) return [];
+    try {
+      const data = await placesApi.list();
+      savedPlaces = data.places || [];
+      renderSavedPlaces();
+      window.dispatchEvent(new CustomEvent('nia:saved-places-updated', { detail: { places: savedPlaces } }));
+      return savedPlaces;
+    } catch (error) {
+      listEl.innerHTML = `<div class="settings-device-note">${escapeHtml(t('settings.places.loadFailed', { error: error.message || error }))}</div>`;
+      return [];
+    }
+  }
+
+  function renderSavedPlaces() {
+    const listEl = document.getElementById('settings-places-list');
+    if (!listEl) return;
+    if (!savedPlaces.length) {
+      listEl.innerHTML = `<div class="settings-device-note">${escapeHtml(t('settings.places.empty'))}</div>`;
+      return;
+    }
+    listEl.innerHTML = savedPlaces.map((place) => `
+      <div class="settings-device-row">
+        <div>
+          <strong>${escapeHtml(place.name)}</strong>
+          <span>${escapeHtml(place.address || '')}</span>
+        </div>
+        <div class="settings-place-row-actions">
+          <button type="button" class="btn btn-secondary" onclick="editSettingsPlace(${Number(place.id)})">${escapeHtml(t('common.edit'))}</button>
+          <button type="button" class="btn btn-danger" onclick="deleteSettingsPlace(${Number(place.id)})">${escapeHtml(t('common.delete'))}</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async function saveSettingsPlace() {
+    const nameEl = document.getElementById('settings-place-name');
+    const addressEl = document.getElementById('settings-place-address');
+    const errorEl = document.getElementById('settings-places-error');
+    const successEl = document.getElementById('settings-places-success');
+    if (errorEl) errorEl.textContent = '';
+    if (successEl) successEl.textContent = '';
+    const name = nameEl?.value?.trim() || '';
+    const address = addressEl?.value?.trim() || '';
+    if (!name || !address) {
+      if (errorEl) errorEl.textContent = t('settings.places.required');
+      return;
+    }
+    try {
+      if (editingPlaceId !== null && editingPlaceId !== undefined) {
+        await placesApi.update(editingPlaceId, { name, address });
+        if (successEl) successEl.textContent = t('settings.places.updated');
+      } else {
+        await placesApi.create({ name, address });
+        if (successEl) successEl.textContent = t('settings.places.saved');
+      }
+      resetPlaceForm();
+      await loadSavedPlaces();
+    } catch (error) {
+      if (errorEl) errorEl.textContent = error.message || String(error);
+    }
+  }
+
+  function editSettingsPlace(placeId) {
+    const place = savedPlaces.find((item) => String(item.id) === String(placeId));
+    const nameEl = document.getElementById('settings-place-name');
+    const addressEl = document.getElementById('settings-place-address');
+    const errorEl = document.getElementById('settings-places-error');
+    const successEl = document.getElementById('settings-places-success');
+    if (!place || !nameEl || !addressEl) return;
+    if (errorEl) errorEl.textContent = '';
+    if (successEl) successEl.textContent = '';
+    editingPlaceId = place.id;
+    nameEl.value = place.name || '';
+    addressEl.value = place.address || '';
+    updatePlaceFormMode();
+    nameEl.focus();
+  }
+
+  function cancelSettingsPlaceEdit() {
+    const errorEl = document.getElementById('settings-places-error');
+    const successEl = document.getElementById('settings-places-success');
+    if (errorEl) errorEl.textContent = '';
+    if (successEl) successEl.textContent = '';
+    resetPlaceForm();
+  }
+
+  async function deleteSettingsPlace(placeId) {
+    const errorEl = document.getElementById('settings-places-error');
+    const successEl = document.getElementById('settings-places-success');
+    if (errorEl) errorEl.textContent = '';
+    if (successEl) successEl.textContent = '';
+    try {
+      await placesApi.delete(placeId);
+      if (String(editingPlaceId) === String(placeId)) resetPlaceForm();
+      if (successEl) successEl.textContent = t('settings.places.deleted');
+      await loadSavedPlaces();
+    } catch (error) {
+      if (errorEl) errorEl.textContent = error.message || String(error);
+    }
   }
 
   async function refreshCurrentUser() {
@@ -341,6 +515,12 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     document.getElementById('settings-avatar-success').textContent = '';
     document.getElementById('settings-language-error').textContent = '';
     document.getElementById('settings-language-success').textContent = '';
+    document.getElementById('settings-default-reminder-error').textContent = '';
+    document.getElementById('settings-default-reminder-success').textContent = '';
+    const placesError = document.getElementById('settings-places-error');
+    const placesSuccess = document.getElementById('settings-places-success');
+    if (placesError) placesError.textContent = '';
+    if (placesSuccess) placesSuccess.textContent = '';
     document.getElementById('settings-braindump-error').textContent = '';
     document.getElementById('settings-braindump-success').textContent = '';
     document.getElementById('settings-2fa-error').textContent = '';
@@ -353,6 +533,7 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     await refreshCurrentUser().catch(() => {});
     updateSettingsEnrollmentLock();
     await refreshTwoFactorStatus();
+    await loadSavedPlaces();
     if (!isMfaEnrollmentLocked()) {
       resetApiKeyUi();
       loadApiKeys();
@@ -434,6 +615,52 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     } catch (error) {
       if (errorEl) errorEl.textContent = error?.message || t('settings.language.saveFailed');
     }
+  }
+
+  async function saveDefaultReminderOffset(offsetMinutes) {
+    const errorEl = document.getElementById('settings-default-reminder-error');
+    const successEl = document.getElementById('settings-default-reminder-success');
+    if (errorEl) errorEl.textContent = '';
+    if (successEl) successEl.textContent = '';
+    try {
+      const data = await authApi.updateDefaultReminder(offsetMinutes);
+      const currentUser = getCurrentUser();
+      if (currentUser) setCurrentUser({ ...currentUser, default_reminder_offset_minutes: data.default_reminder_offset_minutes });
+      renderDefaultReminderSetting({ ...currentUser, default_reminder_offset_minutes: data.default_reminder_offset_minutes });
+      if (successEl) successEl.textContent = t('settings.defaultReminder.saved');
+    } catch (error) {
+      renderDefaultReminderSetting();
+      if (errorEl) errorEl.textContent = error?.message || t('settings.defaultReminder.saveFailed');
+    }
+  }
+
+  async function changeDefaultReminderSetting(value) {
+    if (value === 'custom') {
+      setDefaultReminderCustomRowVisible(true);
+      const unit = document.getElementById('settings-default-reminder-custom-unit');
+      if (unit) {
+        hydrateSelect(unit);
+        refreshSelect(unit);
+      }
+      document.getElementById('settings-default-reminder-custom')?.focus();
+      return;
+    }
+    setDefaultReminderCustomRowVisible(false);
+    await saveDefaultReminderOffset(value === 'off' ? null : Number(value));
+  }
+
+  async function saveCustomDefaultReminderSetting() {
+    const input = document.getElementById('settings-default-reminder-custom');
+    const unit = document.getElementById('settings-default-reminder-custom-unit')?.value || 'hours';
+    const amount = Number(input?.value);
+    const multiplier = unit === 'days' ? 1440 : 60;
+    const maxAmount = unit === 'days' ? 365 : 8760;
+    if (!Number.isInteger(amount) || amount < 1 || amount > maxAmount) {
+      const errorEl = document.getElementById('settings-default-reminder-error');
+      if (errorEl) errorEl.textContent = t('settings.defaultReminder.invalidCustom');
+      return;
+    }
+    await saveDefaultReminderOffset(amount * multiplier);
   }
 
   function editUserDisplayName() {
@@ -1059,6 +1286,8 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     renderUserInfo,
     openSettingsModal,
     changeLanguagePreference,
+    changeDefaultReminderSetting,
+    saveCustomDefaultReminderSetting,
     changeBrainDumpLearningSetting,
     resetBrainDumpLearning,
     editUserDisplayName,
@@ -1082,5 +1311,10 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     toggleTrustedDevicesList,
     revokeTrustedDevice,
     revokeAllTrustedDevices,
+    loadSavedPlaces,
+    saveSettingsPlace,
+    editSettingsPlace,
+    cancelSettingsPlaceEdit,
+    deleteSettingsPlace,
   };
 }

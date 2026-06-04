@@ -2,6 +2,16 @@ import { escapeHtml, escapeHtmlAttr, formatDate, renderMarkdown, truncateWords }
 import { t as i18nT } from '../i18n/index.js';
 import { iconSvg } from '../icons/lucide-icons.js';
 
+function locationReminderLabel(todo) {
+  const reminder = todo?.location_reminder || todo?.location_reminders?.find?.((entry) => entry && entry.enabled !== 0 && entry.enabled !== false) || null;
+  if (!reminder || reminder.enabled === 0 || reminder.enabled === false) return '';
+  const trigger = String(reminder.trigger_type || reminder.triggerType || '').toLowerCase();
+  const triggerKey = trigger === 'departure' ? 'todo.location.departureShort' : 'todo.location.arrivalShort';
+  const place = String(reminder.place_name || reminder.placeName || reminder.address || '').trim();
+  const prefix = i18nT(triggerKey);
+  return place ? `${prefix}: ${place}` : prefix;
+}
+
 function recurringLabel(rule) {
   if (!rule || typeof rule !== 'object') return '';
   const frequency = String(rule.frequency || '').toLowerCase();
@@ -29,7 +39,8 @@ export function renderTodoItem(t) {
   const prioColor = { 1: '#ef4444', 2: '#f59e0b', 3: '#10b981', 4: '#94a3b8' }[t.priority] || '#94a3b8';
   const remindStr = reminderTime ? formatDate(reminderTime) : '';
   const recurrenceStr = recurringLabel(t.recurring_rule);
-  const hasMeta = dueStr || remindStr || recurrenceStr;
+  const locationStr = locationReminderLabel(t);
+  const hasMeta = dueStr || remindStr || recurrenceStr || locationStr;
   const desc = t.description ? truncateWords(String(t.description).replace(/\s+/g, ' ').trim(), 18) : '';
   const hasDesc = desc && desc.length > 0;
   const idArg = JSON.stringify(t.id);
@@ -56,6 +67,7 @@ export function renderTodoItem(t) {
               ${dueStr ? `<span class="todo-meta-chip todo-due ${isOverdue ? 'overdue' : dueTone}">${iconSvg('calendar')} ${dueStr}${isOverdue ? ` (${escapeHtml(i18nT('todo.overdue'))})` : ''}</span>` : ''}
               ${remindStr ? `<span class="todo-meta-chip todo-reminder">${iconSvg('bell')} ${remindStr}</span>` : ''}
               ${recurrenceStr ? `<span class="todo-meta-chip todo-recurring">${iconSvg('repeat')} ${escapeHtml(recurrenceStr)}</span>` : ''}
+              ${locationStr ? `<span class="todo-meta-chip todo-location" title="${escapeHtmlAttr(i18nT('todo.location.androidOnlyPillTitle'))}">${iconSvg('map-pin')} ${escapeHtml(locationStr)}</span>` : ''}
             </div>
             ` : ''}
             ${hasDesc ? `<div class="todo-desc-preview" title="${escapeHtmlAttr(String(t.description || ''))}">${renderMarkdown(desc)}</div>` : ''}

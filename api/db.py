@@ -62,6 +62,35 @@ CREATE TABLE IF NOT EXISTS reminders (
     FOREIGN KEY (todo_id) REFERENCES todos(id) ON DELETE CASCADE
 );
 
+-- Saved places for privacy-first location reminders
+CREATE TABLE IF NOT EXISTS saved_places (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    address TEXT NOT NULL,
+    icon TEXT DEFAULT 'pin',
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS location_reminders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    todo_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    trigger_type TEXT NOT NULL CHECK(trigger_type IN ('arrival', 'departure')),
+    place_id INTEGER,
+    address TEXT NOT NULL,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    triggered_at TEXT,
+    source TEXT NOT NULL DEFAULT 'explicit',
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (todo_id) REFERENCES todos(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (place_id) REFERENCES saved_places(id) ON DELETE SET NULL
+);
+
 -- Indices
 CREATE INDEX IF NOT EXISTS idx_todos_status ON todos(status);
 CREATE INDEX IF NOT EXISTS idx_todos_due ON todos(due_date);
@@ -69,6 +98,11 @@ CREATE INDEX IF NOT EXISTS idx_todos_project ON todos(project_id);
 CREATE INDEX IF NOT EXISTS idx_todos_section ON todos(section_id);
 CREATE INDEX IF NOT EXISTS idx_sections_project ON sections(project_id);
 CREATE INDEX IF NOT EXISTS idx_reminders_at ON reminders(remind_at);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_saved_places_user_name ON saved_places(user_id, lower(name));
+CREATE INDEX IF NOT EXISTS idx_saved_places_user ON saved_places(user_id);
+CREATE INDEX IF NOT EXISTS idx_location_reminders_todo ON location_reminders(todo_id);
+CREATE INDEX IF NOT EXISTS idx_location_reminders_user_enabled ON location_reminders(user_id, enabled);
+CREATE INDEX IF NOT EXISTS idx_location_reminders_place ON location_reminders(place_id);
 
 -- Default projects
 INSERT OR IGNORE INTO projects (id, name, color, sort_order, is_inbox) VALUES (1, 'Inbox', '#64748b', 0, 1);
@@ -106,6 +140,8 @@ def init_db():
             "ALTER TABLE todos ADD COLUMN is_pinned INTEGER NOT NULL DEFAULT 0",
             "ALTER TABLE todos ADD COLUMN recurring_rule TEXT",
             "ALTER TABLE todos ADD COLUMN parent_id INTEGER",
+            "ALTER TABLE users ADD COLUMN default_reminder_offset_minutes INTEGER",
+            "ALTER TABLE reminders ADD COLUMN source TEXT NOT NULL DEFAULT 'explicit'",
         ):
             try:
                 conn.execute(ddl)

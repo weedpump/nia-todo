@@ -1,4 +1,6 @@
 <resources>
     <string name="app_name">nia-todo</string>
     <string name="main_activity_title">nia-todo</string>
+    <string name="location_reminder_fallback_title">Location reminder</string>
+    <string name="location_reminder_fallback_body">Todo reminder</string>
 </resources>

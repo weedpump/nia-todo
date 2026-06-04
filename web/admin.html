@@ -56,10 +56,14 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .user-card-switch:checked { background: color-mix(in srgb, var(--success) 72%, var(--accent)); border-color: color-mix(in srgb, var(--success) 86%, white); }
 .user-card-switch:checked::after { transform: translateX(20px); background: white; }
 .user-card-switch:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 24%, transparent); outline: none; }
-.user-card-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; align-items: center; }
+.user-card-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; align-items: center; }
 .user-card-actions.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .user-card-actions.single { grid-template-columns: 1fr; }
 .user-card-actions .admin-table-action { width: 100%; }
+.user-card .settings-2fa-devices-wrap { margin-top: 2px; }
+.user-card .settings-device-row { overflow: hidden; }
+.user-card .settings-device-row > div { min-width: 0; }
+.user-card .settings-device-row span { overflow-wrap: anywhere; }
 .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; }
 .badge-admin { background: var(--accent); color: white; }
 .badge-user { background: var(--bg-tertiary); color: var(--text-secondary); }
@@ -109,6 +113,37 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .admin-config-textarea { min-height: 82px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .admin-config-textarea.readonly { color: var(--text-secondary); background: color-mix(in srgb, var(--bg-primary) 82%, var(--bg-tertiary)); white-space: pre; }
 .admin-help { font-size: 12px; color: var(--text-muted); margin-top: 8px; }
+.admin-stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.admin-stat-toolbar { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin: 8px 0 16px; }
+.admin-stat-coverage { display:inline-flex; align-items:center; width:max-content; margin-top:8px; padding:5px 10px; border-radius:999px; background:color-mix(in srgb, var(--accent) 13%, transparent); color:var(--text-secondary); border:1px solid color-mix(in srgb, var(--accent) 28%, transparent); font-size:12px; font-weight:750; }
+.admin-stat-tabs { display:inline-flex; gap:6px; padding:4px; border-radius:999px; background: var(--bg-tertiary); border:1px solid color-mix(in srgb, var(--border) 72%, transparent); }
+.admin-stat-tab { border:0; border-radius:999px; padding:7px 11px; cursor:pointer; background:transparent; color:var(--text-muted); font-size:12px; font-weight:750; }
+.admin-stat-tab.active { background:var(--accent); color:white; box-shadow:0 2px 8px color-mix(in srgb, var(--accent) 28%, transparent); }
+.admin-stat-layout { display:grid; grid-template-columns: minmax(0, 1.25fr) minmax(280px, .75fr); gap:14px; align-items:stretch; }
+.admin-stat-panel { border:1px solid color-mix(in srgb, var(--border) 72%, transparent); border-radius:16px; background: color-mix(in srgb, var(--bg-primary) 72%, var(--bg-secondary)); padding:14px; min-width:0; }
+.admin-stat-panel.wide { grid-column:1 / -1; }
+.admin-stat-panel-title { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; color:var(--text-primary); font-size:13px; font-weight:850; }
+.admin-stat-panel-subtitle { color:var(--text-muted); font-size:11px; font-weight:650; }
+.admin-stat-kpis { display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap:10px; margin-bottom:14px; }
+.admin-stat-tile { padding:12px; border:1px solid color-mix(in srgb, var(--border) 66%, transparent); border-radius:14px; background: linear-gradient(135deg, color-mix(in srgb, var(--bg-primary) 82%, var(--accent) 5%), color-mix(in srgb, var(--bg-secondary) 92%, var(--bg-primary))); min-width:0; }
+.admin-stat-label { color: var(--text-muted); font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .045em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.admin-stat-value { margin-top: 5px; color: var(--text-primary); font-size: 22px; font-weight: 900; line-height:1.05; }
+.admin-stat-foot { margin-top:5px; color:var(--text-muted); font-size:11px; }
+.admin-stat-chart { width:100%; height:210px; display:block; overflow:visible; }
+.admin-stat-chart path.line-a { stroke:var(--accent); }
+.admin-stat-chart path.line-b { stroke:var(--success); }
+.admin-stat-chart path.line-c { stroke:var(--warning); }
+.admin-stat-chart .grid { stroke:color-mix(in srgb, var(--border) 60%, transparent); stroke-width:1; }
+.admin-stat-chart text { fill:var(--text-muted); font-size:10px; }
+.admin-stat-legend { display:flex; flex-wrap:wrap; gap:10px; margin-top:10px; color:var(--text-muted); font-size:11px; }
+.admin-stat-legend span::before { content:''; display:inline-block; width:9px; height:9px; border-radius:999px; margin-right:5px; background:var(--accent); }
+.admin-stat-legend span:nth-child(2)::before { background:var(--success); }
+.admin-stat-legend span:nth-child(3)::before { background:var(--warning); }
+.admin-stat-bars { display:flex; flex-direction:column; gap:10px; }
+.admin-stat-bar-row { display:grid; grid-template-columns: 98px minmax(0,1fr) 56px; gap:10px; align-items:center; color:var(--text-secondary); font-size:12px; }
+.admin-stat-bar-track { height:9px; border-radius:999px; overflow:hidden; background:var(--bg-tertiary); }
+.admin-stat-bar-fill { height:100%; border-radius:999px; background:linear-gradient(90deg, var(--accent), var(--success)); }
+@media (max-width: 860px) { .admin-stat-layout { grid-template-columns:1fr; } .admin-stat-kpis { grid-template-columns: repeat(2, minmax(0,1fr)); } }
 .admin-error { color: var(--danger); font-size: 13px; margin-top: 8px; }
 .admin-success { color: var(--success); font-size: 13px; margin-top: 8px; }
 .setup-link-box { margin-top: 12px; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-primary); display: none; gap: 8px; align-items: center; }
@@ -192,6 +227,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
   .user-card-header { flex-direction: column; gap: 8px; }
   .user-card-row { grid-template-columns: 1fr; gap: 4px; align-items: start; }
   .user-card-actions { grid-template-columns: 1fr; }
+  .user-card .settings-device-row { flex-direction: column; align-items: stretch; }
   .admin-section-summary { display: none; }
   .email-edit { grid-template-columns: minmax(0, 1fr) 32px 32px; }
 }
@@ -291,6 +327,67 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
     </div>
     <div class="admin-error" id="server-update-error"></div>
     <div class="admin-success" id="server-update-success"></div>
+  </div>
+
+  <!-- Stats -->
+  <div class="admin-card" id="technical-stats-card">
+    <h2><span data-icon="activity"></span> <span data-i18n-key="admin.stats.title">Statistik</span></h2>
+    <div class="admin-help" data-i18n-key="admin.stats.help">Aggregierte technische Statistik für Kapazität, Last und Wachstum — ohne Inhalte, Transkripte, IPs, Usernamen oder Roh-User-Agents.</div>
+    <div class="admin-stat-toolbar">
+      <div>
+        <div class="admin-stat-tabs" id="stats-period-tabs">
+          <button class="admin-stat-tab" data-days="7" onclick="setStatsPeriod(7)" data-i18n-key="admin.stats.period.7d">7 Tage</button>
+          <button class="admin-stat-tab active" data-days="30" onclick="setStatsPeriod(30)" data-i18n-key="admin.stats.period.30d">30 Tage</button>
+          <button class="admin-stat-tab" data-days="90" onclick="setStatsPeriod(90)" data-i18n-key="admin.stats.period.90d">90 Tage</button>
+          <button class="admin-stat-tab" data-days="365" onclick="setStatsPeriod(365)" data-i18n-key="admin.stats.period.365d">1 Jahr</button>
+        </div>
+        <div class="admin-stat-coverage" id="stats-data-coverage" data-i18n-key="admin.stats.coverage.loading">Datenbasis wird geladen…</div>
+      </div>
+      <div class="form-row" style="margin:0;">
+        <button class="btn btn-secondary" onclick="loadTechnicalStats()" data-i18n-key="admin.stats.refresh">Aktualisieren</button>
+        <button class="btn btn-secondary" onclick="backfillTechnicalStats()" data-i18n-key="admin.stats.analyzeLogs">Logs analysieren</button>
+      </div>
+    </div>
+    <div class="admin-stat-kpis" id="technical-stats-kpis"></div>
+    <div class="admin-stat-layout">
+      <div class="admin-stat-panel">
+        <div class="admin-stat-panel-title"><span data-i18n-key="admin.stats.panel.inventoryGrowth">Bestand & Wachstum</span> <span class="admin-stat-panel-subtitle" id="stats-inventory-subtitle"></span></div>
+        <div id="stats-inventory-chart"></div>
+        <div class="admin-stat-legend"><span data-i18n-key="admin.stats.label.users">User</span><span data-i18n-key="admin.stats.label.projects">Projekte</span><span data-i18n-key="admin.stats.label.todos">Todos</span></div>
+      </div>
+      <div class="admin-stat-panel">
+        <div class="admin-stat-panel-title" data-i18n-key="admin.stats.panel.currentInventory">Aktueller Bestand</div>
+        <div class="admin-stat-bars" id="stats-inventory-bars"></div>
+      </div>
+      <div class="admin-stat-panel">
+        <div class="admin-stat-panel-title"><span data-i18n-key="admin.stats.panel.workload">LLM / STT Last</span> <span class="admin-stat-panel-subtitle" id="stats-workload-subtitle"></span></div>
+        <div id="stats-workload-chart"></div>
+        <div class="admin-stat-legend"><span data-i18n-key="admin.stats.label.llm">LLM</span><span data-i18n-key="admin.stats.label.stt">STT</span><span data-i18n-key="admin.stats.label.audio">Audio</span></div>
+      </div>
+      <div class="admin-stat-panel">
+        <div class="admin-stat-panel-title" data-i18n-key="admin.stats.panel.capacity">Kapazitätsindikatoren</div>
+        <div class="admin-stat-bars" id="stats-capacity-bars"></div>
+      </div>
+      <div class="admin-stat-panel wide">
+        <div class="admin-stat-panel-title"><span data-i18n-key="admin.stats.panel.platformAnalysis">Plattformanalyse</span> <span class="admin-stat-panel-subtitle" id="stats-platform-subtitle"></span></div>
+        <div class="admin-stat-layout" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:14px;">
+          <div>
+            <div class="admin-stat-panel-subtitle" style="margin-bottom:8px;" data-i18n-key="admin.stats.panel.appType">App-Typ</div>
+            <div class="admin-stat-bars" id="stats-app-types"></div>
+          </div>
+          <div>
+            <div class="admin-stat-panel-subtitle" style="margin-bottom:8px;" data-i18n-key="admin.stats.panel.operatingSystem">Betriebssystem</div>
+            <div class="admin-stat-bars" id="stats-operating-systems"></div>
+          </div>
+          <div>
+            <div class="admin-stat-panel-subtitle" style="margin-bottom:8px;" data-i18n-key="admin.stats.panel.browser">Browser</div>
+            <div class="admin-stat-bars" id="stats-browsers"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="admin-error" id="technical-stats-error"></div>
+    <div class="admin-success" id="technical-stats-success"></div>
   </div>
 
   <!-- Instance Configuration -->
@@ -601,6 +698,7 @@ const ICONS = {
   'shield-check': '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>',
   settings: '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.73l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
   'download-cloud': '<path d="M12 13v8"/><path d="m8 17 4 4 4-4"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>',
+  activity: '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
   sparkles: '<path d="M12 3l1.9 5.8L20 11l-6.1 2.2L12 19l-1.9-5.8L4 11l6.1-2.2L12 3Z"/><path d="M19 3v4"/><path d="M21 5h-4"/>',
   mail: '<path d="m22 7-8.991 5.727a2 2 0 0 1-2.009 0L2 7"/><rect x="2" y="4" width="20" height="16" rx="2"/>',
 };
@@ -866,15 +964,17 @@ async function doAdminLogin() {
 
 let twoFactorPolicyRequired = false;
 let brainDumpFeatureEnabled = false;
+let currentStatsDays = 30;
 
 async function loadAdminData() {
-  const [usersData, configData, brainDumpConfigData, emailConfigData, twoFactorPolicy, serverUpdate] = await Promise.all([
+  const [usersData, configData, brainDumpConfigData, emailConfigData, twoFactorPolicy, serverUpdate, technicalStats] = await Promise.all([
     apiGet('/api/admin/users'),
     apiGet('/api/admin/instance-config'),
     apiGet('/api/admin/braindump-config'),
     apiGet('/api/admin/email-config'),
     apiGet('/api/admin/2fa-policy'),
     apiGet('/api/admin/server-update'),
+    apiGet(`/api/admin/technical-stats?days=${currentStatsDays}`),
   ]);
   twoFactorPolicyRequired = !!twoFactorPolicy.required;
   brainDumpFeatureEnabled = !!brainDumpConfigData.enabled;
@@ -884,6 +984,207 @@ async function loadAdminData() {
   renderUsers(usersData.users);
   renderEmailConfig(emailConfigData);
   renderServerUpdate(serverUpdate);
+  renderTechnicalStats(technicalStats);
+}
+
+function formatAdminNumber(value) {
+  return new Intl.NumberFormat(undefined).format(Number(value || 0));
+}
+
+function formatAdminBytes(bytes) {
+  const value = Number(bytes || 0);
+  if (value < 1024) return `${value} B`;
+  const units = ['KB', 'MB', 'GB', 'TB'];
+  let size = value / 1024;
+  let idx = 0;
+  while (size >= 1024 && idx < units.length - 1) { size /= 1024; idx += 1; }
+  return `${size.toFixed(size >= 10 ? 1 : 2)} ${units[idx]}`;
+}
+
+function statTile(label, value, foot = '') {
+  return `<div class="admin-stat-tile"><div class="admin-stat-label">${escapeHtml(label)}</div><div class="admin-stat-value">${escapeHtml(value)}</div>${foot ? `<div class="admin-stat-foot">${escapeHtml(foot)}</div>` : ''}</div>`;
+}
+
+function formatTrend(value, current, previous) {
+  if (Number(previous || 0) === 0 && Number(current || 0) > 0) return 'neu';
+  const num = Number(value || 0);
+  if (!num) return '±0%';
+  return `${num > 0 ? '+' : ''}${num.toFixed(1)}%`;
+}
+
+function formatRate(value) {
+  return `${Number(value || 0).toFixed(1)}%`;
+}
+
+function formatDurationMs(value) {
+  if (value == null) return '-';
+  const ms = Number(value || 0);
+  if (ms >= 1000) return `${(ms / 1000).toFixed(ms >= 10000 ? 1 : 2)}s`;
+  return `${Math.round(ms)}ms`;
+}
+
+function metricValue(point) {
+  return Number(point?.value || 0);
+}
+
+function statsT(key, params = {}) {
+  const translate = window.t || ((fallbackKey) => fallbackKey);
+  return translate(key, params);
+}
+
+function renderLineChart(seriesDefs) {
+  const width = 720;
+  const height = 210;
+  const pad = { left: 34, right: 12, top: 16, bottom: 24 };
+  const allValues = seriesDefs.flatMap((item) => (item.values || []).map(metricValue));
+  const maxValue = Math.max(1, ...allValues);
+  const pointCount = Math.max(1, ...seriesDefs.map((item) => (item.values || []).length));
+  const xFor = (idx) => pad.left + (pointCount <= 1 ? 0 : idx * ((width - pad.left - pad.right) / (pointCount - 1)));
+  const yFor = (value) => height - pad.bottom - (Number(value || 0) / maxValue) * (height - pad.top - pad.bottom);
+  const lines = seriesDefs.map((item, seriesIdx) => {
+    const values = item.values || [];
+    if (!values.length) return '';
+    const d = values.map((point, idx) => `${idx === 0 ? 'M' : 'L'} ${xFor(idx).toFixed(1)} ${yFor(metricValue(point)).toFixed(1)}`).join(' ');
+    return `<path class="line-${['a','b','c'][seriesIdx] || 'a'}" d="${d}" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`;
+  }).join('');
+  const grid = [0, .25, .5, .75, 1].map((ratio) => {
+    const y = pad.top + ratio * (height - pad.top - pad.bottom);
+    return `<line class="grid" x1="${pad.left}" x2="${width - pad.right}" y1="${y.toFixed(1)}" y2="${y.toFixed(1)}"/>`;
+  }).join('');
+  return `<svg class="admin-stat-chart" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none">${grid}${lines}<text x="${pad.left}" y="${height - 6}">${escapeHtml(seriesDefs[0]?.values?.[0]?.date || '')}</text><text x="${width - 120}" y="${height - 6}">${escapeHtml(seriesDefs[0]?.values?.at(-1)?.date || '')}</text><text x="${pad.left}" y="12">${escapeHtml(statsT('admin.stats.chart.max', { value: formatAdminNumber(maxValue) }))}</text></svg>`;
+}
+
+function renderBarRows(items) {
+  const max = Math.max(1, ...items.map((item) => Number(item.value || 0)));
+  return items.map((item) => {
+    const width = Number(item.value || 0) <= 0 ? 0 : Math.max(2, (Number(item.value || 0) / max) * 100);
+    return `<div class="admin-stat-bar-row"><div>${escapeHtml(item.label)}</div><div class="admin-stat-bar-track"><div class="admin-stat-bar-fill" style="width:${width}%"></div></div><div>${escapeHtml(item.display ?? formatAdminNumber(item.value))}</div></div>`;
+  }).join('');
+}
+
+function formatStatsDate(value) {
+  if (!value) return statsT('admin.stats.noData');
+  const date = new Date(`${value}T00:00:00Z`);
+  if (!Number.isFinite(date.getTime())) return String(value);
+  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(date);
+}
+
+function translateStatsLabel(prefix, label) {
+  const slug = String(label || '').toLowerCase().replace(/[^a-z0-9]+/g, '.').replace(/^\.+|\.+$/g, '');
+  if (!slug) return label;
+  const key = `${prefix}.${slug}`;
+  const translated = statsT(key);
+  return translated === key ? label : translated;
+}
+
+function objectToBarItems(obj, prefix = '') {
+  return Object.entries(obj || {}).map(([label, value]) => ({ label: prefix ? translateStatsLabel(prefix, label) : label, value }));
+}
+
+function setStatsPeriod(days) {
+  currentStatsDays = Number(days || 30);
+  document.querySelectorAll('#stats-period-tabs .admin-stat-tab').forEach((button) => {
+    button.classList.toggle('active', Number(button.dataset.days) === currentStatsDays);
+  });
+  loadTechnicalStats();
+}
+
+function renderTechnicalStats(data) {
+  if (!data) return;
+  const inventory = data.inventory || {};
+  const counts = inventory.current || data.counts || {};
+  const created = inventory.created || {};
+  const workload = data.workload || {};
+  const selected = workload.selected || workload;
+  const stt = selected.stt || {};
+  const llm = selected.llm || {};
+  const tokens = llm.tokens || {};
+  const ai = selected.backend_ai_calls || {};
+  const audio = selected.audio_segments || {};
+  const platformAnalysis = data.platform_analysis || {};
+  const clientMix = platformAnalysis.historical || {};
+  const coverage = data.coverage || {};
+  document.getElementById('stats-data-coverage').textContent = statsT('admin.stats.coverage.summary', {
+    date: formatStatsDate(coverage.data_since),
+  });
+  document.getElementById('stats-inventory-subtitle').textContent = statsT('admin.stats.days', { days: formatAdminNumber(data.period_days) });
+  document.getElementById('stats-workload-subtitle').textContent = statsT('admin.stats.days', { days: formatAdminNumber(data.period_days) });
+  document.getElementById('stats-platform-subtitle').textContent = statsT('admin.stats.platformSubtitle', {
+    days: formatAdminNumber(data.period_days),
+    sessions: formatAdminNumber(platformAnalysis.total_active_sessions),
+  });
+  document.getElementById('technical-stats-kpis').innerHTML = [
+    statTile(statsT('admin.stats.kpi.activeSessions'), formatAdminNumber(counts.user_sessions), statsT('admin.stats.foot.current')),
+    statTile(statsT('admin.stats.kpi.todosTotal'), formatAdminNumber(counts.todos), statsT('admin.stats.foot.createdInPeriod', { count: formatAdminNumber(created.todos) })),
+    statTile(statsT('admin.stats.kpi.users'), formatAdminNumber(counts.users), statsT('admin.stats.foot.createdInPeriod', { count: formatAdminNumber(created.users) })),
+    statTile(statsT('admin.stats.kpi.llmCalls'), formatAdminNumber(llm.total), statsT('admin.stats.foot.perDay', { count: formatAdminNumber(llm.avg_per_day) })),
+    statTile(statsT('admin.stats.kpi.llmTokens'), tokens.total_tokens ? formatAdminNumber(tokens.total_tokens) : '-', tokens.avg_tokens_per_llm_call ? statsT('admin.stats.foot.perCall', { count: formatAdminNumber(tokens.avg_tokens_per_llm_call) }) : statsT('admin.stats.foot.providerReported')),
+    statTile(statsT('admin.stats.kpi.sttCalls'), formatAdminNumber(stt.total), statsT('admin.stats.foot.perDay', { count: formatAdminNumber(stt.avg_per_day) })),
+    statTile(statsT('admin.stats.kpi.peakPerHour'), formatAdminNumber(ai.peak_per_hour), statsT('admin.stats.foot.llmOrStt')),
+    statTile(statsT('admin.stats.kpi.errorRateLlmStt'), `${formatRate(llm.error_rate)} / ${formatRate(stt.error_rate)}`, statsT('admin.stats.foot.llmStt')),
+    statTile(statsT('admin.stats.kpi.dbSize'), formatAdminBytes(data.database?.bytes), statsT('admin.stats.foot.sqliteFiles')),
+  ].join('');
+  document.getElementById('stats-inventory-chart').innerHTML = renderLineChart([
+    { label: statsT('admin.stats.label.users'), values: inventory.series?.users || [] },
+    { label: statsT('admin.stats.label.projects'), values: inventory.series?.projects || [] },
+    { label: statsT('admin.stats.label.todos'), values: inventory.series?.todos || [] },
+  ]);
+  document.getElementById('stats-workload-chart').innerHTML = renderLineChart([
+    { label: statsT('admin.stats.label.llm'), values: workload.series?.llm || [] },
+    { label: statsT('admin.stats.label.stt'), values: workload.series?.stt || [] },
+    { label: statsT('admin.stats.label.audio'), values: workload.series?.audio_segments || [] },
+  ]);
+  document.getElementById('stats-inventory-bars').innerHTML = renderBarRows([
+    { label: statsT('admin.stats.label.users'), value: counts.users },
+    { label: statsT('admin.stats.label.workspaces'), value: counts.workspaces },
+    { label: statsT('admin.stats.label.projects'), value: counts.projects },
+    { label: statsT('admin.stats.label.todos'), value: counts.todos },
+    { label: statsT('admin.stats.label.reminders'), value: counts.reminders },
+    { label: statsT('admin.stats.label.push'), value: counts.push_subscriptions },
+  ]);
+  document.getElementById('stats-capacity-bars').innerHTML = renderBarRows([
+    { label: statsT('admin.stats.label.llmCalls'), value: llm.total },
+    { label: statsT('admin.stats.label.sttCalls'), value: stt.total },
+    { label: statsT('admin.stats.label.audio'), value: audio.total },
+    { label: statsT('admin.stats.label.llmPeakHour'), value: llm.peak_per_hour },
+    { label: statsT('admin.stats.label.sttPeakHour'), value: stt.peak_per_hour },
+    { label: statsT('admin.stats.label.tokens'), value: tokens.total_tokens || 0, display: tokens.total_tokens ? formatAdminNumber(tokens.total_tokens) : '-' },
+  ]);
+  const emptyPlatform = [{ label: statsT('admin.stats.emptyPeriod'), value: 0, display: '0' }];
+  const appTypeItems = objectToBarItems(clientMix.app_types, 'admin.stats.appType');
+  document.getElementById('stats-app-types').innerHTML = renderBarRows(appTypeItems.length ? appTypeItems : emptyPlatform);
+  const osItems = objectToBarItems(clientMix.operating_systems, 'admin.stats.os');
+  document.getElementById('stats-operating-systems').innerHTML = renderBarRows(osItems.length ? osItems : emptyPlatform);
+  const browserItems = objectToBarItems(clientMix.browsers, 'admin.stats.browser');
+  document.getElementById('stats-browsers').innerHTML = renderBarRows(browserItems.length ? browserItems : emptyPlatform);
+}
+
+async function loadTechnicalStats() {
+  document.getElementById('technical-stats-error').textContent = '';
+  document.getElementById('technical-stats-success').textContent = '';
+  try {
+    const data = await apiGet(`/api/admin/technical-stats?days=${currentStatsDays}`);
+    renderTechnicalStats(data);
+  } catch(e) {
+    document.getElementById('technical-stats-error').textContent = statsT('admin.errorWithMessage', { error: e.message });
+  }
+}
+
+async function backfillTechnicalStats() {
+  document.getElementById('technical-stats-error').textContent = '';
+  document.getElementById('technical-stats-success').textContent = statsT('admin.stats.analyzingLogs');
+  try {
+    const result = await apiPost(`/api/admin/technical-stats/backfill?days=${currentStatsDays}`, {});
+    document.getElementById('technical-stats-success').textContent = statsT('admin.stats.backfillImported', {
+      counters: formatAdminNumber(result.imported_count),
+      sessions: formatAdminNumber(result.session_client_mix_imported),
+      lines: formatAdminNumber(result.log_lines_scanned),
+    });
+    await loadTechnicalStats();
+  } catch(e) {
+    document.getElementById('technical-stats-success').textContent = '';
+    document.getElementById('technical-stats-error').textContent = statsT('admin.errorWithMessage', { error: e.message });
+  }
 }
 
 async function loadUsers() {
@@ -945,6 +1246,71 @@ function formatServerTimestamp(value) {
     dateStyle: 'short',
     timeStyle: 'short',
   }).format(date);
+}
+
+const SESSION_CLIENT_MARKER_RE = /nia-todo-client\(([^)]{1,160})\)\s*/i;
+function sessionClientInfoFromUserAgent(userAgent) {
+  const marker = String(userAgent || '').match(SESSION_CLIENT_MARKER_RE);
+  if (!marker) return {};
+  return Object.fromEntries(marker[1].split(';').map(part => part.trim().split('=').map(value => value.trim())).filter(([key, value]) => key && value));
+}
+function cleanAdminSessionUserAgent(userAgent) {
+  return String(userAgent || '').replace(SESSION_CLIENT_MARKER_RE, '').trim();
+}
+function adminBrowserName(ua, fallback) {
+  if (/EdgA\//.test(ua) || /EdgiOS\//.test(ua) || /Edg\//.test(ua)) return 'Edge';
+  if (/OPR\//.test(ua)) return 'Opera';
+  if (/SamsungBrowser\//.test(ua)) return 'Samsung Internet';
+  if (/Firefox\//.test(ua) || /FxiOS\//.test(ua)) return 'Firefox';
+  if (/CriOS\//.test(ua) || /Chrome\//.test(ua)) return 'Chrome';
+  if (/Safari\//.test(ua)) return 'Safari';
+  return fallback;
+}
+function adminPlatformOsName(platform, fallback) {
+  switch (String(platform || '').toLowerCase()) {
+    case 'android': return 'Android';
+    case 'ios': return 'iOS';
+    case 'ipados': return 'iPadOS';
+    case 'windows': return 'Windows';
+    case 'macos': return 'macOS';
+    case 'linux': return 'Linux';
+    default: return fallback;
+  }
+}
+function adminOsName(ua, fallback, platform = '') {
+  const platformName = adminPlatformOsName(platform, '');
+  if (platformName) return platformName;
+  if (/Android/i.test(ua)) return 'Android';
+  if (/Windows/i.test(ua)) return 'Windows';
+  if (/iPhone|iPad/i.test(ua)) return 'iOS/iPadOS';
+  if (/Macintosh|Mac OS X/i.test(ua)) return 'macOS';
+  if (/Linux/i.test(ua)) return 'Linux';
+  return fallback;
+}
+function adminNativePlatformName(platform, fallback) {
+  const os = adminPlatformOsName(platform, '');
+  return os ? `${os} App` : fallback;
+}
+function adminSessionDeviceName(session) {
+  const rawUa = String(session?.user_agent || '').trim();
+  if (!rawUa) return t('settings.2fa.trustedDeviceUnknown');
+  const client = sessionClientInfoFromUserAgent(rawUa);
+  if (client.app === 'nia-todo' && client.mode === 'native') return adminNativePlatformName(client.platform, 'nia-todo App');
+  const ua = cleanAdminSessionUserAgent(rawUa);
+  return `${adminBrowserName(ua, t('settings.2fa.trustedDeviceBrowser'))} · ${adminOsName(ua, t('settings.2fa.trustedDeviceDevice'), client.app === 'nia-todo' ? client.platform : '')}`;
+}
+function adminSessionIpLocation(session) {
+  const ip = String(session.ip_address || '').trim();
+  if (!ip) return '';
+  const lower = ip.toLowerCase();
+  const parts = ip.split('.').map(part => Number(part));
+  const isIpv4 = parts.length === 4 && parts.every(part => Number.isInteger(part) && part >= 0 && part <= 255);
+  let locationKey = 'settings.2fa.sessionLocationPublic';
+  if (ip === '127.0.0.1' || lower === '::1') locationKey = 'settings.2fa.sessionLocationLocal';
+  else if (isIpv4 && (parts[0] === 10 || (parts[0] === 192 && parts[1] === 168) || (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31))) locationKey = 'settings.2fa.sessionLocationPrivate';
+  else if (isIpv4 && parts[0] === 100 && parts[1] >= 64 && parts[1] <= 127) locationKey = 'settings.2fa.sessionLocationCarrierNat';
+  else if (lower.startsWith('fc') || lower.startsWith('fd') || lower.startsWith('fe80:')) locationKey = 'settings.2fa.sessionLocationPrivate';
+  return t('settings.2fa.sessionIpLocation', { ip, location: t(locationKey) });
 }
 
 function adminDialog({ title, message, confirmText = t('common.confirm'), danger = false, hideCancel = false }) {
@@ -1525,6 +1891,85 @@ function renderUserEmailDisplay(userId, emailValue) {
   </span>`;
 }
 
+function renderUserSessionsPanel(user) {
+  return `<div class="settings-2fa-devices-wrap settings-sessions-wrap">
+    <div class="settings-2fa-subtitle settings-2fa-trusted-header">
+      <button type="button" id="user-sessions-toggle-${user.id}" class="settings-sessions-toggle" onclick="toggleAdminUserSessions(${user.id})" aria-expanded="false" aria-controls="user-sessions-panel-${user.id}">
+        <span class="settings-sessions-chevron">›</span>
+        <span>${escapeHtml(t('admin.user.sessionsTitle'))}</span>
+        <span id="user-sessions-count-${user.id}" class="settings-session-count"></span>
+      </button>
+      <button type="button" class="btn btn-danger btn-small" id="user-sessions-revoke-all-${user.id}" onclick="revokeAllAdminUserSessions(${user.id}, ${jsStringAttr(user.username)})">${escapeHtml(t('admin.user.sessionsRevokeAll'))}</button>
+    </div>
+    <div id="user-sessions-panel-${user.id}" hidden>
+      <div id="user-sessions-list-${user.id}" class="settings-2fa-devices"><div class="settings-device-note">${escapeHtml(t('common.loading'))}</div></div>
+    </div>
+  </div>`;
+}
+
+function renderAdminSessionRows(userId, sessions) {
+  const list = document.getElementById(`user-sessions-list-${userId}`);
+  const count = document.getElementById(`user-sessions-count-${userId}`);
+  if (!list) return;
+  if (count) count.textContent = sessions.length ? `(${sessions.length})` : '';
+  if (!sessions.length) {
+    list.innerHTML = `<div class="settings-device-note">${escapeHtml(t('admin.user.sessionsEmpty'))}</div>`;
+    return;
+  }
+  list.innerHTML = sessions.map((session) => {
+    const trusted = session.trusted ? ` · ${t('settings.2fa.trustedDeviceRemembered')}` : '';
+    const lastUsed = session.last_used_at ? formatServerTimestamp(session.last_used_at) : t('common.never');
+    const expires = session.expires_at ? formatServerTimestamp(session.expires_at) : '-';
+    const details = t('settings.2fa.trustedDeviceDetails', { lastUsed, expires }) + trusted;
+    const ipLocation = adminSessionIpLocation(session);
+    const userAgent = cleanAdminSessionUserAgent(session.user_agent || '');
+    return `<div class="settings-device-row"><div><strong>${escapeHtml(adminSessionDeviceName(session))}</strong><span>${escapeHtml(details)}</span>${ipLocation ? `<span>${escapeHtml(ipLocation)}</span>` : ''}<span title="${escapeHtmlAttr(userAgent)}">${escapeHtml(userAgent.slice(0, 160) || '-')}</span></div><button type="button" class="btn btn-danger" onclick="revokeAdminUserSession(${userId}, ${jsStringAttr(session.id)})">${escapeHtml(t('settings.2fa.revoke'))}</button></div>`;
+  }).join('');
+}
+
+async function toggleAdminUserSessions(userId) {
+  const panel = document.getElementById(`user-sessions-panel-${userId}`);
+  const toggle = document.getElementById(`user-sessions-toggle-${userId}`);
+  if (!panel || !toggle) return;
+  const open = panel.hidden;
+  panel.hidden = !open;
+  toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+  if (!open) return;
+  const list = document.getElementById(`user-sessions-list-${userId}`);
+  if (list) list.innerHTML = `<div class="settings-device-note">${escapeHtml(t('common.loading'))}</div>`;
+  try {
+    const data = await apiGet(`/api/admin/users/${userId}/sessions`);
+    renderAdminSessionRows(userId, data.sessions || []);
+  } catch (e) {
+    if (list) list.innerHTML = `<div class="settings-device-note">${escapeHtml(t('admin.user.sessionsLoadFailed', { error: e.message || e }))}</div>`;
+  }
+}
+
+async function revokeAdminUserSession(userId, sessionId) {
+  const confirmed = await adminConfirm({
+    title: t('admin.user.sessionRevokeTitle'),
+    message: t('admin.user.sessionRevokeMessage'),
+    confirmText: t('settings.2fa.revoke'),
+    danger: true,
+  });
+  if (!confirmed) return;
+  await apiDelete(`/api/admin/users/${userId}/sessions/${encodeURIComponent(sessionId)}`);
+  const data = await apiGet(`/api/admin/users/${userId}/sessions`);
+  renderAdminSessionRows(userId, data.sessions || []);
+}
+
+async function revokeAllAdminUserSessions(userId, username) {
+  const confirmed = await adminConfirm({
+    title: t('admin.user.sessionsRevokeAllTitle'),
+    message: t('admin.user.sessionsRevokeAllMessage', { username }),
+    confirmText: t('admin.user.sessionsRevokeAll'),
+    danger: true,
+  });
+  if (!confirmed) return;
+  await apiDelete(`/api/admin/users/${userId}/sessions`);
+  renderAdminSessionRows(userId, []);
+}
+
 function renderUsers(users) {
   if (Array.isArray(users)) adminUsers = users;
   const tbody = document.getElementById('user-list');
@@ -1586,6 +2031,8 @@ function renderUsers(users) {
             <div class="user-card-row"><span class="user-card-label">${escapeHtml(t('settings.apiKeys.title'))}</span><div class="user-card-value">${renderUserApiKeys(u)}</div></div>
             ${brainDumpFeatureEnabled ? `<div class="user-card-row"><span class="user-card-label">${escapeHtml(t('admin.user.brainDump'))}</span><div class="user-card-value">${renderUserBrainDump(u)}</div></div>` : ''}
           </div>
+
+          ${renderUserSessionsPanel(u)}
 
           <div class="${actionsClass}">
             <button class="btn btn-primary admin-table-action" onclick="generatePasswordLink(${u.id}, ${jsStringAttr(u.username)})">${iconSvg('link')} ${escapeHtml(t('admin.user.passwordLink'))}</button>

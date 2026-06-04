@@ -14,7 +14,7 @@ from errors import api_error
 from middleware.security import generate_csrf_token, set_csrf_cookie
 from rate_limit import get_client_ip, require_login_rate_limit
 from routers.auth import require_auth
-from services.auth import create_jwt_token, decode_jwt_token, revoke_all_user_sessions, verify_user_credentials
+from services.auth import create_jwt_token, decode_jwt_token, invalidate_all_user_tokens, revoke_all_user_sessions, verify_user_credentials
 from services.audit import log_audit
 from services.client_info import session_user_agent
 from services.webauthn import (
@@ -305,7 +305,8 @@ def delete_all_trusted_devices(response: Response, payload: dict = Depends(requi
     with get_db() as db:
         revoke_trusted_devices(db, user_id)
         revoke_all_user_sessions(db, user_id)
-        log_audit(db, "user_sessions_revoked", user_id=user_id, details="scope=all")
+        invalidate_all_user_tokens(db, user_id)
+        log_audit(db, "user_sessions_revoked", user_id=user_id, details="scope=all; token_version_bumped=true")
         db.commit()
     response.delete_cookie("nia_2fa_device", httponly=True, samesite="lax")
     return {"revoked": True, "current_session": True}

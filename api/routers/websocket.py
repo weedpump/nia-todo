@@ -19,6 +19,7 @@ async def websocket_endpoint(websocket: WebSocket):
     try:
         await manager.connect(websocket)
         ws_user_id = None
+        ws_token = None
 
         try:
             data = await asyncio.wait_for(websocket.receive_json(), timeout=5.0)
@@ -32,6 +33,7 @@ async def websocket_endpoint(websocket: WebSocket):
             user_id = get_current_user(token, client_ip=ip)
             if user_id:
                 ws_user_id = user_id
+                ws_token = token
                 manager.register_auth(websocket, user_id)
                 await manager.send_personal_message({"type": "auth_ok", "user_id": user_id}, websocket)
             else:
@@ -50,6 +52,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 user_id = get_current_user(token, client_ip=ip)
                 if user_id:
                     ws_user_id = user_id
+                    ws_token = token
                     manager.register_auth(websocket, user_id)
                     await manager.send_personal_message({"type": "auth_ok", "user_id": user_id}, websocket)
                 else:
@@ -59,9 +62,13 @@ async def websocket_endpoint(websocket: WebSocket):
             elif msg_type == "desktop_notify_ready":
                 manager.register_desktop_notifications(websocket, bool(data.get("enabled")))
             elif msg_type == "sync_request":
-                if not ws_user_id:
+                if not ws_user_id or not ws_token:
                     await manager.send_personal_message({"type": "error", "message": "Not authenticated"}, websocket)
                     continue
+                current_user_id = get_current_user(ws_token, client_ip=ip)
+                if current_user_id != ws_user_id:
+                    await websocket.close(code=1008, reason="Session revoked")
+                    return
                 with get_db() as db:
                     project_ids = get_project_ids_for_user(db, ws_user_id)
                     params = []
@@ -90,7 +97,17 @@ async def websocket_endpoint(websocket: WebSocket):
                                ORDER BY remind_at""",
                             (d['id'], ws_user_id)
                         ).fetchall()
+                        location_rows = db.execute(
+                            """SELECT lr.*, sp.name AS place_name, sp.icon AS place_icon
+                               FROM location_reminders lr
+                               LEFT JOIN saved_places sp ON lr.place_id = sp.id
+                               WHERE lr.todo_id = ? AND lr.user_id = ?
+                               ORDER BY lr.id""",
+                            (d['id'], ws_user_id)
+                        ).fetchall()
                         d['reminders'] = [dict(r) for r in rem_rows]
+                        d['location_reminders'] = [dict(r) for r in location_rows]
+                        d['location_reminder'] = d['location_reminders'][0] if d['location_reminders'] else None
                         todos_out.append(d)
 
                     own_projects = db.execute(

@@ -322,6 +322,15 @@ def repair_todo_recurrence_columns_migration(conn):
     conn.commit()
 
 
+def repair_default_reminder_settings_migration(conn):
+    """Make migration 042 idempotent for partially-applied reminder settings."""
+    if table_exists(conn, "users"):
+        add_column_if_missing(conn, "users", "default_reminder_offset_minutes", "INTEGER")
+    if table_exists(conn, "reminders"):
+        add_column_if_missing(conn, "reminders", "source", "TEXT NOT NULL DEFAULT 'explicit'")
+    conn.commit()
+
+
 def get_migration_files():
     """Holt alle Migrations-Dateien sortiert nach Nummer."""
     if not MIGRATIONS_DIR.exists():
@@ -420,6 +429,11 @@ def run_migrations():
                 elif version == 41 and ("duplicate column" in error_msg or "already exists" in error_msg or "no such table: todos" in error_msg):
                     print(f"[MIGRATION] ⚠️ {filepath.name} - todo recurrence columns partially exist, repairing remaining schema")
                     repair_todo_recurrence_columns_migration(conn)
+                    set_db_version(conn, version)
+                    applied += 1
+                elif version == 42 and ("duplicate column" in error_msg or "already exists" in error_msg or "no such table: reminders" in error_msg):
+                    print(f"[MIGRATION] ⚠️ {filepath.name} - default reminder settings partially exist, repairing remaining schema")
+                    repair_default_reminder_settings_migration(conn)
                     set_db_version(conn, version)
                     applied += 1
                 elif "duplicate column" in error_msg or "already exists" in error_msg:

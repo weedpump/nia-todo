@@ -285,9 +285,52 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
       .filter(Boolean);
   }
 
+  function buildLocationReminderSchedules(todos = []) {
+    const currentUser = getCurrentUser?.();
+    const userId = currentUser?.id == null ? '' : String(currentUser.id);
+    return todos
+      .filter((todo) => todo && todo.status !== 'done')
+      .flatMap((todo) => {
+        const locationReminders = Object.prototype.hasOwnProperty.call(todo, 'location_reminder')
+          ? (todo.location_reminder ? [todo.location_reminder] : [])
+          : (todo.location_reminders || []);
+        return locationReminders.map((locationReminder) => {
+        if (!locationReminder || locationReminder.enabled === 0 || locationReminder.enabled === false) return null;
+        const address = String(locationReminder.address || '').trim();
+        const triggerType = locationReminder.trigger_type || locationReminder.triggerType;
+        if (!address) return null;
+        if (!['arrival', 'departure'].includes(triggerType)) return null;
+        return {
+          id: `location-${locationReminder.id || todo.id}`,
+          todoId: String(todo.id),
+          title: t('todo.location.notificationTitle'),
+          body: reminderBody(todo),
+          triggerType,
+          address,
+          userId,
+        };
+        });
+      })
+      .filter(Boolean);
+  }
+
+  async function ensureNativeLocationPermission(required = false) {
+    if (!required || !RUNTIME_CAPABILITIES.android) return true;
+    try {
+      const state = nativeBridge.locationPermissionState?.() || 'unsupported';
+      if (state === 'granted') return true;
+      const requested = nativeBridge.requestLocationPermission?.() || state;
+      return requested === 'granted';
+    } catch (error) {
+      console.warn('[Native] Location permission request failed', error);
+      return false;
+    }
+  }
+
   async function scheduleLocalRemindersNow() {
     if (!isNativeApp()) return;
     const reminders = settings.notifications ? buildReminderSchedules(latestTodos) : [];
+    const locationReminders = settings.notifications ? buildLocationReminderSchedules(latestTodos) : [];
     if (!RUNTIME_CAPABILITIES.nativeNotifications) return;
     if (!settings.notifications) {
       try {
@@ -300,6 +343,17 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
     try {
       if (!await ensureNativeNotificationPermission()) return;
       await nativeBridge.scheduleReminders(reminders);
+      // Always hand location schedules to Android first. The native layer stores
+      // them even without location permission, so onResume/onPermissionResult can
+      // register geofences after the user grants access.
+      const scheduledLocations = await nativeBridge.scheduleLocationReminders?.(locationReminders);
+      if (locationReminders.length) {
+        const hasLocationPermission = await ensureNativeLocationPermission(true);
+        if (hasLocationPermission && Number(scheduledLocations) < locationReminders.length) {
+          const retriedLocations = await nativeBridge.scheduleLocationReminders?.(locationReminders);
+          if (Number(retriedLocations) < locationReminders.length) console.warn('[Native] Some location reminders were not scheduled', { scheduledLocations: retriedLocations, expected: locationReminders.length });
+        }
+      }
     } catch (error) {
       console.warn('[Native] Failed to schedule local reminders', error);
     }

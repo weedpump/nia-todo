@@ -5,6 +5,32 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [2.11.0] - 2026-06-04
+
+### Added
+- Location-based reminders can now be created and managed from the web UI and trigger locally in the Android app when arriving at or leaving saved places or manually entered addresses, with privacy-first address-only server storage and user-managed saved places.
+- BrainDump can now extract recurring todos from the model-provided JSON schema, including half-year intervals such as every six months, and persists the recurrence when the candidate has a deadline start point.
+- BrainDump preview editing now lets users correct deadline, reminder, and recurrence metadata before creating todos, alongside the existing title/project/section quick fixes.
+- Users can now configure automatic default reminders for todo deadlines, including presets and a custom amount with hours/days units; todos with deadlines get a default reminder when no explicit reminder is set, and automatic reminders keep following deadline changes and recurring next occurrences.
+- Admins can now inspect each user's active sessions/devices directly from the user list and revoke individual sessions or sign out all devices with the same collapsible session layout used in user settings.
+- The admin panel now includes a privacy-preserving Statistics section with backend-only aggregate counters for database growth, workload trends, LLM/STT/Audio usage, token totals when providers report them, active sessions, and long-term client mix analysis.
+
+### Changed
+- BrainDump extraction now keeps the system prompt as the single source for output schema and extraction rules; the runtime prompt only sends current datetime, workspace context, and the transcript.
+- BrainDump preview dropdowns are constrained above the modal action bar so open menus no longer block the create/accept button.
+- The admin panel order now surfaces Server Update first and Statistics directly below it, with Statistics fully localized through semantic `admin.stats.*` i18n keys.
+
+### Fixed
+- Public Debian/Docker builds now use a valid VAPID subject for Web Push notifications by honoring `NIA_TODO_VAPID_SUBJECT` or the configured HTTPS public base URL, instead of replacing the private development subject with `example.invalid`, which Apple Web Push rejects with `BadJwtToken`.
+- Snooze actions now keep deadlines and reminders consistent: undo restores both original values, `+1 hour` moves existing deadline/reminder values relative to themselves, and calendar presets such as this evening and tomorrow morning resolve from the current date.
+- Mobile todo action menus now open upward when there is not enough room below, avoiding viewport clipping and visible flip flicker.
+- Recurring todo interval inputs now stay editable while replacing the default `1`, so users can type values like `6` months directly instead of working around an immediate reset.
+- Recurring todos now store/update an IANA timezone from the editing browser, keep their local wall-clock time across DST changes, move spring-forward gaps to the next valid local time, and use the first occurrence for fall-back folds.
+- BrainDump now ignores recurrence metadata without a deadline instead of creating invalid recurring todos, matching the recurring todo start-date requirement.
+- Safari on iPadOS is now identified via client runtime metadata instead of being mislabeled as macOS when WebKit sends a desktop-style `Macintosh` user agent.
+- Revoking all user sessions now also invalidates legacy JWTs without per-device session IDs and existing WebSocket sync requests revalidate their token before returning data.
+- Admin Statistics now strictly normalizes native/browser client metadata before counting it, preventing untrusted header values from becoming stored counter labels while keeping Android app, Windows app, browser, OS, and Safari/WebKit classification accurate.
+
 ## [2.10.3] - 2026-06-04
 
 ### Added

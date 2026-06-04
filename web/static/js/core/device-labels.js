@@ -26,7 +26,21 @@ function browserName(ua, fallback) {
   return fallback;
 }
 
-function osName(ua, fallback) {
+function platformOsName(platform, fallback) {
+  switch (String(platform || '').toLowerCase()) {
+    case 'android': return 'Android';
+    case 'ios': return 'iOS';
+    case 'ipados': return 'iPadOS';
+    case 'windows': return 'Windows';
+    case 'macos': return 'macOS';
+    case 'linux': return 'Linux';
+    default: return fallback;
+  }
+}
+
+function osName(ua, fallback, platform = '') {
+  const platformName = platformOsName(platform, '');
+  if (platformName) return platformName;
   if (/Android/i.test(ua)) return 'Android';
   if (/Windows/i.test(ua)) return 'Windows';
   if (/iPhone|iPad/i.test(ua)) return 'iOS/iPadOS';
@@ -36,13 +50,8 @@ function osName(ua, fallback) {
 }
 
 function nativePlatformName(platform, fallback) {
-  switch (String(platform || '').toLowerCase()) {
-    case 'android': return 'Android App';
-    case 'windows': return 'Windows App';
-    case 'macos': return 'macOS App';
-    case 'linux': return 'Linux App';
-    default: return fallback;
-  }
+  const os = platformOsName(platform, '');
+  return os ? `${os} App` : fallback;
 }
 
 export function sessionDeviceName(device, t) {
@@ -54,6 +63,6 @@ export function sessionDeviceName(device, t) {
   }
   const ua = cleanSessionUserAgent(rawUa);
   const browser = browserName(ua, t('settings.2fa.trustedDeviceBrowser'));
-  const os = osName(ua, t('settings.2fa.trustedDeviceDevice'));
+  const os = osName(ua, t('settings.2fa.trustedDeviceDevice'), client.app === 'nia-todo' ? client.platform : '');
   return `${browser} · ${os}`;
 }

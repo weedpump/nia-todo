@@ -16,18 +16,19 @@ import hashlib
 import secrets
 
 from db import get_db, now_iso
-from services.auth import create_admin_jwt_token, verify_admin_token
+from services.auth import create_admin_jwt_token, invalidate_all_user_tokens, revoke_all_user_sessions, verify_admin_token
 from services.utils import normalize_email, sanitize_text, validate_email, validate_password, validate_admin_password
 from services.audit import log_audit
 from services.braindump_config import get_braindump_config, llm_models_url, parse_extra_headers, update_braindump_config
 from services.instance_config import get_instance_config, get_public_base_url, update_instance_config
 from services.email_config import can_send_email_links, get_email_config, get_password_link_ttl_hours, is_email_configured, update_email_config
 from services.email import send_email, send_test_email
-from services.two_factor import clear_recovery_codes, get_two_factor_required, set_two_factor_required
+from services.two_factor import clear_recovery_codes, get_two_factor_required, list_user_device_sessions, revoke_device_session, revoke_trusted_devices, set_two_factor_required
 from services.email_templates import password_setup_email
 from services.websocket import manager
 from services.email_verification import clear_pending_email, set_email_or_pending
 from services.server_updates import get_update_progress, get_update_status, install_latest_deb_update
+from services.ops_stats import backfill_from_journal, technical_stats
 from rate_limit import require_login_rate_limit, get_client_ip
 from middleware.security import generate_csrf_token, set_csrf_cookie
 from errors import api_error, validation_api_error
@@ -240,6 +241,14 @@ def admin_update_instance_config(data: InstanceConfigRequest, request: Request, 
 
 
 # ─── BrainDump Configuration ────────────────────────────────────────────────
+
+@router.get("/technical-stats")
+def admin_get_technical_stats(days: int = 30, _: bool = Depends(require_admin)):
+    return technical_stats(days=days)
+
+@router.post("/technical-stats/backfill")
+def admin_backfill_technical_stats(days: int = 30, _: bool = Depends(require_admin)):
+    return backfill_from_journal(days=days)
 
 @router.get("/braindump-config")
 def admin_get_braindump_config(_: bool = Depends(require_admin)):
@@ -581,6 +590,43 @@ def list_users(_: bool = Depends(require_admin)):
             item["has_email_fallback"] = bool(email_mfa_available and item.get("email") and item.get("email_verified_at"))
             users.append(item)
         return {"users": users, "two_factor_required": get_two_factor_required(db)}
+
+@router.get("/users/{user_id}/sessions")
+def list_admin_user_sessions(user_id: int, _: bool = Depends(require_admin)):
+    with get_db() as db:
+        user = db.execute("SELECT id, username FROM users WHERE id = ?", (user_id,)).fetchone()
+        if not user:
+            raise api_error(404, "user.notFound", "User not found")
+        return {
+            "user": {"id": user["id"], "username": user["username"]},
+            "sessions": list_user_device_sessions(db, user_id),
+        }
+
+@router.delete("/users/{user_id}/sessions")
+def delete_admin_user_sessions(user_id: int, request: Request, _: bool = Depends(require_admin)):
+    with get_db() as db:
+        user = db.execute("SELECT id, username FROM users WHERE id = ?", (user_id,)).fetchone()
+        if not user:
+            raise api_error(404, "user.notFound", "User not found")
+        revoke_trusted_devices(db, user_id)
+        revoked_count = revoke_all_user_sessions(db, user_id)
+        invalidate_all_user_tokens(db, user_id)
+        log_audit(db, "user_sessions_revoked_by_admin", user_id=user_id, ip_address=get_client_ip(request), details=f"scope=all; username={user['username']}; revoked_sessions={revoked_count}; token_version_bumped=true")
+        db.commit()
+        return {"revoked": True, "revoked_sessions": revoked_count}
+
+@router.delete("/users/{user_id}/sessions/{session_id}")
+def delete_admin_user_session(user_id: int, session_id: str, request: Request, _: bool = Depends(require_admin)):
+    with get_db() as db:
+        user = db.execute("SELECT id, username FROM users WHERE id = ?", (user_id,)).fetchone()
+        if not user:
+            raise api_error(404, "user.notFound", "User not found")
+        row = revoke_device_session(db, user_id, session_id)
+        if not row:
+            raise api_error(404, "mfa.trustedDeviceNotFound", "Device session not found")
+        log_audit(db, "user_session_revoked_by_admin", user_id=user_id, ip_address=get_client_ip(request), details=f"session_id={session_id}; trusted_device_id={row.get('trusted_device_id')}; username={user['username']}")
+        db.commit()
+        return {"revoked": True, "session_id": session_id}
 
 @router.patch("/users/{user_id}")
 def update_user(user_id: int, data: UpdateUserRequest, request: Request, _: bool = Depends(require_admin)):

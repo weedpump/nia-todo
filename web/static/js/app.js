@@ -1,7 +1,7 @@
 // nia-todo: Frontend app with offline-first PWA + WebSocket realtime sync
 import { APP_VERSION, WS_URL } from './core/config.js';
 import { escapeHtml, escapeHtmlAttr, formatDate, jsArg, renderMarkdown, truncateWords } from './core/utils.js';
-import { authApi, projectsApi, pushApi, sectionsApi, sharingApi, todosApi, workspacesApi } from './api/index.js';
+import { authApi, placesApi, projectsApi, pushApi, sectionsApi, sharingApi, todosApi, workspacesApi } from './api/index.js';
 import { createAuthSessionFeature } from './features/auth-session.js';
 import { createAppStorage } from './storage/app-storage.js';
 import { createApiKeysFeature } from './features/api-keys.js';
@@ -248,6 +248,7 @@ const brainDumpLiveFeature = createBrainDumpLiveFeature({
   getProjects: () => projects,
   getSections: () => sections,
   getCurrentWorkspaceId: () => currentWorkspaceId,
+  placesApi,
 });
 const viewPreferences = createViewPreferencesFeature({
   getHideDone: () => hideDone,
@@ -341,6 +342,7 @@ const todosFeature = createTodosFeature({
   isOnlineForSync,
   syncWithServer,
   sectionsApi,
+  placesApi,
   renderProjects: () => renderProjects(),
   renderStats: () => renderStats(),
   renderTodos: () => renderTodos(),
@@ -387,6 +389,7 @@ let workspacesFeature = null;
 const userMenuFeature = createUserMenuFeature({ getCurrentUser: () => currentUser });
 const userSettingsFeature = createUserSettingsFeature({
   authApi,
+  placesApi,
   getCurrentUser: () => currentUser,
   setCurrentUser: (next) => { currentUser = next; userMenuFeature.updateUserMenu(); },
   resetApiKeyUi: () => resetApiKeyUi(),
@@ -421,6 +424,8 @@ const bindLoginForm = authSessionFeature.bindLoginForm;
 const renderUserInfo = userSettingsFeature.renderUserInfo;
 const openSettingsModal = userSettingsFeature.openSettingsModal;
 const changeLanguagePreference = userSettingsFeature.changeLanguagePreference;
+const changeDefaultReminderSetting = userSettingsFeature.changeDefaultReminderSetting;
+const saveCustomDefaultReminderSetting = userSettingsFeature.saveCustomDefaultReminderSetting;
 const changeBrainDumpLearningSetting = userSettingsFeature.changeBrainDumpLearningSetting;
 const resetBrainDumpLearning = userSettingsFeature.resetBrainDumpLearning;
 const editUserEmail = userSettingsFeature.editUserEmail;
@@ -444,6 +449,11 @@ const startAvatarUpload = userSettingsFeature.startAvatarUpload;
 const cancelAvatarCrop = userSettingsFeature.cancelAvatarCrop;
 const saveAvatarCrop = userSettingsFeature.saveAvatarCrop;
 const deleteUserAvatar = userSettingsFeature.deleteUserAvatar;
+const loadSavedPlaces = userSettingsFeature.loadSavedPlaces;
+const saveSettingsPlace = userSettingsFeature.saveSettingsPlace;
+const editSettingsPlace = userSettingsFeature.editSettingsPlace;
+const cancelSettingsPlaceEdit = userSettingsFeature.cancelSettingsPlaceEdit;
+const deleteSettingsPlace = userSettingsFeature.deleteSettingsPlace;
 const toggleUserMenu = userMenuFeature.toggleUserMenu;
 const closeUserMenu = userMenuFeature.closeUserMenu;
 const updateUserMenu = userMenuFeature.updateUserMenu;
@@ -952,7 +962,7 @@ export function startAppModule() {
       testDesktopNotification: () => desktopIntegration?.testNotification(),
       updateDesktopHotkey: (action, shortcut) => desktopIntegration?.updateHotkey(action, shortcut),
     },
-    userSettings: { renderUserInfo, openSettingsModal, changeLanguagePreference, changeBrainDumpLearningSetting, resetBrainDumpLearning, editUserDisplayName, cancelUserDisplayNameEdit, saveUserProfile, startAvatarUpload, cancelAvatarCrop, saveAvatarCrop, deleteUserAvatar, editUserEmail, cancelUserEmailEdit, saveUserEmail, changeUserPassword, startTwoFactorTotp, confirmTwoFactorTotp, disableTwoFactor, addPasskey, regenerateRecoveryCodes, removeTotpDevice, removePasskeyDevice, toggleTrustedDevicesList, revokeTrustedDevice, revokeAllTrustedDevices },
+    userSettings: { renderUserInfo, openSettingsModal, changeLanguagePreference, changeDefaultReminderSetting, saveCustomDefaultReminderSetting, changeBrainDumpLearningSetting, resetBrainDumpLearning, editUserDisplayName, cancelUserDisplayNameEdit, saveUserProfile, startAvatarUpload, cancelAvatarCrop, saveAvatarCrop, deleteUserAvatar, editUserEmail, cancelUserEmailEdit, saveUserEmail, changeUserPassword, startTwoFactorTotp, confirmTwoFactorTotp, disableTwoFactor, addPasskey, regenerateRecoveryCodes, removeTotpDevice, removePasskeyDevice, toggleTrustedDevicesList, revokeTrustedDevice, revokeAllTrustedDevices, loadSavedPlaces, saveSettingsPlace, editSettingsPlace, cancelSettingsPlaceEdit, deleteSettingsPlace },
     userMenu: { toggleUserMenu, closeUserMenu, updateUserMenu },
   });
 

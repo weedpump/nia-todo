@@ -92,8 +92,24 @@ export function createNativeBridge() {
     return 0;
   }
 
+  async function scheduleLocationReminders(reminders) {
+    if (!RUNTIME_CAPABILITIES.android || !hasAndroidMethod('scheduleLocationReminders')) return 0;
+    return Number(android().scheduleLocationReminders(JSON.stringify(reminders || []))) || 0;
+  }
+
   async function clearReminders() {
+    await scheduleLocationReminders([]);
     return scheduleReminders([]);
+  }
+
+  function locationPermissionState() {
+    if (!RUNTIME_CAPABILITIES.android || !hasAndroidMethod('locationPermissionState')) return 'unsupported';
+    return android().locationPermissionState() || 'prompt';
+  }
+
+  function requestLocationPermission() {
+    if (!RUNTIME_CAPABILITIES.android || !hasAndroidMethod('requestLocationPermission')) return 'unsupported';
+    return android().requestLocationPermission() || locationPermissionState();
   }
 
   function hapticFeedback(pattern = 12) {
@@ -272,7 +288,10 @@ export function createNativeBridge() {
     notificationPermissionState,
     notify,
     scheduleReminders,
+    scheduleLocationReminders,
     clearReminders,
+    locationPermissionState,
+    requestLocationPermission,
     hapticFeedback,
     supportsAudioRecording,
     startAudioRecording,

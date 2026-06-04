@@ -21,6 +21,10 @@ from db import get_db
 from routers.auth import require_auth
 from routers.todos import (
     TodoCreate,
+    _insert_location_reminder,
+    _insert_reminder,
+    _normalize_recurring_rule,
+    _sync_default_due_reminder,
     _validate_todo_dates,
     _validate_todo_status,
     _validate_todo_target,
@@ -37,6 +41,7 @@ from services.braindump_v2 import (
     finalize_session,
     get_session,
 )
+from services.ops_stats import increment_duration_metric, increment_endpoint_counter, increment_llm_usage_metrics
 from services.utils import sanitize_text
 from services.websocket import broadcast_change
 
@@ -153,11 +158,54 @@ def _normalize_temporal_field(value, *, require_time: bool = False, transcript: 
     return parsed
 
 
+def _normalize_location_reminder_candidate(candidate: dict, workspace_context: dict | None) -> dict | None:
+    raw = candidate.get("location_reminder") or candidate.get("locationReminder") or candidate.get("location") or candidate.get("place")
+    if not raw:
+        return None
+    if isinstance(raw, str):
+        raw = {"place_name": raw}
+    if not isinstance(raw, dict):
+        return None
+    trigger_type = str(raw.get("trigger_type") or raw.get("trigger") or "arrival").strip().lower()
+    if trigger_type in {"arrive", "arriving", "enter", "at", "near", "on_arrival"}:
+        trigger_type = "arrival"
+    elif trigger_type in {"leave", "leaving", "exit", "on_departure"}:
+        trigger_type = "departure"
+    if trigger_type not in {"arrival", "departure"}:
+        return None
+    places = (workspace_context or {}).get("places") or []
+    place_name = str(raw.get("place_name") or raw.get("placeName") or raw.get("saved_place") or raw.get("savedPlace") or raw.get("name") or "").strip()
+    place_id = raw.get("place_id") or raw.get("placeId")
+    matched = None
+    if place_id not in (None, ""):
+        try:
+            place_id_int = int(place_id)
+        except (TypeError, ValueError):
+            place_id_int = None
+        matched = next((place for place in places if int(place.get("id") or 0) == place_id_int), None) if place_id_int else None
+    if not matched and place_name:
+        normalized_name = _name_key(place_name)
+        matched = next((place for place in places if _name_key(place.get("name")) == normalized_name), None)
+    if not matched:
+        return None
+    return {
+        "trigger_type": trigger_type,
+        "place_id": int(matched["id"]),
+        "place_name": matched["name"],
+        "address": matched["address"],
+        "enabled": True,
+        "source": "braindump",
+    }
+
+
 def _route_workspace_candidate(candidate: dict, workspace_context: dict | None) -> dict:
     projects = (workspace_context or {}).get("projects") or []
-    if not projects:
-        return candidate
     routed = dict(candidate)
+    routed["location_reminder"] = _normalize_location_reminder_candidate(candidate, workspace_context)
+    if not projects:
+        routed["project_name"] = None
+        routed["section_name"] = None
+        return routed
     project_name = str(routed.get("project_name") or "").strip()
     section_name = str(routed.get("section_name") or "").strip()
     project_names = {str(project.get("name") or "").lower(): project for project in projects}
@@ -261,6 +309,78 @@ def _parse_llm_json_content(content) -> dict:
     raise ValueError(f"Could not parse LLM JSON response: {last_error}")
 
 
+
+def _recurrence_interval_from_text(raw: str) -> int:
+    number_words = {
+        "one": 1, "ein": 1, "eine": 1, "einen": 1,
+        "two": 2, "zwei": 2,
+        "three": 3, "drei": 3,
+        "four": 4, "vier": 4,
+        "five": 5, "fünf": 5, "fuenf": 5,
+        "six": 6, "sechs": 6,
+        "seven": 7, "sieben": 7,
+        "eight": 8, "acht": 8,
+        "nine": 9, "neun": 9,
+        "ten": 10, "zehn": 10,
+        "eleven": 11, "elf": 11,
+        "twelve": 12, "zwölf": 12, "zwoelf": 12,
+    }
+    interval_match = re.search(r"\b(\d{1,3})\b", raw)
+    if interval_match:
+        return int(interval_match.group(1))
+    for word, value in number_words.items():
+        if re.search(rf"\b{re.escape(word)}\b", raw):
+            return value
+    return 1
+
+
+def _normalize_braindump_recurring_rule(value, *, has_deadline: bool) -> dict | None:
+    """Normalize LLM recurrence hints for BrainDump candidates.
+
+    Recurring todos require a start date in nia-todo. BrainDump does not ask
+    follow-up questions; without a deadline, recurrence is intentionally ignored.
+    """
+    if not has_deadline or not value:
+        return None
+    if isinstance(value, str):
+        raw = value.strip().lower()
+        if not raw or raw in {"none", "null", "no", "nein", "false"}:
+            return None
+        if any(token in raw for token in ("half year", "six months", "6 months", "sechs monate", "halbjahr", "halbes jahr", "halbe jahr", "halbjähr", "halbjaehr")):
+            value = {"frequency": "monthly", "interval": 6}
+        else:
+            frequency = None
+            if any(token in raw for token in ("daily", "day", "täglich", "taeglich", "jeden tag")):
+                frequency = "daily"
+            elif any(token in raw for token in ("weekly", "week", "wöchentlich", "woechentlich", "woche")):
+                frequency = "weekly"
+            elif any(token in raw for token in ("monthly", "month", "monat")):
+                frequency = "monthly"
+            elif any(token in raw for token in ("yearly", "annual", "year", "jährlich", "jaehrlich", "jahr")):
+                frequency = "yearly"
+            if not frequency:
+                return None
+            value = {"frequency": frequency, "interval": _recurrence_interval_from_text(raw)}
+    if not isinstance(value, dict):
+        return None
+    frequency = str(value.get("frequency") or value.get("freq") or "").strip().lower()
+    if frequency in {"", "none", "null"}:
+        return None
+    if frequency in {"day", "days"}:
+        frequency = "daily"
+    elif frequency in {"week", "weeks"}:
+        frequency = "weekly"
+    elif frequency in {"month", "months"}:
+        frequency = "monthly"
+    elif frequency in {"year", "years", "annual", "annually"}:
+        frequency = "yearly"
+    interval = value.get("interval") or value.get("every") or 1
+    try:
+        normalized = _normalize_recurring_rule({"frequency": frequency, "interval": int(interval)})
+    except HTTPException:
+        return None
+    return json.loads(normalized) if normalized else None
+
 def _normalize_braindump_json(parsed: dict, transcript: str, workspace_context: dict | None = None) -> dict:
     try:
         parsed = _normalize_llm_response_shape(parsed)
@@ -286,12 +406,15 @@ def _normalize_braindump_json(parsed: dict, transcript: str, workspace_context: 
         reminder = _normalize_temporal_field(reminder_source, require_time=True, transcript=transcript)
         if deadline and reminder_source and not reminder and _temporal_has_explicit_time(deadline_source):
             reminder = deadline
+        recurring_source = candidate.get("recurring_rule") or candidate.get("recurringRule") or candidate.get("repeat") or candidate.get("recurrence") or candidate.get("repetition")
         normalized.append(_route_workspace_candidate({
             "title": title,
             "project_name": project_name or candidate.get("project"),
             "section_name": candidate.get("section_name") or candidate.get("sectionName") or candidate.get("section"),
             "deadline": deadline,
             "reminder": reminder,
+            "recurring_rule": _normalize_braindump_recurring_rule(recurring_source, has_deadline=bool(deadline)),
+            "location_reminder": candidate.get("location_reminder") or candidate.get("locationReminder") or candidate.get("location") or candidate.get("place"),
         }, workspace_context))
     return {"candidates": _dedupe_normalized_candidates(normalized)}
 
@@ -308,6 +431,8 @@ class BrainDumpTodoCandidate(BaseModel):
     section_name: str | None = None
     deadline: str | None = None
     reminder: str | None = None
+    recurring_rule: dict | None = None
+    location_reminder: dict | None = None
     original_project_name: str | None = None
     original_section_name: str | None = None
     original_route_present: bool = False
@@ -506,6 +631,26 @@ def _accessible_project_rows(db, user_id: int, *, workspace_id: int | None = Non
     ).fetchall()
 
 
+def _saved_places_context(db, user_id: int) -> list[dict]:
+    rows = db.execute(
+        """SELECT id, name, address, icon
+           FROM saved_places
+           WHERE user_id = ?
+           ORDER BY lower(name), id
+           LIMIT 80""",
+        (user_id,),
+    ).fetchall()
+    return [
+        {
+            "id": row["id"],
+            "name": row["name"],
+            "address": row["address"],
+            "icon": row["icon"],
+        }
+        for row in rows
+    ]
+
+
 def _load_braindump_workspace_context(db, user_id: int, workspace_id: int | None = None) -> dict:
     """Return a compact routing context for the BrainDump LLM.
 
@@ -530,6 +675,7 @@ def _load_braindump_workspace_context(db, user_id: int, workspace_id: int | None
         ).fetchall()
         for section in sections:
             sections_by_project.setdefault(section["project_id"], []).append(section["name"])
+    places = _saved_places_context(db, user_id)
     workspace_names = [row["workspace_name"] for row in projects if row["workspace_name"]]
     return {
         "workspace_id": workspace_id,
@@ -542,12 +688,14 @@ def _load_braindump_workspace_context(db, user_id: int, workspace_id: int | None
                 "sections": sections_by_project.get(row["id"], []),
             }
             for row in projects
-        ]
+        ],
+        "places": places,
     }
 
 
 def _format_workspace_context(context: dict | None) -> str:
     projects = (context or {}).get("projects") or []
+    places = (context or {}).get("places") or []
     workspace_name = (context or {}).get("workspace_name")
     payload = {
         "workspace_name": workspace_name,
@@ -555,6 +703,8 @@ def _format_workspace_context(context: dict | None) -> str:
             "Use only exact project_name values from workspace.projects[].name, otherwise null.",
             "Use only section_name values listed inside the selected project's sections array, otherwise null.",
             "Never attach a section to a different project than the one where it is listed.",
+            "Use only exact place_name values from workspace.places[].name for location_reminder, otherwise null.",
+            "For location_reminder return only trigger_type and place_name; do not output addresses, coordinates, or radius.",
             "Return only the output object with candidates; do not copy workspace data into the output.",
         ],
         "projects": [
@@ -565,12 +715,24 @@ def _format_workspace_context(context: dict | None) -> str:
             for project in projects[:40]
             if str(project.get("name") or "").strip()
         ],
+        "places": [
+            {
+                "name": str(place.get("name") or "")[:120],
+            }
+            for place in places[:80]
+            if str(place.get("name") or "").strip()
+        ],
     }
     if not payload["projects"]:
         payload["rules"].append("No projects are available; use project_name=null and section_name=null.")
+    if not payload["places"]:
+        payload["rules"].append("No saved places are available; use location_reminder=null.")
     text = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
     while len(text) > 5000 and len(payload["projects"]) > 1:
         payload["projects"] = payload["projects"][:-1]
+        text = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+    while len(text) > 5000 and len(payload["places"]) > 1:
+        payload["places"] = payload["places"][:-1]
         text = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
     return text
 
@@ -864,19 +1026,27 @@ def _create_todos_from_braindump_candidates(db, user_id: int, candidates: list[B
             section_id=section_id,
             due_date=candidate.deadline,
             remind_at=candidate.reminder,
+            recurring_rule=candidate.recurring_rule if candidate.deadline else None,
         )
         _validate_todo_dates(data)
         _validate_todo_status(data.status)
         _validate_todo_target(db, data.project_id, data.section_id, user_id)
+        recurring_rule = _normalize_recurring_rule(data.recurring_rule) if data.due_date else None
         cursor = db.execute(
             """INSERT INTO todos
-               (title, description, priority, is_pinned, status, project_id, section_id, due_date, completed_at, updated_at, user_id)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
-            (data.title, data.description, data.priority, int(bool(data.is_pinned)), data.status, data.project_id, data.section_id, data.due_date, None, now, user_id),
+               (title, description, priority, is_pinned, status, project_id, section_id, due_date, completed_at, recurring_rule, updated_at, user_id)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (data.title, data.description, data.priority, int(bool(data.is_pinned)), data.status, data.project_id, data.section_id, data.due_date, None, recurring_rule, now, user_id),
         )
         todo_id = cursor.lastrowid
         if data.remind_at:
-            db.execute("INSERT INTO reminders (todo_id, remind_at, user_id) VALUES (?,?,?)", (todo_id, data.remind_at, user_id))
+            _insert_reminder(db, todo_id, data.remind_at, user_id)
+        else:
+            _sync_default_due_reminder(db, todo_id, user_id, data.due_date)
+        if candidate.location_reminder:
+            location = _normalize_location_reminder_candidate({"location_reminder": candidate.location_reminder}, {"places": _saved_places_context(db, user_id)})
+            if location:
+                _insert_location_reminder(db, todo_id, user_id, location)
         todo = fetch_todo(db, todo_id, user_id)
         if todo:
             if project_matched:
@@ -1009,35 +1179,7 @@ def _extract_with_llm(text: str, segment_id: int, workspace_context: dict | None
         token = _load_local_openclaw_token() or ""
     system_prompt = build_effective_system_prompt(config)
     current_datetime = datetime.now().astimezone().isoformat(timespec="minutes")
-    extraction_contract = """Provider-neutral extraction contract:
-You are extracting the final intended todo state from messy speech. Work internally if helpful, but keep any internal reasoning concise and reserve output budget for the final JSON. Models without a separate reasoning/thinking mode must follow the same rules directly.
-
-Before writing JSON:
-1. Segment the transcript into meaning-bearing clauses, independent of transcript language.
-2. Build a temporary ledger of candidate items/actions in chronological order.
-3. Apply later corrections/removals/replacements/negations as ledger edits, not as new candidates.
-4. Resolve short references, pronouns, ellipsis, and item names inside correction clauses to earlier ledger entries.
-5. Delete any ledger entry that is later no longer wanted, no longer needed, excluded, removed, cancelled, crossed off, or replaced.
-6. Add later positive additions only when they clearly express final add/create intent.
-7. Preserve explicit dates, times, reminders, and event-like intent from the transcript on the final ledger entries.
-8. Correct obvious speech recognition errors only when context makes the intended word clear. Sanity-check every title word before final JSON. If a word is not a normal word/name in the transcript language and looks like an STT error, replace it only when there is a highly plausible common item/action in context. If no plausible correction exists but the user clearly intended an item/action, keep it with a trailing question mark in the title so the user can edit it. If it is not clearly intended, omit it.
-9. Output only the remaining final ledger entries as compact JSON using exactly this schema: {"candidates":[{"title":"...","project_name":null,"section_name":null,"deadline":null,"reminder":null}]}.
-
-Response requirement: the assistant message content must start with { and contain only valid compact JSON. No Markdown, prose, explanation, or analysis in content.
-
-Candidate validity checklist:
-- The title is only the desired item/action, never an instruction about editing the ledger.
-- The candidate has final positive intent after the whole transcript is processed.
-- The candidate is not mentioned only inside a correction/removal/negation clause.
-- The candidate is not an orphan sentence fragment.
-- If uncertain, omit the candidate.
-
-Abstract example, applies in every language:
-Transcript meaning: add A, B, C; later remove B; later add D.
-Correct final output: A, C, D.
-Never output: B, the remove-B command, or leftover words from the remove-B clause.
-""".strip()
-    user_content = f"Current datetime: {current_datetime}\n\nWorkspace JSON:\n{_format_workspace_context(workspace_context)}\n\nOutput JSON shape:\n{{\"candidates\":[{{\"title\":\"...\",\"project_name\":null,\"section_name\":null,\"deadline\":null,\"reminder\":null}}]}}\n\n{extraction_contract}\n\nTranscript:\n{text}"
+    user_content = f"Current datetime: {current_datetime}\n\nWorkspace JSON:\n{_format_workspace_context(workspace_context)}\n\nTranscript:\n{text}"
     model_name = str(config.get("llm_model") or "").strip()
     if not model_name:
         raise RuntimeError("BrainDump LLM model is not configured")
@@ -1109,13 +1251,15 @@ def require_braindump_access(user_id: int):
 
 
 @router.get("/access")
-def get_braindump_access(user_id: int = Depends(require_auth)):
+def get_braindump_access(request: Request, user_id: int = Depends(require_auth)):
     try:
         require_braindump_access(user_id)
         enabled = True
+        increment_endpoint_counter(request, "GET", "/api/braindump/v2/access", status_code=200)
     except HTTPException as exc:
         if exc.status_code == 403:
             enabled = False
+            increment_endpoint_counter(request, "GET", "/api/braindump/v2/access", status_code=403)
         else:
             raise
     return {"enabled": enabled}
@@ -1163,9 +1307,13 @@ async def transcribe_live_audio_segment(
             _transcribe_live_audio_bytes, audio_bytes, content_type, segment_id, model, config
         )
     except ValueError as exc:
+        increment_endpoint_counter(request, "POST", "/api/braindump/v2/live/audio-segment/transcribe", status_code=400)
         raise HTTPException(400, str(exc))
     except Exception as exc:
+        increment_endpoint_counter(request, "POST", "/api/braindump/v2/live/audio-segment/transcribe", status_code=500)
         raise HTTPException(500, f"BrainDump transcription failed: {exc}")
+    increment_endpoint_counter(request, "POST", "/api/braindump/v2/live/audio-segment/transcribe", status_code=200)
+    increment_duration_metric("stt", "live_audio_transcribe", stt_ms)
     total_ms = (time.perf_counter() - received_at) * 1000
     return {
         "segment_id": segment_id,
@@ -1183,11 +1331,12 @@ async def transcribe_live_audio_segment(
 
 
 @router.post("/live/text-segment/extract")
-async def extract_live_text_segment(data: BrainDumpExtractRequest, user_id: int = Depends(require_auth)):
+async def extract_live_text_segment(request: Request, data: BrainDumpExtractRequest, user_id: int = Depends(require_auth)):
     """Extract BrainDump candidates from a transcript returned by the STT step."""
     require_braindump_access(user_id)
     transcript = sanitize_text(data.transcript)
     if not transcript:
+        increment_endpoint_counter(request, "POST", "/api/braindump/v2/live/text-segment/extract", status_code=422)
         raise HTTPException(422, "BrainDump transcript is required")
     config = get_braindump_config(include_secrets=True)
     received_at = time.perf_counter()
@@ -1201,7 +1350,11 @@ async def extract_live_text_segment(data: BrainDumpExtractRequest, user_id: int 
             parsed = _apply_learned_routes(db, user_id, data.workspace_id, parsed)
         raw_json = json.dumps(parsed, ensure_ascii=False, separators=(",", ":"))
     except Exception as exc:
+        increment_endpoint_counter(request, "POST", "/api/braindump/v2/live/text-segment/extract", status_code=500)
         raise HTTPException(500, f"BrainDump extraction failed: {exc}")
+    increment_endpoint_counter(request, "POST", "/api/braindump/v2/live/text-segment/extract", status_code=200)
+    increment_duration_metric("llm", "live_text_extract", llm_ms)
+    increment_llm_usage_metrics("live_text_extract", usage)
     total_ms = (time.perf_counter() - received_at) * 1000
     return {
         "segment_id": data.segment_id,
@@ -1236,20 +1389,38 @@ async def process_live_audio_segment(
     audio_bytes = await request.body()
     with get_db() as db:
         workspace_context = _load_braindump_workspace_context(db, user_id, workspace_id)
+    stt_counted = False
+    llm_counted = False
     try:
         convert_ms, stt_ms, transcript, stt_provider = await asyncio.to_thread(
             _transcribe_live_audio_bytes, audio_bytes, content_type, segment_id, model, config
         )
+        increment_endpoint_counter(request, "POST", "/api/braindump/v2/live/audio-segment/transcribe", status_code=200)
+        increment_duration_metric("stt", "live_audio_transcribe", stt_ms)
+        stt_counted = True
         llm_ms, parsed, usage, raw_json = await asyncio.to_thread(
             _extract_with_llm, transcript, segment_id, workspace_context, config
         )
+        increment_endpoint_counter(request, "POST", "/api/braindump/v2/live/text-segment/extract", status_code=200)
+        increment_duration_metric("llm", "live_text_extract", llm_ms)
+        increment_llm_usage_metrics("live_text_extract", usage)
+        llm_counted = True
         with get_db() as db:
             parsed = _apply_learned_routes(db, user_id, workspace_id, parsed)
         raw_json = json.dumps(parsed, ensure_ascii=False, separators=(",", ":"))
     except ValueError as exc:
+        increment_endpoint_counter(request, "POST", "/api/braindump/v2/live/audio-segment", status_code=400)
+        if not stt_counted:
+            increment_endpoint_counter(request, "POST", "/api/braindump/v2/live/audio-segment/transcribe", status_code=400)
         raise HTTPException(400, str(exc))
     except Exception as exc:
+        increment_endpoint_counter(request, "POST", "/api/braindump/v2/live/audio-segment", status_code=500)
+        if stt_counted and not llm_counted:
+            increment_endpoint_counter(request, "POST", "/api/braindump/v2/live/text-segment/extract", status_code=500)
+        elif not stt_counted:
+            increment_endpoint_counter(request, "POST", "/api/braindump/v2/live/audio-segment/transcribe", status_code=500)
         raise HTTPException(500, f"BrainDump live segment failed: {exc}")
+    increment_endpoint_counter(request, "POST", "/api/braindump/v2/live/audio-segment", status_code=200)
     total_ms = (time.perf_counter() - received_at) * 1000
     return {
         "segment_id": segment_id,
@@ -1305,21 +1476,31 @@ def reset_braindump_learning(user_id: int = Depends(require_auth)):
 
 
 @router.post("/todos")
-async def create_todos_from_braindump(data: BrainDumpCreateTodosRequest, user_id: int = Depends(require_auth)):
+async def create_todos_from_braindump(request: Request, data: BrainDumpCreateTodosRequest, user_id: int = Depends(require_auth)):
     """Create real todos from user-confirmed BrainDump candidates."""
     require_braindump_access(user_id)
-    with get_db() as db:
-        created = _create_todos_from_braindump_candidates(db, user_id, data.candidates, data.workspace_id)
-        db.commit()
+    try:
+        with get_db() as db:
+            created = _create_todos_from_braindump_candidates(db, user_id, data.candidates, data.workspace_id)
+            db.commit()
+    except HTTPException as exc:
+        increment_endpoint_counter(request, "POST", "/api/braindump/v2/todos", status_code=exc.status_code)
+        raise
+    except Exception:
+        increment_endpoint_counter(request, "POST", "/api/braindump/v2/todos", status_code=500)
+        raise
+    increment_endpoint_counter(request, "POST", "/api/braindump/v2/todos", status_code=200)
     for todo in created:
         await broadcast_change("todo_create", todo, user_id, todo.get("project_id"))
     return {"todos": created}
 
 
 @router.post("/sessions")
-def create_braindump_session(user_id: int = Depends(require_auth)):
+def create_braindump_session(request: Request, user_id: int = Depends(require_auth)):
     require_braindump_access(user_id)
-    return create_session(user_id).to_dict()
+    session = create_session(user_id).to_dict()
+    increment_endpoint_counter(request, "POST", "/api/braindump/v2/sessions", status_code=200)
+    return session
 
 
 @router.get("/sessions/{session_id}")
@@ -1332,21 +1513,28 @@ def get_braindump_session(session_id: str, user_id: int = Depends(require_auth))
 
 
 @router.post("/sessions/{session_id}/segments/text")
-def add_braindump_text_segment(session_id: str, data: TextSegmentRequest, user_id: int = Depends(require_auth)):
+def add_braindump_text_segment(request: Request, session_id: str, data: TextSegmentRequest, user_id: int = Depends(require_auth)):
     require_braindump_access(user_id)
     text = sanitize_text(data.text)
     try:
-        return append_text_segment(session_id, user_id, text, data.final).to_dict()
+        session = append_text_segment(session_id, user_id, text, data.final).to_dict()
+        increment_endpoint_counter(request, "POST", f"/api/braindump/v2/sessions/{session_id}/segments/text", status_code=200)
+        return session
     except KeyError:
+        increment_endpoint_counter(request, "POST", f"/api/braindump/v2/sessions/{session_id}/segments/text", status_code=404)
         raise HTTPException(404, "BrainDump session not found")
     except ValueError as exc:
+        increment_endpoint_counter(request, "POST", f"/api/braindump/v2/sessions/{session_id}/segments/text", status_code=409)
         raise HTTPException(409, str(exc))
 
 
 @router.post("/sessions/{session_id}/finalize")
-def finalize_braindump_session(session_id: str, user_id: int = Depends(require_auth)):
+def finalize_braindump_session(request: Request, session_id: str, user_id: int = Depends(require_auth)):
     require_braindump_access(user_id)
     try:
-        return finalize_session(session_id, user_id).to_dict()
+        session = finalize_session(session_id, user_id).to_dict()
+        increment_endpoint_counter(request, "POST", f"/api/braindump/v2/sessions/{session_id}/finalize", status_code=200)
+        return session
     except KeyError:
+        increment_endpoint_counter(request, "POST", f"/api/braindump/v2/sessions/{session_id}/finalize", status_code=404)
         raise HTTPException(404, "BrainDump session not found")

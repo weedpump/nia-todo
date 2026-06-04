@@ -2,8 +2,10 @@
 
 import json
 import base64
+import os
 from pathlib import Path
 from datetime import datetime, timezone
+from urllib.parse import urlparse, urlunparse
 
 from py_vapid import Vapid
 from pywebpush import webpush, WebPushException
@@ -12,7 +14,36 @@ from cryptography.hazmat.primitives import serialization
 from db import get_db
 from paths import VAPID_KEYS_PATH
 from services.websocket import manager
-VAPID_CLAIMS = {"sub": "mailto:nia-todo@example.invalid"}
+
+
+def _origin_from_url(value: str) -> str:
+    parsed = urlparse(str(value or "").strip())
+    if parsed.scheme != "https" or not parsed.netloc:
+        return ""
+    return urlunparse((parsed.scheme, parsed.netloc, "", "", "", ""))
+
+
+def get_vapid_subject() -> str:
+    """Return the VAPID subject/contact claim for this installation."""
+    configured = os.getenv("NIA_TODO_VAPID_SUBJECT", "").strip()
+    if configured:
+        return configured
+
+    try:
+        from services.instance_config import get_instance_config
+
+        public_base_url = get_instance_config().get("public_base_url") or ""
+        origin = _origin_from_url(public_base_url)
+        if origin:
+            return origin
+    except Exception:
+        pass
+
+    return "https://localhost"
+
+
+def get_vapid_claims() -> dict[str, str]:
+    return {"sub": get_vapid_subject()}
 
 
 def get_vapid_keys() -> tuple[str, str]:
@@ -74,7 +105,7 @@ async def send_push_notification(user_id: int, title: str, body: str, tag: str, 
                 subscription_info=subscription_info,
                 data=payload,
                 vapid_private_key=priv_key,
-                vapid_claims=dict(VAPID_CLAIMS),
+                vapid_claims=get_vapid_claims(),
                 ttl=3600,
             )
             success = True
@@ -159,7 +190,7 @@ async def cleanup_subscriptions():
                 subscription_info=subscription_info,
                 data=payload,
                 vapid_private_key=priv_key,
-                vapid_claims=dict(VAPID_CLAIMS),
+                vapid_claims=get_vapid_claims(),
                 ttl=60,
             )
         except WebPushException as e:

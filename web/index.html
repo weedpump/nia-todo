@@ -196,7 +196,7 @@
         <!-- Version & Update -->
         <div class="version-bar" id="version-bar">
           <div class="version-info" id="version-info">
-            <span class="version-text">v2.10.3</span>
+            <span class="version-text">v2.11.0</span>
           </div>
           <div class="version-actions web-version-actions" id="version-actions">
             <a class="changelog-link version-action-btn" id="changelog-link" href="/changelog" target="_blank" rel="noopener noreferrer" title="Open changelog" data-i18n-title-key="version.openChangelog" data-i18n-key="resource.changelog">Changelog</a>
@@ -489,6 +489,39 @@
               </div>
             </div>
           </div>
+          <div class="todo-recurring-subsection todo-location-subsection">
+            <div class="todo-recurring-heading">
+              <span data-icon="map-pin"></span>
+              <div>
+                <strong data-i18n-key="todo.location.title">Location reminder</strong>
+                <p data-i18n-key="todo.location.hint">Funktioniert nur in der Android-App. Web/PWA kann ortsbezogene Erinnerungen nur anlegen und verwalten.</p>
+              </div>
+            </div>
+            <label class="settings-toggle-row settings-switch-row todo-location-toggle-row">
+              <span data-i18n-key="todo.location.enable">Remind me when arriving at/leaving a place</span>
+              <input type="checkbox" class="settings-switch" id="todo-location-enabled">
+            </label>
+            <div id="todo-location-fields" class="ui-field-grid two-columns todo-location-fields is-disabled">
+              <div class="form-group">
+                <label for="todo-location-trigger" data-i18n-key="todo.location.trigger">Trigger</label>
+                <select id="todo-location-trigger">
+                  <option value="arrival" data-i18n-key="todo.location.arrival">When arriving</option>
+                  <option value="departure" data-i18n-key="todo.location.departure">When leaving</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="todo-location-place" data-i18n-key="todo.location.savedPlace">Saved place</label>
+                <select id="todo-location-place">
+                  <option value="" data-i18n-key="todo.location.manualAddress">Enter address manually</option>
+                </select>
+              </div>
+              <div class="form-group" id="todo-location-address-group">
+                <label for="todo-location-address" data-i18n-key="todo.location.address">Address</label>
+                <input type="text" id="todo-location-address" maxlength="500" placeholder="Street, city" data-i18n-placeholder-key="todo.location.addressPlaceholder">
+              </div>
+            </div>
+            <div id="todo-location-error" class="form-error compact"></div>
+          </div>
         </section>
       </form>
       </div>
@@ -570,6 +603,8 @@
         <nav class="settings-nav" aria-label="Settings sections" data-i18n-aria-label-key="settings.nav.aria">
           <a href="#settings-section-profile"><span data-icon="user"></span><span data-i18n-key="settings.section.profile">Profil</span></a>
           <a href="#settings-section-language"><span data-icon="book-open"></span><span data-i18n-key="settings.language.label">Language</span></a>
+          <a href="#settings-section-default-reminder"><span data-icon="bell"></span><span data-i18n-key="settings.defaultReminder.title">Default reminder</span></a>
+          <a href="#settings-section-places"><span data-icon="map-pin"></span><span data-i18n-key="settings.places.title">Places</span></a>
           <a href="#settings-section-braindump" id="settings-nav-braindump"><span data-icon="sparkles"></span><span data-i18n-key="settings.braindump.title">BrainDump</span></a>
           <a href="#settings-section-security"><span data-icon="shield"></span><span data-i18n-key="settings.section.security">Sicherheit</span></a>
           <a href="#settings-section-api"><span data-icon="key-round"></span><span data-i18n-key="settings.apiKeys.title">API-Keys</span></a>
@@ -636,6 +671,71 @@
             </div>
             <div id="settings-language-error" class="settings-field-error"></div>
             <div id="settings-language-success" class="settings-field-success"></div>
+          </section>
+
+          <section class="settings-section-card" id="settings-section-default-reminder">
+            <div class="settings-section-heading">
+              <div class="settings-section-icon" data-icon="bell"></div>
+              <div>
+                <h4 data-i18n-key="settings.defaultReminder.title">Default reminder</h4>
+                <p data-i18n-key="settings.defaultReminder.hint">Automatically create a reminder when a todo gets a deadline and no explicit reminder is set.</p>
+              </div>
+            </div>
+            <div class="settings-subcard">
+              <label for="settings-default-reminder" data-i18n-key="settings.defaultReminder.label">Automatic reminder for deadlines</label>
+              <select id="settings-default-reminder" onchange="changeDefaultReminderSetting(this.value)">
+                <option value="off" data-i18n-key="settings.defaultReminder.off">Off</option>
+                <option value="0" data-i18n-key="settings.defaultReminder.atDeadline">At deadline</option>
+                <option value="15" data-i18n-key="settings.defaultReminder.before15m">15 minutes before</option>
+                <option value="60" data-i18n-key="settings.defaultReminder.before1h">1 hour before</option>
+                <option value="1440" data-i18n-key="settings.defaultReminder.before1d">1 day before</option>
+                <option value="custom" data-i18n-key="settings.defaultReminder.custom">Custom...</option>
+              </select>
+              <div id="settings-default-reminder-custom-row" class="settings-default-reminder-custom-row" hidden>
+                <div class="form-group settings-default-reminder-custom-field">
+                  <label for="settings-default-reminder-custom" data-i18n-key="settings.defaultReminder.customAmountLabel">Amount</label>
+                  <input type="number" id="settings-default-reminder-custom" min="1" max="8760" step="1" inputmode="numeric" placeholder="Amount" data-i18n-placeholder-key="settings.defaultReminder.customPlaceholder">
+                </div>
+                <div class="form-group settings-default-reminder-custom-field">
+                  <label for="settings-default-reminder-custom-unit" data-i18n-key="settings.defaultReminder.customUnitLabel">Unit</label>
+                  <select id="settings-default-reminder-custom-unit" data-i18n-aria-label-key="settings.defaultReminder.customUnitLabel">
+                    <option value="hours" data-i18n-key="settings.defaultReminder.customHours">Hours before</option>
+                    <option value="days" data-i18n-key="settings.defaultReminder.customDays">Days before</option>
+                  </select>
+                </div>
+                <button type="button" class="btn btn-secondary" onclick="saveCustomDefaultReminderSetting()" data-i18n-key="common.save">Save</button>
+              </div>
+              <div class="settings-help-text" data-i18n-key="settings.defaultReminder.help">Explicit reminders are kept and never overwritten.</div>
+              <div id="settings-default-reminder-error" class="settings-field-error"></div>
+              <div id="settings-default-reminder-success" class="settings-field-success"></div>
+            </div>
+          </section>
+
+          <section class="settings-section-card" id="settings-section-places">
+            <div class="settings-section-heading">
+              <div class="settings-section-icon" data-icon="map-pin"></div>
+              <div>
+                <h4 data-i18n-key="settings.places.title">Saved places</h4>
+                <p data-i18n-key="settings.places.hint">Save labels like Home or Work with an address. BrainDump and location reminders use these places.</p>
+              </div>
+            </div>
+            <div class="settings-place-form ui-field-grid two-columns">
+              <div class="form-group">
+                <label for="settings-place-name" data-i18n-key="settings.places.nameLabel">Label</label>
+                <input type="text" id="settings-place-name" maxlength="120" placeholder="e.g. Home" data-i18n-placeholder-key="settings.places.namePlaceholder">
+              </div>
+              <div class="form-group">
+                <label for="settings-place-address" data-i18n-key="settings.places.addressLabel">Address</label>
+                <input type="text" id="settings-place-address" maxlength="500" placeholder="Street, city" data-i18n-placeholder-key="settings.places.addressPlaceholder">
+              </div>
+            </div>
+            <div class="settings-actions-row">
+              <button type="button" class="btn btn-primary" onclick="saveSettingsPlace()"><span data-icon="plus" id="settings-place-save-icon"></span> <span id="settings-place-save-label" data-i18n-key="settings.places.save">Save place</span></button>
+              <button type="button" class="btn btn-secondary" id="settings-place-cancel-edit" onclick="cancelSettingsPlaceEdit()" hidden data-i18n-key="common.cancel">Cancel</button>
+            </div>
+            <div id="settings-places-error" class="settings-field-error"></div>
+            <div id="settings-places-success" class="settings-field-success"></div>
+            <div id="settings-places-list" class="settings-device-list"></div>
           </section>
 
           <section class="settings-section-card" id="settings-section-braindump">

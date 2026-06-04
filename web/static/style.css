@@ -1234,6 +1234,12 @@ select:focus-visible {
   color: var(--text-muted);
 }
 
+.todo-meta-chip.todo-location {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
 .todo-desc-preview {
   font-style: italic;
   color: var(--text-muted);
@@ -1388,6 +1394,7 @@ select:focus-visible {
   position: absolute;
   top: calc(100% + 5px);
   right: 0;
+  bottom: auto;
   left: auto;
   z-index: 1000;
   min-width: 148px;
@@ -1395,6 +1402,18 @@ select:focus-visible {
   padding: 4px;
   border-radius: 11px;
   box-shadow: 0 10px 26px rgba(0,0,0,.20), 0 0 0 1px color-mix(in srgb, var(--bg-primary) 20%, transparent);
+}
+
+
+.todo-status-menu[open]:not(.placement-ready) .todo-action-menu.ui-menu,
+.todo-snooze-menu[open]:not(.placement-ready) .todo-action-menu.ui-menu {
+  visibility: hidden;
+}
+
+.todo-status-menu.opens-up .todo-action-menu.ui-menu,
+.todo-snooze-menu.opens-up .todo-action-menu.ui-menu {
+  top: auto;
+  bottom: calc(100% + 5px);
 }
 
 .todo-action-menu .ui-menu-item {
@@ -1522,12 +1541,20 @@ select:focus-visible {
   color: #fff;
 }
 
-/* Plus icon in primary button */
-.btn-primary span:first-child {
-  font-size: 16px;
+/* Icons in primary buttons must stay visible on the accent background. */
+.btn-primary [data-icon] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  opacity: 1;
   line-height: 1;
-  color: var(--accent);
-  text-shadow: none;
+}
+
+.btn-primary [data-icon] .ui-icon {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
 }
 
 .btn-secondary { background: var(--bg-tertiary); color: var(--text-primary); }
@@ -5667,6 +5694,27 @@ input[type="color"]::-moz-color-swatch {
   border-color: color-mix(in srgb, var(--accent) 72%, var(--border));
   box-shadow: 0 0 0 3px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.18));
 }
+.braindump-field {
+  width: 100%;
+  min-width: 0;
+  min-height: 38px;
+  border: 1px solid color-mix(in srgb, var(--border) 84%, transparent);
+  border-radius: 12px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--bg-secondary) 94%, var(--bg-primary)), var(--bg-secondary));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bg-primary) 45%, transparent);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 8px 10px;
+  outline: none;
+}
+.braindump-field:focus {
+  border-color: color-mix(in srgb, var(--accent) 72%, var(--border));
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.18));
+}
+.braindump-field:disabled,
+.braindump-quickfix-field.is-disabled { opacity: .62; }
 .braindump-ui-select { width: 100%; }
 .braindump-ui-select-menu { z-index: 380; }
 .braindump-ui-select .ui-select-trigger,
@@ -5691,6 +5739,8 @@ input[type="color"]::-moz-color-swatch {
 }
 .braindump-create-status { margin-top: 10px; color: var(--text-secondary); font-size: 13px; }
 .braindump-actions {
+  position: relative;
+  z-index: 420;
   align-items: center;
   justify-content: flex-start;
   gap: 10px;
@@ -5950,13 +6000,69 @@ input[type="color"]::-moz-color-swatch {
   margin-top: 8px;
 }
 
+.settings-default-reminder-custom-row {
+  display: grid;
+  grid-template-columns: minmax(92px, 0.75fr) minmax(150px, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.settings-default-reminder-custom-row[hidden] {
+  display: none !important;
+}
+
+.settings-default-reminder-custom-field {
+  margin-bottom: 0;
+  min-width: 0;
+}
+
+.settings-default-reminder-custom-row .ui-select {
+  min-width: 0;
+  width: 100%;
+}
+
+.settings-default-reminder-custom-row .ui-select-trigger {
+  min-height: 40px;
+}
+
+.settings-default-reminder-custom-row button {
+  min-height: 40px;
+}
+
+@media (max-width: 520px) {
+  .settings-default-reminder-custom-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: end;
+  }
+
+  .settings-default-reminder-custom-row button {
+    grid-column: 1 / -1;
+    width: 100%;
+    min-height: 42px;
+  }
+}
+
 .settings-card-actions,
-.settings-action-row {
+.settings-action-row,
+.settings-actions-row {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
   margin-top: 12px;
+}
+
+#settings-places-list {
+  margin-top: 14px;
+}
+
+.settings-place-row-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .settings-status-pill {
@@ -6676,6 +6782,12 @@ input[type="color"]::-moz-color-swatch {
   background: color-mix(in srgb, var(--success) 11%, transparent);
 }
 
+.todo-meta-chip.todo-location {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
 .todo-desc-preview {
   display: inline-flex;
   align-items: center;
@@ -6732,7 +6844,13 @@ input[type="color"]::-moz-color-swatch {
     margin-top: 0;
   }
 
-  .todo-desc-preview {
+  .todo-meta-chip.todo-location {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.todo-desc-preview {
     max-width: 100%;
   }
 }
@@ -6823,6 +6941,7 @@ input[type="color"]::-moz-color-swatch {
   position: absolute;
   top: calc(100% + 5px);
   right: 0;
+  bottom: auto;
   left: auto;
   z-index: 1000;
 }
@@ -6862,7 +6981,13 @@ input[type="color"]::-moz-color-swatch {
 }
 
 /* Todo list descriptions are one-line previews; full multiline text belongs in the modal. */
-.todo-body .todo-desc-preview {
+.todo-body .todo-meta-chip.todo-location {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.todo-desc-preview {
   display: block;
   width: 100%;
   max-width: min(560px, 100%);
@@ -6880,7 +7005,13 @@ input[type="color"]::-moz-color-swatch {
 }
 
 @media (max-width: 768px) {
-  .todo-body .todo-desc-preview {
+  .todo-body .todo-meta-chip.todo-location {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.todo-desc-preview {
     max-width: 100%;
   }
 }
@@ -7723,7 +7854,13 @@ body.is-minimal-todos .todo-title {
 
 body.is-minimal-todos .todo-badges,
 body.is-minimal-todos .todo-meta-row,
-body.is-minimal-todos .todo-desc-preview {
+body.is-minimal-todos .todo-meta-chip.todo-location {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.todo-desc-preview {
   display: none !important;
 }
 
@@ -7770,6 +7907,32 @@ body.is-minimal-todos .todo-actions {
 
 #todo-recurring-interval-group.is-disabled {
   opacity: 0.55;
+}
+
+.todo-location-toggle-row {
+  justify-content: flex-start;
+  gap: 12px;
+  margin: 2px 0 10px;
+  padding: 0;
+  color: var(--text-primary);
+  font-weight: 650;
+}
+
+.todo-location-toggle-row .settings-switch {
+  order: -1;
+}
+
+.todo-location-fields {
+  transition: opacity .16s ease, filter .16s ease;
+}
+
+.todo-location-fields.is-disabled {
+  opacity: 0.48;
+  filter: saturate(0.75);
+}
+
+.todo-location-fields.is-disabled label {
+  color: var(--text-muted);
 }
 
 .todo-meta-chip.todo-recurring {
