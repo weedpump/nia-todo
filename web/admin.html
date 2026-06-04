@@ -1160,7 +1160,7 @@ async function backfillTechnicalStats() {
   document.getElementById('technical-stats-success').textContent = 'Analysiere Logs…';
   try {
     const result = await apiPost(`/api/admin/technical-stats/backfill?days=${currentStatsDays}`, {});
-    document.getElementById('technical-stats-success').textContent = `Importiert: ${formatAdminNumber(result.imported_count)} Zähler aus ${formatAdminNumber(result.log_lines_scanned)} Logzeilen`;
+    document.getElementById('technical-stats-success').textContent = `Importiert: ${formatAdminNumber(result.imported_count)} Log-Zähler, ${formatAdminNumber(result.session_client_mix_imported)} bestehende Sessions in Client-Mix übernommen · ${formatAdminNumber(result.log_lines_scanned)} Logzeilen geprüft`;
     await loadTechnicalStats();
   } catch(e) {
     document.getElementById('technical-stats-success').textContent = '';
