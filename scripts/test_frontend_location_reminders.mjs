@@ -40,6 +40,7 @@ assert(de.includes('todo.location.notificationTitle') && en.includes('todo.locat
 assert(rendering.includes('todo-meta-chip todo-location') && rendering.includes("iconSvg('map-pin')"), 'todo cards must render a location reminder pill');
 assert(rendering.includes('locationReminderLabel'), 'todo cards must derive a location reminder label');
 assert(css.includes('.todo-meta-chip.todo-location'), 'location reminder pill must have dedicated styling');
+assert(css.includes('.btn-primary [data-icon]') && css.includes('color: #fff'), 'primary button icons must stay visible without hover');
 assert(de.includes('todo.location.arrivalShort') && en.includes('todo.location.departureShort'), 'location reminder pill labels must be translated');
 assert(de.includes('Funktioniert nur in der Android-App') && en.includes('Only works in the Android app'), 'Web UI must clearly communicate Android-only location reminder triggering');
 
