@@ -5,6 +5,11 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- Server startup defaults now bind to the IPv6 wildcard address (`::`) so Linux deployments with dual-stack sockets enabled accept both IPv6 and IPv4 backend connections by default.
+
 ## [2.11.1] - 2026-06-04
 
 ### Changed
