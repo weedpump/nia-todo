@@ -30,6 +30,24 @@ async function waitForSnoozedReminderOffset(page, title, expectedOffsetMs) {
   }, { title, expectedOffsetMs }, { timeout: 10000 });
 }
 
+
+async function waitForTodoTimes(page, title, expectedDue, expectedReminder) {
+  return page.waitForFunction(async ({ title, expectedDue, expectedReminder }) => {
+    const jwt = localStorage.getItem('jwt_token');
+    const data = await fetch('/api/todos', { headers: { Authorization: `Bearer ${jwt}` }, credentials: 'include' }).then(r => r.json());
+    const todo = data.todos.find(item => item.title === title);
+    if (!todo) return false;
+    const reminder = todo.remind_at || todo.reminders?.find?.(item => !item.sent_at)?.remind_at || todo.reminders?.[0]?.remind_at || null;
+    const dueTime = todo.due_date ? new Date(todo.due_date).getTime() : null;
+    const remindTime = reminder ? new Date(reminder).getTime() : null;
+    const expectedDueTime = expectedDue ? new Date(expectedDue).getTime() : null;
+    const expectedReminderTime = expectedReminder ? new Date(expectedReminder).getTime() : null;
+    const dueOk = expectedDueTime === null ? dueTime === null : Math.abs(dueTime - expectedDueTime) < 1000;
+    const reminderOk = expectedReminderTime === null ? remindTime === null : Math.abs(remindTime - expectedReminderTime) < 1000;
+    return dueOk && reminderOk ? todo : false;
+  }, { title, expectedDue, expectedReminder }, { timeout: 10000 });
+}
+
 function localDateTimeValue(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}T${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 }
@@ -131,6 +149,17 @@ async function run() {
     const snoozed = await snoozedHandle.jsonValue();
     if (!snoozed?.due_date) throw new Error('Snoozed todo did not retain due date and reminder');
     await assertTodoModalHidden(page, 'snooze reminder option');
+
+    await page.click('#toast-undo');
+    await waitForTodoTimes(page, snoozeReminderTitle, originalDue.toISOString(), originalReminder.toISOString());
+
+    item = snoozeReminderItem();
+    await item.locator('.todo-snooze-menu summary').click();
+    await item.locator('.todo-snooze-menu[open]').waitFor({ state: 'visible', timeout: 5000 });
+    await item.locator('.todo-snooze-menu .todo-status-options button').filter({ hasText: /\+1/ }).click();
+    const duePlusHour = new Date(originalDue.getTime() + 60 * 60 * 1000);
+    const reminderPlusHour = new Date(originalReminder.getTime() + 60 * 60 * 1000);
+    await waitForTodoTimes(page, snoozeReminderTitle, duePlusHour.toISOString(), reminderPlusHour.toISOString());
 
     item = todoItem();
     await item.locator('.todo-body').click();

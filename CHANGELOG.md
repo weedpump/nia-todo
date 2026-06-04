@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - BrainDump preview dropdowns are constrained above the modal action bar so open menus no longer block the create/accept button.
 
 ### Fixed
+- Snooze undo now restores both the original deadline and reminder, `+1 hour` moves existing deadline/reminder values relative to themselves, and the tomorrow preset is labelled as morning.
 - Recurring todo interval inputs now stay editable while replacing the default `1`, so users can type values like `6` months directly instead of working around an immediate reset.
 - BrainDump now ignores recurrence metadata without a deadline instead of creating invalid recurring todos, matching the recurring todo start-date requirement.
 

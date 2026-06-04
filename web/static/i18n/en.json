@@ -944,7 +944,7 @@
   "todo.snooze": "Later",
   "todo.snooze.hour": "+1 hour",
   "todo.snooze.evening": "This evening",
-  "todo.snooze.tomorrow": "Tomorrow",
+  "todo.snooze.tomorrow": "Tomorrow morning",
   "todo.snooze.weekend": "Weekend",
   "todo.snooze.nextWeek": "Next week",
   "todo.toast.pinned": "Todo pinned",
