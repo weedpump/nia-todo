@@ -41,6 +41,7 @@ from services.braindump_v2 import (
     finalize_session,
     get_session,
 )
+from services.ops_stats import increment_endpoint_counter
 from services.utils import sanitize_text
 from services.websocket import broadcast_change
 
@@ -1250,13 +1251,15 @@ def require_braindump_access(user_id: int):
 
 
 @router.get("/access")
-def get_braindump_access(user_id: int = Depends(require_auth)):
+def get_braindump_access(request: Request, user_id: int = Depends(require_auth)):
     try:
         require_braindump_access(user_id)
         enabled = True
+        increment_endpoint_counter(request, "GET", "/api/braindump/v2/access", status_code=200)
     except HTTPException as exc:
         if exc.status_code == 403:
             enabled = False
+            increment_endpoint_counter(request, "GET", "/api/braindump/v2/access", status_code=403)
         else:
             raise
     return {"enabled": enabled}
@@ -1304,9 +1307,12 @@ async def transcribe_live_audio_segment(
             _transcribe_live_audio_bytes, audio_bytes, content_type, segment_id, model, config
         )
     except ValueError as exc:
+        increment_endpoint_counter(request, "POST", "/api/braindump/v2/live/audio-segment/transcribe", status_code=400)
         raise HTTPException(400, str(exc))
     except Exception as exc:
+        increment_endpoint_counter(request, "POST", "/api/braindump/v2/live/audio-segment/transcribe", status_code=500)
         raise HTTPException(500, f"BrainDump transcription failed: {exc}")
+    increment_endpoint_counter(request, "POST", "/api/braindump/v2/live/audio-segment/transcribe", status_code=200)
     total_ms = (time.perf_counter() - received_at) * 1000
     return {
         "segment_id": segment_id,
@@ -1324,11 +1330,12 @@ async def transcribe_live_audio_segment(
 
 
 @router.post("/live/text-segment/extract")
-async def extract_live_text_segment(data: BrainDumpExtractRequest, user_id: int = Depends(require_auth)):
+async def extract_live_text_segment(request: Request, data: BrainDumpExtractRequest, user_id: int = Depends(require_auth)):
     """Extract BrainDump candidates from a transcript returned by the STT step."""
     require_braindump_access(user_id)
     transcript = sanitize_text(data.transcript)
     if not transcript:
+        increment_endpoint_counter(request, "POST", "/api/braindump/v2/live/text-segment/extract", status_code=422)
         raise HTTPException(422, "BrainDump transcript is required")
     config = get_braindump_config(include_secrets=True)
     received_at = time.perf_counter()
@@ -1342,7 +1349,9 @@ async def extract_live_text_segment(data: BrainDumpExtractRequest, user_id: int 
             parsed = _apply_learned_routes(db, user_id, data.workspace_id, parsed)
         raw_json = json.dumps(parsed, ensure_ascii=False, separators=(",", ":"))
     except Exception as exc:
+        increment_endpoint_counter(request, "POST", "/api/braindump/v2/live/text-segment/extract", status_code=500)
         raise HTTPException(500, f"BrainDump extraction failed: {exc}")
+    increment_endpoint_counter(request, "POST", "/api/braindump/v2/live/text-segment/extract", status_code=200)
     total_ms = (time.perf_counter() - received_at) * 1000
     return {
         "segment_id": data.segment_id,
@@ -1377,20 +1386,35 @@ async def process_live_audio_segment(
     audio_bytes = await request.body()
     with get_db() as db:
         workspace_context = _load_braindump_workspace_context(db, user_id, workspace_id)
+    stt_counted = False
+    llm_counted = False
     try:
         convert_ms, stt_ms, transcript, stt_provider = await asyncio.to_thread(
             _transcribe_live_audio_bytes, audio_bytes, content_type, segment_id, model, config
         )
+        increment_endpoint_counter(request, "POST", "/api/braindump/v2/live/audio-segment/transcribe", status_code=200)
+        stt_counted = True
         llm_ms, parsed, usage, raw_json = await asyncio.to_thread(
             _extract_with_llm, transcript, segment_id, workspace_context, config
         )
+        increment_endpoint_counter(request, "POST", "/api/braindump/v2/live/text-segment/extract", status_code=200)
+        llm_counted = True
         with get_db() as db:
             parsed = _apply_learned_routes(db, user_id, workspace_id, parsed)
         raw_json = json.dumps(parsed, ensure_ascii=False, separators=(",", ":"))
     except ValueError as exc:
+        increment_endpoint_counter(request, "POST", "/api/braindump/v2/live/audio-segment", status_code=400)
+        if not stt_counted:
+            increment_endpoint_counter(request, "POST", "/api/braindump/v2/live/audio-segment/transcribe", status_code=400)
         raise HTTPException(400, str(exc))
     except Exception as exc:
+        increment_endpoint_counter(request, "POST", "/api/braindump/v2/live/audio-segment", status_code=500)
+        if stt_counted and not llm_counted:
+            increment_endpoint_counter(request, "POST", "/api/braindump/v2/live/text-segment/extract", status_code=500)
+        elif not stt_counted:
+            increment_endpoint_counter(request, "POST", "/api/braindump/v2/live/audio-segment/transcribe", status_code=500)
         raise HTTPException(500, f"BrainDump live segment failed: {exc}")
+    increment_endpoint_counter(request, "POST", "/api/braindump/v2/live/audio-segment", status_code=200)
     total_ms = (time.perf_counter() - received_at) * 1000
     return {
         "segment_id": segment_id,
@@ -1446,21 +1470,31 @@ def reset_braindump_learning(user_id: int = Depends(require_auth)):
 
 
 @router.post("/todos")
-async def create_todos_from_braindump(data: BrainDumpCreateTodosRequest, user_id: int = Depends(require_auth)):
+async def create_todos_from_braindump(request: Request, data: BrainDumpCreateTodosRequest, user_id: int = Depends(require_auth)):
     """Create real todos from user-confirmed BrainDump candidates."""
     require_braindump_access(user_id)
-    with get_db() as db:
-        created = _create_todos_from_braindump_candidates(db, user_id, data.candidates, data.workspace_id)
-        db.commit()
+    try:
+        with get_db() as db:
+            created = _create_todos_from_braindump_candidates(db, user_id, data.candidates, data.workspace_id)
+            db.commit()
+    except HTTPException as exc:
+        increment_endpoint_counter(request, "POST", "/api/braindump/v2/todos", status_code=exc.status_code)
+        raise
+    except Exception:
+        increment_endpoint_counter(request, "POST", "/api/braindump/v2/todos", status_code=500)
+        raise
+    increment_endpoint_counter(request, "POST", "/api/braindump/v2/todos", status_code=200)
     for todo in created:
         await broadcast_change("todo_create", todo, user_id, todo.get("project_id"))
     return {"todos": created}
 
 
 @router.post("/sessions")
-def create_braindump_session(user_id: int = Depends(require_auth)):
+def create_braindump_session(request: Request, user_id: int = Depends(require_auth)):
     require_braindump_access(user_id)
-    return create_session(user_id).to_dict()
+    session = create_session(user_id).to_dict()
+    increment_endpoint_counter(request, "POST", "/api/braindump/v2/sessions", status_code=200)
+    return session
 
 
 @router.get("/sessions/{session_id}")
@@ -1473,21 +1507,28 @@ def get_braindump_session(session_id: str, user_id: int = Depends(require_auth))
 
 
 @router.post("/sessions/{session_id}/segments/text")
-def add_braindump_text_segment(session_id: str, data: TextSegmentRequest, user_id: int = Depends(require_auth)):
+def add_braindump_text_segment(request: Request, session_id: str, data: TextSegmentRequest, user_id: int = Depends(require_auth)):
     require_braindump_access(user_id)
     text = sanitize_text(data.text)
     try:
-        return append_text_segment(session_id, user_id, text, data.final).to_dict()
+        session = append_text_segment(session_id, user_id, text, data.final).to_dict()
+        increment_endpoint_counter(request, "POST", f"/api/braindump/v2/sessions/{session_id}/segments/text", status_code=200)
+        return session
     except KeyError:
+        increment_endpoint_counter(request, "POST", f"/api/braindump/v2/sessions/{session_id}/segments/text", status_code=404)
         raise HTTPException(404, "BrainDump session not found")
     except ValueError as exc:
+        increment_endpoint_counter(request, "POST", f"/api/braindump/v2/sessions/{session_id}/segments/text", status_code=409)
         raise HTTPException(409, str(exc))
 
 
 @router.post("/sessions/{session_id}/finalize")
-def finalize_braindump_session(session_id: str, user_id: int = Depends(require_auth)):
+def finalize_braindump_session(request: Request, session_id: str, user_id: int = Depends(require_auth)):
     require_braindump_access(user_id)
     try:
-        return finalize_session(session_id, user_id).to_dict()
+        session = finalize_session(session_id, user_id).to_dict()
+        increment_endpoint_counter(request, "POST", f"/api/braindump/v2/sessions/{session_id}/finalize", status_code=200)
+        return session
     except KeyError:
+        increment_endpoint_counter(request, "POST", f"/api/braindump/v2/sessions/{session_id}/finalize", status_code=404)
         raise HTTPException(404, "BrainDump session not found")

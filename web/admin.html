@@ -113,6 +113,11 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .admin-config-textarea { min-height: 82px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .admin-config-textarea.readonly { color: var(--text-secondary); background: color-mix(in srgb, var(--bg-primary) 82%, var(--bg-tertiary)); white-space: pre; }
 .admin-help { font-size: 12px; color: var(--text-muted); margin-top: 8px; }
+.admin-stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.admin-stat-tile { padding: 12px; border: 1px solid color-mix(in srgb, var(--border) 72%, transparent); border-radius: 12px; background: color-mix(in srgb, var(--bg-primary) 72%, var(--bg-secondary)); }
+.admin-stat-label { color: var(--text-muted); font-size: 11px; font-weight: 750; text-transform: uppercase; letter-spacing: .04em; }
+.admin-stat-value { margin-top: 4px; color: var(--text-primary); font-size: 22px; font-weight: 850; }
+.admin-stat-section-title { margin: 18px 0 10px; color: var(--text-secondary); font-size: 13px; font-weight: 800; }
 .admin-error { color: var(--danger); font-size: 13px; margin-top: 8px; }
 .admin-success { color: var(--success); font-size: 13px; margin-top: 8px; }
 .setup-link-box { margin-top: 12px; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-primary); display: none; gap: 8px; align-items: center; }
@@ -402,6 +407,24 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
     <div class="admin-success" id="security-success"></div>
   </div>
 
+  <!-- Technical Stats -->
+  <div class="admin-card" id="technical-stats-card">
+    <h2><span data-icon="activity"></span> Technische Betriebsstatistik</h2>
+    <div class="admin-help">Backend-only: aggregierte technische Zähler ohne Inhalte, Transkripte, IPs, Usernamen oder Roh-User-Agents.</div>
+    <div class="admin-stat-section-title">Systembestand</div>
+    <div class="admin-stats-grid" id="technical-stats-counts"></div>
+    <div class="admin-stat-section-title">BrainDump / STT / LLM Last, letzte 30 Tage</div>
+    <div class="admin-stats-grid" id="technical-stats-ops"></div>
+    <div class="admin-stat-section-title">Plattformen aktive Sessions</div>
+    <div class="admin-stats-grid" id="technical-stats-platforms"></div>
+    <div class="form-row" style="margin-top:12px;">
+      <button class="btn btn-secondary" onclick="loadTechnicalStats()">Aktualisieren</button>
+      <button class="btn btn-secondary" onclick="backfillTechnicalStats()">Letzte 30 Tage aus Logs analysieren</button>
+    </div>
+    <div class="admin-error" id="technical-stats-error"></div>
+    <div class="admin-success" id="technical-stats-success"></div>
+  </div>
+
   <!-- BrainDump Configuration -->
   <div class="admin-card" id="braindump-config-card">
     <h2><span data-icon="sparkles"></span> <span data-i18n-key="admin.braindump.title">BrainDump AI</span></h2>
@@ -606,6 +629,7 @@ const ICONS = {
   'shield-check': '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>',
   settings: '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.73l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
   'download-cloud': '<path d="M12 13v8"/><path d="m8 17 4 4 4-4"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>',
+  activity: '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
   sparkles: '<path d="M12 3l1.9 5.8L20 11l-6.1 2.2L12 19l-1.9-5.8L4 11l6.1-2.2L12 3Z"/><path d="M19 3v4"/><path d="M21 5h-4"/>',
   mail: '<path d="m22 7-8.991 5.727a2 2 0 0 1-2.009 0L2 7"/><rect x="2" y="4" width="20" height="16" rx="2"/>',
 };
@@ -873,13 +897,14 @@ let twoFactorPolicyRequired = false;
 let brainDumpFeatureEnabled = false;
 
 async function loadAdminData() {
-  const [usersData, configData, brainDumpConfigData, emailConfigData, twoFactorPolicy, serverUpdate] = await Promise.all([
+  const [usersData, configData, brainDumpConfigData, emailConfigData, twoFactorPolicy, serverUpdate, technicalStats] = await Promise.all([
     apiGet('/api/admin/users'),
     apiGet('/api/admin/instance-config'),
     apiGet('/api/admin/braindump-config'),
     apiGet('/api/admin/email-config'),
     apiGet('/api/admin/2fa-policy'),
     apiGet('/api/admin/server-update'),
+    apiGet('/api/admin/technical-stats?days=30'),
   ]);
   twoFactorPolicyRequired = !!twoFactorPolicy.required;
   brainDumpFeatureEnabled = !!brainDumpConfigData.enabled;
@@ -889,6 +914,83 @@ async function loadAdminData() {
   renderUsers(usersData.users);
   renderEmailConfig(emailConfigData);
   renderServerUpdate(serverUpdate);
+  renderTechnicalStats(technicalStats);
+}
+
+function formatAdminNumber(value) {
+  return new Intl.NumberFormat(undefined).format(Number(value || 0));
+}
+
+function formatAdminBytes(bytes) {
+  const value = Number(bytes || 0);
+  if (value < 1024) return `${value} B`;
+  const units = ['KB', 'MB', 'GB', 'TB'];
+  let size = value / 1024;
+  let idx = 0;
+  while (size >= 1024 && idx < units.length - 1) { size /= 1024; idx += 1; }
+  return `${size.toFixed(size >= 10 ? 1 : 2)} ${units[idx]}`;
+}
+
+function statTile(label, value) {
+  return `<div class="admin-stat-tile"><div class="admin-stat-label">${escapeHtml(label)}</div><div class="admin-stat-value">${escapeHtml(value)}</div></div>`;
+}
+
+function renderTechnicalStats(data) {
+  if (!data) return;
+  const counts = data.counts || {};
+  const ops = data.ops || {};
+  const byKey = ops.by_key || {};
+  const platforms = data.platforms || {};
+  document.getElementById('technical-stats-counts').innerHTML = [
+    statTile('User', formatAdminNumber(counts.users)),
+    statTile('Workspaces', formatAdminNumber(counts.workspaces)),
+    statTile('Projekte', formatAdminNumber(counts.projects)),
+    statTile('Sections', formatAdminNumber(counts.sections)),
+    statTile('Todos gesamt', formatAdminNumber(counts.todos)),
+    statTile('Reminders', formatAdminNumber(counts.reminders)),
+    statTile('Location-Reminders', formatAdminNumber(counts.location_reminders)),
+    statTile('Push-Subscriptions', formatAdminNumber(counts.push_subscriptions)),
+    statTile('Aktive Sessions', formatAdminNumber(counts.user_sessions)),
+    statTile('DB-Größe', formatAdminBytes(data.database?.bytes)),
+  ].join('');
+  document.getElementById('technical-stats-ops').innerHTML = [
+    statTile('BrainDump Access', formatAdminNumber(byKey.access_check)),
+    statTile('Audio-Segmente', formatAdminNumber(byKey.live_audio_segment)),
+    statTile('STT-Aufrufe', formatAdminNumber(byKey.live_audio_transcribe)),
+    statTile('LLM-Aufrufe', formatAdminNumber(byKey.live_text_extract)),
+    statTile('Session Starts', formatAdminNumber(byKey.session_started)),
+    statTile('Text-Segmente', formatAdminNumber(byKey.session_text_segment)),
+    statTile('Finalized Sessions', formatAdminNumber(byKey.session_finalized)),
+    statTile('BrainDump Todo-Requests', formatAdminNumber(byKey.confirmed_todos_request)),
+  ].join('');
+  const platformEntries = Object.entries(platforms);
+  document.getElementById('technical-stats-platforms').innerHTML = platformEntries.length
+    ? platformEntries.map(([platform, count]) => statTile(platform, formatAdminNumber(count))).join('')
+    : statTile('Keine aktiven Sessions', '0');
+}
+
+async function loadTechnicalStats() {
+  document.getElementById('technical-stats-error').textContent = '';
+  document.getElementById('technical-stats-success').textContent = '';
+  try {
+    const data = await apiGet('/api/admin/technical-stats?days=30');
+    renderTechnicalStats(data);
+  } catch(e) {
+    document.getElementById('technical-stats-error').textContent = 'Error: ' + e.message;
+  }
+}
+
+async function backfillTechnicalStats() {
+  document.getElementById('technical-stats-error').textContent = '';
+  document.getElementById('technical-stats-success').textContent = 'Analysiere Logs…';
+  try {
+    const result = await apiPost('/api/admin/technical-stats/backfill?days=30', {});
+    document.getElementById('technical-stats-success').textContent = `Importiert: ${formatAdminNumber(result.imported_count)} Zähler aus ${formatAdminNumber(result.log_lines_scanned)} Logzeilen`;
+    await loadTechnicalStats();
+  } catch(e) {
+    document.getElementById('technical-stats-success').textContent = '';
+    document.getElementById('technical-stats-error').textContent = 'Error: ' + e.message;
+  }
 }
 
 async function loadUsers() {
