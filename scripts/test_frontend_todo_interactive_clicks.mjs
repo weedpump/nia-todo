@@ -52,6 +52,20 @@ function localDateTimeValue(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}T${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 }
 
+function nextWeekday(from, weekday) {
+  const date = new Date(from);
+  const diff = (weekday - date.getDay() + 7) % 7 || 7;
+  date.setDate(date.getDate() + diff);
+  date.setHours(9, 0, 0, 0);
+  return date;
+}
+
+async function clickSnoozeMode(page, item, mode) {
+  await item.locator('.todo-snooze-menu summary').click();
+  await item.locator('.todo-snooze-menu[open]').waitFor({ state: 'visible', timeout: 5000 });
+  await item.locator(`.todo-snooze-menu .todo-status-options button[onclick*="${mode}"]`).click();
+}
+
 async function assertTodoModalHidden(page, context) {
   const active = await page.locator('#todo-modal.active').count();
   if (active !== 0) throw new Error(`Todo modal opened from ${context}`);
@@ -165,14 +179,30 @@ async function run() {
     await waitForTodoTimes(page, snoozeReminderTitle, originalDue.toISOString(), originalReminder.toISOString());
 
     item = snoozeReminderItem();
-    await item.locator('.todo-snooze-menu summary').click();
-    await item.locator('.todo-snooze-menu[open]').waitFor({ state: 'visible', timeout: 5000 });
-    await item.locator('.todo-snooze-menu .todo-status-options button[onclick*="evening"]').click();
+    await clickSnoozeMode(page, item, 'evening');
     const thisEvening = new Date();
     thisEvening.setHours(18, 0, 0, 0);
     if (thisEvening <= new Date()) thisEvening.setDate(thisEvening.getDate() + 1);
     const thisEveningReminder = new Date(thisEvening.getTime() - 60 * 60 * 1000);
     await waitForTodoTimes(page, snoozeReminderTitle, thisEvening.toISOString(), thisEveningReminder.toISOString());
+
+    await page.click('#toast-undo');
+    await waitForTodoTimes(page, snoozeReminderTitle, originalDue.toISOString(), originalReminder.toISOString());
+
+    const nowForCalendarPresets = new Date();
+    const calendarPresetCases = [
+      ['tomorrow', (() => { const date = new Date(nowForCalendarPresets); date.setDate(nowForCalendarPresets.getDate() + 1); date.setHours(9, 0, 0, 0); return date; })()],
+      ['weekend', nextWeekday(nowForCalendarPresets, 6)],
+      ['next-week', (() => { const date = new Date(nowForCalendarPresets); date.setDate(nowForCalendarPresets.getDate() + 7); date.setHours(9, 0, 0, 0); return date; })()],
+    ];
+    for (const [mode, expectedDue] of calendarPresetCases) {
+      item = snoozeReminderItem();
+      await clickSnoozeMode(page, item, mode);
+      const expectedReminder = new Date(expectedDue.getTime() - 60 * 60 * 1000);
+      await waitForTodoTimes(page, snoozeReminderTitle, expectedDue.toISOString(), expectedReminder.toISOString());
+      await page.click('#toast-undo');
+      await waitForTodoTimes(page, snoozeReminderTitle, originalDue.toISOString(), originalReminder.toISOString());
+    }
 
     item = todoItem();
     await item.locator('.todo-body').click();
