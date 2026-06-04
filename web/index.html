@@ -657,8 +657,18 @@
                 <option value="1440" data-i18n-key="settings.defaultReminder.before1d">1 day before</option>
                 <option value="custom" data-i18n-key="settings.defaultReminder.custom">Custom...</option>
               </select>
-              <div id="settings-default-reminder-custom-row" class="settings-inline-cell" style="display:none; margin-top:10px;">
-                <input type="number" id="settings-default-reminder-custom" min="0" max="525600" step="1" placeholder="Minutes before deadline" data-i18n-placeholder-key="settings.defaultReminder.customPlaceholder">
+              <div id="settings-default-reminder-custom-row" class="settings-default-reminder-custom-row" hidden>
+                <div class="form-group settings-default-reminder-custom-field">
+                  <label for="settings-default-reminder-custom" data-i18n-key="settings.defaultReminder.customAmountLabel">Amount</label>
+                  <input type="number" id="settings-default-reminder-custom" min="1" max="8760" step="1" inputmode="numeric" placeholder="Amount" data-i18n-placeholder-key="settings.defaultReminder.customPlaceholder">
+                </div>
+                <div class="form-group settings-default-reminder-custom-field">
+                  <label for="settings-default-reminder-custom-unit" data-i18n-key="settings.defaultReminder.customUnitLabel">Unit</label>
+                  <select id="settings-default-reminder-custom-unit" data-i18n-aria-label-key="settings.defaultReminder.customUnitLabel">
+                    <option value="hours" data-i18n-key="settings.defaultReminder.customHours">Hours before</option>
+                    <option value="days" data-i18n-key="settings.defaultReminder.customDays">Days before</option>
+                  </select>
+                </div>
                 <button type="button" class="btn btn-secondary" onclick="saveCustomDefaultReminderSetting()" data-i18n-key="common.save">Save</button>
               </div>
               <div class="settings-help-text" data-i18n-key="settings.defaultReminder.help">Explicit reminders are kept and never overwritten.</div>

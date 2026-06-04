@@ -1089,10 +1089,14 @@
   "settings.defaultReminder.before1h": "1 Stunde vorher",
   "settings.defaultReminder.before1d": "1 Tag vorher",
   "settings.defaultReminder.custom": "Benutzerdefiniert…",
-  "settings.defaultReminder.customPlaceholder": "Minuten vor Deadline",
+  "settings.defaultReminder.customPlaceholder": "Zahl",
+  "settings.defaultReminder.customAmountLabel": "Zahl",
+  "settings.defaultReminder.customUnitLabel": "Einheit",
+  "settings.defaultReminder.customHours": "Stunden vorher",
+  "settings.defaultReminder.customDays": "Tage vorher",
   "settings.defaultReminder.help": "Explizite Erinnerungen bleiben erhalten und werden nie überschrieben.",
   "settings.defaultReminder.saved": "Standard-Erinnerung gespeichert.",
   "settings.defaultReminder.saveFailed": "Standard-Erinnerung konnte nicht gespeichert werden.",
-  "settings.defaultReminder.invalidCustom": "Bitte Minuten zwischen 0 und 525600 eintragen.",
+  "settings.defaultReminder.invalidCustom": "Bitte eine ganze Zahl eintragen: 1–8760 Stunden oder 1–365 Tage.",
   "api.auth.defaultReminderSaveFailed": "Standard-Erinnerung konnte nicht gespeichert werden."
 }

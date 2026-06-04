@@ -151,6 +151,59 @@ async function run() {
       return data.email === 'frontenduser-updated@example.invalid';
     }, null, { timeout: 10000 });
 
+    await page.selectOption('#settings-default-reminder', 'custom');
+    await page.locator('#settings-default-reminder-custom-row').waitFor({ state: 'visible', timeout: 5000 });
+    const defaultReminderCustomLayout = await page.evaluate(() => {
+      const row = document.getElementById('settings-default-reminder-custom-row');
+      const input = document.getElementById('settings-default-reminder-custom');
+      const unitSelect = document.getElementById('settings-default-reminder-custom-unit');
+      const unitTrigger = document.querySelector('.ui-select[data-select-id="settings-default-reminder-custom-unit"] .ui-select-trigger');
+      const inputStyle = input ? getComputedStyle(input) : null;
+      const unitTriggerStyle = unitTrigger ? getComputedStyle(unitTrigger) : null;
+      return {
+        hidden: row?.hidden,
+        display: row ? getComputedStyle(row).display : null,
+        alignItems: row ? getComputedStyle(row).alignItems : null,
+        columns: row ? getComputedStyle(row).gridTemplateColumns : null,
+        inputType: input?.getAttribute('type'),
+        inputMode: input?.getAttribute('inputmode'),
+        inputUsesStandardFormGroup: input?.closest('.form-group')?.classList.contains('settings-default-reminder-custom-field'),
+        inputPadding: inputStyle?.padding,
+        inputRadius: inputStyle?.borderRadius,
+        unitHydrated: unitSelect?.classList.contains('visually-hidden-native-select') && Boolean(unitTrigger),
+        unitMatchesInputRadius: inputStyle?.borderRadius === unitTriggerStyle?.borderRadius,
+      };
+    });
+    if (defaultReminderCustomLayout.hidden || defaultReminderCustomLayout.display !== 'grid' || defaultReminderCustomLayout.alignItems !== 'end' || !defaultReminderCustomLayout.columns?.includes('px') || defaultReminderCustomLayout.inputType !== 'number' || defaultReminderCustomLayout.inputMode !== 'numeric' || !defaultReminderCustomLayout.inputUsesStandardFormGroup || !defaultReminderCustomLayout.inputPadding?.startsWith('10px 12px') || !defaultReminderCustomLayout.unitHydrated || !defaultReminderCustomLayout.unitMatchesInputRadius) {
+      throw new Error(`Default reminder custom UI does not use the standard input + unit layout: ${JSON.stringify(defaultReminderCustomLayout)}`);
+    }
+    await page.fill('#settings-default-reminder-custom', '3');
+    await page.selectOption('#settings-default-reminder-custom-unit', 'hours');
+    await page.locator('#settings-default-reminder-custom-row button[onclick="saveCustomDefaultReminderSetting()"]').click();
+    await page.getByText(/Standard-Erinnerung gespeichert|Default reminder saved/).waitFor({ state: 'visible', timeout: 10000 });
+    await page.waitForFunction(async () => {
+      const jwt = localStorage.getItem('jwt_token');
+      const data = await fetch('/api/me', { headers: { 'Authorization': `Bearer ${jwt}` }, credentials: 'include' }).then(r => r.json());
+      return data.default_reminder_offset_minutes === 180;
+    }, null, { timeout: 10000 });
+    await page.fill('#settings-default-reminder-custom', '2');
+    await page.selectOption('#settings-default-reminder-custom-unit', 'days');
+    await page.locator('#settings-default-reminder-custom-row button[onclick="saveCustomDefaultReminderSetting()"]').click();
+    await page.getByText(/Standard-Erinnerung gespeichert|Default reminder saved/).waitFor({ state: 'visible', timeout: 10000 });
+    await page.waitForFunction(async () => {
+      const jwt = localStorage.getItem('jwt_token');
+      const data = await fetch('/api/me', { headers: { 'Authorization': `Bearer ${jwt}` }, credentials: 'include' }).then(r => r.json());
+      return data.default_reminder_offset_minutes === 2880;
+    }, null, { timeout: 10000 });
+    await page.waitForFunction(() => {
+      const input = document.getElementById('settings-default-reminder-custom');
+      const unit = document.getElementById('settings-default-reminder-custom-unit');
+      return input?.value === '2' && unit?.value === 'days';
+    }, null, { timeout: 5000 });
+    await page.selectOption('#settings-default-reminder', '60');
+    await page.getByText(/Standard-Erinnerung gespeichert|Default reminder saved/).waitFor({ state: 'visible', timeout: 10000 });
+    await page.waitForFunction(() => document.getElementById('settings-default-reminder-custom-row')?.hidden === true, null, { timeout: 5000 });
+
     await page.evaluate(() => {
       window.updatePushStatus('granted');
       const disableBtn = document.getElementById('push-disable-btn');
