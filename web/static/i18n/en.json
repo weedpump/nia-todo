@@ -1079,5 +1079,20 @@
   "todo.recurring.label.daily": "Every {interval} day(s)",
   "todo.recurring.label.weekly": "Every {interval} week(s)",
   "todo.recurring.label.monthly": "Every {interval} month(s)",
-  "todo.recurring.label.yearly": "Every {interval} year(s)"
+  "todo.recurring.label.yearly": "Every {interval} year(s)",
+  "settings.defaultReminder.title": "Default reminder",
+  "settings.defaultReminder.hint": "Automatically creates a reminder when a todo gets a deadline and no explicit reminder is set.",
+  "settings.defaultReminder.label": "Automatic reminder for deadlines",
+  "settings.defaultReminder.off": "Off",
+  "settings.defaultReminder.atDeadline": "At deadline",
+  "settings.defaultReminder.before15m": "15 minutes before",
+  "settings.defaultReminder.before1h": "1 hour before",
+  "settings.defaultReminder.before1d": "1 day before",
+  "settings.defaultReminder.custom": "Custom…",
+  "settings.defaultReminder.customPlaceholder": "Minutes before deadline",
+  "settings.defaultReminder.help": "Explicit reminders are kept and never overwritten.",
+  "settings.defaultReminder.saved": "Default reminder saved.",
+  "settings.defaultReminder.saveFailed": "Default reminder could not be saved.",
+  "settings.defaultReminder.invalidCustom": "Enter minutes between 0 and 525600.",
+  "api.auth.defaultReminderSaveFailed": "Default reminder could not be saved."
 }

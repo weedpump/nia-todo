@@ -1079,5 +1079,20 @@
   "todo.recurring.label.daily": "Alle {interval} Tag(e)",
   "todo.recurring.label.weekly": "Alle {interval} Woche(n)",
   "todo.recurring.label.monthly": "Alle {interval} Monat(e)",
-  "todo.recurring.label.yearly": "Alle {interval} Jahr(e)"
+  "todo.recurring.label.yearly": "Alle {interval} Jahr(e)",
+  "settings.defaultReminder.title": "Standard-Erinnerung",
+  "settings.defaultReminder.hint": "Erstellt automatisch eine Erinnerung, wenn ein Todo eine Deadline bekommt und keine explizite Erinnerung gesetzt ist.",
+  "settings.defaultReminder.label": "Automatische Erinnerung bei Deadlines",
+  "settings.defaultReminder.off": "Aus",
+  "settings.defaultReminder.atDeadline": "Zur Deadline",
+  "settings.defaultReminder.before15m": "15 Minuten vorher",
+  "settings.defaultReminder.before1h": "1 Stunde vorher",
+  "settings.defaultReminder.before1d": "1 Tag vorher",
+  "settings.defaultReminder.custom": "Benutzerdefiniert…",
+  "settings.defaultReminder.customPlaceholder": "Minuten vor Deadline",
+  "settings.defaultReminder.help": "Explizite Erinnerungen bleiben erhalten und werden nie überschrieben.",
+  "settings.defaultReminder.saved": "Standard-Erinnerung gespeichert.",
+  "settings.defaultReminder.saveFailed": "Standard-Erinnerung konnte nicht gespeichert werden.",
+  "settings.defaultReminder.invalidCustom": "Bitte Minuten zwischen 0 und 525600 eintragen.",
+  "api.auth.defaultReminderSaveFailed": "Standard-Erinnerung konnte nicht gespeichert werden."
 }

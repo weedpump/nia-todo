@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Recurring todo API regression tests."""
+"""Default due-date reminder API regression tests."""
 
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ def assert_true(condition, message):
         raise AssertionError(message)
 
 
-def make_db():
+def make_db(default_offset=60):
     db = sqlite3.connect(":memory:", check_same_thread=False)
     db.row_factory = sqlite3.Row
     db.executescript(
@@ -79,7 +79,7 @@ def make_db():
         );
         """
     )
-    db.execute("INSERT INTO users (id, username, default_reminder_offset_minutes) VALUES (1, 'tobi', NULL)")
+    db.execute("INSERT INTO users (id, username, default_reminder_offset_minutes) VALUES (1, 'tobi', ?)", (default_offset,))
     db.execute("INSERT INTO projects (id, name, user_id, is_inbox) VALUES (1, 'Inbox', 1, 1)")
     db.commit()
     return db
@@ -104,47 +104,65 @@ def make_client(db):
 
 
 def main():
-    db = make_db()
+    db = make_db(default_offset=60)
     client = make_client(db)
 
-    create_payload = {
-        "title": "Medikamente nehmen",
-        "description": "Nach dem Frühstück",
-        "priority": 2,
+    created = client.post("/api/todos", json={
+        "title": "Heizung prüfen",
         "project_id": 1,
-        "due_date": "2026-06-02T08:00:00+02:00",
-        "remind_at": "2026-06-02T07:30:00+02:00",
+        "due_date": "2026-06-04T18:00:00+02:00",
+    })
+    assert_true(created.status_code == 200, created.text)
+    todo = created.json()
+    assert_true(todo["reminders"][0]["remind_at"] == "2026-06-04T17:00:00+02:00", todo)
+    assert_true(todo["reminders"][0]["source"] == "default_due", todo)
+
+    explicit = client.post("/api/todos", json={
+        "title": "Explizit",
+        "project_id": 1,
+        "due_date": "2026-06-04T18:00:00+02:00",
+        "remind_at": "2026-06-04T12:00:00+02:00",
+    })
+    assert_true(explicit.status_code == 200, explicit.text)
+    explicit_todo = explicit.json()
+    assert_true(explicit_todo["reminders"][0]["remind_at"] == "2026-06-04T12:00:00+02:00", explicit_todo)
+    assert_true(explicit_todo["reminders"][0]["source"] == "explicit", explicit_todo)
+
+    moved = client.patch(f"/api/todos/{todo['id']}", json={"due_date": "2026-06-04T20:00:00+02:00"})
+    assert_true(moved.status_code == 200, moved.text)
+    moved_todo = moved.json()
+    assert_true(moved_todo["reminders"][0]["remind_at"] == "2026-06-04T19:00:00+02:00", moved_todo)
+
+    explicit_moved = client.patch(f"/api/todos/{explicit_todo['id']}", json={"due_date": "2026-06-04T20:00:00+02:00"})
+    assert_true(explicit_moved.status_code == 200, explicit_moved.text)
+    explicit_after = explicit_moved.json()
+    assert_true(explicit_after["reminders"][0]["remind_at"] == "2026-06-04T12:00:00+02:00", explicit_after)
+
+    recurring = client.post("/api/todos", json={
+        "title": "Täglich",
+        "project_id": 1,
+        "due_date": "2026-06-04T18:00:00+02:00",
         "recurring_rule": {"frequency": "daily", "interval": 1},
-    }
-    res = client.post("/api/todos", json=create_payload)
-    assert_true(res.status_code == 200, res.text)
-    todo = res.json()
-    assert_true(todo["recurring_rule"] == {"frequency": "daily", "interval": 1, "preserve_time": True}, todo)
+    })
+    assert_true(recurring.status_code == 200, recurring.text)
+    done = client.patch(f"/api/todos/{recurring.json()['id']}", json={"status": "done"})
+    assert_true(done.status_code == 200, done.text)
+    next_todo = done.json()["recurrence_created_todo"]
+    assert_true(next_todo["due_date"] == "2026-06-05T18:00:00+02:00", next_todo)
+    assert_true(next_todo["reminders"][0]["remind_at"] == "2026-06-05T17:00:00+02:00", next_todo)
+    assert_true(next_todo["reminders"][0]["source"] == "default_due", next_todo)
 
-    done_res = client.patch(f"/api/todos/{todo['id']}", json={"status": "done"})
-    assert_true(done_res.status_code == 200, done_res.text)
-    done = done_res.json()
-    next_todo = done.get("recurrence_created_todo")
-    assert_true(done["status"] == "done", done)
-    assert_true(next_todo and next_todo["status"] == "pending", done)
-    assert_true(next_todo["due_date"] == "2026-06-03T08:00:00+02:00", next_todo)
-    assert_true(next_todo["reminders"][0]["remind_at"] == "2026-06-03T07:30:00+02:00", next_todo)
-    assert_true(next_todo["recurring_rule"]["frequency"] == "daily", next_todo)
+    off_db = make_db(default_offset=None)
+    off_client = make_client(off_db)
+    off_created = off_client.post("/api/todos", json={
+        "title": "Ohne Default",
+        "project_id": 1,
+        "due_date": "2026-06-04T18:00:00+02:00",
+    })
+    assert_true(off_created.status_code == 200, off_created.text)
+    assert_true(off_created.json()["reminders"] == [], off_created.json())
 
-    reopen_res = client.patch(f"/api/todos/{todo['id']}", json={"status": "pending"})
-    assert_true(reopen_res.status_code == 200, reopen_res.text)
-    done_again_res = client.patch(f"/api/todos/{todo['id']}", json={"status": "done"})
-    assert_true(done_again_res.status_code == 200, done_again_res.text)
-    done_again = done_again_res.json()
-    assert_true(done_again.get("recurrence_created_todo", {}).get("id") == next_todo["id"], done_again)
-    all_todos = client.get("/api/todos").json()["todos"]
-    tomorrow_occurrences = [item for item in all_todos if item.get("parent_id") == todo["id"] and item.get("due_date") == "2026-06-03T08:00:00+02:00"]
-    assert_true(len(tomorrow_occurrences) == 1, tomorrow_occurrences)
-
-    invalid = client.post("/api/todos", json={"title": "No deadline", "recurring_rule": {"frequency": "weekly"}})
-    assert_true(invalid.status_code == 422, invalid.text)
-
-    print("✅ recurring todo API tests passed")
+    print("✅ default reminder offset API tests passed")
 
 
 if __name__ == "__main__":

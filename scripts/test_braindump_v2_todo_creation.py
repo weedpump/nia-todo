@@ -23,7 +23,7 @@ def make_db():
     db.row_factory = sqlite3.Row
     db.executescript(
         """
-        CREATE TABLE users (id INTEGER PRIMARY KEY, username TEXT, braindump_enabled INTEGER NOT NULL DEFAULT 1, braindump_learning_enabled INTEGER NOT NULL DEFAULT 1);
+        CREATE TABLE users (id INTEGER PRIMARY KEY, username TEXT, braindump_enabled INTEGER NOT NULL DEFAULT 1, braindump_learning_enabled INTEGER NOT NULL DEFAULT 1, default_reminder_offset_minutes INTEGER);
         CREATE TABLE workspaces (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
@@ -73,6 +73,7 @@ def make_db():
             todo_id INTEGER NOT NULL,
             remind_at TEXT NOT NULL,
             sent_at TEXT,
+            source TEXT NOT NULL DEFAULT 'explicit',
             user_id INTEGER
         );
         CREATE TABLE braindump_route_learning (
