@@ -1541,12 +1541,20 @@ select:focus-visible {
   color: #fff;
 }
 
-/* Plus icon in primary button */
-.btn-primary span:first-child {
-  font-size: 16px;
+/* Icons in primary buttons must stay visible on the accent background. */
+.btn-primary [data-icon] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  opacity: 1;
   line-height: 1;
-  color: var(--accent);
-  text-shadow: none;
+}
+
+.btn-primary [data-icon] .ui-icon {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
 }
 
 .btn-secondary { background: var(--bg-tertiary); color: var(--text-primary); }
