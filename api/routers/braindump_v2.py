@@ -41,7 +41,7 @@ from services.braindump_v2 import (
     finalize_session,
     get_session,
 )
-from services.ops_stats import increment_duration_metric, increment_endpoint_counter
+from services.ops_stats import increment_duration_metric, increment_endpoint_counter, increment_llm_usage_metrics
 from services.utils import sanitize_text
 from services.websocket import broadcast_change
 
@@ -1354,6 +1354,7 @@ async def extract_live_text_segment(request: Request, data: BrainDumpExtractRequ
         raise HTTPException(500, f"BrainDump extraction failed: {exc}")
     increment_endpoint_counter(request, "POST", "/api/braindump/v2/live/text-segment/extract", status_code=200)
     increment_duration_metric("llm", "live_text_extract", llm_ms)
+    increment_llm_usage_metrics("live_text_extract", usage)
     total_ms = (time.perf_counter() - received_at) * 1000
     return {
         "segment_id": data.segment_id,
@@ -1402,6 +1403,7 @@ async def process_live_audio_segment(
         )
         increment_endpoint_counter(request, "POST", "/api/braindump/v2/live/text-segment/extract", status_code=200)
         increment_duration_metric("llm", "live_text_extract", llm_ms)
+        increment_llm_usage_metrics("live_text_extract", usage)
         llm_counted = True
         with get_db() as db:
             parsed = _apply_learned_routes(db, user_id, workspace_id, parsed)
