@@ -35,6 +35,18 @@ BRAINDUMP_ENDPOINTS: dict[str, tuple[str, str]] = {
 
 ACCESS_LOG_RE = re.compile(r'"(?P<method>[A-Z]+) (?P<path>[^ ?"]+)(?:\?[^ "]*)? HTTP/[0-9.]+" (?P<status>\d{3})')
 SESSION_ID_RE = re.compile(r"/api/braindump/v2/sessions/[^/]+/")
+KNOWN_CLIENT_INFO_KEYS = {"app", "mode", "runtime", "type", "platform", "display-mode", "display_mode", "version"}
+KNOWN_CLIENT_MODES = {"native", "browser"}
+KNOWN_CLIENT_PLATFORMS = {"android", "ios", "ipados", "windows", "macos", "linux", "browser", "web", "unknown"}
+KNOWN_CLIENT_DISPLAY_MODES = {"standalone", "browser", "fullscreen", "minimal-ui"}
+OS_LABELS = {
+    "android": "Android",
+    "ios": "iOS",
+    "ipados": "iPadOS",
+    "windows": "Windows",
+    "macos": "macOS",
+    "linux": "Linux",
+}
 
 
 def _now_utc() -> datetime:
@@ -67,6 +79,11 @@ def _clean_platform(value: str) -> str:
 
 
 def _client_info_from_user_agent(user_agent: str = "") -> dict[str, str]:
+    """Extract only allowlisted client metadata from the marker.
+
+    Values from headers/user-agents are untrusted and must never become free-text
+    metric labels. Unknown enum values are normalized to safe buckets.
+    """
     match = re.search(r"nia-todo-client\(([^)]{1,160})\)", str(user_agent or ""), re.IGNORECASE)
     if not match:
         return {}
@@ -76,9 +93,20 @@ def _client_info_from_user_agent(user_agent: str = "") -> dict[str, str]:
             continue
         key, value = part.split("=", 1)
         key = key.strip().lower()
-        value = value.strip()
-        if key and value:
-            result[key] = value[:80]
+        value = value.strip().lower()[:80]
+        if key not in KNOWN_CLIENT_INFO_KEYS or not value:
+            continue
+        if key in {"mode", "runtime", "type"}:
+            result[key] = value if value in KNOWN_CLIENT_MODES else "unknown"
+        elif key == "platform":
+            result[key] = value if value in KNOWN_CLIENT_PLATFORMS else "unknown"
+        elif key in {"display-mode", "display_mode"}:
+            result[key] = value if value in KNOWN_CLIENT_DISPLAY_MODES else "unknown"
+        elif key == "app":
+            result[key] = "nia-todo" if value == "nia-todo" else "unknown"
+        elif key == "version":
+            # Version is accepted only as presence metadata; never used as a label.
+            result[key] = "known"
     return result
 
 
@@ -90,9 +118,9 @@ def classify_platform_from_strings(client_info: str = "", user_agent: str = "") 
     embedded = _client_info_from_user_agent(user_agent)
     raw_client = " ".join([str(client_info or "").lower(), " ".join(f"{k}={v}" for k, v in embedded.items()).lower()]).strip()
     raw_ua = str(user_agent or "").lower()
-    mode = str(embedded.get("mode") or embedded.get("runtime") or "").lower()
-    platform = str(embedded.get("platform") or "").lower()
-    use_client_platform = mode == "native" and platform not in {"", "browser", "web"}
+    mode = str(embedded.get("mode") or embedded.get("runtime") or "")
+    platform = str(embedded.get("platform") or "unknown")
+    use_client_platform = mode == "native" and platform not in {"", "browser", "web", "unknown"}
     if use_client_platform and platform == "android":
         return "android"
     if use_client_platform and platform in {"ios", "ipados"}:
@@ -380,7 +408,7 @@ def _browser_name(user_agent: str = "") -> str:
     # Native apps include a WebView user-agent, but for product stats they are
     # apps, not browsers. Web/PWA sessions may still include X-Nia-Client.
     embedded = _client_info_from_user_agent(user_agent)
-    mode = str(embedded.get("mode") or embedded.get("runtime") or "").lower()
+    mode = str(embedded.get("mode") or embedded.get("runtime") or "")
     if embedded and mode == "native":
         return ""
     ua = _strip_client_marker(user_agent)
@@ -406,17 +434,10 @@ def _browser_name(user_agent: str = "") -> str:
 
 def _os_name(user_agent: str = "") -> str:
     embedded = _client_info_from_user_agent(user_agent)
-    platform = str(embedded.get("platform") or "").lower()
-    mode = str(embedded.get("mode") or embedded.get("runtime") or "").lower()
-    if platform and not (mode == "browser" or platform in {"browser", "web"}):
-        return {
-            "android": "Android",
-            "ios": "iOS",
-            "ipados": "iPadOS",
-            "windows": "Windows",
-            "macos": "macOS",
-            "linux": "Linux",
-        }.get(platform, platform[:1].upper() + platform[1:])
+    platform = str(embedded.get("platform") or "unknown")
+    mode = str(embedded.get("mode") or embedded.get("runtime") or "")
+    if platform in OS_LABELS and not (mode == "browser" or platform in {"browser", "web"}):
+        return OS_LABELS[platform]
     ua = _strip_client_marker(user_agent).lower()
     if "android" in ua:
         return "Android"
@@ -435,9 +456,9 @@ def _os_name(user_agent: str = "") -> str:
 
 def _app_type(user_agent: str = "") -> str:
     embedded = _client_info_from_user_agent(user_agent)
-    platform = str(embedded.get("platform") or "").lower()
-    mode = str(embedded.get("mode") or embedded.get("runtime") or embedded.get("type") or "").lower()
-    display_mode = str(embedded.get("display-mode") or embedded.get("display_mode") or "").lower()
+    platform = str(embedded.get("platform") or "unknown")
+    mode = str(embedded.get("mode") or embedded.get("runtime") or embedded.get("type") or "")
+    display_mode = str(embedded.get("display-mode") or embedded.get("display_mode") or "")
     ua = _strip_client_marker(user_agent)
     is_native = mode == "native"
     if display_mode == "standalone" or "pwa" in mode:
@@ -472,10 +493,11 @@ def _client_mix_label(key: str, kind: str) -> str:
     return key[len(prefix):] if key.startswith(prefix) else key
 
 
-def record_client_session_metrics(db, user_agent: str = "", *, bucket_start: str | None = None) -> None:
+def record_client_session_metrics(db, user_agent: str = "", *, bucket_start: str | None = None) -> bool:
     """Record aggregated client mix.
 
     This intentionally stores no user id, IP, raw user-agent, or session id.
+    All labels are derived from strict allowlists or fixed UA classifier buckets.
     """
     try:
         values = {
@@ -488,8 +510,9 @@ def record_client_session_metrics(db, user_agent: str = "", *, bucket_start: str
             if not label:
                 continue
             _increment_ops_counter_db(db, "client_mix", _client_mix_key(kind, label), count=1, bucket_start=bucket_start)
+        return True
     except Exception:
-        return
+        return False
 
 
 def record_user_session_client_mix(db, session_id: str, user_agent: str = "") -> bool:
@@ -497,6 +520,11 @@ def record_user_session_client_mix(db, session_id: str, user_agent: str = "") ->
     if not session_id:
         return False
     try:
+        row = db.execute("SELECT client_mix_counted_at FROM user_sessions WHERE id = ?", (session_id,)).fetchone()
+        if not row or row["client_mix_counted_at"] is not None:
+            return False
+        if not record_client_session_metrics(db, user_agent):
+            return False
         cur = db.execute(
             """UPDATE user_sessions
                SET client_mix_counted_at = datetime('now')
@@ -504,10 +532,7 @@ def record_user_session_client_mix(db, session_id: str, user_agent: str = "") ->
                  AND client_mix_counted_at IS NULL""",
             (session_id,),
         )
-        if cur.rowcount != 1:
-            return False
-        record_client_session_metrics(db, user_agent)
-        return True
+        return cur.rowcount == 1
     except Exception:
         return False
 
@@ -523,34 +548,48 @@ def _session_bucket_start(value: str | None) -> str:
         return _hour_bucket()
 
 
-def backfill_existing_session_client_mix(db) -> int:
+def backfill_existing_session_client_mix(db, *, batch_size: int = 500) -> int:
     """Count existing sessions once so users do not need to log in again."""
-    try:
-        rows = db.execute(
-            """SELECT id, user_agent, created_at
-               FROM user_sessions
-               WHERE client_mix_counted_at IS NULL"""
-        ).fetchall()
-    except Exception:
-        return 0
     counted = 0
-    for row in rows:
-        session_id = row["id"]
+    safe_batch_size = max(1, min(int(batch_size or 500), 5000))
+    while True:
         try:
-            cur = db.execute(
-                """UPDATE user_sessions
-                   SET client_mix_counted_at = datetime('now')
-                   WHERE id = ?
-                     AND client_mix_counted_at IS NULL""",
-                (session_id,),
-            )
-            if cur.rowcount != 1:
-                continue
-            record_client_session_metrics(db, row["user_agent"] or "", bucket_start=_session_bucket_start(row["created_at"]))
-            counted += 1
+            rows = db.execute(
+                """SELECT id, user_agent, created_at
+                   FROM user_sessions
+                   WHERE client_mix_counted_at IS NULL
+                   ORDER BY created_at, id
+                   LIMIT ?""",
+                (safe_batch_size,),
+            ).fetchall()
         except Exception:
-            continue
-    return counted
+            return counted
+        if not rows:
+            return counted
+        batch_counted = 0
+        for row in rows:
+            session_id = row["id"]
+            try:
+                existing = db.execute("SELECT client_mix_counted_at FROM user_sessions WHERE id = ?", (session_id,)).fetchone()
+                if not existing or existing["client_mix_counted_at"] is not None:
+                    continue
+                if not record_client_session_metrics(db, row["user_agent"] or "", bucket_start=_session_bucket_start(row["created_at"])):
+                    continue
+                cur = db.execute(
+                    """UPDATE user_sessions
+                       SET client_mix_counted_at = datetime('now')
+                       WHERE id = ?
+                         AND client_mix_counted_at IS NULL""",
+                    (session_id,),
+                )
+                if cur.rowcount == 1:
+                    counted += 1
+                    batch_counted += 1
+            except Exception:
+                continue
+        if batch_counted == 0:
+            # Avoid a tight loop if all remaining rows fail unexpectedly.
+            return counted
 
 
 def _historical_client_mix(db, *, days: int) -> dict[str, dict[str, int]]:
