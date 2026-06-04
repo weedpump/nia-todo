@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { withFreshDb, launchPage, ADMIN_PASSWORD, BASE_URL } from './frontend_test_lib.mjs';
+import { withFreshDb, launchPage, ADMIN_PASSWORD, BASE_URL, USERNAME, USER_PASSWORD } from './frontend_test_lib.mjs';
 
 async function run() {
   console.log('🌐 Running Playwright frontend admin test...');
@@ -118,6 +118,29 @@ async function run() {
     await page.setViewportSize({ width: 390, height: 844 });
     await assertAdminSelectLayout('mobile');
     await page.setViewportSize(adminDesktopViewport || { width: 1280, height: 720 });
+
+    const userContext = await browser.newContext({
+      viewport: { width: 1280, height: 800 },
+      userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36',
+      extraHTTPHeaders: { 'X-Nia-Client': 'app=nia-todo;mode=native;platform=linux' },
+    });
+    const userPage = await userContext.newPage();
+    await userPage.goto(BASE_URL, { waitUntil: 'domcontentloaded' });
+    await userPage.locator('#login-overlay').waitFor({ state: 'visible', timeout: 10000 });
+    await userPage.fill('#login-username', USERNAME);
+    await userPage.fill('#login-password', USER_PASSWORD);
+    await userPage.click('button.login-btn');
+    await userPage.locator('#login-overlay').waitFor({ state: 'hidden', timeout: 15000 });
+    await userContext.close();
+    await expandSection('#user-list-card');
+    await page.locator('#user-list').getByRole('button', { name: /Sessions/ }).first().click();
+    await page.locator('.user-session-row').first().waitFor({ state: 'visible', timeout: 10000 });
+    await page.getByText('Linux App').first().waitFor({ state: 'visible', timeout: 10000 });
+    await page.getByText('Zuletzt genutzt:').first().waitFor({ state: 'visible', timeout: 10000 });
+    await page.locator('.user-sessions-panel button.btn-danger').filter({ hasText: 'Widerrufen' }).first().click();
+    await page.getByRole('heading', { name: 'Session beenden?' }).waitFor({ state: 'visible', timeout: 10000 });
+    await page.locator('#admin-dialog-confirm').click();
+    await page.getByText('Keine aktiven Sessions gespeichert.').waitFor({ state: 'visible', timeout: 10000 });
 
     await expandSection('#security-card');
     await page.getByText('Globale 2FA-Pflicht ist deaktiviert').waitFor({ state: 'visible', timeout: 10000 });

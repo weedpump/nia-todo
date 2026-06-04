@@ -1129,5 +1129,14 @@
   "todo.location.departureShort": "Leaving",
   "todo.location.androidOnlyPillTitle": "Location reminder — triggers only in the Android app",
   "braindump.location.none": "No location reminder",
-  "braindump.location.place": "Location reminder"
+  "braindump.location.place": "Location reminder",
+  "admin.user.sessionsButton": "Sessions",
+  "admin.user.sessionsTitle": "Active sessions / devices",
+  "admin.user.sessionsEmpty": "No active sessions stored.",
+  "admin.user.sessionsLoadFailed": "Sessions could not be loaded: {error}",
+  "admin.user.sessionsRevokeAll": "End all",
+  "admin.user.sessionRevokeTitle": "End session?",
+  "admin.user.sessionRevokeMessage": "This user session will be ended immediately. If it uses a remembered 2FA device, that device will be revoked as well.",
+  "admin.user.sessionsRevokeAllTitle": "End all sessions?",
+  "admin.user.sessionsRevokeAllMessage": "All active sessions and remembered 2FA devices for {username} will be ended."
 }
