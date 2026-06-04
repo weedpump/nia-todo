@@ -1,14 +1,11 @@
 -- Migration 043: Add saved places and location-based reminders.
--- Purpose: Model privacy-first location reminders that are triggered locally by native clients.
+-- Purpose: Store address-only location reminders. Native Android resolves addresses locally.
 
 CREATE TABLE IF NOT EXISTS saved_places (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
     name TEXT NOT NULL,
-    address TEXT DEFAULT '',
-    latitude REAL NOT NULL,
-    longitude REAL NOT NULL,
-    radius_m INTEGER NOT NULL DEFAULT 150,
+    address TEXT NOT NULL,
     icon TEXT DEFAULT 'pin',
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now')),
@@ -24,11 +21,7 @@ CREATE TABLE IF NOT EXISTS location_reminders (
     user_id INTEGER NOT NULL,
     trigger_type TEXT NOT NULL CHECK(trigger_type IN ('arrival', 'departure')),
     place_id INTEGER,
-    label TEXT DEFAULT '',
-    address TEXT DEFAULT '',
-    latitude REAL NOT NULL,
-    longitude REAL NOT NULL,
-    radius_m INTEGER NOT NULL DEFAULT 150,
+    address TEXT NOT NULL,
     enabled INTEGER NOT NULL DEFAULT 1,
     triggered_at TEXT,
     source TEXT NOT NULL DEFAULT 'explicit',

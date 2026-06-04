@@ -1100,7 +1100,7 @@
   "settings.defaultReminder.invalidCustom": "Enter a whole number: 1–8760 hours or 1–365 days.",
   "api.auth.defaultReminderSaveFailed": "Default reminder could not be saved.",
   "todo.location.title": "Location reminder",
-  "todo.location.hint": "Triggered privacy-first locally in the Android app. Web/PWA can only manage it.",
+  "todo.location.hint": "Only works in the Android app. Web/PWA can create and manage location reminders, but cannot trigger them.",
   "todo.location.enable": "Remind me when arriving at/leaving a place",
   "todo.location.trigger": "Trigger",
   "todo.location.arrival": "When arriving",

@@ -292,11 +292,9 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
       .filter((todo) => todo && todo.status !== 'done')
       .flatMap((todo) => (todo.location_reminders || (todo.location_reminder ? [todo.location_reminder] : [])).map((locationReminder) => {
         if (!locationReminder || locationReminder.enabled === 0 || locationReminder.enabled === false) return null;
-        const latitude = Number(locationReminder.latitude);
-        const longitude = Number(locationReminder.longitude);
-        const radiusM = 150;
+        const address = String(locationReminder.address || '').trim();
         const triggerType = locationReminder.trigger_type || locationReminder.triggerType;
-        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+        if (!address) return null;
         if (!['arrival', 'departure'].includes(triggerType)) return null;
         return {
           id: `location-${locationReminder.id || todo.id}`,
@@ -304,9 +302,7 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
           title: t('todo.location.notificationTitle'),
           body: reminderBody(todo),
           triggerType,
-          latitude,
-          longitude,
-          radiusM,
+          address,
           userId,
         };
       }))
