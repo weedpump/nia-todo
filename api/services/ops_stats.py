@@ -450,7 +450,7 @@ def _client_mix_label(key: str, kind: str) -> str:
 
 
 def record_client_session_metrics(db, user_agent: str = "") -> None:
-    """Record aggregated client mix on backend session creation.
+    """Record aggregated client mix.
 
     This intentionally stores no user id, IP, raw user-agent, or session id.
     """
@@ -465,6 +465,43 @@ def record_client_session_metrics(db, user_agent: str = "") -> None:
             _increment_ops_counter_db(db, "client_mix", _client_mix_key(kind, label), count=1)
     except Exception:
         return
+
+
+def record_user_session_client_mix(db, session_id: str, user_agent: str = "") -> bool:
+    """Count one user session once for the anonymized historical client mix."""
+    if not session_id:
+        return False
+    try:
+        cur = db.execute(
+            """UPDATE user_sessions
+               SET client_mix_counted_at = datetime('now')
+               WHERE id = ?
+                 AND client_mix_counted_at IS NULL""",
+            (session_id,),
+        )
+        if cur.rowcount != 1:
+            return False
+        record_client_session_metrics(db, user_agent)
+        return True
+    except Exception:
+        return False
+
+
+def backfill_existing_session_client_mix(db) -> int:
+    """Count existing sessions once so users do not need to log in again."""
+    try:
+        rows = db.execute(
+            """SELECT id, user_agent
+               FROM user_sessions
+               WHERE client_mix_counted_at IS NULL"""
+        ).fetchall()
+    except Exception:
+        return 0
+    counted = 0
+    for row in rows:
+        if record_user_session_client_mix(db, row["id"], row["user_agent"] or ""):
+            counted += 1
+    return counted
 
 
 def _historical_client_mix(db, *, days: int) -> dict[str, dict[str, int]]:
@@ -737,6 +774,7 @@ def backfill_from_journal(days: int = 30) -> dict[str, Any]:
     since = f"{days} days ago"
     imported = 0
     scanned = 0
+    session_client_mix_imported = 0
     units_tried = []
     aggregate: dict[tuple[str, str, str, str, str], int] = defaultdict(int)
     for unit in _journal_units():
@@ -769,15 +807,22 @@ def backfill_from_journal(days: int = 30) -> dict[str, Any]:
                 parsed = _now_utc()
             bucket = _hour_bucket(parsed)
             aggregate[(bucket, category, key, "unknown", _status_class(match.group("status")))] += 1
-    if aggregate:
-        with get_db() as db:
-            for (bucket, category, key, platform, status), count in aggregate.items():
-                db.execute(
-                    """INSERT INTO ops_counters (bucket_start, bucket_size, category, key, platform, status_class, count, updated_at)
-                       VALUES (?, 'hour', ?, ?, ?, ?, ?, datetime('now'))
-                       ON CONFLICT(bucket_start, bucket_size, category, key, platform, status_class)
-                       DO UPDATE SET count = excluded.count, updated_at = datetime('now')""",
-                    (bucket, category, key, platform, status, count),
-                )
-                imported += count
-    return {"days": days, "units_tried": units_tried, "log_lines_scanned": scanned, "counter_rows": len(aggregate), "imported_count": imported}
+    with get_db() as db:
+        for (bucket, category, key, platform, status), count in aggregate.items():
+            db.execute(
+                """INSERT INTO ops_counters (bucket_start, bucket_size, category, key, platform, status_class, count, updated_at)
+                   VALUES (?, 'hour', ?, ?, ?, ?, ?, datetime('now'))
+                   ON CONFLICT(bucket_start, bucket_size, category, key, platform, status_class)
+                   DO UPDATE SET count = excluded.count, updated_at = datetime('now')""",
+                (bucket, category, key, platform, status, count),
+            )
+            imported += count
+        session_client_mix_imported = backfill_existing_session_client_mix(db)
+    return {
+        "days": days,
+        "units_tried": units_tried,
+        "log_lines_scanned": scanned,
+        "counter_rows": len(aggregate),
+        "imported_count": imported,
+        "session_client_mix_imported": session_client_mix_imported,
+    }
