@@ -257,8 +257,13 @@ export function createTodosFeature({
       trigger_type: document.getElementById('todo-location-trigger')?.value || 'arrival',
       enabled: true,
     };
-    if (placeId) payload.place_id = Number(placeId);
-    else payload.address = address;
+    if (placeId) {
+      payload.place_id = Number(placeId);
+      const selectedPlace = savedPlaces.find(place => String(place.id) === String(placeId));
+      if (selectedPlace?.address) payload.address = String(selectedPlace.address);
+    } else {
+      payload.address = address;
+    }
     return payload;
   }
 

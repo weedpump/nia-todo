@@ -23,6 +23,7 @@ assert(html.includes('data-i18n-key="todo.location.hint"'), 'todo modal must cle
 assert(todos.includes('locationReminderFromForm'), 'todo feature must serialize location reminders');
 assert(todos.includes('populateLocationReminderForm'), 'todo feature must populate existing location reminders');
 assert(todos.includes('todoData.location_reminder'), 'todo save payload must include location_reminder');
+assert(todos.includes('selectedPlace?.address') && todos.includes('payload.address = String(selectedPlace.address)'), 'saved-place location reminders must keep address in the local payload for native scheduling before server refresh');
 assert(!todos.includes('todo-location-latitude'), 'todo JS must not read latitude inputs');
 assert(!todos.includes('todo-location-radius'), 'todo JS must not read radius inputs');
 assert(sync.includes("'location_reminder'"), 'offline sync must allow location_reminder changes');

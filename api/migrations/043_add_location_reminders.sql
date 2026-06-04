@@ -1,5 +1,5 @@
--- Migration 043: Add saved places and location-based reminders.
--- Purpose: Store address-only location reminders. Native Android resolves addresses locally.
+-- Migration 043: Add saved places and Android-only location reminders.
+-- Purpose: Store address-only location reminders. Android resolves addresses locally and owns geofence triggering.
 
 CREATE TABLE IF NOT EXISTS saved_places (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
