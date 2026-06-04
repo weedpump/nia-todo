@@ -553,6 +553,7 @@ async def update_todo(todo_id: int, data: TodoUpdate, user_id: int = Depends(req
             _sync_default_due_reminder(db, todo_id, user_id, effective_due_date)
         if 'location_reminder' in dumped:
             _replace_location_reminder(db, todo_id, user_id, dumped.get('location_reminder'))
+            db.execute("UPDATE todos SET updated_at = ? WHERE id = ?", (now_iso(), todo_id))
         recurrence_created_todo = None
         recurrence_inserted = False
         normalized_existing_rule = existing.get('recurring_rule')

@@ -328,6 +328,7 @@ class MainActivity : TauriActivity() {
   }
 
   private fun requestLocationPermission(): String {
+    if (!LocationReminderReceiver.hasStoredLocationSchedules(this)) return LocationReminderReceiver.locationPermissionState(this)
     val state = LocationReminderReceiver.locationPermissionState(this)
     if (state == "granted") return state
     if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {

@@ -18,6 +18,7 @@ assert(!receiver.includes('http://') && !receiver.includes('https://'), 'locatio
 assert(receiver.includes('ACCESS_BACKGROUND_LOCATION'), 'permission state must account for background location');
 assert(mainActivity.includes('scheduleLocationReminders'), 'Android bridge must expose location reminder scheduling');
 assert(mainActivity.includes('requestLocationPermission'), 'Android bridge must expose a location permission request flow');
+assert(receiver.includes('hasStoredLocationSchedules') && mainActivity.includes('!LocationReminderReceiver.hasStoredLocationSchedules(this)'), 'Android must not request location permission before at least one location schedule exists');
 assert(mainActivity.includes('onRequestPermissionsResult'), 'Android must reschedule location reminders after permission results');
 assert(mainActivity.includes('if (requestCode == 7303)') && mainActivity.includes('requestLocationPermission()'), 'Android must continue from fine-location grant into the background-location flow');
 assert(mainActivity.includes('onResume()'), 'Android must reschedule location reminders after returning from settings');
