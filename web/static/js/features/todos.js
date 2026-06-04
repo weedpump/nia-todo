@@ -563,7 +563,7 @@ export function createTodosFeature({
   function getSnoozeDate(mode, todo) {
     const now = new Date();
     const due = getTodoDueTime(todo);
-    const next = new Date(due || now);
+    const next = new Date(mode === 'hour' && due ? due : now);
     if (mode === 'hour') next.setHours(next.getHours() + 1);
     else if (mode === 'evening') {
       next.setHours(18, 0, 0, 0);
