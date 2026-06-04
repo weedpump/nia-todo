@@ -244,7 +244,7 @@ def _next_recurring_datetime(value: Optional[str], rule: dict) -> Optional[str]:
     if timezone_name:
         try:
             recurrence_tz = ZoneInfo(timezone_name)
-        except ZoneInfoNotFoundError:
+        except (ZoneInfoNotFoundError, ValueError):
             recurrence_tz = None
     if recurrence_tz and base.tzinfo is not None:
         base = base.astimezone(recurrence_tz)
