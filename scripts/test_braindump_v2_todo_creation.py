@@ -76,6 +76,28 @@ def make_db():
             source TEXT NOT NULL DEFAULT 'explicit',
             user_id INTEGER
         );
+        CREATE TABLE saved_places (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            address TEXT NOT NULL,
+            icon TEXT DEFAULT 'pin',
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT DEFAULT (datetime('now'))
+        );
+        CREATE TABLE location_reminders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            todo_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            trigger_type TEXT NOT NULL,
+            place_id INTEGER,
+            address TEXT NOT NULL,
+            enabled INTEGER NOT NULL DEFAULT 1,
+            triggered_at TEXT,
+            source TEXT NOT NULL DEFAULT 'explicit',
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT DEFAULT (datetime('now'))
+        );
         CREATE TABLE braindump_route_learning (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,
@@ -103,6 +125,8 @@ def make_db():
     db.execute("INSERT INTO sections (id, project_id, name) VALUES (14, 2, 'Vorratschrank')")
     db.execute("INSERT INTO sections (id, project_id, name) VALUES (12, 3, 'Keller')")
     db.execute("INSERT INTO sections (id, project_id, name) VALUES (13, 5, 'Serverraum')")
+    db.execute("INSERT INTO saved_places (id, user_id, name, address, icon) VALUES (1, 1, 'Zuhause', 'Johanneck 24, 85307 Paunzhausen', 'home')")
+    db.execute("INSERT INTO saved_places (id, user_id, name, address, icon) VALUES (2, 1, 'Baumarkt', 'Baumarkt Freising', 'map-pin')")
     return db
 
 
@@ -160,6 +184,34 @@ def test_creates_recurring_todo_when_deadline_present():
     assert_true(todo["recurring_rule"] == {"frequency": "monthly", "interval": 6, "preserve_time": True}, todo)
 
 
+def test_creates_location_reminder_from_saved_place_candidate():
+    db = make_db()
+    created = _create_todos_from_braindump_candidates(
+        db,
+        1,
+        [BrainDumpTodoCandidate(
+            title="Mülltonne rausstellen",
+            location_reminder={"trigger_type": "arrival", "place_name": "Zuhause"},
+        )],
+    )
+    todo = created[0]
+    assert_true(todo["location_reminder"]["trigger_type"] == "arrival", todo)
+    assert_true(todo["location_reminder"]["place_id"] == 1, todo)
+    assert_true(todo["location_reminder"]["place_name"] == "Zuhause", todo)
+    assert_true(todo["location_reminder"]["address"] == "Johanneck 24, 85307 Paunzhausen", todo)
+    assert_true(todo["location_reminder"]["source"] == "braindump", todo)
+
+
+def test_ignores_unknown_braindump_location_place():
+    db = make_db()
+    created = _create_todos_from_braindump_candidates(
+        db,
+        1,
+        [BrainDumpTodoCandidate(title="Paket abholen", location_reminder={"trigger_type": "arrival", "place_name": "Packstation"})],
+    )
+    assert_true(created[0]["location_reminder"] is None, created)
+
+
 def test_ignores_recurring_rule_without_deadline():
     db = make_db()
     created = _create_todos_from_braindump_candidates(
@@ -187,6 +239,7 @@ def test_workspace_context_filters_projects_and_routes_inbox():
     assert_true(context["workspace_name"] == "Arbeit", context)
     assert_true(project_names == ["Inbox", "IT"], project_names)
     assert_true(context["projects"][1]["sections"] == ["Serverraum"], context)
+    assert_true([place["name"] for place in context["places"]] == ["Baumarkt", "Zuhause"], context)
 
     created = _create_todos_from_braindump_candidates(
         db,
@@ -312,6 +365,8 @@ def main():
         test_creates_confirmed_candidates_with_project_section_and_reminder,
         test_applies_default_due_reminder_when_deadline_has_no_explicit_reminder,
         test_creates_recurring_todo_when_deadline_present,
+        test_creates_location_reminder_from_saved_place_candidate,
+        test_ignores_unknown_braindump_location_place,
         test_ignores_recurring_rule_without_deadline,
         test_project_null_uses_inbox_even_with_matching_inbox_section_name,
         test_workspace_context_filters_projects_and_routes_inbox,

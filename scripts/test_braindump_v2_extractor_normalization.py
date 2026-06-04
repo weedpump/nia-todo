@@ -398,11 +398,32 @@ def test_workspace_context_json_preserves_project_section_nesting():
     assert_true(any("Never attach a section" in rule for rule in payload["rules"]), payload)
 
 
+def test_workspace_context_includes_saved_places_for_location_routing():
+    context = {"projects": [], "places": [{"id": 1, "name": "Zuhause", "address": "hidden"}]}
+    formatted = _format_workspace_context(context)
+    payload = json.loads(formatted)
+    assert_true(payload["places"] == [{"name": "Zuhause"}], payload)
+    assert_true(any("place_name" in rule for rule in payload["rules"]), payload)
+    assert_true("hidden" not in formatted, formatted)
+
+
+def test_normalizes_location_reminder_only_for_known_saved_place():
+    context = {"places": [{"id": 1, "name": "Zuhause", "address": "Johanneck 24", "icon": "home"}]}
+    result = _normalize_braindump_json({"candidates": [{"title": "Müll rausstellen", "location_reminder": {"trigger_type": "arrival", "place_name": "Zuhause"}}]}, "Wenn ich zuhause bin Müll rausstellen", context)
+    location = result["candidates"][0]["location_reminder"]
+    assert_true(location["place_id"] == 1 and location["place_name"] == "Zuhause", location)
+    assert_true(location["address"] == "Johanneck 24", location)
+
+    unknown = _normalize_braindump_json({"candidates": [{"title": "Paket abholen", "location_reminder": {"trigger_type": "arrival", "place_name": "Packstation"}}]}, "Bei der Packstation Paket abholen", context)
+    assert_true(unknown["candidates"][0]["location_reminder"] is None, unknown)
+
+
 def test_default_prompt_requires_generic_semantic_section_routing():
     prompt = DEFAULT_BRAINDUMP_SYSTEM_PROMPT
     assert_true("Treat existing project sections as the user's taxonomy" in prompt, prompt)
     assert_true("synonyms" in prompt and "hypernyms" in prompt and "hyponyms" in prompt, prompt)
     assert_true("exact project + section" in prompt, prompt)
+    assert_true("Location reminders" in prompt and "saved places" in prompt and "place_name" in prompt, prompt)
 
 
 def test_remote_stt_response_parsing_and_multipart_payload():
@@ -450,6 +471,8 @@ def main():
         test_admin_llm_models_payload_validates_configured_model,
         test_workspace_context_is_compact_json,
         test_workspace_context_json_preserves_project_section_nesting,
+        test_workspace_context_includes_saved_places_for_location_routing,
+        test_normalizes_location_reminder_only_for_known_saved_place,
         test_default_prompt_requires_generic_semantic_section_routing,
         test_remote_stt_response_parsing_and_multipart_payload,
     ]

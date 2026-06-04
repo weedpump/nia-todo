@@ -12,6 +12,7 @@ const desktop = await readFile(new URL('../web/static/js/features/desktop-integr
 const placesApiJs = await readFile(new URL('../web/static/js/api/places.js', import.meta.url), 'utf8');
 const rendering = await readFile(new URL('../web/static/js/features/todo-rendering.js', import.meta.url), 'utf8');
 const css = await readFile(new URL('../web/static/style.css', import.meta.url), 'utf8');
+const braindumpLive = await readFile(new URL('../web/static/js/features/braindump-live.js', import.meta.url), 'utf8');
 const de = await readFile(new URL('../web/static/i18n/de.json', import.meta.url), 'utf8');
 const en = await readFile(new URL('../web/static/i18n/en.json', import.meta.url), 'utf8');
 
@@ -47,6 +48,10 @@ assert(!desktop.includes('radiusM'), 'frontend native location schedules must be
 assert(desktop.includes('if (locationReminders.length)') && desktop.indexOf('ensureNativeLocationPermission(true)') > desktop.indexOf('if (locationReminders.length)'), 'Android location permission must only be requested when at least one location reminder exists');
 assert(desktop.indexOf('scheduleLocationReminders?.(locationReminders)') < desktop.indexOf('ensureNativeLocationPermission(true)'), 'Android location schedules must be stored before requesting permission');
 assert(de.includes('todo.location.notificationTitle') && en.includes('todo.location.notificationTitle'), 'location notification title must be translated');
+assert(braindumpLive.includes('options.placesApi?.list') && braindumpLive.includes('data-bd-field="location_place_id"'), 'BrainDump quickfix must load saved places and expose location reminder editing');
+assert(braindumpLive.includes('candidate.location_reminder') && braindumpLive.includes("source: 'braindump'"), 'BrainDump candidates must keep location reminders in the create payload');
+assert(braindumpLive.includes('function candidateForCreate') && braindumpLive.includes('place_id: location.place_id || null') && !braindumpLive.includes('address: place?.address'), 'BrainDump create payload must minimize location data to saved-place id/name and trigger');
+assert(de.includes('braindump.location.none') && en.includes('braindump.location.place'), 'BrainDump location labels must be translated');
 assert(de.includes('settings.places.update') && en.includes('settings.places.updated'), 'saved places edit labels must be translated');
 assert(rendering.includes('todo-meta-chip todo-location') && rendering.includes("iconSvg('map-pin')"), 'todo cards must render a location reminder pill');
 assert(rendering.includes('locationReminderLabel'), 'todo cards must derive a location reminder label');

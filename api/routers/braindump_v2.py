@@ -21,6 +21,7 @@ from db import get_db
 from routers.auth import require_auth
 from routers.todos import (
     TodoCreate,
+    _insert_location_reminder,
     _insert_reminder,
     _normalize_recurring_rule,
     _sync_default_due_reminder,
@@ -156,11 +157,54 @@ def _normalize_temporal_field(value, *, require_time: bool = False, transcript: 
     return parsed
 
 
+def _normalize_location_reminder_candidate(candidate: dict, workspace_context: dict | None) -> dict | None:
+    raw = candidate.get("location_reminder") or candidate.get("locationReminder") or candidate.get("location") or candidate.get("place")
+    if not raw:
+        return None
+    if isinstance(raw, str):
+        raw = {"place_name": raw}
+    if not isinstance(raw, dict):
+        return None
+    trigger_type = str(raw.get("trigger_type") or raw.get("trigger") or "arrival").strip().lower()
+    if trigger_type in {"arrive", "arriving", "enter", "at", "near", "on_arrival"}:
+        trigger_type = "arrival"
+    elif trigger_type in {"leave", "leaving", "exit", "on_departure"}:
+        trigger_type = "departure"
+    if trigger_type not in {"arrival", "departure"}:
+        return None
+    places = (workspace_context or {}).get("places") or []
+    place_name = str(raw.get("place_name") or raw.get("placeName") or raw.get("saved_place") or raw.get("savedPlace") or raw.get("name") or "").strip()
+    place_id = raw.get("place_id") or raw.get("placeId")
+    matched = None
+    if place_id not in (None, ""):
+        try:
+            place_id_int = int(place_id)
+        except (TypeError, ValueError):
+            place_id_int = None
+        matched = next((place for place in places if int(place.get("id") or 0) == place_id_int), None) if place_id_int else None
+    if not matched and place_name:
+        normalized_name = _name_key(place_name)
+        matched = next((place for place in places if _name_key(place.get("name")) == normalized_name), None)
+    if not matched:
+        return None
+    return {
+        "trigger_type": trigger_type,
+        "place_id": int(matched["id"]),
+        "place_name": matched["name"],
+        "address": matched["address"],
+        "enabled": True,
+        "source": "braindump",
+    }
+
+
 def _route_workspace_candidate(candidate: dict, workspace_context: dict | None) -> dict:
     projects = (workspace_context or {}).get("projects") or []
-    if not projects:
-        return candidate
     routed = dict(candidate)
+    routed["location_reminder"] = _normalize_location_reminder_candidate(candidate, workspace_context)
+    if not projects:
+        routed["project_name"] = None
+        routed["section_name"] = None
+        return routed
     project_name = str(routed.get("project_name") or "").strip()
     section_name = str(routed.get("section_name") or "").strip()
     project_names = {str(project.get("name") or "").lower(): project for project in projects}
@@ -369,6 +413,7 @@ def _normalize_braindump_json(parsed: dict, transcript: str, workspace_context: 
             "deadline": deadline,
             "reminder": reminder,
             "recurring_rule": _normalize_braindump_recurring_rule(recurring_source, has_deadline=bool(deadline)),
+            "location_reminder": candidate.get("location_reminder") or candidate.get("locationReminder") or candidate.get("location") or candidate.get("place"),
         }, workspace_context))
     return {"candidates": _dedupe_normalized_candidates(normalized)}
 
@@ -386,6 +431,7 @@ class BrainDumpTodoCandidate(BaseModel):
     deadline: str | None = None
     reminder: str | None = None
     recurring_rule: dict | None = None
+    location_reminder: dict | None = None
     original_project_name: str | None = None
     original_section_name: str | None = None
     original_route_present: bool = False
@@ -584,6 +630,26 @@ def _accessible_project_rows(db, user_id: int, *, workspace_id: int | None = Non
     ).fetchall()
 
 
+def _saved_places_context(db, user_id: int) -> list[dict]:
+    rows = db.execute(
+        """SELECT id, name, address, icon
+           FROM saved_places
+           WHERE user_id = ?
+           ORDER BY lower(name), id
+           LIMIT 80""",
+        (user_id,),
+    ).fetchall()
+    return [
+        {
+            "id": row["id"],
+            "name": row["name"],
+            "address": row["address"],
+            "icon": row["icon"],
+        }
+        for row in rows
+    ]
+
+
 def _load_braindump_workspace_context(db, user_id: int, workspace_id: int | None = None) -> dict:
     """Return a compact routing context for the BrainDump LLM.
 
@@ -608,6 +674,7 @@ def _load_braindump_workspace_context(db, user_id: int, workspace_id: int | None
         ).fetchall()
         for section in sections:
             sections_by_project.setdefault(section["project_id"], []).append(section["name"])
+    places = _saved_places_context(db, user_id)
     workspace_names = [row["workspace_name"] for row in projects if row["workspace_name"]]
     return {
         "workspace_id": workspace_id,
@@ -620,12 +687,14 @@ def _load_braindump_workspace_context(db, user_id: int, workspace_id: int | None
                 "sections": sections_by_project.get(row["id"], []),
             }
             for row in projects
-        ]
+        ],
+        "places": places,
     }
 
 
 def _format_workspace_context(context: dict | None) -> str:
     projects = (context or {}).get("projects") or []
+    places = (context or {}).get("places") or []
     workspace_name = (context or {}).get("workspace_name")
     payload = {
         "workspace_name": workspace_name,
@@ -633,6 +702,8 @@ def _format_workspace_context(context: dict | None) -> str:
             "Use only exact project_name values from workspace.projects[].name, otherwise null.",
             "Use only section_name values listed inside the selected project's sections array, otherwise null.",
             "Never attach a section to a different project than the one where it is listed.",
+            "Use only exact place_name values from workspace.places[].name for location_reminder, otherwise null.",
+            "For location_reminder return only trigger_type and place_name; do not output addresses, coordinates, or radius.",
             "Return only the output object with candidates; do not copy workspace data into the output.",
         ],
         "projects": [
@@ -643,12 +714,24 @@ def _format_workspace_context(context: dict | None) -> str:
             for project in projects[:40]
             if str(project.get("name") or "").strip()
         ],
+        "places": [
+            {
+                "name": str(place.get("name") or "")[:120],
+            }
+            for place in places[:80]
+            if str(place.get("name") or "").strip()
+        ],
     }
     if not payload["projects"]:
         payload["rules"].append("No projects are available; use project_name=null and section_name=null.")
+    if not payload["places"]:
+        payload["rules"].append("No saved places are available; use location_reminder=null.")
     text = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
     while len(text) > 5000 and len(payload["projects"]) > 1:
         payload["projects"] = payload["projects"][:-1]
+        text = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+    while len(text) > 5000 and len(payload["places"]) > 1:
+        payload["places"] = payload["places"][:-1]
         text = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
     return text
 
@@ -959,6 +1042,10 @@ def _create_todos_from_braindump_candidates(db, user_id: int, candidates: list[B
             _insert_reminder(db, todo_id, data.remind_at, user_id)
         else:
             _sync_default_due_reminder(db, todo_id, user_id, data.due_date)
+        if candidate.location_reminder:
+            location = _normalize_location_reminder_candidate({"location_reminder": candidate.location_reminder}, {"places": _saved_places_context(db, user_id)})
+            if location:
+                _insert_location_reminder(db, todo_id, user_id, location)
         todo = fetch_todo(db, todo_id, user_id)
         if todo:
             if project_matched:
