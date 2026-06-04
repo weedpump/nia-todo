@@ -25,6 +25,8 @@ async function run() {
     await page.fill('#admin-login-password', ADMIN_PASSWORD);
     await page.click('text=Anmelden');
     await page.locator('#admin-content').waitFor({ state: 'visible', timeout: 10000 });
+    const statsBackfillButtons = await page.locator('[data-i18n-key="admin.stats.analyzeLogs"]').count();
+    if (statsBackfillButtons !== 0) throw new Error('Admin statistics log backfill button should not be rendered');
     const nestedHeaderInputs = await page.locator('.admin-section-header input, .admin-section-header button, .admin-section-header select, .admin-section-header textarea').count();
     if (nestedHeaderInputs !== 0) throw new Error('Admin section header button contains nested interactive controls');
     await expandSection('#email-config-card');

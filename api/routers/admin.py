@@ -28,7 +28,7 @@ from services.email_templates import password_setup_email
 from services.websocket import manager
 from services.email_verification import clear_pending_email, set_email_or_pending
 from services.server_updates import get_update_progress, get_update_status, install_latest_deb_update
-from services.ops_stats import backfill_from_journal, technical_stats
+from services.ops_stats import technical_stats
 from rate_limit import require_login_rate_limit, get_client_ip
 from middleware.security import generate_csrf_token, set_csrf_cookie
 from errors import api_error, validation_api_error
@@ -246,9 +246,6 @@ def admin_update_instance_config(data: InstanceConfigRequest, request: Request, 
 def admin_get_technical_stats(days: int = 30, _: bool = Depends(require_admin)):
     return technical_stats(days=days)
 
-@router.post("/technical-stats/backfill")
-def admin_backfill_technical_stats(days: int = 30, _: bool = Depends(require_admin)):
-    return backfill_from_journal(days=days)
 
 @router.get("/braindump-config")
 def admin_get_braindump_config(_: bool = Depends(require_admin)):

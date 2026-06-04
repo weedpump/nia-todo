@@ -9,9 +9,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
-import os
 import re
-import subprocess
 from typing import Any
 
 from fastapi import Request
@@ -33,7 +31,6 @@ BRAINDUMP_ENDPOINTS: dict[str, tuple[str, str]] = {
     "POST /api/braindump/v2/sessions/*/finalize": ("braindump", "session_finalized"),
 }
 
-ACCESS_LOG_RE = re.compile(r'"(?P<method>[A-Z]+) (?P<path>[^ ?"]+)(?:\?[^ "]*)? HTTP/[0-9.]+" (?P<status>\d{3})')
 SESSION_ID_RE = re.compile(r"/api/braindump/v2/sessions/[^/]+/")
 KNOWN_CLIENT_INFO_KEYS = {"app", "mode", "runtime", "type", "platform", "display-mode", "display_mode", "version"}
 KNOWN_CLIENT_MODES = {"native", "browser"}
@@ -847,69 +844,3 @@ def technical_stats(days: int = 30) -> dict[str, Any]:
             "workload": workload_summary(db, days=period_days),
         }
 
-
-def _journal_units() -> list[str]:
-    configured = os.environ.get("NIA_TODO_JOURNAL_UNIT") or os.environ.get("NIA_TODO_SERVICE_UNIT")
-    if configured:
-        return [configured]
-    return ["nia-todo"]
-
-
-def backfill_from_journal(days: int = 30) -> dict[str, Any]:
-    """Import aggregated BrainDump counters from existing systemd access logs."""
-    days = max(1, min(int(days or 30), RETENTION_DAYS))
-    since = f"{days} days ago"
-    imported = 0
-    scanned = 0
-    session_client_mix_imported = 0
-    units_tried = []
-    aggregate: dict[tuple[str, str, str, str, str], int] = defaultdict(int)
-    for unit in _journal_units():
-        units_tried.append(unit)
-        try:
-            proc = subprocess.run(
-                ["journalctl", "-u", unit, "--since", since, "--no-pager", "-o", "short-iso"],
-                check=False,
-                capture_output=True,
-                text=True,
-                timeout=30,
-            )
-        except Exception:
-            continue
-        if proc.returncode != 0 and not proc.stdout:
-            continue
-        for line in proc.stdout.splitlines():
-            match = ACCESS_LOG_RE.search(line)
-            if not match:
-                continue
-            scanned += 1
-            signature = normalize_endpoint(match.group("method"), match.group("path"))
-            if not signature:
-                continue
-            category, key = BRAINDUMP_ENDPOINTS[signature]
-            ts_text = line[:25].strip()
-            try:
-                parsed = datetime.fromisoformat(ts_text)
-            except ValueError:
-                parsed = _now_utc()
-            bucket = _hour_bucket(parsed)
-            aggregate[(bucket, category, key, "unknown", _status_class(match.group("status")))] += 1
-    with get_db() as db:
-        for (bucket, category, key, platform, status), count in aggregate.items():
-            db.execute(
-                """INSERT INTO ops_counters (bucket_start, bucket_size, category, key, platform, status_class, count, updated_at)
-                   VALUES (?, 'hour', ?, ?, ?, ?, ?, datetime('now'))
-                   ON CONFLICT(bucket_start, bucket_size, category, key, platform, status_class)
-                   DO UPDATE SET count = excluded.count, updated_at = datetime('now')""",
-                (bucket, category, key, platform, status, count),
-            )
-            imported += count
-        session_client_mix_imported = backfill_existing_session_client_mix(db)
-    return {
-        "days": days,
-        "units_tried": units_tried,
-        "log_lines_scanned": scanned,
-        "counter_rows": len(aggregate),
-        "imported_count": imported,
-        "session_client_mix_imported": session_client_mix_imported,
-    }
