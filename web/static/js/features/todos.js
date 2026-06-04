@@ -133,8 +133,6 @@ export function createTodosFeature({
     }
   }
 
-  let modalRecurringTimezone;
-
   function normalizeRecurringRule(rule, { defaultTimezone = browserTimeZone() } = {}) {
     if (!rule || typeof rule !== 'object') return null;
     const frequency = String(rule.frequency || 'none').toLowerCase();
@@ -150,8 +148,7 @@ export function createTodosFeature({
     const frequency = document.getElementById('todo-recurring-frequency')?.value || 'none';
     if (frequency === 'none') return null;
     const interval = Number.parseInt(document.getElementById('todo-recurring-interval')?.value || '1', 10);
-    const timezone = modalRecurringTimezone === undefined ? browserTimeZone() : modalRecurringTimezone;
-    return normalizeRecurringRule({ frequency, interval, timezone }, { defaultTimezone: null });
+    return normalizeRecurringRule({ frequency, interval, timezone: browserTimeZone() }, { defaultTimezone: null });
   }
 
   function updateRecurringControls() {
@@ -1130,9 +1127,6 @@ export function createTodosFeature({
         document.getElementById('todo-due').value = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
       }
       const recurringRule = normalizeRecurringRule(todo.recurring_rule, { defaultTimezone: null });
-      modalRecurringTimezone = recurringRule
-        ? (Object.prototype.hasOwnProperty.call(todo.recurring_rule || {}, 'timezone') ? recurringRule.timezone || null : null)
-        : undefined;
       document.getElementById('todo-recurring-frequency').value = recurringRule?.frequency || 'none';
       document.getElementById('todo-recurring-interval').value = recurringRule?.interval || 1;
       updateRecurringControls();
@@ -1143,7 +1137,6 @@ export function createTodosFeature({
       }
       populateLocationReminderForm(todo);
     } else {
-      modalRecurringTimezone = undefined;
       document.getElementById('todo-pinned').checked = false;
       document.getElementById('todo-recurring-frequency').value = 'none';
       document.getElementById('todo-recurring-interval').value = 1;

@@ -186,13 +186,14 @@ def main():
     )
     assert_true(legacy_next == "2026-03-29T09:00:00+01:00", legacy_next)
 
-    invalid_timezone = client.post("/api/todos", json={
-        "title": "Bad timezone",
-        "project_id": 1,
-        "due_date": "2026-06-02T08:00:00+02:00",
-        "recurring_rule": {"frequency": "daily", "timezone": "Not/AZone"},
-    })
-    assert_true(invalid_timezone.status_code == 422, invalid_timezone.text)
+    for invalid_tz in ["Not/AZone", "../../etc/passwd", "/etc/localtime", "localtime"]:
+        invalid_timezone = client.post("/api/todos", json={
+            "title": f"Bad timezone {invalid_tz}",
+            "project_id": 1,
+            "due_date": "2026-06-02T08:00:00+02:00",
+            "recurring_rule": {"frequency": "daily", "timezone": invalid_tz},
+        })
+        assert_true(invalid_timezone.status_code == 422, (invalid_tz, invalid_timezone.status_code, invalid_timezone.text))
 
     invalid = client.post("/api/todos", json={"title": "No deadline", "recurring_rule": {"frequency": "weekly"}})
     assert_true(invalid.status_code == 422, invalid.text)

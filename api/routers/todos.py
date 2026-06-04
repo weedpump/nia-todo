@@ -4,7 +4,7 @@ import calendar
 import json
 from datetime import datetime, timedelta, timezone
 from typing import Optional
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError, available_timezones
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field
 
@@ -51,6 +51,7 @@ class TodoUpdate(BaseModel):
 ALLOWED_TODO_STATUSES = {"pending", "in_progress", "done"}
 ALLOWED_RECURRENCE_FREQUENCIES = {"daily", "weekly", "monthly", "yearly"}
 ALLOWED_LOCATION_TRIGGERS = {"arrival", "departure"}
+ALLOWED_TIMEZONES = available_timezones() - {"localtime"}
 FORBIDDEN_LOCATION_COORDINATE_FIELDS = {
     "lat", "lng", "latitude", "longitude", "lon",
     "radius", "radius_m", "radiusM", "radiusMeters", "radius_meters",
@@ -160,9 +161,11 @@ def _normalize_recurring_rule(rule: Optional[dict]) -> Optional[str]:
     }
     timezone_name = str(rule.get('timezone') or '').strip()
     if timezone_name:
+        if timezone_name not in ALLOWED_TIMEZONES:
+            raise HTTPException(422, "Invalid recurring_rule timezone")
         try:
             ZoneInfo(timezone_name)
-        except ZoneInfoNotFoundError:
+        except (ZoneInfoNotFoundError, ValueError):
             raise HTTPException(422, "Invalid recurring_rule timezone")
         normalized["timezone"] = timezone_name
     return json.dumps(normalized, separators=(',', ':'), sort_keys=True)
