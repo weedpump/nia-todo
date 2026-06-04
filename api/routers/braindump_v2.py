@@ -21,7 +21,9 @@ from db import get_db
 from routers.auth import require_auth
 from routers.todos import (
     TodoCreate,
+    _insert_reminder,
     _normalize_recurring_rule,
+    _sync_default_due_reminder,
     _validate_todo_dates,
     _validate_todo_status,
     _validate_todo_target,
@@ -954,7 +956,9 @@ def _create_todos_from_braindump_candidates(db, user_id: int, candidates: list[B
         )
         todo_id = cursor.lastrowid
         if data.remind_at:
-            db.execute("INSERT INTO reminders (todo_id, remind_at, user_id) VALUES (?,?,?)", (todo_id, data.remind_at, user_id))
+            _insert_reminder(db, todo_id, data.remind_at, user_id)
+        else:
+            _sync_default_due_reminder(db, todo_id, user_id, data.due_date)
         todo = fetch_todo(db, todo_id, user_id)
         if todo:
             if project_matched:

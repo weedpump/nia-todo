@@ -232,6 +232,28 @@ def _default_reminder_at_for_due_date(db, user_id: int, due_date: Optional[str])
     return (due_dt - timedelta(minutes=offset)).isoformat()
 
 
+def _datetime_values_equal(left: Optional[str], right: Optional[str]) -> bool:
+    if left in (None, "") or right in (None, ""):
+        return left == right
+    if str(left) == str(right):
+        return True
+    try:
+        left_dt = datetime.fromisoformat(str(left).replace('Z', '+00:00'))
+        right_dt = datetime.fromisoformat(str(right).replace('Z', '+00:00'))
+    except ValueError:
+        return False
+    return left_dt == right_dt
+
+
+def _matches_existing_auto_due_reminder(existing: dict, remind_at: Optional[str]) -> bool:
+    if not remind_at:
+        return False
+    for reminder in existing.get('reminders') or []:
+        if reminder.get('source') == AUTO_REMINDER_SOURCE and _datetime_values_equal(reminder.get('remind_at'), remind_at):
+            return True
+    return False
+
+
 def _insert_reminder(db, todo_id: int, remind_at: str, user_id: int, source: str = EXPLICIT_REMINDER_SOURCE):
     db.execute(
         "INSERT INTO reminders (todo_id, remind_at, user_id, source) VALUES (?,?,?,?)",
@@ -402,18 +424,23 @@ async def update_todo(todo_id: int, data: TodoUpdate, user_id: int = Depends(req
             set_clause = ", ".join(f"{k}=:{k}" for k in safe_updates)
             db.execute(f"UPDATE todos SET {set_clause} WHERE id = :id", {**safe_updates, "id": todo_id})
         due_date_changed = 'due_date' in dumped and dumped.get('due_date') != existing.get('due_date')
+        remind_at_is_existing_auto_default = _matches_existing_auto_due_reminder(existing, data.remind_at)
         if 'remind_at' in dumped:
-            if existing.get('user_id') == user_id:
-                db.execute(
-                    "DELETE FROM reminders WHERE todo_id = ? AND (user_id = ? OR user_id IS NULL)",
-                    (todo_id, user_id)
-                )
+            if remind_at_is_existing_auto_default:
+                if due_date_changed:
+                    _sync_default_due_reminder(db, todo_id, user_id, effective_due_date)
             else:
-                db.execute("DELETE FROM reminders WHERE todo_id = ? AND user_id = ?", (todo_id, user_id))
-            if data.remind_at:
-                _insert_reminder(db, todo_id, data.remind_at, user_id, EXPLICIT_REMINDER_SOURCE)
-            elif due_date_changed:
-                _sync_default_due_reminder(db, todo_id, user_id, effective_due_date)
+                if existing.get('user_id') == user_id:
+                    db.execute(
+                        "DELETE FROM reminders WHERE todo_id = ? AND (user_id = ? OR user_id IS NULL)",
+                        (todo_id, user_id)
+                    )
+                else:
+                    db.execute("DELETE FROM reminders WHERE todo_id = ? AND user_id = ?", (todo_id, user_id))
+                if data.remind_at:
+                    _insert_reminder(db, todo_id, data.remind_at, user_id, EXPLICIT_REMINDER_SOURCE)
+                elif due_date_changed:
+                    _sync_default_due_reminder(db, todo_id, user_id, effective_due_date)
         elif due_date_changed:
             _sync_default_due_reminder(db, todo_id, user_id, effective_due_date)
         recurrence_created_todo = None
@@ -428,8 +455,15 @@ async def update_todo(todo_id: int, data: TodoUpdate, user_id: int = Depends(req
         recurrence_existing_next_id = None
         if became_done and rule:
             next_due_date = _next_recurring_datetime(updates.get('due_date', existing.get('due_date')), rule)
-            reminder_base = data.remind_at or (existing.get('reminders') or [{}])[0].get('remind_at')
-            next_remind_at = _next_recurring_datetime(reminder_base, rule)
+            existing_reminder = (existing.get('reminders') or [{}])[0]
+            reminder_source = existing_reminder.get('source') or EXPLICIT_REMINDER_SOURCE
+            if remind_at_is_existing_auto_default:
+                reminder_source = AUTO_REMINDER_SOURCE
+            if reminder_source == AUTO_REMINDER_SOURCE:
+                next_remind_at = _default_reminder_at_for_due_date(db, user_id, next_due_date)
+            else:
+                reminder_base = data.remind_at or existing_reminder.get('remind_at')
+                next_remind_at = _next_recurring_datetime(reminder_base, rule)
             if next_due_date or next_remind_at:
                 existing_next = db.execute(
                     """SELECT id FROM todos
@@ -453,8 +487,7 @@ async def update_todo(todo_id: int, data: TodoUpdate, user_id: int = Depends(req
                     recurrence_existing_next_id = c.lastrowid
                     recurrence_inserted = True
                     if next_remind_at:
-                        existing_reminder = (existing.get('reminders') or [{}])[0]
-                        _insert_reminder(db, recurrence_existing_next_id, next_remind_at, user_id, existing_reminder.get('source') or EXPLICIT_REMINDER_SOURCE)
+                        _insert_reminder(db, recurrence_existing_next_id, next_remind_at, user_id, reminder_source)
         db.commit()
         todo = fetch_todo(db, todo_id, user_id)
         if became_done and rule and recurrence_existing_next_id:

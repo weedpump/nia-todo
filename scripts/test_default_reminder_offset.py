@@ -128,10 +128,27 @@ def main():
     assert_true(explicit_todo["reminders"][0]["remind_at"] == "2026-06-04T12:00:00+02:00", explicit_todo)
     assert_true(explicit_todo["reminders"][0]["source"] == "explicit", explicit_todo)
 
+    full_form_save = client.patch(f"/api/todos/{todo['id']}", json={
+        "title": "Heizung prüfen",
+        "description": "",
+        "priority": 3,
+        "is_pinned": False,
+        "status": "pending",
+        "project_id": 1,
+        "section_id": None,
+        "due_date": "2026-06-04T18:00:00+02:00",
+        "remind_at": "2026-06-04T17:00:00+02:00",
+    })
+    assert_true(full_form_save.status_code == 200, full_form_save.text)
+    full_form_todo = full_form_save.json()
+    assert_true(full_form_todo["reminders"][0]["remind_at"] == "2026-06-04T17:00:00+02:00", full_form_todo)
+    assert_true(full_form_todo["reminders"][0]["source"] == "default_due", full_form_todo)
+
     moved = client.patch(f"/api/todos/{todo['id']}", json={"due_date": "2026-06-04T20:00:00+02:00"})
     assert_true(moved.status_code == 200, moved.text)
     moved_todo = moved.json()
     assert_true(moved_todo["reminders"][0]["remind_at"] == "2026-06-04T19:00:00+02:00", moved_todo)
+    assert_true(moved_todo["reminders"][0]["source"] == "default_due", moved_todo)
 
     explicit_moved = client.patch(f"/api/todos/{explicit_todo['id']}", json={"due_date": "2026-06-04T20:00:00+02:00"})
     assert_true(explicit_moved.status_code == 200, explicit_moved.text)
@@ -151,6 +168,25 @@ def main():
     assert_true(next_todo["due_date"] == "2026-06-05T18:00:00+02:00", next_todo)
     assert_true(next_todo["reminders"][0]["remind_at"] == "2026-06-05T17:00:00+02:00", next_todo)
     assert_true(next_todo["reminders"][0]["source"] == "default_due", next_todo)
+
+    recurring_shift = client.post("/api/todos", json={
+        "title": "Täglich verschoben",
+        "project_id": 1,
+        "due_date": "2026-06-04T18:00:00+02:00",
+        "recurring_rule": {"frequency": "daily", "interval": 1},
+    })
+    assert_true(recurring_shift.status_code == 200, recurring_shift.text)
+    shift_todo = recurring_shift.json()
+    shift_done = client.patch(f"/api/todos/{shift_todo['id']}", json={
+        "due_date": "2026-06-04T20:00:00+02:00",
+        "remind_at": "2026-06-04T17:00:00+02:00",
+        "status": "done",
+    })
+    assert_true(shift_done.status_code == 200, shift_done.text)
+    shifted_next = shift_done.json()["recurrence_created_todo"]
+    assert_true(shifted_next["due_date"] == "2026-06-05T20:00:00+02:00", shifted_next)
+    assert_true(shifted_next["reminders"][0]["remind_at"] == "2026-06-05T19:00:00+02:00", shifted_next)
+    assert_true(shifted_next["reminders"][0]["source"] == "default_due", shifted_next)
 
     off_db = make_db(default_offset=None)
     off_client = make_client(off_db)
