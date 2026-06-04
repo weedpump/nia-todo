@@ -270,6 +270,10 @@ export function createTodosFeature({
     return payload;
   }
 
+  function locationReminderArrayFromPayload(locationReminder) {
+    return locationReminder ? [locationReminder] : [];
+  }
+
   function bindRecurringControls() {
     const select = document.getElementById('todo-recurring-frequency');
     const interval = document.getElementById('todo-recurring-interval');
@@ -1241,6 +1245,7 @@ export function createTodosFeature({
       const selectedSection = allSections.find(section => String(section.id) === String(todoData.section_id));
       if (!selectedSection || String(selectedSection.project_id) !== String(todoData.project_id)) todoData.section_id = null;
     }
+    todoData.location_reminders = locationReminderArrayFromPayload(todoData.location_reminder);
     if (id) {
       const existing = getTodos().find(t => t.id === parseInt(id));
       if (existing) {

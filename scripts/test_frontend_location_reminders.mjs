@@ -28,6 +28,7 @@ assert(todos.includes('populateLocationReminderForm'), 'todo feature must popula
 assert(todos.includes('todoData.location_reminder'), 'todo save payload must include location_reminder');
 assert(todos.includes("fields.classList.toggle('is-disabled', !enabled)") && todos.includes('control.disabled = !enabled'), 'location reminder fields must be disabled and muted when the toggle is off');
 assert(todos.includes('selectedPlace?.address') && todos.includes('payload.address = String(selectedPlace.address)'), 'saved-place location reminders must keep address in the local payload for native scheduling before server refresh');
+assert(todos.includes('todoData.location_reminders = locationReminderArrayFromPayload(todoData.location_reminder)'), 'local todo state must clear stale location_reminders arrays when the location reminder is disabled');
 assert(!todos.includes('todo-location-latitude'), 'todo JS must not read latitude inputs');
 assert(!todos.includes('todo-location-radius'), 'todo JS must not read radius inputs');
 assert(sync.includes("'location_reminder'"), 'offline sync must allow location_reminder changes');
@@ -35,6 +36,7 @@ assert(apiIndex.includes('placesApi'), 'API index must export saved places API')
 assert(app.includes('const saveSettingsPlace = userSettingsFeature.saveSettingsPlace') && app.includes('saveSettingsPlace, deleteSettingsPlace'), 'app must expose saved-place inline handlers as legacy globals');
 assert(desktop.includes("t('todo.location.notificationTitle')"), 'location notification title must use i18n');
 assert(desktop.includes('const address = String(locationReminder.address ||'), 'native location schedules must use addresses, not server coordinates');
+assert(desktop.includes("Object.prototype.hasOwnProperty.call(todo, 'location_reminder')") && desktop.includes('? (todo.location_reminder ? [todo.location_reminder] : [])'), 'native scheduling must treat explicit location_reminder null as clearing stale location_reminders arrays');
 assert(!/locationReminder\.(latitude|longitude)/.test(desktop), 'frontend native schedules must not depend on server coordinates');
 assert(!desktop.includes('radiusM'), 'frontend native location schedules must be address-only; radius is Android-internal');
 assert(desktop.includes('if (locationReminders.length)') && desktop.indexOf('ensureNativeLocationPermission(true)') > desktop.indexOf('if (locationReminders.length)'), 'Android location permission must only be requested when at least one location reminder exists');
