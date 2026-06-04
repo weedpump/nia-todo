@@ -246,6 +246,101 @@ def database_size() -> dict[str, int]:
     return {"bytes": sum(sizes.values()), "files": sizes}
 
 
+def _period_days(days: int) -> int:
+    return max(1, min(int(days or 30), RETENTION_DAYS))
+
+
+def _date_points(days: int) -> list[str]:
+    days = _period_days(days)
+    today = _now_utc().date()
+    return [(today - timedelta(days=offset)).isoformat() for offset in range(days - 1, -1, -1)]
+
+
+def _start_date(days: int) -> str:
+    return (_now_utc().date() - timedelta(days=_period_days(days) - 1)).isoformat()
+
+
+def _created_count(db, table: str, days: int) -> int:
+    cutoff = _start_date(days)
+    try:
+        row = db.execute(f"SELECT COUNT(*) AS count FROM {table} WHERE date(created_at) >= date(?)", (cutoff,)).fetchone()
+        return int(row["count"] or 0)
+    except Exception:
+        return 0
+
+
+def _cumulative_created_series(db, table: str, *, days: int) -> list[dict[str, Any]]:
+    points = _date_points(days)
+    if not points:
+        return []
+    try:
+        rows = db.execute(
+            f"""SELECT date(created_at) AS day, COUNT(*) AS count
+                FROM {table}
+                WHERE created_at IS NOT NULL
+                GROUP BY date(created_at)
+                ORDER BY day"""
+        ).fetchall()
+    except Exception:
+        rows = []
+    created_by_day = {row["day"]: int(row["count"] or 0) for row in rows if row["day"]}
+    cumulative_before = sum(count for day, count in created_by_day.items() if day < points[0])
+    total = cumulative_before
+    series = []
+    for day in points:
+        total += created_by_day.get(day, 0)
+        series.append({"date": day, "value": total})
+    return series
+
+
+def _daily_ops_series(db, key: str, *, days: int) -> list[dict[str, Any]]:
+    points = _date_points(days)
+    values = {day: 0 for day in points}
+    if not points:
+        return []
+    rows = db.execute(
+        """SELECT substr(bucket_start, 1, 10) AS day, SUM(count) AS count
+           FROM ops_counters
+           WHERE bucket_size = 'hour' AND key = ? AND substr(bucket_start, 1, 10) >= ?
+           GROUP BY day
+           ORDER BY day""",
+        (key, points[0]),
+    ).fetchall()
+    for row in rows:
+        day = row["day"]
+        if day in values:
+            values[day] = int(row["count"] or 0)
+    return [{"date": day, "value": values[day]} for day in points]
+
+
+def inventory_summary(db, *, days: int = 30) -> dict[str, Any]:
+    days = _period_days(days)
+    current = count_db_rows(db)
+    tracked = {
+        "users": "users",
+        "workspaces": "workspaces",
+        "projects": "projects",
+        "todos": "todos",
+        "reminders": "reminders",
+        "location_reminders": "location_reminders",
+        "push_subscriptions": "push_subscriptions",
+    }
+    created = {key: _created_count(db, table, days) for key, table in tracked.items()}
+    periods = {
+        "7d": {key: _created_count(db, table, 7) for key, table in tracked.items()},
+        "30d": {key: _created_count(db, table, 30) for key, table in tracked.items()},
+        "365d": {key: _created_count(db, table, 365) for key, table in tracked.items()},
+    }
+    series = {
+        "users": _cumulative_created_series(db, "users", days=days),
+        "projects": _cumulative_created_series(db, "projects", days=days),
+        "workspaces": _cumulative_created_series(db, "workspaces", days=days),
+        "todos": _cumulative_created_series(db, "todos", days=days),
+        "reminders": _cumulative_created_series(db, "reminders", days=days),
+    }
+    return {"days": days, "current": current, "created": created, "periods": periods, "series": series}
+
+
 def platform_distribution(db) -> dict[str, int]:
     counts: dict[str, int] = defaultdict(int)
     try:
@@ -258,14 +353,14 @@ def platform_distribution(db) -> dict[str, int]:
 
 
 def _metric_totals(db, key: str, *, days: int) -> dict[str, Any]:
-    now = _now_utc().replace(minute=0, second=0, microsecond=0)
-    cutoff = (now - timedelta(days=days)).isoformat().replace("+00:00", "Z")
-    last7_cutoff = (now - timedelta(days=7)).isoformat().replace("+00:00", "Z")
-    prev7_cutoff = (now - timedelta(days=14)).isoformat().replace("+00:00", "Z")
+    today = _now_utc().date()
+    cutoff = _start_date(days)
+    last7_cutoff = (today - timedelta(days=6)).isoformat()
+    prev7_cutoff = (today - timedelta(days=13)).isoformat()
     rows = db.execute(
         """SELECT bucket_start, status_class, SUM(count) AS count
            FROM ops_counters
-           WHERE bucket_start >= ? AND bucket_size = 'hour' AND key = ?
+           WHERE substr(bucket_start, 1, 10) >= ? AND bucket_size = 'hour' AND key = ?
            GROUP BY bucket_start, status_class
            ORDER BY bucket_start""",
         (cutoff, key),
@@ -283,9 +378,10 @@ def _metric_totals(db, key: str, *, days: int) -> dict[str, Any]:
             success += count
         elif status in {"4xx", "5xx"}:
             errors += count
-        if bucket >= last7_cutoff:
+        bucket_day = str(bucket)[:10]
+        if bucket_day >= last7_cutoff:
             last7 += count
-        elif bucket >= prev7_cutoff:
+        elif bucket_day >= prev7_cutoff:
             prev7 += count
     if by_hour:
         peak_hour = max(by_hour.values())
@@ -332,7 +428,7 @@ def _llm_token_summary(db, *, days: int) -> dict[str, Any]:
 
 
 def workload_summary_for_period(db, *, days: int) -> dict[str, Any]:
-    days = max(1, min(int(days or 30), RETENTION_DAYS))
+    days = _period_days(days)
     stt = _metric_totals(db, "live_audio_transcribe", days=days)
     llm = _metric_totals(db, "live_text_extract", days=days)
     audio = _metric_totals(db, "live_audio_segment", days=days)
@@ -358,7 +454,7 @@ def workload_summary_for_period(db, *, days: int) -> dict[str, Any]:
 
 
 def workload_summary(db, *, days: int = 30) -> dict[str, Any]:
-    requested_days = max(1, min(int(days or 30), RETENTION_DAYS))
+    requested_days = _period_days(days)
     return {
         "selected": workload_summary_for_period(db, days=requested_days),
         "periods": {
@@ -366,16 +462,22 @@ def workload_summary(db, *, days: int = 30) -> dict[str, Any]:
             "30d": workload_summary_for_period(db, days=30),
             "365d": workload_summary_for_period(db, days=365),
         },
+        "series": {
+            "llm": _daily_ops_series(db, "live_text_extract", days=requested_days),
+            "stt": _daily_ops_series(db, "live_audio_transcribe", days=requested_days),
+            "audio_segments": _daily_ops_series(db, "live_audio_segment", days=requested_days),
+            "tokens": _daily_ops_series(db, "live_text_extract_total_tokens", days=requested_days),
+        },
     }
 
 
 def ops_counter_summary(db, *, days: int = 30) -> dict[str, Any]:
-    days = max(1, min(int(days or 30), RETENTION_DAYS))
-    cutoff = (_now_utc() - timedelta(days=days)).replace(minute=0, second=0, microsecond=0).isoformat().replace("+00:00", "Z")
+    days = _period_days(days)
+    cutoff = _start_date(days)
     rows = db.execute(
         """SELECT category, key, platform, status_class, SUM(count) AS count
            FROM ops_counters
-           WHERE bucket_start >= ? AND bucket_size = 'hour'
+           WHERE substr(bucket_start, 1, 10) >= ? AND bucket_size = 'hour'
            GROUP BY category, key, platform, status_class
            ORDER BY category, key, platform, status_class""",
         (cutoff,),
@@ -408,13 +510,15 @@ def ops_counter_summary(db, *, days: int = 30) -> dict[str, Any]:
 
 def technical_stats(days: int = 30) -> dict[str, Any]:
     with get_db() as db:
+        period_days = _period_days(days)
         return {
-            "period_days": max(1, min(int(days or 30), RETENTION_DAYS)),
+            "period_days": period_days,
             "database": database_size(),
             "counts": count_db_rows(db),
+            "inventory": inventory_summary(db, days=period_days),
             "platforms": platform_distribution(db),
-            "ops": ops_counter_summary(db, days=days),
-            "workload": workload_summary(db, days=days),
+            "ops": ops_counter_summary(db, days=period_days),
+            "workload": workload_summary(db, days=period_days),
         }
 
 
