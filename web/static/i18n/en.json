@@ -1125,5 +1125,6 @@
   "todo.location.notificationTitle": "📍 Location reminder",
   "todo.location.arrivalShort": "Arrival",
   "todo.location.departureShort": "Leaving",
-  "todo.location.androidOnlyPillTitle": "Location reminder — triggers only in the Android app"
+  "todo.location.androidOnlyPillTitle": "Location reminder — triggers only in the Android app",
+  "todo.location.serverUnsupported": "This server does not support location reminders yet. Please update the server first."
 }
