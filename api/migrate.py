@@ -431,7 +431,7 @@ def run_migrations():
                     repair_todo_recurrence_columns_migration(conn)
                     set_db_version(conn, version)
                     applied += 1
-                elif version == 42 and ("duplicate column" in error_msg or "already exists" in error_msg):
+                elif version == 42 and ("duplicate column" in error_msg or "already exists" in error_msg or "no such table: reminders" in error_msg):
                     print(f"[MIGRATION] ⚠️ {filepath.name} - default reminder settings partially exist, repairing remaining schema")
                     repair_default_reminder_settings_migration(conn)
                     set_db_version(conn, version)

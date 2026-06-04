@@ -89,7 +89,7 @@ def make_db():
         );
         """
     )
-    db.execute("INSERT INTO users (id, username, braindump_enabled) VALUES (1, 'tobi', 1)")
+    db.execute("INSERT INTO users (id, username, braindump_enabled, default_reminder_offset_minutes) VALUES (1, 'tobi', 1, NULL)")
     db.execute("INSERT INTO workspaces (id, name, user_id, is_default) VALUES (1, 'Privat', 1, 1)")
     db.execute("INSERT INTO workspaces (id, name, user_id, is_default) VALUES (2, 'Arbeit', 1, 0)")
     db.execute("INSERT INTO projects (id, name, user_id, is_inbox, workspace_id) VALUES (1, 'Inbox', 1, 1, 1)")
@@ -128,6 +128,20 @@ def test_creates_confirmed_candidates_with_project_section_and_reminder():
     assert_true(snoopy["due_date"] == "2026-05-30T18:00+02:00", snoopy)
     assert_true(snoopy["reminders"][0]["remind_at"] == "2026-05-30T18:00+02:00", snoopy)
 
+
+
+def test_applies_default_due_reminder_when_deadline_has_no_explicit_reminder():
+    db = make_db()
+    db.execute("UPDATE users SET default_reminder_offset_minutes = 90 WHERE id = 1")
+    created = _create_todos_from_braindump_candidates(
+        db,
+        1,
+        [BrainDumpTodoCandidate(title="Wasserfilter bestellen", deadline="2026-06-05T09:00:00+02:00")],
+    )
+    todo = created[0]
+    assert_true(todo["due_date"] == "2026-06-05T09:00:00+02:00", todo)
+    assert_true(todo["reminders"][0]["remind_at"] == "2026-06-05T07:30:00+02:00", todo)
+    assert_true(todo["reminders"][0]["source"] == "default_due", todo)
 
 
 def test_creates_recurring_todo_when_deadline_present():
@@ -296,6 +310,7 @@ def test_manual_preview_correction_wins_over_previous_route_learning():
 def main():
     tests = [
         test_creates_confirmed_candidates_with_project_section_and_reminder,
+        test_applies_default_due_reminder_when_deadline_has_no_explicit_reminder,
         test_creates_recurring_todo_when_deadline_present,
         test_ignores_recurring_rule_without_deadline,
         test_project_null_uses_inbox_even_with_matching_inbox_section_name,
