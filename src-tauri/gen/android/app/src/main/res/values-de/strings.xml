@@ -1,0 +1,4 @@
+<resources>
+    <string name="location_reminder_fallback_title">Orts-Erinnerung</string>
+    <string name="location_reminder_fallback_body">Todo-Erinnerung</string>
+</resources>

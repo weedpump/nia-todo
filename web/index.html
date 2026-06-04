@@ -730,7 +730,8 @@
               </div>
             </div>
             <div class="settings-actions-row">
-              <button type="button" class="btn btn-primary" onclick="saveSettingsPlace()"><span data-icon="plus"></span> <span data-i18n-key="settings.places.save">Save place</span></button>
+              <button type="button" class="btn btn-primary" onclick="saveSettingsPlace()"><span data-icon="plus" id="settings-place-save-icon"></span> <span id="settings-place-save-label" data-i18n-key="settings.places.save">Save place</span></button>
+              <button type="button" class="btn btn-secondary" id="settings-place-cancel-edit" onclick="cancelSettingsPlaceEdit()" hidden data-i18n-key="common.cancel">Cancel</button>
             </div>
             <div id="settings-places-error" class="settings-field-error"></div>
             <div id="settings-places-success" class="settings-field-success"></div>

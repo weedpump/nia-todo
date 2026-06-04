@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 const receiver = await readFile(new URL('../src-tauri/gen/android/app/src/main/java/de/tobiaskneidl/nia_todo/LocationReminderReceiver.kt', import.meta.url), 'utf8');
+const nativeStrings = await readFile(new URL('../src-tauri/gen/android/app/src/main/res/values/strings.xml', import.meta.url), 'utf8');
+const nativeGermanStrings = await readFile(new URL('../src-tauri/gen/android/app/src/main/res/values-de/strings.xml', import.meta.url), 'utf8');
 const mainActivity = await readFile(new URL('../src-tauri/gen/android/app/src/main/java/de/tobiaskneidl/nia_todo/MainActivity.kt', import.meta.url), 'utf8');
 const manifest = await readFile(new URL('../src-tauri/gen/android/app/src/main/AndroidManifest.xml', import.meta.url), 'utf8');
 const gradle = await readFile(new URL('../src-tauri/gen/android/app/build.gradle.kts', import.meta.url), 'utf8');
@@ -26,6 +28,9 @@ assert(mainActivity.includes('ACTION_APPLICATION_DETAILS_SETTINGS'), 'Android 11
 assert(receiver.includes('addOnFailureListener'), 'Android geofence scheduling must observe async registration failures');
 assert(receiver.includes('Looper.myLooper() == Looper.getMainLooper()'), 'Android geofence scheduling must avoid blocking the main thread');
 assert(receiver.includes('DEFAULT_RADIUS_M = 150f'), 'Android geofencing must keep the radius fixed at 150m');
+assert(receiver.includes('context.getString(R.string.location_reminder_fallback_title)') && receiver.includes('context.getString(R.string.location_reminder_fallback_body)'), 'Android location notification fallbacks must use native string resources');
+assert(!receiver.includes('📍 Orts-Erinnerung') && !receiver.includes('"Todo-Erinnerung"'), 'Android receiver must not hardcode German fallback notification text');
+assert(nativeStrings.includes('location_reminder_fallback_title') && nativeGermanStrings.includes('location_reminder_fallback_title'), 'Android fallback notification strings must exist for default and German locales');
 assert(mainActivity.includes('rescheduleStoredLocationReminders'), 'Android app startup must rehydrate stored location reminders');
 assert(manifest.includes('android.permission.ACCESS_FINE_LOCATION'), 'Android manifest must request fine location');
 assert(manifest.includes('android.permission.ACCESS_BACKGROUND_LOCATION'), 'Android manifest must request background location for geofencing');

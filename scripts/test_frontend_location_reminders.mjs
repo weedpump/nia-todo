@@ -7,7 +7,9 @@ const todos = await readFile(new URL('../web/static/js/features/todos.js', impor
 const sync = await readFile(new URL('../web/static/js/features/sync.js', import.meta.url), 'utf8');
 const apiIndex = await readFile(new URL('../web/static/js/api/index.js', import.meta.url), 'utf8');
 const app = await readFile(new URL('../web/static/js/app.js', import.meta.url), 'utf8');
+const userSettings = await readFile(new URL('../web/static/js/features/user-settings.js', import.meta.url), 'utf8');
 const desktop = await readFile(new URL('../web/static/js/features/desktop-integration.js', import.meta.url), 'utf8');
+const placesApiJs = await readFile(new URL('../web/static/js/api/places.js', import.meta.url), 'utf8');
 const rendering = await readFile(new URL('../web/static/js/features/todo-rendering.js', import.meta.url), 'utf8');
 const css = await readFile(new URL('../web/static/style.css', import.meta.url), 'utf8');
 const de = await readFile(new URL('../web/static/i18n/de.json', import.meta.url), 'utf8');
@@ -33,7 +35,10 @@ assert(!todos.includes('todo-location-latitude'), 'todo JS must not read latitud
 assert(!todos.includes('todo-location-radius'), 'todo JS must not read radius inputs');
 assert(sync.includes("'location_reminder'"), 'offline sync must allow location_reminder changes');
 assert(apiIndex.includes('placesApi'), 'API index must export saved places API');
-assert(app.includes('const saveSettingsPlace = userSettingsFeature.saveSettingsPlace') && app.includes('saveSettingsPlace, deleteSettingsPlace'), 'app must expose saved-place inline handlers as legacy globals');
+assert(app.includes('const saveSettingsPlace = userSettingsFeature.saveSettingsPlace') && app.includes('editSettingsPlace') && app.includes('cancelSettingsPlaceEdit') && app.includes('saveSettingsPlace, editSettingsPlace, cancelSettingsPlaceEdit, deleteSettingsPlace'), 'app must expose saved-place inline handlers as legacy globals');
+assert(html.includes('settings-place-cancel-edit') && html.includes('cancelSettingsPlaceEdit()'), 'saved places edit mode must expose a cancel action');
+assert(userSettings.includes('editSettingsPlace') && userSettings.includes('placesApi.update(editingPlaceId') && userSettings.includes('settings.places.updated'), 'saved places settings must support editing existing places');
+assert(placesApiJs.includes('update: (placeId, changes) => http.patch'), 'saved places API client must expose PATCH updates');
 assert(desktop.includes("t('todo.location.notificationTitle')"), 'location notification title must use i18n');
 assert(desktop.includes('const address = String(locationReminder.address ||'), 'native location schedules must use addresses, not server coordinates');
 assert(desktop.includes("Object.prototype.hasOwnProperty.call(todo, 'location_reminder')") && desktop.includes('? (todo.location_reminder ? [todo.location_reminder] : [])'), 'native scheduling must treat explicit location_reminder null as clearing stale location_reminders arrays');
@@ -42,6 +47,7 @@ assert(!desktop.includes('radiusM'), 'frontend native location schedules must be
 assert(desktop.includes('if (locationReminders.length)') && desktop.indexOf('ensureNativeLocationPermission(true)') > desktop.indexOf('if (locationReminders.length)'), 'Android location permission must only be requested when at least one location reminder exists');
 assert(desktop.indexOf('scheduleLocationReminders?.(locationReminders)') < desktop.indexOf('ensureNativeLocationPermission(true)'), 'Android location schedules must be stored before requesting permission');
 assert(de.includes('todo.location.notificationTitle') && en.includes('todo.location.notificationTitle'), 'location notification title must be translated');
+assert(de.includes('settings.places.update') && en.includes('settings.places.updated'), 'saved places edit labels must be translated');
 assert(rendering.includes('todo-meta-chip todo-location') && rendering.includes("iconSvg('map-pin')"), 'todo cards must render a location reminder pill');
 assert(rendering.includes('locationReminderLabel'), 'todo cards must derive a location reminder label');
 assert(css.includes('.todo-meta-chip.todo-location'), 'location reminder pill must have dedicated styling');

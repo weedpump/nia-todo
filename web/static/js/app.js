@@ -450,6 +450,8 @@ const saveAvatarCrop = userSettingsFeature.saveAvatarCrop;
 const deleteUserAvatar = userSettingsFeature.deleteUserAvatar;
 const loadSavedPlaces = userSettingsFeature.loadSavedPlaces;
 const saveSettingsPlace = userSettingsFeature.saveSettingsPlace;
+const editSettingsPlace = userSettingsFeature.editSettingsPlace;
+const cancelSettingsPlaceEdit = userSettingsFeature.cancelSettingsPlaceEdit;
 const deleteSettingsPlace = userSettingsFeature.deleteSettingsPlace;
 const toggleUserMenu = userMenuFeature.toggleUserMenu;
 const closeUserMenu = userMenuFeature.closeUserMenu;
@@ -959,7 +961,7 @@ export function startAppModule() {
       testDesktopNotification: () => desktopIntegration?.testNotification(),
       updateDesktopHotkey: (action, shortcut) => desktopIntegration?.updateHotkey(action, shortcut),
     },
-    userSettings: { renderUserInfo, openSettingsModal, changeLanguagePreference, changeDefaultReminderSetting, saveCustomDefaultReminderSetting, changeBrainDumpLearningSetting, resetBrainDumpLearning, editUserDisplayName, cancelUserDisplayNameEdit, saveUserProfile, startAvatarUpload, cancelAvatarCrop, saveAvatarCrop, deleteUserAvatar, editUserEmail, cancelUserEmailEdit, saveUserEmail, changeUserPassword, startTwoFactorTotp, confirmTwoFactorTotp, disableTwoFactor, addPasskey, regenerateRecoveryCodes, removeTotpDevice, removePasskeyDevice, toggleTrustedDevicesList, revokeTrustedDevice, revokeAllTrustedDevices, loadSavedPlaces, saveSettingsPlace, deleteSettingsPlace },
+    userSettings: { renderUserInfo, openSettingsModal, changeLanguagePreference, changeDefaultReminderSetting, saveCustomDefaultReminderSetting, changeBrainDumpLearningSetting, resetBrainDumpLearning, editUserDisplayName, cancelUserDisplayNameEdit, saveUserProfile, startAvatarUpload, cancelAvatarCrop, saveAvatarCrop, deleteUserAvatar, editUserEmail, cancelUserEmailEdit, saveUserEmail, changeUserPassword, startTwoFactorTotp, confirmTwoFactorTotp, disableTwoFactor, addPasskey, regenerateRecoveryCodes, removeTotpDevice, removePasskeyDevice, toggleTrustedDevicesList, revokeTrustedDevice, revokeAllTrustedDevices, loadSavedPlaces, saveSettingsPlace, editSettingsPlace, cancelSettingsPlaceEdit, deleteSettingsPlace },
     userMenu: { toggleUserMenu, closeUserMenu, updateUserMenu },
   });
 
