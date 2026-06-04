@@ -345,7 +345,6 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
       </div>
       <div class="form-row" style="margin:0;">
         <button class="btn btn-secondary" onclick="loadTechnicalStats()" data-i18n-key="admin.stats.refresh">Aktualisieren</button>
-        <button class="btn btn-secondary" onclick="backfillTechnicalStats()" data-i18n-key="admin.stats.analyzeLogs">Logs analysieren</button>
       </div>
     </div>
     <div class="admin-stat-kpis" id="technical-stats-kpis"></div>
@@ -1170,22 +1169,6 @@ async function loadTechnicalStats() {
   }
 }
 
-async function backfillTechnicalStats() {
-  document.getElementById('technical-stats-error').textContent = '';
-  document.getElementById('technical-stats-success').textContent = statsT('admin.stats.analyzingLogs');
-  try {
-    const result = await apiPost(`/api/admin/technical-stats/backfill?days=${currentStatsDays}`, {});
-    document.getElementById('technical-stats-success').textContent = statsT('admin.stats.backfillImported', {
-      counters: formatAdminNumber(result.imported_count),
-      sessions: formatAdminNumber(result.session_client_mix_imported),
-      lines: formatAdminNumber(result.log_lines_scanned),
-    });
-    await loadTechnicalStats();
-  } catch(e) {
-    document.getElementById('technical-stats-success').textContent = '';
-    document.getElementById('technical-stats-error').textContent = statsT('admin.errorWithMessage', { error: e.message });
-  }
-}
 
 async function loadUsers() {
   try {

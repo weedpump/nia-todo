@@ -5,6 +5,11 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [2.11.1] - Unreleased
+
+### Changed
+- Admin Statistics now only show counters collected after the update and no longer offer journal log backfill.
+
 ## [2.11.0] - 2026-06-04
 
 ### Added
