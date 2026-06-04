@@ -50,7 +50,9 @@ class LocationReminderReceiver : BroadcastReceiver() {
       val matchesTransition = (wanted == "arrival" && transition == Geofence.GEOFENCE_TRANSITION_ENTER) ||
         (wanted == "departure" && transition == Geofence.GEOFENCE_TRANSITION_EXIT)
       if (!matchesTransition) continue
-      showLocationReminder(context, schedule.optString("title", "📍 Orts-Erinnerung"), schedule.optString("body", "Todo-Erinnerung"), id, schedule.optString("userId", ""))
+      val title = schedule.optString("title").ifBlank { context.getString(R.string.location_reminder_fallback_title) }
+      val body = schedule.optString("body").ifBlank { context.getString(R.string.location_reminder_fallback_body) }
+      showLocationReminder(context, title, body, id, schedule.optString("userId", ""))
     }
   }
 

@@ -6057,6 +6057,14 @@ input[type="color"]::-moz-color-swatch {
   margin-top: 14px;
 }
 
+.settings-place-row-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .settings-status-pill {
   max-width: 100%;
   padding: 6px 10px;
