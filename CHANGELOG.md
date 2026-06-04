@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - Snooze actions now keep deadlines and reminders consistent: undo restores both original values, `+1 hour` moves existing deadline/reminder values relative to themselves, and calendar presets such as this evening and tomorrow morning resolve from the current date.
 - Mobile todo action menus now open upward when there is not enough room below, avoiding viewport clipping and visible flip flicker.
 - Recurring todo interval inputs now stay editable while replacing the default `1`, so users can type values like `6` months directly instead of working around an immediate reset.
+- Recurring todos created with an IANA timezone now keep their local wall-clock time across DST changes; spring-forward gaps move to the next valid local time, fall-back folds use the first occurrence, and legacy recurrence rules without timezone stay unchanged.
 - BrainDump now ignores recurrence metadata without a deadline instead of creating invalid recurring todos, matching the recurring todo start-date requirement.
 
 ## [2.10.3] - 2026-06-04
