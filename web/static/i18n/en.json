@@ -733,7 +733,7 @@
   "admin.stats.period.90d": "90 days",
   "admin.stats.period.365d": "1 year",
   "admin.stats.coverage.loading": "Loading data coverage…",
-  "admin.stats.coverage.summary": "Data since {data} · load since {load} · inventory since {inventory}",
+  "admin.stats.coverage.summary": "Data coverage since {data} · usage data since {load} · inventory data since {inventory}",
   "admin.stats.refresh": "Refresh",
   "admin.stats.analyzeLogs": "Analyze logs",
   "admin.stats.analyzingLogs": "Analyzing logs…",
