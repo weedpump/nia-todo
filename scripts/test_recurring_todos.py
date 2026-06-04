@@ -141,6 +141,29 @@ def main():
     tomorrow_occurrences = [item for item in all_todos if item.get("parent_id") == todo["id"] and item.get("due_date") == "2026-06-03T08:00:00+02:00"]
     assert_true(len(tomorrow_occurrences) == 1, tomorrow_occurrences)
 
+    dst = client.post("/api/todos", json={
+        "title": "DST daily",
+        "project_id": 1,
+        "due_date": "2026-03-28T09:00:00+01:00",
+        "remind_at": "2026-03-28T08:30:00+01:00",
+        "recurring_rule": {"frequency": "daily", "interval": 1, "timezone": "Europe/Berlin"},
+    })
+    assert_true(dst.status_code == 200, dst.text)
+    assert_true(dst.json()["recurring_rule"] == {"frequency": "daily", "interval": 1, "preserve_time": True, "timezone": "Europe/Berlin"}, dst.json())
+    dst_done = client.patch(f"/api/todos/{dst.json()['id']}", json={"status": "done"})
+    assert_true(dst_done.status_code == 200, dst_done.text)
+    dst_next = dst_done.json()["recurrence_created_todo"]
+    assert_true(dst_next["due_date"] == "2026-03-29T09:00:00+02:00", dst_next)
+    assert_true(dst_next["reminders"][0]["remind_at"] == "2026-03-29T08:30:00+02:00", dst_next)
+
+    invalid_timezone = client.post("/api/todos", json={
+        "title": "Bad timezone",
+        "project_id": 1,
+        "due_date": "2026-06-02T08:00:00+02:00",
+        "recurring_rule": {"frequency": "daily", "timezone": "Not/AZone"},
+    })
+    assert_true(invalid_timezone.status_code == 422, invalid_timezone.text)
+
     invalid = client.post("/api/todos", json={"title": "No deadline", "recurring_rule": {"frequency": "weekly"}})
     assert_true(invalid.status_code == 422, invalid.text)
 

@@ -4,6 +4,7 @@ import calendar
 import json
 from datetime import datetime, timedelta
 from typing import Optional
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field
 
@@ -157,6 +158,13 @@ def _normalize_recurring_rule(rule: Optional[dict]) -> Optional[str]:
         "interval": interval,
         "preserve_time": True,
     }
+    timezone_name = str(rule.get('timezone') or '').strip()
+    if timezone_name:
+        try:
+            ZoneInfo(timezone_name)
+        except ZoneInfoNotFoundError:
+            raise HTTPException(422, "Invalid recurring_rule timezone")
+        normalized["timezone"] = timezone_name
     return json.dumps(normalized, separators=(',', ':'), sort_keys=True)
 
 
@@ -193,6 +201,15 @@ def _next_recurring_datetime(value: Optional[str], rule: dict) -> Optional[str]:
         return None
     interval = int(rule.get('interval') or 1)
     frequency = rule.get('frequency')
+    timezone_name = str(rule.get('timezone') or '').strip()
+    recurrence_tz = None
+    if timezone_name:
+        try:
+            recurrence_tz = ZoneInfo(timezone_name)
+        except ZoneInfoNotFoundError:
+            recurrence_tz = None
+    if recurrence_tz and base.tzinfo is not None:
+        base = base.astimezone(recurrence_tz)
     if frequency == 'daily':
         next_dt = base + timedelta(days=interval)
     elif frequency == 'weekly':

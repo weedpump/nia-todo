@@ -125,12 +125,23 @@ export function createTodosFeature({
     return Number.isFinite(date.getTime()) ? date.toISOString() : null;
   }
 
+  function browserTimeZone() {
+    try {
+      return Intl.DateTimeFormat().resolvedOptions().timeZone || null;
+    } catch (_error) {
+      return null;
+    }
+  }
+
   function normalizeRecurringRule(rule) {
     if (!rule || typeof rule !== 'object') return null;
     const frequency = String(rule.frequency || 'none').toLowerCase();
     if (!['daily', 'weekly', 'monthly', 'yearly'].includes(frequency)) return null;
     const interval = Math.max(1, Math.min(999, Number.parseInt(rule.interval || 1, 10) || 1));
-    return { frequency, interval, preserve_time: true };
+    const normalized = { frequency, interval, preserve_time: true };
+    const timezone = String(rule.timezone || browserTimeZone() || '').trim();
+    if (timezone) normalized.timezone = timezone;
+    return normalized;
   }
 
   function recurringRuleFromForm() {
