@@ -970,7 +970,20 @@ function adminBrowserName(ua, fallback) {
   if (/Safari\//.test(ua)) return 'Safari';
   return fallback;
 }
-function adminOsName(ua, fallback) {
+function adminPlatformOsName(platform, fallback) {
+  switch (String(platform || '').toLowerCase()) {
+    case 'android': return 'Android';
+    case 'ios': return 'iOS';
+    case 'ipados': return 'iPadOS';
+    case 'windows': return 'Windows';
+    case 'macos': return 'macOS';
+    case 'linux': return 'Linux';
+    default: return fallback;
+  }
+}
+function adminOsName(ua, fallback, platform = '') {
+  const platformName = adminPlatformOsName(platform, '');
+  if (platformName) return platformName;
   if (/Android/i.test(ua)) return 'Android';
   if (/Windows/i.test(ua)) return 'Windows';
   if (/iPhone|iPad/i.test(ua)) return 'iOS/iPadOS';
@@ -979,13 +992,8 @@ function adminOsName(ua, fallback) {
   return fallback;
 }
 function adminNativePlatformName(platform, fallback) {
-  switch (String(platform || '').toLowerCase()) {
-    case 'android': return 'Android App';
-    case 'windows': return 'Windows App';
-    case 'macos': return 'macOS App';
-    case 'linux': return 'Linux App';
-    default: return fallback;
-  }
+  const os = adminPlatformOsName(platform, '');
+  return os ? `${os} App` : fallback;
 }
 function adminSessionDeviceName(session) {
   const rawUa = String(session?.user_agent || '').trim();
@@ -993,7 +1001,7 @@ function adminSessionDeviceName(session) {
   const client = sessionClientInfoFromUserAgent(rawUa);
   if (client.app === 'nia-todo' && client.mode === 'native') return adminNativePlatformName(client.platform, 'nia-todo App');
   const ua = cleanAdminSessionUserAgent(rawUa);
-  return `${adminBrowserName(ua, t('settings.2fa.trustedDeviceBrowser'))} · ${adminOsName(ua, t('settings.2fa.trustedDeviceDevice'))}`;
+  return `${adminBrowserName(ua, t('settings.2fa.trustedDeviceBrowser'))} · ${adminOsName(ua, t('settings.2fa.trustedDeviceDevice'), client.app === 'nia-todo' ? client.platform : '')}`;
 }
 function adminSessionIpLocation(session) {
   const ip = String(session.ip_address || '').trim();

@@ -25,6 +25,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - Recurring todo interval inputs now stay editable while replacing the default `1`, so users can type values like `6` months directly instead of working around an immediate reset.
 - Recurring todos now store/update an IANA timezone from the editing browser, keep their local wall-clock time across DST changes, move spring-forward gaps to the next valid local time, and use the first occurrence for fall-back folds.
 - BrainDump now ignores recurrence metadata without a deadline instead of creating invalid recurring todos, matching the recurring todo start-date requirement.
+- Safari on iPadOS is now identified via client runtime metadata instead of being mislabeled as macOS when WebKit sends a desktop-style `Macintosh` user agent.
+- Revoking all user sessions now also invalidates legacy JWTs without per-device session IDs and existing WebSocket sync requests revalidate their token before returning data.
 
 ## [2.10.3] - 2026-06-04
 
