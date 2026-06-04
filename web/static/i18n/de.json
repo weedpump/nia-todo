@@ -1129,5 +1129,14 @@
   "todo.location.departureShort": "Verlassen",
   "todo.location.androidOnlyPillTitle": "Ortsbezogene Erinnerung — wird nur in der Android-App ausgelöst",
   "braindump.location.none": "Keine Orts-Erinnerung",
-  "braindump.location.place": "Orts-Erinnerung"
+  "braindump.location.place": "Orts-Erinnerung",
+  "admin.user.sessionsButton": "Sessions",
+  "admin.user.sessionsTitle": "Aktive Sessions / Geräte",
+  "admin.user.sessionsEmpty": "Keine aktiven Sessions gespeichert.",
+  "admin.user.sessionsLoadFailed": "Sessions konnten nicht geladen werden: {error}",
+  "admin.user.sessionsRevokeAll": "Alle beenden",
+  "admin.user.sessionRevokeTitle": "Session beenden?",
+  "admin.user.sessionRevokeMessage": "Diese Benutzer-Session wird sofort beendet. Falls sie ein gemerktes 2FA-Gerät nutzt, wird dieses ebenfalls widerrufen.",
+  "admin.user.sessionsRevokeAllTitle": "Alle Sessions beenden?",
+  "admin.user.sessionsRevokeAllMessage": "Alle aktiven Sessions und gemerkten 2FA-Geräte von {username} werden beendet."
 }

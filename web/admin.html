@@ -56,10 +56,20 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .user-card-switch:checked { background: color-mix(in srgb, var(--success) 72%, var(--accent)); border-color: color-mix(in srgb, var(--success) 86%, white); }
 .user-card-switch:checked::after { transform: translateX(20px); background: white; }
 .user-card-switch:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 24%, transparent); outline: none; }
-.user-card-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; align-items: center; }
+.user-card-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; align-items: center; }
 .user-card-actions.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .user-card-actions.single { grid-template-columns: 1fr; }
 .user-card-actions .admin-table-action { width: 100%; }
+.user-sessions-panel { margin-top: 2px; padding-top: 10px; border-top: 1px solid color-mix(in srgb, var(--border) 52%, transparent); display: flex; flex-direction: column; gap: 10px; }
+.user-sessions-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.user-sessions-title { font-size: 12px; color: var(--text-muted); font-weight: 750; }
+.user-session-list { display: flex; flex-direction: column; gap: 8px; }
+.user-session-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px; border: 1px solid color-mix(in srgb, var(--border) 60%, transparent); border-radius: 12px; background: color-mix(in srgb, var(--bg-secondary) 76%, transparent); }
+.user-session-main { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.user-session-device { font-size: 13px; font-weight: 800; color: var(--text-primary); }
+.user-session-detail { font-size: 12px; color: var(--text-muted); overflow-wrap: anywhere; }
+.user-session-error, .user-session-empty { font-size: 12px; color: var(--text-muted); }
+.user-session-error { color: var(--danger); }
 .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; }
 .badge-admin { background: var(--accent); color: white; }
 .badge-user { background: var(--bg-tertiary); color: var(--text-secondary); }
@@ -192,6 +202,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
   .user-card-header { flex-direction: column; gap: 8px; }
   .user-card-row { grid-template-columns: 1fr; gap: 4px; align-items: start; }
   .user-card-actions { grid-template-columns: 1fr; }
+  .user-session-row { grid-template-columns: 1fr; }
   .admin-section-summary { display: none; }
   .email-edit { grid-template-columns: minmax(0, 1fr) 32px 32px; }
 }
@@ -947,6 +958,63 @@ function formatServerTimestamp(value) {
   }).format(date);
 }
 
+const SESSION_CLIENT_MARKER_RE = /nia-todo-client\(([^)]{1,160})\)\s*/i;
+function sessionClientInfoFromUserAgent(userAgent) {
+  const marker = String(userAgent || '').match(SESSION_CLIENT_MARKER_RE);
+  if (!marker) return {};
+  return Object.fromEntries(marker[1].split(';').map(part => part.trim().split('=').map(value => value.trim())).filter(([key, value]) => key && value));
+}
+function cleanAdminSessionUserAgent(userAgent) {
+  return String(userAgent || '').replace(SESSION_CLIENT_MARKER_RE, '').trim();
+}
+function adminBrowserName(ua, fallback) {
+  if (/EdgA\//.test(ua) || /EdgiOS\//.test(ua) || /Edg\//.test(ua)) return 'Edge';
+  if (/OPR\//.test(ua)) return 'Opera';
+  if (/SamsungBrowser\//.test(ua)) return 'Samsung Internet';
+  if (/Firefox\//.test(ua) || /FxiOS\//.test(ua)) return 'Firefox';
+  if (/CriOS\//.test(ua) || /Chrome\//.test(ua)) return 'Chrome';
+  if (/Safari\//.test(ua)) return 'Safari';
+  return fallback;
+}
+function adminOsName(ua, fallback) {
+  if (/Android/i.test(ua)) return 'Android';
+  if (/Windows/i.test(ua)) return 'Windows';
+  if (/iPhone|iPad/i.test(ua)) return 'iOS/iPadOS';
+  if (/Macintosh|Mac OS X/i.test(ua)) return 'macOS';
+  if (/Linux/i.test(ua)) return 'Linux';
+  return fallback;
+}
+function adminNativePlatformName(platform, fallback) {
+  switch (String(platform || '').toLowerCase()) {
+    case 'android': return 'Android App';
+    case 'windows': return 'Windows App';
+    case 'macos': return 'macOS App';
+    case 'linux': return 'Linux App';
+    default: return fallback;
+  }
+}
+function adminSessionDeviceName(session) {
+  const rawUa = String(session?.user_agent || '').trim();
+  if (!rawUa) return t('settings.2fa.trustedDeviceUnknown');
+  const client = sessionClientInfoFromUserAgent(rawUa);
+  if (client.app === 'nia-todo' && client.mode === 'native') return adminNativePlatformName(client.platform, 'nia-todo App');
+  const ua = cleanAdminSessionUserAgent(rawUa);
+  return `${adminBrowserName(ua, t('settings.2fa.trustedDeviceBrowser'))} · ${adminOsName(ua, t('settings.2fa.trustedDeviceDevice'))}`;
+}
+function adminSessionIpLocation(session) {
+  const ip = String(session.ip_address || '').trim();
+  if (!ip) return '';
+  const lower = ip.toLowerCase();
+  const parts = ip.split('.').map(part => Number(part));
+  const isIpv4 = parts.length === 4 && parts.every(part => Number.isInteger(part) && part >= 0 && part <= 255);
+  let locationKey = 'settings.2fa.sessionLocationPublic';
+  if (ip === '127.0.0.1' || lower === '::1') locationKey = 'settings.2fa.sessionLocationLocal';
+  else if (isIpv4 && (parts[0] === 10 || (parts[0] === 192 && parts[1] === 168) || (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31))) locationKey = 'settings.2fa.sessionLocationPrivate';
+  else if (isIpv4 && parts[0] === 100 && parts[1] >= 64 && parts[1] <= 127) locationKey = 'settings.2fa.sessionLocationCarrierNat';
+  else if (lower.startsWith('fc') || lower.startsWith('fd') || lower.startsWith('fe80:')) locationKey = 'settings.2fa.sessionLocationPrivate';
+  return t('settings.2fa.sessionIpLocation', { ip, location: t(locationKey) });
+}
+
 function adminDialog({ title, message, confirmText = t('common.confirm'), danger = false, hideCancel = false }) {
   const modal = document.getElementById('admin-action-dialog');
   const form = document.getElementById('admin-dialog-form');
@@ -1525,6 +1593,87 @@ function renderUserEmailDisplay(userId, emailValue) {
   </span>`;
 }
 
+function renderUserSessionsPanel(user) {
+  return `<div class="user-sessions-panel" id="user-sessions-panel-${user.id}" hidden>
+    <div class="user-sessions-toolbar">
+      <span class="user-sessions-title" id="user-sessions-title-${user.id}">${escapeHtml(t('admin.user.sessionsTitle'))}</span>
+      <button class="btn btn-danger" id="user-sessions-revoke-all-${user.id}" onclick="revokeAllAdminUserSessions(${user.id}, ${jsStringAttr(user.username)})" hidden>${iconSvg('trash')} ${escapeHtml(t('admin.user.sessionsRevokeAll'))}</button>
+    </div>
+    <div class="user-session-list" id="user-sessions-list-${user.id}"><div class="user-session-empty">${escapeHtml(t('common.loading'))}</div></div>
+  </div>`;
+}
+
+function renderAdminSessionRows(userId, sessions) {
+  const list = document.getElementById(`user-sessions-list-${userId}`);
+  const title = document.getElementById(`user-sessions-title-${userId}`);
+  const revokeAll = document.getElementById(`user-sessions-revoke-all-${userId}`);
+  if (!list) return;
+  if (title) title.textContent = `${t('admin.user.sessionsTitle')} (${sessions.length})`;
+  if (revokeAll) revokeAll.hidden = sessions.length === 0;
+  if (!sessions.length) {
+    list.innerHTML = `<div class="user-session-empty">${escapeHtml(t('admin.user.sessionsEmpty'))}</div>`;
+    return;
+  }
+  list.innerHTML = sessions.map((session) => {
+    const trusted = session.trusted ? ` · ${t('settings.2fa.trustedDeviceRemembered')}` : '';
+    const lastUsed = session.last_used_at ? formatServerTimestamp(session.last_used_at) : t('common.never');
+    const expires = session.expires_at ? formatServerTimestamp(session.expires_at) : '-';
+    const details = t('settings.2fa.trustedDeviceDetails', { lastUsed, expires }) + trusted;
+    const ipLocation = adminSessionIpLocation(session);
+    const userAgent = cleanAdminSessionUserAgent(session.user_agent || '');
+    return `<div class="user-session-row">
+      <div class="user-session-main">
+        <div class="user-session-device">${escapeHtml(adminSessionDeviceName(session))}</div>
+        <div class="user-session-detail">${escapeHtml(details)}</div>
+        ${ipLocation ? `<div class="user-session-detail">${escapeHtml(ipLocation)}</div>` : ''}
+        <div class="user-session-detail" title="${escapeHtmlAttr(userAgent)}">${escapeHtml(userAgent.slice(0, 160) || '-')}</div>
+      </div>
+      <button class="btn btn-danger" onclick="revokeAdminUserSession(${userId}, ${jsStringAttr(session.id)})">${escapeHtml(t('settings.2fa.revoke'))}</button>
+    </div>`;
+  }).join('');
+}
+
+async function toggleAdminUserSessions(userId, username) {
+  const panel = document.getElementById(`user-sessions-panel-${userId}`);
+  if (!panel) return;
+  const open = panel.hidden;
+  panel.hidden = !open;
+  if (!open) return;
+  const list = document.getElementById(`user-sessions-list-${userId}`);
+  if (list) list.innerHTML = `<div class="user-session-empty">${escapeHtml(t('common.loading'))}</div>`;
+  try {
+    const data = await apiGet(`/api/admin/users/${userId}/sessions`);
+    renderAdminSessionRows(userId, data.sessions || []);
+  } catch (e) {
+    if (list) list.innerHTML = `<div class="user-session-error">${escapeHtml(t('admin.user.sessionsLoadFailed', { error: e.message || e }))}</div>`;
+  }
+}
+
+async function revokeAdminUserSession(userId, sessionId) {
+  const confirmed = await adminConfirm({
+    title: t('admin.user.sessionRevokeTitle'),
+    message: t('admin.user.sessionRevokeMessage'),
+    confirmText: t('settings.2fa.revoke'),
+    danger: true,
+  });
+  if (!confirmed) return;
+  await apiDelete(`/api/admin/users/${userId}/sessions/${encodeURIComponent(sessionId)}`);
+  const data = await apiGet(`/api/admin/users/${userId}/sessions`);
+  renderAdminSessionRows(userId, data.sessions || []);
+}
+
+async function revokeAllAdminUserSessions(userId, username) {
+  const confirmed = await adminConfirm({
+    title: t('admin.user.sessionsRevokeAllTitle'),
+    message: t('admin.user.sessionsRevokeAllMessage', { username }),
+    confirmText: t('admin.user.sessionsRevokeAll'),
+    danger: true,
+  });
+  if (!confirmed) return;
+  await apiDelete(`/api/admin/users/${userId}/sessions`);
+  renderAdminSessionRows(userId, []);
+}
+
 function renderUsers(users) {
   if (Array.isArray(users)) adminUsers = users;
   const tbody = document.getElementById('user-list');
@@ -1562,8 +1711,9 @@ function renderUsers(users) {
     const title = escapeHtml(u.display_name || u.username);
     const subtitle = u.display_name && u.display_name !== u.username ? escapeHtml(u.username) : escapeHtml(t('setup.usernameLabel'));
     const resetTwoFactorButton = renderUserTwoFactorResetButton(u);
+    const sessionsButton = `<button class="btn btn-secondary admin-table-action" onclick="toggleAdminUserSessions(${u.id}, ${jsStringAttr(u.username)})">${iconSvg('monitor')} ${escapeHtml(t('admin.user.sessionsButton'))}</button>`;
     const deleteButton = u.is_admin ? '' : `<button class="btn btn-danger admin-table-action" onclick="deleteUser(${u.id}, ${jsStringAttr(u.username)})">${iconSvg('trash')} ${escapeHtml(t('common.delete'))}</button>`;
-    const actionCount = 1 + (resetTwoFactorButton ? 1 : 0) + (deleteButton ? 1 : 0);
+    const actionCount = 2 + (resetTwoFactorButton ? 1 : 0) + (deleteButton ? 1 : 0);
     const actionsClass = actionCount === 1 ? 'user-card-actions single' : (actionCount === 2 ? 'user-card-actions two' : 'user-card-actions');
     return `
     <tr>
@@ -1589,9 +1739,11 @@ function renderUsers(users) {
 
           <div class="${actionsClass}">
             <button class="btn btn-primary admin-table-action" onclick="generatePasswordLink(${u.id}, ${jsStringAttr(u.username)})">${iconSvg('link')} ${escapeHtml(t('admin.user.passwordLink'))}</button>
+            ${sessionsButton}
             ${resetTwoFactorButton}
             ${deleteButton}
           </div>
+          ${renderUserSessionsPanel(u)}
         </article>
       </td>
     </tr>`;
