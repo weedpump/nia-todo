@@ -7,8 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 
 ## [2.10.4] - 2026-06-04
 
+### Added
+- BrainDump can now extract recurring todos from the model-provided JSON schema, including half-year intervals such as every six months, and persists the recurrence when the candidate has a deadline start point.
+- BrainDump preview editing now lets users correct deadline, reminder, and recurrence metadata before creating todos, alongside the existing title/project/section quick fixes.
+
+### Changed
+- BrainDump extraction now keeps the system prompt as the single source for output schema and extraction rules; the runtime prompt only sends current datetime, workspace context, and the transcript.
+- BrainDump preview dropdowns are constrained above the modal action bar so open menus no longer block the create/accept button.
+
 ### Fixed
 - Recurring todo interval inputs now stay editable while replacing the default `1`, so users can type values like `6` months directly instead of working around an immediate reset.
+- BrainDump now ignores recurrence metadata without a deadline instead of creating invalid recurring todos, matching the recurring todo start-date requirement.
 
 ## [2.10.3] - 2026-06-04
 
