@@ -5,12 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
-## [2.10.4] - 2026-06-04
+## [2.11.0] - 2026-06-04
 
 ### Added
 - BrainDump can now extract recurring todos from the model-provided JSON schema, including half-year intervals such as every six months, and persists the recurrence when the candidate has a deadline start point.
 - BrainDump preview editing now lets users correct deadline, reminder, and recurrence metadata before creating todos, alongside the existing title/project/section quick fixes.
-- Users can now configure a default deadline reminder offset (off, at deadline, 15 minutes, 1 hour, 1 day, or custom minutes) that automatically creates reminders for todos with deadlines when no explicit reminder is set.
+- Users can now configure automatic default reminders for todo deadlines, including presets and a custom amount with hours/days units; todos with deadlines get a default reminder when no explicit reminder is set, and automatic reminders keep following deadline changes and recurring next occurrences.
 
 ### Changed
 - BrainDump extraction now keeps the system prompt as the single source for output schema and extraction rules; the runtime prompt only sends current datetime, workspace context, and the transcript.
