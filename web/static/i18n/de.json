@@ -1122,5 +1122,8 @@
   "settings.places.saved": "Ort gespeichert.",
   "settings.places.deleted": "Ort gelöscht.",
   "settings.places.loadFailed": "Orte konnten nicht geladen werden: {error}",
-  "todo.location.notificationTitle": "📍 Orts-Erinnerung"
+  "todo.location.notificationTitle": "📍 Orts-Erinnerung",
+  "todo.location.arrivalShort": "Ankunft",
+  "todo.location.departureShort": "Verlassen",
+  "todo.location.androidOnlyPillTitle": "Ortsbezogene Erinnerung — wird nur in der Android-App ausgelöst"
 }
