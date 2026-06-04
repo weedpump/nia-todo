@@ -21,6 +21,7 @@ from db import get_db
 from routers.auth import require_auth
 from routers.todos import (
     TodoCreate,
+    _normalize_recurring_rule,
     _validate_todo_dates,
     _validate_todo_status,
     _validate_todo_target,
@@ -261,6 +262,78 @@ def _parse_llm_json_content(content) -> dict:
     raise ValueError(f"Could not parse LLM JSON response: {last_error}")
 
 
+
+def _recurrence_interval_from_text(raw: str) -> int:
+    number_words = {
+        "one": 1, "ein": 1, "eine": 1, "einen": 1,
+        "two": 2, "zwei": 2,
+        "three": 3, "drei": 3,
+        "four": 4, "vier": 4,
+        "five": 5, "fünf": 5, "fuenf": 5,
+        "six": 6, "sechs": 6,
+        "seven": 7, "sieben": 7,
+        "eight": 8, "acht": 8,
+        "nine": 9, "neun": 9,
+        "ten": 10, "zehn": 10,
+        "eleven": 11, "elf": 11,
+        "twelve": 12, "zwölf": 12, "zwoelf": 12,
+    }
+    interval_match = re.search(r"\b(\d{1,3})\b", raw)
+    if interval_match:
+        return int(interval_match.group(1))
+    for word, value in number_words.items():
+        if re.search(rf"\b{re.escape(word)}\b", raw):
+            return value
+    return 1
+
+
+def _normalize_braindump_recurring_rule(value, *, has_deadline: bool) -> dict | None:
+    """Normalize LLM recurrence hints for BrainDump candidates.
+
+    Recurring todos require a start date in nia-todo. BrainDump does not ask
+    follow-up questions; without a deadline, recurrence is intentionally ignored.
+    """
+    if not has_deadline or not value:
+        return None
+    if isinstance(value, str):
+        raw = value.strip().lower()
+        if not raw or raw in {"none", "null", "no", "nein", "false"}:
+            return None
+        if any(token in raw for token in ("half year", "six months", "6 months", "sechs monate", "halbjahr", "halbes jahr", "halbe jahr", "halbjähr", "halbjaehr")):
+            value = {"frequency": "monthly", "interval": 6}
+        else:
+            frequency = None
+            if any(token in raw for token in ("daily", "day", "täglich", "taeglich", "jeden tag")):
+                frequency = "daily"
+            elif any(token in raw for token in ("weekly", "week", "wöchentlich", "woechentlich", "woche")):
+                frequency = "weekly"
+            elif any(token in raw for token in ("monthly", "month", "monat")):
+                frequency = "monthly"
+            elif any(token in raw for token in ("yearly", "annual", "year", "jährlich", "jaehrlich", "jahr")):
+                frequency = "yearly"
+            if not frequency:
+                return None
+            value = {"frequency": frequency, "interval": _recurrence_interval_from_text(raw)}
+    if not isinstance(value, dict):
+        return None
+    frequency = str(value.get("frequency") or value.get("freq") or "").strip().lower()
+    if frequency in {"", "none", "null"}:
+        return None
+    if frequency in {"day", "days"}:
+        frequency = "daily"
+    elif frequency in {"week", "weeks"}:
+        frequency = "weekly"
+    elif frequency in {"month", "months"}:
+        frequency = "monthly"
+    elif frequency in {"year", "years", "annual", "annually"}:
+        frequency = "yearly"
+    interval = value.get("interval") or value.get("every") or 1
+    try:
+        normalized = _normalize_recurring_rule({"frequency": frequency, "interval": int(interval)})
+    except HTTPException:
+        return None
+    return json.loads(normalized) if normalized else None
+
 def _normalize_braindump_json(parsed: dict, transcript: str, workspace_context: dict | None = None) -> dict:
     try:
         parsed = _normalize_llm_response_shape(parsed)
@@ -286,12 +359,14 @@ def _normalize_braindump_json(parsed: dict, transcript: str, workspace_context: 
         reminder = _normalize_temporal_field(reminder_source, require_time=True, transcript=transcript)
         if deadline and reminder_source and not reminder and _temporal_has_explicit_time(deadline_source):
             reminder = deadline
+        recurring_source = candidate.get("recurring_rule") or candidate.get("recurringRule") or candidate.get("repeat") or candidate.get("recurrence") or candidate.get("repetition")
         normalized.append(_route_workspace_candidate({
             "title": title,
             "project_name": project_name or candidate.get("project"),
             "section_name": candidate.get("section_name") or candidate.get("sectionName") or candidate.get("section"),
             "deadline": deadline,
             "reminder": reminder,
+            "recurring_rule": _normalize_braindump_recurring_rule(recurring_source, has_deadline=bool(deadline)),
         }, workspace_context))
     return {"candidates": _dedupe_normalized_candidates(normalized)}
 
@@ -308,6 +383,7 @@ class BrainDumpTodoCandidate(BaseModel):
     section_name: str | None = None
     deadline: str | None = None
     reminder: str | None = None
+    recurring_rule: dict | None = None
     original_project_name: str | None = None
     original_section_name: str | None = None
     original_route_present: bool = False
@@ -864,15 +940,17 @@ def _create_todos_from_braindump_candidates(db, user_id: int, candidates: list[B
             section_id=section_id,
             due_date=candidate.deadline,
             remind_at=candidate.reminder,
+            recurring_rule=candidate.recurring_rule if candidate.deadline else None,
         )
         _validate_todo_dates(data)
         _validate_todo_status(data.status)
         _validate_todo_target(db, data.project_id, data.section_id, user_id)
+        recurring_rule = _normalize_recurring_rule(data.recurring_rule) if data.due_date else None
         cursor = db.execute(
             """INSERT INTO todos
-               (title, description, priority, is_pinned, status, project_id, section_id, due_date, completed_at, updated_at, user_id)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
-            (data.title, data.description, data.priority, int(bool(data.is_pinned)), data.status, data.project_id, data.section_id, data.due_date, None, now, user_id),
+               (title, description, priority, is_pinned, status, project_id, section_id, due_date, completed_at, recurring_rule, updated_at, user_id)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (data.title, data.description, data.priority, int(bool(data.is_pinned)), data.status, data.project_id, data.section_id, data.due_date, None, recurring_rule, now, user_id),
         )
         todo_id = cursor.lastrowid
         if data.remind_at:
@@ -1009,35 +1087,7 @@ def _extract_with_llm(text: str, segment_id: int, workspace_context: dict | None
         token = _load_local_openclaw_token() or ""
     system_prompt = build_effective_system_prompt(config)
     current_datetime = datetime.now().astimezone().isoformat(timespec="minutes")
-    extraction_contract = """Provider-neutral extraction contract:
-You are extracting the final intended todo state from messy speech. Work internally if helpful, but keep any internal reasoning concise and reserve output budget for the final JSON. Models without a separate reasoning/thinking mode must follow the same rules directly.
-
-Before writing JSON:
-1. Segment the transcript into meaning-bearing clauses, independent of transcript language.
-2. Build a temporary ledger of candidate items/actions in chronological order.
-3. Apply later corrections/removals/replacements/negations as ledger edits, not as new candidates.
-4. Resolve short references, pronouns, ellipsis, and item names inside correction clauses to earlier ledger entries.
-5. Delete any ledger entry that is later no longer wanted, no longer needed, excluded, removed, cancelled, crossed off, or replaced.
-6. Add later positive additions only when they clearly express final add/create intent.
-7. Preserve explicit dates, times, reminders, and event-like intent from the transcript on the final ledger entries.
-8. Correct obvious speech recognition errors only when context makes the intended word clear. Sanity-check every title word before final JSON. If a word is not a normal word/name in the transcript language and looks like an STT error, replace it only when there is a highly plausible common item/action in context. If no plausible correction exists but the user clearly intended an item/action, keep it with a trailing question mark in the title so the user can edit it. If it is not clearly intended, omit it.
-9. Output only the remaining final ledger entries as compact JSON using exactly this schema: {"candidates":[{"title":"...","project_name":null,"section_name":null,"deadline":null,"reminder":null}]}.
-
-Response requirement: the assistant message content must start with { and contain only valid compact JSON. No Markdown, prose, explanation, or analysis in content.
-
-Candidate validity checklist:
-- The title is only the desired item/action, never an instruction about editing the ledger.
-- The candidate has final positive intent after the whole transcript is processed.
-- The candidate is not mentioned only inside a correction/removal/negation clause.
-- The candidate is not an orphan sentence fragment.
-- If uncertain, omit the candidate.
-
-Abstract example, applies in every language:
-Transcript meaning: add A, B, C; later remove B; later add D.
-Correct final output: A, C, D.
-Never output: B, the remove-B command, or leftover words from the remove-B clause.
-""".strip()
-    user_content = f"Current datetime: {current_datetime}\n\nWorkspace JSON:\n{_format_workspace_context(workspace_context)}\n\nOutput JSON shape:\n{{\"candidates\":[{{\"title\":\"...\",\"project_name\":null,\"section_name\":null,\"deadline\":null,\"reminder\":null}}]}}\n\n{extraction_contract}\n\nTranscript:\n{text}"
+    user_content = f"Current datetime: {current_datetime}\n\nWorkspace JSON:\n{_format_workspace_context(workspace_context)}\n\nTranscript:\n{text}"
     model_name = str(config.get("llm_model") or "").strip()
     if not model_name:
         raise RuntimeError("BrainDump LLM model is not configured")
