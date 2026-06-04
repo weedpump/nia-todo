@@ -382,7 +382,7 @@ def _browser_name(user_agent: str = "") -> str:
     embedded = _client_info_from_user_agent(user_agent)
     mode = str(embedded.get("mode") or embedded.get("runtime") or "").lower()
     platform = str(embedded.get("platform") or "").lower()
-    if embedded and (mode == "native" or platform not in {"", "browser", "web"}):
+    if embedded and mode == "native":
         return ""
     ua = _strip_client_marker(user_agent)
     if not ua:
@@ -437,7 +437,7 @@ def _app_type(user_agent: str = "") -> str:
     mode = str(embedded.get("mode") or embedded.get("runtime") or embedded.get("type") or "").lower()
     display_mode = str(embedded.get("display-mode") or embedded.get("display_mode") or "").lower()
     ua = _strip_client_marker(user_agent)
-    is_native = mode == "native" or (bool(embedded) and platform not in {"", "browser", "web"})
+    is_native = mode == "native"
     if display_mode == "standalone" or "pwa" in mode:
         return "PWA"
     if is_native and platform == "android":
