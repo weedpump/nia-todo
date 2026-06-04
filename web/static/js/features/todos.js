@@ -133,13 +133,15 @@ export function createTodosFeature({
     }
   }
 
-  function normalizeRecurringRule(rule) {
+  let modalRecurringTimezone;
+
+  function normalizeRecurringRule(rule, { defaultTimezone = browserTimeZone() } = {}) {
     if (!rule || typeof rule !== 'object') return null;
     const frequency = String(rule.frequency || 'none').toLowerCase();
     if (!['daily', 'weekly', 'monthly', 'yearly'].includes(frequency)) return null;
     const interval = Math.max(1, Math.min(999, Number.parseInt(rule.interval || 1, 10) || 1));
     const normalized = { frequency, interval, preserve_time: true };
-    const timezone = String(rule.timezone || browserTimeZone() || '').trim();
+    const timezone = String(rule.timezone || defaultTimezone || '').trim();
     if (timezone) normalized.timezone = timezone;
     return normalized;
   }
@@ -148,7 +150,8 @@ export function createTodosFeature({
     const frequency = document.getElementById('todo-recurring-frequency')?.value || 'none';
     if (frequency === 'none') return null;
     const interval = Number.parseInt(document.getElementById('todo-recurring-interval')?.value || '1', 10);
-    return normalizeRecurringRule({ frequency, interval });
+    const timezone = modalRecurringTimezone === undefined ? browserTimeZone() : modalRecurringTimezone;
+    return normalizeRecurringRule({ frequency, interval, timezone }, { defaultTimezone: null });
   }
 
   function updateRecurringControls() {
@@ -1126,7 +1129,10 @@ export function createTodosFeature({
         const d = new Date(todo.due_date);
         document.getElementById('todo-due').value = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
       }
-      const recurringRule = normalizeRecurringRule(todo.recurring_rule);
+      const recurringRule = normalizeRecurringRule(todo.recurring_rule, { defaultTimezone: null });
+      modalRecurringTimezone = recurringRule
+        ? (Object.prototype.hasOwnProperty.call(todo.recurring_rule || {}, 'timezone') ? recurringRule.timezone || null : null)
+        : undefined;
       document.getElementById('todo-recurring-frequency').value = recurringRule?.frequency || 'none';
       document.getElementById('todo-recurring-interval').value = recurringRule?.interval || 1;
       updateRecurringControls();
@@ -1137,6 +1143,7 @@ export function createTodosFeature({
       }
       populateLocationReminderForm(todo);
     } else {
+      modalRecurringTimezone = undefined;
       document.getElementById('todo-pinned').checked = false;
       document.getElementById('todo-recurring-frequency').value = 'none';
       document.getElementById('todo-recurring-interval').value = 1;

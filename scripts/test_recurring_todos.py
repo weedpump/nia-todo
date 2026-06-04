@@ -156,6 +156,36 @@ def main():
     assert_true(dst_next["due_date"] == "2026-03-29T09:00:00+02:00", dst_next)
     assert_true(dst_next["reminders"][0]["remind_at"] == "2026-03-29T08:30:00+02:00", dst_next)
 
+    spring_gap = client.post("/api/todos", json={
+        "title": "DST gap",
+        "project_id": 1,
+        "due_date": "2026-03-28T02:30:00+01:00",
+        "recurring_rule": {"frequency": "daily", "interval": 1, "timezone": "Europe/Berlin"},
+    })
+    assert_true(spring_gap.status_code == 200, spring_gap.text)
+    spring_gap_done = client.patch(f"/api/todos/{spring_gap.json()['id']}", json={"status": "done"})
+    assert_true(spring_gap_done.status_code == 200, spring_gap_done.text)
+    spring_gap_next = spring_gap_done.json()["recurrence_created_todo"]
+    assert_true(spring_gap_next["due_date"] == "2026-03-29T03:00:00+02:00", spring_gap_next)
+
+    fall_fold_next = todos_router._next_recurring_datetime(
+        "2026-10-24T02:30:00+02:00",
+        {"frequency": "daily", "interval": 1, "timezone": "Europe/Berlin"},
+    )
+    assert_true(fall_fold_next == "2026-10-25T02:30:00+02:00", fall_fold_next)
+
+    monthly_dst_next = todos_router._next_recurring_datetime(
+        "2026-03-28T09:00:00+01:00",
+        {"frequency": "monthly", "interval": 1, "timezone": "Europe/Berlin"},
+    )
+    assert_true(monthly_dst_next == "2026-04-28T09:00:00+02:00", monthly_dst_next)
+
+    legacy_next = todos_router._next_recurring_datetime(
+        "2026-03-28T09:00:00+01:00",
+        {"frequency": "daily", "interval": 1},
+    )
+    assert_true(legacy_next == "2026-03-29T09:00:00+01:00", legacy_next)
+
     invalid_timezone = client.post("/api/todos", json={
         "title": "Bad timezone",
         "project_id": 1,

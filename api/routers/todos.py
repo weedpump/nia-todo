@@ -2,7 +2,7 @@
 
 import calendar
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from fastapi import APIRouter, HTTPException, Depends
@@ -192,6 +192,41 @@ def _add_months(dt: datetime, months: int) -> datetime:
     return dt.replace(year=year, month=month, day=day)
 
 
+def _wall_time_exists(dt: datetime) -> bool:
+    if dt.tzinfo is None:
+        return True
+    roundtrip = dt.astimezone(timezone.utc).astimezone(dt.tzinfo)
+    return (
+        roundtrip.year == dt.year
+        and roundtrip.month == dt.month
+        and roundtrip.day == dt.day
+        and roundtrip.hour == dt.hour
+        and roundtrip.minute == dt.minute
+        and roundtrip.second == dt.second
+        and roundtrip.microsecond == dt.microsecond
+    )
+
+
+def _normalize_recurring_wall_datetime(dt: datetime) -> datetime:
+    """Keep recurring schedules on wall-clock time across DST.
+
+    Policy:
+    - ambiguous fall-back folds use the first occurrence (fold=0)
+    - nonexistent spring-forward gaps move to the next valid local minute
+    """
+    if dt.tzinfo is None:
+        return dt
+    candidate = dt.replace(fold=0)
+    if _wall_time_exists(candidate):
+        return candidate
+    naive = candidate.replace(tzinfo=None)
+    for minutes in range(1, 181):
+        shifted = (naive + timedelta(minutes=minutes)).replace(tzinfo=dt.tzinfo, fold=0)
+        if _wall_time_exists(shifted):
+            return shifted
+    return candidate.astimezone(timezone.utc).astimezone(dt.tzinfo).replace(fold=0)
+
+
 def _next_recurring_datetime(value: Optional[str], rule: dict) -> Optional[str]:
     if not value:
         return None
@@ -220,6 +255,8 @@ def _next_recurring_datetime(value: Optional[str], rule: dict) -> Optional[str]:
         next_dt = _add_months(base, interval * 12)
     else:
         return None
+    if recurrence_tz:
+        next_dt = _normalize_recurring_wall_datetime(next_dt)
     return next_dt.isoformat()
 
 
