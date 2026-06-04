@@ -133,11 +133,12 @@ async function run() {
     await userPage.locator('#login-overlay').waitFor({ state: 'hidden', timeout: 15000 });
     await userContext.close();
     await expandSection('#user-list-card');
-    await page.locator('#user-list').getByRole('button', { name: /Sessions/ }).first().click();
-    await page.locator('.user-session-row').first().waitFor({ state: 'visible', timeout: 10000 });
+    const sessionsToggle = page.locator('#user-list .settings-sessions-toggle').first();
+    await sessionsToggle.click();
+    await page.locator('#user-list .settings-device-row').first().waitFor({ state: 'visible', timeout: 10000 });
     await page.getByText('Linux App').first().waitFor({ state: 'visible', timeout: 10000 });
     await page.getByText('Zuletzt genutzt:').first().waitFor({ state: 'visible', timeout: 10000 });
-    await page.locator('.user-sessions-panel button.btn-danger').filter({ hasText: 'Widerrufen' }).first().click();
+    await page.locator('#user-list .settings-device-row button.btn-danger').filter({ hasText: 'Widerrufen' }).first().click();
     await page.getByRole('heading', { name: 'Session beenden?' }).waitFor({ state: 'visible', timeout: 10000 });
     await page.locator('#admin-dialog-confirm').click();
     await page.getByText('Keine aktiven Sessions gespeichert.').waitFor({ state: 'visible', timeout: 10000 });
