@@ -161,6 +161,19 @@ async function run() {
     const reminderPlusHour = new Date(originalReminder.getTime() + 60 * 60 * 1000);
     await waitForTodoTimes(page, snoozeReminderTitle, duePlusHour.toISOString(), reminderPlusHour.toISOString());
 
+    await page.click('#toast-undo');
+    await waitForTodoTimes(page, snoozeReminderTitle, originalDue.toISOString(), originalReminder.toISOString());
+
+    item = snoozeReminderItem();
+    await item.locator('.todo-snooze-menu summary').click();
+    await item.locator('.todo-snooze-menu[open]').waitFor({ state: 'visible', timeout: 5000 });
+    await item.locator('.todo-snooze-menu .todo-status-options button[onclick*="evening"]').click();
+    const thisEvening = new Date();
+    thisEvening.setHours(18, 0, 0, 0);
+    if (thisEvening <= new Date()) thisEvening.setDate(thisEvening.getDate() + 1);
+    const thisEveningReminder = new Date(thisEvening.getTime() - 60 * 60 * 1000);
+    await waitForTodoTimes(page, snoozeReminderTitle, thisEvening.toISOString(), thisEveningReminder.toISOString());
+
     item = todoItem();
     await item.locator('.todo-body').click();
     await page.locator('#todo-modal.active').waitFor({ state: 'visible', timeout: 5000 });
