@@ -120,26 +120,45 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     refreshSelect(select);
   }
 
+  function defaultReminderCustomValue(offsetMinutes) {
+    const offset = Number(offsetMinutes);
+    if (!Number.isFinite(offset) || offset <= 0) return { amount: 1, unit: 'hours' };
+    if (offset % 1440 === 0) return { amount: offset / 1440, unit: 'days' };
+    if (offset % 60 === 0) return { amount: offset / 60, unit: 'hours' };
+    return { amount: Math.max(1, Math.round(offset / 60)), unit: 'hours' };
+  }
+
+  function setDefaultReminderCustomRowVisible(visible) {
+    const customRow = document.getElementById('settings-default-reminder-custom-row');
+    if (!customRow) return;
+    customRow.hidden = !visible;
+    customRow.classList.toggle('is-active', Boolean(visible));
+  }
+
   function renderDefaultReminderSetting(user = getCurrentUser()) {
     const select = document.getElementById('settings-default-reminder');
-    const customRow = document.getElementById('settings-default-reminder-custom-row');
     const customInput = document.getElementById('settings-default-reminder-custom');
+    const customUnit = document.getElementById('settings-default-reminder-custom-unit');
     if (!select) return;
     hydrateSelect(select);
+    if (customUnit) hydrateSelect(customUnit);
     const offset = user?.default_reminder_offset_minutes;
     const knownValues = new Set(['0', '15', '60', '1440']);
     if (offset === null || offset === undefined || offset === '') {
       select.value = 'off';
-      if (customRow) customRow.style.display = 'none';
+      setDefaultReminderCustomRowVisible(false);
     } else if (knownValues.has(String(offset))) {
       select.value = String(offset);
-      if (customRow) customRow.style.display = 'none';
+      setDefaultReminderCustomRowVisible(false);
     } else {
+      const custom = defaultReminderCustomValue(offset);
       select.value = 'custom';
-      if (customRow) customRow.style.display = '';
-      if (customInput) customInput.value = String(offset);
+      setDefaultReminderCustomRowVisible(true);
+      if (customInput) customInput.value = String(custom.amount);
+      if (customUnit) customUnit.value = custom.unit;
     }
     refreshSelect(select);
+    if (customUnit) refreshSelect(customUnit);
   }
 
   function renderUserInfo() {
@@ -479,25 +498,32 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
   }
 
   async function changeDefaultReminderSetting(value) {
-    const customRow = document.getElementById('settings-default-reminder-custom-row');
     if (value === 'custom') {
-      if (customRow) customRow.style.display = '';
+      setDefaultReminderCustomRowVisible(true);
+      const unit = document.getElementById('settings-default-reminder-custom-unit');
+      if (unit) {
+        hydrateSelect(unit);
+        refreshSelect(unit);
+      }
       document.getElementById('settings-default-reminder-custom')?.focus();
       return;
     }
-    if (customRow) customRow.style.display = 'none';
+    setDefaultReminderCustomRowVisible(false);
     await saveDefaultReminderOffset(value === 'off' ? null : Number(value));
   }
 
   async function saveCustomDefaultReminderSetting() {
     const input = document.getElementById('settings-default-reminder-custom');
-    const value = Number(input?.value);
-    if (!Number.isInteger(value) || value < 0 || value > 525600) {
+    const unit = document.getElementById('settings-default-reminder-custom-unit')?.value || 'hours';
+    const amount = Number(input?.value);
+    const multiplier = unit === 'days' ? 1440 : 60;
+    const maxAmount = unit === 'days' ? 365 : 8760;
+    if (!Number.isInteger(amount) || amount < 1 || amount > maxAmount) {
       const errorEl = document.getElementById('settings-default-reminder-error');
       if (errorEl) errorEl.textContent = t('settings.defaultReminder.invalidCustom');
       return;
     }
-    await saveDefaultReminderOffset(value);
+    await saveDefaultReminderOffset(amount * multiplier);
   }
 
   function editUserDisplayName() {

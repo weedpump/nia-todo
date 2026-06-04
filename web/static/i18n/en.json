@@ -1089,10 +1089,14 @@
   "settings.defaultReminder.before1h": "1 hour before",
   "settings.defaultReminder.before1d": "1 day before",
   "settings.defaultReminder.custom": "Custom…",
-  "settings.defaultReminder.customPlaceholder": "Minutes before deadline",
+  "settings.defaultReminder.customPlaceholder": "Amount",
+  "settings.defaultReminder.customAmountLabel": "Amount",
+  "settings.defaultReminder.customUnitLabel": "Unit",
+  "settings.defaultReminder.customHours": "Hours before",
+  "settings.defaultReminder.customDays": "Days before",
   "settings.defaultReminder.help": "Explicit reminders are kept and never overwritten.",
   "settings.defaultReminder.saved": "Default reminder saved.",
   "settings.defaultReminder.saveFailed": "Default reminder could not be saved.",
-  "settings.defaultReminder.invalidCustom": "Enter minutes between 0 and 525600.",
+  "settings.defaultReminder.invalidCustom": "Enter a whole number: 1–8760 hours or 1–365 days.",
   "api.auth.defaultReminderSaveFailed": "Default reminder could not be saved."
 }
