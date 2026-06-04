@@ -6044,12 +6044,17 @@ input[type="color"]::-moz-color-swatch {
 }
 
 .settings-card-actions,
-.settings-action-row {
+.settings-action-row,
+.settings-actions-row {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
   margin-top: 12px;
+}
+
+.settings-actions-row + .settings-device-list {
+  margin-top: 14px;
 }
 
 .settings-status-pill {
