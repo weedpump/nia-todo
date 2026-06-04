@@ -1,5 +1,5 @@
 -- Migration 045: Mark sessions whose anonymized client mix was counted.
--- The marker prevents repeated admin backfills from double-counting existing sessions.
+-- The marker prevents runtime session tracking from double-counting sessions.
 
 ALTER TABLE user_sessions ADD COLUMN client_mix_counted_at TEXT;
 

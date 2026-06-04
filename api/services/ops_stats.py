@@ -534,60 +534,6 @@ def record_user_session_client_mix(db, session_id: str, user_agent: str = "") ->
         return False
 
 
-def _session_bucket_start(value: str | None) -> str:
-    try:
-        text = str(value or "").replace("Z", "+00:00")
-        parsed = datetime.fromisoformat(text)
-        if parsed.tzinfo is None:
-            parsed = parsed.replace(tzinfo=timezone.utc)
-        return _hour_bucket(parsed)
-    except Exception:
-        return _hour_bucket()
-
-
-def backfill_existing_session_client_mix(db, *, batch_size: int = 500) -> int:
-    """Count existing sessions once so users do not need to log in again."""
-    counted = 0
-    safe_batch_size = max(1, min(int(batch_size or 500), 5000))
-    while True:
-        try:
-            rows = db.execute(
-                """SELECT id, user_agent, created_at
-                   FROM user_sessions
-                   WHERE client_mix_counted_at IS NULL
-                   ORDER BY created_at, id
-                   LIMIT ?""",
-                (safe_batch_size,),
-            ).fetchall()
-        except Exception:
-            return counted
-        if not rows:
-            return counted
-        batch_counted = 0
-        for row in rows:
-            session_id = row["id"]
-            try:
-                existing = db.execute("SELECT client_mix_counted_at FROM user_sessions WHERE id = ?", (session_id,)).fetchone()
-                if not existing or existing["client_mix_counted_at"] is not None:
-                    continue
-                if not record_client_session_metrics(db, row["user_agent"] or "", bucket_start=_session_bucket_start(row["created_at"])):
-                    continue
-                cur = db.execute(
-                    """UPDATE user_sessions
-                       SET client_mix_counted_at = datetime('now')
-                       WHERE id = ?
-                         AND client_mix_counted_at IS NULL""",
-                    (session_id,),
-                )
-                if cur.rowcount == 1:
-                    counted += 1
-                    batch_counted += 1
-            except Exception:
-                continue
-        if batch_counted == 0:
-            # Avoid a tight loop if all remaining rows fail unexpectedly.
-            return counted
-
 
 def _historical_client_mix(db, *, days: int) -> dict[str, dict[str, int]]:
     cutoff = _start_date(days)
