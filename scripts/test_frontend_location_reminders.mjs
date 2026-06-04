@@ -32,6 +32,8 @@ assert(desktop.includes("t('todo.location.notificationTitle')"), 'location notif
 assert(desktop.includes('const address = String(locationReminder.address ||'), 'native location schedules must use addresses, not server coordinates');
 assert(!/locationReminder\.(latitude|longitude)/.test(desktop), 'frontend native schedules must not depend on server coordinates');
 assert(!desktop.includes('radiusM'), 'frontend native location schedules must be address-only; radius is Android-internal');
+assert(desktop.includes('serverSupportsLocationReminders') && desktop.includes("includes('location-reminders')"), 'native location scheduling must be gated by server capability');
+assert(todos.includes('serverSupportsLocationReminders') && todos.includes('todo.location.serverUnsupported'), 'todo form must reject location reminders when the server lacks capability');
 assert(desktop.includes('if (locationReminders.length)') && desktop.indexOf('ensureNativeLocationPermission(true)') > desktop.indexOf('if (locationReminders.length)'), 'Android location permission must only be requested when at least one location reminder exists');
 assert(desktop.indexOf('scheduleLocationReminders?.(locationReminders)') < desktop.indexOf('ensureNativeLocationPermission(true)'), 'Android location schedules must be stored before requesting permission');
 assert(de.includes('todo.location.notificationTitle') && en.includes('todo.location.notificationTitle'), 'location notification title must be translated');
@@ -40,6 +42,7 @@ assert(rendering.includes('locationReminderLabel'), 'todo cards must derive a lo
 assert(css.includes('.todo-meta-chip.todo-location'), 'location reminder pill must have dedicated styling');
 assert(de.includes('todo.location.arrivalShort') && en.includes('todo.location.departureShort'), 'location reminder pill labels must be translated');
 assert(de.includes('Funktioniert nur in der Android-App') && en.includes('Only works in the Android app'), 'Web UI must clearly communicate Android-only location reminder triggering');
+assert(de.includes('todo.location.serverUnsupported') && en.includes('todo.location.serverUnsupported'), 'server unsupported message must be translated');
 
 console.log('✅ Frontend location reminder tests passed');
 
