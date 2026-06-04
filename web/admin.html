@@ -329,6 +329,67 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
     <div class="admin-success" id="server-update-success"></div>
   </div>
 
+  <!-- Stats -->
+  <div class="admin-card" id="technical-stats-card">
+    <h2><span data-icon="activity"></span> <span data-i18n-key="admin.stats.title">Statistik</span></h2>
+    <div class="admin-help" data-i18n-key="admin.stats.help">Aggregierte technische Statistik für Kapazität, Last und Wachstum — ohne Inhalte, Transkripte, IPs, Usernamen oder Roh-User-Agents.</div>
+    <div class="admin-stat-toolbar">
+      <div>
+        <div class="admin-stat-tabs" id="stats-period-tabs">
+          <button class="admin-stat-tab" data-days="7" onclick="setStatsPeriod(7)" data-i18n-key="admin.stats.period.7d">7 Tage</button>
+          <button class="admin-stat-tab active" data-days="30" onclick="setStatsPeriod(30)" data-i18n-key="admin.stats.period.30d">30 Tage</button>
+          <button class="admin-stat-tab" data-days="90" onclick="setStatsPeriod(90)" data-i18n-key="admin.stats.period.90d">90 Tage</button>
+          <button class="admin-stat-tab" data-days="365" onclick="setStatsPeriod(365)" data-i18n-key="admin.stats.period.365d">1 Jahr</button>
+        </div>
+        <div class="admin-stat-coverage" id="stats-data-coverage" data-i18n-key="admin.stats.coverage.loading">Datenbasis wird geladen…</div>
+      </div>
+      <div class="form-row" style="margin:0;">
+        <button class="btn btn-secondary" onclick="loadTechnicalStats()" data-i18n-key="admin.stats.refresh">Aktualisieren</button>
+        <button class="btn btn-secondary" onclick="backfillTechnicalStats()" data-i18n-key="admin.stats.analyzeLogs">Logs analysieren</button>
+      </div>
+    </div>
+    <div class="admin-stat-kpis" id="technical-stats-kpis"></div>
+    <div class="admin-stat-layout">
+      <div class="admin-stat-panel">
+        <div class="admin-stat-panel-title"><span data-i18n-key="admin.stats.panel.inventoryGrowth">Bestand & Wachstum</span> <span class="admin-stat-panel-subtitle" id="stats-inventory-subtitle"></span></div>
+        <div id="stats-inventory-chart"></div>
+        <div class="admin-stat-legend"><span data-i18n-key="admin.stats.label.users">User</span><span data-i18n-key="admin.stats.label.projects">Projekte</span><span data-i18n-key="admin.stats.label.todos">Todos</span></div>
+      </div>
+      <div class="admin-stat-panel">
+        <div class="admin-stat-panel-title" data-i18n-key="admin.stats.panel.currentInventory">Aktueller Bestand</div>
+        <div class="admin-stat-bars" id="stats-inventory-bars"></div>
+      </div>
+      <div class="admin-stat-panel">
+        <div class="admin-stat-panel-title"><span data-i18n-key="admin.stats.panel.workload">LLM / STT Last</span> <span class="admin-stat-panel-subtitle" id="stats-workload-subtitle"></span></div>
+        <div id="stats-workload-chart"></div>
+        <div class="admin-stat-legend"><span data-i18n-key="admin.stats.label.llm">LLM</span><span data-i18n-key="admin.stats.label.stt">STT</span><span data-i18n-key="admin.stats.label.audio">Audio</span></div>
+      </div>
+      <div class="admin-stat-panel">
+        <div class="admin-stat-panel-title" data-i18n-key="admin.stats.panel.capacity">Kapazitätsindikatoren</div>
+        <div class="admin-stat-bars" id="stats-capacity-bars"></div>
+      </div>
+      <div class="admin-stat-panel wide">
+        <div class="admin-stat-panel-title"><span data-i18n-key="admin.stats.panel.platformAnalysis">Plattformanalyse</span> <span class="admin-stat-panel-subtitle" id="stats-platform-subtitle"></span></div>
+        <div class="admin-stat-layout" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:14px;">
+          <div>
+            <div class="admin-stat-panel-subtitle" style="margin-bottom:8px;" data-i18n-key="admin.stats.panel.appType">App-Typ</div>
+            <div class="admin-stat-bars" id="stats-app-types"></div>
+          </div>
+          <div>
+            <div class="admin-stat-panel-subtitle" style="margin-bottom:8px;" data-i18n-key="admin.stats.panel.operatingSystem">Betriebssystem</div>
+            <div class="admin-stat-bars" id="stats-operating-systems"></div>
+          </div>
+          <div>
+            <div class="admin-stat-panel-subtitle" style="margin-bottom:8px;" data-i18n-key="admin.stats.panel.browser">Browser</div>
+            <div class="admin-stat-bars" id="stats-browsers"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="admin-error" id="technical-stats-error"></div>
+    <div class="admin-success" id="technical-stats-success"></div>
+  </div>
+
   <!-- Instance Configuration -->
   <div class="admin-card" id="instance-config-card">
     <h2><span data-icon="settings"></span> <span data-i18n-key="admin.instance.title">Instance configuration</span></h2>
@@ -431,67 +492,6 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
     <div class="admin-help" data-i18n-key="admin.security.apiKeysHelp">API keys remain usable as machine tokens. Creating and revoking your own API keys requires recent MFA on accounts with mandatory MFA.</div>
     <div class="admin-error" id="security-error"></div>
     <div class="admin-success" id="security-success"></div>
-  </div>
-
-  <!-- Stats -->
-  <div class="admin-card" id="technical-stats-card">
-    <h2><span data-icon="activity"></span> Statistik</h2>
-    <div class="admin-help">Aggregierte technische Statistik für Kapazität, Last und Wachstum — ohne Inhalte, Transkripte, IPs, Usernamen oder Roh-User-Agents.</div>
-    <div class="admin-stat-toolbar">
-      <div>
-        <div class="admin-stat-tabs" id="stats-period-tabs">
-          <button class="admin-stat-tab" data-days="7" onclick="setStatsPeriod(7)">7 Tage</button>
-          <button class="admin-stat-tab active" data-days="30" onclick="setStatsPeriod(30)">30 Tage</button>
-          <button class="admin-stat-tab" data-days="90" onclick="setStatsPeriod(90)">90 Tage</button>
-          <button class="admin-stat-tab" data-days="365" onclick="setStatsPeriod(365)">1 Jahr</button>
-        </div>
-        <div class="admin-stat-coverage" id="stats-data-coverage">Datenbasis wird geladen…</div>
-      </div>
-      <div class="form-row" style="margin:0;">
-        <button class="btn btn-secondary" onclick="loadTechnicalStats()">Aktualisieren</button>
-        <button class="btn btn-secondary" onclick="backfillTechnicalStats()">Logs analysieren</button>
-      </div>
-    </div>
-    <div class="admin-stat-kpis" id="technical-stats-kpis"></div>
-    <div class="admin-stat-layout">
-      <div class="admin-stat-panel">
-        <div class="admin-stat-panel-title">Bestand & Wachstum <span class="admin-stat-panel-subtitle" id="stats-inventory-subtitle"></span></div>
-        <div id="stats-inventory-chart"></div>
-        <div class="admin-stat-legend"><span>User</span><span>Projekte</span><span>Todos</span></div>
-      </div>
-      <div class="admin-stat-panel">
-        <div class="admin-stat-panel-title">Aktueller Bestand</div>
-        <div class="admin-stat-bars" id="stats-inventory-bars"></div>
-      </div>
-      <div class="admin-stat-panel">
-        <div class="admin-stat-panel-title">LLM / STT Last <span class="admin-stat-panel-subtitle" id="stats-workload-subtitle"></span></div>
-        <div id="stats-workload-chart"></div>
-        <div class="admin-stat-legend"><span>LLM</span><span>STT</span><span>Audio</span></div>
-      </div>
-      <div class="admin-stat-panel">
-        <div class="admin-stat-panel-title">Kapazitätsindikatoren</div>
-        <div class="admin-stat-bars" id="stats-capacity-bars"></div>
-      </div>
-      <div class="admin-stat-panel wide">
-        <div class="admin-stat-panel-title">Plattformanalyse <span class="admin-stat-panel-subtitle" id="stats-platform-subtitle"></span></div>
-        <div class="admin-stat-layout" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:14px;">
-          <div>
-            <div class="admin-stat-panel-subtitle" style="margin-bottom:8px;">App-Typ</div>
-            <div class="admin-stat-bars" id="stats-app-types"></div>
-          </div>
-          <div>
-            <div class="admin-stat-panel-subtitle" style="margin-bottom:8px;">Betriebssystem</div>
-            <div class="admin-stat-bars" id="stats-operating-systems"></div>
-          </div>
-          <div>
-            <div class="admin-stat-panel-subtitle" style="margin-bottom:8px;">Browser</div>
-            <div class="admin-stat-bars" id="stats-browsers"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="admin-error" id="technical-stats-error"></div>
-    <div class="admin-success" id="technical-stats-success"></div>
   </div>
 
   <!-- BrainDump Configuration -->
@@ -1027,6 +1027,11 @@ function metricValue(point) {
   return Number(point?.value || 0);
 }
 
+function statsT(key, params = {}) {
+  const translate = window.t || ((fallbackKey) => fallbackKey);
+  return translate(key, params);
+}
+
 function renderLineChart(seriesDefs) {
   const width = 720;
   const height = 210;
@@ -1046,7 +1051,7 @@ function renderLineChart(seriesDefs) {
     const y = pad.top + ratio * (height - pad.top - pad.bottom);
     return `<line class="grid" x1="${pad.left}" x2="${width - pad.right}" y1="${y.toFixed(1)}" y2="${y.toFixed(1)}"/>`;
   }).join('');
-  return `<svg class="admin-stat-chart" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none">${grid}${lines}<text x="${pad.left}" y="${height - 6}">${escapeHtml(seriesDefs[0]?.values?.[0]?.date || '')}</text><text x="${width - 120}" y="${height - 6}">${escapeHtml(seriesDefs[0]?.values?.at(-1)?.date || '')}</text><text x="${pad.left}" y="12">max ${formatAdminNumber(maxValue)}</text></svg>`;
+  return `<svg class="admin-stat-chart" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none">${grid}${lines}<text x="${pad.left}" y="${height - 6}">${escapeHtml(seriesDefs[0]?.values?.[0]?.date || '')}</text><text x="${width - 120}" y="${height - 6}">${escapeHtml(seriesDefs[0]?.values?.at(-1)?.date || '')}</text><text x="${pad.left}" y="12">${escapeHtml(statsT('admin.stats.chart.max', { value: formatAdminNumber(maxValue) }))}</text></svg>`;
 }
 
 function renderBarRows(items) {
@@ -1058,14 +1063,22 @@ function renderBarRows(items) {
 }
 
 function formatStatsDate(value) {
-  if (!value) return 'keine Daten';
+  if (!value) return statsT('admin.stats.noData');
   const date = new Date(`${value}T00:00:00Z`);
   if (!Number.isFinite(date.getTime())) return String(value);
   return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(date);
 }
 
-function objectToBarItems(obj) {
-  return Object.entries(obj || {}).map(([label, value]) => ({ label, value }));
+function translateStatsLabel(prefix, label) {
+  const slug = String(label || '').toLowerCase().replace(/[^a-z0-9]+/g, '.').replace(/^\.+|\.+$/g, '');
+  if (!slug) return label;
+  const key = `${prefix}.${slug}`;
+  const translated = statsT(key);
+  return translated === key ? label : translated;
+}
+
+function objectToBarItems(obj, prefix = '') {
+  return Object.entries(obj || {}).map(([label, value]) => ({ label: prefix ? translateStatsLabel(prefix, label) : label, value }));
 }
 
 function setStatsPeriod(days) {
@@ -1091,51 +1104,61 @@ function renderTechnicalStats(data) {
   const platformAnalysis = data.platform_analysis || {};
   const clientMix = platformAnalysis.historical || {};
   const coverage = data.coverage || {};
-  document.getElementById('stats-data-coverage').textContent = `Daten seit ${formatStatsDate(coverage.data_since)} · Last seit ${formatStatsDate(coverage.ops_since)} · Bestand seit ${formatStatsDate(coverage.inventory_since)}`;
-  document.getElementById('stats-inventory-subtitle').textContent = `${formatAdminNumber(data.period_days)} Tage`;
-  document.getElementById('stats-workload-subtitle').textContent = `${formatAdminNumber(data.period_days)} Tage`;
-  document.getElementById('stats-platform-subtitle').textContent = `${formatAdminNumber(data.period_days)} Tage Client-Mix · aktuell ${formatAdminNumber(platformAnalysis.total_active_sessions)} aktive Sessions`;
+  document.getElementById('stats-data-coverage').textContent = statsT('admin.stats.coverage.summary', {
+    data: formatStatsDate(coverage.data_since),
+    load: formatStatsDate(coverage.ops_since),
+    inventory: formatStatsDate(coverage.inventory_since),
+  });
+  document.getElementById('stats-inventory-subtitle').textContent = statsT('admin.stats.days', { days: formatAdminNumber(data.period_days) });
+  document.getElementById('stats-workload-subtitle').textContent = statsT('admin.stats.days', { days: formatAdminNumber(data.period_days) });
+  document.getElementById('stats-platform-subtitle').textContent = statsT('admin.stats.platformSubtitle', {
+    days: formatAdminNumber(data.period_days),
+    sessions: formatAdminNumber(platformAnalysis.total_active_sessions),
+  });
   document.getElementById('technical-stats-kpis').innerHTML = [
-    statTile('Aktive Sessions', formatAdminNumber(counts.user_sessions), 'aktuell'),
-    statTile('Todos gesamt', formatAdminNumber(counts.todos), `+${formatAdminNumber(created.todos)} im Zeitraum`),
-    statTile('User', formatAdminNumber(counts.users), `+${formatAdminNumber(created.users)} im Zeitraum`),
-    statTile('LLM-Aufrufe', formatAdminNumber(llm.total), `${formatAdminNumber(llm.avg_per_day)} / Tag`),
-    statTile('LLM Tokens', tokens.total_tokens ? formatAdminNumber(tokens.total_tokens) : '-', tokens.avg_tokens_per_llm_call ? `${formatAdminNumber(tokens.avg_tokens_per_llm_call)} / Call` : 'vom Provider gemeldet'),
-    statTile('STT-Aufrufe', formatAdminNumber(stt.total), `${formatAdminNumber(stt.avg_per_day)} / Tag`),
-    statTile('Peak / Stunde', formatAdminNumber(ai.peak_per_hour), 'LLM oder STT'),
-    statTile('Fehlerquote LLM/STT', `${formatRate(llm.error_rate)} / ${formatRate(stt.error_rate)}`, 'LLM / STT'),
-    statTile('DB-Größe', formatAdminBytes(data.database?.bytes), 'SQLite + WAL/SHM'),
+    statTile(statsT('admin.stats.kpi.activeSessions'), formatAdminNumber(counts.user_sessions), statsT('admin.stats.foot.current')),
+    statTile(statsT('admin.stats.kpi.todosTotal'), formatAdminNumber(counts.todos), statsT('admin.stats.foot.createdInPeriod', { count: formatAdminNumber(created.todos) })),
+    statTile(statsT('admin.stats.kpi.users'), formatAdminNumber(counts.users), statsT('admin.stats.foot.createdInPeriod', { count: formatAdminNumber(created.users) })),
+    statTile(statsT('admin.stats.kpi.llmCalls'), formatAdminNumber(llm.total), statsT('admin.stats.foot.perDay', { count: formatAdminNumber(llm.avg_per_day) })),
+    statTile(statsT('admin.stats.kpi.llmTokens'), tokens.total_tokens ? formatAdminNumber(tokens.total_tokens) : '-', tokens.avg_tokens_per_llm_call ? statsT('admin.stats.foot.perCall', { count: formatAdminNumber(tokens.avg_tokens_per_llm_call) }) : statsT('admin.stats.foot.providerReported')),
+    statTile(statsT('admin.stats.kpi.sttCalls'), formatAdminNumber(stt.total), statsT('admin.stats.foot.perDay', { count: formatAdminNumber(stt.avg_per_day) })),
+    statTile(statsT('admin.stats.kpi.peakPerHour'), formatAdminNumber(ai.peak_per_hour), statsT('admin.stats.foot.llmOrStt')),
+    statTile(statsT('admin.stats.kpi.errorRateLlmStt'), `${formatRate(llm.error_rate)} / ${formatRate(stt.error_rate)}`, statsT('admin.stats.foot.llmStt')),
+    statTile(statsT('admin.stats.kpi.dbSize'), formatAdminBytes(data.database?.bytes), statsT('admin.stats.foot.sqliteFiles')),
   ].join('');
   document.getElementById('stats-inventory-chart').innerHTML = renderLineChart([
-    { label: 'User', values: inventory.series?.users || [] },
-    { label: 'Projekte', values: inventory.series?.projects || [] },
-    { label: 'Todos', values: inventory.series?.todos || [] },
+    { label: statsT('admin.stats.label.users'), values: inventory.series?.users || [] },
+    { label: statsT('admin.stats.label.projects'), values: inventory.series?.projects || [] },
+    { label: statsT('admin.stats.label.todos'), values: inventory.series?.todos || [] },
   ]);
   document.getElementById('stats-workload-chart').innerHTML = renderLineChart([
-    { label: 'LLM', values: workload.series?.llm || [] },
-    { label: 'STT', values: workload.series?.stt || [] },
-    { label: 'Audio', values: workload.series?.audio_segments || [] },
+    { label: statsT('admin.stats.label.llm'), values: workload.series?.llm || [] },
+    { label: statsT('admin.stats.label.stt'), values: workload.series?.stt || [] },
+    { label: statsT('admin.stats.label.audio'), values: workload.series?.audio_segments || [] },
   ]);
   document.getElementById('stats-inventory-bars').innerHTML = renderBarRows([
-    { label: 'User', value: counts.users },
-    { label: 'Workspaces', value: counts.workspaces },
-    { label: 'Projekte', value: counts.projects },
-    { label: 'Todos', value: counts.todos },
-    { label: 'Reminders', value: counts.reminders },
-    { label: 'Push', value: counts.push_subscriptions },
+    { label: statsT('admin.stats.label.users'), value: counts.users },
+    { label: statsT('admin.stats.label.workspaces'), value: counts.workspaces },
+    { label: statsT('admin.stats.label.projects'), value: counts.projects },
+    { label: statsT('admin.stats.label.todos'), value: counts.todos },
+    { label: statsT('admin.stats.label.reminders'), value: counts.reminders },
+    { label: statsT('admin.stats.label.push'), value: counts.push_subscriptions },
   ]);
   document.getElementById('stats-capacity-bars').innerHTML = renderBarRows([
-    { label: 'LLM Calls', value: llm.total },
-    { label: 'STT Calls', value: stt.total },
-    { label: 'Audio', value: audio.total },
-    { label: 'LLM Peak/h', value: llm.peak_per_hour },
-    { label: 'STT Peak/h', value: stt.peak_per_hour },
-    { label: 'Tokens', value: tokens.total_tokens || 0, display: tokens.total_tokens ? formatAdminNumber(tokens.total_tokens) : '-' },
+    { label: statsT('admin.stats.label.llmCalls'), value: llm.total },
+    { label: statsT('admin.stats.label.sttCalls'), value: stt.total },
+    { label: statsT('admin.stats.label.audio'), value: audio.total },
+    { label: statsT('admin.stats.label.llmPeakHour'), value: llm.peak_per_hour },
+    { label: statsT('admin.stats.label.sttPeakHour'), value: stt.peak_per_hour },
+    { label: statsT('admin.stats.label.tokens'), value: tokens.total_tokens || 0, display: tokens.total_tokens ? formatAdminNumber(tokens.total_tokens) : '-' },
   ]);
-  const emptyPlatform = [{ label: 'Noch keine Daten im Zeitraum', value: 0, display: '0' }];
-  document.getElementById('stats-app-types').innerHTML = renderBarRows(objectToBarItems(clientMix.app_types).length ? objectToBarItems(clientMix.app_types) : emptyPlatform);
-  document.getElementById('stats-operating-systems').innerHTML = renderBarRows(objectToBarItems(clientMix.operating_systems).length ? objectToBarItems(clientMix.operating_systems) : emptyPlatform);
-  document.getElementById('stats-browsers').innerHTML = renderBarRows(objectToBarItems(clientMix.browsers).length ? objectToBarItems(clientMix.browsers) : emptyPlatform);
+  const emptyPlatform = [{ label: statsT('admin.stats.emptyPeriod'), value: 0, display: '0' }];
+  const appTypeItems = objectToBarItems(clientMix.app_types, 'admin.stats.appType');
+  document.getElementById('stats-app-types').innerHTML = renderBarRows(appTypeItems.length ? appTypeItems : emptyPlatform);
+  const osItems = objectToBarItems(clientMix.operating_systems, 'admin.stats.os');
+  document.getElementById('stats-operating-systems').innerHTML = renderBarRows(osItems.length ? osItems : emptyPlatform);
+  const browserItems = objectToBarItems(clientMix.browsers, 'admin.stats.browser');
+  document.getElementById('stats-browsers').innerHTML = renderBarRows(browserItems.length ? browserItems : emptyPlatform);
 }
 
 async function loadTechnicalStats() {
@@ -1145,20 +1168,24 @@ async function loadTechnicalStats() {
     const data = await apiGet(`/api/admin/technical-stats?days=${currentStatsDays}`);
     renderTechnicalStats(data);
   } catch(e) {
-    document.getElementById('technical-stats-error').textContent = 'Error: ' + e.message;
+    document.getElementById('technical-stats-error').textContent = statsT('admin.errorWithMessage', { error: e.message });
   }
 }
 
 async function backfillTechnicalStats() {
   document.getElementById('technical-stats-error').textContent = '';
-  document.getElementById('technical-stats-success').textContent = 'Analysiere Logs…';
+  document.getElementById('technical-stats-success').textContent = statsT('admin.stats.analyzingLogs');
   try {
     const result = await apiPost(`/api/admin/technical-stats/backfill?days=${currentStatsDays}`, {});
-    document.getElementById('technical-stats-success').textContent = `Importiert: ${formatAdminNumber(result.imported_count)} Log-Zähler, ${formatAdminNumber(result.session_client_mix_imported)} bestehende Sessions in Client-Mix übernommen · ${formatAdminNumber(result.log_lines_scanned)} Logzeilen geprüft`;
+    document.getElementById('technical-stats-success').textContent = statsT('admin.stats.backfillImported', {
+      counters: formatAdminNumber(result.imported_count),
+      sessions: formatAdminNumber(result.session_client_mix_imported),
+      lines: formatAdminNumber(result.log_lines_scanned),
+    });
     await loadTechnicalStats();
   } catch(e) {
     document.getElementById('technical-stats-success').textContent = '';
-    document.getElementById('technical-stats-error').textContent = 'Error: ' + e.message;
+    document.getElementById('technical-stats-error').textContent = statsT('admin.errorWithMessage', { error: e.message });
   }
 }
 
