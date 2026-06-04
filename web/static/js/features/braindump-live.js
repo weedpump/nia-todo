@@ -3,7 +3,7 @@ import { getAuthHeaders, getAuthToken } from '../api/http.js';
 import { escapeHtml, escapeHtmlAttr, formatDate } from '../core/utils.js';
 import { iconSvg } from '../icons/lucide-icons.js';
 import { t } from '../i18n/index.js';
-import { hydrateSelect, refreshSelect } from '../ui/dropdowns.js';
+import { closeOpenDropdown, hydrateSelect, refreshSelect } from '../ui/dropdowns.js';
 import { createNativeBridge } from './native-bridge.js';
 
 const SILENCE_LEVEL = 0.035;
@@ -20,6 +20,28 @@ function recurringLabel(rule) {
   const key = `todo.recurring.label.${frequency}`;
   const label = t(key, { interval });
   return label === key ? '' : label;
+}
+
+function isoToDateTimeLocal(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return '';
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 16);
+}
+
+function dateTimeLocalToIso(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isFinite(date.getTime()) ? date.toISOString() : null;
+}
+
+function normalizeRecurringRule(rule) {
+  if (!rule || typeof rule !== 'object') return null;
+  const frequency = String(rule.frequency || 'none').toLowerCase();
+  if (!['daily', 'weekly', 'monthly', 'yearly'].includes(frequency)) return null;
+  const interval = Math.max(1, Math.min(999, Number.parseInt(rule.interval || 1, 10) || 1));
+  return { frequency, interval, preserve_time: true };
 }
 
 export function createBrainDumpLiveFeature(options = {}) {
@@ -197,7 +219,7 @@ export function createBrainDumpLiveFeature(options = {}) {
       }
     });
     modal.addEventListener('input', (event) => {
-      const field = event.target?.closest?.('input[data-bd-field="title"]');
+      const field = event.target?.closest?.('input[data-bd-field]');
       if (field) updateCandidateField(field, { rerender: false });
     });
     modal.addEventListener('click', (event) => {
@@ -713,19 +735,37 @@ export function createBrainDumpLiveFeature(options = {}) {
     const candidate = findCandidate(field.getAttribute('data-bd-candidate-key'));
     const name = field.getAttribute('data-bd-field');
     if (!candidate || !name) return;
-    candidate[name] = field.value || null;
+    if (name === 'deadline' || name === 'reminder') {
+      candidate[name] = dateTimeLocalToIso(field.value);
+    } else if (name === 'recurring_frequency') {
+      const frequency = field.value || 'none';
+      candidate.recurring_rule = frequency === 'none' ? null : normalizeRecurringRule({
+        ...(candidate.recurring_rule || {}),
+        frequency,
+        interval: candidate.recurring_rule?.interval || 1,
+      });
+    } else if (name === 'recurring_interval') {
+      const interval = Math.max(1, Math.min(999, Number.parseInt(field.value || '1', 10) || 1));
+      field.value = String(interval);
+      const frequency = candidate.recurring_rule?.frequency || 'daily';
+      candidate.recurring_rule = normalizeRecurringRule({ frequency, interval });
+    } else {
+      candidate[name] = field.value || null;
+    }
     if (name === 'project_name') candidate.section_name = null;
     state.candidateRenderSignature = '';
     if (rerender) render();
   }
 
   function toggleCandidateEditor(key) {
+    closeOpenDropdown('braindump-edit-toggle');
     state.editingCandidateKey = state.editingCandidateKey === key ? '' : (key || '');
     state.candidateRenderSignature = '';
     render();
   }
 
   async function createSelectedTodos() {
+    closeOpenDropdown('braindump-create');
     const candidates = selectedCandidates();
     if (!candidates.length || state.creating) return;
     state.creating = true;
@@ -972,6 +1012,14 @@ export function createBrainDumpLiveFeature(options = {}) {
     return optionsHtml.join('');
   }
 
+  function renderRecurringOptions(candidate) {
+    const selected = normalizeRecurringRule(candidate.recurring_rule)?.frequency || 'none';
+    return ['none', 'daily', 'weekly', 'monthly', 'yearly'].map(frequency => {
+      const label = frequency === 'none' ? t('todo.recurring.none') : t(`todo.recurring.${frequency}`);
+      return `<option value="${frequency}" ${frequency === selected ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+    }).join('');
+  }
+
   function renderCandidate(candidate, index) {
     const key = candidateKey(candidate);
     const checked = state.selectedCandidateKeys.has(key) ? 'checked' : '';
@@ -1007,6 +1055,22 @@ export function createBrainDumpLiveFeature(options = {}) {
                 <span id="braindump-section-label-${escapeHtmlAttr(key)}">${escapeHtml(t('braindump.quickfix.section'))}</span>
                 <select data-ui-select class="braindump-field" data-bd-candidate-key="${escapeHtmlAttr(key)}" data-bd-field="section_name" aria-labelledby="braindump-section-label-${escapeHtmlAttr(key)}" ${candidate.project_name ? '' : 'disabled'}>${renderSectionOptions(candidate)}</select>
               </div>
+              <label class="braindump-quickfix-field">
+                <span>${escapeHtml(t('todo.deadline'))}</span>
+                <input class="braindump-field" type="datetime-local" value="${escapeHtmlAttr(isoToDateTimeLocal(candidate.deadline))}" data-bd-candidate-key="${escapeHtmlAttr(key)}" data-bd-field="deadline">
+              </label>
+              <label class="braindump-quickfix-field">
+                <span>${escapeHtml(t('todo.reminder'))}</span>
+                <input class="braindump-field" type="datetime-local" value="${escapeHtmlAttr(isoToDateTimeLocal(candidate.reminder))}" data-bd-candidate-key="${escapeHtmlAttr(key)}" data-bd-field="reminder">
+              </label>
+              <div class="braindump-quickfix-field">
+                <span id="braindump-recurring-label-${escapeHtmlAttr(key)}">${escapeHtml(t('todo.recurring'))}</span>
+                <select data-ui-select class="braindump-field" data-bd-candidate-key="${escapeHtmlAttr(key)}" data-bd-field="recurring_frequency" aria-labelledby="braindump-recurring-label-${escapeHtmlAttr(key)}">${renderRecurringOptions(candidate)}</select>
+              </div>
+              <label class="braindump-quickfix-field ${candidate.recurring_rule ? '' : 'is-disabled'}">
+                <span>${escapeHtml(t('todo.recurring.interval'))}</span>
+                <input class="braindump-field" type="number" min="1" max="999" step="1" value="${escapeHtmlAttr(normalizeRecurringRule(candidate.recurring_rule)?.interval || 1)}" data-bd-candidate-key="${escapeHtmlAttr(key)}" data-bd-field="recurring_interval" ${candidate.recurring_rule ? '' : 'disabled'}>
+              </label>
             </span>
           ` : ''}
         </span>
