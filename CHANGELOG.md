@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 ## [Unreleased]
 
 ### Changed
-- Server startup defaults now bind to the IPv6 wildcard address (`::`) so Linux deployments with dual-stack sockets enabled accept both IPv6 and IPv4 backend connections by default.
+- Server startup now defaults to `NIA_TODO_HOST=auto`, binding every available wildcard stack: IPv6 plus IPv4 when possible, falling back to IPv4-only on hosts without IPv6.
 
 ## [2.11.1] - 2026-06-04
 
