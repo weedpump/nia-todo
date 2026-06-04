@@ -86,7 +86,9 @@ def make_db():
         """
     )
     db.execute("INSERT INTO users (id, username) VALUES (1, 'tobi')")
+    db.execute("INSERT INTO users (id, username) VALUES (2, 'moni')")
     db.execute("INSERT INTO projects (id, name, user_id, is_inbox) VALUES (1, 'Inbox', 1, 1)")
+    db.execute("INSERT INTO project_members (project_id, user_id, status) VALUES (1, 2, 'accepted')")
     db.commit()
     return db
 
@@ -108,6 +110,7 @@ def make_client(db):
     todos_router.get_db = fake_get_db
     places_router.get_db = fake_get_db
     todos_router.broadcast_change = noop_broadcast
+    places_router.broadcast_change = noop_broadcast
     return TestClient(app)
 
 
@@ -173,11 +176,25 @@ def main():
     assert_true(free_address_todo["location_reminder"]["address"] == "Baumarkt Freising", free_address_todo)
     assert_true("latitude" not in free_address_todo["location_reminder"], free_address_todo)
 
-    # Updating a saved place must not silently move already-created reminders.
+    # Updating a saved place must move linked reminders so Android geofences use the new place,
+    # but the user-scoped reminder payload must not be broadcast to shared-project members.
+    place_update_broadcasts = []
+
+    async def capture_place_update_broadcast(*args, **kwargs):
+        place_update_broadcasts.append((args, kwargs))
+
+    places_router.broadcast_change = capture_place_update_broadcast
     moved_place = client.patch(f"/api/places/{place['id']}", json={"address": "Neue Adresse"})
+    places_router.broadcast_change = noop_broadcast
     assert_true(moved_place.status_code == 200, moved_place.text)
     fetched = client.get(f"/api/todos/{todo['id']}").json()
-    assert_true(fetched["location_reminder"]["address"] == "Johanneck 24", fetched)
+    assert_true(fetched["location_reminder"]["address"] == "Neue Adresse", fetched)
+    assert_true(fetched["location_reminder"]["place_id"] == place["id"], fetched)
+    assert_true(len(place_update_broadcasts) == 1, place_update_broadcasts)
+    broadcast_args, broadcast_kwargs = place_update_broadcasts[0]
+    assert_true(broadcast_args[0] == "todo_update", place_update_broadcasts)
+    assert_true(broadcast_args[2] == 1, place_update_broadcasts)
+    assert_true(len(broadcast_args) == 3 and "project_id" not in broadcast_kwargs, place_update_broadcasts)
 
     before_location_patch_updated_at = free_address_todo["updated_at"]
     forbidden_radius_patch = client.patch(f"/api/todos/{free_address_todo['id']}", json={
