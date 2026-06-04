@@ -5,6 +5,15 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [2.11.1] - 2026-06-04
+
+### Changed
+- Admin Statistics now only show counters collected at runtime after the update, making the data coverage explicit instead of reconstructing historical values from service logs.
+- Admin Statistics now avoid misleading shared bar scales for mixed units: inventory and capacity summaries use numeric metric cards, while inventory trends are normalized per series.
+
+### Removed
+- Removed the admin-only journal log backfill flow, including the **Logs analysieren** button, the `/api/admin/technical-stats/backfill` endpoint, and the unused session client-mix backfill helpers.
+
 ## [2.11.0] - 2026-06-04
 
 ### Added

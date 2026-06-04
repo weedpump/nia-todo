@@ -143,6 +143,11 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .admin-stat-bar-row { display:grid; grid-template-columns: 98px minmax(0,1fr) 56px; gap:10px; align-items:center; color:var(--text-secondary); font-size:12px; }
 .admin-stat-bar-track { height:9px; border-radius:999px; overflow:hidden; background:var(--bg-tertiary); }
 .admin-stat-bar-fill { height:100%; border-radius:999px; background:linear-gradient(90deg, var(--accent), var(--success)); }
+.admin-stat-metric-grid { display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:10px; }
+.admin-stat-metric { min-width:0; padding:10px; border-radius:13px; background:color-mix(in srgb, var(--bg-secondary) 74%, transparent); border:1px solid color-mix(in srgb, var(--border) 54%, transparent); }
+.admin-stat-metric-label { color:var(--text-muted); font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.admin-stat-metric-value { margin-top:4px; color:var(--text-primary); font-size:20px; font-weight:900; line-height:1.1; }
+.admin-stat-metric-foot { margin-top:3px; color:var(--text-muted); font-size:11px; min-height:14px; }
 @media (max-width: 860px) { .admin-stat-layout { grid-template-columns:1fr; } .admin-stat-kpis { grid-template-columns: repeat(2, minmax(0,1fr)); } }
 .admin-error { color: var(--danger); font-size: 13px; margin-top: 8px; }
 .admin-success { color: var(--success); font-size: 13px; margin-top: 8px; }
@@ -345,7 +350,6 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
       </div>
       <div class="form-row" style="margin:0;">
         <button class="btn btn-secondary" onclick="loadTechnicalStats()" data-i18n-key="admin.stats.refresh">Aktualisieren</button>
-        <button class="btn btn-secondary" onclick="backfillTechnicalStats()" data-i18n-key="admin.stats.analyzeLogs">Logs analysieren</button>
       </div>
     </div>
     <div class="admin-stat-kpis" id="technical-stats-kpis"></div>
@@ -1032,16 +1036,22 @@ function statsT(key, params = {}) {
   return translate(key, params);
 }
 
-function renderLineChart(seriesDefs) {
+function renderLineChart(seriesDefs, options = {}) {
   const width = 720;
   const height = 210;
   const pad = { left: 34, right: 12, top: 16, bottom: 24 };
-  const allValues = seriesDefs.flatMap((item) => (item.values || []).map(metricValue));
-  const maxValue = Math.max(1, ...allValues);
-  const pointCount = Math.max(1, ...seriesDefs.map((item) => (item.values || []).length));
+  const normalizedSeries = options.normalizeSeries
+    ? seriesDefs.map((item) => {
+        const max = Math.max(1, ...(item.values || []).map(metricValue));
+        return { ...item, values: (item.values || []).map((point) => ({ ...point, value: (metricValue(point) / max) * 100 })) };
+      })
+    : seriesDefs;
+  const allValues = normalizedSeries.flatMap((item) => (item.values || []).map(metricValue));
+  const maxValue = options.normalizeSeries ? 100 : Math.max(1, ...allValues);
+  const pointCount = Math.max(1, ...normalizedSeries.map((item) => (item.values || []).length));
   const xFor = (idx) => pad.left + (pointCount <= 1 ? 0 : idx * ((width - pad.left - pad.right) / (pointCount - 1)));
   const yFor = (value) => height - pad.bottom - (Number(value || 0) / maxValue) * (height - pad.top - pad.bottom);
-  const lines = seriesDefs.map((item, seriesIdx) => {
+  const lines = normalizedSeries.map((item, seriesIdx) => {
     const values = item.values || [];
     if (!values.length) return '';
     const d = values.map((point, idx) => `${idx === 0 ? 'M' : 'L'} ${xFor(idx).toFixed(1)} ${yFor(metricValue(point)).toFixed(1)}`).join(' ');
@@ -1051,7 +1061,8 @@ function renderLineChart(seriesDefs) {
     const y = pad.top + ratio * (height - pad.top - pad.bottom);
     return `<line class="grid" x1="${pad.left}" x2="${width - pad.right}" y1="${y.toFixed(1)}" y2="${y.toFixed(1)}"/>`;
   }).join('');
-  return `<svg class="admin-stat-chart" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none">${grid}${lines}<text x="${pad.left}" y="${height - 6}">${escapeHtml(seriesDefs[0]?.values?.[0]?.date || '')}</text><text x="${width - 120}" y="${height - 6}">${escapeHtml(seriesDefs[0]?.values?.at(-1)?.date || '')}</text><text x="${pad.left}" y="12">${escapeHtml(statsT('admin.stats.chart.max', { value: formatAdminNumber(maxValue) }))}</text></svg>`;
+  const maxLabel = options.normalizeSeries ? '100%' : statsT('admin.stats.chart.max', { value: formatAdminNumber(maxValue) });
+  return `<svg class="admin-stat-chart" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none">${grid}${lines}<text x="${pad.left}" y="${height - 6}">${escapeHtml(seriesDefs[0]?.values?.[0]?.date || '')}</text><text x="${width - 120}" y="${height - 6}">${escapeHtml(seriesDefs[0]?.values?.at(-1)?.date || '')}</text><text x="${pad.left}" y="12">${escapeHtml(maxLabel)}</text></svg>`;
 }
 
 function renderBarRows(items) {
@@ -1060,6 +1071,10 @@ function renderBarRows(items) {
     const width = Number(item.value || 0) <= 0 ? 0 : Math.max(2, (Number(item.value || 0) / max) * 100);
     return `<div class="admin-stat-bar-row"><div>${escapeHtml(item.label)}</div><div class="admin-stat-bar-track"><div class="admin-stat-bar-fill" style="width:${width}%"></div></div><div>${escapeHtml(item.display ?? formatAdminNumber(item.value))}</div></div>`;
   }).join('');
+}
+
+function renderMetricRows(items) {
+  return `<div class="admin-stat-metric-grid">${items.map((item) => `<div class="admin-stat-metric"><div class="admin-stat-metric-label">${escapeHtml(item.label)}</div><div class="admin-stat-metric-value">${escapeHtml(item.display ?? formatAdminNumber(item.value))}</div><div class="admin-stat-metric-foot">${escapeHtml(item.foot || '')}</div></div>`).join('')}</div>`;
 }
 
 function formatStatsDate(value) {
@@ -1107,7 +1122,7 @@ function renderTechnicalStats(data) {
   document.getElementById('stats-data-coverage').textContent = statsT('admin.stats.coverage.summary', {
     date: formatStatsDate(coverage.data_since),
   });
-  document.getElementById('stats-inventory-subtitle').textContent = statsT('admin.stats.days', { days: formatAdminNumber(data.period_days) });
+  document.getElementById('stats-inventory-subtitle').textContent = statsT('admin.stats.relativeDays', { days: formatAdminNumber(data.period_days) });
   document.getElementById('stats-workload-subtitle').textContent = statsT('admin.stats.days', { days: formatAdminNumber(data.period_days) });
   document.getElementById('stats-platform-subtitle').textContent = statsT('admin.stats.platformSubtitle', {
     days: formatAdminNumber(data.period_days),
@@ -1128,13 +1143,13 @@ function renderTechnicalStats(data) {
     { label: statsT('admin.stats.label.users'), values: inventory.series?.users || [] },
     { label: statsT('admin.stats.label.projects'), values: inventory.series?.projects || [] },
     { label: statsT('admin.stats.label.todos'), values: inventory.series?.todos || [] },
-  ]);
+  ], { normalizeSeries: true });
   document.getElementById('stats-workload-chart').innerHTML = renderLineChart([
     { label: statsT('admin.stats.label.llm'), values: workload.series?.llm || [] },
     { label: statsT('admin.stats.label.stt'), values: workload.series?.stt || [] },
     { label: statsT('admin.stats.label.audio'), values: workload.series?.audio_segments || [] },
   ]);
-  document.getElementById('stats-inventory-bars').innerHTML = renderBarRows([
+  document.getElementById('stats-inventory-bars').innerHTML = renderMetricRows([
     { label: statsT('admin.stats.label.users'), value: counts.users },
     { label: statsT('admin.stats.label.workspaces'), value: counts.workspaces },
     { label: statsT('admin.stats.label.projects'), value: counts.projects },
@@ -1142,13 +1157,13 @@ function renderTechnicalStats(data) {
     { label: statsT('admin.stats.label.reminders'), value: counts.reminders },
     { label: statsT('admin.stats.label.push'), value: counts.push_subscriptions },
   ]);
-  document.getElementById('stats-capacity-bars').innerHTML = renderBarRows([
-    { label: statsT('admin.stats.label.llmCalls'), value: llm.total },
-    { label: statsT('admin.stats.label.sttCalls'), value: stt.total },
-    { label: statsT('admin.stats.label.audio'), value: audio.total },
-    { label: statsT('admin.stats.label.llmPeakHour'), value: llm.peak_per_hour },
-    { label: statsT('admin.stats.label.sttPeakHour'), value: stt.peak_per_hour },
-    { label: statsT('admin.stats.label.tokens'), value: tokens.total_tokens || 0, display: tokens.total_tokens ? formatAdminNumber(tokens.total_tokens) : '-' },
+  document.getElementById('stats-capacity-bars').innerHTML = renderMetricRows([
+    { label: statsT('admin.stats.label.llmCalls'), value: llm.total, foot: statsT('admin.stats.foot.perDay', { count: formatAdminNumber(llm.avg_per_day) }) },
+    { label: statsT('admin.stats.label.sttCalls'), value: stt.total, foot: statsT('admin.stats.foot.perDay', { count: formatAdminNumber(stt.avg_per_day) }) },
+    { label: statsT('admin.stats.label.audio'), value: audio.total, foot: statsT('admin.stats.foot.perDay', { count: formatAdminNumber(audio.avg_per_day) }) },
+    { label: statsT('admin.stats.label.llmPeakHour'), value: llm.peak_per_hour, foot: statsT('admin.stats.foot.peak') },
+    { label: statsT('admin.stats.label.sttPeakHour'), value: stt.peak_per_hour, foot: statsT('admin.stats.foot.peak') },
+    { label: statsT('admin.stats.label.tokens'), value: tokens.total_tokens || 0, display: tokens.total_tokens ? formatAdminNumber(tokens.total_tokens) : '-', foot: tokens.avg_tokens_per_llm_call ? statsT('admin.stats.foot.perCall', { count: formatAdminNumber(tokens.avg_tokens_per_llm_call) }) : statsT('admin.stats.foot.providerReported') },
   ]);
   const emptyPlatform = [{ label: statsT('admin.stats.emptyPeriod'), value: 0, display: '0' }];
   const appTypeItems = objectToBarItems(clientMix.app_types, 'admin.stats.appType');
@@ -1170,22 +1185,6 @@ async function loadTechnicalStats() {
   }
 }
 
-async function backfillTechnicalStats() {
-  document.getElementById('technical-stats-error').textContent = '';
-  document.getElementById('technical-stats-success').textContent = statsT('admin.stats.analyzingLogs');
-  try {
-    const result = await apiPost(`/api/admin/technical-stats/backfill?days=${currentStatsDays}`, {});
-    document.getElementById('technical-stats-success').textContent = statsT('admin.stats.backfillImported', {
-      counters: formatAdminNumber(result.imported_count),
-      sessions: formatAdminNumber(result.session_client_mix_imported),
-      lines: formatAdminNumber(result.log_lines_scanned),
-    });
-    await loadTechnicalStats();
-  } catch(e) {
-    document.getElementById('technical-stats-success').textContent = '';
-    document.getElementById('technical-stats-error').textContent = statsT('admin.errorWithMessage', { error: e.message });
-  }
-}
 
 async function loadUsers() {
   try {
