@@ -44,7 +44,7 @@ assert(rendering.includes('todo-meta-chip todo-location') && rendering.includes(
 assert(rendering.includes('locationReminderLabel'), 'todo cards must derive a location reminder label');
 assert(css.includes('.todo-meta-chip.todo-location'), 'location reminder pill must have dedicated styling');
 assert(css.includes('.btn-primary [data-icon]') && css.includes('color: #fff'), 'primary button icons must stay visible without hover');
-assert(css.includes('.settings-actions-row + .settings-device-list') && css.includes('margin-top: 14px'), 'saved places list must have breathing room below the save button');
+assert(css.includes('#settings-places-list') && css.includes('margin-top: 14px'), 'saved places list must keep breathing room below the save button even with status elements in between');
 assert(css.includes('.todo-location-fields.is-disabled') && css.includes('.todo-location-toggle-row'), 'location reminder toggle and disabled fields must have dedicated styling');
 assert(de.includes('todo.location.arrivalShort') && en.includes('todo.location.departureShort'), 'location reminder pill labels must be translated');
 assert(de.includes('Funktioniert nur in der Android-App') && en.includes('Only works in the Android app'), 'Web UI must clearly communicate Android-only location reminder triggering');
