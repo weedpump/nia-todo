@@ -165,6 +165,23 @@ def main():
     fetched = client.get(f"/api/todos/{todo['id']}").json()
     assert_true(fetched["location_reminder"]["address"] == "Johanneck 24", fetched)
 
+    before_location_patch_updated_at = free_address_todo["updated_at"]
+    patched_location = client.patch(f"/api/todos/{free_address_todo['id']}", json={
+        "location_reminder": {
+            "trigger_type": "arrival",
+            "address": "Johanneck 24",
+        },
+    })
+    assert_true(patched_location.status_code == 200, patched_location.text)
+    patched_todo = patched_location.json()
+    assert_true(patched_todo["location_reminder"]["address"] == "Johanneck 24", patched_todo)
+    assert_true(patched_todo["updated_at"] != before_location_patch_updated_at, patched_todo)
+    fetched_after_patch = client.get(f"/api/todos/{free_address_todo['id']}").json()
+    assert_true(fetched_after_patch["location_reminder"]["address"] == "Johanneck 24", fetched_after_patch)
+    listed_after_patch = client.get("/api/todos").json()["todos"]
+    listed_todo = next(item for item in listed_after_patch if item["id"] == free_address_todo["id"])
+    assert_true(listed_todo["location_reminder"]["address"] == "Johanneck 24", listed_todo)
+
     removed = client.patch(f"/api/todos/{todo['id']}", json={"location_reminder": None})
     assert_true(removed.status_code == 200, removed.text)
     assert_true(removed.json()["location_reminder"] is None, removed.json())

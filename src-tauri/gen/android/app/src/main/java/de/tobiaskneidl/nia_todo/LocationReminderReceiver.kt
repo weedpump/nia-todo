@@ -72,6 +72,15 @@ class LocationReminderReceiver : BroadcastReceiver() {
     const val PREFS_SCHEDULES = "location_schedules"
     const val DEFAULT_RADIUS_M = 150f
 
+    fun hasStoredLocationSchedules(context: Context): Boolean {
+      val schedulesJson = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getString(PREFS_SCHEDULES, "[]") ?: "[]"
+      return try {
+        JSONArray(schedulesJson).length() > 0
+      } catch (_: Exception) {
+        false
+      }
+    }
+
     fun locationPermissionState(context: Context): String {
       val fine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
       if (!fine) return "prompt"
