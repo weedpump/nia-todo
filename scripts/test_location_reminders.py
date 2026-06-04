@@ -146,6 +146,20 @@ def main():
     assert_true("longitude" not in todo["location_reminder"], todo)
     assert_true("radius_m" not in todo["location_reminder"], todo)
 
+    forbidden_coordinate_response = client.post("/api/todos", json={
+        "title": "Koordinaten dürfen nicht rein",
+        "project_id": 1,
+        "location_reminder": {
+            "trigger_type": "arrival",
+            "address": "Johanneck 24",
+            "latitude": 48.0,
+            "longitude": 11.0,
+            "radiusM": 150,
+        },
+    })
+    assert_true(forbidden_coordinate_response.status_code == 422, forbidden_coordinate_response.text)
+    assert_true("coordinates or radius" in forbidden_coordinate_response.text, forbidden_coordinate_response.text)
+
     free_address_response = client.post("/api/todos", json={
         "title": "Beim Baumarkt Schrauben kaufen",
         "project_id": 1,
@@ -166,6 +180,15 @@ def main():
     assert_true(fetched["location_reminder"]["address"] == "Johanneck 24", fetched)
 
     before_location_patch_updated_at = free_address_todo["updated_at"]
+    forbidden_radius_patch = client.patch(f"/api/todos/{free_address_todo['id']}", json={
+        "location_reminder": {
+            "trigger_type": "arrival",
+            "address": "Johanneck 24",
+            "radius_m": 150,
+        },
+    })
+    assert_true(forbidden_radius_patch.status_code == 422, forbidden_radius_patch.text)
+
     patched_location = client.patch(f"/api/todos/{free_address_todo['id']}", json={
         "location_reminder": {
             "trigger_type": "arrival",

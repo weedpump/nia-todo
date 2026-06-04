@@ -50,6 +50,10 @@ class TodoUpdate(BaseModel):
 ALLOWED_TODO_STATUSES = {"pending", "in_progress", "done"}
 ALLOWED_RECURRENCE_FREQUENCIES = {"daily", "weekly", "monthly", "yearly"}
 ALLOWED_LOCATION_TRIGGERS = {"arrival", "departure"}
+FORBIDDEN_LOCATION_COORDINATE_FIELDS = {
+    "lat", "lng", "latitude", "longitude", "lon",
+    "radius", "radius_m", "radiusM", "radiusMeters", "radius_meters",
+}
 AUTO_REMINDER_SOURCE = "default_due"
 EXPLICIT_REMINDER_SOURCE = "explicit"
 
@@ -271,6 +275,9 @@ def _validate_location_reminder(db, data: Optional[dict], user_id: int) -> Optio
         return None
     if not isinstance(data, dict):
         raise HTTPException(422, "Invalid location_reminder")
+    forbidden_fields = sorted(field for field in FORBIDDEN_LOCATION_COORDINATE_FIELDS if field in data)
+    if forbidden_fields:
+        raise HTTPException(422, f"Location reminder does not accept coordinates or radius fields: {', '.join(forbidden_fields)}")
     trigger_type = str(data.get('trigger_type') or data.get('trigger') or '').strip().lower()
     if trigger_type not in ALLOWED_LOCATION_TRIGGERS:
         raise HTTPException(422, "Invalid location reminder trigger_type")
