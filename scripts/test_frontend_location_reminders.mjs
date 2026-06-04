@@ -14,6 +14,8 @@ const de = await readFile(new URL('../web/static/i18n/de.json', import.meta.url)
 const en = await readFile(new URL('../web/static/i18n/en.json', import.meta.url), 'utf8');
 
 assert(html.includes('todo-location-enabled'), 'todo modal must expose location reminder toggle');
+assert(html.includes('class="settings-switch" id="todo-location-enabled"'), 'location reminder toggle must use the shared switch style');
+assert(!html.includes('id="todo-location-fields" class="ui-field-grid two-columns" hidden'), 'location fields must stay visible so they can be muted when disabled');
 assert(!html.includes('todo-location-latitude'), 'todo modal must not expose latitude to humans');
 assert(!html.includes('todo-location-longitude'), 'todo modal must not expose longitude to humans');
 assert(!html.includes('todo-location-radius'), 'todo modal must not expose radius to humans');
@@ -24,6 +26,7 @@ assert(html.includes('data-i18n-key="todo.location.hint"'), 'todo modal must cle
 assert(todos.includes('locationReminderFromForm'), 'todo feature must serialize location reminders');
 assert(todos.includes('populateLocationReminderForm'), 'todo feature must populate existing location reminders');
 assert(todos.includes('todoData.location_reminder'), 'todo save payload must include location_reminder');
+assert(todos.includes("fields.classList.toggle('is-disabled', !enabled)") && todos.includes('control.disabled = !enabled'), 'location reminder fields must be disabled and muted when the toggle is off');
 assert(todos.includes('selectedPlace?.address') && todos.includes('payload.address = String(selectedPlace.address)'), 'saved-place location reminders must keep address in the local payload for native scheduling before server refresh');
 assert(!todos.includes('todo-location-latitude'), 'todo JS must not read latitude inputs');
 assert(!todos.includes('todo-location-radius'), 'todo JS must not read radius inputs');
@@ -42,6 +45,7 @@ assert(rendering.includes('locationReminderLabel'), 'todo cards must derive a lo
 assert(css.includes('.todo-meta-chip.todo-location'), 'location reminder pill must have dedicated styling');
 assert(css.includes('.btn-primary [data-icon]') && css.includes('color: #fff'), 'primary button icons must stay visible without hover');
 assert(css.includes('.settings-actions-row + .settings-device-list') && css.includes('margin-top: 14px'), 'saved places list must have breathing room below the save button');
+assert(css.includes('.todo-location-fields.is-disabled') && css.includes('.todo-location-toggle-row'), 'location reminder toggle and disabled fields must have dedicated styling');
 assert(de.includes('todo.location.arrivalShort') && en.includes('todo.location.departureShort'), 'location reminder pill labels must be translated');
 assert(de.includes('Funktioniert nur in der Android-App') && en.includes('Only works in the Android app'), 'Web UI must clearly communicate Android-only location reminder triggering');
 

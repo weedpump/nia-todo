@@ -160,7 +160,10 @@ export function createTodosFeature({
   function updateLocationReminderControls() {
     const enabled = document.getElementById('todo-location-enabled')?.checked || false;
     const fields = document.getElementById('todo-location-fields');
-    if (fields) fields.hidden = !enabled;
+    if (fields) {
+      fields.classList.toggle('is-disabled', !enabled);
+      fields.querySelectorAll('input, select, textarea, button').forEach((control) => { control.disabled = !enabled; });
+    }
     const placeId = document.getElementById('todo-location-place')?.value || '';
     const addressGroup = document.getElementById('todo-location-address-group');
     if (addressGroup) addressGroup.hidden = Boolean(placeId);
