@@ -63,6 +63,8 @@ def make_db():
             section_id INTEGER,
             due_date TEXT,
             completed_at TEXT,
+            recurring_rule TEXT,
+            parent_id INTEGER,
             updated_at TEXT,
             user_id INTEGER
         );
@@ -125,6 +127,32 @@ def test_creates_confirmed_candidates_with_project_section_and_reminder():
     assert_true(snoopy["due_date"] == "2026-05-30T18:00+02:00", snoopy)
     assert_true(snoopy["reminders"][0]["remind_at"] == "2026-05-30T18:00+02:00", snoopy)
 
+
+
+def test_creates_recurring_todo_when_deadline_present():
+    db = make_db()
+    created = _create_todos_from_braindump_candidates(
+        db,
+        1,
+        [BrainDumpTodoCandidate(
+            title="Rauchmelder prüfen",
+            deadline="2026-06-05T09:00:00+02:00",
+            recurring_rule={"frequency": "monthly", "interval": 6},
+        )],
+    )
+    todo = created[0]
+    assert_true(todo["due_date"] == "2026-06-05T09:00:00+02:00", todo)
+    assert_true(todo["recurring_rule"] == {"frequency": "monthly", "interval": 6, "preserve_time": True}, todo)
+
+
+def test_ignores_recurring_rule_without_deadline():
+    db = make_db()
+    created = _create_todos_from_braindump_candidates(
+        db,
+        1,
+        [BrainDumpTodoCandidate(title="Filter wechseln", recurring_rule={"frequency": "monthly", "interval": 6})],
+    )
+    assert_true(created[0]["recurring_rule"] is None, created)
 
 def test_project_null_uses_inbox_even_with_matching_inbox_section_name():
     db = make_db()
@@ -267,6 +295,8 @@ def test_manual_preview_correction_wins_over_previous_route_learning():
 def main():
     tests = [
         test_creates_confirmed_candidates_with_project_section_and_reminder,
+        test_creates_recurring_todo_when_deadline_present,
+        test_ignores_recurring_rule_without_deadline,
         test_project_null_uses_inbox_even_with_matching_inbox_section_name,
         test_workspace_context_filters_projects_and_routes_inbox,
         test_workspace_context_project_from_other_workspace_falls_back_to_inbox,

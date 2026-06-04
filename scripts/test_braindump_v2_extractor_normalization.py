@@ -146,6 +146,32 @@ def test_empty_llm_candidates_do_not_trigger_transcript_fallback():
     result = _normalize_braindump_json({"candidates": []}, "Ich brauche Milch und Kaffee.")
     assert_true(result == {"candidates": []}, result)
 
+
+def test_normalizes_recurring_rule_only_with_deadline():
+    parsed = {"candidates": [
+        {"title": "Rauchmelder prüfen", "deadline": "morgen", "recurring_rule": {"frequency": "monthly", "interval": 6}},
+        {"title": "Filter wechseln", "recurring_rule": {"frequency": "monthly", "interval": 6}},
+    ]}
+    result = _normalize_braindump_json(parsed, "Ab morgen alle sechs Monate Rauchmelder prüfen. Filter regelmäßig wechseln.")
+    by_title = {item["title"]: item for item in result["candidates"]}
+    assert_true(by_title["Rauchmelder prüfen"]["recurring_rule"] == {"frequency": "monthly", "interval": 6, "preserve_time": True}, by_title)
+    assert_true(by_title["Filter wechseln"]["recurring_rule"] is None, by_title)
+
+
+def test_normalizes_half_year_recurring_alias():
+    for repeat in ("jedes halbe Jahr", "alle sechs Monate", "every six months"):
+        parsed = {"candidates": [{"title": "Wartung machen", "deadline": "morgen", "repeat": repeat}]}
+        result = _normalize_braindump_json(parsed, f"Ab morgen {repeat} Wartung machen.")
+        item = result["candidates"][0]
+        assert_true(item["recurring_rule"] == {"frequency": "monthly", "interval": 6, "preserve_time": True}, item)
+
+
+def test_normalizes_recurring_word_number_intervals():
+    parsed = {"candidates": [{"title": "Review machen", "deadline": "morgen", "repeat": "alle zwei Wochen"}]}
+    result = _normalize_braindump_json(parsed, "Ab morgen alle zwei Wochen Review machen.")
+    item = result["candidates"][0]
+    assert_true(item["recurring_rule"] == {"frequency": "weekly", "interval": 2, "preserve_time": True}, item)
+
 def test_default_prompt_requires_language_agnostic_correction_handling():
     prompt = DEFAULT_BRAINDUMP_SYSTEM_PROMPT
     assert_true("language-independently using semantic meaning, not keyword matching" in prompt, prompt)
@@ -167,7 +193,41 @@ def test_default_prompt_requires_language_agnostic_correction_handling():
     assert_true("If the model does not support internal reasoning/thinking" in prompt, prompt)
     assert_true("Correct obvious speech recognition errors" in prompt, prompt)
     assert_true("trailing question mark" in prompt, prompt)
+    assert_true("recurring_rule" in prompt, prompt)
+    assert_true("every six months" in prompt, prompt)
+    assert_true("Do not ask follow-up questions" in prompt, prompt)
     assert_true("kind" not in prompt.lower(), prompt)
+
+
+def test_runtime_llm_prompt_contains_only_input_context():
+    calls = []
+    original_post = braindump_mod._post_llm_chat
+
+    def fake_post(payload, headers, config):
+        calls.append(payload)
+        return {"choices": [{"message": {"content": '{"candidates":[]}'}, "finish_reason": "stop"}]}
+
+    try:
+        braindump_mod._post_llm_chat = fake_post
+        _extract_with_llm(
+            "Ab morgen alle sechs Monate Wartung machen.",
+            99,
+            workspace_context={"projects": [{"name": "Privat", "sections": ["Haus"]}]},
+            config={"llm_provider": "openai_compatible", "llm_base_url": "http://localhost:1234", "llm_model": "local-test", "llm_timeout_seconds": 1},
+        )
+    finally:
+        braindump_mod._post_llm_chat = original_post
+
+    system_content = calls[0]["messages"][0]["content"]
+    user_content = calls[0]["messages"][1]["content"]
+    assert_true('"recurring_rule":null' in system_content, system_content)
+    assert_true("alle sechs Monate" in system_content, system_content)
+    assert_true("Current datetime:" in user_content, user_content)
+    assert_true("Workspace JSON:" in user_content, user_content)
+    assert_true("Transcript:" in user_content, user_content)
+    assert_true("Output JSON shape" not in user_content, user_content)
+    assert_true("Provider-neutral extraction contract" not in user_content, user_content)
+    assert_true('"recurring_rule":null' not in user_content, user_content)
 
 
 def test_llm_token_budget_and_empty_response_diagnostic():
@@ -373,7 +433,11 @@ def main():
         test_backend_keeps_complex_llm_titles,
         test_backend_does_not_semantically_rewrite_llm_candidates,
         test_empty_llm_candidates_do_not_trigger_transcript_fallback,
+        test_normalizes_recurring_rule_only_with_deadline,
+        test_normalizes_half_year_recurring_alias,
+        test_normalizes_recurring_word_number_intervals,
         test_default_prompt_requires_language_agnostic_correction_handling,
+        test_runtime_llm_prompt_contains_only_input_context,
         test_llm_token_budget_and_empty_response_diagnostic,
         test_extract_with_llm_retries_empty_reasoning_response,
         test_extract_with_llm_retries_empty_ollama_length_response,

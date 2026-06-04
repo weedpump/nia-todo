@@ -13,6 +13,15 @@ const SNAPSHOT_INTERVAL_MS = 3000;
 const RECORDER_TIMESLICE_MS = 1000;
 const MIN_AUDIO_CHUNK_BYTES = 96;
 
+function recurringLabel(rule) {
+  if (!rule || typeof rule !== 'object') return '';
+  const frequency = String(rule.frequency || '').toLowerCase();
+  const interval = Number.parseInt(rule.interval || 1, 10) || 1;
+  const key = `todo.recurring.label.${frequency}`;
+  const label = t(key, { interval });
+  return label === key ? '' : label;
+}
+
 export function createBrainDumpLiveFeature(options = {}) {
   const nativeBridge = createNativeBridge();
   const state = {
@@ -652,7 +661,7 @@ export function createBrainDumpLiveFeature(options = {}) {
   }
 
   function rawCandidateKey(candidate) {
-    return [candidate.title, candidate.project_name, candidate.section_name, candidate.deadline, candidate.reminder].map((value) => String(value || '').trim()).join('|');
+    return [candidate.title, candidate.project_name, candidate.section_name, candidate.deadline, candidate.reminder, JSON.stringify(candidate.recurring_rule || null)].map((value) => String(value || '').trim()).join('|');
   }
 
   function candidateKey(candidate) {
@@ -971,7 +980,8 @@ export function createBrainDumpLiveFeature(options = {}) {
     const route = [candidate.project_name, candidate.section_name].filter(Boolean).join(' / ') || t('braindump.route.inbox');
     const due = candidate.deadline ? formatDate(candidate.deadline) : '';
     const reminder = candidate.reminder ? formatDate(candidate.reminder) : '';
-    const meta = [route, due ? t('braindump.meta.due', { date: due }) : '', reminder ? t('braindump.meta.reminder', { date: reminder }) : ''].filter(Boolean).join(' · ');
+    const recurrence = recurringLabel(candidate.recurring_rule);
+    const meta = [route, due ? t('braindump.meta.due', { date: due }) : '', reminder ? t('braindump.meta.reminder', { date: reminder }) : '', recurrence].filter(Boolean).join(' · ');
     return `
       <div class="braindump-candidate-card todo-item ${isEditing ? 'is-editing' : ''}" style="--bd-delay:${Math.min(index, 8) * 55}ms">
         <input id="${escapeHtmlAttr(checkboxId)}" type="checkbox" data-bd-candidate-key="${escapeHtmlAttr(key)}" ${checked}>
