@@ -733,7 +733,7 @@
   "admin.stats.period.90d": "90 Tage",
   "admin.stats.period.365d": "1 Jahr",
   "admin.stats.coverage.loading": "Datenbasis wird geladen…",
-  "admin.stats.coverage.summary": "Datenbasis seit {data} · Nutzungsdaten seit {load} · Bestandsdaten seit {inventory}",
+  "admin.stats.coverage.summary": "Daten seit {date}",
   "admin.stats.refresh": "Aktualisieren",
   "admin.stats.analyzeLogs": "Logs analysieren",
   "admin.stats.analyzingLogs": "Analysiere Logs…",
