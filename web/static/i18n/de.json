@@ -1127,5 +1127,7 @@
   "todo.location.notificationTitle": "📍 Orts-Erinnerung",
   "todo.location.arrivalShort": "Ankunft",
   "todo.location.departureShort": "Verlassen",
-  "todo.location.androidOnlyPillTitle": "Ortsbezogene Erinnerung — wird nur in der Android-App ausgelöst"
+  "todo.location.androidOnlyPillTitle": "Ortsbezogene Erinnerung — wird nur in der Android-App ausgelöst",
+  "braindump.location.none": "Keine Orts-Erinnerung",
+  "braindump.location.place": "Orts-Erinnerung"
 }

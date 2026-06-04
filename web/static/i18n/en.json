@@ -1127,5 +1127,7 @@
   "todo.location.notificationTitle": "📍 Location reminder",
   "todo.location.arrivalShort": "Arrival",
   "todo.location.departureShort": "Leaving",
-  "todo.location.androidOnlyPillTitle": "Location reminder — triggers only in the Android app"
+  "todo.location.androidOnlyPillTitle": "Location reminder — triggers only in the Android app",
+  "braindump.location.none": "No location reminder",
+  "braindump.location.place": "Location reminder"
 }

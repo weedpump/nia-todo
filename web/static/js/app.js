@@ -248,6 +248,7 @@ const brainDumpLiveFeature = createBrainDumpLiveFeature({
   getProjects: () => projects,
   getSections: () => sections,
   getCurrentWorkspaceId: () => currentWorkspaceId,
+  placesApi,
 });
 const viewPreferences = createViewPreferencesFeature({
   getHideDone: () => hideDone,
