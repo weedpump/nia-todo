@@ -290,7 +290,11 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
     const userId = currentUser?.id == null ? '' : String(currentUser.id);
     return todos
       .filter((todo) => todo && todo.status !== 'done')
-      .flatMap((todo) => (todo.location_reminders || (todo.location_reminder ? [todo.location_reminder] : [])).map((locationReminder) => {
+      .flatMap((todo) => {
+        const locationReminders = Object.prototype.hasOwnProperty.call(todo, 'location_reminder')
+          ? (todo.location_reminder ? [todo.location_reminder] : [])
+          : (todo.location_reminders || []);
+        return locationReminders.map((locationReminder) => {
         if (!locationReminder || locationReminder.enabled === 0 || locationReminder.enabled === false) return null;
         const address = String(locationReminder.address || '').trim();
         const triggerType = locationReminder.trigger_type || locationReminder.triggerType;
@@ -305,7 +309,8 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
           address,
           userId,
         };
-      }))
+        });
+      })
       .filter(Boolean);
   }
 
