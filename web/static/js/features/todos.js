@@ -157,10 +157,6 @@ export function createTodosFeature({
     }
   }
 
-  function serverSupportsLocationReminders() {
-    return Array.isArray(window.NIA_TODO_RUNTIME?.instance?.capabilities) && window.NIA_TODO_RUNTIME.instance.capabilities.includes('location-reminders');
-  }
-
   function updateLocationReminderControls() {
     const enabled = document.getElementById('todo-location-enabled')?.checked || false;
     const fields = document.getElementById('todo-location-fields');
@@ -250,10 +246,6 @@ export function createTodosFeature({
     if (!enabled) return null;
     const error = document.getElementById('todo-location-error');
     if (error) error.textContent = '';
-    if (!serverSupportsLocationReminders()) {
-      if (error) error.textContent = t('todo.location.serverUnsupported');
-      throw new Error('Location reminders are not supported by this server');
-    }
     const placeId = document.getElementById('todo-location-place')?.value || '';
     const address = document.getElementById('todo-location-address')?.value?.trim() || '';
     if (!placeId && !address) {

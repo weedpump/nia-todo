@@ -1125,6 +1125,5 @@
   "todo.location.notificationTitle": "📍 Orts-Erinnerung",
   "todo.location.arrivalShort": "Ankunft",
   "todo.location.departureShort": "Verlassen",
-  "todo.location.androidOnlyPillTitle": "Ortsbezogene Erinnerung — wird nur in der Android-App ausgelöst",
-  "todo.location.serverUnsupported": "Dieser Server unterstützt ortsbezogene Erinnerungen noch nicht. Bitte erst Server aktualisieren."
+  "todo.location.androidOnlyPillTitle": "Ortsbezogene Erinnerung — wird nur in der Android-App ausgelöst"
 }
