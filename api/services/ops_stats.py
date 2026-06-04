@@ -90,21 +90,31 @@ def classify_platform_from_strings(client_info: str = "", user_agent: str = "") 
     embedded = _client_info_from_user_agent(user_agent)
     raw_client = " ".join([str(client_info or "").lower(), " ".join(f"{k}={v}" for k, v in embedded.items()).lower()]).strip()
     raw_ua = str(user_agent or "").lower()
-    combined = f"{raw_client} {raw_ua}"
-    if "platform=android" in raw_client or "android" in raw_client:
+    mode = str(embedded.get("mode") or embedded.get("runtime") or "").lower()
+    platform = str(embedded.get("platform") or "").lower()
+    use_client_platform = mode == "native" and platform not in {"", "browser", "web"}
+    if use_client_platform and platform == "android":
         return "android"
-    if "platform=ios" in raw_client or "platform=ipados" in raw_client or "iphone" in raw_ua or "ipad" in raw_ua:
+    if use_client_platform and platform in {"ios", "ipados"}:
         return "ios"
-    if "platform=windows" in raw_client or "windows" in raw_client:
+    if use_client_platform and platform == "windows":
         return "windows"
-    if "platform=macos" in raw_client or "mac os" in raw_ua or "macintosh" in raw_ua:
+    if use_client_platform and platform == "macos":
         return "macos"
-    if "platform=linux" in raw_client or "linux" in raw_ua:
+    if use_client_platform and platform == "linux":
         return "linux"
     if "display-mode=standalone" in raw_client or "pwa" in raw_client:
         return "pwa"
-    if "nia-todo-client(" in combined or "tauri" in combined:
-        return "desktop"
+    if "android" in raw_ua:
+        return "android"
+    if "iphone" in raw_ua or "ipad" in raw_ua:
+        return "ios"
+    if "windows" in raw_ua:
+        return "windows"
+    if "mac os" in raw_ua or "macintosh" in raw_ua:
+        return "macos"
+    if "linux" in raw_ua:
+        return "linux"
     if raw_ua:
         return "web"
     return "unknown"
@@ -367,6 +377,13 @@ def inventory_summary(db, *, days: int = 30) -> dict[str, Any]:
 
 
 def _browser_name(user_agent: str = "") -> str:
+    # Native apps include a WebView user-agent, but for product stats they are
+    # apps, not browsers. Web/PWA sessions may still include X-Nia-Client.
+    embedded = _client_info_from_user_agent(user_agent)
+    mode = str(embedded.get("mode") or embedded.get("runtime") or "").lower()
+    platform = str(embedded.get("platform") or "").lower()
+    if embedded and (mode == "native" or platform not in {"", "browser", "web"}):
+        return ""
     ua = _strip_client_marker(user_agent)
     if not ua:
         return "unknown"
@@ -388,7 +405,8 @@ def _browser_name(user_agent: str = "") -> str:
 def _os_name(user_agent: str = "") -> str:
     embedded = _client_info_from_user_agent(user_agent)
     platform = str(embedded.get("platform") or "").lower()
-    if platform:
+    mode = str(embedded.get("mode") or embedded.get("runtime") or "").lower()
+    if platform and not (mode == "browser" or platform in {"browser", "web"}):
         return {
             "android": "Android",
             "ios": "iOS",
@@ -416,21 +434,24 @@ def _os_name(user_agent: str = "") -> str:
 def _app_type(user_agent: str = "") -> str:
     embedded = _client_info_from_user_agent(user_agent)
     platform = str(embedded.get("platform") or "").lower()
-    runtime = str(embedded.get("runtime") or embedded.get("app") or embedded.get("type") or "").lower()
+    mode = str(embedded.get("mode") or embedded.get("runtime") or embedded.get("type") or "").lower()
     display_mode = str(embedded.get("display-mode") or embedded.get("display_mode") or "").lower()
     ua = _strip_client_marker(user_agent)
-    if platform == "android":
-        return "Android App" if embedded or "tauri" in runtime else "Android Browser"
-    if platform in {"ios", "ipados"}:
-        return "iOS App" if embedded or "tauri" in runtime else "iOS Browser"
-    if platform == "windows":
-        return "Windows App" if embedded or "tauri" in runtime else "Windows Browser"
-    if platform == "macos":
-        return "macOS App" if embedded or "tauri" in runtime else "macOS Browser"
-    if display_mode == "standalone" or "pwa" in runtime.lower():
+    is_native = mode == "native" or (bool(embedded) and platform not in {"", "browser", "web"})
+    if display_mode == "standalone" or "pwa" in mode:
         return "PWA"
-    if embedded:
-        return "Native App"
+    if is_native and platform == "android":
+        return "Android App"
+    if is_native and platform in {"ios", "ipados"}:
+        return "iOS App"
+    if is_native and platform == "windows":
+        return "Windows App"
+    if is_native and platform == "macos":
+        return "macOS App"
+    if is_native and platform == "linux":
+        return "Linux App"
+    if is_native:
+        return "Unbekannte App"
     if ua:
         return "Browser"
     return "unknown"
@@ -449,7 +470,7 @@ def _client_mix_label(key: str, kind: str) -> str:
     return key[len(prefix):] if key.startswith(prefix) else key
 
 
-def record_client_session_metrics(db, user_agent: str = "") -> None:
+def record_client_session_metrics(db, user_agent: str = "", *, bucket_start: str | None = None) -> None:
     """Record aggregated client mix.
 
     This intentionally stores no user id, IP, raw user-agent, or session id.
@@ -462,7 +483,9 @@ def record_client_session_metrics(db, user_agent: str = "") -> None:
             "platform": classify_platform_from_strings("", user_agent),
         }
         for kind, label in values.items():
-            _increment_ops_counter_db(db, "client_mix", _client_mix_key(kind, label), count=1)
+            if not label:
+                continue
+            _increment_ops_counter_db(db, "client_mix", _client_mix_key(kind, label), count=1, bucket_start=bucket_start)
     except Exception:
         return
 
@@ -487,11 +510,22 @@ def record_user_session_client_mix(db, session_id: str, user_agent: str = "") ->
         return False
 
 
+def _session_bucket_start(value: str | None) -> str:
+    try:
+        text = str(value or "").replace("Z", "+00:00")
+        parsed = datetime.fromisoformat(text)
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return _hour_bucket(parsed)
+    except Exception:
+        return _hour_bucket()
+
+
 def backfill_existing_session_client_mix(db) -> int:
     """Count existing sessions once so users do not need to log in again."""
     try:
         rows = db.execute(
-            """SELECT id, user_agent
+            """SELECT id, user_agent, created_at
                FROM user_sessions
                WHERE client_mix_counted_at IS NULL"""
         ).fetchall()
@@ -499,8 +533,21 @@ def backfill_existing_session_client_mix(db) -> int:
         return 0
     counted = 0
     for row in rows:
-        if record_user_session_client_mix(db, row["id"], row["user_agent"] or ""):
+        session_id = row["id"]
+        try:
+            cur = db.execute(
+                """UPDATE user_sessions
+                   SET client_mix_counted_at = datetime('now')
+                   WHERE id = ?
+                     AND client_mix_counted_at IS NULL""",
+                (session_id,),
+            )
+            if cur.rowcount != 1:
+                continue
+            record_client_session_metrics(db, row["user_agent"] or "", bucket_start=_session_bucket_start(row["created_at"]))
             counted += 1
+        except Exception:
+            continue
     return counted
 
 
@@ -544,7 +591,9 @@ def platform_analysis(db, *, days: int = 30) -> dict[str, Any]:
     for row in rows:
         user_agent = row["user_agent"] or ""
         _increment(platforms, classify_platform_from_strings("", user_agent))
-        _increment(browsers, _browser_name(user_agent))
+        browser = _browser_name(user_agent)
+        if browser:
+            _increment(browsers, browser)
         _increment(app_types, _app_type(user_agent))
         _increment(operating_systems, _os_name(user_agent))
     return {
