@@ -60,16 +60,10 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .user-card-actions.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .user-card-actions.single { grid-template-columns: 1fr; }
 .user-card-actions .admin-table-action { width: 100%; }
-.user-sessions-panel { margin-top: 2px; padding-top: 10px; border-top: 1px solid color-mix(in srgb, var(--border) 52%, transparent); display: flex; flex-direction: column; gap: 10px; }
-.user-sessions-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
-.user-sessions-title { font-size: 12px; color: var(--text-muted); font-weight: 750; }
-.user-session-list { display: flex; flex-direction: column; gap: 8px; }
-.user-session-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px; border: 1px solid color-mix(in srgb, var(--border) 60%, transparent); border-radius: 12px; background: color-mix(in srgb, var(--bg-secondary) 76%, transparent); }
-.user-session-main { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-.user-session-device { font-size: 13px; font-weight: 800; color: var(--text-primary); }
-.user-session-detail { font-size: 12px; color: var(--text-muted); overflow-wrap: anywhere; }
-.user-session-error, .user-session-empty { font-size: 12px; color: var(--text-muted); }
-.user-session-error { color: var(--danger); }
+.user-card .settings-2fa-devices-wrap { margin-top: 2px; }
+.user-card .settings-device-row { overflow: hidden; }
+.user-card .settings-device-row > div { min-width: 0; }
+.user-card .settings-device-row span { overflow-wrap: anywhere; }
 .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; }
 .badge-admin { background: var(--accent); color: white; }
 .badge-user { background: var(--bg-tertiary); color: var(--text-secondary); }
@@ -202,7 +196,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
   .user-card-header { flex-direction: column; gap: 8px; }
   .user-card-row { grid-template-columns: 1fr; gap: 4px; align-items: start; }
   .user-card-actions { grid-template-columns: 1fr; }
-  .user-session-row { grid-template-columns: 1fr; }
+  .user-card .settings-device-row { flex-direction: column; align-items: stretch; }
   .admin-section-summary { display: none; }
   .email-edit { grid-template-columns: minmax(0, 1fr) 32px 32px; }
 }
@@ -1594,24 +1588,28 @@ function renderUserEmailDisplay(userId, emailValue) {
 }
 
 function renderUserSessionsPanel(user) {
-  return `<div class="user-sessions-panel" id="user-sessions-panel-${user.id}" hidden>
-    <div class="user-sessions-toolbar">
-      <span class="user-sessions-title" id="user-sessions-title-${user.id}">${escapeHtml(t('admin.user.sessionsTitle'))}</span>
-      <button class="btn btn-danger" id="user-sessions-revoke-all-${user.id}" onclick="revokeAllAdminUserSessions(${user.id}, ${jsStringAttr(user.username)})" hidden>${iconSvg('trash')} ${escapeHtml(t('admin.user.sessionsRevokeAll'))}</button>
+  return `<div class="settings-2fa-devices-wrap settings-sessions-wrap">
+    <div class="settings-2fa-subtitle settings-2fa-trusted-header">
+      <button type="button" id="user-sessions-toggle-${user.id}" class="settings-sessions-toggle" onclick="toggleAdminUserSessions(${user.id})" aria-expanded="false" aria-controls="user-sessions-panel-${user.id}">
+        <span class="settings-sessions-chevron">›</span>
+        <span>${escapeHtml(t('admin.user.sessionsTitle'))}</span>
+        <span id="user-sessions-count-${user.id}" class="settings-session-count"></span>
+      </button>
+      <button type="button" class="btn btn-danger btn-small" id="user-sessions-revoke-all-${user.id}" onclick="revokeAllAdminUserSessions(${user.id}, ${jsStringAttr(user.username)})">${escapeHtml(t('admin.user.sessionsRevokeAll'))}</button>
     </div>
-    <div class="user-session-list" id="user-sessions-list-${user.id}"><div class="user-session-empty">${escapeHtml(t('common.loading'))}</div></div>
+    <div id="user-sessions-panel-${user.id}" hidden>
+      <div id="user-sessions-list-${user.id}" class="settings-2fa-devices"><div class="settings-device-note">${escapeHtml(t('common.loading'))}</div></div>
+    </div>
   </div>`;
 }
 
 function renderAdminSessionRows(userId, sessions) {
   const list = document.getElementById(`user-sessions-list-${userId}`);
-  const title = document.getElementById(`user-sessions-title-${userId}`);
-  const revokeAll = document.getElementById(`user-sessions-revoke-all-${userId}`);
+  const count = document.getElementById(`user-sessions-count-${userId}`);
   if (!list) return;
-  if (title) title.textContent = `${t('admin.user.sessionsTitle')} (${sessions.length})`;
-  if (revokeAll) revokeAll.hidden = sessions.length === 0;
+  if (count) count.textContent = sessions.length ? `(${sessions.length})` : '';
   if (!sessions.length) {
-    list.innerHTML = `<div class="user-session-empty">${escapeHtml(t('admin.user.sessionsEmpty'))}</div>`;
+    list.innerHTML = `<div class="settings-device-note">${escapeHtml(t('admin.user.sessionsEmpty'))}</div>`;
     return;
   }
   list.innerHTML = sessions.map((session) => {
@@ -1621,31 +1619,25 @@ function renderAdminSessionRows(userId, sessions) {
     const details = t('settings.2fa.trustedDeviceDetails', { lastUsed, expires }) + trusted;
     const ipLocation = adminSessionIpLocation(session);
     const userAgent = cleanAdminSessionUserAgent(session.user_agent || '');
-    return `<div class="user-session-row">
-      <div class="user-session-main">
-        <div class="user-session-device">${escapeHtml(adminSessionDeviceName(session))}</div>
-        <div class="user-session-detail">${escapeHtml(details)}</div>
-        ${ipLocation ? `<div class="user-session-detail">${escapeHtml(ipLocation)}</div>` : ''}
-        <div class="user-session-detail" title="${escapeHtmlAttr(userAgent)}">${escapeHtml(userAgent.slice(0, 160) || '-')}</div>
-      </div>
-      <button class="btn btn-danger" onclick="revokeAdminUserSession(${userId}, ${jsStringAttr(session.id)})">${escapeHtml(t('settings.2fa.revoke'))}</button>
-    </div>`;
+    return `<div class="settings-device-row"><div><strong>${escapeHtml(adminSessionDeviceName(session))}</strong><span>${escapeHtml(details)}</span>${ipLocation ? `<span>${escapeHtml(ipLocation)}</span>` : ''}<span title="${escapeHtmlAttr(userAgent)}">${escapeHtml(userAgent.slice(0, 160) || '-')}</span></div><button type="button" class="btn btn-danger" onclick="revokeAdminUserSession(${userId}, ${jsStringAttr(session.id)})">${escapeHtml(t('settings.2fa.revoke'))}</button></div>`;
   }).join('');
 }
 
-async function toggleAdminUserSessions(userId, username) {
+async function toggleAdminUserSessions(userId) {
   const panel = document.getElementById(`user-sessions-panel-${userId}`);
-  if (!panel) return;
+  const toggle = document.getElementById(`user-sessions-toggle-${userId}`);
+  if (!panel || !toggle) return;
   const open = panel.hidden;
   panel.hidden = !open;
+  toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
   if (!open) return;
   const list = document.getElementById(`user-sessions-list-${userId}`);
-  if (list) list.innerHTML = `<div class="user-session-empty">${escapeHtml(t('common.loading'))}</div>`;
+  if (list) list.innerHTML = `<div class="settings-device-note">${escapeHtml(t('common.loading'))}</div>`;
   try {
     const data = await apiGet(`/api/admin/users/${userId}/sessions`);
     renderAdminSessionRows(userId, data.sessions || []);
   } catch (e) {
-    if (list) list.innerHTML = `<div class="user-session-error">${escapeHtml(t('admin.user.sessionsLoadFailed', { error: e.message || e }))}</div>`;
+    if (list) list.innerHTML = `<div class="settings-device-note">${escapeHtml(t('admin.user.sessionsLoadFailed', { error: e.message || e }))}</div>`;
   }
 }
 
@@ -1711,9 +1703,8 @@ function renderUsers(users) {
     const title = escapeHtml(u.display_name || u.username);
     const subtitle = u.display_name && u.display_name !== u.username ? escapeHtml(u.username) : escapeHtml(t('setup.usernameLabel'));
     const resetTwoFactorButton = renderUserTwoFactorResetButton(u);
-    const sessionsButton = `<button class="btn btn-secondary admin-table-action" onclick="toggleAdminUserSessions(${u.id}, ${jsStringAttr(u.username)})">${iconSvg('monitor')} ${escapeHtml(t('admin.user.sessionsButton'))}</button>`;
     const deleteButton = u.is_admin ? '' : `<button class="btn btn-danger admin-table-action" onclick="deleteUser(${u.id}, ${jsStringAttr(u.username)})">${iconSvg('trash')} ${escapeHtml(t('common.delete'))}</button>`;
-    const actionCount = 2 + (resetTwoFactorButton ? 1 : 0) + (deleteButton ? 1 : 0);
+    const actionCount = 1 + (resetTwoFactorButton ? 1 : 0) + (deleteButton ? 1 : 0);
     const actionsClass = actionCount === 1 ? 'user-card-actions single' : (actionCount === 2 ? 'user-card-actions two' : 'user-card-actions');
     return `
     <tr>
@@ -1737,13 +1728,13 @@ function renderUsers(users) {
             ${brainDumpFeatureEnabled ? `<div class="user-card-row"><span class="user-card-label">${escapeHtml(t('admin.user.brainDump'))}</span><div class="user-card-value">${renderUserBrainDump(u)}</div></div>` : ''}
           </div>
 
+          ${renderUserSessionsPanel(u)}
+
           <div class="${actionsClass}">
             <button class="btn btn-primary admin-table-action" onclick="generatePasswordLink(${u.id}, ${jsStringAttr(u.username)})">${iconSvg('link')} ${escapeHtml(t('admin.user.passwordLink'))}</button>
-            ${sessionsButton}
             ${resetTwoFactorButton}
             ${deleteButton}
           </div>
-          ${renderUserSessionsPanel(u)}
         </article>
       </td>
     </tr>`;
