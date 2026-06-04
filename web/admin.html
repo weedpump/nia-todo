@@ -114,10 +114,35 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .admin-config-textarea.readonly { color: var(--text-secondary); background: color-mix(in srgb, var(--bg-primary) 82%, var(--bg-tertiary)); white-space: pre; }
 .admin-help { font-size: 12px; color: var(--text-muted); margin-top: 8px; }
 .admin-stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
-.admin-stat-tile { padding: 12px; border: 1px solid color-mix(in srgb, var(--border) 72%, transparent); border-radius: 12px; background: color-mix(in srgb, var(--bg-primary) 72%, var(--bg-secondary)); }
-.admin-stat-label { color: var(--text-muted); font-size: 11px; font-weight: 750; text-transform: uppercase; letter-spacing: .04em; }
-.admin-stat-value { margin-top: 4px; color: var(--text-primary); font-size: 22px; font-weight: 850; }
-.admin-stat-section-title { margin: 18px 0 10px; color: var(--text-secondary); font-size: 13px; font-weight: 800; }
+.admin-stat-toolbar { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin: 8px 0 16px; }
+.admin-stat-tabs { display:inline-flex; gap:6px; padding:4px; border-radius:999px; background: var(--bg-tertiary); border:1px solid color-mix(in srgb, var(--border) 72%, transparent); }
+.admin-stat-tab { border:0; border-radius:999px; padding:7px 11px; cursor:pointer; background:transparent; color:var(--text-muted); font-size:12px; font-weight:750; }
+.admin-stat-tab.active { background:var(--accent); color:white; box-shadow:0 2px 8px color-mix(in srgb, var(--accent) 28%, transparent); }
+.admin-stat-layout { display:grid; grid-template-columns: minmax(0, 1.25fr) minmax(280px, .75fr); gap:14px; align-items:stretch; }
+.admin-stat-panel { border:1px solid color-mix(in srgb, var(--border) 72%, transparent); border-radius:16px; background: color-mix(in srgb, var(--bg-primary) 72%, var(--bg-secondary)); padding:14px; min-width:0; }
+.admin-stat-panel.wide { grid-column:1 / -1; }
+.admin-stat-panel-title { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; color:var(--text-primary); font-size:13px; font-weight:850; }
+.admin-stat-panel-subtitle { color:var(--text-muted); font-size:11px; font-weight:650; }
+.admin-stat-kpis { display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap:10px; margin-bottom:14px; }
+.admin-stat-tile { padding:12px; border:1px solid color-mix(in srgb, var(--border) 66%, transparent); border-radius:14px; background: linear-gradient(135deg, color-mix(in srgb, var(--bg-primary) 82%, var(--accent) 5%), color-mix(in srgb, var(--bg-secondary) 92%, var(--bg-primary))); min-width:0; }
+.admin-stat-label { color: var(--text-muted); font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .045em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.admin-stat-value { margin-top: 5px; color: var(--text-primary); font-size: 22px; font-weight: 900; line-height:1.05; }
+.admin-stat-foot { margin-top:5px; color:var(--text-muted); font-size:11px; }
+.admin-stat-chart { width:100%; height:210px; display:block; overflow:visible; }
+.admin-stat-chart path.line-a { stroke:var(--accent); }
+.admin-stat-chart path.line-b { stroke:var(--success); }
+.admin-stat-chart path.line-c { stroke:var(--warning); }
+.admin-stat-chart .grid { stroke:color-mix(in srgb, var(--border) 60%, transparent); stroke-width:1; }
+.admin-stat-chart text { fill:var(--text-muted); font-size:10px; }
+.admin-stat-legend { display:flex; flex-wrap:wrap; gap:10px; margin-top:10px; color:var(--text-muted); font-size:11px; }
+.admin-stat-legend span::before { content:''; display:inline-block; width:9px; height:9px; border-radius:999px; margin-right:5px; background:var(--accent); }
+.admin-stat-legend span:nth-child(2)::before { background:var(--success); }
+.admin-stat-legend span:nth-child(3)::before { background:var(--warning); }
+.admin-stat-bars { display:flex; flex-direction:column; gap:10px; }
+.admin-stat-bar-row { display:grid; grid-template-columns: 98px minmax(0,1fr) 56px; gap:10px; align-items:center; color:var(--text-secondary); font-size:12px; }
+.admin-stat-bar-track { height:9px; border-radius:999px; overflow:hidden; background:var(--bg-tertiary); }
+.admin-stat-bar-fill { height:100%; border-radius:999px; background:linear-gradient(90deg, var(--accent), var(--success)); }
+@media (max-width: 860px) { .admin-stat-layout { grid-template-columns:1fr; } .admin-stat-kpis { grid-template-columns: repeat(2, minmax(0,1fr)); } }
 .admin-error { color: var(--danger); font-size: 13px; margin-top: 8px; }
 .admin-success { color: var(--success); font-size: 13px; margin-top: 8px; }
 .setup-link-box { margin-top: 12px; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-primary); display: none; gap: 8px; align-items: center; }
@@ -407,19 +432,46 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
     <div class="admin-success" id="security-success"></div>
   </div>
 
-  <!-- Technical Stats -->
+  <!-- Stats -->
   <div class="admin-card" id="technical-stats-card">
-    <h2><span data-icon="activity"></span> Technische Betriebsübersicht</h2>
-    <div class="admin-help">Backend-only: aggregierte technische Zähler ohne Inhalte, Transkripte, IPs, Usernamen oder Roh-User-Agents. UI-Access-Checks werden bewusst nicht als Nutzung gewertet.</div>
-    <div class="admin-stat-section-title">Systembestand</div>
-    <div class="admin-stats-grid" id="technical-stats-counts"></div>
-    <div class="admin-stat-section-title">BrainDump / STT / LLM Auslastung, letzte 30 Tage</div>
-    <div class="admin-stats-grid" id="technical-stats-ops"></div>
-    <div class="admin-stat-section-title">Plattformen aktive Sessions</div>
-    <div class="admin-stats-grid" id="technical-stats-platforms"></div>
-    <div class="form-row" style="margin-top:12px;">
-      <button class="btn btn-secondary" onclick="loadTechnicalStats()">Aktualisieren</button>
-      <button class="btn btn-secondary" onclick="backfillTechnicalStats()">Letzte 30 Tage aus Logs analysieren</button>
+    <h2><span data-icon="activity"></span> Statistik</h2>
+    <div class="admin-help">Aggregierte technische Statistik für Kapazität, Last und Wachstum — ohne Inhalte, Transkripte, IPs, Usernamen oder Roh-User-Agents.</div>
+    <div class="admin-stat-toolbar">
+      <div class="admin-stat-tabs" id="stats-period-tabs">
+        <button class="admin-stat-tab" data-days="7" onclick="setStatsPeriod(7)">7 Tage</button>
+        <button class="admin-stat-tab active" data-days="30" onclick="setStatsPeriod(30)">30 Tage</button>
+        <button class="admin-stat-tab" data-days="90" onclick="setStatsPeriod(90)">90 Tage</button>
+        <button class="admin-stat-tab" data-days="365" onclick="setStatsPeriod(365)">1 Jahr</button>
+      </div>
+      <div class="form-row" style="margin:0;">
+        <button class="btn btn-secondary" onclick="loadTechnicalStats()">Aktualisieren</button>
+        <button class="btn btn-secondary" onclick="backfillTechnicalStats()">Logs analysieren</button>
+      </div>
+    </div>
+    <div class="admin-stat-kpis" id="technical-stats-kpis"></div>
+    <div class="admin-stat-layout">
+      <div class="admin-stat-panel">
+        <div class="admin-stat-panel-title">Bestand & Wachstum <span class="admin-stat-panel-subtitle" id="stats-inventory-subtitle"></span></div>
+        <div id="stats-inventory-chart"></div>
+        <div class="admin-stat-legend"><span>User</span><span>Projekte</span><span>Todos</span></div>
+      </div>
+      <div class="admin-stat-panel">
+        <div class="admin-stat-panel-title">Aktueller Bestand</div>
+        <div class="admin-stat-bars" id="stats-inventory-bars"></div>
+      </div>
+      <div class="admin-stat-panel">
+        <div class="admin-stat-panel-title">LLM / STT Last <span class="admin-stat-panel-subtitle" id="stats-workload-subtitle"></span></div>
+        <div id="stats-workload-chart"></div>
+        <div class="admin-stat-legend"><span>LLM</span><span>STT</span><span>Audio</span></div>
+      </div>
+      <div class="admin-stat-panel">
+        <div class="admin-stat-panel-title">Kapazitätsindikatoren</div>
+        <div class="admin-stat-bars" id="stats-capacity-bars"></div>
+      </div>
+      <div class="admin-stat-panel wide">
+        <div class="admin-stat-panel-title">Plattformen aktive Sessions</div>
+        <div class="admin-stat-bars" id="technical-stats-platforms"></div>
+      </div>
     </div>
     <div class="admin-error" id="technical-stats-error"></div>
     <div class="admin-success" id="technical-stats-success"></div>
@@ -895,6 +947,7 @@ async function doAdminLogin() {
 
 let twoFactorPolicyRequired = false;
 let brainDumpFeatureEnabled = false;
+let currentStatsDays = 30;
 
 async function loadAdminData() {
   const [usersData, configData, brainDumpConfigData, emailConfigData, twoFactorPolicy, serverUpdate, technicalStats] = await Promise.all([
@@ -904,7 +957,7 @@ async function loadAdminData() {
     apiGet('/api/admin/email-config'),
     apiGet('/api/admin/2fa-policy'),
     apiGet('/api/admin/server-update'),
-    apiGet('/api/admin/technical-stats?days=30'),
+    apiGet(`/api/admin/technical-stats?days=${currentStatsDays}`),
   ]);
   twoFactorPolicyRequired = !!twoFactorPolicy.required;
   brainDumpFeatureEnabled = !!brainDumpConfigData.enabled;
@@ -931,8 +984,8 @@ function formatAdminBytes(bytes) {
   return `${size.toFixed(size >= 10 ? 1 : 2)} ${units[idx]}`;
 }
 
-function statTile(label, value) {
-  return `<div class="admin-stat-tile"><div class="admin-stat-label">${escapeHtml(label)}</div><div class="admin-stat-value">${escapeHtml(value)}</div></div>`;
+function statTile(label, value, foot = '') {
+  return `<div class="admin-stat-tile"><div class="admin-stat-label">${escapeHtml(label)}</div><div class="admin-stat-value">${escapeHtml(value)}</div>${foot ? `<div class="admin-stat-foot">${escapeHtml(foot)}</div>` : ''}</div>`;
 }
 
 function formatTrend(value, current, previous) {
@@ -953,72 +1006,110 @@ function formatDurationMs(value) {
   return `${Math.round(ms)}ms`;
 }
 
+function metricValue(point) {
+  return Number(point?.value || 0);
+}
+
+function renderLineChart(seriesDefs) {
+  const width = 720;
+  const height = 210;
+  const pad = { left: 34, right: 12, top: 16, bottom: 24 };
+  const allValues = seriesDefs.flatMap((item) => (item.values || []).map(metricValue));
+  const maxValue = Math.max(1, ...allValues);
+  const pointCount = Math.max(1, ...seriesDefs.map((item) => (item.values || []).length));
+  const xFor = (idx) => pad.left + (pointCount <= 1 ? 0 : idx * ((width - pad.left - pad.right) / (pointCount - 1)));
+  const yFor = (value) => height - pad.bottom - (Number(value || 0) / maxValue) * (height - pad.top - pad.bottom);
+  const lines = seriesDefs.map((item, seriesIdx) => {
+    const values = item.values || [];
+    if (!values.length) return '';
+    const d = values.map((point, idx) => `${idx === 0 ? 'M' : 'L'} ${xFor(idx).toFixed(1)} ${yFor(metricValue(point)).toFixed(1)}`).join(' ');
+    return `<path class="line-${['a','b','c'][seriesIdx] || 'a'}" d="${d}" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`;
+  }).join('');
+  const grid = [0, .25, .5, .75, 1].map((ratio) => {
+    const y = pad.top + ratio * (height - pad.top - pad.bottom);
+    return `<line class="grid" x1="${pad.left}" x2="${width - pad.right}" y1="${y.toFixed(1)}" y2="${y.toFixed(1)}"/>`;
+  }).join('');
+  return `<svg class="admin-stat-chart" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none">${grid}${lines}<text x="${pad.left}" y="${height - 6}">${escapeHtml(seriesDefs[0]?.values?.[0]?.date || '')}</text><text x="${width - 120}" y="${height - 6}">${escapeHtml(seriesDefs[0]?.values?.at(-1)?.date || '')}</text><text x="${pad.left}" y="12">max ${formatAdminNumber(maxValue)}</text></svg>`;
+}
+
+function renderBarRows(items) {
+  const max = Math.max(1, ...items.map((item) => Number(item.value || 0)));
+  return items.map((item) => {
+    const width = Number(item.value || 0) <= 0 ? 0 : Math.max(2, (Number(item.value || 0) / max) * 100);
+    return `<div class="admin-stat-bar-row"><div>${escapeHtml(item.label)}</div><div class="admin-stat-bar-track"><div class="admin-stat-bar-fill" style="width:${width}%"></div></div><div>${escapeHtml(item.display ?? formatAdminNumber(item.value))}</div></div>`;
+  }).join('');
+}
+
+function setStatsPeriod(days) {
+  currentStatsDays = Number(days || 30);
+  document.querySelectorAll('#stats-period-tabs .admin-stat-tab').forEach((button) => {
+    button.classList.toggle('active', Number(button.dataset.days) === currentStatsDays);
+  });
+  loadTechnicalStats();
+}
+
 function renderTechnicalStats(data) {
   if (!data) return;
-  const counts = data.counts || {};
+  const inventory = data.inventory || {};
+  const counts = inventory.current || data.counts || {};
+  const created = inventory.created || {};
   const workload = data.workload || {};
   const selected = workload.selected || workload;
-  const periods = workload.periods || {};
-  const p7 = periods['7d'] || {};
-  const p30 = periods['30d'] || selected;
-  const p365 = periods['365d'] || {};
   const stt = selected.stt || {};
   const llm = selected.llm || {};
   const tokens = llm.tokens || {};
   const ai = selected.backend_ai_calls || {};
   const audio = selected.audio_segments || {};
-  const confirmed = selected.confirmed_todo_requests || {};
   const platforms = data.platforms || {};
-  document.getElementById('technical-stats-counts').innerHTML = [
-    statTile('User', formatAdminNumber(counts.users)),
-    statTile('BrainDump freigeschaltet', `${formatAdminNumber(counts.braindump_enabled_users)} / ${formatAdminNumber(counts.users)}`),
-    statTile('Davon aktiv eingeloggt', formatAdminNumber(counts.active_braindump_enabled_users)),
-    statTile('Workspaces', formatAdminNumber(counts.workspaces)),
-    statTile('Projekte', formatAdminNumber(counts.projects)),
-    statTile('Todos gesamt', formatAdminNumber(counts.todos)),
-    statTile('Reminders', formatAdminNumber(counts.reminders)),
-    statTile('Location-Reminders', formatAdminNumber(counts.location_reminders)),
-    statTile('Push-Subscriptions', formatAdminNumber(counts.push_subscriptions)),
-    statTile('Aktive Sessions', formatAdminNumber(counts.user_sessions)),
-    statTile('DB-Größe', formatAdminBytes(data.database?.bytes)),
+  document.getElementById('stats-inventory-subtitle').textContent = `${formatAdminNumber(data.period_days)} Tage`;
+  document.getElementById('stats-workload-subtitle').textContent = `${formatAdminNumber(data.period_days)} Tage`;
+  document.getElementById('technical-stats-kpis').innerHTML = [
+    statTile('Todos gesamt', formatAdminNumber(counts.todos), `+${formatAdminNumber(created.todos)} im Zeitraum`),
+    statTile('User', formatAdminNumber(counts.users), `+${formatAdminNumber(created.users)} im Zeitraum`),
+    statTile('LLM-Aufrufe', formatAdminNumber(llm.total), `${formatAdminNumber(llm.avg_per_day)} / Tag`),
+    statTile('LLM Tokens', tokens.total_tokens ? formatAdminNumber(tokens.total_tokens) : '-', tokens.avg_tokens_per_llm_call ? `${formatAdminNumber(tokens.avg_tokens_per_llm_call)} / Call` : 'vom Provider gemeldet'),
+    statTile('STT-Aufrufe', formatAdminNumber(stt.total), `${formatAdminNumber(stt.avg_per_day)} / Tag`),
+    statTile('Peak / Stunde', formatAdminNumber(ai.peak_per_hour), 'LLM oder STT'),
+    statTile('Fehlerquote LLM/STT', `${formatRate(llm.error_rate)} / ${formatRate(stt.error_rate)}`, 'LLM / STT'),
+    statTile('DB-Größe', formatAdminBytes(data.database?.bytes), 'SQLite + WAL/SHM'),
   ].join('');
-  document.getElementById('technical-stats-ops').innerHTML = [
-    statTile('LLM-Aufrufe 7T', formatAdminNumber(p7.llm?.total)),
-    statTile('LLM-Aufrufe 30T', formatAdminNumber(p30.llm?.total ?? llm.total)),
-    statTile('LLM-Aufrufe 365T', formatAdminNumber(p365.llm?.total)),
-    statTile('LLM Ø / Tag', formatAdminNumber(llm.avg_per_day)),
-    statTile('LLM Peak / Stunde', formatAdminNumber(llm.peak_per_hour)),
-    statTile('LLM Ø Antwortzeit', formatDurationMs(llm.avg_ms)),
-    statTile('LLM Fehlerquote', formatRate(llm.error_rate)),
-    statTile('LLM Tokens 30T', tokens.total_tokens ? formatAdminNumber(tokens.total_tokens) : '-'),
-    statTile('Ø Tokens / LLM Call', tokens.avg_tokens_per_llm_call ? formatAdminNumber(tokens.avg_tokens_per_llm_call) : '-'),
-    statTile('Prompt / Completion', tokens.total_tokens ? `${formatAdminNumber(tokens.prompt_tokens)} / ${formatAdminNumber(tokens.completion_tokens)}` : '-'),
-    statTile('LLM 7T / vorige 7T', `${formatAdminNumber(llm.last_7_days)} / ${formatAdminNumber(llm.previous_7_days)}`),
-    statTile('LLM Trend', formatTrend(llm.trend_pct, llm.last_7_days, llm.previous_7_days)),
-    statTile('STT-Aufrufe 7T', formatAdminNumber(p7.stt?.total)),
-    statTile('STT-Aufrufe 30T', formatAdminNumber(p30.stt?.total ?? stt.total)),
-    statTile('STT-Aufrufe 365T', formatAdminNumber(p365.stt?.total)),
-    statTile('STT Ø / Tag', formatAdminNumber(stt.avg_per_day)),
-    statTile('STT Peak / Stunde', formatAdminNumber(stt.peak_per_hour)),
-    statTile('STT Ø Antwortzeit', formatDurationMs(stt.avg_ms)),
-    statTile('STT Fehlerquote', formatRate(stt.error_rate)),
-    statTile('STT 7T / vorige 7T', `${formatAdminNumber(stt.last_7_days)} / ${formatAdminNumber(stt.previous_7_days)}`),
-    statTile('STT Trend', formatTrend(stt.trend_pct, stt.last_7_days, stt.previous_7_days)),
-    statTile('AI Backend Calls 30T', formatAdminNumber(ai.total)),
-    statTile('Audio-Segmente 30T', formatAdminNumber(audio.total)),
-    statTile('Todo-Create Requests', formatAdminNumber(confirmed.total)),
-  ].join('');
-  const platformEntries = Object.entries(platforms);
+  document.getElementById('stats-inventory-chart').innerHTML = renderLineChart([
+    { label: 'User', values: inventory.series?.users || [] },
+    { label: 'Projekte', values: inventory.series?.projects || [] },
+    { label: 'Todos', values: inventory.series?.todos || [] },
+  ]);
+  document.getElementById('stats-workload-chart').innerHTML = renderLineChart([
+    { label: 'LLM', values: workload.series?.llm || [] },
+    { label: 'STT', values: workload.series?.stt || [] },
+    { label: 'Audio', values: workload.series?.audio_segments || [] },
+  ]);
+  document.getElementById('stats-inventory-bars').innerHTML = renderBarRows([
+    { label: 'User', value: counts.users },
+    { label: 'Workspaces', value: counts.workspaces },
+    { label: 'Projekte', value: counts.projects },
+    { label: 'Todos', value: counts.todos },
+    { label: 'Reminders', value: counts.reminders },
+    { label: 'Push', value: counts.push_subscriptions },
+  ]);
+  document.getElementById('stats-capacity-bars').innerHTML = renderBarRows([
+    { label: 'LLM Calls', value: llm.total },
+    { label: 'STT Calls', value: stt.total },
+    { label: 'Audio', value: audio.total },
+    { label: 'LLM Peak/h', value: llm.peak_per_hour },
+    { label: 'STT Peak/h', value: stt.peak_per_hour },
+    { label: 'Tokens', value: tokens.total_tokens || 0, display: tokens.total_tokens ? formatAdminNumber(tokens.total_tokens) : '-' },
+  ]);
+  const platformEntries = Object.entries(platforms).map(([label, value]) => ({ label, value }));
   document.getElementById('technical-stats-platforms').innerHTML = platformEntries.length
-    ? platformEntries.map(([platform, count]) => statTile(platform, formatAdminNumber(count))).join('')
-    : statTile('Keine aktiven Sessions', '0');
+    ? renderBarRows(platformEntries)
+    : renderBarRows([{ label: 'Keine aktiven Sessions', value: 0, display: '0' }]);
 }
 
 async function loadTechnicalStats() {
   document.getElementById('technical-stats-error').textContent = '';
   document.getElementById('technical-stats-success').textContent = '';
   try {
-    const data = await apiGet('/api/admin/technical-stats?days=30');
+    const data = await apiGet(`/api/admin/technical-stats?days=${currentStatsDays}`);
     renderTechnicalStats(data);
   } catch(e) {
     document.getElementById('technical-stats-error').textContent = 'Error: ' + e.message;
@@ -1029,7 +1120,7 @@ async function backfillTechnicalStats() {
   document.getElementById('technical-stats-error').textContent = '';
   document.getElementById('technical-stats-success').textContent = 'Analysiere Logs…';
   try {
-    const result = await apiPost('/api/admin/technical-stats/backfill?days=30', {});
+    const result = await apiPost(`/api/admin/technical-stats/backfill?days=${currentStatsDays}`, {});
     document.getElementById('technical-stats-success').textContent = `Importiert: ${formatAdminNumber(result.imported_count)} Zähler aus ${formatAdminNumber(result.log_lines_scanned)} Logzeilen`;
     await loadTechnicalStats();
   } catch(e) {
