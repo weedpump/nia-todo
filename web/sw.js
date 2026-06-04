@@ -15,6 +15,7 @@ const PRECACHE_ASSETS = [
   '/static/js/api/sections.js',
   '/static/js/api/auth.js',
   '/static/js/api/index.js',
+  '/static/js/api/places.js',
   '/static/js/api/projects.js',
   '/static/js/api/workspaces.js',
   '/static/js/api/push.js',
