@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.Looper
 import androidx.core.content.ContextCompat
 import com.google.android.gms.location.Geofence
 import com.google.android.gms.location.GeofencingClient
@@ -14,6 +15,9 @@ import com.google.android.gms.location.GeofencingEvent
 import com.google.android.gms.location.GeofencingRequest
 import com.google.android.gms.location.LocationServices
 import org.json.JSONArray
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 
 class LocationReminderReceiver : BroadcastReceiver() {
   override fun onReceive(context: Context, intent: Intent) {
@@ -64,6 +68,7 @@ class LocationReminderReceiver : BroadcastReceiver() {
     const val ACTION_GEOFENCE_EVENT = "de.tobiaskneidl.nia_todo.LOCATION_REMINDER"
     const val PREFS_NAME = "nia_todo_location_reminders"
     const val PREFS_SCHEDULES = "location_schedules"
+    const val DEFAULT_RADIUS_M = 150f
 
     fun locationPermissionState(context: Context): String {
       val fine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
@@ -95,7 +100,7 @@ class LocationReminderReceiver : BroadcastReceiver() {
         val id = schedule.optString("id")
         val latitude = schedule.optDouble("latitude", Double.NaN)
         val longitude = schedule.optDouble("longitude", Double.NaN)
-        val radiusM = schedule.optDouble("radiusM", 150.0).toFloat().coerceIn(25f, 10000f)
+        val radiusM = DEFAULT_RADIUS_M
         val triggerType = schedule.optString("triggerType")
         if (id.isBlank() || latitude.isNaN() || longitude.isNaN()) continue
         val transition = when (triggerType) {
@@ -106,7 +111,7 @@ class LocationReminderReceiver : BroadcastReceiver() {
         geofences.add(
           Geofence.Builder()
             .setRequestId(id)
-            .setCircularRegion(latitude, longitude, radiusM)
+            .setCircularRegion(latitude, longitude, DEFAULT_RADIUS_M)
             .setExpirationDuration(Geofence.NEVER_EXPIRE)
             .setTransitionTypes(transition)
             .build()
@@ -118,8 +123,20 @@ class LocationReminderReceiver : BroadcastReceiver() {
         .addGeofences(geofences)
         .build()
       return try {
+        val success = AtomicBoolean(false)
+        val latch = CountDownLatch(1)
         geofencingClient(context).addGeofences(request, geofencePendingIntent(context))
-        geofences.size
+          .addOnSuccessListener {
+            success.set(true)
+            latch.countDown()
+          }
+          .addOnFailureListener {
+            success.set(false)
+            latch.countDown()
+          }
+        if (Looper.myLooper() == Looper.getMainLooper()) return geofences.size
+        latch.await(3, TimeUnit.SECONDS)
+        if (success.get()) geofences.size else 0
       } catch (_: SecurityException) {
         0
       } catch (_: Exception) {

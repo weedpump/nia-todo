@@ -17,6 +17,7 @@ sys.path.insert(0, str(ROOT / "api"))
 import routers.places as places_router  # noqa: E402
 import routers.todos as todos_router  # noqa: E402
 from routers.auth import require_auth  # noqa: E402
+from services import geocoding  # noqa: E402
 
 
 def assert_true(condition, message):
@@ -119,6 +120,12 @@ def make_client(db):
 
 
 def main():
+    try:
+        geocoding.geocode_address("Johanneck 24")
+        raise AssertionError("Default geocoding must be disabled unless explicitly configured")
+    except Exception as error:
+        assert_true(getattr(error, "status_code", None) == 503, error)
+
     db = make_db()
     client = make_client(db)
     places_router.geocode_address = lambda address: {"address": address, "latitude": 48.42, "longitude": 11.55}

@@ -493,31 +493,31 @@
             <div class="todo-recurring-heading">
               <span data-icon="map-pin"></span>
               <div>
-                <strong>Ortsbezogene Erinnerung</strong>
-                <p>Wird privacy-first lokal in der Android-App ausgelöst. Web/PWA kann sie nur verwalten.</p>
+                <strong data-i18n-key="todo.location.title">Location reminder</strong>
+                <p data-i18n-key="todo.location.hint">Triggered privacy-first locally in the Android app. Web/PWA can only manage it.</p>
               </div>
             </div>
             <label class="checkbox-row">
               <input type="checkbox" id="todo-location-enabled">
-              <span>Beim Ankommen/Verlassen eines Orts erinnern</span>
+              <span data-i18n-key="todo.location.enable">Remind me when arriving at/leaving a place</span>
             </label>
             <div id="todo-location-fields" class="ui-field-grid two-columns" hidden>
               <div class="form-group">
-                <label for="todo-location-trigger">Auslöser</label>
+                <label for="todo-location-trigger" data-i18n-key="todo.location.trigger">Trigger</label>
                 <select id="todo-location-trigger">
-                  <option value="arrival">Beim Ankommen</option>
-                  <option value="departure">Beim Verlassen</option>
+                  <option value="arrival" data-i18n-key="todo.location.arrival">When arriving</option>
+                  <option value="departure" data-i18n-key="todo.location.departure">When leaving</option>
                 </select>
               </div>
               <div class="form-group">
-                <label for="todo-location-place">Gespeicherter Ort</label>
+                <label for="todo-location-place" data-i18n-key="todo.location.savedPlace">Saved place</label>
                 <select id="todo-location-place">
-                  <option value="">Adresse manuell eingeben</option>
+                  <option value="" data-i18n-key="todo.location.manualAddress">Enter address manually</option>
                 </select>
               </div>
               <div class="form-group" id="todo-location-address-group">
-                <label for="todo-location-address">Adresse</label>
-                <input type="text" id="todo-location-address" maxlength="500" placeholder="Straße, Ort">
+                <label for="todo-location-address" data-i18n-key="todo.location.address">Address</label>
+                <input type="text" id="todo-location-address" maxlength="500" placeholder="Street, city" data-i18n-placeholder-key="todo.location.addressPlaceholder">
               </div>
             </div>
             <div id="todo-location-error" class="form-error compact"></div>
@@ -604,7 +604,7 @@
           <a href="#settings-section-profile"><span data-icon="user"></span><span data-i18n-key="settings.section.profile">Profil</span></a>
           <a href="#settings-section-language"><span data-icon="book-open"></span><span data-i18n-key="settings.language.label">Language</span></a>
           <a href="#settings-section-default-reminder"><span data-icon="bell"></span><span data-i18n-key="settings.defaultReminder.title">Default reminder</span></a>
-          <a href="#settings-section-places"><span data-icon="map-pin"></span><span>Orte</span></a>
+          <a href="#settings-section-places"><span data-icon="map-pin"></span><span data-i18n-key="settings.places.title">Places</span></a>
           <a href="#settings-section-braindump" id="settings-nav-braindump"><span data-icon="sparkles"></span><span data-i18n-key="settings.braindump.title">BrainDump</span></a>
           <a href="#settings-section-security"><span data-icon="shield"></span><span data-i18n-key="settings.section.security">Sicherheit</span></a>
           <a href="#settings-section-api"><span data-icon="key-round"></span><span data-i18n-key="settings.apiKeys.title">API-Keys</span></a>
@@ -715,22 +715,22 @@
             <div class="settings-section-heading">
               <div class="settings-section-icon" data-icon="map-pin"></div>
               <div>
-                <h4>Gespeicherte Orte</h4>
-                <p>Labels wie Zuhause oder Arbeit mit Adresse speichern. BrainDump und Orts-Erinnerungen nutzen diese Orte.</p>
+                <h4 data-i18n-key="settings.places.title">Saved places</h4>
+                <p data-i18n-key="settings.places.hint">Save labels like Home or Work with an address. BrainDump and location reminders use these places.</p>
               </div>
             </div>
             <div class="settings-place-form ui-field-grid two-columns">
               <div class="form-group">
-                <label for="settings-place-name">Label</label>
-                <input type="text" id="settings-place-name" maxlength="120" placeholder="z.B. Zuhause">
+                <label for="settings-place-name" data-i18n-key="settings.places.nameLabel">Label</label>
+                <input type="text" id="settings-place-name" maxlength="120" placeholder="e.g. Home" data-i18n-placeholder-key="settings.places.namePlaceholder">
               </div>
               <div class="form-group">
-                <label for="settings-place-address">Adresse</label>
-                <input type="text" id="settings-place-address" maxlength="500" placeholder="Straße, Ort">
+                <label for="settings-place-address" data-i18n-key="settings.places.addressLabel">Address</label>
+                <input type="text" id="settings-place-address" maxlength="500" placeholder="Street, city" data-i18n-placeholder-key="settings.places.addressPlaceholder">
               </div>
             </div>
             <div class="settings-actions-row">
-              <button type="button" class="btn btn-primary" onclick="saveSettingsPlace()"><span data-icon="plus"></span> Ort speichern</button>
+              <button type="button" class="btn btn-primary" onclick="saveSettingsPlace()"><span data-icon="plus"></span> <span data-i18n-key="settings.places.save">Save place</span></button>
             </div>
             <div id="settings-places-error" class="settings-field-error"></div>
             <div id="settings-places-success" class="settings-field-success"></div>

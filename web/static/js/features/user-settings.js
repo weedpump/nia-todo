@@ -187,7 +187,7 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
       window.dispatchEvent(new CustomEvent('nia:saved-places-updated', { detail: { places: savedPlaces } }));
       return savedPlaces;
     } catch (error) {
-      listEl.innerHTML = `<div class="settings-device-note">Orte konnten nicht geladen werden: ${escapeHtml(error.message || error)}</div>`;
+      listEl.innerHTML = `<div class="settings-device-note">${escapeHtml(t('settings.places.loadFailed', { error: error.message || error }))}</div>`;
       return [];
     }
   }
@@ -196,7 +196,7 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
     const listEl = document.getElementById('settings-places-list');
     if (!listEl) return;
     if (!savedPlaces.length) {
-      listEl.innerHTML = '<div class="settings-device-note">Noch keine Orte gespeichert.</div>';
+      listEl.innerHTML = `<div class="settings-device-note">${escapeHtml(t('settings.places.empty'))}</div>`;
       return;
     }
     listEl.innerHTML = savedPlaces.map((place) => `
@@ -205,7 +205,7 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
           <strong>${escapeHtml(place.name)}</strong>
           <span>${escapeHtml(place.address || '')}</span>
         </div>
-        <button type="button" class="btn btn-danger" onclick="deleteSettingsPlace(${Number(place.id)})">Löschen</button>
+        <button type="button" class="btn btn-danger" onclick="deleteSettingsPlace(${Number(place.id)})">${escapeHtml(t('common.delete'))}</button>
       </div>
     `).join('');
   }
@@ -220,14 +220,14 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
     const name = nameEl?.value?.trim() || '';
     const address = addressEl?.value?.trim() || '';
     if (!name || !address) {
-      if (errorEl) errorEl.textContent = 'Bitte Label und Adresse eintragen.';
+      if (errorEl) errorEl.textContent = t('settings.places.required');
       return;
     }
     try {
       await placesApi.create({ name, address });
       if (nameEl) nameEl.value = '';
       if (addressEl) addressEl.value = '';
-      if (successEl) successEl.textContent = 'Ort gespeichert.';
+      if (successEl) successEl.textContent = t('settings.places.saved');
       await loadSavedPlaces();
     } catch (error) {
       if (errorEl) errorEl.textContent = error.message || String(error);
@@ -241,7 +241,7 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
     if (successEl) successEl.textContent = '';
     try {
       await placesApi.delete(placeId);
-      if (successEl) successEl.textContent = 'Ort gelöscht.';
+      if (successEl) successEl.textContent = t('settings.places.deleted');
       await loadSavedPlaces();
     } catch (error) {
       if (errorEl) errorEl.textContent = error.message || String(error);

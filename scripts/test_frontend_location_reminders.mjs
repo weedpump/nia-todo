@@ -6,6 +6,9 @@ const html = await readFile(new URL('../web/index.html', import.meta.url), 'utf8
 const todos = await readFile(new URL('../web/static/js/features/todos.js', import.meta.url), 'utf8');
 const sync = await readFile(new URL('../web/static/js/features/sync.js', import.meta.url), 'utf8');
 const apiIndex = await readFile(new URL('../web/static/js/api/index.js', import.meta.url), 'utf8');
+const desktop = await readFile(new URL('../web/static/js/features/desktop-integration.js', import.meta.url), 'utf8');
+const de = await readFile(new URL('../web/static/i18n/de.json', import.meta.url), 'utf8');
+const en = await readFile(new URL('../web/static/i18n/en.json', import.meta.url), 'utf8');
 
 assert(html.includes('todo-location-enabled'), 'todo modal must expose location reminder toggle');
 assert(!html.includes('todo-location-latitude'), 'todo modal must not expose latitude to humans');
@@ -13,7 +16,8 @@ assert(!html.includes('todo-location-longitude'), 'todo modal must not expose lo
 assert(!html.includes('todo-location-radius'), 'todo modal must not expose radius to humans');
 assert(html.includes('todo-location-place'), 'todo modal must allow selecting a saved place');
 assert(html.includes('settings-section-places'), 'settings must expose saved places');
-assert(html.includes('Web/PWA kann sie nur verwalten'), 'todo modal must clearly communicate Android-only triggering');
+assert(html.includes('data-i18n-key="settings.places.title"'), 'places settings must use semantic i18n keys');
+assert(html.includes('data-i18n-key="todo.location.hint"'), 'todo modal must clearly communicate Android-only triggering via i18n');
 assert(todos.includes('locationReminderFromForm'), 'todo feature must serialize location reminders');
 assert(todos.includes('populateLocationReminderForm'), 'todo feature must populate existing location reminders');
 assert(todos.includes('todoData.location_reminder'), 'todo save payload must include location_reminder');
@@ -21,5 +25,9 @@ assert(!todos.includes('todo-location-latitude'), 'todo JS must not read latitud
 assert(!todos.includes('todo-location-radius'), 'todo JS must not read radius inputs');
 assert(sync.includes("'location_reminder'"), 'offline sync must allow location_reminder changes');
 assert(apiIndex.includes('placesApi'), 'API index must export saved places API');
+assert(desktop.includes("t('todo.location.notificationTitle')"), 'location notification title must use i18n');
+assert(desktop.indexOf('scheduleLocationReminders?.(locationReminders)') < desktop.indexOf('ensureNativeLocationPermission(true)'), 'Android location schedules must be stored before requesting permission');
+assert(de.includes('todo.location.notificationTitle') && en.includes('todo.location.notificationTitle'), 'location notification title must be translated');
 
 console.log('✅ Frontend location reminder tests passed');
+

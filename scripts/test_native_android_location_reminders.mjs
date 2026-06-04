@@ -15,6 +15,14 @@ assert(receiver.includes('LocationServices.getGeofencingClient'), 'location remi
 assert(!receiver.includes('http://') && !receiver.includes('https://'), 'location trigger path must not call a server URL');
 assert(receiver.includes('ACCESS_BACKGROUND_LOCATION'), 'permission state must account for background location');
 assert(mainActivity.includes('scheduleLocationReminders'), 'Android bridge must expose location reminder scheduling');
+assert(mainActivity.includes('requestLocationPermission'), 'Android bridge must expose a location permission request flow');
+assert(mainActivity.includes('onRequestPermissionsResult'), 'Android must reschedule location reminders after permission results');
+assert(mainActivity.includes('if (requestCode == 7303)') && mainActivity.includes('requestLocationPermission()'), 'Android must continue from fine-location grant into the background-location flow');
+assert(mainActivity.includes('onResume()'), 'Android must reschedule location reminders after returning from settings');
+assert(mainActivity.includes('ACTION_APPLICATION_DETAILS_SETTINGS'), 'Android 11+ background location must route through app settings');
+assert(receiver.includes('addOnFailureListener'), 'Android geofence scheduling must observe async registration failures');
+assert(receiver.includes('Looper.myLooper() == Looper.getMainLooper()'), 'Android geofence scheduling must avoid blocking the main thread');
+assert(receiver.includes('DEFAULT_RADIUS_M = 150f'), 'Android geofencing must keep the radius fixed at 150m');
 assert(mainActivity.includes('rescheduleStoredLocationReminders'), 'Android app startup must rehydrate stored location reminders');
 assert(manifest.includes('android.permission.ACCESS_FINE_LOCATION'), 'Android manifest must request fine location');
 assert(manifest.includes('android.permission.ACCESS_BACKGROUND_LOCATION'), 'Android manifest must request background location for geofencing');
