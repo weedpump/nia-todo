@@ -291,6 +291,10 @@ async function run() {
       const firstCard = document.querySelector('.braindump-candidate-card.is-editing');
       const title = firstCard?.querySelector('.braindump-title-input');
       const customSelects = firstCard?.querySelectorAll('.ui-select-trigger').length || 0;
+      const deadlineField = firstCard?.querySelector('[data-bd-field="deadline"]');
+      const reminderField = firstCard?.querySelector('[data-bd-field="reminder"]');
+      const recurringFrequency = firstCard?.querySelector('[data-bd-field="recurring_frequency"]');
+      const recurringInterval = firstCard?.querySelector('[data-bd-field="recurring_interval"]');
       const typeField = firstCard?.querySelector('[data-bd-field="kind"]');
       const removeButton = firstCard?.querySelector('[data-bd-action="remove"]');
       const firstTrigger = firstCard?.querySelector('.ui-select-trigger');
@@ -306,16 +310,34 @@ async function run() {
       const editButton = firstCard?.querySelector('[data-bd-action="edit"]');
       const editIsIconOnly = Boolean(editButton?.querySelector('svg')) && !(editButton?.textContent || '').trim();
       const childIndented = menuRows.some(option => option.label === 'BrainDump Child' && option.depth === '1');
-      window.__braindumpQuickFixDebug = { hasTitle: Boolean(title), customSelects, menuRows, modalZ, menuZ, editIsIconOnly, childIndented, hasTypeField: Boolean(typeField), hasRemoveButton: Boolean(removeButton), html: firstCard?.innerHTML || '' };
-      if (!title || customSelects < 2 || menuOptions.length === 0 || !childIndented || !(menuZ > modalZ) || !editIsIconOnly || typeField || removeButton) return false;
+      window.__braindumpQuickFixDebug = { hasTitle: Boolean(title), customSelects, hasDeadline: Boolean(deadlineField), hasReminder: Boolean(reminderField), hasRecurringFrequency: Boolean(recurringFrequency), hasRecurringInterval: Boolean(recurringInterval), menuRows, modalZ, menuZ, editIsIconOnly, childIndented, hasTypeField: Boolean(typeField), hasRemoveButton: Boolean(removeButton), html: firstCard?.innerHTML || '' };
+      if (!title || customSelects < 3 || !deadlineField || !reminderField || !recurringFrequency || !recurringInterval || menuOptions.length === 0 || !childIndented || !(menuZ > modalZ) || !editIsIconOnly || typeField || removeButton) return false;
       title.value = 'Hafermilch kaufen';
       title.dispatchEvent(new Event('input', { bubbles: true }));
-      return firstCard.querySelector('.braindump-title-input')?.value === 'Hafermilch kaufen';
+      deadlineField.value = '2026-06-05T09:30';
+      deadlineField.dispatchEvent(new Event('input', { bubbles: true }));
+      reminderField.value = '2026-06-05T08:30';
+      reminderField.dispatchEvent(new Event('input', { bubbles: true }));
+      recurringFrequency.value = 'monthly';
+      recurringFrequency.dispatchEvent(new Event('change', { bubbles: true }));
+      const refreshedCard = document.querySelector('.braindump-candidate-card.is-editing');
+      const refreshedFrequency = refreshedCard?.querySelector('[data-bd-field="recurring_frequency"]');
+      if (refreshedFrequency && refreshedFrequency.value !== 'monthly') {
+        refreshedFrequency.value = 'monthly';
+        refreshedFrequency.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      const refreshedInterval = document.querySelector('.braindump-candidate-card.is-editing')?.querySelector('[data-bd-field="recurring_interval"]');
+      if (refreshedInterval) {
+        refreshedInterval.value = '6';
+        refreshedInterval.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+      return refreshedCard?.querySelector('.braindump-title-input')?.value === 'Hafermilch kaufen';
     });
     if (!quickFixOk) {
       const debug = await page.evaluate(() => window.__braindumpQuickFixDebug);
       throw new Error(`BrainDump quick-fix controls should use visible shared dropdowns, an icon-only edit button, and avoid type/remove controls: ${JSON.stringify(debug)}`);
     }
+    await page.keyboard.press('Escape');
     const acceptReady = await page.evaluate(() => {
       const button = document.getElementById('braindump-create');
       return Boolean(button && !button.disabled && !button.classList.contains('is-muted'));
@@ -326,6 +348,10 @@ async function run() {
     if (!createPayload) throw new Error('BrainDump create endpoint was not called');
     const submittedTitles = (createPayload.candidates || []).map(candidate => candidate.title);
     if (!submittedTitles.includes('Hafermilch kaufen')) throw new Error(`Edited BrainDump title was not submitted: ${JSON.stringify(createPayload)}`);
+    const editedCandidate = (createPayload.candidates || []).find(candidate => candidate.title === 'Hafermilch kaufen');
+    if (!editedCandidate?.deadline || !editedCandidate?.reminder || editedCandidate.recurring_rule?.frequency !== 'monthly' || editedCandidate.recurring_rule?.interval !== 6) {
+      throw new Error(`Edited BrainDump metadata was not submitted: ${JSON.stringify(createPayload)}`);
+    }
     if ((createPayload.candidates || []).some(candidate => Object.prototype.hasOwnProperty.call(candidate, 'kind'))) throw new Error(`BrainDump create payload must not include kind: ${JSON.stringify(createPayload)}`);
     if (!transcribeCalls || !extractCalls) throw new Error(`Expected BrainDump live calls, got transcribe=${transcribeCalls} extract=${extractCalls}`);
     const trackStopped = await page.evaluate(() => window.__braindumpTrackStopped === true);
