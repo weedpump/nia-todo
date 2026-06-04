@@ -18,6 +18,7 @@ export function createTodosFeature({
   isOnlineForSync,
   syncWithServer,
   sectionsApi,
+  placesApi,
   renderProjects,
   renderStats,
   renderTodos,
@@ -29,6 +30,7 @@ export function createTodosFeature({
 }) {
   const nativeBridge = createNativeBridge();
   let todoFormBound = false;
+  let savedPlaces = [];
 
   function bindTodoForm() {
     if (todoFormBound) return;
@@ -39,7 +41,7 @@ export function createTodosFeature({
   }
 
   function hydrateTodoSelects() {
-    for (const id of ['todo-priority', 'todo-status', 'todo-project', 'todo-section', 'todo-recurring-frequency']) {
+    for (const id of ['todo-priority', 'todo-status', 'todo-project', 'todo-section', 'todo-recurring-frequency', 'todo-location-trigger', 'todo-location-place']) {
       const select = document.getElementById(id);
       if (!select) continue;
       hydrateSelect(select, id === 'todo-project' ? { className: 'project-ui-select', menuClassName: 'project-ui-select-menu', searchPlaceholder: t('focus.projects.search'), searchLabel: t('focus.projects.search'), emptyText: t('focus.projects.noMatches') } : {});
@@ -153,6 +155,123 @@ export function createTodosFeature({
       dueInput?.setCustomValidity('');
       if (dueError?.textContent === t('todo.recurring.deadlineRequired')) dueError.textContent = '';
     }
+  }
+
+  function updateLocationReminderControls() {
+    const enabled = document.getElementById('todo-location-enabled')?.checked || false;
+    const fields = document.getElementById('todo-location-fields');
+    if (fields) {
+      fields.classList.toggle('is-disabled', !enabled);
+      fields.querySelectorAll('input, select, textarea, button').forEach((control) => { control.disabled = !enabled; });
+    }
+    const placeId = document.getElementById('todo-location-place')?.value || '';
+    const addressGroup = document.getElementById('todo-location-address-group');
+    if (addressGroup) addressGroup.hidden = Boolean(placeId);
+    const error = document.getElementById('todo-location-error');
+    if (error && !enabled) error.textContent = '';
+  }
+
+  async function loadSavedPlacesForTodoModal() {
+    if (!placesApi) return [];
+    try {
+      const data = await placesApi.list();
+      savedPlaces = data.places || [];
+    } catch (error) {
+      console.warn('Failed to load saved places', error);
+      savedPlaces = [];
+    }
+    renderLocationPlaceSelect();
+    return savedPlaces;
+  }
+
+  function renderLocationPlaceSelect(selectedId = '') {
+    const select = document.getElementById('todo-location-place');
+    if (!select) return;
+    select.innerHTML = `<option value="" data-i18n-key="todo.location.manualAddress">${t('todo.location.manualAddress')}</option>`;
+    for (const place of savedPlaces) {
+      const option = document.createElement('option');
+      option.value = String(place.id);
+      option.textContent = place.name;
+      option.dataset.address = place.address || '';
+      select.appendChild(option);
+    }
+    select.value = selectedId ? String(selectedId) : '';
+    refreshSelect(select);
+    updateLocationReminderControls();
+  }
+
+  function bindLocationReminderControls() {
+    const enabled = document.getElementById('todo-location-enabled');
+    if (enabled && enabled.dataset.locationBound !== '1') {
+      enabled.dataset.locationBound = '1';
+      enabled.addEventListener('change', updateLocationReminderControls);
+    }
+    const place = document.getElementById('todo-location-place');
+    if (place && place.dataset.locationBound !== '1') {
+      place.dataset.locationBound = '1';
+      place.addEventListener('change', updateLocationReminderControls);
+    }
+    updateLocationReminderControls();
+  }
+
+  function clearLocationReminderForm() {
+    const enabled = document.getElementById('todo-location-enabled');
+    if (enabled) enabled.checked = false;
+    const trigger = document.getElementById('todo-location-trigger');
+    if (trigger) trigger.value = 'arrival';
+    for (const id of ['todo-location-address']) {
+      const input = document.getElementById(id);
+      if (input) input.value = '';
+    }
+    const place = document.getElementById('todo-location-place');
+    if (place) place.value = '';
+    updateLocationReminderControls();
+  }
+
+  function populateLocationReminderForm(todo) {
+    clearLocationReminderForm();
+    const locationReminder = todo?.location_reminder || todo?.location_reminders?.[0];
+    if (!locationReminder) return;
+    const enabled = document.getElementById('todo-location-enabled');
+    if (enabled) enabled.checked = true;
+    const setValue = (id, value) => {
+      const input = document.getElementById(id);
+      if (input && value !== undefined && value !== null) input.value = String(value);
+    };
+    setValue('todo-location-trigger', locationReminder.trigger_type || locationReminder.triggerType || 'arrival');
+    renderLocationPlaceSelect(locationReminder.place_id || '');
+    if (!locationReminder.place_id) setValue('todo-location-address', locationReminder.address || '');
+    updateLocationReminderControls();
+  }
+
+  function locationReminderFromForm() {
+    const enabled = document.getElementById('todo-location-enabled')?.checked || false;
+    if (!enabled) return null;
+    const error = document.getElementById('todo-location-error');
+    if (error) error.textContent = '';
+    const placeId = document.getElementById('todo-location-place')?.value || '';
+    const address = document.getElementById('todo-location-address')?.value?.trim() || '';
+    if (!placeId && !address) {
+      if (error) error.textContent = t('todo.location.addressRequired');
+      document.getElementById('todo-location-address')?.focus();
+      throw new Error('Invalid location reminder address');
+    }
+    const payload = {
+      trigger_type: document.getElementById('todo-location-trigger')?.value || 'arrival',
+      enabled: true,
+    };
+    if (placeId) {
+      payload.place_id = Number(placeId);
+      const selectedPlace = savedPlaces.find(place => String(place.id) === String(placeId));
+      if (selectedPlace?.address) payload.address = String(selectedPlace.address);
+    } else {
+      payload.address = address;
+    }
+    return payload;
+  }
+
+  function locationReminderArrayFromPayload(locationReminder) {
+    return locationReminder ? [locationReminder] : [];
   }
 
   function bindRecurringControls() {
@@ -939,8 +1058,11 @@ export function createTodosFeature({
     bindDateTimeValidation();
     hydrateTodoSelects();
     bindRecurringControls();
+    bindLocationReminderControls();
+    await loadSavedPlacesForTodoModal();
     document.getElementById('todo-form')?.reset();
     clearDateTimeErrors();
+    clearLocationReminderForm();
     document.getElementById('todo-id').value = '';
     const modalTitle = document.getElementById('todo-modal-title');
     if (modalTitle) {
@@ -1002,6 +1124,7 @@ export function createTodosFeature({
         const d = new Date(reminderDate);
         document.getElementById('todo-remind').value = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
       }
+      populateLocationReminderForm(todo);
     } else {
       document.getElementById('todo-pinned').checked = false;
       document.getElementById('todo-recurring-frequency').value = 'none';
@@ -1096,6 +1219,11 @@ export function createTodosFeature({
       remind_at: toIsoOrNull('todo-remind'),
       recurring_rule: recurringRuleFromForm(),
     };
+    try {
+      todoData.location_reminder = locationReminderFromForm();
+    } catch (_error) {
+      return;
+    }
     if (parsedQuickAdd) {
       if (parsedQuickAdd.changes.priority && Number(document.getElementById('todo-priority').value) === 3) todoData.priority = parsedQuickAdd.changes.priority;
       if (parsedQuickAdd.changes.project_id) todoData.project_id = parsedQuickAdd.changes.project_id;
@@ -1117,6 +1245,7 @@ export function createTodosFeature({
       const selectedSection = allSections.find(section => String(section.id) === String(todoData.section_id));
       if (!selectedSection || String(selectedSection.project_id) !== String(todoData.project_id)) todoData.section_id = null;
     }
+    todoData.location_reminders = locationReminderArrayFromPayload(todoData.location_reminder);
     if (id) {
       const existing = getTodos().find(t => t.id === parseInt(id));
       if (existing) {

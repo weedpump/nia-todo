@@ -22,7 +22,10 @@ class ReminderReceiver : BroadcastReceiver() {
       Intent.ACTION_BOOT_COMPLETED,
       Intent.ACTION_USER_UNLOCKED,
       Intent.ACTION_MY_PACKAGE_REPLACED,
-      "android.intent.action.QUICKBOOT_POWERON" -> rescheduleStoredReminders(context)
+      "android.intent.action.QUICKBOOT_POWERON" -> {
+        rescheduleStoredReminders(context)
+        LocationReminderReceiver.rescheduleStoredLocationReminders(context)
+      }
     }
   }
 

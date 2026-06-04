@@ -32,7 +32,7 @@ app.add_middleware(DynamicCORSMiddleware)
 
 # ─── Router ──────────────────────────────────────────────────────────────────
 
-from routers import auth, todos, projects, sections, reminders, dashboard, push, admin, me, setup, sharing, password_setup, workspaces, instance, two_factor, braindump_v2
+from routers import auth, todos, projects, sections, reminders, places, dashboard, push, admin, me, setup, sharing, password_setup, workspaces, instance, two_factor, braindump_v2
 
 app.include_router(auth.router)
 app.include_router(instance.router)
@@ -41,6 +41,7 @@ app.include_router(workspaces.router)
 app.include_router(projects.router)
 app.include_router(sections.router)
 app.include_router(reminders.router)
+app.include_router(places.router)
 app.include_router(dashboard.router)
 app.include_router(push.router)
 app.include_router(admin.router)

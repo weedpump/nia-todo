@@ -28,6 +28,7 @@ class TodoCreate(BaseModel):
     section_id: Optional[int] = None
     due_date: Optional[str] = None
     remind_at: Optional[str] = None
+    location_reminder: Optional[dict] = None
     recurring_rule: Optional[dict] = None
 
 class TodoUpdate(BaseModel):
@@ -40,6 +41,7 @@ class TodoUpdate(BaseModel):
     section_id: Optional[int] = None
     due_date: Optional[str] = None
     remind_at: Optional[str] = None
+    location_reminder: Optional[dict] = None
     recurring_rule: Optional[dict] = None
 
 
@@ -47,6 +49,11 @@ class TodoUpdate(BaseModel):
 
 ALLOWED_TODO_STATUSES = {"pending", "in_progress", "done"}
 ALLOWED_RECURRENCE_FREQUENCIES = {"daily", "weekly", "monthly", "yearly"}
+ALLOWED_LOCATION_TRIGGERS = {"arrival", "departure"}
+FORBIDDEN_LOCATION_COORDINATE_FIELDS = {
+    "lat", "lng", "latitude", "longitude", "lon",
+    "radius", "radius_m", "radiusM", "radiusMeters", "radius_meters",
+}
 AUTO_REMINDER_SOURCE = "default_due"
 EXPLICIT_REMINDER_SOURCE = "explicit"
 
@@ -83,6 +90,8 @@ def fetch_todo(db, todo_id: int, reminder_user_id: Optional[int] = None) -> Opti
             (todo_id, reminder_user_id)
         ).fetchall()
     d['reminders'] = [dict(r) for r in rem_rows]
+    d['location_reminders'] = _location_reminders_for_todo(db, todo_id, reminder_user_id)
+    d['location_reminder'] = d['location_reminders'][0] if d['location_reminders'] else None
     return _recurring_rule_response(d)
 
 
@@ -261,6 +270,93 @@ def _insert_reminder(db, todo_id: int, remind_at: str, user_id: int, source: str
     )
 
 
+def _validate_location_reminder(db, data: Optional[dict], user_id: int) -> Optional[dict]:
+    if not data:
+        return None
+    if not isinstance(data, dict):
+        raise HTTPException(422, "Invalid location_reminder")
+    forbidden_fields = sorted(field for field in FORBIDDEN_LOCATION_COORDINATE_FIELDS if field in data)
+    if forbidden_fields:
+        raise HTTPException(422, f"Location reminder does not accept coordinates or radius fields: {', '.join(forbidden_fields)}")
+    trigger_type = str(data.get('trigger_type') or data.get('trigger') or '').strip().lower()
+    if trigger_type not in ALLOWED_LOCATION_TRIGGERS:
+        raise HTTPException(422, "Invalid location reminder trigger_type")
+
+    place_id = data.get('place_id')
+    if place_id not in (None, ''):
+        try:
+            place_id = int(place_id)
+        except (TypeError, ValueError):
+            raise HTTPException(422, "Invalid location reminder place_id")
+        place = db.execute("SELECT * FROM saved_places WHERE id = ? AND user_id = ?", (place_id, user_id)).fetchone()
+        if not place:
+            raise HTTPException(404, "Place not found")
+        address = sanitize_text(str(place['address'] or '')).strip()[:500]
+    else:
+        place_id = None
+        address = sanitize_text(str(data.get('address') or '')).strip()[:500]
+
+    if not address:
+        raise HTTPException(422, "Location reminder address is required")
+
+    return {
+        'trigger_type': trigger_type,
+        'place_id': place_id,
+        'address': address,
+        'enabled': 1 if data.get('enabled', True) is not False else 0,
+        'source': sanitize_text(str(data.get('source') or EXPLICIT_REMINDER_SOURCE)).strip()[:40] or EXPLICIT_REMINDER_SOURCE,
+    }
+
+def _insert_location_reminder(db, todo_id: int, user_id: int, location: dict):
+    now = now_iso()
+    db.execute(
+        """INSERT INTO location_reminders
+           (todo_id, user_id, trigger_type, place_id, address, enabled, source, created_at, updated_at)
+           VALUES (?,?,?,?,?,?,?,?,?)""",
+        (
+            todo_id, user_id, location['trigger_type'], location.get('place_id'), location.get('address') or '',
+            int(bool(location.get('enabled', 1))), location.get('source') or EXPLICIT_REMINDER_SOURCE, now, now,
+        ),
+    )
+
+
+def _replace_location_reminder(db, todo_id: int, user_id: int, location_data: Optional[dict]):
+    if location_data is None:
+        db.execute("DELETE FROM location_reminders WHERE todo_id = ? AND user_id = ?", (todo_id, user_id))
+        return
+    location = _validate_location_reminder(db, location_data, user_id)
+    if not location:
+        db.execute("DELETE FROM location_reminders WHERE todo_id = ? AND user_id = ?", (todo_id, user_id))
+        return
+    db.execute("DELETE FROM location_reminders WHERE todo_id = ? AND user_id = ?", (todo_id, user_id))
+    _insert_location_reminder(db, todo_id, user_id, location)
+
+
+def _location_reminders_for_todo(db, todo_id: int, user_id: Optional[int] = None) -> list[dict]:
+    try:
+        if user_id is None:
+            rows = db.execute(
+                """SELECT lr.*, sp.name AS place_name, sp.icon AS place_icon
+                   FROM location_reminders lr
+                   LEFT JOIN saved_places sp ON lr.place_id = sp.id
+                   WHERE lr.todo_id = ?
+                   ORDER BY lr.id""",
+                (todo_id,),
+            ).fetchall()
+        else:
+            rows = db.execute(
+                """SELECT lr.*, sp.name AS place_name, sp.icon AS place_icon
+                   FROM location_reminders lr
+                   LEFT JOIN saved_places sp ON lr.place_id = sp.id
+                   WHERE lr.todo_id = ? AND lr.user_id = ?
+                   ORDER BY lr.id""",
+                (todo_id, user_id),
+            ).fetchall()
+    except Exception:
+        return []
+    return [dict(row) for row in rows]
+
+
 def _sync_default_due_reminder(db, todo_id: int, user_id: int, due_date: Optional[str]):
     """Create/update the automatic due-date reminder without touching explicit reminders."""
     rows = db.execute(
@@ -325,6 +421,7 @@ def list_todos(status: Optional[str] = None, project_id: Optional[int] = None, s
         todos = [row_to_dict(r) for r in rows]
         todo_ids = [todo['id'] for todo in todos]
         reminders_by_todo = {todo_id: [] for todo_id in todo_ids}
+        location_reminders_by_todo = {todo_id: [] for todo_id in todo_ids}
         if todo_ids:
             placeholders = ','.join('?' for _ in todo_ids)
             reminder_rows = db.execute(
@@ -336,8 +433,23 @@ def list_todos(status: Optional[str] = None, project_id: Optional[int] = None, s
             for reminder in reminder_rows:
                 reminder_dict = dict(reminder)
                 reminders_by_todo.setdefault(reminder_dict.pop('todo_id'), []).append(reminder_dict)
+            try:
+                location_rows = db.execute(
+                    f"""SELECT lr.*, sp.name AS place_name, sp.icon AS place_icon FROM location_reminders lr
+                       LEFT JOIN saved_places sp ON lr.place_id = sp.id
+                       WHERE lr.todo_id IN ({placeholders}) AND lr.user_id = ?
+                       ORDER BY lr.id""",
+                    [*todo_ids, user_id]
+                ).fetchall()
+            except Exception:
+                location_rows = []
+            for location_reminder in location_rows:
+                location_dict = dict(location_reminder)
+                location_reminders_by_todo.setdefault(location_dict.pop('todo_id'), []).append(location_dict)
         for todo in todos:
             todo['reminders'] = reminders_by_todo.get(todo['id'], [])
+            todo['location_reminders'] = location_reminders_by_todo.get(todo['id'], [])
+            todo['location_reminder'] = todo['location_reminders'][0] if todo['location_reminders'] else None
             _recurring_rule_response(todo)
         return {"todos": todos}
 
@@ -367,6 +479,9 @@ async def create_todo(data: TodoCreate, user_id: int = Depends(require_auth)):
             _insert_reminder(db, todo_id, data.remind_at, user_id, EXPLICIT_REMINDER_SOURCE)
         else:
             _sync_default_due_reminder(db, todo_id, user_id, data.due_date)
+        location = _validate_location_reminder(db, data.location_reminder, user_id)
+        if location:
+            _insert_location_reminder(db, todo_id, user_id, location)
         db.commit()
         todo = fetch_todo(db, todo_id, user_id)
         await broadcast_change("todo_create", todo, user_id, data.project_id)
@@ -443,6 +558,9 @@ async def update_todo(todo_id: int, data: TodoUpdate, user_id: int = Depends(req
                     _sync_default_due_reminder(db, todo_id, user_id, effective_due_date)
         elif due_date_changed:
             _sync_default_due_reminder(db, todo_id, user_id, effective_due_date)
+        if 'location_reminder' in dumped:
+            _replace_location_reminder(db, todo_id, user_id, dumped.get('location_reminder'))
+            db.execute("UPDATE todos SET updated_at = ? WHERE id = ?", (now_iso(), todo_id))
         recurrence_created_todo = None
         recurrence_inserted = False
         normalized_existing_rule = existing.get('recurring_rule')
