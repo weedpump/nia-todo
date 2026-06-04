@@ -128,33 +128,37 @@ def normalize_endpoint(method: str, path: str) -> str | None:
     return signature if signature in BRAINDUMP_ENDPOINTS else None
 
 
+def _increment_ops_counter_db(db, category: str, key: str, *, platform: str = "unknown", status_code: int | str | None = None, count: int = 1, bucket_start: str | None = None) -> None:
+    amount = int(count)
+    if amount <= 0:
+        return
+    db.execute(
+        """INSERT INTO ops_counters (bucket_start, bucket_size, category, key, platform, status_class, count, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+           ON CONFLICT(bucket_start, bucket_size, category, key, platform, status_class)
+           DO UPDATE SET count = count + excluded.count, updated_at = datetime('now')""",
+        (
+            bucket_start or _hour_bucket(),
+            COUNTER_BUCKET_SIZE,
+            str(category or "unknown")[:40],
+            str(key or "unknown")[:80],
+            _clean_platform(platform),
+            _status_class(status_code),
+            amount,
+        ),
+    )
+    cutoff = (_now_utc() - timedelta(days=RETENTION_DAYS)).replace(minute=0, second=0, microsecond=0).isoformat().replace("+00:00", "Z")
+    db.execute("DELETE FROM ops_counters WHERE bucket_size = 'hour' AND bucket_start < ?", (cutoff,))
+
+
 def increment_ops_counter(category: str, key: str, *, platform: str = "unknown", status_code: int | str | None = None, count: int = 1, bucket_start: str | None = None) -> None:
     """Increment one aggregated operational counter.
 
     Best-effort by design: a stats failure must never break the user action.
     """
     try:
-        amount = int(count)
-        if amount <= 0:
-            return
         with get_db() as db:
-            db.execute(
-                """INSERT INTO ops_counters (bucket_start, bucket_size, category, key, platform, status_class, count, updated_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
-                   ON CONFLICT(bucket_start, bucket_size, category, key, platform, status_class)
-                   DO UPDATE SET count = count + excluded.count, updated_at = datetime('now')""",
-                (
-                    bucket_start or _hour_bucket(),
-                    COUNTER_BUCKET_SIZE,
-                    str(category or "unknown")[:40],
-                    str(key or "unknown")[:80],
-                    _clean_platform(platform),
-                    _status_class(status_code),
-                    amount,
-                ),
-            )
-            cutoff = (_now_utc() - timedelta(days=RETENTION_DAYS)).replace(minute=0, second=0, microsecond=0).isoformat().replace("+00:00", "Z")
-            db.execute("DELETE FROM ops_counters WHERE bucket_size = 'hour' AND bucket_start < ?", (cutoff,))
+            _increment_ops_counter_db(db, category, key, platform=platform, status_code=status_code, count=count, bucket_start=bucket_start)
     except Exception:
         return
 
@@ -436,7 +440,62 @@ def _increment(counts: dict[str, int], key: str):
     counts[key or "unknown"] += 1
 
 
-def platform_analysis(db) -> dict[str, Any]:
+def _client_mix_key(kind: str, label: str) -> str:
+    return f"client_{kind}:{str(label or 'unknown')[:60]}"
+
+
+def _client_mix_label(key: str, kind: str) -> str:
+    prefix = f"client_{kind}:"
+    return key[len(prefix):] if key.startswith(prefix) else key
+
+
+def record_client_session_metrics(db, user_agent: str = "") -> None:
+    """Record aggregated client mix on backend session creation.
+
+    This intentionally stores no user id, IP, raw user-agent, or session id.
+    """
+    try:
+        values = {
+            "app_type": _app_type(user_agent),
+            "os": _os_name(user_agent),
+            "browser": _browser_name(user_agent),
+            "platform": classify_platform_from_strings("", user_agent),
+        }
+        for kind, label in values.items():
+            _increment_ops_counter_db(db, "client_mix", _client_mix_key(kind, label), count=1)
+    except Exception:
+        return
+
+
+def _historical_client_mix(db, *, days: int) -> dict[str, dict[str, int]]:
+    cutoff = _start_date(days)
+    result = {"app_types": defaultdict(int), "operating_systems": defaultdict(int), "browsers": defaultdict(int), "platforms": defaultdict(int)}
+    kind_map = {
+        "app_type": "app_types",
+        "os": "operating_systems",
+        "browser": "browsers",
+        "platform": "platforms",
+    }
+    rows = db.execute(
+        """SELECT key, SUM(count) AS count
+           FROM ops_counters
+           WHERE category = 'client_mix'
+             AND bucket_size = 'hour'
+             AND substr(bucket_start, 1, 10) >= ?
+           GROUP BY key""",
+        (cutoff,),
+    ).fetchall()
+    for row in rows:
+        key = row["key"]
+        count = int(row["count"] or 0)
+        for kind, bucket in kind_map.items():
+            if str(key).startswith(f"client_{kind}:"):
+                result[bucket][_client_mix_label(key, kind)] += count
+                break
+    return {bucket: dict(sorted(values.items())) for bucket, values in result.items()}
+
+
+def platform_analysis(db, *, days: int = 30) -> dict[str, Any]:
     platforms: dict[str, int] = defaultdict(int)
     browsers: dict[str, int] = defaultdict(int)
     app_types: dict[str, int] = defaultdict(int)
@@ -453,15 +512,18 @@ def platform_analysis(db) -> dict[str, Any]:
         _increment(operating_systems, _os_name(user_agent))
     return {
         "total_active_sessions": len(rows),
-        "platforms": dict(sorted(platforms.items())),
-        "browsers": dict(sorted(browsers.items())),
-        "app_types": dict(sorted(app_types.items())),
-        "operating_systems": dict(sorted(operating_systems.items())),
+        "active": {
+            "platforms": dict(sorted(platforms.items())),
+            "browsers": dict(sorted(browsers.items())),
+            "app_types": dict(sorted(app_types.items())),
+            "operating_systems": dict(sorted(operating_systems.items())),
+        },
+        "historical": _historical_client_mix(db, days=days),
     }
 
 
 def platform_distribution(db) -> dict[str, int]:
-    return platform_analysis(db)["platforms"]
+    return platform_analysis(db)["active"]["platforms"]
 
 
 def _metric_totals(db, key: str, *, days: int) -> dict[str, Any]:
@@ -645,14 +707,14 @@ def data_coverage(db) -> dict[str, Any]:
 def technical_stats(days: int = 30) -> dict[str, Any]:
     with get_db() as db:
         period_days = _period_days(days)
-        platforms = platform_analysis(db)
+        platforms = platform_analysis(db, days=period_days)
         return {
             "period_days": period_days,
             "coverage": data_coverage(db),
             "database": database_size(),
             "counts": count_db_rows(db),
             "inventory": inventory_summary(db, days=period_days),
-            "platforms": platforms["platforms"],
+            "platforms": platforms["active"]["platforms"],
             "platform_analysis": platforms,
             "ops": ops_counter_summary(db, days=period_days),
             "workload": workload_summary(db, days=period_days),

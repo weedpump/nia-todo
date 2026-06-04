@@ -10,6 +10,7 @@ from typing import Optional
 from datetime import datetime, timezone, timedelta
 
 from db import get_db
+from services.ops_stats import record_client_session_metrics
 
 JWT_ALGORITHM = "HS256"
 USER_JWT_EXPIRY_DAYS = 30
@@ -41,11 +42,13 @@ def get_jwt_secret(db) -> str:
 def create_user_session(db, user_id: int, *, trusted_device_id: int = None, user_agent: str = "", ip_address: str = "", expires_at: int = None) -> str:
     session_id = uuid.uuid4().hex
     expiry = expires_at or (int(time.time()) + USER_JWT_EXPIRY_DAYS * 86400)
+    clean_user_agent = (user_agent or "")[:255]
     db.execute(
         """INSERT INTO user_sessions (id, user_id, trusted_device_id, user_agent, ip_address, expires_at, created_at, last_used_at)
            VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))""",
-        (session_id, user_id, trusted_device_id, (user_agent or "")[:255], (ip_address or "")[:80], expiry),
+        (session_id, user_id, trusted_device_id, clean_user_agent, (ip_address or "")[:80], expiry),
     )
+    record_client_session_metrics(db, clean_user_agent)
     return session_id
 
 

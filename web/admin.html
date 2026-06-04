@@ -473,7 +473,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
         <div class="admin-stat-bars" id="stats-capacity-bars"></div>
       </div>
       <div class="admin-stat-panel wide">
-        <div class="admin-stat-panel-title">Plattformanalyse aktive Sessions</div>
+        <div class="admin-stat-panel-title">Plattformanalyse <span class="admin-stat-panel-subtitle" id="stats-platform-subtitle"></span></div>
         <div class="admin-stat-layout" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:14px;">
           <div>
             <div class="admin-stat-panel-subtitle" style="margin-bottom:8px;">App-Typ</div>
@@ -1093,11 +1093,13 @@ function renderTechnicalStats(data) {
   const ai = selected.backend_ai_calls || {};
   const audio = selected.audio_segments || {};
   const platformAnalysis = data.platform_analysis || {};
-  const platforms = platformAnalysis.platforms || data.platforms || {};
+  const clientMix = platformAnalysis.historical || {};
+  const platforms = clientMix.platforms || data.platforms || {};
   const coverage = data.coverage || {};
   document.getElementById('stats-data-coverage').textContent = `Daten seit ${formatStatsDate(coverage.data_since)} · Last seit ${formatStatsDate(coverage.ops_since)} · Bestand seit ${formatStatsDate(coverage.inventory_since)}`;
   document.getElementById('stats-inventory-subtitle').textContent = `${formatAdminNumber(data.period_days)} Tage`;
   document.getElementById('stats-workload-subtitle').textContent = `${formatAdminNumber(data.period_days)} Tage`;
+  document.getElementById('stats-platform-subtitle').textContent = `${formatAdminNumber(data.period_days)} Tage Client-Mix · aktuell ${formatAdminNumber(platformAnalysis.total_active_sessions)} aktive Sessions`;
   document.getElementById('technical-stats-kpis').innerHTML = [
     statTile('Aktive Sessions', formatAdminNumber(counts.user_sessions), 'aktuell'),
     statTile('Todos gesamt', formatAdminNumber(counts.todos), `+${formatAdminNumber(created.todos)} im Zeitraum`),
@@ -1135,10 +1137,10 @@ function renderTechnicalStats(data) {
     { label: 'STT Peak/h', value: stt.peak_per_hour },
     { label: 'Tokens', value: tokens.total_tokens || 0, display: tokens.total_tokens ? formatAdminNumber(tokens.total_tokens) : '-' },
   ]);
-  const emptyPlatform = [{ label: 'Keine aktiven Sessions', value: 0, display: '0' }];
-  document.getElementById('stats-app-types').innerHTML = renderBarRows(objectToBarItems(platformAnalysis.app_types).length ? objectToBarItems(platformAnalysis.app_types) : emptyPlatform);
-  document.getElementById('stats-operating-systems').innerHTML = renderBarRows(objectToBarItems(platformAnalysis.operating_systems).length ? objectToBarItems(platformAnalysis.operating_systems) : emptyPlatform);
-  document.getElementById('stats-browsers').innerHTML = renderBarRows(objectToBarItems(platformAnalysis.browsers).length ? objectToBarItems(platformAnalysis.browsers) : emptyPlatform);
+  const emptyPlatform = [{ label: 'Noch keine Daten im Zeitraum', value: 0, display: '0' }];
+  document.getElementById('stats-app-types').innerHTML = renderBarRows(objectToBarItems(clientMix.app_types).length ? objectToBarItems(clientMix.app_types) : emptyPlatform);
+  document.getElementById('stats-operating-systems').innerHTML = renderBarRows(objectToBarItems(clientMix.operating_systems).length ? objectToBarItems(clientMix.operating_systems) : emptyPlatform);
+  document.getElementById('stats-browsers').innerHTML = renderBarRows(objectToBarItems(clientMix.browsers).length ? objectToBarItems(clientMix.browsers) : emptyPlatform);
   document.getElementById('technical-stats-platforms').innerHTML = renderBarRows(objectToBarItems(platforms).length ? objectToBarItems(platforms) : emptyPlatform);
 }
 
