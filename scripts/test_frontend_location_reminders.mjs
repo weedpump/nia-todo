@@ -26,8 +26,13 @@ assert(!todos.includes('todo-location-radius'), 'todo JS must not read radius in
 assert(sync.includes("'location_reminder'"), 'offline sync must allow location_reminder changes');
 assert(apiIndex.includes('placesApi'), 'API index must export saved places API');
 assert(desktop.includes("t('todo.location.notificationTitle')"), 'location notification title must use i18n');
+assert(desktop.includes('const address = String(locationReminder.address ||'), 'native location schedules must use addresses, not server coordinates');
+assert(!/locationReminder\.(latitude|longitude)/.test(desktop), 'frontend native schedules must not depend on server coordinates');
+assert(!desktop.includes('radiusM'), 'frontend native location schedules must be address-only; radius is Android-internal');
+assert(desktop.includes('if (locationReminders.length)') && desktop.indexOf('ensureNativeLocationPermission(true)') > desktop.indexOf('if (locationReminders.length)'), 'Android location permission must only be requested when at least one location reminder exists');
 assert(desktop.indexOf('scheduleLocationReminders?.(locationReminders)') < desktop.indexOf('ensureNativeLocationPermission(true)'), 'Android location schedules must be stored before requesting permission');
 assert(de.includes('todo.location.notificationTitle') && en.includes('todo.location.notificationTitle'), 'location notification title must be translated');
+assert(de.includes('Funktioniert nur in der Android-App') && en.includes('Only works in the Android app'), 'Web UI must clearly communicate Android-only location reminder triggering');
 
 console.log('✅ Frontend location reminder tests passed');
 

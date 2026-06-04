@@ -7,7 +7,6 @@ from pydantic import BaseModel
 from db import get_db, now_iso
 from routers.auth import require_auth
 from services.utils import sanitize_text
-from services.geocoding import DEFAULT_RADIUS_M, geocode_address
 
 router = APIRouter(prefix="/api/places")
 
@@ -58,21 +57,19 @@ def list_places(user_id: int = Depends(require_auth)):
 def create_place(data: PlacePayload, user_id: int = Depends(require_auth)):
     name = _validate_place_name(data.name)
     address = _clean_optional_text(data.address)
-    geocoded = geocode_address(address)
+    if not address:
+        raise HTTPException(422, "Place address is required")
     now = now_iso()
     try:
         with get_db() as db:
             cursor = db.execute(
                 """INSERT INTO saved_places
-                   (user_id, name, address, latitude, longitude, radius_m, icon, created_at, updated_at)
-                   VALUES (?,?,?,?,?,?,?,?,?)""",
+                   (user_id, name, address, icon, created_at, updated_at)
+                   VALUES (?,?,?,?,?,?)""",
                 (
                     user_id,
                     name,
-                    geocoded["address"],
-                    geocoded["latitude"],
-                    geocoded["longitude"],
-                    DEFAULT_RADIUS_M,
+                    address,
                     _clean_optional_text(data.icon, 40) or "pin",
                     now,
                     now,
@@ -94,11 +91,10 @@ def update_place(place_id: int, data: PlaceUpdate, user_id: int = Depends(requir
     if "name" in dumped:
         updates["name"] = _validate_place_name(data.name or "")
     if "address" in dumped:
-        geocoded = geocode_address(_clean_optional_text(data.address))
-        updates["address"] = geocoded["address"]
-        updates["latitude"] = geocoded["latitude"]
-        updates["longitude"] = geocoded["longitude"]
-        updates["radius_m"] = DEFAULT_RADIUS_M
+        address = _clean_optional_text(data.address)
+        if not address:
+            raise HTTPException(422, "Place address is required")
+        updates["address"] = address
     if "icon" in dumped:
         updates["icon"] = _clean_optional_text(data.icon, 40) or "pin"
     if not updates:
@@ -115,7 +111,7 @@ def update_place(place_id: int, data: PlaceUpdate, user_id: int = Depends(requir
                 raise HTTPException(404, "Place not found")
             set_clause = ", ".join(f"{field}=:{field}" for field in updates)
             db.execute(f"UPDATE saved_places SET {set_clause} WHERE id = :id AND user_id = :user_id", {**updates, "id": place_id, "user_id": user_id})
-            # Existing reminders keep their copied coordinates for privacy/audit stability.
+            # Existing reminders keep their copied address stable.
             db.commit()
             row = db.execute("SELECT * FROM saved_places WHERE id = ?", (place_id,)).fetchone()
             return _place_dict(row)

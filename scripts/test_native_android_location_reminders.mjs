@@ -12,6 +12,8 @@ const desktop = await readFile(new URL('../web/static/js/features/desktop-integr
 assert(receiver.includes('Geofence.GEOFENCE_TRANSITION_ENTER'), 'location reminders must support arrival geofences');
 assert(receiver.includes('Geofence.GEOFENCE_TRANSITION_EXIT'), 'location reminders must support departure geofences');
 assert(receiver.includes('LocationServices.getGeofencingClient'), 'location reminders must use Android geofencing locally');
+assert(receiver.includes('Geocoder(context, Locale.getDefault())'), 'Android must resolve reminder addresses locally before geofencing');
+assert(receiver.includes('optString("address")'), 'Android location schedules must consume address-only reminders');
 assert(!receiver.includes('http://') && !receiver.includes('https://'), 'location trigger path must not call a server URL');
 assert(receiver.includes('ACCESS_BACKGROUND_LOCATION'), 'permission state must account for background location');
 assert(mainActivity.includes('scheduleLocationReminders'), 'Android bridge must expose location reminder scheduling');

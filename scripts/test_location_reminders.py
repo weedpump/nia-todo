@@ -17,7 +17,6 @@ sys.path.insert(0, str(ROOT / "api"))
 import routers.places as places_router  # noqa: E402
 import routers.todos as todos_router  # noqa: E402
 from routers.auth import require_auth  # noqa: E402
-from services import geocoding  # noqa: E402
 
 
 def assert_true(condition, message):
@@ -65,10 +64,7 @@ def make_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,
             name TEXT NOT NULL,
-            address TEXT DEFAULT '',
-            latitude REAL NOT NULL,
-            longitude REAL NOT NULL,
-            radius_m INTEGER NOT NULL DEFAULT 150,
+            address TEXT NOT NULL,
             icon TEXT DEFAULT 'pin',
             created_at TEXT DEFAULT (datetime('now')),
             updated_at TEXT DEFAULT (datetime('now'))
@@ -80,11 +76,7 @@ def make_db():
             user_id INTEGER NOT NULL,
             trigger_type TEXT NOT NULL CHECK(trigger_type IN ('arrival', 'departure')),
             place_id INTEGER,
-            label TEXT DEFAULT '',
-            address TEXT DEFAULT '',
-            latitude REAL NOT NULL,
-            longitude REAL NOT NULL,
-            radius_m INTEGER NOT NULL DEFAULT 150,
+            address TEXT NOT NULL,
             enabled INTEGER NOT NULL DEFAULT 1,
             triggered_at TEXT,
             source TEXT NOT NULL DEFAULT 'explicit',
@@ -120,16 +112,8 @@ def make_client(db):
 
 
 def main():
-    try:
-        geocoding.geocode_address("Johanneck 24")
-        raise AssertionError("Default geocoding must be disabled unless explicitly configured")
-    except Exception as error:
-        assert_true(getattr(error, "status_code", None) == 503, error)
-
     db = make_db()
     client = make_client(db)
-    places_router.geocode_address = lambda address: {"address": address, "latitude": 48.42, "longitude": 11.55}
-    todos_router.geocode_address = lambda address: {"address": address, "latitude": 48.50, "longitude": 11.60}
 
     place_response = client.post("/api/places", json={
         "name": "Zuhause",
@@ -139,6 +123,11 @@ def main():
     assert_true(place_response.status_code == 200, place_response.text)
     place = place_response.json()
     assert_true(place["name"] == "Zuhause", place)
+    assert_true(place["address"] == "Johanneck 24", place)
+    assert_true("latitude" not in place and "longitude" not in place and "radius_m" not in place, place)
+
+    empty_place = client.post("/api/places", json={"name": "Leer", "address": ""})
+    assert_true(empty_place.status_code == 422, empty_place.text)
 
     todo_response = client.post("/api/todos", json={
         "title": "Müll rausstellen",
@@ -152,8 +141,10 @@ def main():
     todo = todo_response.json()
     assert_true(todo["location_reminder"]["trigger_type"] == "arrival", todo)
     assert_true(todo["location_reminder"]["place_id"] == place["id"], todo)
-    assert_true(todo["location_reminder"]["latitude"] == 48.42, todo)
-    assert_true(todo["location_reminder"]["radius_m"] == 150, todo)
+    assert_true(todo["location_reminder"]["address"] == "Johanneck 24", todo)
+    assert_true("latitude" not in todo["location_reminder"], todo)
+    assert_true("longitude" not in todo["location_reminder"], todo)
+    assert_true("radius_m" not in todo["location_reminder"], todo)
 
     free_address_response = client.post("/api/todos", json={
         "title": "Beim Baumarkt Schrauben kaufen",
@@ -166,16 +157,13 @@ def main():
     assert_true(free_address_response.status_code == 200, free_address_response.text)
     free_address_todo = free_address_response.json()
     assert_true(free_address_todo["location_reminder"]["address"] == "Baumarkt Freising", free_address_todo)
-    assert_true(free_address_todo["location_reminder"]["latitude"] == 48.50, free_address_todo)
-    assert_true(free_address_todo["location_reminder"]["radius_m"] == 150, free_address_todo)
+    assert_true("latitude" not in free_address_todo["location_reminder"], free_address_todo)
 
     # Updating a saved place must not silently move already-created reminders.
-    places_router.geocode_address = lambda address: {"address": address, "latitude": 49.0, "longitude": 12.0}
     moved_place = client.patch(f"/api/places/{place['id']}", json={"address": "Neue Adresse"})
     assert_true(moved_place.status_code == 200, moved_place.text)
     fetched = client.get(f"/api/todos/{todo['id']}").json()
-    assert_true(fetched["location_reminder"]["latitude"] == 48.42, fetched)
-    assert_true(fetched["location_reminder"]["radius_m"] == 150, fetched)
+    assert_true(fetched["location_reminder"]["address"] == "Johanneck 24", fetched)
 
     removed = client.patch(f"/api/todos/{todo['id']}", json={"location_reminder": None})
     assert_true(removed.status_code == 200, removed.text)

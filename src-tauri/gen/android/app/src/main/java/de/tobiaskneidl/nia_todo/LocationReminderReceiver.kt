@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.location.Geocoder
 import android.os.Looper
 import androidx.core.content.ContextCompat
 import com.google.android.gms.location.Geofence
@@ -17,6 +18,7 @@ import com.google.android.gms.location.LocationServices
 import org.json.JSONArray
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
 
 class LocationReminderReceiver : BroadcastReceiver() {
@@ -98,11 +100,10 @@ class LocationReminderReceiver : BroadcastReceiver() {
       for (index in 0 until schedules.length()) {
         val schedule = schedules.optJSONObject(index) ?: continue
         val id = schedule.optString("id")
-        val latitude = schedule.optDouble("latitude", Double.NaN)
-        val longitude = schedule.optDouble("longitude", Double.NaN)
-        val radiusM = DEFAULT_RADIUS_M
+        val address = schedule.optString("address").trim()
+        val resolved = resolveAddress(context, address) ?: continue
         val triggerType = schedule.optString("triggerType")
-        if (id.isBlank() || latitude.isNaN() || longitude.isNaN()) continue
+        if (id.isBlank()) continue
         val transition = when (triggerType) {
           "arrival" -> Geofence.GEOFENCE_TRANSITION_ENTER
           "departure" -> Geofence.GEOFENCE_TRANSITION_EXIT
@@ -111,7 +112,7 @@ class LocationReminderReceiver : BroadcastReceiver() {
         geofences.add(
           Geofence.Builder()
             .setRequestId(id)
-            .setCircularRegion(latitude, longitude, DEFAULT_RADIUS_M)
+            .setCircularRegion(resolved.first, resolved.second, DEFAULT_RADIUS_M)
             .setExpirationDuration(Geofence.NEVER_EXPIRE)
             .setTransitionTypes(transition)
             .build()
@@ -141,6 +142,18 @@ class LocationReminderReceiver : BroadcastReceiver() {
         0
       } catch (_: Exception) {
         0
+      }
+    }
+
+    private fun resolveAddress(context: Context, address: String): Pair<Double, Double>? {
+      if (address.isBlank()) return null
+      return try {
+        @Suppress("DEPRECATION")
+        val results = Geocoder(context, Locale.getDefault()).getFromLocationName(address, 1)
+        val first = results?.firstOrNull() ?: return null
+        Pair(first.latitude, first.longitude)
+      } catch (_: Exception) {
+        null
       }
     }
 

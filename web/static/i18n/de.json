@@ -1100,7 +1100,7 @@
   "settings.defaultReminder.invalidCustom": "Bitte eine ganze Zahl eintragen: 1–8760 Stunden oder 1–365 Tage.",
   "api.auth.defaultReminderSaveFailed": "Standard-Erinnerung konnte nicht gespeichert werden.",
   "todo.location.title": "Ortsbezogene Erinnerung",
-  "todo.location.hint": "Wird privacy-first lokal in der Android-App ausgelöst. Web/PWA kann sie nur verwalten.",
+  "todo.location.hint": "Funktioniert nur in der Android-App. Web/PWA kann ortsbezogene Erinnerungen nur anlegen und verwalten.",
   "todo.location.enable": "Beim Ankommen/Verlassen eines Orts erinnern",
   "todo.location.trigger": "Auslöser",
   "todo.location.arrival": "Beim Ankommen",

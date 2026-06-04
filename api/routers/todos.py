@@ -11,7 +11,6 @@ from db import get_db, row_to_dict, now_iso
 from routers.auth import require_auth
 from services.websocket import broadcast_change
 from services.utils import sanitize_text
-from services.geocoding import DEFAULT_RADIUS_M, geocode_address
 from services.sharing import can_access_project, can_manage_todos, get_project_ids_for_user
 
 router = APIRouter(prefix="/api/todos")
@@ -276,7 +275,6 @@ def _validate_location_reminder(db, data: Optional[dict], user_id: int) -> Optio
     if trigger_type not in ALLOWED_LOCATION_TRIGGERS:
         raise HTTPException(422, "Invalid location reminder trigger_type")
 
-    place = None
     place_id = data.get('place_id')
     if place_id not in (None, ''):
         try:
@@ -286,28 +284,18 @@ def _validate_location_reminder(db, data: Optional[dict], user_id: int) -> Optio
         place = db.execute("SELECT * FROM saved_places WHERE id = ? AND user_id = ?", (place_id, user_id)).fetchone()
         if not place:
             raise HTTPException(404, "Place not found")
-        return {
-            'trigger_type': trigger_type,
-            'place_id': place_id,
-            'label': '',
-            'address': sanitize_text(str(place['address'] or '')).strip()[:500],
-            'latitude': float(place['latitude']),
-            'longitude': float(place['longitude']),
-            'radius_m': DEFAULT_RADIUS_M,
-            'enabled': 1 if data.get('enabled', True) is not False else 0,
-            'source': sanitize_text(str(data.get('source') or EXPLICIT_REMINDER_SOURCE)).strip()[:40] or EXPLICIT_REMINDER_SOURCE,
-        }
+        address = sanitize_text(str(place['address'] or '')).strip()[:500]
+    else:
+        place_id = None
+        address = sanitize_text(str(data.get('address') or '')).strip()[:500]
 
-    address = sanitize_text(str(data.get('address') or '')).strip()[:500]
-    geocoded = geocode_address(address)
+    if not address:
+        raise HTTPException(422, "Location reminder address is required")
+
     return {
         'trigger_type': trigger_type,
-        'place_id': None,
-        'label': '',
-        'address': geocoded['address'],
-        'latitude': geocoded['latitude'],
-        'longitude': geocoded['longitude'],
-        'radius_m': DEFAULT_RADIUS_M,
+        'place_id': place_id,
+        'address': address,
         'enabled': 1 if data.get('enabled', True) is not False else 0,
         'source': sanitize_text(str(data.get('source') or EXPLICIT_REMINDER_SOURCE)).strip()[:40] or EXPLICIT_REMINDER_SOURCE,
     }
@@ -316,11 +304,10 @@ def _insert_location_reminder(db, todo_id: int, user_id: int, location: dict):
     now = now_iso()
     db.execute(
         """INSERT INTO location_reminders
-           (todo_id, user_id, trigger_type, place_id, label, address, latitude, longitude, radius_m, enabled, source, created_at, updated_at)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+           (todo_id, user_id, trigger_type, place_id, address, enabled, source, created_at, updated_at)
+           VALUES (?,?,?,?,?,?,?,?,?)""",
         (
-            todo_id, user_id, location['trigger_type'], location.get('place_id'), location.get('label') or '',
-            location.get('address') or '', location['latitude'], location['longitude'], location['radius_m'],
+            todo_id, user_id, location['trigger_type'], location.get('place_id'), location.get('address') or '',
             int(bool(location.get('enabled', 1))), location.get('source') or EXPLICIT_REMINDER_SOURCE, now, now,
         ),
     )
