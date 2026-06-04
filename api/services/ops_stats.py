@@ -20,7 +20,7 @@ from db import DB_PATH, get_db
 from services.client_info import CLIENT_INFO_HEADER
 
 COUNTER_BUCKET_SIZE = "hour"
-RETENTION_DAYS = 90
+RETENTION_DAYS = 3650
 
 BRAINDUMP_ENDPOINTS: dict[str, tuple[str, str]] = {
     "GET /api/braindump/v2/access": ("braindump", "access_check"),
@@ -158,6 +158,35 @@ def increment_duration_metric(category: str, key: str, duration_ms: float | int 
     increment_ops_counter(f"{category}_timing", f"{key}_ms_total", count=ms)
 
 
+def increment_llm_usage_metrics(key: str, usage: dict[str, Any] | None) -> None:
+    """Store aggregate LLM token usage when the provider reports it."""
+    if not isinstance(usage, dict):
+        return
+    def int_value(name: str) -> int:
+        try:
+            return max(0, int(usage.get(name) or 0))
+        except (TypeError, ValueError):
+            return 0
+    prompt = int_value("prompt_tokens")
+    completion = int_value("completion_tokens")
+    total = int_value("total_tokens") or prompt + completion
+    details = usage.get("completion_tokens_details")
+    reasoning = 0
+    if isinstance(details, dict):
+        try:
+            reasoning = max(0, int(details.get("reasoning_tokens") or 0))
+        except (TypeError, ValueError):
+            reasoning = 0
+    if prompt:
+        increment_ops_counter("llm_tokens", f"{key}_prompt_tokens", count=prompt)
+    if completion:
+        increment_ops_counter("llm_tokens", f"{key}_completion_tokens", count=completion)
+    if total:
+        increment_ops_counter("llm_tokens", f"{key}_total_tokens", count=total)
+    if reasoning:
+        increment_ops_counter("llm_tokens", f"{key}_reasoning_tokens", count=reasoning)
+
+
 def count_db_rows(db) -> dict[str, int]:
     tables = {
         "users": "users",
@@ -288,19 +317,36 @@ def _duration_average(db, category: str, key: str, *, days: int) -> dict[str, An
     }
 
 
-def workload_summary(db, *, days: int = 30) -> dict[str, Any]:
-    days = max(1, min(int(days or 30), 90))
+def _llm_token_summary(db, *, days: int) -> dict[str, Any]:
+    prompt = _metric_totals(db, "live_text_extract_prompt_tokens", days=days)["total"]
+    completion = _metric_totals(db, "live_text_extract_completion_tokens", days=days)["total"]
+    total = _metric_totals(db, "live_text_extract_total_tokens", days=days)["total"] or prompt + completion
+    reasoning = _metric_totals(db, "live_text_extract_reasoning_tokens", days=days)["total"]
+    return {
+        "prompt_tokens": prompt,
+        "completion_tokens": completion,
+        "total_tokens": total,
+        "reasoning_tokens": reasoning,
+        "avg_tokens_per_llm_call": None,
+    }
+
+
+def workload_summary_for_period(db, *, days: int) -> dict[str, Any]:
+    days = max(1, min(int(days or 30), RETENTION_DAYS))
     stt = _metric_totals(db, "live_audio_transcribe", days=days)
     llm = _metric_totals(db, "live_text_extract", days=days)
     audio = _metric_totals(db, "live_audio_segment", days=days)
     confirmed = _metric_totals(db, "confirmed_todos_request", days=days)
     stt_timing = _duration_average(db, "stt_timing", "live_audio_transcribe", days=days)
     llm_timing = _duration_average(db, "llm_timing", "live_text_extract", days=days)
+    tokens = _llm_token_summary(db, days=days)
+    if llm["total"]:
+        tokens["avg_tokens_per_llm_call"] = round(tokens["total_tokens"] / llm["total"], 1) if tokens["total_tokens"] else None
     total_backend_ai_calls = stt["total"] + llm["total"]
     return {
         "days": days,
         "stt": {**stt, **stt_timing},
-        "llm": {**llm, **llm_timing},
+        "llm": {**llm, **llm_timing, "tokens": tokens},
         "audio_segments": audio,
         "confirmed_todo_requests": confirmed,
         "backend_ai_calls": {
@@ -311,8 +357,20 @@ def workload_summary(db, *, days: int = 30) -> dict[str, Any]:
     }
 
 
+def workload_summary(db, *, days: int = 30) -> dict[str, Any]:
+    requested_days = max(1, min(int(days or 30), RETENTION_DAYS))
+    return {
+        "selected": workload_summary_for_period(db, days=requested_days),
+        "periods": {
+            "7d": workload_summary_for_period(db, days=7),
+            "30d": workload_summary_for_period(db, days=30),
+            "365d": workload_summary_for_period(db, days=365),
+        },
+    }
+
+
 def ops_counter_summary(db, *, days: int = 30) -> dict[str, Any]:
-    days = max(1, min(int(days or 30), 90))
+    days = max(1, min(int(days or 30), RETENTION_DAYS))
     cutoff = (_now_utc() - timedelta(days=days)).replace(minute=0, second=0, microsecond=0).isoformat().replace("+00:00", "Z")
     rows = db.execute(
         """SELECT category, key, platform, status_class, SUM(count) AS count
@@ -351,7 +409,7 @@ def ops_counter_summary(db, *, days: int = 30) -> dict[str, Any]:
 def technical_stats(days: int = 30) -> dict[str, Any]:
     with get_db() as db:
         return {
-            "period_days": max(1, min(int(days or 30), 90)),
+            "period_days": max(1, min(int(days or 30), RETENTION_DAYS)),
             "database": database_size(),
             "counts": count_db_rows(db),
             "platforms": platform_distribution(db),
@@ -372,7 +430,7 @@ def _journal_units() -> list[str]:
 
 def backfill_from_journal(days: int = 30) -> dict[str, Any]:
     """Import aggregated BrainDump counters from existing systemd access logs."""
-    days = max(1, min(int(days or 30), 90))
+    days = max(1, min(int(days or 30), RETENTION_DAYS))
     since = f"{days} days ago"
     imported = 0
     scanned = 0

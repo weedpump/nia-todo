@@ -957,11 +957,17 @@ function renderTechnicalStats(data) {
   if (!data) return;
   const counts = data.counts || {};
   const workload = data.workload || {};
-  const stt = workload.stt || {};
-  const llm = workload.llm || {};
-  const ai = workload.backend_ai_calls || {};
-  const audio = workload.audio_segments || {};
-  const confirmed = workload.confirmed_todo_requests || {};
+  const selected = workload.selected || workload;
+  const periods = workload.periods || {};
+  const p7 = periods['7d'] || {};
+  const p30 = periods['30d'] || selected;
+  const p365 = periods['365d'] || {};
+  const stt = selected.stt || {};
+  const llm = selected.llm || {};
+  const tokens = llm.tokens || {};
+  const ai = selected.backend_ai_calls || {};
+  const audio = selected.audio_segments || {};
+  const confirmed = selected.confirmed_todo_requests || {};
   const platforms = data.platforms || {};
   document.getElementById('technical-stats-counts').innerHTML = [
     statTile('User', formatAdminNumber(counts.users)),
@@ -977,14 +983,21 @@ function renderTechnicalStats(data) {
     statTile('DB-Größe', formatAdminBytes(data.database?.bytes)),
   ].join('');
   document.getElementById('technical-stats-ops').innerHTML = [
-    statTile('LLM-Aufrufe 30T', formatAdminNumber(llm.total)),
+    statTile('LLM-Aufrufe 7T', formatAdminNumber(p7.llm?.total)),
+    statTile('LLM-Aufrufe 30T', formatAdminNumber(p30.llm?.total ?? llm.total)),
+    statTile('LLM-Aufrufe 365T', formatAdminNumber(p365.llm?.total)),
     statTile('LLM Ø / Tag', formatAdminNumber(llm.avg_per_day)),
     statTile('LLM Peak / Stunde', formatAdminNumber(llm.peak_per_hour)),
     statTile('LLM Ø Antwortzeit', formatDurationMs(llm.avg_ms)),
     statTile('LLM Fehlerquote', formatRate(llm.error_rate)),
+    statTile('LLM Tokens 30T', tokens.total_tokens ? formatAdminNumber(tokens.total_tokens) : '-'),
+    statTile('Ø Tokens / LLM Call', tokens.avg_tokens_per_llm_call ? formatAdminNumber(tokens.avg_tokens_per_llm_call) : '-'),
+    statTile('Prompt / Completion', tokens.total_tokens ? `${formatAdminNumber(tokens.prompt_tokens)} / ${formatAdminNumber(tokens.completion_tokens)}` : '-'),
     statTile('LLM 7T / vorige 7T', `${formatAdminNumber(llm.last_7_days)} / ${formatAdminNumber(llm.previous_7_days)}`),
     statTile('LLM Trend', formatTrend(llm.trend_pct, llm.last_7_days, llm.previous_7_days)),
-    statTile('STT-Aufrufe 30T', formatAdminNumber(stt.total)),
+    statTile('STT-Aufrufe 7T', formatAdminNumber(p7.stt?.total)),
+    statTile('STT-Aufrufe 30T', formatAdminNumber(p30.stt?.total ?? stt.total)),
+    statTile('STT-Aufrufe 365T', formatAdminNumber(p365.stt?.total)),
     statTile('STT Ø / Tag', formatAdminNumber(stt.avg_per_day)),
     statTile('STT Peak / Stunde', formatAdminNumber(stt.peak_per_hour)),
     statTile('STT Ø Antwortzeit', formatDurationMs(stt.avg_ms)),
