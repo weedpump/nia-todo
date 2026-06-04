@@ -22,7 +22,8 @@ from fastapi import HTTPException
 import services.two_factor as two_factor_module
 from services.auth import USER_JWT_EXPIRY_DAYS, create_jwt_token, decode_jwt_token, get_current_user, get_jwt_secret
 from routers.auth import me, require_recent_mfa_for_account_security
-from routers.two_factor import ReauthRequest, reauth, regenerate_recovery_codes, require_2fa_status_auth
+from routers.admin import delete_admin_user_session, delete_admin_user_sessions, list_admin_user_sessions
+from routers.two_factor import ReauthRequest, delete_all_trusted_devices, reauth, regenerate_recovery_codes, require_2fa_status_auth
 from rate_limit import get_client_ip_ws
 from services.webauthn import ANDROID_PACKAGE_NAME, ANDROID_PASSKEY_ORIGINS, ANDROID_RELEASE_CERT_SHA256, relying_party_for_request, verify_client_data
 from services.two_factor import (
@@ -309,6 +310,58 @@ def main():
         assert get_current_user(stale_session_token) == user_id
         stale_last_used = conn.execute("SELECT strftime('%s', last_used_at) AS ts FROM user_sessions WHERE id = ?", (stale_session_id,)).fetchone()["ts"]
         assert int(stale_last_used) >= int(time.time()) - 60
+
+        # Admin session-management endpoints enforce ownership, revoke trusted devices, audit actions,
+        # and bump token_version on all-session revoke so legacy no-sid JWTs are invalidated too.
+        admin_session_user_id = create_user(conn, username="adminsessionuser", email="adminsession@example.invalid")
+        other_session_user_id = create_user(conn, username="othersessionuser", email="othersession@example.invalid")
+        admin_session_user = conn.execute("SELECT id, username, is_admin, token_version FROM users WHERE id = ?", (admin_session_user_id,)).fetchone()
+        admin_trusted_token, admin_trusted_id = create_trusted_device(conn, admin_session_user_id, "Admin Session Browser", return_id=True)
+        admin_session_token = create_jwt_token(dict(admin_session_user), conn, mfa_login_verified=True, create_session=True, trusted_device_id=admin_trusted_id, user_agent="Admin Session Browser", ip_address="127.0.0.6")
+        admin_session_id = decode_jwt_token(admin_session_token, conn)["sid"]
+        conn.commit()
+        try:
+            delete_admin_user_session(other_session_user_id, admin_session_id, FakeRequest("https://todo.example.invalid", client_host="198.51.100.10"), True)
+            raise AssertionError("admin single-session revoke must not revoke sessions owned by another user")
+        except HTTPException as exc:
+            assert exc.status_code == 404
+        assert decode_jwt_token(admin_session_token, conn) is not None
+        listed_sessions = list_admin_user_sessions(admin_session_user_id, True)["sessions"]
+        assert any(item["id"] == admin_session_id and item["trusted"] for item in listed_sessions)
+        delete_admin_user_session(admin_session_user_id, admin_session_id, FakeRequest("https://todo.example.invalid", client_host="198.51.100.11"), True)
+        assert decode_jwt_token(admin_session_token, conn) is None
+        assert conn.execute("SELECT revoked_at FROM trusted_devices WHERE id = ?", (admin_trusted_id,)).fetchone()["revoked_at"]
+        assert conn.execute("SELECT COUNT(*) AS c FROM audit_log WHERE event_type = 'user_session_revoked_by_admin' AND user_id = ?", (admin_session_user_id,)).fetchone()["c"] >= 1
+
+        all_session_user_id = create_user(conn, username="allsessionuser", email="allsession@example.invalid")
+        all_session_user = conn.execute("SELECT id, username, is_admin, token_version FROM users WHERE id = ?", (all_session_user_id,)).fetchone()
+        legacy_all_token = create_jwt_token(dict(all_session_user), conn, mfa_login_verified=True)
+        all_trusted_token, all_trusted_id = create_trusted_device(conn, all_session_user_id, "All Sessions Browser", return_id=True)
+        all_session_token = create_jwt_token(dict(all_session_user), conn, mfa_login_verified=True, create_session=True, trusted_device_id=all_trusted_id, user_agent="All Sessions Browser", ip_address="127.0.0.7")
+        conn.commit()
+        assert decode_jwt_token(legacy_all_token, conn) is not None
+        assert decode_jwt_token(all_session_token, conn) is not None
+        delete_admin_user_sessions(all_session_user_id, FakeRequest("https://todo.example.invalid", client_host="198.51.100.12"), True)
+        assert decode_jwt_token(legacy_all_token, conn) is None
+        assert decode_jwt_token(all_session_token, conn) is None
+        assert get_valid_trusted_device_id(conn, all_session_user_id, all_trusted_token) is None
+        assert conn.execute("SELECT revoked_at FROM trusted_devices WHERE id = ?", (all_trusted_id,)).fetchone()["revoked_at"]
+        assert conn.execute("SELECT COUNT(*) AS c FROM audit_log WHERE event_type = 'user_sessions_revoked_by_admin' AND user_id = ?", (all_session_user_id,)).fetchone()["c"] >= 1
+
+        self_revoke_user_id = create_user(conn, username="selfrevokeuser", email="selfrevoke@example.invalid")
+        self_revoke_user = conn.execute("SELECT id, username, is_admin, token_version FROM users WHERE id = ?", (self_revoke_user_id,)).fetchone()
+        self_legacy_token = create_jwt_token(dict(self_revoke_user), conn, mfa_login_verified=True)
+        self_trusted_token, self_trusted_id = create_trusted_device(conn, self_revoke_user_id, "Self Revoke Browser", return_id=True)
+        self_session_token = create_jwt_token(dict(self_revoke_user), conn, mfa_login_verified=True, create_session=True, trusted_device_id=self_trusted_id, user_agent="Self Revoke Browser", ip_address="127.0.0.8")
+        conn.commit()
+        assert decode_jwt_token(self_legacy_token, conn) is not None
+        assert decode_jwt_token(self_session_token, conn) is not None
+        delete_all_trusted_devices(Response(), {"user_id": self_revoke_user_id})
+        assert decode_jwt_token(self_legacy_token, conn) is None
+        assert decode_jwt_token(self_session_token, conn) is None
+        assert get_valid_trusted_device_id(conn, self_revoke_user_id, self_trusted_token) is None
+        assert conn.execute("SELECT revoked_at FROM trusted_devices WHERE id = ?", (self_trusted_id,)).fetchone()["revoked_at"]
+        assert conn.execute("SELECT COUNT(*) AS c FROM audit_log WHERE event_type = 'user_sessions_revoked' AND user_id = ?", (self_revoke_user_id,)).fetchone()["c"] >= 1
 
         # Enabling global MFA invalidates old non-MFA JWTs for normal API auth.
         old_token = create_jwt_token(dict(user), conn, mfa_verified=False)

@@ -28,6 +28,7 @@ const labelT = (key) => ({
 }[key] || key);
 assert.equal(sessionDeviceName({ user_agent: 'nia-todo-client(app=nia-todo;mode=native;platform=android;version=v2.3.2-dev) Mozilla/5.0 (Linux; Android 15) AppleWebKit/537.36 Chrome/125 Safari/537.36' }, labelT), 'Android App');
 assert.equal(sessionDeviceName({ user_agent: 'nia-todo-client(app=nia-todo;mode=native;platform=windows;version=v2.3.2-dev) Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/125 Safari/537.36' }, labelT), 'Windows App');
+assert.equal(sessionDeviceName({ user_agent: 'nia-todo-client(app=nia-todo;mode=browser;platform=ipados;version=v2.10.4-dev) Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.14 Safari/605.1.15' }, labelT), 'Safari · iPadOS');
 assert.equal(sessionDeviceName({ user_agent: 'Mozilla/5.0 (Linux; Android 15) AppleWebKit/537.36 Chrome/125 Mobile Safari/537.36 EdgA/125.0.0.0' }, labelT), 'Edge · Android');
 assert.equal(sessionDeviceName({ user_agent: 'Mozilla/5.0 (Linux; Android 15) AppleWebKit/537.36 Chrome/125 Mobile Safari/537.36' }, labelT), 'Chrome · Android');
 assert.equal(cleanSessionUserAgent('nia-todo-client(app=nia-todo;mode=native;platform=android;version=v2.3.2-dev) Mozilla/5.0'), 'Mozilla/5.0');

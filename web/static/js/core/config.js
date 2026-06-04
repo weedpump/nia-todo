@@ -18,12 +18,23 @@ export function hasNativeLaunchParam() {
   return new URLSearchParams(location.search).get('nativeApp') === 'tauri';
 }
 
-export function getNativePlatform() {
+function isIpadOSBrowser() {
+  const ua = navigator.userAgent || '';
+  return /iPad/i.test(ua) || (navigator.platform === 'MacIntel' && Number(navigator.maxTouchPoints || 0) > 1);
+}
+
+export function getRuntimePlatform() {
   if (/Android/i.test(navigator.userAgent || '')) return 'android';
+  if (/iPhone|iPod/i.test(navigator.userAgent || '')) return 'ios';
+  if (isIpadOSBrowser()) return 'ipados';
   if (/Windows/i.test(navigator.userAgent || '')) return 'windows';
   if (/Macintosh|Mac OS X/i.test(navigator.userAgent || '')) return 'macos';
   if (/Linux/i.test(navigator.userAgent || '')) return 'linux';
   return 'unknown';
+}
+
+export function getNativePlatform() {
+  return getRuntimePlatform();
 }
 
 export const RUNTIME_MODE = (() => {
@@ -31,7 +42,7 @@ export const RUNTIME_MODE = (() => {
   return 'browser';
 })();
 
-export const RUNTIME_PLATFORM = RUNTIME_MODE === 'native' ? getNativePlatform() : 'browser';
+export const RUNTIME_PLATFORM = getRuntimePlatform();
 
 export const RUNTIME_CAPABILITIES = Object.freeze({
   native: RUNTIME_MODE === 'native',

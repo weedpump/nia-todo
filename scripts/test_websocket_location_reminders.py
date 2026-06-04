@@ -10,6 +10,7 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from starlette.websockets import WebSocketDisconnect
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "api"))
@@ -96,7 +97,8 @@ def main():
         yield db
 
     websocket_router.get_db = fake_get_db
-    websocket_router.get_current_user = lambda token, client_ip=None: 1 if token == "ok" else None
+    valid_tokens = {"ok", "revokable"}
+    websocket_router.get_current_user = lambda token, client_ip=None: 1 if token in valid_tokens else None
     websocket_router.get_project_ids_for_user = lambda _db, user_id: [1]
 
     app = FastAPI()
@@ -114,6 +116,19 @@ def main():
     todo = next(item for item in sync["todos"] if item["id"] == 2)
     assert_true(todo["location_reminder"]["address"] == "Johanneck 24 85307 paunzhausen", todo)
     assert_true(todo["location_reminders"][0]["trigger_type"] == "arrival", todo)
+
+    with client.websocket_connect("/ws") as ws:
+        ws.send_json({"type": "auth", "token": "revokable"})
+        auth = ws.receive_json()
+        assert_true(auth.get("type") == "auth_ok", auth)
+        valid_tokens.remove("revokable")
+        ws.send_json({"type": "sync_request"})
+        try:
+            ws.receive_json()
+            raise AssertionError("revoked websocket token must close before sync_response")
+        except WebSocketDisconnect as exc:
+            assert_true(exc.code == 1008, f"expected policy close 1008, got {exc.code}")
+
     print("✅ WebSocket location reminder sync test passed")
 
 

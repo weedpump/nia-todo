@@ -16,7 +16,7 @@ import hashlib
 import secrets
 
 from db import get_db, now_iso
-from services.auth import create_admin_jwt_token, revoke_all_user_sessions, verify_admin_token
+from services.auth import create_admin_jwt_token, invalidate_all_user_tokens, revoke_all_user_sessions, verify_admin_token
 from services.utils import normalize_email, sanitize_text, validate_email, validate_password, validate_admin_password
 from services.audit import log_audit
 from services.braindump_config import get_braindump_config, llm_models_url, parse_extra_headers, update_braindump_config
@@ -601,7 +601,8 @@ def delete_admin_user_sessions(user_id: int, request: Request, _: bool = Depends
             raise api_error(404, "user.notFound", "User not found")
         revoke_trusted_devices(db, user_id)
         revoked_count = revoke_all_user_sessions(db, user_id)
-        log_audit(db, "user_sessions_revoked_by_admin", user_id=user_id, ip_address=get_client_ip(request), details=f"scope=all; username={user['username']}; revoked_sessions={revoked_count}")
+        invalidate_all_user_tokens(db, user_id)
+        log_audit(db, "user_sessions_revoked_by_admin", user_id=user_id, ip_address=get_client_ip(request), details=f"scope=all; username={user['username']}; revoked_sessions={revoked_count}; token_version_bumped=true")
         db.commit()
         return {"revoked": True, "revoked_sessions": revoked_count}
 

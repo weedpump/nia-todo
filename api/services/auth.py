@@ -73,6 +73,11 @@ def revoke_all_user_sessions(db, user_id: int) -> int:
     return cur.rowcount
 
 
+def invalidate_all_user_tokens(db, user_id: int) -> None:
+    """Invalidate all JWTs for a user, including legacy tokens without a sid."""
+    db.execute("UPDATE users SET token_version = COALESCE(token_version, 1) + 1 WHERE id = ?", (user_id,))
+
+
 def create_jwt_token(user: dict, db, mfa_verified: bool = False, mfa_enroll_only: bool = False, mfa_login_verified: bool = False, mfa_grant: str = None, create_session: bool = False, trusted_device_id: int = None, user_agent: str = "", ip_address: str = "") -> str:
     """Create a JWT token with user info, token_version and MFA assurance.
 
