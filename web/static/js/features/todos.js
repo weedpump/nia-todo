@@ -554,11 +554,16 @@ export function createTodosFeature({
     window.setTimeout(update, 0);
   }
 
+  function getTodoDueTime(todo) {
+    if (!todo?.due_date) return null;
+    const date = new Date(todo.due_date);
+    return Number.isFinite(date.getTime()) ? date : null;
+  }
+
   function getSnoozeDate(mode, todo) {
-    const base = todo?.due_date ? new Date(todo.due_date) : new Date();
     const now = new Date();
-    const start = Number.isFinite(base.getTime()) && base > now ? base : now;
-    const next = new Date(start);
+    const due = getTodoDueTime(todo);
+    const next = new Date(due || now);
     if (mode === 'hour') next.setHours(next.getHours() + 1);
     else if (mode === 'evening') {
       next.setHours(18, 0, 0, 0);
@@ -572,6 +577,21 @@ export function createTodosFeature({
       next.setHours(9, 0, 0, 0);
     }
     return next;
+  }
+
+  function getSnoozeChanges(mode, todo) {
+    const due = getSnoozeDate(mode, todo);
+    const reminder = getTodoReminderTime(todo);
+    const changes = { due_date: due.toISOString() };
+    if (mode === 'hour' && reminder) {
+      const nextReminder = new Date(reminder);
+      nextReminder.setHours(nextReminder.getHours() + 1);
+      changes.remind_at = nextReminder.toISOString();
+      return changes;
+    }
+    const shiftedReminder = getSnoozedReminderDate(todo, due);
+    if (shiftedReminder) changes.remind_at = shiftedReminder.toISOString();
+    return changes;
   }
 
 
@@ -1106,7 +1126,10 @@ export function createTodosFeature({
     renderStats();
     renderTodos();
     if (toastMessage) {
-      const previousChanges = Object.fromEntries(Object.keys(changes).map((key) => [key, todo[key]]));
+      const previousChanges = Object.fromEntries(Object.keys(changes).map((key) => {
+        if (key === 'remind_at') return [key, getTodoReminderTime(todo)?.toISOString() || null];
+        return [key, todo[key] ?? null];
+      }));
       showToast(toastMessage, { type: 'fields', id: todo.id, changes: previousChanges });
     }
     await addToSyncQueue('UPDATE_TODO', { id: todo.id, changes });
@@ -1139,10 +1162,7 @@ export function createTodosFeature({
   async function snoozeTodo(id, mode) {
     const todo = getTodos().find(x => String(x.id) === String(id));
     if (!todo) return;
-    const due = getSnoozeDate(mode, todo);
-    const reminder = getSnoozedReminderDate(todo, due);
-    const changes = { due_date: due.toISOString() };
-    if (reminder) changes.remind_at = reminder.toISOString();
+    const changes = getSnoozeChanges(mode, todo);
     await updateTodoFields(id, changes, t('todo.toast.snoozed'));
   }
 
