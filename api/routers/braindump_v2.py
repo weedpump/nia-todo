@@ -41,7 +41,7 @@ from services.braindump_v2 import (
     finalize_session,
     get_session,
 )
-from services.ops_stats import increment_endpoint_counter
+from services.ops_stats import increment_duration_metric, increment_endpoint_counter
 from services.utils import sanitize_text
 from services.websocket import broadcast_change
 
@@ -1313,6 +1313,7 @@ async def transcribe_live_audio_segment(
         increment_endpoint_counter(request, "POST", "/api/braindump/v2/live/audio-segment/transcribe", status_code=500)
         raise HTTPException(500, f"BrainDump transcription failed: {exc}")
     increment_endpoint_counter(request, "POST", "/api/braindump/v2/live/audio-segment/transcribe", status_code=200)
+    increment_duration_metric("stt", "live_audio_transcribe", stt_ms)
     total_ms = (time.perf_counter() - received_at) * 1000
     return {
         "segment_id": segment_id,
@@ -1352,6 +1353,7 @@ async def extract_live_text_segment(request: Request, data: BrainDumpExtractRequ
         increment_endpoint_counter(request, "POST", "/api/braindump/v2/live/text-segment/extract", status_code=500)
         raise HTTPException(500, f"BrainDump extraction failed: {exc}")
     increment_endpoint_counter(request, "POST", "/api/braindump/v2/live/text-segment/extract", status_code=200)
+    increment_duration_metric("llm", "live_text_extract", llm_ms)
     total_ms = (time.perf_counter() - received_at) * 1000
     return {
         "segment_id": data.segment_id,
@@ -1393,11 +1395,13 @@ async def process_live_audio_segment(
             _transcribe_live_audio_bytes, audio_bytes, content_type, segment_id, model, config
         )
         increment_endpoint_counter(request, "POST", "/api/braindump/v2/live/audio-segment/transcribe", status_code=200)
+        increment_duration_metric("stt", "live_audio_transcribe", stt_ms)
         stt_counted = True
         llm_ms, parsed, usage, raw_json = await asyncio.to_thread(
             _extract_with_llm, transcript, segment_id, workspace_context, config
         )
         increment_endpoint_counter(request, "POST", "/api/braindump/v2/live/text-segment/extract", status_code=200)
+        increment_duration_metric("llm", "live_text_extract", llm_ms)
         llm_counted = True
         with get_db() as db:
             parsed = _apply_learned_routes(db, user_id, workspace_id, parsed)

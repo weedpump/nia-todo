@@ -409,11 +409,11 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 
   <!-- Technical Stats -->
   <div class="admin-card" id="technical-stats-card">
-    <h2><span data-icon="activity"></span> Technische Betriebsstatistik</h2>
-    <div class="admin-help">Backend-only: aggregierte technische Zähler ohne Inhalte, Transkripte, IPs, Usernamen oder Roh-User-Agents.</div>
+    <h2><span data-icon="activity"></span> Technische Betriebsübersicht</h2>
+    <div class="admin-help">Backend-only: aggregierte technische Zähler ohne Inhalte, Transkripte, IPs, Usernamen oder Roh-User-Agents. UI-Access-Checks werden bewusst nicht als Nutzung gewertet.</div>
     <div class="admin-stat-section-title">Systembestand</div>
     <div class="admin-stats-grid" id="technical-stats-counts"></div>
-    <div class="admin-stat-section-title">BrainDump / STT / LLM Last, letzte 30 Tage</div>
+    <div class="admin-stat-section-title">BrainDump / STT / LLM Auslastung, letzte 30 Tage</div>
     <div class="admin-stats-grid" id="technical-stats-ops"></div>
     <div class="admin-stat-section-title">Plattformen aktive Sessions</div>
     <div class="admin-stats-grid" id="technical-stats-platforms"></div>
@@ -935,17 +935,40 @@ function statTile(label, value) {
   return `<div class="admin-stat-tile"><div class="admin-stat-label">${escapeHtml(label)}</div><div class="admin-stat-value">${escapeHtml(value)}</div></div>`;
 }
 
+function formatTrend(value, current, previous) {
+  if (Number(previous || 0) === 0 && Number(current || 0) > 0) return 'neu';
+  const num = Number(value || 0);
+  if (!num) return '±0%';
+  return `${num > 0 ? '+' : ''}${num.toFixed(1)}%`;
+}
+
+function formatRate(value) {
+  return `${Number(value || 0).toFixed(1)}%`;
+}
+
+function formatDurationMs(value) {
+  if (value == null) return '-';
+  const ms = Number(value || 0);
+  if (ms >= 1000) return `${(ms / 1000).toFixed(ms >= 10000 ? 1 : 2)}s`;
+  return `${Math.round(ms)}ms`;
+}
+
 function renderTechnicalStats(data) {
   if (!data) return;
   const counts = data.counts || {};
-  const ops = data.ops || {};
-  const byKey = ops.by_key || {};
+  const workload = data.workload || {};
+  const stt = workload.stt || {};
+  const llm = workload.llm || {};
+  const ai = workload.backend_ai_calls || {};
+  const audio = workload.audio_segments || {};
+  const confirmed = workload.confirmed_todo_requests || {};
   const platforms = data.platforms || {};
   document.getElementById('technical-stats-counts').innerHTML = [
     statTile('User', formatAdminNumber(counts.users)),
+    statTile('BrainDump freigeschaltet', `${formatAdminNumber(counts.braindump_enabled_users)} / ${formatAdminNumber(counts.users)}`),
+    statTile('Davon aktiv eingeloggt', formatAdminNumber(counts.active_braindump_enabled_users)),
     statTile('Workspaces', formatAdminNumber(counts.workspaces)),
     statTile('Projekte', formatAdminNumber(counts.projects)),
-    statTile('Sections', formatAdminNumber(counts.sections)),
     statTile('Todos gesamt', formatAdminNumber(counts.todos)),
     statTile('Reminders', formatAdminNumber(counts.reminders)),
     statTile('Location-Reminders', formatAdminNumber(counts.location_reminders)),
@@ -954,14 +977,23 @@ function renderTechnicalStats(data) {
     statTile('DB-Größe', formatAdminBytes(data.database?.bytes)),
   ].join('');
   document.getElementById('technical-stats-ops').innerHTML = [
-    statTile('BrainDump Access', formatAdminNumber(byKey.access_check)),
-    statTile('Audio-Segmente', formatAdminNumber(byKey.live_audio_segment)),
-    statTile('STT-Aufrufe', formatAdminNumber(byKey.live_audio_transcribe)),
-    statTile('LLM-Aufrufe', formatAdminNumber(byKey.live_text_extract)),
-    statTile('Session Starts', formatAdminNumber(byKey.session_started)),
-    statTile('Text-Segmente', formatAdminNumber(byKey.session_text_segment)),
-    statTile('Finalized Sessions', formatAdminNumber(byKey.session_finalized)),
-    statTile('BrainDump Todo-Requests', formatAdminNumber(byKey.confirmed_todos_request)),
+    statTile('LLM-Aufrufe 30T', formatAdminNumber(llm.total)),
+    statTile('LLM Ø / Tag', formatAdminNumber(llm.avg_per_day)),
+    statTile('LLM Peak / Stunde', formatAdminNumber(llm.peak_per_hour)),
+    statTile('LLM Ø Antwortzeit', formatDurationMs(llm.avg_ms)),
+    statTile('LLM Fehlerquote', formatRate(llm.error_rate)),
+    statTile('LLM 7T / vorige 7T', `${formatAdminNumber(llm.last_7_days)} / ${formatAdminNumber(llm.previous_7_days)}`),
+    statTile('LLM Trend', formatTrend(llm.trend_pct, llm.last_7_days, llm.previous_7_days)),
+    statTile('STT-Aufrufe 30T', formatAdminNumber(stt.total)),
+    statTile('STT Ø / Tag', formatAdminNumber(stt.avg_per_day)),
+    statTile('STT Peak / Stunde', formatAdminNumber(stt.peak_per_hour)),
+    statTile('STT Ø Antwortzeit', formatDurationMs(stt.avg_ms)),
+    statTile('STT Fehlerquote', formatRate(stt.error_rate)),
+    statTile('STT 7T / vorige 7T', `${formatAdminNumber(stt.last_7_days)} / ${formatAdminNumber(stt.previous_7_days)}`),
+    statTile('STT Trend', formatTrend(stt.trend_pct, stt.last_7_days, stt.previous_7_days)),
+    statTile('AI Backend Calls 30T', formatAdminNumber(ai.total)),
+    statTile('Audio-Segmente 30T', formatAdminNumber(audio.total)),
+    statTile('Todo-Create Requests', formatAdminNumber(confirmed.total)),
   ].join('');
   const platformEntries = Object.entries(platforms);
   document.getElementById('technical-stats-platforms').innerHTML = platformEntries.length

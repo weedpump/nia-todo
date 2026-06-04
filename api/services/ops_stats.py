@@ -148,6 +148,16 @@ def increment_endpoint_counter(request: Request | None, method: str, path: str, 
     increment_ops_counter(category, key, platform="unknown", status_code=status_code, count=count)
 
 
+def increment_duration_metric(category: str, key: str, duration_ms: float | int | None) -> None:
+    """Store aggregate backend duration counters for capacity diagnostics."""
+    try:
+        ms = max(0, int(round(float(duration_ms or 0))))
+    except (TypeError, ValueError):
+        return
+    increment_ops_counter(f"{category}_timing", f"{key}_timed_calls", count=1)
+    increment_ops_counter(f"{category}_timing", f"{key}_ms_total", count=ms)
+
+
 def count_db_rows(db) -> dict[str, int]:
     tables = {
         "users": "users",
@@ -180,6 +190,18 @@ def count_db_rows(db) -> dict[str, int]:
     except Exception:
         result["braindump_enabled_users"] = 0
     try:
+        row = db.execute(
+            """SELECT COUNT(DISTINCT s.user_id) AS count
+               FROM user_sessions s
+               JOIN users u ON u.id = s.user_id
+               WHERE s.revoked_at IS NULL
+                 AND s.expires_at > CAST(strftime('%s','now') AS INTEGER)
+                 AND COALESCE(u.braindump_enabled, 0) = 1"""
+        ).fetchone()
+        result["active_braindump_enabled_users"] = int(row["count"] or 0)
+    except Exception:
+        result["active_braindump_enabled_users"] = 0
+    try:
         row = db.execute("SELECT COALESCE(SUM(hits), 0) AS hits, COUNT(*) AS routes FROM braindump_route_learning").fetchone()
         result["braindump_learned_routes"] = int(row["routes"] or 0)
         result["braindump_route_hits"] = int(row["hits"] or 0)
@@ -204,6 +226,89 @@ def platform_distribution(db) -> dict[str, int]:
     for row in rows:
         counts[classify_platform_from_strings("", row["user_agent"] or "")] += 1
     return dict(sorted(counts.items()))
+
+
+def _metric_totals(db, key: str, *, days: int) -> dict[str, Any]:
+    now = _now_utc().replace(minute=0, second=0, microsecond=0)
+    cutoff = (now - timedelta(days=days)).isoformat().replace("+00:00", "Z")
+    last7_cutoff = (now - timedelta(days=7)).isoformat().replace("+00:00", "Z")
+    prev7_cutoff = (now - timedelta(days=14)).isoformat().replace("+00:00", "Z")
+    rows = db.execute(
+        """SELECT bucket_start, status_class, SUM(count) AS count
+           FROM ops_counters
+           WHERE bucket_start >= ? AND bucket_size = 'hour' AND key = ?
+           GROUP BY bucket_start, status_class
+           ORDER BY bucket_start""",
+        (cutoff, key),
+    ).fetchall()
+    total = success = errors = last7 = prev7 = 0
+    peak_hour = 0
+    by_hour: dict[str, int] = defaultdict(int)
+    for row in rows:
+        bucket = row["bucket_start"]
+        status = row["status_class"]
+        count = int(row["count"] or 0)
+        total += count
+        by_hour[bucket] += count
+        if status == "2xx":
+            success += count
+        elif status in {"4xx", "5xx"}:
+            errors += count
+        if bucket >= last7_cutoff:
+            last7 += count
+        elif bucket >= prev7_cutoff:
+            prev7 += count
+    if by_hour:
+        peak_hour = max(by_hour.values())
+    if prev7 > 0:
+        trend_pct = round(((last7 - prev7) / prev7) * 100, 1)
+    elif last7 > 0:
+        trend_pct = 100.0
+    else:
+        trend_pct = 0.0
+    return {
+        "total": total,
+        "success": success,
+        "errors": errors,
+        "error_rate": round((errors / total) * 100, 1) if total else 0.0,
+        "avg_per_day": round(total / max(days, 1), 2),
+        "peak_per_hour": peak_hour,
+        "last_7_days": last7,
+        "previous_7_days": prev7,
+        "trend_pct": trend_pct,
+    }
+
+
+def _duration_average(db, category: str, key: str, *, days: int) -> dict[str, Any]:
+    calls = _metric_totals(db, f"{key}_timed_calls", days=days)["total"]
+    ms_total = _metric_totals(db, f"{key}_ms_total", days=days)["total"]
+    return {
+        "timed_calls": calls,
+        "avg_ms": round(ms_total / calls, 1) if calls else None,
+    }
+
+
+def workload_summary(db, *, days: int = 30) -> dict[str, Any]:
+    days = max(1, min(int(days or 30), 90))
+    stt = _metric_totals(db, "live_audio_transcribe", days=days)
+    llm = _metric_totals(db, "live_text_extract", days=days)
+    audio = _metric_totals(db, "live_audio_segment", days=days)
+    confirmed = _metric_totals(db, "confirmed_todos_request", days=days)
+    stt_timing = _duration_average(db, "stt_timing", "live_audio_transcribe", days=days)
+    llm_timing = _duration_average(db, "llm_timing", "live_text_extract", days=days)
+    total_backend_ai_calls = stt["total"] + llm["total"]
+    return {
+        "days": days,
+        "stt": {**stt, **stt_timing},
+        "llm": {**llm, **llm_timing},
+        "audio_segments": audio,
+        "confirmed_todo_requests": confirmed,
+        "backend_ai_calls": {
+            "total": total_backend_ai_calls,
+            "avg_per_day": round(total_backend_ai_calls / max(days, 1), 2),
+            "peak_per_hour": max(stt["peak_per_hour"], llm["peak_per_hour"]),
+        },
+    }
 
 
 def ops_counter_summary(db, *, days: int = 30) -> dict[str, Any]:
@@ -251,6 +356,7 @@ def technical_stats(days: int = 30) -> dict[str, Any]:
             "counts": count_db_rows(db),
             "platforms": platform_distribution(db),
             "ops": ops_counter_summary(db, days=days),
+            "workload": workload_summary(db, days=days),
         }
 
 
