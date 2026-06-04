@@ -31,7 +31,6 @@ PUBLIC_INSTANCE_CAPABILITIES = [
     "reminders",
     "shared-projects",
     "workspaces",
-    "location-reminders",
 ]
 
 

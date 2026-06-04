@@ -285,12 +285,7 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
       .filter(Boolean);
   }
 
-  function serverSupportsLocationReminders() {
-    return Array.isArray(window.NIA_TODO_RUNTIME?.instance?.capabilities) && window.NIA_TODO_RUNTIME.instance.capabilities.includes('location-reminders');
-  }
-
   function buildLocationReminderSchedules(todos = []) {
-    if (!serverSupportsLocationReminders()) return [];
     const currentUser = getCurrentUser?.();
     const userId = currentUser?.id == null ? '' : String(currentUser.id);
     return todos
