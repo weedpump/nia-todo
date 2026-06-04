@@ -381,21 +381,23 @@ def _browser_name(user_agent: str = "") -> str:
     # apps, not browsers. Web/PWA sessions may still include X-Nia-Client.
     embedded = _client_info_from_user_agent(user_agent)
     mode = str(embedded.get("mode") or embedded.get("runtime") or "").lower()
-    platform = str(embedded.get("platform") or "").lower()
     if embedded and mode == "native":
         return ""
     ua = _strip_client_marker(user_agent)
     if not ua:
         return "unknown"
-    if "EdgA/" in ua or "EdgiOS/" in ua or "Edg/" in ua:
+    ios_webkit = "iPhone" in ua or "iPad" in ua or "CriOS/" in ua or "EdgiOS/" in ua or "FxiOS/" in ua
+    if ios_webkit:
+        return "Safari/WebKit"
+    if "EdgA/" in ua or "Edg/" in ua:
         return "Edge"
     if "SamsungBrowser/" in ua:
         return "Samsung Internet"
     if "OPR/" in ua or "Opera" in ua:
         return "Opera"
-    if "Firefox/" in ua or "FxiOS/" in ua:
+    if "Firefox/" in ua:
         return "Firefox"
-    if "CriOS/" in ua or "Chrome/" in ua:
+    if "Chrome/" in ua:
         return "Chrome"
     if "Safari/" in ua:
         return "Safari"

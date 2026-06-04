@@ -487,10 +487,6 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
             <div class="admin-stat-panel-subtitle" style="margin-bottom:8px;">Browser</div>
             <div class="admin-stat-bars" id="stats-browsers"></div>
           </div>
-          <div>
-            <div class="admin-stat-panel-subtitle" style="margin-bottom:8px;">Plattform grob</div>
-            <div class="admin-stat-bars" id="technical-stats-platforms"></div>
-          </div>
         </div>
       </div>
     </div>
@@ -1094,7 +1090,6 @@ function renderTechnicalStats(data) {
   const audio = selected.audio_segments || {};
   const platformAnalysis = data.platform_analysis || {};
   const clientMix = platformAnalysis.historical || {};
-  const platforms = clientMix.platforms || data.platforms || {};
   const coverage = data.coverage || {};
   document.getElementById('stats-data-coverage').textContent = `Daten seit ${formatStatsDate(coverage.data_since)} · Last seit ${formatStatsDate(coverage.ops_since)} · Bestand seit ${formatStatsDate(coverage.inventory_since)}`;
   document.getElementById('stats-inventory-subtitle').textContent = `${formatAdminNumber(data.period_days)} Tage`;
@@ -1141,7 +1136,6 @@ function renderTechnicalStats(data) {
   document.getElementById('stats-app-types').innerHTML = renderBarRows(objectToBarItems(clientMix.app_types).length ? objectToBarItems(clientMix.app_types) : emptyPlatform);
   document.getElementById('stats-operating-systems').innerHTML = renderBarRows(objectToBarItems(clientMix.operating_systems).length ? objectToBarItems(clientMix.operating_systems) : emptyPlatform);
   document.getElementById('stats-browsers').innerHTML = renderBarRows(objectToBarItems(clientMix.browsers).length ? objectToBarItems(clientMix.browsers) : emptyPlatform);
-  document.getElementById('technical-stats-platforms').innerHTML = renderBarRows(objectToBarItems(platforms).length ? objectToBarItems(platforms) : emptyPlatform);
 }
 
 async function loadTechnicalStats() {
