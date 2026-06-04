@@ -852,10 +852,7 @@ def _journal_units() -> list[str]:
     configured = os.environ.get("NIA_TODO_JOURNAL_UNIT") or os.environ.get("NIA_TODO_SERVICE_UNIT")
     if configured:
         return [configured]
-    db_name = os.environ.get("NIA_TODO_DB", "")
-    if "dev" in db_name:
-        return ["nia-todo-dev"]
-    return ["nia-todo", "nia-todo-dev"]
+    return ["nia-todo"]
 
 
 def backfill_from_journal(days: int = 30) -> dict[str, Any]:
