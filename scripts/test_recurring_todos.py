@@ -186,6 +186,12 @@ def main():
     )
     assert_true(legacy_next == "2026-03-29T09:00:00+01:00", legacy_next)
 
+    corrupt_timezone_next = todos_router._next_recurring_datetime(
+        "2026-06-02T08:00:00+02:00",
+        {"frequency": "daily", "interval": 1, "timezone": "/etc/localtime"},
+    )
+    assert_true(corrupt_timezone_next == "2026-06-03T08:00:00+02:00", corrupt_timezone_next)
+
     for invalid_tz in ["Not/AZone", "../../etc/passwd", "/etc/localtime", "localtime"]:
         invalid_timezone = client.post("/api/todos", json={
             "title": f"Bad timezone {invalid_tz}",
