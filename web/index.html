@@ -497,11 +497,11 @@
                 <p data-i18n-key="todo.location.hint">Funktioniert nur in der Android-App. Web/PWA kann ortsbezogene Erinnerungen nur anlegen und verwalten.</p>
               </div>
             </div>
-            <label class="checkbox-row">
-              <input type="checkbox" id="todo-location-enabled">
+            <label class="settings-toggle-row settings-switch-row todo-location-toggle-row">
               <span data-i18n-key="todo.location.enable">Remind me when arriving at/leaving a place</span>
+              <input type="checkbox" class="settings-switch" id="todo-location-enabled">
             </label>
-            <div id="todo-location-fields" class="ui-field-grid two-columns" hidden>
+            <div id="todo-location-fields" class="ui-field-grid two-columns todo-location-fields is-disabled">
               <div class="form-group">
                 <label for="todo-location-trigger" data-i18n-key="todo.location.trigger">Trigger</label>
                 <select id="todo-location-trigger">

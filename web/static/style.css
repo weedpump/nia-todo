@@ -7901,6 +7901,32 @@ body.is-minimal-todos .todo-actions {
   opacity: 0.55;
 }
 
+.todo-location-toggle-row {
+  justify-content: flex-start;
+  gap: 12px;
+  margin: 2px 0 10px;
+  padding: 0;
+  color: var(--text-primary);
+  font-weight: 650;
+}
+
+.todo-location-toggle-row .settings-switch {
+  order: -1;
+}
+
+.todo-location-fields {
+  transition: opacity .16s ease, filter .16s ease;
+}
+
+.todo-location-fields.is-disabled {
+  opacity: 0.48;
+  filter: saturate(0.75);
+}
+
+.todo-location-fields.is-disabled label {
+  color: var(--text-muted);
+}
+
 .todo-meta-chip.todo-recurring {
   color: var(--accent);
 }
