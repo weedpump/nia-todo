@@ -489,6 +489,49 @@
               </div>
             </div>
           </div>
+          <div class="todo-recurring-subsection todo-location-subsection">
+            <div class="todo-recurring-heading">
+              <span data-icon="map-pin"></span>
+              <div>
+                <strong>Ortsbezogene Erinnerung</strong>
+                <p>Wird privacy-first lokal in der Android-App ausgelöst. Web/PWA kann sie nur verwalten.</p>
+              </div>
+            </div>
+            <label class="checkbox-row">
+              <input type="checkbox" id="todo-location-enabled">
+              <span>Beim Ankommen/Verlassen eines Orts erinnern</span>
+            </label>
+            <div id="todo-location-fields" class="ui-field-grid two-columns" hidden>
+              <div class="form-group">
+                <label for="todo-location-trigger">Auslöser</label>
+                <select id="todo-location-trigger">
+                  <option value="arrival">Beim Ankommen</option>
+                  <option value="departure">Beim Verlassen</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="todo-location-radius">Radius Meter</label>
+                <input type="number" id="todo-location-radius" min="25" max="10000" step="25" value="150" inputmode="numeric">
+              </div>
+              <div class="form-group">
+                <label for="todo-location-label">Ort/Label</label>
+                <input type="text" id="todo-location-label" maxlength="120" placeholder="z.B. Zuhause">
+              </div>
+              <div class="form-group">
+                <label for="todo-location-address">Adresse</label>
+                <input type="text" id="todo-location-address" maxlength="500" placeholder="Optional">
+              </div>
+              <div class="form-group">
+                <label for="todo-location-latitude">Latitude</label>
+                <input type="number" id="todo-location-latitude" min="-90" max="90" step="0.000001" inputmode="decimal">
+              </div>
+              <div class="form-group">
+                <label for="todo-location-longitude">Longitude</label>
+                <input type="number" id="todo-location-longitude" min="-180" max="180" step="0.000001" inputmode="decimal">
+              </div>
+            </div>
+            <div id="todo-location-error" class="form-error compact"></div>
+          </div>
         </section>
       </form>
       </div>

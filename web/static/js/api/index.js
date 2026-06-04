@@ -6,3 +6,4 @@ export { sharingApi } from './sharing.js';
 export { pushApi } from './push.js';
 export { sectionsApi } from './sections.js';
 export { todosApi } from './todos.js';
+export { placesApi } from './places.js';
