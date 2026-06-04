@@ -66,8 +66,29 @@ def _clean_platform(value: str) -> str:
     return "unknown"
 
 
+def _client_info_from_user_agent(user_agent: str = "") -> dict[str, str]:
+    match = re.search(r"nia-todo-client\(([^)]{1,160})\)", str(user_agent or ""), re.IGNORECASE)
+    if not match:
+        return {}
+    result: dict[str, str] = {}
+    for part in match.group(1).split(";"):
+        if "=" not in part:
+            continue
+        key, value = part.split("=", 1)
+        key = key.strip().lower()
+        value = value.strip()
+        if key and value:
+            result[key] = value[:80]
+    return result
+
+
+def _strip_client_marker(user_agent: str = "") -> str:
+    return re.sub(r"nia-todo-client\([^)]{1,160}\)\s*", "", str(user_agent or ""), flags=re.IGNORECASE).strip()
+
+
 def classify_platform_from_strings(client_info: str = "", user_agent: str = "") -> str:
-    raw_client = str(client_info or "").lower()
+    embedded = _client_info_from_user_agent(user_agent)
+    raw_client = " ".join([str(client_info or "").lower(), " ".join(f"{k}={v}" for k, v in embedded.items()).lower()]).strip()
     raw_ua = str(user_agent or "").lower()
     combined = f"{raw_client} {raw_ua}"
     if "platform=android" in raw_client or "android" in raw_client:
@@ -341,15 +362,106 @@ def inventory_summary(db, *, days: int = 30) -> dict[str, Any]:
     return {"days": days, "current": current, "created": created, "periods": periods, "series": series}
 
 
-def platform_distribution(db) -> dict[str, int]:
-    counts: dict[str, int] = defaultdict(int)
+def _browser_name(user_agent: str = "") -> str:
+    ua = _strip_client_marker(user_agent)
+    if not ua:
+        return "unknown"
+    if "EdgA/" in ua or "EdgiOS/" in ua or "Edg/" in ua:
+        return "Edge"
+    if "SamsungBrowser/" in ua:
+        return "Samsung Internet"
+    if "OPR/" in ua or "Opera" in ua:
+        return "Opera"
+    if "Firefox/" in ua or "FxiOS/" in ua:
+        return "Firefox"
+    if "CriOS/" in ua or "Chrome/" in ua:
+        return "Chrome"
+    if "Safari/" in ua:
+        return "Safari"
+    return "Other"
+
+
+def _os_name(user_agent: str = "") -> str:
+    embedded = _client_info_from_user_agent(user_agent)
+    platform = str(embedded.get("platform") or "").lower()
+    if platform:
+        return {
+            "android": "Android",
+            "ios": "iOS",
+            "ipados": "iPadOS",
+            "windows": "Windows",
+            "macos": "macOS",
+            "linux": "Linux",
+        }.get(platform, platform[:1].upper() + platform[1:])
+    ua = _strip_client_marker(user_agent).lower()
+    if "android" in ua:
+        return "Android"
+    if "iphone" in ua:
+        return "iOS"
+    if "ipad" in ua:
+        return "iPadOS"
+    if "windows" in ua:
+        return "Windows"
+    if "mac os" in ua or "macintosh" in ua:
+        return "macOS"
+    if "linux" in ua:
+        return "Linux"
+    return "unknown"
+
+
+def _app_type(user_agent: str = "") -> str:
+    embedded = _client_info_from_user_agent(user_agent)
+    platform = str(embedded.get("platform") or "").lower()
+    runtime = str(embedded.get("runtime") or embedded.get("app") or embedded.get("type") or "").lower()
+    display_mode = str(embedded.get("display-mode") or embedded.get("display_mode") or "").lower()
+    ua = _strip_client_marker(user_agent)
+    if platform == "android":
+        return "Android App" if embedded or "tauri" in runtime else "Android Browser"
+    if platform in {"ios", "ipados"}:
+        return "iOS App" if embedded or "tauri" in runtime else "iOS Browser"
+    if platform == "windows":
+        return "Windows App" if embedded or "tauri" in runtime else "Windows Browser"
+    if platform == "macos":
+        return "macOS App" if embedded or "tauri" in runtime else "macOS Browser"
+    if display_mode == "standalone" or "pwa" in runtime.lower():
+        return "PWA"
+    if embedded:
+        return "Native App"
+    if ua:
+        return "Browser"
+    return "unknown"
+
+
+def _increment(counts: dict[str, int], key: str):
+    counts[key or "unknown"] += 1
+
+
+def platform_analysis(db) -> dict[str, Any]:
+    platforms: dict[str, int] = defaultdict(int)
+    browsers: dict[str, int] = defaultdict(int)
+    app_types: dict[str, int] = defaultdict(int)
+    operating_systems: dict[str, int] = defaultdict(int)
     try:
         rows = db.execute("SELECT user_agent FROM user_sessions WHERE revoked_at IS NULL AND expires_at > CAST(strftime('%s','now') AS INTEGER)").fetchall()
     except Exception:
         rows = []
     for row in rows:
-        counts[classify_platform_from_strings("", row["user_agent"] or "")] += 1
-    return dict(sorted(counts.items()))
+        user_agent = row["user_agent"] or ""
+        _increment(platforms, classify_platform_from_strings("", user_agent))
+        _increment(browsers, _browser_name(user_agent))
+        _increment(app_types, _app_type(user_agent))
+        _increment(operating_systems, _os_name(user_agent))
+    return {
+        "total_active_sessions": len(rows),
+        "platforms": dict(sorted(platforms.items())),
+        "browsers": dict(sorted(browsers.items())),
+        "app_types": dict(sorted(app_types.items())),
+        "operating_systems": dict(sorted(operating_systems.items())),
+    }
+
+
+def platform_distribution(db) -> dict[str, int]:
+    return platform_analysis(db)["platforms"]
 
 
 def _metric_totals(db, key: str, *, days: int) -> dict[str, Any]:
@@ -508,15 +620,40 @@ def ops_counter_summary(db, *, days: int = 30) -> dict[str, Any]:
     }
 
 
+def data_coverage(db) -> dict[str, Any]:
+    result: dict[str, Any] = {"ops_since": None, "inventory_since": None, "data_since": None}
+    try:
+        row = db.execute("SELECT MIN(bucket_start) AS since FROM ops_counters").fetchone()
+        result["ops_since"] = str(row["since"] or "")[:10] or None
+    except Exception:
+        pass
+    inventory_dates = []
+    for table in ("users", "workspaces", "projects", "todos", "reminders", "location_reminders", "push_subscriptions"):
+        try:
+            row = db.execute(f"SELECT MIN(date(created_at)) AS since FROM {table} WHERE created_at IS NOT NULL").fetchone()
+            if row and row["since"]:
+                inventory_dates.append(str(row["since"]))
+        except Exception:
+            pass
+    if inventory_dates:
+        result["inventory_since"] = min(inventory_dates)
+    candidates = [value for value in (result["ops_since"], result["inventory_since"]) if value]
+    result["data_since"] = min(candidates) if candidates else None
+    return result
+
+
 def technical_stats(days: int = 30) -> dict[str, Any]:
     with get_db() as db:
         period_days = _period_days(days)
+        platforms = platform_analysis(db)
         return {
             "period_days": period_days,
+            "coverage": data_coverage(db),
             "database": database_size(),
             "counts": count_db_rows(db),
             "inventory": inventory_summary(db, days=period_days),
-            "platforms": platform_distribution(db),
+            "platforms": platforms["platforms"],
+            "platform_analysis": platforms,
             "ops": ops_counter_summary(db, days=period_days),
             "workload": workload_summary(db, days=period_days),
         }

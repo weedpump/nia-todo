@@ -115,6 +115,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .admin-help { font-size: 12px; color: var(--text-muted); margin-top: 8px; }
 .admin-stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
 .admin-stat-toolbar { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin: 8px 0 16px; }
+.admin-stat-coverage { color:var(--text-muted); font-size:12px; font-weight:650; }
 .admin-stat-tabs { display:inline-flex; gap:6px; padding:4px; border-radius:999px; background: var(--bg-tertiary); border:1px solid color-mix(in srgb, var(--border) 72%, transparent); }
 .admin-stat-tab { border:0; border-radius:999px; padding:7px 11px; cursor:pointer; background:transparent; color:var(--text-muted); font-size:12px; font-weight:750; }
 .admin-stat-tab.active { background:var(--accent); color:white; box-shadow:0 2px 8px color-mix(in srgb, var(--accent) 28%, transparent); }
@@ -437,11 +438,14 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
     <h2><span data-icon="activity"></span> Statistik</h2>
     <div class="admin-help">Aggregierte technische Statistik für Kapazität, Last und Wachstum — ohne Inhalte, Transkripte, IPs, Usernamen oder Roh-User-Agents.</div>
     <div class="admin-stat-toolbar">
-      <div class="admin-stat-tabs" id="stats-period-tabs">
-        <button class="admin-stat-tab" data-days="7" onclick="setStatsPeriod(7)">7 Tage</button>
-        <button class="admin-stat-tab active" data-days="30" onclick="setStatsPeriod(30)">30 Tage</button>
-        <button class="admin-stat-tab" data-days="90" onclick="setStatsPeriod(90)">90 Tage</button>
-        <button class="admin-stat-tab" data-days="365" onclick="setStatsPeriod(365)">1 Jahr</button>
+      <div>
+        <div class="admin-stat-tabs" id="stats-period-tabs">
+          <button class="admin-stat-tab" data-days="7" onclick="setStatsPeriod(7)">7 Tage</button>
+          <button class="admin-stat-tab active" data-days="30" onclick="setStatsPeriod(30)">30 Tage</button>
+          <button class="admin-stat-tab" data-days="90" onclick="setStatsPeriod(90)">90 Tage</button>
+          <button class="admin-stat-tab" data-days="365" onclick="setStatsPeriod(365)">1 Jahr</button>
+        </div>
+        <div class="admin-stat-coverage" id="stats-data-coverage">Datenbasis wird geladen…</div>
       </div>
       <div class="form-row" style="margin:0;">
         <button class="btn btn-secondary" onclick="loadTechnicalStats()">Aktualisieren</button>
@@ -469,8 +473,25 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
         <div class="admin-stat-bars" id="stats-capacity-bars"></div>
       </div>
       <div class="admin-stat-panel wide">
-        <div class="admin-stat-panel-title">Plattformen aktive Sessions</div>
-        <div class="admin-stat-bars" id="technical-stats-platforms"></div>
+        <div class="admin-stat-panel-title">Plattformanalyse aktive Sessions</div>
+        <div class="admin-stat-layout" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:14px;">
+          <div>
+            <div class="admin-stat-panel-subtitle" style="margin-bottom:8px;">App-Typ</div>
+            <div class="admin-stat-bars" id="stats-app-types"></div>
+          </div>
+          <div>
+            <div class="admin-stat-panel-subtitle" style="margin-bottom:8px;">Betriebssystem</div>
+            <div class="admin-stat-bars" id="stats-operating-systems"></div>
+          </div>
+          <div>
+            <div class="admin-stat-panel-subtitle" style="margin-bottom:8px;">Browser</div>
+            <div class="admin-stat-bars" id="stats-browsers"></div>
+          </div>
+          <div>
+            <div class="admin-stat-panel-subtitle" style="margin-bottom:8px;">Plattform grob</div>
+            <div class="admin-stat-bars" id="technical-stats-platforms"></div>
+          </div>
+        </div>
       </div>
     </div>
     <div class="admin-error" id="technical-stats-error"></div>
@@ -1040,6 +1061,17 @@ function renderBarRows(items) {
   }).join('');
 }
 
+function formatStatsDate(value) {
+  if (!value) return 'keine Daten';
+  const date = new Date(`${value}T00:00:00Z`);
+  if (!Number.isFinite(date.getTime())) return String(value);
+  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(date);
+}
+
+function objectToBarItems(obj) {
+  return Object.entries(obj || {}).map(([label, value]) => ({ label, value }));
+}
+
 function setStatsPeriod(days) {
   currentStatsDays = Number(days || 30);
   document.querySelectorAll('#stats-period-tabs .admin-stat-tab').forEach((button) => {
@@ -1060,10 +1092,14 @@ function renderTechnicalStats(data) {
   const tokens = llm.tokens || {};
   const ai = selected.backend_ai_calls || {};
   const audio = selected.audio_segments || {};
-  const platforms = data.platforms || {};
+  const platformAnalysis = data.platform_analysis || {};
+  const platforms = platformAnalysis.platforms || data.platforms || {};
+  const coverage = data.coverage || {};
+  document.getElementById('stats-data-coverage').textContent = `Daten seit ${formatStatsDate(coverage.data_since)} · Last seit ${formatStatsDate(coverage.ops_since)} · Bestand seit ${formatStatsDate(coverage.inventory_since)}`;
   document.getElementById('stats-inventory-subtitle').textContent = `${formatAdminNumber(data.period_days)} Tage`;
   document.getElementById('stats-workload-subtitle').textContent = `${formatAdminNumber(data.period_days)} Tage`;
   document.getElementById('technical-stats-kpis').innerHTML = [
+    statTile('Aktive Sessions', formatAdminNumber(counts.user_sessions), 'aktuell'),
     statTile('Todos gesamt', formatAdminNumber(counts.todos), `+${formatAdminNumber(created.todos)} im Zeitraum`),
     statTile('User', formatAdminNumber(counts.users), `+${formatAdminNumber(created.users)} im Zeitraum`),
     statTile('LLM-Aufrufe', formatAdminNumber(llm.total), `${formatAdminNumber(llm.avg_per_day)} / Tag`),
@@ -1099,10 +1135,11 @@ function renderTechnicalStats(data) {
     { label: 'STT Peak/h', value: stt.peak_per_hour },
     { label: 'Tokens', value: tokens.total_tokens || 0, display: tokens.total_tokens ? formatAdminNumber(tokens.total_tokens) : '-' },
   ]);
-  const platformEntries = Object.entries(platforms).map(([label, value]) => ({ label, value }));
-  document.getElementById('technical-stats-platforms').innerHTML = platformEntries.length
-    ? renderBarRows(platformEntries)
-    : renderBarRows([{ label: 'Keine aktiven Sessions', value: 0, display: '0' }]);
+  const emptyPlatform = [{ label: 'Keine aktiven Sessions', value: 0, display: '0' }];
+  document.getElementById('stats-app-types').innerHTML = renderBarRows(objectToBarItems(platformAnalysis.app_types).length ? objectToBarItems(platformAnalysis.app_types) : emptyPlatform);
+  document.getElementById('stats-operating-systems').innerHTML = renderBarRows(objectToBarItems(platformAnalysis.operating_systems).length ? objectToBarItems(platformAnalysis.operating_systems) : emptyPlatform);
+  document.getElementById('stats-browsers').innerHTML = renderBarRows(objectToBarItems(platformAnalysis.browsers).length ? objectToBarItems(platformAnalysis.browsers) : emptyPlatform);
+  document.getElementById('technical-stats-platforms').innerHTML = renderBarRows(objectToBarItems(platforms).length ? objectToBarItems(platforms) : emptyPlatform);
 }
 
 async function loadTechnicalStats() {
