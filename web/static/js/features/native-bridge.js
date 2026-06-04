@@ -107,6 +107,11 @@ export function createNativeBridge() {
     return android().locationPermissionState() || 'prompt';
   }
 
+  function requestLocationPermission() {
+    if (!RUNTIME_CAPABILITIES.android || !hasAndroidMethod('requestLocationPermission')) return 'unsupported';
+    return android().requestLocationPermission() || locationPermissionState();
+  }
+
   function hapticFeedback(pattern = 12) {
     if (hasAndroidMethod('hapticFeedback')) return Boolean(android().hapticFeedback(Number(pattern) || 12));
     return false;
@@ -286,6 +291,7 @@ export function createNativeBridge() {
     scheduleLocationReminders,
     clearReminders,
     locationPermissionState,
+    requestLocationPermission,
     hapticFeedback,
     supportsAudioRecording,
     startAudioRecording,

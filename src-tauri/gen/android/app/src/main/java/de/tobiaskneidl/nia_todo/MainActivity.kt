@@ -85,6 +85,25 @@ class MainActivity : TauriActivity() {
     super.onDestroy()
   }
 
+  override fun onResume() {
+    super.onResume()
+    LocationReminderReceiver.rescheduleStoredLocationReminders(this)
+  }
+
+  override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+    super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+    if (requestCode == 7303) {
+      if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
+        requestLocationPermission()
+      }
+      LocationReminderReceiver.rescheduleStoredLocationReminders(this)
+      return
+    }
+    if (requestCode == 7304) {
+      LocationReminderReceiver.rescheduleStoredLocationReminders(this)
+    }
+  }
+
   private fun clearStaleWebViewCachesOnVersionChange() {
     val prefs = getSharedPreferences(nativePrefsName, MODE_PRIVATE)
     val packageUpdatedAt = try {
@@ -308,6 +327,28 @@ class MainActivity : TauriActivity() {
     return "prompt"
   }
 
+  private fun requestLocationPermission(): String {
+    val state = LocationReminderReceiver.locationPermissionState(this)
+    if (state == "granted") return state
+    if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+      requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), 7303)
+      return "prompt"
+    }
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && checkSelfPermission(Manifest.permission.ACCESS_BACKGROUND_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        val intent = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+          data = Uri.parse("package:$packageName")
+        }
+        startActivity(intent)
+        return "background_settings"
+      }
+      requestPermissions(arrayOf(Manifest.permission.ACCESS_BACKGROUND_LOCATION), 7304)
+      return "foreground_only"
+    }
+    LocationReminderReceiver.rescheduleStoredLocationReminders(this)
+    return LocationReminderReceiver.locationPermissionState(this)
+  }
+
   @Synchronized
   private fun cleanupNativeAudioRecording(deleteFile: Boolean = true) {
     val recorder = nativeAudioRecorder
@@ -503,6 +544,11 @@ class MainActivity : TauriActivity() {
     @JavascriptInterface
     fun locationPermissionState(): String {
       return LocationReminderReceiver.locationPermissionState(this@MainActivity)
+    }
+
+    @JavascriptInterface
+    fun requestLocationPermission(): String {
+      return this@MainActivity.requestLocationPermission()
     }
 
     @JavascriptInterface

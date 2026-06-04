@@ -184,7 +184,7 @@ export function createTodosFeature({
   function renderLocationPlaceSelect(selectedId = '') {
     const select = document.getElementById('todo-location-place');
     if (!select) return;
-    select.innerHTML = '<option value="">Adresse manuell eingeben</option>';
+    select.innerHTML = `<option value="" data-i18n-key="todo.location.manualAddress">${t('todo.location.manualAddress')}</option>`;
     for (const place of savedPlaces) {
       const option = document.createElement('option');
       option.value = String(place.id);
@@ -249,7 +249,7 @@ export function createTodosFeature({
     const placeId = document.getElementById('todo-location-place')?.value || '';
     const address = document.getElementById('todo-location-address')?.value?.trim() || '';
     if (!placeId && !address) {
-      if (error) error.textContent = 'Bitte gespeicherten Ort auswählen oder Adresse eintragen.';
+      if (error) error.textContent = t('todo.location.addressRequired');
       document.getElementById('todo-location-address')?.focus();
       throw new Error('Invalid location reminder address');
     }
