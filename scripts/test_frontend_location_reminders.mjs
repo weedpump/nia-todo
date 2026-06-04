@@ -6,6 +6,7 @@ const html = await readFile(new URL('../web/index.html', import.meta.url), 'utf8
 const todos = await readFile(new URL('../web/static/js/features/todos.js', import.meta.url), 'utf8');
 const sync = await readFile(new URL('../web/static/js/features/sync.js', import.meta.url), 'utf8');
 const apiIndex = await readFile(new URL('../web/static/js/api/index.js', import.meta.url), 'utf8');
+const app = await readFile(new URL('../web/static/js/app.js', import.meta.url), 'utf8');
 const desktop = await readFile(new URL('../web/static/js/features/desktop-integration.js', import.meta.url), 'utf8');
 const rendering = await readFile(new URL('../web/static/js/features/todo-rendering.js', import.meta.url), 'utf8');
 const css = await readFile(new URL('../web/static/style.css', import.meta.url), 'utf8');
@@ -28,6 +29,7 @@ assert(!todos.includes('todo-location-latitude'), 'todo JS must not read latitud
 assert(!todos.includes('todo-location-radius'), 'todo JS must not read radius inputs');
 assert(sync.includes("'location_reminder'"), 'offline sync must allow location_reminder changes');
 assert(apiIndex.includes('placesApi'), 'API index must export saved places API');
+assert(app.includes('const saveSettingsPlace = userSettingsFeature.saveSettingsPlace') && app.includes('saveSettingsPlace, deleteSettingsPlace'), 'app must expose saved-place inline handlers as legacy globals');
 assert(desktop.includes("t('todo.location.notificationTitle')"), 'location notification title must use i18n');
 assert(desktop.includes('const address = String(locationReminder.address ||'), 'native location schedules must use addresses, not server coordinates');
 assert(!/locationReminder\.(latitude|longitude)/.test(desktop), 'frontend native schedules must not depend on server coordinates');
