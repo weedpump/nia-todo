@@ -510,24 +510,14 @@
                 </select>
               </div>
               <div class="form-group">
-                <label for="todo-location-radius">Radius Meter</label>
-                <input type="number" id="todo-location-radius" min="25" max="10000" step="25" value="150" inputmode="numeric">
+                <label for="todo-location-place">Gespeicherter Ort</label>
+                <select id="todo-location-place">
+                  <option value="">Adresse manuell eingeben</option>
+                </select>
               </div>
-              <div class="form-group">
-                <label for="todo-location-label">Ort/Label</label>
-                <input type="text" id="todo-location-label" maxlength="120" placeholder="z.B. Zuhause">
-              </div>
-              <div class="form-group">
+              <div class="form-group" id="todo-location-address-group">
                 <label for="todo-location-address">Adresse</label>
-                <input type="text" id="todo-location-address" maxlength="500" placeholder="Optional">
-              </div>
-              <div class="form-group">
-                <label for="todo-location-latitude">Latitude</label>
-                <input type="number" id="todo-location-latitude" min="-90" max="90" step="0.000001" inputmode="decimal">
-              </div>
-              <div class="form-group">
-                <label for="todo-location-longitude">Longitude</label>
-                <input type="number" id="todo-location-longitude" min="-180" max="180" step="0.000001" inputmode="decimal">
+                <input type="text" id="todo-location-address" maxlength="500" placeholder="Straße, Ort">
               </div>
             </div>
             <div id="todo-location-error" class="form-error compact"></div>
@@ -614,6 +604,7 @@
           <a href="#settings-section-profile"><span data-icon="user"></span><span data-i18n-key="settings.section.profile">Profil</span></a>
           <a href="#settings-section-language"><span data-icon="book-open"></span><span data-i18n-key="settings.language.label">Language</span></a>
           <a href="#settings-section-default-reminder"><span data-icon="bell"></span><span data-i18n-key="settings.defaultReminder.title">Default reminder</span></a>
+          <a href="#settings-section-places"><span data-icon="map-pin"></span><span>Orte</span></a>
           <a href="#settings-section-braindump" id="settings-nav-braindump"><span data-icon="sparkles"></span><span data-i18n-key="settings.braindump.title">BrainDump</span></a>
           <a href="#settings-section-security"><span data-icon="shield"></span><span data-i18n-key="settings.section.security">Sicherheit</span></a>
           <a href="#settings-section-api"><span data-icon="key-round"></span><span data-i18n-key="settings.apiKeys.title">API-Keys</span></a>
@@ -718,6 +709,32 @@
               <div id="settings-default-reminder-error" class="settings-field-error"></div>
               <div id="settings-default-reminder-success" class="settings-field-success"></div>
             </div>
+          </section>
+
+          <section class="settings-section-card" id="settings-section-places">
+            <div class="settings-section-heading">
+              <div class="settings-section-icon" data-icon="map-pin"></div>
+              <div>
+                <h4>Gespeicherte Orte</h4>
+                <p>Labels wie Zuhause oder Arbeit mit Adresse speichern. BrainDump und Orts-Erinnerungen nutzen diese Orte.</p>
+              </div>
+            </div>
+            <div class="settings-place-form ui-field-grid two-columns">
+              <div class="form-group">
+                <label for="settings-place-name">Label</label>
+                <input type="text" id="settings-place-name" maxlength="120" placeholder="z.B. Zuhause">
+              </div>
+              <div class="form-group">
+                <label for="settings-place-address">Adresse</label>
+                <input type="text" id="settings-place-address" maxlength="500" placeholder="Straße, Ort">
+              </div>
+            </div>
+            <div class="settings-actions-row">
+              <button type="button" class="btn btn-primary" onclick="saveSettingsPlace()"><span data-icon="plus"></span> Ort speichern</button>
+            </div>
+            <div id="settings-places-error" class="settings-field-error"></div>
+            <div id="settings-places-success" class="settings-field-success"></div>
+            <div id="settings-places-list" class="settings-device-list"></div>
           </section>
 
           <section class="settings-section-card" id="settings-section-braindump">

@@ -121,13 +121,12 @@ def make_client(db):
 def main():
     db = make_db()
     client = make_client(db)
+    places_router.geocode_address = lambda address: {"address": address, "latitude": 48.42, "longitude": 11.55}
+    todos_router.geocode_address = lambda address: {"address": address, "latitude": 48.50, "longitude": 11.60}
 
     place_response = client.post("/api/places", json={
         "name": "Zuhause",
         "address": "Johanneck 24",
-        "latitude": 48.42,
-        "longitude": 11.55,
-        "radius_m": 120,
         "icon": "home",
     })
     assert_true(place_response.status_code == 200, place_response.text)
@@ -147,14 +146,29 @@ def main():
     assert_true(todo["location_reminder"]["trigger_type"] == "arrival", todo)
     assert_true(todo["location_reminder"]["place_id"] == place["id"], todo)
     assert_true(todo["location_reminder"]["latitude"] == 48.42, todo)
-    assert_true(todo["location_reminder"]["radius_m"] == 120, todo)
+    assert_true(todo["location_reminder"]["radius_m"] == 150, todo)
+
+    free_address_response = client.post("/api/todos", json={
+        "title": "Beim Baumarkt Schrauben kaufen",
+        "project_id": 1,
+        "location_reminder": {
+            "trigger_type": "departure",
+            "address": "Baumarkt Freising",
+        },
+    })
+    assert_true(free_address_response.status_code == 200, free_address_response.text)
+    free_address_todo = free_address_response.json()
+    assert_true(free_address_todo["location_reminder"]["address"] == "Baumarkt Freising", free_address_todo)
+    assert_true(free_address_todo["location_reminder"]["latitude"] == 48.50, free_address_todo)
+    assert_true(free_address_todo["location_reminder"]["radius_m"] == 150, free_address_todo)
 
     # Updating a saved place must not silently move already-created reminders.
-    moved_place = client.patch(f"/api/places/{place['id']}", json={"latitude": 49.0, "longitude": 12.0, "radius_m": 300})
+    places_router.geocode_address = lambda address: {"address": address, "latitude": 49.0, "longitude": 12.0}
+    moved_place = client.patch(f"/api/places/{place['id']}", json={"address": "Neue Adresse"})
     assert_true(moved_place.status_code == 200, moved_place.text)
     fetched = client.get(f"/api/todos/{todo['id']}").json()
     assert_true(fetched["location_reminder"]["latitude"] == 48.42, fetched)
-    assert_true(fetched["location_reminder"]["radius_m"] == 120, fetched)
+    assert_true(fetched["location_reminder"]["radius_m"] == 150, fetched)
 
     removed = client.patch(f"/api/todos/{todo['id']}", json={"location_reminder": None})
     assert_true(removed.status_code == 200, removed.text)

@@ -2,30 +2,25 @@
 
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from db import get_db, now_iso
 from routers.auth import require_auth
 from services.utils import sanitize_text
+from services.geocoding import DEFAULT_RADIUS_M, geocode_address
 
 router = APIRouter(prefix="/api/places")
 
 
 class PlacePayload(BaseModel):
     name: str
-    address: str = ""
-    latitude: float = Field(ge=-90, le=90)
-    longitude: float = Field(ge=-180, le=180)
-    radius_m: int = Field(default=150, ge=25, le=10000)
+    address: str
     icon: Optional[str] = "pin"
 
 
 class PlaceUpdate(BaseModel):
     name: Optional[str] = None
     address: Optional[str] = None
-    latitude: Optional[float] = Field(default=None, ge=-90, le=90)
-    longitude: Optional[float] = Field(default=None, ge=-180, le=180)
-    radius_m: Optional[int] = Field(default=None, ge=25, le=10000)
     icon: Optional[str] = None
 
 
@@ -62,6 +57,8 @@ def list_places(user_id: int = Depends(require_auth)):
 @router.post("")
 def create_place(data: PlacePayload, user_id: int = Depends(require_auth)):
     name = _validate_place_name(data.name)
+    address = _clean_optional_text(data.address)
+    geocoded = geocode_address(address)
     now = now_iso()
     try:
         with get_db() as db:
@@ -72,10 +69,10 @@ def create_place(data: PlacePayload, user_id: int = Depends(require_auth)):
                 (
                     user_id,
                     name,
-                    _clean_optional_text(data.address),
-                    data.latitude,
-                    data.longitude,
-                    data.radius_m,
+                    geocoded["address"],
+                    geocoded["latitude"],
+                    geocoded["longitude"],
+                    DEFAULT_RADIUS_M,
                     _clean_optional_text(data.icon, 40) or "pin",
                     now,
                     now,
@@ -97,10 +94,11 @@ def update_place(place_id: int, data: PlaceUpdate, user_id: int = Depends(requir
     if "name" in dumped:
         updates["name"] = _validate_place_name(data.name or "")
     if "address" in dumped:
-        updates["address"] = _clean_optional_text(data.address)
-    for field in ("latitude", "longitude", "radius_m"):
-        if field in dumped:
-            updates[field] = dumped[field]
+        geocoded = geocode_address(_clean_optional_text(data.address))
+        updates["address"] = geocoded["address"]
+        updates["latitude"] = geocoded["latitude"]
+        updates["longitude"] = geocoded["longitude"]
+        updates["radius_m"] = DEFAULT_RADIUS_M
     if "icon" in dumped:
         updates["icon"] = _clean_optional_text(data.icon, 40) or "pin"
     if not updates:

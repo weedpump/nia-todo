@@ -1,7 +1,7 @@
 // nia-todo: Frontend app with offline-first PWA + WebSocket realtime sync
 import { APP_VERSION, WS_URL } from './core/config.js';
 import { escapeHtml, escapeHtmlAttr, formatDate, jsArg, renderMarkdown, truncateWords } from './core/utils.js';
-import { authApi, projectsApi, pushApi, sectionsApi, sharingApi, todosApi, workspacesApi } from './api/index.js';
+import { authApi, placesApi, projectsApi, pushApi, sectionsApi, sharingApi, todosApi, workspacesApi } from './api/index.js';
 import { createAuthSessionFeature } from './features/auth-session.js';
 import { createAppStorage } from './storage/app-storage.js';
 import { createApiKeysFeature } from './features/api-keys.js';
@@ -341,6 +341,7 @@ const todosFeature = createTodosFeature({
   isOnlineForSync,
   syncWithServer,
   sectionsApi,
+  placesApi,
   renderProjects: () => renderProjects(),
   renderStats: () => renderStats(),
   renderTodos: () => renderTodos(),
@@ -387,6 +388,7 @@ let workspacesFeature = null;
 const userMenuFeature = createUserMenuFeature({ getCurrentUser: () => currentUser });
 const userSettingsFeature = createUserSettingsFeature({
   authApi,
+  placesApi,
   getCurrentUser: () => currentUser,
   setCurrentUser: (next) => { currentUser = next; userMenuFeature.updateUserMenu(); },
   resetApiKeyUi: () => resetApiKeyUi(),
