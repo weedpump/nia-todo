@@ -7,6 +7,8 @@ from pydantic import BaseModel
 from db import get_db, now_iso
 from routers.auth import require_auth
 from services.utils import sanitize_text
+from services.websocket import broadcast_change
+from routers.todos import fetch_todo
 
 router = APIRouter(prefix="/api/places")
 
@@ -85,7 +87,7 @@ def create_place(data: PlacePayload, user_id: int = Depends(require_auth)):
 
 
 @router.patch("/{place_id}")
-def update_place(place_id: int, data: PlaceUpdate, user_id: int = Depends(require_auth)):
+async def update_place(place_id: int, data: PlaceUpdate, user_id: int = Depends(require_auth)):
     updates = {}
     dumped = data.model_dump(exclude_unset=True)
     if "name" in dumped:
@@ -103,18 +105,48 @@ def update_place(place_id: int, data: PlaceUpdate, user_id: int = Depends(requir
             if not row:
                 raise HTTPException(404, "Place not found")
             return _place_dict(row)
-    updates["updated_at"] = now_iso()
+    updated_at = now_iso()
+    updates["updated_at"] = updated_at
     try:
+        todos_to_broadcast = []
         with get_db() as db:
             existing = db.execute("SELECT * FROM saved_places WHERE id = ? AND user_id = ?", (place_id, user_id)).fetchone()
             if not existing:
                 raise HTTPException(404, "Place not found")
+            linked_todo_ids = []
+            if "address" in updates:
+                linked_todo_rows = db.execute(
+                    """SELECT DISTINCT todo_id FROM location_reminders
+                       WHERE place_id = ? AND user_id = ?""",
+                    (place_id, user_id),
+                ).fetchall()
+                linked_todo_ids = [row["todo_id"] for row in linked_todo_rows]
             set_clause = ", ".join(f"{field}=:{field}" for field in updates)
             db.execute(f"UPDATE saved_places SET {set_clause} WHERE id = :id AND user_id = :user_id", {**updates, "id": place_id, "user_id": user_id})
-            # Existing reminders keep their copied address stable.
+            if "address" in updates and linked_todo_ids:
+                placeholders = ",".join("?" for _ in linked_todo_ids)
+                db.execute(
+                    f"""UPDATE location_reminders
+                        SET address = ?, updated_at = ?
+                        WHERE place_id = ? AND user_id = ? AND todo_id IN ({placeholders})""",
+                    [updates["address"], updated_at, place_id, user_id, *linked_todo_ids],
+                )
+                db.execute(
+                    f"UPDATE todos SET updated_at = ? WHERE id IN ({placeholders})",
+                    [updated_at, *linked_todo_ids],
+                )
             db.commit()
             row = db.execute("SELECT * FROM saved_places WHERE id = ?", (place_id,)).fetchone()
-            return _place_dict(row)
+            for todo_id in linked_todo_ids:
+                todo = fetch_todo(db, todo_id, user_id)
+                if todo:
+                    todos_to_broadcast.append(todo)
+            place = _place_dict(row)
+        for todo in todos_to_broadcast:
+            # Saved-place reminders are user-scoped. Do not broadcast a user-specific
+            # location_reminder payload to shared-project members.
+            await broadcast_change("todo_update", todo, user_id)
+        return place
     except Exception as error:
         if "idx_saved_places_user_name" in str(error) or "UNIQUE" in str(error).upper():
             raise HTTPException(409, "Place name already exists")
