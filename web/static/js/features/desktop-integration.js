@@ -285,9 +285,38 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
       .filter(Boolean);
   }
 
+  function buildLocationReminderSchedules(todos = []) {
+    const currentUser = getCurrentUser?.();
+    const userId = currentUser?.id == null ? '' : String(currentUser.id);
+    return todos
+      .filter((todo) => todo && todo.status !== 'done')
+      .flatMap((todo) => (todo.location_reminders || (todo.location_reminder ? [todo.location_reminder] : [])).map((locationReminder) => {
+        if (!locationReminder || locationReminder.enabled === 0 || locationReminder.enabled === false) return null;
+        const latitude = Number(locationReminder.latitude);
+        const longitude = Number(locationReminder.longitude);
+        const radiusM = Number(locationReminder.radius_m || locationReminder.radiusM || 150);
+        const triggerType = locationReminder.trigger_type || locationReminder.triggerType;
+        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+        if (!['arrival', 'departure'].includes(triggerType)) return null;
+        return {
+          id: `location-${locationReminder.id || todo.id}`,
+          todoId: String(todo.id),
+          title: '📍 Orts-Erinnerung',
+          body: reminderBody(todo),
+          triggerType,
+          latitude,
+          longitude,
+          radiusM: Math.max(25, Math.min(10000, radiusM || 150)),
+          userId,
+        };
+      }))
+      .filter(Boolean);
+  }
+
   async function scheduleLocalRemindersNow() {
     if (!isNativeApp()) return;
     const reminders = settings.notifications ? buildReminderSchedules(latestTodos) : [];
+    const locationReminders = settings.notifications ? buildLocationReminderSchedules(latestTodos) : [];
     if (!RUNTIME_CAPABILITIES.nativeNotifications) return;
     if (!settings.notifications) {
       try {
@@ -300,6 +329,7 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
     try {
       if (!await ensureNativeNotificationPermission()) return;
       await nativeBridge.scheduleReminders(reminders);
+      await nativeBridge.scheduleLocationReminders?.(locationReminders);
     } catch (error) {
       console.warn('[Native] Failed to schedule local reminders', error);
     }

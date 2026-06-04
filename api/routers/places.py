@@ -1,0 +1,138 @@
+"""nia-todo: Saved place endpoints for location reminders."""
+
+from typing import Optional
+from fastapi import APIRouter, HTTPException, Depends
+from pydantic import BaseModel, Field
+
+from db import get_db, now_iso
+from routers.auth import require_auth
+from services.utils import sanitize_text
+
+router = APIRouter(prefix="/api/places")
+
+
+class PlacePayload(BaseModel):
+    name: str
+    address: str = ""
+    latitude: float = Field(ge=-90, le=90)
+    longitude: float = Field(ge=-180, le=180)
+    radius_m: int = Field(default=150, ge=25, le=10000)
+    icon: Optional[str] = "pin"
+
+
+class PlaceUpdate(BaseModel):
+    name: Optional[str] = None
+    address: Optional[str] = None
+    latitude: Optional[float] = Field(default=None, ge=-90, le=90)
+    longitude: Optional[float] = Field(default=None, ge=-180, le=180)
+    radius_m: Optional[int] = Field(default=None, ge=25, le=10000)
+    icon: Optional[str] = None
+
+
+def _place_dict(row):
+    return dict(row) if row else None
+
+
+def _validate_place_name(name: str) -> str:
+    cleaned = sanitize_text(name or "").strip()
+    if not cleaned:
+        raise HTTPException(422, "Place name is required")
+    if len(cleaned) > 120:
+        raise HTTPException(422, "Place name is too long")
+    return cleaned
+
+
+def _clean_optional_text(value: str | None, limit: int = 500) -> str:
+    cleaned = sanitize_text(value or "").strip()
+    return cleaned[:limit]
+
+
+@router.get("")
+def list_places(user_id: int = Depends(require_auth)):
+    with get_db() as db:
+        rows = db.execute(
+            """SELECT * FROM saved_places
+               WHERE user_id = ?
+               ORDER BY lower(name), id""",
+            (user_id,),
+        ).fetchall()
+        return {"places": [dict(row) for row in rows]}
+
+
+@router.post("")
+def create_place(data: PlacePayload, user_id: int = Depends(require_auth)):
+    name = _validate_place_name(data.name)
+    now = now_iso()
+    try:
+        with get_db() as db:
+            cursor = db.execute(
+                """INSERT INTO saved_places
+                   (user_id, name, address, latitude, longitude, radius_m, icon, created_at, updated_at)
+                   VALUES (?,?,?,?,?,?,?,?,?)""",
+                (
+                    user_id,
+                    name,
+                    _clean_optional_text(data.address),
+                    data.latitude,
+                    data.longitude,
+                    data.radius_m,
+                    _clean_optional_text(data.icon, 40) or "pin",
+                    now,
+                    now,
+                ),
+            )
+            db.commit()
+            row = db.execute("SELECT * FROM saved_places WHERE id = ?", (cursor.lastrowid,)).fetchone()
+            return _place_dict(row)
+    except Exception as error:
+        if "idx_saved_places_user_name" in str(error) or "UNIQUE" in str(error).upper():
+            raise HTTPException(409, "Place name already exists")
+        raise
+
+
+@router.patch("/{place_id}")
+def update_place(place_id: int, data: PlaceUpdate, user_id: int = Depends(require_auth)):
+    updates = {}
+    dumped = data.model_dump(exclude_unset=True)
+    if "name" in dumped:
+        updates["name"] = _validate_place_name(data.name or "")
+    if "address" in dumped:
+        updates["address"] = _clean_optional_text(data.address)
+    for field in ("latitude", "longitude", "radius_m"):
+        if field in dumped:
+            updates[field] = dumped[field]
+    if "icon" in dumped:
+        updates["icon"] = _clean_optional_text(data.icon, 40) or "pin"
+    if not updates:
+        with get_db() as db:
+            row = db.execute("SELECT * FROM saved_places WHERE id = ? AND user_id = ?", (place_id, user_id)).fetchone()
+            if not row:
+                raise HTTPException(404, "Place not found")
+            return _place_dict(row)
+    updates["updated_at"] = now_iso()
+    try:
+        with get_db() as db:
+            existing = db.execute("SELECT * FROM saved_places WHERE id = ? AND user_id = ?", (place_id, user_id)).fetchone()
+            if not existing:
+                raise HTTPException(404, "Place not found")
+            set_clause = ", ".join(f"{field}=:{field}" for field in updates)
+            db.execute(f"UPDATE saved_places SET {set_clause} WHERE id = :id AND user_id = :user_id", {**updates, "id": place_id, "user_id": user_id})
+            # Existing reminders keep their copied coordinates for privacy/audit stability.
+            db.commit()
+            row = db.execute("SELECT * FROM saved_places WHERE id = ?", (place_id,)).fetchone()
+            return _place_dict(row)
+    except Exception as error:
+        if "idx_saved_places_user_name" in str(error) or "UNIQUE" in str(error).upper():
+            raise HTTPException(409, "Place name already exists")
+        raise
+
+
+@router.delete("/{place_id}")
+def delete_place(place_id: int, user_id: int = Depends(require_auth)):
+    with get_db() as db:
+        existing = db.execute("SELECT id FROM saved_places WHERE id = ? AND user_id = ?", (place_id, user_id)).fetchone()
+        if not existing:
+            raise HTTPException(404, "Place not found")
+        db.execute("DELETE FROM saved_places WHERE id = ? AND user_id = ?", (place_id, user_id))
+        db.commit()
+        return {"deleted": place_id}

@@ -67,6 +67,7 @@ class MainActivity : TauriActivity() {
     applySystemBarsTheme(false)
     ReminderReceiver.createNotificationChannel(this)
     ReminderReceiver.rescheduleStoredReminders(this)
+    LocationReminderReceiver.rescheduleStoredLocationReminders(this)
     clearStaleWebViewCachesOnVersionChange()
     persistDoneActionFromIntent(intent)
     super.onCreate(savedInstanceState)
@@ -492,6 +493,16 @@ class MainActivity : TauriActivity() {
     @JavascriptInterface
     fun scheduleReminders(schedulesJson: String): Int {
       return ReminderReceiver.scheduleReminders(this@MainActivity, schedulesJson)
+    }
+
+    @JavascriptInterface
+    fun scheduleLocationReminders(schedulesJson: String): Int {
+      return LocationReminderReceiver.scheduleLocationReminders(this@MainActivity, schedulesJson)
+    }
+
+    @JavascriptInterface
+    fun locationPermissionState(): String {
+      return LocationReminderReceiver.locationPermissionState(this@MainActivity)
     }
 
     @JavascriptInterface

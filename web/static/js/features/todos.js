@@ -39,7 +39,7 @@ export function createTodosFeature({
   }
 
   function hydrateTodoSelects() {
-    for (const id of ['todo-priority', 'todo-status', 'todo-project', 'todo-section', 'todo-recurring-frequency']) {
+    for (const id of ['todo-priority', 'todo-status', 'todo-project', 'todo-section', 'todo-recurring-frequency', 'todo-location-trigger']) {
       const select = document.getElementById(id);
       if (!select) continue;
       hydrateSelect(select, id === 'todo-project' ? { className: 'project-ui-select', menuClassName: 'project-ui-select-menu', searchPlaceholder: t('focus.projects.search'), searchLabel: t('focus.projects.search'), emptyText: t('focus.projects.noMatches') } : {});
@@ -153,6 +153,85 @@ export function createTodosFeature({
       dueInput?.setCustomValidity('');
       if (dueError?.textContent === t('todo.recurring.deadlineRequired')) dueError.textContent = '';
     }
+  }
+
+  function updateLocationReminderControls() {
+    const enabled = document.getElementById('todo-location-enabled')?.checked || false;
+    const fields = document.getElementById('todo-location-fields');
+    if (fields) fields.hidden = !enabled;
+    const error = document.getElementById('todo-location-error');
+    if (error && !enabled) error.textContent = '';
+  }
+
+  function bindLocationReminderControls() {
+    const enabled = document.getElementById('todo-location-enabled');
+    if (enabled && enabled.dataset.locationBound !== '1') {
+      enabled.dataset.locationBound = '1';
+      enabled.addEventListener('change', updateLocationReminderControls);
+    }
+    updateLocationReminderControls();
+  }
+
+  function clearLocationReminderForm() {
+    const enabled = document.getElementById('todo-location-enabled');
+    if (enabled) enabled.checked = false;
+    const trigger = document.getElementById('todo-location-trigger');
+    if (trigger) trigger.value = 'arrival';
+    for (const id of ['todo-location-label', 'todo-location-address', 'todo-location-latitude', 'todo-location-longitude']) {
+      const input = document.getElementById(id);
+      if (input) input.value = '';
+    }
+    const radius = document.getElementById('todo-location-radius');
+    if (radius) radius.value = '150';
+    updateLocationReminderControls();
+  }
+
+  function populateLocationReminderForm(todo) {
+    clearLocationReminderForm();
+    const locationReminder = todo?.location_reminder || todo?.location_reminders?.[0];
+    if (!locationReminder) return;
+    const enabled = document.getElementById('todo-location-enabled');
+    if (enabled) enabled.checked = true;
+    const setValue = (id, value) => {
+      const input = document.getElementById(id);
+      if (input && value !== undefined && value !== null) input.value = String(value);
+    };
+    setValue('todo-location-trigger', locationReminder.trigger_type || locationReminder.triggerType || 'arrival');
+    setValue('todo-location-label', locationReminder.label || locationReminder.place_name || '');
+    setValue('todo-location-address', locationReminder.address || '');
+    setValue('todo-location-latitude', locationReminder.latitude);
+    setValue('todo-location-longitude', locationReminder.longitude);
+    setValue('todo-location-radius', locationReminder.radius_m || locationReminder.radiusM || 150);
+    updateLocationReminderControls();
+  }
+
+  function locationReminderFromForm() {
+    const enabled = document.getElementById('todo-location-enabled')?.checked || false;
+    if (!enabled) return null;
+    const error = document.getElementById('todo-location-error');
+    if (error) error.textContent = '';
+    const latitude = Number.parseFloat(document.getElementById('todo-location-latitude')?.value || '');
+    const longitude = Number.parseFloat(document.getElementById('todo-location-longitude')?.value || '');
+    const radiusM = Number.parseInt(document.getElementById('todo-location-radius')?.value || '150', 10);
+    if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90 || !Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
+      if (error) error.textContent = 'Bitte gültige Latitude/Longitude für die Orts-Erinnerung eintragen.';
+      document.getElementById('todo-location-latitude')?.focus();
+      throw new Error('Invalid location reminder coordinates');
+    }
+    if (!Number.isFinite(radiusM) || radiusM < 25 || radiusM > 10000) {
+      if (error) error.textContent = 'Bitte Radius zwischen 25 und 10000 Metern eintragen.';
+      document.getElementById('todo-location-radius')?.focus();
+      throw new Error('Invalid location reminder radius');
+    }
+    return {
+      trigger_type: document.getElementById('todo-location-trigger')?.value || 'arrival',
+      label: document.getElementById('todo-location-label')?.value || '',
+      address: document.getElementById('todo-location-address')?.value || '',
+      latitude,
+      longitude,
+      radius_m: radiusM,
+      enabled: true,
+    };
   }
 
   function bindRecurringControls() {
@@ -939,8 +1018,10 @@ export function createTodosFeature({
     bindDateTimeValidation();
     hydrateTodoSelects();
     bindRecurringControls();
+    bindLocationReminderControls();
     document.getElementById('todo-form')?.reset();
     clearDateTimeErrors();
+    clearLocationReminderForm();
     document.getElementById('todo-id').value = '';
     const modalTitle = document.getElementById('todo-modal-title');
     if (modalTitle) {
@@ -1002,6 +1083,7 @@ export function createTodosFeature({
         const d = new Date(reminderDate);
         document.getElementById('todo-remind').value = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
       }
+      populateLocationReminderForm(todo);
     } else {
       document.getElementById('todo-pinned').checked = false;
       document.getElementById('todo-recurring-frequency').value = 'none';
@@ -1096,6 +1178,11 @@ export function createTodosFeature({
       remind_at: toIsoOrNull('todo-remind'),
       recurring_rule: recurringRuleFromForm(),
     };
+    try {
+      todoData.location_reminder = locationReminderFromForm();
+    } catch (_error) {
+      return;
+    }
     if (parsedQuickAdd) {
       if (parsedQuickAdd.changes.priority && Number(document.getElementById('todo-priority').value) === 3) todoData.priority = parsedQuickAdd.changes.priority;
       if (parsedQuickAdd.changes.project_id) todoData.project_id = parsedQuickAdd.changes.project_id;
