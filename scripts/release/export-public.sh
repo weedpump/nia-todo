@@ -126,10 +126,6 @@ fi
 if [ -f "${OUTPUT_ABS}/web/sw.js" ]; then
   sed -i "s/const SW_VERSION = 'v[^']*';/const SW_VERSION = 'v${VERSION}';/" "${OUTPUT_ABS}/web/sw.js"
 fi
-if [ -f "${OUTPUT_ABS}/api/services/push.py" ]; then
-  sed -i 's#mailto:nia-todo@kneidl-home.de#mailto:nia-todo@example.invalid#' "${OUTPUT_ABS}/api/services/push.py"
-fi
-
 mkdir -p "${OUTPUT_ABS}/web/downloads" "${OUTPUT_ABS}/api/data"
 [ -f "${OUTPUT_ABS}/web/downloads/.gitkeep" ] || : > "${OUTPUT_ABS}/web/downloads/.gitkeep"
 [ -f "${OUTPUT_ABS}/api/data/.gitkeep" ] || : > "${OUTPUT_ABS}/api/data/.gitkeep"
