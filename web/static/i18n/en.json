@@ -1122,5 +1122,8 @@
   "settings.places.saved": "Place saved.",
   "settings.places.deleted": "Place deleted.",
   "settings.places.loadFailed": "Places could not be loaded: {error}",
-  "todo.location.notificationTitle": "📍 Location reminder"
+  "todo.location.notificationTitle": "📍 Location reminder",
+  "todo.location.arrivalShort": "Arrival",
+  "todo.location.departureShort": "Leaving",
+  "todo.location.androidOnlyPillTitle": "Location reminder — triggers only in the Android app"
 }
