@@ -820,6 +820,29 @@ export function createTodosFeature({
     document.querySelectorAll('.todo-status-menu[open], .todo-snooze-menu[open]').forEach((menu) => {
       if (menu !== except) menu.removeAttribute('open');
     });
+    document.querySelectorAll('.todo-status-menu.opens-up, .todo-snooze-menu.opens-up').forEach((menu) => {
+      if (menu !== except) menu.classList.remove('opens-up');
+    });
+  }
+
+  function updateTodoActionMenuPlacement(menu) {
+    if (!menu?.open) return;
+    const panel = menu.querySelector('.todo-action-menu');
+    if (!panel) return;
+    menu.classList.remove('opens-up');
+    window.requestAnimationFrame(() => {
+      if (!menu.open) return;
+      const summaryRect = menu.querySelector('summary')?.getBoundingClientRect();
+      const panelRect = panel.getBoundingClientRect();
+      if (!summaryRect || !panelRect) return;
+      const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+      const safeGap = 8;
+      const spaceBelow = viewportHeight - summaryRect.bottom - safeGap;
+      const spaceAbove = summaryRect.top - safeGap;
+      if (panelRect.bottom > viewportHeight - safeGap && spaceAbove > spaceBelow) {
+        menu.classList.add('opens-up');
+      }
+    });
   }
 
   function bindTodoStatusMenuBehavior() {
@@ -833,7 +856,12 @@ export function createTodosFeature({
 
     document.addEventListener('toggle', (event) => {
       const menu = event.target?.closest?.('.todo-status-menu, .todo-snooze-menu');
-      if (menu?.open) closeTodoActionMenus(menu);
+      if (menu?.open) {
+        closeTodoActionMenus(menu);
+        updateTodoActionMenuPlacement(menu);
+      } else if (menu) {
+        menu.classList.remove('opens-up');
+      }
     }, true);
 
     document.addEventListener('keydown', (event) => {

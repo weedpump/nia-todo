@@ -1388,6 +1388,7 @@ select:focus-visible {
   position: absolute;
   top: calc(100% + 5px);
   right: 0;
+  bottom: auto;
   left: auto;
   z-index: 1000;
   min-width: 148px;
@@ -1395,6 +1396,13 @@ select:focus-visible {
   padding: 4px;
   border-radius: 11px;
   box-shadow: 0 10px 26px rgba(0,0,0,.20), 0 0 0 1px color-mix(in srgb, var(--bg-primary) 20%, transparent);
+}
+
+
+.todo-status-menu.opens-up .todo-action-menu.ui-menu,
+.todo-snooze-menu.opens-up .todo-action-menu.ui-menu {
+  top: auto;
+  bottom: calc(100% + 5px);
 }
 
 .todo-action-menu .ui-menu-item {
@@ -6889,6 +6897,7 @@ input[type="color"]::-moz-color-swatch {
   position: absolute;
   top: calc(100% + 5px);
   right: 0;
+  bottom: auto;
   left: auto;
   z-index: 1000;
 }
