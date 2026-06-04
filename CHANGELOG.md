@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 ## [2.11.0] - 2026-06-04
 
 ### Added
+- Location-based reminders can now be created and managed from the web UI and trigger locally in the Android app when arriving at or leaving saved places or manually entered addresses, with privacy-first address-only server storage and user-managed saved places.
 - BrainDump can now extract recurring todos from the model-provided JSON schema, including half-year intervals such as every six months, and persists the recurrence when the candidate has a deadline start point.
 - BrainDump preview editing now lets users correct deadline, reminder, and recurrence metadata before creating todos, alongside the existing title/project/section quick fixes.
 - Users can now configure automatic default reminders for todo deadlines, including presets and a custom amount with hours/days units; todos with deadlines get a default reminder when no explicit reminder is set, and automatic reminders keep following deadline changes and recurring next occurrences.
