@@ -90,7 +90,17 @@ async def websocket_endpoint(websocket: WebSocket):
                                ORDER BY remind_at""",
                             (d['id'], ws_user_id)
                         ).fetchall()
+                        location_rows = db.execute(
+                            """SELECT lr.*, sp.name AS place_name, sp.icon AS place_icon
+                               FROM location_reminders lr
+                               LEFT JOIN saved_places sp ON lr.place_id = sp.id
+                               WHERE lr.todo_id = ? AND lr.user_id = ?
+                               ORDER BY lr.id""",
+                            (d['id'], ws_user_id)
+                        ).fetchall()
                         d['reminders'] = [dict(r) for r in rem_rows]
+                        d['location_reminders'] = [dict(r) for r in location_rows]
+                        d['location_reminder'] = d['location_reminders'][0] if d['location_reminders'] else None
                         todos_out.append(d)
 
                     own_projects = db.execute(

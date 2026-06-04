@@ -1234,6 +1234,12 @@ select:focus-visible {
   color: var(--text-muted);
 }
 
+.todo-meta-chip.todo-location {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
 .todo-desc-preview {
   font-style: italic;
   color: var(--text-muted);
@@ -1535,12 +1541,20 @@ select:focus-visible {
   color: #fff;
 }
 
-/* Plus icon in primary button */
-.btn-primary span:first-child {
-  font-size: 16px;
+/* Icons in primary buttons must stay visible on the accent background. */
+.btn-primary [data-icon] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  opacity: 1;
   line-height: 1;
-  color: var(--accent);
-  text-shadow: none;
+}
+
+.btn-primary [data-icon] .ui-icon {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
 }
 
 .btn-secondary { background: var(--bg-tertiary); color: var(--text-primary); }
@@ -6030,12 +6044,25 @@ input[type="color"]::-moz-color-swatch {
 }
 
 .settings-card-actions,
-.settings-action-row {
+.settings-action-row,
+.settings-actions-row {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
   margin-top: 12px;
+}
+
+#settings-places-list {
+  margin-top: 14px;
+}
+
+.settings-place-row-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .settings-status-pill {
@@ -6755,6 +6782,12 @@ input[type="color"]::-moz-color-swatch {
   background: color-mix(in srgb, var(--success) 11%, transparent);
 }
 
+.todo-meta-chip.todo-location {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
 .todo-desc-preview {
   display: inline-flex;
   align-items: center;
@@ -6811,7 +6844,13 @@ input[type="color"]::-moz-color-swatch {
     margin-top: 0;
   }
 
-  .todo-desc-preview {
+  .todo-meta-chip.todo-location {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.todo-desc-preview {
     max-width: 100%;
   }
 }
@@ -6942,7 +6981,13 @@ input[type="color"]::-moz-color-swatch {
 }
 
 /* Todo list descriptions are one-line previews; full multiline text belongs in the modal. */
-.todo-body .todo-desc-preview {
+.todo-body .todo-meta-chip.todo-location {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.todo-desc-preview {
   display: block;
   width: 100%;
   max-width: min(560px, 100%);
@@ -6960,7 +7005,13 @@ input[type="color"]::-moz-color-swatch {
 }
 
 @media (max-width: 768px) {
-  .todo-body .todo-desc-preview {
+  .todo-body .todo-meta-chip.todo-location {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.todo-desc-preview {
     max-width: 100%;
   }
 }
@@ -7803,7 +7854,13 @@ body.is-minimal-todos .todo-title {
 
 body.is-minimal-todos .todo-badges,
 body.is-minimal-todos .todo-meta-row,
-body.is-minimal-todos .todo-desc-preview {
+body.is-minimal-todos .todo-meta-chip.todo-location {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.todo-desc-preview {
   display: none !important;
 }
 
@@ -7850,6 +7907,32 @@ body.is-minimal-todos .todo-actions {
 
 #todo-recurring-interval-group.is-disabled {
   opacity: 0.55;
+}
+
+.todo-location-toggle-row {
+  justify-content: flex-start;
+  gap: 12px;
+  margin: 2px 0 10px;
+  padding: 0;
+  color: var(--text-primary);
+  font-weight: 650;
+}
+
+.todo-location-toggle-row .settings-switch {
+  order: -1;
+}
+
+.todo-location-fields {
+  transition: opacity .16s ease, filter .16s ease;
+}
+
+.todo-location-fields.is-disabled {
+  opacity: 0.48;
+  filter: saturate(0.75);
+}
+
+.todo-location-fields.is-disabled label {
+  color: var(--text-muted);
 }
 
 .todo-meta-chip.todo-recurring {

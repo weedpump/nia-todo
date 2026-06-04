@@ -84,6 +84,7 @@ dependencies {
     implementation("androidx.credentials:credentials:1.5.0")
     implementation("androidx.credentials:credentials-play-services-auth:1.5.0")
     implementation("com.google.android.material:material:1.12.0")
+    implementation("com.google.android.gms:play-services-location:21.3.0")
     implementation("androidx.lifecycle:lifecycle-process:2.10.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.10.0")
     testImplementation("junit:junit:4.13.2")
