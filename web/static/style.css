@@ -1399,6 +1399,11 @@ select:focus-visible {
 }
 
 
+.todo-status-menu[open]:not(.placement-ready) .todo-action-menu.ui-menu,
+.todo-snooze-menu[open]:not(.placement-ready) .todo-action-menu.ui-menu {
+  visibility: hidden;
+}
+
 .todo-status-menu.opens-up .todo-action-menu.ui-menu,
 .todo-snooze-menu.opens-up .todo-action-menu.ui-menu {
   top: auto;
