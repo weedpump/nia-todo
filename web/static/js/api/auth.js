@@ -317,6 +317,16 @@ export const authApi = {
     return parseOrThrow(response, t('api.auth.languageSaveFailed'));
   },
 
+  async updateDefaultReminder(offsetMinutes) {
+    const response = await fetch(API + '/api/me/default-reminder', {
+      method: 'PATCH',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ default_reminder_offset_minutes: offsetMinutes }),
+      credentials: 'include',
+    });
+    return parseOrThrow(response, t('api.auth.defaultReminderSaveFailed'));
+  },
+
   async getBrainDumpLearning() {
     const response = await fetch(API + '/api/braindump/v2/learning', {
       headers: getAuthHeaders(),

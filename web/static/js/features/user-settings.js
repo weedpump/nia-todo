@@ -120,6 +120,28 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     refreshSelect(select);
   }
 
+  function renderDefaultReminderSetting(user = getCurrentUser()) {
+    const select = document.getElementById('settings-default-reminder');
+    const customRow = document.getElementById('settings-default-reminder-custom-row');
+    const customInput = document.getElementById('settings-default-reminder-custom');
+    if (!select) return;
+    hydrateSelect(select);
+    const offset = user?.default_reminder_offset_minutes;
+    const knownValues = new Set(['0', '15', '60', '1440']);
+    if (offset === null || offset === undefined || offset === '') {
+      select.value = 'off';
+      if (customRow) customRow.style.display = 'none';
+    } else if (knownValues.has(String(offset))) {
+      select.value = String(offset);
+      if (customRow) customRow.style.display = 'none';
+    } else {
+      select.value = 'custom';
+      if (customRow) customRow.style.display = '';
+      if (customInput) customInput.value = String(offset);
+    }
+    refreshSelect(select);
+  }
+
   function renderUserInfo() {
     const currentUser = getCurrentUser();
     const settingsUsernameEl = document.getElementById('settings-username');
@@ -130,6 +152,7 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     if (settingsEmailCell && currentUser) settingsEmailCell.innerHTML = renderSettingsEmailDisplay(currentUser);
     renderSettingsAvatar(currentUser);
     renderLanguageSetting();
+    renderDefaultReminderSetting(currentUser);
     renderBrainDumpLearningSetting(currentUser);
   }
 
@@ -341,6 +364,8 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     document.getElementById('settings-avatar-success').textContent = '';
     document.getElementById('settings-language-error').textContent = '';
     document.getElementById('settings-language-success').textContent = '';
+    document.getElementById('settings-default-reminder-error').textContent = '';
+    document.getElementById('settings-default-reminder-success').textContent = '';
     document.getElementById('settings-braindump-error').textContent = '';
     document.getElementById('settings-braindump-success').textContent = '';
     document.getElementById('settings-2fa-error').textContent = '';
@@ -434,6 +459,45 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     } catch (error) {
       if (errorEl) errorEl.textContent = error?.message || t('settings.language.saveFailed');
     }
+  }
+
+  async function saveDefaultReminderOffset(offsetMinutes) {
+    const errorEl = document.getElementById('settings-default-reminder-error');
+    const successEl = document.getElementById('settings-default-reminder-success');
+    if (errorEl) errorEl.textContent = '';
+    if (successEl) successEl.textContent = '';
+    try {
+      const data = await authApi.updateDefaultReminder(offsetMinutes);
+      const currentUser = getCurrentUser();
+      if (currentUser) setCurrentUser({ ...currentUser, default_reminder_offset_minutes: data.default_reminder_offset_minutes });
+      renderDefaultReminderSetting({ ...currentUser, default_reminder_offset_minutes: data.default_reminder_offset_minutes });
+      if (successEl) successEl.textContent = t('settings.defaultReminder.saved');
+    } catch (error) {
+      renderDefaultReminderSetting();
+      if (errorEl) errorEl.textContent = error?.message || t('settings.defaultReminder.saveFailed');
+    }
+  }
+
+  async function changeDefaultReminderSetting(value) {
+    const customRow = document.getElementById('settings-default-reminder-custom-row');
+    if (value === 'custom') {
+      if (customRow) customRow.style.display = '';
+      document.getElementById('settings-default-reminder-custom')?.focus();
+      return;
+    }
+    if (customRow) customRow.style.display = 'none';
+    await saveDefaultReminderOffset(value === 'off' ? null : Number(value));
+  }
+
+  async function saveCustomDefaultReminderSetting() {
+    const input = document.getElementById('settings-default-reminder-custom');
+    const value = Number(input?.value);
+    if (!Number.isInteger(value) || value < 0 || value > 525600) {
+      const errorEl = document.getElementById('settings-default-reminder-error');
+      if (errorEl) errorEl.textContent = t('settings.defaultReminder.invalidCustom');
+      return;
+    }
+    await saveDefaultReminderOffset(value);
   }
 
   function editUserDisplayName() {
@@ -1059,6 +1123,8 @@ export function createUserSettingsFeature({ authApi, getCurrentUser, setCurrentU
     renderUserInfo,
     openSettingsModal,
     changeLanguagePreference,
+    changeDefaultReminderSetting,
+    saveCustomDefaultReminderSetting,
     changeBrainDumpLearningSetting,
     resetBrainDumpLearning,
     editUserDisplayName,

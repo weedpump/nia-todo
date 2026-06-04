@@ -176,7 +176,7 @@ def me(request: Request, response: Response, authorization: Optional[str] = Head
             user_id = payload.get('user_id')
         
         user = db.execute(
-            "SELECT id, username, display_name, email, email_verified_at, email_trust_source, pending_email, avatar_url, avatar_updated_at, is_admin, token_version, language, COALESCE(braindump_enabled, 0) AS braindump_enabled, COALESCE(braindump_learning_enabled, 1) AS braindump_learning_enabled FROM users WHERE id = ?",
+            "SELECT id, username, display_name, email, email_verified_at, email_trust_source, pending_email, avatar_url, avatar_updated_at, is_admin, token_version, language, COALESCE(braindump_enabled, 0) AS braindump_enabled, COALESCE(braindump_learning_enabled, 1) AS braindump_learning_enabled, default_reminder_offset_minutes FROM users WHERE id = ?",
             (user_id,)
         ).fetchone()
         if not user:
@@ -199,6 +199,7 @@ def me(request: Request, response: Response, authorization: Optional[str] = Head
             "language": user['language'] or 'auto',
             "braindump_enabled": bool(user['braindump_enabled']),
             "braindump_learning_enabled": bool(user['braindump_learning_enabled']),
+            "default_reminder_offset_minutes": user['default_reminder_offset_minutes'],
             "is_admin": bool(user['is_admin']),
             "two_factor": mfa_state,
             "mfa_enrollment_required": enroll_only,

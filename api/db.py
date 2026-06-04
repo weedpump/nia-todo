@@ -106,6 +106,8 @@ def init_db():
             "ALTER TABLE todos ADD COLUMN is_pinned INTEGER NOT NULL DEFAULT 0",
             "ALTER TABLE todos ADD COLUMN recurring_rule TEXT",
             "ALTER TABLE todos ADD COLUMN parent_id INTEGER",
+            "ALTER TABLE users ADD COLUMN default_reminder_offset_minutes INTEGER",
+            "ALTER TABLE reminders ADD COLUMN source TEXT NOT NULL DEFAULT 'explicit'",
         ):
             try:
                 conn.execute(ddl)
