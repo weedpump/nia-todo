@@ -68,6 +68,12 @@ const cssSource = readFileSync(new URL('../web/static/style.css', import.meta.ur
 assert(cssSource.includes('iOS WebKit zooms the page when focusing editable controls below 16px'), 'mobile iOS inputs must document why 16px focus font size is required');
 assert(cssSource.includes('@supports (-webkit-touch-callout: none)') && cssSource.includes('font-size: 16px !important'), 'mobile iOS inputs/selects/textareas must stay at least 16px to prevent WebKit focus zoom');
 
+const adminSource = readFileSync(new URL('../web/admin.html', import.meta.url), 'utf8');
+assert(adminSource.includes('hardReloadAfterServerUpdate'), 'admin server update reload must use explicit hard reload cleanup');
+assert(adminSource.includes('navigator.serviceWorker.getRegistrations') && adminSource.includes('reg.unregister()'), 'admin server update reload must unregister stale service workers');
+assert(adminSource.includes('caches.keys()') && adminSource.includes('caches.delete(name)'), 'admin server update reload must clear CacheStorage');
+assert(adminSource.includes('server-updated='), 'admin server update reload must navigate with a cache-busting query parameter');
+
 const swSource = readFileSync(new URL('../web/sw.js', import.meta.url), 'utf8');
 assert(!swSource.includes("caches.open(API_CACHE)"), 'service worker must not cache authenticated API responses');
 assert(swSource.indexOf("url.pathname.startsWith('/api/avatars/')") < swSource.indexOf("url.pathname.startsWith('/api/')"), 'service worker must cache static avatars before the generic API network-only rule');
@@ -123,6 +129,9 @@ assert(swSource.includes('/static/js/features/app-downloads.js'), 'service worke
 const serviceWorkerUpdatesSource = readFileSync(new URL('../web/static/js/features/service-worker-updates.js', import.meta.url), 'utf8');
 assert(serviceWorkerUpdatesSource.includes('bundled app assets are loaded locally'), 'native apps must skip the web service worker because bundled app assets are local');
 assert(serviceWorkerUpdatesSource.includes('scheduleUpdateCheck(\'startup\''), 'browser/PWA service worker update checks must run at startup, including before login');
+assert(serviceWorkerUpdatesSource.includes('navigator.serviceWorker.getRegistrations') && serviceWorkerUpdatesSource.includes('registration.unregister()'), 'login/sidebar force reload must unregister stale service workers');
+assert(serviceWorkerUpdatesSource.includes('caches.keys()') && serviceWorkerUpdatesSource.includes('caches.delete(name)'), 'login/sidebar force reload must clear CacheStorage');
+assert(serviceWorkerUpdatesSource.includes("url.searchParams.set('hardReload'"), 'login/sidebar force reload must add a cache-busting hardReload query parameter');
 assert(downloadsSource.includes('showNativeUpdateModal'), 'native app updates must use the native update modal');
 assert(downloadsSource.includes('deferUntilAfterLogin'), 'native app update prompts must be deferred until after login');
 assert(downloadsSource.includes('validateDownloadEntry'), 'app download manifests must be validated before rendering');

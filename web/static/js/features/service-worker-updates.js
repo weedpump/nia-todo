@@ -180,44 +180,6 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
     }
   }
 
-  function waitForWorkerState(worker, state, timeoutMs = 8000) {
-    if (!worker) return Promise.resolve(false);
-    if (worker.state === state) return Promise.resolve(true);
-    return new Promise((resolve) => {
-      const timeout = setTimeout(() => {
-        worker.removeEventListener('statechange', onStateChange);
-        resolve(false);
-      }, timeoutMs);
-      function onStateChange() {
-        if (worker.state !== state) return;
-        clearTimeout(timeout);
-        worker.removeEventListener('statechange', onStateChange);
-        resolve(true);
-      }
-      worker.addEventListener('statechange', onStateChange);
-    });
-  }
-
-  function postMessageWithReply(worker, message, timeoutMs = 15000) {
-    return new Promise((resolve, reject) => {
-      if (!worker) {
-        reject(new Error('No service worker controller'));
-        return;
-      }
-      const channel = new MessageChannel();
-      const timeout = setTimeout(() => {
-        channel.port1.onmessage = null;
-        reject(new Error('Service worker reply timeout'));
-      }, timeoutMs);
-      channel.port1.onmessage = (event) => {
-        clearTimeout(timeout);
-        if (event.data?.ok) resolve(event.data);
-        else reject(new Error(event.data?.error || 'Service worker request failed'));
-      };
-      worker.postMessage(message, [channel.port2]);
-    });
-  }
-
   function updateVersionLabel() {
     const current = document.querySelector('.version-text')?.textContent?.trim() || '';
     const modalCurrent = document.getElementById('web-update-current-version');
@@ -268,43 +230,26 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
     }
 
     try {
-      if (!('serviceWorker' in navigator)) {
-        window.location.reload();
-        return;
+      // This is used by the login-page recovery button and the sidebar reload
+      // action. It must be a real recovery reload, not just location.reload(): a
+      // stale active service worker can otherwise serve the same broken app
+      // shell again. Keep IndexedDB untouched; only browser-managed app caches
+      // and service worker registrations are reset.
+      if ('serviceWorker' in navigator && typeof navigator.serviceWorker.getRegistrations === 'function') {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(registrations.map(registration => registration.unregister().catch(() => false)));
       }
-
-      const reg = swRegistration || await navigator.serviceWorker.getRegistration('/') || await navigator.serviceWorker.register('/sw.js');
-      swRegistration = reg;
-
-      try {
-        await withTimeout(reg.update(), UPDATE_CHECK_TIMEOUT_MS, 'SW forced update check');
-      } catch (err) {
-        console.warn('SW: Forced update check failed, refreshing current cache anyway', err);
+      if ('caches' in window && typeof caches.keys === 'function') {
+        const names = await caches.keys();
+        await Promise.all(names.map(name => caches.delete(name).catch(() => false)));
       }
-
-      if (reg.waiting) {
-        await triggerUpdate();
-        return;
-      }
-
-      if (reg.installing) {
-        await waitForWorkerState(reg.installing, 'installed');
-        if (reg.waiting) {
-          await triggerUpdate();
-          return;
-        }
-      }
-
-      const controller = navigator.serviceWorker.controller || reg.active;
-      if (controller) {
-        await postMessageWithReply(controller, { action: 'refreshAppCache' });
-      }
-
-      window.location.reload();
     } catch (err) {
-      console.error('Forced app reload failed:', err);
-      window.location.reload();
+      console.error('Forced app reload cleanup failed:', err);
     } finally {
+      const url = new URL(window.location.href);
+      url.searchParams.set('hardReload', String(Date.now()));
+      window.location.replace(url.toString());
+
       for (const button of buttons) {
         button.disabled = false;
         button.title = previousTitles.get(button) || 'Web-App neu herunterladen und Cache aktualisieren';
