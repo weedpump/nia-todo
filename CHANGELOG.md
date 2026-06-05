@@ -5,7 +5,7 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.11.2] - 2026-06-05
 
 ### Changed
 - Server startup now defaults to `NIA_TODO_HOST=auto`, binding every available wildcard stack: IPv6 plus IPv4 when possible, falling back to IPv4-only on hosts without IPv6.
