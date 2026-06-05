@@ -15,7 +15,9 @@ Options:
   --windows-installer FILE   Signed Windows installer to embed in both release targets
   --android-apk FILE         Signed Android APK to embed in both release targets
   --native-artifacts-dir DIR Directory containing the standard native artifact names
-                           (default: dist/native/vVERSION if it exists)
+                           (default: dist/native/vNATIVE_APP_VERSION if it exists)
+  --native-app-version VERSION
+                           Native app download version to publish (default: VERSION)
   --output-dir DIR           Release artifact output dir (default: dist/release)
   --work-dir DIR             Temporary build dir (default: dist/build/public-release-VERSION)
   --docker-tag TAG           Docker image tag (default: nia-todo:VERSION)
@@ -32,6 +34,7 @@ VERSION=""
 WINDOWS_INSTALLER=""
 ANDROID_APK=""
 NATIVE_ARTIFACTS_DIR=""
+NATIVE_APP_VERSION=""
 OUTPUT_DIR="dist/release"
 WORK_DIR=""
 DOCKER_TAG=""
@@ -48,6 +51,7 @@ while [ "$#" -gt 0 ]; do
     --windows-installer) WINDOWS_INSTALLER="${2:-}"; shift 2 ;;
     --android-apk) ANDROID_APK="${2:-}"; shift 2 ;;
     --native-artifacts-dir) NATIVE_ARTIFACTS_DIR="${2:-}"; shift 2 ;;
+    --native-app-version) NATIVE_APP_VERSION="${2:-}"; shift 2 ;;
     --output-dir) OUTPUT_DIR="${2:-}"; shift 2 ;;
     --work-dir) WORK_DIR="${2:-}"; shift 2 ;;
     --docker-tag) DOCKER_TAG="${2:-}"; shift 2 ;;
@@ -67,6 +71,11 @@ if ! [[ "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   echo "Invalid stable version: ${VERSION}" >&2
   exit 2
 fi
+NATIVE_APP_VERSION="${NATIVE_APP_VERSION:-${VERSION}}"
+if ! [[ "${NATIVE_APP_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "Invalid stable native app version: ${NATIVE_APP_VERSION}" >&2
+  exit 2
+fi
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "${ROOT_DIR}"
@@ -77,17 +86,18 @@ DOCKER_CONTEXT_DIR="${WORK_DIR}/docker-context"
 DOCKER_TAG="${DOCKER_TAG:-nia-todo:${VERSION}}"
 
 TAG="v${VERSION}"
-if [ -z "${NATIVE_ARTIFACTS_DIR}" ] && [ -d "dist/native/${TAG}" ]; then
-  NATIVE_ARTIFACTS_DIR="dist/native/${TAG}"
+NATIVE_TAG="v${NATIVE_APP_VERSION}"
+if [ -z "${NATIVE_ARTIFACTS_DIR}" ] && [ -d "dist/native/${NATIVE_TAG}" ]; then
+  NATIVE_ARTIFACTS_DIR="dist/native/${NATIVE_TAG}"
 fi
 if [ -n "${NATIVE_ARTIFACTS_DIR}" ]; then
-  [ -n "${WINDOWS_INSTALLER}" ] || WINDOWS_INSTALLER="${NATIVE_ARTIFACTS_DIR}/nia-todo-${TAG}-windows-x64-setup.exe"
-  [ -n "${ANDROID_APK}" ] || ANDROID_APK="${NATIVE_ARTIFACTS_DIR}/nia-todo-${TAG}-android-arm64.apk"
+  [ -n "${WINDOWS_INSTALLER}" ] || WINDOWS_INSTALLER="${NATIVE_ARTIFACTS_DIR}/nia-todo-${NATIVE_TAG}-windows-x64-setup.exe"
+  [ -n "${ANDROID_APK}" ] || ANDROID_APK="${NATIVE_ARTIFACTS_DIR}/nia-todo-${NATIVE_TAG}-android-arm64.apk"
 fi
 
 if [ "${ALLOW_MISSING_APPS}" != "1" ]; then
-  [ -n "${WINDOWS_INSTALLER}" ] && [ -f "${WINDOWS_INSTALLER}" ] || { echo "Missing native Windows installer. Build/copy it to dist/native/${TAG}/ or pass --windows-installer FILE" >&2; exit 1; }
-  [ -n "${ANDROID_APK}" ] && [ -f "${ANDROID_APK}" ] || { echo "Missing native Android APK. Build/copy it to dist/native/${TAG}/ or pass --android-apk FILE" >&2; exit 1; }
+  [ -n "${WINDOWS_INSTALLER}" ] && [ -f "${WINDOWS_INSTALLER}" ] || { echo "Missing native Windows installer. Build/copy it to dist/native/${NATIVE_TAG}/ or pass --windows-installer FILE" >&2; exit 1; }
+  [ -n "${ANDROID_APK}" ] && [ -f "${ANDROID_APK}" ] || { echo "Missing native Android APK. Build/copy it to dist/native/${NATIVE_TAG}/ or pass --android-apk FILE" >&2; exit 1; }
 fi
 
 run() {
@@ -98,8 +108,8 @@ run() {
 }
 
 EXPORT_ARGS=("${VERSION}" --output "${PUBLIC_EXPORT_DIR}")
-BUNDLE_ARGS=("${VERSION}" --output-dir "${OUTPUT_DIR}" --work-dir "${WORK_DIR}/full-bundle")
-DOCKER_ARGS=("${VERSION}" --tag "${DOCKER_TAG}" --output "${DOCKER_CONTEXT_DIR}")
+BUNDLE_ARGS=("${VERSION}" --output-dir "${OUTPUT_DIR}" --work-dir "${WORK_DIR}/full-bundle" --native-app-version "${NATIVE_APP_VERSION}")
+DOCKER_ARGS=("${VERSION}" --tag "${DOCKER_TAG}" --output "${DOCKER_CONTEXT_DIR}" --native-app-version "${NATIVE_APP_VERSION}")
 
 if [ "${FORCE}" = "1" ]; then
   EXPORT_ARGS+=(--force)
@@ -139,7 +149,7 @@ if [ "${DRY_RUN}" = "1" ]; then
   echo "✅ Dry run complete"
 else
   mkdir -p "${OUTPUT_DIR}"
-  python3 - "${VERSION}" "${OUTPUT_DIR}" "${PUBLIC_EXPORT_DIR}" "${DOCKER_TAG}" "${WINDOWS_INSTALLER}" "${ANDROID_APK}" <<'PYM'
+  python3 - "${VERSION}" "${OUTPUT_DIR}" "${PUBLIC_EXPORT_DIR}" "${DOCKER_TAG}" "${NATIVE_APP_VERSION}" "${WINDOWS_INSTALLER}" "${ANDROID_APK}" <<'PYM'
 import hashlib
 import json
 import subprocess
@@ -147,7 +157,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-version, output_dir, source_dir, docker_tag, windows_path, android_path = sys.argv[1:]
+version, output_dir, source_dir, docker_tag, native_app_version, windows_path, android_path = sys.argv[1:]
 out = Path(output_dir)
 deb = out / f"nia-todo-server-v{version}-full.deb"
 manifest = {
@@ -155,6 +165,7 @@ manifest = {
     "generated_at": datetime.now(timezone.utc).isoformat(),
     "public_source": {"tag": f"v{version}"},
     "docker_image": docker_tag,
+    "native_app_version": f"v{native_app_version}",
     "artifacts": [],
 }
 for path in [deb, Path(str(deb) + ".sha256"), Path(windows_path) if windows_path else None, Path(android_path) if android_path else None]:
