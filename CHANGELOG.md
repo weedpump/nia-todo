@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [2.11.5] - 2026-06-05
+
+### Fixed
+- Installed Safari/iPadOS PWAs now keep their active nia-todo Service Worker during hard-reload recovery and refresh the app-shell cache in place, preventing Safari's offline error page after closing and reopening the app offline.
+- Boot-error and admin server-update reload recovery now use the same Service Worker preserve strategy as the sidebar/login hard reload flow, only unregistering workers or clearing nia-todo CacheStorage when no active nia-todo Service Worker can be kept.
+
 ## [2.11.4] - 2026-06-05
 
 ### Fixed
