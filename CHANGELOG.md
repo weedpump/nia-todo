@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 
 ### Fixed
 - BrainDump now preserves model-provided `due_datetime`/`reminder_datetime` aliases as todo deadlines and reminders, preventing valid extracted times from being dropped when the BrainDump agent uses datetime-style field names despite the prompt schema.
+- BrainDump's processing equalizer now switches to a calm bounded animation after recording stops, so loud final audio peaks no longer carry into the transcription/loading state or push the bars behind surrounding text.
 
 ## [2.11.5] - 2026-06-05
 

@@ -862,15 +862,23 @@ export function createBrainDumpLiveFeature(options = {}) {
     const orb = document.getElementById('braindump-orb');
     const wave = document.getElementById('braindump-wave');
     const selectedCount = selectedCandidates().length;
+    const isBusy = state.processing || state.active || state.queue.length;
+    const visualLevel = state.recording ? Math.max(0.08, state.level) : (isBusy ? 0.16 : 0.08);
+    const visualPeak = state.recording ? Math.max(0.10, state.peak) : (isBusy ? 0.18 : 0.10);
     modal.classList.toggle('is-recording', state.recording);
     modal.classList.toggle('is-starting', state.starting);
-    modal.classList.toggle('is-processing', state.processing || state.active > 0 || state.queue.length > 0);
-    stage?.style.setProperty('--bd-level', String(Math.max(0.08, state.level)));
-    stage?.style.setProperty('--bd-peak', String(Math.max(0.10, state.peak)));
+    modal.classList.toggle('is-processing', isBusy);
+    stage?.style.setProperty('--bd-level', String(visualLevel));
+    stage?.style.setProperty('--bd-peak', String(visualPeak));
     if (wave) {
       Array.from(wave.children).forEach((bar, index) => {
-        const wobble = 0.25 + Math.abs(Math.sin((performance.now() / 180) + index * 0.7)) * 0.75;
-        bar.style.setProperty('--h', String(12 + Math.round(64 * Math.max(state.level, 0.04) * wobble)));
+        const phase = (performance.now() / (isBusy && !state.recording ? 260 : 180)) + index * 0.7;
+        const wobble = isBusy && !state.recording
+          ? 0.55 + Math.abs(Math.sin(phase)) * 0.45
+          : 0.25 + Math.abs(Math.sin(phase)) * 0.75;
+        const baseHeight = isBusy && !state.recording ? 14 : 12;
+        const range = isBusy && !state.recording ? 28 : 64;
+        bar.style.setProperty('--h', String(baseHeight + Math.round(range * visualLevel * wobble)));
       });
     }
     if (status) {
@@ -884,7 +892,6 @@ export function createBrainDumpLiveFeature(options = {}) {
               ? t('braindump.status.readyWithCandidates')
               : t('braindump.status.ready');
     }
-    const isBusy = state.processing || state.active || state.queue.length;
     if (processing) processing.hidden = !isBusy || state.recording;
     if (processingText) {
       processingText.textContent = state.transcript
