@@ -5576,6 +5576,11 @@ input[type="color"]::-moz-color-swatch {
   transform: scaleY(calc(.52 + var(--bd-level) * 1.7));
   transition: height .08s linear, transform .08s linear, opacity .12s ease;
 }
+.braindump-modal.is-processing:not(.is-recording) .braindump-wave span {
+  max-height: 42px;
+  transform: scaleY(1);
+  transition: height .16s ease, opacity .18s ease;
+}
 .braindump-status { position: relative; z-index: 1; text-align: center; font-size: 18px; font-weight: 850; color: var(--text-primary); }
 .braindump-processing { position: relative; z-index: 1; margin: 10px auto 0; display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; color: var(--text-secondary); font-size: 13px; }
 .braindump-processing[hidden] { display: none !important; }
