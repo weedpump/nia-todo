@@ -8,6 +8,43 @@ async function run() {
   try {
     await loginApp();
 
+    const initialDueTodayCount = await page.evaluate(() => Number(document.querySelector('.overview-focus-item strong')?.textContent || 0));
+    await page.evaluate(async () => {
+      const jwt = localStorage.getItem('jwt_token');
+      const csrf = localStorage.getItem('csrf_token');
+      const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${jwt}`,
+        'X-CSRF-Token': csrf,
+      };
+      const localIsoMinute = (date) => {
+        const pad = (value) => String(value).padStart(2, '0');
+        return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+      };
+      const todayPast = new Date();
+      todayPast.setHours(0, 5, 0, 0);
+      const todayFuture = new Date();
+      todayFuture.setHours(23, 55, 0, 0);
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      tomorrow.setHours(9, 0, 0, 0);
+      for (const todo of [
+        { title: 'Dashboard today overdue regression', due_date: localIsoMinute(todayPast) },
+        { title: 'Dashboard today future regression', due_date: localIsoMinute(todayFuture) },
+        { title: 'Dashboard tomorrow regression', due_date: localIsoMinute(tomorrow) },
+      ]) {
+        const response = await fetch('/api/todos', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ description: '', priority: 3, status: 'pending', ...todo }),
+          credentials: 'include',
+        });
+        if (!response.ok) throw new Error(`Create dashboard regression todo failed: ${response.status} ${await response.text()}`);
+      }
+      await window.refreshFromServer?.();
+    });
+    await page.waitForFunction((expected) => Number(document.querySelector('.overview-focus-item strong')?.textContent || 0) === expected, initialDueTodayCount + 2, { timeout: 10000 });
+
     await page.click('button[onclick="showProjectModal()"]');
     await page.fill('#project-name', 'Frontend Project A');
     await page.fill('#project-color', '#ff8800');
