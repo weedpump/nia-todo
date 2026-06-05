@@ -44,7 +44,7 @@
     var retry = document.getElementById('boot-retry');
     var subtitle = document.getElementById('boot-subtitle');
     if (navigator.onLine === false) {
-      if (subtitle) subtitle.textContent = 'Please go online before clearing the app cache.';
+      if (subtitle) subtitle.textContent = 'Bitte erst online gehen, bevor der App-Cache gelöscht wird.';
       return;
     }
     if (retry) retry.disabled = true;
@@ -52,11 +52,17 @@
     try {
       if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
         var registrations = await navigator.serviceWorker.getRegistrations();
-        await Promise.all(registrations.map(function(registration) { return registration.unregister(); }));
+        await Promise.all(registrations.map(function(registration) {
+          var worker = registration.active || registration.waiting || registration.installing;
+          if (!worker || !worker.scriptURL || !worker.scriptURL.endsWith('/sw.js')) return false;
+          return registration.unregister().catch(function() { return false; });
+        }));
       }
       if (window.caches && caches.keys) {
         var names = await caches.keys();
-        await Promise.all(names.map(function(name) { return caches.delete(name); }));
+        await Promise.all(names.filter(function(name) { return name.indexOf('nia-todo') === 0; }).map(function(name) {
+          return caches.delete(name).catch(function() { return false; });
+        }));
       }
     } catch (error) {
       console.warn('Boot recovery cache cleanup failed:', error);

@@ -8,6 +8,7 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
   let updateCheckInFlight = false;
   let lastUpdateCheckAt = 0;
   let serviceWorkerInitStarted = false;
+  let updateReloadFallbackTimer = null;
 
   const STARTUP_SW_DELAY_MS = 5000;
   const UPDATE_CHECK_TIMEOUT_MS = 8000;
@@ -52,6 +53,15 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
     const url = new URL(window.location.href);
     url.searchParams.set(paramName, String(Date.now()));
     window.location.replace(url.toString());
+  }
+
+  function isNiaTodoServiceWorkerRegistration(registration) {
+    const worker = registration?.active || registration?.waiting || registration?.installing;
+    return Boolean(worker?.scriptURL && worker.scriptURL.endsWith('/sw.js'));
+  }
+
+  function isNiaTodoCacheName(name) {
+    return String(name || '').startsWith('nia-todo');
   }
 
   function hideUpdateModal() {
@@ -130,6 +140,8 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
             console.log('SW: controller changed on first registration — no reload');
             return;
           }
+          if (updateReloadFallbackTimer) clearTimeout(updateReloadFallbackTimer);
+          updateReloadFallbackTimer = null;
           console.log('SW: New controller active after explicit update, reloading with cache buster...');
           reloadWithCacheBuster('appUpdated');
         });
@@ -219,6 +231,11 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
     if (primary) primary.disabled = true;
     if (swRegistration && swRegistration.waiting) {
       allowReloadOnControllerChange = true;
+      if (updateReloadFallbackTimer) clearTimeout(updateReloadFallbackTimer);
+      updateReloadFallbackTimer = setTimeout(() => {
+        console.warn('SW: controllerchange did not fire after skipWaiting, reloading with cache buster fallback');
+        reloadWithCacheBuster('appUpdated');
+      }, 10000);
       swRegistration.waiting.postMessage({ action: 'skipWaiting' });
       return true;
     }
@@ -235,12 +252,16 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
       button.title = 'Web-App wird neu geladen…';
     }
 
-    try {
-      if (navigator.onLine === false) {
-        console.warn('Forced app reload skipped because browser reports offline');
-        return;
+    if (navigator.onLine === false) {
+      console.warn('Forced app reload skipped because browser reports offline');
+      for (const button of buttons) {
+        button.disabled = false;
+        button.title = previousTitles.get(button) || 'Web-App neu herunterladen und Cache aktualisieren';
       }
+      return;
+    }
 
+    try {
       // This is used by the login-page recovery button and the sidebar reload
       // action. It must be a real recovery reload, not just location.reload(): a
       // stale active service worker can otherwise serve the same broken app
@@ -248,22 +269,21 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
       // and service worker registrations are reset.
       if ('serviceWorker' in navigator && typeof navigator.serviceWorker.getRegistrations === 'function') {
         const registrations = await navigator.serviceWorker.getRegistrations();
-        await Promise.all(registrations.map(registration => registration.unregister().catch(() => false)));
+        await Promise.all(registrations
+          .filter(isNiaTodoServiceWorkerRegistration)
+          .map(registration => registration.unregister().catch(() => false)));
       }
       if ('caches' in window && typeof caches.keys === 'function') {
         const names = await caches.keys();
-        await Promise.all(names.map(name => caches.delete(name).catch(() => false)));
+        await Promise.all(names
+          .filter(isNiaTodoCacheName)
+          .map(name => caches.delete(name).catch(() => false)));
       }
     } catch (err) {
       console.error('Forced app reload cleanup failed:', err);
-    } finally {
-      reloadWithCacheBuster('hardReload');
-
-      for (const button of buttons) {
-        button.disabled = false;
-        button.title = previousTitles.get(button) || 'Web-App neu herunterladen und Cache aktualisieren';
-      }
     }
+
+    reloadWithCacheBuster('hardReload');
   }
 
   return {

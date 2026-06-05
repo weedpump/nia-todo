@@ -60,8 +60,8 @@ assert(safeLink.includes('rel="noopener noreferrer"'), 'external links must incl
 const indexSource = readFileSync(new URL('../web/index.html', import.meta.url), 'utf8');
 assert(indexSource.includes('window.niaHardReloadApp = async function()'), 'boot retry must use an inline recovery function so it still works when app modules fail to load');
 assert(indexSource.includes('navigator.onLine === false'), 'boot retry must not clear offline PWA caches while the browser reports offline');
-assert(indexSource.includes('navigator.serviceWorker.getRegistrations') && indexSource.includes('registration.unregister()'), 'boot retry must unregister stale service workers before reloading');
-assert(indexSource.includes('caches.keys()') && indexSource.includes('caches.delete(name)'), 'boot retry must clear CacheStorage before reloading');
+assert(indexSource.includes('navigator.serviceWorker.getRegistrations') && indexSource.includes("scriptURL.endsWith('/sw.js')") && indexSource.includes('registration.unregister().catch'), 'boot retry must unregister nia-todo service workers before reloading and tolerate individual failures');
+assert(indexSource.includes('caches.keys()') && indexSource.includes("name.indexOf('nia-todo') === 0") && indexSource.includes('caches.delete(name).catch'), 'boot retry must clear nia-todo CacheStorage before reloading and tolerate individual failures');
 assert(indexSource.includes("url.searchParams.set('hardReload'"), 'boot retry must add a cache-busting hardReload query parameter');
 assert(!indexSource.includes('id="boot-retry" style="display:none;" onclick="location.reload()"'), 'boot retry must not be a plain location.reload');
 
@@ -71,8 +71,8 @@ assert(cssSource.includes('@supports (-webkit-touch-callout: none)') && cssSourc
 
 const adminSource = readFileSync(new URL('../web/admin.html', import.meta.url), 'utf8');
 assert(adminSource.includes('hardReloadAfterServerUpdate'), 'admin server update reload must use explicit hard reload cleanup');
-assert(adminSource.includes('navigator.serviceWorker.getRegistrations') && adminSource.includes('reg.unregister()'), 'admin server update reload must unregister stale service workers');
-assert(adminSource.includes('caches.keys()') && adminSource.includes('caches.delete(name)'), 'admin server update reload must clear CacheStorage');
+assert(adminSource.includes('navigator.serviceWorker.getRegistrations') && adminSource.includes("scriptURL?.endsWith('/sw.js')") && adminSource.includes('reg.unregister()'), 'admin server update reload must unregister stale nia-todo service workers');
+assert(adminSource.includes('caches.keys()') && adminSource.includes("startsWith('nia-todo')") && adminSource.includes('caches.delete(name)'), 'admin server update reload must clear nia-todo CacheStorage');
 assert(adminSource.includes('server-updated='), 'admin server update reload must navigate with a cache-busting query parameter');
 
 const swSource = readFileSync(new URL('../web/sw.js', import.meta.url), 'utf8');
@@ -131,9 +131,11 @@ const serviceWorkerUpdatesSource = readFileSync(new URL('../web/static/js/featur
 assert(serviceWorkerUpdatesSource.includes('bundled app assets are loaded locally'), 'native apps must skip the web service worker because bundled app assets are local');
 assert(serviceWorkerUpdatesSource.includes('scheduleUpdateCheck(\'startup\''), 'browser/PWA service worker update checks must run at startup, including before login');
 assert(serviceWorkerUpdatesSource.includes("reloadWithCacheBuster('appUpdated')"), 'explicit web app updates must reload with a cache-busting appUpdated query parameter after controllerchange');
-assert(serviceWorkerUpdatesSource.includes('navigator.onLine === false'), 'login/sidebar force reload must not clear offline PWA caches while the browser reports offline');
-assert(serviceWorkerUpdatesSource.includes('navigator.serviceWorker.getRegistrations') && serviceWorkerUpdatesSource.includes('registration.unregister()'), 'login/sidebar force reload must unregister stale service workers');
-assert(serviceWorkerUpdatesSource.includes('caches.keys()') && serviceWorkerUpdatesSource.includes('caches.delete(name)'), 'login/sidebar force reload must clear CacheStorage');
+assert(serviceWorkerUpdatesSource.includes('updateReloadFallbackTimer') && serviceWorkerUpdatesSource.includes('controllerchange did not fire'), 'explicit web app updates must have a timeout fallback if controllerchange does not fire');
+const forceReloadAppSource = serviceWorkerUpdatesSource.slice(serviceWorkerUpdatesSource.indexOf('async function forceReloadApp()'), serviceWorkerUpdatesSource.indexOf('  return {', serviceWorkerUpdatesSource.indexOf('async function forceReloadApp()')));
+assert(forceReloadAppSource.includes('navigator.onLine === false') && forceReloadAppSource.indexOf('if (navigator.onLine === false)') < forceReloadAppSource.indexOf('try {'), 'login/sidebar force reload must return before cleanup/reload while the browser reports offline');
+assert(serviceWorkerUpdatesSource.includes('navigator.serviceWorker.getRegistrations') && serviceWorkerUpdatesSource.includes('isNiaTodoServiceWorkerRegistration') && serviceWorkerUpdatesSource.includes('registration.unregister()'), 'login/sidebar force reload must unregister stale nia-todo service workers');
+assert(serviceWorkerUpdatesSource.includes('caches.keys()') && serviceWorkerUpdatesSource.includes('isNiaTodoCacheName') && serviceWorkerUpdatesSource.includes('caches.delete(name)'), 'login/sidebar force reload must clear nia-todo CacheStorage');
 assert(serviceWorkerUpdatesSource.includes("reloadWithCacheBuster('hardReload')"), 'login/sidebar force reload must add a cache-busting hardReload query parameter');
 assert(downloadsSource.includes('showNativeUpdateModal'), 'native app updates must use the native update modal');
 assert(downloadsSource.includes('deferUntilAfterLogin'), 'native app update prompts must be deferred until after login');
