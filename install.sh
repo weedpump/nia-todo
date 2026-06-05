@@ -45,7 +45,7 @@ mkdir -p "${APP_DIR}/api/data"
 
 if [ ! -f "${ETC_DIR}/nia-todo.env" ]; then
   cat > "${ETC_DIR}/nia-todo.env" <<ENV
-NIA_TODO_HOST=0.0.0.0
+NIA_TODO_HOST=auto
 NIA_TODO_PORT=8753
 NIA_TODO_DATA_DIR=${DATA_DIR}
 NIA_TODO_DB=nia-todo.db

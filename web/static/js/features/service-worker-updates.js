@@ -8,6 +8,7 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
   let updateCheckInFlight = false;
   let lastUpdateCheckAt = 0;
   let serviceWorkerInitStarted = false;
+  let updateReloadFallbackTimer = null;
 
   const STARTUP_SW_DELAY_MS = 5000;
   const UPDATE_CHECK_TIMEOUT_MS = 8000;
@@ -46,6 +47,21 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
       promise,
       new Promise((_, reject) => setTimeout(() => reject(new Error(`${label} timeout`)), timeoutMs)),
     ]);
+  }
+
+  function reloadWithCacheBuster(paramName = 'appUpdated') {
+    const url = new URL(window.location.href);
+    url.searchParams.set(paramName, String(Date.now()));
+    window.location.replace(url.toString());
+  }
+
+  function isNiaTodoServiceWorkerRegistration(registration) {
+    const worker = registration?.active || registration?.waiting || registration?.installing;
+    return Boolean(worker?.scriptURL && worker.scriptURL.endsWith('/sw.js'));
+  }
+
+  function isNiaTodoCacheName(name) {
+    return String(name || '').startsWith('nia-todo');
   }
 
   function hideUpdateModal() {
@@ -124,8 +140,10 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
             console.log('SW: controller changed on first registration — no reload');
             return;
           }
-          console.log('SW: New controller active after explicit update, reloading...');
-          window.location.reload();
+          if (updateReloadFallbackTimer) clearTimeout(updateReloadFallbackTimer);
+          updateReloadFallbackTimer = null;
+          console.log('SW: New controller active after explicit update, reloading with cache buster...');
+          reloadWithCacheBuster('appUpdated');
         });
 
         navigator.serviceWorker.addEventListener('message', (event) => {
@@ -180,44 +198,6 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
     }
   }
 
-  function waitForWorkerState(worker, state, timeoutMs = 8000) {
-    if (!worker) return Promise.resolve(false);
-    if (worker.state === state) return Promise.resolve(true);
-    return new Promise((resolve) => {
-      const timeout = setTimeout(() => {
-        worker.removeEventListener('statechange', onStateChange);
-        resolve(false);
-      }, timeoutMs);
-      function onStateChange() {
-        if (worker.state !== state) return;
-        clearTimeout(timeout);
-        worker.removeEventListener('statechange', onStateChange);
-        resolve(true);
-      }
-      worker.addEventListener('statechange', onStateChange);
-    });
-  }
-
-  function postMessageWithReply(worker, message, timeoutMs = 15000) {
-    return new Promise((resolve, reject) => {
-      if (!worker) {
-        reject(new Error('No service worker controller'));
-        return;
-      }
-      const channel = new MessageChannel();
-      const timeout = setTimeout(() => {
-        channel.port1.onmessage = null;
-        reject(new Error('Service worker reply timeout'));
-      }, timeoutMs);
-      channel.port1.onmessage = (event) => {
-        clearTimeout(timeout);
-        if (event.data?.ok) resolve(event.data);
-        else reject(new Error(event.data?.error || 'Service worker request failed'));
-      };
-      worker.postMessage(message, [channel.port2]);
-    });
-  }
-
   function updateVersionLabel() {
     const current = document.querySelector('.version-text')?.textContent?.trim() || '';
     const modalCurrent = document.getElementById('web-update-current-version');
@@ -251,6 +231,11 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
     if (primary) primary.disabled = true;
     if (swRegistration && swRegistration.waiting) {
       allowReloadOnControllerChange = true;
+      if (updateReloadFallbackTimer) clearTimeout(updateReloadFallbackTimer);
+      updateReloadFallbackTimer = setTimeout(() => {
+        console.warn('SW: controllerchange did not fire after skipWaiting, reloading with cache buster fallback');
+        reloadWithCacheBuster('appUpdated');
+      }, 10000);
       swRegistration.waiting.postMessage({ action: 'skipWaiting' });
       return true;
     }
@@ -267,49 +252,38 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
       button.title = 'Web-App wird neu geladen…';
     }
 
-    try {
-      if (!('serviceWorker' in navigator)) {
-        window.location.reload();
-        return;
-      }
-
-      const reg = swRegistration || await navigator.serviceWorker.getRegistration('/') || await navigator.serviceWorker.register('/sw.js');
-      swRegistration = reg;
-
-      try {
-        await withTimeout(reg.update(), UPDATE_CHECK_TIMEOUT_MS, 'SW forced update check');
-      } catch (err) {
-        console.warn('SW: Forced update check failed, refreshing current cache anyway', err);
-      }
-
-      if (reg.waiting) {
-        await triggerUpdate();
-        return;
-      }
-
-      if (reg.installing) {
-        await waitForWorkerState(reg.installing, 'installed');
-        if (reg.waiting) {
-          await triggerUpdate();
-          return;
-        }
-      }
-
-      const controller = navigator.serviceWorker.controller || reg.active;
-      if (controller) {
-        await postMessageWithReply(controller, { action: 'refreshAppCache' });
-      }
-
-      window.location.reload();
-    } catch (err) {
-      console.error('Forced app reload failed:', err);
-      window.location.reload();
-    } finally {
+    if (navigator.onLine === false) {
+      console.warn('Forced app reload skipped because browser reports offline');
       for (const button of buttons) {
         button.disabled = false;
         button.title = previousTitles.get(button) || 'Web-App neu herunterladen und Cache aktualisieren';
       }
+      return;
     }
+
+    try {
+      // This is used by the login-page recovery button and the sidebar reload
+      // action. It must be a real recovery reload, not just location.reload(): a
+      // stale active service worker can otherwise serve the same broken app
+      // shell again. Keep IndexedDB untouched; only browser-managed app caches
+      // and service worker registrations are reset.
+      if ('serviceWorker' in navigator && typeof navigator.serviceWorker.getRegistrations === 'function') {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(registrations
+          .filter(isNiaTodoServiceWorkerRegistration)
+          .map(registration => registration.unregister().catch(() => false)));
+      }
+      if ('caches' in window && typeof caches.keys === 'function') {
+        const names = await caches.keys();
+        await Promise.all(names
+          .filter(isNiaTodoCacheName)
+          .map(name => caches.delete(name).catch(() => false)));
+      }
+    } catch (err) {
+      console.error('Forced app reload cleanup failed:', err);
+    }
+
+    reloadWithCacheBuster('hardReload');
   }
 
   return {

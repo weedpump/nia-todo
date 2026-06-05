@@ -1626,11 +1626,17 @@ async function hardReloadAfterServerUpdate() {
   try {
     if ('serviceWorker' in navigator && typeof navigator.serviceWorker.getRegistrations === 'function') {
       const registrations = await navigator.serviceWorker.getRegistrations();
-      await Promise.all(registrations.map(reg => reg.unregister().catch(() => false)));
+      await Promise.all(registrations.map(reg => {
+        const worker = reg.active || reg.waiting || reg.installing;
+        if (!worker?.scriptURL?.endsWith('/sw.js')) return false;
+        return reg.unregister().catch(() => false);
+      }));
     }
     if ('caches' in window && typeof caches.keys === 'function') {
       const names = await caches.keys();
-      await Promise.all(names.map(name => caches.delete(name).catch(() => false)));
+      await Promise.all(names
+        .filter(name => String(name || '').startsWith('nia-todo'))
+        .map(name => caches.delete(name).catch(() => false)));
     }
   } catch (err) {
     console.warn('Hard reload cleanup after server update failed:', err);

@@ -37,7 +37,40 @@
 
   // If module scripts are missing from an incomplete offline cache, app.js never
   // runs and the lifecycle watchdog cannot start. Keep this tiny inline fallback.
+  // The retry action must work even when the app bundle or service worker code is
+  // stale/broken, so it lives inline and clears browser-managed app caches first.
   window.__niaAppModuleStarted = false;
+  window.niaHardReloadApp = async function() {
+    var retry = document.getElementById('boot-retry');
+    var subtitle = document.getElementById('boot-subtitle');
+    if (navigator.onLine === false) {
+      if (subtitle) subtitle.textContent = 'Bitte erst online gehen, bevor der App-Cache gelöscht wird.';
+      return;
+    }
+    if (retry) retry.disabled = true;
+    if (subtitle) subtitle.textContent = 'App cache is being cleared…';
+    try {
+      if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
+        var registrations = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(registrations.map(function(registration) {
+          var worker = registration.active || registration.waiting || registration.installing;
+          if (!worker || !worker.scriptURL || !worker.scriptURL.endsWith('/sw.js')) return false;
+          return registration.unregister().catch(function() { return false; });
+        }));
+      }
+      if (window.caches && caches.keys) {
+        var names = await caches.keys();
+        await Promise.all(names.filter(function(name) { return name.indexOf('nia-todo') === 0; }).map(function(name) {
+          return caches.delete(name).catch(function() { return false; });
+        }));
+      }
+    } catch (error) {
+      console.warn('Boot recovery cache cleanup failed:', error);
+    }
+    var url = new URL(window.location.href);
+    url.searchParams.set('hardReload', String(Date.now()));
+    window.location.replace(url.toString());
+  };
   window.addEventListener('DOMContentLoaded', function() {
     setTimeout(function() {
       if (window.__niaAppModuleStarted) return;
@@ -59,7 +92,7 @@
       <div class="boot-title" data-i18n-key="boot.title">nia-todo wird geladen</div>
       <div class="boot-subtitle" id="boot-subtitle" data-i18n-key="boot.subtitle">App startet…</div>
       <div class="boot-spinner" id="boot-spinner" aria-hidden="true"></div>
-      <button type="button" class="boot-retry" id="boot-retry" style="display:none;" onclick="location.reload()" data-i18n-key="common.reload">Neu laden</button>
+      <button type="button" class="boot-retry" id="boot-retry" style="display:none;" onclick="window.niaHardReloadApp && window.niaHardReloadApp()" data-i18n-key="common.reload">Neu laden</button>
     </div>
   </div>
 
@@ -196,7 +229,7 @@
         <!-- Version & Update -->
         <div class="version-bar" id="version-bar">
           <div class="version-info" id="version-info">
-            <span class="version-text">v2.11.1</span>
+            <span class="version-text">v2.11.2</span>
           </div>
           <div class="version-actions web-version-actions" id="version-actions">
             <a class="changelog-link version-action-btn" id="changelog-link" href="/changelog" target="_blank" rel="noopener noreferrer" title="Open changelog" data-i18n-title-key="version.openChangelog" data-i18n-key="resource.changelog">Changelog</a>

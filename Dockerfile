@@ -2,7 +2,7 @@ FROM python:3.13.5-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    NIA_TODO_HOST=0.0.0.0 \
+    NIA_TODO_HOST=auto \
     NIA_TODO_PORT=8753 \
     NIA_TODO_DATA_DIR=/data \
     NIA_TODO_DB=nia-todo.db

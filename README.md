@@ -143,7 +143,7 @@ docker run -d \
   --name nia-todo \
   --restart unless-stopped \
   -p 8753:8753 \
-  -e NIA_TODO_HOST=0.0.0.0 \
+  -e NIA_TODO_HOST=auto \
   -e NIA_TODO_PORT=8753 \
   -e NIA_TODO_DATA_DIR=/data \
   -e NIA_TODO_DB=nia-todo.db \
@@ -160,7 +160,7 @@ services:
     ports:
       - "8753:8753"
     environment:
-      NIA_TODO_HOST: 0.0.0.0
+      NIA_TODO_HOST: auto
       NIA_TODO_PORT: 8753
       NIA_TODO_DATA_DIR: /data
       NIA_TODO_DB: nia-todo.db
