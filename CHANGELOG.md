@@ -5,6 +5,19 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [2.11.3] - 2026-06-05
+
+### Changed
+- Android reminder notifications now open the app only and no longer expose the broken **Erledigt/Completed** action.
+- BrainDump todo preview now shows detected route, deadline, reminder, recurrence, and location reminder metadata as the same compact chips used by regular todo cards, so accepted candidates are easier to verify before creation.
+
+### Fixed
+- Browser hard reload recovery now bypasses stale Service Worker CacheStorage and browser HTTP cache for app-shell/static assets across sidebar, login-screen, and boot-error **Neu laden** flows while preserving offline PWA caches.
+- Minimal todo mode now hides badges, metadata pills, and description previews again instead of accidentally restyling location reminder pills.
+- Dashboard **Due today** now counts all open todos due within the current day, including already-overdue items from earlier today.
+- Admin sign-in now restores the stored admin session correctly after a page reload instead of clearing the token during initial statistics loading.
+- Admin sign-in markup is now password-manager friendly, allowing browser extensions such as Bitwarden to recognize and autofill the admin password field.
+
 ## [2.11.2] - 2026-06-05
 
 ### Changed

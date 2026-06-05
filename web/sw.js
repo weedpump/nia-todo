@@ -1,5 +1,5 @@
 // nia-todo Service Worker - robust offline-first, update system, and push notifications
-const SW_VERSION = 'v2.11.2';
+const SW_VERSION = 'v2.11.3';
 const CACHE_NAME = 'nia-todo-' + SW_VERSION;
 
 // Assets required for offline startup
@@ -124,6 +124,19 @@ function isNeverCachePath(pathname) {
   return pathname.startsWith('/downloads/') || pathname === '/downloads/app-downloads.json';
 }
 
+function isHardReloadRequest(event, url) {
+  return event.request.cache === 'reload'
+    || url.searchParams.has('hardReload')
+    || url.searchParams.has('appUpdated')
+    || url.searchParams.has('server-updated')
+    || url.searchParams.has('hardReloadAsset');
+}
+
+function cacheKeyForReloadedAppShell(request, url) {
+  if (request.mode === 'navigate' || request.destination === 'document') return '/index.html';
+  return url.pathname;
+}
+
 async function purgeNeverCacheEntries() {
   const names = await caches.keys();
   await Promise.all(names.map(async (name) => {
@@ -207,8 +220,6 @@ self.addEventListener('push', (event) => {
   const body = data.body || '';
   const tag = data.tag || ('push-' + Date.now());
   const url = data.url || '/';
-  const todoId = data.todoId;
-  const actionLabels = data.actionLabels || {};
 
   event.waitUntil(
     self.registration.showNotification(title, {
@@ -216,11 +227,8 @@ self.addEventListener('push', (event) => {
       icon: '/static/icons/icon-192.png',
       badge: '/static/icons/icon-badge.png',
       tag: tag,
-      data: { url: url, todoId: todoId },
-      actions: [
-        { action: 'open', title: actionLabels.open || 'Open' },
-        { action: 'done', title: actionLabels.done || 'Done' }
-      ],
+      data: { url: url },
+      actions: [],
       requireInteraction: false,
     })
   );
@@ -230,37 +238,10 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
-  const action = event.action;
   const data = event.notification.data || {};
-  const todoId = data.todoId;
   const url = data.url || '/';
 
-  if (action === 'open' || !action) {
-    // Open app
-    event.waitUntil(clients.openWindow(url));
-  } else if (action === 'done' && todoId) {
-    // Focus existing app window or open it, then post message to mark todo done
-    event.waitUntil(
-      clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
-        if (windowClients.length > 0) {
-          // Focus existing window and send message
-          const client = windowClients[0];
-          client.focus();
-          client.postMessage({ type: 'MARK_TODO_DONE', todoId: todoId });
-        } else {
-          // Open new window
-          clients.openWindow('/').then(client => {
-            // Wait a bit for app to init, then send message
-            setTimeout(() => {
-              client.postMessage({ type: 'MARK_TODO_DONE', todoId: todoId });
-            }, 2000);
-          });
-        }
-      })
-    );
-  } else {
-    event.waitUntil(clients.openWindow(url));
-  }
+  event.waitUntil(clients.openWindow(url));
 });
 
 // ─── Notification Close (optional cleanup) ───────────────────────────────────
@@ -305,6 +286,27 @@ self.addEventListener('fetch', (event) => {
     return;
   }
   
+  // Forced reload/update navigations must bypass stale Service Worker CacheStorage.
+  if (isHardReloadRequest(event, url)) {
+    event.respondWith(
+      fetch(new Request(event.request, { cache: 'reload' })).then((response) => {
+        if (response.ok) {
+          const clone = response.clone();
+          const cacheKey = cacheKeyForReloadedAppShell(event.request, url);
+          caches.open(CACHE_NAME).then((cache) => cache.put(cacheKey, clone));
+        }
+        return response;
+      }).catch(() => caches.match(event.request).then((cached) => {
+        if (cached) return cached;
+        if (event.request.mode === 'navigate' || event.request.destination === 'document') {
+          return caches.match('/index.html').then((index) => index || new Response(OFFLINE_HTML, { headers: { 'Content-Type': 'text/html' } }));
+        }
+        return new Response('', { status: 404 });
+      }))
+    );
+    return;
+  }
+
   // Alle anderen Requests
   event.respondWith(
     caches.match(event.request)

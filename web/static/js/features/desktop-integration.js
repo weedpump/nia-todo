@@ -416,10 +416,6 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
     }
   }
 
-  function consumePendingDoneAction() {
-    return nativeBridge.consumePendingDoneAction();
-  }
-
   async function updateHotkey(action, shortcut) {
     if (!isDesktopApp()) return;
     setDesktopStatus(t('settings.desktop.hotkeys.saving'));
@@ -489,7 +485,6 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
     announceNotificationReadiness,
     notifyReminder,
     syncLocalReminders,
-    consumePendingDoneAction,
     updateServerUrl,
     resetServerUrl,
     testNotification,

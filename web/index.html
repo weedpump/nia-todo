@@ -43,6 +43,35 @@
   window.niaHardReloadApp = async function() {
     var retry = document.getElementById('boot-retry');
     var subtitle = document.getElementById('boot-subtitle');
+    var fallbackAssets = ['/', '/index.html', '/manifest.json', '/static/style.css', '/static/js/main.js'];
+    function parsePrecacheAssets(source) {
+      var match = String(source || '').match(/const\s+PRECACHE_ASSETS\s*=\s*\[([\s\S]*?)\];/);
+      if (!match) return [];
+      return Array.from(match[1].matchAll(/['"]([^'"]+)['"]/g)).map(function(item) { return item[1]; }).filter(function(asset) {
+        return asset === '/' || asset === '/index.html' || asset === '/manifest.json' || asset.indexOf('/static/') === 0;
+      });
+    }
+    async function refreshAssetsFromNetwork() {
+      var assets = fallbackAssets;
+      try {
+        var swResponse = await fetch('/sw.js?hard-reload-assets=' + Date.now(), { cache: 'reload' });
+        if (swResponse.ok) {
+          var parsed = parsePrecacheAssets(await swResponse.text());
+          if (parsed.length) assets = parsed;
+        }
+      } catch (error) {
+        console.warn('Boot recovery could not read service worker asset list; using fallback assets', error);
+      }
+      await Promise.all(Array.from(new Set(assets)).map(function(asset) {
+        try {
+          var assetUrl = new URL(asset, window.location.origin);
+          assetUrl.searchParams.set('hardReloadAsset', String(Date.now()));
+          return fetch(assetUrl.toString(), { cache: 'reload', credentials: 'same-origin' }).catch(function() { return false; });
+        } catch (_) {
+          return false;
+        }
+      }));
+    }
     if (navigator.onLine === false) {
       if (subtitle) subtitle.textContent = 'Bitte erst online gehen, bevor der App-Cache gelöscht wird.';
       return;
@@ -64,6 +93,7 @@
           return caches.delete(name).catch(function() { return false; });
         }));
       }
+      await refreshAssetsFromNetwork();
     } catch (error) {
       console.warn('Boot recovery cache cleanup failed:', error);
     }
@@ -229,7 +259,7 @@
         <!-- Version & Update -->
         <div class="version-bar" id="version-bar">
           <div class="version-info" id="version-info">
-            <span class="version-text">v2.11.2</span>
+            <span class="version-text">v2.11.3</span>
           </div>
           <div class="version-actions web-version-actions" id="version-actions">
             <a class="changelog-link version-action-btn" id="changelog-link" href="/changelog" target="_blank" rel="noopener noreferrer" title="Open changelog" data-i18n-title-key="version.openChangelog" data-i18n-key="resource.changelog">Changelog</a>

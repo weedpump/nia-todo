@@ -197,6 +197,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .admin-dialog-content p { margin: 0; color: var(--text-muted); font-size: 14px; line-height: 1.45; }
 .admin-dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
 .ui-icon { width: 1em; height: 1em; display: inline-block; vertical-align: -0.14em; }
+.admin-visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
 @media (max-width: 720px) {
   .admin-container { padding: 18px 12px 32px; }
   .admin-header { align-items: flex-start; flex-direction: column; margin-bottom: 18px; }
@@ -294,10 +295,13 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 
   <div class="admin-card" id="admin-login-card">
     <h2><span data-icon="lock-keyhole"></span> <span data-i18n-key="admin.login.title">Admin sign-in</span></h2>
-    <div class="form-row">
-      <input type="password" id="admin-login-password" data-i18n-placeholder-key="admin.login.passwordPlaceholder" placeholder="Enter admin password" autocomplete="off" onkeydown="if(event.key==='Enter') doAdminLogin()">
-      <button class="btn btn-primary" onclick="doAdminLogin()" data-i18n-key="auth.signIn">Sign in</button>
-    </div>
+    <form class="form-row" id="admin-login-form" autocomplete="on" onsubmit="event.preventDefault(); doAdminLogin();">
+      <label class="admin-visually-hidden" for="admin-login-username">Admin username</label>
+      <input class="admin-visually-hidden" type="text" id="admin-login-username" name="username" value="admin" autocomplete="username" readonly tabindex="-1">
+      <label class="admin-visually-hidden" for="admin-login-password" data-i18n-key="auth.password">Password</label>
+      <input type="password" id="admin-login-password" name="password" data-i18n-placeholder-key="admin.login.passwordPlaceholder" placeholder="Enter admin password" autocomplete="current-password" required>
+      <button class="btn btn-primary" type="submit" data-i18n-key="auth.signIn">Sign in</button>
+    </form>
     <div class="admin-error" id="admin-login-error"></div>
   </div>
 
@@ -789,6 +793,7 @@ let serverUpdatePollTimer = null;
 let serverUpdateReloadPromptShown = false;
 let serverUpdateStartedInThisPage = false;
 let adminUsers = [];
+let currentStatsDays = 30;
 
 function focusAdminLoginPassword() {
   window.setTimeout(() => {
@@ -968,7 +973,6 @@ async function doAdminLogin() {
 
 let twoFactorPolicyRequired = false;
 let brainDumpFeatureEnabled = false;
-let currentStatsDays = 30;
 
 async function loadAdminData() {
   const [usersData, configData, brainDumpConfigData, emailConfigData, twoFactorPolicy, serverUpdate, technicalStats] = await Promise.all([

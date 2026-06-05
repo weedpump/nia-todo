@@ -184,6 +184,8 @@ export function createAppRenderingFeature({
     const currentProjectId = getCurrentProjectId();
     const search = document.getElementById('search-input')?.value?.trim() || '';
     const now = new Date();
+    const todayStart = new Date(now);
+    todayStart.setHours(0, 0, 0, 0);
     const todayEnd = new Date(now);
     todayEnd.setHours(23, 59, 59, 999);
     const weekEnd = new Date(now);
@@ -198,7 +200,11 @@ export function createAppRenderingFeature({
     const validProjectIds = new Set(projects.map(project => Number(project.id)));
     const focusCount = applyFocusFilters(todos, validProjectIds).length;
     const overdue = activeTodos.filter(t => t.due_date && new Date(t.due_date) < now).length;
-    const dueToday = activeTodos.filter(t => t.due_date && new Date(t.due_date) >= now && new Date(t.due_date) <= todayEnd).length;
+    const dueToday = activeTodos.filter(t => {
+      if (!t.due_date) return false;
+      const due = new Date(t.due_date);
+      return due >= todayStart && due <= todayEnd;
+    }).length;
     const dueWeek = activeTodos.filter(t => t.due_date && new Date(t.due_date) > todayEnd && new Date(t.due_date) <= weekEnd).length;
     const completionRate = total ? Math.round((done / total) * 100) : 0;
 

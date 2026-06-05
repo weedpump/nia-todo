@@ -406,7 +406,7 @@ const authSessionFeature = createAuthSessionFeature({
   refreshFromServer: () => refreshFromServer(),
   renderUserInfo: () => renderUserInfo(),
 });
-const serviceWorkerUpdates = createServiceWorkerUpdatesFeature({ onMarkTodoDone: (id) => markTodoDone(id) });
+const serviceWorkerUpdates = createServiceWorkerUpdatesFeature();
 const initServiceWorker = serviceWorkerUpdates.initServiceWorker;
 const triggerUpdate = serviceWorkerUpdates.triggerUpdate;
 const forceReloadApp = serviceWorkerUpdates.forceReloadApp;
@@ -711,56 +711,6 @@ const markTodoInProgress = todosFeature.markTodoInProgress;
 const setTodoStatus = todosFeature.setTodoStatus;
 const toggleTodoPin = todosFeature.toggleTodoPin;
 const snoozeTodo = todosFeature.snoozeTodo;
-async function markTodoDoneFromNative(action) {
-  const rawAction = typeof action === 'object' && action ? action : { id: action };
-  const rawId = String(rawAction.id || '');
-  const actionUserId = rawAction.userId == null ? '' : String(rawAction.userId);
-  const startedAt = Date.now();
-  while ((!appInitialized || !db) && Date.now() - startedAt < 30000) {
-    await new Promise((resolve) => setTimeout(resolve, 500));
-  }
-  if (!appInitialized || !db) {
-    showToast?.(t('notification.action.appNotReady'));
-    return false;
-  }
-  if (actionUserId && currentUser?.id != null && actionUserId !== String(currentUser.id)) {
-    console.warn('[NativeAction] Ignored notification action for another user', { actionUserId, currentUserId: currentUser.id });
-    showToast?.(t('notification.action.otherUserIgnored'));
-    return false;
-  }
-  const numericId = /^\d+$/.test(rawId) ? Number(rawId) : rawId;
-  const todo = todos.find((item) => item.id === numericId || String(item.id) === rawId);
-  if (!todo) {
-    console.warn('[NativeAction] Todo not found for notification action', { id: rawId, knownIds: todos.map((item) => item.id) });
-    showToast?.(t('notification.action.todoNotFound', { id: rawId }));
-    return false;
-  }
-  await markTodoDone(todo.id);
-  showToast?.(t('notification.action.todoCompleted'));
-  return true;
-}
-
-let nativeDoneActionPollTimer = null;
-async function consumePendingNativeDoneAction() {
-  let action = null;
-  try {
-    action = desktopIntegration?.consumePendingDoneAction?.();
-  } catch (error) {
-    console.warn('[NativeAction] Failed to consume pending native done action', error);
-    return;
-  }
-  if (!action?.id) return;
-  await markTodoDoneFromNative(action);
-}
-
-function startNativeDoneActionPolling() {
-  if (nativeDoneActionPollTimer) return;
-  consumePendingNativeDoneAction();
-  nativeDoneActionPollTimer = setInterval(consumePendingNativeDoneAction, 1000);
-  document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) consumePendingNativeDoneAction();
-  });
-}
 const toggleTodo = todosFeature.toggleTodo;
 const showTodoModal = todosFeature.showTodoModal;
 const onProjectChange = todosFeature.onProjectChange;
@@ -914,7 +864,6 @@ export function startAppModule() {
     closeFocusProjectMenu();
   });
   desktopIntegration?.init();
-  startNativeDoneActionPolling();
   window.addEventListener('nia-language-change', () => {
     translatePage(document);
     applyTheme(localStorage.getItem('theme') || 'system');
@@ -946,7 +895,7 @@ export function startAppModule() {
   rendering: { renderVersionInfo, renderProjects, renderStats, renderTodos, renderSectionHeader, countByProject },
   navigation: { setFilter, loadSectionsForCurrentProject, bindNavigationHistory },
   workspaces: { renderWorkspaces, switchWorkspace, createWorkspace, showWorkspaceModal, closeWorkspaceModal, saveWorkspace, deleteWorkspaceFromModal, toggleWorkspaceMenu, closeWorkspaceMenu, loadWorkspacesFromServer },
-  todos: { markTodoDone, markTodoInProgress, markTodoDoneFromNative, setTodoStatus, toggleTodo, toggleTodoPin, snoozeTodo, showTodoModal, onProjectChange, saveTodo, editTodo, deleteTodoFromModal, deleteTodo },
+  todos: { markTodoDone, markTodoInProgress, setTodoStatus, toggleTodo, toggleTodoPin, snoozeTodo, showTodoModal, onProjectChange, saveTodo, editTodo, deleteTodoFromModal, deleteTodo },
   projects: { showProjectModal, editProject, saveProject, deleteProject, deleteProjectFromModal, clearDoneFromModal, clearDoneInProject },
   sharing: { inviteUserToProject: () => sharingFeature.inviteByUsername(), leaveProjectFromModal: () => sharingFeature.leaveProject(), undoLeaveProject: (data) => sharingFeature.undoLeaveProject(data), undoRemoveMember: (data) => sharingFeature.undoRemoveMember(data), undoInvite: (data) => sharingFeature.undoInvite(data), acceptInvite: (pid, iid) => sharingFeature.acceptInvite(pid, iid), declineInvite: (pid, iid) => sharingFeature.declineInvite(pid, iid), showShareInput: () => sharingFeature.showShareInput() },
   projectSharing: { setProject: (project) => sharingFeature.setProject(project), applyProjectModalState: (project, canEdit, shared) => sharingFeature.applyProjectModalState(project, canEdit, shared), loadInvites: () => sharingFeature.loadInvites() },

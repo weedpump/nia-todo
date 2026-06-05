@@ -1,6 +1,6 @@
 import { APP_VERSION, RUNTIME_CAPABILITIES } from '../core/config.js';
 
-export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
+export function createServiceWorkerUpdatesFeature() {
   let swRegistration = null;
   let updateAvailable = false;
   let allowReloadOnControllerChange = false;
@@ -16,6 +16,7 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
   const NATIVE_UPDATE_INTERVAL_MS = 10 * 60 * 1000;
   const FOREGROUND_MIN_CHECK_INTERVAL_MS = 2 * 60 * 1000;
   const STARTUP_FOLLOW_UP_DELAYS_MS = [20 * 1000, 2 * 60 * 1000];
+  const FALLBACK_HARD_RELOAD_ASSETS = ['/', '/index.html', '/manifest.json', '/static/style.css', '/static/js/main.js'];
 
   function isNativeApp() {
     return RUNTIME_CAPABILITIES.native;
@@ -62,6 +63,38 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
 
   function isNiaTodoCacheName(name) {
     return String(name || '').startsWith('nia-todo');
+  }
+
+  function parsePrecacheAssets(serviceWorkerSource) {
+    const match = String(serviceWorkerSource || '').match(/const\s+PRECACHE_ASSETS\s*=\s*\[([\s\S]*?)\];/);
+    if (!match) return [];
+    return [...match[1].matchAll(/['"]([^'"]+)['"]/g)]
+      .map(item => item[1])
+      .filter(asset => asset === '/' || asset.startsWith('/static/') || asset === '/index.html' || asset === '/manifest.json');
+  }
+
+  async function fetchHardReloadAssets() {
+    let assets = FALLBACK_HARD_RELOAD_ASSETS;
+    try {
+      const swResponse = await fetch(`/sw.js?hard-reload-assets=${Date.now()}`, { cache: 'reload' });
+      if (swResponse.ok) {
+        const parsed = parsePrecacheAssets(await swResponse.text());
+        if (parsed.length) assets = parsed;
+      }
+    } catch (error) {
+      console.warn('Forced app reload could not read service worker asset list; using fallback assets', error);
+    }
+
+    const uniqueAssets = [...new Set(assets)];
+    await Promise.all(uniqueAssets.map(async (asset) => {
+      try {
+        const url = new URL(asset, window.location.origin);
+        url.searchParams.set('hardReloadAsset', String(Date.now()));
+        await fetch(url.toString(), { cache: 'reload', credentials: 'same-origin' });
+      } catch (error) {
+        console.warn('Forced app reload asset refresh failed:', asset, error);
+      }
+    }));
   }
 
   function hideUpdateModal() {
@@ -144,13 +177,6 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
           updateReloadFallbackTimer = null;
           console.log('SW: New controller active after explicit update, reloading with cache buster...');
           reloadWithCacheBuster('appUpdated');
-        });
-
-        navigator.serviceWorker.addEventListener('message', (event) => {
-          console.log('SW message received:', event.data);
-          if (event.data?.type === 'MARK_TODO_DONE' && event.data.todoId) {
-            onMarkTodoDone(event.data.todoId);
-          }
         });
       } catch (err) {
         console.error('SW registration failed:', err);
@@ -279,6 +305,7 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
           .filter(isNiaTodoCacheName)
           .map(name => caches.delete(name).catch(() => false)));
       }
+      await fetchHardReloadAssets();
     } catch (err) {
       console.error('Forced app reload cleanup failed:', err);
     }

@@ -6844,13 +6844,7 @@ input[type="color"]::-moz-color-swatch {
     margin-top: 0;
   }
 
-  .todo-meta-chip.todo-location {
-  color: var(--accent);
-  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-}
-
-.todo-desc-preview {
+  .todo-desc-preview {
     max-width: 100%;
   }
 }
@@ -6981,13 +6975,7 @@ input[type="color"]::-moz-color-swatch {
 }
 
 /* Todo list descriptions are one-line previews; full multiline text belongs in the modal. */
-.todo-body .todo-meta-chip.todo-location {
-  color: var(--accent);
-  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-}
-
-.todo-desc-preview {
+.todo-body .todo-desc-preview {
   display: block;
   width: 100%;
   max-width: min(560px, 100%);
@@ -7005,13 +6993,7 @@ input[type="color"]::-moz-color-swatch {
 }
 
 @media (max-width: 768px) {
-  .todo-body .todo-meta-chip.todo-location {
-  color: var(--accent);
-  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-}
-
-.todo-desc-preview {
+  .todo-body .todo-desc-preview {
     max-width: 100%;
   }
 }
@@ -7854,13 +7836,7 @@ body.is-minimal-todos .todo-title {
 
 body.is-minimal-todos .todo-badges,
 body.is-minimal-todos .todo-meta-row,
-body.is-minimal-todos .todo-meta-chip.todo-location {
-  color: var(--accent);
-  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-}
-
-.todo-desc-preview {
+body.is-minimal-todos .todo-desc-preview {
   display: none !important;
 }
 
