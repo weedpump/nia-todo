@@ -92,6 +92,19 @@ export function createServiceWorkerUpdatesFeature() {
     });
   }
 
+  function resolveWithTimeout(promise, timeoutMs, fallbackValue = false) {
+    return new Promise((resolve) => {
+      const timeout = setTimeout(() => resolve(fallbackValue), timeoutMs);
+      Promise.resolve(promise).then((value) => {
+        clearTimeout(timeout);
+        resolve(value);
+      }).catch(() => {
+        clearTimeout(timeout);
+        resolve(fallbackValue);
+      });
+    });
+  }
+
   async function ensureOfflineServiceWorkerReadyAfterHardReload() {
     if (!('serviceWorker' in navigator) || typeof navigator.serviceWorker?.register !== 'function') return false;
     try {
@@ -112,7 +125,7 @@ export function createServiceWorkerUpdatesFeature() {
         }
       }
 
-      await navigator.serviceWorker.ready;
+      await resolveWithTimeout(navigator.serviceWorker.ready, 2500, null);
       return Boolean(registration.active || navigator.serviceWorker.controller);
     } catch (error) {
       console.warn('Forced app reload could not restore offline service worker before navigation', error);
@@ -353,7 +366,7 @@ export function createServiceWorkerUpdatesFeature() {
           .map(name => caches.delete(name).catch(() => false)));
       }
       await fetchHardReloadAssets();
-      await ensureOfflineServiceWorkerReadyAfterHardReload();
+      await resolveWithTimeout(ensureOfflineServiceWorkerReadyAfterHardReload(), 7000, false);
     } catch (err) {
       console.error('Forced app reload cleanup failed:', err);
     }

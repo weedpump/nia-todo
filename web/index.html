@@ -69,6 +69,18 @@
         worker.addEventListener('statechange', onStateChange);
       });
     }
+    function withTimeout(promise, timeoutMs, fallbackValue) {
+      return new Promise(function(resolve) {
+        var timeout = setTimeout(function() { resolve(fallbackValue); }, timeoutMs);
+        Promise.resolve(promise).then(function(value) {
+          clearTimeout(timeout);
+          resolve(value);
+        }).catch(function() {
+          clearTimeout(timeout);
+          resolve(fallbackValue);
+        });
+      });
+    }
     async function restoreOfflineServiceWorker() {
       if (!navigator.serviceWorker || !navigator.serviceWorker.register) return false;
       try {
@@ -88,7 +100,7 @@
           }
         }
 
-        await navigator.serviceWorker.ready;
+        await withTimeout(navigator.serviceWorker.ready, 2500, null);
         return Boolean(registration.active || navigator.serviceWorker.controller);
       } catch (error) {
         console.warn('Boot recovery could not restore offline service worker before navigation', error);
@@ -138,7 +150,7 @@
         }));
       }
       await refreshAssetsFromNetwork();
-      await restoreOfflineServiceWorker();
+      await withTimeout(restoreOfflineServiceWorker(), 7000, false);
     } catch (error) {
       console.warn('Boot recovery cache cleanup failed:', error);
     }
