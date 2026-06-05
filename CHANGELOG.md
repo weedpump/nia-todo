@@ -5,6 +5,11 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- BrainDump todo preview now shows detected route, deadline, reminder, recurrence, and location reminder metadata as the same compact chips used by regular todo cards, so accepted candidates are easier to verify before creation.
+
 ## [2.11.2] - 2026-06-05
 
 ### Changed
