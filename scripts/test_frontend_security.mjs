@@ -130,10 +130,11 @@ assert(swSource.includes('/static/js/features/app-downloads.js'), 'service worke
 const serviceWorkerUpdatesSource = readFileSync(new URL('../web/static/js/features/service-worker-updates.js', import.meta.url), 'utf8');
 assert(serviceWorkerUpdatesSource.includes('bundled app assets are loaded locally'), 'native apps must skip the web service worker because bundled app assets are local');
 assert(serviceWorkerUpdatesSource.includes('scheduleUpdateCheck(\'startup\''), 'browser/PWA service worker update checks must run at startup, including before login');
+assert(serviceWorkerUpdatesSource.includes("reloadWithCacheBuster('appUpdated')"), 'explicit web app updates must reload with a cache-busting appUpdated query parameter after controllerchange');
 assert(serviceWorkerUpdatesSource.includes('navigator.onLine === false'), 'login/sidebar force reload must not clear offline PWA caches while the browser reports offline');
 assert(serviceWorkerUpdatesSource.includes('navigator.serviceWorker.getRegistrations') && serviceWorkerUpdatesSource.includes('registration.unregister()'), 'login/sidebar force reload must unregister stale service workers');
 assert(serviceWorkerUpdatesSource.includes('caches.keys()') && serviceWorkerUpdatesSource.includes('caches.delete(name)'), 'login/sidebar force reload must clear CacheStorage');
-assert(serviceWorkerUpdatesSource.includes("url.searchParams.set('hardReload'"), 'login/sidebar force reload must add a cache-busting hardReload query parameter');
+assert(serviceWorkerUpdatesSource.includes("reloadWithCacheBuster('hardReload')"), 'login/sidebar force reload must add a cache-busting hardReload query parameter');
 assert(downloadsSource.includes('showNativeUpdateModal'), 'native app updates must use the native update modal');
 assert(downloadsSource.includes('deferUntilAfterLogin'), 'native app update prompts must be deferred until after login');
 assert(downloadsSource.includes('validateDownloadEntry'), 'app download manifests must be validated before rendering');

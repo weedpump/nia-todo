@@ -48,6 +48,12 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
     ]);
   }
 
+  function reloadWithCacheBuster(paramName = 'appUpdated') {
+    const url = new URL(window.location.href);
+    url.searchParams.set(paramName, String(Date.now()));
+    window.location.replace(url.toString());
+  }
+
   function hideUpdateModal() {
     const modal = document.getElementById('web-update-modal');
     if (!modal) return;
@@ -124,8 +130,8 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
             console.log('SW: controller changed on first registration — no reload');
             return;
           }
-          console.log('SW: New controller active after explicit update, reloading...');
-          window.location.reload();
+          console.log('SW: New controller active after explicit update, reloading with cache buster...');
+          reloadWithCacheBuster('appUpdated');
         });
 
         navigator.serviceWorker.addEventListener('message', (event) => {
@@ -251,9 +257,7 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
     } catch (err) {
       console.error('Forced app reload cleanup failed:', err);
     } finally {
-      const url = new URL(window.location.href);
-      url.searchParams.set('hardReload', String(Date.now()));
-      window.location.replace(url.toString());
+      reloadWithCacheBuster('hardReload');
 
       for (const button of buttons) {
         button.disabled = false;
