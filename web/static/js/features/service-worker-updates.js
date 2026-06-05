@@ -65,6 +65,21 @@ export function createServiceWorkerUpdatesFeature() {
     return String(name || '').startsWith('nia-todo');
   }
 
+  async function refreshActiveServiceWorkerAppCache(registration) {
+    const worker = registration?.active || navigator.serviceWorker?.controller;
+    if (!worker || typeof worker.postMessage !== 'function') return false;
+    const channel = new MessageChannel();
+    const response = new Promise((resolve) => {
+      const timeout = setTimeout(() => resolve(false), 10000);
+      channel.port1.onmessage = (event) => {
+        clearTimeout(timeout);
+        resolve(Boolean(event.data?.ok));
+      };
+    });
+    worker.postMessage({ action: 'refreshAppCache' }, [channel.port2]);
+    return response;
+  }
+
   function parsePrecacheAssets(serviceWorkerSource) {
     const match = String(serviceWorkerSource || '').match(/const\s+PRECACHE_ASSETS\s*=\s*\[([\s\S]*?)\];/);
     if (!match) return [];
@@ -349,15 +364,24 @@ export function createServiceWorkerUpdatesFeature() {
       // This is used by the login-page recovery button and the sidebar reload
       // action. It must be a real recovery reload, not just location.reload(): a
       // stale active service worker can otherwise serve the same broken app
-      // shell again. Keep IndexedDB untouched; only browser-managed app caches
-      // and service worker registrations are reset.
+      // shell again. Keep IndexedDB untouched. When a nia-todo service worker is
+      // already active, keep it registered and refresh its app-shell cache in
+      // place. iOS/iPadOS standalone PWAs can lose offline launch after a
+      // hard-reload if the active worker is unregistered during the current
+      // standalone page lifetime. Only use the destructive unregister/cache wipe
+      // fallback when there is no active nia-todo worker to preserve.
+      let hasActiveNiaTodoWorker = false;
       if ('serviceWorker' in navigator && typeof navigator.serviceWorker.getRegistrations === 'function') {
         const registrations = await navigator.serviceWorker.getRegistrations();
-        await Promise.all(registrations
-          .filter(isNiaTodoServiceWorkerRegistration)
-          .map(registration => registration.unregister().catch(() => false)));
+        const niaRegistrations = registrations.filter(isNiaTodoServiceWorkerRegistration);
+        hasActiveNiaTodoWorker = niaRegistrations.some(registration => registration.active || navigator.serviceWorker.controller);
+        if (hasActiveNiaTodoWorker) {
+          await Promise.all(niaRegistrations.map(registration => refreshActiveServiceWorkerAppCache(registration).catch(() => false)));
+        } else {
+          await Promise.all(niaRegistrations.map(registration => registration.unregister().catch(() => false)));
+        }
       }
-      if ('caches' in window && typeof caches.keys === 'function') {
+      if (!hasActiveNiaTodoWorker && 'caches' in window && typeof caches.keys === 'function') {
         const names = await caches.keys();
         await Promise.all(names
           .filter(isNiaTodoCacheName)
