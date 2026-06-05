@@ -43,6 +43,10 @@
   window.niaHardReloadApp = async function() {
     var retry = document.getElementById('boot-retry');
     var subtitle = document.getElementById('boot-subtitle');
+    if (navigator.onLine === false) {
+      if (subtitle) subtitle.textContent = 'Please go online before clearing the app cache.';
+      return;
+    }
     if (retry) retry.disabled = true;
     if (subtitle) subtitle.textContent = 'App cache is being cleared…';
     try {

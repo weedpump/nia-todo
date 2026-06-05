@@ -59,6 +59,7 @@ assert(safeLink.includes('rel="noopener noreferrer"'), 'external links must incl
 
 const indexSource = readFileSync(new URL('../web/index.html', import.meta.url), 'utf8');
 assert(indexSource.includes('window.niaHardReloadApp = async function()'), 'boot retry must use an inline recovery function so it still works when app modules fail to load');
+assert(indexSource.includes('navigator.onLine === false'), 'boot retry must not clear offline PWA caches while the browser reports offline');
 assert(indexSource.includes('navigator.serviceWorker.getRegistrations') && indexSource.includes('registration.unregister()'), 'boot retry must unregister stale service workers before reloading');
 assert(indexSource.includes('caches.keys()') && indexSource.includes('caches.delete(name)'), 'boot retry must clear CacheStorage before reloading');
 assert(indexSource.includes("url.searchParams.set('hardReload'"), 'boot retry must add a cache-busting hardReload query parameter');
@@ -129,6 +130,7 @@ assert(swSource.includes('/static/js/features/app-downloads.js'), 'service worke
 const serviceWorkerUpdatesSource = readFileSync(new URL('../web/static/js/features/service-worker-updates.js', import.meta.url), 'utf8');
 assert(serviceWorkerUpdatesSource.includes('bundled app assets are loaded locally'), 'native apps must skip the web service worker because bundled app assets are local');
 assert(serviceWorkerUpdatesSource.includes('scheduleUpdateCheck(\'startup\''), 'browser/PWA service worker update checks must run at startup, including before login');
+assert(serviceWorkerUpdatesSource.includes('navigator.onLine === false'), 'login/sidebar force reload must not clear offline PWA caches while the browser reports offline');
 assert(serviceWorkerUpdatesSource.includes('navigator.serviceWorker.getRegistrations') && serviceWorkerUpdatesSource.includes('registration.unregister()'), 'login/sidebar force reload must unregister stale service workers');
 assert(serviceWorkerUpdatesSource.includes('caches.keys()') && serviceWorkerUpdatesSource.includes('caches.delete(name)'), 'login/sidebar force reload must clear CacheStorage');
 assert(serviceWorkerUpdatesSource.includes("url.searchParams.set('hardReload'"), 'login/sidebar force reload must add a cache-busting hardReload query parameter');
