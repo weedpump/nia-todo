@@ -106,24 +106,6 @@ export function createServiceWorkerUpdatesFeature() {
   }
 
 
-  async function canReachCurrentAppShell() {
-    if (typeof navigator !== 'undefined' && navigator.onLine === false) return false;
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 2500);
-    try {
-      const response = await fetch(`/sw.js?hard-reload-online-check=${Date.now()}`, {
-        cache: 'no-store',
-        credentials: 'same-origin',
-        signal: controller.signal,
-      });
-      return response.ok;
-    } catch (_) {
-      return false;
-    } finally {
-      clearTimeout(timeout);
-    }
-  }
-
   async function ensureOfflineServiceWorkerReadyAfterHardReload() {
     if (!('serviceWorker' in navigator) || typeof navigator.serviceWorker?.register !== 'function') return false;
     try {
@@ -353,8 +335,8 @@ export function createServiceWorkerUpdatesFeature() {
     const buttons = Array.from(document.querySelectorAll('#force-refresh-btn, [data-force-refresh-button]'));
     const previousTitles = new Map(buttons.map(button => [button, button.title]));
 
-    if (!(await canReachCurrentAppShell())) {
-      console.warn('Forced app reload skipped because the app shell is not reachable');
+    if (navigator.onLine === false || buttons.some(button => button.disabled || button.getAttribute('aria-disabled') === 'true')) {
+      console.warn('Forced app reload skipped because the app is offline');
       return;
     }
 
