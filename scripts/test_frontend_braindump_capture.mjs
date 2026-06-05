@@ -161,10 +161,25 @@ async function run() {
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({ json: { candidates: [
-          { title: 'Milch kaufen', project_name: 'Einkauf' },
+          {
+            title: 'Milch kaufen',
+            project_name: 'Einkauf',
+            deadline: '2026-06-05T09:30:00+02:00',
+            reminder: '2026-06-05T08:30:00+02:00',
+            recurring_rule: { frequency: 'weekly', interval: 1 },
+            location_reminder: { trigger_type: 'arrival', place_id: 77 },
+          },
           { title: 'Snoopy Tabletten geben', project_name: 'Privat' },
           { title: 'Keller aufräumen', project_name: 'Privat' },
         ] } }),
+      });
+    });
+    await page.route('**/api/places', async (route) => {
+      if (route.request().method() !== 'GET') return route.fallback();
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ places: [{ id: 77, name: 'Zuhause', address: 'Teststraße 1' }] }),
       });
     });
     await page.route('**/api/braindump/v2/todos', async (route) => {
@@ -286,6 +301,26 @@ async function run() {
       { heading: 'Einkauf', titles: ['Milch kaufen'] },
       { heading: 'Privat', titles: ['Snoopy Tabletten geben', 'Keller aufräumen'] },
     ])) throw new Error(`BrainDump preview should group candidates by project in stable order: ${JSON.stringify(groupedByProject)}`);
+    await page.waitForFunction(() => Array.from(document.querySelectorAll('.braindump-candidate-card .todo-location')).some(chip => /Zuhause/.test(chip.textContent || '')), null, { timeout: 5000 });
+    const previewMetaOk = await page.evaluate(() => {
+      const firstCard = document.querySelector('.braindump-candidate-card');
+      const chips = Array.from(firstCard?.querySelectorAll('.todo-meta-chip') || []).map(chip => ({
+        classes: chip.className,
+        text: chip.textContent?.replace(/\s+/g, ' ').trim() || '',
+      }));
+      window.__braindumpPreviewMetaDebug = chips;
+      return Boolean(
+        chips.some(chip => chip.classes.includes('braindump-route') && chip.text.includes('Einkauf')) &&
+        chips.some(chip => chip.classes.includes('todo-due') && /Fällig|Due/.test(chip.text)) &&
+        chips.some(chip => chip.classes.includes('todo-reminder') && /Erinnert|Reminds/.test(chip.text)) &&
+        chips.some(chip => chip.classes.includes('todo-recurring')) &&
+        chips.some(chip => chip.classes.includes('todo-location') && chip.text.includes('Zuhause'))
+      );
+    });
+    if (!previewMetaOk) {
+      const debug = await page.evaluate(() => window.__braindumpPreviewMetaDebug);
+      throw new Error(`BrainDump preview should show route, deadline, reminder, recurrence, and location as visible chips: ${JSON.stringify(debug)}`);
+    }
     const quickFixOk = await page.evaluate(() => {
       document.querySelector('.braindump-candidate-card [data-bd-action="edit"]')?.click();
       const firstCard = document.querySelector('.braindump-candidate-card.is-editing');
@@ -295,6 +330,8 @@ async function run() {
       const reminderField = firstCard?.querySelector('[data-bd-field="reminder"]');
       const recurringFrequency = firstCard?.querySelector('[data-bd-field="recurring_frequency"]');
       const recurringInterval = firstCard?.querySelector('[data-bd-field="recurring_interval"]');
+      const locationPlaceField = firstCard?.querySelector('[data-bd-field="location_place_id"]');
+      const locationTriggerField = firstCard?.querySelector('[data-bd-field="location_trigger_type"]');
       const typeField = firstCard?.querySelector('[data-bd-field="kind"]');
       const removeButton = firstCard?.querySelector('[data-bd-action="remove"]');
       const firstTrigger = firstCard?.querySelector('.ui-select-trigger');
@@ -310,8 +347,8 @@ async function run() {
       const editButton = firstCard?.querySelector('[data-bd-action="edit"]');
       const editIsIconOnly = Boolean(editButton?.querySelector('svg')) && !(editButton?.textContent || '').trim();
       const childIndented = menuRows.some(option => option.label === 'BrainDump Child' && option.depth === '1');
-      window.__braindumpQuickFixDebug = { hasTitle: Boolean(title), customSelects, hasDeadline: Boolean(deadlineField), hasReminder: Boolean(reminderField), hasRecurringFrequency: Boolean(recurringFrequency), hasRecurringInterval: Boolean(recurringInterval), menuRows, modalZ, menuZ, editIsIconOnly, childIndented, hasTypeField: Boolean(typeField), hasRemoveButton: Boolean(removeButton), html: firstCard?.innerHTML || '' };
-      if (!title || customSelects < 3 || !deadlineField || !reminderField || !recurringFrequency || !recurringInterval || menuOptions.length === 0 || !childIndented || !(menuZ > modalZ) || !editIsIconOnly || typeField || removeButton) return false;
+      window.__braindumpQuickFixDebug = { hasTitle: Boolean(title), customSelects, hasDeadline: Boolean(deadlineField), hasReminder: Boolean(reminderField), hasRecurringFrequency: Boolean(recurringFrequency), hasRecurringInterval: Boolean(recurringInterval), hasLocationPlace: Boolean(locationPlaceField), hasLocationTrigger: Boolean(locationTriggerField), menuRows, modalZ, menuZ, editIsIconOnly, childIndented, hasTypeField: Boolean(typeField), hasRemoveButton: Boolean(removeButton), html: firstCard?.innerHTML || '' };
+      if (!title || customSelects < 5 || !deadlineField || !reminderField || !recurringFrequency || !recurringInterval || !locationPlaceField || !locationTriggerField || menuOptions.length === 0 || !childIndented || !(menuZ > modalZ) || !editIsIconOnly || typeField || removeButton) return false;
       title.value = 'Hafermilch kaufen';
       title.dispatchEvent(new Event('input', { bubbles: true }));
       deadlineField.value = '2026-06-05T09:30';
