@@ -184,11 +184,13 @@ export function createAppLifecycle({
 
     window.addEventListener('online', () => {
       console.log('Browser reports online');
+      updateConnectionStatus();
       scheduleSyncAttempts('online');
     });
 
     window.addEventListener('offline', () => {
       console.log('Browser reports offline');
+      updateConnectionStatus();
     });
 
     window.addEventListener('pageshow', () => scheduleSyncAttempts('pageshow'));

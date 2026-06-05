@@ -69,6 +69,11 @@ export function createAppRenderingFeature({
       button.title = t('version.refreshCache');
       button.textContent = t('version.reload');
       button.addEventListener('click', () => window.forceReloadApp?.());
+      if (document.getElementById('online-status')?.classList.contains('status-offline')) {
+        button.disabled = true;
+        button.classList.add('is-offline-disabled');
+        button.setAttribute('aria-disabled', 'true');
+      }
       actions.appendChild(button);
     }
   }
