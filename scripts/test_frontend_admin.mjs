@@ -17,6 +17,26 @@ async function run() {
     await page.goto('http://localhost:8754/admin', { waitUntil: 'networkidle' });
     await page.locator('#admin-login-card').waitFor({ state: 'visible', timeout: 5000 });
     await page.waitForFunction(() => document.activeElement?.id === 'admin-login-password');
+    const adminLoginMarkup = await page.evaluate(() => {
+      const input = document.getElementById('admin-login-password');
+      const username = document.getElementById('admin-login-username');
+      return {
+        formId: input?.closest('form')?.id || '',
+        passwordName: input?.getAttribute('name') || '',
+        passwordAutocomplete: input?.getAttribute('autocomplete') || '',
+        usernameName: username?.getAttribute('name') || '',
+        usernameAutocomplete: username?.getAttribute('autocomplete') || '',
+        hasPasswordLabel: !!document.querySelector('label[for="admin-login-password"]'),
+      };
+    });
+    if (
+      adminLoginMarkup.formId !== 'admin-login-form'
+      || adminLoginMarkup.passwordName !== 'password'
+      || adminLoginMarkup.passwordAutocomplete !== 'current-password'
+      || adminLoginMarkup.usernameName !== 'username'
+      || adminLoginMarkup.usernameAutocomplete !== 'username'
+      || !adminLoginMarkup.hasPasswordLabel
+    ) throw new Error(`Admin login markup is not password-manager friendly: ${JSON.stringify(adminLoginMarkup)}`);
 
     await page.fill('#admin-login-password', 'wrong');
     await page.click('text=Anmelden');
@@ -25,6 +45,11 @@ async function run() {
     await page.fill('#admin-login-password', ADMIN_PASSWORD);
     await page.click('text=Anmelden');
     await page.locator('#admin-content').waitFor({ state: 'visible', timeout: 10000 });
+    if (!(await page.evaluate(() => !!localStorage.getItem('admin_jwt_token')))) throw new Error('Admin JWT was not stored after login');
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.locator('#admin-content').waitFor({ state: 'visible', timeout: 10000 });
+    await page.locator('#admin-login-card').waitFor({ state: 'hidden', timeout: 5000 });
+    if (!(await page.evaluate(() => !!localStorage.getItem('admin_jwt_token')))) throw new Error('Admin JWT was lost after reload');
     const statsBackfillButtons = await page.locator('[data-i18n-key="admin.stats.analyzeLogs"]').count();
     if (statsBackfillButtons !== 0) throw new Error('Admin statistics log backfill button should not be rendered');
     const nestedHeaderInputs = await page.locator('.admin-section-header input, .admin-section-header button, .admin-section-header select, .admin-section-header textarea').count();
