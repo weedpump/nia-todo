@@ -1075,8 +1075,19 @@ export function createBrainDumpLiveFeature(options = {}) {
   function locationReminderLabel(locationReminder) {
     if (!locationReminder) return '';
     const triggerKey = locationReminder.trigger_type === 'departure' ? 'todo.location.departureShort' : 'todo.location.arrivalShort';
-    const place = locationReminder.place_name || locationReminder.address || t('todo.location.title');
-    return `${t(triggerKey)} · ${place}`;
+    const savedPlace = state.savedPlaces.find(place => String(place.id || '') === String(locationReminder.place_id || ''));
+    const place = locationReminder.place_name || savedPlace?.name || locationReminder.address || t('todo.location.title');
+    return `${t(triggerKey)}: ${place}`;
+  }
+
+  function renderCandidateMetaChips({ route, due, reminder, recurrence, location }) {
+    return [
+      route ? `<span class="todo-meta-chip braindump-route">${iconSvg('folder')} ${escapeHtml(route)}</span>` : '',
+      due ? `<span class="todo-meta-chip todo-due">${iconSvg('calendar')} ${escapeHtml(t('braindump.meta.due', { date: due }))}</span>` : '',
+      reminder ? `<span class="todo-meta-chip todo-reminder">${iconSvg('bell')} ${escapeHtml(t('braindump.meta.reminder', { date: reminder }))}</span>` : '',
+      recurrence ? `<span class="todo-meta-chip todo-recurring">${iconSvg('repeat')} ${escapeHtml(recurrence)}</span>` : '',
+      location ? `<span class="todo-meta-chip todo-location" title="${escapeHtmlAttr(t('todo.location.androidOnlyPillTitle'))}">${iconSvg('map-pin')} ${escapeHtml(location)}</span>` : '',
+    ].filter(Boolean).join('');
   }
 
   function renderLocationPlaceOptions(candidate) {
@@ -1107,7 +1118,7 @@ export function createBrainDumpLiveFeature(options = {}) {
     const reminder = candidate.reminder ? formatDate(candidate.reminder) : '';
     const recurrence = recurringLabel(candidate.recurring_rule);
     const location = locationReminderLabel(candidate.location_reminder);
-    const meta = [route, due ? t('braindump.meta.due', { date: due }) : '', reminder ? t('braindump.meta.reminder', { date: reminder }) : '', recurrence, location].filter(Boolean).join(' · ');
+    const meta = renderCandidateMetaChips({ route, due, reminder, recurrence, location });
     return `
       <div class="braindump-candidate-card todo-item ${isEditing ? 'is-editing' : ''}" style="--bd-delay:${Math.min(index, 8) * 55}ms">
         <input id="${escapeHtmlAttr(checkboxId)}" type="checkbox" data-bd-candidate-key="${escapeHtmlAttr(key)}" ${checked}>
@@ -1118,7 +1129,7 @@ export function createBrainDumpLiveFeature(options = {}) {
             <span class="todo-title">${escapeHtml(candidate.title || '')}</span>
             <button class="braindump-edit-candidate" type="button" data-bd-action="edit" data-bd-candidate-key="${escapeHtmlAttr(key)}" aria-expanded="${isEditing ? 'true' : 'false'}" aria-label="${escapeHtmlAttr(t(isEditing ? 'braindump.quickfix.done' : 'braindump.quickfix.edit'))}" title="${escapeHtmlAttr(t(isEditing ? 'braindump.quickfix.done' : 'braindump.quickfix.edit'))}">${iconSvg('edit-3')}</button>
           </span>
-          <span class="todo-meta-row"><span class="todo-desc-preview">${escapeHtml(meta)}</span></span>
+          ${meta ? `<span class="todo-meta-row braindump-meta-row">${meta}</span>` : ''}
           ${isEditing ? `
             <span class="braindump-quickfix-panel">
               <label class="braindump-quickfix-field braindump-quickfix-title-field">
