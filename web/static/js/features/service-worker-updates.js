@@ -1,6 +1,6 @@
 import { APP_VERSION, RUNTIME_CAPABILITIES } from '../core/config.js';
 
-export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
+export function createServiceWorkerUpdatesFeature() {
   let swRegistration = null;
   let updateAvailable = false;
   let allowReloadOnControllerChange = false;
@@ -144,13 +144,6 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
           updateReloadFallbackTimer = null;
           console.log('SW: New controller active after explicit update, reloading with cache buster...');
           reloadWithCacheBuster('appUpdated');
-        });
-
-        navigator.serviceWorker.addEventListener('message', (event) => {
-          console.log('SW message received:', event.data);
-          if (event.data?.type === 'MARK_TODO_DONE' && event.data.todoId) {
-            onMarkTodoDone(event.data.todoId);
-          }
         });
       } catch (err) {
         console.error('SW registration failed:', err);

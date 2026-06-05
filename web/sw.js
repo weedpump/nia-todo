@@ -207,8 +207,6 @@ self.addEventListener('push', (event) => {
   const body = data.body || '';
   const tag = data.tag || ('push-' + Date.now());
   const url = data.url || '/';
-  const todoId = data.todoId;
-  const actionLabels = data.actionLabels || {};
 
   event.waitUntil(
     self.registration.showNotification(title, {
@@ -216,11 +214,8 @@ self.addEventListener('push', (event) => {
       icon: '/static/icons/icon-192.png',
       badge: '/static/icons/icon-badge.png',
       tag: tag,
-      data: { url: url, todoId: todoId },
-      actions: [
-        { action: 'open', title: actionLabels.open || 'Open' },
-        { action: 'done', title: actionLabels.done || 'Done' }
-      ],
+      data: { url: url },
+      actions: [],
       requireInteraction: false,
     })
   );
@@ -230,37 +225,10 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
-  const action = event.action;
   const data = event.notification.data || {};
-  const todoId = data.todoId;
   const url = data.url || '/';
 
-  if (action === 'open' || !action) {
-    // Open app
-    event.waitUntil(clients.openWindow(url));
-  } else if (action === 'done' && todoId) {
-    // Focus existing app window or open it, then post message to mark todo done
-    event.waitUntil(
-      clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
-        if (windowClients.length > 0) {
-          // Focus existing window and send message
-          const client = windowClients[0];
-          client.focus();
-          client.postMessage({ type: 'MARK_TODO_DONE', todoId: todoId });
-        } else {
-          // Open new window
-          clients.openWindow('/').then(client => {
-            // Wait a bit for app to init, then send message
-            setTimeout(() => {
-              client.postMessage({ type: 'MARK_TODO_DONE', todoId: todoId });
-            }, 2000);
-          });
-        }
-      })
-    );
-  } else {
-    event.waitUntil(clients.openWindow(url));
-  }
+  event.waitUntil(clients.openWindow(url));
 });
 
 // ─── Notification Close (optional cleanup) ───────────────────────────────────

@@ -40,12 +40,6 @@ class ReminderReceiver : BroadcastReceiver() {
     val openIntent = Intent(context, MainActivity::class.java).apply {
       flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
     }
-    val doneIntent = Intent(context, MainActivity::class.java).apply {
-      action = ACTION_MARK_DONE
-      flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
-      putExtra(EXTRA_ID, id)
-      putExtra(EXTRA_USER_ID, intent.getStringExtra(EXTRA_USER_ID) ?: "")
-    }
     val contentIntent = PendingIntent.getActivity(
       context,
       0,
@@ -53,12 +47,6 @@ class ReminderReceiver : BroadcastReceiver() {
       PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )
 
-    val donePendingIntent = PendingIntent.getActivity(
-      context,
-      notificationId("done-$id"),
-      doneIntent,
-      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-    )
 
     val largeIcon = BitmapFactory.decodeResource(context.resources, R.mipmap.ic_launcher)
     val notification = NotificationCompat.Builder(context, CHANNEL_ID)
@@ -70,7 +58,6 @@ class ReminderReceiver : BroadcastReceiver() {
       .setPriority(NotificationCompat.PRIORITY_DEFAULT)
       .setAutoCancel(true)
       .setContentIntent(contentIntent)
-      .addAction(R.drawable.ic_stat_notification, "Erledigt", donePendingIntent)
       .build()
 
     NotificationManagerCompat.from(context).notify(notificationId(id), notification)
@@ -78,7 +65,6 @@ class ReminderReceiver : BroadcastReceiver() {
 
   companion object {
     const val ACTION_SHOW_REMINDER = "de.tobiaskneidl.nia_todo.SHOW_REMINDER"
-    const val ACTION_MARK_DONE = "de.tobiaskneidl.nia_todo.MARK_DONE"
     const val EXTRA_ID = "id"
     const val EXTRA_TITLE = "title"
     const val EXTRA_BODY = "body"
@@ -86,8 +72,6 @@ class ReminderReceiver : BroadcastReceiver() {
     const val EXTRA_USER_ID = "userId"
     const val PREFS_NAME = "nia_todo_reminders"
     const val PREFS_SCHEDULES = "schedules"
-    const val PREFS_PENDING_DONE_ID = "pendingDoneId_v2"
-    const val PREFS_PENDING_DONE_ACTION = "pendingDoneAction_v1"
     const val CHANNEL_ID = "nia_todo_reminders"
 
     fun createNotificationChannel(context: Context) {

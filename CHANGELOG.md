@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 ## [Unreleased]
 
 ### Changed
+- Android reminder notifications now open the app only and no longer expose the broken **Erledigt/Completed** action.
 - BrainDump todo preview now shows detected route, deadline, reminder, recurrence, and location reminder metadata as the same compact chips used by regular todo cards, so accepted candidates are easier to verify before creation.
 
 ### Fixed
