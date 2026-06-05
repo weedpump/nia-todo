@@ -150,6 +150,7 @@ assert(!downloadsSource.includes('target.innerHTML = downloads.map'), 'download 
 assert(swSource.includes('/static/js/features/native-bridge.js'), 'service worker must precache the native bridge module');
 assert(swSource.includes('isNeverCachePath') && swSource.includes("pathname.startsWith('/downloads/')"), 'service worker must classify downloads and their manifest as never-cache paths');
 assert(swSource.includes('isHardReloadRequest') && swSource.includes("event.request.cache === 'reload'") && swSource.includes("url.searchParams.has('hardReload')") && swSource.includes("cache: 'reload'"), 'service worker must bypass stale CacheStorage for forced reload/update requests');
+assert(!swSource.includes('onclick="location.reload()"') && !swSource.includes('setTimeout(()=>location.reload()'), 'offline fallback must not navigate/reload while offline');
 assert(swSource.includes('purgeNeverCacheEntries'), 'service worker must purge stale download manifest/artifacts from caches on activate/refresh');
 assert(swSource.includes("cache: 'no-store'") && swSource.includes('isNeverCachePath(url.pathname)'), 'service worker must fetch downloads and app-downloads manifest with no-store');
 
