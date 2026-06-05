@@ -60,8 +60,9 @@ assert(safeLink.includes('rel="noopener noreferrer"'), 'external links must incl
 const indexSource = readFileSync(new URL('../web/index.html', import.meta.url), 'utf8');
 assert(indexSource.includes('window.niaHardReloadApp = async function()'), 'boot retry must use an inline recovery function so it still works when app modules fail to load');
 assert(indexSource.includes('navigator.onLine === false'), 'boot retry must not clear offline PWA caches while the browser reports offline');
-assert(indexSource.includes('navigator.serviceWorker.getRegistrations') && indexSource.includes("scriptURL.endsWith('/sw.js')") && indexSource.includes('registration.unregister().catch'), 'boot retry must unregister nia-todo service workers before reloading and tolerate individual failures');
-assert(indexSource.includes('caches.keys()') && indexSource.includes("name.indexOf('nia-todo') === 0") && indexSource.includes('caches.delete(name).catch'), 'boot retry must clear nia-todo CacheStorage before reloading and tolerate individual failures');
+assert(indexSource.includes('refreshActiveServiceWorkerAppCache') && indexSource.includes("postMessage({ action: 'refreshAppCache' }") && indexSource.includes('hasActiveNiaTodoWorker'), 'boot retry must preserve active nia-todo service workers and refresh their app cache in place for iOS PWA offline launch');
+assert(indexSource.includes("scriptURL.endsWith('/sw.js')") && indexSource.includes('registration.unregister().catch'), 'boot retry may unregister stale nia-todo service workers only when no active worker is available');
+assert(indexSource.includes('caches.keys()') && indexSource.includes("name.indexOf('nia-todo') === 0") && indexSource.includes('caches.delete(name).catch') && indexSource.includes('!hasActiveNiaTodoWorker'), 'boot retry must only clear nia-todo CacheStorage when no active service worker can be preserved');
 assert(indexSource.includes("url.searchParams.set('hardReload'"), 'boot retry must add a cache-busting hardReload query parameter');
 assert(!indexSource.includes('id="boot-retry" style="display:none;" onclick="location.reload()"'), 'boot retry must not be a plain location.reload');
 
@@ -71,8 +72,9 @@ assert(cssSource.includes('@supports (-webkit-touch-callout: none)') && cssSourc
 
 const adminSource = readFileSync(new URL('../web/admin.html', import.meta.url), 'utf8');
 assert(adminSource.includes('hardReloadAfterServerUpdate'), 'admin server update reload must use explicit hard reload cleanup');
-assert(adminSource.includes('navigator.serviceWorker.getRegistrations') && adminSource.includes("scriptURL?.endsWith('/sw.js')") && adminSource.includes('reg.unregister()'), 'admin server update reload must unregister stale nia-todo service workers');
-assert(adminSource.includes('caches.keys()') && adminSource.includes("startsWith('nia-todo')") && adminSource.includes('caches.delete(name)'), 'admin server update reload must clear nia-todo CacheStorage');
+assert(adminSource.includes('refreshActiveServiceWorkerAppCache') && adminSource.includes("postMessage({ action: 'refreshAppCache' }") && adminSource.includes('hasActiveNiaTodoWorker'), 'admin server update reload must preserve active nia-todo service workers and refresh their app cache in place for iOS PWA offline launch');
+assert(adminSource.includes("scriptURL?.endsWith('/sw.js')") && adminSource.includes('registration.unregister()'), 'admin server update reload may unregister stale nia-todo service workers only when no active worker is available');
+assert(adminSource.includes('caches.keys()') && adminSource.includes("startsWith('nia-todo')") && adminSource.includes('caches.delete(name)') && adminSource.includes('!hasActiveNiaTodoWorker'), 'admin server update reload must only clear nia-todo CacheStorage when no active service worker can be preserved');
 assert(adminSource.includes('server-updated='), 'admin server update reload must navigate with a cache-busting query parameter');
 
 const swSource = readFileSync(new URL('../web/sw.js', import.meta.url), 'utf8');

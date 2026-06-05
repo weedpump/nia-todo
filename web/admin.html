@@ -1626,24 +1626,47 @@ function renderServerUpdate(status) {
   }
 }
 
+function isNiaTodoServiceWorkerRegistration(registration) {
+  const worker = registration?.active || registration?.waiting || registration?.installing;
+  return Boolean(worker?.scriptURL?.endsWith('/sw.js'));
+}
+
+async function refreshActiveServiceWorkerAppCache(registration) {
+  const worker = registration?.active || navigator.serviceWorker?.controller;
+  if (!worker || typeof worker.postMessage !== 'function' || typeof MessageChannel === 'undefined') return false;
+  const channel = new MessageChannel();
+  const response = new Promise((resolve) => {
+    const timeout = setTimeout(() => resolve(false), 10000);
+    channel.port1.onmessage = (event) => {
+      clearTimeout(timeout);
+      resolve(Boolean(event.data?.ok));
+    };
+  });
+  worker.postMessage({ action: 'refreshAppCache' }, [channel.port2]);
+  return response;
+}
+
 async function hardReloadAfterServerUpdate() {
   try {
+    let hasActiveNiaTodoWorker = false;
     if ('serviceWorker' in navigator && typeof navigator.serviceWorker.getRegistrations === 'function') {
       const registrations = await navigator.serviceWorker.getRegistrations();
-      await Promise.all(registrations.map(reg => {
-        const worker = reg.active || reg.waiting || reg.installing;
-        if (!worker?.scriptURL?.endsWith('/sw.js')) return false;
-        return reg.unregister().catch(() => false);
-      }));
+      const niaRegistrations = registrations.filter(isNiaTodoServiceWorkerRegistration);
+      hasActiveNiaTodoWorker = niaRegistrations.some(registration => registration.active || navigator.serviceWorker.controller);
+      if (hasActiveNiaTodoWorker) {
+        await Promise.all(niaRegistrations.map(registration => refreshActiveServiceWorkerAppCache(registration).catch(() => false)));
+      } else {
+        await Promise.all(niaRegistrations.map(registration => registration.unregister().catch(() => false)));
+      }
     }
-    if ('caches' in window && typeof caches.keys === 'function') {
+    if (!hasActiveNiaTodoWorker && 'caches' in window && typeof caches.keys === 'function') {
       const names = await caches.keys();
       await Promise.all(names
         .filter(name => String(name || '').startsWith('nia-todo'))
         .map(name => caches.delete(name).catch(() => false)));
     }
   } catch (err) {
-    console.warn('Hard reload cleanup after server update failed:', err);
+    console.warn('Hard reload cache refresh after server update failed:', err);
   }
   window.location.replace(`/admin?server-updated=${Date.now()}`);
 }

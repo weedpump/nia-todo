@@ -38,7 +38,7 @@
   // If module scripts are missing from an incomplete offline cache, app.js never
   // runs and the lifecycle watchdog cannot start. Keep this tiny inline fallback.
   // The retry action must work even when the app bundle or service worker code is
-  // stale/broken, so it lives inline and clears browser-managed app caches first.
+  // stale/broken, so it lives inline and refreshes browser-managed app caches.
   window.__niaAppModuleStarted = false;
   window.niaHardReloadApp = async function() {
     var retry = document.getElementById('boot-retry');
@@ -80,6 +80,24 @@
           resolve(fallbackValue);
         });
       });
+    }
+    function isNiaTodoServiceWorkerRegistration(registration) {
+      var worker = registration && (registration.active || registration.waiting || registration.installing);
+      return Boolean(worker && worker.scriptURL && worker.scriptURL.endsWith('/sw.js'));
+    }
+    async function refreshActiveServiceWorkerAppCache(registration) {
+      var worker = (registration && registration.active) || (navigator.serviceWorker && navigator.serviceWorker.controller);
+      if (!worker || typeof worker.postMessage !== 'function' || typeof MessageChannel === 'undefined') return false;
+      var channel = new MessageChannel();
+      var response = new Promise(function(resolve) {
+        var timeout = setTimeout(function() { resolve(false); }, 10000);
+        channel.port1.onmessage = function(event) {
+          clearTimeout(timeout);
+          resolve(Boolean(event.data && event.data.ok));
+        };
+      });
+      worker.postMessage({ action: 'refreshAppCache' }, [channel.port2]);
+      return response;
     }
     async function restoreOfflineServiceWorker() {
       if (!navigator.serviceWorker || !navigator.serviceWorker.register) return false;
@@ -133,17 +151,26 @@
       return;
     }
     if (retry) retry.disabled = true;
-    if (subtitle) subtitle.textContent = 'App cache is being cleared…';
+    if (subtitle) subtitle.textContent = 'App cache is being refreshed…';
     try {
+      var hasActiveNiaTodoWorker = false;
       if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
         var registrations = await navigator.serviceWorker.getRegistrations();
-        await Promise.all(registrations.map(function(registration) {
-          var worker = registration.active || registration.waiting || registration.installing;
-          if (!worker || !worker.scriptURL || !worker.scriptURL.endsWith('/sw.js')) return false;
-          return registration.unregister().catch(function() { return false; });
-        }));
+        var niaRegistrations = registrations.filter(isNiaTodoServiceWorkerRegistration);
+        hasActiveNiaTodoWorker = niaRegistrations.some(function(registration) {
+          return Boolean(registration.active || (navigator.serviceWorker && navigator.serviceWorker.controller));
+        });
+        if (hasActiveNiaTodoWorker) {
+          await Promise.all(niaRegistrations.map(function(registration) {
+            return refreshActiveServiceWorkerAppCache(registration).catch(function() { return false; });
+          }));
+        } else {
+          await Promise.all(niaRegistrations.map(function(registration) {
+            return registration.unregister().catch(function() { return false; });
+          }));
+        }
       }
-      if (window.caches && caches.keys) {
+      if (!hasActiveNiaTodoWorker && window.caches && caches.keys) {
         var names = await caches.keys();
         await Promise.all(names.filter(function(name) { return name.indexOf('nia-todo') === 0; }).map(function(name) {
           return caches.delete(name).catch(function() { return false; });
@@ -152,7 +179,7 @@
       await refreshAssetsFromNetwork();
       await withTimeout(restoreOfflineServiceWorker(), 7000, false);
     } catch (error) {
-      console.warn('Boot recovery cache cleanup failed:', error);
+      console.warn('Boot recovery cache refresh failed:', error);
     }
     var url = new URL(window.location.href);
     url.searchParams.set('hardReload', String(Date.now()));
