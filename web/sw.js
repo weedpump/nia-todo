@@ -85,17 +85,16 @@ body { background:#0f172a; color:#e2e8f0; font-family:-apple-system,BlinkMacSyst
 .offline-icon svg { width:64px; height:64px; }
 h1 { margin:0 0 10px 0; font-size:24px; }
 p { color:#94a3b8; margin:0 0 20px 0; }
-.btn { background:#6366f1; color:white; border:none; padding:12px 24px; border-radius:8px; font-size:16px; cursor:pointer; }
+.btn { background:#334155; color:#cbd5e1; border:none; padding:12px 24px; border-radius:8px; font-size:16px; cursor:not-allowed; opacity:.85; }
 </style>
 </head>
 <body>
 <div class="offline-state">
 <div class="offline-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h.01"/><path d="M8.5 16.43a5 5 0 0 1 7 0"/><path d="M5 12.86a10 10 0 0 1 1.5-1.16"/><path d="M18.5 11.7a10 10 0 0 1 .5 1.16"/><path d="M2 8.82a15 15 0 0 1 3.2-2.08"/><path d="M21.5 8.82a15 15 0 0 0-4.1-2.48"/><path d="m2 2 20 20"/></svg></div>
 <h1>Offline</h1>
-<p>Keine Internetverbindung. Die App wird gleich geladen...</p>
-<button class="btn" onclick="location.reload()">Neu laden</button>
+<p>Keine Internetverbindung. Bitte online gehen, bevor die App neu geladen wird.</p>
+<button class="btn" type="button" disabled>Offline</button>
 </div>
-<script>setTimeout(()=>location.reload(),2000);</script>
 </body>
 </html>`;
 
