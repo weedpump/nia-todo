@@ -124,6 +124,19 @@ function isNeverCachePath(pathname) {
   return pathname.startsWith('/downloads/') || pathname === '/downloads/app-downloads.json';
 }
 
+function isHardReloadRequest(event, url) {
+  return event.request.cache === 'reload'
+    || url.searchParams.has('hardReload')
+    || url.searchParams.has('appUpdated')
+    || url.searchParams.has('server-updated')
+    || url.searchParams.has('hardReloadAsset');
+}
+
+function cacheKeyForReloadedAppShell(request, url) {
+  if (request.mode === 'navigate' || request.destination === 'document') return '/index.html';
+  return url.pathname;
+}
+
 async function purgeNeverCacheEntries() {
   const names = await caches.keys();
   await Promise.all(names.map(async (name) => {
@@ -273,6 +286,27 @@ self.addEventListener('fetch', (event) => {
     return;
   }
   
+  // Forced reload/update navigations must bypass stale Service Worker CacheStorage.
+  if (isHardReloadRequest(event, url)) {
+    event.respondWith(
+      fetch(new Request(event.request, { cache: 'reload' })).then((response) => {
+        if (response.ok) {
+          const clone = response.clone();
+          const cacheKey = cacheKeyForReloadedAppShell(event.request, url);
+          caches.open(CACHE_NAME).then((cache) => cache.put(cacheKey, clone));
+        }
+        return response;
+      }).catch(() => caches.match(event.request).then((cached) => {
+        if (cached) return cached;
+        if (event.request.mode === 'navigate' || event.request.destination === 'document') {
+          return caches.match('/index.html').then((index) => index || new Response(OFFLINE_HTML, { headers: { 'Content-Type': 'text/html' } }));
+        }
+        return new Response('', { status: 404 });
+      }))
+    );
+    return;
+  }
+
   // Alle anderen Requests
   event.respondWith(
     caches.match(event.request)

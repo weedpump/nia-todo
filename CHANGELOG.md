@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - BrainDump todo preview now shows detected route, deadline, reminder, recurrence, and location reminder metadata as the same compact chips used by regular todo cards, so accepted candidates are easier to verify before creation.
 
 ### Fixed
+- Browser hard reload recovery now also bypasses stale Service Worker CacheStorage and browser HTTP cache for the app shell/static assets, making sidebar/boot **Neu laden** reliable in normal tabs after updates.
 - Minimal todo mode now hides badges, metadata pills, and description previews again instead of accidentally restyling location reminder pills.
 - Dashboard **Due today** now counts all open todos due within the current day, including already-overdue items from earlier today.
 - Admin sign-in now restores the stored admin session correctly after a page reload instead of clearing the token during initial statistics loading.

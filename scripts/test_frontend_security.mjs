@@ -136,6 +136,8 @@ const forceReloadAppSource = serviceWorkerUpdatesSource.slice(serviceWorkerUpdat
 assert(forceReloadAppSource.includes('navigator.onLine === false') && forceReloadAppSource.indexOf('if (navigator.onLine === false)') < forceReloadAppSource.indexOf('try {'), 'login/sidebar force reload must return before cleanup/reload while the browser reports offline');
 assert(serviceWorkerUpdatesSource.includes('navigator.serviceWorker.getRegistrations') && serviceWorkerUpdatesSource.includes('isNiaTodoServiceWorkerRegistration') && serviceWorkerUpdatesSource.includes('registration.unregister()'), 'login/sidebar force reload must unregister stale nia-todo service workers');
 assert(serviceWorkerUpdatesSource.includes('caches.keys()') && serviceWorkerUpdatesSource.includes('isNiaTodoCacheName') && serviceWorkerUpdatesSource.includes('caches.delete(name)'), 'login/sidebar force reload must clear nia-todo CacheStorage');
+assert(serviceWorkerUpdatesSource.includes('fetchHardReloadAssets') && serviceWorkerUpdatesSource.includes("cache: 'reload'") && serviceWorkerUpdatesSource.includes('hardReloadAsset'), 'login/sidebar force reload must force app shell assets through the browser HTTP cache');
+assert(indexSource.includes('refreshAssetsFromNetwork') && indexSource.includes("cache: 'reload'") && indexSource.includes('hardReloadAsset'), 'boot recovery reload must also refresh current app shell assets from network');
 assert(serviceWorkerUpdatesSource.includes("reloadWithCacheBuster('hardReload')"), 'login/sidebar force reload must add a cache-busting hardReload query parameter');
 assert(downloadsSource.includes('showNativeUpdateModal'), 'native app updates must use the native update modal');
 assert(downloadsSource.includes('deferUntilAfterLogin'), 'native app update prompts must be deferred until after login');
@@ -145,6 +147,7 @@ assert(downloadsSource.includes('DOWNLOAD_SHA_RE'), 'app download manifests must
 assert(!downloadsSource.includes('target.innerHTML = downloads.map'), 'download buttons must not be rendered from manifest data via innerHTML');
 assert(swSource.includes('/static/js/features/native-bridge.js'), 'service worker must precache the native bridge module');
 assert(swSource.includes('isNeverCachePath') && swSource.includes("pathname.startsWith('/downloads/')"), 'service worker must classify downloads and their manifest as never-cache paths');
+assert(swSource.includes('isHardReloadRequest') && swSource.includes("event.request.cache === 'reload'") && swSource.includes("url.searchParams.has('hardReload')") && swSource.includes("cache: 'reload'"), 'service worker must bypass stale CacheStorage for forced reload/update requests');
 assert(swSource.includes('purgeNeverCacheEntries'), 'service worker must purge stale download manifest/artifacts from caches on activate/refresh');
 assert(swSource.includes("cache: 'no-store'") && swSource.includes('isNeverCachePath(url.pathname)'), 'service worker must fetch downloads and app-downloads manifest with no-store');
 
@@ -155,6 +158,9 @@ assert(syncSource.includes('pickAllowed'), 'offline sync must whitelist payload 
 const renderingSource = readFileSync(new URL('../web/static/js/features/app-rendering.js', import.meta.url), 'utf8');
 assert(renderingSource.includes('editProject(${escapeHtmlAttr(JSON.stringify(project.id))})'), 'project edit onclick must quote string/temp IDs safely');
 assert(renderingSource.includes('invite-action invite-accept') && renderingSource.includes('invite-action invite-decline'), 'invite actions should use compact dedicated buttons');
+
+const mainSource = readFileSync(new URL('../api/main.py', import.meta.url), 'utf8');
+assert(mainSource.includes('app_shell_cache_control_middleware') && mainSource.includes('path.startswith("/static/")') && mainSource.includes('no-cache, max-age=0, must-revalidate'), 'server must revalidate app shell/static assets instead of letting the browser keep stale HTTP cache');
 
 const toastSource = readFileSync(new URL('../web/static/js/features/toast-undo.js', import.meta.url), 'utf8');
 assert(toastSource.includes("undoBtn.style.display = action ? '' : 'none'"), 'toast undo button must be hidden when there is no undo action');
