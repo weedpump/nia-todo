@@ -223,20 +223,6 @@ export function createNativeBridge() {
     return false;
   }
 
-  function consumePendingDoneAction() {
-    if (!hasAndroidMethod('consumePendingDoneAction')) return null;
-    const raw = android().consumePendingDoneAction();
-    if (!raw) return null;
-    try {
-      const parsed = JSON.parse(raw);
-      if (!parsed?.id) return null;
-      return { id: String(parsed.id), userId: parsed.userId ? String(parsed.userId) : '', createdAtMs: Number(parsed.createdAtMs) || 0 };
-    } catch (error) {
-      console.warn('[Native] Invalid Android done action payload', error);
-      return null;
-    }
-  }
-
   function setSystemBarsTheme(theme) {
     if (!isAndroid()) return;
     android()?.setTheme?.(theme);
@@ -301,7 +287,6 @@ export function createNativeBridge() {
     passkeyRegister,
     passkeyAuthenticate,
     openExternal,
-    consumePendingDoneAction,
     setSystemBarsTheme,
     getAppVersion,
     listenHotkeys,

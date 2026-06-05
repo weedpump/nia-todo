@@ -69,7 +69,6 @@ class MainActivity : TauriActivity() {
     ReminderReceiver.rescheduleStoredReminders(this)
     LocationReminderReceiver.rescheduleStoredLocationReminders(this)
     clearStaleWebViewCachesOnVersionChange()
-    persistDoneActionFromIntent(intent)
     super.onCreate(savedInstanceState)
     applySystemBarInsetsToContentRoot()
   }
@@ -77,7 +76,6 @@ class MainActivity : TauriActivity() {
   override fun onNewIntent(intent: Intent) {
     super.onNewIntent(intent)
     setIntent(intent)
-    persistDoneActionFromIntent(intent)
   }
 
   override fun onDestroy() {
@@ -121,22 +119,6 @@ class MainActivity : TauriActivity() {
     }
 
     prefs.edit().putString(lastWebViewCacheVersionKey, currentVersion).apply()
-  }
-
-  private fun persistDoneActionFromIntent(intent: Intent?): String? {
-    if (intent?.action != ReminderReceiver.ACTION_MARK_DONE) return null
-    val id = intent.getStringExtra(ReminderReceiver.EXTRA_ID) ?: return null
-    getSharedPreferences(ReminderReceiver.PREFS_NAME, MODE_PRIVATE)
-      .edit()
-      .putString(ReminderReceiver.PREFS_PENDING_DONE_ID, id)
-      .putString(ReminderReceiver.PREFS_PENDING_DONE_ACTION, JSONObject().apply {
-        put("id", id)
-        put("userId", intent.getStringExtra(ReminderReceiver.EXTRA_USER_ID) ?: "")
-        put("createdAtMs", System.currentTimeMillis())
-      }.toString())
-      .apply()
-    NotificationManagerCompat.from(this).cancel(id.hashCode().let { if (it == Int.MIN_VALUE) 0 else kotlin.math.abs(it) })
-    return id
   }
 
   override fun onWebViewCreate(webView: WebView) {
@@ -615,30 +597,6 @@ class MainActivity : TauriActivity() {
         } catch (error: Exception) {
           completePasskeyRequest(requestId, false, error.message ?: error.javaClass.simpleName)
         }
-      }
-    }
-
-    @JavascriptInterface
-    fun consumePendingDoneAction(): String {
-      val prefs = getSharedPreferences(ReminderReceiver.PREFS_NAME, MODE_PRIVATE)
-      val action = prefs.getString(ReminderReceiver.PREFS_PENDING_DONE_ACTION, "") ?: ""
-      if (action.isNotBlank()) {
-        prefs.edit()
-          .remove(ReminderReceiver.PREFS_PENDING_DONE_ACTION)
-          .remove(ReminderReceiver.PREFS_PENDING_DONE_ID)
-          .apply()
-      }
-      return action
-    }
-
-    @JavascriptInterface
-    fun consumePendingDoneTodoId(): String {
-      val raw = consumePendingDoneAction()
-      if (raw.isBlank()) return ""
-      return try {
-        JSONObject(raw).optString("id", "")
-      } catch (_: Exception) {
-        ""
       }
     }
   }
