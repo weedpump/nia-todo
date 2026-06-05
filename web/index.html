@@ -69,6 +69,24 @@
         worker.addEventListener('statechange', onStateChange);
       });
     }
+
+    async function canReachCurrentAppShell() {
+      if (navigator.onLine === false) return false;
+      var controller = new AbortController();
+      var timeout = setTimeout(function() { controller.abort(); }, 2500);
+      try {
+        var response = await fetch('/sw.js?hard-reload-online-check=' + Date.now(), {
+          cache: 'no-store',
+          credentials: 'same-origin',
+          signal: controller.signal
+        });
+        return response.ok;
+      } catch (_) {
+        return false;
+      } finally {
+        clearTimeout(timeout);
+      }
+    }
     function withTimeout(promise, timeoutMs, fallbackValue) {
       return new Promise(function(resolve) {
         var timeout = setTimeout(function() { resolve(fallbackValue); }, timeoutMs);
@@ -128,8 +146,8 @@
         }
       }));
     }
-    if (navigator.onLine === false) {
-      if (subtitle) subtitle.textContent = 'Bitte erst online gehen, bevor der App-Cache gelöscht wird.';
+    if (!(await canReachCurrentAppShell())) {
+      if (subtitle) subtitle.textContent = 'Offline – Neu laden ist erst online möglich.';
       return;
     }
     if (retry) retry.disabled = true;
