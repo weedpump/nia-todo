@@ -57,6 +57,13 @@ const safeLink = renderMarkdown('[docs](https://example.com/path?q=1)');
 assert(safeLink.includes('<a href="https://example.com/path?q=1"'), 'safe HTTPS links should still render');
 assert(safeLink.includes('rel="noopener noreferrer"'), 'external links must include noopener noreferrer');
 
+const indexSource = readFileSync(new URL('../web/index.html', import.meta.url), 'utf8');
+assert(indexSource.includes('window.niaHardReloadApp = async function()'), 'boot retry must use an inline recovery function so it still works when app modules fail to load');
+assert(indexSource.includes('navigator.serviceWorker.getRegistrations') && indexSource.includes('registration.unregister()'), 'boot retry must unregister stale service workers before reloading');
+assert(indexSource.includes('caches.keys()') && indexSource.includes('caches.delete(name)'), 'boot retry must clear CacheStorage before reloading');
+assert(indexSource.includes("url.searchParams.set('hardReload'"), 'boot retry must add a cache-busting hardReload query parameter');
+assert(!indexSource.includes('id="boot-retry" style="display:none;" onclick="location.reload()"'), 'boot retry must not be a plain location.reload');
+
 const cssSource = readFileSync(new URL('../web/static/style.css', import.meta.url), 'utf8');
 assert(cssSource.includes('iOS WebKit zooms the page when focusing editable controls below 16px'), 'mobile iOS inputs must document why 16px focus font size is required');
 assert(cssSource.includes('@supports (-webkit-touch-callout: none)') && cssSource.includes('font-size: 16px !important'), 'mobile iOS inputs/selects/textareas must stay at least 16px to prevent WebKit focus zoom');

@@ -37,7 +37,30 @@
 
   // If module scripts are missing from an incomplete offline cache, app.js never
   // runs and the lifecycle watchdog cannot start. Keep this tiny inline fallback.
+  // The retry action must work even when the app bundle or service worker code is
+  // stale/broken, so it lives inline and clears browser-managed app caches first.
   window.__niaAppModuleStarted = false;
+  window.niaHardReloadApp = async function() {
+    var retry = document.getElementById('boot-retry');
+    var subtitle = document.getElementById('boot-subtitle');
+    if (retry) retry.disabled = true;
+    if (subtitle) subtitle.textContent = 'App cache is being cleared…';
+    try {
+      if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
+        var registrations = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(registrations.map(function(registration) { return registration.unregister(); }));
+      }
+      if (window.caches && caches.keys) {
+        var names = await caches.keys();
+        await Promise.all(names.map(function(name) { return caches.delete(name); }));
+      }
+    } catch (error) {
+      console.warn('Boot recovery cache cleanup failed:', error);
+    }
+    var url = new URL(window.location.href);
+    url.searchParams.set('hardReload', String(Date.now()));
+    window.location.replace(url.toString());
+  };
   window.addEventListener('DOMContentLoaded', function() {
     setTimeout(function() {
       if (window.__niaAppModuleStarted) return;
@@ -59,7 +82,7 @@
       <div class="boot-title" data-i18n-key="boot.title">nia-todo wird geladen</div>
       <div class="boot-subtitle" id="boot-subtitle" data-i18n-key="boot.subtitle">App startet…</div>
       <div class="boot-spinner" id="boot-spinner" aria-hidden="true"></div>
-      <button type="button" class="boot-retry" id="boot-retry" style="display:none;" onclick="location.reload()" data-i18n-key="common.reload">Neu laden</button>
+      <button type="button" class="boot-retry" id="boot-retry" style="display:none;" onclick="window.niaHardReloadApp && window.niaHardReloadApp()" data-i18n-key="common.reload">Neu laden</button>
     </div>
   </div>
 
