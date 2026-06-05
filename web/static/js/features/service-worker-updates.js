@@ -73,6 +73,53 @@ export function createServiceWorkerUpdatesFeature() {
       .filter(asset => asset === '/' || asset.startsWith('/static/') || asset === '/index.html' || asset === '/manifest.json');
   }
 
+
+  function waitForWorkerState(worker, desiredStates, timeoutMs = 10000) {
+    if (!worker) return Promise.resolve(false);
+    if (desiredStates.includes(worker.state)) return Promise.resolve(true);
+    return new Promise((resolve) => {
+      const timeout = setTimeout(() => {
+        worker.removeEventListener('statechange', onStateChange);
+        resolve(false);
+      }, timeoutMs);
+      function onStateChange() {
+        if (!desiredStates.includes(worker.state)) return;
+        clearTimeout(timeout);
+        worker.removeEventListener('statechange', onStateChange);
+        resolve(true);
+      }
+      worker.addEventListener('statechange', onStateChange);
+    });
+  }
+
+  async function ensureOfflineServiceWorkerReadyAfterHardReload() {
+    if (!('serviceWorker' in navigator) || typeof navigator.serviceWorker?.register !== 'function') return false;
+    try {
+      const registration = await navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' });
+      swRegistration = registration;
+      await registration.update().catch(() => null);
+
+      if (registration.waiting) {
+        registration.waiting.postMessage({ action: 'skipWaiting' });
+        await waitForWorkerState(registration.waiting, ['activated'], 12000);
+      }
+
+      if (registration.installing) {
+        await waitForWorkerState(registration.installing, ['installed', 'activated'], 12000);
+        if (registration.waiting) {
+          registration.waiting.postMessage({ action: 'skipWaiting' });
+          await waitForWorkerState(registration.waiting, ['activated'], 12000);
+        }
+      }
+
+      await navigator.serviceWorker.ready;
+      return Boolean(registration.active || navigator.serviceWorker.controller);
+    } catch (error) {
+      console.warn('Forced app reload could not restore offline service worker before navigation', error);
+      return false;
+    }
+  }
+
   async function fetchHardReloadAssets() {
     let assets = FALLBACK_HARD_RELOAD_ASSETS;
     try {
@@ -306,6 +353,7 @@ export function createServiceWorkerUpdatesFeature() {
           .map(name => caches.delete(name).catch(() => false)));
       }
       await fetchHardReloadAssets();
+      await ensureOfflineServiceWorkerReadyAfterHardReload();
     } catch (err) {
       console.error('Forced app reload cleanup failed:', err);
     }

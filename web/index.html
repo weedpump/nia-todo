@@ -51,6 +51,50 @@
         return asset === '/' || asset === '/index.html' || asset === '/manifest.json' || asset.indexOf('/static/') === 0;
       });
     }
+
+    function waitForServiceWorkerState(worker, desiredStates, timeoutMs) {
+      if (!worker) return Promise.resolve(false);
+      if (desiredStates.indexOf(worker.state) !== -1) return Promise.resolve(true);
+      return new Promise(function(resolve) {
+        var timeout = setTimeout(function() {
+          worker.removeEventListener('statechange', onStateChange);
+          resolve(false);
+        }, timeoutMs || 10000);
+        function onStateChange() {
+          if (desiredStates.indexOf(worker.state) === -1) return;
+          clearTimeout(timeout);
+          worker.removeEventListener('statechange', onStateChange);
+          resolve(true);
+        }
+        worker.addEventListener('statechange', onStateChange);
+      });
+    }
+    async function restoreOfflineServiceWorker() {
+      if (!navigator.serviceWorker || !navigator.serviceWorker.register) return false;
+      try {
+        var registration = await navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' });
+        await registration.update().catch(function() { return null; });
+
+        if (registration.waiting) {
+          registration.waiting.postMessage({ action: 'skipWaiting' });
+          await waitForServiceWorkerState(registration.waiting, ['activated'], 12000);
+        }
+
+        if (registration.installing) {
+          await waitForServiceWorkerState(registration.installing, ['installed', 'activated'], 12000);
+          if (registration.waiting) {
+            registration.waiting.postMessage({ action: 'skipWaiting' });
+            await waitForServiceWorkerState(registration.waiting, ['activated'], 12000);
+          }
+        }
+
+        await navigator.serviceWorker.ready;
+        return Boolean(registration.active || navigator.serviceWorker.controller);
+      } catch (error) {
+        console.warn('Boot recovery could not restore offline service worker before navigation', error);
+        return false;
+      }
+    }
     async function refreshAssetsFromNetwork() {
       var assets = fallbackAssets;
       try {
@@ -94,6 +138,7 @@
         }));
       }
       await refreshAssetsFromNetwork();
+      await restoreOfflineServiceWorker();
     } catch (error) {
       console.warn('Boot recovery cache cleanup failed:', error);
     }
