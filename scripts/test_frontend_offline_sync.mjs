@@ -17,6 +17,7 @@ async function run() {
     await waitForText('Offline Sync Todo');
 
     await page.waitForFunction(async () => {
+      if (typeof window.dbGetAll !== 'function') return false;
       const todos = await window.dbGetAll('todos');
       return todos.some(todo => todo.title === 'Offline Sync Todo' && typeof todo.id === 'number');
     }, null, { timeout: 10000 });
@@ -45,6 +46,7 @@ async function run() {
     await page.evaluate(() => window.dispatchEvent(new Event('online')));
 
     await page.waitForFunction(async () => {
+      if (typeof window.dbGetAll !== 'function') return false;
       const queue = await window.dbGetAll('syncQueue');
       const todos = await window.dbGetAll('todos');
       const todo = todos.find(item => item.title === 'Offline Sync Todo');
@@ -64,6 +66,7 @@ async function run() {
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.locator('#login-overlay').waitFor({ state: 'hidden', timeout: 10000 });
     await page.waitForFunction(async () => {
+      if (typeof window.dbGetAll !== 'function') return false;
       const todos = await window.dbGetAll('todos');
       const todo = todos.find(item => item.title === 'Offline Sync Todo');
       return todo?.status === 'done';
