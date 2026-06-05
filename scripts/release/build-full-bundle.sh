@@ -9,6 +9,8 @@ usage() {
 Usage: scripts/release/build-full-bundle.sh VERSION --windows-installer FILE --android-apk FILE [options]
 
 Options:
+  --native-app-version VERSION
+                         Native app download version to publish (default: VERSION)
   --output-dir DIR       Output directory (default: dist/release)
   --work-dir DIR         Build work directory (default: dist/build/full-bundle-VERSION)
   --allow-missing-apps   Allow building a test package without native app files
@@ -19,6 +21,7 @@ USAGE
 VERSION=""
 WINDOWS_INSTALLER=""
 ANDROID_APK=""
+NATIVE_APP_VERSION=""
 OUTPUT_DIR="dist/release"
 WORK_DIR=""
 ALLOW_MISSING_APPS=0
@@ -29,6 +32,7 @@ while [ "$#" -gt 0 ]; do
     -h|--help) usage; exit 0 ;;
     --windows-installer) WINDOWS_INSTALLER="${2:-}"; shift 2 ;;
     --android-apk) ANDROID_APK="${2:-}"; shift 2 ;;
+    --native-app-version) NATIVE_APP_VERSION="${2:-}"; shift 2 ;;
     --output-dir) OUTPUT_DIR="${2:-}"; shift 2 ;;
     --work-dir) WORK_DIR="${2:-}"; shift 2 ;;
     --allow-missing-apps) ALLOW_MISSING_APPS=1; shift ;;
@@ -41,6 +45,11 @@ done
 [ -n "${VERSION}" ] || { usage; exit 2; }
 if ! [[ "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   echo "Invalid stable version: ${VERSION}" >&2
+  exit 2
+fi
+NATIVE_APP_VERSION="${NATIVE_APP_VERSION:-${VERSION}}"
+if ! [[ "${NATIVE_APP_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "Invalid stable native app version: ${NATIVE_APP_VERSION}" >&2
   exit 2
 fi
 
@@ -68,51 +77,21 @@ docker run --rm \
 
 DOWNLOAD_DIR="${EXPORT_DIR}/web/downloads"
 mkdir -p "${DOWNLOAD_DIR}"
-WINDOWS_NAME="nia-todo-v${VERSION}-windows-x64-setup.exe"
-ANDROID_NAME="nia-todo-v${VERSION}-android-arm64.apk"
-WINDOWS_SHA=""
-ANDROID_SHA=""
-WINDOWS_SIZE=0
-ANDROID_SIZE=0
-
-if [ -n "${WINDOWS_INSTALLER}" ] && [ -f "${WINDOWS_INSTALLER}" ]; then
-  cp "${WINDOWS_INSTALLER}" "${DOWNLOAD_DIR}/${WINDOWS_NAME}"
-  WINDOWS_SHA="$(sha256sum "${DOWNLOAD_DIR}/${WINDOWS_NAME}" | awk '{print $1}')"
-  WINDOWS_SIZE="$(stat -c '%s' "${DOWNLOAD_DIR}/${WINDOWS_NAME}")"
-  printf '%s  %s\n' "${WINDOWS_SHA}" "${WINDOWS_NAME}" > "${DOWNLOAD_DIR}/${WINDOWS_NAME}.sha256"
-elif [ "${ALLOW_MISSING_APPS}" != "1" ]; then
-  echo "Missing --windows-installer FILE" >&2
-  exit 1
+EMBED_ARGS=(
+  --download-dir "${DOWNLOAD_DIR}"
+  --web-version "${VERSION}"
+  --native-app-version "${NATIVE_APP_VERSION}"
+)
+if [ -n "${WINDOWS_INSTALLER}" ]; then
+  EMBED_ARGS+=(--windows-installer "${WINDOWS_INSTALLER}")
 fi
-
-if [ -n "${ANDROID_APK}" ] && [ -f "${ANDROID_APK}" ]; then
-  cp "${ANDROID_APK}" "${DOWNLOAD_DIR}/${ANDROID_NAME}"
-  ANDROID_SHA="$(sha256sum "${DOWNLOAD_DIR}/${ANDROID_NAME}" | awk '{print $1}')"
-  ANDROID_SIZE="$(stat -c '%s' "${DOWNLOAD_DIR}/${ANDROID_NAME}")"
-  printf '%s  %s\n' "${ANDROID_SHA}" "${ANDROID_NAME}" > "${DOWNLOAD_DIR}/${ANDROID_NAME}.sha256"
-elif [ "${ALLOW_MISSING_APPS}" != "1" ]; then
-  echo "Missing --android-apk FILE" >&2
-  exit 1
+if [ -n "${ANDROID_APK}" ]; then
+  EMBED_ARGS+=(--android-apk "${ANDROID_APK}")
 fi
-
-python3 - "${DOWNLOAD_DIR}" "${VERSION}" "${WINDOWS_NAME}" "${WINDOWS_SHA}" "${WINDOWS_SIZE}" "${ANDROID_NAME}" "${ANDROID_SHA}" "${ANDROID_SIZE}" <<'PY'
-import json
-import sys
-from datetime import datetime, timezone
-from pathlib import Path
-
-download_dir = Path(sys.argv[1])
-version = sys.argv[2]
-windows_name, windows_sha, windows_size = sys.argv[3], sys.argv[4], int(sys.argv[5])
-android_name, android_sha, android_size = sys.argv[6], sys.argv[7], int(sys.argv[8])
-apps = []
-if windows_sha:
-    apps.append({"platform": "windows", "arch": "x64", "label": "Windows Setup", "version": f"v{version}", "filename": windows_name, "url": f"/downloads/{windows_name}", "sha256": windows_sha, "size_bytes": windows_size})
-if android_sha:
-    apps.append({"platform": "android", "arch": "arm64", "label": "Android APK", "version": f"v{version}", "filename": android_name, "url": f"/downloads/{android_name}", "sha256": android_sha, "size_bytes": android_size})
-manifest = {"version": f"v{version}", "web_version": f"v{version}", "generated_at": datetime.now(timezone.utc).isoformat(), "latest": {"version": f"v{version}"}, "apps": sorted(apps, key=lambda item: item["platform"])}
-(download_dir / "app-downloads.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-PY
+if [ "${ALLOW_MISSING_APPS}" = "1" ]; then
+  EMBED_ARGS+=(--allow-missing-apps)
+fi
+scripts/release/embed-native-downloads.py "${EMBED_ARGS[@]}"
 
 DEB_ROOT="${WORK_DIR}/debroot"
 PKG_DIR="${DEB_ROOT}/opt/nia-todo"

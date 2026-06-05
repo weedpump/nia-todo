@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 
 ### Changed
 - Server startup now defaults to `NIA_TODO_HOST=auto`, binding every available wildcard stack: IPv6 plus IPv4 when possible, falling back to IPv4-only on hosts without IPv6.
+- Releases can now reuse an older native app version via `--reuse-native-app-version`, keeping bundled Windows/Android downloads, manifest metadata, and native update hints tied to the last actual native app release while Server/Web/Docker advance.
 
 ### Fixed
 - Web app reload recovery now clears stale nia-todo service worker/cache state for boot, login, sidebar, and server-update reload flows while preserving offline PWA caches and using cache-busting reloads after app updates.
