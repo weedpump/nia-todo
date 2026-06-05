@@ -5,7 +5,7 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.11.3] - 2026-06-05
 
 ### Changed
 - Android reminder notifications now open the app only and no longer expose the broken **Erledigt/Completed** action.
