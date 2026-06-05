@@ -230,6 +230,11 @@ export function createServiceWorkerUpdatesFeature({ onMarkTodoDone }) {
     }
 
     try {
+      if (navigator.onLine === false) {
+        console.warn('Forced app reload skipped because browser reports offline');
+        return;
+      }
+
       // This is used by the login-page recovery button and the sidebar reload
       // action. It must be a real recovery reload, not just location.reload(): a
       // stale active service worker can otherwise serve the same broken app
