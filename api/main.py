@@ -30,6 +30,24 @@ app.add_middleware(CSRFProtectionMiddleware)
 app.add_middleware(RateLimitMiddleware)
 app.add_middleware(DynamicCORSMiddleware)
 
+
+def add_app_shell_cache_headers(response, path: str):
+    if (
+        path == "/"
+        or path in {"/index.html", "/manifest.json", "/setup", "/admin", "/set-password", "/favicon.ico"}
+        or path.startswith("/static/")
+    ):
+        response.headers["Cache-Control"] = "no-cache, max-age=0, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
+
+
+@app.middleware("http")
+async def app_shell_cache_control_middleware(request, call_next):
+    response = await call_next(request)
+    return add_app_shell_cache_headers(response, request.url.path)
+
 # ─── Router ──────────────────────────────────────────────────────────────────
 
 from routers import auth, todos, projects, sections, reminders, places, dashboard, push, admin, me, setup, sharing, password_setup, workspaces, instance, two_factor, braindump_v2
