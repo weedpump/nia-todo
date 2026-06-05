@@ -5,6 +5,11 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [2.11.6] - 2026-06-06
+
+### Fixed
+- BrainDump now preserves model-provided `due_datetime`/`reminder_datetime` aliases as todo deadlines and reminders, preventing valid extracted times from being dropped when the BrainDump agent uses datetime-style field names despite the prompt schema.
+
 ## [2.11.5] - 2026-06-05
 
 ### Fixed
