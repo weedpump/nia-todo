@@ -94,6 +94,18 @@ def test_normalizes_alias_fields_from_local_models_without_kind_semantics():
     assert_true(item["deadline"] and "T18:00" in item["deadline"], item)
 
 
+def test_normalizes_datetime_alias_fields_from_braindump_agent():
+    parsed = {"candidates": [{
+        "title": "Küche aufräumen",
+        "due_datetime": "2026-06-06T10:00:00+02:00",
+        "reminder_datetime": "2026-06-06T10:00:00+02:00",
+    }]}
+    result = _normalize_braindump_json(parsed, "Heute Vormittag Küche aufräumen. Erinnere mich um 10 Uhr daran.")
+    item = result["candidates"][0]
+    assert_true(item["deadline"] and item["deadline"].startswith("2026-06-06T10:00"), item)
+    assert_true(item["reminder"] and item["reminder"].startswith("2026-06-06T10:00"), item)
+
+
 def test_invalid_llm_section_is_cleared_when_workspace_known():
     context = {"projects": [{"name": "Shopping", "sections": ["Dairy"]}]}
     result = _normalize_braindump_json({"candidates": [{"title": "Bread", "project_name": "Shopping", "section_name": "Shopping | Drinks"}]}, "Buy bread.", context)
@@ -447,6 +459,7 @@ def main():
         test_parses_markdown_fenced_llm_json,
         test_parses_common_local_llm_json_variants,
         test_normalizes_alias_fields_from_local_models_without_kind_semantics,
+        test_normalizes_datetime_alias_fields_from_braindump_agent,
         test_invalid_llm_section_is_cleared_when_workspace_known,
         test_unknown_llm_project_is_cleared_to_inbox_fallback,
         test_section_without_project_is_cleared_to_inbox_fallback,

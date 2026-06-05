@@ -400,8 +400,8 @@ def _normalize_braindump_json(parsed: dict, transcript: str, workspace_context: 
             continue
         title = _clean_title(title)
         project_name = candidate.get("project_name") or candidate.get("projectName")
-        deadline_source = candidate.get("deadline") or candidate.get("due") or candidate.get("due_date") or candidate.get("dueDate")
-        reminder_source = candidate.get("reminder") or candidate.get("remind_at") or candidate.get("reminder_at") or candidate.get("remindAt") or candidate.get("reminderAt")
+        deadline_source = candidate.get("deadline") or candidate.get("due") or candidate.get("due_date") or candidate.get("dueDate") or candidate.get("due_datetime") or candidate.get("dueDatetime")
+        reminder_source = candidate.get("reminder") or candidate.get("remind_at") or candidate.get("reminder_at") or candidate.get("remindAt") or candidate.get("reminderAt") or candidate.get("reminder_datetime") or candidate.get("reminderDatetime")
         deadline = _normalize_temporal_field(deadline_source, transcript=transcript)
         reminder = _normalize_temporal_field(reminder_source, require_time=True, transcript=transcript)
         if deadline and reminder_source and not reminder and _temporal_has_explicit_time(deadline_source):
