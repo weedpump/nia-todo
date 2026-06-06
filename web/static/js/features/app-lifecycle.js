@@ -35,6 +35,7 @@ export function createAppLifecycle({
   updateToggleDoneButton,
   updateSortButton,
   updateProjectWidgetButton,
+  updateTodayFocusButton,
   updateMinimalTodosButton,
   refreshInvites = null,
 }) {
@@ -158,6 +159,7 @@ export function createAppLifecycle({
     updateToggleDoneButton();
     updateSortButton();
     updateProjectWidgetButton?.();
+    updateTodayFocusButton?.();
     updateMinimalTodosButton?.();
     initTheme();
     refreshInvites?.();
