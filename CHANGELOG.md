@@ -5,6 +5,11 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [2.11.8] - 2026-06-06
+
+### Fixed
+- Restored the persisted global Today Focus button state after app reload/start so the active indicator matches the filtered view.
+
 ## [2.11.7] - 2026-06-06
 
 ### Fixed
