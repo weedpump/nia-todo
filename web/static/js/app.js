@@ -819,6 +819,7 @@ const appLifecycle = createAppLifecycle({
   updateToggleDoneButton,
   updateSortButton,
   updateProjectWidgetButton,
+  updateTodayFocusButton,
   updateMinimalTodosButton,
   renderWorkspaces,
   refreshInvites: () => sharingFeature?.loadInvites?.(),

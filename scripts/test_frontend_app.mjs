@@ -58,10 +58,14 @@ async function run() {
 
     await page.locator('.nav-btn[data-filter="all"]').click();
     await page.locator('#today-focus-btn').click();
+    await page.locator('#today-focus-btn.active[aria-pressed="true"]').waitFor({ state: 'visible', timeout: 5000 });
     await page.fill('#search-input', 'Reminder-only today focus regression');
     await page.getByText('Reminder-only today focus regression', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
     await page.fill('#search-input', 'Reminder-only tomorrow focus regression');
     await page.waitForFunction(() => !document.body.innerText.includes('Reminder-only tomorrow focus regression'), null, { timeout: 5000 });
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.locator('#login-overlay').waitFor({ state: 'hidden', timeout: 10000 });
+    await page.locator('#today-focus-btn.active[aria-pressed="true"]').waitFor({ state: 'visible', timeout: 10000 });
     await page.fill('#search-input', '');
     await page.locator('#today-focus-btn').click();
 
