@@ -410,6 +410,15 @@ export function createAppRenderingFeature({
     return Number.isFinite(date.getTime()) ? date : null;
   }
 
+  function parseTodoReminderDate(todo) {
+    const raw = todo?.remind_at || todo?.reminders?.find?.(reminder => !reminder.sent_at)?.remind_at || todo?.reminders?.[0]?.remind_at;
+    return parseTodoDate(raw);
+  }
+
+  function effectiveFocusDate(todo) {
+    return parseTodoDate(todo?.due_date) || parseTodoReminderDate(todo);
+  }
+
   function endOfToday() {
     const today = new Date();
     today.setHours(23, 59, 59, 999);
@@ -438,20 +447,21 @@ export function createAppRenderingFeature({
       if (priorities.size && !priorities.has(Number(todo.priority))) return false;
 
       const due = parseTodoDate(todo.due_date);
+      const focusDate = due || parseTodoReminderDate(todo);
       switch (filters.dueMode || 'next_days') {
         case 'any':
           return true;
         case 'none':
-          return !due;
+          return !focusDate;
         case 'overdue':
-          return Boolean(due && due < now && todo.status !== 'done');
+          return Boolean(focusDate && focusDate < now && todo.status !== 'done');
         case 'today':
-          return Boolean(due && due >= new Date(now.toDateString()) && due <= todayEnd);
+          return Boolean(focusDate && focusDate >= new Date(now.toDateString()) && focusDate <= todayEnd);
         case 'tomorrow':
-          return Boolean(due && due >= tomorrowStart && due <= tomorrowEnd);
+          return Boolean(focusDate && focusDate >= tomorrowStart && focusDate <= tomorrowEnd);
         case 'next_days':
         default:
-          return Boolean(due && due <= daysEnd);
+          return Boolean(focusDate && focusDate <= daysEnd);
       }
     });
   }
@@ -482,8 +492,8 @@ export function createAppRenderingFeature({
     const filteredForStats = applyFocusFilters(getWorkspaceTodos(), validProjectIds);
     const activeForStats = filteredForStats.filter(todo => todo.status !== 'done');
     const overdueForStats = activeForStats.filter(todo => {
-      const due = parseTodoDate(todo.due_date);
-      return Boolean(due && due < new Date());
+      const focusDate = effectiveFocusDate(todo);
+      return Boolean(focusDate && focusDate < new Date());
     }).length;
     const focusStats = [
       { cls: 'total', num: filteredForStats.length, label: t('overview.stats.total'), hint: t('focus.stats.totalHint') },
@@ -624,9 +634,9 @@ export function createAppRenderingFeature({
       filtered = filtered.filter(todo => {
         if (todo.status === 'done') return false;
         if (todo.is_pinned) return true;
-        if (!todo.due_date) return Number(todo.priority) === 1;
-        const due = new Date(todo.due_date);
-        return Number.isFinite(due.getTime()) && due <= todayEnd;
+        const focusDate = effectiveFocusDate(todo);
+        if (!focusDate) return Number(todo.priority) === 1;
+        return focusDate <= todayEnd;
       });
     }
     if (currentFilter === 'focus' && !currentProjectId) {
