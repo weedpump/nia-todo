@@ -5,6 +5,11 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [2.11.7] - 2026-06-06
+
+### Fixed
+- Focus date filtering now treats reminder-only todos as scheduled for their reminder day when no deadline is set, so Today Focus and Focus view filters include quick reminder-driven tasks without requiring artificial deadlines.
+
 ## [2.11.6] - 2026-06-06
 
 ### Fixed
