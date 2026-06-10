@@ -301,6 +301,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
       <label class="admin-visually-hidden" for="admin-login-password" data-i18n-key="auth.password">Password</label>
       <input type="password" id="admin-login-password" name="password" data-i18n-placeholder-key="admin.login.passwordPlaceholder" placeholder="Enter admin password" autocomplete="current-password" required>
       <button class="btn btn-primary" type="submit" data-i18n-key="auth.signIn">Sign in</button>
+      <a class="btn btn-secondary hidden" id="admin-oidc-login-btn" href="/api/oidc/admin/login">Sign in with OIDC</a>
     </form>
     <div class="admin-error" id="admin-login-error"></div>
   </div>
@@ -486,6 +487,30 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
     </div>
     <div class="admin-error" id="email-config-error"></div>
     <div class="admin-success" id="email-config-success"></div>
+  </div>
+
+  <!-- OIDC Configuration -->
+  <div class="admin-card" id="oidc-config-card">
+    <h2><span data-icon="key-round"></span> OIDC</h2>
+    <div class="admin-config-grid">
+      <div class="admin-config-field admin-config-checkbox full"><input type="checkbox" id="oidc-enabled"><label for="oidc-enabled">OIDC aktivieren</label></div>
+      <div class="admin-config-field"><label for="oidc-provider-name">Provider Name</label><input type="text" id="oidc-provider-name" placeholder="Pocket ID"></div>
+      <div class="admin-config-field full"><label for="oidc-issuer-url">Issuer / Provider URL</label><input type="url" id="oidc-issuer-url" placeholder="https://id.example.org"></div>
+      <div class="admin-config-field"><label for="oidc-client-id">Client ID</label><input type="text" id="oidc-client-id" autocomplete="off"></div>
+      <div class="admin-config-field"><label for="oidc-client-secret">Client Secret</label><input type="password" id="oidc-client-secret" placeholder="Leer lassen = unverändert" autocomplete="new-password"><div class="admin-secret-note" id="oidc-client-secret-note"></div></div>
+      <div class="admin-config-field admin-config-checkbox full"><input type="checkbox" id="oidc-public-client"><label for="oidc-public-client">Public Client (kein Secret beim Token-Exchange)</label></div>
+      <div class="admin-config-field"><label for="oidc-token-auth-method">Token Endpoint Auth</label><select id="oidc-token-auth-method"><option value="auto">Auto</option><option value="client_secret_basic">client_secret_basic</option><option value="client_secret_post">client_secret_post</option></select></div>
+      <div class="admin-config-field"><label for="oidc-scopes">Scopes</label><input type="text" id="oidc-scopes" value="openid email profile"></div>
+      <div class="admin-config-field"><label for="oidc-logout-url">Logout URL optional</label><input type="url" id="oidc-logout-url" placeholder="https://id.example.org/logout"></div>
+      <div class="admin-config-field full"><label>Redirect URI</label><code id="oidc-redirect-uri">/api/oidc/callback</code></div>
+    </div>
+    <div class="admin-help">User-Login mappt strikt über verifizierte E-Mail auf beiden Seiten. Admin-OIDC muss manuell verknüpft werden.</div>
+    <div class="form-row" style="margin-top:12px;">
+      <button class="btn btn-primary" onclick="saveOidcConfig()">OIDC-Konfiguration speichern</button>
+      <button class="btn btn-secondary" onclick="startAdminOidcLink()">Admin-OIDC verbinden</button>
+    </div>
+    <div class="admin-error" id="oidc-config-error"></div>
+    <div class="admin-success" id="oidc-config-success"></div>
   </div>
 
   <!-- Security / 2FA -->
@@ -825,6 +850,32 @@ function migrateOldAdminToken() {
 }
 migrateOldAdminToken();
 
+async function hydrateAdminOidcLogin() {
+  const button = document.getElementById('admin-oidc-login-btn');
+  if (!button) return;
+  try {
+    const r = await fetch(API + '/api/oidc/status', { credentials: 'include' });
+    if (!r.ok) return;
+    const data = await r.json();
+    if (!data.enabled) return;
+    button.textContent = `Sign in with ${data.provider_name || 'OIDC'}`;
+    button.classList.remove('hidden');
+  } catch (_) {}
+}
+
+function consumeAdminOidcLinkResult() {
+  const raw = sessionStorage.getItem('nia_admin_oidc_link_result');
+  if (!raw) return;
+  sessionStorage.removeItem('nia_admin_oidc_link_result');
+  try {
+    const data = JSON.parse(raw);
+    const msg = document.getElementById('oidc-config-success');
+    if (msg) msg.textContent = `Admin-OIDC verbunden: ${data.display_label || data.subject || 'Identity'}`;
+  } catch (_) {}
+}
+
+hydrateAdminOidcLogin();
+
 function getAdminToken() {
   return localStorage.getItem('admin_jwt_token');
 }
@@ -836,6 +887,7 @@ if (adminToken) {
   loadAdminData().then(() => {
     document.getElementById('admin-login-card').style.display = 'none';
     document.getElementById('admin-content').style.display = 'block';
+    consumeAdminOidcLinkResult();
   }).catch(() => {
     localStorage.removeItem('admin_jwt_token');
     adminToken = null;
@@ -966,6 +1018,7 @@ async function doAdminLogin() {
     document.getElementById('admin-login-card').style.display = 'none';
     document.getElementById('admin-content').style.display = 'block';
     await loadAdminData();
+    consumeAdminOidcLinkResult();
   } catch(e) {
     document.getElementById('admin-login-error').textContent = 'Error: ' + e.message;
   }
@@ -975,11 +1028,12 @@ let twoFactorPolicyRequired = false;
 let brainDumpFeatureEnabled = false;
 
 async function loadAdminData() {
-  const [usersData, configData, brainDumpConfigData, emailConfigData, twoFactorPolicy, serverUpdate, technicalStats] = await Promise.all([
+  const [usersData, configData, brainDumpConfigData, emailConfigData, oidcConfigData, twoFactorPolicy, serverUpdate, technicalStats] = await Promise.all([
     apiGet('/api/admin/users'),
     apiGet('/api/admin/instance-config'),
     apiGet('/api/admin/braindump-config'),
     apiGet('/api/admin/email-config'),
+    apiGet('/api/admin/oidc-config'),
     apiGet('/api/admin/2fa-policy'),
     apiGet('/api/admin/server-update'),
     apiGet(`/api/admin/technical-stats?days=${currentStatsDays}`),
@@ -991,6 +1045,7 @@ async function loadAdminData() {
   renderBrainDumpConfig(brainDumpConfigData);
   renderUsers(usersData.users);
   renderEmailConfig(emailConfigData);
+  renderOidcConfig(oidcConfigData);
   renderServerUpdate(serverUpdate);
   renderTechnicalStats(technicalStats);
 }
@@ -1400,6 +1455,59 @@ function renderInstanceConfig(config) {
   document.getElementById('instance-public-url').value = config.public_base_url || '';
   document.getElementById('instance-allowed-origins').value = (config.allowed_origins || []).join('\n');
   document.getElementById('instance-trusted-proxies').value = (config.trusted_proxies || []).join('\n');
+}
+
+function renderOidcConfig(config = {}) {
+  document.getElementById('oidc-enabled').checked = !!config.enabled;
+  document.getElementById('oidc-provider-name').value = config.provider_name || 'OIDC';
+  document.getElementById('oidc-issuer-url').value = config.issuer_url || '';
+  document.getElementById('oidc-client-id').value = config.client_id || '';
+  document.getElementById('oidc-client-secret').value = '';
+  document.getElementById('oidc-public-client').checked = !!config.public_client;
+  document.getElementById('oidc-token-auth-method').value = config.token_auth_method || 'auto';
+  document.getElementById('oidc-scopes').value = config.scopes || 'openid email profile';
+  document.getElementById('oidc-logout-url').value = config.logout_url || '';
+  document.getElementById('oidc-redirect-uri').textContent = config.redirect_uri || '/api/oidc/callback';
+  document.getElementById('oidc-client-secret-note').textContent = config.client_secret_configured ? 'Secret ist gespeichert.' : 'Noch kein Secret gespeichert.';
+}
+
+function readOidcConfigForm() {
+  const secret = document.getElementById('oidc-client-secret').value;
+  const data = {
+    enabled: document.getElementById('oidc-enabled').checked,
+    provider_name: document.getElementById('oidc-provider-name').value.trim() || 'OIDC',
+    issuer_url: document.getElementById('oidc-issuer-url').value.trim(),
+    client_id: document.getElementById('oidc-client-id').value.trim(),
+    public_client: document.getElementById('oidc-public-client').checked,
+    token_auth_method: document.getElementById('oidc-token-auth-method').value || 'auto',
+    scopes: document.getElementById('oidc-scopes').value.trim() || 'openid email profile',
+    logout_url: document.getElementById('oidc-logout-url').value.trim(),
+  };
+  if (secret) data.client_secret = secret;
+  return data;
+}
+
+async function saveOidcConfig() {
+  document.getElementById('oidc-config-error').textContent = '';
+  document.getElementById('oidc-config-success').textContent = '';
+  try {
+    const data = await apiPatch('/api/admin/oidc-config', readOidcConfigForm());
+    renderOidcConfig(data);
+    document.getElementById('oidc-config-success').textContent = 'OIDC-Konfiguration gespeichert.';
+  } catch (e) {
+    document.getElementById('oidc-config-error').textContent = e.message;
+  }
+}
+
+async function startAdminOidcLink() {
+  document.getElementById('oidc-config-error').textContent = '';
+  document.getElementById('oidc-config-success').textContent = '';
+  try {
+    const data = await apiPost('/api/oidc/admin/link/start', {});
+    location.href = data.authorization_url;
+  } catch (e) {
+    document.getElementById('oidc-config-error').textContent = e.message;
+  }
 }
 
 function parseOriginsInput(value) {
