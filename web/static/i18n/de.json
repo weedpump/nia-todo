@@ -49,6 +49,7 @@
   "auth.forgotPassword": "Passwort vergessen?",
   "auth.loginUpdateAction": "Anmeldeproblem? App neu laden",
   "auth.signIn": "Anmelden",
+  "auth.alternativeSignIn": "oder",
   "auth.signOut": "Abmelden",
   "resource.apiDocs": "API-Doku",
   "resource.changelog": "Changelog",
