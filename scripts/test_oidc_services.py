@@ -160,6 +160,17 @@ def main():
     with get_db() as db:
         stored_payload = db.execute("SELECT payload_json FROM oidc_native_handoffs WHERE code_hash = ?", (hashlib.sha256(native_code.encode()).hexdigest(),)).fetchone()["payload_json"]
         assert_true(stored_payload == "{}", "native OIDC handoff payload should be cleared after consumption")
+        kind_sql = db.execute("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'oidc_native_handoffs'").fetchone()["sql"]
+        assert_true("'admin'" not in kind_sql and "'admin_link'" not in kind_sql, "native OIDC handoff table must not allow admin kinds")
+    for invalid_native_kind in ("admin", "admin_link"):
+        try:
+            create_native_handoff(kind=invalid_native_kind, payload={}, redirect_after="/admin")
+            raise AssertionError(f"native OIDC handoff should reject {invalid_native_kind}")
+        except HTTPException as exc:
+            assert_true(exc.status_code == 400, f"native OIDC handoff should reject {invalid_native_kind} with bad request")
+    auth_session_source = (BASE / "web/static/js/features/auth-session.js").read_text()
+    native_callback_block = auth_session_source.split("async function handleNativeOidcCallback", 1)[1].split("function bindNativeOidcListener", 1)[0]
+    assert_true("admin_jwt_token" not in native_callback_block and "nia_admin_oidc_link_result" not in native_callback_block, "native OIDC callback must not prepare admin/admin-link handling")
     security_source = (BASE / "api/middleware/security.py").read_text()
     assert_true('"/api/oidc/native/exchange"' in security_source, "native OIDC exchange must be CSRF-exempt before a CSRF cookie exists")
     exchange_code = create_native_handoff(kind="user", payload={"csrf_token": "exchange-csrf"}, redirect_after="/inbox")
