@@ -132,7 +132,6 @@ class MainActivity : TauriActivity() {
     webView.addJavascriptInterface(nativeBridge, "NiaAndroidSystemBars")
     webView.post {
       applySystemBarInsetsToContentRoot()
-      pendingOidcCallbackUrl?.let { dispatchOidcCallbackToWebView(it) }
     }
   }
 
@@ -143,21 +142,23 @@ class MainActivity : TauriActivity() {
   }
 
   private fun handleOidcIntent(intent: Intent?) {
-    if (intent?.action != Intent.ACTION_VIEW) return
-    val uri = intent.data ?: return
-    if (!isOidcCallbackUri(uri)) return
-    dispatchOidcCallbackToWebView(uri.toString())
+    try {
+      if (intent?.action != Intent.ACTION_VIEW) return
+      val uri = intent.data ?: return
+      if (!isOidcCallbackUri(uri)) return
+      storeOidcCallbackForWebLayer(uri.toString())
+    } catch (_: Exception) {
+      // Deep-link entry must never crash the native shell. If anything unexpected
+      // happens, leave normal app startup intact so the user can retry/login again.
+    }
   }
 
-  private fun dispatchOidcCallbackToWebView(url: String) {
+  private fun storeOidcCallbackForWebLayer(url: String) {
     // Keep the callback pending natively until the web layer explicitly consumes it.
-    // On a cold start evaluateJavascript can run before the app JS has loaded and
-    // the injected window value would be lost on navigation/reload.
+    // Avoid evaluateJavascript here: during a cold-start deep link the WebView can
+    // exist before app JS is ready, and injecting into that transient state can be
+    // lost or crash on some Android/WebView builds.
     pendingOidcCallbackUrl = url
-    val webView = appWebView ?: return
-    val quoted = JSONObject.quote(url)
-    val script = "window.__niaPendingNativeOidcCallback = $quoted; window.__niaNativeOidcCallback && window.__niaNativeOidcCallback($quoted);"
-    runOnUiThread { webView.evaluateJavascript(script, null) }
   }
 
   private fun canonicalOrigin(origin: String): String {

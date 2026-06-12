@@ -254,11 +254,24 @@ export function createNativeBridge() {
       window.__niaPendingNativeOidcCallback = '';
       setTimeout(() => deliver(pending), 0);
     }
-    if (isAndroid() && hasAndroidMethod('consumePendingOidcCallback')) {
+    let androidPollTimer = null;
+    let androidPollStopTimer = null;
+    const consumeAndroidPending = () => {
+      if (!isAndroid() || !hasAndroidMethod('consumePendingOidcCallback')) return;
       try {
         const pending = android().consumePendingOidcCallback();
-        if (pending) setTimeout(() => deliver(pending), 0);
+        if (pending) deliver(pending);
       } catch (_error) {}
+    };
+    consumeAndroidPending();
+    if (isAndroid() && hasAndroidMethod('consumePendingOidcCallback')) {
+      window.addEventListener('focus', consumeAndroidPending);
+      document.addEventListener('visibilitychange', consumeAndroidPending);
+      androidPollTimer = setInterval(consumeAndroidPending, 500);
+      androidPollStopTimer = setTimeout(() => {
+        if (androidPollTimer) clearInterval(androidPollTimer);
+        androidPollTimer = null;
+      }, 60_000);
     }
     let unlistenTauri = null;
     if (isDesktop()) {
@@ -273,6 +286,10 @@ export function createNativeBridge() {
     }
     return () => {
       window.removeEventListener('nia-native-oidc-callback', onWindowEvent);
+      window.removeEventListener('focus', consumeAndroidPending);
+      document.removeEventListener('visibilitychange', consumeAndroidPending);
+      if (androidPollTimer) clearInterval(androidPollTimer);
+      if (androidPollStopTimer) clearTimeout(androidPollStopTimer);
       if (typeof unlistenTauri === 'function') unlistenTauri();
     };
   }

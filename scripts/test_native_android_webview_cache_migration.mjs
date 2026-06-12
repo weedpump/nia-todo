@@ -28,10 +28,10 @@ assert.match(manifest, /android:scheme="nia-todo"/, 'Android manifest must regis
 assert.match(manifest, /android:host="oidc"/, 'Android manifest must route OIDC callbacks to the app');
 assert.match(source, /handleOidcIntent\(intent\)/, 'Android activity must process cold-start OIDC callback intents');
 assert.match(source, /override fun onNewIntent/, 'Android activity must process warm OIDC callback intents');
-assert.match(source, /__niaNativeOidcCallback/, 'Android activity must dispatch native OIDC callbacks into the WebView bridge');
+assert.match(source, /storeOidcCallbackForWebLayer\(uri\.toString\(\)\)/, 'Android activity must store native OIDC callbacks for web-layer consumption');
 assert.match(source, /consumePendingOidcCallback\(\)/, 'Android bridge must expose explicit pending OIDC callback consumption');
-assert.match(source, /pendingOidcCallbackUrl = url[\s\S]*val webView = appWebView \?: return/, 'Android must keep OIDC callbacks pending when WebView/JS is not ready');
-assert.doesNotMatch(source, /pendingOidcCallbackUrl = null[\s\S]{0,240}evaluateJavascript/, 'Android must not clear pending OIDC callbacks before JS can consume them');
+assert.match(source, /pendingOidcCallbackUrl = url/, 'Android must keep OIDC callbacks pending when WebView/JS is not ready');
+assert.doesNotMatch(source, /evaluateJavascript[\s\S]{0,240}__niaNativeOidcCallback/, 'Android must not push OIDC callbacks via evaluateJavascript during deep-link startup');
 assert.doesNotMatch(source, /fun openExternal\([\s\S]*?FLAG_ACTIVITY_NEW_TASK[\s\S]*?startActivity/, 'Android external browser launch should stay in the current task stack');
 
 const nativeBridge = fs.readFileSync(path.join(repoRoot, 'web/static/js/features/native-bridge.js'), 'utf8');
