@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Focused tests for generic OIDC config and local identity mapping."""
 
+import hashlib
 import os
 import sqlite3
 import tempfile
@@ -19,8 +20,9 @@ from starlette.responses import Response  # noqa: E402
 from services.auth import decode_jwt_token  # noqa: E402
 from services.oidc_config import get_oidc_config, normalize_oidc_config_update  # noqa: E402
 from services import oidc as oidc_service  # noqa: E402
-from services.oidc import cleanup_oidc_login_states, complete_user_oidc_login, sanitize_oidc_redirect_after  # noqa: E402
-from routers.oidc import _completion_html  # noqa: E402
+from fastapi import HTTPException  # noqa: E402
+from services.oidc import cleanup_oidc_login_states, complete_user_oidc_login, consume_state, sanitize_oidc_redirect_after  # noqa: E402
+from routers.oidc import _completion_html, _json_for_script  # noqa: E402
 
 
 def assert_true(value, message):
@@ -73,6 +75,10 @@ def main():
     assert_true(sanitize_oidc_redirect_after("https://evil.example/") == "/", "absolute redirect_after should be rejected")
     assert_true(sanitize_oidc_redirect_after("//evil.example/") == "/", "protocol-relative redirect_after should be rejected")
     assert_true(sanitize_oidc_redirect_after("/\\evil") == "/", "backslash redirect_after should be rejected")
+    script_json = _json_for_script({"value": "</script>\u2028\u2029"})
+    assert_true("<\\/script>" in script_json, "script JSON should escape closing script tags")
+    assert_true("\u2028" not in script_json and "\u2029" not in script_json, "script JSON should not contain raw JS line separators")
+    assert_true("\\u2028" in script_json and "\\u2029" in script_json, "script JSON should escape JS line separators")
 
     with get_db() as db:
         db.execute(
@@ -83,8 +89,22 @@ def main():
             """INSERT INTO oidc_login_states (state_hash, nonce, code_verifier, purpose, redirect_after, expires_at, consumed_at)
                VALUES ('consumed-state', 'n', 'v', 'user_login', '/', 9999999999, datetime('now'))"""
         )
+        state_value = "state-once"
+        db.execute(
+            """INSERT INTO oidc_login_states (state_hash, nonce, code_verifier, purpose, redirect_after, expires_at)
+               VALUES (?, 'nonce-once', 'verifier-once', 'user_login', '/', 9999999999)""",
+            (hashlib.sha256(state_value.encode()).hexdigest(),),
+        )
         db.commit()
-    assert_true(cleanup_oidc_login_states() >= 2, "OIDC state cleanup should remove expired and consumed states")
+    claimed_state = consume_state(state_value)
+    assert_true(claimed_state["nonce"] == "nonce-once", "OIDC state should be claimed once")
+    try:
+        consume_state(state_value)
+        raise AssertionError("OIDC state replay should be rejected")
+    except HTTPException as exc:
+        assert_true(exc.status_code == 400, "OIDC state replay should return a bad request")
+
+    assert_true(cleanup_oidc_login_states() >= 3, "OIDC state cleanup should remove expired and consumed states")
     with get_db() as db:
         remaining = db.execute("SELECT COUNT(*) AS count FROM oidc_login_states WHERE state_hash IN ('expired-state', 'consumed-state')").fetchone()["count"]
         assert_true(remaining == 0, "OIDC state cleanup should not leave old state rows")

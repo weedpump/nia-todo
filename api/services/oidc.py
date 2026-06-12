@@ -115,6 +115,7 @@ def create_authorization_url(*, purpose: str, redirect_after: str | None = None)
 
 def consume_state(state: str) -> dict:
     with get_db() as db:
+        db.execute("BEGIN IMMEDIATE")
         row = db.execute(
             """SELECT * FROM oidc_login_states
                WHERE state_hash = ? AND consumed_at IS NULL AND expires_at >= ?""",
@@ -122,7 +123,14 @@ def consume_state(state: str) -> dict:
         ).fetchone()
         if not row:
             raise HTTPException(400, "OIDC state is invalid or expired")
-        db.execute("UPDATE oidc_login_states SET consumed_at = datetime('now') WHERE id = ?", (row["id"],))
+        cursor = db.execute(
+            """UPDATE oidc_login_states
+               SET consumed_at = datetime('now')
+               WHERE id = ? AND consumed_at IS NULL""",
+            (row["id"],),
+        )
+        if cursor.rowcount != 1:
+            raise HTTPException(400, "OIDC state is invalid or expired")
         db.commit()
         return dict(row)
 
