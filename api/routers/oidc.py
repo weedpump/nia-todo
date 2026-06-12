@@ -6,7 +6,9 @@ import html
 import json
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
+import logging
+
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from routers.admin import require_admin
@@ -23,6 +25,8 @@ from services.oidc import (
 )
 from middleware.security import set_csrf_cookie
 from services.oidc_config import get_oidc_config
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/oidc")
 
@@ -117,13 +121,18 @@ def oidc_callback(code: str = "", state: str = "", error: str = "", error_descri
         purpose = state_row["purpose"]
         if purpose == "admin_login":
             payload = complete_admin_oidc_login(claims, response)
+            logger.info("OIDC admin login completed: issuer=%s subject=%s", claims.get("iss"), claims.get("sub"))
             return _completion_html("admin", payload, "/admin")
         if purpose == "admin_link":
             payload = link_admin_oidc_identity(claims)
+            logger.info("OIDC admin link completed: issuer=%s subject=%s", claims.get("iss"), claims.get("sub"))
             return _completion_html("admin_link", payload, "/admin")
         payload = complete_user_oidc_login(claims, request, response)
+        logger.info("OIDC user login completed: issuer=%s subject=%s", claims.get("iss"), claims.get("sub"))
         return _completion_html("user", payload, state_row.get("redirect_after") or "/")
     except HTTPException as exc:
+        logger.warning("OIDC callback failed: %s", exc.detail)
         return _error_html(str(exc.detail))
     except Exception as exc:
+        logger.exception("OIDC callback crashed")
         return _error_html(f"OIDC callback failed: {exc}")
