@@ -73,7 +73,7 @@ def _completion_html(kind: str, payload: dict, redirect_to: str = "/") -> HTMLRe
           return;
         }}
         if ({_json_for_script(kind)} === 'error') {{
-          sessionStorage.setItem('nia_oidc_error', JSON.stringify({{ error: payload.error || 'OIDC failed', kind: payload.kind || 'user' }}));
+          sessionStorage.setItem('nia_oidc_error', JSON.stringify({{ error_key: payload.error_key || 'auth.oidc.errorMessage', error: payload.error || '', kind: payload.kind || 'user' }}));
           location.replace({safe_redirect});
           return;
         }}
@@ -89,7 +89,7 @@ def _completion_html(kind: str, payload: dict, redirect_to: str = "/") -> HTMLRe
 
 
 def _error_html(message: str, *, redirect_to: str = "/", kind: str = "user") -> HTMLResponse:
-    return _completion_html("error", {"error": message, "kind": kind}, redirect_to)
+    return _completion_html("error", {"error_key": "auth.oidc.errorMessage", "error": message, "kind": kind}, redirect_to)
 
 
 def _no_store(response: Response) -> Response:

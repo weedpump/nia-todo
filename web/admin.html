@@ -305,7 +305,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
       <label class="admin-visually-hidden" for="admin-login-password" data-i18n-key="auth.password">Password</label>
       <input type="password" id="admin-login-password" name="password" data-i18n-placeholder-key="admin.login.passwordPlaceholder" placeholder="Enter admin password" autocomplete="current-password" required>
       <button class="btn btn-primary" type="submit" data-i18n-key="auth.signIn">Sign in</button>
-      <a class="btn btn-secondary hidden" id="admin-oidc-login-btn" href="/api/oidc/admin/login">Sign in with OIDC</a>
+      <a class="btn btn-secondary hidden" id="admin-oidc-login-btn" href="/api/oidc/admin/login" data-i18n-key="admin.oidc.signIn">Sign in with OIDC</a>
     </form>
     <div class="admin-error" id="admin-login-error"></div>
   </div>
@@ -313,7 +313,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
   <div id="admin-content" style="display:none;">
   <input type="checkbox" id="braindump-enabled" class="admin-header-switch-source" aria-label="BrainDump aktivieren">
   <input type="checkbox" id="email-smtp-enabled" class="admin-header-switch-source" data-i18n-aria-label-key="admin.email.enableSending" aria-label="Enable email sending">
-  <input type="checkbox" id="oidc-enabled" class="admin-header-switch-source" aria-label="OIDC aktivieren">
+  <input type="checkbox" id="oidc-enabled" class="admin-header-switch-source" data-i18n-aria-label-key="admin.oidc.enable" aria-label="Enable OIDC">
   <input type="checkbox" id="twofa-policy-toggle" class="admin-header-switch-source" data-i18n-aria-label-key="admin.security.toggle" aria-label="Toggle 2FA policy">
 
   <!-- Admin Toolbar -->
@@ -321,8 +321,8 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
     <span class="admin-status-text"><span data-icon="lock-keyhole"></span> <span data-i18n-key="admin.status.loggedIn">Logged in as admin</span></span>
     <div class="admin-status-actions">
       <button class="btn btn-secondary" onclick="openAdminPasswordDialog()" data-i18n-key="admin.password.shortChange">Change password</button>
-      <button class="btn btn-secondary hidden" id="admin-oidc-link-toolbar-btn" onclick="startAdminOidcLink()">Admin-OIDC verbinden</button>
-      <button class="btn btn-secondary hidden" id="admin-oidc-unlink-toolbar-btn" onclick="unlinkFirstAdminOidcIdentity()">Admin-OIDC trennen</button>
+      <button class="btn btn-secondary hidden" id="admin-oidc-link-toolbar-btn" onclick="startAdminOidcLink()" data-i18n-key="admin.oidc.adminLink">Link admin OIDC</button>
+      <button class="btn btn-secondary hidden" id="admin-oidc-unlink-toolbar-btn" onclick="unlinkFirstAdminOidcIdentity()" data-i18n-key="admin.oidc.adminUnlink">Unlink admin OIDC</button>
       <button class="btn btn-danger" onclick="adminLogout()" data-i18n-key="auth.signOut">Sign out</button>
     </div>
   </div>
@@ -498,21 +498,21 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 
   <!-- OIDC Configuration -->
   <div class="admin-card" id="oidc-config-card">
-    <h2><span data-icon="key-round"></span> OIDC</h2>
+    <h2><span data-icon="key-round"></span> <span data-i18n-key="admin.oidc.title">OIDC</span></h2>
     <div class="admin-config-grid">
-      <div class="admin-config-field"><label for="oidc-provider-name">Provider Name</label><input type="text" id="oidc-provider-name" placeholder="Pocket ID"></div>
-      <div class="admin-config-field full"><label for="oidc-issuer-url">Issuer / Provider URL</label><input type="url" id="oidc-issuer-url" placeholder="https://id.example.org"></div>
-      <div class="admin-config-field"><label for="oidc-client-id">Client ID</label><input type="text" id="oidc-client-id" autocomplete="off"></div>
-      <div class="admin-config-field"><label for="oidc-client-secret">Client Secret</label><input type="password" id="oidc-client-secret" placeholder="Leer lassen = unverändert" autocomplete="new-password"><div class="admin-secret-note" id="oidc-client-secret-note"></div></div>
-      <div class="admin-config-field admin-config-checkbox full"><input type="checkbox" id="oidc-public-client"><label for="oidc-public-client">Advanced: Public Client verwenden</label><div class="admin-help">Normalerweise auslassen. Nur aktivieren, wenn der OIDC-Provider den Client explizit als Public Client ohne Secret registriert hat. Mit Client Secret ist nia-todo ein Confidential Client.</div></div>
-      <div class="admin-config-field"><label for="oidc-token-auth-method">Token Endpoint Auth</label><select id="oidc-token-auth-method"><option value="auto">Auto</option><option value="client_secret_basic">client_secret_basic</option><option value="client_secret_post">client_secret_post</option></select><div class="admin-help">Für Pocket ID normalerweise Auto.</div></div>
-      <div class="admin-config-field"><label for="oidc-scopes">Scopes</label><input type="text" id="oidc-scopes" value="openid email profile"></div>
-      <div class="admin-config-field full"><label>Redirect URI</label><code id="oidc-redirect-uri">/api/oidc/callback</code></div>
+      <div class="admin-config-field"><label for="oidc-provider-name" data-i18n-key="admin.oidc.providerName">Provider name</label><input type="text" id="oidc-provider-name" placeholder="Pocket ID"></div>
+      <div class="admin-config-field full"><label for="oidc-issuer-url" data-i18n-key="admin.oidc.issuerUrl">Issuer / provider URL</label><input type="url" id="oidc-issuer-url" placeholder="https://id.example.org"></div>
+      <div class="admin-config-field"><label for="oidc-client-id" data-i18n-key="admin.oidc.clientId">Client ID</label><input type="text" id="oidc-client-id" autocomplete="off"></div>
+      <div class="admin-config-field"><label for="oidc-client-secret" data-i18n-key="admin.oidc.clientSecret">Client secret</label><input type="password" id="oidc-client-secret" data-i18n-placeholder-key="admin.oidc.keepSecretPlaceholder" placeholder="Leave blank = unchanged" autocomplete="new-password"><div class="admin-secret-note" id="oidc-client-secret-note"></div></div>
+      <div class="admin-config-field admin-config-checkbox full"><input type="checkbox" id="oidc-public-client"><label for="oidc-public-client" data-i18n-key="admin.oidc.publicClient">Advanced: use public client</label><div class="admin-help" data-i18n-key="admin.oidc.publicClientHelp">Usually leave this off. Enable it only when the OIDC provider registered this client explicitly as a public client without a secret. With a client secret, nia-todo is a confidential client.</div></div>
+      <div class="admin-config-field"><label for="oidc-token-auth-method" data-i18n-key="admin.oidc.tokenAuthMethod">Token endpoint auth</label><select id="oidc-token-auth-method"><option value="auto" data-i18n-key="admin.oidc.tokenAuth.auto">Auto</option><option value="client_secret_basic">client_secret_basic</option><option value="client_secret_post">client_secret_post</option></select><div class="admin-help" data-i18n-key="admin.oidc.tokenAuthHelp">Auto is usually right for Pocket ID.</div></div>
+      <div class="admin-config-field"><label for="oidc-scopes" data-i18n-key="admin.oidc.scopes">Scopes</label><input type="text" id="oidc-scopes" value="openid email profile"></div>
+      <div class="admin-config-field full"><label data-i18n-key="admin.oidc.redirectUri">Redirect URI</label><code id="oidc-redirect-uri">/api/oidc/callback</code></div>
     </div>
-    <div class="admin-help">User-Login mappt strikt über verifizierte E-Mail auf beiden Seiten. Admin-OIDC muss manuell verknüpft werden. Redirect URI exakt so im Provider eintragen.</div>
+    <div class="admin-help" data-i18n-key="admin.oidc.help">User login maps strictly by verified email on both sides. Admin OIDC must be linked manually. Register the redirect URI exactly like this in the provider.</div>
     <div class="admin-linked-list" id="oidc-admin-links"></div>
     <div class="form-row" style="margin-top:12px;">
-      <button class="btn btn-primary" onclick="saveOidcConfig()">OIDC-Konfiguration speichern</button>
+      <button class="btn btn-primary" onclick="saveOidcConfig()" data-i18n-key="admin.oidc.save">Save OIDC configuration</button>
     </div>
     <div class="admin-error" id="oidc-config-error"></div>
     <div class="admin-success" id="oidc-config-success"></div>
@@ -858,6 +858,10 @@ function migrateOldAdminToken() {
 }
 migrateOldAdminToken();
 
+function adminTr(key, params = {}) {
+  return (window.t || ((fallbackKey) => fallbackKey))(key, params);
+}
+
 async function hydrateAdminOidcLogin() {
   const button = document.getElementById('admin-oidc-login-btn');
   if (!button) return;
@@ -866,7 +870,7 @@ async function hydrateAdminOidcLogin() {
     if (!r.ok) return;
     const data = await r.json();
     if (!data.enabled) return;
-    button.textContent = `Sign in with ${data.provider_name || 'OIDC'}`;
+    button.textContent = adminTr('admin.oidc.signInWithProvider', { provider: data.provider_name || 'OIDC' });
     button.classList.remove('hidden');
   } catch (_) {}
 }
@@ -878,7 +882,7 @@ function consumeAdminOidcLinkResult() {
   try {
     const data = JSON.parse(raw);
     const msg = document.getElementById('oidc-config-success');
-    if (msg) msg.textContent = `Admin-OIDC verbunden: ${data.display_label || data.subject || 'Identity'}`;
+    if (msg) msg.textContent = adminTr('admin.oidc.adminLinked', { identity: data.display_label || data.subject || adminTr('admin.oidc.identityFallback') });
   } catch (_) {}
 }
 
@@ -886,11 +890,11 @@ function consumeAdminOidcErrorNotice() {
   const raw = sessionStorage.getItem('nia_oidc_error');
   if (!raw) return;
   sessionStorage.removeItem('nia_oidc_error');
-  let message = 'OIDC-Anmeldung fehlgeschlagen.';
+  let message = adminTr('auth.oidc.errorMessage');
   let kind = 'admin';
   try {
     const data = JSON.parse(raw);
-    message = data?.error || message;
+    message = data?.error_key ? adminTr(data.error_key) : message;
     kind = data?.kind || kind;
   } catch (_) {}
   if (kind !== 'admin') return;
@@ -898,7 +902,7 @@ function consumeAdminOidcErrorNotice() {
   const loginError = document.getElementById('admin-login-error');
   if (configError) configError.textContent = message;
   if (loginError) loginError.textContent = message;
-  adminNotice('OIDC-Anmeldung fehlgeschlagen', message).catch(() => {});
+  adminNotice(adminTr('auth.oidc.errorTitle'), message).catch(() => {});
 }
 
 hydrateAdminOidcLogin();
@@ -1510,7 +1514,7 @@ function renderOidcConfig(config = {}) {
   document.getElementById('oidc-token-auth-method').value = config.token_auth_method || 'auto';
   document.getElementById('oidc-scopes').value = config.scopes || 'openid email profile';
   document.getElementById('oidc-redirect-uri').textContent = config.redirect_uri || '/api/oidc/callback';
-  document.getElementById('oidc-client-secret-note').textContent = config.client_secret_configured ? 'Secret ist gespeichert.' : 'Noch kein Secret gespeichert.';
+  document.getElementById('oidc-client-secret-note').textContent = config.client_secret_configured ? adminTr('admin.oidc.secretStored') : adminTr('admin.oidc.secretMissing');
 }
 
 function renderAdminOidcLinks(identities = []) {
@@ -1519,13 +1523,13 @@ function renderAdminOidcLinks(identities = []) {
   const container = document.getElementById('oidc-admin-links');
   if (!container) return;
   if (!identities.length) {
-    container.innerHTML = '<div class="admin-help">Admin-OIDC ist noch nicht verbunden.</div>';
+    container.innerHTML = `<div class="admin-help">${escapeHtml(adminTr('admin.oidc.adminNotLinked'))}</div>`;
     return;
   }
   container.innerHTML = identities.map(identity => `
     <div class="admin-linked-item">
-      <div><strong>${escapeHtml(identity.display_label || identity.subject || 'OIDC Identity')}</strong><br><span class="admin-muted">${escapeHtml(identity.issuer || '')}</span></div>
-      <button class="btn btn-secondary" onclick="unlinkAdminOidcIdentity(${Number(identity.id)})">Trennen</button>
+      <div><strong>${escapeHtml(identity.display_label || identity.subject || adminTr('admin.oidc.identityFallback'))}</strong><br><span class="admin-muted">${escapeHtml(identity.issuer || '')}</span></div>
+      <button class="btn btn-secondary" onclick="unlinkAdminOidcIdentity(${Number(identity.id)})">${escapeHtml(adminTr('admin.oidc.unlinkAction'))}</button>
     </div>
   `).join('');
 }
@@ -1551,7 +1555,7 @@ async function saveOidcConfig() {
   try {
     const data = await apiPatch('/api/admin/oidc-config', readOidcConfigForm());
     renderOidcConfig(data);
-    document.getElementById('oidc-config-success').textContent = 'OIDC-Konfiguration gespeichert.';
+    document.getElementById('oidc-config-success').textContent = adminTr('admin.oidc.configSaved');
   } catch (e) {
     document.getElementById('oidc-config-error').textContent = e.message;
   }
@@ -1565,7 +1569,7 @@ async function autoSaveOidcToggle() {
   try {
     const data = await apiPatch('/api/admin/oidc-config', readOidcConfigForm());
     renderOidcConfig(data);
-    document.getElementById('oidc-config-success').textContent = 'OIDC-Konfiguration gespeichert.';
+    document.getElementById('oidc-config-success').textContent = adminTr('admin.oidc.configSaved');
   } catch (e) {
     if (toggle) toggle.checked = previous;
     document.getElementById('oidc-config-error').textContent = e.message;
@@ -1586,9 +1590,9 @@ async function startAdminOidcLink() {
 async function unlinkAdminOidcIdentity(identityId) {
   if (!identityId) return;
   const confirmed = await adminConfirm({
-    title: 'Admin-OIDC trennen?',
-    message: 'Der Admin-Login über diese OIDC-Identity wird getrennt. Passwort-Login bleibt erhalten.',
-    confirmText: 'Trennen',
+    title: adminTr('admin.oidc.unlinkConfirmTitle'),
+    message: adminTr('admin.oidc.unlinkConfirmMessage'),
+    confirmText: adminTr('admin.oidc.unlinkAction'),
     danger: true,
   });
   if (!confirmed) return;
@@ -1598,7 +1602,7 @@ async function unlinkAdminOidcIdentity(identityId) {
     await apiDelete(`/api/oidc/admin/links/${identityId}`);
     const links = await apiGet('/api/oidc/admin/links');
     renderAdminOidcLinks(links.identities || []);
-    document.getElementById('oidc-config-success').textContent = 'Admin-OIDC getrennt.';
+    document.getElementById('oidc-config-success').textContent = adminTr('admin.oidc.adminUnlinked');
   } catch (e) {
     document.getElementById('oidc-config-error').textContent = e.message;
   }
