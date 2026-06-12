@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import html
 import json
-from urllib.parse import quote
+from urllib.parse import quote, urlencode, urlsplit, parse_qs
 
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
+from pydantic import BaseModel
 
 from routers.admin import require_admin
 from services.oidc import (
@@ -24,6 +25,8 @@ from services.oidc import (
     list_admin_oidc_identities,
     unlink_admin_oidc_identity,
     validate_id_token,
+    create_native_handoff,
+    consume_native_handoff,
 )
 from middleware.security import set_csrf_cookie
 from services.oidc_config import get_oidc_config
@@ -31,6 +34,51 @@ from services.oidc_config import get_oidc_config
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/oidc")
+
+
+NATIVE_OIDC_MARKER = "/__native_oidc"
+NATIVE_OIDC_SCHEME = "nia-todo"
+
+
+class NativeOidcExchangeRequest(BaseModel):
+    code: str
+
+
+def _native_marker(kind: str, redirect_after: str = "/") -> str:
+    safe_redirect = quote(redirect_after if redirect_after.startswith("/") else "/", safe="")
+    return f"{NATIVE_OIDC_MARKER}/{quote(kind, safe='')}?redirect_after={safe_redirect}"
+
+
+def _native_marker_info(value: str | None) -> dict | None:
+    raw = str(value or "")
+    parsed = urlsplit(raw)
+    if parsed.scheme or parsed.netloc or not parsed.path.startswith(f"{NATIVE_OIDC_MARKER}/"):
+        return None
+    kind = parsed.path.removeprefix(f"{NATIVE_OIDC_MARKER}/") or "user"
+    query = parse_qs(parsed.query)
+    redirect_after = query.get("redirect_after", ["/"])[0] or "/"
+    if not redirect_after.startswith("/") or redirect_after.startswith("//") or "\\" in redirect_after:
+        redirect_after = "/"
+    return {"kind": kind, "redirect_after": redirect_after}
+
+
+def _native_redirect_html(code: str, kind: str, redirect_after: str = "/") -> HTMLResponse:
+    params = urlencode({"code": code, "kind": kind, "redirect_after": redirect_after or "/"})
+    callback_url = f"{NATIVE_OIDC_SCHEME}://oidc/callback?{params}"
+    safe_callback = _json_for_script(callback_url)
+    response = HTMLResponse(f"""<!doctype html><html><head><meta charset='utf-8'><title>Returning to nia-todo…</title></head>
+<body><p id='message'>Returning to nia-todo…</p><script>location.replace({safe_callback});</script>
+<p><a href={html.escape(json.dumps(callback_url))}>Open nia-todo</a></p></body></html>""")
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+def _native_completion_or_html(kind: str, payload: dict, redirect_to: str = "/") -> HTMLResponse:
+    native = _native_marker_info(redirect_to)
+    if native:
+        code = create_native_handoff(kind=kind, payload=payload, redirect_after=native["redirect_after"])
+        return _native_redirect_html(code, kind, native["redirect_after"])
+    return _completion_html(kind, payload, redirect_to)
 
 
 def _json_for_script(value) -> str:
@@ -89,7 +137,7 @@ def _completion_html(kind: str, payload: dict, redirect_to: str = "/") -> HTMLRe
 
 
 def _error_html(message: str, *, redirect_to: str = "/", kind: str = "user") -> HTMLResponse:
-    return _completion_html("error", {"error_key": "auth.oidc.errorMessage", "error": message, "kind": kind}, redirect_to)
+    return _native_completion_or_html("error", {"error_key": "auth.oidc.errorMessage", "error": message, "kind": kind}, redirect_to)
 
 
 def _no_store(response: Response) -> Response:
@@ -116,8 +164,9 @@ def oidc_status():
 
 
 @router.get("/login")
-def oidc_login(redirect_after: str = "/"):
-    return _oidc_redirect(create_authorization_url(purpose="user_login", redirect_after=redirect_after))
+def oidc_login(redirect_after: str = "/", native: bool = False):
+    target = _native_marker("user", redirect_after) if native else redirect_after
+    return _oidc_redirect(create_authorization_url(purpose="user_login", redirect_after=target))
 
 
 @router.get("/admin/login")
@@ -139,6 +188,23 @@ def oidc_admin_link_start(_: bool = Depends(require_admin)):
         content=json.dumps({"authorization_url": create_authorization_url(purpose="admin_link", redirect_after="/admin")}),
         media_type="application/json",
     ))
+
+
+@router.post("/native/exchange")
+def oidc_native_exchange(payload: NativeOidcExchangeRequest):
+    handoff = consume_native_handoff(payload.code)
+    data = handoff.get("payload") or {}
+    exchange_response = Response(
+        content=json.dumps({
+            "kind": handoff.get("kind"),
+            "payload": data,
+            "redirect_after": handoff.get("redirect_after") or "/",
+        }),
+        media_type="application/json",
+    )
+    if data.get("csrf_token"):
+        set_csrf_cookie(exchange_response, data["csrf_token"])
+    return _no_store(exchange_response)
 
 
 @router.delete("/admin/links/{identity_id}")
@@ -173,7 +239,7 @@ def oidc_callback(code: str = "", state: str = "", error: str = "", error_descri
             return _completion_html("admin_link", payload, "/admin")
         payload = complete_user_oidc_login(claims, request, response)
         logger.info("OIDC user login completed: issuer=%s subject=%s", claims.get("iss"), claims.get("sub"))
-        return _completion_html("user", payload, state_row.get("redirect_after") or "/")
+        return _native_completion_or_html("user", payload, state_row.get("redirect_after") or "/")
     except HTTPException as exc:
         logger.warning("OIDC callback failed: %s", exc.detail)
         redirect_to = state_row.get("redirect_after") if state_row else "/"

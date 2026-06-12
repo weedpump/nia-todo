@@ -223,6 +223,47 @@ export function createNativeBridge() {
     return false;
   }
 
+
+  function ensureOidcCallbackBridge() {
+    if (typeof window.__niaNativeOidcCallback !== 'function') {
+      Object.defineProperty(window, '__niaNativeOidcCallback', {
+        configurable: false,
+        writable: false,
+        value: (url) => {
+          window.__niaPendingNativeOidcCallback = String(url || '');
+          window.dispatchEvent(new CustomEvent('nia-native-oidc-callback', { detail: { url: String(url || '') } }));
+        },
+      });
+    }
+  }
+
+  async function listenOidcCallbacks(callback) {
+    if (!isNative() || typeof callback !== 'function') return null;
+    ensureOidcCallbackBridge();
+    const onWindowEvent = (event) => callback(event?.detail?.url || '');
+    window.addEventListener('nia-native-oidc-callback', onWindowEvent);
+    if (window.__niaPendingNativeOidcCallback) {
+      const pending = window.__niaPendingNativeOidcCallback;
+      window.__niaPendingNativeOidcCallback = '';
+      setTimeout(() => callback(pending), 0);
+    }
+    let unlistenTauri = null;
+    if (isDesktop()) {
+      invokeTauri('desktop_consume_pending_oidc_callback').then((pending) => {
+        if (pending) callback(String(pending));
+      }).catch(() => {});
+    }
+    if (isDesktop() && tauri()?.event?.listen) {
+      unlistenTauri = await tauri().event.listen('native-oidc-callback', (event) => {
+        callback(event?.payload?.url || event?.payload || '');
+      }).catch(() => null);
+    }
+    return () => {
+      window.removeEventListener('nia-native-oidc-callback', onWindowEvent);
+      if (typeof unlistenTauri === 'function') unlistenTauri();
+    };
+  }
+
   function setSystemBarsTheme(theme) {
     if (!isAndroid()) return;
     android()?.setTheme?.(theme);
@@ -287,6 +328,7 @@ export function createNativeBridge() {
     passkeyRegister,
     passkeyAuthenticate,
     openExternal,
+    listenOidcCallbacks,
     setSystemBarsTheme,
     getAppVersion,
     listenHotkeys,

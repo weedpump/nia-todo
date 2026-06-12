@@ -57,6 +57,7 @@ class MainActivity : TauriActivity() {
   private var nativeAudioFile: File? = null
   private var nativeAudioStartedAtMs: Long = 0
   @Volatile private var configuredPasskeyOrigin: String? = null
+  @Volatile private var pendingOidcCallbackUrl: String? = null
   private val credentialManager by lazy { CredentialManager.create(this) }
 
   override fun onCreate(savedInstanceState: Bundle?) {
@@ -71,11 +72,13 @@ class MainActivity : TauriActivity() {
     clearStaleWebViewCachesOnVersionChange()
     super.onCreate(savedInstanceState)
     applySystemBarInsetsToContentRoot()
+    handleOidcIntent(intent)
   }
 
   override fun onNewIntent(intent: Intent) {
     super.onNewIntent(intent)
     setIntent(intent)
+    handleOidcIntent(intent)
   }
 
   override fun onDestroy() {
@@ -127,7 +130,35 @@ class MainActivity : TauriActivity() {
     val nativeBridge = AndroidNativeBridge()
     webView.addJavascriptInterface(nativeBridge, "NiaAndroidNative")
     webView.addJavascriptInterface(nativeBridge, "NiaAndroidSystemBars")
-    webView.post { applySystemBarInsetsToContentRoot() }
+    webView.post {
+      applySystemBarInsetsToContentRoot()
+      pendingOidcCallbackUrl?.let { dispatchOidcCallbackToWebView(it) }
+    }
+  }
+
+
+  private fun isOidcCallbackUri(uri: Uri?): Boolean {
+    if (uri == null) return false
+    return uri.scheme.equals("nia-todo", ignoreCase = true) && uri.host.equals("oidc", ignoreCase = true) && uri.path == "/callback"
+  }
+
+  private fun handleOidcIntent(intent: Intent?) {
+    if (intent?.action != Intent.ACTION_VIEW) return
+    val uri = intent.data ?: return
+    if (!isOidcCallbackUri(uri)) return
+    dispatchOidcCallbackToWebView(uri.toString())
+  }
+
+  private fun dispatchOidcCallbackToWebView(url: String) {
+    val webView = appWebView
+    if (webView == null) {
+      pendingOidcCallbackUrl = url
+      return
+    }
+    pendingOidcCallbackUrl = null
+    val quoted = JSONObject.quote(url)
+    val script = "window.__niaPendingNativeOidcCallback = $quoted; window.__niaNativeOidcCallback && window.__niaNativeOidcCallback($quoted);"
+    runOnUiThread { webView.evaluateJavascript(script, null) }
   }
 
   private fun canonicalOrigin(origin: String): String {
