@@ -175,9 +175,13 @@ def validate_id_token(id_token: str, metadata: dict, config: dict, nonce: str) -
             algorithms=algorithms,
             audience=config["client_id"],
             issuer=config["issuer_url"].rstrip("/"),
+            options={"require": ["exp", "iat", "iss", "aud", "sub"]},
         )
     except Exception as exc:
         raise HTTPException(400, f"OIDC ID token validation failed: {exc}") from exc
+    aud = claims.get("aud")
+    if isinstance(aud, list) and len(aud) > 1 and claims.get("azp") != config["client_id"]:
+        raise HTTPException(400, "OIDC authorized party mismatch")
     if claims.get("nonce") != nonce:
         raise HTTPException(400, "OIDC nonce mismatch")
     if not claims.get("sub"):

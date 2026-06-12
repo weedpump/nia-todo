@@ -53,8 +53,18 @@ def _serialize_bool(value: bool) -> str:
     return "true" if value else "false"
 
 
+def _is_loopback_host(hostname: str | None) -> bool:
+    host = (hostname or "").strip().lower()
+    return host in {"localhost", "127.0.0.1", "::1"} or host.startswith("127.")
+
+
 def _normalize_issuer_url(value: str) -> str:
     url = _normalize_http_url(value, field="OIDC issuer URL", allow_empty=True)
+    if not url:
+        return ""
+    parsed = urlparse(url)
+    if parsed.scheme != "https" and not (parsed.scheme == "http" and _is_loopback_host(parsed.hostname)):
+        raise HTTPException(400, "OIDC issuer URL must use HTTPS unless it is loopback-only for development")
     return url.rstrip("/")
 
 
