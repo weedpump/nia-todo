@@ -228,8 +228,10 @@ def main():
         oidc_service.pyjwt.PyJWKClient = original_jwk_client
         oidc_service.pyjwt.decode = original_decode
 
+    userinfo_payload = {"sub": "sub-1", "email": "attacker@example.org", "email_verified": True}
+
     def fake_userinfo_get(url, headers=None, timeout=None):
-        return FakeResponse({"sub": "sub-1", "email": "attacker@example.org", "email_verified": True})
+        return FakeResponse(userinfo_payload)
 
     try:
         oidc_service.requests.get = fake_userinfo_get
@@ -242,6 +244,24 @@ def main():
             raise AssertionError("conflicting UserInfo email should be rejected")
         except HTTPException as exc:
             assert_true(exc.status_code == 400 and "email" in str(exc.detail), "conflicting UserInfo email should return a validation error")
+        userinfo_payload = {"sub": "sub-1", "email": "attacker@example.org"}
+        merged = oidc_service.enrich_claims_from_userinfo(
+            {"sub": "sub-1", "email_verified": True},
+            {"access_token": "access"},
+            {"userinfo_endpoint": "https://id.example.org/userinfo"},
+        )
+        assert_true(merged["email"] == "attacker@example.org", "UserInfo email should be used when ID token omits email")
+        assert_true(merged["email_verified"] is False, "ID-token email_verified must not transfer to UserInfo email")
+        userinfo_payload = {"email": "attacker@example.org", "email_verified": True}
+        try:
+            oidc_service.enrich_claims_from_userinfo(
+                {"sub": "sub-1"},
+                {"access_token": "access"},
+                {"userinfo_endpoint": "https://id.example.org/userinfo"},
+            )
+            raise AssertionError("UserInfo without sub should be rejected")
+        except HTTPException as exc:
+            assert_true(exc.status_code == 400 and "subject" in str(exc.detail), "missing UserInfo subject should return a validation error")
     finally:
         oidc_service.requests.get = original_get
 
