@@ -242,7 +242,10 @@ def complete_user_oidc_login(claims: dict, request, response) -> dict:
                ON CONFLICT(issuer, subject) DO UPDATE SET email_at_link_time = excluded.email_at_link_time, last_login_at = datetime('now')""",
             (user["id"], issuer, subject, email),
         )
-        token = create_jwt_token(dict(user), db, create_session=True, user_agent=session_user_agent(request), ip_address=ip or "")
+        # OIDC is a passwordless login assurance, equivalent to passwordless passkey login.
+        # Login MFA is delegated to the identity provider; local sensitive-action gates still require
+        # an explicit reauth ceremony because this does not mint an mfa_grant.
+        token = create_jwt_token(dict(user), db, mfa_login_verified=True, create_session=True, user_agent=session_user_agent(request), ip_address=ip or "")
         csrf_token = generate_csrf_token()
         set_csrf_cookie(response, csrf_token)
         log_audit(db, "oidc_login_success", user_id=user["id"], ip_address=ip, details=f"issuer={issuer}")

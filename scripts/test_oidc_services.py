@@ -15,15 +15,27 @@ sys.path.insert(0, str(BASE / "api"))
 
 from migrate import run_migrations  # noqa: E402
 from db import get_db  # noqa: E402
+from starlette.responses import Response  # noqa: E402
+from services.auth import decode_jwt_token  # noqa: E402
 from services.oidc_config import get_oidc_config, normalize_oidc_config_update  # noqa: E402
 from services import oidc as oidc_service  # noqa: E402
-from services.oidc import cleanup_oidc_login_states, sanitize_oidc_redirect_after  # noqa: E402
+from services.oidc import cleanup_oidc_login_states, complete_user_oidc_login, sanitize_oidc_redirect_after  # noqa: E402
 from routers.oidc import _completion_html  # noqa: E402
 
 
 def assert_true(value, message):
     if not value:
         raise AssertionError(message)
+
+
+class FakeClient:
+    host = "127.0.0.1"
+
+
+class FakeRequest:
+    client = FakeClient()
+    cookies = {}
+    headers = {"user-agent": "OIDC Test"}
 
 
 def main():
@@ -128,6 +140,18 @@ def main():
             "SELECT user_id FROM user_oidc_identities WHERE issuer = 'https://id.example.org' AND subject = 'sub-1'"
         ).fetchone()
         assert_true(linked["user_id"] == user_id, "OIDC identity should link to local user")
+        db.execute("UPDATE app_config SET value = 'true' WHERE key = 'two_factor_required'")
+        db.commit()
+
+    login = complete_user_oidc_login(
+        {"iss": "https://id.example.org", "sub": "sub-1", "email": "user@example.org", "email_verified": True},
+        FakeRequest(),
+        Response(),
+    )
+    with get_db() as db:
+        payload = decode_jwt_token(login["access_token"], db)
+    assert_true(payload.get("mfa_login_at"), "OIDC login should satisfy app-access MFA like passwordless passkey login")
+    assert_true(not payload.get("mfa_grant"), "OIDC login must not mint a sensitive-action reauth grant")
 
     print("OIDC service tests passed")
 
