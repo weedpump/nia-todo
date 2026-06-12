@@ -8,7 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 ## [2.12.0] - 2026-06-12
 
 ### Added
-- Added generic OIDC sign-in for users and admins, including provider discovery, Authorization Code + PKCE, optional confidential-client secrets, verified-email user mapping, manual admin identity linking, localized admin configuration UI, and in-app OIDC error handling.
+- Added OIDC-based single sign-on for users and admins, including admin-side provider configuration and account linking.
+
+### Changed
+- Cleaned up the login screen for the new sign-in options: API docs and changelog links were removed, alternative login actions are grouped more clearly, the theme switcher is less prominent, app downloads stay visible, and the mobile fullscreen login is centered.
 
 ## [2.11.8] - 2026-06-06
 
