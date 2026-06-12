@@ -882,7 +882,27 @@ function consumeAdminOidcLinkResult() {
   } catch (_) {}
 }
 
+function consumeAdminOidcErrorNotice() {
+  const raw = sessionStorage.getItem('nia_oidc_error');
+  if (!raw) return;
+  sessionStorage.removeItem('nia_oidc_error');
+  let message = 'OIDC-Anmeldung fehlgeschlagen.';
+  let kind = 'admin';
+  try {
+    const data = JSON.parse(raw);
+    message = data?.error || message;
+    kind = data?.kind || kind;
+  } catch (_) {}
+  if (kind !== 'admin') return;
+  const configError = document.getElementById('oidc-config-error');
+  const loginError = document.getElementById('admin-login-error');
+  if (configError) configError.textContent = message;
+  if (loginError) loginError.textContent = message;
+  adminNotice('OIDC-Anmeldung fehlgeschlagen', message).catch(() => {});
+}
+
 hydrateAdminOidcLogin();
+consumeAdminOidcErrorNotice();
 
 function getAdminToken() {
   return localStorage.getItem('admin_jwt_token');

@@ -34,6 +34,8 @@
   "nativeSetup.hint": "Die App-Oberfläche ist lokal gebündelt. Der Server liefert nur API, Sync und Login.",
   "nativeSetup.notNiaTodoServer": "Das ist kein nia-todo Server.",
   "auth.subtitle": "Dein persönliches Todo-System",
+  "auth.oidc.errorTitle": "OIDC-Anmeldung fehlgeschlagen",
+  "auth.oidc.errorMessage": "Die Anmeldung über den OIDC-Provider konnte nicht abgeschlossen werden.",
   "auth.usernameOrEmail": "Benutzername oder E-Mail",
   "auth.password": "Passwort",
   "auth.passwordPlaceholder": "Passwort eingeben",

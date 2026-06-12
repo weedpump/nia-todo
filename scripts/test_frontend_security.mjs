@@ -80,7 +80,7 @@ assert(adminSource.includes('server-updated='), 'admin server update reload must
 const swSource = readFileSync(new URL('../web/sw.js', import.meta.url), 'utf8');
 assert(!swSource.includes("caches.open(API_CACHE)"), 'service worker must not cache authenticated API responses');
 assert(swSource.indexOf("url.pathname.startsWith('/api/avatars/')") < swSource.indexOf("url.pathname.startsWith('/api/')"), 'service worker must cache static avatars before the generic API network-only rule');
-assert(swSource.includes("url.pathname.startsWith('/api/')") && swSource.includes('event.respondWith(fetch(event.request))'), 'API fetches must be network-only');
+assert(swSource.includes("url.pathname.startsWith('/api/')") && swSource.includes("cache: 'no-store'") && swSource.includes('event.respondWith(fetch(new Request(event.request'), 'API fetches must be network-only and bypass the browser HTTP cache');
 
 const authSessionSource = readFileSync(new URL('../web/static/js/features/auth-session.js', import.meta.url), 'utf8');
 const userMenuSource = readFileSync(new URL('../web/static/js/features/user-menu.js', import.meta.url), 'utf8');
