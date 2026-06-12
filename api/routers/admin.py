@@ -22,6 +22,7 @@ from services.audit import log_audit
 from services.braindump_config import get_braindump_config, llm_models_url, parse_extra_headers, update_braindump_config
 from services.instance_config import get_instance_config, get_public_base_url, update_instance_config
 from services.email_config import can_send_email_links, get_email_config, get_password_link_ttl_hours, is_email_configured, update_email_config
+from services.oidc_config import get_oidc_config, update_oidc_config
 from services.email import send_email, send_test_email
 from services.two_factor import clear_recovery_codes, get_two_factor_required, list_user_device_sessions, revoke_device_session, revoke_trusted_devices, set_two_factor_required
 from services.email_templates import password_setup_email
@@ -130,6 +131,16 @@ class EmailConfigRequest(BaseModel):
     mail_from_name: str = "nia-todo"
     mail_reply_to: str = ""
     password_link_ttl_hours: int = 24
+
+class OidcConfigRequest(BaseModel):
+    enabled: bool = False
+    provider_name: str = "OIDC"
+    issuer_url: str = ""
+    client_id: str = ""
+    client_secret: Optional[str] = None
+    public_client: bool = False
+    token_auth_method: str = "auto"
+    scopes: str = "openid email profile"
 
 class TestEmailRequest(BaseModel):
     to: str
@@ -410,6 +421,16 @@ def admin_send_test_email(data: TestEmailRequest, request: Request, _: bool = De
             log_audit(db, "email_test_failed", ip_address=get_client_ip(request), details=f"to={email}; error={type(exc).__name__}")
             raise
     return {"message": "Test email sent."}
+
+
+@router.get("/oidc-config")
+def admin_get_oidc_config(_: bool = Depends(require_admin)):
+    return get_oidc_config()
+
+
+@router.patch("/oidc-config")
+def admin_update_oidc_config(data: OidcConfigRequest, request: Request, _: bool = Depends(require_admin)):
+    return update_oidc_config(data.model_dump(exclude_unset=True), client_ip=get_client_ip(request))
 
 
 # ─── Server Updates ──────────────────────────────────────────────────────────

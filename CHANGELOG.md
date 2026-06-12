@@ -5,6 +5,11 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [2.12.0] - 2026-06-12
+
+### Added
+- Added generic OIDC sign-in for users and admins, including provider discovery, Authorization Code + PKCE, optional confidential-client secrets, verified-email user mapping, manual admin identity linking, localized admin configuration UI, and in-app OIDC error handling.
+
 ## [2.11.8] - 2026-06-06
 
 ### Fixed

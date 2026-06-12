@@ -444,6 +444,21 @@ export function createAuthSessionFeature({
     if (!form) return;
     loginFormBound = true;
     form.addEventListener('submit', handleLogin);
+    const oidcBtn = document.getElementById('login-oidc-btn');
+    if (oidcBtn) {
+      fetch('/api/oidc/status', { credentials: 'include' })
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (!data?.enabled) return;
+          oidcBtn.textContent = t('auth.oidc.signInWithProvider', { provider: data.provider_name || 'OIDC' });
+          oidcBtn.classList.remove('hidden');
+        })
+        .catch(() => {});
+      oidcBtn.addEventListener('click', () => {
+        const next = encodeURIComponent(location.pathname + location.search + location.hash || '/');
+        location.href = `/api/oidc/login?redirect_after=${next}`;
+      });
+    }
     const passkeyBtn = document.getElementById('login-passkey-btn');
     if (passkeyBtn) {
       passkeyBtn.classList.toggle('hidden', !browserOrNativePasskeysAvailable());
