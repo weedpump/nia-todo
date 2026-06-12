@@ -29,5 +29,13 @@ assert.match(manifest, /android:host="oidc"/, 'Android manifest must route OIDC 
 assert.match(source, /handleOidcIntent\(intent\)/, 'Android activity must process cold-start OIDC callback intents');
 assert.match(source, /override fun onNewIntent/, 'Android activity must process warm OIDC callback intents');
 assert.match(source, /__niaNativeOidcCallback/, 'Android activity must dispatch native OIDC callbacks into the WebView bridge');
+assert.match(source, /consumePendingOidcCallback\(\)/, 'Android bridge must expose explicit pending OIDC callback consumption');
+assert.match(source, /pendingOidcCallbackUrl = url[\s\S]*val webView = appWebView \?: return/, 'Android must keep OIDC callbacks pending when WebView/JS is not ready');
+assert.doesNotMatch(source, /pendingOidcCallbackUrl = null[\s\S]{0,240}evaluateJavascript/, 'Android must not clear pending OIDC callbacks before JS can consume them');
+assert.doesNotMatch(source, /fun openExternal\([\s\S]*?FLAG_ACTIVITY_NEW_TASK[\s\S]*?startActivity/, 'Android external browser launch should stay in the current task stack');
+
+const nativeBridge = fs.readFileSync(path.join(repoRoot, 'web/static/js/features/native-bridge.js'), 'utf8');
+assert.match(nativeBridge, /consumePendingOidcCallback/, 'Native bridge must consume pending Android OIDC callbacks after JS listener setup');
+assert.match(nativeBridge, /lastDelivered/, 'Native bridge must deduplicate native OIDC callback delivery');
 
 console.log('✅ Native Android WebView cache migration regression passed');

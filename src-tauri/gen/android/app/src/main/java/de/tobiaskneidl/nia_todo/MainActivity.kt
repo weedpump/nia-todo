@@ -150,12 +150,11 @@ class MainActivity : TauriActivity() {
   }
 
   private fun dispatchOidcCallbackToWebView(url: String) {
-    val webView = appWebView
-    if (webView == null) {
-      pendingOidcCallbackUrl = url
-      return
-    }
-    pendingOidcCallbackUrl = null
+    // Keep the callback pending natively until the web layer explicitly consumes it.
+    // On a cold start evaluateJavascript can run before the app JS has loaded and
+    // the injected window value would be lost on navigation/reload.
+    pendingOidcCallbackUrl = url
+    val webView = appWebView ?: return
     val quoted = JSONObject.quote(url)
     val script = "window.__niaPendingNativeOidcCallback = $quoted; window.__niaNativeOidcCallback && window.__niaNativeOidcCallback($quoted);"
     runOnUiThread { webView.evaluateJavascript(script, null) }
@@ -505,14 +504,19 @@ class MainActivity : TauriActivity() {
         if (scheme != "http" && scheme != "https") return false
         if (uri.host.isNullOrBlank()) return false
 
-        val intent = Intent(Intent.ACTION_VIEW, uri).apply {
-          addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
+        val intent = Intent(Intent.ACTION_VIEW, uri)
         startActivity(intent)
         true
       } catch (_: Exception) {
         false
       }
+    }
+
+    @JavascriptInterface
+    fun consumePendingOidcCallback(): String {
+      val pending = pendingOidcCallbackUrl ?: ""
+      pendingOidcCallbackUrl = null
+      return pending
     }
 
     @JavascriptInterface
