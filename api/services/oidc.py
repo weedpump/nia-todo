@@ -17,7 +17,7 @@ from middleware.security import generate_csrf_token, set_csrf_cookie
 from services.auth import create_admin_jwt_token, create_jwt_token
 from services.audit import log_audit
 from services.client_info import session_user_agent
-from services.oidc_config import get_oidc_config, oidc_redirect_uri
+from services.oidc_config import get_oidc_config, oidc_redirect_uri, require_secure_oidc_url
 from rate_limit import get_client_ip
 
 OIDC_STATE_TTL_SECONDS = 600
@@ -77,6 +77,9 @@ def discover_provider(config: dict | None = None) -> dict:
     for key in ("authorization_endpoint", "token_endpoint", "jwks_uri"):
         if not data.get(key):
             raise HTTPException(400, f"OIDC discovery missing {key}")
+        require_secure_oidc_url(str(data[key]), field=f"OIDC discovery {key}")
+    if data.get("userinfo_endpoint"):
+        require_secure_oidc_url(str(data["userinfo_endpoint"]), field="OIDC discovery userinfo_endpoint")
     response_types = data.get("response_types_supported") or ["code"]
     if "code" not in response_types:
         raise HTTPException(400, "OIDC provider does not support Authorization Code flow")
@@ -180,6 +183,8 @@ def validate_id_token(id_token: str, metadata: dict, config: dict, nonce: str) -
     except Exception as exc:
         raise HTTPException(400, f"OIDC ID token validation failed: {exc}") from exc
     aud = claims.get("aud")
+    if claims.get("azp") and claims.get("azp") != config["client_id"]:
+        raise HTTPException(400, "OIDC authorized party mismatch")
     if isinstance(aud, list) and len(aud) > 1 and claims.get("azp") != config["client_id"]:
         raise HTTPException(400, "OIDC authorized party mismatch")
     if claims.get("nonce") != nonce:
@@ -203,8 +208,18 @@ def enrich_claims_from_userinfo(claims: dict, tokens: dict, metadata: dict) -> d
         return claims
     if userinfo.get("sub") and userinfo.get("sub") != claims.get("sub"):
         raise HTTPException(400, "OIDC UserInfo subject does not match ID token")
+    id_email = str(claims.get("email") or "").strip().lower()
+    userinfo_email = str(userinfo.get("email") or "").strip().lower()
+    if id_email and userinfo_email and id_email != userinfo_email:
+        raise HTTPException(400, "OIDC UserInfo email does not match ID token")
     merged = dict(claims)
+    if userinfo_email and not id_email:
+        merged["email"] = userinfo.get("email")
+        if "email_verified" in userinfo:
+            merged["email_verified"] = userinfo.get("email_verified")
     for key, value in userinfo.items():
+        if key in {"email", "email_verified"}:
+            continue
         merged.setdefault(key, value)
     return merged
 
