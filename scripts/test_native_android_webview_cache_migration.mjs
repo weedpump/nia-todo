@@ -24,13 +24,20 @@ const superOnCreateIndex = source.indexOf('super.onCreate(savedInstanceState)', 
 assert.ok(migrationCallIndex > onCreateIndex && migrationCallIndex < superOnCreateIndex, 'Android cache migration must run before Tauri creates the WebView');
 
 const manifest = fs.readFileSync(path.join(repoRoot, 'src-tauri/gen/android/app/src/main/AndroidManifest.xml'), 'utf8');
+assert.match(manifest, /android:name="\.OidcCallbackActivity"/, 'Android manifest must route OIDC callbacks through a trampoline activity');
 assert.match(manifest, /android:scheme="nia-todo"/, 'Android manifest must register nia-todo custom URL scheme');
 assert.match(manifest, /android:host="oidc"/, 'Android manifest must route OIDC callbacks to the app');
-assert.match(source, /handleOidcIntent\(intent\)/, 'Android activity must process cold-start OIDC callback intents');
-assert.match(source, /override fun onNewIntent/, 'Android activity must process warm OIDC callback intents');
+const mainActivityBlock = manifest.slice(manifest.indexOf('android:name=".MainActivity"'), manifest.indexOf('android:name=".OidcCallbackActivity"'));
+assert.doesNotMatch(mainActivityBlock, /android:scheme="nia-todo"/, 'MainActivity must not directly own the OIDC VIEW intent filter');
+const callbackActivitySource = fs.readFileSync(path.join(repoRoot, 'src-tauri/gen/android/app/src/main/java/de/tobiaskneidl/nia_todo/OidcCallbackActivity.kt'), 'utf8');
+assert.match(callbackActivitySource, /putString\(pendingOidcCallbackKey, uri\.toString\(\)\)/, 'OIDC trampoline activity must persist callback URL for MainActivity');
+assert.match(callbackActivitySource, /Intent\(this, MainActivity::class\.java\)/, 'OIDC trampoline activity must launch MainActivity after storing callback');
+assert.match(source, /handleOidcIntent\(intent\)/, 'Android activity must still tolerate direct cold-start OIDC callback intents');
+assert.match(source, /override fun onNewIntent/, 'Android activity must still tolerate warm OIDC callback intents');
 assert.match(source, /storeOidcCallbackForWebLayer\(uri\.toString\(\)\)/, 'Android activity must store native OIDC callbacks for web-layer consumption');
 assert.match(source, /consumePendingOidcCallback\(\)/, 'Android bridge must expose explicit pending OIDC callback consumption');
 assert.match(source, /pendingOidcCallbackUrl = url/, 'Android must keep OIDC callbacks pending when WebView/JS is not ready');
+assert.match(source, /pendingOidcCallbackKey/, 'Android bridge must read persisted trampoline OIDC callbacks');
 assert.doesNotMatch(source, /evaluateJavascript[\s\S]{0,240}__niaNativeOidcCallback/, 'Android must not push OIDC callbacks via evaluateJavascript during deep-link startup');
 assert.doesNotMatch(source, /fun openExternal\([\s\S]*?FLAG_ACTIVITY_NEW_TASK[\s\S]*?startActivity/, 'Android external browser launch should stay in the current task stack');
 

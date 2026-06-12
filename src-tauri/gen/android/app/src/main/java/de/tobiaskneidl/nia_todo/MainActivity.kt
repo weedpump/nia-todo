@@ -47,6 +47,7 @@ import java.util.concurrent.atomic.AtomicInteger
 class MainActivity : TauriActivity() {
   private val nativePrefsName = "nia_todo_native"
   private val lastWebViewCacheVersionKey = "last_webview_cache_version"
+  private val pendingOidcCallbackKey = "pending_oidc_callback_url"
   private val lightSystemBarColor = Color.rgb(248, 250, 252)
   private val darkSystemBarColor = Color.rgb(15, 15, 35)
   private val maxNativeAudioDurationMs = 120_000
@@ -155,10 +156,13 @@ class MainActivity : TauriActivity() {
 
   private fun storeOidcCallbackForWebLayer(url: String) {
     // Keep the callback pending natively until the web layer explicitly consumes it.
-    // Avoid evaluateJavascript here: during a cold-start deep link the WebView can
-    // exist before app JS is ready, and injecting into that transient state can be
-    // lost or crash on some Android/WebView builds.
+    // Persist as well because the callback trampoline activity may run before the
+    // Tauri activity/web layer is alive.
     pendingOidcCallbackUrl = url
+    getSharedPreferences(nativePrefsName, MODE_PRIVATE)
+      .edit()
+      .putString(pendingOidcCallbackKey, url)
+      .apply()
   }
 
   private fun canonicalOrigin(origin: String): String {
@@ -515,8 +519,10 @@ class MainActivity : TauriActivity() {
 
     @JavascriptInterface
     fun consumePendingOidcCallback(): String {
-      val pending = pendingOidcCallbackUrl ?: ""
+      val prefs = getSharedPreferences(nativePrefsName, MODE_PRIVATE)
+      val pending = pendingOidcCallbackUrl ?: prefs.getString(pendingOidcCallbackKey, "") ?: ""
       pendingOidcCallbackUrl = null
+      if (pending.isNotBlank()) prefs.edit().remove(pendingOidcCallbackKey).apply()
       return pending
     }
 
