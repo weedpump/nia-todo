@@ -70,7 +70,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .badge-success { background: color-mix(in srgb, var(--success) 16%, transparent); color: var(--success); }
 .badge-warning { background: color-mix(in srgb, var(--warning) 22%, transparent); color: var(--warning); }
 .badge-muted { background: var(--bg-tertiary); color: var(--text-muted); }
-.btn { padding: 8px 16px; border: none; border-radius: var(--radius); font-size: 13px; cursor: pointer; font-weight: 500; display:inline-flex; align-items:center; justify-content:center; gap:6px; line-height:1.2; text-align:center; }
+.btn { padding: 8px 16px; border: none; border-radius: var(--radius); font: inherit; font-size: 13px; cursor: pointer; font-weight: 500; display:inline-flex; align-items:center; justify-content:center; gap:6px; line-height:1.2; text-align:center; text-decoration: none; }
 .btn-danger { background: var(--danger); color: white; }
 .btn-danger:hover { opacity: 0.9; }
 .btn-primary { background: var(--accent); color: white; }
@@ -113,6 +113,10 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .admin-config-textarea { min-height: 82px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .admin-config-textarea.readonly { color: var(--text-secondary); background: color-mix(in srgb, var(--bg-primary) 82%, var(--bg-tertiary)); white-space: pre; }
 .admin-help { font-size: 12px; color: var(--text-muted); margin-top: 8px; }
+.admin-muted { color: var(--text-muted); font-size: 12px; }
+.admin-linked-list { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+.admin-linked-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid color-mix(in srgb, var(--border) 68%, transparent); border-radius: 12px; background: color-mix(in srgb, var(--bg-primary) 76%, var(--bg-secondary)); }
+.admin-linked-item > div { min-width: 0; overflow-wrap: anywhere; }
 .admin-stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
 .admin-stat-toolbar { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin: 8px 0 16px; }
 .admin-stat-coverage { display:inline-flex; align-items:center; width:max-content; margin-top:8px; padding:5px 10px; border-radius:999px; background:color-mix(in srgb, var(--accent) 13%, transparent); color:var(--text-secondary); border:1px solid color-mix(in srgb, var(--accent) 28%, transparent); font-size:12px; font-weight:750; }
@@ -301,6 +305,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
       <label class="admin-visually-hidden" for="admin-login-password" data-i18n-key="auth.password">Password</label>
       <input type="password" id="admin-login-password" name="password" data-i18n-placeholder-key="admin.login.passwordPlaceholder" placeholder="Enter admin password" autocomplete="current-password" required>
       <button class="btn btn-primary" type="submit" data-i18n-key="auth.signIn">Sign in</button>
+      <a class="btn btn-secondary hidden" id="admin-oidc-login-btn" href="/api/oidc/admin/login" data-i18n-key="admin.oidc.signIn">Sign in with OIDC</a>
     </form>
     <div class="admin-error" id="admin-login-error"></div>
   </div>
@@ -308,6 +313,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
   <div id="admin-content" style="display:none;">
   <input type="checkbox" id="braindump-enabled" class="admin-header-switch-source" aria-label="BrainDump aktivieren">
   <input type="checkbox" id="email-smtp-enabled" class="admin-header-switch-source" data-i18n-aria-label-key="admin.email.enableSending" aria-label="Enable email sending">
+  <input type="checkbox" id="oidc-enabled" class="admin-header-switch-source" data-i18n-aria-label-key="admin.oidc.enable" aria-label="Enable OIDC">
   <input type="checkbox" id="twofa-policy-toggle" class="admin-header-switch-source" data-i18n-aria-label-key="admin.security.toggle" aria-label="Toggle 2FA policy">
 
   <!-- Admin Toolbar -->
@@ -315,6 +321,8 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
     <span class="admin-status-text"><span data-icon="lock-keyhole"></span> <span data-i18n-key="admin.status.loggedIn">Logged in as admin</span></span>
     <div class="admin-status-actions">
       <button class="btn btn-secondary" onclick="openAdminPasswordDialog()" data-i18n-key="admin.password.shortChange">Change password</button>
+      <button class="btn btn-secondary hidden" id="admin-oidc-link-toolbar-btn" onclick="startAdminOidcLink()" data-i18n-key="admin.oidc.adminLink">Link admin OIDC</button>
+      <button class="btn btn-secondary hidden" id="admin-oidc-unlink-toolbar-btn" onclick="unlinkFirstAdminOidcIdentity()" data-i18n-key="admin.oidc.adminUnlink">Unlink admin OIDC</button>
       <button class="btn btn-danger" onclick="adminLogout()" data-i18n-key="auth.signOut">Sign out</button>
     </div>
   </div>
@@ -486,6 +494,28 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
     </div>
     <div class="admin-error" id="email-config-error"></div>
     <div class="admin-success" id="email-config-success"></div>
+  </div>
+
+  <!-- OIDC Configuration -->
+  <div class="admin-card" id="oidc-config-card">
+    <h2><span data-icon="key-round"></span> <span data-i18n-key="admin.oidc.title">OIDC</span></h2>
+    <div class="admin-config-grid">
+      <div class="admin-config-field"><label for="oidc-provider-name" data-i18n-key="admin.oidc.providerName">Provider name</label><input type="text" id="oidc-provider-name" placeholder="Pocket ID"></div>
+      <div class="admin-config-field full"><label for="oidc-issuer-url" data-i18n-key="admin.oidc.issuerUrl">Issuer / provider URL</label><input type="url" id="oidc-issuer-url" placeholder="https://id.example.org"></div>
+      <div class="admin-config-field"><label for="oidc-client-id" data-i18n-key="admin.oidc.clientId">Client ID</label><input type="text" id="oidc-client-id" autocomplete="off"></div>
+      <div class="admin-config-field"><label for="oidc-client-secret" data-i18n-key="admin.oidc.clientSecret">Client secret</label><input type="password" id="oidc-client-secret" data-i18n-placeholder-key="admin.oidc.keepSecretPlaceholder" placeholder="Leave blank = unchanged" autocomplete="new-password"><div class="admin-secret-note" id="oidc-client-secret-note"></div></div>
+      <div class="admin-config-field admin-config-checkbox full"><input type="checkbox" id="oidc-public-client"><label for="oidc-public-client" data-i18n-key="admin.oidc.publicClient">Advanced: use public client</label><div class="admin-help" data-i18n-key="admin.oidc.publicClientHelp">Usually leave this off. Enable it only when the OIDC provider registered this client explicitly as a public client without a secret. With a client secret, nia-todo is a confidential client.</div></div>
+      <div class="admin-config-field"><label for="oidc-token-auth-method" data-i18n-key="admin.oidc.tokenAuthMethod">Token endpoint auth</label><select id="oidc-token-auth-method"><option value="auto" data-i18n-key="admin.oidc.tokenAuth.auto">Auto</option><option value="client_secret_basic">client_secret_basic</option><option value="client_secret_post">client_secret_post</option></select><div class="admin-help" data-i18n-key="admin.oidc.tokenAuthHelp">Auto is usually right for Pocket ID.</div></div>
+      <div class="admin-config-field"><label for="oidc-scopes" data-i18n-key="admin.oidc.scopes">Scopes</label><input type="text" id="oidc-scopes" value="openid email profile"></div>
+      <div class="admin-config-field full"><label data-i18n-key="admin.oidc.redirectUri">Redirect URI</label><code id="oidc-redirect-uri">/api/oidc/callback</code></div>
+    </div>
+    <div class="admin-help" data-i18n-key="admin.oidc.help">User login maps strictly by verified email on both sides. Admin OIDC must be linked manually. Register the redirect URI exactly like this in the provider.</div>
+    <div class="admin-linked-list" id="oidc-admin-links"></div>
+    <div class="form-row" style="margin-top:12px;">
+      <button class="btn btn-primary" onclick="saveOidcConfig()" data-i18n-key="admin.oidc.save">Save OIDC configuration</button>
+    </div>
+    <div class="admin-error" id="oidc-config-error"></div>
+    <div class="admin-success" id="oidc-config-success"></div>
   </div>
 
   <!-- Security / 2FA -->
@@ -719,6 +749,7 @@ function getSectionSummary(card) {
   const translate = window.t || ((key) => key);
   if (card.id === 'braindump-config-card') return translate('admin.braindump.summary');
   if (card.id === 'email-config-card') return translate('admin.email.summary');
+  if (card.id === 'oidc-config-card') return translate('admin.oidc.summary');
   if (card.id === 'security-card') return translate('admin.security.summary');
   return '';
 }
@@ -762,7 +793,9 @@ function setupAdminSections() {
       ? buildSectionToggle('braindump-enabled')
       : card.id === 'email-config-card'
         ? buildSectionToggle('email-smtp-enabled')
-        : card.id === 'security-card'
+        : card.id === 'oidc-config-card'
+          ? buildSectionToggle('oidc-enabled')
+          : card.id === 'security-card'
           ? buildSectionToggle('twofa-policy-toggle')
           : null;
     if (summary) headerButton.insertAdjacentHTML('beforeend', `<span class="admin-section-summary">${summary}</span>`);
@@ -825,27 +858,83 @@ function migrateOldAdminToken() {
 }
 migrateOldAdminToken();
 
+function adminTr(key, params = {}) {
+  return (window.t || ((fallbackKey) => fallbackKey))(key, params);
+}
+
+async function hydrateAdminOidcLogin() {
+  const button = document.getElementById('admin-oidc-login-btn');
+  if (!button) return;
+  try {
+    const r = await fetch(API + '/api/oidc/status', { credentials: 'include' });
+    if (!r.ok) return;
+    const data = await r.json();
+    if (!data.enabled) return;
+    button.textContent = adminTr('admin.oidc.signInWithProvider', { provider: data.provider_name || 'OIDC' });
+    button.classList.remove('hidden');
+  } catch (_) {}
+}
+
+function consumeAdminOidcLinkResult() {
+  const raw = sessionStorage.getItem('nia_admin_oidc_link_result');
+  if (!raw) return;
+  sessionStorage.removeItem('nia_admin_oidc_link_result');
+  try {
+    const data = JSON.parse(raw);
+    const msg = document.getElementById('oidc-config-success');
+    if (msg) msg.textContent = adminTr('admin.oidc.adminLinked', { identity: data.display_label || data.subject || adminTr('admin.oidc.identityFallback') });
+  } catch (_) {}
+}
+
+function consumeAdminOidcErrorNotice() {
+  const raw = sessionStorage.getItem('nia_oidc_error');
+  if (!raw) return;
+  sessionStorage.removeItem('nia_oidc_error');
+  let message = adminTr('auth.oidc.errorMessage');
+  let kind = 'admin';
+  try {
+    const data = JSON.parse(raw);
+    message = data?.error_key ? adminTr(data.error_key) : message;
+    kind = data?.kind || kind;
+  } catch (_) {}
+  if (kind !== 'admin') return;
+  const configError = document.getElementById('oidc-config-error');
+  const loginError = document.getElementById('admin-login-error');
+  if (configError) configError.textContent = message;
+  if (loginError) loginError.textContent = message;
+  adminNotice(adminTr('auth.oidc.errorTitle'), message).catch(() => {});
+}
+
 function getAdminToken() {
   return localStorage.getItem('admin_jwt_token');
 }
 
-adminToken = getAdminToken();
+function startAdminApp() {
+  hydrateAdminOidcLogin();
+  consumeAdminOidcErrorNotice();
 
-if (adminToken) {
-  // Try to use stored JWT, if invalid show login
-  loadAdminData().then(() => {
-    document.getElementById('admin-login-card').style.display = 'none';
-    document.getElementById('admin-content').style.display = 'block';
-  }).catch(() => {
-    localStorage.removeItem('admin_jwt_token');
-    adminToken = null;
+  adminToken = getAdminToken();
+
+  if (adminToken) {
+    // Try to use stored JWT, if invalid show login
+    loadAdminData().then(() => {
+      document.getElementById('admin-login-card').style.display = 'none';
+      document.getElementById('admin-content').style.display = 'block';
+      consumeAdminOidcLinkResult();
+    }).catch(() => {
+      localStorage.removeItem('admin_jwt_token');
+      adminToken = null;
+      document.getElementById('admin-login-card').style.display = 'block';
+      focusAdminLoginPassword();
+    });
+  } else {
     document.getElementById('admin-login-card').style.display = 'block';
     focusAdminLoginPassword();
-  });
-} else {
-  document.getElementById('admin-login-card').style.display = 'block';
-  focusAdminLoginPassword();
+  }
 }
+
+if (window.adminI18nReady) startAdminApp();
+else window.addEventListener('admin-i18n-ready', startAdminApp, { once: true });
 
 function getAuthHeaders() {
   const headers = {};
@@ -966,6 +1055,7 @@ async function doAdminLogin() {
     document.getElementById('admin-login-card').style.display = 'none';
     document.getElementById('admin-content').style.display = 'block';
     await loadAdminData();
+    consumeAdminOidcLinkResult();
   } catch(e) {
     document.getElementById('admin-login-error').textContent = 'Error: ' + e.message;
   }
@@ -973,13 +1063,18 @@ async function doAdminLogin() {
 
 let twoFactorPolicyRequired = false;
 let brainDumpFeatureEnabled = false;
+let oidcFeatureEnabled = false;
+let oidcFeatureConfigured = false;
+let adminOidcIdentities = [];
 
 async function loadAdminData() {
-  const [usersData, configData, brainDumpConfigData, emailConfigData, twoFactorPolicy, serverUpdate, technicalStats] = await Promise.all([
+  const [usersData, configData, brainDumpConfigData, emailConfigData, oidcConfigData, oidcLinksData, twoFactorPolicy, serverUpdate, technicalStats] = await Promise.all([
     apiGet('/api/admin/users'),
     apiGet('/api/admin/instance-config'),
     apiGet('/api/admin/braindump-config'),
     apiGet('/api/admin/email-config'),
+    apiGet('/api/admin/oidc-config'),
+    apiGet('/api/oidc/admin/links'),
     apiGet('/api/admin/2fa-policy'),
     apiGet('/api/admin/server-update'),
     apiGet(`/api/admin/technical-stats?days=${currentStatsDays}`),
@@ -991,6 +1086,8 @@ async function loadAdminData() {
   renderBrainDumpConfig(brainDumpConfigData);
   renderUsers(usersData.users);
   renderEmailConfig(emailConfigData);
+  renderOidcConfig(oidcConfigData);
+  renderAdminOidcLinks(oidcLinksData.identities || []);
   renderServerUpdate(serverUpdate);
   renderTechnicalStats(technicalStats);
 }
@@ -1402,6 +1499,125 @@ function renderInstanceConfig(config) {
   document.getElementById('instance-trusted-proxies').value = (config.trusted_proxies || []).join('\n');
 }
 
+function updateAdminOidcToolbar() {
+  const linked = adminOidcIdentities.length > 0;
+  const canLink = oidcFeatureEnabled && oidcFeatureConfigured;
+  document.getElementById('admin-oidc-link-toolbar-btn')?.classList.toggle('hidden', !(canLink && !linked));
+  document.getElementById('admin-oidc-unlink-toolbar-btn')?.classList.toggle('hidden', !linked);
+}
+
+function renderOidcConfig(config = {}) {
+  oidcFeatureEnabled = !!config.enabled;
+  oidcFeatureConfigured = !!(config.issuer_url && config.client_id && (config.public_client || config.client_secret_configured));
+  document.getElementById('oidc-enabled').checked = oidcFeatureEnabled;
+  updateAdminOidcToolbar();
+  document.getElementById('oidc-provider-name').value = config.provider_name || 'OIDC';
+  document.getElementById('oidc-issuer-url').value = config.issuer_url || '';
+  document.getElementById('oidc-client-id').value = config.client_id || '';
+  document.getElementById('oidc-client-secret').value = '';
+  document.getElementById('oidc-public-client').checked = !!config.public_client;
+  document.getElementById('oidc-token-auth-method').value = config.token_auth_method || 'auto';
+  document.getElementById('oidc-scopes').value = config.scopes || 'openid email profile';
+  document.getElementById('oidc-redirect-uri').textContent = config.redirect_uri || '/api/oidc/callback';
+  document.getElementById('oidc-client-secret-note').textContent = config.client_secret_configured ? adminTr('admin.oidc.secretStored') : adminTr('admin.oidc.secretMissing');
+}
+
+function renderAdminOidcLinks(identities = []) {
+  adminOidcIdentities = identities;
+  updateAdminOidcToolbar();
+  const container = document.getElementById('oidc-admin-links');
+  if (!container) return;
+  if (!identities.length) {
+    container.innerHTML = `<div class="admin-help">${escapeHtml(adminTr('admin.oidc.adminNotLinked'))}</div>`;
+    return;
+  }
+  container.innerHTML = identities.map(identity => `
+    <div class="admin-linked-item">
+      <div><strong>${escapeHtml(identity.display_label || identity.subject || adminTr('admin.oidc.identityFallback'))}</strong><br><span class="admin-muted">${escapeHtml(identity.issuer || '')}</span></div>
+      <button class="btn btn-secondary" onclick="unlinkAdminOidcIdentity(${Number(identity.id)})">${escapeHtml(adminTr('admin.oidc.unlinkAction'))}</button>
+    </div>
+  `).join('');
+}
+
+function readOidcConfigForm() {
+  const secret = document.getElementById('oidc-client-secret').value;
+  const data = {
+    enabled: document.getElementById('oidc-enabled').checked,
+    provider_name: document.getElementById('oidc-provider-name').value.trim() || 'OIDC',
+    issuer_url: document.getElementById('oidc-issuer-url').value.trim(),
+    client_id: document.getElementById('oidc-client-id').value.trim(),
+    public_client: document.getElementById('oidc-public-client').checked,
+    token_auth_method: document.getElementById('oidc-token-auth-method').value || 'auto',
+    scopes: document.getElementById('oidc-scopes').value.trim() || 'openid email profile',
+  };
+  if (secret) data.client_secret = secret;
+  return data;
+}
+
+async function saveOidcConfig() {
+  document.getElementById('oidc-config-error').textContent = '';
+  document.getElementById('oidc-config-success').textContent = '';
+  try {
+    const data = await apiPatch('/api/admin/oidc-config', readOidcConfigForm());
+    renderOidcConfig(data);
+    document.getElementById('oidc-config-success').textContent = adminTr('admin.oidc.configSaved');
+  } catch (e) {
+    document.getElementById('oidc-config-error').textContent = e.message;
+  }
+}
+
+async function autoSaveOidcToggle() {
+  const toggle = document.getElementById('oidc-enabled');
+  const previous = oidcFeatureEnabled;
+  document.getElementById('oidc-config-error').textContent = '';
+  document.getElementById('oidc-config-success').textContent = '';
+  try {
+    const data = await apiPatch('/api/admin/oidc-config', readOidcConfigForm());
+    renderOidcConfig(data);
+    document.getElementById('oidc-config-success').textContent = adminTr('admin.oidc.configSaved');
+  } catch (e) {
+    if (toggle) toggle.checked = previous;
+    document.getElementById('oidc-config-error').textContent = e.message;
+  }
+}
+
+async function startAdminOidcLink() {
+  document.getElementById('oidc-config-error').textContent = '';
+  document.getElementById('oidc-config-success').textContent = '';
+  try {
+    const data = await apiPost('/api/oidc/admin/link/start', {});
+    location.href = data.authorization_url;
+  } catch (e) {
+    document.getElementById('oidc-config-error').textContent = e.message;
+  }
+}
+
+async function unlinkAdminOidcIdentity(identityId) {
+  if (!identityId) return;
+  const confirmed = await adminConfirm({
+    title: adminTr('admin.oidc.unlinkConfirmTitle'),
+    message: adminTr('admin.oidc.unlinkConfirmMessage'),
+    confirmText: adminTr('admin.oidc.unlinkAction'),
+    danger: true,
+  });
+  if (!confirmed) return;
+  document.getElementById('oidc-config-error').textContent = '';
+  document.getElementById('oidc-config-success').textContent = '';
+  try {
+    await apiDelete(`/api/oidc/admin/links/${identityId}`);
+    const links = await apiGet('/api/oidc/admin/links');
+    renderAdminOidcLinks(links.identities || []);
+    document.getElementById('oidc-config-success').textContent = adminTr('admin.oidc.adminUnlinked');
+  } catch (e) {
+    document.getElementById('oidc-config-error').textContent = e.message;
+  }
+}
+
+async function unlinkFirstAdminOidcIdentity() {
+  if (!adminOidcIdentities.length) return;
+  await unlinkAdminOidcIdentity(adminOidcIdentities[0].id);
+}
+
 function parseOriginsInput(value) {
   return value.split(/[\n,]/).map(item => item.trim()).filter(Boolean);
 }
@@ -1809,6 +2025,11 @@ function wireHeaderToggles() {
   if (emailToggle && emailToggle.dataset.autosaveReady !== '1') {
     emailToggle.dataset.autosaveReady = '1';
     emailToggle.addEventListener('change', autoSaveEmailToggle);
+  }
+  const oidcToggle = document.getElementById('oidc-enabled');
+  if (oidcToggle && oidcToggle.dataset.autosaveReady !== '1') {
+    oidcToggle.dataset.autosaveReady = '1';
+    oidcToggle.addEventListener('change', autoSaveOidcToggle);
   }
   const twofaToggle = document.getElementById('twofa-policy-toggle');
   if (twofaToggle && twofaToggle.dataset.autosaveReady !== '1') {
