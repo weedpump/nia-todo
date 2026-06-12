@@ -6,7 +6,7 @@ import base64
 import hashlib
 import secrets
 import time
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit
 
 import jwt as pyjwt
 import requests
@@ -21,6 +21,28 @@ from services.oidc_config import get_oidc_config, oidc_redirect_uri
 from rate_limit import get_client_ip
 
 OIDC_STATE_TTL_SECONDS = 600
+
+
+def sanitize_oidc_redirect_after(value: str | None) -> str:
+    raw = str(value or "/").strip() or "/"
+    if any(ord(ch) < 32 for ch in raw):
+        return "/"
+    parsed = urlsplit(raw)
+    if parsed.scheme or parsed.netloc or not raw.startswith("/") or raw.startswith("//") or "\\" in raw:
+        return "/"
+    return raw
+
+
+def cleanup_oidc_login_states() -> int:
+    now = int(time.time())
+    with get_db() as db:
+        cursor = db.execute(
+            """DELETE FROM oidc_login_states
+               WHERE expires_at < ? OR consumed_at IS NOT NULL""",
+            (now,),
+        )
+        db.commit()
+        return cursor.rowcount or 0
 
 
 def _b64url(data: bytes) -> str:
@@ -66,6 +88,8 @@ def create_authorization_url(*, purpose: str, redirect_after: str | None = None)
     if not config.get("enabled"):
         raise HTTPException(400, "OIDC is not enabled")
     metadata = discover_provider(config)
+    cleanup_oidc_login_states()
+    safe_redirect_after = sanitize_oidc_redirect_after(redirect_after)
     state = secrets.token_urlsafe(32)
     nonce = secrets.token_urlsafe(32)
     verifier = _b64url(secrets.token_bytes(32))
@@ -73,7 +97,7 @@ def create_authorization_url(*, purpose: str, redirect_after: str | None = None)
         db.execute(
             """INSERT INTO oidc_login_states (state_hash, nonce, code_verifier, purpose, redirect_after, expires_at)
                VALUES (?, ?, ?, ?, ?, ?)""",
-            (_sha256_text(state), nonce, verifier, purpose, redirect_after or "", int(time.time()) + OIDC_STATE_TTL_SECONDS),
+            (_sha256_text(state), nonce, verifier, purpose, safe_redirect_after, int(time.time()) + OIDC_STATE_TTL_SECONDS),
         )
         db.commit()
     params = {

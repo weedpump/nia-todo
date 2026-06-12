@@ -17,6 +17,7 @@ from migrate import run_migrations  # noqa: E402
 from db import get_db  # noqa: E402
 from services.oidc_config import get_oidc_config, normalize_oidc_config_update  # noqa: E402
 from services import oidc as oidc_service  # noqa: E402
+from services.oidc import cleanup_oidc_login_states, sanitize_oidc_redirect_after  # noqa: E402
 from routers.oidc import _completion_html  # noqa: E402
 
 
@@ -55,6 +56,26 @@ def main():
 
     config = get_oidc_config()
     assert_true(config["redirect_uri"] == "https://todo.example.org/api/oidc/callback", "redirect URI should use public base URL")
+
+    assert_true(sanitize_oidc_redirect_after("/projects?x=1#top") == "/projects?x=1#top", "relative redirect_after should be kept")
+    assert_true(sanitize_oidc_redirect_after("https://evil.example/") == "/", "absolute redirect_after should be rejected")
+    assert_true(sanitize_oidc_redirect_after("//evil.example/") == "/", "protocol-relative redirect_after should be rejected")
+    assert_true(sanitize_oidc_redirect_after("/\\evil") == "/", "backslash redirect_after should be rejected")
+
+    with get_db() as db:
+        db.execute(
+            """INSERT INTO oidc_login_states (state_hash, nonce, code_verifier, purpose, redirect_after, expires_at)
+               VALUES ('expired-state', 'n', 'v', 'user_login', '/', 1)"""
+        )
+        db.execute(
+            """INSERT INTO oidc_login_states (state_hash, nonce, code_verifier, purpose, redirect_after, expires_at, consumed_at)
+               VALUES ('consumed-state', 'n', 'v', 'user_login', '/', 9999999999, datetime('now'))"""
+        )
+        db.commit()
+    assert_true(cleanup_oidc_login_states() >= 2, "OIDC state cleanup should remove expired and consumed states")
+    with get_db() as db:
+        remaining = db.execute("SELECT COUNT(*) AS count FROM oidc_login_states WHERE state_hash IN ('expired-state', 'consumed-state')").fetchone()["count"]
+        assert_true(remaining == 0, "OIDC state cleanup should not leave old state rows")
 
     calls = []
     original_post = oidc_service.requests.post
