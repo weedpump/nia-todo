@@ -141,7 +141,6 @@ class OidcConfigRequest(BaseModel):
     public_client: bool = False
     token_auth_method: str = "auto"
     scopes: str = "openid email profile"
-    logout_url: str = ""
 
 class TestEmailRequest(BaseModel):
     to: str
