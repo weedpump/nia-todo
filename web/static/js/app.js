@@ -763,7 +763,7 @@ function consumeOidcErrorNotice() {
   let message = t('auth.oidc.errorMessage');
   try {
     const data = JSON.parse(raw);
-    message = data?.error || message;
+    message = data?.error_key ? t(data.error_key) : message;
   } catch (_) {}
   requestAnimationFrame(() => {
     showLoginOverlay();

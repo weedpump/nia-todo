@@ -450,7 +450,7 @@ export function createAuthSessionFeature({
         .then(r => r.ok ? r.json() : null)
         .then(data => {
           if (!data?.enabled) return;
-          oidcBtn.textContent = `Sign in with ${data.provider_name || 'OIDC'}`;
+          oidcBtn.textContent = t('auth.oidc.signInWithProvider', { provider: data.provider_name || 'OIDC' });
           oidcBtn.classList.remove('hidden');
         })
         .catch(() => {});
