@@ -34,7 +34,12 @@ router = APIRouter(prefix="/api/oidc")
 
 
 def _json_for_script(value) -> str:
-    return json.dumps(value, separators=(",", ":")).replace("</", "<\\/")
+    return (
+        json.dumps(value, separators=(",", ":"), ensure_ascii=False)
+        .replace("</", "<\\/")
+        .replace("\u2028", "\\u2028")
+        .replace("\u2029", "\\u2029")
+    )
 
 
 def _completion_html(kind: str, payload: dict, redirect_to: str = "/") -> HTMLResponse:
