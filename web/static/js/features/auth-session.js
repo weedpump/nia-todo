@@ -62,17 +62,6 @@ export function createAuthSessionFeature({
         window.dispatchEvent(new CustomEvent('nia-logged-in'));
         return;
       }
-      if (data.kind === 'admin') {
-        localStorage.setItem('admin_jwt_token', payload.access_token);
-        if (payload.csrf_token) localStorage.setItem('csrf_token', payload.csrf_token);
-        location.href = '/admin';
-        return;
-      }
-      if (data.kind === 'admin_link') {
-        sessionStorage.setItem('nia_admin_oidc_link_result', JSON.stringify(payload));
-        location.href = '/admin';
-        return;
-      }
       sessionStorage.setItem('nia_oidc_error', JSON.stringify({ error_key: payload.error_key || 'auth.oidc.errorMessage', error: payload.error || '', kind: payload.kind || 'user' }));
       consumeOidcErrorNotice();
     } catch (error) {

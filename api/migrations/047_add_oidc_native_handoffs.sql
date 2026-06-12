@@ -4,7 +4,7 @@
 CREATE TABLE IF NOT EXISTS oidc_native_handoffs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     code_hash TEXT NOT NULL UNIQUE,
-    kind TEXT NOT NULL CHECK(kind IN ('user', 'admin', 'admin_link', 'error')),
+    kind TEXT NOT NULL CHECK(kind IN ('user', 'error')),
     payload_json TEXT NOT NULL,
     redirect_after TEXT,
     created_at TEXT DEFAULT (datetime('now')),
