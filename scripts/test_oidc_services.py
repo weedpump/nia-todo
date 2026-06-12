@@ -73,6 +73,22 @@ def main():
         "public_client": True,
     })
     assert_true(loopback_config["issuer_url"] == "http://127.0.0.1:8080", "loopback HTTP issuer should be allowed for local development")
+    with get_db() as db:
+        db.execute("UPDATE app_config SET value = ? WHERE key = 'public_base_url'", ("http://todo.example.org",))
+        db.commit()
+    try:
+        normalize_oidc_config_update({
+            "enabled": True,
+            "issuer_url": "https://id.example.org",
+            "client_id": "nia-todo",
+            "public_client": True,
+        })
+        raise AssertionError("plain HTTP public base URL should be rejected for OIDC")
+    except HTTPException as exc:
+        assert_true(exc.status_code == 400, "plain HTTP OIDC redirect URI should return bad request")
+    with get_db() as db:
+        db.execute("UPDATE app_config SET value = ? WHERE key = 'public_base_url'", ("https://todo.example.org",))
+        db.commit()
 
     secret_config = normalize_oidc_config_update({
         "enabled": True,
@@ -130,11 +146,14 @@ def main():
     original_post = oidc_service.requests.post
 
     class FakeResponse:
+        def __init__(self, payload=None):
+            self.payload = payload or {"id_token": "fake"}
+
         def raise_for_status(self):
             return None
 
         def json(self):
-            return {"id_token": "fake"}
+            return self.payload
 
     def fake_post(url, data=None, auth=None, timeout=None):
         calls.append({"url": url, "data": dict(data or {}), "auth": auth, "timeout": timeout})
@@ -149,6 +168,27 @@ def main():
 
         def get_signing_key_from_jwt(self, token):
             return FakeSigningKey()
+
+    original_get = oidc_service.requests.get
+
+    def fake_discovery_get_with_plain_http_endpoint(url, timeout=None):
+        return FakeResponse({
+            "issuer": "https://id.example.org",
+            "authorization_endpoint": "http://id.example.org/authorize",
+            "token_endpoint": "https://id.example.org/token",
+            "jwks_uri": "https://id.example.org/jwks",
+            "response_types_supported": ["code"],
+        })
+
+    try:
+        oidc_service.requests.get = fake_discovery_get_with_plain_http_endpoint
+        try:
+            oidc_service.discover_provider({"issuer_url": "https://id.example.org"})
+            raise AssertionError("plain HTTP discovery endpoint should be rejected")
+        except HTTPException as exc:
+            assert_true(exc.status_code == 400 and "authorization_endpoint" in str(exc.detail), "plain HTTP discovery endpoint should return a validation error")
+    finally:
+        oidc_service.requests.get = original_get
 
     original_jwk_client = oidc_service.pyjwt.PyJWKClient
     original_decode = oidc_service.pyjwt.decode
@@ -171,7 +211,7 @@ def main():
         assert_true(decode_calls[-1]["options"] == {"require": ["exp", "iat", "iss", "aud", "sub"]}, "ID token validation should require core OIDC claims")
 
         def fake_decode_bad_azp(token, key, algorithms=None, audience=None, issuer=None, options=None):
-            return {"iss": issuer, "aud": [audience, "other-client"], "azp": "other-client", "sub": "sub-1", "nonce": "nonce-1", "exp": 9999999999, "iat": 1}
+            return {"iss": issuer, "aud": audience, "azp": "other-client", "sub": "sub-1", "nonce": "nonce-1", "exp": 9999999999, "iat": 1}
 
         oidc_service.pyjwt.decode = fake_decode_bad_azp
         try:
@@ -181,12 +221,29 @@ def main():
                 {"client_id": "nia-todo", "issuer_url": "https://id.example.org"},
                 "nonce-1",
             )
-            raise AssertionError("multi-audience ID token with wrong azp should be rejected")
+            raise AssertionError("ID token with wrong azp should be rejected")
         except HTTPException as exc:
             assert_true(exc.status_code == 400 and "authorized party" in str(exc.detail), "wrong azp should return a validation error")
     finally:
         oidc_service.pyjwt.PyJWKClient = original_jwk_client
         oidc_service.pyjwt.decode = original_decode
+
+    def fake_userinfo_get(url, headers=None, timeout=None):
+        return FakeResponse({"sub": "sub-1", "email": "attacker@example.org", "email_verified": True})
+
+    try:
+        oidc_service.requests.get = fake_userinfo_get
+        try:
+            oidc_service.enrich_claims_from_userinfo(
+                {"sub": "sub-1", "email": "victim@example.org"},
+                {"access_token": "access"},
+                {"userinfo_endpoint": "https://id.example.org/userinfo"},
+            )
+            raise AssertionError("conflicting UserInfo email should be rejected")
+        except HTTPException as exc:
+            assert_true(exc.status_code == 400 and "email" in str(exc.detail), "conflicting UserInfo email should return a validation error")
+    finally:
+        oidc_service.requests.get = original_get
 
     try:
         oidc_service.requests.post = fake_post

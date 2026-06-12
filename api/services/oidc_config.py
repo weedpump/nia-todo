@@ -58,14 +58,21 @@ def _is_loopback_host(hostname: str | None) -> bool:
     return host in {"localhost", "127.0.0.1", "::1"} or host.startswith("127.")
 
 
+def require_secure_oidc_url(value: str, *, field: str, allow_empty: bool = False) -> str:
+    raw = str(value or "").strip()
+    if not raw:
+        if allow_empty:
+            return ""
+        raise HTTPException(400, f"{field} is required")
+    parsed = urlparse(raw)
+    if parsed.scheme != "https" and not (parsed.scheme == "http" and _is_loopback_host(parsed.hostname)):
+        raise HTTPException(400, f"{field} must use HTTPS unless it is loopback-only for development")
+    return raw
+
+
 def _normalize_issuer_url(value: str) -> str:
     url = _normalize_http_url(value, field="OIDC issuer URL", allow_empty=True)
-    if not url:
-        return ""
-    parsed = urlparse(url)
-    if parsed.scheme != "https" and not (parsed.scheme == "http" and _is_loopback_host(parsed.hostname)):
-        raise HTTPException(400, "OIDC issuer URL must use HTTPS unless it is loopback-only for development")
-    return url.rstrip("/")
+    return require_secure_oidc_url(url, field="OIDC issuer URL", allow_empty=True).rstrip("/")
 
 
 def _normalize_scopes(value: str) -> str:
@@ -136,8 +143,10 @@ def normalize_oidc_config_update(data: dict[str, Any], *, existing_secret: str =
             raise HTTPException(400, "OIDC issuer URL is required when OIDC is enabled")
         if not client_id:
             raise HTTPException(400, "OIDC client ID is required when OIDC is enabled")
-        if not oidc_redirect_uri().startswith("http"):
+        redirect_uri = oidc_redirect_uri()
+        if not redirect_uri.startswith("http"):
             raise HTTPException(400, "Public base URL must be configured before enabling OIDC")
+        require_secure_oidc_url(redirect_uri, field="OIDC redirect URI")
         if not public_client and not client_secret:
             raise HTTPException(400, "OIDC client secret is required unless public client is enabled")
 
