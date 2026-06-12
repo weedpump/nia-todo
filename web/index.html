@@ -213,6 +213,11 @@
   <!-- Login Overlay -->
   <div id="login-overlay" class="login-overlay hidden">
     <div class="login-box">
+      <div class="login-theme-toggle">
+        <button class="theme-option" data-theme="light" onclick="setTheme('light')" title="Light" data-i18n-title-key="common.theme.light"><span data-icon="sun"></span></button>
+        <button class="theme-option" data-theme="dark" onclick="setTheme('dark')" title="Dark" data-i18n-title-key="common.theme.dark"><span data-icon="moon"></span></button>
+        <button class="theme-option" data-theme="system" onclick="setTheme('system')" title="System" data-i18n-title-key="common.theme.system"><span data-icon="monitor"></span></button>
+      </div>
       <div class="login-brand">
         <img src="/static/icons/icon-192.png" class="login-logo" alt="nia-todo">
         <div class="login-title">nia-todo</div>
@@ -247,15 +252,13 @@
           <div id="login-reset-message" class="login-reset-message"></div>
         </div>
         <button type="submit" class="login-btn" data-i18n-key="auth.signIn">Sign in</button>
-        <button type="button" class="login-passkey-btn hidden" id="login-oidc-btn" data-i18n-key="auth.oidc.signIn">Sign in with OIDC</button>
-        <button type="button" class="login-passkey-btn hidden" id="login-passkey-btn" data-i18n-key="auth.mfa.signInWithPasskey">Sign in with passkey</button>
+        <div class="login-auth-alternatives">
+          <div class="login-auth-divider"><span data-i18n-key="auth.alternativeSignIn">or</span></div>
+          <button type="button" class="login-passkey-btn hidden" id="login-oidc-btn" data-i18n-key="auth.oidc.signIn">Sign in with OIDC</button>
+          <button type="button" class="login-passkey-btn hidden" id="login-passkey-btn" data-i18n-key="auth.mfa.signInWithPasskey">Sign in with passkey</button>
+        </div>
         <button type="button" class="login-forgot-btn hidden" id="login-forgot-btn" data-i18n-key="auth.forgotPassword">Forgot password?</button>
       </form>
-      <div class="login-theme-toggle">
-        <button class="theme-option" data-theme="light" onclick="setTheme('light')" title="Light" data-i18n-title-key="common.theme.light"><span data-icon="sun"></span></button>
-        <button class="theme-option" data-theme="dark" onclick="setTheme('dark')" title="Dark" data-i18n-title-key="common.theme.dark"><span data-icon="moon"></span></button>
-        <button class="theme-option" data-theme="system" onclick="setTheme('system')" title="System" data-i18n-title-key="common.theme.system"><span data-icon="monitor"></span></button>
-      </div>
       <div class="login-download-divider" aria-hidden="true"></div>
       <button type="button" class="app-download-launcher login-download-launcher" data-app-download-launcher onclick="openAppDownloadsModal()" style="display:none;">
         <span data-icon="download"></span>

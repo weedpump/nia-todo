@@ -2852,6 +2852,7 @@ input[type="color"]::-moz-color-swatch {
 }
 
 .login-box {
+  position: relative;
   width: 100%;
   max-width: 380px;
   margin: auto 0;
@@ -3037,23 +3038,27 @@ input[type="color"]::-moz-color-swatch {
 }
 
 .login-theme-toggle {
+  position: absolute;
+  top: 14px;
+  right: 14px;
   display: flex;
   justify-content: center;
-  gap: 8px;
-  margin-top: 18px;
-  padding-top: 14px;
-  border-top: 1px solid var(--border);
+  gap: 5px;
+  padding: 4px;
+  border: 1px solid rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.18));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-primary) 72%, transparent);
 }
 
 .login-theme-toggle .theme-option {
-  width: 36px;
-  height: 36px;
+  width: 28px;
+  height: 28px;
   border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg-primary);
+  border-radius: 999px;
+  background: transparent;
   color: var(--text-secondary);
   cursor: pointer;
-  font-size: 16px;
+  font-size: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3069,7 +3074,41 @@ input[type="color"]::-moz-color-swatch {
   background: var(--accent);
   border-color: var(--accent);
   color: white;
-  transform: scale(1.05);
+  transform: scale(1.03);
+}
+
+.login-auth-alternatives {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.login-auth-alternatives:not(:has(.login-passkey-btn:not(.hidden))) {
+  display: none;
+}
+
+.login-auth-alternatives .login-passkey-btn {
+  margin-top: 0;
+}
+
+.login-auth-divider {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.login-auth-divider::before,
+.login-auth-divider::after {
+  content: '';
+  height: 1px;
+  background: var(--border);
+  opacity: 0.72;
 }
 
 .app-download-panel {
@@ -3653,7 +3692,8 @@ input[type="color"]::-moz-color-swatch {
   }
 
   .login-theme-toggle {
-    margin-top: 18px;
+    top: calc(12px + env(safe-area-inset-top));
+    right: 12px;
   }
 
 }
@@ -3668,8 +3708,8 @@ input[type="color"]::-moz-color-swatch {
   }
 
   .login-theme-toggle {
-    margin-top: 14px;
-    padding-top: 12px;
+    top: calc(10px + env(safe-area-inset-top));
+    right: 10px;
   }
 
   .login-logo {

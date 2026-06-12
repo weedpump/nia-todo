@@ -49,6 +49,7 @@
   "auth.forgotPassword": "Forgot password?",
   "auth.loginUpdateAction": "Sign-in issue? Reload app",
   "auth.signIn": "Sign in",
+  "auth.alternativeSignIn": "or",
   "auth.signOut": "Sign out",
   "resource.apiDocs": "API docs",
   "resource.changelog": "Changelog",
