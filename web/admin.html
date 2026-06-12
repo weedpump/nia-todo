@@ -70,7 +70,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .badge-success { background: color-mix(in srgb, var(--success) 16%, transparent); color: var(--success); }
 .badge-warning { background: color-mix(in srgb, var(--warning) 22%, transparent); color: var(--warning); }
 .badge-muted { background: var(--bg-tertiary); color: var(--text-muted); }
-.btn { padding: 8px 16px; border: none; border-radius: var(--radius); font-size: 13px; cursor: pointer; font-weight: 500; display:inline-flex; align-items:center; justify-content:center; gap:6px; line-height:1.2; text-align:center; }
+.btn { padding: 8px 16px; border: none; border-radius: var(--radius); font: inherit; font-size: 13px; cursor: pointer; font-weight: 500; display:inline-flex; align-items:center; justify-content:center; gap:6px; line-height:1.2; text-align:center; text-decoration: none; }
 .btn-danger { background: var(--danger); color: white; }
 .btn-danger:hover { opacity: 0.9; }
 .btn-primary { background: var(--accent); color: white; }
@@ -905,31 +905,36 @@ function consumeAdminOidcErrorNotice() {
   adminNotice(adminTr('auth.oidc.errorTitle'), message).catch(() => {});
 }
 
-hydrateAdminOidcLogin();
-consumeAdminOidcErrorNotice();
-
 function getAdminToken() {
   return localStorage.getItem('admin_jwt_token');
 }
 
-adminToken = getAdminToken();
+function startAdminApp() {
+  hydrateAdminOidcLogin();
+  consumeAdminOidcErrorNotice();
 
-if (adminToken) {
-  // Try to use stored JWT, if invalid show login
-  loadAdminData().then(() => {
-    document.getElementById('admin-login-card').style.display = 'none';
-    document.getElementById('admin-content').style.display = 'block';
-    consumeAdminOidcLinkResult();
-  }).catch(() => {
-    localStorage.removeItem('admin_jwt_token');
-    adminToken = null;
+  adminToken = getAdminToken();
+
+  if (adminToken) {
+    // Try to use stored JWT, if invalid show login
+    loadAdminData().then(() => {
+      document.getElementById('admin-login-card').style.display = 'none';
+      document.getElementById('admin-content').style.display = 'block';
+      consumeAdminOidcLinkResult();
+    }).catch(() => {
+      localStorage.removeItem('admin_jwt_token');
+      adminToken = null;
+      document.getElementById('admin-login-card').style.display = 'block';
+      focusAdminLoginPassword();
+    });
+  } else {
     document.getElementById('admin-login-card').style.display = 'block';
     focusAdminLoginPassword();
-  });
-} else {
-  document.getElementById('admin-login-card').style.display = 'block';
-  focusAdminLoginPassword();
+  }
 }
+
+if (window.adminI18nReady) startAdminApp();
+else window.addEventListener('admin-i18n-ready', startAdminApp, { once: true });
 
 function getAuthHeaders() {
   const headers = {};
