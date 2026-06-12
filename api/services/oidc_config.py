@@ -20,7 +20,6 @@ DEFAULT_OIDC_CONFIG: dict[str, Any] = {
     "public_client": False,
     "token_auth_method": "auto",
     "scopes": "openid email profile",
-    "logout_url": "",
 }
 
 FIELD_TO_KEY = {
@@ -32,7 +31,6 @@ FIELD_TO_KEY = {
     "public_client": "oidc_public_client",
     "token_auth_method": "oidc_token_auth_method",
     "scopes": "oidc_scopes",
-    "logout_url": "oidc_logout_url",
 }
 KEY_TO_FIELD = {v: k for k, v in FIELD_TO_KEY.items()}
 OIDC_CONFIG_KEYS = tuple(KEY_TO_FIELD.keys())
@@ -60,10 +58,6 @@ def _normalize_issuer_url(value: str) -> str:
     return url.rstrip("/")
 
 
-def _normalize_logout_url(value: str) -> str:
-    return _normalize_http_url(value, field="OIDC logout URL", allow_empty=True)
-
-
 def _normalize_scopes(value: str) -> str:
     scopes = [item.strip() for item in str(value or "").replace(",", " ").split() if item.strip()]
     if "openid" not in scopes:
@@ -81,8 +75,6 @@ def _parse_config_value(key: str, value: Optional[str]) -> Any:
         return _parse_bool(value, field=field)
     if field == "issuer_url":
         return _normalize_issuer_url(value)
-    if field == "logout_url":
-        return _normalize_logout_url(value)
     if field == "scopes":
         return _normalize_scopes(value)
     if field == "token_auth_method":
@@ -128,7 +120,6 @@ def normalize_oidc_config_update(data: dict[str, Any], *, existing_secret: str =
     if token_auth_method not in TOKEN_AUTH_METHODS:
         raise HTTPException(400, "OIDC token auth method must be auto, client_secret_basic, or client_secret_post")
     scopes = _normalize_scopes(data.get("scopes") or DEFAULT_OIDC_CONFIG["scopes"])
-    logout_url = _normalize_logout_url(data.get("logout_url") or "")
 
     if enabled:
         if not issuer_url:
@@ -149,7 +140,6 @@ def normalize_oidc_config_update(data: dict[str, Any], *, existing_secret: str =
         "public_client": public_client,
         "token_auth_method": token_auth_method,
         "scopes": scopes,
-        "logout_url": logout_url,
     }
 
 
@@ -165,7 +155,6 @@ def update_oidc_config(data: dict[str, Any], *, client_ip: Optional[str] = None)
         "oidc_public_client": _serialize_bool(normalized["public_client"]),
         "oidc_token_auth_method": normalized["token_auth_method"],
         "oidc_scopes": normalized["scopes"],
-        "oidc_logout_url": normalized["logout_url"],
     }
     with get_db() as db:
         old = {r["key"]: r["value"] for r in db.execute(

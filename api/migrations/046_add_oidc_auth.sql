@@ -9,8 +9,7 @@ INSERT OR IGNORE INTO app_config (key, value) VALUES
     ('oidc_client_secret', ''),
     ('oidc_public_client', 'false'),
     ('oidc_token_auth_method', 'auto'),
-    ('oidc_scopes', 'openid email profile'),
-    ('oidc_logout_url', '');
+    ('oidc_scopes', 'openid email profile');
 
 CREATE TABLE IF NOT EXISTS oidc_login_states (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

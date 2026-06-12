@@ -105,7 +105,6 @@ def oidc_status():
         content=json.dumps({
             "enabled": bool(config.get("enabled")),
             "provider_name": config.get("provider_name") or "OIDC",
-            "logout_url": config.get("logout_url") or "",
         }),
         media_type="application/json",
     ))
