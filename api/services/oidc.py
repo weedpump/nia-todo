@@ -206,7 +206,10 @@ def enrich_claims_from_userinfo(claims: dict, tokens: dict, metadata: dict) -> d
         userinfo = response.json()
     except Exception:
         return claims
-    if userinfo.get("sub") and userinfo.get("sub") != claims.get("sub"):
+    userinfo_sub = userinfo.get("sub")
+    if not userinfo_sub:
+        raise HTTPException(400, "OIDC UserInfo missing subject")
+    if userinfo_sub != claims.get("sub"):
         raise HTTPException(400, "OIDC UserInfo subject does not match ID token")
     id_email = str(claims.get("email") or "").strip().lower()
     userinfo_email = str(userinfo.get("email") or "").strip().lower()
@@ -215,10 +218,13 @@ def enrich_claims_from_userinfo(claims: dict, tokens: dict, metadata: dict) -> d
     merged = dict(claims)
     if userinfo_email and not id_email:
         merged["email"] = userinfo.get("email")
-        if "email_verified" in userinfo:
-            merged["email_verified"] = userinfo.get("email_verified")
+        # email_verified must come from the same source as the email claim.
+        merged["email_verified"] = userinfo.get("email_verified") is True
+    elif id_email and "email_verified" not in claims and userinfo_email and "email_verified" in userinfo:
+        # Same subject and same email: UserInfo may fill the missing verification claim.
+        merged["email_verified"] = userinfo.get("email_verified")
     for key, value in userinfo.items():
-        if key in {"email", "email_verified"}:
+        if key in {"sub", "email", "email_verified"}:
             continue
         merged.setdefault(key, value)
     return merged
