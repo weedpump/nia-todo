@@ -11,7 +11,7 @@
   WriteRegStr HKCU "Software\Classes\nia-todo" "" "URL:nia-todo"
   WriteRegStr HKCU "Software\Classes\nia-todo" "URL Protocol" ""
   WriteRegStr HKCU "Software\Classes\nia-todo\DefaultIcon" "" "$INSTDIR\${MAINBINARYNAME}.exe,0"
-  WriteRegStr HKCU "Software\Classes\nia-todo\shell\open\command" "" "\"$INSTDIR\${MAINBINARYNAME}.exe\" \"%1\""
+  WriteRegStr HKCU "Software\Classes\nia-todo\shell\open\command" "" "$\"$INSTDIR\${MAINBINARYNAME}.exe$\" $\"%1$\""
 !macroend
 
 !macro NSIS_HOOK_POSTUNINSTALL
