@@ -240,22 +240,35 @@ export function createNativeBridge() {
   async function listenOidcCallbacks(callback) {
     if (!isNative() || typeof callback !== 'function') return null;
     ensureOidcCallbackBridge();
-    const onWindowEvent = (event) => callback(event?.detail?.url || '');
+    let lastDelivered = '';
+    const deliver = (url) => {
+      const value = String(url || '');
+      if (!value || value === lastDelivered) return;
+      lastDelivered = value;
+      callback(value);
+    };
+    const onWindowEvent = (event) => deliver(event?.detail?.url || '');
     window.addEventListener('nia-native-oidc-callback', onWindowEvent);
     if (window.__niaPendingNativeOidcCallback) {
       const pending = window.__niaPendingNativeOidcCallback;
       window.__niaPendingNativeOidcCallback = '';
-      setTimeout(() => callback(pending), 0);
+      setTimeout(() => deliver(pending), 0);
+    }
+    if (isAndroid() && hasAndroidMethod('consumePendingOidcCallback')) {
+      try {
+        const pending = android().consumePendingOidcCallback();
+        if (pending) setTimeout(() => deliver(pending), 0);
+      } catch (_error) {}
     }
     let unlistenTauri = null;
     if (isDesktop()) {
       invokeTauri('desktop_consume_pending_oidc_callback').then((pending) => {
-        if (pending) callback(String(pending));
+        deliver(pending);
       }).catch(() => {});
     }
     if (isDesktop() && tauri()?.event?.listen) {
       unlistenTauri = await tauri().event.listen('native-oidc-callback', (event) => {
-        callback(event?.payload?.url || event?.payload || '');
+        deliver(event?.payload?.url || event?.payload || '');
       }).catch(() => null);
     }
     return () => {
