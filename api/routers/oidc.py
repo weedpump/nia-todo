@@ -72,6 +72,11 @@ def _completion_html(kind: str, payload: dict, redirect_to: str = "/") -> HTMLRe
           location.replace('/admin');
           return;
         }}
+        if ({_json_for_script(kind)} === 'error') {{
+          sessionStorage.setItem('nia_oidc_error', JSON.stringify({{ error: payload.error || 'OIDC failed', kind: payload.kind || 'user' }}));
+          location.replace({safe_redirect});
+          return;
+        }}
         document.getElementById('message').textContent = payload.error || 'OIDC failed';
       }})();
     """
@@ -83,8 +88,8 @@ def _completion_html(kind: str, payload: dict, redirect_to: str = "/") -> HTMLRe
     return response
 
 
-def _error_html(message: str) -> HTMLResponse:
-    return _completion_html("error", {"error": message})
+def _error_html(message: str, *, redirect_to: str = "/", kind: str = "user") -> HTMLResponse:
+    return _completion_html("error", {"error": message, "kind": kind}, redirect_to)
 
 
 def _no_store(response: Response) -> Response:
@@ -143,14 +148,17 @@ def oidc_admin_unlink(identity_id: int, _: bool = Depends(require_admin)):
 
 @router.get("/callback")
 def oidc_callback(code: str = "", state: str = "", error: str = "", error_description: str = "", request: Request = None, response: Response = None):
-    if error:
-        return _error_html(error_description or error)
-    if not code or not state:
-        return _error_html("OIDC callback missing code or state")
+    state_row = None
     try:
+        state_row = consume_state(state) if state else None
+        redirect_to = state_row.get("redirect_after") if state_row else "/"
+        error_kind = "admin" if state_row and state_row.get("purpose") in {"admin_login", "admin_link"} else "user"
+        if error:
+            return _error_html(error_description or error, redirect_to=redirect_to or "/", kind=error_kind)
+        if not code or not state_row:
+            return _error_html("OIDC callback missing code or state", redirect_to=redirect_to or "/", kind=error_kind)
         config = get_oidc_config(include_secret=True)
         metadata = discover_provider(config)
-        state_row = consume_state(state)
         tokens = exchange_code(code, state_row, metadata, config)
         claims = validate_id_token(tokens["id_token"], metadata, config, state_row["nonce"])
         claims = enrich_claims_from_userinfo(claims, tokens, metadata)
@@ -168,7 +176,11 @@ def oidc_callback(code: str = "", state: str = "", error: str = "", error_descri
         return _completion_html("user", payload, state_row.get("redirect_after") or "/")
     except HTTPException as exc:
         logger.warning("OIDC callback failed: %s", exc.detail)
-        return _error_html(str(exc.detail))
+        redirect_to = state_row.get("redirect_after") if state_row else "/"
+        error_kind = "admin" if state_row and state_row.get("purpose") in {"admin_login", "admin_link"} else "user"
+        return _error_html(str(exc.detail), redirect_to=redirect_to or "/", kind=error_kind)
     except Exception as exc:
         logger.exception("OIDC callback crashed")
-        return _error_html(f"OIDC callback failed: {exc}")
+        redirect_to = state_row.get("redirect_after") if state_row else "/"
+        error_kind = "admin" if state_row and state_row.get("purpose") in {"admin_login", "admin_link"} else "user"
+        return _error_html(f"OIDC callback failed: {exc}", redirect_to=redirect_to or "/", kind=error_kind)

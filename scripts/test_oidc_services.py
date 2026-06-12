@@ -144,6 +144,10 @@ def main():
 
     html_response = _completion_html("user", {"access_token": "jwt", "csrf_token": "csrf", "user": {"id": 1}}, "/")
     assert_true("set-cookie" in html_response.headers, "OIDC completion response should set CSRF cookie")
+    error_html = _completion_html("error", {"error": "No verified local user matches this OIDC email", "kind": "user"}, "/")
+    error_body = error_html.body.decode()
+    assert_true("nia_oidc_error" in error_body and "location.replace" in error_body, "OIDC errors should redirect back to the app with a sessionStorage notice")
+    assert_true("No verified local user matches this OIDC email" in error_body, "OIDC error message should be carried to the app notice")
 
     with get_db() as db:
         db.execute(

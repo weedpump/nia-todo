@@ -34,6 +34,8 @@
   "nativeSetup.hint": "The app UI is bundled locally. The server only provides API, sync, and login.",
   "nativeSetup.notNiaTodoServer": "This is not a nia-todo server.",
   "auth.subtitle": "Your personal todo system",
+  "auth.oidc.errorTitle": "OIDC sign-in failed",
+  "auth.oidc.errorMessage": "The OIDC provider sign-in could not be completed.",
   "auth.usernameOrEmail": "Username or email",
   "auth.password": "Password",
   "auth.passwordPlaceholder": "Enter password",
