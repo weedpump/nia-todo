@@ -80,29 +80,46 @@ def _error_html(message: str) -> HTMLResponse:
     return _completion_html("error", {"error": message})
 
 
+def _no_store(response: Response) -> Response:
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
+
+
+def _oidc_redirect(url: str) -> RedirectResponse:
+    return _no_store(RedirectResponse(url, status_code=302))
+
+
 @router.get("/status")
 def oidc_status():
     config = get_oidc_config()
-    return {
-        "enabled": bool(config.get("enabled")),
-        "provider_name": config.get("provider_name") or "OIDC",
-        "logout_url": config.get("logout_url") or "",
-    }
+    return _no_store(Response(
+        content=json.dumps({
+            "enabled": bool(config.get("enabled")),
+            "provider_name": config.get("provider_name") or "OIDC",
+            "logout_url": config.get("logout_url") or "",
+        }),
+        media_type="application/json",
+    ))
 
 
 @router.get("/login")
 def oidc_login(redirect_after: str = "/"):
-    return RedirectResponse(create_authorization_url(purpose="user_login", redirect_after=redirect_after), status_code=302)
+    return _oidc_redirect(create_authorization_url(purpose="user_login", redirect_after=redirect_after))
 
 
 @router.get("/admin/login")
 def oidc_admin_login():
-    return RedirectResponse(create_authorization_url(purpose="admin_login", redirect_after="/admin"), status_code=302)
+    return _oidc_redirect(create_authorization_url(purpose="admin_login", redirect_after="/admin"))
 
 
 @router.post("/admin/link/start")
 def oidc_admin_link_start(_: bool = Depends(require_admin)):
-    return {"authorization_url": create_authorization_url(purpose="admin_link", redirect_after="/admin")}
+    return _no_store(Response(
+        content=json.dumps({"authorization_url": create_authorization_url(purpose="admin_link", redirect_after="/admin")}),
+        media_type="application/json",
+    ))
 
 
 @router.get("/callback")
