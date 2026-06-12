@@ -6,6 +6,7 @@ import base64
 import hashlib
 import secrets
 import time
+import json
 from urllib.parse import urlencode, urlsplit
 
 import jwt as pyjwt
@@ -41,8 +42,19 @@ def cleanup_oidc_login_states() -> int:
                WHERE expires_at < ? OR consumed_at IS NOT NULL""",
             (now,),
         )
+        state_rows = cursor.rowcount or 0
+        handoff_rows = 0
+        try:
+            handoff_cursor = db.execute(
+                """DELETE FROM oidc_native_handoffs
+                   WHERE expires_at < ? OR consumed_at IS NOT NULL""",
+                (now,),
+            )
+            handoff_rows = handoff_cursor.rowcount or 0
+        except Exception:
+            handoff_rows = 0
         db.commit()
-        return cursor.rowcount or 0
+        return state_rows + handoff_rows
 
 
 def _b64url(data: bytes) -> str:
@@ -84,6 +96,51 @@ def discover_provider(config: dict | None = None) -> dict:
     if "code" not in response_types:
         raise HTTPException(400, "OIDC provider does not support Authorization Code flow")
     return data
+
+
+OIDC_NATIVE_HANDOFF_TTL_SECONDS = 120
+
+
+def create_native_handoff(*, kind: str, payload: dict, redirect_after: str = "/") -> str:
+    if kind not in {"user", "error"}:
+        raise HTTPException(400, "Invalid native OIDC handoff kind")
+    safe_redirect_after = sanitize_oidc_redirect_after(redirect_after)
+    code = secrets.token_urlsafe(32)
+    with get_db() as db:
+        db.execute(
+            """INSERT INTO oidc_native_handoffs (code_hash, kind, payload_json, redirect_after, expires_at)
+               VALUES (?, ?, ?, ?, ?)""",
+            (_sha256_text(code), kind, json.dumps(payload, separators=(",", ":"), ensure_ascii=False), safe_redirect_after, int(time.time()) + OIDC_NATIVE_HANDOFF_TTL_SECONDS),
+        )
+        db.commit()
+    return code
+
+
+def consume_native_handoff(code: str) -> dict:
+    with get_db() as db:
+        db.execute("BEGIN IMMEDIATE")
+        row = db.execute(
+            """SELECT * FROM oidc_native_handoffs
+               WHERE code_hash = ? AND consumed_at IS NULL AND expires_at >= ?""",
+            (_sha256_text(code or ""), int(time.time())),
+        ).fetchone()
+        if not row:
+            raise HTTPException(400, "Native OIDC handoff is invalid or expired")
+        cursor = db.execute(
+            """UPDATE oidc_native_handoffs
+               SET consumed_at = datetime('now'), payload_json = '{}'
+               WHERE id = ? AND consumed_at IS NULL""",
+            (row["id"],),
+        )
+        if cursor.rowcount != 1:
+            raise HTTPException(400, "Native OIDC handoff is invalid or expired")
+        db.commit()
+    payload_json = row["payload_json"] or "{}"
+    try:
+        payload = json.loads(payload_json)
+    except Exception as exc:
+        raise HTTPException(400, "Native OIDC handoff payload is invalid") from exc
+    return {"kind": row["kind"], "payload": payload, "redirect_after": row["redirect_after"] or "/"}
 
 
 def create_authorization_url(*, purpose: str, redirect_after: str | None = None) -> str:

@@ -23,4 +23,11 @@ const migrationCallIndex = source.indexOf('clearStaleWebViewCachesOnVersionChang
 const superOnCreateIndex = source.indexOf('super.onCreate(savedInstanceState)', onCreateIndex);
 assert.ok(migrationCallIndex > onCreateIndex && migrationCallIndex < superOnCreateIndex, 'Android cache migration must run before Tauri creates the WebView');
 
+const manifest = fs.readFileSync(path.join(repoRoot, 'src-tauri/gen/android/app/src/main/AndroidManifest.xml'), 'utf8');
+assert.match(manifest, /android:scheme="nia-todo"/, 'Android manifest must register nia-todo custom URL scheme');
+assert.match(manifest, /android:host="oidc"/, 'Android manifest must route OIDC callbacks to the app');
+assert.match(source, /handleOidcIntent\(intent\)/, 'Android activity must process cold-start OIDC callback intents');
+assert.match(source, /override fun onNewIntent/, 'Android activity must process warm OIDC callback intents');
+assert.match(source, /__niaNativeOidcCallback/, 'Android activity must dispatch native OIDC callbacks into the WebView bridge');
+
 console.log('✅ Native Android WebView cache migration regression passed');

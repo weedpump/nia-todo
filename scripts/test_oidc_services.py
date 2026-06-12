@@ -2,6 +2,7 @@
 """Focused tests for generic OIDC config and local identity mapping."""
 
 import hashlib
+import json
 import os
 import sqlite3
 import tempfile
@@ -21,8 +22,8 @@ from services.auth import decode_jwt_token  # noqa: E402
 from services.oidc_config import get_oidc_config, normalize_oidc_config_update  # noqa: E402
 from services import oidc as oidc_service  # noqa: E402
 from fastapi import HTTPException  # noqa: E402
-from services.oidc import cleanup_oidc_login_states, complete_user_oidc_login, consume_state, sanitize_oidc_redirect_after, validate_id_token  # noqa: E402
-from routers.oidc import _completion_html, _json_for_script  # noqa: E402
+from services.oidc import cleanup_oidc_login_states, complete_user_oidc_login, consume_state, sanitize_oidc_redirect_after, validate_id_token, create_native_handoff, consume_native_handoff  # noqa: E402
+from routers.oidc import _completion_html, _json_for_script, oidc_native_exchange, NativeOidcExchangeRequest  # noqa: E402
 
 
 def assert_true(value, message):
@@ -141,6 +142,31 @@ def main():
     with get_db() as db:
         remaining = db.execute("SELECT COUNT(*) AS count FROM oidc_login_states WHERE state_hash IN ('expired-state', 'consumed-state')").fetchone()["count"]
         assert_true(remaining == 0, "OIDC state cleanup should not leave old state rows")
+
+    native_code = create_native_handoff(
+        kind="user",
+        payload={"access_token": "native-jwt", "csrf_token": "native-csrf", "user": {"id": 42}},
+        redirect_after="/projects?native=1",
+    )
+    native_handoff = consume_native_handoff(native_code)
+    assert_true(native_handoff["kind"] == "user", "native OIDC handoff should keep its kind")
+    assert_true(native_handoff["payload"]["access_token"] == "native-jwt", "native OIDC handoff should return payload once")
+    assert_true(native_handoff["redirect_after"] == "/projects?native=1", "native OIDC handoff should keep safe redirect target")
+    try:
+        consume_native_handoff(native_code)
+        raise AssertionError("native OIDC handoff replay should be rejected")
+    except HTTPException as exc:
+        assert_true(exc.status_code == 400, "native OIDC handoff replay should return bad request")
+    with get_db() as db:
+        stored_payload = db.execute("SELECT payload_json FROM oidc_native_handoffs WHERE code_hash = ?", (hashlib.sha256(native_code.encode()).hexdigest(),)).fetchone()["payload_json"]
+        assert_true(stored_payload == "{}", "native OIDC handoff payload should be cleared after consumption")
+    security_source = (BASE / "api/middleware/security.py").read_text()
+    assert_true('"/api/oidc/native/exchange"' in security_source, "native OIDC exchange must be CSRF-exempt before a CSRF cookie exists")
+    exchange_code = create_native_handoff(kind="user", payload={"csrf_token": "exchange-csrf"}, redirect_after="/inbox")
+    exchange_response = oidc_native_exchange(NativeOidcExchangeRequest(code=exchange_code))
+    exchange_body = json.loads(exchange_response.body.decode())
+    assert_true(exchange_body["redirect_after"] == "/inbox", "native exchange should return redirect target")
+    assert_true("set-cookie" in exchange_response.headers, "native exchange should set CSRF cookie on the returned response")
 
     calls = []
     original_post = oidc_service.requests.post
