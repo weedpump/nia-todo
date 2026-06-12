@@ -21,7 +21,7 @@ from services.auth import decode_jwt_token  # noqa: E402
 from services.oidc_config import get_oidc_config, normalize_oidc_config_update  # noqa: E402
 from services import oidc as oidc_service  # noqa: E402
 from fastapi import HTTPException  # noqa: E402
-from services.oidc import cleanup_oidc_login_states, complete_user_oidc_login, consume_state, sanitize_oidc_redirect_after  # noqa: E402
+from services.oidc import cleanup_oidc_login_states, complete_user_oidc_login, consume_state, sanitize_oidc_redirect_after, validate_id_token  # noqa: E402
 from routers.oidc import _completion_html, _json_for_script  # noqa: E402
 
 
@@ -56,6 +56,23 @@ def main():
     })
     assert_true(public_config["issuer_url"] == "https://id.example.org", "issuer URL should be normalized")
     assert_true(public_config["scopes"] == "openid profile email", "openid/email scopes should be enforced")
+    try:
+        normalize_oidc_config_update({
+            "enabled": True,
+            "issuer_url": "http://id.example.org",
+            "client_id": "nia-todo",
+            "public_client": True,
+        })
+        raise AssertionError("plain HTTP OIDC issuer should be rejected")
+    except HTTPException as exc:
+        assert_true(exc.status_code == 400, "plain HTTP OIDC issuer should return bad request")
+    loopback_config = normalize_oidc_config_update({
+        "enabled": True,
+        "issuer_url": "http://127.0.0.1:8080/",
+        "client_id": "nia-todo",
+        "public_client": True,
+    })
+    assert_true(loopback_config["issuer_url"] == "http://127.0.0.1:8080", "loopback HTTP issuer should be allowed for local development")
 
     secret_config = normalize_oidc_config_update({
         "enabled": True,
@@ -122,6 +139,54 @@ def main():
     def fake_post(url, data=None, auth=None, timeout=None):
         calls.append({"url": url, "data": dict(data or {}), "auth": auth, "timeout": timeout})
         return FakeResponse()
+
+    class FakeSigningKey:
+        key = "fake-key"
+
+    class FakeJwkClient:
+        def __init__(self, uri):
+            self.uri = uri
+
+        def get_signing_key_from_jwt(self, token):
+            return FakeSigningKey()
+
+    original_jwk_client = oidc_service.pyjwt.PyJWKClient
+    original_decode = oidc_service.pyjwt.decode
+    decode_calls = []
+
+    def fake_decode(token, key, algorithms=None, audience=None, issuer=None, options=None):
+        decode_calls.append({"options": options, "audience": audience, "issuer": issuer})
+        return {"iss": issuer, "aud": [audience, "other-client"], "azp": audience, "sub": "sub-1", "nonce": "nonce-1", "exp": 9999999999, "iat": 1}
+
+    try:
+        oidc_service.pyjwt.PyJWKClient = FakeJwkClient
+        oidc_service.pyjwt.decode = fake_decode
+        claims = validate_id_token(
+            "id-token",
+            {"jwks_uri": "https://id.example.org/jwks", "id_token_signing_alg_values_supported": ["RS256"]},
+            {"client_id": "nia-todo", "issuer_url": "https://id.example.org"},
+            "nonce-1",
+        )
+        assert_true(claims["sub"] == "sub-1", "valid ID token claims should be returned")
+        assert_true(decode_calls[-1]["options"] == {"require": ["exp", "iat", "iss", "aud", "sub"]}, "ID token validation should require core OIDC claims")
+
+        def fake_decode_bad_azp(token, key, algorithms=None, audience=None, issuer=None, options=None):
+            return {"iss": issuer, "aud": [audience, "other-client"], "azp": "other-client", "sub": "sub-1", "nonce": "nonce-1", "exp": 9999999999, "iat": 1}
+
+        oidc_service.pyjwt.decode = fake_decode_bad_azp
+        try:
+            validate_id_token(
+                "id-token",
+                {"jwks_uri": "https://id.example.org/jwks"},
+                {"client_id": "nia-todo", "issuer_url": "https://id.example.org"},
+                "nonce-1",
+            )
+            raise AssertionError("multi-audience ID token with wrong azp should be rejected")
+        except HTTPException as exc:
+            assert_true(exc.status_code == 400 and "authorized party" in str(exc.detail), "wrong azp should return a validation error")
+    finally:
+        oidc_service.pyjwt.PyJWKClient = original_jwk_client
+        oidc_service.pyjwt.decode = original_decode
 
     try:
         oidc_service.requests.post = fake_post
