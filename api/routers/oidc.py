@@ -21,6 +21,8 @@ from services.oidc import (
     exchange_code,
     enrich_claims_from_userinfo,
     link_admin_oidc_identity,
+    list_admin_oidc_identities,
+    unlink_admin_oidc_identity,
     validate_id_token,
 )
 from middleware.security import set_csrf_cookie
@@ -114,12 +116,25 @@ def oidc_admin_login():
     return _oidc_redirect(create_authorization_url(purpose="admin_login", redirect_after="/admin"))
 
 
+@router.get("/admin/links")
+def oidc_admin_links(_: bool = Depends(require_admin)):
+    return _no_store(Response(
+        content=json.dumps({"identities": list_admin_oidc_identities()}),
+        media_type="application/json",
+    ))
+
+
 @router.post("/admin/link/start")
 def oidc_admin_link_start(_: bool = Depends(require_admin)):
     return _no_store(Response(
         content=json.dumps({"authorization_url": create_authorization_url(purpose="admin_link", redirect_after="/admin")}),
         media_type="application/json",
     ))
+
+
+@router.delete("/admin/links/{identity_id}")
+def oidc_admin_unlink(identity_id: int, _: bool = Depends(require_admin)):
+    return unlink_admin_oidc_identity(identity_id)
 
 
 @router.get("/callback")

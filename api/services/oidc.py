@@ -254,3 +254,23 @@ def link_admin_oidc_identity(claims: dict) -> dict:
         )
         db.commit()
     return {"linked": True, "issuer": issuer, "subject": subject, "display_label": str(label)}
+
+
+def list_admin_oidc_identities() -> list[dict]:
+    with get_db() as db:
+        rows = db.execute(
+            """SELECT id, issuer, subject, display_label, created_at, last_login_at
+               FROM admin_oidc_identities
+               ORDER BY created_at DESC, id DESC"""
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def unlink_admin_oidc_identity(identity_id: int) -> dict:
+    with get_db() as db:
+        row = db.execute("SELECT id, issuer, subject FROM admin_oidc_identities WHERE id = ?", (identity_id,)).fetchone()
+        if not row:
+            raise HTTPException(404, "Admin OIDC identity not found")
+        db.execute("DELETE FROM admin_oidc_identities WHERE id = ?", (identity_id,))
+        db.commit()
+    return {"unlinked": True, "id": identity_id}

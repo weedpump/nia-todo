@@ -1094,6 +1094,7 @@
   "api.error.user.usernameExists": "Benutzername existiert bereits",
   "admin.braindump.provider.ollama": "Ollama API",
   "admin.email.summary": "SMTP",
+  "admin.oidc.summary": "OIDC",
   "admin.security.summary": "2FA-Regel",
   "settings.overview.subtitle": "Profil, Sicherheit, API und App-Verhalten an einem Ort.",
   "settings.section.profile": "Profil",
