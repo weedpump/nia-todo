@@ -66,9 +66,143 @@ def _native_redirect_html(code: str, kind: str, redirect_after: str = "/") -> HT
     params = urlencode({"code": code, "kind": kind, "redirect_after": redirect_after or "/"})
     callback_url = f"{NATIVE_OIDC_SCHEME}://oidc/callback?{params}"
     safe_callback = _json_for_script(callback_url)
-    response = HTMLResponse(f"""<!doctype html><html><head><meta charset='utf-8'><title>Returning to nia-todo…</title></head>
-<body><p id='message'>Returning to nia-todo…</p><script>location.replace({safe_callback});</script>
-<p><a href={html.escape(json.dumps(callback_url))}>Open nia-todo</a></p></body></html>""")
+    safe_callback_href = html.escape(callback_url, quote=True)
+    response = HTMLResponse(f"""<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <title>Returning to nia-todo…</title>
+  <style>
+    :root {{
+      --bg: #f6f7fb;
+      --card: rgba(255, 255, 255, 0.92);
+      --text: #141824;
+      --muted: #647084;
+      --primary: #4f46e5;
+      --primary-strong: #4338ca;
+      --ring: rgba(79, 70, 229, 0.22);
+      --border: rgba(100, 116, 139, 0.18);
+    }}
+    @media (prefers-color-scheme: dark) {{
+      :root {{
+        --bg: #0f1220;
+        --card: rgba(24, 28, 44, 0.92);
+        --text: #f4f7fb;
+        --muted: #a8b2c3;
+        --primary: #8b5cf6;
+        --primary-strong: #a78bfa;
+        --ring: rgba(139, 92, 246, 0.24);
+        --border: rgba(148, 163, 184, 0.18);
+      }}
+    }}
+    * {{ box-sizing: border-box; }}
+    body {{
+      min-height: 100vh;
+      margin: 0;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      color: var(--text);
+      font: 16px/1.5 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top left, var(--ring), transparent 34rem),
+        radial-gradient(circle at bottom right, rgba(34, 197, 94, 0.12), transparent 28rem),
+        var(--bg);
+    }}
+    main {{
+      width: min(100%, 440px);
+      padding: 28px;
+      border: 1px solid var(--border);
+      border-radius: 28px;
+      background: var(--card);
+      box-shadow: 0 24px 70px rgba(15, 23, 42, 0.18);
+      text-align: center;
+      backdrop-filter: blur(18px);
+    }}
+    .logo {{
+      width: 64px;
+      height: 64px;
+      margin: 0 auto 18px;
+      display: grid;
+      place-items: center;
+      border-radius: 20px;
+      color: white;
+      font-size: 30px;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--primary), #06b6d4);
+      box-shadow: 0 16px 34px var(--ring);
+    }}
+    h1 {{ margin: 0 0 10px; font-size: 1.45rem; line-height: 1.2; }}
+    p {{ margin: 0; color: var(--muted); }}
+    .spinner {{
+      width: 34px;
+      height: 34px;
+      margin: 22px auto;
+      border-radius: 50%;
+      border: 3px solid var(--border);
+      border-top-color: var(--primary);
+      animation: spin 0.8s linear infinite;
+    }}
+    a.button {{
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 44px;
+      margin-top: 22px;
+      padding: 0 18px;
+      border-radius: 999px;
+      color: white;
+      background: var(--primary);
+      text-decoration: none;
+      font-weight: 700;
+      box-shadow: 0 12px 26px var(--ring);
+    }}
+    a.button:hover {{ background: var(--primary-strong); }}
+    .hint {{ margin-top: 16px; font-size: 0.92rem; }}
+    @keyframes spin {{ to {{ transform: rotate(360deg); }} }}
+  </style>
+</head>
+<body>
+  <main>
+    <div class="logo" aria-hidden="true">✓</div>
+    <h1 data-i18n="title">Returning to nia-todo…</h1>
+    <p data-i18n="body">Your sign-in was successful. We are opening the app now.</p>
+    <div class="spinner" aria-hidden="true"></div>
+    <a class="button" href="{safe_callback_href}" data-i18n="open">Open nia-todo</a>
+    <p class="hint" data-i18n="hint">If this tab does not close automatically, you can close it after the app opens.</p>
+  </main>
+  <script>
+    (function() {{
+      const callbackUrl = {safe_callback};
+      const messages = {{
+        de: {{
+          title: 'Zurück zu nia-todo…',
+          body: 'Die Anmeldung war erfolgreich. Wir öffnen jetzt die App.',
+          open: 'nia-todo öffnen',
+          hint: 'Falls sich dieser Tab nicht automatisch schließt, kannst du ihn nach dem Öffnen der App schließen.'
+        }},
+        en: {{
+          title: 'Returning to nia-todo…',
+          body: 'Your sign-in was successful. We are opening the app now.',
+          open: 'Open nia-todo',
+          hint: 'If this tab does not close automatically, you can close it after the app opens.'
+        }}
+      }};
+      const lang = String(navigator.language || '').toLowerCase().startsWith('de') ? 'de' : 'en';
+      document.documentElement.lang = lang;
+      document.querySelectorAll('[data-i18n]').forEach((el) => {{
+        const key = el.getAttribute('data-i18n');
+        if (messages[lang][key]) el.textContent = messages[lang][key];
+      }});
+      document.title = messages[lang].title;
+      setTimeout(() => {{ window.location.href = callbackUrl; }}, 150);
+      setTimeout(() => {{ window.close(); }}, 1400);
+    }})();
+  </script>
+</body>
+</html>""")
     response.headers["Cache-Control"] = "no-store"
     return response
 
