@@ -23,7 +23,7 @@ from services.oidc_config import get_oidc_config, normalize_oidc_config_update  
 from services import oidc as oidc_service  # noqa: E402
 from fastapi import HTTPException  # noqa: E402
 from services.oidc import cleanup_oidc_login_states, complete_user_oidc_login, consume_state, sanitize_oidc_redirect_after, validate_id_token, create_native_handoff, consume_native_handoff  # noqa: E402
-from routers.oidc import _completion_html, _json_for_script, oidc_native_exchange, NativeOidcExchangeRequest  # noqa: E402
+from routers.oidc import _completion_html, _json_for_script, _native_redirect_html, oidc_native_exchange, NativeOidcExchangeRequest  # noqa: E402
 
 
 def assert_true(value, message):
@@ -178,6 +178,10 @@ def main():
     exchange_body = json.loads(exchange_response.body.decode())
     assert_true(exchange_body["redirect_after"] == "/inbox", "native exchange should return redirect target")
     assert_true("set-cookie" in exchange_response.headers, "native exchange should set CSRF cookie on the returned response")
+    native_redirect_html = _native_redirect_html("test-code", "user", "/inbox").body.decode()
+    assert_true("window.close()" in native_redirect_html, "native OIDC return page should try to close its browser tab after opening the app")
+    assert_true("data-i18n" in native_redirect_html and "Zurück zu nia-todo" in native_redirect_html and "Returning to nia-todo" in native_redirect_html, "native OIDC return page should include German and English UI copy")
+    assert_true("If this tab does not close automatically" in native_redirect_html and "nia-todo://oidc/callback" in native_redirect_html, "native OIDC return page should keep a manual open fallback")
 
     calls = []
     original_post = oidc_service.requests.post
