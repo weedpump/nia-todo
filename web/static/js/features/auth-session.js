@@ -20,7 +20,29 @@ export function createAuthSessionFeature({
   let pendingMfaMethod = null;
   let nativeOidcListenerBound = false;
   const nativeBridge = createNativeBridge();
+  const nativeOidcCodesInFlight = new Set();
+  const consumedNativeOidcCodesKey = 'nia_consumed_native_oidc_codes';
 
+  function getConsumedNativeOidcCodes() {
+    try {
+      const value = JSON.parse(sessionStorage.getItem(consumedNativeOidcCodesKey) || '[]');
+      return Array.isArray(value) ? value.filter(Boolean).map(String) : [];
+    } catch (_error) {
+      return [];
+    }
+  }
+
+  function hasConsumedNativeOidcCode(code) {
+    return getConsumedNativeOidcCodes().includes(String(code || ''));
+  }
+
+  function rememberConsumedNativeOidcCode(code) {
+    const value = String(code || '');
+    if (!value) return;
+    const codes = getConsumedNativeOidcCodes().filter(existing => existing !== value);
+    codes.push(value);
+    sessionStorage.setItem(consumedNativeOidcCodesKey, JSON.stringify(codes.slice(-20)));
+  }
 
   function storeOidcUserSession(payload) {
     localStorage.setItem('jwt_token', payload.access_token);
@@ -41,7 +63,8 @@ export function createAuthSessionFeature({
     }
     if (parsed.protocol !== 'nia-todo:' || parsed.hostname !== 'oidc' || parsed.pathname !== '/callback') return;
     const code = parsed.searchParams.get('code');
-    if (!code) return;
+    if (!code || hasConsumedNativeOidcCode(code) || nativeOidcCodesInFlight.has(code)) return;
+    nativeOidcCodesInFlight.add(code);
     try {
       const response = await fetch(`${API}/api/oidc/native/exchange`, {
         method: 'POST',
@@ -50,7 +73,12 @@ export function createAuthSessionFeature({
         body: JSON.stringify({ code }),
       });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.detail || 'Native OIDC exchange failed');
+      if (!response.ok) {
+        const detail = data.detail || 'Native OIDC exchange failed';
+        if (hasConsumedNativeOidcCode(code) && /invalid or expired/i.test(String(detail))) return;
+        throw new Error(detail);
+      }
+      rememberConsumedNativeOidcCode(code);
       const payload = data.payload || {};
       if (data.kind === 'user') {
         storeOidcUserSession(payload);
@@ -69,6 +97,8 @@ export function createAuthSessionFeature({
       const errorEl = document.getElementById('login-error');
       if (errorEl) errorEl.textContent = message;
       console.error('Native OIDC callback failed:', error);
+    } finally {
+      nativeOidcCodesInFlight.delete(code);
     }
   }
 
