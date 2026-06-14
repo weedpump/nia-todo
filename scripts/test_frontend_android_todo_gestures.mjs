@@ -38,8 +38,8 @@ async function run() {
     throw new Error('Android capability must allow desktop_set_setting for native notification toggles');
   }
   const dragDropSource = await readFile(new URL('../web/static/js/features/drag-drop.js', import.meta.url), 'utf8');
-  if (!dragDropSource.includes('NATIVE_AUTO_SCROLL_EDGE_PX') || !dragDropSource.includes('NATIVE_AUTO_SCROLL_TOP_EDGE_PX') || !dragDropSource.includes('nativeScrollContainer()') || !dragDropSource.includes('container.scrollTop += deltaY') || !dragDropSource.includes('scheduleNativeAutoScroll()') || !dragDropSource.includes('ghost?.getBoundingClientRect')) {
-    throw new Error('Native pointer drag must auto-scroll the app scroll container near viewport edges on Android, with an earlier ghost-position-based top edge trigger');
+  if (!dragDropSource.includes('NATIVE_AUTO_SCROLL_EDGE_PX') || !dragDropSource.includes('NATIVE_AUTO_SCROLL_TOP_EDGE_PX') || !dragDropSource.includes('NATIVE_AUTO_SCROLL_TOPBAR_GAP_PX') || !dragDropSource.includes('nativeAutoScrollTopBoundary') || !dragDropSource.includes("document.querySelector('.topbar')") || !dragDropSource.includes('nativeScrollContainer()') || !dragDropSource.includes('container.scrollTop += deltaY') || !dragDropSource.includes('scheduleNativeAutoScroll()') || !dragDropSource.includes('ghost?.getBoundingClientRect')) {
+    throw new Error('Native pointer drag must auto-scroll the app scroll container near viewport edges on Android, with an earlier topbar-aware ghost-position-based top edge trigger');
   }
   if (dragDropSource.includes('if (pointerDrag.active && pointerDrag.isTouch) return;')) {
     throw new Error('Native pointer drag must not ignore active Android pointercancel events and leave ghost UI stuck');

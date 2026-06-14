@@ -23,7 +23,8 @@ export function createDragDropFeature({
   const MOUSE_DRAG_THRESHOLD_PX = 8;
   const SUMMARY_TOGGLE_MOVE_THRESHOLD_PX = 8;
   const NATIVE_AUTO_SCROLL_EDGE_PX = 72;
-  const NATIVE_AUTO_SCROLL_TOP_EDGE_PX = 128;
+  const NATIVE_AUTO_SCROLL_TOP_EDGE_PX = 96;
+  const NATIVE_AUTO_SCROLL_TOPBAR_GAP_PX = 24;
   const NATIVE_AUTO_SCROLL_MAX_PX = 18;
 
   function eventDataTransfer(e) {
@@ -316,6 +317,13 @@ export function createDragDropFeature({
     return document.scrollingElement || document.documentElement;
   }
 
+  function nativeAutoScrollTopBoundary(containerRect) {
+    const topbar = document.querySelector('.topbar');
+    const topbarRect = topbar?.getBoundingClientRect?.();
+    if (!topbarRect?.bottom) return containerRect.top;
+    return Math.max(containerRect.top, topbarRect.bottom + NATIVE_AUTO_SCROLL_TOPBAR_GAP_PX);
+  }
+
   function nativeAutoScrollDelta(clientY, container = nativeScrollContainer()) {
     const isDocument = container === document.scrollingElement || container === document.documentElement;
     const rect = isDocument
@@ -324,8 +332,10 @@ export function createDragDropFeature({
     if (!rect.bottom) return 0;
     const ghostRect = pointerDrag?.ghost?.getBoundingClientRect?.() || null;
     const topTriggerY = ghostRect?.top ?? clientY;
-    if (topTriggerY < rect.top + NATIVE_AUTO_SCROLL_TOP_EDGE_PX) {
-      return -Math.ceil(((rect.top + NATIVE_AUTO_SCROLL_TOP_EDGE_PX - topTriggerY) / NATIVE_AUTO_SCROLL_TOP_EDGE_PX) * NATIVE_AUTO_SCROLL_MAX_PX);
+    const topBoundary = nativeAutoScrollTopBoundary(rect);
+    const topEdgeBottom = topBoundary + NATIVE_AUTO_SCROLL_TOP_EDGE_PX;
+    if (topTriggerY < topEdgeBottom) {
+      return -Math.ceil(((topEdgeBottom - topTriggerY) / NATIVE_AUTO_SCROLL_TOP_EDGE_PX) * NATIVE_AUTO_SCROLL_MAX_PX);
     }
     if (clientY > rect.bottom - NATIVE_AUTO_SCROLL_EDGE_PX) {
       return Math.ceil(((clientY - (rect.bottom - NATIVE_AUTO_SCROLL_EDGE_PX)) / NATIVE_AUTO_SCROLL_EDGE_PX) * NATIVE_AUTO_SCROLL_MAX_PX);
