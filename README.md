@@ -24,7 +24,7 @@ systemctl restart nia-todo-dev
 - 📧 Email/SMTP integration for invitations, password reset, and email verification
 - 🔲 Sections per project
 - 📱 Offline PWA plus native Windows/Android wrappers
-- 🔐 Auth, admin panel, API keys, CSRF protection, and user data isolation
+- 🔐 Auth, admin panel, API keys, CSRF protection, OIDC/SSO support, and user data isolation
 - 🛡️ 2FA/MFA with authenticator app (TOTP), passkeys/WebAuthn including native Windows/Android bridge, email code fallback, recovery codes, trusted devices, and admin policy
 - ⏰ Reminders/deadlines with validated date/time input
 - 🔁 Recurring todos require a due date and can carry reminders forward to the next occurrence
