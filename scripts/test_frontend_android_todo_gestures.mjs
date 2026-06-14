@@ -41,6 +41,9 @@ async function run() {
   if (!dragDropSource.includes('NATIVE_AUTO_SCROLL_EDGE_PX') || !dragDropSource.includes('NATIVE_AUTO_SCROLL_VIEWPORT_GAP_PX') || !dragDropSource.includes('NATIVE_AUTO_SCROLL_TOP_EDGE_PX') || !dragDropSource.includes('NATIVE_AUTO_SCROLL_TOPBAR_GAP_PX') || !dragDropSource.includes('nativeAutoScrollTopBoundary') || !dragDropSource.includes("document.querySelector('.topbar')") || !dragDropSource.includes('nativeScrollContainer()') || !dragDropSource.includes('applyScrollDelta') || !dragDropSource.includes('scheduleNativeAutoScroll()') || !dragDropSource.includes('ghost?.getBoundingClientRect') || !dragDropSource.includes('ghostRect?.bottom')) {
     throw new Error('Native pointer drag must auto-scroll the app scroll container near viewport edges on Android, with topbar-aware top and viewport-aware bottom ghost-position triggers');
   }
+  if (!dragDropSource.includes('pointerDrag && pointerDrag.pointerId !== event.pointerId') || !dragDropSource.includes("document.addEventListener('touchstart'") || !dragDropSource.includes('event.touches.length < 2') || !dragDropSource.includes('event.stopImmediatePropagation()')) {
+    throw new Error('Native pointer drag must block secondary touch/pointer input so multi-touch cannot replace or strand the active drag state');
+  }
   if (!dragDropSource.includes('scheduleStandardDragAutoScroll(e)') || !dragDropSource.includes('scrollContainerFromElement(event.target)')) {
     throw new Error('Standard HTML5 dragover must share topbar-aware auto-scroll for desktop/iPad browsers');
   }
