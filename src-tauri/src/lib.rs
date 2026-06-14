@@ -4,7 +4,7 @@ use std::{
   path::PathBuf,
   sync::{
     atomic::{AtomicU64, Ordering},
-    Arc,
+    Arc, Mutex,
   },
   thread,
   time::{Duration, SystemTime, UNIX_EPOCH},
@@ -63,6 +63,9 @@ struct DesktopReminderSchedule {
 struct DesktopReminderScheduler {
   generation: Arc<AtomicU64>,
 }
+
+#[derive(Default)]
+struct PendingNativeOidcCallback(Mutex<Option<String>>);
 
 impl Default for DesktopSettings {
   fn default() -> Self {
@@ -203,6 +206,22 @@ fn toggle_main_window(app: &AppHandle) {
   }
 }
 
+#[cfg(desktop)]
+fn native_oidc_callback_from_args(args: &[String]) -> Option<String> {
+  args.iter()
+    .find(|arg| arg.starts_with("nia-todo://oidc/callback?"))
+    .cloned()
+}
+
+#[cfg(desktop)]
+fn emit_native_oidc_callback(app: &AppHandle, url: String) {
+  if let Ok(mut pending) = app.state::<PendingNativeOidcCallback>().0.lock() {
+    *pending = Some(url.clone());
+  }
+  show_main_window(app);
+  let _ = app.emit("native-oidc-callback", serde_json::json!({ "url": url }));
+}
+
 fn clean_hotkey(value: String) -> Option<String> {
   let trimmed = value.trim();
   if trimmed.is_empty() {
@@ -306,6 +325,11 @@ fn desktop_open_url(url: String) -> Result<(), String> {
 #[tauri::command]
 fn desktop_get_app_version() -> String {
   env!("CARGO_PKG_VERSION").to_string()
+}
+
+#[tauri::command]
+fn desktop_consume_pending_oidc_callback(state: State<PendingNativeOidcCallback>) -> Option<String> {
+  state.0.lock().ok().and_then(|mut pending| pending.take())
 }
 
 #[tauri::command]
@@ -935,13 +959,20 @@ pub fn run() {
         )
         .build(),
     )
-    .plugin(tauri_plugin_global_shortcut::Builder::new().build());
+    .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+    .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+      if let Some(url) = native_oidc_callback_from_args(&argv) {
+        emit_native_oidc_callback(app, url);
+      }
+    }));
 
   builder
     .manage(DesktopReminderScheduler::default())
+    .manage(PendingNativeOidcCallback::default())
     .invoke_handler(tauri::generate_handler![
       desktop_get_app_version,
       desktop_get_settings,
+      desktop_consume_pending_oidc_callback,
       desktop_set_setting,
       desktop_set_server_url,
       desktop_clear_server_url,
@@ -966,6 +997,12 @@ pub fn run() {
           if !started_minimized {
             let _ = window.show();
             let _ = window.set_focus();
+          }
+          if let Some(url) = native_oidc_callback_from_args(&std::env::args().collect::<Vec<_>>()) {
+            let app_handle_for_oidc = app_handle.clone();
+            tauri::async_runtime::spawn(async move {
+              emit_native_oidc_callback(&app_handle_for_oidc, url);
+            });
           }
           let window_for_close = window.clone();
           window.on_window_event(move |event| {

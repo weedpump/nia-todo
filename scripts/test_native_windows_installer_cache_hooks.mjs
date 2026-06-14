@@ -23,4 +23,9 @@ assert.ok(!/desktop-settings\.json/i.test(hookSource), 'installer hook must not 
 assert.ok(!/RmDir\s+\/r\s+"\$LOCALAPPDATA\\\$\{BUNDLEID\}"/i.test(hookSource), 'installer hook must not delete the full local app data directory');
 assert.ok(!/RmDir\s+\/r\s+"\$LOCALAPPDATA\\\$\{BUNDLEID\}\\EBWebView"\s*$/im.test(hookSource), 'installer hook must not delete the full EBWebView profile');
 
+assert.match(hookSource, /Software\\Classes\\nia-todo/, 'installer hook must register nia-todo custom URL protocol');
+assert.match(hookSource, /URL Protocol/, 'custom URL protocol must be marked as a URL protocol');
+assert.match(hookSource, /%1/, 'custom URL protocol must pass the callback URL to the app executable');
+assert.match(hookSource, /NSIS_HOOK_POSTUNINSTALL/, 'uninstaller hook must clean up custom URL protocol registration');
+
 console.log('✅ Native Windows installer cache hook regression passed');
