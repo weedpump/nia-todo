@@ -112,23 +112,33 @@ def _native_redirect_html(code: str, kind: str, redirect_after: str = "/") -> HT
       }}
     }}
     * {{ box-sizing: border-box; margin: 0; padding: 0; }}
-    html, body {{ min-height: 100%; }}
+    html, body {{
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }}
     body {{
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
+      min-height: 100dvh;
+      display: grid;
+      place-items: center;
+      padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
       background: var(--bg-primary);
       color: var(--text-primary);
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       line-height: 1.5;
     }}
+    .return-page {{
+      width: min(100%, 380px);
+      max-height: calc(100dvh - 32px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }}
     .login-box {{
       position: relative;
       width: 100%;
       max-width: 380px;
-      padding: 40px 32px;
+      padding: 32px 28px;
       background: var(--bg-secondary);
       border: 1px solid var(--border);
       border-radius: 16px;
@@ -208,10 +218,19 @@ def _native_redirect_html(code: str, kind: str, redirect_after: str = "/") -> HT
       font-size: 13px;
       text-align: center;
     }}
+    @media (max-height: 520px), (max-width: 360px) {{
+      .login-box {{ padding: 24px 20px; }}
+      .login-brand {{ margin-bottom: 20px; }}
+      .login-logo {{ width: 56px; height: 56px; }}
+      .login-title {{ font-size: 21px; }}
+      .return-status {{ padding: 12px; margin-bottom: 12px; }}
+      .hint {{ margin-top: 10px; }}
+    }}
     @keyframes boot-spin {{ to {{ transform: rotate(360deg); }} }}
   </style>
 </head>
 <body>
+  <div class="return-page">
   <main class="login-box" aria-labelledby="return-title">
     <div class="login-brand">
       <img src="/static/icons/icon-192.png" class="login-logo" alt="nia-todo">
@@ -225,6 +244,7 @@ def _native_redirect_html(code: str, kind: str, redirect_after: str = "/") -> HT
     <a class="btn btn-primary" href="{safe_callback_href}" data-i18n="open">Open nia-todo</a>
     <p class="hint" data-i18n="hint">After nia-todo opens, you can close this browser tab.</p>
   </main>
+  </div>
   <script>
     (function() {{
       const callbackUrl = {safe_callback};
