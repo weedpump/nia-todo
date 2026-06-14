@@ -72,105 +72,157 @@ def _native_redirect_html(code: str, kind: str, redirect_after: str = "/") -> HT
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="color-scheme" content="light dark">
+  <meta name="color-scheme" content="dark light">
   <title>Returning to nia-todo…</title>
   <style>
     :root {{
-      --bg: #f6f7fb;
-      --card: rgba(255, 255, 255, 0.92);
-      --text: #141824;
-      --muted: #647084;
-      --primary: #4f46e5;
-      --primary-strong: #4338ca;
-      --ring: rgba(79, 70, 229, 0.22);
-      --border: rgba(100, 116, 139, 0.18);
+      color-scheme: dark;
+      --bg-primary: #0f0f23;
+      --bg-secondary: #1a1a2e;
+      --bg-tertiary: #242442;
+      --bg-hover: #2d2d52;
+      --text-primary: #e2e8f0;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --accent: #6366f1;
+      --accent-hover: #818cf8;
+      --accent-rgb: 99, 102, 241;
+      --accent-hover-rgb: 129, 140, 248;
+      --accent-intensity: 1;
+      --border: #334155;
+      --radius: 8px;
+      --shadow: 0 4px 12px rgba(0,0,0,0.3);
     }}
-    @media (prefers-color-scheme: dark) {{
+    @media (prefers-color-scheme: light) {{
       :root {{
-        --bg: #0f1220;
-        --card: rgba(24, 28, 44, 0.92);
-        --text: #f4f7fb;
-        --muted: #a8b2c3;
-        --primary: #8b5cf6;
-        --primary-strong: #a78bfa;
-        --ring: rgba(139, 92, 246, 0.24);
-        --border: rgba(148, 163, 184, 0.18);
+        color-scheme: light;
+        --bg-primary: #f8fafc;
+        --bg-secondary: #f1f5f9;
+        --bg-tertiary: #e2e8f0;
+        --bg-hover: #cbd5e1;
+        --text-primary: #1e293b;
+        --text-secondary: #475569;
+        --text-muted: #94a3b8;
+        --accent: #4f46e5;
+        --accent-hover: #4338ca;
+        --accent-rgb: 79, 70, 229;
+        --accent-hover-rgb: 67, 56, 202;
+        --border: #cbd5e1;
+        --shadow: 0 4px 12px rgba(0,0,0,0.08);
       }}
     }}
-    * {{ box-sizing: border-box; }}
+    * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+    html, body {{ min-height: 100%; }}
     body {{
       min-height: 100vh;
-      margin: 0;
-      display: grid;
-      place-items: center;
-      padding: 24px;
-      color: var(--text);
-      font: 16px/1.5 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background:
-        radial-gradient(circle at top left, var(--ring), transparent 34rem),
-        radial-gradient(circle at bottom right, rgba(34, 197, 94, 0.12), transparent 28rem),
-        var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      line-height: 1.5;
     }}
-    main {{
-      width: min(100%, 440px);
-      padding: 28px;
+    .login-box {{
+      position: relative;
+      width: 100%;
+      max-width: 380px;
+      padding: 40px 32px;
+      background: var(--bg-secondary);
       border: 1px solid var(--border);
-      border-radius: 28px;
-      background: var(--card);
-      box-shadow: 0 24px 70px rgba(15, 23, 42, 0.18);
-      text-align: center;
-      backdrop-filter: blur(18px);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
     }}
-    .logo {{
+    .login-brand {{
+      text-align: center;
+      margin-bottom: 28px;
+    }}
+    .login-logo {{
+      display: block;
       width: 64px;
       height: 64px;
-      margin: 0 auto 18px;
-      display: grid;
-      place-items: center;
-      border-radius: 20px;
-      color: white;
-      font-size: 30px;
-      font-weight: 800;
-      background: linear-gradient(135deg, var(--primary), #06b6d4);
-      box-shadow: 0 16px 34px var(--ring);
-    }}
-    h1 {{ margin: 0 0 10px; font-size: 1.45rem; line-height: 1.2; }}
-    p {{ margin: 0; color: var(--muted); }}
-    .spinner {{
-      width: 34px;
-      height: 34px;
-      margin: 22px auto;
+      margin: 0 auto 12px auto;
       border-radius: 50%;
-      border: 3px solid var(--border);
-      border-top-color: var(--primary);
-      animation: spin 0.8s linear infinite;
     }}
-    a.button {{
+    .login-title {{
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }}
+    .login-subtitle {{
+      font-size: 14px;
+      color: var(--text-muted);
+    }}
+    .return-status {{
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px;
+      margin-bottom: 16px;
+      border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
+      border-radius: var(--radius);
+      background: color-mix(in srgb, var(--accent) 10%, var(--bg-primary));
+      color: var(--text-secondary);
+      font-size: 14px;
+    }}
+    .return-spinner {{
+      width: 18px;
+      height: 18px;
+      flex: 0 0 18px;
+      border: 2px solid color-mix(in srgb, var(--accent) 22%, var(--border));
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: boot-spin .8s linear infinite;
+    }}
+    .btn {{
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      min-height: 44px;
-      margin-top: 22px;
-      padding: 0 18px;
-      border-radius: 999px;
-      color: white;
-      background: var(--primary);
+      gap: 6px;
+      width: 100%;
+      padding: 12px 16px;
+      border: none;
+      border-radius: var(--radius);
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
       text-decoration: none;
-      font-weight: 700;
-      box-shadow: 0 12px 26px var(--ring);
     }}
-    a.button:hover {{ background: var(--primary-strong); }}
-    .hint {{ margin-top: 16px; font-size: 0.92rem; }}
-    @keyframes spin {{ to {{ transform: rotate(360deg); }} }}
+    .btn-primary {{
+      background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent-hover) 78%, var(--accent)));
+      color: #fff;
+      border: 1px solid color-mix(in srgb, var(--accent-hover) 62%, var(--accent));
+      box-shadow: 0 8px 18px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.18));
+    }}
+    .btn-primary:hover {{
+      background: linear-gradient(135deg, var(--accent-hover), var(--accent));
+      color: #fff;
+      transform: translateY(-1px);
+    }}
+    .hint {{
+      margin-top: 12px;
+      color: var(--text-muted);
+      font-size: 13px;
+      text-align: center;
+    }}
+    @keyframes boot-spin {{ to {{ transform: rotate(360deg); }} }}
   </style>
 </head>
 <body>
-  <main>
-    <div class="logo" aria-hidden="true">✓</div>
-    <h1 data-i18n="title">Returning to nia-todo…</h1>
-    <p data-i18n="body">Your sign-in was successful. We are opening the app now.</p>
-    <div class="spinner" aria-hidden="true"></div>
-    <a class="button" href="{safe_callback_href}" data-i18n="open">Open nia-todo</a>
+  <main class="login-box" aria-labelledby="return-title">
+    <div class="login-brand">
+      <img src="/static/icons/icon-192.png" class="login-logo" alt="nia-todo">
+      <h1 id="return-title" class="login-title" data-i18n="title">Returning to nia-todo…</h1>
+      <p class="login-subtitle" data-i18n="subtitle">Sign-in completed</p>
+    </div>
+    <div class="return-status" role="status" aria-live="polite">
+      <span class="return-spinner" aria-hidden="true"></span>
+      <span data-i18n="body">We are opening the app now.</span>
+    </div>
+    <a class="btn btn-primary" href="{safe_callback_href}" data-i18n="open">Open nia-todo</a>
     <p class="hint" data-i18n="hint">After nia-todo opens, you can close this browser tab.</p>
   </main>
   <script>
@@ -179,13 +231,15 @@ def _native_redirect_html(code: str, kind: str, redirect_after: str = "/") -> HT
       const messages = {{
         de: {{
           title: 'Zurück zu nia-todo…',
-          body: 'Die Anmeldung war erfolgreich. Wir öffnen jetzt die App.',
+          subtitle: 'Anmeldung abgeschlossen',
+          body: 'Wir öffnen jetzt die App.',
           open: 'nia-todo öffnen',
           hint: 'Nachdem nia-todo geöffnet wurde, kannst du diesen Browser-Tab schließen.'
         }},
         en: {{
           title: 'Returning to nia-todo…',
-          body: 'Your sign-in was successful. We are opening the app now.',
+          subtitle: 'Sign-in completed',
+          body: 'We are opening the app now.',
           open: 'Open nia-todo',
           hint: 'After nia-todo opens, you can close this browser tab.'
         }}

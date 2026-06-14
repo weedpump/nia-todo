@@ -182,6 +182,8 @@ def main():
     assert_true("window.close()" not in native_redirect_html, "native OIDC return page must not rely on browser tab auto-close")
     assert_true("data-i18n" in native_redirect_html and "Zurück zu nia-todo" in native_redirect_html and "Returning to nia-todo" in native_redirect_html, "native OIDC return page should include German and English UI copy")
     assert_true("After nia-todo opens" in native_redirect_html and "nia-todo://oidc/callback" in native_redirect_html, "native OIDC return page should keep a manual open fallback")
+    assert_true("login-box" in native_redirect_html and "login-logo" in native_redirect_html and "/static/icons/icon-192.png" in native_redirect_html, "native OIDC return page should use nia-todo login branding and app icon")
+    assert_true("btn btn-primary" in native_redirect_html and "--bg-primary" in native_redirect_html and "--accent" in native_redirect_html, "native OIDC return page should use nia-todo button classes and design tokens")
     assert_true("window.addEventListener('load'" in native_redirect_html and "900" in native_redirect_html, "native OIDC return page should render before launching the app callback")
 
     calls = []
