@@ -23,7 +23,8 @@ export function createDragDropFeature({
   const TOUCH_SCROLL_CANCEL_PX = 10;
   const MOUSE_DRAG_THRESHOLD_PX = 8;
   const SUMMARY_TOGGLE_MOVE_THRESHOLD_PX = 8;
-  const NATIVE_AUTO_SCROLL_EDGE_PX = 72;
+  const NATIVE_AUTO_SCROLL_EDGE_PX = 48;
+  const NATIVE_AUTO_SCROLL_VIEWPORT_GAP_PX = 8;
   const NATIVE_AUTO_SCROLL_TOP_EDGE_PX = 48;
   const NATIVE_AUTO_SCROLL_TOPBAR_GAP_PX = 8;
   const NATIVE_AUTO_SCROLL_MAX_PX = 18;
@@ -334,7 +335,7 @@ export function createDragDropFeature({
     return Math.max(containerRect.top, topbarRect.bottom + NATIVE_AUTO_SCROLL_TOPBAR_GAP_PX);
   }
 
-  function autoScrollDelta(clientY, container, topTriggerY = clientY) {
+  function autoScrollDelta(clientY, container, topTriggerY = clientY, bottomTriggerY = clientY) {
     const isDocument = container === document.scrollingElement || container === document.documentElement;
     const rect = isDocument
       ? { top: 0, bottom: window.innerHeight || document.documentElement.clientHeight || 0 }
@@ -345,15 +346,16 @@ export function createDragDropFeature({
     if (topTriggerY < topEdgeBottom) {
       return -Math.ceil(((topEdgeBottom - topTriggerY) / NATIVE_AUTO_SCROLL_TOP_EDGE_PX) * NATIVE_AUTO_SCROLL_MAX_PX);
     }
-    if (clientY > rect.bottom - NATIVE_AUTO_SCROLL_EDGE_PX) {
-      return Math.ceil(((clientY - (rect.bottom - NATIVE_AUTO_SCROLL_EDGE_PX)) / NATIVE_AUTO_SCROLL_EDGE_PX) * NATIVE_AUTO_SCROLL_MAX_PX);
+    const bottomEdgeTop = rect.bottom - NATIVE_AUTO_SCROLL_VIEWPORT_GAP_PX - NATIVE_AUTO_SCROLL_EDGE_PX;
+    if (bottomTriggerY > bottomEdgeTop) {
+      return Math.ceil(((bottomTriggerY - bottomEdgeTop) / NATIVE_AUTO_SCROLL_EDGE_PX) * NATIVE_AUTO_SCROLL_MAX_PX);
     }
     return 0;
   }
 
   function nativeAutoScrollDelta(clientY, container = nativeScrollContainer()) {
     const ghostRect = pointerDrag?.ghost?.getBoundingClientRect?.() || null;
-    return autoScrollDelta(clientY, container, ghostRect?.top ?? clientY);
+    return autoScrollDelta(clientY, container, ghostRect?.top ?? clientY, ghostRect?.bottom ?? clientY);
   }
 
   function readScrollTop(container) {

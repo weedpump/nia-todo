@@ -38,8 +38,8 @@ async function run() {
     throw new Error('Android capability must allow desktop_set_setting for native notification toggles');
   }
   const dragDropSource = await readFile(new URL('../web/static/js/features/drag-drop.js', import.meta.url), 'utf8');
-  if (!dragDropSource.includes('NATIVE_AUTO_SCROLL_EDGE_PX') || !dragDropSource.includes('NATIVE_AUTO_SCROLL_TOP_EDGE_PX') || !dragDropSource.includes('NATIVE_AUTO_SCROLL_TOPBAR_GAP_PX') || !dragDropSource.includes('nativeAutoScrollTopBoundary') || !dragDropSource.includes("document.querySelector('.topbar')") || !dragDropSource.includes('nativeScrollContainer()') || !dragDropSource.includes('applyScrollDelta') || !dragDropSource.includes('scheduleNativeAutoScroll()') || !dragDropSource.includes('ghost?.getBoundingClientRect')) {
-    throw new Error('Native pointer drag must auto-scroll the app scroll container near viewport edges on Android, with an earlier topbar-aware ghost-position-based top edge trigger');
+  if (!dragDropSource.includes('NATIVE_AUTO_SCROLL_EDGE_PX') || !dragDropSource.includes('NATIVE_AUTO_SCROLL_VIEWPORT_GAP_PX') || !dragDropSource.includes('NATIVE_AUTO_SCROLL_TOP_EDGE_PX') || !dragDropSource.includes('NATIVE_AUTO_SCROLL_TOPBAR_GAP_PX') || !dragDropSource.includes('nativeAutoScrollTopBoundary') || !dragDropSource.includes("document.querySelector('.topbar')") || !dragDropSource.includes('nativeScrollContainer()') || !dragDropSource.includes('applyScrollDelta') || !dragDropSource.includes('scheduleNativeAutoScroll()') || !dragDropSource.includes('ghost?.getBoundingClientRect') || !dragDropSource.includes('ghostRect?.bottom')) {
+    throw new Error('Native pointer drag must auto-scroll the app scroll container near viewport edges on Android, with topbar-aware top and viewport-aware bottom ghost-position triggers');
   }
   if (!dragDropSource.includes('scheduleStandardDragAutoScroll(e)') || !dragDropSource.includes('scrollContainerFromElement(event.target)')) {
     throw new Error('Standard HTML5 dragover must share topbar-aware auto-scroll for desktop/iPad browsers');
