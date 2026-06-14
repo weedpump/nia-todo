@@ -37,6 +37,29 @@ async function run() {
   if (!androidCapability.permissions.includes('allow-desktop-set-setting')) {
     throw new Error('Android capability must allow desktop_set_setting for native notification toggles');
   }
+  const dragDropSource = await readFile(new URL('../web/static/js/features/drag-drop.js', import.meta.url), 'utf8');
+  if (!dragDropSource.includes('NATIVE_AUTO_SCROLL_EDGE_PX') || !dragDropSource.includes('NATIVE_AUTO_SCROLL_VIEWPORT_GAP_PX') || !dragDropSource.includes('NATIVE_AUTO_SCROLL_TOP_EDGE_PX') || !dragDropSource.includes('NATIVE_AUTO_SCROLL_TOPBAR_GAP_PX') || !dragDropSource.includes('nativeAutoScrollTopBoundary') || !dragDropSource.includes("document.querySelector('.topbar')") || !dragDropSource.includes('nativeScrollContainer()') || !dragDropSource.includes('applyScrollDelta') || !dragDropSource.includes('scheduleNativeAutoScroll()') || !dragDropSource.includes('ghost?.getBoundingClientRect') || !dragDropSource.includes('ghostRect?.bottom')) {
+    throw new Error('Native pointer drag must auto-scroll the app scroll container near viewport edges on Android, with topbar-aware top and viewport-aware bottom ghost-position triggers');
+  }
+  if (!dragDropSource.includes('pointerDrag && pointerDrag.pointerId !== event.pointerId') || !dragDropSource.includes("document.addEventListener('touchstart'") || !dragDropSource.includes('event.touches.length < 2') || !dragDropSource.includes('event.stopImmediatePropagation()')) {
+    throw new Error('Native pointer drag must block secondary touch/pointer input so multi-touch cannot replace or strand the active drag state');
+  }
+  if (!dragDropSource.includes('scheduleStandardDragAutoScroll(e)') || !dragDropSource.includes('scrollContainerFromElement(event.target)')) {
+    throw new Error('Standard HTML5 dragover must share topbar-aware auto-scroll for desktop/iPad browsers');
+  }
+  if (dragDropSource.includes('if (pointerDrag.active && pointerDrag.isTouch) return;')) {
+    throw new Error('Native pointer drag must not ignore active Android pointercancel events and leave ghost UI stuck');
+  }
+  if (!dragDropSource.includes('touchIdentifier') || !dragDropSource.includes('changedTouchForDrag(event)') || !dragDropSource.includes('activeTouchForDrag(event)') || !dragDropSource.includes('nativeDragEventFromLastPosition()')) {
+    throw new Error('Native touch drag cleanup must track the drag touch explicitly and fall back to last coordinates for multi-touch cleanup');
+  }
+  const handleTodoDragOverSource = dragDropSource.slice(dragDropSource.indexOf('function handleTodoDragOver'), dragDropSource.indexOf('async function moveTodoToSection'));
+  if (!handleTodoDragOverSource.includes('clearTodoDropIndicators()') || handleTodoDragOverSource.indexOf('clearTodoDropIndicators()') > handleTodoDragOverSource.indexOf("classList.add('drag-over')")) {
+    throw new Error('Todo dragover must clear stale section drop indicators before highlighting the current target');
+  }
+  if (dragDropSource.includes('touch.identifier === pointerDrag.pointerId')) {
+    throw new Error('Native touch drag must not assume PointerEvent.pointerId equals Touch.identifier');
+  }
   const { browser, page, openTodoModal, assertNoFrontendErrors } = await launchPage();
   const title = 'Android Gesture Todo';
   const quickActionTitle = 'Android Quick Action Pin Todo';
@@ -147,6 +170,77 @@ async function run() {
     }, title);
     if (!swipingBeatsHover.includes('240')) throw new Error(`Swipe transform was overridden by hover/focus styling: ${swipingBeatsHover}`);
     await page.setViewportSize({ width: 390, height: 844 });
+
+    const autoScrollResult = await page.evaluate(async (value) => {
+      const titleEl = Array.from(document.querySelectorAll('.todo-title')).find(el => (el.textContent || '').includes(value));
+      const item = titleEl?.closest('.todo-item');
+      const main = document.querySelector('.main');
+      if (!item || !main) throw new Error('Todo item or main scroll container missing for native auto-scroll test');
+      const spacer = document.createElement('div');
+      spacer.style.height = '1800px';
+      spacer.dataset.testNativeDragSpacer = 'true';
+      main.appendChild(spacer);
+      main.scrollTop = 0;
+      item.scrollIntoView({ block: 'center' });
+      await new Promise(resolve => requestAnimationFrame(resolve));
+      const rect = item.getBoundingClientRect();
+      const startX = rect.left + rect.width * 0.5;
+      const startY = rect.top + rect.height / 2;
+      const pointer = { pointerId: 177, pointerType: 'mouse', isPrimary: true, bubbles: true, cancelable: true };
+      item.dispatchEvent(new PointerEvent('pointerdown', { ...pointer, clientX: startX, clientY: startY }));
+      document.dispatchEvent(new PointerEvent('pointermove', { ...pointer, clientX: startX, clientY: startY + 40 }));
+      document.dispatchEvent(new PointerEvent('pointermove', { ...pointer, clientX: startX, clientY: window.innerHeight - 3 }));
+      await new Promise(resolve => setTimeout(resolve, 180));
+      const scrollDownTop = main.scrollTop;
+      document.dispatchEvent(new PointerEvent('pointermove', { ...pointer, clientX: startX, clientY: main.getBoundingClientRect().top + 3 }));
+      await new Promise(resolve => setTimeout(resolve, 180));
+      const scrollUpTop = main.scrollTop;
+      const ghostVisible = Boolean(document.querySelector('.native-drag-ghost'));
+      document.dispatchEvent(new PointerEvent('pointercancel', { ...pointer, clientX: startX, clientY: main.getBoundingClientRect().top + 3 }));
+      await new Promise(resolve => requestAnimationFrame(resolve));
+      const cleaned = !document.querySelector('.native-drag-ghost') && !document.body.classList.contains('native-pointer-dragging');
+      spacer.remove();
+      return { scrollDownTop, scrollUpTop, ghostVisible, cleaned };
+    }, title);
+    if (autoScrollResult.scrollDownTop <= 0 || autoScrollResult.scrollUpTop >= autoScrollResult.scrollDownTop || !autoScrollResult.ghostVisible || !autoScrollResult.cleaned) {
+      throw new Error(`Native drag auto-scroll/cleanup failed: ${JSON.stringify(autoScrollResult)}`);
+    }
+
+    const standardAutoScrollResult = await page.evaluate(async (value) => {
+      const titleEl = Array.from(document.querySelectorAll('.todo-title')).find(el => (el.textContent || '').includes(value));
+      const item = titleEl?.closest('.todo-item');
+      const main = document.querySelector('.main');
+      const topbar = document.querySelector('.topbar');
+      if (!item || !main || !topbar || !window.handleTodoDragStart || !window.handleTodoDragOver || !window.handleTodoDragEnd) {
+        throw new Error('Standard drag auto-scroll prerequisites missing');
+      }
+      const spacer = document.createElement('div');
+      spacer.style.height = '1800px';
+      spacer.dataset.testStandardDragSpacer = 'true';
+      main.appendChild(spacer);
+      item.scrollIntoView({ block: 'center' });
+      await new Promise(resolve => requestAnimationFrame(resolve));
+      main.scrollTop += 360;
+      await new Promise(resolve => requestAnimationFrame(resolve));
+      const before = main.scrollTop;
+      const topbarBottom = topbar.getBoundingClientRect().bottom;
+      const targetY = topbarBottom + 48;
+      window.handleTodoDragStart({ target: item, dataTransfer: { effectAllowed: '', setData() {}, dropEffect: '' } });
+      window.handleTodoDragOver({
+        preventDefault() {},
+        target: item,
+        clientY: targetY,
+        dataTransfer: { dropEffect: '' },
+      });
+      await new Promise(resolve => setTimeout(resolve, 180));
+      const after = main.scrollTop;
+      window.handleTodoDragEnd({ target: item });
+      spacer.remove();
+      return { before, after, targetY, topbarBottom };
+    }, title);
+    if (standardAutoScrollResult.before <= 0 || standardAutoScrollResult.after >= standardAutoScrollResult.before) {
+      throw new Error(`Standard drag topbar-aware auto-scroll up failed: ${JSON.stringify(standardAutoScrollResult)}`);
+    }
 
     const driftResult = await page.evaluate((value) => {
       const titleEl = Array.from(document.querySelectorAll('.todo-title')).find(el => (el.textContent || '').includes(value));

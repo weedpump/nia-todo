@@ -40,6 +40,7 @@
   // The retry action must work even when the app bundle or service worker code is
   // stale/broken, so it lives inline and refreshes browser-managed app caches.
   window.__niaAppModuleStarted = false;
+  window.__niaMainModuleLoaded = false;
   window.niaHardReloadApp = async function() {
     var retry = document.getElementById('boot-retry');
     var subtitle = document.getElementById('boot-subtitle');
@@ -191,6 +192,10 @@
       var subtitle = document.getElementById('boot-subtitle');
       var spinner = document.getElementById('boot-spinner');
       var retry = document.getElementById('boot-retry');
+      if (window.__niaMainModuleLoaded) {
+        if (subtitle) subtitle.textContent = 'App wird vorbereitet…';
+        return;
+      }
       if (subtitle) subtitle.textContent = 'App files are missing. Please reload online.';
       if (spinner) spinner.style.display = 'none';
       if (retry) retry.style.display = '';

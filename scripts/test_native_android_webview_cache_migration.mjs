@@ -36,6 +36,8 @@ assert.match(source, /handleOidcIntent\(intent\)/, 'Android activity must still 
 assert.match(source, /override fun onNewIntent/, 'Android activity must still tolerate warm OIDC callback intents');
 assert.match(source, /storeOidcCallbackForWebLayer\(uri\.toString\(\)\)/, 'Android activity must store native OIDC callbacks for web-layer consumption');
 assert.match(source, /consumePendingOidcCallback\(\)/, 'Android bridge must expose explicit pending OIDC callback consumption');
+assert.match(source, /configuredPasskeyOrigin = canonical/, 'Android passkey bridge must rebind when the configured server URL changes without requiring an app restart');
+assert.doesNotMatch(source, /if \(configuredPasskeyOrigin == null\) configuredPasskeyOrigin = canonical/, 'Android passkey bridge must not permanently pin the first configured server URL for the process');
 assert.match(source, /pendingOidcCallbackUrl = url/, 'Android must keep OIDC callbacks pending when WebView/JS is not ready');
 assert.match(source, /pendingOidcCallbackKey/, 'Android bridge must read persisted trampoline OIDC callbacks');
 assert.doesNotMatch(source, /evaluateJavascript[\s\S]{0,240}__niaNativeOidcCallback/, 'Android must not push OIDC callbacks via evaluateJavascript during deep-link startup');
