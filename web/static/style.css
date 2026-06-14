@@ -3089,13 +3089,20 @@ input[type="color"]::-moz-color-swatch {
 }
 
 .login-auth-alternatives .login-passkey-btn {
-  flex: 1 1 132px;
-  min-width: 0;
+  display: inline-flex;
+  flex: 1 1 148px;
+  min-width: min(100%, 148px);
   width: auto;
   margin-top: 0;
   padding: 9px 10px;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
   font-size: 12px;
+  line-height: 1.15;
+  text-align: center;
   white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .login-auth-divider {
@@ -3900,8 +3907,17 @@ input[type="color"]::-moz-color-swatch {
 .app-download-launcher .ui-icon {
   width: 15px;
   height: 15px;
+  flex: 0 0 auto;
   color: currentColor;
   opacity: 0.86;
+}
+
+.app-download-launcher span:not(.ui-icon) {
+  min-width: 0;
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .app-download-launcher:hover .ui-icon {
@@ -3912,8 +3928,10 @@ input[type="color"]::-moz-color-swatch {
 .login-box > .login-download-launcher {
   display: flex;
   width: 100%;
-  margin-left: 0;
-  margin-right: 0;
+  max-width: 380px;
+  margin-left: auto;
+  margin-right: auto;
+  text-align: center;
 }
 
 .changelog-link:hover,
