@@ -23,6 +23,7 @@ export function createDragDropFeature({
   const MOUSE_DRAG_THRESHOLD_PX = 8;
   const SUMMARY_TOGGLE_MOVE_THRESHOLD_PX = 8;
   const NATIVE_AUTO_SCROLL_EDGE_PX = 72;
+  const NATIVE_AUTO_SCROLL_TOP_EDGE_PX = 128;
   const NATIVE_AUTO_SCROLL_MAX_PX = 18;
 
   function eventDataTransfer(e) {
@@ -321,8 +322,8 @@ export function createDragDropFeature({
       ? { top: 0, bottom: window.innerHeight || document.documentElement.clientHeight || 0 }
       : container.getBoundingClientRect();
     if (!rect.bottom) return 0;
-    if (clientY < rect.top + NATIVE_AUTO_SCROLL_EDGE_PX) {
-      return -Math.ceil(((rect.top + NATIVE_AUTO_SCROLL_EDGE_PX - clientY) / NATIVE_AUTO_SCROLL_EDGE_PX) * NATIVE_AUTO_SCROLL_MAX_PX);
+    if (clientY < rect.top + NATIVE_AUTO_SCROLL_TOP_EDGE_PX) {
+      return -Math.ceil(((rect.top + NATIVE_AUTO_SCROLL_TOP_EDGE_PX - clientY) / NATIVE_AUTO_SCROLL_TOP_EDGE_PX) * NATIVE_AUTO_SCROLL_MAX_PX);
     }
     if (clientY > rect.bottom - NATIVE_AUTO_SCROLL_EDGE_PX) {
       return Math.ceil(((clientY - (rect.bottom - NATIVE_AUTO_SCROLL_EDGE_PX)) / NATIVE_AUTO_SCROLL_EDGE_PX) * NATIVE_AUTO_SCROLL_MAX_PX);
