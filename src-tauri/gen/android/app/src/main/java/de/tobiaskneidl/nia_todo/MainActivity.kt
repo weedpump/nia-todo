@@ -588,8 +588,12 @@ class MainActivity : TauriActivity() {
     fun setConfiguredServerUrl(serverUrl: String): Boolean {
       return try {
         val canonical = canonicalOrigin(serverUrl)
-        if (configuredPasskeyOrigin == null) configuredPasskeyOrigin = canonical
-        configuredPasskeyOrigin == canonical
+        // The configured server may change while the WebView is still running.
+        // Keep the passkey origin in sync with the persisted native setting so
+        // the web layer can reload into the new server without requiring a full
+        // Android process restart.
+        configuredPasskeyOrigin = canonical
+        true
       } catch (_: Exception) {
         false
       }
