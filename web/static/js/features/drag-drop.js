@@ -322,8 +322,10 @@ export function createDragDropFeature({
       ? { top: 0, bottom: window.innerHeight || document.documentElement.clientHeight || 0 }
       : container.getBoundingClientRect();
     if (!rect.bottom) return 0;
-    if (clientY < rect.top + NATIVE_AUTO_SCROLL_TOP_EDGE_PX) {
-      return -Math.ceil(((rect.top + NATIVE_AUTO_SCROLL_TOP_EDGE_PX - clientY) / NATIVE_AUTO_SCROLL_TOP_EDGE_PX) * NATIVE_AUTO_SCROLL_MAX_PX);
+    const ghostRect = pointerDrag?.ghost?.getBoundingClientRect?.() || null;
+    const topTriggerY = ghostRect?.top ?? clientY;
+    if (topTriggerY < rect.top + NATIVE_AUTO_SCROLL_TOP_EDGE_PX) {
+      return -Math.ceil(((rect.top + NATIVE_AUTO_SCROLL_TOP_EDGE_PX - topTriggerY) / NATIVE_AUTO_SCROLL_TOP_EDGE_PX) * NATIVE_AUTO_SCROLL_MAX_PX);
     }
     if (clientY > rect.bottom - NATIVE_AUTO_SCROLL_EDGE_PX) {
       return Math.ceil(((clientY - (rect.bottom - NATIVE_AUTO_SCROLL_EDGE_PX)) / NATIVE_AUTO_SCROLL_EDGE_PX) * NATIVE_AUTO_SCROLL_MAX_PX);
