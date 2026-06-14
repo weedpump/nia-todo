@@ -579,6 +579,11 @@ export function createDragDropFeature({
 
     document.addEventListener('pointerdown', (event) => {
       if (event.button !== undefined && event.button !== 0) return;
+      if (pointerDrag && pointerDrag.pointerId !== event.pointerId) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        return;
+      }
       const summary = nativeTodoDetailsSummaryFromTarget(event.target);
       if (summary) {
         nativeSummaryPointer = {
@@ -657,8 +662,18 @@ export function createDragDropFeature({
       else cancelNativePointerDrag();
     }, true);
 
+    document.addEventListener('touchstart', (event) => {
+      if (!pointerDrag?.active || !pointerDrag.isTouch || event.touches.length < 2) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }, { capture: true, passive: false });
+
     document.addEventListener('touchmove', (event) => {
       if (!pointerDrag?.active || !pointerDrag.isTouch) return;
+      if (event.touches.length > 1) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      }
       const touch = activeTouchForDrag(event);
       if (!touch) return;
       event.preventDefault();
@@ -675,6 +690,11 @@ export function createDragDropFeature({
       const changedTouch = changedTouchForDrag(event);
       const activeTouch = activeTouchForDrag(event);
       if (!changedTouch && activeTouch) return;
+      if (event.touches.length > 0 && activeTouch) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        return;
+      }
       event.preventDefault();
       finishNativePointerDrag(changedTouch ? dragEventFromTouch(changedTouch) : nativeDragEventFromLastPosition());
     }, { capture: true, passive: false });
