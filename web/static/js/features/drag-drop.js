@@ -17,6 +17,7 @@ export function createDragDropFeature({
   let currentSectionDropIndex = null;
   let pointerDrag = null;
   let nativeSummaryPointer = null;
+  let standardDragAutoScroll = null;
   let suppressNextNativeClick = false;
   const TOUCH_LONG_PRESS_MS = 320;
   const TOUCH_SCROLL_CANCEL_PX = 10;
@@ -41,6 +42,7 @@ export function createDragDropFeature({
   }
 
   function handleTodoDragEnd(e) {
+    stopStandardDragAutoScroll();
     e.target.classList.remove('dragging');
     document.querySelectorAll('.section-todos.drag-over, .section-header.drag-over').forEach(el => {
       el.classList.remove('drag-over');
@@ -56,6 +58,7 @@ export function createDragDropFeature({
     if (!dragSrcTodoId) return;
     e.preventDefault();
     eventDataTransfer(e).dropEffect = 'move';
+    scheduleStandardDragAutoScroll(e);
     clearTodoDropIndicators();
     const container = e.target.closest('.section-todos');
     const header = e.target.closest('.section-header');
@@ -96,6 +99,7 @@ export function createDragDropFeature({
 
   async function handleTodoDrop(e) {
     e.preventDefault();
+    stopStandardDragAutoScroll();
     const container = e.target.closest('.section-todos');
     if (!container) return;
     container.classList.remove('drag-over');
@@ -120,6 +124,7 @@ export function createDragDropFeature({
   }
 
   function handleSectionDragEnd(e) {
+    stopStandardDragAutoScroll();
     e.target.classList.remove('dragging');
     clearSectionDropIndicators();
     dragSrcSectionId = null;
@@ -130,6 +135,7 @@ export function createDragDropFeature({
     if (!dragSrcSectionId) return;
     e.preventDefault();
     eventDataTransfer(e).dropEffect = 'move';
+    scheduleStandardDragAutoScroll(e);
     clearSectionDropIndicators();
     const dropzone = e.target.closest('.section-dropzone');
     if (dropzone) {
@@ -187,6 +193,7 @@ export function createDragDropFeature({
 
   async function handleSectionDrop(e) {
     e.preventDefault();
+    stopStandardDragAutoScroll();
 
     const header = e.target.closest('.section-header');
     const dropzone = e.target.closest('.section-dropzone');
@@ -304,8 +311,7 @@ export function createDragDropFeature({
     return { clientX: touch.clientX, clientY: touch.clientY };
   }
 
-  function nativeScrollContainer() {
-    const source = pointerDrag?.source;
+  function scrollContainerFromElement(source) {
     let element = source?.closest?.('.main, .modal-body, .todo-list, [data-scroll-container]') || source?.parentElement || null;
     while (element && element !== document.body && element !== document.documentElement) {
       const style = getComputedStyle(element);
@@ -317,6 +323,10 @@ export function createDragDropFeature({
     return document.scrollingElement || document.documentElement;
   }
 
+  function nativeScrollContainer() {
+    return scrollContainerFromElement(pointerDrag?.source);
+  }
+
   function nativeAutoScrollTopBoundary(containerRect) {
     const topbar = document.querySelector('.topbar');
     const topbarRect = topbar?.getBoundingClientRect?.();
@@ -324,14 +334,12 @@ export function createDragDropFeature({
     return Math.max(containerRect.top, topbarRect.bottom + NATIVE_AUTO_SCROLL_TOPBAR_GAP_PX);
   }
 
-  function nativeAutoScrollDelta(clientY, container = nativeScrollContainer()) {
+  function autoScrollDelta(clientY, container, topTriggerY = clientY) {
     const isDocument = container === document.scrollingElement || container === document.documentElement;
     const rect = isDocument
       ? { top: 0, bottom: window.innerHeight || document.documentElement.clientHeight || 0 }
       : container.getBoundingClientRect();
     if (!rect.bottom) return 0;
-    const ghostRect = pointerDrag?.ghost?.getBoundingClientRect?.() || null;
-    const topTriggerY = ghostRect?.top ?? clientY;
     const topBoundary = nativeAutoScrollTopBoundary(rect);
     const topEdgeBottom = topBoundary + NATIVE_AUTO_SCROLL_TOP_EDGE_PX;
     if (topTriggerY < topEdgeBottom) {
@@ -341,6 +349,49 @@ export function createDragDropFeature({
       return Math.ceil(((clientY - (rect.bottom - NATIVE_AUTO_SCROLL_EDGE_PX)) / NATIVE_AUTO_SCROLL_EDGE_PX) * NATIVE_AUTO_SCROLL_MAX_PX);
     }
     return 0;
+  }
+
+  function nativeAutoScrollDelta(clientY, container = nativeScrollContainer()) {
+    const ghostRect = pointerDrag?.ghost?.getBoundingClientRect?.() || null;
+    return autoScrollDelta(clientY, container, ghostRect?.top ?? clientY);
+  }
+
+  function readScrollTop(container) {
+    return container === document.scrollingElement || container === document.documentElement
+      ? (window.scrollY || document.documentElement.scrollTop || 0)
+      : container.scrollTop;
+  }
+
+  function applyScrollDelta(container, deltaY) {
+    if (container === document.scrollingElement || container === document.documentElement) {
+      window.scrollBy({ top: deltaY, left: 0, behavior: 'auto' });
+    } else {
+      container.scrollTop += deltaY;
+    }
+  }
+
+  function stopStandardDragAutoScroll() {
+    if (standardDragAutoScroll?.raf) cancelAnimationFrame(standardDragAutoScroll.raf);
+    standardDragAutoScroll = null;
+  }
+
+  function runStandardDragAutoScroll() {
+    if (!standardDragAutoScroll) return;
+    const state = standardDragAutoScroll;
+    const deltaY = Math.min(0, autoScrollDelta(state.clientY, state.container, state.clientY));
+    if (deltaY) applyScrollDelta(state.container, deltaY);
+    state.raf = requestAnimationFrame(runStandardDragAutoScroll);
+  }
+
+  function scheduleStandardDragAutoScroll(event) {
+    if (!event || typeof event.clientY !== 'number') return;
+    const container = scrollContainerFromElement(event.target);
+    standardDragAutoScroll = {
+      container,
+      clientY: event.clientY,
+      raf: standardDragAutoScroll?.raf || null,
+    };
+    if (!standardDragAutoScroll.raf) standardDragAutoScroll.raf = requestAnimationFrame(runStandardDragAutoScroll);
   }
 
   function stopNativeAutoScroll() {
@@ -354,17 +405,9 @@ export function createDragDropFeature({
     const container = nativeScrollContainer();
     const deltaY = nativeAutoScrollDelta(pointerDrag.lastY, container);
     if (deltaY) {
-      const before = container === document.scrollingElement || container === document.documentElement
-        ? (window.scrollY || document.documentElement.scrollTop || 0)
-        : container.scrollTop;
-      if (container === document.scrollingElement || container === document.documentElement) {
-        window.scrollBy({ top: deltaY, left: 0, behavior: 'auto' });
-      } else {
-        container.scrollTop += deltaY;
-      }
-      const after = container === document.scrollingElement || container === document.documentElement
-        ? (window.scrollY || document.documentElement.scrollTop || 0)
-        : container.scrollTop;
+      const before = readScrollTop(container);
+      applyScrollDelta(container, deltaY);
+      const after = readScrollTop(container);
       if (after !== before) updateNativeDropTarget(pointerDrag.lastX, pointerDrag.lastY);
     }
     pointerDrag.autoScrollRaf = requestAnimationFrame(runNativeAutoScroll);

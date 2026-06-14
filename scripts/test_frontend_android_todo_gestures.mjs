@@ -38,8 +38,11 @@ async function run() {
     throw new Error('Android capability must allow desktop_set_setting for native notification toggles');
   }
   const dragDropSource = await readFile(new URL('../web/static/js/features/drag-drop.js', import.meta.url), 'utf8');
-  if (!dragDropSource.includes('NATIVE_AUTO_SCROLL_EDGE_PX') || !dragDropSource.includes('NATIVE_AUTO_SCROLL_TOP_EDGE_PX') || !dragDropSource.includes('NATIVE_AUTO_SCROLL_TOPBAR_GAP_PX') || !dragDropSource.includes('nativeAutoScrollTopBoundary') || !dragDropSource.includes("document.querySelector('.topbar')") || !dragDropSource.includes('nativeScrollContainer()') || !dragDropSource.includes('container.scrollTop += deltaY') || !dragDropSource.includes('scheduleNativeAutoScroll()') || !dragDropSource.includes('ghost?.getBoundingClientRect')) {
+  if (!dragDropSource.includes('NATIVE_AUTO_SCROLL_EDGE_PX') || !dragDropSource.includes('NATIVE_AUTO_SCROLL_TOP_EDGE_PX') || !dragDropSource.includes('NATIVE_AUTO_SCROLL_TOPBAR_GAP_PX') || !dragDropSource.includes('nativeAutoScrollTopBoundary') || !dragDropSource.includes("document.querySelector('.topbar')") || !dragDropSource.includes('nativeScrollContainer()') || !dragDropSource.includes('applyScrollDelta') || !dragDropSource.includes('scheduleNativeAutoScroll()') || !dragDropSource.includes('ghost?.getBoundingClientRect')) {
     throw new Error('Native pointer drag must auto-scroll the app scroll container near viewport edges on Android, with an earlier topbar-aware ghost-position-based top edge trigger');
+  }
+  if (!dragDropSource.includes('scheduleStandardDragAutoScroll(e)') || !dragDropSource.includes('scrollContainerFromElement(event.target)')) {
+    throw new Error('Standard HTML5 dragover must share topbar-aware auto-scroll for desktop/iPad browsers');
   }
   if (dragDropSource.includes('if (pointerDrag.active && pointerDrag.isTouch) return;')) {
     throw new Error('Native pointer drag must not ignore active Android pointercancel events and leave ghost UI stuck');
@@ -198,6 +201,42 @@ async function run() {
     }, title);
     if (autoScrollResult.scrollDownTop <= 0 || autoScrollResult.scrollUpTop >= autoScrollResult.scrollDownTop || !autoScrollResult.ghostVisible || !autoScrollResult.cleaned) {
       throw new Error(`Native drag auto-scroll/cleanup failed: ${JSON.stringify(autoScrollResult)}`);
+    }
+
+    const standardAutoScrollResult = await page.evaluate(async (value) => {
+      const titleEl = Array.from(document.querySelectorAll('.todo-title')).find(el => (el.textContent || '').includes(value));
+      const item = titleEl?.closest('.todo-item');
+      const main = document.querySelector('.main');
+      const topbar = document.querySelector('.topbar');
+      if (!item || !main || !topbar || !window.handleTodoDragStart || !window.handleTodoDragOver || !window.handleTodoDragEnd) {
+        throw new Error('Standard drag auto-scroll prerequisites missing');
+      }
+      const spacer = document.createElement('div');
+      spacer.style.height = '1800px';
+      spacer.dataset.testStandardDragSpacer = 'true';
+      main.appendChild(spacer);
+      item.scrollIntoView({ block: 'center' });
+      await new Promise(resolve => requestAnimationFrame(resolve));
+      main.scrollTop += 360;
+      await new Promise(resolve => requestAnimationFrame(resolve));
+      const before = main.scrollTop;
+      const topbarBottom = topbar.getBoundingClientRect().bottom;
+      const targetY = topbarBottom + 48;
+      window.handleTodoDragStart({ target: item, dataTransfer: { effectAllowed: '', setData() {}, dropEffect: '' } });
+      window.handleTodoDragOver({
+        preventDefault() {},
+        target: item,
+        clientY: targetY,
+        dataTransfer: { dropEffect: '' },
+      });
+      await new Promise(resolve => setTimeout(resolve, 180));
+      const after = main.scrollTop;
+      window.handleTodoDragEnd({ target: item });
+      spacer.remove();
+      return { before, after, targetY, topbarBottom };
+    }, title);
+    if (standardAutoScrollResult.before <= 0 || standardAutoScrollResult.after >= standardAutoScrollResult.before) {
+      throw new Error(`Standard drag topbar-aware auto-scroll up failed: ${JSON.stringify(standardAutoScrollResult)}`);
     }
 
     const driftResult = await page.evaluate((value) => {
