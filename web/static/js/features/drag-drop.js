@@ -24,8 +24,8 @@ export function createDragDropFeature({
   const MOUSE_DRAG_THRESHOLD_PX = 8;
   const SUMMARY_TOGGLE_MOVE_THRESHOLD_PX = 8;
   const NATIVE_AUTO_SCROLL_EDGE_PX = 72;
-  const NATIVE_AUTO_SCROLL_TOP_EDGE_PX = 96;
-  const NATIVE_AUTO_SCROLL_TOPBAR_GAP_PX = 24;
+  const NATIVE_AUTO_SCROLL_TOP_EDGE_PX = 48;
+  const NATIVE_AUTO_SCROLL_TOPBAR_GAP_PX = 8;
   const NATIVE_AUTO_SCROLL_MAX_PX = 18;
 
   function eventDataTransfer(e) {
