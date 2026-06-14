@@ -2,6 +2,7 @@
 """Focused tests for generic OIDC config and local identity mapping."""
 
 import hashlib
+import json
 import os
 import sqlite3
 import tempfile
@@ -21,8 +22,8 @@ from services.auth import decode_jwt_token  # noqa: E402
 from services.oidc_config import get_oidc_config, normalize_oidc_config_update  # noqa: E402
 from services import oidc as oidc_service  # noqa: E402
 from fastapi import HTTPException  # noqa: E402
-from services.oidc import cleanup_oidc_login_states, complete_user_oidc_login, consume_state, sanitize_oidc_redirect_after, validate_id_token  # noqa: E402
-from routers.oidc import _completion_html, _json_for_script  # noqa: E402
+from services.oidc import cleanup_oidc_login_states, complete_user_oidc_login, consume_state, sanitize_oidc_redirect_after, validate_id_token, create_native_handoff, consume_native_handoff  # noqa: E402
+from routers.oidc import _completion_html, _json_for_script, _native_redirect_html, oidc_native_exchange, NativeOidcExchangeRequest  # noqa: E402
 
 
 def assert_true(value, message):
@@ -141,6 +142,50 @@ def main():
     with get_db() as db:
         remaining = db.execute("SELECT COUNT(*) AS count FROM oidc_login_states WHERE state_hash IN ('expired-state', 'consumed-state')").fetchone()["count"]
         assert_true(remaining == 0, "OIDC state cleanup should not leave old state rows")
+
+    native_code = create_native_handoff(
+        kind="user",
+        payload={"access_token": "native-jwt", "csrf_token": "native-csrf", "user": {"id": 42}},
+        redirect_after="/projects?native=1",
+    )
+    native_handoff = consume_native_handoff(native_code)
+    assert_true(native_handoff["kind"] == "user", "native OIDC handoff should keep its kind")
+    assert_true(native_handoff["payload"]["access_token"] == "native-jwt", "native OIDC handoff should return payload once")
+    assert_true(native_handoff["redirect_after"] == "/projects?native=1", "native OIDC handoff should keep safe redirect target")
+    try:
+        consume_native_handoff(native_code)
+        raise AssertionError("native OIDC handoff replay should be rejected")
+    except HTTPException as exc:
+        assert_true(exc.status_code == 400, "native OIDC handoff replay should return bad request")
+    with get_db() as db:
+        stored_payload = db.execute("SELECT payload_json FROM oidc_native_handoffs WHERE code_hash = ?", (hashlib.sha256(native_code.encode()).hexdigest(),)).fetchone()["payload_json"]
+        assert_true(stored_payload == "{}", "native OIDC handoff payload should be cleared after consumption")
+        kind_sql = db.execute("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'oidc_native_handoffs'").fetchone()["sql"]
+        assert_true("'admin'" not in kind_sql and "'admin_link'" not in kind_sql, "native OIDC handoff table must not allow admin kinds")
+    for invalid_native_kind in ("admin", "admin_link"):
+        try:
+            create_native_handoff(kind=invalid_native_kind, payload={}, redirect_after="/admin")
+            raise AssertionError(f"native OIDC handoff should reject {invalid_native_kind}")
+        except HTTPException as exc:
+            assert_true(exc.status_code == 400, f"native OIDC handoff should reject {invalid_native_kind} with bad request")
+    auth_session_source = (BASE / "web/static/js/features/auth-session.js").read_text()
+    native_callback_block = auth_session_source.split("async function handleNativeOidcCallback", 1)[1].split("function bindNativeOidcListener", 1)[0]
+    assert_true("admin_jwt_token" not in native_callback_block and "nia_admin_oidc_link_result" not in native_callback_block, "native OIDC callback must not prepare admin/admin-link handling")
+    security_source = (BASE / "api/middleware/security.py").read_text()
+    assert_true('"/api/oidc/native/exchange"' in security_source, "native OIDC exchange must be CSRF-exempt before a CSRF cookie exists")
+    exchange_code = create_native_handoff(kind="user", payload={"csrf_token": "exchange-csrf"}, redirect_after="/inbox")
+    exchange_response = oidc_native_exchange(NativeOidcExchangeRequest(code=exchange_code))
+    exchange_body = json.loads(exchange_response.body.decode())
+    assert_true(exchange_body["redirect_after"] == "/inbox", "native exchange should return redirect target")
+    assert_true("set-cookie" in exchange_response.headers, "native exchange should set CSRF cookie on the returned response")
+    native_redirect_html = _native_redirect_html("test-code", "user", "/inbox").body.decode()
+    assert_true("window.close()" not in native_redirect_html, "native OIDC return page must not rely on browser tab auto-close")
+    assert_true("data-i18n" in native_redirect_html and "Zurück zu nia-todo" in native_redirect_html and "Returning to nia-todo" in native_redirect_html, "native OIDC return page should include German and English UI copy")
+    assert_true("After nia-todo opens" in native_redirect_html and "nia-todo://oidc/callback" in native_redirect_html, "native OIDC return page should keep a manual open fallback")
+    assert_true("login-box" in native_redirect_html and "login-logo" in native_redirect_html and "/static/icons/icon-192.png" in native_redirect_html, "native OIDC return page should use nia-todo login branding and app icon")
+    assert_true("btn btn-primary" in native_redirect_html and "--bg-primary" in native_redirect_html and "--accent" in native_redirect_html, "native OIDC return page should use nia-todo button classes and design tokens")
+    assert_true("return-page" in native_redirect_html and "100dvh" in native_redirect_html and "overflow: hidden" in native_redirect_html and "place-items: center" in native_redirect_html, "native OIDC return page should be centered and non-scrollable on mobile")
+    assert_true("window.addEventListener('load'" in native_redirect_html and "900" in native_redirect_html, "native OIDC return page should render before launching the app callback")
 
     calls = []
     original_post = oidc_service.requests.post

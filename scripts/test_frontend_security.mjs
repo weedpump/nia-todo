@@ -94,6 +94,9 @@ assert(authSessionSource.includes('login-remember-device'), 'login MFA must expo
 assert(authSessionSource.includes('login-mfa-switch-btn'), 'login MFA must expose a method switch when passkey and code methods are both available');
 assert(authSessionSource.includes('if (RUNTIME_CAPABILITIES.native && codeMethod) return codeMethod'), 'native login MFA must prefer a code method over passkey when both are available');
 assert(authSessionSource.includes("methods.includes('recovery_code') ? 'recovery_code'"), 'native/passkey-unavailable login MFA must prefer recovery_code before unusable passkey fallback');
+assert(authSessionSource.includes('nia_consumed_native_oidc_codes'), 'native OIDC must remember consumed handoff codes so logout/login-overlay re-entry does not show stale handoff errors');
+assert(authSessionSource.includes('nativeOidcCodesInFlight.has(code)'), 'native OIDC must dedupe simultaneous callback delivery before the one-time handoff is consumed twice');
+assert(authSessionSource.includes('rememberConsumedNativeOidcCode(code)'), 'native OIDC must mark handoff codes consumed after a successful exchange');
 assert(!userMenuSource.includes('Date.now()'), 'user menu avatar URLs must be stable so avatars can be cached offline');
 assert(!userSettingsSource.includes('Date.now()'), 'settings avatar URLs must be stable so avatars can be cached offline');
 assert(userSettingsSource.includes('hasExistingSecondFactor') && userSettingsSource.includes("&& hasExistingSecondFactor && !wasEnrollmentLocked) await ensureRecentMfa(t('settings.2fa.purpose.addPasskey'))"), 'passkey enrollment-only setup must not require an existing 2FA code');
