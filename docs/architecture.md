@@ -54,6 +54,7 @@ Operational constraints:
 - Users see their own data plus accepted shared projects
 - shared project access is checked in projects, todos, sections, reminders, and WebSocket payloads
 - **Email verification**: login, password reset, and project sharing require verified emails
+- **OIDC/SSO**: users and admins can sign in through a configured OIDC provider. Admin configuration stores issuer/client/scopes and write-only client secret data; account links live as OIDC identities and native apps complete sign-in through a short-lived native exchange handoff.
 - **Neutral API responses** for email-based actions prevent user enumeration
 - **Pending invites** are visible only to the invitee for privacy reasons (not to owners/members)
 - **2FA/MFA** is integrated into the normal password login: if an account requires 2FA and no valid trusted-device cookie exists, `/api/login` returns a challenge instead of an access token. After a successful login challenge, a JWT with `mfa_login_at` is issued; sensitive actions use separate one-time MFA action grants.
@@ -72,4 +73,12 @@ Operational constraints:
 - Users can change their own email and display name in the settings modal; the username remains immutable
 - Avatar images live as WebP files under `api/data/avatars/`; the database stores only the URL and modification timestamp
 - Avatar uploads accept JPEG/PNG/WebP/GIF as well as HEIC/HEIF; HEIC is processed server-side via `pillow-heif` or `heif-convert` when the browser does not support preview/cropping
-- Live backups save the SQLite DB, `metadata.json`, and `api/data/avatars/` together as a rotating `nia-todo-live-daily-slot-XX.zip`
+- Production now runs on a separate LXC; this dev checkout does not contain or manage live data/backups.
+
+
+## Location Reminders
+
+- Saved places are user-scoped records under `/api/places` with name, address, and icon.
+- Todos can carry location reminder metadata for Android-native arrival/departure triggers.
+- Address data is stored server-side for the owning user and synchronized to linked location reminders when a saved place address changes.
+- Android handles local geofence-style reminder behavior; browser/PWA push remains separate.

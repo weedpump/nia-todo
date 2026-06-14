@@ -1347,9 +1347,107 @@ Returns the available Windows/Android artifacts with version, platform, architec
 Returns the pinned relationship between server and bundled Android app for native passkeys.
 
 
+## OIDC / SSO
+
+OIDC support is global/admin-configured and uses the configured `public_base_url` as redirect base. Provider secrets are write-only in admin responses.
+
+### Status
+`GET /api/oidc/status`
+
+Public status for login screens. Returns whether OIDC is enabled, display provider name, and login availability without exposing provider secrets.
+
+### User Login
+`GET /api/oidc/login?redirect_after=/&native=false`
+
+Starts the user OIDC authorization flow. `native=true` marks the flow for native app completion handoff.
+
+### Admin Login
+`GET /api/oidc/admin/login`
+
+Starts the admin OIDC authorization flow.
+
+### Callback
+`GET /api/oidc/callback`
+
+OIDC redirect URI. Handles user/admin/native state, exchanges the provider code, links or signs in the matching account, and returns redirect/completion HTML.
+
+### Admin Linked Identities
+- `GET /api/oidc/admin/links` — list linked OIDC identities for admin inspection.
+- `POST /api/oidc/admin/link/start` — start linking the current admin account to the configured provider.
+- `DELETE /api/oidc/admin/links/{identity_id}` — remove a linked OIDC identity.
+
+### Native Exchange
+`POST /api/oidc/native/exchange`
+
+Exchanges a native completion code for the final login payload after the browser/provider flow returns to the app.
+
+**Body**
+```json
+{ "code": "native-completion-code" }
+```
+
+## Admin: OIDC Configuration
+
+### Fetch OIDC Configuration
+`GET /api/admin/oidc-config`
+
+Returns OIDC configuration without `client_secret`; secret state is exposed as `client_secret_configured`.
+
+### Update OIDC Configuration
+`PATCH /api/admin/oidc-config`
+
+**Body**
+```json
+{
+  "enabled": true,
+  "provider_name": "OIDC",
+  "issuer_url": "https://idp.example.com/realms/home",
+  "client_id": "nia-todo",
+  "client_secret": "write-only-secret",
+  "public_client": false,
+  "token_auth_method": "auto",
+  "scopes": "openid email profile"
+}
+```
+
+`issuer_url` and the computed redirect URI must use HTTPS unless loopback-only for development. `token_auth_method` supports `auto`, `client_secret_basic`, and `client_secret_post`.
+
+## Places / Location Reminders
+
+Saved places are user-scoped helpers for location reminders. Address data stays attached to the user's saved place and is copied to linked location reminders when a place address changes.
+
+- `GET /api/places` — list saved places.
+- `POST /api/places` — create a saved place with `{ "name": "Home", "address": "...", "icon": "home" }`.
+- `PATCH /api/places/{place_id}` — update name, address, and/or icon.
+- `DELETE /api/places/{place_id}` — delete the saved place.
+
+Todo create/update payloads can include `location_reminder` metadata for Android-native arrival/departure reminders; BrainDump can also return location reminder candidates for saved place names.
+
+## Admin: Sessions and Statistics
+
+- `GET /api/admin/technical-stats` — aggregate admin statistics for database growth, workload, active sessions, client mix, and provider usage counters.
+- `GET /api/admin/users/{user_id}/sessions` — list a user's active device sessions.
+- `DELETE /api/admin/users/{user_id}/sessions` — revoke all active sessions for a user and bump token version.
+- `DELETE /api/admin/users/{user_id}/sessions/{session_id}` — revoke one user session.
+
+## BrainDump Learning
+
+User-scoped BrainDump learning endpoints store lightweight correction preferences for future extraction.
+
+- `GET /api/braindump/v2/learning` — fetch the caller's learning preferences.
+- `PATCH /api/braindump/v2/learning` — update learning preferences.
+- `DELETE /api/braindump/v2/learning` — clear learning preferences.
+
+## Profile / Preferences
+
+Additional profile/preferences endpoints:
+
+- `PATCH /api/me/default-reminder` — update automatic default reminder settings for todos with deadlines.
+- `DELETE /api/me/avatar` — remove the current avatar.
+
 ## Current Route Coverage Notes
 
-This document is intentionally example-oriented, not a generated OpenAPI spec. During the 2026-05-31 docs audit it was checked against the FastAPI router inventory and the sections below were added for newer runtime/admin/BrainDump routes.
+This document is intentionally example-oriented, not a generated OpenAPI spec. During the 2026-06-14 docs audit it was checked against the FastAPI router inventory and updated for OIDC, places/location reminders, admin sessions/statistics, BrainDump learning, and newer profile routes.
 
 ## Profile / Preferences
 
