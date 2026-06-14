@@ -3090,8 +3090,10 @@ input[type="color"]::-moz-color-swatch {
 
 .login-auth-alternatives .login-passkey-btn {
   display: inline-flex;
-  flex: 1 1 148px;
+  box-sizing: border-box;
+  flex: 1 0 max-content;
   min-width: min(100%, 148px);
+  max-width: 100%;
   width: auto;
   margin-top: 0;
   padding: 9px 10px;
