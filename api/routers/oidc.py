@@ -171,7 +171,7 @@ def _native_redirect_html(code: str, kind: str, redirect_after: str = "/") -> HT
     <p data-i18n="body">Your sign-in was successful. We are opening the app now.</p>
     <div class="spinner" aria-hidden="true"></div>
     <a class="button" href="{safe_callback_href}" data-i18n="open">Open nia-todo</a>
-    <p class="hint" data-i18n="hint">If this tab does not close automatically, you can close it after the app opens.</p>
+    <p class="hint" data-i18n="hint">After nia-todo opens, you can close this browser tab.</p>
   </main>
   <script>
     (function() {{
@@ -181,13 +181,13 @@ def _native_redirect_html(code: str, kind: str, redirect_after: str = "/") -> HT
           title: 'Zurück zu nia-todo…',
           body: 'Die Anmeldung war erfolgreich. Wir öffnen jetzt die App.',
           open: 'nia-todo öffnen',
-          hint: 'Falls sich dieser Tab nicht automatisch schließt, kannst du ihn nach dem Öffnen der App schließen.'
+          hint: 'Nachdem nia-todo geöffnet wurde, kannst du diesen Browser-Tab schließen.'
         }},
         en: {{
           title: 'Returning to nia-todo…',
           body: 'Your sign-in was successful. We are opening the app now.',
           open: 'Open nia-todo',
-          hint: 'If this tab does not close automatically, you can close it after the app opens.'
+          hint: 'After nia-todo opens, you can close this browser tab.'
         }}
       }};
       const lang = String(navigator.language || '').toLowerCase().startsWith('de') ? 'de' : 'en';
@@ -197,8 +197,9 @@ def _native_redirect_html(code: str, kind: str, redirect_after: str = "/") -> HT
         if (messages[lang][key]) el.textContent = messages[lang][key];
       }});
       document.title = messages[lang].title;
-      setTimeout(() => {{ window.location.href = callbackUrl; }}, 150);
-      setTimeout(() => {{ window.close(); }}, 1400);
+      window.addEventListener('load', () => {{
+        setTimeout(() => {{ window.location.href = callbackUrl; }}, 900);
+      }});
     }})();
   </script>
 </body>
