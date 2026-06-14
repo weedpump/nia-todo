@@ -47,6 +47,7 @@ import java.util.concurrent.atomic.AtomicInteger
 class MainActivity : TauriActivity() {
   private val nativePrefsName = "nia_todo_native"
   private val lastWebViewCacheVersionKey = "last_webview_cache_version"
+  private val pendingOidcCallbackKey = "pending_oidc_callback_url"
   private val lightSystemBarColor = Color.rgb(248, 250, 252)
   private val darkSystemBarColor = Color.rgb(15, 15, 35)
   private val maxNativeAudioDurationMs = 120_000
@@ -57,6 +58,7 @@ class MainActivity : TauriActivity() {
   private var nativeAudioFile: File? = null
   private var nativeAudioStartedAtMs: Long = 0
   @Volatile private var configuredPasskeyOrigin: String? = null
+  @Volatile private var pendingOidcCallbackUrl: String? = null
   private val credentialManager by lazy { CredentialManager.create(this) }
 
   override fun onCreate(savedInstanceState: Bundle?) {
@@ -71,11 +73,13 @@ class MainActivity : TauriActivity() {
     clearStaleWebViewCachesOnVersionChange()
     super.onCreate(savedInstanceState)
     applySystemBarInsetsToContentRoot()
+    handleOidcIntent(intent)
   }
 
   override fun onNewIntent(intent: Intent) {
     super.onNewIntent(intent)
     setIntent(intent)
+    handleOidcIntent(intent)
   }
 
   override fun onDestroy() {
@@ -127,7 +131,38 @@ class MainActivity : TauriActivity() {
     val nativeBridge = AndroidNativeBridge()
     webView.addJavascriptInterface(nativeBridge, "NiaAndroidNative")
     webView.addJavascriptInterface(nativeBridge, "NiaAndroidSystemBars")
-    webView.post { applySystemBarInsetsToContentRoot() }
+    webView.post {
+      applySystemBarInsetsToContentRoot()
+    }
+  }
+
+
+  private fun isOidcCallbackUri(uri: Uri?): Boolean {
+    if (uri == null) return false
+    return uri.scheme.equals("nia-todo", ignoreCase = true) && uri.host.equals("oidc", ignoreCase = true) && uri.path == "/callback"
+  }
+
+  private fun handleOidcIntent(intent: Intent?) {
+    try {
+      if (intent?.action != Intent.ACTION_VIEW) return
+      val uri = intent.data ?: return
+      if (!isOidcCallbackUri(uri)) return
+      storeOidcCallbackForWebLayer(uri.toString())
+    } catch (_: Exception) {
+      // Deep-link entry must never crash the native shell. If anything unexpected
+      // happens, leave normal app startup intact so the user can retry/login again.
+    }
+  }
+
+  private fun storeOidcCallbackForWebLayer(url: String) {
+    // Keep the callback pending natively until the web layer explicitly consumes it.
+    // Persist as well because the callback trampoline activity may run before the
+    // Tauri activity/web layer is alive.
+    pendingOidcCallbackUrl = url
+    getSharedPreferences(nativePrefsName, MODE_PRIVATE)
+      .edit()
+      .putString(pendingOidcCallbackKey, url)
+      .apply()
   }
 
   private fun canonicalOrigin(origin: String): String {
@@ -474,14 +509,21 @@ class MainActivity : TauriActivity() {
         if (scheme != "http" && scheme != "https") return false
         if (uri.host.isNullOrBlank()) return false
 
-        val intent = Intent(Intent.ACTION_VIEW, uri).apply {
-          addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
+        val intent = Intent(Intent.ACTION_VIEW, uri)
         startActivity(intent)
         true
       } catch (_: Exception) {
         false
       }
+    }
+
+    @JavascriptInterface
+    fun consumePendingOidcCallback(): String {
+      val prefs = getSharedPreferences(nativePrefsName, MODE_PRIVATE)
+      val pending = pendingOidcCallbackUrl ?: prefs.getString(pendingOidcCallbackKey, "") ?: ""
+      pendingOidcCallbackUrl = null
+      if (pending.isNotBlank()) prefs.edit().remove(pendingOidcCallbackKey).apply()
+      return pending
     }
 
     @JavascriptInterface
@@ -546,8 +588,12 @@ class MainActivity : TauriActivity() {
     fun setConfiguredServerUrl(serverUrl: String): Boolean {
       return try {
         val canonical = canonicalOrigin(serverUrl)
-        if (configuredPasskeyOrigin == null) configuredPasskeyOrigin = canonical
-        configuredPasskeyOrigin == canonical
+        // The configured server may change while the WebView is still running.
+        // Keep the passkey origin in sync with the persisted native setting so
+        // the web layer can reload into the new server without requiring a full
+        // Android process restart.
+        configuredPasskeyOrigin = canonical
+        true
       } catch (_: Exception) {
         false
       }

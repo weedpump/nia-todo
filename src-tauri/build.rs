@@ -4,6 +4,7 @@ fn main() {
       tauri_build::AppManifest::new().commands(&[
         "desktop_get_app_version",
         "desktop_get_settings",
+        "desktop_consume_pending_oidc_callback",
         "desktop_set_setting",
         "desktop_set_server_url",
         "desktop_clear_server_url",

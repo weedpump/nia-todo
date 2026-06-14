@@ -17,11 +17,17 @@ export function createDragDropFeature({
   let currentSectionDropIndex = null;
   let pointerDrag = null;
   let nativeSummaryPointer = null;
+  let standardDragAutoScroll = null;
   let suppressNextNativeClick = false;
   const TOUCH_LONG_PRESS_MS = 320;
   const TOUCH_SCROLL_CANCEL_PX = 10;
   const MOUSE_DRAG_THRESHOLD_PX = 8;
   const SUMMARY_TOGGLE_MOVE_THRESHOLD_PX = 8;
+  const NATIVE_AUTO_SCROLL_EDGE_PX = 48;
+  const NATIVE_AUTO_SCROLL_VIEWPORT_GAP_PX = 8;
+  const NATIVE_AUTO_SCROLL_TOP_EDGE_PX = 48;
+  const NATIVE_AUTO_SCROLL_TOPBAR_GAP_PX = 8;
+  const NATIVE_AUTO_SCROLL_MAX_PX = 18;
 
   function eventDataTransfer(e) {
     return e.dataTransfer || { setData() {}, effectAllowed: 'move', dropEffect: 'move' };
@@ -37,6 +43,7 @@ export function createDragDropFeature({
   }
 
   function handleTodoDragEnd(e) {
+    stopStandardDragAutoScroll();
     e.target.classList.remove('dragging');
     document.querySelectorAll('.section-todos.drag-over, .section-header.drag-over').forEach(el => {
       el.classList.remove('drag-over');
@@ -44,12 +51,20 @@ export function createDragDropFeature({
     dragSrcTodoId = null;
   }
 
+  function clearTodoDropIndicators() {
+    document.querySelectorAll('.section-todos.drag-over, .section-header.drag-over').forEach(el => el.classList.remove('drag-over'));
+  }
+
   function handleTodoDragOver(e) {
     if (!dragSrcTodoId) return;
     e.preventDefault();
     eventDataTransfer(e).dropEffect = 'move';
+    scheduleStandardDragAutoScroll(e);
+    clearTodoDropIndicators();
     const container = e.target.closest('.section-todos');
+    const header = e.target.closest('.section-header');
     if (container) container.classList.add('drag-over');
+    else if (header) header.classList.add('drag-over');
   }
 
   async function moveTodoToSection(todoId, sectionId) {
@@ -85,6 +100,7 @@ export function createDragDropFeature({
 
   async function handleTodoDrop(e) {
     e.preventDefault();
+    stopStandardDragAutoScroll();
     const container = e.target.closest('.section-todos');
     if (!container) return;
     container.classList.remove('drag-over');
@@ -109,6 +125,7 @@ export function createDragDropFeature({
   }
 
   function handleSectionDragEnd(e) {
+    stopStandardDragAutoScroll();
     e.target.classList.remove('dragging');
     clearSectionDropIndicators();
     dragSrcSectionId = null;
@@ -119,6 +136,7 @@ export function createDragDropFeature({
     if (!dragSrcSectionId) return;
     e.preventDefault();
     eventDataTransfer(e).dropEffect = 'move';
+    scheduleStandardDragAutoScroll(e);
     clearSectionDropIndicators();
     const dropzone = e.target.closest('.section-dropzone');
     if (dropzone) {
@@ -176,6 +194,7 @@ export function createDragDropFeature({
 
   async function handleSectionDrop(e) {
     e.preventDefault();
+    stopStandardDragAutoScroll();
 
     const header = e.target.closest('.section-header');
     const dropzone = e.target.closest('.section-dropzone');
@@ -251,14 +270,155 @@ export function createDragDropFeature({
     pointerDrag.ghost.style.transform = `translate3d(${event.clientX - pointerDrag.startX}px, ${event.clientY - pointerDrag.startY}px, 0)`;
   }
 
-  function touchPointForDrag(event) {
+  function nativeDragEventFromLastPosition() {
+    if (!pointerDrag) return null;
+    return { clientX: pointerDrag.lastX, clientY: pointerDrag.lastY };
+  }
+
+  function rememberNativeDragTouch(touch) {
+    if (!pointerDrag?.isTouch || !touch) return;
+    if (pointerDrag.touchIdentifier === null || pointerDrag.touchIdentifier === undefined) {
+      pointerDrag.touchIdentifier = touch.identifier;
+    }
+  }
+
+  function closestTouchForDrag(touches) {
     if (!pointerDrag?.isTouch) return null;
-    const touches = [...(event.touches || []), ...(event.changedTouches || [])];
-    return touches.find((touch) => touch.identifier === pointerDrag.pointerId) || touches[0] || null;
+    const list = Array.from(touches || []);
+    if (!list.length) return null;
+    if (pointerDrag.touchIdentifier !== null && pointerDrag.touchIdentifier !== undefined) {
+      return list.find((touch) => touch.identifier === pointerDrag.touchIdentifier) || null;
+    }
+    return list.reduce((best, touch) => {
+      const bestDistance = Math.hypot(best.clientX - pointerDrag.lastX, best.clientY - pointerDrag.lastY);
+      const distance = Math.hypot(touch.clientX - pointerDrag.lastX, touch.clientY - pointerDrag.lastY);
+      return distance < bestDistance ? touch : best;
+    }, list[0]);
+  }
+
+  function activeTouchForDrag(event) {
+    const touch = closestTouchForDrag(event.touches);
+    rememberNativeDragTouch(touch);
+    return touch;
+  }
+
+  function changedTouchForDrag(event) {
+    const touch = closestTouchForDrag(event.changedTouches);
+    rememberNativeDragTouch(touch);
+    return touch;
   }
 
   function dragEventFromTouch(touch) {
     return { clientX: touch.clientX, clientY: touch.clientY };
+  }
+
+  function scrollContainerFromElement(source) {
+    let element = source?.closest?.('.main, .modal-body, .todo-list, [data-scroll-container]') || source?.parentElement || null;
+    while (element && element !== document.body && element !== document.documentElement) {
+      const style = getComputedStyle(element);
+      const canScroll = element.scrollHeight > element.clientHeight + 1;
+      const overflowY = style.overflowY || style.overflow;
+      if (canScroll && /(auto|scroll|overlay)/.test(overflowY)) return element;
+      element = element.parentElement;
+    }
+    return document.scrollingElement || document.documentElement;
+  }
+
+  function nativeScrollContainer() {
+    return scrollContainerFromElement(pointerDrag?.source);
+  }
+
+  function nativeAutoScrollTopBoundary(containerRect) {
+    const topbar = document.querySelector('.topbar');
+    const topbarRect = topbar?.getBoundingClientRect?.();
+    if (!topbarRect?.bottom) return containerRect.top;
+    return Math.max(containerRect.top, topbarRect.bottom + NATIVE_AUTO_SCROLL_TOPBAR_GAP_PX);
+  }
+
+  function autoScrollDelta(clientY, container, topTriggerY = clientY, bottomTriggerY = clientY) {
+    const isDocument = container === document.scrollingElement || container === document.documentElement;
+    const rect = isDocument
+      ? { top: 0, bottom: window.innerHeight || document.documentElement.clientHeight || 0 }
+      : container.getBoundingClientRect();
+    if (!rect.bottom) return 0;
+    const topBoundary = nativeAutoScrollTopBoundary(rect);
+    const topEdgeBottom = topBoundary + NATIVE_AUTO_SCROLL_TOP_EDGE_PX;
+    if (topTriggerY < topEdgeBottom) {
+      return -Math.ceil(((topEdgeBottom - topTriggerY) / NATIVE_AUTO_SCROLL_TOP_EDGE_PX) * NATIVE_AUTO_SCROLL_MAX_PX);
+    }
+    const bottomEdgeTop = rect.bottom - NATIVE_AUTO_SCROLL_VIEWPORT_GAP_PX - NATIVE_AUTO_SCROLL_EDGE_PX;
+    if (bottomTriggerY > bottomEdgeTop) {
+      return Math.ceil(((bottomTriggerY - bottomEdgeTop) / NATIVE_AUTO_SCROLL_EDGE_PX) * NATIVE_AUTO_SCROLL_MAX_PX);
+    }
+    return 0;
+  }
+
+  function nativeAutoScrollDelta(clientY, container = nativeScrollContainer()) {
+    const ghostRect = pointerDrag?.ghost?.getBoundingClientRect?.() || null;
+    return autoScrollDelta(clientY, container, ghostRect?.top ?? clientY, ghostRect?.bottom ?? clientY);
+  }
+
+  function readScrollTop(container) {
+    return container === document.scrollingElement || container === document.documentElement
+      ? (window.scrollY || document.documentElement.scrollTop || 0)
+      : container.scrollTop;
+  }
+
+  function applyScrollDelta(container, deltaY) {
+    if (container === document.scrollingElement || container === document.documentElement) {
+      window.scrollBy({ top: deltaY, left: 0, behavior: 'auto' });
+    } else {
+      container.scrollTop += deltaY;
+    }
+  }
+
+  function stopStandardDragAutoScroll() {
+    if (standardDragAutoScroll?.raf) cancelAnimationFrame(standardDragAutoScroll.raf);
+    standardDragAutoScroll = null;
+  }
+
+  function runStandardDragAutoScroll() {
+    if (!standardDragAutoScroll) return;
+    const state = standardDragAutoScroll;
+    const deltaY = Math.min(0, autoScrollDelta(state.clientY, state.container, state.clientY));
+    if (deltaY) applyScrollDelta(state.container, deltaY);
+    state.raf = requestAnimationFrame(runStandardDragAutoScroll);
+  }
+
+  function scheduleStandardDragAutoScroll(event) {
+    if (!event || typeof event.clientY !== 'number') return;
+    const container = scrollContainerFromElement(event.target);
+    standardDragAutoScroll = {
+      container,
+      clientY: event.clientY,
+      raf: standardDragAutoScroll?.raf || null,
+    };
+    if (!standardDragAutoScroll.raf) standardDragAutoScroll.raf = requestAnimationFrame(runStandardDragAutoScroll);
+  }
+
+  function stopNativeAutoScroll() {
+    if (!pointerDrag?.autoScrollRaf) return;
+    cancelAnimationFrame(pointerDrag.autoScrollRaf);
+    pointerDrag.autoScrollRaf = null;
+  }
+
+  function runNativeAutoScroll() {
+    if (!pointerDrag?.active) return;
+    const container = nativeScrollContainer();
+    const deltaY = nativeAutoScrollDelta(pointerDrag.lastY, container);
+    if (deltaY) {
+      const before = readScrollTop(container);
+      applyScrollDelta(container, deltaY);
+      const after = readScrollTop(container);
+      if (after !== before) updateNativeDropTarget(pointerDrag.lastX, pointerDrag.lastY);
+    }
+    pointerDrag.autoScrollRaf = requestAnimationFrame(runNativeAutoScroll);
+  }
+
+  function scheduleNativeAutoScroll() {
+    if (!pointerDrag?.active) return;
+    if (pointerDrag.autoScrollRaf) return;
+    pointerDrag.autoScrollRaf = requestAnimationFrame(runNativeAutoScroll);
   }
 
   function startNativePointerDrag(event, source, type, id) {
@@ -278,6 +438,8 @@ export function createDragDropFeature({
       ghost: null,
       longPressTimer: null,
       ignoreCancelUntilMs: 0,
+      autoScrollRaf: null,
+      touchIdentifier: null,
     };
     if (isTouch) {
       pointerDrag.longPressTimer = window.setTimeout(() => {
@@ -291,6 +453,11 @@ export function createDragDropFeature({
   function cancelNativePointerDrag() {
     if (!pointerDrag) return;
     if (pointerDrag.longPressTimer) window.clearTimeout(pointerDrag.longPressTimer);
+    stopNativeAutoScroll();
+    pointerDrag.ghost?.remove();
+    pointerDrag.source?.classList?.remove('dragging');
+    document.body.classList.remove('native-pointer-dragging');
+    clearNativeDragIndicators();
     pointerDrag = null;
     dragSrcTodoId = null;
     dragSrcSectionId = null;
@@ -313,6 +480,7 @@ export function createDragDropFeature({
     if (pointerDrag.type === 'section') dragSrcSectionId = pointerDrag.id;
     moveNativeGhost(event);
     updateNativeDropTarget(event.clientX, event.clientY);
+    scheduleNativeAutoScroll();
   }
 
   async function finishNativePointerDrag(event) {
@@ -321,6 +489,7 @@ export function createDragDropFeature({
     const wasActive = drag.active;
     const target = wasActive ? updateNativeDropTarget(event.clientX, event.clientY) : null;
     if (drag.longPressTimer) window.clearTimeout(drag.longPressTimer);
+    stopNativeAutoScroll();
     pointerDrag = null;
     try { drag.source.releasePointerCapture?.(drag.pointerId); } catch (_error) {}
     drag.ghost?.remove();
@@ -410,6 +579,11 @@ export function createDragDropFeature({
 
     document.addEventListener('pointerdown', (event) => {
       if (event.button !== undefined && event.button !== 0) return;
+      if (pointerDrag && pointerDrag.pointerId !== event.pointerId) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        return;
+      }
       const summary = nativeTodoDetailsSummaryFromTarget(event.target);
       if (summary) {
         nativeSummaryPointer = {
@@ -459,6 +633,7 @@ export function createDragDropFeature({
       activateNativePointerDrag(event);
       moveNativeGhost(event);
       updateNativeDropTarget(event.clientX, event.clientY);
+      scheduleNativeAutoScroll();
     }, { capture: true, passive: false });
 
     document.addEventListener('pointerup', (event) => {
@@ -483,14 +658,23 @@ export function createDragDropFeature({
     document.addEventListener('pointercancel', (event) => {
       clearNativeSummaryPointer(event.pointerId);
       if (!pointerDrag || pointerDrag.pointerId !== event.pointerId) return;
-      if (pointerDrag.active && pointerDrag.isTouch) return;
-      if (pointerDrag.active) finishNativePointerDrag(event);
+      if (pointerDrag.active) finishNativePointerDrag(nativeDragEventFromLastPosition() || event);
       else cancelNativePointerDrag();
     }, true);
 
+    document.addEventListener('touchstart', (event) => {
+      if (!pointerDrag?.active || !pointerDrag.isTouch || event.touches.length < 2) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }, { capture: true, passive: false });
+
     document.addEventListener('touchmove', (event) => {
       if (!pointerDrag?.active || !pointerDrag.isTouch) return;
-      const touch = touchPointForDrag(event);
+      if (event.touches.length > 1) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      }
+      const touch = activeTouchForDrag(event);
       if (!touch) return;
       event.preventDefault();
       const dragEvent = dragEventFromTouch(touch);
@@ -498,21 +682,27 @@ export function createDragDropFeature({
       pointerDrag.lastY = dragEvent.clientY;
       moveNativeGhost(dragEvent);
       updateNativeDropTarget(dragEvent.clientX, dragEvent.clientY);
+      scheduleNativeAutoScroll();
     }, { capture: true, passive: false });
 
     document.addEventListener('touchend', (event) => {
       if (!pointerDrag?.active || !pointerDrag.isTouch) return;
-      const touch = touchPointForDrag(event);
-      if (!touch) return;
+      const changedTouch = changedTouchForDrag(event);
+      const activeTouch = activeTouchForDrag(event);
+      if (!changedTouch && activeTouch) return;
+      if (event.touches.length > 0 && activeTouch) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        return;
+      }
       event.preventDefault();
-      finishNativePointerDrag(dragEventFromTouch(touch));
+      finishNativePointerDrag(changedTouch ? dragEventFromTouch(changedTouch) : nativeDragEventFromLastPosition());
     }, { capture: true, passive: false });
 
     document.addEventListener('touchcancel', (event) => {
       if (!pointerDrag?.isTouch) return;
-      const touch = touchPointForDrag(event);
-      if (!touch) return;
-      if (pointerDrag.active) finishNativePointerDrag(dragEventFromTouch(touch));
+      const changedTouch = changedTouchForDrag(event);
+      if (pointerDrag.active) finishNativePointerDrag(changedTouch ? dragEventFromTouch(changedTouch) : nativeDragEventFromLastPosition());
       else cancelNativePointerDrag();
     }, true);
 
@@ -523,6 +713,11 @@ export function createDragDropFeature({
       event.preventDefault();
       event.stopImmediatePropagation();
     }, true);
+
+    window.addEventListener('blur', cancelNativePointerDrag, { passive: true });
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') cancelNativePointerDrag();
+    }, { passive: true });
   }
 
   return {

@@ -242,6 +242,7 @@ const apiKeysFeature = createApiKeysFeature({ authApi });
 const pushFeature = createPushNotificationsFeature({ pushApi });
 const confirmDialogFeature = createConfirmDialogFeature();
 const confirmDanger = confirmDialogFeature.confirmDanger;
+const alertInfo = confirmDialogFeature.alertInfo;
 const appDownloadsFeature = createAppDownloadsFeature();
 const openAppDownloadsModal = appDownloadsFeature.openAppDownloadsModal;
 const brainDumpLiveFeature = createBrainDumpLiveFeature({
@@ -755,6 +756,23 @@ const handleSectionDragOver = dragDropFeature.handleSectionDragOver;
 const handleSectionDrop = dragDropFeature.handleSectionDrop;
 const bindNativePointerDragDrop = dragDropFeature.bindNativePointerDragDrop;
 
+function consumeOidcErrorNotice() {
+  const raw = sessionStorage.getItem('nia_oidc_error');
+  if (!raw) return;
+  sessionStorage.removeItem('nia_oidc_error');
+  let message = t('auth.oidc.errorMessage');
+  try {
+    const data = JSON.parse(raw);
+    message = data?.error_key ? t(data.error_key) : message;
+  } catch (_) {}
+  requestAnimationFrame(() => {
+    showLoginOverlay();
+    const errorEl = document.getElementById('login-error');
+    if (errorEl) errorEl.textContent = message;
+    alertInfo({ title: t('auth.oidc.errorTitle'), message }).catch(() => {});
+  });
+}
+
 const toastUndoFeature = createToastUndoFeature({
   getDb: () => db,
   getTodos: () => todos,
@@ -848,6 +866,7 @@ export function startAppModule() {
   bindUserMenu();
   hydrateIcons(document);
   confirmDialogFeature.bindConfirmDialog();
+  consumeOidcErrorNotice();
   appDownloadsFeature.initAppDownloads();
   brainDumpLiveFeature.init();
   bindNativePointerDragDrop();

@@ -1,5 +1,7 @@
 import { getAuthToken, getCsrfToken, getAuthHeaders } from '../api/http.js';
-import { RUNTIME_CAPABILITIES } from '../core/config.js';
+import { API, RUNTIME_CAPABILITIES } from '../core/config.js';
+import { getJsonHeaders } from '../api/http.js';
+import { createNativeBridge } from './native-bridge.js';
 import { t } from '../i18n/index.js';
 
 export function createAuthSessionFeature({
@@ -16,6 +18,97 @@ export function createAuthSessionFeature({
   let passwordResetAvailable = false;
   let pendingMfaChallenge = null;
   let pendingMfaMethod = null;
+  let nativeOidcListenerBound = false;
+  const nativeBridge = createNativeBridge();
+  const nativeOidcCodesInFlight = new Set();
+  const consumedNativeOidcCodesKey = 'nia_consumed_native_oidc_codes';
+
+  function getConsumedNativeOidcCodes() {
+    try {
+      const value = JSON.parse(sessionStorage.getItem(consumedNativeOidcCodesKey) || '[]');
+      return Array.isArray(value) ? value.filter(Boolean).map(String) : [];
+    } catch (_error) {
+      return [];
+    }
+  }
+
+  function hasConsumedNativeOidcCode(code) {
+    return getConsumedNativeOidcCodes().includes(String(code || ''));
+  }
+
+  function rememberConsumedNativeOidcCode(code) {
+    const value = String(code || '');
+    if (!value) return;
+    const codes = getConsumedNativeOidcCodes().filter(existing => existing !== value);
+    codes.push(value);
+    sessionStorage.setItem(consumedNativeOidcCodesKey, JSON.stringify(codes.slice(-20)));
+  }
+
+  function storeOidcUserSession(payload) {
+    localStorage.setItem('jwt_token', payload.access_token);
+    if (payload.csrf_token) localStorage.setItem('csrf_token', payload.csrf_token);
+    if (payload.user) {
+      localStorage.setItem('cached_user', JSON.stringify(payload.user));
+      localStorage.setItem('last_user_id', String(payload.user.id));
+      setCurrentUser({ ...payload.user, token: payload.access_token });
+    }
+  }
+
+  async function handleNativeOidcCallback(url) {
+    let parsed;
+    try {
+      parsed = new URL(String(url || ''));
+    } catch (_error) {
+      return;
+    }
+    if (parsed.protocol !== 'nia-todo:' || parsed.hostname !== 'oidc' || parsed.pathname !== '/callback') return;
+    const code = parsed.searchParams.get('code');
+    if (!code || hasConsumedNativeOidcCode(code) || nativeOidcCodesInFlight.has(code)) return;
+    nativeOidcCodesInFlight.add(code);
+    try {
+      const response = await fetch(`${API}/api/oidc/native/exchange`, {
+        method: 'POST',
+        headers: getJsonHeaders(),
+        credentials: 'include',
+        body: JSON.stringify({ code }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const detail = data.detail || 'Native OIDC exchange failed';
+        if (hasConsumedNativeOidcCode(code) && /invalid or expired/i.test(String(detail))) return;
+        throw new Error(detail);
+      }
+      rememberConsumedNativeOidcCode(code);
+      const payload = data.payload || {};
+      if (data.kind === 'user') {
+        storeOidcUserSession(payload);
+        hideLoginOverlay();
+        if (getAppInitialized()) await refreshFromServer();
+        else await initApp();
+        renderUserInfo();
+        history.replaceState(null, '', data.redirect_after || '/');
+        window.dispatchEvent(new CustomEvent('nia-logged-in'));
+        return;
+      }
+      sessionStorage.setItem('nia_oidc_error', JSON.stringify({ error_key: payload.error_key || 'auth.oidc.errorMessage', error: payload.error || '', kind: payload.kind || 'user' }));
+      consumeOidcErrorNotice();
+    } catch (error) {
+      const message = error?.message || t('auth.oidc.errorMessage');
+      const errorEl = document.getElementById('login-error');
+      if (errorEl) errorEl.textContent = message;
+      console.error('Native OIDC callback failed:', error);
+    } finally {
+      nativeOidcCodesInFlight.delete(code);
+    }
+  }
+
+  function bindNativeOidcListener() {
+    if (nativeOidcListenerBound || !RUNTIME_CAPABILITIES.native) return;
+    nativeOidcListenerBound = true;
+    nativeBridge.listenOidcCallbacks(handleNativeOidcCallback).catch((error) => {
+      console.warn('Native OIDC callback listener unavailable', error);
+    });
+  }
 
   async function clearBrowserAuthCaches() {
     if ('serviceWorker' in navigator && typeof navigator.serviceWorker.getRegistrations === 'function') {
@@ -439,11 +532,35 @@ export function createAuthSessionFeature({
   }
 
   function bindLoginForm() {
+    bindNativeOidcListener();
     if (loginFormBound) return;
     const form = document.getElementById('login-form');
     if (!form) return;
     loginFormBound = true;
     form.addEventListener('submit', handleLogin);
+    const oidcBtn = document.getElementById('login-oidc-btn');
+    if (oidcBtn) {
+      fetch(`${API}/api/oidc/status`, { credentials: 'include' })
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (!data?.enabled) return;
+          oidcBtn.textContent = t('auth.oidc.signInWithProvider', { provider: data.provider_name || 'OIDC' });
+          oidcBtn.classList.remove('hidden');
+        })
+        .catch(() => {});
+      oidcBtn.addEventListener('click', async () => {
+        const next = encodeURIComponent(location.pathname + location.search + location.hash || '/');
+        if (RUNTIME_CAPABILITIES.native && nativeBridge?.openExternal) {
+          try {
+            const opened = await nativeBridge.openExternal(`${API}/api/oidc/login?redirect_after=${next}&native=1`);
+            if (opened) return;
+          } catch (error) {
+            console.warn('Native OIDC external browser launch failed, falling back to WebView redirect', error);
+          }
+        }
+        location.href = `${API}/api/oidc/login?redirect_after=${next}`;
+      });
+    }
     const passkeyBtn = document.getElementById('login-passkey-btn');
     if (passkeyBtn) {
       passkeyBtn.classList.toggle('hidden', !browserOrNativePasskeysAvailable());

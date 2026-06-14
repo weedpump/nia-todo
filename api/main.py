@@ -50,9 +50,10 @@ async def app_shell_cache_control_middleware(request, call_next):
 
 # ─── Router ──────────────────────────────────────────────────────────────────
 
-from routers import auth, todos, projects, sections, reminders, places, dashboard, push, admin, me, setup, sharing, password_setup, workspaces, instance, two_factor, braindump_v2
+from routers import auth, todos, projects, sections, reminders, places, dashboard, push, admin, me, setup, sharing, password_setup, workspaces, instance, two_factor, braindump_v2, oidc
 
 app.include_router(auth.router)
+app.include_router(oidc.router)
 app.include_router(instance.router)
 app.include_router(todos.router)
 app.include_router(workspaces.router)

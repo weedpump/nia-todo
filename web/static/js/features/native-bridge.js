@@ -223,6 +223,77 @@ export function createNativeBridge() {
     return false;
   }
 
+
+  function ensureOidcCallbackBridge() {
+    if (typeof window.__niaNativeOidcCallback !== 'function') {
+      Object.defineProperty(window, '__niaNativeOidcCallback', {
+        configurable: false,
+        writable: false,
+        value: (url) => {
+          window.__niaPendingNativeOidcCallback = String(url || '');
+          window.dispatchEvent(new CustomEvent('nia-native-oidc-callback', { detail: { url: String(url || '') } }));
+        },
+      });
+    }
+  }
+
+  async function listenOidcCallbacks(callback) {
+    if (!isNative() || typeof callback !== 'function') return null;
+    ensureOidcCallbackBridge();
+    let lastDelivered = '';
+    const deliver = (url) => {
+      const value = String(url || '');
+      if (!value || value === lastDelivered) return;
+      lastDelivered = value;
+      callback(value);
+    };
+    const onWindowEvent = (event) => deliver(event?.detail?.url || '');
+    window.addEventListener('nia-native-oidc-callback', onWindowEvent);
+    if (window.__niaPendingNativeOidcCallback) {
+      const pending = window.__niaPendingNativeOidcCallback;
+      window.__niaPendingNativeOidcCallback = '';
+      setTimeout(() => deliver(pending), 0);
+    }
+    let androidPollTimer = null;
+    let androidPollStopTimer = null;
+    const consumeAndroidPending = () => {
+      if (!isAndroid() || !hasAndroidMethod('consumePendingOidcCallback')) return;
+      try {
+        const pending = android().consumePendingOidcCallback();
+        if (pending) deliver(pending);
+      } catch (_error) {}
+    };
+    consumeAndroidPending();
+    if (isAndroid() && hasAndroidMethod('consumePendingOidcCallback')) {
+      window.addEventListener('focus', consumeAndroidPending);
+      document.addEventListener('visibilitychange', consumeAndroidPending);
+      androidPollTimer = setInterval(consumeAndroidPending, 500);
+      androidPollStopTimer = setTimeout(() => {
+        if (androidPollTimer) clearInterval(androidPollTimer);
+        androidPollTimer = null;
+      }, 60_000);
+    }
+    let unlistenTauri = null;
+    if (isDesktop()) {
+      invokeTauri('desktop_consume_pending_oidc_callback').then((pending) => {
+        deliver(pending);
+      }).catch(() => {});
+    }
+    if (isDesktop() && tauri()?.event?.listen) {
+      unlistenTauri = await tauri().event.listen('native-oidc-callback', (event) => {
+        deliver(event?.payload?.url || event?.payload || '');
+      }).catch(() => null);
+    }
+    return () => {
+      window.removeEventListener('nia-native-oidc-callback', onWindowEvent);
+      window.removeEventListener('focus', consumeAndroidPending);
+      document.removeEventListener('visibilitychange', consumeAndroidPending);
+      if (androidPollTimer) clearInterval(androidPollTimer);
+      if (androidPollStopTimer) clearTimeout(androidPollStopTimer);
+      if (typeof unlistenTauri === 'function') unlistenTauri();
+    };
+  }
+
   function setSystemBarsTheme(theme) {
     if (!isAndroid()) return;
     android()?.setTheme?.(theme);
@@ -287,6 +358,7 @@ export function createNativeBridge() {
     passkeyRegister,
     passkeyAuthenticate,
     openExternal,
+    listenOidcCallbacks,
     setSystemBarsTheme,
     getAppVersion,
     listenHotkeys,

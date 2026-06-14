@@ -33,6 +33,20 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".OidcCallbackActivity"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:noHistory="true"
+            android:excludeFromRecents="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="nia-todo" android:host="oidc" android:pathPrefix="/callback" />
+            </intent-filter>
+        </activity>
+
         <receiver
             android:name=".ReminderReceiver"
             android:enabled="true"

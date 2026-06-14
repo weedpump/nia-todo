@@ -4,7 +4,7 @@ export let API = '';
 export let WS_URL = websocketUrlFromBase(location.origin);
 export const DB_NAME = 'nia-todo-db';
 export const DB_VERSION = 4;
-export const APP_VERSION = 'v2.11.8';
+export const APP_VERSION = 'v2.12.0';
 
 export function getTauri() {
   return window.__TAURI__ || null;
@@ -111,17 +111,22 @@ export function apiResourceUrl(value) {
   return raw;
 }
 
-export async function verifyInstance(serverUrl) {
+export async function verifyInstance(serverUrl, { timeoutMs = 10000 } = {}) {
   const base = normalizeServerUrl(serverUrl);
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timeout = controller && Number(timeoutMs) > 0 ? setTimeout(() => controller.abort(), Number(timeoutMs)) : null;
   let response;
   try {
     response = await fetch(`${base}/api/instance`, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
       cache: 'no-store',
+      signal: controller?.signal,
     });
   } catch (_error) {
     throw new Error(t('nativeSetup.error.serverUnreachable'));
+  } finally {
+    if (timeout) clearTimeout(timeout);
   }
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data.detail || t('nativeSetup.error.verificationFailed', { status: response.status }));
@@ -142,6 +147,9 @@ export async function initRuntimeConfig() {
   }
   API = serverUrl;
   WS_URL = websocketUrlFromBase(serverUrl);
-  const instance = await verifyInstance(serverUrl).catch((error) => ({ error: error?.message || String(error) }));
+  // Native apps load their UI from bundled APK/installer assets. The optional
+  // instance probe must never block offline cold-start; API calls can recover
+  // once the configured server is reachable again.
+  const instance = await verifyInstance(serverUrl, { timeoutMs: 3500 }).catch((error) => ({ error: error?.message || String(error) }));
   return { mode: RUNTIME_MODE, platform: RUNTIME_PLATFORM, capabilities: RUNTIME_CAPABILITIES, apiBaseUrl: API, wsUrl: WS_URL, instance };
 }

@@ -6,12 +6,13 @@ export function createConfirmDialogFeature() {
   function close(result = false) {
     const modal = document.getElementById('confirm-modal');
     modal?.classList.remove('active');
+    document.getElementById('confirm-cancel-btn')?.style.removeProperty('display');
     const resolve = pendingResolve;
     pendingResolve = null;
     if (resolve) resolve(result);
   }
 
-  function confirmDanger({ title = t('confirm.deleteTitle'), message = '', confirmText = t('todo.delete'), cancelText = t('common.cancel') } = {}) {
+  function confirmDanger({ title = t('confirm.deleteTitle'), message = '', confirmText = t('todo.delete'), cancelText = t('common.cancel'), hideCancel = false } = {}) {
     if (pendingResolve) close(false);
     const modal = document.getElementById('confirm-modal');
     if (!modal) return Promise.resolve(window.confirm(message || title));
@@ -35,6 +36,7 @@ export function createConfirmDialogFeature() {
     if (cancelEl) {
       cancelEl.removeAttribute('data-i18n-key');
       cancelEl.textContent = cancelText;
+      cancelEl.style.display = hideCancel ? 'none' : '';
     }
     modal.classList.add('active');
 
@@ -54,5 +56,9 @@ export function createConfirmDialogFeature() {
     });
   }
 
-  return { confirmDanger, closeConfirmDialog: close, bindConfirmDialog };
+  function alertInfo({ title = t('common.error'), message = '', confirmText = t('common.close') } = {}) {
+    return confirmDanger({ title, message, confirmText, hideCancel: true });
+  }
+
+  return { confirmDanger, alertInfo, closeConfirmDialog: close, bindConfirmDialog };
 }

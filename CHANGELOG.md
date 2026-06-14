@@ -5,6 +5,21 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [2.12.0] - 2026-06-12
+
+### Added
+- Added OIDC-based single sign-on for users and admins, including admin-side provider configuration and account linking.
+
+### Changed
+- Cleaned up the login screen for the new sign-in options: API docs and changelog links were removed, alternative login actions are grouped more clearly, the theme switcher is less prominent, app downloads stay visible, and the mobile fullscreen login is centered.
+- Android todo drag auto-scroll now starts consistently near the visible top and bottom edges, including browser/iPad HTML5 drag and native pointer drag paths, so moving todos through long lists feels symmetric in both directions.
+
+### Fixed
+- Android passkey login now rebinds its trusted origin immediately after changing the configured server URL, so switching servers no longer requires restarting the app before passkeys work again.
+- Native offline cold starts now wait for the bundled app shell before showing backend/API connection errors, preventing a false boot error when the app is opened without network.
+- Android/native todo dragging now cleans up stale drag-over and ghost state reliably after pointer/touch cancel paths, preventing stuck visual drop indicators.
+- Android native todo dragging now blocks secondary finger input during an active drag, preventing multi-touch background swipes from stranding the dragged todo or hiding it until the app is restarted.
+
 ## [2.11.8] - 2026-06-06
 
 ### Fixed

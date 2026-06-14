@@ -2852,6 +2852,7 @@ input[type="color"]::-moz-color-swatch {
 }
 
 .login-box {
+  position: relative;
   width: 100%;
   max-width: 380px;
   margin: auto 0;
@@ -3037,23 +3038,23 @@ input[type="color"]::-moz-color-swatch {
 }
 
 .login-theme-toggle {
+  position: absolute;
+  top: 14px;
+  right: 14px;
   display: flex;
   justify-content: center;
-  gap: 8px;
-  margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border);
+  gap: 6px;
 }
 
 .login-theme-toggle .theme-option {
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: var(--bg-primary);
   color: var(--text-secondary);
   cursor: pointer;
-  font-size: 16px;
+  font-size: 15px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3061,7 +3062,7 @@ input[type="color"]::-moz-color-swatch {
 }
 
 .login-theme-toggle .theme-option:hover {
-  background: var(--bg-secondary);
+  background: var(--bg-tertiary);
   color: var(--text-primary);
 }
 
@@ -3069,7 +3070,61 @@ input[type="color"]::-moz-color-swatch {
   background: var(--accent);
   border-color: var(--accent);
   color: white;
-  transform: scale(1.05);
+  transform: translateY(-1px);
+}
+
+.login-auth-alternatives {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.login-auth-alternatives:not(:has(.login-passkey-btn:not(.hidden))) {
+  display: none;
+}
+
+.login-auth-alternatives .login-auth-divider {
+  flex: 0 0 100%;
+}
+
+.login-auth-alternatives .login-passkey-btn {
+  display: inline-flex;
+  box-sizing: border-box;
+  flex: 1 0 max-content;
+  min-width: min(100%, 148px);
+  max-width: 100%;
+  width: auto;
+  margin-top: 0;
+  padding: 9px 10px;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  font-size: 12px;
+  line-height: 1.15;
+  text-align: center;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.login-auth-divider {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.login-auth-divider::before,
+.login-auth-divider::after {
+  content: '';
+  height: 1px;
+  background: var(--border);
+  opacity: 0.72;
 }
 
 .app-download-panel {
@@ -3095,7 +3150,7 @@ input[type="color"]::-moz-color-swatch {
   height: 1px;
   margin: 12px 0 10px;
   background: var(--border);
-  opacity: 0.95;
+  opacity: 0.8;
 }
 
 .settings-download-panel {
@@ -3167,10 +3222,6 @@ input[type="color"]::-moz-color-swatch {
   margin-top: 8px;
 }
 
-.login-resource-links {
-  padding-top: 8px;
-}
-
 .login-box > .login-update-refresh {
   display: flex;
   width: fit-content;
@@ -3192,10 +3243,6 @@ input[type="color"]::-moz-color-swatch {
 .native-app .login-box > .login-update-refresh,
 .native-app .login-download-divider {
   display: none !important;
-}
-
-.native-app .login-resource-links {
-  margin-bottom: 0;
 }
 
 .native-app .login-native-server-panel {
@@ -3654,10 +3701,25 @@ input[type="color"]::-moz-color-swatch {
     border: 0;
     border-radius: 0;
     box-shadow: none;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .login-box > :not(.login-theme-toggle) {
+    width: 100%;
+    max-width: 380px;
+    margin-left: auto;
+    margin-right: auto;
   }
 
   .login-brand {
     margin-bottom: 24px;
+  }
+
+  .login-theme-toggle {
+    top: calc(12px + env(safe-area-inset-top));
+    right: 12px;
   }
 
 }
@@ -3669,6 +3731,11 @@ input[type="color"]::-moz-color-swatch {
 
   .login-brand {
     margin-bottom: 18px;
+  }
+
+  .login-theme-toggle {
+    top: calc(10px + env(safe-area-inset-top));
+    right: 10px;
   }
 
   .login-logo {
@@ -3842,8 +3909,17 @@ input[type="color"]::-moz-color-swatch {
 .app-download-launcher .ui-icon {
   width: 15px;
   height: 15px;
+  flex: 0 0 auto;
   color: currentColor;
   opacity: 0.86;
+}
+
+.app-download-launcher span:not(.ui-icon) {
+  min-width: 0;
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .app-download-launcher:hover .ui-icon {
@@ -3854,8 +3930,10 @@ input[type="color"]::-moz-color-swatch {
 .login-box > .login-download-launcher {
   display: flex;
   width: 100%;
-  margin-left: 0;
-  margin-right: 0;
+  max-width: 380px;
+  margin-left: auto;
+  margin-right: auto;
+  text-align: center;
 }
 
 .changelog-link:hover,

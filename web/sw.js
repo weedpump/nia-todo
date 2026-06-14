@@ -1,5 +1,5 @@
 // nia-todo Service Worker - robust offline-first, update system, and push notifications
-const SW_VERSION = 'v2.11.8';
+const SW_VERSION = 'v2.12.0';
 const CACHE_NAME = 'nia-todo-' + SW_VERSION;
 
 // Assets required for offline startup
@@ -278,10 +278,11 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // API requests are auth-bound and must never be cached in the service worker.
+  // API requests are auth-bound and must never be cached by the Service Worker or browser HTTP cache.
+  // OIDC callback URLs contain one-time codes/state; stale responses break auth and are security-sensitive.
   // Offline data lives in the per-user IndexedDB cache, which is cleared on user switch/logout.
   if (url.pathname.startsWith('/api/')) {
-    event.respondWith(fetch(event.request));
+    event.respondWith(fetch(new Request(event.request, { cache: 'no-store' })));
     return;
   }
   

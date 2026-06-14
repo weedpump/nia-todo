@@ -1,3 +1,5 @@
+window.__niaMainModuleLoaded = true;
+
 import { initI18n, t } from './i18n/index.js';
 
 function showBootError(error) {

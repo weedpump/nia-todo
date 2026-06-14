@@ -8,6 +8,7 @@
     "core:default",
     "notification:default",
     "allow-desktop-get-settings",
+    "allow-desktop-consume-pending-oidc-callback",
     "allow-desktop-set-setting",
     "allow-desktop-set-server-url",
     "allow-desktop-clear-server-url",
