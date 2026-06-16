@@ -93,6 +93,7 @@ Guidelines:
 - `.btn-secondary` — neutral action, navigation, retry, utility.
 - `.btn-danger` — destructive or security-sensitive action.
 - `.btn-small` — compact row-level action, not a primary modal action.
+- `.btn-icon` — square icon-only row action; combine with `.btn-small` for compact icon buttons.
 
 ### Visual Contract
 
@@ -104,9 +105,10 @@ Base `.btn` requirements:
 - `38px` minimum height on desktop
 - `12px` border radius for normal buttons
 - `14px` text, `700` weight, centered label
-- shared icon sizing via the global `.btn .ui-icon` rule
+- shared icon sizing via the global `.btn .ui-icon` / `.btn-icon .ui-icon` rules
+- no default shadow on `.btn-primary`; elevation/shadows must be opt-in for a specific component and should not bleed into adjacent stacked buttons
 
-Variants (`.btn-primary`, `.btn-secondary`, `.btn-danger`) change semantic color only; they should not redefine alignment, sizing, or text weight unless the component is intentionally non-standard.
+Variants (`.btn-primary`, `.btn-secondary`, `.btn-danger`) change semantic color only; they should not redefine alignment, sizing, text weight, or default elevation unless the component is intentionally non-standard.
 
 ### Size
 
@@ -114,6 +116,7 @@ Desktop:
 
 - Normal buttons: `38px` minimum height.
 - Small row actions: `34px` minimum height via `.btn-small`.
+- Icon-only row actions: `34px × 34px` via `.btn-icon`.
 - Button text should stay centered and readable.
 
 Mobile:
