@@ -70,6 +70,13 @@ Suggested safe implementation steps:
    - WebSocket connect/auth
    - WebSocket sync request/response
    - online/pageshow/visibility periodic sync attempts
+
+   Current code map captured on `feature/sync-architecture-cleanup`:
+   - `app-lifecycle.js:initApp()` loads IndexedDB first, then sets the app initialized, connects WebSocket, and starts REST `refreshFromServer()` when online.
+   - `sync.js:refreshFromServer()` first pushes pending offline queue via `syncWithServer()`, then performs the authoritative REST full pull and replaces `todos/projects/sections/workspaces` in IndexedDB/UI.
+   - Previous `websocket-client.js:onopen()` also pushed pending queue and then sent normal `sync_request`, creating a second full-cache writer during startup.
+   - Previous `project_delete`/`workspace_delete` handling requested WS full sync as recovery; sharing membership events called `syncWithServer()` despite needing a full visibility refresh.
+
 2. Add focused tests before changing behavior:
    - startup REST full refresh populates IndexedDB and UI
    - WebSocket connects but does not perform competing full-cache replacement during normal startup
@@ -80,6 +87,13 @@ Suggested safe implementation steps:
 3. Change normal WebSocket startup:
    - stop sending normal `sync_request` after `auth_ok`, or gate it behind explicit recovery mode
    - ensure `syncWithServer()` still runs before REST full refresh when pending offline queue exists
+
+   Initial implementation on `feature/sync-architecture-cleanup`:
+   - normal WebSocket startup no longer sends `sync_request`
+   - startup still attempts `syncWithServer()` to push queued offline edits
+   - project/workspace delete recovery and sharing membership refreshes now use REST `refreshFromServer()` instead of WS full sync
+   - frontend realtime test now asserts that normal startup sends zero outbound `sync_request` messages
+
 4. Keep/fix fallback semantics:
    - if REST full refresh fails but WS is connected, optionally request WS full sync as recovery
    - if WS full sync remains, payload shape must stay identical to REST list payloads
