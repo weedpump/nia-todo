@@ -1,5 +1,6 @@
 import { RUNTIME_CAPABILITIES } from '../core/config.js';
 import { getActiveLanguage, t, translatePage } from '../i18n/index.js';
+import { iconSvg } from '../icons/lucide-icons.js';
 import { hydrateSelect, refreshSelect } from '../ui/dropdowns.js';
 import { createNativeBridge } from './native-bridge.js';
 
@@ -71,12 +72,22 @@ export function createTodosFeature({
     row.className = 'todo-subtask-row';
     row.dataset.subtaskId = subtask.id ? String(subtask.id) : `new-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
+    const checkboxLabel = document.createElement('label');
+    checkboxLabel.className = 'ui-checkbox-label todo-subtask-check-label';
+
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
     checkbox.className = 'todo-subtask-check';
     checkbox.checked = Boolean(subtask.is_done);
     checkbox.addEventListener('change', updateSubtaskEditorCount);
 
+    const checkboxBox = document.createElement('span');
+    checkboxBox.className = 'ui-checkbox-box';
+    checkboxBox.setAttribute('aria-hidden', 'true');
+    checkboxLabel.append(checkbox, checkboxBox);
+
+    const inputWrap = document.createElement('div');
+    inputWrap.className = 'form-group todo-subtask-title-group';
     const input = document.createElement('input');
     input.type = 'text';
     input.className = 'todo-subtask-title-input';
@@ -84,18 +95,19 @@ export function createTodosFeature({
     input.value = subtask.title || '';
     input.placeholder = t('todo.subtasks.placeholder');
     input.addEventListener('input', updateSubtaskEditorCount);
+    inputWrap.appendChild(input);
 
     const remove = document.createElement('button');
     remove.type = 'button';
     remove.className = 'btn btn-secondary btn-small todo-subtask-remove';
-    remove.textContent = '×';
+    remove.innerHTML = iconSvg('trash-2');
     remove.setAttribute('aria-label', t('common.delete'));
     remove.addEventListener('click', () => {
       row.remove();
       updateSubtaskEditorCount();
     });
 
-    row.append(checkbox, input, remove);
+    row.append(checkboxLabel, inputWrap, remove);
     list.appendChild(row);
     updateSubtaskEditorCount();
     return input;
@@ -1475,16 +1487,6 @@ export function createTodosFeature({
     await updateTodoFields(id, { is_pinned: !Boolean(todo.is_pinned) }, Boolean(todo.is_pinned) ? t('todo.toast.unpinned') : t('todo.toast.pinned'));
   }
 
-  async function toggleTodoSubtask(todoId, subtaskKey) {
-    const todo = getTodos().find(x => String(x.id) === String(todoId));
-    if (!todo) return;
-    const subtasks = normalizeSubtasks(todo.subtasks || []).map((subtask, index) => ({ ...subtask, sort_order: index }));
-    const nextSubtasks = subtasks.map((subtask, index) => {
-      const key = subtask.id ?? subtask.sort_order ?? index;
-      return String(key) === String(subtaskKey) ? { ...subtask, is_done: !subtask.is_done } : subtask;
-    });
-    await updateTodoFields(todo.id, { subtasks: nextSubtasks });
-  }
 
   function getTodoReminderTime(todo) {
     const raw = todo?.remind_at || todo?.reminders?.find?.(reminder => !reminder.sent_at)?.remind_at || todo?.reminders?.[0]?.remind_at;
@@ -1587,5 +1589,5 @@ export function createTodosFeature({
     if (isOnlineForSync()) await syncWithServer();
   }
 
-  return { markTodoDone, markTodoInProgress, setTodoStatus, toggleTodo, toggleTodoPin, toggleTodoSubtask, addTodoSubtaskFromInput, snoozeTodo, duplicateTodo, showTodoModal, onProjectChange, saveTodo, editTodo, deleteTodoFromModal, deleteTodo };
+  return { markTodoDone, markTodoInProgress, setTodoStatus, toggleTodo, toggleTodoPin, addTodoSubtaskFromInput, snoozeTodo, duplicateTodo, showTodoModal, onProjectChange, saveTodo, editTodo, deleteTodoFromModal, deleteTodo };
 }
