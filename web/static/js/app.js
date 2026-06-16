@@ -477,6 +477,7 @@ const wsClient = createWebSocketClient({
   wsUrl: WS_URL,
   getAuthToken: () => getAuthToken(),
   syncWithServer: () => syncWithServer(),
+  refreshFromServer: () => refreshFromServer(),
   renderConnectionStatus: (state) => updateConnectionStatusView(state),
   dbGetAll,
   dbPut,
