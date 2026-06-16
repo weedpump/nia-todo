@@ -211,6 +211,33 @@ async function handleWsMessage(msg) {
       : [...projects, projectPayload];
   }
 
+  async function applyTodoCommentPayload(payload, mode) {
+    const todoId = payload?.todo_id;
+    if (!todoId) return false;
+    const local = await getFromDB('todos', todoId);
+    if (!local) return false;
+    const comments = Array.isArray(local.comments) ? [...local.comments] : [];
+    let nextComments = comments;
+    if (mode === 'delete') {
+      nextComments = comments.filter(comment => String(comment.id) !== String(payload.comment_id));
+    } else if (payload.comment?.id) {
+      const existing = comments.find(comment => String(comment.id) === String(payload.comment.id));
+      nextComments = existing
+        ? comments.map(comment => String(comment.id) === String(payload.comment.id) ? payload.comment : comment)
+        : [...comments, payload.comment];
+      nextComments.sort((a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime() || Number(a.id || 0) - Number(b.id || 0));
+    }
+    const updatedTodo = {
+      ...local,
+      comments: nextComments,
+      comments_count: Number.isFinite(Number(payload.comments_count)) ? Number(payload.comments_count) : nextComments.length,
+      updated_at: payload.updated_at || local.updated_at,
+    };
+    await dbPut('todos', updatedTodo);
+    todos = todos.map(todo => String(todo.id) === String(todoId) ? updatedTodo : todo);
+    return true;
+  }
+
   switch (msg.type) {
     case 'auth_ok':
       onAuthOk(msg);
@@ -394,6 +421,19 @@ async function handleWsMessage(msg) {
         await deleteFromDB('todos', msg.payload.id);
         todos = todos.filter(t => t.id !== msg.payload.id);
         renderProjects();
+        renderStats();
+        renderTodos();
+      }
+      break;
+    case 'todo_comment_create':
+    case 'todo_comment_update':
+      if (await applyTodoCommentPayload(msg.payload, 'upsert')) {
+        renderStats();
+        renderTodos();
+      }
+      break;
+    case 'todo_comment_delete':
+      if (await applyTodoCommentPayload(msg.payload, 'delete')) {
         renderStats();
         renderTodos();
       }

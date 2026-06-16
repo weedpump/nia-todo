@@ -117,6 +117,25 @@ def _normalize_comment_body(body: str) -> str:
     return normalized
 
 
+def _comment_count_for_todo(db, todo_id: int) -> int:
+    row = db.execute("SELECT COUNT(*) AS count FROM todo_comments WHERE todo_id = ?", (todo_id,)).fetchone()
+    return int(row['count'] if row else 0)
+
+
+def _comment_event_payload(db, todo_id: int, *, comment: dict | None = None, comment_id: int | None = None) -> dict:
+    row = db.execute("SELECT updated_at FROM todos WHERE id = ?", (todo_id,)).fetchone()
+    payload = {
+        "todo_id": todo_id,
+        "comments_count": _comment_count_for_todo(db, todo_id),
+        "updated_at": row['updated_at'] if row else now_iso(),
+    }
+    if comment is not None:
+        payload["comment"] = comment
+    if comment_id is not None:
+        payload["comment_id"] = comment_id
+    return payload
+
+
 def _normalize_subtasks(subtasks: Optional[list[TodoSubtaskInput]]) -> list[dict]:
     normalized: list[dict] = []
     if not subtasks:
@@ -837,7 +856,7 @@ async def create_todo_comment(todo_id: int, data: TodoCommentCreate, user_id: in
             (cursor.lastrowid,)
         ).fetchone())
         todo = fetch_todo(db, todo_id, user_id)
-        await broadcast_change("todo_update", todo, user_id, todo.get('project_id'))
+        await broadcast_change("todo_comment_create", _comment_event_payload(db, todo_id, comment=comment), user_id, todo.get('project_id'))
         return {"comment": comment, "todo": todo}
 
 
@@ -868,7 +887,7 @@ async def update_todo_comment(todo_id: int, comment_id: int, data: TodoCommentUp
             (comment_id,)
         ).fetchone())
         todo = fetch_todo(db, todo_id, user_id)
-        await broadcast_change("todo_update", todo, user_id, todo.get('project_id'))
+        await broadcast_change("todo_comment_update", _comment_event_payload(db, todo_id, comment=updated), user_id, todo.get('project_id'))
         return {"comment": updated, "todo": todo}
 
 
@@ -890,7 +909,7 @@ async def delete_todo_comment(todo_id: int, comment_id: int, user_id: int = Depe
         db.execute("UPDATE todos SET updated_at = ? WHERE id = ?", (now, todo_id))
         db.commit()
         todo = fetch_todo(db, todo_id, user_id)
-        await broadcast_change("todo_update", todo, user_id, todo.get('project_id'))
+        await broadcast_change("todo_comment_delete", _comment_event_payload(db, todo_id, comment_id=comment_id), user_id, todo.get('project_id'))
         return {"deleted": comment_id, "todo": todo}
 
 @router.delete("/{todo_id}")

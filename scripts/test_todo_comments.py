@@ -111,7 +111,19 @@ async def noop_broadcast(*_args, **_kwargs):
     return None
 
 
-def make_client(db, user_id=1):
+def make_broadcast_collector(events):
+    async def collect(event_type, payload, user_id, project_id=None, recipient_ids=None):
+        events.append({
+            "event_type": event_type,
+            "payload": payload,
+            "user_id": user_id,
+            "project_id": project_id,
+            "recipient_ids": recipient_ids,
+        })
+    return collect
+
+
+def make_client(db, user_id=1, broadcast_events=None):
     app = FastAPI()
     app.include_router(todos_router.router)
     app.dependency_overrides[require_auth] = lambda: user_id
@@ -121,13 +133,14 @@ def make_client(db, user_id=1):
         yield db
 
     todos_router.get_db = fake_get_db
-    todos_router.broadcast_change = noop_broadcast
+    todos_router.broadcast_change = make_broadcast_collector(broadcast_events) if broadcast_events is not None else noop_broadcast
     return TestClient(app)
 
 
 def main():
     db = make_db()
-    owner = make_client(db, user_id=1)
+    broadcast_events = []
+    owner = make_client(db, user_id=1, broadcast_events=broadcast_events)
 
     created = owner.post("/api/todos", json={"title": "Document rollout", "project_id": 2})
     assert_true(created.status_code == 200, created.text)
@@ -142,13 +155,16 @@ def main():
     assert_true(body["todo"]["comments"][0]["author_display_name"] == "Owner Display", body)
     assert_true(body["todo"]["comments"][0]["author_username"] == "owner", body)
     assert_true(body["todo"]["comments"][0]["created_at"].endswith("+00:00"), body)
+    assert_true(broadcast_events[-1]["event_type"] == "todo_comment_create", broadcast_events[-1])
+    assert_true("reminders" not in broadcast_events[-1]["payload"], broadcast_events[-1])
+    assert_true("location_reminders" not in broadcast_events[-1]["payload"], broadcast_events[-1])
 
     listed = owner.get("/api/todos")
     assert_true(listed.status_code == 200, listed.text)
     listed_todo = next(todo for todo in listed.json()["todos"] if todo["id"] == todo_id)
     assert_true(listed_todo["comments_count"] == 1, listed_todo)
 
-    member = make_client(db, user_id=2)
+    member = make_client(db, user_id=2, broadcast_events=broadcast_events)
     member_view = member.get(f"/api/todos/{todo_id}")
     assert_true(member_view.status_code == 200, member_view.text)
     assert_true(member_view.json()["comments"][0]["body"] == "First note", member_view.json())
@@ -177,8 +193,9 @@ def main():
     )
     assert_true(member_can_edit_own_comment.status_code == 200, member_can_edit_own_comment.text)
     assert_true(member_can_edit_own_comment.json()["comment"]["body"] == "Member note edited", member_can_edit_own_comment.text)
+    assert_true(broadcast_events[-1]["event_type"] == "todo_comment_update", broadcast_events[-1])
 
-    stranger = make_client(db, user_id=3)
+    stranger = make_client(db, user_id=3, broadcast_events=broadcast_events)
     forbidden = stranger.post(f"/api/todos/{todo_id}/comments", json={"body": "Nope"})
     assert_true(forbidden.status_code in (403, 404), forbidden.text)
 
@@ -188,6 +205,7 @@ def main():
     owner_can_delete_member_comment = owner.delete(f"/api/todos/{todo_id}/comments/{member_comment_id}")
     assert_true(owner_can_delete_member_comment.status_code == 200, owner_can_delete_member_comment.text)
     assert_true(owner_can_delete_member_comment.json()["todo"]["comments_count"] == 1, owner_can_delete_member_comment.text)
+    assert_true(broadcast_events[-1]["event_type"] == "todo_comment_delete", broadcast_events[-1])
 
     second_member_comment = member.post(f"/api/todos/{todo_id}/comments", json={"body": "Member disposable note"})
     assert_true(second_member_comment.status_code == 200, second_member_comment.text)
@@ -202,6 +220,9 @@ def main():
 
     empty = owner.post(f"/api/todos/{todo_id}/comments", json={"body": "   "})
     assert_true(empty.status_code == 422, empty.text)
+    comment_event_types = [event["event_type"] for event in broadcast_events if event["event_type"].startswith("todo_comment_")]
+    assert_true(comment_event_types, broadcast_events)
+    assert_true("todo_update" not in comment_event_types, broadcast_events)
 
     print("✅ Todo comments API tests passed")
 
