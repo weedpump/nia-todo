@@ -152,7 +152,8 @@ export function createTodosFeature({
     }
   }
 
-  function renderTodoComments(comments = [], todoId = null) {
+  function renderTodoComments(comments = [], todo = null) {
+    const todoId = todo?.id || null;
     const list = document.getElementById('todo-comments-list');
     const empty = document.getElementById('todo-comments-empty');
     const input = document.getElementById('todo-comment-new-body');
@@ -190,7 +191,8 @@ export function createTodosFeature({
       const actions = document.createElement('div');
       actions.className = 'todo-comment-actions';
       const currentUserId = getCurrentUser?.()?.id;
-      if (String(comment.user_id) === String(currentUserId)) {
+      const canDelete = String(comment.user_id) === String(currentUserId) || String(todo?.user_id) === String(currentUserId);
+      if (canDelete) {
         const remove = document.createElement('button');
         remove.type = 'button';
         remove.className = 'btn btn-secondary btn-small btn-icon';
@@ -210,7 +212,7 @@ export function createTodosFeature({
     if (!updatedTodo) return;
     await dbPut('todos', updatedTodo);
     setTodos(getTodos().map(todo => String(todo.id) === String(updatedTodo.id) ? updatedTodo : todo));
-    renderTodoComments(updatedTodo.comments || [], updatedTodo.id);
+    renderTodoComments(updatedTodo.comments || [], updatedTodo);
     renderStats();
     renderTodos();
   }
@@ -1490,7 +1492,7 @@ export function createTodosFeature({
       }
       populateLocationReminderForm(todo);
       renderTodoSubtaskEditor(todo.subtasks || []);
-      renderTodoComments(todo.comments || [], todo.id);
+      renderTodoComments(todo.comments || [], todo);
     } else {
       document.getElementById('todo-pinned').checked = false;
       document.getElementById('todo-recurring-frequency').value = 'none';
