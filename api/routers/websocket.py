@@ -105,10 +105,12 @@ async def websocket_endpoint(websocket: WebSocket):
                             subtask_dict['is_done'] = bool(subtask_dict.get('is_done'))
                             subtasks_by_todo.setdefault(subtask_dict.pop('todo_id'), []).append(subtask_dict)
                         comment_rows = db.execute(
-                            f"""SELECT id, todo_id, user_id, body, created_at, updated_at
-                                FROM todo_comments
-                                WHERE todo_id IN ({subtask_placeholders})
-                                ORDER BY created_at, id""",
+                            f"""SELECT tc.id, tc.todo_id, tc.user_id, tc.body, tc.created_at, tc.updated_at,
+                                      u.username AS author_username, u.display_name AS author_display_name
+                                FROM todo_comments tc
+                                LEFT JOIN users u ON u.id = tc.user_id
+                                WHERE tc.todo_id IN ({subtask_placeholders})
+                                ORDER BY tc.created_at, tc.id""",
                             todo_ids
                         ).fetchall()
                         for comment in comment_rows:

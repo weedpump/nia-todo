@@ -178,7 +178,9 @@ export function createTodosFeature({
       const meta = document.createElement('div');
       meta.className = 'todo-comment-meta';
       const author = document.createElement('span');
-      author.textContent = t('todo.comments.author', { userId: comment.user_id || '?' });
+      const authorName = comment.author_display_name || comment.author_username || t('todo.comments.unknownAuthor');
+      author.textContent = authorName;
+      if (comment.author_username && comment.author_username !== authorName) author.title = comment.author_username;
       const time = document.createElement('time');
       time.dateTime = comment.created_at || '';
       time.textContent = formatTodoCommentTime(comment.created_at);
@@ -191,7 +193,17 @@ export function createTodosFeature({
       const actions = document.createElement('div');
       actions.className = 'todo-comment-actions';
       const currentUserId = getCurrentUser?.()?.id;
-      const canDelete = String(comment.user_id) === String(currentUserId) || String(todo?.user_id) === String(currentUserId);
+      const isAuthor = String(comment.user_id) === String(currentUserId);
+      const canDelete = isAuthor || String(todo?.user_id) === String(currentUserId);
+      if (isAuthor) {
+        const edit = document.createElement('button');
+        edit.type = 'button';
+        edit.className = 'btn btn-secondary btn-small';
+        edit.textContent = t('common.edit');
+        edit.setAttribute('aria-label', t('todo.comments.edit'));
+        edit.addEventListener('click', () => startTodoCommentEdit(item, body, actions, todoId, comment));
+        actions.appendChild(edit);
+      }
       if (canDelete) {
         const remove = document.createElement('button');
         remove.type = 'button';
@@ -205,6 +217,38 @@ export function createTodosFeature({
       item.append(meta, body, actions);
       list.appendChild(item);
     }
+  }
+
+  function startTodoCommentEdit(item, bodyEl, actionsEl, todoId, comment) {
+    if (!todoId || !comment?.id || item.dataset.editing === '1') return;
+    item.dataset.editing = '1';
+    const original = comment.body || '';
+    const editor = document.createElement('textarea');
+    editor.className = 'todo-comment-edit-input';
+    editor.rows = Math.max(3, Math.min(8, original.split('\n').length + 1));
+    editor.maxLength = 5000;
+    editor.value = original;
+    bodyEl.replaceWith(editor);
+    actionsEl.innerHTML = '';
+
+    const save = document.createElement('button');
+    save.type = 'button';
+    save.className = 'btn btn-primary btn-small';
+    save.textContent = t('common.save');
+    save.addEventListener('click', () => updateTodoComment(todoId, comment.id, editor.value));
+
+    const cancel = document.createElement('button');
+    cancel.type = 'button';
+    cancel.className = 'btn btn-secondary btn-small';
+    cancel.textContent = t('common.cancel');
+    cancel.addEventListener('click', () => {
+      item.dataset.editing = '0';
+      renderTodoComments(getTodos().find(todo => String(todo.id) === String(todoId))?.comments || [], getTodos().find(todo => String(todo.id) === String(todoId)) || null);
+    });
+
+    actionsEl.append(save, cancel);
+    editor.focus();
+    editor.setSelectionRange(editor.value.length, editor.value.length);
   }
 
   async function applyCommentTodoResponse(response) {
@@ -244,11 +288,36 @@ export function createTodosFeature({
     }
   }
 
+  async function updateTodoComment(todoId, commentId, body) {
+    const normalized = String(body || '').trim();
+    if (!normalized) {
+      showToast(t('todo.comments.emptyBody'));
+      return;
+    }
+    if (!todoId || !commentId || !isOnlineForSync()) {
+      showToast(t('todo.comments.onlineOnly'));
+      return;
+    }
+    try {
+      const response = await todosApi.updateComment(todoId, commentId, { body: normalized });
+      await applyCommentTodoResponse(response);
+    } catch (error) {
+      console.error('Failed to update todo comment', error);
+      showToast(t('todo.comments.saveFailed'));
+    }
+  }
+
   async function deleteTodoComment(todoId, commentId) {
     if (!todoId || !commentId || !isOnlineForSync()) {
       showToast(t('todo.comments.onlineOnly'));
       return;
     }
+    const confirmed = await confirmDanger({
+      title: t('todo.comments.deleteTitle'),
+      message: t('todo.comments.deleteMessage'),
+      confirmText: t('todo.comments.deleteConfirm'),
+    });
+    if (!confirmed) return;
     try {
       const response = await todosApi.deleteComment(todoId, commentId);
       await applyCommentTodoResponse(response);

@@ -8371,3 +8371,16 @@ body.is-minimal-todos .todo-meta-chip.todo-subtasks-progress {
 body.is-minimal-todos .todo-meta-chip.todo-comments-progress {
   display: none;
 }
+
+.todo-comment-edit-input {
+  grid-column: 1 / -1;
+  width: 100%;
+  min-width: 0;
+  resize: vertical;
+}
+
+.todo-comment-item:has(.todo-comment-edit-input) .todo-comment-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}

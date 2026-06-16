@@ -31,6 +31,7 @@ def make_db():
         CREATE TABLE users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT NOT NULL,
+            display_name TEXT,
             default_reminder_offset_minutes INTEGER
         );
         CREATE TABLE projects (
@@ -96,8 +97,8 @@ def make_db():
         );
         """
     )
-    db.execute("INSERT INTO users (id, username, default_reminder_offset_minutes) VALUES (1, 'tobi', NULL)")
-    db.execute("INSERT INTO users (id, username, default_reminder_offset_minutes) VALUES (2, 'shared', NULL)")
+    db.execute("INSERT INTO users (id, username, display_name, default_reminder_offset_minutes) VALUES (1, 'tobi', 'Tobi', NULL)")
+    db.execute("INSERT INTO users (id, username, display_name, default_reminder_offset_minutes) VALUES (2, 'shared', 'Shared User', NULL)")
     db.execute("INSERT INTO projects (id, name, user_id, is_inbox) VALUES (1, 'Inbox', 1, 1)")
     db.execute("INSERT INTO projects (id, name, user_id, is_inbox) VALUES (2, 'Shared Project', 1, 0)")
     db.execute("INSERT INTO project_members (project_id, user_id, status) VALUES (2, 2, 'accepted')")

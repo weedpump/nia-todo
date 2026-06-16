@@ -5,6 +5,7 @@ export const todosApi = {
   create: (data) => http.post('/api/todos', data),
   update: (todoId, changes) => http.patch(`/api/todos/${todoId}`, changes),
   createComment: (todoId, data) => http.post(`/api/todos/${todoId}/comments`, data),
+  updateComment: (todoId, commentId, data) => http.patch(`/api/todos/${todoId}/comments/${commentId}`, data),
   deleteComment: (todoId, commentId) => http.del(`/api/todos/${todoId}/comments/${commentId}`),
   delete: (todoId) => http.del(`/api/todos/${todoId}`),
 };

@@ -29,7 +29,7 @@ def make_db():
     db.row_factory = sqlite3.Row
     db.executescript(
         """
-        CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL);
+        CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL, display_name TEXT);
         CREATE TABLE projects (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, user_id INTEGER, is_inbox INTEGER DEFAULT 0);
         CREATE TABLE project_members (id INTEGER PRIMARY KEY AUTOINCREMENT, project_id INTEGER NOT NULL, user_id INTEGER NOT NULL, status TEXT DEFAULT 'accepted');
         CREATE TABLE sections (id INTEGER PRIMARY KEY AUTOINCREMENT, project_id INTEGER NOT NULL, name TEXT NOT NULL);
@@ -58,6 +58,14 @@ def make_db():
             title TEXT NOT NULL,
             is_done INTEGER NOT NULL DEFAULT 0,
             sort_order INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT DEFAULT (datetime('now'))
+        );
+        CREATE TABLE todo_comments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            todo_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            body TEXT NOT NULL,
             created_at TEXT DEFAULT (datetime('now')),
             updated_at TEXT DEFAULT (datetime('now'))
         );
@@ -95,7 +103,7 @@ def make_db():
         );
         """
     )
-    db.execute("INSERT INTO users (id, username) VALUES (1, 'tobi')")
+    db.execute("INSERT INTO users (id, username, display_name) VALUES (1, 'tobi', 'Tobi')")
     db.execute("INSERT INTO users (id, username) VALUES (2, 'moni')")
     db.execute("INSERT INTO projects (id, name, user_id, is_inbox) VALUES (1, 'Inbox', 1, 1)")
     db.execute("INSERT INTO project_members (project_id, user_id, status) VALUES (1, 2, 'accepted')")
