@@ -137,7 +137,18 @@ export function createTodosFeature({
     remove.className = 'btn btn-secondary btn-small btn-icon todo-subtask-remove';
     remove.innerHTML = iconSvg('trash-2');
     remove.setAttribute('aria-label', t('todo.subtasks.delete'));
-    remove.addEventListener('click', () => {
+    remove.setAttribute('title', t('todo.subtasks.delete'));
+    remove.addEventListener('click', async () => {
+      const hasPersistedId = row.dataset.subtaskId && !row.dataset.subtaskId.startsWith('new-');
+      const hasTitle = Boolean(input.value.trim());
+      if (hasPersistedId || hasTitle) {
+        const confirmed = await confirmDanger({
+          title: t('todo.subtasks.deleteTitle'),
+          message: t('todo.subtasks.deleteMessage'),
+          confirmText: t('todo.subtasks.deleteConfirm'),
+        });
+        if (!confirmed) return;
+      }
       row.remove();
       updateSubtaskEditorCount();
     });
