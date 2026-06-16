@@ -8,6 +8,7 @@ await withFreshDb(async () => {
 
     await openTodoModal();
     await page.fill('#todo-title', 'Frontend subtasks persistence');
+    await page.click('#todo-subtasks-panel > summary');
     await page.fill('#todo-subtask-new-title', 'First checklist item');
     await page.press('#todo-subtask-new-title', 'Enter');
     const focusedAfterFirstAdd = await page.evaluate(() => document.activeElement?.id);
@@ -68,6 +69,13 @@ await withFreshDb(async () => {
     const cardText = await page.locator('.todo-item').filter({ hasText: 'Frontend subtasks persistence' }).first().innerText();
     if (!cardText.includes('0/2')) {
       throw new Error(`Subtask progress pill missing after reload: ${cardText}`);
+    }
+
+    await page.locator('.todo-item').filter({ hasText: 'Frontend subtasks persistence' }).first().click();
+    await page.locator('#todo-modal').waitFor({ state: 'visible', timeout: 5000 });
+    const subtaskPanelOpen = await page.locator('#todo-subtasks-panel').evaluate(panel => panel.open);
+    if (!subtaskPanelOpen) {
+      throw new Error('Expected subtasks panel to open automatically when subtasks exist');
     }
 
     assertNoFrontendErrors();
