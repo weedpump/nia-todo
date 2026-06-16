@@ -2,6 +2,7 @@ export function createWebSocketClient({
   wsUrl,
   getAuthToken,
   syncWithServer,
+  refreshFromServer = null,
   renderConnectionStatus,
   dbGetAll,
   dbPut,
@@ -84,15 +85,14 @@ function connectWebSocket() {
         wsSend({ type: 'auth', token: token });
       }
 
-      // FIRST: Push local changes (if queue exists)
+      // FIRST: Push local changes (if queue exists). Full cache refreshes are
+      // intentionally owned by REST (`refreshFromServer`) so WebSocket startup
+      // cannot race the authoritative startup pull.
       try {
         await syncWithServer();
       } catch (e) {
         console.error('Pre-sync failed', e);
       }
-
-      // DANN: Full sync vom Server holen
-      wsSend({ type: 'sync_request' });
 
       // Start ping interval
       startPingInterval();
@@ -448,12 +448,8 @@ async function handleWsMessage(msg) {
         await Promise.all(deletedIds.map(projectId => deleteFromDB('projects', projectId)));
         projects = projects.filter(p => !deletedIds.includes(p.id));
         setProjects(projects);
-        if (ws?.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ type: 'sync_request' }));
-        }
-        renderProjects();
-        renderStats();
-        renderTodos();
+        await refreshFromServer?.();
+        return;
       }
       break;
     case 'workspace_create':
@@ -475,10 +471,8 @@ async function handleWsMessage(msg) {
         setWorkspaces?.(workspaces);
         renderWorkspaces?.();
       }
-      if (ws?.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: 'sync_request' }));
-      }
-      break;
+      await refreshFromServer?.();
+      return;
     case 'member_invited':
     case 'member_accepted':
     case 'member_declined':
@@ -486,13 +480,14 @@ async function handleWsMessage(msg) {
     case 'member_restored':
     case 'member_left':
     case 'member_color_changed':
-      // refresh from server on sharing events
-      await syncWithServer();
+      // Refresh from REST on sharing events because membership changes can
+      // alter full project/todo visibility, while WebSocket stays delta-only.
+      await refreshFromServer?.();
       // reload invites list when membership changes
       if (typeof window.loadInvites === 'function') {
         window.loadInvites();
       }
-      break;
+      return;
     case 'section_create':
       if (msg.payload) {
         await dbPut('sections', msg.payload);
