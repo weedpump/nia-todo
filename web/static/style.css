@@ -8088,11 +8088,9 @@ body.is-minimal-todos .todo-actions {
   transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
 }
 
-.ui-checkbox-box::before {
-  content: "✓";
-  font-size: 14px;
-  font-weight: 900;
-  line-height: 1;
+.ui-checkbox-box .ui-icon {
+  width: 14px;
+  height: 14px;
   opacity: 0;
   transform: scale(0.7) rotate(-8deg);
   transition: opacity 0.15s ease, transform 0.15s ease;
@@ -8109,7 +8107,7 @@ body.is-minimal-todos .todo-actions {
   box-shadow: 0 6px 16px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.24));
 }
 
-.ui-checkbox-label:has(input:checked) .ui-checkbox-box::before {
+.ui-checkbox-label:has(input:checked) .ui-checkbox-box .ui-icon {
   opacity: 1;
   transform: scale(1) rotate(0deg);
 }
@@ -8147,6 +8145,11 @@ body.is-minimal-todos .todo-actions {
   align-items: center;
 }
 
+.todo-subtasks-add-row .btn {
+  justify-content: center;
+  min-height: 40px;
+}
+
 .todo-subtask-title-group {
   margin: 0;
 }
@@ -8159,7 +8162,10 @@ body.is-minimal-todos .todo-actions {
 .todo-subtask-remove {
   width: 34px;
   min-width: 34px;
-  padding-inline: 0;
+  height: 34px;
+  padding: 0;
+  align-items: center;
+  justify-content: center;
 }
 
 .todo-subtask-remove .ui-icon {
@@ -8184,5 +8190,10 @@ body.is-minimal-todos .todo-meta-chip.todo-subtasks-progress {
 
   .todo-subtasks-add-row {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .todo-subtasks-add-row .btn {
+    width: 100%;
+    min-height: 42px;
   }
 }
