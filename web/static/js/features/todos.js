@@ -57,7 +57,16 @@ export function createTodosFeature({
     panel.open = Boolean(shouldOpen);
   }
 
+  function isMobileTodoModalLayout() {
+    return Boolean(window.matchMedia?.('(max-width: 768px)')?.matches);
+  }
+
   function updateTodoMetaPanelsOpenState(todo = null) {
+    if (isMobileTodoModalLayout()) {
+      setTodoCollapsibleOpen('todo-schedule-panel', false);
+      setTodoCollapsibleOpen('todo-organize-panel', false);
+      return;
+    }
     const recurringRule = normalizeRecurringRule(todo?.recurring_rule, { defaultTimezone: null });
     const hasLocationReminder = Array.isArray(todo?.location_reminders) && todo.location_reminders.length > 0;
     const hasScheduleDetails = Boolean(todo?.due_date || todo?.remind_at || (Array.isArray(todo?.reminders) && todo.reminders.length > 0) || (recurringRule && recurringRule.frequency !== 'none') || hasLocationReminder);
@@ -65,7 +74,6 @@ export function createTodosFeature({
       todo && (
         Number(todo.priority || 3) !== 3 ||
         (todo.status || 'pending') !== 'pending' ||
-        Boolean(todo.section_id) ||
         Boolean(todo.is_pinned)
       )
     );
