@@ -88,6 +88,22 @@ async def websocket_endpoint(websocket: WebSocket):
                     todos_sql += " ORDER BY CASE t.status WHEN 'pending' THEN 0 WHEN 'in_progress' THEN 1 WHEN 'done' THEN 2 ELSE 3 END, t.priority, t.due_date IS NULL, t.due_date"
                     todos_rows = db.execute(todos_sql, params).fetchall()
 
+                    todo_ids = [row['id'] for row in todos_rows]
+                    subtasks_by_todo = {todo_id: [] for todo_id in todo_ids}
+                    if todo_ids:
+                        subtask_placeholders = ','.join('?' for _ in todo_ids)
+                        subtask_rows = db.execute(
+                            f"""SELECT id, todo_id, title, is_done, sort_order, created_at, updated_at
+                                FROM todo_subtasks
+                                WHERE todo_id IN ({subtask_placeholders})
+                                ORDER BY sort_order, id""",
+                            todo_ids
+                        ).fetchall()
+                        for subtask in subtask_rows:
+                            subtask_dict = row_to_dict(subtask)
+                            subtask_dict['is_done'] = bool(subtask_dict.get('is_done'))
+                            subtasks_by_todo.setdefault(subtask_dict.pop('todo_id'), []).append(subtask_dict)
+
                     todos_out = []
                     for r in todos_rows:
                         d = row_to_dict(r)
@@ -106,6 +122,7 @@ async def websocket_endpoint(websocket: WebSocket):
                             (d['id'], ws_user_id)
                         ).fetchall()
                         d['reminders'] = [dict(r) for r in rem_rows]
+                        d['subtasks'] = subtasks_by_todo.get(d['id'], [])
                         d['location_reminders'] = [dict(r) for r in location_rows]
                         d['location_reminder'] = d['location_reminders'][0] if d['location_reminders'] else None
                         todos_out.append(d)
