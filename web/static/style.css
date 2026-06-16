@@ -1071,7 +1071,6 @@ select:focus-visible {
   transition: all 0.15s;
   cursor: pointer;
   touch-action: pan-y;
-  will-change: transform;
 }
 
 .todo-item.swiping {
@@ -7029,10 +7028,14 @@ input[type="color"]::-moz-color-swatch {
 /* Keep mobile todo row actions collapsed until the reveal arrow is tapped. */
 @media (max-width: 768px) {
   .todo-actions {
+    position: relative;
+    z-index: 220;
     display: flex;
     flex-direction: row;
     flex-wrap: nowrap;
     align-items: center;
+    align-self: center;
+    flex: 0 0 auto;
     gap: 5px;
     margin-left: 2px;
   }

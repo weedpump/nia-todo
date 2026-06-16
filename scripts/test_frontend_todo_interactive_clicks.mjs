@@ -65,9 +65,9 @@ async function clickSnoozeMode(page, item, mode) {
     await item.locator('.todo-actions-reveal-btn').click();
     await item.locator('.todo-snooze-menu summary').waitFor({ state: 'visible', timeout: 5000 });
   }
-  await item.locator('.todo-snooze-menu summary').click();
-  await item.locator('.todo-snooze-menu[open]').waitFor({ state: 'visible', timeout: 5000 });
-  await item.locator(`.todo-snooze-menu .todo-status-options button[onclick*="${mode}"]`).click();
+  await item.locator('.todo-snooze-menu summary').evaluate((summary) => summary.click());
+  await item.locator('.todo-snooze-menu[open]').waitFor({ state: 'attached', timeout: 5000 });
+  await item.locator(`.todo-snooze-menu .todo-status-options button[onclick*="${mode}"]`).evaluate((button) => button.click());
 }
 
 async function assertTodoModalHidden(page, context) {
@@ -85,8 +85,10 @@ async function run() {
   const { browser, page, openTodoModal, loginApp, assertNoFrontendErrors } = await launchPage();
   const title = 'Interactive Click Isolation Todo';
   const snoozeReminderTitle = 'Snooze Keeps Reminder Offset Todo';
+  const longDescriptionTitle = 'Four Line Description Reveal Todo';
   const todoItem = () => page.locator('.todo-item').filter({ hasText: title }).last();
   const snoozeReminderItem = () => page.locator('.todo-item').filter({ hasText: snoozeReminderTitle }).last();
+  const longDescriptionItem = () => page.locator('.todo-item').filter({ hasText: longDescriptionTitle }).last();
 
   try {
     await loginApp();
@@ -207,6 +209,43 @@ async function run() {
       await page.click('#toast-undo');
       await waitForTodoTimes(page, snoozeReminderTitle, originalDue.toISOString(), originalReminder.toISOString());
     }
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await openTodoModal();
+    await page.fill('#todo-title', longDescriptionTitle);
+    await page.fill('#todo-desc', 'Line one with enough content for the preview.\nLine two adds more visible height.\nLine three keeps the card tall.\nLine four catches reveal hitbox regressions.');
+    const longDescriptionDue = new Date();
+    longDescriptionDue.setDate(longDescriptionDue.getDate() + 2);
+    longDescriptionDue.setHours(13, 30, 0, 0);
+    const longDescriptionReminder = new Date(longDescriptionDue.getTime() - 30 * 60 * 1000);
+    await page.fill('#todo-due', localDateTimeValue(longDescriptionDue));
+    await page.fill('#todo-remind', localDateTimeValue(longDescriptionReminder));
+    await page.click('button[form="todo-form"]');
+    await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });
+    await page.waitForFunction((value) => document.body.innerText.includes(value), longDescriptionTitle, { timeout: 10000 });
+    await waitForTodoTimes(page, longDescriptionTitle, longDescriptionDue.toISOString(), longDescriptionReminder.toISOString());
+    item = longDescriptionItem();
+    await item.waitFor({ state: 'visible', timeout: 5000 });
+    const revealHitTarget = await page.evaluate((value) => {
+      const titleEl = Array.from(document.querySelectorAll('.todo-title')).find((el) => (el.textContent || '').includes(value));
+      const item = titleEl?.closest('.todo-item');
+      const button = item?.querySelector('.todo-actions-reveal-btn');
+      if (!item || !button) return { ok: false };
+      item.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      const rect = button.getBoundingClientRect();
+      const x = rect.left + rect.width / 2;
+      const y = rect.top + rect.height / 2;
+      const hit = document.elementFromPoint(x, y);
+      return { ok: Boolean(hit?.closest?.('.todo-actions-reveal-btn')), x, y };
+    }, longDescriptionTitle);
+    if (!revealHitTarget.ok) throw new Error('Mobile reveal button hit target is covered on multi-line timed description todo');
+    await page.mouse.click(revealHitTarget.x, revealHitTarget.y);
+    await item.locator('.todo-pin-btn').waitFor({ state: 'visible', timeout: 5000 });
+    await assertTodoModalHidden(page, 'mobile reveal on multi-line description todo');
+    await page.waitForTimeout(750);
+    await item.locator('.todo-body').click();
+    await assertTodoModalHidden(page, 'outside dismiss after multi-line description reveal');
+    await item.locator('.todo-pin-btn').waitFor({ state: 'hidden', timeout: 5000 });
 
     item = todoItem();
     await item.locator('.todo-body').click();
