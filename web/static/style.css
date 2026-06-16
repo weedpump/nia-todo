@@ -7953,8 +7953,12 @@ body.is-minimal-todos .todo-title-wrap {
     grid-row: 2;
   }
 
-  .todo-body .todo-desc-preview {
+  .todo-title-wrap:has(.todo-desc-preview) .todo-meta-row {
     grid-row: 3;
+  }
+
+  .todo-body .todo-desc-preview {
+    grid-row: 2;
   }
 }
 
