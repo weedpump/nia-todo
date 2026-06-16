@@ -10,6 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 ### Added
 - Added checklist-style subtasks on todos, including progress chips on todo cards, modal-only checklist editing, offline/realtime sync, recurring-todo checklist carry-over, and confirmation before completing a parent todo with open subtasks.
 
+### Changed
+- Cleaned up startup sync ownership so REST handles authoritative full refreshes while WebSocket startup stays on auth/session and realtime deltas, preventing duplicate full-cache writers from racing IndexedDB/UI state.
+
+### Fixed
+- Guarded authoritative REST refreshes while local offline queue sync is active or still pending, preventing cache replacement from clobbering queued offline changes.
+
 ## [2.12.2] - 2026-06-16
 
 ### Added
