@@ -40,7 +40,11 @@ export function renderTodoItem(t) {
   const remindStr = reminderTime ? formatDate(reminderTime) : '';
   const recurrenceStr = recurringLabel(t.recurring_rule);
   const locationStr = locationReminderLabel(t);
-  const hasMeta = dueStr || remindStr || recurrenceStr || locationStr;
+  const subtasks = Array.isArray(t.subtasks) ? t.subtasks : [];
+  const doneSubtasks = subtasks.filter(subtask => Boolean(subtask.is_done)).length;
+  const hasSubtasks = subtasks.length > 0;
+  const subtaskProgress = hasSubtasks ? i18nT('todo.subtasks.progress', { done: doneSubtasks, total: subtasks.length }) : '';
+  const hasMeta = dueStr || remindStr || recurrenceStr || locationStr || hasSubtasks;
   const desc = t.description ? truncateWords(String(t.description).replace(/\s+/g, ' ').trim(), 18) : '';
   const hasDesc = desc && desc.length > 0;
   const idArg = JSON.stringify(t.id);
@@ -63,6 +67,7 @@ export function renderTodoItem(t) {
               ${remindStr ? `<span class="todo-meta-chip todo-reminder">${iconSvg('bell')} ${remindStr}</span>` : ''}
               ${recurrenceStr ? `<span class="todo-meta-chip todo-recurring">${iconSvg('repeat')} ${escapeHtml(recurrenceStr)}</span>` : ''}
               ${locationStr ? `<span class="todo-meta-chip todo-location" title="${escapeHtmlAttr(i18nT('todo.location.androidOnlyPillTitle'))}">${iconSvg('map-pin')} ${escapeHtml(locationStr)}</span>` : ''}
+              ${hasSubtasks ? `<span class="todo-meta-chip todo-subtasks-progress">${iconSvg('list')} ${escapeHtml(subtaskProgress)}</span>` : ''}
             </div>
             ` : ''}
             ${hasDesc ? `<div class="todo-desc-preview" title="${escapeHtmlAttr(String(t.description || ''))}">${renderMarkdown(desc)}</div>` : ''}

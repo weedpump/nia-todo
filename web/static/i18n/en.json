@@ -1261,5 +1261,18 @@
   "admin.user.sessionRevokeTitle": "End session?",
   "admin.user.sessionRevokeMessage": "This user session will be ended immediately. If it uses a remembered 2FA device, that device will be revoked as well.",
   "admin.user.sessionsRevokeAllTitle": "End all sessions?",
-  "admin.user.sessionsRevokeAllMessage": "All active sessions and remembered 2FA devices for {username} will be ended."
+  "admin.user.sessionsRevokeAllMessage": "All active sessions and remembered 2FA devices for {username} will be ended.",
+  "common.add": "Add",
+  "todo.subtasks": "Subtasks",
+  "todo.subtasks.hint": "Small checklist for this task.",
+  "todo.subtasks.placeholder": "Next step…",
+  "todo.subtasks.newLabel": "New subtask",
+  "todo.subtasks.empty": "No subtasks yet.",
+  "todo.subtasks.progress": "{done}/{total} done",
+  "todo.subtasks.toggleDone": "Toggle subtask done",
+  "todo.subtasks.titleLabel": "Subtask title",
+  "todo.subtasks.delete": "Delete subtask",
+  "todo.subtasks.completeWithOpenTitle": "Complete todo with open subtasks?",
+  "todo.subtasks.completeWithOpenMessage": "This todo still has {count} open subtask(s). Mark it done anyway?",
+  "todo.subtasks.completeAnyway": "Complete anyway"
 }
