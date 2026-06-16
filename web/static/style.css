@@ -1559,6 +1559,12 @@ select:focus-visible {
 
 .btn-secondary { background: var(--bg-tertiary); color: var(--text-primary); }
 .btn-secondary:hover { background: var(--bg-hover); }
+.btn-small {
+  min-height: 34px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  font-size: 12px;
+}
 
 /* Modal */
 .modal {
@@ -6336,13 +6342,6 @@ input[type="color"]::-moz-color-swatch {
   padding: 9px 14px;
 }
 
-#settings-modal .btn-small {
-  min-height: 34px;
-  padding: 7px 10px;
-  border-radius: 10px;
-  font-size: 12px;
-}
-
 #settings-modal .settings-card-actions,
 #settings-modal .settings-action-row {
   display: grid;
@@ -8145,11 +8144,6 @@ body.is-minimal-todos .todo-actions {
   align-items: center;
 }
 
-.todo-subtasks-add-row .btn {
-  justify-content: center;
-  min-height: 40px;
-}
-
 .todo-subtask-title-group {
   margin: 0;
 }
@@ -8192,8 +8186,4 @@ body.is-minimal-todos .todo-meta-chip.todo-subtasks-progress {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .todo-subtasks-add-row .btn {
-    width: 100%;
-    min-height: 42px;
-  }
 }
