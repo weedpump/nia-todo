@@ -2,11 +2,20 @@
 import { withFreshDb, launchPage } from './frontend_test_lib.mjs';
 
 await withFreshDb(async () => {
-  const { browser, page, loginApp, openTodoModal, assertNoFrontendErrors } = await launchPage();
+  const { browser, page, loginApp, openTodoModal, waitForText, assertNoFrontendErrors } = await launchPage();
   try {
     await loginApp();
 
     await openTodoModal();
+    const initialPanels = await page.evaluate(() => ({
+      organize: document.querySelector('#todo-organize-panel')?.open,
+      schedule: document.querySelector('#todo-schedule-panel')?.open,
+      subtasks: document.querySelector('#todo-subtasks-panel')?.open,
+      comments: document.querySelector('#todo-comments-panel')?.open,
+    }));
+    if (initialPanels.organize || initialPanels.schedule || initialPanels.subtasks || initialPanels.comments) {
+      throw new Error(`Expected empty todo detail panels to start collapsed: ${JSON.stringify(initialPanels)}`);
+    }
     await page.fill('#todo-title', 'Frontend subtasks persistence');
     await page.click('#todo-subtasks-panel > summary');
     await page.fill('#todo-subtask-new-title', 'First checklist item');
@@ -76,6 +85,27 @@ await withFreshDb(async () => {
     const subtaskPanelOpen = await page.locator('#todo-subtasks-panel').evaluate(panel => panel.open);
     if (!subtaskPanelOpen) {
       throw new Error('Expected subtasks panel to open automatically when subtasks exist');
+    }
+    await page.click('#todo-cancel-btn');
+    await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });
+
+    await openTodoModal();
+    await page.fill('#todo-title', 'Frontend metadata panels');
+    await page.click('#todo-organize-panel > summary');
+    await page.selectOption('#todo-priority', '1');
+    await page.click('#todo-schedule-panel > summary');
+    await page.fill('#todo-due', '2099-01-02T03:04');
+    await page.click('#todo-modal button[type="submit"]');
+    await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 10000 });
+    await waitForText('Frontend metadata panels');
+    await page.locator('.todo-item').filter({ hasText: 'Frontend metadata panels' }).first().click();
+    await page.locator('#todo-modal').waitFor({ state: 'visible', timeout: 5000 });
+    const metadataPanelsOpen = await page.evaluate(() => ({
+      organize: document.querySelector('#todo-organize-panel')?.open,
+      schedule: document.querySelector('#todo-schedule-panel')?.open,
+    }));
+    if (!metadataPanelsOpen.organize || !metadataPanelsOpen.schedule) {
+      throw new Error(`Expected organize/schedule panels to open when relevant values exist: ${JSON.stringify(metadataPanelsOpen)}`);
     }
 
     assertNoFrontendErrors();

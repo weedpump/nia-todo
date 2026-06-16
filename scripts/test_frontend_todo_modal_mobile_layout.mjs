@@ -68,6 +68,7 @@ async function run() {
     await page.setViewportSize({ width: 390, height: 844 });
     await loginApp();
     await openTodoModal();
+    await page.click('#todo-organize-panel > summary');
 
     const before = await modalMetrics(page);
     assertMobileTodoModalLayout(before, 'before pin toggle');
