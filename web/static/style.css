@@ -1573,6 +1573,7 @@ select:focus-visible {
   width: 34px;
   min-width: 34px;
   height: 34px;
+  min-height: 34px;
   padding: 0;
   flex: 0 0 auto;
 }
@@ -6633,7 +6634,7 @@ input[type="color"]::-moz-color-swatch {
     padding: 14px;
   }
 
-  .ui-section-card .btn {
+  .ui-section-card .btn:not(.btn-icon) {
     min-height: 42px;
   }
 
