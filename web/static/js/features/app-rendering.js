@@ -622,10 +622,21 @@ export function createAppRenderingFeature({
     let filtered = getWorkspaceTodos();
     if (currentProjectId) filtered = filtered.filter(t => t.project_id === currentProjectId);
     if (search) {
-      filtered = filtered.filter(t =>
-        (t.title || '').toLowerCase().includes(search) ||
-        (t.description || '').toLowerCase().includes(search)
-      );
+      const projectById = new Map(projects.map(project => [String(project.id), project]));
+      const sectionById = new Map(allSections.map(section => [String(section.id), section]));
+      filtered = filtered
+        .filter(t =>
+          (t.title || '').toLowerCase().includes(search) ||
+          (t.description || '').toLowerCase().includes(search)
+        )
+        .map(todo => {
+          const project = projectById.get(String(todo.project_id));
+          const section = todo.section_id ? sectionById.get(String(todo.section_id)) : null;
+          const parts = [];
+          if (project?.name) parts.push({ icon: 'folder', label: project.name });
+          if (section?.name) parts.push({ icon: 'layers', label: section.name });
+          return parts.length ? { ...todo, __searchContext: parts } : todo;
+        });
     }
     if (getTodayFocus?.() && currentFilter !== 'done') {
       const now = new Date();

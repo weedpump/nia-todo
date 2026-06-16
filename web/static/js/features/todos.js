@@ -483,6 +483,7 @@ export function createTodosFeature({
       remind: quickAddAliases('quickAdd.syntax.reminderPrefixes'),
       section: quickAddAliases('quickAdd.syntax.sectionPrefixes'),
       project: quickAddAliases('quickAdd.syntax.projectPrefixes'),
+      recurring: quickAddAliases('quickAdd.syntax.recurringPrefixes'),
     };
     const timeSuffixes = quickAddAliases('quickAdd.syntax.timeSuffixes');
     const timeSuffixPattern = aliasPattern(timeSuffixes);
@@ -516,6 +517,33 @@ export function createTodosFeature({
         addMatch('priority', index, t('quickAdd.detected.priority'), t(`todo.priority.${changes.priority === 1 ? 'veryHigh' : changes.priority === 2 ? 'high' : changes.priority === 3 ? 'medium' : 'low'}`));
       }
     });
+
+
+    const recurringValueAliases = [
+      ['daily', quickAddAliases('quickAdd.syntax.recurring.daily')],
+      ['weekly', quickAddAliases('quickAdd.syntax.recurring.weekly')],
+      ['monthly', quickAddAliases('quickAdd.syntax.recurring.monthly')],
+      ['yearly', quickAddAliases('quickAdd.syntax.recurring.yearly')],
+    ];
+    const recurringPrefixPattern = aliasPattern(prefixAliases.recurring);
+    const recurringValuePattern = aliasPattern(recurringValueAliases.flatMap(([, aliases]) => aliases));
+    if (recurringPrefixPattern && recurringValuePattern) {
+      const recurringRegexes = [
+        new RegExp(`(^|\\s)(?:${recurringPrefixPattern})\\s*:?\\s*(?<value>${recurringValuePattern})(?=$|\\s)`, 'giu'),
+      ];
+      for (const regex of recurringRegexes) {
+        for (const match of original.matchAll(regex)) {
+          const value = String(match.groups?.value || '').toLowerCase().replace(/\s+/g, ' ').trim();
+          const frequency = recurringValueAliases.find(([, aliases]) => aliases.includes(value))?.[0];
+          if (!frequency) continue;
+          const valueOffset = match[0].lastIndexOf(match.groups.value);
+          const start = match.index + match[0].search(/\S/u);
+          const end = match.index + valueOffset + match.groups.value.length;
+          changes.recurring_rule = { frequency, interval: 1 };
+          addTokenMatch(matches, matchIndexes, used, tokenSpans, tokens, 'recurring', start, end, t('quickAdd.detected.recurring'), t(`todo.recurring.${frequency}`), 'recurring_rule');
+        }
+      }
+    }
 
     const projectNames = projectNamePattern();
     if (projectNames) {
@@ -729,7 +757,9 @@ export function createTodosFeature({
     if (!getAppInitialized() || !getDb()) return;
     const todo = getTodos().find(x => String(x.id) === String(id));
     if (!todo || todo.status === status) return;
-    const updatedTodo = { ...todo, status, updated_at: new Date().toISOString() };
+    const nowIso = new Date().toISOString();
+    const completed_at = status === 'done' ? nowIso : null;
+    const updatedTodo = { ...todo, status, completed_at, updated_at: nowIso };
     await dbPut('todos', updatedTodo);
     setTodos(getTodos().map(item => String(item.id) === String(id) ? updatedTodo : item));
     renderStats();
@@ -1151,6 +1181,8 @@ export function createTodosFeature({
     hydrateTodoSelects();
     updateRecurringControls();
     document.getElementById('todo-delete-btn').style.display = todo ? '' : 'none';
+    const duplicateBtn = document.getElementById('todo-duplicate-btn');
+    if (duplicateBtn) duplicateBtn.style.display = todo ? '' : 'none';
     setupDescPreview();
     bindQuickAddPreview();
     renderQuickAddPreview(null);
@@ -1241,6 +1273,7 @@ export function createTodosFeature({
       if (parsedQuickAdd.changes.section_id && !todoData.section_id) todoData.section_id = parsedQuickAdd.changes.section_id;
       if (parsedQuickAdd.changes.due_date && !todoData.due_date) todoData.due_date = parsedQuickAdd.changes.due_date;
       if (parsedQuickAdd.changes.remind_at && !todoData.remind_at) todoData.remind_at = parsedQuickAdd.changes.remind_at;
+      if (parsedQuickAdd.changes.recurring_rule && !todoData.recurring_rule) todoData.recurring_rule = parsedQuickAdd.changes.recurring_rule;
     }
     if (todoData.recurring_rule && !todoData.due_date) {
       const dueInput = document.getElementById('todo-due');
@@ -1260,7 +1293,8 @@ export function createTodosFeature({
     if (id) {
       const existing = getTodos().find(t => t.id === parseInt(id));
       if (existing) {
-        const updated = { ...existing, ...todoData, updated_at: new Date().toISOString() };
+        const nowIso = new Date().toISOString();
+        const updated = { ...existing, ...todoData, completed_at: todoData.status === 'done' ? (existing.completed_at || nowIso) : null, updated_at: nowIso };
         await dbPut('todos', updated);
         setTodos(getTodos().map(t => t.id === parseInt(id) ? updated : t));
         await addToSyncQueue('UPDATE_TODO', { id: parseInt(id), changes: todoData });
@@ -1268,7 +1302,8 @@ export function createTodosFeature({
       }
     } else {
       const tempId = 'temp-' + Date.now();
-      const newTodo = { id: tempId, ...todoData, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), reminders: [] };
+      const nowIso = new Date().toISOString();
+      const newTodo = { id: tempId, ...todoData, completed_at: todoData.status === 'done' ? nowIso : null, created_at: nowIso, updated_at: nowIso, reminders: [] };
       await dbPut('todos', newTodo);
       setTodos([...getTodos(), newTodo]);
       renderProjects();
@@ -1295,7 +1330,10 @@ export function createTodosFeature({
     if (!getAppInitialized() || !getDb()) return;
     const todo = getTodos().find(x => String(x.id) === String(id));
     if (!todo) return;
-    const updatedTodo = { ...todo, ...changes, updated_at: new Date().toISOString() };
+    const nowIso = new Date().toISOString();
+    const statusChanged = Object.prototype.hasOwnProperty.call(changes, 'status');
+    const completed_at = statusChanged ? (changes.status === 'done' ? (todo.completed_at || nowIso) : null) : todo.completed_at;
+    const updatedTodo = { ...todo, ...changes, completed_at, updated_at: nowIso };
     await dbPut('todos', updatedTodo);
     setTodos(getTodos().map(item => String(item.id) === String(id) ? updatedTodo : item));
     renderStats();
@@ -1341,6 +1379,53 @@ export function createTodosFeature({
     await updateTodoFields(id, changes, t('todo.toast.snoozed'));
   }
 
+
+  function cloneLocationReminderPayload(todo) {
+    const source = todo?.location_reminder || todo?.location_reminders?.find?.(entry => entry && entry.enabled !== 0 && entry.enabled !== false) || null;
+    if (!source) return null;
+    return {
+      enabled: Boolean(source.enabled ?? true),
+      trigger_type: source.trigger_type || source.triggerType || 'arrival',
+      place_id: source.place_id || source.placeId || null,
+      place_name: source.place_name || source.placeName || null,
+      address: source.address || null,
+      latitude: source.latitude ?? null,
+      longitude: source.longitude ?? null,
+      radius_meters: source.radius_meters ?? source.radiusMeters ?? 150,
+    };
+  }
+
+  async function duplicateTodo(id) {
+    if (!getAppInitialized() || !getDb()) return;
+    const todo = getTodos().find(x => String(x.id) === String(id));
+    if (!todo) return;
+    const reminder = getTodoReminderTime(todo);
+    const todoData = {
+      title: todo.title,
+      description: todo.description || '',
+      priority: Number(todo.priority) || 3,
+      is_pinned: Boolean(todo.is_pinned),
+      project_id: todo.project_id ?? null,
+      section_id: todo.section_id ?? null,
+      status: 'pending',
+      due_date: todo.due_date || null,
+      remind_at: reminder ? reminder.toISOString() : null,
+      recurring_rule: todo.recurring_rule || null,
+      location_reminder: cloneLocationReminderPayload(todo),
+    };
+    todoData.location_reminders = locationReminderArrayFromPayload(todoData.location_reminder);
+    const tempId = 'temp-' + Date.now();
+    const nowIso = new Date().toISOString();
+    const duplicated = { id: tempId, ...todoData, completed_at: null, created_at: nowIso, updated_at: nowIso, reminders: todoData.remind_at ? [{ remind_at: todoData.remind_at }] : [] };
+    await dbPut('todos', duplicated);
+    setTodos([...getTodos(), duplicated]);
+    renderStats();
+    renderTodos();
+    showToast(t('todo.toast.duplicated'));
+    await addToSyncQueue('CREATE_TODO', { ...todoData, _tempId: tempId });
+    if (isOnlineForSync()) await syncWithServer();
+  }
+
   function editTodo(id) {
     const todo = getTodos().find(t => String(t.id) === String(id));
     if (todo) showTodoModal(todo);
@@ -1370,5 +1455,5 @@ export function createTodosFeature({
     if (isOnlineForSync()) await syncWithServer();
   }
 
-  return { markTodoDone, markTodoInProgress, setTodoStatus, toggleTodo, toggleTodoPin, snoozeTodo, showTodoModal, onProjectChange, saveTodo, editTodo, deleteTodoFromModal, deleteTodo };
+  return { markTodoDone, markTodoInProgress, setTodoStatus, toggleTodo, toggleTodoPin, snoozeTodo, duplicateTodo, showTodoModal, onProjectChange, saveTodo, editTodo, deleteTodoFromModal, deleteTodo };
 }

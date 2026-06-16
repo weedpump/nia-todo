@@ -40,7 +40,8 @@ export function renderTodoItem(t) {
   const remindStr = reminderTime ? formatDate(reminderTime) : '';
   const recurrenceStr = recurringLabel(t.recurring_rule);
   const locationStr = locationReminderLabel(t);
-  const hasMeta = dueStr || remindStr || recurrenceStr || locationStr;
+  const searchContext = Array.isArray(t.__searchContext) ? t.__searchContext.filter(item => item?.label) : [];
+  const hasMeta = dueStr || remindStr || recurrenceStr || locationStr || searchContext.length;
   const desc = t.description ? truncateWords(String(t.description).replace(/\s+/g, ' ').trim(), 18) : '';
   const hasDesc = desc && desc.length > 0;
   const idArg = JSON.stringify(t.id);
@@ -63,6 +64,7 @@ export function renderTodoItem(t) {
               ${remindStr ? `<span class="todo-meta-chip todo-reminder">${iconSvg('bell')} ${remindStr}</span>` : ''}
               ${recurrenceStr ? `<span class="todo-meta-chip todo-recurring">${iconSvg('repeat')} ${escapeHtml(recurrenceStr)}</span>` : ''}
               ${locationStr ? `<span class="todo-meta-chip todo-location" title="${escapeHtmlAttr(i18nT('todo.location.androidOnlyPillTitle'))}">${iconSvg('map-pin')} ${escapeHtml(locationStr)}</span>` : ''}
+              ${searchContext.map(item => `<span class="todo-meta-chip todo-search-context">${iconSvg(item.icon || 'folder')} ${escapeHtml(item.label)}</span>`).join('')}
             </div>
             ` : ''}
             ${hasDesc ? `<div class="todo-desc-preview" title="${escapeHtmlAttr(String(t.description || ''))}">${renderMarkdown(desc)}</div>` : ''}
@@ -92,6 +94,7 @@ export function renderTodoItem(t) {
           </div>
         </details>
         <button type="button" onclick='toggleTodoPin(${idArg})' class="todo-pin-btn ${pinned ? 'active' : ''}" title="${escapeHtml(pinned ? i18nT('todo.unpin') : i18nT('todo.pin'))}">${iconSvg('star')}</button>
+        <button type="button" onclick='duplicateTodo(${idArg})' title="${escapeHtml(i18nT('todo.duplicate'))}">${iconSvg('copy')}</button>
         <button type="button" onclick='deleteTodo(${idArg})' title="${escapeHtml(i18nT('common.delete'))}">${iconSvg('trash-2')}</button>
       </div>
     </div>

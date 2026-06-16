@@ -97,7 +97,7 @@ export function createViewPreferencesFeature({ getHideDone, setHideDone, getSort
   }
 
   function cycleSort() {
-    const modes = ['order', 'priority', 'alpha'];
+    const modes = ['order', 'priority', 'due', 'alpha'];
     const idx = modes.indexOf(getSortMode());
     const next = modes[(idx + 1) % modes.length];
     setSortMode(next);
@@ -112,6 +112,7 @@ export function createViewPreferencesFeature({ getHideDone, setHideDone, getSort
     const config = {
       order: { icon: '⇅', title: t('menu.sort.order') },
       priority: { icon: 'P1', title: t('menu.sort.priority') },
+      due: { icon: '⏰', title: t('menu.sort.due') },
       alpha: { icon: 'AZ', title: t('menu.sort.alpha') },
     };
     const c = config[getSortMode()] || config.order;
@@ -137,6 +138,21 @@ export function createViewPreferencesFeature({ getHideDone, setHideDone, getSort
         const pa = prioOrder[a.priority] ?? 4;
         const pb = prioOrder[b.priority] ?? 4;
         if (pa !== pb) return pa - pb;
+        return (a.sort_order ?? 0) - (b.sort_order ?? 0);
+      });
+    }
+    if (sortMode === 'due') {
+      const dueRank = (todo) => {
+        const raw = todo?.due_date || todo?.remind_at || todo?.reminders?.find?.(reminder => !reminder.sent_at)?.remind_at || todo?.reminders?.[0]?.remind_at || '';
+        const time = raw ? new Date(raw).getTime() : Number.POSITIVE_INFINITY;
+        return Number.isFinite(time) ? time : Number.POSITIVE_INFINITY;
+      };
+      return [...list].sort((a, b) => {
+        const pinned = Number(Boolean(b.is_pinned)) - Number(Boolean(a.is_pinned));
+        if (pinned) return pinned;
+        const da = dueRank(a);
+        const db = dueRank(b);
+        if (da !== db) return da - db;
         return (a.sort_order ?? 0) - (b.sort_order ?? 0);
       });
     }
