@@ -32,6 +32,17 @@ let pingInterval = null;
 let reconnectTimer = null;
 let wsIntentionalClose = false;
 
+function mergeTodoPayloadWithLocalSubtasks(incoming, local = null) {
+  if (!incoming || typeof incoming !== 'object') return incoming;
+  if (Object.prototype.hasOwnProperty.call(incoming, 'subtasks')) {
+    return { ...incoming, subtasks: Array.isArray(incoming.subtasks) ? incoming.subtasks : [] };
+  }
+  if (local && Object.prototype.hasOwnProperty.call(local, 'subtasks')) {
+    return { ...incoming, subtasks: Array.isArray(local.subtasks) ? local.subtasks : [] };
+  }
+  return { ...incoming, subtasks: [] };
+}
+
 function getReconnectDelay() {
   const delay = Math.min(BASE_RECONNECT_DELAY * Math.pow(2, reconnectAttempts), 30000);
   const jitter = Math.random() * 1000;
@@ -230,8 +241,9 @@ async function handleWsMessage(msg) {
         }
         for (const todo of msg.todos) {
           const local = await getFromDB('todos', todo.id);
+          const incomingTodo = mergeTodoPayloadWithLocalSubtasks(todo, local);
           if (!local) {
-            await dbPut('todos', todo);
+            await dbPut('todos', incomingTodo);
           } else {
             const queue = await dbGetAll('syncQueue');
             const pendingChanges = queue.find(q =>
@@ -239,9 +251,9 @@ async function handleWsMessage(msg) {
             );
             if (!pendingChanges) {
               const localTime = new Date(local.updated_at || 0).getTime();
-              const serverTime = new Date(todo.updated_at || 0).getTime();
+              const serverTime = new Date(incomingTodo.updated_at || 0).getTime();
               if (serverTime >= localTime) {
-                await dbPut('todos', todo);
+                await dbPut('todos', incomingTodo);
               }
             }
           }
@@ -329,7 +341,9 @@ async function handleWsMessage(msg) {
       break;
     case 'todo_create':
       if (msg.payload) {
-        await dbPut('todos', msg.payload);
+        const local = await getFromDB('todos', msg.payload.id);
+        const incomingTodo = mergeTodoPayloadWithLocalSubtasks(msg.payload, local);
+        await dbPut('todos', incomingTodo);
         // Check if we have a temp todo in queue for this server response
         const queue = await dbGetAll('syncQueue');
         const pendingCreate = queue.find(q =>
@@ -339,17 +353,17 @@ async function handleWsMessage(msg) {
           // Replace temp todo with real server version
           await deleteFromDB('todos', pendingCreate.data._tempId);
           todos = todos.filter(t => t.id !== pendingCreate.data._tempId);
-          const existingReal = todos.find(t => t.id === msg.payload.id);
+          const existingReal = todos.find(t => t.id === incomingTodo.id);
           if (existingReal) {
-            todos = todos.map(t => t.id === msg.payload.id ? msg.payload : t);
+            todos = todos.map(t => t.id === incomingTodo.id ? incomingTodo : t);
           } else {
-            todos.push(msg.payload);
+            todos.push(incomingTodo);
           }
         } else {
           // Broadcast from another client → add to list
-          const existing = todos.find(t => t.id === msg.payload.id);
-          if (!existing) todos.push(msg.payload);
-          else todos = todos.map(t => t.id === msg.payload.id ? msg.payload : t);
+          const existing = todos.find(t => t.id === incomingTodo.id);
+          if (!existing) todos.push(incomingTodo);
+          else todos = todos.map(t => t.id === incomingTodo.id ? incomingTodo : t);
         }
         renderProjects();
         renderStats();
@@ -367,8 +381,9 @@ async function handleWsMessage(msg) {
             break;
           }
         }
-        await dbPut('todos', msg.payload);
-        todos = todos.map(t => t.id === msg.payload.id ? msg.payload : t);
+        const incomingTodo = mergeTodoPayloadWithLocalSubtasks(msg.payload, local);
+        await dbPut('todos', incomingTodo);
+        todos = todos.map(t => t.id === incomingTodo.id ? incomingTodo : t);
         renderProjects();
         renderStats();
         renderTodos();

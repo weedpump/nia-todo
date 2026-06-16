@@ -3,6 +3,34 @@ import { withFreshDb, launchPage } from './frontend_test_lib.mjs';
 
 await withFreshDb(async () => {
   const { browser, page, loginApp, openTodoModal, assertNoFrontendErrors } = await launchPage();
+  await page.addInitScript(() => {
+    window.__niaSubtasksWsProbe = { syncResponses: 0, syncResponsesWithSubtasks: 0, syncResponsesMissingSubtasks: 0 };
+    const NativeWebSocket = window.WebSocket;
+    class TrackedWebSocket extends NativeWebSocket {
+      constructor(...args) {
+        super(...args);
+        this.addEventListener('message', event => {
+          try {
+            const msg = JSON.parse(event.data);
+            if (msg.type !== 'sync_response' || !Array.isArray(msg.todos)) return;
+            window.__niaSubtasksWsProbe.syncResponses += 1;
+            const target = msg.todos.find(todo => todo.title === 'Frontend subtasks persistence');
+            if (!target) return;
+            if (Array.isArray(target.subtasks) && target.subtasks.length === 2) {
+              window.__niaSubtasksWsProbe.syncResponsesWithSubtasks += 1;
+            } else {
+              window.__niaSubtasksWsProbe.syncResponsesMissingSubtasks += 1;
+            }
+          } catch {}
+        });
+      }
+    }
+    for (const key of ['CONNECTING', 'OPEN', 'CLOSING', 'CLOSED']) {
+      Object.defineProperty(TrackedWebSocket, key, { value: NativeWebSocket[key] });
+      Object.defineProperty(TrackedWebSocket.prototype, key, { value: NativeWebSocket[key] });
+    }
+    window.WebSocket = TrackedWebSocket;
+  });
   try {
     await loginApp();
 
@@ -56,6 +84,21 @@ await withFreshDb(async () => {
     if (afterReload.subtasks.map(item => item.title).join('|') !== 'First checklist item|Second checklist item') {
       throw new Error(`Subtasks were not persisted after reload: ${JSON.stringify(afterReload.subtasks)}`);
     }
+    await page.waitForFunction(() => window.__niaSubtasksWsProbe?.syncResponsesWithSubtasks >= 1, null, { timeout: 15000 });
+    const wsProbe = await page.evaluate(() => window.__niaSubtasksWsProbe);
+    if (wsProbe.syncResponsesMissingSubtasks > 0) {
+      throw new Error(`WebSocket sync_response omitted subtasks: ${JSON.stringify(wsProbe)}`);
+    }
+
+    await page.waitForTimeout(250);
+    const cachedAfterWs = await page.evaluate(async () => {
+      const todos = await window.dbGetAll('todos');
+      return todos.find(item => item.title === 'Frontend subtasks persistence');
+    });
+    if (!Array.isArray(cachedAfterWs?.subtasks) || cachedAfterWs.subtasks.length !== 2) {
+      throw new Error(`IndexedDB lost subtasks after WebSocket sync_response: ${JSON.stringify(cachedAfterWs)}`);
+    }
+
     const cardText = await page.locator('.todo-item').filter({ hasText: 'Frontend subtasks persistence' }).first().innerText();
     if (!cardText.includes('0/2')) {
       throw new Error(`Subtask progress pill missing after reload: ${cardText}`);
