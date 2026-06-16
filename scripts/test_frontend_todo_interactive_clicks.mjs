@@ -61,6 +61,10 @@ function nextWeekday(from, weekday) {
 }
 
 async function clickSnoozeMode(page, item, mode) {
+  if (!(await item.locator('.todo-snooze-menu summary').isVisible()) && await item.locator('.todo-actions-reveal-btn').isVisible()) {
+    await item.locator('.todo-actions-reveal-btn').click();
+    await item.locator('.todo-snooze-menu summary').waitFor({ state: 'visible', timeout: 5000 });
+  }
   await item.locator('.todo-snooze-menu summary').click();
   await item.locator('.todo-snooze-menu[open]').waitFor({ state: 'visible', timeout: 5000 });
   await item.locator(`.todo-snooze-menu .todo-status-options button[onclick*="${mode}"]`).click();

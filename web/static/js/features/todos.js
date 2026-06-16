@@ -946,7 +946,13 @@ export function createTodosFeature({
     document.addEventListener('click', (event) => {
       if (event.defaultPrevented) return;
       const item = event.target?.closest?.('.todo-item[data-id]');
-      if (!item || isTodoInteractiveTarget(event.target)) return;
+      if (!item) return;
+      if (item.__niaRevealHandledAt && Date.now() - item.__niaRevealHandledAt < 700) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+      if (isTodoInteractiveTarget(event.target)) return;
       event.preventDefault();
       editTodo(item.dataset.id);
     });
@@ -1099,6 +1105,67 @@ export function createTodosFeature({
     return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'BUTTON' || tag === 'A' || element?.isContentEditable;
   }
 
+  function setTodoActionsExpanded(current, expanded) {
+    if (!current) return;
+    current.classList.toggle('actions-expanded', Boolean(expanded));
+    current.querySelector('.todo-actions-reveal-btn')?.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+  }
+
+  function closeOtherTodoActions(current) {
+    document.querySelectorAll('.todo-item.actions-expanded').forEach((item) => {
+      if (item === current) return;
+      setTodoActionsExpanded(item, false);
+    });
+  }
+
+  function toggleTodoActions(idOrItem, event = null) {
+    event?.stopPropagation?.();
+    const current = idOrItem?.classList?.contains?.('todo-item')
+      ? idOrItem
+      : Array.from(document.querySelectorAll('.todo-item')).find((item) => item.dataset.id === String(idOrItem));
+    if (!current) return;
+    const expanded = !current.classList.contains('actions-expanded');
+    closeOtherTodoActions(current);
+    setTodoActionsExpanded(current, expanded);
+  }
+
+  function bindTodoActionsReveal() {
+    if (document.documentElement.dataset.todoActionsRevealBound === '1') return;
+    document.documentElement.dataset.todoActionsRevealBound = '1';
+    const handleReveal = (event) => {
+      const button = event.target?.closest?.('.todo-actions-reveal-btn');
+      if (!button) return;
+      if (event.type === 'click' && button.__niaRevealPointerHandledAt && Date.now() - button.__niaRevealPointerHandledAt < 600) {
+        event.preventDefault?.();
+        event.stopPropagation?.();
+        event.stopImmediatePropagation?.();
+        return;
+      }
+      const item = button.closest('.todo-item[data-id]');
+      if (!item) return;
+      event.preventDefault?.();
+      if (event.type === 'pointerup') button.__niaRevealPointerHandledAt = Date.now();
+      item.__niaRevealHandledAt = Date.now();
+      toggleTodoActions(item, event);
+      event.stopImmediatePropagation?.();
+    };
+    const handleOutsideDismiss = (event) => {
+      const expandedItems = Array.from(document.querySelectorAll('.todo-item.actions-expanded'));
+      if (!expandedItems.length) return;
+      if (event.target?.closest?.('.todo-actions')) return;
+      expandedItems.forEach((item) => setTodoActionsExpanded(item, false));
+      const tappedTodo = event.target?.closest?.('.todo-item[data-id]');
+      if (tappedTodo && !isTodoInteractiveTarget(event.target)) {
+        event.preventDefault?.();
+        event.stopPropagation?.();
+        event.stopImmediatePropagation?.();
+      }
+    };
+    document.addEventListener('pointerup', handleReveal, { capture: true, passive: false });
+    document.addEventListener('click', handleReveal, true);
+    document.addEventListener('click', handleOutsideDismiss, true);
+  }
+
   function resetTodoActionMenuPlacement(menu) {
     menu?.classList?.remove('opens-up', 'placement-ready');
   }
@@ -1200,6 +1267,7 @@ export function createTodosFeature({
 
   bindTodoItemClickBehavior();
   bindTodoSwipeGestures();
+  bindTodoActionsReveal();
   bindTodoStatusMenuBehavior();
   bindTodoHoverKeyboardShortcuts();
 
@@ -1594,5 +1662,5 @@ export function createTodosFeature({
     if (isOnlineForSync()) await syncWithServer();
   }
 
-  return { markTodoDone, markTodoInProgress, setTodoStatus, toggleTodo, toggleTodoPin, addTodoSubtaskFromInput, snoozeTodo, duplicateTodo, showTodoModal, onProjectChange, saveTodo, editTodo, deleteTodoFromModal, deleteTodo };
+  return { markTodoDone, markTodoInProgress, setTodoStatus, toggleTodo, toggleTodoPin, toggleTodoActions, addTodoSubtaskFromInput, snoozeTodo, duplicateTodo, showTodoModal, onProjectChange, saveTodo, editTodo, deleteTodoFromModal, deleteTodo };
 }

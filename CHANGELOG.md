@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - Added checklist-style subtasks on todos, including progress chips on todo cards, modal-only checklist editing, offline/realtime sync, recurring-todo checklist carry-over, and confirmation before completing a parent todo with open subtasks.
 
 ### Changed
+- Refined mobile todo card actions, todo modal action buttons, and subtask visual styling for a cleaner compact UI.
 - Cleaned up startup sync ownership so REST handles authoritative full refreshes while WebSocket startup stays on auth/session and realtime deltas, preventing duplicate full-cache writers from racing IndexedDB/UI state.
 
 ### Fixed

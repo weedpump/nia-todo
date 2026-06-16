@@ -15,6 +15,7 @@ export const ICONS = {
   'check': '<path d="M20 6 9 17l-5-5"/>',
   'chevron-down': '<path d="m6 9 6 6 6-6"/>',
   'chevron-up': '<path d="m18 15-6-6-6 6"/>',
+  'chevron-left': '<path d="m15 18-6-6 6-6"/>',
   'check-circle': '<path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/>',
   'plus': '<path d="M5 12h14"/><path d="M12 5v14"/>',
   'trash-2': '<path d="M3 6h18"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><path d="M19 6l-1 14c-.1 1-1 2-2 2H8c-1 0-1.9-1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/>',
