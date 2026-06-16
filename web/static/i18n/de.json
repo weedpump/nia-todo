@@ -1281,7 +1281,7 @@
   "todo.comments.empty": "Noch keine Kommentare.",
   "todo.comments.saveFirst": "Todo erst speichern, dann Kommentare hinzufügen.",
   "todo.comments.newLabel": "Neuer Kommentar",
-  "todo.comments.placeholder": "Notiz hinzufügen…",
+  "todo.comments.placeholder": "Kommentar hinzufügen…",
   "todo.comments.add": "Kommentar hinzufügen",
   "todo.comments.delete": "Kommentar löschen",
   "todo.comments.onlineOnly": "Kommentare brauchen aktuell eine Online-Verbindung.",

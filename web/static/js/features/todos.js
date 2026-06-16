@@ -198,9 +198,10 @@ export function createTodosFeature({
       if (isAuthor) {
         const edit = document.createElement('button');
         edit.type = 'button';
-        edit.className = 'btn btn-secondary btn-small';
-        edit.textContent = t('common.edit');
+        edit.className = 'btn btn-secondary btn-small btn-icon';
+        edit.innerHTML = iconSvg('edit-3');
         edit.setAttribute('aria-label', t('todo.comments.edit'));
+        edit.setAttribute('title', t('todo.comments.edit'));
         edit.addEventListener('click', () => startTodoCommentEdit(item, body, actions, todoId, comment));
         actions.appendChild(edit);
       }
@@ -210,6 +211,7 @@ export function createTodosFeature({
         remove.className = 'btn btn-secondary btn-small btn-icon';
         remove.innerHTML = iconSvg('trash-2');
         remove.setAttribute('aria-label', t('todo.comments.delete'));
+        remove.setAttribute('title', t('todo.comments.delete'));
         remove.addEventListener('click', () => deleteTodoComment(todoId, comment.id));
         actions.appendChild(remove);
       }

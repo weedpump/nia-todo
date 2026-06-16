@@ -1281,7 +1281,7 @@
   "todo.comments.empty": "No comments yet.",
   "todo.comments.saveFirst": "Save the todo before adding comments.",
   "todo.comments.newLabel": "New comment",
-  "todo.comments.placeholder": "Add a note…",
+  "todo.comments.placeholder": "Add a comment…",
   "todo.comments.add": "Add comment",
   "todo.comments.delete": "Delete comment",
   "todo.comments.onlineOnly": "Comments currently need an online connection.",

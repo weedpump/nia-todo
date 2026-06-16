@@ -8384,3 +8384,19 @@ body.is-minimal-todos .todo-meta-chip.todo-comments-progress {
   flex-wrap: wrap;
   gap: 6px;
 }
+
+.todo-comment-edit-input {
+  color: var(--text-primary);
+  border: 1px solid color-mix(in srgb, var(--border) 68%, transparent);
+  border-radius: 12px;
+  background: var(--bg-primary);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--bg-secondary) 46%, transparent);
+  line-height: 1.45;
+  padding: 10px 11px;
+}
+
+.todo-comment-edit-input:focus {
+  border-color: color-mix(in srgb, var(--accent) 72%, var(--border));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
+  outline: none;
+}
