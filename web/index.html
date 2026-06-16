@@ -589,14 +589,16 @@
           </div>
         </details>
 
-        <section class="ui-section-card todo-section-card">
-          <div class="ui-section-heading">
+        <details class="ui-section-card todo-section-card todo-collapsible-card" id="todo-organize-panel">
+          <summary class="ui-section-heading todo-collapsible-summary">
             <div class="ui-section-icon" data-icon="settings"></div>
             <div>
               <h4 data-i18n-key="todo.section.organize">Einordnen</h4>
               <p data-i18n-key="todo.section.organizeHint">Priorität, Status, Projekt und Section.</p>
             </div>
-          </div>
+            <span class="todo-collapsible-spacer"></span>
+            <span class="todo-collapsible-chevron" data-icon="chevron-down" aria-hidden="true"></span>
+          </summary>
           <div class="ui-field-grid two-columns">
             <div class="form-group">
               <label data-i18n-key="todo.priority">Priority</label>
@@ -634,16 +636,18 @@
               <span data-i18n-key="todo.pinned">Oben anpinnen</span>
             </label>
           </div>
-        </section>
+        </details>
 
-        <section class="ui-section-card todo-section-card">
-          <div class="ui-section-heading">
+        <details class="ui-section-card todo-section-card todo-collapsible-card" id="todo-schedule-panel">
+          <summary class="ui-section-heading todo-collapsible-summary">
             <div class="ui-section-icon" data-icon="calendar-days"></div>
             <div>
               <h4 data-i18n-key="todo.section.schedule">Planung</h4>
               <p data-i18n-key="todo.section.scheduleHint">Deadline und Erinnerung, falls diese Aufgabe zeitkritisch ist.</p>
             </div>
-          </div>
+            <span class="todo-collapsible-spacer"></span>
+            <span class="todo-collapsible-chevron" data-icon="chevron-down" aria-hidden="true"></span>
+          </summary>
           <div class="ui-field-grid two-columns">
             <div class="form-group">
               <label data-i18n-key="todo.deadline">Deadline</label>
@@ -720,7 +724,7 @@
             </div>
             <div id="todo-location-error" class="form-error compact"></div>
           </div>
-        </section>
+        </details>
       </form>
       </div>
       <div class="modal-actions todo-modal-actions">

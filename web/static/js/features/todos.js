@@ -57,6 +57,22 @@ export function createTodosFeature({
     panel.open = Boolean(shouldOpen);
   }
 
+  function updateTodoMetaPanelsOpenState(todo = null) {
+    const recurringRule = normalizeRecurringRule(todo?.recurring_rule, { defaultTimezone: null });
+    const hasLocationReminder = Array.isArray(todo?.location_reminders) && todo.location_reminders.length > 0;
+    const hasScheduleDetails = Boolean(todo?.due_date || todo?.remind_at || (Array.isArray(todo?.reminders) && todo.reminders.length > 0) || (recurringRule && recurringRule.frequency !== 'none') || hasLocationReminder);
+    const hasOrganizeDetails = Boolean(
+      todo && (
+        Number(todo.priority || 3) !== 3 ||
+        (todo.status || 'pending') !== 'pending' ||
+        Boolean(todo.section_id) ||
+        Boolean(todo.is_pinned)
+      )
+    );
+    setTodoCollapsibleOpen('todo-schedule-panel', hasScheduleDetails);
+    setTodoCollapsibleOpen('todo-organize-panel', hasOrganizeDetails);
+  }
+
   function updateSubtaskEditorCount() {
     const subtasks = collectTodoSubtasksFromEditor();
     const done = subtasks.filter(subtask => subtask.is_done).length;
@@ -1516,6 +1532,7 @@ export function createTodosFeature({
     if (newSubtaskInput) newSubtaskInput.value = '';
     renderTodoSubtaskEditor([]);
     renderTodoComments([], null);
+    updateTodoMetaPanelsOpenState(null);
     const modalTitle = document.getElementById('todo-modal-title');
     if (modalTitle) {
       modalTitle.dataset.i18nKey = todo ? 'todo.edit' : 'todo.new';
@@ -1579,6 +1596,7 @@ export function createTodosFeature({
       populateLocationReminderForm(todo);
       renderTodoSubtaskEditor(todo.subtasks || []);
       renderTodoComments(todo.comments || [], todo);
+      updateTodoMetaPanelsOpenState(todo);
     } else {
       document.getElementById('todo-pinned').checked = false;
       document.getElementById('todo-recurring-frequency').value = 'none';
@@ -1590,6 +1608,7 @@ export function createTodosFeature({
       const inboxProject = workspaceProjects.find(p => p.is_inbox) || workspaceProjects[0];
       document.getElementById('todo-project').value = getCurrentProjectId() || inboxProject?.id || '';
       await onProjectChange(null);
+      updateTodoMetaPanelsOpenState(null);
     }
 
     hydrateTodoSelects();
