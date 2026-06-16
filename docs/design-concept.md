@@ -116,7 +116,7 @@ Desktop:
 
 - Normal buttons: `38px` minimum height.
 - Small row actions: `34px` minimum height via `.btn-small`.
-- Icon-only row actions: `34px × 34px` via `.btn-icon`.
+- Icon-only row actions: `34px × 34px` via `.btn-icon`; they must remain square and should not inherit mobile full-height button rules.
 - Button text should stay centered and readable.
 
 Mobile:
