@@ -81,21 +81,48 @@ await withFreshDb(async () => {
     await page.locator('.todo-item').filter({ hasText: 'Frontend subtasks persistence' }).first().click();
     await page.locator('#todo-modal').waitFor({ state: 'visible', timeout: 5000 });
     await page.locator('#todo-subtasks-panel').evaluate(panel => { panel.open = true; });
+    const saveDisabledBeforeImmediateSubtask = await page.locator('#todo-save-btn').evaluate(button => button.disabled);
+    if (!saveDisabledBeforeImmediateSubtask) {
+      throw new Error('Expected save button to be disabled before subtask-only changes');
+    }
+    await page.fill('#todo-subtask-new-title', 'Immediate checklist item');
+    await page.press('#todo-subtask-new-title', 'Enter');
+    await page.waitForFunction(async () => {
+      const todos = await window.dbGetAll('todos');
+      const todo = todos.find(item => item.title === 'Frontend subtasks persistence');
+      return Array.isArray(todo?.subtasks) && todo.subtasks.length === 3;
+    }, null, { timeout: 10000 });
+    const saveDisabledAfterImmediateSubtask = await page.locator('#todo-save-btn').evaluate(button => button.disabled);
+    if (!saveDisabledAfterImmediateSubtask) {
+      throw new Error('Expected save button to stay disabled after immediate subtask create');
+    }
     await page.locator('.todo-subtask-remove').first().click();
     await page.locator('#confirm-modal').waitFor({ state: 'visible', timeout: 5000 });
     await page.click('#confirm-cancel-btn');
     await page.locator('#confirm-modal').waitFor({ state: 'hidden', timeout: 5000 });
     let editorSubtaskCount = await page.locator('#todo-subtasks-list .todo-subtask-row').count();
-    if (editorSubtaskCount !== 2) {
-      throw new Error(`Canceling subtask delete should keep both rows, got ${editorSubtaskCount}`);
+    if (editorSubtaskCount !== 3) {
+      throw new Error(`Canceling subtask delete should keep all rows, got ${editorSubtaskCount}`);
     }
     await page.locator('.todo-subtask-remove').first().click();
     await page.locator('#confirm-modal').waitFor({ state: 'visible', timeout: 5000 });
     await page.click('#confirm-confirm-btn');
     await page.locator('#confirm-modal').waitFor({ state: 'hidden', timeout: 5000 });
+    await page.waitForFunction(async () => {
+      const rows = document.querySelectorAll('#todo-subtasks-list .todo-subtask-row').length;
+      const todos = await window.dbGetAll('todos');
+      const todo = todos.find(item => item.title === 'Frontend subtasks persistence');
+      return rows === 2 && Array.isArray(todo?.subtasks) && todo.subtasks.length === 2;
+    }, null, { timeout: 10000 });
     editorSubtaskCount = await page.locator('#todo-subtasks-list .todo-subtask-row').count();
-    if (editorSubtaskCount !== 1) {
-      throw new Error(`Confirming subtask delete should remove one row, got ${editorSubtaskCount}`);
+    if (editorSubtaskCount !== 2) {
+      const debugSubtasks = await page.evaluate(async () => {
+        const rows = Array.from(document.querySelectorAll('#todo-subtasks-list .todo-subtask-row')).map(row => ({ id: row.dataset.subtaskId, title: row.querySelector('.todo-subtask-title-input')?.value }));
+        const todos = await window.dbGetAll('todos');
+        const todo = todos.find(item => item.title === 'Frontend subtasks persistence');
+        return { rows, cached: todo?.subtasks };
+      });
+      throw new Error(`Confirming subtask delete should remove one row, got ${editorSubtaskCount}: ${JSON.stringify(debugSubtasks)}`);
     }
     await page.click('#todo-cancel-btn');
     await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });

@@ -202,6 +202,25 @@ def main():
     owner_view = client.get(f"/api/todos/{shared_todo_id}")
     assert_true(owner_view.json()["subtasks"][1]["title"] == "Shared user item", owner_view.json())
 
+    immediate = shared_client.post(f"/api/todos/{shared_todo_id}/subtasks", json={"title": "Immediate API item"})
+    assert_true(immediate.status_code == 200, immediate.text)
+    immediate_subtask = immediate.json()["subtask"]
+    assert_true(immediate_subtask["title"] == "Immediate API item", immediate.json())
+    assert_true(len(immediate.json()["todo"]["subtasks"]) == 3, immediate.json())
+
+    toggled = shared_client.patch(f"/api/todos/{shared_todo_id}/subtasks/{immediate_subtask['id']}", json={"is_done": True})
+    assert_true(toggled.status_code == 200, toggled.text)
+    assert_true(toggled.json()["subtask"]["is_done"] is True, toggled.json())
+
+    renamed = client.patch(f"/api/todos/{shared_todo_id}/subtasks/{immediate_subtask['id']}", json={"title": "Renamed API item"})
+    assert_true(renamed.status_code == 200, renamed.text)
+    assert_true(renamed.json()["subtask"]["title"] == "Renamed API item", renamed.json())
+
+    deleted = client.delete(f"/api/todos/{shared_todo_id}/subtasks/{immediate_subtask['id']}")
+    assert_true(deleted.status_code == 200, deleted.text)
+    assert_true(deleted.json()["deleted"] == immediate_subtask["id"], deleted.json())
+    assert_true(len(deleted.json()["todo"]["subtasks"]) == 2, deleted.json())
+
     print("✅ Subtask API tests passed")
 
 
