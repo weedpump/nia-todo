@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 
 ### Changed
 - Removed redundant status badges from todo cards: pinned state remains visible through the pinned section and active star action, while in-progress state remains visible through the leading flame/status control.
+- Made one-line todo cards more compact by adopting the cleaner minimal-mode spacing as the default card layout.
 - Improved optimistic/local todo completion state so `completed_at` is set and cleared consistently while offline or before sync.
 
 ## [2.12.1] - 2026-06-14
