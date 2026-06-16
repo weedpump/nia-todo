@@ -6799,11 +6799,16 @@ input[type="color"]::-moz-color-swatch {
 .todo-title-wrap {
   min-width: 0;
   display: grid;
-  gap: 5px;
+  grid-template-columns: fit-content(68%) minmax(0, auto);
+  align-items: center;
+  column-gap: 8px;
+  row-gap: 4px;
   flex: 1;
 }
 
 .todo-title {
+  grid-column: 1;
+  grid-row: 1;
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -6857,9 +6862,15 @@ input[type="color"]::-moz-color-swatch {
 }
 
 .todo-meta-row {
+  grid-column: 2;
+  grid-row: 1;
+  display: flex;
   flex-wrap: wrap;
+  align-items: center;
+  justify-self: start;
+  min-width: 0;
+  width: auto;
   gap: 7px;
-  width: 100%;
 }
 
 .todo-meta-chip.todo-due.soon {
@@ -7069,11 +7080,13 @@ input[type="color"]::-moz-color-swatch {
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
-  width: 100%;
+  width: auto;
 }
 
 /* Todo list descriptions are one-line previews; full multiline text belongs in the modal. */
 .todo-body .todo-desc-preview {
+  grid-column: 1 / -1;
+  grid-row: 2;
   display: block;
   width: 100%;
   max-width: min(560px, 100%);
@@ -7923,6 +7936,21 @@ body.is-minimal-todos .todo-main {
 
 body.is-minimal-todos .todo-title-wrap {
   min-width: 0;
+}
+
+@media (max-width: 640px) {
+  .todo-title-wrap {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .todo-meta-row {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .todo-body .todo-desc-preview {
+    grid-row: 3;
+  }
 }
 
 body.is-minimal-todos .todo-title {
