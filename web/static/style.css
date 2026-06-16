@@ -503,7 +503,7 @@ select:focus-visible {
   position: fixed;
   right: calc(28px + env(safe-area-inset-right, 0px));
   bottom: calc(28px + env(safe-area-inset-bottom, 0px));
-  z-index: 180;
+  z-index: 260;
   width: 62px;
   height: 62px;
   border: 1px solid rgba(var(--accent-hover-rgb), calc(var(--accent-intensity) * 0.72));
@@ -1546,6 +1546,37 @@ select:focus-visible {
 .btn-primary:hover {
   background: linear-gradient(135deg, var(--accent-hover), var(--accent));
   color: #fff;
+}
+
+.btn:disabled,
+.btn[disabled] {
+  cursor: default;
+  opacity: 0.48;
+  filter: grayscale(0.25) saturate(0.6);
+  box-shadow: none;
+  transform: none;
+  pointer-events: none;
+}
+
+.btn-primary:disabled,
+.btn-primary[disabled] {
+  background: color-mix(in srgb, var(--bg-tertiary) 72%, var(--accent));
+  border-color: color-mix(in srgb, var(--border) 78%, var(--accent));
+  color: var(--text-muted);
+}
+
+.btn:disabled:hover,
+.btn[disabled]:hover,
+.btn:disabled:active,
+.btn[disabled]:active,
+.btn-primary:disabled:hover,
+.btn-primary[disabled]:hover,
+.btn-primary:disabled:active,
+.btn-primary[disabled]:active {
+  background: color-mix(in srgb, var(--bg-tertiary) 72%, var(--accent));
+  box-shadow: none;
+  filter: grayscale(0.25) saturate(0.6);
+  transform: none;
 }
 
 /* Icons in primary buttons must stay visible on the accent background. */
@@ -5576,7 +5607,7 @@ input[type="color"]::-moz-color-swatch {
   position: fixed;
   right: calc(104px + env(safe-area-inset-right, 0px));
   bottom: calc(29px + env(safe-area-inset-bottom, 0px));
-  z-index: 180;
+  z-index: 260;
   width: 52px;
   height: 52px;
   border: 1px solid color-mix(in srgb, var(--accent) 62%, var(--border));
@@ -8302,4 +8333,161 @@ body.is-minimal-todos .todo-meta-chip.todo-subtasks-progress {
     grid-template-columns: minmax(0, 1fr);
   }
 
+}
+
+.todo-comments-editor {
+  display: grid;
+  gap: 12px;
+}
+
+.todo-comments-list {
+  display: grid;
+  gap: 9px;
+}
+
+.todo-comment-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 10px;
+  padding: 10px 11px;
+  border: 1px solid color-mix(in srgb, var(--border) 54%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--bg-primary) 42%, transparent);
+}
+
+.todo-comment-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: center;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.todo-comment-body {
+  grid-column: 1 / -1;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.45;
+}
+
+.todo-comment-actions {
+  grid-row: 1;
+  grid-column: 2;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.todo-comments-empty {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.todo-comments-add-group {
+  display: grid;
+  gap: 8px;
+}
+
+.todo-comments-add-group .btn {
+  justify-self: end;
+}
+
+.todo-meta-chip.todo-comments-progress {
+  color: var(--text-muted);
+  border-color: color-mix(in srgb, var(--text-muted) 22%, transparent);
+  background: color-mix(in srgb, var(--text-muted) 8%, transparent);
+}
+
+body.is-minimal-todos .todo-meta-chip.todo-comments-progress {
+  display: none;
+}
+
+.todo-comment-edit-input {
+  grid-column: 1 / -1;
+  width: 100%;
+  min-width: 0;
+  resize: vertical;
+}
+
+.todo-comment-item:has(.todo-comment-edit-input) .todo-comment-actions {
+  flex-wrap: wrap;
+}
+
+.todo-comment-edit-input {
+  color: var(--text-primary);
+  border: 1px solid color-mix(in srgb, var(--border) 68%, transparent);
+  border-radius: 12px;
+  background: var(--bg-primary);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--bg-secondary) 46%, transparent);
+  line-height: 1.45;
+  padding: 10px 11px;
+}
+
+.todo-comment-edit-input:focus {
+  border-color: color-mix(in srgb, var(--accent) 72%, var(--border));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
+  outline: none;
+}
+
+.todo-collapsible-card {
+  display: block;
+}
+
+.todo-collapsible-summary {
+  cursor: pointer;
+  list-style: none;
+  margin-bottom: 0;
+  user-select: none;
+}
+
+.todo-collapsible-summary::-webkit-details-marker {
+  display: none;
+}
+
+.todo-collapsible-summary:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 72%, transparent);
+  outline-offset: 4px;
+  border-radius: 14px;
+}
+
+.todo-collapsible-card[open] > .todo-collapsible-summary {
+  margin-bottom: 16px;
+}
+
+.todo-collapsible-spacer {
+  flex: 1 1 auto;
+}
+
+.todo-collapsible-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  transform: rotate(-90deg);
+  transition: transform 0.16s ease, color 0.16s ease;
+}
+
+.todo-collapsible-card[open] .todo-collapsible-chevron {
+  color: var(--accent);
+  transform: rotate(0deg);
+}
+
+.todo-collapsible-summary .todo-meta-chip {
+  flex: 0 0 auto;
+  align-self: center;
+}
+
+@media (max-width: 640px) {
+  .todo-collapsible-summary {
+    gap: 10px;
+  }
+
+  .todo-collapsible-summary .todo-meta-chip {
+    margin-left: auto;
+  }
 }

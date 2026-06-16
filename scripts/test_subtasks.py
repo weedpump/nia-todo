@@ -31,6 +31,7 @@ def make_db():
         CREATE TABLE users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT NOT NULL,
+            display_name TEXT,
             default_reminder_offset_minutes INTEGER
         );
         CREATE TABLE projects (
@@ -77,6 +78,14 @@ def make_db():
             created_at TEXT DEFAULT (datetime('now')),
             updated_at TEXT DEFAULT (datetime('now'))
         );
+        CREATE TABLE todo_comments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            todo_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            body TEXT NOT NULL,
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT DEFAULT (datetime('now'))
+        );
         CREATE TABLE reminders (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             todo_id INTEGER NOT NULL,
@@ -88,8 +97,8 @@ def make_db():
         );
         """
     )
-    db.execute("INSERT INTO users (id, username, default_reminder_offset_minutes) VALUES (1, 'tobi', NULL)")
-    db.execute("INSERT INTO users (id, username, default_reminder_offset_minutes) VALUES (2, 'shared', NULL)")
+    db.execute("INSERT INTO users (id, username, display_name, default_reminder_offset_minutes) VALUES (1, 'tobi', 'Tobi', NULL)")
+    db.execute("INSERT INTO users (id, username, display_name, default_reminder_offset_minutes) VALUES (2, 'shared', 'Shared User', NULL)")
     db.execute("INSERT INTO projects (id, name, user_id, is_inbox) VALUES (1, 'Inbox', 1, 1)")
     db.execute("INSERT INTO projects (id, name, user_id, is_inbox) VALUES (2, 'Shared Project', 1, 0)")
     db.execute("INSERT INTO project_members (project_id, user_id, status) VALUES (2, 2, 'accepted')")
@@ -192,6 +201,25 @@ def main():
     assert_true(len(shared_update.json()["subtasks"]) == 2, shared_update.json())
     owner_view = client.get(f"/api/todos/{shared_todo_id}")
     assert_true(owner_view.json()["subtasks"][1]["title"] == "Shared user item", owner_view.json())
+
+    immediate = shared_client.post(f"/api/todos/{shared_todo_id}/subtasks", json={"title": "Immediate API item"})
+    assert_true(immediate.status_code == 200, immediate.text)
+    immediate_subtask = immediate.json()["subtask"]
+    assert_true(immediate_subtask["title"] == "Immediate API item", immediate.json())
+    assert_true(len(immediate.json()["todo"]["subtasks"]) == 3, immediate.json())
+
+    toggled = shared_client.patch(f"/api/todos/{shared_todo_id}/subtasks/{immediate_subtask['id']}", json={"is_done": True})
+    assert_true(toggled.status_code == 200, toggled.text)
+    assert_true(toggled.json()["subtask"]["is_done"] is True, toggled.json())
+
+    renamed = client.patch(f"/api/todos/{shared_todo_id}/subtasks/{immediate_subtask['id']}", json={"title": "Renamed API item"})
+    assert_true(renamed.status_code == 200, renamed.text)
+    assert_true(renamed.json()["subtask"]["title"] == "Renamed API item", renamed.json())
+
+    deleted = client.delete(f"/api/todos/{shared_todo_id}/subtasks/{immediate_subtask['id']}")
+    assert_true(deleted.status_code == 200, deleted.text)
+    assert_true(deleted.json()["deleted"] == immediate_subtask["id"], deleted.json())
+    assert_true(len(deleted.json()["todo"]["subtasks"]) == 2, deleted.json())
 
     print("✅ Subtask API tests passed")
 
