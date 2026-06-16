@@ -19,6 +19,12 @@ router = APIRouter(prefix="/api/todos")
 
 # ─── Pydantic Models ─────────────────────────────────────────────────────────
 
+class TodoSubtaskInput(BaseModel):
+    id: Optional[int] = None
+    title: str
+    is_done: bool = False
+    sort_order: Optional[int] = None
+
 class TodoCreate(BaseModel):
     title: str
     description: str = ""
@@ -31,6 +37,8 @@ class TodoCreate(BaseModel):
     remind_at: Optional[str] = None
     location_reminder: Optional[dict] = None
     recurring_rule: Optional[dict] = None
+    subtasks: list[TodoSubtaskInput] = Field(default_factory=list)
+    confirm_incomplete_subtasks_completion: bool = False
 
 class TodoUpdate(BaseModel):
     title: Optional[str] = None
@@ -44,6 +52,8 @@ class TodoUpdate(BaseModel):
     remind_at: Optional[str] = None
     location_reminder: Optional[dict] = None
     recurring_rule: Optional[dict] = None
+    subtasks: Optional[list[TodoSubtaskInput]] = None
+    confirm_incomplete_subtasks_completion: bool = False
 
 
 # ─── Helpers ───────────────────────────────────────────────────────────────────
@@ -66,6 +76,54 @@ def get_user_inbox_project_id(db, user_id: int) -> Optional[int]:
         (user_id,)
     ).fetchone()
     return row['id'] if row else None
+
+
+def _subtasks_for_todo(db, todo_id: int) -> list[dict]:
+    rows = db.execute(
+        """SELECT id, title, is_done, sort_order, created_at, updated_at
+           FROM todo_subtasks
+           WHERE todo_id = ?
+           ORDER BY sort_order, id""",
+        (todo_id,)
+    ).fetchall()
+    return [{**dict(row), 'is_done': bool(row['is_done'])} for row in rows]
+
+
+def _normalize_subtasks(subtasks: Optional[list[TodoSubtaskInput]]) -> list[dict]:
+    normalized: list[dict] = []
+    if not subtasks:
+        return normalized
+    if len(subtasks) > 100:
+        raise HTTPException(422, "Too many subtasks")
+    for index, subtask in enumerate(subtasks):
+        title = sanitize_text(subtask.title or '').strip()
+        if not title:
+            continue
+        if len(title) > 500:
+            raise HTTPException(422, "Subtask title too long")
+        normalized.append({
+            'id': subtask.id,
+            'title': title,
+            'is_done': bool(subtask.is_done),
+            'sort_order': subtask.sort_order if subtask.sort_order is not None else index,
+        })
+    return normalized
+
+
+def _replace_subtasks(db, todo_id: int, subtasks: list[dict]):
+    db.execute("DELETE FROM todo_subtasks WHERE todo_id = ?", (todo_id,))
+    now = now_iso()
+    for index, subtask in enumerate(subtasks):
+        db.execute(
+            """INSERT INTO todo_subtasks (todo_id, title, is_done, sort_order, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (todo_id, subtask['title'], int(bool(subtask['is_done'])), subtask.get('sort_order', index), now, now)
+        )
+
+
+def _has_open_subtasks(subtasks: list[dict]) -> bool:
+    return any(not bool(subtask.get('is_done')) for subtask in subtasks)
+
 
 def fetch_todo(db, todo_id: int, reminder_user_id: Optional[int] = None) -> Optional[dict]:
     row = db.execute(
@@ -92,6 +150,7 @@ def fetch_todo(db, todo_id: int, reminder_user_id: Optional[int] = None) -> Opti
             (todo_id, reminder_user_id)
         ).fetchall()
     d['reminders'] = [dict(r) for r in rem_rows]
+    d['subtasks'] = _subtasks_for_todo(db, todo_id)
     d['location_reminders'] = _location_reminders_for_todo(db, todo_id, reminder_user_id)
     d['location_reminder'] = d['location_reminders'][0] if d['location_reminders'] else None
     return _recurring_rule_response(d)
@@ -478,6 +537,7 @@ def list_todos(status: Optional[str] = None, project_id: Optional[int] = None, s
         todos = [row_to_dict(r) for r in rows]
         todo_ids = [todo['id'] for todo in todos]
         reminders_by_todo = {todo_id: [] for todo_id in todo_ids}
+        subtasks_by_todo = {todo_id: [] for todo_id in todo_ids}
         location_reminders_by_todo = {todo_id: [] for todo_id in todo_ids}
         if todo_ids:
             placeholders = ','.join('?' for _ in todo_ids)
@@ -490,6 +550,17 @@ def list_todos(status: Optional[str] = None, project_id: Optional[int] = None, s
             for reminder in reminder_rows:
                 reminder_dict = dict(reminder)
                 reminders_by_todo.setdefault(reminder_dict.pop('todo_id'), []).append(reminder_dict)
+            subtask_rows = db.execute(
+                f"""SELECT id, todo_id, title, is_done, sort_order, created_at, updated_at
+                   FROM todo_subtasks
+                   WHERE todo_id IN ({placeholders})
+                   ORDER BY sort_order, id""",
+                todo_ids
+            ).fetchall()
+            for subtask in subtask_rows:
+                subtask_dict = dict(subtask)
+                subtask_dict['is_done'] = bool(subtask_dict.get('is_done'))
+                subtasks_by_todo.setdefault(subtask_dict.pop('todo_id'), []).append(subtask_dict)
             try:
                 location_rows = db.execute(
                     f"""SELECT lr.*, sp.name AS place_name, sp.icon AS place_icon FROM location_reminders lr
@@ -505,6 +576,7 @@ def list_todos(status: Optional[str] = None, project_id: Optional[int] = None, s
                 location_reminders_by_todo.setdefault(location_dict.pop('todo_id'), []).append(location_dict)
         for todo in todos:
             todo['reminders'] = reminders_by_todo.get(todo['id'], [])
+            todo['subtasks'] = subtasks_by_todo.get(todo['id'], [])
             todo['location_reminders'] = location_reminders_by_todo.get(todo['id'], [])
             todo['location_reminder'] = todo['location_reminders'][0] if todo['location_reminders'] else None
             _recurring_rule_response(todo)
@@ -516,6 +588,9 @@ async def create_todo(data: TodoCreate, user_id: int = Depends(require_auth)):
     data.description = sanitize_text(data.description)
     _validate_todo_dates(data)
     _validate_todo_status(data.status)
+    subtasks = _normalize_subtasks(data.subtasks)
+    if data.status == 'done' and _has_open_subtasks(subtasks) and not data.confirm_incomplete_subtasks_completion:
+        raise HTTPException(409, "Cannot complete todo with open subtasks without confirmation")
     with get_db() as db:
         if data.project_id is None and data.section_id is None:
             data.project_id = get_user_inbox_project_id(db, user_id)
@@ -532,6 +607,8 @@ async def create_todo(data: TodoCreate, user_id: int = Depends(require_auth)):
             (data.title, data.description, data.priority, int(bool(data.is_pinned)), data.status, data.project_id, data.section_id, data.due_date, completed_at, recurring_rule, now, user_id)
         )
         todo_id = c.lastrowid
+        if subtasks:
+            _replace_subtasks(db, todo_id, subtasks)
         if data.remind_at:
             _insert_reminder(db, todo_id, data.remind_at, user_id, EXPLICIT_REMINDER_SOURCE)
         else:
@@ -562,6 +639,7 @@ async def update_todo(todo_id: int, data: TodoUpdate, user_id: int = Depends(req
         data.description = sanitize_text(data.description)
     _validate_todo_dates(data)
     _validate_todo_status(data.status)
+    subtasks_update = _normalize_subtasks(data.subtasks) if data.subtasks is not None else None
     with get_db() as db:
         existing = fetch_todo(db, todo_id, user_id)
         if not existing:
@@ -569,6 +647,9 @@ async def update_todo(todo_id: int, data: TodoUpdate, user_id: int = Depends(req
         if not _todo_project_access(db, existing, user_id):
             raise HTTPException(403, "Not authorized")
         dumped = data.model_dump(exclude_unset=True)
+        effective_subtasks = subtasks_update if subtasks_update is not None else existing.get('subtasks', [])
+        if dumped.get('status') == 'done' and existing.get('status') != 'done' and _has_open_subtasks(effective_subtasks) and not data.confirm_incomplete_subtasks_completion:
+            raise HTTPException(409, "Cannot complete todo with open subtasks without confirmation")
         target_project_id = dumped.get('project_id', existing.get('project_id'))
         target_section_id = dumped.get('section_id', existing.get('section_id'))
         _validate_todo_target(db, target_project_id, target_section_id, user_id)
@@ -595,6 +676,9 @@ async def update_todo(todo_id: int, data: TodoUpdate, user_id: int = Depends(req
             safe_updates = {k:v for k,v in updates.items() if k in allowed_cols}
             set_clause = ", ".join(f"{k}=:{k}" for k in safe_updates)
             db.execute(f"UPDATE todos SET {set_clause} WHERE id = :id", {**safe_updates, "id": todo_id})
+        if subtasks_update is not None:
+            _replace_subtasks(db, todo_id, subtasks_update)
+            db.execute("UPDATE todos SET updated_at = ? WHERE id = ?", (now_iso(), todo_id))
         due_date_changed = 'due_date' in dumped and dumped.get('due_date') != existing.get('due_date')
         remind_at_is_existing_auto_default = _matches_existing_auto_due_reminder(existing, data.remind_at)
         if 'remind_at' in dumped:
@@ -661,6 +745,12 @@ async def update_todo(todo_id: int, data: TodoUpdate, user_id: int = Depends(req
                     )
                     recurrence_existing_next_id = c.lastrowid
                     recurrence_inserted = True
+                    if effective_subtasks:
+                        _replace_subtasks(
+                            db,
+                            recurrence_existing_next_id,
+                            [{**subtask, 'id': None, 'is_done': False} for subtask in effective_subtasks]
+                        )
                     if next_remind_at:
                         _insert_reminder(db, recurrence_existing_next_id, next_remind_at, user_id, reminder_source)
         db.commit()
