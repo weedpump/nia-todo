@@ -46,7 +46,6 @@ export function renderTodoItem(t) {
   const idArg = JSON.stringify(t.id);
   const pinned = Boolean(t.is_pinned);
   const badgeHtml = [
-    pinned ? `<span class="todo-badge pinned" title="${escapeHtml(i18nT('todo.pinned'))}">${iconSvg('star')} ${escapeHtml(i18nT('todo.pinned'))}</span>` : '',
     t.status === 'in_progress' ? `<span class="todo-badge progress">${iconSvg('flame')} ${escapeHtml(i18nT('todo.status.inProgress'))}</span>` : '',
   ].filter(Boolean).join('');
 
