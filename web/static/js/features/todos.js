@@ -10,6 +10,7 @@ export function createTodosFeature({
   getProjects,
   getCurrentProjectId,
   getCurrentWorkspaceId,
+  getCurrentUser,
   getAppInitialized,
   getDb,
   dbPut,
@@ -18,6 +19,7 @@ export function createTodosFeature({
   addToSyncQueue,
   isOnlineForSync,
   syncWithServer,
+  todosApi,
   sectionsApi,
   placesApi,
   renderProjects,
@@ -32,6 +34,8 @@ export function createTodosFeature({
   const nativeBridge = createNativeBridge();
   let todoFormBound = false;
   let savedPlaces = [];
+  let todoSaveSnapshot = null;
+  const deletingSubtaskIds = new Set();
 
   function normalizeSubtasks(subtasks = []) {
     return (Array.isArray(subtasks) ? subtasks : [])
@@ -49,11 +53,77 @@ export function createTodosFeature({
     return normalizeSubtasks(subtasks).filter(subtask => !subtask.is_done).length;
   }
 
+  function setTodoCollapsibleOpen(panelId, shouldOpen) {
+    const panel = document.getElementById(panelId);
+    if (!panel) return;
+    panel.open = Boolean(shouldOpen);
+  }
+
+  function isMobileTodoModalLayout() {
+    return Boolean(window.matchMedia?.('(max-width: 768px)')?.matches);
+  }
+
+  function updateTodoMetaPanelsOpenState(todo = null) {
+    if (isMobileTodoModalLayout()) {
+      setTodoCollapsibleOpen('todo-schedule-panel', false);
+      setTodoCollapsibleOpen('todo-organize-panel', false);
+      return;
+    }
+    const recurringRule = normalizeRecurringRule(todo?.recurring_rule, { defaultTimezone: null });
+    const hasLocationReminder = Array.isArray(todo?.location_reminders) && todo.location_reminders.length > 0;
+    const hasScheduleDetails = Boolean(todo?.due_date || todo?.remind_at || (Array.isArray(todo?.reminders) && todo.reminders.length > 0) || (recurringRule && recurringRule.frequency !== 'none') || hasLocationReminder);
+    const hasOrganizeDetails = Boolean(
+      todo && (
+        Number(todo.priority || 3) !== 3 ||
+        (todo.status || 'pending') !== 'pending' ||
+        Boolean(todo.is_pinned)
+      )
+    );
+    setTodoCollapsibleOpen('todo-schedule-panel', hasScheduleDetails);
+    setTodoCollapsibleOpen('todo-organize-panel', hasOrganizeDetails);
+  }
+
+  function getTodoSaveRelevantState() {
+    const id = document.getElementById('todo-id')?.value || '';
+    const state = {
+      title: document.getElementById('todo-title')?.value || '',
+      description: document.getElementById('todo-desc')?.value || '',
+      priority: Number(document.getElementById('todo-priority')?.value || 3),
+      is_pinned: Boolean(document.getElementById('todo-pinned')?.checked),
+      project_id: document.getElementById('todo-project')?.value || '',
+      section_id: document.getElementById('todo-section')?.value || '',
+      status: document.getElementById('todo-status')?.value || 'pending',
+      due_date: document.getElementById('todo-due')?.value || '',
+      remind_at: document.getElementById('todo-remind')?.value || '',
+      recurring_frequency: document.getElementById('todo-recurring-frequency')?.value || 'none',
+      recurring_interval: document.getElementById('todo-recurring-interval')?.value || '1',
+      location_enabled: Boolean(document.getElementById('todo-location-enabled')?.checked),
+      location_trigger: document.getElementById('todo-location-trigger')?.value || 'arrival',
+      location_place: document.getElementById('todo-location-place')?.value || '',
+      location_address: document.getElementById('todo-location-address')?.value || '',
+    };
+    if (!id) state.subtasks = collectTodoSubtasksFromEditor();
+    return state;
+  }
+
+  function refreshTodoSaveButtonState() {
+    const saveButton = document.getElementById('todo-save-btn');
+    if (!saveButton) return;
+    const current = JSON.stringify(getTodoSaveRelevantState());
+    saveButton.disabled = todoSaveSnapshot !== null && current === todoSaveSnapshot;
+  }
+
+  function resetTodoSaveSnapshot() {
+    todoSaveSnapshot = JSON.stringify(getTodoSaveRelevantState());
+    refreshTodoSaveButtonState();
+  }
+
   function updateSubtaskEditorCount() {
     const subtasks = collectTodoSubtasksFromEditor();
     const done = subtasks.filter(subtask => subtask.is_done).length;
     const count = document.getElementById('todo-subtasks-count');
     if (count) count.textContent = t('todo.subtasks.progress', { done, total: subtasks.length });
+    refreshTodoSaveButtonState();
   }
 
   function collectTodoSubtasksFromEditor() {
@@ -65,9 +135,72 @@ export function createTodosFeature({
     })).filter(subtask => subtask.title);
   }
 
+  async function applySubtaskTodoResponse(response) {
+    const updatedTodo = response?.todo;
+    if (!updatedTodo) return;
+    await dbPut('todos', updatedTodo);
+    setTodos(getTodos().map(todo => String(todo.id) === String(updatedTodo.id) ? updatedTodo : todo));
+    renderTodoSubtaskEditor(updatedTodo.subtasks || []);
+    renderStats();
+    renderTodos();
+  }
+
+  async function createTodoSubtask(todoId, title, isDone = false) {
+    if (!todoId || String(todoId).startsWith('temp-')) {
+      showToast(t('todo.subtasks.saveFirst'));
+      return false;
+    }
+    if (!isOnlineForSync()) {
+      showToast(t('todo.subtasks.onlineOnly'));
+      return false;
+    }
+    try {
+      const response = await todosApi.createSubtask(todoId, { title, is_done: isDone });
+      await applySubtaskTodoResponse(response);
+      return true;
+    } catch (error) {
+      console.error('Failed to add todo subtask', error);
+      showToast(t('todo.subtasks.saveFailed'));
+      return false;
+    }
+  }
+
+  async function updateTodoSubtask(todoId, subtaskId, changes) {
+    if (!todoId || !subtaskId || !isOnlineForSync()) {
+      showToast(t('todo.subtasks.onlineOnly'));
+      return false;
+    }
+    try {
+      const response = await todosApi.updateSubtask(todoId, subtaskId, changes);
+      await applySubtaskTodoResponse(response);
+      return true;
+    } catch (error) {
+      console.error('Failed to update todo subtask', error);
+      showToast(t('todo.subtasks.saveFailed'));
+      return false;
+    }
+  }
+
+  async function deleteTodoSubtask(todoId, subtaskId) {
+    if (!todoId || !subtaskId || !isOnlineForSync()) {
+      showToast(t('todo.subtasks.onlineOnly'));
+      return false;
+    }
+    try {
+      const response = await todosApi.deleteSubtask(todoId, subtaskId);
+      await applySubtaskTodoResponse(response);
+      return true;
+    } catch (error) {
+      console.error('Failed to delete todo subtask', error);
+      showToast(t('todo.subtasks.deleteFailed'));
+      return false;
+    }
+  }
+
   function addTodoSubtaskRow(subtask = {}) {
     const list = document.getElementById('todo-subtasks-list');
     if (!list) return;
+    const todoId = document.getElementById('todo-id')?.value || '';
     const row = document.createElement('div');
     row.className = 'todo-subtask-row';
     row.dataset.subtaskId = subtask.id ? String(subtask.id) : `new-${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -80,7 +213,16 @@ export function createTodosFeature({
     checkbox.className = 'todo-subtask-check';
     checkbox.checked = Boolean(subtask.is_done);
     checkbox.setAttribute('aria-label', t('todo.subtasks.toggleDone'));
-    checkbox.addEventListener('change', updateSubtaskEditorCount);
+    checkbox.addEventListener('change', async () => {
+      const persistedId = row.dataset.subtaskId && !row.dataset.subtaskId.startsWith('new-') ? Number(row.dataset.subtaskId) : null;
+      if (persistedId && todoId) {
+        const previous = !checkbox.checked;
+        const ok = await updateTodoSubtask(todoId, persistedId, { is_done: checkbox.checked });
+        if (!ok) checkbox.checked = previous;
+      } else {
+        updateSubtaskEditorCount();
+      }
+    });
 
     const checkboxBox = document.createElement('span');
     checkboxBox.className = 'ui-checkbox-box';
@@ -95,9 +237,28 @@ export function createTodosFeature({
     input.className = 'todo-subtask-title-input';
     input.maxLength = 500;
     input.value = subtask.title || '';
+    input.dataset.originalTitle = input.value;
     input.placeholder = t('todo.subtasks.placeholder');
     input.setAttribute('aria-label', t('todo.subtasks.titleLabel'));
     input.addEventListener('input', updateSubtaskEditorCount);
+    input.addEventListener('blur', async () => {
+      if (row.dataset.deleting === '1') return;
+      const persistedId = row.dataset.subtaskId && !row.dataset.subtaskId.startsWith('new-') ? Number(row.dataset.subtaskId) : null;
+      const title = input.value.trim();
+      if (!persistedId || !todoId || title === input.dataset.originalTitle) return;
+      if (!title) {
+        input.value = input.dataset.originalTitle || '';
+        return;
+      }
+      const ok = await updateTodoSubtask(todoId, persistedId, { title });
+      if (!ok) input.value = input.dataset.originalTitle || '';
+    });
+    input.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        input.blur();
+      }
+    });
     inputWrap.appendChild(input);
 
     const remove = document.createElement('button');
@@ -105,7 +266,34 @@ export function createTodosFeature({
     remove.className = 'btn btn-secondary btn-small btn-icon todo-subtask-remove';
     remove.innerHTML = iconSvg('trash-2');
     remove.setAttribute('aria-label', t('todo.subtasks.delete'));
-    remove.addEventListener('click', () => {
+    remove.setAttribute('title', t('todo.subtasks.delete'));
+    remove.addEventListener('mousedown', (event) => event.preventDefault());
+    remove.addEventListener('click', async () => {
+      row.dataset.deleting = '1';
+      const persistedId = row.dataset.subtaskId && !row.dataset.subtaskId.startsWith('new-') ? Number(row.dataset.subtaskId) : null;
+      const hasTitle = Boolean(input.value.trim());
+      if (persistedId || hasTitle) {
+        const confirmed = await confirmDanger({
+          title: t('todo.subtasks.deleteTitle'),
+          message: t('todo.subtasks.deleteMessage'),
+          confirmText: t('todo.subtasks.deleteConfirm'),
+        });
+        if (!confirmed) {
+          row.dataset.deleting = '0';
+          return;
+        }
+      }
+      if (persistedId && todoId) {
+        deletingSubtaskIds.add(String(persistedId));
+        row.remove();
+        updateSubtaskEditorCount();
+        const ok = await deleteTodoSubtask(todoId, persistedId);
+        if (!ok) {
+          deletingSubtaskIds.delete(String(persistedId));
+          row.dataset.deleting = '0';
+        }
+        return;
+      }
       row.remove();
       updateSubtaskEditorCount();
     });
@@ -116,25 +304,230 @@ export function createTodosFeature({
     return input;
   }
 
+
   function renderTodoSubtaskEditor(subtasks = []) {
     const list = document.getElementById('todo-subtasks-list');
     if (!list) return;
     list.innerHTML = '';
-    normalizeSubtasks(subtasks).forEach(subtask => addTodoSubtaskRow(subtask));
+    const normalized = normalizeSubtasks(subtasks).filter(subtask => !deletingSubtaskIds.has(String(subtask.id)));
+    normalized.forEach(subtask => addTodoSubtaskRow(subtask));
     updateSubtaskEditorCount();
+    setTodoCollapsibleOpen('todo-subtasks-panel', normalized.length > 0);
   }
 
-  function addTodoSubtaskFromInput() {
+  async function addTodoSubtaskFromInput() {
     const input = document.getElementById('todo-subtask-new-title');
     const title = input?.value?.trim() || '';
+    const todoId = document.getElementById('todo-id')?.value || '';
     if (!title) {
       input?.focus();
       return;
     }
-    addTodoSubtaskRow({ title, is_done: false });
+    if (todoId && !String(todoId).startsWith('temp-')) {
+      const ok = await createTodoSubtask(todoId, title, false);
+      if (!ok) return;
+    } else {
+      addTodoSubtaskRow({ title, is_done: false });
+    }
     if (input) {
       input.value = '';
       input.focus();
+    }
+  }
+
+
+  function formatTodoCommentTime(value) {
+    if (!value) return '';
+    const date = new Date(value);
+    if (!Number.isFinite(date.getTime())) return '';
+    try {
+      return date.toLocaleString(getActiveLanguage(), { dateStyle: 'short', timeStyle: 'short' });
+    } catch (_error) {
+      return date.toLocaleString();
+    }
+  }
+
+  function renderTodoComments(comments = [], todo = null) {
+    const todoId = todo?.id || null;
+    const list = document.getElementById('todo-comments-list');
+    const empty = document.getElementById('todo-comments-empty');
+    const input = document.getElementById('todo-comment-new-body');
+    const addButton = document.getElementById('todo-comment-add-btn');
+    if (!list) return;
+    const normalized = Array.isArray(comments) ? comments : [];
+    const count = document.getElementById('todo-comments-count');
+    list.innerHTML = '';
+    if (count) count.textContent = String(normalized.length);
+    setTodoCollapsibleOpen('todo-comments-panel', normalized.length > 0);
+    if (empty) {
+      empty.textContent = todoId ? t('todo.comments.empty') : t('todo.comments.saveFirst');
+      empty.hidden = normalized.length > 0;
+    }
+    if (input) {
+      input.value = '';
+      input.disabled = !todoId;
+    }
+    if (addButton) addButton.disabled = !todoId;
+    for (const comment of normalized) {
+      const item = document.createElement('article');
+      item.className = 'todo-comment-item';
+      item.dataset.commentId = comment.id;
+
+      const meta = document.createElement('div');
+      meta.className = 'todo-comment-meta';
+      const author = document.createElement('span');
+      const authorName = comment.author_display_name || comment.author_username || t('todo.comments.unknownAuthor');
+      author.textContent = authorName;
+      if (comment.author_username && comment.author_username !== authorName) author.title = comment.author_username;
+      const time = document.createElement('time');
+      time.dateTime = comment.created_at || '';
+      time.textContent = formatTodoCommentTime(comment.created_at);
+      meta.append(author, time);
+
+      const body = document.createElement('div');
+      body.className = 'todo-comment-body';
+      body.textContent = comment.body || '';
+
+      const actions = document.createElement('div');
+      actions.className = 'todo-comment-actions';
+      const currentUserId = getCurrentUser?.()?.id;
+      const isAuthor = String(comment.user_id) === String(currentUserId);
+      const canDelete = isAuthor || String(todo?.user_id) === String(currentUserId);
+      if (isAuthor) {
+        const edit = document.createElement('button');
+        edit.type = 'button';
+        edit.className = 'btn btn-secondary btn-small btn-icon';
+        edit.innerHTML = iconSvg('edit-3');
+        edit.setAttribute('aria-label', t('todo.comments.edit'));
+        edit.setAttribute('title', t('todo.comments.edit'));
+        edit.addEventListener('click', () => startTodoCommentEdit(item, body, actions, todoId, comment));
+        actions.appendChild(edit);
+      }
+      if (canDelete) {
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'btn btn-secondary btn-small btn-icon';
+        remove.innerHTML = iconSvg('trash-2');
+        remove.setAttribute('aria-label', t('todo.comments.delete'));
+        remove.setAttribute('title', t('todo.comments.delete'));
+        remove.addEventListener('click', () => deleteTodoComment(todoId, comment.id));
+        actions.appendChild(remove);
+      }
+
+      item.append(meta, body, actions);
+      list.appendChild(item);
+    }
+  }
+
+  function startTodoCommentEdit(item, bodyEl, actionsEl, todoId, comment) {
+    if (!todoId || !comment?.id || item.dataset.editing === '1') return;
+    item.dataset.editing = '1';
+    const original = comment.body || '';
+    const editor = document.createElement('textarea');
+    editor.className = 'todo-comment-edit-input';
+    editor.rows = Math.max(3, Math.min(8, original.split('\n').length + 1));
+    editor.maxLength = 5000;
+    editor.value = original;
+    bodyEl.replaceWith(editor);
+    actionsEl.innerHTML = '';
+
+    const save = document.createElement('button');
+    save.type = 'button';
+    save.className = 'btn btn-primary btn-small btn-icon';
+    save.innerHTML = iconSvg('check');
+    save.setAttribute('aria-label', t('common.save'));
+    save.setAttribute('title', t('common.save'));
+    save.addEventListener('click', () => updateTodoComment(todoId, comment.id, editor.value));
+
+    const cancel = document.createElement('button');
+    cancel.type = 'button';
+    cancel.className = 'btn btn-secondary btn-small btn-icon';
+    cancel.innerHTML = iconSvg('x');
+    cancel.setAttribute('aria-label', t('common.cancel'));
+    cancel.setAttribute('title', t('common.cancel'));
+    cancel.addEventListener('click', () => {
+      item.dataset.editing = '0';
+      renderTodoComments(getTodos().find(todo => String(todo.id) === String(todoId))?.comments || [], getTodos().find(todo => String(todo.id) === String(todoId)) || null);
+    });
+
+    actionsEl.append(save, cancel);
+    editor.focus();
+    editor.setSelectionRange(editor.value.length, editor.value.length);
+  }
+
+  async function applyCommentTodoResponse(response) {
+    const updatedTodo = response?.todo;
+    if (!updatedTodo) return;
+    await dbPut('todos', updatedTodo);
+    setTodos(getTodos().map(todo => String(todo.id) === String(updatedTodo.id) ? updatedTodo : todo));
+    renderTodoComments(updatedTodo.comments || [], updatedTodo);
+    renderStats();
+    renderTodos();
+  }
+
+  async function addTodoCommentFromInput() {
+    if (!getAppInitialized() || !getDb()) return;
+    const id = document.getElementById('todo-id')?.value;
+    const input = document.getElementById('todo-comment-new-body');
+    const body = input?.value?.trim() || '';
+    if (!id || id.startsWith('temp-')) {
+      showToast(t('todo.comments.saveFirst'));
+      return;
+    }
+    if (!body) {
+      input?.focus();
+      return;
+    }
+    if (!isOnlineForSync()) {
+      showToast(t('todo.comments.onlineOnly'));
+      return;
+    }
+    try {
+      const response = await todosApi.createComment(id, { body });
+      await applyCommentTodoResponse(response);
+      if (input) input.value = '';
+    } catch (error) {
+      console.error('Failed to add todo comment', error);
+      showToast(t('todo.comments.saveFailed'));
+    }
+  }
+
+  async function updateTodoComment(todoId, commentId, body) {
+    const normalized = String(body || '').trim();
+    if (!normalized) {
+      showToast(t('todo.comments.emptyBody'));
+      return;
+    }
+    if (!todoId || !commentId || !isOnlineForSync()) {
+      showToast(t('todo.comments.onlineOnly'));
+      return;
+    }
+    try {
+      const response = await todosApi.updateComment(todoId, commentId, { body: normalized });
+      await applyCommentTodoResponse(response);
+    } catch (error) {
+      console.error('Failed to update todo comment', error);
+      showToast(t('todo.comments.saveFailed'));
+    }
+  }
+
+  async function deleteTodoComment(todoId, commentId) {
+    if (!todoId || !commentId || !isOnlineForSync()) {
+      showToast(t('todo.comments.onlineOnly'));
+      return;
+    }
+    const confirmed = await confirmDanger({
+      title: t('todo.comments.deleteTitle'),
+      message: t('todo.comments.deleteMessage'),
+      confirmText: t('todo.comments.deleteConfirm'),
+    });
+    if (!confirmed) return;
+    try {
+      const response = await todosApi.deleteComment(todoId, commentId);
+      await applyCommentTodoResponse(response);
+    } catch (error) {
+      console.error('Failed to delete todo comment', error);
+      showToast(t('todo.comments.deleteFailed'));
     }
   }
 
@@ -144,6 +537,8 @@ export function createTodosFeature({
     if (!form) return;
     todoFormBound = true;
     form.addEventListener('submit', saveTodo);
+    form.addEventListener('input', refreshTodoSaveButtonState);
+    form.addEventListener('change', refreshTodoSaveButtonState);
     document.getElementById('todo-subtask-new-title')?.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
         event.preventDefault();
@@ -1302,6 +1697,7 @@ export function createTodosFeature({
     bindRecurringControls();
     bindLocationReminderControls();
     await loadSavedPlacesForTodoModal();
+    deletingSubtaskIds.clear();
     document.getElementById('todo-form')?.reset();
     clearDateTimeErrors();
     clearLocationReminderForm();
@@ -1309,6 +1705,8 @@ export function createTodosFeature({
     const newSubtaskInput = document.getElementById('todo-subtask-new-title');
     if (newSubtaskInput) newSubtaskInput.value = '';
     renderTodoSubtaskEditor([]);
+    renderTodoComments([], null);
+    updateTodoMetaPanelsOpenState(null);
     const modalTitle = document.getElementById('todo-modal-title');
     if (modalTitle) {
       modalTitle.dataset.i18nKey = todo ? 'todo.edit' : 'todo.new';
@@ -1371,16 +1769,20 @@ export function createTodosFeature({
       }
       populateLocationReminderForm(todo);
       renderTodoSubtaskEditor(todo.subtasks || []);
+      renderTodoComments(todo.comments || [], todo);
+      updateTodoMetaPanelsOpenState(todo);
     } else {
       document.getElementById('todo-pinned').checked = false;
       document.getElementById('todo-recurring-frequency').value = 'none';
       document.getElementById('todo-recurring-interval').value = 1;
       updateRecurringControls();
+      renderTodoComments([], null);
       const currentWorkspaceId = getCurrentWorkspaceId?.();
       const workspaceProjects = getProjects().filter(p => !p.is_shared && (!currentWorkspaceId || String(p.workspace_id || '') === String(currentWorkspaceId)));
       const inboxProject = workspaceProjects.find(p => p.is_inbox) || workspaceProjects[0];
       document.getElementById('todo-project').value = getCurrentProjectId() || inboxProject?.id || '';
       await onProjectChange(null);
+      updateTodoMetaPanelsOpenState(null);
     }
 
     hydrateTodoSelects();
@@ -1395,6 +1797,7 @@ export function createTodosFeature({
       const quickAddResult = await parseQuickAddTitle(document.getElementById('todo-title')?.value || '', getCurrentProjectId(), document.getElementById('todo-project')?.value || null);
       renderQuickAddPreview(quickAddResult);
     }
+    resetTodoSaveSnapshot();
     document.getElementById('todo-modal')?.classList.add('active');
     if (!todo) focusTodoTitle();
   }
@@ -1505,6 +1908,7 @@ export function createTodosFeature({
       if (!selectedSection || String(selectedSection.project_id) !== String(todoData.project_id)) todoData.section_id = null;
     }
     todoData.location_reminders = locationReminderArrayFromPayload(todoData.location_reminder);
+    if (id) delete todoData.subtasks;
     if (id) {
       const existing = getTodos().find(t => t.id === parseInt(id));
       if (existing) {
@@ -1672,5 +2076,5 @@ export function createTodosFeature({
     if (isOnlineForSync()) await syncWithServer();
   }
 
-  return { markTodoDone, markTodoInProgress, setTodoStatus, toggleTodo, toggleTodoPin, toggleTodoActions, addTodoSubtaskFromInput, snoozeTodo, duplicateTodo, showTodoModal, onProjectChange, saveTodo, editTodo, deleteTodoFromModal, deleteTodo };
+  return { markTodoDone, markTodoInProgress, setTodoStatus, toggleTodo, toggleTodoPin, toggleTodoActions, addTodoSubtaskFromInput, addTodoCommentFromInput, deleteTodoComment, snoozeTodo, duplicateTodo, showTodoModal, onProjectChange, saveTodo, editTodo, deleteTodoFromModal, deleteTodo };
 }

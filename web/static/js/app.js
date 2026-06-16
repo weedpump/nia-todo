@@ -334,6 +334,7 @@ const todosFeature = createTodosFeature({
   getProjects: () => projects,
   getCurrentProjectId: () => currentProjectId,
   getCurrentWorkspaceId: () => currentWorkspaceId,
+  getCurrentUser: () => currentUser,
   getAppInitialized: () => appInitialized,
   getDb: () => db,
   dbPut,
@@ -342,6 +343,7 @@ const todosFeature = createTodosFeature({
   addToSyncQueue,
   isOnlineForSync,
   syncWithServer,
+  todosApi,
   sectionsApi,
   placesApi,
   renderProjects: () => renderProjects(),
@@ -713,6 +715,8 @@ const markTodoInProgress = todosFeature.markTodoInProgress;
 const setTodoStatus = todosFeature.setTodoStatus;
 const toggleTodoPin = todosFeature.toggleTodoPin;
 const addTodoSubtaskFromInput = todosFeature.addTodoSubtaskFromInput;
+const addTodoCommentFromInput = todosFeature.addTodoCommentFromInput;
+const deleteTodoComment = todosFeature.deleteTodoComment;
 const snoozeTodo = todosFeature.snoozeTodo;
 const duplicateTodo = todosFeature.duplicateTodo;
 const toggleTodo = todosFeature.toggleTodo;
@@ -918,7 +922,7 @@ export function startAppModule() {
   rendering: { renderVersionInfo, renderProjects, renderStats, renderTodos, renderSectionHeader, countByProject },
   navigation: { setFilter, loadSectionsForCurrentProject, bindNavigationHistory },
   workspaces: { renderWorkspaces, switchWorkspace, createWorkspace, showWorkspaceModal, closeWorkspaceModal, saveWorkspace, deleteWorkspaceFromModal, toggleWorkspaceMenu, closeWorkspaceMenu, loadWorkspacesFromServer },
-  todos: { markTodoDone, markTodoInProgress, setTodoStatus, toggleTodo, toggleTodoPin, addTodoSubtaskFromInput, snoozeTodo, duplicateTodo, showTodoModal, onProjectChange, saveTodo, editTodo, deleteTodoFromModal, deleteTodo },
+  todos: { markTodoDone, markTodoInProgress, setTodoStatus, toggleTodo, toggleTodoPin, addTodoSubtaskFromInput, addTodoCommentFromInput, deleteTodoComment, snoozeTodo, duplicateTodo, showTodoModal, onProjectChange, saveTodo, editTodo, deleteTodoFromModal, deleteTodo },
   projects: { showProjectModal, editProject, saveProject, deleteProject, deleteProjectFromModal, clearDoneFromModal, clearDoneInProject },
   sharing: { inviteUserToProject: () => sharingFeature.inviteByUsername(), leaveProjectFromModal: () => sharingFeature.leaveProject(), undoLeaveProject: (data) => sharingFeature.undoLeaveProject(data), undoRemoveMember: (data) => sharingFeature.undoRemoveMember(data), undoInvite: (data) => sharingFeature.undoInvite(data), acceptInvite: (pid, iid) => sharingFeature.acceptInvite(pid, iid), declineInvite: (pid, iid) => sharingFeature.declineInvite(pid, iid), showShareInput: () => sharingFeature.showShareInput() },
   projectSharing: { setProject: (project) => sharingFeature.setProject(project), applyProjectModalState: (project, canEdit, shared) => sharingFeature.applyProjectModalState(project, canEdit, shared), loadInvites: () => sharingFeature.loadInvites() },

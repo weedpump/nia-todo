@@ -31,6 +31,7 @@ def make_db():
         CREATE TABLE users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT NOT NULL,
+            display_name TEXT,
             default_reminder_offset_minutes INTEGER
         );
         CREATE TABLE projects (
@@ -78,6 +79,14 @@ def make_db():
             created_at TEXT DEFAULT (datetime('now')),
             updated_at TEXT DEFAULT (datetime('now'))
         );
+        CREATE TABLE todo_comments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            todo_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            body TEXT NOT NULL,
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT DEFAULT (datetime('now'))
+        );
         CREATE TABLE reminders (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             todo_id INTEGER NOT NULL,
@@ -89,7 +98,7 @@ def make_db():
         );
         """
     )
-    db.execute("INSERT INTO users (id, username, default_reminder_offset_minutes) VALUES (1, 'tobi', NULL)")
+    db.execute("INSERT INTO users (id, username, display_name, default_reminder_offset_minutes) VALUES (1, 'tobi', 'Tobi', NULL)")
     db.execute("INSERT INTO projects (id, name, user_id, is_inbox) VALUES (1, 'Inbox', 1, 1)")
     db.commit()
     return db

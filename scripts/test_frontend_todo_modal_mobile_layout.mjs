@@ -63,11 +63,12 @@ function assertMobileTodoModalLayout(metrics, label) {
 
 async function run() {
   console.log('📱 Running todo modal mobile pin layout test...');
-  const { browser, page, openTodoModal, loginApp, assertNoFrontendErrors } = await launchPage();
+  const { browser, page, openTodoModal, loginApp, waitForText, assertNoFrontendErrors } = await launchPage();
   try {
     await page.setViewportSize({ width: 390, height: 844 });
     await loginApp();
     await openTodoModal();
+    await page.click('#todo-organize-panel > summary');
 
     const before = await modalMetrics(page);
     assertMobileTodoModalLayout(before, 'before pin toggle');
@@ -80,6 +81,23 @@ async function run() {
     assertCloseEnough(after.header.top, before.header.top, 1, 'header top');
     assertCloseEnough(after.footer.bottom, before.footer.bottom, 1, 'footer bottom');
     assertCloseEnough(after.content.height, before.content.height, 1, 'modal content height');
+
+    await page.fill('#todo-title', 'Mobile collapsed metadata panels');
+    await page.selectOption('#todo-priority', '1');
+    await page.click('#todo-schedule-panel > summary');
+    await page.fill('#todo-due', '2099-03-04T05:06');
+    await page.click('#todo-modal button[type="submit"]');
+    await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 10000 });
+    await waitForText('Mobile collapsed metadata panels');
+    await page.locator('.todo-item').filter({ hasText: 'Mobile collapsed metadata panels' }).first().click();
+    await page.locator('#todo-modal').waitFor({ state: 'visible', timeout: 5000 });
+    const mobileMetadataPanels = await page.evaluate(() => ({
+      organize: document.querySelector('#todo-organize-panel')?.open,
+      schedule: document.querySelector('#todo-schedule-panel')?.open,
+    }));
+    if (mobileMetadataPanels.organize || mobileMetadataPanels.schedule) {
+      throw new Error(`Expected metadata panels to stay collapsed on mobile even with values: ${JSON.stringify(mobileMetadataPanels)}`);
+    }
 
     assertNoFrontendErrors();
     console.log('✅ Todo modal mobile pin layout test passed');

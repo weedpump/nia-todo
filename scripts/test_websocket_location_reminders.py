@@ -73,6 +73,14 @@ def make_db():
             created_at TEXT DEFAULT (datetime('now')),
             updated_at TEXT DEFAULT (datetime('now'))
         );
+        CREATE TABLE todo_comments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            todo_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            body TEXT NOT NULL,
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT DEFAULT (datetime('now'))
+        );
         CREATE TABLE reminders (id INTEGER PRIMARY KEY AUTOINCREMENT, todo_id INTEGER NOT NULL, remind_at TEXT NOT NULL, sent_at TEXT, user_id INTEGER);
         CREATE TABLE saved_places (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, name TEXT NOT NULL, address TEXT NOT NULL, icon TEXT DEFAULT 'pin');
         CREATE TABLE location_reminders (
@@ -90,7 +98,7 @@ def make_db():
         );
         """
     )
-    db.execute("INSERT INTO users (id, username) VALUES (1, 'tobi')")
+    db.execute("INSERT INTO users (id, username, display_name) VALUES (1, 'tobi', 'Tobi')")
     db.execute("INSERT INTO projects (id, name, user_id, is_inbox) VALUES (1, 'Inbox', 1, 1)")
     db.execute("INSERT INTO todos (id, title, project_id, user_id, updated_at) VALUES (2, 'Hhhh', 1, 1, '2026-06-04T12:33:27.461673+00:00')")
     db.execute("""INSERT INTO location_reminders (id, todo_id, user_id, trigger_type, address, enabled, created_at, updated_at)

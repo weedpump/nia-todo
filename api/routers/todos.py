@@ -55,6 +55,22 @@ class TodoUpdate(BaseModel):
     subtasks: Optional[list[TodoSubtaskInput]] = None
     confirm_incomplete_subtasks_completion: bool = False
 
+class TodoCommentCreate(BaseModel):
+    body: str
+
+class TodoCommentUpdate(BaseModel):
+    body: str
+
+class TodoSubtaskCreate(BaseModel):
+    title: str
+    is_done: bool = False
+    sort_order: Optional[int] = None
+
+class TodoSubtaskUpdate(BaseModel):
+    title: Optional[str] = None
+    is_done: Optional[bool] = None
+    sort_order: Optional[int] = None
+
 
 # ─── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -89,6 +105,47 @@ def _subtasks_for_todo(db, todo_id: int) -> list[dict]:
     return [{**dict(row), 'is_done': bool(row['is_done'])} for row in rows]
 
 
+def _comments_for_todo(db, todo_id: int) -> list[dict]:
+    rows = db.execute(
+        """SELECT tc.id, tc.todo_id, tc.user_id, tc.body, tc.created_at, tc.updated_at,
+                  u.username AS author_username, u.display_name AS author_display_name
+           FROM todo_comments tc
+           LEFT JOIN users u ON u.id = tc.user_id
+           WHERE tc.todo_id = ?
+           ORDER BY tc.created_at, tc.id""",
+        (todo_id,)
+    ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def _normalize_comment_body(body: str) -> str:
+    normalized = sanitize_text(body or '').strip()
+    if not normalized:
+        raise HTTPException(422, "Comment body required")
+    if len(normalized) > 5000:
+        raise HTTPException(422, "Comment body too long")
+    return normalized
+
+
+def _comment_count_for_todo(db, todo_id: int) -> int:
+    row = db.execute("SELECT COUNT(*) AS count FROM todo_comments WHERE todo_id = ?", (todo_id,)).fetchone()
+    return int(row['count'] if row else 0)
+
+
+def _comment_event_payload(db, todo_id: int, *, comment: dict | None = None, comment_id: int | None = None) -> dict:
+    row = db.execute("SELECT updated_at FROM todos WHERE id = ?", (todo_id,)).fetchone()
+    payload = {
+        "todo_id": todo_id,
+        "comments_count": _comment_count_for_todo(db, todo_id),
+        "updated_at": row['updated_at'] if row else now_iso(),
+    }
+    if comment is not None:
+        payload["comment"] = comment
+    if comment_id is not None:
+        payload["comment_id"] = comment_id
+    return payload
+
+
 def _normalize_subtasks(subtasks: Optional[list[TodoSubtaskInput]]) -> list[dict]:
     normalized: list[dict] = []
     if not subtasks:
@@ -108,6 +165,42 @@ def _normalize_subtasks(subtasks: Optional[list[TodoSubtaskInput]]) -> list[dict
             'sort_order': subtask.sort_order if subtask.sort_order is not None else index,
         })
     return normalized
+
+
+def _normalize_subtask_title(title: str) -> str:
+    normalized = sanitize_text(title or '').strip()
+    if not normalized:
+        raise HTTPException(422, "Subtask title required")
+    if len(normalized) > 500:
+        raise HTTPException(422, "Subtask title too long")
+    return normalized
+
+
+def _subtask_count_for_todo(db, todo_id: int) -> int:
+    row = db.execute("SELECT COUNT(*) AS count FROM todo_subtasks WHERE todo_id = ?", (todo_id,)).fetchone()
+    return int(row['count'] if row else 0)
+
+
+def _subtask_event_payload(db, todo_id: int, *, subtask: dict | None = None, subtask_id: int | None = None) -> dict:
+    row = db.execute("SELECT updated_at FROM todos WHERE id = ?", (todo_id,)).fetchone()
+    payload = {
+        "todo_id": todo_id,
+        "subtasks_count": _subtask_count_for_todo(db, todo_id),
+        "updated_at": row['updated_at'] if row else now_iso(),
+    }
+    if subtask is not None:
+        payload["subtask"] = subtask
+    if subtask_id is not None:
+        payload["subtask_id"] = subtask_id
+    return payload
+
+
+def _subtask_row(db, subtask_id: int) -> dict | None:
+    row = db.execute(
+        "SELECT id, todo_id, title, is_done, sort_order, created_at, updated_at FROM todo_subtasks WHERE id = ?",
+        (subtask_id,),
+    ).fetchone()
+    return {**dict(row), 'is_done': bool(row['is_done'])} if row else None
 
 
 def _replace_subtasks(db, todo_id: int, subtasks: list[dict]):
@@ -151,6 +244,8 @@ def fetch_todo(db, todo_id: int, reminder_user_id: Optional[int] = None) -> Opti
         ).fetchall()
     d['reminders'] = [dict(r) for r in rem_rows]
     d['subtasks'] = _subtasks_for_todo(db, todo_id)
+    d['comments'] = _comments_for_todo(db, todo_id)
+    d['comments_count'] = len(d['comments'])
     d['location_reminders'] = _location_reminders_for_todo(db, todo_id, reminder_user_id)
     d['location_reminder'] = d['location_reminders'][0] if d['location_reminders'] else None
     return _recurring_rule_response(d)
@@ -538,6 +633,7 @@ def list_todos(status: Optional[str] = None, project_id: Optional[int] = None, s
         todo_ids = [todo['id'] for todo in todos]
         reminders_by_todo = {todo_id: [] for todo_id in todo_ids}
         subtasks_by_todo = {todo_id: [] for todo_id in todo_ids}
+        comments_by_todo = {todo_id: [] for todo_id in todo_ids}
         location_reminders_by_todo = {todo_id: [] for todo_id in todo_ids}
         if todo_ids:
             placeholders = ','.join('?' for _ in todo_ids)
@@ -561,6 +657,18 @@ def list_todos(status: Optional[str] = None, project_id: Optional[int] = None, s
                 subtask_dict = dict(subtask)
                 subtask_dict['is_done'] = bool(subtask_dict.get('is_done'))
                 subtasks_by_todo.setdefault(subtask_dict.pop('todo_id'), []).append(subtask_dict)
+            comment_rows = db.execute(
+                f"""SELECT tc.id, tc.todo_id, tc.user_id, tc.body, tc.created_at, tc.updated_at,
+                          u.username AS author_username, u.display_name AS author_display_name
+                   FROM todo_comments tc
+                   LEFT JOIN users u ON u.id = tc.user_id
+                   WHERE tc.todo_id IN ({placeholders})
+                   ORDER BY tc.created_at, tc.id""",
+                todo_ids
+            ).fetchall()
+            for comment in comment_rows:
+                comment_dict = dict(comment)
+                comments_by_todo.setdefault(comment_dict.get('todo_id'), []).append(comment_dict)
             try:
                 location_rows = db.execute(
                     f"""SELECT lr.*, sp.name AS place_name, sp.icon AS place_icon FROM location_reminders lr
@@ -577,6 +685,8 @@ def list_todos(status: Optional[str] = None, project_id: Optional[int] = None, s
         for todo in todos:
             todo['reminders'] = reminders_by_todo.get(todo['id'], [])
             todo['subtasks'] = subtasks_by_todo.get(todo['id'], [])
+            todo['comments'] = comments_by_todo.get(todo['id'], [])
+            todo['comments_count'] = len(todo['comments'])
             todo['location_reminders'] = location_reminders_by_todo.get(todo['id'], [])
             todo['location_reminder'] = todo['location_reminders'][0] if todo['location_reminders'] else None
             _recurring_rule_response(todo)
@@ -764,6 +874,162 @@ async def update_todo(todo_id: int, data: TodoUpdate, user_id: int = Depends(req
         if recurrence_created_todo and recurrence_inserted:
             await broadcast_change("todo_create", recurrence_created_todo, user_id, recurrence_created_todo.get('project_id'))
         return todo
+
+
+@router.post("/{todo_id}/subtasks")
+async def create_todo_subtask(todo_id: int, data: TodoSubtaskCreate, user_id: int = Depends(require_auth)):
+    with get_db() as db:
+        todo = fetch_todo(db, todo_id, user_id)
+        if not todo or not _todo_project_access(db, todo, user_id):
+            raise HTTPException(404, "Todo not found")
+        title = _normalize_subtask_title(data.title)
+        now = now_iso()
+        sort_order = data.sort_order
+        if sort_order is None:
+            row = db.execute("SELECT COALESCE(MAX(sort_order), -1) + 1 AS next_sort_order FROM todo_subtasks WHERE todo_id = ?", (todo_id,)).fetchone()
+            sort_order = int(row['next_sort_order'] if row else 0)
+        cursor = db.execute(
+            """INSERT INTO todo_subtasks (todo_id, title, is_done, sort_order, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (todo_id, title, int(bool(data.is_done)), sort_order, now, now),
+        )
+        db.execute("UPDATE todos SET updated_at = ? WHERE id = ?", (now, todo_id))
+        db.commit()
+        subtask = _subtask_row(db, cursor.lastrowid)
+        updated_todo = fetch_todo(db, todo_id, user_id)
+        await broadcast_change("todo_subtask_create", _subtask_event_payload(db, todo_id, subtask=subtask), user_id, updated_todo.get('project_id'))
+        return {"subtask": subtask, "todo": updated_todo}
+
+
+@router.patch("/{todo_id}/subtasks/{subtask_id}")
+async def update_todo_subtask(todo_id: int, subtask_id: int, data: TodoSubtaskUpdate, user_id: int = Depends(require_auth)):
+    with get_db() as db:
+        todo = fetch_todo(db, todo_id, user_id)
+        if not todo or not _todo_project_access(db, todo, user_id):
+            raise HTTPException(404, "Todo not found")
+        existing = _subtask_row(db, subtask_id)
+        if not existing or int(existing['todo_id']) != int(todo_id):
+            raise HTTPException(404, "Subtask not found")
+        updates = {}
+        if data.title is not None:
+            updates['title'] = _normalize_subtask_title(data.title)
+        if data.is_done is not None:
+            updates['is_done'] = int(bool(data.is_done))
+        if data.sort_order is not None:
+            updates['sort_order'] = int(data.sort_order)
+        if not updates:
+            return {"subtask": existing, "todo": todo}
+        now = now_iso()
+        updates['updated_at'] = now
+        set_clause = ', '.join(f"{field} = ?" for field in updates.keys())
+        db.execute(f"UPDATE todo_subtasks SET {set_clause} WHERE id = ?", (*updates.values(), subtask_id))
+        db.execute("UPDATE todos SET updated_at = ? WHERE id = ?", (now, todo_id))
+        db.commit()
+        subtask = _subtask_row(db, subtask_id)
+        updated_todo = fetch_todo(db, todo_id, user_id)
+        await broadcast_change("todo_subtask_update", _subtask_event_payload(db, todo_id, subtask=subtask), user_id, updated_todo.get('project_id'))
+        return {"subtask": subtask, "todo": updated_todo}
+
+
+@router.delete("/{todo_id}/subtasks/{subtask_id}")
+async def delete_todo_subtask(todo_id: int, subtask_id: int, user_id: int = Depends(require_auth)):
+    with get_db() as db:
+        todo = fetch_todo(db, todo_id, user_id)
+        if not todo or not _todo_project_access(db, todo, user_id):
+            raise HTTPException(404, "Todo not found")
+        existing = _subtask_row(db, subtask_id)
+        if not existing or int(existing['todo_id']) != int(todo_id):
+            raise HTTPException(404, "Subtask not found")
+        now = now_iso()
+        db.execute("DELETE FROM todo_subtasks WHERE id = ?", (subtask_id,))
+        db.execute("UPDATE todos SET updated_at = ? WHERE id = ?", (now, todo_id))
+        db.commit()
+        updated_todo = fetch_todo(db, todo_id, user_id)
+        await broadcast_change("todo_subtask_delete", _subtask_event_payload(db, todo_id, subtask_id=subtask_id), user_id, updated_todo.get('project_id'))
+        return {"deleted": subtask_id, "todo": updated_todo}
+
+
+@router.post("/{todo_id}/comments")
+async def create_todo_comment(todo_id: int, data: TodoCommentCreate, user_id: int = Depends(require_auth)):
+    body = _normalize_comment_body(data.body)
+    with get_db() as db:
+        existing = fetch_todo(db, todo_id, user_id)
+        if not existing:
+            raise HTTPException(404, "Todo not found")
+        if not _todo_project_access(db, existing, user_id):
+            raise HTTPException(403, "Not authorized")
+        now = now_iso()
+        cursor = db.execute(
+            """INSERT INTO todo_comments (todo_id, user_id, body, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?)""",
+            (todo_id, user_id, body, now, now)
+        )
+        db.execute("UPDATE todos SET updated_at = ? WHERE id = ?", (now, todo_id))
+        db.commit()
+        comment = dict(db.execute(
+            """SELECT tc.id, tc.todo_id, tc.user_id, tc.body, tc.created_at, tc.updated_at,
+                      u.username AS author_username, u.display_name AS author_display_name
+               FROM todo_comments tc
+               LEFT JOIN users u ON u.id = tc.user_id
+               WHERE tc.id = ?""",
+            (cursor.lastrowid,)
+        ).fetchone())
+        todo = fetch_todo(db, todo_id, user_id)
+        await broadcast_change("todo_comment_create", _comment_event_payload(db, todo_id, comment=comment), user_id, todo.get('project_id'))
+        return {"comment": comment, "todo": todo}
+
+
+@router.patch("/{todo_id}/comments/{comment_id}")
+async def update_todo_comment(todo_id: int, comment_id: int, data: TodoCommentUpdate, user_id: int = Depends(require_auth)):
+    body = _normalize_comment_body(data.body)
+    with get_db() as db:
+        existing = fetch_todo(db, todo_id, user_id)
+        if not existing:
+            raise HTTPException(404, "Todo not found")
+        if not _todo_project_access(db, existing, user_id):
+            raise HTTPException(403, "Not authorized")
+        comment = db.execute("SELECT * FROM todo_comments WHERE id = ? AND todo_id = ?", (comment_id, todo_id)).fetchone()
+        if not comment:
+            raise HTTPException(404, "Comment not found")
+        if comment['user_id'] != user_id:
+            raise HTTPException(403, "Not authorized")
+        now = now_iso()
+        db.execute("UPDATE todo_comments SET body = ?, updated_at = ? WHERE id = ?", (body, now, comment_id))
+        db.execute("UPDATE todos SET updated_at = ? WHERE id = ?", (now, todo_id))
+        db.commit()
+        updated = dict(db.execute(
+            """SELECT tc.id, tc.todo_id, tc.user_id, tc.body, tc.created_at, tc.updated_at,
+                      u.username AS author_username, u.display_name AS author_display_name
+               FROM todo_comments tc
+               LEFT JOIN users u ON u.id = tc.user_id
+               WHERE tc.id = ?""",
+            (comment_id,)
+        ).fetchone())
+        todo = fetch_todo(db, todo_id, user_id)
+        await broadcast_change("todo_comment_update", _comment_event_payload(db, todo_id, comment=updated), user_id, todo.get('project_id'))
+        return {"comment": updated, "todo": todo}
+
+
+@router.delete("/{todo_id}/comments/{comment_id}")
+async def delete_todo_comment(todo_id: int, comment_id: int, user_id: int = Depends(require_auth)):
+    with get_db() as db:
+        existing = fetch_todo(db, todo_id, user_id)
+        if not existing:
+            raise HTTPException(404, "Todo not found")
+        if not _todo_project_access(db, existing, user_id):
+            raise HTTPException(403, "Not authorized")
+        comment = db.execute("SELECT * FROM todo_comments WHERE id = ? AND todo_id = ?", (comment_id, todo_id)).fetchone()
+        if not comment:
+            raise HTTPException(404, "Comment not found")
+        if comment['user_id'] != user_id and existing.get('user_id') != user_id:
+            raise HTTPException(403, "Not authorized")
+        now = now_iso()
+        db.execute("DELETE FROM todo_comments WHERE id = ?", (comment_id,))
+        db.execute("UPDATE todos SET updated_at = ? WHERE id = ?", (now, todo_id))
+        db.commit()
+        todo = fetch_todo(db, todo_id, user_id)
+        await broadcast_change("todo_comment_delete", _comment_event_payload(db, todo_id, comment_id=comment_id), user_id, todo.get('project_id'))
+        return {"deleted": comment_id, "todo": todo}
 
 @router.delete("/{todo_id}")
 async def delete_todo(todo_id: int, user_id: int = Depends(require_auth)):

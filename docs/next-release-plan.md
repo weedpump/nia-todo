@@ -11,15 +11,23 @@ This branch (`nia-todo-next`) is the integration branch for the next larger nia-
 
 ## Current State
 
-Subtasks/checklists are merged into `nia-todo-next` via merge commit `420aded`.
+Subtasks/checklists, todo comments, and sync architecture cleanup are merged into `nia-todo-next`.
 
 Implemented:
 
 - Lightweight checklist-style subtasks attached to a todo.
-- Todo cards show only a compact progress chip, e.g. `1/2 erledigt`.
-- Subtasks are edited only inside the Todo modal.
+- Existing-todo subtasks use dedicated create/update/delete actions and no longer require saving the whole todo.
+- New-todo subtasks remain part of the initial todo creation flow.
+- Todo cards show only compact metadata chips, including subtask progress and comment count.
+- Subtasks and comments are edited only inside the Todo modal.
+- Subtask deletion and comment deletion require confirmation.
 - Parent completion with open subtasks requires confirmation.
 - Recurring todos copy checklist titles/order into the next occurrence and reset them to open.
+- Todo comments support author display, local timestamps, shared-project permissions, and dedicated add/edit/delete endpoints.
+- Comment and subtask realtime updates use dedicated delta events instead of actor-specific full todo broadcasts.
+- The Todo modal uses compact collapsible sections for planning, organization, subtasks, and comments, with mobile metadata panels collapsed by default.
+- Disabled action buttons are visually muted and do not show click/press animation.
+- Mobile todo quick actions and floating action buttons are layered so the New Todo FAB no longer sits behind the quick-action reveal button.
 - Offline queue, IndexedDB persistence, REST refresh, WebSocket sync, sharing, and reload behavior have targeted regression coverage.
 - Generic button primitives were refined:
   - `.btn` owns common layout/sizing/typography.
@@ -29,106 +37,70 @@ Implemented:
 
 Reviews:
 
-- Architecture review: PASS.
-- Design/UI review: PASS after accessibility fixes.
+- Subtasks architecture review: PASS.
+- Subtasks design/UI review: PASS after accessibility fixes.
+- Comments/subtasks architecture review: PASS.
+- Independent-subtasks regression review: PASS.
 
-Important known MVP tradeoffs:
+## Completed Work: Sync Architecture Cleanup
 
-- Updating subtasks currently replaces the full checklist; individual subtask IDs are not preserved across update operations.
-- Concurrent checklist edits are last-write-wins at todo level.
-- This is acceptable for the MVP, but revisit if per-subtask audit/history/collaborative editing is added.
+Final architecture:
 
-## Next Work Item: Sync Architecture Cleanup
+- REST owns authoritative startup/full refresh and IndexedDB/UI cache replacement.
+- WebSocket startup handles auth/session state and realtime deltas, not normal full-cache replacement.
+- Offline queue sync is guarded so authoritative refreshes do not clobber pending local changes.
+- Sharing/project/workspace visibility recovery uses REST refresh instead of normal WebSocket full sync.
+- WebSocket full sync remains only as fallback/recovery behavior and must keep payload shape aligned with REST list payloads.
 
-Goal: remove the duplicate full-load race between REST refresh and WebSocket initial sync.
+## Completed Work: Todo Subtasks and Comments
 
-Current architecture problem:
+Final behavior:
 
-- App startup loads from IndexedDB.
-- REST `refreshFromServer()` performs an authoritative full pull.
-- WebSocket also sends `sync_request` and receives a full `sync_response`.
-- Both paths can write to IndexedDB/UI.
-- The subtask bug happened because one full payload shape was incomplete and won the write race.
+- Todos support checklist-style subtasks with compact progress chips on cards.
+- Existing-todo subtasks can be created, renamed, toggled, and deleted without saving the whole todo.
+- New-todo subtasks are saved with the initial todo creation because no todo ID exists yet.
+- Subtask deletion requires confirmation.
+- Completing a parent todo with open subtasks requires confirmation.
+- Recurring todos copy subtask titles/order into the next occurrence and reset them to open.
+- Todos support comments with author display, local timestamps, comment-count chips, and dedicated add/edit/delete actions.
+- Comment deletion requires confirmation.
+- Comment and subtask realtime updates use dedicated delta events, not actor-specific full todo broadcasts.
+- Existing comment/subtask actions require online API access; offline queueing can be added later if needed.
 
-Recommended target architecture:
+## Completed Work: Todo Modal and Mobile UI Polish
 
-- REST is the normal source of truth for full sync / startup refresh.
-- WebSocket is for auth/session state and realtime delta events only:
-  - `todo_create`
-  - `todo_update`
-  - `todo_delete`
-  - project/section/workspace events
-  - reminder/session events
-- WebSocket full `sync_response` should either be removed from normal startup or kept only as explicit fallback/recovery.
-- One code path should own authoritative full-cache replacement.
+Final behavior:
 
-Suggested safe implementation steps:
+- Todo modal sections for planning, organization, subtasks, and comments are compact/collapsible.
+- Empty comments/subtasks start collapsed; existing comments/subtasks start visible.
+- Mobile planning/organization panels stay collapsed by default.
+- The Save button only enables for changes that require saving the todo itself.
+- Disabled action buttons are visually muted and do not show click/press animation.
+- Mobile todo quick actions and floating action buttons are layered so the New Todo FAB no longer sits behind the quick-action reveal button.
 
-1. Document current startup order:
-   - IndexedDB local load
-   - REST refresh
-   - WebSocket connect/auth
-   - WebSocket sync request/response
-   - online/pageshow/visibility periodic sync attempts
+## Reviews
 
-   Current code map captured on `feature/sync-architecture-cleanup`:
-   - `app-lifecycle.js:initApp()` loads IndexedDB first, then sets the app initialized, connects WebSocket, and starts REST `refreshFromServer()` when online.
-   - `sync.js:refreshFromServer()` first pushes pending offline queue via `syncWithServer()`, then performs the authoritative REST full pull and replaces `todos/projects/sections/workspaces` in IndexedDB/UI.
-   - Previous `websocket-client.js:onopen()` also pushed pending queue and then sent normal `sync_request`, creating a second full-cache writer during startup.
-   - Previous `project_delete`/`workspace_delete` handling requested WS full sync as recovery; sharing membership events called `syncWithServer()` despite needing a full visibility refresh.
+- Subtasks architecture review: PASS.
+- Subtasks design/UI review: PASS after accessibility fixes.
+- Comments/subtasks architecture review: PASS.
+- Independent-subtasks regression review: PASS.
 
-2. Add focused tests before changing behavior:
-   - startup REST full refresh populates IndexedDB and UI
-   - WebSocket connects but does not perform competing full-cache replacement during normal startup
-   - realtime delta events still update a second tab/device
-   - offline queue is pushed before any authoritative pull
-   - pageshow/visibility recovery still syncs stale tabs
-   - shared project changes still reach members live
-3. Change normal WebSocket startup:
-   - stop sending normal `sync_request` after `auth_ok`, or gate it behind explicit recovery mode
-   - ensure `syncWithServer()` still runs before REST full refresh when pending offline queue exists
+## Targeted Checks
 
-   Initial implementation on `feature/sync-architecture-cleanup`:
-   - normal WebSocket startup no longer sends `sync_request`
-   - startup still attempts `syncWithServer()` to push queued offline edits
-   - `refreshFromServer()` now waits for an already-running queue sync before any authoritative REST pull/cache replacement, then re-checks that the queue is drained
-   - project/workspace delete recovery and sharing membership refreshes now use REST `refreshFromServer()` instead of WS full sync
-   - frontend realtime test now asserts that normal startup sends zero outbound `sync_request` messages
-   - `scripts/test_sync_feature_race.mjs` covers the active-sync vs authoritative-pull race guard
+```bash
+python3 scripts/test_subtasks.py
+python3 scripts/test_todo_comments.py
+node scripts/test_frontend_subtasks.mjs
+node scripts/test_frontend_realtime_sync.mjs
+node scripts/test_frontend_offline_sync.mjs
+node scripts/test_frontend_sharing.mjs
+```
 
-4. Keep/fix fallback semantics:
-   - if REST full refresh fails but WS is connected, optionally request WS full sync as recovery
-   - if WS full sync remains, payload shape must stay identical to REST list payloads
-5. Run targeted tests:
-   - `node scripts/test_frontend_subtasks.mjs`
-   - `node scripts/test_frontend_offline_sync.mjs`
-   - `node scripts/test_frontend_realtime_sync.mjs`
-   - `node scripts/test_frontend_sharing.mjs`
-   - `python3 scripts/test_subtasks.py`
-6. Request a focused architecture review before merging the sync cleanup into `nia-todo-next`.
+## Planned Feature Themes After Comments MVP
 
-## Planned Feature Themes After Sync Cleanup
+These are candidates for later releases. Keep them separate and reviewable.
 
-These are candidates for the larger next release. Keep them separate and reviewable.
-
-### 1. Notes / Comments on Todos
-
-MVP idea:
-
-- Add a notes/comments area to the Todo modal.
-- Decide early whether this is:
-  - a single rich/plain `notes` field on the todo, or
-  - multiple timestamped comments.
-- Prefer simple plain text first unless Tobi explicitly wants threaded comments/history.
-
-Architecture questions:
-
-- Should comments be editable/deletable?
-- Should comments sync as part of todo payload or separate endpoint/table?
-- How should shared project permissions apply?
-- Should comments appear in card preview or modal only?
-
-### 2. Attachments
+### 1. Attachments
 
 MVP idea:
 
@@ -143,7 +115,7 @@ Architecture questions:
 - Backup/export implications.
 - Native app upload/download behavior.
 
-### 3. Calendar View / Calendar Sync
+### 2. Calendar View / Calendar Sync
 
 MVP idea:
 
@@ -157,15 +129,15 @@ Architecture questions:
 - Timezone handling must reuse existing recurring timezone logic.
 - Avoid generating infinite future instances.
 
-### 4. Subtask Follow-ups
+### 3. Subtask and Comment Follow-ups
 
 Only after MVP is stable:
 
-- Consider per-subtask endpoints if needed.
-- Preserve subtask IDs on update.
-- Optional reorder UX polish.
-- Optional subtask-level timestamps/history.
-- Optional conflict handling beyond last-write-wins.
+- Optional offline queueing for existing-todo subtask/comment actions.
+- Optional reorder UX polish for subtasks.
+- Optional subtask/comment timestamps/history beyond current MVP metadata.
+- Optional conflict handling beyond last-write-wins/delta replacement.
+- Optional explicit regression tests for minimal realtime payload shapes.
 
 ## Current Useful Commands
 
@@ -173,8 +145,9 @@ Only after MVP is stable:
 # Work branch
 git checkout nia-todo-next
 
-# Focused subtasks checks
+# Focused checks
 python3 scripts/test_subtasks.py
+python3 scripts/test_todo_comments.py
 node scripts/test_frontend_subtasks.mjs
 node scripts/test_frontend_offline_sync.mjs
 node scripts/test_frontend_realtime_sync.mjs
@@ -187,6 +160,5 @@ node scripts/test_frontend_sharing.mjs
 ## Do Not Forget
 
 - `develop` stays as-is until Tobi explicitly says otherwise.
-- Next immediate engineering topic is the sync architecture cleanup, not another UI feature.
-- Any sync cleanup must be treated as core architecture work, not a quick refactor.
-- Subtasks are already in `nia-todo-next`; the old `feature/subtasks-checklist` branch was deleted locally and remotely.
+- `nia-todo-next` is the integration branch for the next larger release.
+- Before release/merge-back: run the full release gate (`./scripts/test_all.sh`) and do a focused review of sync/offline/realtime behavior.
