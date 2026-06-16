@@ -91,10 +91,12 @@ async function run() {
 
     await page.fill('#search-input', 'Needle');
     await page.waitForFunction(() => document.querySelectorAll('.todo-item').length >= 2, null, { timeout: 5000 });
-    const contextText = await page.locator('.todo-meta-row').first().innerText();
-    if (!contextText.includes('Needle Project') || !contextText.includes('Needle Section')) {
-      throw new Error(`Search result context did not include project + section: ${contextText}`);
+    const searchGroupingText = await page.locator('.todo-group').first().innerText();
+    if (!searchGroupingText.includes('Needle Project') || !searchGroupingText.includes('Needle Section')) {
+      throw new Error(`Search results were not grouped by project + section: ${searchGroupingText}`);
     }
+    const searchContextPills = await page.locator('.todo-search-context').count();
+    if (searchContextPills !== 0) throw new Error('Search rendered project/section context pills instead of headings');
 
     await page.fill('#search-input', '');
     await page.evaluate(() => window.cycleSort());
