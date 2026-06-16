@@ -6798,11 +6798,12 @@ input[type="color"]::-moz-color-swatch {
 
 .todo-title-wrap {
   min-width: 0;
+  min-height: 24px;
   display: grid;
   grid-template-columns: fit-content(68%) minmax(0, auto);
   align-items: center;
   column-gap: 8px;
-  row-gap: 4px;
+  row-gap: 0;
   flex: 1;
 }
 
@@ -6863,10 +6864,11 @@ input[type="color"]::-moz-color-swatch {
 
 .todo-meta-row {
   grid-column: 2;
-  grid-row: 1;
+  grid-row: 1 / 3;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  align-self: center;
   justify-self: start;
   min-width: 0;
   width: auto;
@@ -7074,7 +7076,7 @@ input[type="color"]::-moz-color-swatch {
   }
 }
 
-/* Todo card meta layout: chips and description are separate rows */
+/* Todo card meta layout: text block left, meta chips right when space allows. */
 .todo-body .todo-meta-row {
   display: flex;
   flex-wrap: wrap;
@@ -7091,8 +7093,7 @@ input[type="color"]::-moz-color-swatch {
   width: 100%;
   max-width: min(560px, 100%);
   max-height: 16px;
-  margin-top: 2px;
-  margin-bottom: 2px;
+  margin: 0;
   padding: 0;
   overflow: hidden;
   color: var(--text-muted);
