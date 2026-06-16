@@ -622,21 +622,10 @@ export function createAppRenderingFeature({
     let filtered = getWorkspaceTodos();
     if (currentProjectId) filtered = filtered.filter(t => t.project_id === currentProjectId);
     if (search) {
-      const projectById = new Map(projects.map(project => [String(project.id), project]));
-      const sectionById = new Map(allSections.map(section => [String(section.id), section]));
-      filtered = filtered
-        .filter(t =>
-          (t.title || '').toLowerCase().includes(search) ||
-          (t.description || '').toLowerCase().includes(search)
-        )
-        .map(todo => {
-          const project = projectById.get(String(todo.project_id));
-          const section = todo.section_id ? sectionById.get(String(todo.section_id)) : null;
-          const parts = [];
-          if (project?.name) parts.push({ icon: 'folder', label: project.name });
-          if (section?.name) parts.push({ icon: 'layers', label: section.name });
-          return parts.length ? { ...todo, __searchContext: parts } : todo;
-        });
+      filtered = filtered.filter(t =>
+        (t.title || '').toLowerCase().includes(search) ||
+        (t.description || '').toLowerCase().includes(search)
+      );
     }
     if (getTodayFocus?.() && currentFilter !== 'done') {
       const now = new Date();
@@ -726,7 +715,7 @@ export function createAppRenderingFeature({
     if (hideDone && currentFilter !== 'done' && currentFilter !== 'focus') filtered = filtered.filter(t => t.status !== 'done');
 
     let html = currentFilter === 'focus' ? renderFocusControls(projects) : '';
-    if (isAggregateFilter) {
+    if (isAggregateFilter && !search) {
       const pinnedItems = filtered.filter(t => t.is_pinned);
       if (pinnedItems.length) {
         html += `<div class="todo-group pinned-todos-group">
@@ -735,7 +724,7 @@ export function createAppRenderingFeature({
         </div>`;
       }
     }
-    const groupedSource = isAggregateFilter ? filtered.filter(t => !t.is_pinned) : filtered;
+    const groupedSource = isAggregateFilter && !search ? filtered.filter(t => !t.is_pinned) : filtered;
     for (const [status, title] of Object.entries(groups)) {
       if (!isAggregateFilter && currentFilter !== status) continue;
       const statusItems = groupedSource.filter(t => t.status === status);
@@ -762,6 +751,32 @@ export function createAppRenderingFeature({
       for (const pid of projectOrder) {
         const items = byProject.get(pid);
         const project = projects.find(p => p.id === pid);
+        const renderSearchSectionGroups = (projectItems, projectId) => {
+          const projectSections = allSections
+            .filter(section => String(section.project_id) === String(projectId))
+            .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || String(a.name || '').localeCompare(String(b.name || '')));
+          const validSectionIds = new Set(projectSections.map(section => String(section.id)));
+          let sectionsHtml = '';
+          for (const section of projectSections) {
+            const sectionItems = projectItems.filter(item => String(item.section_id || '') === String(section.id));
+            if (!sectionItems.length) continue;
+            sectionsHtml += `<div class="section-header section-search-header" data-section-id="${escapeHtmlAttr(section.id)}">
+              <span class="section-name">${escapeHtml(section.name)}</span>
+              <span class="section-count">${sectionItems.length}</span>
+            </div>
+            <div class="section-todos">${sectionItems.map(item => renderTodoItem(item)).join('')}</div>`;
+          }
+          const unsortedItems = projectItems.filter(item => !item.section_id || !validSectionIds.has(String(item.section_id)));
+          if (unsortedItems.length) {
+            sectionsHtml += `<div class="section-header section-unsorted section-search-header" data-section-id="null">
+              <span class="section-name">${escapeHtml(t('section.unsorted'))}</span>
+              <span class="section-count">${unsortedItems.length}</span>
+            </div>
+            <div class="section-todos">${unsortedItems.map(item => renderTodoItem(item)).join('')}</div>`;
+          }
+          return sectionsHtml || projectItems.map(item => renderTodoItem(item)).join('');
+        };
+        const itemsHtml = search ? renderSearchSectionGroups(items, pid) : items.map(t => renderTodoItem(t)).join('');
         if (project) {
           html += `<div class="project-group">
             <div class="project-group-header">
@@ -769,7 +784,7 @@ export function createAppRenderingFeature({
               <span class="project-group-name">${escapeHtml(project.name)}</span>
               <span class="project-group-count">${items.length}</span>
             </div>
-            <div class="project-group-todos">${items.map(t => renderTodoItem(t)).join('')}</div>
+            <div class="project-group-todos">${itemsHtml}</div>
           </div>`;
         } else {
           html += `<div class="project-group">
@@ -778,7 +793,7 @@ export function createAppRenderingFeature({
               <span class="project-group-name">${escapeHtml(t('project.unsorted'))}</span>
               <span class="project-group-count">${items.length}</span>
             </div>
-            <div class="project-group-todos">${items.map(t => renderTodoItem(t)).join('')}</div>
+            <div class="project-group-todos">${itemsHtml}</div>
           </div>`;
         }
       }

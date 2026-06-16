@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 
 ### Added
 - Added due-date sorting for todo lists, keeping pinned todos first while ordering the rest by deadline/reminder.
-- Added project and section context chips to todo search results without expanding the search scope beyond todo title/description.
+- Added section grouping inside existing project groups for todo search results without expanding the search scope beyond todo title/description.
 - Added i18n-aware Quick Add recurring syntax for English and German, including preview chips and recurring rule creation.
 - Added todo duplication from card actions and the edit modal; duplicates preserve todo details including pin, schedule, reminder, project, section, and recurring rule, but reset status/completion.
 

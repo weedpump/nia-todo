@@ -40,8 +40,7 @@ export function renderTodoItem(t) {
   const remindStr = reminderTime ? formatDate(reminderTime) : '';
   const recurrenceStr = recurringLabel(t.recurring_rule);
   const locationStr = locationReminderLabel(t);
-  const searchContext = Array.isArray(t.__searchContext) ? t.__searchContext.filter(item => item?.label) : [];
-  const hasMeta = dueStr || remindStr || recurrenceStr || locationStr || searchContext.length;
+  const hasMeta = dueStr || remindStr || recurrenceStr || locationStr;
   const desc = t.description ? truncateWords(String(t.description).replace(/\s+/g, ' ').trim(), 18) : '';
   const hasDesc = desc && desc.length > 0;
   const idArg = JSON.stringify(t.id);
@@ -64,7 +63,6 @@ export function renderTodoItem(t) {
               ${remindStr ? `<span class="todo-meta-chip todo-reminder">${iconSvg('bell')} ${remindStr}</span>` : ''}
               ${recurrenceStr ? `<span class="todo-meta-chip todo-recurring">${iconSvg('repeat')} ${escapeHtml(recurrenceStr)}</span>` : ''}
               ${locationStr ? `<span class="todo-meta-chip todo-location" title="${escapeHtmlAttr(i18nT('todo.location.androidOnlyPillTitle'))}">${iconSvg('map-pin')} ${escapeHtml(locationStr)}</span>` : ''}
-              ${searchContext.map(item => `<span class="todo-meta-chip todo-search-context">${iconSvg(item.icon || 'folder')} ${escapeHtml(item.label)}</span>`).join('')}
             </div>
             ` : ''}
             ${hasDesc ? `<div class="todo-desc-preview" title="${escapeHtmlAttr(String(t.description || ''))}">${renderMarkdown(desc)}</div>` : ''}
