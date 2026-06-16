@@ -195,15 +195,41 @@ export function createSyncFeature({
     console.log(`Sync complete: ${successCount} success, ${failCount} failed`);
   }
 
+  async function waitForActiveSync(syncInProgressRef, timeoutMs = 5000) {
+    if (!syncInProgressRef?.value) return true;
+    const deadline = Date.now() + timeoutMs;
+    while (syncInProgressRef.value && Date.now() < deadline) {
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    return !syncInProgressRef.value;
+  }
+
   async function refreshFromServer({ wsState, syncInProgressRef }) {
     if (!isOnlineForSync(wsState) || !getDb()) return;
 
     // Local offline edits must be pushed before any authoritative pull clears
     // and rewrites the local cache. Otherwise server state can visually or
-    // persistently clobber queued local changes.
+    // persistently clobber queued local changes. If another sync is already
+    // draining the queue, wait for it to finish before deciding whether a full
+    // pull is safe.
+    if (syncInProgressRef.value) {
+      const completed = await waitForActiveSync(syncInProgressRef);
+      if (!completed) {
+        console.warn('Skipping server refresh while local sync is still in progress');
+        return;
+      }
+    }
+
     const pendingQueue = await dbGetAll('syncQueue');
-    if (pendingQueue.length && !syncInProgressRef.value) {
+    if (pendingQueue.length) {
       await syncWithServer({ wsState, syncInProgressRef });
+      if (syncInProgressRef.value) {
+        const completed = await waitForActiveSync(syncInProgressRef);
+        if (!completed) {
+          console.warn('Skipping server refresh while local sync is still in progress');
+          return;
+        }
+      }
       const remainingQueue = await dbGetAll('syncQueue');
       if (remainingQueue.length) {
         console.warn('Skipping server refresh while local sync queue still has pending changes');

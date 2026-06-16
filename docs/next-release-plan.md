@@ -91,8 +91,10 @@ Suggested safe implementation steps:
    Initial implementation on `feature/sync-architecture-cleanup`:
    - normal WebSocket startup no longer sends `sync_request`
    - startup still attempts `syncWithServer()` to push queued offline edits
+   - `refreshFromServer()` now waits for an already-running queue sync before any authoritative REST pull/cache replacement, then re-checks that the queue is drained
    - project/workspace delete recovery and sharing membership refreshes now use REST `refreshFromServer()` instead of WS full sync
    - frontend realtime test now asserts that normal startup sends zero outbound `sync_request` messages
+   - `scripts/test_sync_feature_race.mjs` covers the active-sync vs authoritative-pull race guard
 
 4. Keep/fix fallback semantics:
    - if REST full refresh fails but WS is connected, optionally request WS full sync as recovery
