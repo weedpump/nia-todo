@@ -334,6 +334,7 @@ const todosFeature = createTodosFeature({
   getProjects: () => projects,
   getCurrentProjectId: () => currentProjectId,
   getCurrentWorkspaceId: () => currentWorkspaceId,
+  getCurrentUser: () => currentUser,
   getAppInitialized: () => appInitialized,
   getDb: () => db,
   dbPut,

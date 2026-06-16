@@ -152,6 +152,26 @@ def main():
     member_comment = member.post(f"/api/todos/{todo_id}/comments", json={"body": "Member note"})
     assert_true(member_comment.status_code == 200, member_comment.text)
     assert_true(member_comment.json()["todo"]["comments_count"] == 2, member_comment.text)
+    member_comment_id = member_comment.json()["comment"]["id"]
+
+    member_cannot_edit_owner_comment = member.patch(
+        f"/api/todos/{todo_id}/comments/{comment_id}",
+        json={"body": "Member edit attempt"},
+    )
+    assert_true(member_cannot_edit_owner_comment.status_code == 403, member_cannot_edit_owner_comment.text)
+
+    owner_cannot_edit_member_comment = owner.patch(
+        f"/api/todos/{todo_id}/comments/{member_comment_id}",
+        json={"body": "Owner edit attempt"},
+    )
+    assert_true(owner_cannot_edit_member_comment.status_code == 403, owner_cannot_edit_member_comment.text)
+
+    member_can_edit_own_comment = member.patch(
+        f"/api/todos/{todo_id}/comments/{member_comment_id}",
+        json={"body": "Member note edited"},
+    )
+    assert_true(member_can_edit_own_comment.status_code == 200, member_can_edit_own_comment.text)
+    assert_true(member_can_edit_own_comment.json()["comment"]["body"] == "Member note edited", member_can_edit_own_comment.text)
 
     stranger = make_client(db, user_id=3)
     forbidden = stranger.post(f"/api/todos/{todo_id}/comments", json={"body": "Nope"})

@@ -10,6 +10,7 @@ export function createTodosFeature({
   getProjects,
   getCurrentProjectId,
   getCurrentWorkspaceId,
+  getCurrentUser,
   getAppInitialized,
   getDb,
   dbPut,
@@ -188,13 +189,16 @@ export function createTodosFeature({
 
       const actions = document.createElement('div');
       actions.className = 'todo-comment-actions';
-      const remove = document.createElement('button');
-      remove.type = 'button';
-      remove.className = 'btn btn-secondary btn-small btn-icon';
-      remove.innerHTML = iconSvg('trash-2');
-      remove.setAttribute('aria-label', t('todo.comments.delete'));
-      remove.addEventListener('click', () => deleteTodoComment(todoId, comment.id));
-      actions.appendChild(remove);
+      const currentUserId = getCurrentUser?.()?.id;
+      if (String(comment.user_id) === String(currentUserId)) {
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'btn btn-secondary btn-small btn-icon';
+        remove.innerHTML = iconSvg('trash-2');
+        remove.setAttribute('aria-label', t('todo.comments.delete'));
+        remove.addEventListener('click', () => deleteTodoComment(todoId, comment.id));
+        actions.appendChild(remove);
+      }
 
       item.append(meta, body, actions);
       list.appendChild(item);
@@ -228,9 +232,14 @@ export function createTodosFeature({
       showToast(t('todo.comments.onlineOnly'));
       return;
     }
-    const response = await todosApi.createComment(id, { body });
-    await applyCommentTodoResponse(response);
-    if (input) input.value = '';
+    try {
+      const response = await todosApi.createComment(id, { body });
+      await applyCommentTodoResponse(response);
+      if (input) input.value = '';
+    } catch (error) {
+      console.error('Failed to add todo comment', error);
+      showToast(t('todo.comments.saveFailed'));
+    }
   }
 
   async function deleteTodoComment(todoId, commentId) {
@@ -238,8 +247,13 @@ export function createTodosFeature({
       showToast(t('todo.comments.onlineOnly'));
       return;
     }
-    const response = await todosApi.deleteComment(todoId, commentId);
-    await applyCommentTodoResponse(response);
+    try {
+      const response = await todosApi.deleteComment(todoId, commentId);
+      await applyCommentTodoResponse(response);
+    } catch (error) {
+      console.error('Failed to delete todo comment', error);
+      showToast(t('todo.comments.deleteFailed'));
+    }
   }
 
   function bindTodoForm() {

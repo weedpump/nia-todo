@@ -845,7 +845,7 @@ async def update_todo_comment(todo_id: int, comment_id: int, data: TodoCommentUp
         comment = db.execute("SELECT * FROM todo_comments WHERE id = ? AND todo_id = ?", (comment_id, todo_id)).fetchone()
         if not comment:
             raise HTTPException(404, "Comment not found")
-        if comment['user_id'] != user_id and existing.get('user_id') != user_id:
+        if comment['user_id'] != user_id:
             raise HTTPException(403, "Not authorized")
         now = now_iso()
         db.execute("UPDATE todo_comments SET body = ?, updated_at = ? WHERE id = ?", (body, now, comment_id))

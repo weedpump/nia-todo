@@ -1286,5 +1286,7 @@
   "todo.comments.delete": "Kommentar löschen",
   "todo.comments.onlineOnly": "Kommentare brauchen aktuell eine Online-Verbindung.",
   "todo.comments.author": "User #{userId}",
-  "todo.comments.count": "{count} Kommentare"
+  "todo.comments.count": "{count} Kommentare",
+  "todo.comments.saveFailed": "Kommentar konnte nicht gespeichert werden.",
+  "todo.comments.deleteFailed": "Kommentar konnte nicht gelöscht werden."
 }
