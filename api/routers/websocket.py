@@ -114,7 +114,7 @@ async def websocket_endpoint(websocket: WebSocket):
                             todo_ids
                         ).fetchall()
                         for comment in comment_rows:
-                            comment_dict = row_to_dict(comment)
+                            comment_dict = dict(comment)
                             comments_by_todo.setdefault(comment_dict.get('todo_id'), []).append(comment_dict)
 
                     todos_out = []
