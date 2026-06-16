@@ -7032,7 +7032,7 @@ input[type="color"]::-moz-color-swatch {
 
 @media (max-width: 768px) {
   .todo-list {
-    padding: 12px 12px max(176px, calc(160px + env(safe-area-inset-bottom, 0px)));
+    padding: 12px 12px max(112px, calc(96px + env(safe-area-inset-bottom, 0px)));
   }
 
   .project-group-todos {
