@@ -17,7 +17,7 @@ systemctl restart nia-todo-dev
 
 ## ✨ Features
 
-- 📝 Todos with description, priority, deadline, reminders, and recurring schedules
+- 📝 Todos with description, checklist subtasks, priority, deadline, reminders, and recurring schedules
 - 🔁 Recurring todos with daily, weekly, monthly, or yearly intervals; completing one creates the next occurrence
 - 📁 Projects/categories including subprojects and protected per-user inbox
 - 🤝 Project sharing between users with invitations and undo

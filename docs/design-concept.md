@@ -93,19 +93,36 @@ Guidelines:
 - `.btn-secondary` — neutral action, navigation, retry, utility.
 - `.btn-danger` — destructive or security-sensitive action.
 - `.btn-small` — compact row-level action, not a primary modal action.
+- `.btn-icon` — square icon-only row action; combine with `.btn-small` for compact icon buttons.
+
+### Visual Contract
+
+The generic `.btn` primitive owns the default button look. Do not rely on modal/footer-specific CSS to make a normal button look correct.
+
+Base `.btn` requirements:
+
+- inline-flex layout with icon/text vertically and horizontally centered (`align-items: center`, `justify-content: center`)
+- `38px` minimum height on desktop
+- `12px` border radius for normal buttons
+- `14px` text, `700` weight, centered label
+- shared icon sizing via the global `.btn .ui-icon` / `.btn-icon .ui-icon` rules
+- no default shadow on `.btn-primary`; elevation/shadows must be opt-in for a specific component and should not bleed into adjacent stacked buttons
+
+Variants (`.btn-primary`, `.btn-secondary`, `.btn-danger`) change semantic color only; they should not redefine alignment, sizing, text weight, or default elevation unless the component is intentionally non-standard.
 
 ### Size
 
 Desktop:
 
-- Normal buttons: `38px` height.
-- Small row actions: `34px` height.
+- Normal buttons: `38px` minimum height.
+- Small row actions: `34px` minimum height via `.btn-small`.
+- Icon-only row actions: `34px × 34px` via `.btn-icon`; they must remain square and should not inherit mobile full-height button rules.
 - Button text should stay centered and readable.
 
 Mobile:
 
 - Buttons inside modals/cards should usually be full width.
-- Normal mobile action height: `42px` minimum.
+- Normal mobile action height: `42px` minimum, especially inside card/action surfaces.
 - Stack actions vertically with `8-10px` gap.
 
 ### Grouping

@@ -27,7 +27,10 @@ async function run() {
 
     await page.locator('.todo-item').filter({ hasText: 'Offline Sync Todo' }).first().click();
     await page.locator('#todo-modal').waitFor({ state: 'visible', timeout: 5000 });
-    await page.selectOption('#todo-status', 'done');
+    await page.fill('#todo-subtask-new-title', 'Offline subtask A');
+    await page.press('#todo-subtask-new-title', 'Enter');
+    await page.fill('#todo-subtask-new-title', 'Offline subtask B');
+    await page.press('#todo-subtask-new-title', 'Enter');
     await page.click('button[form="todo-form"]');
     await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });
 
@@ -35,10 +38,10 @@ async function run() {
       const todos = await window.dbGetAll('todos');
       const queue = await window.dbGetAll('syncQueue');
       const todo = todos.find(item => item.title === 'Offline Sync Todo');
-      return { status: todo?.status, queueLength: queue.length, queue };
+      return { subtasks: todo?.subtasks || [], queueLength: queue.length, queue };
     });
-    if (queuedOffline.status !== 'done' || queuedOffline.queueLength < 1) {
-      throw new Error(`Offline update was not queued correctly: ${JSON.stringify(queuedOffline)}`);
+    if (queuedOffline.subtasks.length !== 2 || queuedOffline.queueLength < 1 || !queuedOffline.queue.some(item => item.action === 'UPDATE_TODO' && item.data?.changes?.subtasks?.length === 2)) {
+      throw new Error(`Offline subtask update was not queued correctly: ${JSON.stringify(queuedOffline)}`);
     }
 
     await page.context().setOffline(false);
@@ -50,7 +53,7 @@ async function run() {
       const queue = await window.dbGetAll('syncQueue');
       const todos = await window.dbGetAll('todos');
       const todo = todos.find(item => item.title === 'Offline Sync Todo');
-      return queue.length === 0 && todo?.status === 'done';
+      return queue.length === 0 && Array.isArray(todo?.subtasks) && todo.subtasks.length === 2;
     }, null, { timeout: 15000 });
 
     await page.waitForFunction(async () => {
@@ -60,7 +63,7 @@ async function run() {
       const data = await response.json();
       const todos = data.todos || [];
       const todo = todos.find(item => item.title === 'Offline Sync Todo');
-      return response.ok && todo?.status === 'done';
+      return response.ok && Array.isArray(todo?.subtasks) && todo.subtasks.length === 2;
     }, null, { timeout: 15000 });
 
     await page.reload({ waitUntil: 'domcontentloaded' });
@@ -69,7 +72,7 @@ async function run() {
       if (typeof window.dbGetAll !== 'function') return false;
       const todos = await window.dbGetAll('todos');
       const todo = todos.find(item => item.title === 'Offline Sync Todo');
-      return todo?.status === 'done';
+      return Array.isArray(todo?.subtasks) && todo.subtasks.length === 2;
     }, null, { timeout: 15000 });
 
     const errors = dumpErrors();

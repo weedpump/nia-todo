@@ -805,7 +805,14 @@ Authorization: ApiKey nt_...
       "created_at": "2026-05-12T21:39:40",
       "updated_at": "2026-05-12T21:39:40",
       "reminders": [],
-      "labels": []
+      "subtasks": [
+        {
+          "id": 10,
+          "title": "Backup prüfen",
+          "is_done": false,
+          "sort_order": 0
+        }
+      ]
     }
   ]
 }
@@ -824,7 +831,8 @@ Authorization: ApiKey nt_...
   "status": "pending",
   "project_id": 3,
   "section_id": null,
-  "reminders": []
+  "reminders": [],
+  "subtasks": []
 }
 ```
 
@@ -841,7 +849,11 @@ Authorization: ApiKey nt_...
   "section_id": 1,
   "due_date": "2026-05-14T10:00:00Z",
   "remind_at": "2026-05-14T09:00:00Z",
-  "recurring_rule": {"frequency": "daily", "interval": 1}
+  "recurring_rule": {"frequency": "daily", "interval": 1},
+  "subtasks": [
+    {"title": "Waschmaschine starten", "is_done": false},
+    {"title": "Wäsche aufhängen", "is_done": false}
+  ]
 }
 ```
 
@@ -854,6 +866,8 @@ Authorization: ApiKey nt_...
 - `due_date` ISO-8601, optional, valid year `1900..9999`
 - `remind_at` ISO-8601, optional, valid year `1900..9999`
 - `recurring_rule` object, optional; MVP supports `frequency= daily|weekly|monthly|yearly` and `interval >= 1`. Requires `due_date`. When a recurring todo is completed, the API marks the current todo done and creates the next pending occurrence.
+- `subtasks` array, optional; checklist items with `title`, `is_done`, and optional `sort_order`. They are lightweight checklist entries, not full child todos. REST list/get/create/update responses and WebSocket todo sync payloads include `subtasks` consistently.
+- `confirm_incomplete_subtasks_completion` bool, optional; required when setting `status=done` while any subtask remains open.
 
 **Response**
 ```json
@@ -870,6 +884,9 @@ Authorization: ApiKey nt_...
 **Body**
 - same fields as POST, all optional
 - `status=done` sets `completed_at`
+- updating `subtasks` replaces the todo checklist with the provided ordered list
+- omitting `subtasks` leaves the existing checklist unchanged; sending an empty array clears it
+- setting `status=done` while subtasks are open returns HTTP 409 unless `confirm_incomplete_subtasks_completion=true` is included
 
 **Response**
 ```json

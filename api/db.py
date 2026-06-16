@@ -62,6 +62,19 @@ CREATE TABLE IF NOT EXISTS reminders (
     FOREIGN KEY (todo_id) REFERENCES todos(id) ON DELETE CASCADE
 );
 
+-- Checklist subtasks attached to a todo. These are intentionally lightweight
+-- checklist items, not full child todos with their own reminders/projects.
+CREATE TABLE IF NOT EXISTS todo_subtasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    todo_id INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    is_done INTEGER NOT NULL DEFAULT 0,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (todo_id) REFERENCES todos(id) ON DELETE CASCADE
+);
+
 -- Saved places for privacy-first location reminders
 CREATE TABLE IF NOT EXISTS saved_places (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -98,6 +111,7 @@ CREATE INDEX IF NOT EXISTS idx_todos_project ON todos(project_id);
 CREATE INDEX IF NOT EXISTS idx_todos_section ON todos(section_id);
 CREATE INDEX IF NOT EXISTS idx_sections_project ON sections(project_id);
 CREATE INDEX IF NOT EXISTS idx_reminders_at ON reminders(remind_at);
+CREATE INDEX IF NOT EXISTS idx_todo_subtasks_todo ON todo_subtasks(todo_id, sort_order, id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_saved_places_user_name ON saved_places(user_id, lower(name));
 CREATE INDEX IF NOT EXISTS idx_saved_places_user ON saved_places(user_id);
 CREATE INDEX IF NOT EXISTS idx_location_reminders_todo ON location_reminders(todo_id);

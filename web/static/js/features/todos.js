@@ -1,5 +1,6 @@
 import { RUNTIME_CAPABILITIES } from '../core/config.js';
 import { getActiveLanguage, t, translatePage } from '../i18n/index.js';
+import { iconSvg } from '../icons/lucide-icons.js';
 import { hydrateSelect, refreshSelect } from '../ui/dropdowns.js';
 import { createNativeBridge } from './native-bridge.js';
 
@@ -32,12 +33,123 @@ export function createTodosFeature({
   let todoFormBound = false;
   let savedPlaces = [];
 
+  function normalizeSubtasks(subtasks = []) {
+    return (Array.isArray(subtasks) ? subtasks : [])
+      .map((subtask, index) => ({
+        id: subtask.id ?? null,
+        title: String(subtask.title || '').trim(),
+        is_done: Boolean(subtask.is_done),
+        sort_order: Number.isFinite(Number(subtask.sort_order)) ? Number(subtask.sort_order) : index,
+      }))
+      .filter(subtask => subtask.title);
+  }
+
+  function getOpenSubtaskCount(todoOrSubtasks) {
+    const subtasks = Array.isArray(todoOrSubtasks) ? todoOrSubtasks : todoOrSubtasks?.subtasks;
+    return normalizeSubtasks(subtasks).filter(subtask => !subtask.is_done).length;
+  }
+
+  function updateSubtaskEditorCount() {
+    const subtasks = collectTodoSubtasksFromEditor();
+    const done = subtasks.filter(subtask => subtask.is_done).length;
+    const count = document.getElementById('todo-subtasks-count');
+    if (count) count.textContent = t('todo.subtasks.progress', { done, total: subtasks.length });
+  }
+
+  function collectTodoSubtasksFromEditor() {
+    return Array.from(document.querySelectorAll('#todo-subtasks-list .todo-subtask-row')).map((row, index) => ({
+      id: row.dataset.subtaskId && !row.dataset.subtaskId.startsWith('new-') ? Number(row.dataset.subtaskId) : null,
+      title: row.querySelector('.todo-subtask-title-input')?.value?.trim() || '',
+      is_done: Boolean(row.querySelector('.todo-subtask-check')?.checked),
+      sort_order: index,
+    })).filter(subtask => subtask.title);
+  }
+
+  function addTodoSubtaskRow(subtask = {}) {
+    const list = document.getElementById('todo-subtasks-list');
+    if (!list) return;
+    const row = document.createElement('div');
+    row.className = 'todo-subtask-row';
+    row.dataset.subtaskId = subtask.id ? String(subtask.id) : `new-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+    const checkboxLabel = document.createElement('label');
+    checkboxLabel.className = 'ui-checkbox-label todo-subtask-check-label';
+
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.className = 'todo-subtask-check';
+    checkbox.checked = Boolean(subtask.is_done);
+    checkbox.setAttribute('aria-label', t('todo.subtasks.toggleDone'));
+    checkbox.addEventListener('change', updateSubtaskEditorCount);
+
+    const checkboxBox = document.createElement('span');
+    checkboxBox.className = 'ui-checkbox-box';
+    checkboxBox.setAttribute('aria-hidden', 'true');
+    checkboxBox.innerHTML = iconSvg('check');
+    checkboxLabel.append(checkbox, checkboxBox);
+
+    const inputWrap = document.createElement('div');
+    inputWrap.className = 'form-group todo-subtask-title-group';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'todo-subtask-title-input';
+    input.maxLength = 500;
+    input.value = subtask.title || '';
+    input.placeholder = t('todo.subtasks.placeholder');
+    input.setAttribute('aria-label', t('todo.subtasks.titleLabel'));
+    input.addEventListener('input', updateSubtaskEditorCount);
+    inputWrap.appendChild(input);
+
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'btn btn-secondary btn-small btn-icon todo-subtask-remove';
+    remove.innerHTML = iconSvg('trash-2');
+    remove.setAttribute('aria-label', t('todo.subtasks.delete'));
+    remove.addEventListener('click', () => {
+      row.remove();
+      updateSubtaskEditorCount();
+    });
+
+    row.append(checkboxLabel, inputWrap, remove);
+    list.appendChild(row);
+    updateSubtaskEditorCount();
+    return input;
+  }
+
+  function renderTodoSubtaskEditor(subtasks = []) {
+    const list = document.getElementById('todo-subtasks-list');
+    if (!list) return;
+    list.innerHTML = '';
+    normalizeSubtasks(subtasks).forEach(subtask => addTodoSubtaskRow(subtask));
+    updateSubtaskEditorCount();
+  }
+
+  function addTodoSubtaskFromInput() {
+    const input = document.getElementById('todo-subtask-new-title');
+    const title = input?.value?.trim() || '';
+    if (!title) {
+      input?.focus();
+      return;
+    }
+    addTodoSubtaskRow({ title, is_done: false });
+    if (input) {
+      input.value = '';
+      input.focus();
+    }
+  }
+
   function bindTodoForm() {
     if (todoFormBound) return;
     const form = document.getElementById('todo-form');
     if (!form) return;
     todoFormBound = true;
     form.addEventListener('submit', saveTodo);
+    document.getElementById('todo-subtask-new-title')?.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        addTodoSubtaskFromInput();
+      }
+    });
   }
 
   function hydrateTodoSelects() {
@@ -757,6 +869,17 @@ export function createTodosFeature({
     if (!getAppInitialized() || !getDb()) return;
     const todo = getTodos().find(x => String(x.id) === String(id));
     if (!todo || todo.status === status) return;
+    const changes = { status };
+    const openSubtasks = getOpenSubtaskCount(todo);
+    if (status === 'done' && openSubtasks > 0) {
+      const confirmed = await confirmDanger({
+        title: t('todo.subtasks.completeWithOpenTitle'),
+        message: t('todo.subtasks.completeWithOpenMessage', { count: openSubtasks }),
+        confirmText: t('todo.subtasks.completeAnyway'),
+      });
+      if (!confirmed) return;
+      changes.confirm_incomplete_subtasks_completion = true;
+    }
     const nowIso = new Date().toISOString();
     const completed_at = status === 'done' ? nowIso : null;
     const updatedTodo = { ...todo, status, completed_at, updated_at: nowIso };
@@ -767,7 +890,7 @@ export function createTodosFeature({
     runHapticFeedback(status === 'done' ? 18 : 10);
     if (status === 'done') showToast(t('todo.toast.done'), { type: 'status', id: todo.id, previousStatus: todo.status });
     else if (todo.status === 'done' && status === 'pending') showToast(t('todo.toast.reopened'), { type: 'status', id: todo.id, previousStatus: todo.status });
-    await addToSyncQueue('UPDATE_TODO', { id: todo.id, changes: { status } });
+    await addToSyncQueue('UPDATE_TODO', { id: todo.id, changes });
     if (isOnlineForSync()) await syncWithServer();
   }
 
@@ -1105,6 +1228,9 @@ export function createTodosFeature({
     clearDateTimeErrors();
     clearLocationReminderForm();
     document.getElementById('todo-id').value = '';
+    const newSubtaskInput = document.getElementById('todo-subtask-new-title');
+    if (newSubtaskInput) newSubtaskInput.value = '';
+    renderTodoSubtaskEditor([]);
     const modalTitle = document.getElementById('todo-modal-title');
     if (modalTitle) {
       modalTitle.dataset.i18nKey = todo ? 'todo.edit' : 'todo.new';
@@ -1166,6 +1292,7 @@ export function createTodosFeature({
         document.getElementById('todo-remind').value = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
       }
       populateLocationReminderForm(todo);
+      renderTodoSubtaskEditor(todo.subtasks || []);
     } else {
       document.getElementById('todo-pinned').checked = false;
       document.getElementById('todo-recurring-frequency').value = 'none';
@@ -1258,6 +1385,7 @@ export function createTodosFeature({
       project_id: document.getElementById('todo-project').value ? parseInt(document.getElementById('todo-project').value) : null,
       section_id: document.getElementById('todo-section').value ? parseInt(document.getElementById('todo-section').value) : null,
       status: document.getElementById('todo-status').value,
+      subtasks: collectTodoSubtasksFromEditor(),
       due_date: toIsoOrNull('todo-due'),
       remind_at: toIsoOrNull('todo-remind'),
       recurring_rule: recurringRuleFromForm(),
@@ -1274,6 +1402,15 @@ export function createTodosFeature({
       if (parsedQuickAdd.changes.due_date && !todoData.due_date) todoData.due_date = parsedQuickAdd.changes.due_date;
       if (parsedQuickAdd.changes.remind_at && !todoData.remind_at) todoData.remind_at = parsedQuickAdd.changes.remind_at;
       if (parsedQuickAdd.changes.recurring_rule && !todoData.recurring_rule) todoData.recurring_rule = parsedQuickAdd.changes.recurring_rule;
+    }
+    if (todoData.status === 'done' && getOpenSubtaskCount(todoData.subtasks) > 0) {
+      const confirmed = await confirmDanger({
+        title: t('todo.subtasks.completeWithOpenTitle'),
+        message: t('todo.subtasks.completeWithOpenMessage', { count: getOpenSubtaskCount(todoData.subtasks) }),
+        confirmText: t('todo.subtasks.completeAnyway'),
+      });
+      if (!confirmed) return;
+      todoData.confirm_incomplete_subtasks_completion = true;
     }
     if (todoData.recurring_rule && !todoData.due_date) {
       const dueInput = document.getElementById('todo-due');
@@ -1303,7 +1440,7 @@ export function createTodosFeature({
     } else {
       const tempId = 'temp-' + Date.now();
       const nowIso = new Date().toISOString();
-      const newTodo = { id: tempId, ...todoData, completed_at: todoData.status === 'done' ? nowIso : null, created_at: nowIso, updated_at: nowIso, reminders: [] };
+      const newTodo = { id: tempId, ...todoData, completed_at: todoData.status === 'done' ? nowIso : null, created_at: nowIso, updated_at: nowIso, reminders: [], subtasks: normalizeSubtasks(todoData.subtasks) };
       await dbPut('todos', newTodo);
       setTodos([...getTodos(), newTodo]);
       renderProjects();
@@ -1354,6 +1491,7 @@ export function createTodosFeature({
     if (!todo) return;
     await updateTodoFields(id, { is_pinned: !Boolean(todo.is_pinned) }, Boolean(todo.is_pinned) ? t('todo.toast.unpinned') : t('todo.toast.pinned'));
   }
+
 
   function getTodoReminderTime(todo) {
     const raw = todo?.remind_at || todo?.reminders?.find?.(reminder => !reminder.sent_at)?.remind_at || todo?.reminders?.[0]?.remind_at;
@@ -1411,6 +1549,7 @@ export function createTodosFeature({
       due_date: todo.due_date || null,
       remind_at: reminder ? reminder.toISOString() : null,
       recurring_rule: todo.recurring_rule || null,
+      subtasks: normalizeSubtasks(todo.subtasks || []).map((subtask, index) => ({ title: subtask.title, is_done: false, sort_order: index })),
       location_reminder: cloneLocationReminderPayload(todo),
     };
     todoData.location_reminders = locationReminderArrayFromPayload(todoData.location_reminder);
@@ -1455,5 +1594,5 @@ export function createTodosFeature({
     if (isOnlineForSync()) await syncWithServer();
   }
 
-  return { markTodoDone, markTodoInProgress, setTodoStatus, toggleTodo, toggleTodoPin, snoozeTodo, duplicateTodo, showTodoModal, onProjectChange, saveTodo, editTodo, deleteTodoFromModal, deleteTodo };
+  return { markTodoDone, markTodoInProgress, setTodoStatus, toggleTodo, toggleTodoPin, addTodoSubtaskFromInput, snoozeTodo, duplicateTodo, showTodoModal, onProjectChange, saveTodo, editTodo, deleteTodoFromModal, deleteTodo };
 }

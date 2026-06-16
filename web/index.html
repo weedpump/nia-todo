@@ -543,6 +543,29 @@
           </div>
         </section>
 
+        <section class="ui-section-card todo-section-card todo-subtasks-card">
+          <div class="ui-section-heading">
+            <div class="ui-section-icon" data-icon="list"></div>
+            <div>
+              <h4 data-i18n-key="todo.subtasks">Subtasks</h4>
+              <p data-i18n-key="todo.subtasks.hint">Add checklist items for this todo.</p>
+            </div>
+          </div>
+          <div class="todo-subtasks-editor">
+            <div class="todo-subtasks-toolbar">
+              <span id="todo-subtasks-count" class="todo-meta-chip todo-subtasks-progress" aria-live="polite">0/0</span>
+            </div>
+            <div id="todo-subtasks-list" class="todo-subtasks-list"></div>
+            <div class="form-group todo-subtasks-add-group">
+              <label for="todo-subtask-new-title" data-i18n-key="todo.subtasks.newLabel">New subtask</label>
+              <div class="todo-subtasks-add-row">
+                <input type="text" id="todo-subtask-new-title" maxlength="500" placeholder="Nächster Schritt…" data-i18n-placeholder-key="todo.subtasks.placeholder">
+                <button type="button" class="btn btn-secondary" onclick="addTodoSubtaskFromInput()"><span data-icon="plus"></span> <span data-i18n-key="common.add">Add</span></button>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <section class="ui-section-card todo-section-card">
           <div class="ui-section-heading">
             <div class="ui-section-icon" data-icon="settings"></div>
