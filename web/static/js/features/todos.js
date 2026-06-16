@@ -84,6 +84,7 @@ export function createTodosFeature({
     const checkboxBox = document.createElement('span');
     checkboxBox.className = 'ui-checkbox-box';
     checkboxBox.setAttribute('aria-hidden', 'true');
+    checkboxBox.innerHTML = iconSvg('check');
     checkboxLabel.append(checkbox, checkboxBox);
 
     const inputWrap = document.createElement('div');
