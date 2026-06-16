@@ -79,6 +79,7 @@ export function createTodosFeature({
     checkbox.type = 'checkbox';
     checkbox.className = 'todo-subtask-check';
     checkbox.checked = Boolean(subtask.is_done);
+    checkbox.setAttribute('aria-label', t('todo.subtasks.toggleDone'));
     checkbox.addEventListener('change', updateSubtaskEditorCount);
 
     const checkboxBox = document.createElement('span');
@@ -95,6 +96,7 @@ export function createTodosFeature({
     input.maxLength = 500;
     input.value = subtask.title || '';
     input.placeholder = t('todo.subtasks.placeholder');
+    input.setAttribute('aria-label', t('todo.subtasks.titleLabel'));
     input.addEventListener('input', updateSubtaskEditorCount);
     inputWrap.appendChild(input);
 
@@ -102,7 +104,7 @@ export function createTodosFeature({
     remove.type = 'button';
     remove.className = 'btn btn-secondary btn-small btn-icon todo-subtask-remove';
     remove.innerHTML = iconSvg('trash-2');
-    remove.setAttribute('aria-label', t('common.delete'));
+    remove.setAttribute('aria-label', t('todo.subtasks.delete'));
     remove.addEventListener('click', () => {
       row.remove();
       updateSubtaskEditorCount();
