@@ -1132,10 +1132,11 @@ export function createTodosFeature({
   function bindTodoActionsReveal() {
     if (document.documentElement.dataset.todoActionsRevealBound === '1') return;
     document.documentElement.dataset.todoActionsRevealBound = '1';
+    let lastRevealPointerHandledAt = 0;
     const handleReveal = (event) => {
       const button = event.target?.closest?.('.todo-actions-reveal-btn');
       if (!button) return;
-      if (event.type === 'click' && button.__niaRevealPointerHandledAt && Date.now() - button.__niaRevealPointerHandledAt < 600) {
+      if (event.type === 'click' && (lastRevealPointerHandledAt || button.__niaRevealPointerHandledAt) && Date.now() - Math.max(lastRevealPointerHandledAt, button.__niaRevealPointerHandledAt || 0) < 600) {
         event.preventDefault?.();
         event.stopPropagation?.();
         event.stopImmediatePropagation?.();
@@ -1144,7 +1145,10 @@ export function createTodosFeature({
       const item = button.closest('.todo-item[data-id]');
       if (!item) return;
       event.preventDefault?.();
-      if (event.type === 'pointerup') button.__niaRevealPointerHandledAt = Date.now();
+      if (event.type === 'pointerup') {
+        lastRevealPointerHandledAt = Date.now();
+        button.__niaRevealPointerHandledAt = lastRevealPointerHandledAt;
+      }
       item.__niaRevealHandledAt = Date.now();
       toggleTodoActions(item, event);
       event.stopImmediatePropagation?.();
@@ -1153,6 +1157,12 @@ export function createTodosFeature({
       const expandedItems = Array.from(document.querySelectorAll('.todo-item.actions-expanded'));
       if (!expandedItems.length) return;
       if (event.target?.closest?.('.todo-actions')) return;
+      if (lastRevealPointerHandledAt && Date.now() - lastRevealPointerHandledAt < 700) {
+        event.preventDefault?.();
+        event.stopPropagation?.();
+        event.stopImmediatePropagation?.();
+        return;
+      }
       expandedItems.forEach((item) => setTodoActionsExpanded(item, false));
       const tappedTodo = event.target?.closest?.('.todo-item[data-id]');
       if (tappedTodo && !isTodoInteractiveTarget(event.target)) {
