@@ -99,6 +99,7 @@ export function renderTodoItem(t) {
         <button type="button" onclick='toggleTodoPin(${idArg})' class="todo-pin-btn ${pinned ? 'active' : ''}" title="${escapeHtml(pinned ? i18nT('todo.unpin') : i18nT('todo.pin'))}">${iconSvg('star')}</button>
         <button type="button" onclick='duplicateTodo(${idArg})' title="${escapeHtml(i18nT('todo.duplicate'))}">${iconSvg('copy')}</button>
         <button type="button" onclick='deleteTodo(${idArg})' title="${escapeHtml(i18nT('common.delete'))}">${iconSvg('trash-2')}</button>
+        <button type="button" class="todo-actions-reveal-btn" data-todo-actions-reveal="true" aria-expanded="false" aria-label="${escapeHtml(i18nT('common.more'))}" title="${escapeHtml(i18nT('common.more'))}">${iconSvg('chevron-left')}</button>
       </div>
     </div>
   `;

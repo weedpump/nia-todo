@@ -8,6 +8,7 @@
   "common.back": "Back",
   "common.reload": "Reload",
   "common.search": "Search",
+  "common.more": "More",
   "connection.sync.short": "Sync",
   "connection.syncing": "Sync in progress",
   "connection.pendingSync.one": "{count} local change waiting to sync",

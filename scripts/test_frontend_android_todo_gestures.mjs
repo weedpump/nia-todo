@@ -64,6 +64,14 @@ async function run() {
   const title = 'Android Gesture Todo';
   const quickActionTitle = 'Android Quick Action Pin Todo';
   const todoItem = () => page.locator('.todo-item').filter({ hasText: title }).last();
+  const revealQuickActions = async (todoTitle) => {
+    const item = page.locator('.todo-item').filter({ hasText: todoTitle }).last();
+    if (!(await item.locator('.todo-pin-btn').isVisible())) {
+      await item.locator('.todo-actions-reveal-btn').click();
+      await item.locator('.todo-pin-btn').waitFor({ state: 'visible', timeout: 5000 });
+    }
+    return item;
+  };
 
   try {
     await page.addInitScript(() => {
@@ -100,7 +108,7 @@ async function run() {
     await page.click('button[form="todo-form"]');
     await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });
     await page.waitForFunction((value) => document.body.innerText.includes(value), quickActionTitle, { timeout: 10000 });
-    await page.locator('.todo-item').filter({ hasText: quickActionTitle }).last().locator('.todo-pin-btn').click();
+    await (await revealQuickActions(quickActionTitle)).locator('.todo-pin-btn').click();
     await waitForTodo(page, quickActionTitle, { pinned: true });
 
     const midSwipe = await page.evaluate((value) => {
@@ -242,6 +250,7 @@ async function run() {
       throw new Error(`Standard drag topbar-aware auto-scroll up failed: ${JSON.stringify(standardAutoScrollResult)}`);
     }
 
+    await revealQuickActions(quickActionTitle);
     const driftResult = await page.evaluate((value) => {
       const titleEl = Array.from(document.querySelectorAll('.todo-title')).find(el => (el.textContent || '').includes(value));
       const item = titleEl?.closest('.todo-item');
@@ -260,10 +269,11 @@ async function run() {
     }, quickActionTitle);
     if (driftResult.swiping || driftResult.swipeX) throw new Error(`Interactive quick-action drift started swipe: ${JSON.stringify(driftResult)}`);
 
+    await revealQuickActions(quickActionTitle);
     const actionZoneSwipe = await page.evaluate((value) => {
       const titleEl = Array.from(document.querySelectorAll('.todo-title')).find(el => (el.textContent || '').includes(value));
       const item = titleEl?.closest('.todo-item');
-      const deleteButton = item?.querySelector('.todo-actions button:last-child');
+      const deleteButton = Array.from(item?.querySelectorAll('.todo-actions > button:not(.todo-actions-reveal-btn)') || []).at(-1);
       if (!item || !deleteButton) throw new Error('Delete quick-action missing for action-zone swipe test');
       const rect = deleteButton.getBoundingClientRect();
       const startX = rect.right - 2;
@@ -284,7 +294,7 @@ async function run() {
     await page.waitForFunction(() => window.__androidHapticCalls?.includes(18), null, { timeout: 5000 });
     await page.waitForTimeout(500);
 
-    const item = todoItem();
+    const item = await revealQuickActions(title);
     await item.locator('.todo-snooze-menu summary').click();
     await item.locator('.todo-snooze-menu[open]').waitFor({ state: 'visible', timeout: 5000 });
     await item.locator('.todo-snooze-menu .todo-status-options button').filter({ hasText: /Morgen|Tomorrow/i }).click();
