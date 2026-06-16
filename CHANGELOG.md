@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 ## [Unreleased]
 
 ### Added
-- Added checklist-style subtasks on todos, including progress chips, inline checklist toggles, modal editing, offline sync, recurring-todo checklist carry-over, and confirmation before completing a parent todo with open subtasks.
+- Added checklist-style subtasks on todos, including progress chips on todo cards, modal-only checklist editing, offline/realtime sync, recurring-todo checklist carry-over, and confirmation before completing a parent todo with open subtasks.
 
 ## [2.12.2] - 2026-06-16
 

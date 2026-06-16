@@ -1269,6 +1269,9 @@
   "todo.subtasks.newLabel": "New subtask",
   "todo.subtasks.empty": "No subtasks yet.",
   "todo.subtasks.progress": "{done}/{total} done",
+  "todo.subtasks.toggleDone": "Toggle subtask done",
+  "todo.subtasks.titleLabel": "Subtask title",
+  "todo.subtasks.delete": "Delete subtask",
   "todo.subtasks.completeWithOpenTitle": "Complete todo with open subtasks?",
   "todo.subtasks.completeWithOpenMessage": "This todo still has {count} open subtask(s). Mark it done anyway?",
   "todo.subtasks.completeAnyway": "Complete anyway"

@@ -866,7 +866,7 @@ Authorization: ApiKey nt_...
 - `due_date` ISO-8601, optional, valid year `1900..9999`
 - `remind_at` ISO-8601, optional, valid year `1900..9999`
 - `recurring_rule` object, optional; MVP supports `frequency= daily|weekly|monthly|yearly` and `interval >= 1`. Requires `due_date`. When a recurring todo is completed, the API marks the current todo done and creates the next pending occurrence.
-- `subtasks` array, optional; checklist items with `title`, `is_done`, and optional `sort_order`. They are lightweight checklist entries, not full child todos.
+- `subtasks` array, optional; checklist items with `title`, `is_done`, and optional `sort_order`. They are lightweight checklist entries, not full child todos. REST list/get/create/update responses and WebSocket todo sync payloads include `subtasks` consistently.
 - `confirm_incomplete_subtasks_completion` bool, optional; required when setting `status=done` while any subtask remains open.
 
 **Response**
@@ -885,6 +885,7 @@ Authorization: ApiKey nt_...
 - same fields as POST, all optional
 - `status=done` sets `completed_at`
 - updating `subtasks` replaces the todo checklist with the provided ordered list
+- omitting `subtasks` leaves the existing checklist unchanged; sending an empty array clears it
 - setting `status=done` while subtasks are open returns HTTP 409 unless `confirm_incomplete_subtasks_completion=true` is included
 
 **Response**
