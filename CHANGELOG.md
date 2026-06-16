@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 ## [Unreleased]
 
 ### Changed
-- Removed the redundant pinned todo badge from todo cards; pinned state remains visible through the pinned section and active star action while saving vertical space.
+- Removed redundant status badges from todo cards: pinned state remains visible through the pinned section and active star action, while in-progress state remains visible through the leading flame/status control.
 
 ## [2.12.1] - 2026-06-14
 
