@@ -27,6 +27,7 @@ async function run() {
 
     await page.locator('.todo-item').filter({ hasText: 'Offline Sync Todo' }).first().click();
     await page.locator('#todo-modal').waitFor({ state: 'visible', timeout: 5000 });
+    await page.click('#todo-subtasks-panel > summary');
     await page.fill('#todo-subtask-new-title', 'Offline subtask A');
     await page.press('#todo-subtask-new-title', 'Enter');
     await page.fill('#todo-subtask-new-title', 'Offline subtask B');

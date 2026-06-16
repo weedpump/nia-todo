@@ -51,6 +51,12 @@ export function createTodosFeature({
     return normalizeSubtasks(subtasks).filter(subtask => !subtask.is_done).length;
   }
 
+  function setTodoCollapsibleOpen(panelId, shouldOpen) {
+    const panel = document.getElementById(panelId);
+    if (!panel) return;
+    panel.open = Boolean(shouldOpen);
+  }
+
   function updateSubtaskEditorCount() {
     const subtasks = collectTodoSubtasksFromEditor();
     const done = subtasks.filter(subtask => subtask.is_done).length;
@@ -122,8 +128,10 @@ export function createTodosFeature({
     const list = document.getElementById('todo-subtasks-list');
     if (!list) return;
     list.innerHTML = '';
-    normalizeSubtasks(subtasks).forEach(subtask => addTodoSubtaskRow(subtask));
+    const normalized = normalizeSubtasks(subtasks);
+    normalized.forEach(subtask => addTodoSubtaskRow(subtask));
     updateSubtaskEditorCount();
+    setTodoCollapsibleOpen('todo-subtasks-panel', normalized.length > 0);
   }
 
   function addTodoSubtaskFromInput() {
@@ -160,7 +168,10 @@ export function createTodosFeature({
     const addButton = document.getElementById('todo-comment-add-btn');
     if (!list) return;
     const normalized = Array.isArray(comments) ? comments : [];
+    const count = document.getElementById('todo-comments-count');
     list.innerHTML = '';
+    if (count) count.textContent = String(normalized.length);
+    setTodoCollapsibleOpen('todo-comments-panel', normalized.length > 0);
     if (empty) {
       empty.textContent = todoId ? t('todo.comments.empty') : t('todo.comments.saveFirst');
       empty.hidden = normalized.length > 0;

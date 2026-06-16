@@ -8402,3 +8402,61 @@ body.is-minimal-todos .todo-meta-chip.todo-comments-progress {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
   outline: none;
 }
+
+.todo-collapsible-card {
+  display: block;
+}
+
+.todo-collapsible-summary {
+  cursor: pointer;
+  list-style: none;
+  margin-bottom: 0;
+  user-select: none;
+}
+
+.todo-collapsible-summary::-webkit-details-marker {
+  display: none;
+}
+
+.todo-collapsible-summary:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 72%, transparent);
+  outline-offset: 4px;
+  border-radius: 14px;
+}
+
+.todo-collapsible-card[open] > .todo-collapsible-summary {
+  margin-bottom: 16px;
+}
+
+.todo-collapsible-spacer {
+  flex: 1 1 auto;
+}
+
+.todo-collapsible-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  transform: rotate(-90deg);
+  transition: transform 0.16s ease, color 0.16s ease;
+}
+
+.todo-collapsible-card[open] .todo-collapsible-chevron {
+  color: var(--accent);
+  transform: rotate(0deg);
+}
+
+.todo-collapsible-summary .todo-meta-chip {
+  flex: 0 0 auto;
+  align-self: center;
+}
+
+@media (max-width: 640px) {
+  .todo-collapsible-summary {
+    gap: 10px;
+  }
+
+  .todo-collapsible-summary .todo-meta-chip {
+    margin-left: auto;
+  }
+}
