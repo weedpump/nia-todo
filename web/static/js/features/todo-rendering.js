@@ -71,18 +71,6 @@ export function renderTodoItem(t) {
             </div>
             ` : ''}
             ${hasDesc ? `<div class="todo-desc-preview" title="${escapeHtmlAttr(String(t.description || ''))}">${renderMarkdown(desc)}</div>` : ''}
-            ${hasSubtasks ? `
-              <div class="todo-subtasks-preview" onclick="event.stopPropagation()">
-                ${subtasks.slice(0, 4).map(subtask => {
-                  const subtaskKeyArg = JSON.stringify(subtask.id ?? subtask.sort_order);
-                  return `<label class="todo-subtask-preview-row ${subtask.is_done ? 'done' : ''}">
-                    <input type="checkbox" ${subtask.is_done ? 'checked' : ''} onchange='toggleTodoSubtask(${idArg}, ${subtaskKeyArg})'>
-                    <span>${escapeHtml(subtask.title || '')}</span>
-                  </label>`;
-                }).join('')}
-                ${subtasks.length > 4 ? `<div class="todo-subtasks-more">+${subtasks.length - 4}</div>` : ''}
-              </div>
-            ` : ''}
           </div>
         </div>
       </div>

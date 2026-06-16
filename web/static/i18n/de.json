@@ -1266,6 +1266,7 @@
   "todo.subtasks": "Subtasks",
   "todo.subtasks.hint": "Kleine Checkliste für diese Aufgabe.",
   "todo.subtasks.placeholder": "Nächster Schritt…",
+  "todo.subtasks.newLabel": "Neuer Subtask",
   "todo.subtasks.empty": "Noch keine Subtasks.",
   "todo.subtasks.progress": "{done}/{total} erledigt",
   "todo.subtasks.completeWithOpenTitle": "Todo trotz offener Subtasks erledigen?",
