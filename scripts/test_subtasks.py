@@ -89,7 +89,10 @@ def make_db():
         """
     )
     db.execute("INSERT INTO users (id, username, default_reminder_offset_minutes) VALUES (1, 'tobi', NULL)")
+    db.execute("INSERT INTO users (id, username, default_reminder_offset_minutes) VALUES (2, 'shared', NULL)")
     db.execute("INSERT INTO projects (id, name, user_id, is_inbox) VALUES (1, 'Inbox', 1, 1)")
+    db.execute("INSERT INTO projects (id, name, user_id, is_inbox) VALUES (2, 'Shared Project', 1, 0)")
+    db.execute("INSERT INTO project_members (project_id, user_id, status) VALUES (2, 2, 'accepted')")
     db.commit()
     return db
 
@@ -98,10 +101,10 @@ async def noop_broadcast(*_args, **_kwargs):
     return None
 
 
-def make_client(db):
+def make_client(db, user_id=1):
     app = FastAPI()
     app.include_router(todos_router.router)
-    app.dependency_overrides[require_auth] = lambda: 1
+    app.dependency_overrides[require_auth] = lambda: user_id
 
     @contextlib.contextmanager
     def fake_get_db():
@@ -166,6 +169,29 @@ def main():
     next_todo = recurring_done.json()["recurrence_created_todo"]
     assert_true(next_todo["subtasks"][0]["title"] == "Logs ansehen", next_todo)
     assert_true(next_todo["subtasks"][0]["is_done"] is False, next_todo)
+
+    shared_created = client.post("/api/todos", json={
+        "title": "Shared checklist",
+        "project_id": 2,
+        "subtasks": [{"title": "Owner item", "is_done": False}],
+    })
+    assert_true(shared_created.status_code == 200, shared_created.text)
+    shared_todo_id = shared_created.json()["id"]
+    shared_client = make_client(db, user_id=2)
+    shared_list = shared_client.get("/api/todos?project_id=2")
+    assert_true(shared_list.status_code == 200, shared_list.text)
+    shared_view = next(todo for todo in shared_list.json()["todos"] if todo["id"] == shared_todo_id)
+    assert_true(shared_view["subtasks"][0]["title"] == "Owner item", shared_view)
+    shared_update = shared_client.patch(f"/api/todos/{shared_todo_id}", json={
+        "subtasks": [
+            {"title": "Owner item", "is_done": True},
+            {"title": "Shared user item", "is_done": False},
+        ]
+    })
+    assert_true(shared_update.status_code == 200, shared_update.text)
+    assert_true(len(shared_update.json()["subtasks"]) == 2, shared_update.json())
+    owner_view = client.get(f"/api/todos/{shared_todo_id}")
+    assert_true(owner_view.json()["subtasks"][1]["title"] == "Shared user item", owner_view.json())
 
     print("✅ Subtask API tests passed")
 
