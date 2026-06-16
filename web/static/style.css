@@ -1548,6 +1548,37 @@ select:focus-visible {
   color: #fff;
 }
 
+.btn:disabled,
+.btn[disabled] {
+  cursor: default;
+  opacity: 0.48;
+  filter: grayscale(0.25) saturate(0.6);
+  box-shadow: none;
+  transform: none;
+  pointer-events: none;
+}
+
+.btn-primary:disabled,
+.btn-primary[disabled] {
+  background: color-mix(in srgb, var(--bg-tertiary) 72%, var(--accent));
+  border-color: color-mix(in srgb, var(--border) 78%, var(--accent));
+  color: var(--text-muted);
+}
+
+.btn:disabled:hover,
+.btn[disabled]:hover,
+.btn:disabled:active,
+.btn[disabled]:active,
+.btn-primary:disabled:hover,
+.btn-primary[disabled]:hover,
+.btn-primary:disabled:active,
+.btn-primary[disabled]:active {
+  background: color-mix(in srgb, var(--bg-tertiary) 72%, var(--accent));
+  box-shadow: none;
+  filter: grayscale(0.25) saturate(0.6);
+  transform: none;
+}
+
 /* Icons in primary buttons must stay visible on the accent background. */
 .btn-primary [data-icon] {
   display: inline-flex;
