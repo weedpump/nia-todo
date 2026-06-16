@@ -90,6 +90,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
                     todo_ids = [row['id'] for row in todos_rows]
                     subtasks_by_todo = {todo_id: [] for todo_id in todo_ids}
+                    comments_by_todo = {todo_id: [] for todo_id in todo_ids}
                     if todo_ids:
                         subtask_placeholders = ','.join('?' for _ in todo_ids)
                         subtask_rows = db.execute(
@@ -103,6 +104,16 @@ async def websocket_endpoint(websocket: WebSocket):
                             subtask_dict = row_to_dict(subtask)
                             subtask_dict['is_done'] = bool(subtask_dict.get('is_done'))
                             subtasks_by_todo.setdefault(subtask_dict.pop('todo_id'), []).append(subtask_dict)
+                        comment_rows = db.execute(
+                            f"""SELECT id, todo_id, user_id, body, created_at, updated_at
+                                FROM todo_comments
+                                WHERE todo_id IN ({subtask_placeholders})
+                                ORDER BY created_at, id""",
+                            todo_ids
+                        ).fetchall()
+                        for comment in comment_rows:
+                            comment_dict = row_to_dict(comment)
+                            comments_by_todo.setdefault(comment_dict.get('todo_id'), []).append(comment_dict)
 
                     todos_out = []
                     for r in todos_rows:
@@ -123,6 +134,8 @@ async def websocket_endpoint(websocket: WebSocket):
                         ).fetchall()
                         d['reminders'] = [dict(r) for r in rem_rows]
                         d['subtasks'] = subtasks_by_todo.get(d['id'], [])
+                        d['comments'] = comments_by_todo.get(d['id'], [])
+                        d['comments_count'] = len(d['comments'])
                         d['location_reminders'] = [dict(r) for r in location_rows]
                         d['location_reminder'] = d['location_reminders'][0] if d['location_reminders'] else None
                         todos_out.append(d)

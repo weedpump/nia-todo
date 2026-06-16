@@ -55,6 +55,12 @@ class TodoUpdate(BaseModel):
     subtasks: Optional[list[TodoSubtaskInput]] = None
     confirm_incomplete_subtasks_completion: bool = False
 
+class TodoCommentCreate(BaseModel):
+    body: str
+
+class TodoCommentUpdate(BaseModel):
+    body: str
+
 
 # ─── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -87,6 +93,26 @@ def _subtasks_for_todo(db, todo_id: int) -> list[dict]:
         (todo_id,)
     ).fetchall()
     return [{**dict(row), 'is_done': bool(row['is_done'])} for row in rows]
+
+
+def _comments_for_todo(db, todo_id: int) -> list[dict]:
+    rows = db.execute(
+        """SELECT id, todo_id, user_id, body, created_at, updated_at
+           FROM todo_comments
+           WHERE todo_id = ?
+           ORDER BY created_at, id""",
+        (todo_id,)
+    ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def _normalize_comment_body(body: str) -> str:
+    normalized = sanitize_text(body or '').strip()
+    if not normalized:
+        raise HTTPException(422, "Comment body required")
+    if len(normalized) > 5000:
+        raise HTTPException(422, "Comment body too long")
+    return normalized
 
 
 def _normalize_subtasks(subtasks: Optional[list[TodoSubtaskInput]]) -> list[dict]:
@@ -151,6 +177,8 @@ def fetch_todo(db, todo_id: int, reminder_user_id: Optional[int] = None) -> Opti
         ).fetchall()
     d['reminders'] = [dict(r) for r in rem_rows]
     d['subtasks'] = _subtasks_for_todo(db, todo_id)
+    d['comments'] = _comments_for_todo(db, todo_id)
+    d['comments_count'] = len(d['comments'])
     d['location_reminders'] = _location_reminders_for_todo(db, todo_id, reminder_user_id)
     d['location_reminder'] = d['location_reminders'][0] if d['location_reminders'] else None
     return _recurring_rule_response(d)
@@ -538,6 +566,7 @@ def list_todos(status: Optional[str] = None, project_id: Optional[int] = None, s
         todo_ids = [todo['id'] for todo in todos]
         reminders_by_todo = {todo_id: [] for todo_id in todo_ids}
         subtasks_by_todo = {todo_id: [] for todo_id in todo_ids}
+        comments_by_todo = {todo_id: [] for todo_id in todo_ids}
         location_reminders_by_todo = {todo_id: [] for todo_id in todo_ids}
         if todo_ids:
             placeholders = ','.join('?' for _ in todo_ids)
@@ -561,6 +590,16 @@ def list_todos(status: Optional[str] = None, project_id: Optional[int] = None, s
                 subtask_dict = dict(subtask)
                 subtask_dict['is_done'] = bool(subtask_dict.get('is_done'))
                 subtasks_by_todo.setdefault(subtask_dict.pop('todo_id'), []).append(subtask_dict)
+            comment_rows = db.execute(
+                f"""SELECT id, todo_id, user_id, body, created_at, updated_at
+                   FROM todo_comments
+                   WHERE todo_id IN ({placeholders})
+                   ORDER BY created_at, id""",
+                todo_ids
+            ).fetchall()
+            for comment in comment_rows:
+                comment_dict = dict(comment)
+                comments_by_todo.setdefault(comment_dict.get('todo_id'), []).append(comment_dict)
             try:
                 location_rows = db.execute(
                     f"""SELECT lr.*, sp.name AS place_name, sp.icon AS place_icon FROM location_reminders lr
@@ -577,6 +616,8 @@ def list_todos(status: Optional[str] = None, project_id: Optional[int] = None, s
         for todo in todos:
             todo['reminders'] = reminders_by_todo.get(todo['id'], [])
             todo['subtasks'] = subtasks_by_todo.get(todo['id'], [])
+            todo['comments'] = comments_by_todo.get(todo['id'], [])
+            todo['comments_count'] = len(todo['comments'])
             todo['location_reminders'] = location_reminders_by_todo.get(todo['id'], [])
             todo['location_reminder'] = todo['location_reminders'][0] if todo['location_reminders'] else None
             _recurring_rule_response(todo)
@@ -764,6 +805,81 @@ async def update_todo(todo_id: int, data: TodoUpdate, user_id: int = Depends(req
         if recurrence_created_todo and recurrence_inserted:
             await broadcast_change("todo_create", recurrence_created_todo, user_id, recurrence_created_todo.get('project_id'))
         return todo
+
+
+@router.post("/{todo_id}/comments")
+async def create_todo_comment(todo_id: int, data: TodoCommentCreate, user_id: int = Depends(require_auth)):
+    body = _normalize_comment_body(data.body)
+    with get_db() as db:
+        existing = fetch_todo(db, todo_id, user_id)
+        if not existing:
+            raise HTTPException(404, "Todo not found")
+        if not _todo_project_access(db, existing, user_id):
+            raise HTTPException(403, "Not authorized")
+        now = now_iso()
+        cursor = db.execute(
+            """INSERT INTO todo_comments (todo_id, user_id, body, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?)""",
+            (todo_id, user_id, body, now, now)
+        )
+        db.execute("UPDATE todos SET updated_at = ? WHERE id = ?", (now, todo_id))
+        db.commit()
+        comment = dict(db.execute(
+            "SELECT id, todo_id, user_id, body, created_at, updated_at FROM todo_comments WHERE id = ?",
+            (cursor.lastrowid,)
+        ).fetchone())
+        todo = fetch_todo(db, todo_id, user_id)
+        await broadcast_change("todo_update", todo, user_id, todo.get('project_id'))
+        return {"comment": comment, "todo": todo}
+
+
+@router.patch("/{todo_id}/comments/{comment_id}")
+async def update_todo_comment(todo_id: int, comment_id: int, data: TodoCommentUpdate, user_id: int = Depends(require_auth)):
+    body = _normalize_comment_body(data.body)
+    with get_db() as db:
+        existing = fetch_todo(db, todo_id, user_id)
+        if not existing:
+            raise HTTPException(404, "Todo not found")
+        if not _todo_project_access(db, existing, user_id):
+            raise HTTPException(403, "Not authorized")
+        comment = db.execute("SELECT * FROM todo_comments WHERE id = ? AND todo_id = ?", (comment_id, todo_id)).fetchone()
+        if not comment:
+            raise HTTPException(404, "Comment not found")
+        if comment['user_id'] != user_id and existing.get('user_id') != user_id:
+            raise HTTPException(403, "Not authorized")
+        now = now_iso()
+        db.execute("UPDATE todo_comments SET body = ?, updated_at = ? WHERE id = ?", (body, now, comment_id))
+        db.execute("UPDATE todos SET updated_at = ? WHERE id = ?", (now, todo_id))
+        db.commit()
+        updated = dict(db.execute(
+            "SELECT id, todo_id, user_id, body, created_at, updated_at FROM todo_comments WHERE id = ?",
+            (comment_id,)
+        ).fetchone())
+        todo = fetch_todo(db, todo_id, user_id)
+        await broadcast_change("todo_update", todo, user_id, todo.get('project_id'))
+        return {"comment": updated, "todo": todo}
+
+
+@router.delete("/{todo_id}/comments/{comment_id}")
+async def delete_todo_comment(todo_id: int, comment_id: int, user_id: int = Depends(require_auth)):
+    with get_db() as db:
+        existing = fetch_todo(db, todo_id, user_id)
+        if not existing:
+            raise HTTPException(404, "Todo not found")
+        if not _todo_project_access(db, existing, user_id):
+            raise HTTPException(403, "Not authorized")
+        comment = db.execute("SELECT * FROM todo_comments WHERE id = ? AND todo_id = ?", (comment_id, todo_id)).fetchone()
+        if not comment:
+            raise HTTPException(404, "Comment not found")
+        if comment['user_id'] != user_id and existing.get('user_id') != user_id:
+            raise HTTPException(403, "Not authorized")
+        now = now_iso()
+        db.execute("DELETE FROM todo_comments WHERE id = ?", (comment_id,))
+        db.execute("UPDATE todos SET updated_at = ? WHERE id = ?", (now, todo_id))
+        db.commit()
+        todo = fetch_todo(db, todo_id, user_id)
+        await broadcast_change("todo_update", todo, user_id, todo.get('project_id'))
+        return {"deleted": comment_id, "todo": todo}
 
 @router.delete("/{todo_id}")
 async def delete_todo(todo_id: int, user_id: int = Depends(require_auth)):
