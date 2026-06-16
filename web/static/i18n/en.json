@@ -1286,5 +1286,7 @@
   "todo.comments.delete": "Delete comment",
   "todo.comments.onlineOnly": "Comments currently need an online connection.",
   "todo.comments.author": "User #{userId}",
-  "todo.comments.count": "{count} comments"
+  "todo.comments.count": "{count} comments",
+  "todo.comments.saveFailed": "Could not save comment.",
+  "todo.comments.deleteFailed": "Could not delete comment."
 }
