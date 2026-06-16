@@ -1288,5 +1288,11 @@
   "todo.comments.author": "User #{userId}",
   "todo.comments.count": "{count} comments",
   "todo.comments.saveFailed": "Could not save comment.",
-  "todo.comments.deleteFailed": "Could not delete comment."
+  "todo.comments.deleteFailed": "Could not delete comment.",
+  "todo.comments.edit": "Edit comment",
+  "todo.comments.unknownAuthor": "Unknown user",
+  "todo.comments.emptyBody": "Comment cannot be empty.",
+  "todo.comments.deleteTitle": "Delete comment?",
+  "todo.comments.deleteMessage": "Really delete this comment? This cannot be undone.",
+  "todo.comments.deleteConfirm": "Delete comment"
 }

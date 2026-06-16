@@ -31,6 +31,7 @@ def make_db():
         CREATE TABLE users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT NOT NULL,
+            display_name TEXT,
             default_reminder_offset_minutes INTEGER
         );
         CREATE TABLE projects (
@@ -96,9 +97,9 @@ def make_db():
         );
         """
     )
-    db.execute("INSERT INTO users (id, username, default_reminder_offset_minutes) VALUES (1, 'owner', NULL)")
-    db.execute("INSERT INTO users (id, username, default_reminder_offset_minutes) VALUES (2, 'member', NULL)")
-    db.execute("INSERT INTO users (id, username, default_reminder_offset_minutes) VALUES (3, 'stranger', NULL)")
+    db.execute("INSERT INTO users (id, username, display_name, default_reminder_offset_minutes) VALUES (1, 'owner', 'Owner Display', NULL)")
+    db.execute("INSERT INTO users (id, username, display_name, default_reminder_offset_minutes) VALUES (2, 'member', 'Member Display', NULL)")
+    db.execute("INSERT INTO users (id, username, display_name, default_reminder_offset_minutes) VALUES (3, 'stranger', 'Stranger Display', NULL)")
     db.execute("INSERT INTO projects (id, name, user_id, is_inbox) VALUES (1, 'Inbox', 1, 1)")
     db.execute("INSERT INTO projects (id, name, user_id, is_inbox) VALUES (2, 'Shared', 1, 0)")
     db.execute("INSERT INTO project_members (project_id, user_id, status) VALUES (2, 2, 'accepted')")
@@ -138,6 +139,9 @@ def main():
     comment_id = body["comment"]["id"]
     assert_true(body["todo"]["comments_count"] == 1, body)
     assert_true(body["todo"]["comments"][0]["body"] == "First note", body)
+    assert_true(body["todo"]["comments"][0]["author_display_name"] == "Owner Display", body)
+    assert_true(body["todo"]["comments"][0]["author_username"] == "owner", body)
+    assert_true(body["todo"]["comments"][0]["created_at"].endswith("+00:00"), body)
 
     listed = owner.get("/api/todos")
     assert_true(listed.status_code == 200, listed.text)
@@ -152,6 +156,7 @@ def main():
     member_comment = member.post(f"/api/todos/{todo_id}/comments", json={"body": "Member note"})
     assert_true(member_comment.status_code == 200, member_comment.text)
     assert_true(member_comment.json()["todo"]["comments_count"] == 2, member_comment.text)
+    assert_true(member_comment.json()["comment"]["author_display_name"] == "Member Display", member_comment.text)
     member_comment_id = member_comment.json()["comment"]["id"]
 
     member_cannot_edit_owner_comment = member.patch(

@@ -1288,5 +1288,11 @@
   "todo.comments.author": "User #{userId}",
   "todo.comments.count": "{count} Kommentare",
   "todo.comments.saveFailed": "Kommentar konnte nicht gespeichert werden.",
-  "todo.comments.deleteFailed": "Kommentar konnte nicht gelöscht werden."
+  "todo.comments.deleteFailed": "Kommentar konnte nicht gelöscht werden.",
+  "todo.comments.edit": "Kommentar bearbeiten",
+  "todo.comments.unknownAuthor": "Unbekannter Benutzer",
+  "todo.comments.emptyBody": "Kommentar darf nicht leer sein.",
+  "todo.comments.deleteTitle": "Kommentar löschen?",
+  "todo.comments.deleteMessage": "Diesen Kommentar wirklich löschen? Das kann nicht rückgängig gemacht werden.",
+  "todo.comments.deleteConfirm": "Kommentar löschen"
 }
