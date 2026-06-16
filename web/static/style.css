@@ -6566,11 +6566,15 @@ input[type="color"]::-moz-color-swatch {
   background: color-mix(in srgb, var(--bg-primary) 36%, transparent);
 }
 
+.todo-modal-actions-left,
 .todo-modal-actions-main {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
   gap: 10px;
+}
+
+.todo-modal-actions-main {
+  justify-content: flex-end;
   margin-left: auto;
 }
 
@@ -6649,6 +6653,7 @@ input[type="color"]::-moz-color-swatch {
     padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
   }
 
+  .todo-modal-actions-left,
   .todo-modal-actions-main {
     display: grid;
     grid-template-columns: 1fr;
