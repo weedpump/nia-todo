@@ -1277,7 +1277,7 @@
   "todo.subtasks.completeWithOpenMessage": "This todo still has {count} open subtask(s). Mark it done anyway?",
   "todo.subtasks.completeAnyway": "Complete anyway",
   "todo.comments": "Comments",
-  "todo.comments.hint": "Add timestamped notes for this todo.",
+  "todo.comments.hint": "Add comments to this todo.",
   "todo.comments.empty": "No comments yet.",
   "todo.comments.saveFirst": "Save the todo before adding comments.",
   "todo.comments.newLabel": "New comment",

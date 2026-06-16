@@ -1277,7 +1277,7 @@
   "todo.subtasks.completeWithOpenMessage": "Dieses Todo hat noch {count} offene Subtask(s). Wirklich als erledigt markieren?",
   "todo.subtasks.completeAnyway": "Trotzdem erledigen",
   "todo.comments": "Kommentare",
-  "todo.comments.hint": "Zeitgestempelte Notizen zu diesem Todo.",
+  "todo.comments.hint": "Kommentare zu diesem Todo.",
   "todo.comments.empty": "Noch keine Kommentare.",
   "todo.comments.saveFirst": "Todo erst speichern, dann Kommentare hinzufügen.",
   "todo.comments.newLabel": "Neuer Kommentar",
