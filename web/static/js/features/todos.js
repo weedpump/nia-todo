@@ -129,9 +129,11 @@ export function createTodosFeature({
       input?.focus();
       return;
     }
-    const createdInput = addTodoSubtaskRow({ title, is_done: false });
-    if (input) input.value = '';
-    createdInput?.focus();
+    addTodoSubtaskRow({ title, is_done: false });
+    if (input) {
+      input.value = '';
+      input.focus();
+    }
   }
 
   function bindTodoForm() {
