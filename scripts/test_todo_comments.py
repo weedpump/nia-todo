@@ -177,9 +177,23 @@ def main():
     forbidden = stranger.post(f"/api/todos/{todo_id}/comments", json={"body": "Nope"})
     assert_true(forbidden.status_code in (403, 404), forbidden.text)
 
+    member_cannot_delete_owner_comment = member.delete(f"/api/todos/{todo_id}/comments/{comment_id}")
+    assert_true(member_cannot_delete_owner_comment.status_code == 403, member_cannot_delete_owner_comment.text)
+
+    owner_can_delete_member_comment = owner.delete(f"/api/todos/{todo_id}/comments/{member_comment_id}")
+    assert_true(owner_can_delete_member_comment.status_code == 200, owner_can_delete_member_comment.text)
+    assert_true(owner_can_delete_member_comment.json()["todo"]["comments_count"] == 1, owner_can_delete_member_comment.text)
+
+    second_member_comment = member.post(f"/api/todos/{todo_id}/comments", json={"body": "Member disposable note"})
+    assert_true(second_member_comment.status_code == 200, second_member_comment.text)
+    second_member_comment_id = second_member_comment.json()["comment"]["id"]
+    member_can_delete_own_comment = member.delete(f"/api/todos/{todo_id}/comments/{second_member_comment_id}")
+    assert_true(member_can_delete_own_comment.status_code == 200, member_can_delete_own_comment.text)
+    assert_true(member_can_delete_own_comment.json()["todo"]["comments_count"] == 1, member_can_delete_own_comment.text)
+
     deleted = owner.delete(f"/api/todos/{todo_id}/comments/{comment_id}")
     assert_true(deleted.status_code == 200, deleted.text)
-    assert_true(deleted.json()["todo"]["comments_count"] == 1, deleted.text)
+    assert_true(deleted.json()["todo"]["comments_count"] == 0, deleted.text)
 
     empty = owner.post(f"/api/todos/{todo_id}/comments", json={"body": "   "})
     assert_true(empty.status_code == 422, empty.text)
