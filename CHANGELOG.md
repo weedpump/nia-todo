@@ -5,6 +5,11 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- Removed the redundant pinned todo badge from todo cards; pinned state remains visible through the pinned section and active star action while saving vertical space.
+
 ## [2.12.1] - 2026-06-14
 
 ### Changed
