@@ -1275,5 +1275,16 @@
   "todo.subtasks.delete": "Subtask löschen",
   "todo.subtasks.completeWithOpenTitle": "Todo trotz offener Subtasks erledigen?",
   "todo.subtasks.completeWithOpenMessage": "Dieses Todo hat noch {count} offene Subtask(s). Wirklich als erledigt markieren?",
-  "todo.subtasks.completeAnyway": "Trotzdem erledigen"
+  "todo.subtasks.completeAnyway": "Trotzdem erledigen",
+  "todo.comments": "Kommentare",
+  "todo.comments.hint": "Zeitgestempelte Notizen zu diesem Todo.",
+  "todo.comments.empty": "Noch keine Kommentare.",
+  "todo.comments.saveFirst": "Todo erst speichern, dann Kommentare hinzufügen.",
+  "todo.comments.newLabel": "Neuer Kommentar",
+  "todo.comments.placeholder": "Notiz hinzufügen…",
+  "todo.comments.add": "Kommentar hinzufügen",
+  "todo.comments.delete": "Kommentar löschen",
+  "todo.comments.onlineOnly": "Kommentare brauchen aktuell eine Online-Verbindung.",
+  "todo.comments.author": "User #{userId}",
+  "todo.comments.count": "{count} Kommentare"
 }

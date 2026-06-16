@@ -566,6 +566,26 @@
           </div>
         </section>
 
+
+        <section class="ui-section-card todo-section-card todo-comments-card">
+          <div class="ui-section-heading">
+            <div class="ui-section-icon" data-icon="edit-3"></div>
+            <div>
+              <h4 data-i18n-key="todo.comments">Comments</h4>
+              <p data-i18n-key="todo.comments.hint">Add timestamped notes for this todo.</p>
+            </div>
+          </div>
+          <div class="todo-comments-editor">
+            <div id="todo-comments-list" class="todo-comments-list"></div>
+            <p id="todo-comments-empty" class="todo-comments-empty" data-i18n-key="todo.comments.empty">No comments yet.</p>
+            <div class="form-group todo-comments-add-group">
+              <label for="todo-comment-new-body" data-i18n-key="todo.comments.newLabel">New comment</label>
+              <textarea id="todo-comment-new-body" rows="3" maxlength="5000" placeholder="Notiz hinzufügen…" data-i18n-placeholder-key="todo.comments.placeholder"></textarea>
+              <button type="button" id="todo-comment-add-btn" class="btn btn-secondary" onclick="addTodoCommentFromInput()"><span data-icon="plus"></span> <span data-i18n-key="todo.comments.add">Add comment</span></button>
+            </div>
+          </div>
+        </section>
+
         <section class="ui-section-card todo-section-card">
           <div class="ui-section-heading">
             <div class="ui-section-icon" data-icon="settings"></div>

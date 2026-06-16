@@ -8303,3 +8303,71 @@ body.is-minimal-todos .todo-meta-chip.todo-subtasks-progress {
   }
 
 }
+
+.todo-comments-editor {
+  display: grid;
+  gap: 12px;
+}
+
+.todo-comments-list {
+  display: grid;
+  gap: 9px;
+}
+
+.todo-comment-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 10px;
+  padding: 10px 11px;
+  border: 1px solid color-mix(in srgb, var(--border) 54%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--bg-primary) 42%, transparent);
+}
+
+.todo-comment-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: center;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.todo-comment-body {
+  grid-column: 1 / -1;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.45;
+}
+
+.todo-comment-actions {
+  grid-row: 1;
+  grid-column: 2;
+}
+
+.todo-comments-empty {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.todo-comments-add-group {
+  display: grid;
+  gap: 8px;
+}
+
+.todo-comments-add-group .btn {
+  justify-self: end;
+}
+
+.todo-meta-chip.todo-comments-progress {
+  color: var(--text-muted);
+  border-color: color-mix(in srgb, var(--text-muted) 22%, transparent);
+  background: color-mix(in srgb, var(--text-muted) 8%, transparent);
+}
+
+body.is-minimal-todos .todo-meta-chip.todo-comments-progress {
+  display: none;
+}

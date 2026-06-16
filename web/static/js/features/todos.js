@@ -18,6 +18,7 @@ export function createTodosFeature({
   addToSyncQueue,
   isOnlineForSync,
   syncWithServer,
+  todosApi,
   sectionsApi,
   placesApi,
   renderProjects,
@@ -136,6 +137,109 @@ export function createTodosFeature({
       input.value = '';
       input.focus();
     }
+  }
+
+
+  function formatTodoCommentTime(value) {
+    if (!value) return '';
+    const date = new Date(value);
+    if (!Number.isFinite(date.getTime())) return '';
+    try {
+      return date.toLocaleString(getActiveLanguage(), { dateStyle: 'short', timeStyle: 'short' });
+    } catch (_error) {
+      return date.toLocaleString();
+    }
+  }
+
+  function renderTodoComments(comments = [], todoId = null) {
+    const list = document.getElementById('todo-comments-list');
+    const empty = document.getElementById('todo-comments-empty');
+    const input = document.getElementById('todo-comment-new-body');
+    const addButton = document.getElementById('todo-comment-add-btn');
+    if (!list) return;
+    const normalized = Array.isArray(comments) ? comments : [];
+    list.innerHTML = '';
+    if (empty) {
+      empty.textContent = todoId ? t('todo.comments.empty') : t('todo.comments.saveFirst');
+      empty.hidden = normalized.length > 0;
+    }
+    if (input) {
+      input.value = '';
+      input.disabled = !todoId;
+    }
+    if (addButton) addButton.disabled = !todoId;
+    for (const comment of normalized) {
+      const item = document.createElement('article');
+      item.className = 'todo-comment-item';
+      item.dataset.commentId = comment.id;
+
+      const meta = document.createElement('div');
+      meta.className = 'todo-comment-meta';
+      const author = document.createElement('span');
+      author.textContent = t('todo.comments.author', { userId: comment.user_id || '?' });
+      const time = document.createElement('time');
+      time.dateTime = comment.created_at || '';
+      time.textContent = formatTodoCommentTime(comment.created_at);
+      meta.append(author, time);
+
+      const body = document.createElement('div');
+      body.className = 'todo-comment-body';
+      body.textContent = comment.body || '';
+
+      const actions = document.createElement('div');
+      actions.className = 'todo-comment-actions';
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'btn btn-secondary btn-small btn-icon';
+      remove.innerHTML = iconSvg('trash-2');
+      remove.setAttribute('aria-label', t('todo.comments.delete'));
+      remove.addEventListener('click', () => deleteTodoComment(todoId, comment.id));
+      actions.appendChild(remove);
+
+      item.append(meta, body, actions);
+      list.appendChild(item);
+    }
+  }
+
+  async function applyCommentTodoResponse(response) {
+    const updatedTodo = response?.todo;
+    if (!updatedTodo) return;
+    await dbPut('todos', updatedTodo);
+    setTodos(getTodos().map(todo => String(todo.id) === String(updatedTodo.id) ? updatedTodo : todo));
+    renderTodoComments(updatedTodo.comments || [], updatedTodo.id);
+    renderStats();
+    renderTodos();
+  }
+
+  async function addTodoCommentFromInput() {
+    if (!getAppInitialized() || !getDb()) return;
+    const id = document.getElementById('todo-id')?.value;
+    const input = document.getElementById('todo-comment-new-body');
+    const body = input?.value?.trim() || '';
+    if (!id || id.startsWith('temp-')) {
+      showToast(t('todo.comments.saveFirst'));
+      return;
+    }
+    if (!body) {
+      input?.focus();
+      return;
+    }
+    if (!isOnlineForSync()) {
+      showToast(t('todo.comments.onlineOnly'));
+      return;
+    }
+    const response = await todosApi.createComment(id, { body });
+    await applyCommentTodoResponse(response);
+    if (input) input.value = '';
+  }
+
+  async function deleteTodoComment(todoId, commentId) {
+    if (!todoId || !commentId || !isOnlineForSync()) {
+      showToast(t('todo.comments.onlineOnly'));
+      return;
+    }
+    const response = await todosApi.deleteComment(todoId, commentId);
+    await applyCommentTodoResponse(response);
   }
 
   function bindTodoForm() {
@@ -1309,6 +1413,7 @@ export function createTodosFeature({
     const newSubtaskInput = document.getElementById('todo-subtask-new-title');
     if (newSubtaskInput) newSubtaskInput.value = '';
     renderTodoSubtaskEditor([]);
+    renderTodoComments([], null);
     const modalTitle = document.getElementById('todo-modal-title');
     if (modalTitle) {
       modalTitle.dataset.i18nKey = todo ? 'todo.edit' : 'todo.new';
@@ -1371,11 +1476,13 @@ export function createTodosFeature({
       }
       populateLocationReminderForm(todo);
       renderTodoSubtaskEditor(todo.subtasks || []);
+      renderTodoComments(todo.comments || [], todo.id);
     } else {
       document.getElementById('todo-pinned').checked = false;
       document.getElementById('todo-recurring-frequency').value = 'none';
       document.getElementById('todo-recurring-interval').value = 1;
       updateRecurringControls();
+      renderTodoComments([], null);
       const currentWorkspaceId = getCurrentWorkspaceId?.();
       const workspaceProjects = getProjects().filter(p => !p.is_shared && (!currentWorkspaceId || String(p.workspace_id || '') === String(currentWorkspaceId)));
       const inboxProject = workspaceProjects.find(p => p.is_inbox) || workspaceProjects[0];
@@ -1672,5 +1779,5 @@ export function createTodosFeature({
     if (isOnlineForSync()) await syncWithServer();
   }
 
-  return { markTodoDone, markTodoInProgress, setTodoStatus, toggleTodo, toggleTodoPin, toggleTodoActions, addTodoSubtaskFromInput, snoozeTodo, duplicateTodo, showTodoModal, onProjectChange, saveTodo, editTodo, deleteTodoFromModal, deleteTodo };
+  return { markTodoDone, markTodoInProgress, setTodoStatus, toggleTodo, toggleTodoPin, toggleTodoActions, addTodoSubtaskFromInput, addTodoCommentFromInput, deleteTodoComment, snoozeTodo, duplicateTodo, showTodoModal, onProjectChange, saveTodo, editTodo, deleteTodoFromModal, deleteTodo };
 }

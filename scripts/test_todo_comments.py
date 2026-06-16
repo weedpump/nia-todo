@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Checklist subtask API regression tests."""
+"""Todo comments API regression tests."""
 
 from __future__ import annotations
 
@@ -96,10 +96,11 @@ def make_db():
         );
         """
     )
-    db.execute("INSERT INTO users (id, username, default_reminder_offset_minutes) VALUES (1, 'tobi', NULL)")
-    db.execute("INSERT INTO users (id, username, default_reminder_offset_minutes) VALUES (2, 'shared', NULL)")
+    db.execute("INSERT INTO users (id, username, default_reminder_offset_minutes) VALUES (1, 'owner', NULL)")
+    db.execute("INSERT INTO users (id, username, default_reminder_offset_minutes) VALUES (2, 'member', NULL)")
+    db.execute("INSERT INTO users (id, username, default_reminder_offset_minutes) VALUES (3, 'stranger', NULL)")
     db.execute("INSERT INTO projects (id, name, user_id, is_inbox) VALUES (1, 'Inbox', 1, 1)")
-    db.execute("INSERT INTO projects (id, name, user_id, is_inbox) VALUES (2, 'Shared Project', 1, 0)")
+    db.execute("INSERT INTO projects (id, name, user_id, is_inbox) VALUES (2, 'Shared', 1, 0)")
     db.execute("INSERT INTO project_members (project_id, user_id, status) VALUES (2, 2, 'accepted')")
     db.commit()
     return db
@@ -125,83 +126,45 @@ def make_client(db, user_id=1):
 
 def main():
     db = make_db()
-    client = make_client(db)
+    owner = make_client(db, user_id=1)
 
-    created = client.post("/api/todos", json={
-        "title": "Server Migration",
-        "project_id": 1,
-        "subtasks": [
-            {"title": "Backup prüfen"},
-            {"title": "DNS umstellen", "is_done": True},
-        ],
-    })
+    created = owner.post("/api/todos", json={"title": "Document rollout", "project_id": 2})
     assert_true(created.status_code == 200, created.text)
-    todo = created.json()
-    assert_true(len(todo["subtasks"]) == 2, todo)
-    assert_true(todo["subtasks"][0]["title"] == "Backup prüfen", todo)
-    assert_true(todo["subtasks"][1]["is_done"] is True, todo)
+    todo_id = created.json()["id"]
 
-    blocked = client.patch(f"/api/todos/{todo['id']}", json={"status": "done"})
-    assert_true(blocked.status_code == 409, blocked.text)
+    added = owner.post(f"/api/todos/{todo_id}/comments", json={"body": "First note"})
+    assert_true(added.status_code == 200, added.text)
+    body = added.json()
+    comment_id = body["comment"]["id"]
+    assert_true(body["todo"]["comments_count"] == 1, body)
+    assert_true(body["todo"]["comments"][0]["body"] == "First note", body)
 
-    confirmed = client.patch(f"/api/todos/{todo['id']}", json={
-        "status": "done",
-        "confirm_incomplete_subtasks_completion": True,
-    })
-    assert_true(confirmed.status_code == 200, confirmed.text)
-    assert_true(confirmed.json()["status"] == "done", confirmed.json())
+    listed = owner.get("/api/todos")
+    assert_true(listed.status_code == 200, listed.text)
+    listed_todo = next(todo for todo in listed.json()["todos"] if todo["id"] == todo_id)
+    assert_true(listed_todo["comments_count"] == 1, listed_todo)
 
-    updated = client.patch(f"/api/todos/{todo['id']}", json={
-        "status": "pending",
-        "subtasks": [
-            {"title": "Backup prüfen", "is_done": True},
-            {"title": "DNS umstellen", "is_done": True},
-            {"title": "Monitoring checken", "is_done": False},
-        ],
-    })
-    assert_true(updated.status_code == 200, updated.text)
-    body = updated.json()
-    assert_true(len(body["subtasks"]) == 3, body)
-    assert_true(body["subtasks"][2]["title"] == "Monitoring checken", body)
+    member = make_client(db, user_id=2)
+    member_view = member.get(f"/api/todos/{todo_id}")
+    assert_true(member_view.status_code == 200, member_view.text)
+    assert_true(member_view.json()["comments"][0]["body"] == "First note", member_view.json())
 
-    recurring = client.post("/api/todos", json={
-        "title": "Wöchentlicher Check",
-        "project_id": 1,
-        "due_date": "2026-06-16T09:00:00+02:00",
-        "recurring_rule": {"frequency": "weekly", "interval": 1},
-        "subtasks": [{"title": "Logs ansehen", "is_done": True}],
-    })
-    assert_true(recurring.status_code == 200, recurring.text)
-    recurring_done = client.patch(f"/api/todos/{recurring.json()['id']}", json={"status": "done"})
-    assert_true(recurring_done.status_code == 200, recurring_done.text)
-    next_todo = recurring_done.json()["recurrence_created_todo"]
-    assert_true(next_todo["subtasks"][0]["title"] == "Logs ansehen", next_todo)
-    assert_true(next_todo["subtasks"][0]["is_done"] is False, next_todo)
+    member_comment = member.post(f"/api/todos/{todo_id}/comments", json={"body": "Member note"})
+    assert_true(member_comment.status_code == 200, member_comment.text)
+    assert_true(member_comment.json()["todo"]["comments_count"] == 2, member_comment.text)
 
-    shared_created = client.post("/api/todos", json={
-        "title": "Shared checklist",
-        "project_id": 2,
-        "subtasks": [{"title": "Owner item", "is_done": False}],
-    })
-    assert_true(shared_created.status_code == 200, shared_created.text)
-    shared_todo_id = shared_created.json()["id"]
-    shared_client = make_client(db, user_id=2)
-    shared_list = shared_client.get("/api/todos?project_id=2")
-    assert_true(shared_list.status_code == 200, shared_list.text)
-    shared_view = next(todo for todo in shared_list.json()["todos"] if todo["id"] == shared_todo_id)
-    assert_true(shared_view["subtasks"][0]["title"] == "Owner item", shared_view)
-    shared_update = shared_client.patch(f"/api/todos/{shared_todo_id}", json={
-        "subtasks": [
-            {"title": "Owner item", "is_done": True},
-            {"title": "Shared user item", "is_done": False},
-        ]
-    })
-    assert_true(shared_update.status_code == 200, shared_update.text)
-    assert_true(len(shared_update.json()["subtasks"]) == 2, shared_update.json())
-    owner_view = client.get(f"/api/todos/{shared_todo_id}")
-    assert_true(owner_view.json()["subtasks"][1]["title"] == "Shared user item", owner_view.json())
+    stranger = make_client(db, user_id=3)
+    forbidden = stranger.post(f"/api/todos/{todo_id}/comments", json={"body": "Nope"})
+    assert_true(forbidden.status_code in (403, 404), forbidden.text)
 
-    print("✅ Subtask API tests passed")
+    deleted = owner.delete(f"/api/todos/{todo_id}/comments/{comment_id}")
+    assert_true(deleted.status_code == 200, deleted.text)
+    assert_true(deleted.json()["todo"]["comments_count"] == 1, deleted.text)
+
+    empty = owner.post(f"/api/todos/{todo_id}/comments", json={"body": "   "})
+    assert_true(empty.status_code == 422, empty.text)
+
+    print("✅ Todo comments API tests passed")
 
 
 if __name__ == "__main__":

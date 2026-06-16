@@ -38,7 +38,7 @@ Important known MVP tradeoffs:
 - Concurrent checklist edits are last-write-wins at todo level.
 - This is acceptable for the MVP, but revisit if per-subtask audit/history/collaborative editing is added.
 
-## Next Work Item: Sync Architecture Cleanup
+## Completed Work Item: Sync Architecture Cleanup
 
 Goal: remove the duplicate full-load race between REST refresh and WebSocket initial sync.
 
@@ -107,7 +107,27 @@ Suggested safe implementation steps:
    - `python3 scripts/test_subtasks.py`
 6. Request a focused architecture review before merging the sync cleanup into `nia-todo-next`.
 
-## Planned Feature Themes After Sync Cleanup
+## Current Work Item: Notes / Comments on Todos
+
+MVP direction selected on `feature/todo-notes-mvp`:
+
+- Add lightweight timestamped todo comments, because the existing Markdown `description` field already covers simple plain-text notes.
+- Keep comments modal-only on cards, with only a compact comment-count chip in todo lists.
+- Store comments in `todo_comments` and include `comments`/`comments_count` in REST list/detail payloads and WebSocket full-sync fallback payloads.
+- Add/delete comments via dedicated endpoints; comment editing endpoint exists for API completeness but the first UI only exposes add/delete.
+- Comments currently require online API access; offline comment queueing can be added later if needed.
+
+Targeted checks for this work:
+
+```bash
+python3 scripts/test_todo_comments.py
+python3 scripts/test_subtasks.py
+node scripts/test_frontend_subtasks.mjs
+node scripts/test_frontend_realtime_sync.mjs
+node scripts/test_frontend_offline_sync.mjs
+```
+
+## Planned Feature Themes After Comments MVP
 
 These are candidates for the larger next release. Keep them separate and reviewable.
 
@@ -187,6 +207,6 @@ node scripts/test_frontend_sharing.mjs
 ## Do Not Forget
 
 - `develop` stays as-is until Tobi explicitly says otherwise.
-- Next immediate engineering topic is the sync architecture cleanup, not another UI feature.
+- Sync architecture cleanup is complete in `nia-todo-next`; current engineering topic is the comments MVP.
 - Any sync cleanup must be treated as core architecture work, not a quick refactor.
 - Subtasks are already in `nia-todo-next`; the old `feature/subtasks-checklist` branch was deleted locally and remotely.
