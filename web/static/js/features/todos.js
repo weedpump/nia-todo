@@ -100,7 +100,7 @@ export function createTodosFeature({
 
     const remove = document.createElement('button');
     remove.type = 'button';
-    remove.className = 'btn btn-secondary btn-small todo-subtask-remove';
+    remove.className = 'btn btn-secondary btn-small btn-icon todo-subtask-remove';
     remove.innerHTML = iconSvg('trash-2');
     remove.setAttribute('aria-label', t('common.delete'));
     remove.addEventListener('click', () => {
