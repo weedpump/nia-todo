@@ -7951,6 +7951,7 @@ body.is-minimal-todos .todo-title-wrap {
   .todo-meta-row {
     grid-column: 1;
     grid-row: 2;
+    margin-top: 6px;
   }
 
   .todo-title-wrap:has(.todo-desc-preview) .todo-meta-row {
