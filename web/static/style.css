@@ -6864,7 +6864,7 @@ input[type="color"]::-moz-color-swatch {
 
 .todo-meta-row {
   grid-column: 2;
-  grid-row: 1 / 3;
+  grid-row: 1;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -6873,6 +6873,10 @@ input[type="color"]::-moz-color-swatch {
   min-width: 0;
   width: auto;
   gap: 7px;
+}
+
+.todo-title-wrap:has(.todo-desc-preview) .todo-meta-row {
+  grid-row: 1 / 3;
 }
 
 .todo-meta-chip.todo-due.soon {
