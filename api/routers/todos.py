@@ -61,6 +61,16 @@ class TodoCommentCreate(BaseModel):
 class TodoCommentUpdate(BaseModel):
     body: str
 
+class TodoSubtaskCreate(BaseModel):
+    title: str
+    is_done: bool = False
+    sort_order: Optional[int] = None
+
+class TodoSubtaskUpdate(BaseModel):
+    title: Optional[str] = None
+    is_done: Optional[bool] = None
+    sort_order: Optional[int] = None
+
 
 # ─── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -155,6 +165,42 @@ def _normalize_subtasks(subtasks: Optional[list[TodoSubtaskInput]]) -> list[dict
             'sort_order': subtask.sort_order if subtask.sort_order is not None else index,
         })
     return normalized
+
+
+def _normalize_subtask_title(title: str) -> str:
+    normalized = sanitize_text(title or '').strip()
+    if not normalized:
+        raise HTTPException(422, "Subtask title required")
+    if len(normalized) > 500:
+        raise HTTPException(422, "Subtask title too long")
+    return normalized
+
+
+def _subtask_count_for_todo(db, todo_id: int) -> int:
+    row = db.execute("SELECT COUNT(*) AS count FROM todo_subtasks WHERE todo_id = ?", (todo_id,)).fetchone()
+    return int(row['count'] if row else 0)
+
+
+def _subtask_event_payload(db, todo_id: int, *, subtask: dict | None = None, subtask_id: int | None = None) -> dict:
+    row = db.execute("SELECT updated_at FROM todos WHERE id = ?", (todo_id,)).fetchone()
+    payload = {
+        "todo_id": todo_id,
+        "subtasks_count": _subtask_count_for_todo(db, todo_id),
+        "updated_at": row['updated_at'] if row else now_iso(),
+    }
+    if subtask is not None:
+        payload["subtask"] = subtask
+    if subtask_id is not None:
+        payload["subtask_id"] = subtask_id
+    return payload
+
+
+def _subtask_row(db, subtask_id: int) -> dict | None:
+    row = db.execute(
+        "SELECT id, todo_id, title, is_done, sort_order, created_at, updated_at FROM todo_subtasks WHERE id = ?",
+        (subtask_id,),
+    ).fetchone()
+    return {**dict(row), 'is_done': bool(row['is_done'])} if row else None
 
 
 def _replace_subtasks(db, todo_id: int, subtasks: list[dict]):
@@ -828,6 +874,79 @@ async def update_todo(todo_id: int, data: TodoUpdate, user_id: int = Depends(req
         if recurrence_created_todo and recurrence_inserted:
             await broadcast_change("todo_create", recurrence_created_todo, user_id, recurrence_created_todo.get('project_id'))
         return todo
+
+
+@router.post("/{todo_id}/subtasks")
+async def create_todo_subtask(todo_id: int, data: TodoSubtaskCreate, user_id: int = Depends(require_auth)):
+    with get_db() as db:
+        todo = fetch_todo(db, todo_id, user_id)
+        if not todo or not _todo_project_access(db, todo, user_id):
+            raise HTTPException(404, "Todo not found")
+        title = _normalize_subtask_title(data.title)
+        now = now_iso()
+        sort_order = data.sort_order
+        if sort_order is None:
+            row = db.execute("SELECT COALESCE(MAX(sort_order), -1) + 1 AS next_sort_order FROM todo_subtasks WHERE todo_id = ?", (todo_id,)).fetchone()
+            sort_order = int(row['next_sort_order'] if row else 0)
+        cursor = db.execute(
+            """INSERT INTO todo_subtasks (todo_id, title, is_done, sort_order, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (todo_id, title, int(bool(data.is_done)), sort_order, now, now),
+        )
+        db.execute("UPDATE todos SET updated_at = ? WHERE id = ?", (now, todo_id))
+        db.commit()
+        subtask = _subtask_row(db, cursor.lastrowid)
+        updated_todo = fetch_todo(db, todo_id, user_id)
+        await broadcast_change("todo_subtask_create", _subtask_event_payload(db, todo_id, subtask=subtask), user_id, updated_todo.get('project_id'))
+        return {"subtask": subtask, "todo": updated_todo}
+
+
+@router.patch("/{todo_id}/subtasks/{subtask_id}")
+async def update_todo_subtask(todo_id: int, subtask_id: int, data: TodoSubtaskUpdate, user_id: int = Depends(require_auth)):
+    with get_db() as db:
+        todo = fetch_todo(db, todo_id, user_id)
+        if not todo or not _todo_project_access(db, todo, user_id):
+            raise HTTPException(404, "Todo not found")
+        existing = _subtask_row(db, subtask_id)
+        if not existing or int(existing['todo_id']) != int(todo_id):
+            raise HTTPException(404, "Subtask not found")
+        updates = {}
+        if data.title is not None:
+            updates['title'] = _normalize_subtask_title(data.title)
+        if data.is_done is not None:
+            updates['is_done'] = int(bool(data.is_done))
+        if data.sort_order is not None:
+            updates['sort_order'] = int(data.sort_order)
+        if not updates:
+            return {"subtask": existing, "todo": todo}
+        now = now_iso()
+        updates['updated_at'] = now
+        set_clause = ', '.join(f"{field} = ?" for field in updates.keys())
+        db.execute(f"UPDATE todo_subtasks SET {set_clause} WHERE id = ?", (*updates.values(), subtask_id))
+        db.execute("UPDATE todos SET updated_at = ? WHERE id = ?", (now, todo_id))
+        db.commit()
+        subtask = _subtask_row(db, subtask_id)
+        updated_todo = fetch_todo(db, todo_id, user_id)
+        await broadcast_change("todo_subtask_update", _subtask_event_payload(db, todo_id, subtask=subtask), user_id, updated_todo.get('project_id'))
+        return {"subtask": subtask, "todo": updated_todo}
+
+
+@router.delete("/{todo_id}/subtasks/{subtask_id}")
+async def delete_todo_subtask(todo_id: int, subtask_id: int, user_id: int = Depends(require_auth)):
+    with get_db() as db:
+        todo = fetch_todo(db, todo_id, user_id)
+        if not todo or not _todo_project_access(db, todo, user_id):
+            raise HTTPException(404, "Todo not found")
+        existing = _subtask_row(db, subtask_id)
+        if not existing or int(existing['todo_id']) != int(todo_id):
+            raise HTTPException(404, "Subtask not found")
+        now = now_iso()
+        db.execute("DELETE FROM todo_subtasks WHERE id = ?", (subtask_id,))
+        db.execute("UPDATE todos SET updated_at = ? WHERE id = ?", (now, todo_id))
+        db.commit()
+        updated_todo = fetch_todo(db, todo_id, user_id)
+        await broadcast_change("todo_subtask_delete", _subtask_event_payload(db, todo_id, subtask_id=subtask_id), user_id, updated_todo.get('project_id'))
+        return {"deleted": subtask_id, "todo": updated_todo}
 
 
 @router.post("/{todo_id}/comments")
