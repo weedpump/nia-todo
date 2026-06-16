@@ -503,7 +503,7 @@ select:focus-visible {
   position: fixed;
   right: calc(28px + env(safe-area-inset-right, 0px));
   bottom: calc(28px + env(safe-area-inset-bottom, 0px));
-  z-index: 180;
+  z-index: 260;
   width: 62px;
   height: 62px;
   border: 1px solid rgba(var(--accent-hover-rgb), calc(var(--accent-intensity) * 0.72));
@@ -5607,7 +5607,7 @@ input[type="color"]::-moz-color-swatch {
   position: fixed;
   right: calc(104px + env(safe-area-inset-right, 0px));
   bottom: calc(29px + env(safe-area-inset-bottom, 0px));
-  z-index: 180;
+  z-index: 260;
   width: 52px;
   height: 52px;
   border: 1px solid color-mix(in srgb, var(--accent) 62%, var(--border));
@@ -7032,7 +7032,7 @@ input[type="color"]::-moz-color-swatch {
 
 @media (max-width: 768px) {
   .todo-list {
-    padding: 12px 12px max(112px, calc(96px + env(safe-area-inset-bottom, 0px)));
+    padding: 12px 12px max(176px, calc(160px + env(safe-area-inset-bottom, 0px)));
   }
 
   .project-group-todos {
