@@ -8,16 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 ## [Unreleased]
 
 ### Added
-- Added due-date sorting for todo lists, keeping pinned todos first while ordering the rest by deadline/reminder.
-- Added section grouping inside existing project groups for todo search results without expanding the search scope beyond todo title/description.
-- Added i18n-aware Quick Add recurring syntax for English and German, including preview chips and recurring rule creation.
-- Added todo duplication from card actions and the edit modal; duplicates preserve todo details including pin, schedule, reminder, project, section, and recurring rule, but reset status/completion.
+- Added due-date sorting, todo duplication, and i18n-aware Quick Add syntax for recurring todos.
 
 ### Changed
-- Removed redundant status badges from todo cards: pinned state remains visible through the pinned section and active star action, while in-progress state remains visible through the leading flame/status control.
-- Made one-line todo cards more compact by adopting the cleaner minimal-mode spacing as the default card layout.
-- Improved todo card metadata layout so pills stay on the title line for one-line todos, sit beside the title/description block on wide screens, and move below descriptions on narrow screens with consistent spacing.
-- Improved optimistic/local todo completion state so `completed_at` is set and cleared consistently while offline or before sync.
+- Refined todo list layout with cleaner cards, better metadata placement, and section grouping in search results.
+- Improved local/offline completion state handling for todos.
 
 ## [2.12.1] - 2026-06-14
 
