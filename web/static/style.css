@@ -1468,12 +1468,15 @@ select:focus-visible {
 .btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
+  min-height: 38px;
   padding: 8px 16px;
   border: none;
-  border-radius: var(--radius);
+  border-radius: 12px;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 700;
+  text-align: center;
   cursor: pointer;
   transition: all 0.15s;
 }
@@ -6578,11 +6581,7 @@ input[type="color"]::-moz-color-swatch {
 }
 
 #todo-modal .todo-modal-actions .btn {
-  min-height: 38px;
   min-width: 118px;
-  justify-content: center;
-  border-radius: 12px;
-  font-weight: 700;
 }
 
 #todo-modal #todo-delete-btn {
@@ -6627,6 +6626,10 @@ input[type="color"]::-moz-color-swatch {
   .ui-section-card {
     border-radius: 14px;
     padding: 14px;
+  }
+
+  .ui-section-card .btn {
+    min-height: 42px;
   }
 
   .ui-section-heading {
