@@ -235,14 +235,18 @@ export function createTodosFeature({
 
     const save = document.createElement('button');
     save.type = 'button';
-    save.className = 'btn btn-primary btn-small';
-    save.textContent = t('common.save');
+    save.className = 'btn btn-primary btn-small btn-icon';
+    save.innerHTML = iconSvg('check');
+    save.setAttribute('aria-label', t('common.save'));
+    save.setAttribute('title', t('common.save'));
     save.addEventListener('click', () => updateTodoComment(todoId, comment.id, editor.value));
 
     const cancel = document.createElement('button');
     cancel.type = 'button';
-    cancel.className = 'btn btn-secondary btn-small';
-    cancel.textContent = t('common.cancel');
+    cancel.className = 'btn btn-secondary btn-small btn-icon';
+    cancel.innerHTML = iconSvg('x');
+    cancel.setAttribute('aria-label', t('common.cancel'));
+    cancel.setAttribute('title', t('common.cancel'));
     cancel.addEventListener('click', () => {
       item.dataset.editing = '0';
       renderTodoComments(getTodos().find(todo => String(todo.id) === String(todoId))?.comments || [], getTodos().find(todo => String(todo.id) === String(todoId)) || null);

@@ -8345,6 +8345,10 @@ body.is-minimal-todos .todo-meta-chip.todo-subtasks-progress {
 .todo-comment-actions {
   grid-row: 1;
   grid-column: 2;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
 }
 
 .todo-comments-empty {
@@ -8380,9 +8384,7 @@ body.is-minimal-todos .todo-meta-chip.todo-comments-progress {
 }
 
 .todo-comment-item:has(.todo-comment-edit-input) .todo-comment-actions {
-  display: flex;
   flex-wrap: wrap;
-  gap: 6px;
 }
 
 .todo-comment-edit-input {
