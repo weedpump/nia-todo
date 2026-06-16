@@ -16,6 +16,17 @@ await withFreshDb(async () => {
     if (initialPanels.organize || initialPanels.schedule || initialPanels.subtasks || initialPanels.comments) {
       throw new Error(`Expected empty todo detail panels to start collapsed: ${JSON.stringify(initialPanels)}`);
     }
+    await page.click('#todo-organize-panel > summary');
+    await page.click('#todo-cancel-btn');
+    await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });
+    await openTodoModal();
+    const reopenedDefaultPanels = await page.evaluate(() => ({
+      organize: document.querySelector('#todo-organize-panel')?.open,
+      schedule: document.querySelector('#todo-schedule-panel')?.open,
+    }));
+    if (reopenedDefaultPanels.organize || reopenedDefaultPanels.schedule) {
+      throw new Error(`Expected project/section defaults to stay collapsed: ${JSON.stringify(reopenedDefaultPanels)}`);
+    }
     await page.fill('#todo-title', 'Frontend subtasks persistence');
     await page.click('#todo-subtasks-panel > summary');
     await page.fill('#todo-subtask-new-title', 'First checklist item');
