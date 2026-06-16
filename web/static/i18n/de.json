@@ -1261,5 +1261,14 @@
   "admin.user.sessionRevokeTitle": "Session beenden?",
   "admin.user.sessionRevokeMessage": "Diese Benutzer-Session wird sofort beendet. Falls sie ein gemerktes 2FA-Gerät nutzt, wird dieses ebenfalls widerrufen.",
   "admin.user.sessionsRevokeAllTitle": "Alle Sessions beenden?",
-  "admin.user.sessionsRevokeAllMessage": "Alle aktiven Sessions und gemerkten 2FA-Geräte von {username} werden beendet."
+  "admin.user.sessionsRevokeAllMessage": "Alle aktiven Sessions und gemerkten 2FA-Geräte von {username} werden beendet.",
+  "common.add": "Hinzufügen",
+  "todo.subtasks": "Subtasks",
+  "todo.subtasks.hint": "Kleine Checkliste für diese Aufgabe.",
+  "todo.subtasks.placeholder": "Nächster Schritt…",
+  "todo.subtasks.empty": "Noch keine Subtasks.",
+  "todo.subtasks.progress": "{done}/{total} erledigt",
+  "todo.subtasks.completeWithOpenTitle": "Todo trotz offener Subtasks erledigen?",
+  "todo.subtasks.completeWithOpenMessage": "Dieses Todo hat noch {count} offene Subtask(s). Wirklich als erledigt markieren?",
+  "todo.subtasks.completeAnyway": "Trotzdem erledigen"
 }

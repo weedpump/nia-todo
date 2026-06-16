@@ -63,6 +63,16 @@ def make_db():
             updated_at TEXT DEFAULT (datetime('now')),
             user_id INTEGER
         );
+
+        CREATE TABLE todo_subtasks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            todo_id INTEGER NOT NULL,
+            title TEXT NOT NULL,
+            is_done INTEGER NOT NULL DEFAULT 0,
+            sort_order INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT DEFAULT (datetime('now'))
+        );
         CREATE TABLE reminders (id INTEGER PRIMARY KEY AUTOINCREMENT, todo_id INTEGER NOT NULL, remind_at TEXT NOT NULL, sent_at TEXT, user_id INTEGER);
         CREATE TABLE saved_places (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, name TEXT NOT NULL, address TEXT NOT NULL, icon TEXT DEFAULT 'pin');
         CREATE TABLE location_reminders (

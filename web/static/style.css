@@ -8050,3 +8050,126 @@ body.is-minimal-todos .todo-actions {
 .todo-meta-chip.todo-recurring {
   color: var(--accent);
 }
+
+.todo-subtasks-editor {
+  display: grid;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.todo-subtasks-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.todo-subtasks-heading p {
+  margin: 3px 0 0;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.todo-subtasks-count {
+  flex: 0 0 auto;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 11%, transparent);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.todo-subtasks-list {
+  display: grid;
+  gap: 7px;
+}
+
+.todo-subtask-row,
+.todo-subtasks-add-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.todo-subtasks-add-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.todo-subtask-row input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+}
+
+.todo-subtask-title-input,
+#todo-subtask-new-title {
+  min-width: 0;
+}
+
+.todo-subtask-remove {
+  width: 34px;
+  min-width: 34px;
+  padding-inline: 0;
+  font-size: 18px;
+}
+
+.todo-meta-chip.todo-subtasks-progress {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 28%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.todo-subtasks-preview {
+  display: grid;
+  gap: 4px;
+  margin-top: 5px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.todo-subtask-preview-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  width: fit-content;
+  max-width: 100%;
+  cursor: pointer;
+}
+
+.todo-subtask-preview-row input {
+  width: 14px;
+  height: 14px;
+}
+
+.todo-subtask-preview-row span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.todo-subtask-preview-row.done span {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+.todo-subtasks-more {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+body.is-minimal-todos .todo-subtasks-preview,
+body.is-minimal-todos .todo-meta-chip.todo-subtasks-progress {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .todo-subtask-row,
+  .todo-subtasks-add-row {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .todo-subtasks-add-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
