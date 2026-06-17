@@ -156,6 +156,27 @@ node scripts/test_frontend_native_todo_actions.mjs
 node scripts/test_frontend_android_todo_gestures.mjs
 ```
 
+## In Progress: Todo Detail View Redesign
+
+Current design direction:
+
+- Existing todos open in a read-first Todo detail view instead of the old form-first modal stack.
+- Desktop remains modal-sized; tablet/mobile use fullscreen detail view behavior.
+- Title, meta chips, and rendered description form the top read area.
+- Meta fields are shown as compact view-mode chips; the final edit UX for planning/organization still needs a clean integration instead of simply expanding form controls inline.
+- Subtasks, attachments, and comments are visible by default in calmer content sections:
+  - subtasks as a checklist,
+  - attachments as compact file cards plus a persistent multi-file upload/drop zone,
+  - comments as a quieter feed.
+- Attachment upload supports multiple selected files and desktop drag-and-drop in the detail view prototype.
+- Image/PDF preview behavior must stay scoped to the attachment preview and return to the Todo detail view when closed.
+
+Still to finish for this design concept:
+
+- Decide and implement the final metadata editing pattern, likely a drawer/popover/sheet rather than inline form expansion at the bottom.
+- Polish responsive spacing/order after the metadata edit pattern is settled.
+- After the design direction is accepted, update/regenerate frontend tests to match the new UX. During design exploration, avoid chasing tests for every visual iteration.
+
 ## Planned Feature Themes After Attachments
 
 These are candidates for later releases. Keep them separate and reviewable.
@@ -174,7 +195,17 @@ Architecture questions:
 - Timezone handling must reuse existing recurring timezone logic.
 - Avoid generating infinite future instances.
 
-### 2. Subtask, Comment, and Attachment Follow-ups
+### 2. Rich Description Editor Follow-up
+
+Ship separately after the Todo detail view design concept is settled:
+
+- Replace the temporary/prototype description editor with a real maintained editor dependency instead of growing a custom editor engine.
+- Candidate direction: TipTap/ProseMirror for a modern WYSIWYG document editor, or Milkdown if Markdown-first editing remains the preferred storage/editing model.
+- Keep the view mode clean and rendered; edit mode should feel like a compact modern editor with basics such as bold, italic, headings, lists, paste handling, undo/redo, keyboard shortcuts, and sane mobile behavior.
+- Continue storing descriptions in a migration-friendly format; Markdown storage is acceptable initially if the chosen editor round-trips it cleanly.
+- Comments can remain as-is for this step unless Tobi explicitly decides they should also use richer Markdown/rendered editing.
+
+### 3. Subtask, Comment, and Attachment Follow-ups
 
 Only after MVP is stable:
 
