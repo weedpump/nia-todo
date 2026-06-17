@@ -109,15 +109,15 @@ export function createTodosFeature({
   }
 
   function ensureTodoMetaSummary() {
-    const descGroup = document.getElementById('todo-desc')?.closest('.form-group');
-    if (!descGroup) return null;
+    const titleGroup = document.getElementById('todo-title')?.closest('.form-group');
+    if (!titleGroup) return null;
     let summary = document.getElementById('todo-meta-summary');
     if (!summary) {
       summary = document.createElement('div');
       summary.id = 'todo-meta-summary';
       summary.className = 'todo-meta-summary-view';
-      descGroup.after(summary);
     }
+    if (summary.previousElementSibling !== titleGroup) titleGroup.after(summary);
     return summary;
   }
 
@@ -169,26 +169,107 @@ export function createTodosFeature({
     renderTodoMetaSummary(todo);
   }
 
+  function htmlNodeToMarkdown(node) {
+    if (node.nodeType === Node.TEXT_NODE) return node.textContent || '';
+    if (node.nodeType !== Node.ELEMENT_NODE) return '';
+    const tag = node.tagName.toLowerCase();
+    const children = () => Array.from(node.childNodes).map(htmlNodeToMarkdown).join('');
+    if (tag === 'br') return '\n';
+    if (tag === 'strong' || tag === 'b') return `**${children()}**`;
+    if (tag === 'em' || tag === 'i') return `*${children()}*`;
+    if (tag === 'code') return `\`${children()}\``;
+    if (tag === 'h1') return `# ${children().trim()}\n\n`;
+    if (tag === 'h2') return `## ${children().trim()}\n\n`;
+    if (tag === 'h3') return `### ${children().trim()}\n\n`;
+    if (tag === 'li') return `- ${children().trim()}\n`;
+    if (tag === 'ul' || tag === 'ol') return `${children()}\n`;
+    if (tag === 'p' || tag === 'div') return `${children().trim()}\n\n`;
+    return children();
+  }
+
+  function richDescriptionToMarkdown(editor) {
+    return Array.from(editor.childNodes)
+      .map(htmlNodeToMarkdown)
+      .join('')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+  }
+
+  function ensureDescriptionRichEditor(textarea, preview) {
+    let wrap = document.getElementById('todo-desc-rich-wrap');
+    if (wrap) return wrap;
+    wrap = document.createElement('div');
+    wrap.id = 'todo-desc-rich-wrap';
+    wrap.className = 'todo-desc-rich-wrap';
+    wrap.innerHTML = `
+      <div class="todo-desc-rich-toolbar" aria-label="Beschreibung formatieren">
+        <button type="button" data-rich-command="bold"><strong>B</strong></button>
+        <button type="button" data-rich-command="italic"><em>I</em></button>
+        <button type="button" data-rich-block="h1">H1</button>
+        <button type="button" data-rich-block="h2">H2</button>
+        <button type="button" data-rich-command="insertUnorderedList">• Liste</button>
+      </div>
+      <div id="todo-desc-rich-editor" class="todo-desc-rich-editor" contenteditable="true" role="textbox" aria-multiline="true"></div>
+    `;
+    preview.after(wrap);
+    const editor = wrap.querySelector('#todo-desc-rich-editor');
+    const syncFromEditor = () => {
+      textarea.value = richDescriptionToMarkdown(editor);
+      preview.innerHTML = renderMarkdown(textarea.value);
+      refreshTodoSaveButtonState();
+    };
+    editor.addEventListener('input', syncFromEditor);
+    editor.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        document.getElementById('todo-modal')?.classList.remove('todo-desc-editing');
+        return;
+      }
+      if (event.key === ' ') {
+        window.setTimeout(() => {
+          const selection = window.getSelection?.();
+          const node = selection?.anchorNode;
+          const block = node?.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+          if (!block || !editor.contains(block)) return;
+          if ((block.textContent || '').trim() !== '-') return;
+          block.textContent = '';
+          document.execCommand('insertUnorderedList', false, null);
+          syncFromEditor();
+        }, 0);
+      }
+    });
+    wrap.querySelectorAll('button[data-rich-command], button[data-rich-block]').forEach(button => {
+      button.addEventListener('mousedown', event => event.preventDefault());
+      button.addEventListener('click', () => {
+        editor.focus();
+        if (button.dataset.richBlock) document.execCommand('formatBlock', false, button.dataset.richBlock);
+        else document.execCommand(button.dataset.richCommand, false, null);
+        syncFromEditor();
+      });
+    });
+    return wrap;
+  }
+
   function bindTodoDescriptionInlineEditor() {
     const modal = document.getElementById('todo-modal');
     const textarea = document.getElementById('todo-desc');
     const preview = document.getElementById('todo-desc-preview');
     if (!modal || !textarea || !preview || textarea.dataset.inlineEditorBound === '1') return;
     textarea.dataset.inlineEditorBound = '1';
+    const wrap = ensureDescriptionRichEditor(textarea, preview);
+    const editor = wrap.querySelector('#todo-desc-rich-editor');
+    editor?.setAttribute('data-placeholder', getActiveLanguage() === 'de' ? 'Beschreibung schreiben…' : 'Write description…');
     const openEditor = () => {
       if (!modal.classList.contains('todo-detail-view')) return;
+      editor.innerHTML = renderMarkdown(textarea.value || '');
       modal.classList.add('todo-desc-editing');
-      window.requestAnimationFrame?.(() => textarea.focus());
+      window.requestAnimationFrame?.(() => editor.focus());
     };
     preview.addEventListener('click', openEditor);
     preview.addEventListener('keydown', (event) => {
       if (event.key !== 'Enter' && event.key !== ' ') return;
       event.preventDefault();
       openEditor();
-    });
-    textarea.addEventListener('blur', () => {
-      if (!modal.classList.contains('todo-detail-view')) return;
-      window.setTimeout(() => modal.classList.remove('todo-desc-editing'), 120);
     });
   }
 
