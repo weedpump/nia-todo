@@ -1718,6 +1718,8 @@ export function createTodosFeature({
       item.style.removeProperty('--swipe-progress');
       item.removeAttribute('data-swipe-right-label');
       item.removeAttribute('data-swipe-left-label');
+      item.scrollLeft = 0;
+      item.scrollTop = 0;
     }
 
     function wait(ms) {
@@ -1726,6 +1728,13 @@ export function createTodosFeature({
 
     document.addEventListener('pointermove', (event) => {
       if (!active || event.pointerId !== active.pointerId) return;
+      const dragDropActive = document.body.classList.contains('native-pointer-dragging') || active.item.classList.contains('dragging');
+      if (dragDropActive) {
+        cleanupSwipeVisual(active.item);
+        active = null;
+        suppressClickUntil = Date.now() + 450;
+        return;
+      }
       active.dx = event.clientX - active.startX;
       active.dy = event.clientY - active.startY;
 
