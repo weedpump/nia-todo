@@ -2295,12 +2295,11 @@ input[type="color"]::-moz-color-swatch {
   left: 0;
   z-index: 10000;
   display: none;
-  width: 7px;
+  width: 4px;
   min-height: 36px;
   border-radius: 999px;
-  background: var(--text-muted);
-  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.18);
-  opacity: 0.9;
+  background: color-mix(in srgb, var(--text-muted) 58%, transparent);
+  opacity: 0.62;
   pointer-events: none;
   will-change: transform, height;
 }
