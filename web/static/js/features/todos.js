@@ -688,14 +688,37 @@ export function createTodosFeature({
     });
   }
 
-  function setSelectedAttachmentFileName(file = null) {
+  function getSelectedAttachmentFiles() {
+    return Array.from(document.getElementById('todo-attachment-file')?.files || []);
+  }
+
+  function setSelectedAttachmentFileName(files = []) {
     const label = document.getElementById('todo-attachment-file-name');
     const picker = label?.closest?.('.todo-attachment-picker');
     if (!label) return;
-    const hasFile = Boolean(file?.name);
-    label.textContent = hasFile ? t('todo.attachments.selectedFile', { filename: file.name }) : t('todo.attachments.chooseFile');
-    label.title = hasFile ? file.name : '';
+    const selected = Array.isArray(files) ? files : (files ? [files] : []);
+    const hasFile = selected.length > 0;
+    if (selected.length === 1) {
+      label.textContent = t('todo.attachments.selectedFile', { filename: selected[0].name });
+      label.title = selected[0].name;
+    } else if (selected.length > 1) {
+      label.textContent = t('todo.attachments.selectedFiles', { count: selected.length });
+      label.title = selected.map(file => file.name).join('\n');
+    } else {
+      label.textContent = t('todo.attachments.chooseFile');
+      label.title = '';
+    }
     picker?.classList.toggle('has-file', hasFile);
+  }
+
+  function setAttachmentInputFiles(files = []) {
+    const input = document.getElementById('todo-attachment-file');
+    if (!input) return;
+    const transfer = new DataTransfer();
+    for (const file of files) transfer.items.add(file);
+    input.files = transfer.files;
+    setSelectedAttachmentFileName(Array.from(input.files));
+    refreshTodoSaveButtonState();
   }
 
   function renderTodoAttachments(attachments = [], todo = null) {
@@ -717,7 +740,7 @@ export function createTodosFeature({
     if (input) {
       input.value = '';
       input.disabled = !todoId;
-      setSelectedAttachmentFileName(null);
+      setSelectedAttachmentFileName([]);
     }
     if (uploadButton) uploadButton.disabled = !todoId;
     for (const attachment of normalized) {
@@ -791,12 +814,12 @@ export function createTodosFeature({
     if (!getAppInitialized() || !getDb()) return;
     const id = document.getElementById('todo-id')?.value;
     const input = document.getElementById('todo-attachment-file');
-    const file = input?.files?.[0];
+    const files = getSelectedAttachmentFiles();
     if (!id || id.startsWith('temp-')) {
       showToast(t('todo.attachments.saveFirst'));
       return;
     }
-    if (!file) {
+    if (files.length === 0) {
       input?.focus();
       return;
     }
@@ -810,38 +833,51 @@ export function createTodosFeature({
       return;
     }
     const maxUploadBytes = Number(currentUser?.attachment_max_upload_bytes || 0);
-    if (maxUploadBytes > 0 && file.size > maxUploadBytes) {
+    const oversized = files.find(file => maxUploadBytes > 0 && file.size > maxUploadBytes);
+    if (oversized) {
       showToast(t('todo.attachments.fileTooLarge', { max: formatAttachmentSize(maxUploadBytes) }));
       return;
     }
     const remainingBytes = Number(currentUser?.attachment_remaining_bytes ?? currentUser?.attachment_quota_bytes ?? 0);
-    if (file.size > Math.max(remainingBytes, 0)) {
+    const totalBytes = files.reduce((sum, file) => sum + (Number(file.size) || 0), 0);
+    if (totalBytes > Math.max(remainingBytes, 0)) {
       showToast(t('todo.attachments.quotaExceeded'));
       return;
     }
-    if (!attachmentAllowedByClient(file, currentUser)) {
+    if (files.some(file => !attachmentAllowedByClient(file, currentUser))) {
       showToast(t('todo.attachments.typeNotAllowed'));
       return;
     }
+    const uploadButton = document.getElementById('todo-attachment-upload-btn');
+    const previousDisabled = uploadButton?.disabled;
+    if (uploadButton) uploadButton.disabled = true;
     try {
-      const response = await todosApi.uploadAttachment(id, file);
-      await applyAttachmentTodoResponse(response);
-      if (response?.usage && currentUser && typeof setCurrentUser === 'function') {
-        setCurrentUser({
-          ...currentUser,
-          attachments_enabled: Boolean(response.usage.enabled),
-          attachment_usage_bytes: response.usage.used_bytes,
-          attachment_quota_bytes: response.usage.quota_bytes,
-          attachment_remaining_bytes: response.usage.remaining_bytes,
-          attachments_allowed_types: response.usage.allowed_types || currentUser.attachments_allowed_types,
-          attachment_max_upload_bytes: response.usage.max_upload_bytes || currentUser.attachment_max_upload_bytes,
-        });
+      let latestResponse = null;
+      let latestUser = currentUser;
+      for (const file of files) {
+        latestResponse = await todosApi.uploadAttachment(id, file);
+        if (latestResponse?.usage && latestUser && typeof setCurrentUser === 'function') {
+          latestUser = {
+            ...latestUser,
+            attachments_enabled: Boolean(latestResponse.usage.enabled),
+            attachment_usage_bytes: latestResponse.usage.used_bytes,
+            attachment_quota_bytes: latestResponse.usage.quota_bytes,
+            attachment_remaining_bytes: latestResponse.usage.remaining_bytes,
+            attachments_allowed_types: latestResponse.usage.allowed_types || latestUser.attachments_allowed_types,
+            attachment_max_upload_bytes: latestResponse.usage.max_upload_bytes || latestUser.attachment_max_upload_bytes,
+          };
+          setCurrentUser(latestUser);
+        }
       }
-      setSelectedAttachmentFileName(null);
-      showToast(t('todo.attachments.uploaded'));
+      if (latestResponse) await applyAttachmentTodoResponse(latestResponse);
+      setSelectedAttachmentFileName([]);
+      if (input) input.value = '';
+      showToast(files.length === 1 ? t('todo.attachments.uploaded') : t('todo.attachments.uploadedMany', { count: files.length }));
     } catch (error) {
       console.error('Failed to upload todo attachment', error);
       showToast(error?.message || t('todo.attachments.uploadFailed'));
+    } finally {
+      if (uploadButton) uploadButton.disabled = previousDisabled ?? false;
     }
   }
 
@@ -937,8 +973,32 @@ export function createTodosFeature({
     form.addEventListener('input', refreshTodoSaveButtonState);
     form.addEventListener('change', refreshTodoSaveButtonState);
     document.getElementById('todo-attachment-file')?.addEventListener('change', (event) => {
-      setSelectedAttachmentFileName(event.target?.files?.[0] || null);
+      setSelectedAttachmentFileName(Array.from(event.target?.files || []));
     });
+    const attachmentDropZone = document.querySelector('.todo-attachments-add-row');
+    if (attachmentDropZone) {
+      attachmentDropZone.dataset.dropLabel = t('todo.attachments.dropHint');
+      const stopDrag = (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+      };
+      for (const eventName of ['dragenter', 'dragover']) {
+        attachmentDropZone.addEventListener(eventName, (event) => {
+          stopDrag(event);
+          attachmentDropZone.classList.add('is-drag-over');
+        });
+      }
+      for (const eventName of ['dragleave', 'drop']) {
+        attachmentDropZone.addEventListener(eventName, (event) => {
+          stopDrag(event);
+          attachmentDropZone.classList.remove('is-drag-over');
+        });
+      }
+      attachmentDropZone.addEventListener('drop', (event) => {
+        const files = Array.from(event.dataTransfer?.files || []);
+        if (files.length) setAttachmentInputFiles(files);
+      });
+    }
     document.getElementById('todo-subtask-new-title')?.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
         event.preventDefault();
