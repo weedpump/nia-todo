@@ -63,6 +63,8 @@ run_step "BrainDump Services" python3 scripts/test_braindump_v2_services.py
 run_step "BrainDump Extractor Normalization" python3 scripts/test_braindump_v2_extractor_normalization.py
 run_step "BrainDump Todo Creation" python3 scripts/test_braindump_v2_todo_creation.py
 run_step "BrainDump Admin STT Probe" python3 scripts/test_braindump_admin_stt_probe.py
+run_step "BrainDump Semantic Extractor Live" python3 scripts/test_braindump_semantic_extractor.py
+run_step "BrainDump Audio Fixture E2E" python3 scripts/test_braindump_audio_fixture_e2e.py
 run_step "Recurring Todos" python3 scripts/test_recurring_todos.py
 run_step "Default Reminder Offset" python3 scripts/test_default_reminder_offset.py
 run_step "Subtasks API" python3 scripts/test_subtasks.py
@@ -86,10 +88,17 @@ run_step "Admin Password Reset" python3 scripts/test_admin_password_reset.py
 run_step "Service Worker Precache" node scripts/test_sw_precache.mjs
 run_step_retry "Frontend Smoke" node scripts/test_frontend_smoke.mjs
 run_step_retry "Frontend App Core" node scripts/test_frontend_app.mjs
+run_step_retry "Frontend Release Ideas" node scripts/test_frontend_release_ideas.mjs
+run_step_retry "Frontend Subtasks" node scripts/test_frontend_subtasks.mjs
+run_step_retry "Frontend Quick Add Inline" node scripts/test_frontend_quick_add_inline.mjs
+run_step_retry "Frontend Todo Quick Status" node scripts/test_frontend_todo_quick_status.mjs
+run_step_retry "Frontend Todo Interactive Click Isolation" node scripts/test_frontend_todo_interactive_clicks.mjs
+run_step_retry "Frontend DragDrop" node scripts/test_frontend_dragdrop.mjs
 run_step_retry "Frontend Setup" node scripts/test_frontend_setup.mjs
 run_step_retry "Frontend Admin" node scripts/test_frontend_admin.mjs
 run_step_retry "Frontend Password Reset" node scripts/test_frontend_password_reset.mjs
 run_step_retry "Frontend Settings" node scripts/test_frontend_settings.mjs
+run_step_retry "Frontend MFA Login" node scripts/test_frontend_mfa_login.mjs
 run_step_retry "Frontend Projects" node scripts/test_frontend_projects.mjs
 run_step_retry "Frontend Workspaces" node scripts/test_frontend_workspaces.mjs
 run_step_retry "Frontend Sharing" node scripts/test_frontend_sharing.mjs
@@ -97,6 +106,8 @@ run_step_retry "Frontend Security" node scripts/test_frontend_security.mjs
 run_step_retry "Frontend Session" node scripts/test_frontend_session.mjs
 run_step_retry "Frontend Offline Sync" node scripts/test_frontend_offline_sync.mjs
 run_step_retry "Frontend Realtime Sync" node scripts/test_frontend_realtime_sync.mjs
+run_step "Frontend Location Reminder Static" node scripts/test_frontend_location_reminders.mjs
+run_step "Sync Feature Race Guard" node scripts/test_sync_feature_race.mjs
 run_step_retry "Frontend BrainDump Capture" node scripts/test_frontend_braindump_capture.mjs
 
 # Focused UI contracts are also part of release; they stay separately runnable for targeted UI work.
@@ -106,6 +117,8 @@ run_step_retry "UI Contract Suite" ./scripts/test_ui_contracts.sh
 run_step_retry "Frontend Native Runtime Config" node scripts/test_frontend_native_runtime_config.mjs
 run_step "Frontend Native Passkeys" node scripts/test_frontend_native_passkeys.mjs
 run_step_retry "Frontend Native Offline" node scripts/test_frontend_native_offline.mjs
+run_step_retry "Frontend Native Todo Actions" node scripts/test_frontend_native_todo_actions.mjs
+run_step_retry "Frontend Android Todo Gestures" node scripts/test_frontend_android_todo_gestures.mjs
 run_step_retry "Frontend Android Reminder Rehydration" node scripts/test_frontend_android_reminder_rehydration.mjs
 run_step "Native Android Location Reminder" node scripts/test_native_android_location_reminders.mjs
 run_step "Native Android WebView Cache Migration" node scripts/test_native_android_webview_cache_migration.mjs
