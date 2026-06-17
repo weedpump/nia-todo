@@ -10,14 +10,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 ### Added
 - Added checklist-style subtasks on todos, including progress chips on todo cards, modal-only checklist editing, independent create/update/delete actions for existing todos, realtime sync, recurring-todo checklist carry-over, and confirmation before completing a parent todo with open subtasks.
 - Added todo comments with author display, local timestamps, comment-count chips, dedicated add/edit/delete actions, shared-project permissions, and realtime comment updates.
+- Added todo attachments with authenticated server-local uploads/downloads, attachment-count chips, modal list/upload/delete actions, shared-project access checks, image/PDF preview, and realtime attachment updates.
+- Added admin attachment controls for global upload enablement, comma-separated allowed file extensions, default 5 GB quota, per-user quota overrides, and user-visible storage usage.
 
 ### Changed
-- Refined the Todo modal into compact collapsible sections for planning, organization, subtasks, and comments, with mobile-first collapsed metadata panels and muted disabled action buttons.
-- Refined mobile todo card actions, floating action button layering, Todo modal action buttons, and subtask/comment visual styling for a cleaner compact UI.
+- Refined the Todo modal into compact collapsible sections for planning, organization, subtasks, comments, and attachments, with mobile-first collapsed metadata panels and muted disabled action buttons.
+- Refined mobile todo card actions, floating action button layering, Todo modal action buttons, and subtask/comment/attachment visual styling for a cleaner compact UI.
 - Cleaned up startup sync ownership so REST handles authoritative full refreshes while WebSocket startup stays on auth/session and realtime deltas, preventing duplicate full-cache writers from racing IndexedDB/UI state.
+- Hardened attachment uploads with streaming temp-file writes, server-side quota/type policy enforcement, magic-byte validation for common binary formats, active-content blocking, and client-side preflight for disabled uploads, type, file size, and quota.
 
 ### Fixed
 - Guarded authoritative REST refreshes while local offline queue sync is active or still pending, preventing cache replacement from clobbering queued offline changes.
+- Preserved attachment files during fresh-DB regression tests so restored development databases do not reference missing attachment files.
+- Treated zero attachment quota as a locked/full quota in user and admin storage displays and upload preflight.
 
 ## [2.12.2] - 2026-06-16
 
