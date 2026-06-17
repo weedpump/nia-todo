@@ -221,6 +221,38 @@ export function createTodosFeature({
     translatePage(summary);
   }
 
+  function ensureTodoDetailHeaderMenu() {
+    const header = document.querySelector('#todo-modal .todo-modal-header');
+    if (!header) return null;
+    let menu = document.getElementById('todo-detail-header-actions');
+    if (!menu) {
+      menu = document.createElement('details');
+      menu.id = 'todo-detail-header-actions';
+      menu.className = 'todo-detail-header-actions';
+      menu.innerHTML = `
+        <summary aria-label="${t('common.more') || 'More'}">${iconSvg('ellipsis')}</summary>
+        <div class="todo-detail-header-menu ui-menu" role="menu">
+          <button type="button" class="ui-menu-item" id="todo-detail-duplicate-action" role="menuitem">${iconSvg('copy')}<span>${t('todo.duplicate')}</span></button>
+          <button type="button" class="ui-menu-item danger" id="todo-detail-delete-action" role="menuitem">${iconSvg('trash-2')}<span>${t('todo.delete')}</span></button>
+        </div>
+      `;
+      header.appendChild(menu);
+      menu.querySelector('#todo-detail-duplicate-action')?.addEventListener('click', () => {
+        menu.removeAttribute('open');
+        const id = document.getElementById('todo-id')?.value;
+        if (id) {
+          duplicateTodo(id);
+          closeModal('todo-modal');
+        }
+      });
+      menu.querySelector('#todo-detail-delete-action')?.addEventListener('click', () => {
+        menu.removeAttribute('open');
+        deleteTodoFromModal();
+      });
+    }
+    return menu;
+  }
+
   function updateTodoDetailViewMode(todo = null) {
     const modal = document.getElementById('todo-modal');
     if (!modal) return;
@@ -228,6 +260,9 @@ export function createTodosFeature({
     modal.classList.toggle('todo-detail-view', isExistingTodo);
     modal.classList.remove('todo-desc-editing');
     modal.classList.remove('todo-meta-editing');
+    modal.classList.remove('todo-has-unsaved');
+    const headerMenu = ensureTodoDetailHeaderMenu();
+    if (headerMenu) headerMenu.hidden = !isExistingTodo;
     const preview = document.getElementById('todo-desc-preview');
     if (preview) preview.dataset.emptyLabel = getActiveLanguage() === 'de' ? 'Beschreibung hinzufügen…' : 'Add description…';
     renderTodoMetaSummary(todo);
@@ -364,7 +399,9 @@ export function createTodosFeature({
     const saveButton = document.getElementById('todo-save-btn');
     if (!saveButton) return;
     const current = JSON.stringify(getTodoSaveRelevantState());
-    saveButton.disabled = todoSaveSnapshot !== null && current === todoSaveSnapshot;
+    const unchanged = todoSaveSnapshot !== null && current === todoSaveSnapshot;
+    saveButton.disabled = unchanged;
+    document.getElementById('todo-modal')?.classList.toggle('todo-has-unsaved', !unchanged);
   }
 
   function resetTodoSaveSnapshot() {
