@@ -85,11 +85,11 @@ export function createTodosFeature({
       setTodoCollapsibleOpen('todo-organize-panel', true);
       return;
     }
-    setTodoCollapsibleOpen('todo-subtasks-panel', false);
-    setTodoCollapsibleOpen('todo-comments-panel', false);
-    setTodoCollapsibleOpen('todo-attachments-panel', false);
-    setTodoCollapsibleOpen('todo-schedule-panel', false);
-    setTodoCollapsibleOpen('todo-organize-panel', false);
+    setTodoCollapsibleOpen('todo-subtasks-panel', true);
+    setTodoCollapsibleOpen('todo-comments-panel', true);
+    setTodoCollapsibleOpen('todo-attachments-panel', true);
+    setTodoCollapsibleOpen('todo-schedule-panel', true);
+    setTodoCollapsibleOpen('todo-organize-panel', true);
   }
 
   function formatTodoMetaDate(value) {
@@ -175,12 +175,6 @@ export function createTodosFeature({
   function renderTodoMetaSummary(todo = null) {
     const summary = ensureTodoMetaSummary();
     if (!summary) return;
-    if (!todo?.id) {
-      restoreTodoMetaPanelsToForm();
-      summary.replaceChildren();
-      summary.hidden = true;
-      return;
-    }
     ensureTodoMetaDrawer();
     summary.hidden = false;
     const lang = getActiveLanguage();
@@ -194,7 +188,9 @@ export function createTodosFeature({
     const selectedProject = getProjects().find(project => String(project.id) === String(document.getElementById('todo-project')?.value || ''));
     const priority = Number(document.getElementById('todo-priority')?.value || todo.priority || 3);
     const status = document.getElementById('todo-status')?.value || todo.status || 'pending';
-    const dueDate = todo.due_date ? new Date(todo.due_date) : null;
+    const dueValue = todo?.due_date || document.getElementById('todo-due')?.value || '';
+    const remindValue = todo?.remind_at || todo?.reminders?.[0]?.remind_at || document.getElementById('todo-remind')?.value || '';
+    const dueDate = dueValue ? new Date(dueValue) : null;
     const isOverdue = dueDate && status !== 'done' && dueDate < new Date();
     const isSoon = dueDate && !isOverdue && status !== 'done' && dueDate <= new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
     const priorityTone = { 1: 'priority-very-high', 2: 'priority-high', 3: 'priority-medium', 4: 'priority-low' }[priority] || 'priority-low';
@@ -206,12 +202,13 @@ export function createTodosFeature({
     addChip('layers', lang === 'de' ? 'Section' : 'Section', getSelectedOptionLabel('todo-section'), { tone: 'section' });
     addChip('flag', lang === 'de' ? 'Priorität' : 'Priority', getSelectedOptionLabel('todo-priority'), { tone: priorityTone });
     addChip(statusIcon, 'Status', getSelectedOptionLabel('todo-status'), { tone: statusTone });
-    addChip(isOverdue ? 'triangle-alert' : 'calendar-days', lang === 'de' ? 'Deadline' : 'Deadline', formatTodoMetaDate(todo.due_date), { tone: dueTone });
-    addChip('bell', lang === 'de' ? 'Erinnerung' : 'Reminder', formatTodoMetaDate(todo.remind_at || todo.reminders?.[0]?.remind_at), { tone: 'reminder' });
+    addChip(isOverdue ? 'triangle-alert' : 'calendar-days', lang === 'de' ? 'Deadline' : 'Deadline', formatTodoMetaDate(dueValue), { tone: dueTone });
+    addChip('bell', lang === 'de' ? 'Erinnerung' : 'Reminder', formatTodoMetaDate(remindValue), { tone: 'reminder' });
     addChip('map-pin', lang === 'de' ? 'Ort' : 'Location', todoLocationReminderLabel(todo), { tone: 'location' });
-    const recurringRule = normalizeRecurringRule(todo.recurring_rule, { defaultTimezone: null });
+    const selectedFrequency = document.getElementById('todo-recurring-frequency')?.value || 'none';
+    const recurringRule = todo?.recurring_rule ? normalizeRecurringRule(todo.recurring_rule, { defaultTimezone: null }) : { frequency: selectedFrequency };
     if (recurringRule && recurringRule.frequency !== 'none') addChip('repeat', lang === 'de' ? 'Wiederholung' : 'Repeat', getSelectedOptionLabel('todo-recurring-frequency'));
-    if (todo.is_pinned) addChip('star', lang === 'de' ? 'Angepinnt' : 'Pinned', lang === 'de' ? 'Ja' : 'Yes');
+    if (todo?.is_pinned || document.getElementById('todo-pinned')?.checked) addChip('star', lang === 'de' ? 'Angepinnt' : 'Pinned', lang === 'de' ? 'Ja' : 'Yes');
     const empty = lang === 'de' ? 'Keine Planung oder Einordnung gesetzt.' : 'No planning or organization set.';
     const edit = lang === 'de' ? 'Details bearbeiten' : 'Edit details';
     summary.innerHTML = `
@@ -275,9 +272,8 @@ export function createTodosFeature({
     const modal = document.getElementById('todo-modal');
     if (!modal) return;
     const isExistingTodo = Boolean(todo?.id);
-    modal.classList.toggle('todo-detail-view', isExistingTodo);
-    modal.classList.toggle('todo-create-view', !isExistingTodo);
-    if (!isExistingTodo) restoreTodoMetaPanelsToForm();
+    modal.classList.add('todo-detail-view');
+    modal.classList.remove('todo-create-view');
     modal.classList.remove('todo-desc-editing');
     modal.classList.remove('todo-meta-editing');
     modal.classList.remove('todo-has-unsaved');
