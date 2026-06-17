@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="referrer" content="no-referrer">
 <title>nia-todo</title>
 <link rel="manifest" href="/manifest.json">
@@ -23,6 +23,21 @@
     // Native shells rely on the service worker cache for offline cold starts.
     // Do not unregister it here: Android WebView can report navigator.onLine=true
     // while DNS is unavailable, which would break the next offline launch.
+  })();
+
+  // Keep the browser/PWA surface app-like on touch devices: no pinch-zoom or
+  // two-finger page scaling, while leaving normal desktop browser zoom intact.
+  (function() {
+    function preventTouchZoom(event) {
+      if (event.touches && event.touches.length > 1) event.preventDefault();
+    }
+    function preventGestureZoom(event) {
+      event.preventDefault();
+    }
+    document.addEventListener('touchmove', preventTouchZoom, { passive: false });
+    document.addEventListener('gesturestart', preventGestureZoom, { passive: false });
+    document.addEventListener('gesturechange', preventGestureZoom, { passive: false });
+    document.addEventListener('gestureend', preventGestureZoom, { passive: false });
   })();
 
   // Prevent native form submit/reload if the user is faster than the JS module boot.
