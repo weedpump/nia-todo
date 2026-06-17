@@ -29,6 +29,8 @@ DB_PATH = BASE / "api" / "data" / "nia-todo-dev.db"
 DB_BACKUP = BASE / "api" / "data" / "nia-todo-dev.db.backup"
 DB_WAL = Path(str(DB_PATH) + "-wal")
 DB_SHM = Path(str(DB_PATH) + "-shm")
+ATTACHMENT_DIR = BASE / "api" / "data" / "attachments"
+ATTACHMENT_BACKUP = BASE / "api" / "data" / "attachments.backend-test-backup"
 URL = "http://localhost:8754"
 SERVICE = "nia-todo-dev"
 
@@ -83,6 +85,11 @@ def db_backup():
         print(f"  💾 DB gesichert: {DB_BACKUP}")
     else:
         print("  ℹ️  Keine bestehende DB zum Sichern")
+    if ATTACHMENT_BACKUP.exists():
+        shutil.rmtree(ATTACHMENT_BACKUP)
+    if ATTACHMENT_DIR.exists():
+        shutil.move(str(ATTACHMENT_DIR), str(ATTACHMENT_BACKUP))
+        print(f"  💾 Attachments gesichert: {ATTACHMENT_BACKUP}")
 
 def db_restore():
     """Restore original database from backup."""
@@ -95,6 +102,11 @@ def db_restore():
         print(f"  🔄 DB wiederhergestellt: {DB_PATH}")
     else:
         print("  ⚠️  Kein Backup zum Wiederherstellen")
+    if ATTACHMENT_DIR.exists():
+        shutil.rmtree(ATTACHMENT_DIR)
+    if ATTACHMENT_BACKUP.exists():
+        shutil.move(str(ATTACHMENT_BACKUP), str(ATTACHMENT_DIR))
+        print(f"  🔄 Attachments wiederhergestellt: {ATTACHMENT_DIR}")
     service_start()
     service_wait()
 
