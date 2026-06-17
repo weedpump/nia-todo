@@ -50,8 +50,32 @@ export async function api(method, path, body) {
   return data;
 }
 
+function devDbUserCount(path = DB_PATH) {
+  if (!existsSync(path)) return null;
+  const script = `
+import sqlite3, sys
+path = sys.argv[1]
+con = sqlite3.connect(path)
+try:
+    tables = {row[0] for row in con.execute("select name from sqlite_master where type='table'")}
+    print(con.execute("select count(*) from users").fetchone()[0] if "users" in tables else -1)
+finally:
+    con.close()
+`;
+  return Number(sh('python3', ['-c', script, path]).trim());
+}
+
+function assertRestorableDevDb(path = DB_PATH, context = 'backup') {
+  const userCount = devDbUserCount(path);
+  if (userCount === null) return;
+  if (userCount <= 0 && process.env.NIA_TODO_ALLOW_EMPTY_DEV_DB_BACKUP !== '1') {
+    throw new Error(`${context} refused: ${path} has users=${userCount}. Refusing to treat an empty dev DB as the original DB.`);
+  }
+}
+
 export function backupDb() {
   mkdirSync(dirname(DB_PATH), { recursive: true });
+  assertRestorableDevDb(DB_PATH, 'Frontend test DB backup');
   if (existsSync(DB_BACKUP)) unlinkSync(DB_BACKUP);
   if (existsSync(DB_PATH)) renameSync(DB_PATH, DB_BACKUP);
   if (existsSync(ATTACHMENT_BACKUP)) rmSync(ATTACHMENT_BACKUP, { recursive: true, force: true });
@@ -64,6 +88,7 @@ export function restoreDb() {
   if (existsSync(DB_BACKUP)) renameSync(DB_BACKUP, DB_PATH);
   if (existsSync(ATTACHMENT_DIR)) rmSync(ATTACHMENT_DIR, { recursive: true, force: true });
   if (existsSync(ATTACHMENT_BACKUP)) renameSync(ATTACHMENT_BACKUP, ATTACHMENT_DIR);
+  assertRestorableDevDb(DB_PATH, 'Frontend test DB restore');
   service('start');
 }
 

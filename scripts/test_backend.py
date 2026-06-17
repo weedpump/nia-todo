@@ -67,6 +67,28 @@ def service_wait(timeout: int = 30) -> bool:
 
 # --- Database Backup/Restore --------------------------------------------------
 
+def dev_db_user_count(path=DB_PATH):
+    """Return current users count, -1 when schema has no users table, or None when DB is absent."""
+    if not path.exists():
+        return None
+    with sqlite3.connect(path) as db:
+        tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        if "users" not in tables:
+            return -1
+        return db.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+
+
+def assert_restorable_dev_db(path=DB_PATH, context="backup"):
+    user_count = dev_db_user_count(path)
+    if user_count is None:
+        return
+    if user_count <= 0 and os.environ.get("NIA_TODO_ALLOW_EMPTY_DEV_DB_BACKUP") != "1":
+        raise RuntimeError(
+            f"{context} refused: {path} has users={user_count}. "
+            "Refusing to treat an empty dev DB as the original DB."
+        )
+
+
 def db_backup():
     """Backup existing database after stopping the service and checkpointing SQLite WAL."""
     service_stop()
@@ -76,6 +98,7 @@ def db_backup():
             check = db.execute("PRAGMA quick_check").fetchone()[0]
             if check != "ok":
                 raise RuntimeError(f"DB quick_check failed before backup: {check}")
+        assert_restorable_dev_db(DB_PATH, "Backend test DB backup")
         for sidecar in (DB_WAL, DB_SHM):
             if sidecar.exists():
                 sidecar.unlink()
@@ -107,6 +130,7 @@ def db_restore():
     if ATTACHMENT_BACKUP.exists():
         shutil.move(str(ATTACHMENT_BACKUP), str(ATTACHMENT_DIR))
         print(f"  🔄 Attachments wiederhergestellt: {ATTACHMENT_DIR}")
+    assert_restorable_dev_db(DB_PATH, "Backend test DB restore")
     service_start()
     service_wait()
 
