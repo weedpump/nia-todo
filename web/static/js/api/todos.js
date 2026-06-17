@@ -1,4 +1,12 @@
-import { http } from './http.js';
+import { API } from '../core/config.js';
+import { http, getAuthHeaders } from './http.js';
+import { apiErrorFromResponse } from './errors.js';
+
+async function parseOrThrow(response, fallback = 'Request failed') {
+  if (!response.ok) await apiErrorFromResponse(response, fallback);
+  return response.json().catch(() => ({}));
+}
+
 
 export const todosApi = {
   list: () => http.get('/api/todos'),
@@ -10,5 +18,38 @@ export const todosApi = {
   createComment: (todoId, data) => http.post(`/api/todos/${todoId}/comments`, data),
   updateComment: (todoId, commentId, data) => http.patch(`/api/todos/${todoId}/comments/${commentId}`, data),
   deleteComment: (todoId, commentId) => http.del(`/api/todos/${todoId}/comments/${commentId}`),
+  listAttachments: (todoId) => http.get(`/api/todos/${todoId}/attachments`),
+  async uploadAttachment(todoId, file) {
+    const headers = getAuthHeaders();
+    delete headers['Content-Type'];
+    const response = await fetch(API + `/api/todos/${todoId}/attachments`, {
+      method: 'POST',
+      headers: {
+        ...headers,
+        'Content-Type': file.type || 'application/octet-stream',
+        'X-Nia-Filename': encodeURIComponent(file.name || 'attachment'),
+      },
+      body: file,
+      credentials: 'include',
+    });
+    return parseOrThrow(response, 'Attachment upload failed');
+  },
+  async downloadAttachment(todoId, attachmentId, filename = 'attachment') {
+    const response = await fetch(API + `/api/todos/${todoId}/attachments/${attachmentId}/download`, {
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    });
+    if (!response.ok) await apiErrorFromResponse(response, 'Attachment download failed');
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename || 'attachment';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  },
+  deleteAttachment: (todoId, attachmentId) => http.del(`/api/todos/${todoId}/attachments/${attachmentId}`),
   delete: (todoId) => http.del(`/api/todos/${todoId}`),
 };

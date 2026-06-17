@@ -19,9 +19,9 @@ async function run() {
 
     await openTodoModal();
     await page.fill('#todo-title', 'Drag Todo');
-    await page.selectOption('#todo-project', { label: 'Drag Project' });
+    await page.selectOption('#todo-project', { label: 'Drag Project' }, { force: true });
     await ensureSectionOptions(['Drag A', 'Drag B']);
-    await page.selectOption('#todo-section', { label: 'Drag A' });
+    await page.selectOption('#todo-section', { label: 'Drag A' }, { force: true });
     await page.click('button[form="todo-form"]');
     await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });
 

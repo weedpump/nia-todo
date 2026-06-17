@@ -589,6 +589,31 @@
           </div>
         </details>
 
+        <details class="ui-section-card todo-section-card todo-collapsible-card todo-attachments-card" id="todo-attachments-panel">
+          <summary class="ui-section-heading todo-collapsible-summary">
+            <div class="ui-section-icon" data-icon="paperclip"></div>
+            <div>
+              <h4 data-i18n-key="todo.attachments">Attachments</h4>
+              <p data-i18n-key="todo.attachments.hint">Attach files or photos to this todo.</p>
+            </div>
+            <span class="todo-collapsible-spacer"></span>
+            <span id="todo-attachments-count" class="todo-meta-chip todo-attachments-progress" aria-live="polite">0</span>
+            <span class="todo-collapsible-chevron" data-icon="chevron-down" aria-hidden="true"></span>
+          </summary>
+          <div class="todo-attachments-editor">
+            <div id="todo-attachments-list" class="todo-attachments-list"></div>
+            <p id="todo-attachments-empty" class="todo-attachments-empty" data-i18n-key="todo.attachments.empty">No attachments yet.</p>
+            <div class="form-group todo-attachments-add-group">
+              <label for="todo-attachment-file" data-i18n-key="todo.attachments.newLabel">Add attachment</label>
+              <div class="todo-attachments-add-row">
+                <input type="file" id="todo-attachment-file">
+                <button type="button" id="todo-attachment-upload-btn" class="btn btn-secondary" onclick="uploadTodoAttachmentFromInput()"><span data-icon="upload"></span> <span data-i18n-key="todo.attachments.upload">Upload</span></button>
+              </div>
+            </div>
+          </div>
+        </details>
+
+
         <details class="ui-section-card todo-section-card todo-collapsible-card" id="todo-organize-panel">
           <summary class="ui-section-heading todo-collapsible-summary">
             <div class="ui-section-icon" data-icon="settings"></div>

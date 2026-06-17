@@ -531,6 +531,153 @@ export function createTodosFeature({
     }
   }
 
+  function formatAttachmentSize(bytes) {
+    const size = Number(bytes) || 0;
+    if (size < 1024) return `${size} B`;
+    if (size < 1024 * 1024) return `${Math.round(size / 1024)} KB`;
+    return `${(size / (1024 * 1024)).toFixed(size >= 10 * 1024 * 1024 ? 0 : 1)} MB`;
+  }
+
+  function renderTodoAttachments(attachments = [], todo = null) {
+    const todoId = todo?.id || null;
+    const list = document.getElementById('todo-attachments-list');
+    const empty = document.getElementById('todo-attachments-empty');
+    const input = document.getElementById('todo-attachment-file');
+    const uploadButton = document.getElementById('todo-attachment-upload-btn');
+    const count = document.getElementById('todo-attachments-count');
+    if (!list) return;
+    const normalized = Array.isArray(attachments) ? attachments : [];
+    list.innerHTML = '';
+    if (count) count.textContent = String(normalized.length);
+    setTodoCollapsibleOpen('todo-attachments-panel', normalized.length > 0);
+    if (empty) {
+      empty.textContent = todoId ? t('todo.attachments.empty') : t('todo.attachments.saveFirst');
+      empty.hidden = normalized.length > 0;
+    }
+    if (input) {
+      input.value = '';
+      input.disabled = !todoId;
+    }
+    if (uploadButton) uploadButton.disabled = !todoId;
+    for (const attachment of normalized) {
+      const item = document.createElement('article');
+      item.className = 'todo-attachment-item';
+      item.dataset.attachmentId = attachment.id;
+
+      const icon = document.createElement('div');
+      icon.className = 'todo-attachment-icon';
+      icon.innerHTML = iconSvg('paperclip');
+
+      const body = document.createElement('div');
+      body.className = 'todo-attachment-body';
+      const name = document.createElement('button');
+      name.type = 'button';
+      name.className = 'todo-attachment-name';
+      name.textContent = attachment.original_filename || t('todo.attachments.unnamed');
+      name.addEventListener('click', () => downloadTodoAttachment(todoId, attachment.id, attachment.original_filename));
+      const meta = document.createElement('div');
+      meta.className = 'todo-attachment-meta';
+      meta.textContent = `${formatAttachmentSize(attachment.size_bytes)} · ${attachment.uploader_display_name || attachment.uploader_username || t('todo.attachments.unknownUploader')}`;
+      body.append(name, meta);
+
+      const actions = document.createElement('div');
+      actions.className = 'todo-attachment-actions';
+      const download = document.createElement('button');
+      download.type = 'button';
+      download.className = 'btn btn-secondary btn-small btn-icon';
+      download.innerHTML = iconSvg('download');
+      download.setAttribute('aria-label', t('todo.attachments.download'));
+      download.setAttribute('title', t('todo.attachments.download'));
+      download.addEventListener('click', () => downloadTodoAttachment(todoId, attachment.id, attachment.original_filename));
+      actions.appendChild(download);
+      const currentUserId = getCurrentUser?.()?.id;
+      const canDelete = String(attachment.user_id) === String(currentUserId) || String(todo?.user_id) === String(currentUserId);
+      if (canDelete) {
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'btn btn-secondary btn-small btn-icon';
+        remove.innerHTML = iconSvg('trash-2');
+        remove.setAttribute('aria-label', t('todo.attachments.delete'));
+        remove.setAttribute('title', t('todo.attachments.delete'));
+        remove.addEventListener('click', () => deleteTodoAttachment(todoId, attachment.id));
+        actions.appendChild(remove);
+      }
+
+      item.append(icon, body, actions);
+      list.appendChild(item);
+    }
+  }
+
+  async function applyAttachmentTodoResponse(response) {
+    const updatedTodo = response?.todo;
+    if (!updatedTodo) return;
+    await dbPut('todos', updatedTodo);
+    setTodos(getTodos().map(todo => String(todo.id) === String(updatedTodo.id) ? updatedTodo : todo));
+    renderTodoAttachments(updatedTodo.attachments || [], updatedTodo);
+    renderStats();
+    renderTodos();
+  }
+
+  async function uploadTodoAttachmentFromInput() {
+    if (!getAppInitialized() || !getDb()) return;
+    const id = document.getElementById('todo-id')?.value;
+    const input = document.getElementById('todo-attachment-file');
+    const file = input?.files?.[0];
+    if (!id || id.startsWith('temp-')) {
+      showToast(t('todo.attachments.saveFirst'));
+      return;
+    }
+    if (!file) {
+      input?.focus();
+      return;
+    }
+    if (!isOnlineForSync()) {
+      showToast(t('todo.attachments.onlineOnly'));
+      return;
+    }
+    try {
+      const response = await todosApi.uploadAttachment(id, file);
+      await applyAttachmentTodoResponse(response);
+      showToast(t('todo.attachments.uploaded'));
+    } catch (error) {
+      console.error('Failed to upload todo attachment', error);
+      showToast(t('todo.attachments.uploadFailed'));
+    }
+  }
+
+  async function downloadTodoAttachment(todoId, attachmentId, filename) {
+    if (!todoId || !attachmentId || !isOnlineForSync()) {
+      showToast(t('todo.attachments.onlineOnly'));
+      return;
+    }
+    try {
+      await todosApi.downloadAttachment(todoId, attachmentId, filename || 'attachment');
+    } catch (error) {
+      console.error('Failed to download todo attachment', error);
+      showToast(t('todo.attachments.downloadFailed'));
+    }
+  }
+
+  async function deleteTodoAttachment(todoId, attachmentId) {
+    if (!todoId || !attachmentId || !isOnlineForSync()) {
+      showToast(t('todo.attachments.onlineOnly'));
+      return;
+    }
+    const confirmed = await confirmDanger({
+      title: t('todo.attachments.deleteTitle'),
+      message: t('todo.attachments.deleteMessage'),
+      confirmText: t('todo.attachments.deleteConfirm'),
+    });
+    if (!confirmed) return;
+    try {
+      const response = await todosApi.deleteAttachment(todoId, attachmentId);
+      await applyAttachmentTodoResponse(response);
+    } catch (error) {
+      console.error('Failed to delete todo attachment', error);
+      showToast(t('todo.attachments.deleteFailed'));
+    }
+  }
+
   function bindTodoForm() {
     if (todoFormBound) return;
     const form = document.getElementById('todo-form');
@@ -1706,6 +1853,7 @@ export function createTodosFeature({
     if (newSubtaskInput) newSubtaskInput.value = '';
     renderTodoSubtaskEditor([]);
     renderTodoComments([], null);
+    renderTodoAttachments([], null);
     updateTodoMetaPanelsOpenState(null);
     const modalTitle = document.getElementById('todo-modal-title');
     if (modalTitle) {
@@ -1770,6 +1918,7 @@ export function createTodosFeature({
       populateLocationReminderForm(todo);
       renderTodoSubtaskEditor(todo.subtasks || []);
       renderTodoComments(todo.comments || [], todo);
+      renderTodoAttachments(todo.attachments || [], todo);
       updateTodoMetaPanelsOpenState(todo);
     } else {
       document.getElementById('todo-pinned').checked = false;
@@ -1777,6 +1926,7 @@ export function createTodosFeature({
       document.getElementById('todo-recurring-interval').value = 1;
       updateRecurringControls();
       renderTodoComments([], null);
+      renderTodoAttachments([], null);
       const currentWorkspaceId = getCurrentWorkspaceId?.();
       const workspaceProjects = getProjects().filter(p => !p.is_shared && (!currentWorkspaceId || String(p.workspace_id || '') === String(currentWorkspaceId)));
       const inboxProject = workspaceProjects.find(p => p.is_inbox) || workspaceProjects[0];
@@ -2076,5 +2226,5 @@ export function createTodosFeature({
     if (isOnlineForSync()) await syncWithServer();
   }
 
-  return { markTodoDone, markTodoInProgress, setTodoStatus, toggleTodo, toggleTodoPin, toggleTodoActions, addTodoSubtaskFromInput, addTodoCommentFromInput, deleteTodoComment, snoozeTodo, duplicateTodo, showTodoModal, onProjectChange, saveTodo, editTodo, deleteTodoFromModal, deleteTodo };
+  return { markTodoDone, markTodoInProgress, setTodoStatus, toggleTodo, toggleTodoPin, toggleTodoActions, addTodoSubtaskFromInput, addTodoCommentFromInput, uploadTodoAttachmentFromInput, deleteTodoComment, deleteTodoAttachment, snoozeTodo, duplicateTodo, showTodoModal, onProjectChange, saveTodo, editTodo, deleteTodoFromModal, deleteTodo };
 }

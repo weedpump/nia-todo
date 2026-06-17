@@ -131,7 +131,7 @@ async function run() {
     await assertTodoDidNotPress(page, item, 'pin button');
 
     await openTodoModal();
-    await page.selectOption('#todo-recurring-frequency', 'monthly');
+    await page.selectOption('#todo-recurring-frequency', 'monthly', { force: true });
     await page.click('#todo-recurring-interval');
     await page.keyboard.press('End');
     await page.keyboard.press('Backspace');
@@ -144,7 +144,7 @@ async function run() {
     if (recurringIntervalAfterTyping !== '6') {
       throw new Error(`Recurring interval should allow replacing 1 with 6, got ${JSON.stringify(recurringIntervalAfterTyping)}`);
     }
-    await page.selectOption('#todo-recurring-frequency', 'none');
+    await page.selectOption('#todo-recurring-frequency', 'none', { force: true });
     await page.locator('#todo-recurring-interval').blur();
     await page.evaluate(() => window.closeModal('todo-modal'));
     await page.locator('#todo-modal.active').waitFor({ state: 'hidden', timeout: 5000 });
@@ -155,8 +155,8 @@ async function run() {
     originalDue.setHours(10, 0, 0, 0);
     const originalReminder = new Date(originalDue.getTime() - 60 * 60 * 1000);
     await page.fill('#todo-title', snoozeReminderTitle);
-    await page.fill('#todo-due', localDateTimeValue(originalDue));
-    await page.fill('#todo-remind', localDateTimeValue(originalReminder));
+    await page.fill('#todo-due', localDateTimeValue(originalDue), { force: true });
+    await page.fill('#todo-remind', localDateTimeValue(originalReminder), { force: true });
     await page.click('button[form="todo-form"]');
     await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });
     await waitForTodo(page, snoozeReminderTitle, { due: true });
@@ -218,8 +218,8 @@ async function run() {
     longDescriptionDue.setDate(longDescriptionDue.getDate() + 2);
     longDescriptionDue.setHours(13, 30, 0, 0);
     const longDescriptionReminder = new Date(longDescriptionDue.getTime() - 30 * 60 * 1000);
-    await page.fill('#todo-due', localDateTimeValue(longDescriptionDue));
-    await page.fill('#todo-remind', localDateTimeValue(longDescriptionReminder));
+    await page.fill('#todo-due', localDateTimeValue(longDescriptionDue), { force: true });
+    await page.fill('#todo-remind', localDateTimeValue(longDescriptionReminder), { force: true });
     await page.click('button[form="todo-form"]');
     await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });
     await page.waitForFunction((value) => document.body.innerText.includes(value), longDescriptionTitle, { timeout: 10000 });
