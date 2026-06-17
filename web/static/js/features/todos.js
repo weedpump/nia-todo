@@ -211,7 +211,8 @@ export function createTodosFeature({
     const toggle = summary.querySelector('#todo-meta-edit-toggle');
     const syncToggleLabel = () => {
       const active = document.getElementById('todo-modal')?.classList.contains('todo-meta-editing');
-      toggle.textContent = active ? (lang === 'de' ? 'Details schließen' : 'Close details') : edit;
+      const label = active ? (lang === 'de' ? 'Details schließen' : 'Close details') : edit;
+      toggle.innerHTML = `${iconSvg(active ? 'x' : 'settings')}<span>${escapeHtmlAttr(label)}</span>`;
     };
     toggle?.addEventListener('click', () => {
       document.getElementById('todo-modal')?.classList.toggle('todo-meta-editing');

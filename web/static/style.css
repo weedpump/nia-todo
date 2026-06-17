@@ -10739,3 +10739,39 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
     right: 52px;
   }
 }
+
+/* Todo detail meta v26: make edit-details action discoverable. */
+#todo-modal.todo-detail-view .todo-meta-edit-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border-color: color-mix(in srgb, var(--accent) 34%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: color-mix(in srgb, var(--accent) 76%, var(--text-primary));
+  font-size: 13px;
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+#todo-modal.todo-detail-view .todo-meta-edit-toggle .ui-icon {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+}
+
+#todo-modal.todo-detail-view .todo-meta-edit-toggle:hover,
+#todo-modal.todo-detail-view .todo-meta-edit-toggle:focus-visible {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 58%, transparent);
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  box-shadow: 0 10px 26px color-mix(in srgb, var(--accent) 15%, transparent);
+}
+
+#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-toggle {
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 62%, transparent);
+}
