@@ -10430,3 +10430,95 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
 #todo-modal.todo-detail-view .todo-meta-tone-location,
 #todo-modal.todo-detail-view .todo-meta-tone-map-pin { --meta-tone: #06b6d4; }
 #todo-modal.todo-detail-view .todo-meta-tone-star { --meta-tone: #f59e0b; }
+
+/* Todo meta drawer v21: mobile fullscreen details editor with close header. */
+#todo-modal.todo-detail-view .todo-meta-drawer-header {
+  display: none;
+}
+
+#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-drawer-body {
+  display: grid;
+  gap: 0;
+}
+
+#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-drawer-close {
+  width: 38px;
+  height: 38px;
+  min-height: 38px;
+  border: 1px solid color-mix(in srgb, var(--border) 42%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--bg-primary) 42%, transparent);
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-drawer-close:hover,
+#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-drawer-close:focus-visible {
+  color: var(--text-primary);
+  border-color: color-mix(in srgb, var(--accent) 42%, transparent);
+  outline: none;
+}
+
+@media (max-width: 1180px) {
+  #todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    display: flex;
+    flex-direction: column;
+    background:
+      radial-gradient(circle at 20% 0%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 42%),
+      var(--bg-primary);
+    box-shadow: none;
+  }
+
+  #todo-modal.todo-detail-view.todo-meta-editing .todo-meta-drawer-header {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: calc(14px + env(safe-area-inset-top, 0px)) 16px 14px;
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 42%, transparent);
+    background: color-mix(in srgb, var(--bg-secondary) 82%, transparent);
+    backdrop-filter: blur(14px);
+  }
+
+  #todo-modal.todo-detail-view.todo-meta-editing .todo-meta-drawer-header h4 {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 17px;
+    line-height: 1.2;
+  }
+
+  #todo-modal.todo-detail-view.todo-meta-editing .todo-meta-drawer-header p {
+    margin: 3px 0 0;
+    color: var(--text-muted);
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
+  #todo-modal.todo-detail-view.todo-meta-editing .todo-meta-drawer-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 18px 16px calc(24px + env(safe-area-inset-bottom, 0px));
+  }
+
+  #todo-modal.todo-detail-view.todo-meta-editing #todo-organize-panel,
+  #todo-modal.todo-detail-view.todo-meta-editing #todo-schedule-panel {
+    width: 100%;
+    max-width: 720px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
