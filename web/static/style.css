@@ -2295,7 +2295,7 @@ input[type="color"]::-moz-color-swatch {
   left: 0;
   z-index: 10000;
   display: none;
-  width: 4px;
+  width: 17px;
   min-height: 36px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--text-muted) 58%, transparent);
