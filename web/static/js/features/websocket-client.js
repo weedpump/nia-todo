@@ -35,13 +35,19 @@ let wsIntentionalClose = false;
 
 function mergeTodoPayloadWithLocalSubtasks(incoming, local = null) {
   if (!incoming || typeof incoming !== 'object') return incoming;
-  if (Object.prototype.hasOwnProperty.call(incoming, 'subtasks')) {
-    return { ...incoming, subtasks: Array.isArray(incoming.subtasks) ? incoming.subtasks : [] };
+  const merged = { ...incoming };
+  for (const field of ['subtasks', 'comments', 'attachments']) {
+    if (Object.prototype.hasOwnProperty.call(incoming, field)) {
+      merged[field] = Array.isArray(incoming[field]) ? incoming[field] : [];
+    } else if (local && Object.prototype.hasOwnProperty.call(local, field)) {
+      merged[field] = Array.isArray(local[field]) ? local[field] : [];
+    } else {
+      merged[field] = [];
+    }
   }
-  if (local && Object.prototype.hasOwnProperty.call(local, 'subtasks')) {
-    return { ...incoming, subtasks: Array.isArray(local.subtasks) ? local.subtasks : [] };
-  }
-  return { ...incoming, subtasks: [] };
+  merged.comments_count = Number.isFinite(Number(incoming.comments_count)) ? Number(incoming.comments_count) : merged.comments.length;
+  merged.attachments_count = Number.isFinite(Number(incoming.attachments_count)) ? Number(incoming.attachments_count) : merged.attachments.length;
+  return merged;
 }
 
 function getReconnectDelay() {
@@ -231,6 +237,33 @@ async function handleWsMessage(msg) {
       ...local,
       comments: nextComments,
       comments_count: Number.isFinite(Number(payload.comments_count)) ? Number(payload.comments_count) : nextComments.length,
+      updated_at: payload.updated_at || local.updated_at,
+    };
+    await dbPut('todos', updatedTodo);
+    todos = todos.map(todo => String(todo.id) === String(todoId) ? updatedTodo : todo);
+    return true;
+  }
+
+  async function applyTodoAttachmentPayload(payload, mode) {
+    const todoId = payload?.todo_id;
+    if (!todoId) return false;
+    const local = await getFromDB('todos', todoId);
+    if (!local) return false;
+    const attachments = Array.isArray(local.attachments) ? [...local.attachments] : [];
+    let nextAttachments = attachments;
+    if (mode === 'delete') {
+      nextAttachments = attachments.filter(attachment => String(attachment.id) !== String(payload.attachment_id));
+    } else if (payload.attachment?.id) {
+      const existing = attachments.find(attachment => String(attachment.id) === String(payload.attachment.id));
+      nextAttachments = existing
+        ? attachments.map(attachment => String(attachment.id) === String(payload.attachment.id) ? payload.attachment : attachment)
+        : [...attachments, payload.attachment];
+      nextAttachments.sort((a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime() || Number(a.id || 0) - Number(b.id || 0));
+    }
+    const updatedTodo = {
+      ...local,
+      attachments: nextAttachments,
+      attachments_count: Number.isFinite(Number(payload.attachments_count)) ? Number(payload.attachments_count) : nextAttachments.length,
       updated_at: payload.updated_at || local.updated_at,
     };
     await dbPut('todos', updatedTodo);
@@ -474,6 +507,18 @@ async function handleWsMessage(msg) {
       break;
     case 'todo_subtask_delete':
       if (await applyTodoSubtaskPayload(msg.payload, 'delete')) {
+        renderStats();
+        renderTodos();
+      }
+      break;
+    case 'todo_attachment_create':
+      if (await applyTodoAttachmentPayload(msg.payload, 'upsert')) {
+        renderStats();
+        renderTodos();
+      }
+      break;
+    case 'todo_attachment_delete':
+      if (await applyTodoAttachmentPayload(msg.payload, 'delete')) {
         renderStats();
         renderTodos();
       }

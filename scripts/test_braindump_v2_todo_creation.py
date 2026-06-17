@@ -23,7 +23,7 @@ def make_db():
     db.row_factory = sqlite3.Row
     db.executescript(
         """
-        CREATE TABLE users (id INTEGER PRIMARY KEY, username TEXT, braindump_enabled INTEGER NOT NULL DEFAULT 1, braindump_learning_enabled INTEGER NOT NULL DEFAULT 1, default_reminder_offset_minutes INTEGER);
+        CREATE TABLE users (id INTEGER PRIMARY KEY, username TEXT, display_name TEXT, braindump_enabled INTEGER NOT NULL DEFAULT 1, braindump_learning_enabled INTEGER NOT NULL DEFAULT 1, default_reminder_offset_minutes INTEGER);
         CREATE TABLE workspaces (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
@@ -77,6 +77,24 @@ def make_db():
             sort_order INTEGER NOT NULL DEFAULT 0,
             created_at TEXT DEFAULT (datetime('now')),
             updated_at TEXT DEFAULT (datetime('now'))
+        );
+        CREATE TABLE todo_comments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            todo_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            body TEXT NOT NULL,
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT DEFAULT (datetime('now'))
+        );
+        CREATE TABLE todo_attachments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            todo_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            original_filename TEXT NOT NULL,
+            stored_filename TEXT NOT NULL,
+            content_type TEXT NOT NULL DEFAULT 'application/octet-stream',
+            size_bytes INTEGER NOT NULL,
+            created_at TEXT DEFAULT (datetime('now'))
         );
         CREATE TABLE reminders (
             id INTEGER PRIMARY KEY AUTOINCREMENT,

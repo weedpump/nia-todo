@@ -307,7 +307,7 @@ async function run() {
     await visible('#todo-modal');
     const sharedOptionCount = await page.locator('#todo-project option').filter({ hasText: 'Sharing Test Project' }).count();
     if (sharedOptionCount !== 1) throw new Error('Shared project missing from Todo project select in its display workspace');
-    await page.selectOption('#todo-project', String(createResult.id));
+    await page.selectOption('#todo-project', String(createResult.id), { force: true });
     await page.fill('#todo-title', 'Todo in Shared Project');
     await page.click('button[form="todo-form"]');
     await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });
