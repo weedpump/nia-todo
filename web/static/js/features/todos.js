@@ -732,7 +732,7 @@ export function createTodosFeature({
     const normalized = Array.isArray(attachments) ? attachments : [];
     list.innerHTML = '';
     if (count) count.textContent = String(normalized.length);
-    setTodoCollapsibleOpen('todo-attachments-panel', normalized.length > 0);
+    setTodoCollapsibleOpen('todo-attachments-panel', Boolean(todoId));
     if (empty) {
       empty.textContent = todoId ? t('todo.attachments.empty') : t('todo.attachments.saveFirst');
       empty.hidden = normalized.length > 0;
