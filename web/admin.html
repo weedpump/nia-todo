@@ -333,7 +333,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 
   <!-- Server Update -->
   <div class="admin-card server-update-card" id="server-update-card">
-    <h2><span data-icon="download-cloud"></span> <span data-i18n-key="admin.serverUpdate.title">Server update</span> <span class="server-update-badge ok" id="server-update-badge" data-i18n-key="admin.serverUpdate.badge.checking">Checking</span></h2>
+    <h2><span id="server-update-icon" data-icon="cloud-check"></span> <span data-i18n-key="admin.serverUpdate.title">Server update</span> <span class="server-update-badge ok" id="server-update-badge" data-i18n-key="admin.serverUpdate.badge.checking">Checking</span></h2>
     <div class="security-policy-row">
       <div class="security-policy-main">
         <div class="security-policy-title" id="server-update-title" data-i18n-key="admin.serverUpdate.checkingTitle">Suche nach Updates…</div>
@@ -763,7 +763,8 @@ const ICONS = {
   link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
   'shield-check': '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>',
   settings: '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.73l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
-  'download-cloud': '<path d="M12 13v8"/><path d="m8 17 4 4 4-4"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>',
+  'cloud-check': '<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/><path d="m9 12 2 2 4-4"/>',
+  'cloud-alert': '<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/><path d="M12 8v4"/><path d="M12 16h.01"/>',
   activity: '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
   sparkles: '<path d="M12 3l1.9 5.8L20 11l-6.1 2.2L12 19l-1.9-5.8L4 11l6.1-2.2L12 3Z"/><path d="M19 3v4"/><path d="M21 5h-4"/>',
   mail: '<path d="m22 7-8.991 5.727a2 2 0 0 1-2.009 0L2 7"/><rect x="2" y="4" width="20" height="16" rx="2"/>',
@@ -1879,9 +1880,11 @@ function renderServerUpdateProgress(progress) {
 function renderServerUpdateStatusVisual(status) {
   const card = document.getElementById('server-update-card');
   const badge = document.getElementById('server-update-badge');
+  const icon = document.getElementById('server-update-icon');
   const severity = status.update_severity || (status.update_available ? 'minor_patch' : 'none');
   card.classList.remove('update-ok', 'update-warning', 'update-danger');
   badge.classList.remove('ok', 'warning', 'danger');
+  if (icon) icon.innerHTML = iconSvg(status.update_available ? 'cloud-alert' : 'cloud-check');
   if (severity === 'major') {
     card.classList.add('update-danger');
     badge.classList.add('danger');
