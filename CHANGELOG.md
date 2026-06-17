@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - Added admin attachment controls for global upload enablement, comma-separated allowed file extensions, default 5 GB quota, per-user quota overrides, and user-visible storage usage.
 
 ### Changed
+- Switched packaged backups to snapshot generic runtime data under `NIA_TODO_DATA_DIR` alongside a consistent SQLite backup, covering current and future runtime files while excluding backup archives and SQLite temp/journal files.
 - Centralized icon rendering across the main app, setup/password pages, and admin panel so all UI icons resolve through the generated Lucide package subset instead of page-local SVG definitions.
 - Refined Todo, sidebar, filter, topbar, and admin status icons with the generated Lucide icon set; the sidebar Focus entry is now labeled as Filter.
 - Centered the attachment picker prompt while keeping selected attachment filenames left-aligned for readability.
@@ -26,6 +27,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - Hardened attachment uploads with streaming temp-file writes, server-side quota/type policy enforcement, magic-byte validation for common binary formats, active-content blocking, and client-side preflight for disabled uploads, type, file size, and quota.
 
 ### Fixed
+- Deferred server-side todo hard-deletes until the undo toast grace window expires, so undoing a delete preserves subtasks, comments, and attachment files instead of recreating only the parent todo.
+- Restored packaged backup/restore coverage for todo attachments and hardened restore behavior for nested custom database paths, stale runtime files, backup-directory preservation, and restored file ownership.
 - Guarded authoritative REST refreshes while local offline queue sync is active or still pending, preventing cache replacement from clobbering queued offline changes.
 - Preserved attachment files during fresh-DB regression tests so restored development databases do not reference missing attachment files.
 - Treated zero attachment quota as a locked/full quota in user and admin storage displays and upload preflight.
