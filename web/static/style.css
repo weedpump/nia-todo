@@ -9801,3 +9801,36 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   margin-top: 0;
   opacity: 0;
 }
+
+/* Todo detail actions v9: keep add/upload actions visually consistent. */
+#todo-modal.todo-detail-view .todo-attachments-add-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+#todo-modal.todo-detail-view #todo-attachment-upload-btn {
+  justify-self: end;
+}
+
+#todo-modal.todo-detail-view .todo-subtasks-add-row .btn,
+#todo-modal.todo-detail-view .todo-attachments-add-row .btn,
+#todo-modal.todo-detail-view .todo-comments-add-group .btn {
+  min-width: 108px;
+  justify-content: center;
+}
+
+#todo-modal.todo-detail-view .todo-comments-add-group .btn {
+  justify-self: end;
+}
+
+@media (max-width: 640px) {
+  #todo-modal.todo-detail-view .todo-attachments-add-row {
+    grid-template-columns: 1fr;
+  }
+
+  #todo-modal.todo-detail-view #todo-attachment-upload-btn {
+    justify-self: end;
+  }
+}
