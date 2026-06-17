@@ -10090,11 +10090,20 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   color: color-mix(in srgb, var(--meta-tone) 48%, var(--text-primary));
 }
 
-#todo-modal.todo-detail-view .todo-meta-tone-folder { --meta-tone: #6366f1; }
+#todo-modal.todo-detail-view .todo-meta-tone-project { --meta-tone: #6366f1; }
+#todo-modal.todo-detail-view .todo-meta-tone-section,
 #todo-modal.todo-detail-view .todo-meta-tone-layers { --meta-tone: #8b5cf6; }
-#todo-modal.todo-detail-view .todo-meta-tone-flag { --meta-tone: #f59e0b; }
-#todo-modal.todo-detail-view .todo-meta-tone-activity { --meta-tone: #10b981; }
-#todo-modal.todo-detail-view .todo-meta-tone-calendar-days { --meta-tone: #0ea5e9; }
+#todo-modal.todo-detail-view .todo-meta-tone-priority-very-high { --meta-tone: #ef4444; }
+#todo-modal.todo-detail-view .todo-meta-tone-priority-high { --meta-tone: #f59e0b; }
+#todo-modal.todo-detail-view .todo-meta-tone-priority-medium { --meta-tone: #10b981; }
+#todo-modal.todo-detail-view .todo-meta-tone-priority-low { --meta-tone: #94a3b8; }
+#todo-modal.todo-detail-view .todo-meta-tone-status-pending { --meta-tone: #94a3b8; }
+#todo-modal.todo-detail-view .todo-meta-tone-status-in-progress { --meta-tone: #f59e0b; }
+#todo-modal.todo-detail-view .todo-meta-tone-status-done { --meta-tone: #10b981; }
+#todo-modal.todo-detail-view .todo-meta-tone-due-overdue { --meta-tone: #ef4444; }
+#todo-modal.todo-detail-view .todo-meta-tone-due-soon { --meta-tone: #f59e0b; }
+#todo-modal.todo-detail-view .todo-meta-tone-due-neutral { --meta-tone: #0ea5e9; }
+#todo-modal.todo-detail-view .todo-meta-tone-reminder,
 #todo-modal.todo-detail-view .todo-meta-tone-bell { --meta-tone: #ec4899; }
 #todo-modal.todo-detail-view .todo-meta-tone-repeat { --meta-tone: #14b8a6; }
 #todo-modal.todo-detail-view .todo-meta-tone-pin { --meta-tone: #ef4444; }

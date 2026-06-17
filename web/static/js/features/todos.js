@@ -132,17 +132,29 @@ export function createTodosFeature({
     summary.hidden = false;
     const lang = getActiveLanguage();
     const chips = [];
-    const addChip = (icon, label, value, muted = false) => {
+    const addChip = (icon, label, value, options = {}) => {
       if (!value) return;
-      const tone = String(icon || 'default').replace(/[^a-z0-9-]/gi, '').toLowerCase();
-      chips.push(`<span class="todo-meta-summary-chip todo-meta-tone-${tone}${muted ? ' is-muted' : ''}"><span data-icon="${icon}"></span><span class="todo-meta-summary-label">${escapeHtmlAttr(label)}</span><strong>${escapeHtmlAttr(value)}</strong></span>`);
+      const tone = String(options.tone || icon || 'default').replace(/[^a-z0-9-]/gi, '').toLowerCase();
+      const style = options.color ? ` style="--meta-tone: ${escapeHtmlAttr(options.color)}"` : '';
+      chips.push(`<span class="todo-meta-summary-chip todo-meta-tone-${tone}${options.muted ? ' is-muted' : ''}"${style}><span data-icon="${icon}"></span><span class="todo-meta-summary-label">${escapeHtmlAttr(label)}</span><strong>${escapeHtmlAttr(value)}</strong></span>`);
     };
-    addChip('folder', lang === 'de' ? 'Projekt' : 'Project', getSelectedOptionLabel('todo-project'));
-    addChip('layers', lang === 'de' ? 'Section' : 'Section', getSelectedOptionLabel('todo-section'));
-    addChip('flag', lang === 'de' ? 'Priorität' : 'Priority', getSelectedOptionLabel('todo-priority'));
-    addChip('activity', 'Status', getSelectedOptionLabel('todo-status'));
-    addChip('calendar-days', lang === 'de' ? 'Deadline' : 'Deadline', formatTodoMetaDate(todo.due_date));
-    addChip('bell', lang === 'de' ? 'Erinnerung' : 'Reminder', formatTodoMetaDate(todo.remind_at || todo.reminders?.[0]?.remind_at));
+    const selectedProject = getProjects().find(project => String(project.id) === String(document.getElementById('todo-project')?.value || ''));
+    const priority = Number(document.getElementById('todo-priority')?.value || todo.priority || 3);
+    const status = document.getElementById('todo-status')?.value || todo.status || 'pending';
+    const dueDate = todo.due_date ? new Date(todo.due_date) : null;
+    const isOverdue = dueDate && status !== 'done' && dueDate < new Date();
+    const isSoon = dueDate && !isOverdue && status !== 'done' && dueDate <= new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+    const priorityTone = { 1: 'priority-very-high', 2: 'priority-high', 3: 'priority-medium', 4: 'priority-low' }[priority] || 'priority-low';
+    const statusTone = status === 'done' ? 'status-done' : status === 'in_progress' ? 'status-in-progress' : 'status-pending';
+    const statusIcon = status === 'done' ? 'check-circle' : status === 'in_progress' ? 'flame' : 'clock';
+    const dueTone = isOverdue ? 'due-overdue' : isSoon ? 'due-soon' : 'due-neutral';
+    const projectIcon = /^[a-z0-9-]+$/i.test(String(selectedProject?.icon || '')) ? selectedProject.icon : 'folder';
+    addChip(projectIcon, lang === 'de' ? 'Projekt' : 'Project', getSelectedOptionLabel('todo-project'), { tone: 'project', color: selectedProject?.color });
+    addChip('layers', lang === 'de' ? 'Section' : 'Section', getSelectedOptionLabel('todo-section'), { tone: 'section' });
+    addChip('flag', lang === 'de' ? 'Priorität' : 'Priority', getSelectedOptionLabel('todo-priority'), { tone: priorityTone });
+    addChip(statusIcon, 'Status', getSelectedOptionLabel('todo-status'), { tone: statusTone });
+    addChip(isOverdue ? 'triangle-alert' : 'calendar-days', lang === 'de' ? 'Deadline' : 'Deadline', formatTodoMetaDate(todo.due_date), { tone: dueTone });
+    addChip('bell', lang === 'de' ? 'Erinnerung' : 'Reminder', formatTodoMetaDate(todo.remind_at || todo.reminders?.[0]?.remind_at), { tone: 'reminder' });
     const recurringRule = normalizeRecurringRule(todo.recurring_rule, { defaultTimezone: null });
     if (recurringRule && recurringRule.frequency !== 'none') addChip('repeat', lang === 'de' ? 'Wiederholung' : 'Repeat', getSelectedOptionLabel('todo-recurring-frequency'));
     if (todo.is_pinned) addChip('pin', lang === 'de' ? 'Angepinnt' : 'Pinned', lang === 'de' ? 'Ja' : 'Yes');
