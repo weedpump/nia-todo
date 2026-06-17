@@ -9033,7 +9033,7 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   }
 }
 
-/* Todo detail view prototype v2: make desktop/tablet feel like a document, not a squeezed form sidebar. */
+/* Todo detail view prototype: make desktop/tablet feel like a document, not a squeezed form sidebar. */
 #todo-modal.todo-detail-view .todo-modal-content {
   width: 100vw;
   height: 100vh;
@@ -9216,7 +9216,7 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   }
 }
 
-/* Todo detail view prototype v3: desktop modal again, tablet fullscreen, no Tetris layout. */
+/* Todo detail view prototype: desktop modal again, tablet fullscreen, no Tetris layout. */
 #todo-modal.todo-detail-view .todo-modal-content {
   width: min(1080px, calc(100vw - 40px));
   height: min(940px, calc(100vh - 32px));
@@ -9298,7 +9298,7 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   }
 }
 
-/* Todo detail view prototype v4: view-mode meta summary, edit controls only on demand. */
+/* Todo detail view prototype: view-mode meta summary, edit controls only on demand. */
 #todo-modal.todo-detail-view #todo-organize-panel,
 #todo-modal.todo-detail-view #todo-schedule-panel {
   display: none;
@@ -9401,7 +9401,7 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   }
 }
 
-/* Todo detail view prototype v5: content sections become view-first blocks. */
+/* Todo detail view prototype: content sections become view-first blocks. */
 #todo-modal.todo-detail-view .todo-subtasks-card,
 #todo-modal.todo-detail-view .todo-attachments-card,
 #todo-modal.todo-detail-view .todo-comments-card {
@@ -9638,7 +9638,7 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   }
 }
 
-/* Todo detail view prototype v6: restore subtle section structure without returning to form cards. */
+/* Todo detail view prototype: restore subtle section structure without returning to form cards. */
 #todo-modal.todo-detail-view .todo-subtasks-card,
 #todo-modal.todo-detail-view .todo-attachments-card,
 #todo-modal.todo-detail-view .todo-comments-card {
@@ -9689,7 +9689,7 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   border-left-color: color-mix(in srgb, var(--accent) 28%, var(--border));
 }
 
-/* Todo detail view prototype v7: undo card-like section surfaces, tighten comments/actions. */
+/* Todo detail view prototype: undo card-like section surfaces, tighten comments/actions. */
 #todo-modal.todo-detail-view .todo-subtasks-card,
 #todo-modal.todo-detail-view .todo-attachments-card,
 #todo-modal.todo-detail-view .todo-comments-card {
@@ -9769,7 +9769,7 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   }
 }
 
-/* Todo detail comments v8: actions belong in the comment header row, right-aligned. */
+/* Todo detail comments: actions belong in the comment header row, right-aligned. */
 #todo-modal.todo-detail-view .todo-comment-item {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -9802,7 +9802,7 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   opacity: 0;
 }
 
-/* Todo detail actions v9: keep add/upload actions visually consistent. */
+/* Todo detail actions: keep add/upload actions visually consistent. */
 #todo-modal.todo-detail-view .todo-attachments-add-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -9835,7 +9835,7 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   }
 }
 
-/* Todo detail attachments v10: compact empty picker, full-width selection, desktop drag/drop. */
+/* Todo detail attachments: compact empty picker, full-width selection, desktop drag/drop. */
 #todo-modal.todo-detail-view .todo-attachment-picker {
   flex: 0 1 auto;
   width: auto;
@@ -9881,7 +9881,7 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   opacity: 1;
 }
 
-/* Todo detail attachments v11: persistent dropzone and preview layering fixes. */
+/* Todo detail attachments: persistent dropzone and preview layering fixes. */
 #attachment-preview-modal.active {
   z-index: 1300;
 }
@@ -9945,7 +9945,7 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   }
 }
 
-/* Todo detail attachments v12: force upload right, drop hint centered. */
+/* Todo detail attachments: force upload right, drop hint centered. */
 #todo-modal.todo-detail-view .todo-attachments-add-row {
   grid-template-columns: auto 1fr auto;
 }
@@ -9967,7 +9967,7 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   justify-self: start;
 }
 
-/* Todo detail description v13: meta before description and lightweight WYSIWYG editor. */
+/* Todo detail description: meta before description and lightweight WYSIWYG editor. */
 #todo-modal.todo-detail-view .todo-meta-summary-view {
   margin: 10px 0 18px;
   padding-top: 0;
@@ -10070,7 +10070,7 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   margin: 4px 0;
 }
 
-/* Todo detail meta v14: experimental colored view pills. */
+/* Todo detail meta: experimental colored view pills. */
 #todo-modal.todo-detail-view .todo-meta-summary-chip {
   --meta-tone: var(--accent);
   color: color-mix(in srgb, var(--meta-tone) 72%, var(--text-primary));
@@ -10108,7 +10108,7 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
 #todo-modal.todo-detail-view .todo-meta-tone-repeat { --meta-tone: #14b8a6; }
 #todo-modal.todo-detail-view .todo-meta-tone-pin { --meta-tone: #ef4444; }
 
-/* Todo detail meta editing v15: drawer/sheet prototype for planning + organization. */
+/* Todo detail meta editing: drawer/sheet prototype for planning + organization. */
 #todo-modal.todo-detail-view.todo-meta-editing .todo-modal-content::after {
   content: "";
   position: absolute;
@@ -10215,7 +10215,7 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   }
 }
 
-/* Todo detail meta editing v16: single-piece desktop sidebar drawer. */
+/* Todo detail meta editing: single-piece desktop sidebar drawer. */
 #todo-modal.todo-detail-view .todo-meta-edit-drawer {
   display: none;
 }
@@ -10325,7 +10325,7 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   }
 }
 
-/* Todo detail meta editing v17: slightly wider desktop sidebar. */
+/* Todo detail meta editing: slightly wider desktop sidebar. */
 #todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer {
   width: min(440px, calc(100% - 36px));
 }
@@ -10342,7 +10342,7 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   }
 }
 
-/* Todo meta drawer v18: fix location reminder switch and full-width address. */
+/* Todo meta drawer: fix location reminder switch and full-width address. */
 #todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer .todo-location-toggle-row {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -10378,7 +10378,7 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   grid-column: 1 / -1;
 }
 
-/* Todo meta drawer v19: force location reminder checkbox back into switch shape. */
+/* Todo meta drawer: force location reminder checkbox back into switch shape. */
 #todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer .todo-location-toggle-row input[type="checkbox"].settings-switch {
   appearance: none !important;
   -webkit-appearance: none !important;
@@ -10421,7 +10421,7 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   background: white;
 }
 
-/* Todo detail meta v20: accent switch + location/star meta tones. */
+/* Todo detail meta: accent switch + location/star meta tones. */
 #todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer .todo-location-toggle-row input[type="checkbox"].settings-switch:checked {
   background: var(--accent) !important;
   border-color: color-mix(in srgb, var(--accent) 86%, white) !important;
@@ -10431,7 +10431,7 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
 #todo-modal.todo-detail-view .todo-meta-tone-map-pin { --meta-tone: #06b6d4; }
 #todo-modal.todo-detail-view .todo-meta-tone-star { --meta-tone: #f59e0b; }
 
-/* Todo meta drawer v21: mobile fullscreen details editor with close header. */
+/* Todo meta drawer: mobile fullscreen details editor with close header. */
 #todo-modal.todo-detail-view .todo-meta-drawer-header {
   display: none;
 }
@@ -10523,7 +10523,7 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   }
 }
 
-/* Todo detail footer v22: view mode has no permanent form footer. */
+/* Todo detail footer: view mode has no permanent form footer. */
 #todo-modal.todo-detail-view .todo-detail-header-actions {
   position: absolute;
   top: 14px;
@@ -10617,7 +10617,7 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   }
 }
 
-/* Todo detail header actions v23: visible desktop close, real menu icon, aligned with header. */
+/* Todo detail header actions: visible desktop close, real menu icon, aligned with header. */
 #todo-modal.todo-detail-view .modal-close-x {
   display: inline-flex;
   align-items: center;
@@ -10666,7 +10666,7 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   }
 }
 
-/* Todo detail header actions v24: align to content header edge and remove boxed button chrome. */
+/* Todo detail header actions: align to content header edge and remove boxed button chrome. */
 #todo-modal.todo-detail-view .modal-close-x {
   top: 18px;
   right: max(28px, calc((100vw - 920px) / 2));
@@ -10721,7 +10721,7 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   }
 }
 
-/* Todo detail header actions v25: use modal-relative right alignment on desktop. */
+/* Todo detail header actions: use modal-relative right alignment on desktop. */
 #todo-modal.todo-detail-view .modal-close-x {
   right: max(28px, calc((100% - 920px) / 2));
 }
@@ -10740,7 +10740,7 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   }
 }
 
-/* Todo detail meta v26: make edit-details action discoverable. */
+/* Todo detail meta: make edit-details action discoverable. */
 #todo-modal.todo-detail-view .todo-meta-edit-toggle {
   display: inline-flex;
   align-items: center;
@@ -10776,7 +10776,7 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   border-color: color-mix(in srgb, var(--accent) 62%, transparent);
 }
 
-/* Todo detail meta v27: move edit-details action below pills, right-aligned like add/upload actions. */
+/* Todo detail meta: move edit-details action below pills, right-aligned like add/upload actions. */
 #todo-modal.todo-detail-view .todo-meta-summary-view {
   display: grid;
   grid-template-columns: 1fr;
@@ -10820,7 +10820,7 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   border-color: color-mix(in srgb, var(--accent) 46%, transparent);
 }
 
-/* Todo detail meta v28: edit-details uses the exact normal secondary button styling. */
+/* Todo detail meta: edit-details uses the exact normal secondary button styling. */
 #todo-modal.todo-detail-view .todo-meta-edit-toggle.btn.btn-secondary {
   justify-self: end;
   min-width: 108px;
@@ -10835,7 +10835,7 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   color: var(--text-primary);
 }
 
-/* Todo detail action buttons v29: one shared style, based on the Subtask add button. */
+/* Todo detail action buttons: one shared style, based on the Subtask add button. */
 #todo-modal.todo-detail-view :is(
   .todo-subtasks-add-row .btn,
   #todo-comment-add-btn,
@@ -10937,7 +10937,7 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   }
 }
 
-/* Todo detail attachments v30: mobile uses normal stacked action buttons, no drag/drop hint. */
+/* Todo detail attachments: mobile uses normal stacked action buttons, no drag/drop hint. */
 @media (max-width: 640px) {
   #todo-modal.todo-detail-view .todo-attachments-add-row {
     grid-template-columns: 1fr;
@@ -10961,7 +10961,7 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   }
 }
 
-/* Todo detail action controls v31: canonical action row/button classes. */
+/* Todo detail action controls: canonical action row/button classes. */
 #todo-modal.todo-detail-view .todo-detail-action-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -11063,7 +11063,7 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   }
 }
 
-/* Todo detail meta v32: give edit action the same breathing room as other add/action rows. */
+/* Todo detail meta: give edit action the same breathing room as other add/action rows. */
 #todo-modal.todo-detail-view .todo-meta-summary-view {
   gap: 14px;
 }
@@ -11072,7 +11072,7 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   margin-top: 2px;
 }
 
-/* Todo meta drawer v33: mobile close icon matches clean Todo detail close style. */
+/* Todo meta drawer: mobile close icon matches clean Todo detail close style. */
 #todo-modal.todo-detail-view.todo-meta-editing .todo-meta-drawer-close {
   width: 34px;
   height: 34px;
@@ -11094,14 +11094,14 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   outline: none;
 }
 
-/* Todo meta drawer v34: match close icon glyph size with Todo detail close icon. */
+/* Todo meta drawer: match close icon glyph size with Todo detail close icon. */
 #todo-modal.todo-detail-view.todo-meta-editing .todo-meta-drawer-close .ui-icon {
   width: 18px;
   height: 18px;
   stroke-width: 2;
 }
 
-/* Todo meta drawer v35: mobile fullscreen matches Todo detail modal structure; no nested scroll. */
+/* Todo meta drawer: mobile fullscreen matches Todo detail modal structure; no nested scroll. */
 @media (max-width: 1180px) {
   #todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer {
     overflow: hidden;
@@ -11136,7 +11136,7 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   }
 }
 
-/* Todo detail mobile viewport v36: account for browser chrome so bottom actions stay reachable. */
+/* Todo detail mobile viewport: account for browser chrome so bottom actions stay reachable. */
 @media (max-width: 768px) {
   #todo-modal.todo-detail-view .todo-modal-content {
     height: 100vh;
@@ -11177,7 +11177,7 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   }
 }
 
-/* Todo detail mobile viewport v37: keep bottom action reachable without oversized empty tail. */
+/* Todo detail mobile viewport: keep bottom action reachable without oversized empty tail. */
 @media (max-width: 768px) {
   #todo-modal.todo-detail-view .todo-modal-body {
     padding-bottom: max(44px, calc(28px + env(safe-area-inset-bottom, 0px)));
@@ -11194,7 +11194,7 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   }
 }
 
-/* Todo detail mobile viewport v38: remove artificial bottom tail; rely on correct dynamic viewport sizing. */
+/* Todo detail mobile viewport: remove artificial bottom tail; rely on correct dynamic viewport sizing. */
 @media (max-width: 768px) {
   #todo-modal.todo-detail-view .todo-modal-content {
     height: 100dvh;
