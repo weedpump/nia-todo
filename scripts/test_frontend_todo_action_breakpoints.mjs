@@ -95,15 +95,23 @@ async function main() {
         const touchDragState = await touchPage.evaluate((value) => {
           const titleEl = Array.from(document.querySelectorAll('.todo-title')).find((el) => (el.textContent || '').includes(value));
           const item = titleEl?.closest('.todo-item');
+          const style = item ? getComputedStyle(item) : null;
           return {
             found: Boolean(item),
             draggableAttr: item?.getAttribute('draggable'),
             draggableProp: item?.draggable,
             pointerDnd: item?.getAttribute('data-native-pointer-dnd'),
+            touchDnd: item?.getAttribute('data-touch-dnd'),
+            userSelect: style?.userSelect,
+            webkitUserSelect: style?.webkitUserSelect,
+            webkitTouchCallout: style?.webkitTouchCallout,
           };
         }, title);
-        if (!touchDragState.found || touchDragState.draggableAttr !== null || touchDragState.draggableProp || touchDragState.pointerDnd !== 'true') {
+        if (!touchDragState.found || touchDragState.draggableAttr !== null || touchDragState.draggableProp || touchDragState.pointerDnd !== 'true' || touchDragState.touchDnd !== 'true') {
           throw new Error(`Touch tablet should disable native HTML5 drag previews for pointer drag-drop: ${JSON.stringify(touchDragState)}`);
+        }
+        if (touchDragState.userSelect !== 'none' || touchDragState.webkitUserSelect !== 'none') {
+          throw new Error(`Touch tablet drag surfaces should prevent iPad text selection handles: ${JSON.stringify(touchDragState)}`);
         }
       } finally {
         await touchContext.close();
