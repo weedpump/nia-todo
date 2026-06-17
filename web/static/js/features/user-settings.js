@@ -155,7 +155,7 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
     const used = Number(user?.attachment_usage_bytes || 0);
     const quota = Number(user?.attachment_quota_bytes || 0);
     const remaining = Number(user?.attachment_remaining_bytes || 0);
-    const pct = quota > 0 ? Math.min(100, Math.round((used / quota) * 100)) : 0;
+    const pct = quota > 0 ? Math.min(100, Math.round((used / quota) * 100)) : 100;
     statusEl.textContent = enabled ? t('settings.attachments.enabled') : t('settings.attachments.disabled');
     usageEl.textContent = t('settings.attachments.usageValue', { used: formatBytes(used), quota: formatBytes(quota) });
     if (fillEl) fillEl.style.width = `${pct}%`;
