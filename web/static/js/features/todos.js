@@ -1726,6 +1726,13 @@ export function createTodosFeature({
 
     document.addEventListener('pointermove', (event) => {
       if (!active || event.pointerId !== active.pointerId) return;
+      const dragDropActive = document.body.classList.contains('native-pointer-dragging') || active.item.classList.contains('dragging');
+      if (dragDropActive) {
+        cleanupSwipeVisual(active.item);
+        active = null;
+        suppressClickUntil = Date.now() + 450;
+        return;
+      }
       active.dx = event.clientX - active.startX;
       active.dy = event.clientY - active.startY;
 

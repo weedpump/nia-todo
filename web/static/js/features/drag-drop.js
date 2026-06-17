@@ -3,14 +3,17 @@ import { RUNTIME_CAPABILITIES } from '../core/config.js';
 export function createDragDropFeature({
   getTodos,
   setTodos,
+  getProjects,
   getSections,
   setSections,
   isOnlineForSync,
   todosApi,
   sectionsApi,
   renderTodos,
+  renderProjects,
   dbGetAll,
   dbPut,
+  addToSyncQueue,
 }) {
   let dragSrcTodoId = null;
   let dragSrcSectionId = null;
@@ -45,14 +48,14 @@ export function createDragDropFeature({
   function handleTodoDragEnd(e) {
     stopStandardDragAutoScroll();
     e.target.classList.remove('dragging');
-    document.querySelectorAll('.section-todos.drag-over, .section-header.drag-over').forEach(el => {
+    document.querySelectorAll('.section-todos.drag-over, .section-header.drag-over, .project-drop-target.drag-over').forEach(el => {
       el.classList.remove('drag-over');
     });
     dragSrcTodoId = null;
   }
 
   function clearTodoDropIndicators() {
-    document.querySelectorAll('.section-todos.drag-over, .section-header.drag-over').forEach(el => el.classList.remove('drag-over'));
+    document.querySelectorAll('.section-todos.drag-over, .section-header.drag-over, .project-drop-target.drag-over').forEach(el => el.classList.remove('drag-over'));
   }
 
   function handleTodoDragOver(e) {
@@ -88,11 +91,58 @@ export function createDragDropFeature({
       }
     }
 
-    if (isOnlineForSync() && !isTempTodo) {
-      try {
-        await todosApi.update(todo.id, { section_id: sectionId });
-      } catch (err) {
-        console.error('Move todo failed', err);
+    if (!isTempTodo) {
+      if (isOnlineForSync()) {
+        try {
+          await todosApi.update(todo.id, { section_id: sectionId });
+        } catch (err) {
+          console.error('Move todo failed', err);
+        }
+      } else if (addToSyncQueue) {
+        await addToSyncQueue('UPDATE_TODO', { id: todo.id, changes: { section_id: sectionId } });
+      }
+    }
+    return true;
+  }
+
+  async function moveTodoToProject(todoId, projectId) {
+    const todos = getTodos();
+    const todo = todos.find(t => String(t.id) === String(todoId));
+    const project = (getProjects?.() || []).find(p => String(p.id) === String(projectId));
+    if (!todo || !project) return false;
+
+    const newProjectId = Number(project.id);
+    const changed = Number(todo.project_id) !== newProjectId || todo.section_id !== null;
+    if (!changed) return false;
+
+    // Dropping onto a project means: move to that project, into its unsectioned bucket.
+    const updatedTodo = { ...todo, project_id: newProjectId, section_id: null, updated_at: new Date().toISOString() };
+    const nextTodos = todos.map(t => String(t.id) === String(todoId) ? updatedTodo : t);
+    setTodos(nextTodos);
+    renderTodos();
+    renderProjects?.();
+
+    if (dbPut) await dbPut('todos', updatedTodo);
+
+    const isTempTodo = String(todo.id).startsWith('temp-');
+    if (isTempTodo && dbGetAll && dbPut) {
+      const queue = await dbGetAll('syncQueue');
+      const createItem = queue.find(item => item.action === 'CREATE_TODO' && String(item.data?._tempId) === String(todo.id));
+      if (createItem) {
+        await dbPut('syncQueue', { ...createItem, data: { ...createItem.data, project_id: newProjectId, section_id: null } });
+      }
+    }
+
+    if (!isTempTodo) {
+      const changes = { project_id: newProjectId, section_id: null };
+      if (isOnlineForSync()) {
+        try {
+          await todosApi.update(todo.id, changes);
+        } catch (err) {
+          console.error('Move todo to project failed', err);
+        }
+      } else if (addToSyncQueue) {
+        await addToSyncQueue('UPDATE_TODO', { id: todo.id, changes });
       }
     }
     return true;
@@ -110,6 +160,31 @@ export function createDragDropFeature({
 
     const newSectionId = targetSectionId === 'null' ? null : parseInt(targetSectionId);
     await moveTodoToSection(dragSrcTodoId, newSectionId);
+  }
+
+  function projectDropEnabled() {
+    return window.matchMedia?.('(min-width: 769px)').matches ?? true;
+  }
+
+  function handleProjectDragOver(e) {
+    if (!dragSrcTodoId || !projectDropEnabled()) return;
+    const target = e.target.closest('.project-drop-target[data-project-id]');
+    if (!target) return;
+    e.preventDefault();
+    eventDataTransfer(e).dropEffect = 'move';
+    scheduleStandardDragAutoScroll(e);
+    clearTodoDropIndicators();
+    target.classList.add('drag-over');
+  }
+
+  async function handleProjectDrop(e) {
+    if (!dragSrcTodoId || !projectDropEnabled()) return;
+    const target = e.target.closest('.project-drop-target[data-project-id]');
+    if (!target) return;
+    e.preventDefault();
+    stopStandardDragAutoScroll();
+    target.classList.remove('drag-over');
+    await moveTodoToProject(dragSrcTodoId, target.dataset.projectId);
   }
 
   function handleSectionDragStart(e) {
@@ -213,7 +288,7 @@ export function createDragDropFeature({
   }
 
   function clearNativeDragIndicators() {
-    document.querySelectorAll('.section-todos.drag-over, .section-header.drag-over, .section-dropzone.drag-over').forEach(el => el.classList.remove('drag-over'));
+    document.querySelectorAll('.section-todos.drag-over, .section-header.drag-over, .section-dropzone.drag-over, .project-drop-target.drag-over').forEach(el => el.classList.remove('drag-over'));
   }
 
   function nativeDragElementFromPoint(x, y) {
@@ -231,6 +306,7 @@ export function createDragDropFeature({
     if (pointerDrag?.type === 'todo') {
       const sectionTodos = element.closest('.section-todos');
       const sectionHeader = element.closest('.section-header');
+      const projectTarget = projectDropEnabled() ? element.closest('.project-drop-target[data-project-id]') : null;
       if (sectionTodos) {
         sectionTodos.classList.add('drag-over');
         return { sectionTodos };
@@ -238,6 +314,10 @@ export function createDragDropFeature({
       if (sectionHeader) {
         sectionHeader.classList.add('drag-over');
         return { sectionHeader };
+      }
+      if (projectTarget) {
+        projectTarget.classList.add('drag-over');
+        return { projectTarget };
       }
       return null;
     }
@@ -506,6 +586,11 @@ export function createDragDropFeature({
     }
 
     if (drag.type === 'todo') {
+      if (target.projectTarget?.dataset.projectId) {
+        await moveTodoToProject(drag.id, target.projectTarget.dataset.projectId);
+        dragSrcTodoId = null;
+        return;
+      }
       const rawSectionId = target.sectionTodos?.dataset.sectionId || target.sectionHeader?.dataset.sectionId;
       if (rawSectionId) await moveTodoToSection(drag.id, rawSectionId === 'null' ? null : parseInt(rawSectionId));
       dragSrcTodoId = null;
@@ -575,13 +660,13 @@ export function createDragDropFeature({
     }, true);
 
     document.addEventListener('dragover', (event) => {
-      if (!event.target.closest('.todo-item, .section-header, .section-todos, .section-dropzone')) return;
+      if (!event.target.closest('.todo-item, .section-header, .section-todos, .section-dropzone, .project-drop-target')) return;
       event.preventDefault();
       event.stopImmediatePropagation();
     }, true);
 
     document.addEventListener('drop', (event) => {
-      if (!event.target.closest('.todo-item, .section-header, .section-todos, .section-dropzone')) return;
+      if (!event.target.closest('.todo-item, .section-header, .section-todos, .section-dropzone, .project-drop-target')) return;
       event.preventDefault();
       event.stopImmediatePropagation();
     }, true);
@@ -734,6 +819,8 @@ export function createDragDropFeature({
     handleTodoDragEnd,
     handleTodoDragOver,
     handleTodoDrop,
+    handleProjectDragOver,
+    handleProjectDrop,
     handleSectionDragStart,
     handleSectionDragEnd,
     handleSectionDragOver,
