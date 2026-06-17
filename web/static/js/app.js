@@ -749,19 +749,24 @@ uiShell.bindKeyboardShortcuts();
 const dragDropFeature = createDragDropFeature({
   getTodos: () => todos,
   setTodos: setTodosState,
+  getProjects: () => projects,
   getSections: () => sections,
   setSections: (next) => { sections = next; },
   isOnlineForSync,
   todosApi,
   sectionsApi,
   renderTodos: () => renderTodos(),
+  renderProjects: () => renderProjects(),
   dbGetAll,
   dbPut,
+  addToSyncQueue,
 });
 const handleTodoDragStart = dragDropFeature.handleTodoDragStart;
 const handleTodoDragEnd = dragDropFeature.handleTodoDragEnd;
 const handleTodoDragOver = dragDropFeature.handleTodoDragOver;
 const handleTodoDrop = dragDropFeature.handleTodoDrop;
+const handleProjectDragOver = dragDropFeature.handleProjectDragOver;
+const handleProjectDrop = dragDropFeature.handleProjectDrop;
 const handleSectionDragStart = dragDropFeature.handleSectionDragStart;
 const handleSectionDragEnd = dragDropFeature.handleSectionDragEnd;
 const handleSectionDragOver = dragDropFeature.handleSectionDragOver;
@@ -934,7 +939,7 @@ export function startAppModule() {
   sharing: { inviteUserToProject: () => sharingFeature.inviteByUsername(), leaveProjectFromModal: () => sharingFeature.leaveProject(), undoLeaveProject: (data) => sharingFeature.undoLeaveProject(data), undoRemoveMember: (data) => sharingFeature.undoRemoveMember(data), undoInvite: (data) => sharingFeature.undoInvite(data), acceptInvite: (pid, iid) => sharingFeature.acceptInvite(pid, iid), declineInvite: (pid, iid) => sharingFeature.declineInvite(pid, iid), showShareInput: () => sharingFeature.showShareInput() },
   projectSharing: { setProject: (project) => sharingFeature.setProject(project), applyProjectModalState: (project, canEdit, shared) => sharingFeature.applyProjectModalState(project, canEdit, shared), loadInvites: () => sharingFeature.loadInvites() },
   sections: { showAddSectionForm, saveNewSection, editSectionInline, saveSectionEdit, deleteSection },
-  dragDrop: { handleTodoDragStart, handleTodoDragEnd, handleTodoDragOver, handleTodoDrop, handleSectionDragStart, handleSectionDragEnd, handleSectionDragOver, handleSectionDrop },
+  dragDrop: { handleTodoDragStart, handleTodoDragEnd, handleTodoDragOver, handleTodoDrop, handleProjectDragOver, handleProjectDrop, handleSectionDragStart, handleSectionDragEnd, handleSectionDragOver, handleSectionDrop },
   viewPreferences: { toggleHideDone, updateToggleDoneButton, cycleSort, updateSortButton, sortTodoList, toggleProjectWidget, updateProjectWidgetButton, toggleTodayFocus, updateTodayFocusButton, toggleMinimalTodos, updateMinimalTodosButton, updateFocusFilters, toggleFocusFiltersExpanded, toggleFocusProjectMenu, closeFocusProjectMenu, resetFocusFilters, setFocusDueMode, setFocusDueDays, toggleFocusProject, filterFocusProjectMenu, handleFocusProjectMenuKeydown, toggleFocusPriority, toggleFocusStatus },
   toastUndo: { showToast, showBatchToast, hideToast, undoLastAction, restoreBatchTodos, restoreTodo },
     push: { updatePushStatus, updatePushSettingsUI, enablePushNotifications, disablePushNotifications, sendTestPush },

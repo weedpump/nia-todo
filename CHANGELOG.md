@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 ## [Unreleased]
 
 ### Added
+- Added desktop/tablet drag-and-drop for moving todos directly onto sidebar projects, placing them in the target project's unsectioned bucket while preserving offline sync behavior.
 - Added auto-hiding overlay scrollbars for the main app and admin panel, keeping content full-width while showing a right-aligned scroll indicator only during scrolling.
 - Added the `lucide` npm package as the single source for app icons, with a generated offline/PWA icon subset for browser use.
 - Added Service Worker precache validation for query-string app-shell references so cache-busted module URLs remain offline-safe.
@@ -28,6 +29,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - Hardened attachment uploads with streaming temp-file writes, server-side quota/type policy enforcement, magic-byte validation for common binary formats, active-content blocking, and client-side preflight for disabled uploads, type, file size, and quota.
 
 ### Fixed
+- Prevented long-press todo drag-and-drop from also triggering horizontal swipe status gestures.
+- Prevented aborted todo swipe gestures from showing the custom overlay scrollbar inside todo cards.
 - Deferred server-side todo hard-deletes until the undo toast grace window expires, so undoing a delete preserves subtasks, comments, and attachment files instead of recreating only the parent todo.
 - Restored packaged backup/restore coverage for todo attachments and hardened restore behavior for nested custom database paths, stale runtime files, backup-directory preservation, and restored file ownership.
 - Guarded authoritative REST refreshes while local offline queue sync is active or still pending, preventing cache replacement from clobbering queued offline changes.

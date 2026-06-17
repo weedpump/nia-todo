@@ -25,6 +25,10 @@ function isViewportScroller(element) {
   return element === document.documentElement || element === document.body || element === document.scrollingElement;
 }
 
+function isIgnoredScrollbarTarget(element) {
+  return Boolean(element?.closest?.('.todo-item'));
+}
+
 function canScrollVertically(element) {
   if (!element) return false;
   if (isViewportScroller(element)) {
@@ -37,7 +41,7 @@ function canScrollVertically(element) {
 function nearestScroller(start) {
   let element = start instanceof Element ? start : document.scrollingElement || document.documentElement;
   while (element && element !== document.body && element !== document.documentElement) {
-    if (canScrollVertically(element)) return element;
+    if (!isIgnoredScrollbarTarget(element) && canScrollVertically(element)) return element;
     element = element.parentElement;
   }
   return document.scrollingElement || document.documentElement;
@@ -112,7 +116,7 @@ function updateIndicator(element) {
 }
 
 function markScrolling(element) {
-  if (!element?.classList) return;
+  if (!element?.classList || isIgnoredScrollbarTarget(element)) return;
 
   activeElement = element;
   element.classList.add(SCROLLING_CLASS);
@@ -159,6 +163,7 @@ export function initAutoScrollbars() {
   }, { capture: true, passive: true });
 
   document.addEventListener('touchmove', (event) => {
+    if (event.target?.closest?.('.todo-item')) return;
     scheduleScrollHint(event.target);
   }, { capture: true, passive: true });
 
