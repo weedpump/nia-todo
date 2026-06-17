@@ -134,7 +134,8 @@ export function createTodosFeature({
     const chips = [];
     const addChip = (icon, label, value, muted = false) => {
       if (!value) return;
-      chips.push(`<span class="todo-meta-summary-chip${muted ? ' is-muted' : ''}"><span data-icon="${icon}"></span><span class="todo-meta-summary-label">${escapeHtmlAttr(label)}</span><strong>${escapeHtmlAttr(value)}</strong></span>`);
+      const tone = String(icon || 'default').replace(/[^a-z0-9-]/gi, '').toLowerCase();
+      chips.push(`<span class="todo-meta-summary-chip todo-meta-tone-${tone}${muted ? ' is-muted' : ''}"><span data-icon="${icon}"></span><span class="todo-meta-summary-label">${escapeHtmlAttr(label)}</span><strong>${escapeHtmlAttr(value)}</strong></span>`);
     };
     addChip('folder', lang === 'de' ? 'Projekt' : 'Project', getSelectedOptionLabel('todo-project'));
     addChip('layers', lang === 'de' ? 'Section' : 'Section', getSelectedOptionLabel('todo-section'));

@@ -10069,3 +10069,32 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
 #todo-modal.todo-detail-view .desc-live-preview li {
   margin: 4px 0;
 }
+
+/* Todo detail meta v14: experimental colored view pills. */
+#todo-modal.todo-detail-view .todo-meta-summary-chip {
+  --meta-tone: var(--accent);
+  color: color-mix(in srgb, var(--meta-tone) 72%, var(--text-primary));
+  border-color: color-mix(in srgb, var(--meta-tone) 34%, transparent);
+  background:
+    linear-gradient(135deg,
+      color-mix(in srgb, var(--meta-tone) 18%, transparent),
+      color-mix(in srgb, var(--meta-tone) 8%, transparent));
+}
+
+#todo-modal.todo-detail-view .todo-meta-summary-chip .ui-icon,
+#todo-modal.todo-detail-view .todo-meta-summary-label {
+  color: color-mix(in srgb, var(--meta-tone) 70%, var(--text-muted));
+}
+
+#todo-modal.todo-detail-view .todo-meta-summary-chip strong {
+  color: color-mix(in srgb, var(--meta-tone) 48%, var(--text-primary));
+}
+
+#todo-modal.todo-detail-view .todo-meta-tone-folder { --meta-tone: #6366f1; }
+#todo-modal.todo-detail-view .todo-meta-tone-layers { --meta-tone: #8b5cf6; }
+#todo-modal.todo-detail-view .todo-meta-tone-flag { --meta-tone: #f59e0b; }
+#todo-modal.todo-detail-view .todo-meta-tone-activity { --meta-tone: #10b981; }
+#todo-modal.todo-detail-view .todo-meta-tone-calendar-days { --meta-tone: #0ea5e9; }
+#todo-modal.todo-detail-view .todo-meta-tone-bell { --meta-tone: #ec4899; }
+#todo-modal.todo-detail-view .todo-meta-tone-repeat { --meta-tone: #14b8a6; }
+#todo-modal.todo-detail-view .todo-meta-tone-pin { --meta-tone: #ef4444; }
