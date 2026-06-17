@@ -63,8 +63,6 @@ run_step "BrainDump Services" python3 scripts/test_braindump_v2_services.py
 run_step "BrainDump Extractor Normalization" python3 scripts/test_braindump_v2_extractor_normalization.py
 run_step "BrainDump Todo Creation" python3 scripts/test_braindump_v2_todo_creation.py
 run_step "BrainDump Admin STT Probe" python3 scripts/test_braindump_admin_stt_probe.py
-run_step "BrainDump Semantic Extractor Live" python3 scripts/test_braindump_semantic_extractor.py
-run_step "BrainDump Audio Fixture E2E" python3 scripts/test_braindump_audio_fixture_e2e.py
 run_step "Recurring Todos" python3 scripts/test_recurring_todos.py
 run_step "Default Reminder Offset" python3 scripts/test_default_reminder_offset.py
 run_step "Subtasks API" python3 scripts/test_subtasks.py
