@@ -10720,3 +10720,22 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
     right: 52px;
   }
 }
+
+/* Todo detail header actions v25: use modal-relative right alignment on desktop. */
+#todo-modal.todo-detail-view .modal-close-x {
+  right: max(28px, calc((100% - 920px) / 2));
+}
+
+#todo-modal.todo-detail-view .todo-detail-header-actions {
+  right: max(66px, calc((100% - 920px) / 2 + 42px));
+}
+
+@media (max-width: 1180px) {
+  #todo-modal.todo-detail-view .modal-close-x {
+    right: 12px;
+  }
+
+  #todo-modal.todo-detail-view .todo-detail-header-actions {
+    right: 52px;
+  }
+}
