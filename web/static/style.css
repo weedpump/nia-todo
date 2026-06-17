@@ -1771,6 +1771,18 @@ select:focus-visible {
 .form-group select:focus,
 .form-group textarea:focus { border-color: var(--accent); }
 
+.visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
 .visually-hidden-native-select {
   position: absolute !important;
   flex: 0 0 auto !important;
@@ -6115,6 +6127,23 @@ input[type="color"]::-moz-color-swatch {
 
 .settings-subcard + .settings-subcard { margin-top: 14px; }
 
+.settings-attachments-meter {
+  height: 0.7rem;
+  border-radius: 999px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.settings-attachments-meter span {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent), var(--success));
+  transition: width 0.2s ease;
+}
+
 .settings-subcard-heading {
   display: flex;
   justify-content: space-between;
@@ -8560,9 +8589,47 @@ body.is-minimal-todos .todo-meta-chip.todo-comments-progress {
   align-items: center;
 }
 
-.todo-attachments-add-row input[type="file"] {
+.todo-attachment-picker {
   min-width: 0;
   flex: 1;
+  justify-content: flex-start;
+  overflow: hidden;
+}
+
+#todo-attachment-file-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attachment-preview-modal-content {
+  width: min(960px, calc(100vw - 1.5rem));
+  max-height: min(88vh, 900px);
+}
+
+.attachment-preview-body {
+  min-height: 320px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 0.9rem;
+  overflow: hidden;
+}
+
+.attachment-preview-body img {
+  max-width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
+}
+
+.attachment-preview-body iframe {
+  width: 100%;
+  height: min(70vh, 720px);
+  border: 0;
+  background: white;
 }
 
 .todo-meta-chip.todo-attachments-progress {

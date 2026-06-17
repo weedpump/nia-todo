@@ -32,6 +32,16 @@ function formatLocaleDateTime(value) {
   return new Date(normalized).toLocaleString(language);
 }
 
+function formatBytes(bytes) {
+  const value = Number(bytes || 0);
+  if (value < 1024) return `${value} B`;
+  const units = ['KB', 'MB', 'GB', 'TB'];
+  let size = value / 1024;
+  let idx = 0;
+  while (size >= 1024 && idx < units.length - 1) { size /= 1024; idx += 1; }
+  return `${size.toFixed(size >= 10 ? 1 : 2)} ${units[idx]}`;
+}
+
 function isHeicFile(file) {
   const name = file?.name?.toLowerCase?.() || '';
   const type = file?.type?.toLowerCase?.() || '';
@@ -135,6 +145,23 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
     customRow.classList.toggle('is-active', Boolean(visible));
   }
 
+  function renderAttachmentUsage(user = getCurrentUser()) {
+    const statusEl = document.getElementById('settings-attachments-status');
+    const usageEl = document.getElementById('settings-attachments-usage');
+    const fillEl = document.getElementById('settings-attachments-meter-fill');
+    const remainingEl = document.getElementById('settings-attachments-remaining');
+    if (!statusEl || !usageEl) return;
+    const enabled = user?.attachments_enabled !== false;
+    const used = Number(user?.attachment_usage_bytes || 0);
+    const quota = Number(user?.attachment_quota_bytes || 0);
+    const remaining = Number(user?.attachment_remaining_bytes || 0);
+    const pct = quota > 0 ? Math.min(100, Math.round((used / quota) * 100)) : 0;
+    statusEl.textContent = enabled ? t('settings.attachments.enabled') : t('settings.attachments.disabled');
+    usageEl.textContent = t('settings.attachments.usageValue', { used: formatBytes(used), quota: formatBytes(quota) });
+    if (fillEl) fillEl.style.width = `${pct}%`;
+    if (remainingEl) remainingEl.textContent = t('settings.attachments.remaining', { remaining: formatBytes(remaining), percent: pct });
+  }
+
   function renderDefaultReminderSetting(user = getCurrentUser()) {
     const select = document.getElementById('settings-default-reminder');
     const customInput = document.getElementById('settings-default-reminder-custom');
@@ -172,6 +199,7 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
     renderSettingsAvatar(currentUser);
     renderLanguageSetting();
     renderDefaultReminderSetting(currentUser);
+    renderAttachmentUsage(currentUser);
     renderBrainDumpLearningSetting(currentUser);
   }
 
