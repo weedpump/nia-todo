@@ -138,6 +138,13 @@ function cacheKeyForReloadedAppShell(request, url) {
   return url.pathname;
 }
 
+async function matchAppShellCache(request, url) {
+  const cached = await caches.match(request);
+  if (cached) return cached;
+  if (url.search) return caches.match(url.pathname, { ignoreSearch: true });
+  return null;
+}
+
 async function purgeNeverCacheEntries() {
   const names = await caches.keys();
   await Promise.all(names.map(async (name) => {
@@ -298,7 +305,7 @@ self.addEventListener('fetch', (event) => {
           caches.open(CACHE_NAME).then((cache) => cache.put(cacheKey, clone));
         }
         return response;
-      }).catch(() => caches.match(event.request).then((cached) => {
+      }).catch(() => matchAppShellCache(event.request, url).then((cached) => {
         if (cached) return cached;
         if (event.request.mode === 'navigate' || event.request.destination === 'document') {
           return caches.match('/index.html').then((index) => index || new Response(OFFLINE_HTML, { headers: { 'Content-Type': 'text/html' } }));
@@ -311,7 +318,7 @@ self.addEventListener('fetch', (event) => {
 
   // Alle anderen Requests
   event.respondWith(
-    caches.match(event.request)
+    matchAppShellCache(event.request, url)
       .then((cached) => {
         if (cached) return cached;
         return fetch(event.request).then((response) => {

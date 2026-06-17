@@ -71,8 +71,8 @@ export function renderTodoItem(t) {
               ${remindStr ? `<span class="todo-meta-chip todo-reminder">${iconSvg('bell')} ${remindStr}</span>` : ''}
               ${recurrenceStr ? `<span class="todo-meta-chip todo-recurring">${iconSvg('repeat')} ${escapeHtml(recurrenceStr)}</span>` : ''}
               ${locationStr ? `<span class="todo-meta-chip todo-location" title="${escapeHtmlAttr(i18nT('todo.location.androidOnlyPillTitle'))}">${iconSvg('map-pin')} ${escapeHtml(locationStr)}</span>` : ''}
-              ${hasSubtasks ? `<span class="todo-meta-chip todo-subtasks-progress">${iconSvg('list')} ${escapeHtml(subtaskProgress)}</span>` : ''}
-              ${hasComments ? `<span class="todo-meta-chip todo-comments-progress">${iconSvg('edit-3')} ${escapeHtml(i18nT('todo.comments.count', { count: commentsCount }))}</span>` : ''}
+              ${hasSubtasks ? `<span class="todo-meta-chip todo-subtasks-progress">${iconSvg('list-todo')} ${escapeHtml(subtaskProgress)}</span>` : ''}
+              ${hasComments ? `<span class="todo-meta-chip todo-comments-progress">${iconSvg('notebook-pen')} ${escapeHtml(i18nT('todo.comments.count', { count: commentsCount }))}</span>` : ''}
               ${hasAttachments ? `<span class="todo-meta-chip todo-attachments-progress">${iconSvg('paperclip')} ${escapeHtml(i18nT('todo.attachments.count', { count: attachmentsCount }))}</span>` : ''}
             </div>
             ` : ''}
