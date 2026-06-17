@@ -53,7 +53,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .user-card-braindump-control { display: inline-flex; align-items: center; gap: 10px; }
 .user-attachment-quota-control { display: grid; gap: 6px; }
 .user-attachment-quota-row { display: flex; gap: 8px; align-items: center; }
-.user-attachment-quota-row input { min-width: 0; flex: 1; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-primary); color: var(--text-primary); }
+.user-attachment-quota-row input { min-width: 0; flex: 0 0 120px; max-width: 120px; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-primary); color: var(--text-primary); }
 .user-card-switch { appearance: none; -webkit-appearance: none; width: 46px; height: 26px; flex: 0 0 46px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--border) 78%, var(--text-muted)); background: var(--bg-tertiary); position: relative; cursor: pointer; transition: background .16s, border-color .16s, box-shadow .16s; }
 .user-card-switch::after { content: ''; position: absolute; width: 20px; height: 20px; top: 2px; left: 2px; border-radius: 50%; background: var(--text-secondary); box-shadow: 0 2px 5px rgba(0,0,0,.28); transition: transform .16s, background .16s; }
 .user-card-switch:checked { background: color-mix(in srgb, var(--success) 72%, var(--accent)); border-color: color-mix(in srgb, var(--success) 86%, white); }
@@ -2244,7 +2244,7 @@ function renderUserAttachmentQuota(user) {
   const used = Number(user.attachment_usage_bytes || 0);
   const effective = Number(user.attachment_quota_effective_bytes || 0);
   const override = user.attachment_quota_bytes == null ? '' : bytesToGb(user.attachment_quota_bytes);
-  const pct = effective > 0 ? Math.min(100, Math.round((used / effective) * 100)) : 0;
+  const pct = effective > 0 ? Math.min(100, Math.round((used / effective) * 100)) : 100;
   return `<div class="user-attachment-quota-control">
     <div class="admin-muted">${escapeHtml(formatAdminBytes(used))} / ${escapeHtml(formatAdminBytes(effective))} · ${pct}%</div>
     <div class="user-attachment-quota-row">
