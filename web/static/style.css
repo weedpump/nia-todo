@@ -10936,3 +10936,27 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
     justify-self: stretch;
   }
 }
+
+/* Todo detail attachments v30: mobile uses normal stacked action buttons, no drag/drop hint. */
+@media (max-width: 640px) {
+  #todo-modal.todo-detail-view .todo-attachments-add-row {
+    grid-template-columns: 1fr;
+  }
+
+  #todo-modal.todo-detail-view .todo-attachments-add-row::after {
+    display: none;
+    content: none;
+  }
+
+  #todo-modal.todo-detail-view .todo-attachment-picker,
+  #todo-modal.todo-detail-view .todo-attachment-picker.has-file,
+  #todo-modal.todo-detail-view #todo-attachment-upload-btn {
+    width: 100%;
+    max-width: none;
+    justify-self: stretch;
+  }
+
+  #todo-modal.todo-detail-view .todo-attachment-picker {
+    justify-content: center;
+  }
+}
