@@ -154,15 +154,6 @@ export function createTodosFeature({
     return drawer;
   }
 
-  function restoreTodoMetaPanelsToForm() {
-    const form = document.getElementById('todo-form');
-    const organize = document.getElementById('todo-organize-panel');
-    const schedule = document.getElementById('todo-schedule-panel');
-    if (!form || !organize || !schedule) return;
-    if (organize.parentElement !== form) form.appendChild(organize);
-    if (schedule.parentElement !== form) form.appendChild(schedule);
-  }
-
   function todoLocationReminderLabel(todo) {
     const reminder = todo?.location_reminder || todo?.location_reminders?.find?.((entry) => entry && entry.enabled !== 0 && entry.enabled !== false) || null;
     if (!reminder || reminder.enabled === 0 || reminder.enabled === false) return '';
