@@ -22,7 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - Refined Todo, sidebar, filter, topbar, and admin status icons with the generated Lucide icon set; the sidebar Focus entry is now labeled as Filter.
 - Centered the attachment picker prompt while keeping selected attachment filenames left-aligned for readability.
 - Refined the Todo modal into compact collapsible sections for planning, organization, subtasks, comments, and attachments, with mobile-first collapsed metadata panels and muted disabled action buttons.
-- Refined mobile todo card actions, floating action button layering, Todo modal action buttons, and subtask/comment/attachment visual styling for a cleaner compact UI.
+- Refined mobile/tablet todo card actions, floating action button layering, Todo modal action buttons, and subtask/comment/attachment visual styling for a cleaner compact UI; iPad-width layouts now keep quick actions collapsed behind the reveal control even when the sidebar uses the desktop shell.
+- Disabled touch pinch-zoom/two-finger page scaling for the web app on phones and tablets while leaving normal desktop browser zoom available.
 - Cleaned up startup sync ownership so REST handles authoritative full refreshes while WebSocket startup stays on auth/session and realtime deltas, preventing duplicate full-cache writers from racing IndexedDB/UI state.
 - Hardened attachment uploads with streaming temp-file writes, server-side quota/type policy enforcement, magic-byte validation for common binary formats, active-content blocking, and client-side preflight for disabled uploads, type, file size, and quota.
 
@@ -34,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - Treated zero attachment quota as a locked/full quota in user and admin storage displays and upload preflight.
 - Kept cache-busted app-shell modules available offline by matching Service Worker cache entries without query strings.
 - Corrected mobile stacking so quick-action reveal buttons stay below floating action buttons and both remain muted below the sidebar overlay.
+- Collapsed expanded todo quick actions immediately on the first outside tap/click instead of requiring a second tap after opening them.
 
 ## [2.12.2] - 2026-06-16
 
