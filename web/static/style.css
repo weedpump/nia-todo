@@ -11093,3 +11093,10 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   box-shadow: none;
   outline: none;
 }
+
+/* Todo meta drawer v34: match close icon glyph size with Todo detail close icon. */
+#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-drawer-close .ui-icon {
+  width: 18px;
+  height: 18px;
+  stroke-width: 2;
+}
