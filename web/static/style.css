@@ -9944,3 +9944,25 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
     justify-self: start;
   }
 }
+
+/* Todo detail attachments v12: force upload right, drop hint centered. */
+#todo-modal.todo-detail-view .todo-attachments-add-row {
+  grid-template-columns: auto 1fr auto;
+}
+
+#todo-modal.todo-detail-view .todo-attachments-add-row::after {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: center;
+  text-align: center;
+}
+
+#todo-modal.todo-detail-view #todo-attachment-upload-btn {
+  grid-column: 3;
+  justify-self: end;
+}
+
+#todo-modal.todo-detail-view .todo-attachment-picker {
+  grid-column: 1;
+  justify-self: start;
+}
