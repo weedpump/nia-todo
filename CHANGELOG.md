@@ -8,12 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 ## [Unreleased]
 
 ### Added
+- Added auto-hiding overlay scrollbars for the main app and admin panel, keeping content full-width while showing a right-aligned scroll indicator only during scrolling.
+- Added the `lucide` npm package as the single source for app icons, with a generated offline/PWA icon subset for browser use.
 - Added checklist-style subtasks on todos, including progress chips on todo cards, modal-only checklist editing, independent create/update/delete actions for existing todos, realtime sync, recurring-todo checklist carry-over, and confirmation before completing a parent todo with open subtasks.
 - Added todo comments with author display, local timestamps, comment-count chips, dedicated add/edit/delete actions, shared-project permissions, and realtime comment updates.
 - Added todo attachments with authenticated server-local uploads/downloads, attachment-count chips, modal list/upload/delete actions, shared-project access checks, image/PDF preview, and realtime attachment updates.
 - Added admin attachment controls for global upload enablement, comma-separated allowed file extensions, default 5 GB quota, per-user quota overrides, and user-visible storage usage.
 
 ### Changed
+- Centralized icon rendering across the main app, setup/password pages, and admin panel so all UI icons resolve through the generated Lucide package subset instead of page-local SVG definitions.
+- Centered the attachment picker prompt while keeping selected attachment filenames left-aligned for readability.
 - Refined the Todo modal into compact collapsible sections for planning, organization, subtasks, comments, and attachments, with mobile-first collapsed metadata panels and muted disabled action buttons.
 - Refined mobile todo card actions, floating action button layering, Todo modal action buttons, and subtask/comment/attachment visual styling for a cleaner compact UI.
 - Cleaned up startup sync ownership so REST handles authoritative full refreshes while WebSocket startup stays on auth/session and realtime deltas, preventing duplicate full-cache writers from racing IndexedDB/UI state.
