@@ -11176,3 +11176,20 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
     padding-bottom: max(96px, calc(72px + env(safe-area-inset-bottom, 0px)));
   }
 }
+
+/* Todo detail mobile viewport v37: keep bottom action reachable without oversized empty tail. */
+@media (max-width: 768px) {
+  #todo-modal.todo-detail-view .todo-modal-body {
+    padding-bottom: max(44px, calc(28px + env(safe-area-inset-bottom, 0px)));
+  }
+
+  #todo-modal.todo-detail-view .todo-modal-form {
+    padding-bottom: 0;
+  }
+}
+
+@media (max-width: 1180px) {
+  #todo-modal.todo-detail-view.todo-meta-editing .todo-meta-drawer-body {
+    padding-bottom: max(44px, calc(28px + env(safe-area-inset-bottom, 0px)));
+  }
+}
