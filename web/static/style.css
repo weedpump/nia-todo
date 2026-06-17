@@ -11062,3 +11062,12 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
     justify-self: stretch;
   }
 }
+
+/* Todo detail meta v32: give edit action the same breathing room as other add/action rows. */
+#todo-modal.todo-detail-view .todo-meta-summary-view {
+  gap: 14px;
+}
+
+#todo-modal.todo-detail-view .todo-meta-edit-toggle.todo-detail-action-btn {
+  margin-top: 2px;
+}
