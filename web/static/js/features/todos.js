@@ -99,7 +99,7 @@ export function createTodosFeature({
     modal.classList.toggle('todo-detail-view', isExistingTodo);
     modal.classList.remove('todo-desc-editing');
     const preview = document.getElementById('todo-desc-preview');
-    if (preview) preview.dataset.emptyLabel = t('todo.descriptionPlaceholder');
+    if (preview) preview.dataset.emptyLabel = getActiveLanguage() === 'de' ? 'Beschreibung hinzufügen…' : 'Add description…';
   }
 
   function bindTodoDescriptionInlineEditor() {
