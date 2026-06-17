@@ -139,6 +139,15 @@ export function createTodosFeature({
     return drawer;
   }
 
+  function todoLocationReminderLabel(todo) {
+    const reminder = todo?.location_reminder || todo?.location_reminders?.find?.((entry) => entry && entry.enabled !== 0 && entry.enabled !== false) || null;
+    if (!reminder || reminder.enabled === 0 || reminder.enabled === false) return '';
+    const trigger = String(reminder.trigger_type || reminder.triggerType || '').toLowerCase();
+    const triggerLabel = trigger === 'departure' ? t('todo.location.departureShort') : t('todo.location.arrivalShort');
+    const place = String(reminder.place_name || reminder.placeName || reminder.address || '').trim();
+    return place ? `${triggerLabel}: ${place}` : triggerLabel;
+  }
+
   function renderTodoMetaSummary(todo = null) {
     ensureTodoMetaDrawer();
     const summary = ensureTodoMetaSummary();
@@ -174,9 +183,10 @@ export function createTodosFeature({
     addChip(statusIcon, 'Status', getSelectedOptionLabel('todo-status'), { tone: statusTone });
     addChip(isOverdue ? 'triangle-alert' : 'calendar-days', lang === 'de' ? 'Deadline' : 'Deadline', formatTodoMetaDate(todo.due_date), { tone: dueTone });
     addChip('bell', lang === 'de' ? 'Erinnerung' : 'Reminder', formatTodoMetaDate(todo.remind_at || todo.reminders?.[0]?.remind_at), { tone: 'reminder' });
+    addChip('map-pin', lang === 'de' ? 'Ort' : 'Location', todoLocationReminderLabel(todo), { tone: 'location' });
     const recurringRule = normalizeRecurringRule(todo.recurring_rule, { defaultTimezone: null });
     if (recurringRule && recurringRule.frequency !== 'none') addChip('repeat', lang === 'de' ? 'Wiederholung' : 'Repeat', getSelectedOptionLabel('todo-recurring-frequency'));
-    if (todo.is_pinned) addChip('pin', lang === 'de' ? 'Angepinnt' : 'Pinned', lang === 'de' ? 'Ja' : 'Yes');
+    if (todo.is_pinned) addChip('star', lang === 'de' ? 'Angepinnt' : 'Pinned', lang === 'de' ? 'Ja' : 'Yes');
     const empty = lang === 'de' ? 'Keine Planung oder Einordnung gesetzt.' : 'No planning or organization set.';
     const edit = lang === 'de' ? 'Details bearbeiten' : 'Edit details';
     summary.innerHTML = `
