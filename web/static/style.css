@@ -9035,9 +9035,9 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
 
 /* Todo detail view prototype v2: make desktop/tablet feel like a document, not a squeezed form sidebar. */
 #todo-modal.todo-detail-view .todo-modal-content {
-  width: min(1320px, calc(100vw - 40px));
-  height: min(920px, calc(100vh - 32px));
-  border-radius: 30px;
+  width: 100vw;
+  height: 100vh;
+  border-radius: 0;
 }
 
 #todo-modal.todo-detail-view .todo-modal-header {
