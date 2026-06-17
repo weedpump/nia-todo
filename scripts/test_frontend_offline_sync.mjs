@@ -1,6 +1,11 @@
 #!/usr/bin/env node
 import { withFreshDb, launchPage } from './frontend_test_lib.mjs';
 
+async function fillTodoDescription(page, value) {
+  await page.click('#todo-desc-preview');
+  await page.locator('#todo-desc-rich-editor').fill(value);
+}
+
 async function run() {
   console.log('🔁 Running frontend offline→online sync test...');
   const { browser, page, loginApp, visible, waitForText, openTodoModal, assertNoFrontendErrors, dumpErrors } = await launchPage();
@@ -11,7 +16,7 @@ async function run() {
 
     await openTodoModal();
     await page.fill('#todo-title', 'Offline Sync Todo');
-    await page.fill('#todo-desc', 'Created for offline sync regression');
+    await fillTodoDescription(page, 'Created for offline sync regression');
     await page.click('button[form="todo-form"]');
     await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });
     await waitForText('Offline Sync Todo');
@@ -27,7 +32,7 @@ async function run() {
 
     await page.locator('.todo-item').filter({ hasText: 'Offline Sync Todo' }).first().click();
     await page.locator('#todo-modal').waitFor({ state: 'visible', timeout: 5000 });
-    await page.fill('#todo-desc', 'Edited while offline');
+    await fillTodoDescription(page, 'Edited while offline');
     await page.click('button[form="todo-form"]');
     await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });
 
