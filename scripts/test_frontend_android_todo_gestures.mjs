@@ -38,6 +38,10 @@ async function run() {
     throw new Error('Android capability must allow desktop_set_setting for native notification toggles');
   }
   const dragDropSource = await readFile(new URL('../web/static/js/features/drag-drop.js', import.meta.url), 'utf8');
+  const autoScrollbarsSource = await readFile(new URL('../web/static/js/features/auto-scrollbars.js', import.meta.url), 'utf8');
+  if (!autoScrollbarsSource.includes("closest?.('.todo-item')") || !autoScrollbarsSource.includes('isIgnoredScrollbarTarget(element)')) {
+    throw new Error('Overlay scrollbar hints must ignore todo cards so aborted swipe gestures cannot show mini scrollbars inside todo items');
+  }
   if (!dragDropSource.includes('NATIVE_AUTO_SCROLL_EDGE_PX') || !dragDropSource.includes('NATIVE_AUTO_SCROLL_VIEWPORT_GAP_PX') || !dragDropSource.includes('NATIVE_AUTO_SCROLL_TOP_EDGE_PX') || !dragDropSource.includes('NATIVE_AUTO_SCROLL_TOPBAR_GAP_PX') || !dragDropSource.includes('nativeAutoScrollTopBoundary') || !dragDropSource.includes("document.querySelector('.topbar')") || !dragDropSource.includes('nativeScrollContainer()') || !dragDropSource.includes('applyScrollDelta') || !dragDropSource.includes('scheduleNativeAutoScroll()') || !dragDropSource.includes('ghost?.getBoundingClientRect') || !dragDropSource.includes('ghostRect?.bottom')) {
     throw new Error('Native pointer drag must auto-scroll the app scroll container near viewport edges on Android, with topbar-aware top and viewport-aware bottom ghost-position triggers');
   }
