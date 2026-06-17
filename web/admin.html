@@ -715,6 +715,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 import { initI18n, t as i18nT } from './static/js/i18n/index.js';
 import { hydrateSelect, refreshSelect } from './static/js/ui/dropdowns.js';
 import { initAutoScrollbars } from './static/js/features/auto-scrollbars.js';
+import { hydrateIcons, iconSvg } from './static/js/icons/lucide-icons.js';
 const ADMIN_SELECT_IDS = [
   'email-smtp-security',
   'braindump-llm-provider',
@@ -737,6 +738,9 @@ window.refreshAdminSelects = () => {
   });
 };
 initAutoScrollbars();
+window.iconSvg = iconSvg;
+window.hydrateIcons = hydrateIcons;
+hydrateIcons(document);
 await initI18n();
 window.t = i18nT;
 window.hydrateAdminSelects();
@@ -746,33 +750,6 @@ window.dispatchEvent(new CustomEvent('admin-i18n-ready'));
 <script>
 const API = '';
 
-const ICONS = {
-  shield: '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z"/>',
-  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>',
-  moon: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
-  monitor: '<rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/>',
-  'lock-keyhole': '<circle cx="12" cy="16" r="1"/><rect x="3" y="10" width="18" height="12" rx="2"/><path d="M7 10V7a5 5 0 0 1 10 0v3"/>',
-  'key-round': '<path d="M2 18v3h3l9.7-9.7"/><circle cx="16.5" cy="7.5" r="5.5"/>',
-  'chevron-down': '<path d="m6 9 6 6 6-6"/>',
-  'user-plus': '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/>',
-  users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
-  'edit-3': '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
-  check: '<path d="M20 6 9 17l-5-5"/>',
-  x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
-  trash: '<path d="M3 6h18"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><path d="M19 6l-1 14c-.1 1-1 2-2 2H8c-1 0-1.9-1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/>',
-  link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
-  'shield-check': '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>',
-  settings: '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.73l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
-  'cloud-check': '<path d="m17 15-5.5 5.5L9 18"/><path d="M5.516 16.07A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 3.501 7.327"/>',
-  'cloud-alert': '<path d="M12 12v4"/><path d="M12 20h.01"/><path d="M8.128 16.949A7 7 0 1 1 15.71 8h1.79a1 1 0 0 1 0 9h-1.642"/>',
-  activity: '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
-  sparkles: '<path d="M12 3l1.9 5.8L20 11l-6.1 2.2L12 19l-1.9-5.8L4 11l6.1-2.2L12 3Z"/><path d="M19 3v4"/><path d="M21 5h-4"/>',
-  mail: '<path d="m22 7-8.991 5.727a2 2 0 0 1-2.009 0L2 7"/><rect x="2" y="4" width="20" height="16" rx="2"/>',
-};
-function iconSvg(name) {
-  const paths = ICONS[name] || ICONS.shield;
-  return `<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
-}
 
 function getSectionSummary(card) {
   const translate = window.t || ((key) => key);
@@ -846,10 +823,6 @@ function setupAdminSections() {
   wireHeaderToggles();
 }
 
-function hydrateIcons(root = document) {
-  root.querySelectorAll('[data-icon]').forEach(el => { el.innerHTML = iconSvg(el.getAttribute('data-icon')); });
-}
-hydrateIcons();
 setupAdminPasswordDialog();
 if (window.adminI18nReady) setupAdminSections();
 else window.addEventListener('admin-i18n-ready', setupAdminSections, { once: true });
