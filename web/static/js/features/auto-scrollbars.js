@@ -4,7 +4,7 @@ const VISIBLE_CLASS = 'visible';
 const SCROLL_IDLE_MS = 900;
 const MIN_THUMB_SIZE = 36;
 const EDGE_PADDING = 3;
-const INDICATOR_WIDTH = 7;
+const INDICATOR_WIDTH = 17;
 
 const states = new WeakMap();
 let activeElement = null;
