@@ -36,6 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - Kept cache-busted app-shell modules available offline by matching Service Worker cache entries without query strings.
 - Corrected mobile stacking so quick-action reveal buttons stay below floating action buttons and both remain muted below the sidebar overlay.
 - Collapsed expanded todo quick actions immediately on the first outside tap/click instead of requiring a second tap after opening them.
+- Prevented iPadOS/other touch browsers from showing the native HTML5 drag preview/copy affordance when reordering todos by routing touch devices through the app's pointer-based drag-and-drop path.
 
 ## [2.12.2] - 2026-06-16
 

@@ -45,7 +45,10 @@ async function run() {
     throw new Error('Native pointer drag must block secondary touch/pointer input so multi-touch cannot replace or strand the active drag state');
   }
   if (!dragDropSource.includes('scheduleStandardDragAutoScroll(e)') || !dragDropSource.includes('scrollContainerFromElement(event.target)')) {
-    throw new Error('Standard HTML5 dragover must share topbar-aware auto-scroll for desktop/iPad browsers');
+    throw new Error('Standard HTML5 dragover must share topbar-aware auto-scroll for desktop browsers');
+  }
+  if (!dragDropSource.includes('shouldUsePointerDragDrop()') || !dragDropSource.includes("window.matchMedia('(hover: none) and (pointer: coarse)'") || !dragDropSource.includes('navigator.maxTouchPoints')) {
+    throw new Error('Touch browsers such as iPadOS Safari/Edge must use pointer drag-drop instead of native HTML5 drag previews');
   }
   if (dragDropSource.includes('if (pointerDrag.active && pointerDrag.isTouch) return;')) {
     throw new Error('Native pointer drag must not ignore active Android pointercancel events and leave ghost UI stuck');

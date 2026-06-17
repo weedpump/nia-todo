@@ -92,6 +92,19 @@ async function main() {
         if (!touchTablet.found || !touchTablet.revealVisible || touchTablet.pinVisible || touchTablet.snoozeVisible) {
           throw new Error(`Desktop-width touch tablet should keep todo quick actions collapsed: ${JSON.stringify(touchTablet)}`);
         }
+        const touchDragState = await touchPage.evaluate((value) => {
+          const titleEl = Array.from(document.querySelectorAll('.todo-title')).find((el) => (el.textContent || '').includes(value));
+          const item = titleEl?.closest('.todo-item');
+          return {
+            found: Boolean(item),
+            draggableAttr: item?.getAttribute('draggable'),
+            draggableProp: item?.draggable,
+            pointerDnd: item?.getAttribute('data-native-pointer-dnd'),
+          };
+        }, title);
+        if (!touchDragState.found || touchDragState.draggableAttr !== null || touchDragState.draggableProp || touchDragState.pointerDnd !== 'true') {
+          throw new Error(`Touch tablet should disable native HTML5 drag previews for pointer drag-drop: ${JSON.stringify(touchDragState)}`);
+        }
       } finally {
         await touchContext.close();
       }

@@ -547,8 +547,14 @@ export function createDragDropFeature({
     nativeSummaryPointer = null;
   }
 
+  function shouldUsePointerDragDrop() {
+    if (RUNTIME_CAPABILITIES.native) return true;
+    const coarsePointer = typeof window.matchMedia === 'function' && window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+    return RUNTIME_CAPABILITIES.browser && (coarsePointer || Number(navigator.maxTouchPoints || 0) > 1);
+  }
+
   function bindNativePointerDragDrop() {
-    if (!RUNTIME_CAPABILITIES.native || bindNativePointerDragDrop.bound) return;
+    if (!shouldUsePointerDragDrop() || bindNativePointerDragDrop.bound) return;
     bindNativePointerDragDrop.bound = true;
     disableNativeHtmlDragDrop();
     new MutationObserver((mutations) => {
