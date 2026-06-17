@@ -4,6 +4,12 @@ import { withFreshDb, launchPage } from './frontend_test_lib.mjs';
 async function run() {
   console.log('🔽 Running shared UI dropdown primitive test...');
   const { browser, page, openTodoModal, loginApp, assertNoFrontendErrors } = await launchPage();
+  const openOrganizePanel = async () => {
+    await page.evaluate(() => {
+      const panel = document.getElementById('todo-organize-panel');
+      if (panel) panel.open = true;
+    });
+  };
   try {
     await loginApp();
     await page.evaluate(async () => {
@@ -18,6 +24,7 @@ async function run() {
       await window.renderProjects?.();
     });
     await openTodoModal();
+    await openOrganizePanel();
 
     const hiddenNative = await page.evaluate(() => {
       const ids = ['todo-priority', 'todo-status', 'todo-project', 'todo-section'];
@@ -125,6 +132,7 @@ async function run() {
     await page.evaluate(() => window.closeModal?.('todo-modal'));
     await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });
     await openTodoModal();
+    await openOrganizePanel();
     const status = page.locator('.ui-select[data-select-id="todo-status"] .ui-select-trigger');
     await status.focus();
     await page.keyboard.press('Enter');
@@ -143,6 +151,7 @@ async function run() {
     await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });
     await page.setViewportSize({ width: 390, height: 844 });
     await openTodoModal();
+    await openOrganizePanel();
     const projectTrigger = page.locator('.ui-select[data-select-id="todo-project"] .ui-select-trigger');
     await page.evaluate(() => document.querySelector('.ui-select[data-select-id="todo-project"] .ui-select-trigger')?.scrollIntoView({ block: 'center' }));
     await projectTrigger.click();

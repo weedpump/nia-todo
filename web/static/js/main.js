@@ -1,6 +1,7 @@
 window.__niaMainModuleLoaded = true;
 
 import { initI18n, t } from './i18n/index.js';
+import { initAutoScrollbars } from './features/auto-scrollbars.js';
 
 function showBootError(error) {
   const subtitle = document.getElementById('boot-subtitle');
@@ -49,6 +50,7 @@ function showNativeServerSetup(config) {
 }
 
 const startImport = () => {
+  initAutoScrollbars();
   setTimeout(async () => {
     try {
       await initI18n();

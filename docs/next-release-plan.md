@@ -11,7 +11,7 @@ This branch (`nia-todo-next`) is the integration branch for the next larger nia-
 
 ## Current State
 
-Subtasks/checklists, todo comments, sync architecture cleanup, modal/mobile UI polish, and todo attachments are completed on the next-release line.
+Subtasks/checklists, todo comments, sync architecture cleanup, modal/mobile UI polish, todo attachments, and the final UI scrollbar/icon polish are completed on the next-release line.
 
 Implemented:
 
@@ -38,6 +38,9 @@ Implemented:
   - `.btn-primary` has no default shadow.
   - `.btn-small` and `.btn-icon` are reusable primitives.
   - `.btn-icon` remains square on mobile.
+- Overlay scrollbars are auto-hidden in the main app and admin panel, render as 7px custom indicators, and do not reserve layout width.
+- App, admin, setup, and password pages use the generated Lucide icon subset from the npm package instead of page-local/manual icon tables.
+- The Service Worker precache test now validates `index.html` app-shell JS/CSS refs, including cache-busted query URLs, so installed PWAs keep working offline.
 
 Reviews:
 
@@ -45,7 +48,9 @@ Reviews:
 - Subtasks design/UI review: PASS after accessibility fixes.
 - Comments/subtasks architecture review: PASS.
 - Independent-subtasks regression review: PASS.
-- Todo attachments architecture/security review: PASS before final UX/admin hardening; final review pending before merge.
+- Todo attachments architecture/security review: PASS before final UX/admin hardening.
+- Todo attachments final review: PASS before merge to `nia-todo-next`.
+- UI scrollbar/icon polish final review: PASS before merge to `nia-todo-next`.
 
 ## Completed Work: Sync Architecture Cleanup
 
@@ -111,6 +116,17 @@ Final behavior:
 - Disabled action buttons are visually muted and do not show click/press animation.
 - Mobile todo quick actions and floating action buttons are layered so the New Todo FAB no longer sits behind the quick-action reveal button.
 
+## Completed Work: Final UI Scrollbar and Icon Polish
+
+Final behavior:
+
+- The main app and admin panel use auto-hidden overlay scrollbars that appear while scrolling and do not reserve native scrollbar gutter width.
+- The main content scrollbar starts below the topbar; the indicator is 7px wide and right-aligned.
+- Lucide icons are sourced from the `lucide` npm package via `scripts/generate_lucide_icons.mjs`; browser/PWA runtime uses `web/static/js/icons/lucide-generated.js` and the central `iconSvg()`/`hydrateIcons()` resolver.
+- Admin update status icons, Todo modal section icons, Todo card metadata chips, sidebar Filter, and topbar/minimal-mode icons use the central resolver.
+- Mobile stacking order is explicit: quick actions `170`, FABs `180`, sidebar overlay `199`, sidebar `200`.
+- Cache-busted app-shell module URLs are served from the Service Worker precache offline via query-insensitive cache matching.
+
 ## Reviews
 
 - Subtasks architecture review: PASS.
@@ -118,7 +134,8 @@ Final behavior:
 - Comments/subtasks architecture review: PASS.
 - Independent-subtasks regression review: PASS.
 - Todo attachments architecture/security review: PASS before final UX/admin hardening.
-- Todo attachments final review: pending before merge.
+- Todo attachments final review: PASS.
+- UI scrollbar/icon polish final review: PASS.
 
 ## Targeted Checks
 
@@ -132,6 +149,11 @@ node scripts/test_frontend_offline_sync.mjs
 node scripts/test_frontend_sharing.mjs
 node scripts/test_frontend_admin.mjs
 node scripts/test_frontend_settings.mjs
+node scripts/test_sw_precache.mjs
+node scripts/test_frontend_design_layout.mjs
+node scripts/test_frontend_todo_interactive_clicks.mjs
+node scripts/test_frontend_native_todo_actions.mjs
+node scripts/test_frontend_android_todo_gestures.mjs
 ```
 
 ## Planned Feature Themes After Attachments

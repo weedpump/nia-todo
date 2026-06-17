@@ -9,6 +9,7 @@ const PRECACHE_ASSETS = [
   '/manifest.json',
   '/static/style.css',
   '/static/js/main.js',
+  '/static/js/features/auto-scrollbars.js',
   '/static/js/app.js',
   '/static/js/api/http.js',
   '/static/js/api/errors.js',
@@ -29,6 +30,7 @@ const PRECACHE_ASSETS = [
   '/static/js/storage/indexed-db.js',
   '/static/js/sync/queue.js',
   '/static/js/icons/lucide-icons.js',
+  '/static/js/icons/lucide-generated.js',
   '/static/js/i18n/index.js',
   '/static/js/ui/dropdowns.js',
   '/static/i18n/de.json',
@@ -134,6 +136,13 @@ function isHardReloadRequest(event, url) {
 function cacheKeyForReloadedAppShell(request, url) {
   if (request.mode === 'navigate' || request.destination === 'document') return '/index.html';
   return url.pathname;
+}
+
+async function matchAppShellCache(request, url) {
+  const cached = await caches.match(request);
+  if (cached) return cached;
+  if (url.search) return caches.match(url.pathname, { ignoreSearch: true });
+  return null;
 }
 
 async function purgeNeverCacheEntries() {
@@ -296,7 +305,7 @@ self.addEventListener('fetch', (event) => {
           caches.open(CACHE_NAME).then((cache) => cache.put(cacheKey, clone));
         }
         return response;
-      }).catch(() => caches.match(event.request).then((cached) => {
+      }).catch(() => matchAppShellCache(event.request, url).then((cached) => {
         if (cached) return cached;
         if (event.request.mode === 'navigate' || event.request.destination === 'document') {
           return caches.match('/index.html').then((index) => index || new Response(OFFLINE_HTML, { headers: { 'Content-Type': 'text/html' } }));
@@ -309,7 +318,7 @@ self.addEventListener('fetch', (event) => {
 
   // Alle anderen Requests
   event.respondWith(
-    caches.match(event.request)
+    matchAppShellCache(event.request, url)
       .then((cached) => {
         if (cached) return cached;
         return fetch(event.request).then((response) => {

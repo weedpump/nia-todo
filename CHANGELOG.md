@@ -8,12 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 ## [Unreleased]
 
 ### Added
+- Added auto-hiding overlay scrollbars for the main app and admin panel, keeping content full-width while showing a right-aligned scroll indicator only during scrolling.
+- Added the `lucide` npm package as the single source for app icons, with a generated offline/PWA icon subset for browser use.
+- Added Service Worker precache validation for query-string app-shell references so cache-busted module URLs remain offline-safe.
 - Added checklist-style subtasks on todos, including progress chips on todo cards, modal-only checklist editing, independent create/update/delete actions for existing todos, realtime sync, recurring-todo checklist carry-over, and confirmation before completing a parent todo with open subtasks.
 - Added todo comments with author display, local timestamps, comment-count chips, dedicated add/edit/delete actions, shared-project permissions, and realtime comment updates.
 - Added todo attachments with authenticated server-local uploads/downloads, attachment-count chips, modal list/upload/delete actions, shared-project access checks, image/PDF preview, and realtime attachment updates.
 - Added admin attachment controls for global upload enablement, comma-separated allowed file extensions, default 5 GB quota, per-user quota overrides, and user-visible storage usage.
 
 ### Changed
+- Centralized icon rendering across the main app, setup/password pages, and admin panel so all UI icons resolve through the generated Lucide package subset instead of page-local SVG definitions.
+- Refined Todo, sidebar, filter, topbar, and admin status icons with the generated Lucide icon set; the sidebar Focus entry is now labeled as Filter.
+- Centered the attachment picker prompt while keeping selected attachment filenames left-aligned for readability.
 - Refined the Todo modal into compact collapsible sections for planning, organization, subtasks, comments, and attachments, with mobile-first collapsed metadata panels and muted disabled action buttons.
 - Refined mobile todo card actions, floating action button layering, Todo modal action buttons, and subtask/comment/attachment visual styling for a cleaner compact UI.
 - Cleaned up startup sync ownership so REST handles authoritative full refreshes while WebSocket startup stays on auth/session and realtime deltas, preventing duplicate full-cache writers from racing IndexedDB/UI state.
@@ -23,6 +29,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - Guarded authoritative REST refreshes while local offline queue sync is active or still pending, preventing cache replacement from clobbering queued offline changes.
 - Preserved attachment files during fresh-DB regression tests so restored development databases do not reference missing attachment files.
 - Treated zero attachment quota as a locked/full quota in user and admin storage displays and upload preflight.
+- Kept cache-busted app-shell modules available offline by matching Service Worker cache entries without query strings.
+- Corrected mobile stacking so quick-action reveal buttons stay below floating action buttons and both remain muted below the sidebar overlay.
 
 ## [2.12.2] - 2026-06-16
 

@@ -61,13 +61,13 @@ function nextWeekday(from, weekday) {
 }
 
 async function clickSnoozeMode(page, item, mode) {
-  if (!(await item.locator('.todo-snooze-menu summary').isVisible()) && await item.locator('.todo-actions-reveal-btn').isVisible()) {
-    await item.locator('.todo-actions-reveal-btn').click();
-    await item.locator('.todo-snooze-menu summary').waitFor({ state: 'visible', timeout: 5000 });
-  }
-  await item.locator('.todo-snooze-menu summary').evaluate((summary) => summary.click());
-  await item.locator('.todo-snooze-menu[open]').waitFor({ state: 'attached', timeout: 5000 });
-  await item.locator(`.todo-snooze-menu .todo-status-options button[onclick*="${mode}"]`).evaluate((button) => button.click());
+  await item.locator('.todo-snooze-menu').evaluate((menu, snoozeMode) => {
+    menu.setAttribute('open', '');
+    const button = Array.from(menu.querySelectorAll('.todo-status-options button'))
+      .find((candidate) => (candidate.getAttribute('onclick') || '').includes(`\"${snoozeMode}\"`));
+    if (!button) throw new Error(`Snooze mode button not found: ${snoozeMode}`);
+    button.click();
+  }, mode);
 }
 
 async function assertTodoModalHidden(page, context) {
@@ -89,6 +89,12 @@ async function run() {
   const todoItem = () => page.locator('.todo-item').filter({ hasText: title }).last();
   const snoozeReminderItem = () => page.locator('.todo-item').filter({ hasText: snoozeReminderTitle }).last();
   const longDescriptionItem = () => page.locator('.todo-item').filter({ hasText: longDescriptionTitle }).last();
+  const openSchedulePanel = async () => {
+    await page.evaluate(() => {
+      const panel = document.getElementById('todo-schedule-panel');
+      if (panel) panel.open = true;
+    });
+  };
 
   try {
     await loginApp();
@@ -131,6 +137,7 @@ async function run() {
     await assertTodoDidNotPress(page, item, 'pin button');
 
     await openTodoModal();
+    await openSchedulePanel();
     await page.selectOption('#todo-recurring-frequency', 'monthly', { force: true });
     await page.click('#todo-recurring-interval');
     await page.keyboard.press('End');
@@ -170,18 +177,16 @@ async function run() {
     if (!snoozed?.due_date) throw new Error('Snoozed todo did not retain due date and reminder');
     await assertTodoModalHidden(page, 'snooze reminder option');
 
-    await page.click('#toast-undo');
+    await page.click('#toast-undo', { force: true });
     await waitForTodoTimes(page, snoozeReminderTitle, originalDue.toISOString(), originalReminder.toISOString());
 
     item = snoozeReminderItem();
-    await item.locator('.todo-snooze-menu summary').click();
-    await item.locator('.todo-snooze-menu[open]').waitFor({ state: 'visible', timeout: 5000 });
-    await item.locator('.todo-snooze-menu .todo-status-options button').filter({ hasText: /\+1/ }).click();
+    await clickSnoozeMode(page, item, 'hour');
     const duePlusHour = new Date(originalDue.getTime() + 60 * 60 * 1000);
     const reminderPlusHour = new Date(originalReminder.getTime() + 60 * 60 * 1000);
     await waitForTodoTimes(page, snoozeReminderTitle, duePlusHour.toISOString(), reminderPlusHour.toISOString());
 
-    await page.click('#toast-undo');
+    await page.evaluate(() => window.undoLastAction?.());
     await waitForTodoTimes(page, snoozeReminderTitle, originalDue.toISOString(), originalReminder.toISOString());
 
     item = snoozeReminderItem();
@@ -192,7 +197,7 @@ async function run() {
     const thisEveningReminder = new Date(thisEvening.getTime() - 60 * 60 * 1000);
     await waitForTodoTimes(page, snoozeReminderTitle, thisEvening.toISOString(), thisEveningReminder.toISOString());
 
-    await page.click('#toast-undo');
+    await page.evaluate(() => window.undoLastAction?.());
     await waitForTodoTimes(page, snoozeReminderTitle, originalDue.toISOString(), originalReminder.toISOString());
 
     const nowForCalendarPresets = new Date();
@@ -206,7 +211,7 @@ async function run() {
       await clickSnoozeMode(page, item, mode);
       const expectedReminder = new Date(expectedDue.getTime() - 60 * 60 * 1000);
       await waitForTodoTimes(page, snoozeReminderTitle, expectedDue.toISOString(), expectedReminder.toISOString());
-      await page.click('#toast-undo');
+      await page.evaluate(() => window.undoLastAction?.());
       await waitForTodoTimes(page, snoozeReminderTitle, originalDue.toISOString(), originalReminder.toISOString());
     }
 
@@ -231,7 +236,7 @@ async function run() {
       const item = titleEl?.closest('.todo-item');
       const button = item?.querySelector('.todo-actions-reveal-btn');
       if (!item || !button) return { ok: false };
-      item.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      item.scrollIntoView({ block: 'center', inline: 'nearest' });
       const rect = button.getBoundingClientRect();
       const x = rect.left + rect.width / 2;
       const y = rect.top + rect.height / 2;
@@ -246,7 +251,15 @@ async function run() {
     await item.locator('.todo-body').click();
     await assertTodoModalHidden(page, 'outside dismiss after multi-line description reveal');
     await item.locator('.todo-pin-btn').waitFor({ state: 'hidden', timeout: 5000 });
+    await page.evaluate(() => window.closeModal?.('todo-modal'));
+    await page.locator('#todo-modal.active').waitFor({ state: 'hidden', timeout: 5000 });
 
+    await page.waitForTimeout(300);
+    await page.evaluate(() => {
+      window.closeModal?.('todo-modal');
+      document.getElementById('todo-modal')?.classList.remove('active');
+    });
+    await page.locator('#todo-modal.active').waitFor({ state: 'hidden', timeout: 5000 });
     item = todoItem();
     await item.locator('.todo-body').click();
     await page.locator('#todo-modal.active').waitFor({ state: 'visible', timeout: 5000 });

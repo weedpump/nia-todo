@@ -35,12 +35,14 @@ async function run() {
     await page.fill('#login-password', USER_PASSWORD);
     await page.click('button.login-btn');
     await page.locator('#login-overlay').waitFor({ state: 'hidden', timeout: 15000 });
+    await page.evaluate(() => window.setFilter?.('all'));
 
     await openTodoModal();
     await page.fill('#todo-title', title);
     await page.click('button[form="todo-form"]');
     await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });
-    await page.waitForFunction((value) => document.body.innerText.includes(value), title, { timeout: 10000 });
+    await waitForTodo(page, title);
+    await page.evaluate(() => window.setFilter?.('all'));
 
     let item = todoItem();
     await item.waitFor({ state: 'visible', timeout: 5000 });
