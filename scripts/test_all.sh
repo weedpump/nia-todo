@@ -99,6 +99,9 @@ run_step_retry "Frontend Offline Sync" node scripts/test_frontend_offline_sync.m
 run_step_retry "Frontend Realtime Sync" node scripts/test_frontend_realtime_sync.mjs
 run_step_retry "Frontend BrainDump Capture" node scripts/test_frontend_braindump_capture.mjs
 
+# Focused UI contracts are also part of release; they stay separately runnable for targeted UI work.
+run_step_retry "UI Contract Suite" ./scripts/test_ui_contracts.sh
+
 # Native/static release checks remain part of the release gate because packaging/native regressions are release blockers.
 run_step_retry "Frontend Native Runtime Config" node scripts/test_frontend_native_runtime_config.mjs
 run_step "Frontend Native Passkeys" node scripts/test_frontend_native_passkeys.mjs
@@ -107,6 +110,7 @@ run_step_retry "Frontend Android Reminder Rehydration" node scripts/test_fronten
 run_step "Native Android Location Reminder" node scripts/test_native_android_location_reminders.mjs
 run_step "Native Android WebView Cache Migration" node scripts/test_native_android_webview_cache_migration.mjs
 run_step "Native Android Reminder Alarm Policy" node scripts/test_native_android_reminder_alarm_policy.mjs
+run_step "Native Android Microphone Permission" node scripts/test_native_android_microphone_permission.mjs
 run_step "Native Windows Installer Cache Hook" node scripts/test_native_windows_installer_cache_hooks.mjs
 
 echo

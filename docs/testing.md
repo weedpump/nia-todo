@@ -6,7 +6,7 @@ nia-todo has many regression scripts. Not every historical UI/layout regression 
 
 - `./scripts/test_all.sh` / `npm test` is the release gate.
 - The release gate should cover release-critical behavior: backend/domain logic, security/auth, migrations, sync/offline/realtime, packaging, PWA/native runtime, and representative frontend flows.
-- Pixel/layout/micro-interaction checks are optional focused suites. Run them when the touched area justifies it, not after every visual tweak.
+- Pixel/layout/micro-interaction checks should be kept small and focused. They can be run separately during UI work, and the maintained subset also runs in the release gate.
 - DB-mutating tests must stay serial. Do not run review agents or another frontend/backend gate against the same dev DB at the same time.
 - Before real frontend/backend test runs or builds in the dev project, back up `api/data/nia-todo-dev.db`; after long gates verify the dev DB still has users (`users > 0`).
 
@@ -77,6 +77,7 @@ Current release-critical coverage:
 - `node scripts/test_frontend_offline_sync.mjs`
 - `node scripts/test_frontend_realtime_sync.mjs`
 - `node scripts/test_frontend_braindump_capture.mjs`
+- `./scripts/test_ui_contracts.sh`
 
 ### Native / packaging release blockers
 
@@ -87,6 +88,7 @@ Current release-critical coverage:
 - `node scripts/test_native_android_location_reminders.mjs`
 - `node scripts/test_native_android_webview_cache_migration.mjs`
 - `node scripts/test_native_android_reminder_alarm_policy.mjs`
+- `node scripts/test_native_android_microphone_permission.mjs`
 - `node scripts/test_native_windows_installer_cache_hooks.mjs`
 
 `release.sh` calls `./scripts/test_all.sh` and aborts immediately on failure: no merge, no tag, no push.
@@ -112,7 +114,7 @@ Covers Todo API basics plus representative Todo frontend/native interaction scri
 
 ## Optional UI Contract Suite
 
-Use after broad UI refactors, visual-system migrations, dropdown/layout rewrites, or when a touched area specifically needs it:
+Use after broad UI refactors, visual-system migrations, dropdown/layout rewrites, or when a touched area specifically needs early feedback. The same maintained UI contract suite is also called by the release gate:
 
 ```bash
 npm run test:ui
