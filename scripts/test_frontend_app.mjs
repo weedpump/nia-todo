@@ -153,7 +153,8 @@ async function run() {
         && !section?.disabled
         && sectionText.includes('Project B Only Section');
     }, { timeout: 10000 });
-    await page.fill('#todo-desc', 'Section bleibt beim Speichern erhalten');
+    await page.click('#todo-desc-preview');
+    await page.locator('#todo-desc-rich-editor').fill('Section bleibt beim Speichern erhalten');
     await page.click('button[form="todo-form"]');
     await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });
     await page.waitForFunction(async () => {
@@ -259,7 +260,8 @@ async function run() {
     await sectionTodoTitle.click();
     await visible('#todo-modal');
     await page.fill('#todo-title', 'Section Todo Edited');
-    await page.fill('#todo-desc', 'Beschreibung aktualisiert');
+    await page.click('#todo-desc-preview');
+    await page.locator('#todo-desc-rich-editor').fill('Beschreibung aktualisiert');
     await page.selectOption('#todo-priority', '1', { force: true });
     await page.selectOption('#todo-status', 'in_progress', { force: true });
     await page.selectOption('#todo-project', { label: 'Frontend Project B' }, { force: true });
@@ -358,6 +360,8 @@ async function run() {
 
     await page.locator('.todo-item .todo-title').filter({ hasText: 'Section Todo Edited' }).first().click();
     await visible('#todo-modal');
+    await page.click('#todo-meta-edit-toggle');
+    await page.locator('.todo-meta-edit-drawer').waitFor({ state: 'visible', timeout: 5000 });
     await page.fill('#todo-remind', '2026-05-21T09:46', { force: true });
     await page.evaluate(() => {
       const remind = document.getElementById('todo-remind');
@@ -391,7 +395,7 @@ async function run() {
     if (await finalSaveButton.isEnabled()) {
       await finalSaveButton.click();
     } else {
-      await page.click('#todo-cancel-btn');
+      await page.evaluate(() => window.closeModal?.('todo-modal'));
     }
     await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });
 
