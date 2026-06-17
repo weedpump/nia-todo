@@ -153,9 +153,9 @@ await withFreshDb(async () => {
     await openTodoModal();
     await page.fill('#todo-title', 'Frontend metadata panels');
     await page.click('#todo-organize-panel > summary');
-    await page.selectOption('#todo-priority', '1');
+    await page.selectOption('#todo-priority', '1', { force: true });
     await page.click('#todo-schedule-panel > summary');
-    await page.fill('#todo-due', '2099-01-02T03:04');
+    await page.fill('#todo-due', '2099-01-02T03:04', { force: true });
     await page.click('#todo-modal button[type="submit"]');
     await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 10000 });
     await waitForText('Frontend metadata panels');

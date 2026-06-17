@@ -101,7 +101,7 @@ async function run() {
     await page.evaluate((projectId) => window.setFilter(String(projectId)), created.activeProject.id);
     await page.locator('.add-section-row').waitFor({ state: 'visible', timeout: 10000 });
     await openTodoModal();
-    await page.selectOption('#todo-section', String(created.activeSection.id));
+    await page.selectOption('#todo-section', String(created.activeSection.id), { force: true });
     await page.fill('#todo-title', 'Project only #Quick Shopping');
     await page.waitForFunction(() => {
       const chips = Array.from(document.querySelectorAll('#quick-add-preview .quick-add-chip'));

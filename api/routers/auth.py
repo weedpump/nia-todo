@@ -15,6 +15,7 @@ from rate_limit import require_login_rate_limit, get_client_ip
 from services.audit import log_audit
 from services.client_info import session_user_agent
 from services.two_factor import consume_mfa_action_grant, create_challenge, get_valid_trusted_device_id, mfa_required_for_user, user_mfa_state
+from services.attachments import attachment_usage_payload
 from errors import api_error
 
 router = APIRouter(prefix="/api")
@@ -186,6 +187,7 @@ def me(request: Request, response: Response, authorization: Optional[str] = Head
         enroll_only = bool(payload and payload.get('mfa_enroll_only'))
         if payload and mfa_required_for_user(db, user_id) and not enroll_only and not (payload.get('mfa_at') or payload.get('mfa_login_at')):
             raise HTTPException(401, "MFA verification required")
+        attachment_usage = attachment_usage_payload(db, user_id)
         result = {
             "id": user['id'],
             "username": user['username'],
@@ -200,6 +202,12 @@ def me(request: Request, response: Response, authorization: Optional[str] = Head
             "braindump_enabled": bool(user['braindump_enabled']),
             "braindump_learning_enabled": bool(user['braindump_learning_enabled']),
             "default_reminder_offset_minutes": user['default_reminder_offset_minutes'],
+            "attachments_enabled": bool(attachment_usage["enabled"]),
+            "attachment_usage_bytes": attachment_usage["used_bytes"],
+            "attachment_quota_bytes": attachment_usage["quota_bytes"],
+            "attachment_remaining_bytes": attachment_usage["remaining_bytes"],
+            "attachments_allowed_types": attachment_usage["allowed_types"],
+            "attachment_max_upload_bytes": attachment_usage["max_upload_bytes"],
             "is_admin": bool(user['is_admin']),
             "two_factor": mfa_state,
             "mfa_enrollment_required": enroll_only,

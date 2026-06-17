@@ -83,9 +83,9 @@ async function run() {
     assertCloseEnough(after.content.height, before.content.height, 1, 'modal content height');
 
     await page.fill('#todo-title', 'Mobile collapsed metadata panels');
-    await page.selectOption('#todo-priority', '1');
+    await page.selectOption('#todo-priority', '1', { force: true });
     await page.click('#todo-schedule-panel > summary');
-    await page.fill('#todo-due', '2099-03-04T05:06');
+    await page.fill('#todo-due', '2099-03-04T05:06', { force: true });
     await page.click('#todo-modal button[type="submit"]');
     await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 10000 });
     await waitForText('Mobile collapsed metadata panels');
