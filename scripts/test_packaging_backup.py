@@ -134,6 +134,7 @@ def run_custom_relative_db_layout():
         restore_data.mkdir()
         (restore_data / "db").mkdir()
         make_db(restore_data / "db" / "custom.db")
+        (restore_data / "db" / "stale-sibling.txt").write_text("stale")
         restore_env = os.environ.copy()
         restore_env.update({
             "NIA_TODO_DATA_DIR": str(restore_data),
@@ -143,6 +144,7 @@ def run_custom_relative_db_layout():
         subprocess.run([str(RESTORE_SCRIPT), str(archive)], check=True, env=restore_env, cwd=ROOT)
 
         assert_restored_db(restore_data / "db" / "custom.db")
+        assert_true(not (restore_data / "db" / "stale-sibling.txt").exists(), "stale sibling beside nested DB should be removed")
         assert_true((restore_data / "runtime" / "state.txt").read_text() == "runtime", "runtime file was not restored")
 
 

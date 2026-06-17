@@ -88,24 +88,35 @@ def protected(path: Path) -> bool:
     resolved = path.resolve()
     if resolved == db_path:
         return True
-    if is_relative_to(resolved, backup_dir) or is_relative_to(backup_dir, resolved):
-        return True
-    if resolved.is_dir() and is_relative_to(db_path, resolved):
+    if is_relative_to(resolved, backup_dir):
         return True
     if resolved.name.startswith(db_path.name + '.restore-backup.'):
         return True
     return False
 
+def contains_protected_path(path: Path) -> bool:
+    resolved = path.resolve()
+    return is_relative_to(db_path, resolved) or is_relative_to(backup_dir, resolved)
+
+def cleanup_runtime_path(path: Path):
+    if protected(path):
+        return
+    if path.is_dir() and contains_protected_path(path):
+        for child in path.iterdir():
+            cleanup_runtime_path(child)
+        if not any(path.iterdir()) and not contains_protected_path(path):
+            path.rmdir()
+        return
+    if path.is_dir():
+        shutil.rmtree(path)
+    else:
+        path.unlink(missing_ok=True)
+
 # Restore the runtime DATA_DIR snapshot exactly, without deleting backup archives or
 # the freshly restored DB. This removes stale attachment/runtime files that are not
-# present in the archive anymore.
-for child in sorted(data_dir.iterdir(), key=lambda p: len(p.parts), reverse=True):
-    if protected(child):
-        continue
-    if child.is_dir():
-        shutil.rmtree(child)
-    else:
-        child.unlink(missing_ok=True)
+# present in the archive anymore, including stale siblings beside nested DB files.
+for child in data_dir.iterdir():
+    cleanup_runtime_path(child)
 
 if archive_data_dir.exists():
     for source in archive_data_dir.rglob('*'):
