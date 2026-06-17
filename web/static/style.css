@@ -2294,10 +2294,11 @@ input[type="color"]::-moz-color-swatch {
   top: 0;
   left: 0;
   z-index: 10000;
-  width: 6px;
+  width: 7px;
   min-height: 36px;
   border-radius: 999px;
-  background: var(--border);
+  background: var(--text-muted);
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.18);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.16s ease;
@@ -2305,7 +2306,7 @@ input[type="color"]::-moz-color-swatch {
 }
 
 .scrollbar-overlay-indicator.visible {
-  opacity: 0.85;
+  opacity: 0.9;
 }
 
 /* Mobile / Responsive */

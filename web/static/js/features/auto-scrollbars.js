@@ -3,9 +3,12 @@ const INDICATOR_CLASS = 'scrollbar-overlay-indicator';
 const VISIBLE_CLASS = 'visible';
 const SCROLL_IDLE_MS = 900;
 const MIN_THUMB_SIZE = 36;
-const EDGE_PADDING = 2;
+const EDGE_PADDING = 3;
+const INDICATOR_WIDTH = 7;
 
 const states = new WeakMap();
+let activeElement = null;
+let pendingFrame = 0;
 
 function getScrollTarget(event) {
   const target = event?.target;
@@ -20,6 +23,24 @@ function getScrollTarget(event) {
 
 function isViewportScroller(element) {
   return element === document.documentElement || element === document.body || element === document.scrollingElement;
+}
+
+function canScrollVertically(element) {
+  if (!element) return false;
+  if (isViewportScroller(element)) {
+    const scrollingElement = document.scrollingElement || document.documentElement;
+    return scrollingElement.scrollHeight - window.innerHeight > 1;
+  }
+  return element.scrollHeight - element.clientHeight > 1;
+}
+
+function nearestScroller(start) {
+  let element = start instanceof Element ? start : document.scrollingElement || document.documentElement;
+  while (element && element !== document.body && element !== document.documentElement) {
+    if (canScrollVertically(element)) return element;
+    element = element.parentElement;
+  }
+  return document.scrollingElement || document.documentElement;
 }
 
 function getState(element) {
@@ -38,25 +59,28 @@ function getState(element) {
 
 function getViewportMetrics() {
   const scrollingElement = document.scrollingElement || document.documentElement;
+  const clientHeight = window.innerHeight || scrollingElement.clientHeight;
   return {
     scrollTop: window.scrollY || scrollingElement.scrollTop || 0,
-    scrollHeight: scrollingElement.scrollHeight,
-    clientHeight: window.innerHeight || scrollingElement.clientHeight,
+    scrollHeight: Math.max(scrollingElement.scrollHeight, document.body?.scrollHeight || 0),
+    clientHeight,
     top: 0,
     right: window.innerWidth - EDGE_PADDING,
-    height: window.innerHeight || scrollingElement.clientHeight,
+    height: clientHeight,
   };
 }
 
 function getElementMetrics(element) {
   const rect = element.getBoundingClientRect();
+  const visibleTop = Math.max(rect.top, EDGE_PADDING);
+  const visibleBottom = Math.min(rect.bottom, window.innerHeight - EDGE_PADDING);
   return {
     scrollTop: element.scrollTop,
     scrollHeight: element.scrollHeight,
     clientHeight: element.clientHeight,
-    top: Math.max(rect.top, EDGE_PADDING),
-    right: Math.min(rect.right, window.innerWidth) - EDGE_PADDING,
-    height: Math.min(rect.height, window.innerHeight - Math.max(rect.top, 0)),
+    top: visibleTop,
+    right: Math.min(rect.right, window.innerWidth - EDGE_PADDING),
+    height: Math.max(0, visibleBottom - visibleTop),
   };
 }
 
@@ -73,17 +97,19 @@ function updateIndicator(element) {
   const trackHeight = Math.max(metrics.height - (EDGE_PADDING * 2), MIN_THUMB_SIZE);
   const thumbHeight = Math.max(MIN_THUMB_SIZE, Math.round((metrics.clientHeight / metrics.scrollHeight) * trackHeight));
   const maxThumbTop = Math.max(0, trackHeight - thumbHeight);
-  const scrollRatio = metrics.scrollTop / scrollableDistance;
+  const scrollRatio = Math.min(1, Math.max(0, metrics.scrollTop / scrollableDistance));
   const thumbTop = metrics.top + EDGE_PADDING + Math.round(maxThumbTop * scrollRatio);
+  const thumbLeft = Math.max(EDGE_PADDING, Math.round(metrics.right - INDICATOR_WIDTH));
 
   state.indicator.style.height = `${thumbHeight}px`;
-  state.indicator.style.transform = `translate3d(${Math.round(metrics.right - 6)}px, ${thumbTop}px, 0)`;
+  state.indicator.style.transform = `translate3d(${thumbLeft}px, ${thumbTop}px, 0)`;
   state.indicator.classList.add(VISIBLE_CLASS);
 }
 
 function markScrolling(element) {
   if (!element?.classList) return;
 
+  activeElement = element;
   element.classList.add(SCROLLING_CLASS);
   updateIndicator(element);
 
@@ -94,7 +120,17 @@ function markScrolling(element) {
     element.classList.remove(SCROLLING_CLASS);
     state.indicator.classList.remove(VISIBLE_CLASS);
     state.timer = null;
+    if (activeElement === element) activeElement = null;
   }, SCROLL_IDLE_MS);
+}
+
+function scheduleScrollHint(element) {
+  activeElement = nearestScroller(element || activeElement || document.scrollingElement || document.documentElement);
+  if (pendingFrame) return;
+  pendingFrame = requestAnimationFrame(() => {
+    pendingFrame = 0;
+    markScrolling(activeElement || document.scrollingElement || document.documentElement);
+  });
 }
 
 function updateVisibleIndicators() {
@@ -112,6 +148,19 @@ export function initAutoScrollbars() {
   document.addEventListener('scroll', (event) => {
     markScrolling(getScrollTarget(event));
   }, { capture: true, passive: true });
+
+  document.addEventListener('wheel', (event) => {
+    scheduleScrollHint(event.target);
+  }, { capture: true, passive: true });
+
+  document.addEventListener('touchmove', (event) => {
+    scheduleScrollHint(event.target);
+  }, { capture: true, passive: true });
+
+  document.addEventListener('keydown', (event) => {
+    if (!['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp', 'Home', 'End', ' '].includes(event.key)) return;
+    scheduleScrollHint(document.activeElement);
+  }, { capture: true });
 
   window.addEventListener('resize', updateVisibleIndicators, { passive: true });
 }
