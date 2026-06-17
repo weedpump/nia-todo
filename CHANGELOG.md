@@ -37,6 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - Corrected mobile stacking so quick-action reveal buttons stay below floating action buttons and both remain muted below the sidebar overlay.
 - Collapsed expanded todo quick actions immediately on the first outside tap/click instead of requiring a second tap after opening them.
 - Prevented iPadOS/other touch browsers from showing the native HTML5 drag preview/copy affordance or text-selection handles when reordering todos by routing touch devices through the app's pointer-based drag-and-drop path and disabling selection on touch drag surfaces.
+- Kept project dashboard stat card labels and hints constrained on iPad-sized layouts so text no longer spills outside narrow cards.
 
 ## [2.12.2] - 2026-06-16
 
