@@ -154,6 +154,15 @@ export function createTodosFeature({
     return drawer;
   }
 
+  function restoreTodoMetaPanelsToForm() {
+    const form = document.getElementById('todo-form');
+    const organize = document.getElementById('todo-organize-panel');
+    const schedule = document.getElementById('todo-schedule-panel');
+    if (!form || !organize || !schedule) return;
+    if (organize.parentElement !== form) form.appendChild(organize);
+    if (schedule.parentElement !== form) form.appendChild(schedule);
+  }
+
   function todoLocationReminderLabel(todo) {
     const reminder = todo?.location_reminder || todo?.location_reminders?.find?.((entry) => entry && entry.enabled !== 0 && entry.enabled !== false) || null;
     if (!reminder || reminder.enabled === 0 || reminder.enabled === false) return '';
@@ -164,14 +173,15 @@ export function createTodosFeature({
   }
 
   function renderTodoMetaSummary(todo = null) {
-    ensureTodoMetaDrawer();
     const summary = ensureTodoMetaSummary();
     if (!summary) return;
     if (!todo?.id) {
+      restoreTodoMetaPanelsToForm();
       summary.replaceChildren();
       summary.hidden = true;
       return;
     }
+    ensureTodoMetaDrawer();
     summary.hidden = false;
     const lang = getActiveLanguage();
     const chips = [];
@@ -266,6 +276,8 @@ export function createTodosFeature({
     if (!modal) return;
     const isExistingTodo = Boolean(todo?.id);
     modal.classList.toggle('todo-detail-view', isExistingTodo);
+    modal.classList.toggle('todo-create-view', !isExistingTodo);
+    if (!isExistingTodo) restoreTodoMetaPanelsToForm();
     modal.classList.remove('todo-desc-editing');
     modal.classList.remove('todo-meta-editing');
     modal.classList.remove('todo-has-unsaved');
