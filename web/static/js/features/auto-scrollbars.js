@@ -4,7 +4,7 @@ const VISIBLE_CLASS = 'visible';
 const SCROLL_IDLE_MS = 900;
 const MIN_THUMB_SIZE = 36;
 const EDGE_PADDING = 3;
-const INDICATOR_WIDTH = 17;
+const INDICATOR_WIDTH = 7;
 
 const states = new WeakMap();
 let activeElement = null;
@@ -65,21 +65,26 @@ function getViewportMetrics() {
     scrollHeight: Math.max(scrollingElement.scrollHeight, document.body?.scrollHeight || 0),
     clientHeight,
     top: 0,
-    right: window.innerWidth - EDGE_PADDING,
+    right: window.innerWidth,
     height: clientHeight,
   };
 }
 
 function getElementMetrics(element) {
   const rect = element.getBoundingClientRect();
-  const visibleTop = Math.max(rect.top, EDGE_PADDING);
+  const topbar = element.matches('.main') ? element.querySelector(':scope > .topbar') : null;
+  const topbarRect = topbar?.getBoundingClientRect();
+  const coveredTop = topbarRect ? Math.max(0, Math.min(topbarRect.bottom, rect.bottom) - rect.top) : 0;
+  const visibleTop = Math.max(rect.top + coveredTop, EDGE_PADDING);
   const visibleBottom = Math.min(rect.bottom, window.innerHeight - EDGE_PADDING);
+  const adjustedClientHeight = Math.max(1, element.clientHeight - coveredTop);
+  const adjustedScrollHeight = Math.max(adjustedClientHeight, element.scrollHeight - coveredTop);
   return {
     scrollTop: element.scrollTop,
-    scrollHeight: element.scrollHeight,
-    clientHeight: element.clientHeight,
+    scrollHeight: adjustedScrollHeight,
+    clientHeight: adjustedClientHeight,
     top: visibleTop,
-    right: Math.min(rect.right, window.innerWidth - EDGE_PADDING),
+    right: Math.min(rect.right, window.innerWidth),
     height: Math.max(0, visibleBottom - visibleTop),
   };
 }
