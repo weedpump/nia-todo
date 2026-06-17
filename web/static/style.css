@@ -7108,8 +7108,10 @@ input[type="color"]::-moz-color-swatch {
   }
 }
 
-/* Keep mobile todo row actions collapsed until the reveal arrow is tapped. */
-@media (max-width: 768px) {
+/* Keep compact/tablet todo row actions collapsed until the reveal arrow is tapped.
+   This intentionally uses a wider breakpoint than the sidebar shell: iPad-sized
+   layouts can show the desktop sidebar while keeping noisy card actions tucked away. */
+@media (max-width: 1024px) {
   .todo-actions {
     position: relative;
     z-index: 170;
