@@ -714,6 +714,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 <script type="module">
 import { initI18n, t as i18nT } from './static/js/i18n/index.js';
 import { hydrateSelect, refreshSelect } from './static/js/ui/dropdowns.js';
+import { initAutoScrollbars } from './static/js/features/auto-scrollbars.js';
 const ADMIN_SELECT_IDS = [
   'email-smtp-security',
   'braindump-llm-provider',
@@ -735,6 +736,7 @@ window.refreshAdminSelects = () => {
     if (select) refreshSelect(select);
   });
 };
+initAutoScrollbars();
 await initI18n();
 window.t = i18nT;
 window.hydrateAdminSelects();
