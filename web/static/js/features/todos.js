@@ -558,10 +558,20 @@ export function createTodosFeature({
     return 'file';
   }
 
-  function attachmentCanPreview(attachment = {}) {
-    const type = String(attachment.content_type || '').toLowerCase();
+  function attachmentIsImagePreview(attachment = {}, blob = null) {
+    const type = String(attachment.content_type || blob?.type || '').toLowerCase();
     const name = String(attachment.original_filename || '').toLowerCase();
-    return type.startsWith('image/') || type === 'application/pdf' || name.endsWith('.pdf');
+    return type.startsWith('image/') || /\.(png|jpe?g|gif|webp|avif|bmp)$/i.test(name);
+  }
+
+  function attachmentIsPdfPreview(attachment = {}, blob = null) {
+    const type = String(attachment.content_type || blob?.type || '').toLowerCase();
+    const name = String(attachment.original_filename || '').toLowerCase();
+    return type === 'application/pdf' || name.endsWith('.pdf');
+  }
+
+  function attachmentCanPreview(attachment = {}) {
+    return attachmentIsImagePreview(attachment) || attachmentIsPdfPreview(attachment);
   }
 
   function setSelectedAttachmentFileName(file = null) {
@@ -681,6 +691,7 @@ export function createTodosFeature({
 
   function closeAttachmentPreview() {
     closeModal('attachment-preview-modal');
+    document.getElementById('attachment-preview-modal')?.classList.remove('show');
     const body = document.getElementById('attachment-preview-body');
     if (body) body.innerHTML = '';
     if (attachmentPreviewObjectUrl) URL.revokeObjectURL(attachmentPreviewObjectUrl);
@@ -708,15 +719,15 @@ export function createTodosFeature({
       if (title) title.textContent = attachment.original_filename || t('todo.attachments.preview');
       if (download) download.disabled = false;
       if (body) {
-        const type = String(attachment.content_type || blob.type || '').toLowerCase();
-        const filename = String(attachment.original_filename || '').toLowerCase();
-        if (type.startsWith('image/')) {
+        if (attachmentIsImagePreview(attachment, blob)) {
           body.innerHTML = `<img src="${attachmentPreviewObjectUrl}" alt="${escapeHtmlAttr(attachment.original_filename || t('todo.attachments.preview'))}">`;
-        } else if (type === 'application/pdf' || filename.endsWith('.pdf')) {
+        } else if (attachmentIsPdfPreview(attachment, blob)) {
           body.innerHTML = `<iframe src="${attachmentPreviewObjectUrl}" title="${escapeHtmlAttr(attachment.original_filename || t('todo.attachments.preview'))}"></iframe>`;
+        } else {
+          body.textContent = t('todo.attachments.noPreview');
         }
       }
-      document.getElementById('attachment-preview-modal')?.classList.add('show');
+      document.getElementById('attachment-preview-modal')?.classList.add('active');
     } catch (error) {
       console.error('Failed to preview todo attachment', error);
       showToast(t('todo.attachments.previewFailed'));
