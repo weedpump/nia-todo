@@ -2279,11 +2279,25 @@ input[type="color"]::-moz-color-swatch {
   border-top: 1px solid var(--border);
 }
 
-/* Scrollbar */
-::-webkit-scrollbar { width: 6px; }
+/* Scrollbars stay visually quiet until the user actively scrolls. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.is-scrolling {
+  scrollbar-color: var(--border) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+::-webkit-scrollbar-thumb { background: transparent; border-radius: 3px; }
+.is-scrolling::-webkit-scrollbar-thumb { background: var(--border); }
+.is-scrolling::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
 
 /* Mobile / Responsive */
 @media (max-width: 768px) {
