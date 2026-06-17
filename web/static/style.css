@@ -9637,3 +9637,54 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
     opacity: 1;
   }
 }
+
+/* Todo detail view prototype v6: restore subtle section structure without returning to form cards. */
+#todo-modal.todo-detail-view .todo-subtasks-card,
+#todo-modal.todo-detail-view .todo-attachments-card,
+#todo-modal.todo-detail-view .todo-comments-card {
+  padding: 18px;
+  border: 1px solid color-mix(in srgb, var(--border) 28%, transparent);
+  border-radius: 22px;
+  background: color-mix(in srgb, var(--bg-secondary) 22%, transparent);
+}
+
+#todo-modal.todo-detail-view .todo-subtasks-card:hover,
+#todo-modal.todo-detail-view .todo-attachments-card:hover,
+#todo-modal.todo-detail-view .todo-comments-card:hover {
+  border-color: color-mix(in srgb, var(--border) 40%, transparent);
+  background: color-mix(in srgb, var(--bg-secondary) 28%, transparent);
+}
+
+#todo-modal.todo-detail-view .todo-comments-add-group {
+  order: 10;
+  padding-top: 12px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 30%, transparent);
+}
+
+#todo-modal.todo-detail-view .todo-comments-empty + .todo-comments-add-group,
+#todo-modal.todo-detail-view .todo-comments-list:empty + .todo-comments-empty + .todo-comments-add-group {
+  border-top: 0;
+  padding-top: 0;
+}
+
+#todo-modal.todo-detail-view .todo-attachment-icon {
+  border: 0;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+#todo-modal.todo-detail-view .todo-attachment-icon:hover,
+#todo-modal.todo-detail-view .todo-attachment-icon:focus-visible {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  outline: none;
+}
+
+#todo-modal.todo-detail-view .todo-attachment-item {
+  background: color-mix(in srgb, var(--bg-primary) 32%, transparent);
+}
+
+#todo-modal.todo-detail-view .todo-comment-item {
+  padding-left: 12px;
+  border-left-color: color-mix(in srgb, var(--accent) 28%, var(--border));
+}
