@@ -247,9 +247,8 @@ async function run() {
     await page.mouse.click(revealHitTarget.x, revealHitTarget.y);
     await item.locator('.todo-pin-btn').waitFor({ state: 'visible', timeout: 5000 });
     await assertTodoModalHidden(page, 'mobile reveal on multi-line description todo');
-    await page.waitForTimeout(750);
     await item.locator('.todo-body').click();
-    await assertTodoModalHidden(page, 'outside dismiss after multi-line description reveal');
+    await assertTodoModalHidden(page, 'immediate outside dismiss after multi-line description reveal');
     await item.locator('.todo-pin-btn').waitFor({ state: 'hidden', timeout: 5000 });
     await page.evaluate(() => window.closeModal?.('todo-modal'));
     await page.locator('#todo-modal.active').waitFor({ state: 'hidden', timeout: 5000 });

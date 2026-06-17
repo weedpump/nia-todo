@@ -1824,48 +1824,61 @@ export function createTodosFeature({
   function bindTodoActionsReveal() {
     if (document.documentElement.dataset.todoActionsRevealBound === '1') return;
     document.documentElement.dataset.todoActionsRevealBound = '1';
-    let lastRevealPointerHandledAt = 0;
+    let suppressTodoClickUntil = 0;
+    let suppressTodoClickItem = null;
     const handleReveal = (event) => {
       const button = event.target?.closest?.('.todo-actions-reveal-btn');
       if (!button) return;
-      if (event.type === 'click' && (lastRevealPointerHandledAt || button.__niaRevealPointerHandledAt) && Date.now() - Math.max(lastRevealPointerHandledAt, button.__niaRevealPointerHandledAt || 0) < 600) {
+      const item = button.closest('.todo-item[data-id]');
+      if (!item) return;
+      if (event.type === 'click' && button.__niaRevealPointerHandledAt && Date.now() - button.__niaRevealPointerHandledAt < 600) {
         event.preventDefault?.();
         event.stopPropagation?.();
         event.stopImmediatePropagation?.();
         return;
       }
-      const item = button.closest('.todo-item[data-id]');
-      if (!item) return;
       event.preventDefault?.();
-      if (event.type === 'pointerup') {
-        lastRevealPointerHandledAt = Date.now();
-        button.__niaRevealPointerHandledAt = lastRevealPointerHandledAt;
-      }
+      if (event.type === 'pointerup') button.__niaRevealPointerHandledAt = Date.now();
       item.__niaRevealHandledAt = Date.now();
       toggleTodoActions(item, event);
       event.stopImmediatePropagation?.();
     };
-    const handleOutsideDismiss = (event) => {
+    const closeExpandedActionsFromEvent = (event, { suppressTodoClick = false } = {}) => {
       const expandedItems = Array.from(document.querySelectorAll('.todo-item.actions-expanded'));
-      if (!expandedItems.length) return;
-      if (event.target?.closest?.('.todo-actions')) return;
-      if (lastRevealPointerHandledAt && Date.now() - lastRevealPointerHandledAt < 700) {
-        event.preventDefault?.();
-        event.stopPropagation?.();
-        event.stopImmediatePropagation?.();
-        return;
-      }
+      if (!expandedItems.length) return false;
+      if (event.target?.closest?.('.todo-actions')) return false;
       expandedItems.forEach((item) => setTodoActionsExpanded(item, false));
       const tappedTodo = event.target?.closest?.('.todo-item[data-id]');
-      if (tappedTodo && !isTodoInteractiveTarget(event.target)) {
+      if (suppressTodoClick && tappedTodo && !isTodoInteractiveTarget(event.target)) {
+        suppressTodoClickUntil = Date.now() + 700;
+        suppressTodoClickItem = tappedTodo;
+      }
+      return true;
+    };
+    const handleOutsidePointerDown = (event) => {
+      if (!event.isPrimary || event.button > 0) return;
+      closeExpandedActionsFromEvent(event, { suppressTodoClick: true });
+    };
+    const handleOutsideClick = (event) => {
+      const tappedTodo = event.target?.closest?.('.todo-item[data-id]');
+      const shouldSuppressTodoClick = Boolean(
+        tappedTodo &&
+        suppressTodoClickItem === tappedTodo &&
+        Date.now() < suppressTodoClickUntil &&
+        !isTodoInteractiveTarget(event.target)
+      );
+      const closed = closeExpandedActionsFromEvent(event, { suppressTodoClick: true });
+      if (closed || shouldSuppressTodoClick) {
         event.preventDefault?.();
         event.stopPropagation?.();
         event.stopImmediatePropagation?.();
       }
+      if (shouldSuppressTodoClick) suppressTodoClickItem = null;
     };
     document.addEventListener('pointerup', handleReveal, { capture: true, passive: false });
     document.addEventListener('click', handleReveal, true);
-    document.addEventListener('click', handleOutsideDismiss, true);
+    document.addEventListener('pointerdown', handleOutsidePointerDown, { capture: true, passive: false });
+    document.addEventListener('click', handleOutsideClick, true);
   }
 
   function resetTodoActionMenuPlacement(menu) {
