@@ -10107,3 +10107,110 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
 #todo-modal.todo-detail-view .todo-meta-tone-bell { --meta-tone: #ec4899; }
 #todo-modal.todo-detail-view .todo-meta-tone-repeat { --meta-tone: #14b8a6; }
 #todo-modal.todo-detail-view .todo-meta-tone-pin { --meta-tone: #ef4444; }
+
+/* Todo detail meta editing v15: drawer/sheet prototype for planning + organization. */
+#todo-modal.todo-detail-view.todo-meta-editing .todo-modal-content::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent 58%, color-mix(in srgb, var(--bg-primary) 12%, transparent));
+  z-index: 2;
+}
+
+#todo-modal.todo-detail-view.todo-meta-editing #todo-organize-panel,
+#todo-modal.todo-detail-view.todo-meta-editing #todo-schedule-panel {
+  position: absolute;
+  right: 18px;
+  width: min(380px, calc(100% - 36px));
+  z-index: 3;
+  display: block;
+  padding: 18px;
+  border: 1px solid color-mix(in srgb, var(--border) 42%, transparent);
+  background:
+    radial-gradient(circle at 20% 0%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 42%),
+    color-mix(in srgb, var(--bg-secondary) 96%, var(--bg-primary));
+  box-shadow: 0 18px 50px rgba(0, 0, 0, .24);
+}
+
+#todo-modal.todo-detail-view.todo-meta-editing #todo-organize-panel {
+  top: 88px;
+  border-radius: 24px 24px 10px 10px;
+  border-bottom-color: color-mix(in srgb, var(--border) 22%, transparent);
+}
+
+#todo-modal.todo-detail-view.todo-meta-editing #todo-schedule-panel {
+  top: min(420px, calc(50vh - 10px));
+  max-height: calc(100vh - min(420px, calc(50vh - 10px)) - 92px);
+  overflow: auto;
+  border-radius: 10px 10px 24px 24px;
+  border-top-color: color-mix(in srgb, var(--border) 22%, transparent);
+}
+
+#todo-modal.todo-detail-view.todo-meta-editing #todo-organize-panel .todo-collapsible-summary,
+#todo-modal.todo-detail-view.todo-meta-editing #todo-schedule-panel .todo-collapsible-summary {
+  cursor: default;
+}
+
+#todo-modal.todo-detail-view.todo-meta-editing #todo-organize-panel .todo-collapsible-chevron,
+#todo-modal.todo-detail-view.todo-meta-editing #todo-schedule-panel .todo-collapsible-chevron {
+  display: none;
+}
+
+#todo-modal.todo-detail-view.todo-meta-editing .todo-modal-body,
+#todo-modal.todo-detail-view.todo-meta-editing .todo-modal-actions,
+#todo-modal.todo-detail-view.todo-meta-editing .todo-modal-header {
+  padding-right: min(430px, 36vw);
+}
+
+@media (max-width: 1180px) {
+  #todo-modal.todo-detail-view.todo-meta-editing .todo-modal-content::after {
+    background: color-mix(in srgb, #000 28%, transparent);
+    pointer-events: none;
+  }
+
+  #todo-modal.todo-detail-view.todo-meta-editing #todo-organize-panel,
+  #todo-modal.todo-detail-view.todo-meta-editing #todo-schedule-panel {
+    position: fixed;
+    left: max(14px, env(safe-area-inset-left, 0px));
+    right: max(14px, env(safe-area-inset-right, 0px));
+    width: auto;
+    max-width: 720px;
+    margin: 0 auto;
+  }
+
+  #todo-modal.todo-detail-view.todo-meta-editing #todo-organize-panel {
+    top: auto;
+    bottom: min(52vh, 420px);
+    border-radius: 24px 24px 10px 10px;
+  }
+
+  #todo-modal.todo-detail-view.todo-meta-editing #todo-schedule-panel {
+    top: auto;
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    max-height: min(52vh, 420px);
+    border-radius: 10px 10px 24px 24px;
+  }
+
+  #todo-modal.todo-detail-view.todo-meta-editing .todo-modal-body,
+  #todo-modal.todo-detail-view.todo-meta-editing .todo-modal-actions,
+  #todo-modal.todo-detail-view.todo-meta-editing .todo-modal-header {
+    padding-right: inherit;
+  }
+}
+
+@media (max-width: 720px) {
+  #todo-modal.todo-detail-view.todo-meta-editing #todo-organize-panel,
+  #todo-modal.todo-detail-view.todo-meta-editing #todo-schedule-panel {
+    left: 10px;
+    right: 10px;
+  }
+
+  #todo-modal.todo-detail-view.todo-meta-editing #todo-organize-panel {
+    bottom: min(56vh, 430px);
+  }
+
+  #todo-modal.todo-detail-view.todo-meta-editing #todo-schedule-panel {
+    max-height: min(56vh, 430px);
+  }
+}

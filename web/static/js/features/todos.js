@@ -164,9 +164,16 @@ export function createTodosFeature({
       <div class="todo-meta-summary-chips">${chips.length ? chips.join('') : `<span class="todo-meta-summary-empty">${empty}</span>`}</div>
       <button type="button" class="todo-meta-edit-toggle" id="todo-meta-edit-toggle">${edit}</button>
     `;
-    summary.querySelector('#todo-meta-edit-toggle')?.addEventListener('click', () => {
+    const toggle = summary.querySelector('#todo-meta-edit-toggle');
+    const syncToggleLabel = () => {
+      const active = document.getElementById('todo-modal')?.classList.contains('todo-meta-editing');
+      toggle.textContent = active ? (lang === 'de' ? 'Details schließen' : 'Close details') : edit;
+    };
+    toggle?.addEventListener('click', () => {
       document.getElementById('todo-modal')?.classList.toggle('todo-meta-editing');
+      syncToggleLabel();
     });
+    syncToggleLabel();
     translatePage(summary);
   }
 
