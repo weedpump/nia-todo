@@ -885,17 +885,25 @@ select:focus-visible {
   line-height: 1;
   font-weight: 850;
 }
+.overview-stat-card > div:last-child {
+  min-width: 0;
+  flex: 1 1 auto;
+}
 .overview-stat-label {
   color: var(--text-primary);
   font-size: 14px;
   font-weight: 750;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .overview-stat-hint {
   color: var(--text-muted);
   font-size: 12px;
   margin-top: 2px;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .overview-stat-card.total .overview-stat-num { color: var(--accent); }
 .overview-stat-card.pending .overview-stat-num { color: var(--warning); }
