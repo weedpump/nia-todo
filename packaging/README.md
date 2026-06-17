@@ -288,6 +288,8 @@ For migrating an existing install, the simplest path is:
 
 Runtime data lives in `/var/lib/nia-todo`. It contains the SQLite database, generated keys, avatars, todo attachments, backups, and local runtime data.
 
+Keep custom runtime paths such as `NIA_TODO_AVATAR_DIR`, `NIA_TODO_ATTACHMENT_DIR`, and `NIA_TODO_VAPID_KEYS` inside `NIA_TODO_DATA_DIR`; the packaged backup helper snapshots `NIA_TODO_DATA_DIR` plus a consistent SQLite backup and intentionally excludes the backup directory itself.
+
 ## 📄 License
 
 Copyright (C) 2026 Tobias Kneidl
