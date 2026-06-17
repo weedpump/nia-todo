@@ -9,12 +9,12 @@ from fastapi import HTTPException
 
 DEFAULT_ATTACHMENTS_ENABLED = True
 DEFAULT_ALLOWED_ATTACHMENT_TYPES = [
-    "image/*",
-    "application/pdf",
-    "text/plain",
-    "text/markdown",
-    "application/zip",
-    "application/json",
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".webp",
+    ".pdf",
 ]
 DEFAULT_ATTACHMENT_QUOTA_BYTES = 5 * 1024 * 1024 * 1024
 MAX_ATTACHMENT_QUOTA_BYTES = 1024 * 1024 * 1024 * 1024  # 1 TiB guardrail
@@ -71,8 +71,10 @@ def normalize_allowed_attachment_types(value: Any) -> list[str]:
         item = str(raw or "").strip().lower()
         if not item:
             continue
+        if not item.startswith(".") and "/" not in item and not item.endswith("/*"):
+            item = f".{item}"
         if item.startswith("."):
-            if len(item) < 2 or any(ch in item for ch in "/\\\0\r\n "):
+            if len(item) < 2 or any(ch in item for ch in "/\\\0\r\n ,"):
                 raise HTTPException(400, f"Invalid attachment extension: {item}")
         elif item.endswith("/*"):
             prefix = item[:-2]

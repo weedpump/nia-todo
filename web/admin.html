@@ -317,6 +317,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
   <input type="checkbox" id="braindump-enabled" class="admin-header-switch-source" aria-label="BrainDump aktivieren">
   <input type="checkbox" id="email-smtp-enabled" class="admin-header-switch-source" data-i18n-aria-label-key="admin.email.enableSending" aria-label="Enable email sending">
   <input type="checkbox" id="oidc-enabled" class="admin-header-switch-source" data-i18n-aria-label-key="admin.oidc.enable" aria-label="Enable OIDC">
+  <input type="checkbox" id="attachments-enabled" class="admin-header-switch-source" data-i18n-aria-label-key="admin.attachments.enabled" aria-label="Uploads erlauben">
   <input type="checkbox" id="twofa-policy-toggle" class="admin-header-switch-source" data-i18n-aria-label-key="admin.security.toggle" aria-label="Toggle 2FA policy">
 
   <!-- Admin Toolbar -->
@@ -439,18 +440,14 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
     <h2><span data-icon="paperclip"></span> <span data-i18n-key="admin.attachments.title">Anhänge</span></h2>
     <div class="admin-help" data-i18n-key="admin.attachments.help">Steuert Uploads global. Bestehende Anhänge bleiben auch bei deaktivierten Uploads sichtbar und downloadbar.</div>
     <div class="admin-config-grid">
-      <div class="admin-config-field admin-config-checkbox switch-right full">
-        <input type="checkbox" id="attachments-enabled">
-        <label for="attachments-enabled" data-i18n-key="admin.attachments.enabled">Uploads erlauben</label>
-      </div>
       <div class="admin-config-field">
         <label for="attachments-default-quota-gb" data-i18n-key="admin.attachments.defaultQuotaGb">Standard-Quota pro User (GB)</label>
         <input type="number" id="attachments-default-quota-gb" min="0" max="1024" step="0.1" value="5">
       </div>
       <div class="admin-config-field full">
-        <label for="attachments-allowed-types" data-i18n-key="admin.attachments.allowedTypes">Erlaubte Dateitypen</label>
-        <textarea id="attachments-allowed-types" class="admin-config-textarea" rows="5" placeholder="image/*&#10;application/pdf&#10;text/plain"></textarea>
-        <div class="admin-help" data-i18n-key="admin.attachments.allowedTypesHelp">Ein MIME-Type oder Muster pro Zeile, z.B. image/* oder application/pdf. Gefährliche aktive Formate wie SVG/HTML/JavaScript bleiben zusätzlich blockiert.</div>
+        <label for="attachments-allowed-types" data-i18n-key="admin.attachments.allowedTypes">Erlaubte Dateiendungen</label>
+        <textarea id="attachments-allowed-types" class="admin-config-textarea" rows="3" placeholder="png, jpg, jpeg, gif, webp, pdf"></textarea>
+        <div class="admin-help" data-i18n-key="admin.attachments.allowedTypesHelp">Kommaseparierte Dateiendungen, z.B. png, jpg, pdf. Gefährliche aktive Formate wie SVG/HTML/JavaScript bleiben zusätzlich blockiert.</div>
       </div>
     </div>
     <div class="form-row" style="margin-top:12px;">
@@ -824,7 +821,9 @@ function setupAdminSections() {
         ? buildSectionToggle('email-smtp-enabled')
         : card.id === 'oidc-config-card'
           ? buildSectionToggle('oidc-enabled')
-          : card.id === 'security-card'
+          : card.id === 'attachment-config-card'
+            ? buildSectionToggle('attachments-enabled')
+            : card.id === 'security-card'
           ? buildSectionToggle('twofa-policy-toggle')
           : null;
     if (summary) headerButton.insertAdjacentHTML('beforeend', `<span class="admin-section-summary">${summary}</span>`);
@@ -855,6 +854,7 @@ let serverUpdatePollTimer = null;
 let serverUpdateReloadPromptShown = false;
 let serverUpdateStartedInThisPage = false;
 let adminUsers = [];
+let currentAttachmentConfig = null;
 let currentStatsDays = 30;
 
 function focusAdminLoginPassword() {
@@ -1541,17 +1541,47 @@ function renderInstanceConfig(config) {
   document.getElementById('instance-trusted-proxies').value = (config.trusted_proxies || []).join('\n');
 }
 
+function attachmentTypesToExtensionInput(types = []) {
+  const mapped = [];
+  const add = (value) => {
+    const normalized = String(value || '').trim().toLowerCase().replace(/^\.+/, '');
+    if (normalized && !mapped.includes(normalized)) mapped.push(normalized);
+  };
+  for (const raw of Array.isArray(types) ? types : []) {
+    const item = String(raw || '').trim().toLowerCase();
+    if (!item) continue;
+    if (item === 'image/*') ['png', 'jpg', 'jpeg', 'gif', 'webp'].forEach(add);
+    else if (item === 'application/pdf') add('pdf');
+    else if (item === 'text/plain') add('txt');
+    else if (item === 'text/markdown') ['md', 'markdown'].forEach(add);
+    else if (item === 'application/zip') add('zip');
+    else if (item === 'application/json') add('json');
+    else if (item.startsWith('.')) add(item);
+    else if (!item.includes('/')) add(item);
+  }
+  return mapped.join(', ');
+}
+
 function renderAttachmentConfig(config = {}) {
+  currentAttachmentConfig = { ...config };
   document.getElementById('attachments-enabled').checked = config.enabled !== false;
   document.getElementById('attachments-default-quota-gb').value = bytesToGb(config.default_quota_bytes ?? (5 * 1024 ** 3));
-  document.getElementById('attachments-allowed-types').value = (config.allowed_types || []).join('\n');
+  document.getElementById('attachments-allowed-types').value = attachmentTypesToExtensionInput(config.allowed_types || []);
 }
 
 function readAttachmentTypesInput(value) {
   return String(value || '')
-    .split(/[\n,]+/)
-    .map(item => item.trim())
+    .split(/[\n,;\s]+/)
+    .map(item => item.trim().toLowerCase().replace(/^\*\./, '').replace(/^\.+/, ''))
     .filter(Boolean);
+}
+
+function readAttachmentConfigForm() {
+  return {
+    enabled: document.getElementById('attachments-enabled').checked,
+    allowed_types: readAttachmentTypesInput(document.getElementById('attachments-allowed-types').value),
+    default_quota_bytes: gbToBytes(document.getElementById('attachments-default-quota-gb').value),
+  };
 }
 
 function updateAdminOidcToolbar() {
@@ -2086,6 +2116,11 @@ function wireHeaderToggles() {
     oidcToggle.dataset.autosaveReady = '1';
     oidcToggle.addEventListener('change', autoSaveOidcToggle);
   }
+  const attachmentToggle = document.getElementById('attachments-enabled');
+  if (attachmentToggle && attachmentToggle.dataset.autosaveReady !== '1') {
+    attachmentToggle.dataset.autosaveReady = '1';
+    attachmentToggle.addEventListener('change', autoSaveAttachmentToggle);
+  }
   const twofaToggle = document.getElementById('twofa-policy-toggle');
   if (twofaToggle && twofaToggle.dataset.autosaveReady !== '1') {
     twofaToggle.dataset.autosaveReady = '1';
@@ -2129,14 +2164,25 @@ async function saveAttachmentConfig() {
   document.getElementById('attachment-config-error').textContent = '';
   document.getElementById('attachment-config-success').textContent = '';
   try {
-    const data = await apiPatch('/api/admin/attachment-config', {
-      enabled: document.getElementById('attachments-enabled').checked,
-      allowed_types: readAttachmentTypesInput(document.getElementById('attachments-allowed-types').value),
-      default_quota_bytes: gbToBytes(document.getElementById('attachments-default-quota-gb').value),
-    });
+    const data = await apiPatch('/api/admin/attachment-config', readAttachmentConfigForm());
     renderAttachmentConfig(data);
     document.getElementById('attachment-config-success').textContent = t('admin.attachments.saved');
   } catch(e) {
+    document.getElementById('attachment-config-error').textContent = e.message;
+  }
+}
+
+async function autoSaveAttachmentToggle() {
+  const toggle = document.getElementById('attachments-enabled');
+  const previous = currentAttachmentConfig?.enabled !== false;
+  document.getElementById('attachment-config-error').textContent = '';
+  document.getElementById('attachment-config-success').textContent = '';
+  try {
+    const data = await apiPatch('/api/admin/attachment-config', readAttachmentConfigForm());
+    renderAttachmentConfig(data);
+    document.getElementById('attachment-config-success').textContent = t('admin.attachments.saved');
+  } catch(e) {
+    if (toggle) toggle.checked = previous;
     document.getElementById('attachment-config-error').textContent = e.message;
   }
 }

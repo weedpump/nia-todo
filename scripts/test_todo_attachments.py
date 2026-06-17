@@ -17,6 +17,7 @@ sys.path.insert(0, str(ROOT / "api"))
 
 import routers.todos as todos_router  # noqa: E402
 from routers.auth import require_auth  # noqa: E402
+from services.attachments import normalize_allowed_attachment_types  # noqa: E402
 
 
 def assert_true(condition, message):
@@ -121,7 +122,7 @@ def make_db():
     db.execute("INSERT INTO projects (id, name, user_id, is_inbox) VALUES (2, 'Shared', 1, 0)")
     db.execute("INSERT INTO project_members (project_id, user_id, status) VALUES (2, 2, 'accepted')")
     db.execute("INSERT INTO app_config (key, value) VALUES ('attachments_enabled', '1')")
-    db.execute("INSERT INTO app_config (key, value) VALUES ('attachments_allowed_types', '[\"image/*\",\"application/pdf\",\"text/plain\"]')")
+    db.execute("INSERT INTO app_config (key, value) VALUES ('attachments_allowed_types', '[\".png\",\".jpg\",\".jpeg\",\".gif\",\".webp\",\".pdf\",\".txt\"]')")
     db.execute("INSERT INTO app_config (key, value) VALUES ('attachments_default_quota_bytes', '5368709120')")
     db.commit()
     return db
@@ -158,6 +159,10 @@ def make_client(db, user_id=1, broadcast_events=None):
 
 
 def main():
+    assert_true(
+        normalize_allowed_attachment_types("png, jpg, pdf") == [".png", ".jpg", ".pdf"],
+        "Bare attachment extensions should normalize to dot-prefixed extensions",
+    )
     db = make_db()
     broadcast_events = []
     with tempfile.TemporaryDirectory() as tmp:
