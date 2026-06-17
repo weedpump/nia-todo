@@ -49,7 +49,7 @@ export function createSyncFeature({
       case 'UPDATE_TODO':
         return { ...item, data: { id: data.id, changes: pickAllowed(changes, todoFields.filter(f => f !== '_tempId')) } };
       case 'DELETE_TODO':
-        return { ...item, data: { id: data.id } };
+        return { ...item, data: { id: data.id, undo_grace_until: data.undo_grace_until } };
       case 'CREATE_PROJECT':
         return { ...item, data: pickAllowed(data, projectFields) };
       case 'UPDATE_PROJECT':
@@ -120,6 +120,10 @@ export function createSyncFeature({
           }
           successCount++;
         } else if (item.action === 'DELETE_TODO') {
+          const undoGraceUntil = Number(item.data.undo_grace_until || 0);
+          if (undoGraceUntil && Date.now() < undoGraceUntil) {
+            continue;
+          }
           await todosApi.delete(item.data.id);
           await deleteFromDB('todos', item.data.id);
           successCount++;

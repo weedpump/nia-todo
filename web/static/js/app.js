@@ -790,6 +790,8 @@ const toastUndoFeature = createToastUndoFeature({
   getTodos: () => todos,
   setTodos: setTodosState,
   dbPut,
+  dbGetAll,
+  deleteFromDB,
   addToSyncQueue,
   isOnlineForSync,
   syncWithServer,

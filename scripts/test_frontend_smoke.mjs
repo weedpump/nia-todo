@@ -82,7 +82,42 @@ async function run() {
     await visible('#confirm-modal');
     await page.click('#confirm-confirm-btn');
     await page.waitForTimeout(800);
+    const pendingDeleteBeforeUndo = await page.evaluate(async () => {
+      const db = await new Promise((resolve, reject) => {
+        const req = indexedDB.open('nia-todo-db', 4);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+      try {
+        return await new Promise(resolve => {
+          const tx = db.transaction('syncQueue', 'readonly');
+          const req = tx.objectStore('syncQueue').getAll();
+          req.onsuccess = () => resolve(req.result.some(item => item.action === 'DELETE_TODO' && item.data?.undo_grace_until));
+          req.onerror = () => resolve(false);
+        });
+      } finally {
+        db.close();
+      }
+    });
+    if (!pendingDeleteBeforeUndo) throw new Error('Expected todo delete to stay queued during undo grace window');
     await page.click('#toast-undo');
+    await page.waitForFunction(async () => {
+      const db = await new Promise((resolve, reject) => {
+        const req = indexedDB.open('nia-todo-db', 4);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+      try {
+        return await new Promise(resolve => {
+          const tx = db.transaction('syncQueue', 'readonly');
+          const req = tx.objectStore('syncQueue').getAll();
+          req.onsuccess = () => resolve(!req.result.some(item => item.action === 'DELETE_TODO'));
+          req.onerror = () => resolve(false);
+        });
+      } finally {
+        db.close();
+      }
+    }, null, { timeout: 5000 });
     await clickProjectNav('Frontend Smoke Project');
     await waitForText('Frontend Smoke Todo');
 

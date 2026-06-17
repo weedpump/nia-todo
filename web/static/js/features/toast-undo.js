@@ -3,6 +3,8 @@ export function createToastUndoFeature({
   getTodos,
   setTodos,
   dbPut,
+  dbGetAll,
+  deleteFromDB,
   addToSyncQueue,
   isOnlineForSync,
   syncWithServer,
@@ -125,10 +127,19 @@ export function createToastUndoFeature({
     setTodos(existing ? todos.map(t => t.id === data.id ? data : t) : [...todos, data]);
     renderStats();
     renderTodos();
+    const canceledPendingDelete = await cancelPendingTodoDelete(id);
     if (isOnlineForSync()) {
-      await addToSyncQueue('CREATE_TODO', { ...data, _tempId: data.id });
+      if (!canceledPendingDelete) await addToSyncQueue('CREATE_TODO', { ...data, _tempId: data.id });
       await syncWithServer();
     }
+  }
+
+  async function cancelPendingTodoDelete(id) {
+    if (!dbGetAll || !deleteFromDB) return false;
+    const queue = await dbGetAll('syncQueue');
+    const pendingDeletes = queue.filter(item => item?.action === 'DELETE_TODO' && String(item?.data?.id) === String(id));
+    await Promise.all(pendingDeletes.map(item => deleteFromDB('syncQueue', item.id)));
+    return pendingDeletes.length > 0;
   }
 
   return {

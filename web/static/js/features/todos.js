@@ -2372,8 +2372,11 @@ export function createTodosFeature({
     renderTodos();
     closeModal('todo-modal');
     showToast(t('todo.toast.deleted'), { type: 'delete', id, data: { ...todo } });
-    await addToSyncQueue('DELETE_TODO', { id });
+    await addToSyncQueue('DELETE_TODO', { id, undo_grace_until: Date.now() + 5000 });
     if (isOnlineForSync()) await syncWithServer();
+    setTimeout(() => {
+      if (isOnlineForSync()) syncWithServer();
+    }, 5200);
   }
 
   return { markTodoDone, markTodoInProgress, setTodoStatus, toggleTodo, toggleTodoPin, toggleTodoActions, addTodoSubtaskFromInput, addTodoCommentFromInput, uploadTodoAttachmentFromInput, deleteTodoComment, deleteTodoAttachment, closeAttachmentPreview, downloadPreviewAttachment, snoozeTodo, duplicateTodo, showTodoModal, onProjectChange, saveTodo, editTodo, deleteTodoFromModal, deleteTodo };
