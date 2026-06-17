@@ -7,7 +7,7 @@
 - Frontend-focused suite: `npm run test:frontend`
 - Native-focused suite: `npm run test:native`
 
-`./scripts/test_all.sh` is the release gate. It runs 44 serial steps and retries Playwright/realtime-sensitive frontend steps once to filter timing flakes. DB-mutating tests must stay serial.
+`./scripts/test_all.sh` is the release gate. It runs 45 serial steps and retries Playwright/realtime-sensitive frontend steps once to filter timing flakes. DB-mutating tests must stay serial; do not run review agents or another frontend/backend gate against the same dev DB at the same time.
 
 ## Release Gate: `./scripts/test_all.sh`
 
@@ -18,45 +18,46 @@ Current steps:
 3. BrainDump Extractor Normalization Tests — `python3 scripts/test_braindump_v2_extractor_normalization.py`
 4. BrainDump Todo Creation Tests — `python3 scripts/test_braindump_v2_todo_creation.py`
 5. BrainDump Admin STT Probe Tests — `python3 scripts/test_braindump_admin_stt_probe.py`
-6. Email Service Tests — `python3 scripts/test_email_services.py`
-7. 2FA Service/Security Tests — `python3 scripts/test_two_factor_services.py`
-8. Instance Config Service Tests — `python3 scripts/test_instance_config_services.py`
-9. Migration 022 Duplicate Email Test — `python3 scripts/test_migration_022_email_duplicates.py`
-10. Migration Partial Recovery Test — `python3 scripts/test_migration_email_partial_recovery.py`
-11. Release Version Checker Test — `python3 scripts/test_release_versions.py`
-12. Server Update Tests — `python3 scripts/test_server_updates.py`
-13. Admin Password Reset Test — `python3 scripts/test_admin_password_reset.py`
-14. Service Worker Precache Test — `node scripts/test_sw_precache.mjs`
-15. Frontend Smoke Test — `node scripts/test_frontend_smoke.mjs`
-16. Frontend App Test — `node scripts/test_frontend_app.mjs`
-17. Frontend Release Ideas Test — `node scripts/test_frontend_release_ideas.mjs`
-18. Frontend Subtasks Test — `node scripts/test_frontend_subtasks.mjs`
-19. Frontend Setup Test — `node scripts/test_frontend_setup.mjs`
-20. Frontend Admin Test — `node scripts/test_frontend_admin.mjs`
-21. Frontend Password Reset Test — `node scripts/test_frontend_password_reset.mjs`
-22. Frontend Settings Test — `node scripts/test_frontend_settings.mjs`
-23. Frontend User Menu Alignment Test — `node scripts/test_frontend_user_menu_alignment.mjs`
-24. Frontend User Menu Scroll Anchor Test — `node scripts/test_frontend_user_menu_scroll_anchor.mjs`
-25. Frontend Projects Test — `node scripts/test_frontend_projects.mjs`
-26. Frontend Workspaces Test — `node scripts/test_frontend_workspaces.mjs`
-27. Frontend DragDrop Test — `node scripts/test_frontend_dragdrop.mjs`
-28. Frontend Sharing Test — `node scripts/test_frontend_sharing.mjs`
-29. Frontend Security Test — `node scripts/test_frontend_security.mjs`
-30. Frontend Minimal Todo Mode Test — `node scripts/test_frontend_minimal_todos.mjs`
-31. Frontend Session Test — `node scripts/test_frontend_session.mjs`
-32. Frontend Offline Sync Test — `node scripts/test_frontend_offline_sync.mjs`
-33. Frontend Realtime Sync Test — `node scripts/test_frontend_realtime_sync.mjs`
-34. Frontend Native Runtime Config Test — `node scripts/test_frontend_native_runtime_config.mjs`
-35. Frontend Native Passkeys Test — `node scripts/test_frontend_native_passkeys.mjs`
-36. Frontend Native Offline Test — `node scripts/test_frontend_native_offline.mjs`
-37. Frontend Android Reminder Rehydration Test — `node scripts/test_frontend_android_reminder_rehydration.mjs`
-38. Location Reminder Backend Test — `python3 scripts/test_location_reminders.py`
-39. Frontend Location Reminder Test — `node scripts/test_frontend_location_reminders.mjs`
-40. Native Android Location Reminder Test — `node scripts/test_native_android_location_reminders.mjs`
-41. Frontend BrainDump Capture Test — `node scripts/test_frontend_braindump_capture.mjs`
-42. Native Windows Installer Cache Hook Test — `node scripts/test_native_windows_installer_cache_hooks.mjs`
-43. Native Android WebView Cache Migration Test — `node scripts/test_native_android_webview_cache_migration.mjs`
-44. Native Android Reminder Alarm Policy Test — `node scripts/test_native_android_reminder_alarm_policy.mjs`
+6. Todo Attachments API Tests — `python3 scripts/test_todo_attachments.py`
+7. Email Service Tests — `python3 scripts/test_email_services.py`
+8. 2FA Service/Security Tests — `python3 scripts/test_two_factor_services.py`
+9. Instance Config Service Tests — `python3 scripts/test_instance_config_services.py`
+10. Migration 022 Duplicate Email Test — `python3 scripts/test_migration_022_email_duplicates.py`
+11. Migration Partial Recovery Test — `python3 scripts/test_migration_email_partial_recovery.py`
+12. Release Version Checker Test — `python3 scripts/test_release_versions.py`
+13. Server Update Tests — `python3 scripts/test_server_updates.py`
+14. Admin Password Reset Test — `python3 scripts/test_admin_password_reset.py`
+15. Service Worker Precache Test — `node scripts/test_sw_precache.mjs`
+16. Frontend Smoke Test — `node scripts/test_frontend_smoke.mjs`
+17. Frontend App Test — `node scripts/test_frontend_app.mjs`
+18. Frontend Release Ideas Test — `node scripts/test_frontend_release_ideas.mjs`
+19. Frontend Subtasks Test — `node scripts/test_frontend_subtasks.mjs`
+20. Frontend Setup Test — `node scripts/test_frontend_setup.mjs`
+21. Frontend Admin Test — `node scripts/test_frontend_admin.mjs`
+22. Frontend Password Reset Test — `node scripts/test_frontend_password_reset.mjs`
+23. Frontend Settings Test — `node scripts/test_frontend_settings.mjs`
+24. Frontend User Menu Alignment Test — `node scripts/test_frontend_user_menu_alignment.mjs`
+25. Frontend User Menu Scroll Anchor Test — `node scripts/test_frontend_user_menu_scroll_anchor.mjs`
+26. Frontend Projects Test — `node scripts/test_frontend_projects.mjs`
+27. Frontend Workspaces Test — `node scripts/test_frontend_workspaces.mjs`
+28. Frontend DragDrop Test — `node scripts/test_frontend_dragdrop.mjs`
+29. Frontend Sharing Test — `node scripts/test_frontend_sharing.mjs`
+30. Frontend Security Test — `node scripts/test_frontend_security.mjs`
+31. Frontend Minimal Todo Mode Test — `node scripts/test_frontend_minimal_todos.mjs`
+32. Frontend Session Test — `node scripts/test_frontend_session.mjs`
+33. Frontend Offline Sync Test — `node scripts/test_frontend_offline_sync.mjs`
+34. Frontend Realtime Sync Test — `node scripts/test_frontend_realtime_sync.mjs`
+35. Frontend Native Runtime Config Test — `node scripts/test_frontend_native_runtime_config.mjs`
+36. Frontend Native Passkeys Test — `node scripts/test_frontend_native_passkeys.mjs`
+37. Frontend Native Offline Test — `node scripts/test_frontend_native_offline.mjs`
+38. Frontend Android Reminder Rehydration Test — `node scripts/test_frontend_android_reminder_rehydration.mjs`
+39. Location Reminder Backend Test — `python3 scripts/test_location_reminders.py`
+40. Frontend Location Reminder Test — `node scripts/test_frontend_location_reminders.mjs`
+41. Native Android Location Reminder Test — `node scripts/test_native_android_location_reminders.mjs`
+42. Frontend BrainDump Capture Test — `node scripts/test_frontend_braindump_capture.mjs`
+43. Native Windows Installer Cache Hook Test — `node scripts/test_native_windows_installer_cache_hooks.mjs`
+44. Native Android WebView Cache Migration Test — `node scripts/test_native_android_webview_cache_migration.mjs`
+45. Native Android Reminder Alarm Policy Test — `node scripts/test_native_android_reminder_alarm_policy.mjs`
 
 `release.sh` calls `./scripts/test_all.sh` first and aborts immediately on failure: no merge, no tag, no push.
 
@@ -72,6 +73,7 @@ These are covered by npm scripts or useful for targeted work, but not all are pa
 - `python3 scripts/test_braindump_v2_extractor_normalization.py`
 - `python3 scripts/test_braindump_v2_todo_creation.py`
 - `python3 scripts/test_braindump_admin_stt_probe.py`
+- `python3 scripts/test_todo_attachments.py`
 - `python3 scripts/test_default_reminder_offset.py`
 - `python3 scripts/test_instance_config_services.py`
 - `python3 scripts/test_location_reminders.py`
@@ -92,7 +94,7 @@ These are covered by npm scripts or useful for targeted work, but not all are pa
 - `node scripts/test_frontend_todo_quick_status.mjs`
 - `node scripts/test_frontend_quick_add_inline.mjs`
 - `node scripts/test_frontend_braindump_capture.mjs`
-- `node scripts/test_frontend_design_layout.mjs`
+- `node scripts/test_frontend_design_layout.mjs` — layout contracts including mobile FAB/sidebar/quick-action stacking.
 - `node scripts/test_frontend_location_reminders.mjs`
 - `node scripts/test_frontend_login_auth_layout.mjs`
 - `node scripts/test_frontend_mfa_login.mjs`
@@ -142,6 +144,7 @@ Representative coverage:
 - Settings: API keys, push status/test/disable, email verification, password changes, 2FA/passkeys, dialogs without browser popups
 - Projects/workspaces/drag & drop/sharing
 - Security: Markdown XSS, service-worker API cache exclusion, offline sync field allowlist, email enumeration protection, MFA regressions
+- Service Worker precache: every JS module, required app-shell asset, and `index.html` static JS/CSS reference must be precached. Query-string app-shell refs such as cache-busted module URLs require query-insensitive cache matching (`ignoreSearch: true`) so installed PWAs can still start offline.
 - Offline/realtime sync, including subtask persistence through REST, IndexedDB, WebSocket sync responses, and reloads
 - Native runtime config, native offline, native passkeys, native todo actions
 - Android reminder rehydration, location reminders, todo gestures, microphone permission
@@ -183,5 +186,5 @@ Migration tests:
 ## Notes
 
 - Frontend tests run against headless Chromium.
-- Tests back up/restore the dev DB; always run DB-mutating tests serially, not in parallel.
+- Tests back up/restore the dev DB; always run DB-mutating tests serially, not in parallel. After long gates, verify the dev DB still has users (`users > 0`) before starting more tests or reviews.
 - `web/manifest.json` is maintained by the dev/release flow.

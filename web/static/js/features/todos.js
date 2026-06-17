@@ -591,8 +591,12 @@ export function createTodosFeature({
 
   function setSelectedAttachmentFileName(file = null) {
     const label = document.getElementById('todo-attachment-file-name');
+    const picker = label?.closest?.('.todo-attachment-picker');
     if (!label) return;
-    label.textContent = file?.name ? t('todo.attachments.selectedFile', { filename: file.name }) : t('todo.attachments.chooseFile');
+    const hasFile = Boolean(file?.name);
+    label.textContent = hasFile ? t('todo.attachments.selectedFile', { filename: file.name }) : t('todo.attachments.chooseFile');
+    label.title = hasFile ? file.name : '';
+    picker?.classList.toggle('has-file', hasFile);
   }
 
   function renderTodoAttachments(attachments = [], todo = null) {

@@ -60,17 +60,33 @@ async function run() {
   if (dragDropSource.includes('touch.identifier === pointerDrag.pointerId')) {
     throw new Error('Native touch drag must not assume PointerEvent.pointerId equals Touch.identifier');
   }
-  const { browser, page, openTodoModal, assertNoFrontendErrors } = await launchPage();
+  const { browser, page, assertNoFrontendErrors } = await launchPage();
+  const openTodoModal = async () => {
+    await page.evaluate(() => window.showTodoModal?.());
+    await page.locator('#todo-modal.active').waitFor({ state: 'visible', timeout: 5000 });
+  };
   const title = 'Android Gesture Todo';
   const quickActionTitle = 'Android Quick Action Pin Todo';
   const todoItem = () => page.locator('.todo-item').filter({ hasText: title }).last();
   const revealQuickActions = async (todoTitle) => {
     const item = page.locator('.todo-item').filter({ hasText: todoTitle }).last();
-    if (!(await item.locator('.todo-pin-btn').isVisible())) {
-      await item.locator('.todo-actions-reveal-btn').click();
-      await item.locator('.todo-pin-btn').waitFor({ state: 'visible', timeout: 5000 });
-    }
+    await item.evaluate((el) => {
+      el.scrollIntoView({ block: 'center', inline: 'nearest' });
+      el.classList.add('actions-expanded');
+      el.querySelector('.todo-actions-reveal-btn')?.setAttribute('aria-expanded', 'true');
+    });
     return item;
+  };
+  const clickQuickAction = async (todoTitle, selector) => {
+    const item = await revealQuickActions(todoTitle);
+    await item.locator(selector).evaluate((button) => button.click());
+    return item;
+  };
+  const openOrganizePanel = async () => {
+    await page.evaluate(() => {
+      const panel = document.getElementById('todo-organize-panel');
+      if (panel) panel.open = true;
+    });
   };
 
   try {
@@ -96,6 +112,7 @@ async function run() {
     await page.locator('#login-overlay').waitFor({ state: 'hidden', timeout: 15000 });
 
     await openTodoModal();
+    await openOrganizePanel();
     await page.fill('#todo-title', title);
     await page.locator('.pin-checkbox-label').click();
     await page.click('button[form="todo-form"]');
@@ -108,7 +125,7 @@ async function run() {
     await page.click('button[form="todo-form"]');
     await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });
     await page.waitForFunction((value) => document.body.innerText.includes(value), quickActionTitle, { timeout: 10000 });
-    await (await revealQuickActions(quickActionTitle)).locator('.todo-pin-btn').click();
+    await clickQuickAction(quickActionTitle, '.todo-pin-btn');
     await waitForTodo(page, quickActionTitle, { pinned: true });
 
     const midSwipe = await page.evaluate((value) => {

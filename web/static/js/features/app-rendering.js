@@ -540,9 +540,8 @@ export function createAppRenderingFeature({
     return `<section class="overview-dashboard focus-filter-card ${expanded ? 'is-expanded' : 'is-collapsed'}" aria-label="${escapeHtmlAttr(t('focus.aria'))}">
       <div class="overview-dashboard-header focus-filter-heading">
         <div class="overview-greeting">
-          <span class="overview-avatar focus-filter-avatar" aria-hidden="true">${iconSvg('target')}</span>
+          <span class="overview-avatar focus-filter-avatar" aria-hidden="true">${iconSvg('funnel')}</span>
           <div>
-            <div class="overview-kicker">${escapeHtml(t('focus.kicker'))}</div>
             <h2>${escapeHtml(t('focus.title'))}</h2>
             <div class="overview-subtitle">${escapeHtml(t('focus.subtitle'))}</div>
           </div>

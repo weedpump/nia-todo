@@ -291,7 +291,7 @@
           <span class="badge" id="count-all">0</span>
         </button>
         <button class="nav-btn" data-filter="focus" onclick="setFilter('focus')">
-          <span data-icon="target"></span> <span data-i18n-key="nav.focus">Fokus</span>
+          <span data-icon="funnel"></span> <span data-i18n-key="nav.focus">Filter</span>
           <span class="badge" id="count-focus">0</span>
         </button>
         <button class="nav-btn" data-filter="in_progress" onclick="setFilter('in_progress')">
@@ -477,7 +477,7 @@
       <div class="topbar">
         <button class="hamburger" onclick="toggleSidebar()" aria-label="Open menu" data-i18n-aria-label-key="topbar.openMenu"><span data-icon="menu"></span></button>
         <button type="button" class="today-focus-btn" id="today-focus-btn" onclick="toggleTodayFocus()" title="Heute-Fokus" data-i18n-title-key="todayFocus.toggleTitle"><span data-icon="target"></span><span data-i18n-key="todayFocus.short">Fokus</span></button>
-        <button type="button" class="minimal-todos-btn" id="minimal-todos-btn" onclick="toggleMinimalTodos()" title="Minimalistische Todo-Liste" data-i18n-title-key="minimalTodos.toggleTitle"><span data-icon="list"></span><span data-i18n-key="minimalTodos.short">Minimal</span></button>
+        <button type="button" class="minimal-todos-btn" id="minimal-todos-btn" onclick="toggleMinimalTodos()" title="Minimalistische Todo-Liste" data-i18n-title-key="minimalTodos.toggleTitle"><span data-icon="brush-cleaning"></span><span data-i18n-key="minimalTodos.short">Minimal</span></button>
         <div class="search-box" id="search-box">
           <button type="button" class="search-toggle-btn" id="search-toggle-btn" onclick="toggleMobileSearch()" aria-label="Suche öffnen" data-i18n-aria-label-key="common.search" title="Suche" data-i18n-title-key="common.search"><span data-icon="search"></span></button>
           <input type="text" id="search-input" placeholder="Todo suchen..." data-i18n-placeholder-key="topbar.searchTodo" oninput="renderStats();renderTodos()" onkeydown="if(event.key==='Escape')closeMobileSearch()">
@@ -524,7 +524,7 @@
         <input type="hidden" id="todo-id">
         <section class="ui-section-card todo-section-card todo-main-section">
           <div class="ui-section-heading">
-            <div class="ui-section-icon" data-icon="edit-3"></div>
+            <div class="ui-section-icon" data-icon="file-text"></div>
             <div>
               <h4 data-i18n-key="todo.section.content">Inhalt</h4>
               <p data-i18n-key="todo.section.contentHint">Titel und optionale Beschreibung.</p>
@@ -545,7 +545,7 @@
 
         <details class="ui-section-card todo-section-card todo-collapsible-card todo-subtasks-card" id="todo-subtasks-panel">
           <summary class="ui-section-heading todo-collapsible-summary">
-            <div class="ui-section-icon" data-icon="list"></div>
+            <div class="ui-section-icon" data-icon="list-todo"></div>
             <div>
               <h4 data-i18n-key="todo.subtasks">Subtasks</h4>
               <p data-i18n-key="todo.subtasks.hint">Add checklist items for this todo.</p>
@@ -569,7 +569,7 @@
 
         <details class="ui-section-card todo-section-card todo-collapsible-card todo-comments-card" id="todo-comments-panel">
           <summary class="ui-section-heading todo-collapsible-summary">
-            <div class="ui-section-icon" data-icon="edit-3"></div>
+            <div class="ui-section-icon" data-icon="notebook-pen"></div>
             <div>
               <h4 data-i18n-key="todo.comments">Comments</h4>
               <p data-i18n-key="todo.comments.hint">Add comments to this todo.</p>
@@ -1381,6 +1381,6 @@
     <button class="toast-close" onclick="hideToast()"><span data-icon="x"></span></button>
   </div>
 
-  <script type="module" src="/static/js/main.js"></script>
+  <script type="module" src="/static/js/main.js?v=auto-scrollbars"></script>
 </body>
 </html>
