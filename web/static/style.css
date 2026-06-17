@@ -11193,3 +11193,30 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
     padding-bottom: max(44px, calc(28px + env(safe-area-inset-bottom, 0px)));
   }
 }
+
+/* Todo detail mobile viewport v38: remove artificial bottom tail; rely on correct dynamic viewport sizing. */
+@media (max-width: 768px) {
+  #todo-modal.todo-detail-view .todo-modal-content {
+    height: 100dvh;
+    max-height: 100dvh;
+  }
+
+  #todo-modal.todo-detail-view .todo-modal-body {
+    padding-bottom: clamp(14px, 3vw, 18px);
+  }
+
+  #todo-modal.todo-detail-view .todo-modal-form {
+    padding-bottom: 0;
+  }
+}
+
+@media (max-width: 1180px) {
+  #todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer {
+    height: 100dvh;
+    max-height: 100dvh;
+  }
+
+  #todo-modal.todo-detail-view.todo-meta-editing .todo-meta-drawer-body {
+    padding-bottom: 18px;
+  }
+}
