@@ -230,7 +230,7 @@ export function createTodosFeature({
       menu.id = 'todo-detail-header-actions';
       menu.className = 'todo-detail-header-actions';
       menu.innerHTML = `
-        <summary aria-label="${t('common.more') || 'More'}">${iconSvg('ellipsis')}</summary>
+        <summary aria-label="${t('common.more') || 'More'}">${iconSvg('menu')}</summary>
         <div class="todo-detail-header-menu ui-menu" role="menu">
           <button type="button" class="ui-menu-item" id="todo-detail-duplicate-action" role="menuitem">${iconSvg('copy')}<span>${t('todo.duplicate')}</span></button>
           <button type="button" class="ui-menu-item danger" id="todo-detail-delete-action" role="menuitem">${iconSvg('trash-2')}<span>${t('todo.delete')}</span></button>
@@ -248,6 +248,13 @@ export function createTodosFeature({
       menu.querySelector('#todo-detail-delete-action')?.addEventListener('click', () => {
         menu.removeAttribute('open');
         deleteTodoFromModal();
+      });
+    }
+    if (menu.dataset.outsideCloseBound !== '1') {
+      menu.dataset.outsideCloseBound = '1';
+      document.addEventListener('pointerdown', (event) => {
+        if (!menu.open || menu.contains(event.target)) return;
+        menu.removeAttribute('open');
       });
     }
     return menu;
