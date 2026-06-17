@@ -1718,8 +1718,6 @@ export function createTodosFeature({
       item.style.removeProperty('--swipe-progress');
       item.removeAttribute('data-swipe-right-label');
       item.removeAttribute('data-swipe-left-label');
-      item.scrollLeft = 0;
-      item.scrollTop = 0;
     }
 
     function wait(ms) {

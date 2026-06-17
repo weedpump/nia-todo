@@ -1111,17 +1111,6 @@ select:focus-visible {
 .todo-item.swipe-settling,
 .todo-item.swipe-committing {
   transition: transform 0.2s cubic-bezier(.2, .82, .22, 1), border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
-  scrollbar-width: none;
-}
-
-.todo-item.swipe-settling::-webkit-scrollbar,
-.todo-item.swipe-committing::-webkit-scrollbar {
-  display: none;
-}
-
-.todo-item.swipe-settling::before,
-.todo-item.swipe-settling::after {
-  opacity: 0;
 }
 
 .todo-item.swipe-committing {
