@@ -10377,3 +10377,46 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
 #todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer #todo-location-address-group {
   grid-column: 1 / -1;
 }
+
+/* Todo meta drawer v19: force location reminder checkbox back into switch shape. */
+#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer .todo-location-toggle-row input[type="checkbox"].settings-switch {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  box-sizing: border-box;
+  display: inline-block;
+  width: 46px !important;
+  min-width: 46px !important;
+  max-width: 46px !important;
+  height: 26px !important;
+  min-height: 26px !important;
+  padding: 0 !important;
+  border-radius: 999px !important;
+  border: 1px solid color-mix(in srgb, var(--border) 78%, var(--text-muted)) !important;
+  background: var(--bg-tertiary) !important;
+  position: relative;
+  cursor: pointer;
+  flex: 0 0 46px !important;
+}
+
+#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer .todo-location-toggle-row input[type="checkbox"].settings-switch::after {
+  content: '';
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  top: 2px;
+  left: 2px;
+  border-radius: 999px;
+  background: var(--text-secondary);
+  box-shadow: 0 2px 5px rgba(0,0,0,.28);
+  transition: transform .16s, background .16s;
+}
+
+#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer .todo-location-toggle-row input[type="checkbox"].settings-switch:checked {
+  background: color-mix(in srgb, var(--success) 72%, var(--accent)) !important;
+  border-color: color-mix(in srgb, var(--success) 86%, white) !important;
+}
+
+#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer .todo-location-toggle-row input[type="checkbox"].settings-switch:checked::after {
+  transform: translateX(20px);
+  background: white;
+}
