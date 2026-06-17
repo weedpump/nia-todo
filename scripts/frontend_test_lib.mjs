@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { chromium } from 'playwright';
-import { existsSync, renameSync, unlinkSync, mkdirSync } from 'node:fs';
+import { existsSync, renameSync, unlinkSync, mkdirSync, rmSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { execFileSync } from 'node:child_process';
 
@@ -8,6 +8,8 @@ export const BASE_URL = process.env.NIA_TODO_URL || 'http://localhost:8754';
 export const SERVICE = process.env.NIA_TODO_SERVICE || 'nia-todo-dev';
 export const DB_PATH = '~/projects/nia-todo-dev/api/data/nia-todo-dev.db';
 export const DB_BACKUP = '~/projects/nia-todo-dev/api/data/nia-todo-dev.db.frontend-test-backup';
+export const ATTACHMENT_DIR = '~/projects/nia-todo-dev/api/data/attachments';
+export const ATTACHMENT_BACKUP = '~/projects/nia-todo-dev/api/data/attachments.frontend-test-backup';
 export const ADMIN_PASSWORD = 'FrontendAdmin123!';
 export const USERNAME = 'frontenduser';
 export const USER_PASSWORD = 'FrontendPass123!';
@@ -52,12 +54,16 @@ export function backupDb() {
   mkdirSync(dirname(DB_PATH), { recursive: true });
   if (existsSync(DB_BACKUP)) unlinkSync(DB_BACKUP);
   if (existsSync(DB_PATH)) renameSync(DB_PATH, DB_BACKUP);
+  if (existsSync(ATTACHMENT_BACKUP)) rmSync(ATTACHMENT_BACKUP, { recursive: true, force: true });
+  if (existsSync(ATTACHMENT_DIR)) renameSync(ATTACHMENT_DIR, ATTACHMENT_BACKUP);
 }
 
 export function restoreDb() {
   try { service('stop'); } catch {}
   if (existsSync(DB_PATH)) unlinkSync(DB_PATH);
   if (existsSync(DB_BACKUP)) renameSync(DB_BACKUP, DB_PATH);
+  if (existsSync(ATTACHMENT_DIR)) rmSync(ATTACHMENT_DIR, { recursive: true, force: true });
+  if (existsSync(ATTACHMENT_BACKUP)) renameSync(ATTACHMENT_BACKUP, ATTACHMENT_DIR);
   service('start');
 }
 

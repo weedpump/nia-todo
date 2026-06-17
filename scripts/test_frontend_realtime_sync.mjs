@@ -92,7 +92,7 @@ async function run() {
 
     await pageA.locator('.todo-item').filter({ hasText: 'Realtime Sync Todo' }).first().click();
     await pageA.locator('#todo-modal').waitFor({ state: 'visible', timeout: 5000 });
-    await pageA.selectOption('#todo-status', 'done');
+    await pageA.selectOption('#todo-status', 'done', { force: true });
     await pageA.click('button[form="todo-form"]');
     await pageA.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });
 

@@ -2,17 +2,25 @@
 
 import calendar
 import json
+import re
+import secrets
+import shutil
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Optional
+from urllib.parse import quote, unquote
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError, available_timezones
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from db import get_db, row_to_dict, now_iso
+from paths import ATTACHMENT_DIR
 from routers.auth import require_auth
 from services.websocket import broadcast_change
 from services.utils import sanitize_text
 from services.sharing import can_access_project, can_manage_todos, get_project_ids_for_user
+from services.attachments import MAX_ATTACHMENT_BYTES, attachment_usage_payload, enforce_attachment_upload_policy, sniff_attachment_content_type
 
 router = APIRouter(prefix="/api/todos")
 
@@ -84,6 +92,7 @@ FORBIDDEN_LOCATION_COORDINATE_FIELDS = {
 }
 AUTO_REMINDER_SOURCE = "default_due"
 EXPLICIT_REMINDER_SOURCE = "explicit"
+MAX_ATTACHMENTS_PER_TODO = 20
 
 
 def get_user_inbox_project_id(db, user_id: int) -> Optional[int]:
@@ -116,6 +125,87 @@ def _comments_for_todo(db, todo_id: int) -> list[dict]:
         (todo_id,)
     ).fetchall()
     return [dict(row) for row in rows]
+
+
+
+def _attachment_table_exists(db) -> bool:
+    row = db.execute("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'todo_attachments'").fetchone()
+    return bool(row)
+
+
+def _attachments_for_todo(db, todo_id: int) -> list[dict]:
+    if not _attachment_table_exists(db):
+        return []
+    rows = db.execute(
+        """SELECT ta.id, ta.todo_id, ta.user_id, ta.original_filename, ta.content_type, ta.size_bytes,
+                  ta.created_at, u.username AS uploader_username, u.display_name AS uploader_display_name
+           FROM todo_attachments ta
+           LEFT JOIN users u ON u.id = ta.user_id
+           WHERE ta.todo_id = ?
+           ORDER BY ta.created_at, ta.id""",
+        (todo_id,)
+    ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def _attachment_count_for_todo(db, todo_id: int) -> int:
+    if not _attachment_table_exists(db):
+        return 0
+    row = db.execute("SELECT COUNT(*) AS count FROM todo_attachments WHERE todo_id = ?", (todo_id,)).fetchone()
+    return int(row['count'] if row else 0)
+
+
+def _attachment_event_payload(db, todo_id: int, *, attachment: dict | None = None, attachment_id: int | None = None) -> dict:
+    row = db.execute("SELECT updated_at FROM todos WHERE id = ?", (todo_id,)).fetchone()
+    payload = {
+        "todo_id": todo_id,
+        "attachments_count": _attachment_count_for_todo(db, todo_id),
+        "updated_at": row['updated_at'] if row else now_iso(),
+    }
+    if attachment is not None:
+        payload["attachment"] = attachment
+    if attachment_id is not None:
+        payload["attachment_id"] = attachment_id
+    return payload
+
+
+def _attachment_row(db, attachment_id: int) -> dict | None:
+    row = db.execute(
+        """SELECT ta.id, ta.todo_id, ta.user_id, ta.original_filename, ta.stored_filename,
+                  ta.content_type, ta.size_bytes, ta.created_at,
+                  u.username AS uploader_username, u.display_name AS uploader_display_name
+           FROM todo_attachments ta
+           LEFT JOIN users u ON u.id = ta.user_id
+           WHERE ta.id = ?""",
+        (attachment_id,)
+    ).fetchone()
+    return dict(row) if row else None
+
+
+def _public_attachment(row: dict) -> dict:
+    return {k: row.get(k) for k in (
+        'id', 'todo_id', 'user_id', 'original_filename', 'content_type', 'size_bytes',
+        'created_at', 'uploader_username', 'uploader_display_name'
+    )}
+
+
+def _safe_attachment_filename(raw_name: str | None) -> str:
+    name = unquote(str(raw_name or '')).replace('\\', '/').split('/')[-1].strip()
+    name = sanitize_text(name) or 'attachment'
+    name = re.sub(r'[^A-Za-z0-9._ -]+', '_', name).strip(' ._') or 'attachment'
+    if len(name) > 180:
+        stem = Path(name).stem[:140] or 'attachment'
+        suffix = Path(name).suffix[:20]
+        name = f"{stem}{suffix}"
+    return name
+
+
+def _stored_attachment_path(todo_id: int, stored_filename: str) -> Path:
+    base = (ATTACHMENT_DIR / str(todo_id)).resolve()
+    target = (base / stored_filename).resolve()
+    if base not in target.parents and target != base:
+        raise HTTPException(400, "Invalid attachment path")
+    return target
 
 
 def _normalize_comment_body(body: str) -> str:
@@ -246,6 +336,8 @@ def fetch_todo(db, todo_id: int, reminder_user_id: Optional[int] = None) -> Opti
     d['subtasks'] = _subtasks_for_todo(db, todo_id)
     d['comments'] = _comments_for_todo(db, todo_id)
     d['comments_count'] = len(d['comments'])
+    d['attachments'] = _attachments_for_todo(db, todo_id)
+    d['attachments_count'] = len(d['attachments'])
     d['location_reminders'] = _location_reminders_for_todo(db, todo_id, reminder_user_id)
     d['location_reminder'] = d['location_reminders'][0] if d['location_reminders'] else None
     return _recurring_rule_response(d)
@@ -256,6 +348,50 @@ def _todo_project_access(db, todo: dict, user_id: int) -> bool:
     if project_id is None:
         return todo.get('user_id') == user_id
     return can_access_project(db, project_id, user_id) or todo.get('user_id') == user_id
+
+
+def _todo_attachment_write_access(db, todo: dict, user_id: int) -> bool:
+    project_id = todo.get('project_id')
+    if project_id is None:
+        return todo.get('user_id') == user_id
+    return can_manage_todos(db, project_id, user_id) or todo.get('user_id') == user_id
+
+
+def _require_attachment_readable_todo(db, todo_id: int, user_id: int) -> dict:
+    todo = fetch_todo(db, todo_id, user_id)
+    if not todo or not _todo_project_access(db, todo, user_id):
+        raise HTTPException(404, "Todo not found")
+    return todo
+
+
+def _require_attachment_writable_todo(db, todo_id: int, user_id: int) -> dict:
+    todo = fetch_todo(db, todo_id, user_id)
+    if not todo or not _todo_attachment_write_access(db, todo, user_id):
+        raise HTTPException(404, "Todo not found")
+    return todo
+
+
+async def _stream_attachment_to_temp(request: Request, tmp_path: Path) -> tuple[int, bytes]:
+    content_length = request.headers.get("content-length")
+    if content_length:
+        try:
+            if int(content_length) > MAX_ATTACHMENT_BYTES:
+                raise HTTPException(413, "Attachment is too large")
+        except ValueError:
+            raise HTTPException(400, "Invalid Content-Length")
+    total = 0
+    sample = bytearray()
+    with tmp_path.open("wb") as handle:
+        async for chunk in request.stream():
+            if not chunk:
+                continue
+            total += len(chunk)
+            if total > MAX_ATTACHMENT_BYTES:
+                raise HTTPException(413, "Attachment is too large")
+            if len(sample) < 512:
+                sample.extend(chunk[:512 - len(sample)])
+            handle.write(chunk)
+    return total, bytes(sample)
 
 
 def _validate_todo_target(db, project_id: Optional[int], section_id: Optional[int], user_id: int):
@@ -634,6 +770,7 @@ def list_todos(status: Optional[str] = None, project_id: Optional[int] = None, s
         reminders_by_todo = {todo_id: [] for todo_id in todo_ids}
         subtasks_by_todo = {todo_id: [] for todo_id in todo_ids}
         comments_by_todo = {todo_id: [] for todo_id in todo_ids}
+        attachments_by_todo = {todo_id: [] for todo_id in todo_ids}
         location_reminders_by_todo = {todo_id: [] for todo_id in todo_ids}
         if todo_ids:
             placeholders = ','.join('?' for _ in todo_ids)
@@ -669,6 +806,19 @@ def list_todos(status: Optional[str] = None, project_id: Optional[int] = None, s
             for comment in comment_rows:
                 comment_dict = dict(comment)
                 comments_by_todo.setdefault(comment_dict.get('todo_id'), []).append(comment_dict)
+            if _attachment_table_exists(db):
+                attachment_rows = db.execute(
+                    f"""SELECT ta.id, ta.todo_id, ta.user_id, ta.original_filename, ta.content_type, ta.size_bytes,
+                              ta.created_at, u.username AS uploader_username, u.display_name AS uploader_display_name
+                       FROM todo_attachments ta
+                       LEFT JOIN users u ON u.id = ta.user_id
+                       WHERE ta.todo_id IN ({placeholders})
+                       ORDER BY ta.created_at, ta.id""",
+                    todo_ids
+                ).fetchall()
+                for attachment in attachment_rows:
+                    attachment_dict = dict(attachment)
+                    attachments_by_todo.setdefault(attachment_dict.get('todo_id'), []).append(attachment_dict)
             try:
                 location_rows = db.execute(
                     f"""SELECT lr.*, sp.name AS place_name, sp.icon AS place_icon FROM location_reminders lr
@@ -687,6 +837,8 @@ def list_todos(status: Optional[str] = None, project_id: Optional[int] = None, s
             todo['subtasks'] = subtasks_by_todo.get(todo['id'], [])
             todo['comments'] = comments_by_todo.get(todo['id'], [])
             todo['comments_count'] = len(todo['comments'])
+            todo['attachments'] = attachments_by_todo.get(todo['id'], [])
+            todo['attachments_count'] = len(todo['attachments'])
             todo['location_reminders'] = location_reminders_by_todo.get(todo['id'], [])
             todo['location_reminder'] = todo['location_reminders'][0] if todo['location_reminders'] else None
             _recurring_rule_response(todo)
@@ -1031,6 +1183,114 @@ async def delete_todo_comment(todo_id: int, comment_id: int, user_id: int = Depe
         await broadcast_change("todo_comment_delete", _comment_event_payload(db, todo_id, comment_id=comment_id), user_id, todo.get('project_id'))
         return {"deleted": comment_id, "todo": todo}
 
+
+@router.get("/attachments/usage")
+def get_attachment_usage(user_id: int = Depends(require_auth)):
+    with get_db() as db:
+        return attachment_usage_payload(db, user_id)
+
+
+@router.get("/{todo_id}/attachments")
+def list_todo_attachments(todo_id: int, user_id: int = Depends(require_auth)):
+    with get_db() as db:
+        _require_attachment_readable_todo(db, todo_id, user_id)
+        return {"attachments": _attachments_for_todo(db, todo_id)}
+
+
+@router.post("/{todo_id}/attachments")
+async def upload_todo_attachment(todo_id: int, request: Request, user_id: int = Depends(require_auth)):
+    content_type = (request.headers.get("content-type") or "application/octet-stream").split(";", 1)[0].strip().lower() or "application/octet-stream"
+    original_filename = _safe_attachment_filename(
+        request.headers.get("x-nia-filename") or request.headers.get("x-file-name") or request.headers.get("x-filename")
+    )
+    suffix = Path(original_filename).suffix[:20]
+    stored_filename = f"{secrets.token_hex(16)}{suffix}"
+    target_path = _stored_attachment_path(todo_id, stored_filename)
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = target_path.with_suffix(target_path.suffix + f".{secrets.token_hex(6)}.tmp")
+    try:
+        with get_db() as db:
+            todo = _require_attachment_writable_todo(db, todo_id, user_id)
+        size_bytes, sample = await _stream_attachment_to_temp(request, tmp_path)
+        if size_bytes <= 0:
+            raise HTTPException(400, "Attachment is required")
+        detected_content_type = sniff_attachment_content_type(sample)
+        with get_db() as db:
+            todo = _require_attachment_writable_todo(db, todo_id, user_id)
+            db.commit()
+            db.execute("BEGIN IMMEDIATE")
+            policy = enforce_attachment_upload_policy(
+                db,
+                user_id=user_id,
+                filename=original_filename,
+                content_type=content_type,
+                size_bytes=size_bytes,
+                detected_content_type=detected_content_type,
+            )
+            current_count = _attachment_count_for_todo(db, todo_id)
+            if current_count >= MAX_ATTACHMENTS_PER_TODO:
+                raise HTTPException(422, "Too many attachments")
+            tmp_path.replace(target_path)
+            now = now_iso()
+            try:
+                cursor = db.execute(
+                    """INSERT INTO todo_attachments
+                       (todo_id, user_id, original_filename, stored_filename, content_type, size_bytes, created_at)
+                       VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                    (todo_id, user_id, original_filename, stored_filename, policy["content_type"], size_bytes, now),
+                )
+                db.execute("UPDATE todos SET updated_at = ? WHERE id = ?", (now, todo_id))
+                db.commit()
+            except Exception:
+                try:
+                    target_path.unlink(missing_ok=True)
+                finally:
+                    raise
+            attachment = _public_attachment(_attachment_row(db, cursor.lastrowid))
+            updated_todo = fetch_todo(db, todo_id, user_id)
+            await broadcast_change("todo_attachment_create", _attachment_event_payload(db, todo_id, attachment=attachment), user_id, updated_todo.get('project_id'))
+            return {"attachment": attachment, "todo": updated_todo, "usage": attachment_usage_payload(db, user_id)}
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
+
+@router.get("/{todo_id}/attachments/{attachment_id}/download")
+def download_todo_attachment(todo_id: int, attachment_id: int, user_id: int = Depends(require_auth)):
+    with get_db() as db:
+        _require_attachment_readable_todo(db, todo_id, user_id)
+        attachment = _attachment_row(db, attachment_id)
+        if not attachment or int(attachment['todo_id']) != int(todo_id):
+            raise HTTPException(404, "Attachment not found")
+        path = _stored_attachment_path(todo_id, attachment['stored_filename'])
+        if not path.exists() or not path.is_file():
+            raise HTTPException(404, "Attachment file not found")
+        filename = attachment.get('original_filename') or 'attachment'
+        encoded = quote(filename)
+        return FileResponse(
+            str(path),
+            media_type=attachment.get('content_type') or 'application/octet-stream',
+            filename=filename,
+            headers={"Content-Disposition": f"attachment; filename*=UTF-8''{encoded}"},
+        )
+
+
+@router.delete("/{todo_id}/attachments/{attachment_id}")
+async def delete_todo_attachment(todo_id: int, attachment_id: int, user_id: int = Depends(require_auth)):
+    with get_db() as db:
+        todo = _require_attachment_writable_todo(db, todo_id, user_id)
+        attachment = _attachment_row(db, attachment_id)
+        if not attachment or int(attachment['todo_id']) != int(todo_id):
+            raise HTTPException(404, "Attachment not found")
+        now = now_iso()
+        db.execute("DELETE FROM todo_attachments WHERE id = ?", (attachment_id,))
+        db.execute("UPDATE todos SET updated_at = ? WHERE id = ?", (now, todo_id))
+        db.commit()
+        path = _stored_attachment_path(todo_id, attachment['stored_filename'])
+        path.unlink(missing_ok=True)
+        updated_todo = fetch_todo(db, todo_id, user_id)
+        await broadcast_change("todo_attachment_delete", _attachment_event_payload(db, todo_id, attachment_id=attachment_id), user_id, updated_todo.get('project_id'))
+        return {"deleted": attachment_id, "todo": updated_todo}
+
 @router.delete("/{todo_id}")
 async def delete_todo(todo_id: int, user_id: int = Depends(require_auth)):
     with get_db() as db:
@@ -1041,5 +1301,6 @@ async def delete_todo(todo_id: int, user_id: int = Depends(require_auth)):
             raise HTTPException(403, "Not authorized")
         db.execute("DELETE FROM todos WHERE id = ?", (todo_id,))
         db.commit()
+        shutil.rmtree(ATTACHMENT_DIR / str(todo_id), ignore_errors=True)
         await broadcast_change("todo_delete", {"id": todo_id}, user_id, existing.get('project_id'))
         return {"deleted": todo_id}

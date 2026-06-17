@@ -55,9 +55,9 @@ async function run() {
     await page.waitForFunction(() => document.activeElement?.id === 'todo-title', null, { timeout: 5000 });
     await page.fill('#todo-title', 'Frontend Smoke Todo');
     await page.fill('#todo-desc', '**Smoke** test via Playwright');
-    await page.selectOption('#todo-project', { label: 'Frontend Smoke Project' });
+    await page.selectOption('#todo-project', { label: 'Frontend Smoke Project' }, { force: true });
     await ensureSectionOptions(['Frontend Section A', 'Frontend Section B']);
-    await page.selectOption('#todo-section', { label: 'Frontend Section A' });
+    await page.selectOption('#todo-section', { label: 'Frontend Section A' }, { force: true });
     await page.click('button[form="todo-form"]');
     await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });
     await waitForText('Frontend Smoke Todo');

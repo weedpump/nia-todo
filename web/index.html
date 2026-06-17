@@ -589,6 +589,32 @@
           </div>
         </details>
 
+        <details class="ui-section-card todo-section-card todo-collapsible-card todo-attachments-card" id="todo-attachments-panel">
+          <summary class="ui-section-heading todo-collapsible-summary">
+            <div class="ui-section-icon" data-icon="paperclip"></div>
+            <div>
+              <h4 data-i18n-key="todo.attachments">Attachments</h4>
+              <p data-i18n-key="todo.attachments.hint">Attach files or photos to this todo.</p>
+            </div>
+            <span class="todo-collapsible-spacer"></span>
+            <span id="todo-attachments-count" class="todo-meta-chip todo-attachments-progress" aria-live="polite">0</span>
+            <span class="todo-collapsible-chevron" data-icon="chevron-down" aria-hidden="true"></span>
+          </summary>
+          <div class="todo-attachments-editor">
+            <div id="todo-attachments-list" class="todo-attachments-list"></div>
+            <p id="todo-attachments-empty" class="todo-attachments-empty" data-i18n-key="todo.attachments.empty">No attachments yet.</p>
+            <div class="form-group todo-attachments-add-group">
+              <label for="todo-attachment-file" data-i18n-key="todo.attachments.newLabel">Add attachment</label>
+              <div class="todo-attachments-add-row">
+                <input type="file" id="todo-attachment-file" class="visually-hidden">
+                <button type="button" class="todo-attachment-picker btn btn-secondary" onclick="document.getElementById('todo-attachment-file').click()"><span data-icon="paperclip"></span> <span id="todo-attachment-file-name" data-i18n-key="todo.attachments.chooseFile">Datei auswählen</span></button>
+                <button type="button" id="todo-attachment-upload-btn" class="btn btn-secondary" onclick="uploadTodoAttachmentFromInput()"><span data-icon="upload"></span> <span data-i18n-key="todo.attachments.upload">Upload</span></button>
+              </div>
+            </div>
+          </div>
+        </details>
+
+
         <details class="ui-section-card todo-section-card todo-collapsible-card" id="todo-organize-panel">
           <summary class="ui-section-heading todo-collapsible-summary">
             <div class="ui-section-icon" data-icon="settings"></div>
@@ -809,6 +835,7 @@
           <a href="#settings-section-profile"><span data-icon="user"></span><span data-i18n-key="settings.section.profile">Profil</span></a>
           <a href="#settings-section-language"><span data-icon="book-open"></span><span data-i18n-key="settings.language.label">Language</span></a>
           <a href="#settings-section-default-reminder"><span data-icon="bell"></span><span data-i18n-key="settings.defaultReminder.title">Default reminder</span></a>
+          <a href="#settings-section-attachments"><span data-icon="paperclip"></span><span data-i18n-key="settings.attachments.title">Anhänge</span></a>
           <a href="#settings-section-places"><span data-icon="map-pin"></span><span data-i18n-key="settings.places.title">Places</span></a>
           <a href="#settings-section-braindump" id="settings-nav-braindump"><span data-icon="sparkles"></span><span data-i18n-key="settings.braindump.title">BrainDump</span></a>
           <a href="#settings-section-security"><span data-icon="shield"></span><span data-i18n-key="settings.section.security">Sicherheit</span></a>
@@ -913,6 +940,28 @@
               <div class="settings-help-text" data-i18n-key="settings.defaultReminder.help">Explicit reminders are kept and never overwritten.</div>
               <div id="settings-default-reminder-error" class="settings-field-error"></div>
               <div id="settings-default-reminder-success" class="settings-field-success"></div>
+            </div>
+          </section>
+
+          <section class="settings-section-card" id="settings-section-attachments">
+            <div class="settings-section-heading">
+              <div class="settings-section-icon" data-icon="paperclip"></div>
+              <div>
+                <h4 data-i18n-key="settings.attachments.title">Anhänge</h4>
+                <p data-i18n-key="settings.attachments.hint">Speichernutzung deiner Todo-Anhänge.</p>
+              </div>
+            </div>
+            <div class="settings-subcard settings-attachments-usage-card">
+              <div class="settings-field-row">
+                <div class="settings-field-label" data-i18n-key="settings.attachments.status">Status</div>
+                <div id="settings-attachments-status" class="settings-readonly-value">–</div>
+              </div>
+              <div class="settings-field-row">
+                <div class="settings-field-label" data-i18n-key="settings.attachments.usage">Belegt</div>
+                <div id="settings-attachments-usage" class="settings-readonly-value">–</div>
+              </div>
+              <div class="settings-attachments-meter"><span id="settings-attachments-meter-fill"></span></div>
+              <div class="settings-help-text" id="settings-attachments-remaining">–</div>
             </div>
           </section>
 
@@ -1306,6 +1355,21 @@
         <button type="button" class="btn btn-danger" id="project-delete-btn" onclick="deleteProjectFromModal()" style="margin-right:auto;display:none;"><span data-icon="trash-2"></span> <span data-i18n-key="project.delete">Delete project</span></button>
         <button type="button" class="btn btn-secondary" onclick="closeModal('project-modal')" data-i18n-key="common.cancel">Cancel</button>
         <button type="submit" form="project-form" class="btn btn-primary" id="project-save-btn" data-i18n-key="common.save">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="attachment-preview-modal">
+    <div class="modal-overlay" onclick="closeAttachmentPreview()"></div>
+    <div class="modal-content attachment-preview-modal-content">
+      <button class="modal-close-x" onclick="closeAttachmentPreview()"><span data-icon="x"></span></button>
+      <div class="modal-header">
+        <h3 id="attachment-preview-title" data-i18n-key="todo.attachments.preview">Vorschau</h3>
+      </div>
+      <div class="modal-body attachment-preview-body" id="attachment-preview-body"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" onclick="closeAttachmentPreview()" data-i18n-key="common.close">Schließen</button>
+        <button type="button" class="btn btn-primary" id="attachment-preview-download-btn" onclick="downloadPreviewAttachment()"><span data-icon="download"></span> <span data-i18n-key="todo.attachments.download">Download</span></button>
       </div>
     </div>
   </div>

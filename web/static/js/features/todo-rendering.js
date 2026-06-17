@@ -46,7 +46,9 @@ export function renderTodoItem(t) {
   const subtaskProgress = hasSubtasks ? i18nT('todo.subtasks.progress', { done: doneSubtasks, total: subtasks.length }) : '';
   const commentsCount = Number(t.comments_count ?? (Array.isArray(t.comments) ? t.comments.length : 0)) || 0;
   const hasComments = commentsCount > 0;
-  const hasMeta = dueStr || remindStr || recurrenceStr || locationStr || hasSubtasks || hasComments;
+  const attachmentsCount = Number(t.attachments_count ?? (Array.isArray(t.attachments) ? t.attachments.length : 0)) || 0;
+  const hasAttachments = attachmentsCount > 0;
+  const hasMeta = dueStr || remindStr || recurrenceStr || locationStr || hasSubtasks || hasComments || hasAttachments;
   const desc = t.description ? truncateWords(String(t.description).replace(/\s+/g, ' ').trim(), 18) : '';
   const hasDesc = desc && desc.length > 0;
   const idArg = JSON.stringify(t.id);
@@ -71,6 +73,7 @@ export function renderTodoItem(t) {
               ${locationStr ? `<span class="todo-meta-chip todo-location" title="${escapeHtmlAttr(i18nT('todo.location.androidOnlyPillTitle'))}">${iconSvg('map-pin')} ${escapeHtml(locationStr)}</span>` : ''}
               ${hasSubtasks ? `<span class="todo-meta-chip todo-subtasks-progress">${iconSvg('list')} ${escapeHtml(subtaskProgress)}</span>` : ''}
               ${hasComments ? `<span class="todo-meta-chip todo-comments-progress">${iconSvg('edit-3')} ${escapeHtml(i18nT('todo.comments.count', { count: commentsCount }))}</span>` : ''}
+              ${hasAttachments ? `<span class="todo-meta-chip todo-attachments-progress">${iconSvg('paperclip')} ${escapeHtml(i18nT('todo.attachments.count', { count: attachmentsCount }))}</span>` : ''}
             </div>
             ` : ''}
             ${hasDesc ? `<div class="todo-desc-preview" title="${escapeHtmlAttr(String(t.description || ''))}">${renderMarkdown(desc)}</div>` : ''}

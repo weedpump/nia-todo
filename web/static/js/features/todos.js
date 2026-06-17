@@ -11,6 +11,7 @@ export function createTodosFeature({
   getCurrentProjectId,
   getCurrentWorkspaceId,
   getCurrentUser,
+  setCurrentUser,
   getAppInitialized,
   getDb,
   dbPut,
@@ -35,7 +36,18 @@ export function createTodosFeature({
   let todoFormBound = false;
   let savedPlaces = [];
   let todoSaveSnapshot = null;
+  let attachmentPreviewObjectUrl = '';
+  let attachmentPreviewDownload = null;
   const deletingSubtaskIds = new Set();
+
+  function escapeHtmlAttr(value) {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
 
   function normalizeSubtasks(subtasks = []) {
     return (Array.isArray(subtasks) ? subtasks : [])
@@ -531,6 +543,284 @@ export function createTodosFeature({
     }
   }
 
+  function formatAttachmentSize(bytes) {
+    const size = Number(bytes) || 0;
+    if (size < 1024) return `${size} B`;
+    if (size < 1024 * 1024) return `${Math.round(size / 1024)} KB`;
+    if (size < 1024 * 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(size >= 10 * 1024 * 1024 ? 0 : 1)} MB`;
+    return `${(size / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+  }
+
+  function attachmentIconName(attachment = {}) {
+    const type = String(attachment.content_type || '').toLowerCase();
+    const name = String(attachment.original_filename || '').toLowerCase();
+    if (type.startsWith('image/')) return 'file-image';
+    if (type === 'application/pdf' || name.endsWith('.pdf')) return 'file-type';
+    return 'file';
+  }
+
+  function attachmentIsImagePreview(attachment = {}, blob = null) {
+    const type = String(attachment.content_type || blob?.type || '').toLowerCase();
+    const name = String(attachment.original_filename || '').toLowerCase();
+    return type.startsWith('image/') || /\.(png|jpe?g|gif|webp|avif|bmp)$/i.test(name);
+  }
+
+  function attachmentIsPdfPreview(attachment = {}, blob = null) {
+    const type = String(attachment.content_type || blob?.type || '').toLowerCase();
+    const name = String(attachment.original_filename || '').toLowerCase();
+    return type === 'application/pdf' || name.endsWith('.pdf');
+  }
+
+  function attachmentCanPreview(attachment = {}) {
+    return attachmentIsImagePreview(attachment) || attachmentIsPdfPreview(attachment);
+  }
+
+  function attachmentAllowedByClient(file, user = getCurrentUser?.()) {
+    const allowed = Array.isArray(user?.attachments_allowed_types) ? user.attachments_allowed_types : [];
+    if (!allowed.length) return true;
+    const name = String(file?.name || '').toLowerCase();
+    const type = String(file?.type || '').split(';', 1)[0].toLowerCase();
+    return allowed.some((entry) => {
+      const item = String(entry || '').toLowerCase().trim();
+      if (!item) return false;
+      if (item.startsWith('.')) return name.endsWith(item);
+      if (item.endsWith('/*')) return type.startsWith(item.slice(0, -1));
+      return type === item;
+    });
+  }
+
+  function setSelectedAttachmentFileName(file = null) {
+    const label = document.getElementById('todo-attachment-file-name');
+    if (!label) return;
+    label.textContent = file?.name ? t('todo.attachments.selectedFile', { filename: file.name }) : t('todo.attachments.chooseFile');
+  }
+
+  function renderTodoAttachments(attachments = [], todo = null) {
+    const todoId = todo?.id || null;
+    const list = document.getElementById('todo-attachments-list');
+    const empty = document.getElementById('todo-attachments-empty');
+    const input = document.getElementById('todo-attachment-file');
+    const uploadButton = document.getElementById('todo-attachment-upload-btn');
+    const count = document.getElementById('todo-attachments-count');
+    if (!list) return;
+    const normalized = Array.isArray(attachments) ? attachments : [];
+    list.innerHTML = '';
+    if (count) count.textContent = String(normalized.length);
+    setTodoCollapsibleOpen('todo-attachments-panel', normalized.length > 0);
+    if (empty) {
+      empty.textContent = todoId ? t('todo.attachments.empty') : t('todo.attachments.saveFirst');
+      empty.hidden = normalized.length > 0;
+    }
+    if (input) {
+      input.value = '';
+      input.disabled = !todoId;
+      setSelectedAttachmentFileName(null);
+    }
+    if (uploadButton) uploadButton.disabled = !todoId;
+    for (const attachment of normalized) {
+      const item = document.createElement('article');
+      item.className = 'todo-attachment-item';
+      item.dataset.attachmentId = attachment.id;
+
+      const icon = document.createElement('div');
+      icon.className = 'todo-attachment-icon';
+      icon.innerHTML = iconSvg(attachmentIconName(attachment));
+
+      const body = document.createElement('div');
+      body.className = 'todo-attachment-body';
+      const name = document.createElement('button');
+      name.type = 'button';
+      name.className = 'todo-attachment-name';
+      name.textContent = attachment.original_filename || t('todo.attachments.unnamed');
+      name.addEventListener('click', () => previewTodoAttachment(todoId, attachment));
+      const meta = document.createElement('div');
+      meta.className = 'todo-attachment-meta';
+      meta.textContent = `${formatAttachmentSize(attachment.size_bytes)} · ${attachment.uploader_display_name || attachment.uploader_username || t('todo.attachments.unknownUploader')}`;
+      body.append(name, meta);
+
+      const actions = document.createElement('div');
+      actions.className = 'todo-attachment-actions';
+      const download = document.createElement('button');
+      download.type = 'button';
+      download.className = 'btn btn-secondary btn-small btn-icon';
+      download.innerHTML = iconSvg('download');
+      download.setAttribute('aria-label', t('todo.attachments.download'));
+      download.setAttribute('title', t('todo.attachments.download'));
+      download.addEventListener('click', () => downloadTodoAttachment(todoId, attachment.id, attachment.original_filename));
+      actions.appendChild(download);
+      const currentUserId = getCurrentUser?.()?.id;
+      const project = (getProjects?.() || []).find((item) => String(item.id) === String(todo?.project_id));
+      const canDelete = String(attachment.user_id) === String(currentUserId)
+        || String(todo?.user_id) === String(currentUserId)
+        || project?.is_owner === true
+        || project?.is_shared === true;
+      if (canDelete) {
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'btn btn-secondary btn-small btn-icon';
+        remove.innerHTML = iconSvg('trash-2');
+        remove.setAttribute('aria-label', t('todo.attachments.delete'));
+        remove.setAttribute('title', t('todo.attachments.delete'));
+        remove.addEventListener('click', () => deleteTodoAttachment(todoId, attachment.id));
+        actions.appendChild(remove);
+      }
+
+      item.append(icon, body, actions);
+      list.appendChild(item);
+    }
+  }
+
+  async function applyAttachmentTodoResponse(response) {
+    const updatedTodo = response?.todo;
+    if (!updatedTodo) return;
+    await dbPut('todos', updatedTodo);
+    setTodos(getTodos().map(todo => String(todo.id) === String(updatedTodo.id) ? updatedTodo : todo));
+    renderTodoAttachments(updatedTodo.attachments || [], updatedTodo);
+    renderStats();
+    renderTodos();
+  }
+
+  async function uploadTodoAttachmentFromInput() {
+    if (!getAppInitialized() || !getDb()) return;
+    const id = document.getElementById('todo-id')?.value;
+    const input = document.getElementById('todo-attachment-file');
+    const file = input?.files?.[0];
+    if (!id || id.startsWith('temp-')) {
+      showToast(t('todo.attachments.saveFirst'));
+      return;
+    }
+    if (!file) {
+      input?.focus();
+      return;
+    }
+    if (!isOnlineForSync()) {
+      showToast(t('todo.attachments.onlineOnly'));
+      return;
+    }
+    const currentUser = getCurrentUser?.();
+    if (currentUser?.attachments_enabled === false) {
+      showToast(t('todo.attachments.disabled'));
+      return;
+    }
+    const maxUploadBytes = Number(currentUser?.attachment_max_upload_bytes || 0);
+    if (maxUploadBytes > 0 && file.size > maxUploadBytes) {
+      showToast(t('todo.attachments.fileTooLarge', { max: formatAttachmentSize(maxUploadBytes) }));
+      return;
+    }
+    const remainingBytes = Number(currentUser?.attachment_remaining_bytes ?? currentUser?.attachment_quota_bytes ?? 0);
+    if (file.size > Math.max(remainingBytes, 0)) {
+      showToast(t('todo.attachments.quotaExceeded'));
+      return;
+    }
+    if (!attachmentAllowedByClient(file, currentUser)) {
+      showToast(t('todo.attachments.typeNotAllowed'));
+      return;
+    }
+    try {
+      const response = await todosApi.uploadAttachment(id, file);
+      await applyAttachmentTodoResponse(response);
+      if (response?.usage && currentUser && typeof setCurrentUser === 'function') {
+        setCurrentUser({
+          ...currentUser,
+          attachments_enabled: Boolean(response.usage.enabled),
+          attachment_usage_bytes: response.usage.used_bytes,
+          attachment_quota_bytes: response.usage.quota_bytes,
+          attachment_remaining_bytes: response.usage.remaining_bytes,
+          attachments_allowed_types: response.usage.allowed_types || currentUser.attachments_allowed_types,
+          attachment_max_upload_bytes: response.usage.max_upload_bytes || currentUser.attachment_max_upload_bytes,
+        });
+      }
+      setSelectedAttachmentFileName(null);
+      showToast(t('todo.attachments.uploaded'));
+    } catch (error) {
+      console.error('Failed to upload todo attachment', error);
+      showToast(error?.message || t('todo.attachments.uploadFailed'));
+    }
+  }
+
+  function closeAttachmentPreview() {
+    closeModal('attachment-preview-modal');
+    document.getElementById('attachment-preview-modal')?.classList.remove('show');
+    const body = document.getElementById('attachment-preview-body');
+    if (body) body.innerHTML = '';
+    if (attachmentPreviewObjectUrl) URL.revokeObjectURL(attachmentPreviewObjectUrl);
+    attachmentPreviewObjectUrl = '';
+    attachmentPreviewDownload = null;
+  }
+
+  async function previewTodoAttachment(todoId, attachment) {
+    if (!todoId || !attachment?.id || !isOnlineForSync()) {
+      showToast(t('todo.attachments.onlineOnly'));
+      return;
+    }
+    if (!attachmentCanPreview(attachment)) {
+      showToast(t('todo.attachments.noPreview'));
+      return downloadTodoAttachment(todoId, attachment.id, attachment.original_filename);
+    }
+    try {
+      closeAttachmentPreview();
+      const blob = await todosApi.getAttachmentBlob(todoId, attachment.id);
+      attachmentPreviewObjectUrl = URL.createObjectURL(blob);
+      attachmentPreviewDownload = { todoId, attachmentId: attachment.id, filename: attachment.original_filename || 'attachment' };
+      const title = document.getElementById('attachment-preview-title');
+      const body = document.getElementById('attachment-preview-body');
+      const download = document.getElementById('attachment-preview-download-btn');
+      if (title) title.textContent = attachment.original_filename || t('todo.attachments.preview');
+      if (download) download.disabled = false;
+      if (body) {
+        if (attachmentIsImagePreview(attachment, blob)) {
+          body.innerHTML = `<img src="${attachmentPreviewObjectUrl}" alt="${escapeHtmlAttr(attachment.original_filename || t('todo.attachments.preview'))}">`;
+        } else if (attachmentIsPdfPreview(attachment, blob)) {
+          body.innerHTML = `<iframe src="${attachmentPreviewObjectUrl}" title="${escapeHtmlAttr(attachment.original_filename || t('todo.attachments.preview'))}"></iframe>`;
+        } else {
+          body.textContent = t('todo.attachments.noPreview');
+        }
+      }
+      document.getElementById('attachment-preview-modal')?.classList.add('active');
+    } catch (error) {
+      console.error('Failed to preview todo attachment', error);
+      showToast(t('todo.attachments.previewFailed'));
+    }
+  }
+
+  async function downloadPreviewAttachment() {
+    if (!attachmentPreviewDownload) return;
+    await downloadTodoAttachment(attachmentPreviewDownload.todoId, attachmentPreviewDownload.attachmentId, attachmentPreviewDownload.filename);
+  }
+
+  async function downloadTodoAttachment(todoId, attachmentId, filename) {
+    if (!todoId || !attachmentId || !isOnlineForSync()) {
+      showToast(t('todo.attachments.onlineOnly'));
+      return;
+    }
+    try {
+      await todosApi.downloadAttachment(todoId, attachmentId, filename || 'attachment');
+    } catch (error) {
+      console.error('Failed to download todo attachment', error);
+      showToast(t('todo.attachments.downloadFailed'));
+    }
+  }
+
+  async function deleteTodoAttachment(todoId, attachmentId) {
+    if (!todoId || !attachmentId || !isOnlineForSync()) {
+      showToast(t('todo.attachments.onlineOnly'));
+      return;
+    }
+    const confirmed = await confirmDanger({
+      title: t('todo.attachments.deleteTitle'),
+      message: t('todo.attachments.deleteMessage'),
+      confirmText: t('todo.attachments.deleteConfirm'),
+    });
+    if (!confirmed) return;
+    try {
+      const response = await todosApi.deleteAttachment(todoId, attachmentId);
+      await applyAttachmentTodoResponse(response);
+    } catch (error) {
+      console.error('Failed to delete todo attachment', error);
+      showToast(t('todo.attachments.deleteFailed'));
+    }
+  }
+
   function bindTodoForm() {
     if (todoFormBound) return;
     const form = document.getElementById('todo-form');
@@ -539,6 +829,9 @@ export function createTodosFeature({
     form.addEventListener('submit', saveTodo);
     form.addEventListener('input', refreshTodoSaveButtonState);
     form.addEventListener('change', refreshTodoSaveButtonState);
+    document.getElementById('todo-attachment-file')?.addEventListener('change', (event) => {
+      setSelectedAttachmentFileName(event.target?.files?.[0] || null);
+    });
     document.getElementById('todo-subtask-new-title')?.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
         event.preventDefault();
@@ -1706,6 +1999,7 @@ export function createTodosFeature({
     if (newSubtaskInput) newSubtaskInput.value = '';
     renderTodoSubtaskEditor([]);
     renderTodoComments([], null);
+    renderTodoAttachments([], null);
     updateTodoMetaPanelsOpenState(null);
     const modalTitle = document.getElementById('todo-modal-title');
     if (modalTitle) {
@@ -1770,6 +2064,7 @@ export function createTodosFeature({
       populateLocationReminderForm(todo);
       renderTodoSubtaskEditor(todo.subtasks || []);
       renderTodoComments(todo.comments || [], todo);
+      renderTodoAttachments(todo.attachments || [], todo);
       updateTodoMetaPanelsOpenState(todo);
     } else {
       document.getElementById('todo-pinned').checked = false;
@@ -1777,6 +2072,7 @@ export function createTodosFeature({
       document.getElementById('todo-recurring-interval').value = 1;
       updateRecurringControls();
       renderTodoComments([], null);
+      renderTodoAttachments([], null);
       const currentWorkspaceId = getCurrentWorkspaceId?.();
       const workspaceProjects = getProjects().filter(p => !p.is_shared && (!currentWorkspaceId || String(p.workspace_id || '') === String(currentWorkspaceId)));
       const inboxProject = workspaceProjects.find(p => p.is_inbox) || workspaceProjects[0];
@@ -2076,5 +2372,5 @@ export function createTodosFeature({
     if (isOnlineForSync()) await syncWithServer();
   }
 
-  return { markTodoDone, markTodoInProgress, setTodoStatus, toggleTodo, toggleTodoPin, toggleTodoActions, addTodoSubtaskFromInput, addTodoCommentFromInput, deleteTodoComment, snoozeTodo, duplicateTodo, showTodoModal, onProjectChange, saveTodo, editTodo, deleteTodoFromModal, deleteTodo };
+  return { markTodoDone, markTodoInProgress, setTodoStatus, toggleTodo, toggleTodoPin, toggleTodoActions, addTodoSubtaskFromInput, addTodoCommentFromInput, uploadTodoAttachmentFromInput, deleteTodoComment, deleteTodoAttachment, closeAttachmentPreview, downloadPreviewAttachment, snoozeTodo, duplicateTodo, showTodoModal, onProjectChange, saveTodo, editTodo, deleteTodoFromModal, deleteTodo };
 }

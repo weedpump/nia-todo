@@ -51,6 +51,9 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .user-card-value { min-width: 0; color: var(--text-primary); font-size: 13px; }
 .user-card-braindump-control { justify-content: flex-start; }
 .user-card-braindump-control { display: inline-flex; align-items: center; gap: 10px; }
+.user-attachment-quota-control { display: grid; gap: 6px; }
+.user-attachment-quota-row { display: flex; gap: 8px; align-items: center; }
+.user-attachment-quota-row input { min-width: 0; flex: 0 0 120px; max-width: 120px; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-primary); color: var(--text-primary); }
 .user-card-switch { appearance: none; -webkit-appearance: none; width: 46px; height: 26px; flex: 0 0 46px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--border) 78%, var(--text-muted)); background: var(--bg-tertiary); position: relative; cursor: pointer; transition: background .16s, border-color .16s, box-shadow .16s; }
 .user-card-switch::after { content: ''; position: absolute; width: 20px; height: 20px; top: 2px; left: 2px; border-radius: 50%; background: var(--text-secondary); box-shadow: 0 2px 5px rgba(0,0,0,.28); transition: transform .16s, background .16s; }
 .user-card-switch:checked { background: color-mix(in srgb, var(--success) 72%, var(--accent)); border-color: color-mix(in srgb, var(--success) 86%, white); }
@@ -314,6 +317,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
   <input type="checkbox" id="braindump-enabled" class="admin-header-switch-source" aria-label="BrainDump aktivieren">
   <input type="checkbox" id="email-smtp-enabled" class="admin-header-switch-source" data-i18n-aria-label-key="admin.email.enableSending" aria-label="Enable email sending">
   <input type="checkbox" id="oidc-enabled" class="admin-header-switch-source" data-i18n-aria-label-key="admin.oidc.enable" aria-label="Enable OIDC">
+  <input type="checkbox" id="attachments-enabled" class="admin-header-switch-source" data-i18n-aria-label-key="admin.attachments.enabled" aria-label="Uploads erlauben">
   <input type="checkbox" id="twofa-policy-toggle" class="admin-header-switch-source" data-i18n-aria-label-key="admin.security.toggle" aria-label="Toggle 2FA policy">
 
   <!-- Admin Toolbar -->
@@ -429,6 +433,28 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
     </div>
     <div class="admin-error" id="instance-config-error"></div>
     <div class="admin-success" id="instance-config-success"></div>
+  </div>
+
+  <!-- Attachment Configuration -->
+  <div class="admin-card" id="attachment-config-card">
+    <h2><span data-icon="paperclip"></span> <span data-i18n-key="admin.attachments.title">Anhänge</span></h2>
+    <div class="admin-help" data-i18n-key="admin.attachments.help">Steuert Uploads global. Bestehende Anhänge bleiben auch bei deaktivierten Uploads sichtbar und downloadbar.</div>
+    <div class="admin-config-grid">
+      <div class="admin-config-field">
+        <label for="attachments-default-quota-gb" data-i18n-key="admin.attachments.defaultQuotaGb">Standard-Quota pro User (GB)</label>
+        <input type="number" id="attachments-default-quota-gb" min="0" max="1024" step="0.1" value="5">
+      </div>
+      <div class="admin-config-field full">
+        <label for="attachments-allowed-types" data-i18n-key="admin.attachments.allowedTypes">Erlaubte Dateiendungen</label>
+        <textarea id="attachments-allowed-types" class="admin-config-textarea" rows="3" placeholder="png, jpg, jpeg, gif, webp, pdf"></textarea>
+        <div class="admin-help" data-i18n-key="admin.attachments.allowedTypesHelp">Kommaseparierte Dateiendungen, z.B. png, jpg, pdf. Gefährliche aktive Formate wie SVG/HTML/JavaScript bleiben zusätzlich blockiert.</div>
+      </div>
+    </div>
+    <div class="form-row" style="margin-top:12px;">
+      <button class="btn btn-primary" onclick="saveAttachmentConfig()" data-i18n-key="admin.attachments.save">Anhang-Einstellungen speichern</button>
+    </div>
+    <div class="admin-error" id="attachment-config-error"></div>
+    <div class="admin-success" id="attachment-config-success"></div>
   </div>
 
   <!-- Email Configuration -->
@@ -750,6 +776,7 @@ function getSectionSummary(card) {
   if (card.id === 'braindump-config-card') return translate('admin.braindump.summary');
   if (card.id === 'email-config-card') return translate('admin.email.summary');
   if (card.id === 'oidc-config-card') return translate('admin.oidc.summary');
+  if (card.id === 'attachment-config-card') return translate('admin.attachments.summary');
   if (card.id === 'security-card') return translate('admin.security.summary');
   return '';
 }
@@ -795,7 +822,9 @@ function setupAdminSections() {
         ? buildSectionToggle('email-smtp-enabled')
         : card.id === 'oidc-config-card'
           ? buildSectionToggle('oidc-enabled')
-          : card.id === 'security-card'
+          : card.id === 'attachment-config-card'
+            ? buildSectionToggle('attachments-enabled')
+            : card.id === 'security-card'
           ? buildSectionToggle('twofa-policy-toggle')
           : null;
     if (summary) headerButton.insertAdjacentHTML('beforeend', `<span class="admin-section-summary">${summary}</span>`);
@@ -826,6 +855,7 @@ let serverUpdatePollTimer = null;
 let serverUpdateReloadPromptShown = false;
 let serverUpdateStartedInThisPage = false;
 let adminUsers = [];
+let currentAttachmentConfig = null;
 let currentStatsDays = 30;
 
 function focusAdminLoginPassword() {
@@ -1068,9 +1098,10 @@ let oidcFeatureConfigured = false;
 let adminOidcIdentities = [];
 
 async function loadAdminData() {
-  const [usersData, configData, brainDumpConfigData, emailConfigData, oidcConfigData, oidcLinksData, twoFactorPolicy, serverUpdate, technicalStats] = await Promise.all([
+  const [usersData, configData, attachmentConfigData, brainDumpConfigData, emailConfigData, oidcConfigData, oidcLinksData, twoFactorPolicy, serverUpdate, technicalStats] = await Promise.all([
     apiGet('/api/admin/users'),
     apiGet('/api/admin/instance-config'),
+    apiGet('/api/admin/attachment-config'),
     apiGet('/api/admin/braindump-config'),
     apiGet('/api/admin/email-config'),
     apiGet('/api/admin/oidc-config'),
@@ -1083,6 +1114,7 @@ async function loadAdminData() {
   brainDumpFeatureEnabled = !!brainDumpConfigData.enabled;
   renderTwoFactorPolicy(twoFactorPolicy);
   renderInstanceConfig(configData);
+  renderAttachmentConfig(attachmentConfigData);
   renderBrainDumpConfig(brainDumpConfigData);
   renderUsers(usersData.users);
   renderEmailConfig(emailConfigData);
@@ -1104,6 +1136,17 @@ function formatAdminBytes(bytes) {
   let idx = 0;
   while (size >= 1024 && idx < units.length - 1) { size /= 1024; idx += 1; }
   return `${size.toFixed(size >= 10 ? 1 : 2)} ${units[idx]}`;
+}
+
+function bytesToGb(bytes) {
+  const value = Number(bytes || 0) / (1024 ** 3);
+  return Number.isFinite(value) ? Number(value.toFixed(2)) : 0;
+}
+
+function gbToBytes(gb) {
+  const value = Number(gb);
+  if (!Number.isFinite(value) || value < 0) return 0;
+  return Math.round(value * (1024 ** 3));
 }
 
 function statTile(label, value, foot = '') {
@@ -1497,6 +1540,49 @@ function renderInstanceConfig(config) {
   document.getElementById('instance-public-url').value = config.public_base_url || '';
   document.getElementById('instance-allowed-origins').value = (config.allowed_origins || []).join('\n');
   document.getElementById('instance-trusted-proxies').value = (config.trusted_proxies || []).join('\n');
+}
+
+function attachmentTypesToExtensionInput(types = []) {
+  const mapped = [];
+  const add = (value) => {
+    const normalized = String(value || '').trim().toLowerCase().replace(/^\.+/, '');
+    if (normalized && !mapped.includes(normalized)) mapped.push(normalized);
+  };
+  for (const raw of Array.isArray(types) ? types : []) {
+    const item = String(raw || '').trim().toLowerCase();
+    if (!item) continue;
+    if (item === 'image/*') ['png', 'jpg', 'jpeg', 'gif', 'webp'].forEach(add);
+    else if (item === 'application/pdf') add('pdf');
+    else if (item === 'text/plain') add('txt');
+    else if (item === 'text/markdown') ['md', 'markdown'].forEach(add);
+    else if (item === 'application/zip') add('zip');
+    else if (item === 'application/json') add('json');
+    else if (item.startsWith('.')) add(item);
+    else if (!item.includes('/')) add(item);
+  }
+  return mapped.join(', ');
+}
+
+function renderAttachmentConfig(config = {}) {
+  currentAttachmentConfig = { ...config };
+  document.getElementById('attachments-enabled').checked = config.enabled !== false;
+  document.getElementById('attachments-default-quota-gb').value = bytesToGb(config.default_quota_bytes ?? (5 * 1024 ** 3));
+  document.getElementById('attachments-allowed-types').value = attachmentTypesToExtensionInput(config.allowed_types || []);
+}
+
+function readAttachmentTypesInput(value) {
+  return String(value || '')
+    .split(/[\n,;\s]+/)
+    .map(item => item.trim().toLowerCase().replace(/^\*\./, '').replace(/^\.+/, ''))
+    .filter(Boolean);
+}
+
+function readAttachmentConfigForm() {
+  return {
+    enabled: document.getElementById('attachments-enabled').checked,
+    allowed_types: readAttachmentTypesInput(document.getElementById('attachments-allowed-types').value),
+    default_quota_bytes: gbToBytes(document.getElementById('attachments-default-quota-gb').value),
+  };
 }
 
 function updateAdminOidcToolbar() {
@@ -2031,6 +2117,11 @@ function wireHeaderToggles() {
     oidcToggle.dataset.autosaveReady = '1';
     oidcToggle.addEventListener('change', autoSaveOidcToggle);
   }
+  const attachmentToggle = document.getElementById('attachments-enabled');
+  if (attachmentToggle && attachmentToggle.dataset.autosaveReady !== '1') {
+    attachmentToggle.dataset.autosaveReady = '1';
+    attachmentToggle.addEventListener('change', autoSaveAttachmentToggle);
+  }
   const twofaToggle = document.getElementById('twofa-policy-toggle');
   if (twofaToggle && twofaToggle.dataset.autosaveReady !== '1') {
     twofaToggle.dataset.autosaveReady = '1';
@@ -2067,6 +2158,33 @@ async function saveInstanceConfig() {
     document.getElementById('instance-config-success').textContent = t('admin.instance.saved');
   } catch(e) {
     document.getElementById('instance-config-error').textContent = e.message;
+  }
+}
+
+async function saveAttachmentConfig() {
+  document.getElementById('attachment-config-error').textContent = '';
+  document.getElementById('attachment-config-success').textContent = '';
+  try {
+    const data = await apiPatch('/api/admin/attachment-config', readAttachmentConfigForm());
+    renderAttachmentConfig(data);
+    document.getElementById('attachment-config-success').textContent = t('admin.attachments.saved');
+  } catch(e) {
+    document.getElementById('attachment-config-error').textContent = e.message;
+  }
+}
+
+async function autoSaveAttachmentToggle() {
+  const toggle = document.getElementById('attachments-enabled');
+  const previous = currentAttachmentConfig?.enabled !== false;
+  document.getElementById('attachment-config-error').textContent = '';
+  document.getElementById('attachment-config-success').textContent = '';
+  try {
+    const data = await apiPatch('/api/admin/attachment-config', readAttachmentConfigForm());
+    renderAttachmentConfig(data);
+    document.getElementById('attachment-config-success').textContent = t('admin.attachments.saved');
+  } catch(e) {
+    if (toggle) toggle.checked = previous;
+    document.getElementById('attachment-config-error').textContent = e.message;
   }
 }
 
@@ -2120,6 +2238,20 @@ function renderUserBrainDump(user) {
   const enabled = !!user.braindump_enabled;
   const label = enabled ? t('admin.user.brainDumpEnabled') : t('admin.user.brainDumpDisabled');
   return `<div class="user-card-braindump-control"><span class="badge ${enabled ? 'badge-success' : 'badge-muted'}">${escapeHtml(label)}</span><input class="user-card-switch" type="checkbox" ${enabled ? 'checked' : ''} aria-label="${escapeHtmlAttr(t('admin.user.brainDump'))}" onchange="toggleUserBrainDump(${user.id}, this.checked)"></div>`;
+}
+
+function renderUserAttachmentQuota(user) {
+  const used = Number(user.attachment_usage_bytes || 0);
+  const effective = Number(user.attachment_quota_effective_bytes || 0);
+  const override = user.attachment_quota_bytes == null ? '' : bytesToGb(user.attachment_quota_bytes);
+  const pct = effective > 0 ? Math.min(100, Math.round((used / effective) * 100)) : 100;
+  return `<div class="user-attachment-quota-control">
+    <div class="admin-muted">${escapeHtml(formatAdminBytes(used))} / ${escapeHtml(formatAdminBytes(effective))} · ${pct}%</div>
+    <div class="user-attachment-quota-row">
+      <input type="number" id="attachment-quota-${user.id}" min="0" max="1024" step="0.1" value="${escapeHtmlAttr(override)}" placeholder="${escapeHtmlAttr(t('admin.attachments.useDefault'))}">
+      <button class="btn btn-secondary" onclick="saveUserAttachmentQuota(${user.id})">${escapeHtml(t('common.save'))}</button>
+    </div>
+  </div>`;
 }
 
 function renderUserLastActive(user) {
@@ -2282,6 +2414,7 @@ function renderUsers(users) {
             <div class="user-card-row"><span class="user-card-label">${escapeHtml(t('admin.user.lastActive'))}</span><div class="user-card-value">${renderUserLastActive(u)}</div></div>
             <div class="user-card-row"><span class="user-card-label">2FA</span><div class="user-card-value">${renderUserTwoFactorStatus(u)}</div></div>
             <div class="user-card-row"><span class="user-card-label">${escapeHtml(t('settings.apiKeys.title'))}</span><div class="user-card-value">${renderUserApiKeys(u)}</div></div>
+            <div class="user-card-row"><span class="user-card-label">${escapeHtml(t('admin.attachments.quota'))}</span><div class="user-card-value">${renderUserAttachmentQuota(u)}</div></div>
             ${brainDumpFeatureEnabled ? `<div class="user-card-row"><span class="user-card-label">${escapeHtml(t('admin.user.brainDump'))}</span><div class="user-card-value">${renderUserBrainDump(u)}</div></div>` : ''}
           </div>
 
@@ -2427,6 +2560,24 @@ async function saveUserEmail(userId) {
   }
   try {
     await apiPatch(`/api/admin/users/${userId}`, { email });
+    await loadUsers();
+  } catch(e) {
+    if (errorEl) errorEl.textContent = t('admin.errorWithMessage', { error: e.message });
+  }
+}
+
+async function saveUserAttachmentQuota(userId) {
+  const input = document.getElementById(`attachment-quota-${userId}`);
+  const raw = input?.value?.trim() || '';
+  const errorEl = document.getElementById('security-error') || document.getElementById('create-error');
+  const successEl = document.getElementById('security-success') || document.getElementById('create-success');
+  if (errorEl) errorEl.textContent = '';
+  if (successEl) successEl.textContent = '';
+  try {
+    await apiPatch(`/api/admin/users/${userId}`, {
+      attachment_quota_bytes: raw === '' ? null : gbToBytes(raw),
+    });
+    if (successEl) successEl.textContent = t('admin.attachments.userQuotaSaved');
     await loadUsers();
   } catch(e) {
     if (errorEl) errorEl.textContent = t('admin.errorWithMessage', { error: e.message });
