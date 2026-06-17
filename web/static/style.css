@@ -9215,3 +9215,85 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
     font-size: clamp(28px, 8vw, 42px);
   }
 }
+
+/* Todo detail view prototype v3: desktop modal again, tablet fullscreen, no Tetris layout. */
+#todo-modal.todo-detail-view .todo-modal-content {
+  width: min(1080px, calc(100vw - 40px));
+  height: min(940px, calc(100vh - 32px));
+  border-radius: 30px;
+}
+
+#todo-modal.todo-detail-view .todo-modal-header {
+  max-width: 920px;
+}
+
+#todo-modal.todo-detail-view .todo-modal-form {
+  max-width: 880px;
+  grid-template-columns: 1fr;
+  grid-template-areas:
+    "content"
+    "subtasks"
+    "attachments"
+    "comments"
+    "organize"
+    "schedule";
+  gap: 24px;
+}
+
+#todo-modal.todo-detail-view .todo-main-section,
+#todo-modal.todo-detail-view .desc-live-preview {
+  max-width: none;
+}
+
+#todo-modal.todo-detail-view #todo-organize-panel,
+#todo-modal.todo-detail-view #todo-schedule-panel {
+  grid-column: auto;
+  grid-row: auto;
+  padding: 18px 0 0;
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, var(--border) 44%, transparent);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+#todo-modal.todo-detail-view .todo-subtasks-card,
+#todo-modal.todo-detail-view .todo-comments-card,
+#todo-modal.todo-detail-view .todo-attachments-card {
+  padding-top: 18px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 44%, transparent);
+}
+
+#todo-modal.todo-detail-view #todo-organize-panel .ui-field-grid,
+#todo-modal.todo-detail-view #todo-schedule-panel .ui-field-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+#todo-modal.todo-detail-view #todo-organize-panel input,
+#todo-modal.todo-detail-view #todo-organize-panel select,
+#todo-modal.todo-detail-view #todo-schedule-panel input,
+#todo-modal.todo-detail-view #todo-schedule-panel select,
+#todo-modal.todo-detail-view #todo-organize-panel .ui-select-trigger,
+#todo-modal.todo-detail-view #todo-schedule-panel .ui-select-trigger {
+  background: color-mix(in srgb, var(--bg-secondary) 44%, transparent);
+}
+
+@media (max-width: 1180px) {
+  #todo-modal.todo-detail-view .todo-modal-content {
+    width: 100vw;
+    height: 100vh;
+    border-radius: 0;
+  }
+
+  #todo-modal.todo-detail-view .todo-modal-header,
+  #todo-modal.todo-detail-view .todo-modal-form {
+    max-width: 900px;
+  }
+}
+
+@media (max-width: 720px) {
+  #todo-modal.todo-detail-view #todo-organize-panel .ui-field-grid,
+  #todo-modal.todo-detail-view #todo-schedule-panel .ui-field-grid {
+    grid-template-columns: 1fr;
+  }
+}
