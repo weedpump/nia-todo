@@ -30,6 +30,7 @@ const PRECACHE_ASSETS = [
   '/static/js/storage/indexed-db.js',
   '/static/js/sync/queue.js',
   '/static/js/icons/lucide-icons.js',
+  '/static/js/icons/lucide-generated.js',
   '/static/js/i18n/index.js',
   '/static/js/ui/dropdowns.js',
   '/static/i18n/de.json',
