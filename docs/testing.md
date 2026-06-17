@@ -118,17 +118,16 @@ Use after broad UI refactors, visual-system migrations, dropdown/layout rewrites
 npm run test:ui
 ```
 
-This includes historical layout and micro-interaction regressions such as:
+This suite intentionally keeps only reusable UI contracts and currently relevant layout checks:
 
-- design layout contracts
-- user-menu alignment/scroll anchor
-- todo action breakpoints/menu flip/mobile modal layout
-- overview stat clamp
+- frontend API error adapter contract
+- clear-done project logic
+- broad design layout contracts
 - touch zoom lock
-- UI dropdown primitive
-- app-download/login static layout contracts
+- shared UI dropdown primitive
+- Todo modal mobile layout while the Todo redesign is active
 
-These tests are useful, but they should not be the default release gate for every feature branch.
+Historical one-off pixel/layout tests for user-menu alignment, scroll anchoring, Todo menu flip, action breakpoints, overview stat clamp, app-download visibility, login layout, and minimal Todo mode were removed instead of being kept forever as release baggage.
 
 ## Native Focused Suite
 
