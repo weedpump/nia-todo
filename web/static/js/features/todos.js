@@ -132,10 +132,25 @@ export function createTodosFeature({
       drawer.id = 'todo-meta-drawer';
       drawer.className = 'todo-meta-edit-drawer';
       drawer.setAttribute('aria-label', getActiveLanguage() === 'de' ? 'Todo Details bearbeiten' : 'Edit todo details');
+      drawer.innerHTML = `
+        <div class="todo-meta-drawer-header">
+          <div>
+            <h4>${getActiveLanguage() === 'de' ? 'Details bearbeiten' : 'Edit details'}</h4>
+            <p>${getActiveLanguage() === 'de' ? 'Planung, Einordnung und Erinnerungen.' : 'Planning, organization, and reminders.'}</p>
+          </div>
+          <button type="button" class="todo-meta-drawer-close" aria-label="${getActiveLanguage() === 'de' ? 'Details schließen' : 'Close details'}">${iconSvg('x')}</button>
+        </div>
+        <div class="todo-meta-drawer-body"></div>
+      `;
+      drawer.querySelector('.todo-meta-drawer-close')?.addEventListener('click', () => {
+        document.getElementById('todo-modal')?.classList.remove('todo-meta-editing');
+        renderTodoMetaSummary(getTodos().find(todo => String(todo.id) === String(document.getElementById('todo-id')?.value)) || null);
+      });
       form.appendChild(drawer);
     }
-    if (organize.parentElement !== drawer) drawer.appendChild(organize);
-    if (schedule.parentElement !== drawer) drawer.appendChild(schedule);
+    const body = drawer.querySelector('.todo-meta-drawer-body') || drawer;
+    if (organize.parentElement !== body) body.appendChild(organize);
+    if (schedule.parentElement !== body) body.appendChild(schedule);
     return drawer;
   }
 
