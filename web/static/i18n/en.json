@@ -1350,5 +1350,6 @@
   "todo.attachments.quotaExceeded": "Not enough attachment storage available.",
   "todo.attachments.fileTooLarge": "File is too large. Maximum: {max}.",
   "todo.attachments.fileTooLargeGeneric": "File is too large.",
-  "todo.attachments.tooMany": "This todo already has the maximum number of attachments."
+  "todo.attachments.tooMany": "This todo already has the maximum number of attachments.",
+  "admin.attachments.summary": "Uploads"
 }
