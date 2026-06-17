@@ -7,28 +7,16 @@ await withFreshDb(async () => {
     await loginApp();
 
     await openTodoModal();
-    const initialPanels = await page.evaluate(() => ({
-      organize: document.querySelector('#todo-organize-panel')?.open,
-      schedule: document.querySelector('#todo-schedule-panel')?.open,
+    const initialState = await page.evaluate(() => ({
+      detailView: document.getElementById('todo-modal')?.classList.contains('todo-detail-view'),
+      metaEditing: document.getElementById('todo-modal')?.classList.contains('todo-meta-editing'),
       subtasks: document.querySelector('#todo-subtasks-panel')?.open,
       comments: document.querySelector('#todo-comments-panel')?.open,
     }));
-    if (initialPanels.organize || initialPanels.schedule || initialPanels.subtasks || initialPanels.comments) {
-      throw new Error(`Expected empty todo detail panels to start collapsed: ${JSON.stringify(initialPanels)}`);
-    }
-    await page.click('#todo-organize-panel > summary');
-    await page.click('#todo-cancel-btn');
-    await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });
-    await openTodoModal();
-    const reopenedDefaultPanels = await page.evaluate(() => ({
-      organize: document.querySelector('#todo-organize-panel')?.open,
-      schedule: document.querySelector('#todo-schedule-panel')?.open,
-    }));
-    if (reopenedDefaultPanels.organize || reopenedDefaultPanels.schedule) {
-      throw new Error(`Expected project/section defaults to stay collapsed: ${JSON.stringify(reopenedDefaultPanels)}`);
+    if (!initialState.detailView || initialState.metaEditing || !initialState.subtasks || !initialState.comments) {
+      throw new Error(`Expected read-first todo modal with visible content sections and closed meta drawer: ${JSON.stringify(initialState)}`);
     }
     await page.fill('#todo-title', 'Frontend subtasks persistence');
-    await page.click('#todo-subtasks-panel > summary');
     await page.fill('#todo-subtask-new-title', 'First checklist item');
     await page.press('#todo-subtask-new-title', 'Enter');
     const focusedAfterFirstAdd = await page.evaluate(() => document.activeElement?.id);
@@ -124,7 +112,7 @@ await withFreshDb(async () => {
       });
       throw new Error(`Confirming subtask delete should remove one row, got ${editorSubtaskCount}: ${JSON.stringify(debugSubtasks)}`);
     }
-    await page.click('#todo-cancel-btn');
+    await page.evaluate(() => window.closeModal?.('todo-modal'));
     await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });
 
     await page.waitForTimeout(250);
@@ -147,27 +135,30 @@ await withFreshDb(async () => {
     if (!subtaskPanelOpen) {
       throw new Error('Expected subtasks panel to open automatically when subtasks exist');
     }
-    await page.click('#todo-cancel-btn');
+    await page.evaluate(() => window.closeModal?.('todo-modal'));
     await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });
 
     await openTodoModal();
     await page.fill('#todo-title', 'Frontend metadata panels');
-    await page.click('#todo-organize-panel > summary');
+    await page.click('#todo-meta-edit-toggle');
+    await page.locator('.todo-meta-edit-drawer').waitFor({ state: 'visible', timeout: 5000 });
     await page.selectOption('#todo-priority', '1', { force: true });
-    await page.click('#todo-schedule-panel > summary');
     await page.fill('#todo-due', '2099-01-02T03:04', { force: true });
     await page.click('#todo-modal button[type="submit"]');
     await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 10000 });
     await waitForText('Frontend metadata panels');
     await page.locator('.todo-item').filter({ hasText: 'Frontend metadata panels' }).first().click();
     await page.locator('#todo-modal').waitFor({ state: 'visible', timeout: 5000 });
-    const metadataPanelsOpen = await page.evaluate(() => ({
-      organize: document.querySelector('#todo-organize-panel')?.open,
-      schedule: document.querySelector('#todo-schedule-panel')?.open,
+    const metadataState = await page.evaluate(() => ({
+      metaEditing: document.getElementById('todo-modal')?.classList.contains('todo-meta-editing'),
+      summary: document.getElementById('todo-meta-summary')?.innerText || '',
     }));
-    if (!metadataPanelsOpen.organize || !metadataPanelsOpen.schedule) {
-      throw new Error(`Expected organize/schedule panels to open when relevant values exist: ${JSON.stringify(metadataPanelsOpen)}`);
+    if (metadataState.metaEditing || !metadataState.summary.includes('2099') || !metadataState.summary.trim()) {
+      throw new Error(`Expected saved metadata to reopen as summary pills with closed drawer: ${JSON.stringify(metadataState)}`);
     }
+    await page.click('#todo-meta-edit-toggle');
+    await page.locator('.todo-meta-edit-drawer').waitFor({ state: 'visible', timeout: 5000 });
+    await page.waitForFunction(() => document.getElementById('todo-priority')?.value === '1' && document.getElementById('todo-due')?.value.startsWith('2099-01-02T03:04'), null, { timeout: 5000 });
 
     assertNoFrontendErrors();
     console.log('✅ Frontend subtasks persistence test passed');
