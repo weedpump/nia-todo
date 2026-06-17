@@ -185,6 +185,7 @@ def init_db():
             "ALTER TABLE todos ADD COLUMN recurring_rule TEXT",
             "ALTER TABLE todos ADD COLUMN parent_id INTEGER",
             "ALTER TABLE users ADD COLUMN default_reminder_offset_minutes INTEGER",
+            "ALTER TABLE users ADD COLUMN attachment_quota_bytes INTEGER",
             "ALTER TABLE reminders ADD COLUMN source TEXT NOT NULL DEFAULT 'explicit'",
         ):
             try:

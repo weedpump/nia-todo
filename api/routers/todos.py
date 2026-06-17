@@ -20,6 +20,7 @@ from routers.auth import require_auth
 from services.websocket import broadcast_change
 from services.utils import sanitize_text
 from services.sharing import can_access_project, can_manage_todos, get_project_ids_for_user
+from services.attachments import attachment_usage_payload, enforce_attachment_upload_policy
 
 router = APIRouter(prefix="/api/todos")
 
@@ -348,6 +349,47 @@ def _todo_project_access(db, todo: dict, user_id: int) -> bool:
     if project_id is None:
         return todo.get('user_id') == user_id
     return can_access_project(db, project_id, user_id) or todo.get('user_id') == user_id
+
+
+def _todo_attachment_write_access(db, todo: dict, user_id: int) -> bool:
+    project_id = todo.get('project_id')
+    if project_id is None:
+        return todo.get('user_id') == user_id
+    return can_manage_todos(db, project_id, user_id) or todo.get('user_id') == user_id
+
+
+def _require_attachment_readable_todo(db, todo_id: int, user_id: int) -> dict:
+    todo = fetch_todo(db, todo_id, user_id)
+    if not todo or not _todo_project_access(db, todo, user_id):
+        raise HTTPException(404, "Todo not found")
+    return todo
+
+
+def _require_attachment_writable_todo(db, todo_id: int, user_id: int) -> dict:
+    todo = fetch_todo(db, todo_id, user_id)
+    if not todo or not _todo_attachment_write_access(db, todo, user_id):
+        raise HTTPException(404, "Todo not found")
+    return todo
+
+
+async def _read_attachment_body(request: Request) -> bytes:
+    content_length = request.headers.get("content-length")
+    if content_length:
+        try:
+            if int(content_length) > MAX_ATTACHMENT_BYTES:
+                raise HTTPException(413, "Attachment is too large")
+        except ValueError:
+            raise HTTPException(400, "Invalid Content-Length")
+    chunks = []
+    total = 0
+    async for chunk in request.stream():
+        if not chunk:
+            continue
+        total += len(chunk)
+        if total > MAX_ATTACHMENT_BYTES:
+            raise HTTPException(413, "Attachment is too large")
+        chunks.append(chunk)
+    return b"".join(chunks)
 
 
 def _validate_todo_target(db, project_id: Optional[int], section_id: Optional[int], user_id: int):
@@ -1140,34 +1182,32 @@ async def delete_todo_comment(todo_id: int, comment_id: int, user_id: int = Depe
         return {"deleted": comment_id, "todo": todo}
 
 
+@router.get("/attachments/usage")
+def get_attachment_usage(user_id: int = Depends(require_auth)):
+    with get_db() as db:
+        return attachment_usage_payload(db, user_id)
+
+
 @router.get("/{todo_id}/attachments")
 def list_todo_attachments(todo_id: int, user_id: int = Depends(require_auth)):
     with get_db() as db:
-        todo = fetch_todo(db, todo_id, user_id)
-        if not todo:
-            raise HTTPException(404, "Todo not found")
-        if not _todo_project_access(db, todo, user_id):
-            raise HTTPException(403, "Not authorized")
+        _require_attachment_readable_todo(db, todo_id, user_id)
         return {"attachments": _attachments_for_todo(db, todo_id)}
 
 
 @router.post("/{todo_id}/attachments")
 async def upload_todo_attachment(todo_id: int, request: Request, user_id: int = Depends(require_auth)):
-    body = await request.body()
+    body = await _read_attachment_body(request)
     if not body:
         raise HTTPException(400, "Attachment is required")
-    if len(body) > MAX_ATTACHMENT_BYTES:
-        raise HTTPException(413, "Attachment is too large")
     content_type = (request.headers.get("content-type") or "application/octet-stream").split(";", 1)[0].strip().lower() or "application/octet-stream"
     original_filename = _safe_attachment_filename(
         request.headers.get("x-nia-filename") or request.headers.get("x-file-name") or request.headers.get("x-filename")
     )
     with get_db() as db:
-        todo = fetch_todo(db, todo_id, user_id)
-        if not todo:
-            raise HTTPException(404, "Todo not found")
-        if not _todo_project_access(db, todo, user_id):
-            raise HTTPException(403, "Not authorized")
+        todo = _require_attachment_writable_todo(db, todo_id, user_id)
+        db.execute("BEGIN IMMEDIATE")
+        enforce_attachment_upload_policy(db, user_id=user_id, filename=original_filename, content_type=content_type, size_bytes=len(body))
         current_count = _attachment_count_for_todo(db, todo_id)
         if current_count >= MAX_ATTACHMENTS_PER_TODO:
             raise HTTPException(422, "Too many attachments")
@@ -1196,17 +1236,13 @@ async def upload_todo_attachment(todo_id: int, request: Request, user_id: int = 
         attachment = _public_attachment(_attachment_row(db, cursor.lastrowid))
         updated_todo = fetch_todo(db, todo_id, user_id)
         await broadcast_change("todo_attachment_create", _attachment_event_payload(db, todo_id, attachment=attachment), user_id, updated_todo.get('project_id'))
-        return {"attachment": attachment, "todo": updated_todo}
+        return {"attachment": attachment, "todo": updated_todo, "usage": attachment_usage_payload(db, user_id)}
 
 
 @router.get("/{todo_id}/attachments/{attachment_id}/download")
 def download_todo_attachment(todo_id: int, attachment_id: int, user_id: int = Depends(require_auth)):
     with get_db() as db:
-        todo = fetch_todo(db, todo_id, user_id)
-        if not todo:
-            raise HTTPException(404, "Todo not found")
-        if not _todo_project_access(db, todo, user_id):
-            raise HTTPException(403, "Not authorized")
+        _require_attachment_readable_todo(db, todo_id, user_id)
         attachment = _attachment_row(db, attachment_id)
         if not attachment or int(attachment['todo_id']) != int(todo_id):
             raise HTTPException(404, "Attachment not found")
@@ -1226,16 +1262,10 @@ def download_todo_attachment(todo_id: int, attachment_id: int, user_id: int = De
 @router.delete("/{todo_id}/attachments/{attachment_id}")
 async def delete_todo_attachment(todo_id: int, attachment_id: int, user_id: int = Depends(require_auth)):
     with get_db() as db:
-        todo = fetch_todo(db, todo_id, user_id)
-        if not todo:
-            raise HTTPException(404, "Todo not found")
-        if not _todo_project_access(db, todo, user_id):
-            raise HTTPException(403, "Not authorized")
+        todo = _require_attachment_writable_todo(db, todo_id, user_id)
         attachment = _attachment_row(db, attachment_id)
         if not attachment or int(attachment['todo_id']) != int(todo_id):
             raise HTTPException(404, "Attachment not found")
-        if int(attachment['user_id']) != int(user_id) and int(todo.get('user_id') or 0) != int(user_id):
-            raise HTTPException(403, "Not authorized")
         now = now_iso()
         db.execute("DELETE FROM todo_attachments WHERE id = ?", (attachment_id,))
         db.execute("UPDATE todos SET updated_at = ? WHERE id = ?", (now, todo_id))

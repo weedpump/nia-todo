@@ -34,13 +34,16 @@ export const todosApi = {
     });
     return parseOrThrow(response, 'Attachment upload failed');
   },
-  async downloadAttachment(todoId, attachmentId, filename = 'attachment') {
+  async getAttachmentBlob(todoId, attachmentId) {
     const response = await fetch(API + `/api/todos/${todoId}/attachments/${attachmentId}/download`, {
       headers: getAuthHeaders(),
       credentials: 'include',
     });
     if (!response.ok) await apiErrorFromResponse(response, 'Attachment download failed');
-    const blob = await response.blob();
+    return response.blob();
+  },
+  async downloadAttachment(todoId, attachmentId, filename = 'attachment') {
+    const blob = await this.getAttachmentBlob(todoId, attachmentId);
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;

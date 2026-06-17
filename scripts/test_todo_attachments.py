@@ -33,7 +33,8 @@ def make_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT NOT NULL,
             display_name TEXT,
-            default_reminder_offset_minutes INTEGER
+            default_reminder_offset_minutes INTEGER,
+            attachment_quota_bytes INTEGER
         );
         CREATE TABLE projects (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -106,14 +107,22 @@ def make_db():
             created_at TEXT DEFAULT (datetime('now')),
             user_id INTEGER
         );
+        CREATE TABLE app_config (
+            key TEXT PRIMARY KEY,
+            value TEXT,
+            updated_at TEXT DEFAULT (datetime('now'))
+        );
         """
     )
-    db.execute("INSERT INTO users (id, username, display_name, default_reminder_offset_minutes) VALUES (1, 'owner', 'Owner Display', NULL)")
-    db.execute("INSERT INTO users (id, username, display_name, default_reminder_offset_minutes) VALUES (2, 'member', 'Member Display', NULL)")
-    db.execute("INSERT INTO users (id, username, display_name, default_reminder_offset_minutes) VALUES (3, 'stranger', 'Stranger Display', NULL)")
+    db.execute("INSERT INTO users (id, username, display_name, default_reminder_offset_minutes, attachment_quota_bytes) VALUES (1, 'owner', 'Owner Display', NULL, NULL)")
+    db.execute("INSERT INTO users (id, username, display_name, default_reminder_offset_minutes, attachment_quota_bytes) VALUES (2, 'member', 'Member Display', NULL, NULL)")
+    db.execute("INSERT INTO users (id, username, display_name, default_reminder_offset_minutes, attachment_quota_bytes) VALUES (3, 'stranger', 'Stranger Display', NULL, NULL)")
     db.execute("INSERT INTO projects (id, name, user_id, is_inbox) VALUES (1, 'Inbox', 1, 1)")
     db.execute("INSERT INTO projects (id, name, user_id, is_inbox) VALUES (2, 'Shared', 1, 0)")
     db.execute("INSERT INTO project_members (project_id, user_id, status) VALUES (2, 2, 'accepted')")
+    db.execute("INSERT INTO app_config (key, value) VALUES ('attachments_enabled', '1')")
+    db.execute("INSERT INTO app_config (key, value) VALUES ('attachments_allowed_types', '[\"image/*\",\"application/pdf\",\"text/plain\"]')")
+    db.execute("INSERT INTO app_config (key, value) VALUES ('attachments_default_quota_bytes', '5368709120')")
     db.commit()
     return db
 
@@ -190,16 +199,21 @@ def main():
         assert_true(member_download.content == b"hello attachment", member_download.content)
 
         member_delete_owner_attachment = member.delete(f"/api/todos/{todo_id}/attachments/{attachment_id}")
-        assert_true(member_delete_owner_attachment.status_code == 403, member_delete_owner_attachment.text)
+        assert_true(member_delete_owner_attachment.status_code == 200, member_delete_owner_attachment.text)
+        attachment_id = owner.post(
+            f"/api/todos/{todo_id}/attachments",
+            content=b"hello attachment again",
+            headers={"content-type": "text/plain", "x-nia-filename": "notes.txt"},
+        ).json()["attachment"]["id"]
 
         member_upload = member.post(
             f"/api/todos/{todo_id}/attachments",
             content=b"member file",
-            headers={"content-type": "application/octet-stream", "x-nia-filename": "../member.bin"},
+            headers={"content-type": "text/plain", "x-nia-filename": "../member.txt"},
         )
         assert_true(member_upload.status_code == 200, member_upload.text)
         member_attachment_id = member_upload.json()["attachment"]["id"]
-        assert_true(member_upload.json()["attachment"]["original_filename"] == "member.bin", member_upload.text)
+        assert_true(member_upload.json()["attachment"]["original_filename"] == "member.txt", member_upload.text)
 
         owner_delete_member_attachment = owner.delete(f"/api/todos/{todo_id}/attachments/{member_attachment_id}")
         assert_true(owner_delete_member_attachment.status_code == 200, owner_delete_member_attachment.text)
@@ -212,7 +226,34 @@ def main():
             content=b"nope",
             headers={"content-type": "text/plain", "x-nia-filename": "nope.txt"},
         )
-        assert_true(forbidden.status_code in (403, 404), forbidden.text)
+        assert_true(forbidden.status_code == 404, forbidden.text)
+
+        blocked_type = owner.post(
+            f"/api/todos/{todo_id}/attachments",
+            content=b"<svg></svg>",
+            headers={"content-type": "image/svg+xml", "x-nia-filename": "bad.svg"},
+        )
+        assert_true(blocked_type.status_code == 415, blocked_type.text)
+
+        db.execute("UPDATE users SET attachment_quota_bytes = ? WHERE id = 1", (10,))
+        db.commit()
+        quota_blocked = owner.post(
+            f"/api/todos/{todo_id}/attachments",
+            content=b"more than ten bytes",
+            headers={"content-type": "text/plain", "x-nia-filename": "quota.txt"},
+        )
+        assert_true(quota_blocked.status_code == 413, quota_blocked.text)
+        db.execute("UPDATE users SET attachment_quota_bytes = NULL WHERE id = 1")
+        db.execute("UPDATE app_config SET value = '0' WHERE key = 'attachments_enabled'")
+        db.commit()
+        disabled_upload = owner.post(
+            f"/api/todos/{todo_id}/attachments",
+            content=b"disabled",
+            headers={"content-type": "text/plain", "x-nia-filename": "disabled.txt"},
+        )
+        assert_true(disabled_upload.status_code == 403, disabled_upload.text)
+        db.execute("UPDATE app_config SET value = '1' WHERE key = 'attachments_enabled'")
+        db.commit()
 
         deleted = owner.delete(f"/api/todos/{todo_id}/attachments/{attachment_id}")
         assert_true(deleted.status_code == 200, deleted.text)
