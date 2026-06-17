@@ -55,7 +55,7 @@ if integrity != 'ok':
     raise SystemExit(f'restore integrity_check failed: {integrity}')
 PY
 
-mkdir -p "${DATA_DIR}" "${BACKUP_DIR}"
+mkdir -p "${DATA_DIR}" "${BACKUP_DIR}" "$(dirname "${DB_PATH}")"
 if [[ -f "${DB_PATH}" ]]; then
   cp "${DB_PATH}" "${DB_PATH}.restore-backup.$(date +%Y%m%d-%H%M%S)"
 fi
@@ -86,7 +86,11 @@ def is_relative_to(path: Path, other: Path) -> bool:
 
 def protected(path: Path) -> bool:
     resolved = path.resolve()
-    if resolved == db_path or is_relative_to(resolved, backup_dir):
+    if resolved == db_path:
+        return True
+    if is_relative_to(resolved, backup_dir) or is_relative_to(backup_dir, resolved):
+        return True
+    if resolved.is_dir() and is_relative_to(db_path, resolved):
         return True
     if resolved.name.startswith(db_path.name + '.restore-backup.'):
         return True
@@ -128,5 +132,15 @@ if vapid_target.exists():
     except OSError:
         pass
 PY
+
+RESTORE_USER="${NIA_TODO_USER:-nia-todo}"
+RESTORE_GROUP="${NIA_TODO_GROUP:-nia-todo}"
+if getent passwd "${RESTORE_USER}" >/dev/null 2>&1 && getent group "${RESTORE_GROUP}" >/dev/null 2>&1; then
+  chown -R "${RESTORE_USER}:${RESTORE_GROUP}" "${DATA_DIR}"
+fi
+
+if [[ "${DB_PATH}" != "${DATA_DIR}"/* ]]; then
+  echo "Warning: NIA_TODO_DB is outside NIA_TODO_DATA_DIR; only DATA_DIR runtime files are included in backups." >&2
+fi
 
 echo "Restored ${ARCHIVE} -> ${DATA_DIR}"

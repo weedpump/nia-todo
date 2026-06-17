@@ -32,7 +32,17 @@ def make_db(path: Path):
         con.close()
 
 
-def run():
+def assert_restored_db(path: Path):
+    assert_true(path.exists(), f"restored database missing: {path}")
+    con = sqlite3.connect(path)
+    try:
+        count = con.execute("SELECT COUNT(*) FROM todos WHERE title='backup regression'").fetchone()[0]
+    finally:
+        con.close()
+    assert_true(count == 1, "database was not restored")
+
+
+def run_default_layout():
     with tempfile.TemporaryDirectory(prefix="nia-todo-packaging-backup-") as tmp:
         base = Path(tmp)
         data = base / "data"
@@ -97,13 +107,48 @@ def run():
         assert_true(not (restore_attachments / "stale" / "old.txt").exists(), "stale attachments should be replaced on restore")
         assert_true((restore_data / "future-runtime" / "nested" / "state.json").read_text() == '{"future":true}\n', "generic data runtime file was not restored")
         assert_true((restore_data / "backups" / "keep.zip").read_text() == "keep local backups", "restore must not delete local backup archives")
-        con = sqlite3.connect(restore_data / "nia-todo.db")
-        try:
-            count = con.execute("SELECT COUNT(*) FROM todos WHERE title='backup regression'").fetchone()[0]
-        finally:
-            con.close()
-        assert_true(count == 1, "database was not restored")
+        assert_restored_db(restore_data / "nia-todo.db")
 
+
+def run_custom_relative_db_layout():
+    with tempfile.TemporaryDirectory(prefix="nia-todo-packaging-custom-db-") as tmp:
+        base = Path(tmp)
+        data = base / "data"
+        backups = base / "backups"
+        restore_data = base / "restore-data"
+        data.mkdir()
+        (data / "db").mkdir()
+        (data / "runtime").mkdir()
+        make_db(data / "db" / "custom.db")
+        (data / "runtime" / "state.txt").write_text("runtime")
+
+        env = os.environ.copy()
+        env.update({
+            "NIA_TODO_DATA_DIR": str(data),
+            "NIA_TODO_BACKUP_DIR": str(backups),
+            "NIA_TODO_DB": "db/custom.db",
+        })
+        subprocess.run([str(BACKUP_SCRIPT)], check=True, env=env, cwd=ROOT)
+        archive = next(backups.glob("nia-todo-daily-slot-*.zip"))
+
+        restore_data.mkdir()
+        (restore_data / "db").mkdir()
+        make_db(restore_data / "db" / "custom.db")
+        restore_env = os.environ.copy()
+        restore_env.update({
+            "NIA_TODO_DATA_DIR": str(restore_data),
+            "NIA_TODO_BACKUP_DIR": str(restore_data / "backups"),
+            "NIA_TODO_DB": "db/custom.db",
+        })
+        subprocess.run([str(RESTORE_SCRIPT), str(archive)], check=True, env=restore_env, cwd=ROOT)
+
+        assert_restored_db(restore_data / "db" / "custom.db")
+        assert_true((restore_data / "runtime" / "state.txt").read_text() == "runtime", "runtime file was not restored")
+
+
+def run():
+    run_default_layout()
+    run_custom_relative_db_layout()
     print("✅ Packaging backup/restore tests passed")
 
 

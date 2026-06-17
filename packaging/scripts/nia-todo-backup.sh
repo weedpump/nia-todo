@@ -11,6 +11,12 @@ LOCK_FILE="${BACKUP_DIR}/.nia-todo-backup.lock"
 
 mkdir -p "${BACKUP_DIR}"
 
+for custom_path in "${NIA_TODO_AVATAR_DIR:-}" "${NIA_TODO_ATTACHMENT_DIR:-}" "${NIA_TODO_VAPID_KEYS:-}"; do
+  if [[ -n "${custom_path}" && "${custom_path}" != "${DATA_DIR}"/* && "${custom_path}" != "${DATA_DIR}" ]]; then
+    echo "Warning: custom runtime path outside NIA_TODO_DATA_DIR is not included in backups: ${custom_path}" >&2
+  fi
+done
+
 {
   flock -n 9 || { echo "$(date -Is) another backup run is active, skipping"; exit 0; }
   python3 - <<'PY' "${DATA_DIR}" "${BACKUP_DIR}" "${DB_PATH}"
