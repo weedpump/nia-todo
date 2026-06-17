@@ -11,6 +11,7 @@ export function createTodosFeature({
   getCurrentProjectId,
   getCurrentWorkspaceId,
   getCurrentUser,
+  setCurrentUser,
   getAppInitialized,
   getDb,
   dbPut,
@@ -574,6 +575,20 @@ export function createTodosFeature({
     return attachmentIsImagePreview(attachment) || attachmentIsPdfPreview(attachment);
   }
 
+  function attachmentAllowedByClient(file, user = getCurrentUser?.()) {
+    const allowed = Array.isArray(user?.attachments_allowed_types) ? user.attachments_allowed_types : [];
+    if (!allowed.length) return true;
+    const name = String(file?.name || '').toLowerCase();
+    const type = String(file?.type || '').split(';', 1)[0].toLowerCase();
+    return allowed.some((entry) => {
+      const item = String(entry || '').toLowerCase().trim();
+      if (!item) return false;
+      if (item.startsWith('.')) return name.endsWith(item);
+      if (item.endsWith('/*')) return type.startsWith(item.slice(0, -1));
+      return type === item;
+    });
+  }
+
   function setSelectedAttachmentFileName(file = null) {
     const label = document.getElementById('todo-attachment-file-name');
     if (!label) return;
@@ -634,7 +649,11 @@ export function createTodosFeature({
       download.addEventListener('click', () => downloadTodoAttachment(todoId, attachment.id, attachment.original_filename));
       actions.appendChild(download);
       const currentUserId = getCurrentUser?.()?.id;
-      const canDelete = String(attachment.user_id) === String(currentUserId) || String(todo?.user_id) === String(currentUserId);
+      const project = (getProjects?.() || []).find((item) => String(item.id) === String(todo?.project_id));
+      const canDelete = String(attachment.user_id) === String(currentUserId)
+        || String(todo?.user_id) === String(currentUserId)
+        || project?.is_owner === true
+        || project?.is_shared === true;
       if (canDelete) {
         const remove = document.createElement('button');
         remove.type = 'button';
@@ -678,14 +697,44 @@ export function createTodosFeature({
       showToast(t('todo.attachments.onlineOnly'));
       return;
     }
+    const currentUser = getCurrentUser?.();
+    if (currentUser?.attachments_enabled === false) {
+      showToast(t('todo.attachments.disabled'));
+      return;
+    }
+    const maxUploadBytes = Number(currentUser?.attachment_max_upload_bytes || 0);
+    if (maxUploadBytes > 0 && file.size > maxUploadBytes) {
+      showToast(t('todo.attachments.fileTooLarge', { max: formatAttachmentSize(maxUploadBytes) }));
+      return;
+    }
+    const remainingBytes = Number(currentUser?.attachment_remaining_bytes ?? currentUser?.attachment_quota_bytes ?? 0);
+    if (remainingBytes > 0 && file.size > remainingBytes) {
+      showToast(t('todo.attachments.quotaExceeded'));
+      return;
+    }
+    if (!attachmentAllowedByClient(file, currentUser)) {
+      showToast(t('todo.attachments.typeNotAllowed'));
+      return;
+    }
     try {
       const response = await todosApi.uploadAttachment(id, file);
       await applyAttachmentTodoResponse(response);
+      if (response?.usage && currentUser && typeof setCurrentUser === 'function') {
+        setCurrentUser({
+          ...currentUser,
+          attachments_enabled: Boolean(response.usage.enabled),
+          attachment_usage_bytes: response.usage.used_bytes,
+          attachment_quota_bytes: response.usage.quota_bytes,
+          attachment_remaining_bytes: response.usage.remaining_bytes,
+          attachments_allowed_types: response.usage.allowed_types || currentUser.attachments_allowed_types,
+          attachment_max_upload_bytes: response.usage.max_upload_bytes || currentUser.attachment_max_upload_bytes,
+        });
+      }
       setSelectedAttachmentFileName(null);
       showToast(t('todo.attachments.uploaded'));
     } catch (error) {
       console.error('Failed to upload todo attachment', error);
-      showToast(t('todo.attachments.uploadFailed'));
+      showToast(error?.message || t('todo.attachments.uploadFailed'));
     }
   }
 

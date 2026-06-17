@@ -20,7 +20,7 @@ from routers.auth import require_auth
 from services.websocket import broadcast_change
 from services.utils import sanitize_text
 from services.sharing import can_access_project, can_manage_todos, get_project_ids_for_user
-from services.attachments import attachment_usage_payload, enforce_attachment_upload_policy
+from services.attachments import MAX_ATTACHMENT_BYTES, attachment_usage_payload, enforce_attachment_upload_policy, sniff_attachment_content_type
 
 router = APIRouter(prefix="/api/todos")
 
@@ -92,7 +92,6 @@ FORBIDDEN_LOCATION_COORDINATE_FIELDS = {
 }
 AUTO_REMINDER_SOURCE = "default_due"
 EXPLICIT_REMINDER_SOURCE = "explicit"
-MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024
 MAX_ATTACHMENTS_PER_TODO = 20
 
 
@@ -372,7 +371,7 @@ def _require_attachment_writable_todo(db, todo_id: int, user_id: int) -> dict:
     return todo
 
 
-async def _read_attachment_body(request: Request) -> bytes:
+async def _stream_attachment_to_temp(request: Request, tmp_path: Path) -> tuple[int, bytes]:
     content_length = request.headers.get("content-length")
     if content_length:
         try:
@@ -380,16 +379,19 @@ async def _read_attachment_body(request: Request) -> bytes:
                 raise HTTPException(413, "Attachment is too large")
         except ValueError:
             raise HTTPException(400, "Invalid Content-Length")
-    chunks = []
     total = 0
-    async for chunk in request.stream():
-        if not chunk:
-            continue
-        total += len(chunk)
-        if total > MAX_ATTACHMENT_BYTES:
-            raise HTTPException(413, "Attachment is too large")
-        chunks.append(chunk)
-    return b"".join(chunks)
+    sample = bytearray()
+    with tmp_path.open("wb") as handle:
+        async for chunk in request.stream():
+            if not chunk:
+                continue
+            total += len(chunk)
+            if total > MAX_ATTACHMENT_BYTES:
+                raise HTTPException(413, "Attachment is too large")
+            if len(sample) < 512:
+                sample.extend(chunk[:512 - len(sample)])
+            handle.write(chunk)
+    return total, bytes(sample)
 
 
 def _validate_todo_target(db, project_id: Optional[int], section_id: Optional[int], user_id: int):
@@ -1197,46 +1199,59 @@ def list_todo_attachments(todo_id: int, user_id: int = Depends(require_auth)):
 
 @router.post("/{todo_id}/attachments")
 async def upload_todo_attachment(todo_id: int, request: Request, user_id: int = Depends(require_auth)):
-    body = await _read_attachment_body(request)
-    if not body:
-        raise HTTPException(400, "Attachment is required")
     content_type = (request.headers.get("content-type") or "application/octet-stream").split(";", 1)[0].strip().lower() or "application/octet-stream"
     original_filename = _safe_attachment_filename(
         request.headers.get("x-nia-filename") or request.headers.get("x-file-name") or request.headers.get("x-filename")
     )
-    with get_db() as db:
-        todo = _require_attachment_writable_todo(db, todo_id, user_id)
-        db.execute("BEGIN IMMEDIATE")
-        enforce_attachment_upload_policy(db, user_id=user_id, filename=original_filename, content_type=content_type, size_bytes=len(body))
-        current_count = _attachment_count_for_todo(db, todo_id)
-        if current_count >= MAX_ATTACHMENTS_PER_TODO:
-            raise HTTPException(422, "Too many attachments")
-        suffix = Path(original_filename).suffix[:20]
-        stored_filename = f"{secrets.token_hex(16)}{suffix}"
-        target_path = _stored_attachment_path(todo_id, stored_filename)
-        target_path.parent.mkdir(parents=True, exist_ok=True)
-        tmp_path = target_path.with_suffix(target_path.suffix + ".tmp")
-        tmp_path.write_bytes(body)
-        tmp_path.replace(target_path)
-        now = now_iso()
-        try:
-            cursor = db.execute(
-                """INSERT INTO todo_attachments
-                   (todo_id, user_id, original_filename, stored_filename, content_type, size_bytes, created_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
-                (todo_id, user_id, original_filename, stored_filename, content_type, len(body), now),
-            )
-            db.execute("UPDATE todos SET updated_at = ? WHERE id = ?", (now, todo_id))
+    suffix = Path(original_filename).suffix[:20]
+    stored_filename = f"{secrets.token_hex(16)}{suffix}"
+    target_path = _stored_attachment_path(todo_id, stored_filename)
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = target_path.with_suffix(target_path.suffix + f".{secrets.token_hex(6)}.tmp")
+    try:
+        with get_db() as db:
+            todo = _require_attachment_writable_todo(db, todo_id, user_id)
+        size_bytes, sample = await _stream_attachment_to_temp(request, tmp_path)
+        if size_bytes <= 0:
+            raise HTTPException(400, "Attachment is required")
+        detected_content_type = sniff_attachment_content_type(sample)
+        with get_db() as db:
+            todo = _require_attachment_writable_todo(db, todo_id, user_id)
             db.commit()
-        except Exception:
+            db.execute("BEGIN IMMEDIATE")
+            policy = enforce_attachment_upload_policy(
+                db,
+                user_id=user_id,
+                filename=original_filename,
+                content_type=content_type,
+                size_bytes=size_bytes,
+                detected_content_type=detected_content_type,
+            )
+            current_count = _attachment_count_for_todo(db, todo_id)
+            if current_count >= MAX_ATTACHMENTS_PER_TODO:
+                raise HTTPException(422, "Too many attachments")
+            tmp_path.replace(target_path)
+            now = now_iso()
             try:
-                target_path.unlink(missing_ok=True)
-            finally:
-                raise
-        attachment = _public_attachment(_attachment_row(db, cursor.lastrowid))
-        updated_todo = fetch_todo(db, todo_id, user_id)
-        await broadcast_change("todo_attachment_create", _attachment_event_payload(db, todo_id, attachment=attachment), user_id, updated_todo.get('project_id'))
-        return {"attachment": attachment, "todo": updated_todo, "usage": attachment_usage_payload(db, user_id)}
+                cursor = db.execute(
+                    """INSERT INTO todo_attachments
+                       (todo_id, user_id, original_filename, stored_filename, content_type, size_bytes, created_at)
+                       VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                    (todo_id, user_id, original_filename, stored_filename, policy["content_type"], size_bytes, now),
+                )
+                db.execute("UPDATE todos SET updated_at = ? WHERE id = ?", (now, todo_id))
+                db.commit()
+            except Exception:
+                try:
+                    target_path.unlink(missing_ok=True)
+                finally:
+                    raise
+            attachment = _public_attachment(_attachment_row(db, cursor.lastrowid))
+            updated_todo = fetch_todo(db, todo_id, user_id)
+            await broadcast_change("todo_attachment_create", _attachment_event_payload(db, todo_id, attachment=attachment), user_id, updated_todo.get('project_id'))
+            return {"attachment": attachment, "todo": updated_todo, "usage": attachment_usage_payload(db, user_id)}
+    finally:
+        tmp_path.unlink(missing_ok=True)
 
 
 @router.get("/{todo_id}/attachments/{attachment_id}/download")

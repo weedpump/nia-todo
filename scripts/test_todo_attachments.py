@@ -235,6 +235,24 @@ def main():
         )
         assert_true(blocked_type.status_code == 415, blocked_type.text)
 
+        fake_png = owner.post(
+            f"/api/todos/{todo_id}/attachments",
+            content=b"not actually a png",
+            headers={"content-type": "image/png", "x-nia-filename": "fake.png"},
+        )
+        assert_true(fake_png.status_code == 415, fake_png.text)
+
+        real_png_bytes = b"\x89PNG\r\n\x1a\n" + b"\x00" * 16
+        real_png = owner.post(
+            f"/api/todos/{todo_id}/attachments",
+            content=real_png_bytes,
+            headers={"content-type": "image/png", "x-nia-filename": "real.png"},
+        )
+        assert_true(real_png.status_code == 200, real_png.text)
+        real_png_attachment_id = real_png.json()["attachment"]["id"]
+        assert_true(real_png.json()["attachment"]["content_type"] == "image/png", real_png.text)
+        owner.delete(f"/api/todos/{todo_id}/attachments/{real_png_attachment_id}")
+
         db.execute("UPDATE users SET attachment_quota_bytes = ? WHERE id = 1", (10,))
         db.commit()
         quota_blocked = owner.post(
@@ -261,6 +279,21 @@ def main():
 
         missing_download = owner.get(f"/api/todos/{todo_id}/attachments/{attachment_id}/download")
         assert_true(missing_download.status_code == 404, missing_download.text)
+
+        cleanup_todo = owner.post("/api/todos", json={"title": "Cleanup attachments", "project_id": 2})
+        assert_true(cleanup_todo.status_code == 200, cleanup_todo.text)
+        cleanup_todo_id = cleanup_todo.json()["id"]
+        cleanup_upload = owner.post(
+            f"/api/todos/{cleanup_todo_id}/attachments",
+            content=b"cleanup file",
+            headers={"content-type": "text/plain", "x-nia-filename": "cleanup.txt"},
+        )
+        assert_true(cleanup_upload.status_code == 200, cleanup_upload.text)
+        cleanup_dir = todos_router.ATTACHMENT_DIR / str(cleanup_todo_id)
+        assert_true(cleanup_dir.exists(), f"Attachment dir missing before todo delete: {cleanup_dir}")
+        cleanup_delete = owner.delete(f"/api/todos/{cleanup_todo_id}")
+        assert_true(cleanup_delete.status_code == 200, cleanup_delete.text)
+        assert_true(not cleanup_dir.exists(), f"Attachment dir still exists after todo delete: {cleanup_dir}")
 
     print("✅ Todo attachments API tests passed")
 
