@@ -173,9 +173,13 @@ Current design direction:
 
 Still to finish for this design concept:
 
-- Decide and implement the final metadata editing pattern, likely a drawer/popover/sheet rather than inline form expansion at the bottom.
-- Polish responsive spacing/order after the metadata edit pattern is settled.
-- After the design direction is accepted, update/regenerate frontend tests to match the new UX. During design exploration, avoid chasing tests for every visual iteration.
+- Bring the New Todo create flow into the same redesigned modal family. Existing todos use the read-first detail view; new todos should use a matching create/composer mode instead of the old form-modal styling.
+- Update/regenerate frontend tests once the Todo modal redesign is structurally settled. Tests are required for the merge/release gate, but visual iteration should use targeted syntax/smoke checks instead of repeated full test runs.
+- Run one focused review after the create flow and tests are aligned.
+
+Follow-up after this branch:
+
+- Decide whether the new Todo detail visual language becomes the global nia-todo design system. This includes pill-shaped action buttons, cleaner modal headers, less nested/boxed container styling, shared action-row primitives, and consistent mobile fullscreen modal behavior. Keep this as a separate follow-up branch/workstream instead of expanding the current Todo-detail branch.
 
 ## Planned Feature Themes After Attachments
 
