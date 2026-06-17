@@ -708,7 +708,7 @@ export function createTodosFeature({
       return;
     }
     const remainingBytes = Number(currentUser?.attachment_remaining_bytes ?? currentUser?.attachment_quota_bytes ?? 0);
-    if (remainingBytes > 0 && file.size > remainingBytes) {
+    if (file.size > Math.max(remainingBytes, 0)) {
       showToast(t('todo.attachments.quotaExceeded'));
       return;
     }
