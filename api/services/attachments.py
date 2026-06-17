@@ -27,6 +27,15 @@ MAGIC_REQUIRED_ATTACHMENT_TYPES = {
     "image/gif",
     "image/webp",
 }
+MAGIC_REQUIRED_ATTACHMENT_EXTENSIONS = {
+    ".pdf": "application/pdf",
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".webp": "image/webp",
+    ".zip": "application/zip",
+}
 BLOCKED_ATTACHMENT_CONTENT_TYPES = {
     "text/html",
     "image/svg+xml",
@@ -224,6 +233,13 @@ def _matches_allowed_type(filename: str, content_type: str, allowed_types: list[
         return False
     if detected_content_type is None and candidate_types & MAGIC_REQUIRED_ATTACHMENT_TYPES:
         return False
+    matching_magic_extensions = [ext for ext in MAGIC_REQUIRED_ATTACHMENT_EXTENSIONS if name.endswith(ext)]
+    if matching_magic_extensions and detected_content_type is None:
+        return False
+    if matching_magic_extensions and detected_content_type is not None:
+        expected_types = {MAGIC_REQUIRED_ATTACHMENT_EXTENSIONS[ext] for ext in matching_magic_extensions}
+        if detected_content_type not in expected_types:
+            return False
     for entry in allowed_types:
         if entry.startswith(".") and name.endswith(entry):
             return True
