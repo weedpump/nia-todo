@@ -9688,3 +9688,83 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   padding-left: 12px;
   border-left-color: color-mix(in srgb, var(--accent) 28%, var(--border));
 }
+
+/* Todo detail view prototype v7: undo card-like section surfaces, tighten comments/actions. */
+#todo-modal.todo-detail-view .todo-subtasks-card,
+#todo-modal.todo-detail-view .todo-attachments-card,
+#todo-modal.todo-detail-view .todo-comments-card {
+  padding: 18px 0 0;
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, var(--border) 44%, transparent);
+  border-radius: 0;
+  background: transparent;
+}
+
+#todo-modal.todo-detail-view .todo-subtasks-card:hover,
+#todo-modal.todo-detail-view .todo-attachments-card:hover,
+#todo-modal.todo-detail-view .todo-comments-card:hover {
+  border-color: color-mix(in srgb, var(--border) 44%, transparent);
+  background: transparent;
+}
+
+#todo-modal.todo-detail-view .todo-attachment-picker {
+  width: auto;
+  min-width: 0;
+  max-width: 220px;
+  min-height: 34px;
+  padding: 6px 11px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+#todo-modal.todo-detail-view #todo-attachment-file-name {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#todo-modal.todo-detail-view .todo-attachments-add-row {
+  align-items: center;
+  justify-content: flex-start;
+}
+
+#todo-modal.todo-detail-view .todo-comment-item {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
+  padding: 8px 0 8px 12px;
+}
+
+#todo-modal.todo-detail-view .todo-comment-meta {
+  grid-column: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 0;
+}
+
+#todo-modal.todo-detail-view .todo-comment-body {
+  grid-column: auto;
+}
+
+#todo-modal.todo-detail-view .todo-comment-actions {
+  grid-column: auto;
+  justify-self: start;
+  display: inline-flex;
+  gap: 6px;
+  margin-top: 2px;
+  opacity: 0;
+}
+
+#todo-modal.todo-detail-view .todo-comment-actions .btn-icon {
+  width: 30px;
+  height: 30px;
+  min-height: 30px;
+}
+
+@media (max-width: 720px) {
+  #todo-modal.todo-detail-view .todo-comment-actions {
+    opacity: 1;
+  }
+}
