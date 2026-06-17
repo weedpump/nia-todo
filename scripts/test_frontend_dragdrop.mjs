@@ -13,6 +13,11 @@ async function run() {
     await page.click('button[form="project-form"]');
     await page.locator('#project-modal').waitFor({ state: 'hidden', timeout: 5000 });
 
+    await page.click('button[onclick="showProjectModal()"]');
+    await page.fill('#project-name', 'Drop Target Project');
+    await page.click('button[form="project-form"]');
+    await page.locator('#project-modal').waitFor({ state: 'hidden', timeout: 5000 });
+
     await clickProjectNav('Drag Project');
     await createSection('Drag A');
     await createSection('Drag B');
@@ -88,11 +93,45 @@ async function run() {
       throw new Error(`Section order not updated via dropzone: ${JSON.stringify(sectionOrder)}`);
     }
 
+    await page.context().setOffline(true);
+    await page.waitForFunction(() => navigator.onLine === false, null, { timeout: 5000 });
+
+    await page.evaluate(async () => {
+      const todo = document.querySelector('.todo-item[data-id]');
+      const targetProject = Array.from(document.querySelectorAll('.project-drop-target[data-project-id]'))
+        .find(el => el.textContent?.includes('Drop Target Project'));
+      if (!todo || !targetProject) throw new Error('Project drop DOM not found');
+      window.handleTodoDragStart({ target: todo, dataTransfer: { effectAllowed: '', setData() {}, dropEffect: '' } });
+      window.handleProjectDragOver({ preventDefault() {}, target: targetProject, dataTransfer: { dropEffect: '' } });
+      await window.handleProjectDrop({ preventDefault() {}, target: targetProject });
+    });
+
+    await page.waitForTimeout(300);
+    await clickProjectNav('Drop Target Project');
+    await page.waitForFunction(() => document.body.innerText.includes('Drag Todo'), { timeout: 5000 });
+    const projectMoveState = await page.evaluate(() => Array.from(document.querySelectorAll('.section-todos')).map(el => ({
+      section: el.previousElementSibling?.textContent?.trim() || 'unknown',
+      text: el.innerText,
+      sectionId: el.dataset.sectionId,
+    })));
+    const movedToTargetProjectUnsorted = projectMoveState.some(entry => entry.sectionId === 'null' && entry.text.includes('Drag Todo'));
+    if (!movedToTargetProjectUnsorted) throw new Error(`Drag Todo not moved to target project unsorted section: ${JSON.stringify(projectMoveState)}`);
+
+    const queuedProjectMove = await page.evaluate(async () => {
+      const queue = await window.dbGetAll('syncQueue');
+      return queue.some(item => item.action === 'UPDATE_TODO' && item.data?.changes?.project_id && item.data?.changes?.section_id === null);
+    });
+    if (!queuedProjectMove) throw new Error('Offline project drop did not enqueue UPDATE_TODO with project_id and section_id=null');
+
+    await page.context().setOffline(false);
+    await page.waitForFunction(() => navigator.onLine === true, null, { timeout: 5000 });
+
     await page.waitForTimeout(300);
 
     assertNoFrontendErrors();
     console.log('✅ Frontend drag-drop test passed');
   } finally {
+    await page.context().setOffline(false).catch(() => {});
     await browser.close();
   }
 }
