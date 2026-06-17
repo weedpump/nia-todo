@@ -1344,5 +1344,11 @@
   "admin.attachments.saved": "Anhang-Einstellungen gespeichert.",
   "admin.attachments.quota": "Anhang-Quota",
   "admin.attachments.useDefault": "Standard",
-  "admin.attachments.userQuotaSaved": "User-Quota gespeichert."
+  "admin.attachments.userQuotaSaved": "User-Quota gespeichert.",
+  "todo.attachments.disabled": "Anhänge sind deaktiviert.",
+  "todo.attachments.typeNotAllowed": "Dieser Dateityp ist nicht erlaubt.",
+  "todo.attachments.quotaExceeded": "Nicht genug freier Anhang-Speicher.",
+  "todo.attachments.fileTooLarge": "Datei ist zu groß. Maximum: {max}.",
+  "todo.attachments.fileTooLargeGeneric": "Datei ist zu groß.",
+  "todo.attachments.tooMany": "Dieses Todo hat bereits die maximale Anzahl Anhänge."
 }

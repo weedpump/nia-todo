@@ -206,6 +206,8 @@ def me(request: Request, response: Response, authorization: Optional[str] = Head
             "attachment_usage_bytes": attachment_usage["used_bytes"],
             "attachment_quota_bytes": attachment_usage["quota_bytes"],
             "attachment_remaining_bytes": attachment_usage["remaining_bytes"],
+            "attachments_allowed_types": attachment_usage["allowed_types"],
+            "attachment_max_upload_bytes": attachment_usage["max_upload_bytes"],
             "is_admin": bool(user['is_admin']),
             "two_factor": mfa_state,
             "mfa_enrollment_required": enroll_only,

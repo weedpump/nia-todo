@@ -335,6 +335,7 @@ const todosFeature = createTodosFeature({
   getCurrentProjectId: () => currentProjectId,
   getCurrentWorkspaceId: () => currentWorkspaceId,
   getCurrentUser: () => currentUser,
+  setCurrentUser: (next) => { currentUser = next; userMenuFeature.updateUserMenu(); },
   getAppInitialized: () => appInitialized,
   getDb: () => db,
   dbPut,

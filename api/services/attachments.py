@@ -18,12 +18,28 @@ DEFAULT_ALLOWED_ATTACHMENT_TYPES = [
 ]
 DEFAULT_ATTACHMENT_QUOTA_BYTES = 5 * 1024 * 1024 * 1024
 MAX_ATTACHMENT_QUOTA_BYTES = 1024 * 1024 * 1024 * 1024  # 1 TiB guardrail
+MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024
+MAGIC_REQUIRED_ATTACHMENT_TYPES = {
+    "application/pdf",
+    "application/zip",
+    "image/png",
+    "image/jpeg",
+    "image/gif",
+    "image/webp",
+}
 BLOCKED_ATTACHMENT_CONTENT_TYPES = {
     "text/html",
     "image/svg+xml",
     "application/javascript",
     "text/javascript",
 }
+BLOCKED_ATTACHMENT_SIGNATURE_PREFIXES = (
+    b"<!doctype html",
+    b"<html",
+    b"<script",
+    b"<svg",
+    b"<?xml",
+)
 
 ATTACHMENT_CONFIG_KEYS = (
     "attachments_enabled",
@@ -157,7 +173,7 @@ def user_attachment_quota_bytes(db, user_id: int) -> int:
     return int(get_attachment_config(db)["default_quota_bytes"])
 
 
-def attachment_usage_payload(db, user_id: int) -> dict[str, int | bool]:
+def attachment_usage_payload(db, user_id: int) -> dict[str, int | bool | list[str]]:
     config = get_attachment_config(db)
     used = attachment_usage_bytes(db, user_id)
     quota = user_attachment_quota_bytes(db, user_id)
@@ -166,15 +182,45 @@ def attachment_usage_payload(db, user_id: int) -> dict[str, int | bool]:
         "used_bytes": used,
         "quota_bytes": quota,
         "remaining_bytes": max(quota - used, 0),
+        "allowed_types": list(config["allowed_types"]),
+        "max_upload_bytes": MAX_ATTACHMENT_BYTES,
     }
 
 
-def _matches_allowed_type(filename: str, content_type: str, allowed_types: list[str]) -> bool:
+def sniff_attachment_content_type(sample: bytes) -> str | None:
+    data = bytes(sample or b"")[:512]
+    stripped = data.lstrip().lower()
+    if any(stripped.startswith(prefix) for prefix in BLOCKED_ATTACHMENT_SIGNATURE_PREFIXES):
+        return "text/html"
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if data.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    if data.startswith((b"GIF87a", b"GIF89a")):
+        return "image/gif"
+    if data.startswith(b"%PDF"):
+        return "application/pdf"
+    if len(data) >= 12 and data.startswith(b"RIFF") and data[8:12] == b"WEBP":
+        return "image/webp"
+    if data.startswith(b"PK\x03\x04") or data.startswith(b"PK\x05\x06") or data.startswith(b"PK\x07\x08"):
+        return "application/zip"
+    return None
+
+
+def _attachment_type_candidates(filename: str, content_type: str, detected_content_type: str | None = None) -> set[str]:
     name = str(filename or "").lower()
     guessed_type = (mimetypes.guess_type(name)[0] or "").lower()
-    candidate_types = {str(content_type or "").split(";", 1)[0].strip().lower(), guessed_type}
-    candidate_types.discard("")
+    candidates = {str(content_type or "").split(";", 1)[0].strip().lower(), guessed_type, str(detected_content_type or "").lower()}
+    candidates.discard("")
+    return candidates
+
+
+def _matches_allowed_type(filename: str, content_type: str, allowed_types: list[str], detected_content_type: str | None = None) -> bool:
+    name = str(filename or "").lower()
+    candidate_types = _attachment_type_candidates(filename, content_type, detected_content_type)
     if candidate_types & BLOCKED_ATTACHMENT_CONTENT_TYPES:
+        return False
+    if detected_content_type is None and candidate_types & MAGIC_REQUIRED_ATTACHMENT_TYPES:
         return False
     for entry in allowed_types:
         if entry.startswith(".") and name.endswith(entry):
@@ -188,15 +234,18 @@ def _matches_allowed_type(filename: str, content_type: str, allowed_types: list[
     return False
 
 
-def enforce_attachment_upload_policy(db, *, user_id: int, filename: str, content_type: str, size_bytes: int) -> dict[str, Any]:
+def enforce_attachment_upload_policy(db, *, user_id: int, filename: str, content_type: str, size_bytes: int, detected_content_type: str | None = None) -> dict[str, Any]:
     config = get_attachment_config(db)
     if not config["enabled"]:
         raise HTTPException(403, "Attachments are disabled by the administrator")
+    if int(size_bytes or 0) > MAX_ATTACHMENT_BYTES:
+        raise HTTPException(413, "Attachment is too large")
     allowed_types = list(config["allowed_types"])
-    if not _matches_allowed_type(filename, content_type, allowed_types):
+    if not _matches_allowed_type(filename, content_type, allowed_types, detected_content_type):
         raise HTTPException(415, "This attachment file type is not allowed")
     used = attachment_usage_bytes(db, user_id)
     quota = user_attachment_quota_bytes(db, user_id)
     if used + int(size_bytes or 0) > quota:
         raise HTTPException(413, "Attachment quota exceeded")
-    return {"used_bytes": used, "quota_bytes": quota, "allowed_types": allowed_types}
+    effective_content_type = detected_content_type or str(content_type or "application/octet-stream").split(";", 1)[0].strip().lower() or "application/octet-stream"
+    return {"used_bytes": used, "quota_bytes": quota, "allowed_types": allowed_types, "content_type": effective_content_type}
