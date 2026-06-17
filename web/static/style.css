@@ -10665,3 +10665,58 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
     right: 56px;
   }
 }
+
+/* Todo detail header actions v24: align to content header edge and remove boxed button chrome. */
+#todo-modal.todo-detail-view .modal-close-x {
+  top: 18px;
+  right: max(28px, calc((100vw - 920px) / 2));
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-muted);
+}
+
+#todo-modal.todo-detail-view .todo-detail-header-actions {
+  top: 18px;
+  right: max(66px, calc((100vw - 920px) / 2 + 42px));
+}
+
+#todo-modal.todo-detail-view .todo-detail-header-actions > summary {
+  width: 34px;
+  height: 34px;
+  min-height: 34px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-muted);
+}
+
+#todo-modal.todo-detail-view .todo-detail-header-actions > summary:hover,
+#todo-modal.todo-detail-view .todo-detail-header-actions > summary:focus-visible,
+#todo-modal.todo-detail-view .modal-close-x:hover,
+#todo-modal.todo-detail-view .modal-close-x:focus-visible {
+  color: var(--text-primary);
+  background: transparent;
+  border: 0;
+  outline: none;
+}
+
+#todo-modal.todo-detail-view .todo-detail-header-actions[open] > summary {
+  color: var(--accent);
+  border: 0;
+  background: transparent;
+}
+
+@media (max-width: 1180px) {
+  #todo-modal.todo-detail-view .modal-close-x {
+    top: 12px;
+    right: 12px;
+  }
+
+  #todo-modal.todo-detail-view .todo-detail-header-actions {
+    top: 12px;
+    right: 52px;
+  }
+}
