@@ -10616,3 +10616,52 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
     padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
   }
 }
+
+/* Todo detail header actions v23: visible desktop close, real menu icon, aligned with header. */
+#todo-modal.todo-detail-view .modal-close-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  top: 18px;
+  right: 28px;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--border) 42%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--bg-primary) 42%, transparent);
+  color: var(--text-muted);
+  font-size: 0;
+}
+
+#todo-modal.todo-detail-view .modal-close-x .ui-icon {
+  width: 18px;
+  height: 18px;
+}
+
+#todo-modal.todo-detail-view .todo-detail-header-actions {
+  top: 18px;
+  right: 74px;
+}
+
+#todo-modal.todo-detail-view .todo-detail-header-actions > summary {
+  background: color-mix(in srgb, var(--bg-primary) 42%, transparent);
+}
+
+#todo-modal.todo-detail-view .todo-detail-header-actions[open] > summary {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 42%, transparent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+@media (max-width: 768px) {
+  #todo-modal.todo-detail-view .modal-close-x {
+    top: 10px;
+    right: 10px;
+  }
+
+  #todo-modal.todo-detail-view .todo-detail-header-actions {
+    top: 10px;
+    right: 56px;
+  }
+}
