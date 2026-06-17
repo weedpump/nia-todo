@@ -82,21 +82,22 @@ async function run() {
     assertCloseEnough(after.footer.bottom, before.footer.bottom, 1, 'footer bottom');
     assertCloseEnough(after.content.height, before.content.height, 1, 'modal content height');
 
-    await page.fill('#todo-title', 'Mobile collapsed metadata panels');
+    await page.fill('#todo-title', 'Mobile detail metadata panels');
     await page.selectOption('#todo-priority', '1', { force: true });
     await page.click('#todo-schedule-panel > summary');
     await page.fill('#todo-due', '2099-03-04T05:06', { force: true });
     await page.click('#todo-modal button[type="submit"]');
     await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 10000 });
-    await waitForText('Mobile collapsed metadata panels');
-    await page.locator('.todo-item').filter({ hasText: 'Mobile collapsed metadata panels' }).first().click();
+    await waitForText('Mobile detail metadata panels');
+    await page.locator('.todo-item').filter({ hasText: 'Mobile detail metadata panels' }).first().click();
     await page.locator('#todo-modal').waitFor({ state: 'visible', timeout: 5000 });
-    const mobileMetadataPanels = await page.evaluate(() => ({
+    const mobileDetailState = await page.evaluate(() => ({
+      detailView: document.querySelector('#todo-modal')?.classList.contains('todo-detail-view'),
       organize: document.querySelector('#todo-organize-panel')?.open,
       schedule: document.querySelector('#todo-schedule-panel')?.open,
     }));
-    if (mobileMetadataPanels.organize || mobileMetadataPanels.schedule) {
-      throw new Error(`Expected metadata panels to stay collapsed on mobile even with values: ${JSON.stringify(mobileMetadataPanels)}`);
+    if (!mobileDetailState.detailView || !mobileDetailState.organize || !mobileDetailState.schedule) {
+      throw new Error(`Expected existing todo to reopen as visible detail view on mobile: ${JSON.stringify(mobileDetailState)}`);
     }
 
     assertNoFrontendErrors();
