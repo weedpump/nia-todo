@@ -10324,3 +10324,20 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
     grid-template-columns: 1fr;
   }
 }
+
+/* Todo detail meta editing v17: slightly wider desktop sidebar. */
+#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer {
+  width: min(440px, calc(100% - 36px));
+}
+
+#todo-modal.todo-detail-view.todo-meta-editing .todo-modal-body,
+#todo-modal.todo-detail-view.todo-meta-editing .todo-modal-actions,
+#todo-modal.todo-detail-view.todo-meta-editing .todo-modal-header {
+  padding-right: min(490px, 40vw);
+}
+
+@media (max-width: 1180px) {
+  #todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer {
+    width: auto;
+  }
+}
