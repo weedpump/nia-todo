@@ -9768,3 +9768,36 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
     opacity: 1;
   }
 }
+
+/* Todo detail comments v8: actions belong in the comment header row, right-aligned. */
+#todo-modal.todo-detail-view .todo-comment-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "meta actions"
+    "body body";
+  gap: 4px 10px;
+  padding: 8px 0 8px 12px;
+}
+
+#todo-modal.todo-detail-view .todo-comment-meta {
+  grid-area: meta;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+}
+
+#todo-modal.todo-detail-view .todo-comment-body {
+  grid-area: body;
+}
+
+#todo-modal.todo-detail-view .todo-comment-actions {
+  grid-area: actions;
+  justify-self: end;
+  align-self: start;
+  display: inline-flex;
+  gap: 6px;
+  margin-top: 0;
+  opacity: 0;
+}
