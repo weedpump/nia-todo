@@ -139,21 +139,17 @@ Final behavior:
 
 ## Targeted Checks
 
+Use focused suites instead of running every historical UI regression after each visual iteration:
+
 ```bash
-python3 scripts/test_subtasks.py
-python3 scripts/test_todo_comments.py
-python3 scripts/test_todo_attachments.py
-node scripts/test_frontend_subtasks.mjs
-node scripts/test_frontend_realtime_sync.mjs
-node scripts/test_frontend_offline_sync.mjs
-node scripts/test_frontend_sharing.mjs
-node scripts/test_frontend_admin.mjs
-node scripts/test_frontend_settings.mjs
-node scripts/test_sw_precache.mjs
-node scripts/test_frontend_design_layout.mjs
-node scripts/test_frontend_todo_interactive_clicks.mjs
-node scripts/test_frontend_native_todo_actions.mjs
-node scripts/test_frontend_android_todo_gestures.mjs
+# Todo UX/API integration before larger Todo merges
+npm run test:todo
+
+# Optional UI/micro-layout contracts after broad visual refactors
+npm run test:ui
+
+# Full release gate; also called by release.sh
+npm test
 ```
 
 ## In Progress: Todo Detail View Redesign
