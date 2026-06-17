@@ -621,7 +621,7 @@
             <div class="form-group todo-attachments-add-group">
               <label for="todo-attachment-file" data-i18n-key="todo.attachments.newLabel">Add attachment</label>
               <div class="todo-attachments-add-row">
-                <input type="file" id="todo-attachment-file" class="visually-hidden">
+                <input type="file" id="todo-attachment-file" class="visually-hidden" multiple>
                 <button type="button" class="todo-attachment-picker btn btn-secondary" onclick="document.getElementById('todo-attachment-file').click()"><span data-icon="paperclip"></span> <span id="todo-attachment-file-name" data-i18n-key="todo.attachments.chooseFile">Datei auswählen</span></button>
                 <button type="button" id="todo-attachment-upload-btn" class="btn btn-secondary" onclick="uploadTodoAttachmentFromInput()"><span data-icon="upload"></span> <span data-i18n-key="todo.attachments.upload">Upload</span></button>
               </div>

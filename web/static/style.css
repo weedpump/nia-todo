@@ -9834,3 +9834,49 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
     justify-self: end;
   }
 }
+
+/* Todo detail attachments v10: compact empty picker, full-width selection, desktop drag/drop. */
+#todo-modal.todo-detail-view .todo-attachment-picker {
+  flex: 0 1 auto;
+  width: auto;
+  max-width: 220px;
+}
+
+#todo-modal.todo-detail-view .todo-attachment-picker.has-file {
+  flex: 1 1 auto;
+  width: auto;
+  max-width: none;
+}
+
+#todo-modal.todo-detail-view .todo-attachment-picker.has-file #todo-attachment-file-name {
+  max-width: none;
+}
+
+#todo-modal.todo-detail-view .todo-attachments-add-row {
+  position: relative;
+  padding: 8px;
+  margin: 2px -8px -8px;
+  border: 1px dashed transparent;
+  border-radius: 18px;
+  transition: border-color .14s ease, background .14s ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  #todo-modal.todo-detail-view .todo-attachments-add-row::after {
+    content: attr(data-drop-label);
+    justify-self: start;
+    color: var(--text-muted);
+    font-size: 12px;
+    opacity: .72;
+  }
+}
+
+#todo-modal.todo-detail-view .todo-attachments-add-row.is-drag-over {
+  border-color: color-mix(in srgb, var(--accent) 52%, transparent);
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+}
+
+#todo-modal.todo-detail-view .todo-attachments-add-row.is-drag-over::after {
+  color: var(--accent);
+  opacity: 1;
+}
