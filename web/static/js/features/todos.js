@@ -76,23 +76,53 @@ export function createTodosFeature({
   }
 
   function updateTodoMetaPanelsOpenState(todo = null) {
-    if (isMobileTodoModalLayout()) {
-      setTodoCollapsibleOpen('todo-schedule-panel', false);
-      setTodoCollapsibleOpen('todo-organize-panel', false);
+    const existingTodo = Boolean(todo?.id);
+    setTodoCollapsibleOpen('todo-subtasks-panel', existingTodo);
+    setTodoCollapsibleOpen('todo-comments-panel', existingTodo);
+    setTodoCollapsibleOpen('todo-attachments-panel', existingTodo);
+    if (existingTodo) {
+      setTodoCollapsibleOpen('todo-schedule-panel', true);
+      setTodoCollapsibleOpen('todo-organize-panel', true);
       return;
     }
-    const recurringRule = normalizeRecurringRule(todo?.recurring_rule, { defaultTimezone: null });
-    const hasLocationReminder = Array.isArray(todo?.location_reminders) && todo.location_reminders.length > 0;
-    const hasScheduleDetails = Boolean(todo?.due_date || todo?.remind_at || (Array.isArray(todo?.reminders) && todo.reminders.length > 0) || (recurringRule && recurringRule.frequency !== 'none') || hasLocationReminder);
-    const hasOrganizeDetails = Boolean(
-      todo && (
-        Number(todo.priority || 3) !== 3 ||
-        (todo.status || 'pending') !== 'pending' ||
-        Boolean(todo.is_pinned)
-      )
-    );
-    setTodoCollapsibleOpen('todo-schedule-panel', hasScheduleDetails);
-    setTodoCollapsibleOpen('todo-organize-panel', hasOrganizeDetails);
+    setTodoCollapsibleOpen('todo-subtasks-panel', false);
+    setTodoCollapsibleOpen('todo-comments-panel', false);
+    setTodoCollapsibleOpen('todo-attachments-panel', false);
+    setTodoCollapsibleOpen('todo-schedule-panel', false);
+    setTodoCollapsibleOpen('todo-organize-panel', false);
+  }
+
+  function updateTodoDetailViewMode(todo = null) {
+    const modal = document.getElementById('todo-modal');
+    if (!modal) return;
+    const isExistingTodo = Boolean(todo?.id);
+    modal.classList.toggle('todo-detail-view', isExistingTodo);
+    modal.classList.remove('todo-desc-editing');
+    const preview = document.getElementById('todo-desc-preview');
+    if (preview) preview.dataset.emptyLabel = t('todo.descriptionPlaceholder');
+  }
+
+  function bindTodoDescriptionInlineEditor() {
+    const modal = document.getElementById('todo-modal');
+    const textarea = document.getElementById('todo-desc');
+    const preview = document.getElementById('todo-desc-preview');
+    if (!modal || !textarea || !preview || textarea.dataset.inlineEditorBound === '1') return;
+    textarea.dataset.inlineEditorBound = '1';
+    const openEditor = () => {
+      if (!modal.classList.contains('todo-detail-view')) return;
+      modal.classList.add('todo-desc-editing');
+      window.requestAnimationFrame?.(() => textarea.focus());
+    };
+    preview.addEventListener('click', openEditor);
+    preview.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      openEditor();
+    });
+    textarea.addEventListener('blur', () => {
+      if (!modal.classList.contains('todo-detail-view')) return;
+      window.setTimeout(() => modal.classList.remove('todo-desc-editing'), 120);
+    });
   }
 
   function getTodoSaveRelevantState() {
@@ -2013,6 +2043,8 @@ export function createTodosFeature({
     hydrateTodoSelects();
     bindRecurringControls();
     bindLocationReminderControls();
+    bindTodoDescriptionInlineEditor();
+    updateTodoDetailViewMode(todo);
     await loadSavedPlacesForTodoModal();
     deletingSubtaskIds.clear();
     document.getElementById('todo-form')?.reset();
@@ -2118,6 +2150,8 @@ export function createTodosFeature({
       renderQuickAddPreview(quickAddResult);
     }
     resetTodoSaveSnapshot();
+    updateTodoDetailViewMode(todo);
+    document.getElementById('todo-desc-preview')?.setAttribute('tabindex', todo ? '0' : '-1');
     document.getElementById('todo-modal')?.classList.add('active');
     if (!todo) focusTodoTitle();
   }
