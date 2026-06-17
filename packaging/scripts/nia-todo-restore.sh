@@ -13,6 +13,7 @@ if [[ "${DB_PATH}" != /* ]]; then
   DB_PATH="${DATA_DIR}/${DB_PATH}"
 fi
 AVATAR_DIR="${NIA_TODO_AVATAR_DIR:-${DATA_DIR}/avatars}"
+ATTACHMENT_DIR="${NIA_TODO_ATTACHMENT_DIR:-${DATA_DIR}/attachments}"
 VAPID_KEYS_PATH="${NIA_TODO_VAPID_KEYS:-${DATA_DIR}/vapid_keys.json}"
 TMP_DIR="$(mktemp -d)"
 cleanup() { rm -rf "${TMP_DIR}"; }
@@ -52,7 +53,7 @@ if integrity != 'ok':
     raise SystemExit(f'restore integrity_check failed: {integrity}')
 PY
 
-mkdir -p "${DATA_DIR}" "${AVATAR_DIR}"
+mkdir -p "${DATA_DIR}" "${AVATAR_DIR}" "${ATTACHMENT_DIR}"
 if [[ -f "${DB_PATH}" ]]; then
   cp "${DB_PATH}" "${DB_PATH}.restore-backup.$(date +%Y%m%d-%H%M%S)"
 fi
@@ -62,6 +63,11 @@ if [[ -d "${TMP_DIR}/avatars" ]]; then
   rm -rf "${AVATAR_DIR}"
   mkdir -p "$(dirname "${AVATAR_DIR}")"
   cp -a "${TMP_DIR}/avatars" "${AVATAR_DIR}"
+fi
+if [[ -d "${TMP_DIR}/attachments" ]]; then
+  rm -rf "${ATTACHMENT_DIR}"
+  mkdir -p "$(dirname "${ATTACHMENT_DIR}")"
+  cp -a "${TMP_DIR}/attachments" "${ATTACHMENT_DIR}"
 fi
 if [[ -f "${TMP_DIR}/vapid_keys.json" ]]; then
   mkdir -p "$(dirname "${VAPID_KEYS_PATH}")"
