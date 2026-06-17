@@ -423,6 +423,7 @@ export function createDragDropFeature({
 
   function startNativePointerDrag(event, source, type, id) {
     const isTouch = event.pointerType === 'touch' || event.pointerType === 'pen';
+    try { window.getSelection?.()?.removeAllRanges?.(); } catch (_error) {}
     pointerDrag = {
       pointerId: event.pointerId,
       source,
@@ -473,6 +474,7 @@ export function createDragDropFeature({
     pointerDrag.ignoreCancelUntilMs = Date.now() + 900;
     try { pointerDrag.source.setPointerCapture?.(pointerDrag.pointerId); } catch (_error) {}
     suppressNextNativeClick = true;
+    try { window.getSelection?.()?.removeAllRanges?.(); } catch (_error) {}
     document.body.classList.add('native-pointer-dragging');
     pointerDrag.source.classList.add('dragging');
     pointerDrag.ghost = createNativeGhost(pointerDrag.source);
@@ -519,6 +521,7 @@ export function createDragDropFeature({
   function disableNativeHtmlDragDrop(root = document) {
     root.querySelectorAll?.('.todo-item[draggable], .section-header[draggable]').forEach((element) => {
       element.setAttribute('data-native-pointer-dnd', 'true');
+      element.setAttribute('data-touch-dnd', 'true');
       element.draggable = false;
       element.removeAttribute('draggable');
     });
