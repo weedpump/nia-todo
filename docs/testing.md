@@ -166,6 +166,8 @@ For audio/STT work, use controlled fixture recordings instead of making Tobi tri
 - `python3 scripts/braindump_audio_fixture_probe.py`
 - `python3 scripts/braindump_audio_replay_probe.py`
 - `python3 scripts/braindump_llm_latency_probe.py`
+- `python3 scripts/braindump_semantic_extractor_probe.py`
+- `python3 scripts/braindump_audio_fixture_e2e_probe.py`
 
 ## Notes
 
@@ -173,3 +175,7 @@ For audio/STT work, use controlled fixture recordings instead of making Tobi tri
 - `withFreshDb` tests temporarily move the dev DB and attachment directory; this is why gates must stay serial.
 - Review subagents should not run full gates by default. They may run static/syntax checks or a focused suite only when explicitly requested.
 - `web/manifest.json` is maintained by the dev/release flow.
+
+## Probe Scripts vs Release Tests
+
+Files named `scripts/test_*` are maintained release tests and must be reachable from `scripts/test_all.sh`. Live/manual checks that require external services, configured LLMs, real audio tooling, or operator judgment must be named as probes instead of `test_*`.
