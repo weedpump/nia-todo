@@ -92,14 +92,81 @@ export function createTodosFeature({
     setTodoCollapsibleOpen('todo-organize-panel', false);
   }
 
+  function formatTodoMetaDate(value) {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    return new Intl.DateTimeFormat(getActiveLanguage() === 'de' ? 'de-DE' : 'en-US', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(date);
+  }
+
+  function getSelectedOptionLabel(id) {
+    const select = document.getElementById(id);
+    const option = select?.selectedOptions?.[0];
+    return option?.textContent?.trim() || '';
+  }
+
+  function ensureTodoMetaSummary() {
+    const descGroup = document.getElementById('todo-desc')?.closest('.form-group');
+    if (!descGroup) return null;
+    let summary = document.getElementById('todo-meta-summary');
+    if (!summary) {
+      summary = document.createElement('div');
+      summary.id = 'todo-meta-summary';
+      summary.className = 'todo-meta-summary-view';
+      descGroup.after(summary);
+    }
+    return summary;
+  }
+
+  function renderTodoMetaSummary(todo = null) {
+    const summary = ensureTodoMetaSummary();
+    if (!summary) return;
+    if (!todo?.id) {
+      summary.replaceChildren();
+      summary.hidden = true;
+      return;
+    }
+    summary.hidden = false;
+    const lang = getActiveLanguage();
+    const chips = [];
+    const addChip = (icon, label, value, muted = false) => {
+      if (!value) return;
+      chips.push(`<span class="todo-meta-summary-chip${muted ? ' is-muted' : ''}"><span data-icon="${icon}"></span><span class="todo-meta-summary-label">${escapeHtmlAttr(label)}</span><strong>${escapeHtmlAttr(value)}</strong></span>`);
+    };
+    addChip('folder', lang === 'de' ? 'Projekt' : 'Project', getSelectedOptionLabel('todo-project'));
+    addChip('layers', lang === 'de' ? 'Section' : 'Section', getSelectedOptionLabel('todo-section'));
+    addChip('flag', lang === 'de' ? 'Priorität' : 'Priority', getSelectedOptionLabel('todo-priority'));
+    addChip('activity', 'Status', getSelectedOptionLabel('todo-status'));
+    addChip('calendar-days', lang === 'de' ? 'Deadline' : 'Deadline', formatTodoMetaDate(todo.due_date));
+    addChip('bell', lang === 'de' ? 'Erinnerung' : 'Reminder', formatTodoMetaDate(todo.remind_at || todo.reminders?.[0]?.remind_at));
+    const recurringRule = normalizeRecurringRule(todo.recurring_rule, { defaultTimezone: null });
+    if (recurringRule && recurringRule.frequency !== 'none') addChip('repeat', lang === 'de' ? 'Wiederholung' : 'Repeat', getSelectedOptionLabel('todo-recurring-frequency'));
+    if (todo.is_pinned) addChip('pin', lang === 'de' ? 'Angepinnt' : 'Pinned', lang === 'de' ? 'Ja' : 'Yes');
+    const empty = lang === 'de' ? 'Keine Planung oder Einordnung gesetzt.' : 'No planning or organization set.';
+    const edit = lang === 'de' ? 'Details bearbeiten' : 'Edit details';
+    summary.innerHTML = `
+      <div class="todo-meta-summary-chips">${chips.length ? chips.join('') : `<span class="todo-meta-summary-empty">${empty}</span>`}</div>
+      <button type="button" class="todo-meta-edit-toggle" id="todo-meta-edit-toggle">${edit}</button>
+    `;
+    summary.querySelector('#todo-meta-edit-toggle')?.addEventListener('click', () => {
+      document.getElementById('todo-modal')?.classList.toggle('todo-meta-editing');
+    });
+    translatePage(summary);
+  }
+
   function updateTodoDetailViewMode(todo = null) {
     const modal = document.getElementById('todo-modal');
     if (!modal) return;
     const isExistingTodo = Boolean(todo?.id);
     modal.classList.toggle('todo-detail-view', isExistingTodo);
     modal.classList.remove('todo-desc-editing');
+    modal.classList.remove('todo-meta-editing');
     const preview = document.getElementById('todo-desc-preview');
     if (preview) preview.dataset.emptyLabel = getActiveLanguage() === 'de' ? 'Beschreibung hinzufügen…' : 'Add description…';
+    renderTodoMetaSummary(todo);
   }
 
   function bindTodoDescriptionInlineEditor() {
@@ -2122,6 +2189,7 @@ export function createTodosFeature({
       renderTodoComments(todo.comments || [], todo);
       renderTodoAttachments(todo.attachments || [], todo);
       updateTodoMetaPanelsOpenState(todo);
+      renderTodoMetaSummary(todo);
     } else {
       document.getElementById('todo-pinned').checked = false;
       document.getElementById('todo-recurring-frequency').value = 'none';
@@ -2151,6 +2219,7 @@ export function createTodosFeature({
     }
     resetTodoSaveSnapshot();
     updateTodoDetailViewMode(todo);
+    renderTodoMetaSummary(todo);
     document.getElementById('todo-desc-preview')?.setAttribute('tabindex', todo ? '0' : '-1');
     document.getElementById('todo-modal')?.classList.add('active');
     if (!todo) focusTodoTitle();
