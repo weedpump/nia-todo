@@ -121,7 +121,26 @@ export function createTodosFeature({
     return summary;
   }
 
+  function ensureTodoMetaDrawer() {
+    const form = document.getElementById('todo-form');
+    const organize = document.getElementById('todo-organize-panel');
+    const schedule = document.getElementById('todo-schedule-panel');
+    if (!form || !organize || !schedule) return null;
+    let drawer = document.getElementById('todo-meta-drawer');
+    if (!drawer) {
+      drawer = document.createElement('aside');
+      drawer.id = 'todo-meta-drawer';
+      drawer.className = 'todo-meta-edit-drawer';
+      drawer.setAttribute('aria-label', getActiveLanguage() === 'de' ? 'Todo Details bearbeiten' : 'Edit todo details');
+      form.appendChild(drawer);
+    }
+    if (organize.parentElement !== drawer) drawer.appendChild(organize);
+    if (schedule.parentElement !== drawer) drawer.appendChild(schedule);
+    return drawer;
+  }
+
   function renderTodoMetaSummary(todo = null) {
+    ensureTodoMetaDrawer();
     const summary = ensureTodoMetaSummary();
     if (!summary) return;
     if (!todo?.id) {
