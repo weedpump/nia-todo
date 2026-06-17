@@ -725,9 +725,13 @@ export function createTodosFeature({
       item.className = 'todo-attachment-item';
       item.dataset.attachmentId = attachment.id;
 
-      const icon = document.createElement('div');
+      const icon = document.createElement('button');
+      icon.type = 'button';
       icon.className = 'todo-attachment-icon';
       icon.innerHTML = iconSvg(attachmentIconName(attachment));
+      icon.setAttribute('aria-label', t('todo.attachments.preview'));
+      icon.setAttribute('title', t('todo.attachments.preview'));
+      icon.addEventListener('click', () => previewTodoAttachment(todoId, attachment));
 
       const body = document.createElement('div');
       body.className = 'todo-attachment-body';
