@@ -258,6 +258,17 @@ def main():
         assert_true(real_png.json()["attachment"]["content_type"] == "image/png", real_png.text)
         owner.delete(f"/api/todos/{todo_id}/attachments/{real_png_attachment_id}")
 
+        db.execute("UPDATE app_config SET value = '[\".pdf\"]' WHERE key = 'attachments_allowed_types'")
+        db.commit()
+        renamed_png_as_pdf = owner.post(
+            f"/api/todos/{todo_id}/attachments",
+            content=real_png_bytes,
+            headers={"content-type": "application/pdf", "x-nia-filename": "renamed.pdf"},
+        )
+        assert_true(renamed_png_as_pdf.status_code == 415, renamed_png_as_pdf.text)
+        db.execute("UPDATE app_config SET value = '[\".png\",\".jpg\",\".jpeg\",\".gif\",\".webp\",\".pdf\",\".txt\"]' WHERE key = 'attachments_allowed_types'")
+        db.commit()
+
         db.execute("UPDATE users SET attachment_quota_bytes = ? WHERE id = 1", (10,))
         db.commit()
         quota_blocked = owner.post(
