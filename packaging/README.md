@@ -183,6 +183,8 @@ Default container data volume:
 /data
 ```
 
+This volume contains the SQLite database, generated keys, avatars, backups, and todo attachments (`/data/attachments`). Keep it persistent.
+
 ## 🧱 Default package layout
 
 - App: `/opt/nia-todo`
@@ -284,7 +286,7 @@ For migrating an existing install, the simplest path is:
 2. Install the new package or start the new Docker deployment.
 3. Restore the backup into the new data directory.
 
-Runtime data lives in `/var/lib/nia-todo`. It contains the SQLite database, generated keys, avatars, and local runtime data.
+Runtime data lives in `/var/lib/nia-todo`. It contains the SQLite database, generated keys, avatars, todo attachments, backups, and local runtime data.
 
 ## 📄 License
 

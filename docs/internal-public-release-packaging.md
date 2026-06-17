@@ -81,7 +81,7 @@ Runtime data is intentionally outside the application directory:
 - Debian package: `/var/lib/nia-todo`
 - Docker image: `/data`
 
-Both contain the SQLite database, avatars, VAPID keys and local backups.
+Both contain the SQLite database, avatars, todo attachments, VAPID keys and local backups.
 
 The Debian package also installs a daily backup timer (`nia-todo-backup.timer`) and ships manual backup/restore helpers:
 
