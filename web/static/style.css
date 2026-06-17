@@ -10420,3 +10420,13 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   transform: translateX(20px);
   background: white;
 }
+
+/* Todo detail meta v20: accent switch + location/star meta tones. */
+#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer .todo-location-toggle-row input[type="checkbox"].settings-switch:checked {
+  background: var(--accent) !important;
+  border-color: color-mix(in srgb, var(--accent) 86%, white) !important;
+}
+
+#todo-modal.todo-detail-view .todo-meta-tone-location,
+#todo-modal.todo-detail-view .todo-meta-tone-map-pin { --meta-tone: #06b6d4; }
+#todo-modal.todo-detail-view .todo-meta-tone-star { --meta-tone: #f59e0b; }
