@@ -136,7 +136,7 @@ export function createTodosFeature({
       if (!value) return;
       const tone = String(options.tone || icon || 'default').replace(/[^a-z0-9-]/gi, '').toLowerCase();
       const style = options.color ? ` style="--meta-tone: ${escapeHtmlAttr(options.color)}"` : '';
-      chips.push(`<span class="todo-meta-summary-chip todo-meta-tone-${tone}${options.muted ? ' is-muted' : ''}"${style}><span data-icon="${icon}"></span><span class="todo-meta-summary-label">${escapeHtmlAttr(label)}</span><strong>${escapeHtmlAttr(value)}</strong></span>`);
+      chips.push(`<span class="todo-meta-summary-chip todo-meta-tone-${tone}${options.muted ? ' is-muted' : ''}"${style}>${iconSvg(icon)}<span class="todo-meta-summary-label">${escapeHtmlAttr(label)}</span><strong>${escapeHtmlAttr(value)}</strong></span>`);
     };
     const selectedProject = getProjects().find(project => String(project.id) === String(document.getElementById('todo-project')?.value || ''));
     const priority = Number(document.getElementById('todo-priority')?.value || todo.priority || 3);
