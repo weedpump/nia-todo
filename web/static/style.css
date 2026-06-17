@@ -10819,3 +10819,18 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   background: color-mix(in srgb, var(--accent) 8%, transparent);
   border-color: color-mix(in srgb, var(--accent) 46%, transparent);
 }
+
+/* Todo detail meta v28: edit-details uses the exact normal secondary button styling. */
+#todo-modal.todo-detail-view .todo-meta-edit-toggle.btn.btn-secondary {
+  justify-self: end;
+  min-width: 108px;
+  box-shadow: none;
+  font-size: inherit;
+}
+
+#todo-modal.todo-detail-view .todo-meta-edit-toggle.btn.btn-secondary,
+#todo-modal.todo-detail-view .todo-meta-edit-toggle.btn.btn-secondary:hover,
+#todo-modal.todo-detail-view .todo-meta-edit-toggle.btn.btn-secondary:focus-visible,
+#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-toggle.btn.btn-secondary {
+  color: var(--text-primary);
+}
