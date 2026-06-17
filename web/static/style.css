@@ -11071,3 +11071,25 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
 #todo-modal.todo-detail-view .todo-meta-edit-toggle.todo-detail-action-btn {
   margin-top: 2px;
 }
+
+/* Todo meta drawer v33: mobile close icon matches clean Todo detail close style. */
+#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-drawer-close {
+  width: 34px;
+  height: 34px;
+  min-height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-muted);
+  box-shadow: none;
+}
+
+#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-drawer-close:hover,
+#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-drawer-close:focus-visible {
+  color: var(--text-primary);
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  outline: none;
+}
