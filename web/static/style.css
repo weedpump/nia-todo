@@ -10775,3 +10775,47 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   background: color-mix(in srgb, var(--accent) 18%, transparent);
   border-color: color-mix(in srgb, var(--accent) 62%, transparent);
 }
+
+/* Todo detail meta v27: move edit-details action below pills, right-aligned like add/upload actions. */
+#todo-modal.todo-detail-view .todo-meta-summary-view {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  align-items: start;
+}
+
+#todo-modal.todo-detail-view .todo-meta-summary-chips {
+  width: 100%;
+}
+
+#todo-modal.todo-detail-view .todo-meta-edit-toggle {
+  justify-self: end;
+  min-height: 34px;
+  min-width: 108px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--border) 42%, transparent);
+  background: transparent;
+  color: var(--text-secondary);
+  box-shadow: none;
+  font-size: 12px;
+}
+
+#todo-modal.todo-detail-view .todo-meta-edit-toggle .ui-icon {
+  width: 14px;
+  height: 14px;
+}
+
+#todo-modal.todo-detail-view .todo-meta-edit-toggle:hover,
+#todo-modal.todo-detail-view .todo-meta-edit-toggle:focus-visible {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 42%, transparent);
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  box-shadow: none;
+}
+
+#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-toggle {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 46%, transparent);
+}
