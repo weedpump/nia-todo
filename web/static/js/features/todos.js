@@ -39,6 +39,13 @@ export function createTodosFeature({
   let attachmentPreviewObjectUrl = '';
   let attachmentPreviewDownload = null;
   const deletingSubtaskIds = new Set();
+  const TODO_MODAL_CLASSES = Object.freeze({
+    detail: 'todo-detail-view',
+    create: 'todo-create-view',
+    editingDescription: 'todo-desc-editing',
+    editingMeta: 'todo-meta-editing',
+    hasUnsavedChanges: 'todo-has-unsaved',
+  });
 
   function escapeHtmlAttr(value) {
     return String(value ?? '')
@@ -147,7 +154,7 @@ export function createTodosFeature({
         <div class="todo-meta-drawer-body"></div>
       `;
       drawer.querySelector('.todo-meta-drawer-close')?.addEventListener('click', () => {
-        getTodoModal()?.classList.remove('todo-meta-editing');
+        getTodoModal()?.classList.remove(TODO_MODAL_CLASSES.editingMeta);
         renderTodoMetaSummary(getTodos().find(todo => String(todo.id) === String(document.getElementById('todo-id')?.value)) || null);
       });
       form.appendChild(drawer);
@@ -212,12 +219,12 @@ export function createTodosFeature({
     `;
     const toggle = summary.querySelector('#todo-meta-edit-toggle');
     const syncToggleLabel = () => {
-      const active = getTodoModal()?.classList.contains('todo-meta-editing');
+      const active = getTodoModal()?.classList.contains(TODO_MODAL_CLASSES.editingMeta);
       const label = active ? (lang === 'de' ? 'Details schließen' : 'Close details') : edit;
       toggle.innerHTML = `${iconSvg(active ? 'x' : 'settings')}<span>${escapeHtmlAttr(label)}</span>`;
     };
     toggle?.addEventListener('click', () => {
-      getTodoModal()?.classList.toggle('todo-meta-editing');
+      getTodoModal()?.classList.toggle(TODO_MODAL_CLASSES.editingMeta);
       syncToggleLabel();
     });
     syncToggleLabel();
@@ -273,11 +280,11 @@ export function createTodosFeature({
     const modal = getTodoModal();
     if (!modal) return;
     const isExistingTodo = Boolean(todo?.id);
-    modal.classList.add('todo-detail-view');
-    modal.classList.toggle('todo-create-view', !isExistingTodo);
-    modal.classList.remove('todo-desc-editing');
-    modal.classList.remove('todo-meta-editing');
-    modal.classList.remove('todo-has-unsaved');
+    modal.classList.add(TODO_MODAL_CLASSES.detail);
+    modal.classList.toggle(TODO_MODAL_CLASSES.create, !isExistingTodo);
+    modal.classList.remove(TODO_MODAL_CLASSES.editingDescription);
+    modal.classList.remove(TODO_MODAL_CLASSES.editingMeta);
+    modal.classList.remove(TODO_MODAL_CLASSES.hasUnsavedChanges);
     const headerActions = ensureTodoDetailHeaderMenu();
     const headerMenu = headerActions?.querySelector('.todo-detail-header-menu-toggle');
     if (headerMenu) headerMenu.hidden = !isExistingTodo;
@@ -339,7 +346,7 @@ export function createTodosFeature({
     editor.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') {
         event.preventDefault();
-        getTodoModal()?.classList.remove('todo-desc-editing');
+        getTodoModal()?.classList.remove(TODO_MODAL_CLASSES.editingDescription);
         return;
       }
       if (event.key === ' ') {
@@ -377,9 +384,9 @@ export function createTodosFeature({
     const editor = wrap.querySelector('#todo-desc-rich-editor');
     editor?.setAttribute('data-placeholder', getActiveLanguage() === 'de' ? 'Beschreibung schreiben…' : 'Write description…');
     const openEditor = () => {
-      if (!modal.classList.contains('todo-detail-view')) return;
+      if (!modal.classList.contains(TODO_MODAL_CLASSES.detail)) return;
       editor.innerHTML = renderMarkdown(textarea.value || '');
-      modal.classList.add('todo-desc-editing');
+      modal.classList.add(TODO_MODAL_CLASSES.editingDescription);
       window.requestAnimationFrame?.(() => editor.focus());
     };
     preview.addEventListener('click', openEditor);
@@ -439,7 +446,7 @@ export function createTodosFeature({
     const current = JSON.stringify(getTodoSaveRelevantState());
     const unchanged = todoSaveSnapshot !== null && current === todoSaveSnapshot;
     saveButton.disabled = unchanged;
-    getTodoModal()?.classList.toggle('todo-has-unsaved', !unchanged);
+    getTodoModal()?.classList.toggle(TODO_MODAL_CLASSES.hasUnsavedChanges, !unchanged);
     refreshTodoActionButtonState();
   }
 
