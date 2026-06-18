@@ -24,6 +24,8 @@
   --border: #334155;
   --radius: 8px;
   --field-radius: 18px;
+  --dropdown-menu-radius: calc(var(--field-radius) + 4px);
+  --dropdown-option-radius: calc(var(--field-radius) - 4px);
   --shadow: 0 4px 12px rgba(0,0,0,0.3);
   --press-bg: rgba(var(--accent-rgb), 0.28);
   --press-ring: rgba(var(--accent-rgb), 0.42);
@@ -623,7 +625,7 @@ select:focus-visible {
   width: 264px;
   padding: 6px;
   border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border));
-  border-radius: 14px;
+  border-radius: var(--dropdown-menu-radius);
   background: linear-gradient(135deg, color-mix(in srgb, var(--bg-secondary) 96%, var(--bg-primary)), var(--bg-secondary));
   box-shadow: 0 18px 42px rgba(0,0,0,.30), 0 0 0 1px color-mix(in srgb, var(--bg-primary) 28%, transparent);
   z-index: 250;
@@ -1943,7 +1945,7 @@ select:focus-visible {
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
   border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border));
-  border-radius: 14px;
+  border-radius: var(--dropdown-menu-radius);
   background: linear-gradient(135deg, color-mix(in srgb, var(--bg-secondary) 96%, var(--bg-primary)), var(--bg-secondary));
   box-shadow: 0 18px 42px rgba(0,0,0,.30), 0 0 0 1px color-mix(in srgb, var(--bg-primary) 28%, transparent);
 }
@@ -1962,7 +1964,7 @@ select:focus-visible {
   gap: 8px;
   padding: 8px 10px 8px calc(10px + (var(--ui-select-depth, 0) * 18px));
   border: 0;
-  border-radius: 10px;
+  border-radius: var(--dropdown-option-radius);
   background: transparent;
   color: var(--text-primary);
   font: inherit;
@@ -2052,7 +2054,7 @@ select:focus-visible {
   }
 
   .ui-select-menu.is-mobile-popover {
-    border-radius: 16px;
+    border-radius: var(--dropdown-menu-radius);
     padding: 6px;
     box-shadow: 0 18px 42px rgba(0,0,0,.36), 0 0 0 1px color-mix(in srgb, var(--accent) 16%, transparent);
   }
@@ -2061,7 +2063,7 @@ select:focus-visible {
   .ui-menu-item {
     min-height: 44px;
     font-size: 14px;
-    border-radius: 13px;
+    border-radius: var(--dropdown-option-radius);
   }
 }
 
@@ -8086,7 +8088,7 @@ input[type="color"]::-moz-color-swatch {
   gap: 8px;
   padding: 8px 10px;
   border: 0;
-  border-radius: 10px;
+  border-radius: var(--dropdown-option-radius);
   background: transparent;
   color: var(--text-primary);
   font: inherit;
@@ -8225,7 +8227,7 @@ input[type="color"]::-moz-color-swatch {
   z-index: 1;
   margin: -2px -2px 6px;
   padding: 6px;
-  border-radius: 12px;
+  border-radius: var(--dropdown-option-radius);
   background: linear-gradient(135deg, color-mix(in srgb, var(--bg-secondary) 96%, var(--bg-primary)), var(--bg-secondary));
 }
 

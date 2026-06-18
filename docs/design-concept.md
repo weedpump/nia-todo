@@ -261,7 +261,7 @@ Open menu:
 - minimum width equal to the trigger width
 - maximum width: `min(280px, calc(100vw - 24px))` unless the content requires more
 - maximum height: `min(320px, calc(100vh - 24px))`, scroll internally
-- border radius: `14px`
+- border radius: use `var(--dropdown-menu-radius)` so the open menu follows the same shape language as field controls
 - padding: `6px`
 - border and background must match modal/card elevation
 - shadow must make it read as a floating layer without feeling heavy
@@ -269,9 +269,10 @@ Open menu:
 
 Option rows:
 
-- min height: `36px` desktop, `40px` mobile
+- min height: `36px` desktop, `44px` mobile
 - padding: `8px 10px`
 - gap: `8px`
+- border radius: use `var(--dropdown-option-radius)`; option rows must not look sharper than the menu they live in
 - label must never overlap icon, badge, checkmark, or chevron
 - long labels truncate with ellipsis unless multiline is explicitly required
 - selected option shows the shared Lucide `check` icon (`iconSvg('check')`) aligned like the workspace dropdown check, not a raw text glyph
