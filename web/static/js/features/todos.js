@@ -2819,6 +2819,10 @@ export function createTodosFeature({
         document.getElementById('todo-attachment-file')?.click();
       } else if (action === 'upload-attachment') {
         await uploadTodoAttachmentFromInput();
+      } else if (action === 'close-attachment-preview') {
+        closeAttachmentPreview();
+      } else if (action === 'download-preview-attachment') {
+        await downloadPreviewAttachment();
       }
     });
     document.getElementById('todo-project')?.addEventListener('change', onProjectChange);
