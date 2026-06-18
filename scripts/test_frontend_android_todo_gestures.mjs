@@ -89,11 +89,9 @@ async function run() {
     await item.locator(selector).evaluate((button) => button.click());
     return item;
   };
-  const openOrganizePanel = async () => {
-    await page.evaluate(() => {
-      const panel = document.getElementById('todo-organize-panel');
-      if (panel) panel.open = true;
-    });
+  const openMetaDrawer = async () => {
+    await page.locator('#todo-meta-edit-toggle').click();
+    await page.locator('#todo-meta-drawer').waitFor({ state: 'visible', timeout: 5000 });
   };
 
   try {
@@ -119,9 +117,11 @@ async function run() {
     await page.locator('#login-overlay').waitFor({ state: 'hidden', timeout: 15000 });
 
     await openTodoModal();
-    await openOrganizePanel();
     await page.fill('#todo-title', title);
+    await openMetaDrawer();
     await page.locator('.pin-checkbox-label').click();
+    await page.locator('.todo-meta-drawer-close').click();
+    await page.locator('#todo-meta-drawer').waitFor({ state: 'hidden', timeout: 5000 });
     await page.click('button[form="todo-form"]');
     await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });
     await page.waitForFunction((value) => document.body.innerText.includes(value), title, { timeout: 10000 });

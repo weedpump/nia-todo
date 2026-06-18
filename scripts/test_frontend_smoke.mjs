@@ -54,7 +54,8 @@ async function run() {
     await openTodoModal();
     await page.waitForFunction(() => document.activeElement?.id === 'todo-title', null, { timeout: 5000 });
     await page.fill('#todo-title', 'Frontend Smoke Todo');
-    await page.fill('#todo-desc', '**Smoke** test via Playwright');
+    await page.click('#todo-desc-preview');
+    await page.locator('#todo-desc-rich-editor').fill('**Smoke** test via Playwright');
     await page.selectOption('#todo-project', { label: 'Frontend Smoke Project' }, { force: true });
     await ensureSectionOptions(['Frontend Section A', 'Frontend Section B']);
     await page.selectOption('#todo-section', { label: 'Frontend Section A' }, { force: true });
@@ -78,7 +79,8 @@ async function run() {
 
     await todoItem.click();
     await visible('#todo-modal');
-    await page.click('button[onclick="deleteTodoFromModal()"]');
+    await page.click('#todo-detail-header-actions > summary');
+    await page.click('#todo-detail-delete-action');
     await visible('#confirm-modal');
     await page.click('#confirm-confirm-btn');
     await page.waitForTimeout(800);

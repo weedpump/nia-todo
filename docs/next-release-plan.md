@@ -139,22 +139,43 @@ Final behavior:
 
 ## Targeted Checks
 
+Use focused suites instead of running every historical UI regression after each visual iteration:
+
 ```bash
-python3 scripts/test_subtasks.py
-python3 scripts/test_todo_comments.py
-python3 scripts/test_todo_attachments.py
-node scripts/test_frontend_subtasks.mjs
-node scripts/test_frontend_realtime_sync.mjs
-node scripts/test_frontend_offline_sync.mjs
-node scripts/test_frontend_sharing.mjs
-node scripts/test_frontend_admin.mjs
-node scripts/test_frontend_settings.mjs
-node scripts/test_sw_precache.mjs
-node scripts/test_frontend_design_layout.mjs
-node scripts/test_frontend_todo_interactive_clicks.mjs
-node scripts/test_frontend_native_todo_actions.mjs
-node scripts/test_frontend_android_todo_gestures.mjs
+# Todo UX/API integration before larger Todo merges
+npm run test:todo
+
+# Optional UI/micro-layout contracts after broad visual refactors
+npm run test:ui
+
+# Full release gate; also called by release.sh
+npm test
 ```
+
+## In Progress: Todo Detail View Redesign
+
+Current design direction:
+
+- Existing todos open in a read-first Todo detail view instead of the old form-first modal stack.
+- Desktop remains modal-sized; tablet/mobile use fullscreen detail view behavior.
+- Title, meta chips, and rendered description form the top read area.
+- Meta fields are shown as compact view-mode chips; the final edit UX for planning/organization still needs a clean integration instead of simply expanding form controls inline.
+- Subtasks, attachments, and comments are visible by default in calmer content sections:
+  - subtasks as a checklist,
+  - attachments as compact file cards plus a persistent multi-file upload/drop zone,
+  - comments as a quieter feed.
+- Attachment upload supports multiple selected files and desktop drag-and-drop in the detail view prototype.
+- Image/PDF preview behavior must stay scoped to the attachment preview and return to the Todo detail view when closed.
+
+Still to finish for this design concept:
+
+- Bring the New Todo create flow into the same redesigned modal family. Existing todos use the read-first detail view; new todos should use a matching create/composer mode instead of the old form-modal styling.
+- Update/regenerate frontend tests once the Todo modal redesign is structurally settled. Tests are required for the merge/release gate, but visual iteration should use targeted syntax/smoke checks instead of repeated full test runs.
+- Run one focused review after the create flow and tests are aligned.
+
+Follow-up after this branch:
+
+- Decide whether the new Todo detail visual language becomes the global nia-todo design system. This includes pill-shaped action buttons, cleaner modal headers, less nested/boxed container styling, shared action-row primitives, and consistent mobile fullscreen modal behavior. Keep this as a separate follow-up branch/workstream instead of expanding the current Todo-detail branch.
 
 ## Planned Feature Themes After Attachments
 
@@ -174,7 +195,17 @@ Architecture questions:
 - Timezone handling must reuse existing recurring timezone logic.
 - Avoid generating infinite future instances.
 
-### 2. Subtask, Comment, and Attachment Follow-ups
+### 2. Rich Description Editor Follow-up
+
+Ship separately after the Todo detail view design concept is settled:
+
+- Replace the temporary/prototype description editor with a real maintained editor dependency instead of growing a custom editor engine.
+- Candidate direction: TipTap/ProseMirror for a modern WYSIWYG document editor, or Milkdown if Markdown-first editing remains the preferred storage/editing model.
+- Keep the view mode clean and rendered; edit mode should feel like a compact modern editor with basics such as bold, italic, headings, lists, paste handling, undo/redo, keyboard shortcuts, and sane mobile behavior.
+- Continue storing descriptions in a migration-friendly format; Markdown storage is acceptable initially if the chosen editor round-trips it cleanly.
+- Comments can remain as-is for this step unless Tobi explicitly decides they should also use richer Markdown/rendered editing.
+
+### 3. Subtask, Comment, and Attachment Follow-ups
 
 Only after MVP is stable:
 

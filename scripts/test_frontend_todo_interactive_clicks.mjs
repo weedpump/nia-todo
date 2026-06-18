@@ -90,10 +90,11 @@ async function run() {
   const snoozeReminderItem = () => page.locator('.todo-item').filter({ hasText: snoozeReminderTitle }).last();
   const longDescriptionItem = () => page.locator('.todo-item').filter({ hasText: longDescriptionTitle }).last();
   const openSchedulePanel = async () => {
-    await page.evaluate(() => {
-      const panel = document.getElementById('todo-schedule-panel');
-      if (panel) panel.open = true;
-    });
+    const modalEditing = await page.locator('#todo-modal.todo-meta-editing').count();
+    if (!modalEditing) {
+      await page.click('#todo-meta-edit-toggle');
+    }
+    await page.locator('.todo-meta-edit-drawer').waitFor({ state: 'visible', timeout: 5000 });
   };
 
   try {
@@ -218,7 +219,8 @@ async function run() {
     await page.setViewportSize({ width: 390, height: 844 });
     await openTodoModal();
     await page.fill('#todo-title', longDescriptionTitle);
-    await page.fill('#todo-desc', 'Line one with enough content for the preview.\nLine two adds more visible height.\nLine three keeps the card tall.\nLine four catches reveal hitbox regressions.');
+    await page.click('#todo-desc-preview');
+    await page.locator('#todo-desc-rich-editor').fill('Line one with enough content for the preview.\nLine two adds more visible height.\nLine three keeps the card tall.\nLine four catches reveal hitbox regressions.');
     const longDescriptionDue = new Date();
     longDescriptionDue.setDate(longDescriptionDue.getDate() + 2);
     longDescriptionDue.setHours(13, 30, 0, 0);
