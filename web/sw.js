@@ -33,6 +33,8 @@ const PRECACHE_ASSETS = [
   '/static/css/82-entity-modals.css',
   '/static/css/83-focus-selects.css',
   '/static/css/90-minimal-list.css',
+  '/static/css/90-detail-extras.css',
+  '/static/css/90-attachments-preview.css',
   '/static/css/91-todo-detail-layout.css',
   '/static/css/92-todo-detail-content.css',
   '/static/css/93-todo-detail-meta-drawer.css',
