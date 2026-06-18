@@ -61,18 +61,6 @@ const {
   getFocusFiltersExpanded,
   getFocusProjectMenuOpen,
   getFocusProjectSearch,
-  updateFocusFilters,
-  toggleFocusFiltersExpanded,
-  toggleFocusProjectMenu,
-  closeFocusProjectMenu,
-  resetFocusFilters,
-  setFocusDueMode,
-  setFocusDueDays,
-  toggleFocusProject,
-  filterFocusProjectMenu,
-  handleFocusProjectMenuKeydown,
-  toggleFocusPriority,
-  toggleFocusStatus,
   bindFocusProjectMenuDismissal,
 } = createFocusFiltersFeature({ renderTodos: () => renderTodos() });
 
@@ -739,7 +727,7 @@ export function startAppModule() {
   projectSharing: { setProject: (project) => sharingFeature.setProject(project), applyProjectModalState: (project, canEdit, shared) => sharingFeature.applyProjectModalState(project, canEdit, shared), loadInvites: () => sharingFeature.loadInvites() },
   sections: { showAddSectionForm, saveNewSection, editSectionInline, saveSectionEdit, deleteSection },
   dragDrop: { handleTodoDragStart, handleTodoDragEnd, handleTodoDragOver, handleTodoDrop, handleProjectDragOver, handleProjectDrop, handleSectionDragStart, handleSectionDragEnd, handleSectionDragOver, handleSectionDrop },
-  viewPreferences: { toggleHideDone, updateToggleDoneButton, cycleSort, updateSortButton, sortTodoList, toggleProjectWidget, updateProjectWidgetButton, toggleTodayFocus, updateTodayFocusButton, toggleMinimalTodos, updateMinimalTodosButton, updateFocusFilters, toggleFocusFiltersExpanded, toggleFocusProjectMenu, closeFocusProjectMenu, resetFocusFilters, setFocusDueMode, setFocusDueDays, toggleFocusProject, filterFocusProjectMenu, handleFocusProjectMenuKeydown, toggleFocusPriority, toggleFocusStatus },
+  viewPreferences: { toggleHideDone, updateToggleDoneButton, cycleSort, updateSortButton, sortTodoList, toggleProjectWidget, updateProjectWidgetButton, toggleTodayFocus, updateTodayFocusButton, toggleMinimalTodos, updateMinimalTodosButton },
   toastUndo: { showToast, showBatchToast, hideToast, undoLastAction, restoreBatchTodos, restoreTodo },
     push: { updatePushStatus, updatePushSettingsUI, enablePushNotifications, disablePushNotifications, sendTestPush },
     desktopIntegration: {
