@@ -264,7 +264,7 @@
       <div class="boot-title" data-i18n-key="boot.title">nia-todo wird geladen</div>
       <div class="boot-subtitle" id="boot-subtitle" data-i18n-key="boot.subtitle">App startet…</div>
       <div class="boot-spinner" id="boot-spinner" aria-hidden="true"></div>
-      <button type="button" class="boot-retry" id="boot-retry" style="display:none;" onclick="window.niaHardReloadApp && window.niaHardReloadApp()" data-i18n-key="common.reload">Neu laden</button>
+      <button type="button" class="boot-retry" id="boot-retry" style="display:none;" data-i18n-key="common.reload">Neu laden</button>
     </div>
   </div>
 
@@ -272,9 +272,9 @@
   <div id="login-overlay" class="login-overlay hidden">
     <div class="login-box">
       <div class="login-theme-toggle">
-        <button class="btn btn-secondary btn-icon theme-option" data-theme="light" onclick="setTheme('light')" title="Light" data-i18n-title-key="common.theme.light"><span data-icon="sun"></span></button>
-        <button class="btn btn-secondary btn-icon theme-option" data-theme="dark" onclick="setTheme('dark')" title="Dark" data-i18n-title-key="common.theme.dark"><span data-icon="moon"></span></button>
-        <button class="btn btn-secondary btn-icon theme-option" data-theme="system" onclick="setTheme('system')" title="System" data-i18n-title-key="common.theme.system"><span data-icon="monitor"></span></button>
+        <button class="btn btn-secondary btn-icon theme-option" data-theme="light" title="Light" data-i18n-title-key="common.theme.light"><span data-icon="sun"></span></button>
+        <button class="btn btn-secondary btn-icon theme-option" data-theme="dark" title="Dark" data-i18n-title-key="common.theme.dark"><span data-icon="moon"></span></button>
+        <button class="btn btn-secondary btn-icon theme-option" data-theme="system" title="System" data-i18n-title-key="common.theme.system"><span data-icon="monitor"></span></button>
       </div>
       <div class="login-brand">
         <img src="/static/icons/icon-192.png" class="login-logo" alt="nia-todo">
@@ -318,17 +318,17 @@
         <button type="button" class="btn btn-secondary login-forgot-btn hidden" id="login-forgot-btn" data-i18n-key="auth.forgotPassword">Forgot password?</button>
       </form>
       <div class="login-download-divider" aria-hidden="true"></div>
-      <button type="button" class="btn btn-secondary app-download-launcher login-download-launcher" data-app-download-launcher onclick="openAppDownloadsModal()" style="display:none;">
+      <button type="button" class="btn btn-secondary app-download-launcher login-download-launcher" data-app-download-launcher style="display:none;">
         <span data-icon="download"></span>
         <span data-i18n-key="appDownloads.title">Apps herunterladen</span>
       </button>
-      <button type="button" class="login-update-refresh force-refresh-btn" data-force-refresh-button onclick="forceReloadApp()" title="Web-App neu herunterladen und Cache aktualisieren" data-i18n-title-key="version.refreshCache"><span data-icon="refresh-cw"></span><span data-i18n-key="auth.loginUpdateAction">Anmeldeproblem? App neu laden</span></button>
+      <button type="button" class="login-update-refresh force-refresh-btn" data-force-refresh-button title="Web-App neu herunterladen und Cache aktualisieren" data-i18n-title-key="version.refreshCache"><span data-icon="refresh-cw"></span><span data-i18n-key="auth.loginUpdateAction">Anmeldeproblem? App neu laden</span></button>
     </div>
   </div>
 
   <div id="app">
     <!-- Mobile sidebar overlay -->
-    <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
+    <div class="sidebar-overlay" id="sidebar-overlay" data-sidebar-toggle></div>
 
     <!-- Sidebar -->
     <aside class="sidebar" id="sidebar">
@@ -339,19 +339,19 @@
 
       <nav class="nav-section">
         <div class="nav-title" data-i18n-key="nav.view">Ansicht</div>
-        <button class="nav-btn" data-filter="all" onclick="setFilter('all')">
+        <button class="nav-btn" data-filter="all">
           <span data-icon="layout-dashboard"></span> <span data-i18n-key="nav.dashboard">Dashboard</span>
           <span class="badge" id="count-all">0</span>
         </button>
-        <button class="nav-btn" data-filter="focus" onclick="setFilter('focus')">
+        <button class="nav-btn" data-filter="focus">
           <span data-icon="funnel"></span> <span data-i18n-key="nav.focus">Filter</span>
           <span class="badge" id="count-focus">0</span>
         </button>
-        <button class="nav-btn" data-filter="in_progress" onclick="setFilter('in_progress')">
+        <button class="nav-btn" data-filter="in_progress">
           <span data-icon="flame"></span> <span data-i18n-key="nav.inProgress">In progress</span>
           <span class="badge" id="count-in_progress">0</span>
         </button>
-        <button class="nav-btn" data-filter="done" onclick="setFilter('done')">
+        <button class="nav-btn" data-filter="done">
           <span data-icon="check-circle"></span> <span data-i18n-key="nav.done">Erledigt</span>
           <span class="badge" id="count-done">0</span>
         </button>
@@ -360,7 +360,7 @@
       <nav class="nav-section">
         <div class="nav-title" data-i18n-key="nav.projects">Projects</div>
         <div id="project-list"></div>
-        <button class="nav-btn add-btn" onclick="showProjectModal()">
+        <button class="nav-btn add-btn" data-nav-action="new-project">
           <span data-icon="plus"></span> <span data-i18n-key="nav.addProject">Add project</span>
         </button>
       </nav>
@@ -372,7 +372,7 @@
 
       <div class="sidebar-footer">
         <div class="user-menu-wrap sidebar-user-menu-wrap">
-          <button type="button" class="user-menu-button" id="user-menu-button" onclick="toggleUserMenu(event)" aria-haspopup="menu" aria-expanded="false" title="User menu" data-i18n-title-key="menu.userMenu">U</button>
+          <button type="button" class="user-menu-button" id="user-menu-button" data-user-menu-action="toggle" aria-haspopup="menu" aria-expanded="false" title="User menu" data-i18n-title-key="menu.userMenu">U</button>
           <div class="sidebar-user-meta">
             <div class="sidebar-user-name" id="sidebar-user-name">User</div>
             <div class="sidebar-user-email" id="sidebar-user-email">–</div>
@@ -385,15 +385,15 @@
                 <div class="user-menu-email" id="user-menu-email">–</div>
               </div>
             </div>
-            <button type="button" class="user-menu-item" id="menu-settings-btn" onclick="closeUserMenu(); openSettingsModal()" title="Settings" data-i18n-title-key="menu.settings" role="menuitem"><span data-icon="settings"></span><span data-i18n-key="menu.settings">Settings</span></button>
-            <button type="button" class="user-menu-item" id="theme-toggle-btn" onclick="cycleTheme()" role="menuitem"><span class="menu-item-icon" data-icon="monitor"></span><span class="menu-item-label">Theme: System</span></button>
-            <button type="button" class="user-menu-item accent-preset-row" id="accent-preset-row" onclick="toggleAccentPresetMenu(event)" title="Preset Farbe" data-i18n-title-key="menu.presetColor" aria-expanded="false" role="menuitem"><span class="menu-item-icon accent-preset-current" id="accent-preset-current"></span><span class="menu-item-label" data-i18n-key="menu.presetColor">Preset Farbe</span><span class="accent-preset-chevron"></span></button>
+            <button type="button" class="user-menu-item" id="menu-settings-btn" data-user-menu-action="settings" title="Settings" data-i18n-title-key="menu.settings" role="menuitem"><span data-icon="settings"></span><span data-i18n-key="menu.settings">Settings</span></button>
+            <button type="button" class="user-menu-item" id="theme-toggle-btn" data-user-menu-action="theme" role="menuitem"><span class="menu-item-icon" data-icon="monitor"></span><span class="menu-item-label">Theme: System</span></button>
+            <button type="button" class="user-menu-item accent-preset-row" id="accent-preset-row" data-user-menu-action="accent-preset" title="Preset Farbe" data-i18n-title-key="menu.presetColor" aria-expanded="false" role="menuitem"><span class="menu-item-icon accent-preset-current" id="accent-preset-current"></span><span class="menu-item-label" data-i18n-key="menu.presetColor">Preset Farbe</span><span class="accent-preset-chevron"></span></button>
             <div class="accent-preset-panel" id="accent-preset-panel" aria-label="Choose preset color" data-i18n-aria-label-key="menu.choosePresetColor"></div>
-            <button type="button" class="user-menu-item" id="sort-toggle-btn" onclick="cycleSort()" role="menuitem"><span class="menu-item-icon">P1</span><span class="menu-item-label" data-i18n-key="menu.sort.priority">Sort: Priority</span></button>
-            <button type="button" class="user-menu-item" id="toggle-done-btn" onclick="toggleHideDone()" role="menuitem"><span class="menu-item-icon" data-icon="ban"></span><span class="menu-item-label">Erledigte anzeigen</span></button>
-            <button type="button" class="user-menu-item" id="project-widget-toggle-btn" onclick="toggleProjectWidget()" role="menuitem"><span class="menu-item-icon" data-icon="layout-dashboard"></span><span class="menu-item-label" data-i18n-key="menu.projectWidget">Project Widget</span></button>
+            <button type="button" class="user-menu-item" id="sort-toggle-btn" data-user-menu-action="sort" role="menuitem"><span class="menu-item-icon">P1</span><span class="menu-item-label" data-i18n-key="menu.sort.priority">Sort: Priority</span></button>
+            <button type="button" class="user-menu-item" id="toggle-done-btn" data-user-menu-action="toggle-done" role="menuitem"><span class="menu-item-icon" data-icon="ban"></span><span class="menu-item-label">Erledigte anzeigen</span></button>
+            <button type="button" class="user-menu-item" id="project-widget-toggle-btn" data-user-menu-action="project-widget" role="menuitem"><span class="menu-item-icon" data-icon="layout-dashboard"></span><span class="menu-item-label" data-i18n-key="menu.projectWidget">Project Widget</span></button>
             <div class="user-menu-separator"></div>
-            <button type="button" class="user-menu-item danger" onclick="logout()" title="Sign out" data-i18n-title-key="auth.signOut" role="menuitem"><span data-icon="log-out"></span><span data-i18n-key="auth.signOut">Sign out</span></button>
+            <button type="button" class="user-menu-item danger" data-user-menu-action="logout" title="Sign out" data-i18n-title-key="auth.signOut" role="menuitem"><span data-icon="log-out"></span><span data-i18n-key="auth.signOut">Sign out</span></button>
           </div>
         </div>
 
@@ -406,10 +406,10 @@
           <div class="version-actions web-version-actions" id="version-actions">
             <a class="changelog-link version-action-btn" id="changelog-link" href="/changelog" target="_blank" rel="noopener noreferrer" title="Open changelog" data-i18n-title-key="version.openChangelog" data-i18n-key="resource.changelog">Changelog</a>
             <span class="version-action-separator" aria-hidden="true">|</span>
-            <button type="button" class="force-refresh-btn version-action-btn" id="force-refresh-btn" onclick="forceReloadApp()" title="Web-App neu herunterladen und Cache aktualisieren" data-i18n-title-key="version.refreshCache" data-i18n-key="version.reload">↻ Neu laden</button>
+            <button type="button" class="force-refresh-btn version-action-btn" id="force-refresh-btn" title="Web-App neu herunterladen und Cache aktualisieren" data-i18n-title-key="version.refreshCache" data-i18n-key="version.reload">↻ Neu laden</button>
           </div>
           <div class="version-download-divider web-version-actions" aria-hidden="true"></div>
-          <button type="button" class="btn btn-secondary app-download-launcher" data-app-download-launcher onclick="openAppDownloadsModal()" style="display:none;">
+          <button type="button" class="btn btn-secondary app-download-launcher" data-app-download-launcher style="display:none;">
             <span data-icon="download"></span>
             <span data-i18n-key="appDownloads.title">Apps herunterladen</span>
           </button>
@@ -426,7 +426,7 @@
         <p data-i18n-key="update.web.message">A new web app version is available.</p>
         <p class="web-update-meta"><span data-i18n-key="update.web.current">Aktuell geladen:</span> <span id="web-update-current-version">–</span></p>
         <div class="web-update-actions">
-          <button type="button" class="btn btn-primary" id="web-update-apply-btn" onclick="triggerUpdate()" data-i18n-key="update.web.apply">Jetzt aktualisieren</button>
+          <button type="button" class="btn btn-primary" id="web-update-apply-btn" data-i18n-key="update.web.apply">Jetzt aktualisieren</button>
         </div>
       </div>
     </div>
@@ -446,10 +446,10 @@
     </div>
 
     <div class="modal app-downloads-modal" id="app-downloads-modal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="app-downloads-modal-title">
-      <div class="modal-overlay" onclick="closeModal('app-downloads-modal')"></div>
+      <div class="modal-overlay" data-close-modal="app-downloads-modal"></div>
       <div class="modal-content app-downloads-modal-content" data-app-download-panel style="display:none;">
         <h3 id="app-downloads-modal-title" data-i18n-key="appDownloads.title">Apps herunterladen</h3>
-        <button class="modal-close-x" onclick="closeModal('app-downloads-modal')"><span data-icon="x"></span></button>
+        <button class="modal-close-x" data-close-modal="app-downloads-modal"><span data-icon="x"></span></button>
         <div class="modal-body app-downloads-modal-body">
           <div class="web-update-icon" aria-hidden="true" data-icon="download"></div>
           <p class="app-download-modal-subtitle" data-i18n-key="appDownloads.modalSubtitle">Install nia-todo as a native app on your device.</p>
@@ -528,17 +528,17 @@
     <main class="main">
       <!-- Top bar -->
       <div class="topbar">
-        <button class="hamburger" onclick="toggleSidebar()" aria-label="Open menu" data-i18n-aria-label-key="topbar.openMenu"><span data-icon="menu"></span></button>
-        <button type="button" class="today-focus-btn" id="today-focus-btn" onclick="toggleTodayFocus()" title="Heute-Fokus" data-i18n-title-key="todayFocus.toggleTitle"><span data-icon="target"></span><span data-i18n-key="todayFocus.short">Fokus</span></button>
-        <button type="button" class="minimal-todos-btn" id="minimal-todos-btn" onclick="toggleMinimalTodos()" title="Minimalistische Todo-Liste" data-i18n-title-key="minimalTodos.toggleTitle"><span data-icon="brush-cleaning"></span><span data-i18n-key="minimalTodos.short">Minimal</span></button>
+        <button class="hamburger" data-sidebar-toggle aria-label="Open menu" data-i18n-aria-label-key="topbar.openMenu"><span data-icon="menu"></span></button>
+        <button type="button" class="today-focus-btn" id="today-focus-btn" title="Heute-Fokus" data-i18n-title-key="todayFocus.toggleTitle"><span data-icon="target"></span><span data-i18n-key="todayFocus.short">Fokus</span></button>
+        <button type="button" class="minimal-todos-btn" id="minimal-todos-btn" title="Minimalistische Todo-Liste" data-i18n-title-key="minimalTodos.toggleTitle"><span data-icon="brush-cleaning"></span><span data-i18n-key="minimalTodos.short">Minimal</span></button>
         <div class="search-box" id="search-box">
-          <button type="button" class="search-toggle-btn" id="search-toggle-btn" onclick="toggleMobileSearch()" aria-label="Suche öffnen" data-i18n-aria-label-key="common.search" title="Suche" data-i18n-title-key="common.search"><span data-icon="search"></span></button>
-          <input type="text" id="search-input" placeholder="Todo suchen..." data-i18n-placeholder-key="topbar.searchTodo" oninput="renderStats();renderTodos()" onkeydown="if(event.key==='Escape')closeMobileSearch()">
+          <button type="button" class="search-toggle-btn" id="search-toggle-btn" aria-label="Suche öffnen" data-i18n-aria-label-key="common.search" title="Suche" data-i18n-title-key="common.search"><span data-icon="search"></span></button>
+          <input type="text" id="search-input" placeholder="Todo suchen..." data-i18n-placeholder-key="topbar.searchTodo">
         </div>
         <div class="topbar-actions">
           <span id="online-status" class="status-online"></span>
           <div class="workspace-switcher topbar-workspace-switcher" id="workspace-switcher">
-            <button type="button" class="workspace-current-btn" id="workspace-current-btn" onclick="toggleWorkspaceMenu(event)" aria-haspopup="menu" aria-expanded="false">
+            <button type="button" class="workspace-current-btn" id="workspace-current-btn" data-workspace-action="toggle-menu" aria-haspopup="menu" aria-expanded="false">
               <span class="workspace-current-dot" id="workspace-current-dot"></span>
               <span class="workspace-current-name" id="workspace-current-name">Workspace</span>
               <svg class="workspace-current-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
@@ -548,7 +548,7 @@
         </div>
       </div>
 
-      <button class="fab-add-todo" type="button" onclick="showTodoModal()" aria-label="Create new todo" data-i18n-aria-label-key="todo.create" title="New todo" data-i18n-title-key="todo.new">
+      <button class="fab-add-todo" type="button" data-todo-action="new" aria-label="Create new todo" data-i18n-aria-label-key="todo.create" title="New todo" data-i18n-title-key="todo.new">
         <span>+</span>
       </button>
 
@@ -562,7 +562,7 @@
 
   <!-- Todo Modal -->
   <div class="modal" id="todo-modal">
-    <div class="modal-overlay" onclick="closeModal('todo-modal')"></div>
+    <div class="modal-overlay" data-close-modal="todo-modal"></div>
     <div class="modal-content todo-modal-content">
       <div class="todo-modal-header">
         <div class="todo-modal-title-icon" data-icon="check-circle"></div>
@@ -571,7 +571,7 @@
           <p data-i18n-key="todo.modal.subtitle">Capture the task, then add planning details only if needed.</p>
         </div>
       </div>
-      <button class="modal-close-x" onclick="closeModal('todo-modal')"><span data-icon="x"></span></button>
+      <button class="modal-close-x" data-close-modal="todo-modal"><span data-icon="x"></span></button>
       <div class="modal-body todo-modal-body">
       <form id="todo-form" class="todo-modal-form todo-editor-shell">
         <input type="hidden" id="todo-id">
@@ -613,7 +613,7 @@
               <label for="todo-subtask-new-title" data-i18n-key="todo.subtasks.newLabel">New subtask</label>
               <div class="todo-subtasks-add-row todo-detail-action-row">
                 <input class="ui-field" type="text" id="todo-subtask-new-title" maxlength="500" placeholder="Nächster Schritt…" data-i18n-placeholder-key="todo.subtasks.placeholder">
-                <button type="button" id="todo-subtask-add-btn" class="btn btn-secondary todo-detail-action-btn" onclick="addTodoSubtaskFromInput()"><span data-icon="plus"></span> <span data-i18n-key="common.add">Add</span></button>
+                <button type="button" id="todo-subtask-add-btn" class="btn btn-secondary todo-detail-action-btn" data-todo-action="add-subtask"><span data-icon="plus"></span> <span data-i18n-key="common.add">Add</span></button>
               </div>
             </div>
           </div>
@@ -637,7 +637,7 @@
             <div class="form-group todo-comments-add-group">
               <label for="todo-comment-new-body" data-i18n-key="todo.comments.newLabel">New comment</label>
               <textarea class="ui-field" id="todo-comment-new-body" rows="3" maxlength="5000" placeholder="Notiz hinzufügen…" data-i18n-placeholder-key="todo.comments.placeholder"></textarea>
-              <button type="button" id="todo-comment-add-btn" class="btn btn-secondary todo-detail-action-btn" onclick="addTodoCommentFromInput()"><span data-icon="plus"></span> <span data-i18n-key="todo.comments.add">Add</span></button>
+              <button type="button" id="todo-comment-add-btn" class="btn btn-secondary todo-detail-action-btn" data-todo-action="add-comment"><span data-icon="plus"></span> <span data-i18n-key="todo.comments.add">Add</span></button>
             </div>
           </div>
         </details>
@@ -660,8 +660,8 @@
               <label for="todo-attachment-file" data-i18n-key="todo.attachments.newLabel">Add attachment</label>
               <div class="todo-attachments-add-row todo-detail-action-row has-drop-hint">
                 <input type="file" id="todo-attachment-file" class="visually-hidden" multiple>
-                <button type="button" class="todo-attachment-picker btn btn-secondary todo-detail-action-btn" onclick="document.getElementById('todo-attachment-file').click()"><span data-icon="paperclip"></span> <span id="todo-attachment-file-name" data-i18n-key="todo.attachments.chooseFile">Datei auswählen</span></button>
-                <button type="button" id="todo-attachment-upload-btn" class="btn btn-secondary todo-detail-action-btn" onclick="uploadTodoAttachmentFromInput()"><span data-icon="upload"></span> <span data-i18n-key="todo.attachments.upload">Upload</span></button>
+                <button type="button" class="todo-attachment-picker btn btn-secondary todo-detail-action-btn" data-todo-action="choose-attachment"><span data-icon="paperclip"></span> <span id="todo-attachment-file-name" data-i18n-key="todo.attachments.chooseFile">Datei auswählen</span></button>
+                <button type="button" id="todo-attachment-upload-btn" class="btn btn-secondary todo-detail-action-btn" data-todo-action="upload-attachment"><span data-icon="upload"></span> <span data-i18n-key="todo.attachments.upload">Upload</span></button>
               </div>
             </div>
           </div>
@@ -698,7 +698,7 @@
             </div>
             <div class="form-group">
               <label data-i18n-key="todo.project">Project</label>
-              <select class="ui-field" id="todo-project" onchange="onProjectChange()"></select>
+              <select class="ui-field" id="todo-project"></select>
             </div>
             <div class="form-group">
               <label data-i18n-key="todo.section">Section</label>
@@ -811,10 +811,10 @@
 
   <!-- Avatar Cropper Modal -->
   <div class="modal" id="avatar-crop-modal">
-    <div class="modal-overlay" onclick="cancelAvatarCrop()"></div>
+    <div class="modal-overlay" data-user-settings-action="cancel-avatar-crop"></div>
     <div class="modal-content avatar-crop-modal-content">
       <h3><span data-icon="image"></span> <span data-i18n-key="avatar.cropTitle">Crop avatar</span></h3>
-      <button class="modal-close-x" onclick="cancelAvatarCrop()"><span data-icon="x"></span></button>
+      <button class="modal-close-x" data-user-settings-action="cancel-avatar-crop"><span data-icon="x"></span></button>
       <div class="avatar-crop-body">
         <div class="avatar-crop-stage" id="avatar-crop-stage">
           <img id="avatar-crop-image" alt="Avatar-Vorschau" data-i18n-alt-key="avatar.preview" draggable="false">
@@ -822,8 +822,8 @@
         </div>
         <div class="avatar-crop-hint" data-i18n-key="avatar.cropHint">Drag image · pinch or mouse wheel to zoom</div>
         <div class="avatar-crop-actions">
-          <button type="button" class="btn btn-secondary" onclick="cancelAvatarCrop()" data-i18n-key="common.cancel">Cancel</button>
-          <button type="button" class="btn btn-primary" onclick="saveAvatarCrop()" data-i18n-key="avatar.save">Save avatar</button>
+          <button type="button" class="btn btn-secondary" data-user-settings-action="cancel-avatar-crop" data-i18n-key="common.cancel">Cancel</button>
+          <button type="button" class="btn btn-primary" data-user-settings-action="save-avatar-crop" data-i18n-key="avatar.save">Save avatar</button>
         </div>
         <div id="avatar-crop-error" class="settings-field-error"></div>
       </div>
@@ -864,7 +864,7 @@
 
   <!-- Settings Modal -->
   <div class="modal" id="settings-modal">
-    <div class="modal-overlay" onclick="closeModal('settings-modal')"></div>
+    <div class="modal-overlay" data-close-modal="settings-modal"></div>
     <div class="modal-content settings-modal-content">
       <div class="settings-modal-header">
         <div>
@@ -872,7 +872,7 @@
           <p class="settings-modal-subtitle"><span data-i18n-key="settings.overview.subtitle">Profil, Sicherheit, API und App-Verhalten an einem Ort.</span></p>
         </div>
       </div>
-      <button class="modal-close-x" onclick="closeModal('settings-modal')"><span data-icon="x"></span></button>
+      <button class="modal-close-x" data-close-modal="settings-modal"><span data-icon="x"></span></button>
       <div class="modal-body settings-modal-body">
         <nav class="settings-nav" aria-label="Settings sections" data-i18n-aria-label-key="settings.nav.aria">
           <a href="#settings-section-profile"><span data-icon="user"></span><span data-i18n-key="settings.section.profile">Profil</span></a>
@@ -898,13 +898,13 @@
             </div>
             <div class="settings-profile-card">
               <div class="settings-avatar-panel">
-                <button type="button" class="settings-avatar-button" onclick="document.getElementById('settings-avatar-input').click()" title="Change avatar" data-i18n-title-key="avatar.change">
+                <button type="button" class="settings-avatar-button" data-user-settings-action="choose-avatar" title="Change avatar" data-i18n-title-key="avatar.change">
                   <span id="settings-avatar-initial">U</span>
                   <img id="settings-avatar-preview" alt="Avatar" style="display:none;">
                 </button>
-                <button type="button" class="settings-avatar-remove" id="settings-avatar-remove" onclick="deleteUserAvatar()" style="display:none;" data-i18n-key="avatar.delete">Delete avatar</button>
+                <button type="button" class="settings-avatar-remove" id="settings-avatar-remove" data-user-settings-action="delete-avatar" style="display:none;" data-i18n-key="avatar.delete">Delete avatar</button>
               </div>
-              <input type="file" id="settings-avatar-input" accept="image/png,image/jpeg,image/webp,image/gif,image/heic,image/heif,.heic,.heif" style="display:none;" onchange="startAvatarUpload(this.files?.[0])">
+              <input type="file" id="settings-avatar-input" accept="image/png,image/jpeg,image/webp,image/gif,image/heic,image/heif,.heic,.heif" style="display:none;" data-user-settings-input="avatar-file">
               <div class="settings-profile-fields">
                 <div class="settings-field-row">
                   <div class="settings-field-label" data-i18n-key="settings.profile.username">Username</div>
@@ -938,7 +938,7 @@
             </div>
             <div class="form-group">
               <label for="settings-language" data-i18n-key="settings.language.browser">Use browser language</label>
-              <select class="ui-field" id="settings-language" onchange="changeLanguagePreference(this.value)">
+              <select class="ui-field" id="settings-language" data-user-settings-input="language">
                 <option value="auto" data-i18n-key="settings.language.auto">Automatic</option>
                 <option value="de" data-i18n-key="settings.language.de">German</option>
                 <option value="en" data-i18n-key="settings.language.en">English</option>
@@ -958,7 +958,7 @@
             </div>
             <div class="settings-subcard">
               <label for="settings-default-reminder" data-i18n-key="settings.defaultReminder.label">Automatic reminder for deadlines</label>
-              <select class="ui-field" id="settings-default-reminder" onchange="changeDefaultReminderSetting(this.value)">
+              <select class="ui-field" id="settings-default-reminder" data-user-settings-input="default-reminder">
                 <option value="off" data-i18n-key="settings.defaultReminder.off">Off</option>
                 <option value="0" data-i18n-key="settings.defaultReminder.atDeadline">At deadline</option>
                 <option value="15" data-i18n-key="settings.defaultReminder.before15m">15 minutes before</option>
@@ -978,7 +978,7 @@
                     <option value="days" data-i18n-key="settings.defaultReminder.customDays">Days before</option>
                   </select>
                 </div>
-                <button type="button" class="btn btn-secondary" onclick="saveCustomDefaultReminderSetting()" data-i18n-key="common.save">Save</button>
+                <button type="button" class="btn btn-secondary" data-user-settings-action="save-custom-default-reminder" data-i18n-key="common.save">Save</button>
               </div>
               <div class="settings-help-text" data-i18n-key="settings.defaultReminder.help">Explicit reminders are kept and never overwritten.</div>
               <div id="settings-default-reminder-error" class="settings-field-error"></div>
@@ -1027,8 +1027,8 @@
               </div>
             </div>
             <div class="settings-actions-row">
-              <button type="button" class="btn btn-primary" onclick="saveSettingsPlace()"><span data-icon="plus" id="settings-place-save-icon"></span> <span id="settings-place-save-label" data-i18n-key="settings.places.save">Save place</span></button>
-              <button type="button" class="btn btn-secondary" id="settings-place-cancel-edit" onclick="cancelSettingsPlaceEdit()" hidden data-i18n-key="common.cancel">Cancel</button>
+              <button type="button" class="btn btn-primary" data-user-settings-action="save-place"><span data-icon="plus" id="settings-place-save-icon"></span> <span id="settings-place-save-label" data-i18n-key="settings.places.save">Save place</span></button>
+              <button type="button" class="btn btn-secondary" id="settings-place-cancel-edit" data-user-settings-action="cancel-place-edit" hidden data-i18n-key="common.cancel">Cancel</button>
             </div>
             <div id="settings-places-error" class="settings-field-error"></div>
             <div id="settings-places-success" class="settings-field-success"></div>
@@ -1046,14 +1046,14 @@
             <div class="settings-subcard">
               <label class="settings-toggle-row settings-toggle-feature settings-switch-row">
                 <span data-i18n-key="settings.braindump.learning.label">BrainDump merkt sich passende Listen</span>
-                <input type="checkbox" class="settings-switch" id="settings-braindump-learning" onchange="changeBrainDumpLearningSetting(this.checked)">
+                <input type="checkbox" class="settings-switch" id="settings-braindump-learning" data-user-settings-input="braindump-learning">
               </label>
               <div class="settings-help-text" data-i18n-key="settings.braindump.learning.help">
                 Wenn du Aufgaben in eine andere Liste oder Section verschiebst, merkt sich BrainDump diese Entscheidung für dein Konto und schlägt sie beim nächsten Mal eher vor. Audio und gesprochener Text werden dafür nicht gespeichert.
               </div>
               <div class="settings-help-text" id="settings-braindump-learning-count"></div>
               <div class="settings-card-actions">
-                <button type="button" class="btn btn-secondary" onclick="resetBrainDumpLearning()" data-i18n-key="settings.braindump.learning.reset">Gelernte Zuordnungen zurücksetzen</button>
+                <button type="button" class="btn btn-secondary" data-user-settings-action="reset-braindump-learning" data-i18n-key="settings.braindump.learning.reset">Gelernte Zuordnungen zurücksetzen</button>
               </div>
               <div id="settings-braindump-error" class="settings-field-error"></div>
               <div id="settings-braindump-success" class="settings-field-success"></div>
@@ -1075,22 +1075,22 @@
               <div class="settings-password-grid">
                 <div class="form-group">
                   <label data-i18n-key="settings.password.current">Current password</label>
-                  <input type="password" id="settings-old-password" placeholder="Current password" data-i18n-placeholder-key="settings.password.current" autocomplete="current-password" onkeydown="if(event.key==='Enter') document.getElementById('settings-new-password').focus()">
+                  <input type="password" id="settings-old-password" placeholder="Current password" data-i18n-placeholder-key="settings.password.current" autocomplete="current-password" data-user-settings-input="password-current">
                 </div>
                 <div class="form-group">
                   <label data-i18n-key="settings.password.new">New password</label>
-                  <input type="password" id="settings-new-password" placeholder="New password (8+ characters)" data-i18n-placeholder-key="settings.password.newPlaceholder" autocomplete="new-password" onkeydown="if(event.key==='Enter') document.getElementById('settings-confirm-password').focus()">
+                  <input type="password" id="settings-new-password" placeholder="New password (8+ characters)" data-i18n-placeholder-key="settings.password.newPlaceholder" autocomplete="new-password" data-user-settings-input="password-new">
                 </div>
                 <div class="form-group">
                   <label data-i18n-key="settings.password.confirm">Confirm password</label>
-                  <input type="password" id="settings-confirm-password" placeholder="Repeat new password" data-i18n-placeholder-key="settings.password.repeatPlaceholder" autocomplete="new-password" onkeydown="if(event.key==='Enter') changeUserPassword()">
+                  <input type="password" id="settings-confirm-password" placeholder="Repeat new password" data-i18n-placeholder-key="settings.password.repeatPlaceholder" autocomplete="new-password" data-user-settings-input="password-confirm">
                 </div>
               </div>
               <div class="settings-help-text" data-i18n-key="settings.password.requirements">
                 At least 8 characters, 1 uppercase, 1 lowercase, 1 digit, 1 special character
               </div>
               <div class="settings-card-actions">
-                <button type="button" class="btn btn-primary" onclick="changeUserPassword()" data-i18n-key="settings.password.title">Change password</button>
+                <button type="button" class="btn btn-primary" data-user-settings-action="change-password" data-i18n-key="settings.password.title">Change password</button>
               </div>
               <div id="settings-pw-error" class="settings-field-error"></div>
               <div id="settings-pw-success" class="settings-field-success"></div>
@@ -1102,10 +1102,10 @@
                 <div id="settings-2fa-status" class="settings-status-pill" data-i18n-key="settings.2fa.statusChecking">Status: Checking...</div>
               </div>
               <div id="settings-2fa-actions" class="settings-action-row">
-                <button type="button" class="btn btn-primary" onclick="startTwoFactorTotp()" data-i18n-key="settings.2fa.setupAuthenticator">Set up authenticator app</button>
-                <button type="button" class="btn btn-secondary" onclick="addPasskey()" data-i18n-key="settings.2fa.addPasskey">Add passkey</button>
-                <button type="button" class="btn btn-secondary" id="settings-2fa-regenerate-recovery-btn" onclick="regenerateRecoveryCodes()" data-i18n-key="settings.2fa.regenerateRecovery">Generate new recovery codes</button>
-                <button type="button" class="btn btn-danger" id="settings-2fa-disable-btn" onclick="disableTwoFactor()" data-i18n-key="settings.2fa.disable">Disable 2FA</button>
+                <button type="button" class="btn btn-primary" data-user-settings-action="start-totp" data-i18n-key="settings.2fa.setupAuthenticator">Set up authenticator app</button>
+                <button type="button" class="btn btn-secondary" data-user-settings-action="add-passkey" data-i18n-key="settings.2fa.addPasskey">Add passkey</button>
+                <button type="button" class="btn btn-secondary" id="settings-2fa-regenerate-recovery-btn" data-user-settings-action="regenerate-recovery-codes" data-i18n-key="settings.2fa.regenerateRecovery">Generate new recovery codes</button>
+                <button type="button" class="btn btn-danger" id="settings-2fa-disable-btn" data-user-settings-action="disable-2fa" data-i18n-key="settings.2fa.disable">Disable 2FA</button>
               </div>
               <div id="settings-2fa-setup" class="settings-2fa-setup-card" style="display:none;">
                 <div class="settings-2fa-setup-header">
@@ -1125,7 +1125,7 @@
                 </div>
                 <label class="settings-2fa-code-label" for="settings-2fa-code" data-i18n-key="settings.2fa.appCode">6-stelliger Code aus der App</label>
                 <input type="text" id="settings-2fa-code" inputmode="numeric" autocomplete="one-time-code" placeholder="123456">
-                <button type="button" class="btn btn-primary" onclick="confirmTwoFactorTotp()" data-i18n-key="settings.2fa.enable">Enable 2FA</button>
+                <button type="button" class="btn btn-primary" data-user-settings-action="confirm-totp" data-i18n-key="settings.2fa.enable">Enable 2FA</button>
               </div>
               <div class="settings-2fa-devices-wrap">
                 <div class="settings-2fa-subtitle" data-i18n-key="settings.2fa.configuredFactors">Eingerichtete Faktoren</div>
@@ -1133,12 +1133,12 @@
               </div>
               <div class="settings-2fa-devices-wrap settings-sessions-wrap">
                 <div class="settings-2fa-subtitle settings-2fa-trusted-header">
-                  <button type="button" id="settings-sessions-toggle" class="settings-sessions-toggle" onclick="toggleTrustedDevicesList()" aria-expanded="false" aria-controls="settings-2fa-trusted-panel">
+                  <button type="button" id="settings-sessions-toggle" class="settings-sessions-toggle" data-user-settings-action="toggle-trusted-devices" aria-expanded="false" aria-controls="settings-2fa-trusted-panel">
                     <span class="settings-sessions-chevron">›</span>
                     <span data-i18n-key="settings.2fa.trustedDevices">Active sessions / devices</span>
                     <span id="settings-2fa-session-count" class="settings-session-count"></span>
                   </button>
-                  <button type="button" class="btn btn-danger btn-small" onclick="revokeAllTrustedDevices()" data-i18n-key="settings.2fa.revokeAllTrusted">Alle abmelden</button>
+                  <button type="button" class="btn btn-danger btn-small" data-user-settings-action="revoke-all-trusted-devices" data-i18n-key="settings.2fa.revokeAllTrusted">Alle abmelden</button>
                 </div>
                 <div id="settings-2fa-trusted-panel" hidden>
                   <div id="settings-2fa-trusted-devices" class="settings-2fa-devices"></div>
@@ -1162,7 +1162,7 @@
               <!-- API keys loaded dynamically -->
             </div>
             <div class="settings-action-row">
-              <button class="btn btn-primary" onclick="createApiKey()" data-i18n-key="settings.apiKeys.create">Create new API key</button>
+              <button class="btn btn-primary" data-api-key-action="create" data-i18n-key="settings.apiKeys.create">Create new API key</button>
               <div class="app-resource-links settings-resource-links api-settings-resource-links">
                 <a class="btn btn-secondary" href="/api" target="_blank" rel="noopener"><span data-icon="book-open"></span> <span data-i18n-key="resource.apiDocs">API-Doku</span></a>
               </div>
@@ -1170,7 +1170,7 @@
             <div id="api-key-created" class="settings-secret-box" style="display:none;">
               <p><span data-icon="triangle-alert"></span> <span data-i18n-key="settings.apiKeys.copyNowWarning">Copy the key now — it will not be shown again!</span></p>
               <code id="api-key-value"></code>
-              <button class="btn btn-secondary" onclick="copyApiKey()"><span data-icon="clipboard"></span> <span data-i18n-key="common.copy">Copy</span></button>
+              <button class="btn btn-secondary" data-api-key-action="copy"><span data-icon="clipboard"></span> <span data-i18n-key="common.copy">Copy</span></button>
               <div id="api-key-copy-status" class="settings-field-success"></div>
             </div>
             <div id="api-key-error" class="settings-field-error"></div>
@@ -1190,9 +1190,9 @@
                 <div id="push-status" class="settings-status-pill" data-i18n-key="settings.push.statusChecking">Status: Checking...</div>
               </div>
               <div id="push-actions" class="settings-action-row">
-                <button class="btn btn-primary" id="push-enable-btn" onclick="enablePushNotifications()" style="display:none;" data-i18n-key="settings.push.enable">Enable notifications</button>
-                <button class="btn btn-danger" id="push-disable-btn" onclick="disablePushNotifications()" style="display:none;" data-i18n-key="common.disable">Disable</button>
-                <button class="btn btn-secondary" id="push-test-btn" onclick="sendTestPush()" style="display:none;" data-i18n-key="settings.push.test">Send test</button>
+                <button class="btn btn-primary" id="push-enable-btn" data-push-action="enable" style="display:none;" data-i18n-key="settings.push.enable">Enable notifications</button>
+                <button class="btn btn-danger" id="push-disable-btn" data-push-action="disable" style="display:none;" data-i18n-key="common.disable">Disable</button>
+                <button class="btn btn-secondary" id="push-test-btn" data-push-action="test" style="display:none;" data-i18n-key="settings.push.test">Send test</button>
               </div>
               <div id="push-error" class="settings-field-error"></div>
             </div>
@@ -1226,7 +1226,7 @@
                 <input type="checkbox" id="desktop-notifications">
               </label>
               <div class="settings-card-actions">
-                <button class="btn btn-secondary" type="button" onclick="testDesktopNotification()" data-i18n-key="settings.desktop.testNotification">Test notification</button>
+                <button class="btn btn-secondary" type="button" data-desktop-action="test-notification" data-i18n-key="settings.desktop.testNotification">Test notification</button>
               </div>
               <div class="desktop-hotkeys-settings" data-desktop-only>
                 <h5><span data-icon="keyboard"></span> <span data-i18n-key="settings.desktop.hotkeys.title">Globale Hotkeys</span></h5>
@@ -1252,12 +1252,12 @@
         </div>
       </div>
       <div class="modal-actions settings-modal-actions">
-        <button type="button" class="btn btn-secondary" id="settings-close-btn" onclick="closeModal('settings-modal')" data-i18n-key="settings.close">Close</button>
+        <button type="button" class="btn btn-secondary" id="settings-close-btn" data-close-modal="settings-modal" data-i18n-key="settings.close">Close</button>
       </div>
     </div>
   </div>
   <div class="modal" id="workspace-modal">
-    <div class="modal-overlay" onclick="closeWorkspaceModal()"></div>
+    <div class="modal-overlay" data-workspace-action="close-modal"></div>
     <div class="modal-content entity-modal-content workspace-modal-content">
       <div class="entity-modal-header">
         <div class="entity-modal-title-icon" data-icon="briefcase"></div>
@@ -1266,7 +1266,7 @@
           <p data-i18n-key="workspace.modalHint">Organisiere Projekte nach Kontext, Team oder Bereich.</p>
         </div>
       </div>
-      <button class="modal-close-x" onclick="closeWorkspaceModal()"><span data-icon="x"></span></button>
+      <button class="modal-close-x" data-workspace-action="close-modal"><span data-icon="x"></span></button>
       <div class="modal-body entity-modal-body">
         <form id="workspace-form" class="entity-modal-form">
           <input type="hidden" id="workspace-id">
@@ -1299,9 +1299,9 @@
         </form>
       </div>
       <div class="modal-actions split-actions entity-modal-actions">
-        <button type="button" class="btn btn-danger" id="workspace-delete-btn" onclick="deleteWorkspaceFromModal()" style="display:none;" data-i18n-key="todo.delete">Delete</button>
+        <button type="button" class="btn btn-danger" id="workspace-delete-btn" data-workspace-action="delete" style="display:none;" data-i18n-key="todo.delete">Delete</button>
         <div class="modal-actions-right">
-          <button type="button" class="btn btn-secondary" onclick="closeWorkspaceModal()" data-i18n-key="common.cancel">Cancel</button>
+          <button type="button" class="btn btn-secondary" data-workspace-action="close-modal" data-i18n-key="common.cancel">Cancel</button>
           <button type="submit" form="workspace-form" class="btn btn-primary" data-i18n-key="common.save">Save</button>
         </div>
       </div>
@@ -1309,7 +1309,7 @@
   </div>
 
   <div class="modal" id="project-modal">
-    <div class="modal-overlay" onclick="closeModal('project-modal')"></div>
+    <div class="modal-overlay" data-close-modal="project-modal"></div>
     <div class="modal-content entity-modal-content project-modal-content">
       <div class="entity-modal-header">
         <div class="entity-modal-title-icon" data-icon="folder"></div>
@@ -1318,7 +1318,7 @@
           <p data-i18n-key="project.modalHint">Strukturiere Todos mit Farbe, Icon und optionaler Hierarchie.</p>
         </div>
       </div>
-      <button class="modal-close-x" onclick="closeModal('project-modal')"><span data-icon="x"></span></button>
+      <button class="modal-close-x" data-close-modal="project-modal"><span data-icon="x"></span></button>
       <div class="modal-body entity-modal-body">
         <form id="project-form" class="entity-modal-form">
           <input type="hidden" id="project-id">
@@ -1385,36 +1385,36 @@
               <label data-i18n-key="project.share.inviteUser">Invite user</label>
               <div class="project-share-inline">
                 <input id="project-share-username" type="text" class="form-control" placeholder="Username or email" data-i18n-placeholder-key="project.share.usernamePlaceholder">
-                <button type="button" class="btn btn-primary" onclick="inviteUserToProject()" data-i18n-key="project.share.invite">Einladen</button>
+                <button type="button" class="btn btn-primary" data-project-sharing-action="invite" data-i18n-key="project.share.invite">Einladen</button>
               </div>
               <div id="project-share-error" class="form-error"></div>
             </div>
           </div>
           <div id="project-share-start-row" class="project-share-start-row">
-            <button type="button" class="btn btn-secondary" onclick="showShareInput()"><span data-icon="share-2"></span> <span data-i18n-key="project.share.start">Teilen</span></button>
+            <button type="button" class="btn btn-secondary" data-project-sharing-action="show-share-input"><span data-icon="share-2"></span> <span data-i18n-key="project.share.start">Teilen</span></button>
           </div>
-          <button type="button" class="btn btn-secondary project-leave-btn" id="project-leave-btn" onclick="leaveProjectFromModal()" style="display:none;" data-i18n-key="project.share.leave">Leave project</button>
+          <button type="button" class="btn btn-secondary project-leave-btn" id="project-leave-btn" data-project-sharing-action="leave" style="display:none;" data-i18n-key="project.share.leave">Leave project</button>
         </section>
       </div>
       <div class="modal-actions entity-modal-actions">
-        <button type="button" class="btn btn-danger" id="project-delete-btn" onclick="deleteProjectFromModal()" style="margin-right:auto;display:none;"><span data-icon="trash-2"></span> <span data-i18n-key="project.delete">Delete project</span></button>
-        <button type="button" class="btn btn-secondary" onclick="closeModal('project-modal')" data-i18n-key="common.cancel">Cancel</button>
+        <button type="button" class="btn btn-danger" id="project-delete-btn" data-project-action="delete-from-modal" style="margin-right:auto;display:none;"><span data-icon="trash-2"></span> <span data-i18n-key="project.delete">Delete project</span></button>
+        <button type="button" class="btn btn-secondary" data-close-modal="project-modal" data-i18n-key="common.cancel">Cancel</button>
         <button type="submit" form="project-form" class="btn btn-primary" id="project-save-btn" data-i18n-key="common.save">Save</button>
       </div>
     </div>
   </div>
 
   <div class="modal" id="attachment-preview-modal">
-    <div class="modal-overlay" onclick="closeAttachmentPreview()"></div>
+    <div class="modal-overlay" data-todo-action="close-attachment-preview"></div>
     <div class="modal-content attachment-preview-modal-content">
-      <button class="modal-close-x" onclick="closeAttachmentPreview()"><span data-icon="x"></span></button>
+      <button class="modal-close-x" data-todo-action="close-attachment-preview"><span data-icon="x"></span></button>
       <div class="modal-header">
         <h3 id="attachment-preview-title" data-i18n-key="todo.attachments.preview">Vorschau</h3>
       </div>
       <div class="modal-body attachment-preview-body" id="attachment-preview-body"></div>
       <div class="modal-actions">
-        <button type="button" class="btn btn-secondary" onclick="closeAttachmentPreview()" data-i18n-key="common.close">Schließen</button>
-        <button type="button" class="btn btn-primary" id="attachment-preview-download-btn" onclick="downloadPreviewAttachment()"><span data-icon="download"></span> <span data-i18n-key="todo.attachments.download">Download</span></button>
+        <button type="button" class="btn btn-secondary" data-todo-action="close-attachment-preview" data-i18n-key="common.close">Schließen</button>
+        <button type="button" class="btn btn-primary" id="attachment-preview-download-btn" data-todo-action="download-preview-attachment"><span data-icon="download"></span> <span data-i18n-key="todo.attachments.download">Download</span></button>
       </div>
     </div>
   </div>
@@ -1422,8 +1422,8 @@
   <!-- Undo Toast -->
   <div class="toast-container" id="toast-container" style="display:none;">
     <span id="toast-message"></span>
-    <button class="toast-undo" id="toast-undo" onclick="undoLastAction()" data-i18n-key="common.undo">Undo</button>
-    <button class="toast-close" onclick="hideToast()"><span data-icon="x"></span></button>
+    <button class="toast-undo" id="toast-undo" data-i18n-key="common.undo">Undo</button>
+    <button class="toast-close" id="toast-close"><span data-icon="x"></span></button>
   </div>
 
   <script type="module" src="/static/js/main.js?v=auto-scrollbars"></script>
