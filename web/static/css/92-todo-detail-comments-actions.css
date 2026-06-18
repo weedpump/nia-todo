@@ -1,6 +1,4 @@
 /* Todo detail section surfaces, comments, and actions */
-
-/* Todo detail section surfaces, comments, and actions */
 #todo-modal.todo-detail-view .todo-subtasks-card,
 #todo-modal.todo-detail-view .todo-attachments-card,
 #todo-modal.todo-detail-view .todo-comments-card {
@@ -27,12 +25,6 @@
 
 #todo-modal.todo-detail-view .todo-attachments-add-row {
   justify-content: flex-start;
-}
-
-@media (max-width: 720px) {
-  #todo-modal.todo-detail-view .todo-comment-actions {
-    opacity: 1;
-  }
 }
 
 /* Todo detail comments: actions belong in the comment header row, right-aligned. */
