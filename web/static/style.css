@@ -14,7 +14,9 @@
 @import url("/static/css/33-color-scrollbars.css");
 @import url("/static/css/40-responsive-mobile.css");
 @import url("/static/css/50-auth-login.css");
-@import url("/static/css/51-version-bar.css");
+@import url("/static/css/51-auth-downloads-install.css");
+@import url("/static/css/52-auth-mobile.css");
+@import url("/static/css/53-version-bar.css");
 @import url("/static/css/60-feedback-markdown.css");
 @import url("/static/css/61-workspace-confirm-icons.css");
 @import url("/static/css/62-touch-security-proposals.css");
