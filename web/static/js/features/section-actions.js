@@ -131,11 +131,6 @@ export function createSectionActionsFeature({
 
   return {
     renderSectionHeader: sectionsFeature.renderSectionHeader,
-    showAddSectionForm: sectionsFeature.showAddSectionForm,
-    editSectionInline: sectionsFeature.editSectionInline,
-    saveNewSection,
-    saveSectionEdit,
-    deleteSection,
     bindSectionActions,
   };
 }
