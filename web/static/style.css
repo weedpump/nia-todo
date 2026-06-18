@@ -8801,9 +8801,24 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
 }
 
 #todo-modal.todo-detail-view #todo-title {
-  border-bottom: 0;
-  padding-bottom: 4px;
-  font-size: clamp(34px, 4.2vw, 58px);
+  min-height: 52px;
+  padding: 10px 16px;
+  border: 1px solid transparent;
+  border-radius: 18px;
+  background: transparent;
+  appearance: none;
+  -webkit-appearance: none;
+  font-size: clamp(26px, 3vw, 38px);
+  line-height: 1.28;
+  font-weight: 760;
+  letter-spacing: -0.025em;
+}
+
+#todo-modal.todo-detail-view #todo-title:focus,
+#todo-modal.todo-detail-view #todo-title:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 62%, var(--border));
+  background: color-mix(in srgb, var(--bg-secondary) 58%, transparent);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.14));
 }
 
 #todo-modal.todo-detail-view .desc-live-preview {
@@ -9172,12 +9187,6 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
 #todo-modal.todo-detail-view .todo-subtasks-add-group > label,
 #todo-modal.todo-detail-view .todo-attachments-add-group > label {
   display: none;
-}
-
-#todo-modal.todo-detail-view .todo-subtasks-add-row input {
-  border: 0;
-  background: transparent;
-  padding-left: 2px;
 }
 
 #todo-modal.todo-detail-view .todo-subtasks-add-row input::placeholder {
@@ -10461,6 +10470,10 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
     grid-template-columns: 1fr;
   }
 
+  #todo-modal.todo-detail-view .todo-subtasks-add-row {
+    gap: 16px;
+  }
+
   #todo-modal.todo-detail-view .todo-detail-action-row.has-drop-hint::after {
     display: none;
     content: none;
@@ -10476,9 +10489,9 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   }
 }
 
-/* Todo detail meta: give edit action the same breathing room as other add/action rows. */
+/* Todo detail meta: align edit action spacing with the comment add action. */
 #todo-modal.todo-detail-view .todo-meta-summary-view {
-  gap: 14px;
+  gap: 16px;
 }
 
 /* Todo meta drawer: mobile close icon matches clean Todo detail close style. */
