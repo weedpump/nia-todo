@@ -71,6 +71,10 @@ export function createTodosFeature({
     panel.open = Boolean(shouldOpen);
   }
 
+  function getTodoModal() {
+    return document.getElementById('todo-modal');
+  }
+
   function isMobileTodoModalLayout() {
     return Boolean(window.matchMedia?.('(max-width: 768px)')?.matches);
   }
@@ -143,7 +147,7 @@ export function createTodosFeature({
         <div class="todo-meta-drawer-body"></div>
       `;
       drawer.querySelector('.todo-meta-drawer-close')?.addEventListener('click', () => {
-        document.getElementById('todo-modal')?.classList.remove('todo-meta-editing');
+        getTodoModal()?.classList.remove('todo-meta-editing');
         renderTodoMetaSummary(getTodos().find(todo => String(todo.id) === String(document.getElementById('todo-id')?.value)) || null);
       });
       form.appendChild(drawer);
@@ -208,12 +212,12 @@ export function createTodosFeature({
     `;
     const toggle = summary.querySelector('#todo-meta-edit-toggle');
     const syncToggleLabel = () => {
-      const active = document.getElementById('todo-modal')?.classList.contains('todo-meta-editing');
+      const active = getTodoModal()?.classList.contains('todo-meta-editing');
       const label = active ? (lang === 'de' ? 'Details schließen' : 'Close details') : edit;
       toggle.innerHTML = `${iconSvg(active ? 'x' : 'settings')}<span>${escapeHtmlAttr(label)}</span>`;
     };
     toggle?.addEventListener('click', () => {
-      document.getElementById('todo-modal')?.classList.toggle('todo-meta-editing');
+      getTodoModal()?.classList.toggle('todo-meta-editing');
       syncToggleLabel();
     });
     syncToggleLabel();
@@ -266,7 +270,7 @@ export function createTodosFeature({
   }
 
   function updateTodoDetailViewMode(todo = null) {
-    const modal = document.getElementById('todo-modal');
+    const modal = getTodoModal();
     if (!modal) return;
     const isExistingTodo = Boolean(todo?.id);
     modal.classList.add('todo-detail-view');
@@ -335,7 +339,7 @@ export function createTodosFeature({
     editor.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') {
         event.preventDefault();
-        document.getElementById('todo-modal')?.classList.remove('todo-desc-editing');
+        getTodoModal()?.classList.remove('todo-desc-editing');
         return;
       }
       if (event.key === ' ') {
@@ -364,7 +368,7 @@ export function createTodosFeature({
   }
 
   function bindTodoDescriptionInlineEditor() {
-    const modal = document.getElementById('todo-modal');
+    const modal = getTodoModal();
     const textarea = document.getElementById('todo-desc');
     const preview = document.getElementById('todo-desc-preview');
     if (!modal || !textarea || !preview || textarea.dataset.inlineEditorBound === '1') return;
@@ -435,7 +439,7 @@ export function createTodosFeature({
     const current = JSON.stringify(getTodoSaveRelevantState());
     const unchanged = todoSaveSnapshot !== null && current === todoSaveSnapshot;
     saveButton.disabled = unchanged;
-    document.getElementById('todo-modal')?.classList.toggle('todo-has-unsaved', !unchanged);
+    getTodoModal()?.classList.toggle('todo-has-unsaved', !unchanged);
     refreshTodoActionButtonState();
   }
 
@@ -2505,7 +2509,7 @@ export function createTodosFeature({
     updateTodoDetailViewMode(todo);
     renderTodoMetaSummary(todo);
     document.getElementById('todo-desc-preview')?.setAttribute('tabindex', todo ? '0' : '-1');
-    document.getElementById('todo-modal')?.classList.add('active');
+    getTodoModal()?.classList.add('active');
     if (!todo) focusTodoTitle();
   }
 
