@@ -1,0 +1,633 @@
+/* Todo detail content sections, comments, descriptions, attachments base */
+
+/* Todo detail view prototype: content sections become view-first blocks. */
+#todo-modal.todo-detail-view .todo-subtasks-card,
+#todo-modal.todo-detail-view .todo-attachments-card,
+#todo-modal.todo-detail-view .todo-comments-card {
+  display: block;
+}
+
+#todo-modal.todo-detail-view .todo-subtasks-card > .todo-collapsible-summary,
+#todo-modal.todo-detail-view .todo-attachments-card > .todo-collapsible-summary,
+#todo-modal.todo-detail-view .todo-comments-card > .todo-collapsible-summary {
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+#todo-modal.todo-detail-view .todo-subtasks-card .ui-section-icon,
+#todo-modal.todo-detail-view .todo-attachments-card .ui-section-icon,
+#todo-modal.todo-detail-view .todo-comments-card .ui-section-icon {
+  display: none;
+}
+
+#todo-modal.todo-detail-view .todo-subtasks-card .ui-section-heading h4,
+#todo-modal.todo-detail-view .todo-attachments-card .ui-section-heading h4,
+#todo-modal.todo-detail-view .todo-comments-card .ui-section-heading h4 {
+  font-size: 14px;
+  letter-spacing: .06em;
+}
+
+#todo-modal.todo-detail-view .todo-subtasks-progress,
+#todo-modal.todo-detail-view .todo-attachments-progress,
+#todo-modal.todo-detail-view .todo-comments-progress {
+  min-height: 24px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-secondary) 54%, transparent);
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+#todo-modal.todo-detail-view .todo-subtasks-list {
+  display: grid;
+  gap: 6px;
+}
+
+#todo-modal.todo-detail-view .todo-subtask-row {
+  border: 0;
+  background: transparent;
+  padding: 5px 0;
+  border-radius: 0;
+}
+
+#todo-modal.todo-detail-view .todo-subtask-row:has(.todo-subtask-check:checked) {
+  opacity: .58;
+}
+
+#todo-modal.todo-detail-view .todo-subtask-row:has(.todo-subtask-check:checked) .todo-subtask-title-input {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
+#todo-modal.todo-detail-view .todo-subtask-title-input {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 6px 2px;
+  font-size: 15px;
+}
+
+#todo-modal.todo-detail-view .todo-subtask-title-input:focus {
+  background: color-mix(in srgb, var(--bg-secondary) 44%, transparent);
+  border-radius: 10px;
+  outline: none;
+}
+
+#todo-modal.todo-detail-view .todo-subtask-row .btn-icon {
+  opacity: 0;
+  transition: opacity .14s ease;
+}
+
+#todo-modal.todo-detail-view .todo-subtask-row:hover .btn-icon,
+#todo-modal.todo-detail-view .todo-subtask-row:focus-within .btn-icon {
+  opacity: 1;
+}
+
+#todo-modal.todo-detail-view .todo-subtasks-add-group,
+#todo-modal.todo-detail-view .todo-attachments-add-group {
+  margin-top: 10px;
+}
+
+#todo-modal.todo-detail-view .todo-subtasks-add-group > label,
+#todo-modal.todo-detail-view .todo-attachments-add-group > label {
+  display: none;
+}
+
+#todo-modal.todo-detail-view .todo-subtasks-add-row input::placeholder {
+  color: var(--text-muted);
+}
+
+#todo-modal.todo-detail-view .todo-attachments-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+#todo-modal.todo-detail-view .todo-attachment-item {
+  width: min(100%, 280px);
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 9px;
+  padding: 9px 10px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--bg-secondary) 48%, transparent);
+  border-color: color-mix(in srgb, var(--border) 34%, transparent);
+}
+
+#todo-modal.todo-detail-view .todo-attachment-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+}
+
+#todo-modal.todo-detail-view .todo-attachment-name {
+  font-size: 13px;
+}
+
+#todo-modal.todo-detail-view .todo-attachment-meta {
+  font-size: 11px;
+}
+
+#todo-modal.todo-detail-view .todo-attachments-empty,
+#todo-modal.todo-detail-view .todo-comments-empty {
+  color: var(--text-muted);
+  font-size: 13px;
+  margin: 4px 0 10px;
+}
+
+#todo-modal.todo-detail-view .todo-comments-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+#todo-modal.todo-detail-view .todo-comments-add-group {
+  order: -1;
+  margin: 0;
+}
+
+#todo-modal.todo-detail-view .todo-comments-add-group > label {
+  display: none;
+}
+
+#todo-modal.todo-detail-view .todo-comments-add-group textarea {
+  min-height: 48px;
+  resize: vertical;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--bg-secondary) 46%, transparent);
+  border-color: color-mix(in srgb, var(--border) 34%, transparent);
+}
+
+#todo-modal.todo-detail-view .todo-comments-add-group .btn {
+  margin-top: 8px;
+}
+
+#todo-modal.todo-detail-view .todo-comments-list {
+  position: relative;
+  display: grid;
+  gap: 10px;
+}
+
+#todo-modal.todo-detail-view .todo-comment-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px 10px;
+  padding: 12px 0 12px 14px;
+  border: 0;
+  border-left: 2px solid color-mix(in srgb, var(--border) 54%, transparent);
+  border-radius: 0;
+  background: transparent;
+}
+
+#todo-modal.todo-detail-view .todo-comment-meta {
+  grid-column: 1 / -1;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+#todo-modal.todo-detail-view .todo-comment-body {
+  min-width: 0;
+  line-height: 1.5;
+}
+
+#todo-modal.todo-detail-view .todo-comment-actions {
+  align-self: start;
+  opacity: 0;
+  transition: opacity .14s ease;
+}
+
+#todo-modal.todo-detail-view .todo-comment-item:hover .todo-comment-actions,
+#todo-modal.todo-detail-view .todo-comment-item:focus-within .todo-comment-actions {
+  opacity: 1;
+}
+
+@media (max-width: 720px) {
+  #todo-modal.todo-detail-view .todo-attachments-list {
+    display: grid;
+  }
+
+  #todo-modal.todo-detail-view .todo-attachment-item {
+    width: 100%;
+  }
+
+  #todo-modal.todo-detail-view .todo-subtask-row .btn-icon,
+  #todo-modal.todo-detail-view .todo-comment-actions {
+    opacity: 1;
+  }
+}
+
+/* Todo detail view prototype: restore subtle section structure without returning to form cards. */
+#todo-modal.todo-detail-view .todo-subtasks-card,
+#todo-modal.todo-detail-view .todo-attachments-card,
+#todo-modal.todo-detail-view .todo-comments-card {
+  padding: 18px;
+  border: 1px solid color-mix(in srgb, var(--border) 28%, transparent);
+  border-radius: 22px;
+  background: color-mix(in srgb, var(--bg-secondary) 22%, transparent);
+}
+
+#todo-modal.todo-detail-view .todo-subtasks-card:hover,
+#todo-modal.todo-detail-view .todo-attachments-card:hover,
+#todo-modal.todo-detail-view .todo-comments-card:hover {
+  border-color: color-mix(in srgb, var(--border) 40%, transparent);
+  background: color-mix(in srgb, var(--bg-secondary) 28%, transparent);
+}
+
+#todo-modal.todo-detail-view .todo-comments-add-group {
+  order: 10;
+  padding-top: 12px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 30%, transparent);
+}
+
+#todo-modal.todo-detail-view .todo-comments-empty + .todo-comments-add-group,
+#todo-modal.todo-detail-view .todo-comments-list:empty + .todo-comments-empty + .todo-comments-add-group {
+  border-top: 0;
+  padding-top: 0;
+}
+
+#todo-modal.todo-detail-view .todo-attachment-icon {
+  border: 0;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+#todo-modal.todo-detail-view .todo-attachment-icon:hover,
+#todo-modal.todo-detail-view .todo-attachment-icon:focus-visible {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  outline: none;
+}
+
+#todo-modal.todo-detail-view .todo-attachment-item {
+  background: color-mix(in srgb, var(--bg-primary) 32%, transparent);
+}
+
+#todo-modal.todo-detail-view .todo-comment-item {
+  padding-left: 12px;
+  border-left-color: color-mix(in srgb, var(--accent) 28%, var(--border));
+}
+
+/* Todo detail view prototype: undo card-like section surfaces, tighten comments/actions. */
+#todo-modal.todo-detail-view .todo-subtasks-card,
+#todo-modal.todo-detail-view .todo-attachments-card,
+#todo-modal.todo-detail-view .todo-comments-card {
+  padding: 18px 0 0;
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, var(--border) 44%, transparent);
+  border-radius: 0;
+  background: transparent;
+}
+
+#todo-modal.todo-detail-view .todo-subtasks-card:hover,
+#todo-modal.todo-detail-view .todo-attachments-card:hover,
+#todo-modal.todo-detail-view .todo-comments-card:hover {
+  border-color: color-mix(in srgb, var(--border) 44%, transparent);
+  background: transparent;
+}
+
+#todo-modal.todo-detail-view .todo-attachment-picker {
+  width: auto;
+  min-width: 0;
+  max-width: 220px;
+}
+
+#todo-modal.todo-detail-view #todo-attachment-file-name {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#todo-modal.todo-detail-view .todo-attachments-add-row {
+  align-items: center;
+  justify-content: flex-start;
+}
+
+#todo-modal.todo-detail-view .todo-comment-item {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
+  padding: 8px 0 8px 12px;
+}
+
+#todo-modal.todo-detail-view .todo-comment-meta {
+  grid-column: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 0;
+}
+
+#todo-modal.todo-detail-view .todo-comment-body {
+  grid-column: auto;
+}
+
+#todo-modal.todo-detail-view .todo-comment-actions {
+  grid-column: auto;
+  justify-self: start;
+  display: inline-flex;
+  gap: 6px;
+  margin-top: 2px;
+  opacity: 0;
+}
+
+@media (max-width: 720px) {
+  #todo-modal.todo-detail-view .todo-comment-actions {
+    opacity: 1;
+  }
+}
+
+/* Todo detail comments: actions belong in the comment header row, right-aligned. */
+#todo-modal.todo-detail-view .todo-comment-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "meta actions"
+    "body body";
+  gap: 4px 10px;
+  padding: 8px 0 8px 12px;
+}
+
+#todo-modal.todo-detail-view .todo-comment-meta {
+  grid-area: meta;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+}
+
+#todo-modal.todo-detail-view .todo-comment-body {
+  grid-area: body;
+}
+
+#todo-modal.todo-detail-view .todo-comment-actions {
+  grid-area: actions;
+  justify-self: end;
+  align-self: start;
+  display: inline-flex;
+  gap: 6px;
+  margin-top: 0;
+  opacity: 0;
+}
+
+/* Todo detail actions: keep add/upload actions visually consistent. */
+#todo-modal.todo-detail-view .todo-attachments-add-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+#todo-modal.todo-detail-view #todo-attachment-upload-btn {
+  justify-self: end;
+}
+
+#todo-modal.todo-detail-view .todo-comments-add-group .btn {
+  justify-self: end;
+}
+
+@media (max-width: 640px) {
+  #todo-modal.todo-detail-view .todo-attachments-add-row {
+    grid-template-columns: 1fr;
+  }
+
+  #todo-modal.todo-detail-view #todo-attachment-upload-btn {
+    justify-self: end;
+  }
+}
+
+/* Todo detail attachments: compact empty picker, full-width selection, desktop drag/drop. */
+#todo-modal.todo-detail-view .todo-attachment-picker {
+  flex: 0 1 auto;
+  width: auto;
+  max-width: 220px;
+}
+
+#todo-modal.todo-detail-view .todo-attachment-picker.has-file {
+  flex: 1 1 auto;
+  width: auto;
+  max-width: none;
+}
+
+#todo-modal.todo-detail-view .todo-attachment-picker.has-file #todo-attachment-file-name {
+  max-width: none;
+}
+
+#todo-modal.todo-detail-view .todo-attachments-add-row {
+  position: relative;
+  padding: 8px;
+  margin: 2px -8px -8px;
+  border: 1px dashed transparent;
+  border-radius: 18px;
+  transition: border-color .14s ease, background .14s ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  #todo-modal.todo-detail-view .todo-attachments-add-row::after {
+    content: attr(data-drop-label);
+    justify-self: start;
+    color: var(--text-muted);
+    font-size: 12px;
+    opacity: .72;
+  }
+}
+
+#todo-modal.todo-detail-view .todo-attachments-add-row.is-drag-over {
+  border-color: color-mix(in srgb, var(--accent) 52%, transparent);
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+}
+
+#todo-modal.todo-detail-view .todo-attachments-add-row.is-drag-over::after {
+  color: var(--accent);
+  opacity: 1;
+}
+
+/* Todo detail attachments: persistent dropzone and preview layering fixes. */
+#attachment-preview-modal.active {
+  z-index: 1300;
+}
+
+#todo-modal.todo-detail-view .todo-attachments-add-row {
+  display: grid;
+  grid-template-columns: auto minmax(120px, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  margin: 4px 0 0;
+  border: 1px dashed color-mix(in srgb, var(--border) 48%, transparent);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--bg-secondary) 20%, transparent);
+}
+
+#todo-modal.todo-detail-view .todo-attachments-add-row::after {
+  content: attr(data-drop-label);
+  justify-self: center;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.2;
+  text-align: center;
+  opacity: .82;
+}
+
+#todo-modal.todo-detail-view .todo-attachments-add-row.is-drag-over {
+  border-color: color-mix(in srgb, var(--accent) 58%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+#todo-modal.todo-detail-view .todo-attachments-add-row.is-drag-over::after {
+  color: var(--accent);
+  opacity: 1;
+}
+
+#todo-modal.todo-detail-view .todo-attachment-picker {
+  flex: none;
+  width: auto;
+  max-width: 220px;
+  justify-self: start;
+}
+
+#todo-modal.todo-detail-view .todo-attachment-picker.has-file {
+  max-width: min(520px, 100%);
+}
+
+#todo-modal.todo-detail-view #todo-attachment-upload-btn {
+  justify-self: end;
+}
+
+@media (max-width: 640px) {
+  #todo-modal.todo-detail-view .todo-attachments-add-row {
+    grid-template-columns: 1fr auto;
+  }
+
+  #todo-modal.todo-detail-view .todo-attachments-add-row::after {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-self: start;
+  }
+}
+
+/* Todo detail attachments: force upload right, drop hint centered. */
+#todo-modal.todo-detail-view .todo-attachments-add-row {
+  grid-template-columns: auto 1fr auto;
+}
+
+#todo-modal.todo-detail-view .todo-attachments-add-row::after {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: center;
+  text-align: center;
+}
+
+#todo-modal.todo-detail-view #todo-attachment-upload-btn {
+  grid-column: 3;
+  justify-self: end;
+}
+
+#todo-modal.todo-detail-view .todo-attachment-picker {
+  grid-column: 1;
+  justify-self: start;
+}
+
+/* Todo detail description: meta before description and lightweight WYSIWYG editor. */
+#todo-modal.todo-detail-view .todo-meta-summary-view {
+  margin: 10px 0 18px;
+  padding-top: 0;
+  border-top: 0;
+}
+
+#todo-modal.todo-detail-view #todo-desc {
+  display: none !important;
+}
+
+#todo-modal.todo-detail-view.todo-desc-editing .desc-live-preview {
+  display: none;
+}
+
+#todo-modal.todo-detail-view .todo-desc-rich-wrap {
+  display: none;
+  margin-top: 14px;
+  border: 1px solid color-mix(in srgb, var(--border) 38%, transparent);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--bg-secondary) 22%, transparent);
+  overflow: hidden;
+}
+
+#todo-modal.todo-detail-view.todo-desc-editing .todo-desc-rich-wrap {
+  display: block;
+}
+
+#todo-modal.todo-detail-view .todo-desc-rich-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  padding: 8px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 30%, transparent);
+  background: color-mix(in srgb, var(--bg-primary) 34%, transparent);
+}
+
+#todo-modal.todo-detail-view .todo-desc-rich-toolbar button {
+  min-height: 30px;
+  padding: 5px 9px;
+  border: 1px solid color-mix(in srgb, var(--border) 34%, transparent);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+#todo-modal.todo-detail-view .todo-desc-rich-toolbar button:hover,
+#todo-modal.todo-detail-view .todo-desc-rich-toolbar button:focus-visible {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 44%, transparent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  outline: none;
+}
+
+#todo-modal.todo-detail-view .todo-desc-rich-editor {
+  min-height: 180px;
+  padding: 16px;
+  color: var(--text-primary);
+  font-size: 16px;
+  line-height: 1.68;
+  outline: none;
+}
+
+#todo-modal.todo-detail-view .todo-desc-rich-editor:empty::before {
+  content: attr(data-placeholder);
+  color: var(--text-muted);
+}
+
+#todo-modal.todo-detail-view .todo-desc-rich-editor h1,
+#todo-modal.todo-detail-view .desc-live-preview h1 {
+  margin: 0 0 12px;
+  font-size: 1.65em;
+  line-height: 1.16;
+}
+
+#todo-modal.todo-detail-view .todo-desc-rich-editor h2,
+#todo-modal.todo-detail-view .desc-live-preview h2 {
+  margin: 18px 0 10px;
+  font-size: 1.3em;
+  line-height: 1.2;
+}
+
+#todo-modal.todo-detail-view .todo-desc-rich-editor p,
+#todo-modal.todo-detail-view .desc-live-preview p {
+  margin: 0 0 12px;
+}
+
+#todo-modal.todo-detail-view .todo-desc-rich-editor ul,
+#todo-modal.todo-detail-view .desc-live-preview ul {
+  margin: 8px 0 14px;
+  padding-left: 22px;
+}
+
+#todo-modal.todo-detail-view .todo-desc-rich-editor li,
+#todo-modal.todo-detail-view .desc-live-preview li {
+  margin: 4px 0;
+}
+
