@@ -223,40 +223,46 @@ export function createTodosFeature({
   function ensureTodoDetailHeaderMenu() {
     const header = document.querySelector('#todo-modal .todo-modal-header');
     if (!header) return null;
-    let menu = document.getElementById('todo-detail-header-actions');
-    if (!menu) {
-      menu = document.createElement('details');
-      menu.id = 'todo-detail-header-actions';
-      menu.className = 'todo-detail-header-actions';
-      menu.innerHTML = `
-        <summary aria-label="${t('common.more') || 'More'}">${iconSvg('menu')}</summary>
-        <div class="todo-detail-header-menu ui-menu" role="menu">
-          <button type="button" class="ui-menu-item" id="todo-detail-duplicate-action" role="menuitem">${iconSvg('copy')}<span>${t('todo.duplicate')}</span></button>
-          <button type="button" class="ui-menu-item danger" id="todo-detail-delete-action" role="menuitem">${iconSvg('trash-2')}<span>${t('todo.delete')}</span></button>
-        </div>
+    let actions = document.getElementById('todo-detail-header-actions');
+    if (!actions) {
+      actions = document.createElement('div');
+      actions.id = 'todo-detail-header-actions';
+      actions.className = 'todo-detail-header-actions';
+      actions.innerHTML = `
+        <button type="submit" form="todo-form" class="btn btn-primary" id="todo-save-btn" data-i18n-key="common.save">${t('common.save')}</button>
+        <details class="todo-detail-header-menu-toggle">
+          <summary aria-label="${t('common.more') || 'More'}">${iconSvg('menu')}</summary>
+          <div class="todo-detail-header-menu ui-menu" role="menu">
+            <button type="button" class="ui-menu-item" id="todo-detail-duplicate-action" role="menuitem">${iconSvg('copy')}<span>${t('todo.duplicate')}</span></button>
+            <button type="button" class="ui-menu-item danger" id="todo-detail-delete-action" role="menuitem">${iconSvg('trash-2')}<span>${t('todo.delete')}</span></button>
+          </div>
+        </details>
       `;
-      header.appendChild(menu);
-      menu.querySelector('#todo-detail-duplicate-action')?.addEventListener('click', () => {
-        menu.removeAttribute('open');
+      header.appendChild(actions);
+      const menu = actions.querySelector('.todo-detail-header-menu-toggle');
+      actions.querySelector('#todo-detail-duplicate-action')?.addEventListener('click', () => {
+        menu?.removeAttribute('open');
         const id = document.getElementById('todo-id')?.value;
         if (id) {
           duplicateTodo(id);
           closeModal('todo-modal');
         }
       });
-      menu.querySelector('#todo-detail-delete-action')?.addEventListener('click', () => {
-        menu.removeAttribute('open');
+      actions.querySelector('#todo-detail-delete-action')?.addEventListener('click', () => {
+        menu?.removeAttribute('open');
         deleteTodoFromModal();
       });
     }
-    if (menu.dataset.outsideCloseBound !== '1') {
+    const menu = actions.querySelector('.todo-detail-header-menu-toggle');
+    if (menu && menu.dataset.outsideCloseBound !== '1') {
       menu.dataset.outsideCloseBound = '1';
       document.addEventListener('pointerdown', (event) => {
         if (!menu.open || menu.contains(event.target)) return;
         menu.removeAttribute('open');
       });
     }
-    return menu;
+    translatePage(actions);
+    return actions;
   }
 
   function updateTodoDetailViewMode(todo = null) {
@@ -268,7 +274,8 @@ export function createTodosFeature({
     modal.classList.remove('todo-desc-editing');
     modal.classList.remove('todo-meta-editing');
     modal.classList.remove('todo-has-unsaved');
-    const headerMenu = ensureTodoDetailHeaderMenu();
+    const headerActions = ensureTodoDetailHeaderMenu();
+    const headerMenu = headerActions?.querySelector('.todo-detail-header-menu-toggle');
     if (headerMenu) headerMenu.hidden = !isExistingTodo;
     const preview = document.getElementById('todo-desc-preview');
     if (preview) preview.dataset.emptyLabel = getActiveLanguage() === 'de' ? 'Beschreibung hinzufügen…' : 'Add description…';
@@ -402,6 +409,26 @@ export function createTodosFeature({
     return state;
   }
 
+  function hasPersistedTodoId() {
+    const id = document.getElementById('todo-id')?.value || '';
+    return Boolean(id) && !String(id).startsWith('temp-');
+  }
+
+  function refreshTodoActionButtonState() {
+    const hasTodo = hasPersistedTodoId();
+    const subtaskTitle = document.getElementById('todo-subtask-new-title')?.value?.trim() || '';
+    const commentBody = document.getElementById('todo-comment-new-body')?.value?.trim() || '';
+    const attachmentFiles = getSelectedAttachmentFiles();
+    const subtaskButton = document.getElementById('todo-subtask-add-btn');
+    const commentButton = document.getElementById('todo-comment-add-btn');
+    const attachmentPicker = document.querySelector('.todo-attachment-picker');
+    const uploadButton = document.getElementById('todo-attachment-upload-btn');
+    if (subtaskButton) subtaskButton.disabled = !hasTodo || !subtaskTitle;
+    if (commentButton) commentButton.disabled = !hasTodo || !commentBody;
+    if (attachmentPicker) attachmentPicker.disabled = !hasTodo;
+    if (uploadButton) uploadButton.disabled = !hasTodo || attachmentFiles.length === 0;
+  }
+
   function refreshTodoSaveButtonState() {
     const saveButton = document.getElementById('todo-save-btn');
     if (!saveButton) return;
@@ -409,6 +436,7 @@ export function createTodosFeature({
     const unchanged = todoSaveSnapshot !== null && current === todoSaveSnapshot;
     saveButton.disabled = unchanged;
     document.getElementById('todo-modal')?.classList.toggle('todo-has-unsaved', !unchanged);
+    refreshTodoActionButtonState();
   }
 
   function resetTodoSaveSnapshot() {
@@ -532,7 +560,7 @@ export function createTodosFeature({
     inputWrap.className = 'form-group todo-subtask-title-group';
     const input = document.createElement('input');
     input.type = 'text';
-    input.className = 'todo-subtask-title-input';
+    input.className = 'ui-field todo-subtask-title-input';
     input.maxLength = 500;
     input.value = subtask.title || '';
     input.dataset.originalTitle = input.value;
@@ -633,6 +661,7 @@ export function createTodosFeature({
       input.value = '';
       input.focus();
     }
+    refreshTodoActionButtonState();
   }
 
 
@@ -667,7 +696,8 @@ export function createTodosFeature({
       input.value = '';
       input.disabled = !todoId;
     }
-    if (addButton) addButton.disabled = !todoId;
+    if (addButton) addButton.disabled = true;
+    refreshTodoActionButtonState();
     for (const comment of normalized) {
       const item = document.createElement('article');
       item.className = 'todo-comment-item';
@@ -724,7 +754,7 @@ export function createTodosFeature({
     item.dataset.editing = '1';
     const original = comment.body || '';
     const editor = document.createElement('textarea');
-    editor.className = 'todo-comment-edit-input';
+    editor.className = 'ui-field todo-comment-edit-input';
     editor.rows = Math.max(3, Math.min(8, original.split('\n').length + 1));
     editor.maxLength = 5000;
     editor.value = original;
@@ -931,7 +961,8 @@ export function createTodosFeature({
       input.disabled = !todoId;
       setSelectedAttachmentFileName([]);
     }
-    if (uploadButton) uploadButton.disabled = !todoId;
+    if (uploadButton) uploadButton.disabled = true;
+    refreshTodoActionButtonState();
     for (const attachment of normalized) {
       const item = document.createElement('article');
       item.className = 'todo-attachment-item';
@@ -1067,6 +1098,7 @@ export function createTodosFeature({
       showToast(error?.message || t('todo.attachments.uploadFailed'));
     } finally {
       if (uploadButton) uploadButton.disabled = previousDisabled ?? false;
+      refreshTodoActionButtonState();
     }
   }
 
@@ -2462,9 +2494,6 @@ export function createTodosFeature({
 
     hydrateTodoSelects();
     updateRecurringControls();
-    document.getElementById('todo-delete-btn').style.display = todo ? '' : 'none';
-    const duplicateBtn = document.getElementById('todo-duplicate-btn');
-    if (duplicateBtn) duplicateBtn.style.display = todo ? '' : 'none';
     setupDescPreview();
     bindQuickAddPreview();
     renderQuickAddPreview(null);

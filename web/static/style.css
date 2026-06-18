@@ -23,6 +23,9 @@
   --todo-chip-recurring: #3b82f6;
   --border: #334155;
   --radius: 8px;
+  --field-radius: 18px;
+  --dropdown-menu-radius: calc(var(--field-radius) + 4px);
+  --dropdown-option-radius: calc(var(--field-radius) - 4px);
   --shadow: 0 4px 12px rgba(0,0,0,0.3);
   --press-bg: rgba(var(--accent-rgb), 0.28);
   --press-ring: rgba(var(--accent-rgb), 0.42);
@@ -622,7 +625,7 @@ select:focus-visible {
   width: 264px;
   padding: 6px;
   border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border));
-  border-radius: 14px;
+  border-radius: var(--dropdown-menu-radius);
   background: linear-gradient(135deg, color-mix(in srgb, var(--bg-secondary) 96%, var(--bg-primary)), var(--bg-secondary));
   box-shadow: 0 18px 42px rgba(0,0,0,.30), 0 0 0 1px color-mix(in srgb, var(--bg-primary) 28%, transparent);
   z-index: 250;
@@ -1429,7 +1432,6 @@ select:focus-visible {
   min-width: 148px;
   max-width: min(210px, calc(100vw - 24px));
   padding: 4px;
-  border-radius: 11px;
   box-shadow: 0 10px 26px rgba(0,0,0,.20), 0 0 0 1px color-mix(in srgb, var(--bg-primary) 20%, transparent);
 }
 
@@ -1450,7 +1452,6 @@ select:focus-visible {
   justify-content: flex-start;
   gap: 7px;
   padding: 6px 8px;
-  border-radius: 8px;
   color: var(--text-secondary);
   font-size: 12px;
   font-weight: 650;
@@ -1499,15 +1500,16 @@ select:focus-visible {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-height: 38px;
+  min-height: 34px;
   box-sizing: border-box;
-  padding: 8px 16px;
+  padding: 7px 14px;
   border: none;
-  border-radius: 12px;
+  border-radius: 999px;
   font-size: 14px;
   font-weight: 700;
   line-height: 1.15;
   text-align: center;
+  text-decoration: none;
   cursor: pointer;
   transition: all 0.15s;
 }
@@ -1623,10 +1625,16 @@ select:focus-visible {
 
 .btn-secondary { background: var(--bg-tertiary); color: var(--text-primary); }
 .btn-secondary:hover { background: var(--bg-hover); }
+.btn[aria-selected="true"],
+.btn.is-selected {
+  border-color: color-mix(in srgb, currentColor 55%, var(--border));
+  background: color-mix(in srgb, currentColor 12%, var(--bg-tertiary));
+  box-shadow: 0 0 0 2px color-mix(in srgb, currentColor 20%, transparent);
+}
 .btn-small {
   min-height: 34px;
   padding: 7px 10px;
-  border-radius: 10px;
+  border-radius: 999px;
   font-size: 12px;
 }
 .btn-icon {
@@ -1635,6 +1643,7 @@ select:focus-visible {
   height: 34px;
   min-height: 34px;
   padding: 0;
+  border-radius: 999px;
   flex: 0 0 auto;
 }
 .btn-icon .ui-icon {
@@ -1759,6 +1768,32 @@ select:focus-visible {
     border-top: 1px solid var(--border);
     z-index: 2;
   }
+
+  .modal-actions,
+  .settings-card-actions,
+  .settings-action-row,
+  .settings-actions-row,
+  .entity-modal-actions,
+  .todo-detail-action-row,
+  .todo-comments-add-group {
+    align-items: stretch;
+  }
+
+  .settings-action-row > .app-resource-links {
+    width: 100%;
+  }
+
+  .modal-actions > .btn:not(.btn-icon),
+  .settings-card-actions > .btn:not(.btn-icon),
+  .settings-action-row > .btn:not(.btn-icon),
+  .settings-action-row > .app-resource-links > .btn:not(.btn-icon),
+  .settings-actions-row > .btn:not(.btn-icon),
+  .entity-modal-actions > .btn:not(.btn-icon),
+  .entity-modal-actions .modal-actions-right > .btn:not(.btn-icon),
+  .todo-detail-action-row > .btn:not(.btn-icon),
+  .todo-comments-add-group > .btn:not(.btn-icon) {
+    width: 100%;
+  }
 }
 
 /* Desktop only: h3 margin and modal centering */
@@ -1778,24 +1813,39 @@ select:focus-visible {
   margin-bottom: 6px;
 }
 
+.ui-field,
 .form-group input,
 .form-group select,
 .form-group textarea {
   box-sizing: border-box;
   min-width: 0;
   width: 100%;
-  padding: 10px 12px;
+  min-height: 36px;
+  padding: 8px 14px;
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--field-radius);
   background: var(--bg-primary);
   color: var(--text-primary);
+  font: inherit;
   font-size: 14px;
+  line-height: 1.2;
   outline: none;
+  transition: border-color .15s ease, box-shadow .15s ease, background .15s ease, opacity .15s ease;
 }
 
+.ui-field:focus,
 .form-group input:focus,
 .form-group select:focus,
 .form-group textarea:focus { border-color: var(--accent); }
+
+.ui-field:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 72%, var(--border));
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.18));
+}
+
+.datetime-input-wrap .ui-field {
+  padding-right: 36px;
+}
 
 .visually-hidden {
   position: absolute !important;
@@ -1837,14 +1887,14 @@ select:focus-visible {
   box-sizing: border-box;
   width: 100%;
   height: 100%;
-  min-height: 40px;
+  min-height: 36px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 10px 40px 10px 12px;
+  padding: 8px 36px 8px 14px;
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--field-radius);
   background: var(--bg-primary);
   color: var(--text-primary);
   box-shadow: none;
@@ -1915,7 +1965,7 @@ select:focus-visible {
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
   border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border));
-  border-radius: 14px;
+  border-radius: var(--dropdown-menu-radius);
   background: linear-gradient(135deg, color-mix(in srgb, var(--bg-secondary) 96%, var(--bg-primary)), var(--bg-secondary));
   box-shadow: 0 18px 42px rgba(0,0,0,.30), 0 0 0 1px color-mix(in srgb, var(--bg-primary) 28%, transparent);
 }
@@ -1934,7 +1984,7 @@ select:focus-visible {
   gap: 8px;
   padding: 8px 10px 8px calc(10px + (var(--ui-select-depth, 0) * 18px));
   border: 0;
-  border-radius: 10px;
+  border-radius: var(--dropdown-option-radius);
   background: transparent;
   color: var(--text-primary);
   font: inherit;
@@ -2019,12 +2069,12 @@ select:focus-visible {
 
 @media (max-width: 768px) {
   .ui-select-trigger {
-    min-height: 42px;
+    min-height: 36px;
     font-size: 16px;
   }
 
   .ui-select-menu.is-mobile-popover {
-    border-radius: 16px;
+    border-radius: var(--dropdown-menu-radius);
     padding: 6px;
     box-shadow: 0 18px 42px rgba(0,0,0,.36), 0 0 0 1px color-mix(in srgb, var(--accent) 16%, transparent);
   }
@@ -2033,7 +2083,7 @@ select:focus-visible {
   .ui-menu-item {
     min-height: 44px;
     font-size: 14px;
-    border-radius: 13px;
+    border-radius: var(--dropdown-option-radius);
   }
 }
 
@@ -2230,6 +2280,7 @@ select:focus-visible {
 }
 
 
+.ui-field:disabled,
 .form-group input:disabled,
 .form-group select:disabled,
 .form-group textarea:disabled,
@@ -2245,31 +2296,88 @@ input[type="color"]:disabled {
   color: var(--text-muted);
 }
 
-/* Color picker styling */
-input[type="color"] {
-  -webkit-appearance: none;
-  appearance: none;
+/* Color picker */
+.color-picker-native {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.color-picker-current {
   width: 100%;
-  height: 44px;
-  padding: 4px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-primary);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
   cursor: pointer;
+  text-align: left;
 }
 
-input[type="color"]::-webkit-color-swatch-wrapper {
-  padding: 0;
+.color-picker-swatch {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  display: inline-block;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--bg-primary) 82%, transparent);
 }
 
-input[type="color"]::-webkit-color-swatch {
-  border: none;
-  border-radius: 4px;
+.color-picker-current-text {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
 }
 
-input[type="color"]::-moz-color-swatch {
-  border: none;
-  border-radius: 4px;
+.color-picker-current-label {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.color-picker-current-name {
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.color-picker-current-chevron {
+  margin-left: auto;
+  color: var(--text-muted);
+  flex: 0 0 auto;
+  transition: transform 0.15s ease, color 0.15s ease;
+}
+
+.color-picker-current[aria-expanded="true"] .color-picker-current-chevron {
+  transform: rotate(180deg);
+  color: var(--accent-hover);
+}
+
+.color-picker-panel {
+  margin-top: 10px;
+  padding: 12px;
+}
+
+.color-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(34px, 1fr));
+  gap: 8px;
+}
+
+.color-picker-option .color-picker-swatch {
+  width: 18px;
+  height: 18px;
+}
+
+.color-picker-custom {
+  grid-column: span 3;
+  min-width: max-content;
 }
 
 .form-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
@@ -3019,20 +3127,8 @@ input[type="color"]::-moz-color-swatch {
   margin-bottom: 6px;
 }
 
-.login-field input {
+.login-field .ui-field {
   width: 100%;
-  padding: 12px 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  font-size: 15px;
-  outline: none;
-  transition: border-color 0.15s;
-}
-
-.login-field input:focus {
-  border-color: var(--accent);
 }
 
 .login-error {
@@ -3042,44 +3138,17 @@ input[type="color"]::-moz-color-swatch {
   min-height: 20px;
 }
 
-.login-btn {
+.login-btn,
+.login-passkey-btn,
+.login-forgot-btn,
+.login-reset-submit {
   width: 100%;
-  padding: 12px;
-  border: none;
-  border-radius: var(--radius);
-  background: var(--accent);
-  color: white;
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s;
 }
 
-.login-btn:hover {
-  background: var(--accent-hover);
-  transform: translateY(-1px);
-}
-
-.login-btn:active {
-  transform: translateY(0);
-}
-
-.login-passkey-btn, .login-forgot-btn, .login-reset-submit {
-  width: 100%;
+.login-passkey-btn,
+.login-forgot-btn,
+.login-reset-submit {
   margin-top: 10px;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-primary);
-  color: var(--text-secondary);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.login-passkey-btn:hover, .login-forgot-btn:hover, .login-reset-submit:hover {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
 }
 
 .login-reset-panel,
@@ -3117,34 +3186,14 @@ input[type="color"]::-moz-color-swatch {
 .login-back-btn,
 .login-mfa-switch-btn {
   width: 100%;
-  padding: 9px 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-secondary);
-  color: var(--text-secondary);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
 }
 
 .login-mfa-switch-btn {
   margin: -2px 0 10px;
 }
 
-.login-back-btn:hover,
-.login-mfa-switch-btn:hover {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-}
-
-.login-reset-panel input {
+.login-reset-panel .ui-field {
   width: 100%;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  font-size: 14px;
 }
 
 .login-reset-message {
@@ -3163,27 +3212,7 @@ input[type="color"]::-moz-color-swatch {
   gap: 6px;
 }
 
-.login-theme-toggle .theme-option {
-  width: 32px;
-  height: 32px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-primary);
-  color: var(--text-secondary);
-  cursor: pointer;
-  font-size: 15px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.1s;
-}
-
-.login-theme-toggle .theme-option:hover {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-}
-
-.login-theme-toggle .theme-option.active {
+.theme-option.active {
   background: var(--accent);
   border-color: var(--accent);
   color: white;
@@ -3246,9 +3275,6 @@ input[type="color"]::-moz-color-swatch {
 
 .app-download-panel {
   padding: 12px;
-  border: 1px solid rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.28));
-  border-radius: var(--radius-lg);
-  background: linear-gradient(135deg, rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.14)), var(--bg-secondary));
 }
 
 .login-download-panel,
@@ -3258,7 +3284,6 @@ input[type="color"]::-moz-color-swatch {
 
 .login-download-launcher {
   width: 100%;
-  min-height: 38px;
   margin-left: 0;
   margin-right: 0;
 }
@@ -3311,26 +3336,10 @@ input[type="color"]::-moz-color-swatch {
 }
 
 .app-download-button {
-  display: inline-flex;
   flex: 1 1 0;
   min-width: 0;
-  align-items: center;
-  justify-content: center;
   gap: 9px;
-  padding: 10px 12px;
-  border: 1px solid rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.4));
-  border-radius: var(--radius);
-  background: rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.18));
-  color: color-mix(in srgb, var(--accent-hover) 78%, white);
-  font-size: 14px;
-  font-weight: 600;
   text-decoration: none;
-  transition: background 0.15s, transform 0.15s;
-}
-
-.app-download-button:hover {
-  background: rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.28));
-  transform: translateY(-1px);
 }
 
 .app-resource-links {
@@ -3374,46 +3383,6 @@ input[type="color"]::-moz-color-swatch {
   margin: 0 0 8px;
 }
 
-.app-resource-link {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  width: 100%;
-  padding: 8px 11px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-secondary);
-  color: var(--text-secondary);
-  font-size: 13px;
-  font-weight: 600;
-  text-decoration: none;
-  transition: border-color 0.15s, color 0.15s, transform 0.15s;
-}
-
-.app-resource-link:hover {
-  border-color: rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.45));
-  color: var(--accent);
-  transform: translateY(-1px);
-}
-
-.app-resource-link .ui-icon,
-.app-resource-link [data-icon] {
-  width: 16px;
-  height: 16px;
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  vertical-align: middle;
-}
-
-.app-resource-link [data-icon] svg {
-  width: 16px;
-  height: 16px;
-  display: block;
-}
-
 .app-download-text {
   display: flex;
   flex-direction: column;
@@ -3423,20 +3392,15 @@ input[type="color"]::-moz-color-swatch {
 }
 
 .app-download-platform {
-  color: var(--text-primary);
+  color: currentColor;
   font-size: 13px;
   font-weight: 800;
 }
 
 .app-download-version {
-  color: var(--text-secondary);
+  color: color-mix(in srgb, currentColor 72%, transparent);
   font-size: 11px;
   font-weight: 600;
-}
-
-.app-download-button:hover .app-download-platform,
-.app-download-button:hover .app-download-version {
-  color: inherit;
 }
 
 .app-download-icon {
@@ -3483,10 +3447,7 @@ input[type="color"]::-moz-color-swatch {
 .app-download-server-box {
   width: 100%;
   margin: 0 0 14px;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--bg-tertiary) 72%, transparent);
+  padding: 14px;
   text-align: center;
 }
 
@@ -3501,9 +3462,6 @@ input[type="color"]::-moz-color-swatch {
   display: inline-flex;
   max-width: 100%;
   padding: 5px 9px;
-  border: 1px solid color-mix(in srgb, var(--border) 78%, var(--accent) 22%);
-  border-radius: 8px;
-  background: var(--bg-primary);
   color: var(--text-primary);
   font-size: 13px;
   font-weight: 750;
@@ -3518,7 +3476,6 @@ input[type="color"]::-moz-color-swatch {
 
 .modal-downloads .app-download-button {
   justify-content: center;
-  padding: 13px 14px;
   text-align: center;
 }
 
@@ -3543,30 +3500,11 @@ input[type="color"]::-moz-color-swatch {
 .app-install-card {
   width: 100%;
   margin: 0 0 16px;
-  padding: 14px;
-  border: 1px solid color-mix(in srgb, var(--border) 78%, var(--accent) 22%);
-  border-radius: 18px;
-  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 10%, transparent), color-mix(in srgb, var(--bg-secondary) 90%, transparent));
   text-align: left;
 }
 
 .app-install-card-header {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
   margin-bottom: 12px;
-}
-
-.app-install-card-icon {
-  width: 38px;
-  height: 38px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
-  border-radius: 14px;
-  background: var(--accent);
-  color: white;
 }
 
 .app-install-card h4 {
@@ -3997,38 +3935,12 @@ input[type="color"]::-moz-color-swatch {
 }
 
 .app-download-launcher {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
   width: calc(100% - 24px);
-  min-height: 34px;
   margin: 4px 12px 0;
-  padding: 7px 10px;
-  border: 1px solid rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.28));
-  border-radius: var(--radius);
-  background: rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.10));
-  color: color-mix(in srgb, var(--accent-hover) 72%, var(--text-secondary));
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 650;
-  line-height: 1;
-  transition: border-color 0.15s, background 0.15s, color 0.15s, transform 0.15s;
-}
-
-.app-download-launcher:hover {
-  border-color: rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.45));
-  background: rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.16));
-  color: var(--accent-hover);
-  transform: translateY(-1px);
 }
 
 .app-download-launcher .ui-icon {
-  width: 15px;
-  height: 15px;
   flex: 0 0 auto;
-  color: currentColor;
-  opacity: 0.86;
 }
 
 .app-download-launcher span:not(.ui-icon) {
@@ -4037,11 +3949,6 @@ input[type="color"]::-moz-color-swatch {
   text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.app-download-launcher:hover .ui-icon {
-  color: currentColor;
-  opacity: 1;
 }
 
 .login-box > .login-download-launcher {
@@ -4783,24 +4690,12 @@ input[type="color"]::-moz-color-swatch {
 
 .icon-picker-current {
   width: 100%;
-  min-height: 46px;
-  padding: 7px 10px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--bg-secondary);
-  color: var(--text-primary);
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
   cursor: pointer;
   text-align: left;
-}
-
-.icon-picker-current:hover,
-.icon-picker-current[aria-expanded="true"] {
-  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
-  background: var(--bg-tertiary);
 }
 
 .icon-picker-current-preview {
@@ -4855,6 +4750,7 @@ input[type="color"]::-moz-color-swatch {
 
 .icon-picker-panel {
   margin-top: 10px;
+  padding: 12px;
 }
 
 .icon-picker-toolbar {
@@ -4863,17 +4759,6 @@ input[type="color"]::-moz-color-swatch {
 
 .icon-picker-search {
   width: 100%;
-  padding: 9px 11px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  font-size: 13px;
-}
-
-.icon-picker-search:focus {
-  outline: none;
-  border-color: var(--accent);
 }
 
 .icon-picker-sections {
@@ -4900,26 +4785,7 @@ input[type="color"]::-moz-color-swatch {
 }
 
 .icon-picker-option {
-  min-height: 38px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--bg-secondary);
   color: currentColor;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: border-color .15s ease, background .15s ease, transform .15s ease;
-}
-
-.icon-picker-option:hover,
-.icon-picker-option.active {
-  border-color: currentColor;
-  background: var(--bg-tertiary);
-}
-
-.icon-picker-option.active {
-  box-shadow: 0 0 0 2px color-mix(in srgb, currentColor 22%, transparent);
 }
 
 .icon-picker-option .ui-icon {
@@ -5141,11 +5007,6 @@ input[type="color"]::-moz-color-swatch {
   gap: 10px;
 }
 
-.settings-2fa-trusted-header .btn {
-  font-size: 12px;
-  padding: 5px 9px;
-}
-
 .settings-2fa-devices {
   display: grid;
   gap: 8px;
@@ -5211,8 +5072,6 @@ input[type="color"]::-moz-color-swatch {
 }
 
 .settings-device-row .btn {
-  font-size: 12px;
-  padding: 5px 9px;
   flex-shrink: 0;
 }
 
@@ -6249,13 +6108,6 @@ input[type="color"]::-moz-color-swatch {
   width: 100%;
 }
 
-.settings-default-reminder-custom-row .ui-select-trigger {
-  min-height: 40px;
-}
-
-.settings-default-reminder-custom-row button {
-  min-height: 40px;
-}
 
 @media (max-width: 520px) {
   .settings-default-reminder-custom-row {
@@ -6265,8 +6117,6 @@ input[type="color"]::-moz-color-swatch {
 
   .settings-default-reminder-custom-row button {
     grid-column: 1 / -1;
-    width: 100%;
-    min-height: 42px;
   }
 }
 
@@ -6454,154 +6304,6 @@ input[type="color"]::-moz-color-swatch {
   }
 }
 
-/* Settings button layout */
-#settings-modal .app-resource-link {
-  min-height: 38px;
-  box-sizing: border-box;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  border-radius: 12px;
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1.15;
-  text-align: center;
-  white-space: normal;
-}
-
-#settings-modal .settings-card-actions,
-#settings-modal .settings-action-row {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  align-items: stretch;
-  gap: 10px;
-}
-
-#settings-modal .settings-card-actions > .btn,
-#settings-modal .settings-action-row > .btn,
-#settings-modal .settings-action-row > .app-resource-links,
-#settings-modal .settings-action-row .app-resource-link {
-  width: 100%;
-  min-width: 0;
-}
-
-#settings-modal #settings-2fa-actions {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-#settings-modal #settings-2fa-actions .btn-danger {
-  grid-column: auto;
-}
-
-#settings-modal .settings-secret-box .btn {
-  width: 100%;
-  margin-top: 2px;
-}
-
-#settings-modal .settings-2fa-setup-card > .btn {
-  width: 100%;
-  margin-top: 12px;
-}
-
-#settings-modal .settings-2fa-trusted-header {
-  align-items: center;
-  gap: 10px;
-}
-
-#settings-modal .settings-2fa-trusted-header .settings-sessions-toggle {
-  min-height: 34px;
-  flex: 1 1 auto;
-}
-
-#settings-modal .settings-2fa-trusted-header .btn {
-  flex: 0 0 auto;
-  min-width: 118px;
-}
-
-#settings-modal .settings-device-row .btn {
-  min-width: 96px;
-}
-
-#settings-modal .settings-modal-actions {
-  display: flex;
-  justify-content: flex-end;
-}
-
-#settings-modal .settings-modal-actions .btn {
-  min-width: 128px;
-}
-
-@media (max-width: 768px) {
-  #settings-modal .settings-card-actions,
-  #settings-modal .settings-action-row,
-  #settings-modal #settings-2fa-actions {
-    grid-template-columns: 1fr;
-    gap: 8px;
-  }
-
-  #settings-modal .btn,
-  #settings-modal .app-resource-link {
-    width: 100%;
-  }
-
-  #settings-modal .settings-2fa-trusted-header {
-    display: grid;
-    grid-template-columns: 1fr;
-    align-items: stretch;
-  }
-
-  #settings-modal .settings-2fa-trusted-header .btn {
-    width: 100%;
-    min-width: 0;
-  }
-
-  #settings-modal .settings-device-row {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  #settings-modal .settings-device-row .btn {
-    width: 100%;
-  }
-
-  #settings-modal .settings-modal-actions {
-    justify-content: stretch;
-  }
-}
-
-/* Settings button sizing refinement */
-@media (min-width: 769px) {
-  #settings-modal .app-resource-link {
-    min-height: 38px;
-    height: 38px;
-    padding-top: 0;
-    padding-bottom: 0;
-  }
-
-  #settings-modal .settings-card-actions {
-    display: flex;
-    justify-content: flex-end;
-    align-items: center;
-  }
-
-  #settings-modal .settings-card-actions > .btn {
-    width: auto;
-    min-width: 180px;
-  }
-
-  #settings-modal .settings-action-row > .btn,
-  #settings-modal .settings-action-row .app-resource-link {
-    height: 38px;
-  }
-
-  #settings-modal .settings-2fa-trusted-header .btn,
-  #settings-modal .settings-device-row .btn {
-    height: 34px;
-    min-height: 34px;
-  }
-}
-
 /* Shared form layout primitives */
 .ui-field-grid {
   display: grid;
@@ -6681,35 +6383,6 @@ input[type="color"]::-moz-color-swatch {
   margin-top: 12px;
 }
 
-.todo-modal-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 14px 18px;
-  border-top: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
-  background: color-mix(in srgb, var(--bg-primary) 36%, transparent);
-}
-
-.todo-modal-actions-left,
-.todo-modal-actions-main {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.todo-modal-actions-main {
-  justify-content: flex-end;
-  margin-left: auto;
-}
-
-#todo-modal .todo-modal-actions .btn {
-  min-width: 118px;
-}
-
-#todo-modal #todo-delete-btn {
-  margin-right: auto;
-}
 
 @media (max-width: 768px) {
   #todo-modal .todo-modal-content {
@@ -6751,10 +6424,6 @@ input[type="color"]::-moz-color-swatch {
     padding: 14px;
   }
 
-  .ui-section-card .btn:not(.btn-icon) {
-    min-height: 42px;
-  }
-
   .ui-section-heading {
     gap: 10px;
     margin-bottom: 14px;
@@ -6771,71 +6440,6 @@ input[type="color"]::-moz-color-swatch {
     gap: 0;
   }
 
-  .todo-modal-actions {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    padding: 8px 10px calc(8px + env(safe-area-inset-bottom, 0px));
-  }
-
-  .todo-modal-actions-left,
-  .todo-modal-actions-main {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-left: 0;
-  }
-
-  .todo-modal-actions-left {
-    flex: 0 0 auto;
-  }
-
-  .todo-modal-actions-main {
-    flex: 1 1 auto;
-    justify-content: flex-end;
-  }
-
-  #todo-modal .todo-modal-actions .btn {
-    width: auto;
-    min-width: 0;
-    min-height: 40px;
-  }
-
-  #todo-modal #todo-cancel-btn {
-    flex: 0 0 auto;
-    min-width: 86px;
-    padding-inline: 12px;
-  }
-
-  #todo-modal #todo-save-btn {
-    flex: 0 0 auto;
-    min-width: 108px;
-    padding-inline: 16px;
-  }
-
-  #todo-modal #todo-duplicate-btn,
-  #todo-modal #todo-delete-btn {
-    position: relative;
-    width: 38px;
-    min-width: 38px;
-    padding-inline: 0;
-    border-radius: 12px;
-  }
-
-  #todo-modal #todo-duplicate-btn span[data-i18n-key],
-  #todo-modal #todo-delete-btn span[data-i18n-key] {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
-    white-space: nowrap;
-  }
-
-  #todo-modal #todo-delete-btn {
-    margin-right: 0;
-  }
 }
 
 /* Todo modal scroll containment */
@@ -6845,8 +6449,7 @@ input[type="color"]::-moz-color-swatch {
   max-height: min(90vh, 860px);
 }
 
-#todo-modal .todo-modal-header,
-#todo-modal .todo-modal-actions {
+#todo-modal .todo-modal-header {
   flex: 0 0 auto;
 }
 
@@ -7063,11 +6666,6 @@ input[type="color"]::-moz-color-swatch {
   box-shadow: none;
 }
 
-#todo-modal.todo-detail-view .todo-modal-actions {
-  padding: 12px 28px;
-  background: color-mix(in srgb, var(--bg-primary) 72%, transparent);
-  backdrop-filter: blur(14px);
-}
 
 @media (max-width: 1024px) {
   #todo-modal.todo-detail-view .todo-modal-content {
@@ -7740,38 +7338,6 @@ input[type="color"]::-moz-color-swatch {
   margin-bottom: 2px;
 }
 
-.entity-modal-body .form-group select {
-  min-height: 40px;
-  padding: 10px 42px 10px 12px;
-  border-radius: 13px;
-  border-color: color-mix(in srgb, var(--border) 84%, transparent);
-  background:
-    linear-gradient(45deg, transparent 50%, var(--text-muted) 50%) calc(100% - 20px) 17px / 6px 6px no-repeat,
-    linear-gradient(135deg, var(--text-muted) 50%, transparent 50%) calc(100% - 14px) 17px / 6px 6px no-repeat,
-    linear-gradient(135deg, color-mix(in srgb, var(--bg-secondary) 94%, var(--bg-primary)), var(--bg-secondary));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bg-primary) 45%, transparent);
-  color: var(--text-primary);
-  font-weight: 650;
-  appearance: none;
-  -webkit-appearance: none;
-  cursor: pointer;
-  transition: border-color .15s, background-color .15s, box-shadow .15s;
-}
-
-.entity-modal-body .form-group select:hover {
-  border-color: color-mix(in srgb, var(--accent) 38%, var(--border));
-}
-
-.entity-modal-body .form-group select:focus {
-  border-color: color-mix(in srgb, var(--accent) 72%, var(--border));
-  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.18));
-}
-
-.entity-modal-body .form-group select:disabled {
-  cursor: not-allowed;
-  opacity: .62;
-}
-
 @media (max-width: 768px) {
   .entity-modal-body {
     padding-bottom: 20px;
@@ -7794,9 +7360,6 @@ input[type="color"]::-moz-color-swatch {
 .entity-modal-actions .btn {
   min-height: 38px;
   min-width: 118px;
-  justify-content: center;
-  border-radius: 12px;
-  font-weight: 700;
 }
 
 .entity-modal-actions .btn-danger {
@@ -7841,9 +7404,6 @@ input[type="color"]::-moz-color-swatch {
 /* Project modal sharing actions */
 .project-sharing-card .btn {
   min-height: 38px;
-  justify-content: center;
-  border-radius: 12px;
-  font-weight: 700;
 }
 
 .project-share-start-row .btn,
@@ -8128,7 +7688,7 @@ input[type="color"]::-moz-color-swatch {
   gap: 8px;
   padding: 8px 10px;
   border: 0;
-  border-radius: 10px;
+  border-radius: var(--dropdown-option-radius);
   background: transparent;
   color: var(--text-primary);
   font: inherit;
@@ -8267,7 +7827,7 @@ input[type="color"]::-moz-color-swatch {
   z-index: 1;
   margin: -2px -2px 6px;
   padding: 6px;
-  border-radius: 12px;
+  border-radius: var(--dropdown-option-radius);
   background: linear-gradient(135deg, color-mix(in srgb, var(--bg-secondary) 96%, var(--bg-primary)), var(--bg-secondary));
 }
 
@@ -9070,9 +8630,24 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
 }
 
 #todo-modal.todo-detail-view #todo-title {
-  border-bottom: 0;
-  padding-bottom: 4px;
-  font-size: clamp(34px, 4.2vw, 58px);
+  min-height: 52px;
+  padding: 10px 16px;
+  border: 1px solid transparent;
+  border-radius: 18px;
+  background: transparent;
+  appearance: none;
+  -webkit-appearance: none;
+  font-size: clamp(26px, 3vw, 38px);
+  line-height: 1.28;
+  font-weight: 760;
+  letter-spacing: -0.025em;
+}
+
+#todo-modal.todo-detail-view #todo-title:focus,
+#todo-modal.todo-detail-view #todo-title:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 62%, var(--border));
+  background: color-mix(in srgb, var(--bg-secondary) 58%, transparent);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.14));
 }
 
 #todo-modal.todo-detail-view .desc-live-preview {
@@ -9121,18 +8696,6 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   letter-spacing: .055em;
 }
 
-#todo-modal.todo-detail-view #todo-organize-panel input,
-#todo-modal.todo-detail-view #todo-organize-panel select,
-#todo-modal.todo-detail-view #todo-schedule-panel input,
-#todo-modal.todo-detail-view #todo-schedule-panel select,
-#todo-modal.todo-detail-view #todo-organize-panel .ui-select-trigger,
-#todo-modal.todo-detail-view #todo-schedule-panel .ui-select-trigger {
-  min-height: 40px;
-  border-radius: 13px;
-  background: color-mix(in srgb, var(--bg-primary) 58%, transparent);
-  border-color: color-mix(in srgb, var(--border) 46%, transparent);
-}
-
 #todo-modal.todo-detail-view .todo-location-panel,
 #todo-modal.todo-detail-view .recurring-panel {
   margin-top: 14px;
@@ -9168,10 +8731,6 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   border-color: color-mix(in srgb, var(--border) 42%, transparent);
 }
 
-#todo-modal.todo-detail-view .todo-modal-actions {
-  width: 100%;
-  padding-inline: max(28px, calc((100vw - 1180px) / 2));
-}
 
 @media (max-width: 1180px) {
   #todo-modal.todo-detail-view .todo-modal-content {
@@ -9269,15 +8828,6 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-#todo-modal.todo-detail-view #todo-organize-panel input,
-#todo-modal.todo-detail-view #todo-organize-panel select,
-#todo-modal.todo-detail-view #todo-schedule-panel input,
-#todo-modal.todo-detail-view #todo-schedule-panel select,
-#todo-modal.todo-detail-view #todo-organize-panel .ui-select-trigger,
-#todo-modal.todo-detail-view #todo-schedule-panel .ui-select-trigger {
-  background: color-mix(in srgb, var(--bg-secondary) 44%, transparent);
-}
-
 @media (max-width: 1180px) {
   #todo-modal.todo-detail-view .todo-modal-content {
     width: 100vw;
@@ -9362,32 +8912,6 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   color: var(--text-muted);
   font-size: 13px;
   line-height: 34px;
-}
-
-#todo-modal.todo-detail-view .todo-meta-edit-toggle {
-  flex: 0 0 auto;
-  min-height: 34px;
-  padding: 6px 11px;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--border) 42%, transparent);
-  background: transparent;
-  color: var(--text-muted);
-  font: inherit;
-  font-size: 12px;
-  font-weight: 650;
-  cursor: pointer;
-}
-
-#todo-modal.todo-detail-view .todo-meta-edit-toggle:hover,
-#todo-modal.todo-detail-view .todo-meta-edit-toggle:focus-visible {
-  color: var(--accent);
-  border-color: color-mix(in srgb, var(--accent) 42%, transparent);
-  outline: none;
-}
-
-#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-toggle {
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
 @media (max-width: 720px) {
@@ -9494,20 +9018,8 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   display: none;
 }
 
-#todo-modal.todo-detail-view .todo-subtasks-add-row input {
-  border: 0;
-  background: transparent;
-  padding-left: 2px;
-}
-
 #todo-modal.todo-detail-view .todo-subtasks-add-row input::placeholder {
   color: var(--text-muted);
-}
-
-#todo-modal.todo-detail-view .todo-subtasks-add-row .btn,
-#todo-modal.todo-detail-view .todo-attachments-add-row .btn {
-  min-height: 34px;
-  border-radius: 999px;
 }
 
 #todo-modal.todo-detail-view .todo-attachments-list {
@@ -9539,12 +9051,6 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
 
 #todo-modal.todo-detail-view .todo-attachment-meta {
   font-size: 11px;
-}
-
-#todo-modal.todo-detail-view .todo-attachment-actions .btn-icon {
-  width: 30px;
-  height: 30px;
-  min-height: 30px;
 }
 
 #todo-modal.todo-detail-view .todo-attachments-empty,
@@ -9579,8 +9085,6 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
 
 #todo-modal.todo-detail-view .todo-comments-add-group .btn {
   margin-top: 8px;
-  min-height: 34px;
-  border-radius: 999px;
 }
 
 #todo-modal.todo-detail-view .todo-comments-list {
@@ -9711,11 +9215,6 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   width: auto;
   min-width: 0;
   max-width: 220px;
-  min-height: 34px;
-  padding: 6px 11px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 650;
 }
 
 #todo-modal.todo-detail-view #todo-attachment-file-name {
@@ -9755,12 +9254,6 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   gap: 6px;
   margin-top: 2px;
   opacity: 0;
-}
-
-#todo-modal.todo-detail-view .todo-comment-actions .btn-icon {
-  width: 30px;
-  height: 30px;
-  min-height: 30px;
 }
 
 @media (max-width: 720px) {
@@ -9812,13 +9305,6 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
 
 #todo-modal.todo-detail-view #todo-attachment-upload-btn {
   justify-self: end;
-}
-
-#todo-modal.todo-detail-view .todo-subtasks-add-row .btn,
-#todo-modal.todo-detail-view .todo-attachments-add-row .btn,
-#todo-modal.todo-detail-view .todo-comments-add-group .btn {
-  min-width: 108px;
-  justify-content: center;
 }
 
 #todo-modal.todo-detail-view .todo-comments-add-group .btn {
@@ -10158,7 +9644,6 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
 }
 
 #todo-modal.todo-detail-view.todo-meta-editing .todo-modal-body,
-#todo-modal.todo-detail-view.todo-meta-editing .todo-modal-actions,
 #todo-modal.todo-detail-view.todo-meta-editing .todo-modal-header {
   padding-right: min(430px, 36vw);
 }
@@ -10193,7 +9678,6 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   }
 
   #todo-modal.todo-detail-view.todo-meta-editing .todo-modal-body,
-  #todo-modal.todo-detail-view.todo-meta-editing .todo-modal-actions,
   #todo-modal.todo-detail-view.todo-meta-editing .todo-modal-header {
     padding-right: inherit;
   }
@@ -10294,7 +9778,6 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
 }
 
 #todo-modal.todo-detail-view.todo-meta-editing .todo-modal-body,
-#todo-modal.todo-detail-view.todo-meta-editing .todo-modal-actions,
 #todo-modal.todo-detail-view.todo-meta-editing .todo-modal-header {
   padding-right: min(430px, 36vw);
 }
@@ -10313,7 +9796,6 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   }
 
   #todo-modal.todo-detail-view.todo-meta-editing .todo-modal-body,
-  #todo-modal.todo-detail-view.todo-meta-editing .todo-modal-actions,
   #todo-modal.todo-detail-view.todo-meta-editing .todo-modal-header {
     padding-right: inherit;
   }
@@ -10331,7 +9813,6 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
 }
 
 #todo-modal.todo-detail-view.todo-meta-editing .todo-modal-body,
-#todo-modal.todo-detail-view.todo-meta-editing .todo-modal-actions,
 #todo-modal.todo-detail-view.todo-meta-editing .todo-modal-header {
   padding-right: min(490px, 40vw);
 }
@@ -10523,19 +10004,31 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   }
 }
 
-/* Todo detail footer: view mode has no permanent form footer. */
+/* Todo detail header actions: save and menu live in the modal header. */
 #todo-modal.todo-detail-view .todo-detail-header-actions {
   position: absolute;
   top: 14px;
   right: 54px;
   z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-#todo-modal.todo-detail-view .todo-detail-header-actions[hidden] {
+#todo-modal.todo-detail-view #todo-save-btn {
+  display: none;
+  box-shadow: 0 10px 28px color-mix(in srgb, var(--accent) 24%, transparent);
+}
+
+#todo-modal.todo-detail-view.todo-has-unsaved #todo-save-btn {
+  display: inline-flex;
+}
+
+#todo-modal.todo-detail-view .todo-detail-header-menu-toggle[hidden] {
   display: none;
 }
 
-#todo-modal.todo-detail-view .todo-detail-header-actions > summary {
+#todo-modal.todo-detail-view .todo-detail-header-menu-toggle > summary {
   width: 38px;
   height: 38px;
   min-height: 38px;
@@ -10550,12 +10043,12 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   cursor: pointer;
 }
 
-#todo-modal.todo-detail-view .todo-detail-header-actions > summary::-webkit-details-marker {
+#todo-modal.todo-detail-view .todo-detail-header-menu-toggle > summary::-webkit-details-marker {
   display: none;
 }
 
-#todo-modal.todo-detail-view .todo-detail-header-actions > summary:hover,
-#todo-modal.todo-detail-view .todo-detail-header-actions > summary:focus-visible {
+#todo-modal.todo-detail-view .todo-detail-header-menu-toggle > summary:hover,
+#todo-modal.todo-detail-view .todo-detail-header-menu-toggle > summary:focus-visible {
   color: var(--text-primary);
   border-color: color-mix(in srgb, var(--accent) 42%, transparent);
   outline: none;
@@ -10579,43 +10072,6 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   color: var(--danger);
 }
 
-#todo-modal.todo-detail-view .todo-modal-actions {
-  display: none;
-}
-
-#todo-modal.todo-detail-view.todo-has-unsaved .todo-modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  pointer-events: auto;
-}
-
-#todo-modal.todo-detail-view.todo-has-unsaved .todo-modal-actions-left,
-#todo-modal.todo-detail-view.todo-has-unsaved #todo-cancel-btn {
-  display: none;
-}
-
-#todo-modal.todo-detail-view.todo-has-unsaved .todo-modal-actions-main {
-  margin-left: auto;
-}
-
-#todo-modal.todo-detail-view.todo-has-unsaved #todo-save-btn {
-  min-width: 132px;
-  box-shadow: 0 10px 28px color-mix(in srgb, var(--accent) 24%, transparent);
-}
-
-@media (max-width: 768px) {
-  #todo-modal.todo-detail-view .todo-detail-header-actions {
-    top: 10px;
-    right: 50px;
-  }
-
-  #todo-modal.todo-detail-view.todo-has-unsaved .todo-modal-actions {
-    position: sticky;
-    bottom: 0;
-    justify-content: flex-end;
-    padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
-  }
-}
 
 /* Todo detail header actions: visible desktop close, real menu icon, aligned with header. */
 #todo-modal.todo-detail-view .modal-close-x {
@@ -10644,11 +10100,11 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   right: 74px;
 }
 
-#todo-modal.todo-detail-view .todo-detail-header-actions > summary {
+#todo-modal.todo-detail-view .todo-detail-header-menu-toggle > summary {
   background: color-mix(in srgb, var(--bg-primary) 42%, transparent);
 }
 
-#todo-modal.todo-detail-view .todo-detail-header-actions[open] > summary {
+#todo-modal.todo-detail-view .todo-detail-header-menu-toggle[open] > summary {
   color: var(--accent);
   border-color: color-mix(in srgb, var(--accent) 42%, transparent);
   background: color-mix(in srgb, var(--accent) 8%, transparent);
@@ -10683,7 +10139,7 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   right: max(66px, calc((100vw - 920px) / 2 + 42px));
 }
 
-#todo-modal.todo-detail-view .todo-detail-header-actions > summary {
+#todo-modal.todo-detail-view .todo-detail-header-menu-toggle > summary {
   width: 34px;
   height: 34px;
   min-height: 34px;
@@ -10693,8 +10149,8 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   color: var(--text-muted);
 }
 
-#todo-modal.todo-detail-view .todo-detail-header-actions > summary:hover,
-#todo-modal.todo-detail-view .todo-detail-header-actions > summary:focus-visible,
+#todo-modal.todo-detail-view .todo-detail-header-menu-toggle > summary:hover,
+#todo-modal.todo-detail-view .todo-detail-header-menu-toggle > summary:focus-visible,
 #todo-modal.todo-detail-view .modal-close-x:hover,
 #todo-modal.todo-detail-view .modal-close-x:focus-visible {
   color: var(--text-primary);
@@ -10703,7 +10159,7 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   outline: none;
 }
 
-#todo-modal.todo-detail-view .todo-detail-header-actions[open] > summary {
+#todo-modal.todo-detail-view .todo-detail-header-menu-toggle[open] > summary {
   color: var(--accent);
   border: 0;
   background: transparent;
@@ -10740,42 +10196,6 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   }
 }
 
-/* Todo detail meta: make edit-details action discoverable. */
-#todo-modal.todo-detail-view .todo-meta-edit-toggle {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-height: 38px;
-  padding: 8px 14px;
-  border-radius: 999px;
-  border-color: color-mix(in srgb, var(--accent) 34%, transparent);
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-  color: color-mix(in srgb, var(--accent) 76%, var(--text-primary));
-  font-size: 13px;
-  box-shadow: 0 8px 22px color-mix(in srgb, var(--accent) 10%, transparent);
-}
-
-#todo-modal.todo-detail-view .todo-meta-edit-toggle .ui-icon {
-  width: 15px;
-  height: 15px;
-  flex: 0 0 auto;
-}
-
-#todo-modal.todo-detail-view .todo-meta-edit-toggle:hover,
-#todo-modal.todo-detail-view .todo-meta-edit-toggle:focus-visible {
-  color: var(--accent);
-  border-color: color-mix(in srgb, var(--accent) 58%, transparent);
-  background: color-mix(in srgb, var(--accent) 15%, transparent);
-  box-shadow: 0 10px 26px color-mix(in srgb, var(--accent) 15%, transparent);
-}
-
-#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-toggle {
-  color: var(--text-primary);
-  background: color-mix(in srgb, var(--accent) 18%, transparent);
-  border-color: color-mix(in srgb, var(--accent) 62%, transparent);
-}
-
 /* Todo detail meta: move edit-details action below pills, right-aligned like add/upload actions. */
 #todo-modal.todo-detail-view .todo-meta-summary-view {
   display: grid;
@@ -10790,151 +10210,6 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
 
 #todo-modal.todo-detail-view .todo-meta-edit-toggle {
   justify-self: end;
-  min-height: 34px;
-  min-width: 108px;
-  padding: 6px 12px;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--border) 42%, transparent);
-  background: transparent;
-  color: var(--text-secondary);
-  box-shadow: none;
-  font-size: 12px;
-}
-
-#todo-modal.todo-detail-view .todo-meta-edit-toggle .ui-icon {
-  width: 14px;
-  height: 14px;
-}
-
-#todo-modal.todo-detail-view .todo-meta-edit-toggle:hover,
-#todo-modal.todo-detail-view .todo-meta-edit-toggle:focus-visible {
-  color: var(--accent);
-  border-color: color-mix(in srgb, var(--accent) 42%, transparent);
-  background: color-mix(in srgb, var(--accent) 7%, transparent);
-  box-shadow: none;
-}
-
-#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-toggle {
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
-  border-color: color-mix(in srgb, var(--accent) 46%, transparent);
-}
-
-/* Todo detail meta: edit-details uses the exact normal secondary button styling. */
-#todo-modal.todo-detail-view .todo-meta-edit-toggle.btn.btn-secondary {
-  justify-self: end;
-  min-width: 108px;
-  box-shadow: none;
-  font-size: inherit;
-}
-
-#todo-modal.todo-detail-view .todo-meta-edit-toggle.btn.btn-secondary,
-#todo-modal.todo-detail-view .todo-meta-edit-toggle.btn.btn-secondary:hover,
-#todo-modal.todo-detail-view .todo-meta-edit-toggle.btn.btn-secondary:focus-visible,
-#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-toggle.btn.btn-secondary {
-  color: var(--text-primary);
-}
-
-/* Todo detail action buttons: one shared style, based on the Subtask add button. */
-#todo-modal.todo-detail-view :is(
-  .todo-subtasks-add-row .btn,
-  #todo-comment-add-btn,
-  #todo-attachment-upload-btn,
-  #todo-meta-edit-toggle.btn
-) {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-height: 34px;
-  min-width: 108px;
-  padding: 7px 14px;
-  border: none;
-  border-radius: 999px;
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-  box-shadow: none;
-  font-size: 14px;
-  font-weight: 700;
-  line-height: 1.15;
-}
-
-#todo-modal.todo-detail-view :is(
-  .todo-subtasks-add-row .btn,
-  #todo-comment-add-btn,
-  #todo-attachment-upload-btn,
-  #todo-meta-edit-toggle.btn
-):hover,
-#todo-modal.todo-detail-view :is(
-  .todo-subtasks-add-row .btn,
-  #todo-comment-add-btn,
-  #todo-attachment-upload-btn,
-  #todo-meta-edit-toggle.btn
-):focus-visible {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-  border: none;
-  box-shadow: none;
-  outline: none;
-}
-
-#todo-modal.todo-detail-view :is(
-  .todo-subtasks-add-row .btn,
-  #todo-comment-add-btn,
-  #todo-attachment-upload-btn,
-  #todo-meta-edit-toggle.btn
-) .ui-icon {
-  width: 15px;
-  height: 15px;
-  flex: 0 0 auto;
-}
-
-#todo-modal.todo-detail-view .todo-meta-edit-toggle.btn {
-  justify-self: end;
-}
-
-#todo-modal.todo-detail-view .todo-comments-add-group #todo-comment-add-btn {
-  justify-self: end;
-  margin-top: 8px;
-}
-
-#todo-modal.todo-detail-view .todo-attachments-add-row #todo-attachment-upload-btn {
-  justify-self: end;
-}
-
-@media (max-width: 640px) {
-  #todo-modal.todo-detail-view .todo-subtasks-add-row,
-  #todo-modal.todo-detail-view .todo-attachments-add-row {
-    grid-template-columns: 1fr;
-  }
-
-  #todo-modal.todo-detail-view .todo-attachments-add-row::after {
-    grid-column: 1;
-    grid-row: auto;
-    justify-self: start;
-  }
-
-  #todo-modal.todo-detail-view :is(
-    .todo-subtasks-add-row .btn,
-    #todo-comment-add-btn,
-    #todo-attachment-upload-btn,
-    #todo-meta-edit-toggle.btn
-  ) {
-    width: 100%;
-    min-width: 0;
-  }
-
-  #todo-modal.todo-detail-view :is(
-    .todo-subtasks-add-row .btn,
-    #todo-comment-add-btn,
-    #todo-attachment-upload-btn,
-    #todo-meta-edit-toggle.btn
-  ),
-  #todo-modal.todo-detail-view .todo-comments-add-group #todo-comment-add-btn,
-  #todo-modal.todo-detail-view .todo-attachments-add-row #todo-attachment-upload-btn,
-  #todo-modal.todo-detail-view .todo-meta-edit-toggle.btn {
-    justify-self: stretch;
-  }
 }
 
 /* Todo detail attachments: mobile uses normal stacked action buttons, no drag/drop hint. */
@@ -10985,40 +10260,6 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   opacity: .82;
 }
 
-#todo-modal.todo-detail-view .todo-detail-action-btn.btn.btn-secondary,
-#todo-modal.todo-detail-view .todo-detail-action-btn.btn.btn-secondary:hover,
-#todo-modal.todo-detail-view .todo-detail-action-btn.btn.btn-secondary:focus-visible {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  width: auto;
-  max-width: none;
-  min-width: 108px;
-  min-height: 34px;
-  padding: 7px 14px;
-  border: none;
-  border-radius: 999px;
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-  box-shadow: none;
-  font-size: 14px;
-  font-weight: 700;
-  line-height: 1.15;
-}
-
-#todo-modal.todo-detail-view .todo-detail-action-btn.btn.btn-secondary:hover,
-#todo-modal.todo-detail-view .todo-detail-action-btn.btn.btn-secondary:focus-visible {
-  background: var(--bg-hover);
-  outline: none;
-}
-
-#todo-modal.todo-detail-view .todo-detail-action-btn.btn.btn-secondary .ui-icon {
-  width: 15px;
-  height: 15px;
-  flex: 0 0 auto;
-}
-
 #todo-modal.todo-detail-view .todo-comments-add-group .todo-detail-action-btn,
 #todo-modal.todo-detail-view .todo-meta-edit-toggle.todo-detail-action-btn {
   justify-self: end;
@@ -11040,19 +10281,15 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
     grid-template-columns: 1fr;
   }
 
+  #todo-modal.todo-detail-view .todo-subtasks-add-row {
+    gap: 16px;
+  }
+
   #todo-modal.todo-detail-view .todo-detail-action-row.has-drop-hint::after {
     display: none;
     content: none;
   }
 
-  #todo-modal.todo-detail-view .todo-detail-action-btn.btn.btn-secondary,
-  #todo-modal.todo-detail-view .todo-detail-action-btn.btn.btn-secondary:hover,
-  #todo-modal.todo-detail-view .todo-detail-action-btn.btn.btn-secondary:focus-visible {
-    width: 100%;
-    min-width: 0;
-    max-width: none;
-    justify-self: stretch;
-  }
 
   #todo-modal.todo-detail-view .todo-comments-add-group .todo-detail-action-btn,
   #todo-modal.todo-detail-view .todo-meta-edit-toggle.todo-detail-action-btn,
@@ -11063,13 +10300,9 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   }
 }
 
-/* Todo detail meta: give edit action the same breathing room as other add/action rows. */
+/* Todo detail meta: align edit action spacing with the comment add action. */
 #todo-modal.todo-detail-view .todo-meta-summary-view {
-  gap: 14px;
-}
-
-#todo-modal.todo-detail-view .todo-meta-edit-toggle.todo-detail-action-btn {
-  margin-top: 2px;
+  gap: 16px;
 }
 
 /* Todo meta drawer: mobile close icon matches clean Todo detail close style. */

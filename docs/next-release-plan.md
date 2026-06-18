@@ -33,11 +33,12 @@ Implemented:
 - Disabled action buttons are visually muted and do not show click/press animation.
 - Mobile todo quick actions and floating action buttons are layered so the New Todo FAB no longer sits behind the quick-action reveal button.
 - Offline queue, IndexedDB persistence, REST refresh, WebSocket sync, sharing, reload behavior, and attachment behavior have targeted regression coverage.
-- Generic button primitives were refined:
+- Generic UI primitives were refined and rolled out beyond Todo detail:
   - `.btn` owns common layout/sizing/typography.
   - `.btn-primary` has no default shadow.
   - `.btn-small` and `.btn-icon` are reusable primitives.
   - `.btn-icon` remains square on mobile.
+  - Login, Admin, Setup, Set Password, App Downloads, and Project/Workspace icon/color pickers use the shared button/field/card primitives where this branch touched them.
 - Overlay scrollbars are auto-hidden in the main app and admin panel, render as 7px custom indicators, and do not reserve layout width.
 - App, admin, setup, and password pages use the generated Lucide icon subset from the npm package instead of page-local/manual icon tables.
 - The Service Worker precache test now validates `index.html` app-shell JS/CSS refs, including cache-busted query URLs, so installed PWAs keep working offline.
@@ -175,7 +176,7 @@ Still to finish for this design concept:
 
 Follow-up after this branch:
 
-- Decide whether the new Todo detail visual language becomes the global nia-todo design system. This includes pill-shaped action buttons, cleaner modal headers, less nested/boxed container styling, shared action-row primitives, and consistent mobile fullscreen modal behavior. Keep this as a separate follow-up branch/workstream instead of expanding the current Todo-detail branch.
+- Continue the global design-system rollout where it was intentionally not finished in this branch, especially larger modal-family decisions for Project/Workspace and Settings. The current branch establishes the shared primitives and migrates touched surfaces, but does not ship a full Project/Workspace/Settings modal redesign.
 
 ## Planned Feature Themes After Attachments
 
