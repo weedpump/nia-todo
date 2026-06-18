@@ -613,7 +613,7 @@
               <label for="todo-subtask-new-title" data-i18n-key="todo.subtasks.newLabel">New subtask</label>
               <div class="todo-subtasks-add-row todo-detail-action-row">
                 <input class="ui-field" type="text" id="todo-subtask-new-title" maxlength="500" placeholder="Nächster Schritt…" data-i18n-placeholder-key="todo.subtasks.placeholder">
-                <button type="button" id="todo-subtask-add-btn" class="btn btn-secondary todo-detail-action-btn" onclick="addTodoSubtaskFromInput()"><span data-icon="plus"></span> <span data-i18n-key="common.add">Add</span></button>
+                <button type="button" id="todo-subtask-add-btn" class="btn btn-secondary todo-detail-action-btn" data-todo-action="add-subtask"><span data-icon="plus"></span> <span data-i18n-key="common.add">Add</span></button>
               </div>
             </div>
           </div>
@@ -637,7 +637,7 @@
             <div class="form-group todo-comments-add-group">
               <label for="todo-comment-new-body" data-i18n-key="todo.comments.newLabel">New comment</label>
               <textarea class="ui-field" id="todo-comment-new-body" rows="3" maxlength="5000" placeholder="Notiz hinzufügen…" data-i18n-placeholder-key="todo.comments.placeholder"></textarea>
-              <button type="button" id="todo-comment-add-btn" class="btn btn-secondary todo-detail-action-btn" onclick="addTodoCommentFromInput()"><span data-icon="plus"></span> <span data-i18n-key="todo.comments.add">Add</span></button>
+              <button type="button" id="todo-comment-add-btn" class="btn btn-secondary todo-detail-action-btn" data-todo-action="add-comment"><span data-icon="plus"></span> <span data-i18n-key="todo.comments.add">Add</span></button>
             </div>
           </div>
         </details>
@@ -660,8 +660,8 @@
               <label for="todo-attachment-file" data-i18n-key="todo.attachments.newLabel">Add attachment</label>
               <div class="todo-attachments-add-row todo-detail-action-row has-drop-hint">
                 <input type="file" id="todo-attachment-file" class="visually-hidden" multiple>
-                <button type="button" class="todo-attachment-picker btn btn-secondary todo-detail-action-btn" onclick="document.getElementById('todo-attachment-file').click()"><span data-icon="paperclip"></span> <span id="todo-attachment-file-name" data-i18n-key="todo.attachments.chooseFile">Datei auswählen</span></button>
-                <button type="button" id="todo-attachment-upload-btn" class="btn btn-secondary todo-detail-action-btn" onclick="uploadTodoAttachmentFromInput()"><span data-icon="upload"></span> <span data-i18n-key="todo.attachments.upload">Upload</span></button>
+                <button type="button" class="todo-attachment-picker btn btn-secondary todo-detail-action-btn" data-todo-action="choose-attachment"><span data-icon="paperclip"></span> <span id="todo-attachment-file-name" data-i18n-key="todo.attachments.chooseFile">Datei auswählen</span></button>
+                <button type="button" id="todo-attachment-upload-btn" class="btn btn-secondary todo-detail-action-btn" data-todo-action="upload-attachment"><span data-icon="upload"></span> <span data-i18n-key="todo.attachments.upload">Upload</span></button>
               </div>
             </div>
           </div>
@@ -698,7 +698,7 @@
             </div>
             <div class="form-group">
               <label data-i18n-key="todo.project">Project</label>
-              <select class="ui-field" id="todo-project" onchange="onProjectChange()"></select>
+              <select class="ui-field" id="todo-project"></select>
             </div>
             <div class="form-group">
               <label data-i18n-key="todo.section">Section</label>
