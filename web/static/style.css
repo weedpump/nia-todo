@@ -23,7 +23,7 @@
   --todo-chip-recurring: #3b82f6;
   --border: #334155;
   --radius: 8px;
-  --field-radius: 14px;
+  --field-radius: 18px;
   --shadow: 0 4px 12px rgba(0,0,0,0.3);
   --press-bg: rgba(var(--accent-rgb), 0.28);
   --press-ring: rgba(var(--accent-rgb), 0.42);
@@ -1797,7 +1797,8 @@ select:focus-visible {
   box-sizing: border-box;
   min-width: 0;
   width: 100%;
-  padding: 10px 12px;
+  min-height: 44px;
+  padding: 11px 14px;
   border: 1px solid var(--border);
   border-radius: var(--field-radius);
   background: var(--bg-primary);
@@ -1850,12 +1851,12 @@ select:focus-visible {
   box-sizing: border-box;
   width: 100%;
   height: 100%;
-  min-height: 40px;
+  min-height: 44px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 10px 40px 10px 12px;
+  padding: 11px 42px 11px 14px;
   border: 1px solid var(--border);
   border-radius: var(--field-radius);
   background: var(--bg-primary);
@@ -2032,7 +2033,7 @@ select:focus-visible {
 
 @media (max-width: 768px) {
   .ui-select-trigger {
-    min-height: 42px;
+    min-height: 44px;
     font-size: 16px;
   }
 
@@ -9063,18 +9064,6 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   letter-spacing: .055em;
 }
 
-#todo-modal.todo-detail-view #todo-organize-panel input,
-#todo-modal.todo-detail-view #todo-organize-panel select,
-#todo-modal.todo-detail-view #todo-schedule-panel input,
-#todo-modal.todo-detail-view #todo-schedule-panel select,
-#todo-modal.todo-detail-view #todo-organize-panel .ui-select-trigger,
-#todo-modal.todo-detail-view #todo-schedule-panel .ui-select-trigger {
-  min-height: 40px;
-  border-radius: var(--field-radius);
-  background: color-mix(in srgb, var(--bg-primary) 58%, transparent);
-  border-color: color-mix(in srgb, var(--border) 46%, transparent);
-}
-
 #todo-modal.todo-detail-view .todo-location-panel,
 #todo-modal.todo-detail-view .recurring-panel {
   margin-top: 14px;
@@ -9209,15 +9198,6 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
 #todo-modal.todo-detail-view #todo-organize-panel .ui-field-grid,
 #todo-modal.todo-detail-view #todo-schedule-panel .ui-field-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-#todo-modal.todo-detail-view #todo-organize-panel input,
-#todo-modal.todo-detail-view #todo-organize-panel select,
-#todo-modal.todo-detail-view #todo-schedule-panel input,
-#todo-modal.todo-detail-view #todo-schedule-panel select,
-#todo-modal.todo-detail-view #todo-organize-panel .ui-select-trigger,
-#todo-modal.todo-detail-view #todo-schedule-panel .ui-select-trigger {
-  background: color-mix(in srgb, var(--bg-secondary) 44%, transparent);
 }
 
 @media (max-width: 1180px) {
