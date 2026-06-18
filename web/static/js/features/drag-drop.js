@@ -37,9 +37,10 @@ export function createDragDropFeature({
   }
 
   function handleTodoDragStart(e) {
-    const rawId = e.target.dataset.id;
+    const item = e.target?.closest?.('.todo-item[data-id]') || e.target;
+    const rawId = item.dataset.id;
     dragSrcTodoId = /^\d+$/.test(String(rawId)) ? parseInt(rawId) : rawId;
-    e.target.classList.add('dragging');
+    item.classList.add('dragging');
     const transfer = eventDataTransfer(e);
     transfer.effectAllowed = 'move';
     transfer.setData('text/plain', 'todo:' + dragSrcTodoId);
@@ -47,7 +48,8 @@ export function createDragDropFeature({
 
   function handleTodoDragEnd(e) {
     stopStandardDragAutoScroll();
-    e.target.classList.remove('dragging');
+    const item = e.target?.closest?.('.todo-item[data-id]') || e.target;
+    item.classList.remove('dragging');
     document.querySelectorAll('.section-todos.drag-over, .section-header.drag-over, .project-drop-target.drag-over').forEach(el => {
       el.classList.remove('drag-over');
     });
@@ -188,8 +190,9 @@ export function createDragDropFeature({
   }
 
   function handleSectionDragStart(e) {
-    dragSrcSectionId = parseInt(e.target.dataset.sectionId);
-    e.target.classList.add('dragging');
+    const section = e.target?.closest?.('.section-header[data-section-id]') || e.target;
+    dragSrcSectionId = parseInt(section.dataset.sectionId);
+    section.classList.add('dragging');
     const transfer = eventDataTransfer(e);
     transfer.effectAllowed = 'move';
     transfer.setData('text/plain', 'section:' + dragSrcSectionId);
@@ -201,7 +204,8 @@ export function createDragDropFeature({
 
   function handleSectionDragEnd(e) {
     stopStandardDragAutoScroll();
-    e.target.classList.remove('dragging');
+    const section = e.target?.closest?.('.section-header[data-section-id]') || e.target;
+    section.classList.remove('dragging');
     clearSectionDropIndicators();
     dragSrcSectionId = null;
     currentSectionDropIndex = null;
@@ -285,6 +289,57 @@ export function createDragDropFeature({
     }
 
     await moveSectionToDropTarget(header, dropzone);
+  }
+
+  let standardDragDropBound = false;
+  function bindStandardDragDrop() {
+    if (standardDragDropBound) return;
+    standardDragDropBound = true;
+
+    document.addEventListener('dragstart', (event) => {
+      const todo = event.target?.closest?.('.todo-item[data-id][draggable="true"]');
+      if (todo) {
+        handleTodoDragStart(event);
+        return;
+      }
+      const section = event.target?.closest?.('.section-header[data-section-id]:not(.section-unsorted)[draggable="true"]');
+      if (section) handleSectionDragStart(event);
+    });
+
+    document.addEventListener('dragend', (event) => {
+      const todo = event.target?.closest?.('.todo-item[data-id]');
+      if (todo) {
+        handleTodoDragEnd(event);
+        return;
+      }
+      const section = event.target?.closest?.('.section-header[data-section-id]:not(.section-unsorted)');
+      if (section) handleSectionDragEnd(event);
+    });
+
+    document.addEventListener('dragover', (event) => {
+      if (event.target?.closest?.('.project-drop-target[data-project-id]')) {
+        handleProjectDragOver(event);
+        return;
+      }
+      if (event.target?.closest?.('.section-dropzone, .section-header[data-section-id]')) {
+        handleSectionDragOver(event);
+        handleTodoDragOver(event);
+        return;
+      }
+      if (event.target?.closest?.('.section-todos[data-section-id]')) handleTodoDragOver(event);
+    });
+
+    document.addEventListener('drop', async (event) => {
+      if (event.target?.closest?.('.project-drop-target[data-project-id]')) {
+        await handleProjectDrop(event);
+        return;
+      }
+      if (event.target?.closest?.('.section-dropzone, .section-header[data-section-id]')) {
+        await handleSectionDrop(event);
+        return;
+      }
+      if (event.target?.closest?.('.section-todos[data-section-id]')) await handleTodoDrop(event);
+    });
   }
 
   function clearNativeDragIndicators() {
@@ -825,6 +880,7 @@ export function createDragDropFeature({
     handleSectionDragEnd,
     handleSectionDragOver,
     handleSectionDrop,
+    bindStandardDragDrop,
     bindNativePointerDragDrop,
   };
 }

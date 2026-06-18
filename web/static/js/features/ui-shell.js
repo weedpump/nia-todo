@@ -34,12 +34,34 @@ export function createUiShell({ renderMarkdown, showTodoModal }) {
     modal?.classList.remove('active');
   }
 
+  let modalCloseControlsBound = false;
+  function bindModalCloseControls() {
+    if (modalCloseControlsBound) return;
+    modalCloseControlsBound = true;
+    document.addEventListener('click', (event) => {
+      const target = event.target?.closest?.('[data-close-modal]');
+      if (!target) return;
+      event.preventDefault();
+      closeModal(target.dataset.closeModal);
+    });
+  }
+
   function setupDescPreview() {
     const textarea = document.getElementById('todo-desc');
     const preview = document.getElementById('todo-desc-preview');
     if (!textarea || !preview) return;
     preview.innerHTML = renderMarkdown(textarea.value);
     textarea.oninput = () => { preview.innerHTML = renderMarkdown(textarea.value); };
+  }
+
+  function bindSidebarControls() {
+    if (document.documentElement.dataset.sidebarControlsBound === '1') return;
+    document.documentElement.dataset.sidebarControlsBound = '1';
+    document.addEventListener('click', (event) => {
+      if (!event.target?.closest?.('[data-sidebar-toggle]')) return;
+      event.preventDefault();
+      toggleSidebar();
+    });
   }
 
   function bindSidebarEdgeSwipe() {
@@ -178,5 +200,5 @@ export function createUiShell({ renderMarkdown, showTodoModal }) {
     });
   }
 
-  return { openSidebar, toggleSidebar, closeSidebar, closeModal, setupDescPreview, bindSidebarEdgeSwipe, bindTouchFeedback, bindDateTimePickerOpeners, bindKeyboardShortcuts };
+  return { openSidebar, toggleSidebar, closeSidebar, closeModal, bindModalCloseControls, setupDescPreview, bindSidebarControls, bindSidebarEdgeSwipe, bindTouchFeedback, bindDateTimePickerOpeners, bindKeyboardShortcuts };
 }
