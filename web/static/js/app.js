@@ -19,6 +19,7 @@ import { createTodosFeature } from './features/todos.js';
 import { createSyncFeature } from './features/sync.js';
 import { renderTodoItem } from './features/todo-rendering.js';
 import { createViewPreferencesFeature } from './features/view-preferences.js';
+import { createFocusFiltersFeature } from './features/focus-filters.js';
 import { createWebSocketClient } from './features/websocket-client.js';
 import { createToastUndoFeature } from './features/toast-undo.js';
 import { createDragDropFeature } from './features/drag-drop.js';
@@ -47,188 +48,28 @@ let syncInProgress = false;
 let hideDone = localStorage.getItem('nia-hide-done') !== 'false';
 let sortMode = localStorage.getItem('nia-sort') || 'priority';
 let showProjectWidget = localStorage.getItem('nia-project-widget') !== 'false';
-const DEFAULT_FOCUS_FILTERS = Object.freeze({
-  dueMode: 'next_days',
-  dueDays: 7,
-  projectIds: [],
-  priorities: [1, 2, 3, 4],
-  statuses: ['pending', 'in_progress'],
-});
 let todayFocus = localStorage.getItem('nia-today-focus') === 'true';
 let minimalTodos = localStorage.getItem('nia-minimal-todos') === 'true';
-let focusFilters = loadFocusFilters();
-let focusFiltersExpanded = false;
-let focusProjectMenuOpen = false;
-let focusProjectSearch = '';
 let desktopIntegration = null;
 
-function normalizeFocusFilters(value = {}) {
-  const source = value && typeof value === 'object' ? value : {};
-  const dueModes = new Set(['any', 'none', 'overdue', 'today', 'tomorrow', 'next_days']);
-  const statuses = new Set(['pending', 'in_progress', 'done']);
-  const priorities = new Set([1, 2, 3, 4]);
-  const next = {
-    ...DEFAULT_FOCUS_FILTERS,
-    ...source,
-    projectIds: Array.isArray(source.projectIds) ? source.projectIds.map(Number).filter(Number.isFinite) : [...DEFAULT_FOCUS_FILTERS.projectIds],
-    priorities: Array.isArray(source.priorities) ? source.priorities.map(Number).filter(priority => priorities.has(priority)) : [...DEFAULT_FOCUS_FILTERS.priorities],
-    statuses: Array.isArray(source.statuses) ? source.statuses.filter(status => statuses.has(status)) : [...DEFAULT_FOCUS_FILTERS.statuses],
-  };
-  next.dueMode = dueModes.has(next.dueMode) ? next.dueMode : DEFAULT_FOCUS_FILTERS.dueMode;
-  next.dueDays = Math.min(365, Math.max(1, Number.parseInt(next.dueDays, 10) || DEFAULT_FOCUS_FILTERS.dueDays));
-  if (!next.priorities.length) next.priorities = [...DEFAULT_FOCUS_FILTERS.priorities];
-  if (!next.statuses.length) next.statuses = [...DEFAULT_FOCUS_FILTERS.statuses];
-  return next;
-}
-
-function loadFocusFilters() {
-  try {
-    return normalizeFocusFilters(JSON.parse(localStorage.getItem('nia-focus-filters') || '{}'));
-  } catch {
-    return normalizeFocusFilters();
-  }
-}
-
-function saveFocusFilters() {
-  localStorage.setItem('nia-focus-filters', JSON.stringify(focusFilters));
-}
-
-function updateFocusFilters(patch = {}) {
-  focusFilters = normalizeFocusFilters({ ...focusFilters, ...patch });
-  saveFocusFilters();
-  renderTodos();
-}
-
-function toggleFocusFiltersExpanded() {
-  focusFiltersExpanded = !focusFiltersExpanded;
-  renderTodos();
-}
-
-function applyFocusProjectMenuSearch() {
-  const term = String(focusProjectSearch || '').toLocaleLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  const menu = document.querySelector('.focus-project-menu');
-  if (!menu) return;
-  let visibleCount = 0;
-  menu.querySelectorAll('[data-focus-project-option]').forEach(option => {
-    const label = String(option.dataset.label || '').toLocaleLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    const matches = !term || label.includes(term);
-    option.hidden = !matches;
-    if (matches) visibleCount += 1;
-  });
-  const empty = menu.querySelector('.ui-select-empty');
-  if (empty) empty.hidden = visibleCount > 0 || !menu.querySelector('[data-focus-project-option]');
-  const highlighted = menu.querySelector('[data-focus-project-option].is-highlighted');
-  if (!highlighted || highlighted.hidden) highlightFocusProjectOption(focusProjectOptionRows()[0]);
-}
-
-function filterFocusProjectMenu(value) {
-  focusProjectSearch = String(value || '');
-  applyFocusProjectMenuSearch();
-}
-
-function focusProjectOptionRows() {
-  return Array.from(document.querySelectorAll('.focus-project-menu [data-focus-project-option]')).filter(option => !option.hidden);
-}
-
-function highlightFocusProjectOption(target) {
-  const rows = focusProjectOptionRows();
-  rows.forEach(option => option.classList.remove('is-highlighted'));
-  if (!target) return;
-  target.classList.add('is-highlighted');
-  target.scrollIntoView({ block: 'nearest' });
-}
-
-function moveFocusProjectHighlight(direction = 1) {
-  const rows = focusProjectOptionRows();
-  if (!rows.length) return;
-  const current = rows.findIndex(option => option.classList.contains('is-highlighted'));
-  const next = current >= 0 ? (current + direction + rows.length) % rows.length : (direction > 0 ? 0 : rows.length - 1);
-  highlightFocusProjectOption(rows[next]);
-}
-
-function handleFocusProjectMenuKeydown(event) {
-  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-    event.preventDefault();
-    moveFocusProjectHighlight(event.key === 'ArrowDown' ? 1 : -1);
-    return;
-  }
-  if (event.key === 'Enter') {
-    const target = document.querySelector('.focus-project-menu [data-focus-project-option].is-highlighted:not([hidden])') || focusProjectOptionRows()[0];
-    if (target) {
-      event.preventDefault();
-      target.click();
-    }
-    return;
-  }
-  if (event.key === 'Escape') {
-    event.preventDefault();
-    closeFocusProjectMenu();
-  }
-}
-
-function toggleFocusProjectMenu() {
-  focusProjectMenuOpen = !focusProjectMenuOpen;
-  if (!focusProjectMenuOpen) focusProjectSearch = '';
-  renderTodos();
-  if (focusProjectMenuOpen) window.setTimeout(() => {
-    document.querySelector('.focus-project-menu .ui-select-search-input')?.focus();
-    highlightFocusProjectOption(focusProjectOptionRows()[0]);
-  }, 0);
-}
-
-function closeFocusProjectMenu() {
-  if (!focusProjectMenuOpen) return;
-  focusProjectMenuOpen = false;
-  focusProjectSearch = '';
-  renderTodos();
-}
-
-function resetFocusFilters() {
-  focusFilters = normalizeFocusFilters();
-  focusProjectMenuOpen = false;
-  focusProjectSearch = '';
-  saveFocusFilters();
-  renderTodos();
-}
-
-function setFocusDueMode(dueMode) {
-  updateFocusFilters({ dueMode });
-}
-
-function setFocusDueDays(dueDays) {
-  updateFocusFilters({ dueDays });
-}
-
-function toggleFocusProject(projectId) {
-  const id = Number(projectId);
-  if (!Number.isFinite(id)) return;
-  const current = new Set(focusFilters.projectIds || []);
-  if (current.has(id)) current.delete(id);
-  else current.add(id);
-  updateFocusFilters({ projectIds: Array.from(current) });
-  focusProjectMenuOpen = true;
-  window.setTimeout(() => {
-    document.querySelector('.focus-project-menu .ui-select-search-input')?.focus();
-    highlightFocusProjectOption(focusProjectOptionRows()[0]);
-  }, 0);
-}
-
-function toggleFocusPriority(priority) {
-  const value = Number(priority);
-  if (![1, 2, 3, 4].includes(value)) return;
-  const current = new Set(focusFilters.priorities || []);
-  if (current.has(value) && current.size > 1) current.delete(value);
-  else current.add(value);
-  updateFocusFilters({ priorities: Array.from(current).sort((a, b) => a - b) });
-}
-
-function toggleFocusStatus(status) {
-  if (!['pending', 'in_progress', 'done'].includes(status)) return;
-  const current = new Set(focusFilters.statuses || []);
-  if (current.has(status) && current.size > 1) current.delete(status);
-  else current.add(status);
-  updateFocusFilters({ statuses: Array.from(current) });
-}
+const {
+  getFocusFilters,
+  getFocusFiltersExpanded,
+  getFocusProjectMenuOpen,
+  getFocusProjectSearch,
+  updateFocusFilters,
+  toggleFocusFiltersExpanded,
+  toggleFocusProjectMenu,
+  closeFocusProjectMenu,
+  resetFocusFilters,
+  setFocusDueMode,
+  setFocusDueDays,
+  toggleFocusProject,
+  filterFocusProjectMenu,
+  handleFocusProjectMenuKeydown,
+  toggleFocusPriority,
+  toggleFocusStatus,
+} = createFocusFiltersFeature({ renderTodos: () => renderTodos() });
 
 function setTodosState(next) {
   todos = next;
@@ -634,10 +475,10 @@ const appRendering = createAppRenderingFeature({
   getTodayFocus: () => todayFocus,
   getShowProjectWidget: () => showProjectWidget,
   getCurrentUser: () => currentUser,
-  getFocusFilters: () => focusFilters,
-  getFocusFiltersExpanded: () => focusFiltersExpanded,
-  getFocusProjectMenuOpen: () => focusProjectMenuOpen,
-  getFocusProjectSearch: () => focusProjectSearch,
+  getFocusFilters,
+  getFocusFiltersExpanded,
+  getFocusProjectMenuOpen,
+  getFocusProjectSearch,
   sortTodoList,
   renderTodoItem,
   renderSectionHeader,
@@ -895,12 +736,12 @@ export function startAppModule() {
   document.addEventListener('click', (event) => {
     const box = document.getElementById('search-box');
     const input = document.getElementById('search-input');
-    if (focusProjectMenuOpen && !event.target?.closest?.('.focus-project-dropdown')) closeFocusProjectMenu();
+    if (getFocusProjectMenuOpen() && !event.target?.closest?.('.focus-project-dropdown')) closeFocusProjectMenu();
     if (!box?.classList.contains('open') || box.contains(event.target) || input?.value) return;
     box.classList.remove('open');
   });
   document.addEventListener('keydown', (event) => {
-    if (event.key !== 'Escape' || !focusProjectMenuOpen) return;
+    if (event.key !== 'Escape' || !getFocusProjectMenuOpen()) return;
     closeFocusProjectMenu();
   });
   desktopIntegration?.init();
