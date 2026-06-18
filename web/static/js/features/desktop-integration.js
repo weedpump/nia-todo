@@ -460,6 +460,19 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
     }
   }
 
+  let desktopActionsBound = false;
+  function bindDesktopActions() {
+    if (desktopActionsBound) return;
+    desktopActionsBound = true;
+    document.addEventListener('click', (event) => {
+      const target = event.target?.closest?.('[data-desktop-action]');
+      if (!target) return;
+      event.preventDefault();
+      const action = target.dataset.desktopAction;
+      if (action === 'test-notification') testNotification();
+    });
+  }
+
   let hotkeyEventsBound = false;
   async function bindHotkeyEvents() {
     if (hotkeyEventsBound) return;
@@ -488,6 +501,7 @@ export function createDesktopIntegration({ showToast, onHotkeyNewTodo, onHotkeyS
     updateServerUrl,
     resetServerUrl,
     testNotification,
+    bindDesktopActions,
     updateHotkey,
   };
 }

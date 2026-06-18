@@ -1319,7 +1319,45 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
         editSettingsPlace(target.dataset.placeId);
       } else if (action === 'delete-place') {
         await deleteSettingsPlace(target.dataset.placeId);
+      } else if (action === 'choose-avatar') {
+        document.getElementById('settings-avatar-input')?.click();
+      } else if (action === 'delete-avatar') {
+        await deleteUserAvatar();
+      } else if (action === 'cancel-avatar-crop') {
+        cancelAvatarCrop();
+      } else if (action === 'save-avatar-crop') {
+        await saveAvatarCrop();
+      } else if (action === 'save-custom-default-reminder') {
+        await saveCustomDefaultReminderSetting();
+      } else if (action === 'save-place') {
+        await saveSettingsPlace();
+      } else if (action === 'cancel-place-edit') {
+        cancelSettingsPlaceEdit();
+      } else if (action === 'reset-braindump-learning') {
+        await resetBrainDumpLearning();
+      } else if (action === 'change-password') {
+        await changeUserPassword();
+      } else if (action === 'confirm-totp') {
+        await confirmTwoFactorTotp();
+      } else if (action === 'regenerate-recovery-codes') {
+        await regenerateRecoveryCodes();
+      } else if (action === 'disable-2fa') {
+        await disableTwoFactor();
+      } else if (action === 'toggle-trusted-devices') {
+        toggleTrustedDevicesList();
+      } else if (action === 'revoke-all-trusted-devices') {
+        await revokeAllTrustedDevices();
       }
+    });
+
+    document.addEventListener('change', async (event) => {
+      const input = event.target?.closest?.('[data-user-settings-input]');
+      if (!input) return;
+      const inputType = input.dataset.userSettingsInput;
+      if (inputType === 'avatar-file') await startAvatarUpload(input.files?.[0]);
+      else if (inputType === 'language') await changeLanguagePreference(input.value);
+      else if (inputType === 'default-reminder') await changeDefaultReminderSetting(input.value);
+      else if (inputType === 'braindump-learning') await changeBrainDumpLearningSetting(input.checked);
     });
 
     document.addEventListener('keydown', async (event) => {
@@ -1333,6 +1371,12 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
       } else if (inputType === 'email') {
         if (event.key === 'Enter') await saveUserEmail();
         else cancelUserEmailEdit();
+      } else if (inputType === 'password-current' && event.key === 'Enter') {
+        document.getElementById('settings-new-password')?.focus();
+      } else if (inputType === 'password-new' && event.key === 'Enter') {
+        document.getElementById('settings-confirm-password')?.focus();
+      } else if (inputType === 'password-confirm' && event.key === 'Enter') {
+        await changeUserPassword();
       }
     });
   }

@@ -811,10 +811,10 @@
 
   <!-- Avatar Cropper Modal -->
   <div class="modal" id="avatar-crop-modal">
-    <div class="modal-overlay" onclick="cancelAvatarCrop()"></div>
+    <div class="modal-overlay" data-user-settings-action="cancel-avatar-crop"></div>
     <div class="modal-content avatar-crop-modal-content">
       <h3><span data-icon="image"></span> <span data-i18n-key="avatar.cropTitle">Crop avatar</span></h3>
-      <button class="modal-close-x" onclick="cancelAvatarCrop()"><span data-icon="x"></span></button>
+      <button class="modal-close-x" data-user-settings-action="cancel-avatar-crop"><span data-icon="x"></span></button>
       <div class="avatar-crop-body">
         <div class="avatar-crop-stage" id="avatar-crop-stage">
           <img id="avatar-crop-image" alt="Avatar-Vorschau" data-i18n-alt-key="avatar.preview" draggable="false">
@@ -822,8 +822,8 @@
         </div>
         <div class="avatar-crop-hint" data-i18n-key="avatar.cropHint">Drag image · pinch or mouse wheel to zoom</div>
         <div class="avatar-crop-actions">
-          <button type="button" class="btn btn-secondary" onclick="cancelAvatarCrop()" data-i18n-key="common.cancel">Cancel</button>
-          <button type="button" class="btn btn-primary" onclick="saveAvatarCrop()" data-i18n-key="avatar.save">Save avatar</button>
+          <button type="button" class="btn btn-secondary" data-user-settings-action="cancel-avatar-crop" data-i18n-key="common.cancel">Cancel</button>
+          <button type="button" class="btn btn-primary" data-user-settings-action="save-avatar-crop" data-i18n-key="avatar.save">Save avatar</button>
         </div>
         <div id="avatar-crop-error" class="settings-field-error"></div>
       </div>
@@ -898,13 +898,13 @@
             </div>
             <div class="settings-profile-card">
               <div class="settings-avatar-panel">
-                <button type="button" class="settings-avatar-button" onclick="document.getElementById('settings-avatar-input').click()" title="Change avatar" data-i18n-title-key="avatar.change">
+                <button type="button" class="settings-avatar-button" data-user-settings-action="choose-avatar" title="Change avatar" data-i18n-title-key="avatar.change">
                   <span id="settings-avatar-initial">U</span>
                   <img id="settings-avatar-preview" alt="Avatar" style="display:none;">
                 </button>
-                <button type="button" class="settings-avatar-remove" id="settings-avatar-remove" onclick="deleteUserAvatar()" style="display:none;" data-i18n-key="avatar.delete">Delete avatar</button>
+                <button type="button" class="settings-avatar-remove" id="settings-avatar-remove" data-user-settings-action="delete-avatar" style="display:none;" data-i18n-key="avatar.delete">Delete avatar</button>
               </div>
-              <input type="file" id="settings-avatar-input" accept="image/png,image/jpeg,image/webp,image/gif,image/heic,image/heif,.heic,.heif" style="display:none;" onchange="startAvatarUpload(this.files?.[0])">
+              <input type="file" id="settings-avatar-input" accept="image/png,image/jpeg,image/webp,image/gif,image/heic,image/heif,.heic,.heif" style="display:none;" data-user-settings-input="avatar-file">
               <div class="settings-profile-fields">
                 <div class="settings-field-row">
                   <div class="settings-field-label" data-i18n-key="settings.profile.username">Username</div>
@@ -938,7 +938,7 @@
             </div>
             <div class="form-group">
               <label for="settings-language" data-i18n-key="settings.language.browser">Use browser language</label>
-              <select class="ui-field" id="settings-language" onchange="changeLanguagePreference(this.value)">
+              <select class="ui-field" id="settings-language" data-user-settings-input="language">
                 <option value="auto" data-i18n-key="settings.language.auto">Automatic</option>
                 <option value="de" data-i18n-key="settings.language.de">German</option>
                 <option value="en" data-i18n-key="settings.language.en">English</option>
@@ -958,7 +958,7 @@
             </div>
             <div class="settings-subcard">
               <label for="settings-default-reminder" data-i18n-key="settings.defaultReminder.label">Automatic reminder for deadlines</label>
-              <select class="ui-field" id="settings-default-reminder" onchange="changeDefaultReminderSetting(this.value)">
+              <select class="ui-field" id="settings-default-reminder" data-user-settings-input="default-reminder">
                 <option value="off" data-i18n-key="settings.defaultReminder.off">Off</option>
                 <option value="0" data-i18n-key="settings.defaultReminder.atDeadline">At deadline</option>
                 <option value="15" data-i18n-key="settings.defaultReminder.before15m">15 minutes before</option>
@@ -978,7 +978,7 @@
                     <option value="days" data-i18n-key="settings.defaultReminder.customDays">Days before</option>
                   </select>
                 </div>
-                <button type="button" class="btn btn-secondary" onclick="saveCustomDefaultReminderSetting()" data-i18n-key="common.save">Save</button>
+                <button type="button" class="btn btn-secondary" data-user-settings-action="save-custom-default-reminder" data-i18n-key="common.save">Save</button>
               </div>
               <div class="settings-help-text" data-i18n-key="settings.defaultReminder.help">Explicit reminders are kept and never overwritten.</div>
               <div id="settings-default-reminder-error" class="settings-field-error"></div>
@@ -1027,8 +1027,8 @@
               </div>
             </div>
             <div class="settings-actions-row">
-              <button type="button" class="btn btn-primary" onclick="saveSettingsPlace()"><span data-icon="plus" id="settings-place-save-icon"></span> <span id="settings-place-save-label" data-i18n-key="settings.places.save">Save place</span></button>
-              <button type="button" class="btn btn-secondary" id="settings-place-cancel-edit" onclick="cancelSettingsPlaceEdit()" hidden data-i18n-key="common.cancel">Cancel</button>
+              <button type="button" class="btn btn-primary" data-user-settings-action="save-place"><span data-icon="plus" id="settings-place-save-icon"></span> <span id="settings-place-save-label" data-i18n-key="settings.places.save">Save place</span></button>
+              <button type="button" class="btn btn-secondary" id="settings-place-cancel-edit" data-user-settings-action="cancel-place-edit" hidden data-i18n-key="common.cancel">Cancel</button>
             </div>
             <div id="settings-places-error" class="settings-field-error"></div>
             <div id="settings-places-success" class="settings-field-success"></div>
@@ -1046,14 +1046,14 @@
             <div class="settings-subcard">
               <label class="settings-toggle-row settings-toggle-feature settings-switch-row">
                 <span data-i18n-key="settings.braindump.learning.label">BrainDump merkt sich passende Listen</span>
-                <input type="checkbox" class="settings-switch" id="settings-braindump-learning" onchange="changeBrainDumpLearningSetting(this.checked)">
+                <input type="checkbox" class="settings-switch" id="settings-braindump-learning" data-user-settings-input="braindump-learning">
               </label>
               <div class="settings-help-text" data-i18n-key="settings.braindump.learning.help">
                 Wenn du Aufgaben in eine andere Liste oder Section verschiebst, merkt sich BrainDump diese Entscheidung für dein Konto und schlägt sie beim nächsten Mal eher vor. Audio und gesprochener Text werden dafür nicht gespeichert.
               </div>
               <div class="settings-help-text" id="settings-braindump-learning-count"></div>
               <div class="settings-card-actions">
-                <button type="button" class="btn btn-secondary" onclick="resetBrainDumpLearning()" data-i18n-key="settings.braindump.learning.reset">Gelernte Zuordnungen zurücksetzen</button>
+                <button type="button" class="btn btn-secondary" data-user-settings-action="reset-braindump-learning" data-i18n-key="settings.braindump.learning.reset">Gelernte Zuordnungen zurücksetzen</button>
               </div>
               <div id="settings-braindump-error" class="settings-field-error"></div>
               <div id="settings-braindump-success" class="settings-field-success"></div>
@@ -1075,22 +1075,22 @@
               <div class="settings-password-grid">
                 <div class="form-group">
                   <label data-i18n-key="settings.password.current">Current password</label>
-                  <input type="password" id="settings-old-password" placeholder="Current password" data-i18n-placeholder-key="settings.password.current" autocomplete="current-password" onkeydown="if(event.key==='Enter') document.getElementById('settings-new-password').focus()">
+                  <input type="password" id="settings-old-password" placeholder="Current password" data-i18n-placeholder-key="settings.password.current" autocomplete="current-password" data-user-settings-input="password-current">
                 </div>
                 <div class="form-group">
                   <label data-i18n-key="settings.password.new">New password</label>
-                  <input type="password" id="settings-new-password" placeholder="New password (8+ characters)" data-i18n-placeholder-key="settings.password.newPlaceholder" autocomplete="new-password" onkeydown="if(event.key==='Enter') document.getElementById('settings-confirm-password').focus()">
+                  <input type="password" id="settings-new-password" placeholder="New password (8+ characters)" data-i18n-placeholder-key="settings.password.newPlaceholder" autocomplete="new-password" data-user-settings-input="password-new">
                 </div>
                 <div class="form-group">
                   <label data-i18n-key="settings.password.confirm">Confirm password</label>
-                  <input type="password" id="settings-confirm-password" placeholder="Repeat new password" data-i18n-placeholder-key="settings.password.repeatPlaceholder" autocomplete="new-password" onkeydown="if(event.key==='Enter') changeUserPassword()">
+                  <input type="password" id="settings-confirm-password" placeholder="Repeat new password" data-i18n-placeholder-key="settings.password.repeatPlaceholder" autocomplete="new-password" data-user-settings-input="password-confirm">
                 </div>
               </div>
               <div class="settings-help-text" data-i18n-key="settings.password.requirements">
                 At least 8 characters, 1 uppercase, 1 lowercase, 1 digit, 1 special character
               </div>
               <div class="settings-card-actions">
-                <button type="button" class="btn btn-primary" onclick="changeUserPassword()" data-i18n-key="settings.password.title">Change password</button>
+                <button type="button" class="btn btn-primary" data-user-settings-action="change-password" data-i18n-key="settings.password.title">Change password</button>
               </div>
               <div id="settings-pw-error" class="settings-field-error"></div>
               <div id="settings-pw-success" class="settings-field-success"></div>
@@ -1104,8 +1104,8 @@
               <div id="settings-2fa-actions" class="settings-action-row">
                 <button type="button" class="btn btn-primary" data-user-settings-action="start-totp" data-i18n-key="settings.2fa.setupAuthenticator">Set up authenticator app</button>
                 <button type="button" class="btn btn-secondary" data-user-settings-action="add-passkey" data-i18n-key="settings.2fa.addPasskey">Add passkey</button>
-                <button type="button" class="btn btn-secondary" id="settings-2fa-regenerate-recovery-btn" onclick="regenerateRecoveryCodes()" data-i18n-key="settings.2fa.regenerateRecovery">Generate new recovery codes</button>
-                <button type="button" class="btn btn-danger" id="settings-2fa-disable-btn" onclick="disableTwoFactor()" data-i18n-key="settings.2fa.disable">Disable 2FA</button>
+                <button type="button" class="btn btn-secondary" id="settings-2fa-regenerate-recovery-btn" data-user-settings-action="regenerate-recovery-codes" data-i18n-key="settings.2fa.regenerateRecovery">Generate new recovery codes</button>
+                <button type="button" class="btn btn-danger" id="settings-2fa-disable-btn" data-user-settings-action="disable-2fa" data-i18n-key="settings.2fa.disable">Disable 2FA</button>
               </div>
               <div id="settings-2fa-setup" class="settings-2fa-setup-card" style="display:none;">
                 <div class="settings-2fa-setup-header">
@@ -1125,7 +1125,7 @@
                 </div>
                 <label class="settings-2fa-code-label" for="settings-2fa-code" data-i18n-key="settings.2fa.appCode">6-stelliger Code aus der App</label>
                 <input type="text" id="settings-2fa-code" inputmode="numeric" autocomplete="one-time-code" placeholder="123456">
-                <button type="button" class="btn btn-primary" onclick="confirmTwoFactorTotp()" data-i18n-key="settings.2fa.enable">Enable 2FA</button>
+                <button type="button" class="btn btn-primary" data-user-settings-action="confirm-totp" data-i18n-key="settings.2fa.enable">Enable 2FA</button>
               </div>
               <div class="settings-2fa-devices-wrap">
                 <div class="settings-2fa-subtitle" data-i18n-key="settings.2fa.configuredFactors">Eingerichtete Faktoren</div>
@@ -1133,12 +1133,12 @@
               </div>
               <div class="settings-2fa-devices-wrap settings-sessions-wrap">
                 <div class="settings-2fa-subtitle settings-2fa-trusted-header">
-                  <button type="button" id="settings-sessions-toggle" class="settings-sessions-toggle" onclick="toggleTrustedDevicesList()" aria-expanded="false" aria-controls="settings-2fa-trusted-panel">
+                  <button type="button" id="settings-sessions-toggle" class="settings-sessions-toggle" data-user-settings-action="toggle-trusted-devices" aria-expanded="false" aria-controls="settings-2fa-trusted-panel">
                     <span class="settings-sessions-chevron">›</span>
                     <span data-i18n-key="settings.2fa.trustedDevices">Active sessions / devices</span>
                     <span id="settings-2fa-session-count" class="settings-session-count"></span>
                   </button>
-                  <button type="button" class="btn btn-danger btn-small" onclick="revokeAllTrustedDevices()" data-i18n-key="settings.2fa.revokeAllTrusted">Alle abmelden</button>
+                  <button type="button" class="btn btn-danger btn-small" data-user-settings-action="revoke-all-trusted-devices" data-i18n-key="settings.2fa.revokeAllTrusted">Alle abmelden</button>
                 </div>
                 <div id="settings-2fa-trusted-panel" hidden>
                   <div id="settings-2fa-trusted-devices" class="settings-2fa-devices"></div>
@@ -1162,7 +1162,7 @@
               <!-- API keys loaded dynamically -->
             </div>
             <div class="settings-action-row">
-              <button class="btn btn-primary" onclick="createApiKey()" data-i18n-key="settings.apiKeys.create">Create new API key</button>
+              <button class="btn btn-primary" data-api-key-action="create" data-i18n-key="settings.apiKeys.create">Create new API key</button>
               <div class="app-resource-links settings-resource-links api-settings-resource-links">
                 <a class="btn btn-secondary" href="/api" target="_blank" rel="noopener"><span data-icon="book-open"></span> <span data-i18n-key="resource.apiDocs">API-Doku</span></a>
               </div>
@@ -1170,7 +1170,7 @@
             <div id="api-key-created" class="settings-secret-box" style="display:none;">
               <p><span data-icon="triangle-alert"></span> <span data-i18n-key="settings.apiKeys.copyNowWarning">Copy the key now — it will not be shown again!</span></p>
               <code id="api-key-value"></code>
-              <button class="btn btn-secondary" onclick="copyApiKey()"><span data-icon="clipboard"></span> <span data-i18n-key="common.copy">Copy</span></button>
+              <button class="btn btn-secondary" data-api-key-action="copy"><span data-icon="clipboard"></span> <span data-i18n-key="common.copy">Copy</span></button>
               <div id="api-key-copy-status" class="settings-field-success"></div>
             </div>
             <div id="api-key-error" class="settings-field-error"></div>
@@ -1190,9 +1190,9 @@
                 <div id="push-status" class="settings-status-pill" data-i18n-key="settings.push.statusChecking">Status: Checking...</div>
               </div>
               <div id="push-actions" class="settings-action-row">
-                <button class="btn btn-primary" id="push-enable-btn" onclick="enablePushNotifications()" style="display:none;" data-i18n-key="settings.push.enable">Enable notifications</button>
-                <button class="btn btn-danger" id="push-disable-btn" onclick="disablePushNotifications()" style="display:none;" data-i18n-key="common.disable">Disable</button>
-                <button class="btn btn-secondary" id="push-test-btn" onclick="sendTestPush()" style="display:none;" data-i18n-key="settings.push.test">Send test</button>
+                <button class="btn btn-primary" id="push-enable-btn" data-push-action="enable" style="display:none;" data-i18n-key="settings.push.enable">Enable notifications</button>
+                <button class="btn btn-danger" id="push-disable-btn" data-push-action="disable" style="display:none;" data-i18n-key="common.disable">Disable</button>
+                <button class="btn btn-secondary" id="push-test-btn" data-push-action="test" style="display:none;" data-i18n-key="settings.push.test">Send test</button>
               </div>
               <div id="push-error" class="settings-field-error"></div>
             </div>
@@ -1226,7 +1226,7 @@
                 <input type="checkbox" id="desktop-notifications">
               </label>
               <div class="settings-card-actions">
-                <button class="btn btn-secondary" type="button" onclick="testDesktopNotification()" data-i18n-key="settings.desktop.testNotification">Test notification</button>
+                <button class="btn btn-secondary" type="button" data-desktop-action="test-notification" data-i18n-key="settings.desktop.testNotification">Test notification</button>
               </div>
               <div class="desktop-hotkeys-settings" data-desktop-only>
                 <h5><span data-icon="keyboard"></span> <span data-i18n-key="settings.desktop.hotkeys.title">Globale Hotkeys</span></h5>

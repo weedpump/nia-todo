@@ -194,9 +194,23 @@ export function createApiKeysFeature({ authApi }) {
     });
   }
 
+  let apiKeyActionsBound = false;
+  function bindApiKeyActions() {
+    if (apiKeyActionsBound) return;
+    apiKeyActionsBound = true;
+    document.addEventListener('click', async (event) => {
+      const target = event.target?.closest?.('[data-api-key-action]');
+      if (!target) return;
+      event.preventDefault();
+      const action = target.dataset.apiKeyAction;
+      if (action === 'create') await createApiKey();
+      else if (action === 'copy') copyApiKey();
+    });
+  }
+
   window.addEventListener('nia-language-change', () => {
     if (hasLoadedApiKeys) renderApiKeys(lastApiKeys);
   });
 
-  return { resetApiKeyUi, loadApiKeys, renderApiKeys, createApiKey, revokeApiKey, copyApiKey };
+  return { resetApiKeyUi, loadApiKeys, renderApiKeys, createApiKey, revokeApiKey, copyApiKey, bindApiKeyActions };
 }

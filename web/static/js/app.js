@@ -271,24 +271,7 @@ const bindLoginForm = authSessionFeature.bindLoginForm;
 const renderUserInfo = userSettingsFeature.renderUserInfo;
 const bindUserSettingsActions = userSettingsFeature.bindUserSettingsActions;
 const openSettingsModal = userSettingsFeature.openSettingsModal;
-const changeLanguagePreference = userSettingsFeature.changeLanguagePreference;
-const changeDefaultReminderSetting = userSettingsFeature.changeDefaultReminderSetting;
-const saveCustomDefaultReminderSetting = userSettingsFeature.saveCustomDefaultReminderSetting;
-const changeBrainDumpLearningSetting = userSettingsFeature.changeBrainDumpLearningSetting;
-const resetBrainDumpLearning = userSettingsFeature.resetBrainDumpLearning;
-const changeUserPassword = userSettingsFeature.changeUserPassword;
-const confirmTwoFactorTotp = userSettingsFeature.confirmTwoFactorTotp;
-const disableTwoFactor = userSettingsFeature.disableTwoFactor;
-const regenerateRecoveryCodes = userSettingsFeature.regenerateRecoveryCodes;
-const toggleTrustedDevicesList = userSettingsFeature.toggleTrustedDevicesList;
-const revokeAllTrustedDevices = userSettingsFeature.revokeAllTrustedDevices;
-const startAvatarUpload = userSettingsFeature.startAvatarUpload;
-const cancelAvatarCrop = userSettingsFeature.cancelAvatarCrop;
-const saveAvatarCrop = userSettingsFeature.saveAvatarCrop;
-const deleteUserAvatar = userSettingsFeature.deleteUserAvatar;
 const loadSavedPlaces = userSettingsFeature.loadSavedPlaces;
-const saveSettingsPlace = userSettingsFeature.saveSettingsPlace;
-const cancelSettingsPlaceEdit = userSettingsFeature.cancelSettingsPlaceEdit;
 const updateUserMenu = userMenuFeature.updateUserMenu;
 const bindUserMenu = userMenuFeature.bindUserMenu;
 // ─── API Keys ────────────────────────────────────────────────────────────────
@@ -296,9 +279,8 @@ const bindUserMenu = userMenuFeature.bindUserMenu;
 const resetApiKeyUi = apiKeysFeature.resetApiKeyUi;
 const loadApiKeys = apiKeysFeature.loadApiKeys;
 const renderApiKeys = apiKeysFeature.renderApiKeys;
-const createApiKey = apiKeysFeature.createApiKey;
 const revokeApiKey = apiKeysFeature.revokeApiKey;
-const copyApiKey = apiKeysFeature.copyApiKey;
+const bindApiKeyActions = apiKeysFeature.bindApiKeyActions;
 
 // ─── Theme System ───────────────────────────────────────────────────────────
 
@@ -587,9 +569,7 @@ const restoreTodo = toastUndoFeature.restoreTodo;
 
 const updatePushStatus = pushFeature.updatePushStatus;
 const updatePushSettingsUI = pushFeature.updatePushSettingsUI;
-const enablePushNotifications = pushFeature.enablePushNotifications;
-const disablePushNotifications = pushFeature.disablePushNotifications;
-const sendTestPush = pushFeature.sendTestPush;
+const bindPushActions = pushFeature.bindPushActions;
 
 const appLifecycle = createAppLifecycle({
   authApi,
@@ -653,6 +633,9 @@ export function startAppModule() {
   appLifecycle.bindDomReady();
   bindUserMenu();
   bindUserSettingsActions();
+  bindApiKeyActions();
+  bindPushActions();
+  desktopIntegration?.bindDesktopActions?.();
   hydrateIcons(document);
   confirmDialogFeature.bindConfirmDialog();
   consumeOidcErrorNotice();
@@ -701,7 +684,7 @@ export function startAppModule() {
   // Expose legacy inline handlers for module-loaded frontend.
   exposeLegacyGlobals({
   auth: { getAuthToken, getCsrfToken, getAuthHeaders, login, checkAuth, logout, clearIndexedDB, showLoginOverlay, hideLoginOverlay, handleLogin, bindLoginForm },
-  apiKeys: { loadApiKeys, renderApiKeys, createApiKey, revokeApiKey, copyApiKey },
+  apiKeys: { loadApiKeys, renderApiKeys, revokeApiKey },
   utils: { escapeHtml, escapeHtmlAttr, jsArg, formatDate, renderTodoItem },
   theme: { initTheme, applyTheme, cycleTheme, toggleAccentPresetMenu },
   websocket: { getReconnectDelay, connectWebSocket, wsSend, startPingInterval, stopPingInterval, scheduleReconnect, disconnectWebSocket, updateConnectionStatus, handleWsMessage },
@@ -718,15 +701,14 @@ export function startAppModule() {
   dragDrop: { handleTodoDragStart, handleTodoDragEnd, handleTodoDragOver, handleTodoDrop, handleProjectDragOver, handleProjectDrop, handleSectionDragStart, handleSectionDragEnd, handleSectionDragOver, handleSectionDrop },
   viewPreferences: { updateToggleDoneButton, updateSortButton, sortTodoList, updateProjectWidgetButton },
   toastUndo: { showToast, showBatchToast, restoreBatchTodos, restoreTodo },
-    push: { updatePushStatus, updatePushSettingsUI, enablePushNotifications, disablePushNotifications, sendTestPush },
+    push: { updatePushStatus, updatePushSettingsUI },
     desktopIntegration: {
       updateDesktopSetting: (key, value) => desktopIntegration?.updateSetting(key, value),
       updateDesktopServerUrl: (value) => desktopIntegration?.updateServerUrl(value),
       resetDesktopServerUrl: () => desktopIntegration?.resetServerUrl(),
-      testDesktopNotification: () => desktopIntegration?.testNotification(),
       updateDesktopHotkey: (action, shortcut) => desktopIntegration?.updateHotkey(action, shortcut),
     },
-    userSettings: { renderUserInfo, openSettingsModal, changeLanguagePreference, changeDefaultReminderSetting, saveCustomDefaultReminderSetting, changeBrainDumpLearningSetting, resetBrainDumpLearning, startAvatarUpload, cancelAvatarCrop, saveAvatarCrop, deleteUserAvatar, changeUserPassword, confirmTwoFactorTotp, disableTwoFactor, regenerateRecoveryCodes, toggleTrustedDevicesList, revokeAllTrustedDevices, loadSavedPlaces, saveSettingsPlace, cancelSettingsPlaceEdit },
+    userSettings: { renderUserInfo, openSettingsModal, loadSavedPlaces },
     userMenu: { updateUserMenu },
   });
 
