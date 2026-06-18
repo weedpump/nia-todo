@@ -251,6 +251,15 @@ export function cycleTheme() {
   setTheme(cycle[(idx + 1) % cycle.length]);
 }
 
+export function bindThemeOptionButtons() {
+  document.addEventListener('click', (event) => {
+    const button = event.target?.closest?.('.theme-option[data-theme]');
+    if (!button) return;
+    event.preventDefault();
+    setTheme(button.dataset.theme);
+  });
+}
+
 export function bindSystemThemeListener() {
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
     const stored = localStorage.getItem('theme');

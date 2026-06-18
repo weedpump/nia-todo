@@ -272,9 +272,9 @@
   <div id="login-overlay" class="login-overlay hidden">
     <div class="login-box">
       <div class="login-theme-toggle">
-        <button class="btn btn-secondary btn-icon theme-option" data-theme="light" onclick="setTheme('light')" title="Light" data-i18n-title-key="common.theme.light"><span data-icon="sun"></span></button>
-        <button class="btn btn-secondary btn-icon theme-option" data-theme="dark" onclick="setTheme('dark')" title="Dark" data-i18n-title-key="common.theme.dark"><span data-icon="moon"></span></button>
-        <button class="btn btn-secondary btn-icon theme-option" data-theme="system" onclick="setTheme('system')" title="System" data-i18n-title-key="common.theme.system"><span data-icon="monitor"></span></button>
+        <button class="btn btn-secondary btn-icon theme-option" data-theme="light" title="Light" data-i18n-title-key="common.theme.light"><span data-icon="sun"></span></button>
+        <button class="btn btn-secondary btn-icon theme-option" data-theme="dark" title="Dark" data-i18n-title-key="common.theme.dark"><span data-icon="moon"></span></button>
+        <button class="btn btn-secondary btn-icon theme-option" data-theme="system" title="System" data-i18n-title-key="common.theme.system"><span data-icon="monitor"></span></button>
       </div>
       <div class="login-brand">
         <img src="/static/icons/icon-192.png" class="login-logo" alt="nia-todo">
@@ -318,11 +318,11 @@
         <button type="button" class="btn btn-secondary login-forgot-btn hidden" id="login-forgot-btn" data-i18n-key="auth.forgotPassword">Forgot password?</button>
       </form>
       <div class="login-download-divider" aria-hidden="true"></div>
-      <button type="button" class="btn btn-secondary app-download-launcher login-download-launcher" data-app-download-launcher onclick="openAppDownloadsModal()" style="display:none;">
+      <button type="button" class="btn btn-secondary app-download-launcher login-download-launcher" data-app-download-launcher style="display:none;">
         <span data-icon="download"></span>
         <span data-i18n-key="appDownloads.title">Apps herunterladen</span>
       </button>
-      <button type="button" class="login-update-refresh force-refresh-btn" data-force-refresh-button onclick="forceReloadApp()" title="Web-App neu herunterladen und Cache aktualisieren" data-i18n-title-key="version.refreshCache"><span data-icon="refresh-cw"></span><span data-i18n-key="auth.loginUpdateAction">Anmeldeproblem? App neu laden</span></button>
+      <button type="button" class="login-update-refresh force-refresh-btn" data-force-refresh-button title="Web-App neu herunterladen und Cache aktualisieren" data-i18n-title-key="version.refreshCache"><span data-icon="refresh-cw"></span><span data-i18n-key="auth.loginUpdateAction">Anmeldeproblem? App neu laden</span></button>
     </div>
   </div>
 
@@ -406,10 +406,10 @@
           <div class="version-actions web-version-actions" id="version-actions">
             <a class="changelog-link version-action-btn" id="changelog-link" href="/changelog" target="_blank" rel="noopener noreferrer" title="Open changelog" data-i18n-title-key="version.openChangelog" data-i18n-key="resource.changelog">Changelog</a>
             <span class="version-action-separator" aria-hidden="true">|</span>
-            <button type="button" class="force-refresh-btn version-action-btn" id="force-refresh-btn" onclick="forceReloadApp()" title="Web-App neu herunterladen und Cache aktualisieren" data-i18n-title-key="version.refreshCache" data-i18n-key="version.reload">↻ Neu laden</button>
+            <button type="button" class="force-refresh-btn version-action-btn" id="force-refresh-btn" title="Web-App neu herunterladen und Cache aktualisieren" data-i18n-title-key="version.refreshCache" data-i18n-key="version.reload">↻ Neu laden</button>
           </div>
           <div class="version-download-divider web-version-actions" aria-hidden="true"></div>
-          <button type="button" class="btn btn-secondary app-download-launcher" data-app-download-launcher onclick="openAppDownloadsModal()" style="display:none;">
+          <button type="button" class="btn btn-secondary app-download-launcher" data-app-download-launcher style="display:none;">
             <span data-icon="download"></span>
             <span data-i18n-key="appDownloads.title">Apps herunterladen</span>
           </button>
@@ -426,7 +426,7 @@
         <p data-i18n-key="update.web.message">A new web app version is available.</p>
         <p class="web-update-meta"><span data-i18n-key="update.web.current">Aktuell geladen:</span> <span id="web-update-current-version">–</span></p>
         <div class="web-update-actions">
-          <button type="button" class="btn btn-primary" id="web-update-apply-btn" onclick="triggerUpdate()" data-i18n-key="update.web.apply">Jetzt aktualisieren</button>
+          <button type="button" class="btn btn-primary" id="web-update-apply-btn" data-i18n-key="update.web.apply">Jetzt aktualisieren</button>
         </div>
       </div>
     </div>

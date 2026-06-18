@@ -68,7 +68,6 @@ export function createAppRenderingFeature({
       button.id = 'force-refresh-btn';
       button.title = t('version.refreshCache');
       button.textContent = t('version.reload');
-      button.addEventListener('click', () => window.forceReloadApp?.());
       if (document.getElementById('online-status')?.classList.contains('status-offline')) {
         button.disabled = true;
         button.classList.add('is-offline-disabled');

@@ -392,6 +392,22 @@ export function createServiceWorkerUpdatesFeature() {
     return true;
   }
 
+  function bindServiceWorkerUpdateButtons() {
+    document.addEventListener('click', (event) => {
+      const forceButton = event.target?.closest?.('[data-force-refresh-button], #force-refresh-btn');
+      if (forceButton) {
+        event.preventDefault();
+        forceReloadApp();
+        return;
+      }
+      const updateButton = event.target?.closest?.('#web-update-apply-btn');
+      if (updateButton) {
+        event.preventDefault();
+        triggerUpdate();
+      }
+    });
+  }
+
   async function forceReloadApp() {
     const buttons = Array.from(document.querySelectorAll('#force-refresh-btn, [data-force-refresh-button]'));
     const previousTitles = new Map(buttons.map(button => [button, button.title]));
@@ -446,6 +462,7 @@ export function createServiceWorkerUpdatesFeature() {
     initServiceWorker,
     triggerUpdate,
     forceReloadApp,
+    bindServiceWorkerUpdateButtons,
     isUpdateAvailable: () => updateAvailable,
   };
 }
