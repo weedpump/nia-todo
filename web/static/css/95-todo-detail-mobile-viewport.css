@@ -2,7 +2,6 @@
 
 @media (max-width: 768px) {
   #todo-modal.todo-detail-view .todo-modal-content {
-    height: 100vh;
     height: 100svh;
     height: 100dvh;
     max-height: 100vh;
