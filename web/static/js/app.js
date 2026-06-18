@@ -408,7 +408,6 @@ const sectionActions = createSectionActionsFeature({
   sectionsFeature,
 });
 const renderSectionHeader = sectionActions.renderSectionHeader;
-const showAddSectionForm = sectionActions.showAddSectionForm;
 const bindSectionActions = sectionActions.bindSectionActions;
 const appRendering = createAppRenderingFeature({
   appVersion: APP_VERSION,
@@ -503,7 +502,6 @@ const showProjectModal = projectsFeature.showProjectModal;
 const deleteProject = projectsFeature.deleteProject;
 const bindProjectActions = projectsFeature.bindProjectActions;
 const clearDoneFromModal = projectsFeature.clearDoneFromModal;
-const clearDoneInProject = projectsFeature.clearDoneInProject;
 
 const markTodoDone = todosFeature.markTodoDone;
 const markTodoInProgress = todosFeature.markTodoInProgress;
@@ -722,9 +720,9 @@ export function startAppModule() {
   rendering: { renderVersionInfo, renderProjects, renderStats, renderTodos, renderSectionHeader, countByProject },
   navigation: { setFilter, loadSectionsForCurrentProject, bindNavigationHistory },
   todos: { markTodoDone, markTodoInProgress, deleteTodoComment, deleteTodoAttachment, saveTodo, editTodo, deleteTodoFromModal },
-  projects: { showProjectModal, deleteProject, clearDoneFromModal, clearDoneInProject },
+  projects: { showProjectModal, deleteProject, clearDoneFromModal },
   projectSharing: { setProject: (project) => sharingFeature.setProject(project), applyProjectModalState: (project, canEdit, shared) => sharingFeature.applyProjectModalState(project, canEdit, shared), loadInvites: () => sharingFeature.loadInvites() },
-  sections: { showAddSectionForm },
+  sections: { },
   dragDrop: { handleTodoDragStart, handleTodoDragEnd, handleTodoDragOver, handleTodoDrop, handleProjectDragOver, handleProjectDrop, handleSectionDragStart, handleSectionDragEnd, handleSectionDragOver, handleSectionDrop },
   viewPreferences: { updateToggleDoneButton, updateSortButton, sortTodoList, updateProjectWidgetButton },
   toastUndo: { showToast, showBatchToast, restoreBatchTodos, restoreTodo },

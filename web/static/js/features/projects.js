@@ -328,6 +328,8 @@ export function createProjectsFeature({
         editProject(target.dataset.projectId);
       } else if (action === 'delete-from-modal') {
         deleteProjectFromModal();
+      } else if (action === 'clear-done-current') {
+        clearDoneInProject();
       }
     });
   }
