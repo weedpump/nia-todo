@@ -1500,9 +1500,9 @@ select:focus-visible {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-height: 38px;
+  min-height: 34px;
   box-sizing: border-box;
-  padding: 8px 16px;
+  padding: 7px 14px;
   border: none;
   border-radius: 999px;
   font-size: 14px;
@@ -1625,16 +1625,8 @@ select:focus-visible {
 
 .btn-secondary { background: var(--bg-tertiary); color: var(--text-primary); }
 .btn-secondary:hover { background: var(--bg-hover); }
-.btn-action {
-  min-height: 34px;
-  min-width: 108px;
-  padding: 7px 14px;
-}
-.btn-action .ui-icon {
-  width: 15px;
-  height: 15px;
-  flex: 0 0 auto;
-}
+/* Deprecated: use .btn with semantic variants; compact sizing is now the base button density. */
+.btn-action {}
 .btn-small {
   min-height: 34px;
   padding: 7px 10px;
@@ -1771,6 +1763,36 @@ select:focus-visible {
     padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
     border-top: 1px solid var(--border);
     z-index: 2;
+  }
+
+  .modal-actions,
+  .settings-card-actions,
+  .settings-action-row,
+  .settings-actions-row,
+  .entity-modal-actions,
+  .todo-modal-actions-left,
+  .todo-modal-actions-main,
+  .todo-detail-action-row,
+  .todo-comments-add-group {
+    align-items: stretch;
+  }
+
+  .settings-action-row > .app-resource-links {
+    width: 100%;
+  }
+
+  .modal-actions > .btn:not(.btn-icon),
+  .settings-card-actions > .btn:not(.btn-icon),
+  .settings-action-row > .btn:not(.btn-icon),
+  .settings-action-row > .app-resource-links > .btn:not(.btn-icon),
+  .settings-actions-row > .btn:not(.btn-icon),
+  .entity-modal-actions > .btn:not(.btn-icon),
+  .entity-modal-actions .modal-actions-right > .btn:not(.btn-icon),
+  .todo-modal-actions-left > .btn:not(.btn-icon),
+  .todo-modal-actions-main > .btn:not(.btn-icon),
+  .todo-detail-action-row > .btn:not(.btn-icon),
+  .todo-comments-add-group > .btn:not(.btn-icon) {
+    width: 100%;
   }
 }
 
@@ -5130,11 +5152,6 @@ input[type="color"]::-moz-color-swatch {
   gap: 10px;
 }
 
-.settings-2fa-trusted-header .btn {
-  font-size: 12px;
-  padding: 5px 9px;
-}
-
 .settings-2fa-devices {
   display: grid;
   gap: 8px;
@@ -5200,8 +5217,6 @@ input[type="color"]::-moz-color-swatch {
 }
 
 .settings-device-row .btn {
-  font-size: 12px;
-  padding: 5px 9px;
   flex-shrink: 0;
 }
 
@@ -6238,9 +6253,6 @@ input[type="color"]::-moz-color-swatch {
   width: 100%;
 }
 
-.settings-default-reminder-custom-row button {
-  min-height: 40px;
-}
 
 @media (max-width: 520px) {
   .settings-default-reminder-custom-row {
@@ -6250,8 +6262,6 @@ input[type="color"]::-moz-color-swatch {
 
   .settings-default-reminder-custom-row button {
     grid-column: 1 / -1;
-    width: 100%;
-    min-height: 42px;
   }
 }
 
@@ -6439,129 +6449,6 @@ input[type="color"]::-moz-color-swatch {
   }
 }
 
-/* Settings button layout */
-#settings-modal .settings-card-actions,
-#settings-modal .settings-action-row {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  align-items: stretch;
-  gap: 10px;
-}
-
-#settings-modal .settings-card-actions > .btn,
-#settings-modal .settings-action-row > .btn,
-#settings-modal .settings-action-row > .app-resource-links {
-  width: 100%;
-  min-width: 0;
-}
-
-#settings-modal #settings-2fa-actions {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-#settings-modal #settings-2fa-actions .btn-danger {
-  grid-column: auto;
-}
-
-#settings-modal .settings-secret-box .btn {
-  width: 100%;
-  margin-top: 2px;
-}
-
-#settings-modal .settings-2fa-setup-card > .btn {
-  width: 100%;
-  margin-top: 12px;
-}
-
-#settings-modal .settings-2fa-trusted-header {
-  align-items: center;
-  gap: 10px;
-}
-
-#settings-modal .settings-2fa-trusted-header .settings-sessions-toggle {
-  min-height: 34px;
-  flex: 1 1 auto;
-}
-
-#settings-modal .settings-2fa-trusted-header .btn {
-  flex: 0 0 auto;
-  min-width: 118px;
-}
-
-#settings-modal .settings-device-row .btn {
-  min-width: 96px;
-}
-
-#settings-modal .settings-modal-actions {
-  display: flex;
-  justify-content: flex-end;
-}
-
-#settings-modal .settings-modal-actions .btn {
-  min-width: 128px;
-}
-
-@media (max-width: 768px) {
-  #settings-modal .settings-card-actions,
-  #settings-modal .settings-action-row,
-  #settings-modal #settings-2fa-actions {
-    grid-template-columns: 1fr;
-    gap: 8px;
-  }
-
-  #settings-modal .btn {
-    width: 100%;
-  }
-
-  #settings-modal .settings-2fa-trusted-header {
-    display: grid;
-    grid-template-columns: 1fr;
-    align-items: stretch;
-  }
-
-  #settings-modal .settings-2fa-trusted-header .btn {
-    width: 100%;
-    min-width: 0;
-  }
-
-  #settings-modal .settings-device-row {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  #settings-modal .settings-device-row .btn {
-    width: 100%;
-  }
-
-  #settings-modal .settings-modal-actions {
-    justify-content: stretch;
-  }
-}
-
-/* Settings button sizing refinement */
-@media (min-width: 769px) {
-  #settings-modal .settings-card-actions {
-    display: flex;
-    justify-content: flex-end;
-    align-items: center;
-  }
-
-  #settings-modal .settings-card-actions > .btn {
-    width: auto;
-    min-width: 180px;
-  }
-
-  #settings-modal .settings-action-row > .btn {
-    height: 38px;
-  }
-
-  #settings-modal .settings-2fa-trusted-header .btn,
-  #settings-modal .settings-device-row .btn {
-    height: 34px;
-    min-height: 34px;
-  }
-}
-
 /* Shared form layout primitives */
 .ui-field-grid {
   display: grid;
@@ -6663,9 +6550,6 @@ input[type="color"]::-moz-color-swatch {
   margin-left: auto;
 }
 
-#todo-modal .todo-modal-actions .btn {
-  min-width: 118px;
-}
 
 #todo-modal #todo-delete-btn {
   margin-right: auto;
@@ -6711,10 +6595,6 @@ input[type="color"]::-moz-color-swatch {
     padding: 14px;
   }
 
-  .ui-section-card .btn:not(.btn-icon):not(.btn-action) {
-    min-height: 42px;
-  }
-
   .ui-section-heading {
     gap: 10px;
     margin-bottom: 14px;
@@ -6756,23 +6636,6 @@ input[type="color"]::-moz-color-swatch {
     justify-content: flex-end;
   }
 
-  #todo-modal .todo-modal-actions .btn {
-    width: auto;
-    min-width: 0;
-    min-height: 40px;
-  }
-
-  #todo-modal #todo-cancel-btn {
-    flex: 0 0 auto;
-    min-width: 86px;
-    padding-inline: 12px;
-  }
-
-  #todo-modal #todo-save-btn {
-    flex: 0 0 auto;
-    min-width: 108px;
-    padding-inline: 16px;
-  }
 
   #todo-modal #todo-duplicate-btn,
   #todo-modal #todo-delete-btn {
@@ -9486,8 +9349,6 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
 
 #todo-modal.todo-detail-view .todo-comments-add-group .btn {
   margin-top: 8px;
-  min-height: 34px;
-  border-radius: 999px;
 }
 
 #todo-modal.todo-detail-view .todo-comments-list {
@@ -9714,13 +9575,6 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
 
 #todo-modal.todo-detail-view #todo-attachment-upload-btn {
   justify-self: end;
-}
-
-#todo-modal.todo-detail-view .todo-subtasks-add-row .btn,
-#todo-modal.todo-detail-view .todo-attachments-add-row .btn,
-#todo-modal.todo-detail-view .todo-comments-add-group .btn {
-  min-width: 108px;
-  justify-content: center;
 }
 
 #todo-modal.todo-detail-view .todo-comments-add-group .btn {
@@ -10706,11 +10560,6 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   opacity: .82;
 }
 
-#todo-modal.todo-detail-view .todo-detail-action-btn {
-  width: auto;
-  max-width: none;
-}
-
 #todo-modal.todo-detail-view .todo-comments-add-group .todo-detail-action-btn,
 #todo-modal.todo-detail-view .todo-meta-edit-toggle.todo-detail-action-btn {
   justify-self: end;
@@ -10737,14 +10586,6 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
     content: none;
   }
 
-  #todo-modal.todo-detail-view .todo-detail-action-btn.btn.btn-secondary,
-  #todo-modal.todo-detail-view .todo-detail-action-btn.btn.btn-secondary:hover,
-  #todo-modal.todo-detail-view .todo-detail-action-btn.btn.btn-secondary:focus-visible {
-    width: 100%;
-    min-width: 0;
-    max-width: none;
-    justify-self: stretch;
-  }
 
   #todo-modal.todo-detail-view .todo-comments-add-group .todo-detail-action-btn,
   #todo-modal.todo-detail-view .todo-meta-edit-toggle.todo-detail-action-btn,
