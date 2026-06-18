@@ -70,12 +70,6 @@
   padding-top: 0;
 }
 
-#todo-modal.todo-detail-view .todo-subtasks-card,
-#todo-modal.todo-detail-view .todo-comments-card,
-#todo-modal.todo-detail-view .todo-attachments-card {
-  padding-top: 18px;
-  border-top: 1px solid color-mix(in srgb, var(--border) 44%, transparent);
-}
 
 #todo-modal.todo-detail-view #todo-organize-panel,
 #todo-modal.todo-detail-view #todo-schedule-panel {
@@ -141,11 +135,6 @@
 
 
 @media (max-width: 1180px) {
-  #todo-modal.todo-detail-view .todo-modal-content {
-    width: 100vw;
-    height: 100vh;
-    border-radius: 0;
-  }
 
   #todo-modal.todo-detail-view .todo-modal-header {
     width: calc(100% - 32px);
