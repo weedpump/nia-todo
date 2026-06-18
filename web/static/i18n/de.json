@@ -1354,5 +1354,7 @@
   "todo.attachments.fileTooLarge": "Datei ist zu groß. Maximum: {max}.",
   "todo.attachments.fileTooLargeGeneric": "Datei ist zu groß.",
   "todo.attachments.tooMany": "Dieses Todo hat bereits die maximale Anzahl Anhänge.",
-  "admin.attachments.summary": "Uploads"
+  "admin.attachments.summary": "Uploads",
+  "colorPicker.selected": "Gewählte Farbe",
+  "colorPicker.custom": "Eigene"
 }

@@ -1,5 +1,6 @@
 import { t } from '../i18n/index.js';
 import { renderIconPicker } from '../icons/lucide-icons.js';
+import { renderColorPicker } from '../ui/color-picker.js';
 import { hydrateSelect, refreshSelect } from '../ui/dropdowns.js';
 
 export function createProjectsFeature({
@@ -197,11 +198,16 @@ export function createProjectsFeature({
 
     const colorInput = document.getElementById('project-color');
     if (colorInput) {
-      colorInput.oninput = () => renderIconPicker({
-        container: document.getElementById('project-icon-picker'),
-        input: document.getElementById('project-icon'),
-        selected: document.getElementById('project-icon')?.value || '',
-        color: colorInput.value || '#6366f1',
+      renderColorPicker({
+        container: document.getElementById('project-color-picker'),
+        input: colorInput,
+        selected: colorInput.value || '#6366f1',
+        onChange: (color) => renderIconPicker({
+          container: document.getElementById('project-icon-picker'),
+          input: document.getElementById('project-icon'),
+          selected: document.getElementById('project-icon')?.value || '',
+          color,
+        }),
       });
     }
 
