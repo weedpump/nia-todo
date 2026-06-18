@@ -1385,15 +1385,15 @@
               <label data-i18n-key="project.share.inviteUser">Invite user</label>
               <div class="project-share-inline">
                 <input id="project-share-username" type="text" class="form-control" placeholder="Username or email" data-i18n-placeholder-key="project.share.usernamePlaceholder">
-                <button type="button" class="btn btn-primary" onclick="inviteUserToProject()" data-i18n-key="project.share.invite">Einladen</button>
+                <button type="button" class="btn btn-primary" data-project-sharing-action="invite" data-i18n-key="project.share.invite">Einladen</button>
               </div>
               <div id="project-share-error" class="form-error"></div>
             </div>
           </div>
           <div id="project-share-start-row" class="project-share-start-row">
-            <button type="button" class="btn btn-secondary" onclick="showShareInput()"><span data-icon="share-2"></span> <span data-i18n-key="project.share.start">Teilen</span></button>
+            <button type="button" class="btn btn-secondary" data-project-sharing-action="show-share-input"><span data-icon="share-2"></span> <span data-i18n-key="project.share.start">Teilen</span></button>
           </div>
-          <button type="button" class="btn btn-secondary project-leave-btn" id="project-leave-btn" onclick="leaveProjectFromModal()" style="display:none;" data-i18n-key="project.share.leave">Leave project</button>
+          <button type="button" class="btn btn-secondary project-leave-btn" id="project-leave-btn" data-project-sharing-action="leave" style="display:none;" data-i18n-key="project.share.leave">Leave project</button>
         </section>
       </div>
       <div class="modal-actions entity-modal-actions">
