@@ -250,10 +250,6 @@
     padding: 12px 12px max(112px, calc(96px + env(safe-area-inset-bottom, 0px)));
   }
 
-  .project-group-todos {
-    padding-left: 0;
-    border-left: 0;
-  }
 
   .todo-item {
     align-items: center;
