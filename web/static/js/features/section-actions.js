@@ -108,7 +108,8 @@ export function createSectionActionsFeature({
       const action = target.dataset.sectionAction;
       event.preventDefault();
       event.stopPropagation();
-      if (action === 'edit') sectionsFeature.editSectionInline(resolveSectionId(target.dataset.sectionId));
+      if (action === 'show-add') sectionsFeature.showAddSectionForm();
+      else if (action === 'edit') sectionsFeature.editSectionInline(resolveSectionId(target.dataset.sectionId));
       else if (action === 'delete') await deleteSection(target.dataset.sectionId);
       else if (action === 'save-new') await saveNewSection();
       else if (action === 'save-edit') await saveSectionEdit(target.dataset.sectionId);
