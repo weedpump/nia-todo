@@ -234,9 +234,9 @@
   <div id="login-overlay" class="login-overlay hidden">
     <div class="login-box">
       <div class="login-theme-toggle">
-        <button class="theme-option" data-theme="light" onclick="setTheme('light')" title="Light" data-i18n-title-key="common.theme.light"><span data-icon="sun"></span></button>
-        <button class="theme-option" data-theme="dark" onclick="setTheme('dark')" title="Dark" data-i18n-title-key="common.theme.dark"><span data-icon="moon"></span></button>
-        <button class="theme-option" data-theme="system" onclick="setTheme('system')" title="System" data-i18n-title-key="common.theme.system"><span data-icon="monitor"></span></button>
+        <button class="btn btn-secondary btn-icon theme-option" data-theme="light" onclick="setTheme('light')" title="Light" data-i18n-title-key="common.theme.light"><span data-icon="sun"></span></button>
+        <button class="btn btn-secondary btn-icon theme-option" data-theme="dark" onclick="setTheme('dark')" title="Dark" data-i18n-title-key="common.theme.dark"><span data-icon="moon"></span></button>
+        <button class="btn btn-secondary btn-icon theme-option" data-theme="system" onclick="setTheme('system')" title="System" data-i18n-title-key="common.theme.system"><span data-icon="monitor"></span></button>
       </div>
       <div class="login-brand">
         <img src="/static/icons/icon-192.png" class="login-logo" alt="nia-todo">
@@ -246,38 +246,38 @@
       <form id="login-form">
         <div class="login-field">
           <label for="login-username" data-i18n-key="auth.usernameOrEmail">Username or email</label>
-          <input type="text" id="login-username" required placeholder="Username or email" data-i18n-placeholder-key="auth.usernameOrEmail" autocomplete="username">
+          <input type="text" class="ui-field" id="login-username" required placeholder="Username or email" data-i18n-placeholder-key="auth.usernameOrEmail" autocomplete="username">
         </div>
         <div class="login-field">
           <label for="login-password" data-i18n-key="auth.password">Password</label>
-          <input type="password" id="login-password" required placeholder="Enter password" data-i18n-placeholder-key="auth.passwordPlaceholder" autocomplete="current-password">
+          <input type="password" class="ui-field" id="login-password" required placeholder="Enter password" data-i18n-placeholder-key="auth.passwordPlaceholder" autocomplete="current-password">
         </div>
         <div id="login-mfa-panel" class="login-mfa-panel hidden">
           <div class="login-mfa-hint" id="login-mfa-hint" data-i18n-key="auth.mfa.codePrompt">Enter 2FA code</div>
           <div class="login-field" id="login-mfa-code-wrap">
             <label for="login-mfa-code" id="login-mfa-code-label" data-i18n-key="auth.mfa.codeLabel">2FA-Code</label>
-            <input type="text" id="login-mfa-code" placeholder="Enter code" data-i18n-placeholder-key="auth.mfa.codePlaceholder" autocomplete="one-time-code" inputmode="numeric">
+            <input type="text" class="ui-field" id="login-mfa-code" placeholder="Enter code" data-i18n-placeholder-key="auth.mfa.codePlaceholder" autocomplete="one-time-code" inputmode="numeric">
           </div>
-          <button type="button" class="login-mfa-switch-btn hidden" id="login-mfa-switch-btn"></button>
+          <button type="button" class="btn btn-secondary login-mfa-switch-btn hidden" id="login-mfa-switch-btn"></button>
           <label class="login-remember-device">
             <input type="checkbox" id="login-remember-device">
             <span data-i18n-key="auth.mfa.rememberDevice">Remember this device for 30 days</span>
           </label>
-          <button type="button" class="login-back-btn" id="login-mfa-back-btn" data-i18n-key="common.back">Back</button>
+          <button type="button" class="btn btn-secondary login-back-btn" id="login-mfa-back-btn" data-i18n-key="common.back">Back</button>
         </div>
         <div id="login-error" class="login-error"></div>
         <div id="login-reset-panel" class="login-reset-panel hidden">
-          <input type="text" id="login-reset-identifier" placeholder="Username or email" data-i18n-placeholder-key="auth.usernameOrEmail" autocomplete="username">
-          <button type="button" class="login-reset-submit" id="login-reset-submit" data-i18n-key="auth.reset.requestLink">Request reset link</button>
+          <input type="text" class="ui-field" id="login-reset-identifier" placeholder="Username or email" data-i18n-placeholder-key="auth.usernameOrEmail" autocomplete="username">
+          <button type="button" class="btn btn-secondary login-reset-submit" id="login-reset-submit" data-i18n-key="auth.reset.requestLink">Request reset link</button>
           <div id="login-reset-message" class="login-reset-message"></div>
         </div>
-        <button type="submit" class="login-btn" data-i18n-key="auth.signIn">Sign in</button>
+        <button type="submit" class="btn btn-primary login-btn" data-i18n-key="auth.signIn">Sign in</button>
         <div class="login-auth-alternatives">
           <div class="login-auth-divider"><span data-i18n-key="auth.alternativeSignIn">or</span></div>
-          <button type="button" class="login-passkey-btn hidden" id="login-oidc-btn" data-i18n-key="auth.oidc.signIn">Sign in with OIDC</button>
-          <button type="button" class="login-passkey-btn hidden" id="login-passkey-btn" data-i18n-key="auth.mfa.signInWithPasskey">Sign in with passkey</button>
+          <button type="button" class="btn btn-secondary login-passkey-btn hidden" id="login-oidc-btn" data-i18n-key="auth.oidc.signIn">Sign in with OIDC</button>
+          <button type="button" class="btn btn-secondary login-passkey-btn hidden" id="login-passkey-btn" data-i18n-key="auth.mfa.signInWithPasskey">Sign in with passkey</button>
         </div>
-        <button type="button" class="login-forgot-btn hidden" id="login-forgot-btn" data-i18n-key="auth.forgotPassword">Forgot password?</button>
+        <button type="button" class="btn btn-secondary login-forgot-btn hidden" id="login-forgot-btn" data-i18n-key="auth.forgotPassword">Forgot password?</button>
       </form>
       <div class="login-download-divider" aria-hidden="true"></div>
       <button type="button" class="app-download-launcher login-download-launcher" data-app-download-launcher onclick="openAppDownloadsModal()" style="display:none;">

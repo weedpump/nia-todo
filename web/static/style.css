@@ -3064,20 +3064,8 @@ input[type="color"]::-moz-color-swatch {
   margin-bottom: 6px;
 }
 
-.login-field input {
+.login-field .ui-field {
   width: 100%;
-  padding: 12px 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  font-size: 15px;
-  outline: none;
-  transition: border-color 0.15s;
-}
-
-.login-field input:focus {
-  border-color: var(--accent);
 }
 
 .login-error {
@@ -3087,44 +3075,17 @@ input[type="color"]::-moz-color-swatch {
   min-height: 20px;
 }
 
-.login-btn {
+.login-btn,
+.login-passkey-btn,
+.login-forgot-btn,
+.login-reset-submit {
   width: 100%;
-  padding: 12px;
-  border: none;
-  border-radius: var(--radius);
-  background: var(--accent);
-  color: white;
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s;
 }
 
-.login-btn:hover {
-  background: var(--accent-hover);
-  transform: translateY(-1px);
-}
-
-.login-btn:active {
-  transform: translateY(0);
-}
-
-.login-passkey-btn, .login-forgot-btn, .login-reset-submit {
-  width: 100%;
+.login-passkey-btn,
+.login-forgot-btn,
+.login-reset-submit {
   margin-top: 10px;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-primary);
-  color: var(--text-secondary);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.login-passkey-btn:hover, .login-forgot-btn:hover, .login-reset-submit:hover {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
 }
 
 .login-reset-panel,
@@ -3162,34 +3123,14 @@ input[type="color"]::-moz-color-swatch {
 .login-back-btn,
 .login-mfa-switch-btn {
   width: 100%;
-  padding: 9px 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-secondary);
-  color: var(--text-secondary);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
 }
 
 .login-mfa-switch-btn {
   margin: -2px 0 10px;
 }
 
-.login-back-btn:hover,
-.login-mfa-switch-btn:hover {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-}
-
-.login-reset-panel input {
+.login-reset-panel .ui-field {
   width: 100%;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  font-size: 14px;
 }
 
 .login-reset-message {
@@ -3206,26 +3147,6 @@ input[type="color"]::-moz-color-swatch {
   display: flex;
   justify-content: center;
   gap: 6px;
-}
-
-.login-theme-toggle .theme-option {
-  width: 32px;
-  height: 32px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-primary);
-  color: var(--text-secondary);
-  cursor: pointer;
-  font-size: 15px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.1s;
-}
-
-.login-theme-toggle .theme-option:hover {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
 }
 
 .login-theme-toggle .theme-option.active {
