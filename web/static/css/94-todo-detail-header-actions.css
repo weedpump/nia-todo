@@ -234,35 +234,6 @@
   }
 }
 
-/* Todo meta drawer: mobile close icon matches clean Todo detail close style. */
-#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-drawer-close {
-  width: 34px;
-  height: 34px;
-  min-height: 34px;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  color: var(--text-muted);
-  box-shadow: none;
-}
-
-#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-drawer-close:hover,
-#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-drawer-close:focus-visible {
-  color: var(--text-primary);
-  border: 0;
-  background: transparent;
-  box-shadow: none;
-  outline: none;
-}
-
-/* Todo meta drawer: match close icon glyph size with Todo detail close icon. */
-#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-drawer-close .ui-icon {
-  width: 18px;
-  height: 18px;
-  stroke-width: 2;
-}
-
 /* Todo meta drawer: mobile fullscreen matches Todo detail modal structure; no nested scroll. */
 @media (max-width: 1180px) {
   #todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer {
