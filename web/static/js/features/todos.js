@@ -2803,6 +2803,51 @@ export function createTodosFeature({
     }, 5200);
   }
 
+  function resolveTodoActionId(target) {
+    const rawId = target?.dataset?.todoId || target?.closest?.('.todo-item[data-id]')?.dataset?.id;
+    if (!rawId) return null;
+    const todo = getTodos().find(item => String(item.id) === String(rawId));
+    return todo ? todo.id : rawId;
+  }
+
+  async function handleTodoCardAction(action, target, event) {
+    const id = resolveTodoActionId(target);
+    if (id === null) return false;
+    event.preventDefault();
+    event.stopPropagation();
+    target.closest('details')?.removeAttribute('open');
+
+    if (action === 'toggle-status') {
+      await toggleTodo(id);
+      return true;
+    }
+    if (action === 'set-status') {
+      const status = target.dataset.todoStatus;
+      if (!['pending', 'in_progress', 'done'].includes(status)) return true;
+      await setTodoStatus(id, status);
+      return true;
+    }
+    if (action === 'snooze') {
+      const mode = target.dataset.snoozeMode;
+      if (!['hour', 'evening', 'tomorrow', 'weekend', 'next-week'].includes(mode)) return true;
+      await snoozeTodo(id, mode);
+      return true;
+    }
+    if (action === 'toggle-pin') {
+      await toggleTodoPin(id);
+      return true;
+    }
+    if (action === 'duplicate') {
+      await duplicateTodo(id);
+      return true;
+    }
+    if (action === 'delete') {
+      await deleteTodo(id);
+      return true;
+    }
+    return false;
+  }
+
   let todoActionsBound = false;
   function bindTodoActions() {
     if (todoActionsBound) return;
@@ -2811,6 +2856,7 @@ export function createTodosFeature({
       const target = event.target?.closest?.('[data-todo-action]');
       if (!target) return;
       const action = target.dataset.todoAction;
+      if (await handleTodoCardAction(action, target, event)) return;
       event.preventDefault();
       if (action === 'new') {
         showTodoModal();
