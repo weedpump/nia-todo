@@ -294,7 +294,7 @@ function renderDownloads(target, downloads) {
   target.replaceChildren();
   for (const download of downloads) {
     const link = document.createElement('a');
-    link.className = `app-download-button app-download-button-${download.platform}`;
+    link.className = `btn btn-secondary app-download-button app-download-button-${download.platform}`;
     link.href = download.url;
     link.download = download.filename;
     link.title = platformTitle(download);
