@@ -122,7 +122,6 @@
   grid-template-columns: 1fr;
   gap: 16px;
   align-items: start;
-  justify-content: space-between;
   margin: 10px 0 18px;
   padding-top: 0;
   border-top: 0;
