@@ -1,0 +1,98 @@
+/* Todo detail description rich editor */
+
+/* Todo detail description: meta before description and lightweight WYSIWYG editor. */
+#todo-modal.todo-detail-view #todo-desc {
+  display: none !important;
+}
+
+#todo-modal.todo-detail-view.todo-desc-editing .desc-live-preview {
+  display: none;
+}
+
+#todo-modal.todo-detail-view .todo-desc-rich-wrap {
+  display: none;
+  margin-top: 14px;
+  border: 1px solid color-mix(in srgb, var(--border) 38%, transparent);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--bg-secondary) 22%, transparent);
+  overflow: hidden;
+}
+
+#todo-modal.todo-detail-view.todo-desc-editing .todo-desc-rich-wrap {
+  display: block;
+}
+
+#todo-modal.todo-detail-view .todo-desc-rich-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  padding: 8px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 30%, transparent);
+  background: color-mix(in srgb, var(--bg-primary) 34%, transparent);
+}
+
+#todo-modal.todo-detail-view .todo-desc-rich-toolbar button {
+  min-height: 30px;
+  padding: 5px 9px;
+  border: 1px solid color-mix(in srgb, var(--border) 34%, transparent);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+#todo-modal.todo-detail-view .todo-desc-rich-toolbar button:hover,
+#todo-modal.todo-detail-view .todo-desc-rich-toolbar button:focus-visible {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 44%, transparent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  outline: none;
+}
+
+#todo-modal.todo-detail-view .todo-desc-rich-editor {
+  min-height: 180px;
+  padding: 16px;
+  color: var(--text-primary);
+  font-size: 16px;
+  line-height: 1.68;
+  outline: none;
+}
+
+#todo-modal.todo-detail-view .todo-desc-rich-editor:empty::before {
+  content: attr(data-placeholder);
+  color: var(--text-muted);
+}
+
+#todo-modal.todo-detail-view .todo-desc-rich-editor h1,
+#todo-modal.todo-detail-view .desc-live-preview h1 {
+  margin: 0 0 12px;
+  font-size: 1.65em;
+  line-height: 1.16;
+}
+
+#todo-modal.todo-detail-view .todo-desc-rich-editor h2,
+#todo-modal.todo-detail-view .desc-live-preview h2 {
+  margin: 18px 0 10px;
+  font-size: 1.3em;
+  line-height: 1.2;
+}
+
+#todo-modal.todo-detail-view .todo-desc-rich-editor p,
+#todo-modal.todo-detail-view .desc-live-preview p {
+  margin: 0 0 12px;
+}
+
+#todo-modal.todo-detail-view .todo-desc-rich-editor ul,
+#todo-modal.todo-detail-view .desc-live-preview ul {
+  margin: 8px 0 14px;
+  padding-left: 22px;
+}
+
+#todo-modal.todo-detail-view .todo-desc-rich-editor li,
+#todo-modal.todo-detail-view .desc-live-preview li {
+  margin: 4px 0;
+}

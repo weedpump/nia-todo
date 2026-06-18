@@ -39,6 +39,13 @@ export function createTodosFeature({
   let attachmentPreviewObjectUrl = '';
   let attachmentPreviewDownload = null;
   const deletingSubtaskIds = new Set();
+  const TODO_MODAL_CLASSES = Object.freeze({
+    detail: 'todo-detail-view',
+    create: 'todo-create-view',
+    editingDescription: 'todo-desc-editing',
+    editingMeta: 'todo-meta-editing',
+    hasUnsavedChanges: 'todo-has-unsaved',
+  });
 
   function escapeHtmlAttr(value) {
     return String(value ?? '')
@@ -69,6 +76,16 @@ export function createTodosFeature({
     const panel = document.getElementById(panelId);
     if (!panel) return;
     panel.open = Boolean(shouldOpen);
+  }
+
+  function getTodoModal() {
+    return document.getElementById('todo-modal');
+  }
+
+  function getTodoBeingEdited() {
+    const id = document.getElementById('todo-id')?.value;
+    if (!id) return null;
+    return getTodos().find(todo => String(todo.id) === String(id)) || null;
   }
 
   function isMobileTodoModalLayout() {
@@ -143,8 +160,8 @@ export function createTodosFeature({
         <div class="todo-meta-drawer-body"></div>
       `;
       drawer.querySelector('.todo-meta-drawer-close')?.addEventListener('click', () => {
-        document.getElementById('todo-modal')?.classList.remove('todo-meta-editing');
-        renderTodoMetaSummary(getTodos().find(todo => String(todo.id) === String(document.getElementById('todo-id')?.value)) || null);
+        getTodoModal()?.classList.remove(TODO_MODAL_CLASSES.editingMeta);
+        renderTodoMetaSummary(getTodoBeingEdited());
       });
       form.appendChild(drawer);
     }
@@ -208,12 +225,12 @@ export function createTodosFeature({
     `;
     const toggle = summary.querySelector('#todo-meta-edit-toggle');
     const syncToggleLabel = () => {
-      const active = document.getElementById('todo-modal')?.classList.contains('todo-meta-editing');
+      const active = getTodoModal()?.classList.contains(TODO_MODAL_CLASSES.editingMeta);
       const label = active ? (lang === 'de' ? 'Details schließen' : 'Close details') : edit;
       toggle.innerHTML = `${iconSvg(active ? 'x' : 'settings')}<span>${escapeHtmlAttr(label)}</span>`;
     };
     toggle?.addEventListener('click', () => {
-      document.getElementById('todo-modal')?.classList.toggle('todo-meta-editing');
+      getTodoModal()?.classList.toggle(TODO_MODAL_CLASSES.editingMeta);
       syncToggleLabel();
     });
     syncToggleLabel();
@@ -266,14 +283,14 @@ export function createTodosFeature({
   }
 
   function updateTodoDetailViewMode(todo = null) {
-    const modal = document.getElementById('todo-modal');
+    const modal = getTodoModal();
     if (!modal) return;
     const isExistingTodo = Boolean(todo?.id);
-    modal.classList.add('todo-detail-view');
-    modal.classList.remove('todo-create-view');
-    modal.classList.remove('todo-desc-editing');
-    modal.classList.remove('todo-meta-editing');
-    modal.classList.remove('todo-has-unsaved');
+    modal.classList.add(TODO_MODAL_CLASSES.detail);
+    modal.classList.toggle(TODO_MODAL_CLASSES.create, !isExistingTodo);
+    modal.classList.remove(TODO_MODAL_CLASSES.editingDescription);
+    modal.classList.remove(TODO_MODAL_CLASSES.editingMeta);
+    modal.classList.remove(TODO_MODAL_CLASSES.hasUnsavedChanges);
     const headerActions = ensureTodoDetailHeaderMenu();
     const headerMenu = headerActions?.querySelector('.todo-detail-header-menu-toggle');
     if (headerMenu) headerMenu.hidden = !isExistingTodo;
@@ -335,7 +352,7 @@ export function createTodosFeature({
     editor.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') {
         event.preventDefault();
-        document.getElementById('todo-modal')?.classList.remove('todo-desc-editing');
+        getTodoModal()?.classList.remove(TODO_MODAL_CLASSES.editingDescription);
         return;
       }
       if (event.key === ' ') {
@@ -364,7 +381,7 @@ export function createTodosFeature({
   }
 
   function bindTodoDescriptionInlineEditor() {
-    const modal = document.getElementById('todo-modal');
+    const modal = getTodoModal();
     const textarea = document.getElementById('todo-desc');
     const preview = document.getElementById('todo-desc-preview');
     if (!modal || !textarea || !preview || textarea.dataset.inlineEditorBound === '1') return;
@@ -373,9 +390,9 @@ export function createTodosFeature({
     const editor = wrap.querySelector('#todo-desc-rich-editor');
     editor?.setAttribute('data-placeholder', getActiveLanguage() === 'de' ? 'Beschreibung schreiben…' : 'Write description…');
     const openEditor = () => {
-      if (!modal.classList.contains('todo-detail-view')) return;
+      if (!modal.classList.contains(TODO_MODAL_CLASSES.detail)) return;
       editor.innerHTML = renderMarkdown(textarea.value || '');
-      modal.classList.add('todo-desc-editing');
+      modal.classList.add(TODO_MODAL_CLASSES.editingDescription);
       window.requestAnimationFrame?.(() => editor.focus());
     };
     preview.addEventListener('click', openEditor);
@@ -435,7 +452,7 @@ export function createTodosFeature({
     const current = JSON.stringify(getTodoSaveRelevantState());
     const unchanged = todoSaveSnapshot !== null && current === todoSaveSnapshot;
     saveButton.disabled = unchanged;
-    document.getElementById('todo-modal')?.classList.toggle('todo-has-unsaved', !unchanged);
+    getTodoModal()?.classList.toggle(TODO_MODAL_CLASSES.hasUnsavedChanges, !unchanged);
     refreshTodoActionButtonState();
   }
 
@@ -637,7 +654,7 @@ export function createTodosFeature({
     list.innerHTML = '';
     const normalized = normalizeSubtasks(subtasks)
       .filter(subtask => !deletingSubtaskIds.has(String(subtask.id)))
-      .sort((a, b) => Number(a.is_done) - Number(b.is_done) || Number(a.sort_order) - Number(b.sort_order));
+      .sort((a, b) => Number(a.sort_order) - Number(b.sort_order));
     normalized.forEach(subtask => addTodoSubtaskRow(subtask));
     updateSubtaskEditorCount();
     setTodoCollapsibleOpen('todo-subtasks-panel', normalized.length > 0);
@@ -2505,7 +2522,7 @@ export function createTodosFeature({
     updateTodoDetailViewMode(todo);
     renderTodoMetaSummary(todo);
     document.getElementById('todo-desc-preview')?.setAttribute('tabindex', todo ? '0' : '-1');
-    document.getElementById('todo-modal')?.classList.add('active');
+    getTodoModal()?.classList.add('active');
     if (!todo) focusTodoTitle();
   }
 

@@ -1,0 +1,469 @@
+/* Focus filter views and project-aware custom selects */
+
+/* Focus filter view */
+.focus-filter-card {
+  margin: 0 0 16px;
+}
+
+.focus-filter-heading .overview-greeting {
+  flex: 1;
+}
+
+.focus-filter-avatar .ui-icon,
+.focus-filter-avatar svg {
+  width: 24px;
+  height: 24px;
+}
+
+.focus-filter-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(100px, 140px);
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.focus-days-field.is-muted {
+  opacity: .58;
+}
+
+.focus-filter-card .form-group input,
+.focus-filter-card .ui-select-trigger,
+.focus-filter-card .ui-select-search-input {
+  border-color: color-mix(in srgb, var(--border) 84%, transparent);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--bg-secondary) 94%, var(--bg-primary)), var(--bg-secondary));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bg-primary) 45%, transparent);
+}
+
+.focus-filter-card .form-group input:focus,
+.focus-filter-card .ui-select-search-input:focus {
+  border-color: color-mix(in srgb, var(--accent) 72%, var(--border));
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.18));
+}
+
+.focus-filter-card .form-group input:disabled,
+.focus-filter-card .ui-select.is-disabled .ui-select-trigger {
+  opacity: .62;
+}
+
+.focus-filter-section {
+  padding-top: 12px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+}
+
+.focus-filter-section + .focus-filter-section {
+  margin-top: 12px;
+}
+
+.focus-filter-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.focus-filter-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 8px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.focus-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.focus-chip {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 100%;
+  padding: 7px 10px;
+  border: 1px solid color-mix(in srgb, var(--border) 84%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-primary) 62%, transparent);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: border-color .15s ease, background .15s ease, color .15s ease, box-shadow .15s ease;
+}
+
+.focus-chip:hover {
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
+  color: var(--text-primary);
+}
+
+.focus-chip.active {
+  border-color: color-mix(in srgb, var(--accent) 68%, var(--border));
+  background: color-mix(in srgb, var(--accent) 14%, var(--bg-primary));
+  color: var(--text-primary);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+.focus-chip .project-marker,
+.focus-chip .project-dot {
+  flex: 0 0 auto;
+}
+
+.focus-chip span:not(.project-dot) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.focus-muted {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+@media (max-width: 768px) {
+  .focus-filter-card {
+    margin: 0 0 14px;
+  }
+
+  .focus-filter-heading {
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .focus-filter-grid,
+  .focus-filter-split {
+    grid-template-columns: 1fr;
+  }
+
+  .focus-chip-row {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+  }
+
+  .focus-chip-row::-webkit-scrollbar { display: none; }
+
+  .focus-chip {
+    min-height: 40px;
+    flex: 0 0 auto;
+  }
+}
+
+/* Focus filter refinements */
+.focus-filter-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: -4px 0 14px 64px;
+}
+
+.focus-filter-summary span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  max-width: 100%;
+  padding: 4px 8px;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-primary) 50%, transparent);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+@media (max-width: 768px) {
+  .focus-filter-summary {
+    margin: -2px 0 12px;
+  }
+}
+
+.focus-heading-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.focus-toggle-btn,
+.focus-reset-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.focus-filter-body[hidden] {
+  display: none !important;
+}
+
+.focus-filter-body {
+  padding-top: 2px;
+}
+
+.focus-project-dropdown {
+  position: relative;
+  max-width: 420px;
+}
+
+.focus-project-trigger {
+  min-height: 40px;
+}
+
+.focus-project-menu.ui-select-menu {
+  position: absolute;
+  left: 0;
+  right: auto;
+  top: calc(100% + 6px);
+  width: min(420px, calc(100vw - 48px));
+  max-height: min(320px, 48vh);
+  z-index: 80;
+}
+
+.focus-project-option {
+  width: 100%;
+  min-height: 38px;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) 18px;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: var(--dropdown-option-radius);
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  text-align: left;
+  cursor: pointer;
+}
+
+.focus-project-option:hover,
+.focus-project-option.is-highlighted {
+  background: color-mix(in srgb, var(--accent) 13%, var(--bg-tertiary));
+}
+
+.focus-project-option.is-selected {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.focus-project-option span:nth-child(2) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.focus-project-check {
+  display: inline-flex;
+  justify-content: center;
+  opacity: 0;
+}
+
+.focus-project-option.is-selected .focus-project-check {
+  opacity: 1;
+}
+
+.focus-project-empty {
+  padding: 10px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.priority-chip {
+  min-width: 0;
+  justify-content: flex-start;
+}
+
+.priority-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: var(--priority-color, var(--accent));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--priority-color, var(--accent)) 16%, transparent);
+  flex: 0 0 auto;
+}
+
+@media (max-width: 768px) {
+  .focus-heading-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .focus-toggle-btn,
+  .focus-reset-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .focus-project-dropdown,
+  .focus-project-menu.ui-select-menu {
+    max-width: none;
+    width: 100%;
+  }
+
+  .focus-project-menu.ui-select-menu {
+    max-height: 42vh;
+  }
+}
+
+/* Project-aware shared selects */
+.ui-select-value:has(.ui-select-project-marker),
+.ui-select-value:has(.ui-select-project-dot) {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ui-select-value-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui-select-project-marker,
+.ui-select-project-dot {
+  flex: 0 0 auto;
+}
+
+.ui-select-project-marker.entity-icon {
+  width: 12px;
+  height: 12px;
+}
+
+.ui-select-project-marker.entity-icon .ui-icon,
+.ui-select-project-marker.entity-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.ui-select-project-dot.project-dot {
+  width: 8px;
+  height: 8px;
+}
+
+.ui-select-option.has-project-marker .ui-select-option-branch {
+  display: none !important;
+}
+
+.ui-select-option.has-project-marker {
+  padding-left: calc(10px + (var(--ui-select-depth, 0) * 18px));
+}
+
+.project-ui-select-menu {
+  min-width: min(320px, calc(100vw - 24px));
+}
+
+.focus-project-option {
+  padding-left: calc(10px + (var(--project-depth, 0) * 18px));
+}
+
+/* Search inside project-aware selects */
+.ui-select-search {
+  position: sticky;
+  top: -6px;
+  z-index: 1;
+  margin: -2px -2px 6px;
+  padding: 6px;
+  border-radius: var(--dropdown-option-radius);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--bg-secondary) 96%, var(--bg-primary)), var(--bg-secondary));
+}
+
+.ui-select-search-icon {
+  position: absolute;
+  left: 17px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.ui-select-search-icon .ui-icon {
+  width: 15px;
+  height: 15px;
+}
+
+.ui-select-search-input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 38px;
+  padding: 9px 12px 9px 34px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  outline: none;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.ui-select-search-input:focus {
+  border-color: var(--accent);
+}
+
+.ui-select-search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.ui-select-empty {
+  padding: 12px 10px;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* Generic markers for custom select options */
+.ui-select-value:has(.ui-select-option-marker) {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ui-select-option-marker {
+  flex: 0 0 auto;
+}
+
+.ui-select-option-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 16%, transparent);
+}
+
+.ui-select-option-icon {
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+
+.ui-select-option-icon .ui-icon {
+  width: 15px;
+  height: 15px;
+}
+
+/* Collapsed Focus stats */
+.focus-stat-grid {
+  margin-top: 14px;
+}
+
+.focus-stat-card .overview-stat-label {
+  line-height: 1.15;
+}
+
