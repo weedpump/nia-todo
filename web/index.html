@@ -1405,16 +1405,16 @@
   </div>
 
   <div class="modal" id="attachment-preview-modal">
-    <div class="modal-overlay" onclick="closeAttachmentPreview()"></div>
+    <div class="modal-overlay" data-todo-action="close-attachment-preview"></div>
     <div class="modal-content attachment-preview-modal-content">
-      <button class="modal-close-x" onclick="closeAttachmentPreview()"><span data-icon="x"></span></button>
+      <button class="modal-close-x" data-todo-action="close-attachment-preview"><span data-icon="x"></span></button>
       <div class="modal-header">
         <h3 id="attachment-preview-title" data-i18n-key="todo.attachments.preview">Vorschau</h3>
       </div>
       <div class="modal-body attachment-preview-body" id="attachment-preview-body"></div>
       <div class="modal-actions">
-        <button type="button" class="btn btn-secondary" onclick="closeAttachmentPreview()" data-i18n-key="common.close">Schließen</button>
-        <button type="button" class="btn btn-primary" id="attachment-preview-download-btn" onclick="downloadPreviewAttachment()"><span data-icon="download"></span> <span data-i18n-key="todo.attachments.download">Download</span></button>
+        <button type="button" class="btn btn-secondary" data-todo-action="close-attachment-preview" data-i18n-key="common.close">Schließen</button>
+        <button type="button" class="btn btn-primary" id="attachment-preview-download-btn" data-todo-action="download-preview-attachment"><span data-icon="download"></span> <span data-i18n-key="todo.attachments.download">Download</span></button>
       </div>
     </div>
   </div>

@@ -520,8 +520,6 @@ const setTodoStatus = todosFeature.setTodoStatus;
 const toggleTodoPin = todosFeature.toggleTodoPin;
 const deleteTodoComment = todosFeature.deleteTodoComment;
 const deleteTodoAttachment = todosFeature.deleteTodoAttachment;
-const closeAttachmentPreview = todosFeature.closeAttachmentPreview;
-const downloadPreviewAttachment = todosFeature.downloadPreviewAttachment;
 const snoozeTodo = todosFeature.snoozeTodo;
 const duplicateTodo = todosFeature.duplicateTodo;
 const toggleTodo = todosFeature.toggleTodo;
@@ -729,7 +727,7 @@ export function startAppModule() {
   lifecycle: { initServiceWorker, initApp, loadFromLocalDB, loadAll },
   rendering: { renderVersionInfo, renderProjects, renderStats, renderTodos, renderSectionHeader, countByProject },
   navigation: { setFilter, loadSectionsForCurrentProject, bindNavigationHistory },
-  todos: { markTodoDone, markTodoInProgress, setTodoStatus, toggleTodo, toggleTodoPin, deleteTodoComment, deleteTodoAttachment, closeAttachmentPreview, downloadPreviewAttachment, snoozeTodo, duplicateTodo, saveTodo, editTodo, deleteTodoFromModal, deleteTodo },
+  todos: { markTodoDone, markTodoInProgress, setTodoStatus, toggleTodo, toggleTodoPin, deleteTodoComment, deleteTodoAttachment, snoozeTodo, duplicateTodo, saveTodo, editTodo, deleteTodoFromModal, deleteTodo },
   projects: { showProjectModal, editProject, saveProject, deleteProject, deleteProjectFromModal, clearDoneFromModal, clearDoneInProject },
   projectSharing: { setProject: (project) => sharingFeature.setProject(project), applyProjectModalState: (project, canEdit, shared) => sharingFeature.applyProjectModalState(project, canEdit, shared), loadInvites: () => sharingFeature.loadInvites() },
   sections: { showAddSectionForm, saveNewSection, editSectionInline, saveSectionEdit, deleteSection },
