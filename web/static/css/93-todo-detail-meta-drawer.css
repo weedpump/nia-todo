@@ -87,7 +87,6 @@
   display: none;
 }
 
-
 @media (max-width: 1180px) {
   #todo-modal.todo-detail-view.todo-meta-editing .todo-modal-content::after {
     background: color-mix(in srgb, #000 28%, transparent);
@@ -213,7 +212,6 @@
   display: none;
 }
 
-
 @media (max-width: 1180px) {
   #todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer {
     position: fixed;
@@ -319,7 +317,6 @@
   box-shadow: 0 2px 5px rgba(0,0,0,.28);
   transition: transform .16s, background .16s;
 }
-
 
 #todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer .todo-location-toggle-row input[type="checkbox"].settings-switch:checked::after {
   transform: translateX(20px);
