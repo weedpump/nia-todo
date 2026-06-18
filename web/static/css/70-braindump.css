@@ -310,8 +310,6 @@
 
 @media (max-width: 768px) {
   .braindump-fab {
-    right: calc(82px + env(safe-area-inset-right, 0px));
-    bottom: calc(18px + env(safe-area-inset-bottom, 0px));
     width: 46px;
     height: 46px;
   }

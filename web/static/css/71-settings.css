@@ -82,14 +82,19 @@
 
 /* Settings aliases share the generic card/section primitives. */
 .settings-section-card,
-.settings-subcard,
-.settings-notification-panel,
 .ui-section-card {
   background: color-mix(in srgb, var(--bg-secondary) 88%, var(--bg-primary));
   border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
   border-radius: 18px;
   padding: 18px;
   box-shadow: 0 12px 30px rgba(0,0,0,.10);
+}
+
+.settings-subcard,
+.settings-notification-panel {
+  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  border-radius: 18px;
+  padding: 18px;
 }
 
 .settings-section-card {
