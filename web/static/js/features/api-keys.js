@@ -99,8 +99,9 @@ export function createApiKeysFeature({ authApi }) {
         const btn = document.createElement('button');
         btn.className = 'btn btn-danger settings-api-key-revoke';
         btn.title = t('settings.apiKeys.revoke');
+        btn.dataset.apiKeyAction = 'revoke';
+        btn.dataset.apiKeyId = String(k.id);
         btn.innerHTML = iconSvg('trash-2');
-        btn.onclick = () => revokeApiKey(k.id);
         container.appendChild(btn);
       }
 
@@ -205,6 +206,7 @@ export function createApiKeysFeature({ authApi }) {
       const action = target.dataset.apiKeyAction;
       if (action === 'create') await createApiKey();
       else if (action === 'copy') copyApiKey();
+      else if (action === 'revoke') await revokeApiKey(target.dataset.apiKeyId);
     });
   }
 
