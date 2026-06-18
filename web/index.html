@@ -532,8 +532,8 @@
         <button type="button" class="today-focus-btn" id="today-focus-btn" onclick="toggleTodayFocus()" title="Heute-Fokus" data-i18n-title-key="todayFocus.toggleTitle"><span data-icon="target"></span><span data-i18n-key="todayFocus.short">Fokus</span></button>
         <button type="button" class="minimal-todos-btn" id="minimal-todos-btn" onclick="toggleMinimalTodos()" title="Minimalistische Todo-Liste" data-i18n-title-key="minimalTodos.toggleTitle"><span data-icon="brush-cleaning"></span><span data-i18n-key="minimalTodos.short">Minimal</span></button>
         <div class="search-box" id="search-box">
-          <button type="button" class="search-toggle-btn" id="search-toggle-btn" onclick="toggleMobileSearch()" aria-label="Suche öffnen" data-i18n-aria-label-key="common.search" title="Suche" data-i18n-title-key="common.search"><span data-icon="search"></span></button>
-          <input type="text" id="search-input" placeholder="Todo suchen..." data-i18n-placeholder-key="topbar.searchTodo" oninput="renderStats();renderTodos()" onkeydown="if(event.key==='Escape')closeMobileSearch()">
+          <button type="button" class="search-toggle-btn" id="search-toggle-btn" aria-label="Suche öffnen" data-i18n-aria-label-key="common.search" title="Suche" data-i18n-title-key="common.search"><span data-icon="search"></span></button>
+          <input type="text" id="search-input" placeholder="Todo suchen..." data-i18n-placeholder-key="topbar.searchTodo">
         </div>
         <div class="topbar-actions">
           <span id="online-status" class="status-online"></span>

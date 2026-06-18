@@ -3,7 +3,7 @@ function isTypingTarget(element) {
   return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || element?.isContentEditable;
 }
 
-export function createMobileSearchFeature({ renderTodos, toggleTodayFocus, toggleMinimalTodos }) {
+export function createMobileSearchFeature({ renderStats, renderTodos, toggleTodayFocus, toggleMinimalTodos }) {
   function openMobileSearch() {
     const box = document.getElementById('search-box');
     const input = document.getElementById('search-input');
@@ -31,6 +31,17 @@ export function createMobileSearchFeature({ renderTodos, toggleTodayFocus, toggl
     else openMobileSearch();
   }
 
+  function bindMobileSearchEvents() {
+    document.getElementById('search-toggle-btn')?.addEventListener('click', () => toggleMobileSearch());
+    document.getElementById('search-input')?.addEventListener('input', () => {
+      renderStats();
+      renderTodos();
+    });
+    document.getElementById('search-input')?.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') closeMobileSearch();
+    });
+  }
+
   function bindTodayFocusHotkey() {
     if (document.documentElement.dataset.todayFocusHotkeyBound === '1') return;
     document.documentElement.dataset.todayFocusHotkeyBound = '1';
@@ -48,6 +59,7 @@ export function createMobileSearchFeature({ renderTodos, toggleTodayFocus, toggl
     openMobileSearch,
     closeMobileSearch,
     toggleMobileSearch,
+    bindMobileSearchEvents,
     bindTodayFocusHotkey,
   };
 }
