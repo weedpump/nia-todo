@@ -6762,7 +6762,7 @@ input[type="color"]::-moz-color-swatch {
     padding: 14px;
   }
 
-  .ui-section-card .btn:not(.btn-icon) {
+  .ui-section-card .btn:not(.btn-icon):not(.btn-action) {
     min-height: 42px;
   }
 
@@ -10836,10 +10836,6 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
 /* Todo detail meta: give edit action the same breathing room as other add/action rows. */
 #todo-modal.todo-detail-view .todo-meta-summary-view {
   gap: 14px;
-}
-
-#todo-modal.todo-detail-view .todo-meta-edit-toggle.todo-detail-action-btn {
-  margin-top: 2px;
 }
 
 /* Todo meta drawer: mobile close icon matches clean Todo detail close style. */
