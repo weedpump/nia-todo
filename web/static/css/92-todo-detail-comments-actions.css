@@ -23,10 +23,6 @@
   white-space: nowrap;
 }
 
-#todo-modal.todo-detail-view .todo-attachments-add-row {
-  justify-content: flex-start;
-}
-
 /* Todo detail comments: actions belong in the comment header row, right-aligned. */
 #todo-modal.todo-detail-view .todo-comment-item {
   display: grid;
