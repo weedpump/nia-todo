@@ -59,7 +59,19 @@
   window.niaHardReloadApp = async function() {
     var retry = document.getElementById('boot-retry');
     var subtitle = document.getElementById('boot-subtitle');
-    var fallbackAssets = ['/', '/index.html', '/manifest.json', '/static/style.css', '/static/js/main.js'];
+    var cssModuleAssets = [
+      '/static/css/00-base.css',
+      '/static/css/10-shell-navigation.css',
+      '/static/css/20-todos-list.css',
+      '/static/css/30-components.css',
+      '/static/css/40-responsive-mobile.css',
+      '/static/css/50-auth-version.css',
+      '/static/css/60-feedback-workspace-icons.css',
+      '/static/css/70-braindump-settings.css',
+      '/static/css/80-entity-focus-selects.css',
+      '/static/css/90-todo-detail-minimal.css'
+    ];
+    var fallbackAssets = ['/', '/index.html', '/manifest.json', '/static/style.css'].concat(cssModuleAssets, ['/static/js/main.js']);
     function parsePrecacheAssets(source) {
       var match = String(source || '').match(/const\s+PRECACHE_ASSETS\s*=\s*\[([\s\S]*?)\];/);
       if (!match) return [];

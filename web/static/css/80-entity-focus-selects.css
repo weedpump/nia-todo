@@ -1,0 +1,1617 @@
+/* Form primitives, todo/entity modals, focus filters, project-aware selects */
+
+/* Shared form layout primitives */
+.ui-field-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.ui-field-grid.two-columns {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/* Todo modal redesign */
+#todo-modal .todo-modal-content {
+  max-width: min(760px, 96vw);
+  padding: 0;
+  overflow: hidden;
+}
+
+.todo-modal-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 22px 26px 18px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  background:
+    radial-gradient(circle at top left, rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.20)), transparent 42%),
+    linear-gradient(135deg, color-mix(in srgb, var(--bg-secondary) 94%, var(--bg-primary)), var(--bg-secondary));
+}
+
+.todo-modal-title-icon,
+.entity-modal-title-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 13%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, transparent);
+  flex: 0 0 auto;
+}
+
+.todo-modal-header h3 {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.todo-modal-header p {
+  margin: 6px 0 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.todo-modal-body {
+  padding: 18px;
+  background: color-mix(in srgb, var(--bg-primary) 18%, transparent);
+}
+
+.todo-modal-form {
+  display: grid;
+  gap: 14px;
+}
+
+.todo-section-card .form-group:last-child,
+.todo-section-card .ui-field-grid + .form-group:last-child {
+  margin-bottom: 0;
+}
+
+.todo-title-group input {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.todo-pin-row {
+  margin-top: 12px;
+}
+
+
+@media (max-width: 768px) {
+  #todo-modal .todo-modal-content {
+    max-width: none;
+  }
+
+  .todo-modal-header {
+    padding: 12px 44px 12px 16px;
+    gap: 10px;
+  }
+
+  .todo-modal-title-icon,
+  .entity-modal-title-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 13px;
+  }
+
+  .todo-modal-header h3 {
+    font-size: 17px;
+  }
+
+  .todo-modal-header p {
+    display: none;
+  }
+
+  .todo-modal-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+  }
+
+  .todo-modal-form {
+    gap: 12px;
+  }
+
+  .ui-section-card {
+    border-radius: 14px;
+    padding: 14px;
+  }
+
+  .ui-section-heading {
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .ui-section-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 12px;
+  }
+
+  .ui-field-grid.two-columns {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+}
+
+/* Todo modal scroll containment */
+#todo-modal .todo-modal-content {
+  display: flex;
+  flex-direction: column;
+  max-height: min(90vh, 860px);
+}
+
+#todo-modal .todo-modal-header {
+  flex: 0 0 auto;
+}
+
+#todo-modal .todo-modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 768px) {
+  #todo-modal .todo-modal-content {
+    max-height: none;
+    height: 100%;
+  }
+
+  #todo-modal .todo-modal-body {
+    padding-bottom: 24px;
+  }
+}
+
+/* Todo detail view prototype: existing todos open as a read-first workspace instead of a form stack. */
+#todo-modal.todo-detail-view .modal-overlay {
+  background: color-mix(in srgb, var(--bg-primary) 78%, rgba(0,0,0,.38));
+  backdrop-filter: blur(12px);
+}
+
+#todo-modal.todo-detail-view .todo-modal-content {
+  width: min(1440px, calc(100vw - 28px));
+  max-width: none;
+  height: min(940px, calc(100vh - 28px));
+  max-height: none;
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 12% -8%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 32%),
+    linear-gradient(180deg, color-mix(in srgb, var(--bg-secondary) 96%, var(--bg-primary)), var(--bg-primary));
+}
+
+#todo-modal.todo-detail-view .todo-modal-header {
+  align-items: center;
+  padding: 18px 64px 16px 28px;
+  border-bottom-color: color-mix(in srgb, var(--border) 54%, transparent);
+  background: transparent;
+}
+
+#todo-modal.todo-detail-view .todo-modal-title-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  box-shadow: none;
+}
+
+#todo-modal.todo-detail-view .todo-modal-header h3 {
+  font-size: 14px;
+  color: var(--text-muted);
+  font-weight: 650;
+  letter-spacing: .01em;
+}
+
+#todo-modal.todo-detail-view .todo-modal-header p {
+  display: none;
+}
+
+#todo-modal.todo-detail-view .todo-modal-body {
+  padding: clamp(18px, 2.3vw, 34px);
+  background: transparent;
+}
+
+#todo-modal.todo-detail-view .todo-modal-form {
+  max-width: 1180px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(290px, 340px);
+  grid-template-areas:
+    "content meta"
+    "subtasks meta"
+    "attachments meta"
+    "comments meta";
+  align-items: start;
+  gap: clamp(18px, 2vw, 28px);
+}
+
+#todo-modal.todo-detail-view .todo-main-section { grid-area: content; }
+#todo-modal.todo-detail-view .todo-subtasks-card { grid-area: subtasks; }
+#todo-modal.todo-detail-view .todo-attachments-card { grid-area: attachments; }
+#todo-modal.todo-detail-view .todo-comments-card { grid-area: comments; }
+#todo-modal.todo-detail-view #todo-organize-panel { grid-area: meta; }
+#todo-modal.todo-detail-view #todo-schedule-panel { grid-column: 2; grid-row: 2 / span 3; }
+
+#todo-modal.todo-detail-view .todo-section-card {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+#todo-modal.todo-detail-view #todo-organize-panel,
+#todo-modal.todo-detail-view #todo-schedule-panel {
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--border) 62%, transparent);
+  border-radius: 22px;
+  background: color-mix(in srgb, var(--bg-secondary) 64%, transparent);
+  box-shadow: none;
+}
+
+#todo-modal.todo-detail-view .todo-main-section .ui-section-heading {
+  display: none;
+}
+
+#todo-modal.todo-detail-view .todo-title-group label,
+#todo-modal.todo-detail-view .todo-title-group .quick-add-hint,
+#todo-modal.todo-detail-view .todo-title-group .quick-add-preview,
+#todo-modal.todo-detail-view .todo-main-section label[for="todo-desc"],
+#todo-modal.todo-detail-view .todo-main-section .form-group > label {
+  display: none;
+}
+
+#todo-modal.todo-detail-view #todo-title {
+  width: 100%;
+  padding: 0 0 10px;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 52%, transparent);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-primary);
+  font-size: clamp(28px, 4vw, 52px);
+  line-height: 1.04;
+  font-weight: 760;
+  letter-spacing: -0.045em;
+}
+
+#todo-modal.todo-detail-view #todo-title:focus {
+  outline: none;
+  border-bottom-color: color-mix(in srgb, var(--accent) 72%, transparent);
+}
+
+#todo-modal.todo-detail-view #todo-desc {
+  display: none;
+  min-height: 220px;
+  margin-top: 18px;
+  padding: 14px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  font-size: 16px;
+  line-height: 1.65;
+  resize: vertical;
+}
+
+#todo-modal.todo-detail-view.todo-desc-editing #todo-desc {
+  display: block;
+}
+
+#todo-modal.todo-detail-view .desc-live-preview {
+  display: block;
+  min-height: 92px;
+  margin-top: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 16px;
+  line-height: 1.72;
+  cursor: text;
+}
+
+#todo-modal.todo-detail-view.todo-desc-editing .desc-live-preview {
+  display: none;
+}
+
+#todo-modal.todo-detail-view .desc-live-preview:empty::before {
+  content: attr(data-empty-label);
+  color: var(--text-muted);
+}
+
+#todo-modal.todo-detail-view .todo-collapsible-summary {
+  cursor: default;
+  padding-top: 4px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 48%, transparent);
+}
+
+#todo-modal.todo-detail-view .todo-collapsible-chevron {
+  display: none;
+}
+
+#todo-modal.todo-detail-view .ui-section-icon {
+  width: 30px;
+  height: 30px;
+  border: 0;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+#todo-modal.todo-detail-view .ui-section-heading h4 {
+  font-size: 13px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+
+#todo-modal.todo-detail-view .ui-section-heading p {
+  display: none;
+}
+
+#todo-modal.todo-detail-view .todo-subtask-row,
+#todo-modal.todo-detail-view .todo-attachment-item,
+#todo-modal.todo-detail-view .todo-comment-item {
+  border-color: color-mix(in srgb, var(--border) 46%, transparent);
+  background: color-mix(in srgb, var(--bg-secondary) 38%, transparent);
+  box-shadow: none;
+}
+
+
+@media (max-width: 1024px) {
+  #todo-modal.todo-detail-view .todo-modal-content {
+    width: 100vw;
+    height: 100vh;
+    border-radius: 0;
+  }
+
+  #todo-modal.todo-detail-view .todo-modal-form {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "content"
+      "subtasks"
+      "attachments"
+      "comments"
+      "meta";
+  }
+
+  #todo-modal.todo-detail-view #todo-organize-panel,
+  #todo-modal.todo-detail-view #todo-schedule-panel {
+    grid-column: auto;
+    grid-row: auto;
+  }
+}
+
+/* Todo list/card visual refresh */
+.todo-list {
+  padding: 18px 24px max(118px, calc(96px + env(safe-area-inset-bottom, 0px)));
+}
+
+.todo-group {
+  margin-bottom: 18px;
+}
+
+.todo-group-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding: 0 2px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.075em;
+  color: var(--text-muted);
+}
+
+.project-group-header {
+  margin: 4px 0 8px;
+  padding: 8px 2px;
+  font-weight: 750;
+}
+
+.project-group-todos {
+  padding-left: 0;
+  border-left: 0;
+}
+
+.todo-item {
+  min-height: 44px;
+  gap: 12px;
+  padding: 8px 14px;
+  border-radius: 16px;
+  border-color: color-mix(in srgb, var(--border) 84%, transparent);
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--bg-secondary) 94%, var(--bg-primary)), var(--bg-secondary));
+  box-shadow: 0 10px 24px rgba(0,0,0,.075);
+  margin-bottom: 8px;
+  transition: border-color .15s, background .15s, box-shadow .15s, transform .12s, opacity .15s;
+}
+
+.todo-item:hover,
+.todo-item:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 58%, var(--border));
+  background:
+    radial-gradient(circle at top left, rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.14)), transparent 44%),
+    var(--bg-secondary);
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--accent) 62%, var(--text-primary)), 0 14px 30px rgba(0,0,0,.11);
+  transform: translateY(-1px);
+}
+
+.todo-item.swiping,
+.todo-item.swiping:hover,
+.todo-item.swiping:focus-within {
+  transform: translate3d(var(--swipe-x, 0), 0, 0) scale(calc(1 - (var(--swipe-progress, 0) * .012)));
+}
+
+.todo-item.swiping:not(.swipe-settling):not(.swipe-committing),
+.todo-item.swiping:not(.swipe-settling):not(.swipe-committing):hover,
+.todo-item.swiping:not(.swipe-settling):not(.swipe-committing):focus-within {
+  transition: none;
+}
+
+.todo-item.done {
+  opacity: .58;
+  background: color-mix(in srgb, var(--bg-secondary) 84%, var(--bg-primary));
+}
+
+.todo-check {
+  width: 24px;
+  height: 24px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--bg-primary) 74%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
+}
+
+.todo-item.done .todo-check {
+  color: white;
+}
+
+.todo-item.in-progress {
+  border-left: 1px solid color-mix(in srgb, var(--warning) 72%, var(--border));
+  box-shadow: inset 4px 0 0 var(--warning), 0 10px 24px rgba(0,0,0,.075);
+}
+
+.todo-main {
+  align-items: center;
+  gap: 10px;
+}
+
+.todo-title-wrap {
+  min-width: 0;
+  min-height: 24px;
+  display: grid;
+  grid-template-columns: fit-content(68%) minmax(0, auto);
+  align-items: center;
+  column-gap: 8px;
+  row-gap: 0;
+  flex: 1;
+}
+
+.todo-title {
+  grid-column: 1;
+  grid-row: 1;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--text-primary);
+}
+
+.todo-badges {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.todo-badge,
+.todo-meta-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  width: fit-content;
+  max-width: 100%;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  background: color-mix(in srgb, var(--bg-tertiary) 72%, transparent);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 1.2;
+}
+
+.todo-badge .ui-icon,
+.todo-meta-chip .ui-icon {
+  width: 12px;
+  height: 12px;
+  flex: 0 0 auto;
+}
+
+.todo-badge.pinned {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
+.todo-badge.progress {
+  color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 13%, transparent);
+  border-color: color-mix(in srgb, var(--warning) 28%, transparent);
+}
+
+.todo-meta-row {
+  grid-column: 2;
+  grid-row: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  align-self: center;
+  justify-self: start;
+  min-width: 0;
+  width: auto;
+  gap: 7px;
+}
+
+.todo-title-wrap:has(.todo-desc-preview) .todo-meta-row {
+  grid-row: 1 / 3;
+}
+
+.todo-meta-chip.todo-due.soon {
+  color: var(--warning);
+  border-color: color-mix(in srgb, var(--warning) 28%, transparent);
+  background: color-mix(in srgb, var(--warning) 12%, transparent);
+}
+
+.todo-meta-chip.todo-due.overdue {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 30%, transparent);
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+}
+
+.todo-reminder {
+  color: var(--success);
+  border-color: color-mix(in srgb, var(--success) 28%, transparent);
+  background: color-mix(in srgb, var(--success) 11%, transparent);
+}
+
+.todo-meta-chip.todo-location {
+  color: var(--todo-chip-location);
+  border-color: color-mix(in srgb, var(--todo-chip-location) 30%, transparent);
+  background: color-mix(in srgb, var(--todo-chip-location) 12%, transparent);
+}
+
+.todo-desc-preview {
+  display: inline-flex;
+  align-items: center;
+  max-width: min(420px, 100%);
+  padding: 3px 0;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.todo-actions {
+  gap: 7px;
+}
+
+.todo-actions button,
+.todo-snooze-menu summary {
+  width: 32px;
+  height: 32px;
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--bg-tertiary) 54%, transparent);
+}
+
+.todo-actions .todo-action-menu .ui-menu-item {
+  width: 100%;
+  height: auto;
+}
+
+.todo-actions > .todo-actions-reveal-btn {
+  display: none;
+}
+
+.todo-status-menu summary {
+  min-width: 112px;
+  height: 32px;
+  padding: 0 10px;
+}
+
+.todo-item.pinned {
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at top left, rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.18)), transparent 42%),
+    var(--bg-secondary);
+  box-shadow: inset 4px 0 0 var(--accent), 0 12px 28px rgba(0,0,0,.10);
+}
+
+@media (max-width: 768px) {
+  .todo-list {
+    padding: 12px 12px max(112px, calc(96px + env(safe-area-inset-bottom, 0px)));
+  }
+
+  .project-group-todos {
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .todo-item {
+    align-items: center;
+    gap: 10px;
+    padding: 12px;
+    border-radius: 15px;
+  }
+
+  .todo-check {
+    margin-top: 0;
+  }
+
+  .todo-desc-preview {
+    max-width: 100%;
+  }
+}
+
+/* Keep compact/tablet todo row actions collapsed until the reveal arrow is tapped.
+   This intentionally uses a wider breakpoint than the sidebar shell: iPad-sized
+   layouts can show the desktop sidebar while keeping noisy card actions tucked away.
+   Touch tablets may report desktop-class widths, so also key off coarse pointers. */
+@media (max-width: 1279px), (hover: none) and (pointer: coarse) {
+  .todo-actions {
+    position: relative;
+    z-index: 170;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    align-self: center;
+    flex: 0 0 auto;
+    gap: 5px;
+    margin-left: 2px;
+  }
+
+  .todo-actions > .todo-snooze-menu,
+  .todo-actions > .todo-pin-btn,
+  .todo-actions > button:not(.todo-actions-reveal-btn):not(.todo-pin-btn) {
+    display: none;
+  }
+
+  .todo-actions > .todo-actions-reveal-btn {
+    display: inline-flex;
+    order: 10;
+    width: 30px;
+    height: 30px;
+  }
+
+  .todo-item.actions-expanded .todo-actions > .todo-snooze-menu {
+    display: inline-block;
+  }
+
+  .todo-item.actions-expanded .todo-actions > .todo-pin-btn,
+  .todo-item.actions-expanded .todo-actions > button:not(.todo-actions-reveal-btn):not(.todo-pin-btn) {
+    display: inline-flex;
+  }
+
+  .todo-item.actions-expanded .todo-actions-reveal-btn .ui-icon {
+    transform: rotate(180deg);
+  }
+
+  .todo-actions-reveal-btn .ui-icon {
+    transition: transform 0.15s ease;
+  }
+
+  .todo-actions button,
+  .todo-snooze-menu summary {
+    width: 30px;
+    height: 30px;
+  }
+}
+
+/* Mobile FAB safe-area refinement */
+@media (max-width: 768px) {
+  .fab-add-todo {
+    right: calc(22px + env(safe-area-inset-right, 0px));
+    bottom: calc(22px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .braindump-fab {
+    right: calc(88px + env(safe-area-inset-right, 0px));
+    bottom: calc(23px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* Settings modal desktop shell */
+@media (min-width: 769px) {
+  #settings-modal .settings-modal-content {
+    display: flex;
+    flex-direction: column;
+    max-height: min(90vh, 860px);
+  }
+
+  #settings-modal .settings-modal-header,
+  #settings-modal .settings-modal-actions {
+    flex: 0 0 auto;
+  }
+
+  #settings-modal .settings-modal-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  #settings-modal .settings-nav,
+  #settings-modal .settings-sections {
+    max-height: 100%;
+    overflow-y: auto;
+  }
+
+  #settings-modal .modal-close-x {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+.todo-modal-title-icon .ui-icon,
+.entity-modal-title-icon .ui-icon,
+.ui-section-icon .ui-icon {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+}
+
+.todo-modal-title-icon .ui-icon,
+.entity-modal-title-icon .ui-icon {
+  width: 22px;
+  height: 22px;
+}
+
+.todo-status-options {
+  display: grid;
+  gap: 3px;
+}
+
+.todo-action-menu.ui-menu {
+  position: absolute;
+  top: calc(100% + 5px);
+  right: 0;
+  bottom: auto;
+  left: auto;
+  z-index: 1000;
+}
+
+.todo-snooze-menu .todo-status-options {
+  min-width: 156px;
+}
+
+.todo-status-options button,
+.todo-actions .todo-status-options button {
+  display: flex;
+  width: 100%;
+  min-height: 30px;
+  height: auto;
+  justify-content: flex-start;
+  align-items: center;
+  padding: 6px 8px;
+  white-space: nowrap;
+  line-height: 1.15;
+  text-align: left;
+}
+
+@media (max-width: 768px) {
+  .todo-action-menu.ui-menu {
+    right: 0;
+    left: auto;
+  }
+}
+
+/* Todo card meta layout: text block left, meta chips right when space allows. */
+.todo-body .todo-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  width: auto;
+}
+
+/* Todo list descriptions are one-line previews; full multiline text belongs in the modal. */
+.todo-body .todo-desc-preview {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  display: block;
+  width: 100%;
+  max-width: min(560px, 100%);
+  max-height: 16px;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-style: normal;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .todo-body .todo-desc-preview {
+    max-width: 100%;
+  }
+}
+
+/* Entity modals: Project and Workspace */
+.entity-modal-content {
+  display: flex;
+  flex-direction: column;
+  max-width: min(760px, 96vw);
+  max-height: min(90vh, 860px);
+  padding: 0;
+  overflow: hidden;
+}
+
+.entity-modal-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 22px 26px 18px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  background:
+    radial-gradient(circle at top left, rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.20)), transparent 42%),
+    linear-gradient(135deg, color-mix(in srgb, var(--bg-secondary) 94%, var(--bg-primary)), var(--bg-secondary));
+}
+
+.entity-modal-header h3 {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.entity-modal-header p {
+  margin: 6px 0 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.entity-modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 18px;
+  background: color-mix(in srgb, var(--bg-primary) 18%, transparent);
+}
+
+.entity-modal-form {
+  display: grid;
+  gap: 14px;
+}
+
+.entity-modal-form + .project-sharing-card {
+  margin-top: 14px;
+}
+
+.entity-modal-actions {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 14px 18px 18px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  background: color-mix(in srgb, var(--bg-secondary) 94%, var(--bg-primary));
+}
+
+.project-share-row,
+.project-share-start-row,
+.project-leave-btn {
+  margin-top: 12px;
+}
+
+.project-share-inline {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.project-share-inline input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+@media (max-width: 768px) {
+  .entity-modal-content {
+    max-width: none;
+    max-height: none;
+    height: 100%;
+  }
+
+  .entity-modal-header {
+    padding: 12px 44px 12px 16px;
+    gap: 10px;
+  }
+
+  .entity-modal-title-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 13px;
+  }
+
+  .entity-modal-header h3 {
+    font-size: 17px;
+  }
+
+  .entity-modal-header p {
+    display: none;
+  }
+
+  .entity-modal-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+  }
+
+  .entity-modal-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 10px 12px calc(12px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .entity-modal-actions .btn,
+  .entity-modal-actions .modal-actions-right,
+  .entity-modal-actions .modal-actions-right .btn,
+  .project-share-inline .btn {
+    width: 100%;
+  }
+
+  .entity-modal-actions .modal-actions-right,
+  .project-share-inline {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+}
+
+/* Entity modal polish: compact forms, no empty mobile fullscreen gaps */
+.entity-modal-body .ui-section-card {
+  padding: 16px;
+}
+
+.entity-modal-body .ui-section-heading {
+  margin-bottom: 12px;
+}
+
+.entity-modal-body .form-group:last-child {
+  margin-bottom: 0;
+}
+
+.project-organization-grid {
+  grid-template-columns: 1fr;
+}
+
+@media (max-width: 768px) {
+  .entity-modal-content {
+    display: flex;
+    flex-direction: column;
+    min-height: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .entity-modal-body {
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  .entity-modal-body .ui-section-card {
+    padding: 14px;
+  }
+
+  .entity-modal-body .ui-section-heading {
+    margin-bottom: 10px;
+  }
+
+  .entity-modal-actions {
+    position: relative;
+    border-top: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  }
+}
+
+/* Entity modal spacing and select styling */
+.entity-modal-body {
+  padding-bottom: 24px;
+}
+
+.entity-modal-body .icon-picker {
+  margin-bottom: 6px;
+}
+
+.entity-modal-body .ui-section-card:last-child {
+  margin-bottom: 2px;
+}
+
+@media (max-width: 768px) {
+  .entity-modal-body {
+    padding-bottom: 20px;
+  }
+
+  .entity-modal-body .icon-picker {
+    margin-bottom: 8px;
+  }
+}
+
+/* Entity modal actions share Todo modal button behavior */
+.entity-modal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin: 0;
+}
+
+.entity-modal-actions .btn {
+  min-height: 38px;
+  min-width: 118px;
+}
+
+.entity-modal-actions .btn-danger {
+  margin-right: auto;
+}
+
+.entity-modal-actions .modal-actions-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-left: auto;
+}
+
+@media (max-width: 768px) {
+  .entity-modal-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .entity-modal-actions .modal-actions-right {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    margin-left: 0;
+  }
+
+  .entity-modal-actions .btn,
+  .entity-modal-actions .modal-actions-right .btn {
+    width: 100%;
+    min-height: 42px;
+  }
+
+  .entity-modal-actions .btn-danger {
+    order: 2;
+    margin-right: 0 !important;
+  }
+}
+
+/* Project modal sharing actions */
+.project-sharing-card .btn {
+  min-height: 38px;
+}
+
+.project-share-start-row .btn,
+.project-leave-btn {
+  min-width: 118px;
+}
+
+.sharing-member-row {
+  min-height: 38px;
+  padding: 7px 10px;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bg-primary) 36%, transparent);
+}
+
+.sharing-remove {
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--bg-tertiary) 56%, transparent);
+}
+
+@media (max-width: 768px) {
+  .project-sharing-card .btn,
+  .project-share-start-row .btn,
+  .project-leave-btn {
+    width: 100%;
+    min-height: 42px;
+  }
+}
+
+/* Focus filter view */
+.focus-filter-card {
+  margin: 0 0 16px;
+}
+
+.focus-filter-heading .overview-greeting {
+  flex: 1;
+}
+
+.focus-filter-avatar .ui-icon,
+.focus-filter-avatar svg {
+  width: 24px;
+  height: 24px;
+}
+
+.focus-reset-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.focus-filter-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(100px, 140px);
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.focus-days-field.is-muted {
+  opacity: .58;
+}
+
+.focus-filter-card .form-group input,
+.focus-filter-card .ui-select-trigger,
+.focus-filter-card .ui-select-search-input {
+  border-color: color-mix(in srgb, var(--border) 84%, transparent);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--bg-secondary) 94%, var(--bg-primary)), var(--bg-secondary));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bg-primary) 45%, transparent);
+}
+
+.focus-filter-card .form-group input:focus,
+.focus-filter-card .ui-select-search-input:focus {
+  border-color: color-mix(in srgb, var(--accent) 72%, var(--border));
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.18));
+}
+
+.focus-filter-card .form-group input:disabled,
+.focus-filter-card .ui-select.is-disabled .ui-select-trigger {
+  opacity: .62;
+}
+
+.focus-filter-section {
+  padding-top: 12px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+}
+
+.focus-filter-section + .focus-filter-section {
+  margin-top: 12px;
+}
+
+.focus-filter-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.focus-filter-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 8px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.focus-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.focus-chip {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 100%;
+  padding: 7px 10px;
+  border: 1px solid color-mix(in srgb, var(--border) 84%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-primary) 62%, transparent);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: border-color .15s ease, background .15s ease, color .15s ease, box-shadow .15s ease;
+}
+
+.focus-chip:hover {
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
+  color: var(--text-primary);
+}
+
+.focus-chip.active {
+  border-color: color-mix(in srgb, var(--accent) 68%, var(--border));
+  background: color-mix(in srgb, var(--accent) 14%, var(--bg-primary));
+  color: var(--text-primary);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+.focus-chip .project-marker,
+.focus-chip .project-dot {
+  flex: 0 0 auto;
+}
+
+.focus-chip span:not(.project-dot) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.priority-chip {
+  min-width: 44px;
+  justify-content: center;
+}
+
+.focus-muted {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+@media (max-width: 768px) {
+  .focus-filter-card {
+    margin: 0 0 14px;
+  }
+
+  .focus-filter-heading {
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .focus-reset-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .focus-filter-grid,
+  .focus-filter-split {
+    grid-template-columns: 1fr;
+  }
+
+  .focus-chip-row {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+  }
+
+  .focus-chip-row::-webkit-scrollbar { display: none; }
+
+  .focus-chip {
+    min-height: 40px;
+    flex: 0 0 auto;
+  }
+}
+
+/* Focus filter refinements */
+.focus-filter-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: -4px 0 14px 64px;
+}
+
+.focus-filter-summary span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  max-width: 100%;
+  padding: 4px 8px;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-primary) 50%, transparent);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+@media (max-width: 768px) {
+  .focus-filter-summary {
+    margin: -2px 0 12px;
+  }
+}
+
+.focus-heading-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.focus-toggle-btn,
+.focus-reset-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.focus-filter-body[hidden] {
+  display: none !important;
+}
+
+.focus-filter-body {
+  padding-top: 2px;
+}
+
+.focus-project-dropdown {
+  position: relative;
+  max-width: 420px;
+}
+
+.focus-project-trigger {
+  min-height: 40px;
+}
+
+.focus-project-menu.ui-select-menu {
+  position: absolute;
+  left: 0;
+  right: auto;
+  top: calc(100% + 6px);
+  width: min(420px, calc(100vw - 48px));
+  max-height: min(320px, 48vh);
+  z-index: 80;
+}
+
+.focus-project-option {
+  width: 100%;
+  min-height: 38px;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) 18px;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: var(--dropdown-option-radius);
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  text-align: left;
+  cursor: pointer;
+}
+
+.focus-project-option:hover,
+.focus-project-option.is-highlighted {
+  background: color-mix(in srgb, var(--accent) 13%, var(--bg-tertiary));
+}
+
+.focus-project-option.is-selected {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.focus-project-option span:nth-child(2) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.focus-project-check {
+  display: inline-flex;
+  justify-content: center;
+  opacity: 0;
+}
+
+.focus-project-option.is-selected .focus-project-check {
+  opacity: 1;
+}
+
+.focus-project-empty {
+  padding: 10px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.priority-chip {
+  min-width: 0;
+  justify-content: flex-start;
+}
+
+.priority-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: var(--priority-color, var(--accent));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--priority-color, var(--accent)) 16%, transparent);
+  flex: 0 0 auto;
+}
+
+@media (max-width: 768px) {
+  .focus-heading-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .focus-toggle-btn,
+  .focus-reset-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .focus-project-dropdown,
+  .focus-project-menu.ui-select-menu {
+    max-width: none;
+    width: 100%;
+  }
+
+  .focus-project-menu.ui-select-menu {
+    max-height: 42vh;
+  }
+}
+
+/* Project-aware shared selects */
+.ui-select-value:has(.ui-select-project-marker),
+.ui-select-value:has(.ui-select-project-dot) {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ui-select-value-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui-select-project-marker,
+.ui-select-project-dot {
+  flex: 0 0 auto;
+}
+
+.ui-select-project-marker.entity-icon {
+  width: 12px;
+  height: 12px;
+}
+
+.ui-select-project-marker.entity-icon .ui-icon,
+.ui-select-project-marker.entity-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.ui-select-project-dot.project-dot {
+  width: 8px;
+  height: 8px;
+}
+
+.ui-select-option.has-project-marker .ui-select-option-branch {
+  display: none !important;
+}
+
+.ui-select-option.has-project-marker {
+  padding-left: calc(10px + (var(--ui-select-depth, 0) * 18px));
+}
+
+.project-ui-select-menu {
+  min-width: min(320px, calc(100vw - 24px));
+}
+
+.focus-project-option {
+  padding-left: calc(10px + (var(--project-depth, 0) * 18px));
+}
+
+/* Search inside project-aware selects */
+.ui-select-search {
+  position: sticky;
+  top: -6px;
+  z-index: 1;
+  margin: -2px -2px 6px;
+  padding: 6px;
+  border-radius: var(--dropdown-option-radius);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--bg-secondary) 96%, var(--bg-primary)), var(--bg-secondary));
+}
+
+.ui-select-search-icon {
+  position: absolute;
+  left: 17px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.ui-select-search-icon .ui-icon {
+  width: 15px;
+  height: 15px;
+}
+
+.ui-select-search-input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 38px;
+  padding: 9px 12px 9px 34px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  outline: none;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.ui-select-search-input:focus {
+  border-color: var(--accent);
+}
+
+.ui-select-search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.ui-select-empty {
+  padding: 12px 10px;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* Generic markers for custom select options */
+.ui-select-value:has(.ui-select-option-marker) {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ui-select-option-marker {
+  flex: 0 0 auto;
+}
+
+.ui-select-option-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 16%, transparent);
+}
+
+.ui-select-option-icon {
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+
+.ui-select-option-icon .ui-icon {
+  width: 15px;
+  height: 15px;
+}
+
+/* Collapsed Focus stats */
+.focus-stat-grid {
+  margin-top: 14px;
+}
+
+.focus-stat-card .overview-stat-label {
+  line-height: 1.15;
+}
+
