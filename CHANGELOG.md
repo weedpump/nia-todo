@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - Added admin attachment controls for global upload enablement, comma-separated allowed file extensions, default 5 GB quota, per-user quota overrides, and user-visible storage usage.
 
 ### Changed
+- Cleaned up the Todo detail modal CSS and internal modal state handling by consolidating redundant override layers, canonicalizing detail action/drop-hint styles, and centralizing modal lookup/state helpers without intended visual changes.
 - Refined the shared UI design primitives for buttons, form fields, dropdowns, and Todo detail actions, including compact pill buttons, visually balanced field/dropdown sizing, mobile full-width action layouts, Login/Admin/Setup/Set Password/App Downloads rollout, Project/Workspace icon and color picker alignment, and removal of obsolete Todo modal footer actions.
 - Switched packaged backups to snapshot generic runtime data under `NIA_TODO_DATA_DIR` alongside a consistent SQLite backup, covering current and future runtime files while excluding backup archives and SQLite temp/journal files.
 - Centralized icon rendering across the main app, setup/password pages, and admin panel so all UI icons resolve through the generated Lucide package subset instead of page-local SVG definitions.
