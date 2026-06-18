@@ -43,11 +43,6 @@
   background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
-#todo-modal.todo-detail-view .todo-attachments-add-row.is-drag-over::after {
-  color: var(--accent);
-  opacity: 1;
-}
-
 #todo-modal.todo-detail-view .todo-attachment-picker {
   grid-column: 1;
   justify-self: start;
