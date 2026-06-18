@@ -109,7 +109,7 @@ Base `.btn` requirements:
 
 - inline-flex layout with icon/text vertically and horizontally centered (`align-items: center`, `justify-content: center`)
 - `38px` minimum height on desktop
-- `12px` border radius for normal buttons
+- pill-shaped `999px` border radius for normal buttons
 - `14px` text, `700` weight, centered label
 - shared icon sizing via the global `.btn .ui-icon` / `.btn-icon .ui-icon` rules
 - no default shadow on `.btn-primary`; elevation/shadows must be opt-in for a specific component and should not bleed into adjacent stacked buttons
@@ -121,7 +121,7 @@ Variants (`.btn-primary`, `.btn-secondary`, `.btn-danger`) change semantic color
 Desktop:
 
 - Normal buttons: `38px` minimum height.
-- Inline content actions: `34px` minimum height via `.btn-action`, pill radius, `14px` text, `700` weight.
+- Inline content actions: `34px` minimum height via `.btn-action`; visual styling still comes from the normal `.btn` + semantic variant classes.
 - Small row actions: `34px` minimum height via `.btn-small`.
 - Icon-only row actions: `34px × 34px` via `.btn-icon`; they must remain square and should not inherit mobile full-height button rules.
 - Button text should stay centered and readable.
