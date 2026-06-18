@@ -225,7 +225,16 @@ const projectsFeature = createProjectsFeature({
   getCurrentUser: () => currentUser,
 });
 let workspacesFeature = null;
-const userMenuFeature = createUserMenuFeature({ getCurrentUser: () => currentUser });
+const userMenuFeature = createUserMenuFeature({
+  getCurrentUser: () => currentUser,
+  openSettingsModal: () => openSettingsModal(),
+  cycleTheme: () => cycleTheme(),
+  toggleAccentPresetMenu: (event) => toggleAccentPresetMenu(event),
+  cycleSort: () => cycleSort(),
+  toggleHideDone: () => toggleHideDone(),
+  toggleProjectWidget: () => toggleProjectWidget(),
+  logout: () => logout(),
+});
 const userSettingsFeature = createUserSettingsFeature({
   authApi,
   placesApi,
@@ -293,8 +302,6 @@ const saveSettingsPlace = userSettingsFeature.saveSettingsPlace;
 const editSettingsPlace = userSettingsFeature.editSettingsPlace;
 const cancelSettingsPlaceEdit = userSettingsFeature.cancelSettingsPlaceEdit;
 const deleteSettingsPlace = userSettingsFeature.deleteSettingsPlace;
-const toggleUserMenu = userMenuFeature.toggleUserMenu;
-const closeUserMenu = userMenuFeature.closeUserMenu;
 const updateUserMenu = userMenuFeature.updateUserMenu;
 const bindUserMenu = userMenuFeature.bindUserMenu;
 // ─── API Keys ────────────────────────────────────────────────────────────────
@@ -734,7 +741,7 @@ export function startAppModule() {
   projectSharing: { setProject: (project) => sharingFeature.setProject(project), applyProjectModalState: (project, canEdit, shared) => sharingFeature.applyProjectModalState(project, canEdit, shared), loadInvites: () => sharingFeature.loadInvites() },
   sections: { showAddSectionForm, saveNewSection, editSectionInline, saveSectionEdit, deleteSection },
   dragDrop: { handleTodoDragStart, handleTodoDragEnd, handleTodoDragOver, handleTodoDrop, handleProjectDragOver, handleProjectDrop, handleSectionDragStart, handleSectionDragEnd, handleSectionDragOver, handleSectionDrop },
-  viewPreferences: { toggleHideDone, updateToggleDoneButton, cycleSort, updateSortButton, sortTodoList, toggleProjectWidget, updateProjectWidgetButton },
+  viewPreferences: { updateToggleDoneButton, updateSortButton, sortTodoList, updateProjectWidgetButton },
   toastUndo: { showToast, showBatchToast, hideToast, undoLastAction, restoreBatchTodos, restoreTodo },
     push: { updatePushStatus, updatePushSettingsUI, enablePushNotifications, disablePushNotifications, sendTestPush },
     desktopIntegration: {
@@ -745,7 +752,7 @@ export function startAppModule() {
       updateDesktopHotkey: (action, shortcut) => desktopIntegration?.updateHotkey(action, shortcut),
     },
     userSettings: { renderUserInfo, openSettingsModal, changeLanguagePreference, changeDefaultReminderSetting, saveCustomDefaultReminderSetting, changeBrainDumpLearningSetting, resetBrainDumpLearning, editUserDisplayName, cancelUserDisplayNameEdit, saveUserProfile, startAvatarUpload, cancelAvatarCrop, saveAvatarCrop, deleteUserAvatar, editUserEmail, cancelUserEmailEdit, saveUserEmail, changeUserPassword, startTwoFactorTotp, confirmTwoFactorTotp, disableTwoFactor, addPasskey, regenerateRecoveryCodes, removeTotpDevice, removePasskeyDevice, toggleTrustedDevicesList, revokeTrustedDevice, revokeAllTrustedDevices, loadSavedPlaces, saveSettingsPlace, editSettingsPlace, cancelSettingsPlaceEdit, deleteSettingsPlace },
-    userMenu: { toggleUserMenu, closeUserMenu, updateUserMenu },
+    userMenu: { updateUserMenu },
   });
 
   bindLoginForm();
