@@ -82,7 +82,7 @@ const PRECACHE_ASSETS = [
   '/static/js/features/connection-status.js',
   '/static/js/features/confirm-dialog.js',
   '/static/js/features/drag-drop.js',
-  '/static/js/features/legacy-globals.js',
+  '/static/js/features/runtime-globals.js',
   '/static/js/features/push-notifications.js',
   '/static/js/features/project-sharing.js',
   '/static/js/features/theme.js',
