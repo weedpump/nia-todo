@@ -189,6 +189,11 @@
   opacity: .82;
 }
 
+#todo-modal.todo-detail-view .todo-detail-action-row.has-drop-hint.is-drag-over::after {
+  color: var(--accent);
+  opacity: 1;
+}
+
 #todo-modal.todo-detail-view .todo-comments-add-group .todo-detail-action-btn,
 #todo-modal.todo-detail-view .todo-meta-edit-toggle.todo-detail-action-btn {
   justify-self: end;
