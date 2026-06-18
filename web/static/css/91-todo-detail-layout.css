@@ -1,0 +1,335 @@
+/* Todo detail document/modal layout prototypes */
+
+/* Todo detail view prototype: make desktop/tablet feel like a document, not a squeezed form sidebar. */
+#todo-modal.todo-detail-view .todo-modal-content {
+  width: 100vw;
+  height: 100vh;
+  border-radius: 0;
+}
+
+#todo-modal.todo-detail-view .todo-modal-header {
+  max-width: 1180px;
+  width: calc(100% - 56px);
+  margin: 0 auto;
+  padding-inline: 0 48px;
+}
+
+#todo-modal.todo-detail-view .todo-modal-body {
+  padding: clamp(22px, 2.5vw, 38px) clamp(24px, 3vw, 44px);
+}
+
+#todo-modal.todo-detail-view .todo-modal-form {
+  max-width: 1120px;
+  grid-template-columns: minmax(0, 1.35fr) minmax(300px, .65fr);
+  grid-template-areas:
+    "content content"
+    "organize schedule"
+    "subtasks attachments"
+    "comments comments";
+  gap: 26px 30px;
+}
+
+#todo-modal.todo-detail-view #todo-organize-panel { grid-area: organize; }
+#todo-modal.todo-detail-view #todo-schedule-panel { grid-area: schedule; grid-column: auto; grid-row: auto; }
+
+#todo-modal.todo-detail-view .todo-main-section {
+  max-width: 860px;
+}
+
+#todo-modal.todo-detail-view #todo-title {
+  min-height: 52px;
+  padding: 10px 0;
+  border: 1px solid transparent;
+  border-radius: 18px;
+  background: transparent;
+  appearance: none;
+  -webkit-appearance: none;
+  font-size: clamp(26px, 3vw, 38px);
+  line-height: 1.28;
+  font-weight: 760;
+  letter-spacing: -0.025em;
+}
+
+#todo-modal.todo-detail-view #todo-title:focus,
+#todo-modal.todo-detail-view #todo-title:focus-visible {
+  padding-inline: 16px;
+  border-color: color-mix(in srgb, var(--accent) 62%, var(--border));
+  background: color-mix(in srgb, var(--bg-secondary) 58%, transparent);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.14));
+}
+
+#todo-modal.todo-detail-view .desc-live-preview {
+  max-width: 820px;
+  margin-top: 10px;
+  min-height: 56px;
+  color: color-mix(in srgb, var(--text-primary) 88%, var(--text-muted));
+}
+
+#todo-modal.todo-detail-view .todo-collapsible-summary {
+  border-top: 0;
+  padding-top: 0;
+}
+
+#todo-modal.todo-detail-view .todo-subtasks-card,
+#todo-modal.todo-detail-view .todo-comments-card,
+#todo-modal.todo-detail-view .todo-attachments-card {
+  padding-top: 18px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 44%, transparent);
+}
+
+#todo-modal.todo-detail-view #todo-organize-panel,
+#todo-modal.todo-detail-view #todo-schedule-panel {
+  padding: 18px;
+  border-radius: 24px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--bg-secondary) 58%, transparent), color-mix(in srgb, var(--bg-primary) 34%, transparent));
+  border-color: color-mix(in srgb, var(--border) 44%, transparent);
+}
+
+#todo-modal.todo-detail-view #todo-organize-panel .ui-field-grid,
+#todo-modal.todo-detail-view #todo-schedule-panel .ui-field-grid {
+  gap: 12px 14px;
+}
+
+#todo-modal.todo-detail-view #todo-organize-panel .form-group,
+#todo-modal.todo-detail-view #todo-schedule-panel .form-group {
+  margin-bottom: 10px;
+}
+
+#todo-modal.todo-detail-view #todo-organize-panel label,
+#todo-modal.todo-detail-view #todo-schedule-panel label {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .055em;
+}
+
+#todo-modal.todo-detail-view .todo-location-panel,
+#todo-modal.todo-detail-view .recurring-panel {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 36%, transparent);
+}
+
+#todo-modal.todo-detail-view .todo-subtasks-list,
+#todo-modal.todo-detail-view .todo-comments-list,
+#todo-modal.todo-detail-view .todo-attachments-list {
+  gap: 8px;
+}
+
+#todo-modal.todo-detail-view .todo-subtask-row {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  padding: 10px 12px;
+  border-radius: 14px;
+}
+
+#todo-modal.todo-detail-view .todo-subtask-title-group,
+#todo-modal.todo-detail-view .todo-subtask-title-group input {
+  margin: 0;
+}
+
+#todo-modal.todo-detail-view .todo-subtasks-add-row,
+#todo-modal.todo-detail-view .todo-attachments-add-row {
+  gap: 10px;
+}
+
+#todo-modal.todo-detail-view .todo-comments-add-group textarea,
+#todo-modal.todo-detail-view .todo-subtasks-add-row input {
+  background: color-mix(in srgb, var(--bg-secondary) 46%, transparent);
+  border-color: color-mix(in srgb, var(--border) 42%, transparent);
+}
+
+
+@media (max-width: 1180px) {
+  #todo-modal.todo-detail-view .todo-modal-content {
+    width: 100vw;
+    height: 100vh;
+    border-radius: 0;
+  }
+
+  #todo-modal.todo-detail-view .todo-modal-header {
+    width: calc(100% - 32px);
+  }
+
+  #todo-modal.todo-detail-view .todo-modal-form {
+    grid-template-columns: minmax(0, 1fr) minmax(280px, .82fr);
+    grid-template-areas:
+      "content content"
+      "organize schedule"
+      "subtasks attachments"
+      "comments comments";
+  }
+}
+
+@media (max-width: 900px) {
+  #todo-modal.todo-detail-view .todo-modal-form {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "content"
+      "subtasks"
+      "attachments"
+      "comments"
+      "organize"
+      "schedule";
+    gap: 22px;
+  }
+
+  #todo-modal.todo-detail-view .todo-main-section {
+    max-width: none;
+  }
+
+  #todo-modal.todo-detail-view #todo-title {
+    font-size: clamp(28px, 8vw, 42px);
+  }
+}
+
+/* Todo detail view prototype: desktop modal again, tablet fullscreen, no Tetris layout. */
+#todo-modal.todo-detail-view .todo-modal-content {
+  width: min(1080px, calc(100vw - 40px));
+  height: min(940px, calc(100vh - 32px));
+  border-radius: 30px;
+}
+
+#todo-modal.todo-detail-view .todo-modal-header {
+  max-width: 920px;
+}
+
+#todo-modal.todo-detail-view .todo-modal-form {
+  max-width: 880px;
+  grid-template-columns: 1fr;
+  grid-template-areas:
+    "content"
+    "subtasks"
+    "attachments"
+    "comments"
+    "organize"
+    "schedule";
+  gap: 24px;
+}
+
+#todo-modal.todo-detail-view .todo-main-section,
+#todo-modal.todo-detail-view .desc-live-preview {
+  max-width: none;
+}
+
+#todo-modal.todo-detail-view #todo-organize-panel,
+#todo-modal.todo-detail-view #todo-schedule-panel {
+  grid-column: auto;
+  grid-row: auto;
+  padding: 18px 0 0;
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, var(--border) 44%, transparent);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+#todo-modal.todo-detail-view .todo-subtasks-card,
+#todo-modal.todo-detail-view .todo-comments-card,
+#todo-modal.todo-detail-view .todo-attachments-card {
+  padding-top: 18px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 44%, transparent);
+}
+
+#todo-modal.todo-detail-view #todo-organize-panel .ui-field-grid,
+#todo-modal.todo-detail-view #todo-schedule-panel .ui-field-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 1180px) {
+  #todo-modal.todo-detail-view .todo-modal-content {
+    width: 100vw;
+    height: 100vh;
+    border-radius: 0;
+  }
+
+  #todo-modal.todo-detail-view .todo-modal-header,
+  #todo-modal.todo-detail-view .todo-modal-form {
+    max-width: 900px;
+  }
+}
+
+@media (max-width: 720px) {
+  #todo-modal.todo-detail-view #todo-organize-panel .ui-field-grid,
+  #todo-modal.todo-detail-view #todo-schedule-panel .ui-field-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Todo detail view prototype: view-mode meta summary, edit controls only on demand. */
+#todo-modal.todo-detail-view #todo-organize-panel,
+#todo-modal.todo-detail-view #todo-schedule-panel {
+  display: none;
+}
+
+#todo-modal.todo-detail-view.todo-meta-editing #todo-organize-panel,
+#todo-modal.todo-detail-view.todo-meta-editing #todo-schedule-panel {
+  display: block;
+}
+
+#todo-modal.todo-detail-view .todo-meta-summary-view {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 34%, transparent);
+}
+
+#todo-modal.todo-detail-view .todo-meta-summary-view[hidden] {
+  display: none;
+}
+
+#todo-modal.todo-detail-view .todo-meta-summary-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+#todo-modal.todo-detail-view .todo-meta-summary-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--bg-secondary) 62%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border) 36%, transparent);
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+#todo-modal.todo-detail-view .todo-meta-summary-chip .ui-icon {
+  width: 14px;
+  height: 14px;
+  color: var(--text-muted);
+}
+
+#todo-modal.todo-detail-view .todo-meta-summary-label {
+  color: var(--text-muted);
+}
+
+#todo-modal.todo-detail-view .todo-meta-summary-chip strong {
+  font-weight: 650;
+}
+
+#todo-modal.todo-detail-view .todo-meta-summary-empty {
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 34px;
+}
+
+@media (max-width: 720px) {
+  #todo-modal.todo-detail-view .todo-meta-summary-view {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  #todo-modal.todo-detail-view .todo-meta-edit-toggle {
+    align-self: flex-start;
+  }
+}
+
