@@ -10,9 +10,7 @@ export function createSectionsFeature({ getTodos, getCurrentProjectId, getSectio
     if (section) {
       const count = todos.filter(t => t.section_id === section.id && t.project_id === currentProjectId).length;
       return `
-        <div class="section-header" data-section-id="${escapeHtmlAttr(section.id)}" draggable="true"
-          ondragstart="handleSectionDragStart(event)" ondragend="handleSectionDragEnd(event)"
-          ondragover="handleSectionDragOver(event)" ondrop="handleSectionDrop(event)">
+        <div class="section-header" data-section-id="${escapeHtmlAttr(section.id)}" draggable="true">
           <span class="section-name" data-section-action="edit" data-section-id="${escapeHtmlAttr(section.id)}">${escapeHtml(section.name)}</span>
           <span class="section-count">${count}</span>
           <button class="section-delete" data-section-action="delete" data-section-id="${escapeHtmlAttr(section.id)}" title="${escapeHtmlAttr(t('section.delete'))}">${iconSvg('x')}</button>
@@ -22,8 +20,7 @@ export function createSectionsFeature({ getTodos, getCurrentProjectId, getSectio
 
     const unsortedCount = todos.filter(t => !t.section_id && t.project_id === currentProjectId).length;
     return `
-      <div class="section-header section-unsorted" data-section-id="null"
-        ondragover="handleSectionDragOver(event)" ondrop="handleSectionDrop(event)">
+      <div class="section-header section-unsorted" data-section-id="null">
         <span class="section-name">${escapeHtml(t('section.unsorted'))}</span>
         <span class="section-count">${unsortedCount}</span>
       </div>

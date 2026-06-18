@@ -147,7 +147,7 @@ export function createAppRenderingFeature({
       html += `<div class="project-tree-item" style="padding-left: ${indent}px">`;
       html += `<div class="nav-item-with-action">`;
       const isActiveProject = Number(currentProjectId) === Number(project.id);
-      html += `<button class="nav-btn project-drop-target ${isActiveProject ? 'active' : ''}" data-filter="${escapeHtmlAttr(project.id)}" data-project-id="${escapeHtmlAttr(project.id)}" ondragover="handleProjectDragOver(event)" ondrop="handleProjectDrop(event)">`;
+      html += `<button class="nav-btn project-drop-target ${isActiveProject ? 'active' : ''}" data-filter="${escapeHtmlAttr(project.id)}" data-project-id="${escapeHtmlAttr(project.id)}">`;
       html += markerHtml({ ...project, color: escapeHtmlAttr(project.color || '#6366f1'), icon: project.icon });
       html += `${escapeHtml(project.name)}`;
       html += `<span class="badge">${countByProject(project.id, true)}</span>`;
@@ -667,20 +667,20 @@ export function createAppRenderingFeature({
 
       sections.forEach((section, index) => {
         const sectionTodos = sortProjectSectionTodos(sectionSource.filter(t => t.section_id === section.id));
-        html += `<div class="section-dropzone" data-drop-index="${index}" ondragover="handleSectionDragOver(event)" ondrop="handleSectionDrop(event)"></div>`;
+        html += `<div class="section-dropzone" data-drop-index="${index}"></div>`;
         html += renderSectionHeader(section, sectionTodos);
-        html += `<div class="section-todos" data-section-id="${escapeHtmlAttr(section.id)}" ondragover="handleTodoDragOver(event)" ondrop="handleTodoDrop(event)">`;
+        html += `<div class="section-todos" data-section-id="${escapeHtmlAttr(section.id)}">`;
         html += sectionTodos.map(t => renderTodoItem(t)).join('');
         html += `</div>`;
       });
       if (sections.length) {
-        html += `<div class="section-dropzone" data-drop-index="${sections.length}" ondragover="handleSectionDragOver(event)" ondrop="handleSectionDrop(event)"></div>`;
+        html += `<div class="section-dropzone" data-drop-index="${sections.length}"></div>`;
       }
 
       const unsorted = sortProjectSectionTodos(sectionSource.filter(t => !t.section_id || !validSectionIds.has(t.section_id)));
       if (unsorted.length || sections.length) {
         html += renderSectionHeader(null, unsorted);
-        html += `<div class="section-todos" data-section-id="null" ondragover="handleTodoDragOver(event)" ondrop="handleTodoDrop(event)">`;
+        html += `<div class="section-todos" data-section-id="null">`;
         html += unsorted.map(t => renderTodoItem(t)).join('');
         html += `</div>`;
       }
