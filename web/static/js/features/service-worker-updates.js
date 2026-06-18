@@ -16,7 +16,53 @@ export function createServiceWorkerUpdatesFeature() {
   const NATIVE_UPDATE_INTERVAL_MS = 10 * 60 * 1000;
   const FOREGROUND_MIN_CHECK_INTERVAL_MS = 2 * 60 * 1000;
   const STARTUP_FOLLOW_UP_DELAYS_MS = [20 * 1000, 2 * 60 * 1000];
-  const FALLBACK_HARD_RELOAD_ASSETS = ['/', '/index.html', '/manifest.json', '/static/style.css', '/static/js/main.js'];
+  const CSS_MODULE_ASSETS = [
+    '/static/css/00-base.css',
+    '/static/css/10-navigation-sidebar.css',
+    '/static/css/11-main-shell.css',
+    '/static/css/12-overview-dashboard.css',
+    '/static/css/20-todos-list.css',
+    '/static/css/30-buttons-empty.css',
+    '/static/css/31-modals.css',
+    '/static/css/32-dropdowns-selects.css',
+    '/static/css/33-color-scrollbars.css',
+    '/static/css/40-responsive-mobile.css',
+    '/static/css/50-auth-login.css',
+    '/static/css/51-auth-downloads-install.css',
+    '/static/css/52-auth-mobile.css',
+    '/static/css/53-version-bar.css',
+    '/static/css/60-feedback-markdown.css',
+    '/static/css/61-workspace-confirm-icons.css',
+    '/static/css/62-touch-native.css',
+    '/static/css/63-security-auth.css',
+    '/static/css/64-focus-controls.css',
+    '/static/css/70-braindump.css',
+    '/static/css/71-settings.css',
+    '/static/css/80-form-todo-modal.css',
+    '/static/css/80-todo-detail-workspace-base.css',
+    '/static/css/81-todo-cards-refresh.css',
+    '/static/css/82-entity-modals.css',
+    '/static/css/83-focus-selects.css',
+    '/static/css/90-minimal-list.css',
+    '/static/css/90-detail-extras.css',
+    '/static/css/90-attachments-preview.css',
+    '/static/css/91-todo-detail-layout.css',
+    '/static/css/92-todo-detail-content.css',
+    '/static/css/92-todo-detail-comments-actions.css',
+    '/static/css/92-todo-detail-attachments.css',
+    '/static/css/92-todo-detail-description.css',
+    '/static/css/93-todo-detail-meta-drawer.css',
+    '/static/css/94-todo-detail-header-actions.css',
+    '/static/css/95-todo-detail-mobile-viewport.css',
+  ];
+  const FALLBACK_HARD_RELOAD_ASSETS = [
+    '/',
+    '/index.html',
+    '/manifest.json',
+    '/static/style.css',
+    ...CSS_MODULE_ASSETS,
+    '/static/js/main.js',
+  ];
 
   function isNativeApp() {
     return RUNTIME_CAPABILITIES.native;

@@ -742,6 +742,7 @@ const closeModal = uiShell.closeModal;
 const setupDescPreview = uiShell.setupDescPreview;
 uiShell.bindSidebarEdgeSwipe();
 uiShell.bindTouchFeedback();
+uiShell.bindDateTimePickerOpeners();
 uiShell.bindKeyboardShortcuts();
 
 // ─── Drag & Drop ─────────────────────────────────────────────────────────────
