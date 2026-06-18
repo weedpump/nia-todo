@@ -17,6 +17,7 @@ import { createWorkspacesFeature } from './features/workspaces.js';
 import { createProjectSharingFeature } from './features/project-sharing.js';
 import { createTodosFeature } from './features/todos.js';
 import { createSyncFeature } from './features/sync.js';
+import { createSyncController } from './features/sync-controller.js';
 import { renderTodoItem } from './features/todo-rendering.js';
 import { createViewPreferencesFeature } from './features/view-preferences.js';
 import { createMobileSearchFeature } from './features/mobile-search.js';
@@ -33,6 +34,7 @@ import { createSectionActionsFeature } from './features/section-actions.js';
 import { createBrainDumpLiveFeature } from './features/braindump-live.js';
 import { createUiShell } from './features/ui-shell.js';
 import { createAppLifecycle } from './features/app-lifecycle.js';
+import { createOidcNoticeFeature } from './features/oidc-notice.js';
 import { exposeLegacyGlobals } from './features/legacy-globals.js';
 import { t, translatePage } from './i18n/index.js';
 import { hydrateIcons } from './icons/lucide-icons.js';
@@ -52,6 +54,7 @@ let showProjectWidget = localStorage.getItem('nia-project-widget') !== 'false';
 let todayFocus = localStorage.getItem('nia-today-focus') === 'true';
 let minimalTodos = localStorage.getItem('nia-minimal-todos') === 'true';
 let desktopIntegration = null;
+let syncController = null;
 
 const {
   getFocusFilters,
@@ -385,26 +388,15 @@ desktopIntegration = createDesktopIntegration({
 // ─── Sync Logic (Kern der Offline→Online Synchronisation) ───────────────────
 
 function isOnlineForSync() {
-  return syncFeature.isOnlineForSync(wsClient.getWsState());
+  return syncController.isOnlineForSync();
 }
 
 async function syncWithServer() {
-  await updateConnectionStatusView(wsClient.getWsState());
-  await syncFeature.syncWithServer({ wsState: wsClient.getWsState(), syncInProgressRef });
-  syncInProgress = syncInProgressRef.value;
-  await updateConnectionStatusView(wsClient.getWsState());
+  await syncController.syncWithServer();
 }
 
 async function refreshFromServer() {
-  await updateConnectionStatusView(wsClient.getWsState());
-  await syncFeature.refreshFromServer({ wsState: wsClient.getWsState(), syncInProgressRef });
-  syncInProgress = syncInProgressRef.value;
-  await updateConnectionStatusView(wsClient.getWsState());
-  ensureCurrentWorkspace();
-  renderWorkspaces();
-  renderProjects();
-  renderStats();
-  renderTodos();
+  await syncController.refreshFromServer();
 }
 
 const sectionActions = createSectionActionsFeature({
@@ -475,6 +467,18 @@ workspacesFeature = createWorkspacesFeature({
   showToast: (...args) => showToast(...args),
 });
 const renderWorkspaces = workspacesFeature.renderWorkspaces;
+syncController = createSyncController({
+  syncFeature,
+  syncInProgressRef,
+  getWsState: () => wsClient.getWsState(),
+  updateConnectionStatusView,
+  setSyncInProgress: (next) => { syncInProgress = next; },
+  ensureCurrentWorkspace: () => ensureCurrentWorkspace(),
+  renderWorkspaces: () => renderWorkspaces(),
+  renderProjects: () => renderProjects(),
+  renderStats: () => renderStats(),
+  renderTodos: () => renderTodos(),
+});
 const switchWorkspace = workspacesFeature.switchWorkspace;
 const createWorkspace = workspacesFeature.createWorkspace;
 const showWorkspaceModal = workspacesFeature.showWorkspaceModal;
@@ -582,22 +586,11 @@ const handleSectionDragOver = dragDropFeature.handleSectionDragOver;
 const handleSectionDrop = dragDropFeature.handleSectionDrop;
 const bindNativePointerDragDrop = dragDropFeature.bindNativePointerDragDrop;
 
-function consumeOidcErrorNotice() {
-  const raw = sessionStorage.getItem('nia_oidc_error');
-  if (!raw) return;
-  sessionStorage.removeItem('nia_oidc_error');
-  let message = t('auth.oidc.errorMessage');
-  try {
-    const data = JSON.parse(raw);
-    message = data?.error_key ? t(data.error_key) : message;
-  } catch (_) {}
-  requestAnimationFrame(() => {
-    showLoginOverlay();
-    const errorEl = document.getElementById('login-error');
-    if (errorEl) errorEl.textContent = message;
-    alertInfo({ title: t('auth.oidc.errorTitle'), message }).catch(() => {});
-  });
-}
+const { consumeOidcErrorNotice } = createOidcNoticeFeature({
+  t,
+  showLoginOverlay,
+  alertInfo,
+});
 
 const toastUndoFeature = createToastUndoFeature({
   getDb: () => db,
