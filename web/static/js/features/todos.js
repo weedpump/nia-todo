@@ -2804,15 +2804,24 @@ export function createTodosFeature({
   }
 
   function bindTodoActions() {
-    document.addEventListener('click', (event) => {
+    document.addEventListener('click', async (event) => {
       const target = event.target?.closest?.('[data-todo-action]');
       if (!target) return;
       const action = target.dataset.todoAction;
+      event.preventDefault();
       if (action === 'new') {
-        event.preventDefault();
         showTodoModal();
+      } else if (action === 'add-subtask') {
+        await addTodoSubtaskFromInput();
+      } else if (action === 'add-comment') {
+        await addTodoCommentFromInput();
+      } else if (action === 'choose-attachment') {
+        document.getElementById('todo-attachment-file')?.click();
+      } else if (action === 'upload-attachment') {
+        await uploadTodoAttachmentFromInput();
       }
     });
+    document.getElementById('todo-project')?.addEventListener('change', onProjectChange);
   }
 
   return { markTodoDone, markTodoInProgress, setTodoStatus, toggleTodo, toggleTodoPin, toggleTodoActions, addTodoSubtaskFromInput, addTodoCommentFromInput, uploadTodoAttachmentFromInput, deleteTodoComment, deleteTodoAttachment, closeAttachmentPreview, downloadPreviewAttachment, snoozeTodo, duplicateTodo, showTodoModal, bindTodoActions, onProjectChange, saveTodo, editTodo, deleteTodoFromModal, deleteTodo };
