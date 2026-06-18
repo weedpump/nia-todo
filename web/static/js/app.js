@@ -35,7 +35,7 @@ import { createBrainDumpLiveFeature } from './features/braindump-live.js';
 import { createUiShell } from './features/ui-shell.js';
 import { createAppLifecycle } from './features/app-lifecycle.js';
 import { createOidcNoticeFeature } from './features/oidc-notice.js';
-import { exposeLegacyGlobals } from './features/legacy-globals.js';
+import { exposeRuntimeGlobals } from './features/runtime-globals.js';
 import { t, translatePage } from './i18n/index.js';
 import { hydrateIcons } from './icons/lucide-icons.js';
 let todos = [];
@@ -674,7 +674,7 @@ export function startAppModule() {
   setInterval(() => renderStats(), 30 * 1000);
 
   // Expose runtime globals needed by native integrations and cross-module callbacks.
-  exposeLegacyGlobals({
+  exposeRuntimeGlobals({
   auth: { getAuthToken, getCsrfToken, getAuthHeaders, login, checkAuth, logout, clearIndexedDB, showLoginOverlay, hideLoginOverlay, handleLogin, bindLoginForm },
   apiKeys: { loadApiKeys, renderApiKeys, revokeApiKey },
   utils: { escapeHtml, escapeHtmlAttr, jsArg, formatDate, renderTodoItem },
