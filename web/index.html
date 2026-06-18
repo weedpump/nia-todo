@@ -446,10 +446,10 @@
     </div>
 
     <div class="modal app-downloads-modal" id="app-downloads-modal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="app-downloads-modal-title">
-      <div class="modal-overlay" onclick="closeModal('app-downloads-modal')"></div>
+      <div class="modal-overlay" data-close-modal="app-downloads-modal"></div>
       <div class="modal-content app-downloads-modal-content" data-app-download-panel style="display:none;">
         <h3 id="app-downloads-modal-title" data-i18n-key="appDownloads.title">Apps herunterladen</h3>
-        <button class="modal-close-x" onclick="closeModal('app-downloads-modal')"><span data-icon="x"></span></button>
+        <button class="modal-close-x" data-close-modal="app-downloads-modal"><span data-icon="x"></span></button>
         <div class="modal-body app-downloads-modal-body">
           <div class="web-update-icon" aria-hidden="true" data-icon="download"></div>
           <p class="app-download-modal-subtitle" data-i18n-key="appDownloads.modalSubtitle">Install nia-todo as a native app on your device.</p>
@@ -562,7 +562,7 @@
 
   <!-- Todo Modal -->
   <div class="modal" id="todo-modal">
-    <div class="modal-overlay" onclick="closeModal('todo-modal')"></div>
+    <div class="modal-overlay" data-close-modal="todo-modal"></div>
     <div class="modal-content todo-modal-content">
       <div class="todo-modal-header">
         <div class="todo-modal-title-icon" data-icon="check-circle"></div>
@@ -571,7 +571,7 @@
           <p data-i18n-key="todo.modal.subtitle">Capture the task, then add planning details only if needed.</p>
         </div>
       </div>
-      <button class="modal-close-x" onclick="closeModal('todo-modal')"><span data-icon="x"></span></button>
+      <button class="modal-close-x" data-close-modal="todo-modal"><span data-icon="x"></span></button>
       <div class="modal-body todo-modal-body">
       <form id="todo-form" class="todo-modal-form todo-editor-shell">
         <input type="hidden" id="todo-id">
@@ -864,7 +864,7 @@
 
   <!-- Settings Modal -->
   <div class="modal" id="settings-modal">
-    <div class="modal-overlay" onclick="closeModal('settings-modal')"></div>
+    <div class="modal-overlay" data-close-modal="settings-modal"></div>
     <div class="modal-content settings-modal-content">
       <div class="settings-modal-header">
         <div>
@@ -872,7 +872,7 @@
           <p class="settings-modal-subtitle"><span data-i18n-key="settings.overview.subtitle">Profil, Sicherheit, API und App-Verhalten an einem Ort.</span></p>
         </div>
       </div>
-      <button class="modal-close-x" onclick="closeModal('settings-modal')"><span data-icon="x"></span></button>
+      <button class="modal-close-x" data-close-modal="settings-modal"><span data-icon="x"></span></button>
       <div class="modal-body settings-modal-body">
         <nav class="settings-nav" aria-label="Settings sections" data-i18n-aria-label-key="settings.nav.aria">
           <a href="#settings-section-profile"><span data-icon="user"></span><span data-i18n-key="settings.section.profile">Profil</span></a>
@@ -1252,7 +1252,7 @@
         </div>
       </div>
       <div class="modal-actions settings-modal-actions">
-        <button type="button" class="btn btn-secondary" id="settings-close-btn" onclick="closeModal('settings-modal')" data-i18n-key="settings.close">Close</button>
+        <button type="button" class="btn btn-secondary" id="settings-close-btn" data-close-modal="settings-modal" data-i18n-key="settings.close">Close</button>
       </div>
     </div>
   </div>
@@ -1309,7 +1309,7 @@
   </div>
 
   <div class="modal" id="project-modal">
-    <div class="modal-overlay" onclick="closeModal('project-modal')"></div>
+    <div class="modal-overlay" data-close-modal="project-modal"></div>
     <div class="modal-content entity-modal-content project-modal-content">
       <div class="entity-modal-header">
         <div class="entity-modal-title-icon" data-icon="folder"></div>
@@ -1318,7 +1318,7 @@
           <p data-i18n-key="project.modalHint">Strukturiere Todos mit Farbe, Icon und optionaler Hierarchie.</p>
         </div>
       </div>
-      <button class="modal-close-x" onclick="closeModal('project-modal')"><span data-icon="x"></span></button>
+      <button class="modal-close-x" data-close-modal="project-modal"><span data-icon="x"></span></button>
       <div class="modal-body entity-modal-body">
         <form id="project-form" class="entity-modal-form">
           <input type="hidden" id="project-id">
@@ -1398,7 +1398,7 @@
       </div>
       <div class="modal-actions entity-modal-actions">
         <button type="button" class="btn btn-danger" id="project-delete-btn" onclick="deleteProjectFromModal()" style="margin-right:auto;display:none;"><span data-icon="trash-2"></span> <span data-i18n-key="project.delete">Delete project</span></button>
-        <button type="button" class="btn btn-secondary" onclick="closeModal('project-modal')" data-i18n-key="common.cancel">Cancel</button>
+        <button type="button" class="btn btn-secondary" data-close-modal="project-modal" data-i18n-key="common.cancel">Cancel</button>
         <button type="submit" form="project-form" class="btn btn-primary" id="project-save-btn" data-i18n-key="common.save">Save</button>
       </div>
     </div>
