@@ -30,14 +30,6 @@
   transition: border-color .14s ease, background .14s ease;
 }
 
-#todo-modal.todo-detail-view .todo-attachments-add-row::after {
-  content: attr(data-drop-label);
-  color: var(--text-muted);
-  font-size: 12px;
-  line-height: 1.2;
-  opacity: .82;
-}
-
 #todo-modal.todo-detail-view .todo-attachments-add-row.is-drag-over {
   border-color: color-mix(in srgb, var(--accent) 58%, transparent);
   background: color-mix(in srgb, var(--accent) 10%, transparent);
@@ -50,21 +42,6 @@
   width: auto;
   min-width: 0;
   max-width: 220px;
-}
-
-@media (max-width: 640px) {
-  #todo-modal.todo-detail-view .todo-attachments-add-row::after {
-    grid-column: 1 / -1;
-    grid-row: 2;
-    justify-self: start;
-  }
-}
-
-#todo-modal.todo-detail-view .todo-attachments-add-row::after {
-  grid-column: 2;
-  grid-row: 1;
-  justify-self: center;
-  text-align: center;
 }
 
 #todo-modal.todo-detail-view #todo-attachment-upload-btn {
