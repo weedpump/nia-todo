@@ -8,6 +8,7 @@ Goals:
 - consistent controls across web, PWA, Windows, and Android wrappers
 - mobile-first behavior without making desktop feel sparse
 - accessible sizing, clear hierarchy, and predictable actions
+- reduce visual noise by preferring clean content sections, semantic chips, and shared action primitives over deeply nested component-specific containers
 
 ## Principles
 
@@ -99,6 +100,8 @@ Guidelines:
 
 The generic `.btn` primitive owns the default button look. Do not rely on modal/footer-specific CSS to make a normal button look correct.
 
+The Todo detail redesign introduced a calmer pill-shaped action-button direction for inline content actions such as add/upload/edit-details. Treat this as the preferred direction for new content-surface action rows, but migrate existing app-wide buttons deliberately through shared primitives instead of one-off overrides.
+
 Base `.btn` requirements:
 
 - inline-flex layout with icon/text vertically and horizontally centered (`align-items: center`, `justify-content: center`)
@@ -150,6 +153,13 @@ Typical modal order:
 For mobile, keep the most likely action easiest to hit. Destructive actions must not be visually ambiguous.
 
 ## Modals
+
+Modal redesign direction from the Todo detail work:
+
+- Read/detail surfaces should feel like content views first, not dense forms.
+- Create flows may remain form-first, but should share the same modal shell, header rhythm, mobile fullscreen behavior, and action primitives as related detail views.
+- Avoid nested box-in-box layouts unless the grouping adds real comprehension. Prefer clean sections, subtle dividers, and semantic chips.
+- On mobile, fullscreen modals should have one scroll container for the body; headers/close controls must not participate in a second outer scroll.
 
 ### Standard Modal
 

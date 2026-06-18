@@ -76,23 +76,307 @@ export function createTodosFeature({
   }
 
   function updateTodoMetaPanelsOpenState(todo = null) {
-    if (isMobileTodoModalLayout()) {
-      setTodoCollapsibleOpen('todo-schedule-panel', false);
-      setTodoCollapsibleOpen('todo-organize-panel', false);
+    const existingTodo = Boolean(todo?.id);
+    setTodoCollapsibleOpen('todo-subtasks-panel', existingTodo);
+    setTodoCollapsibleOpen('todo-comments-panel', existingTodo);
+    setTodoCollapsibleOpen('todo-attachments-panel', existingTodo);
+    if (existingTodo) {
+      setTodoCollapsibleOpen('todo-schedule-panel', true);
+      setTodoCollapsibleOpen('todo-organize-panel', true);
       return;
     }
-    const recurringRule = normalizeRecurringRule(todo?.recurring_rule, { defaultTimezone: null });
-    const hasLocationReminder = Array.isArray(todo?.location_reminders) && todo.location_reminders.length > 0;
-    const hasScheduleDetails = Boolean(todo?.due_date || todo?.remind_at || (Array.isArray(todo?.reminders) && todo.reminders.length > 0) || (recurringRule && recurringRule.frequency !== 'none') || hasLocationReminder);
-    const hasOrganizeDetails = Boolean(
-      todo && (
-        Number(todo.priority || 3) !== 3 ||
-        (todo.status || 'pending') !== 'pending' ||
-        Boolean(todo.is_pinned)
-      )
-    );
-    setTodoCollapsibleOpen('todo-schedule-panel', hasScheduleDetails);
-    setTodoCollapsibleOpen('todo-organize-panel', hasOrganizeDetails);
+    setTodoCollapsibleOpen('todo-subtasks-panel', true);
+    setTodoCollapsibleOpen('todo-comments-panel', true);
+    setTodoCollapsibleOpen('todo-attachments-panel', true);
+    setTodoCollapsibleOpen('todo-schedule-panel', true);
+    setTodoCollapsibleOpen('todo-organize-panel', true);
+  }
+
+  function formatTodoMetaDate(value) {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    return new Intl.DateTimeFormat(getActiveLanguage() === 'de' ? 'de-DE' : 'en-US', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(date);
+  }
+
+  function getSelectedOptionLabel(id) {
+    const select = document.getElementById(id);
+    const option = select?.selectedOptions?.[0];
+    return option?.textContent?.trim() || '';
+  }
+
+  function ensureTodoMetaSummary() {
+    const titleGroup = document.getElementById('todo-title')?.closest('.form-group');
+    if (!titleGroup) return null;
+    let summary = document.getElementById('todo-meta-summary');
+    if (!summary) {
+      summary = document.createElement('div');
+      summary.id = 'todo-meta-summary';
+      summary.className = 'todo-meta-summary-view';
+    }
+    if (summary.previousElementSibling !== titleGroup) titleGroup.after(summary);
+    return summary;
+  }
+
+  function ensureTodoMetaDrawer() {
+    const form = document.getElementById('todo-form');
+    const organize = document.getElementById('todo-organize-panel');
+    const schedule = document.getElementById('todo-schedule-panel');
+    if (!form || !organize || !schedule) return null;
+    let drawer = document.getElementById('todo-meta-drawer');
+    if (!drawer) {
+      drawer = document.createElement('aside');
+      drawer.id = 'todo-meta-drawer';
+      drawer.className = 'todo-meta-edit-drawer';
+      drawer.setAttribute('aria-label', getActiveLanguage() === 'de' ? 'Todo Details bearbeiten' : 'Edit todo details');
+      drawer.innerHTML = `
+        <div class="todo-meta-drawer-header">
+          <div>
+            <h4>${getActiveLanguage() === 'de' ? 'Details bearbeiten' : 'Edit details'}</h4>
+            <p>${getActiveLanguage() === 'de' ? 'Planung, Einordnung und Erinnerungen.' : 'Planning, organization, and reminders.'}</p>
+          </div>
+          <button type="button" class="todo-meta-drawer-close" aria-label="${getActiveLanguage() === 'de' ? 'Details schließen' : 'Close details'}">${iconSvg('x')}</button>
+        </div>
+        <div class="todo-meta-drawer-body"></div>
+      `;
+      drawer.querySelector('.todo-meta-drawer-close')?.addEventListener('click', () => {
+        document.getElementById('todo-modal')?.classList.remove('todo-meta-editing');
+        renderTodoMetaSummary(getTodos().find(todo => String(todo.id) === String(document.getElementById('todo-id')?.value)) || null);
+      });
+      form.appendChild(drawer);
+    }
+    const body = drawer.querySelector('.todo-meta-drawer-body') || drawer;
+    if (organize.parentElement !== body) body.appendChild(organize);
+    if (schedule.parentElement !== body) body.appendChild(schedule);
+    return drawer;
+  }
+
+  function todoLocationReminderLabel(todo) {
+    const reminder = todo?.location_reminder || todo?.location_reminders?.find?.((entry) => entry && entry.enabled !== 0 && entry.enabled !== false) || null;
+    if (!reminder || reminder.enabled === 0 || reminder.enabled === false) return '';
+    const trigger = String(reminder.trigger_type || reminder.triggerType || '').toLowerCase();
+    const triggerLabel = trigger === 'departure' ? t('todo.location.departureShort') : t('todo.location.arrivalShort');
+    const place = String(reminder.place_name || reminder.placeName || reminder.address || '').trim();
+    return place ? `${triggerLabel}: ${place}` : triggerLabel;
+  }
+
+  function renderTodoMetaSummary(todo = null) {
+    const summary = ensureTodoMetaSummary();
+    if (!summary) return;
+    ensureTodoMetaDrawer();
+    summary.hidden = false;
+    const lang = getActiveLanguage();
+    const chips = [];
+    const addChip = (icon, label, value, options = {}) => {
+      if (!value) return;
+      const tone = String(options.tone || icon || 'default').replace(/[^a-z0-9-]/gi, '').toLowerCase();
+      const style = options.color ? ` style="--meta-tone: ${escapeHtmlAttr(options.color)}"` : '';
+      chips.push(`<span class="todo-meta-summary-chip todo-meta-tone-${tone}${options.muted ? ' is-muted' : ''}"${style}>${iconSvg(icon)}<span class="todo-meta-summary-label">${escapeHtmlAttr(label)}</span><strong>${escapeHtmlAttr(value)}</strong></span>`);
+    };
+    const selectedProject = getProjects().find(project => String(project.id) === String(document.getElementById('todo-project')?.value || ''));
+    const priority = Number(document.getElementById('todo-priority')?.value || todo.priority || 3);
+    const status = document.getElementById('todo-status')?.value || todo.status || 'pending';
+    const dueValue = todo?.due_date || document.getElementById('todo-due')?.value || '';
+    const remindValue = todo?.remind_at || todo?.reminders?.[0]?.remind_at || document.getElementById('todo-remind')?.value || '';
+    const dueDate = dueValue ? new Date(dueValue) : null;
+    const isOverdue = dueDate && status !== 'done' && dueDate < new Date();
+    const isSoon = dueDate && !isOverdue && status !== 'done' && dueDate <= new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+    const priorityTone = { 1: 'priority-very-high', 2: 'priority-high', 3: 'priority-medium', 4: 'priority-low' }[priority] || 'priority-low';
+    const statusTone = status === 'done' ? 'status-done' : status === 'in_progress' ? 'status-in-progress' : 'status-pending';
+    const statusIcon = status === 'done' ? 'check-circle' : status === 'in_progress' ? 'flame' : 'clock';
+    const dueTone = isOverdue ? 'due-overdue' : isSoon ? 'due-soon' : 'due-neutral';
+    const projectIcon = /^[a-z0-9-]+$/i.test(String(selectedProject?.icon || '')) ? selectedProject.icon : 'folder';
+    addChip(projectIcon, lang === 'de' ? 'Projekt' : 'Project', getSelectedOptionLabel('todo-project'), { tone: 'project', color: selectedProject?.color });
+    addChip('layers', lang === 'de' ? 'Section' : 'Section', getSelectedOptionLabel('todo-section'), { tone: 'section' });
+    addChip('flag', lang === 'de' ? 'Priorität' : 'Priority', getSelectedOptionLabel('todo-priority'), { tone: priorityTone });
+    addChip(statusIcon, 'Status', getSelectedOptionLabel('todo-status'), { tone: statusTone });
+    addChip(isOverdue ? 'triangle-alert' : 'calendar-days', lang === 'de' ? 'Deadline' : 'Deadline', formatTodoMetaDate(dueValue), { tone: dueTone });
+    addChip('bell', lang === 'de' ? 'Erinnerung' : 'Reminder', formatTodoMetaDate(remindValue), { tone: 'reminder' });
+    addChip('map-pin', lang === 'de' ? 'Ort' : 'Location', todoLocationReminderLabel(todo), { tone: 'location' });
+    const selectedFrequency = document.getElementById('todo-recurring-frequency')?.value || 'none';
+    const recurringRule = todo?.recurring_rule ? normalizeRecurringRule(todo.recurring_rule, { defaultTimezone: null }) : { frequency: selectedFrequency };
+    if (recurringRule && recurringRule.frequency !== 'none') addChip('repeat', lang === 'de' ? 'Wiederholung' : 'Repeat', getSelectedOptionLabel('todo-recurring-frequency'));
+    if (todo?.is_pinned || document.getElementById('todo-pinned')?.checked) addChip('star', lang === 'de' ? 'Angepinnt' : 'Pinned', lang === 'de' ? 'Ja' : 'Yes');
+    const empty = lang === 'de' ? 'Keine Planung oder Einordnung gesetzt.' : 'No planning or organization set.';
+    const edit = lang === 'de' ? 'Details bearbeiten' : 'Edit details';
+    summary.innerHTML = `
+      <div class="todo-meta-summary-chips">${chips.length ? chips.join('') : `<span class="todo-meta-summary-empty">${empty}</span>`}</div>
+      <button type="button" class="btn btn-secondary todo-detail-action-btn todo-meta-edit-toggle" id="todo-meta-edit-toggle">${edit}</button>
+    `;
+    const toggle = summary.querySelector('#todo-meta-edit-toggle');
+    const syncToggleLabel = () => {
+      const active = document.getElementById('todo-modal')?.classList.contains('todo-meta-editing');
+      const label = active ? (lang === 'de' ? 'Details schließen' : 'Close details') : edit;
+      toggle.innerHTML = `${iconSvg(active ? 'x' : 'settings')}<span>${escapeHtmlAttr(label)}</span>`;
+    };
+    toggle?.addEventListener('click', () => {
+      document.getElementById('todo-modal')?.classList.toggle('todo-meta-editing');
+      syncToggleLabel();
+    });
+    syncToggleLabel();
+    translatePage(summary);
+  }
+
+  function ensureTodoDetailHeaderMenu() {
+    const header = document.querySelector('#todo-modal .todo-modal-header');
+    if (!header) return null;
+    let menu = document.getElementById('todo-detail-header-actions');
+    if (!menu) {
+      menu = document.createElement('details');
+      menu.id = 'todo-detail-header-actions';
+      menu.className = 'todo-detail-header-actions';
+      menu.innerHTML = `
+        <summary aria-label="${t('common.more') || 'More'}">${iconSvg('menu')}</summary>
+        <div class="todo-detail-header-menu ui-menu" role="menu">
+          <button type="button" class="ui-menu-item" id="todo-detail-duplicate-action" role="menuitem">${iconSvg('copy')}<span>${t('todo.duplicate')}</span></button>
+          <button type="button" class="ui-menu-item danger" id="todo-detail-delete-action" role="menuitem">${iconSvg('trash-2')}<span>${t('todo.delete')}</span></button>
+        </div>
+      `;
+      header.appendChild(menu);
+      menu.querySelector('#todo-detail-duplicate-action')?.addEventListener('click', () => {
+        menu.removeAttribute('open');
+        const id = document.getElementById('todo-id')?.value;
+        if (id) {
+          duplicateTodo(id);
+          closeModal('todo-modal');
+        }
+      });
+      menu.querySelector('#todo-detail-delete-action')?.addEventListener('click', () => {
+        menu.removeAttribute('open');
+        deleteTodoFromModal();
+      });
+    }
+    if (menu.dataset.outsideCloseBound !== '1') {
+      menu.dataset.outsideCloseBound = '1';
+      document.addEventListener('pointerdown', (event) => {
+        if (!menu.open || menu.contains(event.target)) return;
+        menu.removeAttribute('open');
+      });
+    }
+    return menu;
+  }
+
+  function updateTodoDetailViewMode(todo = null) {
+    const modal = document.getElementById('todo-modal');
+    if (!modal) return;
+    const isExistingTodo = Boolean(todo?.id);
+    modal.classList.add('todo-detail-view');
+    modal.classList.remove('todo-create-view');
+    modal.classList.remove('todo-desc-editing');
+    modal.classList.remove('todo-meta-editing');
+    modal.classList.remove('todo-has-unsaved');
+    const headerMenu = ensureTodoDetailHeaderMenu();
+    if (headerMenu) headerMenu.hidden = !isExistingTodo;
+    const preview = document.getElementById('todo-desc-preview');
+    if (preview) preview.dataset.emptyLabel = getActiveLanguage() === 'de' ? 'Beschreibung hinzufügen…' : 'Add description…';
+    renderTodoMetaSummary(todo);
+  }
+
+  function htmlNodeToMarkdown(node) {
+    if (node.nodeType === Node.TEXT_NODE) return node.textContent || '';
+    if (node.nodeType !== Node.ELEMENT_NODE) return '';
+    const tag = node.tagName.toLowerCase();
+    const children = () => Array.from(node.childNodes).map(htmlNodeToMarkdown).join('');
+    if (tag === 'br') return '\n';
+    if (tag === 'strong' || tag === 'b') return `**${children()}**`;
+    if (tag === 'em' || tag === 'i') return `*${children()}*`;
+    if (tag === 'code') return `\`${children()}\``;
+    if (tag === 'h1') return `# ${children().trim()}\n\n`;
+    if (tag === 'h2') return `## ${children().trim()}\n\n`;
+    if (tag === 'h3') return `### ${children().trim()}\n\n`;
+    if (tag === 'li') return `- ${children().trim()}\n`;
+    if (tag === 'ul' || tag === 'ol') return `${children()}\n`;
+    if (tag === 'p' || tag === 'div') return `${children().trim()}\n\n`;
+    return children();
+  }
+
+  function richDescriptionToMarkdown(editor) {
+    return Array.from(editor.childNodes)
+      .map(htmlNodeToMarkdown)
+      .join('')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+  }
+
+  function ensureDescriptionRichEditor(textarea, preview) {
+    let wrap = document.getElementById('todo-desc-rich-wrap');
+    if (wrap) return wrap;
+    wrap = document.createElement('div');
+    wrap.id = 'todo-desc-rich-wrap';
+    wrap.className = 'todo-desc-rich-wrap';
+    wrap.innerHTML = `
+      <div class="todo-desc-rich-toolbar" aria-label="Beschreibung formatieren">
+        <button type="button" data-rich-command="bold"><strong>B</strong></button>
+        <button type="button" data-rich-command="italic"><em>I</em></button>
+        <button type="button" data-rich-block="h1">H1</button>
+        <button type="button" data-rich-block="h2">H2</button>
+        <button type="button" data-rich-command="insertUnorderedList">• Liste</button>
+      </div>
+      <div id="todo-desc-rich-editor" class="todo-desc-rich-editor" contenteditable="true" role="textbox" aria-multiline="true"></div>
+    `;
+    preview.after(wrap);
+    const editor = wrap.querySelector('#todo-desc-rich-editor');
+    const syncFromEditor = () => {
+      textarea.value = richDescriptionToMarkdown(editor);
+      preview.innerHTML = renderMarkdown(textarea.value);
+      refreshTodoSaveButtonState();
+    };
+    editor.addEventListener('input', syncFromEditor);
+    editor.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        document.getElementById('todo-modal')?.classList.remove('todo-desc-editing');
+        return;
+      }
+      if (event.key === ' ') {
+        window.setTimeout(() => {
+          const selection = window.getSelection?.();
+          const node = selection?.anchorNode;
+          const block = node?.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+          if (!block || !editor.contains(block)) return;
+          if ((block.textContent || '').trim() !== '-') return;
+          block.textContent = '';
+          document.execCommand('insertUnorderedList', false, null);
+          syncFromEditor();
+        }, 0);
+      }
+    });
+    wrap.querySelectorAll('button[data-rich-command], button[data-rich-block]').forEach(button => {
+      button.addEventListener('mousedown', event => event.preventDefault());
+      button.addEventListener('click', () => {
+        editor.focus();
+        if (button.dataset.richBlock) document.execCommand('formatBlock', false, button.dataset.richBlock);
+        else document.execCommand(button.dataset.richCommand, false, null);
+        syncFromEditor();
+      });
+    });
+    return wrap;
+  }
+
+  function bindTodoDescriptionInlineEditor() {
+    const modal = document.getElementById('todo-modal');
+    const textarea = document.getElementById('todo-desc');
+    const preview = document.getElementById('todo-desc-preview');
+    if (!modal || !textarea || !preview || textarea.dataset.inlineEditorBound === '1') return;
+    textarea.dataset.inlineEditorBound = '1';
+    const wrap = ensureDescriptionRichEditor(textarea, preview);
+    const editor = wrap.querySelector('#todo-desc-rich-editor');
+    editor?.setAttribute('data-placeholder', getActiveLanguage() === 'de' ? 'Beschreibung schreiben…' : 'Write description…');
+    const openEditor = () => {
+      if (!modal.classList.contains('todo-detail-view')) return;
+      editor.innerHTML = renderMarkdown(textarea.value || '');
+      modal.classList.add('todo-desc-editing');
+      window.requestAnimationFrame?.(() => editor.focus());
+    };
+    preview.addEventListener('click', openEditor);
+    preview.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      openEditor();
+    });
   }
 
   function getTodoSaveRelevantState() {
@@ -122,7 +406,9 @@ export function createTodosFeature({
     const saveButton = document.getElementById('todo-save-btn');
     if (!saveButton) return;
     const current = JSON.stringify(getTodoSaveRelevantState());
-    saveButton.disabled = todoSaveSnapshot !== null && current === todoSaveSnapshot;
+    const unchanged = todoSaveSnapshot !== null && current === todoSaveSnapshot;
+    saveButton.disabled = unchanged;
+    document.getElementById('todo-modal')?.classList.toggle('todo-has-unsaved', !unchanged);
   }
 
   function resetTodoSaveSnapshot() {
@@ -321,7 +607,9 @@ export function createTodosFeature({
     const list = document.getElementById('todo-subtasks-list');
     if (!list) return;
     list.innerHTML = '';
-    const normalized = normalizeSubtasks(subtasks).filter(subtask => !deletingSubtaskIds.has(String(subtask.id)));
+    const normalized = normalizeSubtasks(subtasks)
+      .filter(subtask => !deletingSubtaskIds.has(String(subtask.id)))
+      .sort((a, b) => Number(a.is_done) - Number(b.is_done) || Number(a.sort_order) - Number(b.sort_order));
     normalized.forEach(subtask => addTodoSubtaskRow(subtask));
     updateSubtaskEditorCount();
     setTodoCollapsibleOpen('todo-subtasks-panel', normalized.length > 0);
@@ -589,14 +877,37 @@ export function createTodosFeature({
     });
   }
 
-  function setSelectedAttachmentFileName(file = null) {
+  function getSelectedAttachmentFiles() {
+    return Array.from(document.getElementById('todo-attachment-file')?.files || []);
+  }
+
+  function setSelectedAttachmentFileName(files = []) {
     const label = document.getElementById('todo-attachment-file-name');
     const picker = label?.closest?.('.todo-attachment-picker');
     if (!label) return;
-    const hasFile = Boolean(file?.name);
-    label.textContent = hasFile ? t('todo.attachments.selectedFile', { filename: file.name }) : t('todo.attachments.chooseFile');
-    label.title = hasFile ? file.name : '';
+    const selected = Array.isArray(files) ? files : (files ? [files] : []);
+    const hasFile = selected.length > 0;
+    if (selected.length === 1) {
+      label.textContent = t('todo.attachments.selectedFile', { filename: selected[0].name });
+      label.title = selected[0].name;
+    } else if (selected.length > 1) {
+      label.textContent = t('todo.attachments.selectedFiles', { count: selected.length });
+      label.title = selected.map(file => file.name).join('\n');
+    } else {
+      label.textContent = t('todo.attachments.chooseFile');
+      label.title = '';
+    }
     picker?.classList.toggle('has-file', hasFile);
+  }
+
+  function setAttachmentInputFiles(files = []) {
+    const input = document.getElementById('todo-attachment-file');
+    if (!input) return;
+    const transfer = new DataTransfer();
+    for (const file of files) transfer.items.add(file);
+    input.files = transfer.files;
+    setSelectedAttachmentFileName(Array.from(input.files));
+    refreshTodoSaveButtonState();
   }
 
   function renderTodoAttachments(attachments = [], todo = null) {
@@ -610,7 +921,7 @@ export function createTodosFeature({
     const normalized = Array.isArray(attachments) ? attachments : [];
     list.innerHTML = '';
     if (count) count.textContent = String(normalized.length);
-    setTodoCollapsibleOpen('todo-attachments-panel', normalized.length > 0);
+    setTodoCollapsibleOpen('todo-attachments-panel', Boolean(todoId));
     if (empty) {
       empty.textContent = todoId ? t('todo.attachments.empty') : t('todo.attachments.saveFirst');
       empty.hidden = normalized.length > 0;
@@ -618,7 +929,7 @@ export function createTodosFeature({
     if (input) {
       input.value = '';
       input.disabled = !todoId;
-      setSelectedAttachmentFileName(null);
+      setSelectedAttachmentFileName([]);
     }
     if (uploadButton) uploadButton.disabled = !todoId;
     for (const attachment of normalized) {
@@ -626,9 +937,13 @@ export function createTodosFeature({
       item.className = 'todo-attachment-item';
       item.dataset.attachmentId = attachment.id;
 
-      const icon = document.createElement('div');
+      const icon = document.createElement('button');
+      icon.type = 'button';
       icon.className = 'todo-attachment-icon';
       icon.innerHTML = iconSvg(attachmentIconName(attachment));
+      icon.setAttribute('aria-label', t('todo.attachments.preview'));
+      icon.setAttribute('title', t('todo.attachments.preview'));
+      icon.addEventListener('click', () => previewTodoAttachment(todoId, attachment));
 
       const body = document.createElement('div');
       body.className = 'todo-attachment-body';
@@ -688,12 +1003,12 @@ export function createTodosFeature({
     if (!getAppInitialized() || !getDb()) return;
     const id = document.getElementById('todo-id')?.value;
     const input = document.getElementById('todo-attachment-file');
-    const file = input?.files?.[0];
+    const files = getSelectedAttachmentFiles();
     if (!id || id.startsWith('temp-')) {
       showToast(t('todo.attachments.saveFirst'));
       return;
     }
-    if (!file) {
+    if (files.length === 0) {
       input?.focus();
       return;
     }
@@ -707,38 +1022,51 @@ export function createTodosFeature({
       return;
     }
     const maxUploadBytes = Number(currentUser?.attachment_max_upload_bytes || 0);
-    if (maxUploadBytes > 0 && file.size > maxUploadBytes) {
+    const oversized = files.find(file => maxUploadBytes > 0 && file.size > maxUploadBytes);
+    if (oversized) {
       showToast(t('todo.attachments.fileTooLarge', { max: formatAttachmentSize(maxUploadBytes) }));
       return;
     }
     const remainingBytes = Number(currentUser?.attachment_remaining_bytes ?? currentUser?.attachment_quota_bytes ?? 0);
-    if (file.size > Math.max(remainingBytes, 0)) {
+    const totalBytes = files.reduce((sum, file) => sum + (Number(file.size) || 0), 0);
+    if (totalBytes > Math.max(remainingBytes, 0)) {
       showToast(t('todo.attachments.quotaExceeded'));
       return;
     }
-    if (!attachmentAllowedByClient(file, currentUser)) {
+    if (files.some(file => !attachmentAllowedByClient(file, currentUser))) {
       showToast(t('todo.attachments.typeNotAllowed'));
       return;
     }
+    const uploadButton = document.getElementById('todo-attachment-upload-btn');
+    const previousDisabled = uploadButton?.disabled;
+    if (uploadButton) uploadButton.disabled = true;
     try {
-      const response = await todosApi.uploadAttachment(id, file);
-      await applyAttachmentTodoResponse(response);
-      if (response?.usage && currentUser && typeof setCurrentUser === 'function') {
-        setCurrentUser({
-          ...currentUser,
-          attachments_enabled: Boolean(response.usage.enabled),
-          attachment_usage_bytes: response.usage.used_bytes,
-          attachment_quota_bytes: response.usage.quota_bytes,
-          attachment_remaining_bytes: response.usage.remaining_bytes,
-          attachments_allowed_types: response.usage.allowed_types || currentUser.attachments_allowed_types,
-          attachment_max_upload_bytes: response.usage.max_upload_bytes || currentUser.attachment_max_upload_bytes,
-        });
+      let latestResponse = null;
+      let latestUser = currentUser;
+      for (const file of files) {
+        latestResponse = await todosApi.uploadAttachment(id, file);
+        if (latestResponse?.usage && latestUser && typeof setCurrentUser === 'function') {
+          latestUser = {
+            ...latestUser,
+            attachments_enabled: Boolean(latestResponse.usage.enabled),
+            attachment_usage_bytes: latestResponse.usage.used_bytes,
+            attachment_quota_bytes: latestResponse.usage.quota_bytes,
+            attachment_remaining_bytes: latestResponse.usage.remaining_bytes,
+            attachments_allowed_types: latestResponse.usage.allowed_types || latestUser.attachments_allowed_types,
+            attachment_max_upload_bytes: latestResponse.usage.max_upload_bytes || latestUser.attachment_max_upload_bytes,
+          };
+          setCurrentUser(latestUser);
+        }
       }
-      setSelectedAttachmentFileName(null);
-      showToast(t('todo.attachments.uploaded'));
+      if (latestResponse) await applyAttachmentTodoResponse(latestResponse);
+      setSelectedAttachmentFileName([]);
+      if (input) input.value = '';
+      showToast(files.length === 1 ? t('todo.attachments.uploaded') : t('todo.attachments.uploadedMany', { count: files.length }));
     } catch (error) {
       console.error('Failed to upload todo attachment', error);
       showToast(error?.message || t('todo.attachments.uploadFailed'));
+    } finally {
+      if (uploadButton) uploadButton.disabled = previousDisabled ?? false;
     }
   }
 
@@ -834,8 +1162,32 @@ export function createTodosFeature({
     form.addEventListener('input', refreshTodoSaveButtonState);
     form.addEventListener('change', refreshTodoSaveButtonState);
     document.getElementById('todo-attachment-file')?.addEventListener('change', (event) => {
-      setSelectedAttachmentFileName(event.target?.files?.[0] || null);
+      setSelectedAttachmentFileName(Array.from(event.target?.files || []));
     });
+    const attachmentDropZone = document.querySelector('.todo-attachments-add-row');
+    if (attachmentDropZone) {
+      attachmentDropZone.dataset.dropLabel = t('todo.attachments.dropHint');
+      const stopDrag = (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+      };
+      for (const eventName of ['dragenter', 'dragover']) {
+        attachmentDropZone.addEventListener(eventName, (event) => {
+          stopDrag(event);
+          attachmentDropZone.classList.add('is-drag-over');
+        });
+      }
+      for (const eventName of ['dragleave', 'drop']) {
+        attachmentDropZone.addEventListener(eventName, (event) => {
+          stopDrag(event);
+          attachmentDropZone.classList.remove('is-drag-over');
+        });
+      }
+      attachmentDropZone.addEventListener('drop', (event) => {
+        const files = Array.from(event.dataTransfer?.files || []);
+        if (files.length) setAttachmentInputFiles(files);
+      });
+    }
     document.getElementById('todo-subtask-new-title')?.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
         event.preventDefault();
@@ -2013,6 +2365,8 @@ export function createTodosFeature({
     hydrateTodoSelects();
     bindRecurringControls();
     bindLocationReminderControls();
+    bindTodoDescriptionInlineEditor();
+    updateTodoDetailViewMode(todo);
     await loadSavedPlacesForTodoModal();
     deletingSubtaskIds.clear();
     document.getElementById('todo-form')?.reset();
@@ -2090,6 +2444,7 @@ export function createTodosFeature({
       renderTodoComments(todo.comments || [], todo);
       renderTodoAttachments(todo.attachments || [], todo);
       updateTodoMetaPanelsOpenState(todo);
+      renderTodoMetaSummary(todo);
     } else {
       document.getElementById('todo-pinned').checked = false;
       document.getElementById('todo-recurring-frequency').value = 'none';
@@ -2118,6 +2473,9 @@ export function createTodosFeature({
       renderQuickAddPreview(quickAddResult);
     }
     resetTodoSaveSnapshot();
+    updateTodoDetailViewMode(todo);
+    renderTodoMetaSummary(todo);
+    document.getElementById('todo-desc-preview')?.setAttribute('tabindex', todo ? '0' : '-1');
     document.getElementById('todo-modal')?.classList.add('active');
     if (!todo) focusTodoTitle();
   }

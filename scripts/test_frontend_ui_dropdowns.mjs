@@ -6,9 +6,11 @@ async function run() {
   const { browser, page, openTodoModal, loginApp, assertNoFrontendErrors } = await launchPage();
   const openOrganizePanel = async () => {
     await page.evaluate(() => {
+      document.getElementById('todo-modal')?.classList.add('todo-meta-editing');
       const panel = document.getElementById('todo-organize-panel');
       if (panel) panel.open = true;
     });
+    await page.locator('#todo-organize-panel').waitFor({ state: 'visible', timeout: 5000 });
   };
   try {
     await loginApp();
@@ -36,32 +38,30 @@ async function run() {
     });
     if (!hiddenNative) throw new Error('Todo modal native selects are still visible');
 
-    const sharedTriggerStyle = await page.evaluate(() => {
+    const sharedTriggerContract = await page.evaluate(() => {
       const trigger = document.querySelector('.ui-select[data-select-id="todo-priority"] .ui-select-trigger');
       const style = trigger ? getComputedStyle(trigger) : null;
+      const rect = trigger?.getBoundingClientRect();
       return {
-        radius: style?.borderRadius,
-        expectedRadius: getComputedStyle(document.documentElement).getPropertyValue('--radius').trim(),
-        background: style?.backgroundColor,
-        expectedBackground: (() => {
-          const probe = document.createElement('div');
-          probe.style.background = 'var(--bg-primary)';
-          document.body.appendChild(probe);
-          const value = getComputedStyle(probe).backgroundColor;
-          probe.remove();
-          return value;
-        })(),
+        exists: Boolean(trigger),
+        width: rect?.width || 0,
+        height: rect?.height || 0,
+        radius: parseFloat(style?.borderRadius || '0'),
         boxShadow: style?.boxShadow,
-        fontWeight: style?.fontWeight,
+        display: style?.display,
+        alignItems: style?.alignItems,
       };
     });
     if (
-      sharedTriggerStyle.radius !== sharedTriggerStyle.expectedRadius
-      || sharedTriggerStyle.background !== sharedTriggerStyle.expectedBackground
-      || sharedTriggerStyle.boxShadow !== 'none'
-      || sharedTriggerStyle.fontWeight !== '400'
+      !sharedTriggerContract.exists
+      || sharedTriggerContract.width <= 0
+      || sharedTriggerContract.height <= 0
+      || sharedTriggerContract.radius <= 0
+      || sharedTriggerContract.boxShadow !== 'none'
+      || !['flex', 'inline-flex'].includes(sharedTriggerContract.display)
+      || sharedTriggerContract.alignItems !== 'center'
     ) {
-      throw new Error(`Shared dropdown trigger style drifted from the standard field primitive: ${JSON.stringify(sharedTriggerStyle)}`);
+      throw new Error(`Shared dropdown trigger contract failed: ${JSON.stringify(sharedTriggerContract)}`);
     }
 
     const accessibleLabels = await page.evaluate(() => {

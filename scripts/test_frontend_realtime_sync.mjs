@@ -53,6 +53,11 @@ async function waitForTodoInDb(page, title, timeout = 15000) {
   }, title, { timeout });
 }
 
+async function fillTodoDescription(page, value) {
+  await page.click('#todo-desc-preview');
+  await page.locator('#todo-desc-rich-editor').fill(value);
+}
+
 async function run() {
   console.log('📡 Running frontend realtime WebSocket sync test...');
   const clientA = await launchPage();
@@ -83,7 +88,7 @@ async function run() {
 
     await openTodoModal();
     await pageA.fill('#todo-title', 'Realtime Sync Todo');
-    await pageA.fill('#todo-desc', 'Created for realtime sync regression');
+    await fillTodoDescription(pageA, 'Created for realtime sync regression');
     await pageA.click('button[form="todo-form"]');
     await pageA.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });
     await waitForTextA('Realtime Sync Todo', 20000);

@@ -137,6 +137,11 @@ export function createUiShell({ renderMarkdown, showTodoModal }) {
         await showTodoModal();
       }
       if (e.key === 'Escape') {
+        if (document.getElementById('attachment-preview-modal')?.classList.contains('active')) {
+          e.preventDefault();
+          window.closeAttachmentPreview?.();
+          return;
+        }
         closeModal('todo-modal');
         closeModal('project-modal');
       }
