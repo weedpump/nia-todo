@@ -1508,6 +1508,7 @@ select:focus-visible {
   font-weight: 700;
   line-height: 1.15;
   text-align: center;
+  text-decoration: none;
   cursor: pointer;
   transition: all 0.15s;
 }
