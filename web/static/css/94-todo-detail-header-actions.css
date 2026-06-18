@@ -137,10 +137,6 @@
 }
 
 @media (max-width: 720px) {
-  #todo-modal.todo-detail-view .todo-meta-summary-view {
-    flex-direction: column;
-  }
-
   #todo-modal.todo-detail-view .todo-meta-edit-toggle {
     align-self: flex-start;
   }
