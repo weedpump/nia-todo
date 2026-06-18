@@ -19,6 +19,7 @@ import { createTodosFeature } from './features/todos.js';
 import { createSyncFeature } from './features/sync.js';
 import { renderTodoItem } from './features/todo-rendering.js';
 import { createViewPreferencesFeature } from './features/view-preferences.js';
+import { createMobileSearchFeature } from './features/mobile-search.js';
 import { createFocusFiltersFeature } from './features/focus-filters.js';
 import { createWebSocketClient } from './features/websocket-client.js';
 import { createToastUndoFeature } from './features/toast-undo.js';
@@ -356,50 +357,16 @@ const disconnectWebSocket = wsClient.disconnectWebSocket;
 const updateConnectionStatus = () => updateConnectionStatusView(wsClient.getWsState());
 const handleWsMessage = wsClient.handleWsMessage;
 
-function openMobileSearch() {
-  const box = document.getElementById('search-box');
-  const input = document.getElementById('search-input');
-  box?.classList.add('open');
-  requestAnimationFrame(() => {
-    input?.focus();
-    input?.select();
-  });
-}
-
-function closeMobileSearch() {
-  const box = document.getElementById('search-box');
-  const input = document.getElementById('search-input');
-  if (input?.value) {
-    input.value = '';
-    renderTodos();
-  }
-  box?.classList.remove('open');
-  input?.blur();
-}
-
-function toggleMobileSearch() {
-  const box = document.getElementById('search-box');
-  if (box?.classList.contains('open')) closeMobileSearch();
-  else openMobileSearch();
-}
-
-function isTypingTarget(element) {
-  const tag = element?.tagName;
-  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || element?.isContentEditable;
-}
-
-function bindTodayFocusHotkey() {
-  if (document.documentElement.dataset.todayFocusHotkeyBound === '1') return;
-  document.documentElement.dataset.todayFocusHotkeyBound = '1';
-  document.addEventListener('keydown', (event) => {
-    const key = event.key?.toLowerCase();
-    if ((key !== 'f' && key !== 'm') || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
-    if (isTypingTarget(event.target) || document.querySelector('.modal.active')) return;
-    event.preventDefault();
-    if (key === 'f') toggleTodayFocus();
-    else toggleMinimalTodos();
-  });
-}
+const {
+  openMobileSearch,
+  closeMobileSearch,
+  toggleMobileSearch,
+  bindTodayFocusHotkey,
+} = createMobileSearchFeature({
+  renderTodos: () => renderTodos(),
+  toggleTodayFocus: () => toggleTodayFocus(),
+  toggleMinimalTodos: () => toggleMinimalTodos(),
+});
 
 desktopIntegration = createDesktopIntegration({
   showToast: (...args) => showToast(...args),
