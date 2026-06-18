@@ -3149,7 +3149,7 @@ input[type="color"]::-moz-color-swatch {
   gap: 6px;
 }
 
-.login-theme-toggle .theme-option.active {
+.theme-option.active {
   background: var(--accent);
   border-color: var(--accent);
   color: white;
@@ -9114,12 +9114,6 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   color: var(--text-muted);
 }
 
-#todo-modal.todo-detail-view .todo-subtasks-add-row .btn,
-#todo-modal.todo-detail-view .todo-attachments-add-row .btn {
-  min-height: 34px;
-  border-radius: 999px;
-}
-
 #todo-modal.todo-detail-view .todo-attachments-list {
   display: flex;
   flex-wrap: wrap;
@@ -9149,12 +9143,6 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
 
 #todo-modal.todo-detail-view .todo-attachment-meta {
   font-size: 11px;
-}
-
-#todo-modal.todo-detail-view .todo-attachment-actions .btn-icon {
-  width: 30px;
-  height: 30px;
-  min-height: 30px;
 }
 
 #todo-modal.todo-detail-view .todo-attachments-empty,
@@ -9358,12 +9346,6 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   gap: 6px;
   margin-top: 2px;
   opacity: 0;
-}
-
-#todo-modal.todo-detail-view .todo-comment-actions .btn-icon {
-  width: 30px;
-  height: 30px;
-  min-height: 30px;
 }
 
 @media (max-width: 720px) {

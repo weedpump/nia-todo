@@ -72,8 +72,6 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .badge-success { background: color-mix(in srgb, var(--success) 16%, transparent); color: var(--success); }
 .badge-warning { background: color-mix(in srgb, var(--warning) 22%, transparent); color: var(--warning); }
 .badge-muted { background: var(--bg-tertiary); color: var(--text-muted); }
-.btn-ghost { background: transparent; color: var(--text-secondary); padding: 4px 6px; }
-.btn-ghost:hover { background: var(--bg-tertiary); color: var(--text-primary); }
 .form-row { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
 .form-row input, .form-row select { flex: 1; min-width: 150px; }
 .form-row select { flex: 0 0 150px; min-width: 130px; padding-right: 36px; appearance: none; -webkit-appearance: none; cursor: pointer; }
@@ -156,14 +154,12 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .admin-last-active { display: inline-block; color: var(--text-secondary); font-size: 12px; line-height: 1.35; }
 .admin-last-active.muted { color: var(--text-muted); }
 .email-missing { color: var(--text-muted); }
-.email-edit { display: grid; grid-template-columns: minmax(0, 1fr) 28px 28px; align-items: center; gap: 4px; width: 100%; max-width: 100%; }
+.email-edit { display: grid; grid-template-columns: minmax(0, 1fr) 34px 34px; align-items: center; gap: 4px; width: 100%; max-width: 100%; }
 .email-edit input { min-width: 0; width: 100%; }
-.email-edit .btn-ghost { padding: 4px; width: 28px; height: 28px; line-height: 1; }
 .admin-nav { display: flex; gap: 12px; align-items: center; }
 .admin-back-btn { text-decoration: none; }
 .empty-state { text-align: center; padding: 40px; color: var(--text-muted); }
 .admin-theme-toggle { display: flex; gap: 6px; }
-.admin-theme-toggle button.active { background: var(--accent); border-color: var(--accent); color: white; transform: scale(1.04); }
 .admin-status-card { padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .admin-status-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .server-update-card { position: relative; overflow: hidden; }
@@ -227,7 +223,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
   .user-card-actions { grid-template-columns: 1fr; }
   .user-card .settings-device-row { flex-direction: column; align-items: stretch; }
   .admin-section-summary { display: none; }
-  .email-edit { grid-template-columns: minmax(0, 1fr) 32px 32px; }
+  .email-edit { grid-template-columns: minmax(0, 1fr) 34px 34px; }
 }
 </style>
 </head>
@@ -238,9 +234,9 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
     <div class="admin-nav">
       <a class="btn btn-primary admin-back-btn" href="/" data-i18n-key="admin.backToApp">Back to app</a>
       <div class="admin-theme-toggle">
-        <button class="btn btn-secondary btn-icon" data-theme="light" onclick="setTheme('light')" data-i18n-title-key="common.theme.light" title="Light"><span data-icon="sun"></span></button>
-        <button class="btn btn-secondary btn-icon" data-theme="dark" onclick="setTheme('dark')" data-i18n-title-key="common.theme.dark" title="Dark"><span data-icon="moon"></span></button>
-        <button class="btn btn-secondary btn-icon" data-theme="system" onclick="setTheme('system')" data-i18n-title-key="common.theme.system" title="System"><span data-icon="monitor"></span></button>
+        <button class="btn btn-secondary btn-icon theme-option" data-theme="light" onclick="setTheme('light')" data-i18n-title-key="common.theme.light" title="Light"><span data-icon="sun"></span></button>
+        <button class="btn btn-secondary btn-icon theme-option" data-theme="dark" onclick="setTheme('dark')" data-i18n-title-key="common.theme.dark" title="Dark"><span data-icon="moon"></span></button>
+        <button class="btn btn-secondary btn-icon theme-option" data-theme="system" onclick="setTheme('system')" data-i18n-title-key="common.theme.system" title="System"><span data-icon="monitor"></span></button>
       </div>
     </div>
   </div>
@@ -2227,7 +2223,7 @@ function renderUserUsernameDisplay(userId, usernameValue) {
   const username = usernameValue ? escapeHtml(usernameValue) : '<span class="email-missing">-</span>';
   return `<span class="email-display" id="username-display-${userId}">
     <span>${username}</span>
-    <button class="btn btn-ghost" title="${escapeHtmlAttr(t('admin.user.editUsername'))}" onclick="editUserUsername(${userId}, ${jsStringAttr(usernameValue || '')})">${iconSvg('edit-3')}</button>
+    <button class="btn btn-secondary btn-small btn-icon" title="${escapeHtmlAttr(t('admin.user.editUsername'))}" onclick="editUserUsername(${userId}, ${jsStringAttr(usernameValue || '')})">${iconSvg('edit-3')}</button>
   </span>`;
 }
 
@@ -2235,7 +2231,7 @@ function renderUserEmailDisplay(userId, emailValue) {
   const email = emailValue ? escapeHtml(emailValue) : '<span class="email-missing">-</span>';
   return `<span class="email-display" id="email-display-${userId}">
     <span>${email}</span>
-    <button class="btn btn-ghost" title="${escapeHtmlAttr(t('admin.user.editEmail'))}" onclick="editUserEmail(${userId}, '${escapeHtmlAttr(emailValue || '')}')">${iconSvg('edit-3')}</button>
+    <button class="btn btn-secondary btn-small btn-icon" title="${escapeHtmlAttr(t('admin.user.editEmail'))}" onclick="editUserEmail(${userId}, '${escapeHtmlAttr(emailValue || '')}')">${iconSvg('edit-3')}</button>
   </span>`;
 }
 
@@ -2451,8 +2447,8 @@ function editUserUsername(userId, currentUsername) {
   if (!container) return;
   container.outerHTML = `<span class="email-edit" id="username-edit-${userId}">
     <input class="ui-field" id="username-input-${userId}" type="text" value="${escapeHtmlAttr(currentUsername || '')}" placeholder="${escapeHtmlAttr(t('setup.usernameLabel'))}" autocomplete="off" maxlength="80" onkeydown="if(event.key==='Enter') saveUserUsername(${userId}, ${jsStringAttr(currentUsername || '')}); if(event.key==='Escape') cancelUserUsernameEdit(${userId}, ${jsStringAttr(currentUsername || '')})">
-    <button class="btn btn-ghost" title="${escapeHtmlAttr(t('common.save'))}" onclick="saveUserUsername(${userId}, ${jsStringAttr(currentUsername || '')})">${iconSvg('check')}</button>
-    <button class="btn btn-ghost" title="${escapeHtmlAttr(t('common.cancel'))}" onclick="cancelUserUsernameEdit(${userId}, ${jsStringAttr(currentUsername || '')})">${iconSvg('x')}</button>
+    <button class="btn btn-secondary btn-small btn-icon" title="${escapeHtmlAttr(t('common.save'))}" onclick="saveUserUsername(${userId}, ${jsStringAttr(currentUsername || '')})">${iconSvg('check')}</button>
+    <button class="btn btn-secondary btn-small btn-icon" title="${escapeHtmlAttr(t('common.cancel'))}" onclick="cancelUserUsernameEdit(${userId}, ${jsStringAttr(currentUsername || '')})">${iconSvg('x')}</button>
   </span>`;
   document.getElementById(`username-input-${userId}`)?.focus();
 }
@@ -2496,8 +2492,8 @@ function editUserEmail(userId, currentEmail) {
   if (!container) return;
   container.outerHTML = `<span class="email-edit" id="email-edit-${userId}">
     <input class="ui-field" id="email-input-${userId}" type="email" value="${escapeHtmlAttr(currentEmail || '')}" placeholder="${escapeHtmlAttr(t('admin.user.emailPlaceholder'))}" onkeydown="if(event.key==='Enter') saveUserEmail(${userId}); if(event.key==='Escape') cancelUserEmailEdit(${userId}, '${escapeHtmlAttr(currentEmail || '')}')">
-    <button class="btn btn-ghost" title="${escapeHtmlAttr(t('common.save'))}" onclick="saveUserEmail(${userId})">${iconSvg('check')}</button>
-    <button class="btn btn-ghost" title="${escapeHtmlAttr(t('common.cancel'))}" onclick="cancelUserEmailEdit(${userId}, '${escapeHtmlAttr(currentEmail || '')}')">${iconSvg('x')}</button>
+    <button class="btn btn-secondary btn-small btn-icon" title="${escapeHtmlAttr(t('common.save'))}" onclick="saveUserEmail(${userId})">${iconSvg('check')}</button>
+    <button class="btn btn-secondary btn-small btn-icon" title="${escapeHtmlAttr(t('common.cancel'))}" onclick="cancelUserEmailEdit(${userId}, '${escapeHtmlAttr(currentEmail || '')}')">${iconSvg('x')}</button>
   </span>`;
   document.getElementById(`email-input-${userId}`)?.focus();
 }

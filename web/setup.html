@@ -37,7 +37,6 @@ body { margin: 0; min-height: 100vh; min-height: 100dvh; display: flex; align-it
 .ui-icon { width: 1em; height: 1em; display:inline-block; vertical-align:-0.14em; }
 .success-icon { width:48px; height:48px; margin:0 auto 16px; color:var(--success); }
 .success-icon .ui-icon { width:48px; height:48px; }
-.setup-theme-toggle button.active { background: var(--accent); border-color: var(--accent); color: white; transform: scale(1.04); }
 @media (max-width: 520px), (max-height: 760px) {
   body { align-items: flex-start; }
   .setup-container { max-width: none; padding-left: 12px; padding-right: 12px; }
@@ -116,9 +115,9 @@ body { margin: 0; min-height: 100vh; min-height: 100dvh; display: flex; align-it
     </div>
 
     <div class="setup-theme-toggle">
-      <button class="btn btn-secondary btn-icon" data-theme="light" onclick="setTheme('light')" data-i18n-title-key="common.theme.light" title="Light"><span data-icon="sun"></span></button>
-      <button class="btn btn-secondary btn-icon" data-theme="dark" onclick="setTheme('dark')" data-i18n-title-key="common.theme.dark" title="Dark"><span data-icon="moon"></span></button>
-      <button class="btn btn-secondary btn-icon" data-theme="system" onclick="setTheme('system')" data-i18n-title-key="common.theme.system" title="System"><span data-icon="monitor"></span></button>
+      <button class="btn btn-secondary btn-icon theme-option" data-theme="light" onclick="setTheme('light')" data-i18n-title-key="common.theme.light" title="Light"><span data-icon="sun"></span></button>
+      <button class="btn btn-secondary btn-icon theme-option" data-theme="dark" onclick="setTheme('dark')" data-i18n-title-key="common.theme.dark" title="Dark"><span data-icon="moon"></span></button>
+      <button class="btn btn-secondary btn-icon theme-option" data-theme="system" onclick="setTheme('system')" data-i18n-title-key="common.theme.system" title="System"><span data-icon="monitor"></span></button>
     </div>
   </div>
 </div>
