@@ -910,7 +910,7 @@
             </div>
             <div class="form-group">
               <label for="settings-language" data-i18n-key="settings.language.browser">Use browser language</label>
-              <select id="settings-language" onchange="changeLanguagePreference(this.value)">
+              <select class="ui-field" id="settings-language" onchange="changeLanguagePreference(this.value)">
                 <option value="auto" data-i18n-key="settings.language.auto">Automatic</option>
                 <option value="de" data-i18n-key="settings.language.de">German</option>
                 <option value="en" data-i18n-key="settings.language.en">English</option>
@@ -930,7 +930,7 @@
             </div>
             <div class="settings-subcard">
               <label for="settings-default-reminder" data-i18n-key="settings.defaultReminder.label">Automatic reminder for deadlines</label>
-              <select id="settings-default-reminder" onchange="changeDefaultReminderSetting(this.value)">
+              <select class="ui-field" id="settings-default-reminder" onchange="changeDefaultReminderSetting(this.value)">
                 <option value="off" data-i18n-key="settings.defaultReminder.off">Off</option>
                 <option value="0" data-i18n-key="settings.defaultReminder.atDeadline">At deadline</option>
                 <option value="15" data-i18n-key="settings.defaultReminder.before15m">15 minutes before</option>
@@ -941,11 +941,11 @@
               <div id="settings-default-reminder-custom-row" class="settings-default-reminder-custom-row" hidden>
                 <div class="form-group settings-default-reminder-custom-field">
                   <label for="settings-default-reminder-custom" data-i18n-key="settings.defaultReminder.customAmountLabel">Amount</label>
-                  <input type="number" id="settings-default-reminder-custom" min="1" max="8760" step="1" inputmode="numeric" placeholder="Amount" data-i18n-placeholder-key="settings.defaultReminder.customPlaceholder">
+                  <input class="ui-field" type="number" id="settings-default-reminder-custom" min="1" max="8760" step="1" inputmode="numeric" placeholder="Amount" data-i18n-placeholder-key="settings.defaultReminder.customPlaceholder">
                 </div>
                 <div class="form-group settings-default-reminder-custom-field">
                   <label for="settings-default-reminder-custom-unit" data-i18n-key="settings.defaultReminder.customUnitLabel">Unit</label>
-                  <select id="settings-default-reminder-custom-unit" data-i18n-aria-label-key="settings.defaultReminder.customUnitLabel">
+                  <select class="ui-field" id="settings-default-reminder-custom-unit" data-i18n-aria-label-key="settings.defaultReminder.customUnitLabel">
                     <option value="hours" data-i18n-key="settings.defaultReminder.customHours">Hours before</option>
                     <option value="days" data-i18n-key="settings.defaultReminder.customDays">Days before</option>
                   </select>
