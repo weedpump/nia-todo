@@ -314,6 +314,21 @@ export function createProjectsFeature({
     if (id) deleteProject(parseInt(id));
   }
 
+  function bindProjectActions() {
+    document.addEventListener('click', (event) => {
+      const target = event.target?.closest?.('[data-project-action]');
+      if (!target) return;
+      const action = target.dataset.projectAction;
+      event.preventDefault();
+      if (action === 'edit') {
+        event.stopPropagation();
+        editProject(target.dataset.projectId);
+      } else if (action === 'delete-from-modal') {
+        deleteProjectFromModal();
+      }
+    });
+  }
+
   async function removeDeletedTodosFromLocalState(deletedIds) {
     const ids = new Set((deletedIds || []).map(id => Number(id)));
     if (!ids.size) return;
@@ -372,5 +387,5 @@ export function createProjectsFeature({
     }
   }
 
-  return { showProjectModal, editProject, saveProject, deleteProject, deleteProjectFromModal, clearDoneFromModal, clearDoneInProject };
+  return { showProjectModal, editProject, saveProject, deleteProject, deleteProjectFromModal, bindProjectActions, clearDoneFromModal, clearDoneInProject };
 }

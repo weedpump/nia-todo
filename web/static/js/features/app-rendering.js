@@ -152,7 +152,7 @@ export function createAppRenderingFeature({
       html += `${escapeHtml(project.name)}`;
       html += `<span class="badge">${countByProject(project.id, true)}</span>`;
       html += `</button>`;
-      html += `<button class="nav-edit" onclick="event.stopPropagation(); editProject(${escapeHtmlAttr(JSON.stringify(project.id))})" title="${escapeHtmlAttr(t('common.edit'))}">`;
+      html += `<button class="nav-edit" data-project-action="edit" data-project-id="${escapeHtmlAttr(project.id)}" title="${escapeHtmlAttr(t('common.edit'))}">`;
       html += iconSvg('edit-3');
       html += `</button>`;
       html += `</div>`;
