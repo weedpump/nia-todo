@@ -611,8 +611,7 @@ const toastUndoFeature = createToastUndoFeature({
 });
 const showToast = toastUndoFeature.showToast;
 const showBatchToast = toastUndoFeature.showBatchToast;
-const hideToast = toastUndoFeature.hideToast;
-const undoLastAction = toastUndoFeature.undoLastAction;
+const bindToastControls = toastUndoFeature.bindToastControls;
 const restoreBatchTodos = toastUndoFeature.restoreBatchTodos;
 const restoreTodo = toastUndoFeature.restoreTodo;
 
@@ -698,6 +697,7 @@ export function startAppModule() {
   bindTodayFocusHotkey();
   bindSidebarControls();
   bindModalCloseControls();
+  bindToastControls();
   bindNavigationActions();
   bindNavigationHistory();
   bindFocusProjectMenuDismissal();
@@ -745,7 +745,7 @@ export function startAppModule() {
   sections: { showAddSectionForm, saveNewSection, editSectionInline, saveSectionEdit, deleteSection },
   dragDrop: { handleTodoDragStart, handleTodoDragEnd, handleTodoDragOver, handleTodoDrop, handleProjectDragOver, handleProjectDrop, handleSectionDragStart, handleSectionDragEnd, handleSectionDragOver, handleSectionDrop },
   viewPreferences: { updateToggleDoneButton, updateSortButton, sortTodoList, updateProjectWidgetButton },
-  toastUndo: { showToast, showBatchToast, hideToast, undoLastAction, restoreBatchTodos, restoreTodo },
+  toastUndo: { showToast, showBatchToast, restoreBatchTodos, restoreTodo },
     push: { updatePushStatus, updatePushSettingsUI, enablePushNotifications, disablePushNotifications, sendTestPush },
     desktopIntegration: {
       updateDesktopSetting: (key, value) => desktopIntegration?.updateSetting(key, value),

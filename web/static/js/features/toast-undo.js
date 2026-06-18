@@ -134,6 +134,11 @@ export function createToastUndoFeature({
     }
   }
 
+  function bindToastControls() {
+    document.getElementById('toast-undo')?.addEventListener('click', undoLastAction);
+    document.getElementById('toast-close')?.addEventListener('click', hideToast);
+  }
+
   async function cancelPendingTodoDelete(id) {
     if (!dbGetAll || !deleteFromDB) return false;
     const queue = await dbGetAll('syncQueue');
@@ -147,6 +152,7 @@ export function createToastUndoFeature({
     showBatchToast,
     hideToast,
     undoLastAction,
+    bindToastControls,
     restoreBatchTodos,
     restoreTodo,
     restoreTodoFields,
