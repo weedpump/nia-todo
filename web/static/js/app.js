@@ -445,10 +445,6 @@ syncController = createSyncController({
 const bindWorkspaceControls = workspacesFeature.bindWorkspaceControls;
 const ensureCurrentWorkspace = workspacesFeature.ensureCurrentWorkspace;
 
-// Make renderInvites globally available for project-sharing.js
-window.renderInvites = renderInvites;
-window.loadInvites = () => sharingFeature.loadInvites();
-
 // ─── Actions ─────────────────────────────────────────────────────────────────
 
 const navigationFeature = createNavigationFeature({
@@ -684,7 +680,7 @@ export function startAppModule() {
   sync: { isOnlineForSync, syncWithServer, refreshFromServer },
   ui: { closeSidebar, closeModal, setupDescPreview, openMobileSearch },
   lifecycle: { initServiceWorker, initApp, loadFromLocalDB, loadAll },
-  rendering: { renderVersionInfo, renderProjects, renderStats, renderTodos, renderSectionHeader, countByProject },
+  rendering: { renderVersionInfo, renderProjects, renderStats, renderTodos, renderSectionHeader, countByProject, renderInvites },
   navigation: { setFilter, loadSectionsForCurrentProject, bindNavigationHistory },
   todos: { markTodoDone, markTodoInProgress, deleteTodoComment, deleteTodoAttachment, saveTodo, editTodo, deleteTodoFromModal },
   projects: { showProjectModal, deleteProject, clearDoneFromModal },
