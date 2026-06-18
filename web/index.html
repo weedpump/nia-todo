@@ -538,7 +538,7 @@
         <div class="topbar-actions">
           <span id="online-status" class="status-online"></span>
           <div class="workspace-switcher topbar-workspace-switcher" id="workspace-switcher">
-            <button type="button" class="workspace-current-btn" id="workspace-current-btn" onclick="toggleWorkspaceMenu(event)" aria-haspopup="menu" aria-expanded="false">
+            <button type="button" class="workspace-current-btn" id="workspace-current-btn" data-workspace-action="toggle-menu" aria-haspopup="menu" aria-expanded="false">
               <span class="workspace-current-dot" id="workspace-current-dot"></span>
               <span class="workspace-current-name" id="workspace-current-name">Workspace</span>
               <svg class="workspace-current-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
@@ -1257,7 +1257,7 @@
     </div>
   </div>
   <div class="modal" id="workspace-modal">
-    <div class="modal-overlay" onclick="closeWorkspaceModal()"></div>
+    <div class="modal-overlay" data-workspace-action="close-modal"></div>
     <div class="modal-content entity-modal-content workspace-modal-content">
       <div class="entity-modal-header">
         <div class="entity-modal-title-icon" data-icon="briefcase"></div>
@@ -1266,7 +1266,7 @@
           <p data-i18n-key="workspace.modalHint">Organisiere Projekte nach Kontext, Team oder Bereich.</p>
         </div>
       </div>
-      <button class="modal-close-x" onclick="closeWorkspaceModal()"><span data-icon="x"></span></button>
+      <button class="modal-close-x" data-workspace-action="close-modal"><span data-icon="x"></span></button>
       <div class="modal-body entity-modal-body">
         <form id="workspace-form" class="entity-modal-form">
           <input type="hidden" id="workspace-id">
@@ -1299,9 +1299,9 @@
         </form>
       </div>
       <div class="modal-actions split-actions entity-modal-actions">
-        <button type="button" class="btn btn-danger" id="workspace-delete-btn" onclick="deleteWorkspaceFromModal()" style="display:none;" data-i18n-key="todo.delete">Delete</button>
+        <button type="button" class="btn btn-danger" id="workspace-delete-btn" data-workspace-action="delete" style="display:none;" data-i18n-key="todo.delete">Delete</button>
         <div class="modal-actions-right">
-          <button type="button" class="btn btn-secondary" onclick="closeWorkspaceModal()" data-i18n-key="common.cancel">Cancel</button>
+          <button type="button" class="btn btn-secondary" data-workspace-action="close-modal" data-i18n-key="common.cancel">Cancel</button>
           <button type="submit" form="workspace-form" class="btn btn-primary" data-i18n-key="common.save">Save</button>
         </div>
       </div>

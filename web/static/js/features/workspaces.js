@@ -105,18 +105,18 @@ export function createWorkspacesFeature({
         ${workspaces.map(workspace => {
           const active = String(workspace.id) === String(currentId);
           return `<div class="workspace-menu-row ${active ? 'active' : ''}" role="menuitem">
-            <button type="button" class="workspace-menu-choice" onclick="switchWorkspace('${escapeAttr(workspace.id)}')">
+            <button type="button" class="workspace-menu-choice" data-workspace-action="switch" data-workspace-id="${escapeAttr(workspace.id)}">
               ${markerHtml(workspace, 'workspace-menu-dot')}
               <span>${escapeHtml(workspace.name)}</span>
               ${active ? `<span class="workspace-menu-check">${iconSvg('check')}</span>` : ''}
             </button>
-            <button type="button" class="workspace-menu-edit" onclick="event.stopPropagation(); showWorkspaceModal('${escapeAttr(workspace.id)}')" title="${escapeAttr(t('workspace.rename'))}" aria-label="${escapeAttr(t('workspace.editAria'))}">
+            <button type="button" class="workspace-menu-edit" data-workspace-action="edit" data-workspace-id="${escapeAttr(workspace.id)}" title="${escapeAttr(t('workspace.rename'))}" aria-label="${escapeAttr(t('workspace.editAria'))}">
               ${iconSvg('edit-3')}
             </button>
           </div>`;
         }).join('')}
       </div>
-      <button type="button" class="workspace-menu-add" onclick="showWorkspaceModal()">${escapeHtml(t('workspace.add'))}</button>
+      <button type="button" class="workspace-menu-add" data-workspace-action="new">${escapeHtml(t('workspace.add'))}</button>
     `;
   }
 
@@ -133,6 +133,30 @@ export function createWorkspacesFeature({
     const numpadMatch = event.code?.match(/^Numpad([1-6])$/);
     if (numpadMatch) return Number(numpadMatch[1]) - 1;
     return null;
+  }
+
+  function bindWorkspaceControls() {
+    document.addEventListener('click', async (event) => {
+      const target = event.target?.closest?.('[data-workspace-action]');
+      if (!target) return;
+      const action = target.dataset.workspaceAction;
+      const workspaceId = target.dataset.workspaceId;
+      event.preventDefault();
+      if (action === 'toggle-menu') {
+        toggleWorkspaceMenu(event);
+      } else if (action === 'switch') {
+        await switchWorkspace(workspaceId);
+      } else if (action === 'edit') {
+        event.stopPropagation();
+        showWorkspaceModal(workspaceId);
+      } else if (action === 'new') {
+        showWorkspaceModal();
+      } else if (action === 'close-modal') {
+        closeWorkspaceModal();
+      } else if (action === 'delete') {
+        await deleteWorkspaceFromModal();
+      }
+    });
   }
 
   function bindWorkspaceShortcuts() {
@@ -318,6 +342,7 @@ export function createWorkspacesFeature({
     closeWorkspaceModal,
     saveWorkspace,
     deleteWorkspaceFromModal,
+    bindWorkspaceControls,
     toggleWorkspaceMenu,
     closeWorkspaceMenu,
     loadWorkspacesFromServer,
