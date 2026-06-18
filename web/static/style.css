@@ -1506,7 +1506,7 @@ select:focus-visible {
   border: none;
   border-radius: 999px;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 400;
   line-height: 1.15;
   text-align: center;
   text-decoration: none;
@@ -3935,20 +3935,8 @@ input[type="color"]:disabled {
 }
 
 .app-download-launcher {
-  width: calc(100% - 24px);
-  margin: 4px 12px 0;
-}
-
-.app-download-launcher .ui-icon {
-  flex: 0 0 auto;
-}
-
-.app-download-launcher span:not(.ui-icon) {
-  min-width: 0;
-  overflow: hidden;
-  text-align: center;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  width: 100%;
+  margin: 6px 0 0;
 }
 
 .login-box > .login-download-launcher {
