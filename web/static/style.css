@@ -7741,9 +7741,6 @@ input[type="color"]::-moz-color-swatch {
 .entity-modal-actions .btn {
   min-height: 38px;
   min-width: 118px;
-  justify-content: center;
-  border-radius: 12px;
-  font-weight: 700;
 }
 
 .entity-modal-actions .btn-danger {
@@ -7788,9 +7785,6 @@ input[type="color"]::-moz-color-swatch {
 /* Project modal sharing actions */
 .project-sharing-card .btn {
   min-height: 38px;
-  justify-content: center;
-  border-radius: 12px;
-  font-weight: 700;
 }
 
 .project-share-start-row .btn,
