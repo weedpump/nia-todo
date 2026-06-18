@@ -93,22 +93,21 @@ Guidelines:
 - `.btn-primary` — the main positive action.
 - `.btn-secondary` — neutral action, navigation, retry, utility.
 - `.btn-danger` — destructive or security-sensitive action.
-- `.btn-action` — pill-shaped inline content action, e.g. add subtask, add comment, choose/upload file, edit details.
-- `.btn-small` — compact row-level action, not a primary modal action.
+- `.btn-small` — compact row-level or inline content action, e.g. add subtask, add comment, choose/upload file, edit details.
 - `.btn-icon` — square icon-only row action; combine with `.btn-small` for compact icon buttons.
 
 ### Visual Contract
 
 The generic `.btn` primitive owns the default button look. Do not rely on modal/footer-specific CSS to make a normal button look correct.
 
-The Todo detail redesign introduced a calmer pill-shaped action-button direction for inline content actions such as add/upload/edit-details. This direction is represented by `.btn-action`. Treat it as the preferred direction for new content-surface action buttons, and migrate existing app-wide buttons deliberately through shared primitives instead of one-off overrides.
+The Todo detail redesign introduced a calmer compact pill-button direction for inline content actions such as add/upload/edit-details. This direction is now the global `.btn` baseline, with `.btn-small` and semantic variants used when a row-level action needs the same compact density. Do not add page-specific action button classes for visuals; migrate app-wide buttons deliberately through shared primitives instead of one-off overrides.
 
 Button classes own button visuals and interaction only: size, padding, radius, background, typography, icon sizing, disabled/hover/focus states. Container classes own placement only: grid/flex layout, gaps, alignment, wrapping, and mobile stacking. A container may place a button, but it must not restyle that button's typography, padding, background, border, radius, shadow, or icon size. If multiple buttons should look the same, they must share the same button classes and no component-specific selector may override their visual properties.
 
 Base `.btn` requirements:
 
 - inline-flex layout with icon/text vertically and horizontally centered (`align-items: center`, `justify-content: center`)
-- `38px` minimum height on desktop
+- `34px` minimum height on desktop
 - pill-shaped `999px` border radius for normal buttons
 - `14px` text, `700` weight, centered label
 - shared icon sizing via the global `.btn .ui-icon` / `.btn-icon .ui-icon` rules
@@ -120,8 +119,8 @@ Variants (`.btn-primary`, `.btn-secondary`, `.btn-danger`) change semantic color
 
 Desktop:
 
-- Normal buttons: `38px` minimum height.
-- Inline content actions: `34px` minimum height via `.btn-action`; visual styling still comes from the normal `.btn` + semantic variant classes.
+- Normal buttons: `34px` minimum height.
+- Inline content actions: `34px` minimum height via normal `.btn` plus semantic variants; add `.btn-small` for compact row-level density when needed.
 - Small row actions: `34px` minimum height via `.btn-small`.
 - Icon-only row actions: `34px × 34px` via `.btn-icon`; they must remain square and should not inherit mobile full-height button rules.
 - Button text should stay centered and readable.
