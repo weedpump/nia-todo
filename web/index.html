@@ -372,7 +372,7 @@
 
       <div class="sidebar-footer">
         <div class="user-menu-wrap sidebar-user-menu-wrap">
-          <button type="button" class="user-menu-button" id="user-menu-button" onclick="toggleUserMenu(event)" aria-haspopup="menu" aria-expanded="false" title="User menu" data-i18n-title-key="menu.userMenu">U</button>
+          <button type="button" class="user-menu-button" id="user-menu-button" data-user-menu-action="toggle" aria-haspopup="menu" aria-expanded="false" title="User menu" data-i18n-title-key="menu.userMenu">U</button>
           <div class="sidebar-user-meta">
             <div class="sidebar-user-name" id="sidebar-user-name">User</div>
             <div class="sidebar-user-email" id="sidebar-user-email">–</div>
@@ -385,15 +385,15 @@
                 <div class="user-menu-email" id="user-menu-email">–</div>
               </div>
             </div>
-            <button type="button" class="user-menu-item" id="menu-settings-btn" onclick="closeUserMenu(); openSettingsModal()" title="Settings" data-i18n-title-key="menu.settings" role="menuitem"><span data-icon="settings"></span><span data-i18n-key="menu.settings">Settings</span></button>
-            <button type="button" class="user-menu-item" id="theme-toggle-btn" onclick="cycleTheme()" role="menuitem"><span class="menu-item-icon" data-icon="monitor"></span><span class="menu-item-label">Theme: System</span></button>
-            <button type="button" class="user-menu-item accent-preset-row" id="accent-preset-row" onclick="toggleAccentPresetMenu(event)" title="Preset Farbe" data-i18n-title-key="menu.presetColor" aria-expanded="false" role="menuitem"><span class="menu-item-icon accent-preset-current" id="accent-preset-current"></span><span class="menu-item-label" data-i18n-key="menu.presetColor">Preset Farbe</span><span class="accent-preset-chevron"></span></button>
+            <button type="button" class="user-menu-item" id="menu-settings-btn" data-user-menu-action="settings" title="Settings" data-i18n-title-key="menu.settings" role="menuitem"><span data-icon="settings"></span><span data-i18n-key="menu.settings">Settings</span></button>
+            <button type="button" class="user-menu-item" id="theme-toggle-btn" data-user-menu-action="theme" role="menuitem"><span class="menu-item-icon" data-icon="monitor"></span><span class="menu-item-label">Theme: System</span></button>
+            <button type="button" class="user-menu-item accent-preset-row" id="accent-preset-row" data-user-menu-action="accent-preset" title="Preset Farbe" data-i18n-title-key="menu.presetColor" aria-expanded="false" role="menuitem"><span class="menu-item-icon accent-preset-current" id="accent-preset-current"></span><span class="menu-item-label" data-i18n-key="menu.presetColor">Preset Farbe</span><span class="accent-preset-chevron"></span></button>
             <div class="accent-preset-panel" id="accent-preset-panel" aria-label="Choose preset color" data-i18n-aria-label-key="menu.choosePresetColor"></div>
-            <button type="button" class="user-menu-item" id="sort-toggle-btn" onclick="cycleSort()" role="menuitem"><span class="menu-item-icon">P1</span><span class="menu-item-label" data-i18n-key="menu.sort.priority">Sort: Priority</span></button>
-            <button type="button" class="user-menu-item" id="toggle-done-btn" onclick="toggleHideDone()" role="menuitem"><span class="menu-item-icon" data-icon="ban"></span><span class="menu-item-label">Erledigte anzeigen</span></button>
-            <button type="button" class="user-menu-item" id="project-widget-toggle-btn" onclick="toggleProjectWidget()" role="menuitem"><span class="menu-item-icon" data-icon="layout-dashboard"></span><span class="menu-item-label" data-i18n-key="menu.projectWidget">Project Widget</span></button>
+            <button type="button" class="user-menu-item" id="sort-toggle-btn" data-user-menu-action="sort" role="menuitem"><span class="menu-item-icon">P1</span><span class="menu-item-label" data-i18n-key="menu.sort.priority">Sort: Priority</span></button>
+            <button type="button" class="user-menu-item" id="toggle-done-btn" data-user-menu-action="toggle-done" role="menuitem"><span class="menu-item-icon" data-icon="ban"></span><span class="menu-item-label">Erledigte anzeigen</span></button>
+            <button type="button" class="user-menu-item" id="project-widget-toggle-btn" data-user-menu-action="project-widget" role="menuitem"><span class="menu-item-icon" data-icon="layout-dashboard"></span><span class="menu-item-label" data-i18n-key="menu.projectWidget">Project Widget</span></button>
             <div class="user-menu-separator"></div>
-            <button type="button" class="user-menu-item danger" onclick="logout()" title="Sign out" data-i18n-title-key="auth.signOut" role="menuitem"><span data-icon="log-out"></span><span data-i18n-key="auth.signOut">Sign out</span></button>
+            <button type="button" class="user-menu-item danger" data-user-menu-action="logout" title="Sign out" data-i18n-title-key="auth.signOut" role="menuitem"><span data-icon="log-out"></span><span data-i18n-key="auth.signOut">Sign out</span></button>
           </div>
         </div>
 
