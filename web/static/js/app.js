@@ -351,10 +351,10 @@ const handleWsMessage = wsClient.handleWsMessage;
 
 const {
   openMobileSearch,
-  closeMobileSearch,
-  toggleMobileSearch,
+  bindMobileSearchEvents,
   bindTodayFocusHotkey,
 } = createMobileSearchFeature({
+  renderStats: () => renderStats(),
   renderTodos: () => renderTodos(),
   toggleTodayFocus: () => toggleTodayFocus(),
   toggleMinimalTodos: () => toggleMinimalTodos(),
@@ -680,6 +680,7 @@ export function startAppModule() {
   appDownloadsFeature.initAppDownloads();
   brainDumpLiveFeature.init();
   bindNativePointerDragDrop();
+  bindMobileSearchEvents();
   bindTodayFocusHotkey();
   bindNavigationHistory();
   bindFocusProjectMenuDismissal();
@@ -715,7 +716,7 @@ export function startAppModule() {
   websocket: { getReconnectDelay, connectWebSocket, wsSend, startPingInterval, stopPingInterval, scheduleReconnect, disconnectWebSocket, updateConnectionStatus, handleWsMessage },
   storage: { openDB, dbGetAll, dbPut, dbClear, getFromDB, deleteFromDB, clearSyncQueue, addToSyncQueue },
   sync: { isOnlineForSync, syncWithServer, refreshFromServer },
-  ui: { toggleSidebar, closeSidebar, closeModal, setupDescPreview, openMobileSearch, closeMobileSearch, toggleMobileSearch },
+  ui: { toggleSidebar, closeSidebar, closeModal, setupDescPreview, openMobileSearch },
   lifecycle: { initServiceWorker, triggerUpdate, forceReloadApp, initApp, loadFromLocalDB, loadAll },
   appDownloads: { openAppDownloadsModal },
   rendering: { renderVersionInfo, renderProjects, renderStats, renderTodos, renderSectionHeader, countByProject },
