@@ -33,6 +33,9 @@
 @import url("/static/css/90-attachments-preview.css");
 @import url("/static/css/91-todo-detail-layout.css");
 @import url("/static/css/92-todo-detail-content.css");
+@import url("/static/css/92-todo-detail-comments-actions.css");
+@import url("/static/css/92-todo-detail-attachments.css");
+@import url("/static/css/92-todo-detail-description.css");
 @import url("/static/css/93-todo-detail-meta-drawer.css");
 @import url("/static/css/94-todo-detail-header-actions.css");
 @import url("/static/css/95-todo-detail-mobile-viewport.css");
