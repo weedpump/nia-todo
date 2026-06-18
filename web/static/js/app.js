@@ -529,6 +529,7 @@ const snoozeTodo = todosFeature.snoozeTodo;
 const duplicateTodo = todosFeature.duplicateTodo;
 const toggleTodo = todosFeature.toggleTodo;
 const showTodoModal = todosFeature.showTodoModal;
+const bindTodoActions = todosFeature.bindTodoActions;
 const onProjectChange = todosFeature.onProjectChange;
 const saveTodo = todosFeature.saveTodo;
 const editTodo = todosFeature.editTodo;
@@ -691,6 +692,7 @@ export function startAppModule() {
   bindModalCloseControls();
   bindToastControls();
   bindWorkspaceControls();
+  bindTodoActions();
   bindNavigationActions();
   bindNavigationHistory();
   bindFocusProjectMenuDismissal();
@@ -730,7 +732,7 @@ export function startAppModule() {
   lifecycle: { initServiceWorker, initApp, loadFromLocalDB, loadAll },
   rendering: { renderVersionInfo, renderProjects, renderStats, renderTodos, renderSectionHeader, countByProject },
   navigation: { setFilter, loadSectionsForCurrentProject, bindNavigationHistory },
-  todos: { markTodoDone, markTodoInProgress, setTodoStatus, toggleTodo, toggleTodoPin, addTodoSubtaskFromInput, addTodoCommentFromInput, uploadTodoAttachmentFromInput, deleteTodoComment, deleteTodoAttachment, closeAttachmentPreview, downloadPreviewAttachment, snoozeTodo, duplicateTodo, showTodoModal, onProjectChange, saveTodo, editTodo, deleteTodoFromModal, deleteTodo },
+  todos: { markTodoDone, markTodoInProgress, setTodoStatus, toggleTodo, toggleTodoPin, addTodoSubtaskFromInput, addTodoCommentFromInput, uploadTodoAttachmentFromInput, deleteTodoComment, deleteTodoAttachment, closeAttachmentPreview, downloadPreviewAttachment, snoozeTodo, duplicateTodo, onProjectChange, saveTodo, editTodo, deleteTodoFromModal, deleteTodo },
   projects: { showProjectModal, editProject, saveProject, deleteProject, deleteProjectFromModal, clearDoneFromModal, clearDoneInProject },
   sharing: { inviteUserToProject: () => sharingFeature.inviteByUsername(), leaveProjectFromModal: () => sharingFeature.leaveProject(), undoLeaveProject: (data) => sharingFeature.undoLeaveProject(data), undoRemoveMember: (data) => sharingFeature.undoRemoveMember(data), undoInvite: (data) => sharingFeature.undoInvite(data), acceptInvite: (pid, iid) => sharingFeature.acceptInvite(pid, iid), declineInvite: (pid, iid) => sharingFeature.declineInvite(pid, iid), showShareInput: () => sharingFeature.showShareInput() },
   projectSharing: { setProject: (project) => sharingFeature.setProject(project), applyProjectModalState: (project, canEdit, shared) => sharingFeature.applyProjectModalState(project, canEdit, shared), loadInvites: () => sharingFeature.loadInvites() },
