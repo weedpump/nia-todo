@@ -1503,7 +1503,7 @@ select:focus-visible {
   box-sizing: border-box;
   padding: 8px 16px;
   border: none;
-  border-radius: 12px;
+  border-radius: 999px;
   font-size: 14px;
   font-weight: 700;
   line-height: 1.15;
@@ -1627,21 +1627,6 @@ select:focus-visible {
   min-height: 34px;
   min-width: 108px;
   padding: 7px 14px;
-  border: none;
-  border-radius: 999px;
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-  box-shadow: none;
-  font-size: 14px;
-  font-weight: 700;
-  line-height: 1.15;
-}
-.btn-action:hover,
-.btn-action:focus-visible {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-  border: none;
-  box-shadow: none;
 }
 .btn-action .ui-icon {
   width: 15px;
@@ -1651,7 +1636,7 @@ select:focus-visible {
 .btn-small {
   min-height: 34px;
   padding: 7px 10px;
-  border-radius: 10px;
+  border-radius: 999px;
   font-size: 12px;
 }
 .btn-icon {
@@ -1660,6 +1645,7 @@ select:focus-visible {
   height: 34px;
   min-height: 34px;
   padding: 0;
+  border-radius: 999px;
   flex: 0 0 auto;
 }
 .btn-icon .ui-icon {
