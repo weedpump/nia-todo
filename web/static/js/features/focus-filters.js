@@ -184,6 +184,16 @@ export function createFocusFiltersFeature({ renderTodos }) {
     updateFocusFilters({ statuses: Array.from(current) });
   }
 
+  function bindFocusProjectMenuDismissal() {
+    document.addEventListener('click', (event) => {
+      if (focusProjectMenuOpen && !event.target?.closest?.('.focus-project-dropdown')) closeFocusProjectMenu();
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape' || !focusProjectMenuOpen) return;
+      closeFocusProjectMenu();
+    });
+  }
+
   return {
     getFocusFilters: () => focusFilters,
     getFocusFiltersExpanded: () => focusFiltersExpanded,
@@ -201,5 +211,6 @@ export function createFocusFiltersFeature({ renderTodos }) {
     handleFocusProjectMenuKeydown,
     toggleFocusPriority,
     toggleFocusStatus,
+    bindFocusProjectMenuDismissal,
   };
 }

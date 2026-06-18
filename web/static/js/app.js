@@ -73,6 +73,7 @@ const {
   handleFocusProjectMenuKeydown,
   toggleFocusPriority,
   toggleFocusStatus,
+  bindFocusProjectMenuDismissal,
 } = createFocusFiltersFeature({ renderTodos: () => renderTodos() });
 
 function setTodosState(next) {
@@ -693,16 +694,12 @@ export function startAppModule() {
   bindNativePointerDragDrop();
   bindTodayFocusHotkey();
   bindNavigationHistory();
+  bindFocusProjectMenuDismissal();
   document.addEventListener('click', (event) => {
     const box = document.getElementById('search-box');
     const input = document.getElementById('search-input');
-    if (getFocusProjectMenuOpen() && !event.target?.closest?.('.focus-project-dropdown')) closeFocusProjectMenu();
     if (!box?.classList.contains('open') || box.contains(event.target) || input?.value) return;
     box.classList.remove('open');
-  });
-  document.addEventListener('keydown', (event) => {
-    if (event.key !== 'Escape' || !getFocusProjectMenuOpen()) return;
-    closeFocusProjectMenu();
   });
   desktopIntegration?.init();
   window.addEventListener('nia-language-change', () => {
