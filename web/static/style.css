@@ -23,6 +23,7 @@
   --todo-chip-recurring: #3b82f6;
   --border: #334155;
   --radius: 8px;
+  --field-radius: 14px;
   --shadow: 0 4px 12px rgba(0,0,0,0.3);
   --press-bg: rgba(var(--accent-rgb), 0.28);
   --press-ring: rgba(var(--accent-rgb), 0.42);
@@ -1798,7 +1799,7 @@ select:focus-visible {
   width: 100%;
   padding: 10px 12px;
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--field-radius);
   background: var(--bg-primary);
   color: var(--text-primary);
   font-size: 14px;
@@ -1856,7 +1857,7 @@ select:focus-visible {
   gap: 10px;
   padding: 10px 40px 10px 12px;
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--field-radius);
   background: var(--bg-primary);
   color: var(--text-primary);
   box-shadow: none;
@@ -7690,7 +7691,7 @@ input[type="color"]::-moz-color-swatch {
 .entity-modal-body .form-group select {
   min-height: 40px;
   padding: 10px 42px 10px 12px;
-  border-radius: 13px;
+  border-radius: var(--field-radius);
   border-color: color-mix(in srgb, var(--border) 84%, transparent);
   background:
     linear-gradient(45deg, transparent 50%, var(--text-muted) 50%) calc(100% - 20px) 17px / 6px 6px no-repeat,
@@ -9069,7 +9070,7 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
 #todo-modal.todo-detail-view #todo-organize-panel .ui-select-trigger,
 #todo-modal.todo-detail-view #todo-schedule-panel .ui-select-trigger {
   min-height: 40px;
-  border-radius: 13px;
+  border-radius: var(--field-radius);
   background: color-mix(in srgb, var(--bg-primary) 58%, transparent);
   border-color: color-mix(in srgb, var(--border) 46%, transparent);
 }
