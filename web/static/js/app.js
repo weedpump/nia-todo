@@ -507,10 +507,8 @@ const bindNavigationActions = navigationFeature.bindNavigationActions;
 const bindNavigationHistory = navigationFeature.bindNavigationHistory;
 
 const showProjectModal = projectsFeature.showProjectModal;
-const editProject = projectsFeature.editProject;
-const saveProject = projectsFeature.saveProject;
 const deleteProject = projectsFeature.deleteProject;
-const deleteProjectFromModal = projectsFeature.deleteProjectFromModal;
+const bindProjectActions = projectsFeature.bindProjectActions;
 const clearDoneFromModal = projectsFeature.clearDoneFromModal;
 const clearDoneInProject = projectsFeature.clearDoneInProject;
 
@@ -688,6 +686,7 @@ export function startAppModule() {
   bindWorkspaceControls();
   bindTodoActions();
   sharingFeature.bindProjectSharingActions();
+  bindProjectActions();
   bindNavigationActions();
   bindNavigationHistory();
   bindFocusProjectMenuDismissal();
@@ -728,7 +727,7 @@ export function startAppModule() {
   rendering: { renderVersionInfo, renderProjects, renderStats, renderTodos, renderSectionHeader, countByProject },
   navigation: { setFilter, loadSectionsForCurrentProject, bindNavigationHistory },
   todos: { markTodoDone, markTodoInProgress, setTodoStatus, toggleTodo, toggleTodoPin, deleteTodoComment, deleteTodoAttachment, snoozeTodo, duplicateTodo, saveTodo, editTodo, deleteTodoFromModal, deleteTodo },
-  projects: { showProjectModal, editProject, saveProject, deleteProject, deleteProjectFromModal, clearDoneFromModal, clearDoneInProject },
+  projects: { showProjectModal, deleteProject, clearDoneFromModal, clearDoneInProject },
   projectSharing: { setProject: (project) => sharingFeature.setProject(project), applyProjectModalState: (project, canEdit, shared) => sharingFeature.applyProjectModalState(project, canEdit, shared), loadInvites: () => sharingFeature.loadInvites() },
   sections: { showAddSectionForm, saveNewSection, editSectionInline, saveSectionEdit, deleteSection },
   dragDrop: { handleTodoDragStart, handleTodoDragEnd, handleTodoDragOver, handleTodoDrop, handleProjectDragOver, handleProjectDrop, handleSectionDragStart, handleSectionDragEnd, handleSectionDragOver, handleSectionDrop },
