@@ -82,6 +82,12 @@ export function createTodosFeature({
     return document.getElementById('todo-modal');
   }
 
+  function getTodoBeingEdited() {
+    const id = document.getElementById('todo-id')?.value;
+    if (!id) return null;
+    return getTodos().find(todo => String(todo.id) === String(id)) || null;
+  }
+
   function isMobileTodoModalLayout() {
     return Boolean(window.matchMedia?.('(max-width: 768px)')?.matches);
   }
@@ -155,7 +161,7 @@ export function createTodosFeature({
       `;
       drawer.querySelector('.todo-meta-drawer-close')?.addEventListener('click', () => {
         getTodoModal()?.classList.remove(TODO_MODAL_CLASSES.editingMeta);
-        renderTodoMetaSummary(getTodos().find(todo => String(todo.id) === String(document.getElementById('todo-id')?.value)) || null);
+        renderTodoMetaSummary(getTodoBeingEdited());
       });
       form.appendChild(drawer);
     }
