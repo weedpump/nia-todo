@@ -3224,7 +3224,6 @@ input[type="color"]::-moz-color-swatch {
 
 .login-download-launcher {
   width: 100%;
-  min-height: 38px;
   margin-left: 0;
   margin-right: 0;
 }
@@ -3923,38 +3922,12 @@ input[type="color"]::-moz-color-swatch {
 }
 
 .app-download-launcher {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
   width: calc(100% - 24px);
-  min-height: 34px;
   margin: 4px 12px 0;
-  padding: 7px 10px;
-  border: 1px solid rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.28));
-  border-radius: var(--radius);
-  background: rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.10));
-  color: color-mix(in srgb, var(--accent-hover) 72%, var(--text-secondary));
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 650;
-  line-height: 1;
-  transition: border-color 0.15s, background 0.15s, color 0.15s, transform 0.15s;
-}
-
-.app-download-launcher:hover {
-  border-color: rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.45));
-  background: rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.16));
-  color: var(--accent-hover);
-  transform: translateY(-1px);
 }
 
 .app-download-launcher .ui-icon {
-  width: 15px;
-  height: 15px;
   flex: 0 0 auto;
-  color: currentColor;
-  opacity: 0.86;
 }
 
 .app-download-launcher span:not(.ui-icon) {
@@ -3963,11 +3936,6 @@ input[type="color"]::-moz-color-swatch {
   text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.app-download-launcher:hover .ui-icon {
-  color: currentColor;
-  opacity: 1;
 }
 
 .login-box > .login-download-launcher {
