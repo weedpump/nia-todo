@@ -409,10 +409,7 @@ const sectionActions = createSectionActionsFeature({
 });
 const renderSectionHeader = sectionActions.renderSectionHeader;
 const showAddSectionForm = sectionActions.showAddSectionForm;
-const editSectionInline = sectionActions.editSectionInline;
-const saveNewSection = sectionActions.saveNewSection;
-const saveSectionEdit = sectionActions.saveSectionEdit;
-const deleteSection = sectionActions.deleteSection;
+const bindSectionActions = sectionActions.bindSectionActions;
 const appRendering = createAppRenderingFeature({
   appVersion: APP_VERSION,
   escapeHtml,
@@ -684,6 +681,7 @@ export function startAppModule() {
   bindTodoActions();
   sharingFeature.bindProjectSharingActions();
   bindProjectActions();
+  bindSectionActions();
   bindNavigationActions();
   bindNavigationHistory();
   bindFocusProjectMenuDismissal();
@@ -726,7 +724,7 @@ export function startAppModule() {
   todos: { markTodoDone, markTodoInProgress, deleteTodoComment, deleteTodoAttachment, saveTodo, editTodo, deleteTodoFromModal },
   projects: { showProjectModal, deleteProject, clearDoneFromModal, clearDoneInProject },
   projectSharing: { setProject: (project) => sharingFeature.setProject(project), applyProjectModalState: (project, canEdit, shared) => sharingFeature.applyProjectModalState(project, canEdit, shared), loadInvites: () => sharingFeature.loadInvites() },
-  sections: { showAddSectionForm, saveNewSection, editSectionInline, saveSectionEdit, deleteSection },
+  sections: { showAddSectionForm },
   dragDrop: { handleTodoDragStart, handleTodoDragEnd, handleTodoDragOver, handleTodoDrop, handleProjectDragOver, handleProjectDrop, handleSectionDragStart, handleSectionDragEnd, handleSectionDragOver, handleSectionDrop },
   viewPreferences: { updateToggleDoneButton, updateSortButton, sortTodoList, updateProjectWidgetButton },
   toastUndo: { showToast, showBatchToast, restoreBatchTodos, restoreTodo },
