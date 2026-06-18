@@ -402,6 +402,26 @@ export function createTodosFeature({
     return state;
   }
 
+  function hasPersistedTodoId() {
+    const id = document.getElementById('todo-id')?.value || '';
+    return Boolean(id) && !String(id).startsWith('temp-');
+  }
+
+  function refreshTodoActionButtonState() {
+    const hasTodo = hasPersistedTodoId();
+    const subtaskTitle = document.getElementById('todo-subtask-new-title')?.value?.trim() || '';
+    const commentBody = document.getElementById('todo-comment-new-body')?.value?.trim() || '';
+    const attachmentFiles = getSelectedAttachmentFiles();
+    const subtaskButton = document.querySelector('.todo-subtasks-add-row .btn-action');
+    const commentButton = document.getElementById('todo-comment-add-btn');
+    const attachmentPicker = document.querySelector('.todo-attachment-picker');
+    const uploadButton = document.getElementById('todo-attachment-upload-btn');
+    if (subtaskButton) subtaskButton.disabled = !hasTodo || !subtaskTitle;
+    if (commentButton) commentButton.disabled = !hasTodo || !commentBody;
+    if (attachmentPicker) attachmentPicker.disabled = !hasTodo;
+    if (uploadButton) uploadButton.disabled = !hasTodo || attachmentFiles.length === 0;
+  }
+
   function refreshTodoSaveButtonState() {
     const saveButton = document.getElementById('todo-save-btn');
     if (!saveButton) return;
@@ -409,6 +429,7 @@ export function createTodosFeature({
     const unchanged = todoSaveSnapshot !== null && current === todoSaveSnapshot;
     saveButton.disabled = unchanged;
     document.getElementById('todo-modal')?.classList.toggle('todo-has-unsaved', !unchanged);
+    refreshTodoActionButtonState();
   }
 
   function resetTodoSaveSnapshot() {
@@ -633,6 +654,7 @@ export function createTodosFeature({
       input.value = '';
       input.focus();
     }
+    refreshTodoActionButtonState();
   }
 
 
@@ -667,7 +689,8 @@ export function createTodosFeature({
       input.value = '';
       input.disabled = !todoId;
     }
-    if (addButton) addButton.disabled = !todoId;
+    if (addButton) addButton.disabled = true;
+    refreshTodoActionButtonState();
     for (const comment of normalized) {
       const item = document.createElement('article');
       item.className = 'todo-comment-item';
@@ -931,7 +954,8 @@ export function createTodosFeature({
       input.disabled = !todoId;
       setSelectedAttachmentFileName([]);
     }
-    if (uploadButton) uploadButton.disabled = !todoId;
+    if (uploadButton) uploadButton.disabled = true;
+    refreshTodoActionButtonState();
     for (const attachment of normalized) {
       const item = document.createElement('article');
       item.className = 'todo-attachment-item';
@@ -1067,6 +1091,7 @@ export function createTodosFeature({
       showToast(error?.message || t('todo.attachments.uploadFailed'));
     } finally {
       if (uploadButton) uploadButton.disabled = previousDisabled ?? false;
+      refreshTodoActionButtonState();
     }
   }
 
