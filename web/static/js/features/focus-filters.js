@@ -186,9 +186,34 @@ export function createFocusFiltersFeature({ renderTodos }) {
 
   function bindFocusProjectMenuDismissal() {
     document.addEventListener('click', (event) => {
+      const action = event.target?.closest?.('[data-focus-action]')?.dataset.focusAction;
+      if (action === 'reset') resetFocusFilters();
+      if (action === 'toggle-expanded') toggleFocusFiltersExpanded();
+      if (action === 'toggle-project-menu') toggleFocusProjectMenu();
+
+      const projectOption = event.target?.closest?.('[data-focus-project-id]');
+      if (projectOption) toggleFocusProject(projectOption.dataset.focusProjectId);
+
+      const priority = event.target?.closest?.('[data-focus-priority]')?.dataset.focusPriority;
+      if (priority) toggleFocusPriority(priority);
+
+      const status = event.target?.closest?.('[data-focus-status]')?.dataset.focusStatus;
+      if (status) toggleFocusStatus(status);
+
       if (focusProjectMenuOpen && !event.target?.closest?.('.focus-project-dropdown')) closeFocusProjectMenu();
     });
+    document.addEventListener('change', (event) => {
+      if (event.target?.dataset?.focusControl === 'due-mode') setFocusDueMode(event.target.value);
+      if (event.target?.dataset?.focusControl === 'due-days') setFocusDueDays(event.target.value);
+    });
+    document.addEventListener('input', (event) => {
+      if (event.target?.dataset?.focusControl === 'project-search') filterFocusProjectMenu(event.target.value);
+    });
     document.addEventListener('keydown', (event) => {
+      if (event.target?.dataset?.focusControl === 'project-search') {
+        handleFocusProjectMenuKeydown(event);
+        return;
+      }
       if (event.key !== 'Escape' || !focusProjectMenuOpen) return;
       closeFocusProjectMenu();
     });

@@ -529,13 +529,13 @@ export function createAppRenderingFeature({
       const children = (project.children || []).sort((a, b) => a.name.localeCompare(b.name));
       const label = String(project.name || '');
       const matchesSearch = !normalizedProjectSearch || label.toLocaleLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(normalizedProjectSearch);
-      return `<button type="button" class="focus-project-option ${selected ? 'is-selected' : ''}" style="--project-depth:${depth}" data-focus-project-option data-label="${escapeHtmlAttr(label)}" ${matchesSearch ? '' : 'hidden'} onclick="toggleFocusProject(${Number(project.id)})" role="menuitemcheckbox" aria-checked="${selected ? 'true' : 'false'}">${markerHtml(project)}<span>${escapeHtml(label)}</span><span class="focus-project-check" aria-hidden="true">${iconSvg('check')}</span></button>${children.map(child => renderProjectOption(child, depth + 1)).join('')}`;
+      return `<button type="button" class="focus-project-option ${selected ? 'is-selected' : ''}" style="--project-depth:${depth}" data-focus-project-option data-focus-project-id="${Number(project.id)}" data-label="${escapeHtmlAttr(label)}" ${matchesSearch ? '' : 'hidden'} role="menuitemcheckbox" aria-checked="${selected ? 'true' : 'false'}">${markerHtml(project)}<span>${escapeHtml(label)}</span><span class="focus-project-check" aria-hidden="true">${iconSvg('check')}</span></button>${children.map(child => renderProjectOption(child, depth + 1)).join('')}`;
     };
     const projectOptions = rootProjects.map(project => renderProjectOption(project)).join('') || `<div class="focus-project-empty">${escapeHtml(t('focus.noProjects'))}</div>`;
     const projectMatchCount = rootProjects.length ? (projectOptions.match(/data-focus-project-option/g) || []).length - (projectOptions.match(/data-focus-project-option[^>]*hidden/g) || []).length : 0;
     const headingActions = expanded
-      ? `<button type="button" class="btn btn-secondary btn-small focus-reset-btn" onclick="resetFocusFilters()">${iconSvg('refresh-cw')} ${escapeHtml(t('focus.reset'))}</button><button type="button" class="btn btn-secondary btn-small focus-toggle-btn" onclick="toggleFocusFiltersExpanded()" aria-expanded="true">${iconSvg('chevron-up')} ${escapeHtml(t('focus.collapse'))}</button>`
-      : `<button type="button" class="btn btn-secondary btn-small focus-toggle-btn" onclick="toggleFocusFiltersExpanded()" aria-expanded="false">${iconSvg('chevron-down')} ${escapeHtml(t('focus.expand'))}</button>`;
+      ? `<button type="button" class="btn btn-secondary btn-small focus-reset-btn" data-focus-action="reset">${iconSvg('refresh-cw')} ${escapeHtml(t('focus.reset'))}</button><button type="button" class="btn btn-secondary btn-small focus-toggle-btn" data-focus-action="toggle-expanded" aria-expanded="true">${iconSvg('chevron-up')} ${escapeHtml(t('focus.collapse'))}</button>`
+      : `<button type="button" class="btn btn-secondary btn-small focus-toggle-btn" data-focus-action="toggle-expanded" aria-expanded="false">${iconSvg('chevron-down')} ${escapeHtml(t('focus.expand'))}</button>`;
 
     return `<section class="overview-dashboard focus-filter-card ${expanded ? 'is-expanded' : 'is-collapsed'}" aria-label="${escapeHtmlAttr(t('focus.aria'))}">
       <div class="overview-dashboard-header focus-filter-heading">
@@ -556,7 +556,7 @@ export function createAppRenderingFeature({
         <div class="focus-filter-grid">
           <div class="form-group focus-due-field">
             <label for="focus-due-mode">${escapeHtml(t('focus.due.label'))}</label>
-            <select id="focus-due-mode" data-ui-select onchange="setFocusDueMode(this.value)">
+            <select id="focus-due-mode" data-ui-select data-focus-control="due-mode">
               <option value="any" ${dueMode === 'any' ? 'selected' : ''}>${escapeHtml(t('focus.due.any'))}</option>
               <option value="next_days" ${dueMode === 'next_days' ? 'selected' : ''}>${escapeHtml(t('focus.due.nextDays'))}</option>
               <option value="today" ${dueMode === 'today' ? 'selected' : ''}>${escapeHtml(t('focus.due.today'))}</option>
@@ -567,20 +567,20 @@ export function createAppRenderingFeature({
           </div>
           <div class="form-group focus-days-field ${dueMode === 'next_days' ? '' : 'is-muted'}">
             <label for="focus-due-days">${escapeHtml(t('focus.due.days'))}</label>
-            <input id="focus-due-days" type="number" min="1" max="365" value="${escapeHtmlAttr(dueDays)}" ${dueMode === 'next_days' ? '' : 'disabled'} onchange="setFocusDueDays(this.value)">
+            <input id="focus-due-days" type="number" min="1" max="365" value="${escapeHtmlAttr(dueDays)}" ${dueMode === 'next_days' ? '' : 'disabled'} data-focus-control="due-days">
           </div>
         </div>
         <div class="focus-filter-section">
           <div class="focus-filter-label">${iconSvg('folder')} ${escapeHtml(t('focus.projects'))}</div>
           <div class="focus-project-dropdown ${projectMenuOpen ? 'is-open' : ''}">
-            <button type="button" class="ui-select-trigger focus-project-trigger" onclick="toggleFocusProjectMenu()" aria-haspopup="menu" aria-expanded="${projectMenuOpen ? 'true' : 'false'}">
+            <button type="button" class="ui-select-trigger focus-project-trigger" data-focus-action="toggle-project-menu" aria-haspopup="menu" aria-expanded="${projectMenuOpen ? 'true' : 'false'}">
               <span class="ui-select-value">${escapeHtml(projectSummary)}</span>
               <span class="ui-select-chevron" aria-hidden="true">${iconSvg('chevron-down')}</span>
             </button>
             <div class="focus-project-menu ui-select-menu project-ui-select-menu" role="menu" ${projectMenuOpen ? '' : 'hidden'}>
               <div class="ui-select-search">
                 <span class="ui-select-search-icon" aria-hidden="true">${iconSvg('search')}</span>
-                <input type="search" class="ui-select-search-input" value="${escapeHtmlAttr(projectSearch)}" placeholder="${escapeHtmlAttr(t('focus.projects.search'))}" aria-label="${escapeHtmlAttr(t('focus.projects.search'))}" oninput="filterFocusProjectMenu(this.value)" onkeydown="handleFocusProjectMenuKeydown(event)">
+                <input type="search" class="ui-select-search-input" value="${escapeHtmlAttr(projectSearch)}" placeholder="${escapeHtmlAttr(t('focus.projects.search'))}" aria-label="${escapeHtmlAttr(t('focus.projects.search'))}" data-focus-control="project-search">
               </div>
               ${projectOptions}
               <div class="ui-select-empty focus-project-empty" ${projectMatchCount > 0 || !rootProjects.length ? 'hidden' : ''}>${escapeHtml(t('focus.projects.noMatches'))}</div>
@@ -590,11 +590,11 @@ export function createAppRenderingFeature({
         <div class="focus-filter-section focus-filter-split">
           <div>
             <div class="focus-filter-label">${iconSvg('flag')} ${escapeHtml(t('focus.priorities'))}</div>
-            <div class="focus-chip-row">${priorityOptions.map(([priority, label, color]) => `<button type="button" class="focus-chip priority-chip ${priorities.has(priority) ? 'active' : ''}" onclick="toggleFocusPriority(${priority})"><span class="priority-dot" style="--priority-color:${escapeHtmlAttr(color)}"></span><span>${escapeHtml(label)}</span></button>`).join('')}</div>
+            <div class="focus-chip-row">${priorityOptions.map(([priority, label, color]) => `<button type="button" class="focus-chip priority-chip ${priorities.has(priority) ? 'active' : ''}" data-focus-priority="${priority}"><span class="priority-dot" style="--priority-color:${escapeHtmlAttr(color)}"></span><span>${escapeHtml(label)}</span></button>`).join('')}</div>
           </div>
           <div>
             <div class="focus-filter-label">${iconSvg('list')} ${escapeHtml(t('focus.statuses'))}</div>
-            <div class="focus-chip-row">${statusOptions.map(([status, icon, label]) => `<button type="button" class="focus-chip ${statuses.has(status) ? 'active' : ''}" onclick="toggleFocusStatus('${escapeHtmlAttr(status)}')">${icon}<span>${escapeHtml(label)}</span></button>`).join('')}</div>
+            <div class="focus-chip-row">${statusOptions.map(([status, icon, label]) => `<button type="button" class="focus-chip ${statuses.has(status) ? 'active' : ''}" data-focus-status="${escapeHtmlAttr(status)}">${icon}<span>${escapeHtml(label)}</span></button>`).join('')}</div>
           </div>
         </div>
       </div>
