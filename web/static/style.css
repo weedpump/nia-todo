@@ -3385,46 +3385,6 @@ input[type="color"]::-moz-color-swatch {
   margin: 0 0 8px;
 }
 
-.app-resource-link {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  width: 100%;
-  padding: 8px 11px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-secondary);
-  color: var(--text-secondary);
-  font-size: 13px;
-  font-weight: 600;
-  text-decoration: none;
-  transition: border-color 0.15s, color 0.15s, transform 0.15s;
-}
-
-.app-resource-link:hover {
-  border-color: rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.45));
-  color: var(--accent);
-  transform: translateY(-1px);
-}
-
-.app-resource-link .ui-icon,
-.app-resource-link [data-icon] {
-  width: 16px;
-  height: 16px;
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  vertical-align: middle;
-}
-
-.app-resource-link [data-icon] svg {
-  width: 16px;
-  height: 16px;
-  display: block;
-}
-
 .app-download-text {
   display: flex;
   flex-direction: column;
@@ -6466,21 +6426,6 @@ input[type="color"]::-moz-color-swatch {
 }
 
 /* Settings button layout */
-#settings-modal .app-resource-link {
-  min-height: 38px;
-  box-sizing: border-box;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  border-radius: 12px;
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1.15;
-  text-align: center;
-  white-space: normal;
-}
-
 #settings-modal .settings-card-actions,
 #settings-modal .settings-action-row {
   display: grid;
@@ -6491,8 +6436,7 @@ input[type="color"]::-moz-color-swatch {
 
 #settings-modal .settings-card-actions > .btn,
 #settings-modal .settings-action-row > .btn,
-#settings-modal .settings-action-row > .app-resource-links,
-#settings-modal .settings-action-row .app-resource-link {
+#settings-modal .settings-action-row > .app-resource-links {
   width: 100%;
   min-width: 0;
 }
@@ -6551,8 +6495,7 @@ input[type="color"]::-moz-color-swatch {
     gap: 8px;
   }
 
-  #settings-modal .btn,
-  #settings-modal .app-resource-link {
+  #settings-modal .btn {
     width: 100%;
   }
 
@@ -6583,13 +6526,6 @@ input[type="color"]::-moz-color-swatch {
 
 /* Settings button sizing refinement */
 @media (min-width: 769px) {
-  #settings-modal .app-resource-link {
-    min-height: 38px;
-    height: 38px;
-    padding-top: 0;
-    padding-bottom: 0;
-  }
-
   #settings-modal .settings-card-actions {
     display: flex;
     justify-content: flex-end;
@@ -6601,8 +6537,7 @@ input[type="color"]::-moz-color-swatch {
     min-width: 180px;
   }
 
-  #settings-modal .settings-action-row > .btn,
-  #settings-modal .settings-action-row .app-resource-link {
+  #settings-modal .settings-action-row > .btn {
     height: 38px;
   }
 
