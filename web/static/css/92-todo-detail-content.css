@@ -191,12 +191,6 @@
   line-height: 1.5;
 }
 
-#todo-modal.todo-detail-view .todo-comment-actions {
-  align-self: start;
-  opacity: 0;
-  transition: opacity .14s ease;
-}
-
 #todo-modal.todo-detail-view .todo-comment-item:hover .todo-comment-actions,
 #todo-modal.todo-detail-view .todo-comment-item:focus-within .todo-comment-actions {
   opacity: 1;
@@ -304,33 +298,6 @@
   justify-content: flex-start;
 }
 
-#todo-modal.todo-detail-view .todo-comment-item {
-  grid-template-columns: minmax(0, 1fr);
-  gap: 4px;
-  padding: 8px 0 8px 12px;
-}
-
-#todo-modal.todo-detail-view .todo-comment-meta {
-  grid-column: auto;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 0;
-}
-
-#todo-modal.todo-detail-view .todo-comment-body {
-  grid-column: auto;
-}
-
-#todo-modal.todo-detail-view .todo-comment-actions {
-  grid-column: auto;
-  justify-self: start;
-  display: inline-flex;
-  gap: 6px;
-  margin-top: 2px;
-  opacity: 0;
-}
-
 @media (max-width: 720px) {
   #todo-modal.todo-detail-view .todo-comment-actions {
     opacity: 1;
@@ -350,6 +317,7 @@
 
 #todo-modal.todo-detail-view .todo-comment-meta {
   grid-area: meta;
+  grid-column: auto;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -358,16 +326,19 @@
 
 #todo-modal.todo-detail-view .todo-comment-body {
   grid-area: body;
+  grid-column: auto;
 }
 
 #todo-modal.todo-detail-view .todo-comment-actions {
   grid-area: actions;
+  grid-column: auto;
   justify-self: end;
   align-self: start;
   display: inline-flex;
   gap: 6px;
   margin-top: 0;
   opacity: 0;
+  transition: opacity .14s ease;
 }
 
 /* Todo detail actions: keep add/upload actions visually consistent. */
@@ -380,13 +351,6 @@
 
 #todo-modal.todo-detail-view .todo-comments-add-group .btn {
   justify-self: end;
-}
-
-@media (max-width: 640px) {
-  #todo-modal.todo-detail-view .todo-attachments-add-row {
-    grid-template-columns: 1fr;
-  }
-
 }
 
 /* Todo detail attachments: compact empty picker, full-width selection, desktop drag/drop. */
@@ -406,36 +370,13 @@
   max-width: none;
 }
 
-#todo-modal.todo-detail-view .todo-attachments-add-row {
-  position: relative;
-  padding: 8px;
-  margin: 2px -8px -8px;
-  border: 1px dashed transparent;
-  border-radius: 18px;
-  transition: border-color .14s ease, background .14s ease;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  #todo-modal.todo-detail-view .todo-attachments-add-row::after {
-    content: attr(data-drop-label);
-    justify-self: start;
-    color: var(--text-muted);
-    font-size: 12px;
-    opacity: .72;
-  }
-}
-
-#todo-modal.todo-detail-view .todo-attachments-add-row.is-drag-over {
-  border-color: color-mix(in srgb, var(--accent) 52%, transparent);
-  background: color-mix(in srgb, var(--accent) 9%, transparent);
-}
-
 /* Todo detail attachments: persistent dropzone and preview layering fixes. */
 #attachment-preview-modal.active {
   z-index: 1300;
 }
 
 #todo-modal.todo-detail-view .todo-attachments-add-row {
+  position: relative;
   display: grid;
   grid-template-columns: auto minmax(120px, 1fr) auto;
   align-items: center;
@@ -445,6 +386,7 @@
   border: 1px dashed color-mix(in srgb, var(--border) 48%, transparent);
   border-radius: 18px;
   background: color-mix(in srgb, var(--bg-secondary) 20%, transparent);
+  transition: border-color .14s ease, background .14s ease;
 }
 
 #todo-modal.todo-detail-view .todo-attachments-add-row::after {
