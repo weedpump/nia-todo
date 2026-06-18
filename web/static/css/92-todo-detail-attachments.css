@@ -1,16 +1,9 @@
 /* Todo detail attachments dropzone and alignment */
 
 /* Todo detail attachments: compact empty picker, full-width selection, desktop drag/drop. */
-#todo-modal.todo-detail-view .todo-attachment-picker {
-  flex: 0 1 auto;
-  width: auto;
-  max-width: 220px;
-}
-
 #todo-modal.todo-detail-view .todo-attachment-picker.has-file {
   flex: 1 1 auto;
   width: auto;
-  max-width: none;
 }
 
 #todo-modal.todo-detail-view .todo-attachment-picker.has-file #todo-attachment-file-name {
@@ -25,7 +18,6 @@
 #todo-modal.todo-detail-view .todo-attachments-add-row {
   position: relative;
   display: grid;
-  grid-template-columns: auto minmax(120px, 1fr) auto;
   align-items: center;
   gap: 10px;
   padding: 10px;
@@ -38,11 +30,9 @@
 
 #todo-modal.todo-detail-view .todo-attachments-add-row::after {
   content: attr(data-drop-label);
-  justify-self: center;
   color: var(--text-muted);
   font-size: 12px;
   line-height: 1.2;
-  text-align: center;
   opacity: .82;
 }
 
@@ -59,23 +49,15 @@
 #todo-modal.todo-detail-view .todo-attachment-picker {
   flex: none;
   width: auto;
+  min-width: 0;
   max-width: 220px;
-  justify-self: start;
 }
 
 #todo-modal.todo-detail-view .todo-attachment-picker.has-file {
   max-width: min(520px, 100%);
 }
 
-#todo-modal.todo-detail-view #todo-attachment-upload-btn {
-  justify-self: end;
-}
-
 @media (max-width: 640px) {
-  #todo-modal.todo-detail-view .todo-attachments-add-row {
-    grid-template-columns: 1fr auto;
-  }
-
   #todo-modal.todo-detail-view .todo-attachments-add-row::after {
     grid-column: 1 / -1;
     grid-row: 2;

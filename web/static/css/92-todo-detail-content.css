@@ -109,7 +109,6 @@
   gap: 9px;
   padding: 9px 10px;
   border-radius: 16px;
-  background: color-mix(in srgb, var(--bg-secondary) 48%, transparent);
   border-color: color-mix(in srgb, var(--border) 34%, transparent);
 }
 
@@ -142,7 +141,6 @@
 }
 
 #todo-modal.todo-detail-view .todo-comments-add-group {
-  order: -1;
   margin: 0;
 }
 
@@ -170,10 +168,6 @@
 
 #todo-modal.todo-detail-view .todo-comment-item {
   position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 6px 10px;
-  padding: 12px 0 12px 14px;
   border: 0;
   border-left: 2px solid color-mix(in srgb, var(--border) 54%, transparent);
   border-radius: 0;
@@ -181,7 +175,6 @@
 }
 
 #todo-modal.todo-detail-view .todo-comment-meta {
-  grid-column: 1 / -1;
   color: var(--text-muted);
   font-size: 12px;
 }
@@ -205,8 +198,7 @@
     width: 100%;
   }
 
-  #todo-modal.todo-detail-view .todo-subtask-row .btn-icon,
-  #todo-modal.todo-detail-view .todo-comment-actions {
+  #todo-modal.todo-detail-view .todo-subtask-row .btn-icon {
     opacity: 1;
   }
 }
