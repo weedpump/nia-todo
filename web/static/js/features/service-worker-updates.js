@@ -16,7 +16,26 @@ export function createServiceWorkerUpdatesFeature() {
   const NATIVE_UPDATE_INTERVAL_MS = 10 * 60 * 1000;
   const FOREGROUND_MIN_CHECK_INTERVAL_MS = 2 * 60 * 1000;
   const STARTUP_FOLLOW_UP_DELAYS_MS = [20 * 1000, 2 * 60 * 1000];
-  const FALLBACK_HARD_RELOAD_ASSETS = ['/', '/index.html', '/manifest.json', '/static/style.css', '/static/js/main.js'];
+  const CSS_MODULE_ASSETS = [
+    '/static/css/00-base.css',
+    '/static/css/10-shell-navigation.css',
+    '/static/css/20-todos-list.css',
+    '/static/css/30-components.css',
+    '/static/css/40-responsive-mobile.css',
+    '/static/css/50-auth-version.css',
+    '/static/css/60-feedback-workspace-icons.css',
+    '/static/css/70-braindump-settings.css',
+    '/static/css/80-entity-focus-selects.css',
+    '/static/css/90-todo-detail-minimal.css',
+  ];
+  const FALLBACK_HARD_RELOAD_ASSETS = [
+    '/',
+    '/index.html',
+    '/manifest.json',
+    '/static/style.css',
+    ...CSS_MODULE_ASSETS,
+    '/static/js/main.js',
+  ];
 
   function isNativeApp() {
     return RUNTIME_CAPABILITIES.native;
