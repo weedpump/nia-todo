@@ -204,7 +204,7 @@ export function createTodosFeature({
     const edit = lang === 'de' ? 'Details bearbeiten' : 'Edit details';
     summary.innerHTML = `
       <div class="todo-meta-summary-chips">${chips.length ? chips.join('') : `<span class="todo-meta-summary-empty">${empty}</span>`}</div>
-      <button type="button" class="btn btn-secondary btn-action todo-detail-action-btn todo-meta-edit-toggle" id="todo-meta-edit-toggle">${edit}</button>
+      <button type="button" class="btn btn-secondary todo-detail-action-btn todo-meta-edit-toggle" id="todo-meta-edit-toggle">${edit}</button>
     `;
     const toggle = summary.querySelector('#todo-meta-edit-toggle');
     const syncToggleLabel = () => {
@@ -419,7 +419,7 @@ export function createTodosFeature({
     const subtaskTitle = document.getElementById('todo-subtask-new-title')?.value?.trim() || '';
     const commentBody = document.getElementById('todo-comment-new-body')?.value?.trim() || '';
     const attachmentFiles = getSelectedAttachmentFiles();
-    const subtaskButton = document.querySelector('.todo-subtasks-add-row .btn-action');
+    const subtaskButton = document.getElementById('todo-subtask-add-btn');
     const commentButton = document.getElementById('todo-comment-add-btn');
     const attachmentPicker = document.querySelector('.todo-attachment-picker');
     const uploadButton = document.getElementById('todo-attachment-upload-btn');

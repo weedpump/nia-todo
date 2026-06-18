@@ -1625,8 +1625,6 @@ select:focus-visible {
 
 .btn-secondary { background: var(--bg-tertiary); color: var(--text-primary); }
 .btn-secondary:hover { background: var(--bg-hover); }
-/* Deprecated: use .btn with semantic variants; compact sizing is now the base button density. */
-.btn-action {}
 .btn-small {
   min-height: 34px;
   padding: 7px 10px;
