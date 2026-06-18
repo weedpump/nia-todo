@@ -15,13 +15,6 @@
   height: 24px;
 }
 
-.focus-reset-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  white-space: nowrap;
-}
-
 .focus-filter-grid {
   display: grid;
   grid-template-columns: minmax(220px, 1fr) minmax(100px, 140px);
@@ -129,11 +122,6 @@
   white-space: nowrap;
 }
 
-.priority-chip {
-  min-width: 44px;
-  justify-content: center;
-}
-
 .focus-muted {
   color: var(--text-muted);
   font-size: 13px;
@@ -147,11 +135,6 @@
   .focus-filter-heading {
     align-items: center;
     flex-wrap: wrap;
-  }
-
-  .focus-reset-btn {
-    width: 100%;
-    justify-content: center;
   }
 
   .focus-filter-grid,

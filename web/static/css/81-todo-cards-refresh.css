@@ -367,8 +367,6 @@
   }
 }
 
-.todo-modal-title-icon .ui-icon,
-.entity-modal-title-icon .ui-icon,
 .ui-section-icon .ui-icon {
   width: 20px;
   height: 20px;
@@ -379,6 +377,7 @@
 .entity-modal-title-icon .ui-icon {
   width: 22px;
   height: 22px;
+  flex: 0 0 auto;
 }
 
 .todo-status-options {

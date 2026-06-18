@@ -152,8 +152,11 @@
 .workspace-menu-add {
   border: 0;
   background: transparent;
-  color: var(--text-primary);
   cursor: pointer;
+}
+
+.workspace-menu-choice {
+  color: var(--text-primary);
 }
 
 .workspace-menu-choice {
@@ -519,9 +522,6 @@
 }
 
 .priority-dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 999px;
   display: inline-block;
   flex-shrink: 0;
 }
