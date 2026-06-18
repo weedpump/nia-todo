@@ -2803,5 +2803,17 @@ export function createTodosFeature({
     }, 5200);
   }
 
-  return { markTodoDone, markTodoInProgress, setTodoStatus, toggleTodo, toggleTodoPin, toggleTodoActions, addTodoSubtaskFromInput, addTodoCommentFromInput, uploadTodoAttachmentFromInput, deleteTodoComment, deleteTodoAttachment, closeAttachmentPreview, downloadPreviewAttachment, snoozeTodo, duplicateTodo, showTodoModal, onProjectChange, saveTodo, editTodo, deleteTodoFromModal, deleteTodo };
+  function bindTodoActions() {
+    document.addEventListener('click', (event) => {
+      const target = event.target?.closest?.('[data-todo-action]');
+      if (!target) return;
+      const action = target.dataset.todoAction;
+      if (action === 'new') {
+        event.preventDefault();
+        showTodoModal();
+      }
+    });
+  }
+
+  return { markTodoDone, markTodoInProgress, setTodoStatus, toggleTodo, toggleTodoPin, toggleTodoActions, addTodoSubtaskFromInput, addTodoCommentFromInput, uploadTodoAttachmentFromInput, deleteTodoComment, deleteTodoAttachment, closeAttachmentPreview, downloadPreviewAttachment, snoozeTodo, duplicateTodo, showTodoModal, bindTodoActions, onProjectChange, saveTodo, editTodo, deleteTodoFromModal, deleteTodo };
 }
