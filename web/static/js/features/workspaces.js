@@ -1,5 +1,6 @@
 import { t } from '../i18n/index.js';
 import { iconSvg, markerHtml, renderIconPicker } from '../icons/lucide-icons.js';
+import { renderColorPicker } from '../ui/color-picker.js';
 
 export function createWorkspacesFeature({
   workspacesApi,
@@ -192,11 +193,16 @@ export function createWorkspacesFeature({
     document.getElementById('workspace-error').textContent = '';
     const colorInput = document.getElementById('workspace-color');
     if (colorInput) {
-      colorInput.oninput = () => renderIconPicker({
-        container: document.getElementById('workspace-icon-picker'),
-        input: document.getElementById('workspace-icon'),
-        selected: document.getElementById('workspace-icon')?.value || '',
-        color: colorInput.value || '#6366f1',
+      renderColorPicker({
+        container: document.getElementById('workspace-color-picker'),
+        input: colorInput,
+        selected: colorInput.value || '#6366f1',
+        onChange: (color) => renderIconPicker({
+          container: document.getElementById('workspace-icon-picker'),
+          input: document.getElementById('workspace-icon'),
+          selected: document.getElementById('workspace-icon')?.value || '',
+          color,
+        }),
       });
     }
     const deleteBtn = document.getElementById('workspace-delete-btn');

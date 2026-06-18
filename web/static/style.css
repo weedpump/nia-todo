@@ -2296,31 +2296,88 @@ input[type="color"]:disabled {
   color: var(--text-muted);
 }
 
-/* Color picker styling */
-input[type="color"] {
-  -webkit-appearance: none;
-  appearance: none;
+/* Color picker */
+.color-picker-native {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.color-picker-current {
   width: 100%;
-  height: 44px;
-  padding: 4px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-primary);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
   cursor: pointer;
+  text-align: left;
 }
 
-input[type="color"]::-webkit-color-swatch-wrapper {
-  padding: 0;
+.color-picker-swatch {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  display: inline-block;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--bg-primary) 82%, transparent);
 }
 
-input[type="color"]::-webkit-color-swatch {
-  border: none;
-  border-radius: 4px;
+.color-picker-current-text {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
 }
 
-input[type="color"]::-moz-color-swatch {
-  border: none;
-  border-radius: 4px;
+.color-picker-current-label {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.color-picker-current-name {
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.color-picker-current-chevron {
+  margin-left: auto;
+  color: var(--text-muted);
+  flex: 0 0 auto;
+  transition: transform 0.15s ease, color 0.15s ease;
+}
+
+.color-picker-current[aria-expanded="true"] .color-picker-current-chevron {
+  transform: rotate(180deg);
+  color: var(--accent-hover);
+}
+
+.color-picker-panel {
+  margin-top: 10px;
+  padding: 12px;
+}
+
+.color-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(34px, 1fr));
+  gap: 8px;
+}
+
+.color-picker-option .color-picker-swatch {
+  width: 18px;
+  height: 18px;
+}
+
+.color-picker-custom {
+  grid-column: span 3;
+  min-width: max-content;
 }
 
 .form-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
