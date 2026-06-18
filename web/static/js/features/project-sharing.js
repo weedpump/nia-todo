@@ -268,6 +268,26 @@ export function createProjectSharingFeature({
     }
   }
 
+  function bindProjectSharingActions() {
+    document.addEventListener('click', async (event) => {
+      const target = event.target?.closest?.('[data-project-sharing-action]');
+      if (!target) return;
+      const action = target.dataset.projectSharingAction;
+      event.preventDefault();
+      if (action === 'invite') {
+        await inviteByUsername();
+      } else if (action === 'leave') {
+        await leaveProject();
+      } else if (action === 'show-share-input') {
+        showShareInput();
+      } else if (action === 'accept-invite') {
+        await acceptInvite(target.dataset.projectId, target.dataset.inviteId);
+      } else if (action === 'decline-invite') {
+        await declineInvite(target.dataset.projectId, target.dataset.inviteId);
+      }
+    });
+  }
+
   function showShareInput() {
     const content = document.getElementById('project-sharing-content');
     const startRow = document.getElementById('project-share-start-row');
@@ -365,6 +385,7 @@ export function createProjectSharingFeature({
     acceptInvite,
     declineInvite,
     loadInvites,
+    bindProjectSharingActions,
     applyProjectModalState,
     loadMembers,
     showShareInput,
