@@ -193,9 +193,11 @@ Use for settings, multi-section configuration, or review flows:
 
 ## Forms
 
-- Use `.form-group` for label + input/select/textarea.
-- Inputs should be full-width inside their container.
-- Text inputs, textareas, visible fallback selects, and custom `.ui-select-trigger` controls share the global `--field-radius` shape token. Do not round fields via modal- or component-specific selectors.
+- Use `.form-group` for label + field grouping.
+- Use `.ui-field` on visible text inputs, number/date/time inputs, textareas, and visible native fallback selects.
+- `.ui-field` owns field visuals and interaction: width, height, padding, radius, background, border, typography, disabled, and focus states.
+- `.form-group` and container classes own layout only: labels, gaps, grids, alignment, and help/error text placement.
+- Custom `.ui-select-trigger` controls are the dropdown equivalent of `.ui-field` and share the same field shape/height tokens. Do not round fields via modal- or component-specific selectors.
 - Use `.ui-field-grid` for grouped form fields; add `.two-columns` only when fields are logically parallel on desktop.
 - On mobile, form grids collapse to one column.
 - Help text should use muted color and `12px` size.

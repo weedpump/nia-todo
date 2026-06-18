@@ -1791,6 +1791,7 @@ select:focus-visible {
   margin-bottom: 6px;
 }
 
+.ui-field,
 .form-group input,
 .form-group select,
 .form-group textarea {
@@ -1803,13 +1804,26 @@ select:focus-visible {
   border-radius: var(--field-radius);
   background: var(--bg-primary);
   color: var(--text-primary);
+  font: inherit;
   font-size: 14px;
+  line-height: 1.2;
   outline: none;
+  transition: border-color .15s ease, box-shadow .15s ease, background .15s ease, opacity .15s ease;
 }
 
+.ui-field:focus,
 .form-group input:focus,
 .form-group select:focus,
 .form-group textarea:focus { border-color: var(--accent); }
+
+.ui-field:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 72%, var(--border));
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.18));
+}
+
+.datetime-input-wrap .ui-field {
+  padding-right: 42px;
+}
 
 .visually-hidden {
   position: absolute !important;
@@ -2244,6 +2258,7 @@ select:focus-visible {
 }
 
 
+.ui-field:disabled,
 .form-group input:disabled,
 .form-group select:disabled,
 .form-group textarea:disabled,

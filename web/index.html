@@ -547,13 +547,13 @@
           </div>
           <div class="form-group todo-title-group">
             <label data-i18n-key="todo.title">Titel</label>
-            <input type="text" id="todo-title" required placeholder="Was ist zu tun?" data-i18n-placeholder-key="todo.titlePlaceholder">
+            <input class="ui-field" type="text" id="todo-title" required placeholder="Was ist zu tun?" data-i18n-placeholder-key="todo.titlePlaceholder">
             <div class="quick-add-hint" data-i18n-key="quickAdd.hint">Tipp: „Milch morgen 18:00 erinnerung:17:30 #Einkauf /Kühlung !hoch“ erkennt Deadline, Erinnerung, Projekt, Abschnitt und Priorität.</div>
             <div class="quick-add-preview" id="quick-add-preview" aria-live="polite" hidden></div>
           </div>
           <div class="form-group">
             <label data-i18n-key="todo.description">Beschreibung</label>
-            <textarea id="todo-desc" rows="3" placeholder="Details... Markdown: **fett**, *kursiv*, `code`, - Liste, [Link](url)" data-i18n-placeholder-key="todo.descriptionPlaceholder"></textarea>
+            <textarea class="ui-field" id="todo-desc" rows="3" placeholder="Details... Markdown: **fett**, *kursiv*, `code`, - Liste, [Link](url)" data-i18n-placeholder-key="todo.descriptionPlaceholder"></textarea>
             <div id="todo-desc-preview" class="desc-live-preview"></div>
           </div>
         </section>
@@ -574,7 +574,7 @@
             <div class="form-group todo-subtasks-add-group">
               <label for="todo-subtask-new-title" data-i18n-key="todo.subtasks.newLabel">New subtask</label>
               <div class="todo-subtasks-add-row todo-detail-action-row">
-                <input type="text" id="todo-subtask-new-title" maxlength="500" placeholder="Nächster Schritt…" data-i18n-placeholder-key="todo.subtasks.placeholder">
+                <input class="ui-field" type="text" id="todo-subtask-new-title" maxlength="500" placeholder="Nächster Schritt…" data-i18n-placeholder-key="todo.subtasks.placeholder">
                 <button type="button" class="btn btn-secondary btn-action todo-detail-action-btn" onclick="addTodoSubtaskFromInput()"><span data-icon="plus"></span> <span data-i18n-key="common.add">Add</span></button>
               </div>
             </div>
@@ -598,7 +598,7 @@
             <p id="todo-comments-empty" class="todo-comments-empty" data-i18n-key="todo.comments.empty">No comments yet.</p>
             <div class="form-group todo-comments-add-group">
               <label for="todo-comment-new-body" data-i18n-key="todo.comments.newLabel">New comment</label>
-              <textarea id="todo-comment-new-body" rows="3" maxlength="5000" placeholder="Notiz hinzufügen…" data-i18n-placeholder-key="todo.comments.placeholder"></textarea>
+              <textarea class="ui-field" id="todo-comment-new-body" rows="3" maxlength="5000" placeholder="Notiz hinzufügen…" data-i18n-placeholder-key="todo.comments.placeholder"></textarea>
               <button type="button" id="todo-comment-add-btn" class="btn btn-secondary btn-action todo-detail-action-btn" onclick="addTodoCommentFromInput()"><span data-icon="plus"></span> <span data-i18n-key="todo.comments.add">Add</span></button>
             </div>
           </div>
@@ -643,7 +643,7 @@
           <div class="ui-field-grid two-columns">
             <div class="form-group">
               <label data-i18n-key="todo.priority">Priority</label>
-              <select id="todo-priority">
+              <select class="ui-field" id="todo-priority">
                 <option value="1" data-option-color="#ef4444" data-i18n-key="todo.priority.veryHigh">Sehr hoch</option>
                 <option value="2" data-option-color="#f59e0b" data-i18n-key="todo.priority.high">Hoch</option>
                 <option value="3" data-option-color="#10b981" selected data-i18n-key="todo.priority.medium">Mittel</option>
@@ -652,7 +652,7 @@
             </div>
             <div class="form-group">
               <label data-i18n-key="todo.status">Status</label>
-              <select id="todo-status">
+              <select class="ui-field" id="todo-status">
                 <option value="pending" data-option-icon="clock" data-i18n-key="todo.status.pending">Offen</option>
                 <option value="in_progress" data-option-icon="flame" data-i18n-key="todo.status.inProgress">In progress</option>
                 <option value="done" data-option-icon="check-circle" data-i18n-key="todo.status.done">Erledigt</option>
@@ -660,11 +660,11 @@
             </div>
             <div class="form-group">
               <label data-i18n-key="todo.project">Project</label>
-              <select id="todo-project" onchange="onProjectChange()"></select>
+              <select class="ui-field" id="todo-project" onchange="onProjectChange()"></select>
             </div>
             <div class="form-group">
               <label data-i18n-key="todo.section">Section</label>
-              <select id="todo-section" disabled>
+              <select class="ui-field" id="todo-section" disabled>
                 <option value="" data-i18n-key="todo.section.none">No section (unsorted)</option>
               </select>
             </div>
@@ -693,7 +693,7 @@
             <div class="form-group">
               <label data-i18n-key="todo.deadline">Deadline</label>
               <div class="datetime-input-wrap">
-                <input type="datetime-local" id="todo-due" min="1900-01-01T00:00" max="9999-12-31T23:59" step="60">
+                <input class="ui-field" type="datetime-local" id="todo-due" min="1900-01-01T00:00" max="9999-12-31T23:59" step="60">
                 <span class="datetime-input-icon" data-icon="calendar-days" aria-hidden="true"></span>
               </div>
               <div id="todo-due-error" class="form-error compact"></div>
@@ -701,7 +701,7 @@
             <div class="form-group">
               <label data-i18n-key="todo.reminder">Erinnerung</label>
               <div class="datetime-input-wrap">
-                <input type="datetime-local" id="todo-remind" min="1900-01-01T00:00" max="9999-12-31T23:59" step="60">
+                <input class="ui-field" type="datetime-local" id="todo-remind" min="1900-01-01T00:00" max="9999-12-31T23:59" step="60">
                 <span class="datetime-input-icon" data-icon="calendar-days" aria-hidden="true"></span>
               </div>
               <div id="todo-remind-error" class="form-error compact"></div>
@@ -718,7 +718,7 @@
             <div class="ui-field-grid two-columns">
               <div class="form-group">
                 <label data-i18n-key="todo.recurring.frequency">Wiederholung</label>
-                <select id="todo-recurring-frequency">
+                <select class="ui-field" id="todo-recurring-frequency">
                   <option value="none" selected data-option-icon="ban" data-i18n-key="todo.recurring.none">Keine Wiederholung</option>
                   <option value="daily" data-option-icon="repeat" data-i18n-key="todo.recurring.daily">Täglich</option>
                   <option value="weekly" data-option-icon="repeat" data-i18n-key="todo.recurring.weekly">Wöchentlich</option>
@@ -728,7 +728,7 @@
               </div>
               <div class="form-group" id="todo-recurring-interval-group">
                 <label data-i18n-key="todo.recurring.interval">Intervall</label>
-                <input type="number" id="todo-recurring-interval" min="1" max="999" step="1" value="1" inputmode="numeric">
+                <input class="ui-field" type="number" id="todo-recurring-interval" min="1" max="999" step="1" value="1" inputmode="numeric">
               </div>
             </div>
           </div>
@@ -747,20 +747,20 @@
             <div id="todo-location-fields" class="ui-field-grid two-columns todo-location-fields is-disabled">
               <div class="form-group">
                 <label for="todo-location-trigger" data-i18n-key="todo.location.trigger">Trigger</label>
-                <select id="todo-location-trigger">
+                <select class="ui-field" id="todo-location-trigger">
                   <option value="arrival" data-i18n-key="todo.location.arrival">When arriving</option>
                   <option value="departure" data-i18n-key="todo.location.departure">When leaving</option>
                 </select>
               </div>
               <div class="form-group">
                 <label for="todo-location-place" data-i18n-key="todo.location.savedPlace">Saved place</label>
-                <select id="todo-location-place">
+                <select class="ui-field" id="todo-location-place">
                   <option value="" data-i18n-key="todo.location.manualAddress">Enter address manually</option>
                 </select>
               </div>
               <div class="form-group" id="todo-location-address-group">
                 <label for="todo-location-address" data-i18n-key="todo.location.address">Address</label>
-                <input type="text" id="todo-location-address" maxlength="500" placeholder="Street, city" data-i18n-placeholder-key="todo.location.addressPlaceholder">
+                <input class="ui-field" type="text" id="todo-location-address" maxlength="500" placeholder="Street, city" data-i18n-placeholder-key="todo.location.addressPlaceholder">
               </div>
             </div>
             <div id="todo-location-error" class="form-error compact"></div>
