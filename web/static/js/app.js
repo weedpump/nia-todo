@@ -673,7 +673,7 @@ export function startAppModule() {
   });
   setInterval(() => renderStats(), 30 * 1000);
 
-  // Expose legacy inline handlers for module-loaded frontend.
+  // Expose runtime globals needed by native integrations and cross-module callbacks.
   exposeLegacyGlobals({
   auth: { getAuthToken, getCsrfToken, getAuthHeaders, login, checkAuth, logout, clearIndexedDB, showLoginOverlay, hideLoginOverlay, handleLogin, bindLoginForm },
   apiKeys: { loadApiKeys, renderApiKeys, revokeApiKey },
@@ -689,8 +689,6 @@ export function startAppModule() {
   todos: { markTodoDone, markTodoInProgress, deleteTodoComment, deleteTodoAttachment, saveTodo, editTodo, deleteTodoFromModal },
   projects: { showProjectModal, deleteProject, clearDoneFromModal },
   projectSharing: { setProject: (project) => sharingFeature.setProject(project), applyProjectModalState: (project, canEdit, shared) => sharingFeature.applyProjectModalState(project, canEdit, shared), loadInvites: () => sharingFeature.loadInvites() },
-  sections: { },
-  dragDrop: { },
   viewPreferences: { updateToggleDoneButton, updateSortButton, sortTodoList, updateProjectWidgetButton },
   toastUndo: { showToast, showBatchToast, restoreBatchTodos, restoreTodo },
     push: { updatePushStatus, updatePushSettingsUI },
