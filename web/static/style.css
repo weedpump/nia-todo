@@ -6238,10 +6238,6 @@ input[type="color"]::-moz-color-swatch {
   width: 100%;
 }
 
-.settings-default-reminder-custom-row .ui-select-trigger {
-  min-height: 40px;
-}
-
 .settings-default-reminder-custom-row button {
   min-height: 40px;
 }
