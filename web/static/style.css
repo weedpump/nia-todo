@@ -3212,9 +3212,6 @@ input[type="color"]::-moz-color-swatch {
 
 .app-download-panel {
   padding: 12px;
-  border: 1px solid rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.28));
-  border-radius: var(--radius-lg);
-  background: linear-gradient(135deg, rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.14)), var(--bg-secondary));
 }
 
 .login-download-panel,
@@ -3276,26 +3273,10 @@ input[type="color"]::-moz-color-swatch {
 }
 
 .app-download-button {
-  display: inline-flex;
   flex: 1 1 0;
   min-width: 0;
-  align-items: center;
-  justify-content: center;
   gap: 9px;
-  padding: 10px 12px;
-  border: 1px solid rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.4));
-  border-radius: var(--radius);
-  background: rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.18));
-  color: color-mix(in srgb, var(--accent-hover) 78%, white);
-  font-size: 14px;
-  font-weight: 600;
   text-decoration: none;
-  transition: background 0.15s, transform 0.15s;
-}
-
-.app-download-button:hover {
-  background: rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.28));
-  transform: translateY(-1px);
 }
 
 .app-resource-links {
@@ -3348,20 +3329,15 @@ input[type="color"]::-moz-color-swatch {
 }
 
 .app-download-platform {
-  color: var(--text-primary);
+  color: currentColor;
   font-size: 13px;
   font-weight: 800;
 }
 
 .app-download-version {
-  color: var(--text-secondary);
+  color: color-mix(in srgb, currentColor 72%, transparent);
   font-size: 11px;
   font-weight: 600;
-}
-
-.app-download-button:hover .app-download-platform,
-.app-download-button:hover .app-download-version {
-  color: inherit;
 }
 
 .app-download-icon {
@@ -3408,10 +3384,7 @@ input[type="color"]::-moz-color-swatch {
 .app-download-server-box {
   width: 100%;
   margin: 0 0 14px;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--bg-tertiary) 72%, transparent);
+  padding: 14px;
   text-align: center;
 }
 
@@ -3426,9 +3399,6 @@ input[type="color"]::-moz-color-swatch {
   display: inline-flex;
   max-width: 100%;
   padding: 5px 9px;
-  border: 1px solid color-mix(in srgb, var(--border) 78%, var(--accent) 22%);
-  border-radius: 8px;
-  background: var(--bg-primary);
   color: var(--text-primary);
   font-size: 13px;
   font-weight: 750;
@@ -3443,7 +3413,6 @@ input[type="color"]::-moz-color-swatch {
 
 .modal-downloads .app-download-button {
   justify-content: center;
-  padding: 13px 14px;
   text-align: center;
 }
 
@@ -3468,30 +3437,11 @@ input[type="color"]::-moz-color-swatch {
 .app-install-card {
   width: 100%;
   margin: 0 0 16px;
-  padding: 14px;
-  border: 1px solid color-mix(in srgb, var(--border) 78%, var(--accent) 22%);
-  border-radius: 18px;
-  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 10%, transparent), color-mix(in srgb, var(--bg-secondary) 90%, transparent));
   text-align: left;
 }
 
 .app-install-card-header {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
   margin-bottom: 12px;
-}
-
-.app-install-card-icon {
-  width: 38px;
-  height: 38px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
-  border-radius: 14px;
-  background: var(--accent);
-  color: white;
 }
 
 .app-install-card h4 {
