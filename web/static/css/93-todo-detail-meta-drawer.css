@@ -87,10 +87,6 @@
   display: none;
 }
 
-#todo-modal.todo-detail-view.todo-meta-editing .todo-modal-body,
-#todo-modal.todo-detail-view.todo-meta-editing .todo-modal-header {
-  padding-right: min(430px, 36vw);
-}
 
 @media (max-width: 1180px) {
   #todo-modal.todo-detail-view.todo-meta-editing .todo-modal-content::after {
@@ -121,10 +117,6 @@
     border-radius: 10px 10px 24px 24px;
   }
 
-  #todo-modal.todo-detail-view.todo-meta-editing .todo-modal-body,
-  #todo-modal.todo-detail-view.todo-meta-editing .todo-modal-header {
-    padding-right: inherit;
-  }
 }
 
 @media (max-width: 720px) {
@@ -221,10 +213,6 @@
   display: none;
 }
 
-#todo-modal.todo-detail-view.todo-meta-editing .todo-modal-body,
-#todo-modal.todo-detail-view.todo-meta-editing .todo-modal-header {
-  padding-right: min(430px, 36vw);
-}
 
 @media (max-width: 1180px) {
   #todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer {
@@ -239,10 +227,6 @@
     margin: 0 auto;
   }
 
-  #todo-modal.todo-detail-view.todo-meta-editing .todo-modal-body,
-  #todo-modal.todo-detail-view.todo-meta-editing .todo-modal-header {
-    padding-right: inherit;
-  }
 }
 
 @media (max-width: 720px) {
@@ -336,10 +320,6 @@
   transition: transform .16s, background .16s;
 }
 
-#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer .todo-location-toggle-row input[type="checkbox"].settings-switch:checked {
-  background: color-mix(in srgb, var(--success) 72%, var(--accent)) !important;
-  border-color: color-mix(in srgb, var(--success) 86%, white) !important;
-}
 
 #todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer .todo-location-toggle-row input[type="checkbox"].settings-switch:checked::after {
   transform: translateX(20px);

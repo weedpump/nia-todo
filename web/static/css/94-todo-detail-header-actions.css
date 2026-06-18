@@ -1,10 +1,9 @@
 /* Todo detail header actions, menus, and canonical action controls */
 
-/* Todo detail header actions: save and menu live in the modal header. */
 #todo-modal.todo-detail-view .todo-detail-header-actions {
   position: absolute;
-  top: 14px;
-  right: 54px;
+  top: 18px;
+  right: max(66px, calc((100% - 920px) / 2 + 42px));
   z-index: 3;
   display: flex;
   align-items: center;
@@ -20,21 +19,42 @@
   display: inline-flex;
 }
 
+#todo-modal.todo-detail-view .modal-close-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  top: 18px;
+  right: max(28px, calc((100% - 920px) / 2));
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0;
+}
+
+#todo-modal.todo-detail-view .modal-close-x .ui-icon {
+  width: 18px;
+  height: 18px;
+}
+
 #todo-modal.todo-detail-view .todo-detail-header-menu-toggle[hidden] {
   display: none;
 }
 
 #todo-modal.todo-detail-view .todo-detail-header-menu-toggle > summary {
-  width: 38px;
-  height: 38px;
-  min-height: 38px;
+  width: 34px;
+  height: 34px;
+  min-height: 34px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   list-style: none;
-  border: 1px solid color-mix(in srgb, var(--border) 42%, transparent);
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--bg-primary) 42%, transparent);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   color: var(--text-muted);
   cursor: pointer;
 }
@@ -47,7 +67,24 @@
 #todo-modal.todo-detail-view .todo-detail-header-menu-toggle > summary:focus-visible {
   color: var(--text-primary);
   border-color: color-mix(in srgb, var(--accent) 42%, transparent);
+  background: transparent;
+  border: 0;
   outline: none;
+}
+
+#todo-modal.todo-detail-view .modal-close-x:hover,
+#todo-modal.todo-detail-view .modal-close-x:focus-visible {
+  color: var(--text-primary);
+  background: transparent;
+  border: 0;
+  outline: none;
+}
+
+#todo-modal.todo-detail-view .todo-detail-header-menu-toggle[open] > summary {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 42%, transparent);
+  border: 0;
+  background: transparent;
 }
 
 #todo-modal.todo-detail-view .todo-detail-header-menu {
@@ -68,99 +105,6 @@
   color: var(--danger);
 }
 
-
-/* Todo detail header actions: visible desktop close, real menu icon, aligned with header. */
-#todo-modal.todo-detail-view .modal-close-x {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  top: 18px;
-  right: 28px;
-  width: 38px;
-  height: 38px;
-  padding: 0;
-  border: 1px solid color-mix(in srgb, var(--border) 42%, transparent);
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--bg-primary) 42%, transparent);
-  color: var(--text-muted);
-  font-size: 0;
-}
-
-#todo-modal.todo-detail-view .modal-close-x .ui-icon {
-  width: 18px;
-  height: 18px;
-}
-
-#todo-modal.todo-detail-view .todo-detail-header-actions {
-  top: 18px;
-  right: 74px;
-}
-
-#todo-modal.todo-detail-view .todo-detail-header-menu-toggle > summary {
-  background: color-mix(in srgb, var(--bg-primary) 42%, transparent);
-}
-
-#todo-modal.todo-detail-view .todo-detail-header-menu-toggle[open] > summary {
-  color: var(--accent);
-  border-color: color-mix(in srgb, var(--accent) 42%, transparent);
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
-}
-
-@media (max-width: 768px) {
-  #todo-modal.todo-detail-view .modal-close-x {
-    top: 10px;
-    right: 10px;
-  }
-
-  #todo-modal.todo-detail-view .todo-detail-header-actions {
-    top: 10px;
-    right: 56px;
-  }
-}
-
-/* Todo detail header actions: align to content header edge and remove boxed button chrome. */
-#todo-modal.todo-detail-view .modal-close-x {
-  top: 18px;
-  right: max(28px, calc((100vw - 920px) / 2));
-  width: 34px;
-  height: 34px;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  color: var(--text-muted);
-}
-
-#todo-modal.todo-detail-view .todo-detail-header-actions {
-  top: 18px;
-  right: max(66px, calc((100vw - 920px) / 2 + 42px));
-}
-
-#todo-modal.todo-detail-view .todo-detail-header-menu-toggle > summary {
-  width: 34px;
-  height: 34px;
-  min-height: 34px;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  color: var(--text-muted);
-}
-
-#todo-modal.todo-detail-view .todo-detail-header-menu-toggle > summary:hover,
-#todo-modal.todo-detail-view .todo-detail-header-menu-toggle > summary:focus-visible,
-#todo-modal.todo-detail-view .modal-close-x:hover,
-#todo-modal.todo-detail-view .modal-close-x:focus-visible {
-  color: var(--text-primary);
-  background: transparent;
-  border: 0;
-  outline: none;
-}
-
-#todo-modal.todo-detail-view .todo-detail-header-menu-toggle[open] > summary {
-  color: var(--accent);
-  border: 0;
-  background: transparent;
-}
-
 @media (max-width: 1180px) {
   #todo-modal.todo-detail-view .modal-close-x {
     top: 12px;
@@ -173,30 +117,10 @@
   }
 }
 
-/* Todo detail header actions: use modal-relative right alignment on desktop. */
-#todo-modal.todo-detail-view .modal-close-x {
-  right: max(28px, calc((100% - 920px) / 2));
-}
-
-#todo-modal.todo-detail-view .todo-detail-header-actions {
-  right: max(66px, calc((100% - 920px) / 2 + 42px));
-}
-
-@media (max-width: 1180px) {
-  #todo-modal.todo-detail-view .modal-close-x {
-    right: 12px;
-  }
-
-  #todo-modal.todo-detail-view .todo-detail-header-actions {
-    right: 52px;
-  }
-}
-
-/* Todo detail meta: move edit-details action below pills, right-aligned like add/upload actions. */
 #todo-modal.todo-detail-view .todo-meta-summary-view {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 10px;
+  gap: 16px;
   align-items: start;
 }
 

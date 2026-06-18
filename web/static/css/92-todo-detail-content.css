@@ -378,10 +378,6 @@
   gap: 8px;
 }
 
-#todo-modal.todo-detail-view #todo-attachment-upload-btn {
-  justify-self: end;
-}
-
 #todo-modal.todo-detail-view .todo-comments-add-group .btn {
   justify-self: end;
 }
@@ -391,9 +387,6 @@
     grid-template-columns: 1fr;
   }
 
-  #todo-modal.todo-detail-view #todo-attachment-upload-btn {
-    justify-self: end;
-  }
 }
 
 /* Todo detail attachments: compact empty picker, full-width selection, desktop drag/drop. */
@@ -435,11 +428,6 @@
 #todo-modal.todo-detail-view .todo-attachments-add-row.is-drag-over {
   border-color: color-mix(in srgb, var(--accent) 52%, transparent);
   background: color-mix(in srgb, var(--accent) 9%, transparent);
-}
-
-#todo-modal.todo-detail-view .todo-attachments-add-row.is-drag-over::after {
-  color: var(--accent);
-  opacity: 1;
 }
 
 /* Todo detail attachments: persistent dropzone and preview layering fixes. */
