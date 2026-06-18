@@ -1,6 +1,6 @@
 /* Todo detail meta pills and edit drawer */
 
-/* Todo detail meta: experimental colored view pills. */
+/* Todo detail meta: colored summary pills. */
 #todo-modal.todo-detail-view .todo-meta-summary-chip {
   --meta-tone: var(--accent);
   color: color-mix(in srgb, var(--meta-tone) 72%, var(--text-primary));
