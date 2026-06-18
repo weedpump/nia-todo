@@ -258,12 +258,31 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  width: 34px;
+  height: 34px;
+  min-height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-muted);
+  box-shadow: none;
   cursor: pointer;
 }
 
 #todo-modal.todo-detail-view.todo-meta-editing .todo-meta-drawer-close:hover,
 #todo-modal.todo-detail-view.todo-meta-editing .todo-meta-drawer-close:focus-visible {
-  border-color: color-mix(in srgb, var(--accent) 42%, transparent);
+  color: var(--text-primary);
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  outline: none;
+}
+
+#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-drawer-close .ui-icon {
+  width: 18px;
+  height: 18px;
+  stroke-width: 2;
 }
 
 @media (max-width: 1180px) {
