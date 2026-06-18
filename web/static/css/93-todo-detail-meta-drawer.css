@@ -48,74 +48,12 @@
   z-index: 2;
 }
 
-#todo-modal.todo-detail-view.todo-meta-editing #todo-organize-panel,
-#todo-modal.todo-detail-view.todo-meta-editing #todo-schedule-panel {
-  right: 18px;
-}
-
-#todo-modal.todo-detail-view.todo-meta-editing #todo-organize-panel {
-  top: 88px;
-  border-bottom-color: color-mix(in srgb, var(--border) 22%, transparent);
-}
-
-#todo-modal.todo-detail-view.todo-meta-editing #todo-schedule-panel {
-  top: min(420px, calc(50vh - 10px));
-  border-top-color: color-mix(in srgb, var(--border) 22%, transparent);
-}
-
-#todo-modal.todo-detail-view.todo-meta-editing #todo-organize-panel .todo-collapsible-summary,
-#todo-modal.todo-detail-view.todo-meta-editing #todo-schedule-panel .todo-collapsible-summary {
-  cursor: default;
-}
-
-#todo-modal.todo-detail-view.todo-meta-editing #todo-organize-panel .todo-collapsible-chevron,
-#todo-modal.todo-detail-view.todo-meta-editing #todo-schedule-panel .todo-collapsible-chevron {
-  display: none;
-}
-
 @media (max-width: 1180px) {
   #todo-modal.todo-detail-view.todo-meta-editing .todo-modal-content::after {
     background: color-mix(in srgb, #000 28%, transparent);
     pointer-events: none;
   }
 
-  #todo-modal.todo-detail-view.todo-meta-editing #todo-organize-panel,
-  #todo-modal.todo-detail-view.todo-meta-editing #todo-schedule-panel {
-    position: fixed;
-    left: max(14px, env(safe-area-inset-left, 0px));
-    right: max(14px, env(safe-area-inset-right, 0px));
-    margin: 0 auto;
-  }
-
-  #todo-modal.todo-detail-view.todo-meta-editing #todo-organize-panel {
-    top: auto;
-    bottom: min(52vh, 420px);
-    border-radius: 24px 24px 10px 10px;
-  }
-
-  #todo-modal.todo-detail-view.todo-meta-editing #todo-schedule-panel {
-    top: auto;
-    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
-    max-height: min(52vh, 420px);
-    border-radius: 10px 10px 24px 24px;
-  }
-
-}
-
-@media (max-width: 720px) {
-  #todo-modal.todo-detail-view.todo-meta-editing #todo-organize-panel,
-  #todo-modal.todo-detail-view.todo-meta-editing #todo-schedule-panel {
-    left: 10px;
-    right: 10px;
-  }
-
-  #todo-modal.todo-detail-view.todo-meta-editing #todo-organize-panel {
-    bottom: min(56vh, 430px);
-  }
-
-  #todo-modal.todo-detail-view.todo-meta-editing #todo-schedule-panel {
-    max-height: min(56vh, 430px);
-  }
 }
 
 /* Todo detail meta editing: single-piece desktop sidebar drawer. */
