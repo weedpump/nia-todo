@@ -234,9 +234,9 @@
   <div id="login-overlay" class="login-overlay hidden">
     <div class="login-box">
       <div class="login-theme-toggle">
-        <button class="theme-option" data-theme="light" onclick="setTheme('light')" title="Light" data-i18n-title-key="common.theme.light"><span data-icon="sun"></span></button>
-        <button class="theme-option" data-theme="dark" onclick="setTheme('dark')" title="Dark" data-i18n-title-key="common.theme.dark"><span data-icon="moon"></span></button>
-        <button class="theme-option" data-theme="system" onclick="setTheme('system')" title="System" data-i18n-title-key="common.theme.system"><span data-icon="monitor"></span></button>
+        <button class="btn btn-secondary btn-icon theme-option" data-theme="light" onclick="setTheme('light')" title="Light" data-i18n-title-key="common.theme.light"><span data-icon="sun"></span></button>
+        <button class="btn btn-secondary btn-icon theme-option" data-theme="dark" onclick="setTheme('dark')" title="Dark" data-i18n-title-key="common.theme.dark"><span data-icon="moon"></span></button>
+        <button class="btn btn-secondary btn-icon theme-option" data-theme="system" onclick="setTheme('system')" title="System" data-i18n-title-key="common.theme.system"><span data-icon="monitor"></span></button>
       </div>
       <div class="login-brand">
         <img src="/static/icons/icon-192.png" class="login-logo" alt="nia-todo">
@@ -246,41 +246,41 @@
       <form id="login-form">
         <div class="login-field">
           <label for="login-username" data-i18n-key="auth.usernameOrEmail">Username or email</label>
-          <input type="text" id="login-username" required placeholder="Username or email" data-i18n-placeholder-key="auth.usernameOrEmail" autocomplete="username">
+          <input type="text" class="ui-field" id="login-username" required placeholder="Username or email" data-i18n-placeholder-key="auth.usernameOrEmail" autocomplete="username">
         </div>
         <div class="login-field">
           <label for="login-password" data-i18n-key="auth.password">Password</label>
-          <input type="password" id="login-password" required placeholder="Enter password" data-i18n-placeholder-key="auth.passwordPlaceholder" autocomplete="current-password">
+          <input type="password" class="ui-field" id="login-password" required placeholder="Enter password" data-i18n-placeholder-key="auth.passwordPlaceholder" autocomplete="current-password">
         </div>
         <div id="login-mfa-panel" class="login-mfa-panel hidden">
           <div class="login-mfa-hint" id="login-mfa-hint" data-i18n-key="auth.mfa.codePrompt">Enter 2FA code</div>
           <div class="login-field" id="login-mfa-code-wrap">
             <label for="login-mfa-code" id="login-mfa-code-label" data-i18n-key="auth.mfa.codeLabel">2FA-Code</label>
-            <input type="text" id="login-mfa-code" placeholder="Enter code" data-i18n-placeholder-key="auth.mfa.codePlaceholder" autocomplete="one-time-code" inputmode="numeric">
+            <input type="text" class="ui-field" id="login-mfa-code" placeholder="Enter code" data-i18n-placeholder-key="auth.mfa.codePlaceholder" autocomplete="one-time-code" inputmode="numeric">
           </div>
-          <button type="button" class="login-mfa-switch-btn hidden" id="login-mfa-switch-btn"></button>
+          <button type="button" class="btn btn-secondary login-mfa-switch-btn hidden" id="login-mfa-switch-btn"></button>
           <label class="login-remember-device">
             <input type="checkbox" id="login-remember-device">
             <span data-i18n-key="auth.mfa.rememberDevice">Remember this device for 30 days</span>
           </label>
-          <button type="button" class="login-back-btn" id="login-mfa-back-btn" data-i18n-key="common.back">Back</button>
+          <button type="button" class="btn btn-secondary login-back-btn" id="login-mfa-back-btn" data-i18n-key="common.back">Back</button>
         </div>
         <div id="login-error" class="login-error"></div>
         <div id="login-reset-panel" class="login-reset-panel hidden">
-          <input type="text" id="login-reset-identifier" placeholder="Username or email" data-i18n-placeholder-key="auth.usernameOrEmail" autocomplete="username">
-          <button type="button" class="login-reset-submit" id="login-reset-submit" data-i18n-key="auth.reset.requestLink">Request reset link</button>
+          <input type="text" class="ui-field" id="login-reset-identifier" placeholder="Username or email" data-i18n-placeholder-key="auth.usernameOrEmail" autocomplete="username">
+          <button type="button" class="btn btn-secondary login-reset-submit" id="login-reset-submit" data-i18n-key="auth.reset.requestLink">Request reset link</button>
           <div id="login-reset-message" class="login-reset-message"></div>
         </div>
-        <button type="submit" class="login-btn" data-i18n-key="auth.signIn">Sign in</button>
+        <button type="submit" class="btn btn-primary login-btn" data-i18n-key="auth.signIn">Sign in</button>
         <div class="login-auth-alternatives">
           <div class="login-auth-divider"><span data-i18n-key="auth.alternativeSignIn">or</span></div>
-          <button type="button" class="login-passkey-btn hidden" id="login-oidc-btn" data-i18n-key="auth.oidc.signIn">Sign in with OIDC</button>
-          <button type="button" class="login-passkey-btn hidden" id="login-passkey-btn" data-i18n-key="auth.mfa.signInWithPasskey">Sign in with passkey</button>
+          <button type="button" class="btn btn-secondary login-passkey-btn hidden" id="login-oidc-btn" data-i18n-key="auth.oidc.signIn">Sign in with OIDC</button>
+          <button type="button" class="btn btn-secondary login-passkey-btn hidden" id="login-passkey-btn" data-i18n-key="auth.mfa.signInWithPasskey">Sign in with passkey</button>
         </div>
-        <button type="button" class="login-forgot-btn hidden" id="login-forgot-btn" data-i18n-key="auth.forgotPassword">Forgot password?</button>
+        <button type="button" class="btn btn-secondary login-forgot-btn hidden" id="login-forgot-btn" data-i18n-key="auth.forgotPassword">Forgot password?</button>
       </form>
       <div class="login-download-divider" aria-hidden="true"></div>
-      <button type="button" class="app-download-launcher login-download-launcher" data-app-download-launcher onclick="openAppDownloadsModal()" style="display:none;">
+      <button type="button" class="btn btn-secondary app-download-launcher login-download-launcher" data-app-download-launcher onclick="openAppDownloadsModal()" style="display:none;">
         <span data-icon="download"></span>
         <span data-i18n-key="appDownloads.title">Apps herunterladen</span>
       </button>
@@ -371,7 +371,7 @@
             <button type="button" class="force-refresh-btn version-action-btn" id="force-refresh-btn" onclick="forceReloadApp()" title="Web-App neu herunterladen und Cache aktualisieren" data-i18n-title-key="version.refreshCache" data-i18n-key="version.reload">↻ Neu laden</button>
           </div>
           <div class="version-download-divider web-version-actions" aria-hidden="true"></div>
-          <button type="button" class="app-download-launcher" data-app-download-launcher onclick="openAppDownloadsModal()" style="display:none;">
+          <button type="button" class="btn btn-secondary app-download-launcher" data-app-download-launcher onclick="openAppDownloadsModal()" style="display:none;">
             <span data-icon="download"></span>
             <span data-i18n-key="appDownloads.title">Apps herunterladen</span>
           </button>
@@ -415,9 +415,9 @@
         <div class="modal-body app-downloads-modal-body">
           <div class="web-update-icon" aria-hidden="true" data-icon="download"></div>
           <p class="app-download-modal-subtitle" data-i18n-key="appDownloads.modalSubtitle">Install nia-todo as a native app on your device.</p>
-          <section class="app-install-card web-install-card" data-web-install-card style="display:none;">
-            <div class="app-install-card-header">
-              <div class="app-install-card-icon" aria-hidden="true" data-icon="smartphone"></div>
+          <section class="ui-section-card app-install-card web-install-card" data-web-install-card style="display:none;">
+            <div class="ui-section-heading app-install-card-header">
+              <div class="ui-section-icon app-install-card-icon" aria-hidden="true" data-icon="smartphone"></div>
               <div>
                 <h4 data-i18n-key="webInstall.title">Web-App installieren</h4>
                 <p data-i18n-key="webInstall.subtitle">Ohne App Store direkt auf den Home-Bildschirm.</p>
@@ -477,7 +477,7 @@
               </ol>
             </div>
           </section>
-          <div class="app-download-server-box">
+          <div class="ui-section-card app-download-server-box">
             <div class="app-download-server-label" data-i18n-key="appDownloads.serverHostLabel">Bitte gib in der App folgende Adresse ein:</div>
             <code class="app-download-server-host" data-app-download-server-host>–</code>
           </div>
@@ -547,13 +547,13 @@
           </div>
           <div class="form-group todo-title-group">
             <label data-i18n-key="todo.title">Titel</label>
-            <input type="text" id="todo-title" required placeholder="Was ist zu tun?" data-i18n-placeholder-key="todo.titlePlaceholder">
+            <input class="ui-field" type="text" id="todo-title" required placeholder="Was ist zu tun?" data-i18n-placeholder-key="todo.titlePlaceholder">
             <div class="quick-add-hint" data-i18n-key="quickAdd.hint">Tipp: „Milch morgen 18:00 erinnerung:17:30 #Einkauf /Kühlung !hoch“ erkennt Deadline, Erinnerung, Projekt, Abschnitt und Priorität.</div>
             <div class="quick-add-preview" id="quick-add-preview" aria-live="polite" hidden></div>
           </div>
           <div class="form-group">
             <label data-i18n-key="todo.description">Beschreibung</label>
-            <textarea id="todo-desc" rows="3" placeholder="Details... Markdown: **fett**, *kursiv*, `code`, - Liste, [Link](url)" data-i18n-placeholder-key="todo.descriptionPlaceholder"></textarea>
+            <textarea class="ui-field" id="todo-desc" rows="3" placeholder="Details... Markdown: **fett**, *kursiv*, `code`, - Liste, [Link](url)" data-i18n-placeholder-key="todo.descriptionPlaceholder"></textarea>
             <div id="todo-desc-preview" class="desc-live-preview"></div>
           </div>
         </section>
@@ -574,8 +574,8 @@
             <div class="form-group todo-subtasks-add-group">
               <label for="todo-subtask-new-title" data-i18n-key="todo.subtasks.newLabel">New subtask</label>
               <div class="todo-subtasks-add-row todo-detail-action-row">
-                <input type="text" id="todo-subtask-new-title" maxlength="500" placeholder="Nächster Schritt…" data-i18n-placeholder-key="todo.subtasks.placeholder">
-                <button type="button" class="btn btn-secondary todo-detail-action-btn" onclick="addTodoSubtaskFromInput()"><span data-icon="plus"></span> <span data-i18n-key="common.add">Add</span></button>
+                <input class="ui-field" type="text" id="todo-subtask-new-title" maxlength="500" placeholder="Nächster Schritt…" data-i18n-placeholder-key="todo.subtasks.placeholder">
+                <button type="button" id="todo-subtask-add-btn" class="btn btn-secondary todo-detail-action-btn" onclick="addTodoSubtaskFromInput()"><span data-icon="plus"></span> <span data-i18n-key="common.add">Add</span></button>
               </div>
             </div>
           </div>
@@ -598,7 +598,7 @@
             <p id="todo-comments-empty" class="todo-comments-empty" data-i18n-key="todo.comments.empty">No comments yet.</p>
             <div class="form-group todo-comments-add-group">
               <label for="todo-comment-new-body" data-i18n-key="todo.comments.newLabel">New comment</label>
-              <textarea id="todo-comment-new-body" rows="3" maxlength="5000" placeholder="Notiz hinzufügen…" data-i18n-placeholder-key="todo.comments.placeholder"></textarea>
+              <textarea class="ui-field" id="todo-comment-new-body" rows="3" maxlength="5000" placeholder="Notiz hinzufügen…" data-i18n-placeholder-key="todo.comments.placeholder"></textarea>
               <button type="button" id="todo-comment-add-btn" class="btn btn-secondary todo-detail-action-btn" onclick="addTodoCommentFromInput()"><span data-icon="plus"></span> <span data-i18n-key="todo.comments.add">Add</span></button>
             </div>
           </div>
@@ -643,7 +643,7 @@
           <div class="ui-field-grid two-columns">
             <div class="form-group">
               <label data-i18n-key="todo.priority">Priority</label>
-              <select id="todo-priority">
+              <select class="ui-field" id="todo-priority">
                 <option value="1" data-option-color="#ef4444" data-i18n-key="todo.priority.veryHigh">Sehr hoch</option>
                 <option value="2" data-option-color="#f59e0b" data-i18n-key="todo.priority.high">Hoch</option>
                 <option value="3" data-option-color="#10b981" selected data-i18n-key="todo.priority.medium">Mittel</option>
@@ -652,7 +652,7 @@
             </div>
             <div class="form-group">
               <label data-i18n-key="todo.status">Status</label>
-              <select id="todo-status">
+              <select class="ui-field" id="todo-status">
                 <option value="pending" data-option-icon="clock" data-i18n-key="todo.status.pending">Offen</option>
                 <option value="in_progress" data-option-icon="flame" data-i18n-key="todo.status.inProgress">In progress</option>
                 <option value="done" data-option-icon="check-circle" data-i18n-key="todo.status.done">Erledigt</option>
@@ -660,11 +660,11 @@
             </div>
             <div class="form-group">
               <label data-i18n-key="todo.project">Project</label>
-              <select id="todo-project" onchange="onProjectChange()"></select>
+              <select class="ui-field" id="todo-project" onchange="onProjectChange()"></select>
             </div>
             <div class="form-group">
               <label data-i18n-key="todo.section">Section</label>
-              <select id="todo-section" disabled>
+              <select class="ui-field" id="todo-section" disabled>
                 <option value="" data-i18n-key="todo.section.none">No section (unsorted)</option>
               </select>
             </div>
@@ -693,7 +693,7 @@
             <div class="form-group">
               <label data-i18n-key="todo.deadline">Deadline</label>
               <div class="datetime-input-wrap">
-                <input type="datetime-local" id="todo-due" min="1900-01-01T00:00" max="9999-12-31T23:59" step="60">
+                <input class="ui-field" type="datetime-local" id="todo-due" min="1900-01-01T00:00" max="9999-12-31T23:59" step="60">
                 <span class="datetime-input-icon" data-icon="calendar-days" aria-hidden="true"></span>
               </div>
               <div id="todo-due-error" class="form-error compact"></div>
@@ -701,7 +701,7 @@
             <div class="form-group">
               <label data-i18n-key="todo.reminder">Erinnerung</label>
               <div class="datetime-input-wrap">
-                <input type="datetime-local" id="todo-remind" min="1900-01-01T00:00" max="9999-12-31T23:59" step="60">
+                <input class="ui-field" type="datetime-local" id="todo-remind" min="1900-01-01T00:00" max="9999-12-31T23:59" step="60">
                 <span class="datetime-input-icon" data-icon="calendar-days" aria-hidden="true"></span>
               </div>
               <div id="todo-remind-error" class="form-error compact"></div>
@@ -718,7 +718,7 @@
             <div class="ui-field-grid two-columns">
               <div class="form-group">
                 <label data-i18n-key="todo.recurring.frequency">Wiederholung</label>
-                <select id="todo-recurring-frequency">
+                <select class="ui-field" id="todo-recurring-frequency">
                   <option value="none" selected data-option-icon="ban" data-i18n-key="todo.recurring.none">Keine Wiederholung</option>
                   <option value="daily" data-option-icon="repeat" data-i18n-key="todo.recurring.daily">Täglich</option>
                   <option value="weekly" data-option-icon="repeat" data-i18n-key="todo.recurring.weekly">Wöchentlich</option>
@@ -728,7 +728,7 @@
               </div>
               <div class="form-group" id="todo-recurring-interval-group">
                 <label data-i18n-key="todo.recurring.interval">Intervall</label>
-                <input type="number" id="todo-recurring-interval" min="1" max="999" step="1" value="1" inputmode="numeric">
+                <input class="ui-field" type="number" id="todo-recurring-interval" min="1" max="999" step="1" value="1" inputmode="numeric">
               </div>
             </div>
           </div>
@@ -747,36 +747,26 @@
             <div id="todo-location-fields" class="ui-field-grid two-columns todo-location-fields is-disabled">
               <div class="form-group">
                 <label for="todo-location-trigger" data-i18n-key="todo.location.trigger">Trigger</label>
-                <select id="todo-location-trigger">
+                <select class="ui-field" id="todo-location-trigger">
                   <option value="arrival" data-i18n-key="todo.location.arrival">When arriving</option>
                   <option value="departure" data-i18n-key="todo.location.departure">When leaving</option>
                 </select>
               </div>
               <div class="form-group">
                 <label for="todo-location-place" data-i18n-key="todo.location.savedPlace">Saved place</label>
-                <select id="todo-location-place">
+                <select class="ui-field" id="todo-location-place">
                   <option value="" data-i18n-key="todo.location.manualAddress">Enter address manually</option>
                 </select>
               </div>
               <div class="form-group" id="todo-location-address-group">
                 <label for="todo-location-address" data-i18n-key="todo.location.address">Address</label>
-                <input type="text" id="todo-location-address" maxlength="500" placeholder="Street, city" data-i18n-placeholder-key="todo.location.addressPlaceholder">
+                <input class="ui-field" type="text" id="todo-location-address" maxlength="500" placeholder="Street, city" data-i18n-placeholder-key="todo.location.addressPlaceholder">
               </div>
             </div>
             <div id="todo-location-error" class="form-error compact"></div>
           </div>
         </details>
       </form>
-      </div>
-      <div class="modal-actions todo-modal-actions">
-        <div class="todo-modal-actions-left">
-          <button type="button" class="btn btn-danger" id="todo-delete-btn" onclick="deleteTodoFromModal()" style="display:none;"><span data-icon="trash-2"></span> <span data-i18n-key="todo.delete">Delete</span></button>
-          <button type="button" class="btn btn-secondary" id="todo-duplicate-btn" onclick="duplicateTodo(document.getElementById('todo-id').value); closeModal('todo-modal')" style="display:none;"><span data-icon="copy"></span> <span data-i18n-key="todo.duplicate">Duplicate</span></button>
-        </div>
-        <div class="todo-modal-actions-main">
-          <button type="button" class="btn btn-secondary" id="todo-cancel-btn" onclick="closeModal('todo-modal')" data-i18n-key="common.cancel">Cancel</button>
-          <button type="submit" form="todo-form" class="btn btn-primary" id="todo-save-btn" data-i18n-key="common.save">Save</button>
-        </div>
       </div>
     </div>
   </div>
@@ -910,7 +900,7 @@
             </div>
             <div class="form-group">
               <label for="settings-language" data-i18n-key="settings.language.browser">Use browser language</label>
-              <select id="settings-language" onchange="changeLanguagePreference(this.value)">
+              <select class="ui-field" id="settings-language" onchange="changeLanguagePreference(this.value)">
                 <option value="auto" data-i18n-key="settings.language.auto">Automatic</option>
                 <option value="de" data-i18n-key="settings.language.de">German</option>
                 <option value="en" data-i18n-key="settings.language.en">English</option>
@@ -930,7 +920,7 @@
             </div>
             <div class="settings-subcard">
               <label for="settings-default-reminder" data-i18n-key="settings.defaultReminder.label">Automatic reminder for deadlines</label>
-              <select id="settings-default-reminder" onchange="changeDefaultReminderSetting(this.value)">
+              <select class="ui-field" id="settings-default-reminder" onchange="changeDefaultReminderSetting(this.value)">
                 <option value="off" data-i18n-key="settings.defaultReminder.off">Off</option>
                 <option value="0" data-i18n-key="settings.defaultReminder.atDeadline">At deadline</option>
                 <option value="15" data-i18n-key="settings.defaultReminder.before15m">15 minutes before</option>
@@ -941,11 +931,11 @@
               <div id="settings-default-reminder-custom-row" class="settings-default-reminder-custom-row" hidden>
                 <div class="form-group settings-default-reminder-custom-field">
                   <label for="settings-default-reminder-custom" data-i18n-key="settings.defaultReminder.customAmountLabel">Amount</label>
-                  <input type="number" id="settings-default-reminder-custom" min="1" max="8760" step="1" inputmode="numeric" placeholder="Amount" data-i18n-placeholder-key="settings.defaultReminder.customPlaceholder">
+                  <input class="ui-field" type="number" id="settings-default-reminder-custom" min="1" max="8760" step="1" inputmode="numeric" placeholder="Amount" data-i18n-placeholder-key="settings.defaultReminder.customPlaceholder">
                 </div>
                 <div class="form-group settings-default-reminder-custom-field">
                   <label for="settings-default-reminder-custom-unit" data-i18n-key="settings.defaultReminder.customUnitLabel">Unit</label>
-                  <select id="settings-default-reminder-custom-unit" data-i18n-aria-label-key="settings.defaultReminder.customUnitLabel">
+                  <select class="ui-field" id="settings-default-reminder-custom-unit" data-i18n-aria-label-key="settings.defaultReminder.customUnitLabel">
                     <option value="hours" data-i18n-key="settings.defaultReminder.customHours">Hours before</option>
                     <option value="days" data-i18n-key="settings.defaultReminder.customDays">Days before</option>
                   </select>
@@ -1136,7 +1126,7 @@
             <div class="settings-action-row">
               <button class="btn btn-primary" onclick="createApiKey()" data-i18n-key="settings.apiKeys.create">Create new API key</button>
               <div class="app-resource-links settings-resource-links api-settings-resource-links">
-                <a class="app-resource-link" href="/api" target="_blank" rel="noopener"><span data-icon="book-open"></span> <span data-i18n-key="resource.apiDocs">API-Doku</span></a>
+                <a class="btn btn-secondary" href="/api" target="_blank" rel="noopener"><span data-icon="book-open"></span> <span data-i18n-key="resource.apiDocs">API-Doku</span></a>
               </div>
             </div>
             <div id="api-key-created" class="settings-secret-box" style="display:none;">
@@ -1258,6 +1248,7 @@
               <div class="form-group">
                 <label data-i18n-key="common.color">Farbe</label>
                 <input type="color" id="workspace-color" value="#6366f1">
+                <div id="workspace-color-picker" class="color-picker" aria-label="Choose workspace color" data-i18n-aria-label-key="workspace.chooseColor"></div>
               </div>
             </div>
             <div class="form-group">
@@ -1309,6 +1300,7 @@
               <div class="form-group">
                 <label data-i18n-key="common.color">Farbe</label>
                 <input type="color" id="project-color" value="#6366f1">
+                <div id="project-color-picker" class="color-picker" aria-label="Choose project color" data-i18n-aria-label-key="project.chooseColor"></div>
               </div>
             </div>
             <div class="form-group">
@@ -1328,11 +1320,11 @@
             <div class="ui-field-grid project-organization-grid">
               <div class="form-group" id="project-display-workspace-group" style="display:none;">
                 <label data-i18n-key="project.displayWorkspace">Anzeigen in Workspace</label>
-                <select id="project-display-workspace-id"></select>
+                <select class="ui-field" id="project-display-workspace-id"></select>
               </div>
               <div class="form-group">
                 <label data-i18n-key="project.parent">Parent project (optional)</label>
-                <select id="project-parent-id">
+                <select class="ui-field" id="project-parent-id">
                   <option value="" data-i18n-key="project.noParent">-- No parent project --</option>
                 </select>
               </div>

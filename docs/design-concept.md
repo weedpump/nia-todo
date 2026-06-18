@@ -93,20 +93,22 @@ Guidelines:
 - `.btn-primary` — the main positive action.
 - `.btn-secondary` — neutral action, navigation, retry, utility.
 - `.btn-danger` — destructive or security-sensitive action.
-- `.btn-small` — compact row-level action, not a primary modal action.
+- `.btn-small` — compact row-level or inline content action, e.g. add subtask, add comment, choose/upload file, edit details.
 - `.btn-icon` — square icon-only row action; combine with `.btn-small` for compact icon buttons.
 
 ### Visual Contract
 
 The generic `.btn` primitive owns the default button look. Do not rely on modal/footer-specific CSS to make a normal button look correct.
 
-The Todo detail redesign introduced a calmer pill-shaped action-button direction for inline content actions such as add/upload/edit-details. Treat this as the preferred direction for new content-surface action rows, but migrate existing app-wide buttons deliberately through shared primitives instead of one-off overrides.
+The Todo detail redesign introduced a calmer compact pill-button direction for inline content actions such as add/upload/edit-details. This direction is now the global `.btn` baseline, with `.btn-small` and semantic variants used when a row-level action needs the same compact density. Do not add page-specific action button classes for visuals; migrate app-wide buttons deliberately through shared primitives instead of one-off overrides.
+
+Button classes own button visuals and interaction only: size, padding, radius, background, typography, icon sizing, disabled/hover/focus states. Container classes own placement only: grid/flex layout, gaps, alignment, wrapping, and mobile stacking. A container may place a button, but it must not restyle that button's typography, padding, background, border, radius, shadow, or icon size. If multiple buttons should look the same, they must share the same button classes and no component-specific selector may override their visual properties.
 
 Base `.btn` requirements:
 
 - inline-flex layout with icon/text vertically and horizontally centered (`align-items: center`, `justify-content: center`)
-- `38px` minimum height on desktop
-- `12px` border radius for normal buttons
+- `34px` minimum height on desktop
+- pill-shaped `999px` border radius for normal buttons
 - `14px` text, `700` weight, centered label
 - shared icon sizing via the global `.btn .ui-icon` / `.btn-icon .ui-icon` rules
 - no default shadow on `.btn-primary`; elevation/shadows must be opt-in for a specific component and should not bleed into adjacent stacked buttons
@@ -117,7 +119,8 @@ Variants (`.btn-primary`, `.btn-secondary`, `.btn-danger`) change semantic color
 
 Desktop:
 
-- Normal buttons: `38px` minimum height.
+- Normal buttons: `34px` minimum height.
+- Inline content actions: `34px` minimum height via normal `.btn` plus semantic variants; add `.btn-small` for compact row-level density when needed.
 - Small row actions: `34px` minimum height via `.btn-small`.
 - Icon-only row actions: `34px × 34px` via `.btn-icon`; they must remain square and should not inherit mobile full-height button rules.
 - Button text should stay centered and readable.
@@ -189,8 +192,11 @@ Use for settings, multi-section configuration, or review flows:
 
 ## Forms
 
-- Use `.form-group` for label + input/select/textarea.
-- Inputs should be full-width inside their container.
+- Use `.form-group` for label + field grouping.
+- Use `.ui-field` on visible text inputs, number/date/time inputs, textareas, and visible native fallback selects.
+- `.ui-field` owns field visuals and interaction: width, height, padding, radius, background, border, typography, disabled, and focus states.
+- `.form-group` and container classes own layout only: labels, gaps, grids, alignment, and help/error text placement.
+- Custom `.ui-select-trigger` controls are the dropdown equivalent of `.ui-field` and share the same field shape/height tokens. Do not round fields via modal- or component-specific selectors.
 - Use `.ui-field-grid` for grouped form fields; add `.two-columns` only when fields are logically parallel on desktop.
 - On mobile, form grids collapse to one column.
 - Help text should use muted color and `12px` size.
@@ -254,7 +260,7 @@ Open menu:
 - minimum width equal to the trigger width
 - maximum width: `min(280px, calc(100vw - 24px))` unless the content requires more
 - maximum height: `min(320px, calc(100vh - 24px))`, scroll internally
-- border radius: `14px`
+- border radius: use `var(--dropdown-menu-radius)` so the open menu follows the same shape language as field controls
 - padding: `6px`
 - border and background must match modal/card elevation
 - shadow must make it read as a floating layer without feeling heavy
@@ -262,9 +268,10 @@ Open menu:
 
 Option rows:
 
-- min height: `36px` desktop, `40px` mobile
+- min height: `36px` desktop, `44px` mobile
 - padding: `8px 10px`
 - gap: `8px`
+- border radius: use `var(--dropdown-option-radius)`; option rows must not look sharper than the menu they live in
 - label must never overlap icon, badge, checkmark, or chevron
 - long labels truncate with ellipsis unless multiline is explicitly required
 - selected option shows the shared Lucide `check` icon (`iconSvg('check')`) aligned like the workspace dropdown check, not a raw text glyph
@@ -447,6 +454,7 @@ For every new UI change:
 ## Current Reference Patterns
 
 - User Settings modal: wide settings modal, section nav, section cards, consistent button groups; profile content stays inside the standard section-card treatment and should be tidied through internal layout, not by adding a special profile header.
-- Project/Workspace modals: compact entity modal pattern using shared `.ui-section-*` cards, `.ui-field-grid`, and the same title/icon tile sizing as Todo Modal.
+- Project/Workspace modals: compact entity modal pattern using shared `.ui-section-*` cards, `.ui-field-grid`, and the same title/icon tile sizing as Todo Modal. Current picker surfaces should use shared primitives: visible picker triggers use `.ui-field`, picker panels use `.ui-section-card`, picker actions/options use `.btn`/`.btn-secondary`/`.btn-icon`, and selected states use shared `.btn.is-selected` / `[aria-selected="true"]` styling.
+- App Downloads modal: use normal `.btn` actions and `.ui-section-*` cards for install/download surfaces; keep platform instruction visuals illustrative, not a separate button/card system.
 - BrainDump modal: voice-first immediate recording flow.
 - Admin UI: card-based configuration sections and compact admin controls.
