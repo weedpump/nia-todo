@@ -9,7 +9,7 @@ import { updateConnectionStatus as renderConnectionStatus } from './features/con
 import { createPushNotificationsFeature } from './features/push-notifications.js';
 import { createSectionsFeature } from './features/sections.js';
 import { createServiceWorkerUpdatesFeature } from './features/service-worker-updates.js';
-import { applyTheme, bindSystemThemeListener, cycleTheme, initTheme, setAccentIntensity, setAccentPreset, setTheme, toggleAccentPresetMenu } from './features/theme.js';
+import { applyTheme, bindSystemThemeListener, bindThemeOptionButtons, cycleTheme, initTheme, setAccentIntensity, setAccentPreset, setTheme, toggleAccentPresetMenu } from './features/theme.js';
 import { createUserSettingsFeature } from './features/user-settings.js';
 import { createUserMenuFeature } from './features/user-menu.js';
 import { createProjectsFeature } from './features/projects.js';
@@ -78,7 +78,7 @@ const confirmDialogFeature = createConfirmDialogFeature();
 const confirmDanger = confirmDialogFeature.confirmDanger;
 const alertInfo = confirmDialogFeature.alertInfo;
 const appDownloadsFeature = createAppDownloadsFeature();
-const openAppDownloadsModal = appDownloadsFeature.openAppDownloadsModal;
+const bindAppDownloadLaunchers = appDownloadsFeature.bindAppDownloadLaunchers;
 const brainDumpLiveFeature = createBrainDumpLiveFeature({
   getProjects: () => projects,
   getSections: () => sections,
@@ -256,8 +256,7 @@ const authSessionFeature = createAuthSessionFeature({
 });
 const serviceWorkerUpdates = createServiceWorkerUpdatesFeature();
 const initServiceWorker = serviceWorkerUpdates.initServiceWorker;
-const triggerUpdate = serviceWorkerUpdates.triggerUpdate;
-const forceReloadApp = serviceWorkerUpdates.forceReloadApp;
+const bindServiceWorkerUpdateButtons = serviceWorkerUpdates.bindServiceWorkerUpdateButtons;
 
 const getAuthToken = authSessionFeature.getAuthToken;
 const getCsrfToken = authSessionFeature.getCsrfToken;
@@ -316,6 +315,7 @@ const copyApiKey = apiKeysFeature.copyApiKey;
 // ─── Theme System ───────────────────────────────────────────────────────────
 
 bindSystemThemeListener();
+bindThemeOptionButtons();
 
 // ─── WebSocket ───────────────────────────────────────────────────────────────
 const wsClient = createWebSocketClient({
@@ -687,6 +687,8 @@ export function startAppModule() {
   hydrateIcons(document);
   confirmDialogFeature.bindConfirmDialog();
   consumeOidcErrorNotice();
+  bindServiceWorkerUpdateButtons();
+  bindAppDownloadLaunchers();
   appDownloadsFeature.initAppDownloads();
   brainDumpLiveFeature.init();
   bindNativePointerDragDrop();
@@ -730,8 +732,7 @@ export function startAppModule() {
   storage: { openDB, dbGetAll, dbPut, dbClear, getFromDB, deleteFromDB, clearSyncQueue, addToSyncQueue },
   sync: { isOnlineForSync, syncWithServer, refreshFromServer },
   ui: { closeSidebar, closeModal, setupDescPreview, openMobileSearch },
-  lifecycle: { initServiceWorker, triggerUpdate, forceReloadApp, initApp, loadFromLocalDB, loadAll },
-  appDownloads: { openAppDownloadsModal },
+  lifecycle: { initServiceWorker, initApp, loadFromLocalDB, loadAll },
   rendering: { renderVersionInfo, renderProjects, renderStats, renderTodos, renderSectionHeader, countByProject },
   navigation: { setFilter, loadSectionsForCurrentProject, bindNavigationHistory },
   workspaces: { renderWorkspaces, switchWorkspace, createWorkspace, showWorkspaceModal, closeWorkspaceModal, saveWorkspace, deleteWorkspaceFromModal, toggleWorkspaceMenu, closeWorkspaceMenu, loadWorkspacesFromServer },

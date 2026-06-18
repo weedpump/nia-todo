@@ -528,6 +528,15 @@ export function createAppDownloadsFeature() {
     refreshInterval = window.setInterval(() => { refreshAppDownloads(); }, 60 * 60 * 1000);
   }
 
+  function bindAppDownloadLaunchers() {
+    document.addEventListener('click', (event) => {
+      const launcher = event.target?.closest?.('[data-app-download-launcher]');
+      if (!launcher) return;
+      event.preventDefault();
+      openAppDownloadsModal();
+    });
+  }
+
   async function initAppDownloads() {
     const downloadTargets = Array.from(document.querySelectorAll('[data-app-downloads]'));
     const downloadLaunchers = Array.from(document.querySelectorAll('[data-app-download-launcher]'));
@@ -589,5 +598,5 @@ export function createAppDownloadsFeature() {
     refreshInterval = null;
   }
 
-  return { initAppDownloads: startAppDownloads, refreshAppDownloads, stopAppDownloads, openAppDownloadsModal };
+  return { initAppDownloads: startAppDownloads, refreshAppDownloads, stopAppDownloads, openAppDownloadsModal, bindAppDownloadLaunchers };
 }
