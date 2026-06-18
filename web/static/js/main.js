@@ -49,6 +49,10 @@ function showNativeServerSetup(config) {
   });
 }
 
+document.getElementById('boot-retry')?.addEventListener('click', () => {
+  window.niaHardReloadApp?.();
+});
+
 const startImport = () => {
   initAutoScrollbars();
   setTimeout(async () => {
