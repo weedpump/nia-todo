@@ -55,7 +55,7 @@ export function renderTodoItem(t) {
   const pinned = Boolean(t.is_pinned);
 
   return `
-    <div class="todo-item ${t.status === 'done' ? 'done' : t.status === 'in_progress' ? 'in-progress' : ''} ${pinned ? 'pinned' : ''}" data-id="${escapeHtmlAttr(String(t.id))}" data-status="${escapeHtml(t.status)}" draggable="true"
+    <div class="todo-item ${t.status === 'done' ? 'done' : t.status === 'in_progress' ? 'in-progress' : ''} ${pinned ? 'pinned' : ''}" data-id="${escapeHtmlAttr(String(t.id))}" data-status="${escapeHtmlAttr(t.status)}" draggable="true"
       ondragstart="handleTodoDragStart(event)" ondragend="handleTodoDragEnd(event)">
       <button type="button" class="todo-check" onclick='event.stopPropagation(); toggleTodo(${idArg})' aria-label="${escapeHtmlAttr(i18nT('todo.status'))}">
         ${t.status === 'done' ? iconSvg('check') : t.status === 'in_progress' ? iconSvg('flame') : ''}

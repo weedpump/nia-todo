@@ -528,7 +528,10 @@ export function createAppDownloadsFeature() {
     refreshInterval = window.setInterval(() => { refreshAppDownloads(); }, 60 * 60 * 1000);
   }
 
+  let appDownloadLaunchersBound = false;
   function bindAppDownloadLaunchers() {
+    if (appDownloadLaunchersBound) return;
+    appDownloadLaunchersBound = true;
     document.addEventListener('click', (event) => {
       const launcher = event.target?.closest?.('[data-app-download-launcher]');
       if (!launcher) return;

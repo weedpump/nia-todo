@@ -21,6 +21,7 @@ export function createWorkspacesFeature({
 }) {
   let editingWorkspaceId = null;
   let workspaceFormBound = false;
+  let workspaceControlsBound = false;
 
   function bindWorkspaceForm() {
     if (workspaceFormBound) return;
@@ -136,6 +137,8 @@ export function createWorkspacesFeature({
   }
 
   function bindWorkspaceControls() {
+    if (workspaceControlsBound) return;
+    workspaceControlsBound = true;
     document.addEventListener('click', async (event) => {
       const target = event.target?.closest?.('[data-workspace-action]');
       if (!target) return;

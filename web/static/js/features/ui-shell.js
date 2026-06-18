@@ -34,7 +34,10 @@ export function createUiShell({ renderMarkdown, showTodoModal }) {
     modal?.classList.remove('active');
   }
 
+  let modalCloseControlsBound = false;
   function bindModalCloseControls() {
+    if (modalCloseControlsBound) return;
+    modalCloseControlsBound = true;
     document.addEventListener('click', (event) => {
       const target = event.target?.closest?.('[data-close-modal]');
       if (!target) return;

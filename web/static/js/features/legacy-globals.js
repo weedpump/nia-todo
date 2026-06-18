@@ -46,8 +46,17 @@ function parseLegacyArg(raw, event) {
   return value;
 }
 
+function legacyInlineStatements(source) {
+  return splitTopLevel(String(source || ''), ';');
+}
+
+function isPropagationOnlyLegacyAction(source) {
+  const statements = legacyInlineStatements(source);
+  return statements.length > 0 && statements.every(statement => statement === 'event.stopPropagation()');
+}
+
 function runLegacyInlineAction(source, event) {
-  for (const statement of splitTopLevel(String(source || ''), ';')) {
+  for (const statement of legacyInlineStatements(source)) {
     if (statement === 'event.stopPropagation()') {
       event.stopPropagation();
       continue;
@@ -115,9 +124,14 @@ function bindNativeLegacyEventBridge(eventName, attributeName) {
   document.addEventListener(eventName, (event) => {
     const target = event.target?.closest?.(`[${attributeName}]`);
     if (!target) return;
+    const source = target.getAttribute(attributeName);
+    if (isPropagationOnlyLegacyAction(source)) {
+      runLegacyInlineAction(source, event);
+      return;
+    }
     event.preventDefault();
     event.stopImmediatePropagation();
-    runLegacyInlineAction(target.getAttribute(attributeName), event);
+    runLegacyInlineAction(source, event);
   }, true);
 }
 

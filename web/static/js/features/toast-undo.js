@@ -134,7 +134,10 @@ export function createToastUndoFeature({
     }
   }
 
+  let toastControlsBound = false;
   function bindToastControls() {
+    if (toastControlsBound) return;
+    toastControlsBound = true;
     document.getElementById('toast-undo')?.addEventListener('click', undoLastAction);
     document.getElementById('toast-close')?.addEventListener('click', hideToast);
   }
