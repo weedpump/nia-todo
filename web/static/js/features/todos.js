@@ -553,7 +553,7 @@ export function createTodosFeature({
     inputWrap.className = 'form-group todo-subtask-title-group';
     const input = document.createElement('input');
     input.type = 'text';
-    input.className = 'todo-subtask-title-input';
+    input.className = 'ui-field todo-subtask-title-input';
     input.maxLength = 500;
     input.value = subtask.title || '';
     input.dataset.originalTitle = input.value;
@@ -747,7 +747,7 @@ export function createTodosFeature({
     item.dataset.editing = '1';
     const original = comment.body || '';
     const editor = document.createElement('textarea');
-    editor.className = 'todo-comment-edit-input';
+    editor.className = 'ui-field todo-comment-edit-input';
     editor.rows = Math.max(3, Math.min(8, original.split('\n').length + 1));
     editor.maxLength = 5000;
     editor.value = original;
