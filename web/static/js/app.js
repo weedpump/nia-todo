@@ -476,15 +476,7 @@ syncController = createSyncController({
   renderStats: () => renderStats(),
   renderTodos: () => renderTodos(),
 });
-const switchWorkspace = workspacesFeature.switchWorkspace;
-const createWorkspace = workspacesFeature.createWorkspace;
-const showWorkspaceModal = workspacesFeature.showWorkspaceModal;
-const closeWorkspaceModal = workspacesFeature.closeWorkspaceModal;
-const saveWorkspace = workspacesFeature.saveWorkspace;
-const deleteWorkspaceFromModal = workspacesFeature.deleteWorkspaceFromModal;
-const toggleWorkspaceMenu = workspacesFeature.toggleWorkspaceMenu;
-const closeWorkspaceMenu = workspacesFeature.closeWorkspaceMenu;
-const loadWorkspacesFromServer = workspacesFeature.loadWorkspacesFromServer;
+const bindWorkspaceControls = workspacesFeature.bindWorkspaceControls;
 const ensureCurrentWorkspace = workspacesFeature.ensureCurrentWorkspace;
 
 // Make renderInvites globally available for project-sharing.js
@@ -698,6 +690,7 @@ export function startAppModule() {
   bindSidebarControls();
   bindModalCloseControls();
   bindToastControls();
+  bindWorkspaceControls();
   bindNavigationActions();
   bindNavigationHistory();
   bindFocusProjectMenuDismissal();
@@ -737,7 +730,6 @@ export function startAppModule() {
   lifecycle: { initServiceWorker, initApp, loadFromLocalDB, loadAll },
   rendering: { renderVersionInfo, renderProjects, renderStats, renderTodos, renderSectionHeader, countByProject },
   navigation: { setFilter, loadSectionsForCurrentProject, bindNavigationHistory },
-  workspaces: { renderWorkspaces, switchWorkspace, createWorkspace, showWorkspaceModal, closeWorkspaceModal, saveWorkspace, deleteWorkspaceFromModal, toggleWorkspaceMenu, closeWorkspaceMenu, loadWorkspacesFromServer },
   todos: { markTodoDone, markTodoInProgress, setTodoStatus, toggleTodo, toggleTodoPin, addTodoSubtaskFromInput, addTodoCommentFromInput, uploadTodoAttachmentFromInput, deleteTodoComment, deleteTodoAttachment, closeAttachmentPreview, downloadPreviewAttachment, snoozeTodo, duplicateTodo, showTodoModal, onProjectChange, saveTodo, editTodo, deleteTodoFromModal, deleteTodo },
   projects: { showProjectModal, editProject, saveProject, deleteProject, deleteProjectFromModal, clearDoneFromModal, clearDoneInProject },
   sharing: { inviteUserToProject: () => sharingFeature.inviteByUsername(), leaveProjectFromModal: () => sharingFeature.leaveProject(), undoLeaveProject: (data) => sharingFeature.undoLeaveProject(data), undoRemoveMember: (data) => sharingFeature.undoRemoveMember(data), undoInvite: (data) => sharingFeature.undoInvite(data), acceptInvite: (pid, iid) => sharingFeature.acceptInvite(pid, iid), declineInvite: (pid, iid) => sharingFeature.declineInvite(pid, iid), showShareInput: () => sharingFeature.showShareInput() },
