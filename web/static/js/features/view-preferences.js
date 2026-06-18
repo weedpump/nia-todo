@@ -127,7 +127,10 @@ export function createViewPreferencesFeature({ getHideDone, setHideDone, getSort
     btn.title = c.title;
   }
 
+  let topbarPreferenceButtonsBound = false;
   function bindTopbarPreferenceButtons() {
+    if (topbarPreferenceButtonsBound) return;
+    topbarPreferenceButtonsBound = true;
     document.getElementById('today-focus-btn')?.addEventListener('click', () => toggleTodayFocus());
     document.getElementById('minimal-todos-btn')?.addEventListener('click', () => toggleMinimalTodos());
   }

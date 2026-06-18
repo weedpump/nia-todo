@@ -184,7 +184,10 @@ export function createFocusFiltersFeature({ renderTodos }) {
     updateFocusFilters({ statuses: Array.from(current) });
   }
 
+  let focusProjectMenuDismissalBound = false;
   function bindFocusProjectMenuDismissal() {
+    if (focusProjectMenuDismissalBound) return;
+    focusProjectMenuDismissalBound = true;
     document.addEventListener('click', (event) => {
       const action = event.target?.closest?.('[data-focus-action]')?.dataset.focusAction;
       if (action === 'reset') resetFocusFilters();

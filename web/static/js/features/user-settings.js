@@ -446,7 +446,7 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
         const details = t('settings.2fa.trustedDeviceDetails', { lastUsed, expires }) + trusted;
         const ipLocation = sessionIpLocation(device);
         const userAgent = cleanSessionUserAgent(device.user_agent || '');
-        return `<div class="settings-device-row"><div><strong>${escapeHtml(trustedDeviceName(device))}${current}</strong><span>${escapeHtml(details)}</span>${ipLocation ? `<span>${escapeHtml(ipLocation)}</span>` : ''}<span title="${escapeHtmlAttr(userAgent)}">${escapeHtml(userAgent.slice(0, 120))}</span></div><button type="button" class="btn btn-danger" onclick="revokeTrustedDevice('${escapeHtmlAttr(device.id)}')">${escapeHtml(t('settings.2fa.revoke'))}</button></div>`;
+        return `<div class="settings-device-row"><div><strong>${escapeHtml(trustedDeviceName(device))}${current}</strong><span>${escapeHtml(details)}</span>${ipLocation ? `<span>${escapeHtml(ipLocation)}</span>` : ''}<span title="${escapeHtmlAttr(userAgent)}">${escapeHtml(userAgent.slice(0, 120))}</span></div><button type="button" class="btn btn-danger" data-user-settings-action="revoke-trusted-device" data-device-id="${escapeHtmlAttr(device.id)}">${escapeHtml(t('settings.2fa.revoke'))}</button></div>`;
       }).join('');
     } catch (err) {
       if (countEl) countEl.textContent = '';
@@ -460,14 +460,14 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
     const items = [];
     const enrollmentOnly = Boolean(isMfaEnrollmentLocked() || (state?.required && !state?.enabled && !state?.has_totp && !state?.has_passkey && !state?.has_recovery_codes && !state?.has_email_fallback));
     if (state?.has_totp) {
-      items.push(`<div class="settings-device-row"><div><strong>${escapeHtml(t('settings.2fa.device.authenticator'))}</strong><span>${escapeHtml(t('settings.2fa.device.totpReady'))}</span></div><button type="button" class="btn btn-danger" onclick="removeTotpDevice()">${escapeHtml(t('settings.2fa.revoke'))}</button></div>`);
+      items.push(`<div class="settings-device-row"><div><strong>${escapeHtml(t('settings.2fa.device.authenticator'))}</strong><span>${escapeHtml(t('settings.2fa.device.totpReady'))}</span></div><button type="button" class="btn btn-danger" data-user-settings-action="remove-totp-device">${escapeHtml(t('settings.2fa.revoke'))}</button></div>`);
     }
     try {
       const data = enrollmentOnly ? { passkeys: [] } : await authApi.listPasskeys();
       (data.passkeys || []).forEach((pk) => {
         const used = pk.last_used_at ? t('settings.2fa.device.lastUsed', { date: formatLocaleDateTime(pk.last_used_at) }) : '';
         const details = t('settings.2fa.device.passkeyCreated', { created: pk.created_at || '-', used });
-        items.push(`<div class="settings-device-row"><div><strong>${escapeHtml(pk.name || t('settings.2fa.passkeyDefaultName'))}</strong><span>${escapeHtml(details)}</span></div><button type="button" class="btn btn-danger" onclick="removePasskeyDevice(${Number(pk.id)})">${escapeHtml(t('settings.2fa.revoke'))}</button></div>`);
+        items.push(`<div class="settings-device-row"><div><strong>${escapeHtml(pk.name || t('settings.2fa.passkeyDefaultName'))}</strong><span>${escapeHtml(details)}</span></div><button type="button" class="btn btn-danger" data-user-settings-action="remove-passkey-device" data-passkey-id="${escapeHtmlAttr(pk.id)}">${escapeHtml(t('settings.2fa.revoke'))}</button></div>`);
       });
     } catch (err) {
       items.push(`<div class="settings-device-note">${escapeHtml(t('settings.2fa.device.passkeysLoadFailed', { error: err.message || err }))}</div>`);
@@ -513,9 +513,9 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
       if (state.has_email_fallback && !hasPrimaryFactor) parts.push(t('settings.2fa.factor.emailFallback'));
       statusEl.removeAttribute('data-i18n-key');
       statusEl.textContent = t('settings.2fa.status', { status: parts.join(' · ') });
-      const setupBtn = document.querySelector('#settings-2fa-actions button[onclick="startTwoFactorTotp()"]');
+      const setupBtn = document.querySelector('#settings-2fa-actions [data-user-settings-action="start-totp"]');
       if (setupBtn) setupBtn.style.display = state.has_totp ? 'none' : '';
-      const passkeyBtn = document.querySelector('#settings-2fa-actions button[onclick="addPasskey()"]');
+      const passkeyBtn = document.querySelector('#settings-2fa-actions [data-user-settings-action="add-passkey"]');
       if (passkeyBtn) passkeyBtn.style.display = state.passkey_setup_available === false ? 'none' : '';
       const disableBtn = document.getElementById('settings-2fa-disable-btn');
       if (disableBtn) disableBtn.style.display = state.enabled ? '' : 'none';
@@ -1284,6 +1284,29 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
     }
   }
 
+  let userSettingsActionsBound = false;
+  function bindUserSettingsActions() {
+    if (userSettingsActionsBound) return;
+    userSettingsActionsBound = true;
+    document.addEventListener('click', async (event) => {
+      const target = event.target?.closest?.('[data-user-settings-action]');
+      if (!target) return;
+      const action = target.dataset.userSettingsAction;
+      event.preventDefault();
+      if (action === 'start-totp') {
+        await startTwoFactorTotp();
+      } else if (action === 'add-passkey') {
+        await addPasskey();
+      } else if (action === 'remove-totp-device') {
+        await removeTotpDevice();
+      } else if (action === 'remove-passkey-device') {
+        await removePasskeyDevice(target.dataset.passkeyId);
+      } else if (action === 'revoke-trusted-device') {
+        await revokeTrustedDevice(target.dataset.deviceId);
+      }
+    });
+  }
+
   async function changeUserPassword() {
     const oldPw = document.getElementById('settings-old-password').value;
     const newPw = document.getElementById('settings-new-password').value;
@@ -1312,6 +1335,7 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
 
   return {
     renderUserInfo,
+    bindUserSettingsActions,
     openSettingsModal,
     changeLanguagePreference,
     changeDefaultReminderSetting,

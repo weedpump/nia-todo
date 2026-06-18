@@ -28,6 +28,7 @@ export function createProjectsFeature({
   getCurrentUser,
 }) {
   let projectFormBound = false;
+  let projectActionsBound = false;
 
   function bindProjectForm() {
     if (projectFormBound) return;
@@ -315,6 +316,8 @@ export function createProjectsFeature({
   }
 
   function bindProjectActions() {
+    if (projectActionsBound) return;
+    projectActionsBound = true;
     document.addEventListener('click', (event) => {
       const target = event.target?.closest?.('[data-project-action]');
       if (!target) return;

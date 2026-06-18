@@ -82,7 +82,10 @@ export function createUserMenuFeature({
     if (action === 'logout') logout?.();
   }
 
+  let userMenuBound = false;
   function bindUserMenu() {
+    if (userMenuBound) return;
+    userMenuBound = true;
     document.addEventListener('click', (event) => {
       const actionTarget = event.target?.closest?.('[data-user-menu-action]');
       if (actionTarget) {

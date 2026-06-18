@@ -392,7 +392,10 @@ export function createServiceWorkerUpdatesFeature() {
     return true;
   }
 
+  let serviceWorkerUpdateButtonsBound = false;
   function bindServiceWorkerUpdateButtons() {
+    if (serviceWorkerUpdateButtonsBound) return;
+    serviceWorkerUpdateButtonsBound = true;
     document.addEventListener('click', (event) => {
       const forceButton = event.target?.closest?.('[data-force-refresh-button], #force-refresh-btn');
       if (forceButton) {

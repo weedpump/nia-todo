@@ -269,6 +269,7 @@ const hideLoginOverlay = authSessionFeature.hideLoginOverlay;
 const handleLogin = authSessionFeature.handleLogin;
 const bindLoginForm = authSessionFeature.bindLoginForm;
 const renderUserInfo = userSettingsFeature.renderUserInfo;
+const bindUserSettingsActions = userSettingsFeature.bindUserSettingsActions;
 const openSettingsModal = userSettingsFeature.openSettingsModal;
 const changeLanguagePreference = userSettingsFeature.changeLanguagePreference;
 const changeDefaultReminderSetting = userSettingsFeature.changeDefaultReminderSetting;
@@ -279,15 +280,10 @@ const editUserEmail = userSettingsFeature.editUserEmail;
 const cancelUserEmailEdit = userSettingsFeature.cancelUserEmailEdit;
 const saveUserEmail = userSettingsFeature.saveUserEmail;
 const changeUserPassword = userSettingsFeature.changeUserPassword;
-const startTwoFactorTotp = userSettingsFeature.startTwoFactorTotp;
 const confirmTwoFactorTotp = userSettingsFeature.confirmTwoFactorTotp;
 const disableTwoFactor = userSettingsFeature.disableTwoFactor;
-const addPasskey = userSettingsFeature.addPasskey;
 const regenerateRecoveryCodes = userSettingsFeature.regenerateRecoveryCodes;
-const removeTotpDevice = userSettingsFeature.removeTotpDevice;
-const removePasskeyDevice = userSettingsFeature.removePasskeyDevice;
 const toggleTrustedDevicesList = userSettingsFeature.toggleTrustedDevicesList;
-const revokeTrustedDevice = userSettingsFeature.revokeTrustedDevice;
 const revokeAllTrustedDevices = userSettingsFeature.revokeAllTrustedDevices;
 const editUserDisplayName = userSettingsFeature.editUserDisplayName;
 const cancelUserDisplayNameEdit = userSettingsFeature.cancelUserDisplayNameEdit;
@@ -669,6 +665,7 @@ export function startAppModule() {
   appLifecycle.bindNetworkEvents();
   appLifecycle.bindDomReady();
   bindUserMenu();
+  bindUserSettingsActions();
   hydrateIcons(document);
   confirmDialogFeature.bindConfirmDialog();
   consumeOidcErrorNotice();
@@ -741,7 +738,7 @@ export function startAppModule() {
       testDesktopNotification: () => desktopIntegration?.testNotification(),
       updateDesktopHotkey: (action, shortcut) => desktopIntegration?.updateHotkey(action, shortcut),
     },
-    userSettings: { renderUserInfo, openSettingsModal, changeLanguagePreference, changeDefaultReminderSetting, saveCustomDefaultReminderSetting, changeBrainDumpLearningSetting, resetBrainDumpLearning, editUserDisplayName, cancelUserDisplayNameEdit, saveUserProfile, startAvatarUpload, cancelAvatarCrop, saveAvatarCrop, deleteUserAvatar, editUserEmail, cancelUserEmailEdit, saveUserEmail, changeUserPassword, startTwoFactorTotp, confirmTwoFactorTotp, disableTwoFactor, addPasskey, regenerateRecoveryCodes, removeTotpDevice, removePasskeyDevice, toggleTrustedDevicesList, revokeTrustedDevice, revokeAllTrustedDevices, loadSavedPlaces, saveSettingsPlace, editSettingsPlace, cancelSettingsPlaceEdit, deleteSettingsPlace },
+    userSettings: { renderUserInfo, openSettingsModal, changeLanguagePreference, changeDefaultReminderSetting, saveCustomDefaultReminderSetting, changeBrainDumpLearningSetting, resetBrainDumpLearning, editUserDisplayName, cancelUserDisplayNameEdit, saveUserProfile, startAvatarUpload, cancelAvatarCrop, saveAvatarCrop, deleteUserAvatar, editUserEmail, cancelUserEmailEdit, saveUserEmail, changeUserPassword, confirmTwoFactorTotp, disableTwoFactor, regenerateRecoveryCodes, toggleTrustedDevicesList, revokeAllTrustedDevices, loadSavedPlaces, saveSettingsPlace, editSettingsPlace, cancelSettingsPlaceEdit, deleteSettingsPlace },
     userMenu: { updateUserMenu },
   });
 

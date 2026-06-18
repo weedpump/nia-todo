@@ -31,7 +31,10 @@ export function createMobileSearchFeature({ renderStats, renderTodos, toggleToda
     else openMobileSearch();
   }
 
+  let mobileSearchEventsBound = false;
   function bindMobileSearchEvents() {
+    if (mobileSearchEventsBound) return;
+    mobileSearchEventsBound = true;
     document.getElementById('search-toggle-btn')?.addEventListener('click', () => toggleMobileSearch());
     document.getElementById('search-input')?.addEventListener('input', () => {
       renderStats();

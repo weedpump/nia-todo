@@ -2803,7 +2803,10 @@ export function createTodosFeature({
     }, 5200);
   }
 
+  let todoActionsBound = false;
   function bindTodoActions() {
+    if (todoActionsBound) return;
+    todoActionsBound = true;
     document.addEventListener('click', async (event) => {
       const target = event.target?.closest?.('[data-todo-action]');
       if (!target) return;

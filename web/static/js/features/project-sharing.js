@@ -268,7 +268,10 @@ export function createProjectSharingFeature({
     }
   }
 
+  let projectSharingActionsBound = false;
   function bindProjectSharingActions() {
+    if (projectSharingActionsBound) return;
+    projectSharingActionsBound = true;
     document.addEventListener('click', async (event) => {
       const target = event.target?.closest?.('[data-project-sharing-action]');
       if (!target) return;
