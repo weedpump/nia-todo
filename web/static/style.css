@@ -1623,6 +1623,31 @@ select:focus-visible {
 
 .btn-secondary { background: var(--bg-tertiary); color: var(--text-primary); }
 .btn-secondary:hover { background: var(--bg-hover); }
+.btn-action {
+  min-height: 34px;
+  min-width: 108px;
+  padding: 7px 14px;
+  border: none;
+  border-radius: 999px;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  box-shadow: none;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.15;
+}
+.btn-action:hover,
+.btn-action:focus-visible {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border: none;
+  box-shadow: none;
+}
+.btn-action .ui-icon {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+}
 .btn-small {
   min-height: 34px;
   padding: 7px 10px;
@@ -9364,32 +9389,6 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   line-height: 34px;
 }
 
-#todo-modal.todo-detail-view .todo-meta-edit-toggle {
-  flex: 0 0 auto;
-  min-height: 34px;
-  padding: 6px 11px;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--border) 42%, transparent);
-  background: transparent;
-  color: var(--text-muted);
-  font: inherit;
-  font-size: 12px;
-  font-weight: 650;
-  cursor: pointer;
-}
-
-#todo-modal.todo-detail-view .todo-meta-edit-toggle:hover,
-#todo-modal.todo-detail-view .todo-meta-edit-toggle:focus-visible {
-  color: var(--accent);
-  border-color: color-mix(in srgb, var(--accent) 42%, transparent);
-  outline: none;
-}
-
-#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-toggle {
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-}
-
 @media (max-width: 720px) {
   #todo-modal.todo-detail-view .todo-meta-summary-view {
     flex-direction: column;
@@ -9711,11 +9710,6 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   width: auto;
   min-width: 0;
   max-width: 220px;
-  min-height: 34px;
-  padding: 6px 11px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 650;
 }
 
 #todo-modal.todo-detail-view #todo-attachment-file-name {
@@ -10740,42 +10734,6 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   }
 }
 
-/* Todo detail meta: make edit-details action discoverable. */
-#todo-modal.todo-detail-view .todo-meta-edit-toggle {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-height: 38px;
-  padding: 8px 14px;
-  border-radius: 999px;
-  border-color: color-mix(in srgb, var(--accent) 34%, transparent);
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-  color: color-mix(in srgb, var(--accent) 76%, var(--text-primary));
-  font-size: 13px;
-  box-shadow: 0 8px 22px color-mix(in srgb, var(--accent) 10%, transparent);
-}
-
-#todo-modal.todo-detail-view .todo-meta-edit-toggle .ui-icon {
-  width: 15px;
-  height: 15px;
-  flex: 0 0 auto;
-}
-
-#todo-modal.todo-detail-view .todo-meta-edit-toggle:hover,
-#todo-modal.todo-detail-view .todo-meta-edit-toggle:focus-visible {
-  color: var(--accent);
-  border-color: color-mix(in srgb, var(--accent) 58%, transparent);
-  background: color-mix(in srgb, var(--accent) 15%, transparent);
-  box-shadow: 0 10px 26px color-mix(in srgb, var(--accent) 15%, transparent);
-}
-
-#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-toggle {
-  color: var(--text-primary);
-  background: color-mix(in srgb, var(--accent) 18%, transparent);
-  border-color: color-mix(in srgb, var(--accent) 62%, transparent);
-}
-
 /* Todo detail meta: move edit-details action below pills, right-aligned like add/upload actions. */
 #todo-modal.todo-detail-view .todo-meta-summary-view {
   display: grid;
@@ -10790,151 +10748,6 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
 
 #todo-modal.todo-detail-view .todo-meta-edit-toggle {
   justify-self: end;
-  min-height: 34px;
-  min-width: 108px;
-  padding: 6px 12px;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--border) 42%, transparent);
-  background: transparent;
-  color: var(--text-secondary);
-  box-shadow: none;
-  font-size: 12px;
-}
-
-#todo-modal.todo-detail-view .todo-meta-edit-toggle .ui-icon {
-  width: 14px;
-  height: 14px;
-}
-
-#todo-modal.todo-detail-view .todo-meta-edit-toggle:hover,
-#todo-modal.todo-detail-view .todo-meta-edit-toggle:focus-visible {
-  color: var(--accent);
-  border-color: color-mix(in srgb, var(--accent) 42%, transparent);
-  background: color-mix(in srgb, var(--accent) 7%, transparent);
-  box-shadow: none;
-}
-
-#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-toggle {
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
-  border-color: color-mix(in srgb, var(--accent) 46%, transparent);
-}
-
-/* Todo detail meta: edit-details uses the exact normal secondary button styling. */
-#todo-modal.todo-detail-view .todo-meta-edit-toggle.btn.btn-secondary {
-  justify-self: end;
-  min-width: 108px;
-  box-shadow: none;
-  font-size: inherit;
-}
-
-#todo-modal.todo-detail-view .todo-meta-edit-toggle.btn.btn-secondary,
-#todo-modal.todo-detail-view .todo-meta-edit-toggle.btn.btn-secondary:hover,
-#todo-modal.todo-detail-view .todo-meta-edit-toggle.btn.btn-secondary:focus-visible,
-#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-toggle.btn.btn-secondary {
-  color: var(--text-primary);
-}
-
-/* Todo detail action buttons: one shared style, based on the Subtask add button. */
-#todo-modal.todo-detail-view :is(
-  .todo-subtasks-add-row .btn,
-  #todo-comment-add-btn,
-  #todo-attachment-upload-btn,
-  #todo-meta-edit-toggle.btn
-) {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-height: 34px;
-  min-width: 108px;
-  padding: 7px 14px;
-  border: none;
-  border-radius: 999px;
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-  box-shadow: none;
-  font-size: 14px;
-  font-weight: 700;
-  line-height: 1.15;
-}
-
-#todo-modal.todo-detail-view :is(
-  .todo-subtasks-add-row .btn,
-  #todo-comment-add-btn,
-  #todo-attachment-upload-btn,
-  #todo-meta-edit-toggle.btn
-):hover,
-#todo-modal.todo-detail-view :is(
-  .todo-subtasks-add-row .btn,
-  #todo-comment-add-btn,
-  #todo-attachment-upload-btn,
-  #todo-meta-edit-toggle.btn
-):focus-visible {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-  border: none;
-  box-shadow: none;
-  outline: none;
-}
-
-#todo-modal.todo-detail-view :is(
-  .todo-subtasks-add-row .btn,
-  #todo-comment-add-btn,
-  #todo-attachment-upload-btn,
-  #todo-meta-edit-toggle.btn
-) .ui-icon {
-  width: 15px;
-  height: 15px;
-  flex: 0 0 auto;
-}
-
-#todo-modal.todo-detail-view .todo-meta-edit-toggle.btn {
-  justify-self: end;
-}
-
-#todo-modal.todo-detail-view .todo-comments-add-group #todo-comment-add-btn {
-  justify-self: end;
-  margin-top: 8px;
-}
-
-#todo-modal.todo-detail-view .todo-attachments-add-row #todo-attachment-upload-btn {
-  justify-self: end;
-}
-
-@media (max-width: 640px) {
-  #todo-modal.todo-detail-view .todo-subtasks-add-row,
-  #todo-modal.todo-detail-view .todo-attachments-add-row {
-    grid-template-columns: 1fr;
-  }
-
-  #todo-modal.todo-detail-view .todo-attachments-add-row::after {
-    grid-column: 1;
-    grid-row: auto;
-    justify-self: start;
-  }
-
-  #todo-modal.todo-detail-view :is(
-    .todo-subtasks-add-row .btn,
-    #todo-comment-add-btn,
-    #todo-attachment-upload-btn,
-    #todo-meta-edit-toggle.btn
-  ) {
-    width: 100%;
-    min-width: 0;
-  }
-
-  #todo-modal.todo-detail-view :is(
-    .todo-subtasks-add-row .btn,
-    #todo-comment-add-btn,
-    #todo-attachment-upload-btn,
-    #todo-meta-edit-toggle.btn
-  ),
-  #todo-modal.todo-detail-view .todo-comments-add-group #todo-comment-add-btn,
-  #todo-modal.todo-detail-view .todo-attachments-add-row #todo-attachment-upload-btn,
-  #todo-modal.todo-detail-view .todo-meta-edit-toggle.btn {
-    justify-self: stretch;
-  }
 }
 
 /* Todo detail attachments: mobile uses normal stacked action buttons, no drag/drop hint. */
@@ -10985,38 +10798,9 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
   opacity: .82;
 }
 
-#todo-modal.todo-detail-view .todo-detail-action-btn.btn.btn-secondary,
-#todo-modal.todo-detail-view .todo-detail-action-btn.btn.btn-secondary:hover,
-#todo-modal.todo-detail-view .todo-detail-action-btn.btn.btn-secondary:focus-visible {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
+#todo-modal.todo-detail-view .todo-detail-action-btn {
   width: auto;
   max-width: none;
-  min-width: 108px;
-  min-height: 34px;
-  padding: 7px 14px;
-  border: none;
-  border-radius: 999px;
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-  box-shadow: none;
-  font-size: 14px;
-  font-weight: 700;
-  line-height: 1.15;
-}
-
-#todo-modal.todo-detail-view .todo-detail-action-btn.btn.btn-secondary:hover,
-#todo-modal.todo-detail-view .todo-detail-action-btn.btn.btn-secondary:focus-visible {
-  background: var(--bg-hover);
-  outline: none;
-}
-
-#todo-modal.todo-detail-view .todo-detail-action-btn.btn.btn-secondary .ui-icon {
-  width: 15px;
-  height: 15px;
-  flex: 0 0 auto;
 }
 
 #todo-modal.todo-detail-view .todo-comments-add-group .todo-detail-action-btn,

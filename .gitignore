@@ -54,3 +54,6 @@ dist/
 
 # Local BrainDump/OpenClaw scratch artifacts
 .local/
+
+# Runtime app data
+api/data/attachments/
