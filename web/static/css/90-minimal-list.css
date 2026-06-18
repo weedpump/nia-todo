@@ -277,10 +277,6 @@ body.is-minimal-todos .todo-meta-chip.todo-subtasks-progress {
 }
 
 @media (max-width: 640px) {
-  .todo-subtask-row {
-    grid-template-columns: auto minmax(0, 1fr) auto;
-  }
-
   .todo-subtasks-add-row {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -364,13 +360,6 @@ body.is-minimal-todos .todo-meta-chip.todo-comments-progress {
   width: 100%;
   min-width: 0;
   resize: vertical;
-}
-
-.todo-comment-item:has(.todo-comment-edit-input) .todo-comment-actions {
-  flex-wrap: wrap;
-}
-
-.todo-comment-edit-input {
   color: var(--text-primary);
   border: 1px solid color-mix(in srgb, var(--border) 68%, transparent);
   border-radius: 12px;
@@ -378,6 +367,10 @@ body.is-minimal-todos .todo-meta-chip.todo-comments-progress {
   box-shadow: inset 0 1px 0 color-mix(in srgb, var(--bg-secondary) 46%, transparent);
   line-height: 1.45;
   padding: 10px 11px;
+}
+
+.todo-comment-item:has(.todo-comment-edit-input) .todo-comment-actions {
+  flex-wrap: wrap;
 }
 
 .todo-comment-edit-input:focus {
@@ -615,14 +608,7 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
     color: var(--text-primary);
   }
 
-  #attachment-preview-modal .modal-overlay {
-    display: none;
-  }
 
-  #attachment-preview-modal .modal-close-x,
-  #attachment-preview-modal .modal-header {
-    display: none;
-  }
 
   #attachment-preview-modal .attachment-preview-body {
     flex: 1;
@@ -655,10 +641,6 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
     background: color-mix(in srgb, var(--bg-secondary) 94%, transparent);
   }
 
-  #attachment-preview-modal .modal-actions .btn {
-    flex: 1;
-    max-width: 220px;
-  }
 }
 
 @media (max-width: 640px) {
