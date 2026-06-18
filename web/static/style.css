@@ -2124,6 +2124,14 @@ select:focus-visible {
 
 .datetime-input-wrap {
   position: relative;
+  cursor: pointer;
+}
+
+.datetime-input-wrap input[type="date"],
+.datetime-input-wrap input[type="datetime-local"],
+.datetime-input-wrap input[type="time"],
+.datetime-input-icon {
+  cursor: pointer;
 }
 
 .datetime-input-icon {
@@ -2137,7 +2145,6 @@ select:focus-visible {
   justify-content: center;
   color: var(--text-secondary);
   transform: translateY(-50%);
-  pointer-events: none;
 }
 
 .datetime-input-icon .ui-icon {
