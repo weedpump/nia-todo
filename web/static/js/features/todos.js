@@ -204,7 +204,7 @@ export function createTodosFeature({
     const edit = lang === 'de' ? 'Details bearbeiten' : 'Edit details';
     summary.innerHTML = `
       <div class="todo-meta-summary-chips">${chips.length ? chips.join('') : `<span class="todo-meta-summary-empty">${empty}</span>`}</div>
-      <button type="button" class="btn btn-secondary todo-detail-action-btn todo-meta-edit-toggle" id="todo-meta-edit-toggle">${edit}</button>
+      <button type="button" class="btn btn-secondary btn-action todo-detail-action-btn todo-meta-edit-toggle" id="todo-meta-edit-toggle">${edit}</button>
     `;
     const toggle = summary.querySelector('#todo-meta-edit-toggle');
     const syncToggleLabel = () => {
