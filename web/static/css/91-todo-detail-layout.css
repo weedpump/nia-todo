@@ -20,7 +20,7 @@
 #todo-modal.todo-detail-view #todo-organize-panel { grid-area: organize; }
 #todo-modal.todo-detail-view #todo-schedule-panel { grid-area: schedule; }
 
-#todo-modal.todo-detail-view .todo-main-section {
+#todo-modal.todo-detail-view .todo-editor-main {
   max-width: none;
 }
 
@@ -59,8 +59,7 @@
 }
 
 
-#todo-modal.todo-detail-view #todo-organize-panel,
-#todo-modal.todo-detail-view #todo-schedule-panel {
+#todo-modal.todo-detail-view .todo-editor-meta-panel {
   border-color: color-mix(in srgb, var(--border) 44%, transparent);
 }
 
@@ -123,7 +122,7 @@
 
 
 
-#todo-modal.todo-detail-view .todo-modal-form {
+#todo-modal.todo-detail-view .todo-editor-shell {
   max-width: 880px;
   grid-template-columns: 1fr;
   grid-template-areas:
@@ -137,8 +136,7 @@
 }
 
 
-#todo-modal.todo-detail-view #todo-organize-panel,
-#todo-modal.todo-detail-view #todo-schedule-panel {
+#todo-modal.todo-detail-view .todo-editor-meta-panel {
   grid-column: auto;
   grid-row: auto;
   padding: 18px 0 0;
@@ -168,7 +166,7 @@
   }
 
   #todo-modal.todo-detail-view .todo-modal-header,
-  #todo-modal.todo-detail-view .todo-modal-form {
+  #todo-modal.todo-detail-view .todo-editor-shell {
     max-width: 900px;
   }
 }
@@ -181,8 +179,7 @@
 }
 
 /* Todo detail view-mode meta summary */
-#todo-modal.todo-detail-view #todo-organize-panel,
-#todo-modal.todo-detail-view #todo-schedule-panel {
+#todo-modal.todo-detail-view .todo-editor-meta-panel {
   display: none;
 }
 

@@ -48,8 +48,7 @@
   z-index: 2;
 }
 
-#todo-modal.todo-detail-view.todo-meta-editing #todo-organize-panel,
-#todo-modal.todo-detail-view.todo-meta-editing #todo-schedule-panel {
+#todo-modal.todo-detail-view.todo-meta-editing .todo-editor-meta-panel {
   right: 18px;
 }
 
@@ -141,8 +140,7 @@
   box-shadow: 0 18px 50px rgba(0, 0, 0, .24);
 }
 
-#todo-modal.todo-detail-view.todo-meta-editing #todo-organize-panel,
-#todo-modal.todo-detail-view.todo-meta-editing #todo-schedule-panel {
+#todo-modal.todo-detail-view.todo-meta-editing .todo-editor-meta-panel {
   position: static;
   inset: auto;
   width: auto;

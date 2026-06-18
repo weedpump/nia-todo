@@ -60,13 +60,13 @@
   background: color-mix(in srgb, var(--bg-primary) 18%, transparent);
 }
 
-.todo-modal-form {
+.todo-editor-shell {
   display: grid;
   gap: 14px;
 }
 
-.todo-section-card .form-group:last-child,
-.todo-section-card .ui-field-grid + .form-group:last-child {
+.todo-editor-section .form-group:last-child,
+.todo-editor-section .ui-field-grid + .form-group:last-child {
   margin-bottom: 0;
 }
 
@@ -110,7 +110,7 @@
     padding: 12px;
   }
 
-  .todo-modal-form {
+  .todo-editor-shell {
     gap: 12px;
   }
 
@@ -210,17 +210,17 @@
   background: transparent;
 }
 
-#todo-modal.todo-detail-view .todo-modal-form {
+#todo-modal.todo-detail-view .todo-editor-shell {
   margin: 0 auto;
   display: grid;
   align-items: start;
 }
 
-#todo-modal.todo-detail-view .todo-main-section { grid-area: content; }
+#todo-modal.todo-detail-view .todo-editor-main { grid-area: content; }
 #todo-modal.todo-detail-view .todo-subtasks-card { grid-area: subtasks; }
 #todo-modal.todo-detail-view .todo-attachments-card { grid-area: attachments; }
 #todo-modal.todo-detail-view .todo-comments-card { grid-area: comments; }
-#todo-modal.todo-detail-view .todo-section-card {
+#todo-modal.todo-detail-view .todo-editor-section {
   padding: 0;
   border: 0;
   border-radius: 0;
@@ -228,15 +228,15 @@
   box-shadow: none;
 }
 
-#todo-modal.todo-detail-view .todo-main-section .ui-section-heading {
+#todo-modal.todo-detail-view .todo-editor-main .ui-section-heading {
   display: none;
 }
 
 #todo-modal.todo-detail-view .todo-title-group label,
 #todo-modal.todo-detail-view .todo-title-group .quick-add-hint,
 #todo-modal.todo-detail-view .todo-title-group .quick-add-preview,
-#todo-modal.todo-detail-view .todo-main-section label[for="todo-desc"],
-#todo-modal.todo-detail-view .todo-main-section .form-group > label {
+#todo-modal.todo-detail-view .todo-editor-main label[for="todo-desc"],
+#todo-modal.todo-detail-view .todo-editor-main .form-group > label {
   display: none;
 }
 

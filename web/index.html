@@ -573,9 +573,9 @@
       </div>
       <button class="modal-close-x" onclick="closeModal('todo-modal')"><span data-icon="x"></span></button>
       <div class="modal-body todo-modal-body">
-      <form id="todo-form" class="todo-modal-form">
+      <form id="todo-form" class="todo-modal-form todo-editor-shell">
         <input type="hidden" id="todo-id">
-        <section class="ui-section-card todo-section-card todo-main-section">
+        <section class="ui-section-card todo-section-card todo-editor-section todo-editor-main todo-main-section">
           <div class="ui-section-heading">
             <div class="ui-section-icon" data-icon="file-text"></div>
             <div>
@@ -596,7 +596,7 @@
           </div>
         </section>
 
-        <details class="ui-section-card todo-section-card todo-collapsible-card todo-subtasks-card" id="todo-subtasks-panel">
+        <details class="ui-section-card todo-section-card todo-editor-section todo-collapsible-card todo-subtasks-card" id="todo-subtasks-panel">
           <summary class="ui-section-heading todo-collapsible-summary">
             <div class="ui-section-icon" data-icon="list-todo"></div>
             <div>
@@ -620,7 +620,7 @@
         </details>
 
 
-        <details class="ui-section-card todo-section-card todo-collapsible-card todo-comments-card" id="todo-comments-panel">
+        <details class="ui-section-card todo-section-card todo-editor-section todo-collapsible-card todo-comments-card" id="todo-comments-panel">
           <summary class="ui-section-heading todo-collapsible-summary">
             <div class="ui-section-icon" data-icon="notebook-pen"></div>
             <div>
@@ -642,7 +642,7 @@
           </div>
         </details>
 
-        <details class="ui-section-card todo-section-card todo-collapsible-card todo-attachments-card" id="todo-attachments-panel">
+        <details class="ui-section-card todo-section-card todo-editor-section todo-collapsible-card todo-attachments-card" id="todo-attachments-panel">
           <summary class="ui-section-heading todo-collapsible-summary">
             <div class="ui-section-icon" data-icon="paperclip"></div>
             <div>
@@ -668,7 +668,7 @@
         </details>
 
 
-        <details class="ui-section-card todo-section-card todo-collapsible-card" id="todo-organize-panel">
+        <details class="ui-section-card todo-section-card todo-editor-section todo-editor-meta-panel todo-collapsible-card" id="todo-organize-panel">
           <summary class="ui-section-heading todo-collapsible-summary">
             <div class="ui-section-icon" data-icon="settings"></div>
             <div>
@@ -717,7 +717,7 @@
           </div>
         </details>
 
-        <details class="ui-section-card todo-section-card todo-collapsible-card" id="todo-schedule-panel">
+        <details class="ui-section-card todo-section-card todo-editor-section todo-editor-meta-panel todo-collapsible-card" id="todo-schedule-panel">
           <summary class="ui-section-heading todo-collapsible-summary">
             <div class="ui-section-icon" data-icon="calendar-days"></div>
             <div>

@@ -20,7 +20,7 @@
     padding-bottom: clamp(14px, 3vw, 18px);
   }
 
-  #todo-modal.todo-detail-view .todo-modal-form {
+  #todo-modal.todo-detail-view .todo-editor-shell {
     padding-bottom: 0;
   }
 }
