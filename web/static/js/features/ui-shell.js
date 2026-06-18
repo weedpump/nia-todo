@@ -42,6 +42,16 @@ export function createUiShell({ renderMarkdown, showTodoModal }) {
     textarea.oninput = () => { preview.innerHTML = renderMarkdown(textarea.value); };
   }
 
+  function bindSidebarControls() {
+    if (document.documentElement.dataset.sidebarControlsBound === '1') return;
+    document.documentElement.dataset.sidebarControlsBound = '1';
+    document.addEventListener('click', (event) => {
+      if (!event.target?.closest?.('[data-sidebar-toggle]')) return;
+      event.preventDefault();
+      toggleSidebar();
+    });
+  }
+
   function bindSidebarEdgeSwipe() {
     // Android often reserves the very left edge for system/browser Back.
     // Keep the app gesture slightly wider so users can start just inside that zone.
@@ -178,5 +188,5 @@ export function createUiShell({ renderMarkdown, showTodoModal }) {
     });
   }
 
-  return { openSidebar, toggleSidebar, closeSidebar, closeModal, setupDescPreview, bindSidebarEdgeSwipe, bindTouchFeedback, bindDateTimePickerOpeners, bindKeyboardShortcuts };
+  return { openSidebar, toggleSidebar, closeSidebar, closeModal, setupDescPreview, bindSidebarControls, bindSidebarEdgeSwipe, bindTouchFeedback, bindDateTimePickerOpeners, bindKeyboardShortcuts };
 }

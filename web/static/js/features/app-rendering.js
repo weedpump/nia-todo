@@ -148,7 +148,7 @@ export function createAppRenderingFeature({
       html += `<div class="project-tree-item" style="padding-left: ${indent}px">`;
       html += `<div class="nav-item-with-action">`;
       const isActiveProject = Number(currentProjectId) === Number(project.id);
-      html += `<button class="nav-btn project-drop-target ${isActiveProject ? 'active' : ''}" data-filter="${escapeHtmlAttr(project.id)}" data-project-id="${escapeHtmlAttr(project.id)}" onclick="setFilter('${project.id}')" ondragover="handleProjectDragOver(event)" ondrop="handleProjectDrop(event)">`;
+      html += `<button class="nav-btn project-drop-target ${isActiveProject ? 'active' : ''}" data-filter="${escapeHtmlAttr(project.id)}" data-project-id="${escapeHtmlAttr(project.id)}" ondragover="handleProjectDragOver(event)" ondrop="handleProjectDrop(event)">`;
       html += markerHtml({ ...project, color: escapeHtmlAttr(project.color || '#6366f1'), icon: project.icon });
       html += `${escapeHtml(project.name)}`;
       html += `<span class="badge">${countByProject(project.id, true)}</span>`;
@@ -342,7 +342,7 @@ export function createAppRenderingFeature({
             <div class="overview-panel-title">${escapeHtml(t('overview.activeProjects'))}</div>
             <div class="overview-project-list">
               ${projectsByRecentTodo.length ? projectsByRecentTodo.map(project => `
-                <button type="button" class="overview-project-item" onclick="setFilter('${escapeHtmlAttr(project.id)}')">
+                <button type="button" class="overview-project-item" data-nav-filter="${escapeHtmlAttr(project.id)}">
                   ${markerHtml({ ...project, color: escapeHtmlAttr(project.color || '#6366f1'), icon: project.icon })}
                   <span>${escapeHtml(project.name)}</span>
                   <strong>${escapeHtml(project.latestTodoLabel)}</strong>

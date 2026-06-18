@@ -500,9 +500,11 @@ const navigationFeature = createNavigationFeature({
   renderProjects: () => renderProjects(),
   renderStats: () => renderStats(),
   renderTodos: () => renderTodos(),
+  showProjectModal: () => showProjectModal(),
 });
 const setFilter = navigationFeature.setFilter;
 const loadSectionsForCurrentProject = navigationFeature.loadSectionsForCurrentProject;
+const bindNavigationActions = navigationFeature.bindNavigationActions;
 const bindNavigationHistory = navigationFeature.bindNavigationHistory;
 
 const showProjectModal = projectsFeature.showProjectModal;
@@ -538,10 +540,10 @@ const uiShell = createUiShell({
   renderMarkdown,
   showTodoModal: () => showTodoModal(),
 });
-const toggleSidebar = uiShell.toggleSidebar;
 const closeSidebar = uiShell.closeSidebar;
 const closeModal = uiShell.closeModal;
 const setupDescPreview = uiShell.setupDescPreview;
+const bindSidebarControls = uiShell.bindSidebarControls;
 uiShell.bindSidebarEdgeSwipe();
 uiShell.bindTouchFeedback();
 uiShell.bindDateTimePickerOpeners();
@@ -684,6 +686,8 @@ export function startAppModule() {
   bindMobileSearchEvents();
   bindTopbarPreferenceButtons();
   bindTodayFocusHotkey();
+  bindSidebarControls();
+  bindNavigationActions();
   bindNavigationHistory();
   bindFocusProjectMenuDismissal();
   document.addEventListener('click', (event) => {
@@ -718,7 +722,7 @@ export function startAppModule() {
   websocket: { getReconnectDelay, connectWebSocket, wsSend, startPingInterval, stopPingInterval, scheduleReconnect, disconnectWebSocket, updateConnectionStatus, handleWsMessage },
   storage: { openDB, dbGetAll, dbPut, dbClear, getFromDB, deleteFromDB, clearSyncQueue, addToSyncQueue },
   sync: { isOnlineForSync, syncWithServer, refreshFromServer },
-  ui: { toggleSidebar, closeSidebar, closeModal, setupDescPreview, openMobileSearch },
+  ui: { closeSidebar, closeModal, setupDescPreview, openMobileSearch },
   lifecycle: { initServiceWorker, triggerUpdate, forceReloadApp, initApp, loadFromLocalDB, loadAll },
   appDownloads: { openAppDownloadsModal },
   rendering: { renderVersionInfo, renderProjects, renderStats, renderTodos, renderSectionHeader, countByProject },

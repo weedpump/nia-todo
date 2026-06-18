@@ -328,7 +328,7 @@
 
   <div id="app">
     <!-- Mobile sidebar overlay -->
-    <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
+    <div class="sidebar-overlay" id="sidebar-overlay" data-sidebar-toggle></div>
 
     <!-- Sidebar -->
     <aside class="sidebar" id="sidebar">
@@ -339,19 +339,19 @@
 
       <nav class="nav-section">
         <div class="nav-title" data-i18n-key="nav.view">Ansicht</div>
-        <button class="nav-btn" data-filter="all" onclick="setFilter('all')">
+        <button class="nav-btn" data-filter="all">
           <span data-icon="layout-dashboard"></span> <span data-i18n-key="nav.dashboard">Dashboard</span>
           <span class="badge" id="count-all">0</span>
         </button>
-        <button class="nav-btn" data-filter="focus" onclick="setFilter('focus')">
+        <button class="nav-btn" data-filter="focus">
           <span data-icon="funnel"></span> <span data-i18n-key="nav.focus">Filter</span>
           <span class="badge" id="count-focus">0</span>
         </button>
-        <button class="nav-btn" data-filter="in_progress" onclick="setFilter('in_progress')">
+        <button class="nav-btn" data-filter="in_progress">
           <span data-icon="flame"></span> <span data-i18n-key="nav.inProgress">In progress</span>
           <span class="badge" id="count-in_progress">0</span>
         </button>
-        <button class="nav-btn" data-filter="done" onclick="setFilter('done')">
+        <button class="nav-btn" data-filter="done">
           <span data-icon="check-circle"></span> <span data-i18n-key="nav.done">Erledigt</span>
           <span class="badge" id="count-done">0</span>
         </button>
@@ -360,7 +360,7 @@
       <nav class="nav-section">
         <div class="nav-title" data-i18n-key="nav.projects">Projects</div>
         <div id="project-list"></div>
-        <button class="nav-btn add-btn" onclick="showProjectModal()">
+        <button class="nav-btn add-btn" data-nav-action="new-project">
           <span data-icon="plus"></span> <span data-i18n-key="nav.addProject">Add project</span>
         </button>
       </nav>
@@ -528,7 +528,7 @@
     <main class="main">
       <!-- Top bar -->
       <div class="topbar">
-        <button class="hamburger" onclick="toggleSidebar()" aria-label="Open menu" data-i18n-aria-label-key="topbar.openMenu"><span data-icon="menu"></span></button>
+        <button class="hamburger" data-sidebar-toggle aria-label="Open menu" data-i18n-aria-label-key="topbar.openMenu"><span data-icon="menu"></span></button>
         <button type="button" class="today-focus-btn" id="today-focus-btn" title="Heute-Fokus" data-i18n-title-key="todayFocus.toggleTitle"><span data-icon="target"></span><span data-i18n-key="todayFocus.short">Fokus</span></button>
         <button type="button" class="minimal-todos-btn" id="minimal-todos-btn" title="Minimalistische Todo-Liste" data-i18n-title-key="minimalTodos.toggleTitle"><span data-icon="brush-cleaning"></span><span data-i18n-key="minimalTodos.short">Minimal</span></button>
         <div class="search-box" id="search-box">
