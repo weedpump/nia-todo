@@ -8626,7 +8626,7 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
 
 #todo-modal.todo-detail-view #todo-title {
   min-height: 52px;
-  padding: 10px 16px;
+  padding: 10px 0;
   border: 1px solid transparent;
   border-radius: 18px;
   background: transparent;
@@ -8640,6 +8640,7 @@ body.is-minimal-todos .todo-meta-chip.todo-attachments-progress {
 
 #todo-modal.todo-detail-view #todo-title:focus,
 #todo-modal.todo-detail-view #todo-title:focus-visible {
+  padding-inline: 16px;
   border-color: color-mix(in srgb, var(--accent) 62%, var(--border));
   background: color-mix(in srgb, var(--bg-secondary) 58%, transparent);
   box-shadow: 0 0 0 3px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.14));
