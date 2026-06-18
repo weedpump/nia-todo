@@ -1,6 +1,5 @@
 /* Todo detail mobile viewport and fullscreen tail fixes */
 
-/* Todo detail mobile viewport: account for browser chrome so bottom actions stay reachable. */
 @media (max-width: 768px) {
   #todo-modal.todo-detail-view .todo-modal-content {
     height: 100vh;
@@ -18,54 +17,6 @@
     overflow-y: auto;
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
-    padding-bottom: max(96px, calc(72px + env(safe-area-inset-bottom, 0px)));
-  }
-
-  #todo-modal.todo-detail-view .todo-modal-form {
-    padding-bottom: max(24px, env(safe-area-inset-bottom, 0px));
-  }
-}
-
-@media (max-width: 1180px) {
-  #todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer {
-    height: 100vh;
-    height: 100svh;
-    height: 100dvh;
-    max-height: 100vh;
-    max-height: 100svh;
-    max-height: 100dvh;
-  }
-
-  #todo-modal.todo-detail-view.todo-meta-editing .todo-meta-drawer-body {
-    padding-bottom: max(96px, calc(72px + env(safe-area-inset-bottom, 0px)));
-  }
-}
-
-/* Todo detail mobile viewport: keep bottom action reachable without oversized empty tail. */
-@media (max-width: 768px) {
-  #todo-modal.todo-detail-view .todo-modal-body {
-    padding-bottom: max(44px, calc(28px + env(safe-area-inset-bottom, 0px)));
-  }
-
-  #todo-modal.todo-detail-view .todo-modal-form {
-    padding-bottom: 0;
-  }
-}
-
-@media (max-width: 1180px) {
-  #todo-modal.todo-detail-view.todo-meta-editing .todo-meta-drawer-body {
-    padding-bottom: max(44px, calc(28px + env(safe-area-inset-bottom, 0px)));
-  }
-}
-
-/* Todo detail mobile viewport: remove artificial bottom tail; rely on correct dynamic viewport sizing. */
-@media (max-width: 768px) {
-  #todo-modal.todo-detail-view .todo-modal-content {
-    height: 100dvh;
-    max-height: 100dvh;
-  }
-
-  #todo-modal.todo-detail-view .todo-modal-body {
     padding-bottom: clamp(14px, 3vw, 18px);
   }
 
@@ -76,7 +27,11 @@
 
 @media (max-width: 1180px) {
   #todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer {
+    height: 100vh;
+    height: 100svh;
     height: 100dvh;
+    max-height: 100vh;
+    max-height: 100svh;
     max-height: 100dvh;
   }
 
