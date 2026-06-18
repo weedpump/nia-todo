@@ -71,8 +71,3 @@
   opacity: 0;
   transition: opacity .14s ease;
 }
-
-/* Todo detail actions: keep add/upload actions visually consistent. */
-#todo-modal.todo-detail-view .todo-comments-add-group .btn {
-  justify-self: end;
-}
