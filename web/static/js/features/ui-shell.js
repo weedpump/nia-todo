@@ -34,6 +34,15 @@ export function createUiShell({ renderMarkdown, showTodoModal }) {
     modal?.classList.remove('active');
   }
 
+  function bindModalCloseControls() {
+    document.addEventListener('click', (event) => {
+      const target = event.target?.closest?.('[data-close-modal]');
+      if (!target) return;
+      event.preventDefault();
+      closeModal(target.dataset.closeModal);
+    });
+  }
+
   function setupDescPreview() {
     const textarea = document.getElementById('todo-desc');
     const preview = document.getElementById('todo-desc-preview');
@@ -188,5 +197,5 @@ export function createUiShell({ renderMarkdown, showTodoModal }) {
     });
   }
 
-  return { openSidebar, toggleSidebar, closeSidebar, closeModal, setupDescPreview, bindSidebarControls, bindSidebarEdgeSwipe, bindTouchFeedback, bindDateTimePickerOpeners, bindKeyboardShortcuts };
+  return { openSidebar, toggleSidebar, closeSidebar, closeModal, bindModalCloseControls, setupDescPreview, bindSidebarControls, bindSidebarEdgeSwipe, bindTouchFeedback, bindDateTimePickerOpeners, bindKeyboardShortcuts };
 }

@@ -362,8 +362,8 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
     modal?.classList.toggle('mfa-enrollment-locked', locked);
     const overlay = modal?.querySelector('.modal-overlay');
     if (overlay) {
-      if (locked) overlay.removeAttribute('onclick');
-      else overlay.setAttribute('onclick', "closeModal('settings-modal')");
+      if (locked) overlay.removeAttribute('data-close-modal');
+      else overlay.dataset.closeModal = 'settings-modal';
     }
     modal?.querySelector('.modal-close-x')?.toggleAttribute('hidden', locked);
     const closeBtn = document.getElementById('settings-close-btn');

@@ -550,6 +550,7 @@ const uiShell = createUiShell({
 const closeSidebar = uiShell.closeSidebar;
 const closeModal = uiShell.closeModal;
 const setupDescPreview = uiShell.setupDescPreview;
+const bindModalCloseControls = uiShell.bindModalCloseControls;
 const bindSidebarControls = uiShell.bindSidebarControls;
 uiShell.bindSidebarEdgeSwipe();
 uiShell.bindTouchFeedback();
@@ -696,6 +697,7 @@ export function startAppModule() {
   bindTopbarPreferenceButtons();
   bindTodayFocusHotkey();
   bindSidebarControls();
+  bindModalCloseControls();
   bindNavigationActions();
   bindNavigationHistory();
   bindFocusProjectMenuDismissal();
