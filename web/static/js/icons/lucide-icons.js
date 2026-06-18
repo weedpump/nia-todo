@@ -91,7 +91,7 @@ export function renderIconPicker({ container, input, selected = '', color = '#63
   const safePickerColor = safeColor(color);
   input.value = safeSelected;
   container.innerHTML = `
-    <button type="button" class="icon-picker-current" aria-expanded="false">
+    <button type="button" class="ui-field icon-picker-current" aria-expanded="false">
       ${currentIconPreview(safeSelected, safePickerColor)}
       <span class="icon-picker-current-text">
         <span class="icon-picker-current-label">${t('iconPicker.selected')}</span>
@@ -99,15 +99,15 @@ export function renderIconPicker({ container, input, selected = '', color = '#63
       </span>
       <svg class="icon-picker-current-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
     </button>
-    <div class="icon-picker-panel" hidden>
+    <div class="ui-section-card icon-picker-panel" hidden>
       <div class="icon-picker-toolbar">
-        <input class="icon-picker-search" type="search" placeholder="${t('iconPicker.searchPlaceholder')}" aria-label="${t('iconPicker.searchAria')}">
+        <input class="ui-field icon-picker-search" type="search" placeholder="${t('iconPicker.searchPlaceholder')}" aria-label="${t('iconPicker.searchAria')}">
       </div>
       <div class="icon-picker-sections">
         <section class="icon-picker-section" data-category="none">
           <div class="icon-picker-category-title">${t('iconPicker.noneCategory')}</div>
           <div class="icon-picker-grid">
-            <button type="button" class="icon-picker-option ${!safeSelected ? 'active' : ''}" data-value="" data-search="${t('iconPicker.noneSearch')}" title="${t('iconPicker.none')}">
+            <button type="button" class="btn btn-secondary btn-icon icon-picker-option ${!safeSelected ? 'is-selected' : ''}" data-value="" data-search="${t('iconPicker.noneSearch')}" title="${t('iconPicker.none')}" aria-selected="${!safeSelected ? 'true' : 'false'}">
               <span class="icon-picker-dot" style="background:${safePickerColor}"></span>
             </button>
           </div>
@@ -119,7 +119,7 @@ export function renderIconPicker({ container, input, selected = '', color = '#63
             <div class="icon-picker-category-title">${categoryLabel}</div>
             <div class="icon-picker-grid">
               ${category.icons.map(name => `
-                <button type="button" class="icon-picker-option ${safeSelected === name ? 'active' : ''}" data-value="${name}" data-search="${name.replace(/-/g, ' ')} ${categoryLabel.toLowerCase()}" title="${name}" style="color:${safePickerColor}">
+                <button type="button" class="btn btn-secondary btn-icon icon-picker-option ${safeSelected === name ? 'is-selected' : ''}" data-value="${name}" data-search="${name.replace(/-/g, ' ')} ${categoryLabel.toLowerCase()}" title="${name}" style="color:${safePickerColor}" aria-selected="${safeSelected === name ? 'true' : 'false'}">
                   ${iconSvg(name)}
                 </button>
               `).join('')}
@@ -148,7 +148,11 @@ export function renderIconPicker({ container, input, selected = '', color = '#63
     const currentPreview = container.querySelector('.icon-picker-current-preview');
     if (currentPreview) currentPreview.outerHTML = currentIconPreview(icon, safePickerColor);
     if (currentName) currentName.textContent = currentIconLabel(icon);
-    options.forEach(btn => btn.classList.toggle('active', (btn.dataset.value || '') === icon));
+    options.forEach(btn => {
+      const selected = (btn.dataset.value || '') === icon;
+      btn.classList.toggle('is-selected', selected);
+      btn.setAttribute('aria-selected', selected ? 'true' : 'false');
+    });
   }
 
   currentButton?.addEventListener('click', () => {
