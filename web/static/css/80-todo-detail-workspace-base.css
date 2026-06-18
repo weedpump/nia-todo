@@ -84,23 +84,6 @@
   border-bottom-color: color-mix(in srgb, var(--accent) 72%, transparent);
 }
 
-#todo-modal.todo-detail-view #todo-desc {
-  min-height: 220px;
-  margin-top: 18px;
-  padding: 14px 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-  font-size: 16px;
-  line-height: 1.65;
-  resize: vertical;
-}
-
-#todo-modal.todo-detail-view.todo-desc-editing #todo-desc {
-  display: block;
-}
-
 #todo-modal.todo-detail-view .desc-live-preview {
   display: block;
   padding: 0;
@@ -141,11 +124,6 @@
 
 #todo-modal.todo-detail-view .ui-section-heading p {
   display: none;
-}
-
-#todo-modal.todo-detail-view .todo-subtask-row,
-#todo-modal.todo-detail-view .todo-comment-item {
-  border-color: color-mix(in srgb, var(--border) 46%, transparent);
 }
 
 #todo-modal.todo-detail-view .todo-subtask-row,
