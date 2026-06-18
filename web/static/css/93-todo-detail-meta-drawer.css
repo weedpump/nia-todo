@@ -50,30 +50,16 @@
 
 #todo-modal.todo-detail-view.todo-meta-editing #todo-organize-panel,
 #todo-modal.todo-detail-view.todo-meta-editing #todo-schedule-panel {
-  position: absolute;
   right: 18px;
-  width: min(380px, calc(100% - 36px));
-  z-index: 3;
-  display: block;
-  padding: 18px;
-  border: 1px solid color-mix(in srgb, var(--border) 42%, transparent);
-  background:
-    radial-gradient(circle at 20% 0%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 42%),
-    color-mix(in srgb, var(--bg-secondary) 96%, var(--bg-primary));
-  box-shadow: 0 18px 50px rgba(0, 0, 0, .24);
 }
 
 #todo-modal.todo-detail-view.todo-meta-editing #todo-organize-panel {
   top: 88px;
-  border-radius: 24px 24px 10px 10px;
   border-bottom-color: color-mix(in srgb, var(--border) 22%, transparent);
 }
 
 #todo-modal.todo-detail-view.todo-meta-editing #todo-schedule-panel {
   top: min(420px, calc(50vh - 10px));
-  max-height: calc(100vh - min(420px, calc(50vh - 10px)) - 92px);
-  overflow: auto;
-  border-radius: 10px 10px 24px 24px;
   border-top-color: color-mix(in srgb, var(--border) 22%, transparent);
 }
 
@@ -98,8 +84,6 @@
     position: fixed;
     left: max(14px, env(safe-area-inset-left, 0px));
     right: max(14px, env(safe-area-inset-right, 0px));
-    width: auto;
-    max-width: 720px;
     margin: 0 auto;
   }
 
@@ -144,7 +128,6 @@
   top: 78px;
   right: 18px;
   bottom: 72px;
-  width: min(380px, calc(100% - 36px));
   z-index: 4;
   display: block;
   overflow-y: auto;
@@ -219,10 +202,6 @@
     left: max(14px, env(safe-area-inset-left, 0px));
     right: max(14px, env(safe-area-inset-right, 0px));
     bottom: calc(12px + env(safe-area-inset-bottom, 0px));
-    width: auto;
-    max-width: 720px;
-    max-height: min(78vh, 680px);
-    margin: 0 auto;
   }
 
 }
@@ -241,12 +220,6 @@
 #todo-modal.todo-detail-view.todo-meta-editing .todo-modal-body,
 #todo-modal.todo-detail-view.todo-meta-editing .todo-modal-header {
   padding-right: min(490px, 40vw);
-}
-
-@media (max-width: 1180px) {
-  #todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer {
-    width: auto;
-  }
 }
 
 /* Todo meta drawer: fix location reminder switch and full-width address. */
@@ -344,13 +317,6 @@
 }
 
 #todo-modal.todo-detail-view.todo-meta-editing .todo-meta-drawer-close {
-  width: 38px;
-  height: 38px;
-  min-height: 38px;
-  border: 1px solid color-mix(in srgb, var(--border) 42%, transparent);
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--bg-primary) 42%, transparent);
-  color: var(--text-muted);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -359,7 +325,6 @@
 
 #todo-modal.todo-detail-view.todo-meta-editing .todo-meta-drawer-close:hover,
 #todo-modal.todo-detail-view.todo-meta-editing .todo-meta-drawer-close:focus-visible {
-  color: var(--text-primary);
   border-color: color-mix(in srgb, var(--accent) 42%, transparent);
   outline: none;
 }

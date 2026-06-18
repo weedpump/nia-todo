@@ -18,7 +18,7 @@
 
 
 #todo-modal.todo-detail-view #todo-organize-panel { grid-area: organize; }
-#todo-modal.todo-detail-view #todo-schedule-panel { grid-area: schedule; grid-column: auto; grid-row: auto; }
+#todo-modal.todo-detail-view #todo-schedule-panel { grid-area: schedule; }
 
 #todo-modal.todo-detail-view .todo-main-section {
   max-width: none;
@@ -61,10 +61,6 @@
 
 #todo-modal.todo-detail-view #todo-organize-panel,
 #todo-modal.todo-detail-view #todo-schedule-panel {
-  padding: 18px;
-  border-radius: 24px;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--bg-secondary) 58%, transparent), color-mix(in srgb, var(--bg-primary) 34%, transparent));
   border-color: color-mix(in srgb, var(--border) 44%, transparent);
 }
 
@@ -93,16 +89,8 @@
   border-top: 1px solid color-mix(in srgb, var(--border) 36%, transparent);
 }
 
-#todo-modal.todo-detail-view .todo-subtasks-list,
-#todo-modal.todo-detail-view .todo-comments-list,
-#todo-modal.todo-detail-view .todo-attachments-list {
-  gap: 8px;
-}
-
 #todo-modal.todo-detail-view .todo-subtask-row {
   grid-template-columns: auto minmax(0, 1fr) auto;
-  padding: 10px 12px;
-  border-radius: 14px;
 }
 
 #todo-modal.todo-detail-view .todo-subtask-title-group,
@@ -110,12 +98,10 @@
   margin: 0;
 }
 
-#todo-modal.todo-detail-view .todo-subtasks-add-row,
-#todo-modal.todo-detail-view .todo-attachments-add-row {
+#todo-modal.todo-detail-view .todo-subtasks-add-row {
   gap: 10px;
 }
 
-#todo-modal.todo-detail-view .todo-comments-add-group textarea,
 #todo-modal.todo-detail-view .todo-subtasks-add-row input {
   background: color-mix(in srgb, var(--bg-secondary) 46%, transparent);
   border-color: color-mix(in srgb, var(--border) 42%, transparent);
@@ -167,7 +153,6 @@
 #todo-modal.todo-detail-view .todo-comments-card,
 #todo-modal.todo-detail-view .todo-attachments-card {
   padding-top: 18px;
-  border-top: 1px solid color-mix(in srgb, var(--border) 44%, transparent);
 }
 
 #todo-modal.todo-detail-view #todo-organize-panel .ui-field-grid,
@@ -201,11 +186,6 @@
   display: none;
 }
 
-#todo-modal.todo-detail-view.todo-meta-editing #todo-organize-panel,
-#todo-modal.todo-detail-view.todo-meta-editing #todo-schedule-panel {
-  display: block;
-}
-
 #todo-modal.todo-detail-view .todo-meta-summary-view[hidden] {
   display: none;
 }
@@ -224,8 +204,6 @@
   min-height: 34px;
   padding: 6px 10px;
   border-radius: 999px;
-  color: var(--text-primary);
-  background: color-mix(in srgb, var(--bg-secondary) 62%, transparent);
   border: 1px solid color-mix(in srgb, var(--border) 36%, transparent);
   font-size: 12px;
   line-height: 1.2;
@@ -234,11 +212,6 @@
 #todo-modal.todo-detail-view .todo-meta-summary-chip .ui-icon {
   width: 14px;
   height: 14px;
-  color: var(--text-muted);
-}
-
-#todo-modal.todo-detail-view .todo-meta-summary-label {
-  color: var(--text-muted);
 }
 
 #todo-modal.todo-detail-view .todo-meta-summary-chip strong {
