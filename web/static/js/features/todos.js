@@ -637,7 +637,7 @@ export function createTodosFeature({
     list.innerHTML = '';
     const normalized = normalizeSubtasks(subtasks)
       .filter(subtask => !deletingSubtaskIds.has(String(subtask.id)))
-      .sort((a, b) => Number(a.is_done) - Number(b.is_done) || Number(a.sort_order) - Number(b.sort_order));
+      .sort((a, b) => Number(a.sort_order) - Number(b.sort_order));
     normalized.forEach(subtask => addTodoSubtaskRow(subtask));
     updateSubtaskEditorCount();
     setTodoCollapsibleOpen('todo-subtasks-panel', normalized.length > 0);
