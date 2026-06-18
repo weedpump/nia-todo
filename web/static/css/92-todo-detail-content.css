@@ -1,6 +1,6 @@
 /* Todo detail content sections, comments, descriptions, attachments base */
 
-/* Todo detail view prototype: content sections become view-first blocks. */
+/* Todo detail content sections */
 #todo-modal.todo-detail-view .todo-subtasks-card,
 #todo-modal.todo-detail-view .todo-attachments-card,
 #todo-modal.todo-detail-view .todo-comments-card {
@@ -211,23 +211,6 @@
   }
 }
 
-/* Todo detail view prototype: restore subtle section structure without returning to form cards. */
-#todo-modal.todo-detail-view .todo-subtasks-card,
-#todo-modal.todo-detail-view .todo-attachments-card,
-#todo-modal.todo-detail-view .todo-comments-card {
-  padding: 18px;
-  border: 1px solid color-mix(in srgb, var(--border) 28%, transparent);
-  border-radius: 22px;
-  background: color-mix(in srgb, var(--bg-secondary) 22%, transparent);
-}
-
-#todo-modal.todo-detail-view .todo-subtasks-card:hover,
-#todo-modal.todo-detail-view .todo-attachments-card:hover,
-#todo-modal.todo-detail-view .todo-comments-card:hover {
-  border-color: color-mix(in srgb, var(--border) 40%, transparent);
-  background: color-mix(in srgb, var(--bg-secondary) 28%, transparent);
-}
-
 #todo-modal.todo-detail-view .todo-comments-add-group {
   order: 10;
   padding-top: 12px;
@@ -262,7 +245,7 @@
   border-left-color: color-mix(in srgb, var(--accent) 28%, var(--border));
 }
 
-/* Todo detail view prototype: undo card-like section surfaces, tighten comments/actions. */
+/* Todo detail section surfaces, comments, and actions */
 #todo-modal.todo-detail-view .todo-subtasks-card,
 #todo-modal.todo-detail-view .todo-attachments-card,
 #todo-modal.todo-detail-view .todo-comments-card {
@@ -436,7 +419,7 @@
   }
 }
 
-/* Todo detail attachments: force upload right, drop hint centered. */
+/* Todo detail attachments: upload button and drop hint alignment */
 #todo-modal.todo-detail-view .todo-attachments-add-row {
   grid-template-columns: auto 1fr auto;
 }
@@ -459,12 +442,6 @@
 }
 
 /* Todo detail description: meta before description and lightweight WYSIWYG editor. */
-#todo-modal.todo-detail-view .todo-meta-summary-view {
-  margin: 10px 0 18px;
-  padding-top: 0;
-  border-top: 0;
-}
-
 #todo-modal.todo-detail-view #todo-desc {
   display: none !important;
 }

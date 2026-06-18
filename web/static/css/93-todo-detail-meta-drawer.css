@@ -38,7 +38,7 @@
 #todo-modal.todo-detail-view .todo-meta-tone-repeat { --meta-tone: #14b8a6; }
 #todo-modal.todo-detail-view .todo-meta-tone-pin { --meta-tone: #ef4444; }
 
-/* Todo detail meta editing: drawer/sheet prototype for planning + organization. */
+/* Todo detail meta editing panel defaults */
 #todo-modal.todo-detail-view.todo-meta-editing .todo-modal-content::after {
   content: "";
   position: absolute;
@@ -285,7 +285,7 @@
   grid-column: 1 / -1;
 }
 
-/* Todo meta drawer: force location reminder checkbox back into switch shape. */
+/* Todo meta drawer: location reminder switch shape */
 #todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer .todo-location-toggle-row input[type="checkbox"].settings-switch {
   appearance: none !important;
   -webkit-appearance: none !important;
