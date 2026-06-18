@@ -1432,7 +1432,6 @@ select:focus-visible {
   min-width: 148px;
   max-width: min(210px, calc(100vw - 24px));
   padding: 4px;
-  border-radius: 11px;
   box-shadow: 0 10px 26px rgba(0,0,0,.20), 0 0 0 1px color-mix(in srgb, var(--bg-primary) 20%, transparent);
 }
 
@@ -1453,7 +1452,6 @@ select:focus-visible {
   justify-content: flex-start;
   gap: 7px;
   padding: 6px 8px;
-  border-radius: 8px;
   color: var(--text-secondary);
   font-size: 12px;
   font-weight: 650;
