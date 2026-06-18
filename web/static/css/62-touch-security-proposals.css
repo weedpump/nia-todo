@@ -1,4 +1,4 @@
-/* Touch fallbacks, Android hover fixes, security dialogs, today-focus proposal */
+/* Touch fallbacks, Android hover fixes, security dialogs, and focus controls */
 
 /* Touch pointer drag fallback */
 .native-app .todo-item,
@@ -390,7 +390,7 @@
 }
 
 
-/* Proposal: today focus, quick add, pins, snooze, sync badge */
+/* Today focus, quick add, pins, snooze, and sync badge */
 .today-focus-btn,
 .minimal-todos-btn {
   position: relative;
@@ -692,7 +692,6 @@
     font-weight: 950;
     line-height: 1;
   }
-  .todo-snooze-menu .todo-status-options { right: 0; left: auto; }
 
 }
 
