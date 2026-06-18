@@ -270,7 +270,7 @@ export function createTodosFeature({
     if (!modal) return;
     const isExistingTodo = Boolean(todo?.id);
     modal.classList.add('todo-detail-view');
-    modal.classList.remove('todo-create-view');
+    modal.classList.toggle('todo-create-view', !isExistingTodo);
     modal.classList.remove('todo-desc-editing');
     modal.classList.remove('todo-meta-editing');
     modal.classList.remove('todo-has-unsaved');
