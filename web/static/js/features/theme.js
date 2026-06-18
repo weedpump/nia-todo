@@ -171,7 +171,7 @@ export function renderAccentPresetOptions() {
   return ACCENT_PRESETS.map(preset => {
     const active = preset.id === current ? ' active' : '';
     const pressed = preset.id === current ? 'true' : 'false';
-    return `<button type="button" class="accent-preset-option${active}" data-accent="${preset.id}" aria-pressed="${pressed}" onclick="setAccentPreset('${preset.id}')" title="${preset.label}">
+    return `<button type="button" class="accent-preset-option${active}" data-accent="${preset.id}" aria-pressed="${pressed}" title="${preset.label}">
       ${renderAccentSwatch(preset)}
     </button>`;
   }).join('');
@@ -257,6 +257,12 @@ export function bindThemeOptionButtons() {
     if (!button) return;
     event.preventDefault();
     setTheme(button.dataset.theme);
+  });
+  document.addEventListener('click', (event) => {
+    const button = event.target?.closest?.('.accent-preset-option[data-accent]');
+    if (!button) return;
+    event.preventDefault();
+    setAccentPreset(button.dataset.accent);
   });
 }
 
