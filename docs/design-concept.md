@@ -454,6 +454,7 @@ For every new UI change:
 ## Current Reference Patterns
 
 - User Settings modal: wide settings modal, section nav, section cards, consistent button groups; profile content stays inside the standard section-card treatment and should be tidied through internal layout, not by adding a special profile header.
-- Project/Workspace modals: compact entity modal pattern using shared `.ui-section-*` cards, `.ui-field-grid`, and the same title/icon tile sizing as Todo Modal.
+- Project/Workspace modals: compact entity modal pattern using shared `.ui-section-*` cards, `.ui-field-grid`, and the same title/icon tile sizing as Todo Modal. Current picker surfaces should use shared primitives: visible picker triggers use `.ui-field`, picker panels use `.ui-section-card`, picker actions/options use `.btn`/`.btn-secondary`/`.btn-icon`, and selected states use shared `.btn.is-selected` / `[aria-selected="true"]` styling.
+- App Downloads modal: use normal `.btn` actions and `.ui-section-*` cards for install/download surfaces; keep platform instruction visuals illustrative, not a separate button/card system.
 - BrainDump modal: voice-first immediate recording flow.
 - Admin UI: card-based configuration sections and compact admin controls.
