@@ -480,13 +480,18 @@
 }
 
 .btn .ui-icon,
-.btn-add-section .ui-icon,
 .user-menu-item .ui-icon,
 .nav-btn .ui-icon,
 .overview-focus-item .ui-icon,
 .project-stat-icon .ui-icon {
   width: 16px;
   height: 16px;
+}
+
+.btn .ui-icon {
+  display: block;
+  vertical-align: middle;
+  transform: translateY(-1px);
 }
 
 .project-dashboard-avatar .ui-icon {
