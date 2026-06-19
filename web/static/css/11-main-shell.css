@@ -120,7 +120,7 @@
   min-height: 58px;
   padding: 9px 10px;
   border: 0;
-  border-radius: var(--field-radius);
+  border-radius: 999px;
   background: color-mix(in srgb, var(--bg-tertiary) 76%, var(--bg-secondary));
   color: var(--text-primary);
   font: inherit;

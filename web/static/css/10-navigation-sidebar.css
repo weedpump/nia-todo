@@ -50,7 +50,7 @@
   width: 100%;
   padding: 8px 12px;
   border: none;
-  border-radius: var(--radius);
+  border-radius: 999px;
   background: transparent;
   color: var(--text-secondary);
   font-size: 14px;
@@ -112,7 +112,7 @@
   color: var(--text-muted);
   cursor: pointer;
   padding: 6px;
-  border-radius: var(--radius);
+  border-radius: 999px;
   opacity: 0.6;
   transition: opacity 0.15s, background 0.15s;
   display: flex;
@@ -156,11 +156,12 @@
   opacity: 0;
   background: none;
   border: none;
+  border-radius: 999px;
   color: var(--text-muted);
   cursor: pointer;
   padding: 4px;
   font-size: 12px;
-  transition: opacity 0.2s;
+  transition: opacity 0.2s, background 0.15s, color 0.15s;
 }
 
 .nav-item-with-action:hover .nav-add-sub {
@@ -168,6 +169,7 @@
 }
 
 .nav-add-sub:hover {
+  background: var(--bg-hover);
   color: var(--accent);
 }
 
@@ -179,7 +181,7 @@
   width: 100%;
   margin-bottom: 6px;
   padding: 7px 8px;
-  border-radius: var(--radius);
+  border-radius: 999px;
   color: var(--text-secondary);
   font-size: 14px;
 }
