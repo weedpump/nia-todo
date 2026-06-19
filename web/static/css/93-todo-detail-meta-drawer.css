@@ -125,14 +125,6 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer .todo-collapsible-summary {
-  cursor: default;
-}
-
-#todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer .todo-collapsible-chevron {
-  display: none;
-}
-
 @media (max-width: 1180px) {
   #todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer {
     position: fixed;
