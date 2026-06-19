@@ -378,12 +378,14 @@
 
       <div class="sidebar-footer">
         <div class="user-menu-wrap sidebar-user-menu-wrap">
-          <button type="button" class="user-menu-button" id="user-menu-button" data-user-menu-action="toggle" aria-haspopup="menu" aria-expanded="false" title="User menu" data-i18n-title-key="menu.userMenu">U</button>
-          <div class="sidebar-user-meta">
-            <div class="sidebar-user-name" id="sidebar-user-name">User</div>
-            <div class="sidebar-user-email" id="sidebar-user-email">–</div>
-          </div>
-          <div class="user-menu" id="user-menu" role="menu">
+          <button type="button" class="user-menu-button" id="user-menu-button" data-user-menu-action="toggle" aria-haspopup="menu" aria-expanded="false" title="User menu" data-i18n-title-key="menu.userMenu">
+            <span class="user-menu-button-avatar" id="user-menu-button-avatar">U</span>
+            <span class="sidebar-user-meta">
+              <span class="sidebar-user-name" id="sidebar-user-name">User</span>
+              <span class="sidebar-user-email" id="sidebar-user-email">–</span>
+            </span>
+          </button>
+          <div class="ui-menu user-menu" id="user-menu" role="menu">
             <div class="user-menu-header">
               <div class="user-menu-avatar" id="user-menu-avatar">U</div>
               <div class="user-menu-identity">
@@ -391,15 +393,15 @@
                 <div class="user-menu-email" id="user-menu-email">–</div>
               </div>
             </div>
-            <button type="button" class="user-menu-item" id="menu-settings-btn" data-user-menu-action="settings" title="Settings" data-i18n-title-key="menu.settings" role="menuitem"><span data-icon="settings"></span><span data-i18n-key="menu.settings">Settings</span></button>
-            <button type="button" class="user-menu-item" id="theme-toggle-btn" data-user-menu-action="theme" role="menuitem"><span class="menu-item-icon" data-icon="monitor"></span><span class="menu-item-label">Theme: System</span></button>
-            <button type="button" class="user-menu-item accent-preset-row" id="accent-preset-row" data-user-menu-action="accent-preset" title="Preset Farbe" data-i18n-title-key="menu.presetColor" aria-expanded="false" role="menuitem"><span class="menu-item-icon accent-preset-current" id="accent-preset-current"></span><span class="menu-item-label" data-i18n-key="menu.presetColor">Preset Farbe</span><span class="accent-preset-chevron"></span></button>
+            <button type="button" class="ui-menu-item user-menu-item" id="menu-settings-btn" data-user-menu-action="settings" title="Settings" data-i18n-title-key="menu.settings" role="menuitem"><span data-icon="settings"></span><span data-i18n-key="menu.settings">Settings</span></button>
+            <button type="button" class="ui-menu-item user-menu-item" id="theme-toggle-btn" data-user-menu-action="theme" role="menuitem"><span class="menu-item-icon" data-icon="monitor"></span><span class="menu-item-label">Theme: System</span></button>
+            <button type="button" class="ui-menu-item user-menu-item accent-preset-row" id="accent-preset-row" data-user-menu-action="accent-preset" title="Preset Farbe" data-i18n-title-key="menu.presetColor" aria-expanded="false" role="menuitem"><span class="menu-item-icon accent-preset-current" id="accent-preset-current"></span><span class="menu-item-label" data-i18n-key="menu.presetColor">Preset Farbe</span><span class="accent-preset-chevron"></span></button>
             <div class="accent-preset-panel" id="accent-preset-panel" aria-label="Choose preset color" data-i18n-aria-label-key="menu.choosePresetColor"></div>
-            <button type="button" class="user-menu-item" id="sort-toggle-btn" data-user-menu-action="sort" role="menuitem"><span class="menu-item-icon">P1</span><span class="menu-item-label" data-i18n-key="menu.sort.priority">Sort: Priority</span></button>
-            <button type="button" class="user-menu-item" id="toggle-done-btn" data-user-menu-action="toggle-done" role="menuitem"><span class="menu-item-icon" data-icon="ban"></span><span class="menu-item-label">Erledigte anzeigen</span></button>
-            <button type="button" class="user-menu-item" id="project-widget-toggle-btn" data-user-menu-action="project-widget" role="menuitem"><span class="menu-item-icon" data-icon="layout-dashboard"></span><span class="menu-item-label" data-i18n-key="menu.projectWidget">Project Widget</span></button>
+            <button type="button" class="ui-menu-item user-menu-item" id="sort-toggle-btn" data-user-menu-action="sort" role="menuitem"><span class="menu-item-icon">P1</span><span class="menu-item-label" data-i18n-key="menu.sort.priority">Sort: Priority</span></button>
+            <button type="button" class="ui-menu-item user-menu-item" id="toggle-done-btn" data-user-menu-action="toggle-done" role="menuitem"><span class="menu-item-icon" data-icon="ban"></span><span class="menu-item-label">Erledigte anzeigen</span></button>
+            <button type="button" class="ui-menu-item user-menu-item" id="project-widget-toggle-btn" data-user-menu-action="project-widget" role="menuitem"><span class="menu-item-icon" data-icon="layout-dashboard"></span><span class="menu-item-label" data-i18n-key="menu.projectWidget">Project Widget</span></button>
             <div class="user-menu-separator"></div>
-            <button type="button" class="user-menu-item danger" data-user-menu-action="logout" title="Sign out" data-i18n-title-key="auth.signOut" role="menuitem"><span data-icon="log-out"></span><span data-i18n-key="auth.signOut">Sign out</span></button>
+            <button type="button" class="ui-menu-item user-menu-item danger" data-user-menu-action="logout" title="Sign out" data-i18n-title-key="auth.signOut" role="menuitem"><span data-icon="log-out"></span><span data-i18n-key="auth.signOut">Sign out</span></button>
           </div>
         </div>
 
@@ -544,12 +546,12 @@
         <div class="topbar-actions">
           <span id="online-status" class="status-online"></span>
           <div class="workspace-switcher topbar-workspace-switcher" id="workspace-switcher">
-            <button type="button" class="workspace-current-btn" id="workspace-current-btn" data-workspace-action="toggle-menu" aria-haspopup="menu" aria-expanded="false">
+            <button type="button" class="ui-select-trigger workspace-current-btn" id="workspace-current-btn" data-workspace-action="toggle-menu" aria-haspopup="menu" aria-expanded="false">
               <span class="workspace-current-dot" id="workspace-current-dot"></span>
               <span class="workspace-current-name" id="workspace-current-name">Workspace</span>
               <svg class="workspace-current-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
             </button>
-            <div class="workspace-menu" id="workspace-menu" role="menu"></div>
+            <div class="ui-menu workspace-menu" id="workspace-menu" role="menu"></div>
           </div>
         </div>
       </div>

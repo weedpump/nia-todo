@@ -106,7 +106,7 @@ export function createWorkspacesFeature({
         ${workspaces.map(workspace => {
           const active = String(workspace.id) === String(currentId);
           return `<div class="workspace-menu-row ${active ? 'active' : ''}" role="menuitem">
-            <button type="button" class="workspace-menu-choice" data-workspace-action="switch" data-workspace-id="${escapeAttr(workspace.id)}">
+            <button type="button" class="ui-menu-item workspace-menu-choice" data-workspace-action="switch" data-workspace-id="${escapeAttr(workspace.id)}">
               ${markerHtml(workspace, 'workspace-menu-dot')}
               <span>${escapeHtml(workspace.name)}</span>
               ${active ? `<span class="workspace-menu-check">${iconSvg('check')}</span>` : ''}
@@ -117,7 +117,7 @@ export function createWorkspacesFeature({
           </div>`;
         }).join('')}
       </div>
-      <button type="button" class="workspace-menu-add" data-workspace-action="new">${escapeHtml(t('workspace.add'))}</button>
+      <button type="button" class="ui-menu-item workspace-menu-add" data-workspace-action="new">${escapeHtml(t('workspace.add'))}</button>
     `;
   }
 

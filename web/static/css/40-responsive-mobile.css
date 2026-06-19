@@ -68,6 +68,15 @@
     min-width: 36px;
     height: 36px;
     min-height: 36px;
+    border: 1px solid var(--border);
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+  }
+  .search-box > .search-toggle-btn:hover,
+  .search-box.open > .search-toggle-btn {
+    border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+    background: color-mix(in srgb, var(--accent) 10%, var(--bg-secondary));
+    color: var(--accent);
   }
   .search-toggle-btn .ui-icon {
     display: block;
