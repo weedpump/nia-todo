@@ -11,8 +11,11 @@
 }
 
 /* Todo modal redesign */
-#todo-modal .todo-modal-content {
+#todo-modal:not(.todo-detail-view) .todo-modal-content {
   max-width: min(760px, 96vw);
+}
+
+#todo-modal .todo-modal-content {
   padding: 0;
   overflow: hidden;
 }
@@ -81,7 +84,7 @@
 
 
 @media (max-width: 768px) {
-  #todo-modal .todo-modal-content {
+  #todo-modal:not(.todo-detail-view) .todo-modal-content {
     max-width: none;
   }
 
@@ -141,6 +144,9 @@
 #todo-modal .todo-modal-content {
   display: flex;
   flex-direction: column;
+}
+
+#todo-modal:not(.todo-detail-view) .todo-modal-content {
   max-height: min(90vh, 860px);
 }
 
