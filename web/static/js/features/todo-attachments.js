@@ -194,42 +194,42 @@ export function createTodoAttachmentsFeature({
   }
 
   async function uploadTodoAttachmentFromInput() {
-    if (!getAppInitialized() || !getDb()) return;
+    if (!getAppInitialized() || !getDb()) return false;
     const id = document.getElementById('todo-id')?.value;
     const input = document.getElementById('todo-attachment-file');
     const files = getSelectedAttachmentFiles();
     if (!id || id.startsWith('temp-')) {
       showToast(t('todo.attachments.saveFirst'));
-      return;
+      return false;
     }
     if (files.length === 0) {
       input?.focus();
-      return;
+      return true;
     }
     if (!isOnlineForSync()) {
       showToast(t('todo.attachments.onlineOnly'));
-      return;
+      return false;
     }
     const currentUser = getCurrentUser?.();
     if (currentUser?.attachments_enabled === false) {
       showToast(t('todo.attachments.disabled'));
-      return;
+      return false;
     }
     const maxUploadBytes = Number(currentUser?.attachment_max_upload_bytes || 0);
     const oversized = files.find(file => maxUploadBytes > 0 && file.size > maxUploadBytes);
     if (oversized) {
       showToast(t('todo.attachments.fileTooLarge', { max: formatAttachmentSize(maxUploadBytes) }));
-      return;
+      return false;
     }
     const remainingBytes = Number(currentUser?.attachment_remaining_bytes ?? currentUser?.attachment_quota_bytes ?? 0);
     const totalBytes = files.reduce((sum, file) => sum + (Number(file.size) || 0), 0);
     if (totalBytes > Math.max(remainingBytes, 0)) {
       showToast(t('todo.attachments.quotaExceeded'));
-      return;
+      return false;
     }
     if (files.some(file => !attachmentAllowedByClient(file, currentUser))) {
       showToast(t('todo.attachments.typeNotAllowed'));
-      return;
+      return false;
     }
     const uploadButton = document.getElementById('todo-attachment-upload-btn');
     const previousDisabled = uploadButton?.disabled;
@@ -256,9 +256,11 @@ export function createTodoAttachmentsFeature({
       setSelectedAttachmentFileName([]);
       if (input) input.value = '';
       showToast(files.length === 1 ? t('todo.attachments.uploaded') : t('todo.attachments.uploadedMany', { count: files.length }));
+      return true;
     } catch (error) {
       console.error('Failed to upload todo attachment', error);
       showToast(error?.message || t('todo.attachments.uploadFailed'));
+      return false;
     } finally {
       if (uploadButton) uploadButton.disabled = previousDisabled ?? false;
       refreshTodoActionButtonState();
