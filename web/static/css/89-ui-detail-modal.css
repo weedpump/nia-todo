@@ -179,19 +179,19 @@
   text-transform: uppercase;
 }
 
-.ui-detail-action-row {
+.ui-detail-modal .ui-detail-action-row {
   display: flex;
   justify-content: flex-end;
   margin-top: 0;
 }
 
-.ui-detail-action-row .btn {
+.ui-detail-modal .ui-detail-action-row .btn {
   min-height: 36px;
   min-width: 118px;
   border-radius: var(--field-radius);
 }
 
-.ui-detail-header-actions {
+.ui-detail-modal .ui-detail-header-actions {
   position: absolute;
   top: 18px;
   right: max(66px, calc((100% - 920px) / 2 + 42px));
@@ -201,11 +201,11 @@
   gap: 8px;
 }
 
-.ui-detail-header-menu-toggle[hidden] {
+.ui-detail-modal .ui-detail-header-menu-toggle[hidden] {
   display: none;
 }
 
-.ui-detail-header-menu-toggle > summary {
+.ui-detail-modal .ui-detail-header-menu-toggle > summary {
   width: 34px;
   height: 34px;
   min-height: 34px;
@@ -220,24 +220,24 @@
   cursor: pointer;
 }
 
-.ui-detail-header-menu-toggle > summary::-webkit-details-marker {
+.ui-detail-modal .ui-detail-header-menu-toggle > summary::-webkit-details-marker {
   display: none;
 }
 
-.ui-detail-header-menu-toggle > summary:hover,
-.ui-detail-header-menu-toggle > summary:focus-visible,
-.ui-detail-header-menu-toggle[open] > summary {
+.ui-detail-modal .ui-detail-header-menu-toggle > summary:hover,
+.ui-detail-modal .ui-detail-header-menu-toggle > summary:focus-visible,
+.ui-detail-modal .ui-detail-header-menu-toggle[open] > summary {
   color: var(--text-primary);
   background: transparent;
   border: 0;
   outline: none;
 }
 
-.ui-detail-header-menu-toggle[open] > summary {
+.ui-detail-modal .ui-detail-header-menu-toggle[open] > summary {
   color: var(--accent);
 }
 
-.ui-detail-header-menu {
+.ui-detail-modal .ui-detail-header-menu {
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
@@ -245,13 +245,13 @@
   z-index: 20;
 }
 
-.ui-detail-header-menu .ui-menu-item {
+.ui-detail-modal .ui-detail-header-menu .ui-menu-item {
   display: flex;
   align-items: center;
   gap: 9px;
 }
 
-.ui-detail-header-menu .ui-menu-item.danger {
+.ui-detail-modal .ui-detail-header-menu .ui-menu-item.danger {
   color: var(--danger);
 }
 
@@ -308,7 +308,7 @@
     right: 12px;
   }
 
-  .ui-detail-header-actions {
+  .ui-detail-modal .ui-detail-header-actions {
     right: 52px;
   }
 }
@@ -331,12 +331,12 @@
     padding: 12px 94px 12px 0;
   }
 
-  .ui-detail-header-actions {
+  .ui-detail-modal .ui-detail-header-actions {
     top: 12px;
     right: 52px;
   }
 
-  .ui-detail-header-actions .btn {
+  .ui-detail-modal .ui-detail-header-actions .btn {
     min-height: 34px;
     padding: 7px 11px;
   }
@@ -368,7 +368,7 @@
     font-size: clamp(24px, 8vw, 32px);
   }
 
-  .ui-detail-action-row .btn {
+  .ui-detail-modal .ui-detail-action-row .btn {
     width: 100%;
     min-height: 42px;
   }

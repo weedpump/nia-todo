@@ -18,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - Added admin attachment controls for global upload enablement, comma-separated allowed file extensions, default 5 GB quota, per-user quota overrides, and user-visible storage usage.
 
 ### Changed
-- Added shared detail-modal primitives for Todo/Project-style editors so future modals can reuse the same surface, header, title field, section, action-row, and menu styling without copying modal-specific CSS.
+- Added shared detail-modal primitives for Todo/Project-style editors so future modals can reuse the same surface, header, title field, section, action-row, and menu styling without copying modal-specific CSS, with matching offline/PWA cache coverage.
 - Refined the project modal to match the Todo detail modal surface and section language, including the large inline title field, flat drawer-style details/organization/sharing sections, header actions, shared field/button primitives, and polished sharing member rows.
 - Replaced the main app's legacy inline event handlers with delegated `data-*` action bindings across todo cards, sections, settings, API keys, and drag-and-drop, and renamed the remaining global runtime adapter to `runtime-globals`.
 - Cleaned up the Todo detail modal CSS and internal modal state handling by consolidating redundant override layers, canonicalizing detail action/drop-hint styles, and centralizing modal lookup/state helpers without intended visual changes.
