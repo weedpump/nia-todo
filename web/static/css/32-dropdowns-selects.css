@@ -20,7 +20,7 @@
   border-radius: var(--field-radius);
   background: var(--bg-tertiary);
   color: var(--text-primary);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bg-primary) 12%, transparent);
+  box-shadow: none;
   font: inherit;
   font-size: 14px;
   font-weight: 400;
@@ -33,7 +33,7 @@
 
 [data-theme="light"] .ui-select-trigger {
   background: var(--bg-tertiary);
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,.12);
+  box-shadow: none;
 }
 
 .ui-select-trigger:hover {
@@ -42,16 +42,14 @@
 
 [data-theme="light"] .ui-select-trigger:hover {
   background: var(--bg-hover);
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,.14);
+  box-shadow: none;
 }
 
 .ui-select-trigger:focus-visible,
 .ui-select.is-open .ui-select-trigger,
 .ui-select-trigger[aria-expanded="true"] {
   background: var(--bg-hover);
-  box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--accent) 10%, transparent),
-    0 0 0 3px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.13));
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.13));
 }
 
 [data-theme="light"] .ui-select-trigger:focus-visible,
@@ -106,7 +104,12 @@
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
-  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border));
+}
+
+.ui-select-menu,
+.ui-menu,
+.ui-dropdown-panel {
+  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
   border-radius: var(--dropdown-menu-radius);
   background:
     radial-gradient(circle at 18% -12%, color-mix(in srgb, var(--accent) 11%, transparent), transparent 44%),
@@ -116,13 +119,13 @@
   box-shadow:
     0 22px 48px rgba(0,0,0,.34),
     0 6px 16px rgba(0,0,0,.18),
-    0 0 0 1px color-mix(in srgb, var(--bg-primary) 30%, transparent),
     inset 0 1px 0 color-mix(in srgb, white 9%, transparent);
 }
 
 [data-theme="light"] .ui-select-menu,
-[data-theme="light"] .ui-menu {
-  border-color: color-mix(in srgb, var(--accent) 20%, var(--border));
+[data-theme="light"] .ui-menu,
+[data-theme="light"] .ui-dropdown-panel {
+  border-color: color-mix(in srgb, var(--border) 82%, transparent);
   background:
     radial-gradient(circle at 18% -12%, color-mix(in srgb, var(--accent) 7%, transparent), transparent 46%),
     linear-gradient(180deg,
@@ -131,7 +134,6 @@
   box-shadow:
     0 22px 50px rgba(15,23,42,.16),
     0 5px 14px rgba(15,23,42,.08),
-    0 0 0 1px rgba(255,255,255,.74),
     inset 0 1px 0 rgba(255,255,255,.96);
 }
 
