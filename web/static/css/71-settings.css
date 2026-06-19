@@ -403,6 +403,37 @@
   margin-top: 12px;
 }
 
+#settings-modal .settings-card-actions,
+#settings-modal .settings-action-row,
+#settings-modal .settings-actions-row {
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+#settings-modal .settings-action-row > .app-resource-links {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 0;
+}
+
+#settings-modal .settings-card-actions > .btn,
+#settings-modal .settings-action-row > .btn,
+#settings-modal .settings-action-row > .app-resource-links > .btn,
+#settings-modal .settings-actions-row > .btn {
+  min-height: 34px;
+  align-items: center;
+}
+
+#settings-modal .settings-card-actions .ui-icon,
+#settings-modal .settings-action-row .ui-icon,
+#settings-modal .settings-actions-row .ui-icon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
 #settings-places-list {
   margin-top: 14px;
 }
@@ -598,6 +629,16 @@
     align-items: stretch;
   }
   .settings-status-pill { width: fit-content; }
+
+  #settings-modal .settings-card-actions,
+  #settings-modal .settings-action-row,
+  #settings-modal .settings-actions-row {
+    align-items: stretch;
+  }
+
+  #settings-modal .settings-action-row > .app-resource-links {
+    width: 100%;
+  }
 }
 
 /* Settings redesign mobile fixes */
