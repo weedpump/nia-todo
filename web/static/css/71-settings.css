@@ -83,17 +83,20 @@
 
 .settings-modal-body {
   display: grid;
-  grid-template-columns: 210px minmax(0, 1fr);
+  grid-template-columns: minmax(28px, 1fr) 210px minmax(0, 710px) minmax(28px, 1fr);
   gap: 0;
-  width: calc(100% - 56px);
-  max-width: 920px;
-  margin: 0 auto;
+  width: 100%;
+  max-width: none;
+  margin: 0;
   padding: 0;
   min-height: 0;
   background: transparent;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .settings-nav {
+  grid-column: 2;
   position: sticky;
   top: 0;
   align-self: start;
@@ -129,10 +132,11 @@
 .settings-section-heading [data-icon] .ui-icon { flex: 0 0 auto; }
 
 .settings-sections {
+  grid-column: 3;
   display: grid;
   gap: 24px;
   padding: clamp(22px, 2.5vw, 38px) 0 clamp(22px, 2.5vw, 38px) clamp(24px, 3vw, 44px);
-  overflow-y: auto;
+  overflow: visible;
   scroll-behavior: smooth;
 }
 
@@ -594,6 +598,10 @@
   }
 
   .settings-modal-body { grid-template-columns: 1fr; }
+  .settings-nav,
+  .settings-sections {
+    grid-column: 1;
+  }
   .settings-nav {
     position: relative;
     display: flex;
