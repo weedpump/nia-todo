@@ -32,6 +32,11 @@ export function createUiShell({ renderMarkdown, showTodoModal }) {
     const modal = document.getElementById(modalId);
     if (modalId === 'settings-modal' && modal?.classList.contains('mfa-enrollment-locked')) return;
     modal?.classList.remove('active');
+
+    const activeElement = document.activeElement;
+    if (activeElement?.matches?.('.nav-edit, [data-project-action="edit"], [data-workspace-action="edit"]')) {
+      activeElement.blur();
+    }
   }
 
   let modalCloseControlsBound = false;
