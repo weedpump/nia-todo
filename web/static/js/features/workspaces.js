@@ -232,8 +232,14 @@ export function createWorkspacesFeature({
         }),
       });
     }
+    const canDelete = !!workspace && !workspace.is_default;
     const deleteBtn = document.getElementById('workspace-delete-btn');
-    if (deleteBtn) deleteBtn.style.display = workspace && !workspace.is_default ? '' : 'none';
+    const headerMenu = document.getElementById('workspace-detail-header-menu');
+    if (deleteBtn) deleteBtn.style.display = canDelete ? '' : 'none';
+    if (headerMenu) {
+      headerMenu.hidden = !canDelete;
+      headerMenu.removeAttribute('open');
+    }
     document.getElementById('workspace-modal')?.classList.add('active');
     setTimeout(() => document.getElementById('workspace-name')?.focus(), 50);
   }

@@ -166,12 +166,12 @@ Modal redesign direction from the Todo detail work:
 
 ### Detail Modal Family
 
-Use the shared `ui-detail-modal` primitive for Todo/Project-style detail editors and for future entity modals that should visually belong to the same family.
+Use the shared `ui-detail-modal` primitive for Todo/Project/Workspace-style detail editors and for future entity modals that should visually belong to the same family.
 
 Core classes:
 
 - `.ui-detail-modal` on the root `.modal`.
-- `.ui-detail-view` on modals that should always use the detail treatment, e.g. Project. Todo uses `.todo-detail-view` only for existing-todo detail mode so the new-todo composer can remain compact.
+- `.ui-detail-view` on modals that should always use the detail treatment, e.g. Project and Workspace. Todo uses `.todo-detail-view` only for existing-todo detail mode so the new-todo composer can remain compact.
 - `.ui-detail-modal-content`, `.ui-detail-modal-header`, `.ui-detail-modal-body` for the shared shell.
 - `.ui-detail-shell` for the centered content column.
 - `.ui-detail-section`, `.ui-detail-section-heading`, `.ui-detail-section-icon` for flat drawer-style sections.
