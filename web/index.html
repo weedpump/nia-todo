@@ -1022,19 +1022,17 @@
                 <p data-i18n-key="settings.places.hint">Save labels like Home or Work with an address. BrainDump and location reminders use these places.</p>
               </div>
             </div>
-            <div class="settings-place-form ui-field-grid two-columns">
-              <div class="form-group">
+            <div class="settings-place-form settings-place-add-row">
+              <div class="form-group settings-place-name-group">
                 <label for="settings-place-name" data-i18n-key="settings.places.nameLabel">Label</label>
                 <input type="text" id="settings-place-name" maxlength="120" placeholder="e.g. Home" data-i18n-placeholder-key="settings.places.namePlaceholder">
               </div>
-              <div class="form-group">
+              <div class="form-group settings-place-address-group">
                 <label for="settings-place-address" data-i18n-key="settings.places.addressLabel">Address</label>
                 <input type="text" id="settings-place-address" maxlength="500" placeholder="Street, city" data-i18n-placeholder-key="settings.places.addressPlaceholder">
               </div>
-            </div>
-            <div class="settings-actions-row">
-              <button type="button" class="btn btn-primary" data-user-settings-action="save-place"><span data-icon="plus" id="settings-place-save-icon"></span> <span id="settings-place-save-label" data-i18n-key="settings.places.save">Save place</span></button>
-              <button type="button" class="btn btn-secondary" id="settings-place-cancel-edit" data-user-settings-action="cancel-place-edit" hidden data-i18n-key="common.cancel">Cancel</button>
+              <button type="button" class="btn btn-secondary settings-place-save-btn" data-user-settings-action="save-place" disabled><span data-icon="plus" id="settings-place-save-icon"></span> <span id="settings-place-save-label" data-i18n-key="settings.places.save">Save place</span></button>
+              <button type="button" class="btn btn-secondary settings-place-cancel-btn" id="settings-place-cancel-edit" data-user-settings-action="cancel-place-edit" hidden data-i18n-key="common.cancel">Cancel</button>
             </div>
             <div id="settings-places-error" class="settings-field-error"></div>
             <div id="settings-places-success" class="settings-field-success"></div>
@@ -1096,7 +1094,7 @@
                 At least 8 characters, 1 uppercase, 1 lowercase, 1 digit, 1 special character
               </div>
               <div class="settings-card-actions">
-                <button type="button" class="btn btn-primary" data-user-settings-action="change-password" data-i18n-key="settings.password.title">Change password</button>
+                <button type="button" class="btn btn-secondary" id="settings-change-password-btn" data-user-settings-action="change-password" data-i18n-key="settings.password.title" disabled>Change password</button>
               </div>
               <div id="settings-pw-error" class="settings-field-error"></div>
               <div id="settings-pw-success" class="settings-field-success"></div>
@@ -1107,8 +1105,8 @@
                 <h5><span data-icon="shield"></span> <span data-i18n-key="settings.2fa.title">Two-factor authentication</span></h5>
                 <div id="settings-2fa-status" class="settings-status-pill" data-i18n-key="settings.2fa.statusChecking">Status: Checking...</div>
               </div>
-              <div id="settings-2fa-actions" class="settings-action-row">
-                <button type="button" class="btn btn-primary" data-user-settings-action="start-totp" data-i18n-key="settings.2fa.setupAuthenticator">Set up authenticator app</button>
+              <div id="settings-2fa-actions" class="settings-action-row settings-2fa-action-row">
+                <button type="button" class="btn btn-secondary" data-user-settings-action="start-totp" data-i18n-key="settings.2fa.setupAuthenticator">Set up authenticator app</button>
                 <button type="button" class="btn btn-secondary" data-user-settings-action="add-passkey" data-i18n-key="settings.2fa.addPasskey">Add passkey</button>
                 <button type="button" class="btn btn-secondary" id="settings-2fa-regenerate-recovery-btn" data-user-settings-action="regenerate-recovery-codes" data-i18n-key="settings.2fa.regenerateRecovery">Generate new recovery codes</button>
                 <button type="button" class="btn btn-danger" id="settings-2fa-disable-btn" data-user-settings-action="disable-2fa" data-i18n-key="settings.2fa.disable">Disable 2FA</button>
@@ -1168,7 +1166,7 @@
               <!-- API keys loaded dynamically -->
             </div>
             <div class="settings-action-row">
-              <button class="btn btn-primary" data-api-key-action="create" data-i18n-key="settings.apiKeys.create">Create new API key</button>
+              <button class="btn btn-secondary" data-api-key-action="create" data-i18n-key="settings.apiKeys.create">Create new API key</button>
               <div class="app-resource-links settings-resource-links api-settings-resource-links">
                 <a class="btn btn-secondary" href="/api" target="_blank" rel="noopener"><span data-icon="book-open"></span> <span data-i18n-key="resource.apiDocs">API-Doku</span></a>
               </div>

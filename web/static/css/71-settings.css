@@ -436,6 +436,48 @@
   flex: 0 0 auto;
 }
 
+#settings-modal .settings-2fa-action-row > [data-user-settings-action="start-totp"] {
+  margin-right: auto;
+}
+
+#settings-modal .settings-2fa-action-row > [data-user-settings-action="add-passkey"] {
+  margin-left: auto;
+}
+
+#settings-modal #settings-change-password-btn:disabled {
+  opacity: .52;
+  filter: saturate(.72);
+}
+
+#settings-modal .settings-place-add-row {
+  display: grid;
+  grid-template-columns: minmax(120px, .72fr) minmax(180px, 1fr) auto auto;
+  align-items: end;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+#settings-modal .settings-place-add-row .form-group {
+  min-width: 0;
+  margin: 0;
+}
+
+#settings-modal .settings-place-add-row label {
+  display: none;
+}
+
+#settings-modal .settings-place-add-row input {
+  min-height: 36px;
+  background: color-mix(in srgb, var(--bg-secondary) 46%, transparent);
+  border-color: color-mix(in srgb, var(--border) 42%, transparent);
+}
+
+#settings-modal .settings-place-save-btn,
+#settings-modal .settings-place-cancel-btn {
+  min-height: 36px;
+  white-space: nowrap;
+}
+
 #settings-places-list {
   margin-top: 14px;
 }
@@ -640,6 +682,16 @@
 
   #settings-modal .settings-action-row > .app-resource-links {
     width: 100%;
+  }
+
+  #settings-modal .settings-place-add-row {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+  }
+
+  #settings-modal .settings-place-add-row .btn {
+    width: 100%;
+    min-height: 42px;
   }
 }
 
