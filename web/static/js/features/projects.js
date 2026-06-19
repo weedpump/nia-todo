@@ -42,12 +42,18 @@ export function createProjectsFeature({
     };
   }
 
+  function canSaveProject() {
+    const state = getProjectSaveRelevantState();
+    const unchanged = projectSaveSnapshot !== null && JSON.stringify(state) === projectSaveSnapshot;
+    return !!state.name && !unchanged;
+  }
+
   function refreshProjectSaveButtonState() {
     const saveBtn = document.getElementById('project-save-btn');
     if (!saveBtn) return;
-    const state = getProjectSaveRelevantState();
-    const unchanged = projectSaveSnapshot !== null && JSON.stringify(state) === projectSaveSnapshot;
-    saveBtn.disabled = unchanged || !state.name;
+    const canSave = canSaveProject();
+    saveBtn.hidden = !canSave;
+    saveBtn.disabled = !canSave;
   }
 
   function resetProjectSaveSnapshot() {
@@ -167,7 +173,10 @@ export function createProjectsFeature({
     document.getElementById('project-form')?.reset();
     document.getElementById('project-id').value = '';
     const saveBtn = document.getElementById('project-save-btn');
-    if (saveBtn) saveBtn.style.display = '';
+    if (saveBtn) {
+      saveBtn.hidden = false;
+      saveBtn.disabled = false;
+    }
     const iconPicker = document.getElementById('project-icon-picker');
     if (iconPicker) {
       iconPicker.style.pointerEvents = '';
@@ -270,7 +279,7 @@ export function createProjectsFeature({
   async function saveProject(event) {
     event.preventDefault();
     refreshProjectSaveButtonState();
-    if (document.getElementById('project-save-btn')?.disabled) return;
+    if (!canSaveProject()) return;
     const id = document.getElementById('project-id').value;
     const parentIdVal = document.getElementById('project-parent-id')?.value;
     const existing = id ? getProjects().find(p => String(p.id) === String(id)) : null;

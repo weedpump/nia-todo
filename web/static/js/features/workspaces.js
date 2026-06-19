@@ -22,6 +22,35 @@ export function createWorkspacesFeature({
   let editingWorkspaceId = null;
   let workspaceFormBound = false;
   let workspaceControlsBound = false;
+  let workspaceSaveSnapshot = null;
+
+  function getWorkspaceSaveRelevantState() {
+    return {
+      id: document.getElementById('workspace-id')?.value || '',
+      name: (document.getElementById('workspace-name')?.value || '').trim(),
+      color: document.getElementById('workspace-color')?.value || '#6366f1',
+      icon: document.getElementById('workspace-icon')?.value || '',
+    };
+  }
+
+  function canSaveWorkspace() {
+    const state = getWorkspaceSaveRelevantState();
+    const unchanged = workspaceSaveSnapshot !== null && JSON.stringify(state) === workspaceSaveSnapshot;
+    return !!state.name && !unchanged;
+  }
+
+  function refreshWorkspaceSaveButtonState() {
+    const saveBtn = document.getElementById('workspace-save-btn');
+    if (!saveBtn) return;
+    const canSave = canSaveWorkspace();
+    saveBtn.hidden = !canSave;
+    saveBtn.disabled = !canSave;
+  }
+
+  function resetWorkspaceSaveSnapshot() {
+    workspaceSaveSnapshot = JSON.stringify(getWorkspaceSaveRelevantState());
+    refreshWorkspaceSaveButtonState();
+  }
 
   function bindWorkspaceForm() {
     if (workspaceFormBound) return;
@@ -29,6 +58,12 @@ export function createWorkspacesFeature({
     if (!form) return;
     workspaceFormBound = true;
     form.addEventListener('submit', saveWorkspace);
+    form.addEventListener('input', refreshWorkspaceSaveButtonState);
+    form.addEventListener('change', refreshWorkspaceSaveButtonState);
+    document.getElementById('workspace-icon-picker')?.addEventListener('click', (event) => {
+      if (!event.target?.closest?.('.icon-picker-option')) return;
+      window.setTimeout(refreshWorkspaceSaveButtonState, 0);
+    });
   }
 
   function normalizeWorkspaceId(id) {
@@ -224,12 +259,15 @@ export function createWorkspacesFeature({
         container: document.getElementById('workspace-color-picker'),
         input: colorInput,
         selected: colorInput.value || '#6366f1',
-        onChange: (color) => renderIconPicker({
-          container: document.getElementById('workspace-icon-picker'),
-          input: document.getElementById('workspace-icon'),
-          selected: document.getElementById('workspace-icon')?.value || '',
-          color,
-        }),
+        onChange: (color) => {
+          renderIconPicker({
+            container: document.getElementById('workspace-icon-picker'),
+            input: document.getElementById('workspace-icon'),
+            selected: document.getElementById('workspace-icon')?.value || '',
+            color,
+          });
+          refreshWorkspaceSaveButtonState();
+        },
       });
     }
     const canDelete = !!workspace && !workspace.is_default;
@@ -241,7 +279,10 @@ export function createWorkspacesFeature({
       headerMenu.removeAttribute('open');
     }
     document.getElementById('workspace-modal')?.classList.add('active');
-    setTimeout(() => document.getElementById('workspace-name')?.focus(), 50);
+    resetWorkspaceSaveSnapshot();
+    if (!workspace) {
+      setTimeout(() => document.getElementById('workspace-name')?.focus(), 50);
+    }
   }
 
   function closeWorkspaceModal() {
@@ -251,6 +292,8 @@ export function createWorkspacesFeature({
 
   async function saveWorkspace(event) {
     event?.preventDefault?.();
+    refreshWorkspaceSaveButtonState();
+    if (!canSaveWorkspace()) return;
     const name = document.getElementById('workspace-name')?.value?.trim();
     const color = document.getElementById('workspace-color')?.value || '#6366f1';
     const icon = document.getElementById('workspace-icon')?.value || null;
