@@ -20,19 +20,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 ### Changed
 - Replaced the main app's legacy inline event handlers with delegated `data-*` action bindings across todo cards, sections, settings, API keys, and drag-and-drop, and renamed the remaining global runtime adapter to `runtime-globals`.
 - Cleaned up the Todo detail modal CSS and internal modal state handling by consolidating redundant override layers, canonicalizing detail action/drop-hint styles, and centralizing modal lookup/state helpers without intended visual changes.
-- Refined the shared UI design primitives for buttons, form fields, dropdowns, and Todo detail actions, including compact pill buttons, visually balanced field/dropdown sizing, mobile full-width action layouts, Login/Admin/Setup/Set Password/App Downloads rollout, Project/Workspace icon and color picker alignment, and removal of obsolete Todo modal footer actions.
+- Refined the shared UI design primitives for buttons, form fields, dropdowns, and Todo detail actions, including compact pill buttons, visually balanced field/dropdown sizing, unified light/dark field and dropdown depth polish, mobile full-width action layouts, Login/Admin/Setup/Set Password/App Downloads rollout, Project/Workspace icon and color picker alignment, and removal of obsolete Todo modal footer actions.
 - Switched packaged backups to snapshot generic runtime data under `NIA_TODO_DATA_DIR` alongside a consistent SQLite backup, covering current and future runtime files while excluding backup archives and SQLite temp/journal files.
 - Centralized icon rendering across the main app, setup/password pages, and admin panel so all UI icons resolve through the generated Lucide package subset instead of page-local SVG definitions.
 - Refined Todo, sidebar, filter, topbar, and admin status icons with the generated Lucide icon set; the sidebar Focus entry is now labeled as Filter.
 - Centered the attachment picker prompt while keeping selected attachment filenames left-aligned for readability.
 - Refined the Todo modal into compact collapsible sections for planning, organization, subtasks, comments, and attachments, with mobile-first collapsed metadata panels and muted disabled action buttons.
 - Refined mobile/tablet todo card actions, floating action button layering, Todo modal action buttons, and subtask/comment/attachment visual styling for a cleaner compact UI; iPad-width layouts now keep quick actions collapsed behind the reveal control even when the sidebar uses the desktop shell.
-- Disabled touch pinch-zoom/two-finger page scaling for the web app on phones and tablets while leaving normal desktop browser zoom available.
+- Disabled touch pinch-zoom/two-finger page scaling and precision-touchpad pinch zoom for the web app while leaving normal browser zoom via keyboard/menu available.
 - Cleaned up startup sync ownership so REST handles authoritative full refreshes while WebSocket startup stays on auth/session and realtime deltas, preventing duplicate full-cache writers from racing IndexedDB/UI state.
 - Hardened attachment uploads with streaming temp-file writes, server-side quota/type policy enforcement, magic-byte validation for common binary formats, active-content blocking, and client-side preflight for disabled uploads, type, file size, and quota.
 
 ### Fixed
 - Improved Todo detail inline editing polish so the title becomes a visible input field only while focused, avoids desktop Edge glyph clipping, and aligns subtask/comment/meta action spacing and field borders.
+- Hid custom overlay scrollbars immediately when modals close, preventing stale scroll indicators from lingering after a recently scrolled modal disappears.
 - Prevented long-press todo drag-and-drop from also triggering horizontal swipe status gestures.
 - Prevented aborted todo swipe gestures from showing the custom overlay scrollbar inside todo cards.
 - Deferred server-side todo hard-deletes until the undo toast grace window expires, so undoing a delete preserves subtasks, comments, and attachment files instead of recreating only the parent todo.
