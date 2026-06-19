@@ -9,7 +9,7 @@
 .ui-select-trigger {
   box-sizing: border-box;
   width: 100%;
-  height: 100%;
+  height: auto;
   min-height: 36px;
   display: flex;
   align-items: center;
@@ -46,7 +46,8 @@
 }
 
 .ui-select-trigger:focus-visible,
-.ui-select.is-open .ui-select-trigger {
+.ui-select.is-open .ui-select-trigger,
+.ui-select-trigger[aria-expanded="true"] {
   background: color-mix(in srgb, var(--bg-tertiary) 92%, var(--bg-secondary));
   box-shadow:
     inset 0 0 0 1px color-mix(in srgb, var(--accent) 10%, transparent),
@@ -54,7 +55,8 @@
 }
 
 [data-theme="light"] .ui-select-trigger:focus-visible,
-[data-theme="light"] .ui-select.is-open .ui-select-trigger {
+[data-theme="light"] .ui-select.is-open .ui-select-trigger,
+[data-theme="light"] .ui-select-trigger[aria-expanded="true"] {
   background: color-mix(in srgb, var(--bg-tertiary) 94%, var(--bg-secondary));
 }
 
@@ -152,7 +154,7 @@
   color: var(--text-primary);
   font: inherit;
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 400;
   line-height: 1.25;
   text-align: left;
   cursor: pointer;
