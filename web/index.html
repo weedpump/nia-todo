@@ -1262,54 +1262,58 @@
       </div>
     </div>
   </div>
-  <div class="modal" id="workspace-modal">
+  <div class="modal ui-detail-modal ui-detail-view" id="workspace-modal">
     <div class="modal-overlay" data-workspace-action="close-modal"></div>
-    <div class="modal-content entity-modal-content workspace-modal-content">
-      <div class="entity-modal-header">
-        <div class="entity-modal-title-icon" data-icon="briefcase"></div>
+    <div class="modal-content entity-modal-content workspace-modal-content ui-detail-modal-content">
+      <div class="entity-modal-header workspace-modal-header ui-detail-modal-header">
+        <div class="entity-modal-title-icon ui-detail-title-icon" data-icon="briefcase"></div>
         <div>
           <h3 id="workspace-modal-title" data-i18n-key="workspace.new">Neuer Workspace</h3>
           <p data-i18n-key="workspace.modalHint">Organisiere Projekte nach Kontext, Team oder Bereich.</p>
         </div>
+        <div class="ui-detail-header-actions">
+          <button type="submit" form="workspace-form" class="btn btn-primary" id="workspace-save-btn" data-i18n-key="common.save">Save</button>
+          <details class="ui-detail-header-menu-toggle" id="workspace-detail-header-menu" hidden>
+            <summary aria-label="More actions" data-i18n-aria-label-key="common.more"><span data-icon="menu"></span></summary>
+            <div class="ui-detail-header-menu ui-menu" role="menu">
+              <button type="button" class="ui-menu-item danger" id="workspace-delete-btn" data-workspace-action="delete" style="display:none;" role="menuitem"><span data-icon="trash-2"></span> <span data-i18n-key="todo.delete">Delete</span></button>
+            </div>
+          </details>
+        </div>
       </div>
       <button class="modal-close-x" data-workspace-action="close-modal"><span data-icon="x"></span></button>
-      <div class="modal-body entity-modal-body">
-        <form id="workspace-form" class="entity-modal-form">
+      <div class="modal-body entity-modal-body ui-detail-modal-body">
+        <form id="workspace-form" class="entity-modal-form ui-detail-shell">
           <input type="hidden" id="workspace-id">
-          <section class="ui-section-card">
-            <div class="ui-section-heading">
-              <div class="ui-section-icon" data-icon="briefcase"></div>
+          <section class="ui-section-card ui-detail-section ui-detail-title-section workspace-title-section">
+            <div class="form-group workspace-title-group ui-detail-title-group">
+              <label data-i18n-key="common.name">Name</label>
+              <input class="ui-field ui-detail-title-field" type="text" id="workspace-name" required maxlength="80" placeholder="e.g. Personal, Work" data-i18n-placeholder-key="workspace.namePlaceholder">
+            </div>
+          </section>
+          <section class="ui-section-card ui-detail-section">
+            <div class="ui-section-heading ui-detail-section-heading">
+              <div class="ui-section-icon ui-detail-section-icon" data-icon="palette"></div>
               <div>
                 <h4 data-i18n-key="workspace.details">Details</h4>
                 <p data-i18n-key="workspace.detailsHint">Name, Farbe und Icon für diesen Workspace.</p>
               </div>
             </div>
-            <div class="ui-field-grid two-columns">
-              <div class="form-group">
-                <label data-i18n-key="common.name">Name</label>
-                <input type="text" id="workspace-name" required maxlength="80" placeholder="e.g. Personal, Work" data-i18n-placeholder-key="workspace.namePlaceholder">
-              </div>
+            <div class="ui-field-grid two-columns workspace-appearance-grid">
               <div class="form-group">
                 <label data-i18n-key="common.color">Farbe</label>
                 <input type="color" id="workspace-color" value="#6366f1">
                 <div id="workspace-color-picker" class="color-picker" aria-label="Choose workspace color" data-i18n-aria-label-key="workspace.chooseColor"></div>
               </div>
-            </div>
-            <div class="form-group">
-              <label data-i18n-key="workspace.icon">Icon (optional)</label>
-              <input type="hidden" id="workspace-icon">
-              <div id="workspace-icon-picker" class="icon-picker" aria-label="Choose workspace icon" data-i18n-aria-label-key="workspace.chooseIcon"></div>
+              <div class="form-group">
+                <label data-i18n-key="workspace.icon">Icon (optional)</label>
+                <input type="hidden" id="workspace-icon">
+                <div id="workspace-icon-picker" class="icon-picker" aria-label="Choose workspace icon" data-i18n-aria-label-key="workspace.chooseIcon"></div>
+              </div>
             </div>
             <div id="workspace-error" class="settings-field-error"></div>
           </section>
         </form>
-      </div>
-      <div class="modal-actions split-actions entity-modal-actions">
-        <button type="button" class="btn btn-danger" id="workspace-delete-btn" data-workspace-action="delete" style="display:none;" data-i18n-key="todo.delete">Delete</button>
-        <div class="modal-actions-right">
-          <button type="button" class="btn btn-secondary" data-workspace-action="close-modal" data-i18n-key="common.cancel">Cancel</button>
-          <button type="submit" form="workspace-form" class="btn btn-primary" data-i18n-key="common.save">Save</button>
-        </div>
       </div>
     </div>
   </div>

@@ -153,7 +153,8 @@
 }
 
 #project-modal .project-appearance-grid,
-#project-modal .project-organization-grid {
+#project-modal .project-organization-grid,
+#workspace-modal .workspace-appearance-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
@@ -164,7 +165,8 @@
 
 @media (max-width: 768px) {
   #project-modal .project-appearance-grid,
-  #project-modal .project-organization-grid {
+  #project-modal .project-organization-grid,
+  #workspace-modal .workspace-appearance-grid {
     grid-template-columns: 1fr;
   }
 
