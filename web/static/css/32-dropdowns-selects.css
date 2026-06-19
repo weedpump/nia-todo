@@ -16,19 +16,11 @@
   justify-content: space-between;
   gap: 10px;
   padding: 8px 36px 8px 14px;
-  border: 1px solid color-mix(in srgb, var(--border) 78%, var(--accent) 10%);
+  border: 0;
   border-radius: var(--field-radius);
-  background:
-    radial-gradient(circle at 18% 0%, color-mix(in srgb, var(--accent) 7%, transparent), transparent 44%),
-    linear-gradient(180deg,
-      color-mix(in srgb, var(--bg-secondary) 46%, var(--bg-primary)) 0%,
-      color-mix(in srgb, var(--bg-primary) 94%, black) 100%);
+  background: color-mix(in srgb, var(--bg-tertiary) 44%, transparent);
   color: var(--text-primary);
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, white 8%, transparent),
-    inset 0 -1px 0 color-mix(in srgb, #000 18%, transparent),
-    0 1px 2px color-mix(in srgb, #000 18%, transparent),
-    0 10px 24px color-mix(in srgb, #000 10%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bg-primary) 12%, transparent);
   font: inherit;
   font-size: 14px;
   font-weight: 400;
@@ -40,48 +32,24 @@
 }
 
 [data-theme="light"] .ui-select-trigger {
-  border-color: color-mix(in srgb, var(--border) 70%, var(--accent) 8%);
-  background:
-    radial-gradient(circle at 18% 0%, color-mix(in srgb, var(--accent) 5%, transparent), transparent 46%),
-    linear-gradient(180deg,
-      color-mix(in srgb, white 94%, var(--bg-secondary)) 0%,
-      color-mix(in srgb, var(--bg-primary) 84%, white) 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.92),
-    inset 0 -1px 0 rgba(15,23,42,.035),
-    0 1px 2px rgba(15,23,42,.055),
-    0 10px 26px rgba(15,23,42,.055);
+  background: color-mix(in srgb, var(--bg-tertiary) 42%, white 16%);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.12);
 }
 
 .ui-select-trigger:hover {
-  border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
-  background:
-    radial-gradient(circle at 18% 0%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 44%),
-    linear-gradient(180deg,
-      color-mix(in srgb, var(--bg-secondary) 54%, var(--bg-primary)) 0%,
-      color-mix(in srgb, var(--bg-primary) 92%, black) 100%);
+  background: color-mix(in srgb, var(--bg-tertiary) 58%, transparent);
 }
 
 [data-theme="light"] .ui-select-trigger:hover {
-  background:
-    linear-gradient(180deg,
-      white 0%,
-      color-mix(in srgb, var(--bg-primary) 88%, white) 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.96),
-    inset 0 -1px 0 rgba(15,23,42,.04),
-    0 2px 5px rgba(15,23,42,.07),
-    0 12px 28px rgba(15,23,42,.06);
+  background: color-mix(in srgb, var(--bg-tertiary) 48%, white 18%);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.14);
 }
 
 .ui-select-trigger:focus-visible,
 .ui-select.is-open .ui-select-trigger {
-  border-color: color-mix(in srgb, var(--accent) 78%, var(--border));
   box-shadow:
-    inset 0 1px 0 color-mix(in srgb, white 10%, transparent),
-    inset 0 -1px 0 color-mix(in srgb, #000 12%, transparent),
-    0 0 0 3px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.17)),
-    0 10px 26px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.13));
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 10%, transparent),
+    0 0 0 3px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.13));
 }
 
 .ui-select.is-disabled .ui-select-trigger {
