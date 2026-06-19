@@ -176,7 +176,7 @@ Core classes:
 - `.ui-detail-shell` for the centered content column.
 - `.ui-detail-section`, `.ui-detail-section-heading`, `.ui-detail-section-icon` for flat drawer-style sections.
 - `.ui-detail-title-section`, `.ui-detail-title-group`, `.ui-detail-title-field` for the large inline title/name field.
-- `.ui-detail-header-actions`, `.ui-detail-header-menu-toggle`, `.ui-detail-header-menu` for save/menu actions in the header.
+- `.ui-detail-header-actions`, `.ui-detail-header-menu-toggle`, `.ui-detail-header-menu` for save/menu actions in the header. Hide the primary save action when the current form state is unchanged or otherwise not saveable; do not leave it visible as a disabled/muted control.
 - `.ui-detail-action-row` for right-aligned section actions that become full-width on mobile.
 
 Minimal structure:
