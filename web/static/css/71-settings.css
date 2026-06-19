@@ -449,6 +449,10 @@
   filter: saturate(.72);
 }
 
+#settings-modal .settings-place-add-row .btn[hidden] {
+  display: none;
+}
+
 #settings-modal .settings-place-add-row {
   display: grid;
   grid-template-columns: minmax(120px, .72fr) minmax(180px, 1fr) auto auto;
