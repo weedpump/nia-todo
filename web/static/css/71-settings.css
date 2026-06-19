@@ -275,6 +275,15 @@
   margin-top: 18px;
 }
 
+#settings-modal .settings-subcard > label {
+  display: block;
+  margin: 0 0 8px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
 .settings-attachments-meter {
   height: 0.7rem;
   border-radius: 999px;
