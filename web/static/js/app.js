@@ -198,6 +198,7 @@ const sharingFeature = createProjectSharingFeature({
   renderStats: () => renderStats(),
   renderTodos: () => renderTodos(),
   showToast: (...args) => showToast(...args),
+  confirmDanger,
   projectsApi,
 });
 const projectsFeature = createProjectsFeature({

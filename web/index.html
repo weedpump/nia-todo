@@ -1335,29 +1335,31 @@
       <div class="modal-body entity-modal-body">
         <form id="project-form" class="entity-modal-form">
           <input type="hidden" id="project-id">
+          <section class="ui-section-card project-title-section">
+            <div class="form-group project-title-group">
+              <label data-i18n-key="common.name">Name</label>
+              <input class="ui-field" type="text" id="project-name" required placeholder="Projektname" data-i18n-placeholder-key="project.namePlaceholder">
+            </div>
+          </section>
           <section class="ui-section-card">
             <div class="ui-section-heading">
               <div class="ui-section-icon" data-icon="folder"></div>
               <div>
                 <h4 data-i18n-key="project.details">Details</h4>
-                <p data-i18n-key="project.detailsHint">Name, Farbe und Icon für dieses Projekt.</p>
+                <p data-i18n-key="project.detailsHint">Farbe und Icon für dieses Projekt.</p>
               </div>
             </div>
-            <div class="ui-field-grid two-columns">
-              <div class="form-group project-title-group">
-                <label data-i18n-key="common.name">Name</label>
-                <input class="ui-field" type="text" id="project-name" required placeholder="Projektname" data-i18n-placeholder-key="project.namePlaceholder">
-              </div>
+            <div class="ui-field-grid two-columns project-appearance-grid">
               <div class="form-group">
                 <label data-i18n-key="common.color">Farbe</label>
                 <input type="color" id="project-color" value="#6366f1">
                 <div id="project-color-picker" class="color-picker" aria-label="Choose project color" data-i18n-aria-label-key="project.chooseColor"></div>
               </div>
-            </div>
-            <div class="form-group">
-              <label data-i18n-key="project.icon">Icon (optional)</label>
-              <input type="hidden" id="project-icon">
-              <div id="project-icon-picker" class="icon-picker" aria-label="Choose project icon" data-i18n-aria-label-key="project.chooseIcon"></div>
+              <div class="form-group">
+                <label data-i18n-key="project.icon">Icon (optional)</label>
+                <input type="hidden" id="project-icon">
+                <div id="project-icon-picker" class="icon-picker" aria-label="Choose project icon" data-i18n-aria-label-key="project.chooseIcon"></div>
+              </div>
             </div>
           </section>
           <section class="ui-section-card">
@@ -1368,7 +1370,7 @@
                 <p data-i18n-key="project.organizationHint">Workspace und Parent-Projekt bestimmen, wo das Projekt erscheint.</p>
               </div>
             </div>
-            <div class="ui-field-grid project-organization-grid">
+            <div class="ui-field-grid two-columns project-organization-grid">
               <div class="form-group" id="project-display-workspace-group" style="display:none;">
                 <label data-i18n-key="project.displayWorkspace">Anzeigen in Workspace</label>
                 <select class="ui-field" id="project-display-workspace-id"></select>
@@ -1397,7 +1399,7 @@
             <div id="project-share-row" class="form-group project-share-row">
               <label data-i18n-key="project.share.inviteUser">Invite user</label>
               <div class="project-share-inline">
-                <input id="project-share-username" type="text" class="form-control" placeholder="Username or email" data-i18n-placeholder-key="project.share.usernamePlaceholder">
+                <input id="project-share-username" type="text" class="ui-field" placeholder="Username or email" data-i18n-placeholder-key="project.share.usernamePlaceholder">
                 <button type="button" class="btn btn-primary" data-project-sharing-action="invite" data-i18n-key="project.share.invite">Einladen</button>
               </div>
               <div id="project-share-error" class="form-error"></div>
@@ -1406,7 +1408,9 @@
           <div id="project-share-start-row" class="project-share-start-row">
             <button type="button" class="btn btn-secondary" data-project-sharing-action="show-share-input"><span data-icon="share-2"></span> <span data-i18n-key="project.share.start">Teilen</span></button>
           </div>
-          <button type="button" class="btn btn-secondary project-leave-btn" id="project-leave-btn" data-project-sharing-action="leave" style="display:none;" data-i18n-key="project.share.leave">Leave project</button>
+          <div class="project-share-start-row" id="project-leave-row" style="display:none;">
+            <button type="button" class="btn btn-secondary" id="project-leave-btn" data-project-sharing-action="leave" data-i18n-key="project.share.leave">Leave project</button>
+          </div>
         </section>
       </div>
     </div>

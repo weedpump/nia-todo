@@ -1140,7 +1140,7 @@
   "workspace.detailsHint": "Name, Farbe und Icon für diesen Workspace.",
   "project.modalHint": "Strukturiere Todos mit Farbe, Icon und optionaler Hierarchie.",
   "project.details": "Details",
-  "project.detailsHint": "Name, Farbe und Icon für dieses Projekt.",
+  "project.detailsHint": "Farbe und Icon für dieses Projekt.",
   "project.namePlaceholder": "Projektname",
   "project.organization": "Einordnung",
   "project.organizationHint": "Workspace und Eltern-Projekt bestimmen, wo das Projekt erscheint.",

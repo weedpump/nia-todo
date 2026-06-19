@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - Added admin attachment controls for global upload enablement, comma-separated allowed file extensions, default 5 GB quota, per-user quota overrides, and user-visible storage usage.
 
 ### Changed
+- Refined the project modal to match the Todo detail modal surface and section language, including the large inline title field, flat drawer-style details/organization/sharing sections, header actions, shared field/button primitives, and polished sharing member rows.
 - Replaced the main app's legacy inline event handlers with delegated `data-*` action bindings across todo cards, sections, settings, API keys, and drag-and-drop, and renamed the remaining global runtime adapter to `runtime-globals`.
 - Cleaned up the Todo detail modal CSS and internal modal state handling by consolidating redundant override layers, canonicalizing detail action/drop-hint styles, and centralizing modal lookup/state helpers without intended visual changes.
 - Refined the shared UI design primitives for buttons, form fields, dropdowns, and Todo detail actions, including compact pill buttons, visually balanced field/dropdown sizing, unified light/dark field and dropdown depth polish, mobile full-width action layouts, Login/Admin/Setup/Set Password/App Downloads rollout, Project/Workspace icon and color picker alignment, and removal of obsolete Todo modal footer actions.
@@ -33,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - Hardened attachment uploads with streaming temp-file writes, server-side quota/type policy enforcement, magic-byte validation for common binary formats, active-content blocking, and client-side preflight for disabled uploads, type, file size, and quota.
 
 ### Fixed
+- Replaced the browser confirmation prompt for removing project members with the app's danger confirmation modal, and kept hidden native color picker inputs from leaking disabled color bars into read-only project modals.
 - Improved Todo detail inline editing polish so the title becomes a visible input field only while focused, avoids desktop Edge glyph clipping, and aligns subtask/comment/meta action spacing and field borders.
 - Hid custom overlay scrollbars immediately when modals close, preventing stale scroll indicators from lingering after a recently scrolled modal disappears.
 - Prevented long-press todo drag-and-drop from also triggering horizontal swipe status gestures.

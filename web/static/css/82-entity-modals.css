@@ -204,8 +204,7 @@
 }
 
 .project-share-row,
-.project-share-start-row,
-.project-leave-btn {
+.project-share-start-row {
   margin-top: 12px;
 }
 
@@ -369,7 +368,8 @@
   box-shadow: none;
 }
 
-#project-modal .entity-modal-body .ui-section-card:first-child {
+#project-modal .entity-modal-body .ui-section-card:first-of-type,
+#project-modal .entity-modal-body .project-title-section {
   padding-top: 0;
   border-top: 0;
 }
@@ -380,27 +380,62 @@
 }
 
 #project-modal .entity-modal-body .ui-section-heading {
-  align-items: center;
-  margin-bottom: 12px;
+  align-items: flex-start;
+  margin-bottom: 18px;
 }
 
 #project-modal .entity-modal-body .ui-section-icon {
-  display: none;
+  display: inline-flex;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 12px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
 }
 
 #project-modal .entity-modal-body .ui-section-heading h4 {
-  font-size: 14px;
-  color: var(--text-muted);
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 750;
+  letter-spacing: .08em;
+  line-height: 1.25;
   text-transform: uppercase;
-  letter-spacing: .06em;
 }
 
 #project-modal .entity-modal-body .ui-section-heading p {
-  display: none;
+  display: block;
+  margin: 4px 0 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 #project-modal .project-sharing-card {
   margin-bottom: 2px;
+}
+
+#project-modal .entity-modal-body .form-group > label,
+#project-modal #project-share-row > label {
+  margin-bottom: 8px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .07em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+#project-modal .project-share-start-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0;
+}
+
+#project-modal .project-share-start-row .btn {
+  min-height: 36px;
+  border-radius: var(--field-radius);
 }
 
 @media (max-width: 1180px) {
@@ -410,16 +445,64 @@
   }
 }
 
-.project-title-group input {
-  font-size: 14px;
-  font-weight: 500;
+#project-modal .project-title-section .project-title-group {
+  margin-bottom: 0;
 }
 
-.project-organization-grid {
-  grid-template-columns: 1fr;
+#project-modal .project-title-group label {
+  display: none;
+}
+
+#project-modal #project-name {
+  width: 100%;
+  min-height: 52px;
+  padding: 10px 0;
+  border: 1px solid transparent;
+  border-radius: 18px;
+  background: transparent;
+  appearance: none;
+  -webkit-appearance: none;
+  box-shadow: none;
+  color: var(--text-primary);
+  font-size: clamp(26px, 3vw, 38px);
+  line-height: 1.28;
+  font-weight: 760;
+  letter-spacing: -0.025em;
+}
+
+#project-modal #project-name:focus,
+#project-modal #project-name:focus-visible {
+  padding-inline: 16px;
+  border-color: color-mix(in srgb, var(--accent) 62%, var(--border));
+  background: color-mix(in srgb, var(--bg-secondary) 58%, transparent);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.14));
+  outline: none;
+}
+
+#project-modal .project-appearance-grid,
+#project-modal .project-organization-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+#project-modal #project-display-workspace-group[style*="display:none"] + .form-group,
+#project-modal #project-display-workspace-group[style*="display: none"] + .form-group {
+  grid-column: 1 / -1;
 }
 
 @media (max-width: 768px) {
+  #project-modal .project-appearance-grid,
+  #project-modal .project-organization-grid {
+    grid-template-columns: 1fr;
+  }
+
+  #project-modal #project-name {
+    font-size: clamp(24px, 8vw, 32px);
+  }
+
+  #project-modal .project-title-section .project-title-group {
+    margin-bottom: 0;
+  }
+
   .entity-modal-content {
     display: flex;
     flex-direction: column;
@@ -445,7 +528,8 @@
     padding: 16px 0 0;
   }
 
-  #project-modal .entity-modal-body .ui-section-card:first-child {
+  #project-modal .entity-modal-body .ui-section-card:first-of-type,
+  #project-modal .entity-modal-body .project-title-section {
     padding-top: 0;
   }
 
@@ -552,30 +636,76 @@
   min-height: 38px;
 }
 
-.project-share-start-row .btn,
-.project-leave-btn {
+.project-share-start-row .btn {
   min-width: 118px;
 }
 
-.sharing-member-row {
-  min-height: 38px;
-  padding: 7px 10px;
-  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--bg-primary) 36%, transparent);
+#project-modal #project-members-list {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 14px;
 }
 
-.sharing-remove {
-  width: 30px;
-  height: 30px;
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--bg-tertiary) 56%, transparent);
+#project-modal .sharing-member-row {
+  min-height: 36px;
+  padding: 0 4px 0 14px;
+  border: 1px solid color-mix(in srgb, var(--border) 44%, transparent);
+  border-radius: var(--field-radius);
+  background: var(--bg-tertiary);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bg-primary) 8%, transparent);
+}
+
+#project-modal .sharing-member-main {
+  align-items: baseline;
+  gap: 5px;
+  min-width: 0;
+}
+
+#project-modal .sharing-member-name {
+  font-weight: 650;
+}
+
+#project-modal .sharing-display {
+  color: var(--text-muted);
+}
+
+#project-modal .sharing-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex: 0 0 auto;
+}
+
+#project-modal .sharing-remove {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-secondary) 64%, transparent);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+#project-modal .sharing-remove .ui-icon {
+  width: 16px;
+  height: 16px;
+}
+
+#project-modal .sharing-remove:hover,
+#project-modal .sharing-remove:focus-visible {
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+  color: var(--danger);
+  outline: none;
 }
 
 @media (max-width: 768px) {
   .project-sharing-card .btn,
-  .project-share-start-row .btn,
-  .project-leave-btn {
+  .project-share-start-row .btn {
     width: 100%;
     min-height: 42px;
   }
