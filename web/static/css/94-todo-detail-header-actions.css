@@ -107,12 +107,12 @@
 
 @media (max-width: 1180px) {
   #todo-modal.todo-detail-view .modal-close-x {
-    top: 12px;
+    top: 18px;
     right: 12px;
   }
 
   #todo-modal.todo-detail-view .todo-detail-header-actions {
-    top: 12px;
+    top: 18px;
     right: 52px;
   }
 }
@@ -231,41 +231,6 @@
   #todo-modal.todo-detail-view .todo-attachments-add-row #todo-attachment-upload-btn.todo-detail-action-btn {
     grid-column: auto;
     justify-self: stretch;
-  }
-}
-
-/* Todo meta drawer: mobile fullscreen matches Todo detail modal structure; no nested scroll. */
-@media (max-width: 1180px) {
-  #todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer {
-    overflow: hidden;
-    -webkit-overflow-scrolling: auto;
-  }
-
-  #todo-modal.todo-detail-view.todo-meta-editing .todo-meta-drawer-header {
-    min-height: 62px;
-    padding: calc(12px + env(safe-area-inset-top, 0px)) 16px 12px;
-    background: transparent;
-    border-bottom: 1px solid color-mix(in srgb, var(--border) 54%, transparent);
-    backdrop-filter: none;
-  }
-
-  #todo-modal.todo-detail-view.todo-meta-editing .todo-meta-drawer-header h4 {
-    font-size: 14px;
-    font-weight: 650;
-    letter-spacing: .01em;
-    color: var(--text-muted);
-  }
-
-  #todo-modal.todo-detail-view.todo-meta-editing .todo-meta-drawer-header p {
-    display: none;
-  }
-
-  #todo-modal.todo-detail-view.todo-meta-editing .todo-meta-drawer-body {
-    overflow-y: auto;
-    overflow-x: hidden;
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
-    padding: 18px 16px calc(28px + env(safe-area-inset-bottom, 0px));
   }
 }
 
