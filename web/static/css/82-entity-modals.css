@@ -260,6 +260,58 @@
   margin-bottom: 0;
 }
 
+/* Project modal follows the todo detail section style: flat sections, not cards. */
+#project-modal .entity-modal-form {
+  gap: 24px;
+}
+
+#project-modal .entity-modal-form + .project-sharing-card {
+  margin-top: 24px;
+}
+
+#project-modal .entity-modal-body .ui-section-card {
+  padding: 18px 0 0;
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, var(--border) 44%, transparent);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+#project-modal .entity-modal-body .ui-section-card:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+#project-modal .entity-modal-body .ui-section-card:hover {
+  border-color: color-mix(in srgb, var(--border) 44%, transparent);
+  background: transparent;
+}
+
+#project-modal .entity-modal-body .ui-section-heading {
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+#project-modal .entity-modal-body .ui-section-icon {
+  display: none;
+}
+
+#project-modal .entity-modal-body .ui-section-heading h4 {
+  font-size: 14px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+#project-modal .entity-modal-body .ui-section-heading p {
+  display: none;
+}
+
+#project-modal .project-sharing-card {
+  margin-bottom: 2px;
+}
+
 .project-title-group input {
   font-size: 14px;
   font-weight: 500;
@@ -291,6 +343,26 @@
     margin-bottom: 10px;
   }
 
+  #project-modal .entity-modal-body .ui-section-card {
+    padding: 16px 0 0;
+  }
+
+  #project-modal .entity-modal-body .ui-section-card:first-child {
+    padding-top: 0;
+  }
+
+  #project-modal .entity-modal-form {
+    gap: 20px;
+  }
+
+  #project-modal .entity-modal-form + .project-sharing-card {
+    margin-top: 20px;
+  }
+
+  #project-modal .entity-modal-body .ui-section-heading {
+    margin-bottom: 10px;
+  }
+
   .entity-modal-actions {
     position: relative;
     border-top: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
@@ -308,6 +380,10 @@
 
 .entity-modal-body .ui-section-card:last-child {
   margin-bottom: 2px;
+}
+
+#project-modal .entity-modal-body .ui-section-card:last-child {
+  margin-bottom: 0;
 }
 
 @media (max-width: 768px) {
