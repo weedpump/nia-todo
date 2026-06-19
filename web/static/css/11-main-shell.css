@@ -27,22 +27,11 @@
   flex: 1;
   position: relative;
 }
-.search-toggle-btn {
+.search-box > .search-toggle-btn {
   display: none;
 }
 .search-box input {
   width: 100%;
-  padding: 10px 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  font-size: 14px;
-  outline: none;
-}
-.search-box input:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.22));
 }
 
 .topbar-actions {

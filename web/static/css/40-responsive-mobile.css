@@ -52,24 +52,22 @@
     position: relative;
     width: 36px;
     min-width: 36px;
+    transition: width 0.16s ease;
   }
-  .search-toggle-btn {
+  .search-box.open {
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 0;
+  }
+  .search-box.open + .topbar-actions {
+    flex: 0 0 auto;
+  }
+  .search-box > .search-toggle-btn {
     display: inline-flex;
-    align-items: center;
-    justify-content: center;
     width: 36px;
+    min-width: 36px;
     height: 36px;
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    background: var(--bg-primary);
-    color: var(--text-secondary);
-    cursor: pointer;
-  }
-  .search-toggle-btn:hover,
-  .search-box.open .search-toggle-btn {
-    border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
-    background: color-mix(in srgb, var(--accent) 10%, var(--bg-primary));
-    color: var(--accent);
+    min-height: 36px;
   }
   .search-toggle-btn .ui-icon {
     display: block;
@@ -82,8 +80,8 @@
     top: 0;
     left: 0;
     z-index: 20;
-    width: min(calc(100vw - 156px), 360px);
-    max-width: calc(100vw - 24px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px));
+    width: 100%;
+    max-width: none;
     height: 36px;
     padding: 8px 12px 8px 44px;
     opacity: 0;

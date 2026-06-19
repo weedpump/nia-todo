@@ -173,7 +173,7 @@
   padding: 8px 14px;
   border: 0;
   border-radius: var(--field-radius);
-  background: color-mix(in srgb, var(--bg-tertiary) 44%, transparent);
+  background: color-mix(in srgb, var(--bg-tertiary) 76%, var(--bg-secondary));
   color: var(--text-primary);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bg-primary) 12%, transparent);
   font: inherit;
@@ -187,7 +187,7 @@
 [data-theme="light"] .form-group input,
 [data-theme="light"] .form-group select,
 [data-theme="light"] .form-group textarea {
-  background: color-mix(in srgb, var(--bg-tertiary) 42%, white 16%);
+  background: color-mix(in srgb, var(--bg-tertiary) 82%, var(--bg-secondary));
   box-shadow: inset 0 0 0 1px rgba(255,255,255,.12);
 }
 
@@ -195,21 +195,26 @@
 .form-group input:hover,
 .form-group select:hover,
 .form-group textarea:hover {
-  background: color-mix(in srgb, var(--bg-tertiary) 58%, transparent);
+  background: color-mix(in srgb, var(--bg-tertiary) 86%, var(--bg-secondary));
 }
 
 [data-theme="light"] .ui-field:hover,
 [data-theme="light"] .form-group input:hover,
 [data-theme="light"] .form-group select:hover,
 [data-theme="light"] .form-group textarea:hover {
-  background: color-mix(in srgb, var(--bg-tertiary) 48%, white 18%);
+  background: color-mix(in srgb, var(--bg-tertiary) 90%, var(--bg-secondary));
   box-shadow: inset 0 0 0 1px rgba(255,255,255,.14);
 }
 
 .ui-field:focus,
 .form-group input:focus,
 .form-group select:focus,
-.form-group textarea:focus { background: color-mix(in srgb, var(--bg-tertiary) 64%, transparent); }
+.form-group textarea:focus { background: color-mix(in srgb, var(--bg-tertiary) 92%, var(--bg-secondary)); }
+
+[data-theme="light"] .ui-field:focus,
+[data-theme="light"] .form-group input:focus,
+[data-theme="light"] .form-group select:focus,
+[data-theme="light"] .form-group textarea:focus { background: color-mix(in srgb, var(--bg-tertiary) 94%, var(--bg-secondary)); }
 
 .ui-field:focus-visible,
 .form-group input:focus-visible,
