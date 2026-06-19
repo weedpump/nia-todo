@@ -91,6 +91,7 @@
       '/static/css/81-todo-cards-refresh.css',
       '/static/css/82-entity-modals.css',
       '/static/css/83-focus-selects.css',
+      '/static/css/89-ui-detail-modal.css',
       '/static/css/90-minimal-list.css',
       '/static/css/90-detail-extras.css',
       '/static/css/90-attachments-preview.css',
@@ -569,31 +570,31 @@
   </div>
 
   <!-- Todo Modal -->
-  <div class="modal" id="todo-modal">
+  <div class="modal ui-detail-modal" id="todo-modal">
     <div class="modal-overlay" data-close-modal="todo-modal"></div>
-    <div class="modal-content todo-modal-content">
-      <div class="todo-modal-header">
-        <div class="todo-modal-title-icon" data-icon="check-circle"></div>
+    <div class="modal-content todo-modal-content ui-detail-modal-content">
+      <div class="todo-modal-header ui-detail-modal-header">
+        <div class="todo-modal-title-icon ui-detail-title-icon" data-icon="check-circle"></div>
         <div>
           <h3 id="todo-modal-title" data-i18n-key="todo.new">New todo</h3>
           <p data-i18n-key="todo.modal.subtitle">Capture the task, then add planning details only if needed.</p>
         </div>
       </div>
       <button class="modal-close-x" data-close-modal="todo-modal"><span data-icon="x"></span></button>
-      <div class="modal-body todo-modal-body">
-      <form id="todo-form" class="todo-modal-form todo-editor-shell">
+      <div class="modal-body todo-modal-body ui-detail-modal-body">
+      <form id="todo-form" class="todo-modal-form todo-editor-shell ui-detail-shell">
         <input type="hidden" id="todo-id">
-        <section class="ui-section-card todo-section-card todo-editor-section todo-editor-main todo-main-section">
-          <div class="ui-section-heading">
-            <div class="ui-section-icon" data-icon="file-text"></div>
+        <section class="ui-section-card ui-detail-section ui-detail-title-section todo-section-card todo-editor-section todo-editor-main todo-main-section">
+          <div class="ui-section-heading ui-detail-section-heading">
+            <div class="ui-section-icon ui-detail-section-icon" data-icon="file-text"></div>
             <div>
               <h4 data-i18n-key="todo.section.content">Inhalt</h4>
               <p data-i18n-key="todo.section.contentHint">Titel und optionale Beschreibung.</p>
             </div>
           </div>
-          <div class="form-group todo-title-group">
+          <div class="form-group todo-title-group ui-detail-title-group">
             <label data-i18n-key="todo.title">Titel</label>
-            <input class="ui-field" type="text" id="todo-title" required placeholder="Was ist zu tun?" data-i18n-placeholder-key="todo.titlePlaceholder">
+            <input class="ui-field ui-detail-title-field" type="text" id="todo-title" required placeholder="Was ist zu tun?" data-i18n-placeholder-key="todo.titlePlaceholder">
             <div class="quick-add-hint" data-i18n-key="quickAdd.hint">Tipp: „Milch morgen 18:00 erinnerung:17:30 #Einkauf /Kühlung !hoch“ erkennt Deadline, Erinnerung, Projekt, Abschnitt und Priorität.</div>
             <div class="quick-add-preview" id="quick-add-preview" aria-live="polite" hidden></div>
           </div>
@@ -604,9 +605,9 @@
           </div>
         </section>
 
-        <details class="ui-section-card todo-section-card todo-editor-section todo-collapsible-card todo-subtasks-card" id="todo-subtasks-panel">
-          <summary class="ui-section-heading todo-collapsible-summary">
-            <div class="ui-section-icon" data-icon="list-todo"></div>
+        <details class="ui-section-card ui-detail-section todo-section-card todo-editor-section todo-collapsible-card todo-subtasks-card" id="todo-subtasks-panel">
+          <summary class="ui-section-heading ui-detail-section-heading todo-collapsible-summary">
+            <div class="ui-section-icon ui-detail-section-icon" data-icon="list-todo"></div>
             <div>
               <h4 data-i18n-key="todo.subtasks">Subtasks</h4>
               <p data-i18n-key="todo.subtasks.hint">Add checklist items for this todo.</p>
@@ -628,9 +629,9 @@
         </details>
 
 
-        <details class="ui-section-card todo-section-card todo-editor-section todo-collapsible-card todo-comments-card" id="todo-comments-panel">
-          <summary class="ui-section-heading todo-collapsible-summary">
-            <div class="ui-section-icon" data-icon="notebook-pen"></div>
+        <details class="ui-section-card ui-detail-section todo-section-card todo-editor-section todo-collapsible-card todo-comments-card" id="todo-comments-panel">
+          <summary class="ui-section-heading ui-detail-section-heading todo-collapsible-summary">
+            <div class="ui-section-icon ui-detail-section-icon" data-icon="notebook-pen"></div>
             <div>
               <h4 data-i18n-key="todo.comments">Comments</h4>
               <p data-i18n-key="todo.comments.hint">Add comments to this todo.</p>
@@ -650,9 +651,9 @@
           </div>
         </details>
 
-        <details class="ui-section-card todo-section-card todo-editor-section todo-collapsible-card todo-attachments-card" id="todo-attachments-panel">
-          <summary class="ui-section-heading todo-collapsible-summary">
-            <div class="ui-section-icon" data-icon="paperclip"></div>
+        <details class="ui-section-card ui-detail-section todo-section-card todo-editor-section todo-collapsible-card todo-attachments-card" id="todo-attachments-panel">
+          <summary class="ui-section-heading ui-detail-section-heading todo-collapsible-summary">
+            <div class="ui-section-icon ui-detail-section-icon" data-icon="paperclip"></div>
             <div>
               <h4 data-i18n-key="todo.attachments">Attachments</h4>
               <p data-i18n-key="todo.attachments.hint">Attach files or photos to this todo.</p>
@@ -676,9 +677,9 @@
         </details>
 
 
-        <section class="ui-section-card todo-section-card todo-editor-section todo-editor-meta-panel" id="todo-organize-panel">
-          <div class="ui-section-heading">
-            <div class="ui-section-icon" data-icon="settings"></div>
+        <section class="ui-section-card ui-detail-section todo-section-card todo-editor-section todo-editor-meta-panel" id="todo-organize-panel">
+          <div class="ui-section-heading ui-detail-section-heading">
+            <div class="ui-section-icon ui-detail-section-icon" data-icon="settings"></div>
             <div>
               <h4 data-i18n-key="todo.section.organize">Einordnen</h4>
               <p data-i18n-key="todo.section.organizeHint">Priorität, Status, Projekt und Section.</p>
@@ -723,9 +724,9 @@
           </div>
         </section>
 
-        <section class="ui-section-card todo-section-card todo-editor-section todo-editor-meta-panel" id="todo-schedule-panel">
-          <div class="ui-section-heading">
-            <div class="ui-section-icon" data-icon="calendar-days"></div>
+        <section class="ui-section-card ui-detail-section todo-section-card todo-editor-section todo-editor-meta-panel" id="todo-schedule-panel">
+          <div class="ui-section-heading ui-detail-section-heading">
+            <div class="ui-section-icon ui-detail-section-icon" data-icon="calendar-days"></div>
             <div>
               <h4 data-i18n-key="todo.section.schedule">Planung</h4>
               <p data-i18n-key="todo.section.scheduleHint">Deadline und Erinnerung, falls diese Aufgabe zeitkritisch ist.</p>
@@ -1312,38 +1313,38 @@
     </div>
   </div>
 
-  <div class="modal" id="project-modal">
+  <div class="modal ui-detail-modal ui-detail-view" id="project-modal">
     <div class="modal-overlay" data-close-modal="project-modal"></div>
-    <div class="modal-content entity-modal-content project-modal-content">
-      <div class="entity-modal-header project-modal-header">
-        <div class="entity-modal-title-icon" data-icon="folder"></div>
+    <div class="modal-content entity-modal-content project-modal-content ui-detail-modal-content">
+      <div class="entity-modal-header project-modal-header ui-detail-modal-header">
+        <div class="entity-modal-title-icon ui-detail-title-icon" data-icon="folder"></div>
         <div>
           <h3 id="project-modal-title" data-i18n-key="project.new">New project</h3>
           <p data-i18n-key="project.modalHint">Strukturiere Todos mit Farbe, Icon und optionaler Hierarchie.</p>
         </div>
-        <div class="entity-detail-header-actions project-detail-header-actions">
+        <div class="ui-detail-header-actions">
           <button type="submit" form="project-form" class="btn btn-primary" id="project-save-btn" data-i18n-key="common.save">Save</button>
-          <details class="entity-detail-header-menu-toggle" id="project-detail-header-menu" hidden>
+          <details class="ui-detail-header-menu-toggle" id="project-detail-header-menu" hidden>
             <summary aria-label="More actions" data-i18n-aria-label-key="common.more"><span data-icon="menu"></span></summary>
-            <div class="entity-detail-header-menu ui-menu" role="menu">
+            <div class="ui-detail-header-menu ui-menu" role="menu">
               <button type="button" class="ui-menu-item danger" id="project-delete-btn" data-project-action="delete-from-modal" style="display:none;" role="menuitem"><span data-icon="trash-2"></span> <span data-i18n-key="project.delete">Delete project</span></button>
             </div>
           </details>
         </div>
       </div>
       <button class="modal-close-x" data-close-modal="project-modal"><span data-icon="x"></span></button>
-      <div class="modal-body entity-modal-body">
-        <form id="project-form" class="entity-modal-form">
+      <div class="modal-body entity-modal-body ui-detail-modal-body">
+        <form id="project-form" class="entity-modal-form ui-detail-shell">
           <input type="hidden" id="project-id">
-          <section class="ui-section-card project-title-section">
-            <div class="form-group project-title-group">
+          <section class="ui-section-card ui-detail-section ui-detail-title-section project-title-section">
+            <div class="form-group project-title-group ui-detail-title-group">
               <label data-i18n-key="common.name">Name</label>
-              <input class="ui-field" type="text" id="project-name" required placeholder="Projektname" data-i18n-placeholder-key="project.namePlaceholder">
+              <input class="ui-field ui-detail-title-field" type="text" id="project-name" required placeholder="Projektname" data-i18n-placeholder-key="project.namePlaceholder">
             </div>
           </section>
-          <section class="ui-section-card">
-            <div class="ui-section-heading">
-              <div class="ui-section-icon" data-icon="folder"></div>
+          <section class="ui-section-card ui-detail-section">
+            <div class="ui-section-heading ui-detail-section-heading">
+              <div class="ui-section-icon ui-detail-section-icon" data-icon="folder"></div>
               <div>
                 <h4 data-i18n-key="project.details">Details</h4>
                 <p data-i18n-key="project.detailsHint">Farbe und Icon für dieses Projekt.</p>
@@ -1362,9 +1363,9 @@
               </div>
             </div>
           </section>
-          <section class="ui-section-card">
-            <div class="ui-section-heading">
-              <div class="ui-section-icon" data-icon="layout-dashboard"></div>
+          <section class="ui-section-card ui-detail-section">
+            <div class="ui-section-heading ui-detail-section-heading">
+              <div class="ui-section-icon ui-detail-section-icon" data-icon="layout-dashboard"></div>
               <div>
                 <h4 data-i18n-key="project.organization">Einordnung</h4>
                 <p data-i18n-key="project.organizationHint">Workspace und Parent-Projekt bestimmen, wo das Projekt erscheint.</p>
@@ -1385,9 +1386,9 @@
           </section>
         </form>
 
-        <section id="project-sharing-section" class="ui-section-card project-sharing-card" style="display:none;">
-          <div class="ui-section-heading">
-            <div class="ui-section-icon" data-icon="share-2"></div>
+        <section id="project-sharing-section" class="ui-section-card ui-detail-section project-sharing-card ui-detail-shell" style="display:none;">
+          <div class="ui-section-heading ui-detail-section-heading">
+            <div class="ui-section-icon ui-detail-section-icon" data-icon="share-2"></div>
             <div>
               <h4 data-i18n-key="project.share.sharedWith">Geteilt mit</h4>
               <p data-i18n-key="project.share.hint">Lade andere Nutzer zu diesem Projekt ein oder verwalte bestehende Mitglieder.</p>
@@ -1405,10 +1406,10 @@
               <div id="project-share-error" class="form-error"></div>
             </div>
           </div>
-          <div id="project-share-start-row" class="project-share-start-row">
+          <div id="project-share-start-row" class="project-share-start-row ui-detail-action-row">
             <button type="button" class="btn btn-secondary" data-project-sharing-action="show-share-input"><span data-icon="share-2"></span> <span data-i18n-key="project.share.start">Teilen</span></button>
           </div>
-          <div class="project-share-start-row" id="project-leave-row" style="display:none;">
+          <div class="project-share-start-row ui-detail-action-row" id="project-leave-row" style="display:none;">
             <button type="button" class="btn btn-secondary" id="project-leave-btn" data-project-sharing-action="leave" data-i18n-key="project.share.leave">Leave project</button>
           </div>
         </section>

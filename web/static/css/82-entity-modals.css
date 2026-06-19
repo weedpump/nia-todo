@@ -27,144 +27,6 @@
   border: 0;
 }
 
-#project-modal .modal-overlay {
-  background: color-mix(in srgb, var(--bg-primary) 78%, rgba(0,0,0,.38));
-  backdrop-filter: blur(12px);
-}
-
-#project-modal .project-modal-content {
-  width: min(1080px, calc(100vw - 40px));
-  height: min(940px, calc(100vh - 32px));
-  max-width: none;
-  max-height: none;
-  border-radius: 30px;
-  background:
-    radial-gradient(circle at 12% -8%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 32%),
-    linear-gradient(180deg, color-mix(in srgb, var(--bg-secondary) 96%, var(--bg-primary)), var(--bg-primary));
-}
-
-.project-modal-header {
-  align-items: center;
-  width: calc(100% - 56px);
-  max-width: 920px;
-  margin: 0 auto;
-  padding: 18px 48px 16px 0;
-  border-bottom-color: color-mix(in srgb, var(--border) 54%, transparent);
-  background: transparent;
-}
-
-#project-modal .entity-modal-title-icon {
-  width: 34px;
-  height: 34px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-  box-shadow: none;
-}
-
-#project-modal .entity-modal-header h3 {
-  font-size: 14px;
-  color: var(--text-muted);
-  font-weight: 650;
-  letter-spacing: .01em;
-}
-
-#project-modal .entity-modal-header p {
-  display: none;
-}
-
-.entity-detail-header-actions {
-  position: absolute;
-  top: 18px;
-  right: 66px;
-  z-index: 3;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.entity-detail-header-menu-toggle[hidden] {
-  display: none;
-}
-
-.entity-detail-header-menu-toggle > summary {
-  width: 34px;
-  height: 34px;
-  min-height: 34px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  list-style: none;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-}
-
-.entity-detail-header-menu-toggle > summary::-webkit-details-marker {
-  display: none;
-}
-
-.entity-detail-header-menu-toggle > summary:hover,
-.entity-detail-header-menu-toggle > summary:focus-visible,
-.entity-detail-header-menu-toggle[open] > summary {
-  color: var(--text-primary);
-  background: transparent;
-  border: 0;
-  outline: none;
-}
-
-.entity-detail-header-menu-toggle[open] > summary {
-  color: var(--accent);
-}
-
-.entity-detail-header-menu {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  min-width: 190px;
-  z-index: 20;
-}
-
-.entity-detail-header-menu .ui-menu-item {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-}
-
-.entity-detail-header-menu .ui-menu-item.danger {
-  color: var(--danger);
-}
-
-.project-modal-content .modal-close-x {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  top: 18px;
-  right: 28px;
-  width: 34px;
-  height: 34px;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  color: var(--text-muted);
-  font-size: 0;
-}
-
-.project-modal-content .modal-close-x .ui-icon {
-  width: 18px;
-  height: 18px;
-}
-
-.project-modal-content .modal-close-x:hover,
-.project-modal-content .modal-close-x:focus-visible {
-  color: var(--text-primary);
-  background: transparent;
-  border: 0;
-  outline: none;
-}
-
 .entity-modal-header p {
   margin: 6px 0 0;
   color: var(--text-muted);
@@ -179,11 +41,6 @@
   -webkit-overflow-scrolling: touch;
   padding: 18px;
   background: color-mix(in srgb, var(--bg-primary) 18%, transparent);
-}
-
-#project-modal .entity-modal-body {
-  padding: clamp(22px, 2.5vw, 38px) clamp(24px, 3vw, 44px);
-  background: transparent;
 }
 
 .entity-modal-form {
@@ -219,18 +76,6 @@
   min-width: 0;
 }
 
-@media (max-width: 1180px) {
-  #project-modal .project-modal-content {
-    width: 100vw;
-    height: 100vh;
-    border-radius: 0;
-  }
-
-  #project-modal .project-modal-header {
-    max-width: 900px;
-  }
-}
-
 @media (max-width: 768px) {
   .entity-modal-content {
     max-width: none;
@@ -238,51 +83,15 @@
     height: 100%;
   }
 
-  #project-modal .project-modal-content {
-    height: 100svh;
-    height: 100dvh;
-    max-height: 100vh;
-    max-height: 100svh;
-    max-height: 100dvh;
-    min-height: 0;
-    overflow: hidden;
-  }
-
   .entity-modal-header {
     padding: 12px 44px 12px 16px;
     gap: 10px;
-  }
-
-  .project-modal-header {
-    width: calc(100% - 32px);
-    padding: 12px 94px 12px 0;
-  }
-
-  .entity-detail-header-actions {
-    top: 12px;
-    right: 52px;
-  }
-
-  .entity-detail-header-actions .btn {
-    min-height: 34px;
-    padding: 7px 11px;
-  }
-
-  .project-modal-content .modal-close-x {
-    top: 12px;
-    right: 12px;
   }
 
   .entity-modal-title-icon {
     width: 36px;
     height: 36px;
     border-radius: 13px;
-  }
-
-  #project-modal .entity-modal-title-icon {
-    width: 34px;
-    height: 34px;
-    border-radius: 999px;
   }
 
   .entity-modal-header h3 {
@@ -297,14 +106,6 @@
     flex: 1;
     overflow-y: auto;
     padding: 12px;
-  }
-
-  #project-modal .entity-modal-body {
-    min-height: 0;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
-    padding: 18px 16px clamp(14px, 3vw, 18px);
   }
 
   .entity-modal-actions {
@@ -342,141 +143,13 @@
   margin-bottom: 0;
 }
 
-/* Project modal follows the todo detail section style: flat sections, not cards. */
-#project-modal .entity-modal-form,
-#project-modal .project-sharing-card {
-  width: 100%;
-  max-width: 920px;
-  margin-left: auto;
-  margin-right: auto;
-}
-
-#project-modal .entity-modal-form {
-  gap: 24px;
-}
-
+/* Project-specific detail modal layout */
 #project-modal .entity-modal-form + .project-sharing-card {
   margin-top: 24px;
 }
 
-#project-modal .entity-modal-body .ui-section-card {
-  padding: 18px 0 0;
-  border: 0;
-  border-top: 1px solid color-mix(in srgb, var(--border) 44%, transparent);
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-#project-modal .entity-modal-body .ui-section-card:first-of-type,
-#project-modal .entity-modal-body .project-title-section {
-  padding-top: 0;
-  border-top: 0;
-}
-
-#project-modal .entity-modal-body .ui-section-card:hover {
-  border-color: color-mix(in srgb, var(--border) 44%, transparent);
-  background: transparent;
-}
-
-#project-modal .entity-modal-body .ui-section-heading {
-  align-items: flex-start;
-  margin-bottom: 18px;
-}
-
-#project-modal .entity-modal-body .ui-section-icon {
-  display: inline-flex;
-  width: 30px;
-  height: 30px;
-  border: 0;
-  border-radius: 12px;
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
-}
-
-#project-modal .entity-modal-body .ui-section-heading h4 {
-  margin: 0;
-  color: var(--text-primary);
-  font-size: 13px;
-  font-weight: 750;
-  letter-spacing: .08em;
-  line-height: 1.25;
-  text-transform: uppercase;
-}
-
-#project-modal .entity-modal-body .ui-section-heading p {
-  display: block;
-  margin: 4px 0 0;
-  color: var(--text-muted);
-  font-size: 12px;
-  line-height: 1.45;
-}
-
 #project-modal .project-sharing-card {
   margin-bottom: 2px;
-}
-
-#project-modal .entity-modal-body .form-group > label,
-#project-modal #project-share-row > label {
-  margin-bottom: 8px;
-  color: var(--text-muted);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: .07em;
-  line-height: 1.2;
-  text-transform: uppercase;
-}
-
-#project-modal .project-share-start-row {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 0;
-}
-
-#project-modal .project-share-start-row .btn {
-  min-height: 36px;
-  border-radius: var(--field-radius);
-}
-
-@media (max-width: 1180px) {
-  #project-modal .entity-modal-form,
-  #project-modal .project-sharing-card {
-    max-width: 900px;
-  }
-}
-
-#project-modal .project-title-section .project-title-group {
-  margin-bottom: 0;
-}
-
-#project-modal .project-title-group label {
-  display: none;
-}
-
-#project-modal #project-name {
-  width: 100%;
-  min-height: 52px;
-  padding: 10px 0;
-  border: 1px solid transparent;
-  border-radius: 18px;
-  background: transparent;
-  appearance: none;
-  -webkit-appearance: none;
-  box-shadow: none;
-  color: var(--text-primary);
-  font-size: clamp(26px, 3vw, 38px);
-  line-height: 1.28;
-  font-weight: 760;
-  letter-spacing: -0.025em;
-}
-
-#project-modal #project-name:focus,
-#project-modal #project-name:focus-visible {
-  padding-inline: 16px;
-  border-color: color-mix(in srgb, var(--accent) 62%, var(--border));
-  background: color-mix(in srgb, var(--bg-secondary) 58%, transparent);
-  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.14));
-  outline: none;
 }
 
 #project-modal .project-appearance-grid,
@@ -493,14 +166,6 @@
   #project-modal .project-appearance-grid,
   #project-modal .project-organization-grid {
     grid-template-columns: 1fr;
-  }
-
-  #project-modal #project-name {
-    font-size: clamp(24px, 8vw, 32px);
-  }
-
-  #project-modal .project-title-section .project-title-group {
-    margin-bottom: 0;
   }
 
   .entity-modal-content {
@@ -521,27 +186,6 @@
   }
 
   .entity-modal-body .ui-section-heading {
-    margin-bottom: 10px;
-  }
-
-  #project-modal .entity-modal-body .ui-section-card {
-    padding: 16px 0 0;
-  }
-
-  #project-modal .entity-modal-body .ui-section-card:first-of-type,
-  #project-modal .entity-modal-body .project-title-section {
-    padding-top: 0;
-  }
-
-  #project-modal .entity-modal-form {
-    gap: 20px;
-  }
-
-  #project-modal .entity-modal-form + .project-sharing-card {
-    margin-top: 20px;
-  }
-
-  #project-modal .entity-modal-body .ui-section-heading {
     margin-bottom: 10px;
   }
 
