@@ -197,12 +197,16 @@
   min-height: 36px;
   margin-top: 6px;
   padding: 8px 9px;
-  border-top: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
-  color: var(--accent);
+  color: var(--text-muted);
   text-align: left;
-  border-radius: 10px;
+  border-radius: 999px;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 400;
+}
+
+.workspace-menu-add:hover {
+  background: var(--bg-hover);
+  color: var(--accent);
 }
 
 .small-modal {

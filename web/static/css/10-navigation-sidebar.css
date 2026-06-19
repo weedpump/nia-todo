@@ -80,8 +80,16 @@
   color: var(--accent-hover);
 }
 
-.nav-btn.add-btn { color: var(--text-muted); font-size: 13px; }
-.nav-btn.add-btn:hover { color: var(--accent); }
+.nav-btn.add-btn {
+  color: var(--text-muted);
+  font-size: 13px;
+  border-radius: 999px;
+}
+
+.nav-btn.add-btn:hover {
+  background: var(--bg-hover);
+  color: var(--accent);
+}
 
 .nav-item-with-action {
   display: flex;

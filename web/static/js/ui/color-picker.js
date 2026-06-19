@@ -33,7 +33,7 @@ export function renderColorPicker({ container, input, selected, colors = DEFAULT
       </span>
       <svg class="color-picker-current-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
     </button>
-    <div class="ui-section-card color-picker-panel" hidden>
+    <div class="ui-dropdown-panel color-picker-panel" hidden>
       <div class="color-picker-grid">
         ${normalizedColors.map((color) => `
           <button type="button" class="btn btn-secondary btn-icon color-picker-option ${current === color ? 'is-selected' : ''}" data-color="${color}" aria-selected="${current === color ? 'true' : 'false'}" title="${labelForColor(color)}">
