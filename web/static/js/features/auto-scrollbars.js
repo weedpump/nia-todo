@@ -7,6 +7,7 @@ const EDGE_PADDING = 3;
 const INDICATOR_WIDTH = 7;
 
 const states = new WeakMap();
+const trackedElements = new Set();
 let activeElement = null;
 let pendingFrame = 0;
 
@@ -58,6 +59,7 @@ function getState(element) {
 
   state = { indicator, timer: null };
   states.set(element, state);
+  trackedElements.add(element);
   return state;
 }
 
@@ -142,6 +144,38 @@ function scheduleScrollHint(element) {
   });
 }
 
+export function hideAutoScrollbars(root = null) {
+  if (pendingFrame) {
+    cancelAnimationFrame(pendingFrame);
+    pendingFrame = 0;
+  }
+
+  trackedElements.forEach((element) => {
+    if (root instanceof Element && element !== root && !root.contains(element)) return;
+    const state = states.get(element);
+    if (state?.timer) clearTimeout(state.timer);
+    if (state) state.timer = null;
+    element.classList?.remove?.(SCROLLING_CLASS);
+    state?.indicator.classList.remove(VISIBLE_CLASS);
+    if (activeElement === element) activeElement = null;
+  });
+}
+
+function bindModalScrollbarCleanup() {
+  if (document.documentElement.dataset.autoScrollbarModalCleanup === 'ready') return;
+  document.documentElement.dataset.autoScrollbarModalCleanup = 'ready';
+
+  const observer = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+      const target = mutation.target;
+      if (!(target instanceof Element) || !target.classList.contains('modal')) return;
+      if (target.classList.contains('active')) return;
+      hideAutoScrollbars(target);
+    });
+  });
+  observer.observe(document.body, { subtree: true, attributes: true, attributeFilter: ['class'] });
+}
+
 function updateVisibleIndicators() {
   const scrollers = [document.scrollingElement || document.documentElement, ...document.querySelectorAll(`.${SCROLLING_CLASS}`)];
   scrollers.forEach((element) => {
@@ -173,4 +207,5 @@ export function initAutoScrollbars() {
   }, { capture: true });
 
   window.addEventListener('resize', updateVisibleIndicators, { passive: true });
+  bindModalScrollbarCleanup();
 }
