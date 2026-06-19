@@ -1315,11 +1315,20 @@
   <div class="modal" id="project-modal">
     <div class="modal-overlay" data-close-modal="project-modal"></div>
     <div class="modal-content entity-modal-content project-modal-content">
-      <div class="entity-modal-header">
+      <div class="entity-modal-header project-modal-header">
         <div class="entity-modal-title-icon" data-icon="folder"></div>
         <div>
           <h3 id="project-modal-title" data-i18n-key="project.new">New project</h3>
           <p data-i18n-key="project.modalHint">Strukturiere Todos mit Farbe, Icon und optionaler Hierarchie.</p>
+        </div>
+        <div class="entity-detail-header-actions project-detail-header-actions">
+          <button type="submit" form="project-form" class="btn btn-primary" id="project-save-btn" data-i18n-key="common.save">Save</button>
+          <details class="entity-detail-header-menu-toggle" id="project-detail-header-menu" hidden>
+            <summary aria-label="More actions" data-i18n-aria-label-key="common.more"><span data-icon="menu"></span></summary>
+            <div class="entity-detail-header-menu ui-menu" role="menu">
+              <button type="button" class="ui-menu-item danger" id="project-delete-btn" data-project-action="delete-from-modal" style="display:none;" role="menuitem"><span data-icon="trash-2"></span> <span data-i18n-key="project.delete">Delete project</span></button>
+            </div>
+          </details>
         </div>
       </div>
       <button class="modal-close-x" data-close-modal="project-modal"><span data-icon="x"></span></button>
@@ -1335,9 +1344,9 @@
               </div>
             </div>
             <div class="ui-field-grid two-columns">
-              <div class="form-group">
+              <div class="form-group project-title-group">
                 <label data-i18n-key="common.name">Name</label>
-                <input type="text" id="project-name" required>
+                <input class="ui-field" type="text" id="project-name" required placeholder="Projektname" data-i18n-placeholder-key="project.namePlaceholder">
               </div>
               <div class="form-group">
                 <label data-i18n-key="common.color">Farbe</label>
@@ -1399,11 +1408,6 @@
           </div>
           <button type="button" class="btn btn-secondary project-leave-btn" id="project-leave-btn" data-project-sharing-action="leave" style="display:none;" data-i18n-key="project.share.leave">Leave project</button>
         </section>
-      </div>
-      <div class="modal-actions entity-modal-actions">
-        <button type="button" class="btn btn-danger" id="project-delete-btn" data-project-action="delete-from-modal" style="margin-right:auto;display:none;"><span data-icon="trash-2"></span> <span data-i18n-key="project.delete">Delete project</span></button>
-        <button type="button" class="btn btn-secondary" data-close-modal="project-modal" data-i18n-key="common.cancel">Cancel</button>
-        <button type="submit" form="project-form" class="btn btn-primary" id="project-save-btn" data-i18n-key="common.save">Save</button>
       </div>
     </div>
   </div>

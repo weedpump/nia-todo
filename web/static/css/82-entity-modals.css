@@ -27,6 +27,103 @@
   border: 0;
 }
 
+.project-modal-header {
+  padding-right: 112px;
+}
+
+.entity-detail-header-actions {
+  position: absolute;
+  top: 18px;
+  right: 66px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.entity-detail-header-menu-toggle[hidden] {
+  display: none;
+}
+
+.entity-detail-header-menu-toggle > summary {
+  width: 34px;
+  height: 34px;
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  list-style: none;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.entity-detail-header-menu-toggle > summary::-webkit-details-marker {
+  display: none;
+}
+
+.entity-detail-header-menu-toggle > summary:hover,
+.entity-detail-header-menu-toggle > summary:focus-visible,
+.entity-detail-header-menu-toggle[open] > summary {
+  color: var(--text-primary);
+  background: transparent;
+  border: 0;
+  outline: none;
+}
+
+.entity-detail-header-menu-toggle[open] > summary {
+  color: var(--accent);
+}
+
+.entity-detail-header-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 190px;
+  z-index: 20;
+}
+
+.entity-detail-header-menu .ui-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.entity-detail-header-menu .ui-menu-item.danger {
+  color: var(--danger);
+}
+
+.project-modal-content .modal-close-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  top: 18px;
+  right: 28px;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0;
+}
+
+.project-modal-content .modal-close-x .ui-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.project-modal-content .modal-close-x:hover,
+.project-modal-content .modal-close-x:focus-visible {
+  color: var(--text-primary);
+  background: transparent;
+  border: 0;
+  outline: none;
+}
+
 .entity-modal-header p {
   margin: 6px 0 0;
   color: var(--text-muted);
@@ -89,6 +186,25 @@
     gap: 10px;
   }
 
+  .project-modal-header {
+    padding-right: 110px;
+  }
+
+  .entity-detail-header-actions {
+    top: 12px;
+    right: 52px;
+  }
+
+  .entity-detail-header-actions .btn {
+    min-height: 34px;
+    padding: 7px 11px;
+  }
+
+  .project-modal-content .modal-close-x {
+    top: 12px;
+    right: 12px;
+  }
+
   .entity-modal-title-icon {
     width: 36px;
     height: 36px;
@@ -142,6 +258,11 @@
 
 .entity-modal-body .form-group:last-child {
   margin-bottom: 0;
+}
+
+.project-title-group input {
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .project-organization-grid {

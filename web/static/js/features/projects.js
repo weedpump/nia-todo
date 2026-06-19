@@ -158,6 +158,7 @@ export function createProjectsFeature({
     const shareRow = document.getElementById('project-share-row');
     const leaveBtn = document.getElementById('project-leave-btn');
     const deleteBtn = document.getElementById('project-delete-btn');
+    const headerMenu = document.getElementById('project-detail-header-menu');
 
     if (project) {
       document.getElementById('project-id').value = project.id;
@@ -172,13 +173,22 @@ export function createProjectsFeature({
       });
       const owner = isOwner(project);
       const shared = !!project.is_shared;
-      if (deleteBtn) deleteBtn.style.display = (owner && !project.is_inbox) ? '' : 'none';
+      const canDelete = owner && !project.is_inbox;
+      if (deleteBtn) deleteBtn.style.display = canDelete ? '' : 'none';
+      if (headerMenu) {
+        headerMenu.hidden = !canDelete;
+        headerMenu.removeAttribute('open');
+      }
       if (sharingFeature?.applyProjectModalState) {
         sharingFeature.applyProjectModalState(project, owner, shared);
       }
     } else {
       if (sharingSection) sharingSection.style.display = 'none';
       if (deleteBtn) deleteBtn.style.display = 'none';
+      if (headerMenu) {
+        headerMenu.hidden = true;
+        headerMenu.removeAttribute('open');
+      }
       document.getElementById('project-form')?.classList.remove('readonly-project');
       document.getElementById('project-icon').value = '';
       renderIconPicker({
@@ -327,6 +337,7 @@ export function createProjectsFeature({
         event.stopPropagation();
         editProject(target.dataset.projectId);
       } else if (action === 'delete-from-modal') {
+        document.getElementById('project-detail-header-menu')?.removeAttribute('open');
         deleteProjectFromModal();
       } else if (action === 'clear-done-current') {
         clearDoneInProject();
