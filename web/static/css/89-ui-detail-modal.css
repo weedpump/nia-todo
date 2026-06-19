@@ -201,6 +201,7 @@
   gap: 8px;
 }
 
+.ui-detail-modal .ui-detail-header-actions .btn[hidden],
 .ui-detail-modal .ui-detail-header-menu-toggle[hidden] {
   display: none;
 }
