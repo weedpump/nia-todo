@@ -29,6 +29,31 @@ export function createProjectsFeature({
 }) {
   let projectFormBound = false;
   let projectActionsBound = false;
+  let projectSaveSnapshot = null;
+
+  function getProjectSaveRelevantState() {
+    return {
+      id: document.getElementById('project-id')?.value || '',
+      name: (document.getElementById('project-name')?.value || '').trim(),
+      color: document.getElementById('project-color')?.value || '#6366f1',
+      icon: document.getElementById('project-icon')?.value || '',
+      parent_id: document.getElementById('project-parent-id')?.value || '',
+      display_workspace_id: document.getElementById('project-display-workspace-id')?.value || '',
+    };
+  }
+
+  function refreshProjectSaveButtonState() {
+    const saveBtn = document.getElementById('project-save-btn');
+    if (!saveBtn) return;
+    const state = getProjectSaveRelevantState();
+    const unchanged = projectSaveSnapshot !== null && JSON.stringify(state) === projectSaveSnapshot;
+    saveBtn.disabled = unchanged || !state.name;
+  }
+
+  function resetProjectSaveSnapshot() {
+    projectSaveSnapshot = JSON.stringify(getProjectSaveRelevantState());
+    refreshProjectSaveButtonState();
+  }
 
   function bindProjectForm() {
     if (projectFormBound) return;
@@ -36,6 +61,12 @@ export function createProjectsFeature({
     if (!form) return;
     projectFormBound = true;
     form.addEventListener('submit', saveProject);
+    form.addEventListener('input', refreshProjectSaveButtonState);
+    form.addEventListener('change', refreshProjectSaveButtonState);
+    document.getElementById('project-icon-picker')?.addEventListener('click', (event) => {
+      if (!event.target?.closest?.('.icon-picker-option')) return;
+      window.setTimeout(refreshProjectSaveButtonState, 0);
+    });
   }
 
   function isOwner(project) {
@@ -125,6 +156,7 @@ export function createProjectsFeature({
     select.onchange = () => {
       if (ownMovableProject) renderParentProjectSelect(project, null, select.value);
       refreshSelect(select);
+      refreshProjectSaveButtonState();
     };
     hydrateSelect(select);
     refreshSelect(select);
@@ -155,8 +187,6 @@ export function createProjectsFeature({
     renderProjectWorkspaceSelect(project);
 
     const sharingSection = document.getElementById('project-sharing-section');
-    const shareRow = document.getElementById('project-share-row');
-    const leaveBtn = document.getElementById('project-leave-btn');
     const deleteBtn = document.getElementById('project-delete-btn');
     const headerMenu = document.getElementById('project-detail-header-menu');
 
@@ -213,16 +243,23 @@ export function createProjectsFeature({
         container: document.getElementById('project-color-picker'),
         input: colorInput,
         selected: colorInput.value || '#6366f1',
-        onChange: (color) => renderIconPicker({
-          container: document.getElementById('project-icon-picker'),
-          input: document.getElementById('project-icon'),
-          selected: document.getElementById('project-icon')?.value || '',
-          color,
-        }),
+        onChange: (color) => {
+          renderIconPicker({
+            container: document.getElementById('project-icon-picker'),
+            input: document.getElementById('project-icon'),
+            selected: document.getElementById('project-icon')?.value || '',
+            color,
+          });
+          refreshProjectSaveButtonState();
+        },
       });
     }
 
     document.getElementById('project-modal')?.classList.add('active');
+    resetProjectSaveSnapshot();
+    if (!project) {
+      window.setTimeout(() => document.getElementById('project-name')?.focus(), 0);
+    }
   }
 
   function editProject(id) {
@@ -232,6 +269,8 @@ export function createProjectsFeature({
 
   async function saveProject(event) {
     event.preventDefault();
+    refreshProjectSaveButtonState();
+    if (document.getElementById('project-save-btn')?.disabled) return;
     const id = document.getElementById('project-id').value;
     const parentIdVal = document.getElementById('project-parent-id')?.value;
     const existing = id ? getProjects().find(p => String(p.id) === String(id)) : null;
