@@ -171,25 +171,85 @@
   width: 100%;
   min-height: 36px;
   padding: 8px 14px;
-  border: 1px solid var(--border);
+  border: 1px solid color-mix(in srgb, var(--border) 78%, var(--accent) 10%);
   border-radius: var(--field-radius);
-  background: var(--bg-primary);
+  background:
+    radial-gradient(circle at 18% 0%, color-mix(in srgb, var(--accent) 7%, transparent), transparent 44%),
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--bg-secondary) 46%, var(--bg-primary)) 0%,
+      color-mix(in srgb, var(--bg-primary) 94%, black) 100%);
   color: var(--text-primary);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, white 8%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, #000 18%, transparent),
+    0 1px 2px color-mix(in srgb, #000 18%, transparent),
+    0 10px 24px color-mix(in srgb, #000 10%, transparent);
   font: inherit;
   font-size: 14px;
   line-height: 1.2;
   outline: none;
-  transition: border-color .15s ease, box-shadow .15s ease, background .15s ease, opacity .15s ease;
+  transition: border-color .15s ease, box-shadow .15s ease, background .15s ease, opacity .15s ease, transform .15s ease;
+}
+
+[data-theme="light"] .ui-field,
+[data-theme="light"] .form-group input,
+[data-theme="light"] .form-group select,
+[data-theme="light"] .form-group textarea {
+  border-color: color-mix(in srgb, var(--border) 70%, var(--accent) 8%);
+  background:
+    radial-gradient(circle at 18% 0%, color-mix(in srgb, var(--accent) 5%, transparent), transparent 46%),
+    linear-gradient(180deg,
+      color-mix(in srgb, white 94%, var(--bg-secondary)) 0%,
+      color-mix(in srgb, var(--bg-primary) 84%, white) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.92),
+    inset 0 -1px 0 rgba(15,23,42,.035),
+    0 1px 2px rgba(15,23,42,.055),
+    0 10px 26px rgba(15,23,42,.055);
+}
+
+.ui-field:hover,
+.form-group input:hover,
+.form-group select:hover,
+.form-group textarea:hover {
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
+  background:
+    radial-gradient(circle at 18% 0%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 44%),
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--bg-secondary) 54%, var(--bg-primary)) 0%,
+      color-mix(in srgb, var(--bg-primary) 92%, black) 100%);
+}
+
+[data-theme="light"] .ui-field:hover,
+[data-theme="light"] .form-group input:hover,
+[data-theme="light"] .form-group select:hover,
+[data-theme="light"] .form-group textarea:hover {
+  background:
+    linear-gradient(180deg,
+      white 0%,
+      color-mix(in srgb, var(--bg-primary) 88%, white) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.96),
+    inset 0 -1px 0 rgba(15,23,42,.04),
+    0 2px 5px rgba(15,23,42,.07),
+    0 12px 28px rgba(15,23,42,.06);
 }
 
 .ui-field:focus,
 .form-group input:focus,
 .form-group select:focus,
-.form-group textarea:focus { border-color: var(--accent); }
+.form-group textarea:focus { border-color: color-mix(in srgb, var(--accent) 72%, var(--border)); }
 
-.ui-field:focus-visible {
-  border-color: color-mix(in srgb, var(--accent) 72%, var(--border));
-  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.18));
+.ui-field:focus-visible,
+.form-group input:focus-visible,
+.form-group select:focus-visible,
+.form-group textarea:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 78%, var(--border));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, white 10%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, #000 12%, transparent),
+    0 0 0 3px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.17)),
+    0 10px 26px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.13));
 }
 
 .datetime-input-wrap .ui-field {
