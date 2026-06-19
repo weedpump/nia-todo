@@ -474,7 +474,7 @@ export function createTodosFeature({
     const commentButton = document.getElementById('todo-comment-add-btn');
     const attachmentPicker = document.querySelector('.todo-attachment-picker');
     const uploadButton = document.getElementById('todo-attachment-upload-btn');
-    if (subtaskButton) subtaskButton.disabled = !hasTodo || !subtaskTitle;
+    if (subtaskButton) subtaskButton.disabled = !subtaskTitle;
     if (commentButton) commentButton.disabled = !hasTodo || !commentBody;
     if (attachmentPicker) attachmentPicker.disabled = !hasTodo;
     if (uploadButton) uploadButton.disabled = !hasTodo || attachmentFiles.length === 0;
