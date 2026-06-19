@@ -30,7 +30,7 @@
   background:
     radial-gradient(circle at top left, rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.18)), transparent 40%),
     var(--bg-secondary);
-  border: 1px solid color-mix(in srgb, var(--accent) 36%, var(--border));
+  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
   border-radius: 12px;
   padding: 24px;
   width: 100%;
