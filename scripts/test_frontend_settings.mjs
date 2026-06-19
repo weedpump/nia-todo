@@ -93,9 +93,9 @@ async function run() {
     await page.setViewportSize({ width: 1280, height: 720 });
     await page.locator('#settings-username').waitFor({ state: 'visible' });
     await page.locator('#settings-username').getByText('frontenduser').waitFor({ state: 'visible', timeout: 10000 });
-    await page.locator('#settings-display-name-cell button[onclick="editUserDisplayName()"]').click();
+    await page.locator('#settings-display-name-cell [data-user-settings-action="edit-display-name"]').click();
     await page.fill('#settings-display-name-input', 'Frontend Avatar User');
-    await page.locator('#settings-display-name-cell button[onclick="saveUserProfile()"]').click();
+    await page.locator('#settings-display-name-cell [data-user-settings-action="save-profile"]').click();
     await page.getByText(/Profil gespeichert|Profile saved/).waitFor({ state: 'visible', timeout: 10000 });
     await page.waitForFunction(async () => {
       const jwt = localStorage.getItem('jwt_token');
@@ -133,17 +133,17 @@ async function run() {
       return !data.avatar_url && !data.avatar_updated_at;
     }, null, { timeout: 10000 });
     await page.locator('#settings-email-display').waitFor({ state: 'visible', timeout: 10000 });
-    await page.locator('#settings-email-cell button[onclick="editUserEmail()"]').click();
+    await page.locator('#settings-email-cell [data-user-settings-action="edit-email"]').click();
     await page.locator('#settings-email-input').fill('broken-email');
-    await page.locator('#settings-email-cell button[onclick="saveUserEmail()"]').click();
+    await page.locator('#settings-email-cell [data-user-settings-action="save-email"]').click();
     await page.getByText(/Bitte eine gültige E-Mail-Adresse eingeben|Please enter a valid email address/).waitFor({ state: 'visible', timeout: 10000 });
     await page.locator('#settings-email-input').fill('frontenduser-updated@example.invalid');
-    await page.locator('#settings-email-cell button[onclick="saveUserEmail()"]').click();
+    await page.locator('#settings-email-cell [data-user-settings-action="save-email"]').click();
     await page.getByText(/E-Mail gespeichert|Email saved/).waitFor({ state: 'visible', timeout: 10000 });
     await page.locator('#settings-email-cell').getByText('frontenduser-updated@example.invalid').waitFor({ state: 'visible', timeout: 10000 });
-    await page.locator('#settings-email-cell button[onclick="editUserEmail()"]').click();
+    await page.locator('#settings-email-cell [data-user-settings-action="edit-email"]').click();
     await page.locator('#settings-email-input').fill('cancelled@example.invalid');
-    await page.locator('#settings-email-cell button[onclick="cancelUserEmailEdit()"]').click();
+    await page.locator('#settings-email-cell [data-user-settings-action="cancel-email"]').click();
     await page.locator('#settings-email-cell').getByText('frontenduser-updated@example.invalid').waitFor({ state: 'visible', timeout: 10000 });
     await page.waitForFunction(async () => {
       const jwt = localStorage.getItem('jwt_token');
@@ -174,12 +174,12 @@ async function run() {
         unitMatchesInputRadius: inputStyle?.borderRadius === unitTriggerStyle?.borderRadius,
       };
     });
-    if (defaultReminderCustomLayout.hidden || defaultReminderCustomLayout.display !== 'grid' || defaultReminderCustomLayout.alignItems !== 'end' || !defaultReminderCustomLayout.columns?.includes('px') || defaultReminderCustomLayout.inputType !== 'number' || defaultReminderCustomLayout.inputMode !== 'numeric' || !defaultReminderCustomLayout.inputUsesStandardFormGroup || !defaultReminderCustomLayout.inputPadding?.startsWith('10px 12px') || !defaultReminderCustomLayout.unitHydrated || !defaultReminderCustomLayout.unitMatchesInputRadius) {
+    if (defaultReminderCustomLayout.hidden || defaultReminderCustomLayout.display !== 'grid' || defaultReminderCustomLayout.alignItems !== 'end' || !defaultReminderCustomLayout.columns?.includes('px') || defaultReminderCustomLayout.inputType !== 'number' || defaultReminderCustomLayout.inputMode !== 'numeric' || !defaultReminderCustomLayout.inputUsesStandardFormGroup || !defaultReminderCustomLayout.inputPadding?.startsWith('8px 14px') || !defaultReminderCustomLayout.unitHydrated || !defaultReminderCustomLayout.unitMatchesInputRadius) {
       throw new Error(`Default reminder custom UI does not use the standard input + unit layout: ${JSON.stringify(defaultReminderCustomLayout)}`);
     }
     await page.fill('#settings-default-reminder-custom', '3');
     await page.selectOption('#settings-default-reminder-custom-unit', 'hours');
-    await page.locator('#settings-default-reminder-custom-row button[onclick="saveCustomDefaultReminderSetting()"]').click();
+    await page.locator('#settings-default-reminder-custom-row [data-user-settings-action="save-custom-default-reminder"]').click();
     await page.getByText(/Standard-Erinnerung gespeichert|Default reminder saved/).waitFor({ state: 'visible', timeout: 10000 });
     await page.waitForFunction(async () => {
       const jwt = localStorage.getItem('jwt_token');
@@ -188,7 +188,7 @@ async function run() {
     }, null, { timeout: 10000 });
     await page.fill('#settings-default-reminder-custom', '2');
     await page.selectOption('#settings-default-reminder-custom-unit', 'days');
-    await page.locator('#settings-default-reminder-custom-row button[onclick="saveCustomDefaultReminderSetting()"]').click();
+    await page.locator('#settings-default-reminder-custom-row [data-user-settings-action="save-custom-default-reminder"]').click();
     await page.getByText(/Standard-Erinnerung gespeichert|Default reminder saved/).waitFor({ state: 'visible', timeout: 10000 });
     await page.waitForFunction(async () => {
       const jwt = localStorage.getItem('jwt_token');
@@ -224,7 +224,7 @@ async function run() {
       if (testBtn) testBtn.hidden = false;
     });
 
-    await page.locator('button[onclick="createApiKey()"]').click();
+    await page.locator('[data-api-key-action="create"]').click();
     await page.locator('#security-action-modal').waitFor({ state: 'visible', timeout: 10000 });
     await page.fill('#security-action-body input[name="value"]', 'Frontend Test Key');
     await page.click('#security-action-primary');
@@ -250,7 +250,7 @@ async function run() {
     }
     await page.setViewportSize({ width: 1280, height: 720 });
 
-    await page.evaluate(() => window.sendTestPush());
+    await page.locator('#push-test-btn[data-push-action="test"]').click();
     await page.waitForFunction(() => {
       const text = document.getElementById('push-error')?.textContent || '';
       return text.includes('Test-Benachrichtigung gesendet!')
@@ -270,7 +270,7 @@ async function run() {
         || text.includes('No API keys yet');
     }, { timeout: 10000 });
 
-    await page.evaluate(() => window.disablePushNotifications());
+    await page.locator('#push-disable-btn[data-push-action="disable"]').click();
     await page.waitForFunction(() => {
       const text = document.getElementById('push-error')?.textContent || '';
       return text.includes('deaktiviert') || text.includes('disabled');
@@ -308,7 +308,7 @@ async function run() {
     await page.waitForFunction(() => document.getElementById('settings-2fa-trusted-devices')?.innerText.includes('IP:'), null, { timeout: 5000 });
     await page.waitForFunction(() => {
       const devicesText = document.getElementById('settings-2fa-devices')?.innerText || '';
-      const setupBtn = document.querySelector('#settings-2fa-actions button[onclick="startTwoFactorTotp()"]');
+      const setupBtn = document.querySelector('#settings-2fa-actions [data-user-settings-action="start-totp"]');
       const setupBtnVisible = setupBtn ? window.getComputedStyle(setupBtn).display !== 'none' : false;
       const disableBtn = document.getElementById('settings-2fa-disable-btn');
       const disableBtnHidden = disableBtn ? window.getComputedStyle(disableBtn).display === 'none' : false;
@@ -329,7 +329,7 @@ async function run() {
     await page.waitForFunction(() => {
       const statusText = document.getElementById('settings-2fa-status')?.textContent || '';
       const devicesText = document.getElementById('settings-2fa-devices')?.innerText || '';
-      const setupBtn = document.querySelector('#settings-2fa-actions button[onclick="startTwoFactorTotp()"]');
+      const setupBtn = document.querySelector('#settings-2fa-actions [data-user-settings-action="start-totp"]');
       const setupBtnVisible = setupBtn ? window.getComputedStyle(setupBtn).display !== 'none' : false;
       const disableBtn = document.getElementById('settings-2fa-disable-btn');
       const disableBtnHidden = disableBtn ? window.getComputedStyle(disableBtn).display === 'none' : false;
@@ -341,7 +341,7 @@ async function run() {
     await page.fill('#settings-old-password', USER_PASSWORD);
     await page.fill('#settings-new-password', 'FrontendChanged123!');
     await page.fill('#settings-confirm-password', 'FrontendChanged123!');
-    await page.locator('#settings-modal button[onclick="changeUserPassword()"]').click();
+    await page.locator('#settings-modal [data-user-settings-action="change-password"]').click();
     await page.getByText(/Passwort geändert|Password changed/).waitFor({ state: 'visible', timeout: 10000 });
     await page.locator('#login-overlay').waitFor({ state: 'visible', timeout: 10000 });
 

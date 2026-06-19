@@ -15,6 +15,15 @@ async function waitForTodo(page, title, expected = {}) {
   }, { title, expected }, { timeout: 10000 });
 }
 
+async function pointerTap(locator, pointerId = 41) {
+  const box = await locator.boundingBox();
+  if (!box) throw new Error('Native action target bounding box missing');
+  const clientX = box.x + box.width / 2;
+  const clientY = box.y + box.height / 2;
+  await locator.dispatchEvent('pointerdown', { button: 0, pointerId, clientX, clientY });
+  await locator.dispatchEvent('pointerup', { button: 0, pointerId, clientX, clientY });
+}
+
 async function run() {
   console.log('🖱️ Running native todo quick actions test...');
   const { browser, page, openTodoModal, assertNoFrontendErrors } = await launchPage();
@@ -50,22 +59,20 @@ async function run() {
     const statusSummary = item.locator('.todo-status-menu summary');
     const summaryBox = await statusSummary.boundingBox();
     if (!summaryBox) throw new Error('Status summary bounding box missing');
-    await page.mouse.move(12, 12);
-    await page.mouse.down();
-    await page.mouse.move(summaryBox.x + summaryBox.width / 2, summaryBox.y + summaryBox.height / 2);
-    await page.mouse.up();
+    await page.locator('body').dispatchEvent('pointerdown', { button: 0, pointerId: 7, clientX: 12, clientY: 12 });
+    await statusSummary.dispatchEvent('pointerup', { button: 0, pointerId: 7, clientX: summaryBox.x + summaryBox.width / 2, clientY: summaryBox.y + summaryBox.height / 2 });
     await page.waitForTimeout(100);
     const openedByMismatchedPointer = await page.locator('.todo-status-menu[open]').count();
     if (openedByMismatchedPointer !== 0) throw new Error('Status menu opened from mismatched pointerdown/pointerup');
 
-    await statusSummary.click();
+    await pointerTap(statusSummary);
     await page.waitForFunction(() => document.querySelector('.todo-status-menu[open]'), null, { timeout: 5000 });
     await item.locator('.todo-status-options button').filter({ hasText: /In Arbeit|In progress/i }).click();
     await waitForTodo(page, title, { status: 'in_progress' });
     await page.waitForTimeout(150);
 
     item = todoItem();
-    await item.locator('.todo-snooze-menu summary').click();
+    await pointerTap(item.locator('.todo-snooze-menu summary'), 42);
     await item.locator('.todo-snooze-menu[open]').waitFor({ state: 'visible', timeout: 5000 });
     const tomorrowButton = item.locator('.todo-snooze-menu .todo-status-options button').filter({ hasText: /Morgen|Tomorrow/i });
     await tomorrowButton.waitFor({ state: 'visible', timeout: 5000 });

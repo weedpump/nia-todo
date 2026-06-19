@@ -69,24 +69,43 @@ async function run() {
   }
   const { browser, page, assertNoFrontendErrors } = await launchPage();
   const openTodoModal = async () => {
-    await page.evaluate(() => window.showTodoModal?.());
-    await page.locator('#todo-modal.active').waitFor({ state: 'visible', timeout: 5000 });
+    await page.locator('[data-todo-action="new"]').first().click();
+    await page.locator('#todo-modal').waitFor({ state: 'visible', timeout: 5000 });
   };
   const title = 'Android Gesture Todo';
   const quickActionTitle = 'Android Quick Action Pin Todo';
   const todoItem = () => page.locator('.todo-item').filter({ hasText: title }).last();
   const revealQuickActions = async (todoTitle) => {
-    const item = page.locator('.todo-item').filter({ hasText: todoTitle }).last();
-    await item.evaluate((el) => {
-      el.scrollIntoView({ block: 'center', inline: 'nearest' });
-      el.classList.add('actions-expanded');
-      el.querySelector('.todo-actions-reveal-btn')?.setAttribute('aria-expanded', 'true');
-    });
-    return item;
+    let lastError = null;
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const item = page.locator('.todo-item').filter({ hasText: todoTitle }).last();
+      try {
+        await item.waitFor({ state: 'visible', timeout: 5000 });
+        await item.evaluate((el) => el.scrollIntoView({ block: 'center', inline: 'nearest' }));
+        const revealButton = item.locator('.todo-actions-reveal-btn').first();
+        if (await revealButton.isVisible()) {
+          await revealButton.click();
+        }
+        if (!(await item.locator('.todo-pin-btn').first().isVisible())) {
+          await item.evaluate((el) => {
+            el.classList.add('actions-expanded');
+            el.querySelector('.todo-actions-reveal-btn')?.setAttribute('aria-expanded', 'true');
+          });
+        }
+        await item.locator('.todo-pin-btn').waitFor({ state: 'visible', timeout: 5000 });
+        return item;
+      } catch (error) {
+        lastError = error;
+        await page.waitForTimeout(150);
+      }
+    }
+    throw lastError || new Error(`Could not reveal quick actions for ${todoTitle}`);
   };
   const clickQuickAction = async (todoTitle, selector) => {
     const item = await revealQuickActions(todoTitle);
-    await item.locator(selector).evaluate((button) => button.click());
+    const button = item.locator(selector).first();
+    await button.waitFor({ state: 'visible', timeout: 5000 });
+    await button.click();
     return item;
   };
   const openMetaDrawer = async () => {
@@ -132,6 +151,8 @@ async function run() {
     await page.click('button[form="todo-form"]');
     await page.locator('#todo-modal').waitFor({ state: 'hidden', timeout: 5000 });
     await page.waitForFunction((value) => document.body.innerText.includes(value), quickActionTitle, { timeout: 10000 });
+    await waitForTodo(page, quickActionTitle);
+    await page.waitForTimeout(300);
     await clickQuickAction(quickActionTitle, '.todo-pin-btn');
     await waitForTodo(page, quickActionTitle, { pinned: true });
 
@@ -238,13 +259,27 @@ async function run() {
       throw new Error(`Native drag auto-scroll/cleanup failed: ${JSON.stringify(autoScrollResult)}`);
     }
 
+    await page.goto(BASE_URL, { waitUntil: 'domcontentloaded' });
+    await page.locator('#user-menu-button').waitFor({ state: 'visible', timeout: 10000 });
+    await page.evaluate(() => window.setFilter?.('all'));
+    await page.waitForFunction((value) => document.body.innerText.includes(value), title, { timeout: 10000 });
+
     const standardAutoScrollResult = await page.evaluate(async (value) => {
       const titleEl = Array.from(document.querySelectorAll('.todo-title')).find(el => (el.textContent || '').includes(value));
       const item = titleEl?.closest('.todo-item');
       const main = document.querySelector('.main');
       const topbar = document.querySelector('.topbar');
-      if (!item || !main || !topbar || !window.handleTodoDragStart || !window.handleTodoDragOver || !window.handleTodoDragEnd) {
-        throw new Error('Standard drag auto-scroll prerequisites missing');
+      const container = item?.closest('.section-todos, .project-group-todos');
+      if (!item || !main || !topbar || !container) {
+        throw new Error(`Standard drag auto-scroll prerequisites missing: ${JSON.stringify({
+          hasTitle: Boolean(titleEl),
+          hasItem: Boolean(item),
+          hasMain: Boolean(main),
+          hasTopbar: Boolean(topbar),
+          hasContainer: Boolean(container),
+          itemClass: item?.className || null,
+          parentClass: item?.parentElement?.className || null,
+        })}`);
       }
       const spacer = document.createElement('div');
       spacer.style.height = '1800px';
@@ -257,22 +292,27 @@ async function run() {
       const before = main.scrollTop;
       const topbarBottom = topbar.getBoundingClientRect().bottom;
       const targetY = topbarBottom + 48;
-      window.handleTodoDragStart({ target: item, dataTransfer: { effectAllowed: '', setData() {}, dropEffect: '' } });
-      window.handleTodoDragOver({
-        preventDefault() {},
-        target: item,
-        clientY: targetY,
-        dataTransfer: { dropEffect: '' },
-      });
-      await new Promise(resolve => setTimeout(resolve, 180));
+      const dataTransfer = new DataTransfer();
+      const dragStartAccepted = item.dispatchEvent(new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer }));
+      const draggingClassAfterStart = item.classList.contains('dragging');
+      const dragOverEvent = new DragEvent('dragover', { bubbles: true, cancelable: true, clientY: targetY, dataTransfer });
+      const dragOverAccepted = container.dispatchEvent(dragOverEvent);
+      const dragOverPrevented = dragOverEvent.defaultPrevented;
+      const containerDragOver = container.classList.contains('drag-over');
+      await new Promise(resolve => setTimeout(resolve, 240));
       const after = main.scrollTop;
-      window.handleTodoDragEnd({ target: item });
+      item.dispatchEvent(new DragEvent('dragend', { bubbles: true, cancelable: true, dataTransfer }));
       spacer.remove();
-      return { before, after, targetY, topbarBottom };
+      return { before, after, targetY, topbarBottom, dragStartAccepted, draggingClassAfterStart, dragOverAccepted, dragOverPrevented, containerDragOver };
     }, title);
     if (standardAutoScrollResult.before <= 0 || standardAutoScrollResult.after >= standardAutoScrollResult.before) {
       throw new Error(`Standard drag topbar-aware auto-scroll up failed: ${JSON.stringify(standardAutoScrollResult)}`);
     }
+
+    await page.goto(`${BASE_URL}?nativeApp=tauri`, { waitUntil: 'domcontentloaded' });
+    await page.locator('#user-menu-button').waitFor({ state: 'visible', timeout: 10000 });
+    await page.evaluate(() => window.setFilter?.('all'));
+    await page.waitForFunction((value) => document.body.innerText.includes(value), quickActionTitle, { timeout: 10000 });
 
     await revealQuickActions(quickActionTitle);
     const driftResult = await page.evaluate((value) => {

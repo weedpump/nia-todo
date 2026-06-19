@@ -11,7 +11,13 @@ const userSettings = await readFile(new URL('../web/static/js/features/user-sett
 const desktop = await readFile(new URL('../web/static/js/features/desktop-integration.js', import.meta.url), 'utf8');
 const placesApiJs = await readFile(new URL('../web/static/js/api/places.js', import.meta.url), 'utf8');
 const rendering = await readFile(new URL('../web/static/js/features/todo-rendering.js', import.meta.url), 'utf8');
-const css = await readFile(new URL('../web/static/style.css', import.meta.url), 'utf8');
+const css = [
+  await readFile(new URL('../web/static/style.css', import.meta.url), 'utf8'),
+  await readFile(new URL('../web/static/css/30-buttons-empty.css', import.meta.url), 'utf8'),
+  await readFile(new URL('../web/static/css/71-settings.css', import.meta.url), 'utf8'),
+  await readFile(new URL('../web/static/css/81-todo-cards-refresh.css', import.meta.url), 'utf8'),
+  await readFile(new URL('../web/static/css/90-detail-extras.css', import.meta.url), 'utf8'),
+].join('\n');
 const braindumpLive = await readFile(new URL('../web/static/js/features/braindump-live.js', import.meta.url), 'utf8');
 const de = await readFile(new URL('../web/static/i18n/de.json', import.meta.url), 'utf8');
 const en = await readFile(new URL('../web/static/i18n/en.json', import.meta.url), 'utf8');
@@ -36,8 +42,12 @@ assert(!todos.includes('todo-location-latitude'), 'todo JS must not read latitud
 assert(!todos.includes('todo-location-radius'), 'todo JS must not read radius inputs');
 assert(sync.includes("'location_reminder'"), 'offline sync must allow location_reminder changes');
 assert(apiIndex.includes('placesApi'), 'API index must export saved places API');
-assert(app.includes('const saveSettingsPlace = userSettingsFeature.saveSettingsPlace') && app.includes('editSettingsPlace') && app.includes('cancelSettingsPlaceEdit') && app.includes('saveSettingsPlace, editSettingsPlace, cancelSettingsPlaceEdit, deleteSettingsPlace'), 'app must expose saved-place inline handlers as legacy globals');
-assert(html.includes('settings-place-cancel-edit') && html.includes('cancelSettingsPlaceEdit()'), 'saved places edit mode must expose a cancel action');
+assert(html.includes('data-user-settings-action="save-place"') && html.includes('data-user-settings-action="cancel-place-edit"'), 'saved places save/cancel actions must use delegated data actions');
+assert(userSettings.includes("action === 'edit-place'") && userSettings.includes('editSettingsPlace(target.dataset.placeId)'), 'saved places edit actions must be delegated instead of inline globals');
+assert(userSettings.includes("action === 'delete-place'") && userSettings.includes('deleteSettingsPlace(target.dataset.placeId)'), 'saved places delete actions must be delegated instead of inline globals');
+assert(userSettings.includes("action === 'save-place'") && userSettings.includes('await saveSettingsPlace()'), 'saved places save action must be delegated instead of inline globals');
+assert(userSettings.includes("action === 'cancel-place-edit'") && userSettings.includes('cancelSettingsPlaceEdit()'), 'saved places cancel action must be delegated instead of inline globals');
+assert(!html.includes('cancelSettingsPlaceEdit()') && !html.includes('saveSettingsPlace()') && !html.includes('editSettingsPlace('), 'saved places markup must not use inline JS handlers');
 assert(userSettings.includes('editSettingsPlace') && userSettings.includes('placesApi.update(editingPlaceId') && userSettings.includes('settings.places.updated'), 'saved places settings must support editing existing places');
 assert(placesApiJs.includes('update: (placeId, changes) => http.patch'), 'saved places API client must expose PATCH updates');
 assert(desktop.includes("t('todo.location.notificationTitle')"), 'location notification title must use i18n');

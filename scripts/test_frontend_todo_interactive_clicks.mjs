@@ -63,8 +63,7 @@ function nextWeekday(from, weekday) {
 async function clickSnoozeMode(page, item, mode) {
   await item.locator('.todo-snooze-menu').evaluate((menu, snoozeMode) => {
     menu.setAttribute('open', '');
-    const button = Array.from(menu.querySelectorAll('.todo-status-options button'))
-      .find((candidate) => (candidate.getAttribute('onclick') || '').includes(`\"${snoozeMode}\"`));
+    const button = menu.querySelector(`[data-todo-action="snooze"][data-snooze-mode="${snoozeMode}"]`);
     if (!button) throw new Error(`Snooze mode button not found: ${snoozeMode}`);
     button.click();
   }, mode);

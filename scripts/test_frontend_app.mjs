@@ -8,6 +8,11 @@ async function run() {
   try {
     await loginApp();
 
+    const expandFocusFilters = async () => {
+      const expand = page.locator('[data-focus-action="toggle-expanded"][aria-expanded="false"]').first();
+      if (await expand.count()) await expand.click();
+    };
+
     const initialDueTodayCount = await page.evaluate(() => Number(document.querySelector('.overview-focus-item strong')?.textContent || 0));
     await page.evaluate(async () => {
       const jwt = localStorage.getItem('jwt_token');
@@ -48,13 +53,14 @@ async function run() {
     await page.waitForFunction((expected) => Number(document.querySelector('.overview-focus-item strong')?.textContent || 0) === expected, initialDueTodayCount + 2, { timeout: 10000 });
 
     await page.locator('.nav-btn[data-filter="focus"]').click();
-    await page.evaluate(() => window.setFocusDueMode?.('today'));
+    await expandFocusFilters();
+    await page.selectOption('#focus-due-mode', 'today');
     await page.fill('#search-input', 'Reminder-only today focus regression');
     await page.getByText('Reminder-only today focus regression', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
     await page.fill('#search-input', 'Reminder-only tomorrow focus regression');
     await page.waitForFunction(() => !document.body.innerText.includes('Reminder-only tomorrow focus regression'), null, { timeout: 5000 });
     await page.fill('#search-input', '');
-    await page.evaluate(() => window.resetFocusFilters?.());
+    await page.locator('[data-focus-action="reset"]').click();
 
     await page.locator('.nav-btn[data-filter="all"]').click();
     await page.locator('#today-focus-btn').click();
@@ -69,13 +75,13 @@ async function run() {
     await page.fill('#search-input', '');
     await page.locator('#today-focus-btn').click();
 
-    await page.click('button[onclick="showProjectModal()"]');
+    await page.click('button[data-nav-action="new-project"]');
     await page.fill('#project-name', 'Frontend Project A');
     await page.fill('#project-color', '#ff8800');
     await page.click('button[form="project-form"]');
     await page.locator('#project-modal').waitFor({ state: 'hidden', timeout: 5000 });
 
-    await page.click('button[onclick="showProjectModal()"]');
+    await page.click('button[data-nav-action="new-project"]');
     await page.fill('#project-name', 'Frontend Project B');
     await page.fill('#project-color', '#00aa88');
     await page.click('button[form="project-form"]');

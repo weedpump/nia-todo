@@ -69,7 +69,9 @@ async function run() {
         && remind.getHours() === 17 && remind.getMinutes() === 30;
     }, { projectId: created.project.id, sectionId: created.section.id }, { timeout: 10000 });
 
-    await page.evaluate(async () => window.changeLanguagePreference('de'));
+    await page.evaluate(() => localStorage.setItem('nia-todo-language', 'de'));
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.locator('#user-menu-button').waitFor({ state: 'visible', timeout: 10000 });
     await openTodoModal();
     await page.fill('#todo-title', 'Deutsch morgen 19 Uhr erinnerung: 17:30 projekt: Quick Shopping /Cold Goods !hoch');
     await page.waitForFunction(() => {
@@ -134,7 +136,9 @@ async function run() {
       return remind.getHours() === 17 && remind.getMinutes() === 30;
     }, null, { timeout: 10000 });
 
-    await page.evaluate(async () => window.changeLanguagePreference('en'));
+    await page.evaluate(() => localStorage.setItem('nia-todo-language', 'en'));
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.locator('#user-menu-button').waitFor({ state: 'visible', timeout: 10000 });
     await openTodoModal();
     await page.fill('#todo-title', 'Plan next week');
     await page.waitForFunction(() => {
