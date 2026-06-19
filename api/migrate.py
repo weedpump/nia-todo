@@ -487,7 +487,11 @@ def run_migrations():
                 print(f"[MIGRATION] ✅ {filepath.name} applied successfully")
             except sqlite3.OperationalError as e:
                 error_msg = str(e).lower()
-                if version == 16 and "duplicate column" in error_msg and column_exists(conn, "projects", "workspace_id"):
+                if version == 12 and "duplicate column" in error_msg and column_exists(conn, "projects", "is_inbox"):
+                    print(f"[MIGRATION] ⚠️ {filepath.name} - is_inbox already exists, continuing with inbox repair migration")
+                    set_db_version(conn, version)
+                    applied += 1
+                elif version == 16 and "duplicate column" in error_msg and column_exists(conn, "projects", "workspace_id"):
                     print(f"[MIGRATION] ⚠️ {filepath.name} - workspace_id exists, repairing remaining workspace schema")
                     repair_workspace_migration(conn)
                     set_db_version(conn, version)

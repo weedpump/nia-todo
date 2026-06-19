@@ -141,11 +141,11 @@ export async function launchPage() {
       }, { labels: expectedLabels, disabled }, { timeout: 10000 });
     },
     createSection: async (name) => {
-      await page.evaluate(() => window.showAddSectionForm());
+      await page.locator('[data-section-action="show-add"]').click();
       const input = page.locator('#new-section-name');
       await input.waitFor({ state: 'visible' });
       await input.fill(name);
-      await page.evaluate(() => window.saveNewSection());
+      await page.locator('[data-section-action="save-new"]').click();
       await page.getByText(name, { exact: true }).waitFor({ state: 'visible' });
     },
     loginApp: async () => {

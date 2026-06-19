@@ -82,7 +82,7 @@ async function run() {
 
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.locator('#user-menu-button').waitFor({ state: 'visible', timeout: 10000 });
-    await page.waitForFunction(() => typeof window.renderTodos === 'function' && typeof window.cycleSort === 'function', null, { timeout: 10000 });
+    await page.waitForFunction(() => typeof window.renderTodos === 'function', null, { timeout: 10000 });
 
     await page.fill('#search-input', 'Needle Project');
     await page.waitForTimeout(150);
@@ -99,7 +99,12 @@ async function run() {
     if (searchContextPills !== 0) throw new Error('Search rendered project/section context pills instead of headings');
 
     await page.fill('#search-input', '');
-    await page.evaluate(() => window.cycleSort());
+    await page.evaluate(() => localStorage.setItem('nia-sort', 'priority'));
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.locator('#user-menu-button').waitFor({ state: 'visible', timeout: 10000 });
+    await page.locator('#user-menu-button').click();
+    await page.locator('#sort-toggle-btn').click();
+    await page.waitForFunction(() => localStorage.getItem('nia-sort') === 'due', null, { timeout: 5000 });
     await page.waitForTimeout(150);
     const orderedTitles = await page.$$eval('.todo-title', els => els.map(el => el.textContent.trim()));
     const soonerIndex = orderedTitles.indexOf('Needle sooner task');
@@ -108,7 +113,7 @@ async function run() {
       throw new Error(`Due-date sort did not place sooner todo first: ${orderedTitles.join(' | ')}`);
     }
 
-    await page.evaluate((id) => window.duplicateTodo(id), duplicateSource.id);
+    await page.locator(`[data-todo-action="duplicate"][data-todo-id="${duplicateSource.id}"]`).evaluate((button) => button.click());
     await page.waitForFunction(async () => {
       const jwt = localStorage.getItem('jwt_token');
       const data = await fetch('/api/todos', { headers: { Authorization: `Bearer ${jwt}` }, credentials: 'include' }).then(r => r.json());
@@ -126,16 +131,16 @@ async function run() {
       throw new Error(`Clone did not preserve schedule/reminder/recurring: ${JSON.stringify(clone)}`);
     }
 
-    await page.evaluate((id) => window.setTodoStatus(id, 'done'), soonerTodo.id);
-    await page.waitForFunction(async (id) => {
-      const todo = await window.getFromDB('todos', id);
-      return Boolean(todo?.completed_at);
-    }, soonerTodo.id, { timeout: 5000 });
-    await page.evaluate((id) => window.setTodoStatus(id, 'pending'), soonerTodo.id);
-    await page.waitForFunction(async (id) => {
-      const todo = await window.getFromDB('todos', id);
-      return todo && todo.completed_at === null;
-    }, soonerTodo.id, { timeout: 5000 });
+    const doneTodo = await authedFetch(page, `/api/todos/${soonerTodo.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status: 'done' }),
+    });
+    if (!doneTodo.completed_at) throw new Error(`Status done did not set completed_at: ${JSON.stringify(doneTodo)}`);
+    const pendingTodo = await authedFetch(page, `/api/todos/${soonerTodo.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status: 'pending' }),
+    });
+    if (pendingTodo.completed_at !== null) throw new Error(`Status pending did not clear completed_at: ${JSON.stringify(pendingTodo)}`);
 
     await openTodoModal();
     await page.fill('#todo-title', 'Recurring quick tomorrow 10:00 repeat:weekly');
@@ -149,7 +154,13 @@ async function run() {
       return todo?.due_date && todo?.recurring_rule?.frequency === 'weekly';
     }, null, { timeout: 10000 });
 
-    await page.evaluate(async () => window.changeLanguagePreference('de'));
+    await authedFetch(page, '/api/me/language', {
+      method: 'PATCH',
+      body: JSON.stringify({ language: 'de' }),
+    });
+    await page.evaluate(() => localStorage.setItem('nia-todo-language', 'de'));
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.locator('#user-menu-button').waitFor({ state: 'visible', timeout: 10000 });
     await openTodoModal();
     await page.fill('#todo-title', 'Wiederkehrend morgen 10:00 wiederholung:wöchentlich');
     await page.waitForFunction(() => document.querySelector('#quick-add-preview .quick-add-chip.recurring'), null, { timeout: 5000 });

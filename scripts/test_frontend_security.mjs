@@ -72,8 +72,10 @@ assert(indexSource.includes('if (window.__niaMainModuleLoaded)') && indexSource.
 assert(runtimeConfigSource.includes('AbortController') && runtimeConfigSource.includes('timeoutMs = 10000') && runtimeConfigSource.includes('verifyInstance(serverUrl, { timeoutMs: 3500 })'), 'native runtime instance probing must be timeout-bounded so offline cold-start is not blocked by network');
 
 const cssSource = readFileSync(new URL('../web/static/style.css', import.meta.url), 'utf8');
-assert(cssSource.includes('iOS WebKit zooms the page when focusing editable controls below 16px'), 'mobile iOS inputs must document why 16px focus font size is required');
-assert(cssSource.includes('@supports (-webkit-touch-callout: none)') && cssSource.includes('font-size: 16px !important'), 'mobile iOS inputs/selects/textareas must stay at least 16px to prevent WebKit focus zoom');
+const dropdownCssSource = readFileSync(new URL('../web/static/css/32-dropdowns-selects.css', import.meta.url), 'utf8');
+assert(cssSource.includes('@import url("/static/css/32-dropdowns-selects.css")'), 'main stylesheet must include dropdown/input CSS module');
+assert(dropdownCssSource.includes('iOS WebKit zooms the page when focusing editable controls below 16px'), 'mobile iOS inputs must document why 16px focus font size is required');
+assert(dropdownCssSource.includes('@supports (-webkit-touch-callout: none)') && dropdownCssSource.includes('font-size: 16px !important'), 'mobile iOS inputs/selects/textareas must stay at least 16px to prevent WebKit focus zoom');
 
 const adminSource = readFileSync(new URL('../web/admin.html', import.meta.url), 'utf8');
 assert(adminSource.includes('hardReloadAfterServerUpdate'), 'admin server update reload must use explicit hard reload cleanup');
@@ -172,7 +174,8 @@ assert(syncSource.includes('sanitizeQueueItem'), 'offline sync must sanitize que
 assert(syncSource.includes('pickAllowed'), 'offline sync must whitelist payload fields');
 
 const renderingSource = readFileSync(new URL('../web/static/js/features/app-rendering.js', import.meta.url), 'utf8');
-assert(renderingSource.includes('editProject(${escapeHtmlAttr(JSON.stringify(project.id))})'), 'project edit onclick must quote string/temp IDs safely');
+assert(renderingSource.includes('data-project-action="edit"') && renderingSource.includes('data-project-id="${escapeHtmlAttr(project.id)}"'), 'project edit buttons must use escaped data attributes instead of inline onclick handlers');
+assert(!renderingSource.includes('onclick="editProject('), 'project edit must not use inline onclick handlers');
 assert(renderingSource.includes('invite-action invite-accept') && renderingSource.includes('invite-action invite-decline'), 'invite actions should use compact dedicated buttons');
 
 const mainSource = readFileSync(new URL('../api/main.py', import.meta.url), 'utf8');

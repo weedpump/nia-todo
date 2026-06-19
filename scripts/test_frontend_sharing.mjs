@@ -300,7 +300,8 @@ async function run() {
     await page.click('#project-save-btn');
     await page.locator('#project-modal').waitFor({ state: 'hidden', timeout: 10000 });
     await page.waitForFunction(() => ![...document.querySelectorAll('.project-tree-item')].some(el => el.textContent.includes('Sharing Test Project')), null, { timeout: 10000 });
-    await page.evaluate((workspaceId) => window.switchWorkspace(String(workspaceId)), teamWorkspace.id);
+    await page.locator('#workspace-current-btn').click();
+    await page.locator(`[data-workspace-action="switch"][data-workspace-id="${teamWorkspace.id}"]`).click();
     await page.locator('.project-tree-item').filter({ hasText: 'Sharing Test Project' }).waitFor({ state: 'visible', timeout: 10000 });
 
     await page.getByRole('button', { name: /Neues Todo|New todo/i }).click();

@@ -40,7 +40,7 @@ async function run() {
     await page.locator('#web-update-modal').waitFor({ state: 'attached' });
     await page.locator('#web-update-apply-btn').waitFor({ state: 'attached' });
 
-    await page.click('button[onclick="showProjectModal()"]');
+    await page.click('button[data-nav-action="new-project"]');
     await page.fill('#project-name', 'Frontend Smoke Project');
     await page.fill('#project-color', '#ff8800');
     await page.click('button[form="project-form"]');
@@ -79,7 +79,7 @@ async function run() {
 
     await todoItem.click();
     await visible('#todo-modal');
-    await page.click('#todo-detail-header-actions > summary');
+    await page.click('#todo-detail-header-actions summary');
     await page.click('#todo-detail-delete-action');
     await visible('#confirm-modal');
     await page.click('#confirm-confirm-btn');

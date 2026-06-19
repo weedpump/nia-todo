@@ -23,7 +23,7 @@ async function run() {
   try {
     await loginApp();
 
-    await page.click('button[onclick="showProjectModal()"]');
+    await page.click('button[data-nav-action="new-project"]');
     await visible('#project-modal');
     await page.fill('#project-name', 'Project Parent');
     await page.fill('#project-color', '#123456');
@@ -31,7 +31,7 @@ async function run() {
     await page.locator('#project-modal').waitFor({ state: 'hidden', timeout: 5000 });
     await waitForText('Project Parent');
 
-    await page.click('button[onclick="showProjectModal()"]');
+    await page.click('button[data-nav-action="new-project"]');
     await visible('#project-modal');
     await page.fill('#project-name', 'Project Child');
     const childModalSelectState = await page.evaluate(() => {

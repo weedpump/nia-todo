@@ -50,14 +50,14 @@ export function createDragDropFeature({
     stopStandardDragAutoScroll();
     const item = e.target?.closest?.('.todo-item[data-id]') || e.target;
     item.classList.remove('dragging');
-    document.querySelectorAll('.section-todos.drag-over, .section-header.drag-over, .project-drop-target.drag-over').forEach(el => {
+    document.querySelectorAll('.section-todos.drag-over, .project-group-todos.drag-over, .section-header.drag-over, .project-drop-target.drag-over').forEach(el => {
       el.classList.remove('drag-over');
     });
     dragSrcTodoId = null;
   }
 
   function clearTodoDropIndicators() {
-    document.querySelectorAll('.section-todos.drag-over, .section-header.drag-over, .project-drop-target.drag-over').forEach(el => el.classList.remove('drag-over'));
+    document.querySelectorAll('.section-todos.drag-over, .project-group-todos.drag-over, .section-header.drag-over, .project-drop-target.drag-over').forEach(el => el.classList.remove('drag-over'));
   }
 
   function handleTodoDragOver(e) {
@@ -66,7 +66,7 @@ export function createDragDropFeature({
     eventDataTransfer(e).dropEffect = 'move';
     scheduleStandardDragAutoScroll(e);
     clearTodoDropIndicators();
-    const container = e.target.closest('.section-todos');
+    const container = e.target.closest('.section-todos, .project-group-todos');
     const header = e.target.closest('.section-header');
     if (container) container.classList.add('drag-over');
     else if (header) header.classList.add('drag-over');
@@ -326,7 +326,7 @@ export function createDragDropFeature({
         handleTodoDragOver(event);
         return;
       }
-      if (event.target?.closest?.('.section-todos[data-section-id]')) handleTodoDragOver(event);
+      if (event.target?.closest?.('.section-todos[data-section-id], .project-group-todos')) handleTodoDragOver(event);
     });
 
     document.addEventListener('drop', async (event) => {
@@ -343,7 +343,7 @@ export function createDragDropFeature({
   }
 
   function clearNativeDragIndicators() {
-    document.querySelectorAll('.section-todos.drag-over, .section-header.drag-over, .section-dropzone.drag-over, .project-drop-target.drag-over').forEach(el => el.classList.remove('drag-over'));
+    document.querySelectorAll('.section-todos.drag-over, .project-group-todos.drag-over, .section-header.drag-over, .section-dropzone.drag-over, .project-drop-target.drag-over').forEach(el => el.classList.remove('drag-over'));
   }
 
   function nativeDragElementFromPoint(x, y) {
@@ -715,13 +715,13 @@ export function createDragDropFeature({
     }, true);
 
     document.addEventListener('dragover', (event) => {
-      if (!event.target.closest('.todo-item, .section-header, .section-todos, .section-dropzone, .project-drop-target')) return;
+      if (!event.target.closest('.todo-item, .section-header, .section-todos, .project-group-todos, .section-dropzone, .project-drop-target')) return;
       event.preventDefault();
       event.stopImmediatePropagation();
     }, true);
 
     document.addEventListener('drop', (event) => {
-      if (!event.target.closest('.todo-item, .section-header, .section-todos, .section-dropzone, .project-drop-target')) return;
+      if (!event.target.closest('.todo-item, .section-header, .section-todos, .project-group-todos, .section-dropzone, .project-drop-target')) return;
       event.preventDefault();
       event.stopImmediatePropagation();
     }, true);

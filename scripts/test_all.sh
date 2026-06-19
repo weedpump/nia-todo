@@ -75,6 +75,7 @@ run_step "2FA Service/Security" python3 scripts/test_two_factor_services.py
 run_step "OIDC Services" python3 scripts/test_oidc_services.py
 run_step "Push Services" python3 scripts/test_push_services.py
 run_step "Instance Config Services" python3 scripts/test_instance_config_services.py
+run_step "Fresh Migrations" python3 scripts/test_fresh_migrations.py
 run_step "Migration 022 Duplicate Email" python3 scripts/test_migration_022_email_duplicates.py
 run_step "Migration Partial Recovery" python3 scripts/test_migration_email_partial_recovery.py
 run_step "Release Version Checker" python3 scripts/test_release_versions.py
