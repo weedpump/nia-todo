@@ -139,16 +139,10 @@ export function createTodosFeature({
     setTodoCollapsibleOpen('todo-subtasks-panel', existingTodo);
     setTodoCollapsibleOpen('todo-comments-panel', existingTodo);
     setTodoCollapsibleOpen('todo-attachments-panel', existingTodo);
-    if (existingTodo) {
-      setTodoCollapsibleOpen('todo-schedule-panel', true);
-      setTodoCollapsibleOpen('todo-organize-panel', true);
-      return;
-    }
+    if (existingTodo) return;
     setTodoCollapsibleOpen('todo-subtasks-panel', true);
     setTodoCollapsibleOpen('todo-comments-panel', true);
     setTodoCollapsibleOpen('todo-attachments-panel', true);
-    setTodoCollapsibleOpen('todo-schedule-panel', true);
-    setTodoCollapsibleOpen('todo-organize-panel', true);
   }
 
   function formatTodoMetaDate(value) {
