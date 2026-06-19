@@ -1991,7 +1991,8 @@ export function createTodosFeature({
         await applyCommentTodoResponse(response);
       }
       if (draftAttachmentFiles.length > 0) {
-        await uploadTodoAttachmentFromInput();
+        const uploaded = await uploadTodoAttachmentFromInput();
+        if (!uploaded) return;
       } else {
         await dbPut('todos', createdTodo);
         setTodos(getTodos().map(todo => String(todo.id) === String(createdTodo.id) ? createdTodo : todo));
