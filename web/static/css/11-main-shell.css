@@ -17,7 +17,7 @@
   align-items: center;
   gap: 16px;
   padding: 16px 24px;
-  border-bottom: 1px solid color-mix(in srgb, var(--accent) 34%, var(--border));
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 54%, transparent);
   background:
     linear-gradient(90deg, rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.16)), transparent 50%),
     var(--bg-secondary);
