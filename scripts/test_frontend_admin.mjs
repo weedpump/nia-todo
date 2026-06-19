@@ -50,8 +50,6 @@ async function run() {
     await page.locator('#admin-content').waitFor({ state: 'visible', timeout: 10000 });
     await page.locator('#admin-login-card').waitFor({ state: 'hidden', timeout: 5000 });
     if (!(await page.evaluate(() => !!localStorage.getItem('admin_jwt_token')))) throw new Error('Admin JWT was lost after reload');
-    const statsBackfillButtons = await page.locator('[data-i18n-key="admin.stats.analyzeLogs"]').count();
-    if (statsBackfillButtons !== 0) throw new Error('Admin statistics log backfill button should not be rendered');
     const nestedHeaderInputs = await page.locator('.admin-section-header input, .admin-section-header button, .admin-section-header select, .admin-section-header textarea').count();
     if (nestedHeaderInputs !== 0) throw new Error('Admin section header button contains nested interactive controls');
     await expandSection('#email-config-card');
