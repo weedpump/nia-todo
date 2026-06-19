@@ -279,12 +279,12 @@ export function createTodosFeature({
     if (!actions) {
       actions = document.createElement('div');
       actions.id = 'todo-detail-header-actions';
-      actions.className = 'todo-detail-header-actions';
+      actions.className = 'todo-detail-header-actions ui-detail-header-actions';
       actions.innerHTML = `
         <button type="submit" form="todo-form" class="btn btn-primary" id="todo-save-btn" data-i18n-key="common.save">${t('common.save')}</button>
-        <details class="todo-detail-header-menu-toggle">
+        <details class="todo-detail-header-menu-toggle ui-detail-header-menu-toggle">
           <summary aria-label="${t('common.more') || 'More'}">${iconSvg('menu')}</summary>
-          <div class="todo-detail-header-menu ui-menu" role="menu">
+          <div class="todo-detail-header-menu ui-detail-header-menu ui-menu" role="menu">
             <button type="button" class="ui-menu-item" id="todo-detail-duplicate-action" role="menuitem">${iconSvg('copy')}<span>${t('todo.duplicate')}</span></button>
             <button type="button" class="ui-menu-item danger" id="todo-detail-delete-action" role="menuitem">${iconSvg('trash-2')}<span>${t('todo.delete')}</span></button>
           </div>
