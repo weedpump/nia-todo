@@ -340,7 +340,7 @@
   #settings-modal .settings-modal-content {
     display: flex;
     flex-direction: column;
-    max-height: min(90vh, 860px);
+    max-height: none;
   }
 
   #settings-modal .settings-modal-header,
