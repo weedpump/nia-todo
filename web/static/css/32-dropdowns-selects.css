@@ -18,7 +18,7 @@
   padding: 8px 36px 8px 14px;
   border: 0;
   border-radius: var(--field-radius);
-  background: color-mix(in srgb, var(--bg-tertiary) 44%, transparent);
+  background: color-mix(in srgb, var(--bg-tertiary) 76%, var(--bg-secondary));
   color: var(--text-primary);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bg-primary) 12%, transparent);
   font: inherit;
@@ -32,24 +32,30 @@
 }
 
 [data-theme="light"] .ui-select-trigger {
-  background: color-mix(in srgb, var(--bg-tertiary) 42%, white 16%);
+  background: color-mix(in srgb, var(--bg-tertiary) 82%, var(--bg-secondary));
   box-shadow: inset 0 0 0 1px rgba(255,255,255,.12);
 }
 
 .ui-select-trigger:hover {
-  background: color-mix(in srgb, var(--bg-tertiary) 58%, transparent);
+  background: color-mix(in srgb, var(--bg-tertiary) 86%, var(--bg-secondary));
 }
 
 [data-theme="light"] .ui-select-trigger:hover {
-  background: color-mix(in srgb, var(--bg-tertiary) 48%, white 18%);
+  background: color-mix(in srgb, var(--bg-tertiary) 90%, var(--bg-secondary));
   box-shadow: inset 0 0 0 1px rgba(255,255,255,.14);
 }
 
 .ui-select-trigger:focus-visible,
 .ui-select.is-open .ui-select-trigger {
+  background: color-mix(in srgb, var(--bg-tertiary) 92%, var(--bg-secondary));
   box-shadow:
     inset 0 0 0 1px color-mix(in srgb, var(--accent) 10%, transparent),
     0 0 0 3px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.13));
+}
+
+[data-theme="light"] .ui-select-trigger:focus-visible,
+[data-theme="light"] .ui-select.is-open .ui-select-trigger {
+  background: color-mix(in srgb, var(--bg-tertiary) 94%, var(--bg-secondary));
 }
 
 .ui-select.is-disabled .ui-select-trigger {
