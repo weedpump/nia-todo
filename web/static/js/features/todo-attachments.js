@@ -116,12 +116,12 @@ export function createTodoAttachmentsFeature({
     if (count) count.textContent = String(normalized.length);
     setTodoCollapsibleOpen('todo-attachments-panel', Boolean(todoId));
     if (empty) {
-      empty.textContent = todoId ? t('todo.attachments.empty') : t('todo.attachments.saveFirst');
+      empty.textContent = todoId ? t('todo.attachments.empty') : t('todo.attachments.draftEmpty');
       empty.hidden = normalized.length > 0;
     }
     if (input) {
       input.value = '';
-      input.disabled = !todoId;
+      input.disabled = false;
       setSelectedAttachmentFileName([]);
     }
     if (uploadButton) uploadButton.disabled = true;
@@ -352,6 +352,7 @@ export function createTodoAttachmentsFeature({
   function bindTodoAttachmentInputs() {
     document.getElementById('todo-attachment-file')?.addEventListener('change', (event) => {
       setSelectedAttachmentFileName(Array.from(event.target?.files || []));
+      refreshTodoSaveButtonState();
     });
     const attachmentDropZone = document.querySelector('.todo-attachments-add-row');
     if (attachmentDropZone) {

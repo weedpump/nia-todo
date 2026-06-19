@@ -456,7 +456,16 @@ export function createTodosFeature({
       location_place: document.getElementById('todo-location-place')?.value || '',
       location_address: document.getElementById('todo-location-address')?.value || '',
     };
-    if (!id) state.subtasks = collectTodoSubtasksFromEditor();
+    if (!id) {
+      state.subtasks = collectTodoSubtasksFromEditor();
+      state.comments = collectTodoDraftCommentsFromEditor();
+      state.attachments = getSelectedAttachmentFiles().map(file => ({
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        lastModified: file.lastModified,
+      }));
+    }
     return state;
   }
 
@@ -475,8 +484,8 @@ export function createTodosFeature({
     const attachmentPicker = document.querySelector('.todo-attachment-picker');
     const uploadButton = document.getElementById('todo-attachment-upload-btn');
     if (subtaskButton) subtaskButton.disabled = !subtaskTitle;
-    if (commentButton) commentButton.disabled = !hasTodo || !commentBody;
-    if (attachmentPicker) attachmentPicker.disabled = !hasTodo;
+    if (commentButton) commentButton.disabled = !commentBody;
+    if (attachmentPicker) attachmentPicker.disabled = false;
     if (uploadButton) uploadButton.disabled = !hasTodo || attachmentFiles.length === 0;
   }
 
@@ -716,6 +725,25 @@ export function createTodosFeature({
   }
 
 
+  function collectTodoDraftCommentsFromEditor() {
+    return Array.from(document.querySelectorAll('#todo-comments-list .todo-comment-item[data-draft-comment="1"] .todo-comment-body'))
+      .map(item => item.textContent?.trim() || '')
+      .filter(Boolean);
+  }
+
+  function removeTodoDraftComment(commentId) {
+    const comments = collectTodoDraftCommentsFromEditor();
+    const next = comments.filter((_, index) => `draft-comment-${index}` !== String(commentId));
+    renderTodoComments(next.map((body, index) => ({
+      id: `draft-comment-${index}`,
+      body,
+      is_draft: true,
+      user_id: getCurrentUser?.()?.id,
+      author_display_name: t('todo.comments.draftAuthor'),
+    })), null);
+    refreshTodoSaveButtonState();
+  }
+
   function formatTodoCommentTime(value) {
     if (!value) return '';
     const date = new Date(value);
@@ -740,12 +768,12 @@ export function createTodosFeature({
     if (count) count.textContent = String(normalized.length);
     setTodoCollapsibleOpen('todo-comments-panel', normalized.length > 0);
     if (empty) {
-      empty.textContent = todoId ? t('todo.comments.empty') : t('todo.comments.saveFirst');
+      empty.textContent = todoId ? t('todo.comments.empty') : t('todo.comments.draftEmpty');
       empty.hidden = normalized.length > 0;
     }
     if (input) {
       input.value = '';
-      input.disabled = !todoId;
+      input.disabled = false;
     }
     if (addButton) addButton.disabled = true;
     refreshTodoActionButtonState();
@@ -753,6 +781,7 @@ export function createTodosFeature({
       const item = document.createElement('article');
       item.className = 'todo-comment-item';
       item.dataset.commentId = comment.id;
+      if (comment.is_draft) item.dataset.draftComment = '1';
 
       const meta = document.createElement('div');
       meta.className = 'todo-comment-meta';
@@ -772,9 +801,10 @@ export function createTodosFeature({
       const actions = document.createElement('div');
       actions.className = 'todo-comment-actions';
       const currentUserId = getCurrentUser?.()?.id;
+      const isDraft = Boolean(comment.is_draft) || String(comment.id || '').startsWith('draft-comment-');
       const isAuthor = String(comment.user_id) === String(currentUserId);
-      const canDelete = isAuthor || String(todo?.user_id) === String(currentUserId);
-      if (isAuthor) {
+      const canDelete = isDraft || isAuthor || String(todo?.user_id) === String(currentUserId);
+      if (isAuthor && !isDraft) {
         const edit = document.createElement('button');
         edit.type = 'button';
         edit.className = 'btn btn-secondary btn-small btn-icon';
@@ -791,7 +821,10 @@ export function createTodosFeature({
         remove.innerHTML = iconSvg('trash-2');
         remove.setAttribute('aria-label', t('todo.comments.delete'));
         remove.setAttribute('title', t('todo.comments.delete'));
-        remove.addEventListener('click', () => deleteTodoComment(todoId, comment.id));
+        remove.addEventListener('click', () => {
+          if (isDraft) removeTodoDraftComment(comment.id);
+          else deleteTodoComment(todoId, comment.id);
+        });
         actions.appendChild(remove);
       }
 
@@ -851,12 +884,24 @@ export function createTodosFeature({
     const id = document.getElementById('todo-id')?.value;
     const input = document.getElementById('todo-comment-new-body');
     const body = input?.value?.trim() || '';
-    if (!id || id.startsWith('temp-')) {
-      showToast(t('todo.comments.saveFirst'));
-      return;
-    }
     if (!body) {
       input?.focus();
+      return;
+    }
+    if (!id || id.startsWith('temp-')) {
+      const comments = [...collectTodoDraftCommentsFromEditor(), body];
+      renderTodoComments(comments.map((commentBody, index) => ({
+        id: `draft-comment-${index}`,
+        body: commentBody,
+        is_draft: true,
+        user_id: getCurrentUser?.()?.id,
+        author_display_name: t('todo.comments.draftAuthor'),
+      })), null);
+      if (input) {
+        input.value = '';
+        input.focus();
+      }
+      refreshTodoSaveButtonState();
       return;
     }
     if (!isOnlineForSync()) {
@@ -1917,6 +1962,13 @@ export function createTodosFeature({
       if (!selectedSection || String(selectedSection.project_id) !== String(todoData.project_id)) todoData.section_id = null;
     }
     todoData.location_reminders = locationReminderArrayFromPayload(todoData.location_reminder);
+    const draftComments = id ? [] : collectTodoDraftCommentsFromEditor();
+    const draftAttachmentFiles = id ? [] : getSelectedAttachmentFiles();
+    const hasPostCreateDrafts = draftComments.length > 0 || draftAttachmentFiles.length > 0;
+    if (hasPostCreateDrafts && !isOnlineForSync()) {
+      showToast(t('todo.drafts.onlineOnly'));
+      return;
+    }
     if (id) delete todoData.subtasks;
     if (id) {
       const existing = getTodos().find(t => t.id === parseInt(id));
@@ -1928,6 +1980,26 @@ export function createTodosFeature({
         await addToSyncQueue('UPDATE_TODO', { id: parseInt(id), changes: todoData });
         if (isOnlineForSync()) await syncWithServer();
       }
+    } else if (hasPostCreateDrafts) {
+      let createdTodo = await todosApi.create(todoData);
+      await dbPut('todos', createdTodo);
+      setTodos([...getTodos(), createdTodo]);
+      document.getElementById('todo-id').value = String(createdTodo.id);
+      for (const body of draftComments) {
+        const response = await todosApi.createComment(createdTodo.id, { body });
+        createdTodo = response?.todo || createdTodo;
+        await applyCommentTodoResponse(response);
+      }
+      if (draftAttachmentFiles.length > 0) {
+        await uploadTodoAttachmentFromInput();
+      } else {
+        await dbPut('todos', createdTodo);
+        setTodos(getTodos().map(todo => String(todo.id) === String(createdTodo.id) ? createdTodo : todo));
+      }
+      renderProjects();
+      renderStats();
+      renderTodos();
+      closeModal('todo-modal');
     } else {
       const tempId = 'temp-' + Date.now();
       const nowIso = new Date().toISOString();
