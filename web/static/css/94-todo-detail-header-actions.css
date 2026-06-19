@@ -1,15 +1,5 @@
 /* Todo detail header actions, menus, and canonical action controls */
 
-#todo-modal.todo-detail-view .todo-detail-header-actions {
-  position: absolute;
-  top: 18px;
-  right: max(66px, calc((100% - 920px) / 2 + 42px));
-  z-index: 3;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
 #todo-modal.todo-detail-view #todo-save-btn {
   box-shadow: 0 10px 28px color-mix(in srgb, var(--accent) 24%, transparent);
 }
@@ -106,10 +96,6 @@
     right: 12px;
   }
 
-  #todo-modal.todo-detail-view .todo-detail-header-actions {
-    top: 18px;
-    right: 52px;
-  }
 }
 
 #todo-modal.todo-detail-view .todo-meta-summary-view {
