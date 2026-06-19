@@ -164,6 +164,69 @@ Modal redesign direction from the Todo detail work:
 - Avoid nested box-in-box layouts unless the grouping adds real comprehension. Prefer clean sections, subtle dividers, and semantic chips.
 - On mobile, fullscreen modals should have one scroll container for the body; headers/close controls must not participate in a second outer scroll.
 
+### Detail Modal Family
+
+Use the shared `ui-detail-modal` primitive for Todo/Project-style detail editors and for future entity modals that should visually belong to the same family.
+
+Core classes:
+
+- `.ui-detail-modal` on the root `.modal`.
+- `.ui-detail-view` on modals that should always use the detail treatment, e.g. Project. Todo uses `.todo-detail-view` only for existing-todo detail mode so the new-todo composer can remain compact.
+- `.ui-detail-modal-content`, `.ui-detail-modal-header`, `.ui-detail-modal-body` for the shared shell.
+- `.ui-detail-shell` for the centered content column.
+- `.ui-detail-section`, `.ui-detail-section-heading`, `.ui-detail-section-icon` for flat drawer-style sections.
+- `.ui-detail-title-section`, `.ui-detail-title-group`, `.ui-detail-title-field` for the large inline title/name field.
+- `.ui-detail-header-actions`, `.ui-detail-header-menu-toggle`, `.ui-detail-header-menu` for save/menu actions in the header.
+- `.ui-detail-action-row` for right-aligned section actions that become full-width on mobile.
+
+Minimal structure:
+
+```html
+<div class="modal ui-detail-modal ui-detail-view" id="example-modal">
+  <div class="modal-overlay" data-close-modal="example-modal"></div>
+  <div class="modal-content ui-detail-modal-content">
+    <div class="ui-detail-modal-header">
+      <div class="ui-detail-title-icon" data-icon="folder"></div>
+      <div>
+        <h3>Title</h3>
+        <p>Short context text.</p>
+      </div>
+      <div class="ui-detail-header-actions">
+        <button class="btn btn-primary">Save</button>
+      </div>
+    </div>
+    <button class="modal-close-x" data-close-modal="example-modal"><span data-icon="x"></span></button>
+    <div class="modal-body ui-detail-modal-body">
+      <form class="ui-detail-shell">
+        <section class="ui-section-card ui-detail-section ui-detail-title-section">
+          <div class="form-group ui-detail-title-group">
+            <label>Name</label>
+            <input class="ui-field ui-detail-title-field" type="text">
+          </div>
+        </section>
+        <section class="ui-section-card ui-detail-section">
+          <div class="ui-section-heading ui-detail-section-heading">
+            <div class="ui-section-icon ui-detail-section-icon" data-icon="settings"></div>
+            <div>
+              <h4>Details</h4>
+              <p>What this section controls.</p>
+            </div>
+          </div>
+        </section>
+      </form>
+    </div>
+  </div>
+</div>
+```
+
+Rules:
+
+- Put reusable surface/header/title/section/action styling into `89-ui-detail-modal.css`, not into feature-specific modal files.
+- Keep feature-specific CSS only for real content behavior, e.g. Project sharing member rows or Todo comments/attachments.
+- Keep header action/menu selectors scoped under `.ui-detail-modal` to avoid accidental global layout effects.
+- When adding a new CSS module to this family, update `style.css`, the service worker precache, service-worker update asset lists, and the inline hard-reload fallback list.
+- Do not create one-off modal wrappers just to copy the Todo/Project look. Adopt the detail classes first, then add only the missing entity-specific rules.
+
 ### Standard Modal
 
 Use for focused create/edit flows:
@@ -440,7 +503,7 @@ Before considering UI work ready:
 
 For every new UI change:
 
-- Reuse existing `.btn`, `.form-group`, `.modal-*`, `.ui-section-*`, `.ui-field-grid`, `.ui-select`, `.ui-menu`, badge/chip, and card classes where possible.
+- Reuse existing `.btn`, `.form-group`, `.modal-*`, `.ui-detail-*`, `.ui-section-*`, `.ui-field-grid`, `.ui-select`, `.ui-menu`, badge/chip, and card classes where possible.
 - Prefer extending shared primitives over appending component-specific override blocks.
 - If a visual fix applies to more than one component, move it into the shared primitive instead of patching only the current screen.
 - Do not leave visible browser-default selects/dropdowns in redesigned user-facing surfaces.
@@ -454,7 +517,8 @@ For every new UI change:
 ## Current Reference Patterns
 
 - User Settings modal: wide settings modal, section nav, section cards, consistent button groups; profile content stays inside the standard section-card treatment and should be tidied through internal layout, not by adding a special profile header.
-- Project/Workspace modals: compact entity modal pattern using shared `.ui-section-*` cards, `.ui-field-grid`, and the same title/icon tile sizing as Todo Modal. Current picker surfaces should use shared primitives: visible picker triggers use `.ui-field`, picker panels use `.ui-section-card`, picker actions/options use `.btn`/`.btn-secondary`/`.btn-icon`, and selected states use shared `.btn.is-selected` / `[aria-selected="true"]` styling.
+- Todo/Project detail modals: shared `ui-detail-modal` family using one detail shell, header rhythm, large inline title/name field, flat sections, header actions, and mobile fullscreen behavior. Project already uses this family permanently; Todo uses it in existing-todo detail mode while the new-todo composer stays compact.
+- Workspace and future entity modals: adopt `ui-detail-modal` when they should align with Todo/Project detail surfaces; keep entity-specific rules limited to content behavior such as grids, picker placement, or sharing/member rows. Picker surfaces should use shared primitives: visible picker triggers use `.ui-field`, picker panels use `.ui-section-card`, picker actions/options use `.btn`/`.btn-secondary`/`.btn-icon`, and selected states use shared `.btn.is-selected` / `[aria-selected="true"]` styling.
 - App Downloads modal: use normal `.btn` actions and `.ui-section-*` cards for install/download surfaces; keep platform instruction visuals illustrative, not a separate button/card system.
 - BrainDump modal: voice-first immediate recording flow.
 - Admin UI: card-based configuration sections and compact admin controls.
