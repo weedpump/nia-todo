@@ -9,7 +9,7 @@
   justify-content: center;
   gap: 7px;
   min-width: 92px;
-  border: 1px solid var(--border);
+  border: 0;
   background: var(--bg-secondary);
   color: var(--text-secondary);
   border-radius: 999px;
@@ -24,14 +24,12 @@
 .today-focus-btn:hover,
 .minimal-todos-btn:hover {
   color: var(--accent);
-  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
   background: color-mix(in srgb, var(--accent) 10%, var(--bg-secondary));
 }
 
 .today-focus-btn.active,
 .minimal-todos-btn.active {
   color: white;
-  border-color: var(--accent);
   background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 72%, #111827));
   box-shadow: 0 8px 20px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.26));
 }
