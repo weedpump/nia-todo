@@ -188,6 +188,15 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
     if (customUnit) refreshSelect(customUnit);
   }
 
+  function updatePasswordChangeAction() {
+    const oldPw = document.getElementById('settings-old-password')?.value || '';
+    const newPw = document.getElementById('settings-new-password')?.value || '';
+    const confirmPw = document.getElementById('settings-confirm-password')?.value || '';
+    const button = document.getElementById('settings-change-password-btn');
+    if (!button) return;
+    button.disabled = !oldPw || !newPw || !confirmPw || newPw !== confirmPw;
+  }
+
   function renderUserInfo() {
     const currentUser = getCurrentUser();
     const settingsUsernameEl = document.getElementById('settings-username');
@@ -206,6 +215,14 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
   let savedPlaces = [];
   let editingPlaceId = null;
 
+  function updatePlaceSaveAction() {
+    const name = document.getElementById('settings-place-name')?.value?.trim() || '';
+    const address = document.getElementById('settings-place-address')?.value?.trim() || '';
+    const button = document.querySelector('[data-user-settings-action="save-place"]');
+    if (!button) return;
+    button.disabled = !name || !address;
+  }
+
   function updatePlaceFormMode() {
     const saveIcon = document.getElementById('settings-place-save-icon');
     const saveLabel = document.getElementById('settings-place-save-label');
@@ -221,6 +238,7 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
       saveLabel.textContent = t(editing ? 'settings.places.update' : 'settings.places.save');
     }
     if (cancelBtn) cancelBtn.hidden = !editing;
+    updatePlaceSaveAction();
   }
 
   function resetPlaceForm() {
@@ -533,6 +551,7 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
     document.getElementById('settings-old-password').value = '';
     document.getElementById('settings-new-password').value = '';
     document.getElementById('settings-confirm-password').value = '';
+    updatePasswordChangeAction();
     document.getElementById('settings-pw-error').textContent = '';
     document.getElementById('settings-pw-success').textContent = '';
     document.getElementById('settings-email-error').textContent = '';
@@ -556,6 +575,7 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
     document.getElementById('settings-2fa-setup').style.display = 'none';
     document.getElementById('settings-2fa-recovery').style.display = 'none';
     renderUserInfo();
+    resetPlaceForm();
     document.getElementById('settings-modal')?.classList.add('active');
     updateSettingsEnrollmentLock();
     await refreshCurrentUser().catch(() => {});
@@ -1350,6 +1370,17 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
       }
     });
 
+    document.addEventListener('input', (event) => {
+      const input = event.target?.closest?.('[data-user-settings-input], #settings-place-name, #settings-place-address');
+      if (!input) return;
+      const inputType = input.dataset.userSettingsInput;
+      if (inputType === 'password-current' || inputType === 'password-new' || inputType === 'password-confirm') {
+        updatePasswordChangeAction();
+      } else if (input.id === 'settings-place-name' || input.id === 'settings-place-address') {
+        updatePlaceSaveAction();
+      }
+    });
+
     document.addEventListener('change', async (event) => {
       const input = event.target?.closest?.('[data-user-settings-input]');
       if (!input) return;
@@ -1401,6 +1432,7 @@ export function createUserSettingsFeature({ authApi, placesApi, getCurrentUser, 
     try {
       await withRecentMfaRetry(() => authApi.changePassword(oldPw, newPw), t('settings.password.mfaPurpose'));
       document.getElementById('settings-pw-success').textContent = t('settings.password.changed');
+      updatePasswordChangeAction();
       setTimeout(() => logout(), 1500);
     } catch (e) {
       document.getElementById('settings-pw-error').textContent = e.message;
