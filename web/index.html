@@ -34,7 +34,13 @@
     function preventGestureZoom(event) {
       event.preventDefault();
     }
+    function preventTrackpadPinchZoom(event) {
+      // Precision touchpad pinch gestures are exposed as ctrl/meta + wheel by browsers.
+      // Keyboard/menu browser zoom stays available; ctrl/meta + wheel zoom is blocked too.
+      if (event.ctrlKey || event.metaKey) event.preventDefault();
+    }
     document.addEventListener('touchmove', preventTouchZoom, { passive: false });
+    document.addEventListener('wheel', preventTrackpadPinchZoom, { passive: false });
     document.addEventListener('gesturestart', preventGestureZoom, { passive: false });
     document.addEventListener('gesturechange', preventGestureZoom, { passive: false });
     document.addEventListener('gestureend', preventGestureZoom, { passive: false });
