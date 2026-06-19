@@ -1,49 +1,9 @@
 /* Todo detail layout, panels, and meta summary */
-#todo-modal.todo-detail-view .todo-modal-content {
-  width: min(1080px, calc(100vw - 40px));
-  height: min(940px, calc(100vh - 32px));
-  border-radius: 30px;
-}
-
-#todo-modal.todo-detail-view .todo-modal-header {
-  max-width: 920px;
-  width: calc(100% - 56px);
-  margin: 0 auto;
-  padding-inline: 0 48px;
-}
-
-#todo-modal.todo-detail-view .todo-modal-body {
-  padding: clamp(22px, 2.5vw, 38px) clamp(24px, 3vw, 44px);
-}
-
-
 #todo-modal.todo-detail-view #todo-organize-panel { grid-area: organize; }
 #todo-modal.todo-detail-view #todo-schedule-panel { grid-area: schedule; }
 
 #todo-modal.todo-detail-view .todo-editor-main {
   max-width: none;
-}
-
-#todo-modal.todo-detail-view #todo-title {
-  min-height: 52px;
-  padding: 10px 0;
-  border: 1px solid transparent;
-  border-radius: 18px;
-  background: transparent;
-  appearance: none;
-  -webkit-appearance: none;
-  font-size: clamp(26px, 3vw, 38px);
-  line-height: 1.28;
-  font-weight: 760;
-  letter-spacing: -0.025em;
-}
-
-#todo-modal.todo-detail-view #todo-title:focus,
-#todo-modal.todo-detail-view #todo-title:focus-visible {
-  padding-inline: 16px;
-  border-color: color-mix(in srgb, var(--accent) 62%, var(--border));
-  background: color-mix(in srgb, var(--bg-secondary) 58%, transparent);
-  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.14));
 }
 
 #todo-modal.todo-detail-view .desc-live-preview {
@@ -108,21 +68,6 @@
 }
 
 
-@media (max-width: 1180px) {
-
-  #todo-modal.todo-detail-view .todo-modal-header {
-    width: calc(100% - 32px);
-  }
-}
-
-@media (max-width: 900px) {
-  #todo-modal.todo-detail-view #todo-title {
-    font-size: clamp(28px, 8vw, 42px);
-  }
-}
-
-
-
 #todo-modal.todo-detail-view .todo-editor-shell {
   max-width: 880px;
   grid-template-columns: 1fr;
@@ -161,13 +106,6 @@
 }
 
 @media (max-width: 1180px) {
-  #todo-modal.todo-detail-view .todo-modal-content {
-    width: 100vw;
-    height: 100vh;
-    border-radius: 0;
-  }
-
-  #todo-modal.todo-detail-view .todo-modal-header,
   #todo-modal.todo-detail-view .todo-editor-shell {
     max-width: 900px;
   }
