@@ -11,12 +11,7 @@
 }
 
 #todo-modal.todo-detail-view #todo-save-btn {
-  display: none;
   box-shadow: 0 10px 28px color-mix(in srgb, var(--accent) 24%, transparent);
-}
-
-#todo-modal.todo-detail-view.todo-has-unsaved #todo-save-btn {
-  display: inline-flex;
 }
 
 #todo-modal.todo-detail-view .modal-close-x {

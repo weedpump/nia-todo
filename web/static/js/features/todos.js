@@ -44,7 +44,6 @@ export function createTodosFeature({
     create: 'todo-create-view',
     editingDescription: 'todo-desc-editing',
     editingMeta: 'todo-meta-editing',
-    hasUnsavedChanges: 'todo-has-unsaved',
   });
 
   const {
@@ -326,7 +325,6 @@ export function createTodosFeature({
     modal.classList.toggle(TODO_MODAL_CLASSES.create, !isExistingTodo);
     modal.classList.remove(TODO_MODAL_CLASSES.editingDescription);
     modal.classList.remove(TODO_MODAL_CLASSES.editingMeta);
-    modal.classList.remove(TODO_MODAL_CLASSES.hasUnsavedChanges);
     const headerActions = ensureTodoDetailHeaderMenu();
     const headerMenu = headerActions?.querySelector('.todo-detail-header-menu-toggle');
     if (headerMenu) headerMenu.hidden = !isExistingTodo;
@@ -487,8 +485,8 @@ export function createTodosFeature({
     if (!saveButton) return;
     const current = JSON.stringify(getTodoSaveRelevantState());
     const unchanged = todoSaveSnapshot !== null && current === todoSaveSnapshot;
+    saveButton.hidden = unchanged;
     saveButton.disabled = unchanged;
-    getTodoModal()?.classList.toggle(TODO_MODAL_CLASSES.hasUnsavedChanges, !unchanged);
     refreshTodoActionButtonState();
   }
 
