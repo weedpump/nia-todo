@@ -27,55 +27,67 @@
 
 .braindump-modal { z-index: 360; }
 .braindump-modal-content {
-  max-width: 680px;
+  width: min(1080px, calc(100vw - 40px));
+  height: min(940px, calc(100vh - 32px));
+  max-width: none;
+  max-height: none;
   padding: 0;
-  border-radius: 26px;
+  border-radius: 30px;
   overflow: hidden;
-  max-height: min(90vh, 760px);
   display: flex;
   flex-direction: column;
   background:
-    radial-gradient(circle at 18% 0%, rgba(var(--accent-rgb), calc(var(--accent-intensity) * .34)), transparent 36%),
-    radial-gradient(circle at 86% 14%, rgba(34,197,94,.16), transparent 30%),
-    var(--bg-secondary);
+    radial-gradient(circle at 12% -8%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 32%),
+    linear-gradient(180deg, color-mix(in srgb, var(--bg-secondary) 96%, var(--bg-primary)), var(--bg-primary));
 }
 .braindump-hero {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 14px;
-  padding: 22px 24px 12px;
+  gap: 12px;
+  width: calc(100% - 56px);
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 18px 48px 16px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 54%, transparent);
 }
-.braindump-hero h3 { margin: 0; padding: 0; border: 0; font-size: 24px; }
-.braindump-hero p { margin: 4px 0 0; color: var(--text-secondary); font-size: 14px; }
-.braindump-close { display: inline-flex; position: static; width: 36px; height: 36px; align-items: center; justify-content: center; border-radius: 999px; background: color-mix(in srgb, var(--bg-tertiary) 76%, transparent); }
+.braindump-hero h3 { margin: 0; padding: 0; border: 0; color: var(--text-primary); font-size: 20px; line-height: 1.12; }
+.braindump-hero p { margin: 4px 0 0; color: var(--text-muted); font-size: 13px; }
+.braindump-close { display: inline-flex; position: absolute; top: 18px; right: max(28px, calc((100% - 920px) / 2)); width: 34px; height: 34px; align-items: center; justify-content: center; border: 0; border-radius: 0; background: transparent; color: var(--text-muted); }
+.braindump-close:hover,
+.braindump-close:focus-visible { color: var(--text-primary); background: transparent; outline: none; }
 .braindump-close svg { width: 18px; height: 18px; }
 .braindump-orb {
-  width: 58px;
-  height: 58px;
-  border-radius: 22px;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: white;
-  background: linear-gradient(135deg, var(--accent), var(--accent-hover));
-  box-shadow: 0 16px 34px rgba(var(--accent-rgb), calc(var(--accent-intensity) * .42));
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  box-shadow: none;
 }
-.braindump-orb svg { width: 28px; height: 28px; }
+.braindump-orb svg { width: 22px; height: 22px; }
 .braindump-modal.is-recording .braindump-orb { animation: braindump-pulse 1.1s ease-in-out infinite; }
 
-.braindump-body { padding: 12px 24px 18px; overflow-y: auto; min-height: 0; }
+.braindump-body {
+  width: 100%;
+  max-width: 920px;
+  margin: 0 auto;
+  padding: clamp(18px, 2.3vw, 30px) 0;
+  overflow-y: auto;
+  min-height: 0;
+}
 .braindump-stage {
   --bd-level: .08;
   --bd-peak: .1;
   position: relative;
   overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
+  border: 1px solid color-mix(in srgb, var(--border) 58%, transparent);
   border-radius: 24px;
-  padding: 22px 18px;
-  background:
-    radial-gradient(circle at 50% 8%, rgba(var(--accent-rgb), calc(var(--accent-intensity) * .22)), transparent 34%),
-    color-mix(in srgb, var(--bg-primary) 76%, transparent);
+  padding: 20px 18px;
+  background: color-mix(in srgb, var(--bg-secondary) 44%, transparent);
 }
 .braindump-stage::before {
   content: '';
@@ -139,8 +151,8 @@
   color: var(--danger);
   font-size: 13px;
 }
-.braindump-results { margin-top: 16px; }
-.braindump-results-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; }
+.braindump-results { margin-top: 22px; }
+.braindump-results-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; }
 .braindump-results-head div { display:flex; flex-direction:column; gap:2px; }
 .braindump-results-head span { color: var(--text-secondary); font-size: 13px; }
 .btn-sm { padding: 7px 10px; font-size: 12px; }
@@ -151,7 +163,7 @@
   align-items:center;
   justify-content:space-between;
   gap:10px;
-  padding: 0 2px;
+  padding: 0;
   color: var(--text-primary);
   font-size: 13px;
   font-weight: 800;
@@ -167,6 +179,11 @@
   display: flex;
   align-items: center;
   gap: 12px;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--border) 48%, transparent);
+  border-radius: 22px;
+  background: color-mix(in srgb, var(--bg-secondary) 32%, transparent);
+  box-shadow: none;
   cursor: pointer;
   animation: braindump-fly-in .36s cubic-bezier(.2,.8,.2,1) both;
   animation-delay: var(--bd-delay, 0ms);
@@ -204,9 +221,9 @@
   grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) minmax(0, 1fr);
   gap: 10px;
   align-items: end;
-  margin-top: 8px;
-  padding-top: 10px;
-  border-top: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 44%, transparent);
 }
 .braindump-quickfix-field {
   min-width: 0;
@@ -222,10 +239,10 @@
 .braindump-field {
   width: 100%;
   min-width: 0;
-  border: 1px solid color-mix(in srgb, var(--border) 84%, transparent);
-  border-radius: 12px;
-  background: linear-gradient(135deg, color-mix(in srgb, var(--bg-secondary) 94%, var(--bg-primary)), var(--bg-secondary));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bg-primary) 45%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border) 58%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--bg-secondary) 48%, transparent);
+  box-shadow: none;
   color: var(--text-primary);
   font: inherit;
   font-size: 13px;
@@ -255,9 +272,9 @@
 .braindump-ui-select.project-ui-select .ui-select-trigger,
 .braindump-ui-select .ui-select-search-input {
   min-height: 38px;
-  border-color: color-mix(in srgb, var(--border) 84%, transparent);
-  background: linear-gradient(135deg, color-mix(in srgb, var(--bg-secondary) 94%, var(--bg-primary)), var(--bg-secondary));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bg-primary) 45%, transparent);
+  border-color: color-mix(in srgb, var(--border) 58%, transparent);
+  background: color-mix(in srgb, var(--bg-secondary) 48%, transparent);
+  box-shadow: none;
 }
 .braindump-ui-select .ui-select-search-input:focus {
   border-color: color-mix(in srgb, var(--accent) 72%, var(--border));
@@ -281,8 +298,9 @@
   flex-wrap: nowrap;
   flex: 0 0 auto;
   margin-top: 0;
-  padding: 16px 24px 22px;
-  background: color-mix(in srgb, var(--bg-secondary) 94%, transparent);
+  padding: 14px max(28px, calc((100% - 920px) / 2)) calc(16px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid color-mix(in srgb, var(--border) 54%, transparent);
+  background: color-mix(in srgb, var(--bg-primary) 82%, transparent);
 }
 .braindump-actions .btn { min-height: 40px; white-space: nowrap; }
 .braindump-actions .btn[hidden] { display: none !important; }
@@ -314,14 +332,25 @@
     height: 46px;
   }
   .braindump-fab svg { width: 22px; height: 22px; }
-  .braindump-modal-content { border-radius: 0; max-height: none; height: 100%; }
-  .braindump-hero { padding: 12px 48px 8px 14px; grid-template-columns: 42px minmax(0, 1fr); gap: 10px; }
+  .braindump-modal-content {
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    height: 100svh;
+    height: 100dvh;
+    max-width: none;
+    max-height: 100vh;
+    max-height: 100svh;
+    max-height: 100dvh;
+    border-radius: 0;
+  }
+  .braindump-hero { width: auto; max-width: none; margin: 0; padding: 12px 48px 8px 14px; grid-template-columns: 42px minmax(0, 1fr); gap: 10px; }
   .braindump-hero h3 { font-size: 19px; }
   .braindump-hero p { font-size: 12px; line-height: 1.25; }
-  .braindump-orb { width: 42px; height: 42px; border-radius: 16px; }
+  .braindump-orb { width: 42px; height: 42px; border-radius: 999px; }
   .braindump-orb svg { width: 22px; height: 22px; }
   .braindump-close { position: absolute; top: 10px; right: 10px; }
-  .braindump-body { padding: 10px 12px; }
+  .braindump-body { width: auto; max-width: none; margin: 0; padding: 10px 12px; }
   .braindump-stage { border-radius: 18px; padding: 16px 12px; }
   .braindump-wave { gap: 3px; min-height: 70px; margin-bottom: 10px; }
   .braindump-wave span { width: 4px; max-height: 66px; }
