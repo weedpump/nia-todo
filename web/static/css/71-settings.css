@@ -637,7 +637,15 @@
 
 @media (max-width: 768px) {
   #settings-modal .settings-modal-content {
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    height: 100svh;
+    height: 100dvh;
     max-width: none;
+    max-height: 100vh;
+    max-height: 100svh;
+    max-height: 100dvh;
     border-radius: 0;
   }
   .settings-modal-header {
