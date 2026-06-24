@@ -206,32 +206,57 @@
 }
 .braindump-modal.is-processing .braindump-candidate-card { animation: none; }
 .braindump-candidate-card > input[type="checkbox"] { position:absolute; opacity:0; pointer-events:none; }
-.braindump-candidate-card .todo-body { min-width: 0; gap: 6px; }
-.braindump-candidate-card .todo-main {
+.braindump-candidate-card .todo-body {
+  min-width: 0;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
+}
+
+.braindump-candidate-card .todo-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.braindump-candidate-card .todo-title {
+  align-self: center;
+  line-height: 1.3;
+}
+
+.braindump-candidate-card .braindump-meta-row {
+  grid-column: 1 / -1;
+  margin: 0;
+  align-self: center;
 }
 .braindump-edit-candidate {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   margin-left: auto;
   flex: 0 0 auto;
-  background: none;
-  border: none;
+  background: color-mix(in srgb, var(--bg-tertiary) 68%, transparent);
+  border: 0;
   color: var(--text-muted);
   cursor: pointer;
   padding: 0;
-  border-radius: 7px;
+  border-radius: 999px;
   line-height: 1;
 }
-.braindump-edit-candidate:hover { background: var(--bg-hover); color: var(--text-primary); }
+.braindump-edit-candidate:hover,
+.braindump-edit-candidate:focus-visible {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  outline: none;
+}
 .braindump-edit-candidate svg { width: 16px; height: 16px; }
-.braindump-candidate-card.is-editing .braindump-edit-candidate { color: var(--accent); }
+.braindump-candidate-card.is-editing .braindump-edit-candidate {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+}
 .braindump-quickfix-panel {
   display: grid;
   grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) minmax(0, 1fr);
@@ -297,7 +322,6 @@
 .braindump-check svg { width: 15px; height: 15px; }
 .braindump-candidate-card:not(:has(input[type="checkbox"]:checked)) { opacity: .68; }
 .braindump-candidate-card:not(:has(input[type="checkbox"]:checked)) .braindump-check { background: transparent; }
-.braindump-candidate-card .priority-dot { background: var(--accent); }
 @media (max-width: 760px) {
   .braindump-quickfix-panel { grid-template-columns: 1fr; }
 }

@@ -1132,7 +1132,6 @@ export function createBrainDumpLiveFeature(options = {}) {
         <label class="todo-check braindump-check" for="${escapeHtmlAttr(checkboxId)}">${checked ? iconSvg('check') : ''}</label>
         <span class="todo-body has-meta">
           <span class="todo-main">
-            <span class="todo-prio priority-dot"></span>
             <span class="todo-title">${escapeHtml(candidate.title || '')}</span>
             <button class="braindump-edit-candidate" type="button" data-bd-action="edit" data-bd-candidate-key="${escapeHtmlAttr(key)}" aria-expanded="${isEditing ? 'true' : 'false'}" aria-label="${escapeHtmlAttr(t(isEditing ? 'braindump.quickfix.done' : 'braindump.quickfix.edit'))}" title="${escapeHtmlAttr(t(isEditing ? 'braindump.quickfix.done' : 'braindump.quickfix.edit'))}">${iconSvg('edit-3')}</button>
           </span>
