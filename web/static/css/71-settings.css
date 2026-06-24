@@ -321,6 +321,13 @@
   line-height: 1.35;
 }
 
+#settings-modal .settings-subcard > label.settings-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
 .settings-attachments-meter {
   height: 0.7rem;
   border-radius: 999px;
@@ -577,6 +584,15 @@
   border-radius: 18px;
   padding: 10px 12px;
   background: color-mix(in srgb, var(--bg-tertiary) 26%, transparent);
+}
+
+#settings-modal .settings-toggle-row .settings-switch {
+  margin-left: auto;
+}
+
+#settings-modal .settings-toggle-row input[type="checkbox"].settings-switch:checked {
+  background: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 76%, white);
 }
 
 #settings-modal .settings-toggle-row:hover {
