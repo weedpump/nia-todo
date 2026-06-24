@@ -583,33 +583,6 @@
   background: color-mix(in srgb, var(--bg-tertiary) 42%, transparent);
 }
 
-#settings-modal .settings-braindump-card {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  column-gap: 18px;
-}
-
-#settings-modal .settings-braindump-card .settings-toggle-row,
-#settings-modal .settings-braindump-card .settings-help-text:first-of-type {
-  grid-column: 1 / -1;
-}
-
-#settings-modal .settings-braindump-card .settings-toggle-row {
-  margin-bottom: 8px;
-}
-
-#settings-modal #settings-braindump-learning-count {
-  grid-column: 1;
-  margin-top: 8px;
-}
-
-#settings-modal .settings-braindump-card .settings-card-actions {
-  grid-column: 2;
-  margin-top: 8px;
-  align-self: center;
-}
-
 .settings-toggle-feature { margin-top: 4px; }
 
 .settings-modal-actions {
@@ -735,19 +708,6 @@
   #settings-modal .settings-place-add-row .btn {
     width: 100%;
     min-height: 42px;
-  }
-
-  #settings-modal .settings-braindump-card {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  #settings-modal #settings-braindump-learning-count,
-  #settings-modal .settings-braindump-card .settings-card-actions {
-    grid-column: 1;
-  }
-
-  #settings-modal .settings-braindump-card .settings-card-actions .btn {
-    width: 100%;
   }
 }
 
