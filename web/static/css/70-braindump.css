@@ -116,8 +116,8 @@
   max-height: 86px;
   border-radius: 999px;
   background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 56%, #fff), var(--accent));
-  opacity: calc(.38 + var(--bd-level) * .62);
-  transform: scaleY(calc(.7 + var(--bd-level) * 1.9));
+  opacity: calc(.26 + var(--bd-level) * .72);
+  transform: scaleY(calc(.52 + var(--bd-level) * 1.7));
   transition: height .08s linear, transform .08s linear, opacity .12s ease;
 }
 .braindump-modal.is-processing:not(.is-recording) .braindump-wave span {
