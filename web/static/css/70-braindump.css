@@ -72,12 +72,21 @@
 
 .braindump-body {
   width: 100%;
-  max-width: 920px;
-  margin: 0 auto;
+  max-width: none;
+  margin: 0;
   padding: clamp(18px, 2.3vw, 30px) 0;
   overflow-y: auto;
   min-height: 0;
   flex: 0 1 auto;
+}
+
+.braindump-body > .braindump-stage,
+.braindump-body > .braindump-error,
+.braindump-body > .braindump-results {
+  width: calc(100% - 56px);
+  max-width: 920px;
+  margin-left: auto;
+  margin-right: auto;
 }
 .braindump-stage {
   --bd-level: .08;
@@ -139,6 +148,7 @@
 .braindump-transcript {
   position: relative;
   z-index: 1;
+  width: 100%;
   margin-top: 14px;
   padding: 10px 12px;
   border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
@@ -245,9 +255,9 @@
 .braindump-field {
   width: 100%;
   min-width: 0;
-  border: 1px solid color-mix(in srgb, var(--border) 58%, transparent);
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--bg-secondary) 48%, transparent);
+  border: 0;
+  border-radius: var(--field-radius);
+  background: var(--bg-tertiary);
   box-shadow: none;
   color: var(--text-primary);
   font: inherit;
@@ -278,9 +288,6 @@
 .braindump-ui-select.project-ui-select .ui-select-trigger,
 .braindump-ui-select .ui-select-search-input {
   min-height: 38px;
-  border-color: color-mix(in srgb, var(--border) 58%, transparent);
-  background: color-mix(in srgb, var(--bg-secondary) 48%, transparent);
-  box-shadow: none;
 }
 .braindump-ui-select .ui-select-search-input:focus {
   border-color: color-mix(in srgb, var(--accent) 72%, var(--border));
@@ -357,6 +364,12 @@
   .braindump-orb svg { width: 22px; height: 22px; }
   .braindump-close { position: absolute; top: 10px; right: 10px; }
   .braindump-body { width: auto; max-width: none; margin: 0; padding: 10px 12px; }
+  .braindump-body > .braindump-stage,
+  .braindump-body > .braindump-error,
+  .braindump-body > .braindump-results {
+    width: 100%;
+    max-width: none;
+  }
   .braindump-stage { border-radius: 18px; padding: 16px 12px; }
   .braindump-wave { gap: 3px; width: min(280px, 100%); height: 72px; min-height: 0; margin-bottom: 12px; border-radius: 14px; }
   .braindump-wave span { width: 4px; max-height: 48px; }
