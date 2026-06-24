@@ -107,6 +107,10 @@
   background: transparent;
 }
 
+.settings-nav a[hidden] {
+  display: none;
+}
+
 .settings-nav a {
   display: flex;
   align-items: center;
