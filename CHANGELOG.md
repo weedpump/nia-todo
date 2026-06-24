@@ -46,6 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - Kept the new-todo modal open when draft attachment uploads fail validation or upload, preventing selected draft files from being silently lost after the todo is created.
 - Hid unavailable Settings navigation entries correctly when their matching section is disabled, including the BrainDump entry when BrainDump is globally off.
 - Restored proper Settings toggle-row alignment so switch controls stay right-aligned, vertically centered, and use the accent color.
+- Made the Settings modal truly fullscreen on mobile so the underlying app no longer peeks through on the right or bottom.
 - Cleared stale sidebar edit-button focus after closing project/workspace modals so the edit action no longer remains visually outlined.
 - Hid custom overlay scrollbars immediately when modals close, preventing stale scroll indicators from lingering after a recently scrolled modal disappears.
 - Prevented long-press todo drag-and-drop from also triggering horizontal swipe status gestures.
