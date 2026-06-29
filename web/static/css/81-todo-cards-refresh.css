@@ -368,12 +368,6 @@
   }
 }
 
-.ui-section-icon .ui-icon {
-  width: 20px;
-  height: 20px;
-  flex: 0 0 auto;
-}
-
 .todo-modal-title-icon .ui-icon,
 .entity-modal-title-icon .ui-icon {
   width: 22px;
