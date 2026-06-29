@@ -26,35 +26,14 @@
   to { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 
-.toast-undo {
-  background: var(--accent);
-  color: white;
-  border: none;
-  border-radius: var(--radius);
-  padding: 6px 14px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s;
+.toast-container .toast-undo,
+.toast-container .toast-close {
+  flex-shrink: 0;
 }
 
-.toast-undo:hover {
-  background: var(--accent-hover);
-}
-
-.toast-close {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  font-size: 14px;
-  padding: 4px;
-  border-radius: 4px;
-  transition: color 0.15s;
-}
-
-.toast-close:hover {
-  color: var(--text-primary);
+.toast-container .toast-close .ui-icon {
+  width: 14px;
+  height: 14px;
 }
 
 @media (max-width: 768px) {
@@ -67,9 +46,6 @@
     max-width: calc(100% - 32px);
     font-size: 13px;
     padding: 10px 16px;
-  }
-  .toast-container .toast-undo {
-    flex-shrink: 0;
   }
 }
 
