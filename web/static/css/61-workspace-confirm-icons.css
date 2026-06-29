@@ -516,3 +516,15 @@
   flex-shrink: 0;
 }
 
+
+/* Next UI confirm dialog polish: rounder, borderless danger surfaces. */
+.confirm-modal-content {
+  border: none;
+  border-radius: 28px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.42);
+}
+
+.confirm-icon {
+  border-radius: 999px;
+  box-shadow: none;
+}
