@@ -720,23 +720,23 @@
 
 .project-dashboard {
   margin-bottom: 16px;
-  padding: 14px 16px;
-  border-radius: 20px;
+  padding: 18px;
+  border-radius: 28px;
   box-shadow: none;
 }
 
 .project-dashboard .project-dashboard-avatar {
-  width: 44px;
-  height: 44px;
-  flex-basis: 44px;
-  border-radius: 999px;
+  width: 46px;
+  height: 46px;
+  flex-basis: 46px;
+  border-radius: 18px;
   box-shadow: none;
 }
 
 .project-dashboard .overview-stat-card {
-  min-height: 46px;
-  padding: 10px 12px;
-  border-radius: 999px;
+  min-height: 58px;
+  padding: 11px 14px;
+  border-radius: 24px;
   background: color-mix(in srgb, var(--bg-primary) 36%, transparent);
   box-shadow: none;
 }
@@ -747,7 +747,7 @@
 }
 
 .project-dashboard .overview-stat-hint {
-  display: none;
+  display: block;
 }
 
 @media (max-width: 768px) {
@@ -765,7 +765,8 @@
   }
 
   .project-dashboard .overview-stat-card {
-    border-radius: 16px;
+    min-height: 54px;
+    border-radius: 18px;
   }
 }
 
@@ -924,4 +925,24 @@
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
   }
+}
+
+/* Project dashboard follow-up: keep desktop hints, match mobile dashboard compactness. */
+.project-dashboard .overview-stat-card {
+  border-radius: 999px;
+}
+
+@media (max-width: 768px) {
+  .project-dashboard .overview-stat-card {
+    border-radius: 999px;
+  }
+
+  .project-dashboard .overview-stat-hint {
+    display: none;
+  }
+}
+
+/* Project dashboard icon shape alignment: keep project icon fully round. */
+.project-dashboard .project-dashboard-avatar {
+  border-radius: 999px;
 }
