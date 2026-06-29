@@ -130,7 +130,7 @@
   .ui-section-icon {
     width: 34px;
     height: 34px;
-    border-radius: 12px;
+    border-radius: 999px;
   }
 
   .ui-field-grid.two-columns {
