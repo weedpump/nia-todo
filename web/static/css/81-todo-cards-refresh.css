@@ -946,3 +946,34 @@
 .project-dashboard .project-dashboard-avatar {
   border-radius: 999px;
 }
+
+/* Local preview: remove todo row borders while keeping status/accent paint. */
+.todo-item,
+.todo-item:hover,
+.todo-item:focus-within,
+.todo-item.in-progress,
+.todo-item.pinned {
+  border-color: transparent;
+}
+
+/* Local preview: improve borderless todo contrast on light theme. */
+[data-theme="light"] .todo-item {
+  background: color-mix(in srgb, var(--bg-tertiary) 72%, white);
+}
+
+[data-theme="light"] .todo-item:hover,
+[data-theme="light"] .todo-item:focus-within {
+  background: color-mix(in srgb, var(--bg-hover) 62%, white);
+}
+
+[data-theme="light"] .todo-item.done {
+  background: color-mix(in srgb, var(--bg-tertiary) 40%, white);
+}
+
+[data-theme="light"] .todo-item.in-progress {
+  background: color-mix(in srgb, var(--warning) 8%, color-mix(in srgb, var(--bg-tertiary) 72%, white));
+}
+
+[data-theme="light"] .todo-item.pinned {
+  background: color-mix(in srgb, var(--accent) 8%, color-mix(in srgb, var(--bg-tertiary) 72%, white));
+}

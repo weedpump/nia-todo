@@ -20,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 
 ### Changed
 - Refined the dashboard and project overview widgets to better match the rounded borderless Next UI direction, including rounder stat/project items, restored desktop project stat hints, compact mobile project stats, and fully round avatar/project icon tiles.
-- Refined project and dashboard todo views with flatter pill-style todo rows, softer section/project headers, cleaner pinned/in-progress accents, and mobile-safe wrapping for long descriptions and metadata chips.
+- Refined project and dashboard todo views with flatter borderless pill-style todo rows, stronger light-theme row contrast, softer section/project headers, cleaner pinned/in-progress accents, and mobile-safe wrapping for long descriptions and metadata chips.
 - Added shared detail-modal primitives for Todo/Project/Workspace-style editors so future modals can reuse the same surface, header, title field, section, action-row, hidden save state, and menu styling without copying modal-specific CSS, with matching offline/PWA cache coverage.
 - Refined the project and workspace modals to match the Todo detail modal surface and section language, including the large inline title field, flat drawer-style details/organization/sharing sections, header actions, shared field/button primitives, polished sharing member rows, and hidden save actions until changes are present.
 - Unified Todo detail modal sizing with Project and Workspace detail modals so existing and new todo flows share the same large editor shell.
