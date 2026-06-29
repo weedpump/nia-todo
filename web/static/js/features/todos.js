@@ -2124,9 +2124,12 @@ export function createTodosFeature({
     setTodos([...getTodos(), duplicated]);
     renderStats();
     renderTodos();
-    showToast(t('todo.toast.duplicated'));
-    await addToSyncQueue('CREATE_TODO', { ...todoData, _tempId: tempId });
+    showToast(t('todo.toast.duplicated'), { type: 'duplicate', id: tempId });
+    await addToSyncQueue('CREATE_TODO', { ...todoData, _tempId: tempId, undo_grace_until: Date.now() + 5000 });
     if (isOnlineForSync()) await syncWithServer();
+    setTimeout(() => {
+      if (isOnlineForSync()) syncWithServer();
+    }, 5200);
   }
 
   function editTodo(id) {

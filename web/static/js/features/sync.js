@@ -45,7 +45,7 @@ export function createSyncFeature({
 
     switch (item.action) {
       case 'CREATE_TODO':
-        return { ...item, data: pickAllowed(data, todoFields) };
+        return { ...item, data: { ...pickAllowed(data, todoFields), undo_grace_until: data.undo_grace_until } };
       case 'UPDATE_TODO':
         return { ...item, data: { id: data.id, changes: pickAllowed(changes, todoFields.filter(f => f !== '_tempId')) } };
       case 'DELETE_TODO':
@@ -84,19 +84,25 @@ export function createSyncFeature({
       }
       try {
         if (item.action === 'CREATE_TODO') {
-          let res = await todosApi.create(item.data);
+          const undoGraceUntil = Number(item.data.undo_grace_until || 0);
+          if (undoGraceUntil && Date.now() < undoGraceUntil) {
+            continue;
+          }
+          const createData = { ...item.data };
+          delete createData.undo_grace_until;
+          let res = await todosApi.create(createData);
           let localTempTodo = null;
-          if (item.data._tempId) {
-            localTempTodo = await getFromDB('todos', item.data._tempId);
-            const localSectionChanged = localTempTodo && localTempTodo.section_id !== item.data.section_id;
+          if (createData._tempId) {
+            localTempTodo = await getFromDB('todos', createData._tempId);
+            const localSectionChanged = localTempTodo && localTempTodo.section_id !== createData.section_id;
             if (localSectionChanged) {
               res = await todosApi.update(res.id, { section_id: localTempTodo.section_id });
             }
-            await deleteFromDB('todos', item.data._tempId);
-            setTodos(getTodos().filter(t => t.id !== item.data._tempId));
+            await deleteFromDB('todos', createData._tempId);
+            setTodos(getTodos().filter(t => t.id !== createData._tempId));
           }
           await dbPut('todos', res);
-          const withoutTemp = item.data._tempId ? getTodos().filter(t => t.id !== item.data._tempId) : getTodos();
+          const withoutTemp = createData._tempId ? getTodos().filter(t => t.id !== createData._tempId) : getTodos();
           if (!withoutTemp.find(t => t.id === res.id)) setTodos([...withoutTemp, res]);
           else setTodos(withoutTemp.map(t => t.id === res.id ? res : t));
           successCount++;
