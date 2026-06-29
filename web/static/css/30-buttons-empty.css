@@ -220,3 +220,19 @@
   box-shadow: inset 3px 0 0 color-mix(in srgb, var(--accent) 78%, transparent);
 }
 
+
+/* Sidebar nav density: make pill paint surfaces feel larger without increasing list spacing. */
+.sidebar .ui-nav-pill {
+  min-height: 34px;
+  padding: 7px 13px;
+}
+
+.sidebar .ui-nav-pill::before {
+  inset: 0 -3px;
+}
+
+.sidebar .nav-btn .badge {
+  min-width: 22px;
+  min-height: 22px;
+  padding: 3px 8px;
+}
