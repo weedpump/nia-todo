@@ -43,32 +43,11 @@
   margin-top: 16px;
 }
 
-.nav-btn {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 8px 12px;
-  border: none;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.nav-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
-.nav-btn.active {
-  background: linear-gradient(90deg, rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.22)), rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.09)));
-  color: var(--text-primary);
-  font-weight: 700;
-  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--accent) 78%, transparent);
-}
 .nav-btn .badge {
   margin-left: auto;
-  min-width: 22px;
-  min-height: 22px;
+  min-width: 20px;
+  min-height: 20px;
+  box-sizing: border-box;
   display: inline-flex;
   align-items: center;
   justify-content: center;

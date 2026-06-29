@@ -147,7 +147,7 @@ export function createAppRenderingFeature({
       html += `<div class="project-tree-item" style="padding-left: ${indent}px">`;
       html += `<div class="nav-item-with-action">`;
       const isActiveProject = Number(currentProjectId) === Number(project.id);
-      html += `<button class="nav-btn project-drop-target ${isActiveProject ? 'active' : ''}" data-filter="${escapeHtmlAttr(project.id)}" data-project-id="${escapeHtmlAttr(project.id)}">`;
+      html += `<button class="nav-btn ui-nav-pill project-drop-target ${isActiveProject ? 'active' : ''}" data-filter="${escapeHtmlAttr(project.id)}" data-project-id="${escapeHtmlAttr(project.id)}">`;
       html += markerHtml({ ...project, color: escapeHtmlAttr(project.color || '#6366f1'), icon: project.icon });
       html += `${escapeHtml(project.name)}`;
       html += `<span class="badge">${countByProject(project.id, true)}</span>`;
