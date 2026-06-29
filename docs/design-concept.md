@@ -95,6 +95,7 @@ Guidelines:
 - `.btn-danger` — destructive or security-sensitive action.
 - `.btn-small` — compact row-level or inline content action, e.g. add subtask, add comment, choose/upload file, edit details.
 - `.btn-icon` — square icon-only row action; combine with `.btn-small` for compact icon buttons.
+- `.ui-nav-pill` — app navigation entries such as sidebar filters and project rows. Keep JS/context hooks such as `.nav-btn` separate from the visual primitive.
 
 ### Visual Contract
 
