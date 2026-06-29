@@ -971,3 +971,124 @@
 [data-theme="light"] .todo-item.pinned {
   background: color-mix(in srgb, var(--accent) 8%, color-mix(in srgb, var(--bg-tertiary) 72%, white));
 }
+
+/* Merged todo status control: compact on mobile, full status pill on desktop. */
+.todo-status-control {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.todo-status-control .todo-check {
+  display: none;
+}
+
+.todo-status-menu-left {
+  display: inline-block;
+}
+
+.todo-status-menu-left summary {
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  padding: 0;
+  gap: 0;
+  border-color: transparent;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-tertiary) 54%, transparent);
+}
+
+.todo-status-menu-left summary:hover,
+.todo-status-menu-left[open] summary {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--bg-tertiary) 62%, transparent);
+}
+
+.todo-status-menu-left .todo-status-menu-label,
+.todo-status-menu-left summary > .ui-icon {
+  display: none;
+}
+
+.todo-status-menu-left .todo-status-menu-current-icon {
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+
+.todo-status-menu-left .todo-status-menu-current-icon .ui-icon,
+.todo-status-menu-left[open] .todo-status-menu-current-icon .ui-icon {
+  display: block;
+  width: 16px;
+  height: 16px;
+  opacity: 1;
+  vertical-align: 0;
+  transform: none;
+}
+
+.todo-status-menu-left .todo-action-menu.ui-menu,
+.todo-status-menu-left.opens-up .todo-action-menu.ui-menu {
+  right: auto;
+  left: 0;
+}
+
+.todo-item[data-status="pending"] .todo-status-menu-left summary {
+  color: var(--text-secondary);
+}
+
+.todo-item[data-status="in_progress"] .todo-status-menu-left summary {
+  color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 11%, transparent);
+}
+
+.todo-item[data-status="in_progress"] .todo-status-menu-left summary:hover,
+.todo-item[data-status="in_progress"] .todo-status-menu-left[open] summary {
+  background: color-mix(in srgb, var(--warning) 16%, transparent);
+}
+
+.todo-item[data-status="done"] .todo-status-menu-left summary {
+  color: white;
+  background: var(--success);
+}
+
+.todo-actions > .todo-status-menu-actions {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .todo-status-menu-left summary {
+    width: auto;
+    min-width: 108px;
+    height: 32px;
+    padding: 0 10px;
+    gap: 6px;
+    background: color-mix(in srgb, var(--bg-tertiary) 62%, transparent);
+  }
+
+  .todo-status-menu-left .todo-status-menu-label,
+  .todo-status-menu-left summary > .ui-icon {
+    display: inline-block;
+  }
+
+  .todo-status-menu-left[open] summary > .ui-icon {
+    transform: rotate(180deg);
+  }
+
+  .todo-item[data-status="in_progress"] .todo-status-menu-left summary {
+    background: color-mix(in srgb, var(--warning) 10%, transparent);
+  }
+
+  .todo-item[data-status="done"] .todo-status-menu-left summary {
+    color: var(--success);
+    background: color-mix(in srgb, var(--success) 10%, transparent);
+  }
+}
+
+@media (max-width: 768px) {
+  .todo-item {
+    overflow: visible;
+  }
+}

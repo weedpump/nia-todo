@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - Added admin attachment controls for global upload enablement, comma-separated allowed file extensions, default 5 GB quota, per-user quota overrides, and user-visible storage usage.
 
 ### Changed
+- Merged todo status selection into the left todo control, using a compact icon-only dropdown on mobile and a full status pill with label on desktop while keeping the old right-side status dropdown hidden.
 - Refined the dashboard and project overview widgets to better match the rounded borderless Next UI direction, including rounder stat/project items, restored desktop project stat hints, compact mobile project stats, and fully round avatar/project icon tiles.
 - Refined app confirmation and danger dialogs with rounder borderless surfaces and softer icon treatment to match the Next UI direction.
 - Unified section heading icon treatment across Settings, Todo, Project, and Workspace detail surfaces with shared round icon bubbles and consistent icon sizing.
