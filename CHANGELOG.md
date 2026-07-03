@@ -47,6 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - Hardened attachment uploads with streaming temp-file writes, server-side quota/type policy enforcement, magic-byte validation for common binary formats, active-content blocking, and client-side preflight for disabled uploads, type, file size, and quota.
 
 ### Fixed
+- Prevented expanded mobile todo quick actions from being obscured by long titles or metadata chips by softly fading the todo content underneath while keeping action menus unclipped.
 - Replaced the browser confirmation prompt for removing project members with the app's danger confirmation modal, and kept hidden native color picker inputs from leaking disabled color bars into read-only project modals.
 - Improved Todo detail inline editing polish so the title becomes a visible input field only while focused, avoids desktop Edge glyph clipping, and aligns subtask/comment/meta action spacing and field borders.
 - Kept the new-todo modal open when draft attachment uploads fail validation or upload, preventing selected draft files from being silently lost after the todo is created.

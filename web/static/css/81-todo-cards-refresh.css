@@ -306,6 +306,25 @@
     height: 30px;
   }
 
+  .todo-item.actions-expanded {
+    max-width: 100%;
+  }
+
+  .todo-item.actions-expanded .todo-body {
+    min-width: 0;
+    overflow: hidden;
+    mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 184px), transparent calc(100% - 144px), transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 184px), transparent calc(100% - 144px), transparent 100%);
+  }
+
+  .todo-item.actions-expanded .todo-title,
+  .todo-item.actions-expanded .todo-desc-preview,
+  .todo-item.actions-expanded .todo-meta-row,
+  .todo-item.actions-expanded .todo-meta-chip,
+  .todo-item.actions-expanded .todo-badge {
+    max-width: 100%;
+  }
+
   .todo-item.actions-expanded .todo-actions > .todo-snooze-menu {
     display: inline-block;
   }
