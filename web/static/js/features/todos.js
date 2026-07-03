@@ -1564,7 +1564,20 @@ export function createTodosFeature({
     document.documentElement.dataset.todoActionsRevealBound = '1';
     let suppressTodoClickUntil = 0;
     let suppressTodoClickItem = null;
+    let suppressActionClickUntil = 0;
+    let suppressActionClickItem = null;
     const handleReveal = (event) => {
+      if (event.type === 'click' && suppressActionClickItem && Date.now() < suppressActionClickUntil) {
+        const actionItem = event.target?.closest?.('.todo-item[data-id]');
+        if (actionItem === suppressActionClickItem && event.target?.closest?.('.todo-actions')) {
+          event.preventDefault?.();
+          event.stopPropagation?.();
+          event.stopImmediatePropagation?.();
+          suppressActionClickItem = null;
+          return;
+        }
+      }
+
       const button = event.target?.closest?.('.todo-actions-reveal-btn');
       if (!button) return;
       const item = button.closest('.todo-item[data-id]');
@@ -1576,7 +1589,11 @@ export function createTodosFeature({
         return;
       }
       event.preventDefault?.();
-      if (event.type === 'pointerup') button.__niaRevealPointerHandledAt = Date.now();
+      if (event.type === 'pointerup') {
+        button.__niaRevealPointerHandledAt = Date.now();
+        suppressActionClickUntil = Date.now() + 600;
+        suppressActionClickItem = item;
+      }
       item.__niaRevealHandledAt = Date.now();
       toggleTodoActions(item, event);
       event.stopImmediatePropagation?.();
