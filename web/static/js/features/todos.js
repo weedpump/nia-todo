@@ -1657,6 +1657,65 @@ export function createTodosFeature({
   function bindTodoStatusMenuBehavior() {
     if (document.documentElement.dataset.todoStatusMenuBound === '1') return;
     document.documentElement.dataset.todoStatusMenuBound = '1';
+    let touchSummaryPress = null;
+    let suppressSummaryClick = null;
+
+    const summaryFromTarget = (target) => target?.closest?.('.todo-status-menu > summary, .todo-snooze-menu > summary') || null;
+    const isTouchPointer = (event) => event.isPrimary && (event.pointerType === 'touch' || event.pointerType === 'pen');
+
+    function toggleActionSummary(summary) {
+      const menu = summary?.parentElement;
+      if (!summary || !menu) return false;
+      const nextOpen = !menu.open;
+      closeTodoActionMenus(nextOpen ? menu : null);
+      menu.open = nextOpen;
+      if (nextOpen) updateTodoActionMenuPlacement(menu);
+      else resetTodoActionMenuPlacement(menu);
+      return true;
+    }
+
+    document.addEventListener('pointerdown', (event) => {
+      if (!isTouchPointer(event)) return;
+      const summary = summaryFromTarget(event.target);
+      if (!summary) return;
+      touchSummaryPress = {
+        pointerId: event.pointerId,
+        summary,
+        startX: event.clientX,
+        startY: event.clientY,
+        moved: false,
+      };
+    }, { capture: true, passive: true });
+
+    document.addEventListener('pointermove', (event) => {
+      if (!touchSummaryPress || touchSummaryPress.pointerId !== event.pointerId) return;
+      if (Math.hypot(event.clientX - touchSummaryPress.startX, event.clientY - touchSummaryPress.startY) > 8) {
+        touchSummaryPress.moved = true;
+      }
+    }, { capture: true, passive: true });
+
+    document.addEventListener('pointerup', (event) => {
+      if (!touchSummaryPress || touchSummaryPress.pointerId !== event.pointerId) return;
+      const press = touchSummaryPress;
+      touchSummaryPress = null;
+      if (press.moved || summaryFromTarget(event.target) !== press.summary) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      suppressSummaryClick = { summary: press.summary, until: Date.now() + 500 };
+      toggleActionSummary(press.summary);
+    }, { capture: true, passive: false });
+
+    document.addEventListener('click', (event) => {
+      const summary = summaryFromTarget(event.target);
+      if (!summary || suppressSummaryClick?.summary !== summary || Date.now() > suppressSummaryClick.until) return;
+      suppressSummaryClick = null;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }, { capture: true, passive: false });
+
+    document.addEventListener('pointercancel', (event) => {
+      if (touchSummaryPress?.pointerId === event.pointerId) touchSummaryPress = null;
+    }, { capture: true, passive: true });
 
     document.addEventListener('click', (event) => {
       const menu = event.target?.closest?.('.todo-status-menu, .todo-snooze-menu');
