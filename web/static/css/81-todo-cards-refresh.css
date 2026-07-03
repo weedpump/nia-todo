@@ -272,9 +272,15 @@
    layouts can show the desktop sidebar while keeping noisy card actions tucked away.
    Touch tablets may report desktop-class widths, so also key off coarse pointers. */
 @media (max-width: 1279px), (hover: none) and (pointer: coarse) {
+  .todo-item {
+    padding-right: 52px;
+  }
+
   .todo-actions {
-    position: relative;
+    position: absolute;
     z-index: 170;
+    top: 50%;
+    right: 12px;
     display: flex;
     flex-direction: row;
     flex-wrap: nowrap;
@@ -282,7 +288,9 @@
     align-self: center;
     flex: 0 0 auto;
     gap: 5px;
-    margin-left: 2px;
+    max-width: calc(100% - 24px);
+    margin-left: 0;
+    transform: translateY(-50%);
   }
 
   .todo-actions > .todo-snooze-menu,
@@ -873,6 +881,7 @@
 @media (max-width: 768px) {
   .todo-item {
     overflow: hidden;
+    padding-right: 52px;
   }
 
   .todo-body,
@@ -918,6 +927,12 @@
     white-space: normal;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
+  }
+}
+
+@media (max-width: 1279px), (hover: none) and (pointer: coarse) {
+  .todo-item {
+    padding-right: 52px;
   }
 }
 
