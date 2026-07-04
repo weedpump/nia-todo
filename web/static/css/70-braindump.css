@@ -26,10 +26,12 @@
 .braindump-fab:active { transform: translateY(0) scale(.98); }
 
 .braindump-modal { z-index: 360; }
-.braindump-modal-content {
+.braindump-modal.braindump-modal.ui-detail-modal.ui-detail-view .braindump-modal-content {
   width: min(1080px, calc(100vw - 40px));
+  height: auto !important;
+  min-height: 0 !important;
   max-width: none;
-  max-height: min(90vh, 820px);
+  max-height: min(90vh, 820px) !important;
   padding: 0;
   border-radius: 30px;
   overflow: hidden;
@@ -74,7 +76,7 @@
   width: 100%;
   max-width: none;
   margin: 0;
-  overflow-y: auto;
+  overflow: visible;
   min-height: 0;
   flex: 0 1 auto;
 }
@@ -83,6 +85,17 @@
   display: flex;
   flex-direction: column;
   gap: 24px;
+}
+
+.braindump-section-heading .ui-section-icon {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.braindump-section-heading .ui-section-icon .ui-icon {
+  width: 18px;
+  height: 18px;
+  stroke-width: 2.2;
 }
 
 .braindump-stage {
@@ -96,12 +109,12 @@
   z-index: 1;
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: center;
   gap: 5px;
   width: min(420px, 100%);
   height: 58px;
   min-height: 0;
-  margin: 2px 0 0 50px;
+  margin: 2px auto 0;
   overflow: hidden;
   contain: paint;
 }
@@ -125,12 +138,12 @@
 .braindump-processing {
   position: relative;
   z-index: 1;
-  margin: 10px 0 0 50px;
-  display: inline-flex;
+  margin: 10px auto 0;
+  display: flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: center;
   gap: 8px;
-  width: auto;
+  width: 100%;
   color: var(--text-secondary);
   font-size: 13px;
 }
@@ -161,7 +174,15 @@
 }
 .braindump-results-head p { color: var(--text-secondary); font-size: 13px; }
 .btn-sm { padding: 7px 10px; font-size: 12px; }
-.braindump-candidates { display:flex; flex-direction:column; gap:18px; }
+.braindump-candidates {
+  display:flex;
+  flex-direction:column;
+  gap:18px;
+  max-height: min(34vh, 360px);
+  overflow-y: auto;
+  padding-right: 4px;
+  scrollbar-gutter: stable;
+}
 .braindump-candidate-group { display:flex; flex-direction:column; gap:8px; }
 .braindump-candidate-group-head {
   display:flex;
@@ -370,17 +391,13 @@
     height: 46px;
   }
   .braindump-fab svg { width: 22px; height: 22px; }
-  .braindump-modal-content {
-    inset: 0;
-    width: 100vw;
-    height: 100vh;
-    height: 100svh;
-    height: 100dvh;
+  .braindump-modal.braindump-modal.ui-detail-modal.ui-detail-view .braindump-modal-content {
+    inset: auto;
+    width: min(100vw - 20px, 1080px);
+    height: auto !important;
     max-width: none;
-    max-height: 100vh;
-    max-height: 100svh;
-    max-height: 100dvh;
-    border-radius: 0;
+    max-height: calc(100svh - 20px) !important;
+    border-radius: 24px;
   }
   .braindump-hero { width: auto; max-width: none; margin: 0; padding: 12px 48px 8px 14px; grid-template-columns: 42px minmax(0, 1fr); gap: 10px; }
   .braindump-hero h3 { font-size: 19px; }
@@ -390,9 +407,10 @@
   .braindump-close { position: absolute; top: 10px; right: 10px; }
   .braindump-body { width: auto; max-width: none; margin: 0; }
   .braindump-shell { gap: 20px; }
-  .braindump-wave { gap: 3px; width: min(280px, calc(100% - 48px)); height: 56px; min-height: 0; margin: 0 0 0 48px; }
+  .braindump-wave { gap: 3px; width: min(280px, 100%); height: 56px; min-height: 0; margin: 0 auto; }
   .braindump-wave span { width: 4px; max-height: 48px; }
-  .braindump-processing { margin: 8px 0 0 48px; font-size: 12px; }
+  .braindump-processing { margin: 8px auto 0; font-size: 12px; }
+  .braindump-candidates { max-height: min(36vh, 320px); }
   .braindump-results-head { grid-template-columns: auto minmax(0, 1fr); align-items: flex-start; }
   .braindump-results-head .btn { grid-column: 2; justify-self: start; margin-top: 2px; }
   .braindump-actions {
