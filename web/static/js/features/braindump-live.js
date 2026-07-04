@@ -1,7 +1,7 @@
 import { API } from '../core/config.js';
 import { getAuthHeaders, getAuthToken } from '../api/http.js';
 import { escapeHtml, escapeHtmlAttr, formatDate } from '../core/utils.js';
-import { iconSvg } from '../icons/lucide-icons.js';
+import { hydrateIcons, iconSvg } from '../icons/lucide-icons.js';
 import { t } from '../i18n/index.js';
 import { closeOpenDropdown, hydrateSelect, refreshSelect } from '../ui/dropdowns.js';
 import { createNativeBridge } from './native-bridge.js';
@@ -165,7 +165,7 @@ export function createBrainDumpLiveFeature(options = {}) {
           <div class="braindump-shell ui-detail-shell">
             <section class="ui-section-card ui-detail-section braindump-stage-section" id="braindump-stage">
               <div class="ui-section-heading ui-detail-section-heading braindump-section-heading">
-                <div class="ui-section-icon ui-detail-section-icon">${iconSvg('mic')}</div>
+                <div class="ui-section-icon ui-detail-section-icon" data-icon="mic"></div>
                 <div>
                   <h4 id="braindump-recording-section-title">${t('braindump.section.recording')}</h4>
                   <p><span id="braindump-status">${t('braindump.status.ready')}</span> · <span id="braindump-hint">${t('braindump.hint.idle')}</span></p>
@@ -176,7 +176,7 @@ export function createBrainDumpLiveFeature(options = {}) {
             </section>
             <section class="ui-section-card ui-detail-section braindump-transcript-section" id="braindump-transcript-section" hidden>
               <div class="ui-section-heading ui-detail-section-heading braindump-section-heading">
-                <div class="ui-section-icon ui-detail-section-icon">${iconSvg('file-text')}</div>
+                <div class="ui-section-icon ui-detail-section-icon" data-icon="file-text"></div>
                 <div>
                   <h4 id="braindump-transcript-section-title">${t('braindump.section.transcript')}</h4>
                   <p id="braindump-transcript-section-hint">${t('braindump.section.transcriptHint')}</p>
@@ -186,7 +186,7 @@ export function createBrainDumpLiveFeature(options = {}) {
             </section>
             <section class="ui-section-card ui-detail-section braindump-results" id="braindump-results" hidden>
               <div class="ui-section-heading ui-detail-section-heading braindump-results-head">
-                <div class="ui-section-icon ui-detail-section-icon">${iconSvg('list-todo')}</div>
+                <div class="ui-section-icon ui-detail-section-icon" data-icon="list-todo"></div>
                 <div>
                   <h4>${t('braindump.results.title')}</h4>
                   <p id="braindump-results-subtitle">${t('braindump.results.subtitle')}</p>
@@ -208,6 +208,7 @@ export function createBrainDumpLiveFeature(options = {}) {
       </div>
     `;
     document.body.appendChild(modal);
+    hydrateIcons(modal);
     document.getElementById('braindump-overlay')?.addEventListener('click', close);
     document.getElementById('braindump-close')?.addEventListener('click', close);
     document.getElementById('braindump-cancel')?.addEventListener('click', close);
