@@ -8,10 +8,10 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  top: 18px;
+  top: 19px;
   right: max(28px, calc((100% - 920px) / 2));
-  width: 34px;
-  height: 34px;
+  width: 40px;
+  height: 40px;
   padding: 0;
   border: 0;
   border-radius: 0;
@@ -21,8 +21,8 @@
 }
 
 #todo-modal.todo-detail-view .modal-close-x .ui-icon {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
 }
 
 #todo-modal.todo-detail-view .todo-detail-header-menu-toggle[hidden] {
@@ -30,9 +30,9 @@
 }
 
 #todo-modal.todo-detail-view .todo-detail-header-menu-toggle > summary {
-  width: 34px;
-  height: 34px;
-  min-height: 34px;
+  width: 40px;
+  height: 40px;
+  min-height: 40px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -92,14 +92,14 @@
 
 @media (max-width: 1180px) {
   #todo-modal.todo-detail-view .modal-close-x {
-    top: 18px;
+    top: 19px;
     right: 12px;
   }
 }
 
 @media (max-width: 768px) {
   #todo-modal.todo-detail-view .modal-close-x {
-    top: 12px;
+    top: 13px;
   }
 }
 
