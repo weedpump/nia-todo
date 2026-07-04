@@ -149,37 +149,54 @@ export function createBrainDumpLiveFeature(options = {}) {
     if (document.getElementById('braindump-modal')) return;
     const modal = document.createElement('div');
     modal.id = 'braindump-modal';
-    modal.className = 'modal braindump-modal';
+    modal.className = 'modal braindump-modal ui-detail-modal ui-detail-view';
     modal.innerHTML = `
       <div class="modal-overlay" id="braindump-overlay"></div>
-      <div class="modal-content braindump-modal-content" role="dialog" aria-modal="true" aria-labelledby="braindump-title">
-        <div class="braindump-hero">
-          <div class="braindump-orb" id="braindump-orb">${iconSvg('mic')}</div>
+      <div class="modal-content braindump-modal-content ui-detail-modal-content" role="dialog" aria-modal="true" aria-labelledby="braindump-title">
+        <div class="braindump-hero ui-detail-modal-header">
+          <div class="braindump-orb ui-detail-title-icon" id="braindump-orb">${iconSvg('mic')}</div>
           <div>
             <h3 id="braindump-title">${t('braindump.title')}</h3>
             <p id="braindump-subtitle">${t('braindump.subtitle')}</p>
           </div>
           <button class="modal-close-x braindump-close" id="braindump-close" type="button" aria-label="${escapeHtml(t('common.close'))}" title="${escapeHtml(t('common.close'))}">${iconSvg('x')}</button>
         </div>
-        <div class="modal-body braindump-body">
-          <div class="braindump-stage" id="braindump-stage">
-            <div class="braindump-wave" id="braindump-wave" aria-hidden="true">${Array.from({ length: 24 }, (_, index) => `<span style="--i:${index}"></span>`).join('')}</div>
-            <div class="braindump-status" id="braindump-status">${t('braindump.status.ready')}</div>
-            <div class="braindump-processing" id="braindump-processing" hidden><span class="braindump-spinner" aria-hidden="true"></span><span id="braindump-processing-text">${t('braindump.processing.transcribing')}</span></div>
-            <div class="braindump-hint" id="braindump-hint">${t('braindump.hint.idle')}</div>
-          </div>
-          <div class="braindump-transcript" id="braindump-transcript" hidden></div>
-          <div class="braindump-error" id="braindump-error" hidden></div>
-          <div class="braindump-results" id="braindump-results" hidden>
-            <div class="braindump-results-head">
-              <div>
-                <strong>${t('braindump.results.title')}</strong>
-                <span id="braindump-results-subtitle">${t('braindump.results.subtitle')}</span>
+        <div class="modal-body braindump-body ui-detail-modal-body">
+          <div class="braindump-shell ui-detail-shell">
+            <section class="ui-section-card ui-detail-section braindump-stage-section" id="braindump-stage">
+              <div class="ui-section-heading ui-detail-section-heading braindump-section-heading">
+                <div class="ui-section-icon ui-detail-section-icon" data-icon="mic"></div>
+                <div>
+                  <h4 id="braindump-recording-section-title">${t('braindump.section.recording')}</h4>
+                  <p><span id="braindump-status">${t('braindump.status.ready')}</span> · <span id="braindump-hint">${t('braindump.hint.idle')}</span></p>
+                </div>
               </div>
-              <button type="button" class="btn btn-secondary btn-sm" id="braindump-select-all">${t('braindump.selectAll')}</button>
-            </div>
-            <div class="braindump-candidates" id="braindump-candidates"></div>
-            <div class="braindump-create-status" id="braindump-create-status"></div>
+              <div class="braindump-wave" id="braindump-wave" aria-hidden="true">${Array.from({ length: 24 }, (_, index) => `<span style="--i:${index}"></span>`).join('')}</div>
+              <div class="braindump-processing" id="braindump-processing" hidden><span class="braindump-spinner" aria-hidden="true"></span><span id="braindump-processing-text">${t('braindump.processing.transcribing')}</span></div>
+            </section>
+            <section class="ui-section-card ui-detail-section braindump-transcript-section" id="braindump-transcript-section" hidden>
+              <div class="ui-section-heading ui-detail-section-heading braindump-section-heading">
+                <div class="ui-section-icon ui-detail-section-icon" data-icon="file-text"></div>
+                <div>
+                  <h4 id="braindump-transcript-section-title">${t('braindump.section.transcript')}</h4>
+                  <p id="braindump-transcript-section-hint">${t('braindump.section.transcriptHint')}</p>
+                </div>
+              </div>
+              <div class="braindump-transcript" id="braindump-transcript"></div>
+            </section>
+            <section class="ui-section-card ui-detail-section braindump-results" id="braindump-results" hidden>
+              <div class="ui-section-heading ui-detail-section-heading braindump-results-head">
+                <div class="ui-section-icon ui-detail-section-icon" data-icon="list-todo"></div>
+                <div>
+                  <h4>${t('braindump.results.title')}</h4>
+                  <p id="braindump-results-subtitle">${t('braindump.results.subtitle')}</p>
+                </div>
+                <button type="button" class="btn btn-secondary btn-sm" id="braindump-select-all">${t('braindump.selectAll')}</button>
+              </div>
+              <div class="braindump-candidates" id="braindump-candidates"></div>
+              <div class="braindump-create-status" id="braindump-create-status"></div>
+            </section>
+            <div class="braindump-error" id="braindump-error" hidden></div>
           </div>
         </div>
         <div class="modal-actions braindump-actions">
@@ -242,7 +259,10 @@ export function createBrainDumpLiveFeature(options = {}) {
     const closeBtn = document.getElementById('braindump-close');
     const cancelBtn = document.getElementById('braindump-cancel');
     const retryBtn = document.getElementById('braindump-retry');
-    const resultsTitle = document.querySelector('.braindump-results-head strong');
+    const resultsTitle = document.querySelector('.braindump-results-head h4');
+    const recordingSectionTitle = document.getElementById('braindump-recording-section-title');
+    const transcriptSectionTitle = document.getElementById('braindump-transcript-section-title');
+    const transcriptSectionHint = document.getElementById('braindump-transcript-section-hint');
     if (title) title.textContent = t('braindump.title');
     if (subtitle) subtitle.textContent = t('braindump.subtitle');
     if (closeBtn) {
@@ -251,6 +271,9 @@ export function createBrainDumpLiveFeature(options = {}) {
     }
     if (cancelBtn) cancelBtn.textContent = t('common.close');
     if (retryBtn) retryBtn.textContent = t('braindump.retry');
+    if (recordingSectionTitle) recordingSectionTitle.textContent = t('braindump.section.recording');
+    if (transcriptSectionTitle) transcriptSectionTitle.textContent = t('braindump.section.transcript');
+    if (transcriptSectionHint) transcriptSectionHint.textContent = t('braindump.section.transcriptHint');
     if (resultsTitle) resultsTitle.textContent = t('braindump.results.title');
   }
 
@@ -856,6 +879,7 @@ export function createBrainDumpLiveFeature(options = {}) {
     const results = document.getElementById('braindump-results');
     const error = document.getElementById('braindump-error');
     const transcript = document.getElementById('braindump-transcript');
+    const transcriptSection = document.getElementById('braindump-transcript-section');
     const stage = document.getElementById('braindump-stage');
     const processing = document.getElementById('braindump-processing');
     const processingText = document.getElementById('braindump-processing-text');
@@ -925,8 +949,8 @@ export function createBrainDumpLiveFeature(options = {}) {
       error.hidden = !state.error;
       error.textContent = state.error;
     }
+    if (transcriptSection) transcriptSection.hidden = !state.transcript;
     if (transcript) {
-      transcript.hidden = !state.transcript;
       transcript.textContent = state.transcript;
     }
     renderCandidates();
