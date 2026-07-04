@@ -32,7 +32,7 @@
   padding: 0;
   border: 0;
   color: var(--text-muted);
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 650;
   letter-spacing: .01em;
 }
@@ -63,10 +63,10 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  top: 18px;
+  top: 19px;
   right: max(28px, calc((100% - 920px) / 2));
-  width: 34px;
-  height: 34px;
+  width: 40px;
+  height: 40px;
   padding: 0;
   border: 0;
   border-radius: 0;
@@ -76,8 +76,8 @@
 }
 
 #settings-modal .modal-close-x .ui-icon {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
 }
 
 #settings-modal .modal-close-x:hover,
@@ -657,11 +657,11 @@
     width: auto;
     max-width: none;
     margin: 0;
-    padding: 12px 44px 12px 16px;
+    padding: 12px 56px 12px 16px;
   }
 
   #settings-modal .modal-close-x {
-    top: 12px;
+    top: 13px;
     right: 12px;
   }
   .settings-modal-header h3 {
