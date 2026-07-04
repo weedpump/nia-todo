@@ -281,6 +281,7 @@
   color: var(--accent);
 }
 .braindump-quickfix-panel {
+  order: 3;
   display: grid;
   grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) minmax(0, 1fr);
   gap: 10px;
