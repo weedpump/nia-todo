@@ -150,21 +150,71 @@
 }
 
 .app-downloads-modal-content {
-  max-width: 640px;
+  width: min(560px, calc(100vw - 32px));
+  max-width: none;
+  padding: 34px 32px 26px;
+  border: 0;
+  border-radius: 28px;
+  overflow: hidden;
   text-align: center;
+  background:
+    radial-gradient(circle at 12% 0%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 34%),
+    linear-gradient(180deg, color-mix(in srgb, var(--bg-secondary) 96%, var(--bg-primary)), var(--bg-secondary));
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.42);
+}
+
+.app-downloads-modal-content > h3 {
+  margin: 0 0 18px;
+  padding: 0;
+  border: 0;
+  color: var(--text-primary);
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.app-downloads-modal-content .modal-close-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  top: 14px;
+  right: 14px;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.app-downloads-modal-content .modal-close-x .ui-icon {
+  width: 20px;
+  height: 20px;
 }
 
 .app-downloads-modal-body {
+  padding: 0;
   text-align: center;
 }
 
 .app-downloads-modal-body .web-update-icon {
-  margin-left: auto;
-  margin-right: auto;
+  width: 58px;
+  height: 58px;
+  margin: 0 auto 16px;
+  border-radius: 999px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.app-downloads-modal-body .web-update-icon .ui-icon {
+  width: 28px;
+  height: 28px;
 }
 
 .app-download-modal-subtitle {
-  margin: 0 0 16px;
+  max-width: 390px;
+  margin: 0 auto 20px;
   color: var(--text-secondary);
   font-size: 14px;
   line-height: 1.5;
@@ -174,12 +224,23 @@
 .app-download-server-box {
   width: 100%;
   margin: 0 0 14px;
-  padding: 14px;
+  padding: 16px 0 14px;
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 38%, transparent);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
   text-align: center;
 }
 
+.app-download-server-box:hover {
+  border-color: color-mix(in srgb, var(--border) 50%, transparent);
+  background: transparent;
+}
+
 .app-download-server-label {
-  margin-bottom: 7px;
+  margin-bottom: 8px;
   color: var(--text-muted);
   font-size: 12px;
   font-weight: 650;
@@ -188,20 +249,21 @@
 .app-download-server-host {
   display: inline-flex;
   max-width: 100%;
-  padding: 5px 9px;
+  padding: 0;
   color: var(--text-primary);
   font-size: 13px;
-  font-weight: 750;
+  font-weight: 800;
   overflow-wrap: anywhere;
 }
 
 .modal-downloads {
   flex-direction: row;
   gap: 10px;
-  margin-top: 4px;
+  margin-top: 12px;
 }
 
 .modal-downloads .app-download-button {
+  min-height: 42px;
   justify-content: center;
   text-align: center;
 }
@@ -210,18 +272,42 @@
   align-items: center;
 }
 
-@media (max-width: 768px) {
-  .app-downloads-modal-body {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    padding: 24px 16px;
-  }
-}
-
 .modal-downloads .app-download-icon {
   width: 24px;
   height: 24px;
+}
+
+@media (max-width: 768px) {
+  .app-downloads-modal.active {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+  }
+
+  .app-downloads-modal .modal-overlay {
+    display: block;
+  }
+
+  .app-downloads-modal-content {
+    position: relative;
+    inset: auto;
+    width: min(100%, 560px);
+    height: auto;
+    max-height: calc(100vh - 36px);
+    border-radius: 28px;
+    padding: 30px 22px 22px;
+    display: block;
+    overflow-y: auto;
+  }
+
+  .modal-downloads {
+    flex-direction: column;
+  }
+
+  .modal-downloads .app-download-button {
+    width: 100%;
+  }
 }
 
 .app-install-card {
