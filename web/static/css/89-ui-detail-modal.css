@@ -31,11 +31,24 @@
 
 .ui-detail-modal.ui-detail-view .ui-detail-title-icon,
 .ui-detail-modal.todo-detail-view .ui-detail-title-icon {
-  width: 34px;
-  height: 34px;
+  width: 42px;
+  height: 42px;
+  border: 0;
   border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
   background: color-mix(in srgb, var(--accent) 10%, transparent);
   box-shadow: none;
+}
+
+.ui-detail-modal.ui-detail-view .ui-detail-title-icon .ui-icon,
+.ui-detail-modal.todo-detail-view .ui-detail-title-icon .ui-icon {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  stroke-width: 2;
 }
 
 .ui-detail-modal.ui-detail-view .ui-detail-modal-header h3,
