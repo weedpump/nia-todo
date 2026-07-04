@@ -95,7 +95,12 @@
     top: 18px;
     right: 12px;
   }
+}
 
+@media (max-width: 768px) {
+  #todo-modal.todo-detail-view .modal-close-x {
+    top: 12px;
+  }
 }
 
 #todo-modal.todo-detail-view .todo-meta-summary-view {
