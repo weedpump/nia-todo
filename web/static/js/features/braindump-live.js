@@ -154,7 +154,7 @@ export function createBrainDumpLiveFeature(options = {}) {
       <div class="modal-overlay" id="braindump-overlay"></div>
       <div class="modal-content braindump-modal-content ui-detail-modal-content" role="dialog" aria-modal="true" aria-labelledby="braindump-title">
         <div class="braindump-hero ui-detail-modal-header">
-          <div class="braindump-orb ui-detail-title-icon" id="braindump-orb">${iconSvg('mic')}</div>
+          <div class="braindump-orb ui-detail-title-icon" id="braindump-orb">${iconSvg('sparkles')}</div>
           <div>
             <h3 id="braindump-title">${t('braindump.title')}</h3>
             <p id="braindump-subtitle">${t('braindump.subtitle')}</p>
@@ -933,7 +933,7 @@ export function createBrainDumpLiveFeature(options = {}) {
             ? t('braindump.hint.processing')
             : t('braindump.hint.idle');
     }
-    if (orb) orb.innerHTML = state.starting || state.processing || state.active ? iconSvg('sparkles') : iconSvg(state.recording ? 'mic' : 'mic');
+    if (orb && !orb.innerHTML.trim()) orb.innerHTML = iconSvg('sparkles');
     if (recordBtn) {
       recordBtn.hidden = state.starting || !state.recording || state.processing || state.candidates.length > 0;
       recordBtn.textContent = t('braindump.record.finish');
