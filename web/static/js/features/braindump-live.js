@@ -167,8 +167,8 @@ export function createBrainDumpLiveFeature(options = {}) {
             <div class="braindump-status" id="braindump-status">${t('braindump.status.ready')}</div>
             <div class="braindump-processing" id="braindump-processing" hidden><span class="braindump-spinner" aria-hidden="true"></span><span id="braindump-processing-text">${t('braindump.processing.transcribing')}</span></div>
             <div class="braindump-hint" id="braindump-hint">${t('braindump.hint.idle')}</div>
-            <div class="braindump-transcript" id="braindump-transcript" hidden></div>
           </div>
+          <div class="braindump-transcript" id="braindump-transcript" hidden></div>
           <div class="braindump-error" id="braindump-error" hidden></div>
           <div class="braindump-results" id="braindump-results" hidden>
             <div class="braindump-results-head">
