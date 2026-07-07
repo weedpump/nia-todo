@@ -12,13 +12,13 @@
   <div class="admin-header">
     <h1><span data-icon="shield"></span> <span data-i18n-key="admin.title">nia-todo Admin</span></h1>
     <div class="admin-nav">
-      <button class="btn btn-secondary btn-icon login-theme-cycle-btn admin-theme-cycle-btn" type="button" data-theme-cycle onclick="cycleAdminTheme()" title="System"><span data-theme-cycle-icon data-icon="monitor"></span></button>
       <div class="admin-status-actions" id="admin-header-actions" hidden>
-        <button class="btn btn-secondary admin-header-action admin-mobile-icon-action" onclick="openAdminPasswordDialog()"><span class="admin-action-icon" data-icon="key-round"></span><span class="admin-action-label" data-i18n-key="admin.password.shortChange">Change password</span></button>
-        <button class="btn btn-secondary admin-header-action hidden" id="admin-oidc-link-toolbar-btn" onclick="startAdminOidcLink()" data-i18n-key="admin.oidc.adminLink">Link admin OIDC</button>
-        <button class="btn btn-secondary admin-header-action hidden" id="admin-oidc-unlink-toolbar-btn" onclick="unlinkFirstAdminOidcIdentity()" data-i18n-key="admin.oidc.adminUnlink">Unlink admin OIDC</button>
-        <button class="btn btn-danger admin-header-action admin-mobile-icon-action" onclick="adminLogout()"><span class="admin-action-icon" data-icon="log-out"></span><span class="admin-action-label" data-i18n-key="auth.signOut">Sign out</span></button>
+        <button type="button" class="btn btn-secondary admin-header-action admin-mobile-icon-action" onclick="openAdminPasswordDialog()"><span class="admin-action-icon" data-icon="key-round"></span><span class="admin-action-label" data-i18n-key="admin.password.shortChange">Change password</span></button>
+        <button type="button" class="btn btn-secondary admin-header-action hidden" id="admin-oidc-link-toolbar-btn" onclick="startAdminOidcLink()" data-i18n-key="admin.oidc.adminLink">Link admin OIDC</button>
+        <button type="button" class="btn btn-secondary admin-header-action hidden" id="admin-oidc-unlink-toolbar-btn" onclick="unlinkFirstAdminOidcIdentity()" data-i18n-key="admin.oidc.adminUnlink">Unlink admin OIDC</button>
+        <button type="button" class="btn btn-danger admin-header-action admin-mobile-icon-action" onclick="adminLogout()"><span class="admin-action-icon" data-icon="log-out"></span><span class="admin-action-label" data-i18n-key="auth.signOut">Sign out</span></button>
       </div>
+      <button class="btn btn-secondary btn-icon login-theme-cycle-btn admin-theme-cycle-btn" type="button" data-theme-cycle onclick="cycleAdminTheme()" title="System"><span data-theme-cycle-icon data-icon="monitor"></span></button>
     </div>
   </div>
 
@@ -748,6 +748,7 @@ function setAdminAuthenticated(isAuthenticated) {
   document.getElementById('admin-header-actions').hidden = !isAuthenticated;
   document.getElementById('admin-content').style.display = isAuthenticated ? 'block' : 'none';
   document.getElementById('admin-login-card').style.display = isAuthenticated ? 'none' : 'block';
+  if (!isAuthenticated) closeAdminPasswordDialog();
 }
 
 function startAdminApp() {
@@ -1318,6 +1319,7 @@ function closeAdminPasswordDialog() {
 }
 
 function openAdminPasswordDialog() {
+  if (!adminToken) return;
   const dialog = document.getElementById('admin-password-dialog');
   if (!dialog) return;
   document.getElementById('admin-old-password').value = '';
@@ -2497,6 +2499,11 @@ async function generatePasswordLink(userId, username) {
 }
 
 async function adminLogout() {
+  if (!adminToken) {
+    setAdminAuthenticated(false);
+    focusAdminLoginPassword();
+    return;
+  }
   try {
     // Call backend logout to invalidate all admin JWTs
     await fetch(API + '/api/admin/logout', {
