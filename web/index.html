@@ -302,29 +302,29 @@
             <label for="login-mfa-code" id="login-mfa-code-label" data-i18n-key="auth.mfa.codeLabel">2FA-Code</label>
             <input type="text" class="ui-field" id="login-mfa-code" placeholder="Enter code" data-i18n-placeholder-key="auth.mfa.codePlaceholder" autocomplete="one-time-code" inputmode="numeric">
           </div>
-          <button type="button" class="btn btn-secondary login-mfa-switch-btn hidden" id="login-mfa-switch-btn"></button>
+          <button type="button" class="btn btn-secondary login-action-btn login-mfa-switch-btn hidden" id="login-mfa-switch-btn"></button>
           <label class="login-remember-device">
             <input type="checkbox" id="login-remember-device">
             <span data-i18n-key="auth.mfa.rememberDevice">Remember this device for 30 days</span>
           </label>
-          <button type="button" class="btn btn-secondary login-back-btn" id="login-mfa-back-btn" data-i18n-key="common.back">Back</button>
+          <button type="button" class="btn btn-secondary login-action-btn login-back-btn" id="login-mfa-back-btn" data-i18n-key="common.back">Back</button>
         </div>
         <div id="login-error" class="login-error"></div>
         <div id="login-reset-panel" class="login-reset-panel hidden">
           <input type="text" class="ui-field" id="login-reset-identifier" placeholder="Username or email" data-i18n-placeholder-key="auth.usernameOrEmail" autocomplete="username">
-          <button type="button" class="btn btn-secondary login-reset-submit" id="login-reset-submit" data-i18n-key="auth.reset.requestLink">Request reset link</button>
+          <button type="button" class="btn btn-secondary login-action-btn login-reset-submit" id="login-reset-submit" data-i18n-key="auth.reset.requestLink">Request reset link</button>
           <div id="login-reset-message" class="login-reset-message"></div>
         </div>
-        <button type="submit" class="btn btn-primary login-btn" data-i18n-key="auth.signIn">Sign in</button>
+        <button type="submit" class="btn btn-primary login-action-btn login-btn" data-i18n-key="auth.signIn">Sign in</button>
         <div class="login-auth-alternatives">
           <div class="login-auth-divider"><span data-i18n-key="auth.alternativeSignIn">or</span></div>
-          <button type="button" class="btn btn-secondary login-passkey-btn hidden" id="login-oidc-btn" data-i18n-key="auth.oidc.signIn">Sign in with OIDC</button>
-          <button type="button" class="btn btn-secondary login-passkey-btn hidden" id="login-passkey-btn" data-i18n-key="auth.mfa.signInWithPasskey">Sign in with passkey</button>
+          <button type="button" class="btn btn-secondary login-action-btn login-passkey-btn hidden" id="login-oidc-btn" data-i18n-key="auth.oidc.signIn">Sign in with OIDC</button>
+          <button type="button" class="btn btn-secondary login-action-btn login-passkey-btn hidden" id="login-passkey-btn" data-i18n-key="auth.mfa.signInWithPasskey">Sign in with passkey</button>
         </div>
-        <button type="button" class="btn btn-secondary login-forgot-btn hidden" id="login-forgot-btn" data-i18n-key="auth.forgotPassword">Forgot password?</button>
+        <button type="button" class="btn btn-secondary login-action-btn login-forgot-btn hidden" id="login-forgot-btn" data-i18n-key="auth.forgotPassword">Forgot password?</button>
       </form>
       <div class="login-download-divider" aria-hidden="true"></div>
-      <button type="button" class="btn btn-secondary app-download-launcher login-download-launcher" data-app-download-launcher style="display:none;">
+      <button type="button" class="btn btn-secondary login-action-btn app-download-launcher login-download-launcher" data-app-download-launcher style="display:none;">
         <span data-icon="download"></span>
         <span data-i18n-key="appDownloads.title">Apps herunterladen</span>
       </button>
