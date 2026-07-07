@@ -586,11 +586,22 @@ function setupAdminSections() {
       body.appendChild(node);
       node = next;
     }
-    const titleHtml = heading.innerHTML;
+    const iconName = heading.querySelector('[data-icon]')?.getAttribute('data-icon') || 'settings';
+    const titleClone = heading.cloneNode(true);
+    titleClone.querySelector('[data-icon]')?.remove();
+    const titleHtml = titleClone.innerHTML.trim();
     const summary = getSectionSummary(card);
-    heading.innerHTML = `<span class="admin-section-header-row"><span class="admin-section-header"><span class="admin-section-title">${titleHtml}</span></span></span>`;
-    const headerRow = heading.querySelector('.admin-section-header-row');
-    const headerMain = heading.querySelector('.admin-section-header');
+    const headerRow = document.createElement('div');
+    headerRow.className = 'admin-section-header-row';
+    headerRow.innerHTML = `
+      <div class="ui-section-heading admin-section-heading">
+        <div class="ui-section-icon" data-icon="${iconName}"></div>
+        <div class="admin-section-heading-copy">
+          <h4>${titleHtml}</h4>
+          ${summary ? `<p>${summary}</p>` : ''}
+        </div>
+      </div>
+    `;
     const headerToggle = card.id === 'braindump-config-card'
       ? buildSectionToggle('braindump-enabled')
       : card.id === 'email-config-card'
@@ -602,12 +613,13 @@ function setupAdminSections() {
             : card.id === 'security-card'
           ? buildSectionToggle('twofa-policy-toggle')
           : null;
-    if (summary) headerMain.insertAdjacentHTML('beforeend', `<span class="admin-section-summary">${summary}</span>`);
     if (headerToggle) headerRow.appendChild(headerToggle);
+    heading.replaceWith(headerRow);
     card.appendChild(body);
-    card.classList.add('admin-section-card');
+    card.classList.add('admin-section-card', 'ui-section-card');
     card.dataset.sectionReady = '1';
   });
+  hydrateIcons(document);
   wireHeaderToggles();
 }
 
