@@ -195,8 +195,6 @@
   max-width: none;
   padding: 34px 32px 26px;
   border: 0;
-  border-color: transparent;
-  outline: 0;
   border-radius: 28px;
   overflow: hidden;
   text-align: center;
@@ -281,8 +279,6 @@
     height: auto;
     max-height: calc(100vh - 36px);
     border: 0;
-    border-color: transparent;
-    outline: 0;
     border-radius: 28px;
     padding: 30px 22px 22px;
     display: block;
