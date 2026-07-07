@@ -49,7 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - Hardened attachment uploads with streaming temp-file writes, server-side quota/type policy enforcement, magic-byte validation for common binary formats, active-content blocking, and client-side preflight for disabled uploads, type, file size, and quota.
 
 ### Fixed
-- Fixed admin header/auth state handling, guarded password/logout actions while logged out, restored admin OIDC login button initialization, normalized create-user field height, and made admin mobile buttons stack full-width instead of inheriting desktop sizing.
+- Fixed admin header/auth state handling, guarded password/logout actions while logged out, restored admin OIDC login button initialization, kept admin CSS scoped to the admin page, preserved the dynamic server-update status icon, normalized create-user field height, and made admin mobile buttons stack full-width instead of inheriting desktop sizing.
 - Prevented expanded mobile todo quick actions from being obscured by long titles or metadata chips by softly fading the todo content underneath while keeping action menus unclipped.
 - Replaced the browser confirmation prompt for removing project members with the app's danger confirmation modal, and kept hidden native color picker inputs from leaking disabled color bars into read-only project modals.
 - Improved Todo detail inline editing polish so the title becomes a visible input field only while focused, avoids desktop Edge glyph clipping, and aligns subtask/comment/meta action spacing and field borders.
