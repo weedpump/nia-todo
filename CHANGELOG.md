@@ -21,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 ### Changed
 - Merged todo status selection into the left todo control, using a compact icon-only dropdown on mobile and a full status pill with label on desktop while keeping the old right-side status dropdown hidden.
 - Refined the dashboard and project overview widgets to better match the rounded borderless Next UI direction, including rounder stat/project items, restored desktop project stat hints, compact mobile project stats, and fully round avatar/project icon tiles.
-- Refined app confirmation and danger dialogs with rounder borderless surfaces and softer icon treatment to match the Next UI direction.
+- Refined app confirmation, danger, and native OIDC return dialogs with rounder borderless surfaces and softer icon treatment to match the Next UI direction.
 - Unified section heading icon treatment across Settings, Todo, Project, and Workspace detail surfaces with shared round icon bubbles and consistent icon sizing.
 - Refined project and dashboard todo views with flatter borderless pill-style todo rows, rounded mobile swipe action backgrounds with cleaner spacing, stronger light-theme row contrast, softer section/project headers, cleaner pinned/in-progress accents, and mobile-safe wrapping for long descriptions and metadata chips.
 - Added shared detail-modal primitives for Todo/Project/Workspace-style editors so future modals can reuse the same surface, header, title field, section, action-row, hidden save state, and menu styling without copying modal-specific CSS, with matching offline/PWA cache coverage.

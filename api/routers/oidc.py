@@ -90,8 +90,9 @@ def _native_redirect_html(code: str, kind: str, redirect_after: str = "/") -> HT
       --accent-hover-rgb: 129, 140, 248;
       --accent-intensity: 1;
       --border: #334155;
-      --radius: 8px;
-      --shadow: 0 4px 12px rgba(0,0,0,0.3);
+      --radius: 18px;
+      --dialog-radius: 28px;
+      --shadow: 0 24px 70px rgba(0,0,0,0.42);
     }}
     @media (prefers-color-scheme: light) {{
       :root {{
@@ -108,7 +109,7 @@ def _native_redirect_html(code: str, kind: str, redirect_after: str = "/") -> HT
         --accent-rgb: 79, 70, 229;
         --accent-hover-rgb: 67, 56, 202;
         --border: #cbd5e1;
-        --shadow: 0 4px 12px rgba(0,0,0,0.08);
+        --shadow: 0 24px 70px rgba(15,23,42,0.16);
       }}
     }}
     * {{ box-sizing: border-box; margin: 0; padding: 0; }}
@@ -122,13 +123,16 @@ def _native_redirect_html(code: str, kind: str, redirect_after: str = "/") -> HT
       display: grid;
       place-items: center;
       padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
-      background: var(--bg-primary);
+      background:
+        radial-gradient(circle at 18% -8%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 34%),
+        radial-gradient(circle at 88% 12%, color-mix(in srgb, var(--accent-hover) 10%, transparent), transparent 30%),
+        var(--bg-primary);
       color: var(--text-primary);
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       line-height: 1.5;
     }}
     .return-page {{
-      width: min(100%, 380px);
+      width: min(100%, 420px);
       max-height: calc(100dvh - 32px);
       display: flex;
       align-items: center;
@@ -137,43 +141,51 @@ def _native_redirect_html(code: str, kind: str, redirect_after: str = "/") -> HT
     .login-box {{
       position: relative;
       width: 100%;
-      max-width: 380px;
-      padding: 32px 28px;
-      background: var(--bg-secondary);
-      border: 1px solid var(--border);
-      border-radius: 16px;
+      max-width: 420px;
+      padding: 34px 32px 28px;
+      background:
+        radial-gradient(circle at 12% 0%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 34%),
+        linear-gradient(180deg, color-mix(in srgb, var(--bg-secondary) 96%, var(--bg-primary)), var(--bg-secondary));
+      border: 0;
+      border-radius: var(--dialog-radius);
       box-shadow: var(--shadow);
     }}
     .login-brand {{
       text-align: center;
-      margin-bottom: 28px;
+      margin-bottom: 24px;
     }}
     .login-logo {{
-      display: block;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       width: 64px;
       height: 64px;
-      margin: 0 auto 12px auto;
+      margin: 0 auto 16px auto;
       border-radius: 50%;
+      box-shadow: 0 14px 34px rgba(var(--accent-rgb), calc(var(--accent-intensity) * .22));
     }}
     .login-title {{
-      font-size: 24px;
-      font-weight: 700;
+      font-size: 23px;
+      font-weight: 800;
       color: var(--text-primary);
-      margin-bottom: 4px;
+      margin-bottom: 6px;
+      line-height: 1.2;
     }}
     .login-subtitle {{
       font-size: 14px;
-      color: var(--text-muted);
+      color: var(--text-secondary);
     }}
     .return-status {{
       display: flex;
       align-items: center;
       gap: 12px;
-      padding: 14px;
-      margin-bottom: 16px;
-      border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
-      border-radius: var(--radius);
-      background: color-mix(in srgb, var(--accent) 10%, var(--bg-primary));
+      padding: 16px 0 14px;
+      margin-bottom: 18px;
+      border: 0;
+      border-top: 1px solid color-mix(in srgb, var(--border) 44%, transparent);
+      border-bottom: 1px solid color-mix(in srgb, var(--border) 36%, transparent);
+      border-radius: 0;
+      background: transparent;
       color: var(--text-secondary);
       font-size: 14px;
     }}
@@ -181,7 +193,7 @@ def _native_redirect_html(code: str, kind: str, redirect_after: str = "/") -> HT
       width: 18px;
       height: 18px;
       flex: 0 0 18px;
-      border: 2px solid color-mix(in srgb, var(--accent) 22%, var(--border));
+      border: 2px solid color-mix(in srgb, var(--accent) 22%, transparent);
       border-top-color: var(--accent);
       border-radius: 50%;
       animation: boot-spin .8s linear infinite;
@@ -192,11 +204,12 @@ def _native_redirect_html(code: str, kind: str, redirect_after: str = "/") -> HT
       justify-content: center;
       gap: 6px;
       width: 100%;
-      padding: 12px 16px;
+      min-height: 46px;
+      padding: 12px 18px;
       border: none;
-      border-radius: var(--radius);
+      border-radius: 999px;
       font-size: 15px;
-      font-weight: 600;
+      font-weight: 750;
       cursor: pointer;
       transition: all 0.15s;
       text-decoration: none;
@@ -204,8 +217,7 @@ def _native_redirect_html(code: str, kind: str, redirect_after: str = "/") -> HT
     .btn-primary {{
       background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent-hover) 78%, var(--accent)));
       color: #fff;
-      border: 1px solid color-mix(in srgb, var(--accent-hover) 62%, var(--accent));
-      box-shadow: 0 8px 18px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.18));
+      box-shadow: 0 12px 28px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.22));
     }}
     .btn-primary:hover {{
       background: linear-gradient(135deg, var(--accent-hover), var(--accent));
@@ -213,17 +225,19 @@ def _native_redirect_html(code: str, kind: str, redirect_after: str = "/") -> HT
       transform: translateY(-1px);
     }}
     .hint {{
-      margin-top: 12px;
+      margin: 14px auto 0;
+      max-width: 300px;
       color: var(--text-muted);
       font-size: 13px;
       text-align: center;
+      line-height: 1.45;
     }}
     @media (max-height: 520px), (max-width: 360px) {{
-      .login-box {{ padding: 24px 20px; }}
-      .login-brand {{ margin-bottom: 20px; }}
+      .login-box {{ padding: 26px 22px 22px; }}
+      .login-brand {{ margin-bottom: 18px; }}
       .login-logo {{ width: 56px; height: 56px; }}
       .login-title {{ font-size: 21px; }}
-      .return-status {{ padding: 12px; margin-bottom: 12px; }}
+      .return-status {{ padding: 14px 0 12px; margin-bottom: 14px; }}
       .hint {{ margin-top: 10px; }}
     }}
     @keyframes boot-spin {{ to {{ transform: rotate(360deg); }} }}
