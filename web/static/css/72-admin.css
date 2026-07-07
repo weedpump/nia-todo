@@ -7,6 +7,9 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .admin-card { background: color-mix(in srgb, var(--bg-secondary) 94%, var(--bg-primary)); border: 1px solid color-mix(in srgb, var(--border) 82%, transparent); border-radius: 18px; padding: 22px; box-shadow: var(--shadow); }
 .admin-section-card { min-width: 0; }
 .admin-section-header-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; width: 100%; }
+.admin-section-header-row.no-summary { align-items: center; }
+.admin-section-header-row.no-summary .admin-section-heading { align-items: center; }
+.admin-section-header-row.no-summary .admin-section-heading-copy { display: flex; align-items: center; }
 .admin-section-heading { flex: 1 1 auto; min-width: 0; margin-bottom: 18px; }
 .admin-section-heading h4 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0; color: var(--text-primary); font-size: 13px; font-weight: 750; letter-spacing: .08em; line-height: 1.25; text-transform: uppercase; }
 .admin-section-heading p { display: block; margin: 4px 0 0; color: var(--text-muted); font-size: 12px; line-height: 1.45; }

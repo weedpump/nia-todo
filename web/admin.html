@@ -93,14 +93,14 @@
 
 
   <div class="admin-page-shell">
-    <nav class="admin-page-nav" aria-label="Admin sections">
-      <button type="button" class="ui-nav-pill admin-page-nav-btn active" data-admin-page="overview"><span data-icon="layout-dashboard"></span><span>Übersicht</span></button>
-      <button type="button" class="ui-nav-pill admin-page-nav-btn" data-admin-page="instance"><span data-icon="server"></span><span>Instanz</span></button>
-      <button type="button" class="ui-nav-pill admin-page-nav-btn" data-admin-page="users"><span data-icon="users"></span><span>Benutzer</span></button>
-      <button type="button" class="ui-nav-pill admin-page-nav-btn" data-admin-page="email"><span data-icon="mail"></span><span>E-Mail / SMTP</span></button>
-      <button type="button" class="ui-nav-pill admin-page-nav-btn" data-admin-page="security"><span data-icon="shield"></span><span>Sicherheit & Login</span></button>
-      <button type="button" class="ui-nav-pill admin-page-nav-btn" data-admin-page="attachments"><span data-icon="package"></span><span>Anhänge</span></button>
-      <button type="button" class="ui-nav-pill admin-page-nav-btn" data-admin-page="braindump"><span data-icon="rocket"></span><span>BrainDump</span></button>
+    <nav class="admin-page-nav" data-i18n-aria-label-key="admin.nav.ariaLabel" aria-label="Admin sections">
+      <button type="button" class="ui-nav-pill admin-page-nav-btn active" data-admin-page="overview"><span data-icon="layout-dashboard"></span><span data-i18n-key="admin.nav.overview">Übersicht</span></button>
+      <button type="button" class="ui-nav-pill admin-page-nav-btn" data-admin-page="instance"><span data-icon="server"></span><span data-i18n-key="admin.nav.instance">Instanz</span></button>
+      <button type="button" class="ui-nav-pill admin-page-nav-btn" data-admin-page="users"><span data-icon="users"></span><span data-i18n-key="admin.nav.users">Benutzer</span></button>
+      <button type="button" class="ui-nav-pill admin-page-nav-btn" data-admin-page="email"><span data-icon="mail"></span><span data-i18n-key="admin.nav.email">E-Mail / SMTP</span></button>
+      <button type="button" class="ui-nav-pill admin-page-nav-btn" data-admin-page="security"><span data-icon="shield"></span><span data-i18n-key="admin.nav.securityLogin">Sicherheit & Login</span></button>
+      <button type="button" class="ui-nav-pill admin-page-nav-btn" data-admin-page="attachments"><span data-icon="package"></span><span data-i18n-key="admin.nav.attachments">Anhänge</span></button>
+      <button type="button" class="ui-nav-pill admin-page-nav-btn" data-admin-page="braindump"><span data-icon="rocket"></span><span data-i18n-key="admin.nav.braindump">BrainDump</span></button>
     </nav>
     <main class="admin-page-content">
       <section class="admin-main-section active" data-admin-page-panel="overview">
@@ -584,7 +584,7 @@ function setupAdminSections() {
     const titleHtml = titleClone.innerHTML.trim();
     const summary = getSectionSummary(card);
     const headerRow = document.createElement('div');
-    headerRow.className = 'admin-section-header-row';
+    headerRow.className = `admin-section-header-row${summary ? '' : ' no-summary'}`;
     headerRow.innerHTML = `
       <div class="ui-section-heading admin-section-heading">
         <div class="ui-section-icon" data-icon="${iconName}"></div>
