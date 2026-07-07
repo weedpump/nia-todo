@@ -613,7 +613,7 @@ function setupAdminSections() {
     card.classList.add('admin-section-card', 'ui-section-card');
     card.dataset.sectionReady = '1';
   });
-  hydrateIcons(document);
+  window.hydrateIcons?.(document);
   wireHeaderToggles();
 }
 
@@ -679,7 +679,7 @@ function updateAdminThemeCycleButton(mode) {
   button.setAttribute('aria-label', title);
   if (iconEl) {
     iconEl.dataset.icon = icons[mode] || icons.system;
-    hydrateIcons(button);
+    window.hydrateIcons?.(button);
   }
 }
 
@@ -711,17 +711,12 @@ async function hydrateAdminOidcLogin() {
   if (!button) return;
   try {
     const r = await fetch(API + '/api/oidc/status', { credentials: 'include' });
-    if (!r.ok) {
-      button.classList.add('hidden');
-      return;
-    }
+    if (!r.ok) return;
     const data = await r.json();
-    const enabled = !!data?.enabled;
-    button.textContent = adminTr('admin.oidc.signInWithProvider', { provider: data?.provider_name || 'OIDC' });
-    button.classList.toggle('hidden', !enabled);
-  } catch (_) {
-    button.classList.add('hidden');
-  }
+    if (!data.enabled) return;
+    button.textContent = adminTr('admin.oidc.signInWithProvider', { provider: data.provider_name || 'OIDC' });
+    button.classList.remove('hidden');
+  } catch (_) {}
 }
 
 function consumeAdminOidcLinkResult() {
@@ -765,7 +760,6 @@ function setAdminAuthenticated(isAuthenticated) {
   if (!isAuthenticated) {
     closeAdminPasswordDialog();
     document.getElementById('admin-login-error').textContent = '';
-    hydrateAdminOidcLogin();
   }
 }
 
@@ -1468,7 +1462,6 @@ async function saveOidcConfig() {
   try {
     const data = await apiPatch('/api/admin/oidc-config', readOidcConfigForm());
     renderOidcConfig(data);
-    hydrateAdminOidcLogin();
     document.getElementById('oidc-config-success').textContent = adminTr('admin.oidc.configSaved');
   } catch (e) {
     document.getElementById('oidc-config-error').textContent = e.message;
@@ -1483,7 +1476,6 @@ async function autoSaveOidcToggle() {
   try {
     const data = await apiPatch('/api/admin/oidc-config', readOidcConfigForm());
     renderOidcConfig(data);
-    hydrateAdminOidcLogin();
     document.getElementById('oidc-config-success').textContent = adminTr('admin.oidc.configSaved');
   } catch (e) {
     if (toggle) toggle.checked = previous;
