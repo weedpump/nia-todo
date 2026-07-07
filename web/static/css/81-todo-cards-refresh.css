@@ -858,6 +858,14 @@
   }
 }
 
+.todo-item.swiping::before,
+.todo-item.swiping::after {
+  top: 0;
+  bottom: 0;
+  border: 0;
+  border-radius: inherit;
+}
+
 /* Local preview fix: keep title + chips in natural flow, put description on its own clipped line. */
 .todo-title-wrap {
   display: flex;
