@@ -12,13 +12,13 @@
   <div class="admin-header">
     <h1><span data-icon="shield"></span> <span data-i18n-key="admin.title">nia-todo Admin</span></h1>
     <div class="admin-nav">
+      <button class="btn btn-secondary btn-icon login-theme-cycle-btn admin-theme-cycle-btn" type="button" data-theme-cycle onclick="cycleAdminTheme()" title="System"><span data-theme-cycle-icon data-icon="monitor"></span></button>
       <div class="admin-status-actions" id="admin-header-actions" hidden>
         <button type="button" class="btn btn-secondary admin-header-action admin-mobile-icon-action" onclick="openAdminPasswordDialog()"><span class="admin-action-icon" data-icon="key-round"></span><span class="admin-action-label" data-i18n-key="admin.password.shortChange">Change password</span></button>
         <button type="button" class="btn btn-secondary admin-header-action hidden" id="admin-oidc-link-toolbar-btn" onclick="startAdminOidcLink()" data-i18n-key="admin.oidc.adminLink">Link admin OIDC</button>
         <button type="button" class="btn btn-secondary admin-header-action hidden" id="admin-oidc-unlink-toolbar-btn" onclick="unlinkFirstAdminOidcIdentity()" data-i18n-key="admin.oidc.adminUnlink">Unlink admin OIDC</button>
         <button type="button" class="btn btn-danger admin-header-action admin-mobile-icon-action" onclick="adminLogout()"><span class="admin-action-icon" data-icon="log-out"></span><span class="admin-action-label" data-i18n-key="auth.signOut">Sign out</span></button>
       </div>
-      <button class="btn btn-secondary btn-icon login-theme-cycle-btn admin-theme-cycle-btn" type="button" data-theme-cycle onclick="cycleAdminTheme()" title="System"><span data-theme-cycle-icon data-icon="monitor"></span></button>
     </div>
   </div>
 
@@ -62,17 +62,23 @@
     </form>
   </div>
 
-  <div class="admin-card" id="admin-login-card">
-    <h2><span data-icon="lock-keyhole"></span> <span data-i18n-key="admin.login.title">Admin sign-in</span></h2>
-    <form class="form-row" id="admin-login-form" autocomplete="on" onsubmit="event.preventDefault(); doAdminLogin();">
+  <div class="login-box admin-login-box" id="admin-login-card">
+    <div class="login-brand">
+      <img src="/static/icons/icon-192.png" class="login-logo" alt="nia-todo">
+      <div class="login-title" data-i18n-key="admin.login.title">Admin sign-in</div>
+      <div class="login-subtitle">nia-todo Admin</div>
+    </div>
+    <form id="admin-login-form" autocomplete="on" onsubmit="event.preventDefault(); doAdminLogin();">
       <label class="admin-visually-hidden" for="admin-login-username">Admin username</label>
       <input class="admin-visually-hidden" type="text" id="admin-login-username" name="username" value="admin" autocomplete="username" readonly tabindex="-1">
-      <label class="admin-visually-hidden" for="admin-login-password" data-i18n-key="auth.password">Password</label>
-      <input class="ui-field" type="password" id="admin-login-password" name="password" data-i18n-placeholder-key="admin.login.passwordPlaceholder" placeholder="Enter admin password" autocomplete="current-password" required>
-      <button class="btn btn-primary" type="submit" data-i18n-key="auth.signIn">Sign in</button>
-      <a class="btn btn-secondary hidden" id="admin-oidc-login-btn" href="/api/oidc/admin/login" data-i18n-key="admin.oidc.signIn">Sign in with OIDC</a>
+      <div class="login-field">
+        <label for="admin-login-password" data-i18n-key="auth.password">Password</label>
+        <input class="ui-field" type="password" id="admin-login-password" name="password" data-i18n-placeholder-key="admin.login.passwordPlaceholder" placeholder="Enter admin password" autocomplete="current-password" required>
+      </div>
+      <div class="login-error" id="admin-login-error"></div>
+      <button class="btn btn-primary login-action-btn" type="submit" data-i18n-key="auth.signIn">Sign in</button>
+      <a class="btn btn-secondary login-action-btn hidden" id="admin-oidc-login-btn" href="/api/oidc/admin/login" data-i18n-key="admin.oidc.signIn">Sign in with OIDC</a>
     </form>
-    <div class="admin-error" id="admin-login-error"></div>
   </div>
 
   <div id="admin-content" style="display:none;">
@@ -637,6 +643,12 @@ let serverUpdateStartedInThisPage = false;
 let adminUsers = [];
 let currentAttachmentConfig = null;
 let currentStatsDays = 30;
+let twoFactorPolicyRequired = false;
+let brainDumpFeatureEnabled = false;
+let oidcFeatureEnabled = false;
+let oidcFeatureConfigured = false;
+let adminOidcIdentities = [];
+
 
 function focusAdminLoginPassword() {
   window.setTimeout(() => {
@@ -748,7 +760,10 @@ function setAdminAuthenticated(isAuthenticated) {
   document.getElementById('admin-header-actions').hidden = !isAuthenticated;
   document.getElementById('admin-content').style.display = isAuthenticated ? 'block' : 'none';
   document.getElementById('admin-login-card').style.display = isAuthenticated ? 'none' : 'block';
-  if (!isAuthenticated) closeAdminPasswordDialog();
+  if (!isAuthenticated) {
+    closeAdminPasswordDialog();
+    document.getElementById('admin-login-error').textContent = '';
+  }
 }
 
 function startAdminApp() {
@@ -900,12 +915,6 @@ async function doAdminLogin() {
     document.getElementById('admin-login-error').textContent = 'Error: ' + e.message;
   }
 }
-
-let twoFactorPolicyRequired = false;
-let brainDumpFeatureEnabled = false;
-let oidcFeatureEnabled = false;
-let oidcFeatureConfigured = false;
-let adminOidcIdentities = [];
 
 async function loadAdminData() {
   const [usersData, configData, attachmentConfigData, brainDumpConfigData, emailConfigData, oidcConfigData, oidcLinksData, twoFactorPolicy, serverUpdate, technicalStats] = await Promise.all([
