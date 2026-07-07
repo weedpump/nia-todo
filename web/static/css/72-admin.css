@@ -218,7 +218,11 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .admin-status-card { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 24px; padding: 0 0 18px; border: 0; border-bottom: 1px solid color-mix(in srgb, var(--border) 54%, transparent); border-radius: 0; background: transparent; box-shadow: none; }
 .admin-status-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .admin-status-actions[hidden] { display: none !important; }
-.admin-oidc-link-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.admin-action-row { display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin-top: 12px; }
+.admin-action-row.split { justify-content: space-between; }
+.admin-secondary-actions,
+.admin-primary-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.admin-primary-actions { justify-content: flex-end; }
 .admin-header-action .admin-action-icon { display: inline-flex; align-items: center; justify-content: center; }
 .admin-header-action .admin-action-icon .ui-icon { width: 16px; height: 16px; }
 .server-update-card { position: relative; overflow: hidden; }
@@ -305,7 +309,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .admin-dialog-content { position: relative; z-index: 1; width: min(100%, 430px); background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow-lg); padding: 22px; }
 .admin-dialog-content h3 { margin: 0 0 8px 0; font-size: 18px; color: var(--text-primary); }
 .admin-dialog-content p { margin: 0; color: var(--text-muted); font-size: 14px; line-height: 1.45; }
-.admin-dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+.admin-dialog-actions { margin-top: 18px; }
 .ui-icon { width: 1em; height: 1em; display: inline-block; vertical-align: -0.14em; }
 .admin-visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
 @media (max-width: 720px) {
@@ -399,5 +403,20 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
     max-width: 400px;
     margin-left: auto;
     margin-right: auto;
+  }
+}
+
+@media (max-width: 560px) {
+  .admin-action-row.split {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .admin-secondary-actions,
+  .admin-primary-actions {
+    width: 100%;
+  }
+  .admin-secondary-actions .btn,
+  .admin-primary-actions .btn {
+    width: 100%;
   }
 }
