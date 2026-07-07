@@ -12,11 +12,12 @@
   <div class="admin-header">
     <h1><span data-icon="shield"></span> <span data-i18n-key="admin.title">nia-todo Admin</span></h1>
     <div class="admin-nav">
-      <a class="btn btn-primary admin-back-btn" href="/" data-i18n-key="admin.backToApp">Back to app</a>
-      <div class="admin-theme-toggle">
-        <button class="btn btn-secondary btn-icon theme-option" data-theme="light" onclick="setTheme('light')" data-i18n-title-key="common.theme.light" title="Light"><span data-icon="sun"></span></button>
-        <button class="btn btn-secondary btn-icon theme-option" data-theme="dark" onclick="setTheme('dark')" data-i18n-title-key="common.theme.dark" title="Dark"><span data-icon="moon"></span></button>
-        <button class="btn btn-secondary btn-icon theme-option" data-theme="system" onclick="setTheme('system')" data-i18n-title-key="common.theme.system" title="System"><span data-icon="monitor"></span></button>
+      <button class="btn btn-secondary btn-icon login-theme-cycle-btn admin-theme-cycle-btn" type="button" data-theme-cycle onclick="cycleAdminTheme()" title="System"><span data-theme-cycle-icon data-icon="monitor"></span></button>
+      <div class="admin-status-actions" id="admin-header-actions" hidden>
+        <button class="btn btn-secondary admin-header-action admin-mobile-icon-action" onclick="openAdminPasswordDialog()"><span class="admin-action-icon" data-icon="key-round"></span><span class="admin-action-label" data-i18n-key="admin.password.shortChange">Change password</span></button>
+        <button class="btn btn-secondary admin-header-action hidden" id="admin-oidc-link-toolbar-btn" onclick="startAdminOidcLink()" data-i18n-key="admin.oidc.adminLink">Link admin OIDC</button>
+        <button class="btn btn-secondary admin-header-action hidden" id="admin-oidc-unlink-toolbar-btn" onclick="unlinkFirstAdminOidcIdentity()" data-i18n-key="admin.oidc.adminUnlink">Unlink admin OIDC</button>
+        <button class="btn btn-danger admin-header-action admin-mobile-icon-action" onclick="adminLogout()"><span class="admin-action-icon" data-icon="log-out"></span><span class="admin-action-label" data-i18n-key="auth.signOut">Sign out</span></button>
       </div>
     </div>
   </div>
@@ -81,16 +82,6 @@
   <input type="checkbox" id="attachments-enabled" class="admin-header-switch-source" data-i18n-aria-label-key="admin.attachments.enabled" aria-label="Uploads erlauben">
   <input type="checkbox" id="twofa-policy-toggle" class="admin-header-switch-source" data-i18n-aria-label-key="admin.security.toggle" aria-label="Toggle 2FA policy">
 
-  <!-- Admin Toolbar -->
-  <div class="admin-card admin-status-card">
-    <span class="admin-status-text"><span data-icon="lock-keyhole"></span> <span data-i18n-key="admin.status.loggedIn">Logged in as admin</span></span>
-    <div class="admin-status-actions">
-      <button class="btn btn-secondary" onclick="openAdminPasswordDialog()" data-i18n-key="admin.password.shortChange">Change password</button>
-      <button class="btn btn-secondary hidden" id="admin-oidc-link-toolbar-btn" onclick="startAdminOidcLink()" data-i18n-key="admin.oidc.adminLink">Link admin OIDC</button>
-      <button class="btn btn-secondary hidden" id="admin-oidc-unlink-toolbar-btn" onclick="unlinkFirstAdminOidcIdentity()" data-i18n-key="admin.oidc.adminUnlink">Unlink admin OIDC</button>
-      <button class="btn btn-danger" onclick="adminLogout()" data-i18n-key="auth.signOut">Sign out</button>
-    </div>
-  </div>
 
   <div class="admin-page-shell">
     <nav class="admin-page-nav" aria-label="Admin sections">
@@ -654,19 +645,44 @@ function focusAdminLoginPassword() {
 }
 
 function setTheme(mode) {
+  const normalizedMode = ['light', 'dark', 'system'].includes(mode) ? mode : 'system';
   const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  const isDark = mode === 'dark' || (mode === 'system' && prefersDark);
+  const isDark = normalizedMode === 'dark' || (normalizedMode === 'system' && prefersDark);
   document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
-  localStorage.setItem('theme', mode);
-  document.querySelectorAll('.admin-theme-toggle button').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.theme === mode);
-  });
+  if (normalizedMode === 'system') localStorage.removeItem('theme');
+  else localStorage.setItem('theme', normalizedMode);
+  updateAdminThemeCycleButton(normalizedMode);
+}
+
+function updateAdminThemeCycleButton(mode) {
+  const button = document.querySelector('[data-theme-cycle]');
+  if (!button) return;
+  const iconEl = button.querySelector('[data-theme-cycle-icon]');
+  const icons = { light: 'sun', dark: 'moon', system: 'monitor' };
+  const titles = {
+    light: adminTr('common.theme.light'),
+    dark: adminTr('common.theme.dark'),
+    system: adminTr('common.theme.system'),
+  };
+  const title = adminTr('menu.themeTitle', { theme: titles[mode] || titles.system });
+  button.dataset.themeMode = mode;
+  button.title = title;
+  button.setAttribute('aria-label', title);
+  if (iconEl) {
+    iconEl.dataset.icon = icons[mode] || icons.system;
+    hydrateIcons(button);
+  }
+}
+
+function cycleAdminTheme() {
+  const cycle = ['light', 'dark', 'system'];
+  const current = localStorage.getItem('theme') || 'system';
+  const idx = cycle.indexOf(current);
+  setTheme(cycle[(idx + 1) % cycle.length]);
 }
 
 // Init theme
-const storedTheme = localStorage.getItem('theme');
-if (storedTheme && storedTheme !== 'system') setTheme(storedTheme);
-else setTheme('system');
+setTheme(localStorage.getItem('theme') || 'system');
 
 // Migrate old token storage: clear old plaintext admin_token
 function migrateOldAdminToken() {
@@ -728,6 +744,12 @@ function getAdminToken() {
   return localStorage.getItem('admin_jwt_token');
 }
 
+function setAdminAuthenticated(isAuthenticated) {
+  document.getElementById('admin-header-actions').hidden = !isAuthenticated;
+  document.getElementById('admin-content').style.display = isAuthenticated ? 'block' : 'none';
+  document.getElementById('admin-login-card').style.display = isAuthenticated ? 'none' : 'block';
+}
+
 function startAdminApp() {
   hydrateAdminOidcLogin();
   consumeAdminOidcErrorNotice();
@@ -737,17 +759,16 @@ function startAdminApp() {
   if (adminToken) {
     // Try to use stored JWT, if invalid show login
     loadAdminData().then(() => {
-      document.getElementById('admin-login-card').style.display = 'none';
-      document.getElementById('admin-content').style.display = 'block';
+      setAdminAuthenticated(true);
       consumeAdminOidcLinkResult();
     }).catch(() => {
       localStorage.removeItem('admin_jwt_token');
       adminToken = null;
-      document.getElementById('admin-login-card').style.display = 'block';
+      setAdminAuthenticated(false);
       focusAdminLoginPassword();
     });
   } else {
-    document.getElementById('admin-login-card').style.display = 'block';
+    setAdminAuthenticated(false);
     focusAdminLoginPassword();
   }
 }
@@ -871,8 +892,7 @@ async function doAdminLogin() {
     if (data.csrf_token) {
       localStorage.setItem('csrf_token', data.csrf_token);
     }
-    document.getElementById('admin-login-card').style.display = 'none';
-    document.getElementById('admin-content').style.display = 'block';
+    setAdminAuthenticated(true);
     await loadAdminData();
     consumeAdminOidcLinkResult();
   } catch(e) {
@@ -2489,8 +2509,7 @@ async function adminLogout() {
   localStorage.removeItem('admin_jwt_token');
   localStorage.removeItem('csrf_token');
   adminToken = null;
-  document.getElementById('admin-content').style.display = 'none';
-  document.getElementById('admin-login-card').style.display = 'block';
+  setAdminAuthenticated(false);
   document.getElementById('admin-login-password').value = '';
   focusAdminLoginPassword();
 }
