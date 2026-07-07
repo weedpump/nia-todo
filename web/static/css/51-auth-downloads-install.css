@@ -375,41 +375,53 @@
 }
 
 .ios-install-steps {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .ios-install-steps li {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 176px;
+  align-items: center;
+  gap: 16px;
   min-width: 0;
-  padding: 12px;
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  background: color-mix(in srgb, var(--bg-primary) 84%, transparent);
+  padding: 16px 0;
+  border-top: 1px solid color-mix(in srgb, var(--border) 34%, transparent);
+}
+
+.ios-install-steps li:first-child {
+  padding-top: 4px;
+  border-top: 0;
+}
+
+.ios-install-steps li:last-child {
+  padding-bottom: 0;
 }
 
 .ios-install-step-copy {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
 }
 
 .ios-install-step-copy strong {
   color: var(--text-primary);
   font-size: 13px;
+  line-height: 1.25;
 }
 
 .ios-install-shot {
   position: relative;
-  min-height: 132px;
+  width: 176px;
+  height: 136px;
+  min-height: 0;
+  justify-self: end;
   overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border) 58%, transparent);
   border-radius: 18px;
   background: #f8fafc;
   color: #111827;
@@ -458,7 +470,8 @@
 }
 
 .ios-shot-page.muted {
-  height: 86px;
+  height: 100%;
+  margin-bottom: 0;
   background: repeating-linear-gradient(0deg, #e5e7eb, #e5e7eb 10px, #f3f4f6 10px, #f3f4f6 20px);
 }
 
@@ -566,7 +579,15 @@
 }
 
 @media (max-width: 640px) {
-  .ios-install-steps {
+  .ios-install-steps li {
     grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .ios-install-shot {
+    width: 100%;
+    max-width: 220px;
+    height: 144px;
+    justify-self: center;
   }
 }
