@@ -118,7 +118,7 @@
 .ui-select-menu,
 .ui-menu,
 .ui-dropdown-panel {
-  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  border: 0;
   border-radius: var(--dropdown-menu-radius);
   background:
     radial-gradient(circle at 18% -12%, color-mix(in srgb, var(--accent) 11%, transparent), transparent 44%),
@@ -134,7 +134,7 @@
 [data-theme="light"] .ui-select-menu,
 [data-theme="light"] .ui-menu,
 [data-theme="light"] .ui-dropdown-panel {
-  border-color: color-mix(in srgb, var(--border) 82%, transparent);
+  border-color: transparent;
   background:
     radial-gradient(circle at 18% -12%, color-mix(in srgb, var(--accent) 7%, transparent), transparent 46%),
     linear-gradient(180deg,
