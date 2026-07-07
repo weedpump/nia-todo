@@ -218,6 +218,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .admin-status-card { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 24px; padding: 0 0 18px; border: 0; border-bottom: 1px solid color-mix(in srgb, var(--border) 54%, transparent); border-radius: 0; background: transparent; box-shadow: none; }
 .admin-status-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .admin-status-actions[hidden] { display: none !important; }
+.admin-oidc-link-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
 .admin-header-action .admin-action-icon { display: inline-flex; align-items: center; justify-content: center; }
 .admin-header-action .admin-action-icon .ui-icon { width: 16px; height: 16px; }
 .server-update-card { position: relative; overflow: hidden; }
