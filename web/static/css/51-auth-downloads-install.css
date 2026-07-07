@@ -152,10 +152,15 @@
 .app-downloads-modal-content {
   width: min(560px, calc(100vw - 32px));
   max-width: none;
+  max-height: min(82vh, 760px);
   padding: 34px 32px 26px;
   border: 0;
+  border-color: transparent;
   border-radius: 28px;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   text-align: center;
   background:
     radial-gradient(circle at 12% 0%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 34%),
@@ -302,11 +307,17 @@
     inset: auto;
     width: min(100%, 560px);
     height: auto;
-    max-height: calc(100vh - 36px);
+    max-height: calc(100svh - 36px);
+    max-height: calc(100dvh - 36px);
+    border: 0;
+    border-color: transparent;
     border-radius: 28px;
     padding: 30px 22px 22px;
     display: block;
+    overflow-x: hidden;
     overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
   }
 
   .modal-downloads {
