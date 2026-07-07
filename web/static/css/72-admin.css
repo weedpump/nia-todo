@@ -168,31 +168,31 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 
 .admin-login-logo-badge {
   position: absolute;
-  right: -5px;
-  bottom: -3px;
+  right: -6px;
+  bottom: -4px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   border-radius: 999px;
   color: #fff;
-  background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent-hover) 80%, var(--accent)));
-  box-shadow:
-    0 8px 18px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.32)),
-    0 0 0 4px var(--bg-secondary);
+  background: color-mix(in srgb, var(--bg-secondary) 96%, var(--bg-primary));
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--bg-secondary) 96%, var(--bg-primary));
+  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, .28));
 }
 
 .admin-login-logo-badge .ui-icon {
-  width: 15px;
-  height: 15px;
-  stroke-width: 2.4;
+  width: 23px;
+  height: 23px;
+  stroke-width: 2.45;
 }
 
 [data-theme="light"] .admin-login-logo-badge {
-  box-shadow:
-    0 8px 18px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.22)),
-    0 0 0 4px var(--bg-secondary);
+  color: #0f172a;
+  background: color-mix(in srgb, var(--bg-secondary) 96%, var(--bg-primary));
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--bg-secondary) 96%, var(--bg-primary));
+  filter: drop-shadow(0 6px 12px rgba(15, 23, 42, .16));
 }
 
 .admin-nav { display: flex; gap: 10px; align-items: center; margin-left: auto; }
