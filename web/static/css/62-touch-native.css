@@ -72,6 +72,7 @@
 }
 
 .native-android .todo-item.swiping {
+  border-radius: var(--todo-swipe-radius, 16px) !important;
   transform: translate3d(var(--swipe-x, 0), 0, 0) scale(calc(1 - (var(--swipe-progress, 0) * .012))) !important;
 }
 

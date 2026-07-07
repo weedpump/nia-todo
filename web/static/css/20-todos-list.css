@@ -106,6 +106,8 @@
   z-index: 2;
   --swipe-progress: 0;
   --swipe-action-opacity: calc(.36 + (var(--swipe-progress, 0) * .64));
+  --todo-swipe-radius: 16px;
+  border-radius: var(--todo-swipe-radius);
 }
 
 .todo-item.swipe-settling,
@@ -128,7 +130,7 @@
   min-width: 132px;
   padding: 0 18px;
   border: 1px solid rgba(255, 255, 255, .24);
-  border-radius: calc(var(--radius) + 2px);
+  border-radius: var(--todo-swipe-radius);
   color: white;
   font-size: 12px;
   font-weight: 850;
@@ -140,7 +142,8 @@
 
 .todo-item.swiping::before {
   content: attr(data-swipe-right-label);
-  right: 100%;
+  right: calc(100% - var(--todo-swipe-radius));
+  padding-right: calc(18px + var(--todo-swipe-radius));
   justify-content: flex-end;
   width: max(var(--swipe-x, 0), 132px);
   transform: translateX(calc(var(--swipe-progress, 0) * 5px)) scale(calc(.96 + (var(--swipe-progress, 0) * .04)));
@@ -153,7 +156,8 @@
 
 .todo-item.swiping::after {
   content: attr(data-swipe-left-label);
-  left: 100%;
+  left: calc(100% - var(--todo-swipe-radius));
+  padding-left: calc(18px + var(--todo-swipe-radius));
   justify-content: flex-start;
   width: max(calc(var(--swipe-x, 0) * -1), 132px);
   transform: translateX(calc(var(--swipe-progress, 0) * -5px)) scale(calc(.96 + (var(--swipe-progress, 0) * .04)));
