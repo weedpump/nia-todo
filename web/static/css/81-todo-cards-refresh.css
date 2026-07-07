@@ -867,11 +867,11 @@
 }
 
 .todo-item.swiping::before {
-  right: calc(100% + 6px);
+  right: calc(100% + 10px);
 }
 
 .todo-item.swiping::after {
-  left: calc(100% + 6px);
+  left: calc(100% + 10px);
 }
 
 /* Local preview fix: keep title + chips in natural flow, put description on its own clipped line. */
