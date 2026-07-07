@@ -214,29 +214,35 @@
 
 .app-download-modal-subtitle {
   max-width: 390px;
-  margin: 0 auto 20px;
+  margin: 0 auto 22px;
   color: var(--text-secondary);
   font-size: 14px;
   line-height: 1.5;
   text-align: center;
 }
 
-.app-download-server-box {
+.app-download-section {
   width: 100%;
-  margin: 0 0 14px;
-  padding: 16px 0 14px;
+  margin: 0;
+  padding: 18px 0 0;
   border: 0;
-  border-top: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 38%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--border) 44%, transparent);
   border-radius: 0;
   background: transparent;
   box-shadow: none;
-  text-align: center;
 }
 
-.app-download-server-box:hover {
-  border-color: color-mix(in srgb, var(--border) 50%, transparent);
+.app-download-section:hover {
+  border-color: color-mix(in srgb, var(--border) 44%, transparent);
   background: transparent;
+}
+
+.app-download-section + .app-download-section {
+  margin-top: 18px;
+}
+
+.app-download-server-box {
+  text-align: center;
 }
 
 .app-download-server-label {
@@ -259,7 +265,9 @@
 .modal-downloads {
   flex-direction: row;
   gap: 10px;
-  margin-top: 12px;
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 44%, transparent);
 }
 
 .modal-downloads .app-download-button {
@@ -311,13 +319,11 @@
 }
 
 .app-install-card {
-  width: 100%;
-  margin: 0 0 16px;
   text-align: left;
 }
 
 .app-install-card-header {
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 }
 
 .app-install-card h4 {
@@ -342,12 +348,15 @@
 
 .web-install-prompt-btn {
   width: 100%;
+  min-height: 42px;
   justify-content: center;
-  margin: 8px 0 12px;
+  margin: 10px 0 0;
 }
 
 .ios-install-guide {
-  margin-top: 12px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 36%, transparent);
 }
 
 .ios-install-guide-intro {
