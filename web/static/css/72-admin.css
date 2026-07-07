@@ -327,14 +327,25 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
   .admin-main-section > .admin-card:first-child { padding-top: 0; }
   .form-row { flex-direction: column; gap: 10px; }
   .admin-config-grid { grid-template-columns: 1fr; }
-  .form-row input, .form-row select { width: 100%; flex-basis: auto; }
+  .form-row input,
+  .form-row select {
+    width: 100%;
+    flex: 0 0 auto;
+  }
+  .admin-create-user-form > .ui-field {
+    flex: 0 0 auto;
+    height: 36px;
+    min-height: 36px;
+  }
+  .admin-create-user-form > .admin-ui-select {
+    width: 100%;
+    flex: 0 0 auto;
+  }
   .user-list-toolbar { align-items: stretch; flex-direction: column; }
   .user-search-wrap { flex-basis: auto; min-width: 0; }
   .user-search-count { white-space: normal; }
   .form-row .admin-config-checkbox input[type="checkbox"] { width: 46px; min-width: 46px; flex: 0 0 46px; }
-  .form-row .btn { width: fit-content; max-width: 100%; }
-  #admin-login-card .form-row .btn,
-  #create-user-card .form-row .btn { width: 100%; }
+  .form-row .btn { width: 100%; max-width: 100%; }
   .setup-link-box { flex-direction: column; align-items: stretch; }
   .setup-link-box .btn { width: 100%; }
   #admin-password-dialog { padding: 0; align-items: stretch; justify-content: stretch; }
@@ -412,15 +423,20 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
   }
 }
 
-@media (max-width: 560px) {
+@media (max-width: 720px) {
+  .admin-action-row,
   .admin-action-row.split {
     align-items: stretch;
     flex-direction: column;
+    justify-content: center;
   }
   .admin-secondary-actions,
   .admin-primary-actions {
     width: 100%;
+    flex-direction: column;
+    align-items: stretch;
   }
+  .admin-action-row > .btn,
   .admin-secondary-actions .btn,
   .admin-primary-actions .btn {
     width: 100%;
