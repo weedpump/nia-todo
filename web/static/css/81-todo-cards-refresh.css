@@ -866,6 +866,14 @@
   border-radius: inherit;
 }
 
+.todo-item.swiping::before {
+  right: calc(100% + 6px);
+}
+
+.todo-item.swiping::after {
+  left: calc(100% + 6px);
+}
+
 /* Local preview fix: keep title + chips in natural flow, put description on its own clipped line. */
 .todo-title-wrap {
   display: flex;
