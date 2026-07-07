@@ -68,15 +68,6 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .admin-ui-select { flex: 0 1 150px; width: 150px; min-width: 130px; }
 .admin-config-field .admin-ui-select { flex: 0 0 auto; width: 100%; min-width: 0; }
 
-@media (max-width: 720px) {
-  .admin-header h1 { font-size: 19px; }
-  .admin-status-actions { width: auto; flex-wrap: nowrap; }
-  .admin-mobile-icon-action { width: 38px; min-width: 38px; height: 38px; min-height: 38px; padding: 0; border-radius: 999px; }
-  .admin-mobile-icon-action .admin-action-icon { display: inline-flex; }
-  .admin-mobile-icon-action .admin-action-label { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
-  .admin-mobile-icon-action .ui-icon { width: 17px; height: 17px; }
-  .admin-theme-cycle-btn { width: 38px; min-width: 38px; height: 38px; min-height: 38px; }
-}
 
 @media (max-width: 720px) {
   .form-row .admin-ui-select { flex: 0 0 auto; width: 100%; min-width: 0; }
@@ -161,7 +152,9 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .admin-theme-cycle-btn { flex: 0 0 auto; }
 .admin-status-card { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 24px; padding: 0 0 18px; border: 0; border-bottom: 1px solid color-mix(in srgb, var(--border) 54%, transparent); border-radius: 0; background: transparent; box-shadow: none; }
 .admin-status-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.admin-header-action .admin-action-icon { display: none; }
+.admin-status-actions[hidden] { display: none !important; }
+.admin-header-action .admin-action-icon { display: inline-flex; align-items: center; justify-content: center; }
+.admin-header-action .admin-action-icon .ui-icon { width: 16px; height: 16px; }
 .server-update-card { position: relative; overflow: hidden; }
 .server-update-card.update-ok,
 .server-update-card.update-warning,
@@ -283,4 +276,14 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
   .user-card .settings-device-row { flex-direction: column; align-items: stretch; }
   .admin-section-summary { display: none; }
   .email-edit { grid-template-columns: minmax(0, 1fr) 34px 34px; }
+}
+
+
+@media (max-width: 720px) {
+  .admin-header h1 { font-size: 19px; }
+  .admin-status-actions { width: auto; flex-wrap: nowrap; }
+  .admin-mobile-icon-action { width: 38px; min-width: 38px; height: 38px; min-height: 38px; padding: 0; border-radius: 999px; }
+  .admin-mobile-icon-action .admin-action-label { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
+  .admin-mobile-icon-action .ui-icon { width: 17px; height: 17px; }
+  .admin-theme-cycle-btn { width: 38px; min-width: 38px; height: 38px; min-height: 38px; }
 }
