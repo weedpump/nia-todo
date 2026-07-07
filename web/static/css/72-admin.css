@@ -156,6 +156,45 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
   display: none !important;
 }
 
+.admin-login-logo-wrap {
+  position: relative;
+  width: fit-content;
+  margin: 0 auto 16px;
+}
+
+.admin-login-logo-wrap .login-logo {
+  margin-bottom: 0;
+}
+
+.admin-login-logo-badge {
+  position: absolute;
+  right: -5px;
+  bottom: -3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  color: #fff;
+  background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent-hover) 80%, var(--accent)));
+  box-shadow:
+    0 8px 18px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.32)),
+    0 0 0 4px var(--bg-secondary);
+}
+
+.admin-login-logo-badge .ui-icon {
+  width: 15px;
+  height: 15px;
+  stroke-width: 2.4;
+}
+
+[data-theme="light"] .admin-login-logo-badge {
+  box-shadow:
+    0 8px 18px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.22)),
+    0 0 0 4px var(--bg-secondary);
+}
+
 .admin-nav { display: flex; gap: 10px; align-items: center; margin-left: auto; }
 .empty-state { text-align: center; padding: 40px; color: var(--text-muted); }
 .admin-theme-cycle-btn { flex: 0 0 auto; }
