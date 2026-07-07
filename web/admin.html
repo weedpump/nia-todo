@@ -96,11 +96,11 @@
     <nav class="admin-page-nav" aria-label="Admin sections">
       <button type="button" class="ui-nav-pill admin-page-nav-btn active" data-admin-page="overview"><span data-icon="layout-dashboard"></span><span>Übersicht</span></button>
       <button type="button" class="ui-nav-pill admin-page-nav-btn" data-admin-page="instance"><span data-icon="server"></span><span>Instanz</span></button>
-      <button type="button" class="ui-nav-pill admin-page-nav-btn" data-admin-page="attachments"><span data-icon="package"></span><span>Anhänge</span></button>
-      <button type="button" class="ui-nav-pill admin-page-nav-btn" data-admin-page="integrations"><span data-icon="mail"></span><span>Integrationen</span></button>
-      <button type="button" class="ui-nav-pill admin-page-nav-btn" data-admin-page="security"><span data-icon="shield"></span><span>Sicherheit</span></button>
-      <button type="button" class="ui-nav-pill admin-page-nav-btn" data-admin-page="braindump"><span data-icon="rocket"></span><span>BrainDump</span></button>
       <button type="button" class="ui-nav-pill admin-page-nav-btn" data-admin-page="users"><span data-icon="users"></span><span>Benutzer</span></button>
+      <button type="button" class="ui-nav-pill admin-page-nav-btn" data-admin-page="email"><span data-icon="mail"></span><span>E-Mail / SMTP</span></button>
+      <button type="button" class="ui-nav-pill admin-page-nav-btn" data-admin-page="security"><span data-icon="shield"></span><span>Sicherheit & Login</span></button>
+      <button type="button" class="ui-nav-pill admin-page-nav-btn" data-admin-page="attachments"><span data-icon="package"></span><span>Anhänge</span></button>
+      <button type="button" class="ui-nav-pill admin-page-nav-btn" data-admin-page="braindump"><span data-icon="rocket"></span><span>BrainDump</span></button>
     </nav>
     <main class="admin-page-content">
       <section class="admin-main-section active" data-admin-page-panel="overview">
@@ -183,7 +183,6 @@
     <div class="admin-error" id="technical-stats-error"></div>
     <div class="admin-success" id="technical-stats-success"></div>
   </div>
-
       </section>
       <section class="admin-main-section" data-admin-page-panel="instance">
 
@@ -211,34 +210,72 @@
     <div class="admin-error" id="instance-config-error"></div>
     <div class="admin-success" id="instance-config-success"></div>
   </div>
-
       </section>
-      <section class="admin-main-section" data-admin-page-panel="attachments">
+      <section class="admin-main-section" data-admin-page-panel="users">
 
-  <!-- Attachment Configuration -->
-  <div class="admin-card" id="attachment-config-card">
-    <h2><span data-icon="package"></span> <span data-i18n-key="admin.attachments.title">Anhänge</span></h2>
-    <div class="admin-help" data-i18n-key="admin.attachments.help">Steuert Uploads global. Bestehende Anhänge bleiben auch bei deaktivierten Uploads sichtbar und downloadbar.</div>
-    <div class="admin-config-grid">
-      <div class="admin-config-field">
-        <label for="attachments-default-quota-gb" data-i18n-key="admin.attachments.defaultQuotaGb">Standard-Quota pro User (GB)</label>
-        <input class="ui-field" type="number" id="attachments-default-quota-gb" min="0" max="1024" step="0.1" value="5">
+  <!-- Create User -->
+  <div class="admin-card" id="create-user-card">
+    <h2><span data-icon="user-plus"></span> <span data-i18n-key="admin.user.createTitle">Create new user</span></h2>
+    <div class="form-row">
+      <input class="ui-field" type="text" id="new-username" data-i18n-placeholder-key="setup.usernameLabel" placeholder="Username" autocomplete="off" onkeydown="if(event.key==='Enter') document.getElementById('new-display-name').focus()">
+      <input class="ui-field" type="text" id="new-display-name" data-i18n-placeholder-key="setup.displayNameLabel" placeholder="Display name" onkeydown="if(event.key==='Enter') document.getElementById('new-email').focus()">
+      <input class="ui-field" type="email" id="new-email" data-i18n-placeholder-key="settings.profile.email" placeholder="Email" autocomplete="off" onkeydown="if(event.key==='Enter') focusAdminCreateLanguage()">
+      <select class="ui-field" id="new-language" data-i18n-title-key="admin.user.language" title="Language" onkeydown="if(event.key==='Enter') createUser()">
+        <option value="de" data-i18n-key="settings.language.de">German</option>
+        <option value="en" data-i18n-key="settings.language.en">English</option>
+      </select>
+      <div class="admin-config-field admin-config-checkbox switch-right" id="new-braindump-field" style="display:none;">
+        <label for="new-braindump-enabled" data-i18n-key="admin.user.enableBrainDump">BrainDump AI aktivieren</label>
+        <input type="checkbox" id="new-braindump-enabled">
       </div>
-      <div class="admin-config-field full">
-        <label for="attachments-allowed-types" data-i18n-key="admin.attachments.allowedTypes">Erlaubte Dateiendungen</label>
-        <textarea id="attachments-allowed-types" class="admin-config-textarea ui-field" rows="3" placeholder="png, jpg, jpeg, gif, webp, pdf"></textarea>
-        <div class="admin-help" data-i18n-key="admin.attachments.allowedTypesHelp">Kommaseparierte Dateiendungen, z.B. png, jpg, pdf. Gefährliche aktive Formate wie SVG/HTML/JavaScript bleiben zusätzlich blockiert.</div>
-      </div>
+      <button class="btn btn-primary" onclick="createUser()" data-i18n-key="admin.user.createAndLink">Create & generate link</button>
     </div>
-    <div class="form-row" style="margin-top:12px;">
-      <button class="btn btn-primary" onclick="saveAttachmentConfig()" data-i18n-key="admin.attachments.save">Anhang-Einstellungen speichern</button>
+    <div style="font-size: 12px; color: var(--text-muted); margin-top: 8px;" data-i18n-key="admin.user.createHelp">
+      The user sets their password through a one-time link. If email is configured, the link is sent automatically. Without SMTP, the link is shared manually; the address is then considered confirmed, but not mailbox-verified.
     </div>
-    <div class="admin-error" id="attachment-config-error"></div>
-    <div class="admin-success" id="attachment-config-success"></div>
+    <div class="admin-error" id="create-error"></div>
+    <div class="admin-success" id="create-success"></div>
+    <div class="setup-link-box" id="create-link-box">
+      <input class="ui-field" type="text" id="create-link-input" readonly>
+      <button class="btn btn-primary" onclick="copySetupLink('create-link-input')" data-i18n-key="common.copy">Copy</button>
+    </div>
   </div>
 
+  <!-- User List -->
+  <div class="admin-card" id="user-list-card">
+    <h2><span data-icon="users"></span> <span data-i18n-key="admin.user.title">Users</span></h2>
+    <div class="user-list-toolbar">
+      <label class="user-search-wrap" for="user-search">
+        <input class="user-search-input ui-field" type="search" id="user-search" data-i18n-placeholder-key="admin.user.searchPlaceholder" placeholder="Search users" autocomplete="off" oninput="renderUsers()">
+      </label>
+      <div class="user-search-count" id="user-search-count"></div>
+    </div>
+    <div class="user-table-wrap">
+    <table class="user-table" id="user-table">
+      <thead>
+        <tr>
+          <th id="user-col-id">ID</th>
+          <th id="user-col-username" data-i18n-key="admin.user.username">Username</th>
+          <th id="user-col-display-name" data-i18n-key="admin.user.displayName">Display name</th>
+          <th id="user-col-email" data-i18n-key="admin.user.email">Email</th>
+          <th id="user-col-email-status" data-i18n-key="admin.user.emailStatus">Email Status</th>
+          <th id="user-col-login" data-i18n-key="admin.user.login">Login</th>
+          <th id="user-col-last-active" data-i18n-key="admin.user.lastActive">Last active</th>
+          <th id="user-col-twofa" data-i18n-key="admin.user.twofa">2FA</th>
+          <th id="user-col-api-keys" data-i18n-key="admin.user.apiKeys">API Keys</th>
+          <th id="user-braindump-heading" data-i18n-key="admin.user.brainDump">BrainDump</th>
+          <th id="user-col-password" data-i18n-key="admin.user.password">Password</th>
+          <th id="user-col-actions" data-i18n-key="admin.user.actions">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="user-list">
+        <tr><td colspan="12" class="empty-state" data-i18n-key="common.loading">Loading...</td></tr>
+      </tbody>
+    </table>
+    </div>
+  </div>
       </section>
-      <section class="admin-main-section" data-admin-page-panel="integrations">
+      <section class="admin-main-section" data-admin-page-panel="email">
 
   <!-- Email Configuration -->
   <div class="admin-card" id="email-config-card">
@@ -304,7 +341,8 @@
     <div class="admin-error" id="email-config-error"></div>
     <div class="admin-success" id="email-config-success"></div>
   </div>
-
+      </section>
+      <section class="admin-main-section" data-admin-page-panel="security">
   <!-- OIDC Configuration -->
   <div class="admin-card" id="oidc-config-card">
     <h2><span data-icon="key-round"></span> <span data-i18n-key="admin.oidc.title">OIDC</span></h2>
@@ -327,9 +365,6 @@
     <div class="admin-success" id="oidc-config-success"></div>
   </div>
 
-      </section>
-      <section class="admin-main-section" data-admin-page-panel="security">
-
   <!-- Security / 2FA -->
   <div class="admin-card" id="security-card">
     <h2><span data-icon="shield"></span> <span data-i18n-key="admin.security.title">Require 2FA</span></h2>
@@ -343,7 +378,30 @@
     <div class="admin-error" id="security-error"></div>
     <div class="admin-success" id="security-success"></div>
   </div>
+      </section>
+      <section class="admin-main-section" data-admin-page-panel="attachments">
 
+  <!-- Attachment Configuration -->
+  <div class="admin-card" id="attachment-config-card">
+    <h2><span data-icon="package"></span> <span data-i18n-key="admin.attachments.title">Anhänge</span></h2>
+    <div class="admin-help" data-i18n-key="admin.attachments.help">Steuert Uploads global. Bestehende Anhänge bleiben auch bei deaktivierten Uploads sichtbar und downloadbar.</div>
+    <div class="admin-config-grid">
+      <div class="admin-config-field">
+        <label for="attachments-default-quota-gb" data-i18n-key="admin.attachments.defaultQuotaGb">Standard-Quota pro User (GB)</label>
+        <input class="ui-field" type="number" id="attachments-default-quota-gb" min="0" max="1024" step="0.1" value="5">
+      </div>
+      <div class="admin-config-field full">
+        <label for="attachments-allowed-types" data-i18n-key="admin.attachments.allowedTypes">Erlaubte Dateiendungen</label>
+        <textarea id="attachments-allowed-types" class="admin-config-textarea ui-field" rows="3" placeholder="png, jpg, jpeg, gif, webp, pdf"></textarea>
+        <div class="admin-help" data-i18n-key="admin.attachments.allowedTypesHelp">Kommaseparierte Dateiendungen, z.B. png, jpg, pdf. Gefährliche aktive Formate wie SVG/HTML/JavaScript bleiben zusätzlich blockiert.</div>
+      </div>
+    </div>
+    <div class="form-row" style="margin-top:12px;">
+      <button class="btn btn-primary" onclick="saveAttachmentConfig()" data-i18n-key="admin.attachments.save">Anhang-Einstellungen speichern</button>
+    </div>
+    <div class="admin-error" id="attachment-config-error"></div>
+    <div class="admin-success" id="attachment-config-success"></div>
+  </div>
       </section>
       <section class="admin-main-section" data-admin-page-panel="braindump">
 
@@ -434,72 +492,6 @@
     <div class="admin-error" id="braindump-config-error"></div>
     <div class="admin-success" id="braindump-config-success"></div>
   </div>
-
-      </section>
-      <section class="admin-main-section" data-admin-page-panel="users">
-
-  <!-- Create User -->
-  <div class="admin-card" id="create-user-card">
-    <h2><span data-icon="user-plus"></span> <span data-i18n-key="admin.user.createTitle">Create new user</span></h2>
-    <div class="form-row">
-      <input class="ui-field" type="text" id="new-username" data-i18n-placeholder-key="setup.usernameLabel" placeholder="Username" autocomplete="off" onkeydown="if(event.key==='Enter') document.getElementById('new-display-name').focus()">
-      <input class="ui-field" type="text" id="new-display-name" data-i18n-placeholder-key="setup.displayNameLabel" placeholder="Display name" onkeydown="if(event.key==='Enter') document.getElementById('new-email').focus()">
-      <input class="ui-field" type="email" id="new-email" data-i18n-placeholder-key="settings.profile.email" placeholder="Email" autocomplete="off" onkeydown="if(event.key==='Enter') focusAdminCreateLanguage()">
-      <select class="ui-field" id="new-language" data-i18n-title-key="admin.user.language" title="Language" onkeydown="if(event.key==='Enter') createUser()">
-        <option value="de" data-i18n-key="settings.language.de">German</option>
-        <option value="en" data-i18n-key="settings.language.en">English</option>
-      </select>
-      <div class="admin-config-field admin-config-checkbox switch-right" id="new-braindump-field" style="display:none;">
-        <label for="new-braindump-enabled" data-i18n-key="admin.user.enableBrainDump">BrainDump AI aktivieren</label>
-        <input type="checkbox" id="new-braindump-enabled">
-      </div>
-      <button class="btn btn-primary" onclick="createUser()" data-i18n-key="admin.user.createAndLink">Create & generate link</button>
-    </div>
-    <div style="font-size: 12px; color: var(--text-muted); margin-top: 8px;" data-i18n-key="admin.user.createHelp">
-      The user sets their password through a one-time link. If email is configured, the link is sent automatically. Without SMTP, the link is shared manually; the address is then considered confirmed, but not mailbox-verified.
-    </div>
-    <div class="admin-error" id="create-error"></div>
-    <div class="admin-success" id="create-success"></div>
-    <div class="setup-link-box" id="create-link-box">
-      <input class="ui-field" type="text" id="create-link-input" readonly>
-      <button class="btn btn-primary" onclick="copySetupLink('create-link-input')" data-i18n-key="common.copy">Copy</button>
-    </div>
-  </div>
-
-  <!-- User List -->
-  <div class="admin-card" id="user-list-card">
-    <h2><span data-icon="users"></span> <span data-i18n-key="admin.user.title">Users</span></h2>
-    <div class="user-list-toolbar">
-      <label class="user-search-wrap" for="user-search">
-        <input class="user-search-input ui-field" type="search" id="user-search" data-i18n-placeholder-key="admin.user.searchPlaceholder" placeholder="Search users" autocomplete="off" oninput="renderUsers()">
-      </label>
-      <div class="user-search-count" id="user-search-count"></div>
-    </div>
-    <div class="user-table-wrap">
-    <table class="user-table" id="user-table">
-      <thead>
-        <tr>
-          <th id="user-col-id">ID</th>
-          <th id="user-col-username" data-i18n-key="admin.user.username">Username</th>
-          <th id="user-col-display-name" data-i18n-key="admin.user.displayName">Display name</th>
-          <th id="user-col-email" data-i18n-key="admin.user.email">Email</th>
-          <th id="user-col-email-status" data-i18n-key="admin.user.emailStatus">Email Status</th>
-          <th id="user-col-login" data-i18n-key="admin.user.login">Login</th>
-          <th id="user-col-last-active" data-i18n-key="admin.user.lastActive">Last active</th>
-          <th id="user-col-twofa" data-i18n-key="admin.user.twofa">2FA</th>
-          <th id="user-col-api-keys" data-i18n-key="admin.user.apiKeys">API Keys</th>
-          <th id="user-braindump-heading" data-i18n-key="admin.user.brainDump">BrainDump</th>
-          <th id="user-col-password" data-i18n-key="admin.user.password">Password</th>
-          <th id="user-col-actions" data-i18n-key="admin.user.actions">Actions</th>
-        </tr>
-      </thead>
-      <tbody id="user-list">
-        <tr><td colspan="12" class="empty-state" data-i18n-key="common.loading">Loading...</td></tr>
-      </tbody>
-    </table>
-    </div>
-  </div>
-
       </section>
     </main>
   </div>
