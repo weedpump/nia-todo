@@ -17,8 +17,8 @@
 
 .login-download-divider {
   height: 1px;
-  margin: 12px 0 10px;
-  background: var(--border);
+  margin: 14px 0 12px;
+  background: color-mix(in srgb, var(--border) 64%, transparent);
   opacity: 0.8;
 }
 
@@ -82,8 +82,8 @@
   min-height: 30px;
   margin: 10px auto 0;
   padding: 7px 10px;
-  border-color: rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.18));
-  background: var(--bg-secondary);
+  border-color: transparent;
+  background: transparent;
   color: var(--text-muted);
   font-size: 11px;
   opacity: 0.82;
