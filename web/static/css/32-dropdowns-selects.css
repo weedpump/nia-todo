@@ -160,7 +160,7 @@
   gap: 8px;
   padding: 8px 10px 8px calc(10px + (var(--ui-select-depth, 0) * 18px));
   border: 0;
-  border-radius: var(--dropdown-option-radius);
+  border-radius: 999px;
   background: transparent;
   color: var(--text-primary);
   font: inherit;
@@ -281,7 +281,7 @@
   .ui-menu-item {
     min-height: 44px;
     font-size: 14px;
-    border-radius: var(--dropdown-option-radius);
+    border-radius: 999px;
   }
 }
 
