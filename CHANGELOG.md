@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - Added admin attachment controls for global upload enablement, comma-separated allowed file extensions, default 5 GB quota, per-user quota overrides, and user-visible storage usage.
 
 ### Changed
+- Refined the admin panel shell, login screen, header actions, navigation, section cards, OIDC placement, light-theme surfaces, desktop action alignment, and mobile form/action layouts to match the shared Next UI primitives more closely.
+- Rounded shared dropdown and menu option hover surfaces into pill-style items so user menus, select menus, and related dropdowns align with the sidebar navigation language.
 - Merged todo status selection into the left todo control, using a compact icon-only dropdown on mobile and a full status pill with label on desktop while keeping the old right-side status dropdown hidden.
 - Refined the dashboard and project overview widgets to better match the rounded borderless Next UI direction, including rounder stat/project items, restored desktop project stat hints, compact mobile project stats, and fully round avatar/project icon tiles.
 - Refined app confirmation, danger, native OIDC return, and login surfaces with rounder borderless surfaces, softer icon treatment, a single theme cycle button, and consistent login action button styling to match the Next UI direction.
@@ -47,6 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - Hardened attachment uploads with streaming temp-file writes, server-side quota/type policy enforcement, magic-byte validation for common binary formats, active-content blocking, and client-side preflight for disabled uploads, type, file size, and quota.
 
 ### Fixed
+- Fixed admin header/auth state handling, guarded password/logout actions while logged out, restored admin OIDC login button initialization, normalized create-user field height, and made admin mobile buttons stack full-width instead of inheriting desktop sizing.
 - Prevented expanded mobile todo quick actions from being obscured by long titles or metadata chips by softly fading the todo content underneath while keeping action menus unclipped.
 - Replaced the browser confirmation prompt for removing project members with the app's danger confirmation modal, and kept hidden native color picker inputs from leaking disabled color bars into read-only project modals.
 - Improved Todo detail inline editing polish so the title becomes a visible input field only while focused, avoids desktop Edge glyph clipping, and aligns subtask/comment/meta action spacing and field borders.
