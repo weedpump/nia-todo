@@ -25,7 +25,7 @@
     <form class="admin-dialog-content" id="admin-dialog-form">
       <h3 id="admin-dialog-title" data-i18n-key="admin.dialog.confirmTitle">Confirm action</h3>
       <p id="admin-dialog-message"></p>
-      <div class="admin-dialog-actions">
+      <div class="admin-dialog-actions admin-action-row split">
         <button type="button" class="btn" id="admin-dialog-cancel" data-i18n-key="common.cancel">Cancel</button>
         <button type="submit" class="btn btn-primary" id="admin-dialog-confirm" data-i18n-key="common.confirm">Confirm</button>
       </div>
@@ -53,7 +53,7 @@
       </div>
       <div class="admin-error" id="admin-pw-error"></div>
       <div class="admin-success" id="admin-pw-success"></div>
-      <div class="admin-dialog-actions">
+      <div class="admin-dialog-actions admin-action-row split">
         <button type="button" class="btn" id="admin-password-dialog-cancel" data-i18n-key="common.cancel">Cancel</button>
         <button type="submit" class="btn btn-primary" data-i18n-key="admin.password.change">Change admin password</button>
       </div>
@@ -359,12 +359,14 @@
     </div>
     <div class="admin-help" data-i18n-key="admin.oidc.help">User login maps strictly by verified email on both sides. Admin OIDC must be linked manually. Register the redirect URI exactly like this in the provider.</div>
     <div class="admin-linked-list" id="oidc-admin-links"></div>
-    <div class="admin-oidc-link-actions">
-      <button type="button" class="btn btn-secondary hidden" id="admin-oidc-link-btn" onclick="startAdminOidcLink()" data-i18n-key="admin.oidc.adminLink">Link admin OIDC</button>
-      <button type="button" class="btn btn-secondary hidden" id="admin-oidc-unlink-btn" onclick="unlinkFirstAdminOidcIdentity()" data-i18n-key="admin.oidc.adminUnlink">Unlink admin OIDC</button>
-    </div>
-    <div class="form-row" style="margin-top:12px;">
-      <button class="btn btn-primary" onclick="saveOidcConfig()" data-i18n-key="admin.oidc.save">Save OIDC configuration</button>
+    <div class="admin-action-row split">
+      <div class="admin-secondary-actions">
+        <button type="button" class="btn btn-secondary hidden" id="admin-oidc-link-btn" onclick="startAdminOidcLink()" data-i18n-key="admin.oidc.adminLink">Link admin OIDC</button>
+        <button type="button" class="btn btn-secondary hidden" id="admin-oidc-unlink-btn" onclick="unlinkFirstAdminOidcIdentity()" data-i18n-key="admin.oidc.adminUnlink">Unlink admin OIDC</button>
+      </div>
+      <div class="admin-primary-actions">
+        <button class="btn btn-primary" onclick="saveOidcConfig()" data-i18n-key="admin.oidc.save">Save OIDC configuration</button>
+      </div>
     </div>
     <div class="admin-error" id="oidc-config-error"></div>
     <div class="admin-success" id="oidc-config-success"></div>
@@ -490,9 +492,13 @@
       </div>
     </div>
     <div class="admin-help" data-i18n-key="admin.braindump.endpointHelp">BrainDump talks to any OpenAI-compatible endpoint. OpenClaw is only one possible endpoint; use model <code>openclaw/default</code> there, or any model name required by your provider.</div>
-    <div class="form-row" style="margin-top:12px;">
-      <button class="btn btn-primary" onclick="saveBrainDumpConfig()" data-i18n-key="admin.braindump.save">Save BrainDump configuration</button>
-      <button class="btn btn-secondary" onclick="testBrainDumpConfig()" data-i18n-key="admin.braindump.testConnection">Test connection</button>
+    <div class="admin-action-row split">
+      <div class="admin-secondary-actions">
+        <button class="btn btn-secondary" onclick="testBrainDumpConfig()" data-i18n-key="admin.braindump.testConnection">Test connection</button>
+      </div>
+      <div class="admin-primary-actions">
+        <button class="btn btn-primary" onclick="saveBrainDumpConfig()" data-i18n-key="admin.braindump.save">Save BrainDump configuration</button>
+      </div>
     </div>
     <div class="admin-error" id="braindump-config-error"></div>
     <div class="admin-success" id="braindump-config-success"></div>
