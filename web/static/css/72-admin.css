@@ -64,10 +64,24 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .badge-success { background: color-mix(in srgb, var(--success) 16%, transparent); color: var(--success); }
 .badge-warning { background: color-mix(in srgb, var(--warning) 22%, transparent); color: var(--warning); }
 .badge-muted { background: var(--bg-tertiary); color: var(--text-muted); }
-.form-row { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+.form-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
 .form-row input, .form-row select { flex: 1; min-width: 150px; }
 .form-row select { flex: 0 0 150px; min-width: 130px; padding-right: 36px; appearance: none; -webkit-appearance: none; cursor: pointer; }
 .form-row select option { background: var(--bg-secondary); color: var(--text-primary); }
+
+.admin-create-user-form > .ui-field {
+  flex: 1 1 170px;
+  height: 36px;
+  min-height: 36px;
+}
+
+.admin-create-user-form > .admin-ui-select {
+  align-self: center;
+}
+
+.admin-create-user-form > .btn {
+  align-self: center;
+}
 .admin-ui-select { flex: 0 1 150px; width: 150px; min-width: 130px; }
 .admin-config-field .admin-ui-select { flex: 0 0 auto; width: 100%; min-width: 0; }
 
