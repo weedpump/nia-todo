@@ -4,15 +4,12 @@
   padding: 12px;
 }
 
-.login-download-panel,
-.login-download-launcher {
+.login-download-panel {
   margin-top: 14px;
 }
 
 .login-download-launcher {
-  width: 100%;
-  margin-left: 0;
-  margin-right: 0;
+  margin-top: 0;
 }
 
 .login-download-divider {

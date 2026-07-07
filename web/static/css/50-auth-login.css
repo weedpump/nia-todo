@@ -279,14 +279,15 @@
   min-height: 20px;
 }
 
-.login-btn,
-.login-passkey-btn,
-.login-forgot-btn,
-.login-reset-submit {
+.login-action-btn {
   width: 100%;
+  min-height: 44px;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 650;
 }
 
-.login-passkey-btn,
+.login-action-btn + .login-action-btn,
 .login-forgot-btn,
 .login-reset-submit {
   margin-top: 10px;
@@ -324,15 +325,6 @@
   width: 16px;
   height: 16px;
   accent-color: var(--accent);
-}
-
-.login-back-btn,
-.login-mfa-switch-btn {
-  width: 100%;
-}
-
-.login-mfa-switch-btn {
-  margin: -2px 0 10px;
 }
 
 .login-reset-panel .ui-field {
@@ -418,22 +410,8 @@
 }
 
 .login-auth-alternatives .login-passkey-btn {
-  display: inline-flex;
-  box-sizing: border-box;
-  flex: 1 0 max-content;
-  min-width: min(100%, 148px);
-  max-width: 100%;
-  width: auto;
+  flex: 1 1 100%;
   margin-top: 0;
-  padding: 9px 10px;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  font-size: 12px;
-  line-height: 1.15;
-  text-align: center;
-  white-space: nowrap;
-  text-overflow: ellipsis;
 }
 
 .login-auth-divider {
@@ -456,29 +434,22 @@
   opacity: 0.72;
 }
 
-.login-box .btn-primary {
-  min-height: 46px;
+.login-box .login-action-btn.btn-primary {
   border: 0;
   box-shadow: 0 12px 28px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.22));
   font-weight: 750;
 }
 
-.login-box .btn-secondary:not(.login-theme-cycle-btn) {
+.login-box .login-action-btn.btn-secondary {
   background: color-mix(in srgb, var(--bg-tertiary) 70%, transparent);
+  color: var(--text-primary);
+  font-weight: 650;
 }
 
-.login-box .btn-secondary:not(.login-theme-cycle-btn):hover {
+.login-box .login-action-btn.btn-secondary:hover {
   background: color-mix(in srgb, var(--bg-hover) 76%, transparent);
 }
 
 .login-box .ui-field {
   min-height: 46px;
-}
-
-.login-box .login-auth-alternatives .login-passkey-btn,
-.login-box .login-forgot-btn,
-.login-box .login-reset-submit,
-.login-box .login-back-btn,
-.login-box .login-mfa-switch-btn {
-  min-height: 42px;
 }
