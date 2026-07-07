@@ -26,7 +26,7 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .user-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
 .user-table tbody { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .user-table tr { display: block; min-width: 0; border: 0; border-radius: calc(var(--field-radius) + 8px); background: color-mix(in srgb, var(--bg-tertiary) 54%, var(--bg-primary)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bg-primary) 14%, transparent), 0 10px 28px rgba(0,0,0,.10); overflow: hidden; }
-[data-theme="light"] .user-table tr { background: color-mix(in srgb, var(--bg-tertiary) 70%, var(--bg-secondary)); box-shadow: inset 0 0 0 1px rgba(255,255,255,.18), 0 10px 26px rgba(15,23,42,.06); }
+[data-theme="light"] .user-table tr { background: color-mix(in srgb, var(--bg-tertiary) 92%, var(--bg-secondary)); box-shadow: inset 0 0 0 1px rgba(255,255,255,.42), 0 14px 34px rgba(15,23,42,.10); }
 .user-table tr:last-child td { border-bottom: none; }
 .user-table td.user-card-cell { display: block; padding: 0; border: 0; color: var(--text-primary); }
 .user-card { display: flex; flex-direction: column; gap: 12px; padding: 14px; min-height: 100%; }
@@ -117,8 +117,8 @@ body { margin: 0; min-height: 100vh; background: var(--bg-primary); overflow-y: 
 .admin-linked-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border: 0; border-radius: calc(var(--field-radius) + 8px); background: color-mix(in srgb, var(--bg-tertiary) 54%, var(--bg-primary)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bg-primary) 14%, transparent), 0 10px 28px rgba(0,0,0,.10); }
 [data-theme="light"] .admin-linked-item,
 [data-theme="light"] .admin-stat-panel,
-[data-theme="light"] .admin-stat-tile { background: color-mix(in srgb, var(--bg-tertiary) 70%, var(--bg-secondary)); box-shadow: inset 0 0 0 1px rgba(255,255,255,.18), 0 10px 26px rgba(15,23,42,.06); }
-[data-theme="light"] .admin-stat-metric { background: color-mix(in srgb, var(--bg-tertiary) 78%, var(--bg-secondary)); box-shadow: inset 0 0 0 1px rgba(255,255,255,.18); }
+[data-theme="light"] .admin-stat-tile { background: color-mix(in srgb, var(--bg-tertiary) 92%, var(--bg-secondary)); box-shadow: inset 0 0 0 1px rgba(255,255,255,.42), 0 14px 34px rgba(15,23,42,.10); }
+[data-theme="light"] .admin-stat-metric { background: color-mix(in srgb, var(--bg-tertiary) 96%, var(--bg-secondary)); box-shadow: inset 0 0 0 1px rgba(255,255,255,.36); }
 .admin-linked-item > div { min-width: 0; overflow-wrap: anywhere; }
 .admin-stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
 .admin-stat-toolbar { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin: 8px 0 16px; }
