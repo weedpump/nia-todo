@@ -78,7 +78,10 @@
       </div>
       <div class="login-error" id="admin-login-error"></div>
       <button class="btn btn-primary login-action-btn" type="submit" data-i18n-key="auth.signIn">Sign in</button>
-      <a class="btn btn-secondary login-action-btn hidden" id="admin-oidc-login-btn" href="/api/oidc/admin/login" data-i18n-key="admin.oidc.signIn">Sign in with OIDC</a>
+      <div class="login-auth-alternatives">
+        <div class="login-auth-divider"><span data-i18n-key="auth.alternativeSignIn">or</span></div>
+        <a class="btn btn-secondary login-action-btn login-passkey-btn hidden" id="admin-oidc-login-btn" href="/api/oidc/admin/login" data-i18n-key="admin.oidc.signIn">Sign in with OIDC</a>
+      </div>
     </form>
   </div>
 
