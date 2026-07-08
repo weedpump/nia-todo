@@ -105,14 +105,14 @@ def db_backup():
         if DB_BACKUP.exists():
             DB_BACKUP.unlink()
         shutil.move(str(DB_PATH), str(DB_BACKUP))
-        print(f"  💾 DB gesichert: {DB_BACKUP}")
+        print(f"  💾 DB backed up: {DB_BACKUP}")
     else:
-        print("  ℹ️  Keine bestehende DB zum Sichern")
+        print("  ℹ️  No existing DB to back up")
     if ATTACHMENT_BACKUP.exists():
         shutil.rmtree(ATTACHMENT_BACKUP)
     if ATTACHMENT_DIR.exists():
         shutil.move(str(ATTACHMENT_DIR), str(ATTACHMENT_BACKUP))
-        print(f"  💾 Attachments gesichert: {ATTACHMENT_BACKUP}")
+        print(f"  💾 Attachments backed up: {ATTACHMENT_BACKUP}")
 
 def db_restore():
     """Restore original database from backup."""
@@ -122,14 +122,14 @@ def db_restore():
             path.unlink()
     if DB_BACKUP.exists():
         shutil.move(str(DB_BACKUP), str(DB_PATH))
-        print(f"  🔄 DB wiederhergestellt: {DB_PATH}")
+        print(f"  🔄 DB restored: {DB_PATH}")
     else:
-        print("  ⚠️  Kein Backup zum Wiederherstellen")
+        print("  ⚠️  No backup to restore")
     if ATTACHMENT_DIR.exists():
         shutil.rmtree(ATTACHMENT_DIR)
     if ATTACHMENT_BACKUP.exists():
         shutil.move(str(ATTACHMENT_BACKUP), str(ATTACHMENT_DIR))
-        print(f"  🔄 Attachments wiederhergestellt: {ATTACHMENT_DIR}")
+        print(f"  🔄 Attachments restored: {ATTACHMENT_DIR}")
     assert_restorable_dev_db(DB_PATH, "Backend test DB restore")
     service_start()
     service_wait()
@@ -139,7 +139,7 @@ def db_reset():
     for path in (DB_PATH, DB_WAL, DB_SHM):
         if path.exists():
             path.unlink()
-    print("  🗑️  Alte DB entfernt")
+    print("  🗑️  Old DB removed")
 
 # --- HTTP Helper --------------------------------------------------------------
 
@@ -206,16 +206,16 @@ def curl_headers(method: str, endpoint: str, headers: Optional[dict] = None) -> 
 
 def perform_setup() -> bool:
     """Perform initial setup: admin + first user."""
-    print("\n🔧 Setup durchführen...")
+    print("\n🔧 Performing setup...")
     
-    # Admin setzen
+    # Configure admin password
     status, data = curl("POST", "/api/setup/admin", {"admin_password": ADMIN_PASSWORD})
     if status != 200:
-        print(f"  ❌ Admin-Setup fehlgeschlagen: {status}")
+        print(f"  ❌ Admin setup failed: {status}")
         return False
-    print(f"  ✅ Admin-Setup: {status}")
+    print(f"  ✅ Admin setup: {status}")
     
-    # First User erstellen
+    # Create first user
     status, data = curl("POST", "/api/setup/first-user", {
         "username": "testuser",
         "email": "testuser@example.invalid",
@@ -223,9 +223,9 @@ def perform_setup() -> bool:
         "display_name": "Test User"
     })
     if status != 200:
-        print(f"  ❌ User-Setup fehlgeschlagen: {status}")
+        print(f"  ❌ User setup failed: {status}")
         return False
-    print(f"  ✅ User-Setup: {status}")
+    print(f"  ✅ User setup: {status}")
     
     return True
 
@@ -1806,19 +1806,19 @@ def main():
     
     try:
         # Step 1: Backup existing DB
-        print("\n📦 Schritt 1/6: Bestehende DB sichern...")
+        print("\n📦 Step 1/6: Backing up existing DB...")
         db_backup()
         
         # Step 2: Restart service (fresh DB)
-        print("\n🔄 Schritt 2/6: Service neustarten (leere DB)...")
+        print("\n🔄 Step 2/6: Restarting service with an empty DB...")
         service_restart()
         if not service_wait():
-            print("❌ Service startet nicht!")
+            print("❌ Service did not start!")
             return 1
-        print("✅ Service läuft")
+        print("✅ Service is running")
         
         # Step 3: Run tests (includes setup tests!)
-        print("\n🏃 Schritt 3/6: Tests ausführen (inkl. Setup)...")
+        print("\n🏃 Step 3/6: Running tests, including setup...")
         suite = TestSuite()
         results = suite.run_all()
         
@@ -1830,36 +1830,36 @@ def main():
         output_file = BASE / "test-results.json"
         with open(output_file, "w") as f:
             json.dump(results, f, indent=2)
-        print(f"\n📄 Ergebnisse: {output_file}")
+        print(f"\n📄 Results: {output_file}")
         
     finally:
         # Step 4+5: Restore DB and restart
-        print("\n🔄 Schritt 4/6: Ursprüngliche DB wiederherstellen...")
+        print("\n🔄 Step 4/6: Restoring original DB...")
         try:
             db_restore()
         except Exception as e:
             all_passed = False
-            print(f"❌ DB-Wiederherstellung fehlgeschlagen: {e}")
+            print(f"❌ DB restore failed: {e}")
         
-        print("\n🔄 Schritt 5/6: Service neustarten...")
+        print("\n🔄 Step 5/6: Restarting service...")
         try:
             service_restart()
             if not service_wait():
                 all_passed = False
-                print("❌ Service startet nach Restore nicht korrekt!")
+                print("❌ Service did not start correctly after restore!")
             else:
-                print("✅ Service läuft wieder normal")
+                print("✅ Service is running normally again")
         except Exception as e:
             all_passed = False
-            print(f"❌ Service-Neustart nach Restore fehlgeschlagen: {e}")
+            print(f"❌ Service restart after restore failed: {e}")
     
     # Final summary
     print("\n" + "=" * 70)
     if all_passed:
-        print("🎉 ALLE TESTS BESTANDEN!")
+        print("🎉 ALL TESTS PASSED!")
         return 0
     else:
-        print("⚠️  EINIGE TESTS FEHLGESCHLAGEN")
+        print("⚠️  SOME TESTS FAILED")
         return 1
 
 if __name__ == "__main__":

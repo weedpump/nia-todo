@@ -19,13 +19,39 @@ const LOCAL_PORT = Number(process.env.NIA_TODO_NATIVE_TEST_PORT || await getFree
 const LOCAL_URL = `http://tauri.localhost:${LOCAL_PORT}`;
 const BASE_ORIGIN = new URL(BASE_URL).origin;
 
+const EXPECTED_NATIVE_STATIC_404_PATHS = [
+  '/api/oidc/status',
+  '/api/password-setup/features',
+  '/api/setup/status',
+];
+
+function shouldSuppressNativeStaticServerLogLine(line) {
+  if (line.includes('code 404, message File not found')) return true;
+  return EXPECTED_NATIVE_STATIC_404_PATHS.some(path => line.includes(`GET ${path} `) && line.includes(' 404 '));
+}
+
 function startStaticServer() {
   const server = spawn('python3', ['-m', 'http.server', String(LOCAL_PORT), '--bind', '127.0.0.1', '--directory', 'web'], {
     cwd: '~/projects/nia-todo-dev',
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   server.stderr.setEncoding('utf8');
-  server.stderr.on('data', chunk => process.stderr.write(`[native-static-server] ${chunk}`));
+  let stderrBuffer = '';
+  server.stderr.on('data', chunk => {
+    stderrBuffer += chunk;
+    const lines = stderrBuffer.split('\n');
+    stderrBuffer = lines.pop() || '';
+    for (const line of lines) {
+      if (!shouldSuppressNativeStaticServerLogLine(line)) {
+        process.stderr.write(`[native-static-server] ${line}\n`);
+      }
+    }
+  });
+  server.stderr.on('end', () => {
+    if (stderrBuffer && !shouldSuppressNativeStaticServerLogLine(stderrBuffer)) {
+      process.stderr.write(`[native-static-server] ${stderrBuffer}\n`);
+    }
+  });
   return server;
 }
 
