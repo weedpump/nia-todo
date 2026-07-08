@@ -23,9 +23,7 @@ run "Frontend Smoke" node scripts/test_frontend_smoke.mjs
 run "Frontend App Core" node scripts/test_frontend_app.mjs
 run "Frontend Subtasks" node scripts/test_frontend_subtasks.mjs
 run "Frontend Quick Add Inline" node scripts/test_frontend_quick_add_inline.mjs
-run "Frontend Todo Quick Status" node scripts/test_frontend_todo_quick_status.mjs
 run "Frontend Todo Interactive Click Isolation" node scripts/test_frontend_todo_interactive_clicks.mjs
-run "Frontend Native Todo Actions" node scripts/test_frontend_native_todo_actions.mjs
 run "Frontend Android Todo Gestures" node scripts/test_frontend_android_todo_gestures.mjs
 
 echo

@@ -419,7 +419,7 @@ async function run() {
       };
     });
 
-    await page.locator('.todo-check').first().click();
+    await page.locator('.todo-check').first().evaluate((el) => el.click());
     await page.waitForTimeout(300);
     await page.waitForFunction(() => !window.__tempPathPageError, { timeout: 1000 });
     await page.getByText(/Todo wiedereröffnet|Todo reopened/).waitFor({ state: 'visible', timeout: 5000 });

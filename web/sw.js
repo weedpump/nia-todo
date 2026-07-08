@@ -98,6 +98,8 @@ const PRECACHE_ASSETS = [
   '/static/js/features/workspaces.js',
   '/static/js/features/navigation.js',
   '/static/js/features/todos.js',
+  '/static/js/features/todo-attachments.js',
+  '/static/js/features/todo-quick-add.js',
   '/static/js/features/sync.js',
   '/static/js/features/sync-controller.js',
   '/static/js/features/todo-rendering.js',

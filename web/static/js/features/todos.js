@@ -80,6 +80,7 @@ export function createTodosFeature({
 
   const {
     nextWeekday,
+    loadSectionsForQuickAdd,
     parseQuickAddTitle,
     renderQuickAddPreview,
     bindQuickAddPreview,
