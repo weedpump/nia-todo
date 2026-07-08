@@ -468,7 +468,7 @@
   gap: 12px;
   max-height: min(52vh, 430px);
   overflow-y: auto;
-  padding-right: 2px;
+  padding: 2px 4px 4px;
 }
 
 .icon-picker-category-title {
@@ -488,6 +488,11 @@
 
 .icon-picker-option {
   color: currentColor;
+}
+
+.icon-picker-option[hidden],
+.icon-picker-section[hidden] {
+  display: none !important;
 }
 
 .icon-picker-option .ui-icon {
