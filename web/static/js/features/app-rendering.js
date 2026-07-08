@@ -655,7 +655,7 @@ export function createAppRenderingFeature({
       }
       if (hideDone && currentFilter !== 'done') filtered = filtered.filter(t => t.status !== 'done');
 
-      const showPinnedGroup = currentFilter === 'all';
+      const showPinnedGroup = !search;
       const pinnedProjectTodos = showPinnedGroup ? filtered.filter(t => t.is_pinned) : [];
       const sectionSource = showPinnedGroup ? filtered.filter(t => !t.is_pinned) : filtered;
       if (pinnedProjectTodos.length) {
