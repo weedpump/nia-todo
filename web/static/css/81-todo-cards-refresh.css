@@ -621,7 +621,7 @@
 .inline-edit-form {
   min-height: 38px;
   padding: 4px;
-  border: 1px solid color-mix(in srgb, var(--border) 58%, transparent);
+  border: 0;
   border-radius: 999px;
   background: color-mix(in srgb, var(--bg-secondary) 48%, transparent);
 }
@@ -629,6 +629,7 @@
 .inline-section-form input,
 .inline-edit-form input {
   min-height: 30px;
+  border: 0;
   border-radius: 999px;
   background: transparent;
 }
@@ -636,14 +637,22 @@
 .inline-section-form button,
 .inline-edit-form button {
   width: 30px;
+  min-width: 30px;
   height: 30px;
+  min-height: 30px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border: 0;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--bg-tertiary) 52%, transparent);
+  background: transparent;
   color: var(--text-secondary);
+}
+
+.inline-section-form button:hover,
+.inline-edit-form button:hover {
+  background: color-mix(in srgb, var(--bg-tertiary) 52%, transparent);
+  color: var(--text-primary);
 }
 
 .todo-item {

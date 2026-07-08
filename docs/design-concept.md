@@ -110,7 +110,7 @@ Base `.btn` requirements:
 - inline-flex layout with icon/text vertically and horizontally centered (`align-items: center`, `justify-content: center`)
 - `34px` minimum height on desktop
 - pill-shaped `999px` border radius for normal buttons
-- `14px` text, `700` weight, centered label
+- `14px` text, default `400` weight, centered label; use stronger weight only when a specific component intentionally needs more emphasis
 - shared icon sizing via the global `.btn .ui-icon` / `.btn-icon .ui-icon` rules
 - no default shadow on `.btn-primary`; elevation/shadows must be opt-in for a specific component and should not bleed into adjacent stacked buttons
 
