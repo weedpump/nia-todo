@@ -84,6 +84,18 @@ def set_min_native(tmp: Path, version: str) -> None:
     migration_path.write_text(migration_text, encoding="utf-8")
 
 
+def set_sw_version(tmp: Path, version: str) -> None:
+    path = tmp / "web/sw.js"
+    text = path.read_text(encoding="utf-8")
+    text = __import__("re").sub(
+        r"const SW_VERSION\s*=\s*'v[^']*';",
+        f"const SW_VERSION = 'v{version}';",
+        text,
+        count=1,
+    )
+    path.write_text(text, encoding="utf-8")
+
+
 CURRENT_DEV_VERSION = check.first(
     r"APP_VERSION\s*=\s*['\"]v?([^'\"]+)['\"]",
     (ROOT / "web/static/js/core/config.js").read_text(encoding="utf-8"),
@@ -108,6 +120,7 @@ def test_checker_rejects_bad_min_native_versions() -> None:
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp = Path(tmpdir)
         copy_release_inputs(tmp)
+        set_sw_version(tmp, CURRENT_DEV_VERSION)
         ok = run_checker(tmp, CURRENT_DEV_VERSION)
         assert_true(ok.returncode == 0, ok.stderr or ok.stdout)
 
@@ -126,6 +139,7 @@ def test_android_generated_mismatch_is_warning_only() -> None:
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp = Path(tmpdir)
         copy_release_inputs(tmp)
+        set_sw_version(tmp, CURRENT_DEV_VERSION)
         props = tmp / "src-tauri/gen/android/app/tauri.properties"
         props.parent.mkdir(parents=True, exist_ok=True)
         props.write_text(

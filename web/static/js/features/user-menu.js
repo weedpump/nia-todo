@@ -52,7 +52,7 @@ export function createUserMenuFeature({
     const initial = (name.trim()[0] || 'U').toUpperCase();
     const src = avatarSrc(user);
 
-    renderAvatar(document.getElementById('user-menu-button'), initial, src);
+    renderAvatar(document.getElementById('user-menu-button-avatar'), initial, src);
     renderAvatar(document.getElementById('user-menu-avatar'), initial, src);
     const menuName = document.getElementById('user-menu-name');
     const menuEmail = document.getElementById('user-menu-email');

@@ -99,7 +99,7 @@ export function renderIconPicker({ container, input, selected = '', color = '#63
       </span>
       <svg class="icon-picker-current-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
     </button>
-    <div class="ui-section-card icon-picker-panel" hidden>
+    <div class="ui-dropdown-panel icon-picker-panel" hidden>
       <div class="icon-picker-toolbar">
         <input class="ui-field icon-picker-search" type="search" placeholder="${t('iconPicker.searchPlaceholder')}" aria-label="${t('iconPicker.searchAria')}">
       </div>

@@ -43,6 +43,7 @@ export function createServiceWorkerUpdatesFeature() {
     '/static/css/81-todo-cards-refresh.css',
     '/static/css/82-entity-modals.css',
     '/static/css/83-focus-selects.css',
+    '/static/css/89-ui-detail-modal.css',
     '/static/css/90-minimal-list.css',
     '/static/css/90-detail-extras.css',
     '/static/css/90-attachments-preview.css',

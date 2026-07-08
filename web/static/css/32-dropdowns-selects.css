@@ -9,16 +9,16 @@
 .ui-select-trigger {
   box-sizing: border-box;
   width: 100%;
-  height: 100%;
+  height: auto;
   min-height: 36px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
   padding: 8px 36px 8px 14px;
-  border: 1px solid var(--border);
+  border: 0;
   border-radius: var(--field-radius);
-  background: var(--bg-primary);
+  background: var(--bg-tertiary);
   color: var(--text-primary);
   box-shadow: none;
   font: inherit;
@@ -28,17 +28,43 @@
   text-align: left;
   cursor: pointer;
   outline: none;
-  transition: border-color .15s ease, box-shadow .15s ease, background .15s ease, opacity .15s ease;
+  transition: border-color .15s ease, box-shadow .15s ease, background .15s ease, opacity .15s ease, transform .08s ease;
+}
+
+.ui-select-trigger:active,
+.ui-select-trigger.touch-feedback {
+  transform: translateY(.5px) scale(.992);
+}
+
+.ui-select.is-open .ui-select-trigger {
+  transform: none;
+}
+
+[data-theme="light"] .ui-select-trigger {
+  background: var(--bg-tertiary);
+  box-shadow: none;
 }
 
 .ui-select-trigger:hover {
-  border-color: color-mix(in srgb, var(--accent) 38%, var(--border));
+  background: var(--bg-hover);
+}
+
+[data-theme="light"] .ui-select-trigger:hover {
+  background: var(--bg-hover);
+  box-shadow: none;
 }
 
 .ui-select-trigger:focus-visible,
-.ui-select.is-open .ui-select-trigger {
-  border-color: color-mix(in srgb, var(--accent) 72%, var(--border));
-  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.18));
+.ui-select.is-open .ui-select-trigger,
+.ui-select-trigger[aria-expanded="true"] {
+  background: var(--bg-hover);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.13));
+}
+
+[data-theme="light"] .ui-select-trigger:focus-visible,
+[data-theme="light"] .ui-select.is-open .ui-select-trigger,
+[data-theme="light"] .ui-select-trigger[aria-expanded="true"] {
+  background: var(--bg-hover);
 }
 
 .ui-select.is-disabled .ui-select-trigger {
@@ -87,10 +113,37 @@
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
-  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border));
+}
+
+.ui-select-menu,
+.ui-menu,
+.ui-dropdown-panel {
+  border: 0;
   border-radius: var(--dropdown-menu-radius);
-  background: linear-gradient(135deg, color-mix(in srgb, var(--bg-secondary) 96%, var(--bg-primary)), var(--bg-secondary));
-  box-shadow: 0 18px 42px rgba(0,0,0,.30), 0 0 0 1px color-mix(in srgb, var(--bg-primary) 28%, transparent);
+  background:
+    radial-gradient(circle at 18% -12%, color-mix(in srgb, var(--accent) 11%, transparent), transparent 44%),
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--bg-secondary) 98%, var(--bg-primary)) 0%,
+      color-mix(in srgb, var(--bg-secondary) 88%, var(--bg-primary)) 100%);
+  box-shadow:
+    0 22px 48px rgba(0,0,0,.34),
+    0 6px 16px rgba(0,0,0,.18),
+    inset 0 1px 0 color-mix(in srgb, white 9%, transparent);
+}
+
+[data-theme="light"] .ui-select-menu,
+[data-theme="light"] .ui-menu,
+[data-theme="light"] .ui-dropdown-panel {
+  border-color: transparent;
+  background:
+    radial-gradient(circle at 18% -12%, color-mix(in srgb, var(--accent) 7%, transparent), transparent 46%),
+    linear-gradient(180deg,
+      rgba(255,255,255,.99) 0%,
+      color-mix(in srgb, var(--bg-secondary) 54%, white) 100%);
+  box-shadow:
+    0 22px 50px rgba(15,23,42,.16),
+    0 5px 14px rgba(15,23,42,.08),
+    inset 0 1px 0 rgba(255,255,255,.96);
 }
 
 .ui-select-menu[hidden],
@@ -107,12 +160,12 @@
   gap: 8px;
   padding: 8px 10px 8px calc(10px + (var(--ui-select-depth, 0) * 18px));
   border: 0;
-  border-radius: var(--dropdown-option-radius);
+  border-radius: 999px;
   background: transparent;
   color: var(--text-primary);
   font: inherit;
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 400;
   line-height: 1.25;
   text-align: left;
   cursor: pointer;
@@ -127,13 +180,35 @@
 .ui-select-option:hover,
 .ui-select-option.is-highlighted,
 .ui-menu-item:hover {
-  background: color-mix(in srgb, var(--accent) 13%, var(--bg-tertiary));
+  background:
+    linear-gradient(135deg,
+      color-mix(in srgb, var(--accent) 15%, var(--bg-tertiary)) 0%,
+      color-mix(in srgb, var(--accent-hover) 8%, var(--bg-tertiary)) 100%);
   color: var(--text-primary);
 }
 
 .ui-select-option[aria-selected="true"] {
   color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  background:
+    linear-gradient(135deg,
+      color-mix(in srgb, var(--accent) 13%, transparent) 0%,
+      color-mix(in srgb, var(--accent-hover) 7%, transparent) 100%);
+}
+
+[data-theme="light"] .ui-select-option:hover,
+[data-theme="light"] .ui-select-option.is-highlighted,
+[data-theme="light"] .ui-menu-item:hover {
+  background:
+    linear-gradient(135deg,
+      color-mix(in srgb, var(--accent) 10%, white) 0%,
+      color-mix(in srgb, var(--accent-hover) 5%, var(--bg-secondary)) 100%);
+}
+
+[data-theme="light"] .ui-select-option[aria-selected="true"] {
+  background:
+    linear-gradient(135deg,
+      color-mix(in srgb, var(--accent) 11%, white) 0%,
+      color-mix(in srgb, var(--accent-hover) 6%, var(--bg-secondary)) 100%);
 }
 
 .ui-select-option:disabled,
@@ -206,7 +281,7 @@
   .ui-menu-item {
     min-height: 44px;
     font-size: 14px;
-    border-radius: var(--dropdown-option-radius);
+    border-radius: 999px;
   }
 }
 

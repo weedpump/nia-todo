@@ -44,7 +44,6 @@ export function createTodosFeature({
     create: 'todo-create-view',
     editingDescription: 'todo-desc-editing',
     editingMeta: 'todo-meta-editing',
-    hasUnsavedChanges: 'todo-has-unsaved',
   });
 
   const {
@@ -81,6 +80,7 @@ export function createTodosFeature({
 
   const {
     nextWeekday,
+    loadSectionsForQuickAdd,
     parseQuickAddTitle,
     renderQuickAddPreview,
     bindQuickAddPreview,
@@ -139,16 +139,10 @@ export function createTodosFeature({
     setTodoCollapsibleOpen('todo-subtasks-panel', existingTodo);
     setTodoCollapsibleOpen('todo-comments-panel', existingTodo);
     setTodoCollapsibleOpen('todo-attachments-panel', existingTodo);
-    if (existingTodo) {
-      setTodoCollapsibleOpen('todo-schedule-panel', true);
-      setTodoCollapsibleOpen('todo-organize-panel', true);
-      return;
-    }
+    if (existingTodo) return;
     setTodoCollapsibleOpen('todo-subtasks-panel', true);
     setTodoCollapsibleOpen('todo-comments-panel', true);
     setTodoCollapsibleOpen('todo-attachments-panel', true);
-    setTodoCollapsibleOpen('todo-schedule-panel', true);
-    setTodoCollapsibleOpen('todo-organize-panel', true);
   }
 
   function formatTodoMetaDate(value) {
@@ -286,12 +280,12 @@ export function createTodosFeature({
     if (!actions) {
       actions = document.createElement('div');
       actions.id = 'todo-detail-header-actions';
-      actions.className = 'todo-detail-header-actions';
+      actions.className = 'todo-detail-header-actions ui-detail-header-actions';
       actions.innerHTML = `
         <button type="submit" form="todo-form" class="btn btn-primary" id="todo-save-btn" data-i18n-key="common.save">${t('common.save')}</button>
-        <details class="todo-detail-header-menu-toggle">
+        <details class="todo-detail-header-menu-toggle ui-detail-header-menu-toggle">
           <summary aria-label="${t('common.more') || 'More'}">${iconSvg('menu')}</summary>
-          <div class="todo-detail-header-menu ui-menu" role="menu">
+          <div class="todo-detail-header-menu ui-detail-header-menu ui-menu" role="menu">
             <button type="button" class="ui-menu-item" id="todo-detail-duplicate-action" role="menuitem">${iconSvg('copy')}<span>${t('todo.duplicate')}</span></button>
             <button type="button" class="ui-menu-item danger" id="todo-detail-delete-action" role="menuitem">${iconSvg('trash-2')}<span>${t('todo.delete')}</span></button>
           </div>
@@ -332,7 +326,6 @@ export function createTodosFeature({
     modal.classList.toggle(TODO_MODAL_CLASSES.create, !isExistingTodo);
     modal.classList.remove(TODO_MODAL_CLASSES.editingDescription);
     modal.classList.remove(TODO_MODAL_CLASSES.editingMeta);
-    modal.classList.remove(TODO_MODAL_CLASSES.hasUnsavedChanges);
     const headerActions = ensureTodoDetailHeaderMenu();
     const headerMenu = headerActions?.querySelector('.todo-detail-header-menu-toggle');
     if (headerMenu) headerMenu.hidden = !isExistingTodo;
@@ -464,7 +457,16 @@ export function createTodosFeature({
       location_place: document.getElementById('todo-location-place')?.value || '',
       location_address: document.getElementById('todo-location-address')?.value || '',
     };
-    if (!id) state.subtasks = collectTodoSubtasksFromEditor();
+    if (!id) {
+      state.subtasks = collectTodoSubtasksFromEditor();
+      state.comments = collectTodoDraftCommentsFromEditor();
+      state.attachments = getSelectedAttachmentFiles().map(file => ({
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        lastModified: file.lastModified,
+      }));
+    }
     return state;
   }
 
@@ -482,9 +484,9 @@ export function createTodosFeature({
     const commentButton = document.getElementById('todo-comment-add-btn');
     const attachmentPicker = document.querySelector('.todo-attachment-picker');
     const uploadButton = document.getElementById('todo-attachment-upload-btn');
-    if (subtaskButton) subtaskButton.disabled = !hasTodo || !subtaskTitle;
-    if (commentButton) commentButton.disabled = !hasTodo || !commentBody;
-    if (attachmentPicker) attachmentPicker.disabled = !hasTodo;
+    if (subtaskButton) subtaskButton.disabled = !subtaskTitle;
+    if (commentButton) commentButton.disabled = !commentBody;
+    if (attachmentPicker) attachmentPicker.disabled = false;
     if (uploadButton) uploadButton.disabled = !hasTodo || attachmentFiles.length === 0;
   }
 
@@ -493,8 +495,8 @@ export function createTodosFeature({
     if (!saveButton) return;
     const current = JSON.stringify(getTodoSaveRelevantState());
     const unchanged = todoSaveSnapshot !== null && current === todoSaveSnapshot;
+    saveButton.hidden = unchanged;
     saveButton.disabled = unchanged;
-    getTodoModal()?.classList.toggle(TODO_MODAL_CLASSES.hasUnsavedChanges, !unchanged);
     refreshTodoActionButtonState();
   }
 
@@ -724,6 +726,25 @@ export function createTodosFeature({
   }
 
 
+  function collectTodoDraftCommentsFromEditor() {
+    return Array.from(document.querySelectorAll('#todo-comments-list .todo-comment-item[data-draft-comment="1"] .todo-comment-body'))
+      .map(item => item.textContent?.trim() || '')
+      .filter(Boolean);
+  }
+
+  function removeTodoDraftComment(commentId) {
+    const comments = collectTodoDraftCommentsFromEditor();
+    const next = comments.filter((_, index) => `draft-comment-${index}` !== String(commentId));
+    renderTodoComments(next.map((body, index) => ({
+      id: `draft-comment-${index}`,
+      body,
+      is_draft: true,
+      user_id: getCurrentUser?.()?.id,
+      author_display_name: t('todo.comments.draftAuthor'),
+    })), null);
+    refreshTodoSaveButtonState();
+  }
+
   function formatTodoCommentTime(value) {
     if (!value) return '';
     const date = new Date(value);
@@ -748,12 +769,12 @@ export function createTodosFeature({
     if (count) count.textContent = String(normalized.length);
     setTodoCollapsibleOpen('todo-comments-panel', normalized.length > 0);
     if (empty) {
-      empty.textContent = todoId ? t('todo.comments.empty') : t('todo.comments.saveFirst');
+      empty.textContent = todoId ? t('todo.comments.empty') : t('todo.comments.draftEmpty');
       empty.hidden = normalized.length > 0;
     }
     if (input) {
       input.value = '';
-      input.disabled = !todoId;
+      input.disabled = false;
     }
     if (addButton) addButton.disabled = true;
     refreshTodoActionButtonState();
@@ -761,6 +782,7 @@ export function createTodosFeature({
       const item = document.createElement('article');
       item.className = 'todo-comment-item';
       item.dataset.commentId = comment.id;
+      if (comment.is_draft) item.dataset.draftComment = '1';
 
       const meta = document.createElement('div');
       meta.className = 'todo-comment-meta';
@@ -780,9 +802,10 @@ export function createTodosFeature({
       const actions = document.createElement('div');
       actions.className = 'todo-comment-actions';
       const currentUserId = getCurrentUser?.()?.id;
+      const isDraft = Boolean(comment.is_draft) || String(comment.id || '').startsWith('draft-comment-');
       const isAuthor = String(comment.user_id) === String(currentUserId);
-      const canDelete = isAuthor || String(todo?.user_id) === String(currentUserId);
-      if (isAuthor) {
+      const canDelete = isDraft || isAuthor || String(todo?.user_id) === String(currentUserId);
+      if (isAuthor && !isDraft) {
         const edit = document.createElement('button');
         edit.type = 'button';
         edit.className = 'btn btn-secondary btn-small btn-icon';
@@ -799,7 +822,10 @@ export function createTodosFeature({
         remove.innerHTML = iconSvg('trash-2');
         remove.setAttribute('aria-label', t('todo.comments.delete'));
         remove.setAttribute('title', t('todo.comments.delete'));
-        remove.addEventListener('click', () => deleteTodoComment(todoId, comment.id));
+        remove.addEventListener('click', () => {
+          if (isDraft) removeTodoDraftComment(comment.id);
+          else deleteTodoComment(todoId, comment.id);
+        });
         actions.appendChild(remove);
       }
 
@@ -859,12 +885,24 @@ export function createTodosFeature({
     const id = document.getElementById('todo-id')?.value;
     const input = document.getElementById('todo-comment-new-body');
     const body = input?.value?.trim() || '';
-    if (!id || id.startsWith('temp-')) {
-      showToast(t('todo.comments.saveFirst'));
-      return;
-    }
     if (!body) {
       input?.focus();
+      return;
+    }
+    if (!id || id.startsWith('temp-')) {
+      const comments = [...collectTodoDraftCommentsFromEditor(), body];
+      renderTodoComments(comments.map((commentBody, index) => ({
+        id: `draft-comment-${index}`,
+        body: commentBody,
+        is_draft: true,
+        user_id: getCurrentUser?.()?.id,
+        author_display_name: t('todo.comments.draftAuthor'),
+      })), null);
+      if (input) {
+        input.value = '';
+        input.focus();
+      }
+      refreshTodoSaveButtonState();
       return;
     }
     if (!isOnlineForSync()) {
@@ -1527,7 +1565,20 @@ export function createTodosFeature({
     document.documentElement.dataset.todoActionsRevealBound = '1';
     let suppressTodoClickUntil = 0;
     let suppressTodoClickItem = null;
+    let suppressActionClickUntil = 0;
+    let suppressActionClickItem = null;
     const handleReveal = (event) => {
+      if (event.type === 'click' && suppressActionClickItem && Date.now() < suppressActionClickUntil) {
+        const actionItem = event.target?.closest?.('.todo-item[data-id]');
+        if (actionItem === suppressActionClickItem && event.target?.closest?.('.todo-actions')) {
+          event.preventDefault?.();
+          event.stopPropagation?.();
+          event.stopImmediatePropagation?.();
+          suppressActionClickItem = null;
+          return;
+        }
+      }
+
       const button = event.target?.closest?.('.todo-actions-reveal-btn');
       if (!button) return;
       const item = button.closest('.todo-item[data-id]');
@@ -1539,7 +1590,11 @@ export function createTodosFeature({
         return;
       }
       event.preventDefault?.();
-      if (event.type === 'pointerup') button.__niaRevealPointerHandledAt = Date.now();
+      if (event.type === 'pointerup') {
+        button.__niaRevealPointerHandledAt = Date.now();
+        suppressActionClickUntil = Date.now() + 600;
+        suppressActionClickItem = item;
+      }
       item.__niaRevealHandledAt = Date.now();
       toggleTodoActions(item, event);
       event.stopImmediatePropagation?.();
@@ -1620,6 +1675,65 @@ export function createTodosFeature({
   function bindTodoStatusMenuBehavior() {
     if (document.documentElement.dataset.todoStatusMenuBound === '1') return;
     document.documentElement.dataset.todoStatusMenuBound = '1';
+    let touchSummaryPress = null;
+    let suppressSummaryClick = null;
+
+    const summaryFromTarget = (target) => target?.closest?.('.todo-status-menu > summary, .todo-snooze-menu > summary') || null;
+    const isTouchPointer = (event) => event.isPrimary && (event.pointerType === 'touch' || event.pointerType === 'pen');
+
+    function toggleActionSummary(summary) {
+      const menu = summary?.parentElement;
+      if (!summary || !menu) return false;
+      const nextOpen = !menu.open;
+      closeTodoActionMenus(nextOpen ? menu : null);
+      menu.open = nextOpen;
+      if (nextOpen) updateTodoActionMenuPlacement(menu);
+      else resetTodoActionMenuPlacement(menu);
+      return true;
+    }
+
+    document.addEventListener('pointerdown', (event) => {
+      if (!isTouchPointer(event)) return;
+      const summary = summaryFromTarget(event.target);
+      if (!summary) return;
+      touchSummaryPress = {
+        pointerId: event.pointerId,
+        summary,
+        startX: event.clientX,
+        startY: event.clientY,
+        moved: false,
+      };
+    }, { capture: true, passive: true });
+
+    document.addEventListener('pointermove', (event) => {
+      if (!touchSummaryPress || touchSummaryPress.pointerId !== event.pointerId) return;
+      if (Math.hypot(event.clientX - touchSummaryPress.startX, event.clientY - touchSummaryPress.startY) > 8) {
+        touchSummaryPress.moved = true;
+      }
+    }, { capture: true, passive: true });
+
+    document.addEventListener('pointerup', (event) => {
+      if (!touchSummaryPress || touchSummaryPress.pointerId !== event.pointerId) return;
+      const press = touchSummaryPress;
+      touchSummaryPress = null;
+      if (press.moved || summaryFromTarget(event.target) !== press.summary) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      suppressSummaryClick = { summary: press.summary, until: Date.now() + 500 };
+      toggleActionSummary(press.summary);
+    }, { capture: true, passive: false });
+
+    document.addEventListener('click', (event) => {
+      const summary = summaryFromTarget(event.target);
+      if (!summary || suppressSummaryClick?.summary !== summary || Date.now() > suppressSummaryClick.until) return;
+      suppressSummaryClick = null;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }, { capture: true, passive: false });
+
+    document.addEventListener('pointercancel', (event) => {
+      if (touchSummaryPress?.pointerId === event.pointerId) touchSummaryPress = null;
+    }, { capture: true, passive: true });
 
     document.addEventListener('click', (event) => {
       const menu = event.target?.closest?.('.todo-status-menu, .todo-snooze-menu');
@@ -1925,6 +2039,13 @@ export function createTodosFeature({
       if (!selectedSection || String(selectedSection.project_id) !== String(todoData.project_id)) todoData.section_id = null;
     }
     todoData.location_reminders = locationReminderArrayFromPayload(todoData.location_reminder);
+    const draftComments = id ? [] : collectTodoDraftCommentsFromEditor();
+    const draftAttachmentFiles = id ? [] : getSelectedAttachmentFiles();
+    const hasPostCreateDrafts = draftComments.length > 0 || draftAttachmentFiles.length > 0;
+    if (hasPostCreateDrafts && !isOnlineForSync()) {
+      showToast(t('todo.drafts.onlineOnly'));
+      return;
+    }
     if (id) delete todoData.subtasks;
     if (id) {
       const existing = getTodos().find(t => t.id === parseInt(id));
@@ -1936,6 +2057,27 @@ export function createTodosFeature({
         await addToSyncQueue('UPDATE_TODO', { id: parseInt(id), changes: todoData });
         if (isOnlineForSync()) await syncWithServer();
       }
+    } else if (hasPostCreateDrafts) {
+      let createdTodo = await todosApi.create(todoData);
+      await dbPut('todos', createdTodo);
+      setTodos([...getTodos(), createdTodo]);
+      document.getElementById('todo-id').value = String(createdTodo.id);
+      for (const body of draftComments) {
+        const response = await todosApi.createComment(createdTodo.id, { body });
+        createdTodo = response?.todo || createdTodo;
+        await applyCommentTodoResponse(response);
+      }
+      if (draftAttachmentFiles.length > 0) {
+        const uploaded = await uploadTodoAttachmentFromInput();
+        if (!uploaded) return;
+      } else {
+        await dbPut('todos', createdTodo);
+        setTodos(getTodos().map(todo => String(todo.id) === String(createdTodo.id) ? createdTodo : todo));
+      }
+      renderProjects();
+      renderStats();
+      renderTodos();
+      closeModal('todo-modal');
     } else {
       const tempId = 'temp-' + Date.now();
       const nowIso = new Date().toISOString();
@@ -2059,9 +2201,12 @@ export function createTodosFeature({
     setTodos([...getTodos(), duplicated]);
     renderStats();
     renderTodos();
-    showToast(t('todo.toast.duplicated'));
-    await addToSyncQueue('CREATE_TODO', { ...todoData, _tempId: tempId });
+    showToast(t('todo.toast.duplicated'), { type: 'duplicate', id: tempId });
+    await addToSyncQueue('CREATE_TODO', { ...todoData, _tempId: tempId, undo_grace_until: Date.now() + 5000 });
     if (isOnlineForSync()) await syncWithServer();
+    setTimeout(() => {
+      if (isOnlineForSync()) syncWithServer();
+    }, 5200);
   }
 
   function editTodo(id) {

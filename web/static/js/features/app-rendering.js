@@ -147,7 +147,7 @@ export function createAppRenderingFeature({
       html += `<div class="project-tree-item" style="padding-left: ${indent}px">`;
       html += `<div class="nav-item-with-action">`;
       const isActiveProject = Number(currentProjectId) === Number(project.id);
-      html += `<button class="nav-btn project-drop-target ${isActiveProject ? 'active' : ''}" data-filter="${escapeHtmlAttr(project.id)}" data-project-id="${escapeHtmlAttr(project.id)}">`;
+      html += `<button class="nav-btn ui-nav-pill project-drop-target ${isActiveProject ? 'active' : ''}" data-filter="${escapeHtmlAttr(project.id)}" data-project-id="${escapeHtmlAttr(project.id)}">`;
       html += markerHtml({ ...project, color: escapeHtmlAttr(project.color || '#6366f1'), icon: project.icon });
       html += `${escapeHtml(project.name)}`;
       html += `<span class="badge">${countByProject(project.id, true)}</span>`;
@@ -686,8 +686,8 @@ export function createAppRenderingFeature({
       }
 
       html += `<div class="add-section-row">
-        <button type="button" class="btn-add-section" data-section-action="show-add">${iconSvg('plus')} ${escapeHtml(t('section.new'))}</button>
-        <button type="button" class="btn-add-section" data-project-action="clear-done-current">${iconSvg('trash-2')} ${escapeHtml(t('todo.clearDone'))}</button>
+        <button type="button" class="btn btn-secondary btn-small" data-section-action="show-add">${iconSvg('plus')} ${escapeHtml(t('section.new'))}</button>
+        <button type="button" class="btn btn-secondary btn-small" data-project-action="clear-done-current">${iconSvg('trash-2')} ${escapeHtml(t('todo.clearDone'))}</button>
       </div>`;
 
       if (!filtered.length && !sections.length) {
@@ -827,8 +827,8 @@ export function createAppRenderingFeature({
         <div class="invite-item" data-invite-id="${escapeHtmlAttr(invite.id)}">
           <span class="invite-title">${iconSvg('mail')} ${escapeHtml(invite.project_name)}</span>
           <div class="invite-actions">
-            <button class="invite-action invite-accept" data-project-sharing-action="accept-invite" data-project-id="${escapeHtmlAttr(invite.project_id)}" data-invite-id="${escapeHtmlAttr(invite.id)}" title="${escapeHtmlAttr(t('invite.accept'))}" aria-label="${escapeHtmlAttr(t('invite.acceptAria'))}">${iconSvg('check')}</button>
-            <button class="invite-action invite-decline" data-project-sharing-action="decline-invite" data-project-id="${escapeHtmlAttr(invite.project_id)}" data-invite-id="${escapeHtmlAttr(invite.id)}" title="${escapeHtmlAttr(t('invite.decline'))}" aria-label="${escapeHtmlAttr(t('invite.declineAria'))}">${iconSvg('x')}</button>
+            <button class="btn btn-secondary btn-icon invite-action invite-accept" data-project-sharing-action="accept-invite" data-project-id="${escapeHtmlAttr(invite.project_id)}" data-invite-id="${escapeHtmlAttr(invite.id)}" title="${escapeHtmlAttr(t('invite.accept'))}" aria-label="${escapeHtmlAttr(t('invite.acceptAria'))}">${iconSvg('check')}</button>
+            <button class="btn btn-danger btn-icon invite-action invite-decline" data-project-sharing-action="decline-invite" data-project-id="${escapeHtmlAttr(invite.project_id)}" data-invite-id="${escapeHtmlAttr(invite.id)}" title="${escapeHtmlAttr(t('invite.decline'))}" aria-label="${escapeHtmlAttr(t('invite.declineAria'))}">${iconSvg('x')}</button>
           </div>
         </div>
       `;

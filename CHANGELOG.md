@@ -13,26 +13,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - Added the `lucide` npm package as the single source for app icons, with a generated offline/PWA icon subset for browser use.
 - Added Service Worker precache validation for query-string app-shell references so cache-busted module URLs remain offline-safe.
 - Added checklist-style subtasks on todos, including progress chips on todo cards, modal-only checklist editing, independent create/update/delete actions for existing todos, realtime sync, recurring-todo checklist carry-over, and confirmation before completing a parent todo with open subtasks.
+- Added draft subtask, comment, and attachment support while creating new todos, including post-create comment creation, attachment uploads, and online-only handling when drafts need a real server todo ID.
 - Added todo comments with author display, local timestamps, comment-count chips, dedicated add/edit/delete actions, shared-project permissions, and realtime comment updates.
 - Added todo attachments with authenticated server-local uploads/downloads, attachment-count chips, modal list/upload/delete actions, shared-project access checks, image/PDF preview, and realtime attachment updates.
 - Added admin attachment controls for global upload enablement, comma-separated allowed file extensions, default 5 GB quota, per-user quota overrides, and user-visible storage usage.
 
 ### Changed
+- Refined the workspace dropdown menu with pill-shaped active, hover, edit, and add actions to match the shared menu language.
+- Refined section header count alignment so the unsorted section reserves the same action-space rhythm as deletable sections.
+- Refined remaining Next UI primitives by hydrating the admin OIDC auth-method select, aligning Todo row, section inline, invite, and add-project sidebar actions with shared button/navigation patterns, and documenting the current calm button weight contract.
+- Refined the admin panel shell, login screen, header actions, navigation, section cards, OIDC placement, light-theme surfaces, desktop action alignment, and mobile form/action layouts to match the shared Next UI primitives more closely.
+- Rounded shared dropdown and menu option hover surfaces into pill-style items so user menus, select menus, and related dropdowns align with the sidebar navigation language.
+- Merged todo status selection into the left todo control, using a compact icon-only dropdown on mobile and a full status pill with label on desktop while keeping the old right-side status dropdown hidden.
+- Refined the dashboard and project overview widgets to better match the rounded borderless Next UI direction, including rounder stat/project items, restored desktop project stat hints, compact mobile project stats, and fully round avatar/project icon tiles.
+- Refined app confirmation, danger, native OIDC return, and login surfaces with rounder borderless surfaces, softer icon treatment, a single theme cycle button, and consistent login action button styling to match the Next UI direction.
+- Unified section heading icon treatment across Settings, Todo, Project, and Workspace detail surfaces with shared round icon bubbles and consistent icon sizing.
+- Refined project and dashboard todo views with flatter borderless pill-style todo rows, rounded mobile swipe action backgrounds with cleaner spacing, stronger light-theme row contrast, softer section/project headers, cleaner pinned/in-progress accents, and mobile-safe wrapping for long descriptions and metadata chips.
+- Added shared detail-modal primitives for Todo/Project/Workspace-style editors so future modals can reuse the same surface, header, title field, section, action-row, hidden save state, and menu styling without copying modal-specific CSS, with matching offline/PWA cache coverage.
+- Refined the project and workspace modals to match the Todo detail modal surface and section language, including the large inline title field, flat drawer-style details/organization/sharing sections, header actions, shared field/button primitives, polished sharing member rows, and hidden save actions until changes are present.
+- Unified Todo detail modal sizing with Project and Workspace detail modals so existing and new todo flows share the same large editor shell.
+- Unified dropdown menu, color picker, and icon picker surfaces around the same borderless neutral surface treatment, while keeping dropdown triggers borderless.
+- Refined the sidebar visual language with shared navigation-pill primitives, tighter hover/active paint surfaces, rounded count badges, muted add actions that accent on hover, and a neutral topbar border that preserves the existing accent gradient.
+- Refined the Settings modal to follow the shared detail-modal shell with matching sizing, header treatment, flattened section surfaces, round section icons, quieter inner rows/cards, left/right action alignment, secondary API key and 2FA setup actions, inline saved-place entry, muted inactive password/place actions, modal-edge scrolling, and an aligned close action.
+- Refined the BrainDump modal toward the shared detail-modal visual language with a wider dynamic shell, quieter header, round icon chip, bounded waveform area, modal-edge scrolling, shared field/dropdown surfaces, flatter stage/results surfaces, softer candidate cards, aligned candidate title/edit rows, aligned footer actions, and mobile fullscreen sizing.
+- Refined Todo detail section headings with visible round icons across content, subtasks, comments, attachments, organization, schedule, recurring, and location subsections.
 - Replaced the main app's legacy inline event handlers with delegated `data-*` action bindings across todo cards, sections, settings, API keys, and drag-and-drop, and renamed the remaining global runtime adapter to `runtime-globals`.
 - Cleaned up the Todo detail modal CSS and internal modal state handling by consolidating redundant override layers, canonicalizing detail action/drop-hint styles, and centralizing modal lookup/state helpers without intended visual changes.
-- Refined the shared UI design primitives for buttons, form fields, dropdowns, and Todo detail actions, including compact pill buttons, visually balanced field/dropdown sizing, mobile full-width action layouts, Login/Admin/Setup/Set Password/App Downloads rollout, Project/Workspace icon and color picker alignment, and removal of obsolete Todo modal footer actions.
+- Refined the shared UI design primitives for buttons, form fields, dropdowns, and Todo detail actions, including compact pill buttons, visually balanced field/dropdown sizing, unified light/dark field and dropdown depth polish, mobile full-width action layouts, Login/Admin/Setup/Set Password/App Downloads rollout, Project/Workspace icon and color picker alignment, and removal of obsolete Todo modal footer actions.
+- Unified topbar search, workspace switching, the sidebar user card/menu, sidebar version/download actions, and project section action buttons with the shared field/dropdown/button primitives, including embedded borderless field surfaces, consistent light/dark contrast, mobile search layout behavior, shared workspace/user menu styling, muted version/download actions, centered button icons, and lighter dropdown item typography.
 - Switched packaged backups to snapshot generic runtime data under `NIA_TODO_DATA_DIR` alongside a consistent SQLite backup, covering current and future runtime files while excluding backup archives and SQLite temp/journal files.
 - Centralized icon rendering across the main app, setup/password pages, and admin panel so all UI icons resolve through the generated Lucide package subset instead of page-local SVG definitions.
 - Refined Todo, sidebar, filter, topbar, and admin status icons with the generated Lucide icon set; the sidebar Focus entry is now labeled as Filter.
 - Centered the attachment picker prompt while keeping selected attachment filenames left-aligned for readability.
 - Refined the Todo modal into compact collapsible sections for planning, organization, subtasks, comments, and attachments, with mobile-first collapsed metadata panels and muted disabled action buttons.
 - Refined mobile/tablet todo card actions, floating action button layering, Todo modal action buttons, and subtask/comment/attachment visual styling for a cleaner compact UI; iPad-width layouts now keep quick actions collapsed behind the reveal control even when the sidebar uses the desktop shell.
-- Disabled touch pinch-zoom/two-finger page scaling for the web app on phones and tablets while leaving normal desktop browser zoom available.
+- Disabled touch pinch-zoom/two-finger page scaling and precision-touchpad pinch zoom for the web app while leaving normal browser zoom via keyboard/menu available.
 - Cleaned up startup sync ownership so REST handles authoritative full refreshes while WebSocket startup stays on auth/session and realtime deltas, preventing duplicate full-cache writers from racing IndexedDB/UI state.
 - Hardened attachment uploads with streaming temp-file writes, server-side quota/type policy enforcement, magic-byte validation for common binary formats, active-content blocking, and client-side preflight for disabled uploads, type, file size, and quota.
 
 ### Fixed
+- Fixed admin header/auth state handling, guarded password/logout actions while logged out, restored admin OIDC login button initialization, kept admin CSS scoped to the admin page, preserved the dynamic server-update status icon, normalized create-user field height, and made admin mobile buttons stack full-width instead of inheriting desktop sizing.
+- Prevented expanded mobile todo quick actions from being obscured by long titles or metadata chips by softly fading the todo content underneath while keeping action menus unclipped.
+- Replaced the browser confirmation prompt for removing project members with the app's danger confirmation modal, and kept hidden native color picker inputs from leaking disabled color bars into read-only project modals.
 - Improved Todo detail inline editing polish so the title becomes a visible input field only while focused, avoids desktop Edge glyph clipping, and aligns subtask/comment/meta action spacing and field borders.
+- Kept the new-todo modal open when draft attachment uploads fail validation or upload, preventing selected draft files from being silently lost after the todo is created.
+- Hid unavailable Settings navigation entries correctly when their matching section is disabled, including the BrainDump entry when BrainDump is globally off.
+- Restored proper Settings toggle-row alignment so switch controls stay right-aligned, vertically centered, and use the accent color.
+- Made the Settings modal truly fullscreen on mobile so the underlying app no longer peeks through on the right or bottom.
+- Removed the meaningless BrainDump candidate priority dot and rounded the candidate edit action.
+- Cleared stale sidebar edit-button focus after closing project/workspace modals so the edit action no longer remains visually outlined.
+- Hid custom overlay scrollbars immediately when modals close, preventing stale scroll indicators from lingering after a recently scrolled modal disappears.
 - Prevented long-press todo drag-and-drop from also triggering horizontal swipe status gestures.
 - Prevented aborted todo swipe gestures from showing the custom overlay scrollbar inside todo cards.
 - Deferred server-side todo hard-deletes until the undo toast grace window expires, so undoing a delete preserves subtasks, comments, and attachment files instead of recreating only the parent todo.

@@ -33,8 +33,8 @@ export function createSectionsFeature({ getTodos, getCurrentProjectId, getSectio
     el.innerHTML = `
       <div class="inline-section-form">
         <input type="text" id="new-section-name" data-section-input="new" placeholder="${escapeHtmlAttr(t('section.namePlaceholder'))}" autocomplete="off">
-        <button type="button" data-section-action="save-new" title="${escapeHtmlAttr(t('common.save'))}">${iconSvg('check')}</button>
-        <button type="button" data-section-action="cancel" title="${escapeHtmlAttr(t('common.cancel'))}">${iconSvg('x')}</button>
+        <button type="button" class="btn btn-secondary btn-icon" data-section-action="save-new" title="${escapeHtmlAttr(t('common.save'))}">${iconSvg('check')}</button>
+        <button type="button" class="btn btn-secondary btn-icon" data-section-action="cancel" title="${escapeHtmlAttr(t('common.cancel'))}">${iconSvg('x')}</button>
       </div>
     `;
     document.getElementById('new-section-name')?.focus();
@@ -48,10 +48,10 @@ export function createSectionsFeature({ getTodos, getCurrentProjectId, getSectio
     if (!header) return;
 
     header.innerHTML = `
-      <div class="inline-edit-form" style="flex:1;gap:6px;">
-        <input type="text" id="edit-section-name-${escapeHtmlAttr(id)}" data-section-input="edit" data-section-id="${escapeHtmlAttr(id)}" value="${escapeHtmlAttr(section.name)}" autocomplete="off" style="flex:1;">
-        <button type="button" data-section-action="save-edit" data-section-id="${escapeHtmlAttr(id)}" title="${escapeHtmlAttr(t('common.save'))}">${iconSvg('check')}</button>
-        <button type="button" data-section-action="cancel" title="${escapeHtmlAttr(t('common.cancel'))}">${iconSvg('x')}</button>
+      <div class="inline-edit-form">
+        <input type="text" id="edit-section-name-${escapeHtmlAttr(id)}" data-section-input="edit" data-section-id="${escapeHtmlAttr(id)}" value="${escapeHtmlAttr(section.name)}" autocomplete="off">
+        <button type="button" class="btn btn-secondary btn-icon" data-section-action="save-edit" data-section-id="${escapeHtmlAttr(id)}" title="${escapeHtmlAttr(t('common.save'))}">${iconSvg('check')}</button>
+        <button type="button" class="btn btn-secondary btn-icon" data-section-action="cancel" title="${escapeHtmlAttr(t('common.cancel'))}">${iconSvg('x')}</button>
       </div>
     `;
     document.getElementById(`edit-section-name-${id}`)?.focus();

@@ -30,7 +30,7 @@
   background:
     radial-gradient(circle at top left, rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.18)), transparent 40%),
     var(--bg-secondary);
-  border: 1px solid color-mix(in srgb, var(--accent) 36%, var(--border));
+  border: 0;
   border-radius: 12px;
   padding: 24px;
   width: 100%;
@@ -171,25 +171,58 @@
   width: 100%;
   min-height: 36px;
   padding: 8px 14px;
-  border: 1px solid var(--border);
+  border: 0;
   border-radius: var(--field-radius);
-  background: var(--bg-primary);
+  background: var(--bg-tertiary);
   color: var(--text-primary);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bg-primary) 12%, transparent);
   font: inherit;
   font-size: 14px;
   line-height: 1.2;
   outline: none;
-  transition: border-color .15s ease, box-shadow .15s ease, background .15s ease, opacity .15s ease;
+  transition: border-color .15s ease, box-shadow .15s ease, background .15s ease, opacity .15s ease, transform .15s ease;
+}
+
+[data-theme="light"] .ui-field,
+[data-theme="light"] .form-group input,
+[data-theme="light"] .form-group select,
+[data-theme="light"] .form-group textarea {
+  background: var(--bg-tertiary);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.12);
+}
+
+.ui-field:hover,
+.form-group input:hover,
+.form-group select:hover,
+.form-group textarea:hover {
+  background: var(--bg-hover);
+}
+
+[data-theme="light"] .ui-field:hover,
+[data-theme="light"] .form-group input:hover,
+[data-theme="light"] .form-group select:hover,
+[data-theme="light"] .form-group textarea:hover {
+  background: var(--bg-hover);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.14);
 }
 
 .ui-field:focus,
 .form-group input:focus,
 .form-group select:focus,
-.form-group textarea:focus { border-color: var(--accent); }
+.form-group textarea:focus { background: var(--bg-hover); }
 
-.ui-field:focus-visible {
-  border-color: color-mix(in srgb, var(--accent) 72%, var(--border));
-  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.18));
+[data-theme="light"] .ui-field:focus,
+[data-theme="light"] .form-group input:focus,
+[data-theme="light"] .form-group select:focus,
+[data-theme="light"] .form-group textarea:focus { background: var(--bg-hover); }
+
+.ui-field:focus-visible,
+.form-group input:focus-visible,
+.form-group select:focus-visible,
+.form-group textarea:focus-visible {
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 10%, transparent),
+    0 0 0 3px rgba(var(--accent-rgb), calc(var(--accent-intensity) * 0.13));
 }
 
 .datetime-input-wrap .ui-field {
