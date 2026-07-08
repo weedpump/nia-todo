@@ -121,7 +121,7 @@ function iconLabel(icon) {
   return value === key ? humanizeIconName(icon) : value;
 }
 
-function iconSearchText(icon, categoryLabel) {
+function iconSearchText(icon) {
   const label = iconLabel(icon);
   const searchKey = `iconPicker.iconSearch.${icon}`;
   const searchValue = t(searchKey);
@@ -130,7 +130,6 @@ function iconSearchText(icon, categoryLabel) {
     icon.replace(/-/g, ' '),
     label,
     searchValue === searchKey ? '' : searchValue,
-    categoryLabel,
   ].join(' ').toLowerCase();
 }
 
@@ -173,7 +172,7 @@ export function renderIconPicker({ container, input, selected = '', color = '#63
             <div class="icon-picker-grid">
               ${category.icons.map(name => {
                 const label = iconLabel(name);
-                const searchText = iconSearchText(name, categoryLabel);
+                const searchText = iconSearchText(name);
                 return `
                 <button type="button" class="btn btn-secondary btn-icon icon-picker-option ${safeSelected === name ? 'is-selected' : ''}" data-value="${escapeHtmlAttr(name)}" data-search="${escapeHtmlAttr(searchText)}" title="${escapeHtmlAttr(label)}" aria-label="${escapeHtmlAttr(label)}" style="color:${safePickerColor}" aria-selected="${safeSelected === name ? 'true' : 'false'}">
                   ${iconSvg(name)}
