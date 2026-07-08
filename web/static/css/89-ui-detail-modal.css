@@ -20,7 +20,9 @@
 
 .ui-detail-modal.ui-detail-view .ui-detail-modal-header,
 .ui-detail-modal.todo-detail-view .ui-detail-modal-header {
+  display: flex;
   align-items: center;
+  gap: 12px;
   width: calc(100% - 56px);
   max-width: 920px;
   margin: 0 auto;
@@ -196,11 +198,13 @@
 .ui-detail-modal .ui-detail-header-actions {
   position: absolute;
   top: 19px;
-  right: max(66px, calc((100% - 920px) / 2 + 42px));
+  right: max(28px, calc((100% - 920px) / 2));
   z-index: 3;
   display: flex;
   align-items: center;
   gap: 8px;
+  min-height: 40px;
+  line-height: 0;
 }
 
 .ui-detail-modal .ui-detail-header-actions .btn[hidden],
@@ -208,11 +212,22 @@
   display: none;
 }
 
+.ui-detail-modal .ui-detail-header-menu-toggle {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 40px;
+  margin: 0;
+  line-height: 0;
+}
+
 .ui-detail-modal .ui-detail-header-menu-toggle > summary {
+  box-sizing: border-box;
   width: 40px;
   height: 40px;
   min-height: 40px;
-  display: inline-flex;
+  padding: 0;
+  display: flex;
   align-items: center;
   justify-content: center;
   list-style: none;
@@ -220,6 +235,7 @@
   border-radius: 0;
   background: transparent;
   color: var(--text-muted);
+  line-height: 0;
   cursor: pointer;
 }
 
@@ -260,26 +276,31 @@
 
 .ui-detail-modal.ui-detail-view .modal-close-x,
 .ui-detail-modal.todo-detail-view .modal-close-x {
-  display: inline-flex;
+  box-sizing: border-box;
+  display: flex;
   align-items: center;
   justify-content: center;
   top: 19px;
   right: max(28px, calc((100% - 920px) / 2));
   width: 40px;
   height: 40px;
+  min-height: 40px;
   padding: 0;
   border: 0;
   border-radius: 0;
   background: transparent;
   color: var(--text-muted);
   font-size: 0;
+  line-height: 0;
 }
 
 .ui-detail-modal.ui-detail-view .modal-close-x .ui-icon,
 .ui-detail-modal.todo-detail-view .modal-close-x .ui-icon,
 .ui-detail-modal .ui-detail-header-menu-toggle > summary .ui-icon {
+  display: block;
   width: 20px;
   height: 20px;
+  flex: 0 0 auto;
 }
 
 .ui-detail-modal.ui-detail-view .modal-close-x:hover,
@@ -290,6 +311,11 @@
   background: transparent;
   border: 0;
   outline: none;
+}
+
+.ui-detail-modal .ui-detail-header-actions .modal-close-x {
+  position: static;
+  flex: 0 0 auto;
 }
 
 @media (max-width: 1180px) {
@@ -313,7 +339,7 @@
   }
 
   .ui-detail-modal .ui-detail-header-actions {
-    right: 52px;
+    right: 12px;
   }
 }
 
@@ -337,7 +363,7 @@
 
   .ui-detail-modal .ui-detail-header-actions {
     top: 13px;
-    right: 52px;
+    right: 12px;
   }
 
   .ui-detail-modal .ui-detail-header-actions .btn {
