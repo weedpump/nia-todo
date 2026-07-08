@@ -8,7 +8,6 @@
 ## Branches
 
 - `develop` -> active development / current-codebase fixes
-- `nia-todo-next` -> integration branch for the next larger feature release; see `docs/next-release-plan.md`
 - `main` -> stable versions / tags
 
 ## Release
