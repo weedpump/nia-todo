@@ -14,27 +14,43 @@ const LEGACY_ICON_ALIASES = {
 export const ICON_PICKER_CATEGORIES = [
   {
     labelKey: 'iconPicker.category.everyday',
-    icons: ['home', 'inbox', 'shopping-cart', 'calendar', 'calendar-days', 'clock', 'bell', 'heart', 'star', 'users', 'user-plus', 'mail'],
+    icons: ['home', 'inbox', 'shopping-cart', 'shopping-bag', 'store', 'calendar', 'calendar-days', 'clock', 'alarm-clock', 'bell', 'heart', 'star', 'gift', 'coffee', 'utensils', 'chef-hat', 'sofa', 'bed', 'bath'],
   },
   {
     labelKey: 'iconPicker.category.workTech',
-    icons: ['briefcase', 'folder', 'file-text', 'book-open', 'code', 'terminal', 'server', 'database', 'cloud', 'wifi', 'laptop', 'cpu', 'keyboard', 'smartphone'],
+    icons: ['briefcase', 'building', 'building-2', 'warehouse', 'factory', 'folder', 'file-text', 'book-open', 'notebook-pen', 'newspaper', 'presentation', 'code', 'terminal', 'server', 'database', 'cloud', 'network', 'wifi', 'laptop', 'monitor', 'tablet', 'smartphone', 'cpu', 'hard-drive', 'keyboard', 'bot', 'brain'],
   },
   {
     labelKey: 'iconPicker.category.organization',
-    icons: ['layout-dashboard', 'chart-line', 'tag', 'bookmark', 'flag', 'map-pin', 'archive', 'package', 'clipboard', 'download', 'share-2', 'image'],
+    icons: ['layout-dashboard', 'chart-line', 'chart-bar', 'chart-column', 'target', 'tag', 'bookmark', 'flag', 'map', 'map-pin', 'map-pinned', 'route', 'archive', 'package', 'clipboard', 'list-todo', 'download', 'upload', 'share-2', 'link', 'image', 'camera'],
+  },
+  {
+    labelKey: 'iconPicker.category.financeEducation',
+    icons: ['wallet', 'banknote', 'piggy-bank', 'circle-dollar-sign', 'landmark', 'graduation-cap', 'school', 'languages', 'award', 'crown'],
+  },
+  {
+    labelKey: 'iconPicker.category.peopleHealth',
+    icons: ['users', 'user', 'user-plus', 'person-standing', 'accessibility', 'venus', 'mars', 'smile', 'handshake', 'heart-handshake', 'hand-heart', 'hand-helping', 'message-circle', 'mail', 'phone', 'hospital', 'stethoscope', 'heart-pulse', 'life-buoy', 'dumbbell', 'baby'],
+  },
+  {
+    labelKey: 'iconPicker.category.placesNature',
+    icons: ['church', 'cross', 'house-heart', 'house-plus', 'flower', 'flower-2', 'trees', 'tree-pine', 'tree-deciduous', 'leaf', 'sprout', 'shrub', 'fence', 'land-plot', 'mountain', 'waves', 'bird', 'cat', 'dog', 'rabbit', 'turtle', 'squirrel', 'snail', 'worm', 'paw-print'],
+  },
+  {
+    labelKey: 'iconPicker.category.mediaCreative',
+    icons: ['palette', 'paintbrush', 'pen-tool', 'pencil', 'music', 'headphones', 'radio', 'podcast', 'film', 'clapperboard', 'tv', 'gamepad-2', 'ticket', 'drama'],
   },
   {
     labelKey: 'iconPicker.category.statusSecurity',
-    icons: ['check-circle', 'check', 'flame', 'triangle-alert', 'shield', 'lock-keyhole', 'key-round', 'ban', 'circle'],
+    icons: ['check-circle', 'check', 'flame', 'triangle-alert', 'shield', 'shield-check', 'lock-keyhole', 'key-round', 'fingerprint', 'ban', 'circle', 'battery', 'zap'],
   },
   {
     labelKey: 'iconPicker.category.toolsMovement',
-    icons: ['settings', 'wrench', 'hammer', 'bug', 'rocket', 'car', 'plane'],
+    icons: ['settings', 'wrench', 'hammer', 'bug', 'shovel', 'axe', 'pickaxe', 'scissors', 'spray-can', 'plug', 'cable', 'rocket', 'car', 'bike', 'bus', 'train', 'truck', 'tractor', 'ship', 'plane', 'ambulance', 'tent', 'volleyball'],
   },
   {
     labelKey: 'iconPicker.category.system',
-    icons: ['sun', 'moon', 'monitor', 'search', 'menu', 'plus', 'edit-3', 'trash-2', 'refresh-cw', 'arrow-left', 'log-out', 'x'],
+    icons: ['sun', 'moon', 'globe', 'earth', 'search', 'menu', 'plus', 'edit-3', 'trash-2', 'refresh-cw', 'arrow-left', 'log-out', 'x'],
   },
 ];
 
