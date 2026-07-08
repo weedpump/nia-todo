@@ -64,15 +64,19 @@
   color: var(--accent-hover);
 }
 
-.nav-btn.add-btn {
+.sidebar .nav-btn.add-btn {
   color: var(--text-muted);
   font-size: 13px;
   border-radius: 999px;
 }
 
-.nav-btn.add-btn:hover {
+.sidebar .nav-btn.add-btn:hover {
   background: var(--bg-hover);
   color: var(--accent);
+}
+
+.add-project-icon {
+  color: currentColor;
 }
 
 .nav-item-with-action {
@@ -185,15 +189,18 @@
   flex-shrink: 0;
 }
 
-.invite-action {
+.invite-action,
+.invite-action.btn-icon {
   width: 28px;
+  min-width: 28px;
   height: 28px;
+  min-height: 28px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   border-radius: 999px;
-  background: var(--bg-tertiary);
+  background: transparent;
   color: var(--text-secondary);
   cursor: pointer;
   font-size: 14px;

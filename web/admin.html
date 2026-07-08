@@ -520,6 +520,7 @@ import { initAutoScrollbars } from './static/js/features/auto-scrollbars.js';
 import { hydrateIcons, iconSvg } from './static/js/icons/lucide-icons.js';
 const ADMIN_SELECT_IDS = [
   'email-smtp-security',
+  'oidc-token-auth-method',
   'braindump-llm-provider',
   'braindump-system-prompt-mode',
   'braindump-stt-provider',
@@ -1435,6 +1436,7 @@ function renderOidcConfig(config = {}) {
   document.getElementById('oidc-client-secret').value = '';
   document.getElementById('oidc-public-client').checked = !!config.public_client;
   document.getElementById('oidc-token-auth-method').value = config.token_auth_method || 'auto';
+  window.refreshAdminSelects?.();
   document.getElementById('oidc-scopes').value = config.scopes || 'openid email profile';
   document.getElementById('oidc-redirect-uri').textContent = config.redirect_uri || '/api/oidc/callback';
   document.getElementById('oidc-client-secret-note').textContent = config.client_secret_configured ? adminTr('admin.oidc.secretStored') : adminTr('admin.oidc.secretMissing');

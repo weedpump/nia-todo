@@ -109,10 +109,10 @@ export function renderTodoItem(t) {
             <button type="button" class="ui-menu-item" role="menuitem" data-todo-action="snooze" data-todo-id="${todoIdAttr}" data-snooze-mode="next-week">${escapeHtml(i18nT('todo.snooze.nextWeek'))}</button>
           </div>
         </details>
-        <button type="button" data-todo-action="toggle-pin" data-todo-id="${todoIdAttr}" class="todo-pin-btn ${pinned ? 'active' : ''}" title="${escapeHtml(pinned ? i18nT('todo.unpin') : i18nT('todo.pin'))}">${iconSvg('star')}</button>
-        <button type="button" data-todo-action="duplicate" data-todo-id="${todoIdAttr}" title="${escapeHtml(i18nT('todo.duplicate'))}">${iconSvg('copy')}</button>
-        <button type="button" data-todo-action="delete" data-todo-id="${todoIdAttr}" title="${escapeHtml(i18nT('common.delete'))}">${iconSvg('trash-2')}</button>
-        <button type="button" class="todo-actions-reveal-btn" data-todo-actions-reveal="true" aria-expanded="false" aria-label="${escapeHtml(i18nT('common.more'))}" title="${escapeHtml(i18nT('common.more'))}">${iconSvg('chevron-left')}</button>
+        <button type="button" data-todo-action="toggle-pin" data-todo-id="${todoIdAttr}" class="btn btn-secondary btn-icon todo-pin-btn ${pinned ? 'active' : ''}" title="${escapeHtml(pinned ? i18nT('todo.unpin') : i18nT('todo.pin'))}">${iconSvg('star')}</button>
+        <button type="button" class="btn btn-secondary btn-icon" data-todo-action="duplicate" data-todo-id="${todoIdAttr}" title="${escapeHtml(i18nT('todo.duplicate'))}">${iconSvg('copy')}</button>
+        <button type="button" class="btn btn-danger btn-icon" data-todo-action="delete" data-todo-id="${todoIdAttr}" title="${escapeHtml(i18nT('common.delete'))}">${iconSvg('trash-2')}</button>
+        <button type="button" class="btn btn-secondary btn-icon todo-actions-reveal-btn" data-todo-actions-reveal="true" aria-expanded="false" aria-label="${escapeHtml(i18nT('common.more'))}" title="${escapeHtml(i18nT('common.more'))}">${iconSvg('chevron-left')}</button>
       </div>
     </div>
   `;
