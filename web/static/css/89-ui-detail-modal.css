@@ -20,7 +20,9 @@
 
 .ui-detail-modal.ui-detail-view .ui-detail-modal-header,
 .ui-detail-modal.todo-detail-view .ui-detail-modal-header {
+  display: flex;
   align-items: center;
+  gap: 12px;
   width: calc(100% - 56px);
   max-width: 920px;
   margin: 0 auto;
@@ -196,7 +198,7 @@
 .ui-detail-modal .ui-detail-header-actions {
   position: absolute;
   top: 19px;
-  right: max(66px, calc((100% - 920px) / 2 + 42px));
+  right: max(28px, calc((100% - 920px) / 2));
   z-index: 3;
   display: flex;
   align-items: center;
@@ -206,6 +208,10 @@
 .ui-detail-modal .ui-detail-header-actions .btn[hidden],
 .ui-detail-modal .ui-detail-header-menu-toggle[hidden] {
   display: none;
+}
+
+.ui-detail-modal .ui-detail-header-menu-toggle {
+  position: relative;
 }
 
 .ui-detail-modal .ui-detail-header-menu-toggle > summary {
@@ -292,6 +298,11 @@
   outline: none;
 }
 
+.ui-detail-modal .ui-detail-header-actions .modal-close-x {
+  position: static;
+  flex: 0 0 auto;
+}
+
 @media (max-width: 1180px) {
   .ui-detail-modal.ui-detail-view .ui-detail-modal-content,
   .ui-detail-modal.todo-detail-view .ui-detail-modal-content {
@@ -313,7 +324,7 @@
   }
 
   .ui-detail-modal .ui-detail-header-actions {
-    right: 52px;
+    right: 12px;
   }
 }
 
@@ -337,7 +348,7 @@
 
   .ui-detail-modal .ui-detail-header-actions {
     top: 13px;
-    right: 52px;
+    right: 12px;
   }
 
   .ui-detail-modal .ui-detail-header-actions .btn {
