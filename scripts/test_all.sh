@@ -81,29 +81,62 @@ run_step "Packaging Backup/Restore" python3 scripts/test_packaging_backup.py
 run_step "Admin Password Reset" python3 scripts/test_admin_password_reset.py
 
 run_step "Service Worker Precache" node scripts/test_sw_precache.mjs
-run_step_retry "Frontend Smoke" node scripts/test_frontend_smoke.mjs
-run_step_retry "Frontend App Core" node scripts/test_frontend_app.mjs
-run_step_retry "Frontend Subtasks" node scripts/test_frontend_subtasks.mjs
-run_step_retry "Frontend Quick Add Inline" node scripts/test_frontend_quick_add_inline.mjs
-run_step_retry "Frontend Todo Interactive Click Isolation" node scripts/test_frontend_todo_interactive_clicks.mjs
-run_step_retry "Frontend DragDrop" node scripts/test_frontend_dragdrop.mjs
-run_step_retry "Frontend Setup" node scripts/test_frontend_setup.mjs
-run_step_retry "Frontend Password Reset" node scripts/test_frontend_password_reset.mjs
-run_step_retry "Frontend MFA Login" node scripts/test_frontend_mfa_login.mjs
-run_step_retry "Frontend Sharing" node scripts/test_frontend_sharing.mjs
-run_step_retry "Frontend Security" node scripts/test_frontend_security.mjs
-run_step_retry "Frontend Session" node scripts/test_frontend_session.mjs
-run_step_retry "Frontend Offline Sync" node scripts/test_frontend_offline_sync.mjs
-run_step_retry "Frontend Realtime Sync" node scripts/test_frontend_realtime_sync.mjs
+run_step "Frontend Quick Add Inline" node scripts/test_frontend_quick_add_inline.mjs
+run_step "Frontend Security" node scripts/test_frontend_security.mjs
+run_step "Frontend Native Passkeys" node scripts/test_frontend_native_passkeys.mjs
+run_step_retry "Frontend Android Todo Gestures" node scripts/test_frontend_android_todo_gestures.mjs
 run_step "Sync Feature Race Guard" node scripts/test_sync_feature_race.mjs
+
+frontend_suite_active=0
+restore_frontend_suite() {
+  if [[ "$frontend_suite_active" == "1" ]]; then
+    frontend_suite_active=0
+    node scripts/frontend_db_suite.mjs restore
+  fi
+}
+trap restore_frontend_suite EXIT
+
+step "Frontend DB Suite"
+node scripts/frontend_db_suite.mjs begin
+frontend_suite_active=1
+
+run_frontend_step() {
+  NIA_TODO_FRONTEND_DB_SUITE=1 run_step "$@"
+}
+
+run_frontend_step_retry() {
+  NIA_TODO_FRONTEND_DB_SUITE=1 run_step_retry "$@"
+}
+
+run_frontend_shared_step_retry() {
+  NIA_TODO_FRONTEND_DB_SUITE=1 NIA_TODO_FRONTEND_DB_SHARED=1 run_step_retry "$@"
+}
+
+step "Frontend Shared DB"
+node scripts/frontend_db_suite.mjs prepare-shared
+run_frontend_shared_step_retry "Frontend Smoke" node scripts/test_frontend_smoke.mjs
+run_frontend_shared_step_retry "Frontend App Core" node scripts/test_frontend_app.mjs
+run_frontend_shared_step_retry "Frontend Subtasks" node scripts/test_frontend_subtasks.mjs
+run_frontend_shared_step_retry "Frontend Todo Interactive Click Isolation" node scripts/test_frontend_todo_interactive_clicks.mjs
+run_frontend_shared_step_retry "Frontend DragDrop" node scripts/test_frontend_dragdrop.mjs
+
+step "Frontend Isolated DB"
+run_frontend_step_retry "Frontend Setup" node scripts/test_frontend_setup.mjs
+run_frontend_step_retry "Frontend Password Reset" node scripts/test_frontend_password_reset.mjs
+run_frontend_step_retry "Frontend MFA Login" node scripts/test_frontend_mfa_login.mjs
+run_frontend_step_retry "Frontend Sharing" node scripts/test_frontend_sharing.mjs
+run_frontend_step_retry "Frontend Session" node scripts/test_frontend_session.mjs
+run_frontend_step_retry "Frontend Offline Sync" node scripts/test_frontend_offline_sync.mjs
+run_frontend_step_retry "Frontend Realtime Sync" node scripts/test_frontend_realtime_sync.mjs
 
 
 # Native/static release checks remain part of the release gate because packaging/native regressions are release blockers.
-run_step_retry "Frontend Native Runtime Config" node scripts/test_frontend_native_runtime_config.mjs
-run_step "Frontend Native Passkeys" node scripts/test_frontend_native_passkeys.mjs
-run_step_retry "Frontend Native Offline" node scripts/test_frontend_native_offline.mjs
-run_step_retry "Frontend Android Todo Gestures" node scripts/test_frontend_android_todo_gestures.mjs
-run_step_retry "Frontend Android Reminder Rehydration" node scripts/test_frontend_android_reminder_rehydration.mjs
+run_frontend_step_retry "Frontend Native Runtime Config" node scripts/test_frontend_native_runtime_config.mjs
+run_frontend_step_retry "Frontend Native Offline" node scripts/test_frontend_native_offline.mjs
+run_frontend_step_retry "Frontend Android Reminder Rehydration" node scripts/test_frontend_android_reminder_rehydration.mjs
+
+restore_frontend_suite
+trap - EXIT
 run_step "Native Android Location Reminder" node scripts/test_native_android_location_reminders.mjs
 run_step "Native Android WebView Cache Migration" node scripts/test_native_android_webview_cache_migration.mjs
 run_step "Native Android Reminder Alarm Policy" node scripts/test_native_android_reminder_alarm_policy.mjs

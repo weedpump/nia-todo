@@ -188,4 +188,4 @@ assert(syncSource.includes('undo_grace_until') && syncSource.includes('Date.now(
 const todosFeatureSource = readFileSync(new URL('../web/static/js/features/todos.js', import.meta.url), 'utf8');
 assert(todosFeatureSource.includes("addToSyncQueue('DELETE_TODO', { id, undo_grace_until: Date.now() + 5000 })"), 'todo delete must enqueue a deferred hard-delete so undo can preserve subtasks, comments, and attachments');
 
-console.log('✅ Frontend-Security-Regressionen bestanden');
+console.log('✅ Frontend security regressions passed');

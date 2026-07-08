@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Unit-style tests for SMTP/email services with fake SMTP transports."""
 
+import contextlib
+import io
 import os
 import sys
 import uuid
@@ -233,7 +235,8 @@ def test_tls_ssl_send_without_starttls():
 
 def main():
     try:
-        run_migrations()
+        with contextlib.redirect_stdout(io.StringIO()):
+            run_migrations()
         test_secret_redaction()
         test_starttls_auth_send()
         test_branded_email_templates()
