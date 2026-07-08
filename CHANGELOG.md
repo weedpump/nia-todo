@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - Added admin attachment controls for global upload enablement, comma-separated allowed file extensions, default 5 GB quota, per-user quota overrides, and user-visible storage usage.
 
 ### Changed
+- Refined section header count alignment so the unsorted section reserves the same action-space rhythm as deletable sections.
 - Refined remaining Next UI primitives by hydrating the admin OIDC auth-method select, aligning Todo row, section inline, invite, and add-project sidebar actions with shared button/navigation patterns, and documenting the current calm button weight contract.
 - Refined the admin panel shell, login screen, header actions, navigation, section cards, OIDC placement, light-theme surfaces, desktop action alignment, and mobile form/action layouts to match the shared Next UI primitives more closely.
 - Rounded shared dropdown and menu option hover surfaces into pill-style items so user menus, select menus, and related dropdowns align with the sidebar navigation language.

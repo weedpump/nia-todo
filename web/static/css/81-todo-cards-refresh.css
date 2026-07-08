@@ -585,6 +585,13 @@
   background: var(--text-muted);
 }
 
+.section-unsorted::after {
+  content: "";
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+}
+
 .section-header .section-delete {
   width: 28px;
   height: 28px;
