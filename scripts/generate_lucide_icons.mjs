@@ -212,7 +212,7 @@ const ICON_NAMES = [
   'user-plus',
   'users',
   'utensils',
-  'venus',
+  'venus', 'venus-and-mars',
   'volleyball',
   'wallet',
   'warehouse',

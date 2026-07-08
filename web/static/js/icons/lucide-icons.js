@@ -30,7 +30,7 @@ export const ICON_PICKER_CATEGORIES = [
   },
   {
     labelKey: 'iconPicker.category.peopleHealth',
-    icons: ['users', 'user', 'user-plus', 'person-standing', 'accessibility', 'venus', 'mars', 'smile', 'handshake', 'heart-handshake', 'hand-heart', 'hand-helping', 'message-circle', 'mail', 'phone', 'hospital', 'stethoscope', 'heart-pulse', 'life-buoy', 'dumbbell', 'baby'],
+    icons: ['users', 'user', 'user-plus', 'person-standing', 'accessibility', 'venus', 'mars', 'venus-and-mars', 'smile', 'handshake', 'heart-handshake', 'hand-heart', 'hand-helping', 'message-circle', 'mail', 'phone', 'hospital', 'stethoscope', 'heart-pulse', 'life-buoy', 'dumbbell', 'baby'],
   },
   {
     labelKey: 'iconPicker.category.placesNature',
