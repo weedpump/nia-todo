@@ -14,12 +14,6 @@
   margin-bottom: 12px;
 }
 
-#todo-modal.todo-detail-view .todo-subtasks-card .ui-section-icon,
-#todo-modal.todo-detail-view .todo-attachments-card .ui-section-icon,
-#todo-modal.todo-detail-view .todo-comments-card .ui-section-icon {
-  display: none;
-}
-
 #todo-modal.todo-detail-view .todo-subtasks-card .ui-section-heading h4,
 #todo-modal.todo-detail-view .todo-attachments-card .ui-section-heading h4,
 #todo-modal.todo-detail-view .todo-comments-card .ui-section-heading h4 {

@@ -1,24 +1,6 @@
 /* Todo detail mobile viewport and fullscreen tail fixes */
 
 @media (max-width: 768px) {
-  #todo-modal.todo-detail-view .todo-modal-content {
-    height: 100svh;
-    height: 100dvh;
-    max-height: 100vh;
-    max-height: 100svh;
-    max-height: 100dvh;
-    min-height: 0;
-    overflow: hidden;
-  }
-
-  #todo-modal.todo-detail-view .todo-modal-body {
-    min-height: 0;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
-    padding-bottom: clamp(14px, 3vw, 18px);
-  }
-
   #todo-modal.todo-detail-view .todo-editor-shell {
     padding-bottom: 0;
   }

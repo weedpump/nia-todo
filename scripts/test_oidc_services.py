@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Focused tests for generic OIDC config and local identity mapping."""
 
+import contextlib
 import hashlib
+import io
 import json
 import os
 import sqlite3
@@ -42,7 +44,8 @@ class FakeRequest:
 
 
 def main():
-    run_migrations()
+    with contextlib.redirect_stdout(io.StringIO()):
+        run_migrations()
     with get_db() as db:
         db.execute("UPDATE app_config SET value = ? WHERE key = 'public_base_url'", ("https://todo.example.org",))
         db.commit()

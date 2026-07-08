@@ -1,49 +1,5 @@
 /* Todo detail workspace base. */
-#todo-modal.todo-detail-view .modal-overlay {
-  background: color-mix(in srgb, var(--bg-primary) 78%, rgba(0,0,0,.38));
-  backdrop-filter: blur(12px);
-}
-
-#todo-modal.todo-detail-view .todo-modal-content {
-  max-width: none;
-  max-height: none;
-  background:
-    radial-gradient(circle at 12% -8%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 32%),
-    linear-gradient(180deg, color-mix(in srgb, var(--bg-secondary) 96%, var(--bg-primary)), var(--bg-primary));
-}
-
-#todo-modal.todo-detail-view .todo-modal-header {
-  align-items: center;
-  padding: 18px 64px 16px 28px;
-  border-bottom-color: color-mix(in srgb, var(--border) 54%, transparent);
-  background: transparent;
-}
-
-#todo-modal.todo-detail-view .todo-modal-title-icon {
-  width: 34px;
-  height: 34px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-  box-shadow: none;
-}
-
-#todo-modal.todo-detail-view .todo-modal-header h3 {
-  font-size: 14px;
-  color: var(--text-muted);
-  font-weight: 650;
-  letter-spacing: .01em;
-}
-
-#todo-modal.todo-detail-view .todo-modal-header p {
-  display: none;
-}
-
-#todo-modal.todo-detail-view .todo-modal-body {
-  background: transparent;
-}
-
 #todo-modal.todo-detail-view .todo-editor-shell {
-  margin: 0 auto;
   display: grid;
   align-items: start;
 }
@@ -72,18 +28,6 @@
   display: none;
 }
 
-#todo-modal.todo-detail-view #todo-title {
-  width: 100%;
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 52%, transparent);
-  box-shadow: none;
-  color: var(--text-primary);
-}
-
-#todo-modal.todo-detail-view #todo-title:focus {
-  outline: none;
-  border-bottom-color: color-mix(in srgb, var(--accent) 72%, transparent);
-}
-
 #todo-modal.todo-detail-view .desc-live-preview {
   display: block;
   padding: 0;
@@ -106,20 +50,6 @@
 
 #todo-modal.todo-detail-view .todo-collapsible-chevron {
   display: none;
-}
-
-#todo-modal.todo-detail-view .ui-section-icon {
-  width: 30px;
-  height: 30px;
-  border: 0;
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-}
-
-#todo-modal.todo-detail-view .ui-section-heading h4 {
-  font-size: 13px;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: .08em;
 }
 
 #todo-modal.todo-detail-view .ui-section-heading p {

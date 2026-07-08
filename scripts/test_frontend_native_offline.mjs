@@ -1,15 +1,68 @@
 #!/usr/bin/env node
 import { spawn } from 'node:child_process';
+import http from 'node:http';
+import { createServer } from 'node:net';
 import { withFreshDb, launchPage, BASE_URL, USERNAME, USER_PASSWORD } from './frontend_test_lib.mjs';
 
-const LOCAL_PORT = Number(process.env.NIA_TODO_NATIVE_TEST_PORT || 8765);
+async function getFreePort() {
+  return await new Promise((resolve, reject) => {
+    const server = createServer();
+    server.on('error', reject);
+    server.listen(0, '127.0.0.1', () => {
+      const { port } = server.address();
+      server.close(() => resolve(port));
+    });
+  });
+}
+
+const LOCAL_PORT = Number(process.env.NIA_TODO_NATIVE_TEST_PORT || await getFreePort());
 const LOCAL_URL = `http://tauri.localhost:${LOCAL_PORT}`;
 const BASE_ORIGIN = new URL(BASE_URL).origin;
 
+const EXPECTED_NATIVE_STATIC_404_PATHS = [
+  '/api/oidc/status',
+  '/api/password-setup/features',
+  '/api/setup/status',
+];
+
+function shouldSuppressNativeStaticServerLogLine(line) {
+  if (line.includes('code 404, message File not found')) return true;
+  return EXPECTED_NATIVE_STATIC_404_PATHS.some(path => line.includes(`GET ${path} `) && line.includes(' 404 '));
+}
+
 function startStaticServer() {
-  return spawn('python3', ['-m', 'http.server', String(LOCAL_PORT), '--bind', '127.0.0.1', '--directory', 'web'], {
+  const server = spawn('python3', ['-m', 'http.server', String(LOCAL_PORT), '--bind', '127.0.0.1', '--directory', 'web'], {
     cwd: '~/projects/nia-todo-dev',
     stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  server.stderr.setEncoding('utf8');
+  let stderrBuffer = '';
+  server.stderr.on('data', chunk => {
+    stderrBuffer += chunk;
+    const lines = stderrBuffer.split('\n');
+    stderrBuffer = lines.pop() || '';
+    for (const line of lines) {
+      if (!shouldSuppressNativeStaticServerLogLine(line)) {
+        process.stderr.write(`[native-static-server] ${line}\n`);
+      }
+    }
+  });
+  server.stderr.on('end', () => {
+    if (stderrBuffer && !shouldSuppressNativeStaticServerLogLine(stderrBuffer)) {
+      process.stderr.write(`[native-static-server] ${stderrBuffer}\n`);
+    }
+  });
+  return server;
+}
+
+async function fetchLocalIndexStatus() {
+  return await new Promise((resolve, reject) => {
+    const request = http.get({ hostname: '127.0.0.1', port: LOCAL_PORT, path: '/index.html' }, response => {
+      response.resume();
+      response.on('end', () => resolve(response.statusCode));
+    });
+    request.on('error', reject);
+    request.setTimeout(1_000, () => request.destroy(new Error('Native local asset server probe timed out')));
   });
 }
 
@@ -17,8 +70,8 @@ async function waitForStaticServer(timeoutMs = 10_000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     try {
-      const response = await fetch(`http://127.0.0.1:${LOCAL_PORT}/index.html`, { cache: 'no-store' });
-      if (response.ok) return;
+      const status = await fetchLocalIndexStatus();
+      if (status >= 200 && status < 300) return;
     } catch {}
     await new Promise(resolve => setTimeout(resolve, 200));
   }

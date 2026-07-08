@@ -34,7 +34,13 @@
     function preventGestureZoom(event) {
       event.preventDefault();
     }
+    function preventTrackpadPinchZoom(event) {
+      // Precision touchpad pinch gestures are exposed as ctrl/meta + wheel by browsers.
+      // Keyboard/menu browser zoom stays available; ctrl/meta + wheel zoom is blocked too.
+      if (event.ctrlKey || event.metaKey) event.preventDefault();
+    }
     document.addEventListener('touchmove', preventTouchZoom, { passive: false });
+    document.addEventListener('wheel', preventTrackpadPinchZoom, { passive: false });
     document.addEventListener('gesturestart', preventGestureZoom, { passive: false });
     document.addEventListener('gesturechange', preventGestureZoom, { passive: false });
     document.addEventListener('gestureend', preventGestureZoom, { passive: false });
@@ -82,9 +88,11 @@
       '/static/css/70-braindump.css',
       '/static/css/71-settings.css',
       '/static/css/80-form-todo-modal.css',
+      '/static/css/80-todo-detail-workspace-base.css',
       '/static/css/81-todo-cards-refresh.css',
       '/static/css/82-entity-modals.css',
       '/static/css/83-focus-selects.css',
+      '/static/css/89-ui-detail-modal.css',
       '/static/css/90-minimal-list.css',
       '/static/css/90-detail-extras.css',
       '/static/css/90-attachments-preview.css',
@@ -272,9 +280,7 @@
   <div id="login-overlay" class="login-overlay hidden">
     <div class="login-box">
       <div class="login-theme-toggle">
-        <button class="btn btn-secondary btn-icon theme-option" data-theme="light" title="Light" data-i18n-title-key="common.theme.light"><span data-icon="sun"></span></button>
-        <button class="btn btn-secondary btn-icon theme-option" data-theme="dark" title="Dark" data-i18n-title-key="common.theme.dark"><span data-icon="moon"></span></button>
-        <button class="btn btn-secondary btn-icon theme-option" data-theme="system" title="System" data-i18n-title-key="common.theme.system"><span data-icon="monitor"></span></button>
+        <button class="btn btn-secondary btn-icon login-theme-cycle-btn" type="button" data-theme-cycle title="System"><span data-theme-cycle-icon data-icon="monitor"></span></button>
       </div>
       <div class="login-brand">
         <img src="/static/icons/icon-192.png" class="login-logo" alt="nia-todo">
@@ -296,29 +302,29 @@
             <label for="login-mfa-code" id="login-mfa-code-label" data-i18n-key="auth.mfa.codeLabel">2FA-Code</label>
             <input type="text" class="ui-field" id="login-mfa-code" placeholder="Enter code" data-i18n-placeholder-key="auth.mfa.codePlaceholder" autocomplete="one-time-code" inputmode="numeric">
           </div>
-          <button type="button" class="btn btn-secondary login-mfa-switch-btn hidden" id="login-mfa-switch-btn"></button>
+          <button type="button" class="btn btn-secondary login-action-btn login-mfa-switch-btn hidden" id="login-mfa-switch-btn"></button>
           <label class="login-remember-device">
             <input type="checkbox" id="login-remember-device">
             <span data-i18n-key="auth.mfa.rememberDevice">Remember this device for 30 days</span>
           </label>
-          <button type="button" class="btn btn-secondary login-back-btn" id="login-mfa-back-btn" data-i18n-key="common.back">Back</button>
+          <button type="button" class="btn btn-secondary login-action-btn login-back-btn" id="login-mfa-back-btn" data-i18n-key="common.back">Back</button>
         </div>
         <div id="login-error" class="login-error"></div>
         <div id="login-reset-panel" class="login-reset-panel hidden">
           <input type="text" class="ui-field" id="login-reset-identifier" placeholder="Username or email" data-i18n-placeholder-key="auth.usernameOrEmail" autocomplete="username">
-          <button type="button" class="btn btn-secondary login-reset-submit" id="login-reset-submit" data-i18n-key="auth.reset.requestLink">Request reset link</button>
+          <button type="button" class="btn btn-secondary login-action-btn login-reset-submit" id="login-reset-submit" data-i18n-key="auth.reset.requestLink">Request reset link</button>
           <div id="login-reset-message" class="login-reset-message"></div>
         </div>
-        <button type="submit" class="btn btn-primary login-btn" data-i18n-key="auth.signIn">Sign in</button>
+        <button type="submit" class="btn btn-primary login-action-btn login-btn" data-i18n-key="auth.signIn">Sign in</button>
         <div class="login-auth-alternatives">
           <div class="login-auth-divider"><span data-i18n-key="auth.alternativeSignIn">or</span></div>
-          <button type="button" class="btn btn-secondary login-passkey-btn hidden" id="login-oidc-btn" data-i18n-key="auth.oidc.signIn">Sign in with OIDC</button>
-          <button type="button" class="btn btn-secondary login-passkey-btn hidden" id="login-passkey-btn" data-i18n-key="auth.mfa.signInWithPasskey">Sign in with passkey</button>
+          <button type="button" class="btn btn-secondary login-action-btn login-passkey-btn hidden" id="login-oidc-btn" data-i18n-key="auth.oidc.signIn">Sign in with OIDC</button>
+          <button type="button" class="btn btn-secondary login-action-btn login-passkey-btn hidden" id="login-passkey-btn" data-i18n-key="auth.mfa.signInWithPasskey">Sign in with passkey</button>
         </div>
-        <button type="button" class="btn btn-secondary login-forgot-btn hidden" id="login-forgot-btn" data-i18n-key="auth.forgotPassword">Forgot password?</button>
+        <button type="button" class="btn btn-secondary login-action-btn login-forgot-btn hidden" id="login-forgot-btn" data-i18n-key="auth.forgotPassword">Forgot password?</button>
       </form>
       <div class="login-download-divider" aria-hidden="true"></div>
-      <button type="button" class="btn btn-secondary app-download-launcher login-download-launcher" data-app-download-launcher style="display:none;">
+      <button type="button" class="btn btn-secondary login-action-btn app-download-launcher login-download-launcher" data-app-download-launcher style="display:none;">
         <span data-icon="download"></span>
         <span data-i18n-key="appDownloads.title">Apps herunterladen</span>
       </button>
@@ -339,19 +345,19 @@
 
       <nav class="nav-section">
         <div class="nav-title" data-i18n-key="nav.view">Ansicht</div>
-        <button class="nav-btn" data-filter="all">
+        <button class="nav-btn ui-nav-pill" data-filter="all">
           <span data-icon="layout-dashboard"></span> <span data-i18n-key="nav.dashboard">Dashboard</span>
           <span class="badge" id="count-all">0</span>
         </button>
-        <button class="nav-btn" data-filter="focus">
+        <button class="nav-btn ui-nav-pill" data-filter="focus">
           <span data-icon="funnel"></span> <span data-i18n-key="nav.focus">Filter</span>
           <span class="badge" id="count-focus">0</span>
         </button>
-        <button class="nav-btn" data-filter="in_progress">
+        <button class="nav-btn ui-nav-pill" data-filter="in_progress">
           <span data-icon="flame"></span> <span data-i18n-key="nav.inProgress">In progress</span>
           <span class="badge" id="count-in_progress">0</span>
         </button>
-        <button class="nav-btn" data-filter="done">
+        <button class="nav-btn ui-nav-pill" data-filter="done">
           <span data-icon="check-circle"></span> <span data-i18n-key="nav.done">Erledigt</span>
           <span class="badge" id="count-done">0</span>
         </button>
@@ -360,9 +366,13 @@
       <nav class="nav-section">
         <div class="nav-title" data-i18n-key="nav.projects">Projects</div>
         <div id="project-list"></div>
-        <button class="nav-btn add-btn" data-nav-action="new-project">
-          <span data-icon="plus"></span> <span data-i18n-key="nav.addProject">Add project</span>
-        </button>
+        <div class="project-tree-item add-project-tree-item">
+          <div class="nav-item-with-action">
+            <button class="nav-btn ui-nav-pill add-btn" data-nav-action="new-project">
+              <span class="entity-icon add-project-icon" data-icon="plus"></span><span data-i18n-key="nav.addProject">Add project</span>
+            </button>
+          </div>
+        </div>
       </nav>
 
       <nav class="nav-section" id="invites-section" style="display:none;">
@@ -372,12 +382,14 @@
 
       <div class="sidebar-footer">
         <div class="user-menu-wrap sidebar-user-menu-wrap">
-          <button type="button" class="user-menu-button" id="user-menu-button" data-user-menu-action="toggle" aria-haspopup="menu" aria-expanded="false" title="User menu" data-i18n-title-key="menu.userMenu">U</button>
-          <div class="sidebar-user-meta">
-            <div class="sidebar-user-name" id="sidebar-user-name">User</div>
-            <div class="sidebar-user-email" id="sidebar-user-email">–</div>
-          </div>
-          <div class="user-menu" id="user-menu" role="menu">
+          <button type="button" class="user-menu-button" id="user-menu-button" data-user-menu-action="toggle" aria-haspopup="menu" aria-expanded="false" title="User menu" data-i18n-title-key="menu.userMenu">
+            <span class="user-menu-button-avatar" id="user-menu-button-avatar">U</span>
+            <span class="sidebar-user-meta">
+              <span class="sidebar-user-name" id="sidebar-user-name">User</span>
+              <span class="sidebar-user-email" id="sidebar-user-email">–</span>
+            </span>
+          </button>
+          <div class="ui-menu user-menu" id="user-menu" role="menu">
             <div class="user-menu-header">
               <div class="user-menu-avatar" id="user-menu-avatar">U</div>
               <div class="user-menu-identity">
@@ -385,15 +397,15 @@
                 <div class="user-menu-email" id="user-menu-email">–</div>
               </div>
             </div>
-            <button type="button" class="user-menu-item" id="menu-settings-btn" data-user-menu-action="settings" title="Settings" data-i18n-title-key="menu.settings" role="menuitem"><span data-icon="settings"></span><span data-i18n-key="menu.settings">Settings</span></button>
-            <button type="button" class="user-menu-item" id="theme-toggle-btn" data-user-menu-action="theme" role="menuitem"><span class="menu-item-icon" data-icon="monitor"></span><span class="menu-item-label">Theme: System</span></button>
-            <button type="button" class="user-menu-item accent-preset-row" id="accent-preset-row" data-user-menu-action="accent-preset" title="Preset Farbe" data-i18n-title-key="menu.presetColor" aria-expanded="false" role="menuitem"><span class="menu-item-icon accent-preset-current" id="accent-preset-current"></span><span class="menu-item-label" data-i18n-key="menu.presetColor">Preset Farbe</span><span class="accent-preset-chevron"></span></button>
+            <button type="button" class="ui-menu-item user-menu-item" id="menu-settings-btn" data-user-menu-action="settings" title="Settings" data-i18n-title-key="menu.settings" role="menuitem"><span data-icon="settings"></span><span data-i18n-key="menu.settings">Settings</span></button>
+            <button type="button" class="ui-menu-item user-menu-item" id="theme-toggle-btn" data-user-menu-action="theme" role="menuitem"><span class="menu-item-icon" data-icon="monitor"></span><span class="menu-item-label">Theme: System</span></button>
+            <button type="button" class="ui-menu-item user-menu-item accent-preset-row" id="accent-preset-row" data-user-menu-action="accent-preset" title="Preset Farbe" data-i18n-title-key="menu.presetColor" aria-expanded="false" role="menuitem"><span class="menu-item-icon accent-preset-current" id="accent-preset-current"></span><span class="menu-item-label" data-i18n-key="menu.presetColor">Preset Farbe</span><span class="accent-preset-chevron"></span></button>
             <div class="accent-preset-panel" id="accent-preset-panel" aria-label="Choose preset color" data-i18n-aria-label-key="menu.choosePresetColor"></div>
-            <button type="button" class="user-menu-item" id="sort-toggle-btn" data-user-menu-action="sort" role="menuitem"><span class="menu-item-icon">P1</span><span class="menu-item-label" data-i18n-key="menu.sort.priority">Sort: Priority</span></button>
-            <button type="button" class="user-menu-item" id="toggle-done-btn" data-user-menu-action="toggle-done" role="menuitem"><span class="menu-item-icon" data-icon="ban"></span><span class="menu-item-label">Erledigte anzeigen</span></button>
-            <button type="button" class="user-menu-item" id="project-widget-toggle-btn" data-user-menu-action="project-widget" role="menuitem"><span class="menu-item-icon" data-icon="layout-dashboard"></span><span class="menu-item-label" data-i18n-key="menu.projectWidget">Project Widget</span></button>
+            <button type="button" class="ui-menu-item user-menu-item" id="sort-toggle-btn" data-user-menu-action="sort" role="menuitem"><span class="menu-item-icon">P1</span><span class="menu-item-label" data-i18n-key="menu.sort.priority">Sort: Priority</span></button>
+            <button type="button" class="ui-menu-item user-menu-item" id="toggle-done-btn" data-user-menu-action="toggle-done" role="menuitem"><span class="menu-item-icon" data-icon="ban"></span><span class="menu-item-label">Erledigte anzeigen</span></button>
+            <button type="button" class="ui-menu-item user-menu-item" id="project-widget-toggle-btn" data-user-menu-action="project-widget" role="menuitem"><span class="menu-item-icon" data-icon="layout-dashboard"></span><span class="menu-item-label" data-i18n-key="menu.projectWidget">Project Widget</span></button>
             <div class="user-menu-separator"></div>
-            <button type="button" class="user-menu-item danger" data-user-menu-action="logout" title="Sign out" data-i18n-title-key="auth.signOut" role="menuitem"><span data-icon="log-out"></span><span data-i18n-key="auth.signOut">Sign out</span></button>
+            <button type="button" class="ui-menu-item user-menu-item danger" data-user-menu-action="logout" title="Sign out" data-i18n-title-key="auth.signOut" role="menuitem"><span data-icon="log-out"></span><span data-i18n-key="auth.signOut">Sign out</span></button>
           </div>
         </div>
 
@@ -453,7 +465,7 @@
         <div class="modal-body app-downloads-modal-body">
           <div class="web-update-icon" aria-hidden="true" data-icon="download"></div>
           <p class="app-download-modal-subtitle" data-i18n-key="appDownloads.modalSubtitle">Install nia-todo as a native app on your device.</p>
-          <section class="ui-section-card app-install-card web-install-card" data-web-install-card style="display:none;">
+          <section class="app-download-section app-install-card web-install-card" data-web-install-card style="display:none;">
             <div class="ui-section-heading app-install-card-header">
               <div class="ui-section-icon app-install-card-icon" aria-hidden="true" data-icon="smartphone"></div>
               <div>
@@ -515,10 +527,10 @@
               </ol>
             </div>
           </section>
-          <div class="ui-section-card app-download-server-box">
+          <section class="app-download-section app-download-server-box">
             <div class="app-download-server-label" data-i18n-key="appDownloads.serverHostLabel">Bitte gib in der App folgende Adresse ein:</div>
             <code class="app-download-server-host" data-app-download-server-host>–</code>
-          </div>
+          </section>
           <div class="app-downloads modal-downloads" data-app-downloads style="display:none;"></div>
         </div>
       </div>
@@ -532,18 +544,18 @@
         <button type="button" class="today-focus-btn" id="today-focus-btn" title="Heute-Fokus" data-i18n-title-key="todayFocus.toggleTitle"><span data-icon="target"></span><span data-i18n-key="todayFocus.short">Fokus</span></button>
         <button type="button" class="minimal-todos-btn" id="minimal-todos-btn" title="Minimalistische Todo-Liste" data-i18n-title-key="minimalTodos.toggleTitle"><span data-icon="brush-cleaning"></span><span data-i18n-key="minimalTodos.short">Minimal</span></button>
         <div class="search-box" id="search-box">
-          <button type="button" class="search-toggle-btn" id="search-toggle-btn" aria-label="Suche öffnen" data-i18n-aria-label-key="common.search" title="Suche" data-i18n-title-key="common.search"><span data-icon="search"></span></button>
-          <input type="text" id="search-input" placeholder="Todo suchen..." data-i18n-placeholder-key="topbar.searchTodo">
+          <button type="button" class="btn btn-secondary btn-icon search-toggle-btn" id="search-toggle-btn" aria-label="Suche öffnen" data-i18n-aria-label-key="common.search" title="Suche" data-i18n-title-key="common.search"><span data-icon="search"></span></button>
+          <input type="search" class="ui-field" id="search-input" placeholder="Todo suchen..." data-i18n-placeholder-key="topbar.searchTodo">
         </div>
         <div class="topbar-actions">
           <span id="online-status" class="status-online"></span>
           <div class="workspace-switcher topbar-workspace-switcher" id="workspace-switcher">
-            <button type="button" class="workspace-current-btn" id="workspace-current-btn" data-workspace-action="toggle-menu" aria-haspopup="menu" aria-expanded="false">
+            <button type="button" class="ui-select-trigger workspace-current-btn" id="workspace-current-btn" data-workspace-action="toggle-menu" aria-haspopup="menu" aria-expanded="false">
               <span class="workspace-current-dot" id="workspace-current-dot"></span>
               <span class="workspace-current-name" id="workspace-current-name">Workspace</span>
               <svg class="workspace-current-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
             </button>
-            <div class="workspace-menu" id="workspace-menu" role="menu"></div>
+            <div class="ui-menu workspace-menu" id="workspace-menu" role="menu"></div>
           </div>
         </div>
       </div>
@@ -561,31 +573,31 @@
   </div>
 
   <!-- Todo Modal -->
-  <div class="modal" id="todo-modal">
+  <div class="modal ui-detail-modal" id="todo-modal">
     <div class="modal-overlay" data-close-modal="todo-modal"></div>
-    <div class="modal-content todo-modal-content">
-      <div class="todo-modal-header">
-        <div class="todo-modal-title-icon" data-icon="check-circle"></div>
+    <div class="modal-content todo-modal-content ui-detail-modal-content">
+      <div class="todo-modal-header ui-detail-modal-header">
+        <div class="todo-modal-title-icon ui-detail-title-icon" data-icon="check-circle"></div>
         <div>
           <h3 id="todo-modal-title" data-i18n-key="todo.new">New todo</h3>
           <p data-i18n-key="todo.modal.subtitle">Capture the task, then add planning details only if needed.</p>
         </div>
       </div>
       <button class="modal-close-x" data-close-modal="todo-modal"><span data-icon="x"></span></button>
-      <div class="modal-body todo-modal-body">
-      <form id="todo-form" class="todo-modal-form todo-editor-shell">
+      <div class="modal-body todo-modal-body ui-detail-modal-body">
+      <form id="todo-form" class="todo-modal-form todo-editor-shell ui-detail-shell">
         <input type="hidden" id="todo-id">
-        <section class="ui-section-card todo-section-card todo-editor-section todo-editor-main todo-main-section">
-          <div class="ui-section-heading">
-            <div class="ui-section-icon" data-icon="file-text"></div>
+        <section class="ui-section-card ui-detail-section ui-detail-title-section todo-section-card todo-editor-section todo-editor-main todo-main-section">
+          <div class="ui-section-heading ui-detail-section-heading">
+            <div class="ui-section-icon ui-detail-section-icon" data-icon="file-text"></div>
             <div>
               <h4 data-i18n-key="todo.section.content">Inhalt</h4>
               <p data-i18n-key="todo.section.contentHint">Titel und optionale Beschreibung.</p>
             </div>
           </div>
-          <div class="form-group todo-title-group">
+          <div class="form-group todo-title-group ui-detail-title-group">
             <label data-i18n-key="todo.title">Titel</label>
-            <input class="ui-field" type="text" id="todo-title" required placeholder="Was ist zu tun?" data-i18n-placeholder-key="todo.titlePlaceholder">
+            <input class="ui-field ui-detail-title-field" type="text" id="todo-title" required placeholder="Was ist zu tun?" data-i18n-placeholder-key="todo.titlePlaceholder">
             <div class="quick-add-hint" data-i18n-key="quickAdd.hint">Tipp: „Milch morgen 18:00 erinnerung:17:30 #Einkauf /Kühlung !hoch“ erkennt Deadline, Erinnerung, Projekt, Abschnitt und Priorität.</div>
             <div class="quick-add-preview" id="quick-add-preview" aria-live="polite" hidden></div>
           </div>
@@ -596,9 +608,9 @@
           </div>
         </section>
 
-        <details class="ui-section-card todo-section-card todo-editor-section todo-collapsible-card todo-subtasks-card" id="todo-subtasks-panel">
-          <summary class="ui-section-heading todo-collapsible-summary">
-            <div class="ui-section-icon" data-icon="list-todo"></div>
+        <details class="ui-section-card ui-detail-section todo-section-card todo-editor-section todo-collapsible-card todo-subtasks-card" id="todo-subtasks-panel">
+          <summary class="ui-section-heading ui-detail-section-heading todo-collapsible-summary">
+            <div class="ui-section-icon ui-detail-section-icon" data-icon="list-todo"></div>
             <div>
               <h4 data-i18n-key="todo.subtasks">Subtasks</h4>
               <p data-i18n-key="todo.subtasks.hint">Add checklist items for this todo.</p>
@@ -620,9 +632,9 @@
         </details>
 
 
-        <details class="ui-section-card todo-section-card todo-editor-section todo-collapsible-card todo-comments-card" id="todo-comments-panel">
-          <summary class="ui-section-heading todo-collapsible-summary">
-            <div class="ui-section-icon" data-icon="notebook-pen"></div>
+        <details class="ui-section-card ui-detail-section todo-section-card todo-editor-section todo-collapsible-card todo-comments-card" id="todo-comments-panel">
+          <summary class="ui-section-heading ui-detail-section-heading todo-collapsible-summary">
+            <div class="ui-section-icon ui-detail-section-icon" data-icon="notebook-pen"></div>
             <div>
               <h4 data-i18n-key="todo.comments">Comments</h4>
               <p data-i18n-key="todo.comments.hint">Add comments to this todo.</p>
@@ -642,9 +654,9 @@
           </div>
         </details>
 
-        <details class="ui-section-card todo-section-card todo-editor-section todo-collapsible-card todo-attachments-card" id="todo-attachments-panel">
-          <summary class="ui-section-heading todo-collapsible-summary">
-            <div class="ui-section-icon" data-icon="paperclip"></div>
+        <details class="ui-section-card ui-detail-section todo-section-card todo-editor-section todo-collapsible-card todo-attachments-card" id="todo-attachments-panel">
+          <summary class="ui-section-heading ui-detail-section-heading todo-collapsible-summary">
+            <div class="ui-section-icon ui-detail-section-icon" data-icon="paperclip"></div>
             <div>
               <h4 data-i18n-key="todo.attachments">Attachments</h4>
               <p data-i18n-key="todo.attachments.hint">Attach files or photos to this todo.</p>
@@ -668,16 +680,14 @@
         </details>
 
 
-        <details class="ui-section-card todo-section-card todo-editor-section todo-editor-meta-panel todo-collapsible-card" id="todo-organize-panel">
-          <summary class="ui-section-heading todo-collapsible-summary">
-            <div class="ui-section-icon" data-icon="settings"></div>
+        <section class="ui-section-card ui-detail-section todo-section-card todo-editor-section todo-editor-meta-panel" id="todo-organize-panel">
+          <div class="ui-section-heading ui-detail-section-heading">
+            <div class="ui-section-icon ui-detail-section-icon" data-icon="settings"></div>
             <div>
               <h4 data-i18n-key="todo.section.organize">Einordnen</h4>
               <p data-i18n-key="todo.section.organizeHint">Priorität, Status, Projekt und Section.</p>
             </div>
-            <span class="todo-collapsible-spacer"></span>
-            <span class="todo-collapsible-chevron" data-icon="chevron-down" aria-hidden="true"></span>
-          </summary>
+          </div>
           <div class="ui-field-grid two-columns">
             <div class="form-group">
               <label data-i18n-key="todo.priority">Priority</label>
@@ -715,18 +725,16 @@
               <span data-i18n-key="todo.pinned">Oben anpinnen</span>
             </label>
           </div>
-        </details>
+        </section>
 
-        <details class="ui-section-card todo-section-card todo-editor-section todo-editor-meta-panel todo-collapsible-card" id="todo-schedule-panel">
-          <summary class="ui-section-heading todo-collapsible-summary">
-            <div class="ui-section-icon" data-icon="calendar-days"></div>
+        <section class="ui-section-card ui-detail-section todo-section-card todo-editor-section todo-editor-meta-panel" id="todo-schedule-panel">
+          <div class="ui-section-heading ui-detail-section-heading">
+            <div class="ui-section-icon ui-detail-section-icon" data-icon="calendar-days"></div>
             <div>
               <h4 data-i18n-key="todo.section.schedule">Planung</h4>
               <p data-i18n-key="todo.section.scheduleHint">Deadline und Erinnerung, falls diese Aufgabe zeitkritisch ist.</p>
             </div>
-            <span class="todo-collapsible-spacer"></span>
-            <span class="todo-collapsible-chevron" data-icon="chevron-down" aria-hidden="true"></span>
-          </summary>
+          </div>
           <div class="ui-field-grid two-columns">
             <div class="form-group">
               <label data-i18n-key="todo.deadline">Deadline</label>
@@ -803,7 +811,7 @@
             </div>
             <div id="todo-location-error" class="form-error compact"></div>
           </div>
-        </details>
+        </section>
       </form>
       </div>
     </div>
@@ -1016,19 +1024,17 @@
                 <p data-i18n-key="settings.places.hint">Save labels like Home or Work with an address. BrainDump and location reminders use these places.</p>
               </div>
             </div>
-            <div class="settings-place-form ui-field-grid two-columns">
-              <div class="form-group">
+            <div class="settings-place-form settings-place-add-row">
+              <div class="form-group settings-place-name-group">
                 <label for="settings-place-name" data-i18n-key="settings.places.nameLabel">Label</label>
                 <input type="text" id="settings-place-name" maxlength="120" placeholder="e.g. Home" data-i18n-placeholder-key="settings.places.namePlaceholder">
               </div>
-              <div class="form-group">
+              <div class="form-group settings-place-address-group">
                 <label for="settings-place-address" data-i18n-key="settings.places.addressLabel">Address</label>
                 <input type="text" id="settings-place-address" maxlength="500" placeholder="Street, city" data-i18n-placeholder-key="settings.places.addressPlaceholder">
               </div>
-            </div>
-            <div class="settings-actions-row">
-              <button type="button" class="btn btn-primary" data-user-settings-action="save-place"><span data-icon="plus" id="settings-place-save-icon"></span> <span id="settings-place-save-label" data-i18n-key="settings.places.save">Save place</span></button>
-              <button type="button" class="btn btn-secondary" id="settings-place-cancel-edit" data-user-settings-action="cancel-place-edit" hidden data-i18n-key="common.cancel">Cancel</button>
+              <button type="button" class="btn btn-secondary settings-place-save-btn" data-user-settings-action="save-place" disabled><span data-icon="plus" id="settings-place-save-icon"></span> <span id="settings-place-save-label" data-i18n-key="settings.places.save">Save place</span></button>
+              <button type="button" class="btn btn-secondary settings-place-cancel-btn" id="settings-place-cancel-edit" data-user-settings-action="cancel-place-edit" hidden data-i18n-key="common.cancel">Cancel</button>
             </div>
             <div id="settings-places-error" class="settings-field-error"></div>
             <div id="settings-places-success" class="settings-field-success"></div>
@@ -1090,7 +1096,7 @@
                 At least 8 characters, 1 uppercase, 1 lowercase, 1 digit, 1 special character
               </div>
               <div class="settings-card-actions">
-                <button type="button" class="btn btn-primary" data-user-settings-action="change-password" data-i18n-key="settings.password.title">Change password</button>
+                <button type="button" class="btn btn-secondary" id="settings-change-password-btn" data-user-settings-action="change-password" data-i18n-key="settings.password.title" disabled>Change password</button>
               </div>
               <div id="settings-pw-error" class="settings-field-error"></div>
               <div id="settings-pw-success" class="settings-field-success"></div>
@@ -1101,8 +1107,8 @@
                 <h5><span data-icon="shield"></span> <span data-i18n-key="settings.2fa.title">Two-factor authentication</span></h5>
                 <div id="settings-2fa-status" class="settings-status-pill" data-i18n-key="settings.2fa.statusChecking">Status: Checking...</div>
               </div>
-              <div id="settings-2fa-actions" class="settings-action-row">
-                <button type="button" class="btn btn-primary" data-user-settings-action="start-totp" data-i18n-key="settings.2fa.setupAuthenticator">Set up authenticator app</button>
+              <div id="settings-2fa-actions" class="settings-action-row settings-2fa-action-row">
+                <button type="button" class="btn btn-secondary" data-user-settings-action="start-totp" data-i18n-key="settings.2fa.setupAuthenticator">Set up authenticator app</button>
                 <button type="button" class="btn btn-secondary" data-user-settings-action="add-passkey" data-i18n-key="settings.2fa.addPasskey">Add passkey</button>
                 <button type="button" class="btn btn-secondary" id="settings-2fa-regenerate-recovery-btn" data-user-settings-action="regenerate-recovery-codes" data-i18n-key="settings.2fa.regenerateRecovery">Generate new recovery codes</button>
                 <button type="button" class="btn btn-danger" id="settings-2fa-disable-btn" data-user-settings-action="disable-2fa" data-i18n-key="settings.2fa.disable">Disable 2FA</button>
@@ -1162,7 +1168,7 @@
               <!-- API keys loaded dynamically -->
             </div>
             <div class="settings-action-row">
-              <button class="btn btn-primary" data-api-key-action="create" data-i18n-key="settings.apiKeys.create">Create new API key</button>
+              <button class="btn btn-secondary" data-api-key-action="create" data-i18n-key="settings.apiKeys.create">Create new API key</button>
               <div class="app-resource-links settings-resource-links api-settings-resource-links">
                 <a class="btn btn-secondary" href="/api" target="_blank" rel="noopener"><span data-icon="book-open"></span> <span data-i18n-key="resource.apiDocs">API-Doku</span></a>
               </div>
@@ -1256,106 +1262,121 @@
       </div>
     </div>
   </div>
-  <div class="modal" id="workspace-modal">
+  <div class="modal ui-detail-modal ui-detail-view" id="workspace-modal">
     <div class="modal-overlay" data-workspace-action="close-modal"></div>
-    <div class="modal-content entity-modal-content workspace-modal-content">
-      <div class="entity-modal-header">
-        <div class="entity-modal-title-icon" data-icon="briefcase"></div>
+    <div class="modal-content entity-modal-content workspace-modal-content ui-detail-modal-content">
+      <div class="entity-modal-header workspace-modal-header ui-detail-modal-header">
+        <div class="entity-modal-title-icon ui-detail-title-icon" data-icon="briefcase"></div>
         <div>
           <h3 id="workspace-modal-title" data-i18n-key="workspace.new">Neuer Workspace</h3>
           <p data-i18n-key="workspace.modalHint">Organisiere Projekte nach Kontext, Team oder Bereich.</p>
         </div>
+        <div class="ui-detail-header-actions">
+          <button type="submit" form="workspace-form" class="btn btn-primary" id="workspace-save-btn" data-i18n-key="common.save">Save</button>
+          <details class="ui-detail-header-menu-toggle" id="workspace-detail-header-menu" hidden>
+            <summary aria-label="More actions" data-i18n-aria-label-key="common.more"><span data-icon="menu"></span></summary>
+            <div class="ui-detail-header-menu ui-menu" role="menu">
+              <button type="button" class="ui-menu-item danger" id="workspace-delete-btn" data-workspace-action="delete" style="display:none;" role="menuitem"><span data-icon="trash-2"></span> <span data-i18n-key="todo.delete">Delete</span></button>
+            </div>
+          </details>
+        </div>
       </div>
       <button class="modal-close-x" data-workspace-action="close-modal"><span data-icon="x"></span></button>
-      <div class="modal-body entity-modal-body">
-        <form id="workspace-form" class="entity-modal-form">
+      <div class="modal-body entity-modal-body ui-detail-modal-body">
+        <form id="workspace-form" class="entity-modal-form ui-detail-shell">
           <input type="hidden" id="workspace-id">
-          <section class="ui-section-card">
-            <div class="ui-section-heading">
-              <div class="ui-section-icon" data-icon="briefcase"></div>
+          <section class="ui-section-card ui-detail-section ui-detail-title-section workspace-title-section">
+            <div class="form-group workspace-title-group ui-detail-title-group">
+              <label data-i18n-key="common.name">Name</label>
+              <input class="ui-field ui-detail-title-field" type="text" id="workspace-name" required maxlength="80" placeholder="e.g. Personal, Work" data-i18n-placeholder-key="workspace.namePlaceholder">
+            </div>
+          </section>
+          <section class="ui-section-card ui-detail-section">
+            <div class="ui-section-heading ui-detail-section-heading">
+              <div class="ui-section-icon ui-detail-section-icon" data-icon="palette"></div>
               <div>
                 <h4 data-i18n-key="workspace.details">Details</h4>
                 <p data-i18n-key="workspace.detailsHint">Name, Farbe und Icon für diesen Workspace.</p>
               </div>
             </div>
-            <div class="ui-field-grid two-columns">
-              <div class="form-group">
-                <label data-i18n-key="common.name">Name</label>
-                <input type="text" id="workspace-name" required maxlength="80" placeholder="e.g. Personal, Work" data-i18n-placeholder-key="workspace.namePlaceholder">
-              </div>
+            <div class="ui-field-grid two-columns workspace-appearance-grid">
               <div class="form-group">
                 <label data-i18n-key="common.color">Farbe</label>
                 <input type="color" id="workspace-color" value="#6366f1">
                 <div id="workspace-color-picker" class="color-picker" aria-label="Choose workspace color" data-i18n-aria-label-key="workspace.chooseColor"></div>
               </div>
-            </div>
-            <div class="form-group">
-              <label data-i18n-key="workspace.icon">Icon (optional)</label>
-              <input type="hidden" id="workspace-icon">
-              <div id="workspace-icon-picker" class="icon-picker" aria-label="Choose workspace icon" data-i18n-aria-label-key="workspace.chooseIcon"></div>
+              <div class="form-group">
+                <label data-i18n-key="workspace.icon">Icon (optional)</label>
+                <input type="hidden" id="workspace-icon">
+                <div id="workspace-icon-picker" class="icon-picker" aria-label="Choose workspace icon" data-i18n-aria-label-key="workspace.chooseIcon"></div>
+              </div>
             </div>
             <div id="workspace-error" class="settings-field-error"></div>
           </section>
         </form>
       </div>
-      <div class="modal-actions split-actions entity-modal-actions">
-        <button type="button" class="btn btn-danger" id="workspace-delete-btn" data-workspace-action="delete" style="display:none;" data-i18n-key="todo.delete">Delete</button>
-        <div class="modal-actions-right">
-          <button type="button" class="btn btn-secondary" data-workspace-action="close-modal" data-i18n-key="common.cancel">Cancel</button>
-          <button type="submit" form="workspace-form" class="btn btn-primary" data-i18n-key="common.save">Save</button>
-        </div>
-      </div>
     </div>
   </div>
 
-  <div class="modal" id="project-modal">
+  <div class="modal ui-detail-modal ui-detail-view" id="project-modal">
     <div class="modal-overlay" data-close-modal="project-modal"></div>
-    <div class="modal-content entity-modal-content project-modal-content">
-      <div class="entity-modal-header">
-        <div class="entity-modal-title-icon" data-icon="folder"></div>
+    <div class="modal-content entity-modal-content project-modal-content ui-detail-modal-content">
+      <div class="entity-modal-header project-modal-header ui-detail-modal-header">
+        <div class="entity-modal-title-icon ui-detail-title-icon" data-icon="folder"></div>
         <div>
           <h3 id="project-modal-title" data-i18n-key="project.new">New project</h3>
           <p data-i18n-key="project.modalHint">Strukturiere Todos mit Farbe, Icon und optionaler Hierarchie.</p>
         </div>
+        <div class="ui-detail-header-actions">
+          <button type="submit" form="project-form" class="btn btn-primary" id="project-save-btn" data-i18n-key="common.save">Save</button>
+          <details class="ui-detail-header-menu-toggle" id="project-detail-header-menu" hidden>
+            <summary aria-label="More actions" data-i18n-aria-label-key="common.more"><span data-icon="menu"></span></summary>
+            <div class="ui-detail-header-menu ui-menu" role="menu">
+              <button type="button" class="ui-menu-item danger" id="project-delete-btn" data-project-action="delete-from-modal" style="display:none;" role="menuitem"><span data-icon="trash-2"></span> <span data-i18n-key="project.delete">Delete project</span></button>
+            </div>
+          </details>
+        </div>
       </div>
       <button class="modal-close-x" data-close-modal="project-modal"><span data-icon="x"></span></button>
-      <div class="modal-body entity-modal-body">
-        <form id="project-form" class="entity-modal-form">
+      <div class="modal-body entity-modal-body ui-detail-modal-body">
+        <form id="project-form" class="entity-modal-form ui-detail-shell">
           <input type="hidden" id="project-id">
-          <section class="ui-section-card">
-            <div class="ui-section-heading">
-              <div class="ui-section-icon" data-icon="folder"></div>
+          <section class="ui-section-card ui-detail-section ui-detail-title-section project-title-section">
+            <div class="form-group project-title-group ui-detail-title-group">
+              <label data-i18n-key="common.name">Name</label>
+              <input class="ui-field ui-detail-title-field" type="text" id="project-name" required placeholder="Projektname" data-i18n-placeholder-key="project.namePlaceholder">
+            </div>
+          </section>
+          <section class="ui-section-card ui-detail-section">
+            <div class="ui-section-heading ui-detail-section-heading">
+              <div class="ui-section-icon ui-detail-section-icon" data-icon="folder"></div>
               <div>
                 <h4 data-i18n-key="project.details">Details</h4>
-                <p data-i18n-key="project.detailsHint">Name, Farbe und Icon für dieses Projekt.</p>
+                <p data-i18n-key="project.detailsHint">Farbe und Icon für dieses Projekt.</p>
               </div>
             </div>
-            <div class="ui-field-grid two-columns">
-              <div class="form-group">
-                <label data-i18n-key="common.name">Name</label>
-                <input type="text" id="project-name" required>
-              </div>
+            <div class="ui-field-grid two-columns project-appearance-grid">
               <div class="form-group">
                 <label data-i18n-key="common.color">Farbe</label>
                 <input type="color" id="project-color" value="#6366f1">
                 <div id="project-color-picker" class="color-picker" aria-label="Choose project color" data-i18n-aria-label-key="project.chooseColor"></div>
               </div>
-            </div>
-            <div class="form-group">
-              <label data-i18n-key="project.icon">Icon (optional)</label>
-              <input type="hidden" id="project-icon">
-              <div id="project-icon-picker" class="icon-picker" aria-label="Choose project icon" data-i18n-aria-label-key="project.chooseIcon"></div>
+              <div class="form-group">
+                <label data-i18n-key="project.icon">Icon (optional)</label>
+                <input type="hidden" id="project-icon">
+                <div id="project-icon-picker" class="icon-picker" aria-label="Choose project icon" data-i18n-aria-label-key="project.chooseIcon"></div>
+              </div>
             </div>
           </section>
-          <section class="ui-section-card">
-            <div class="ui-section-heading">
-              <div class="ui-section-icon" data-icon="layout-dashboard"></div>
+          <section class="ui-section-card ui-detail-section">
+            <div class="ui-section-heading ui-detail-section-heading">
+              <div class="ui-section-icon ui-detail-section-icon" data-icon="layout-dashboard"></div>
               <div>
                 <h4 data-i18n-key="project.organization">Einordnung</h4>
                 <p data-i18n-key="project.organizationHint">Workspace und Parent-Projekt bestimmen, wo das Projekt erscheint.</p>
               </div>
             </div>
-            <div class="ui-field-grid project-organization-grid">
+            <div class="ui-field-grid two-columns project-organization-grid">
               <div class="form-group" id="project-display-workspace-group" style="display:none;">
                 <label data-i18n-key="project.displayWorkspace">Anzeigen in Workspace</label>
                 <select class="ui-field" id="project-display-workspace-id"></select>
@@ -1370,9 +1391,9 @@
           </section>
         </form>
 
-        <section id="project-sharing-section" class="ui-section-card project-sharing-card" style="display:none;">
-          <div class="ui-section-heading">
-            <div class="ui-section-icon" data-icon="share-2"></div>
+        <section id="project-sharing-section" class="ui-section-card ui-detail-section project-sharing-card ui-detail-shell" style="display:none;">
+          <div class="ui-section-heading ui-detail-section-heading">
+            <div class="ui-section-icon ui-detail-section-icon" data-icon="share-2"></div>
             <div>
               <h4 data-i18n-key="project.share.sharedWith">Geteilt mit</h4>
               <p data-i18n-key="project.share.hint">Lade andere Nutzer zu diesem Projekt ein oder verwalte bestehende Mitglieder.</p>
@@ -1384,22 +1405,19 @@
             <div id="project-share-row" class="form-group project-share-row">
               <label data-i18n-key="project.share.inviteUser">Invite user</label>
               <div class="project-share-inline">
-                <input id="project-share-username" type="text" class="form-control" placeholder="Username or email" data-i18n-placeholder-key="project.share.usernamePlaceholder">
+                <input id="project-share-username" type="text" class="ui-field" placeholder="Username or email" data-i18n-placeholder-key="project.share.usernamePlaceholder">
                 <button type="button" class="btn btn-primary" data-project-sharing-action="invite" data-i18n-key="project.share.invite">Einladen</button>
               </div>
               <div id="project-share-error" class="form-error"></div>
             </div>
           </div>
-          <div id="project-share-start-row" class="project-share-start-row">
+          <div id="project-share-start-row" class="project-share-start-row ui-detail-action-row">
             <button type="button" class="btn btn-secondary" data-project-sharing-action="show-share-input"><span data-icon="share-2"></span> <span data-i18n-key="project.share.start">Teilen</span></button>
           </div>
-          <button type="button" class="btn btn-secondary project-leave-btn" id="project-leave-btn" data-project-sharing-action="leave" style="display:none;" data-i18n-key="project.share.leave">Leave project</button>
+          <div class="project-share-start-row ui-detail-action-row" id="project-leave-row" style="display:none;">
+            <button type="button" class="btn btn-secondary" id="project-leave-btn" data-project-sharing-action="leave" data-i18n-key="project.share.leave">Leave project</button>
+          </div>
         </section>
-      </div>
-      <div class="modal-actions entity-modal-actions">
-        <button type="button" class="btn btn-danger" id="project-delete-btn" data-project-action="delete-from-modal" style="margin-right:auto;display:none;"><span data-icon="trash-2"></span> <span data-i18n-key="project.delete">Delete project</span></button>
-        <button type="button" class="btn btn-secondary" data-close-modal="project-modal" data-i18n-key="common.cancel">Cancel</button>
-        <button type="submit" form="project-form" class="btn btn-primary" id="project-save-btn" data-i18n-key="common.save">Save</button>
       </div>
     </div>
   </div>
@@ -1422,8 +1440,8 @@
   <!-- Undo Toast -->
   <div class="toast-container" id="toast-container" style="display:none;">
     <span id="toast-message"></span>
-    <button class="toast-undo" id="toast-undo" data-i18n-key="common.undo">Undo</button>
-    <button class="toast-close" id="toast-close"><span data-icon="x"></span></button>
+    <button type="button" class="btn btn-primary toast-undo" id="toast-undo" data-i18n-key="common.undo">Undo</button>
+    <button type="button" class="btn btn-secondary btn-icon toast-close" id="toast-close" aria-label="Toast schließen" data-i18n-aria-label-key="common.close"><span data-icon="x"></span></button>
   </div>
 
   <script type="module" src="/static/js/main.js?v=auto-scrollbars"></script>

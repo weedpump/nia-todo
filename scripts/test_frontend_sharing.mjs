@@ -250,8 +250,10 @@ async function run() {
     }
     
     // Accept via UI button
-    await page.locator('.invite-action.invite-accept').first().click();
-    await page.getByText(/Einladung angenommen|Invitation accepted/).waitFor({ state: 'visible', timeout: 10000 });
+    await page.evaluate(() => window.closeModal?.('web-update-modal'));
+    await page.locator('#web-update-modal.active').waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {});
+    await page.locator('.invite-item').filter({ hasText: 'Sharing Test Project' }).locator('.invite-action.invite-accept').click();
+    await page.getByText(/Einladung angenommen|Invitation accepted/).waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
     
     // Invites section should disappear
     await page.locator('#invites-section').waitFor({ state: 'hidden', timeout: 10000 });

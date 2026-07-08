@@ -9,6 +9,14 @@
   margin: 10px 0;
 }
 
+#settings-modal .settings-2fa-setup-card {
+  padding: 14px 0 0;
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, var(--border) 36%, transparent);
+  border-radius: 0;
+  background: transparent;
+}
+
 .settings-2fa-setup-header strong,
 .settings-2fa-subtitle {
   display: block;
@@ -131,6 +139,18 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+#settings-modal .settings-device-row {
+  padding: 10px 0;
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, var(--border) 30%, transparent);
+  border-radius: 0;
+  background: transparent;
+}
+
+#settings-modal .settings-device-row:first-child {
+  border-top: 0;
 }
 
 .settings-device-row strong {

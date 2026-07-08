@@ -26,66 +26,89 @@
 .braindump-fab:active { transform: translateY(0) scale(.98); }
 
 .braindump-modal { z-index: 360; }
-.braindump-modal-content {
-  max-width: 680px;
+.braindump-modal.braindump-modal.ui-detail-modal.ui-detail-view .braindump-modal-content {
+  width: min(1080px, calc(100vw - 40px));
+  height: auto !important;
+  min-height: 0 !important;
+  max-width: none;
+  max-height: min(90vh, 820px) !important;
   padding: 0;
-  border-radius: 26px;
+  border-radius: 30px;
   overflow: hidden;
-  max-height: min(90vh, 760px);
   display: flex;
   flex-direction: column;
   background:
-    radial-gradient(circle at 18% 0%, rgba(var(--accent-rgb), calc(var(--accent-intensity) * .34)), transparent 36%),
-    radial-gradient(circle at 86% 14%, rgba(34,197,94,.16), transparent 30%),
-    var(--bg-secondary);
+    radial-gradient(circle at 12% -8%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 32%),
+    linear-gradient(180deg, color-mix(in srgb, var(--bg-secondary) 96%, var(--bg-primary)), var(--bg-primary));
 }
 .braindump-hero {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 14px;
-  padding: 22px 24px 12px;
+  gap: 12px;
+  width: calc(100% - 56px);
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 18px 48px 16px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 54%, transparent);
 }
-.braindump-hero h3 { margin: 0; padding: 0; border: 0; font-size: 24px; }
-.braindump-hero p { margin: 4px 0 0; color: var(--text-secondary); font-size: 14px; }
-.braindump-close { display: inline-flex; position: static; width: 36px; height: 36px; align-items: center; justify-content: center; border-radius: 999px; background: color-mix(in srgb, var(--bg-tertiary) 76%, transparent); }
-.braindump-close svg { width: 18px; height: 18px; }
+.braindump-hero h3 { margin: 0; padding: 0; border: 0; color: var(--text-primary); font-size: 20px; line-height: 1.12; }
+.braindump-hero p { margin: 4px 0 0; color: var(--text-muted); font-size: 13px; }
+.braindump-close { display: inline-flex; position: absolute; top: 19px; right: max(28px, calc((100% - 920px) / 2)); width: 40px; height: 40px; align-items: center; justify-content: center; border: 0; border-radius: 0; background: transparent; color: var(--text-muted); }
+.braindump-close:hover,
+.braindump-close:focus-visible { color: var(--text-primary); background: transparent; outline: none; }
+.braindump-close svg { width: 20px; height: 20px; }
 .braindump-orb {
-  width: 58px;
-  height: 58px;
-  border-radius: 22px;
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: white;
-  background: linear-gradient(135deg, var(--accent), var(--accent-hover));
-  box-shadow: 0 16px 34px rgba(var(--accent-rgb), calc(var(--accent-intensity) * .42));
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  box-shadow: none;
 }
-.braindump-orb svg { width: 28px; height: 28px; }
+.braindump-orb svg {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  stroke-width: 2;
+}
 .braindump-modal.is-recording .braindump-orb { animation: braindump-pulse 1.1s ease-in-out infinite; }
 
-.braindump-body { padding: 12px 24px 18px; overflow-y: auto; min-height: 0; }
+.braindump-body {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1 1 auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.braindump-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.braindump-section-heading .ui-section-icon {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.braindump-section-heading .ui-section-icon .ui-icon {
+  width: 18px;
+  height: 18px;
+  stroke-width: 2.2;
+}
+
 .braindump-stage {
   --bd-level: .08;
   --bd-peak: .1;
   position: relative;
-  overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
-  border-radius: 24px;
-  padding: 22px 18px;
-  background:
-    radial-gradient(circle at 50% 8%, rgba(var(--accent-rgb), calc(var(--accent-intensity) * .22)), transparent 34%),
-    color-mix(in srgb, var(--bg-primary) 76%, transparent);
-}
-.braindump-stage::before {
-  content: '';
-  position: absolute;
-  inset: auto 18% -46px;
-  height: 92px;
-  border-radius: 999px;
-  background: rgba(var(--accent-rgb), calc(var(--accent-intensity) * var(--bd-peak) * .42));
-  filter: blur(22px);
-  pointer-events: none;
+  overflow: visible;
 }
 .braindump-wave {
   position: relative;
@@ -94,18 +117,23 @@
   align-items: center;
   justify-content: center;
   gap: 5px;
-  min-height: 96px;
-  margin-bottom: 14px;
+  width: min(420px, 100%);
+  height: 58px;
+  min-height: 0;
+  margin: 2px auto 0;
+  overflow: hidden;
+  contain: paint;
 }
 .braindump-wave span {
   width: 6px;
   height: calc(var(--h, 16) * 1px);
   min-height: 10px;
-  max-height: 86px;
+  max-height: 64px;
   border-radius: 999px;
   background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 56%, #fff), var(--accent));
   opacity: calc(.26 + var(--bd-level) * .72);
-  transform: scaleY(calc(.52 + var(--bd-level) * 1.7));
+  transform: scaleY(calc(.5 + var(--bd-level) * 1.05));
+  transform-origin: center;
   transition: height .08s linear, transform .08s linear, opacity .12s ease;
 }
 .braindump-modal.is-processing:not(.is-recording) .braindump-wave span {
@@ -113,21 +141,24 @@
   transform: scaleY(1);
   transition: height .16s ease, opacity .18s ease;
 }
-.braindump-status { position: relative; z-index: 1; text-align: center; font-size: 18px; font-weight: 850; color: var(--text-primary); }
-.braindump-processing { position: relative; z-index: 1; margin: 10px auto 0; display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; color: var(--text-secondary); font-size: 13px; }
-.braindump-processing[hidden] { display: none !important; }
-.braindump-spinner { width: 16px; height: 16px; border-radius: 999px; border: 2px solid color-mix(in srgb, var(--accent) 24%, var(--border)); border-top-color: var(--accent); animation: braindump-spin .75s linear infinite; }
-.braindump-hint { position: relative; z-index: 1; margin-top: 6px; text-align: center; color: var(--text-secondary); font-size: 13px; }
-.braindump-transcript {
+.braindump-processing {
   position: relative;
   z-index: 1;
-  margin-top: 14px;
-  padding: 10px 12px;
-  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
-  border-radius: 14px;
+  margin: 10px auto 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
   color: var(--text-secondary);
-  background: color-mix(in srgb, var(--bg-secondary) 78%, transparent);
   font-size: 13px;
+}
+.braindump-processing[hidden] { display: none !important; }
+.braindump-spinner { width: 16px; height: 16px; border-radius: 999px; border: 2px solid color-mix(in srgb, var(--accent) 24%, var(--border)); border-top-color: var(--accent); animation: braindump-spin .75s linear infinite; }
+.braindump-transcript {
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.5;
   overflow-wrap: anywhere;
 }
 .braindump-error {
@@ -139,19 +170,32 @@
   color: var(--danger);
   font-size: 13px;
 }
-.braindump-results { margin-top: 16px; }
-.braindump-results-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; }
-.braindump-results-head div { display:flex; flex-direction:column; gap:2px; }
-.braindump-results-head span { color: var(--text-secondary); font-size: 13px; }
+.braindump-results { margin-top: 0; }
+.braindump-results-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.braindump-results-head p { color: var(--text-secondary); font-size: 13px; }
 .btn-sm { padding: 7px 10px; font-size: 12px; }
-.braindump-candidates { display:flex; flex-direction:column; gap:14px; }
+.braindump-candidates {
+  display:flex;
+  flex-direction:column;
+  gap:18px;
+  max-height: min(34vh, 360px);
+  overflow-y: auto;
+  padding-right: 4px;
+  scrollbar-gutter: stable;
+}
 .braindump-candidate-group { display:flex; flex-direction:column; gap:8px; }
 .braindump-candidate-group-head {
   display:flex;
   align-items:center;
   justify-content:space-between;
   gap:10px;
-  padding: 0 2px;
+  padding: 0;
   color: var(--text-primary);
   font-size: 13px;
   font-weight: 800;
@@ -165,48 +209,91 @@
 .braindump-candidate-card {
   position: relative;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
+  padding: 12px 0;
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, var(--border) 34%, transparent);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
   cursor: pointer;
   animation: braindump-fly-in .36s cubic-bezier(.2,.8,.2,1) both;
   animation-delay: var(--bd-delay, 0ms);
 }
+.braindump-candidate-card:first-child { border-top: 0; }
 .braindump-modal.is-processing .braindump-candidate-card { animation: none; }
 .braindump-candidate-card > input[type="checkbox"] { position:absolute; opacity:0; pointer-events:none; }
-.braindump-candidate-card .todo-body { min-width: 0; gap: 6px; }
+.braindump-candidate-card .todo-body,
+.braindump-candidate-card .todo-body.has-meta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 7px;
+}
+
 .braindump-candidate-card .todo-main {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+  order: 1;
+}
+
+.braindump-candidate-card .todo-title {
+  align-self: start;
+  min-width: 0;
+  max-width: 100%;
+  line-height: 1.3;
+  white-space: normal;
+}
+
+.braindump-candidate-card .braindump-meta-row {
+  grid-column: auto;
+  grid-row: auto;
+  order: 2;
+  margin: 0;
+  align-self: stretch;
+  justify-self: auto;
+  width: 100%;
 }
 .braindump-edit-candidate {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   margin-left: auto;
   flex: 0 0 auto;
-  background: none;
-  border: none;
+  background: color-mix(in srgb, var(--bg-tertiary) 68%, transparent);
+  border: 0;
   color: var(--text-muted);
   cursor: pointer;
   padding: 0;
-  border-radius: 7px;
+  border-radius: 999px;
   line-height: 1;
 }
-.braindump-edit-candidate:hover { background: var(--bg-hover); color: var(--text-primary); }
+.braindump-edit-candidate:hover,
+.braindump-edit-candidate:focus-visible {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  outline: none;
+}
 .braindump-edit-candidate svg { width: 16px; height: 16px; }
-.braindump-candidate-card.is-editing .braindump-edit-candidate { color: var(--accent); }
+.braindump-candidate-card.is-editing .braindump-edit-candidate {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+}
 .braindump-quickfix-panel {
+  order: 3;
   display: grid;
   grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) minmax(0, 1fr);
   gap: 10px;
   align-items: end;
-  margin-top: 8px;
-  padding-top: 10px;
-  border-top: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 44%, transparent);
 }
 .braindump-quickfix-field {
   min-width: 0;
@@ -222,10 +309,10 @@
 .braindump-field {
   width: 100%;
   min-width: 0;
-  border: 1px solid color-mix(in srgb, var(--border) 84%, transparent);
-  border-radius: 12px;
-  background: linear-gradient(135deg, color-mix(in srgb, var(--bg-secondary) 94%, var(--bg-primary)), var(--bg-secondary));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bg-primary) 45%, transparent);
+  border: 0;
+  border-radius: var(--field-radius);
+  background: var(--bg-tertiary);
+  box-shadow: none;
   color: var(--text-primary);
   font: inherit;
   font-size: 13px;
@@ -255,9 +342,6 @@
 .braindump-ui-select.project-ui-select .ui-select-trigger,
 .braindump-ui-select .ui-select-search-input {
   min-height: 38px;
-  border-color: color-mix(in srgb, var(--border) 84%, transparent);
-  background: linear-gradient(135deg, color-mix(in srgb, var(--bg-secondary) 94%, var(--bg-primary)), var(--bg-secondary));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bg-primary) 45%, transparent);
 }
 .braindump-ui-select .ui-select-search-input:focus {
   border-color: color-mix(in srgb, var(--accent) 72%, var(--border));
@@ -267,7 +351,6 @@
 .braindump-check svg { width: 15px; height: 15px; }
 .braindump-candidate-card:not(:has(input[type="checkbox"]:checked)) { opacity: .68; }
 .braindump-candidate-card:not(:has(input[type="checkbox"]:checked)) .braindump-check { background: transparent; }
-.braindump-candidate-card .priority-dot { background: var(--accent); }
 @media (max-width: 760px) {
   .braindump-quickfix-panel { grid-template-columns: 1fr; }
 }
@@ -281,8 +364,9 @@
   flex-wrap: nowrap;
   flex: 0 0 auto;
   margin-top: 0;
-  padding: 16px 24px 22px;
-  background: color-mix(in srgb, var(--bg-secondary) 94%, transparent);
+  padding: 14px max(28px, calc((100% - 920px) / 2)) calc(16px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid color-mix(in srgb, var(--border) 54%, transparent);
+  background: color-mix(in srgb, var(--bg-primary) 82%, transparent);
 }
 .braindump-actions .btn { min-height: 40px; white-space: nowrap; }
 .braindump-actions .btn[hidden] { display: none !important; }
@@ -314,43 +398,51 @@
     height: 46px;
   }
   .braindump-fab svg { width: 22px; height: 22px; }
-  .braindump-modal-content { border-radius: 0; max-height: none; height: 100%; }
-  .braindump-hero { padding: 12px 48px 8px 14px; grid-template-columns: 42px minmax(0, 1fr); gap: 10px; }
+  .braindump-modal.braindump-modal.ui-detail-modal.ui-detail-view .braindump-modal-content {
+    inset: 0;
+    width: 100vw;
+    height: 100vh !important;
+    height: 100svh !important;
+    height: 100dvh !important;
+    max-width: none;
+    max-height: 100vh !important;
+    max-height: 100svh !important;
+    max-height: 100dvh !important;
+    border-radius: 0;
+  }
+  .braindump-hero { width: auto; max-width: none; margin: 0; padding: 12px 48px 8px 14px; grid-template-columns: 42px minmax(0, 1fr); gap: 10px; }
   .braindump-hero h3 { font-size: 19px; }
   .braindump-hero p { font-size: 12px; line-height: 1.25; }
-  .braindump-orb { width: 42px; height: 42px; border-radius: 16px; }
-  .braindump-orb svg { width: 22px; height: 22px; }
-  .braindump-close { position: absolute; top: 10px; right: 10px; }
-  .braindump-body { padding: 10px 12px; }
-  .braindump-stage { border-radius: 18px; padding: 16px 12px; }
-  .braindump-wave { gap: 3px; min-height: 70px; margin-bottom: 10px; }
-  .braindump-wave span { width: 4px; max-height: 66px; }
-  .braindump-status { font-size: 16px; }
-  .braindump-processing { margin-top: 8px; font-size: 12px; }
-  .braindump-hint { font-size: 12px; }
-  .braindump-results-head { align-items: flex-start; }
+  .braindump-orb { width: 42px; height: 42px; border-radius: 999px; }
+  .braindump-close { position: absolute; top: 13px; right: 10px; }
+  .braindump-body { width: auto; max-width: none; margin: 0; }
+  .braindump-shell { gap: 20px; }
+  .braindump-wave { gap: 3px; width: min(280px, 100%); height: 56px; min-height: 0; margin: 0 auto; }
+  .braindump-wave span { width: 4px; max-height: 48px; }
+  .braindump-processing { margin: 8px auto 0; font-size: 12px; }
+  .braindump-candidates { max-height: min(36vh, 320px); }
+  .braindump-results-head { grid-template-columns: auto minmax(0, 1fr); align-items: flex-start; }
+  .braindump-results-head .btn { grid-column: 2; justify-self: start; margin-top: 2px; }
   .braindump-actions {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 7px;
-    padding: 8px 10px calc(10px + env(safe-area-inset-bottom, 0px));
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
   }
   .braindump-actions .btn {
     width: 100%;
     min-width: 0;
-    min-height: 36px;
+    min-height: 42px;
     margin-left: 0 !important;
-    padding: 8px 9px;
-    font-size: 12px;
-    line-height: 1.15;
+    padding: 9px 14px;
     white-space: normal;
     overflow-wrap: anywhere;
     justify-content: center;
     text-align: center;
   }
-  #braindump-record { grid-column: 1 / 2; order: 1; }
-  #braindump-create { grid-column: 2 / 3; order: 1; }
+  #braindump-cancel { order: 1; }
   #braindump-retry { order: 2; }
-  #braindump-cancel { order: 3; }
+  #braindump-record,
+  #braindump-create { order: 3; }
 }
 

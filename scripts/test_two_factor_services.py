@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """2FA service/security regression tests (serial, temp DB)."""
 
+import contextlib
+import io
 import json
 import sqlite3
 import tempfile
@@ -58,7 +60,8 @@ def with_temp_db():
     db_module.DB_PATH = path
     migrate.DB_PATH = path
     try:
-        migrate.run_migrations()
+        with contextlib.redirect_stdout(io.StringIO()):
+            migrate.run_migrations()
         yield path
     finally:
         db_module.DB_PATH = original_db
