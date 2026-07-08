@@ -97,8 +97,45 @@ function currentIconPreview(icon, color) {
   return `<span class="icon-picker-current-preview"><span class="icon-picker-dot" style="background:${color}"></span></span>`;
 }
 
+function humanizeIconName(icon) {
+  return String(icon || '')
+    .split('-')
+    .filter(Boolean)
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function escapeHtmlAttr(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;');
+}
+
+function iconLabel(icon) {
+  if (!icon) return t('iconPicker.none');
+  const key = `iconPicker.icon.${icon}`;
+  const value = t(key);
+  return value === key ? humanizeIconName(icon) : value;
+}
+
+function iconSearchText(icon, categoryLabel) {
+  const label = iconLabel(icon);
+  const searchKey = `iconPicker.iconSearch.${icon}`;
+  const searchValue = t(searchKey);
+  return [
+    icon,
+    icon.replace(/-/g, ' '),
+    label,
+    searchValue === searchKey ? '' : searchValue,
+    categoryLabel,
+  ].join(' ').toLowerCase();
+}
+
 function currentIconLabel(icon) {
-  return icon || t('iconPicker.none');
+  return icon ? iconLabel(icon) : t('iconPicker.none');
 }
 
 export function renderIconPicker({ container, input, selected = '', color = '#6366f1' }) {
@@ -134,11 +171,15 @@ export function renderIconPicker({ container, input, selected = '', color = '#63
           <section class="icon-picker-section" data-category="${category.labelKey}">
             <div class="icon-picker-category-title">${categoryLabel}</div>
             <div class="icon-picker-grid">
-              ${category.icons.map(name => `
-                <button type="button" class="btn btn-secondary btn-icon icon-picker-option ${safeSelected === name ? 'is-selected' : ''}" data-value="${name}" data-search="${name.replace(/-/g, ' ')} ${categoryLabel.toLowerCase()}" title="${name}" style="color:${safePickerColor}" aria-selected="${safeSelected === name ? 'true' : 'false'}">
+              ${category.icons.map(name => {
+                const label = iconLabel(name);
+                const searchText = iconSearchText(name, categoryLabel);
+                return `
+                <button type="button" class="btn btn-secondary btn-icon icon-picker-option ${safeSelected === name ? 'is-selected' : ''}" data-value="${escapeHtmlAttr(name)}" data-search="${escapeHtmlAttr(searchText)}" title="${escapeHtmlAttr(label)}" aria-label="${escapeHtmlAttr(label)}" style="color:${safePickerColor}" aria-selected="${safeSelected === name ? 'true' : 'false'}">
                   ${iconSvg(name)}
                 </button>
-              `).join('')}
+              `;
+              }).join('')}
             </div>
           </section>
         `;
