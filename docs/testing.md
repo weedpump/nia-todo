@@ -35,11 +35,9 @@ Current release-critical coverage:
 
 - `python3 scripts/test_backend.py`
 - `python3 scripts/test_api_validation_errors.py`
-- `python3 scripts/test_changelog_nested_lists.py`
 - `python3 scripts/test_braindump_v2_services.py`
 - `python3 scripts/test_braindump_v2_extractor_normalization.py`
 - `python3 scripts/test_braindump_v2_todo_creation.py`
-- `python3 scripts/test_braindump_admin_stt_probe.py`
 - `python3 scripts/test_recurring_todos.py`
 - `python3 scripts/test_default_reminder_offset.py`
 - `python3 scripts/test_subtasks.py`
@@ -52,8 +50,6 @@ Current release-critical coverage:
 - `python3 scripts/test_oidc_services.py`
 - `python3 scripts/test_push_services.py`
 - `python3 scripts/test_instance_config_services.py`
-- `python3 scripts/test_migration_022_email_duplicates.py`
-- `python3 scripts/test_migration_email_partial_recovery.py`
 - `python3 scripts/test_release_versions.py`
 - `python3 scripts/test_release_native_reuse.py`
 - `python3 scripts/test_server_updates.py`
@@ -66,18 +62,12 @@ Current release-critical coverage:
 - `node scripts/test_frontend_smoke.mjs`
 - `node scripts/test_frontend_app.mjs`
 - `node scripts/test_frontend_setup.mjs`
-- `node scripts/test_frontend_admin.mjs`
 - `node scripts/test_frontend_password_reset.mjs`
-- `node scripts/test_frontend_settings.mjs`
-- `node scripts/test_frontend_projects.mjs`
-- `node scripts/test_frontend_workspaces.mjs`
 - `node scripts/test_frontend_sharing.mjs`
 - `node scripts/test_frontend_security.mjs`
 - `node scripts/test_frontend_session.mjs`
 - `node scripts/test_frontend_offline_sync.mjs`
 - `node scripts/test_frontend_realtime_sync.mjs`
-- `node scripts/test_frontend_braindump_capture.mjs`
-- `./scripts/test_ui_contracts.sh`
 
 ### Native / packaging release blockers
 

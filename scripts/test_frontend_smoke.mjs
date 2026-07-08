@@ -1,6 +1,14 @@
 #!/usr/bin/env node
 import { withFreshDb, launchPage } from './frontend_test_lib.mjs';
 
+async function waitForTodoStatus(page, title, status) {
+  await page.waitForFunction(async ({ title, status }) => {
+    const jwt = localStorage.getItem('jwt_token');
+    const data = await fetch('/api/todos', { headers: { 'Authorization': `Bearer ${jwt}` }, credentials: 'include' }).then(r => r.json());
+    return data.todos.some(todo => todo.title === title && todo.status === status);
+  }, { title, status }, { timeout: 10000 });
+}
+
 async function run() {
   console.log('🌐 Running Playwright frontend smoke test...');
   const { browser, page, visible, waitForText, clickProjectNav, openTodoModal, ensureSectionOptions, createSection, loginApp, assertNoFrontendErrors, dumpErrors } = await launchPage();
@@ -72,6 +80,19 @@ async function run() {
     await waitForText('N Shortcut Focus Todo');
 
     const todoItem = page.locator('.todo-item').filter({ hasText: 'Frontend Smoke Todo' }).first();
+
+    // Keep a tiny quick-status regression in the smoke test instead of a separate brittle UI suite.
+    await todoItem.hover();
+    const statusMenu = todoItem.locator('.todo-status-menu-left');
+    await statusMenu.locator('summary').click();
+    await todoItem.locator('.todo-status-menu-left[open]').waitFor({ state: 'visible', timeout: 5000 });
+    await statusMenu.locator('button[data-todo-status="in_progress"]').click();
+    await waitForTodoStatus(page, 'Frontend Smoke Todo', 'in_progress');
+    await todoItem.hover();
+    await statusMenu.locator('summary').click();
+    await todoItem.locator('.todo-status-menu-left[open]').waitFor({ state: 'visible', timeout: 5000 });
+    await statusMenu.locator('button[data-todo-status="pending"]').click();
+    await waitForTodoStatus(page, 'Frontend Smoke Todo', 'pending');
 
     await page.fill('#search-input', 'Smoke Todo');
     await waitForText('Frontend Smoke Todo');

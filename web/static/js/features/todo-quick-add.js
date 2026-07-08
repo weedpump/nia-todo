@@ -402,6 +402,7 @@ export function createTodoQuickAddFeature({
 
   return {
     nextWeekday,
+    loadSectionsForQuickAdd,
     parseQuickAddTitle,
     renderQuickAddPreview,
     bindQuickAddPreview,
