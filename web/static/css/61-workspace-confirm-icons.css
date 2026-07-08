@@ -490,6 +490,11 @@
   color: currentColor;
 }
 
+.icon-picker-option[hidden],
+.icon-picker-section[hidden] {
+  display: none !important;
+}
+
 .icon-picker-option .ui-icon {
   width: 18px;
   height: 18px;
