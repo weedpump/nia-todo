@@ -582,8 +582,18 @@
           <h3 id="todo-modal-title" data-i18n-key="todo.new">New todo</h3>
           <p data-i18n-key="todo.modal.subtitle">Capture the task, then add planning details only if needed.</p>
         </div>
+        <div class="todo-detail-header-actions ui-detail-header-actions" id="todo-detail-header-actions">
+          <button type="submit" form="todo-form" class="btn btn-primary" id="todo-save-btn" data-i18n-key="common.save">Save</button>
+          <details class="todo-detail-header-menu-toggle ui-detail-header-menu-toggle">
+            <summary aria-label="More actions" data-i18n-aria-label-key="common.more"><span data-icon="menu"></span></summary>
+            <div class="todo-detail-header-menu ui-detail-header-menu ui-menu" role="menu">
+              <button type="button" class="ui-menu-item" id="todo-detail-duplicate-action" role="menuitem"><span data-icon="copy"></span><span data-i18n-key="todo.duplicate">Duplicate</span></button>
+              <button type="button" class="ui-menu-item danger" id="todo-detail-delete-action" role="menuitem"><span data-icon="trash-2"></span><span data-i18n-key="todo.delete">Delete</span></button>
+            </div>
+          </details>
+          <button class="modal-close-x" data-close-modal="todo-modal"><span data-icon="x"></span></button>
+        </div>
       </div>
-      <button class="modal-close-x" data-close-modal="todo-modal"><span data-icon="x"></span></button>
       <div class="modal-body todo-modal-body ui-detail-modal-body">
       <form id="todo-form" class="todo-modal-form todo-editor-shell ui-detail-shell">
         <input type="hidden" id="todo-id">
@@ -871,16 +881,19 @@
   </div>
 
   <!-- Settings Modal -->
-  <div class="modal" id="settings-modal">
+  <div class="modal ui-detail-modal ui-detail-view" id="settings-modal">
     <div class="modal-overlay" data-close-modal="settings-modal"></div>
-    <div class="modal-content settings-modal-content">
-      <div class="settings-modal-header">
+    <div class="modal-content settings-modal-content ui-detail-modal-content">
+      <div class="settings-modal-header ui-detail-modal-header">
+        <div class="settings-modal-title-icon ui-detail-title-icon" data-icon="settings"></div>
         <div>
-          <h3><span data-icon="settings"></span> <span data-i18n-key="settings.title">Settings</span></h3>
+          <h3><span data-i18n-key="settings.title">Settings</span></h3>
           <p class="settings-modal-subtitle"><span data-i18n-key="settings.overview.subtitle">Profil, Sicherheit, API und App-Verhalten an einem Ort.</span></p>
         </div>
+        <div class="ui-detail-header-actions settings-detail-header-actions">
+          <button class="modal-close-x" data-close-modal="settings-modal"><span data-icon="x"></span></button>
+        </div>
       </div>
-      <button class="modal-close-x" data-close-modal="settings-modal"><span data-icon="x"></span></button>
       <div class="modal-body settings-modal-body">
         <nav class="settings-nav" aria-label="Settings sections" data-i18n-aria-label-key="settings.nav.aria">
           <a href="#settings-section-profile"><span data-icon="user"></span><span data-i18n-key="settings.section.profile">Profil</span></a>
@@ -1279,9 +1292,9 @@
               <button type="button" class="ui-menu-item danger" id="workspace-delete-btn" data-workspace-action="delete" style="display:none;" role="menuitem"><span data-icon="trash-2"></span> <span data-i18n-key="todo.delete">Delete</span></button>
             </div>
           </details>
+          <button class="modal-close-x" data-workspace-action="close-modal"><span data-icon="x"></span></button>
         </div>
       </div>
-      <button class="modal-close-x" data-workspace-action="close-modal"><span data-icon="x"></span></button>
       <div class="modal-body entity-modal-body ui-detail-modal-body">
         <form id="workspace-form" class="entity-modal-form ui-detail-shell">
           <input type="hidden" id="workspace-id">
@@ -1335,9 +1348,9 @@
               <button type="button" class="ui-menu-item danger" id="project-delete-btn" data-project-action="delete-from-modal" style="display:none;" role="menuitem"><span data-icon="trash-2"></span> <span data-i18n-key="project.delete">Delete project</span></button>
             </div>
           </details>
+          <button class="modal-close-x" data-close-modal="project-modal"><span data-icon="x"></span></button>
         </div>
       </div>
-      <button class="modal-close-x" data-close-modal="project-modal"><span data-icon="x"></span></button>
       <div class="modal-body entity-modal-body ui-detail-modal-body">
         <form id="project-form" class="entity-modal-form ui-detail-shell">
           <input type="hidden" id="project-id">
