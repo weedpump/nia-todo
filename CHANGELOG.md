@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 ## [Unreleased]
 
 ### Added
+- Expanded the project/workspace icon picker with more curated Lucide icons across everyday, work, organization, finance, people, health, places, nature, media, creative, status, and movement categories.
 - Added desktop/tablet drag-and-drop for moving todos directly onto sidebar projects, placing them in the target project's unsectioned bucket while preserving offline sync behavior.
 - Added auto-hiding overlay scrollbars for the main app and admin panel, keeping content full-width while showing a right-aligned scroll indicator only during scrolling.
 - Added the `lucide` npm package as the single source for app icons, with a generated offline/PWA icon subset for browser use.
