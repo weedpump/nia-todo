@@ -449,3 +449,15 @@
     padding-inline: 14px;
   }
 }
+
+@media (max-width: 900px) {
+  .calendar-all-day-row,
+  .calendar-hour-slot {
+    grid-template-columns: 42px minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  .calendar-hour-label {
+    text-align: left;
+  }
+}
