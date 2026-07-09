@@ -232,6 +232,7 @@
   line-height: 14px;
   text-overflow: ellipsis;
   white-space: nowrap;
+  transform: translateY(-1px);
 }
 
 .calendar-more-btn,
