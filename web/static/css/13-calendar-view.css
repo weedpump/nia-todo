@@ -338,8 +338,8 @@
 .calendar-all-day-row,
 .calendar-hour-slot {
   display: grid;
-  grid-template-columns: 64px minmax(0, 1fr);
-  gap: 10px;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 6px;
   min-width: 0;
 }
 
@@ -368,7 +368,7 @@
   font-size: 12px;
   font-weight: 800;
   line-height: 34px;
-  text-align: right;
+  text-align: left;
   white-space: nowrap;
 }
 
