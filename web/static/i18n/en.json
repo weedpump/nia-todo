@@ -1737,14 +1737,12 @@
   "calendar.mode.month": "Month",
   "calendar.mode.week": "Week",
   "calendar.mode.day": "Day",
-  "calendar.mode.agenda": "Agenda",
   "calendar.more": "more",
   "calendar.emptyTitle": "No due todos",
   "calendar.emptyHint": "Todos with deadlines will appear in this calendar.",
   "calendar.emptyDayTitle": "Nothing due",
   "calendar.emptyDayHint": "No todos with deadlines for this day.",
   "calendar.emptyMini": "No todos",
-  "calendar.overdue": "Overdue",
   "calendar.controls.show": "Show controls",
   "calendar.controls.hide": "Hide controls"
 }

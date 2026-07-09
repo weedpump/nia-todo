@@ -1737,14 +1737,12 @@
   "calendar.mode.month": "Monat",
   "calendar.mode.week": "Woche",
   "calendar.mode.day": "Tag",
-  "calendar.mode.agenda": "Agenda",
   "calendar.more": "weitere",
   "calendar.emptyTitle": "Keine fälligen Todos",
   "calendar.emptyHint": "Todos mit Deadline erscheinen hier im Kalender.",
   "calendar.emptyDayTitle": "Nichts fällig",
   "calendar.emptyDayHint": "Für diesen Tag gibt es keine Todos mit Deadline.",
   "calendar.emptyMini": "Keine Todos",
-  "calendar.overdue": "Überfällig",
   "calendar.controls.show": "Steuerung einblenden",
   "calendar.controls.hide": "Steuerung ausblenden"
 }

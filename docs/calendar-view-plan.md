@@ -31,31 +31,26 @@ MVP should support:
    - Default on desktop.
    - Good overview of due dates.
    - Day cells show compact todo chips/events.
-   - Overflow becomes `+N` and opens/scrolls a day agenda.
+   - Overflow becomes `+N` and opens the day view.
 
 2. **Week view**
    - Useful for planning the current week.
    - Shows day columns with ordered todo events.
-   - On mobile, this can become a horizontal day strip plus agenda list.
+   - On mobile, this can become a horizontal day strip with compact event lists.
 
 3. **Day view**
    - Focused view for one selected day.
    - Shows all due todos for that date, including time labels when available.
    - Opens from month/week day clicks and via the mode switch.
 
-4. **Agenda view**
-   - Mobile-friendly default or fallback.
-   - Group due todos by day.
-   - Handles dense calendars better than squeezing a full month grid.
-
-I would not start with a full hourly day planner unless we decide that `due_date` with time should behave like real appointment blocks. The MVP day view should be a clean day agenda first.
+I would not start with a full hourly day planner unless we decide that `due_date` with time should behave like real appointment blocks. The MVP day view should be a clean day event list first.
 
 ### Controls
 
 Top controls for the calendar surface:
 
 - Previous / Today / Next
-- View switch: Month / Week / Agenda
+- View switch: Day / Week / Month
 - Optional filter chips:
   - Hide done
   - Project
@@ -74,7 +69,7 @@ Mapping rules:
 - Completed todos follow the existing hide-done preference.
 - Date-only due dates render as all-day style chips.
 - Date-time due dates render with a time label.
-- Overdue todos should remain visible in the calendar at their due date, but the agenda can also show an `Überfällig` group before today.
+- Overdue todos should remain visible in the calendar at their due date, and can later be surfaced through a dedicated overdue affordance if needed.
 - Recurring todos should initially show only the concrete stored due date. Future generated occurrences need a separate expansion layer.
 
 Suggested visual encoding:
@@ -97,7 +92,7 @@ Suggested files:
 - `web/static/js/features/calendar-view.js`
   - date math helpers
   - event normalization from todos/projects
-  - render month/week/agenda HTML
+  - render month/week/day HTML
   - calendar action binding
 - `web/static/css/13-calendar-view.css`
   - calendar-specific layout only
@@ -127,7 +122,7 @@ Important: The calendar should be a view over existing local state, not a new ba
   - date number
   - up to 3 visible todo chips
   - `+N weitere` overflow button if needed
-- Optional right-side or bottom agenda panel for selected day.
+- Optional right-side or bottom selected-day panel.
 
 ### Desktop week
 
@@ -140,7 +135,7 @@ Important: The calendar should be a view over existing local state, not a new ba
 - Avoid a squeezed desktop month grid as the primary interaction.
 - Use:
   - compact month strip / week strip for navigation
-  - agenda list below
+  - compact event list below
 - Month grid can still exist, but should degrade into tappable day dots/counts.
 - No horizontal body overflow.
 
@@ -210,7 +205,7 @@ Security note: OAuth tokens/app passwords must be encrypted or otherwise handled
 
 - Add `calendar` route/filter and sidebar nav.
 - Add calendar feature module.
-- Render month/week/agenda from existing todos.
+- Render month/week/day from existing todos.
 - Persist calendar mode and anchor date.
 - Event click opens existing todo modal.
 - Add CSS module and service-worker precache entry.
@@ -221,7 +216,7 @@ No backend migration required.
 ### Phase 2: UX hardening
 
 - Dense-day overflow handling.
-- Selected-day agenda.
+- Selected-day event list.
 - Mobile layout polish.
 - Empty states:
   - no due todos
@@ -247,16 +242,16 @@ All read-only first. Write-back or two-way sync should be a separate decision, b
 
 ## Open Questions
 
-1. Should the calendar default to month view on mobile too, or agenda/week on small screens?
+1. Should the calendar default to month view on mobile too, or week/day on small screens?
 2. Should done todos appear when `Erledigte anzeigen` is enabled, or should calendar have its own done toggle?
-3. Should date-only due dates be displayed before or after timed todos in week/agenda?
+3. Should date-only due dates be displayed before or after timed todos in week/day?
 4. For external calendars: display-only first is my recommendation. Do we want any `Als Todo übernehmen` action in the first external phase?
 
 ## Risks / Edge Cases
 
 - Timezone handling: due dates may be ISO strings or date-like strings. Normalize carefully and avoid shifting date-only todos across days.
 - Recurrence: current recurring todos should not fake future occurrences until there is a robust expansion rule.
-- Mobile density: month grids get cramped fast; agenda-first mobile is safer.
+- Mobile density: month grids get cramped fast; week/day fallbacks are safer.
 - `app-rendering.js` is already large. Calendar code should be isolated.
 - Service worker precache must include new CSS/JS modules or native/offline launches can break after release.
 
@@ -266,7 +261,7 @@ For the actual implementation, start with Phase 1 plus enough Phase 2 to feel us
 
 - Branch: `feature/calendar-view`
 - Global nav entry
-- Month/week/day/agenda renderer
+- Month/week/day renderer
 - LocalStorage mode persistence
 - Todo event click -> existing modal
 - Responsive CSS
