@@ -334,3 +334,95 @@
     justify-content: flex-start;
   }
 }
+
+.calendar-day-view {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.calendar-all-day-row,
+.calendar-hour-slot {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 10px;
+  min-width: 0;
+}
+
+.calendar-all-day-row {
+  align-items: start;
+  padding: 10px 0 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+}
+
+.calendar-day-timeline {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  max-height: min(68vh, 920px);
+  overflow-y: auto;
+  padding-right: 4px;
+  overscroll-behavior: contain;
+}
+
+.calendar-hour-slot {
+  min-height: 62px;
+}
+
+.calendar-hour-label {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 34px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.calendar-hour-body {
+  position: relative;
+  min-width: 0;
+  min-height: 62px;
+  padding: 0 0 10px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 62%, transparent);
+}
+
+.calendar-hour-slot.has-events .calendar-hour-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 7px;
+}
+
+.calendar-hour-line {
+  min-height: 52px;
+}
+
+.calendar-all-day-events {
+  gap: 6px;
+}
+
+@media (max-width: 900px) {
+  .calendar-all-day-row,
+  .calendar-hour-slot {
+    grid-template-columns: 50px minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .calendar-day-timeline {
+    max-height: none;
+    overflow-y: visible;
+    padding-right: 0;
+  }
+
+  .calendar-hour-slot {
+    min-height: 58px;
+  }
+
+  .calendar-hour-body {
+    min-height: 58px;
+  }
+
+  .calendar-hour-label {
+    font-size: 11px;
+  }
+}
