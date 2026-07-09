@@ -1158,36 +1158,3 @@
     overflow: visible;
   }
 }
-
-/* Calendar events reuse .todo-item for swipe hooks; keep their layout isolated from todo-card refresh rules. */
-.calendar-view .calendar-event.todo-item {
-  display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr);
-  align-items: center;
-  gap: 7px;
-  padding: 7px 9px;
-}
-
-.calendar-view .calendar-event .calendar-event-title-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  height: 14px;
-  line-height: 14px;
-}
-
-.calendar-view .calendar-event .calendar-event-title {
-  display: block;
-  min-width: 0;
-  font-weight: 800;
-  line-height: 14px;
-  transform: translateY(-1px);
-}
-
-.calendar-view .calendar-event .calendar-event-time,
-.calendar-view .calendar-event .calendar-event-priority,
-.calendar-view .calendar-event .project-dot,
-.calendar-view .calendar-event .entity-icon {
-  align-self: center;
-}

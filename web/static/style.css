@@ -8,7 +8,6 @@
 @import url("/static/css/10-navigation-sidebar.css");
 @import url("/static/css/11-main-shell.css");
 @import url("/static/css/12-overview-dashboard.css");
-@import url("/static/css/13-calendar-view.css");
 @import url("/static/css/20-todos-list.css");
 @import url("/static/css/30-buttons-empty.css");
 @import url("/static/css/31-modals.css");
@@ -29,6 +28,7 @@
 @import url("/static/css/80-form-todo-modal.css");
 @import url("/static/css/80-todo-detail-workspace-base.css");
 @import url("/static/css/81-todo-cards-refresh.css");
+@import url("/static/css/13-calendar-view.css");
 @import url("/static/css/82-entity-modals.css");
 @import url("/static/css/83-focus-selects.css");
 @import url("/static/css/89-ui-detail-modal.css");
