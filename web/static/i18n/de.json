@@ -1744,5 +1744,7 @@
   "calendar.emptyDayHint": "Für diesen Tag gibt es keine Todos mit Deadline.",
   "calendar.emptyMini": "Keine Todos",
   "calendar.controls.show": "Steuerung einblenden",
-  "calendar.controls.hide": "Steuerung ausblenden"
+  "calendar.controls.hide": "Steuerung ausblenden",
+  "calendar.allDay": "Ganztägig",
+  "calendar.dayTimeline": "Tages-Zeitachse"
 }

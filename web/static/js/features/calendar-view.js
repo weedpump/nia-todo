@@ -245,14 +245,36 @@ export function createCalendarViewFeature({
 
   function renderDay(events) {
     const dayEvents = events.filter(event => isSameDay(event.start, anchorDate));
+    const allDayEvents = dayEvents.filter(event => event.allDay);
+    const timedEvents = dayEvents.filter(event => !event.allDay);
+    const eventsByHour = new Map();
+    for (const event of timedEvents) {
+      const hour = event.start.getHours();
+      if (!eventsByHour.has(hour)) eventsByHour.set(hour, []);
+      eventsByHour.get(hour).push(event);
+    }
+
     return `<section class="calendar-day-view">
       <div class="calendar-day-view-header">
         <div class="calendar-day-view-date">${escapeHtml(formatDayTitle(anchorDate))}</div>
         <span class="badge">${dayEvents.length}</span>
       </div>
-      <div class="calendar-event-list calendar-day-events-list">
-        ${dayEvents.length ? dayEvents.map(event => renderEvent(event)).join('') : renderEmpty(t('calendar.emptyDayTitle'), t('calendar.emptyDayHint'))}
+      ${allDayEvents.length ? `<div class="calendar-all-day-row">
+        <div class="calendar-hour-label">${escapeHtml(t('calendar.allDay'))}</div>
+        <div class="calendar-event-list calendar-all-day-events">${allDayEvents.map(event => renderEvent(event)).join('')}</div>
+      </div>` : ''}
+      <div class="calendar-day-timeline" aria-label="${escapeHtmlAttr(t('calendar.dayTimeline'))}">
+        ${Array.from({ length: 24 }, (_, hour) => {
+          const slotEvents = eventsByHour.get(hour) || [];
+          return `<div class="calendar-hour-slot ${slotEvents.length ? 'has-events' : ''}">
+            <div class="calendar-hour-label">${String(hour).padStart(2, '0')}:00</div>
+            <div class="calendar-hour-body">
+              ${slotEvents.length ? slotEvents.map(event => renderEvent(event)).join('') : '<div class="calendar-hour-line" aria-hidden="true"></div>'}
+            </div>
+          </div>`;
+        }).join('')}
       </div>
+      ${!dayEvents.length ? renderEmpty(t('calendar.emptyDayTitle'), t('calendar.emptyDayHint')) : ''}
     </section>`;
   }
 
