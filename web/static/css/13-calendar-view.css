@@ -491,3 +491,38 @@
     text-align: left;
   }
 }
+
+@media (min-width: 901px) {
+  .main:has(.calendar-day-view),
+  .todo-list:has(.calendar-day-view),
+  .calendar-view:has(.calendar-day-view),
+  .calendar-day-view {
+    min-height: 0;
+  }
+
+  .main:has(.calendar-day-view) {
+    overflow-y: hidden;
+  }
+
+  .todo-list:has(.calendar-day-view) {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding-bottom: 24px;
+  }
+
+  .calendar-view:has(.calendar-day-view) {
+    flex: 1 1 auto;
+    overflow: hidden;
+  }
+
+  .calendar-day-view {
+    flex: 1 1 auto;
+  }
+
+  .calendar-day-timeline {
+    flex: 1 1 auto;
+    max-height: none;
+  }
+}
