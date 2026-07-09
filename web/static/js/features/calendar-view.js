@@ -202,8 +202,10 @@ export function createCalendarViewFeature({
       <div class="todo-item calendar-event ${statusClass} ${compact ? 'compact' : ''} status-${escapeHtmlAttr(event.status)}" data-id="${escapeHtmlAttr(event.todoId)}" data-status="${escapeHtmlAttr(event.status)}" data-calendar-todo-id="${escapeHtmlAttr(event.todoId)}" draggable="false" style="--calendar-event-color:${escapeHtmlAttr(event.color)}">
         ${projectMarker}
         ${time}
-        <span class="calendar-event-priority" title="${escapeHtmlAttr(t('todo.priority'))}"><span class="calendar-event-priority-dot" style="background:${escapeHtmlAttr(priorityColor(priority))}"></span></span>
-        <span class="calendar-event-title">${escapeHtml(event.title)}</span>
+        <span class="calendar-event-title-row">
+          <span class="calendar-event-priority" title="${escapeHtmlAttr(t('todo.priority'))}"><span class="calendar-event-priority-dot" style="background:${escapeHtmlAttr(priorityColor(priority))}"></span></span>
+          <span class="calendar-event-title">${escapeHtml(event.title)}</span>
+        </span>
       </div>`;
   }
 
