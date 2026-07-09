@@ -18,6 +18,7 @@ export function createCalendarViewFeature({
   let actionsBound = false;
   let toolbarResizeObserver = null;
   let stickyWeekHeaderBound = false;
+  let stickyWeekHeaderFrame = 0;
 
   function normalizeMode(value) {
     return MODES.includes(value) ? value : 'month';
@@ -254,11 +255,21 @@ export function createCalendarViewFeature({
 
 
   function scheduleStickyWeekHeaderState() {
-    window.requestAnimationFrame(updateStickyWeekHeaderState);
+    queueStickyWeekHeaderStateUpdate();
     if (stickyWeekHeaderBound) return;
     stickyWeekHeaderBound = true;
-    window.addEventListener('scroll', updateStickyWeekHeaderState, { passive: true });
-    window.addEventListener('resize', updateStickyWeekHeaderState, { passive: true });
+    document.addEventListener('scroll', queueStickyWeekHeaderStateUpdate, { capture: true, passive: true });
+    document.addEventListener('wheel', queueStickyWeekHeaderStateUpdate, { passive: true });
+    document.addEventListener('touchmove', queueStickyWeekHeaderStateUpdate, { passive: true });
+    window.addEventListener('resize', queueStickyWeekHeaderStateUpdate, { passive: true });
+  }
+
+  function queueStickyWeekHeaderStateUpdate() {
+    if (stickyWeekHeaderFrame) return;
+    stickyWeekHeaderFrame = window.requestAnimationFrame(() => {
+      stickyWeekHeaderFrame = 0;
+      updateStickyWeekHeaderState();
+    });
   }
 
   function updateStickyWeekHeaderState() {
