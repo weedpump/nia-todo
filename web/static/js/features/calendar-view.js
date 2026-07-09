@@ -189,16 +189,22 @@ export function createCalendarViewFeature({
       </div>`;
   }
 
+  function priorityColor(priority) {
+    return { 1: '#ef4444', 2: '#f59e0b', 3: '#10b981', 4: '#94a3b8' }[priority] || '#94a3b8';
+  }
+
   function renderEvent(event, compact = false) {
     const projectMarker = event.project ? markerHtml(event.project) : `<span class="project-dot" style="background:${escapeHtmlAttr(event.color)}"></span>`;
     const time = event.allDay ? '' : `<span class="calendar-event-time">${escapeHtml(formatTime(event.start))}</span>`;
+    const statusClass = event.status === 'done' ? 'done' : event.status === 'in_progress' ? 'in-progress' : '';
+    const priority = Math.min(4, Math.max(1, Number(event.priority || 3)));
     return `
-      <button type="button" class="calendar-event ${compact ? 'compact' : ''} status-${escapeHtmlAttr(event.status)}" data-calendar-todo-id="${escapeHtmlAttr(event.todoId)}" style="--calendar-event-color:${escapeHtmlAttr(event.color)}">
+      <div class="todo-item calendar-event ${statusClass} ${compact ? 'compact' : ''} status-${escapeHtmlAttr(event.status)}" data-id="${escapeHtmlAttr(event.todoId)}" data-status="${escapeHtmlAttr(event.status)}" data-calendar-todo-id="${escapeHtmlAttr(event.todoId)}" draggable="false" style="--calendar-event-color:${escapeHtmlAttr(event.color)}">
         ${projectMarker}
         ${time}
         <span class="calendar-event-title">${escapeHtml(event.title)}</span>
-        ${event.priority === 1 ? `<span class="calendar-event-priority">P1</span>` : ''}
-      </button>`;
+        <span class="calendar-event-priority" title="${escapeHtmlAttr(t('todo.priority'))}"><span class="calendar-event-priority-dot" style="background:${escapeHtmlAttr(priorityColor(priority))}"></span>P${priority}</span>
+      </div>`;
   }
 
   function renderMonth(events) {
@@ -314,6 +320,7 @@ export function createCalendarViewFeature({
       const calendarTodo = event.target?.closest?.('[data-calendar-todo-id]');
       if (calendarTodo) {
         event.preventDefault();
+        event.stopImmediatePropagation?.();
         openTodo?.(calendarTodo.dataset.calendarTodoId);
         return;
       }
