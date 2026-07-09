@@ -754,8 +754,22 @@
     padding-top: 4px;
     border-radius: 22px 22px 0 0;
     background:
-      linear-gradient(180deg, color-mix(in srgb, var(--bg-secondary) 96%, var(--bg-primary)), color-mix(in srgb, var(--bg-secondary) 90%, var(--bg-primary)));
-    backdrop-filter: none;
+      linear-gradient(180deg, color-mix(in srgb, var(--bg-secondary) 92%, transparent), color-mix(in srgb, var(--bg-primary) 78%, transparent));
+    backdrop-filter: blur(14px) saturate(1.08);
+  }
+
+  .calendar-week-timeline-header.is-stuck {
+    border-radius: 0;
+  }
+
+  .calendar-week-timeline-header.is-stuck::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background:
+      linear-gradient(180deg, color-mix(in srgb, var(--bg-secondary) 92%, var(--bg-primary)), color-mix(in srgb, var(--bg-primary) 78%, var(--bg-secondary)));
+    pointer-events: none;
   }
 
   .calendar-week-timeline-header::before {
@@ -765,7 +779,7 @@
     right: 0;
     top: -3px;
     height: 3px;
-    background: color-mix(in srgb, var(--bg-secondary) 96%, var(--bg-primary));
+    background: color-mix(in srgb, var(--bg-secondary) 92%, var(--bg-primary));
     pointer-events: none;
   }
 
