@@ -1730,6 +1730,7 @@
   "calendar.title": "Kalender",
   "calendar.kicker": "Kalender",
   "calendar.navigation": "Kalendernavigation",
+  "calendar.inlineControls": "Kalender-Schnellsteuerung",
   "calendar.prev": "Zurück",
   "calendar.next": "Weiter",
   "calendar.today": "Heute",
@@ -1743,7 +1744,7 @@
   "calendar.emptyDayTitle": "Nichts fällig",
   "calendar.emptyDayHint": "Für diesen Tag gibt es keine Todos mit Deadline.",
   "calendar.emptyMini": "Keine Todos",
-  "calendar.controls.show": "Ansicht anpassen",
+  "calendar.controls.show": "Ansicht erweitern",
   "calendar.controls.hide": "Optionen ausblenden",
   "calendar.allDay": "Ganztägig",
   "calendar.dayTimeline": "Tages-Zeitachse"
