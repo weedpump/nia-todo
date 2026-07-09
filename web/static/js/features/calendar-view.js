@@ -162,15 +162,19 @@ export function createCalendarViewFeature({
 
   function renderToolbar(title) {
     return `
-      <div class="calendar-toolbar ${controlsOpen ? 'is-controls-open' : ''}">
-        <div class="calendar-title-wrap">
-          <div class="overview-kicker">${escapeHtml(t('calendar.kicker'))}</div>
-          <h2>${escapeHtml(title)}</h2>
+      <div class="overview-dashboard calendar-toolbar ${controlsOpen ? 'is-controls-open' : ''}">
+        <div class="overview-dashboard-header calendar-heading">
+          <div class="overview-greeting">
+            <span class="overview-avatar calendar-avatar" aria-hidden="true">${iconSvg('calendar-days')}</span>
+            <div class="calendar-title-wrap">
+              <h2>${escapeHtml(t('calendar.title'))}</h2>
+              <div class="overview-subtitle">${escapeHtml(title)}</div>
+            </div>
+          </div>
         </div>
         <button type="button" class="btn btn-secondary btn-small calendar-controls-toggle" data-calendar-action="toggle-controls" aria-expanded="${controlsOpen ? 'true' : 'false'}">
-          ${iconSvg('settings')}
-          <span>${escapeHtml(controlsOpen ? t('calendar.controls.hide') : t('calendar.controls.show'))}</span>
           ${iconSvg(controlsOpen ? 'chevron-up' : 'chevron-down')}
+          <span>${escapeHtml(controlsOpen ? t('calendar.controls.hide') : t('calendar.controls.show'))}</span>
         </button>
         <div class="calendar-toolbar-actions" ${controlsOpen ? '' : 'hidden'}>
           <div class="calendar-nav-actions" aria-label="${escapeHtmlAttr(t('calendar.navigation'))}">
