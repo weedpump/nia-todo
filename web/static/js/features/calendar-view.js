@@ -3,6 +3,7 @@ import { iconSvg, markerHtml, safeColor } from '../icons/lucide-icons.js';
 
 const MODE_KEY = 'nia-calendar-view-mode';
 const ANCHOR_KEY = 'nia-calendar-anchor-date';
+const CONTROLS_KEY = 'nia-calendar-controls-open';
 const MODES = ['month', 'week', 'day', 'agenda'];
 
 export function createCalendarViewFeature({
@@ -13,6 +14,7 @@ export function createCalendarViewFeature({
 }) {
   let mode = normalizeMode(localStorage.getItem(MODE_KEY));
   let anchorDate = parseStoredDate(localStorage.getItem(ANCHOR_KEY)) || startOfDay(new Date());
+  let controlsOpen = localStorage.getItem(CONTROLS_KEY) === 'true';
   let actionsBound = false;
 
   function normalizeMode(value) {
@@ -160,12 +162,17 @@ export function createCalendarViewFeature({
 
   function renderToolbar(title) {
     return `
-      <div class="calendar-toolbar">
+      <div class="calendar-toolbar ${controlsOpen ? 'is-controls-open' : ''}">
         <div class="calendar-title-wrap">
           <div class="overview-kicker">${escapeHtml(t('calendar.kicker'))}</div>
           <h2>${escapeHtml(title)}</h2>
         </div>
-        <div class="calendar-toolbar-actions">
+        <button type="button" class="btn btn-secondary btn-small calendar-controls-toggle" data-calendar-action="toggle-controls" aria-expanded="${controlsOpen ? 'true' : 'false'}">
+          ${iconSvg('settings')}
+          <span>${escapeHtml(controlsOpen ? t('calendar.controls.hide') : t('calendar.controls.show'))}</span>
+          ${iconSvg(controlsOpen ? 'chevron-up' : 'chevron-down')}
+        </button>
+        <div class="calendar-toolbar-actions" ${controlsOpen ? '' : 'hidden'}>
           <div class="calendar-nav-actions" aria-label="${escapeHtmlAttr(t('calendar.navigation'))}">
             <button type="button" class="btn btn-secondary btn-icon" data-calendar-action="prev" title="${escapeHtmlAttr(t('calendar.prev'))}">${iconSvg('chevron-left')}</button>
             <button type="button" class="btn btn-secondary btn-small" data-calendar-action="today">${escapeHtml(t('calendar.today'))}</button>
@@ -325,6 +332,10 @@ export function createCalendarViewFeature({
       if (action === 'today') {
         anchorDate = startOfDay(new Date());
         persistAnchor();
+      }
+      if (action === 'toggle-controls') {
+        controlsOpen = !controlsOpen;
+        localStorage.setItem(CONTROLS_KEY, controlsOpen ? 'true' : 'false');
       }
       if (action === 'open-day') {
         const date = parseStoredDate(actionButton.dataset.calendarDate);

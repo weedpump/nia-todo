@@ -1744,5 +1744,7 @@
   "calendar.emptyDayTitle": "Nothing due",
   "calendar.emptyDayHint": "No todos with deadlines for this day.",
   "calendar.emptyMini": "No todos",
-  "calendar.overdue": "Overdue"
+  "calendar.overdue": "Overdue",
+  "calendar.controls.show": "Controls",
+  "calendar.controls.hide": "Hide controls"
 }
