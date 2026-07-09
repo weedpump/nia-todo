@@ -1743,8 +1743,8 @@
   "calendar.emptyDayTitle": "Nothing due",
   "calendar.emptyDayHint": "No todos with deadlines for this day.",
   "calendar.emptyMini": "No todos",
-  "calendar.controls.show": "Show controls",
-  "calendar.controls.hide": "Hide controls",
+  "calendar.controls.show": "Customize view",
+  "calendar.controls.hide": "Hide options",
   "calendar.allDay": "All day",
   "calendar.dayTimeline": "Day timeline"
 }

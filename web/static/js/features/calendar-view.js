@@ -171,11 +171,11 @@ export function createCalendarViewFeature({
               <div class="overview-subtitle">${escapeHtml(title)}</div>
             </div>
           </div>
+          <button type="button" class="btn btn-secondary btn-small calendar-controls-toggle" data-calendar-action="toggle-controls" aria-expanded="${controlsOpen ? 'true' : 'false'}">
+            ${iconSvg(controlsOpen ? 'chevron-up' : 'chevron-down')}
+            <span>${escapeHtml(controlsOpen ? t('calendar.controls.hide') : t('calendar.controls.show'))}</span>
+          </button>
         </div>
-        <button type="button" class="btn btn-secondary btn-small calendar-controls-toggle" data-calendar-action="toggle-controls" aria-expanded="${controlsOpen ? 'true' : 'false'}">
-          ${iconSvg(controlsOpen ? 'chevron-up' : 'chevron-down')}
-          <span>${escapeHtml(controlsOpen ? t('calendar.controls.hide') : t('calendar.controls.show'))}</span>
-        </button>
         <div class="calendar-toolbar-actions" ${controlsOpen ? '' : 'hidden'}>
           <div class="calendar-nav-actions" aria-label="${escapeHtmlAttr(t('calendar.navigation'))}">
             <button type="button" class="btn btn-secondary btn-icon" data-calendar-action="prev" title="${escapeHtmlAttr(t('calendar.prev'))}">${iconSvg('chevron-left')}</button>
