@@ -577,7 +577,6 @@
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
-  border-radius: 24px;
 }
 
 .calendar-week-timeline-header,
@@ -703,7 +702,6 @@
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  border-radius: 0 0 24px 24px;
 }
 
 .calendar-week-hour-row {
@@ -733,7 +731,6 @@
     display: flex;
     overflow: visible;
     padding-bottom: 4px;
-    border-radius: 22px;
   }
 
   .calendar-week-timeline-header,
@@ -804,7 +801,6 @@
 
   .calendar-week-timeline-body {
     overflow-y: visible;
-    border-radius: 0 0 22px 22px;
   }
 
   .calendar-week-hour-row,
