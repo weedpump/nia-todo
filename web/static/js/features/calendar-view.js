@@ -312,20 +312,50 @@ export function createCalendarViewFeature({
   function renderWeek(events) {
     const start = startOfWeek(anchorDate);
     const end = addDays(start, 7);
+    const days = Array.from({ length: 7 }, (_, index) => addDays(start, index));
     const byDay = eventsByDay(events);
-    return `${renderPeriodHeader(formatRangeTitle(start, addDays(end, -1)), eventCountInRange(events, start, end))}<div class="calendar-week-grid">
-      ${Array.from({ length: 7 }, (_, index) => {
-        const day = addDays(start, index);
-        const dayEvents = byDay.get(dateKey(day)) || [];
-        return `<section class="calendar-week-day ${isToday(day) ? 'today' : ''}">
-          <button type="button" class="calendar-week-day-header" data-calendar-action="open-day" data-calendar-date="${escapeHtmlAttr(dateKey(day))}">
-            <span>${escapeHtml(formatShortDay(day))}</span>
-            <strong>${dayEvents.length}</strong>
-          </button>
-          <div class="calendar-event-list">${dayEvents.length ? dayEvents.map(event => renderEvent(event)).join('') : renderMiniEmpty()}</div>
-        </section>`;
-      }).join('')}
+    const dayEvents = days.map(day => byDay.get(dateKey(day)) || []);
+    const dayAllDayEvents = dayEvents.map(items => items.filter(event => event.allDay));
+    const dayTimedEvents = dayEvents.map(items => items.filter(event => !event.allDay));
+    const hasAllDayEvents = dayAllDayEvents.some(items => items.length > 0);
+
+    const desktopTimeline = `<div class="calendar-week-timeline" aria-label="${escapeHtmlAttr(t('calendar.weekTimeline'))}">
+      <div class="calendar-week-timeline-header">
+        <div class="calendar-week-timezone">${escapeHtml(t('calendar.timeColumn'))}</div>
+        ${days.map((day, index) => `<button type="button" class="calendar-week-timeline-day ${isToday(day) ? 'today' : ''}" data-calendar-action="open-day" data-calendar-date="${escapeHtmlAttr(dateKey(day))}">
+          <span>${escapeHtml(new Intl.DateTimeFormat(locale(), { weekday: 'short' }).format(day))}</span>
+          <strong>${escapeHtml(new Intl.DateTimeFormat(locale(), { day: '2-digit' }).format(day))}</strong>
+          <em>${dayEvents[index].length}</em>
+        </button>`).join('')}
+      </div>
+      ${hasAllDayEvents ? `<div class="calendar-week-all-day-row">
+        <div class="calendar-hour-label">${escapeHtml(t('calendar.allDay'))}</div>
+        ${dayAllDayEvents.map(items => `<div class="calendar-week-day-column calendar-event-list">${items.map(event => renderEvent(event, true)).join('')}</div>`).join('')}
+      </div>` : ''}
+      <div class="calendar-week-timeline-body">
+        ${Array.from({ length: 24 }, (_, hour) => `<div class="calendar-week-hour-row">
+          <div class="calendar-hour-label">${String(hour).padStart(2, '0')}:00</div>
+          ${dayTimedEvents.map(items => {
+            const slotEvents = items.filter(event => event.start.getHours() === hour);
+            return `<div class="calendar-week-hour-cell ${slotEvents.length ? 'has-events' : ''}">
+              ${slotEvents.length ? slotEvents.map(event => renderEvent(event, true)).join('') : ''}
+            </div>`;
+          }).join('')}
+        </div>`).join('')}
+      </div>
     </div>`;
+
+    const mobileList = `<div class="calendar-week-grid calendar-week-mobile-list">
+      ${days.map((day, index) => `<section class="calendar-week-day ${isToday(day) ? 'today' : ''}">
+        <button type="button" class="calendar-week-day-header" data-calendar-action="open-day" data-calendar-date="${escapeHtmlAttr(dateKey(day))}">
+          <span>${escapeHtml(formatShortDay(day))}</span>
+          <strong>${dayEvents[index].length}</strong>
+        </button>
+        <div class="calendar-event-list">${dayEvents[index].length ? dayEvents[index].map(event => renderEvent(event)).join('') : renderMiniEmpty()}</div>
+      </section>`).join('')}
+    </div>`;
+
+    return `${renderPeriodHeader(formatRangeTitle(start, addDays(end, -1)), eventCountInRange(events, start, end))}${desktopTimeline}${mobileList}`;
   }
 
   function renderDay(events) {

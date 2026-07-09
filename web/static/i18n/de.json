@@ -1747,5 +1747,7 @@
   "calendar.controls.show": "Optionen einblenden",
   "calendar.controls.hide": "Optionen ausblenden",
   "calendar.allDay": "Ganztägig",
-  "calendar.dayTimeline": "Tages-Zeitachse"
+  "calendar.dayTimeline": "Tages-Zeitachse",
+  "calendar.weekTimeline": "Wochen-Zeitachse",
+  "calendar.timeColumn": "Zeit"
 }
