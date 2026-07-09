@@ -513,3 +513,33 @@
   border-radius: 999px;
   flex: 0 0 auto;
 }
+
+.calendar-view .calendar-event {
+  grid-template-columns: auto auto auto minmax(0, 1fr);
+  align-items: center;
+}
+
+.calendar-event-title {
+  align-self: center;
+  font-weight: 750;
+  line-height: 1.2;
+}
+
+.calendar-event-time,
+.calendar-event-priority,
+.calendar-event .project-dot,
+.calendar-event .entity-icon {
+  align-self: center;
+}
+
+.calendar-event-priority {
+  justify-content: center;
+  width: 10px;
+  min-width: 10px;
+  height: 10px;
+}
+
+.calendar-event-priority-dot {
+  width: 8px;
+  height: 8px;
+}
