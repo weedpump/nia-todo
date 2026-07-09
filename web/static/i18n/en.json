@@ -1730,6 +1730,7 @@
   "calendar.title": "Calendar",
   "calendar.kicker": "Calendar",
   "calendar.navigation": "Calendar navigation",
+  "calendar.inlineControls": "Calendar quick controls",
   "calendar.prev": "Previous",
   "calendar.next": "Next",
   "calendar.today": "Today",
@@ -1743,7 +1744,7 @@
   "calendar.emptyDayTitle": "Nothing due",
   "calendar.emptyDayHint": "No todos with deadlines for this day.",
   "calendar.emptyMini": "No todos",
-  "calendar.controls.show": "Customize view",
+  "calendar.controls.show": "Expand view options",
   "calendar.controls.hide": "Hide options",
   "calendar.allDay": "All day",
   "calendar.dayTimeline": "Day timeline"

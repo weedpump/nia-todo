@@ -16,6 +16,7 @@ export function createCalendarViewFeature({
   let anchorDate = parseStoredDate(localStorage.getItem(ANCHOR_KEY)) || startOfDay(new Date());
   let controlsOpen = localStorage.getItem(CONTROLS_KEY) === 'true';
   let actionsBound = false;
+  let toolbarResizeObserver = null;
 
   function normalizeMode(value) {
     return MODES.includes(value) ? value : 'month';
@@ -164,9 +165,23 @@ export function createCalendarViewFeature({
     return map;
   }
 
+  function renderNavControls(extraClass = '') {
+    return `<div class="calendar-nav-actions calendar-control-group ${extraClass}" aria-label="${escapeHtmlAttr(t('calendar.navigation'))}">
+      <button type="button" class="btn btn-secondary btn-icon" data-calendar-action="prev" title="${escapeHtmlAttr(t('calendar.prev'))}">${iconSvg('chevron-left')}</button>
+      <button type="button" class="btn btn-secondary btn-small" data-calendar-action="today">${escapeHtml(t('calendar.today'))}</button>
+      <button type="button" class="btn btn-secondary btn-icon" data-calendar-action="next" title="${escapeHtmlAttr(t('calendar.next'))}">${iconSvg('chevron-right')}</button>
+    </div>`;
+  }
+
+  function renderModeControls(extraClass = '') {
+    return `<div class="calendar-mode-switch calendar-control-group ${extraClass}" role="group" aria-label="${escapeHtmlAttr(t('calendar.mode'))}">
+      ${MODES.map(item => `<button type="button" class="btn btn-secondary btn-small calendar-mode-btn ${mode === item ? 'active' : ''}" data-calendar-mode="${escapeHtmlAttr(item)}">${escapeHtml(t(`calendar.mode.${item}`))}</button>`).join('')}
+    </div>`;
+  }
+
   function renderToolbar() {
     return `
-      <div class="overview-dashboard calendar-toolbar ${controlsOpen ? 'is-controls-open' : ''}">
+      <div class="overview-dashboard calendar-toolbar ${controlsOpen ? 'is-controls-open' : ''}" data-calendar-controls-layout="pending">
         <div class="overview-dashboard-header calendar-heading">
           <div class="overview-greeting">
             <span class="overview-avatar calendar-avatar" aria-hidden="true">${iconSvg('calendar-days')}</span>
@@ -174,22 +189,66 @@ export function createCalendarViewFeature({
               <h2>${escapeHtml(t('calendar.title'))}</h2>
             </div>
           </div>
-          <button type="button" class="btn btn-secondary btn-small calendar-controls-toggle" data-calendar-action="toggle-controls" aria-expanded="${controlsOpen ? 'true' : 'false'}">
-            ${iconSvg(controlsOpen ? 'chevron-up' : 'chevron-down')}
-            <span>${escapeHtml(controlsOpen ? t('calendar.controls.hide') : t('calendar.controls.show'))}</span>
-          </button>
+          <div class="calendar-header-controls">
+            <div class="calendar-inline-controls" aria-label="${escapeHtmlAttr(t('calendar.inlineControls'))}">
+              ${renderNavControls('calendar-inline-nav')}
+              ${renderModeControls('calendar-inline-mode')}
+            </div>
+            <button type="button" class="btn btn-secondary btn-small calendar-controls-toggle" data-calendar-action="toggle-controls" aria-expanded="${controlsOpen ? 'true' : 'false'}">
+              ${iconSvg(controlsOpen ? 'chevron-up' : 'chevron-down')}
+              <span>${escapeHtml(controlsOpen ? t('calendar.controls.hide') : t('calendar.controls.show'))}</span>
+            </button>
+          </div>
         </div>
         <div class="calendar-toolbar-actions" ${controlsOpen ? '' : 'hidden'}>
-          <div class="calendar-nav-actions" aria-label="${escapeHtmlAttr(t('calendar.navigation'))}">
-            <button type="button" class="btn btn-secondary btn-icon" data-calendar-action="prev" title="${escapeHtmlAttr(t('calendar.prev'))}">${iconSvg('chevron-left')}</button>
-            <button type="button" class="btn btn-secondary btn-small" data-calendar-action="today">${escapeHtml(t('calendar.today'))}</button>
-            <button type="button" class="btn btn-secondary btn-icon" data-calendar-action="next" title="${escapeHtmlAttr(t('calendar.next'))}">${iconSvg('chevron-right')}</button>
-          </div>
-          <div class="calendar-mode-switch" role="group" aria-label="${escapeHtmlAttr(t('calendar.mode'))}">
-            ${MODES.map(item => `<button type="button" class="btn btn-secondary btn-small calendar-mode-btn ${mode === item ? 'active' : ''}" data-calendar-mode="${escapeHtmlAttr(item)}">${escapeHtml(t(`calendar.mode.${item}`))}</button>`).join('')}
-          </div>
+          ${renderNavControls('calendar-panel-nav')}
+          ${renderModeControls('calendar-panel-mode')}
         </div>
       </div>`;
+  }
+
+  function scheduleToolbarLayout() {
+    window.requestAnimationFrame(() => {
+      const toolbar = document.querySelector('.calendar-view .calendar-toolbar');
+      if (!toolbar) return;
+      updateToolbarLayout(toolbar);
+      if (!toolbarResizeObserver) {
+        toolbarResizeObserver = new ResizeObserver(entries => {
+          for (const entry of entries) updateToolbarLayout(entry.target);
+        });
+      }
+      toolbarResizeObserver.disconnect();
+      toolbarResizeObserver.observe(toolbar);
+    });
+  }
+
+  function updateToolbarLayout(toolbar) {
+    const heading = toolbar.querySelector('.calendar-heading');
+    const greeting = toolbar.querySelector('.overview-greeting');
+    const nav = toolbar.querySelector('.calendar-inline-nav');
+    const modeSwitch = toolbar.querySelector('.calendar-inline-mode');
+    const toggle = toolbar.querySelector('.calendar-controls-toggle');
+    if (!heading || !greeting || !nav || !modeSwitch || !toggle) return;
+
+    if (window.matchMedia('(max-width: 900px)').matches) {
+      toolbar.dataset.calendarControlsLayout = 'collapsed';
+      return;
+    }
+
+    toolbar.dataset.calendarControlsLayout = 'measure';
+    const available = Math.max(0, heading.clientWidth - greeting.offsetWidth - 18);
+    const navWidth = nav.scrollWidth;
+    const modeWidth = modeSwitch.scrollWidth;
+    const toggleWidth = toggle.scrollWidth;
+    const gap = 8;
+
+    if (navWidth + modeWidth + gap <= available) {
+      toolbar.dataset.calendarControlsLayout = 'full';
+    } else if (navWidth + toggleWidth + gap <= available) {
+      toolbar.dataset.calendarControlsLayout = 'partial';
+    } else {
+      toolbar.dataset.calendarControlsLayout = 'collapsed';
+    }
   }
 
   function priorityColor(priority) {
@@ -367,6 +426,7 @@ export function createCalendarViewFeature({
 
   function renderCalendarView({ todos, projects, hideDone }) {
     bindActions();
+    scheduleToolbarLayout();
     const events = normalizeEvents(todos, projects, hideDone);
     const body = mode === 'month'
       ? renderMonth(events)
