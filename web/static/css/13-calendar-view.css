@@ -591,8 +591,6 @@
 .calendar-week-timeline-header {
   align-items: stretch;
   padding: 6px 0 8px;
-  border-radius: 24px 24px 0 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--bg-secondary) 54%, transparent), transparent),
     color-mix(in srgb, var(--bg-primary) 38%, transparent);
@@ -748,14 +746,9 @@
     top: var(--calendar-mobile-sticky-top, 62px);
     z-index: 80;
     padding-top: 4px;
-    border-radius: 22px 22px 0 0;
     background:
       linear-gradient(180deg, color-mix(in srgb, var(--bg-secondary) 92%, transparent), color-mix(in srgb, var(--bg-primary) 78%, transparent));
     backdrop-filter: blur(14px) saturate(1.08);
-  }
-
-  .calendar-week-timeline-header.is-stuck {
-    border-radius: 0;
   }
 
   .calendar-week-timeline-header.is-stuck::after {
