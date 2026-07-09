@@ -665,6 +665,27 @@
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 16%, transparent);
 }
 
+
+.calendar-week-timeline-day:hover strong,
+.calendar-week-timeline-day:focus-visible strong {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.calendar-week-timeline-day:hover em,
+.calendar-week-timeline-day:focus-visible em {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--text-secondary);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
+.calendar-week-timeline-day.today:hover strong,
+.calendar-week-timeline-day.today:focus-visible strong {
+  background: linear-gradient(135deg, var(--accent-hover), var(--accent));
+  color: white;
+  box-shadow: 0 8px 20px rgba(var(--accent-rgb), .26), 0 0 0 2px color-mix(in srgb, var(--accent) 26%, transparent);
+}
+
 .calendar-week-timeline-day.today span {
   color: color-mix(in srgb, var(--accent-hover) 86%, white);
 }
