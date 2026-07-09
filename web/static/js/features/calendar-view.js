@@ -4,7 +4,7 @@ import { iconSvg, markerHtml, safeColor } from '../icons/lucide-icons.js';
 const MODE_KEY = 'nia-calendar-view-mode';
 const ANCHOR_KEY = 'nia-calendar-anchor-date';
 const CONTROLS_KEY = 'nia-calendar-controls-open';
-const MODES = ['month', 'week', 'day', 'agenda'];
+const MODES = ['day', 'week', 'month'];
 
 export function createCalendarViewFeature({
   escapeHtml,
@@ -237,7 +237,7 @@ export function createCalendarViewFeature({
             <span>${escapeHtml(formatShortDay(day))}</span>
             <strong>${dayEvents.length}</strong>
           </button>
-          <div class="calendar-agenda-events">${dayEvents.length ? dayEvents.map(event => renderEvent(event)).join('') : renderMiniEmpty()}</div>
+          <div class="calendar-event-list">${dayEvents.length ? dayEvents.map(event => renderEvent(event)).join('') : renderMiniEmpty()}</div>
         </section>`;
       }).join('')}
     </div>`;
@@ -250,31 +250,12 @@ export function createCalendarViewFeature({
         <div class="calendar-day-view-date">${escapeHtml(formatDayTitle(anchorDate))}</div>
         <span class="badge">${dayEvents.length}</span>
       </div>
-      <div class="calendar-agenda-events calendar-day-events-list">
+      <div class="calendar-event-list calendar-day-events-list">
         ${dayEvents.length ? dayEvents.map(event => renderEvent(event)).join('') : renderEmpty(t('calendar.emptyDayTitle'), t('calendar.emptyDayHint'))}
       </div>
     </section>`;
   }
 
-  function renderAgenda(events) {
-    const today = startOfDay(new Date());
-    const agendaEvents = events.filter(event => event.start >= addDays(today, -30)).slice(0, 80);
-    if (!agendaEvents.length) return renderEmpty(t('calendar.emptyTitle'), t('calendar.emptyHint'));
-    const byDay = eventsByDay(agendaEvents);
-    return `<div class="calendar-agenda-list">
-      ${Array.from(byDay.entries()).map(([key, dayEvents]) => {
-        const date = parseStoredDate(key);
-        const overdue = date < today;
-        return `<section class="calendar-agenda-day ${isToday(date) ? 'today' : ''} ${overdue ? 'overdue' : ''}">
-          <div class="calendar-agenda-day-title">
-            <span>${escapeHtml(overdue ? `${t('calendar.overdue')} · ${formatDayTitle(date)}` : formatDayTitle(date))}</span>
-            <span class="badge">${dayEvents.length}</span>
-          </div>
-          <div class="calendar-agenda-events">${dayEvents.map(event => renderEvent(event)).join('')}</div>
-        </section>`;
-      }).join('')}
-    </div>`;
-  }
 
   function renderMiniEmpty() {
     return `<div class="calendar-mini-empty">${escapeHtml(t('calendar.emptyMini'))}</div>`;
@@ -291,8 +272,7 @@ export function createCalendarViewFeature({
   function currentTitle() {
     if (mode === 'month') return formatMonthTitle(anchorDate);
     if (mode === 'week') return formatRangeTitle(startOfWeek(anchorDate), addDays(startOfWeek(anchorDate), 6));
-    if (mode === 'day') return formatDayTitle(anchorDate);
-    return t('calendar.mode.agenda');
+    return formatDayTitle(anchorDate);
   }
 
   function shiftAnchor(direction) {
@@ -361,9 +341,7 @@ export function createCalendarViewFeature({
       ? renderMonth(events)
       : mode === 'week'
         ? renderWeek(events)
-        : mode === 'day'
-          ? renderDay(events)
-          : renderAgenda(events);
+        : renderDay(events);
 
     return `<section class="calendar-view" aria-label="${escapeHtmlAttr(t('calendar.title'))}">
       ${renderToolbar(currentTitle())}
