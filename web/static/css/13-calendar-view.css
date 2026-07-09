@@ -729,6 +729,10 @@
 }
 
 @media (max-width: 900px) {
+  .calendar-view {
+    --calendar-mobile-sticky-top: calc(64px + env(safe-area-inset-top, 0px));
+  }
+
   .calendar-week-timeline {
     display: flex;
     overflow: visible;
@@ -743,9 +747,13 @@
   }
 
   .calendar-week-timeline-header {
+    position: sticky;
+    top: var(--calendar-mobile-sticky-top, 64px);
+    z-index: 80;
     padding-top: 4px;
     background:
-      linear-gradient(180deg, color-mix(in srgb, var(--bg-secondary) 82%, transparent), color-mix(in srgb, var(--bg-primary) 58%, transparent));
+      linear-gradient(180deg, color-mix(in srgb, var(--bg-secondary) 92%, transparent), color-mix(in srgb, var(--bg-primary) 78%, transparent));
+    backdrop-filter: blur(14px) saturate(1.08);
   }
 
   .calendar-week-timezone {
