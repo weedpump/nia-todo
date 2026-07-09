@@ -772,7 +772,7 @@
     pointer-events: none;
   }
 
-  .calendar-week-timeline-header::before {
+  .calendar-week-timeline-header.is-stuck::before {
     content: "";
     position: absolute;
     left: 0;
