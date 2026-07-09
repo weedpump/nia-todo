@@ -743,13 +743,9 @@
   }
 
   .calendar-week-timeline-header {
-    position: sticky;
-    top: 0;
-    z-index: 2;
     padding-top: 4px;
     background:
       linear-gradient(180deg, color-mix(in srgb, var(--bg-secondary) 82%, transparent), color-mix(in srgb, var(--bg-primary) 58%, transparent));
-    backdrop-filter: blur(14px) saturate(1.08);
   }
 
   .calendar-week-timezone {
