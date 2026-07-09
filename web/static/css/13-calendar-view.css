@@ -730,10 +730,62 @@
 
 @media (max-width: 900px) {
   .calendar-week-timeline {
-    display: none;
+    display: flex;
+    overflow-x: auto;
+    overflow-y: visible;
+    padding-bottom: 4px;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+  }
+
+  .calendar-week-timeline-header,
+  .calendar-week-all-day-row,
+  .calendar-week-hour-row {
+    grid-template-columns: 42px repeat(7, minmax(112px, 112px));
+    width: max-content;
+  }
+
+  .calendar-week-timeline-header {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    padding-top: 4px;
+    background:
+      linear-gradient(180deg, color-mix(in srgb, var(--bg-secondary) 82%, transparent), color-mix(in srgb, var(--bg-primary) 58%, transparent));
+    backdrop-filter: blur(14px) saturate(1.08);
+  }
+
+  .calendar-week-timeline-day {
+    min-height: 42px;
+    padding: 6px 8px;
+    gap: 7px;
+  }
+
+  .calendar-week-timeline-day strong {
+    min-width: 28px;
+    height: 28px;
+    font-size: 16px;
+  }
+
+  .calendar-week-timeline-day.today strong {
+    width: 32px;
+    height: 32px;
+  }
+
+  .calendar-week-timeline-body {
+    overflow-y: visible;
+  }
+
+  .calendar-week-hour-row,
+  .calendar-week-hour-cell {
+    min-height: 58px;
+  }
+
+  .calendar-week-hour-cell {
+    padding: 5px;
   }
 
   .calendar-week-mobile-list {
-    display: grid;
+    display: none;
   }
 }
