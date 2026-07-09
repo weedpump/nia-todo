@@ -274,7 +274,6 @@ export function createCalendarViewFeature({
           </div>`;
         }).join('')}
       </div>
-      ${!dayEvents.length ? renderEmpty(t('calendar.emptyDayTitle'), t('calendar.emptyDayHint')) : ''}
     </section>`;
   }
 

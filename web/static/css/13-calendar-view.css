@@ -81,8 +81,7 @@
 }
 
 .calendar-day-cell,
-.calendar-week-day,
-.calendar-day-view {
+.calendar-week-day {
   min-width: 0;
   border-radius: 22px;
   background: color-mix(in srgb, var(--bg-secondary) 82%, transparent);
@@ -99,8 +98,7 @@
 }
 
 .calendar-day-cell.today,
-.calendar-week-day.today,
-.calendar-day-view {
+.calendar-week-day.today {
   box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb), 0.55), 0 12px 28px rgba(var(--accent-rgb), 0.10);
 }
 
@@ -235,7 +233,7 @@
 }
 
 .calendar-day-view {
-  padding: 14px;
+  min-width: 0;
 }
 
 .calendar-day-view-header {
@@ -424,5 +422,30 @@
 
   .calendar-hour-label {
     font-size: 11px;
+  }
+}
+
+
+@media (max-width: 900px) {
+  .calendar-view:has(.calendar-day-view) {
+    padding-inline: 0;
+  }
+
+  .calendar-view:has(.calendar-day-view) .calendar-toolbar {
+    margin-inline: 14px;
+  }
+
+  .calendar-day-view {
+    width: 100%;
+    padding: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .calendar-day-view-header,
+  .calendar-all-day-row,
+  .calendar-day-timeline {
+    padding-inline: 14px;
   }
 }
