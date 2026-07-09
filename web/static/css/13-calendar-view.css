@@ -52,7 +52,7 @@
 }
 
 .calendar-controls-toggle {
-  align-self: flex-start;
+  align-self: center;
   flex: 0 0 auto;
 }
 
