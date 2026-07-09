@@ -749,6 +749,10 @@
     backdrop-filter: none;
   }
 
+  .calendar-week-timeline-header.is-stuck {
+    background: var(--bg-primary);
+  }
+
   .calendar-week-timeline-header.is-stuck::before {
     content: "";
     position: absolute;
