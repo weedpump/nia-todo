@@ -816,10 +816,21 @@
     min-width: 0;
     min-height: 7px;
     padding: 0;
+    border: 0;
     border-radius: 999px;
     background: var(--calendar-priority-color, var(--accent));
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--calendar-priority-color, var(--accent)) 28%, transparent);
+    box-shadow: none;
+    opacity: 1;
     overflow: hidden;
+  }
+
+  .calendar-week-timeline .calendar-event.status-done,
+  .calendar-week-timeline .calendar-event.status-in_progress,
+  .calendar-week-timeline .calendar-event:hover,
+  .calendar-week-timeline .calendar-event:focus-within {
+    background: var(--calendar-priority-color, var(--accent));
+    box-shadow: none;
+    opacity: 1;
   }
 
   .calendar-week-timeline .calendar-event > * {
