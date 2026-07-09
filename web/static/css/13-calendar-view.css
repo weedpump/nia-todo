@@ -731,18 +731,15 @@
 @media (max-width: 900px) {
   .calendar-week-timeline {
     display: flex;
-    overflow-x: auto;
-    overflow-y: visible;
+    overflow: visible;
     padding-bottom: 4px;
-    overscroll-behavior-x: contain;
-    scrollbar-width: thin;
   }
 
   .calendar-week-timeline-header,
   .calendar-week-all-day-row,
   .calendar-week-hour-row {
-    grid-template-columns: 42px repeat(7, minmax(112px, 112px));
-    width: max-content;
+    grid-template-columns: 36px repeat(7, minmax(0, 1fr));
+    width: 100%;
   }
 
   .calendar-week-timeline-header {
@@ -755,21 +752,39 @@
     backdrop-filter: blur(14px) saturate(1.08);
   }
 
+  .calendar-week-timezone {
+    font-size: 0;
+  }
+
   .calendar-week-timeline-day {
-    min-height: 42px;
-    padding: 6px 8px;
-    gap: 7px;
+    flex-direction: column;
+    min-height: 48px;
+    padding: 5px 2px;
+    gap: 3px;
+    border-radius: 999px;
+  }
+
+  .calendar-week-timeline-day span {
+    font-size: 9px;
+    letter-spacing: .04em;
   }
 
   .calendar-week-timeline-day strong {
-    min-width: 28px;
-    height: 28px;
-    font-size: 16px;
+    min-width: 24px;
+    height: 24px;
+    font-size: 14px;
   }
 
   .calendar-week-timeline-day.today strong {
-    width: 32px;
-    height: 32px;
+    width: 28px;
+    height: 28px;
+  }
+
+  .calendar-week-timeline-day em {
+    min-width: 14px;
+    height: 14px;
+    padding: 0 4px;
+    font-size: 9px;
   }
 
   .calendar-week-timeline-body {
@@ -778,11 +793,37 @@
 
   .calendar-week-hour-row,
   .calendar-week-hour-cell {
-    min-height: 58px;
+    min-height: 56px;
   }
 
-  .calendar-week-hour-cell {
-    padding: 5px;
+  .calendar-week-hour-cell,
+  .calendar-week-day-column {
+    padding: 5px 3px;
+  }
+
+  .calendar-week-hour-cell.has-events,
+  .calendar-week-day-column {
+    display: flex;
+    flex-flow: row wrap;
+    align-content: flex-start;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .calendar-week-timeline .calendar-event {
+    width: 9px;
+    height: 9px;
+    min-width: 9px;
+    min-height: 9px;
+    padding: 0;
+    border-radius: 999px;
+    background: var(--calendar-event-color, var(--accent));
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--calendar-event-color, var(--accent)) 28%, transparent);
+    overflow: hidden;
+  }
+
+  .calendar-week-timeline .calendar-event > * {
+    display: none;
   }
 
   .calendar-week-mobile-list {
