@@ -38,12 +38,17 @@ MVP should support:
    - Shows day columns with ordered todo events.
    - On mobile, this can become a horizontal day strip plus agenda list.
 
-3. **Agenda view**
+3. **Day view**
+   - Focused view for one selected day.
+   - Shows all due todos for that date, including time labels when available.
+   - Opens from month/week day clicks and via the mode switch.
+
+4. **Agenda view**
    - Mobile-friendly default or fallback.
    - Group due todos by day.
    - Handles dense calendars better than squeezing a full month grid.
 
-Day view can be added later if week/agenda are not enough. I would not start with a full hourly day planner unless we decide that `due_date` with time should behave like real appointment blocks.
+I would not start with a full hourly day planner unless we decide that `due_date` with time should behave like real appointment blocks. The MVP day view should be a clean day agenda first.
 
 ### Controls
 
@@ -261,7 +266,7 @@ For the actual implementation, start with Phase 1 plus enough Phase 2 to feel us
 
 - Branch: `feature/calendar-view`
 - Global nav entry
-- Month/week/agenda renderer
+- Month/week/day/agenda renderer
 - LocalStorage mode persistence
 - Todo event click -> existing modal
 - Responsive CSS

@@ -86,7 +86,7 @@ export function createAppLifecycle({
   }
 
   function restoreSavedNavigation() {
-    const baseFilters = ['all','focus','pending','in_progress','done'];
+    const baseFilters = ['all','focus','calendar','pending','in_progress','done'];
     const params = new URLSearchParams(window.location.search || '');
     const urlProject = params.get('project');
     const urlView = params.get('view');
