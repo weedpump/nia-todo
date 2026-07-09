@@ -52,6 +52,7 @@
 
 .calendar-controls-toggle {
   align-self: flex-start;
+  flex: 0 0 auto;
 }
 
 .calendar-mode-btn.active {
@@ -386,6 +387,14 @@
 
   .calendar-toolbar {
     border-radius: 24px;
+  }
+
+  .calendar-heading {
+    flex-wrap: wrap;
+  }
+
+  .calendar-heading .overview-greeting {
+    width: 100%;
   }
 
   .calendar-title-wrap {

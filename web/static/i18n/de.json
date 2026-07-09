@@ -1743,8 +1743,8 @@
   "calendar.emptyDayTitle": "Nichts fällig",
   "calendar.emptyDayHint": "Für diesen Tag gibt es keine Todos mit Deadline.",
   "calendar.emptyMini": "Keine Todos",
-  "calendar.controls.show": "Steuerung einblenden",
-  "calendar.controls.hide": "Steuerung ausblenden",
+  "calendar.controls.show": "Ansicht anpassen",
+  "calendar.controls.hide": "Optionen ausblenden",
   "calendar.allDay": "Ganztägig",
   "calendar.dayTimeline": "Tages-Zeitachse"
 }
