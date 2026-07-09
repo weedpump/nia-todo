@@ -730,7 +730,7 @@
 
 @media (max-width: 900px) {
   .calendar-view {
-    --calendar-mobile-sticky-top: calc(64px + env(safe-area-inset-top, 0px));
+    --calendar-mobile-sticky-top: calc(62px + env(safe-area-inset-top, 0px));
   }
 
   .calendar-week-timeline {
@@ -749,13 +749,24 @@
 
   .calendar-week-timeline-header {
     position: sticky;
-    top: var(--calendar-mobile-sticky-top, 64px);
+    top: var(--calendar-mobile-sticky-top, 62px);
     z-index: 80;
     padding-top: 4px;
     border-radius: 22px 22px 0 0;
     background:
       linear-gradient(180deg, color-mix(in srgb, var(--bg-secondary) 92%, transparent), color-mix(in srgb, var(--bg-primary) 78%, transparent));
     backdrop-filter: blur(14px) saturate(1.08);
+  }
+
+  .calendar-week-timeline-header::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: -3px;
+    height: 3px;
+    background: color-mix(in srgb, var(--bg-secondary) 92%, var(--bg-primary));
+    pointer-events: none;
   }
 
   .calendar-week-timezone {
