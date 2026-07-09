@@ -345,17 +345,7 @@ export function createCalendarViewFeature({
       </div>
     </div>`;
 
-    const mobileList = `<div class="calendar-week-grid calendar-week-mobile-list">
-      ${days.map((day, index) => `<section class="calendar-week-day ${isToday(day) ? 'today' : ''}">
-        <button type="button" class="calendar-week-day-header" data-calendar-action="open-day" data-calendar-date="${escapeHtmlAttr(dateKey(day))}">
-          <span>${escapeHtml(formatShortDay(day))}</span>
-          <strong>${dayEvents[index].length}</strong>
-        </button>
-        <div class="calendar-event-list">${dayEvents[index].length ? dayEvents[index].map(event => renderEvent(event)).join('') : renderMiniEmpty()}</div>
-      </section>`).join('')}
-    </div>`;
-
-    return `${renderPeriodHeader(formatRangeTitle(start, addDays(end, -1)), eventCountInRange(events, start, end))}${desktopTimeline}${mobileList}`;
+    return `${renderPeriodHeader(formatRangeTitle(start, addDays(end, -1)), eventCountInRange(events, start, end))}${desktopTimeline}`;
   }
 
   function renderDay(events) {
