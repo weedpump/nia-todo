@@ -1745,6 +1745,6 @@
   "calendar.emptyDayHint": "Für diesen Tag gibt es keine Todos mit Deadline.",
   "calendar.emptyMini": "Keine Todos",
   "calendar.overdue": "Überfällig",
-  "calendar.controls.show": "Steuerung",
+  "calendar.controls.show": "Steuerung einblenden",
   "calendar.controls.hide": "Steuerung ausblenden"
 }
