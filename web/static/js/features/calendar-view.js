@@ -17,6 +17,7 @@ export function createCalendarViewFeature({
   let controlsOpen = localStorage.getItem(CONTROLS_KEY) === 'true';
   let actionsBound = false;
   let toolbarResizeObserver = null;
+  let stickyWeekHeaderBound = false;
 
   function normalizeMode(value) {
     return MODES.includes(value) ? value : 'month';
@@ -251,6 +252,26 @@ export function createCalendarViewFeature({
     }
   }
 
+
+  function scheduleStickyWeekHeaderState() {
+    window.requestAnimationFrame(updateStickyWeekHeaderState);
+    if (stickyWeekHeaderBound) return;
+    stickyWeekHeaderBound = true;
+    window.addEventListener('scroll', updateStickyWeekHeaderState, { passive: true });
+    window.addEventListener('resize', updateStickyWeekHeaderState, { passive: true });
+  }
+
+  function updateStickyWeekHeaderState() {
+    const header = document.querySelector('.calendar-view .calendar-week-timeline-header');
+    if (!header || !window.matchMedia('(max-width: 900px)').matches) {
+      document.querySelectorAll('.calendar-week-timeline-header.is-stuck').forEach(item => item.classList.remove('is-stuck'));
+      return;
+    }
+    const topValue = window.getComputedStyle(header).top;
+    const stickyTop = Number.parseFloat(topValue) || 0;
+    header.classList.toggle('is-stuck', header.getBoundingClientRect().top <= stickyTop + 0.5);
+  }
+
   function priorityColor(priority) {
     return { 1: '#ef4444', 2: '#f59e0b', 3: '#10b981', 4: '#94a3b8' }[priority] || '#94a3b8';
   }
@@ -447,6 +468,7 @@ export function createCalendarViewFeature({
   function renderCalendarView({ todos, projects, hideDone }) {
     bindActions();
     scheduleToolbarLayout();
+    scheduleStickyWeekHeaderState();
     const events = normalizeEvents(todos, projects, hideDone);
     const body = mode === 'month'
       ? renderMonth(events)
