@@ -1744,7 +1744,7 @@
   "calendar.emptyDayTitle": "Nothing due",
   "calendar.emptyDayHint": "No todos with deadlines for this day.",
   "calendar.emptyMini": "No todos",
-  "calendar.controls.show": "Expand view options",
+  "calendar.controls.show": "Show options",
   "calendar.controls.hide": "Hide options",
   "calendar.allDay": "All day",
   "calendar.dayTimeline": "Day timeline"
