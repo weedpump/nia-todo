@@ -543,3 +543,41 @@
   width: 8px;
   height: 8px;
 }
+
+.calendar-view .calendar-event {
+  grid-template-columns: auto auto minmax(0, 1fr);
+}
+
+.calendar-event-title-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  height: 16px;
+  line-height: 16px;
+}
+
+.calendar-event-title-row .calendar-event-priority {
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 8px;
+  min-width: 8px;
+  height: 16px;
+  line-height: 16px;
+}
+
+.calendar-event-title-row .calendar-event-priority-dot {
+  width: 7px;
+  height: 7px;
+}
+
+.calendar-event-title-row .calendar-event-title {
+  align-self: center;
+  display: block;
+  min-width: 0;
+  font-weight: 800;
+  line-height: 16px;
+  transform: none;
+}
