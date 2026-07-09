@@ -272,7 +272,7 @@ export function createCalendarViewFeature({
     const statusClass = event.status === 'done' ? 'done' : event.status === 'in_progress' ? 'in-progress' : '';
     const priority = Math.min(4, Math.max(1, Number(event.priority || 3)));
     return `
-      <div class="todo-item calendar-event ${statusClass} ${compact ? 'compact' : ''} status-${escapeHtmlAttr(event.status)}" data-id="${escapeHtmlAttr(event.todoId)}" data-status="${escapeHtmlAttr(event.status)}" data-calendar-todo-id="${escapeHtmlAttr(event.todoId)}" draggable="false" style="--calendar-event-color:${escapeHtmlAttr(event.color)}">
+      <div class="todo-item calendar-event ${statusClass} ${compact ? 'compact' : ''} status-${escapeHtmlAttr(event.status)}" data-id="${escapeHtmlAttr(event.todoId)}" data-status="${escapeHtmlAttr(event.status)}" data-calendar-todo-id="${escapeHtmlAttr(event.todoId)}" draggable="false" style="--calendar-event-color:${escapeHtmlAttr(event.color)};--calendar-priority-color:${escapeHtmlAttr(priorityColor(priority))}">
         ${projectMarker}
         ${time}
         <span class="calendar-event-title-row">
