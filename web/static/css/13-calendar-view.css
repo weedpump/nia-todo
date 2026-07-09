@@ -283,28 +283,25 @@
   min-width: 0;
 }
 
-.calendar-day-view-header {
+.calendar-period-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+  min-width: 0;
   margin-bottom: 10px;
   color: var(--text-secondary);
   font-weight: 850;
 }
 
-.calendar-day-view-date {
-  font-size: 18px;
+.calendar-period-title {
+  min-width: 0;
+  overflow: hidden;
   color: var(--text-primary);
+  font-size: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-
-.calendar-empty {
-  margin: 0;
-}
-
-
-
-
 
 .calendar-day-view {
   display: flex;
@@ -390,19 +387,25 @@
   }
 
   .calendar-heading {
-    flex-wrap: wrap;
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .calendar-heading .overview-greeting {
     width: 100%;
   }
 
+  .calendar-heading .calendar-controls-toggle {
+    align-self: stretch;
+    justify-content: center;
+    margin-top: 2px;
+  }
+
   .calendar-title-wrap {
     min-width: 0;
   }
 
-  .calendar-title-wrap h2,
-  .calendar-title-wrap .overview-subtitle {
+  .calendar-title-wrap h2 {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -459,7 +462,7 @@
     box-shadow: none;
   }
 
-  .calendar-day-view-header,
+  .calendar-day-view > .calendar-period-header,
   .calendar-all-day-row,
   .calendar-day-timeline {
     padding-inline: 14px;

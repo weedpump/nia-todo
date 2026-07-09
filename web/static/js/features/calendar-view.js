@@ -52,8 +52,12 @@ export function createCalendarViewFeature({
     return next;
   }
 
+  function startOfMonth(date) {
+    return startOfDay(new Date(date.getFullYear(), date.getMonth(), 1));
+  }
+
   function startOfMonthGrid(date) {
-    return startOfWeek(new Date(date.getFullYear(), date.getMonth(), 1));
+    return startOfWeek(startOfMonth(date));
   }
 
   function dateKey(date) {
@@ -160,7 +164,7 @@ export function createCalendarViewFeature({
     return map;
   }
 
-  function renderToolbar(title) {
+  function renderToolbar() {
     return `
       <div class="overview-dashboard calendar-toolbar ${controlsOpen ? 'is-controls-open' : ''}">
         <div class="overview-dashboard-header calendar-heading">
@@ -168,7 +172,6 @@ export function createCalendarViewFeature({
             <span class="overview-avatar calendar-avatar" aria-hidden="true">${iconSvg('calendar-days')}</span>
             <div class="calendar-title-wrap">
               <h2>${escapeHtml(t('calendar.title'))}</h2>
-              <div class="overview-subtitle">${escapeHtml(title)}</div>
             </div>
           </div>
           <button type="button" class="btn btn-secondary btn-small calendar-controls-toggle" data-calendar-action="toggle-controls" aria-expanded="${controlsOpen ? 'true' : 'false'}">
@@ -193,6 +196,17 @@ export function createCalendarViewFeature({
     return { 1: '#ef4444', 2: '#f59e0b', 3: '#10b981', 4: '#94a3b8' }[priority] || '#94a3b8';
   }
 
+  function eventCountInRange(events, start, endExclusive) {
+    return events.filter(event => event.start >= start && event.start < endExclusive).length;
+  }
+
+  function renderPeriodHeader(title, count) {
+    return `<div class="calendar-period-header">
+      <div class="calendar-period-title">${escapeHtml(title)}</div>
+      <span class="badge">${count}</span>
+    </div>`;
+  }
+
   function renderEvent(event, compact = false) {
     const projectMarker = event.project ? markerHtml(event.project) : `<span class="project-dot" style="background:${escapeHtmlAttr(event.color)}"></span>`;
     const time = event.allDay ? '' : `<span class="calendar-event-time">${escapeHtml(formatTime(event.start))}</span>`;
@@ -210,10 +224,13 @@ export function createCalendarViewFeature({
   }
 
   function renderMonth(events) {
+    const monthStart = startOfMonth(anchorDate);
+    const monthEnd = addMonths(monthStart, 1);
     const start = startOfMonthGrid(anchorDate);
     const byDay = eventsByDay(events);
     const weekdays = Array.from({ length: 7 }, (_, index) => addDays(startOfWeek(new Date()), index));
-    let html = `<div class="calendar-weekdays">${weekdays.map(day => `<div>${escapeHtml(new Intl.DateTimeFormat(locale(), { weekday: 'short' }).format(day))}</div>`).join('')}</div>`;
+    let html = renderPeriodHeader(formatMonthTitle(anchorDate), eventCountInRange(events, monthStart, monthEnd));
+    html += `<div class="calendar-weekdays">${weekdays.map(day => `<div>${escapeHtml(new Intl.DateTimeFormat(locale(), { weekday: 'short' }).format(day))}</div>`).join('')}</div>`;
     html += '<div class="calendar-month-grid">';
     for (let index = 0; index < 42; index += 1) {
       const day = addDays(start, index);
@@ -235,8 +252,9 @@ export function createCalendarViewFeature({
 
   function renderWeek(events) {
     const start = startOfWeek(anchorDate);
+    const end = addDays(start, 7);
     const byDay = eventsByDay(events);
-    return `<div class="calendar-week-grid">
+    return `${renderPeriodHeader(formatRangeTitle(start, addDays(end, -1)), eventCountInRange(events, start, end))}<div class="calendar-week-grid">
       ${Array.from({ length: 7 }, (_, index) => {
         const day = addDays(start, index);
         const dayEvents = byDay.get(dateKey(day)) || [];
@@ -263,10 +281,7 @@ export function createCalendarViewFeature({
     }
 
     return `<section class="calendar-day-view">
-      <div class="calendar-day-view-header">
-        <div class="calendar-day-view-date">${escapeHtml(formatDayTitle(anchorDate))}</div>
-        <span class="badge">${dayEvents.length}</span>
-      </div>
+      ${renderPeriodHeader(formatDayTitle(anchorDate), dayEvents.length)}
       ${allDayEvents.length ? `<div class="calendar-all-day-row">
         <div class="calendar-hour-label">${escapeHtml(t('calendar.allDay'))}</div>
         <div class="calendar-event-list calendar-all-day-events">${allDayEvents.map(event => renderEvent(event)).join('')}</div>
@@ -288,20 +303,6 @@ export function createCalendarViewFeature({
 
   function renderMiniEmpty() {
     return `<div class="calendar-mini-empty">${escapeHtml(t('calendar.emptyMini'))}</div>`;
-  }
-
-  function renderEmpty(title, hint) {
-    return `<div class="empty-state calendar-empty">
-      <div class="emoji">${iconSvg('calendar-days')}</div>
-      <h3>${escapeHtml(title)}</h3>
-      <p>${escapeHtml(hint)}</p>
-    </div>`;
-  }
-
-  function currentTitle() {
-    if (mode === 'month') return formatMonthTitle(anchorDate);
-    if (mode === 'week') return formatRangeTitle(startOfWeek(anchorDate), addDays(startOfWeek(anchorDate), 6));
-    return formatDayTitle(anchorDate);
   }
 
   function shiftAnchor(direction) {
@@ -374,8 +375,8 @@ export function createCalendarViewFeature({
         : renderDay(events);
 
     return `<section class="calendar-view" aria-label="${escapeHtmlAttr(t('calendar.title'))}">
-      ${renderToolbar(currentTitle())}
-      ${events.length ? body : renderEmpty(t('calendar.emptyTitle'), t('calendar.emptyHint'))}
+      ${renderToolbar()}
+      ${body}
     </section>`;
   }
 
