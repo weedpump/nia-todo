@@ -1,6 +1,6 @@
 # <img src="web/static/icons/icon-512.png" alt="nia-todo icon" width="32" height="32"> nia-todo
 
-Selfhosted todo system — SQLite + FastAPI + Web UI + offline PWA + native Windows/Android apps.
+Selfhosted todo system — SQLite + FastAPI + Web UI + offline PWA + native Windows/Android/Linux apps.
 
 ## 🌍 Instances
 
@@ -23,12 +23,12 @@ systemctl restart nia-todo-dev
 - 🤝 Project sharing between users with invitations and undo
 - 📧 Email/SMTP integration for invitations, password reset, and email verification
 - 🔲 Sections per project
-- 📱 Offline PWA plus native Windows/Android wrappers
+- 📱 Offline PWA plus native Windows, Android, and Linux Debian desktop wrappers
 - 🔐 Auth, admin panel, API keys, CSRF protection, OIDC/SSO support, and user data isolation
 - 🛡️ 2FA/MFA with authenticator app (TOTP), passkeys/WebAuthn including native Windows/Android bridge, email code fallback, recovery codes, trusted devices, and admin policy
 - ⏰ Reminders/deadlines with validated date/time input
 - 🔁 Recurring todos require a due date and can carry reminders forward to the next occurrence
-- 🔔 Native local reminders on Windows and Android; browser/PWA push remains browser/PWA-only
+- 🔔 Native local reminders on Windows and Android, plus Linux desktop notifications; browser/PWA push remains browser/PWA-only
 - 🎙️ BrainDump voice capture for turning spoken notes into reviewed todo candidates, with configurable STT/LLM providers including OpenAI-compatible endpoints, Ollama, and OpenClaw agents
 - 🎨 Theme toggle
 - 🗄️ Local SQLite
@@ -46,7 +46,7 @@ systemctl restart nia-todo-dev
 - Dev branch: `develop`
 - Dev folder: `~/projects/nia-todo-dev`
 - Release only from `develop` through `./release.sh VERSION --github-repo OWNER/REPO`
-- UI changes must follow the [Design Concept](docs/design-concept.md) for desktop/mobile layout, modals, buttons, and reusable patterns. Dropdown/select work must also follow the [UI Dropdown Migration Plan](docs/ui-dropdown-migration-plan.md).
+- UI changes must follow the [Design Concept](docs/design-concept.md) for desktop/mobile layout, modals, buttons, and reusable patterns.
 
 ## 🧪 Tests
 
@@ -63,14 +63,14 @@ Details: [Test docs](docs/testing.md)
 - [Workflow docs](docs/workflow.md)
 - [Architecture](docs/architecture.md)
 - [Design Concept](docs/design-concept.md)
-- Changelog: `CHANGELOG.md` shared by web app, Windows app, and Android app
+- Changelog: `CHANGELOG.md` shared by web app, Windows app, Android app, and Linux desktop app
 
 ## ⚙️ Setup / Operations
 
 - Initial setup: `/setup`
 - Admin panel: `/admin`
 - 2FA policy and user reset: `/admin` → Security/user list
-- Passkeys require an HTTPS `public_base_url` in production setups; Android uses the bundled app signature through `/.well-known/assetlinks.json`
+- Passkeys require an HTTPS `public_base_url` in production setups; native passkeys are supported on Windows and Android, while Linux passkey integration is intentionally deferred. Android uses the bundled app signature through `/.well-known/assetlinks.json`.
 - BrainDump is disabled by default until configured: set up global STT/LLM providers in `/admin`, enable the global feature, then grant per-user access. See [BrainDump](docs/braindump-v2.md).
 - Dev branding: `setup-dev.sh`
 

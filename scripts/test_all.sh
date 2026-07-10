@@ -139,6 +139,9 @@ restore_frontend_suite
 trap - EXIT
 run_step "Native Android Location Reminder" node scripts/test_native_android_location_reminders.mjs
 run_step "Native Android WebView Cache Migration" node scripts/test_native_android_webview_cache_migration.mjs
+run_step "Native Linux WebView Cache Migration" node scripts/test_native_linux_webview_cache_migration.mjs
+run_step "Native Linux Debian Package Name" node scripts/test_native_linux_deb_package_name.mjs
+run_step "Native Desktop Settings Static" node scripts/test_native_desktop_settings_static.mjs
 run_step "Native Android Reminder Alarm Policy" node scripts/test_native_android_reminder_alarm_policy.mjs
 run_step "Native Android Microphone Permission" node scripts/test_native_android_microphone_permission.mjs
 run_step "Native Windows Installer Cache Hook" node scripts/test_native_windows_installer_cache_hooks.mjs
