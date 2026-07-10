@@ -240,6 +240,27 @@ enum WindowPresentMode {
   RestoreAndFocus,
 }
 
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+fn linux_activate_main_window() -> Result<(), String> {
+  let xdotool = Command::new("xdotool")
+    .args(["search", "--class", "nia-todo-desktop", "windowactivate", "--sync"])
+    .status();
+  match xdotool {
+    Ok(status) if status.success() => return Ok(()),
+    Ok(status) => eprintln!("xdotool windowactivate failed with {status}"),
+    Err(err) => eprintln!("xdotool windowactivate unavailable: {err}"),
+  }
+
+  let wmctrl = Command::new("wmctrl")
+    .args(["-x", "-a", "nia-todo-desktop"])
+    .status();
+  match wmctrl {
+    Ok(status) if status.success() => Ok(()),
+    Ok(status) => Err(format!("wmctrl activation failed with {status}")),
+    Err(err) => Err(format!("wmctrl activation unavailable: {err}")),
+  }
+}
+
 #[cfg(desktop)]
 fn show_main_window(app: &AppHandle, source: &str, mode: WindowPresentMode) {
   eprintln!("[nia-todo-desktop] show_main_window source={source} mode={mode:?}");
@@ -249,9 +270,17 @@ fn show_main_window(app: &AppHandle, source: &str, mode: WindowPresentMode) {
         let _ = window.show();
       }
       WindowPresentMode::RestoreOnly => {
+        #[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+        if linux_activate_main_window().is_ok() {
+          return;
+        }
         let _ = window.unminimize();
       }
       WindowPresentMode::RestoreAndFocus => {
+        #[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+        if linux_activate_main_window().is_ok() {
+          return;
+        }
         let _ = window.unminimize();
         let _ = window.set_focus();
       }

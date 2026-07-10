@@ -47,6 +47,11 @@ assert.match(
 );
 assert.match(
   rustSource,
+  /Command::new\("xdotool"\)[\s\S]*windowactivate[\s\S]*Command::new\("wmctrl"\)/,
+  'Linux window activation should try xdotool before falling back to wmctrl',
+);
+assert.match(
+  rustSource,
   /show_main_window\(app, "toggle-hotkey", WindowPresentMode::RestoreOnly\)/,
   'Linux-prone toggle presentation should restore minimized windows without GTK show()',
 );
@@ -67,8 +72,8 @@ assert.match(
 );
 assert.match(
   tauriConfig,
-  /"recommends": \["libnotify-bin"\]/,
-  'Linux Debian package should recommend libnotify-bin for notify-send notifications',
+  /"recommends": \["libnotify-bin", "xdotool", "wmctrl"\]/,
+  'Linux Debian package should recommend notification and X11 window activation helpers',
 );
 assert.match(
   linuxDesktopTemplate,
