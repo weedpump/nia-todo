@@ -25,6 +25,11 @@ tauri-plugin-notification = "2"
 tauri-plugin-window-state = "2"
 tauri-plugin-single-instance = "2"
 
+[target.'cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))'.dependencies]
+ashpd = { version = "0.13.12", features = ["global_shortcuts"] }
+futures-util = "0.3"
+gtk = "0.18"
+
 [target.'cfg(windows)'.dependencies]
 base64 = "0.22"
 windows = { version = "0.61.3", features = ["Win32_Foundation", "Win32_Networking_WindowsWebServices"] }

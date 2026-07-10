@@ -21,6 +21,15 @@ use tauri_plugin_notification::NotificationExt;
 #[cfg(not(target_os = "android"))]
 use std::process::Command;
 
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+type LinuxPortalShortcutSession = ashpd::desktop::Session<ashpd::desktop::global_shortcuts::GlobalShortcuts>;
+
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+static LINUX_PORTAL_HOTKEY_GENERATION: AtomicU64 = AtomicU64::new(0);
+
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+static LINUX_PORTAL_SHORTCUT_SESSION: Mutex<Option<Arc<LinuxPortalShortcutSession>>> = Mutex::new(None);
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 struct DesktopHotkeys {
@@ -246,6 +255,25 @@ fn conceal_main_window(window: &tauri::WebviewWindow) {
   let _ = window.hide();
 }
 
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+fn present_main_window_with_activation(app: &AppHandle, activation_token: Option<&str>, timestamp_ms: Option<u32>) {
+  use gtk::prelude::GtkWindowExt;
+
+  if let Some(window) = app.get_webview_window("main") {
+    if let Ok(gtk_window) = window.gtk_window() {
+      if let Some(token) = activation_token.filter(|token| !token.is_empty()) {
+        gtk_window.set_startup_id(token);
+      }
+      if let Some(timestamp_ms) = timestamp_ms {
+        gtk_window.present_with_time(timestamp_ms);
+      }
+    }
+    let _ = window.show();
+    let _ = window.unminimize();
+    let _ = window.set_focus();
+  }
+}
+
 #[cfg(desktop)]
 fn toggle_main_window(app: &AppHandle) {
   if let Some(window) = app.get_webview_window("main") {
@@ -307,6 +335,162 @@ fn emit_desktop_hotkey(app: &AppHandle, action: &str) {
   let _ = app.emit("desktop-hotkey", DesktopHotkeyEvent { action: action.to_string() });
 }
 
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+fn shortcut_to_xdg_trigger(shortcut: &str) -> String {
+  shortcut
+    .split('+')
+    .filter_map(|part| {
+      let part = part.trim();
+      if part.is_empty() {
+        return None;
+      }
+      Some(match part.to_ascii_lowercase().as_str() {
+        "ctrl" | "control" => "CTRL".to_string(),
+        "alt" => "ALT".to_string(),
+        "shift" => "SHIFT".to_string(),
+        "super" | "meta" | "logo" | "cmd" | "command" => "LOGO".to_string(),
+        "enter" => "Return".to_string(),
+        "escape" => "Escape".to_string(),
+        " " | "space" => "space".to_string(),
+        "arrowup" => "Up".to_string(),
+        "arrowdown" => "Down".to_string(),
+        "arrowleft" => "Left".to_string(),
+        "arrowright" => "Right".to_string(),
+        "backspace" => "BackSpace".to_string(),
+        "delete" => "Delete".to_string(),
+        "tab" => "Tab".to_string(),
+        key if key.len() == 1 => key.to_string(),
+        _ => part.to_string(),
+      })
+    })
+    .collect::<Vec<_>>()
+    .join("+")
+}
+
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+fn activation_token_from_options(options: &std::collections::HashMap<String, ashpd::zbus::zvariant::OwnedValue>) -> Option<String> {
+  options
+    .get("activation_token")
+    .and_then(|value| String::try_from(value.clone()).ok())
+}
+
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+fn handle_portal_hotkey(app: &AppHandle, action: &str, activation_token: Option<&str>, timestamp_ms: Option<u32>) {
+  match action {
+    "toggleApp" => {
+      if let Some(window) = app.get_webview_window("main") {
+        let is_visible = window.is_visible().unwrap_or(false);
+        let is_minimized = window.is_minimized().unwrap_or(false);
+        if is_visible && !is_minimized {
+          conceal_main_window(&window);
+        } else {
+          present_main_window_with_activation(app, activation_token, timestamp_ms);
+        }
+      }
+    }
+    "newTodo" | "search" => {
+      present_main_window_with_activation(app, activation_token, timestamp_ms);
+      emit_desktop_hotkey(app, action);
+    }
+    _ => {}
+  }
+}
+
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+fn close_current_portal_hotkey_session() {
+  let session = LINUX_PORTAL_SHORTCUT_SESSION.lock().ok().and_then(|mut current| current.take());
+  if let Some(session) = session {
+    tauri::async_runtime::spawn(async move {
+      let _ = session.close().await;
+    });
+  }
+}
+
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+async fn try_apply_portal_hotkeys(app: AppHandle, settings: DesktopSettings, generation: u64) -> Result<bool, String> {
+  use ashpd::desktop::global_shortcuts::{BindShortcutsOptions, GlobalShortcuts, NewShortcut};
+  use ashpd::desktop::CreateSessionOptions;
+  use futures_util::StreamExt;
+
+  let entries = [
+    ("toggleApp", "nia-todo anzeigen/verstecken", settings.hotkeys.toggle_app),
+    ("newTodo", "Neues nia-todo Todo", settings.hotkeys.new_todo),
+    ("search", "nia-todo Suche", settings.hotkeys.search),
+  ];
+  let requested_ids = entries
+    .iter()
+    .filter_map(|(id, _, shortcut)| shortcut.as_ref().map(|_| *id))
+    .collect::<Vec<_>>();
+  let shortcuts = entries
+    .into_iter()
+    .filter_map(|(id, description, shortcut)| {
+      shortcut.map(|shortcut| NewShortcut::new(id, description).preferred_trigger(shortcut_to_xdg_trigger(&shortcut).as_str()))
+    })
+    .collect::<Vec<_>>();
+  if shortcuts.is_empty() {
+    return Ok(false);
+  }
+
+  let portal = GlobalShortcuts::new().await.map_err(|err| err.to_string())?;
+  if portal.version() < 2 {
+    return Ok(false);
+  }
+  let session = Arc::new(portal.create_session(CreateSessionOptions::default()).await.map_err(|err| err.to_string())?);
+  let bind_request = match portal
+    .bind_shortcuts(&session, &shortcuts, None, BindShortcutsOptions::default())
+    .await
+  {
+    Ok(request) => request,
+    Err(err) => {
+      let _ = session.close().await;
+      return Err(err.to_string());
+    }
+  };
+  let bind_response = match bind_request.response() {
+    Ok(response) => response,
+    Err(err) => {
+      let _ = session.close().await;
+      return Err(err.to_string());
+    }
+  };
+  let bound_ids = bind_response.shortcuts().iter().map(|shortcut| shortcut.id()).collect::<std::collections::HashSet<_>>();
+  if requested_ids.iter().any(|id| !bound_ids.contains(id)) {
+    let _ = session.close().await;
+    return Ok(false);
+  }
+  if LINUX_PORTAL_HOTKEY_GENERATION.load(Ordering::SeqCst) != generation {
+    let _ = session.close().await;
+    return Ok(false);
+  }
+
+  let mut activated = match portal.receive_activated().await {
+    Ok(stream) => stream,
+    Err(err) => {
+      let _ = session.close().await;
+      return Err(err.to_string());
+    }
+  };
+
+  if let Ok(mut current) = LINUX_PORTAL_SHORTCUT_SESSION.lock() {
+    *current = Some(session.clone());
+  }
+  let session_for_listener = session.clone();
+  tauri::async_runtime::spawn(async move {
+    while let Some(event) = activated.next().await {
+      if LINUX_PORTAL_HOTKEY_GENERATION.load(Ordering::SeqCst) != generation {
+        let _ = session_for_listener.close().await;
+        return;
+      }
+      let action = event.shortcut_id().to_string();
+      let token = activation_token_from_options(event.options());
+      let timestamp_ms = Some(event.timestamp().as_millis().min(u32::MAX as u128) as u32);
+      handle_portal_hotkey(&app, &action, token.as_deref(), timestamp_ms);
+    }
+  });
+
+  Ok(true)
+}
+
 #[cfg(desktop)]
 fn apply_global_hotkeys(app: &AppHandle) -> Result<(), String> {
   use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
@@ -314,6 +498,17 @@ fn apply_global_hotkeys(app: &AppHandle) -> Result<(), String> {
   let settings = load_settings(app);
   ensure_unique_hotkeys(&settings.hotkeys)?;
   app.global_shortcut().unregister_all().map_err(|err| err.to_string())?;
+
+  #[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+  {
+    let generation = LINUX_PORTAL_HOTKEY_GENERATION.fetch_add(1, Ordering::SeqCst) + 1;
+    close_current_portal_hotkey_session();
+    match tauri::async_runtime::block_on(try_apply_portal_hotkeys(app.clone(), settings.clone(), generation)) {
+      Ok(true) => return Ok(()),
+      Ok(false) => {}
+      Err(err) => eprintln!("Linux portal global shortcuts unavailable, falling back to Tauri global shortcut plugin: {err}"),
+    }
+  }
 
   let entries = [
     ("toggleApp", settings.hotkeys.toggle_app),
