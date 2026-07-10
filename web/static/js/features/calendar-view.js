@@ -11,6 +11,7 @@ export function createCalendarViewFeature({
   escapeHtmlAttr,
   renderTodos,
   openTodo,
+  setTodoStatus,
 }) {
   let mode = normalizeMode(localStorage.getItem(MODE_KEY));
   let anchorDate = parseStoredDate(localStorage.getItem(ANCHOR_KEY)) || startOfDay(new Date());
@@ -19,6 +20,9 @@ export function createCalendarViewFeature({
   let toolbarResizeObserver = null;
   let stickyWeekHeaderBound = false;
   let stickyWeekHeaderFrame = 0;
+  let calendarSwipeBound = false;
+  let calendarSwipeActive = null;
+  let suppressCalendarClickUntil = 0;
 
   function normalizeMode(value) {
     return MODES.includes(value) ? value : 'month';
@@ -44,7 +48,11 @@ export function createCalendarViewFeature({
 
   function addMonths(date, amount) {
     const next = new Date(date);
+    const originalDay = next.getDate();
+    next.setDate(1);
     next.setMonth(next.getMonth() + amount);
+    const lastDay = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate();
+    next.setDate(Math.min(originalDay, lastDay));
     return next;
   }
 
@@ -304,7 +312,7 @@ export function createCalendarViewFeature({
     const statusClass = event.status === 'done' ? 'done' : event.status === 'in_progress' ? 'in-progress' : '';
     const priority = Math.min(4, Math.max(1, Number(event.priority || 3)));
     return `
-      <div class="todo-item calendar-event ${statusClass} ${compact ? 'compact' : ''} status-${escapeHtmlAttr(event.status)}" data-id="${escapeHtmlAttr(event.todoId)}" data-status="${escapeHtmlAttr(event.status)}" data-calendar-todo-id="${escapeHtmlAttr(event.todoId)}" draggable="false" style="--calendar-event-color:${escapeHtmlAttr(event.color)};--calendar-priority-color:${escapeHtmlAttr(priorityColor(priority))}">
+      <div class="calendar-event ${statusClass} ${compact ? 'compact' : ''} status-${escapeHtmlAttr(event.status)}" data-status="${escapeHtmlAttr(event.status)}" data-calendar-todo-id="${escapeHtmlAttr(event.todoId)}" draggable="false" style="--calendar-event-color:${escapeHtmlAttr(event.color)};--calendar-priority-color:${escapeHtmlAttr(priorityColor(priority))}">
         ${projectMarker}
         ${time}
         <span class="calendar-event-title-row">
@@ -423,10 +431,6 @@ export function createCalendarViewFeature({
   }
 
 
-  function renderMiniEmpty() {
-    return `<div class="calendar-mini-empty">${escapeHtml(t('calendar.emptyMini'))}</div>`;
-  }
-
   function shiftAnchor(direction) {
     if (mode === 'month') anchorDate = addMonths(anchorDate, direction);
     else if (mode === 'week') anchorDate = addDays(anchorDate, direction * 7);
@@ -438,10 +442,120 @@ export function createCalendarViewFeature({
     localStorage.setItem(ANCHOR_KEY, dateKey(anchorDate));
   }
 
+
+  function wait(ms) {
+    return new Promise(resolve => window.setTimeout(resolve, ms));
+  }
+
+  function setCalendarSwipeVisual(item, visualDx, rawDx, actionThreshold) {
+    const progress = Math.min(1, Math.abs(rawDx) / Math.max(1, actionThreshold));
+    item.style.setProperty('--swipe-x', `${visualDx}px`);
+    item.style.setProperty('--swipe-progress', progress.toFixed(3));
+    item.classList.toggle('swipe-right', visualDx > 0);
+    item.classList.toggle('swipe-left', visualDx < 0);
+    item.classList.toggle('swipe-ready', progress >= 1);
+  }
+
+  function cleanupCalendarSwipeVisual(item) {
+    item.classList.remove('swiping', 'swipe-right', 'swipe-left', 'swipe-ready', 'swipe-settling', 'swipe-committing');
+    item.style.removeProperty('--swipe-x');
+    item.style.removeProperty('--swipe-progress');
+    item.removeAttribute('data-swipe-right-label');
+    item.removeAttribute('data-swipe-left-label');
+  }
+
+  function bindCalendarSwipeGestures() {
+    if (calendarSwipeBound) return;
+    calendarSwipeBound = true;
+    const thresholdPx = 80;
+    const thresholdRatio = 0.35;
+    const lockThreshold = 10;
+
+    document.addEventListener('click', (event) => {
+      if (Date.now() > suppressCalendarClickUntil) return;
+      if (!event.target?.closest?.('.calendar-event[data-calendar-todo-id]')) return;
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation?.();
+    }, true);
+
+    document.addEventListener('pointerdown', (event) => {
+      if (!event.isPrimary || (event.pointerType && event.pointerType !== 'touch' && event.pointerType !== 'pen')) return;
+      const item = event.target?.closest?.('.calendar-event[data-calendar-todo-id]');
+      if (!item || !item.closest('.calendar-view')) return;
+      calendarSwipeActive = {
+        item,
+        id: item.dataset.calendarTodoId,
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        dx: 0,
+        dy: 0,
+        locked: null,
+        swiped: false,
+      };
+    }, { passive: true });
+
+    document.addEventListener('pointermove', (event) => {
+      const active = calendarSwipeActive;
+      if (!active || event.pointerId !== active.pointerId) return;
+      active.dx = event.clientX - active.startX;
+      active.dy = event.clientY - active.startY;
+      if (!active.locked) {
+        const absX = Math.abs(active.dx);
+        const absY = Math.abs(active.dy);
+        if (absX < lockThreshold && absY < lockThreshold) return;
+        active.locked = absX > absY * 1.25 ? 'horizontal' : 'vertical';
+        if (active.locked === 'vertical') return;
+        active.item.setAttribute('data-swipe-right-label', `↗ ${t('todo.status.inProgress')}`);
+        active.item.setAttribute('data-swipe-left-label', `✓ ${t('todo.status.done')}`);
+        active.item.classList.add('swiping');
+      }
+      if (active.locked !== 'horizontal') return;
+      event.preventDefault();
+      const actionThreshold = Math.max(thresholdPx, active.item.clientWidth * thresholdRatio);
+      const maxDx = active.item.clientWidth || Math.abs(active.dx);
+      const visualDx = Math.max(-maxDx, Math.min(maxDx, active.dx));
+      setCalendarSwipeVisual(active.item, visualDx, active.dx, actionThreshold);
+      active.swiped = true;
+    }, { passive: false });
+
+    const finish = async (event) => {
+      const active = calendarSwipeActive;
+      if (!active || event.pointerId !== active.pointerId) return;
+      calendarSwipeActive = null;
+      const item = active.item;
+      const actionThreshold = Math.max(thresholdPx, item.clientWidth * thresholdRatio);
+      const shouldAct = active.locked === 'horizontal' && Math.abs(active.dx) >= actionThreshold;
+      if (active.swiped || shouldAct) suppressCalendarClickUntil = Date.now() + 450;
+      if (active.locked === 'horizontal') event.preventDefault();
+      if (!shouldAct) {
+        if (active.swiped) {
+          item.classList.add('swipe-settling');
+          window.requestAnimationFrame(() => setCalendarSwipeVisual(item, 0, 0, actionThreshold));
+          await wait(180);
+        }
+        cleanupCalendarSwipeVisual(item);
+        return;
+      }
+      item.classList.add('swipe-committing');
+      setCalendarSwipeVisual(item, active.dx < 0 ? -item.clientWidth : item.clientWidth, active.dx, actionThreshold);
+      await wait(130);
+      cleanupCalendarSwipeVisual(item);
+      await setTodoStatus?.(active.id, active.dx < 0 ? 'done' : 'in_progress');
+    };
+
+    document.addEventListener('pointerup', finish, { passive: false });
+    document.addEventListener('pointercancel', finish, { passive: false });
+  }
+
   function bindActions() {
     if (actionsBound) return;
     actionsBound = true;
     document.addEventListener('click', (event) => {
+      const calendarView = event.target?.closest?.('.calendar-view');
+      if (!calendarView) return;
+
       const calendarTodo = event.target?.closest?.('[data-calendar-todo-id]');
       if (calendarTodo) {
         event.preventDefault();
@@ -462,7 +576,6 @@ export function createCalendarViewFeature({
       const actionButton = event.target?.closest?.('[data-calendar-action]');
       if (!actionButton) return;
       const action = actionButton.dataset.calendarAction;
-      if (!actionButton.closest('.calendar-view')) return;
       event.preventDefault();
       if (action === 'prev') shiftAnchor(-1);
       if (action === 'next') shiftAnchor(1);
@@ -494,8 +607,25 @@ export function createCalendarViewFeature({
     });
   }
 
+  function cleanupCalendarView() {
+    toolbarResizeObserver?.disconnect();
+    if (stickyWeekHeaderFrame) {
+      window.cancelAnimationFrame(stickyWeekHeaderFrame);
+      stickyWeekHeaderFrame = 0;
+    }
+    if (stickyWeekHeaderBound) {
+      document.removeEventListener('scroll', queueStickyWeekHeaderStateUpdate, true);
+      document.removeEventListener('wheel', queueStickyWeekHeaderStateUpdate);
+      document.removeEventListener('touchmove', queueStickyWeekHeaderStateUpdate);
+      window.removeEventListener('resize', queueStickyWeekHeaderStateUpdate);
+      stickyWeekHeaderBound = false;
+    }
+    document.querySelectorAll('.calendar-week-timeline-header.is-stuck').forEach(item => item.classList.remove('is-stuck'));
+  }
+
   function renderCalendarView({ todos, projects, hideDone }) {
     bindActions();
+    bindCalendarSwipeGestures();
     scheduleToolbarLayout();
     scheduleStickyWeekHeaderState();
     const events = normalizeEvents(todos, projects, hideDone);
@@ -511,5 +641,5 @@ export function createCalendarViewFeature({
     </section>`;
   }
 
-  return { renderCalendarView };
+  return { renderCalendarView, cleanupCalendarView };
 }
