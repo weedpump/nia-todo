@@ -506,7 +506,7 @@ fn apply_global_hotkeys(app: &AppHandle) -> Result<(), String> {
     match tauri::async_runtime::block_on(try_apply_portal_hotkeys(app.clone(), settings.clone(), generation)) {
       Ok(true) => return Ok(()),
       Ok(false) => {}
-      Err(err) => eprintln!("Linux portal global shortcuts unavailable, falling back to Tauri global shortcut plugin: {err}"),
+      Err(err) => eprintln!("Linux GlobalShortcuts portal is not supported by this desktop; using legacy hotkey fallback: {err}"),
     }
   }
 
