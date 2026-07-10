@@ -376,24 +376,30 @@ fn activation_token_from_options(options: &std::collections::HashMap<String, ash
 
 #[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
 fn handle_portal_hotkey(app: &AppHandle, action: &str, activation_token: Option<&str>, timestamp_ms: Option<u32>) {
-  match action {
-    "toggleApp" => {
-      if let Some(window) = app.get_webview_window("main") {
-        let is_visible = window.is_visible().unwrap_or(false);
-        let is_minimized = window.is_minimized().unwrap_or(false);
-        if is_visible && !is_minimized {
-          conceal_main_window(&window);
-        } else {
-          present_main_window_with_activation(app, activation_token, timestamp_ms);
+  let app = app.clone();
+  let action = action.to_string();
+  let activation_token = activation_token.map(ToOwned::to_owned);
+  let app_for_main_thread = app.clone();
+  let _ = app.run_on_main_thread(move || {
+    match action.as_str() {
+      "toggleApp" => {
+        if let Some(window) = app_for_main_thread.get_webview_window("main") {
+          let is_visible = window.is_visible().unwrap_or(false);
+          let is_minimized = window.is_minimized().unwrap_or(false);
+          if is_visible && !is_minimized {
+            conceal_main_window(&window);
+          } else {
+            present_main_window_with_activation(&app_for_main_thread, activation_token.as_deref(), timestamp_ms);
+          }
         }
       }
+      "newTodo" | "search" => {
+        present_main_window_with_activation(&app_for_main_thread, activation_token.as_deref(), timestamp_ms);
+        emit_desktop_hotkey(&app_for_main_thread, &action);
+      }
+      _ => {}
     }
-    "newTodo" | "search" => {
-      present_main_window_with_activation(app, activation_token, timestamp_ms);
-      emit_desktop_hotkey(app, action);
-    }
-    _ => {}
-  }
+  });
 }
 
 #[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
