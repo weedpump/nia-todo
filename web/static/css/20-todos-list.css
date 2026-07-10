@@ -100,7 +100,7 @@
 }
 
 .todo-item.swiping,
-.calendar-event.swiping {
+.calendar-view .calendar-event.swiping {
   transform: translate3d(var(--swipe-x, 0), 0, 0) scale(calc(1 - (var(--swipe-progress, 0) * .012)));
   transition: none;
   user-select: none;
@@ -111,20 +111,20 @@
 
 .todo-item.swipe-settling,
 .todo-item.swipe-committing,
-.calendar-event.swipe-settling,
-.calendar-event.swipe-committing {
+.calendar-view .calendar-event.swipe-settling,
+.calendar-view .calendar-event.swipe-committing {
   transition: transform 0.2s cubic-bezier(.2, .82, .22, 1), border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
 }
 
 .todo-item.swipe-committing,
-.calendar-event.swipe-committing {
+.calendar-view .calendar-event.swipe-committing {
   transition-duration: 0.14s;
 }
 
 .todo-item.swiping::before,
 .todo-item.swiping::after,
-.calendar-event.swiping::before,
-.calendar-event.swiping::after {
+.calendar-view .calendar-event.swiping::before,
+.calendar-view .calendar-event.swiping::after {
   position: absolute;
   top: -2px;
   bottom: -2px;
@@ -145,7 +145,7 @@
 }
 
 .todo-item.swiping::before,
-.calendar-event.swiping::before {
+.calendar-view .calendar-event.swiping::before {
   content: attr(data-swipe-right-label);
   right: 100%;
   justify-content: flex-end;
@@ -159,7 +159,7 @@
 }
 
 .todo-item.swiping::after,
-.calendar-event.swiping::after {
+.calendar-view .calendar-event.swiping::after {
   content: attr(data-swipe-left-label);
   left: 100%;
   justify-content: flex-start;
@@ -173,7 +173,7 @@
 }
 
 .todo-item.swipe-right,
-.calendar-event.swipe-right {
+.calendar-view .calendar-event.swipe-right {
   border-color: color-mix(in srgb, var(--warning) 72%, var(--border));
   background:
     linear-gradient(90deg, rgba(245, 158, 11, calc(.06 + (var(--swipe-progress, 0) * .10))), transparent 56%),
@@ -182,12 +182,12 @@
 }
 
 .todo-item.swipe-right.swipe-ready,
-.calendar-event.swipe-right.swipe-ready {
+.calendar-view .calendar-event.swipe-right.swipe-ready {
   box-shadow: inset 5px 0 0 color-mix(in srgb, var(--warning) 84%, white), 0 18px 38px rgba(217, 119, 6, .28), 0 0 0 2px rgba(245, 158, 11, .18);
 }
 
 .todo-item.swipe-left,
-.calendar-event.swipe-left {
+.calendar-view .calendar-event.swipe-left {
   border-color: color-mix(in srgb, var(--success) 72%, var(--border));
   background:
     linear-gradient(270deg, rgba(22, 163, 74, calc(.06 + (var(--swipe-progress, 0) * .10))), transparent 56%),
@@ -196,7 +196,7 @@
 }
 
 .todo-item.swipe-left.swipe-ready,
-.calendar-event.swipe-left.swipe-ready {
+.calendar-view .calendar-event.swipe-left.swipe-ready {
   box-shadow: inset -5px 0 0 color-mix(in srgb, var(--success) 84%, white), 0 18px 38px rgba(22, 163, 74, .28), 0 0 0 2px rgba(34, 197, 94, .18);
 }
 
