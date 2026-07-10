@@ -11,6 +11,8 @@ const desktopIntegration = fs.readFileSync(path.join(repoRoot, 'web/static/js/fe
 const indexHtml = fs.readFileSync(path.join(repoRoot, 'web/index.html'), 'utf8');
 const rustSource = fs.readFileSync(path.join(repoRoot, 'src-tauri/src/lib.rs'), 'utf8');
 const tauriConfig = fs.readFileSync(path.join(repoRoot, 'src-tauri/tauri.conf.json'), 'utf8');
+const todosSource = fs.readFileSync(path.join(repoRoot, 'web/static/js/features/todos.js'), 'utf8');
+const mobileSearchSource = fs.readFileSync(path.join(repoRoot, 'web/static/js/features/mobile-search.js'), 'utf8');
 const deI18n = fs.readFileSync(path.join(repoRoot, 'web/static/i18n/de.json'), 'utf8');
 const enI18n = fs.readFileSync(path.join(repoRoot, 'web/static/i18n/en.json'), 'utf8');
 const linuxDesktopTemplate = fs.readFileSync(path.join(repoRoot, 'src-tauri/linux/nia-todo-desktop.desktop'), 'utf8');
@@ -44,6 +46,21 @@ assert.match(
   rustSource,
   /fn show_main_window\(app: &AppHandle\)[\s\S]*window\.show\(\)[\s\S]*window\.unminimize\(\)[\s\S]*window\.set_focus\(\)/,
   'Desktop window presentation should use the clean Tauri show/unminimize/focus path',
+);
+assert.match(
+  rustSource,
+  /emit_desktop_hotkey_after_window_activation[\s\S]*sleep\(Duration::from_millis\(140\)\)/,
+  'Desktop action hotkeys should emit after a short window activation delay so target fields can receive focus',
+);
+assert.match(
+  todosSource,
+  /document\.getElementById\('todo-title'\)\?\.focus\(\)[\s\S]*\[80, 180, 320\]\.forEach/,
+  'New-todo modal title focus should retry after native window activation',
+);
+assert.match(
+  mobileSearchSource,
+  /input\?\.focus\(\)[\s\S]*input\?\.select\(\)[\s\S]*\[80, 180, 320\]\.forEach/,
+  'Search focus should retry after native window activation',
 );
 assert.match(
   rustSource,

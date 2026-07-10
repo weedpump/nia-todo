@@ -308,6 +308,14 @@ fn emit_desktop_hotkey(app: &AppHandle, action: &str) {
 }
 
 #[cfg(desktop)]
+fn emit_desktop_hotkey_after_window_activation(app: AppHandle, action: String) {
+  thread::spawn(move || {
+    thread::sleep(Duration::from_millis(140));
+    emit_desktop_hotkey(&app, &action);
+  });
+}
+
+#[cfg(desktop)]
 fn apply_global_hotkeys(app: &AppHandle) -> Result<(), String> {
   use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 
@@ -335,7 +343,7 @@ fn apply_global_hotkeys(app: &AppHandle) -> Result<(), String> {
           "toggleApp" => toggle_main_window(app),
           "newTodo" | "search" => {
             show_main_window(app);
-            emit_desktop_hotkey(app, &action);
+            emit_desktop_hotkey_after_window_activation(app.clone(), action.clone());
           }
           _ => {}
         }
