@@ -159,6 +159,9 @@ assert(serviceWorkerUpdatesSource.includes("reloadWithCacheBuster('hardReload')"
 assert(downloadsSource.includes('showNativeUpdateModal'), 'native app updates must use the native update modal');
 assert(downloadsSource.includes('deferUntilAfterLogin'), 'native app update prompts must be deferred until after login');
 assert(downloadsSource.includes('validateDownloadEntry'), 'app download manifests must be validated before rendering');
+assert(downloadsSource.includes("linux: {") && downloadsSource.includes("filenameSuffix: '-linux-amd64.deb'") && downloadsSource.includes("return ['windows', 'android', 'linux']"), 'app downloads must expose Linux Debian packages from app-downloads manifests');
+assert(downloadsSource.includes("manifest?.latest?.linux"), 'native Linux update checks must consider legacy latest.linux manifest entries');
+assert(downloadsSource.includes("app-download-icon-linux") && downloadsSource.includes("Linux Debian-Paket herunterladen"), 'Linux downloads must have platform-specific UI labels');
 assert(downloadsSource.includes("rawUrl.startsWith('/downloads/')"), 'app download URLs must be constrained to same-origin /downloads paths');
 assert(downloadsSource.includes('DOWNLOAD_SHA_RE'), 'app download manifests must validate sha256 values');
 assert(!downloadsSource.includes('target.innerHTML = downloads.map'), 'download buttons must not be rendered from manifest data via innerHTML');
