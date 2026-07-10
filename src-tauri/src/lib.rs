@@ -233,12 +233,14 @@ fn normalize_server_url(server_url: &str) -> Result<String, String> {
 }
 
 #[cfg(desktop)]
-fn show_main_window(app: &AppHandle, source: &str) {
-  eprintln!("[nia-todo-desktop] show_main_window source={source}");
+fn show_main_window(app: &AppHandle, source: &str, focus: bool) {
+  eprintln!("[nia-todo-desktop] show_main_window source={source} focus={focus}");
   if let Some(window) = app.get_webview_window("main") {
     let _ = window.show();
     let _ = window.unminimize();
-    let _ = window.set_focus();
+    if focus {
+      let _ = window.set_focus();
+    }
   }
 }
 
@@ -250,7 +252,7 @@ fn toggle_main_window(app: &AppHandle) {
     if is_visible && !is_minimized {
       let _ = window.hide();
     } else {
-      show_main_window(app, "toggle-hotkey");
+      show_main_window(app, "toggle-hotkey", false);
     }
   }
 }
@@ -267,7 +269,7 @@ fn emit_native_oidc_callback(app: &AppHandle, url: String) {
   if let Ok(mut pending) = app.state::<PendingNativeOidcCallback>().0.lock() {
     *pending = Some(url.clone());
   }
-  show_main_window(app, "oidc-callback");
+  show_main_window(app, "oidc-callback", true);
   let _ = app.emit("native-oidc-callback", serde_json::json!({ "url": url }));
 }
 
@@ -330,7 +332,7 @@ fn apply_global_hotkeys(app: &AppHandle) -> Result<(), String> {
         match action.as_str() {
           "toggleApp" => toggle_main_window(app),
           "newTodo" | "search" => {
-            show_main_window(app, action.as_str());
+            show_main_window(app, action.as_str(), true);
             emit_desktop_hotkey(app, &action);
           }
           _ => {}
@@ -624,7 +626,7 @@ fn build_tray(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     .menu(&menu)
     .show_menu_on_left_click(false)
     .on_menu_event(|app, event| match event.id.as_ref() {
-      "show" => show_main_window(app, "tray-menu-show"),
+      "show" => show_main_window(app, "tray-menu-show", false),
       "quit" => app.exit(0),
       _ => {}
     })
@@ -635,7 +637,7 @@ fn build_tray(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         ..
       } = event
       {
-        show_main_window(tray.app_handle(), "tray-left-click");
+        show_main_window(tray.app_handle(), "tray-left-click", false);
       }
     })
     .build(app)?;
@@ -1114,7 +1116,7 @@ pub fn run() {
           let started_minimized = std::env::args().any(|arg| arg == START_MINIMIZED_ARG)
             && load_settings(_app.handle()).start_minimized_to_tray;
           if !started_minimized {
-            show_main_window(_app.handle(), "cold-start");
+            show_main_window(_app.handle(), "cold-start", false);
           }
           if let Some(url) = native_oidc_callback_from_args(&std::env::args().collect::<Vec<_>>()) {
             let app_handle_for_oidc = app_handle.clone();
