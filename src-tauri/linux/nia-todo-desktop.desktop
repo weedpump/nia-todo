@@ -1,0 +1,10 @@
+[Desktop Entry]
+Categories={{categories}}
+Comment={{comment}}
+Exec={{exec}} %u
+StartupWMClass=nia-todo-desktop
+Icon={{icon}}
+Name=nia-todo Desktop
+Terminal=false
+Type=Application
+MimeType=x-scheme-handler/nia-todo;

@@ -53,7 +53,8 @@
     "linux": {
       "deb": {
         "section": "utils",
-        "priority": "optional"
+        "priority": "optional",
+        "desktopTemplate": "linux/nia-todo-desktop.desktop"
       }
     }
   }
