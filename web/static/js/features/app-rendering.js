@@ -24,6 +24,8 @@ export function createAppRenderingFeature({
   sortTodoList,
   renderTodoItem,
   renderSectionHeader,
+  renderCalendarView,
+  cleanupCalendarView,
   getInvites,
 }) {
   function renderVersionInfo() {
@@ -203,6 +205,7 @@ export function createAppRenderingFeature({
     const done = todos.filter(t => t.status === 'done').length;
     const validProjectIds = new Set(projects.map(project => Number(project.id)));
     const focusCount = applyFocusFilters(todos, validProjectIds).length;
+    const calendarCount = activeTodos.filter(t => t.due_date).length;
     const overdue = activeTodos.filter(t => t.due_date && new Date(t.due_date) < now).length;
     const dueToday = activeTodos.filter(t => {
       if (!t.due_date) return false;
@@ -218,6 +221,7 @@ export function createAppRenderingFeature({
     };
     setCount('count-all', total);
     setCount('count-focus', focusCount);
+    setCount('count-calendar', calendarCount);
     setCount('count-pending', pending);
     setCount('count-in_progress', inprog);
     setCount('count-done', done);
@@ -237,7 +241,7 @@ export function createAppRenderingFeature({
       minute: '2-digit',
     }).format(now);
 
-    document.querySelectorAll('.nav-btn[data-filter="all"], .nav-btn[data-filter="focus"], .nav-btn[data-filter="pending"], .nav-btn[data-filter="in_progress"], .nav-btn[data-filter="done"]').forEach((button) => {
+    document.querySelectorAll('.nav-btn[data-filter="all"], .nav-btn[data-filter="focus"], .nav-btn[data-filter="calendar"], .nav-btn[data-filter="pending"], .nav-btn[data-filter="in_progress"], .nav-btn[data-filter="done"]').forEach((button) => {
       button.classList.toggle('active', !currentProjectId && button.dataset.filter === String(currentFilter));
     });
 
@@ -625,7 +629,7 @@ export function createAppRenderingFeature({
         (t.description || '').toLowerCase().includes(search)
       );
     }
-    if (getTodayFocus?.() && currentFilter !== 'done') {
+    if (getTodayFocus?.() && currentFilter !== 'done' && currentFilter !== 'calendar') {
       const now = new Date();
       const todayEnd = new Date(now);
       todayEnd.setHours(23, 59, 59, 999);
@@ -641,6 +645,14 @@ export function createAppRenderingFeature({
       filtered = applyFocusFilters(filtered, new Set(projects.map(project => Number(project.id))));
     }
     filtered = sortTodoList(filtered);
+
+    if (currentFilter === 'calendar' && !currentProjectId) {
+      el.innerHTML = renderCalendarView
+        ? renderCalendarView({ todos: filtered, projects, hideDone, search })
+        : '';
+      return;
+    }
+    cleanupCalendarView?.();
 
     if (currentProjectId) {
       let html = '';

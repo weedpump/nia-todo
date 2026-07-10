@@ -21,6 +21,7 @@ export function createServiceWorkerUpdatesFeature() {
     '/static/css/10-navigation-sidebar.css',
     '/static/css/11-main-shell.css',
     '/static/css/12-overview-dashboard.css',
+    '/static/css/13-calendar-view.css',
     '/static/css/20-todos-list.css',
     '/static/css/30-buttons-empty.css',
     '/static/css/31-modals.css',

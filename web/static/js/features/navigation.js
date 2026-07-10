@@ -14,7 +14,7 @@ export function createNavigationFeature({
   renderTodos,
   showProjectModal = null,
 }) {
-  const baseFilters = ['all','focus','pending','in_progress','done'];
+  const baseFilters = ['all','focus','calendar','pending','in_progress','done'];
   let applyingHistory = false;
 
   function cleanRoute() {
