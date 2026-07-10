@@ -148,7 +148,55 @@ fn set_autostart(enabled: bool, start_minimized_to_tray: bool) -> Result<(), Str
   Ok(())
 }
 
-#[cfg(not(target_os = "windows"))]
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+fn quote_desktop_exec_arg(value: &str) -> String {
+  let escaped = value.replace('\\', "\\\\").replace('"', "\\\"");
+  format!("\"{escaped}\"")
+}
+
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+fn linux_autostart_entry_path() -> Result<std::path::PathBuf, String> {
+  let base = std::env::var_os("XDG_CONFIG_HOME")
+    .map(std::path::PathBuf::from)
+    .or_else(|| std::env::var_os("HOME").map(|home| std::path::PathBuf::from(home).join(".config")))
+    .ok_or_else(|| "Autostart konnte nicht eingerichtet werden: HOME ist nicht gesetzt.".to_string())?;
+  Ok(base.join("autostart").join("nia-todo.desktop"))
+}
+
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+fn set_autostart(enabled: bool, start_minimized_to_tray: bool) -> Result<(), String> {
+  let entry_path = linux_autostart_entry_path()?;
+
+  if !enabled {
+    match fs::remove_file(&entry_path) {
+      Ok(_) => {}
+      Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
+      Err(err) => return Err(err.to_string()),
+    }
+    return Ok(());
+  }
+
+  if let Some(parent) = entry_path.parent() {
+    fs::create_dir_all(parent).map_err(|err| err.to_string())?;
+  }
+
+  let exe = std::env::current_exe().map_err(|err| err.to_string())?;
+  let mut exec = quote_desktop_exec_arg(&exe.to_string_lossy());
+  if start_minimized_to_tray {
+    exec.push(' ');
+    exec.push_str(START_MINIMIZED_ARG);
+  }
+
+  let contents = format!(
+    "[Desktop Entry]\nType=Application\nName=nia-todo\nComment=Start nia-todo\nExec={exec}\nTerminal=false\nX-GNOME-Autostart-enabled=true\n"
+  );
+  fs::write(entry_path, contents).map_err(|err| err.to_string())
+}
+
+#[cfg(all(
+  not(target_os = "windows"),
+  not(all(unix, not(target_os = "macos"), not(target_os = "android")))
+))]
 fn set_autostart(_enabled: bool, _start_minimized_to_tray: bool) -> Result<(), String> {
   Ok(())
 }
