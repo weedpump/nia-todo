@@ -544,6 +544,48 @@ fn desktop_schedule_reminders(
   Ok(scheduled)
 }
 
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+fn clear_linux_webview_caches_on_version_change(app: &AppHandle) -> Result<(), String> {
+  let config_dir = app.path().app_config_dir().map_err(|err| err.to_string())?;
+  fs::create_dir_all(&config_dir).map_err(|err| err.to_string())?;
+  let marker_path = config_dir.join("linux-webview-cache-version");
+  let executable_updated_at = std::env::current_exe()
+    .ok()
+    .and_then(|path| fs::metadata(path).ok())
+    .and_then(|metadata| metadata.modified().ok())
+    .and_then(|modified| modified.duration_since(UNIX_EPOCH).ok())
+    .map(|duration| duration.as_secs())
+    .unwrap_or(0);
+  let current_version = format!("{}:{executable_updated_at}", env!("CARGO_PKG_VERSION"));
+  if fs::read_to_string(&marker_path).unwrap_or_default().trim() == current_version {
+    return Ok(());
+  }
+
+  let mut candidates = Vec::new();
+  if let Ok(cache_dir) = app.path().app_cache_dir() {
+    candidates.extend([
+      cache_dir.join("WebKitCache"),
+      cache_dir.join("GPUCache"),
+      cache_dir.join("Code Cache"),
+      cache_dir.join("Service Worker"),
+      cache_dir.join("Default").join("Cache"),
+      cache_dir.join("Default").join("Code Cache"),
+      cache_dir.join("Default").join("GPUCache"),
+      cache_dir.join("Default").join("Service Worker"),
+    ]);
+  }
+
+  for path in candidates {
+    match fs::remove_dir_all(&path) {
+      Ok(_) => {}
+      Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
+      Err(err) => eprintln!("Failed to clear Linux WebView cache {}: {err}", path.display()),
+    }
+  }
+
+  fs::write(marker_path, current_version).map_err(|err| err.to_string())
+}
+
 #[cfg(desktop)]
 fn build_tray(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
   let show = MenuItem::with_id(app, "show", "Öffnen", true, None::<&str>)?;
@@ -1035,6 +1077,10 @@ pub fn run() {
     .setup(|_app| {
       #[cfg(desktop)]
       {
+        #[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+        if let Err(err) = clear_linux_webview_caches_on_version_change(_app.handle()) {
+          eprintln!("Failed to clear stale Linux WebView caches: {err}");
+        }
         apply_global_hotkeys(_app.handle())?;
         repair_autostart_registration(&load_settings(_app.handle()));
         build_tray(_app)?;

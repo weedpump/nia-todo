@@ -199,7 +199,7 @@ PY
       printf "\nDistribution targets:\n"
       printf "%s\n" "- Full Debian/Ubuntu server bundle: $(basename "${DEB}")"
       printf "%s\n" "- Docker image: ${GHCR_IMAGE}:${VERSION}"
-      printf "\nWindows and Android apps are bundled into the server package/image and served via /downloads/.\n"
+      printf "\nWindows, Android and Linux apps are bundled into the server package/image and served via /downloads/.\n"
     } > "${RELEASE_NOTES}"
   else
     echo "+ generate release notes from CHANGELOG.md section ${VERSION}"

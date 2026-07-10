@@ -41,6 +41,7 @@ def main() -> int:
     parser.add_argument("--native-app-version", required=True)
     parser.add_argument("--windows-installer", type=Path)
     parser.add_argument("--android-apk", type=Path)
+    parser.add_argument("--linux-deb", type=Path)
     parser.add_argument("--allow-missing-apps", action="store_true")
     args = parser.parse_args()
 
@@ -55,8 +56,10 @@ def main() -> int:
 
     windows_name = f"nia-todo-v{native_version}-windows-x64-setup.exe"
     android_name = f"nia-todo-v{native_version}-android-arm64.apk"
+    linux_name = f"nia-todo-v{native_version}-linux-amd64.deb"
     windows_sha, windows_size = copy_artifact(args.windows_installer, args.download_dir, windows_name, required=required)
     android_sha, android_size = copy_artifact(args.android_apk, args.download_dir, android_name, required=required)
+    linux_sha, linux_size = copy_artifact(args.linux_deb, args.download_dir, linux_name, required=required)
 
     apps = []
     if windows_sha:
@@ -80,6 +83,17 @@ def main() -> int:
             "url": f"/downloads/{android_name}",
             "sha256": android_sha,
             "size_bytes": android_size,
+        })
+    if linux_sha:
+        apps.append({
+            "platform": "linux",
+            "arch": "amd64",
+            "label": "Linux Debian Package",
+            "version": f"v{native_version}",
+            "filename": linux_name,
+            "url": f"/downloads/{linux_name}",
+            "sha256": linux_sha,
+            "size_bytes": linux_size,
         })
 
     manifest = {
