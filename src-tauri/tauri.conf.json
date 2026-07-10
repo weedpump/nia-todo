@@ -54,7 +54,8 @@
       "deb": {
         "section": "utils",
         "priority": "optional",
-        "desktopTemplate": "linux/nia-todo-desktop.desktop"
+        "desktopTemplate": "linux/nia-todo-desktop.desktop",
+        "recommends": ["libnotify-bin"]
       }
     }
   }
