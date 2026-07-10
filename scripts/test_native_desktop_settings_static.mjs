@@ -10,6 +10,7 @@ const repoRoot = path.resolve(path.dirname(__filename), '..');
 const desktopIntegration = fs.readFileSync(path.join(repoRoot, 'web/static/js/features/desktop-integration.js'), 'utf8');
 const indexHtml = fs.readFileSync(path.join(repoRoot, 'web/index.html'), 'utf8');
 const rustSource = fs.readFileSync(path.join(repoRoot, 'src-tauri/src/lib.rs'), 'utf8');
+const tauriConfig = fs.readFileSync(path.join(repoRoot, 'src-tauri/tauri.conf.json'), 'utf8');
 const deI18n = fs.readFileSync(path.join(repoRoot, 'web/static/i18n/de.json'), 'utf8');
 const enI18n = fs.readFileSync(path.join(repoRoot, 'web/static/i18n/en.json'), 'utf8');
 
@@ -22,6 +23,21 @@ assert.match(
   rustSource,
   /let is_minimized = window\.is_minimized\(\)\.unwrap_or\(false\);[\s\S]*if is_visible && !is_minimized \{[\s\S]*window\.hide\(\)/,
   'Desktop toggle hotkey must hide any visible non-minimized main window, not only focused windows',
+);
+assert.match(
+  rustSource,
+  /Command::new\("notify-send"\)/,
+  'Linux desktop notifications should use notify-send before falling back to the Tauri plugin',
+);
+assert.match(
+  rustSource,
+  /set_always_on_top\(true\)[\s\S]*set_focus\(\)[\s\S]*set_always_on_top\(false\)/,
+  'Linux hotkey window presentation should avoid compositor readiness notifications when possible',
+);
+assert.match(
+  tauriConfig,
+  /"recommends": \["libnotify-bin"\]/,
+  'Linux Debian package should recommend libnotify-bin for notify-send notifications',
 );
 for (const id of ['desktop-minimize-to-tray', 'desktop-autostart', 'desktop-start-minimized-to-tray', 'desktop-notifications']) {
   assert.match(

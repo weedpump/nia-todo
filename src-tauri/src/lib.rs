@@ -237,7 +237,20 @@ fn show_main_window(app: &AppHandle) {
   if let Some(window) = app.get_webview_window("main") {
     let _ = window.show();
     let _ = window.unminimize();
-    let _ = window.set_focus();
+    // Some Linux desktop environments turn ordinary focus requests from a
+    // background global-shortcut callback into a "<app> is ready" notification.
+    // The short always-on-top pulse makes the window presentation explicit and
+    // avoids relying on the compositor's focus-stealing fallback.
+    #[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+    {
+      let _ = window.set_always_on_top(true);
+      let _ = window.set_focus();
+      let _ = window.set_always_on_top(false);
+    }
+    #[cfg(not(all(unix, not(target_os = "macos"), not(target_os = "android"))))]
+    {
+      let _ = window.set_focus();
+    }
   }
 }
 
@@ -249,9 +262,7 @@ fn toggle_main_window(app: &AppHandle) {
     if is_visible && !is_minimized {
       let _ = window.hide();
     } else {
-      let _ = window.show();
-      let _ = window.unminimize();
-      let _ = window.set_focus();
+      show_main_window(app);
     }
   }
 }
@@ -464,13 +475,32 @@ fn desktop_request_notification_permission(_app: AppHandle) -> Result<String, St
   Ok("unsupported".into())
 }
 
-#[cfg(desktop)]
-#[tauri::command]
-fn desktop_notify(app: AppHandle, title: String, body: String) -> Result<(), String> {
-  let settings = load_settings(&app);
-  if !settings.notifications {
-    return Ok(());
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+fn show_native_notification(app: &AppHandle, title: String, body: String) -> Result<(), String> {
+  match Command::new("notify-send")
+    .args(["--app-name", "nia-todo Desktop", "--icon", "nia-todo-desktop", title.as_str(), body.as_str()])
+    .status()
+  {
+    Ok(status) if status.success() => Ok(()),
+    Ok(status) => app
+      .notification()
+      .builder()
+      .title(title)
+      .body(body)
+      .show()
+      .map_err(|err| format!("notify-send failed with {status}; Tauri notification failed: {err}")),
+    Err(err) => app
+      .notification()
+      .builder()
+      .title(title)
+      .body(body)
+      .show()
+      .map_err(|plugin_err| format!("notify-send unavailable: {err}; Tauri notification failed: {plugin_err}")),
   }
+}
+
+#[cfg(all(desktop, not(all(unix, not(target_os = "macos"), not(target_os = "android")))))]
+fn show_native_notification(app: &AppHandle, title: String, body: String) -> Result<(), String> {
   app
     .notification()
     .builder()
@@ -478,6 +508,16 @@ fn desktop_notify(app: AppHandle, title: String, body: String) -> Result<(), Str
     .body(body)
     .show()
     .map_err(|err| err.to_string())
+}
+
+#[cfg(desktop)]
+#[tauri::command]
+fn desktop_notify(app: AppHandle, title: String, body: String) -> Result<(), String> {
+  let settings = load_settings(&app);
+  if !settings.notifications {
+    return Ok(());
+  }
+  show_native_notification(&app, title, body)
 }
 
 #[cfg(not(desktop))]
@@ -500,12 +540,7 @@ fn show_scheduled_reminder(app: &AppHandle, title: String, body: String) {
   if !load_settings(app).notifications {
     return;
   }
-  let _ = app
-    .notification()
-    .builder()
-    .title(title)
-    .body(body)
-    .show();
+  let _ = show_native_notification(app, title, body);
 }
 
 #[cfg(not(desktop))]
