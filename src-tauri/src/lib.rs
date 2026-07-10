@@ -236,6 +236,7 @@ fn normalize_server_url(server_url: &str) -> Result<String, String> {
 fn show_main_window(app: &AppHandle) {
   if let Some(window) = app.get_webview_window("main") {
     let _ = window.show();
+    let _ = window.unminimize();
     let _ = window.set_focus();
   }
 }
@@ -244,11 +245,12 @@ fn show_main_window(app: &AppHandle) {
 fn toggle_main_window(app: &AppHandle) {
   if let Some(window) = app.get_webview_window("main") {
     let is_visible = window.is_visible().unwrap_or(false);
-    let is_focused = window.is_focused().unwrap_or(false);
-    if is_visible && is_focused {
+    let is_minimized = window.is_minimized().unwrap_or(false);
+    if is_visible && !is_minimized {
       let _ = window.hide();
     } else {
       let _ = window.show();
+      let _ = window.unminimize();
       let _ = window.set_focus();
     }
   }
