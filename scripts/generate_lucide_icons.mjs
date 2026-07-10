@@ -50,6 +50,7 @@ const ICON_NAMES = [
   'chef-hat',
   'chevron-down',
   'chevron-left',
+  'chevron-right',
   'chevron-up',
   'church',
   'circle',

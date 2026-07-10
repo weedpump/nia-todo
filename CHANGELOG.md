@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 ## [Unreleased]
 
 ### Added
+- Added a global Calendar sidebar view for todos with due dates, including day, week, and month modes, timeline-style day/week layouts, mobile month day selection, localized labels, offline/PWA cache coverage, and calendar-specific todo interactions.
 - Expanded the project/workspace icon picker with more curated Lucide icons across everyday, work, organization, finance, people, health, places, nature, media, creative, status, and movement categories, including localized icon labels and search keywords.
 - Added desktop/tablet drag-and-drop for moving todos directly onto sidebar projects, placing them in the target project's unsectioned bucket while preserving offline sync behavior.
 - Added auto-hiding overlay scrollbars for the main app and admin panel, keeping content full-width while showing a right-aligned scroll indicator only during scrolling.
@@ -20,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - Added admin attachment controls for global upload enablement, comma-separated allowed file extensions, default 5 GB quota, per-user quota overrides, and user-visible storage usage.
 
 ### Changed
+- Refined the Calendar view with responsive toolbar controls, fixed desktop content scrolling, compact mobile month/week layouts, selected-day month lists, and shared swipe visuals while keeping calendar event handlers isolated from global todo-list behavior.
 - Refined the workspace dropdown menu with pill-shaped active, hover, edit, and add actions to match the shared menu language.
 - Refined section header count alignment so the unsorted section reserves the same action-space rhythm as deletable sections.
 - Refined remaining Next UI primitives by hydrating the admin OIDC auth-method select, aligning Todo row, section inline, invite, and add-project sidebar actions with shared button/navigation patterns, and documenting the current calm button weight contract.
@@ -53,6 +55,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - Hardened attachment uploads with streaming temp-file writes, server-side quota/type policy enforcement, magic-byte validation for common binary formats, active-content blocking, and client-side preflight for disabled uploads, type, file size, and quota.
 
 ### Fixed
+- Isolated Calendar event click and swipe handling from global `.todo-item[data-id]` handlers, clamped month navigation around month-end dates, and cleaned up Calendar observer/sticky-header lifecycle handling.
 - Unified Todo, Settings, Project, and Workspace modal headers so title icons, titles, save/menu actions, and close controls share the Todo-style detail header alignment.
 - Show pinned todos in project views in a dedicated top group, matching the main dashboard while keeping search results inline.
 - Improved German wording for parent project fields from “Eltern-Projekt” to “Übergeordnetes Projekt”.

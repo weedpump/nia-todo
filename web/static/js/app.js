@@ -29,6 +29,7 @@ import { createConfirmDialogFeature } from './features/confirm-dialog.js';
 import { createDesktopIntegration } from './features/desktop-integration.js';
 import { createAppDownloadsFeature } from './features/app-downloads.js';
 import { createAppRenderingFeature } from './features/app-rendering.js';
+import { createCalendarViewFeature } from './features/calendar-view.js';
 import { createNavigationFeature } from './features/navigation.js';
 import { createSectionActionsFeature } from './features/section-actions.js';
 import { createBrainDumpLiveFeature } from './features/braindump-live.js';
@@ -367,6 +368,14 @@ async function refreshFromServer() {
   await syncController.refreshFromServer();
 }
 
+const calendarViewFeature = createCalendarViewFeature({
+  escapeHtml,
+  escapeHtmlAttr,
+  renderTodos: () => renderTodos(),
+  openTodo: (id) => todosFeature.editTodo(id),
+  setTodoStatus: (id, status) => todosFeature.setTodoStatus(id, status),
+});
+
 const sectionActions = createSectionActionsFeature({
   getTodos: () => todos,
   setTodos: setTodosState,
@@ -405,6 +414,8 @@ const appRendering = createAppRenderingFeature({
   sortTodoList,
   renderTodoItem,
   renderSectionHeader,
+  renderCalendarView: calendarViewFeature.renderCalendarView,
+  cleanupCalendarView: calendarViewFeature.cleanupCalendarView,
 });
 const renderVersionInfo = appRendering.renderVersionInfo;
 const renderProjects = appRendering.renderProjects;
