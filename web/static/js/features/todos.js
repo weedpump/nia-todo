@@ -1797,7 +1797,7 @@ export function createTodosFeature({
   function focusTodoTitle() {
     const focus = () => document.getElementById('todo-title')?.focus();
     window.requestAnimationFrame?.(focus);
-    window.setTimeout(focus, 80);
+    [80, 180, 320].forEach((delay) => window.setTimeout(focus, delay));
   }
 
   async function showTodoModal(todo = null) {
