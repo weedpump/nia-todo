@@ -25,6 +25,7 @@ export function createAppRenderingFeature({
   renderTodoItem,
   renderSectionHeader,
   renderCalendarView,
+  cleanupCalendarView,
   getInvites,
 }) {
   function renderVersionInfo() {
@@ -651,6 +652,7 @@ export function createAppRenderingFeature({
         : '';
       return;
     }
+    cleanupCalendarView?.();
 
     if (currentProjectId) {
       let html = '';

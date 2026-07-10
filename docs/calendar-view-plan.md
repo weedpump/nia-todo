@@ -28,22 +28,21 @@ The calendar view should respect the active workspace like the dashboard/focus v
 MVP should support:
 
 1. **Month view**
-   - Default on desktop.
+   - Default on desktop and mobile.
    - Good overview of due dates.
-   - Day cells show compact todo chips/events.
-   - Overflow becomes `+N` and opens the day view.
+   - Desktop day cells show compact todo chips/events.
+   - Mobile uses a compact 7-column grid with dots and a selected-day list below the grid.
+   - Overflow (`+N`) selects the day in month view instead of switching modes.
 
 2. **Week view**
    - Useful for planning the current week.
-   - Shows day columns with ordered todo events.
-   - On mobile, this can become a horizontal day strip with compact event lists.
+   - Uses a 7-day timeline with all-day row and 00-23 hour rows.
+   - Mobile keeps all seven days visible and renders events as compact priority bars.
 
 3. **Day view**
    - Focused view for one selected day.
-   - Shows all due todos for that date, including time labels when available.
-   - Opens from month/week day clicks and via the mode switch.
-
-I would not start with a full hourly day planner unless we decide that `due_date` with time should behave like real appointment blocks. The MVP day view should be a clean day event list first.
+   - Uses a 00-23 timeline plus optional all-day row.
+   - Opens from week day clicks and via the mode switch.
 
 ### Controls
 
@@ -126,18 +125,17 @@ Important: The calendar should be a view over existing local state, not a new ba
 
 ### Desktop week
 
-- 7 day columns.
-- Each column shows due todos sorted by time, priority, status.
-- Date-time todos grouped before date-only todos if there is a time.
+- 7 day columns in a timeline.
+- All-day row for date-only todos.
+- 00-23 hour rows for date-time todos.
+- Grid lines are segmented vertically so the table feels less boxed-in.
 
 ### Mobile
 
-- Avoid a squeezed desktop month grid as the primary interaction.
-- Use:
-  - compact month strip / week strip for navigation
-  - compact event list below
-- Month grid can still exist, but should degrade into tappable day dots/counts.
-- No horizontal body overflow.
+- Month remains a compact 7-column grid with day dots/counts.
+- Tapping a day selects it and renders a flat selected-day list below the grid.
+- Week remains a full seven-day timeline without horizontal body overflow.
+- Sticky week header uses page background while stuck so grid content does not bleed through.
 
 ## External Calendar Preparation
 
@@ -208,6 +206,7 @@ Security note: OAuth tokens/app passwords must be encrypted or otherwise handled
 - Render month/week/day from existing todos.
 - Persist calendar mode and anchor date.
 - Event click opens existing todo modal.
+- Calendar events do not use `.todo-item[data-id]`; click/swipe behavior is owned by the calendar feature to avoid global todo-list handler coupling.
 - Add CSS module and service-worker precache entry.
 - Add i18n keys.
 

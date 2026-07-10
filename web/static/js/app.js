@@ -373,6 +373,7 @@ const calendarViewFeature = createCalendarViewFeature({
   escapeHtmlAttr,
   renderTodos: () => renderTodos(),
   openTodo: (id) => todosFeature.editTodo(id),
+  setTodoStatus: (id, status) => todosFeature.setTodoStatus(id, status),
 });
 
 const sectionActions = createSectionActionsFeature({
@@ -414,6 +415,7 @@ const appRendering = createAppRenderingFeature({
   renderTodoItem,
   renderSectionHeader,
   renderCalendarView: calendarViewFeature.renderCalendarView,
+  cleanupCalendarView: calendarViewFeature.cleanupCalendarView,
 });
 const renderVersionInfo = appRendering.renderVersionInfo;
 const renderProjects = appRendering.renderProjects;
