@@ -20,7 +20,7 @@
         "minHeight": 620,
         "resizable": true,
         "fullscreen": false,
-        "visible": true
+        "visible": false
       }
     ],
     "security": {
@@ -55,7 +55,7 @@
         "section": "utils",
         "priority": "optional",
         "desktopTemplate": "linux/nia-todo-desktop.desktop",
-        "recommends": ["libnotify-bin", "xdotool", "wmctrl"]
+        "recommends": ["libnotify-bin"]
       }
     }
   }
