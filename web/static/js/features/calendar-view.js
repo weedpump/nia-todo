@@ -338,7 +338,7 @@ export function createCalendarViewFeature({
       const visibleEvents = dayEvents.slice(0, 3);
       const selected = isSameDay(day, anchorDate);
       html += `
-        <section class="calendar-day-cell ${day.getMonth() !== anchorDate.getMonth() ? 'outside-month' : ''} ${isToday(day) ? 'today' : ''} ${selected ? 'selected' : ''}" data-calendar-day="${escapeHtmlAttr(key)}">
+        <section class="calendar-day-cell ${day.getMonth() !== anchorDate.getMonth() ? 'outside-month' : ''} ${isToday(day) ? 'today' : ''} ${selected ? 'selected' : ''}" data-calendar-day="${escapeHtmlAttr(key)}" data-calendar-action="select-day" data-calendar-date="${escapeHtmlAttr(key)}">
           <button type="button" class="calendar-day-number" data-calendar-action="select-day" data-calendar-date="${escapeHtmlAttr(key)}" aria-pressed="${selected ? 'true' : 'false'}">${day.getDate()}</button>
           <div class="calendar-day-events">
             ${visibleEvents.map(event => renderEvent(event, true)).join('')}
@@ -483,6 +483,7 @@ export function createCalendarViewFeature({
       if (!event.isPrimary || (event.pointerType && event.pointerType !== 'touch' && event.pointerType !== 'pen')) return;
       const item = event.target?.closest?.('.calendar-event[data-calendar-todo-id]');
       if (!item || !item.closest('.calendar-view')) return;
+      if (window.matchMedia('(max-width: 900px)').matches && item.closest('.calendar-month-grid')) return;
       calendarSwipeActive = {
         item,
         id: item.dataset.calendarTodoId,
@@ -556,8 +557,9 @@ export function createCalendarViewFeature({
       const calendarView = event.target?.closest?.('.calendar-view');
       if (!calendarView) return;
 
+      const isMobileCalendar = window.matchMedia('(max-width: 900px)').matches;
       const calendarTodo = event.target?.closest?.('[data-calendar-todo-id]');
-      if (calendarTodo) {
+      if (calendarTodo && !(isMobileCalendar && calendarTodo.closest('.calendar-month-grid'))) {
         event.preventDefault();
         event.stopImmediatePropagation?.();
         openTodo?.(calendarTodo.dataset.calendarTodoId);
@@ -575,6 +577,7 @@ export function createCalendarViewFeature({
 
       const actionButton = event.target?.closest?.('[data-calendar-action]');
       if (!actionButton) return;
+      if (actionButton.classList.contains('calendar-day-cell') && !isMobileCalendar) return;
       const action = actionButton.dataset.calendarAction;
       event.preventDefault();
       if (action === 'prev') shiftAnchor(-1);
