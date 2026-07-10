@@ -236,26 +236,37 @@ fn normalize_server_url(server_url: &str) -> Result<String, String> {
 #[derive(Debug, Clone, Copy)]
 enum WindowPresentMode {
   ShowOnly,
-  ShowAndUnminimize,
-  ShowAndFocus,
+  RestoreOnly,
+  RestoreAndFocus,
 }
 
 #[cfg(desktop)]
 fn show_main_window(app: &AppHandle, source: &str, mode: WindowPresentMode) {
   eprintln!("[nia-todo-desktop] show_main_window source={source} mode={mode:?}");
   if let Some(window) = app.get_webview_window("main") {
-    let _ = window.show();
     match mode {
-      WindowPresentMode::ShowOnly => {}
-      WindowPresentMode::ShowAndUnminimize => {
+      WindowPresentMode::ShowOnly => {
+        let _ = window.show();
+      }
+      WindowPresentMode::RestoreOnly => {
         let _ = window.unminimize();
       }
-      WindowPresentMode::ShowAndFocus => {
+      WindowPresentMode::RestoreAndFocus => {
         let _ = window.unminimize();
         let _ = window.set_focus();
       }
     }
   }
+}
+
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+fn conceal_main_window(window: &tauri::WebviewWindow) {
+  let _ = window.minimize();
+}
+
+#[cfg(not(all(unix, not(target_os = "macos"), not(target_os = "android"))))]
+fn conceal_main_window(window: &tauri::WebviewWindow) {
+  let _ = window.hide();
 }
 
 #[cfg(desktop)]
@@ -264,9 +275,9 @@ fn toggle_main_window(app: &AppHandle) {
     let is_visible = window.is_visible().unwrap_or(false);
     let is_minimized = window.is_minimized().unwrap_or(false);
     if is_visible && !is_minimized {
-      let _ = window.hide();
+      conceal_main_window(&window);
     } else {
-      show_main_window(app, "toggle-hotkey", WindowPresentMode::ShowOnly);
+      show_main_window(app, "toggle-hotkey", WindowPresentMode::RestoreOnly);
     }
   }
 }
@@ -283,7 +294,7 @@ fn emit_native_oidc_callback(app: &AppHandle, url: String) {
   if let Ok(mut pending) = app.state::<PendingNativeOidcCallback>().0.lock() {
     *pending = Some(url.clone());
   }
-  show_main_window(app, "oidc-callback", WindowPresentMode::ShowAndFocus);
+  show_main_window(app, "oidc-callback", WindowPresentMode::RestoreAndFocus);
   let _ = app.emit("native-oidc-callback", serde_json::json!({ "url": url }));
 }
 
@@ -346,7 +357,7 @@ fn apply_global_hotkeys(app: &AppHandle) -> Result<(), String> {
         match action.as_str() {
           "toggleApp" => toggle_main_window(app),
           "newTodo" | "search" => {
-            show_main_window(app, action.as_str(), WindowPresentMode::ShowAndFocus);
+            show_main_window(app, action.as_str(), WindowPresentMode::RestoreAndFocus);
             emit_desktop_hotkey(app, &action);
           }
           _ => {}
@@ -640,7 +651,7 @@ fn build_tray(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     .menu(&menu)
     .show_menu_on_left_click(false)
     .on_menu_event(|app, event| match event.id.as_ref() {
-      "show" => show_main_window(app, "tray-menu-show", WindowPresentMode::ShowOnly),
+      "show" => show_main_window(app, "tray-menu-show", WindowPresentMode::RestoreOnly),
       "quit" => app.exit(0),
       _ => {}
     })
@@ -651,7 +662,7 @@ fn build_tray(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         ..
       } = event
       {
-        show_main_window(tray.app_handle(), "tray-left-click", WindowPresentMode::ShowOnly);
+        show_main_window(tray.app_handle(), "tray-left-click", WindowPresentMode::RestoreOnly);
       }
     })
     .build(app)?;
@@ -1129,8 +1140,8 @@ pub fn run() {
           let app_handle = _app.handle().clone();
           let started_minimized = std::env::args().any(|arg| arg == START_MINIMIZED_ARG)
             && load_settings(_app.handle()).start_minimized_to_tray;
-          if !started_minimized {
-            show_main_window(_app.handle(), "cold-start", WindowPresentMode::ShowOnly);
+          if started_minimized {
+            conceal_main_window(&window);
           }
           if let Some(url) = native_oidc_callback_from_args(&std::env::args().collect::<Vec<_>>()) {
             let app_handle_for_oidc = app_handle.clone();
@@ -1143,7 +1154,7 @@ pub fn run() {
             if let WindowEvent::CloseRequested { api, .. } = event {
               if load_settings(&app_handle).minimize_to_tray {
                 api.prevent_close();
-                let _ = window_for_close.hide();
+                conceal_main_window(&window_for_close);
               }
             }
           });

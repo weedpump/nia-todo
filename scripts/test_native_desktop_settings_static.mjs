@@ -22,8 +22,8 @@ assert.match(
 );
 assert.match(
   rustSource,
-  /let is_minimized = window\.is_minimized\(\)\.unwrap_or\(false\);[\s\S]*if is_visible && !is_minimized \{[\s\S]*window\.hide\(\)/,
-  'Desktop toggle hotkey must hide any visible non-minimized main window, not only focused windows',
+  /let is_minimized = window\.is_minimized\(\)\.unwrap_or\(false\);[\s\S]*if is_visible && !is_minimized \{[\s\S]*conceal_main_window\(&window\)/,
+  'Desktop toggle hotkey must conceal any visible non-minimized main window, not only focused windows',
 );
 assert.match(
   rustSource,
@@ -37,7 +37,7 @@ assert.doesNotMatch(
 );
 assert.match(
   rustSource,
-  /enum WindowPresentMode[\s\S]*ShowOnly[\s\S]*ShowAndUnminimize[\s\S]*ShowAndFocus/,
+  /enum WindowPresentMode[\s\S]*ShowOnly[\s\S]*RestoreOnly[\s\S]*RestoreAndFocus/,
   'Desktop window presentation should expose modes for Linux readiness-notification debugging',
 );
 assert.match(
@@ -47,13 +47,23 @@ assert.match(
 );
 assert.match(
   rustSource,
-  /show_main_window\(app, "toggle-hotkey", WindowPresentMode::ShowOnly\)/,
-  'Linux-prone toggle presentation should initially test show-only behavior',
+  /show_main_window\(app, "toggle-hotkey", WindowPresentMode::RestoreOnly\)/,
+  'Linux-prone toggle presentation should restore minimized windows without GTK show()',
 );
 assert.match(
   rustSource,
-  /show_main_window\(app, action\.as_str\(\), WindowPresentMode::ShowAndFocus\)/,
+  /show_main_window\(app, action\.as_str\(\), WindowPresentMode::RestoreAndFocus\)/,
   'Action hotkeys that immediately interact with UI should still request focus',
+);
+assert.match(
+  rustSource,
+  /if started_minimized \{\s*conceal_main_window\(&window\);\s*\}/,
+  'Normal cold start should rely on visible=true instead of programmatic GTK show()',
+);
+assert.match(
+  tauriConfig,
+  /"visible": true/,
+  'Desktop window should be initially visible to avoid GTK show() readiness notifications on cold start',
 );
 assert.match(
   tauriConfig,
