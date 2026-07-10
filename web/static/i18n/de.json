@@ -757,7 +757,7 @@
   "common.saved": "Gespeichert.",
   "settings.desktop.title": "App",
   "settings.desktop.minimizeToTray": "Minimieren ins Tray statt beenden",
-  "settings.desktop.autostart": "Autostart mit Windows",
+  "settings.desktop.autostart": "Autostart mit System",
   "settings.desktop.startMinimizedToTray": "Beim Autostart minimiert im Tray starten",
   "settings.desktop.nativeNotifications": "Native Benachrichtigungen",
   "settings.desktop.testNotification": "Test-Benachrichtigung",
