@@ -328,16 +328,27 @@ export function createCalendarViewFeature({
       const key = dateKey(day);
       const dayEvents = byDay.get(key) || [];
       const visibleEvents = dayEvents.slice(0, 3);
+      const selected = isSameDay(day, anchorDate);
       html += `
-        <section class="calendar-day-cell ${day.getMonth() !== anchorDate.getMonth() ? 'outside-month' : ''} ${isToday(day) ? 'today' : ''}" data-calendar-day="${escapeHtmlAttr(key)}">
-          <button type="button" class="calendar-day-number" data-calendar-action="open-day" data-calendar-date="${escapeHtmlAttr(key)}">${day.getDate()}</button>
+        <section class="calendar-day-cell ${day.getMonth() !== anchorDate.getMonth() ? 'outside-month' : ''} ${isToday(day) ? 'today' : ''} ${selected ? 'selected' : ''}" data-calendar-day="${escapeHtmlAttr(key)}">
+          <button type="button" class="calendar-day-number" data-calendar-action="select-day" data-calendar-date="${escapeHtmlAttr(key)}" aria-pressed="${selected ? 'true' : 'false'}">${day.getDate()}</button>
           <div class="calendar-day-events">
             ${visibleEvents.map(event => renderEvent(event, true)).join('')}
-            ${dayEvents.length > visibleEvents.length ? `<button type="button" class="calendar-more-btn" data-calendar-action="open-day" data-calendar-date="${escapeHtmlAttr(key)}">+${dayEvents.length - visibleEvents.length} ${escapeHtml(t('calendar.more'))}</button>` : ''}
+            ${dayEvents.length > visibleEvents.length ? `<button type="button" class="calendar-more-btn" data-calendar-action="select-day" data-calendar-date="${escapeHtmlAttr(key)}">+${dayEvents.length - visibleEvents.length} ${escapeHtml(t('calendar.more'))}</button>` : ''}
           </div>
         </section>`;
     }
+    const selectedEvents = byDay.get(dateKey(anchorDate)) || [];
     html += '</div>';
+    html += `<section class="calendar-month-selected-day" aria-label="${escapeHtmlAttr(formatDayTitle(anchorDate))}">
+      <div class="calendar-month-selected-header">
+        <strong>${escapeHtml(formatDayTitle(anchorDate))}</strong>
+        <span>${selectedEvents.length}</span>
+      </div>
+      <div class="calendar-month-selected-events">
+        ${selectedEvents.length ? selectedEvents.map(event => renderEvent(event, false)).join('') : `<p>${escapeHtml(t('calendar.emptyMini'))}</p>`}
+      </div>
+    </section>`;
     return html;
   }
 
@@ -353,7 +364,7 @@ export function createCalendarViewFeature({
 
     const desktopTimeline = `<div class="calendar-week-timeline" aria-label="${escapeHtmlAttr(t('calendar.weekTimeline'))}">
       <div class="calendar-week-timeline-header">
-        <div class="calendar-week-timezone">${escapeHtml(t('calendar.timeColumn'))}</div>
+        <div class="calendar-week-timezone" aria-hidden="true"></div>
         ${days.map((day, index) => `<button type="button" class="calendar-week-timeline-day ${isToday(day) ? 'today' : ''}" data-calendar-action="open-day" data-calendar-date="${escapeHtmlAttr(dateKey(day))}">
           <span>${escapeHtml(new Intl.DateTimeFormat(locale(), { weekday: 'short' }).format(day))}</span>
           <strong>${escapeHtml(new Intl.DateTimeFormat(locale(), { day: '2-digit' }).format(day))}</strong>
@@ -462,6 +473,13 @@ export function createCalendarViewFeature({
       if (action === 'toggle-controls') {
         controlsOpen = !controlsOpen;
         localStorage.setItem(CONTROLS_KEY, controlsOpen ? 'true' : 'false');
+      }
+      if (action === 'select-day') {
+        const date = parseStoredDate(actionButton.dataset.calendarDate);
+        if (date) {
+          anchorDate = date;
+          persistAnchor();
+        }
       }
       if (action === 'open-day') {
         const date = parseStoredDate(actionButton.dataset.calendarDate);
