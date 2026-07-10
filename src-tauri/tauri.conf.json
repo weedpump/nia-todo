@@ -32,7 +32,10 @@
     "active": true,
     "publisher": "Tobias Kneidl",
     "copyright": "Copyright © 2026 Tobias Kneidl",
-    "targets": ["nsis", "msi"],
+    "targets": ["nsis", "msi", "deb"],
+    "category": "Productivity",
+    "shortDescription": "Native desktop app for nia-todo",
+    "longDescription": "nia-todo is a self-hosted task manager with native desktop integration for quick actions, reminders, tray support and offline access.",
     "icon": [
       "../web/static/icons/icon-192.png",
       "../web/static/icons/icon-512.png"
@@ -45,6 +48,12 @@
         "displayLanguageSelector": true,
         "languages": ["English", "German"],
         "installerHooks": "windows/nsis-hooks.nsh"
+      }
+    },
+    "linux": {
+      "deb": {
+        "section": "utils",
+        "priority": "optional"
       }
     }
   }
