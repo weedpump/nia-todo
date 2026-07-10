@@ -58,18 +58,18 @@
 .todo-item.swiping,
 .todo-item.swiping:hover,
 .todo-item.swiping:focus-within,
-.calendar-event.swiping,
-.calendar-event.swiping:hover,
-.calendar-event.swiping:focus-within {
+.calendar-view .calendar-event.swiping,
+.calendar-view .calendar-event.swiping:hover,
+.calendar-view .calendar-event.swiping:focus-within {
   transform: translate3d(var(--swipe-x, 0), 0, 0) scale(calc(1 - (var(--swipe-progress, 0) * .012)));
 }
 
 .todo-item.swiping:not(.swipe-settling):not(.swipe-committing),
 .todo-item.swiping:not(.swipe-settling):not(.swipe-committing):hover,
 .todo-item.swiping:not(.swipe-settling):not(.swipe-committing):focus-within,
-.calendar-event.swiping:not(.swipe-settling):not(.swipe-committing),
-.calendar-event.swiping:not(.swipe-settling):not(.swipe-committing):hover,
-.calendar-event.swiping:not(.swipe-settling):not(.swipe-committing):focus-within {
+.calendar-view .calendar-event.swiping:not(.swipe-settling):not(.swipe-committing),
+.calendar-view .calendar-event.swiping:not(.swipe-settling):not(.swipe-committing):hover,
+.calendar-view .calendar-event.swiping:not(.swipe-settling):not(.swipe-committing):focus-within {
   transition: none;
 }
 
@@ -882,8 +882,8 @@
 
 .todo-item.swiping::before,
 .todo-item.swiping::after,
-.calendar-event.swiping::before,
-.calendar-event.swiping::after {
+.calendar-view .calendar-event.swiping::before,
+.calendar-view .calendar-event.swiping::after {
   top: 0;
   bottom: 0;
   border: 0;
@@ -891,12 +891,12 @@
 }
 
 .todo-item.swiping::before,
-.calendar-event.swiping::before {
+.calendar-view .calendar-event.swiping::before {
   right: calc(100% + 10px);
 }
 
 .todo-item.swiping::after,
-.calendar-event.swiping::after {
+.calendar-view .calendar-event.swiping::after {
   left: calc(100% + 10px);
 }
 
