@@ -233,67 +233,15 @@ fn normalize_server_url(server_url: &str) -> Result<String, String> {
 }
 
 #[cfg(desktop)]
-#[derive(Debug, Clone, Copy)]
-enum WindowPresentMode {
-  ShowOnly,
-  RestoreOnly,
-  RestoreAndFocus,
-}
-
-#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
-fn linux_activate_main_window() -> Result<(), String> {
-  let xdotool = Command::new("xdotool")
-    .args(["search", "--class", "nia-todo-desktop", "windowactivate", "--sync"])
-    .status();
-  match xdotool {
-    Ok(status) if status.success() => return Ok(()),
-    Ok(status) => eprintln!("xdotool windowactivate failed with {status}"),
-    Err(err) => eprintln!("xdotool windowactivate unavailable: {err}"),
-  }
-
-  let wmctrl = Command::new("wmctrl")
-    .args(["-x", "-a", "nia-todo-desktop"])
-    .status();
-  match wmctrl {
-    Ok(status) if status.success() => Ok(()),
-    Ok(status) => Err(format!("wmctrl activation failed with {status}")),
-    Err(err) => Err(format!("wmctrl activation unavailable: {err}")),
+fn show_main_window(app: &AppHandle) {
+  if let Some(window) = app.get_webview_window("main") {
+    let _ = window.show();
+    let _ = window.unminimize();
+    let _ = window.set_focus();
   }
 }
 
 #[cfg(desktop)]
-fn show_main_window(app: &AppHandle, source: &str, mode: WindowPresentMode) {
-  eprintln!("[nia-todo-desktop] show_main_window source={source} mode={mode:?}");
-  if let Some(window) = app.get_webview_window("main") {
-    match mode {
-      WindowPresentMode::ShowOnly => {
-        let _ = window.show();
-      }
-      WindowPresentMode::RestoreOnly => {
-        #[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
-        if linux_activate_main_window().is_ok() {
-          return;
-        }
-        let _ = window.unminimize();
-      }
-      WindowPresentMode::RestoreAndFocus => {
-        #[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
-        if linux_activate_main_window().is_ok() {
-          return;
-        }
-        let _ = window.unminimize();
-        let _ = window.set_focus();
-      }
-    }
-  }
-}
-
-#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
-fn conceal_main_window(window: &tauri::WebviewWindow) {
-  let _ = window.minimize();
-}
-
-#[cfg(not(all(unix, not(target_os = "macos"), not(target_os = "android"))))]
 fn conceal_main_window(window: &tauri::WebviewWindow) {
   let _ = window.hide();
 }
@@ -306,7 +254,7 @@ fn toggle_main_window(app: &AppHandle) {
     if is_visible && !is_minimized {
       conceal_main_window(&window);
     } else {
-      show_main_window(app, "toggle-hotkey", WindowPresentMode::RestoreOnly);
+      show_main_window(app);
     }
   }
 }
@@ -323,7 +271,7 @@ fn emit_native_oidc_callback(app: &AppHandle, url: String) {
   if let Ok(mut pending) = app.state::<PendingNativeOidcCallback>().0.lock() {
     *pending = Some(url.clone());
   }
-  show_main_window(app, "oidc-callback", WindowPresentMode::RestoreAndFocus);
+  show_main_window(app);
   let _ = app.emit("native-oidc-callback", serde_json::json!({ "url": url }));
 }
 
@@ -386,7 +334,7 @@ fn apply_global_hotkeys(app: &AppHandle) -> Result<(), String> {
         match action.as_str() {
           "toggleApp" => toggle_main_window(app),
           "newTodo" | "search" => {
-            show_main_window(app, action.as_str(), WindowPresentMode::RestoreAndFocus);
+            show_main_window(app);
             emit_desktop_hotkey(app, &action);
           }
           _ => {}
@@ -680,7 +628,7 @@ fn build_tray(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     .menu(&menu)
     .show_menu_on_left_click(false)
     .on_menu_event(|app, event| match event.id.as_ref() {
-      "show" => show_main_window(app, "tray-menu-show", WindowPresentMode::RestoreOnly),
+      "show" => show_main_window(app),
       "quit" => app.exit(0),
       _ => {}
     })
@@ -691,7 +639,7 @@ fn build_tray(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         ..
       } = event
       {
-        show_main_window(tray.app_handle(), "tray-left-click", WindowPresentMode::RestoreOnly);
+        show_main_window(tray.app_handle());
       }
     })
     .build(app)?;
@@ -1169,8 +1117,8 @@ pub fn run() {
           let app_handle = _app.handle().clone();
           let started_minimized = std::env::args().any(|arg| arg == START_MINIMIZED_ARG)
             && load_settings(_app.handle()).start_minimized_to_tray;
-          if started_minimized {
-            conceal_main_window(&window);
+          if !started_minimized {
+            show_main_window(_app.handle());
           }
           if let Some(url) = native_oidc_callback_from_args(&std::env::args().collect::<Vec<_>>()) {
             let app_handle_for_oidc = app_handle.clone();

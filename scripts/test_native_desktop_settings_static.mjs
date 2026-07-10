@@ -35,45 +35,30 @@ assert.doesNotMatch(
   /set_always_on_top\(true\)/,
   'Linux hotkey window presentation should not use an always-on-top pulse after it failed to stop readiness notifications',
 );
-assert.match(
+assert.doesNotMatch(
   rustSource,
-  /enum WindowPresentMode[\s\S]*ShowOnly[\s\S]*RestoreOnly[\s\S]*RestoreAndFocus/,
-  'Desktop window presentation should expose modes for Linux readiness-notification debugging',
+  /Command::new\("xdotool"\)|Command::new\("wmctrl"\)|WindowPresentMode/,
+  'Desktop window presentation should use the clean Tauri path, not failed X11 helper experiments',
 );
 assert.match(
   rustSource,
-  /show_main_window\(app: &AppHandle, source: &str, mode: WindowPresentMode\)[\s\S]*show_main_window source=\{source\} mode=\{mode:\?\}/,
-  'Desktop window presentation paths should log their source and mode for readiness-notification debugging',
+  /fn show_main_window\(app: &AppHandle\)[\s\S]*window\.show\(\)[\s\S]*window\.unminimize\(\)[\s\S]*window\.set_focus\(\)/,
+  'Desktop window presentation should use the clean Tauri show/unminimize/focus path',
 );
 assert.match(
   rustSource,
-  /Command::new\("xdotool"\)[\s\S]*windowactivate[\s\S]*Command::new\("wmctrl"\)/,
-  'Linux window activation should try xdotool before falling back to wmctrl',
-);
-assert.match(
-  rustSource,
-  /show_main_window\(app, "toggle-hotkey", WindowPresentMode::RestoreOnly\)/,
-  'Linux-prone toggle presentation should restore minimized windows without GTK show()',
-);
-assert.match(
-  rustSource,
-  /show_main_window\(app, action\.as_str\(\), WindowPresentMode::RestoreAndFocus\)/,
-  'Action hotkeys that immediately interact with UI should still request focus',
-);
-assert.match(
-  rustSource,
-  /if started_minimized \{\s*conceal_main_window\(&window\);\s*\}/,
-  'Normal cold start should rely on visible=true instead of programmatic GTK show()',
+  /if !started_minimized \{\s*show_main_window\(_app\.handle\(\)\);\s*\}/,
+  'Normal cold start should present the initially hidden Tauri window via the shared show path',
 );
 assert.match(
   tauriConfig,
-  /"visible": true/,
-  'Desktop window should be initially visible to avoid GTK show() readiness notifications on cold start',
+  /"visible": false/,
+  'Desktop window should start hidden so start-minimized-to-tray remains reliable',
 );
 assert.match(
   tauriConfig,
-  /"recommends": \["libnotify-bin", "xdotool", "wmctrl"\]/,
-  'Linux Debian package should recommend notification and X11 window activation helpers',
+  /"recommends": \["libnotify-bin"\]/,
+  'Linux Debian package should recommend libnotify-bin for notify-send notifications',
 );
 assert.match(
   linuxDesktopTemplate,
