@@ -8,12 +8,10 @@ export function createMobileSearchFeature({ renderStats, renderTodos, toggleToda
     const box = document.getElementById('search-box');
     const input = document.getElementById('search-input');
     box?.classList.add('open');
-    const focus = () => {
+    requestAnimationFrame(() => {
       input?.focus();
       input?.select();
-    };
-    requestAnimationFrame(focus);
-    [80, 180, 320].forEach((delay) => setTimeout(focus, delay));
+    });
   }
 
   function closeMobileSearch() {
