@@ -55,7 +55,7 @@
         "section": "utils",
         "priority": "optional",
         "desktopTemplate": "linux/nia-todo-desktop.desktop",
-        "recommends": ["libnotify-bin"]
+        "recommends": ["libnotify-bin", "xdotool", "wmctrl"]
       }
     }
   }
