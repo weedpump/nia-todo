@@ -1,6 +1,6 @@
 # <img src="web/static/icons/icon-512.png" alt="nia-todo icon" width="32" height="32"> nia-todo
 
-Self-hosted todo system — SQLite + FastAPI + Web UI + offline PWA + native Windows/Android clients.
+Self-hosted todo system — SQLite + FastAPI + Web UI + offline PWA + native Windows/Android/Linux clients.
 
 nia-todo is designed for private self-hosting: install the server, open the web app, then download the bundled native apps directly from your own instance.
 
@@ -29,9 +29,10 @@ nia-todo is designed for private self-hosting: install the server, open the web 
 - 📱 Offline-capable PWA with local IndexedDB sync queue
 - 🖥️ Native Windows app wrapper
 - 🤖 Native Android APK
+- 🐧 Native Linux Debian desktop app wrapper
 - 🔐 Auth, admin panel, API keys, CSRF protection, and per-user data isolation
 - 🛡️ 2FA/MFA with TOTP, passkeys/WebAuthn, email-code fallback, recovery codes, trusted devices, and admin policy
-- 🔔 Native local reminders on Windows and Android; browser/PWA push remains browser/PWA-only
+- 🔔 Native local reminders on Windows and Android, plus Linux desktop notifications; browser/PWA push remains browser/PWA-only
 - 🎙️ BrainDump voice capture for turning spoken notes into reviewed todo candidates, backed by configurable STT/LLM providers
 - 🎨 Theme toggle and English/German UI language support
 - 🗄️ Local SQLite database
@@ -51,7 +52,7 @@ Supported provider styles include:
 - Ollama API endpoints, including local Ollama and Ollama Cloud
 - OpenClaw's OpenAI-compatible gateway using an agent model such as `openclaw/braindump`
 
-Admins configure BrainDump in `/admin`, test provider connectivity there, enable the global feature, and then grant access per user. Native Windows/Android apps and the desktop web app can use the microphone workflow when the underlying platform grants microphone permission.
+Admins configure BrainDump in `/admin`, test provider connectivity there, enable the global feature, and then grant access per user. Native desktop apps, the Android app, and the desktop web app can use the microphone workflow when the underlying platform grants microphone permission.
 
 ## 📦 Release artifacts
 
@@ -63,7 +64,13 @@ Public releases provide these main distribution targets:
   - includes bundled native app downloads under `/downloads/`
 - **Docker image**: for container-based installations
 
-The Windows and Android clients are shipped inside the server bundle so your own instance can serve them locally from `/downloads/`.
+The Windows, Android, and Linux desktop clients are shipped inside the server bundle so your own instance can serve them locally from `/downloads/`.
+
+Bundled native client filenames use the shared release version:
+
+- `nia-todo-vX.Y.Z-windows-x64-setup.exe`
+- `nia-todo-vX.Y.Z-android-arm64.apk`
+- `nia-todo-desktop-vX.Y.Z-linux-amd64.deb`
 
 ## 🚀 Debian/Ubuntu installation
 
@@ -104,7 +111,7 @@ Native app downloads are served by your own instance under:
 http://YOUR-SERVER:8753/downloads/
 ```
 
-For production use, put nia-todo behind HTTPS/reverse proxy and set the public base URL in the admin panel. Passkeys and native app integrations rely on the public URL being correct.
+For production use, put nia-todo behind HTTPS/reverse proxy and set the public base URL in the admin panel. Passkeys and native app integrations rely on the public URL being correct. Native passkeys are supported on Windows and Android; Linux passkey support is intentionally deferred.
 
 ## 🔄 Updates
 
@@ -210,7 +217,7 @@ sudo journalctl -u nia-todo -f
 - Runtime data: `/var/lib/nia-todo`
 - Configuration: `/etc/nia-todo/nia-todo.env`
 
-For production use, configure a correct HTTPS `public_base_url` in the admin panel. Passkeys and native app integrations rely on it. Android passkeys use the bundled app signature through `/.well-known/assetlinks.json`.
+For production use, configure a correct HTTPS `public_base_url` in the admin panel. Passkeys and native app integrations rely on it. Android passkeys use the bundled app signature through `/.well-known/assetlinks.json`; Linux passkey support is intentionally deferred.
 
 ## 🔑 Reset the admin password
 

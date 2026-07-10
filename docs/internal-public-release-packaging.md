@@ -9,13 +9,21 @@ A public release has exactly two distribution targets:
 1. `nia-todo-server-vX.Y.Z-full.deb`
    - Debian/Ubuntu server installer
    - contains the web/server source
-   - contains bundled Windows/Android client downloads under `/opt/nia-todo/web/downloads/`
+   - contains bundled Windows/Android/Linux client downloads under `/opt/nia-todo/web/downloads/`
 2. Docker image
    - built from the same clean public export
-   - contains the same bundled Windows/Android client downloads under `/app/web/downloads/`
+   - contains the same bundled Windows/Android/Linux client downloads under `/app/web/downloads/`
    - Python wheels are prepared before the final `docker build` in a temporary Python builder container; the final Dockerfile only installs from the local wheelhouse
 
-Windows and Android installers/APKs are embedded into both release targets, not published as separate required public assets. They must come from the local native build output, either via explicit `--windows-installer` / `--android-apk` paths or via the standard `dist/native/vX.Y.Z/` artifact directory.
+Windows installers, Android APKs, and Linux desktop Debian packages are embedded into both release targets, not published as separate required public assets. They must come from the local native build output, either via explicit `--windows-installer` / `--android-apk` / `--linux-deb` paths or via the standard `dist/native/vX.Y.Z/` artifact directory.
+
+Native artifact names in `dist/native/vX.Y.Z/`:
+
+- `nia-todo-vX.Y.Z-windows-x64-setup.exe`
+- `nia-todo-vX.Y.Z-android-arm64.apk`
+- `nia-todo-desktop-vX.Y.Z-linux-amd64.deb`
+
+The Linux desktop `.deb` is repacked from Tauri's raw package to `Package: nia-todo-desktop` so it can be installed on the same host as the server package `nia-todo` without a Debian package-name conflict.
 
 ## Release entrypoint
 
@@ -37,9 +45,9 @@ The lower-level scripts are implementation steps used by `release.sh`:
 
 ```bash
 scripts/release/export-public.sh X.Y.Z --output dist/public/nia-todo-X.Y.Z --init-git
-scripts/release/build-full-bundle.sh X.Y.Z --windows-installer /path/app.exe --android-apk /path/app.apk
-scripts/release/build-docker.sh X.Y.Z --tag nia-todo:X.Y.Z
-scripts/release/public-release.sh X.Y.Z --windows-installer /path/app.exe --android-apk /path/app.apk
+scripts/release/build-full-bundle.sh X.Y.Z --windows-installer /path/app.exe --android-apk /path/app.apk --linux-deb /path/app.deb
+scripts/release/build-docker.sh X.Y.Z --tag nia-todo:X.Y.Z --windows-installer /path/app.exe --android-apk /path/app.apk --linux-deb /path/app.deb
+scripts/release/public-release.sh X.Y.Z --windows-installer /path/app.exe --android-apk /path/app.apk --linux-deb /path/app.deb
 scripts/release/publish-github.sh X.Y.Z --github-repo OWNER/REPO --execute
 ```
 
