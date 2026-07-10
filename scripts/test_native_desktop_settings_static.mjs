@@ -13,6 +13,7 @@ const rustSource = fs.readFileSync(path.join(repoRoot, 'src-tauri/src/lib.rs'), 
 const tauriConfig = fs.readFileSync(path.join(repoRoot, 'src-tauri/tauri.conf.json'), 'utf8');
 const deI18n = fs.readFileSync(path.join(repoRoot, 'web/static/i18n/de.json'), 'utf8');
 const enI18n = fs.readFileSync(path.join(repoRoot, 'web/static/i18n/en.json'), 'utf8');
+const linuxDesktopTemplate = fs.readFileSync(path.join(repoRoot, 'src-tauri/linux/nia-todo-desktop.desktop'), 'utf8');
 
 assert.match(
   desktopIntegration,
@@ -29,15 +30,25 @@ assert.match(
   /Command::new\("notify-send"\)/,
   'Linux desktop notifications should use notify-send before falling back to the Tauri plugin',
 );
+assert.doesNotMatch(
+  rustSource,
+  /set_always_on_top\(true\)/,
+  'Linux hotkey window presentation should not use an always-on-top pulse after it failed to stop readiness notifications',
+);
 assert.match(
   rustSource,
-  /set_always_on_top\(true\)[\s\S]*set_focus\(\)[\s\S]*set_always_on_top\(false\)/,
-  'Linux hotkey window presentation should avoid compositor readiness notifications when possible',
+  /show_main_window\(app: &AppHandle, source: &str\)[\s\S]*show_main_window source=\{source\}/,
+  'Desktop window presentation paths should log their source for readiness-notification debugging',
 );
 assert.match(
   tauriConfig,
   /"recommends": \["libnotify-bin"\]/,
   'Linux Debian package should recommend libnotify-bin for notify-send notifications',
+);
+assert.match(
+  linuxDesktopTemplate,
+  /^StartupNotify=false$/m,
+  'Linux desktop entry should disable GNOME startup readiness notifications',
 );
 for (const id of ['desktop-minimize-to-tray', 'desktop-autostart', 'desktop-start-minimized-to-tray', 'desktop-notifications']) {
   assert.match(

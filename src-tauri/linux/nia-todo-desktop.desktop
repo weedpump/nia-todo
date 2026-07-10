@@ -7,4 +7,5 @@ Icon={{icon}}
 Name=nia-todo Desktop
 Terminal=false
 Type=Application
+StartupNotify=false
 MimeType=x-scheme-handler/nia-todo;
