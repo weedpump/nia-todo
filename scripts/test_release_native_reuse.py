@@ -20,7 +20,7 @@ def test_embed_native_downloads_decouples_web_and_native_versions():
         downloads = tmp_path / "downloads"
         windows = tmp_path / "nia-todo-v2.11.1-windows-x64-setup.exe"
         android = tmp_path / "nia-todo-v2.11.1-android-arm64.apk"
-        linux = tmp_path / "nia-todo-v2.11.1-linux-amd64.deb"
+        linux = tmp_path / "nia-todo-desktop-v2.11.1-linux-amd64.deb"
         windows.write_bytes(b"windows-installer")
         android.write_bytes(b"android-apk")
         linux.write_bytes(b"linux-deb")
@@ -51,13 +51,13 @@ def test_embed_native_downloads_decouples_web_and_native_versions():
         assert_equal(by_platform["android"]["version"], "v2.11.1", "android app version")
         assert_equal(by_platform["android"]["filename"], "nia-todo-v2.11.1-android-arm64.apk", "android filename")
         assert_equal(by_platform["linux"]["version"], "v2.11.1", "linux app version")
-        assert_equal(by_platform["linux"]["filename"], "nia-todo-v2.11.1-linux-amd64.deb", "linux filename")
+        assert_equal(by_platform["linux"]["filename"], "nia-todo-desktop-v2.11.1-linux-amd64.deb", "linux filename")
         assert (downloads / "nia-todo-v2.11.1-windows-x64-setup.exe").is_file()
         assert (downloads / "nia-todo-v2.11.1-android-arm64.apk").is_file()
-        assert (downloads / "nia-todo-v2.11.1-linux-amd64.deb").is_file()
+        assert (downloads / "nia-todo-desktop-v2.11.1-linux-amd64.deb").is_file()
         assert not (downloads / "nia-todo-v2.12.0-windows-x64-setup.exe").exists()
         assert not (downloads / "nia-todo-v2.12.0-android-arm64.apk").exists()
-        assert not (downloads / "nia-todo-v2.12.0-linux-amd64.deb").exists()
+        assert not (downloads / "nia-todo-desktop-v2.12.0-linux-amd64.deb").exists()
 
 
 def test_release_scripts_expose_reuse_native_version_flow():

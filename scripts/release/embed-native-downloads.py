@@ -56,7 +56,7 @@ def main() -> int:
 
     windows_name = f"nia-todo-v{native_version}-windows-x64-setup.exe"
     android_name = f"nia-todo-v{native_version}-android-arm64.apk"
-    linux_name = f"nia-todo-v{native_version}-linux-amd64.deb"
+    linux_name = f"nia-todo-desktop-v{native_version}-linux-amd64.deb"
     windows_sha, windows_size = copy_artifact(args.windows_installer, args.download_dir, windows_name, required=required)
     android_sha, android_size = copy_artifact(args.android_apk, args.download_dir, android_name, required=required)
     linux_sha, linux_size = copy_artifact(args.linux_deb, args.download_dir, linux_name, required=required)

@@ -96,7 +96,7 @@ fi
 if [ -n "${NATIVE_ARTIFACTS_DIR}" ]; then
   [ -n "${WINDOWS_INSTALLER}" ] || WINDOWS_INSTALLER="${NATIVE_ARTIFACTS_DIR}/nia-todo-${NATIVE_TAG}-windows-x64-setup.exe"
   [ -n "${ANDROID_APK}" ] || ANDROID_APK="${NATIVE_ARTIFACTS_DIR}/nia-todo-${NATIVE_TAG}-android-arm64.apk"
-  [ -n "${LINUX_DEB}" ] || LINUX_DEB="${NATIVE_ARTIFACTS_DIR}/nia-todo-${NATIVE_TAG}-linux-amd64.deb"
+  [ -n "${LINUX_DEB}" ] || LINUX_DEB="${NATIVE_ARTIFACTS_DIR}/nia-todo-desktop-${NATIVE_TAG}-linux-amd64.deb"
 fi
 
 if [ "${ALLOW_MISSING_APPS}" != "1" ]; then

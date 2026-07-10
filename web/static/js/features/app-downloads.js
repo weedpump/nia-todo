@@ -44,18 +44,21 @@ const DOWNLOAD_VERSION_RE = /^v?\d+\.\d+\.\d+(?:[-.][0-9A-Za-z.-]+)?$/;
 const DOWNLOADS_BY_PLATFORM = {
   windows: {
     arch: 'x64',
+    filenamePrefix: 'nia-todo-v',
     filenameSuffix: '-windows-x64-setup.exe',
     filenameRe: /^nia-todo-v\d+\.\d+\.\d+(?:[-.][0-9A-Za-z.-]+)?-windows-x64-setup\.exe$/,
   },
   android: {
     arch: 'arm64',
+    filenamePrefix: 'nia-todo-v',
     filenameSuffix: '-android-arm64.apk',
     filenameRe: /^nia-todo-v\d+\.\d+\.\d+(?:[-.][0-9A-Za-z.-]+)?-android-arm64\.apk$/,
   },
   linux: {
     arch: 'amd64',
+    filenamePrefix: 'nia-todo-desktop-v',
     filenameSuffix: '-linux-amd64.deb',
-    filenameRe: /^nia-todo-v\d+\.\d+\.\d+(?:[-.][0-9A-Za-z.-]+)?-linux-amd64\.deb$/,
+    filenameRe: /^nia-todo-desktop-v\d+\.\d+\.\d+(?:[-.][0-9A-Za-z.-]+)?-linux-amd64\.deb$/,
   },
 };
 
@@ -94,7 +97,7 @@ function validateDownloadEntry(app, fallbackVersion = '') {
   const version = String(app.version || fallbackVersion || '').trim();
   if (!DOWNLOAD_VERSION_RE.test(version)) return null;
   const versionSlug = normalizeVersion(version);
-  if (filename !== `nia-todo-v${versionSlug}${spec.filenameSuffix}`) return null;
+  if (filename !== `${spec.filenamePrefix}${versionSlug}${spec.filenameSuffix}`) return null;
 
   return {
     platform,
