@@ -562,6 +562,17 @@ class TestSuite:
         self.results["native_tauri_origin_with_port_allowed"] = {"status": status, "passed": passed, "expected": "200 + tauri origin with port allowed"}
         return passed
 
+    def test_native_tauri_custom_scheme_origin_allowed(self):
+        origin = "tauri://localhost"
+        status, headers = curl_headers("GET", "/api/instance", {"Origin": origin})
+        passed = status == 200 and headers.get("access-control-allow-origin") == origin
+        self.results["native_tauri_custom_scheme_origin_allowed"] = {"status": status, "passed": passed, "expected": "200 + tauri custom-scheme origin allowed"}
+        return passed
+
+    def test_unknown_custom_scheme_origin_rejected(self):
+        status, _ = curl_headers("GET", "/api/instance", {"Origin": "evil://localhost"})
+        return self.record("unknown_custom_scheme_origin_rejected", status, expected=403)
+
     def test_instance_config_update(self):
         status, data = curl("PATCH", "/api/admin/instance-config", {
             "public_base_url": "",
@@ -1640,6 +1651,8 @@ class TestSuite:
             self.test_strict_cors_unknown_origin_rejected,
             self.test_native_tauri_origin_allowed,
             self.test_native_tauri_origin_with_port_allowed,
+            self.test_native_tauri_custom_scheme_origin_allowed,
+            self.test_unknown_custom_scheme_origin_rejected,
             self.test_untrusted_proxy_ignores_forwarded_host,
             self.test_instance_config_update,
             self.test_instance_config_audit_written,
