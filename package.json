@@ -12,7 +12,7 @@
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
     "tauri:info": "tauri info",
-    "test:native": "node scripts/test_frontend_native_runtime_config.mjs && node scripts/test_frontend_native_passkeys.mjs && node scripts/test_frontend_native_offline.mjs && node scripts/test_frontend_android_reminder_rehydration.mjs && node scripts/test_native_android_location_reminders.mjs && node scripts/test_native_android_webview_cache_migration.mjs && node scripts/test_native_linux_webview_cache_migration.mjs && node scripts/test_native_android_reminder_alarm_policy.mjs && node scripts/test_native_android_microphone_permission.mjs && node scripts/test_native_windows_installer_cache_hooks.mjs",
+    "test:native": "node scripts/test_frontend_native_runtime_config.mjs && node scripts/test_frontend_native_passkeys.mjs && node scripts/test_frontend_native_offline.mjs && node scripts/test_frontend_android_reminder_rehydration.mjs && node scripts/test_native_android_location_reminders.mjs && node scripts/test_native_android_webview_cache_migration.mjs && node scripts/test_native_linux_webview_cache_migration.mjs && node scripts/test_native_linux_deb_package_name.mjs && node scripts/test_native_android_reminder_alarm_policy.mjs && node scripts/test_native_android_microphone_permission.mjs && node scripts/test_native_windows_installer_cache_hooks.mjs",
     "test:todo": "./scripts/run_feature_todo_checks.sh",
     "test:ui": "node scripts/test_frontend_touch_zoom_lock.mjs"
   },
