@@ -415,7 +415,12 @@
   }
 
   .calendar-toolbar {
-    border-radius: 999px;
+    padding: 16px;
+    border-radius: 34px;
+  }
+
+  .calendar-toolbar.is-controls-open {
+    border-radius: 32px;
   }
 
   .calendar-heading {
