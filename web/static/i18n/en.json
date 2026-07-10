@@ -1728,7 +1728,6 @@
   "project.chooseColor": "Choose project color",
   "workspace.chooseColor": "Choose workspace color",
   "calendar.title": "Calendar",
-  "calendar.kicker": "Calendar",
   "calendar.navigation": "Calendar navigation",
   "calendar.inlineControls": "Calendar quick controls",
   "calendar.prev": "Previous",
@@ -1739,15 +1738,10 @@
   "calendar.mode.week": "Week",
   "calendar.mode.day": "Day",
   "calendar.more": "more",
-  "calendar.emptyTitle": "No due todos",
-  "calendar.emptyHint": "Todos with deadlines will appear in this calendar.",
-  "calendar.emptyDayTitle": "Nothing due",
-  "calendar.emptyDayHint": "No todos with deadlines for this day.",
   "calendar.emptyMini": "No todos",
   "calendar.controls.show": "Show options",
   "calendar.controls.hide": "Hide options",
   "calendar.allDay": "All day",
   "calendar.dayTimeline": "Day timeline",
-  "calendar.weekTimeline": "Week timeline",
-  "calendar.timeColumn": "Time"
+  "calendar.weekTimeline": "Week timeline"
 }

@@ -1728,7 +1728,6 @@
   "project.chooseColor": "Projektfarbe auswählen",
   "workspace.chooseColor": "Workspace-Farbe auswählen",
   "calendar.title": "Kalender",
-  "calendar.kicker": "Kalender",
   "calendar.navigation": "Kalendernavigation",
   "calendar.inlineControls": "Kalender-Schnellsteuerung",
   "calendar.prev": "Zurück",
@@ -1739,15 +1738,10 @@
   "calendar.mode.week": "Woche",
   "calendar.mode.day": "Tag",
   "calendar.more": "weitere",
-  "calendar.emptyTitle": "Keine fälligen Todos",
-  "calendar.emptyHint": "Todos mit Deadline erscheinen hier im Kalender.",
-  "calendar.emptyDayTitle": "Nichts fällig",
-  "calendar.emptyDayHint": "Für diesen Tag gibt es keine Todos mit Deadline.",
   "calendar.emptyMini": "Keine Todos",
   "calendar.controls.show": "Optionen einblenden",
   "calendar.controls.hide": "Optionen ausblenden",
   "calendar.allDay": "Ganztägig",
   "calendar.dayTimeline": "Tages-Zeitachse",
-  "calendar.weekTimeline": "Wochen-Zeitachse",
-  "calendar.timeColumn": "Zeit"
+  "calendar.weekTimeline": "Wochen-Zeitachse"
 }
