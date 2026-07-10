@@ -37,17 +37,22 @@ assert.doesNotMatch(
 );
 assert.match(
   rustSource,
-  /show_main_window\(app: &AppHandle, source: &str, focus: bool\)[\s\S]*show_main_window source=\{source\} focus=\{focus\}/,
-  'Desktop window presentation paths should log their source and focus behavior for readiness-notification debugging',
+  /enum WindowPresentMode[\s\S]*ShowOnly[\s\S]*ShowAndUnminimize[\s\S]*ShowAndFocus/,
+  'Desktop window presentation should expose modes for Linux readiness-notification debugging',
 );
 assert.match(
   rustSource,
-  /show_main_window\(app, "toggle-hotkey", false\)/,
-  'Linux-prone toggle presentation should show/unminimize without forcing focus',
+  /show_main_window\(app: &AppHandle, source: &str, mode: WindowPresentMode\)[\s\S]*show_main_window source=\{source\} mode=\{mode:\?\}/,
+  'Desktop window presentation paths should log their source and mode for readiness-notification debugging',
 );
 assert.match(
   rustSource,
-  /show_main_window\(app, action\.as_str\(\), true\)/,
+  /show_main_window\(app, "toggle-hotkey", WindowPresentMode::ShowOnly\)/,
+  'Linux-prone toggle presentation should initially test show-only behavior',
+);
+assert.match(
+  rustSource,
+  /show_main_window\(app, action\.as_str\(\), WindowPresentMode::ShowAndFocus\)/,
   'Action hotkeys that immediately interact with UI should still request focus',
 );
 assert.match(
