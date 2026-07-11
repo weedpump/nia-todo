@@ -63,9 +63,9 @@
 
 #todo-modal.todo-detail-view.todo-meta-editing .todo-meta-edit-drawer {
   position: absolute;
-  top: 78px;
+  top: 106px;
   right: 18px;
-  bottom: 72px;
+  bottom: 44px;
   z-index: 4;
   display: block;
   overflow-y: auto;
