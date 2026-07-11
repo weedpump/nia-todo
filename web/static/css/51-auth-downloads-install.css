@@ -147,8 +147,8 @@
 }
 
 .app-download-icon-debian {
-  mask-image: url('/static/icons/platform/debian.svg');
-  -webkit-mask-image: url('/static/icons/platform/debian.svg');
+  mask-image: url('/static/icons/platform/debian.svg?v=official-open-use');
+  -webkit-mask-image: url('/static/icons/platform/debian.svg?v=official-open-use');
 }
 
 .app-downloads-modal-content {
