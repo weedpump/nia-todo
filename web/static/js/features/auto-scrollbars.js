@@ -36,6 +36,10 @@ function canScrollVertically(element) {
     const scrollingElement = document.scrollingElement || document.documentElement;
     return scrollingElement.scrollHeight - window.innerHeight > 1;
   }
+
+  const overflowY = window.getComputedStyle(element).overflowY;
+  if (!['auto', 'scroll', 'overlay'].includes(overflowY)) return false;
+
   return element.scrollHeight - element.clientHeight > 1;
 }
 
