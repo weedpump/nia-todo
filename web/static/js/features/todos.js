@@ -311,7 +311,8 @@ export function createTodosFeature({
     modal.classList.add(TODO_MODAL_CLASSES.detail);
     modal.classList.toggle(TODO_MODAL_CLASSES.create, !isExistingTodo);
     modal.classList.remove(TODO_MODAL_CLASSES.editingDescription);
-    modal.classList.remove(TODO_MODAL_CLASSES.editingMeta);
+    const shouldOpenMetaDrawer = !isExistingTodo && !window.matchMedia?.('(max-width: 1180px)')?.matches;
+    modal.classList.toggle(TODO_MODAL_CLASSES.editingMeta, shouldOpenMetaDrawer);
     const headerActions = ensureTodoDetailHeaderMenu();
     const headerMenu = headerActions?.querySelector('.todo-detail-header-menu-toggle');
     if (headerMenu) headerMenu.hidden = !isExistingTodo;
