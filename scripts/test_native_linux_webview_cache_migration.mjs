@@ -28,4 +28,4 @@ const migrationCallIndex = source.indexOf('clear_linux_webview_caches_on_version
 const buildTrayIndex = source.indexOf('build_tray(_app)?', setupIndex);
 assert.ok(migrationCallIndex > setupIndex && migrationCallIndex < buildTrayIndex, 'Linux cache migration must run before normal desktop UI setup continues');
 
-console.log('✅ Native Linux WebView cache migration regression passed');
+console.log('✅ Native Debian WebView cache migration regression passed');

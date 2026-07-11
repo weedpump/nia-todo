@@ -70,7 +70,7 @@ Details: [Test docs](docs/testing.md)
 - Initial setup: `/setup`
 - Admin panel: `/admin`
 - 2FA policy and user reset: `/admin` → Security/user list
-- Passkeys require an HTTPS `public_base_url` in production setups; native passkeys are supported on Windows and Android, while Linux passkey integration is intentionally deferred. Android uses the bundled app signature through `/.well-known/assetlinks.json`.
+- Passkeys require an HTTPS `public_base_url` in production setups; native passkeys are supported on Windows and Android, while Debian desktop passkey integration is intentionally deferred. Android uses the bundled app signature through `/.well-known/assetlinks.json`.
 - BrainDump is disabled by default until configured: set up global STT/LLM providers in `/admin`, enable the global feature, then grant per-user access. See [BrainDump](docs/braindump-v2.md).
 - Dev branding: `setup-dev.sh`
 

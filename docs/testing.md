@@ -158,8 +158,8 @@ Use for native runtime, desktop settings, Android wrapper, passkey, reminder, mi
 The native suite includes static/package checks that protect platform-specific release contracts:
 
 - Debian desktop `.deb` package name must be `nia-todo-desktop`, not `nia-todo`, so it does not conflict with the server package.
-- Linux WebView cache migration must only clear volatile cache directories when the app version or executable marker changes.
-- Native desktop settings must keep desktop-only options scoped correctly and avoid leaking Windows-only wording onto Linux.
+- Debian desktop WebView cache migration must only clear volatile cache directories when the app version or executable marker changes.
+- Native desktop settings must keep desktop-only options scoped correctly and avoid leaking Windows-only wording onto Debian desktop.
 
 ## Manual Smoke Paths
 
