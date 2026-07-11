@@ -142,14 +142,14 @@
 
 .calendar-day-cell {
   min-width: 0;
-  border-radius: 22px;
+  border-radius: 32px;
   background: color-mix(in srgb, var(--bg-secondary) 82%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border) 62%, transparent);
+  box-shadow: none;
 }
 
 .calendar-day-cell {
   min-height: 132px;
-  padding: 10px;
+  padding: 12px;
 }
 
 .calendar-day-cell.outside-month {
@@ -157,7 +157,7 @@
 }
 
 .calendar-day-cell.today {
-  box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb), 0.55), 0 12px 28px rgba(var(--accent-rgb), 0.10);
+  box-shadow: 0 12px 28px rgba(var(--accent-rgb), 0.10);
 }
 
 
@@ -198,7 +198,7 @@
 }
 
 .calendar-day-events {
-  margin-top: 8px;
+  margin-top: 10px;
 }
 
 .calendar-event {
@@ -211,9 +211,9 @@
   gap: 7px;
   width: 100%;
   min-width: 0;
-  min-height: 34px;
+  min-height: 36px;
   margin-bottom: 0;
-  padding: 7px 9px;
+  padding: 8px 11px;
   border: 0;
   border-radius: 999px;
   background: linear-gradient(90deg, color-mix(in srgb, var(--calendar-event-color, var(--accent)) 18%, var(--bg-tertiary)), color-mix(in srgb, var(--bg-primary) 72%, transparent));
@@ -231,8 +231,8 @@
 }
 
 .calendar-event.compact {
-  min-height: 28px;
-  padding: 5px 7px;
+  min-height: 30px;
+  padding: 6px 9px;
   font-size: 12px;
 }
 
@@ -560,9 +560,9 @@
     flex-direction: column;
     min-height: 58px;
     padding: 5px 4px;
-    border-radius: 16px;
+    border-radius: 22px;
     background: color-mix(in srgb, var(--bg-secondary) 58%, transparent);
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border) 42%, transparent);
+    box-shadow: none;
     cursor: pointer;
   }
 
@@ -573,7 +573,7 @@
 
   .calendar-day-cell.today {
     background: color-mix(in srgb, var(--accent) 10%, transparent);
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 46%, transparent);
+    box-shadow: none;
   }
 
   .calendar-day-number {
@@ -644,7 +644,7 @@
 
   .calendar-day-cell.selected {
     background: color-mix(in srgb, var(--accent) 8%, var(--bg-secondary));
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 42%, transparent);
+    box-shadow: none;
   }
 
   .calendar-day-cell.selected:not(.today) .calendar-day-number {
