@@ -308,8 +308,18 @@ export function createCalendarViewFeature({
   function renderPeriodHeader(title, count) {
     return `<div class="calendar-period-header">
       <div class="calendar-period-title">${escapeHtml(title)}</div>
-      <span class="badge">${count}</span>
+      <span class="badge calendar-period-count">${count}</span>
     </div>`;
+  }
+
+  function renderEmptyState(scope = 'range') {
+    return `<section class="calendar-empty-state" aria-label="${escapeHtmlAttr(t('calendar.empty.title'))}">
+      <span class="calendar-empty-icon" aria-hidden="true">${iconSvg('calendar-days')}</span>
+      <div>
+        <strong>${escapeHtml(t('calendar.empty.title'))}</strong>
+        <p>${escapeHtml(t(`calendar.empty.${scope}`))}</p>
+      </div>
+    </section>`;
   }
 
   function renderEvent(event, compact = false) {
@@ -363,6 +373,7 @@ export function createCalendarViewFeature({
         ${selectedEvents.length ? selectedEvents.map(event => renderEvent(event, false)).join('') : `<p>${escapeHtml(t('calendar.emptyMini'))}</p>`}
       </div>
     </section>`;
+    if (!eventCountInRange(events, monthStart, monthEnd)) html += renderEmptyState('month');
     return html;
   }
 
@@ -402,7 +413,8 @@ export function createCalendarViewFeature({
       </div>
     </div>`;
 
-    return `${renderPeriodHeader(formatRangeTitle(start, addDays(end, -1)), eventCountInRange(events, start, end))}${desktopTimeline}`;
+    const count = eventCountInRange(events, start, end);
+    return `${renderPeriodHeader(formatRangeTitle(start, addDays(end, -1)), count)}${count ? '' : renderEmptyState('week')}${desktopTimeline}`;
   }
 
   function renderDay(events) {
@@ -418,6 +430,7 @@ export function createCalendarViewFeature({
 
     return `<section class="calendar-day-view">
       ${renderPeriodHeader(formatDayTitle(anchorDate), dayEvents.length)}
+      ${dayEvents.length ? '' : renderEmptyState('day')}
       ${allDayEvents.length ? `<div class="calendar-all-day-row">
         <div class="calendar-hour-label">${escapeHtml(t('calendar.allDay'))}</div>
         <div class="calendar-event-list calendar-all-day-events">${allDayEvents.map(event => renderEvent(event)).join('')}</div>

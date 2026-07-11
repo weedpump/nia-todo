@@ -1745,5 +1745,9 @@
   "calendar.controls.hide": "Optionen ausblenden",
   "calendar.allDay": "Ganztägig",
   "calendar.dayTimeline": "Tages-Zeitachse",
-  "calendar.weekTimeline": "Wochen-Zeitachse"
+  "calendar.weekTimeline": "Wochen-Zeitachse",
+  "calendar.empty.title": "Noch nichts geplant",
+  "calendar.empty.month": "Todos mit Fälligkeitsdatum erscheinen in dieser Monatsansicht.",
+  "calendar.empty.week": "Diese Woche ist frei. Fällige Todos landen automatisch hier.",
+  "calendar.empty.day": "Für diesen Tag sind keine Todos geplant."
 }

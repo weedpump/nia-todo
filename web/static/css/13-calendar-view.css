@@ -12,8 +12,8 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 18px;
-  border-radius: 999px;
+  padding: 16px 18px;
+  border-radius: 36px;
 }
 
 .calendar-heading {
@@ -61,10 +61,34 @@
   flex-wrap: nowrap;
 }
 
+.calendar-control-group {
+  padding: 4px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-secondary) 52%, transparent);
+}
+
+.calendar-nav-actions .btn,
+.calendar-mode-switch .btn,
+.calendar-controls-toggle {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.calendar-nav-actions .btn:hover,
+.calendar-nav-actions .btn:focus-visible,
+.calendar-mode-switch .btn:hover,
+.calendar-mode-switch .btn:focus-visible,
+.calendar-controls-toggle:hover,
+.calendar-controls-toggle:focus-visible {
+  border-color: transparent;
+  box-shadow: none;
+  transform: translateY(-1px);
+}
+
 .calendar-toolbar-actions {
   width: 100%;
   padding-top: 12px;
-  border-top: 1px solid color-mix(in srgb, var(--border) 54%, transparent);
+  border-top: 0;
 }
 
 .calendar-toolbar-actions[hidden],
@@ -80,12 +104,60 @@
 .calendar-controls-toggle {
   align-self: center;
   flex: 0 0 auto;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-secondary) 52%, transparent);
 }
 
 .calendar-mode-btn.active {
-  background: var(--accent);
+  background: linear-gradient(135deg, var(--accent-hover), var(--accent));
   color: white;
-  border-color: color-mix(in srgb, var(--accent) 72%, white);
+  border-color: transparent;
+  box-shadow: 0 8px 20px rgba(var(--accent-rgb), .20);
+}
+
+.calendar-period-count {
+  border-radius: 999px;
+}
+
+.calendar-empty-state {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 18px;
+  border-radius: 28px;
+  background: color-mix(in srgb, var(--bg-secondary) 46%, transparent);
+  color: var(--text-secondary);
+}
+
+.calendar-empty-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+}
+
+.calendar-empty-icon .ui-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.calendar-empty-state strong {
+  display: block;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 850;
+}
+
+.calendar-empty-state p {
+  margin: 3px 0 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.35;
 }
 
 .calendar-motion-surface {
