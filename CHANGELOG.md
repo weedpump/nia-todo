@@ -8,9 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 ## [Unreleased]
 
 ### Added
-- Added a native Linux Debian desktop app package alongside Windows and Android, including release/download manifest integration, Linux platform download UI, autostart support, tray/global-hotkey settings, OIDC URL handler registration, and volatile WebKitGTK cache cleanup after app version or executable changes.
-- Added Linux desktop release/package regression coverage for the native `.deb` package name, Linux WebView cache migration behavior, native desktop settings UI, native passkey capability gating, and native artifact reuse.
-- Added Linux desktop hotkey activation support through the XDG Desktop Portal GlobalShortcuts API when available, including activation-token/timestamp handoff for compositor-sanctioned focus on newer Linux desktops and a clean legacy global-shortcut fallback when the portal backend is missing.
+- Added a native Debian desktop app package alongside Windows and Android, including release/download manifest integration, Debian platform download UI, autostart support, tray/global-hotkey settings, OIDC URL handler registration, and volatile WebKitGTK cache cleanup after app version or executable changes.
+- Added Debian desktop release/package regression coverage for the native `.deb` package name, Linux WebView cache migration behavior, native desktop settings UI, native passkey capability gating, and native artifact reuse.
+- Added Debian desktop hotkey activation support through the XDG Desktop Portal GlobalShortcuts API when available, including activation-token/timestamp handoff for compositor-sanctioned focus on newer Linux desktops and a clean legacy global-shortcut fallback when the portal backend is missing.
 - Added a global Calendar sidebar view for todos with due dates, including day, week, and month modes, timeline-style day/week layouts, mobile month day selection, localized labels, offline/PWA cache coverage, and calendar-specific todo interactions.
 - Expanded the project/workspace icon picker with more curated Lucide icons across everyday, work, organization, finance, people, health, places, nature, media, creative, status, and movement categories, including localized icon labels and search keywords.
 - Added desktop/tablet drag-and-drop for moving todos directly onto sidebar projects, placing them in the target project's unsectioned bucket while preserving offline sync behavior.
@@ -24,8 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - Added admin attachment controls for global upload enablement, comma-separated allowed file extensions, default 5 GB quota, per-user quota overrides, and user-visible storage usage.
 
 ### Changed
-- Renamed user-facing Linux desktop download/version labels to Debian/Debian package wording, while keeping the internal Linux platform key for runtime and manifest compatibility.
-- Release packaging now treats native Windows, Android, and Linux desktop artifacts as the bundled client set, embedding the Linux `.deb` into the server `.deb` and Docker image downloads with versioned SHA256 manifest metadata.
+- Renamed the desktop `.deb` download target from Linux to Debian across manifest platform keys, artifact names, UI labels, and release metadata.
+- Release packaging now treats native Windows, Android, and Debian desktop artifacts as the bundled client set, embedding the Debian `.deb` into the server `.deb` and Docker image downloads with versioned SHA256 manifest metadata.
 - Linux native notifications now prefer `notify-send` with the Tauri notification path as fallback, and the desktop package recommends `libnotify-bin` for reliable desktop notification delivery.
 - Refined native desktop settings and first-run native server setup surfaces to use shared UI primitives, platform-neutral autostart wording, and native-scoped behavior without affecting browser/PWA login flows.
 - Refined the Calendar view with responsive toolbar controls, fixed desktop content scrolling, compact mobile month/week layouts, selected-day month lists, and shared swipe visuals while keeping calendar event handlers isolated from global todo-list behavior.
@@ -62,9 +62,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - Hardened attachment uploads with streaming temp-file writes, server-side quota/type policy enforcement, magic-byte validation for common binary formats, active-content blocking, and client-side preflight for disabled uploads, type, file size, and quota.
 
 ### Fixed
-- Renamed the Linux desktop package to `nia-todo-desktop` and the artifact to `nia-todo-desktop-vX.Y.Z-linux-amd64.deb`, avoiding conflicts with the server package `nia-todo`.
-- Allowed Tauri custom-scheme origins such as `tauri://localhost` and `tauri://tauri.localhost` in dynamic CORS handling so native Linux WebKit requests can reach the configured server.
-- Registered the Linux `nia-todo://` OIDC return handler with `%u`, `x-scheme-handler/nia-todo`, and `StartupNotify=false` so Linux desktop sign-in can complete cleanly.
+- Renamed the Debian desktop package to `nia-todo-desktop` and the artifact to `nia-todo-desktop-vX.Y.Z-debian-amd64.deb`, avoiding conflicts with the server package `nia-todo`.
+- Allowed Tauri custom-scheme origins such as `tauri://localhost` and `tauri://tauri.localhost` in dynamic CORS handling so native Debian WebKit requests can reach the configured server.
+- Registered the Debian desktop `nia-todo://` OIDC return handler with `%u`, `x-scheme-handler/nia-todo`, and `StartupNotify=false` so Debian desktop sign-in can complete cleanly.
 - Restored Linux window presentation to the clean Tauri/GTK show, unminimize, and focus path after rejecting unreliable retry/X11 helper approaches; portal hotkey window operations are marshalled back to the main thread before touching GTK/Tauri window APIs.
 - Isolated Calendar event click and swipe handling from global `.todo-item[data-id]` handlers, clamped month navigation around month-end dates, and cleaned up Calendar observer/sticky-header lifecycle handling.
 - Unified Todo, Settings, Project, and Workspace modal headers so title icons, titles, save/menu actions, and close controls share the Todo-style detail header alignment.

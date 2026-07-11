@@ -33,13 +33,13 @@ Native apps are shipped from the same Tauri codebase and share the web UI versio
 Current state:
 
 - Tauri bundles a clean `src-tauri/frontend-dist` generated from `web/`; `web/downloads/` is deliberately excluded from the native bundle.
-- Windows, Android, and Linux desktop releases use the same `X.Y.Z` version as web/server and are built by `release.sh`.
-- Linux desktop is distributed as a Debian package named `nia-todo-desktop`, with artifacts named `nia-todo-desktop-vX.Y.Z-linux-amd64.deb`, so it does not conflict with the server package `nia-todo`.
+- Windows, Android, and Debian desktop releases use the same `X.Y.Z` version as web/server and are built by `release.sh`.
+- Debian desktop is distributed as a Debian package named `nia-todo-desktop`, with artifacts named `nia-todo-desktop-vX.Y.Z-debian-amd64.deb`, so it does not conflict with the server package `nia-todo`.
 - Native local reminders are implemented: Windows uses the local scheduler/tray path, Android uses `AlarmManager` and rehydrates reminders after reboot/app restart.
 - Offline cold start is supported through the bundled UI shell plus service-worker cache.
 - Linux WebKitGTK uses Tauri custom-scheme origins such as `tauri://localhost`; the backend allows those origins for native runtime requests after instance verification.
 - Linux clears volatile WebView cache directories when the app version or executable path changes so stale bundled frontend assets do not survive desktop app updates.
-- Linux desktop notifications prefer `notify-send` when available, falling back to the Tauri notification API.
+- Debian desktop notifications prefer `notify-send` when available, falling back to the Tauri notification API.
 - Linux global hotkeys use the XDG Desktop Portal GlobalShortcuts API when the desktop backend supports it, applying activation tokens/timestamps on the GTK main thread for clean focus transfer. Desktops without that portal, including some GNOME 46 stacks, fall back to the legacy Tauri global-shortcut path.
 - Native passkeys are supported: Windows uses the native WebAuthn bridge; Android uses AndroidX Credential Manager and the bundled app ID/signing-key binding exposed through `/.well-known/assetlinks.json`. Linux passkeys are intentionally deferred.
 - Browser/PWA push remains browser/PWA-only; native reminders must not depend on browser push.

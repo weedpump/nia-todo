@@ -18,26 +18,26 @@
 4. Run targeted tests beforehand if needed; `release.sh` runs the complete suite itself
 5. Run `./release.sh VERSION --github-repo OWNER/REPO`, e.g. `./release.sh 2.6.4 --github-repo weedpump/nia-todo`; stable releases must use `MAJOR.MINOR.PATCH`
 6. Optional: add `--set-min-app-version` only when older native apps must be blocked; without the flag, older native apps remain compatible
-7. The script sets the same version for the web app, service worker, Tauri/Cargo, Windows installer, Android APK, Linux desktop `.deb`, and download manifest
+7. The script sets the same version for the web app, service worker, Tauri/Cargo, Windows installer, Android APK, Debian desktop `.deb`, and download manifest
 8. `scripts/check_release_versions.py VERSION` aborts the release if an automatically set version source drifts; `min_native_client_version` is validated and only raised with the explicit release flag
-9. The script always builds Windows, Android, and Linux desktop as well; separate app versions or optional native builds no longer exist
+9. The script always builds Windows, Android, and Debian desktop as well; separate app versions or optional native builds no longer exist
 10. The script merges `develop` into `main`, creates the tag, builds public `.deb`/Docker artifacts, publishes GitHub/GHCR, cleans local release artifacts, and bumps `develop` to the next shared `-dev` version
 11. The script does **not** deploy to or restart production. Production runs on a separate LXC and is updated by installing the published package/image.
 
 Changelog requirement:
 
-- `CHANGELOG.md` needs a `## [VERSION]` section for the shared web/Windows/Android/Linux version.
+- `CHANGELOG.md` needs a `## [VERSION]` section for the shared web/Windows/Android/Debian version.
 - Separate platform changelogs are no longer maintained.
 
 Release artifacts exposed by an installed server under `/downloads/`:
 
 - Windows: `nia-todo-vX.Y.Z-windows-x64-setup.exe`
 - Android: `nia-todo-vX.Y.Z-android-arm64.apk`
-- Linux desktop: `nia-todo-desktop-vX.Y.Z-linux-amd64.deb`
+- Debian desktop: `nia-todo-desktop-vX.Y.Z-debian-amd64.deb`
 - Before the Android build, `release.sh` writes generated `src-tauri/gen/android/app/tauri.properties` to match the release version and checks it before/after the build.
 - Manifest: `web/downloads/app-downloads.json` with `version`, `web_version`, `latest.version`, and each app artifact version on the release tag.
 - `min_native_client_version` is not a release counter. A standard release leaves the boundary unchanged; only `--set-min-app-version` sets it in source/package defaults to the new release version when older native apps are truly incompatible or unsafe.
-- During release packaging, the generated download manifest contains exactly the current Windows/Android/Linux artifacts; installed servers expose those files under `/downloads/`.
+- During release packaging, the generated download manifest contains exactly the current Windows/Android/Debian artifacts; installed servers expose those files under `/downloads/`.
 - Native builds use a freshly created `src-tauri/frontend-dist` without `web/downloads/`; size limits abort the release if installer/APK/desktop package artifacts unexpectedly become large.
 
 Android is signed with the permanent release key:

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Repack the Tauri-generated Linux desktop .deb with a package name that does
+# Repack the Tauri-generated Debian desktop .deb with a package name that does
 # not collide with the nia-todo server package.
 
 set -euo pipefail
