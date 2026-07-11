@@ -24,7 +24,7 @@ Options:
   --docker-tag TAG           Docker image tag (default: nia-todo:VERSION)
   --docker-latest            Also tag Docker image as nia-todo:latest
   --skip-docker              Do not build Docker image
-  --allow-missing-apps       Allow test bundle without Windows/Android/Linux app files
+  --allow-missing-apps       Allow test bundle without Windows/Android/Debian app files
   --init-public-git          Initialize exported public source as fresh git repo/tag
   --force                    Remove existing work/output staging dirs where needed
   --dry-run                  Validate inputs and print planned commands only

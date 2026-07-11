@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - Added admin attachment controls for global upload enablement, comma-separated allowed file extensions, default 5 GB quota, per-user quota overrides, and user-visible storage usage.
 
 ### Changed
+- Renamed user-facing Linux desktop download/version labels to Debian/Debian package wording, while keeping the internal Linux platform key for runtime and manifest compatibility.
 - Release packaging now treats native Windows, Android, and Linux desktop artifacts as the bundled client set, embedding the Linux `.deb` into the server `.deb` and Docker image downloads with versioned SHA256 manifest metadata.
 - Linux native notifications now prefer `notify-send` with the Tauri notification path as fallback, and the desktop package recommends `libnotify-bin` for reliable desktop notification delivery.
 - Refined native desktop settings and first-run native server setup surfaces to use shared UI primitives, platform-neutral autostart wording, and native-scoped behavior without affecting browser/PWA login flows.
