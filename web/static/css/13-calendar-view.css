@@ -464,6 +464,12 @@
     gap: 5px;
   }
 
+  .calendar-day-view,
+  .calendar-week-timeline,
+  .calendar-month-grid {
+    touch-action: pan-y;
+  }
+
   .calendar-weekdays {
     display: grid;
     grid-template-columns: repeat(7, minmax(0, 1fr));

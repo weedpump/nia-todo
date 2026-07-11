@@ -22,7 +22,10 @@ export function createCalendarViewFeature({
   let stickyWeekHeaderFrame = 0;
   let calendarSwipeBound = false;
   let calendarSwipeActive = null;
+  let calendarViewSwipeBound = false;
+  let calendarViewSwipeActive = null;
   let suppressCalendarClickUntil = 0;
+  let suppressCalendarViewClickUntil = 0;
 
   function normalizeMode(value) {
     return MODES.includes(value) ? value : 'month';
@@ -550,6 +553,79 @@ export function createCalendarViewFeature({
     document.addEventListener('pointercancel', finish, { passive: false });
   }
 
+  function canStartCalendarViewSwipe(target) {
+    const calendarView = target?.closest?.('.calendar-view');
+    if (!calendarView || !window.matchMedia('(max-width: 900px)').matches) return null;
+    if (target.closest('.calendar-toolbar')) return null;
+    if (target.closest('.calendar-event[data-calendar-todo-id]')) return null;
+    if (target.closest('input, textarea, select, [contenteditable="true"]')) return null;
+    return calendarView;
+  }
+
+  function bindCalendarViewSwipeNavigation() {
+    if (calendarViewSwipeBound) return;
+    calendarViewSwipeBound = true;
+    const actionThreshold = 76;
+    const lockThreshold = 12;
+    const maxVerticalDrift = 80;
+
+    document.addEventListener('click', (event) => {
+      if (Date.now() > suppressCalendarViewClickUntil) return;
+      if (!event.target?.closest?.('.calendar-view')) return;
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation?.();
+    }, true);
+
+    document.addEventListener('pointerdown', (event) => {
+      if (!event.isPrimary || (event.pointerType && event.pointerType !== 'touch' && event.pointerType !== 'pen')) return;
+      if (!canStartCalendarViewSwipe(event.target)) return;
+      calendarViewSwipeActive = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        dx: 0,
+        dy: 0,
+        locked: null,
+        swiped: false,
+      };
+    }, { passive: true });
+
+    document.addEventListener('pointermove', (event) => {
+      const active = calendarViewSwipeActive;
+      if (!active || event.pointerId !== active.pointerId) return;
+      active.dx = event.clientX - active.startX;
+      active.dy = event.clientY - active.startY;
+      if (!active.locked) {
+        const absX = Math.abs(active.dx);
+        const absY = Math.abs(active.dy);
+        if (absX < lockThreshold && absY < lockThreshold) return;
+        active.locked = absX > absY * 1.35 ? 'horizontal' : 'vertical';
+        if (active.locked !== 'horizontal') return;
+      }
+      if (active.locked !== 'horizontal') return;
+      event.preventDefault();
+      active.swiped = true;
+    }, { passive: false });
+
+    const finish = (event) => {
+      const active = calendarViewSwipeActive;
+      if (!active || event.pointerId !== active.pointerId) return;
+      calendarViewSwipeActive = null;
+      const shouldNavigate = active.locked === 'horizontal'
+        && Math.abs(active.dx) >= actionThreshold
+        && Math.abs(active.dy) <= maxVerticalDrift;
+      if (active.swiped || shouldNavigate) suppressCalendarViewClickUntil = Date.now() + 450;
+      if (active.locked === 'horizontal') event.preventDefault();
+      if (!shouldNavigate) return;
+      shiftAnchor(active.dx < 0 ? 1 : -1);
+      renderTodos?.();
+    };
+
+    document.addEventListener('pointerup', finish, { passive: false });
+    document.addEventListener('pointercancel', finish, { passive: false });
+  }
+
   function bindActions() {
     if (actionsBound) return;
     actionsBound = true;
@@ -629,6 +705,7 @@ export function createCalendarViewFeature({
   function renderCalendarView({ todos, projects, hideDone }) {
     bindActions();
     bindCalendarSwipeGestures();
+    bindCalendarViewSwipeNavigation();
     scheduleToolbarLayout();
     scheduleStickyWeekHeaderState();
     const events = normalizeEvents(todos, projects, hideDone);
