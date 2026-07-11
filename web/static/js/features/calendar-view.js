@@ -769,7 +769,6 @@ export function createCalendarViewFeature({
 
       const actionButton = event.target?.closest?.('[data-calendar-action]');
       if (!actionButton) return;
-      if (actionButton.classList.contains('calendar-day-cell') && !isMobileCalendar) return;
       const action = actionButton.dataset.calendarAction;
       event.preventDefault();
       if (action === 'prev' || action === 'next') {
@@ -788,6 +787,10 @@ export function createCalendarViewFeature({
         const date = parseStoredDate(actionButton.dataset.calendarDate);
         if (date) {
           anchorDate = date;
+          if (!isMobileCalendar && actionButton.closest('.calendar-month-grid')) {
+            mode = 'day';
+            localStorage.setItem(MODE_KEY, mode);
+          }
           persistAnchor();
         }
       }
