@@ -111,7 +111,7 @@ Native app downloads are served by your own instance under:
 http://YOUR-SERVER:8753/downloads/
 ```
 
-For production use, put nia-todo behind HTTPS/reverse proxy and set the public base URL in the admin panel. Passkeys and native app integrations rely on the public URL being correct. Native passkeys are supported on Windows and Android; Linux passkey support is intentionally deferred.
+For production use, put nia-todo behind HTTPS/reverse proxy and set the public base URL in the admin panel. Passkeys and native app integrations rely on the public URL being correct. Native passkeys are supported on Windows and Android; Debian desktop passkey support is intentionally deferred.
 
 ## 🔄 Updates
 
@@ -217,7 +217,7 @@ sudo journalctl -u nia-todo -f
 - Runtime data: `/var/lib/nia-todo`
 - Configuration: `/etc/nia-todo/nia-todo.env`
 
-For production use, configure a correct HTTPS `public_base_url` in the admin panel. Passkeys and native app integrations rely on it. Android passkeys use the bundled app signature through `/.well-known/assetlinks.json`; Linux passkey support is intentionally deferred.
+For production use, configure a correct HTTPS `public_base_url` in the admin panel. Passkeys and native app integrations rely on it. Android passkeys use the bundled app signature through `/.well-known/assetlinks.json`; Debian desktop passkey support is intentionally deferred.
 
 ## 🔑 Reset the admin password
 
