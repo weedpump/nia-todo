@@ -61,6 +61,10 @@
   margin-top: 8px;
 }
 
+.quick-add-preview[hidden] {
+  display: none;
+}
+
 .quick-add-chip {
   display: inline-flex;
   align-items: center;
