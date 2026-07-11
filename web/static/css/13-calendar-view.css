@@ -217,6 +217,15 @@
   border-radius: 32px;
   background: color-mix(in srgb, var(--bg-secondary) 82%, transparent);
   box-shadow: none;
+  cursor: pointer;
+  transition: background .16s ease, box-shadow .16s ease, transform .16s ease;
+}
+
+.calendar-day-cell:hover,
+.calendar-day-cell:focus-within {
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg-secondary));
+  box-shadow: 0 12px 26px rgba(var(--accent-rgb), .08);
+  transform: translateY(-1px);
 }
 
 .calendar-day-cell {
