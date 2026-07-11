@@ -1,5 +1,29 @@
 #!/usr/bin/env node
+import fs from 'node:fs';
+import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+
+const repoRoot = path.resolve(import.meta.dirname, '..');
+const defaultCapability = JSON.parse(fs.readFileSync(path.join(repoRoot, 'src-tauri/capabilities/default.json'), 'utf8'));
+const windowsPasskeysCapability = JSON.parse(fs.readFileSync(path.join(repoRoot, 'src-tauri/capabilities/windows-passkeys.json'), 'utf8'));
+
+function assertDesktopPasskeyCapabilities() {
+  const defaultPermissions = new Set(defaultCapability.permissions || []);
+  if (defaultPermissions.has('allow-desktop-passkey-register') || defaultPermissions.has('allow-desktop-passkey-authenticate')) {
+    throw new Error('Default desktop capability must not expose passkey commands on Linux/macOS');
+  }
+
+  const passkeyPermissions = new Set(windowsPasskeysCapability.permissions || []);
+  if (!passkeyPermissions.has('allow-desktop-passkey-register')) {
+    throw new Error('Windows passkey capability must allow desktop_passkey_register');
+  }
+  if (!passkeyPermissions.has('allow-desktop-passkey-authenticate')) {
+    throw new Error('Windows passkey capability must allow desktop_passkey_authenticate');
+  }
+  if (JSON.stringify(windowsPasskeysCapability.platforms || []) !== JSON.stringify(['windows'])) {
+    throw new Error('Native desktop passkey capability must stay Windows-only until Linux/macOS bridges exist');
+  }
+}
 
 function runScenario(name, body) {
   const common = String.raw`
@@ -155,5 +179,7 @@ runScenario('android native passkeys use javascript interface callbacks', String
   if (auth?.origin !== 'https://todo.example.test') throw new Error('Android auth did not use server origin');
   if (auth?.options?.rpId !== 'todo.example.test') throw new Error('Android auth did not pass RP ID');
 `);
+
+assertDesktopPasskeyCapabilities();
 
 console.log('✅ Native passkey frontend regression tests passed');

@@ -159,6 +159,9 @@ assert(serviceWorkerUpdatesSource.includes("reloadWithCacheBuster('hardReload')"
 assert(downloadsSource.includes('showNativeUpdateModal'), 'native app updates must use the native update modal');
 assert(downloadsSource.includes('deferUntilAfterLogin'), 'native app update prompts must be deferred until after login');
 assert(downloadsSource.includes('validateDownloadEntry'), 'app download manifests must be validated before rendering');
+assert(downloadsSource.includes("debian: {") && downloadsSource.includes("filenamePrefix: 'nia-todo-desktop-v'") && downloadsSource.includes("filenameSuffix: '-debian-amd64.deb'") && downloadsSource.includes("return ['windows', 'android', 'debian']"), 'app downloads must expose Debian desktop packages from app-downloads manifests');
+assert(downloadsSource.includes("manifest?.latest?.debian"), 'native Debian update checks must consider legacy latest.debian manifest entries');
+assert(downloadsSource.includes("app-download-icon-debian") && downloadsSource.includes("Debian-Paket herunterladen"), 'Debian downloads must have platform-specific UI labels');
 assert(downloadsSource.includes("rawUrl.startsWith('/downloads/')"), 'app download URLs must be constrained to same-origin /downloads paths');
 assert(downloadsSource.includes('DOWNLOAD_SHA_RE'), 'app download manifests must validate sha256 values');
 assert(!downloadsSource.includes('target.innerHTML = downloads.map'), 'download buttons must not be rendered from manifest data via innerHTML');

@@ -146,6 +146,11 @@
   -webkit-mask-image: url('/static/icons/platform/android.svg');
 }
 
+.app-download-icon-debian {
+  mask-image: url('/static/icons/platform/debian.svg?v=official-open-use');
+  -webkit-mask-image: url('/static/icons/platform/debian.svg?v=official-open-use');
+}
+
 .app-downloads-modal-content {
   width: min(560px, calc(100vw - 32px));
   max-width: none;

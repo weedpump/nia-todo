@@ -1,7 +1,7 @@
 [package]
 name = "nia-todo-desktop"
 version = "2.12.3-dev"
-description = "Windows desktop wrapper for nia-todo"
+description = "Desktop wrapper for nia-todo"
 authors = ["Tobias Kneidl"]
 edition = "2021"
 license = "AGPL-3.0-or-later"
@@ -24,6 +24,11 @@ tauri-plugin-global-shortcut = "2"
 tauri-plugin-notification = "2"
 tauri-plugin-window-state = "2"
 tauri-plugin-single-instance = "2"
+
+[target.'cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))'.dependencies]
+ashpd = { version = "0.13.12", features = ["global_shortcuts"] }
+futures-util = "0.3"
+gtk = "0.18"
 
 [target.'cfg(windows)'.dependencies]
 base64 = "0.22"
