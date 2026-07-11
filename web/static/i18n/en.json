@@ -1684,6 +1684,7 @@
   "todo.attachments.uploaded": "Attachment uploaded.",
   "todo.attachments.uploadFailed": "Could not upload attachment.",
   "todo.attachments.downloadStarted": "Download started. The file will be in Downloads/nia-todo.",
+  "todo.attachments.downloadSavedTo": "Attachment saved: {path}",
   "todo.attachments.downloadFailed": "Could not download attachment.",
   "todo.attachments.deleteFailed": "Could not delete attachment.",
   "todo.attachments.deleteTitle": "Delete attachment?",

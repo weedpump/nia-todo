@@ -20,6 +20,7 @@ tauri = { version = "2.11.2", features = ["tray-icon"] }
 url = "2"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+reqwest = { version = "0.13.3", default-features = false, features = ["rustls", "blocking"] }
 tauri-plugin-global-shortcut = "2"
 tauri-plugin-notification = "2"
 tauri-plugin-window-state = "2"
