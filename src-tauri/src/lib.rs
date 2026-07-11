@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::{
+  collections::HashMap,
   fs,
-  path::PathBuf,
+  path::{Path, PathBuf},
   sync::{
     atomic::{AtomicU64, Ordering},
     Arc, Mutex,
@@ -94,6 +95,13 @@ impl Default for DesktopSettings {
 #[serde(rename_all = "camelCase")]
 struct DesktopHotkeyEvent {
   action: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DesktopDownloadResult {
+  path: String,
+  filename: String,
 }
 
 fn settings_path(app: &AppHandle) -> Result<PathBuf, String> {
@@ -574,6 +582,110 @@ fn desktop_open_url(url: String) -> Result<(), String> {
   status
     .map_err(|err| err.to_string())
     .and_then(|status| if status.success() { Ok(()) } else { Err(format!("URL öffnen fehlgeschlagen: {status}")) })
+}
+
+fn safe_download_filename(raw: &str) -> String {
+  let cleaned: String = raw
+    .trim()
+    .chars()
+    .map(|ch| match ch {
+      '\\' | '/' | ':' | '*' | '?' | '"' | '<' | '>' | '|' => '_',
+      ch if ch.is_control() => '_',
+      ch => ch,
+    })
+    .collect::<String>()
+    .trim_matches([' ', '.', '_'])
+    .chars()
+    .take(180)
+    .collect();
+  if cleaned.is_empty() { "attachment".into() } else { cleaned }
+}
+
+fn unique_download_path(dir: &Path, filename: &str) -> PathBuf {
+  let candidate = dir.join(filename);
+  if !candidate.exists() {
+    return candidate;
+  }
+  let path = Path::new(filename);
+  let stem = path.file_stem().and_then(|value| value.to_str()).unwrap_or("attachment");
+  let ext = path.extension().and_then(|value| value.to_str()).unwrap_or("");
+  for index in 2..1000 {
+    let next = if ext.is_empty() {
+      format!("{stem}-{index}")
+    } else {
+      format!("{stem}-{index}.{ext}")
+    };
+    let candidate = dir.join(next);
+    if !candidate.exists() {
+      return candidate;
+    }
+  }
+  if ext.is_empty() {
+    dir.join(format!("{stem}-{}", unix_now_ms()))
+  } else {
+    dir.join(format!("{stem}-{}.{ext}", unix_now_ms()))
+  }
+}
+
+fn same_url_origin(left: &url::Url, right: &url::Url) -> bool {
+  left.scheme() == right.scheme()
+    && left.host_str().map(str::to_ascii_lowercase) == right.host_str().map(str::to_ascii_lowercase)
+    && left.port_or_known_default() == right.port_or_known_default()
+}
+
+#[cfg(desktop)]
+#[tauri::command]
+fn desktop_download_attachment(app: AppHandle, url: String, filename: String, headers: HashMap<String, String>) -> Result<DesktopDownloadResult, String> {
+  let parsed = url::Url::parse(&url).map_err(|_| "Download-URL ist ungültig.".to_string())?;
+  if !matches!(parsed.scheme(), "https" | "http") {
+    return Err("Nur http(s)-Downloads sind erlaubt.".into());
+  }
+  if let Some(server_url) = load_settings(&app).server_url {
+    let configured = url::Url::parse(&normalize_server_url(&server_url)?).map_err(|_| "Gespeicherte Server-URL ist ungültig.".to_string())?;
+    if !same_url_origin(&parsed, &configured) {
+      return Err("Download-URL passt nicht zur konfigurierten Server-URL.".into());
+    }
+  }
+
+  let downloads = app.path().download_dir().map_err(|err| err.to_string())?.join("nia-todo");
+  fs::create_dir_all(&downloads).map_err(|err| err.to_string())?;
+  let safe_name = safe_download_filename(&filename);
+  let target = unique_download_path(&downloads, &safe_name);
+
+  let client = reqwest::blocking::Client::builder()
+    .redirect(reqwest::redirect::Policy::limited(3))
+    .build()
+    .map_err(|err| err.to_string())?;
+  let mut request = client.get(url);
+  for (key, value) in headers {
+    if key.eq_ignore_ascii_case("content-length") || key.eq_ignore_ascii_case("host") {
+      continue;
+    }
+    if let (Ok(name), Ok(header_value)) = (
+      reqwest::header::HeaderName::from_bytes(key.as_bytes()),
+      reqwest::header::HeaderValue::from_str(&value),
+    ) {
+      request = request.header(name, header_value);
+    }
+  }
+  let mut response = request.send().map_err(|err| err.to_string())?;
+  if !response.status().is_success() {
+    return Err(format!("Download fehlgeschlagen: HTTP {}", response.status()));
+  }
+  let mut file = fs::File::create(&target).map_err(|err| err.to_string())?;
+  std::io::copy(&mut response, &mut file).map_err(|err| err.to_string())?;
+  let filename = target
+    .file_name()
+    .and_then(|value| value.to_str())
+    .unwrap_or(safe_name.as_str())
+    .to_string();
+  Ok(DesktopDownloadResult { path: target.to_string_lossy().to_string(), filename })
+}
+
+#[cfg(not(desktop))]
+#[tauri::command]
+fn desktop_download_attachment(_app: AppHandle, _url: String, _filename: String, _headers: HashMap<String, String>) -> Result<DesktopDownloadResult, String> {
+  Err("Native Downloads werden auf dieser Plattform nicht unterstützt.".into())
 }
 
 #[tauri::command]
@@ -1297,6 +1409,7 @@ pub fn run() {
       desktop_set_server_url,
       desktop_clear_server_url,
       desktop_open_url,
+      desktop_download_attachment,
       desktop_set_hotkey,
       desktop_request_notification_permission,
       desktop_notify,

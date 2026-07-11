@@ -324,10 +324,12 @@ export function createTodoAttachmentsFeature({
       return;
     }
     try {
-      if (nativeBridge?.isAndroid?.() && nativeBridge?.downloadToDownloads) {
-        const started = await todosApi.downloadAttachmentNative(todoId, attachmentId, filename || 'attachment', nativeBridge);
-        if (started) {
-          showToast(t('todo.attachments.downloadStarted'));
+      if (nativeBridge?.isNative?.() && nativeBridge?.downloadToDownloads) {
+        const result = await todosApi.downloadAttachmentNative(todoId, attachmentId, filename || 'attachment', nativeBridge);
+        if (result) {
+          showToast(result?.path
+            ? t('todo.attachments.downloadSavedTo', { path: result.path })
+            : t('todo.attachments.downloadStarted'));
           return;
         }
       }

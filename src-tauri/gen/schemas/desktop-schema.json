@@ -189,6 +189,12 @@
           "markdownDescription": "Enables the desktop_consume_pending_oidc_callback command without any pre-configured scope."
         },
         {
+          "description": "Enables the desktop_download_attachment command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-desktop-download-attachment",
+          "markdownDescription": "Enables the desktop_download_attachment command without any pre-configured scope."
+        },
+        {
           "description": "Enables the desktop_get_app_version command without any pre-configured scope.",
           "type": "string",
           "const": "allow-desktop-get-app-version",
@@ -265,6 +271,12 @@
           "type": "string",
           "const": "deny-desktop-consume-pending-oidc-callback",
           "markdownDescription": "Denies the desktop_consume_pending_oidc_callback command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the desktop_download_attachment command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-desktop-download-attachment",
+          "markdownDescription": "Denies the desktop_download_attachment command without any pre-configured scope."
         },
         {
           "description": "Denies the desktop_get_app_version command without any pre-configured scope.",
