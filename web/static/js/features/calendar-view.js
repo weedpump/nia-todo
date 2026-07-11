@@ -26,6 +26,7 @@ export function createCalendarViewFeature({
   let calendarViewSwipeActive = null;
   let calendarViewTransitionDirection = 0;
   let calendarViewAnimating = false;
+  let lastCalendarEvents = [];
   let suppressCalendarClickUntil = 0;
   let suppressCalendarViewClickUntil = 0;
 
@@ -443,6 +444,24 @@ export function createCalendarViewFeature({
     persistAnchor();
   }
 
+  function calendarDateAfterShift(date, direction) {
+    if (mode === 'month') return addMonths(date, direction);
+    if (mode === 'week') return addDays(date, direction * 7);
+    return addDays(date, direction);
+  }
+
+  function renderCalendarBodyFor(date, events = lastCalendarEvents) {
+    const previousAnchor = anchorDate;
+    anchorDate = date;
+    const body = mode === 'month'
+      ? renderMonth(events)
+      : mode === 'week'
+        ? renderWeek(events)
+        : renderDay(events);
+    anchorDate = previousAnchor;
+    return body;
+  }
+
   async function navigateCalendarView(direction, { animated = false } = {}) {
     if (!direction || calendarViewAnimating) return;
     const shouldAnimate = animated
@@ -499,9 +518,25 @@ export function createCalendarViewFeature({
   }
 
   function cleanupCalendarViewSwipeVisual(surface) {
-    surface.classList.remove('is-dragging', 'is-settling', 'is-committing');
+    surface.classList.remove('is-dragging', 'is-settling', 'is-committing', 'is-exiting-next', 'is-exiting-prev', 'is-entering-next', 'is-entering-prev');
     surface.style.removeProperty('--calendar-view-swipe-x');
     surface.style.removeProperty('--calendar-view-swipe-progress');
+  }
+
+  function cleanupCalendarViewPreview(surface) {
+    surface.querySelectorAll('.calendar-motion-preview').forEach(item => item.remove());
+  }
+
+  function ensureCalendarViewPreview(active) {
+    const direction = active.dx < 0 ? 1 : -1;
+    if (active.previewDirection === direction) return;
+    cleanupCalendarViewPreview(active.surface);
+    const preview = document.createElement('div');
+    preview.className = `calendar-motion-preview ${direction > 0 ? 'is-next' : 'is-prev'}`;
+    preview.setAttribute('aria-hidden', 'true');
+    preview.innerHTML = renderCalendarBodyFor(calendarDateAfterShift(anchorDate, direction));
+    active.surface.append(preview);
+    active.previewDirection = direction;
   }
 
   function bindCalendarSwipeGestures() {
@@ -619,6 +654,8 @@ export function createCalendarViewFeature({
       if (!canStartCalendarViewSwipe(event.target)) return;
       const surface = document.querySelector('.calendar-view .calendar-motion-surface');
       if (!surface || calendarViewAnimating) return;
+      cleanupCalendarViewSwipeVisual(surface);
+      cleanupCalendarViewPreview(surface);
       calendarViewSwipeActive = {
         surface,
         pointerId: event.pointerId,
@@ -646,6 +683,7 @@ export function createCalendarViewFeature({
       }
       if (active.locked !== 'horizontal') return;
       event.preventDefault();
+      ensureCalendarViewPreview(active);
       const maxDx = active.surface.clientWidth || Math.abs(active.dx);
       const visualDx = Math.max(-maxDx, Math.min(maxDx, active.dx));
       setCalendarViewSwipeVisual(active.surface, visualDx, active.dx, actionThreshold);
@@ -666,6 +704,7 @@ export function createCalendarViewFeature({
         active.surface.classList.add('is-settling');
         setCalendarViewSwipeVisual(active.surface, 0, 0, actionThreshold);
         await wait(180);
+        cleanupCalendarViewPreview(active.surface);
         cleanupCalendarViewSwipeVisual(active.surface);
         return;
       }
@@ -676,8 +715,9 @@ export function createCalendarViewFeature({
       active.surface.classList.add('is-committing');
       setCalendarViewSwipeVisual(active.surface, direction > 0 ? -width : width, active.dx, actionThreshold);
       await wait(160);
+      cleanupCalendarViewPreview(active.surface);
       cleanupCalendarViewSwipeVisual(active.surface);
-      calendarViewTransitionDirection = direction;
+      calendarViewTransitionDirection = 0;
       shiftAnchor(direction);
       renderTodos?.();
       window.setTimeout(() => {
@@ -774,11 +814,8 @@ export function createCalendarViewFeature({
     scheduleToolbarLayout();
     scheduleStickyWeekHeaderState();
     const events = normalizeEvents(todos, projects, hideDone);
-    const body = mode === 'month'
-      ? renderMonth(events)
-      : mode === 'week'
-        ? renderWeek(events)
-        : renderDay(events);
+    lastCalendarEvents = events;
+    const body = renderCalendarBodyFor(anchorDate, events);
     const transitionDirection = calendarViewTransitionDirection;
     calendarViewTransitionDirection = 0;
     const transitionClass = transitionDirection > 0

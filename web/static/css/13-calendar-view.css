@@ -89,12 +89,31 @@
 }
 
 .calendar-motion-surface {
+  position: relative;
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
   gap: 10px;
   min-width: 0;
   min-height: 0;
+}
+
+.calendar-motion-preview {
+  position: absolute;
+  top: 0;
+  width: 100%;
+  min-width: 0;
+  pointer-events: none;
+}
+
+.calendar-motion-preview.is-next {
+  left: 100%;
+  padding-left: 14px;
+}
+
+.calendar-motion-preview.is-prev {
+  right: 100%;
+  padding-right: 14px;
 }
 
 .calendar-weekdays,
