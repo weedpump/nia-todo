@@ -88,6 +88,15 @@
   border-color: color-mix(in srgb, var(--accent) 72%, white);
 }
 
+.calendar-motion-surface {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  min-height: 0;
+}
+
 .calendar-weekdays,
 .calendar-month-grid {
   display: grid;
@@ -468,6 +477,30 @@
   .calendar-week-timeline,
   .calendar-month-grid {
     touch-action: pan-y;
+  }
+
+  .calendar-view {
+    overflow-x: clip;
+  }
+
+  .calendar-motion-surface {
+    will-change: transform, opacity;
+  }
+
+  .calendar-motion-surface.is-exiting-next {
+    animation: calendar-view-exit-next 150ms cubic-bezier(.4, 0, .2, 1) forwards;
+  }
+
+  .calendar-motion-surface.is-exiting-prev {
+    animation: calendar-view-exit-prev 150ms cubic-bezier(.4, 0, .2, 1) forwards;
+  }
+
+  .calendar-motion-surface.is-entering-next {
+    animation: calendar-view-enter-next 220ms cubic-bezier(.22, 1, .36, 1) both;
+  }
+
+  .calendar-motion-surface.is-entering-prev {
+    animation: calendar-view-enter-prev 220ms cubic-bezier(.22, 1, .36, 1) both;
   }
 
   .calendar-weekdays {
@@ -1038,4 +1071,57 @@
     display: none;
   }
 
+}
+
+@keyframes calendar-view-exit-next {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-28%);
+  }
+}
+
+@keyframes calendar-view-exit-prev {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(28%);
+  }
+}
+
+@keyframes calendar-view-enter-next {
+  from {
+    opacity: 0;
+    transform: translateX(34%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes calendar-view-enter-prev {
+  from {
+    opacity: 0;
+    transform: translateX(-34%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .calendar-motion-surface.is-exiting-next,
+  .calendar-motion-surface.is-exiting-prev,
+  .calendar-motion-surface.is-entering-next,
+  .calendar-motion-surface.is-entering-prev {
+    animation: none;
+  }
 }
