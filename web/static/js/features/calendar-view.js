@@ -492,6 +492,18 @@ export function createCalendarViewFeature({
     item.removeAttribute('data-swipe-left-label');
   }
 
+  function setCalendarViewSwipeVisual(surface, visualDx, rawDx, actionThreshold) {
+    const progress = Math.min(1, Math.abs(rawDx) / Math.max(1, actionThreshold));
+    surface.style.setProperty('--calendar-view-swipe-x', `${visualDx}px`);
+    surface.style.setProperty('--calendar-view-swipe-progress', progress.toFixed(3));
+  }
+
+  function cleanupCalendarViewSwipeVisual(surface) {
+    surface.classList.remove('is-dragging', 'is-settling', 'is-committing');
+    surface.style.removeProperty('--calendar-view-swipe-x');
+    surface.style.removeProperty('--calendar-view-swipe-progress');
+  }
+
   function bindCalendarSwipeGestures() {
     if (calendarSwipeBound) return;
     calendarSwipeBound = true;
@@ -605,7 +617,10 @@ export function createCalendarViewFeature({
     document.addEventListener('pointerdown', (event) => {
       if (!event.isPrimary || (event.pointerType && event.pointerType !== 'touch' && event.pointerType !== 'pen')) return;
       if (!canStartCalendarViewSwipe(event.target)) return;
+      const surface = document.querySelector('.calendar-view .calendar-motion-surface');
+      if (!surface || calendarViewAnimating) return;
       calendarViewSwipeActive = {
+        surface,
         pointerId: event.pointerId,
         startX: event.clientX,
         startY: event.clientY,
@@ -627,13 +642,17 @@ export function createCalendarViewFeature({
         if (absX < lockThreshold && absY < lockThreshold) return;
         active.locked = absX > absY * 1.35 ? 'horizontal' : 'vertical';
         if (active.locked !== 'horizontal') return;
+        active.surface.classList.add('is-dragging');
       }
       if (active.locked !== 'horizontal') return;
       event.preventDefault();
+      const maxDx = active.surface.clientWidth || Math.abs(active.dx);
+      const visualDx = Math.max(-maxDx, Math.min(maxDx, active.dx));
+      setCalendarViewSwipeVisual(active.surface, visualDx, active.dx, actionThreshold);
       active.swiped = true;
     }, { passive: false });
 
-    const finish = (event) => {
+    const finish = async (event) => {
       const active = calendarViewSwipeActive;
       if (!active || event.pointerId !== active.pointerId) return;
       calendarViewSwipeActive = null;
@@ -642,8 +661,28 @@ export function createCalendarViewFeature({
         && Math.abs(active.dy) <= maxVerticalDrift;
       if (active.swiped || shouldNavigate) suppressCalendarViewClickUntil = Date.now() + 450;
       if (active.locked === 'horizontal') event.preventDefault();
-      if (!shouldNavigate) return;
-      void navigateCalendarView(active.dx < 0 ? 1 : -1, { animated: true });
+      if (active.locked !== 'horizontal') return;
+      if (!shouldNavigate) {
+        active.surface.classList.add('is-settling');
+        setCalendarViewSwipeVisual(active.surface, 0, 0, actionThreshold);
+        await wait(180);
+        cleanupCalendarViewSwipeVisual(active.surface);
+        return;
+      }
+
+      const direction = active.dx < 0 ? 1 : -1;
+      const width = active.surface.clientWidth || Math.abs(active.dx);
+      calendarViewAnimating = true;
+      active.surface.classList.add('is-committing');
+      setCalendarViewSwipeVisual(active.surface, direction > 0 ? -width : width, active.dx, actionThreshold);
+      await wait(160);
+      cleanupCalendarViewSwipeVisual(active.surface);
+      calendarViewTransitionDirection = direction;
+      shiftAnchor(direction);
+      renderTodos?.();
+      window.setTimeout(() => {
+        calendarViewAnimating = false;
+      }, 220);
     };
 
     document.addEventListener('pointerup', finish, { passive: false });
