@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::{
   collections::HashMap,
   fs,
+  io::Read,
   path::{Path, PathBuf},
   sync::{
     atomic::{AtomicU64, Ordering},
@@ -633,6 +634,9 @@ fn same_url_origin(left: &url::Url, right: &url::Url) -> bool {
     && left.port_or_known_default() == right.port_or_known_default()
 }
 
+const DESKTOP_ATTACHMENT_DOWNLOAD_TIMEOUT_SECS: u64 = 60;
+const DESKTOP_ATTACHMENT_DOWNLOAD_MAX_BYTES: u64 = 5 * 1024 * 1024 * 1024;
+
 #[cfg(desktop)]
 #[tauri::command]
 fn desktop_download_attachment(app: AppHandle, url: String, filename: String, headers: HashMap<String, String>) -> Result<DesktopDownloadResult, String> {
@@ -652,8 +656,18 @@ fn desktop_download_attachment(app: AppHandle, url: String, filename: String, he
   let safe_name = safe_download_filename(&filename);
   let target = unique_download_path(&downloads, &safe_name);
 
+  let allowed_origin = parsed.clone();
   let client = reqwest::blocking::Client::builder()
-    .redirect(reqwest::redirect::Policy::limited(3))
+    .timeout(Duration::from_secs(DESKTOP_ATTACHMENT_DOWNLOAD_TIMEOUT_SECS))
+    .redirect(reqwest::redirect::Policy::custom(move |attempt| {
+      if attempt.previous().len() >= 3 {
+        return attempt.error("Zu viele Weiterleitungen beim Download.");
+      }
+      if !same_url_origin(attempt.url(), &allowed_origin) {
+        return attempt.error("Download-Weiterleitung auf fremde Origin blockiert.");
+      }
+      attempt.follow()
+    }))
     .build()
     .map_err(|err| err.to_string())?;
   let mut request = client.get(url);
@@ -668,12 +682,22 @@ fn desktop_download_attachment(app: AppHandle, url: String, filename: String, he
       request = request.header(name, header_value);
     }
   }
-  let mut response = request.send().map_err(|err| err.to_string())?;
+  let response = request.send().map_err(|err| err.to_string())?;
   if !response.status().is_success() {
     return Err(format!("Download fehlgeschlagen: HTTP {}", response.status()));
   }
+  if let Some(content_length) = response.content_length() {
+    if content_length > DESKTOP_ATTACHMENT_DOWNLOAD_MAX_BYTES {
+      return Err("Anhang ist zu groß für den nativen Desktop-Download.".into());
+    }
+  }
+  let mut limited_response = response.take(DESKTOP_ATTACHMENT_DOWNLOAD_MAX_BYTES + 1);
   let mut file = fs::File::create(&target).map_err(|err| err.to_string())?;
-  std::io::copy(&mut response, &mut file).map_err(|err| err.to_string())?;
+  let written = std::io::copy(&mut limited_response, &mut file).map_err(|err| err.to_string())?;
+  if written > DESKTOP_ATTACHMENT_DOWNLOAD_MAX_BYTES {
+    let _ = fs::remove_file(&target);
+    return Err("Anhang ist zu groß für den nativen Desktop-Download.".into());
+  }
   let filename = target
     .file_name()
     .and_then(|value| value.to_str())
