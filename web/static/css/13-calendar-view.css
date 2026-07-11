@@ -222,6 +222,7 @@
 .calendar-day-cell {
   min-height: 132px;
   padding: 12px;
+  overflow: hidden;
 }
 
 .calendar-day-cell.outside-month {
@@ -271,6 +272,17 @@
 
 .calendar-day-events {
   margin-top: 10px;
+  overflow: hidden;
+}
+
+.calendar-month-grid .calendar-day-events {
+  gap: 4px;
+}
+
+.calendar-month-grid .calendar-event.compact {
+  min-height: 24px;
+  padding: 4px 8px;
+  font-size: 11px;
 }
 
 .calendar-event {
@@ -281,6 +293,7 @@
   grid-template-columns: auto auto minmax(0, 1fr);
   align-items: center;
   gap: 7px;
+  box-sizing: border-box;
   width: 100%;
   min-width: 0;
   min-height: 36px;
@@ -384,6 +397,20 @@
   text-align: center;
 }
 
+.calendar-month-grid .calendar-more-btn {
+  flex: 0 0 auto;
+  min-height: 22px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.calendar-day-events > *,
+.calendar-event-list > .calendar-event,
+.calendar-hour-body > .calendar-event {
+  flex: 0 0 auto;
+}
+
 .calendar-more-btn {
   cursor: pointer;
 }
@@ -444,6 +471,7 @@
 }
 
 .calendar-hour-slot {
+  flex: 0 0 auto;
   min-height: 62px;
 }
 
@@ -846,10 +874,19 @@
   }
 
   .calendar-day-timeline,
-  .calendar-week-timeline-body,
+  .calendar-week-timeline-body {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
   .calendar-month-grid {
     overflow-y: auto;
     overscroll-behavior: contain;
+    scrollbar-width: none;
+  }
+
+  .calendar-month-grid::-webkit-scrollbar {
+    display: none;
   }
 
   .calendar-day-timeline {

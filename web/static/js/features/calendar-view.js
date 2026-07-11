@@ -351,7 +351,7 @@ export function createCalendarViewFeature({
       const day = addDays(start, index);
       const key = dateKey(day);
       const dayEvents = byDay.get(key) || [];
-      const visibleEvents = dayEvents.slice(0, 3);
+      const visibleEvents = dayEvents.slice(0, 2);
       const selected = isSameDay(day, anchorDate);
       html += `
         <section class="calendar-day-cell ${day.getMonth() !== anchorDate.getMonth() ? 'outside-month' : ''} ${isToday(day) ? 'today' : ''} ${selected ? 'selected' : ''}" data-calendar-day="${escapeHtmlAttr(key)}" data-calendar-action="select-day" data-calendar-date="${escapeHtmlAttr(key)}">
