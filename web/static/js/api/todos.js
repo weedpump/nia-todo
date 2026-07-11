@@ -53,6 +53,11 @@ export const todosApi = {
     link.remove();
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   },
+  async downloadAttachmentNative(todoId, attachmentId, filename = 'attachment', nativeBridge = null) {
+    if (!nativeBridge?.downloadToDownloads) return false;
+    const url = API + `/api/todos/${todoId}/attachments/${attachmentId}/download`;
+    return nativeBridge.downloadToDownloads(url, filename || 'attachment', getAuthHeaders());
+  },
   deleteAttachment: (todoId, attachmentId) => http.del(`/api/todos/${todoId}/attachments/${attachmentId}`),
   delete: (todoId) => http.del(`/api/todos/${todoId}`),
 };

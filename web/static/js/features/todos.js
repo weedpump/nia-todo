@@ -76,6 +76,7 @@ export function createTodosFeature({
     setTodoCollapsibleOpen,
     refreshTodoActionButtonState,
     refreshTodoSaveButtonState,
+    nativeBridge,
   });
 
   const {

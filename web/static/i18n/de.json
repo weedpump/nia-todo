@@ -1683,6 +1683,7 @@
   "todo.attachments.onlineOnly": "Anhänge brauchen aktuell eine Online-Verbindung.",
   "todo.attachments.uploaded": "Anhang hochgeladen.",
   "todo.attachments.uploadFailed": "Anhang konnte nicht hochgeladen werden.",
+  "todo.attachments.downloadStarted": "Download gestartet. Datei liegt gleich in Downloads/nia-todo.",
   "todo.attachments.downloadFailed": "Anhang konnte nicht heruntergeladen werden.",
   "todo.attachments.deleteFailed": "Anhang konnte nicht gelöscht werden.",
   "todo.attachments.deleteTitle": "Anhang löschen?",
