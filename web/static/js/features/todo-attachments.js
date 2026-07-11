@@ -20,6 +20,7 @@ export function createTodoAttachmentsFeature({
   setTodoCollapsibleOpen,
   refreshTodoActionButtonState,
   refreshTodoSaveButtonState,
+  nativeBridge = null,
 }) {
   let attachmentPreviewObjectUrl = '';
   let attachmentPreviewDownload = null;
@@ -323,6 +324,13 @@ export function createTodoAttachmentsFeature({
       return;
     }
     try {
+      if (nativeBridge?.isAndroid?.() && nativeBridge?.downloadToDownloads) {
+        const started = await todosApi.downloadAttachmentNative(todoId, attachmentId, filename || 'attachment', nativeBridge);
+        if (started) {
+          showToast(t('todo.attachments.downloadStarted'));
+          return;
+        }
+      }
       await todosApi.downloadAttachment(todoId, attachmentId, filename || 'attachment');
     } catch (error) {
       console.error('Failed to download todo attachment', error);
