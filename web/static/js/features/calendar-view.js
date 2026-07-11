@@ -24,6 +24,8 @@ export function createCalendarViewFeature({
   let calendarSwipeActive = null;
   let calendarViewSwipeBound = false;
   let calendarViewSwipeActive = null;
+  let calendarViewTransitionDirection = 0;
+  let calendarViewAnimating = false;
   let suppressCalendarClickUntil = 0;
   let suppressCalendarViewClickUntil = 0;
 
@@ -441,6 +443,29 @@ export function createCalendarViewFeature({
     persistAnchor();
   }
 
+  async function navigateCalendarView(direction, { animated = false } = {}) {
+    if (!direction || calendarViewAnimating) return;
+    const shouldAnimate = animated
+      && window.matchMedia('(max-width: 900px)').matches
+      && !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!shouldAnimate) {
+      shiftAnchor(direction);
+      renderTodos?.();
+      return;
+    }
+
+    const surface = document.querySelector('.calendar-view .calendar-motion-surface');
+    calendarViewAnimating = true;
+    surface?.classList.add(direction > 0 ? 'is-exiting-next' : 'is-exiting-prev');
+    await wait(150);
+    calendarViewTransitionDirection = direction;
+    shiftAnchor(direction);
+    renderTodos?.();
+    window.setTimeout(() => {
+      calendarViewAnimating = false;
+    }, 220);
+  }
+
   function persistAnchor() {
     localStorage.setItem(ANCHOR_KEY, dateKey(anchorDate));
   }
@@ -618,8 +643,7 @@ export function createCalendarViewFeature({
       if (active.swiped || shouldNavigate) suppressCalendarViewClickUntil = Date.now() + 450;
       if (active.locked === 'horizontal') event.preventDefault();
       if (!shouldNavigate) return;
-      shiftAnchor(active.dx < 0 ? 1 : -1);
-      renderTodos?.();
+      void navigateCalendarView(active.dx < 0 ? 1 : -1, { animated: true });
     };
 
     document.addEventListener('pointerup', finish, { passive: false });
@@ -656,8 +680,10 @@ export function createCalendarViewFeature({
       if (actionButton.classList.contains('calendar-day-cell') && !isMobileCalendar) return;
       const action = actionButton.dataset.calendarAction;
       event.preventDefault();
-      if (action === 'prev') shiftAnchor(-1);
-      if (action === 'next') shiftAnchor(1);
+      if (action === 'prev' || action === 'next') {
+        void navigateCalendarView(action === 'next' ? 1 : -1, { animated: isMobileCalendar });
+        return;
+      }
       if (action === 'today') {
         anchorDate = startOfDay(new Date());
         persistAnchor();
@@ -714,10 +740,17 @@ export function createCalendarViewFeature({
       : mode === 'week'
         ? renderWeek(events)
         : renderDay(events);
+    const transitionDirection = calendarViewTransitionDirection;
+    calendarViewTransitionDirection = 0;
+    const transitionClass = transitionDirection > 0
+      ? 'is-entering-next'
+      : transitionDirection < 0
+        ? 'is-entering-prev'
+        : '';
 
     return `<section class="calendar-view" aria-label="${escapeHtmlAttr(t('calendar.title'))}">
       ${renderToolbar()}
-      ${body}
+      <div class="calendar-motion-surface ${transitionClass}">${body}</div>
     </section>`;
   }
 
