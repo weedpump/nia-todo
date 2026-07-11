@@ -41,34 +41,55 @@
   user-select: none !important;
 }
 
-/* Android WebView can leave :hover visually stuck while finger-scrolling. */
-.native-android .todo-item:hover {
-  border-color: var(--border);
-  background: var(--bg-secondary);
-  box-shadow: none;
+/* Android WebView can leave :hover visually stuck while finger-scrolling.
+   Keep touch feedback neutral: no accent wash, no rectangular tap highlight. */
+.native-android,
+.native-android * {
+  -webkit-tap-highlight-color: transparent;
 }
 
-.native-android .todo-check:hover {
-  border-color: color-mix(in srgb, var(--accent) 28%, var(--border));
-}
-
-.native-android .touch-feedback,
-.native-android button.touch-feedback,
-.native-android [role="button"].touch-feedback,
-.native-android .nav-btn.touch-feedback,
-.native-android .workspace-current-btn.touch-feedback,
-.native-android .user-menu-item.touch-feedback,
+.native-android .todo-item:hover,
+.native-android .todo-item:active,
 .native-android .todo-item.touch-feedback,
-.native-android .overview-project-item.touch-feedback,
-.native-android .section-name.touch-feedback {
-  background-color: var(--press-bg) !important;
-  box-shadow: inset 0 0 0 999px rgba(var(--accent-rgb), 0.14), 0 0 0 2px var(--press-ring), 0 8px 20px rgba(var(--accent-rgb), 0.18) !important;
-  transform: translateY(1px) scale(0.975);
-}
-
-.native-android .todo-item.touch-feedback,
+.native-android .overview-project-item:hover,
+.native-android .overview-project-item:active,
 .native-android .overview-project-item.touch-feedback {
-  background-color: color-mix(in srgb, var(--bg-tertiary) 62%, var(--accent)) !important;
+  border-color: var(--border) !important;
+  background: var(--bg-secondary) !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.native-android .todo-check:hover,
+.native-android .todo-check:active,
+.native-android .todo-check.touch-feedback {
+  border-color: var(--border) !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.native-android button:active,
+.native-android a:active,
+.native-android [role="button"]:active,
+.native-android button.touch-feedback,
+.native-android a.touch-feedback,
+.native-android [role="button"].touch-feedback,
+.native-android .nav-btn:active,
+.native-android .nav-btn.touch-feedback,
+.native-android .workspace-current-btn:active,
+.native-android .workspace-current-btn.touch-feedback,
+.native-android .user-menu-item:active,
+.native-android .user-menu-item.touch-feedback,
+.native-android .section-name:active,
+.native-android .section-name.touch-feedback,
+.native-android .modal-close-x:active,
+.native-android .modal-close-x.touch-feedback,
+.native-android .ui-select-trigger:active,
+.native-android .ui-select-trigger.touch-feedback {
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+  transform: none !important;
 }
 
 .native-android .todo-item.swiping {
@@ -89,6 +110,10 @@
   box-shadow: inset -4px 0 0 color-mix(in srgb, var(--success) 78%, white), 0 14px 30px rgba(22, 163, 74, calc(.13 + (var(--swipe-progress, 0) * .17))) !important;
 }
 
+.native-android .btn-primary:active,
 .native-android .btn-primary.touch-feedback {
-  background-color: color-mix(in srgb, var(--accent-hover) 90%, white) !important;
+  background: var(--accent) !important;
+  box-shadow: none !important;
+  filter: none !important;
+  transform: none !important;
 }
