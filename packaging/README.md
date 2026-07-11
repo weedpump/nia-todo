@@ -1,6 +1,6 @@
 # <img src="web/static/icons/icon-512.png" alt="nia-todo icon" width="32" height="32"> nia-todo
 
-Self-hosted todo system — SQLite + FastAPI + Web UI + offline PWA + native Windows/Android/Linux clients.
+Self-hosted todo system — SQLite + FastAPI + Web UI + offline PWA + native Windows/Android/Debian clients.
 
 nia-todo is designed for private self-hosting: install the server, open the web app, then download the bundled native apps directly from your own instance.
 
@@ -29,10 +29,10 @@ nia-todo is designed for private self-hosting: install the server, open the web 
 - 📱 Offline-capable PWA with local IndexedDB sync queue
 - 🖥️ Native Windows app wrapper
 - 🤖 Native Android APK
-- 🐧 Native Linux Debian desktop app wrapper
+- 🐧 Native Debian desktop app wrapper
 - 🔐 Auth, admin panel, API keys, CSRF protection, and per-user data isolation
 - 🛡️ 2FA/MFA with TOTP, passkeys/WebAuthn, email-code fallback, recovery codes, trusted devices, and admin policy
-- 🔔 Native local reminders on Windows and Android, plus Linux desktop notifications; browser/PWA push remains browser/PWA-only
+- 🔔 Native local reminders on Windows and Android, plus Debian desktop notifications; browser/PWA push remains browser/PWA-only
 - 🎙️ BrainDump voice capture for turning spoken notes into reviewed todo candidates, backed by configurable STT/LLM providers
 - 🎨 Theme toggle and English/German UI language support
 - 🗄️ Local SQLite database
@@ -64,13 +64,13 @@ Public releases provide these main distribution targets:
   - includes bundled native app downloads under `/downloads/`
 - **Docker image**: for container-based installations
 
-The Windows, Android, and Linux desktop clients are shipped inside the server bundle so your own instance can serve them locally from `/downloads/`.
+The Windows, Android, and Debian desktop clients are shipped inside the server bundle so your own instance can serve them locally from `/downloads/`.
 
 Bundled native client filenames use the shared release version:
 
 - `nia-todo-vX.Y.Z-windows-x64-setup.exe`
 - `nia-todo-vX.Y.Z-android-arm64.apk`
-- `nia-todo-desktop-vX.Y.Z-linux-amd64.deb`
+- `nia-todo-desktop-vX.Y.Z-debian-amd64.deb`
 
 ## 🚀 Debian/Ubuntu installation
 

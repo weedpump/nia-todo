@@ -10,7 +10,7 @@ Usage: scripts/release/build-docker.sh VERSION [options]
 Options:
   --windows-installer FILE   Signed Windows installer to embed under /downloads
   --android-apk FILE         Signed Android APK to embed under /downloads
-  --linux-deb FILE           Linux Debian package to embed under /downloads
+  --debian-deb FILE           Debian package to embed under /downloads
   --native-app-version VERSION
                             Native app download version to publish (default: VERSION)
   --allow-missing-apps       Allow building a test image without native app files
@@ -24,7 +24,7 @@ USAGE
 VERSION=""
 WINDOWS_INSTALLER=""
 ANDROID_APK=""
-LINUX_DEB=""
+DEBIAN_DEB=""
 NATIVE_APP_VERSION=""
 ALLOW_MISSING_APPS=0
 TAG=""
@@ -37,7 +37,7 @@ while [ "$#" -gt 0 ]; do
     -h|--help) usage; exit 0 ;;
     --windows-installer) WINDOWS_INSTALLER="${2:-}"; shift 2 ;;
     --android-apk) ANDROID_APK="${2:-}"; shift 2 ;;
-    --linux-deb) LINUX_DEB="${2:-}"; shift 2 ;;
+    --debian-deb) DEBIAN_DEB="${2:-}"; shift 2 ;;
     --native-app-version) NATIVE_APP_VERSION="${2:-}"; shift 2 ;;
     --allow-missing-apps) ALLOW_MISSING_APPS=1; shift ;;
     --tag) TAG="${2:-}"; shift 2 ;;
@@ -62,7 +62,7 @@ fi
 if [ "${ALLOW_MISSING_APPS}" != "1" ]; then
   [ -n "${WINDOWS_INSTALLER}" ] && [ -f "${WINDOWS_INSTALLER}" ] || { echo "Missing --windows-installer FILE" >&2; exit 1; }
   [ -n "${ANDROID_APK}" ] && [ -f "${ANDROID_APK}" ] || { echo "Missing --android-apk FILE" >&2; exit 1; }
-  [ -n "${LINUX_DEB}" ] && [ -f "${LINUX_DEB}" ] || { echo "Missing --linux-deb FILE" >&2; exit 1; }
+  [ -n "${DEBIAN_DEB}" ] && [ -f "${DEBIAN_DEB}" ] || { echo "Missing --debian-deb FILE" >&2; exit 1; }
 fi
 TAG="${TAG:-nia-todo:${VERSION}}"
 OUTPUT="${OUTPUT:-dist/docker/nia-todo-${VERSION}}"
@@ -90,8 +90,8 @@ fi
 if [ -n "${ANDROID_APK}" ]; then
   EMBED_ARGS+=(--android-apk "${ANDROID_APK}")
 fi
-if [ -n "${LINUX_DEB}" ]; then
-  EMBED_ARGS+=(--linux-deb "${LINUX_DEB}")
+if [ -n "${DEBIAN_DEB}" ]; then
+  EMBED_ARGS+=(--debian-deb "${DEBIAN_DEB}")
 fi
 if [ "${ALLOW_MISSING_APPS}" = "1" ]; then
   EMBED_ARGS+=(--allow-missing-apps)

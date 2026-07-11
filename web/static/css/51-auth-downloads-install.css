@@ -146,9 +146,9 @@
   -webkit-mask-image: url('/static/icons/platform/android.svg');
 }
 
-.app-download-icon-linux {
-  mask-image: url('/static/icons/platform/linux.svg');
-  -webkit-mask-image: url('/static/icons/platform/linux.svg');
+.app-download-icon-debian {
+  mask-image: url('/static/icons/platform/debian.svg');
+  -webkit-mask-image: url('/static/icons/platform/debian.svg');
 }
 
 .app-downloads-modal-content {

@@ -6,7 +6,7 @@ set -euo pipefail
 
 usage() {
   cat <<'USAGE'
-Usage: scripts/release/build-full-bundle.sh VERSION --windows-installer FILE --android-apk FILE --linux-deb FILE [options]
+Usage: scripts/release/build-full-bundle.sh VERSION --windows-installer FILE --android-apk FILE --debian-deb FILE [options]
 
 Options:
   --native-app-version VERSION
@@ -21,7 +21,7 @@ USAGE
 VERSION=""
 WINDOWS_INSTALLER=""
 ANDROID_APK=""
-LINUX_DEB=""
+DEBIAN_DEB=""
 NATIVE_APP_VERSION=""
 OUTPUT_DIR="dist/release"
 WORK_DIR=""
@@ -33,7 +33,7 @@ while [ "$#" -gt 0 ]; do
     -h|--help) usage; exit 0 ;;
     --windows-installer) WINDOWS_INSTALLER="${2:-}"; shift 2 ;;
     --android-apk) ANDROID_APK="${2:-}"; shift 2 ;;
-    --linux-deb) LINUX_DEB="${2:-}"; shift 2 ;;
+    --debian-deb) DEBIAN_DEB="${2:-}"; shift 2 ;;
     --native-app-version) NATIVE_APP_VERSION="${2:-}"; shift 2 ;;
     --output-dir) OUTPUT_DIR="${2:-}"; shift 2 ;;
     --work-dir) WORK_DIR="${2:-}"; shift 2 ;;
@@ -90,8 +90,8 @@ fi
 if [ -n "${ANDROID_APK}" ]; then
   EMBED_ARGS+=(--android-apk "${ANDROID_APK}")
 fi
-if [ -n "${LINUX_DEB}" ]; then
-  EMBED_ARGS+=(--linux-deb "${LINUX_DEB}")
+if [ -n "${DEBIAN_DEB}" ]; then
+  EMBED_ARGS+=(--debian-deb "${DEBIAN_DEB}")
 fi
 if [ "${ALLOW_MISSING_APPS}" = "1" ]; then
   EMBED_ARGS+=(--allow-missing-apps)

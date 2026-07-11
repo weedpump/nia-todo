@@ -1,6 +1,6 @@
 # <img src="web/static/icons/icon-512.png" alt="nia-todo icon" width="32" height="32"> nia-todo
 
-Selfhosted todo system — SQLite + FastAPI + Web UI + offline PWA + native Windows/Android/Linux apps.
+Selfhosted todo system — SQLite + FastAPI + Web UI + offline PWA + native Windows/Android/Debian apps.
 
 ## 🌍 Instances
 
@@ -23,12 +23,12 @@ systemctl restart nia-todo-dev
 - 🤝 Project sharing between users with invitations and undo
 - 📧 Email/SMTP integration for invitations, password reset, and email verification
 - 🔲 Sections per project
-- 📱 Offline PWA plus native Windows, Android, and Linux Debian desktop wrappers
+- 📱 Offline PWA plus native Windows, Android, and Debian desktop wrappers
 - 🔐 Auth, admin panel, API keys, CSRF protection, OIDC/SSO support, and user data isolation
 - 🛡️ 2FA/MFA with authenticator app (TOTP), passkeys/WebAuthn including native Windows/Android bridge, email code fallback, recovery codes, trusted devices, and admin policy
 - ⏰ Reminders/deadlines with validated date/time input
 - 🔁 Recurring todos require a due date and can carry reminders forward to the next occurrence
-- 🔔 Native local reminders on Windows and Android, plus Linux desktop notifications; browser/PWA push remains browser/PWA-only
+- 🔔 Native local reminders on Windows and Android, plus Debian desktop notifications; browser/PWA push remains browser/PWA-only
 - 🎙️ BrainDump voice capture for turning spoken notes into reviewed todo candidates, with configurable STT/LLM providers including OpenAI-compatible endpoints, Ollama, and OpenClaw agents
 - 🎨 Theme toggle
 - 🗄️ Local SQLite
@@ -63,7 +63,7 @@ Details: [Test docs](docs/testing.md)
 - [Workflow docs](docs/workflow.md)
 - [Architecture](docs/architecture.md)
 - [Design Concept](docs/design-concept.md)
-- Changelog: `CHANGELOG.md` shared by web app, Windows app, Android app, and Linux desktop app
+- Changelog: `CHANGELOG.md` shared by web app, Windows app, Android app, and Debian desktop app
 
 ## ⚙️ Setup / Operations
 

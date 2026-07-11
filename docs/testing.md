@@ -107,7 +107,7 @@ These checks run after the frontend DB suite restore unless explicitly listed ab
 - `node scripts/test_native_android_location_reminders.mjs`
 - `node scripts/test_native_android_webview_cache_migration.mjs`
 - `node scripts/test_native_linux_webview_cache_migration.mjs`
-- `node scripts/test_native_linux_deb_package_name.mjs`
+- `node scripts/test_native_debian_deb_package_name.mjs`
 - `node scripts/test_native_desktop_settings_static.mjs`
 - `node scripts/test_native_android_reminder_alarm_policy.mjs`
 - `node scripts/test_native_android_microphone_permission.mjs`
@@ -153,11 +153,11 @@ Currently runs the maintained touch-zoom contract. Historical one-off pixel/layo
 npm run test:native
 ```
 
-Use for native runtime, desktop settings, Android wrapper, passkey, reminder, microphone, WebView cache, Linux Debian package naming, or installer changes.
+Use for native runtime, desktop settings, Android wrapper, passkey, reminder, microphone, WebView cache, Debian package naming, or installer changes.
 
 The native suite includes static/package checks that protect platform-specific release contracts:
 
-- Linux desktop `.deb` package name must be `nia-todo-desktop`, not `nia-todo`, so it does not conflict with the server package.
+- Debian desktop `.deb` package name must be `nia-todo-desktop`, not `nia-todo`, so it does not conflict with the server package.
 - Linux WebView cache migration must only clear volatile cache directories when the app version or executable marker changes.
 - Native desktop settings must keep desktop-only options scoped correctly and avoid leaking Windows-only wording onto Linux.
 

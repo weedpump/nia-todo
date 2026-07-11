@@ -28,7 +28,7 @@ assert.match(
 assert.match(
   rustSource,
   /Command::new\("notify-send"\)/,
-  'Linux desktop notifications should use notify-send before falling back to the Tauri plugin',
+  'Debian desktop notifications should use notify-send before falling back to the Tauri plugin',
 );
 assert.doesNotMatch(
   rustSource,
@@ -58,12 +58,12 @@ assert.match(
 assert.match(
   tauriConfig,
   /"recommends": \["libnotify-bin"\]/,
-  'Linux Debian package should recommend libnotify-bin for notify-send notifications',
+  'Debian package should recommend libnotify-bin for notify-send notifications',
 );
 assert.match(
   linuxDesktopTemplate,
   /^StartupNotify=false$/m,
-  'Linux desktop entry should disable GNOME startup readiness notifications',
+  'Debian desktop entry should disable GNOME startup readiness notifications',
 );
 for (const id of ['desktop-minimize-to-tray', 'desktop-autostart', 'desktop-start-minimized-to-tray', 'desktop-notifications']) {
   assert.match(
