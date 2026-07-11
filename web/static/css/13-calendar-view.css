@@ -101,6 +101,10 @@
 .calendar-motion-preview {
   position: absolute;
   top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-sizing: border-box;
   width: 100%;
   min-width: 0;
   pointer-events: none;
