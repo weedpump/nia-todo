@@ -62,6 +62,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/lang/de/spe
 - Hardened attachment uploads with streaming temp-file writes, server-side quota/type policy enforcement, magic-byte validation for common binary formats, active-content blocking, and client-side preflight for disabled uploads, type, file size, and quota.
 
 ### Fixed
+- Fixed Android native attachment handling by allowing attachment upload CORS headers, permitting blob-based image/PDF previews in the bundled Tauri shell, and saving attachment downloads through the native Android Downloads provider under `Downloads/nia-todo`.
 - Renamed the Debian desktop package to `nia-todo-desktop` and the artifact to `nia-todo-desktop-vX.Y.Z-debian-amd64.deb`, avoiding conflicts with the server package `nia-todo`.
 - Allowed Tauri custom-scheme origins such as `tauri://localhost` and `tauri://tauri.localhost` in dynamic CORS handling so native Debian WebKit requests can reach the configured server.
 - Registered the Debian desktop `nia-todo://` OIDC return handler with `%u`, `x-scheme-handler/nia-todo`, and `StartupNotify=false` so Debian desktop sign-in can complete cleanly.
