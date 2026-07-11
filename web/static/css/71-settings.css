@@ -490,12 +490,6 @@
   display: none;
 }
 
-#settings-modal .settings-place-add-row input {
-  min-height: 36px;
-  background: color-mix(in srgb, var(--bg-secondary) 46%, transparent);
-  border-color: color-mix(in srgb, var(--border) 42%, transparent);
-}
-
 #settings-modal .settings-place-save-btn,
 #settings-modal .settings-place-cancel-btn {
   min-height: 36px;
