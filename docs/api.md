@@ -1483,7 +1483,7 @@ Returns public instance metadata for web/native clients, including configured pu
 ### Native App Download Manifest
 `GET /downloads/app-downloads.json`
 
-Returns the available Windows/Android artifacts with version, platform, architecture, filename, size, and SHA256. Intentionally served with `no-store`. If no release artifacts are published, the endpoint responds with `200` and an empty `apps` list so clients can hide the section cleanly without 404 console noise.
+Returns the available Windows, Android, and Debian desktop artifacts with version, platform, architecture, filename, size, and SHA256. Intentionally served with `no-store`. If no release artifacts are published, the endpoint responds with `200` and an empty `apps` list so clients can hide the section cleanly without 404 console noise.
 
 ### Android Digital Asset Links
 `GET /.well-known/assetlinks.json`
