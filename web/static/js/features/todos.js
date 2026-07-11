@@ -90,6 +90,7 @@ export function createTodosFeature({
     t,
     getProjects,
     getCurrentProjectId,
+    getSavedPlaces: () => savedPlaces,
     dbGetAll,
   });
 
@@ -2001,6 +2002,7 @@ export function createTodosFeature({
       if (parsedQuickAdd.changes.due_date && !todoData.due_date) todoData.due_date = parsedQuickAdd.changes.due_date;
       if (parsedQuickAdd.changes.remind_at && !todoData.remind_at) todoData.remind_at = parsedQuickAdd.changes.remind_at;
       if (parsedQuickAdd.changes.recurring_rule && !todoData.recurring_rule) todoData.recurring_rule = parsedQuickAdd.changes.recurring_rule;
+      if (parsedQuickAdd.changes.location_reminder && !todoData.location_reminder) todoData.location_reminder = parsedQuickAdd.changes.location_reminder;
     }
     if (todoData.status === 'done' && getOpenSubtaskCount(todoData.subtasks) > 0) {
       const confirmed = await confirmDanger({

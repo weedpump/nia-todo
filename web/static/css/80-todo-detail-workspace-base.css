@@ -27,6 +27,11 @@
   display: none;
 }
 
+#todo-modal.todo-detail-view.todo-create-view .todo-title-group .quick-add-hint {
+  display: block;
+  margin-top: 8px;
+}
+
 #todo-modal.todo-detail-view.todo-create-view .todo-title-group .quick-add-preview {
   margin-top: 10px;
 }

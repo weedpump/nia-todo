@@ -3,6 +3,7 @@ export function createTodoQuickAddFeature({
   t,
   getProjects,
   getCurrentProjectId,
+  getSavedPlaces = () => [],
   dbGetAll,
 }) {
   function startOfToday(base = new Date()) {
@@ -51,6 +52,12 @@ export function createTodoQuickAddFeature({
       if (projectId && String(s.project_id) !== String(projectId)) return false;
       return normalizedName(s.name) === wanted || compactName(s.name) === compact;
     }) || null;
+  }
+
+  function findPlaceByQuickAddName(rawName) {
+    const wanted = normalizedName(rawName);
+    const compact = compactName(rawName);
+    return getSavedPlaces().find(place => normalizedName(place.name) === wanted || compactName(place.name) === compact) || null;
   }
 
   function parseRelativeQuickAddDate(value, now = new Date()) {
@@ -140,6 +147,10 @@ export function createTodoQuickAddFeature({
     return quickAddNamePatterns(allSections);
   }
 
+  function placeNamePattern() {
+    return quickAddNamePatterns(getSavedPlaces());
+  }
+
   function addTokenMatch(matches, matchIndexes, used, tokenSpans, tokens, type, start, end, label, value = '', uniqueKey = null) {
     const tokenIndex = tokenIndexForRange(tokenSpans, start, end);
     if (uniqueKey && matchIndexes.has(uniqueKey)) {
@@ -171,6 +182,8 @@ export function createTodoQuickAddFeature({
       section: quickAddAliases('quickAdd.syntax.sectionPrefixes'),
       project: quickAddAliases('quickAdd.syntax.projectPrefixes'),
       recurring: quickAddAliases('quickAdd.syntax.recurringPrefixes'),
+      location: quickAddAliases('quickAdd.syntax.locationPrefixes'),
+      locationDeparture: quickAddAliases('quickAdd.syntax.locationDeparturePrefixes'),
     };
     const timeSuffixes = quickAddAliases('quickAdd.syntax.timeSuffixes');
     const timeSuffixPattern = aliasPattern(timeSuffixes);
@@ -270,6 +283,41 @@ export function createTodoQuickAddFeature({
           changes.section_id = section.id;
           if (!changes.project_id && section.project_id) changes.project_id = section.project_id;
           addTokenMatch(matches, matchIndexes, used, tokenSpans, tokens, 'section', start, end, t('quickAdd.detected.section'), section.name, 'section_id');
+        }
+      }
+    }
+
+    const placeNames = placeNamePattern();
+    if (placeNames) {
+      const locationPrefixPattern = aliasPattern(prefixAliases.location);
+      const locationDeparturePrefixPattern = aliasPattern(prefixAliases.locationDeparture);
+      const locationRegexes = [];
+      if (locationPrefixPattern) locationRegexes.push({
+        triggerType: 'arrival',
+        regex: new RegExp(`(^|\\s)(?:${locationPrefixPattern})\\s*:?\\s*(?<name>${placeNames})(?=$|\\s)`, 'giu'),
+      });
+      if (locationDeparturePrefixPattern) locationRegexes.push({
+        triggerType: 'departure',
+        regex: new RegExp(`(^|\\s)(?:${locationDeparturePrefixPattern})\\s*:?\\s*(?<name>${placeNames})(?=$|\\s)`, 'giu'),
+      });
+      for (const { triggerType, regex } of locationRegexes) {
+        for (const match of original.matchAll(regex)) {
+          const name = match.groups?.name;
+          const valueOffset = match[0].lastIndexOf(name);
+          const start = match.index + match[0].search(/\S/u);
+          const end = match.index + valueOffset + name.length;
+          const place = findPlaceByQuickAddName(name);
+          if (!place) continue;
+          changes.location_reminder = {
+            trigger_type: triggerType,
+            place_id: Number(place.id),
+            place_name: place.name,
+            address: place.address || '',
+            enabled: true,
+            source: 'quick_add',
+          };
+          const triggerLabel = t(triggerType === 'departure' ? 'todo.location.departureShort' : 'todo.location.arrivalShort');
+          addTokenMatch(matches, matchIndexes, used, tokenSpans, tokens, 'location', start, end, t('quickAdd.detected.location'), `${triggerLabel}: ${place.name}`, 'location_reminder');
         }
       }
     }
