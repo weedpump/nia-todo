@@ -102,7 +102,7 @@ function validateDownloadEntry(app, fallbackVersion = '') {
   return {
     platform,
     arch: spec.arch,
-    label: app.label || (platform === 'windows' ? 'Windows Setup' : platform === 'linux' ? 'Linux Debian Package' : 'Android APK'),
+    label: app.label || (platform === 'windows' ? 'Windows Setup' : platform === 'linux' ? 'Debian Package' : 'Android APK'),
     version,
     filename,
     url: absoluteDownloadUrl(parsed.pathname),
@@ -138,14 +138,14 @@ function platformIconClass(platform) {
 function platformTitle(download) {
   if (download.platform === 'android') return 'Android-App herunterladen';
   if (download.platform === 'windows') return 'Windows-App herunterladen';
-  if (download.platform === 'linux') return 'Linux Debian-Paket herunterladen';
+  if (download.platform === 'linux') return 'Debian-Paket herunterladen';
   return `${download.label || 'App'} herunterladen`;
 }
 
 function platformLabel(platform) {
   if (platform === 'android') return 'Android';
   if (platform === 'windows') return 'Windows';
-  if (platform === 'linux') return 'Linux';
+  if (platform === 'linux') return 'Debian';
   return 'App';
 }
 

@@ -1175,7 +1175,7 @@
   "admin.stats.appType.windows.app": "Windows App",
   "admin.stats.appType.ios.app": "iOS App",
   "admin.stats.appType.macos.app": "macOS App",
-  "admin.stats.appType.linux.app": "Linux App",
+  "admin.stats.appType.linux.app": "Debian App",
   "admin.stats.appType.browser": "Browser",
   "admin.stats.appType.pwa": "PWA",
   "admin.stats.appType.unbekannte.app": "Unbekannte App",

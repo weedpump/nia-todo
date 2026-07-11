@@ -88,7 +88,7 @@ def main() -> int:
         apps.append({
             "platform": "linux",
             "arch": "amd64",
-            "label": "Linux Debian Package",
+            "label": "Debian Package",
             "version": f"v{native_version}",
             "filename": linux_name,
             "url": f"/downloads/{linux_name}",
