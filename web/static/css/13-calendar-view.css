@@ -484,7 +484,22 @@
   }
 
   .calendar-motion-surface {
+    transform: translate3d(var(--calendar-view-swipe-x, 0), 0, 0);
     will-change: transform, opacity;
+  }
+
+  .calendar-motion-surface.is-dragging {
+    opacity: calc(1 - (var(--calendar-view-swipe-progress, 0) * .16));
+    transition: none;
+  }
+
+  .calendar-motion-surface.is-settling {
+    transition: transform 180ms cubic-bezier(.22, 1, .36, 1), opacity 180ms ease;
+  }
+
+  .calendar-motion-surface.is-committing {
+    opacity: .08;
+    transition: transform 160ms cubic-bezier(.4, 0, .2, 1), opacity 160ms ease;
   }
 
   .calendar-motion-surface.is-exiting-next {
@@ -1123,5 +1138,13 @@
   .calendar-motion-surface.is-entering-next,
   .calendar-motion-surface.is-entering-prev {
     animation: none;
+  }
+
+  .calendar-motion-surface.is-dragging,
+  .calendar-motion-surface.is-settling,
+  .calendar-motion-surface.is-committing {
+    opacity: 1;
+    transform: none;
+    transition: none;
   }
 }
