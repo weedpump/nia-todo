@@ -1679,6 +1679,7 @@
   "todo.comments.draftEmpty": "Komentáře se vytvoří při uložení.",
   "todo.comments.draftAuthor": "Koncept",
   "todo.comments.newLabel": "Nový komentář",
+  "todo.comments.formatToolbar": "Formátovat komentář",
   "todo.comments.placeholder": "Přidat komentář…",
   "todo.comments.add": "Přidat",
   "todo.comments.delete": "Smazat komentář",

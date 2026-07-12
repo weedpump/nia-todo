@@ -1679,6 +1679,7 @@
   "todo.comments.draftEmpty": "Comments will be created when you save.",
   "todo.comments.draftAuthor": "Draft",
   "todo.comments.newLabel": "New comment",
+  "todo.comments.formatToolbar": "Format comment",
   "todo.comments.placeholder": "Add a comment…",
   "todo.comments.add": "Add",
   "todo.comments.delete": "Delete comment",

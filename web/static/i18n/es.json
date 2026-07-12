@@ -1679,6 +1679,7 @@
   "todo.comments.draftEmpty": "Los comentarios se crearán cuando guardes.",
   "todo.comments.draftAuthor": "Borrador",
   "todo.comments.newLabel": "Nuevo comentario",
+  "todo.comments.formatToolbar": "Formatear comentario",
   "todo.comments.placeholder": "Añade un comentario…",
   "todo.comments.add": "Añadir",
   "todo.comments.delete": "Eliminar comentario",

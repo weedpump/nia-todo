@@ -1679,6 +1679,7 @@
   "todo.comments.draftEmpty": "保存时将创建评论。",
   "todo.comments.draftAuthor": "吃水",
   "todo.comments.newLabel": "新评论",
+  "todo.comments.formatToolbar": "设置评论格式",
   "todo.comments.placeholder": "添加评论...",
   "todo.comments.add": "添加",
   "todo.comments.delete": "删除评论",

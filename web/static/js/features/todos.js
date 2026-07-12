@@ -1008,10 +1008,10 @@ export function createTodosFeature({
     editorWrap.className = 'todo-comment-edit-wrap todo-comment-rich-wrap';
     const toolbar = document.createElement('div');
     toolbar.className = 'todo-desc-rich-toolbar todo-comment-rich-toolbar';
-    toolbar.setAttribute('aria-label', t('todo.description.formatToolbar'));
+    toolbar.setAttribute('aria-label', t('todo.comments.formatToolbar'));
     toolbar.innerHTML = richEditorToolbarHtml();
     const editor = document.createElement('div');
-    editor.className = 'todo-desc-rich-editor todo-comment-rich-editor todo-comment-edit-input';
+    editor.className = 'todo-comment-rich-editor todo-comment-edit-input';
     editor.contentEditable = 'true';
     editor.setAttribute('role', 'textbox');
     editor.setAttribute('aria-multiline', 'true');

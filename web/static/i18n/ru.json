@@ -1679,6 +1679,7 @@
   "todo.comments.draftEmpty": "Комментарии будут созданы при сохранении.",
   "todo.comments.draftAuthor": "Черновик",
   "todo.comments.newLabel": "Новый комментарий",
+  "todo.comments.formatToolbar": "Форматировать комментарий",
   "todo.comments.placeholder": "Добавить комментарий…",
   "todo.comments.add": "Добавить",
   "todo.comments.delete": "Удалить комментарий",

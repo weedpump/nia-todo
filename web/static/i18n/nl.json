@@ -1679,6 +1679,7 @@
   "todo.comments.draftEmpty": "Opmerkingen worden aangemaakt wanneer u opslaat.",
   "todo.comments.draftAuthor": "Diepgang",
   "todo.comments.newLabel": "Nieuwe reactie",
+  "todo.comments.formatToolbar": "Opmerking opmaken",
   "todo.comments.placeholder": "Voeg een reactie toe…",
   "todo.comments.add": "Toevoegen",
   "todo.comments.delete": "Reactie verwijderen",

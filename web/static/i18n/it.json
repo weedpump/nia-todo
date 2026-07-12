@@ -1679,6 +1679,7 @@
   "todo.comments.draftEmpty": "I commenti verranno creati quando salvi.",
   "todo.comments.draftAuthor": "Bozza",
   "todo.comments.newLabel": "Nuovo commento",
+  "todo.comments.formatToolbar": "Formatta commento",
   "todo.comments.placeholder": "Aggiungi un commento...",
   "todo.comments.add": "Aggiungi",
   "todo.comments.delete": "Elimina commento",

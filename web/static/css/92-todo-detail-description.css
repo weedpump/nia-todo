@@ -72,7 +72,8 @@
   outline: none;
 }
 
-#todo-modal.todo-detail-view .todo-desc-rich-editor:empty::before {
+#todo-modal.todo-detail-view .todo-desc-rich-editor:empty::before,
+#todo-modal.todo-detail-view .todo-comment-rich-editor:empty::before {
   content: attr(data-placeholder);
   color: var(--text-muted);
 }
@@ -94,6 +95,7 @@
 }
 
 #todo-modal.todo-detail-view .todo-desc-rich-editor h1,
+#todo-modal.todo-detail-view .todo-comment-rich-editor h1,
 #todo-modal.todo-detail-view .desc-live-preview h1 {
   margin: 0 0 12px;
   font-size: 1.65em;
@@ -101,6 +103,7 @@
 }
 
 #todo-modal.todo-detail-view .todo-desc-rich-editor h2,
+#todo-modal.todo-detail-view .todo-comment-rich-editor h2,
 #todo-modal.todo-detail-view .desc-live-preview h2 {
   margin: 18px 0 10px;
   font-size: 1.3em;
@@ -108,11 +111,13 @@
 }
 
 #todo-modal.todo-detail-view .todo-desc-rich-editor p,
+#todo-modal.todo-detail-view .todo-comment-rich-editor p,
 #todo-modal.todo-detail-view .desc-live-preview p {
   margin: 0 0 12px;
 }
 
 #todo-modal.todo-detail-view .todo-desc-rich-editor blockquote,
+#todo-modal.todo-detail-view .todo-comment-rich-editor blockquote,
 #todo-modal.todo-detail-view .desc-live-preview blockquote,
 #todo-modal.todo-detail-view .todo-comment-body blockquote {
   margin: 8px 0 14px;
@@ -124,6 +129,7 @@
 }
 
 #todo-modal.todo-detail-view .todo-desc-rich-editor code,
+#todo-modal.todo-detail-view .todo-comment-rich-editor code,
 #todo-modal.todo-detail-view .desc-live-preview code,
 #todo-modal.todo-detail-view .todo-comment-body code {
   padding: 0.12em 0.36em;
@@ -136,6 +142,7 @@
 }
 
 [data-theme="light"] #todo-modal.todo-detail-view .todo-desc-rich-editor code,
+[data-theme="light"] #todo-modal.todo-detail-view .todo-comment-rich-editor code,
 [data-theme="light"] #todo-modal.todo-detail-view .desc-live-preview code,
 [data-theme="light"] #todo-modal.todo-detail-view .todo-comment-body code {
   border-color: color-mix(in srgb, var(--border) 72%, transparent);
@@ -143,6 +150,7 @@
 }
 
 #todo-modal.todo-detail-view .todo-desc-rich-editor ul,
+#todo-modal.todo-detail-view .todo-comment-rich-editor ul,
 #todo-modal.todo-detail-view .desc-live-preview ul,
 #todo-modal.todo-detail-view .todo-comment-body ul {
   margin: 8px 0 14px;
@@ -150,12 +158,14 @@
 }
 
 #todo-modal.todo-detail-view .todo-desc-rich-editor li,
+#todo-modal.todo-detail-view .todo-comment-rich-editor li,
 #todo-modal.todo-detail-view .desc-live-preview li,
 #todo-modal.todo-detail-view .todo-comment-body li {
   margin: 4px 0;
 }
 
 #todo-modal.todo-detail-view .todo-desc-rich-editor li > ul,
+#todo-modal.todo-detail-view .todo-comment-rich-editor li > ul,
 #todo-modal.todo-detail-view .desc-live-preview li > ul,
 #todo-modal.todo-detail-view .todo-comment-body li > ul {
   margin: 4px 0 6px;
