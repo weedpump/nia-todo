@@ -441,8 +441,30 @@ export function createTodosFeature({
   }
 
   function clearRichKeyboardToolbar() {
+    activeRichKeyboardToolbar?.classList.remove('is-stuck');
     releaseRichKeyboardToolbarFixed();
     activeRichKeyboardToolbar = null;
+  }
+
+  function getRichToolbarScrollPort(toolbar) {
+    return toolbar?.closest?.('.ui-detail-modal-body') || toolbar?.closest?.('.modal-content') || null;
+  }
+
+  function updateRichToolbarStickyState(toolbar) {
+    if (!toolbar) return;
+    if (toolbar.classList.contains('is-keyboard-fixed')) {
+      toolbar.classList.add('is-stuck');
+      return;
+    }
+    const scrollPort = getRichToolbarScrollPort(toolbar);
+    if (!scrollPort) {
+      toolbar.classList.remove('is-stuck');
+      return;
+    }
+    const topOffset = parseFloat(window.getComputedStyle(toolbar).top) || 0;
+    const toolbarTop = toolbar.getBoundingClientRect().top;
+    const stuckTop = scrollPort.getBoundingClientRect().top + topOffset;
+    toolbar.classList.toggle('is-stuck', toolbarTop <= stuckTop + 1);
   }
 
   function updateRichKeyboardToolbar() {
@@ -454,6 +476,7 @@ export function createTodosFeature({
     }
     if (!isLikelyTouchKeyboardOpen()) {
       releaseRichKeyboardToolbarFixed(toolbar);
+      updateRichToolbarStickyState(toolbar);
       return;
     }
     const viewport = window.visualViewport;
@@ -465,6 +488,7 @@ export function createTodosFeature({
     wrap.style.setProperty('--todo-rich-toolbar-height', `${toolbar.getBoundingClientRect().height}px`);
     wrap.classList.add('is-keyboard-toolbar-fixed');
     toolbar.classList.add('is-keyboard-fixed');
+    updateRichToolbarStickyState(toolbar);
   }
 
   function bindRichKeyboardViewportHandlers() {
@@ -565,14 +589,22 @@ export function createTodosFeature({
     if (!editor || !toolbar || editor.dataset.richEditorBound === '1') return;
     editor.dataset.richEditorBound = '1';
     toolbar.parentElement?.classList.add('todo-rich-keyboard-wrap');
+    const updateStickyState = () => window.requestAnimationFrame?.(() => updateRichToolbarStickyState(toolbar)) || updateRichToolbarStickyState(toolbar);
+    getRichToolbarScrollPort(toolbar)?.addEventListener('scroll', updateStickyState, { passive: true });
+    window.addEventListener('resize', updateStickyState, { passive: true });
     editor.addEventListener('input', () => {
       syncFromEditor();
       updateRichKeyboardToolbar();
+      updateStickyState();
     });
-    editor.addEventListener('focus', () => activateRichKeyboardToolbar(toolbar));
+    editor.addEventListener('focus', () => {
+      activateRichKeyboardToolbar(toolbar);
+      updateStickyState();
+    });
     editor.addEventListener('keyup', () => window.setTimeout(() => {
       updateRichToolbarState(editor, toolbar);
       updateRichKeyboardToolbar();
+      updateStickyState();
     }, 0));
     editor.addEventListener('mouseup', () => updateRichToolbarState(editor, toolbar));
     editor.addEventListener('blur', () => {
