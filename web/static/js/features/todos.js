@@ -321,22 +321,66 @@ export function createTodosFeature({
     renderTodoMetaSummary(todo);
   }
 
-  function htmlNodeToMarkdown(node) {
+  function htmlNodeToMarkdown(node, listDepth = 0) {
     if (node.nodeType === Node.TEXT_NODE) return node.textContent || '';
     if (node.nodeType !== Node.ELEMENT_NODE) return '';
     const tag = node.tagName.toLowerCase();
-    const children = () => Array.from(node.childNodes).map(htmlNodeToMarkdown).join('');
+    const children = (depth = listDepth) => Array.from(node.childNodes).map(child => htmlNodeToMarkdown(child, depth)).join('');
     if (tag === 'br') return '\n';
     if (tag === 'strong' || tag === 'b') return `**${children()}**`;
     if (tag === 'em' || tag === 'i') return `*${children()}*`;
+    if (tag === 'u') return `<u>${children()}</u>`;
     if (tag === 'code') return `\`${children()}\``;
+    if (tag === 'blockquote') return children().split('\n').map(line => line.trim() ? `> ${line.trim()}` : '').join('\n') + '\n\n';
     if (tag === 'h1') return `# ${children().trim()}\n\n`;
     if (tag === 'h2') return `## ${children().trim()}\n\n`;
     if (tag === 'h3') return `### ${children().trim()}\n\n`;
-    if (tag === 'li') return `- ${children().trim()}\n`;
-    if (tag === 'ul' || tag === 'ol') return `${children()}\n`;
+    if (tag === 'li') {
+      const marginDepth = Math.max(0, Math.round((parseFloat(node.style?.marginLeft || '') || 0) / 40));
+      const effectiveListDepth = listDepth + marginDepth;
+      const direct = Array.from(node.childNodes)
+        .filter(child => !(child.nodeType === Node.ELEMENT_NODE && ['ul', 'ol'].includes(child.tagName.toLowerCase())))
+        .map(child => htmlNodeToMarkdown(child, effectiveListDepth))
+        .join('')
+        .trim();
+      const nested = Array.from(node.childNodes)
+        .filter(child => child.nodeType === Node.ELEMENT_NODE && ['ul', 'ol'].includes(child.tagName.toLowerCase()))
+        .map(child => htmlNodeToMarkdown(child, effectiveListDepth + 1))
+        .join('');
+      return `${'  '.repeat(effectiveListDepth)}- ${direct}\n${nested}`;
+    }
+    if (tag === 'ul' || tag === 'ol') {
+      return `${Array.from(node.childNodes).map(child => {
+        if (child.nodeType === Node.ELEMENT_NODE && ['ul', 'ol'].includes(child.tagName.toLowerCase())) {
+          return htmlNodeToMarkdown(child, listDepth + 1);
+        }
+        return htmlNodeToMarkdown(child, listDepth);
+      }).join('')}\n`;
+    }
     if (tag === 'p' || tag === 'div') return `${children().trim()}\n\n`;
     return children();
+  }
+
+  function insertInlineCode(editor) {
+    const selection = window.getSelection?.();
+    if (!selection?.rangeCount) return;
+    const range = selection.getRangeAt(0);
+    if (!editor.contains(range.commonAncestorContainer)) return;
+    const text = selection.toString() || 'code';
+    document.execCommand('insertHTML', false, `<code>${escapeHtml(text)}</code>`);
+  }
+
+  function richEditorToolbarHtml() {
+    return `
+      <button type="button" data-rich-command="bold"><strong>B</strong></button>
+      <button type="button" data-rich-command="italic"><em>I</em></button>
+      <button type="button" data-rich-command="underline"><u>U</u></button>
+      <button type="button" data-rich-block="h1">H1</button>
+      <button type="button" data-rich-block="h2">H2</button>
+      <button type="button" data-rich-block="blockquote">${escapeHtmlAttr(t('todo.description.quote'))}</button>
+      <button type="button" data-rich-format="code">${escapeHtmlAttr(t('todo.description.code'))}</button>
+      <button type="button" data-rich-command="insertUnorderedList">${escapeHtmlAttr(t('todo.description.bulletList'))}</button>
+    `;
   }
 
   function richDescriptionToMarkdown(editor) {
@@ -347,38 +391,290 @@ export function createTodosFeature({
       .trim();
   }
 
-  function ensureDescriptionRichEditor(textarea, preview) {
-    let wrap = document.getElementById('todo-desc-rich-wrap');
-    if (wrap) return wrap;
-    wrap = document.createElement('div');
-    wrap.id = 'todo-desc-rich-wrap';
-    wrap.className = 'todo-desc-rich-wrap';
-    wrap.innerHTML = `
-      <div class="todo-desc-rich-toolbar" aria-label="${escapeHtmlAttr(t('todo.description.formatToolbar'))}">
-        <button type="button" data-rich-command="bold"><strong>B</strong></button>
-        <button type="button" data-rich-command="italic"><em>I</em></button>
-        <button type="button" data-rich-block="h1">H1</button>
-        <button type="button" data-rich-block="h2">H2</button>
-        <button type="button" data-rich-command="insertUnorderedList">${escapeHtmlAttr(t('todo.description.bulletList'))}</button>
-      </div>
-      <div id="todo-desc-rich-editor" class="todo-desc-rich-editor" contenteditable="true" role="textbox" aria-multiline="true"></div>
-    `;
-    preview.after(wrap);
-    const editor = wrap.querySelector('#todo-desc-rich-editor');
-    const syncFromEditor = () => {
-      textarea.value = richDescriptionToMarkdown(editor);
-      preview.innerHTML = renderMarkdown(textarea.value);
-      refreshTodoSaveButtonState();
+  function setToolbarButtonActive(button, active) {
+    button.classList.toggle('is-active', active);
+    button.setAttribute('aria-pressed', active ? 'true' : 'false');
+  }
+
+  function getSelectionElementWithin(root) {
+    const selection = window.getSelection?.();
+    if (!selection?.rangeCount) return null;
+    const node = selection.anchorNode;
+    const element = node?.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+    if (!element || !root.contains(element)) return null;
+    return element;
+  }
+
+  function closestInside(element, selector, root) {
+    const match = element?.closest?.(selector);
+    return match && root.contains(match) ? match : null;
+  }
+
+  function clearToolbarState(toolbar) {
+    toolbar?.querySelectorAll?.('button[aria-pressed]')?.forEach(button => setToolbarButtonActive(button, false));
+  }
+
+  let activeRichKeyboardToolbar = null;
+  let richKeyboardViewportBound = false;
+  const richKeyboardToolbarPortals = new WeakMap();
+
+  function isLikelyTouchKeyboardOpen() {
+    const viewport = window.visualViewport;
+    if (!viewport) return false;
+    const coarsePointer = window.matchMedia?.('(pointer: coarse)')?.matches;
+    if (!coarsePointer) return false;
+    const layoutHeight = Math.max(window.innerHeight || 0, document.documentElement?.clientHeight || 0);
+    const screenHeight = window.screen?.height || layoutHeight;
+    const hiddenLayoutSpace = layoutHeight - viewport.height - viewport.offsetTop;
+    const hiddenScreenSpace = screenHeight - viewport.height;
+    return hiddenLayoutSpace > 80 || hiddenScreenSpace > Math.max(180, screenHeight * 0.22);
+  }
+
+  function getRichKeyboardToolbarWrap(toolbar) {
+    return richKeyboardToolbarPortals.get(toolbar)?.wrap || toolbar?.closest?.('.todo-rich-keyboard-wrap') || toolbar?.parentElement || null;
+  }
+
+  function portalRichKeyboardToolbar(toolbar, wrap) {
+    if (!toolbar || !wrap || richKeyboardToolbarPortals.has(toolbar)) return;
+    richKeyboardToolbarPortals.set(toolbar, {
+      parent: toolbar.parentNode,
+      nextSibling: toolbar.nextSibling,
+      wrap,
+    });
+    document.body.appendChild(toolbar);
+  }
+
+  function restoreRichKeyboardToolbar(toolbar) {
+    const portal = richKeyboardToolbarPortals.get(toolbar);
+    if (!portal) return;
+    const anchor = portal.nextSibling?.parentNode === portal.parent ? portal.nextSibling : null;
+    if (portal.parent?.isConnected) portal.parent.insertBefore(toolbar, anchor);
+    richKeyboardToolbarPortals.delete(toolbar);
+  }
+
+  function releaseRichKeyboardToolbarFixed(toolbar = activeRichKeyboardToolbar) {
+    if (!toolbar) return;
+    const wrap = getRichKeyboardToolbarWrap(toolbar);
+    toolbar.classList.remove('is-keyboard-fixed');
+    toolbar.style.removeProperty('--todo-rich-toolbar-left');
+    toolbar.style.removeProperty('--todo-rich-toolbar-width');
+    toolbar.style.removeProperty('--todo-rich-toolbar-top');
+    wrap?.classList.remove('is-keyboard-toolbar-fixed');
+    wrap?.style.removeProperty('--todo-rich-toolbar-height');
+    restoreRichKeyboardToolbar(toolbar);
+  }
+
+  function clearRichKeyboardToolbar() {
+    activeRichKeyboardToolbar?.classList.remove('is-stuck');
+    releaseRichKeyboardToolbarFixed();
+    activeRichKeyboardToolbar = null;
+  }
+
+  function getRichToolbarScrollPort(toolbar) {
+    return toolbar?.closest?.('.ui-detail-modal-body') || toolbar?.closest?.('.modal-content') || null;
+  }
+
+  function updateRichToolbarStickyState(toolbar) {
+    if (!toolbar) return;
+    if (toolbar.classList.contains('is-keyboard-fixed')) {
+      toolbar.classList.add('is-stuck');
+      return;
+    }
+    const scrollPort = getRichToolbarScrollPort(toolbar);
+    if (!scrollPort) {
+      toolbar.classList.remove('is-stuck');
+      return;
+    }
+    const toolbarTop = toolbar.getBoundingClientRect().top;
+    const scrollPortTop = scrollPort.getBoundingClientRect().top;
+    const isAtStickyEdge = toolbarTop <= scrollPortTop + 8;
+    toolbar.classList.toggle('is-stuck', scrollPort.scrollTop > 0 && isAtStickyEdge);
+  }
+
+  function updateRichKeyboardToolbar() {
+    const toolbar = activeRichKeyboardToolbar;
+    if (!toolbar) return;
+    if (!document.activeElement?.closest?.('.todo-desc-rich-editor, .todo-comment-rich-editor')) {
+      clearRichKeyboardToolbar();
+      return;
+    }
+    if (!isLikelyTouchKeyboardOpen()) {
+      releaseRichKeyboardToolbarFixed(toolbar);
+      updateRichToolbarStickyState(toolbar);
+      return;
+    }
+    const viewport = window.visualViewport;
+    const wrap = getRichKeyboardToolbarWrap(toolbar);
+    if (!wrap) return;
+    wrap.classList.add('is-keyboard-toolbar-fixed');
+    portalRichKeyboardToolbar(toolbar, wrap);
+    toolbar.style.setProperty('--todo-rich-toolbar-left', `${Math.max(0, viewport?.offsetLeft || 0)}px`);
+    toolbar.style.setProperty('--todo-rich-toolbar-width', `${Math.max(window.innerWidth || 0, viewport?.width || 0)}px`);
+    toolbar.style.setProperty('--todo-rich-toolbar-top', `${Math.max(0, viewport?.offsetTop || 0)}px`);
+    toolbar.classList.add('is-keyboard-fixed');
+    wrap.style.setProperty('--todo-rich-toolbar-height', `${toolbar.getBoundingClientRect().height}px`);
+    updateRichToolbarStickyState(toolbar);
+  }
+
+  function bindRichKeyboardViewportHandlers() {
+    if (richKeyboardViewportBound) return;
+    richKeyboardViewportBound = true;
+    const update = () => window.requestAnimationFrame?.(updateRichKeyboardToolbar) || updateRichKeyboardToolbar();
+    window.visualViewport?.addEventListener('resize', update, { passive: true });
+    window.visualViewport?.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', update, { passive: true });
+    window.addEventListener('orientationchange', update, { passive: true });
+  }
+
+  function activateRichKeyboardToolbar(toolbar) {
+    if (!toolbar) return;
+    bindRichKeyboardViewportHandlers();
+    if (activeRichKeyboardToolbar && activeRichKeyboardToolbar !== toolbar) clearRichKeyboardToolbar();
+    activeRichKeyboardToolbar = toolbar;
+    window.setTimeout(updateRichKeyboardToolbar, 0);
+  }
+
+  function placeCaret(element, atEnd = false) {
+    const selection = window.getSelection?.();
+    if (!selection) return;
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    range.collapse(!atEnd);
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }
+
+  function placeCaretAtStart(element) {
+    placeCaret(element, false);
+  }
+
+  function placeCaretAtEnd(element) {
+    placeCaret(element, true);
+  }
+
+  function indentRichListItem(editor, outdent, syncFromEditor) {
+    const element = getSelectionElementWithin(editor);
+    const listItem = closestInside(element, 'li', editor);
+    if (!listItem) return false;
+    document.execCommand(outdent ? 'outdent' : 'indent', false, null);
+    window.setTimeout(syncFromEditor, 0);
+    return true;
+  }
+
+  function resetRichTypingStyleAfterLineBreak(editor, toolbar, syncFromEditor) {
+    window.setTimeout(() => {
+      const element = getSelectionElementWithin(editor);
+      if (!element) return;
+      const block = closestInside(element, 'h1,h2,blockquote,p,div', editor);
+      const inline = closestInside(element, 'strong,b,em,i,u,code', editor);
+      const isEmptyLine = !String(block?.textContent || inline?.textContent || '').trim();
+      for (const command of ['bold', 'italic', 'underline']) {
+        if (document.queryCommandState?.(command)) document.execCommand(command, false, null);
+      }
+      if (isEmptyLine && block && block !== editor) {
+        const blockTag = block.tagName?.toLowerCase();
+        const resetBlock = ['h1', 'h2', 'blockquote'].includes(blockTag) ? document.createElement('div') : block;
+        resetBlock.innerHTML = '<br>';
+        if (resetBlock !== block) block.replaceWith(resetBlock);
+        placeCaretAtStart(resetBlock);
+      } else if (isEmptyLine && inline) {
+        inline.replaceWith(document.createElement('br'));
+      }
+      syncFromEditor();
+      updateRichToolbarState(editor, toolbar);
+    }, 0);
+  }
+
+  function cleanupRichEditors(root = document) {
+    root.querySelectorAll?.('[data-rich-editor-bound="1"]').forEach(editor => {
+      editor._richEditorCleanup?.();
+    });
+  }
+
+  function updateRichToolbarState(editor, toolbar) {
+    if (!editor || !toolbar) return;
+    const element = getSelectionElementWithin(editor);
+    if (!element) {
+      clearToolbarState(toolbar);
+      return;
+    }
+    const selection = window.getSelection?.();
+    const inlineElement = closestInside(element, 'strong,b,em,i,u,code', editor);
+    const blockElement = closestInside(element, 'h1,h2,blockquote,li,ul,ol', editor);
+    const hasInlineContent = Boolean(selection?.toString?.().trim() || inlineElement?.textContent?.trim());
+    const inlineTag = hasInlineContent ? (inlineElement?.tagName?.toLowerCase() || '') : '';
+    const blockTag = blockElement?.tagName?.toLowerCase() || '';
+    toolbar.querySelectorAll('button[data-rich-command], button[data-rich-block], button[data-rich-format]').forEach(button => {
+      let active = false;
+      if (button.dataset.richCommand === 'bold') active = ['strong', 'b'].includes(inlineTag);
+      else if (button.dataset.richCommand === 'italic') active = ['em', 'i'].includes(inlineTag);
+      else if (button.dataset.richCommand === 'underline') active = inlineTag === 'u';
+      else if (button.dataset.richCommand === 'insertUnorderedList') active = ['li', 'ul'].includes(blockTag) || Boolean(blockElement?.closest?.('ul'));
+      else if (button.dataset.richBlock) active = blockTag === button.dataset.richBlock;
+      else if (button.dataset.richFormat === 'code') active = inlineTag === 'code';
+      setToolbarButtonActive(button, Boolean(active));
+    });
+  }
+
+  function bindRichEditor(editor, toolbar, syncFromEditor) {
+    if (!editor || !toolbar || editor.dataset.richEditorBound === '1') return;
+    editor.dataset.richEditorBound = '1';
+    const controller = new AbortController();
+    const { signal } = controller;
+    const listenerOptions = { signal };
+    const passiveListenerOptions = { passive: true, signal };
+    editor._richEditorCleanup = () => {
+      if (signal.aborted) return;
+      if (activeRichKeyboardToolbar === toolbar) clearRichKeyboardToolbar();
+      else releaseRichKeyboardToolbarFixed(toolbar);
+      toolbar.classList.remove('is-stuck');
+      controller.abort();
     };
-    editor.addEventListener('input', syncFromEditor);
+    toolbar.parentElement?.classList.add('todo-rich-keyboard-wrap');
+    const updateStickyState = () => window.requestAnimationFrame?.(() => updateRichToolbarStickyState(toolbar)) || updateRichToolbarStickyState(toolbar);
+    getRichToolbarScrollPort(toolbar)?.addEventListener('scroll', updateStickyState, passiveListenerOptions);
+    window.addEventListener('resize', updateStickyState, passiveListenerOptions);
+    editor.addEventListener('input', () => {
+      syncFromEditor();
+      updateRichKeyboardToolbar();
+      updateStickyState();
+    }, listenerOptions);
+    editor.addEventListener('focus', () => {
+      activateRichKeyboardToolbar(toolbar);
+      updateStickyState();
+    }, listenerOptions);
+    editor.addEventListener('keyup', () => window.setTimeout(() => {
+      if (signal.aborted) return;
+      updateRichToolbarState(editor, toolbar);
+      updateRichKeyboardToolbar();
+      updateStickyState();
+    }, 0), listenerOptions);
+    editor.addEventListener('mouseup', () => updateRichToolbarState(editor, toolbar), listenerOptions);
+    editor.addEventListener('blur', () => {
+      clearToolbarState(toolbar);
+      window.setTimeout(() => {
+        if (signal.aborted) return;
+        if (!document.activeElement?.closest?.('.todo-desc-rich-editor, .todo-comment-rich-editor')) clearRichKeyboardToolbar();
+      }, 0);
+    }, listenerOptions);
+    document.addEventListener('selectionchange', () => updateRichToolbarState(editor, toolbar), listenerOptions);
     editor.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') {
         event.preventDefault();
         getTodoModal()?.classList.remove(TODO_MODAL_CLASSES.editingDescription);
         return;
       }
+      if (event.key === 'Enter') {
+        resetRichTypingStyleAfterLineBreak(editor, toolbar, syncFromEditor);
+        return;
+      }
+      if (event.key === 'Tab' && indentRichListItem(editor, event.shiftKey, syncFromEditor)) {
+        event.preventDefault();
+        return;
+      }
       if (event.key === ' ') {
         window.setTimeout(() => {
+          if (signal.aborted) return;
           const selection = window.getSelection?.();
           const node = selection?.anchorNode;
           const block = node?.nodeType === Node.TEXT_NODE ? node.parentElement : node;
@@ -389,17 +685,57 @@ export function createTodosFeature({
           syncFromEditor();
         }, 0);
       }
-    });
-    wrap.querySelectorAll('button[data-rich-command], button[data-rich-block]').forEach(button => {
-      button.addEventListener('mousedown', event => event.preventDefault());
+    }, listenerOptions);
+    toolbar.querySelectorAll('button[data-rich-command], button[data-rich-block], button[data-rich-format]').forEach(button => {
+      button.addEventListener('mousedown', event => event.preventDefault(), listenerOptions);
       button.addEventListener('click', () => {
         editor.focus();
         if (button.dataset.richBlock) document.execCommand('formatBlock', false, button.dataset.richBlock);
+        else if (button.dataset.richFormat === 'code') insertInlineCode(editor);
         else document.execCommand(button.dataset.richCommand, false, null);
         syncFromEditor();
-      });
+        updateRichToolbarState(editor, toolbar);
+      }, listenerOptions);
     });
+  }
+
+  function ensureDescriptionRichEditor(textarea, preview) {
+    let wrap = document.getElementById('todo-desc-rich-wrap');
+    if (wrap) return wrap;
+    wrap = document.createElement('div');
+    wrap.id = 'todo-desc-rich-wrap';
+    wrap.className = 'todo-desc-rich-wrap';
+    wrap.innerHTML = `
+      <div class="todo-desc-rich-toolbar" aria-label="${escapeHtmlAttr(t('todo.description.formatToolbar'))}">
+        ${richEditorToolbarHtml()}
+      </div>
+      <div id="todo-desc-rich-editor" class="todo-desc-rich-editor" contenteditable="true" role="textbox" aria-multiline="true"></div>
+    `;
+    preview.after(wrap);
+    const editor = wrap.querySelector('#todo-desc-rich-editor');
+    const toolbar = wrap.querySelector('.todo-desc-rich-toolbar');
+    const syncFromEditor = () => {
+      textarea.value = richDescriptionToMarkdown(editor);
+      preview.innerHTML = renderMarkdown(textarea.value);
+      refreshTodoSaveButtonState();
+      updateRichToolbarState(editor, toolbar);
+    };
+    bindRichEditor(editor, toolbar, syncFromEditor);
     return wrap;
+  }
+
+  function getTodoCommentEditor() {
+    return document.getElementById('todo-comment-new-editor');
+  }
+
+  function getTodoCommentEditorBody(editor = getTodoCommentEditor()) {
+    return editor ? richDescriptionToMarkdown(editor).trim() : '';
+  }
+
+  function clearTodoCommentEditor(editor = getTodoCommentEditor()) {
+    if (!editor) return;
+    editor.innerHTML = '';
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
   }
 
   function bindTodoDescriptionInlineEditor() {
@@ -465,7 +801,7 @@ export function createTodosFeature({
   function refreshTodoActionButtonState() {
     const hasTodo = hasPersistedTodoId();
     const subtaskTitle = document.getElementById('todo-subtask-new-title')?.value?.trim() || '';
-    const commentBody = document.getElementById('todo-comment-new-body')?.value?.trim() || '';
+    const commentBody = getTodoCommentEditorBody();
     const attachmentFiles = getSelectedAttachmentFiles();
     const subtaskButton = document.getElementById('todo-subtask-add-btn');
     const commentButton = document.getElementById('todo-comment-add-btn');
@@ -715,7 +1051,7 @@ export function createTodosFeature({
 
   function collectTodoDraftCommentsFromEditor() {
     return Array.from(document.querySelectorAll('#todo-comments-list .todo-comment-item[data-draft-comment="1"] .todo-comment-body'))
-      .map(item => item.textContent?.trim() || '')
+      .map(item => item.dataset.rawBody?.trim() || item.textContent?.trim() || '')
       .filter(Boolean);
   }
 
@@ -747,11 +1083,12 @@ export function createTodosFeature({
     const todoId = todo?.id || null;
     const list = document.getElementById('todo-comments-list');
     const empty = document.getElementById('todo-comments-empty');
-    const input = document.getElementById('todo-comment-new-body');
+    const input = getTodoCommentEditor();
     const addButton = document.getElementById('todo-comment-add-btn');
     if (!list) return;
     const normalized = Array.isArray(comments) ? comments : [];
     const count = document.getElementById('todo-comments-count');
+    cleanupRichEditors(list);
     list.innerHTML = '';
     if (count) count.textContent = String(normalized.length);
     setTodoCollapsibleOpen('todo-comments-panel', normalized.length > 0);
@@ -760,8 +1097,11 @@ export function createTodosFeature({
       empty.hidden = normalized.length > 0;
     }
     if (input) {
-      input.value = '';
-      input.disabled = false;
+      input.innerHTML = '';
+      input.contentEditable = 'true';
+      input.closest('.todo-comment-rich-wrap')?.querySelectorAll('button').forEach(button => {
+        button.disabled = false;
+      });
     }
     if (addButton) addButton.disabled = true;
     refreshTodoActionButtonState();
@@ -784,7 +1124,8 @@ export function createTodosFeature({
 
       const body = document.createElement('div');
       body.className = 'todo-comment-body';
-      body.textContent = comment.body || '';
+      body.dataset.rawBody = comment.body || '';
+      body.innerHTML = renderMarkdown(comment.body || '');
 
       const actions = document.createElement('div');
       actions.className = 'todo-comment-actions';
@@ -825,12 +1166,22 @@ export function createTodosFeature({
     if (!todoId || !comment?.id || item.dataset.editing === '1') return;
     item.dataset.editing = '1';
     const original = comment.body || '';
-    const editor = document.createElement('textarea');
-    editor.className = 'ui-field todo-comment-edit-input';
-    editor.rows = Math.max(3, Math.min(8, original.split('\n').length + 1));
-    editor.maxLength = 5000;
-    editor.value = original;
-    bodyEl.replaceWith(editor);
+    const editorWrap = document.createElement('div');
+    editorWrap.className = 'todo-comment-edit-wrap todo-comment-rich-wrap';
+    const toolbar = document.createElement('div');
+    toolbar.className = 'todo-desc-rich-toolbar todo-comment-rich-toolbar';
+    toolbar.setAttribute('aria-label', t('todo.comments.formatToolbar'));
+    toolbar.innerHTML = richEditorToolbarHtml();
+    const editor = document.createElement('div');
+    editor.className = 'todo-comment-rich-editor todo-comment-edit-input';
+    editor.contentEditable = 'true';
+    editor.setAttribute('role', 'textbox');
+    editor.setAttribute('aria-multiline', 'true');
+    editor.innerHTML = renderMarkdown(original);
+    const syncEditEditor = () => updateRichToolbarState(editor, toolbar);
+    editorWrap.append(toolbar, editor);
+    bodyEl.replaceWith(editorWrap);
+    bindRichEditor(editor, toolbar, syncEditEditor);
     actionsEl.innerHTML = '';
 
     const save = document.createElement('button');
@@ -839,7 +1190,7 @@ export function createTodosFeature({
     save.innerHTML = iconSvg('check');
     save.setAttribute('aria-label', t('common.save'));
     save.setAttribute('title', t('common.save'));
-    save.addEventListener('click', () => updateTodoComment(todoId, comment.id, editor.value));
+    save.addEventListener('click', () => updateTodoComment(todoId, comment.id, richDescriptionToMarkdown(editor)));
 
     const cancel = document.createElement('button');
     cancel.type = 'button';
@@ -854,7 +1205,7 @@ export function createTodosFeature({
 
     actionsEl.append(save, cancel);
     editor.focus();
-    editor.setSelectionRange(editor.value.length, editor.value.length);
+    placeCaretAtEnd(editor);
   }
 
   async function applyCommentTodoResponse(response) {
@@ -870,8 +1221,8 @@ export function createTodosFeature({
   async function addTodoCommentFromInput() {
     if (!getAppInitialized() || !getDb()) return;
     const id = document.getElementById('todo-id')?.value;
-    const input = document.getElementById('todo-comment-new-body');
-    const body = input?.value?.trim() || '';
+    const input = getTodoCommentEditor();
+    const body = getTodoCommentEditorBody(input);
     if (!body) {
       input?.focus();
       return;
@@ -886,7 +1237,7 @@ export function createTodosFeature({
         author_display_name: t('todo.comments.draftAuthor'),
       })), null);
       if (input) {
-        input.value = '';
+        clearTodoCommentEditor(input);
         input.focus();
       }
       refreshTodoSaveButtonState();
@@ -899,7 +1250,9 @@ export function createTodosFeature({
     try {
       const response = await todosApi.createComment(id, { body });
       await applyCommentTodoResponse(response);
-      if (input) input.value = '';
+      if (input) {
+        clearTodoCommentEditor(input);
+      }
     } catch (error) {
       console.error('Failed to add todo comment', error);
       showToast(t('todo.comments.saveFailed'));
@@ -954,6 +1307,16 @@ export function createTodosFeature({
     form.addEventListener('input', refreshTodoSaveButtonState);
     form.addEventListener('change', refreshTodoSaveButtonState);
     bindTodoAttachmentInputs();
+    const commentInput = getTodoCommentEditor();
+    const commentToolbar = commentInput?.closest('.todo-comment-rich-wrap')?.querySelector('.todo-comment-rich-toolbar');
+    if (commentToolbar && !commentToolbar.innerHTML.trim()) commentToolbar.innerHTML = richEditorToolbarHtml();
+    if (commentInput && commentToolbar) {
+      commentInput.setAttribute('data-placeholder', t('todo.comments.placeholder'));
+      bindRichEditor(commentInput, commentToolbar, () => {
+        refreshTodoSaveButtonState();
+        updateRichToolbarState(commentInput, commentToolbar);
+      });
+    }
     document.getElementById('todo-subtask-new-title')?.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
         event.preventDefault();
